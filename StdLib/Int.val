@@ -1,0 +1,31 @@
+view ExpressibleByBuiltinIntLiteral {
+
+  new (literal: Builtin::i64)
+
+}
+
+type Int: ExpressibleByBuiltinIntLiteral {
+
+  new () {
+    self.value = 0
+  }
+
+  new (literal value: Builtin::i64) {
+    self.value = value
+  }
+
+  var value: Builtin::i64
+
+  /// Mutate this value.
+  mut fun = (_ other: Int) {
+    self.value = other.value
+  }
+
+  /// Returns the sum of this value and `other`.
+  fun + (_ other: Int) -> Int {
+    var result = Int()
+    result.value = Builtin::i64_add(self.value, other.value)
+    ret result
+  }
+
+}
