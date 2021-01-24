@@ -195,25 +195,29 @@ public class AbstractFunDecl: ValueDecl, DeclScope {
 
   public var isOverloadable: Bool { true }
 
-  /// The type of the function.
+  /// The (applied) type of the function.
   ///
-  /// - Note: All member functions (except constructors) take their receiver (i.e., `self`) as am
-  ///   implicit parameter. Hence, they have a type `Self, ParamTy -> RetTy`, where `Self` is the
-  ///   receiver's type. You can use `appliedType` to get the method's type without the implict
-  ///   receiver parameter.
+  /// - Note: Member functions (except constructors) accept the receiver (i.e., `self`) as an
+  ///   implicit first parameter. This means that a call to a method `T -> U` is actually an
+  ///   application of an *unapplied* function `(Self, T) -> U`, where `Self` is the receiver's
+  ///   type. This property denotes the *applied* type, which should be understood as the return
+  ///   type the unapplied function's partial application.
   public var type: ValType
 
-  /// The "applied" type of the function.
+  /// The "unapplied" type of the function.
   ///
-  /// For member functions (except constructors), this is the type of the function without the
-  /// implicit receiver parameter. Otherwise, this is equal to `type`.
-  public var appliedType: ValType {
+  /// For member functions (except constructors), this is the type of the function extended with
+  /// an implicit receiver parameter. For other functions, this is equal to `type`.
+  public var unappliedType: ValType {
     guard isMemberFun && !(self is CtorDecl) else { return type }
 
     let funType = type as! FunType
-    let paramType = funType.paramType as! TupleType
+    var paramTypeElems = (funType.paramType as? TupleType)?.elems
+      ?? [TupleType.Elem(type: funType.paramType)]
+    paramTypeElems.insert(TupleType.Elem(label: "self", type: selfDecl!.type), at: 0)
+
     return type.context.funType(
-      paramType: type.context.tupleType(paramType.elems[1...]),
+      paramType: type.context.tupleType(paramTypeElems),
       retType: funType.retType)
   }
 

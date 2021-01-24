@@ -147,9 +147,6 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
         // Constructors have a type `ParamType -> Self`.
         precondition(decl.retTypeSign == nil)
         retType = selfType
-      } else {
-        // Non-construtor member functions have type `Self, ParamType -> RetType`.
-        paramTypeElems.insert(TupleType.Elem(label: "self", type: selfType), at: 0)
       }
     }
 

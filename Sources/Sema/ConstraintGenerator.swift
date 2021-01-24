@@ -118,8 +118,7 @@ fileprivate struct ConstraintVisitor: NodeVisitor {
     // The extracted signature always correspond to applied function type, since the self parameter
     // is defined implicitly.
     gen.system.insert(
-      EqualityCons(node.appliedType, isEqualTo: funSignType,
-                   at: ConstraintLocator(node, .annotation)))
+      EqualityCons(node.type, isEqualTo: funSignType, at: ConstraintLocator(node, .annotation)))
   }
 
   func visit(_ node: FunDecl) {
@@ -190,27 +189,11 @@ fileprivate struct ConstraintVisitor: NodeVisitor {
       paramTypeElems.append(TupleType.Elem(label: arg.label, type: paramType))
     }
 
-    // If the callee has the form `foo.bar`, then it could either refer to an applied function
-    // (i.e., `foo` is the receiver of a method `bar`) or to a property with a function type.
-    var choices: [Constraint] = []
-    if let memberExpr = node.fun as? MemberExpr {
-      let selfParam = TupleType.Elem(label: "self", type: memberExpr.base.type)
-      let appliedFunType = gen.context.funType(
-        paramType: gen.context.tupleType([selfParam] + paramTypeElems),
-        retType: node.type)
-      choices.append(
-        EqualityCons(node.fun.type, isEqualTo: appliedFunType,
-                     at: ConstraintLocator(node, .application)))
-    }
-
     let funType = gen.context.funType(
       paramType: gen.context.tupleType(paramTypeElems),
       retType: node.type)
-    choices.append(
-      EqualityCons(node.fun.type, isEqualTo: funType,
-                   at: ConstraintLocator(node.fun)))
-
-    gen.system.insert(disjunction: choices)
+    gen.system.insert(
+      EqualityCons(node.fun.type, isEqualTo: funType, at: ConstraintLocator(node.fun)))
   }
 
   func visit(_ node: UnresolvedDeclRefExpr) {
