@@ -55,9 +55,11 @@ final class ConstraintGenerator: NodeWalker {
 
   // MARK: Type representations
 
-  public override func willVisit(_ repr: TypeRepr) -> (shouldWalk: Bool, nodeBefore: TypeRepr) {
+  public override func willVisit(
+    _ typeRepr: TypeRepr
+  ) -> (shouldWalk: Bool, nodeBefore: TypeRepr) {
     // Skip type representations.
-    return (false, repr)
+    return (false, typeRepr)
   }
 
 }
@@ -107,7 +109,7 @@ fileprivate struct ConstraintVisitor: NodeVisitor {
     let retType: ValType
     if (node is CtorDecl) {
       // Constructors return instances of `Self`.
-      retType = node.selfDecl!.type
+      retType = (node.selfDecl!.type as! InoutType).base
     } else {
       // Assume the return type is `Unit` by default.
       retType = node.retTypeSign?.type ?? gen.context.unitType
@@ -137,13 +139,16 @@ fileprivate struct ConstraintVisitor: NodeVisitor {
     }
   }
 
-  func visit(_ node: AbstractTypeDecl) {
+  func visit(_ node: AbstractNominalTypeDecl) {
   }
 
   func visit(_ node: ProductTypeDecl) {
   }
 
   func visit(_ node: ViewTypeDecl) {
+  }
+
+  func visit(_ node: TypeExtDecl) -> Void {
   }
 
   func visit(_ node: BraceStmt) {

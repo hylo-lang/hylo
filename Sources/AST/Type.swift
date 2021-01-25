@@ -250,13 +250,13 @@ extension ModuleType: CustomStringConvertible {
 /// A nominal type.
 public class NominalType: ValType {
 
-  init(context: Context, decl: AbstractTypeDecl) {
+  init(context: Context, decl: AbstractNominalTypeDecl) {
     self.decl = decl
     super.init(context: context, props: .isCanonical)
   }
 
   /// The declaration of this nominal type.
-  public unowned let decl: AbstractTypeDecl
+  public unowned let decl: AbstractNominalTypeDecl
 
   override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? NominalType else { return false }
@@ -495,6 +495,13 @@ public final class InoutType: ValType {
   }
 
 }
+
+extension InoutType: CustomStringConvertible {
+
+  public var description: String { "mut \(base)" }
+
+}
+
 
 /// An unresolved type.
 ///

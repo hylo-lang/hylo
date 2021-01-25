@@ -18,6 +18,8 @@ public final class NameBinder: NodeWalker, AST.Pass {
   /// The inner-most declaration scope in which the next expression will be visited.
   private var currentScope: DeclScope?
 
+  private var visited: Set<ObjectIdentifier> = []
+
   public func run(on module: Module) {
     currentScope = module
     _ = visit(module)
@@ -29,6 +31,27 @@ public final class NameBinder: NodeWalker, AST.Pass {
       ds.parentDeclScope = currentScope
       currentScope = ds
     }
+
+    // Running name binding on the contents of an extension requires that the extended type be
+    // bound, so that the type of `self` can be resolved. Hence, must resolve the type identifier
+    // *before* visiting the extension's body.
+    if let typeExtDecl = decl as? TypeExtDecl {
+      let (_, ident) = willVisit(typeExtDecl.extendedIdent)
+
+      switch ident.type {
+      case let nominalType as NominalType:
+        typeExtDecl.state = .bound(nominalType.decl)
+      case context.unresolvedType:
+        typeExtDecl.state = .unbindable
+      case let extendedType:
+        context.report(.cannotExtendNonNominalType(extendedType, range: ident.range))
+        typeExtDecl.state = .unbindable
+      }
+
+      visited.insert(ObjectIdentifier(ident))
+      typeExtDecl.extendedIdent = ident as! IdentTypeRepr
+    }
+
     return (true, decl)
   }
 
@@ -91,7 +114,7 @@ public final class NameBinder: NodeWalker, AST.Pass {
 
     case let callExpr as CallExpr where callExpr.fun is TypeDeclRefExpr:
       let funExpr = callExpr.fun as! TypeDeclRefExpr
-      guard let typeDecl = funExpr.decl as? AbstractTypeDecl else {
+      guard let typeDecl = funExpr.decl as? AbstractNominalTypeDecl else {
         context.report(.cannotCallNonFunctionType(type: funExpr.decl.type, range: funExpr.range))
         return (true, expr)
       }
@@ -109,10 +132,16 @@ public final class NameBinder: NodeWalker, AST.Pass {
     }
   }
 
-  public override func willVisit(_ repr: TypeRepr) -> (shouldWalk: Bool, nodeBefore: TypeRepr) {
+  public override func willVisit(
+    _ typeRepr: TypeRepr
+  ) -> (shouldWalk: Bool, nodeBefore: TypeRepr) {
+    // Make sure we didn't already visited this node. This will happen when the type representation
+    // is used to identify the extended type of a declaration.
+    guard !visited.contains(ObjectIdentifier(typeRepr)) else { return (false, typeRepr) }
+
     // Type representations are resolved before walking down the tree, because we need to determine
     // whether we should use qualified or unqualified lookups.
-    switch repr {
+    switch typeRepr {
     case let ref as UnqualTypeRepr where !(parent is CompoundTypeRepr):
       let matches = resolveUnqualTypeDecl(named: ref.name, at: ref.range)
 
@@ -161,7 +190,7 @@ public final class NameBinder: NodeWalker, AST.Pass {
       break
     }
 
-    return (true, repr)
+    return (true, typeRepr)
   }
 
   private func resolveUnqualTypeOrValueDecl(

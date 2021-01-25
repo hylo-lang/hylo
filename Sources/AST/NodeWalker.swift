@@ -92,22 +92,22 @@ open class NodeWalker: NodeVisitor {
 
   /// This method is called when the walker is about to visit a type representation.
   ///
-  /// - Parameter repr: The type representation that will be visited.
-  /// - Returns: `(flag, node)` where `node` subsitutes the `repr` in the AST, and `flag` is a
+  /// - Parameter typeRepr: The type representation that will be visited.
+  /// - Returns: `(flag, node)` where `node` subsitutes the `typeRepr` in the AST, and `flag` is a
   ///   Boolean value that indicates whether the walker should visit `node`. The default
-  ///   implementation returns `(true, repr)`.
-  open func willVisit(_ repr: TypeRepr) -> (shouldWalk: Bool, nodeBefore: TypeRepr) {
-    return (true, repr)
+  ///   implementation returns `(true, typeRepr)`.
+  open func willVisit(_ typeRepr: TypeRepr) -> (shouldWalk: Bool, nodeBefore: TypeRepr) {
+    return (true, typeRepr)
   }
 
   /// This method is called after the walker visited a type representation.
   ///
   /// - Parameter expr: The type representation that was visited.
-  /// - Returns: `(flag, node)` where `node` subsitutes the `repr` in the AST, and `flag` is a
+  /// - Returns: `(flag, node)` where `node` subsitutes the `typeRepr` in the AST, and `flag` is a
   ///   Boolean value that indicates whether the walker should proceed to the next node. The
-  ///   default implementation returns `(true, repr)`.
-  open func didVisit(_ repr: TypeRepr) -> (shouldContinue: Bool, nodeAfter: TypeRepr) {
-    return (true, repr)
+  ///   default implementation returns `(true, typeRepr)`.
+  open func didVisit(_ typeRepr: TypeRepr) -> (shouldContinue: Bool, nodeAfter: TypeRepr) {
+    return (true, typeRepr)
   }
 
   // MARK: Traversal
@@ -196,7 +196,7 @@ open class NodeWalker: NodeVisitor {
     return true
   }
 
-  public final func visit(_ node: AbstractTypeDecl) -> Bool {
+  public final func visit(_ node: AbstractNominalTypeDecl) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
@@ -215,11 +215,27 @@ open class NodeWalker: NodeVisitor {
   }
 
   public final func visit(_ node: ProductTypeDecl) -> Bool {
-    return visit(node as AbstractTypeDecl)
+    return visit(node as AbstractNominalTypeDecl)
   }
 
   public final func visit(_ node: ViewTypeDecl) -> Bool {
-    return visit(node as AbstractTypeDecl)
+    return visit(node as AbstractNominalTypeDecl)
+  }
+
+  public final func visit(_ node: TypeExtDecl) -> Bool {
+    let prevParent = parent
+    parent = node
+    defer { parent = prevParent }
+
+    (shouldContinue, node.extendedIdent) = process(node.extendedIdent) as! (Bool, IdentTypeRepr)
+    guard shouldContinue else { return false }
+
+    for i in 0 ..< node.members.count {
+      (shouldContinue, node.members[i]) = process(node.members[i])
+      guard shouldContinue else { return false }
+    }
+
+    return true
   }
 
   public final func visit(_ node: BraceStmt) -> Bool {
@@ -395,9 +411,9 @@ open class NodeWalker: NodeVisitor {
     return true
   }
 
-  private final func process(_ expr: Decl) -> (Bool, Decl) {
+  private final func process(_ decl: Decl) -> (Bool, Decl) {
     // Fire the `willVisit` event.
-    let (shouldVisit, substitute) = willVisit(expr)
+    let (shouldVisit, substitute) = willVisit(decl)
     guard shouldVisit else {
       return (true, substitute)
     }
@@ -411,9 +427,9 @@ open class NodeWalker: NodeVisitor {
     return didVisit(substitute)
   }
 
-  private final func process(_ expr: Stmt) -> (Bool, Stmt) {
+  private final func process(_ stmt: Stmt) -> (Bool, Stmt) {
     // Fire the `willVisit` event.
-    let (shouldVisit, substitute) = willVisit(expr)
+    let (shouldVisit, substitute) = willVisit(stmt)
     guard shouldVisit else {
       return (true, substitute)
     }
@@ -459,9 +475,9 @@ open class NodeWalker: NodeVisitor {
     return didVisit(substitute)
   }
 
-  private final func process(_ repr: TypeRepr) -> (Bool, TypeRepr) {
+  private final func process(_ typeRepr: TypeRepr) -> (Bool, TypeRepr) {
     // Fire the `willVisit` event.
-    let (shouldVisit, substitute) = willVisit(repr)
+    let (shouldVisit, substitute) = willVisit(typeRepr)
     guard shouldVisit else {
       return (true, substitute)
     }

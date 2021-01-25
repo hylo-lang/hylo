@@ -19,11 +19,13 @@ public protocol NodeVisitor {
 
   func visit(_ node: FunParamDecl) -> Result
 
-  func visit(_ node: AbstractTypeDecl) -> Result
+  func visit(_ node: AbstractNominalTypeDecl) -> Result
 
   func visit(_ node: ProductTypeDecl) -> Result
 
   func visit(_ node: ViewTypeDecl) -> Result
+
+  func visit(_ node: TypeExtDecl) -> Result
 
   // MARK: Statements
 

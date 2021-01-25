@@ -181,7 +181,7 @@ public struct NodePrinter: NodeVisitor {
     """
   }
 
-  public func visit(_ node: AbstractTypeDecl) -> String {
+  public func visit(_ node: AbstractNominalTypeDecl) -> String {
     switch node {
     case let decl as ProductTypeDecl: return visit(decl)
     case let decl as ViewTypeDecl:    return visit(decl)
@@ -205,6 +205,18 @@ public struct NodePrinter: NodeVisitor {
     {
     \(typeDeclHeader(node)),
     "inheritances"    : \(encode(node.inheritances)),
+    "members"         : \(encode(node.members))
+    }
+    """
+  }
+
+  public func visit(_ node: TypeExtDecl) -> String {
+    return """
+    {
+    "class"           : "\(type(of: node))",
+    "id"              : \(encode(ObjectIdentifier(node))),
+    "range"           : \(encode(node.range)),
+    "extendedIdent"   : \(encode(node.extendedIdent)),
     "members"         : \(encode(node.members))
     }
     """

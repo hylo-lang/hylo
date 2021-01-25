@@ -98,20 +98,28 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
   }
 
   public override func visitFunDecl(_ ctx: ValParser.FunDeclContext) -> Any {
-    let declName = ctx.funName()?.getText() ?? ""
     let declModifiers = ctx.declModifierList().map({ $0.accept(self) as! [DeclModifier] }) ?? []
 
     let decl: AbstractFunDecl
     switch ctx.funDeclKeyword()!.getText() {
     case "fun":
+      let declName = ctx.funName()?.getText() ?? ""
       decl = FunDecl(
         name: declName, declModifiers: declModifiers, type: unresolvedType, range: range(of: ctx))
     case "new":
-      precondition(currentScope is AbstractTypeDecl, "constructor declared outside of a type declaration")
-      decl = CtorDecl(
-        name: "new", declModifiers: declModifiers, type: unresolvedType, range: range(of: ctx))
+      decl = CtorDecl(declModifiers: declModifiers, type: unresolvedType, range: range(of: ctx))
     default:
       fatalError("unreachable")
+    }
+
+    if declModifiers.contains(where: { mod in mod.kind == .mut }) {
+      decl.props.insert(.isMutating)
+    }
+
+    if (currentScope is AbstractNominalTypeDecl || currentScope is TypeExtDecl) {
+      decl.props.insert(.isMember)
+    } else if decl is CtorDecl {
+      preconditionFailure("constructor declared outside of a type declaration")
     }
 
     // Update the current decl context.
@@ -131,32 +139,21 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     }
 
     // Build type stub for the function declaration.
-    var paramTypeElems: [TupleType.Elem] = decl.params.map({ param in
+    let paramTypeElems: [TupleType.Elem] = decl.params.map({ param in
       TupleType.Elem(label: param.externalName, type: TypeVar(context: context, node: param))
     })
 
-    var retType: ValType?
-
-    if let typeDecl = decl.parentDeclScope as? AbstractTypeDecl {
-      // Member functions require an implicit `self` declaration.
-      let selfType = (typeDecl.type as! KindType).type
-      decl.selfDecl = FunParamDecl(
-        name: "self", externalName: "self", type: selfType, range: .invalid)
-
-      if decl is CtorDecl {
-        // Constructors have a type `ParamType -> Self`.
-        precondition(decl.retTypeSign == nil)
-        retType = selfType
-      }
-    }
-
+    let retType: ValType
     if let sign = decl.retTypeSign {
       retType = TypeVar(context: context, node: sign)
-    } else if !(decl is CtorDecl) {
+    } else if decl is CtorDecl {
+      precondition(decl.retTypeSign == nil)
+      retType = TypeVar(context: context, node: decl)
+    } else {
       retType = context.unitType
     }
 
-    decl.type = context.funType(paramType: context.tupleType(paramTypeElems), retType: retType!)
+    decl.type = context.funType(paramType: context.tupleType(paramTypeElems), retType: retType)
     return decl
   }
 
@@ -189,7 +186,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
 
   public override func visitTypeDecl(_ ctx: ValParser.TypeDeclContext) -> Any {
     let declName = ctx.NAME()?.getText() ?? ""
-    let decl: AbstractTypeDecl
+    let decl: AbstractNominalTypeDecl
 
     switch ctx.typeDeclKeyword()!.getText() {
     case "type":
@@ -214,13 +211,26 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     // Visit the remainder of the declaration.
     decl.members = ctx.declBlock()!.accept(self) as! [Decl]
     if let viewConfClause = ctx.viewConfClause() {
-      decl.inheritances = viewConfClause.accept(self) as! [UnqualTypeRepr]
+      decl.inheritances = viewConfClause.accept(self) as! [IdentTypeRepr]
     }
     return decl
   }
 
+  public override func visitExtDecl(_ ctx: ValParser.ExtDeclContext) -> Any {
+    let ident = ctx.identTypeRepr()!.accept(self) as! IdentTypeRepr
+    let decl = TypeExtDecl(extendedIdent: ident, members: [], range: range(of: ctx))
+
+    // Update the current decl context.
+    decl.parentDeclScope = currentScope
+    currentScope = decl
+    defer { currentScope = decl.parentDeclScope }
+
+    decl.members = ctx.declBlock()!.accept(self) as! [Decl]
+    return decl
+  }
+
   public override func visitViewConfClause(_ ctx: ValParser.ViewConfClauseContext) -> Any {
-    return ctx.identTypeRepr().map({ ident in ident.accept(self) as! UnqualTypeRepr })
+    return ctx.identTypeRepr().map({ ident in ident.accept(self) as! IdentTypeRepr })
   }
 
   public override func visitCtrl(_ ctx: ValParser.CtrlContext) -> Any {

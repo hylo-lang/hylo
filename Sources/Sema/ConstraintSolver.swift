@@ -192,10 +192,15 @@ struct ConstraintSolver {
 
   private mutating func solve(_ constraint: ValueMemberCons) {
     // We can't solve anything yet if `T` is still unknown.
-    let baseType = assumptions[constraint.first]
+    var baseType = assumptions[constraint.first]
     guard !(baseType is TypeVar) else {
       system.staleConstraints.append(constraint)
       return
+    }
+
+    // If `T` is an inout-type, then we should solve the constraint for its base.
+    if let inoutType = baseType as? InoutType {
+      baseType = inoutType.base
     }
 
     // FIXME: Handle tuple types.

@@ -168,7 +168,37 @@ public class AbstractFunDecl: ValueDecl, DeclScope {
   public var retTypeSign: TypeRepr?
 
   /// The implicit declaration of the `self` parameter for member functions.
-  public var selfDecl: FunParamDecl?
+  ///
+  /// - Note: Accessing this property will trap if the function declaration is in an extension that
+  ///   hasn't been bound to a nominal type yet.
+  public lazy var selfDecl: FunParamDecl? = {
+    guard props.contains(.isMember) || (self is CtorDecl) else { return nil }
+
+    let selfType: ValType
+    switch parentDeclScope {
+    case let typeDecl as AbstractNominalTypeDecl:
+      // The declaration is in the body of a nominal type.
+      selfType = typeDecl.instanceType
+
+    case let typeExtDecl as TypeExtDecl:
+      // The declaration is in the body of a type extension.
+      if let extendedType = try! typeExtDecl.getExtendedDecl()?.instanceType {
+        selfType = extendedType
+      } else {
+        selfType = type.context.unresolvedType
+      }
+
+    default:
+      fatalError("unreachable")
+    }
+
+    return FunParamDecl(
+      name: "self", externalName: "self",
+      type: props.contains(.isMutating)
+        ? type.context.inoutType(of: selfType)
+        : selfType,
+      range: .invalid)
+  }()
 
   /// The body of the function.
   public var body: BraceStmt?
@@ -188,28 +218,23 @@ public class AbstractFunDecl: ValueDecl, DeclScope {
   /// The semantic properties of the declaration.
   public var props: FunDeclProps
 
-  /// Returns whether this declaration is a member function.
-  public var isMemberFun: Bool {
-    return selfDecl != nil
-  }
-
   public var isOverloadable: Bool { true }
 
   /// The (applied) type of the function.
   ///
-  /// - Note: Member functions (except constructors) accept the receiver (i.e., `self`) as an
-  ///   implicit first parameter. This means that a call to a method `T -> U` is actually an
-  ///   application of an *unapplied* function `(Self, T) -> U`, where `Self` is the receiver's
-  ///   type. This property denotes the *applied* type, which should be understood as the return
-  ///   type the unapplied function's partial application.
+  /// - Note: Member functions accept the receiver (i.e., `self`) as an implicit first parameter.
+  ///   This means that a call to a method `T -> U` is actually an application of an *unapplied*
+  ///   function `(Self, T) -> U`, where `Self` is the receiver's type. This property denotes the
+  ///   *applied* type, which should be understood as the return type the unapplied function's
+  ///   partial application.
   public var type: ValType
 
   /// The "unapplied" type of the function.
   ///
-  /// For member functions (except constructors), this is the type of the function extended with
-  /// an implicit receiver parameter. For other functions, this is equal to `type`.
+  /// For member functions, this is the type of the function extended with an implicit receiver
+  /// parameter. For other functions, this is equal to `type`.
   public var unappliedType: ValType {
-    guard isMemberFun && !(self is CtorDecl) else { return type }
+    guard props.contains(.isMember) else { return type }
 
     let funType = type as! FunType
     var paramTypeElems = (funType.paramType as? TupleType)?.elems
@@ -238,8 +263,16 @@ public class AbstractFunDecl: ValueDecl, DeclScope {
 
     public let rawValue: Int
 
-    public static let isMutating = FunDeclProps(rawValue: 1 << 0)
-    public static let isStatic   = FunDeclProps(rawValue: 1 << 1)
+    /// Indicates whether the function is a member of a type.
+    ///
+    /// - Note: Constructors are *not* considered to be member functions.
+    public static let isMember   = FunDeclProps(rawValue: 1 << 0)
+
+    /// Indicates whether the function is mutating its receiver.
+    public static let isMutating = FunDeclProps(rawValue: 1 << 1)
+
+    /// Indicates whether the function is static.
+    public static let isStatic   = FunDeclProps(rawValue: 1 << 2)
 
   }
 
@@ -256,6 +289,23 @@ public final class FunDecl: AbstractFunDecl {
 
 /// A constructor declaration.
 public final class CtorDecl: AbstractFunDecl {
+
+  public init(
+    declModifiers: [DeclModifier] = [],
+    params: [FunParamDecl] = [],
+    body: BraceStmt? = nil,
+    type: ValType,
+    range: SourceRange
+  ) {
+    super.init(
+      name: "new",
+      declModifiers: declModifiers,
+      params: params,
+      body: body,
+      type: type,
+      range: range)
+    props.insert(.isMutating)
+  }
 
   public override func accept<V>(_ visitor: V) -> V.Result where V: NodeVisitor {
     return visitor.visit(self)
@@ -302,7 +352,7 @@ public final class FunParamDecl: ValueDecl {
 }
 
 /// The base class for nominal type declarations.
-public class AbstractTypeDecl: TypeDecl, DeclScope {
+public class AbstractNominalTypeDecl: TypeDecl, DeclScope {
 
   public init(
     name: String,
@@ -334,6 +384,10 @@ public class AbstractTypeDecl: TypeDecl, DeclScope {
 
   public var range: SourceRange
 
+  public func accept<V>(_ visitor: V) -> V.Result where V: NodeVisitor {
+    return visitor.visit(self)
+  }
+
   // MARK: Conformance lookup
 
   var conformanceTable: ConformanceLookupTable?
@@ -353,14 +407,10 @@ public class AbstractTypeDecl: TypeDecl, DeclScope {
     return conformanceTable![viewType]
   }
 
-  public func accept<V>(_ visitor: V) -> V.Result where V: NodeVisitor {
-    return visitor.visit(self)
-  }
-
 }
 
 /// A product type declaration.
-public final class ProductTypeDecl: AbstractTypeDecl {
+public final class ProductTypeDecl: AbstractNominalTypeDecl {
 
   public override func accept<V>(_ visitor: V) -> V.Result where V: NodeVisitor {
     return visitor.visit(self)
@@ -369,10 +419,70 @@ public final class ProductTypeDecl: AbstractTypeDecl {
 }
 
 /// A view type declaration.
-public final class ViewTypeDecl: AbstractTypeDecl {
+public final class ViewTypeDecl: AbstractNominalTypeDecl {
 
   public override func accept<V>(_ visitor: V) -> V.Result where V: NodeVisitor {
     return visitor.visit(self)
+  }
+
+}
+
+/// A type extension declaration.
+///
+/// This is not a `TypeDecl`, as it does not define any type. An extension merely represents a set
+/// of declarations that should be "added" to a type.
+public final class TypeExtDecl: Decl, DeclScope {
+
+  public init(extendedIdent: IdentTypeRepr, members: [Decl], range: SourceRange) {
+    self.extendedIdent = extendedIdent
+    self.members = members
+    self.range = range
+  }
+
+  /// The identifier of the type being extended.
+  public var extendedIdent: IdentTypeRepr
+
+  /// The member declarations of the type.
+  public var members: [Decl]
+
+  public var parentDeclScope: DeclScope?
+
+  public var range: SourceRange
+
+  public func accept<V>(_ visitor: V) -> V.Result where V : NodeVisitor {
+    return visitor.visit(self)
+  }
+
+  /// The declaration of the extended type.
+  ///
+  /// - Throws: A `CompilerPreconditionError` if the method is called before name binding.
+  public func getExtendedDecl() throws -> AbstractNominalTypeDecl? {
+    switch state {
+    case .bound(let decl):
+      return decl
+    case .unbindable:
+      return nil
+    case .unbound:
+      throw CompilerPreconditionError(
+        message: "attempt to compute extended declaration before name binding")
+    }
+  }
+
+  /// The binding state of the declaration.
+  public var state = ResolutionState.unbound
+
+  /// A binding state.
+  public enum ResolutionState {
+
+    /// The type being extended has been bound.
+    case bound(AbstractNominalTypeDecl)
+
+    /// The compiler attempted but failed to bind the type being extended.
+    case unbindable
+
+    /// The type being extended has not been resolved yet.
+    case unbound
+
   }
 
 }

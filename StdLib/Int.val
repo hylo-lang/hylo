@@ -29,3 +29,13 @@ type Int: ExpressibleByBuiltinIntLiteral {
   }
 
 }
+
+extn Int {
+
+  fun - (_ other: Int) -> Int {
+    var result = Int()
+    result.value = Builtin::i64_sub(self.value, other.value)
+    ret result
+  }
+
+}

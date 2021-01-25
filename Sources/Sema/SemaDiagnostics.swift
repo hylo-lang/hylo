@@ -42,7 +42,19 @@ extension Diagnostic {
   }
 
   static func cannotCallNonFunctionType(type: ValType, range: SourceRange) -> Diagnostic {
-    return Diagnostic("I can't let you call non-function type '\(type)'")
+    return Diagnostic("I can't call non-function type '\(type)'")
+      .set(\.reportLocation, value: range.lowerBound)
+      .set(\.ranges, value: [range])
+  }
+
+  static func ambiguousReference(to name: String, range: SourceRange) -> Diagnostic {
+    return Diagnostic("ambiguous reference to '\(name)'")
+      .set(\.reportLocation, value: range.lowerBound)
+      .set(\.ranges, value: [range])
+  }
+
+  static func cannotExtendNonNominalType(_ type: ValType, range: SourceRange) -> Diagnostic {
+    return Diagnostic("I can't extend non-nominal type '\(type)'")
       .set(\.reportLocation, value: range.lowerBound)
       .set(\.ranges, value: [range])
   }

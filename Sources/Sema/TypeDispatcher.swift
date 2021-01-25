@@ -56,14 +56,11 @@ final class TypeDispatcher: NodeWalker {
     let type = expr.type.accept(reifier)
 
     // Search for the declaration that matches the expression's type.
-    let decls = expr.declSet.filter({ decl in decl.type.accept(reifier) === type })
+    let decls = expr.declSet.filter({ decl in match(decl, type) })
 
     // Diagnose an ambigous name reference if there's not exactly one possible candidate.
     guard decls.count == 1 else {
-      type.context.report(
-        Diagnostic("ambiguous reference to '\(expr.declSet[0].name)'")
-          .set(\.reportLocation, value: expr.range.lowerBound)
-          .set(\.ranges, value: [expr.range]))
+      type.context.report(.ambiguousReference(to: expr.declSet[0].name, range: expr.range))
       return expr
     }
 
@@ -75,36 +72,44 @@ final class TypeDispatcher: NodeWalker {
     let type = expr.type.accept(reifier)
 
     // The base expression should have a nominal type.
-    guard let typeDecl = (expr.base.type as? NominalType)?.decl else {
+    let baseType: NominalType
+    switch expr.base.type {
+    case let nominalType as NominalType:
+      baseType = nominalType
+    case let inoutType as InoutType where inoutType.base is NominalType:
+      baseType = inoutType.base as! NominalType
+    default:
       type.context.report(
         .cannotFind(name: expr.memberName, in: expr.base.type, range: expr.range))
       return expr
     }
 
     // Search for the declaration that matches the expression's type.
-    let decls = typeDecl
+    let decls = baseType.decl
       .lookup(expr.memberName, in: type.context)
       .valueDecls
-      .filter({ decl in decl.type.accept(reifier) === type })
+      .filter({ decl in match(decl, type) })
 
     guard !decls.isEmpty else {
-      type.context.report(
-        Diagnostic("value of type '\(expr.base.type)' has no member '\(expr.memberName)'")
-          .set(\.reportLocation, value: expr.base.range.lowerBound)
-          .set(\.ranges, value: [expr.base.range]))
+      type.context.report(.cannotFind(name: expr.memberName, in: baseType, range: expr.base.range))
       return expr
     }
 
     // Diagnose an ambigous name reference if there's more than one possible candidate.
     guard decls.count == 1 else {
-      type.context.report(
-        Diagnostic("ambiguous reference to '\(decls[0].name)'")
-          .set(\.reportLocation, value: expr.range.lowerBound)
-          .set(\.ranges, value: [expr.range]))
+      type.context.report(.ambiguousReference(to: decls[0].name, range: expr.range))
       return expr
     }
 
     return MemberRefExpr(base: expr.base, decl: decls[0], range: expr.range)
+  }
+
+  private func match(_ decl: TypeOrValueDecl, _ type: ValType) -> Bool {
+    let declType = decl.type.accept(reifier)
+    if let inoutType = declType as? InoutType {
+     return inoutType.base === type
+    }
+    return declType === type
   }
 
 }

@@ -22,6 +22,7 @@ decl
   : patternBindingDecl
   | funDecl
   | typeDecl
+  | extDecl
   ;
 
 declModifierList
@@ -75,6 +76,10 @@ typeDecl
 
 typeDeclKeyword
   : 'type' | 'view'
+  ;
+
+extDecl
+  : 'extn' identTypeRepr declBlock
   ;
 
 viewConfClause
