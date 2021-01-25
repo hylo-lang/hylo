@@ -1,9 +1,9 @@
-extension DeclScope {
+extension DeclSpace {
 
-  /// The type and value declarations directly enclosed in this scope.
+  /// The type and value declarations directly enclosed in this space.
   ///
   /// This default implementation walks the subtree rooted by this node to collect all type and
-  /// value declarations that do not belong to a nested scope. Conforming types may override this
+  /// value declarations that do not belong to a nested space. Conforming types may override this
   /// behavior for more a optimized strategy.
   public var localTypeAndValueDecls: [TypeOrValueDecl] {
     let finder = LocalTypeAndValueDeclFinder()
@@ -12,16 +12,16 @@ extension DeclScope {
   }
 
   public func lookup(_ unqualifiedName: String, in context: Context) -> LookupResult {
-    var scope: DeclScope? = self
+    var space: DeclSpace? = self
     var matches: [TypeOrValueDecl] = []
 
     // Only function and type declarations are overloadable. Thus we must filter out every other
     // value declaration once the first has been found.
     var hasNonOverloadableDecl = false
 
-    while let ds = scope {
-      // Enumerate the symbols declared directly within the current scope.
-      var locals = ds.localTypeAndValueDecls.filter({ $0.name == unqualifiedName })
+    while let ns = space {
+      // Enumerate the symbols declared directly within the current space.
+      var locals = ns.localTypeAndValueDecls.filter({ $0.name == unqualifiedName })
       if hasNonOverloadableDecl {
         locals = locals.filter({ decl in decl.isOverloadable })
       } else {
@@ -29,7 +29,7 @@ extension DeclScope {
       }
 
       matches.append(contentsOf: locals)
-      scope = ds.parentDeclScope
+      space = ns.parentDeclSpace
     }
 
     // Handle the implicit import of the built-in module in the standard library.
@@ -51,7 +51,7 @@ extension TypeDecl {
 
 }
 
-/// The result of a name lookup in a declaration scope.
+/// The result of a name lookup in a declaration space.
 public struct LookupResult {
 
   public init(matches: [TypeOrValueDecl]) {
@@ -82,7 +82,7 @@ public struct LookupResult {
 
 }
 
-/// An AST walker that extracts the type and value declarations in a specific lexical scope.
+/// An AST walker that extracts the type and value declarations in a given decl space.
 fileprivate final class LocalTypeAndValueDeclFinder: NodeWalker {
 
   var matches: [TypeOrValueDecl] = []
@@ -91,23 +91,23 @@ fileprivate final class LocalTypeAndValueDeclFinder: NodeWalker {
     if let d = decl as? TypeOrValueDecl {
       matches.append(d)
     }
-    return (!(decl is DeclScope), decl)
+    return (!(decl is DeclSpace), decl)
   }
 
   override func willVisit(_ stmt: Stmt) -> (shouldWalk: Bool, nodeBefore: Stmt) {
-    return (!(stmt is DeclScope), stmt)
+    return (!(stmt is DeclSpace), stmt)
   }
 
   override func willVisit(_ expr: Expr) -> (shouldWalk: Bool, nodeBefore: Expr) {
-    return (!(expr is DeclScope), expr)
+    return (!(expr is DeclSpace), expr)
   }
 
   override func willVisit(_ pattern: Pattern) -> (shouldWalk: Bool, nodeBefore: Pattern) {
-    return (!(pattern is DeclScope), pattern)
+    return (!(pattern is DeclSpace), pattern)
   }
 
   override func willVisit(_ repr: TypeRepr) -> (shouldWalk: Bool, nodeBefore: TypeRepr) {
-    return (!(repr is DeclScope), repr)
+    return (!(repr is DeclSpace), repr)
   }
 
 }

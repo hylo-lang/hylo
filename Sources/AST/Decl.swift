@@ -19,7 +19,7 @@ public protocol TypeOrValueDecl: Decl {
 }
 
 /// A type declaration.
-public protocol TypeDecl: TypeOrValueDecl, DeclScope {
+public protocol TypeDecl: TypeOrValueDecl, DeclSpace {
 
   /// The type of instances of the declared type.
   var instanceType: ValType { get }
@@ -124,7 +124,7 @@ public final class VarDecl: ValueDecl {
 }
 
 /// The base class for function declarations.
-public class AbstractFunDecl: ValueDecl, DeclScope {
+public class AbstractFunDecl: ValueDecl, DeclSpace {
 
   public init(
     name: String,
@@ -175,7 +175,7 @@ public class AbstractFunDecl: ValueDecl, DeclScope {
     guard props.contains(.isMember) || (self is CtorDecl) else { return nil }
 
     let selfType: ValType
-    switch parentDeclScope {
+    switch parentDeclSpace {
     case let typeDecl as AbstractNominalTypeDecl:
       // The declaration is in the body of a nominal type.
       selfType = typeDecl.instanceType
@@ -203,7 +203,7 @@ public class AbstractFunDecl: ValueDecl, DeclScope {
   /// The body of the function.
   public var body: BraceStmt?
 
-  /// The type and value declarations directly enclosed within the function scope.
+  /// The type and value declarations directly enclosed within the function space.
   ///
   /// This property lists the function explicit and implicit parameters. It does **not** contain
   /// the declarations scoped within the function's body.
@@ -246,7 +246,7 @@ public class AbstractFunDecl: ValueDecl, DeclScope {
       retType: funType.retType)
   }
 
-  public weak var parentDeclScope: DeclScope?
+  public weak var parentDeclSpace: DeclSpace?
 
   public var range: SourceRange
 
@@ -352,7 +352,7 @@ public final class FunParamDecl: ValueDecl {
 }
 
 /// The base class for nominal type declarations.
-public class AbstractNominalTypeDecl: TypeDecl, DeclScope {
+public class AbstractNominalTypeDecl: TypeDecl, DeclSpace {
 
   public init(
     name: String,
@@ -380,7 +380,7 @@ public class AbstractNominalTypeDecl: TypeDecl, DeclScope {
   /// The resolved type of the declaration.
   public unowned var type: ValType
 
-  public var parentDeclScope: DeclScope?
+  public var parentDeclSpace: DeclSpace?
 
   public var range: SourceRange
 
@@ -431,7 +431,7 @@ public final class ViewTypeDecl: AbstractNominalTypeDecl {
 ///
 /// This is not a `TypeDecl`, as it does not define any type. An extension merely represents a set
 /// of declarations that should be "added" to a type.
-public final class TypeExtDecl: Decl, DeclScope {
+public final class TypeExtDecl: Decl, DeclSpace {
 
   public init(extendedIdent: IdentTypeRepr, members: [Decl], range: SourceRange) {
     self.extendedIdent = extendedIdent
@@ -445,7 +445,7 @@ public final class TypeExtDecl: Decl, DeclScope {
   /// The member declarations of the type.
   public var members: [Decl]
 
-  public var parentDeclScope: DeclScope?
+  public var parentDeclSpace: DeclSpace?
 
   public var range: SourceRange
 

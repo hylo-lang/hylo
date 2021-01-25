@@ -15,7 +15,7 @@ extension Context {
         name  : function[0],
         params: function[1 ..< (function.count - 1)],
         ret   : function[function.count - 1])
-      decl.parentDeclScope = builtin
+      decl.parentDeclSpace = builtin
       builtin.statements.append(decl)
       builtinDecls[decl.name] = decl
     }

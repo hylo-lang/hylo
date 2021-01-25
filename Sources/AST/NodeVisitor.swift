@@ -45,7 +45,7 @@ public protocol NodeVisitor {
 
   func visit(_ node: UnresolvedMemberExpr) -> Result
 
-  func visit(_ node: QualifiedDeclRefExpr) -> Result
+  func visit(_ node: QualDeclRefExpr) -> Result
 
   func visit(_ node: OverloadedDeclRefExpr) -> Result
 

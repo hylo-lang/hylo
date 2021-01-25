@@ -144,9 +144,9 @@ public final class UnresolvedDeclRefExpr: Expr {
 /// An identifier referring to an unresolved declaration, explicitly qualified by a type namespace
 /// (e.g., `Builtin::bitcast`).
 ///
-/// Conceptually, this wraps an unresolved declaration reference, providing context for the scope
+/// Conceptually, this wraps an unresolved declaration reference, providing context for the space
 /// into which it points. The type prefix is resolved during name binding.
-public final class QualifiedDeclRefExpr: Expr {
+public final class QualDeclRefExpr: Expr {
 
   public init(namespace: IdentTypeRepr, name: String, type: ValType, range: SourceRange) {
     self.namespace = namespace

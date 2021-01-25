@@ -302,7 +302,7 @@ open class NodeWalker: NodeVisitor {
     return true
   }
 
-  public final func visit(_ node: QualifiedDeclRefExpr) -> Bool {
+  public final func visit(_ node: QualDeclRefExpr) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }

@@ -4,7 +4,7 @@ import Basic
 ///
 /// A module, or compilation unit, is a collection of types, variables and function declarations
 /// declared in one or several source files.
-public final class Module: DeclScope {
+public final class Module: DeclSpace {
 
   public init(id: String, context: Context) {
     self.id = id
@@ -21,7 +21,7 @@ public final class Module: DeclScope {
 
   public private(set) var type: ValType
 
-  public var parentDeclScope: DeclScope? {
+  public var parentDeclSpace: DeclSpace? {
     get { nil }
     set { precondition(newValue == nil) }
   }

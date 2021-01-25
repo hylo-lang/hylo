@@ -5,7 +5,7 @@ public protocol Stmt: Node {
 }
 
 /// A block of code.
-public final class BraceStmt: Stmt, DeclScope {
+public final class BraceStmt: Stmt, DeclSpace {
 
   public init(statements: [Node], range: SourceRange) {
     self.statements = statements
@@ -15,7 +15,7 @@ public final class BraceStmt: Stmt, DeclScope {
   /// The statements in the code block.
   public var statements: [Node]
 
-  public weak var parentDeclScope: DeclScope?
+  public weak var parentDeclSpace: DeclSpace?
 
   public var range: SourceRange
 

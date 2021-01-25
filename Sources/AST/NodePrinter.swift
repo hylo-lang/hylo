@@ -290,7 +290,7 @@ public struct NodePrinter: NodeVisitor {
     """
   }
 
-  public func visit(_ node: QualifiedDeclRefExpr) -> String {
+  public func visit(_ node: QualDeclRefExpr) -> String {
     return """
     {
     \(exprHeader(node)),

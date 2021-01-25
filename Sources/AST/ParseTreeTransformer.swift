@@ -7,7 +7,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
   public init(sourceFile: SourceFile, module: Module?, context: Context) {
     self.sourceFile = sourceFile
     self.module = module
-    self.currentScope = module
+    self.currentSpace = module
     self.context = context
   }
 
@@ -20,8 +20,8 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
   /// The AST context into which the module is being loaded.
   public let context: Context
 
-  /// The current declaration scope.
-  private var currentScope: DeclScope?
+  /// The current declaration space.
+  private var currentSpace: DeclSpace?
 
   /// A reference to the unresolved type.
   private var unresolvedType: UnresolvedType { context.unresolvedType }
@@ -36,12 +36,12 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
   public override func visitCodeBlock(_ ctx: ValParser.CodeBlockContext) -> Any {
     // Create a stub of the code block.
     let block = BraceStmt(statements: [], range: range(of: ctx))
-    block.parentDeclScope = currentScope
+    block.parentDeclSpace = currentSpace
 
-    // Update the current decl scope.
-    let parentDeclScope = currentScope
-    currentScope = block
-    defer { currentScope = parentDeclScope }
+    // Update the current decl space.
+    let parentDeclSpace = currentSpace
+    currentSpace = block
+    defer { currentSpace = parentDeclSpace }
 
     /// Visit the block's statements.
     expand(decls: ctx.statement(), into: &block.statements)
@@ -116,16 +116,16 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
       decl.props.insert(.isMutating)
     }
 
-    if (currentScope is AbstractNominalTypeDecl || currentScope is TypeExtDecl) {
+    if (currentSpace is AbstractNominalTypeDecl || currentSpace is TypeExtDecl) {
       decl.props.insert(.isMember)
     } else if decl is CtorDecl {
       preconditionFailure("constructor declared outside of a type declaration")
     }
 
-    // Update the current decl context.
-    decl.parentDeclScope = currentScope
-    currentScope = decl
-    defer { currentScope = decl.parentDeclScope }
+    // Update the current decl space.
+    decl.parentDeclSpace = currentSpace
+    currentSpace = decl
+    defer { currentSpace = decl.parentDeclSpace }
 
     // Visit the remainder of the declaration.
     if let params = ctx.paramList() {
@@ -203,10 +203,10 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
       fatalError("unreachable")
     }
 
-    // Update the current decl context.
-    decl.parentDeclScope = currentScope
-    currentScope = decl
-    defer { currentScope = decl.parentDeclScope }
+    // Update the current decl space.
+    decl.parentDeclSpace = currentSpace
+    currentSpace = decl
+    defer { currentSpace = decl.parentDeclSpace }
 
     // Visit the remainder of the declaration.
     decl.members = ctx.declBlock()!.accept(self) as! [Decl]
@@ -220,10 +220,10 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     let ident = ctx.identTypeRepr()!.accept(self) as! IdentTypeRepr
     let decl = TypeExtDecl(extendedIdent: ident, members: [], range: range(of: ctx))
 
-    // Update the current decl context.
-    decl.parentDeclScope = currentScope
-    currentScope = decl
-    defer { currentScope = decl.parentDeclScope }
+    // Update the current decl space.
+    decl.parentDeclSpace = currentSpace
+    currentSpace = decl
+    defer { currentSpace = decl.parentDeclSpace }
 
     decl.members = ctx.declBlock()!.accept(self) as! [Decl]
     return decl
@@ -449,7 +449,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
         UnqualTypeRepr(
           name: name.getText(), type: unresolvedType, range: range(of: name.getSymbol()!))
       }))
-    return QualifiedDeclRefExpr(
+    return QualDeclRefExpr(
       namespace: ns, name: names.last!.getText(), type: unresolvedType, range: range(of: ctx))
   }
 
