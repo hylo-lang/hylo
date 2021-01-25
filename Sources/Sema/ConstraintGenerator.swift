@@ -210,7 +210,7 @@ fileprivate struct ConstraintVisitor: NodeVisitor {
                       at: ConstraintLocator(node, .valueMember(node.memberName))))
   }
 
-  func visit(_ node: QualifiedDeclRefExpr) {
+  func visit(_ node: QualDeclRefExpr) {
   }
 
   func visit(_ node: OverloadedDeclRefExpr) {

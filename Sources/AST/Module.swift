@@ -26,11 +26,47 @@ public final class Module: DeclSpace {
     set { precondition(newValue == nil) }
   }
 
+  /// Returns the extensions of the given type declaration.
+  public func extensions(of decl: AbstractNominalTypeDecl) -> [TypeExtDecl] {
+    // Build the qualified name of `decl`.
+    var names = [decl.name]
+    var space = decl.parentDeclSpace
+    while space !== self {
+      guard let s = space as? AbstractNominalTypeDecl else {
+        // Types nested in a "local" declaration space (e.g., a function) cannot be extended.
+        return []
+      }
+      names.append(s.name)
+      space = s.parentDeclSpace
+    }
+
+    // Search for extensions defined for the computed qualified name.
+    var matches: [TypeExtDecl] = []
+    stmt:for case let ext as TypeExtDecl in statements {
+      if (names.count == 1) {
+        if (ext.extendedIdent as? UnqualTypeRepr)?.name == names[0] {
+          matches.append(ext)
+        }
+      } else {
+        guard let compound = ext.extendedIdent as? CompoundTypeRepr else { continue }
+        guard compound.components.count == names.count else { continue }
+        for i in 0 ..< compound.components.count {
+          guard compound.components[i].name == names[names.count - i - 1] else { continue stmt }
+        }
+        matches.append(ext)
+      }
+    }
+
+    return matches
+  }
+
 }
 
 extension Module: TypeDecl {
 
   public var name: String { id }
+
+  public var fullyQualName: [String] { [name] }
 
   public var range: SourceRange { .invalid }
 

@@ -88,6 +88,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
       initializer: initializer,
       declKeywordRange: range(of: declKeyword),
       range: range(of: ctx))
+    decl.parentDeclSpace = currentSpace
 
     // Associate each introduced variable declaration to the new pattern binding declaration.
     for pattern in decl.pattern.namedPatterns {
@@ -100,6 +101,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
   public override func visitFunDecl(_ ctx: ValParser.FunDeclContext) -> Any {
     let declModifiers = ctx.declModifierList().map({ $0.accept(self) as! [DeclModifier] }) ?? []
 
+    // Create the function declaration.
     let decl: AbstractFunDecl
     switch ctx.funDeclKeyword()!.getText() {
     case "fun":
@@ -185,9 +187,9 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
   }
 
   public override func visitTypeDecl(_ ctx: ValParser.TypeDeclContext) -> Any {
+    // Create the type declaration.
     let declName = ctx.NAME()?.getText() ?? ""
     let decl: AbstractNominalTypeDecl
-
     switch ctx.typeDeclKeyword()!.getText() {
     case "type":
       decl = ProductTypeDecl(
@@ -248,11 +250,12 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
 
   public override func visitNamedPattern(_ ctx: ValParser.NamedPatternContext) -> Any {
     // Create a variable declaration for the pattern.
-    let varDecl = VarDecl(name: ctx.getText(), type: unresolvedType, range: range(of: ctx))
-    varDecl.type = TypeVar(context: context, node: varDecl)
+    let decl = VarDecl(name: ctx.getText(), type: unresolvedType, range: range(of: ctx))
+    decl.type = TypeVar(context: context, node: decl)
+    decl.parentDeclSpace = currentSpace
 
     // Create the pattern.
-    return NamedPattern(decl: varDecl, range: range(of: ctx))
+    return NamedPattern(decl: decl, range: range(of: ctx))
   }
 
   public override func visitTuplePattern(_ ctx: ValParser.TuplePatternContext) -> Any {

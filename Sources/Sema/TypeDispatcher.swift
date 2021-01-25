@@ -86,8 +86,8 @@ final class TypeDispatcher: NodeWalker {
 
     // Search for the declaration that matches the expression's type.
     let decls = baseType.decl
-      .lookup(expr.memberName, in: type.context)
-      .valueDecls
+      .lookup(unqualified: expr.memberName, in: type.context)
+      .values
       .filter({ decl in match(decl, type) })
 
     guard !decls.isEmpty else {

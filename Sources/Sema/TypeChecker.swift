@@ -1,10 +1,9 @@
 import AST
 
-/// A type checker pass.
+/// The type checker pass.
 ///
-/// The static type checker is the meat-and-potatoes of the front-end's semantic analysis. Its
-/// purpose is to verify that program sources satisfy Val's static type system, i.e. that all of
-/// written expressions have an appropriate type for the context in which they occur.
+/// The static type checker verifies that program sources satisfy Val's static type system, i.e.,
+/// that all of written expressions have an appropriate type for the context in which they occur.
 ///
 /// The pass is actually a composition of three different steps:
 /// 1. Constraint generation:

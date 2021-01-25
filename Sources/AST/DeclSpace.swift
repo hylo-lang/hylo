@@ -8,7 +8,12 @@
 /// Nonetheless, they always form a topological hierarchy.
 public protocol DeclSpace: Node {
 
-  /// The enclosing space.
+  /// The module in which this declaration space resides.
+  var rootDeclSpace: Module { get }
+
+  /// The innermost parent in which this declaration space resides.
+  ///
+  /// This property should always be defined, except for module declarations.
   var parentDeclSpace: DeclSpace? { get set }
 
   /// Returns whether the space is topologically nested in another.
@@ -17,9 +22,9 @@ public protocol DeclSpace: Node {
   func isDescendant(of ancestor: DeclSpace) -> Bool
 
   /// The type and value declarations directly enclosed in this space.
-  var localTypeAndValueDecls: [TypeOrValueDecl] { get }
+  var localTypeAndValueDecls: (types: [TypeDecl], values: [ValueDecl]) { get }
 
-  /// Looks up for declarations that match the give unqualified name.
+  /// Looks up for declarations that match the given unqualified name.
   ///
   /// This implements a core part of Val's name resolution.
   ///
@@ -37,13 +42,20 @@ public protocol DeclSpace: Node {
   /// the semantic analyis
   ///
   /// - Parameters:
-  ///   - unqualifiedName: The name to search.
+  ///   - name: The name to search.
   ///   - context: The AST context in which the search is carried out.
-  func lookup(_ unqualifiedName: String, in context: Context) -> LookupResult
+  func lookup(unqualified name: String, in context: Context) -> LookupResult
+
+  /// Looks up for declarations that match the given name, directly enclded in this space.
+  func lookup(qualified name: String) -> LookupResult
 
 }
 
 extension DeclSpace {
+
+  public var rootDeclSpace: Module {
+    return (self as? Module) ?? parentDeclSpace!.rootDeclSpace
+  }
 
   public func isDescendant(of ancestor: DeclSpace) -> Bool {
     var parent = parentDeclSpace

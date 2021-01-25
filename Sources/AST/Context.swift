@@ -142,7 +142,7 @@ public final class Context {
   ///   loaded into the context.
   public func getTypeDecl(for type: KnownStdLibTypes) -> TypeDecl? {
     guard let stdlib = self.stdlib else { return nil }
-    return stdlib.lookup(type.name, in: self).typeDecls.first
+    return stdlib.lookup(unqualified: type.name, in: self).types.first
   }
 
   // MARK: Diagnostics

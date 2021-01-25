@@ -2,6 +2,10 @@ import Basic
 
 /// A node representing the declaration of one or more entities.
 public protocol Decl: Node {
+
+  /// The innermost parent in which this declaration resides.
+  var parentDeclSpace: DeclSpace? { get }
+
 }
 
 /// A type or a value declaration.
@@ -79,6 +83,8 @@ public final class PatternBindingDecl: Decl {
   /// The source range of this declaration `val` or `var` keyword.
   public var declKeywordRange: SourceRange
 
+  public weak var parentDeclSpace: DeclSpace?
+
   public var range: SourceRange
 
   public func accept<V>(_ visitor: V) -> V.Result where V: NodeVisitor {
@@ -100,7 +106,6 @@ public final class VarDecl: ValueDecl {
     self.range = range
   }
 
-  /// The name of the variable.
   public var name: String
 
   /// The pattern binding declaration that introduces this variable declaration.
@@ -114,6 +119,8 @@ public final class VarDecl: ValueDecl {
   public var isOverloadable: Bool { false }
 
   public var type: ValType
+
+  public weak var parentDeclSpace: DeclSpace?
 
   public var range: SourceRange
 
@@ -207,11 +214,11 @@ public class AbstractFunDecl: ValueDecl, DeclSpace {
   ///
   /// This property lists the function explicit and implicit parameters. It does **not** contain
   /// the declarations scoped within the function's body.
-  public var localTypeAndValueDecls: [TypeOrValueDecl] {
+  public var localTypeAndValueDecls: (types: [TypeDecl], values: [ValueDecl]) {
     if let selfDecl = self.selfDecl {
-      return params + [selfDecl]
+      return (types: [], values: params + [selfDecl])
     } else {
-      return params
+      return (types: [], values: params)
     }
   }
 
@@ -343,6 +350,8 @@ public final class FunParamDecl: ValueDecl {
 
   public var type: ValType
 
+  public weak var parentDeclSpace: DeclSpace?
+
   public var range: SourceRange
 
   public func accept<V>(_ visitor: V) -> V.Result where V: NodeVisitor {
@@ -388,22 +397,35 @@ public class AbstractNominalTypeDecl: TypeDecl, DeclSpace {
     return visitor.visit(self)
   }
 
-  // MARK: Conformance lookup
+  // MARK: Member lookup
 
+  /// An internal table keeping track of the members of this type.
+  var memberTable: [String: TypeOrValueDecl]?
+
+  // MARK: Conformance metadata
+
+  /// An internal table keeping track of the views to which the declared type conforms.
   var conformanceTable: ConformanceLookupTable?
+
+  // Unpdates or initializes the conformance lookup table.
+  func updateConformanceTable() {
+    if conformanceTable == nil {
+      conformanceTable = ConformanceLookupTable()
+      for repr in inheritances {
+        if let viewType = repr.type as? ViewType {
+          conformanceTable!.insert(viewType, range: repr.range)
+        }
+      }
+
+      // FIXME: Insert inherited conformance.
+      // FIXME: Insert conformance declared in extensions.
+    }
+  }
 
   /// Returns the information describing the type's conformance to the specified view, or `nil` if
   /// it does not conform.
   public func conformance(to viewType: ViewType) -> ViewConformance? {
-    if conformanceTable == nil {
-      conformanceTable = ConformanceLookupTable()
-      for repr in inheritances {
-        conformanceTable!.insert(repr.type as! ViewType, range: repr.range)
-      }
-
-      // FIXME: Insert inherited conformance
-    }
-
+    updateConformanceTable()
     return conformanceTable![viewType]
   }
 

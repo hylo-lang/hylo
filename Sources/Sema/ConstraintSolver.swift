@@ -223,8 +223,8 @@ struct ConstraintSolver {
 
     // Retrieve the member's declaration.
     let decls = baseTypeDecl
-      .lookup(constraint.memberName, in: context)
-      .valueDecls
+      .lookup(unqualified: constraint.memberName, in: context)
+      .values
     guard !decls.isEmpty else {
       errors.append(.nonExistentProperty(constraint))
       return
