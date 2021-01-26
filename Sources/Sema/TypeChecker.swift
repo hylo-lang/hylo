@@ -23,7 +23,7 @@ public final class TypeChecker: AST.Pass {
   /// The context in which the pass runs.
   public unowned let context: AST.Context
 
-  public func run(on module: Module) throws {
+  public func run(on module: Module) {
     // Generate type constraints
     let generator = ConstraintGenerator(context: context)
     _ = generator.visit(module)
