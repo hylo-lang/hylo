@@ -38,6 +38,10 @@ final class TypeReifier: TypeVisitor {
     return type
   }
 
+  func visit(_ type: GenericParamType) -> ValType {
+    return type
+  }
+
   func visit(_ type: TupleType) -> ValType {
     return type.context
       .tupleType(type.elems.map({ elem in

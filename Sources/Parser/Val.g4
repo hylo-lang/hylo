@@ -42,7 +42,7 @@ varDeclKeyword
   ;
 
 funDecl
-  : declModifierList? funDeclKeyword funName? '(' paramList? ')' funRetAnnot? codeBlock?
+  : declModifierList? funDeclKeyword funName? genericClause? '(' funParamList? ')' funRetAnnot? codeBlock?
   ;
 
 funDeclKeyword
@@ -54,20 +54,28 @@ funName
   | overridableOper
   ;
 
-paramList
-  : param (',' param)*
+funParamList
+  : funParam (',' funParam)*
   ;
 
-param
-  : paramExtName? NAME (':' typeRepr)?
+funParam
+  : funParamExtName? NAME (':' typeRepr)?
   ;
 
-paramExtName
+funParamExtName
   : NAME | '_'
   ;
 
 funRetAnnot
   : '->' typeRepr
+  ;
+
+genericClause
+  : '<' genericParamList '>'
+  ;
+
+genericParamList
+  : NAME (',' NAME)*
   ;
 
 typeDecl

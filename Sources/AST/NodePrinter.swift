@@ -145,34 +145,27 @@ public struct NodePrinter: NodeVisitor {
   }
 
   public func visit(_ node: AbstractFunDecl) -> String {
-    switch node {
-    case let decl as FunDecl  : return visit(decl)
-    case let decl as CtorDecl : return visit(decl)
-    default:
-      fatalError("unreachable")
+    let mods = node.declModifiers.map({ mod in String(describing: mod.kind) })
+      .joined(separator: ", ")
+
+    return """
+    {
+    \(valueDeclHeader(node)),
+    "declModifiers"   : [\(mods)],
+    "genericParams"   : \(encode(node.genericParams)),
+    "params"          : \(encode(node.params)),
+    "retTypeSign"     : \(encode(node.retTypeSign)),
+    "body"            : \(encode(node.body))
     }
+    """
   }
 
   public func visit(_ node: FunDecl) -> String {
-    return """
-    {
-    \(valueDeclHeader(node)),
-    "params"          : \(encode(node.params)),
-    "retTypeSign"     : \(encode(node.retTypeSign)),
-    "body"            : \(encode(node.body))
-    }
-    """
+    visit(node as AbstractFunDecl)
   }
 
   public func visit(_ node: CtorDecl) -> String {
-    return """
-    {
-    \(valueDeclHeader(node)),
-    "params"          : \(encode(node.params)),
-    "retTypeSign"     : \(encode(node.retTypeSign)),
-    "body"            : \(encode(node.body))
-    }
-    """
+    visit(node as AbstractFunDecl)
   }
 
   public func visit(_ node: FunParamDecl) -> String {
@@ -210,6 +203,14 @@ public struct NodePrinter: NodeVisitor {
     \(typeDeclHeader(node)),
     "inheritances"    : \(encode(node.inheritances)),
     "members"         : \(encode(node.members))
+    }
+    """
+  }
+
+  public func visit(_ node: GenericParamDecl) -> String {
+    return """
+    {
+    \(typeDeclHeader(node))
     }
     """
   }

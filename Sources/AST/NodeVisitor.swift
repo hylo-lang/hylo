@@ -25,6 +25,8 @@ public protocol NodeVisitor {
 
   func visit(_ node: ViewTypeDecl) -> Result
 
+  func visit(_ node: GenericParamDecl) -> Result
+
   func visit(_ node: TypeExtDecl) -> Result
 
   // MARK: Statements

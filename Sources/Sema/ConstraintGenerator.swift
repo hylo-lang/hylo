@@ -150,7 +150,10 @@ fileprivate struct ConstraintVisitor: NodeVisitor {
   func visit(_ node: ViewTypeDecl) {
   }
 
-  func visit(_ node: TypeExtDecl) -> Void {
+  func visit(_ node: GenericParamDecl) {
+  }
+
+  func visit(_ node: TypeExtDecl) {
   }
 
   func visit(_ node: BraceStmt) {

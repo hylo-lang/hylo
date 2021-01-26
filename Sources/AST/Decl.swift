@@ -105,12 +105,12 @@ public protocol ValueDecl: TypeOrValueDecl {
 public final class PatternBindingDecl: Decl {
 
   public init(
-    isMutable: Bool,
-    pattern: Pattern,
-    typeSign: TypeRepr?,
-    initializer: Expr?,
+    isMutable       : Bool,
+    pattern         : Pattern,
+    typeSign        : TypeRepr?,
+    initializer     : Expr?,
     declKeywordRange: SourceRange,
-    range: SourceRange
+    range           : SourceRange
   ) {
     self.isMutable = isMutable
     self.pattern = pattern
@@ -148,11 +148,7 @@ public final class PatternBindingDecl: Decl {
 /// A variable declaration.
 public final class VarDecl: ValueDecl {
 
-  public init(
-    name: String,
-    type: ValType,
-    range: SourceRange
-  ) {
+  public init(name: String, type: ValType, range: SourceRange) {
     self.name = name
     self.type = type
     self.range = range
@@ -186,16 +182,18 @@ public final class VarDecl: ValueDecl {
 public class AbstractFunDecl: ValueDecl, DeclSpace {
 
   public init(
-    name: String,
-    declModifiers: [DeclModifier] = [],
-    params: [FunParamDecl] = [],
-    retTypeSign: TypeRepr? = nil,
-    body: BraceStmt? = nil,
-    type: ValType,
-    range: SourceRange
+    name          : String,
+    declModifiers : [DeclModifier]     = [],
+    genericParams : [GenericParamDecl] = [],
+    params        : [FunParamDecl]     = [],
+    retTypeSign   : TypeRepr?          = nil,
+    body          : BraceStmt?         = nil,
+    type          : ValType,
+    range         : SourceRange
   ) {
     self.name = name
     self.declModifiers = declModifiers
+    self.genericParams = genericParams
     self.params = params
     self.retTypeSign = retTypeSign
     self.body = body
@@ -218,7 +216,10 @@ public class AbstractFunDecl: ValueDecl, DeclSpace {
   /// The declaration modifiers of the function.
   ///
   /// - Note: Setting this property after initialization does not automatically updates `props`.
-  public var declModifiers: [DeclModifier] = []
+  public var declModifiers: [DeclModifier]
+
+  /// The generic type parameters of the function.
+  public var genericParams: [GenericParamDecl]
 
   /// The parameters of the function.
   public var params: [FunParamDecl]
@@ -266,13 +267,14 @@ public class AbstractFunDecl: ValueDecl, DeclSpace {
 
   /// The type and value declarations directly enclosed within the function space.
   ///
-  /// This property lists the function explicit and implicit parameters. It does **not** contain
-  /// the declarations scoped within the function's body.
+  /// The type declarations are the function's generic parameters. The value declarations are its
+  /// explicit and implicit parameters. The declarations scoped within the function's body are
+  /// **not** included in either of these sets. Those reside in a nested space.
   public var localTypeAndValueDecls: (types: [TypeDecl], values: [ValueDecl]) {
     if let selfDecl = self.selfDecl {
-      return (types: [], values: params + [selfDecl])
+      return (types: genericParams, values: params + [selfDecl])
     } else {
-      return (types: [], values: params)
+      return (types: genericParams, values: params)
     }
   }
 
@@ -352,15 +354,17 @@ public final class FunDecl: AbstractFunDecl {
 public final class CtorDecl: AbstractFunDecl {
 
   public init(
-    declModifiers: [DeclModifier] = [],
-    params: [FunParamDecl] = [],
-    body: BraceStmt? = nil,
-    type: ValType,
-    range: SourceRange
+    declModifiers : [DeclModifier]     = [],
+    genericParams : [GenericParamDecl] = [],
+    params        : [FunParamDecl]     = [],
+    body          : BraceStmt?         = nil,
+    type          : ValType,
+    range         : SourceRange
   ) {
     super.init(
       name: "new",
       declModifiers: declModifiers,
+      genericParams: genericParams,
       params: params,
       body: body,
       type: type,
@@ -378,11 +382,11 @@ public final class CtorDecl: AbstractFunDecl {
 public final class FunParamDecl: ValueDecl {
 
   public init(
-    name: String,
-    externalName: String? = nil,
-    typeSign: TypeRepr? = nil,
-    type: ValType,
-    range: SourceRange
+    name        : String,
+    externalName: String?   = nil,
+    typeSign    : TypeRepr? = nil,
+    type        : ValType,
+    range       : SourceRange
   ) {
     self.name = name
     self.externalName = externalName
@@ -418,11 +422,11 @@ public final class FunParamDecl: ValueDecl {
 public class AbstractNominalTypeDecl: TypeDecl, DeclSpace {
 
   public init(
-    name: String,
+    name        : String,
     inheritances: [UnqualTypeRepr] = [],
-    members: [Decl] = [],
-    type: ValType,
-    range: SourceRange
+    members     : [Decl]           = [],
+    type        : ValType,
+    range       : SourceRange
   ) {
     self.name = name
     self.inheritances = inheritances
@@ -443,7 +447,7 @@ public class AbstractNominalTypeDecl: TypeDecl, DeclSpace {
   /// The resolved type of the declaration.
   public unowned var type: ValType
 
-  public var parentDeclSpace: DeclSpace?
+  public weak var parentDeclSpace: DeclSpace?
 
   public var range: SourceRange
 
@@ -504,6 +508,29 @@ public final class ProductTypeDecl: AbstractNominalTypeDecl {
 public final class ViewTypeDecl: AbstractNominalTypeDecl {
 
   public override func accept<V>(_ visitor: V) -> V.Result where V: NodeVisitor {
+    return visitor.visit(self)
+  }
+
+}
+
+/// The declaration of a generic parameter.
+public final class GenericParamDecl: TypeDecl {
+
+  public init(name: String, type: ValType, range: SourceRange) {
+    self.name = name
+    self.type = type
+    self.range = range
+  }
+
+  public var name: String
+
+  public var type: ValType
+
+  public weak var parentDeclSpace: DeclSpace?
+
+  public var range: SourceRange
+
+  public func accept<V>(_ visitor: V) -> V.Result where V : NodeVisitor {
     return visitor.visit(self)
   }
 

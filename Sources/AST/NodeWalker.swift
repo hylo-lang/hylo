@@ -222,6 +222,10 @@ open class NodeWalker: NodeVisitor {
     return visit(node as AbstractNominalTypeDecl)
   }
 
+  public final func visit(_ node: GenericParamDecl) -> Bool {
+    return true
+  }
+
   public final func visit(_ node: TypeExtDecl) -> Bool {
     let prevParent = parent
     parent = node

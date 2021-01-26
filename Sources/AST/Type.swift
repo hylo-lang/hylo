@@ -72,29 +72,48 @@ public class ValType {
 
     private let value: UInt
 
+    /// Returns whether the set contains all the specified properties.
+    ///
+    /// - Parameter props: A set of properties.
     public func contains(_ props: RecursiveProps) -> Bool {
       return (value & props.value) == props.value
     }
 
     /// Returns the union of this property set with another.
+    ///
+    /// This computes the intersection of the universal properties and the union of the existential
+    /// properties that are defined in each property set.
+    ///
+    /// - Parameter other: Another property set.
     public func merged(with other: RecursiveProps) -> RecursiveProps {
-      // A type expression is canonical only if *all* sub-expressions are canonical, wheras other
+      // A type expression is canonical only if *all* sub-expressions are canonical, whereas other
       // properties are existential only.
       return RecursiveProps(
         value: ~1 & (value | other.value) | (value & other.value))
     }
 
     /// Returns this set without the given properties.
+    ///
+    /// - Parameter props: The properties to remove.
     public func removing(_ props: RecursiveProps) -> RecursiveProps {
       return RecursiveProps(value: value & ~props.value)
     }
 
     /// The type is in canonical form.
-    public static let isCanonical = RecursiveProps(value: 1 << 0)
+    public static let isCanonical   = RecursiveProps(value: 1 << 0)
 
     /// The type contains one or more type variables.
-    public static let hasVariables = RecursiveProps(value: 1 << 1)
+    public static let hasVariables  = RecursiveProps(value: 1 << 1)
 
+    /// The type contains one or more generic type parameters.
+    public static let hasTypeParams = RecursiveProps(value: 1 << 2)
+
+    /// Merges a collection of recursive properties.
+    ///
+    /// This computes the intersection of all universal properties and the union of all existential
+    /// properties, over the property sets passed as an argument.
+    ///
+    /// - Parameter collection: A collection of property sets.
     public static func merge<C>(_ collection: C) -> RecursiveProps
     where C: Collection, C.Element == RecursiveProps
     {
@@ -298,6 +317,28 @@ public final class ProductType: NominalType {
 
 /// A view type.
 public final class ViewType: NominalType {
+
+  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+    visitor.visit(self)
+  }
+
+}
+
+/// A generic parameter type.
+public final class GenericParamType: ValType {
+
+  init(context: Context, decl: TypeDecl) {
+    self.decl = decl
+    super.init(context: context, props: RecursiveProps([.isCanonical, .hasTypeParams]))
+  }
+
+  /// The declaration of this generic parameter type.
+  public unowned let decl: TypeDecl
+
+  override func isEqual(to other: ValType) -> Bool {
+    guard let that = other as? GenericParamType else { return false }
+    return self.decl === that.decl
+  }
 
   public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
     visitor.visit(self)
@@ -516,7 +557,6 @@ extension InoutType: CustomStringConvertible {
   public var description: String { "mut \(base)" }
 
 }
-
 
 /// An unresolved type.
 ///

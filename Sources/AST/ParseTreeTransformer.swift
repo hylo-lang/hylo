@@ -130,7 +130,10 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     defer { currentSpace = decl.parentDeclSpace }
 
     // Visit the remainder of the declaration.
-    if let params = ctx.paramList() {
+    if let genericClause = ctx.genericClause() {
+      decl.genericParams = genericClause.accept(self) as! [GenericParamDecl]
+    }
+    if let params = ctx.funParamList() {
       decl.params = params.accept(self) as! [FunParamDecl]
     }
     if let sign = ctx.funRetAnnot() {
@@ -159,13 +162,13 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     return decl
   }
 
-  public override func visitParamList(_ ctx: ValParser.ParamListContext) -> Any {
-    return ctx.param().map({ param in param.accept(self) as! FunParamDecl })
+  public override func visitFunParamList(_ ctx: ValParser.FunParamListContext) -> Any {
+    return ctx.funParam().map({ param in param.accept(self) as! FunParamDecl })
   }
 
-  public override func visitParam(_ ctx: ValParser.ParamContext) -> Any {
+  public override func visitFunParam(_ ctx: ValParser.FunParamContext) -> Any {
     let name = ctx.NAME()!.getText()
-    let externalName = ctx.paramExtName()?.NAME()?.getText()
+    let externalName = ctx.funParamExtName()?.NAME()?.getText()
 
     let decl = FunParamDecl(
       name: name,
@@ -174,6 +177,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
       type: unresolvedType,
       range: range(of: ctx))
     decl.type = TypeVar(context: context, node: decl)
+    decl.parentDeclSpace = currentSpace
 
     if let repr = ctx.typeRepr() {
       decl.typeSign = (repr.accept(self) as! TypeRepr)
@@ -184,6 +188,23 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
 
   public override func visitFunRetAnnot(_ ctx: ValParser.FunRetAnnotContext) -> Any {
     return ctx.typeRepr()!.accept(self)!
+  }
+
+  public override func visitGenericClause(_ ctx: ValParser.GenericClauseContext) -> Any {
+    return ctx.genericParamList()!.accept(self)!
+  }
+
+  public override func visitGenericParamList(_ ctx: ValParser.GenericParamListContext) -> Any {
+    return ctx.NAME().map({ (name) -> GenericParamDecl in
+      let decl = GenericParamDecl(
+        name: name.getText(),
+        type: unresolvedType,
+        range: range(of: name.getSymbol()!))
+      decl.parentDeclSpace = currentSpace
+      decl.type = GenericParamType(context: context, decl: decl).kind
+
+      return decl
+    })
   }
 
   public override func visitTypeDecl(_ ctx: ValParser.TypeDeclContext) -> Any {

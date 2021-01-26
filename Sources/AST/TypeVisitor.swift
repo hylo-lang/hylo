@@ -17,6 +17,8 @@ public protocol TypeVisitor {
 
   func visit(_ type: ViewType) -> Result
 
+  func visit(_ type: GenericParamType) -> Result
+
   func visit(_ type: TupleType) -> Result
 
   func visit(_ type: FunType) -> Result
