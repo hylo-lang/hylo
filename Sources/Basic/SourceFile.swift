@@ -24,8 +24,13 @@ public struct SourceFile {
 
     let contents = manager.contents(of: self)
     var lower = location
-    while lower > contents.startIndex && !contents[lower].isNewline {
-      lower = contents.index(before: lower)
+    while lower > contents.startIndex {
+      let predecessor = contents.index(before: lower)
+      if contents[predecessor].isNewline {
+        break
+      } else {
+        lower = predecessor
+      }
     }
 
     var upper = location
