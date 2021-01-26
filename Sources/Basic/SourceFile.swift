@@ -24,7 +24,7 @@ public struct SourceFile {
 
     let contents = manager.contents(of: self)
     var lower = location
-    while lower >= contents.startIndex && !contents[lower].isNewline {
+    while lower > contents.startIndex && !contents[lower].isNewline {
       lower = contents.index(before: lower)
     }
 
@@ -33,7 +33,7 @@ public struct SourceFile {
       upper = contents.index(after: upper)
     }
 
-    return contents[contents.index(after: lower) ..< upper]
+    return contents[lower ..< upper]
   }
 
   /// The 1-based line and column indices of the given location.
