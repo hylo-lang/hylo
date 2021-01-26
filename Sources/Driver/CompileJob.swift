@@ -56,8 +56,14 @@ public struct CompileJob: Job {
   }
 
   public func run(in context: Context) throws {
+    guard context.modules[moduleName] == nil else {
+      throw DriverError.moduleAlreadyLoaded(moduleName: moduleName)
+    }
+
     // Create a module.
     let module = Module(id: moduleName, context: context)
+    context.modules[moduleName] = module
+
     if isStdLib {
       precondition(context.stdlib == nil, "standard library is already loaded")
       context.stdlib = module
