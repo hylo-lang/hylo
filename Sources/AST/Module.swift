@@ -43,18 +43,12 @@ public final class Module: DeclSpace {
     // Search for extensions defined for the computed qualified name.
     var matches: [TypeExtDecl] = []
     stmt:for case let ext as TypeExtDecl in statements {
-      if (names.count == 1) {
-        if (ext.extendedIdent as? UnqualTypeRepr)?.name == names[0] {
-          matches.append(ext)
-        }
-      } else {
-        guard let compound = ext.extendedIdent as? CompoundTypeRepr else { continue }
-        guard compound.components.count == names.count else { continue }
-        for i in 0 ..< compound.components.count {
-          guard compound.components[i].name == names[names.count - i - 1] else { continue stmt }
-        }
-        matches.append(ext)
+      let components = ext.extendedIdent.components
+      guard components.count == names.count else { continue }
+      for i in 0 ..< components.count {
+        guard components[i].name == names[names.count - i - 1] else { continue stmt }
       }
+      matches.append(ext)
     }
 
     return matches

@@ -156,39 +156,32 @@ public final class NameBinder: NodeWalker, AST.Pass {
 
     // Note that type representations are resolved in `willVisit` instead of `didVisit`. This is
     // because we need to resolve each element of a `CompoundTypeRepr` to resolve the next one.
-    switch typeRepr {
-    case let ref as UnqualTypeRepr:
-      let matches = resolveUnqualTypeDecl(named: ref.name, at: ref.range)
-
-      // FIXME: Handle overloaded type decls.
-      if let typeDecl = matches.first {
-        ref.type = typeDecl.instanceType
-      }
-      return (false, ref)
-
-    case let ref as CompoundTypeRepr:
-      let base = ref.components[0]
+    if let ref = typeRepr as? IdentTypeRepr {
+      let components = ref.components
+      let base = components[0]
       var matches = resolveUnqualTypeDecl(named: base.name, at: base.range)
 
       // FIXME: Handle overloaded type decls.
       guard var typeDecl = matches.first else { return (false, ref) }
       base.type = typeDecl.instanceType
 
+      guard components.count > 1 else { return (false, ref) }
+
       // Handle built-ins.
       if typeDecl === context.builtin {
-        guard let builtinType = context.getBuiltinType(named: ref.components[1].name) else {
+        guard let builtinType = context.getBuiltinType(named: components[1].name) else {
           context.report(
-            .cannotFind(bultinName: ref.components[1].name, range: ref.components[1].range))
+            .cannotFind(bultinName: components[1].name, range: components[1].range))
           return (false, ref)
         }
-        if ref.components.count > 2 {
-          context.report(.builtinTypesAreNotNamespaces(range: ref.components[1].range))
+        if components.count > 2 {
+          context.report(.builtinTypesAreNotNamespaces(range: components[1].range))
         }
         return (false, BuiltinTypeRepr(type: builtinType, range: ref.range))
       }
 
       // Resolve each sub-sequent component with qualified lookups.
-      for comp in ref.components[1...] {
+      for comp in components[1...] {
         matches = resolveTypeDecl(named: comp.name, qualifiedIn: typeDecl, at: comp.range)
         guard let nextTypeDecl = matches.first else { break }
         comp.type = nextTypeDecl.instanceType
@@ -197,10 +190,9 @@ public final class NameBinder: NodeWalker, AST.Pass {
 
       // Children have been visited explicity, there's no need to walk them.
       return (false, ref)
-
-    default:
-      return (true, typeRepr)
     }
+
+    return (true, typeRepr)
   }
 
   private func resolveUnqualTypeOrValueDecl(

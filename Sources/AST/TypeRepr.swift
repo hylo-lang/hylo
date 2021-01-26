@@ -33,6 +33,9 @@ public final class BuiltinTypeRepr: TypeRepr {
 /// This protocol abstracts over unqualified and compound type identifiers.
 public protocol IdentTypeRepr: TypeRepr {
 
+  /// The components of the identifier.
+  var components: [UnqualTypeRepr] { get }
+
   /// The last component of the identifier.
   var lastComponent: UnqualTypeRepr { get }
 
@@ -71,6 +74,8 @@ public final class UnqualTypeRepr: IdentTypeRepr {
 
   /// The type referred by the identifier.
   public var type: ValType
+
+  public var components: [UnqualTypeRepr] { [self] }
 
   public var lastComponent: UnqualTypeRepr { self }
 
