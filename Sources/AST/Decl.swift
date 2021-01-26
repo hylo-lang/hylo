@@ -199,12 +199,14 @@ public class AbstractFunDecl: ValueDecl, DeclSpace {
       fatalError("unreachable")
     }
 
-    return FunParamDecl(
+    let decl = FunParamDecl(
       name: "self", externalName: "self",
       type: props.contains(.isMutating)
         ? type.context.inoutType(of: selfType)
         : selfType,
       range: .invalid)
+    decl.parentDeclSpace = self
+    return decl
   }()
 
   /// The body of the function.
