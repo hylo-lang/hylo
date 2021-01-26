@@ -29,7 +29,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
   public override func visitFile(_ ctx: ValParser.FileContext) -> Any {
     var stmts: [Node] = []
     expand(decls: ctx.statement(), into: &stmts)
-    module?.statements = stmts
+    module?.statements.append(contentsOf: stmts)
     return stmts
   }
 
