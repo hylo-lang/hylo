@@ -83,7 +83,7 @@ fileprivate struct ConstraintVisitor: NodeVisitor {
       if let initExpr = node.initializer {
         gen.system.insert(
           SubtypingConstraint(node.pattern.type, isSubtypeOf: initExpr.type,
-                              at: ConstraintLocator(node, .initializer)))
+                              at: ConstraintLocator(node, .assignment)))
       }
       return
     }
@@ -120,7 +120,8 @@ fileprivate struct ConstraintVisitor: NodeVisitor {
     // The extracted signature always correspond to applied function type, since the self parameter
     // is defined implicitly.
     gen.system.insert(
-      EqualityConstraint(node.type, isEqualTo: funSignType, at: ConstraintLocator(node, .annotation)))
+      EqualityConstraint(node.type, isEqualTo: funSignType,
+                         at: ConstraintLocator(node, .annotation)))
   }
 
   func visit(_ node: FunDecl) {
@@ -135,7 +136,8 @@ fileprivate struct ConstraintVisitor: NodeVisitor {
     // If the pattern has a signature, then we use it as the authoritative type information.
     if let sign = node.typeSign {
       gen.system.insert(
-        EqualityConstraint(node.type, isEqualTo: sign.type, at: ConstraintLocator(node, .application)))
+        EqualityConstraint(node.type, isEqualTo: sign.type,
+                           at: ConstraintLocator(node, .application)))
     }
   }
 
@@ -161,7 +163,7 @@ fileprivate struct ConstraintVisitor: NodeVisitor {
     let valType = node.value?.type ?? gen.context.unitType
     gen.system.insert(
       SubtypingConstraint(valType, isSubtypeOf: funType.retType,
-                          at: ConstraintLocator(node, .returnType)))
+                          at: ConstraintLocator(node, .returnValue)))
   }
 
   func visit(_ node: IntLiteralExpr) {

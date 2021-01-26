@@ -15,9 +15,17 @@ public struct Diagnostic {
   ///
   /// - Parameters:
   ///   - message: The message of the diagnostic.
-  public init(_ message: String, level: Level = .error) {
+  ///   - level: The severity of the diagnostic.
+  ///   - anchor: A source range related to the diagnostic. If assigned, the diagnostic is anchored
+  ///     at the range's start location.
+  public init(_ message: String, level: Level = .error, anchor: SourceRange? = nil) {
     self.message = message
     self.level = level
+
+    if let range = anchor {
+      reportLocation = range.lowerBound
+      ranges = [range]
+    }
   }
 
   /// The message of the diagnostic.

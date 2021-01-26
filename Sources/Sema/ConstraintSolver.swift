@@ -313,7 +313,7 @@ struct ConstraintSolver {
   }
 
   private mutating func checkTupleCompatibility(
-    _ lhs: TupleType, _ rhs: TupleType, for constraint: Constraint
+    _ lhs: TupleType, _ rhs: TupleType, for constraint: RelationalConstraint
   ) {
     guard lhs.elems.count == rhs.elems.count else {
       errors.append(.conflictingTypes(constraint))

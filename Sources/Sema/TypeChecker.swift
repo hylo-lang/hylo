@@ -28,10 +28,8 @@ public final class TypeChecker: AST.Pass {
     let generator = ConstraintGenerator(context: context)
     _ = generator.visit(module)
 
+    // Sort the constraint system so that simpler constraints appear first.
     generator.system.sort()
-    for constraint in generator.system.freshConstraints {
-      print(constraint)
-    }
 
     // Solve the constraint system.
     var solver = ConstraintSolver(
@@ -42,12 +40,12 @@ public final class TypeChecker: AST.Pass {
       context: context)
     let solution = solver.solve()
 
-    for error in solution.errors {
-      print(error)
-    }
+    // Report type errors.
+    let reifier = TypeReifier(substitutions: solution.assumptions.flattened())
+    let reporter = TypeErrorReporter(context: context, reifier: reifier)
+    reporter.report(solution.errors)
 
     // Apply the solution.
-    let reifier = TypeReifier(substitutions: solution.assumptions.flattened())
     let dispatcher = TypeDispatcher(reifier: reifier)
     _ = dispatcher.visit(module)
   }
