@@ -8,6 +8,58 @@ public protocol Decl: Node {
 
 }
 
+extension Decl {
+
+  /// A debug identifier for the declaration.
+  public var debugID: String {
+    var components: [String] = []
+    var next: Decl? = self
+
+    outer:while let node = next {
+      switch node {
+      case let delc as Module:
+        components.append(delc.name)
+
+      case let decl as VarDecl:
+        components.append(decl.name)
+
+      case let decl as FunParamDecl:
+        components.append(decl.name)
+
+      case let decl as AbstractFunDecl:
+        let sign = decl.params.map({ ($0.externalName ?? "_") + ":" }).joined()
+        let name = decl.name.isEmpty ? "_" : decl.name
+        components.append("\(name)(\(sign))")
+
+      case let decl as AbstractNominalTypeDecl:
+        components.append(decl.name)
+
+      case let decl as TypeExtDecl:
+        components.append(contentsOf: decl.extendedIdent.components.map({ $0.name }))
+        break
+
+      default:
+        let id = String(Int(bitPattern: ObjectIdentifier(node)), radix: 36)
+        components.append("\(type(of: node))@\(id)")
+      }
+
+      var parent = node.parentDeclSpace
+      while parent != nil {
+        if let decl = parent! as? Decl {
+          next = decl
+          continue outer
+        } else {
+          parent = parent!.parentDeclSpace
+        }
+      }
+      break
+    }
+
+    return components.reversed().joined(separator: "::")
+  }
+
+}
+
 /// A type or a value declaration.
 public protocol TypeOrValueDecl: Decl {
 

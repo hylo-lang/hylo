@@ -45,6 +45,10 @@ public struct NodePrinter: NodeVisitor {
     return "\"" + String(Int(bitPattern: identifier), radix: 36) + "\""
   }
 
+  func encode(referenceTo decl: Decl) -> String {
+    return "\"" + decl.debugID + "\""
+  }
+
   func encode(_ range: SourceRange) -> String {
     guard let sf = context.sourceManager.source(containing: range.lowerBound) else {
       return "null"
@@ -302,7 +306,7 @@ public struct NodePrinter: NodeVisitor {
 
   public func visit(_ node: OverloadedDeclRefExpr) -> String {
     let declSet = node.declSet
-      .map({ encode(ObjectIdentifier($0)) })
+      .map(encode(referenceTo:))
       .joined(separator: ", ")
 
     return """
@@ -317,7 +321,7 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(exprHeader(node)),
-    "decl"            : \(encode(ObjectIdentifier(node.decl)))
+    "decl"            : \(encode(referenceTo: node.decl))
     }
     """
   }
@@ -326,7 +330,7 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(exprHeader(node)),
-    "decl"            : \(encode(ObjectIdentifier(node.decl)))
+    "decl"            : \(encode(referenceTo: node.decl))
     }
     """
   }
@@ -346,7 +350,7 @@ public struct NodePrinter: NodeVisitor {
     {
     \(exprHeader(node)),
     "base"            : \(node.base.accept(self)),
-    "decl"            : \(encode(ObjectIdentifier(node.decl)))
+    "decl"            : \(encode(referenceTo: node.decl))
     }
     """
   }
