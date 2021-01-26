@@ -1,6 +1,6 @@
 view ExpressibleByBuiltinIntLiteral {
 
-  new (literal: Builtin::i64)
+  new (literal: Builtin::IntLiteral)
 
 }
 
@@ -10,7 +10,7 @@ type Int: ExpressibleByBuiltinIntLiteral {
     self.value = 0
   }
 
-  new (literal value: Builtin::i64) {
+  new (literal value: Builtin::IntLiteral) {
     self.value = value
   }
 

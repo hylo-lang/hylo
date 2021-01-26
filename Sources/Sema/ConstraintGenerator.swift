@@ -78,12 +78,12 @@ fileprivate struct ConstraintVisitor: NodeVisitor {
     // constrain the initializer with a subtyping relation.
     if let sign = node.typeSign {
       gen.system.insert(
-        EqualityCons(node.pattern.type, isEqualTo: sign.type,
-                     at: ConstraintLocator(node, .annotation)))
+        EqualityConstraint(node.pattern.type, isEqualTo: sign.type,
+                           at: ConstraintLocator(node, .annotation)))
       if let initExpr = node.initializer {
         gen.system.insert(
-          SubtypingCons(node.pattern.type, isSubtypeOf: initExpr.type,
-                        at: ConstraintLocator(node, .initializer)))
+          SubtypingConstraint(node.pattern.type, isSubtypeOf: initExpr.type,
+                              at: ConstraintLocator(node, .initializer)))
       }
       return
     }
@@ -91,8 +91,8 @@ fileprivate struct ConstraintVisitor: NodeVisitor {
     // If the pattern has no signature, then we infer it from its initializer.
     if let initExpr = node.initializer {
       gen.system.insert(
-        EqualityCons(node.pattern.type, isEqualTo: initExpr.type,
-                     at: ConstraintLocator(node, .annotation)))
+        EqualityConstraint(node.pattern.type, isEqualTo: initExpr.type,
+                           at: ConstraintLocator(node, .annotation)))
     }
   }
 
@@ -120,7 +120,7 @@ fileprivate struct ConstraintVisitor: NodeVisitor {
     // The extracted signature always correspond to applied function type, since the self parameter
     // is defined implicitly.
     gen.system.insert(
-      EqualityCons(node.type, isEqualTo: funSignType, at: ConstraintLocator(node, .annotation)))
+      EqualityConstraint(node.type, isEqualTo: funSignType, at: ConstraintLocator(node, .annotation)))
   }
 
   func visit(_ node: FunDecl) {
@@ -135,7 +135,7 @@ fileprivate struct ConstraintVisitor: NodeVisitor {
     // If the pattern has a signature, then we use it as the authoritative type information.
     if let sign = node.typeSign {
       gen.system.insert(
-        EqualityCons(node.type, isEqualTo: sign.type, at: ConstraintLocator(node, .application)))
+        EqualityConstraint(node.type, isEqualTo: sign.type, at: ConstraintLocator(node, .application)))
     }
   }
 
@@ -160,8 +160,8 @@ fileprivate struct ConstraintVisitor: NodeVisitor {
 
     let valType = node.value?.type ?? gen.context.unitType
     gen.system.insert(
-      SubtypingCons(valType, isSubtypeOf: funType.retType,
-                    at: ConstraintLocator(node, .returnType)))
+      SubtypingConstraint(valType, isSubtypeOf: funType.retType,
+                          at: ConstraintLocator(node, .returnType)))
   }
 
   func visit(_ node: IntLiteralExpr) {
@@ -172,14 +172,14 @@ fileprivate struct ConstraintVisitor: NodeVisitor {
 
     // Create new constraints.
     gen.system.insert(
-      ConformanceCons(node.type, conformsTo: viewTypeDecl.instanceType as! ViewType,
-                      at: ConstraintLocator(node)))
+      ConformanceConstraint(node.type, conformsTo: viewTypeDecl.instanceType as! ViewType,
+                            at: ConstraintLocator(node)))
   }
 
   func visit(_ node: AssignExpr) -> Void {
     gen.system.insert(
-      SubtypingCons(node.rvalue.type, isSubtypeOf: node.lvalue.type,
-                    at: ConstraintLocator(node, .assignment)))
+      SubtypingConstraint(node.rvalue.type, isSubtypeOf: node.lvalue.type,
+                          at: ConstraintLocator(node, .assignment)))
   }
 
   func visit(_ node: CallExpr) {
@@ -189,8 +189,8 @@ fileprivate struct ConstraintVisitor: NodeVisitor {
       // The subtyping constraint handle cases where the argument is a subtype of the parameter.
       let paramType = TypeVar(context: gen.context, node: arg.value)
       gen.system.insert(
-        SubtypingCons(arg.value.type, isSubtypeOf: paramType,
-                      at: ConstraintLocator(node, .application)))
+        SubtypingConstraint(arg.value.type, isSubtypeOf: paramType,
+                            at: ConstraintLocator(node, .application)))
       paramTypeElems.append(TupleType.Elem(label: arg.label, type: paramType))
     }
 
@@ -198,7 +198,7 @@ fileprivate struct ConstraintVisitor: NodeVisitor {
       paramType: gen.context.tupleType(paramTypeElems),
       retType: node.type)
     gen.system.insert(
-      EqualityCons(node.fun.type, isEqualTo: funType, at: ConstraintLocator(node.fun)))
+      EqualityConstraint(node.fun.type, isEqualTo: funType, at: ConstraintLocator(node.fun)))
   }
 
   func visit(_ node: UnresolvedDeclRefExpr) {
@@ -206,8 +206,8 @@ fileprivate struct ConstraintVisitor: NodeVisitor {
 
   func visit(_ node: UnresolvedMemberExpr) {
     gen.system.insert(
-      ValueMemberCons(node.base.type, hasValueMember: node.memberName, ofType: node.type,
-                      at: ConstraintLocator(node, .valueMember(node.memberName))))
+      ValueMemberConstraint(node.base.type, hasValueMember: node.memberName, ofType: node.type,
+                            at: ConstraintLocator(node, .valueMember(node.memberName))))
   }
 
   func visit(_ node: QualDeclRefExpr) {
@@ -216,7 +216,8 @@ fileprivate struct ConstraintVisitor: NodeVisitor {
   func visit(_ node: OverloadedDeclRefExpr) {
     precondition(node.declSet.count >= 1)
     gen.system.insertDisjuncConf(disjunctionOfConstraintsWithWeights: node.declSet.map({ decl in
-      let constraint = EqualityCons(node.type, isEqualTo: decl.type, at: ConstraintLocator(node))
+      let constraint = EqualityConstraint(node.type, isEqualTo: decl.type,
+                                          at: ConstraintLocator(node))
       return (constraint, 0)
     }))
   }

@@ -49,11 +49,12 @@ struct ConstraintSolver {
 
       // Attempt to solve the next constraint.
       switch constraint {
-      case let c as EqualityCons    : solve(c)
-      case let c as SubtypingCons   : solve(c)
-      case let c as ConformanceCons : solve(c)
-      case let c as ValueMemberCons : solve(c)
-      case let c as DisjunctionCons : return solve(c)
+      case let c as EqualityConstraint    : solve(c)
+      case let c as SubtypingConstraint   : solve(c)
+      case let c as ConversionConstraint  : solve(c)
+      case let c as ConformanceConstraint : solve(c)
+      case let c as ValueMemberConstraint : solve(c)
+      case let c as DisjunctionConstraint : return solve(c)
       default:
         fatalError("unreachable")
       }
@@ -62,10 +63,10 @@ struct ConstraintSolver {
     return Solution(assumptions: assumptions, penalities: penalities, errors: errors)
   }
 
-  private mutating func solve(_ constraint: EqualityCons) {
+  private mutating func solve(_ constraint: EqualityConstraint) {
     // Retrieves the current assumptions for both types.
-    let lhs = assumptions[constraint.first]
-    let rhs = assumptions[constraint.second]
+    let lhs = assumptions[constraint.lhs]
+    let rhs = assumptions[constraint.rhs]
 
     // If the types are obviously equivalent, we're done.
     if lhs == rhs { return }
@@ -84,36 +85,36 @@ struct ConstraintSolver {
       checkTupleCompatibility(lhs, rhs, for: constraint)
       for (i, elems) in zip(lhs.elems, rhs.elems).enumerated() {
         system.insert(
-          EqualityCons(elems.0.type, isEqualTo: elems.1.type,
-                       at: constraint.locator?.appending(.typeTupleElem(i))))
+          EqualityConstraint(elems.0.type, isEqualTo: elems.1.type,
+                             at: constraint.locator?.appending(.typeTupleElem(i))))
       }
 
     case (let lhs as TupleType, _) where lhs.elems.count == 1:
       system.insert(
-        EqualityCons(lhs.elems[0].type, isEqualTo: rhs, at: constraint.locator))
+        EqualityConstraint(lhs.elems[0].type, isEqualTo: rhs, at: constraint.locator))
 
     case (_, let rhs as TupleType) where rhs.elems.count == 1:
       system.insert(
-        EqualityCons(rhs.elems[0].type, isEqualTo: rhs, at: constraint.locator))
+        EqualityConstraint(rhs.elems[0].type, isEqualTo: rhs, at: constraint.locator))
 
     case (let lhs as FunType, let rhs as FunType):
       // Break the constraint.
       system.insert(
-        EqualityCons(lhs.paramType, isEqualTo: rhs.paramType,
-                     at: constraint.locator?.appending(.parameter)))
+        EqualityConstraint(lhs.paramType, isEqualTo: rhs.paramType,
+                           at: constraint.locator?.appending(.parameter)))
       system.insert(
-        EqualityCons(lhs.retType, isEqualTo: rhs.retType,
-                     at: constraint.locator?.appending(.returnType)))
+        EqualityConstraint(lhs.retType, isEqualTo: rhs.retType,
+                           at: constraint.locator?.appending(.returnType)))
 
     default:
       errors.append(.conflictingTypes(constraint))
     }
   }
 
-  private mutating func solve(_ constraint: SubtypingCons) {
+  private mutating func solve(_ constraint: SubtypingConstraint) {
     // Retrieves the current assumptions for both types.
-    let lhs = assumptions[constraint.first]
-    let rhs = assumptions[constraint.second]
+    let lhs = assumptions[constraint.lhs]
+    let rhs = assumptions[constraint.rhs]
 
     // If the types are obviously equivalent, we're done.
     if lhs == rhs { return }
@@ -124,48 +125,79 @@ struct ConstraintSolver {
       // We can't solve anything yet if both types are still unknown.
       system.staleConstraints.append(constraint)
 
-    case (_ as TypeVar, _):
+    case is (TypeVar, ValType):
       // The type variable is below a more concrete type. We should compute the "meet" of all types
-      // convertible to `U` and that are above `T`. Since we can't enumerate this set, we have to
+      // coercible to `U` and that are above `T`. Since we can't enumerate this set, we have to
       // make an educated guess about `T`.
-      system.insert(EqualityCons(strengthening: constraint))
+      solve(EqualityConstraint(lhs, isEqualTo: rhs, at: constraint.locator))
 
-      // FIXME: Try to proceed with a stale version of the constraint to handle cases in which a
-      // tigher constraint on `T` is discovered later.
+      // FIXME: The above strategy will fail to handle cases where `T` is more trightly constrained
+      // by another constraint that we haven't solved yet. One strategy to handle this case might
+      // be to fork the system with a "strict subtyping" constraint. Should it succeed, it will get
+      // a better score that the current solution.
 
-    case (_, _ as TypeVar):
+    case is (ValType, TypeVar):
       // The type variable is above a more concrete type. We should compute the "join" of all types
-      // to which `T` is convertible and that are below `U`.
-      let alternatives: [Constraint] = [
-        // FIXME: Add the views to which `T` conforms.
-        EqualityCons(strengthening: constraint),
-      ]
-      system.insert(disjunction: alternatives)
+      // to which `T` is coercible and that are below `U`.
+      var guesses: [Constraint] = [EqualityConstraint(lhs, isEqualTo: rhs, at: constraint.locator)]
+
+      // If `T` is a nominal type, add all views to which it conforms to the set of guesses.
+      if let nominal = lhs as? NominalType {
+        // FIXME: Should we make sure we don't accidentally load conformances that come from a
+        // a non-imported module if this is type-checked?
+        guesses.append(contentsOf: nominal.decl.conformances.map({ conf in
+          EqualityConstraint(conf.viewDecl.instanceType, isEqualTo: rhs, at: constraint.locator)
+        }))
+      }
+      system.insert(disjunction: guesses)
 
     case (let lhs as FunType, let rhs as FunType):
-      // Break the constraint.
+      // Break the constraint. Parameters are contravariants, return types are covariants.
       system.insert(
-        EqualityCons(lhs.paramType, isEqualTo: rhs.paramType,
-                     at: constraint.locator?.appending(.parameter)))
-
-      // Codomains are contravariant!
+        SubtypingConstraint(rhs.paramType, isSubtypeOf: lhs.paramType,
+                           at: constraint.locator?.appending(.parameter)))
       system.insert(
-        SubtypingCons(rhs.retType, isSubtypeOf: lhs.retType,
-                      at: constraint.locator?.appending(.returnType)))
+        SubtypingConstraint(lhs.retType, isSubtypeOf: rhs.retType,
+                            at: constraint.locator?.appending(.returnType)))
 
-    case is (BuiltinIntLiteralType, BuiltinType):
-      // FIXME: The relation `BuiltinIntLiteralType ≤ BuiltinType` should be solved as a different
-      // kind of constraint. Maybe a "built-in conversion".
-      break
+    case is (BuiltinIntLiteralType, ValType):
+      // A constraint of the form `BuiltinIntLiteralType ≤ T` might be solved by conversion.
+      solve(ConversionConstraint(rhs, convertsTo: lhs, at: constraint.locator))
 
     default:
       errors.append(.conflictingTypes(constraint))
     }
   }
 
-  private mutating func solve(_ constraint: ConformanceCons) {
+  private mutating func solve(_ constraint: ConversionConstraint) {
+    // Retrieves the current assumptions for both types.
+    let lhs = assumptions[constraint.lhs]
+    let rhs = assumptions[constraint.rhs]
+
+    // If the types are obviously equivalent, we're done.
+    if lhs == rhs { return }
+
+    switch rhs {
+    case is TypeVar:
+      // We can't solve anything yet if the result of the conversionis still unknown.
+      system.staleConstraints.append(constraint)
+
+    case is BuiltinIntLiteralType:
+      precondition(context.stdlib != nil, "standard library is not loaded")
+      let view = context.getTypeDecl(for: .ExpressibleByBuiltinIntLiteral)!.instanceType
+      solve(ConformanceConstraint(lhs, conformsTo: view as! ViewType, at: constraint.locator))
+
+    default:
+      solve(SubtypingConstraint(lhs, isSubtypeOf: rhs, at: constraint.locator))
+    }
+  }
+
+  private mutating func solve(_ constraint: ConformanceConstraint) {
     let type = assumptions[constraint.type]
     let view = constraint.view
+
+    // If the types are obviously equivalent, we're done.
+    if type == view { return }
 
     switch type {
     case let tau as TypeVar:
@@ -173,7 +205,7 @@ struct ConstraintSolver {
       // case fall back to the associated default.
       if view.decl === context.getTypeDecl(for: .ExpressibleByBuiltinIntLiteral) {
         let defaultType = context.getTypeDecl(for: .Int)!.instanceType
-        solve(EqualityCons(tau, isEqualTo: defaultType, at: constraint.locator))
+        solve(EqualityConstraint(tau, isEqualTo: defaultType, at: constraint.locator))
       } else {
         system.staleConstraints.append(constraint)
       }
@@ -184,20 +216,20 @@ struct ConstraintSolver {
         errors.append(.nonConformingType(constraint))
       }
 
-    case /*is BuiltinIntLiteralType,*/ is BuiltinIntType:
+    case is BuiltinIntType:
       if view.decl !== context.getTypeDecl(for: .ExpressibleByBuiltinIntLiteral) {
         errors.append(.nonConformingType(constraint))
       }
 
     default:
       // FIXME: Handle structural view conformance.
-      solve(SubtypingCons(type, isSubtypeOf: view, at: constraint.locator))
+      solve(SubtypingConstraint(type, isSubtypeOf: view, at: constraint.locator))
     }
   }
 
-  private mutating func solve(_ constraint: ValueMemberCons) {
+  private mutating func solve(_ constraint: ValueMemberConstraint) {
     // We can't solve anything yet if `T` is still unknown.
-    var baseType = assumptions[constraint.first]
+    var baseType = assumptions[constraint.lhs]
     guard !(baseType is TypeVar) else {
       system.staleConstraints.append(constraint)
       return
@@ -214,8 +246,8 @@ struct ConstraintSolver {
     if let builtinType = baseType as? BuiltinType,
        constraint.memberName == InfixOperator.copy.rawValue
     {
-      solve(EqualityCons(
-              context.getBuiltinAssignOperatorType(builtinType), isEqualTo: constraint.second,
+      solve(EqualityConstraint(
+              context.getBuiltinAssignOperatorType(builtinType), isEqualTo: constraint.rhs,
               at: constraint.locator?.appending(.valueMember(constraint.memberName))))
       return
     }
@@ -238,13 +270,13 @@ struct ConstraintSolver {
     var choices: [Constraint] = []
     for decl in decls {
       choices.append(
-        EqualityCons(decl.type, isEqualTo: constraint.second,
-                     at: constraint.locator?.appending(.valueMember(constraint.memberName))))
+        EqualityConstraint(decl.type, isEqualTo: constraint.rhs,
+                           at: constraint.locator?.appending(.valueMember(constraint.memberName))))
     }
     system.insert(disjunction: choices)
   }
 
-  public mutating func solve(_ constraint: DisjunctionCons) -> Solution {
+  public mutating func solve(_ constraint: DisjunctionConstraint) -> Solution {
     precondition(!constraint.elements.isEmpty)
 
     var solutions: [Solution] = []

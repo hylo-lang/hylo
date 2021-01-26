@@ -6,7 +6,7 @@ public struct ConformanceLookupTable {
   public init() {
   }
 
-  private var conformances: [ViewConformance] = []
+  var conformances: [ViewConformance] = []
 
   @discardableResult
   public mutating func insert(
@@ -24,28 +24,6 @@ public struct ConformanceLookupTable {
 
   public subscript(viewType: ViewType) -> ViewConformance? {
     return conformances.first(where: { $0.viewDecl === viewType.decl })
-  }
-
-}
-
-extension ConformanceLookupTable: Collection {
-
-  public typealias Element = ViewConformance
-
-  public var startIndex: Int {
-    return conformances.startIndex
-  }
-
-  public var endIndex: Int {
-    return conformances.endIndex
-  }
-
-  public func index(after i: Int) -> Int {
-    return i + 1
-  }
-
-  public subscript(position: Int) -> ViewConformance {
-    return conformances[position]
   }
 
 }

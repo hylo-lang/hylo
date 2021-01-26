@@ -53,7 +53,7 @@ struct ConstraintSystem {
       return choices[0].0
     }
 
-    let cons = DisjunctionCons(choices)
+    let cons = DisjunctionConstraint(choices)
     freshConstraints.append(cons)
     return cons
   }

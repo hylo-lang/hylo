@@ -16,7 +16,7 @@ let package = Package(
       name: "AST",
       dependencies: ["Basic", "Parser"],
       resources: [
-        .copy("Builtin.json"),
+        .copy("Builtins.json"),
       ]),
 
     .target(name: "Basic"),

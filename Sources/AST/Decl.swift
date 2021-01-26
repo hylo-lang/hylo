@@ -429,6 +429,12 @@ public class AbstractNominalTypeDecl: TypeDecl, DeclSpace {
     return conformanceTable![viewType]
   }
 
+  /// The set of conformances for this type.
+  public var conformances: [ViewConformance] {
+    updateConformanceTable()
+    return conformanceTable!.conformances
+  }
+
 }
 
 /// A product type declaration.
