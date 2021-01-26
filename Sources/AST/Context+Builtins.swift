@@ -4,7 +4,7 @@ extension Context {
 
   func loadBuiltinDecls() {
     guard
-      let url = Bundle.module.url(forResource: "Builtin", withExtension: "json"),
+      let url = Bundle.module.url(forResource: "Builtins", withExtension: "json"),
       let config = try? JSONDecoder().decode(BuiltinConfig.self, from: Data(contentsOf: url))
     else {
       preconditionFailure("I coudn't load builtin definitions")

@@ -194,13 +194,28 @@ extension BuiltinType: CustomStringConvertible {
 
 }
 
+/// A built-in integer  literal type.
+///
+/// This is the type of an integer literal expression.
+public final class BuiltinIntLiteralType: BuiltinType {
+
+  init(context: Context) {
+    super.init(context: context, name: "IntLiteral")
+  }
+
+  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+    visitor.visit(self)
+  }
+
+}
+
 /// A built-in integer type.
 ///
-/// Built-in integer types corresponds directly to the target's integer types. They can be of
-/// arbitrary bitwidth and do not specify signedness.
+/// Built-in integer types corresponds directly to the target's integer types. They can be of any
+/// bitwidth and do not specify signedness.
 ///
-/// They do *not* correspond to Val's `Int` and friends. These are actual Val types, defined in the
-/// standard library, which wrap a built-in integer type.
+/// This type does *not* correspond to Val's `Int`. The latter is an actual Val type, defined in
+/// the standard library, which wrap a built-in integer type.
 public final class BuiltinIntType: BuiltinType {
 
   init(context: Context, name: String, bitWidth: Int) {
@@ -220,7 +235,7 @@ public final class BuiltinIntType: BuiltinType {
 /// The type of a module.
 ///
 /// This is the type given to a module value, typically given to the base of a qualified identifier
-/// (e.g., `Builtin` in `Builtin::Int32`).
+/// (e.g., `Builtin` in `Builtin::i32`).
 public final class ModuleType: ValType {
 
   init(context: Context, module: Module) {

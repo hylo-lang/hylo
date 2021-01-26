@@ -153,6 +153,11 @@ struct ConstraintSolver {
         SubtypingCons(rhs.retType, isSubtypeOf: lhs.retType,
                       at: constraint.locator?.appending(.returnType)))
 
+    case is (BuiltinIntLiteralType, BuiltinType):
+      // FIXME: The relation `BuiltinIntLiteralType ≤ BuiltinType` should be solved as a different
+      // kind of constraint. Maybe a "built-in conversion".
+      break
+
     default:
       errors.append(.conflictingTypes(constraint))
     }
@@ -179,7 +184,7 @@ struct ConstraintSolver {
         errors.append(.nonConformingType(constraint))
       }
 
-    case is BuiltinIntType:
+    case /*is BuiltinIntLiteralType,*/ is BuiltinIntType:
       if view.decl !== context.getTypeDecl(for: .ExpressibleByBuiltinIntLiteral) {
         errors.append(.nonConformingType(constraint))
       }

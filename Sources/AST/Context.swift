@@ -104,6 +104,12 @@ public final class Context {
       return type
     }
 
+    if name == "IntLiteral" {
+      let type = BuiltinIntLiteralType(context: self)
+      builtinTypes[name] = type
+      return type
+    }
+
     if name.starts(with: "i") {
       if let bitWidth = Int(name.dropFirst()), (bitWidth > 0) && (bitWidth <= 64) {
         let type = BuiltinIntType(context: self, name: name, bitWidth: bitWidth)

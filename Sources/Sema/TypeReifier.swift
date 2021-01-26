@@ -18,6 +18,10 @@ final class TypeReifier: TypeVisitor {
     return type
   }
 
+  func visit(_ type: BuiltinIntLiteralType) -> ValType {
+    return type
+  }
+
   func visit(_ type: BuiltinIntType) -> ValType {
     return type
   }
