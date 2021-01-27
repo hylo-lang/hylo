@@ -20,7 +20,7 @@ public class ValType {
   /// The kind of the type.
   public var kind: KindType { context.kindType(type: self) }
 
-  /// The canonical version of the type, where all sugars have been stripped off.
+  /// The canonical form of the type, where all sugars have been stripped off.
   public var canonical: ValType { self }
 
   /// The set of variables occurring free in this type.
@@ -150,7 +150,7 @@ public final class KindType: ValType {
   public override var canonical: ValType {
     return props.contains(.isCanonical)
       ? self
-      : type.canonical
+      : type.canonical.kind
   }
 
   public override var variables: Set<TypeVar> {
@@ -297,6 +297,10 @@ public class NominalType: ValType {
     return self.decl === that.decl
   }
 
+  override func hash(into hasher: inout Hasher) {
+    hasher.combine(ObjectIdentifier(decl))
+  }
+
 }
 
 extension NominalType: CustomStringConvertible {
@@ -304,7 +308,6 @@ extension NominalType: CustomStringConvertible {
   public var description: String { decl.name }
 
 }
-
 
 /// A product type, representing a collection of labeled value members.
 public final class ProductType: NominalType {
@@ -327,17 +330,40 @@ public final class ViewType: NominalType {
 /// A generic parameter type.
 public final class GenericParamType: ValType {
 
-  init(context: Context, decl: TypeDecl) {
+  init(context: Context, decl: GenericParamDecl) {
     self.decl = decl
     super.init(context: context, props: RecursiveProps([.isCanonical, .hasTypeParams]))
   }
 
   /// The declaration of this generic parameter type.
-  public unowned let decl: TypeDecl
+  public unowned let decl: GenericParamDecl
 
   override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? GenericParamType else { return false }
     return self.decl === that.decl
+  }
+
+  override func hash(into hasher: inout Hasher) {
+    hasher.combine(ObjectIdentifier(decl))
+  }
+
+  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+    visitor.visit(self)
+  }
+
+}
+
+/// An existential type.
+///
+/// This denotes an unspecified type that is known to conform to a set of views at runtime. It is
+/// used to represent generic parameters within their generic context, as well as the type of
+/// existential containers.
+///
+/// - Note: The `Any` is an existential type.
+public final class ExistentialType: ValType {
+
+  init(context: Context) {
+    super.init(context: context, props: .isCanonical)
   }
 
   public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
@@ -379,11 +405,9 @@ public final class TupleType: ValType {
   public override var variables: Set<TypeVar> {
     guard props.contains(.hasVariables) else { return [] }
 
-    var result: Set<TypeVar> = []
-    for param in elems {
-      result.formUnion(param.type.variables)
-    }
-    return result
+    return elems.reduce(into: Set<TypeVar>(), { (set, elem) in
+      set.formUnion(elem.type.variables)
+    })
   }
 
   override func isEqual(to other: ValType) -> Bool {

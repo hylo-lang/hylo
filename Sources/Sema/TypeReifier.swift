@@ -11,6 +11,7 @@ final class TypeReifier: TypeVisitor {
   let substitutions: [TypeVar: ValType]
 
   func visit(_ type: KindType) -> ValType {
+    guard type.props.contains(.hasVariables) else { return type }
     return type.type.accept(self).kind
   }
 
@@ -42,7 +43,12 @@ final class TypeReifier: TypeVisitor {
     return type
   }
 
+  func visit(_ type: ExistentialType) -> ValType {
+    return type
+  }
+
   func visit(_ type: TupleType) -> ValType {
+    guard type.props.contains(.hasVariables) else { return type }
     return type.context
       .tupleType(type.elems.map({ elem in
         TupleType.Elem(label: elem.label, type: elem.type.accept(self))
@@ -51,6 +57,7 @@ final class TypeReifier: TypeVisitor {
   }
 
   func visit(_ type: FunType) -> ValType {
+    guard type.props.contains(.hasVariables) else { return type }
     return type.context
       .funType(
         paramType: type.paramType.accept(self),

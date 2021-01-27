@@ -283,7 +283,11 @@ public class AbstractFunDecl: ValueDecl, DeclSpace {
 
   public var isOverloadable: Bool { true }
 
-  /// The (applied) type of the function.
+  /// The "applied" type of the function.
+  ///
+  /// This property must be kept synchronized with the function type implicitly described by the
+  /// parameter list and return signature. Setting its value directly is discouraged, you should
+  /// use the method `recomputeAppliedType(in:)` instead.
   ///
   /// - Note: Member functions accept the receiver (i.e., `self`) as an implicit first parameter.
   ///   This means that a call to a method `T -> U` is actually an application of an *unapplied*
@@ -307,6 +311,20 @@ public class AbstractFunDecl: ValueDecl, DeclSpace {
     return type.context.funType(
       paramType: type.context.tupleType(paramTypeElems),
       retType: funType.retType)
+  }
+
+  /// Recomputes the (applied) type of the function from its signature.
+  ///
+  /// Call this method after you modify the declaration's parameter list or the return signature to
+  /// keep the declaration's type "synchronized".
+  public func recomputeAppliedType(in context: Context) {
+    let paramType = context.tupleType(
+      params.map({ param in
+        TupleType.Elem(label: param.externalName, type: param.type)
+      }))
+
+    let retType = retTypeSign?.type ?? context.unitType
+    type = context.funType(paramType: paramType, retType: retType)
   }
 
   public weak var parentDeclSpace: DeclSpace?
@@ -370,6 +388,16 @@ public final class CtorDecl: AbstractFunDecl {
       type: type,
       range: range)
     props.insert(.isMutating)
+  }
+
+  public override func recomputeAppliedType(in context: Context) {
+    let paramType = context.tupleType(
+      params.map({ param in
+        TupleType.Elem(label: param.externalName, type: param.type)
+      }))
+
+    let retType = (selfDecl!.type as! InoutType).base
+    type = context.funType(paramType: paramType, retType: retType)
   }
 
   public override func accept<V>(_ visitor: V) -> V.Result where V: NodeVisitor {
@@ -445,7 +473,9 @@ public class AbstractNominalTypeDecl: TypeDecl, DeclSpace {
   public var members: [Decl]
 
   /// The resolved type of the declaration.
-  public unowned var type: ValType
+  ///
+  /// - Important: This should only be set at the time of the node's creation.
+  public var type: ValType
 
   public weak var parentDeclSpace: DeclSpace?
 

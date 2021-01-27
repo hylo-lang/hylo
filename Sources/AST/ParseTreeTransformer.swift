@@ -108,8 +108,10 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
       let declName = ctx.funName()?.getText() ?? ""
       decl = FunDecl(
         name: declName, declModifiers: declModifiers, type: unresolvedType, range: range(of: ctx))
+
     case "new":
       decl = CtorDecl(declModifiers: declModifiers, type: unresolvedType, range: range(of: ctx))
+
     default:
       fatalError("unreachable")
     }
@@ -137,28 +139,13 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
       decl.params = params.accept(self) as! [FunParamDecl]
     }
     if let sign = ctx.funRetAnnot() {
+      precondition(!(decl is CtorDecl), "constructors do not have explicit return types")
       decl.retTypeSign = (sign.accept(self) as! TypeRepr)
     }
     if let body = ctx.codeBlock() {
       decl.body = (body.accept(self) as! BraceStmt)
     }
 
-    // Build type stub for the function declaration.
-    let paramTypeElems: [TupleType.Elem] = decl.params.map({ param in
-      TupleType.Elem(label: param.externalName, type: TypeVar(context: context, node: param))
-    })
-
-    let retType: ValType
-    if let sign = decl.retTypeSign {
-      retType = TypeVar(context: context, node: sign)
-    } else if decl is CtorDecl {
-      precondition(decl.retTypeSign == nil)
-      retType = TypeVar(context: context, node: decl)
-    } else {
-      retType = context.unitType
-    }
-
-    decl.type = context.funType(paramType: context.tupleType(paramTypeElems), retType: retType)
     return decl
   }
 
@@ -176,7 +163,6 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
       typeSign: nil,
       type: unresolvedType,
       range: range(of: ctx))
-    decl.type = TypeVar(context: context, node: decl)
     decl.parentDeclSpace = currentSpace
 
     if let repr = ctx.typeRepr() {
@@ -201,7 +187,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
         type: unresolvedType,
         range: range(of: name.getSymbol()!))
       decl.parentDeclSpace = currentSpace
-      decl.type = GenericParamType(context: context, decl: decl).kind
+      decl.type = context.genericParamType(decl: decl).kind
 
       return decl
     })

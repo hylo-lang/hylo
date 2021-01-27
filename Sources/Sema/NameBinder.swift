@@ -10,6 +10,11 @@ import Basic
 /// declaration references and update lookup tables.
 public final class NameBinder: NodeWalker, AST.Pass {
 
+  // The way this walker visits the AST is pretty intricate. This is because that we often need to
+  // perform some actions in the middle of a node's visit, after its "header" has been processed
+  // (e.g., the parameter list of a function). It might be simpler to split name binding into two
+  // sub-passes. The first would only resolve type reprs; the second would visit stmts and exprs.
+
   public static let name = "Name binder"
 
   public init(context: AST.Context) {
@@ -75,6 +80,12 @@ public final class NameBinder: NodeWalker, AST.Pass {
     if let ds = decl as? DeclSpace {
       currentSpace = ds.parentDeclSpace
     }
+
+    // Synchronize the type of function parameters with that of their signature.
+    if let paramDecl = decl as? FunParamDecl {
+      paramDecl.type = paramDecl.typeSign?.type ?? TypeVar(context: context, node: paramDecl)
+    }
+
     return (true, decl)
   }
 
@@ -84,6 +95,15 @@ public final class NameBinder: NodeWalker, AST.Pass {
       ds.parentDeclSpace = currentSpace
       currentSpace = ds
     }
+
+    // Recompute the applied type of a function declaration if we're about to visit its body, now
+    // that that its parameter and return type have been resolved.
+    if (stmt is BraceStmt) && (parent is AbstractFunDecl) {
+      let funDecl = parent as! AbstractFunDecl
+      precondition(funDecl.body === stmt)
+      funDecl.recomputeAppliedType(in: context)
+    }
+
     return (true, stmt)
   }
 

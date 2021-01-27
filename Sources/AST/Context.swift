@@ -45,6 +45,14 @@ public final class Context {
     return uniqued(ViewType(context: self, decl: decl))
   }
 
+  public func genericParamType(decl: GenericParamDecl) -> GenericParamType {
+    return uniqued(GenericParamType(context: self, decl: decl))
+  }
+
+  public func existentialType() -> ExistentialType {
+    return uniqued(ExistentialType(context: self))
+  }
+
   public func tupleType<S>(_ elems: S) -> TupleType
   where S: Sequence, S.Element == TupleType.Elem
   {
