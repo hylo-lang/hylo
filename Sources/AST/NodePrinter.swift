@@ -145,7 +145,7 @@ public struct NodePrinter: NodeVisitor {
   }
 
   public func visit(_ node: AbstractFunDecl) -> String {
-    let mods = node.declModifiers.map({ mod in String(describing: mod.kind) })
+    let mods = node.declModifiers.map({ mod in "\"\(mod)\"" })
       .joined(separator: ", ")
 
     return """
