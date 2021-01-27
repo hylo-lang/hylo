@@ -19,6 +19,19 @@ public protocol HashWitness {
 
 }
 
+/// A hash witness that uses reference identity to implement equality.
+public struct ReferenceHashWitness<Value>: HashWitness where Value: AnyObject {
+
+  public static func hash(_ value: Value, into hasher: inout Hasher) {
+    hasher.combine(ObjectIdentifier(value))
+  }
+
+  public static func equals(_ lhs: Value, _ rhs: Value) -> Bool {
+    return lhs === rhs
+  }
+
+}
+
 /// A value wrapper exposing a hashable conformance.
 ///
 /// You can use this wrapper to customize the behavior of the underlying type's conformance to
