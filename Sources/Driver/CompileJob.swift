@@ -62,7 +62,7 @@ public struct CompileJob: Job {
 
     // Create a module.
     let module = Module(id: moduleName, context: context)
-    context.modules[moduleName] = module
+    context.modules[module.id] = module
 
     if isStdLib {
       precondition(context.stdlib == nil, "standard library is already loaded")
