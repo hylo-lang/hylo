@@ -1,8 +1,8 @@
 import AST
 import Basic
 
-/// A type constraint solver.
-struct ConstraintSolver {
+/// A constraint system solver.
+struct CSSolver {
 
   init(
     system: ConstraintSystem,
@@ -282,7 +282,7 @@ struct ConstraintSolver {
     var solutions: [Solution] = []
     for choice in constraint.elements {
       // Create a sub-solver for each choice in the disjunction.
-      var subsolver = ConstraintSolver(
+      var subsolver = CSSolver(
         system: system.fork(inserting: choice.constraint),
         assumptions: assumptions,
         penalities: penalities + choice.weight,

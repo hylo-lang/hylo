@@ -8,18 +8,10 @@
 /// Nonetheless, they always form a topological hierarchy.
 public protocol DeclSpace: Node {
 
-  /// The module in which this declaration space resides.
-  var rootDeclSpace: Module { get }
-
   /// The innermost parent in which this declaration space resides.
   ///
   /// This property should always be defined, except for module declarations.
   var parentDeclSpace: DeclSpace? { get set }
-
-  /// Returns whether the space is topologically nested in another.
-  ///
-  /// - Parameter ancestor: Another declaration space.
-  func isDescendant(of ancestor: DeclSpace) -> Bool
 
   /// The type and value declarations directly enclosed in this space.
   var localTypeAndValueDecls: (types: [TypeDecl], values: [ValueDecl]) { get }
@@ -53,10 +45,14 @@ public protocol DeclSpace: Node {
 
 extension DeclSpace {
 
+  /// The module in which this declaration space resides.
   public var rootDeclSpace: Module {
     return (self as? Module) ?? parentDeclSpace!.rootDeclSpace
   }
 
+  /// Returns whether the space is topologically nested in another.
+  ///
+  /// - Parameter ancestor: Another declaration space.
   public func isDescendant(of ancestor: DeclSpace) -> Bool {
     var parent = parentDeclSpace
     while parent != nil {
@@ -67,6 +63,18 @@ extension DeclSpace {
     }
 
     return false
+  }
+
+  /// A sequence containing all enclosing space, from closest to farthest.
+  public var ancestors: AnySequence<DeclSpace> {
+    return AnySequence({ () -> AnyIterator<DeclSpace> in
+      var current: DeclSpace? = self
+      return AnyIterator({
+        guard let s = current else { return nil }
+        current = s.parentDeclSpace
+        return s
+      })
+    })
   }
 
 }

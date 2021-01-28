@@ -41,6 +41,9 @@ public final class RetStmt: Stmt {
 
   public var value: Expr?
 
+  /// The innermost function in which the return statement resides.
+  public weak var funDecl: AbstractFunDecl?
+
   public var range: SourceRange
 
   public func accept<V>(_ visitor: V) -> V.StmtResult where V: StmtVisitor {

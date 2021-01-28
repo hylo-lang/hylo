@@ -247,7 +247,12 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
 
   public override func visitRetStmt(_ ctx: ValParser.RetStmtContext) -> Any {
     let value = ctx.expr().map({ expr in expr.accept(self) as! Expr })
-    return RetStmt(value: value, range: range(of: ctx))
+    let stmt = RetStmt(value: value, range: range(of: ctx))
+    currentSpace?.ancestors
+      .first(where: { $0 is AbstractFunDecl })
+      .map({ stmt.funDecl = ($0 as! AbstractFunDecl) })
+
+    return stmt
   }
 
   public override func visitPattern(_ ctx: ValParser.PatternContext) -> Any {
