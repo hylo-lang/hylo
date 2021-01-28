@@ -29,6 +29,8 @@ public protocol TypeVisitor {
 
   func visit(_ type: UnresolvedType) -> Result
 
+  func visit(_ type: ErrorType) -> Result
+
   func visit(_ type: TypeVar) -> Result
 
 }

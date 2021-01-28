@@ -73,6 +73,10 @@ final class TypeReifier: TypeVisitor {
     return type
   }
 
+  func visit(_ type: ErrorType) -> ValType {
+    return type
+  }
+
   func visit(_ type: TypeVar) -> ValType {
     return substitutions[type]?.accept(self) ?? type
   }

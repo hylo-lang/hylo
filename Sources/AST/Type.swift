@@ -108,6 +108,12 @@ public class ValType {
     /// The type contains one or more generic type parameters.
     public static let hasTypeParams = RecursiveProps(value: 1 << 2)
 
+    /// The type contains the unresolved type.
+    public static let hasUnresolved = RecursiveProps(value: 1 << 3)
+
+    /// The type contains the error type.
+    public static let hasError      = RecursiveProps(value: 1 << 4)
+
     /// Merges a collection of recursive properties.
     ///
     /// This computes the intersection of all universal properties and the union of all existential
@@ -587,8 +593,24 @@ extension InoutType: CustomStringConvertible {
 /// This is used internally to denote the type of an unresolved declaration reference.
 public final class UnresolvedType: ValType {
 
-  public init(context: Context) {
-    super.init(context: context, props: .isCanonical)
+  init(context: Context) {
+    super.init(context: context, props: RecursiveProps([.isCanonical, .hasUnresolved]))
+  }
+
+  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+    visitor.visit(self)
+  }
+
+}
+
+/// The type of an ill-formed declaration or expression.
+///
+/// The compiler should emit a diagnostic every time this type is assigned to a node, so that later
+/// stages need not to reason about the cause of the error.
+public final class ErrorType: ValType {
+
+  init(context: Context) {
+    super.init(context: context, props: RecursiveProps([.isCanonical, .hasError]))
   }
 
   public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {

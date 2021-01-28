@@ -77,6 +77,10 @@ final class TypeOpener: TypeVisitor {
     return type
   }
 
+  func visit(_ type: ErrorType) -> ValType {
+    return type
+  }
+
   func visit(_ type: TypeVar) -> ValType {
     return type
   }
