@@ -80,7 +80,7 @@ final class TypeDispatcher: NodeWalker {
       baseType = inoutType.base as! NominalType
     default:
       type.context.report(
-        .cannotFind(name: expr.memberName, in: expr.base.type, range: expr.range))
+        .cannotFind(member: expr.memberName, in: expr.base.type, range: expr.range))
       return expr
     }
 
@@ -91,7 +91,8 @@ final class TypeDispatcher: NodeWalker {
       .filter({ decl in match(decl, type) })
 
     guard !decls.isEmpty else {
-      type.context.report(.cannotFind(name: expr.memberName, in: baseType, range: expr.base.range))
+      type.context.report(
+        .cannotFind(member: expr.memberName, in: baseType, range: expr.base.range))
       return expr
     }
 
@@ -107,9 +108,9 @@ final class TypeDispatcher: NodeWalker {
   private func match(_ decl: TypeOrValueDecl, _ type: ValType) -> Bool {
     let declType = decl.type.accept(reifier)
     if let inoutType = declType as? InoutType {
-     return inoutType.base === type
+     return inoutType.base == type
     }
-    return declType === type
+    return declType == type
   }
 
 }

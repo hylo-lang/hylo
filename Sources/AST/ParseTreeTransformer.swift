@@ -27,10 +27,9 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
   private var unresolvedType: UnresolvedType { context.unresolvedType }
 
   public override func visitFile(_ ctx: ValParser.FileContext) -> Any {
-    var stmts: [Node] = []
-    expand(decls: ctx.statement(), into: &stmts)
-    module?.statements.append(contentsOf: stmts)
-    return stmts
+    let decls = ctx.decl().map({ decl in decl.accept(self) }) as! [Decl]
+    module?.decls.append(contentsOf: decls)
+    return decls
   }
 
   public override func visitCodeBlock(_ ctx: ValParser.CodeBlockContext) -> Any {
@@ -140,7 +139,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     }
     if let sign = ctx.funRetAnnot() {
       precondition(!(decl is CtorDecl), "constructors do not have explicit return types")
-      decl.retTypeSign = (sign.accept(self) as! TypeRepr)
+      decl.retSign = (sign.accept(self) as! TypeRepr)
     }
     if let body = ctx.codeBlock() {
       decl.body = (body.accept(self) as! BraceStmt)
@@ -166,7 +165,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     decl.parentDeclSpace = currentSpace
 
     if let repr = ctx.typeRepr() {
-      decl.typeSign = (repr.accept(self) as! TypeRepr)
+      decl.sign = (repr.accept(self) as! TypeRepr)
     }
 
     return decl
@@ -354,7 +353,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
         base: lhs, memberName: loc.infixOp.rawValue, type: unresolvedType, range: loc.range)
       infixFun.type = TypeVar(context: context, node: infixFun)
       let infixCall = CallExpr(
-        callee: infixFun,
+        fun: infixFun,
         args: [CallArg(value: rhs, range: rhs.range)],
         type: unresolvedType,
         range: range(of: ctx))
@@ -388,7 +387,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     let prefixFun = UnresolvedMemberExpr(
       base: expr, memberName: loc.prefixOp.rawValue, type: unresolvedType, range: loc.range)
     let prefixCall = CallExpr(
-      callee: prefixFun,
+      fun: prefixFun,
       args: [CallArg(value: expr, range: expr.range)],
       type: unresolvedType,
       range: range(of: ctx))
@@ -397,8 +396,8 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
   }
 
   public override func visitCallExpr(_ ctx: ValParser.CallExprContext) -> Any {
-    let callee = ctx.postExpr()!.accept(self) as! Expr
-    let expr = CallExpr(callee: callee, args: [], type: unresolvedType, range: range(of: ctx))
+    let fun = ctx.postExpr()!.accept(self) as! Expr
+    let expr = CallExpr(fun: fun, args: [], type: unresolvedType, range: range(of: ctx))
     expr.type = TypeVar(context: context, node: expr)
 
     if let argList = ctx.argList() {

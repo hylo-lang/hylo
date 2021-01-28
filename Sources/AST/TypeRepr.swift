@@ -3,28 +3,35 @@ import Basic
 /// The syntactic representation of a type in source code.
 public protocol TypeRepr: Node {
 
-  /// The type to which the representation resolves.
+  /// The semantic type realized from this representation.
+  ///
+  /// The value of this property is only relevant if the representation is realized.
   var type: ValType { get }
+
+  /// The compilation state of this representation.
+  var state: TypeReprState { get }
+
+  /// Accepts the given visitor.
+  ///
+  /// - Parameter visitor: A type representation visitor.
+  func accept<V>(_ visitor: V) -> V.TypeReprResult where V: TypeReprVisitor
 
 }
 
-/// A type identifier referring to a built-in type.
-public final class BuiltinTypeRepr: TypeRepr {
+/// The compilation state of a type representation.
+public enum TypeReprState {
 
-  public init(type: BuiltinType, range: SourceRange) {
-    self.type = type
-    self.range = range
-  }
+  /// The representation was parsed.
+  case parsed
 
-  public var type: ValType {
-    didSet { precondition(type is BuiltinType) }
-  }
+  /// The representation was realized.
+  case realized
 
-  public var range: SourceRange
-
-  public func accept<V>(_ visitor: V) -> V.Result where V: NodeVisitor {
-    return visitor.visit(self)
-  }
+  /// The representation describes an invalid type, that can't be realized.
+  ///
+  /// The compiler should emit a diagnostic when assigning this state. All uses further attempt to
+  /// realize the representation should be ignored and not re-diagnosed.
+  case invalid
 
 }
 
@@ -63,9 +70,10 @@ extension IdentTypeRepr {
 /// An simple, unqualified type identifier (e.g., `Int64`).
 public final class UnqualTypeRepr: IdentTypeRepr {
 
-  public init(name: String, type: ValType, range: SourceRange) {
+  public init(name: String, type: ValType, state: TypeReprState = .parsed, range: SourceRange) {
     self.name = name
     self.type = type
+    self.state = state
     self.range = range
   }
 
@@ -75,13 +83,15 @@ public final class UnqualTypeRepr: IdentTypeRepr {
   /// The type referred by the identifier.
   public var type: ValType
 
+  public var state: TypeReprState
+
   public var components: [UnqualTypeRepr] { [self] }
 
   public var lastComponent: UnqualTypeRepr { self }
 
   public var range: SourceRange
 
-  public func accept<V>(_ visitor: V) -> V.Result where V: NodeVisitor {
+  public func accept<V>(_ visitor: V) -> V.TypeReprResult where V: TypeReprVisitor {
     return visitor.visit(self)
   }
 
@@ -109,9 +119,13 @@ public final class CompoundTypeRepr: IdentTypeRepr {
     return lastComponent.type
   }
 
+  public var state: TypeReprState {
+    return lastComponent.state
+  }
+
   public var range: SourceRange
 
-  public func accept<V>(_ visitor: V) -> V.Result where V: NodeVisitor {
+  public func accept<V>(_ visitor: V) -> V.TypeReprResult where V: TypeReprVisitor {
     return visitor.visit(self)
   }
 

@@ -16,7 +16,7 @@ extension Context {
         params: function[1 ..< (function.count - 1)],
         ret   : function[function.count - 1])
       decl.parentDeclSpace = builtin
-      builtin.statements.append(decl)
+      builtin.decls.append(decl)
       builtinDecls[decl.name] = decl
     }
   }
@@ -33,7 +33,7 @@ extension Context {
       paramTypes.append(TupleType.Elem(type: type))
       let decl = FunParamDecl(
         name: "_\(i)",
-        typeSign: BuiltinTypeRepr(type: type, range: .invalid),
+        typeSign: UnqualTypeRepr(name: param, type: type, range: .invalid),
         type: type,
         range: .invalid)
       paramDecls.append(decl)
@@ -41,7 +41,7 @@ extension Context {
 
     let retTypeSign: TypeRepr? = ret.isEmpty
       ? nil
-      : BuiltinTypeRepr(type: getBuiltinType(named: ret)!, range: .invalid)
+      : UnqualTypeRepr(name: ret, type: getBuiltinType(named: ret)!, range: .invalid)
 
     let builtinFunType = funType(
       paramType: tupleType(paramTypes),

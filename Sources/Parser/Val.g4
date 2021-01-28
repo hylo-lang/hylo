@@ -1,7 +1,7 @@
 grammar Val;
 
 file
-  : statement* EOF
+  : decl* EOF
   ;
 
 codeBlock

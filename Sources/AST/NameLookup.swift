@@ -7,7 +7,7 @@ extension DeclSpace {
   /// behavior for more a optimized strategy.
   public var localTypeAndValueDecls: (types: [TypeDecl], values: [ValueDecl]) {
     let finder = LocalTypeAndValueDeclFinder()
-    _ = accept(finder)
+    _ = finder.visit(any: self)
     return (finder.types, finder.values)
   }
 

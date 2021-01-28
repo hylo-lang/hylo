@@ -73,7 +73,7 @@ extension ConstraintLocator.PathComponent {
     switch self {
     case .annotation:
       switch base {
-      case let node as PatternBindingDecl : return node.typeSign
+      case let node as PatternBindingDecl : return node.sign
       default: return nil
       }
 

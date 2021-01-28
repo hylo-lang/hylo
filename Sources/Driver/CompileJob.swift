@@ -81,8 +81,9 @@ public struct CompileJob: Job {
     }
 
     // Type-check the module, unless instructed otherwise.
-    NameBinder(context: context).run(on: module)
-    TypeChecker(context: context).run(on: module)
+    if !parseOnly {
+      TypeChecker(context: context).run(on: module)
+    }
   }
 
   public static func stdlib(path: URL, parseOnly: Bool = false) -> CompileJob {

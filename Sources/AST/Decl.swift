@@ -6,6 +6,11 @@ public protocol Decl: Node {
   /// The innermost parent in which this declaration resides.
   var parentDeclSpace: DeclSpace? { get }
 
+  /// Accepts the given visitor.
+  ///
+  /// - Parameter visitor: A declaration visitor.
+  func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor
+
 }
 
 extension Decl {
@@ -114,7 +119,7 @@ public final class PatternBindingDecl: Decl {
   ) {
     self.isMutable = isMutable
     self.pattern = pattern
-    self.typeSign = typeSign
+    self.sign = typeSign
     self.initializer = initializer
     self.declKeywordRange = declKeywordRange
     self.range = range
@@ -127,7 +132,7 @@ public final class PatternBindingDecl: Decl {
   public var pattern: Pattern
 
   /// The signature of the pattern.
-  public var typeSign: TypeRepr?
+  public var sign: TypeRepr?
 
   /// The initializer for the variables declared by the pattern.
   public var initializer: Expr?
@@ -139,7 +144,7 @@ public final class PatternBindingDecl: Decl {
 
   public var range: SourceRange
 
-  public func accept<V>(_ visitor: V) -> V.Result where V: NodeVisitor {
+  public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
 
@@ -172,7 +177,7 @@ public final class VarDecl: ValueDecl {
 
   public var range: SourceRange
 
-  public func accept<V>(_ visitor: V) -> V.Result where V: NodeVisitor {
+  public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
 
@@ -195,7 +200,7 @@ public class AbstractFunDecl: ValueDecl, DeclSpace {
     self.declModifiers = declModifiers
     self.genericParams = genericParams
     self.params = params
-    self.retTypeSign = retTypeSign
+    self.retSign = retTypeSign
     self.body = body
     self.type = type
     self.range = range
@@ -225,7 +230,7 @@ public class AbstractFunDecl: ValueDecl, DeclSpace {
   public var params: [FunParamDecl]
 
   /// The signature of the function's return type.
-  public var retTypeSign: TypeRepr?
+  public var retSign: TypeRepr?
 
   /// The implicit declaration of the `self` parameter for member functions.
   ///
@@ -242,7 +247,7 @@ public class AbstractFunDecl: ValueDecl, DeclSpace {
 
     case let typeExtDecl as TypeExtDecl:
       // The declaration is in the body of a type extension.
-      if let extendedType = try! typeExtDecl.getExtendedDecl()?.instanceType {
+      if let extendedType = typeExtDecl.extendedDecl?.instanceType {
         selfType = extendedType
       } else {
         selfType = type.context.unresolvedType
@@ -317,21 +322,21 @@ public class AbstractFunDecl: ValueDecl, DeclSpace {
   ///
   /// Call this method after you modify the declaration's parameter list or the return signature to
   /// keep the declaration's type "synchronized".
-  public func recomputeAppliedType(in context: Context) {
-    let paramType = context.tupleType(
+  public func recomputeAppliedType() {
+    let paramType = type.context.tupleType(
       params.map({ param in
         TupleType.Elem(label: param.externalName, type: param.type)
       }))
 
-    let retType = retTypeSign?.type ?? context.unitType
-    type = context.funType(paramType: paramType, retType: retType)
+    let retType = retSign?.type ?? type.context.unitType
+    type = type.context.funType(paramType: paramType, retType: retType)
   }
 
   public weak var parentDeclSpace: DeclSpace?
 
   public var range: SourceRange
 
-  public func accept<V>(_ visitor: V) -> V.Result where V: NodeVisitor {
+  public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
 
@@ -362,7 +367,7 @@ public class AbstractFunDecl: ValueDecl, DeclSpace {
 /// A function declaration.
 public final class FunDecl: AbstractFunDecl {
 
-  public override func accept<V>(_ visitor: V) -> V.Result where V: NodeVisitor {
+  public override func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
 
@@ -390,17 +395,17 @@ public final class CtorDecl: AbstractFunDecl {
     props.insert(.isMutating)
   }
 
-  public override func recomputeAppliedType(in context: Context) {
-    let paramType = context.tupleType(
+  public override func recomputeAppliedType() {
+    let paramType = type.context.tupleType(
       params.map({ param in
         TupleType.Elem(label: param.externalName, type: param.type)
       }))
 
     let retType = (selfDecl!.type as! InoutType).base
-    type = context.funType(paramType: paramType, retType: retType)
+    type = type.context.funType(paramType: paramType, retType: retType)
   }
 
-  public override func accept<V>(_ visitor: V) -> V.Result where V: NodeVisitor {
+  public override func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
 
@@ -418,7 +423,7 @@ public final class FunParamDecl: ValueDecl {
   ) {
     self.name = name
     self.externalName = externalName
-    self.typeSign = typeSign
+    self.sign = typeSign
     self.type = type
     self.range = range
   }
@@ -430,7 +435,7 @@ public final class FunParamDecl: ValueDecl {
   public var externalName: String?
 
   /// The signature of the parameter's type.
-  public var typeSign: TypeRepr?
+  public var sign: TypeRepr?
 
   public var isOverloadable: Bool { false }
 
@@ -440,7 +445,7 @@ public final class FunParamDecl: ValueDecl {
 
   public var range: SourceRange
 
-  public func accept<V>(_ visitor: V) -> V.Result where V: NodeVisitor {
+  public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
 
@@ -481,7 +486,7 @@ public class AbstractNominalTypeDecl: TypeDecl, DeclSpace {
 
   public var range: SourceRange
 
-  public func accept<V>(_ visitor: V) -> V.Result where V: NodeVisitor {
+  public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
 
@@ -528,7 +533,7 @@ public class AbstractNominalTypeDecl: TypeDecl, DeclSpace {
 /// A product type declaration.
 public final class ProductTypeDecl: AbstractNominalTypeDecl {
 
-  public override func accept<V>(_ visitor: V) -> V.Result where V: NodeVisitor {
+  public override func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
 
@@ -537,7 +542,7 @@ public final class ProductTypeDecl: AbstractNominalTypeDecl {
 /// A view type declaration.
 public final class ViewTypeDecl: AbstractNominalTypeDecl {
 
-  public override func accept<V>(_ visitor: V) -> V.Result where V: NodeVisitor {
+  public override func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
 
@@ -560,7 +565,7 @@ public final class GenericParamDecl: TypeDecl {
 
   public var range: SourceRange
 
-  public func accept<V>(_ visitor: V) -> V.Result where V : NodeVisitor {
+  public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
 
@@ -581,6 +586,18 @@ public final class TypeExtDecl: Decl, DeclSpace {
   /// The identifier of the type being extended.
   public var extendedIdent: IdentTypeRepr
 
+  /// The declaration of the extended type.
+  ///
+  /// - Note: Accessing this property before extension binding will trap, in order to catch invalid
+  ///   attempts to perform premature type-checking.
+  public var extendedDecl: AbstractNominalTypeDecl? {
+    switch state {
+    case .bound(let decl) : return decl
+    case .invalid         : return nil
+    default: fatalError("premature type checking")
+    }
+  }
+
   /// The member declarations of the type.
   public var members: [Decl]
 
@@ -588,39 +605,27 @@ public final class TypeExtDecl: Decl, DeclSpace {
 
   public var range: SourceRange
 
-  public func accept<V>(_ visitor: V) -> V.Result where V : NodeVisitor {
+  public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
 
-  /// The declaration of the extended type.
-  ///
-  /// - Throws: A `CompilerPreconditionError` if the method is called before name binding.
-  public func getExtendedDecl() throws -> AbstractNominalTypeDecl? {
-    switch state {
-    case .bound(let decl):
-      return decl
-    case .unbindable:
-      return nil
-    case .unbound:
-      throw CompilerPreconditionError(
-        message: "attempt to compute extended declaration before name binding")
-    }
-  }
-
   /// The binding state of the declaration.
-  public var state = ResolutionState.unbound
+  public var state = State.parsed
 
-  /// A binding state.
-  public enum ResolutionState {
+  /// The compilation state of a type extension.
+  public enum State {
 
-    /// The type being extended has been bound.
+    /// The declaration was parsed.
+    case parsed
+
+    /// The declaration was bound to the type it extends.
     case bound(AbstractNominalTypeDecl)
 
-    /// The compiler attempted but failed to bind the type being extended.
-    case unbindable
-
-    /// The type being extended has not been resolved yet.
-    case unbound
+    /// The declaration is invalid and can't be bound to any type.
+    ///
+    /// The compiler should emit a diagnostic when assigning this state. All further attempt to use
+    /// the contents of this extension should be ignored and not re-diagnosed.
+    case invalid
 
   }
 

@@ -1,80 +1,124 @@
 /// Base protocol for types implementing exhaustive AST visitation.
-public protocol NodeVisitor {
+public protocol NodeVisitor: DeclVisitor, StmtVisitor, ExprVisitor, PatternVisitor, TypeReprVisitor
+where Result == DeclResult,
+      Result == StmtResult,
+      Result == ExprResult,
+      Result == PatternResult,
+      Result == TypeReprResult
+{
 
   associatedtype Result
 
-  // MARK: Declarations
+}
 
-  func visit(_ node: Module) -> Result
+extension NodeVisitor {
 
-  func visit(_ node: PatternBindingDecl) -> Result
+  public func visit(any node: Node) -> Result {
+    switch node {
+    case let d as Decl    : return d.accept(self)
+    case let s as Stmt    : return s.accept(self)
+    case let e as Expr    : return e.accept(self)
+    case let p as Pattern : return p.accept(self)
+    case let t as TypeRepr: return t.accept(self)
+    default: fatalError("unreachable")
+    }
+  }
 
-  func visit(_ node: VarDecl) -> Result
+}
 
-  func visit(_ node: AbstractFunDecl) -> Result
+/// Base protocol for types visiting declaration nodes.
+public protocol DeclVisitor {
 
-  func visit(_ node: FunDecl) -> Result
+  associatedtype DeclResult
 
-  func visit(_ node: CtorDecl) -> Result
+  func visit(_ node: Module) -> DeclResult
 
-  func visit(_ node: FunParamDecl) -> Result
+  func visit(_ node: PatternBindingDecl) -> DeclResult
 
-  func visit(_ node: AbstractNominalTypeDecl) -> Result
+  func visit(_ node: VarDecl) -> DeclResult
 
-  func visit(_ node: ProductTypeDecl) -> Result
+  func visit(_ node: AbstractFunDecl) -> DeclResult
 
-  func visit(_ node: ViewTypeDecl) -> Result
+  func visit(_ node: FunDecl) -> DeclResult
 
-  func visit(_ node: GenericParamDecl) -> Result
+  func visit(_ node: CtorDecl) -> DeclResult
 
-  func visit(_ node: TypeExtDecl) -> Result
+  func visit(_ node: FunParamDecl) -> DeclResult
 
-  // MARK: Statements
+  func visit(_ node: AbstractNominalTypeDecl) -> DeclResult
 
-  func visit(_ node: BraceStmt) -> Result
+  func visit(_ node: ProductTypeDecl) -> DeclResult
 
-  func visit(_ node: RetStmt) -> Result
+  func visit(_ node: ViewTypeDecl) -> DeclResult
 
-  // MARK: Expressions
+  func visit(_ node: GenericParamDecl) -> DeclResult
 
-  func visit(_ node: IntLiteralExpr) -> Result
+  func visit(_ node: TypeExtDecl) -> DeclResult
 
-  func visit(_ node: AssignExpr) -> Result
+}
 
-  func visit(_ node: CallExpr) -> Result
+/// Base protocol for types visiting statement nodes.
+public protocol StmtVisitor {
 
-  func visit(_ node: UnresolvedDeclRefExpr) -> Result
+  associatedtype StmtResult
 
-  func visit(_ node: UnresolvedMemberExpr) -> Result
+  func visit(_ node: BraceStmt) -> StmtResult
 
-  func visit(_ node: QualDeclRefExpr) -> Result
+  func visit(_ node: RetStmt) -> StmtResult
 
-  func visit(_ node: OverloadedDeclRefExpr) -> Result
+}
 
-  func visit(_ node: DeclRefExpr) -> Result
+/// Base protocol for types visiting expression nodes.
+public protocol ExprVisitor {
 
-  func visit(_ node: TypeDeclRefExpr) -> Result
+  associatedtype ExprResult
 
-  func visit(_ node: MemberRefExpr) -> Result
+  func visit(_ node: IntLiteralExpr) -> ExprResult
 
-  func visit(_ node: AddrOfExpr) -> Result
+  func visit(_ node: AssignExpr) -> ExprResult
 
-  func visit(_ node: WildcardExpr) -> Result
+  func visit(_ node: CallExpr) -> ExprResult
 
-  // MARK: Patterns
+  func visit(_ node: UnresolvedDeclRefExpr) -> ExprResult
 
-  func visit(_ node: NamedPattern) -> Result
+  func visit(_ node: UnresolvedMemberExpr) -> ExprResult
 
-  func visit(_ node: TuplePattern) -> Result
+  func visit(_ node: QualDeclRefExpr) -> ExprResult
 
-  func visit(_ node: WildcardPattern) -> Result
+  func visit(_ node: OverloadedDeclRefExpr) -> ExprResult
 
-  // MARK: Type representations
+  func visit(_ node: DeclRefExpr) -> ExprResult
 
-  func visit(_ node: BuiltinTypeRepr) -> Result
+  func visit(_ node: TypeDeclRefExpr) -> ExprResult
 
-  func visit(_ node: UnqualTypeRepr) -> Result
+  func visit(_ node: MemberRefExpr) -> ExprResult
 
-  func visit(_ node: CompoundTypeRepr) -> Result
+  func visit(_ node: AddrOfExpr) -> ExprResult
+
+  func visit(_ node: WildcardExpr) -> ExprResult
+
+}
+
+/// Base protocol for types visiting pattern nodes.
+public protocol PatternVisitor {
+
+  associatedtype PatternResult
+
+  func visit(_ node: NamedPattern) -> PatternResult
+
+  func visit(_ node: TuplePattern) -> PatternResult
+
+  func visit(_ node: WildcardPattern) -> PatternResult
+
+}
+
+/// Base protocol for types visiting type representation nodes.
+public protocol TypeReprVisitor {
+
+  associatedtype TypeReprResult
+
+  func visit(_ node: UnqualTypeRepr) -> TypeReprResult
+
+  func visit(_ node: CompoundTypeRepr) -> TypeReprResult
 
 }

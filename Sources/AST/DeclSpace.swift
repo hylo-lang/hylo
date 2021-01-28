@@ -33,20 +33,20 @@ public protocol DeclSpace: Node {
   /// to the result set. Because type and function symbols can overloaded, the search always moves
   /// up to the module space. Nonetheless, all non-overlodable symbols are filtered out once one
   /// has been found. Therefore, the result set always contain all possible overloads and at most
-  /// one "valid" non-overloadable declarations.
+  /// one "valid" non-overloadable declaration.
   ///
   /// The sequence of spaces visible from a specific source location is not necessarily strictly
   /// ordered. In particular, two extensions of a type are at the same "level" in the hierarchy,
   /// meaning that a (non-overloadable) symbol declared in one does not shadow the same symbol
-  /// declared in the other. This situations consistutes an error, that is must be caught during
-  /// the semantic analyis
+  /// declared in the other. This situations consistutes an error, that must be caught during the
+  /// semantic analyis
   ///
   /// - Parameters:
   ///   - name: The name to search.
   ///   - context: The AST context in which the search is carried out.
   func lookup(unqualified name: String, in context: Context) -> LookupResult
 
-  /// Looks up for declarations that match the given name, directly enclded in this space.
+  /// Looks up for declarations that match the given name, directly enclosed in this space.
   func lookup(qualified name: String) -> LookupResult
 
 }

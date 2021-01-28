@@ -119,8 +119,8 @@ open class NodeWalker: NodeVisitor {
     parent = node
     defer { parent = prevParent }
 
-    for i in 0 ..< node.statements.count {
-      (shouldContinue, node.statements[i]) = process(node.statements[i])
+    for i in 0 ..< node.decls.count {
+      (shouldContinue, node.decls[i]) = walk(node.decls[i])
       guard shouldContinue else { return false }
     }
 
@@ -132,16 +132,16 @@ open class NodeWalker: NodeVisitor {
     parent = node
     defer { parent = prevParent }
 
-    (shouldContinue, node.pattern) = process(node.pattern)
+    (shouldContinue, node.pattern) = walk(node.pattern)
 
     guard shouldContinue else { return false }
-    if let signature = node.typeSign {
-      (shouldContinue, node.typeSign) = process(signature)
+    if let signature = node.sign {
+      (shouldContinue, node.sign) = walk(signature)
       guard shouldContinue else { return false }
     }
 
     if let initializer = node.initializer {
-      (shouldContinue, node.initializer) = process(initializer)
+      (shouldContinue, node.initializer) = walk(initializer)
       guard shouldContinue else { return false }
     }
 
@@ -158,17 +158,17 @@ open class NodeWalker: NodeVisitor {
     defer { parent = prevParent }
 
     for i in 0 ..< node.params.count {
-      (shouldContinue, node.params[i]) = process(node.params[i]) as! (Bool, FunParamDecl)
+      (shouldContinue, node.params[i]) = walk(node.params[i]) as! (Bool, FunParamDecl)
       guard shouldContinue else { return false }
     }
 
-    if let signature = node.retTypeSign {
-      (shouldContinue, node.retTypeSign) = process(signature)
+    if let signature = node.retSign {
+      (shouldContinue, node.retSign) = walk(signature)
       guard shouldContinue else { return false }
     }
 
     if let body = node.body {
-      (shouldContinue, node.body) = process(body) as! (Bool, BraceStmt)
+      (shouldContinue, node.body) = walk(body) as! (Bool, BraceStmt)
       guard shouldContinue else { return false }
     }
 
@@ -188,8 +188,8 @@ open class NodeWalker: NodeVisitor {
     parent = node
     defer { parent = prevParent }
 
-    if let signature = node.typeSign {
-      (shouldContinue, node.typeSign) = process(signature)
+    if let signature = node.sign {
+      (shouldContinue, node.sign) = walk(signature)
       guard shouldContinue else { return false }
     }
 
@@ -202,12 +202,12 @@ open class NodeWalker: NodeVisitor {
     defer { parent = prevParent }
 
     for i in 0 ..< node.inheritances.count {
-      (shouldContinue, node.inheritances[i]) = process(node.inheritances[i])
+      (shouldContinue, node.inheritances[i]) = walk(node.inheritances[i])
       guard shouldContinue else { return false }
     }
 
     for i in 0 ..< node.members.count {
-      (shouldContinue, node.members[i]) = process(node.members[i])
+      (shouldContinue, node.members[i]) = walk(node.members[i])
       guard shouldContinue else { return false }
     }
 
@@ -231,11 +231,11 @@ open class NodeWalker: NodeVisitor {
     parent = node
     defer { parent = prevParent }
 
-    (shouldContinue, node.extendedIdent) = process(node.extendedIdent) as! (Bool, IdentTypeRepr)
+    (shouldContinue, node.extendedIdent) = walk(node.extendedIdent) as! (Bool, IdentTypeRepr)
     guard shouldContinue else { return false }
 
     for i in 0 ..< node.members.count {
-      (shouldContinue, node.members[i]) = process(node.members[i])
+      (shouldContinue, node.members[i]) = walk(node.members[i])
       guard shouldContinue else { return false }
     }
 
@@ -248,7 +248,7 @@ open class NodeWalker: NodeVisitor {
     defer { parent = prevParent }
 
     for i in 0 ..< node.statements.count {
-      (shouldContinue, node.statements[i]) = process(node.statements[i])
+      (shouldContinue, node.statements[i]) = walk(node.statements[i])
       guard shouldContinue else { return false }
     }
 
@@ -261,7 +261,7 @@ open class NodeWalker: NodeVisitor {
     defer { parent = prevParent }
 
     if let value = node.value {
-      (shouldContinue, node.value) = process(value)
+      (shouldContinue, node.value) = walk(value)
       guard shouldContinue else { return false }
     }
 
@@ -277,10 +277,10 @@ open class NodeWalker: NodeVisitor {
     parent = node
     defer { parent = prevParent }
 
-    (shouldContinue, node.lvalue) = process(node.lvalue)
+    (shouldContinue, node.lvalue) = walk(node.lvalue)
     guard shouldContinue else { return false }
 
-    (shouldContinue, node.rvalue) = process(node.rvalue)
+    (shouldContinue, node.rvalue) = walk(node.rvalue)
     guard shouldContinue else { return false }
 
     return true
@@ -291,11 +291,11 @@ open class NodeWalker: NodeVisitor {
     parent = node
     defer { parent = prevParent }
 
-    (shouldContinue, node.fun) = process(node.fun)
+    (shouldContinue, node.fun) = walk(node.fun)
     guard shouldContinue else { return false }
 
     for i in 0 ..< node.args.count {
-      (shouldContinue, node.args[i].value) = process(node.args[i].value)
+      (shouldContinue, node.args[i].value) = walk(node.args[i].value)
       guard shouldContinue else { return false }
     }
 
@@ -311,7 +311,7 @@ open class NodeWalker: NodeVisitor {
     parent = node
     defer { parent = prevParent }
 
-    (shouldContinue, node.namespace) = process(node.namespace) as! (Bool, IdentTypeRepr)
+    (shouldContinue, node.namespace) = walk(node.namespace) as! (Bool, IdentTypeRepr)
     guard shouldContinue else { return false }
 
     return true
@@ -334,7 +334,7 @@ open class NodeWalker: NodeVisitor {
     parent = node
     defer { parent = prevParent }
 
-    (shouldContinue, node.base) = process(node.base)
+    (shouldContinue, node.base) = walk(node.base)
     guard shouldContinue else { return false }
 
     return true
@@ -345,7 +345,7 @@ open class NodeWalker: NodeVisitor {
     parent = node
     defer { parent = prevParent }
 
-    (shouldContinue, node.base) = process(node.base)
+    (shouldContinue, node.base) = walk(node.base)
     guard shouldContinue else { return false }
 
     return true
@@ -356,7 +356,7 @@ open class NodeWalker: NodeVisitor {
     parent = node
     defer { parent = prevParent }
 
-    (shouldContinue, node.value) = process(node.value)
+    (shouldContinue, node.value) = walk(node.value)
     guard shouldContinue else { return false }
 
     return true
@@ -371,7 +371,7 @@ open class NodeWalker: NodeVisitor {
     parent = node
     defer { parent = prevParent }
 
-    (shouldContinue, node.decl) = process(node.decl) as! (Bool, VarDecl)
+    (shouldContinue, node.decl) = walk(node.decl) as! (Bool, VarDecl)
     guard shouldContinue else { return false }
 
     return true
@@ -383,7 +383,7 @@ open class NodeWalker: NodeVisitor {
     defer { parent = prevParent }
 
     for i in 0 ..< node.elems.count {
-      (shouldContinue, node.elems[i].pattern) = process(node.elems[i].pattern)
+      (shouldContinue, node.elems[i].pattern) = walk(node.elems[i].pattern)
       guard shouldContinue else { return false }
     }
 
@@ -391,10 +391,6 @@ open class NodeWalker: NodeVisitor {
   }
 
   public final func visit(_ node: WildcardPattern) -> Bool {
-    return true
-  }
-
-  public final func visit(_ node: BuiltinTypeRepr) -> Bool {
     return true
   }
 
@@ -408,14 +404,14 @@ open class NodeWalker: NodeVisitor {
     defer { parent = prevParent }
 
     for i in 0 ..< node.components.count {
-      (shouldContinue, node.components[i]) = process(node.components[i]) as! (Bool, UnqualTypeRepr)
+      (shouldContinue, node.components[i]) = walk(node.components[i]) as! (Bool, UnqualTypeRepr)
       guard shouldContinue else { return false }
     }
 
     return true
   }
 
-  private final func process(_ decl: Decl) -> (Bool, Decl) {
+  public final func walk(_ decl: Decl) -> (Bool, Decl) {
     // Fire the `willVisit` event.
     let (shouldVisit, substitute) = willVisit(decl)
     guard shouldVisit else {
@@ -431,7 +427,7 @@ open class NodeWalker: NodeVisitor {
     return didVisit(substitute)
   }
 
-  private final func process(_ stmt: Stmt) -> (Bool, Stmt) {
+  public final func walk(_ stmt: Stmt) -> (Bool, Stmt) {
     // Fire the `willVisit` event.
     let (shouldVisit, substitute) = willVisit(stmt)
     guard shouldVisit else {
@@ -447,7 +443,7 @@ open class NodeWalker: NodeVisitor {
     return didVisit(substitute)
   }
 
-  private final func process(_ expr: Expr) -> (Bool, Expr) {
+  public final func walk(_ expr: Expr) -> (Bool, Expr) {
     // Fire the `willVisit` event.
     let (shouldVisit, substitute) = willVisit(expr)
     guard shouldVisit else {
@@ -463,7 +459,7 @@ open class NodeWalker: NodeVisitor {
     return didVisit(substitute)
   }
 
-  private final func process(_ pattern: Pattern) -> (Bool, Pattern) {
+  public final func walk(_ pattern: Pattern) -> (Bool, Pattern) {
     // Fire the `willVisit` event.
     let (shouldVisit, substitute) = willVisit(pattern)
     guard shouldVisit else {
@@ -479,7 +475,7 @@ open class NodeWalker: NodeVisitor {
     return didVisit(substitute)
   }
 
-  private final func process(_ typeRepr: TypeRepr) -> (Bool, TypeRepr) {
+  public final func walk(_ typeRepr: TypeRepr) -> (Bool, TypeRepr) {
     // Fire the `willVisit` event.
     let (shouldVisit, substitute) = willVisit(typeRepr)
     guard shouldVisit else {
@@ -495,15 +491,14 @@ open class NodeWalker: NodeVisitor {
     return didVisit(substitute)
   }
 
-  private final func process(_ node: Node) -> (Bool, Node) {
+  public final func walk(_ node: Node) -> (Bool, Node) {
     switch node {
-    case let d as Decl    : return process(d)
-    case let s as Stmt    : return process(s)
-    case let e as Expr    : return process(e)
-    case let p as Pattern : return process(p)
-    case let t as TypeRepr: return process(t)
-    default:
-      fatalError("unreachable")
+    case let d as Decl    : return walk(d)
+    case let s as Stmt    : return walk(s)
+    case let e as Expr    : return walk(e)
+    case let p as Pattern : return walk(p)
+    case let t as TypeRepr: return walk(t)
+    default: fatalError("unreachable")
     }
   }
 

@@ -6,6 +6,11 @@ public protocol Expr: Node {
   /// The type of the expression.
   var type: ValType { get set }
 
+  /// Accepts the given visitor.
+  ///
+  /// - Parameter visitor: An expression visitor.
+  func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor
+
 }
 
 /// An integer literal.
@@ -24,7 +29,7 @@ public final class IntLiteralExpr: Expr {
 
   public var range: SourceRange
 
-  public func accept<V>(_ visitor: V) -> V.Result where V: NodeVisitor {
+  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
   }
 
@@ -54,7 +59,7 @@ public final class AssignExpr: Expr {
 
   public var range: SourceRange
 
-  public func accept<V>(_ visitor: V) -> V.Result where V: NodeVisitor {
+  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
   }
 
@@ -70,8 +75,8 @@ public final class AssignExpr: Expr {
 ///   have dedicate nodes.
 public final class CallExpr: Expr {
 
-  public init(callee: Expr, args: [CallArg], type: ValType, range: SourceRange) {
-    self.fun = callee
+  public init(fun: Expr, args: [CallArg], type: ValType, range: SourceRange) {
+    self.fun = fun
     self.args = args
     self.type = type
     self.range = range
@@ -87,7 +92,7 @@ public final class CallExpr: Expr {
 
   public var range: SourceRange
 
-  public func accept<V>(_ visitor: V) -> V.Result where V: NodeVisitor {
+  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
   }
 
@@ -135,7 +140,7 @@ public final class UnresolvedDeclRefExpr: Expr {
 
   public var range: SourceRange
 
-  public func accept<V>(_ visitor: V) -> V.Result where V: NodeVisitor {
+  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
   }
 
@@ -167,7 +172,7 @@ public final class QualDeclRefExpr: Expr {
 
   public var range: SourceRange
 
-  public func accept<V>(_ visitor: V) -> V.Result where V: NodeVisitor {
+  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
   }
 
@@ -193,7 +198,7 @@ public final class OverloadedDeclRefExpr: Expr {
 
   public var range: SourceRange
 
-  public func accept<V>(_ visitor: V) -> V.Result where V: NodeVisitor {
+  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
   }
 
@@ -217,7 +222,7 @@ public final class DeclRefExpr: Expr {
 
   public var range: SourceRange
 
-  public func accept<V>(_ visitor: V) -> V.Result where V: NodeVisitor {
+  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
   }
 
@@ -241,7 +246,7 @@ public final class TypeDeclRefExpr: Expr {
 
   public var range: SourceRange
 
-  public func accept<V>(_ visitor: V) -> V.Result where V: NodeVisitor {
+  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
   }
 
@@ -275,7 +280,7 @@ public final class UnresolvedMemberExpr: MemberExpr {
 
   public var range: SourceRange
 
-  public func accept<V>(_ visitor: V) -> V.Result where V: NodeVisitor {
+  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
   }
 
@@ -303,7 +308,7 @@ public final class MemberRefExpr: MemberExpr {
 
   public var range: SourceRange
 
-  public func accept<V>(_ visitor: V) -> V.Result where V: NodeVisitor {
+  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
   }
 
@@ -324,7 +329,7 @@ public final class AddrOfExpr: Expr {
 
   public var range: SourceRange
 
-  public func accept<V>(_ visitor: V) -> V.Result where V: NodeVisitor {
+  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
   }
 
@@ -342,7 +347,7 @@ public final class WildcardExpr: Expr {
 
   public var range: SourceRange
 
-  public func accept<V>(_ visitor: V) -> V.Result where V: NodeVisitor {
+  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
   }
 

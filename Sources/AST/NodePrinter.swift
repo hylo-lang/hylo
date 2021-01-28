@@ -30,11 +30,18 @@ public struct NodePrinter: NodeVisitor {
   }
 
   func encode(_ node: Node?) -> String {
-    return node?.accept(self) ?? "null"
+    switch node {
+    case let n as Decl    : return n.accept(self)
+    case let n as Stmt    : return n.accept(self)
+    case let n as Expr    : return n.accept(self)
+    case let n as Pattern : return n.accept(self)
+    case let n as TypeRepr: return n.accept(self)
+    default               : return "null"
+    }
   }
 
   func encode(_ nodes: [Node]) -> String {
-    return "[" + nodes.map({ node in node.accept(self) }).joined(separator: ", ") + "]"
+    return "[" + nodes.map(encode(_:)).joined(separator: ", ") + "]"
   }
 
   func encode(_ string: String?) -> String {
@@ -116,7 +123,7 @@ public struct NodePrinter: NodeVisitor {
     {
     "class"           : "\(type(of: node))",
     "id"              : "\(node.id)",
-    "statements"      : \(encode(node.statements))
+    "decls"           : \(encode(node.decls))
     }
     """
   }
@@ -129,7 +136,7 @@ public struct NodePrinter: NodeVisitor {
     "range"           : \(encode(node.range)),
     "isMutable"       : \(node.isMutable),
     "pattern"         : \(node.pattern.accept(self)),
-    "typeSign"        : \(encode(node.typeSign)),
+    "sign"            : \(encode(node.sign)),
     "initializer"     : \(encode(node.initializer))
     }
     """
@@ -154,7 +161,7 @@ public struct NodePrinter: NodeVisitor {
     "declModifiers"   : [\(mods)],
     "genericParams"   : \(encode(node.genericParams)),
     "params"          : \(encode(node.params)),
-    "retTypeSign"     : \(encode(node.retTypeSign)),
+    "retSign"         : \(encode(node.retSign)),
     "body"            : \(encode(node.body))
     }
     """
@@ -173,7 +180,7 @@ public struct NodePrinter: NodeVisitor {
     {
     \(valueDeclHeader(node)),
     "externalName"    : \(encode(node.externalName)),
-    "typeSign"        : \(encode(node.typeSign))
+    "sign"            : \(encode(node.sign))
     }
     """
   }
@@ -405,14 +412,6 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(patternHeader(node))
-    }
-    """
-  }
-
-  public func visit(_ node: BuiltinTypeRepr) -> String {
-    return """
-    {
-    \(typeReprHeader(node))
     }
     """
   }

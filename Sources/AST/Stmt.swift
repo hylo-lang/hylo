@@ -2,6 +2,12 @@ import Basic
 
 /// A statement.
 public protocol Stmt: Node {
+
+  /// Accepts the given visitor.
+  ///
+  /// - Parameter visitor: A statement visitor.
+  func accept<V>(_ visitor: V) -> V.StmtResult where V: StmtVisitor
+
 }
 
 /// A block of code.
@@ -19,7 +25,7 @@ public final class BraceStmt: Stmt, DeclSpace {
 
   public var range: SourceRange
 
-  public func accept<V>(_ visitor: V) -> V.Result where V: NodeVisitor {
+  public func accept<V>(_ visitor: V) -> V.StmtResult where V: StmtVisitor {
     return visitor.visit(self)
   }
 
@@ -37,7 +43,7 @@ public final class RetStmt: Stmt {
 
   public var range: SourceRange
 
-  public func accept<V>(_ visitor: V) -> V.Result where V: NodeVisitor {
+  public func accept<V>(_ visitor: V) -> V.StmtResult where V: StmtVisitor {
     return visitor.visit(self)
   }
 

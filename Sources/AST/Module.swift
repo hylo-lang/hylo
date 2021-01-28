@@ -16,8 +16,8 @@ public final class Module: DeclSpace {
   /// The module's identifier (typically its name).
   public let id: String
 
-  /// The top-level statements of the module.
-  public var statements: [Node] = []
+  /// The top-level declarations of the module.
+  public var decls: [Decl] = []
 
   public private(set) var type: ValType
 
@@ -42,7 +42,7 @@ public final class Module: DeclSpace {
 
     // Search for extensions defined for the computed qualified name.
     var matches: [TypeExtDecl] = []
-    stmt:for case let ext as TypeExtDecl in statements {
+    stmt:for case let ext as TypeExtDecl in decls {
       let components = ext.extendedIdent.components
       guard components.count == names.count else { continue }
       for i in 0 ..< components.count {
@@ -64,7 +64,7 @@ extension Module: TypeDecl {
 
   public var range: SourceRange { .invalid }
 
-  public func accept<V>(_ visitor: V) -> V.Result where V: NodeVisitor {
+  public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
 

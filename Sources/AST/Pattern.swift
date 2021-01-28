@@ -9,6 +9,11 @@ public protocol Pattern: Node {
   /// Returns the named patterns contained within this pattern.
   var namedPatterns: [NamedPattern] { get }
 
+  /// Accepts the given visitor.
+  ///
+  /// - Parameter visitor: A pattern visitor.
+  func accept<V>(_ visitor: V) -> V.PatternResult where V: PatternVisitor
+
 }
 
 /// A pattern which binds an identifier.
@@ -31,7 +36,7 @@ public final class NamedPattern: Pattern {
 
   public var range: SourceRange
 
-  public func accept<V>(_ visitor: V) -> V.Result where V: NodeVisitor {
+  public func accept<V>(_ visitor: V) -> V.PatternResult where V: PatternVisitor {
     return visitor.visit(self)
   }
 
@@ -57,7 +62,7 @@ public final class TuplePattern: Pattern {
 
   public var range: SourceRange
 
-  public func accept<V>(_ visitor: V) -> V.Result where V: NodeVisitor {
+  public func accept<V>(_ visitor: V) -> V.PatternResult where V: PatternVisitor {
     return visitor.visit(self)
   }
 
@@ -97,7 +102,7 @@ public final class WildcardPattern: Pattern {
 
   public var range: SourceRange
 
-  public func accept<V>(_ visitor: V) -> V.Result where V: NodeVisitor {
+  public func accept<V>(_ visitor: V) -> V.PatternResult where V: PatternVisitor {
     return visitor.visit(self)
   }
 
