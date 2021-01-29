@@ -6,7 +6,10 @@ open class NodeWalker: NodeVisitor {
   public init() {}
 
   /// The parent of the node being visited.
-  public final var parent: Node?
+  public final private(set) var parent: Node?
+
+  /// The innermost declaration space in which the next node will be visited.
+  public final private(set) var innermostSpace: DeclSpace?
 
   // MARK: Event handlers
 
@@ -117,7 +120,11 @@ open class NodeWalker: NodeVisitor {
   public final func visit(_ node: Module) -> Bool {
     let prevParent = parent
     parent = node
-    defer { parent = prevParent }
+    innermostSpace = node
+    defer {
+      parent = prevParent
+      innermostSpace = nil
+    }
 
     for i in 0 ..< node.decls.count {
       (shouldContinue, node.decls[i]) = walk(node.decls[i])
@@ -155,7 +162,11 @@ open class NodeWalker: NodeVisitor {
   public final func visit(_ node: AbstractFunDecl) -> Bool {
     let prevParent = parent
     parent = node
-    defer { parent = prevParent }
+    innermostSpace = node
+    defer {
+      parent = prevParent
+      innermostSpace = innermostSpace?.parentDeclSpace
+    }
 
     for i in 0 ..< node.params.count {
       (shouldContinue, node.params[i]) = walk(node.params[i]) as! (Bool, FunParamDecl)
@@ -199,7 +210,11 @@ open class NodeWalker: NodeVisitor {
   public final func visit(_ node: AbstractNominalTypeDecl) -> Bool {
     let prevParent = parent
     parent = node
-    defer { parent = prevParent }
+    innermostSpace = node
+    defer {
+      parent = prevParent
+      innermostSpace = innermostSpace?.parentDeclSpace
+    }
 
     for i in 0 ..< node.inheritances.count {
       (shouldContinue, node.inheritances[i]) = walk(node.inheritances[i])
@@ -229,7 +244,11 @@ open class NodeWalker: NodeVisitor {
   public final func visit(_ node: TypeExtDecl) -> Bool {
     let prevParent = parent
     parent = node
-    defer { parent = prevParent }
+    innermostSpace = node
+    defer {
+      parent = prevParent
+      innermostSpace = innermostSpace?.parentDeclSpace
+    }
 
     (shouldContinue, node.extendedIdent) = walk(node.extendedIdent) as! (Bool, IdentTypeRepr)
     guard shouldContinue else { return false }
@@ -245,7 +264,11 @@ open class NodeWalker: NodeVisitor {
   public final func visit(_ node: BraceStmt) -> Bool {
     let prevParent = parent
     parent = node
-    defer { parent = prevParent }
+    innermostSpace = node
+    defer {
+      parent = prevParent
+      innermostSpace = innermostSpace?.parentDeclSpace
+    }
 
     for i in 0 ..< node.statements.count {
       (shouldContinue, node.statements[i]) = walk(node.statements[i])

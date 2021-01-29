@@ -12,32 +12,12 @@ final class CSGenDriver: NodeWalker {
   /// The type checker owning the driver.
   unowned let checker: TypeChecker
 
-  /// The innermost declaration space in which the next expression will be visited.
-  fileprivate var innermostSpace: DeclSpace?
-
   // MARK: AST Walk
 
   public override func willVisit(_ decl: Decl) -> (shouldWalk: Bool, nodeBefore: Decl) {
-    if let space = decl as? DeclSpace {
-      innermostSpace = space
-    }
-
     // Bind extensions to the type they extend.
     if let ext = decl as? TypeExtDecl {
       _ = ext.bind()
-    }
-
-    return (true, decl)
-  }
-
-  public override func didVisit(_ decl: Decl) -> (shouldContinue: Bool, nodeAfter: Decl) {
-    if let space = decl as? DeclSpace {
-      innermostSpace = space.parentDeclSpace
-    }
-
-    // Generate the type constraints related to the declaration's semantic validation.
-    if let binding = decl as? PatternBindingDecl {
-      ConstraintGenerator(checker: checker).visit(binding)
     }
 
     // Realize value declarations.
@@ -48,21 +28,18 @@ final class CSGenDriver: NodeWalker {
     return (true, decl)
   }
 
-  public override func willVisit(_ stmt: Stmt) -> (shouldWalk: Bool, nodeBefore: Stmt) {
-    if let space = stmt as? DeclSpace {
-      innermostSpace = space
+  public override func didVisit(_ decl: Decl) -> (shouldContinue: Bool, nodeAfter: Decl) {
+    // Generate the type constraints related to the declaration's semantic validation.
+    if let binding = decl as? PatternBindingDecl {
+      ConstraintGenerator(checker: checker).visit(binding)
     }
-    return (true, stmt)
+
+    return (true, decl)
   }
 
   public override func didVisit(_ stmt: Stmt) -> (shouldContinue: Bool, nodeAfter: Stmt) {
     // Generate type constraints for the statement.
     stmt.accept(ConstraintGenerator(checker: checker))
-
-    if let space = stmt as? AbstractFunDecl {
-      innermostSpace = space.parentDeclSpace
-    }
-
     return (true, stmt)
   }
 
