@@ -54,7 +54,7 @@ public final class AssignExpr: Expr {
   public var rvalue: Expr
 
   public var type: ValType {
-    didSet { precondition(type is TupleType) }
+    didSet { assert(type is TupleType) }
   }
 
   public var range: SourceRange
@@ -124,8 +124,7 @@ public struct CallArg {
 /// analysis, which should ultimately substitute this node with a `DeclRefExpr`.
 public final class UnresolvedDeclRefExpr: Expr {
 
-  public init(name: String, type: ValType, range: SourceRange) {
-    precondition(type is UnresolvedType)
+  public init(name: String, type: UnresolvedType, range: SourceRange) {
     self.name = name
     self.type = type
     self.range = range
@@ -135,7 +134,7 @@ public final class UnresolvedDeclRefExpr: Expr {
   public let name: String
 
   public var type: ValType {
-    didSet { precondition(type is UnresolvedType) }
+    didSet { assert(type is UnresolvedType) }
   }
 
   public var range: SourceRange
@@ -151,9 +150,9 @@ public final class UnresolvedDeclRefExpr: Expr {
 ///
 /// Conceptually, this wraps an unresolved declaration reference, providing context for the space
 /// into which it points. The type prefix is resolved during name binding.
-public final class QualDeclRefExpr: Expr {
+public final class UnresolvedQualDeclRefExpr: Expr {
 
-  public init(namespace: IdentTypeRepr, name: String, type: ValType, range: SourceRange) {
+  public init(namespace: IdentTypeRepr, name: String, type: UnresolvedType, range: SourceRange) {
     self.namespace = namespace
     self.name = name
     self.type = type
@@ -167,7 +166,7 @@ public final class QualDeclRefExpr: Expr {
   public let name: String
 
   public var type: ValType {
-    didSet { precondition(type is UnresolvedType) }
+    didSet { assert(type is UnresolvedType) }
   }
 
   public var range: SourceRange
@@ -185,7 +184,7 @@ public final class QualDeclRefExpr: Expr {
 /// expression can be finally substituted with a `DeclRefExpr`.
 public final class OverloadedDeclRefExpr: Expr {
 
-  public init(declSet: [ValueDecl], type: ValType, range: SourceRange) {
+  public init(subExpr: Expr, declSet: [ValueDecl], type: ValType, range: SourceRange) {
     self.declSet = declSet
     self.type = type
     self.range = range
@@ -216,8 +215,8 @@ public final class DeclRefExpr: Expr {
   public var decl: ValueDecl
 
   public var type: ValType {
-    get { decl.type }
-    set { precondition(newValue === decl.type) }
+    get { decl.realize() }
+    set { assert(newValue === decl.type) }
   }
 
   public var range: SourceRange
@@ -241,7 +240,7 @@ public final class TypeDeclRefExpr: Expr {
 
   public var type: ValType {
     get { decl.type }
-    set { precondition(newValue === decl.type) }
+    set { assert(newValue === decl.type) }
   }
 
   public var range: SourceRange
@@ -261,9 +260,12 @@ public protocol MemberExpr: Expr {
 }
 
 /// A member expression (e.g., `foo.bar`) with an unresolved type.
+///
+/// The base may be resolved, but the compiler may still require contextual type information to
+/// determine the member declaration to which the node refers.
 public final class UnresolvedMemberExpr: MemberExpr {
 
-  public init(base: Expr, memberName: String, type: ValType, range: SourceRange) {
+  public init(base: Expr, memberName: String, type: UnresolvedType, range: SourceRange) {
     self.base = base
     self.memberName = memberName
     self.type = type
@@ -302,8 +304,8 @@ public final class MemberRefExpr: MemberExpr {
   public var decl: ValueDecl
 
   public var type: ValType {
-    get { decl.type }
-    set { precondition(newValue === decl.type) }
+    get { decl.realize() }
+    set { assert(newValue === decl.type) }
   }
 
   public var range: SourceRange
@@ -349,6 +351,29 @@ public final class WildcardExpr: Expr {
 
   public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
+  }
+
+}
+
+/// An ill-formed expression.
+///
+/// The compiler should emit a diagnostic every time this type is assigned to a node, so that later
+/// stages need not to reason about the cause of the error.
+public final class ErrorExpr: Expr {
+
+  public init(type: ErrorType, range: SourceRange) {
+    self.type = type
+    self.range = range
+  }
+
+  public var type: ValType  {
+    didSet { assert(type is ErrorType) }
+  }
+
+  public var range: SourceRange
+
+  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
+    visitor.visit(self)
   }
 
 }

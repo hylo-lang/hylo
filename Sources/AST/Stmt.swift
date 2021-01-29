@@ -11,7 +11,10 @@ public protocol Stmt: Node {
 }
 
 /// A block of code.
-public final class BraceStmt: Stmt, DeclSpace {
+public final class BraceStmt: Stmt, IterableDeclSpace {
+
+  public typealias DeclSequence = LazyMapSequence<
+    LazyFilterSequence<LazyMapSequence<LazySequence<[Node]>.Elements, Decl?>>, Decl>
 
   public init(statements: [Node], range: SourceRange) {
     self.statements = statements
@@ -20,6 +23,10 @@ public final class BraceStmt: Stmt, DeclSpace {
 
   /// The statements in the code block.
   public var statements: [Node]
+
+  public var decls: DeclSequence {
+    return statements.lazy.compactMap({ $0 as? Decl })
+  }
 
   public weak var parentDeclSpace: DeclSpace?
 

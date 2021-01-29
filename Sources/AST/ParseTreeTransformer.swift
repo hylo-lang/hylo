@@ -27,7 +27,8 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
   private var unresolvedType: UnresolvedType { context.unresolvedType }
 
   public override func visitFile(_ ctx: ValParser.FileContext) -> Any {
-    let decls = ctx.decl().map({ decl in decl.accept(self) }) as! [Decl]
+    var decls: [Decl] = []
+    expand(decls: ctx.decl(), into: &decls)
     module?.decls.append(contentsOf: decls)
     return decls
   }
@@ -48,9 +49,9 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
   }
 
   public override func visitDeclBlock(_ ctx: ValParser.DeclBlockContext) -> Any {
-    var decls: [Node] = []
+    var decls: [Decl] = []
     expand(decls: ctx.decl(), into: &decls)
-    return decls as! [Decl]
+    return decls
   }
 
   public override func visitStatement(_ ctx: ValParser.StatementContext) -> Any {
@@ -92,13 +93,17 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     // Associate each introduced variable declaration to the new pattern binding declaration.
     for pattern in decl.pattern.namedPatterns {
       pattern.decl.patternBindingDecl = decl
+      decl.varDecls.append(pattern.decl)
     }
 
     return decl
   }
 
   public override func visitFunDecl(_ ctx: ValParser.FunDeclContext) -> Any {
-    let declModifiers = ctx.declModifierList().map({ $0.accept(self) as! [DeclModifier] }) ?? []
+    // Build the declaration modifiers.
+    let declModifiers = ctx.declModifierList().map({ mod in
+      mod.accept(self) as! [DeclModifier]
+    }) ?? []
 
     // Create the function declaration.
     let decl: AbstractFunDecl
@@ -463,7 +468,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
         UnqualTypeRepr(
           name: name.getText(), type: unresolvedType, range: range(of: name.getSymbol()!))
       }))
-    return QualDeclRefExpr(
+    return UnresolvedQualDeclRefExpr(
       namespace: ns, name: names.last!.getText(), type: unresolvedType, range: range(of: ctx))
   }
 
@@ -491,14 +496,14 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
   ///
   /// This method is meant to handle situations in which statements from concrete syntax gets get
   /// expanded into multiple abstract nodes.
-  private func expand(
+  private func expand<T>(
     decls: [ParserRuleContext],
-    into list: inout [Node]
+    into list: inout [T]
   ) {
     for ctx in decls {
       switch ctx.accept(self) {
-      case let node as Node   : list.append(node)
-      case let nodes as [Node]: list.append(contentsOf: nodes)
+      case let node as T   : list.append(node)
+      case let nodes as [T]: list.append(contentsOf: nodes)
       default: fatalError("unreachable")
       }
     }

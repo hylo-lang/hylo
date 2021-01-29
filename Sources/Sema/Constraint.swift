@@ -66,6 +66,8 @@ extension DisjunctionConstraint: CustomStringConvertible {
 struct EqualityConstraint: RelationalConstraint {
 
   init(_ lhs: ValType, isEqualTo rhs: ValType, at locator: ConstraintLocator?) {
+    assert(!(lhs is UnresolvedType) && !(rhs is UnresolvedType))
+
     self.lhs = lhs
     self.rhs = rhs
     self.locator = locator
@@ -104,6 +106,8 @@ extension EqualityConstraint: CustomStringConvertible {
 struct SubtypingConstraint: RelationalConstraint {
 
   init(_ lhs: ValType, isSubtypeOf rhs: ValType, at locator: ConstraintLocator?) {
+    assert(!(lhs is UnresolvedType) && !(rhs is UnresolvedType))
+
     self.lhs = lhs
     self.rhs = rhs
     self.locator = locator
@@ -142,6 +146,8 @@ extension SubtypingConstraint: CustomStringConvertible {
 struct ConversionConstraint: RelationalConstraint {
 
   init(_ lhs: ValType, convertsTo rhs: ValType, at locator: ConstraintLocator?) {
+    assert(!(lhs is UnresolvedType) && !(rhs is UnresolvedType))
+
     self.lhs = lhs
     self.rhs = rhs
     self.locator = locator
@@ -177,6 +183,8 @@ extension ConversionConstraint: CustomStringConvertible {
 struct ConformanceConstraint: Constraint {
 
   init(_ type: ValType, conformsTo view: ViewType, at locator: ConstraintLocator?) {
+    assert(!(type is UnresolvedType))
+
     self.type = type
     self.view = view
     self.locator = locator
@@ -213,6 +221,8 @@ struct ValueMemberConstraint: Constraint {
     ofType rhs: ValType,
     at locator: ConstraintLocator?
   ) {
+    assert(!(lhs is UnresolvedType) && !(rhs is UnresolvedType))
+
     self.lhs = lhs
     self.memberName = memberName
     self.rhs = rhs

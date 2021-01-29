@@ -4,7 +4,7 @@ import Basic
 ///
 /// A module, or compilation unit, is a collection of types, variables and function declarations
 /// declared in one or several source files.
-public final class Module: DeclSpace {
+public final class Module: IterableDeclSpace {
 
   public init(id: String, context: Context) {
     self.id = id
@@ -28,27 +28,51 @@ public final class Module: DeclSpace {
 
   /// Returns the extensions of the given type declaration.
   public func extensions(of decl: AbstractNominalTypeDecl) -> [TypeExtDecl] {
-    // Build the qualified name of `decl`.
-    var names = [decl.name]
-    var space = decl.parentDeclSpace
-    while space !== self {
-      guard let s = space as? AbstractNominalTypeDecl else {
-        // Types nested in a "local" declaration space (e.g., a function) cannot be extended.
-        return []
-      }
-      names.append(s.name)
-      space = s.parentDeclSpace
-    }
-
-    // Search for extensions defined for the computed qualified name.
     var matches: [TypeExtDecl] = []
+
+    // Loop through all extensions in the module, (partially) binding them if necessary.
     stmt:for case let ext as TypeExtDecl in decls {
-      let components = ext.extendedIdent.components
-      guard components.count == names.count else { continue }
-      for i in 0 ..< components.count {
-        guard components[i].name == names[names.count - i - 1] else { continue stmt }
+      switch ext.state {
+      case .bound(let d) where d === decl:
+        // Simplest case. The extension was already bound to `decl`!
+        matches.append(ext)
+
+      case .parsed:
+        // The extension was not bound yet, so we need to realize to resolve its identifier.
+        if ext.extendedIdent is UnqualTypeRepr {
+          if ext.bind() === decl {
+            matches.append(ext)
+          }
+          continue stmt
+        }
+
+        // If the identifier is a `CompoundTypeRepr`, we can't realize the full signature at once,
+        // as we may risk to trigger infinite recursion of name lookups if the signature points
+        // within `decl`. Instead, we must realize it lazily and abort if we detect that we're
+        // about to start a lookup from `decl`.
+        let compound = ext.extendedIdent as! CompoundTypeRepr
+        let baseType = compound.components[0].realize(unqualifiedFrom: self)
+        guard var baseDecl = (baseType as? NominalType)?.decl else { continue stmt }
+
+        for i in 1 ..< compound.components.count {
+          // The signature points within `decl`; we have to give up.
+          guard baseDecl !== decl else { continue stmt }
+
+          // Realize the next component.
+          let nextType = compound.components[i].realize(qualifiedFrom: baseDecl)
+          guard let nextDecl = (nextType as? NominalType)?.decl else { continue stmt }
+          baseDecl = nextDecl
+        }
+
+        // Check if the declaration to which the signature resolves is `decl`.
+        if baseDecl === decl {
+          matches.append(ext)
+        }
+
+      default:
+        // The extension is bound to another declaration, or it is invalid.
+        continue
       }
-      matches.append(ext)
     }
 
     return matches

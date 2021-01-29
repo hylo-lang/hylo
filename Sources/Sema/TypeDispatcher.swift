@@ -18,21 +18,20 @@ final class TypeDispatcher: NodeWalker {
 
   override func didVisit(_ expr: Expr) -> (shouldContinue: Bool, nodeAfter: Expr) {
     switch expr {
-    case is DeclRefExpr:
+    case is DeclRefExpr, is MemberRefExpr:
       // Nothing to do here.
       break
-
-    case let e as OverloadedDeclRefExpr:
-      return (true, dispatch(e))
 
     case let e as UnresolvedMemberExpr:
       return (true, dispatch(e))
 
-    default:
-      // TODO: Substitute `UnresolvedMemberExpr`.
+    case let e as OverloadedDeclRefExpr:
+      return (true, dispatch(e))
 
-      // Note that we don't need to emit any diagnostic for unresolved declaration refs, as those
-      // are already diagnosed during name binding.
+    case is UnresolvedDeclRefExpr, is UnresolvedQualDeclRefExpr:
+      fatalError("unexpected primary unresolved expr")
+
+    default:
       expr.type = expr.type.accept(reifier)
     }
 
@@ -96,7 +95,7 @@ final class TypeDispatcher: NodeWalker {
       return expr
     }
 
-    // Diagnose an ambigous name reference if there's more than one possible candidate.
+    // Diagnose an ambigous name reference if there's not exactly one candidate left.
     guard decls.count == 1 else {
       type.context.report(.ambiguousReference(to: decls[0].name, range: expr.range))
       return expr
@@ -107,6 +106,8 @@ final class TypeDispatcher: NodeWalker {
 
   private func match(_ decl: TypeOrValueDecl, _ type: ValType) -> Bool {
     let declType = decl.type.accept(reifier)
+    assert(!(declType is UnresolvedType))
+
     if let inoutType = declType as? InoutType {
      return inoutType.base == type
     }

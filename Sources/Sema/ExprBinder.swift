@@ -22,56 +22,47 @@ struct ExprBinder: ExprVisitor {
     return node
   }
 
-  /// Resolves an `UnresolvedDeclRefExpr`, performing an unqualified name lookup.
-  ///
-  /// - Parameter node: The expression to resolve.
+  /// Resolves an `UnresolvedDeclRefExpr`, performing an unqualified name lookup from the
+  /// declaration space in which it resides.
   func visit(_ node: UnresolvedDeclRefExpr) -> Expr {
     let context = node.type.context
 
     let matches = space.lookup(unqualified: node.name, in: node.type.context)
     guard !matches.isEmpty else {
       context.report(.cannotFind(symbol: node.name, range: node.range))
-      return node
+      return ErrorExpr(type: context.errorType, range: node.range)
     }
 
     return bind(ref: node, to: matches)
   }
 
-  func visit(_ node: UnresolvedMemberExpr) -> Expr {
-    return node
-  }
-
-  /// Resolves a `QualDeclRefExpr`, performing a qualified name lookup on its base.
-  ///
-  /// - Parameter ref: The expression to resolve.
-  func visit(_ node: QualDeclRefExpr) -> Expr {
+  /// Resolves an `UnresolvedQualDeclRefExpr`, performing a qualified name lookup on its base.
+  func visit(_ node: UnresolvedQualDeclRefExpr) -> Expr {
     let context = node.type.context
 
-    guard let baseType = node.namespace.realize(within: space) else {
+    let baseType = node.namespace.realize(unqualifiedFrom: space)
+    guard !(baseType is ErrorType) else {
       // The diagnostic is emitted by the failed attempt to realize the base.
-      return node
+      return ErrorExpr(type: context.errorType, range: node.range)
     }
 
     // Handle built-ins.
     if baseType === context.builtin.instanceType {
       guard let decl = context.getBuiltinDecl(for: node.name) else {
         context.report(.cannotFind(builtin: node.name, range: node.range))
-        return node
+        return ErrorExpr(type: context.errorType, range: node.range)
       }
       return DeclRefExpr(decl: decl, range: node.range)
     }
 
     // Run a qualified lookup if the namespace resolved to a nominal type.
-    guard let baseTypeDecl = (baseType as? NominalType)?.decl else {
-      context.report(.cannotFind(member: node.name, in: baseType, range: node.range))
-      return node
-    }
-    let matches = baseTypeDecl.lookup(qualified: node.name)
+    let matches = baseType.lookup(member: node.name)
     guard !matches.isEmpty else {
       context.report(.cannotFind(member: node.name, in: baseType, range: node.range))
-      return node
+      return ErrorExpr(type: context.errorType, range: node.range)
     }
 
+    // Note that this will throw the type repr away.
     return bind(ref: node, to: matches)
   }
 
@@ -87,6 +78,24 @@ struct ExprBinder: ExprVisitor {
     return node
   }
 
+  func visit(_ node: UnresolvedMemberExpr) -> Expr {
+    let context = node.type.context
+
+    // Propagate error expressions.
+    if node.base is ErrorExpr {
+      // We can assume a diagnostic has been emitted by a previous attempt to bind the base. We
+      // need a superfluous "error type has no member ..." diagnostic.
+      return ErrorExpr(type: context.errorType, range: node.range)
+    }
+
+    // If the base is known to resolve to a concrete type, we could attempt to resolve the whole
+    // expression as a `MemberRefExpr` directly here, rather than letting the type solver do it.
+    // However, this wouldn't for overloaded members, unless we modify `OverloadedDeclRefExpr` so
+    // that it can keep track of a base expression.
+
+    return node
+  }
+
   func visit(_ node: MemberRefExpr) -> Expr {
     return node
   }
@@ -99,27 +108,35 @@ struct ExprBinder: ExprVisitor {
     return node
   }
 
+  func visit(_ node: ErrorExpr) -> Expr {
+    return node
+  }
+
   /// Desugars a `CallExpr` to a constructor (e.g., `Foo(bar: 1)`).
   ///
   /// - Parameter call: A call expression whose `fun` is a `TypeDeclRefExpr`.
   func desugar(constructorCall call: CallExpr) -> CallExpr {
     let context = call.type.context
 
+    func newCall(newFun: Expr) -> CallExpr {
+      return CallExpr(fun: newFun, args: call.args, type: call.type, range: call.range)
+    }
+
     let fun = call.fun as! TypeDeclRefExpr
     guard let typeDecl = fun.decl as? AbstractNominalTypeDecl else {
       context.report(.cannotFind(member: "new", in: fun.decl.type, range: fun.range))
-      return call
+      return newCall(newFun: ErrorExpr(type: context.errorType, range: fun.range))
     }
 
     let matches = typeDecl.lookup(qualified: "new")
     guard !matches.values.isEmpty else {
       context.report(.cannotFind(member: "new", in: fun.decl.type, range: fun.range))
-      return call
+      return newCall(newFun: ErrorExpr(type: context.errorType, range: fun.range))
     }
 
     let newFun = bind(ref: fun, to: matches)
     assert(!(newFun is TypeDeclRefExpr))
-    return CallExpr(fun: newFun, args: call.args, type: call.type, range: call.range)
+    return newCall(newFun: newFun)
   }
 
   /// Binds the given declaration reference to specified lookup result.
@@ -129,13 +146,22 @@ struct ExprBinder: ExprVisitor {
     // Favor references to value declarations.
     if matches.values.count > 1 {
       let newRef = OverloadedDeclRefExpr(
-        declSet: matches.values, type: context.unresolvedType, range: ref.range)
-      newRef.type = TypeVar(context: context, node: newRef)
+        subExpr: ref, declSet: matches.values, type: ref.type, range: ref.range)
+      newRef.type = ref.type is TypeVar
+        ? ref.type
+        : TypeVar(context: context, node: newRef)
+
       return newRef
     }
 
     if matches.values.count == 1 {
-      return DeclRefExpr(decl: matches.values[0], range: ref.range)
+      // If `ref` is a member expression, make sure we keep its base around.
+      if let expr = ref as? MemberExpr {
+        // Preserve the base expr.
+        return MemberRefExpr(base: expr.base, decl: matches.values[0], range: expr.range)
+      } else {
+        return DeclRefExpr(decl: matches.values[0], range: ref.range)
+      }
     }
 
     // FIXME: Handle overloaded type decls.

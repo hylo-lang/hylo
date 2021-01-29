@@ -10,9 +10,9 @@ struct ConstraintGenerator: StmtVisitor, ExprVisitor {
 
   func visit(_ node: PatternBindingDecl) {
     // If the declaration has a signature, it as the authoritative type information.
-    if let sign = node.sign,
-       let signType = sign.realize(within: node.parentDeclSpace!)
-    {
+    if let sign = node.sign {
+      let signType = sign.realize(unqualifiedFrom: node.parentDeclSpace!)
+
       checker.system.insert(
         EqualityConstraint(
           node.pattern.type, isEqualTo: checker.instanciate(signType),
@@ -46,10 +46,8 @@ struct ConstraintGenerator: StmtVisitor, ExprVisitor {
     // Retrieve the expected return type.
     let retType: ValType
     if let sign = funDecl.retSign {
-      precondition(sign.state != .parsed, "function signature should have been realized")
-      retType = sign.state == .realized
-        ? checker.instanciate(sign.type)
-        : checker.context.unresolvedType
+      retType = sign.realize(unqualifiedFrom: funDecl)
+      guard !(retType is ErrorType) else { return }
     } else {
       retType = checker.context.unitType
     }
@@ -109,7 +107,7 @@ struct ConstraintGenerator: StmtVisitor, ExprVisitor {
         at: ConstraintLocator(node, .valueMember(node.memberName))))
   }
 
-  func visit(_ node: QualDeclRefExpr) {
+  func visit(_ node: UnresolvedQualDeclRefExpr) {
   }
 
   func visit(_ node: OverloadedDeclRefExpr) {
@@ -136,6 +134,9 @@ struct ConstraintGenerator: StmtVisitor, ExprVisitor {
   }
 
   func visit(_ node: WildcardExpr) {
+  }
+
+  func visit(_ node: ErrorExpr) {
   }
 
 }

@@ -306,7 +306,7 @@ open class NodeWalker: NodeVisitor {
     return true
   }
 
-  public final func visit(_ node: QualDeclRefExpr) -> Bool {
+  public final func visit(_ node: UnresolvedQualDeclRefExpr) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
@@ -363,6 +363,10 @@ open class NodeWalker: NodeVisitor {
   }
 
   public final func visit(_ node: WildcardExpr) -> Bool {
+    return true
+  }
+
+  public final func visit(_ node: ErrorExpr) -> Bool {
     return true
   }
 

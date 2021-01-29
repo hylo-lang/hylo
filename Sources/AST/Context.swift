@@ -92,6 +92,10 @@ public final class Context {
     return UnresolvedType(context: self)
   }()
 
+  public private(set) lazy var errorType: ErrorType = {
+    return ErrorType(context: self)
+  }()
+
   // MARK: Built-ins
 
   /// The built-in module.

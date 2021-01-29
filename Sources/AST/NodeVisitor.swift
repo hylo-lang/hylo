@@ -83,7 +83,7 @@ public protocol ExprVisitor {
 
   func visit(_ node: UnresolvedMemberExpr) -> ExprResult
 
-  func visit(_ node: QualDeclRefExpr) -> ExprResult
+  func visit(_ node: UnresolvedQualDeclRefExpr) -> ExprResult
 
   func visit(_ node: OverloadedDeclRefExpr) -> ExprResult
 
@@ -96,6 +96,8 @@ public protocol ExprVisitor {
   func visit(_ node: AddrOfExpr) -> ExprResult
 
   func visit(_ node: WildcardExpr) -> ExprResult
+
+  func visit(_ node: ErrorExpr) -> ExprResult
 
 }
 

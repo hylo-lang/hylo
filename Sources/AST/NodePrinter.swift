@@ -302,7 +302,7 @@ public struct NodePrinter: NodeVisitor {
     """
   }
 
-  public func visit(_ node: QualDeclRefExpr) -> String {
+  public func visit(_ node: UnresolvedQualDeclRefExpr) -> String {
     return """
     {
     \(exprHeader(node)),
@@ -373,6 +373,14 @@ public struct NodePrinter: NodeVisitor {
   }
 
   public func visit(_ node: WildcardExpr) -> String {
+    return """
+    {
+    \(exprHeader(node))
+    }
+    """
+  }
+
+  public func visit(_ node: ErrorExpr) -> String {
     return """
     {
     \(exprHeader(node))

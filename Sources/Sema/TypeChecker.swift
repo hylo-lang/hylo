@@ -52,6 +52,9 @@ public final class TypeChecker {
 
     // Sort the constraint system so that simpler constraints appear first.
     system.sort()
+    for constraint in system.freshConstraints {
+      print(constraint)
+    }
 
     // Solve the constraint system.
     var solver = CSSolver(

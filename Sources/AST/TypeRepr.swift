@@ -4,34 +4,12 @@ import Basic
 public protocol TypeRepr: Node {
 
   /// The semantic type realized from this representation.
-  ///
-  /// The value of this property is only relevant if the representation is realized.
   var type: ValType { get }
-
-  /// The compilation state of this representation.
-  var state: TypeReprState { get }
 
   /// Accepts the given visitor.
   ///
   /// - Parameter visitor: A type representation visitor.
   func accept<V>(_ visitor: V) -> V.TypeReprResult where V: TypeReprVisitor
-
-}
-
-/// The compilation state of a type representation.
-public enum TypeReprState {
-
-  /// The representation was parsed.
-  case parsed
-
-  /// The representation was realized.
-  case realized
-
-  /// The representation describes an invalid type, that can't be realized.
-  ///
-  /// The compiler should emit a diagnostic when assigning this state. All uses further attempt to
-  /// realize the representation should be ignored and not re-diagnosed.
-  case invalid
 
 }
 
@@ -70,10 +48,9 @@ extension IdentTypeRepr {
 /// An simple, unqualified type identifier (e.g., `Int64`).
 public final class UnqualTypeRepr: IdentTypeRepr {
 
-  public init(name: String, type: ValType, state: TypeReprState = .parsed, range: SourceRange) {
+  public init(name: String, type: ValType, range: SourceRange) {
     self.name = name
     self.type = type
-    self.state = state
     self.range = range
   }
 
@@ -82,8 +59,6 @@ public final class UnqualTypeRepr: IdentTypeRepr {
 
   /// The type referred by the identifier.
   public var type: ValType
-
-  public var state: TypeReprState
 
   public var components: [UnqualTypeRepr] { [self] }
 
@@ -117,10 +92,6 @@ public final class CompoundTypeRepr: IdentTypeRepr {
 
   public var type: ValType {
     return lastComponent.type
-  }
-
-  public var state: TypeReprState {
-    return lastComponent.state
   }
 
   public var range: SourceRange

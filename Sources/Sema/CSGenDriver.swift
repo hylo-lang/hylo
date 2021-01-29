@@ -22,12 +22,12 @@ final class CSGenDriver: NodeWalker {
       innermostSpace = space
     }
 
-    if decl is FunParamDecl {
-      // Parameters are visited via their function's realizer.
-      return (true, decl)
+    // Bind extensions to the type they extend.
+    if let ext = decl as? TypeExtDecl {
+      _ = ext.bind()
     }
 
-    return (decl.accept(DeclRealizer()), decl)
+    return (true, decl)
   }
 
   public override func didVisit(_ decl: Decl) -> (shouldContinue: Bool, nodeAfter: Decl) {
@@ -35,8 +35,14 @@ final class CSGenDriver: NodeWalker {
       innermostSpace = space.parentDeclSpace
     }
 
+    // Generate the type constraints related to the declaration's semantic validation.
     if let binding = decl as? PatternBindingDecl {
       ConstraintGenerator(checker: checker).visit(binding)
+    }
+
+    // Realize value declarations.
+    if let valueDecl = decl as? ValueDecl {
+      _ = valueDecl.realize()
     }
 
     return (true, decl)
@@ -50,6 +56,7 @@ final class CSGenDriver: NodeWalker {
   }
 
   public override func didVisit(_ stmt: Stmt) -> (shouldContinue: Bool, nodeAfter: Stmt) {
+    // Generate type constraints for the statement.
     stmt.accept(ConstraintGenerator(checker: checker))
 
     if let space = stmt as? AbstractFunDecl {
@@ -63,8 +70,12 @@ final class CSGenDriver: NodeWalker {
     // Perform some pre-processing on the expression, in particular to bind and/or desugar
     // declaration references that could not be resolved by the parser.
     let newExpr = expr.accept(ExprBinder(space: innermostSpace!))
+    guard !(newExpr is ErrorExpr) else {
+      // Skip error ill-formed expressions.
+      return (false, newExpr)
+    }
 
-    // Generate type constraints.
+    // Generate type constraints for the expression.
     newExpr.accept(ConstraintGenerator(checker: checker))
     return (true, newExpr)
   }
@@ -72,8 +83,21 @@ final class CSGenDriver: NodeWalker {
   public override func willVisit(
     _ typeRepr: TypeRepr
   ) -> (shouldWalk: Bool, nodeBefore: TypeRepr) {
-    typeRepr.realize(within: innermostSpace!)
+    if typeRepr is IdentTypeRepr {
+      // Ident type representations must be visited *before* walking their children, as we need
+      // access to the entire component list to perform qualified lookups.
+      typeRepr.realize(unqualifiedFrom: innermostSpace!)
+      return (false, typeRepr)
+    }
+
     return (false, typeRepr)
+  }
+
+  public override func didVisit(
+    _ typeRepr: TypeRepr
+  ) -> (shouldContinue: Bool, nodeAfter: TypeRepr) {
+    typeRepr.realize(unqualifiedFrom: innermostSpace!)
+    return (true, typeRepr)
   }
 
 }

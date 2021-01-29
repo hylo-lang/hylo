@@ -103,6 +103,9 @@ public protocol ValueDecl: TypeOrValueDecl {
   /// The type of the declaration.
   var type: ValType { get set }
 
+  /// Realizes the semantic type of the value being declared.
+  func realize() -> ValType
+
 }
 
 /// A declaration that consists of a pattern and an optional initializer for the variables declared
@@ -144,6 +147,9 @@ public final class PatternBindingDecl: Decl {
 
   public var range: SourceRange
 
+  /// The declaration of all variables declared in this pattern.
+  public var varDecls: [VarDecl] = []
+
   public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
@@ -176,6 +182,12 @@ public final class VarDecl: ValueDecl {
   public weak var parentDeclSpace: DeclSpace?
 
   public var range: SourceRange
+
+  public func realize() -> ValType {
+    guard type is UnresolvedType else { return type }
+    type = TypeVar(context: type.context, node: self)
+    return type
+  }
 
   public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
@@ -270,17 +282,20 @@ public class AbstractFunDecl: ValueDecl, DeclSpace {
   /// The body of the function.
   public var body: BraceStmt?
 
-  /// The type and value declarations directly enclosed within the function space.
+  /// Looks up for declarations that match the given name, directly enclosed within the function
+  /// declaration space.
   ///
-  /// The type declarations are the function's generic parameters. The value declarations are its
-  /// explicit and implicit parameters. The declarations scoped within the function's body are
-  /// **not** included in either of these sets. Those reside in a nested space.
-  public var localTypeAndValueDecls: (types: [TypeDecl], values: [ValueDecl]) {
-    if let selfDecl = self.selfDecl {
-      return (types: genericParams, values: params + [selfDecl])
-    } else {
-      return (types: genericParams, values: params)
+  /// The returned type declarations are the function's generic parameters. The value declarations
+  /// are its explicit and implicit parameters. The declarations scoped within the function's body
+  /// are **not** included in either of these sets. Those reside in a nested space.
+  public func lookup(qualified name: String) -> LookupResult {
+    let types  = genericParams.filter({ $0.name == name })
+    var values = params.filter({ $0.name == name })
+    if name == "self", let selfDecl = self.selfDecl {
+      values.append(selfDecl)
     }
+
+    return LookupResult(types: types, values: values)
   }
 
   /// The semantic properties of the declaration.
@@ -318,23 +333,34 @@ public class AbstractFunDecl: ValueDecl, DeclSpace {
       retType: funType.retType)
   }
 
-  /// Recomputes the (applied) type of the function from its signature.
-  ///
-  /// Call this method after you modify the declaration's parameter list or the return signature to
-  /// keep the declaration's type "synchronized".
-  public func recomputeAppliedType() {
-    let paramType = type.context.tupleType(
-      params.map({ param in
-        TupleType.Elem(label: param.externalName, type: param.type)
-      }))
-
-    let retType = retSign?.type ?? type.context.unitType
-    type = type.context.funType(paramType: paramType, retType: retType)
-  }
-
   public weak var parentDeclSpace: DeclSpace?
 
   public var range: SourceRange
+
+  /// Realizes the "unapplied" type of the function from its signature.
+  ///
+  /// For member functions, this is the type of the function extended with an implicit receiver
+  /// parameter. For other functions, this is equal to `type`.
+  public func realize() -> ValType {
+    guard type is UnresolvedType else { return type }
+
+    var paramTypeElems: [TupleType.Elem] = []
+    for param in params {
+      _ = param.realize()
+      paramTypeElems.append(TupleType.Elem(label: param.externalName, type: param.type))
+    }
+    let paramType = type.context.tupleType(paramTypeElems)
+
+    let retType: ValType
+    if let sign = retSign {
+      retType = sign.realize(unqualifiedFrom: self)
+    } else {
+      retType = type.context.unitType
+    }
+
+    type = type.context.funType(paramType: paramType, retType: retType)
+    return type
+  }
 
   public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
@@ -395,14 +421,19 @@ public final class CtorDecl: AbstractFunDecl {
     props.insert(.isMutating)
   }
 
-  public override func recomputeAppliedType() {
-    let paramType = type.context.tupleType(
-      params.map({ param in
-        TupleType.Elem(label: param.externalName, type: param.type)
-      }))
+  public override func realize() -> ValType {
+    guard type is UnresolvedType else { return type }
 
+    var paramTypeElems: [TupleType.Elem] = []
+    for param in params {
+      _ = param.realize()
+      paramTypeElems.append(TupleType.Elem(label: param.externalName, type: param.type))
+    }
+    let paramType = type.context.tupleType(paramTypeElems)
     let retType = (selfDecl!.type as! InoutType).base
+
     type = type.context.funType(paramType: paramType, retType: retType)
+    return type
   }
 
   public override func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
@@ -444,6 +475,17 @@ public final class FunParamDecl: ValueDecl {
   public weak var parentDeclSpace: DeclSpace?
 
   public var range: SourceRange
+
+  public func realize() -> ValType {
+    guard type is UnresolvedType else { return type }
+
+    if let sign = self.sign {
+      type = sign.realize(unqualifiedFrom: parentDeclSpace!)
+    } else {
+      type = TypeVar(context: type.context, node: self)
+    }
+    return type
+  }
 
   public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
@@ -492,15 +534,64 @@ public class AbstractNominalTypeDecl: TypeDecl, DeclSpace {
 
   // MARK: Member lookup
 
-  /// An internal table keeping track of the members of this type.
-  var memberTable: [String: TypeOrValueDecl]?
+  /// An internal lookup table keeping track of type members.
+  var typeMemberTable: [String: [TypeDecl]]?
+
+  /// An internal lookup table keeping track of value members.
+  var valueMemberTable: [String: [ValueDecl]]?
+
+  // Updates or initializes the member lookup tables.
+  func updateMemberTables() {
+    guard valueMemberTable == nil else { return }
+
+    // Create the lookup tables.
+    typeMemberTable  = [:]
+    valueMemberTable = [:]
+
+    /// Fills the member lookup table with the given declarations.
+    func fill(members: [Decl]) {
+      for decl in members {
+        switch decl {
+        case let typeDecl as TypeDecl:
+          typeMemberTable![typeDecl.name, default: []].append(typeDecl)
+
+        case let valueDecl as ValueDecl:
+          valueMemberTable![valueDecl.name, default: []].append(valueDecl)
+
+        case let pbDecl as PatternBindingDecl:
+          for pattern in pbDecl.pattern.namedPatterns {
+            valueMemberTable![pattern.decl.name, default: []].append(pattern.decl)
+          }
+
+        default:
+          continue
+        }
+      }
+    }
+
+    fill(members: members)
+    for module in type.context.modules.values {
+      for extDecl in module.extensions(of: self) {
+        fill(members: extDecl.members)
+      }
+    }
+
+    // FIXME: Insert members inherited by conformance.
+  }
+
+  public func lookup(qualified name: String) -> LookupResult {
+    updateMemberTables()
+    return LookupResult(
+      types : typeMemberTable![name]  ?? [],
+      values: valueMemberTable![name] ?? [])
+  }
 
   // MARK: Conformance metadata
 
   /// An internal table keeping track of the views to which the declared type conforms.
   var conformanceTable: ConformanceLookupTable?
 
-  // Unpdates or initializes the conformance lookup table.
+  // Updates or initializes the conformance lookup table.
   func updateConformanceTable() {
     if conformanceTable == nil {
       conformanceTable = ConformanceLookupTable()
@@ -565,6 +656,10 @@ public final class GenericParamDecl: TypeDecl {
 
   public var range: SourceRange
 
+  public func lookup(qualified name: String) -> LookupResult {
+    return LookupResult()
+  }
+
   public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
@@ -605,6 +700,34 @@ public final class TypeExtDecl: Decl, DeclSpace {
 
   public var range: SourceRange
 
+  public func bind() -> AbstractNominalTypeDecl? {
+    guard state != .invalid else { return nil }
+    if case .bound(let decl) = state {
+      return decl
+    }
+
+    let type = extendedIdent.realize(unqualifiedFrom: parentDeclSpace!)
+    guard !(type is ErrorType) else {
+      // The diagnostic is emitted by the failed attempt to realize the base.
+      state = .invalid
+      return nil
+    }
+
+    guard let decl = (type as? NominalType)?.decl else {
+      type.context.report(.nonNominalExtension(type, range: extendedIdent.range))
+      state = .invalid
+      return nil
+    }
+
+    state = .bound(decl)
+    return decl
+  }
+
+  public func lookup(qualified name: String) -> LookupResult {
+    // Bind the extension and forward the lookup to the extended type.
+    return bind()?.lookup(qualified: name) ?? LookupResult()
+  }
+
   public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
@@ -613,7 +736,7 @@ public final class TypeExtDecl: Decl, DeclSpace {
   public var state = State.parsed
 
   /// The compilation state of a type extension.
-  public enum State {
+  public enum State: Equatable {
 
     /// The declaration was parsed.
     case parsed
@@ -626,6 +749,15 @@ public final class TypeExtDecl: Decl, DeclSpace {
     /// The compiler should emit a diagnostic when assigning this state. All further attempt to use
     /// the contents of this extension should be ignored and not re-diagnosed.
     case invalid
+
+    public static func == (lhs: State, rhs: State) -> Bool {
+      switch (lhs, rhs) {
+      case (.parsed , .parsed)              : return true
+      case (.invalid, .invalid)             : return true
+      case (.bound(let d1), .bound(let d2)) : return d1 === d2
+      default: return false
+      }
+    }
 
   }
 

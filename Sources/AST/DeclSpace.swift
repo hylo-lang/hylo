@@ -13,9 +13,6 @@ public protocol DeclSpace: Node {
   /// This property should always be defined, except for module declarations.
   var parentDeclSpace: DeclSpace? { get set }
 
-  /// The type and value declarations directly enclosed in this space.
-  var localTypeAndValueDecls: (types: [TypeDecl], values: [ValueDecl]) { get }
-
   /// Looks up for declarations that match the given unqualified name.
   ///
   /// This implements a core part of Val's name resolution.
@@ -76,5 +73,35 @@ extension DeclSpace {
       })
     })
   }
+
+}
+
+/// An iterable declaration space.
+///
+/// This is a simple, lightweight protocol that provides a default implementation for
+/// `lookup(qualfified:)` (defined in `NameLookup.swift`).
+protocol IterableDeclSpace: DeclSpace {
+
+  associatedtype DeclSequence: Sequence where DeclSequence.Element == Decl
+
+  /// All the declarations directly enclosed in this space.
+  var decls: DeclSequence { get }
+
+}
+
+/// A declaration space that provides generic type parameters.
+public protocol GenericDeclSpace {
+
+  /// The generic parameters of declaration space.
+  var genericParams: [GenericParamDecl] { get }
+
+  /// A flag that indicates whether the space has generic parameters of its own.
+  var isGeneric: Bool { get }
+
+}
+
+extension GenericDeclSpace {
+
+  public var isGeneric: Bool { !genericParams.isEmpty }
 
 }

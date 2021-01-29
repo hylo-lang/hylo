@@ -1,16 +1,5 @@
 extension DeclSpace {
 
-  /// The type and value declarations directly enclosed in this space.
-  ///
-  /// This default implementation walks the subtree rooted by this node to collect all type and
-  /// value declarations that do not belong to a nested space. Conforming types may override this
-  /// behavior for more a optimized strategy.
-  public var localTypeAndValueDecls: (types: [TypeDecl], values: [ValueDecl]) {
-    let finder = LocalTypeAndValueDeclFinder()
-    _ = finder.visit(any: self)
-    return (finder.types, finder.values)
-  }
-
   public func lookup(unqualified name: String, in context: Context) -> LookupResult {
     var space: DeclSpace? = self
     var result = LookupResult()
@@ -21,9 +10,7 @@ extension DeclSpace {
 
     while let ns = space {
       // Enumerate the symbols declared directly within the current space.
-      let (types, values) = ns.localTypeAndValueDecls
-      var locals = LookupResult(
-        types: types.filter({ $0.name == name }), values: values.filter({ $0.name == name }))
+      var locals = ns.lookup(qualified: name)
       if hasNonOverloadableDecl {
         locals = locals.filter({ $0.isOverloadable })
       } else {
@@ -42,40 +29,48 @@ extension DeclSpace {
     return result
   }
 
-  public func lookup(qualified name: String) -> LookupResult {
-    let (types, values) = localTypeAndValueDecls
-    return LookupResult(
-      types: types.filter({ $0.name == name }), values: values.filter({ $0.name == name }))
+}
+
+extension ValType {
+
+  public func lookup(member memberName: String) -> LookupResult {
+    switch self {
+    case let baseType as NominalType:
+      return baseType.decl.lookup(qualified: memberName)
+    case let baseType as InoutType:
+      return baseType.base.lookup(member: memberName)
+    default:
+      return LookupResult()
+    }
   }
 
 }
 
-extension AbstractNominalTypeDecl {
+extension IterableDeclSpace {
 
   public func lookup(qualified name: String) -> LookupResult {
-    // Get the declarations directly enclosed.
-    let (types, values) = localTypeAndValueDecls
-    var result = LookupResult(
-      types: types.filter({ $0.name == name }), values: values.filter({ $0.name == name }))
+    var types : [TypeDecl]  = []
+    var values: [ValueDecl] = []
 
-    // Merge members declared in extensions.
-    for module in type.context.modules.values {
-      for extDecl in module.extensions(of: self) {
-        let (types, values) = extDecl.localTypeAndValueDecls
-        result.types.append(contentsOf: types.filter({ $0.name == name }))
-        result.values.append(contentsOf: values.filter({ $0.name == name }))
+    for node in decls {
+      switch node {
+      case let typeDecl as TypeDecl where typeDecl.name == name:
+        types.append(typeDecl)
+
+      case let valueDecl as ValueDecl where valueDecl.name == name:
+        values.append(valueDecl)
+
+      case let pbDecl as PatternBindingDecl:
+        for pattern in pbDecl.pattern.namedPatterns where pattern.decl.name == name {
+          values.append(pattern.decl)
+        }
+
+      default:
+        continue
       }
     }
 
-    // FIXME: Filter requirements without a default implementation.
-    // FIXME: Merge default implementations defined in extensions.
-    // Merge members inherited by conformance.
-//    updateConformanceTable()
-//    for conformance in conformanceTable! {
-//      result.append(contentsOf: conformance.viewDecl.lookup(qualified: name))
-//    }
-
-    return result
+    return LookupResult(types: types, values: values)
   }
 
 }
@@ -134,39 +129,6 @@ extension LookupResult: Collection {
     } else {
       return values[position - types.count]
     }
-  }
-
-}
-
-/// An AST walker that extracts the type and value declarations in a given decl space.
-fileprivate final class LocalTypeAndValueDeclFinder: NodeWalker {
-
-  var types : [TypeDecl]  = []
-  var values: [ValueDecl] = []
-
-  override func willVisit(_ decl: Decl) -> (shouldWalk: Bool, nodeBefore: Decl) {
-    if let d = decl as? TypeDecl {
-      types.append(d)
-    } else if let d = decl as? ValueDecl {
-      values.append(d)
-    }
-    return (!(decl is DeclSpace), decl)
-  }
-
-  override func willVisit(_ stmt: Stmt) -> (shouldWalk: Bool, nodeBefore: Stmt) {
-    return (!(stmt is DeclSpace), stmt)
-  }
-
-  override func willVisit(_ expr: Expr) -> (shouldWalk: Bool, nodeBefore: Expr) {
-    return (!(expr is DeclSpace), expr)
-  }
-
-  override func willVisit(_ pattern: Pattern) -> (shouldWalk: Bool, nodeBefore: Pattern) {
-    return (!(pattern is DeclSpace), pattern)
-  }
-
-  override func willVisit(_ repr: TypeRepr) -> (shouldWalk: Bool, nodeBefore: TypeRepr) {
-    return (!(repr is DeclSpace), repr)
   }
 
 }

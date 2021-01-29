@@ -1,5 +1,3 @@
-import AST
-
 extension TypeRepr {
 
   /// Realize the semantic type denoted by the representation.
@@ -7,48 +5,64 @@ extension TypeRepr {
   /// - Parameter space: The space in which the type representation resides. Note that the method
   ///   does not "recompute" the type realization if it is in the `realized` or `invalud` state.
   @discardableResult
-  func realize(within space: DeclSpace) -> ValType? {
+  public func realize(unqualifiedFrom space: DeclSpace) -> ValType {
+    guard type is UnresolvedType else { return type }
+
     switch self {
-    case let this as UnqualTypeRepr   : return Sema.realize(this, within: space)
-    case let this as CompoundTypeRepr : return Sema.realize(this, within: space)
+    case let this as UnqualTypeRepr   : return AST.realize(this, within: space)
+    case let this as CompoundTypeRepr : return AST.realize(this, within: space)
     default: fatalError("unreachable")
     }
   }
 
 }
 
-func realize(_ typeRepr: UnqualTypeRepr, within space: DeclSpace) -> ValType? {
-  guard typeRepr.state != .invalid else { return nil }
-  guard typeRepr.state != .realized else { return typeRepr.type }
+extension UnqualTypeRepr {
 
+  public func realize(qualifiedFrom typeDecl: TypeDecl) -> ValType {
+    let context = type.context
+
+    let matches = typeDecl.lookup(qualified: name).types
+    guard !matches.isEmpty else {
+      context.report(.cannotFind(type: name, in: typeDecl.instanceType, range: range))
+      type = context.errorType
+      return type
+    }
+
+    // FIXME: Handle overloaded type decls.
+    precondition(matches.count == 1, "overloaded type declarations are not supported yet")
+    type = matches[0].instanceType
+    return type
+  }
+
+}
+
+fileprivate func realize(_ typeRepr: UnqualTypeRepr, within space: DeclSpace) -> ValType {
   let context = typeRepr.type.context
 
   let matches = space.lookup(unqualified: typeRepr.name, in: context).types
   guard !matches.isEmpty else {
     context.report(.cannotFind(type: typeRepr.name, range: typeRepr.range))
-    typeRepr.state = .invalid
-    return nil
+    typeRepr.type = context.errorType
+    return context.errorType
   }
 
   // FIXME: Handle overloaded type decls.
   precondition(matches.count == 1, "overloaded type declarations are not supported yet")
   typeRepr.type = matches[0].instanceType
-  typeRepr.state = .realized
   return typeRepr.type
 }
 
-func realize(_ typeRepr: CompoundTypeRepr, within space: DeclSpace) -> ValType? {
-  guard typeRepr.state != .invalid else { return nil }
-  guard typeRepr.state != .realized else { return typeRepr.type }
-
+fileprivate func realize(_ typeRepr: CompoundTypeRepr, within space: DeclSpace) -> ValType {
   let context = typeRepr.type.context
   let components = typeRepr.components
 
   // Realize the base component, unqualified.
-  guard let baseType = components[0].realize(within: space) else {
+  let baseType = components[0].realize(unqualifiedFrom: space)
+  guard !(baseType is ErrorType) else {
     // The diagnostic is emitted by the failed attempt to realize the base.
-    components.forEach({ $0.state = .invalid })
-    return nil
+    components.forEach({ $0.type = context.errorType })
+    return context.errorType
   }
 
   // Handle built-ins.
@@ -56,17 +70,16 @@ func realize(_ typeRepr: CompoundTypeRepr, within space: DeclSpace) -> ValType? 
     guard let builtinType = context.getBuiltinType(named: components[1].name) else {
       context.report(
         .cannotFind(builtin: components[1].name, range: components[1].range))
-      components[2...].forEach({ $0.state = .invalid })
-      return nil
+      components[2...].forEach({ $0.type = context.errorType })
+      return context.errorType
     }
     components[1].type = builtinType
-    components[1].state = .realized
 
     // Built-in symbols are not namespaces.
     guard components.count == 2 else {
       context.report(.builtinTypesAreNotNamespaces(range: components[1].range))
-      components[2...].forEach({ $0.state = .invalid })
-      return nil
+      components[2...].forEach({ $0.type = context.errorType })
+      return context.errorType
     }
 
     return builtinType
@@ -76,8 +89,8 @@ func realize(_ typeRepr: CompoundTypeRepr, within space: DeclSpace) -> ValType? 
   guard var baseDecl: TypeDecl = (baseType as? NominalType)?.decl else {
     context.report(
       .cannotFind(type: components[1].name, in: baseType, range: components[1].range))
-    components[1...].forEach({ $0.state = .invalid })
-    return nil
+    components[1...].forEach({ $0.type = context.errorType })
+    return context.errorType
   }
 
   for i in 1 ..< components.count {
@@ -87,14 +100,13 @@ func realize(_ typeRepr: CompoundTypeRepr, within space: DeclSpace) -> ValType? 
         .cannotFind(
           type: components[i].name, in: baseDecl.instanceType,
           range: components[i].range))
-      components[i...].forEach({ $0.state = .invalid })
-      return nil
+      components[i...].forEach({ $0.type = context.errorType })
+      return context.errorType
     }
 
     // FIXME: Handle overloaded type decls.
     precondition(matches.count == 1, "overloaded type declarations are not supported yet")
     components[i].type = matches[0].instanceType
-    components[i].state = .realized
 
     baseDecl = matches[0]
   }
