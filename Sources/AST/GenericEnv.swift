@@ -34,7 +34,7 @@ public final class GenericEnv {
   ///   - type: A generic type. This method returns `type` unchanged if it does not contain any
   ///     generic type parameter.
   ///   - useSite: The declaration space from which the type is being referred.
-  public func instanciate(_ type: ValType, from useSite: DeclSpace) -> ValType {
+  public func instantiate(_ type: ValType, from useSite: DeclSpace) -> ValType {
     // FIXME: A lot of magic will have to happen here to handle associated and dependent types.
     instantiator.useSite = useSite
     return instantiator.walk(type)
@@ -66,7 +66,7 @@ fileprivate final class TypeInstantiator: TypeWalker {
     guard env.signature!.genericParams.contains(param) else {
       let gds = env.space!.parentDeclSpace!.innermostGenericSpace!
       gds.prepareGenericEnv()
-      return .stepOver(gds.genericEnv.instanciate(type, from: useSite))
+      return .stepOver(gds.genericEnv.instantiate(type, from: useSite))
     }
 
     if useSite.isDescendant(of: env.space!) {

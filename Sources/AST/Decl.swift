@@ -122,14 +122,14 @@ extension ValueDecl {
     // declaration within its own space (e.g., a recursive call to a generic function).
     if let gds = self as? GenericDeclSpace {
       gds.prepareGenericEnv()
-      return gds.genericEnv.instanciate(genericType, from: gds)
+      return gds.genericEnv.instantiate(genericType, from: gds)
     }
 
     // Find the innermost generic space, relative to this declaration. We can assume there's one,
     // otherwise `realize()` would have failed to resolve the decl.
-    let gds = ((self as? DeclSpace) ?? parentDeclSpace!).innermostGenericSpace!
+    let gds = parentDeclSpace!.innermostGenericSpace!
     gds.prepareGenericEnv()
-    return gds.genericEnv.instanciate(genericType, from: useSite)
+    return gds.genericEnv.instantiate(genericType, from: useSite)
   }
 
 }

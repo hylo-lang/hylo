@@ -51,8 +51,13 @@ struct ConstraintGenerator: StmtVisitor, ExprVisitor {
     let retType: ValType
     if let sign = funDecl.retSign {
       let signType = sign.realize(unqualifiedFrom: funDecl)
-      funDecl.prepareGenericEnv()
-      retType = funDecl.genericEnv.instanciate(signType, from: useSite)
+
+      if signType.props.contains(.hasTypeParams) {
+        funDecl.prepareGenericEnv()
+        retType = funDecl.genericEnv.instantiate(signType, from: useSite)
+      } else {
+        retType = signType
+      }
 
       guard !(retType is ErrorType) else { return }
     } else {
