@@ -37,6 +37,7 @@ public final class GenericEnv {
   public func instantiate(_ type: ValType, from useSite: DeclSpace) -> ValType {
     // FIXME: A lot of magic will have to happen here to handle associated and dependent types.
     instantiator.useSite = useSite
+    instantiator.substitutions.removeAll(keepingCapacity: true)
     return instantiator.walk(type)
   }
 
@@ -54,7 +55,7 @@ fileprivate final class TypeInstantiator: TypeWalker {
   /// The space from wich the visited type is being used.
   unowned var useSite: DeclSpace!
 
-  private var substitutions: [ExistentialKey: TypeVar] = [:]
+  var substitutions: [ExistentialKey: TypeVar] = [:]
 
   override func willVisit(_ type: ValType) -> TypeWalker.Action {
     guard let param = type as? GenericParamType else {
