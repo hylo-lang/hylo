@@ -159,7 +159,10 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
 
   public override func visitFunParam(_ ctx: ValParser.FunParamContext) -> Any {
     let name = ctx.NAME()!.getText()
-    let externalName = ctx.funParamExtName()?.NAME()?.getText()
+    var externalName: String? = ctx.funParamExtName()?.getText() ?? name
+    if externalName == "_" {
+      externalName = nil
+    }
 
     let decl = FunParamDecl(
       name: name,
