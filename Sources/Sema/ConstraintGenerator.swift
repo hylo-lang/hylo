@@ -15,7 +15,13 @@ struct ConstraintGenerator: StmtVisitor, ExprVisitor {
   func visit(_ node: PatternBindingDecl) {
     // If the declaration has a signature, it as the authoritative type information.
     if let sign = node.sign {
-      let signType = sign.realize(unqualifiedFrom: node.parentDeclSpace!)
+      var signType = sign.realize(unqualifiedFrom: node.parentDeclSpace!)
+
+      if signType.props.contains(.hasTypeParams) {
+        let gds = useSite.innermostGenericSpace!
+        gds.prepareGenericEnv()
+        signType = gds.genericEnv.instantiate(signType, from: useSite)
+      }
 
       checker.system.insert(
         EqualityConstraint(
