@@ -1,4 +1,4 @@
-/// A base class to implement AST "event-based" visitors and transformers.
+/// A base class to implement "event-based" AST visitors and transformers.
 open class NodeWalker: NodeVisitor {
 
   public typealias Result = Bool
@@ -16,7 +16,7 @@ open class NodeWalker: NodeVisitor {
   /// This method is called when the walker is about to visit a declaration.
   ///
   /// - Parameter decl: The declaration that will be visited.
-  /// - Returns: `(flag, node)`, where `node` subsitutes the `expr` in the AST, and `flag` is a
+  /// - Returns: `(flag, node)`, where `node` subsitutes `expr` in the AST, and `flag` is a
   ///   Boolean value that indicates whether the walker should visit `node`. The default
   ///   implementation returns `(true, decl)`.
   open func willVisit(_ decl: Decl) -> (shouldWalk: Bool, nodeBefore: Decl) {
@@ -26,7 +26,7 @@ open class NodeWalker: NodeVisitor {
   /// This method is called after the walker visited a declaration.
   ///
   /// - Parameter decl: The declaration that was visited.
-  /// - Returns: `(flag, node)` where `node` subsitutes the `expr` in the AST, and `flag` is a
+  /// - Returns: `(flag, node)` where `node` subsitutes `expr` in the AST, and `flag` is a
   ///   Boolean value that indicates whether the walker should proceed to the next node. The
   ///   default implementation returns `(true, decl)`.
   open func didVisit(_ decl: Decl) -> (shouldContinue: Bool, nodeAfter: Decl) {
@@ -36,7 +36,7 @@ open class NodeWalker: NodeVisitor {
   /// This method is called when the walker is about to visit a statement.
   ///
   /// - Parameter stmt: The statement that will be visited.
-  /// - Returns: `(flag, node)`, where `node` subsitutes the `stmt` in the AST, and `flag` is a
+  /// - Returns: `(flag, node)`, where `node` subsitutes `stmt` in the AST, and `flag` is a
   ///   Boolean value that indicates whether the walker should visit `node`. The default
   ///   implementation returns `(true, stmt)`.
   open func willVisit(_ stmt: Stmt) -> (shouldWalk: Bool, nodeBefore: Stmt) {
@@ -46,7 +46,7 @@ open class NodeWalker: NodeVisitor {
   /// This method is called after the walker visited a statement.
   ///
   /// - Parameter stmt: The statement that was visited.
-  /// - Returns: `(flag, node)` where `node` subsitutes the `stmt` in the AST, and `flag` is a
+  /// - Returns: `(flag, node)` where `node` subsitutes `stmt` in the AST, and `flag` is a
   ///   Boolean value that indicates whether the walker should proceed to the next node. The
   ///   default implementation returns `(true, stmt)`.
   open func didVisit(_ stmt: Stmt) -> (shouldContinue: Bool, nodeAfter: Stmt) {
@@ -56,7 +56,7 @@ open class NodeWalker: NodeVisitor {
   /// This method is called when the walker is about to visit an expression.
   ///
   /// - Parameter expr: The expression that will be visited.
-  /// - Returns: `(flag, node)`, where `node` subsitutes the `expr` in the AST, and `flag` is a
+  /// - Returns: `(flag, node)`, where `node` subsitutes `expr` in the AST, and `flag` is a
   ///   Boolean value that indicates whether the walker should visit `node`. The default
   ///   implementation returns `(true, expr)`.
   open func willVisit(_ expr: Expr) -> (shouldWalk: Bool, nodeBefore: Expr) {
@@ -66,7 +66,7 @@ open class NodeWalker: NodeVisitor {
   /// This method is called after the walker visited an expression.
   ///
   /// - Parameter expr: The expression that was visited.
-  /// - Returns: `(flag, node)` where `node` subsitutes the `expr` in the AST, and `flag` is a
+  /// - Returns: `(flag, node)` where `node` subsitutes `expr` in the AST, and `flag` is a
   ///   Boolean value that indicates whether the walker should proceed to the next node. The
   ///   default implementation returns `(true, expr)`.
   open func didVisit(_ expr: Expr) -> (shouldContinue: Bool, nodeAfter: Expr) {
@@ -76,7 +76,7 @@ open class NodeWalker: NodeVisitor {
   /// This method is called when the walker is about to visit a pattern.
   ///
   /// - Parameter pattern: The patterm that will be visited.
-  /// - Returns: `(flag, node)` where `node` subsitutes the `pattern` in the AST, and `flag` is a
+  /// - Returns: `(flag, node)` where `node` subsitutes `pattern` in the AST, and `flag` is a
   ///   Boolean value that indicates whether the walker should visit `node`. The default
   ///   implementation returns `(true, pattern)`.
   open func willVisit(_ pattern: Pattern) -> (shouldWalk: Bool, nodeBefore: Pattern) {
@@ -86,7 +86,7 @@ open class NodeWalker: NodeVisitor {
   /// This method is called after the walker visited a pattern.
   ///
   /// - Parameter pattern: The patterm that was visited.
-  /// - Returns: `(flag, node)` where `node` subsitutes the `pattern` in the AST, and `flag` is a
+  /// - Returns: `(flag, node)` where `node` subsitutes `pattern` in the AST, and `flag` is a
   ///   Boolean value that indicates whether the walker should proceed to the next node. The
   ///   default implementation returns `(true, pattern)`.
   open func didVisit(_ pattern: Pattern) -> (shouldContinue: Bool, nodeAfter: Pattern) {
@@ -96,7 +96,7 @@ open class NodeWalker: NodeVisitor {
   /// This method is called when the walker is about to visit a type representation.
   ///
   /// - Parameter typeRepr: The type representation that will be visited.
-  /// - Returns: `(flag, node)` where `node` subsitutes the `typeRepr` in the AST, and `flag` is a
+  /// - Returns: `(flag, node)` where `node` subsitutes `typeRepr` in the AST, and `flag` is a
   ///   Boolean value that indicates whether the walker should visit `node`. The default
   ///   implementation returns `(true, typeRepr)`.
   open func willVisit(_ typeRepr: TypeRepr) -> (shouldWalk: Bool, nodeBefore: TypeRepr) {
@@ -106,7 +106,7 @@ open class NodeWalker: NodeVisitor {
   /// This method is called after the walker visited a type representation.
   ///
   /// - Parameter expr: The type representation that was visited.
-  /// - Returns: `(flag, node)` where `node` subsitutes the `typeRepr` in the AST, and `flag` is a
+  /// - Returns: `(flag, node)` where `node` subsitutes `typeRepr` in the AST, and `flag` is a
   ///   Boolean value that indicates whether the walker should proceed to the next node. The
   ///   default implementation returns `(true, typeRepr)`.
   open func didVisit(_ typeRepr: TypeRepr) -> (shouldContinue: Bool, nodeAfter: TypeRepr) {

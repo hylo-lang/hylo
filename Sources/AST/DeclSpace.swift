@@ -62,8 +62,8 @@ extension DeclSpace {
     return false
   }
 
-  /// A sequence containing all enclosing space, from closest to farthest.
-  public var ancestors: AnySequence<DeclSpace> {
+  /// A sequence containing this space and all its ancestors, from closest to farthest.
+  public var spacesUpToRoot: AnySequence<DeclSpace> {
     return AnySequence({ () -> AnyIterator<DeclSpace> in
       var current: DeclSpace? = self
       return AnyIterator({
@@ -72,6 +72,18 @@ extension DeclSpace {
         return s
       })
     })
+  }
+
+  /// The innermost space that has its own generic parameters, starting from this one.
+  public var innermostGenericSpace: GenericDeclSpace? {
+    var current: DeclSpace? = self
+    while let s = current {
+      if let gds = s as? GenericDeclSpace, gds.hasOwnGenericParams {
+        return gds
+      }
+      current = s.parentDeclSpace
+    }
+    return nil
   }
 
 }
@@ -90,18 +102,24 @@ protocol IterableDeclSpace: DeclSpace {
 }
 
 /// A declaration space that provides generic type parameters.
-public protocol GenericDeclSpace {
+public protocol GenericDeclSpace: DeclSpace {
 
   /// The generic parameters of declaration space.
   var genericParams: [GenericParamDecl] { get }
 
+  /// The generic enviroment of the declaration space.
+  var genericEnv: GenericEnv { get set }
+
   /// A flag that indicates whether the space has generic parameters of its own.
-  var isGeneric: Bool { get }
+  var hasOwnGenericParams: Bool { get }
+
+  /// Prepares the generic environment.
+  func prepareGenericEnv()
 
 }
 
 extension GenericDeclSpace {
 
-  public var isGeneric: Bool { !genericParams.isEmpty }
+  public var hasOwnGenericParams: Bool { !genericParams.isEmpty }
 
 }

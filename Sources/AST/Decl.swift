@@ -108,6 +108,32 @@ public protocol ValueDecl: TypeOrValueDecl {
 
 }
 
+extension ValueDecl {
+
+  /// Instantiates the contextual type of this declaration from the given use site.
+  ///
+  /// - Parameter useSite: The declaration space from which the declaration is being referred.
+  public func instantiate(from useSite: DeclSpace) -> ValType {
+    let genericType = realize()
+    guard genericType.props.contains(.hasTypeParams) else { return genericType }
+
+    // If the declaration is its own generic environment, then we should instantiate it externally
+    // even if the use-site is enclosed. This situation corresponds to a "fresh" use of a generic
+    // declaration within its own space (e.g., a recursive call to a generic function).
+    if let gds = self as? GenericDeclSpace {
+      gds.prepareGenericEnv()
+      return gds.genericEnv.instanciate(genericType, from: gds)
+    }
+
+    // Find the innermost generic space, relative to this declaration. We can assume there's one,
+    // otherwise `realize()` would have failed to resolve the decl.
+    let gds = ((self as? DeclSpace) ?? parentDeclSpace!).innermostGenericSpace!
+    gds.prepareGenericEnv()
+    return gds.genericEnv.instanciate(genericType, from: useSite)
+  }
+
+}
+
 /// A declaration that consists of a pattern and an optional initializer for the variables declared
 /// in this pattern.
 public final class PatternBindingDecl: Decl {
@@ -196,7 +222,7 @@ public final class VarDecl: ValueDecl {
 }
 
 /// The base class for function declarations.
-public class AbstractFunDecl: ValueDecl, DeclSpace {
+public class AbstractFunDecl: ValueDecl, GenericDeclSpace {
 
   public init(
     name          : String,
@@ -217,6 +243,7 @@ public class AbstractFunDecl: ValueDecl, DeclSpace {
     self.type = type
     self.range = range
 
+    // Process the function modifiers.
     self.props = FunDeclProps()
     for modifier in declModifiers {
       switch modifier.kind {
@@ -227,12 +254,18 @@ public class AbstractFunDecl: ValueDecl, DeclSpace {
     }
   }
 
+  // MARK: Source properties
+
   /// The name of the function (empty for anonymous functions).
   public var name: String
 
+  /// The semantic properties of the declaration.
+  public var props: FunDeclProps
+
   /// The declaration modifiers of the function.
   ///
-  /// - Note: Setting this property after initialization does not automatically updates `props`.
+  /// This array only contains the declaration modifiers as found in source. It may not accurately
+  /// describe the relevant bits in `props`, nor vice-versa.
   public var declModifiers: [DeclModifier]
 
   /// The generic type parameters of the function.
@@ -243,6 +276,13 @@ public class AbstractFunDecl: ValueDecl, DeclSpace {
 
   /// The signature of the function's return type.
   public var retSign: TypeRepr?
+
+  /// The body of the function.
+  public var body: BraceStmt?
+
+  public var range: SourceRange
+
+  // MARK: Implicit declarations
 
   /// The implicit declaration of the `self` parameter for member functions.
   ///
@@ -279,8 +319,11 @@ public class AbstractFunDecl: ValueDecl, DeclSpace {
     return decl
   }()
 
-  /// The body of the function.
-  public var body: BraceStmt?
+  // MARK: Name Lookup
+
+  public weak var parentDeclSpace: DeclSpace?
+
+  public var isOverloadable: Bool { true }
 
   /// Looks up for declarations that match the given name, directly enclosed within the function
   /// declaration space.
@@ -298,16 +341,13 @@ public class AbstractFunDecl: ValueDecl, DeclSpace {
     return LookupResult(types: types, values: values)
   }
 
-  /// The semantic properties of the declaration.
-  public var props: FunDeclProps
-
-  public var isOverloadable: Bool { true }
+  // MARK: Semantic properties
 
   /// The "applied" type of the function.
   ///
   /// This property must be kept synchronized with the function type implicitly described by the
   /// parameter list and return signature. Setting its value directly is discouraged, you should
-  /// use the method `recomputeAppliedType(in:)` instead.
+  /// use `realize()` instead.
   ///
   /// - Note: Member functions accept the receiver (i.e., `self`) as an implicit first parameter.
   ///   This means that a call to a method `T -> U` is actually an application of an *unapplied*
@@ -333,17 +373,14 @@ public class AbstractFunDecl: ValueDecl, DeclSpace {
       retType: funType.retType)
   }
 
-  public weak var parentDeclSpace: DeclSpace?
-
-  public var range: SourceRange
-
-  /// Realizes the "unapplied" type of the function from its signature.
+  /// Realizes the "applied" type of the function from its signature.
   ///
   /// For member functions, this is the type of the function extended with an implicit receiver
   /// parameter. For other functions, this is equal to `type`.
   public func realize() -> ValType {
     guard type is UnresolvedType else { return type }
 
+    // Realize the parameters.
     var paramTypeElems: [TupleType.Elem] = []
     for param in params {
       _ = param.realize()
@@ -351,6 +388,7 @@ public class AbstractFunDecl: ValueDecl, DeclSpace {
     }
     let paramType = type.context.tupleType(paramTypeElems)
 
+    // Realize the return type.
     let retType: ValType
     if let sign = retSign {
       retType = sign.realize(unqualifiedFrom: self)
@@ -362,11 +400,24 @@ public class AbstractFunDecl: ValueDecl, DeclSpace {
     return type
   }
 
+  /// The generic enviroment of the declaration space.
+  public var genericEnv = GenericEnv()
+
+  /// Prepare the function's generic environment.
+  public func prepareGenericEnv() {
+    // FIXME: We need a mechanism to avoid recomputing the generic signature.
+    genericEnv.space = self
+    genericEnv.signature = GenericSignature(
+      genericParams: genericParams.map({ $0.instanceType as! GenericParamType }))
+  }
+
+  // MARK: Misc.
+
   public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
 
-  /// A set representing the properties of a function declaration.
+  /// A set representing various properties of a function declaration.
   public struct FunDeclProps: OptionSet {
 
     public init(rawValue: Int) {

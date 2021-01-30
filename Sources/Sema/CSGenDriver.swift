@@ -25,13 +25,18 @@ final class CSGenDriver: NodeWalker {
       _ = valueDecl.realize()
     }
 
+    // Preprare generic environments.
+    if let genericSpace = decl as? GenericDeclSpace {
+      genericSpace.prepareGenericEnv()
+    }
+
     return (true, decl)
   }
 
   public override func didVisit(_ decl: Decl) -> (shouldContinue: Bool, nodeAfter: Decl) {
     // Generate the type constraints related to the declaration's semantic validation.
     if let binding = decl as? PatternBindingDecl {
-      ConstraintGenerator(checker: checker).visit(binding)
+      ConstraintGenerator(checker: checker, useSite: innermostSpace!).visit(binding)
     }
 
     return (true, decl)
@@ -39,7 +44,7 @@ final class CSGenDriver: NodeWalker {
 
   public override func didVisit(_ stmt: Stmt) -> (shouldContinue: Bool, nodeAfter: Stmt) {
     // Generate type constraints for the statement.
-    stmt.accept(ConstraintGenerator(checker: checker))
+    stmt.accept(ConstraintGenerator(checker: checker, useSite: innermostSpace!))
     return (true, stmt)
   }
 
@@ -53,7 +58,7 @@ final class CSGenDriver: NodeWalker {
     }
 
     // Generate type constraints for the expression.
-    newExpr.accept(ConstraintGenerator(checker: checker))
+    newExpr.accept(ConstraintGenerator(checker: checker, useSite: innermostSpace!))
     return (true, newExpr)
   }
 

@@ -206,18 +206,16 @@ public final class OverloadedDeclRefExpr: Expr {
 /// An identifier referring to a resolved value declaration.
 public final class DeclRefExpr: Expr {
 
-  public init(decl: ValueDecl, range: SourceRange) {
+  public init(decl: ValueDecl, type: ValType, range: SourceRange) {
     self.decl = decl
+    self.type = type
     self.range = range
   }
 
   /// The declaration referred by the expresssion.
   public var decl: ValueDecl
 
-  public var type: ValType {
-    get { decl.realize() }
-    set { assert(newValue === decl.type) }
-  }
+  public var type: ValType
 
   public var range: SourceRange
 
@@ -291,9 +289,10 @@ public final class UnresolvedMemberExpr: MemberExpr {
 /// An expression referring to a resolved member declaration.
 public final class MemberRefExpr: MemberExpr {
 
-  public init(base: Expr, decl: ValueDecl, range: SourceRange) {
+  public init(base: Expr, decl: ValueDecl, type: ValType, range: SourceRange) {
     self.base = base
     self.decl = decl
+    self.type = type
     self.range = range
   }
 
@@ -303,10 +302,7 @@ public final class MemberRefExpr: MemberExpr {
   /// The declaration referred by the expresssion.
   public var decl: ValueDecl
 
-  public var type: ValType {
-    get { decl.realize() }
-    set { assert(newValue === decl.type) }
-  }
+  public var type: ValType
 
   public var range: SourceRange
 

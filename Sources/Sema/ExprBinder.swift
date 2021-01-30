@@ -52,7 +52,9 @@ struct ExprBinder: ExprVisitor {
         context.report(.cannotFind(builtin: node.name, range: node.range))
         return ErrorExpr(type: context.errorType, range: node.range)
       }
-      return DeclRefExpr(decl: decl, range: node.range)
+
+      // There's no need to instantiate the type, built-ins are never generic.
+      return DeclRefExpr(decl: decl, type: decl.realize(), range: node.range)
     }
 
     // Run a qualified lookup if the namespace resolved to a nominal type.
@@ -154,13 +156,16 @@ struct ExprBinder: ExprVisitor {
       return newRef
     }
 
-    if matches.values.count == 1 {
+    if let decl = matches.values.first {
+      // Instanciate the declaration's type if it's generic.
+      let instType = decl.instantiate(from: space)
+
       // If `ref` is a member expression, make sure we keep its base around.
       if let expr = ref as? MemberExpr {
         // Preserve the base expr.
-        return MemberRefExpr(base: expr.base, decl: matches.values[0], range: expr.range)
+        return MemberRefExpr(base: expr.base, decl: decl, type: instType, range: expr.range)
       } else {
-        return DeclRefExpr(decl: matches.values[0], range: ref.range)
+        return DeclRefExpr(decl: decl, type: instType, range: ref.range)
       }
     }
 

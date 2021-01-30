@@ -18,8 +18,7 @@ final class TypeDispatcher: NodeWalker {
 
   override func didVisit(_ expr: Expr) -> (shouldContinue: Bool, nodeAfter: Expr) {
     switch expr {
-    case is DeclRefExpr, is MemberRefExpr:
-      // Nothing to do here.
+    case is MemberRefExpr:
       break
 
     case let e as UnresolvedMemberExpr:
@@ -64,7 +63,8 @@ final class TypeDispatcher: NodeWalker {
     }
 
     // Substitute the overload set for a concrete declaration ref.
-    return DeclRefExpr(decl: decls[0], range: expr.range)
+    let instType = decls[0].instantiate(from: innermostSpace!)
+    return DeclRefExpr(decl: decls[0], type: instType, range: expr.range)
   }
 
   private func dispatch(_ expr: UnresolvedMemberExpr) -> Expr {
@@ -101,7 +101,8 @@ final class TypeDispatcher: NodeWalker {
       return expr
     }
 
-    return MemberRefExpr(base: expr.base, decl: decls[0], range: expr.range)
+    let instType = decls[0].instantiate(from: innermostSpace!)
+    return MemberRefExpr(base: expr.base, decl: decls[0], type: instType, range: expr.range)
   }
 
   private func match(_ decl: TypeOrValueDecl, _ type: ValType) -> Bool {

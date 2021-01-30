@@ -359,6 +359,12 @@ public final class GenericParamType: ValType {
 
 }
 
+extension GenericParamType: CustomStringConvertible {
+
+  public var description: String { decl.name }
+
+}
+
 /// An existential type.
 ///
 /// This denotes an unspecified type that is known to conform to a set of views at runtime. It is

@@ -6,7 +6,11 @@ struct ConstraintGenerator: StmtVisitor, ExprVisitor {
   typealias StmtResult = Void
   typealias ExprResult = Void
 
+  /// The type checker for which constraints are being generated.
   unowned let checker: TypeChecker
+
+  /// The declaration space from which nodes are being visited.
+  unowned let useSite: DeclSpace
 
   func visit(_ node: PatternBindingDecl) {
     // If the declaration has a signature, it as the authoritative type information.
@@ -15,7 +19,7 @@ struct ConstraintGenerator: StmtVisitor, ExprVisitor {
 
       checker.system.insert(
         EqualityConstraint(
-          node.pattern.type, isEqualTo: checker.instanciate(signType),
+          node.pattern.type, isEqualTo: signType,
           at: ConstraintLocator(node, .annotation)))
 
       // Since the actual type of the pattern if described by the signature, we can treat the
@@ -46,7 +50,10 @@ struct ConstraintGenerator: StmtVisitor, ExprVisitor {
     // Retrieve the expected return type.
     let retType: ValType
     if let sign = funDecl.retSign {
-      retType = sign.realize(unqualifiedFrom: funDecl)
+      let signType = sign.realize(unqualifiedFrom: funDecl)
+      funDecl.prepareGenericEnv()
+      retType = funDecl.genericEnv.instanciate(signType, from: useSite)
+
       guard !(retType is ErrorType) else { return }
     } else {
       retType = checker.context.unitType
