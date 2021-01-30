@@ -30,11 +30,11 @@ public struct CompileJob: Job {
   }
 
   public init(
-    moduleName: String, moduleRoot: URL, parseOnly: Bool = false, isStdLib: Bool = false
+    moduleName: String, moduleRootDir: URL, parseOnly: Bool = false, isStdLib: Bool = false
   ) {
     var moduleFiles: [URL] = []
     if let enumerator = FileManager.default.enumerator(
-            at: moduleRoot,
+            at: moduleRootDir,
             includingPropertiesForKeys: [.isRegularFileKey],
             options: [.skipsHiddenFiles, .skipsPackageDescendants])
     {
@@ -87,7 +87,7 @@ public struct CompileJob: Job {
   }
 
   public static func stdlib(path: URL, parseOnly: Bool = false) -> CompileJob {
-    return CompileJob(moduleName: "Val", moduleRoot: path, parseOnly: parseOnly, isStdLib: true)
+    return CompileJob(moduleName: "Val", moduleRootDir: path, parseOnly: parseOnly, isStdLib: true)
   }
 
 }

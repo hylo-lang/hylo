@@ -1,0 +1,14 @@
+type A { new() {} }
+type B { new() {} }
+type C { new() {} }
+
+fun mono(a: A) -> A {
+  ret a
+}
+
+fun main() {
+  val a1 = mono(a: A())
+
+  // #!error@+1 type 'C' is not a subtype of to type 'A'
+  val a2 = mono(a: C())
+}
