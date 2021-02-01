@@ -5,7 +5,7 @@ struct TypeErrorReporter {
 
   unowned let context: AST.Context
 
-  let reifier: TypeReifier
+  let solution: Solution
 
   func report(_ errors: [TypeError]) {
     // Sort the errors by source location.
@@ -15,8 +15,8 @@ struct TypeErrorReporter {
   func report(_ error: TypeError) {
     switch error {
     case .conflictingTypes(let constraint):
-      let lhs = constraint.lhs.accept(reifier)
-      let rhs = constraint.rhs.accept(reifier)
+      let lhs = solution.reify(constraint.lhs)
+      let rhs = solution.reify(constraint.rhs)
 
       // Compute the diagnostic's message.
       let message: String

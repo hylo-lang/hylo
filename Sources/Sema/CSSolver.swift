@@ -8,7 +8,7 @@ struct CSSolver {
     system: ConstraintSystem,
     assumptions: SubstitutionTable,
     penalities: Int,
-    bestScore: SolutionScore,
+    bestScore: Solution.Score,
     context: AST.Context
   ) {
     self.system = system
@@ -34,11 +34,11 @@ struct CSSolver {
   private var errors: [TypeError] = []
 
   /// The score of the best solution that was computed so far.
-  private var bestScore: SolutionScore
+  private var bestScore: Solution.Score
 
   /// The current score of the solver's solution.
-  private var currentScore: SolutionScore {
-    return SolutionScore(penalities: penalities, errorCount: errors.count)
+  private var currentScore: Solution.Score {
+    return Solution.Score(penalities: penalities, errorCount: errors.count)
   }
 
   /// Solves the type constraint, or fails trying.
@@ -58,7 +58,7 @@ struct CSSolver {
       }
     }
 
-    return Solution(assumptions: assumptions, penalities: penalities, errors: errors)
+    return Solution(bindings: assumptions.flattened(), penalities: penalities, errors: errors)
   }
 
   private mutating func solve(_ constraint: RelationalConstraint) {
@@ -289,9 +289,9 @@ struct CSSolver {
     if results.count != 1 {
       let error = TypeError.multipleOverloads(constraint, results.map({ $0.index }))
       return Solution(
-        assumptions : results[0].solution.assumptions,
-        penalities  : results[0].solution.penalities,
-        errors      : results[0].solution.errors + [error])
+        bindings  : results[0].solution.bindings,
+        penalities: results[0].solution.penalities,
+        errors    : results[0].solution.errors + [error])
     } else {
       return results[0].solution
     }
@@ -312,9 +312,9 @@ struct CSSolver {
       // that guarantees this strategy to be deterministic.
       let error = TypeError.ambiguousConstraint(constraint)
       return Solution(
-        assumptions : results[0].solution.assumptions,
-        penalities  : results[0].solution.penalities,
-        errors      : results[0].solution.errors + [error])
+        bindings  : results[0].solution.bindings,
+        penalities: results[0].solution.penalities,
+        errors    : results[0].solution.errors + [error])
     } else {
       return results[0].solution
     }
@@ -413,48 +413,6 @@ struct CSSolver {
       errors.append(.conflictingLabels(constraint))
       return
     }
-  }
-
-  /// The result of a solver.
-  struct Solution {
-
-    /// The type assumptions that were made to solve the constraint system.
-    let assumptions: SubstitutionTable
-
-    /// The penalities of the solution.
-    let penalities: Int
-
-    /// The errors associated with the solution.
-    let errors: [TypeError]
-
-    /// The score of the solution.
-    var score: SolutionScore {
-      return SolutionScore(penalities: penalities, errorCount: errors.count)
-    }
-
-  }
-
-  /// The score of a solution.
-  struct SolutionScore: RawRepresentable, Comparable {
-
-    init(rawValue: UInt64) {
-      self.rawValue = rawValue
-    }
-
-    init(penalities: Int, errorCount: Int) {
-      rawValue =
-        (UInt64(UInt32(truncatingIfNeeded: penalities))) |
-        (UInt64(UInt32(truncatingIfNeeded: errorCount)) << 32)
-    }
-
-    let rawValue: UInt64
-
-    static func < (lhs: SolutionScore, rhs: SolutionScore) -> Bool {
-      return lhs.rawValue < rhs.rawValue
-    }
-
-    static var worst = SolutionScore(rawValue: UInt64.max)
-
   }
 
 }

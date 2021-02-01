@@ -65,12 +65,11 @@ public final class TypeChecker {
     let solution = solver.solve()
 
     // Report type errors.
-    let reifier = TypeReifier(substitutions: solution.assumptions.flattened())
-    let reporter = TypeErrorReporter(context: context, reifier: reifier)
+    let reporter = TypeErrorReporter(context: context, solution: solution)
     reporter.report(solution.errors)
 
     // Apply the solution.
-    let dispatcher = TypeDispatcher(reifier: reifier)
+    let dispatcher = TypeDispatcher(solution: solution)
     _ = dispatcher.visit(module)
   }
 

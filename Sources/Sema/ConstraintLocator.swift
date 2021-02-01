@@ -1,16 +1,14 @@
 import AST
 
 /// An object that denotes the location of a constraint.
-///
-/// Each
 public struct ConstraintLocator {
 
-  public init<P>(_ anchor: Node, path: P) where P: Sequence, P.Element == PathComponent {
+  public init<P>(_ anchor: Node, path: P) where P: Sequence, P.Element == ConstraintPathComponent {
     self.anchor = anchor
     self.path = Array(path)
   }
 
-  public init(_ anchor: Node, _ path: PathComponent...) {
+  public init(_ anchor: Node, _ path: ConstraintPathComponent...) {
     self.anchor = anchor
     self.path = path
   }
@@ -19,7 +17,7 @@ public struct ConstraintLocator {
   public let anchor: Node
 
   /// A path from `anchor` to the constraint origin.
-  public let path: [PathComponent]
+  public let path: [ConstraintPathComponent]
 
   /// Resolves the node to which the locator resolve.
   public func resolve() -> Node {
@@ -32,42 +30,51 @@ public struct ConstraintLocator {
   }
 
   /// Returns a new locator prefixed by this one and suffixed by the specified path component.
-  public func appending(_ component: PathComponent) -> ConstraintLocator {
+  public func appending(_ component: ConstraintPathComponent) -> ConstraintLocator {
     return ConstraintLocator(anchor, path: path + [component])
-  }
-
-  /// A derivation step in a constraint locator.
-  public enum PathComponent {
-
-    /// The type annotation of a value declaration.
-    case annotation
-
-    /// The expression being assigned in a value binding.
-    case assignment
-
-    /// A function application.
-    case application
-
-    /// A function parameter.
-    case parameter
-
-    /// The return type of a function declaration.
-    case returnType
-
-    /// The value of a return statement.
-    case returnValue
-
-    /// The member of an value expression.
-    case valueMember(String)
-
-    /// The i-th element of a tuple type.
-    case typeTupleElem(Int)
-
   }
 
 }
 
-extension ConstraintLocator.PathComponent {
+extension ConstraintLocator: Hashable {
+
+  public func hash(into hasher: inout Hasher) {
+    hasher.combine(ObjectIdentifier(anchor))
+    hasher.combine(path)
+  }
+
+  public static func == (lhs: ConstraintLocator, rhs: ConstraintLocator) -> Bool {
+    return (lhs.anchor === rhs.anchor) && (lhs.path == rhs.path)
+  }
+
+}
+
+/// A derivation step in a constraint locator.
+public enum ConstraintPathComponent: Hashable {
+
+  /// The type annotation of a value declaration.
+  case annotation
+
+  /// The expression being assigned in a value binding.
+  case assignment
+
+  /// A function application.
+  case application
+
+  /// A function parameter.
+  case parameter
+
+  /// The return type of a function declaration.
+  case returnType
+
+  /// The value of a return statement.
+  case returnValue
+
+  /// The member of an value expression.
+  case valueMember(String)
+
+  /// The i-th element of a tuple type.
+  case typeTupleElem(Int)
 
   fileprivate func resolve(from base: Node) -> Node? {
     switch self {

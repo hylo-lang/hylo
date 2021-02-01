@@ -3,15 +3,15 @@ import Basic
 
 final class TypeDispatcher: NodeWalker {
 
-  init(reifier: TypeReifier) {
-    self.reifier = reifier
+  init(solution: Solution) {
+    self.solution = solution
   }
 
-  let reifier: TypeReifier
+  let solution: Solution
 
   override func didVisit(_ decl: Decl) -> (shouldContinue: Bool, nodeAfter: Decl) {
     if let valueDecl = decl as? ValueDecl {
-      valueDecl.type = valueDecl.type.accept(reifier)
+      valueDecl.type = solution.reify(valueDecl.type)
     }
     return (true, decl)
   }
@@ -31,7 +31,7 @@ final class TypeDispatcher: NodeWalker {
       fatalError("unexpected primary unresolved expr")
 
     default:
-      expr.type = expr.type.accept(reifier)
+      expr.type = solution.reify(expr.type)
     }
 
     return (true, expr)
@@ -44,14 +44,14 @@ final class TypeDispatcher: NodeWalker {
       break
 
     default:
-      pattern.type = pattern.type.accept(reifier)
+      pattern.type = solution.reify(pattern.type)
     }
 
     return (true, pattern)
   }
 
   private func dispatch(_ expr: OverloadedDeclRefExpr) -> Expr {
-    let type = expr.type.accept(reifier)
+    let type = solution.reify(expr.type)
 
     // Search for the declaration that matches the expression's type.
     let decls = expr.declSet.filter({ decl in
@@ -70,7 +70,7 @@ final class TypeDispatcher: NodeWalker {
   }
 
   private func dispatch(_ expr: UnresolvedMemberExpr) -> Expr {
-    let type = expr.type.accept(reifier)
+    let type = solution.reify(expr.type)
 
     // The base expression should have a nominal type.
     let baseType: NominalType
