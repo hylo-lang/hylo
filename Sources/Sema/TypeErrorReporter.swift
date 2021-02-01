@@ -20,8 +20,8 @@ struct TypeErrorReporter {
 
       // Compute the diagnostic's message.
       let message: String
-      switch constraint {
-      case is SubtypingConstraint:
+      switch constraint.kind {
+      case .subtyping:
         message = "type '\(lhs)' is not a subtype of to type '\(rhs)'"
       default:
         message = "type '\(lhs)' is not equal to type '\(rhs)'"

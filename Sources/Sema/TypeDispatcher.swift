@@ -54,7 +54,9 @@ final class TypeDispatcher: NodeWalker {
     let type = expr.type.accept(reifier)
 
     // Search for the declaration that matches the expression's type.
-    let decls = expr.declSet.filter({ decl in match(decl, type) })
+    let decls = expr.declSet.filter({ decl in
+      TypeChecker.match(decl, type, useSite: innermostSpace!)
+    })
 
     // Diagnose an ambigous name reference if there's not exactly one possible candidate.
     guard decls.count == 1 else {
@@ -87,7 +89,7 @@ final class TypeDispatcher: NodeWalker {
     let decls = baseType.decl
       .lookup(unqualified: expr.memberName, in: type.context)
       .values
-      .filter({ decl in match(decl, type) })
+      .filter({ decl in TypeChecker.match(decl, type, useSite: innermostSpace!) })
 
     guard !decls.isEmpty else {
       type.context.report(
@@ -103,16 +105,6 @@ final class TypeDispatcher: NodeWalker {
 
     let instType = decls[0].instantiate(from: innermostSpace!)
     return MemberRefExpr(base: expr.base, decl: decls[0], type: instType, range: expr.range)
-  }
-
-  private func match(_ decl: TypeOrValueDecl, _ type: ValType) -> Bool {
-    let declType = decl.type.accept(reifier)
-    assert(!(declType is UnresolvedType))
-
-    if let inoutType = declType as? InoutType {
-     return inoutType.base == type
-    }
-    return declType == type
   }
 
 }

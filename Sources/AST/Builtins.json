@@ -1,5 +1,7 @@
 {
   "functions": [
+    ["i64_trunc_IntLiteral", "IntLiteral", "i64"],
+
     ["i64_add", "i64", "i64", "i64"],
     ["i64_sub", "i64", "i64", "i64"],
     ["i64_mul", "i64", "i64", "i64"],

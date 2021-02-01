@@ -219,10 +219,13 @@ extension BuiltinType: CustomStringConvertible {
 
 }
 
-/// A built-in integer  literal type.
+/// A built-in literal type.
+public protocol BuiltinLiteral {}
+
+/// A built-in integer literal type.
 ///
 /// This is the type of an integer literal expression.
-public final class BuiltinIntLiteralType: BuiltinType {
+public final class BuiltinIntLiteralType: BuiltinType, BuiltinLiteral {
 
   init(context: Context) {
     super.init(context: context, name: "IntLiteral")

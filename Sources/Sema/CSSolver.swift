@@ -49,12 +49,10 @@ struct CSSolver {
 
       // Attempt to solve the next constraint.
       switch constraint {
-      case let c as EqualityConstraint    : solve(c)
-      case let c as SubtypingConstraint   : solve(c)
-      case let c as ConversionConstraint  : solve(c)
-      case let c as ConformanceConstraint : solve(c)
-      case let c as ValueMemberConstraint : solve(c)
-      case let c as DisjunctionConstraint : return solve(c)
+      case let c as RelationalConstraint      : solve(c)
+      case let c as ValueMemberConstraint     : solve(c)
+      case let c as OverloadBindingConstraint : return solve(c)
+      case let c as DisjunctionConstraint     : return solve(c)
       default:
         fatalError("unreachable")
       }
@@ -63,149 +61,58 @@ struct CSSolver {
     return Solution(assumptions: assumptions, penalities: penalities, errors: errors)
   }
 
-  private mutating func solve(_ constraint: EqualityConstraint) {
+  private mutating func solve(_ constraint: RelationalConstraint) {
     // Retrieves the current assumptions for both types.
-    let lhs = assumptions[constraint.lhs]
-    let rhs = assumptions[constraint.rhs]
+    let updated = RelationalConstraint(
+      kind: constraint.kind,
+      lhs: assumptions[constraint.lhs],
+      rhs: assumptions[constraint.rhs],
+      at: constraint.locator)
 
     // If the types are obviously equivalent, we're done.
-    if lhs == rhs { return }
+    if updated.lhs == updated.rhs { return }
 
-    // Otherwise, attempt to unify the two types.
-    switch (lhs, rhs) {
+    switch updated.kind {
+    case .equality      : solve(equality: updated)
+    case .conformance   : solve(conformance: updated)
+    case .subtyping,
+         .returnBinding : solve(subtyping: updated)
+    case .conversion    : solve(conversion: updated)
+    }
+  }
+
+  private mutating func solve(equality constraint: RelationalConstraint) {
+    // Attempt to unify the two types.
+    switch (constraint.lhs, constraint.rhs) {
     case (let tau as TypeVar, _):
-      assumptions.substitute(rhs, for: tau)
+      assumptions.substitute(constraint.rhs, for: tau)
       system.refresh(constraintsDependingOn: tau)
 
     case (_, let tau as TypeVar):
-      assumptions.substitute(lhs, for: tau)
+      assumptions.substitute(constraint.lhs, for: tau)
       system.refresh(constraintsDependingOn: tau)
 
-    case (let lhs as TupleType, let rhs as TupleType):
-      checkTupleCompatibility(lhs, rhs, for: constraint)
-      for (i, elems) in zip(lhs.elems, rhs.elems).enumerated() {
-        system.insert(
-          EqualityConstraint(elems.0.type, isEqualTo: elems.1.type,
-                             at: constraint.locator?.appending(.typeTupleElem(i))))
-      }
-
-    case (let lhs as TupleType, _) where lhs.elems.count == 1:
-      system.insert(
-        EqualityConstraint(lhs.elems[0].type, isEqualTo: rhs, at: constraint.locator))
-
-    case (_, let rhs as TupleType) where rhs.elems.count == 1:
-      system.insert(
-        EqualityConstraint(rhs.elems[0].type, isEqualTo: rhs, at: constraint.locator))
-
-    case (let lhs as FunType, let rhs as FunType):
-      // Break the constraint.
-      system.insert(
-        EqualityConstraint(lhs.paramType, isEqualTo: rhs.paramType,
-                           at: constraint.locator?.appending(.parameter)))
-      system.insert(
-        EqualityConstraint(lhs.retType, isEqualTo: rhs.retType,
-                           at: constraint.locator?.appending(.returnType)))
-
     default:
+      // The types might be structural.
+      if attemptStructuralMatch(constraint) {
+        return
+      }
       errors.append(.conflictingTypes(constraint))
     }
   }
 
-  private mutating func solve(_ constraint: SubtypingConstraint) {
-    // Retrieves the current assumptions for both types.
-    let lhs = assumptions[constraint.lhs]
-    let rhs = assumptions[constraint.rhs]
+  private mutating func solve(conformance constraint: RelationalConstraint) {
+    let view = constraint.rhs as! ViewType
 
-    // If the types are obviously equivalent, we're done.
-    if lhs == rhs { return }
-
-    // Otherwise, attempt to solve the constraint.
-    switch (lhs, rhs) {
-    case is (TypeVar, TypeVar):
-      // We can't solve anything yet if both types are still unknown.
-      system.staleConstraints.append(constraint)
-
-    case is (TypeVar, ValType):
-      // The type variable is below a more concrete type. We should compute the "meet" of all types
-      // coercible to `U` and that are above `T`. Since we can't enumerate this set, we have to
-      // make an educated guess about `T`.
-      solve(EqualityConstraint(lhs, isEqualTo: rhs, at: constraint.locator))
-
-      // FIXME: The above strategy will fail to handle cases where `T` is more trightly constrained
-      // by another constraint that we haven't solved yet. One strategy to handle this case might
-      // be to fork the system with a "strict subtyping" constraint. Should it succeed, it will get
-      // a better score that the current solution.
-
-    case is (ValType, TypeVar):
-      // The type variable is above a more concrete type. We should compute the "join" of all types
-      // to which `T` is coercible and that are below `U`.
-      var guesses: [Constraint] = [EqualityConstraint(lhs, isEqualTo: rhs, at: constraint.locator)]
-
-      // If `T` is a nominal type, add all views to which it conforms to the set of guesses.
-      if let nominal = lhs as? NominalType {
-        // FIXME: Should we make sure we don't accidentally load conformances that come from a
-        // a non-imported module if this is type-checked?
-        guesses.append(contentsOf: nominal.decl.conformances.map({ conf in
-          EqualityConstraint(conf.viewDecl.instanceType, isEqualTo: rhs, at: constraint.locator)
-        }))
-      }
-      system.insert(disjunction: guesses)
-
-    case (let lhs as FunType, let rhs as FunType):
-      // Break the constraint. Parameters are contravariants, return types are covariants.
-      system.insert(
-        SubtypingConstraint(rhs.paramType, isSubtypeOf: lhs.paramType,
-                           at: constraint.locator?.appending(.parameter)))
-      system.insert(
-        SubtypingConstraint(lhs.retType, isSubtypeOf: rhs.retType,
-                            at: constraint.locator?.appending(.returnType)))
-
-    case is (BuiltinIntLiteralType, ValType):
-      // A constraint of the form `BuiltinIntLiteralType ≤ T` might be solved by conversion.
-      solve(ConversionConstraint(rhs, convertsTo: lhs, at: constraint.locator))
-
-    default:
-      errors.append(.conflictingTypes(constraint))
-    }
-  }
-
-  private mutating func solve(_ constraint: ConversionConstraint) {
-    // Retrieves the current assumptions for both types.
-    let lhs = assumptions[constraint.lhs]
-    let rhs = assumptions[constraint.rhs]
-
-    // If the types are obviously equivalent, we're done.
-    if lhs == rhs { return }
-
-    switch rhs {
-    case is TypeVar:
-      // We can't solve anything yet if the result of the conversionis still unknown.
-      system.staleConstraints.append(constraint)
-
-    case is BuiltinIntLiteralType:
-      precondition(context.stdlib != nil, "standard library is not loaded")
-      let view = context.getTypeDecl(for: .ExpressibleByBuiltinIntLiteral)!.instanceType
-      solve(ConformanceConstraint(lhs, conformsTo: view as! ViewType, at: constraint.locator))
-
-    default:
-      solve(SubtypingConstraint(lhs, isSubtypeOf: rhs, at: constraint.locator))
-    }
-  }
-
-  private mutating func solve(_ constraint: ConformanceConstraint) {
-    let type = assumptions[constraint.type]
-    let view = constraint.view
-
-    // If the types are obviously equivalent, we're done.
-    if type == view { return }
-
-    switch type {
+    switch constraint.lhs {
     case let tau as TypeVar:
       // Postpone the constraint if `T` is still unknown, unless `V` is a literal view. In this
       // case fall back to the associated default.
       if view.decl === context.getTypeDecl(for: .ExpressibleByBuiltinIntLiteral) {
         let defaultType = context.getTypeDecl(for: .Int)!.instanceType
-        solve(EqualityConstraint(tau, isEqualTo: defaultType, at: constraint.locator))
+        let simplified = RelationalConstraint(
+          kind: .equality, lhs: tau, rhs: defaultType, at: constraint.locator)
+        solve(simplified)
       } else {
         system.staleConstraints.append(constraint)
       }
@@ -223,7 +130,87 @@ struct CSSolver {
 
     default:
       // FIXME: Handle structural view conformance.
-      solve(SubtypingConstraint(type, isSubtypeOf: view, at: constraint.locator))
+      errors.append(.conflictingTypes(constraint))
+    }
+  }
+
+  private mutating func solve(subtyping constraint: RelationalConstraint) {
+    // Otherwise, attempt to solve the constraint.
+    switch (constraint.lhs, constraint.rhs) {
+    case is (TypeVar, TypeVar):
+      // We can't solve anything yet if both types are still unknown.
+      system.staleConstraints.append(constraint)
+
+    case is (TypeVar, ValType):
+      // The type variable is below a more concrete type. We should compute the "meet" of all types
+      // coercible to `U` and that are above `T`. Since we can't enumerate this set, we have to
+      // make an educated guess about `T`.
+      let simplified = RelationalConstraint(
+        kind: .equality, lhs: constraint.lhs, rhs: constraint.rhs, at: constraint.locator)
+      solve(simplified)
+
+      // FIXME: The above strategy will fail to handle cases where `T` is more trightly constrained
+      // by another constraint that we haven't solved yet. One strategy to handle this case might
+      // be to fork the system with a "strict subtyping" constraint. Should it succeed, it will get
+      // a better score that the current solution.
+
+    case is (ValType, TypeVar):
+      // The type variable is above a more concrete type. We should compute the "join" of all types
+      // to which `T` is coercible and that are below `U`.
+      var guesses: [Constraint] = [
+        RelationalConstraint(
+          kind: .equality, lhs: constraint.lhs, rhs: constraint.rhs, at: constraint.locator)
+      ]
+
+      // If `T` is a nominal type, add all views to which it conforms to the set of guesses.
+      if let nominal = constraint.lhs as? NominalType {
+        // FIXME: Should we make sure we don't accidentally load conformances that come from a
+        // a non-imported module if this is type-checked?
+        guesses.append(contentsOf: nominal.decl.conformances.map({ conf in
+          RelationalConstraint(
+            kind: .equality, lhs: conf.viewDecl.instanceType, rhs: constraint.rhs,
+            at: constraint.locator)
+        }))
+      }
+      system.insert(disjunction: guesses)
+
+    case is (BuiltinIntLiteralType, ValType):
+      // A constraint of the form `BuiltinIntLiteralType <: T` might be solved by conversion.
+      let simplified = RelationalConstraint(
+        kind: .conversion, lhs: constraint.rhs, rhs: constraint.lhs, at: constraint.locator)
+      solve(simplified)
+
+    default:
+      errors.append(.conflictingTypes(constraint))
+    }
+  }
+
+  private mutating func solve(conversion constraint: RelationalConstraint) {
+    switch constraint.rhs {
+    case is BuiltinIntLiteralType:
+      // A conversion constraint can always be solved as a conformance to the corresponding
+      // `ExpressibleBy***` view.
+      let literalView = context.getTypeDecl(for: .ExpressibleByBuiltinIntLiteral)!.instanceType
+      let simplified = RelationalConstraint(
+          kind: .conformance, lhs: constraint.lhs, rhs: literalView, at: constraint.locator)
+
+      if constraint.lhs is TypeVar {
+        // There are two cases two consider if `T` is unknown. One is that we simply didn't visit
+        // the constraint(s) that will bind it yet; the other is that we don't have enough
+        // information to infer it and should fall back to a default.
+        let defaultType = context.getTypeDecl(for: .Int)!.instanceType
+        let defaultChoice = RelationalConstraint(
+          kind: .equality, lhs: constraint.lhs, rhs: defaultType, at: constraint.locator)
+        system.insertDisjuncConf(disjunctionOfConstraintsWithWeights: [
+          (defaultChoice, 0),
+          (simplified   , 1),
+        ])
+      } else {
+        solve(simplified)
+      }
+
+    default:
+      fatalError("unreachable")
     }
   }
 
@@ -246,9 +233,11 @@ struct CSSolver {
     if let builtinType = baseType as? BuiltinType,
        constraint.memberName == InfixOperator.copy.rawValue
     {
-      solve(EqualityConstraint(
-              context.getBuiltinAssignOperatorType(builtinType), isEqualTo: constraint.rhs,
-              at: constraint.locator?.appending(.valueMember(constraint.memberName))))
+      let assignType = context.getBuiltinAssignOperatorType(builtinType)
+      let simplified = RelationalConstraint(
+        kind: .equality, lhs: assignType, rhs: constraint.rhs,
+        at: constraint.locator?.appending(.valueMember(constraint.memberName)))
+      solve(simplified)
       return
     }
 
@@ -267,64 +256,162 @@ struct CSSolver {
       return
     }
 
-    var choices: [Constraint] = []
-    for decl in decls {
-      choices.append(
-        EqualityConstraint(decl.type, isEqualTo: constraint.rhs,
-                           at: constraint.locator?.appending(.valueMember(constraint.memberName))))
+    if decls.count == 1 {
+      // Only one choice; we can solve an equality constraint.
+      let choiceType = decls[0].instantiate(from: constraint.useSite)
+      let choice = RelationalConstraint(
+        kind: .equality, lhs: constraint.rhs, rhs: choiceType, at: constraint.locator)
+      solve(choice)
+    } else {
+      // Several choices; we have to create an overload set.
+      let simplified = OverloadBindingConstraint(
+        constraint.rhs, declSet: decls, useSite: constraint.useSite,
+        at: constraint.locator?.appending(.valueMember(constraint.memberName)))
+      system.insert(simplified)
     }
-    system.insert(disjunction: choices)
   }
 
-  public mutating func solve(_ constraint: DisjunctionConstraint) -> Solution {
-    precondition(!constraint.elements.isEmpty)
+  private mutating func solve(_ constraint: OverloadBindingConstraint) -> Solution {
+    assert(!constraint.declSet.isEmpty)
+    let type = assumptions[constraint.type]
 
-    var solutions: [Solution] = []
-    for choice in constraint.elements {
-      // Create a sub-solver for each choice in the disjunction.
+    // Instanciate the type of the declaration candidates.
+    let choices = constraint.declSet.map({ (decl) -> (Constraint, Int) in
+      let choiceType = decl.instantiate(from: constraint.useSite)
+      let choice = RelationalConstraint(
+        kind: .equality, lhs: type, rhs: choiceType, at: constraint.locator)
+      return (choice, 0)
+    })
+
+    // Solve the set of choices as a disjunction of constraints.
+    let results = branch(choices: choices)
+
+    if results.count != 1 {
+      let error = TypeError.multipleOverloads(constraint, results.map({ $0.index }))
+      return Solution(
+        assumptions : results[0].solution.assumptions,
+        penalities  : results[0].solution.penalities,
+        errors      : results[0].solution.errors + [error])
+    } else {
+      return results[0].solution
+    }
+  }
+
+  private mutating func solve(_ constraint: DisjunctionConstraint) -> Solution {
+    precondition(!constraint.elements.isEmpty)
+    let results = branch(choices: constraint.elements)
+
+    // Make sure there is only one solution.
+    if results.count > 1 {
+      // FIXME: Refine the context of the ambiguity if we can guess its cause (e.g., a call to an
+      // overloaded function).
+
+      // We'll reach this point if there's no way to identify a unique best solution, most likely
+      // because all candidates are equally invalid, hence we have no choice but to pick one based
+      // on an arbitrary criterion (e.g., the first we discovered). Unfortunately, there is nothing
+      // that guarantees this strategy to be deterministic.
+      let error = TypeError.ambiguousConstraint(constraint)
+      return Solution(
+        assumptions : results[0].solution.assumptions,
+        penalities  : results[0].solution.penalities,
+        errors      : results[0].solution.errors + [error])
+    } else {
+      return results[0].solution
+    }
+  }
+
+  private mutating func branch(
+    choices: [(Constraint, Int)]
+  ) -> [(index: Int, solution: Solution)] {
+    var results: [(index: Int, solution: Solution)] = []
+    for i in 0 ..< choices.count {
       var subsolver = CSSolver(
-        system: system.fork(inserting: choice.constraint),
-        assumptions: assumptions,
-        penalities: penalities + choice.weight,
-        bestScore: bestScore,
-        context: context)
+        system      : system.fork(inserting: choices[i].0),
+        assumptions : assumptions,
+        penalities  : penalities + choices[i].1,
+        bestScore   : bestScore,
+        context     : context)
       let newSolution = subsolver.solve()
 
       // Discard inferior solutions
-      if solutions.isEmpty || newSolution.score == bestScore {
-        solutions.append(newSolution)
+      if results.isEmpty || newSolution.score == bestScore {
+        results.append((index: i, solution: newSolution))
         bestScore = newSolution.score
       } else if newSolution.score < bestScore {
-        solutions = [newSolution]
+        results = [(index: i, solution: newSolution)]
         bestScore = newSolution.score
       }
     }
 
-    // Make sure there is only one solution.
-    if solutions.count > 1 {
-      errors.append(.ambiguousConstraint(constraint))
-      // FIXME: What should we do to merge conflicting errors and assumptions?
-    }
+    return results
+  }
 
-    return Solution(
-      assumptions: solutions[0].assumptions,
-      penalities: solutions[0].penalities,
-      errors: errors + solutions[0].errors)
+  private mutating func attemptStructuralMatch(_ constraint: RelationalConstraint) -> Bool {
+    switch (constraint.lhs, constraint.rhs) {
+    case (let lhs as TupleType, let rhs as TupleType):
+      // Check if the layouts match.
+      checkTupleCompatibility(lhs, rhs, for: constraint)
+
+      // Break down the constraint.
+      for i in 0 ..< min(lhs.elems.count, rhs.elems.count) {
+        system.insert(
+          RelationalConstraint(
+            kind: constraint.kind, lhs: lhs.elems[i].type, rhs: rhs.elems[i].type,
+            at: constraint.locator?.appending(.typeTupleElem(i))))
+      }
+      return true
+
+    case (let lhs as TupleType, _) where lhs.elems.count == 1:
+      if lhs.elems[0].label != nil {
+        errors.append(.conflictingLabels(constraint))
+      }
+      system.insert(
+        RelationalConstraint(
+          kind: constraint.kind, lhs: lhs.elems[0].type, rhs: constraint.rhs,
+          at: constraint.locator))
+      return true
+
+    case (_, let rhs as TupleType) where rhs.elems.count == 1:
+      if rhs.elems[0].label != nil {
+        errors.append(.conflictingLabels(constraint))
+      }
+      system.insert(
+        RelationalConstraint(
+          kind: constraint.kind, lhs: constraint.lhs, rhs: rhs.elems[0].type,
+          at: constraint.locator))
+      return true
+
+    case (let lhs as FunType, let rhs as FunType):
+      // Notice that we swap `lhs.paramType` with `rhs.paramType`, so as to account for the
+      // contravariance of function parameters if the constraint has subtyping semantics.
+      system.insert(
+        RelationalConstraint(
+          kind: constraint.kind, lhs: rhs.paramType, rhs: lhs.paramType,
+          at: constraint.locator?.appending(.parameter)))
+      system.insert(
+        RelationalConstraint(
+          kind: constraint.kind, lhs: lhs.retType, rhs: rhs.retType,
+          at: constraint.locator?.appending(.returnType)))
+      return true
+
+    default:
+      return false
+    }
   }
 
   private mutating func checkTupleCompatibility(
     _ lhs: TupleType, _ rhs: TupleType, for constraint: RelationalConstraint
   ) {
+    // The tuples don't match unless they have the same number of elements.
     guard lhs.elems.count == rhs.elems.count else {
       errors.append(.conflictingTypes(constraint))
       return
     }
 
-    for (lhs, rhs) in zip(lhs.elems, lhs.elems) {
-      guard lhs.label == nil || rhs.label == nil || lhs.label == rhs.label else {
-        errors.append(.conflictingLabels(constraint))
-        return
-      }
+    // The tuples don't match unless they have the same labels.
+    for (lhs, rhs) in zip(lhs.elems, lhs.elems) where lhs.label != rhs.label {
+      errors.append(.conflictingLabels(constraint))
+      return
     }
   }
 

@@ -24,16 +24,16 @@ struct ConstraintGenerator: StmtVisitor, ExprVisitor {
       }
 
       checker.system.insert(
-        EqualityConstraint(
-          node.pattern.type, isEqualTo: signType,
+        RelationalConstraint(
+          kind: .equality, lhs: node.pattern.type, rhs: signType,
           at: ConstraintLocator(node, .annotation)))
 
       // Since the actual type of the pattern if described by the signature, we can treat the
       // initializer as a mere assignment and only impose a subtyping constraint
       if let initializer = node.initializer {
         checker.system.insert(
-          SubtypingConstraint(
-            initializer.type, isSubtypeOf: node.pattern.type,
+          RelationalConstraint(
+            kind: .subtyping, lhs: initializer.type, rhs: node.pattern.type,
             at: ConstraintLocator(node, .assignment)))
       }
     } else if let initializer = node.initializer {
@@ -41,8 +41,8 @@ struct ConstraintGenerator: StmtVisitor, ExprVisitor {
       // directly from the initializer. We use an equality constraint to type the pattern as
       // closely as tightly as possible to the initializer.
       checker.system.insert(
-        EqualityConstraint(
-          node.pattern.type, isEqualTo: initializer.type,
+        RelationalConstraint(
+          kind: .equality, lhs: node.pattern.type, rhs: initializer.type,
           at: ConstraintLocator(node, .assignment)))
     }
   }
@@ -72,25 +72,23 @@ struct ConstraintGenerator: StmtVisitor, ExprVisitor {
 
     let valType = node.value?.type ?? checker.context.unitType
     checker.system.insert(
-      SubtypingConstraint(
-        valType, isSubtypeOf: retType,
+      RelationalConstraint(
+        kind: .returnBinding, lhs: valType, rhs: retType,
         at: ConstraintLocator(node, .returnValue)))
   }
 
   func visit(_ node: IntLiteralExpr) {
-    precondition(checker.context.stdlib != nil, "standard library is not loaded")
-
-    let viewTypeDecl = checker.context.getTypeDecl(for: .ExpressibleByBuiltinIntLiteral)!
+    let literalType = checker.context.getBuiltinType(named: "IntLiteral")!
     checker.system.insert(
-      ConformanceConstraint(
-        node.type, conformsTo: viewTypeDecl.instanceType as! ViewType,
+      RelationalConstraint(
+        kind: .conversion, lhs: node.type, rhs: literalType,
         at: ConstraintLocator(node)))
   }
 
   func visit(_ node: AssignExpr) {
     checker.system.insert(
-      SubtypingConstraint(
-        node.rvalue.type, isSubtypeOf: node.lvalue.type,
+      RelationalConstraint(
+        kind: .subtyping, lhs: node.rvalue.type, rhs: node.lvalue.type,
         at: ConstraintLocator(node, .assignment)))
   }
 
@@ -101,8 +99,8 @@ struct ConstraintGenerator: StmtVisitor, ExprVisitor {
       // The subtyping constraint handle cases where the argument is a subtype of the parameter.
       let paramType = TypeVar(context: checker.context, node: arg.value)
       checker.system.insert(
-        SubtypingConstraint(
-          arg.value.type, isSubtypeOf: paramType,
+        RelationalConstraint(
+          kind: .subtyping, lhs: arg.value.type, rhs: paramType,
           at: ConstraintLocator(node, .application)))
       paramTypeElems.append(TupleType.Elem(label: arg.label, type: paramType))
     }
@@ -110,8 +108,8 @@ struct ConstraintGenerator: StmtVisitor, ExprVisitor {
     let paramType = checker.context.tupleType(paramTypeElems)
     let funType = checker.context.funType(paramType: paramType, retType: node.type)
     checker.system.insert(
-      EqualityConstraint(
-        node.fun.type, isEqualTo: funType,
+      RelationalConstraint(
+        kind: .equality, lhs: node.fun.type, rhs: funType,
         at: ConstraintLocator(node.fun)))
   }
 
@@ -121,7 +119,7 @@ struct ConstraintGenerator: StmtVisitor, ExprVisitor {
   func visit(_ node: UnresolvedMemberExpr) {
     checker.system.insert(
       ValueMemberConstraint(
-        node.base.type, hasValueMember: node.memberName, ofType: node.type,
+        node.base.type, hasValueMember: node.memberName, ofType: node.type, useSite: useSite,
         at: ConstraintLocator(node, .valueMember(node.memberName))))
   }
 
@@ -129,14 +127,12 @@ struct ConstraintGenerator: StmtVisitor, ExprVisitor {
   }
 
   func visit(_ node: OverloadedDeclRefExpr) {
-    precondition(node.declSet.count >= 1)
-    checker.system.insertDisjuncConf(
-      disjunctionOfConstraintsWithWeights: node.declSet.map({ decl in
-        let constraint = EqualityConstraint(
-          node.type, isEqualTo: decl.type,
-          at: ConstraintLocator(node))
-        return (constraint, 0)
-      }))
+    assert(node.declSet.count >= 1)
+
+    checker.system.insert(
+      OverloadBindingConstraint(
+        node.type, declSet: node.declSet, useSite: useSite,
+        at: ConstraintLocator(node)))
   }
 
   func visit(_ node: DeclRefExpr) {
