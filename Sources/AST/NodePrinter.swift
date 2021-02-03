@@ -151,7 +151,7 @@ public struct NodePrinter: NodeVisitor {
     """
   }
 
-  public func visit(_ node: AbstractFunDecl) -> String {
+  public func visit(_ node: BaseFunDecl) -> String {
     let mods = node.declModifiers.map({ mod in "\"\(mod)\"" })
       .joined(separator: ", ")
 
@@ -168,11 +168,11 @@ public struct NodePrinter: NodeVisitor {
   }
 
   public func visit(_ node: FunDecl) -> String {
-    visit(node as AbstractFunDecl)
+    visit(node as BaseFunDecl)
   }
 
   public func visit(_ node: CtorDecl) -> String {
-    visit(node as AbstractFunDecl)
+    visit(node as BaseFunDecl)
   }
 
   public func visit(_ node: FunParamDecl) -> String {

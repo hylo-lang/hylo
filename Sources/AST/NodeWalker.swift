@@ -162,7 +162,7 @@ open class NodeWalker: NodeVisitor {
     return true
   }
 
-  public final func visit(_ node: AbstractFunDecl) -> Bool {
+  public final func visit(_ node: BaseFunDecl) -> Bool {
     let prevParent = parent
     parent = node
     innermostSpace = node
@@ -190,11 +190,11 @@ open class NodeWalker: NodeVisitor {
   }
 
   public final func visit(_ node: FunDecl) -> Bool {
-    return visit(node as AbstractFunDecl)
+    return visit(node as BaseFunDecl)
   }
 
   public final func visit(_ node: CtorDecl) -> Bool {
-    return visit(node as AbstractFunDecl)
+    return visit(node as BaseFunDecl)
   }
 
   public final func visit(_ node: FunParamDecl) -> Bool {

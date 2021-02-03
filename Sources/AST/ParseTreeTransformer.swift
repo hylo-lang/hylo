@@ -106,7 +106,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     }) ?? []
 
     // Create the function declaration.
-    let decl: AbstractFunDecl
+    let decl: BaseFunDecl
     switch ctx.funDeclKeyword()!.getText() {
     case "fun":
       let declName = ctx.funName()?.getText() ?? ""
@@ -257,8 +257,8 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     let value = ctx.expr().map({ expr in expr.accept(self) as! Expr })
     let stmt = RetStmt(value: value, range: range(of: ctx))
     currentSpace?.spacesUpToRoot
-      .first(where: { $0 is AbstractFunDecl })
-      .map({ stmt.funDecl = ($0 as! AbstractFunDecl) })
+      .first(where: { $0 is BaseFunDecl })
+      .map({ stmt.funDecl = ($0 as! BaseFunDecl) })
 
     return stmt
   }

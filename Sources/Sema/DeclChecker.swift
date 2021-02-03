@@ -77,7 +77,7 @@ struct DeclChecker: DeclVisitor {
     fatalError("unreachable")
   }
 
-  func visit(_ node: AbstractFunDecl) {
+  func visit(_ node: BaseFunDecl) {
     /// Realize the function's signature.
     _ = node.realize()
 
@@ -91,11 +91,11 @@ struct DeclChecker: DeclVisitor {
   }
 
   func visit(_ node: FunDecl) {
-    visit(node as AbstractFunDecl)
+    visit(node as BaseFunDecl)
   }
 
   func visit(_ node: CtorDecl) {
-    visit(node as AbstractFunDecl)
+    visit(node as BaseFunDecl)
   }
 
   func visit(_ node: FunParamDecl) {

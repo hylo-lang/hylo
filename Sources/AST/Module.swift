@@ -91,6 +91,8 @@ extension Module: TypeDecl {
 
   public var range: SourceRange { .invalid }
 
+  public var isOverloadable: Bool { false }
+
   public var isInvalid: Bool {
     return decls.contains(where: { $0.isInvalid })
   }

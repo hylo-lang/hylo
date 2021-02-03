@@ -37,7 +37,7 @@ public protocol DeclVisitor {
 
   func visit(_ node: VarDecl) -> DeclResult
 
-  func visit(_ node: AbstractFunDecl) -> DeclResult
+  func visit(_ node: BaseFunDecl) -> DeclResult
 
   func visit(_ node: FunDecl) -> DeclResult
 

@@ -49,7 +49,7 @@ public final class RetStmt: Stmt {
   public var value: Expr?
 
   /// The innermost function in which the return statement resides.
-  public weak var funDecl: AbstractFunDecl?
+  public weak var funDecl: BaseFunDecl?
 
   public var range: SourceRange
 

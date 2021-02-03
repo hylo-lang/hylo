@@ -34,7 +34,7 @@ extension Decl {
       case let decl as FunParamDecl:
         components.append(decl.name)
 
-      case let decl as AbstractFunDecl:
+      case let decl as BaseFunDecl:
         let sign = decl.params.map({ ($0.externalName ?? "_") + ":" }).joined()
         let name = decl.name.isEmpty ? "_" : decl.name
         components.append("\(name)(\(sign))")
@@ -95,8 +95,6 @@ extension TypeDecl {
   public var instanceType: ValType {
     return (type as! KindType).type
   }
-
-  public var isOverloadable: Bool { true }
 
 }
 
@@ -172,9 +170,9 @@ public final class PatternBindingDecl: Decl {
   /// The source range of this declaration `val` or `var` keyword.
   public var declKeywordRange: SourceRange
 
-  public weak var parentDeclSpace: DeclSpace?
-
   public var range: SourceRange
+
+  public weak var parentDeclSpace: DeclSpace?
 
   /// The declaration of all variables declared in this pattern.
   public var varDecls: [VarDecl] = []
@@ -182,6 +180,8 @@ public final class PatternBindingDecl: Decl {
   public var isInvalid: Bool {
     return varDecls.contains(where: { $0.isInvalid })
   }
+
+  // MARK: Misc.
 
   public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
@@ -203,20 +203,20 @@ public final class VarDecl: ValueDecl {
   /// The pattern binding declaration that introduces this variable declaration.
   public weak var patternBindingDecl: PatternBindingDecl?
 
+  public var range: SourceRange
+
   /// A flag indicating whether the variable is mutable.
   public var isMutable: Bool {
     return patternBindingDecl?.isMutable ?? false
   }
 
-  public var isOverloadable: Bool { false }
-
-  public var type: ValType
-
   public weak var parentDeclSpace: DeclSpace?
 
-  public var range: SourceRange
+  public var isOverloadable: Bool { false }
 
   public var isInvalid: Bool = false
+
+  public var type: ValType
 
   public func realize() -> ValType {
     guard type is UnresolvedType else { return type }
@@ -231,7 +231,7 @@ public final class VarDecl: ValueDecl {
 }
 
 /// The base class for function declarations.
-public class AbstractFunDecl: ValueDecl, GenericDeclSpace {
+public class BaseFunDecl: ValueDecl, GenericDeclSpace {
 
   public init(
     name          : String,
@@ -453,7 +453,7 @@ public class AbstractFunDecl: ValueDecl, GenericDeclSpace {
 }
 
 /// A function declaration.
-public final class FunDecl: AbstractFunDecl {
+public final class FunDecl: BaseFunDecl {
 
   public override func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
@@ -462,7 +462,7 @@ public final class FunDecl: AbstractFunDecl {
 }
 
 /// A constructor declaration.
-public final class CtorDecl: AbstractFunDecl {
+public final class CtorDecl: BaseFunDecl {
 
   public init(
     declModifiers : [DeclModifier]     = [],
@@ -530,15 +530,15 @@ public final class FunParamDecl: ValueDecl {
   /// The signature of the parameter's type.
   public var sign: TypeRepr?
 
-  public var isOverloadable: Bool { false }
-
-  public var type: ValType
+  public var range: SourceRange
 
   public weak var parentDeclSpace: DeclSpace?
 
-  public var range: SourceRange
+  public var isOverloadable: Bool { false }
 
   public var isInvalid: Bool = false
+
+  public var type: ValType
 
   public func realize() -> ValType {
     guard type is UnresolvedType else { return type }
@@ -583,22 +583,13 @@ public class NominalTypeDecl: TypeDecl, DeclSpace {
   /// The member declarations of the type.
   public var members: [Decl]
 
-  /// The resolved type of the declaration.
-  ///
-  /// - Important: This should only be set at the time of the node's creation.
-  public var type: ValType
+  public var range: SourceRange
+
+  // MARK: Name lookup
 
   public weak var parentDeclSpace: DeclSpace?
 
-  public var range: SourceRange
-
-  public var isInvalid: Bool = false
-
-  public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
-    return visitor.visit(self)
-  }
-
-  // MARK: Member lookup
+  public var isOverloadable: Bool { false }
 
   /// An internal lookup table keeping track of type members.
   var typeMemberTable: [String: [TypeDecl]]?
@@ -652,7 +643,14 @@ public class NominalTypeDecl: TypeDecl, DeclSpace {
       values: valueMemberTable![name] ?? [])
   }
 
-  // MARK: Conformance metadata
+  // MARK: Semantic properties
+
+  public var isInvalid: Bool = false
+
+  /// The resolved type of the declaration.
+  ///
+  /// - Important: This should only be set at the time of the node's creation.
+  public var type: ValType
 
   /// An internal table keeping track of the views to which the declared type conforms.
   var conformanceTable: ConformanceLookupTable?
@@ -683,6 +681,10 @@ public class NominalTypeDecl: TypeDecl, DeclSpace {
   public var conformances: [ViewConformance] {
     updateConformanceTable()
     return conformanceTable!.conformances
+  }
+
+  public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
+    return visitor.visit(self)
   }
 
 }
@@ -716,17 +718,19 @@ public final class GenericParamDecl: TypeDecl {
 
   public var name: String
 
-  public var type: ValType
+  public var range: SourceRange
 
   public weak var parentDeclSpace: DeclSpace?
 
-  public var range: SourceRange
-
-  public var isInvalid: Bool = false
+  public var isOverloadable: Bool { false }
 
   public func lookup(qualified name: String) -> LookupResult {
     return LookupResult()
   }
+
+  public var isInvalid: Bool = false
+
+  public var type: ValType
 
   public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
@@ -752,9 +756,20 @@ public final class TypeExtDecl: Decl, DeclSpace {
   /// The member declarations of the type.
   public var members: [Decl]
 
+  public var range: SourceRange
+
+  // MARK: Name lookup
+
   public var parentDeclSpace: DeclSpace?
 
-  public var range: SourceRange
+  public func lookup(qualified name: String) -> LookupResult {
+    // Bind the extension and forward the lookup to the extended type.
+    return computeExtendedDecl()?.lookup(qualified: name) ?? LookupResult()
+  }
+
+  // MARK: Semantic properties
+
+  public var isInvalid: Bool { state == .invalid }
 
   /// The declaration of the extended type.
   public var extendedDecl: NominalTypeDecl? {
@@ -785,17 +800,6 @@ public final class TypeExtDecl: Decl, DeclSpace {
     return decl
   }
 
-  public func lookup(qualified name: String) -> LookupResult {
-    // Bind the extension and forward the lookup to the extended type.
-    return computeExtendedDecl()?.lookup(qualified: name) ?? LookupResult()
-  }
-
-  public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
-    return visitor.visit(self)
-  }
-
-  public var isInvalid: Bool { state == .invalid }
-
   /// The binding state of the declaration.
   public var state = State.parsed
 
@@ -823,6 +827,10 @@ public final class TypeExtDecl: Decl, DeclSpace {
       }
     }
 
+  }
+
+  public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
+    return visitor.visit(self)
   }
 
 }
