@@ -44,7 +44,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     defer { currentSpace = parentDeclSpace }
 
     /// Visit the block's statements.
-    expand(decls: ctx.statement(), into: &block.statements)
+    expand(decls: ctx.statement(), into: &block.stmts)
     return block
   }
 
@@ -124,7 +124,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
       decl.props.insert(.isMutating)
     }
 
-    if (currentSpace is AbstractNominalTypeDecl || currentSpace is TypeExtDecl) {
+    if (currentSpace is NominalTypeDecl || currentSpace is TypeExtDecl) {
       decl.props.insert(.isMember)
     } else if decl is CtorDecl {
       preconditionFailure("constructor declared outside of a type declaration")
@@ -203,7 +203,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
   public override func visitTypeDecl(_ ctx: ValParser.TypeDeclContext) -> Any {
     // Create the type declaration.
     let declName = ctx.NAME()?.getText() ?? ""
-    let decl: AbstractNominalTypeDecl
+    let decl: NominalTypeDecl
     switch ctx.typeDeclKeyword()!.getText() {
     case "type":
       decl = ProductTypeDecl(
@@ -270,7 +270,6 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
   public override func visitNamedPattern(_ ctx: ValParser.NamedPatternContext) -> Any {
     // Create a variable declaration for the pattern.
     let decl = VarDecl(name: ctx.getText(), type: unresolvedType, range: range(of: ctx))
-    decl.type = TypeVar(context: context, node: decl)
     decl.parentDeclSpace = currentSpace
 
     // Create the pattern.
@@ -282,7 +281,6 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
       elems: [],
       type: unresolvedType,
       range: range(of: ctx))
-    pattern.type = TypeVar(context: context, node: pattern)
 
     if let elemList = ctx.tuplePatternElemList() {
       pattern.elems = elemList.accept(self) as! [TuplePattern.Elem]
@@ -303,7 +301,6 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
 
   public override func visitWildcardPattern(_ ctx: ValParser.WildcardPatternContext) -> Any {
     let pattern = WildcardPattern(type: unresolvedType, range: range(of: ctx))
-    pattern.type = TypeVar(context: context, node: pattern)
     return pattern
   }
 
@@ -364,13 +361,11 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
 
       let infixFun = UnresolvedMemberExpr(
         base: lhs, memberName: loc.infixOp.rawValue, type: unresolvedType, range: loc.range)
-      infixFun.type = TypeVar(context: context, node: infixFun)
       let infixCall = CallExpr(
         fun: infixFun,
         args: [CallArg(value: rhs, range: rhs.range)],
         type: unresolvedType,
         range: range(of: ctx))
-      infixCall.type = TypeVar(context: context, node: infixCall)
       return infixCall
     }
 
@@ -404,14 +399,12 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
       args: [CallArg(value: expr, range: expr.range)],
       type: unresolvedType,
       range: range(of: ctx))
-    prefixCall.type = TypeVar(context: context, node: prefixCall)
     return prefixCall
   }
 
   public override func visitCallExpr(_ ctx: ValParser.CallExprContext) -> Any {
     let fun = ctx.postExpr()!.accept(self) as! Expr
     let expr = CallExpr(fun: fun, args: [], type: unresolvedType, range: range(of: ctx))
-    expr.type = TypeVar(context: context, node: expr)
 
     if let argList = ctx.argList() {
       expr.args = argList.accept(self) as! [CallArg]
@@ -435,7 +428,6 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     let memberName = ctx.NAME()!.getText()
     let expr = UnresolvedMemberExpr(
       base: base, memberName: memberName, type: unresolvedType, range: range(of: ctx))
-    expr.type = TypeVar(context: context, node: expr)
     return expr
   }
 
@@ -451,7 +443,6 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     let value = ctx.INT()!.getText().filter({ $0 != "_" })
     let expr = IntLiteralExpr(
       value: Int(value)!, type: unresolvedType, range: range(of: ctx))
-    expr.type = TypeVar(context: context, node: expr)
     return expr
   }
 
@@ -477,7 +468,6 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
 
   public override func visitWildcard(_ ctx: ValParser.WildcardContext) -> Any {
     let expr = WildcardExpr(type: unresolvedType, range: range(of: ctx))
-    expr.type = TypeVar(context: context, node: expr)
     return expr
   }
 

@@ -5,15 +5,19 @@ import Basic
 struct CSSolver {
 
   init(
-    system: ConstraintSystem,
-    assumptions: SubstitutionTable,
-    penalities: Int,
-    bestScore: Solution.Score,
-    context: AST.Context
+    system          : ConstraintSystem,
+    assumptions     : SubstitutionTable = SubstitutionTable(),
+    overloadChoices : [ConstraintLocator: [ValueDecl]] = [:],
+    penalities      : Int = 0,
+    errors          : [TypeError] = [],
+    bestScore       : Solution.Score = .worst,
+    context         : AST.Context
   ) {
     self.system = system
     self.assumptions = assumptions
+    self.overloadChoices = overloadChoices
     self.penalities = penalities
+    self.errors = errors
     self.bestScore = bestScore
     self.context = context
   }
@@ -27,11 +31,14 @@ struct CSSolver {
   /// The assumptions of the type solver.
   private var assumptions: SubstitutionTable
 
+  /// The choice(s) that have been selected for each overload binding constraint solved.
+  private var overloadChoices: [ConstraintLocator: [ValueDecl]]
+
   /// The current penalities of the solver's solution.
   private var penalities: Int
 
   /// The current set of errors the solver encountered.
-  private var errors: [TypeError] = []
+  private var errors: [TypeError]
 
   /// The score of the best solution that was computed so far.
   private var bestScore: Solution.Score
@@ -58,7 +65,13 @@ struct CSSolver {
       }
     }
 
-    return Solution(bindings: assumptions.flattened(), penalities: penalities, errors: errors)
+    // FIXME: Handle stale constraints.
+
+    return Solution(
+      bindings        : assumptions.flattened(),
+      overloadChoices : overloadChoices,
+      penalities      : penalities,
+      errors          : errors)
   }
 
   private mutating func solve(_ constraint: RelationalConstraint) {
@@ -75,8 +88,7 @@ struct CSSolver {
     switch updated.kind {
     case .equality      : solve(equality: updated)
     case .conformance   : solve(conformance: updated)
-    case .subtyping,
-         .returnBinding : solve(subtyping: updated)
+    case .subtyping     : solve(subtyping: updated)
     case .conversion    : solve(conversion: updated)
     }
   }
@@ -174,12 +186,6 @@ struct CSSolver {
       }
       system.insert(disjunction: guesses)
 
-    case is (BuiltinIntLiteralType, ValType):
-      // A constraint of the form `BuiltinIntLiteralType <: T` might be solved by conversion.
-      let simplified = RelationalConstraint(
-        kind: .conversion, lhs: constraint.rhs, rhs: constraint.lhs, at: constraint.locator)
-      solve(simplified)
-
     default:
       errors.append(.conflictingTypes(constraint))
     }
@@ -236,7 +242,7 @@ struct CSSolver {
       let assignType = context.getBuiltinAssignOperatorType(builtinType)
       let simplified = RelationalConstraint(
         kind: .equality, lhs: assignType, rhs: constraint.rhs,
-        at: constraint.locator?.appending(.valueMember(constraint.memberName)))
+        at: constraint.locator.appending(.valueMember(constraint.memberName)))
       solve(simplified)
       return
     }
@@ -260,13 +266,16 @@ struct CSSolver {
       // Only one choice; we can solve an equality constraint.
       let choiceType = decls[0].instantiate(from: constraint.useSite)
       let choice = RelationalConstraint(
-        kind: .equality, lhs: constraint.rhs, rhs: choiceType, at: constraint.locator)
+        kind: .equality, lhs: choiceType, rhs: constraint.rhs, at: constraint.locator)
       solve(choice)
+
+      // Save the "selected" overload for solution application.
+      let locator = ConstraintLocator(constraint.locator.resolve())
+      overloadChoices[locator] = [decls[0]]
     } else {
       // Several choices; we have to create an overload set.
       let simplified = OverloadBindingConstraint(
-        constraint.rhs, declSet: decls, useSite: constraint.useSite,
-        at: constraint.locator?.appending(.valueMember(constraint.memberName)))
+        constraint.rhs, declSet: decls, useSite: constraint.useSite, at: constraint.locator)
       system.insert(simplified)
     }
   }
@@ -285,21 +294,27 @@ struct CSSolver {
 
     // Solve the set of choices as a disjunction of constraints.
     let results = branch(choices: choices)
+    let declSet = results.map({ constraint.declSet[$0.index] })
 
-    if results.count != 1 {
-      let error = TypeError.multipleOverloads(constraint, results.map({ $0.index }))
-      return Solution(
-        bindings  : results[0].solution.bindings,
-        penalities: results[0].solution.penalities,
-        errors    : results[0].solution.errors + [error])
+    // If there's only one single best solution, we found our winner.
+    let locator = ConstraintLocator(constraint.locator.resolve())
+    if results.count == 1 {
+      var solution = results[0].solution
+      solution.overloadChoices[locator] = declSet
+      return solution
     } else {
-      return results[0].solution
+      overloadChoices[locator] = declSet
     }
+
+    // The system is underspecified. Save the error and move on.
+    errors.append(.multipleOverloads(constraint, declSet))
+    return solve()
   }
 
   private mutating func solve(_ constraint: DisjunctionConstraint) -> Solution {
     precondition(!constraint.elements.isEmpty)
     let results = branch(choices: constraint.elements)
+    var solution = results[0].solution
 
     // Make sure there is only one solution.
     if results.count > 1 {
@@ -310,27 +325,26 @@ struct CSSolver {
       // because all candidates are equally invalid, hence we have no choice but to pick one based
       // on an arbitrary criterion (e.g., the first we discovered). Unfortunately, there is nothing
       // that guarantees this strategy to be deterministic.
-      let error = TypeError.ambiguousConstraint(constraint)
-      return Solution(
-        bindings  : results[0].solution.bindings,
-        penalities: results[0].solution.penalities,
-        errors    : results[0].solution.errors + [error])
-    } else {
-      return results[0].solution
+      solution.errors.append(.ambiguousConstraint(constraint))
     }
+
+    return solution
   }
 
   private mutating func branch(
     choices: [(Constraint, Int)]
   ) -> [(index: Int, solution: Solution)] {
     var results: [(index: Int, solution: Solution)] = []
+
     for i in 0 ..< choices.count {
       var subsolver = CSSolver(
-        system      : system.fork(inserting: choices[i].0),
-        assumptions : assumptions,
-        penalities  : penalities + choices[i].1,
-        bestScore   : bestScore,
-        context     : context)
+        system          : system.fork(inserting: choices[i].0),
+        assumptions     : assumptions,
+        overloadChoices : overloadChoices,
+        penalities      : penalities + choices[i].1,
+        errors          : errors,
+        bestScore       : bestScore,
+        context         : context)
       let newSolution = subsolver.solve()
 
       // Discard inferior solutions
@@ -357,7 +371,7 @@ struct CSSolver {
         system.insert(
           RelationalConstraint(
             kind: constraint.kind, lhs: lhs.elems[i].type, rhs: rhs.elems[i].type,
-            at: constraint.locator?.appending(.typeTupleElem(i))))
+            at: constraint.locator.appending(.typeTupleElem(i))))
       }
       return true
 
@@ -382,16 +396,24 @@ struct CSSolver {
       return true
 
     case (let lhs as FunType, let rhs as FunType):
-      // Notice that we swap `lhs.paramType` with `rhs.paramType`, so as to account for the
-      // contravariance of function parameters if the constraint has subtyping semantics.
-      system.insert(
-        RelationalConstraint(
-          kind: constraint.kind, lhs: rhs.paramType, rhs: lhs.paramType,
-          at: constraint.locator?.appending(.parameter)))
+      if constraint.kind == .subtyping {
+        // Notice that we swap `lhs.paramType` with `rhs.paramType`, so as to account for the
+        // contravariance of function parameters if the constraint has subtyping semantics.
+        system.insert(
+          RelationalConstraint(
+            kind: constraint.kind, lhs: rhs.paramType, rhs: lhs.paramType,
+            at: constraint.locator.appending(.parameter)))
+      } else {
+        system.insert(
+          RelationalConstraint(
+            kind: constraint.kind, lhs: lhs.paramType, rhs: rhs.paramType,
+            at: constraint.locator.appending(.parameter)))
+      }
+
       system.insert(
         RelationalConstraint(
           kind: constraint.kind, lhs: lhs.retType, rhs: rhs.retType,
-          at: constraint.locator?.appending(.returnType)))
+          at: constraint.locator.appending(.returnType)))
       return true
 
     default:

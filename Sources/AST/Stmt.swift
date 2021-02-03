@@ -17,15 +17,15 @@ public final class BraceStmt: Stmt, IterableDeclSpace {
     LazyFilterSequence<LazyMapSequence<LazySequence<[Node]>.Elements, Decl?>>, Decl>
 
   public init(statements: [Node], range: SourceRange) {
-    self.statements = statements
+    self.stmts = statements
     self.range = range
   }
 
-  /// The statements in the code block.
-  public var statements: [Node]
+  /// The declarations, statements and expressions in the code block.
+  public var stmts: [Node]
 
   public var decls: DeclSequence {
-    return statements.lazy.compactMap({ $0 as? Decl })
+    return stmts.lazy.compactMap({ $0 as? Decl })
   }
 
   public weak var parentDeclSpace: DeclSpace?

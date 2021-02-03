@@ -7,7 +7,7 @@ import AST
 public protocol Constraint {
 
   /// The locator of the constraint.
-  var locator: ConstraintLocator? { get }
+  var locator: ConstraintLocator { get }
 
   /// The constraint's precedence.
   var precedence: Int { get }
@@ -20,7 +20,7 @@ public protocol Constraint {
 /// A relational type constraint `T ◇ U`, which relates two types.
 struct RelationalConstraint: Constraint {
 
-  init(kind: Kind, lhs: ValType, rhs: ValType, at locator: ConstraintLocator?) {
+  init(kind: Kind, lhs: ValType, rhs: ValType, at locator: ConstraintLocator) {
     assert(!(lhs is UnresolvedType) && !(rhs is UnresolvedType))
     assert(kind != .conformance || rhs is ViewType)
     assert(kind != .conversion  || rhs is BuiltinLiteral)
@@ -53,12 +53,6 @@ struct RelationalConstraint: Constraint {
     /// to one another.
     case subtyping
 
-    /// A constraint `T ret U` specifying that `T` is a subtype of a function's return type `U`.
-    ///
-    /// This corresponds to a subtyping constraint. The distinction only serves as contextual
-    /// information to emit diagnostics.
-    case returnBinding
-
     /// A constraint `T ⊏ U` specifying that `T` is expressible by `U`.
     ///
     /// Type conversion relates to literal expressions. It relaxes subtying by also including cases
@@ -77,7 +71,7 @@ struct RelationalConstraint: Constraint {
   /// Another type.
   let rhs: ValType
 
-  let locator: ConstraintLocator?
+  let locator: ConstraintLocator
 
   var precedence: Int { kind.rawValue }
 
@@ -95,7 +89,6 @@ extension RelationalConstraint: CustomStringConvertible {
     case .subtyping     : return "\(lhs) <: \(rhs)"
     case .conformance   : return "\(lhs) : \(rhs)"
     case .conversion    : return "\(lhs) ⊏ \(rhs)"
-    case .returnBinding : return "\(lhs) ret \(rhs)"
     }
   }
 
@@ -111,7 +104,7 @@ struct OverloadBindingConstraint: Constraint {
     _ type    : ValType,
     declSet   : [ValueDecl],
     useSite   : DeclSpace,
-    at locator: ConstraintLocator?
+    at locator: ConstraintLocator
   ) {
     self.type = type
     self.declSet = declSet
@@ -128,7 +121,7 @@ struct OverloadBindingConstraint: Constraint {
   /// The declaration space from which the declaration is being referred.
   let useSite: DeclSpace
 
-  let locator: ConstraintLocator?
+  let locator: ConstraintLocator
 
   var precedence: Int { 1000 }
 
@@ -157,7 +150,7 @@ struct ValueMemberConstraint: Constraint {
     hasValueMember memberName: String,
     ofType rhs: ValType,
     useSite   : DeclSpace,
-    at locator: ConstraintLocator?
+    at locator: ConstraintLocator
   ) {
     assert(!(lhs is UnresolvedType) && !(rhs is UnresolvedType))
 
@@ -180,7 +173,7 @@ struct ValueMemberConstraint: Constraint {
   /// The declaration space from which the declaration is being referred.
   let useSite: DeclSpace
 
-  let locator: ConstraintLocator?
+  let locator: ConstraintLocator
 
   var precedence: Int { 10 }
 
@@ -207,7 +200,7 @@ struct DisjunctionConstraint: Constraint {
 
   let elements: [Element]
 
-  var locator: ConstraintLocator? { nil }
+  var locator: ConstraintLocator { elements[0].constraint.locator }
 
   var precedence: Int { 1000 }
 

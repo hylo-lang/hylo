@@ -6,6 +6,9 @@ public protocol Decl: Node {
   /// The innermost parent in which this declaration resides.
   var parentDeclSpace: DeclSpace? { get }
 
+  /// A flag that indicates whether this declaration is semantically ill-formed.
+  var isInvalid: Bool { get }
+
   /// Accepts the given visitor.
   ///
   /// - Parameter visitor: A declaration visitor.
@@ -36,7 +39,7 @@ extension Decl {
         let name = decl.name.isEmpty ? "_" : decl.name
         components.append("\(name)(\(sign))")
 
-      case let decl as AbstractNominalTypeDecl:
+      case let decl as NominalTypeDecl:
         components.append(decl.name)
 
       case let decl as TypeExtDecl:
@@ -176,6 +179,10 @@ public final class PatternBindingDecl: Decl {
   /// The declaration of all variables declared in this pattern.
   public var varDecls: [VarDecl] = []
 
+  public var isInvalid: Bool {
+    return varDecls.contains(where: { $0.isInvalid })
+  }
+
   public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
@@ -208,6 +215,8 @@ public final class VarDecl: ValueDecl {
   public weak var parentDeclSpace: DeclSpace?
 
   public var range: SourceRange
+
+  public var isInvalid: Bool = false
 
   public func realize() -> ValType {
     guard type is UnresolvedType else { return type }
@@ -293,7 +302,7 @@ public class AbstractFunDecl: ValueDecl, GenericDeclSpace {
 
     let selfType: ValType
     switch parentDeclSpace {
-    case let typeDecl as AbstractNominalTypeDecl:
+    case let typeDecl as NominalTypeDecl:
       // The declaration is in the body of a nominal type.
       selfType = typeDecl.instanceType
 
@@ -342,6 +351,8 @@ public class AbstractFunDecl: ValueDecl, GenericDeclSpace {
   }
 
   // MARK: Semantic properties
+
+  public var isInvalid: Bool = false
 
   /// The "applied" type of the function.
   ///
@@ -527,6 +538,8 @@ public final class FunParamDecl: ValueDecl {
 
   public var range: SourceRange
 
+  public var isInvalid: Bool = false
+
   public func realize() -> ValType {
     guard type is UnresolvedType else { return type }
 
@@ -545,7 +558,7 @@ public final class FunParamDecl: ValueDecl {
 }
 
 /// The base class for nominal type declarations.
-public class AbstractNominalTypeDecl: TypeDecl, DeclSpace {
+public class NominalTypeDecl: TypeDecl, DeclSpace {
 
   public init(
     name        : String,
@@ -578,6 +591,8 @@ public class AbstractNominalTypeDecl: TypeDecl, DeclSpace {
   public weak var parentDeclSpace: DeclSpace?
 
   public var range: SourceRange
+
+  public var isInvalid: Bool = false
 
   public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
@@ -673,7 +688,7 @@ public class AbstractNominalTypeDecl: TypeDecl, DeclSpace {
 }
 
 /// A product type declaration.
-public final class ProductTypeDecl: AbstractNominalTypeDecl {
+public final class ProductTypeDecl: NominalTypeDecl {
 
   public override func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
@@ -682,7 +697,7 @@ public final class ProductTypeDecl: AbstractNominalTypeDecl {
 }
 
 /// A view type declaration.
-public final class ViewTypeDecl: AbstractNominalTypeDecl {
+public final class ViewTypeDecl: NominalTypeDecl {
 
   public override func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
@@ -706,6 +721,8 @@ public final class GenericParamDecl: TypeDecl {
   public weak var parentDeclSpace: DeclSpace?
 
   public var range: SourceRange
+
+  public var isInvalid: Bool = false
 
   public func lookup(qualified name: String) -> LookupResult {
     return LookupResult()
@@ -732,18 +749,6 @@ public final class TypeExtDecl: Decl, DeclSpace {
   /// The identifier of the type being extended.
   public var extendedIdent: IdentTypeRepr
 
-  /// The declaration of the extended type.
-  ///
-  /// - Note: Accessing this property before extension binding will trap, in order to catch invalid
-  ///   attempts to perform premature type-checking.
-  public var extendedDecl: AbstractNominalTypeDecl? {
-    switch state {
-    case .bound(let decl) : return decl
-    case .invalid         : return nil
-    default: fatalError("premature type checking")
-    }
-  }
-
   /// The member declarations of the type.
   public var members: [Decl]
 
@@ -751,7 +756,13 @@ public final class TypeExtDecl: Decl, DeclSpace {
 
   public var range: SourceRange
 
-  public func bind() -> AbstractNominalTypeDecl? {
+  /// The declaration of the extended type.
+  public var extendedDecl: NominalTypeDecl? {
+    return computeExtendedDecl()
+  }
+
+  /// Computes the declaration that is extended by this extension.
+  public func computeExtendedDecl() -> NominalTypeDecl? {
     guard state != .invalid else { return nil }
     if case .bound(let decl) = state {
       return decl
@@ -776,12 +787,14 @@ public final class TypeExtDecl: Decl, DeclSpace {
 
   public func lookup(qualified name: String) -> LookupResult {
     // Bind the extension and forward the lookup to the extended type.
-    return bind()?.lookup(qualified: name) ?? LookupResult()
+    return computeExtendedDecl()?.lookup(qualified: name) ?? LookupResult()
   }
 
   public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
+
+  public var isInvalid: Bool { state == .invalid }
 
   /// The binding state of the declaration.
   public var state = State.parsed
@@ -793,7 +806,7 @@ public final class TypeExtDecl: Decl, DeclSpace {
     case parsed
 
     /// The declaration was bound to the type it extends.
-    case bound(AbstractNominalTypeDecl)
+    case bound(NominalTypeDecl)
 
     /// The declaration is invalid and can't be bound to any type.
     ///

@@ -9,6 +9,13 @@ struct ConstraintSystem {
   /// The stack of "stale" constraints, which can't be solved before new bindings are inferred.
   var staleConstraints: [Constraint] = []
 
+  /// Returns a copy of this constraint system, with the additional constraint.
+  func fork(inserting constraint: Constraint) -> ConstraintSystem {
+    var newSystem = self
+    newSystem.freshConstraints.append(constraint)
+    return newSystem
+  }
+
   /// Sorts the fresh stack of constraints so that the simplest ones appear at the top.
   mutating func sort() {
     freshConstraints.sort(by: { a, b in b.precedence < a.precedence })
@@ -27,13 +34,6 @@ struct ConstraintSystem {
   /// The constraint is inserted in the "fresh" stack.
   mutating func insert(_ constraint: Constraint) {
     freshConstraints.append(constraint)
-  }
-
-  /// Returns a copy of this constraint system, with the additional constraint.
-  func fork(inserting constraint: Constraint) -> ConstraintSystem {
-    var newSystem = self
-    newSystem.freshConstraints.append(constraint)
-    return newSystem
   }
 
   /// Inserts a disjunction of weighted constraints into the system.

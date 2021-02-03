@@ -29,7 +29,7 @@ public final class NamedPattern: Pattern {
 
   public var type: ValType {
     get { decl.type }
-    set { precondition(newValue === decl.type) }
+    set { decl.type = newValue }
   }
 
   public var namedPatterns: [NamedPattern] { [self] }

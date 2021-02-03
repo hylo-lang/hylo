@@ -1,11 +1,31 @@
 import AST
 
-struct ExprBinder: ExprVisitor {
+/// A driver for a pre-check visitor.
+final class PreCheckDriver: NodeWalker {
+
+  init(useSite: DeclSpace) {
+    super.init(innermostSpace: useSite)
+  }
+
+  override func willVisit(_ expr: Expr) -> (shouldWalk: Bool, nodeBefore: Expr) {
+    return (!(expr is ErrorExpr), expr)
+  }
+
+  override func didVisit(_ expr: Expr) -> (shouldContinue: Bool, nodeAfter: Expr) {
+    let newExpr = expr.accept(PreChecker(useSite: innermostSpace!))
+    return (true, newExpr)
+  }
+
+}
+
+/// A pre-check visitor, that resolves primary names, realizes type representations and desugars
+/// various expressions.
+struct PreChecker: ExprVisitor {
 
   typealias ExprResult = Expr
 
   /// The declaration space in which the visited expression resides.
-  var space: DeclSpace
+  let useSite: DeclSpace
 
   func visit(_ node: IntLiteralExpr) -> Expr {
     return node
@@ -27,7 +47,7 @@ struct ExprBinder: ExprVisitor {
   func visit(_ node: UnresolvedDeclRefExpr) -> Expr {
     let context = node.type.context
 
-    let matches = space.lookup(unqualified: node.name, in: node.type.context)
+    let matches = useSite.lookup(unqualified: node.name, in: node.type.context)
     guard !matches.isEmpty else {
       context.report(.cannotFind(symbol: node.name, range: node.range))
       return ErrorExpr(type: context.errorType, range: node.range)
@@ -40,7 +60,7 @@ struct ExprBinder: ExprVisitor {
   func visit(_ node: UnresolvedQualDeclRefExpr) -> Expr {
     let context = node.type.context
 
-    let baseType = node.namespace.realize(unqualifiedFrom: space)
+    let baseType = node.namespace.realize(unqualifiedFrom: useSite)
     guard !(baseType is ErrorType) else {
       // The diagnostic is emitted by the failed attempt to realize the base.
       return ErrorExpr(type: context.errorType, range: node.range)
@@ -125,7 +145,7 @@ struct ExprBinder: ExprVisitor {
     }
 
     let fun = call.fun as! TypeDeclRefExpr
-    guard let typeDecl = fun.decl as? AbstractNominalTypeDecl else {
+    guard let typeDecl = fun.decl as? NominalTypeDecl else {
       context.report(.cannotFind(member: "new", in: fun.decl.type, range: fun.range))
       return newCall(newFun: ErrorExpr(type: context.errorType, range: fun.range))
     }
@@ -158,7 +178,7 @@ struct ExprBinder: ExprVisitor {
 
     if let decl = matches.values.first {
       // Instanciate the declaration's type if it's generic.
-      let instType = decl.instantiate(from: space)
+      let instType = decl.instantiate(from: useSite)
 
       // If `ref` is a member expression, make sure we keep its base around.
       if let expr = ref as? MemberExpr {

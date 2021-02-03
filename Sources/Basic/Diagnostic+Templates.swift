@@ -36,6 +36,24 @@ extension Diagnostic {
     return Diagnostic("built-in types are not namespaces", anchor: range)
   }
 
+  public static func nonNominalExtension(
+    _ type: Any, range: SourceRange
+  ) -> Diagnostic {
+    return Diagnostic("I can't extend non-nominal type '\(type)'", anchor: range)
+  }
+
+  public static func missingPatternInitializer(
+    range: SourceRange
+  ) -> Diagnostic {
+    return Diagnostic("unannotated pattern requires an initializer", anchor: range)
+  }
+
+  public static func wrongTuplePatternLength(
+    type: Any, range: SourceRange
+  ) -> Diagnostic {
+    return Diagnostic("tuple pattern has the wrong lenght for type '\(type)'", anchor: range)
+  }
+
   public static func ambiguousReference(
     to name: String, range: SourceRange
   ) -> Diagnostic {
@@ -45,13 +63,13 @@ extension Diagnostic {
   public static func callToNonFunction(
     type: Any, range: SourceRange
   ) -> Diagnostic {
-    return Diagnostic("I can't call non-function type '\(type)'", anchor: range)
+    return Diagnostic("call to non-function type '\(type)'", anchor: range)
   }
 
-  public static func nonNominalExtension(
-    _ type: Any, range: SourceRange
+  public static func missingReturnValue(
+    range: SourceRange
   ) -> Diagnostic {
-    return Diagnostic("I can't extend non-nominal type '\(type)'", anchor: range)
+    return Diagnostic("non-unit function should return a value", anchor: range)
   }
 
 }

@@ -15,7 +15,7 @@ enum TypeError {
 
   case noViableOverload(OverloadBindingConstraint)
 
-  case multipleOverloads(OverloadBindingConstraint, [Int])
+  case multipleOverloads(OverloadBindingConstraint, [ValueDecl])
 
   var constraint: Constraint {
     switch self {
@@ -30,14 +30,9 @@ enum TypeError {
   }
 
   static func < (_ lhs: TypeError, _ rhs: TypeError) -> Bool {
-    switch (lhs.constraint.locator, rhs.constraint.locator) {
-    case (.some(let a), .some(let b)):
-      return a.anchor.range.lowerBound < b.anchor.range.lowerBound
-    case (.some, _):
-      return true
-    case (nil, _):
-      return false
-    }
+    let a = lhs.constraint.locator.anchor.range.lowerBound
+    let b = rhs.constraint.locator.anchor.range.lowerBound
+    return a < b
   }
 
 }

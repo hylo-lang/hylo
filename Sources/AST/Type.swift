@@ -17,6 +17,24 @@ public class ValType {
   /// A set of recursively defined properties.
   public let props: RecursiveProps
 
+  /// The type is in canonical form.
+  public var isCanonical: Bool { props.contains(.isCanonical) }
+
+  /// The type contains one or more type variables.
+  public var hasVariables: Bool { props.contains(.hasVariables) }
+
+  /// The type contains one or more generic type parameters.
+  public var hasTypeParams: Bool { props.contains(.hasTypeParams) }
+
+  /// The type contains the unresolved type.
+  public var hasUnresolved: Bool { props.contains(.hasUnresolved) }
+
+  /// The type contains the error type.
+  public var hasErrors: Bool { props.contains(.hasErrors) }
+
+  /// The type is well-formed; it does not contain type variables, unresolved or error types.
+  public var isWellFormed: Bool { !hasVariables && !hasUnresolved && !hasErrors }
+
   /// The kind of the type.
   public var kind: KindType { context.kindType(type: self) }
 
@@ -99,20 +117,11 @@ public class ValType {
       return RecursiveProps(value: value & ~props.value)
     }
 
-    /// The type is in canonical form.
     public static let isCanonical   = RecursiveProps(value: 1 << 0)
-
-    /// The type contains one or more type variables.
     public static let hasVariables  = RecursiveProps(value: 1 << 1)
-
-    /// The type contains one or more generic type parameters.
     public static let hasTypeParams = RecursiveProps(value: 1 << 2)
-
-    /// The type contains the unresolved type.
     public static let hasUnresolved = RecursiveProps(value: 1 << 3)
-
-    /// The type contains the error type.
-    public static let hasError      = RecursiveProps(value: 1 << 4)
+    public static let hasErrors     = RecursiveProps(value: 1 << 4)
 
     /// Merges a collection of recursive properties.
     ///
@@ -154,13 +163,13 @@ public final class KindType: ValType {
   public let type: ValType
 
   public override var canonical: ValType {
-    return props.contains(.isCanonical)
+    return isCanonical
       ? self
       : type.canonical.kind
   }
 
   public override var variables: Set<TypeVar> {
-    return props.contains(.hasVariables)
+    return hasVariables
       ? type.variables
       : []
   }
@@ -293,13 +302,13 @@ extension ModuleType: CustomStringConvertible {
 /// A nominal type.
 public class NominalType: ValType {
 
-  init(context: Context, decl: AbstractNominalTypeDecl) {
+  init(context: Context, decl: NominalTypeDecl) {
     self.decl = decl
     super.init(context: context, props: .isCanonical)
   }
 
   /// The declaration of this nominal type.
-  public unowned let decl: AbstractNominalTypeDecl
+  public unowned let decl: NominalTypeDecl
 
   override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? NominalType else { return false }
@@ -406,7 +415,7 @@ public final class TupleType: ValType {
   public let elems: [Elem]
 
   public override var canonical: ValType {
-    if props.contains(.isCanonical) {
+    if isCanonical {
       return self
     }
     if (elems.count == 1) && elems[0].label == nil {
@@ -418,7 +427,7 @@ public final class TupleType: ValType {
   }
 
   public override var variables: Set<TypeVar> {
-    guard props.contains(.hasVariables) else { return [] }
+    guard hasVariables else { return [] }
 
     return elems.reduce(into: Set<TypeVar>(), { (set, elem) in
       set.formUnion(elem.type.variables)
@@ -505,13 +514,13 @@ public final class FunType: ValType {
   public let retType: ValType
 
   public override var canonical: ValType {
-    return props.contains(.isCanonical)
+    return isCanonical
       ? self
       : context.funType(paramType: paramType.canonical, retType: retType.canonical)
   }
 
   public override var variables: Set<TypeVar> {
-    guard props.contains(.hasVariables) else { return [] }
+    guard hasVariables else { return [] }
 
     var result: Set<TypeVar> = []
     result.formUnion(paramType.variables)
@@ -562,13 +571,13 @@ public final class InoutType: ValType {
   public let base: ValType
 
   public override var canonical: ValType {
-    return props.contains(.isCanonical)
+    return isCanonical
       ? self
       : context.inoutType(of: base.canonical)
   }
 
   public override var variables: Set<TypeVar> {
-    return props.contains(.hasVariables)
+    return hasVariables
       ? base.variables
       : []
   }
@@ -619,7 +628,7 @@ public final class UnresolvedType: ValType {
 public final class ErrorType: ValType {
 
   init(context: Context) {
-    super.init(context: context, props: RecursiveProps([.isCanonical, .hasError]))
+    super.init(context: context, props: RecursiveProps([.isCanonical, .hasErrors]))
   }
 
   public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {

@@ -1,17 +1,26 @@
 import AST
 import Basic
 
+/// A node walker that applies a solution produced by a type solver to the AST.
 final class TypeDispatcher: NodeWalker {
 
-  init(solution: Solution) {
+  init(
+    solution: Solution,
+    freeVariablePolicy: FreeTypeVarBindingPolicy = .bindToErrorType
+  ) {
     self.solution = solution
+    self.freeVariablePolicy = freeVariablePolicy
   }
 
+  /// The solution to apply.
   let solution: Solution
+
+  /// The binding policy to adopt for free type variables.
+  let freeVariablePolicy: FreeTypeVarBindingPolicy
 
   override func didVisit(_ decl: Decl) -> (shouldContinue: Bool, nodeAfter: Decl) {
     if let valueDecl = decl as? ValueDecl {
-      valueDecl.type = solution.reify(valueDecl.type)
+      valueDecl.type = solution.reify(valueDecl.type, freeVariablePolicy: freeVariablePolicy)
     }
     return (true, decl)
   }
@@ -31,7 +40,7 @@ final class TypeDispatcher: NodeWalker {
       fatalError("unexpected primary unresolved expr")
 
     default:
-      expr.type = solution.reify(expr.type)
+      expr.type = solution.reify(expr.type, freeVariablePolicy: freeVariablePolicy)
     }
 
     return (true, expr)
@@ -44,67 +53,38 @@ final class TypeDispatcher: NodeWalker {
       break
 
     default:
-      pattern.type = solution.reify(pattern.type)
+      pattern.type = solution.reify(pattern.type, freeVariablePolicy: freeVariablePolicy)
     }
 
     return (true, pattern)
   }
 
   private func dispatch(_ expr: OverloadedDeclRefExpr) -> Expr {
-    let type = solution.reify(expr.type)
+    expr.type = solution.reify(expr.type, freeVariablePolicy: freeVariablePolicy)
 
-    // Search for the declaration that matches the expression's type.
-    let decls = expr.declSet.filter({ decl in
-      TypeChecker.match(decl, type, useSite: innermostSpace!)
-    })
+    // Retrieve the selected overload from the solution.
+    let locator = ConstraintLocator(expr)
+    let selected = solution.overloadChoices[locator] ?? expr.declSet
 
-    // Diagnose an ambigous name reference if there's not exactly one possible candidate.
-    guard decls.count == 1 else {
-      type.context.report(.ambiguousReference(to: expr.declSet[0].name, range: expr.range))
-      return expr
+    if selected.count == 1 {
+      return DeclRefExpr(decl: selected[0], type: expr.type, range: expr.range)
     }
 
-    // Substitute the overload set for a concrete declaration ref.
-    let instType = decls[0].instantiate(from: innermostSpace!)
-    return DeclRefExpr(decl: decls[0], type: instType, range: expr.range)
+    expr.declSet = selected
+    return expr
   }
 
   private func dispatch(_ expr: UnresolvedMemberExpr) -> Expr {
-    let type = solution.reify(expr.type)
+    expr.type = solution.reify(expr.type, freeVariablePolicy: freeVariablePolicy)
 
-    // The base expression should have a nominal type.
-    let baseType: NominalType
-    switch expr.base.type {
-    case let nominalType as NominalType:
-      baseType = nominalType
-    case let inoutType as InoutType where inoutType.base is NominalType:
-      baseType = inoutType.base as! NominalType
-    default:
-      type.context.report(
-        .cannotFind(member: expr.memberName, in: expr.base.type, range: expr.range))
-      return expr
+    // Retrieve the selected overload from the solution.
+    let locator = ConstraintLocator(expr)
+    if let selected = solution.overloadChoices[locator], selected.count == 1{
+      return MemberRefExpr(base: expr.base, decl: selected[0], type: expr.type, range: expr.range)
     }
 
-    // Search for the declaration that matches the expression's type.
-    let decls = baseType.decl
-      .lookup(unqualified: expr.memberName, in: type.context)
-      .values
-      .filter({ decl in TypeChecker.match(decl, type, useSite: innermostSpace!) })
-
-    guard !decls.isEmpty else {
-      type.context.report(
-        .cannotFind(member: expr.memberName, in: baseType, range: expr.base.range))
-      return expr
-    }
-
-    // Diagnose an ambigous name reference if there's not exactly one candidate left.
-    guard decls.count == 1 else {
-      type.context.report(.ambiguousReference(to: decls[0].name, range: expr.range))
-      return expr
-    }
-
-    let instType = decls[0].instantiate(from: innermostSpace!)
-    return MemberRefExpr(base: expr.base, decl: decls[0], type: instType, range: expr.range)
+    return expr
   }
 
 }
+

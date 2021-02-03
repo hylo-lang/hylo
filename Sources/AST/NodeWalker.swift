@@ -3,7 +3,10 @@ open class NodeWalker: NodeVisitor {
 
   public typealias Result = Bool
 
-  public init() {}
+  public init(parent: Node? = nil, innermostSpace: DeclSpace? = nil) {
+    self.parent = parent
+    self.innermostSpace = innermostSpace
+  }
 
   /// The parent of the node being visited.
   public final private(set) var parent: Node?
@@ -207,7 +210,7 @@ open class NodeWalker: NodeVisitor {
     return true
   }
 
-  public final func visit(_ node: AbstractNominalTypeDecl) -> Bool {
+  public final func visit(_ node: NominalTypeDecl) -> Bool {
     let prevParent = parent
     parent = node
     innermostSpace = node
@@ -230,11 +233,11 @@ open class NodeWalker: NodeVisitor {
   }
 
   public final func visit(_ node: ProductTypeDecl) -> Bool {
-    return visit(node as AbstractNominalTypeDecl)
+    return visit(node as NominalTypeDecl)
   }
 
   public final func visit(_ node: ViewTypeDecl) -> Bool {
-    return visit(node as AbstractNominalTypeDecl)
+    return visit(node as NominalTypeDecl)
   }
 
   public final func visit(_ node: GenericParamDecl) -> Bool {
@@ -270,8 +273,8 @@ open class NodeWalker: NodeVisitor {
       innermostSpace = innermostSpace?.parentDeclSpace
     }
 
-    for i in 0 ..< node.statements.count {
-      (shouldContinue, node.statements[i]) = walk(node.statements[i])
+    for i in 0 ..< node.stmts.count {
+      (shouldContinue, node.stmts[i]) = walk(node.stmts[i])
       guard shouldContinue else { return false }
     }
 

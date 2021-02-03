@@ -19,6 +19,9 @@ public final class Module: IterableDeclSpace {
   /// The top-level declarations of the module.
   public var decls: [Decl] = []
 
+  /// The type of the module.
+  ///
+  /// This is set directly within the module's constructor.
   public private(set) var type: ValType
 
   public var parentDeclSpace: DeclSpace? {
@@ -27,7 +30,7 @@ public final class Module: IterableDeclSpace {
   }
 
   /// Returns the extensions of the given type declaration.
-  public func extensions(of decl: AbstractNominalTypeDecl) -> [TypeExtDecl] {
+  public func extensions(of decl: NominalTypeDecl) -> [TypeExtDecl] {
     var matches: [TypeExtDecl] = []
 
     // Loop through all extensions in the module, (partially) binding them if necessary.
@@ -40,7 +43,7 @@ public final class Module: IterableDeclSpace {
       case .parsed:
         // The extension was not bound yet, so we need to realize to resolve its identifier.
         if ext.extendedIdent is UnqualTypeRepr {
-          if ext.bind() === decl {
+          if ext.extendedDecl === decl {
             matches.append(ext)
           }
           continue stmt
@@ -87,6 +90,10 @@ extension Module: TypeDecl {
   public var fullyQualName: [String] { [name] }
 
   public var range: SourceRange { .invalid }
+
+  public var isInvalid: Bool {
+    return decls.contains(where: { $0.isInvalid })
+  }
 
   public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)

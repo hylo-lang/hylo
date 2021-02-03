@@ -91,6 +91,11 @@ public enum ConstraintPathComponent: Hashable {
       default: return nil
       }
 
+    case .parameter:
+      switch base {
+      default: return nil
+      }
+
     case .returnValue:
       switch base {
       case let node as RetStmt            : return node.value

@@ -2,13 +2,18 @@ type A { new() {} }
 type B { new() {} }
 type C { new() {} }
 
-fun mono(a: A) -> A {
+fun mono(_ a: A) -> A {
   ret a
 }
 
 fun main() {
-  val a1 = mono(a: A())
+  fun mono(_ b: B) -> B {
+    ret b
+  }
 
-  // #!error@+1 type 'C' is not a subtype of to type 'A'
-  val a2 = mono(a: C())
+  val x1 = mono(A())
+  val x2 = mono(B())
+
+  // #!error@+1 ambiguous use of 'mono'
+  val x3 = mono(C())
 }
