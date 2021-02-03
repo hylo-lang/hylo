@@ -198,6 +198,7 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(typeDeclHeader(node)),
+    "genericParams"   : \(encode(node.genericParams)),
     "inheritances"    : \(encode(node.inheritances)),
     "members"         : \(encode(node.members))
     }

@@ -411,10 +411,8 @@ public class BaseFunDecl: ValueDecl, GenericDeclSpace {
     return type
   }
 
-  /// The generic enviroment of the declaration space.
   public var genericEnv = GenericEnv()
 
-  /// Prepare the function's generic environment.
   public func prepareGenericEnv() {
     // FIXME: We need a mechanism to avoid recomputing the generic signature.
     genericEnv.space = self
@@ -690,7 +688,31 @@ public class NominalTypeDecl: TypeDecl, DeclSpace {
 }
 
 /// A product type declaration.
-public final class ProductTypeDecl: NominalTypeDecl {
+public final class ProductTypeDecl: NominalTypeDecl, GenericDeclSpace {
+
+  public init(
+    name          : String,
+    genericParams : [GenericParamDecl] = [],
+    inheritances  : [UnqualTypeRepr]   = [],
+    members       : [Decl]             = [],
+    type          : ValType,
+    range         : SourceRange
+  ) {
+    self.genericParams = genericParams
+    super.init(name: name, inheritances: inheritances, members: members, type: type, range: range)
+  }
+
+  /// The generic type parameters of the type.
+  public var genericParams: [GenericParamDecl]
+
+  public var genericEnv = GenericEnv()
+
+  public func prepareGenericEnv() {
+    // FIXME: We need a mechanism to avoid recomputing the generic signature.
+    genericEnv.space = self
+    genericEnv.signature = GenericSignature(
+      genericParams: genericParams.map({ $0.instanceType as! GenericParamType }))
+  }
 
   public override func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)

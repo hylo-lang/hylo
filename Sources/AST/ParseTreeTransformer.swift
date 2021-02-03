@@ -201,23 +201,35 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
   }
 
   public override func visitTypeDecl(_ ctx: ValParser.TypeDeclContext) -> Any {
-    // Create the type declaration.
-    let declName = ctx.NAME()?.getText() ?? ""
-    let decl: NominalTypeDecl
-    switch ctx.typeDeclKeyword()!.getText() {
-    case "type":
-      decl = ProductTypeDecl(
-        name: declName, type: unresolvedType, range: range(of: ctx))
-      decl.type = context.productType(decl: decl as! ProductTypeDecl).kind
+    return ctx.children![0].accept(self) as! NominalTypeDecl
+  }
 
-    case "view":
-      decl = ViewTypeDecl(
-        name: declName, type: unresolvedType, range: range(of: ctx))
-      decl.type = context.viewType(decl: decl as! ViewTypeDecl).kind
+  public override func visitProductTypeDecl(_ ctx: ValParser.ProductTypeDeclContext) -> Any {
+    let decl = ProductTypeDecl(
+      name: ctx.NAME()!.getText(), type: unresolvedType, range: range(of: ctx))
+    decl.type = context.productType(decl: decl).kind
 
-    default:
-      fatalError("unreachable")
+    // Update the current decl space.
+    decl.parentDeclSpace = currentSpace
+    currentSpace = decl
+    defer { currentSpace = decl.parentDeclSpace }
+
+    // Visit the remainder of the declaration.
+    if let genericClause = ctx.genericClause() {
+      decl.genericParams = genericClause.accept(self) as! [GenericParamDecl]
     }
+    decl.members = ctx.declBlock()!.accept(self) as! [Decl]
+    if let viewConfClause = ctx.viewConfClause() {
+      decl.inheritances = viewConfClause.accept(self) as! [IdentTypeRepr]
+    }
+
+    return decl
+  }
+
+  public override func visitViewTypeDecl(_ ctx: ValParser.ViewTypeDeclContext) -> Any {
+    let decl = ViewTypeDecl(
+      name: ctx.NAME()!.getText(), type: unresolvedType, range: range(of: ctx))
+    decl.type = context.viewType(decl: decl).kind
 
     // Update the current decl space.
     decl.parentDeclSpace = currentSpace
@@ -229,6 +241,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     if let viewConfClause = ctx.viewConfClause() {
       decl.inheritances = viewConfClause.accept(self) as! [IdentTypeRepr]
     }
+
     return decl
   }
 

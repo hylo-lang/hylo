@@ -79,7 +79,16 @@ genericParamList
   ;
 
 typeDecl
-  : typeDeclKeyword NAME viewConfClause? declBlock
+  : productTypeDecl
+  | viewTypeDecl
+  ;
+
+productTypeDecl
+  : 'type' NAME genericClause? viewConfClause? declBlock
+  ;
+
+viewTypeDecl
+  : 'view' NAME viewConfClause? declBlock
   ;
 
 typeDeclKeyword

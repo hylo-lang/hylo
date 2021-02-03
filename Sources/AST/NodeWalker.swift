@@ -171,6 +171,12 @@ open class NodeWalker: NodeVisitor {
       innermostSpace = innermostSpace?.parentDeclSpace
     }
 
+    for i in 0 ..< node.genericParams.count {
+      (shouldContinue, node.genericParams[i]) = walk(node.genericParams[i])
+        as! (Bool, GenericParamDecl)
+      guard shouldContinue else { return false }
+    }
+
     for i in 0 ..< node.params.count {
       (shouldContinue, node.params[i]) = walk(node.params[i]) as! (Bool, FunParamDecl)
       guard shouldContinue else { return false }
@@ -211,6 +217,42 @@ open class NodeWalker: NodeVisitor {
   }
 
   public final func visit(_ node: NominalTypeDecl) -> Bool {
+    switch node {
+    case let decl as ProductTypeDecl: return visit(decl)
+    case let decl as ViewTypeDecl   : return visit(decl)
+    default: fatalError("unreachable")
+    }
+  }
+
+  public final func visit(_ node: ProductTypeDecl) -> Bool {
+    let prevParent = parent
+    parent = node
+    innermostSpace = node
+    defer {
+      parent = prevParent
+      innermostSpace = innermostSpace?.parentDeclSpace
+    }
+
+    for i in 0 ..< node.genericParams.count {
+      (shouldContinue, node.genericParams[i]) = walk(node.genericParams[i])
+        as! (Bool, GenericParamDecl)
+      guard shouldContinue else { return false }
+    }
+
+    for i in 0 ..< node.inheritances.count {
+      (shouldContinue, node.inheritances[i]) = walk(node.inheritances[i])
+      guard shouldContinue else { return false }
+    }
+
+    for i in 0 ..< node.members.count {
+      (shouldContinue, node.members[i]) = walk(node.members[i])
+      guard shouldContinue else { return false }
+    }
+
+    return true
+  }
+
+  public final func visit(_ node: ViewTypeDecl) -> Bool {
     let prevParent = parent
     parent = node
     innermostSpace = node
@@ -230,14 +272,6 @@ open class NodeWalker: NodeVisitor {
     }
 
     return true
-  }
-
-  public final func visit(_ node: ProductTypeDecl) -> Bool {
-    return visit(node as NominalTypeDecl)
-  }
-
-  public final func visit(_ node: ViewTypeDecl) -> Bool {
-    return visit(node as NominalTypeDecl)
   }
 
   public final func visit(_ node: GenericParamDecl) -> Bool {
