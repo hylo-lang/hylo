@@ -410,6 +410,14 @@ public final class ExistentialType: ValType {
 
 }
 
+extension ExistentialType: CustomStringConvertible {
+
+  public var description: String {
+    return "∃X.\(interface)"
+  }
+
+}
+
 /// A tuple type.
 public final class TupleType: ValType {
 
