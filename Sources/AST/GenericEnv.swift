@@ -5,16 +5,16 @@ typealias ExistentialKey = HashableBox<ValType, ReferenceHashWitness<ValType>>
 
 /// An environment describing mappings between generic types and existential types.
 ///
-/// Generic types have to be instantiated as contextual types before they can be assigned to an
-/// expression. This consists of substituting either a fresh variable or an existential type for
-/// each of their generic type parameters, depending on the declaration space from which they are
-/// being used. If a type parameter is referred to *within* the generic space that introduces it,
-/// it has to be substituted by an existential type. In contrast, if it is being used *outside* of
-/// its declaration space, then it must be opened as a fresh variable.
+/// Generic types have to be "contextualized" before they can be assigned to an expression. This
+/// consists of substituting either fresh variables or existential types for each of their generic
+/// type parameters, depending on the declaration space from which they are being used. If a type
+/// parameter is used *within* the generic space that introduces it, it has to be substituted by an
+/// existential type. In contrast, if it is used *outside* of its declaration space, then it must
+/// be "opened" as a fresh variable.
 public final class GenericEnv {
 
   public init() {
-    instantiator = TypeInstantiator(env: self)
+    contextualizer = Contextualizer(env: self)
   }
 
   /// The declaration space to which the environment is attached.
@@ -26,7 +26,7 @@ public final class GenericEnv {
   /// A lookup table that keep tracks of the existential types that have been created.
   fileprivate var existentials: [ExistentialKey: ExistentialType] = [:]
 
-  fileprivate var instantiator: TypeInstantiator!
+  fileprivate var contextualizer: Contextualizer!
 
   /// Maps the given generic type to its contextual type, depending on its use site.
   ///
@@ -34,22 +34,22 @@ public final class GenericEnv {
   ///   - type: A generic type. This method returns `type` unchanged if it does not contain any
   ///     generic type parameter.
   ///   - useSite: The declaration space from which the type is being referred.
-  public func instantiate(_ type: ValType, from useSite: DeclSpace) -> ValType {
+  public func contextualize(_ type: ValType, from useSite: DeclSpace) -> ValType {
     // FIXME: A lot of magic will have to happen here to handle associated and dependent types.
-    instantiator.useSite = useSite
-    instantiator.substitutions.removeAll(keepingCapacity: true)
-    return instantiator.walk(type)
+    contextualizer.useSite = useSite
+    contextualizer.substitutions.removeAll(keepingCapacity: true)
+    return contextualizer.walk(type)
   }
 
 }
 
-fileprivate final class TypeInstantiator: TypeWalker {
+fileprivate final class Contextualizer: TypeWalker {
 
   init(env: GenericEnv) {
     self.env = env
   }
 
-  /// The generic environment for which the type walked type is begin instantiated.
+  /// The generic environment for which the type walked type is begin contextualized.
   unowned let env: GenericEnv
 
   /// The space from wich the visited type is being used.
@@ -69,7 +69,7 @@ fileprivate final class TypeInstantiator: TypeWalker {
     guard env.signature!.genericParams.contains(param) else {
       let gds = env.space!.parentDeclSpace!.innermostGenericSpace!
       gds.prepareGenericEnv()
-      return .stepOver(gds.genericEnv.instantiate(type, from: useSite))
+      return .stepOver(gds.genericEnv.contextualize(type, from: useSite))
     }
 
     // Determine whether the generic parameter is being referred to internally or externally.

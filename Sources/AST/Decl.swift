@@ -119,26 +119,26 @@ public protocol ValueDecl: TypeOrValueDecl {
 
 extension ValueDecl {
 
-  /// Instantiates the contextual type of this declaration from the given use site.
+  /// Contextualize the type of this declaration from the given use site.
   ///
   /// - Parameter useSite: The declaration space from which the declaration is being referred.
-  public func instantiate(from useSite: DeclSpace) -> ValType {
+  public func contextualize(from useSite: DeclSpace) -> ValType {
     let genericType = realize()
     guard genericType.props.contains(.hasTypeParams) else { return genericType }
 
-    // If the declaration is its own generic environment, then we should instantiate it externally
-    // even if the use-site is enclosed. This situation corresponds to a "fresh" use of a generic
+    // If the declaration is its own generic environment, then we must contextualize it externally,
+    // regardless of the use-site. This situation corresponds to a "fresh" use of a generic
     // declaration within its own space (e.g., a recursive call to a generic function).
     if let gds = self as? GenericDeclSpace {
       gds.prepareGenericEnv()
-      return gds.genericEnv.instantiate(genericType, from: gds)
+      return gds.genericEnv.contextualize(genericType, from: gds)
     }
 
     // Find the innermost generic space, relative to this declaration. We can assume there's one,
     // otherwise `realize()` would have failed to resolve the decl.
     let gds = parentDeclSpace!.innermostGenericSpace!
     gds.prepareGenericEnv()
-    return gds.genericEnv.instantiate(genericType, from: useSite)
+    return gds.genericEnv.contextualize(genericType, from: useSite)
   }
 
 }

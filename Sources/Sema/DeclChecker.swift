@@ -40,11 +40,11 @@ struct DeclChecker: DeclVisitor {
         return
       }
 
-      // Instantiate the signature's type if it contains references to generic type parameters.
+      // Contextualize the signature's type if it contains references to generic type parameters.
       if signType.hasTypeParams {
         let gds = useSite.innermostGenericSpace!
         gds.prepareGenericEnv()
-        patternType = gds.genericEnv.instantiate(signType, from: useSite)
+        patternType = gds.genericEnv.contextualize(signType, from: useSite)
       } else {
         patternType = signType
       }

@@ -41,7 +41,7 @@ struct StmtChecker: StmtVisitor {
 
       if signType.props.contains(.hasTypeParams) {
         funDecl.prepareGenericEnv()
-        retType = funDecl.genericEnv.instantiate(signType, from: useSite)
+        retType = funDecl.genericEnv.contextualize(signType, from: useSite)
       } else {
         retType = signType
       }

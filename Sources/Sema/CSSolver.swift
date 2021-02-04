@@ -264,7 +264,7 @@ struct CSSolver {
 
     if decls.count == 1 {
       // Only one choice; we can solve an equality constraint.
-      let choiceType = decls[0].instantiate(from: constraint.useSite)
+      let choiceType = decls[0].contextualize(from: constraint.useSite)
       let choice = RelationalConstraint(
         kind: .equality, lhs: choiceType, rhs: constraint.rhs, at: constraint.locator)
       solve(choice)
@@ -286,7 +286,7 @@ struct CSSolver {
 
     // Instanciate the type of the declaration candidates.
     let choices = constraint.declSet.map({ (decl) -> (Constraint, Int) in
-      let choiceType = decl.instantiate(from: constraint.useSite)
+      let choiceType = decl.contextualize(from: constraint.useSite)
       let choice = RelationalConstraint(
         kind: .equality, lhs: type, rhs: choiceType, at: constraint.locator)
       return (choice, 0)

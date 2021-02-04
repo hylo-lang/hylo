@@ -73,7 +73,7 @@ struct PreChecker: ExprVisitor {
         return ErrorExpr(type: context.errorType, range: node.range)
       }
 
-      // There's no need to instantiate the type, built-ins are never generic.
+      // There's no need to contextualize the type, built-ins are never generic.
       return DeclRefExpr(decl: decl, type: decl.realize(), range: node.range)
     }
 
@@ -178,7 +178,7 @@ struct PreChecker: ExprVisitor {
 
     if let decl = matches.values.first {
       // Instanciate the declaration's type if it's generic.
-      let instType = decl.instantiate(from: useSite)
+      let instType = decl.contextualize(from: useSite)
 
       // If `ref` is a member expression, make sure we keep its base around.
       if let expr = ref as? MemberExpr {
