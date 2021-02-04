@@ -263,6 +263,11 @@ public final class BuiltinIntType: BuiltinType {
   /// The number of bits in the binary representation of values of this type.
   public let bitWidth: Int
 
+  override func hash(into hasher: inout Hasher) {
+    withUnsafeBytes(of: BuiltinIntType.self, { hasher.combine(bytes: $0) })
+    hasher.combine(bitWidth)
+  }
+
   public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
     visitor.visit(self)
   }
