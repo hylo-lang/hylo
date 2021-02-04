@@ -1,0 +1,16 @@
+type A {
+  new() {}
+}
+
+type B<T> {
+
+  var property: T
+
+  fun fn<U>(x: T, y: U) {
+    fn(x: property, y: A())
+
+    // #!error@+1
+    fn(x: y, y: A())
+  }
+
+}
