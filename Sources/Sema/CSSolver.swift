@@ -86,10 +86,10 @@ struct CSSolver {
     if updated.lhs == updated.rhs { return }
 
     switch updated.kind {
-    case .equality      : solve(equality: updated)
+    case .equality      : solve(equality   : updated)
     case .conformance   : solve(conformance: updated)
-    case .subtyping     : solve(subtyping: updated)
-    case .conversion    : solve(conversion: updated)
+    case .subtyping     : solve(subtyping  : updated)
+    case .conversion    : solve(conversion : updated)
     }
   }
 

@@ -76,6 +76,9 @@ public enum ConstraintPathComponent: Hashable {
   /// The i-th element of a tuple type.
   case typeTupleElem(Int)
 
+  /// The i-th argument of a function call.
+  case argument(Int)
+
   fileprivate func resolve(from base: Node) -> Node? {
     switch self {
     case .annotation:
@@ -91,16 +94,17 @@ public enum ConstraintPathComponent: Hashable {
       default: return nil
       }
 
-    case .parameter:
-      switch base {
-      default: return nil
-      }
-
     case .returnValue:
       switch base {
       case let node as RetStmt            : return node.value
       default: return nil
       }
+
+    case .argument(let i):
+      guard let node = base as? CallExpr,
+            i < node.args.count
+      else { return nil }
+      return node.args[i].value
 
     default: return nil
     }

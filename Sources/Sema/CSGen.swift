@@ -58,13 +58,13 @@ struct ConstraintGenerator: ExprVisitor {
   func visit(_ node: CallExpr) {
     // Synthetize the type of a function from the call's arguments.
     var paramTypeElems: [TupleType.Elem] = []
-    for arg in node.args {
+    for (i, arg) in node.args.enumerated() {
       // The subtyping constraint handle cases where the argument is a subtype of the parameter.
       let paramType = TypeVar(context: node.type.context, node: arg.value)
       system.pointee.insert(
         RelationalConstraint(
           kind: .subtyping, lhs: arg.value.type, rhs: paramType,
-          at: ConstraintLocator(node, .application)))
+          at: ConstraintLocator(node, .argument(i))))
       paramTypeElems.append(TupleType.Elem(label: arg.label, type: paramType))
     }
 
