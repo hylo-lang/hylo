@@ -23,9 +23,6 @@ public final class GenericEnv {
   /// The generic signature of the environment.
   public var signature: GenericSignature?
 
-  /// A lookup table that keep tracks of the existential types that have been created.
-  fileprivate var existentials: [ExistentialKey: ExistentialType] = [:]
-
   fileprivate var contextualizer: Contextualizer!
 
   /// Maps the given generic type to its contextual type, depending on its use site.
@@ -87,12 +84,7 @@ fileprivate final class Contextualizer: TypeWalker {
     if isInternal {
       // The generic parameter is being referred to internally, so it must be susbstituted by an
       // existential type.
-      if let existential = env.existentials[HashableBox(type)] {
-        return .stepOver(existential)
-      }
-
-      let existential = type.context.existentialType()
-      env.existentials[HashableBox(type)] = existential
+      let existential = type.context.existentialType(interface: type)
       return .stepOver(existential)
     } else {
       // The generic parameter is being referred to externally, so it must be substituted by a

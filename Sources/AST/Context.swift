@@ -49,8 +49,8 @@ public final class Context {
     return uniqued(GenericParamType(context: self, decl: decl))
   }
 
-  public func existentialType() -> ExistentialType {
-    return uniqued(ExistentialType(context: self))
+  public func existentialType(interface: ValType) -> ExistentialType {
+    return uniqued(ExistentialType(context: self, interface: interface))
   }
 
   public func tupleType<S>(_ elems: S) -> TupleType

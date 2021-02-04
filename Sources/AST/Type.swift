@@ -386,8 +386,22 @@ extension GenericParamType: CustomStringConvertible {
 /// - Note: The `Any` is an existential type.
 public final class ExistentialType: ValType {
 
-  init(context: Context) {
+  init(context: Context, interface: ValType) {
+    self.interface = interface
     super.init(context: context, props: .isCanonical)
+  }
+
+  /// The interface type of this existential.
+  public unowned let interface: ValType
+
+  override func isEqual(to other: ValType) -> Bool {
+    guard let that = other as? ExistentialType else { return false }
+    return self.interface.isEqual(to: that.interface)
+  }
+
+  override func hash(into hasher: inout Hasher) {
+    withUnsafeBytes(of: ExistentialType.self, { hasher.combine(bytes: $0) })
+    interface.hash(into: &hasher)
   }
 
   public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
