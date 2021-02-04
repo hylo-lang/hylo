@@ -71,11 +71,24 @@ funRetAnnot
   ;
 
 genericClause
-  : '<' genericParamList '>'
+  : '<' genericParamList typeReqClause? '>'
   ;
 
 genericParamList
   : NAME (',' NAME)*
+  ;
+
+typeReqClause
+  : 'where' typeReqList
+  ;
+
+typeReqList
+  : typeReq (',' typeReq)*
+  ;
+
+typeReq
+  : identTypeRepr '==' typeRepr     # sameTypeReq
+  | identTypeRepr ':' identTypeRepr # viewConfReq
   ;
 
 typeDecl

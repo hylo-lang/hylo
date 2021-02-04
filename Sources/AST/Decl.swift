@@ -250,18 +250,20 @@ public final class VarDecl: ValueDecl {
 public class BaseFunDecl: ValueDecl, GenericDeclSpace {
 
   public init(
-    name          : String,
-    declModifiers : [DeclModifier]     = [],
-    genericParams : [GenericParamDecl] = [],
-    params        : [FunParamDecl]     = [],
-    retTypeSign   : TypeRepr?          = nil,
-    body          : BraceStmt?         = nil,
-    type          : ValType,
-    range         : SourceRange
+    name            : String,
+    declModifiers   : [DeclModifier]     = [],
+    genericParams   : [GenericParamDecl] = [],
+    genericTypeReqs : [TypeReq]          = [],
+    params          : [FunParamDecl]     = [],
+    retTypeSign     : TypeRepr?          = nil,
+    body            : BraceStmt?         = nil,
+    type            : ValType,
+    range           : SourceRange
   ) {
     self.name = name
     self.declModifiers = declModifiers
     self.genericParams = genericParams
+    self.genericTypeReqs = genericTypeReqs
     self.params = params
     self.retSign = retTypeSign
     self.body = body
@@ -293,8 +295,11 @@ public class BaseFunDecl: ValueDecl, GenericDeclSpace {
   /// describe the relevant bits in `props`, nor vice-versa.
   public var declModifiers: [DeclModifier]
 
-  /// The generic type parameters of the function.
+  /// The parameters of the function's generic clause.
   public var genericParams: [GenericParamDecl]
+
+  /// The type requirements of the function's generic clause.
+  public var genericTypeReqs: [TypeReq]
 
   /// The parameters of the function.
   public var params: [FunParamDecl]
@@ -374,6 +379,8 @@ public class BaseFunDecl: ValueDecl, GenericDeclSpace {
     isInvalid = true
   }
 
+  public var hasOwnGenericParams: Bool { !genericParams.isEmpty }
+
   /// The "applied" type of the function.
   ///
   /// This property must be kept synchronized with the function type implicitly described by the
@@ -434,10 +441,11 @@ public class BaseFunDecl: ValueDecl, GenericDeclSpace {
   public var genericEnv = GenericEnv()
 
   public func prepareGenericEnv() {
-    // FIXME: We need a mechanism to avoid recomputing the generic signature.
+    // FIXME: We need a mechanism to avoid recomputing the generic clause.
     genericEnv.space = self
-    genericEnv.signature = GenericSignature(
-      genericParams: genericParams.map({ $0.instanceType as! GenericParamType }))
+    genericEnv.clause = GenericClause(
+      params: genericParams.map({ $0.instanceType as! GenericParamType }),
+      reqs: [])
   }
 
   // MARK: Misc.
@@ -657,7 +665,7 @@ public class NominalTypeDecl: TypeDecl, DeclSpace {
     }
 
     // Populate the lookup table with generic parameters.
-    if let genericParams = (self as? GenericDeclSpace)?.genericParams {
+    if let genericParams = (self as? ProductTypeDecl)?.genericParams {
       fill(members: genericParams)
     }
 
@@ -735,27 +743,35 @@ public class NominalTypeDecl: TypeDecl, DeclSpace {
 public final class ProductTypeDecl: NominalTypeDecl, GenericDeclSpace {
 
   public init(
-    name          : String,
-    genericParams : [GenericParamDecl] = [],
-    inheritances  : [UnqualTypeRepr]   = [],
-    members       : [Decl]             = [],
-    type          : ValType,
-    range         : SourceRange
+    name            : String,
+    genericParams   : [GenericParamDecl] = [],
+    genericTypeReqs : [TypeReq]          = [],
+    inheritances    : [UnqualTypeRepr]   = [],
+    members         : [Decl]             = [],
+    type            : ValType,
+    range           : SourceRange
   ) {
     self.genericParams = genericParams
+    self.genericTypeReqs = genericTypeReqs
     super.init(name: name, inheritances: inheritances, members: members, type: type, range: range)
   }
 
-  /// The generic type parameters of the type.
+  /// The parameters of the type's generic clause.
   public var genericParams: [GenericParamDecl]
+
+  /// The type requirements of the type's generic clause.
+  public var genericTypeReqs: [TypeReq]
 
   public var genericEnv = GenericEnv()
 
+  public var hasOwnGenericParams: Bool { !genericParams.isEmpty }
+
   public func prepareGenericEnv() {
-    // FIXME: We need a mechanism to avoid recomputing the generic signature.
+    // FIXME: We need a mechanism to avoid recomputing the generic clause.
     genericEnv.space = self
-    genericEnv.signature = GenericSignature(
-      genericParams: genericParams.map({ $0.instanceType as! GenericParamType }))
+    genericEnv.clause = GenericClause(
+      params: genericParams.map({ $0.instanceType as! GenericParamType }),
+      reqs: [])
   }
 
   public override func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
