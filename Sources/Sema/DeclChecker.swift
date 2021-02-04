@@ -22,7 +22,7 @@ struct DeclChecker: DeclVisitor {
     func setInvalid() {
       for decl in node.varDecls where decl.type.hasUnresolved || decl.type.hasVariables {
         decl.type = checker.context.errorType
-        decl.isInvalid = true
+        decl.setInvalid()
       }
     }
 

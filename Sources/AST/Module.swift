@@ -93,8 +93,10 @@ extension Module: TypeDecl {
 
   public var isOverloadable: Bool { false }
 
-  public var isInvalid: Bool {
-    return decls.contains(where: { $0.isInvalid })
+  public var isInvalid: Bool { false }
+
+  public func setInvalid() {
+    assertionFailure("modules are never invalid")
   }
 
   public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {

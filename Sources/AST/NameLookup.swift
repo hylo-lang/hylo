@@ -52,7 +52,7 @@ extension IterableDeclSpace {
     var types : [TypeDecl]  = []
     var values: [ValueDecl] = []
 
-    for node in decls {
+    for node in decls where !node.isInvalid {
       switch node {
       case let typeDecl as TypeDecl where typeDecl.name == name:
         types.append(typeDecl)

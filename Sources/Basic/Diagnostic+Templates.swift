@@ -1,5 +1,11 @@
 extension Diagnostic {
 
+  public static func duplicateDeclaration(
+    symbol name: String, range: SourceRange
+  ) -> Diagnostic {
+    return Diagnostic("duplicate declaration of '\(name)'", anchor: range)
+  }
+
   public static func cannotFind(
     symbol name: String, range: SourceRange
   ) -> Diagnostic {

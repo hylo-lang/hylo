@@ -4,6 +4,13 @@ import Basic
 typealias ExistentialKey = HashableBox<ValType, ReferenceHashWitness<ValType>>
 
 /// An environment describing mappings between generic types and existential types.
+///
+/// Generic types have to be instantiated as contextual types before they can be assigned to an
+/// expression. This consists of substituting either a fresh variable or an existential type for
+/// each of their generic type parameters, depending on the declaration space from which they are
+/// being used. If a type parameter is referred to *within* the generic space that introduces it,
+/// it has to be substituted by an existential type. In contrast, if it is being used *outside* of
+/// its declaration space, then it must be opened as a fresh variable.
 public final class GenericEnv {
 
   public init() {
@@ -22,13 +29,6 @@ public final class GenericEnv {
   fileprivate var instantiator: TypeInstantiator!
 
   /// Maps the given generic type to its contextual type, depending on its use site.
-  ///
-  /// A generic types has to be instanciated as a contextual types before it can be assigned to an
-  /// expression. This consists of substituting either a fresh variable or an existential type for
-  /// each generic type parameter, depending on the space from which the type is being used. If a
-  /// type parameter is is referred to *within* the generic space that introduces it, it has to be
-  /// substituted by an existential type. In contrast, if it is being used *outside* of its
-  /// declaration space, then it must be opened as a fresh variable.
   ///
   /// - Parameters:
   ///   - type: A generic type. This method returns `type` unchanged if it does not contain any
@@ -55,6 +55,8 @@ fileprivate final class TypeInstantiator: TypeWalker {
   /// The space from wich the visited type is being used.
   unowned var useSite: DeclSpace!
 
+  /// The substitution table keeping track of the type variables that were used to open each
+  /// specific generic type parameter.
   var substitutions: [ExistentialKey: TypeVar] = [:]
 
   override func willVisit(_ type: ValType) -> TypeWalker.Action {
@@ -70,7 +72,19 @@ fileprivate final class TypeInstantiator: TypeWalker {
       return .stepOver(gds.genericEnv.instantiate(type, from: useSite))
     }
 
-    if useSite.isDescendant(of: env.space!) {
+    // Determine whether the generic parameter is being referred to internally or externally.
+    let isInternal: Bool
+    if useSite is NominalTypeDecl {
+      // Members of a nominal type reside directly in its declaration space. Thus, references from
+      // the type's own declaration space is internal.
+      isInternal = (useSite === env.space) || useSite.isDescendant(of: env.space!)
+    } else {
+      // The body of a function is nested within the function's declaration space. Thus, references
+      // from the function's own declaration space are external.
+      isInternal = useSite.isDescendant(of: env.space!)
+    }
+
+    if isInternal {
       // The generic parameter is being referred to internally, so it must be susbstituted by an
       // existential type.
       if let existential = env.existentials[HashableBox(type)] {

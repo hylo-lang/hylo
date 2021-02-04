@@ -10,8 +10,9 @@ public protocol DeclSpace: Node {
 
   /// The innermost parent in which this declaration space resides.
   ///
-  /// This property should always be defined, except for module declarations.
-  var parentDeclSpace: DeclSpace? { get set }
+  /// This property is always be defined, except for modules and unbound extensions. Thus, it forms
+  /// a linked list from the space to the module in which it resides.
+  var parentDeclSpace: DeclSpace? { get }
 
   /// Looks up for declarations that match the given unqualified name.
   ///

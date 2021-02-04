@@ -9,6 +9,12 @@ public protocol Decl: Node {
   /// A flag that indicates whether this declaration is semantically ill-formed.
   var isInvalid: Bool { get }
 
+  /// Mark the declaration invalid.
+  ///
+  /// Once marked, the declaration will be ignored by subsequent semantic analysis phases, without
+  /// producing any further diagnostic.
+  func setInvalid()
+
   /// Accepts the given visitor.
   ///
   /// - Parameter visitor: A declaration visitor.
@@ -74,7 +80,7 @@ public protocol TypeOrValueDecl: Decl {
   /// The name of the declaration.
   var name: String { get }
 
-  /// The type of the declaration.
+  /// The semantic type of the declaration, outside of its generic context.
   var type: ValType { get }
 
   /// A flag indicating whether the declaration is overloadable.
@@ -86,6 +92,8 @@ public protocol TypeOrValueDecl: Decl {
 public protocol TypeDecl: TypeOrValueDecl, DeclSpace {
 
   /// The type of instances of the declared type.
+  ///
+  /// For the type of the declaration itself, use `type`, which returns a kind.
   var instanceType: ValType { get }
 
 }
@@ -174,14 +182,14 @@ public final class PatternBindingDecl: Decl {
 
   public weak var parentDeclSpace: DeclSpace?
 
-  /// The declaration of all variables declared in this pattern.
-  public var varDecls: [VarDecl] = []
+  public private(set) var isInvalid = false
 
-  public var isInvalid: Bool {
-    return varDecls.contains(where: { $0.isInvalid })
+  public func setInvalid() {
+    isInvalid = true
   }
 
-  // MARK: Misc.
+  /// The declaration of all variables declared in this pattern.
+  public var varDecls: [VarDecl] = []
 
   public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
@@ -214,12 +222,20 @@ public final class VarDecl: ValueDecl {
 
   public var isOverloadable: Bool { false }
 
-  public var isInvalid: Bool = false
+  public private(set) var isInvalid = false
+
+  public func setInvalid() {
+    isInvalid = true
+  }
 
   public var type: ValType
 
   public func realize() -> ValType {
-    guard type is UnresolvedType else { return type }
+    if (type is UnresolvedType) || (type is TypeVar) {
+      return type
+    }
+
+    // Create a fresh type variable.
     type = TypeVar(context: type.context, node: self)
     return type
   }
@@ -352,7 +368,11 @@ public class BaseFunDecl: ValueDecl, GenericDeclSpace {
 
   // MARK: Semantic properties
 
-  public var isInvalid: Bool = false
+  public private(set) var isInvalid = false
+
+  public func setInvalid() {
+    isInvalid = true
+  }
 
   /// The "applied" type of the function.
   ///
@@ -534,7 +554,11 @@ public final class FunParamDecl: ValueDecl {
 
   public var isOverloadable: Bool { false }
 
-  public var isInvalid: Bool = false
+  public private(set) var isInvalid = false
+
+  public func setInvalid() {
+    isInvalid = true
+  }
 
   public var type: ValType
 
@@ -590,7 +614,7 @@ public class NominalTypeDecl: TypeDecl, DeclSpace {
   public var isOverloadable: Bool { false }
 
   /// An internal lookup table keeping track of type members.
-  var typeMemberTable: [String: [TypeDecl]]?
+  var typeMemberTable: [String: TypeDecl]?
 
   /// An internal lookup table keeping track of value members.
   var valueMemberTable: [String: [ValueDecl]]?
@@ -599,16 +623,24 @@ public class NominalTypeDecl: TypeDecl, DeclSpace {
   func updateMemberTables() {
     guard valueMemberTable == nil else { return }
 
-    // Create the lookup tables.
+    // Initialize type lookup tables.
     typeMemberTable  = [:]
     valueMemberTable = [:]
 
     /// Fills the member lookup table with the given declarations.
     func fill(members: [Decl]) {
-      for decl in members {
+      for decl in members where !decl.isInvalid {
         switch decl {
         case let typeDecl as TypeDecl:
-          typeMemberTable![typeDecl.name, default: []].append(typeDecl)
+          // Check for invalid redeclarations.
+          guard typeMemberTable![typeDecl.name] == nil else {
+            type.context.report(
+              .duplicateDeclaration(symbol: typeDecl.name, range: typeDecl.range))
+            typeDecl.setInvalid()
+            continue
+          }
+
+          typeMemberTable![typeDecl.name] = typeDecl
 
         case let valueDecl as ValueDecl:
           valueMemberTable![valueDecl.name, default: []].append(valueDecl)
@@ -624,26 +656,38 @@ public class NominalTypeDecl: TypeDecl, DeclSpace {
       }
     }
 
+    // Populate the lookup table with generic parameters.
+    if let genericParams = (self as? GenericDeclSpace)?.genericParams {
+      fill(members: genericParams)
+    }
+
+    // Populate the lookup table with members.
     fill(members: members)
+
+    // Populate the lookup table with members declared in extensions.
     for module in type.context.modules.values {
       for extDecl in module.extensions(of: self) {
         fill(members: extDecl.members)
       }
     }
 
-    // FIXME: Insert members inherited by conformance.
+    // FIXME: Populate the lookup table with members inherited by conformance.
   }
 
   public func lookup(qualified name: String) -> LookupResult {
     updateMemberTables()
     return LookupResult(
-      types : typeMemberTable![name]  ?? [],
+      types : typeMemberTable![name].map({ [$0] }) ?? [],
       values: valueMemberTable![name] ?? [])
   }
 
   // MARK: Semantic properties
 
-  public var isInvalid: Bool = false
+  public private(set) var isInvalid = false
+
+  public func setInvalid() {
+    isInvalid = true
+  }
 
   /// The resolved type of the declaration.
   ///
@@ -750,7 +794,11 @@ public final class GenericParamDecl: TypeDecl {
     return LookupResult()
   }
 
-  public var isInvalid: Bool = false
+  public private(set) var isInvalid = false
+
+  public func setInvalid() {
+    isInvalid = true
+  }
 
   public var type: ValType
 
@@ -782,7 +830,12 @@ public final class TypeExtDecl: Decl, DeclSpace {
 
   // MARK: Name lookup
 
-  public var parentDeclSpace: DeclSpace?
+  /// The innermost parent in which this declaration resides.
+  ///
+  /// This refers to the declaration space in which the extension was parsed until it is bound.
+  /// Then, this refers to the extended declaration, virtually nesting the extension within the
+  /// the declaration space of the type it extends.
+  public weak var parentDeclSpace: DeclSpace?
 
   public func lookup(qualified name: String) -> LookupResult {
     // Bind the extension and forward the lookup to the extended type.
@@ -792,6 +845,10 @@ public final class TypeExtDecl: Decl, DeclSpace {
   // MARK: Semantic properties
 
   public var isInvalid: Bool { state == .invalid }
+
+  public func setInvalid() {
+    state = .invalid
+  }
 
   /// The declaration of the extended type.
   public var extendedDecl: NominalTypeDecl? {
@@ -818,6 +875,7 @@ public final class TypeExtDecl: Decl, DeclSpace {
       return nil
     }
 
+    parentDeclSpace = decl
     state = .bound(decl)
     return decl
   }
