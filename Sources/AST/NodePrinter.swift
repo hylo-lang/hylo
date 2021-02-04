@@ -48,10 +48,6 @@ public struct NodePrinter: NodeVisitor {
     return string.map({ "\"\($0)\"" }) ?? "null"
   }
 
-  func encode(_ identifier: ObjectIdentifier) -> String {
-    return "\"" + String(Int(bitPattern: identifier), radix: 36) + "\""
-  }
-
   func encode(referenceTo decl: Decl) -> String {
     return "\"" + decl.debugID + "\""
   }
@@ -77,7 +73,6 @@ public struct NodePrinter: NodeVisitor {
   func valueDeclHeader<N>(_ node: N) -> String where N: ValueDecl {
     return """
     "class"           : "\(type(of: node))",
-    "id"              : \(encode(ObjectIdentifier(node))),
     "range"           : \(encode(node.range)),
     "type"            : "\(node.type)",
     "name"            : "\(node.name)"
@@ -87,7 +82,6 @@ public struct NodePrinter: NodeVisitor {
   func typeDeclHeader<N>(_ node: N) -> String where N: TypeDecl {
     return """
     "class"           : "\(type(of: node))",
-    "id"              : \(encode(ObjectIdentifier(node))),
     "range"           : \(encode(node.range)),
     "type"            : "\(node.type)",
     "name"            : "\(node.name)"
@@ -132,7 +126,6 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     "class"           : "\(type(of: node))",
-    "id"              : \(encode(ObjectIdentifier(node))),
     "range"           : \(encode(node.range)),
     "isMutable"       : \(node.isMutable),
     "pattern"         : \(node.pattern.accept(self)),
@@ -227,7 +220,6 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     "class"           : "\(type(of: node))",
-    "id"              : \(encode(ObjectIdentifier(node))),
     "range"           : \(encode(node.range)),
     "extendedIdent"   : \(encode(node.extendedIdent)),
     "members"         : \(encode(node.members))
