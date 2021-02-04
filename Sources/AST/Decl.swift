@@ -250,20 +250,18 @@ public final class VarDecl: ValueDecl {
 public class BaseFunDecl: ValueDecl, GenericDeclSpace {
 
   public init(
-    name            : String,
-    declModifiers   : [DeclModifier]     = [],
-    genericParams   : [GenericParamDecl] = [],
-    genericTypeReqs : [TypeReq]          = [],
-    params          : [FunParamDecl]     = [],
-    retTypeSign     : TypeRepr?          = nil,
-    body            : BraceStmt?         = nil,
-    type            : ValType,
-    range           : SourceRange
+    name          : String,
+    declModifiers : [DeclModifier] = [],
+    genericClause : GenericClause? = nil,
+    params        : [FunParamDecl] = [],
+    retTypeSign   : TypeRepr?      = nil,
+    body          : BraceStmt?     = nil,
+    type          : ValType,
+    range         : SourceRange
   ) {
     self.name = name
     self.declModifiers = declModifiers
-    self.genericParams = genericParams
-    self.genericTypeReqs = genericTypeReqs
+    self.genericClause = genericClause
     self.params = params
     self.retSign = retTypeSign
     self.body = body
@@ -295,11 +293,8 @@ public class BaseFunDecl: ValueDecl, GenericDeclSpace {
   /// describe the relevant bits in `props`, nor vice-versa.
   public var declModifiers: [DeclModifier]
 
-  /// The parameters of the function's generic clause.
-  public var genericParams: [GenericParamDecl]
-
-  /// The type requirements of the function's generic clause.
-  public var genericTypeReqs: [TypeReq]
+  /// The generic clause of the declaration.
+  public var genericClause: GenericClause?
 
   /// The parameters of the function.
   public var params: [FunParamDecl]
@@ -362,7 +357,7 @@ public class BaseFunDecl: ValueDecl, GenericDeclSpace {
   /// are its explicit and implicit parameters. The declarations scoped within the function's body
   /// are **not** included in either of these sets. Those reside in a nested space.
   public func lookup(qualified name: String) -> LookupResult {
-    let types  = genericParams.filter({ $0.name == name })
+    let types  = genericClause.map({ clause in clause.params.filter({ $0.name == name }) }) ?? []
     var values = params.filter({ $0.name == name })
     if name == "self", let selfDecl = self.selfDecl {
       values.append(selfDecl)
@@ -379,7 +374,7 @@ public class BaseFunDecl: ValueDecl, GenericDeclSpace {
     isInvalid = true
   }
 
-  public var hasOwnGenericParams: Bool { !genericParams.isEmpty }
+  public var hasOwnGenericParams: Bool { genericClause != nil }
 
   /// The "applied" type of the function.
   ///
@@ -442,10 +437,9 @@ public class BaseFunDecl: ValueDecl, GenericDeclSpace {
 
   public func prepareGenericEnv() {
     // FIXME: We need a mechanism to avoid recomputing the generic clause.
+    guard let clause = genericClause else { return }
     genericEnv.space = self
-    genericEnv.clause = GenericClause(
-      params: genericParams.map({ $0.instanceType as! GenericParamType }),
-      reqs: [])
+    genericEnv.params = clause.params.map({ $0.instanceType as! GenericParamType })
   }
 
   // MARK: Misc.
@@ -491,17 +485,17 @@ public final class FunDecl: BaseFunDecl {
 public final class CtorDecl: BaseFunDecl {
 
   public init(
-    declModifiers : [DeclModifier]     = [],
-    genericParams : [GenericParamDecl] = [],
-    params        : [FunParamDecl]     = [],
-    body          : BraceStmt?         = nil,
+    declModifiers : [DeclModifier] = [],
+    genericClause : GenericClause? = nil,
+    params        : [FunParamDecl] = [],
+    body          : BraceStmt?     = nil,
     type          : ValType,
     range         : SourceRange
   ) {
     super.init(
       name: "new",
       declModifiers: declModifiers,
-      genericParams: genericParams,
+      genericClause: genericClause,
       params: params,
       body: body,
       type: type,
@@ -665,8 +659,8 @@ public class NominalTypeDecl: TypeDecl, DeclSpace {
     }
 
     // Populate the lookup table with generic parameters.
-    if let genericParams = (self as? ProductTypeDecl)?.genericParams {
-      fill(members: genericParams)
+    if let clause = (self as? ProductTypeDecl)?.genericClause {
+      fill(members: clause.params)
     }
 
     // Populate the lookup table with members.
@@ -743,35 +737,29 @@ public class NominalTypeDecl: TypeDecl, DeclSpace {
 public final class ProductTypeDecl: NominalTypeDecl, GenericDeclSpace {
 
   public init(
-    name            : String,
-    genericParams   : [GenericParamDecl] = [],
-    genericTypeReqs : [TypeReq]          = [],
-    inheritances    : [UnqualTypeRepr]   = [],
-    members         : [Decl]             = [],
-    type            : ValType,
-    range           : SourceRange
+    name          : String,
+    genericClause : GenericClause?   = nil,
+    inheritances  : [UnqualTypeRepr] = [],
+    members       : [Decl]           = [],
+    type          : ValType,
+    range         : SourceRange
   ) {
-    self.genericParams = genericParams
-    self.genericTypeReqs = genericTypeReqs
+    self.genericClause = genericClause
     super.init(name: name, inheritances: inheritances, members: members, type: type, range: range)
   }
 
-  /// The parameters of the type's generic clause.
-  public var genericParams: [GenericParamDecl]
-
-  /// The type requirements of the type's generic clause.
-  public var genericTypeReqs: [TypeReq]
+  /// The generic clause of the declaration.
+  public var genericClause: GenericClause?
 
   public var genericEnv = GenericEnv()
 
-  public var hasOwnGenericParams: Bool { !genericParams.isEmpty }
+  public var hasOwnGenericParams: Bool { genericClause != nil }
 
   public func prepareGenericEnv() {
     // FIXME: We need a mechanism to avoid recomputing the generic clause.
+    guard let clause = genericClause else { return }
     genericEnv.space = self
-    genericEnv.clause = GenericClause(
-      params: genericParams.map({ $0.instanceType as! GenericParamType }),
-      reqs: [])
+    genericEnv.params = clause.params.map({ $0.instanceType as! GenericParamType })
   }
 
   public override func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {

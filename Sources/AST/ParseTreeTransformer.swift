@@ -136,10 +136,8 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     defer { currentSpace = decl.parentDeclSpace }
 
     // Visit the remainder of the declaration.
-    if let clause = ctx.genericClause() {
-      let (params, typeReqs) = clause.accept(self) as! ([GenericParamDecl], [TypeReq])
-      decl.genericParams = params
-      decl.genericTypeReqs = typeReqs
+    if let genericClause = ctx.genericClause() {
+      decl.genericClause = (genericClause.accept(self) as! GenericClause)
     }
     if let params = ctx.funParamList() {
       decl.params = params.accept(self) as! [FunParamDecl]
@@ -186,11 +184,11 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
   }
 
   public override func visitGenericClause(_ ctx: ValParser.GenericClauseContext) -> Any {
-    let params = ctx.genericParamList()!.accept(self)!
+    let params = ctx.genericParamList()!.accept(self) as! [GenericParamDecl]
     let typeReqs = ctx.typeReqClause().map({ reqs in
       reqs.accept(self) as! [TypeReq]
     }) ?? []
-    return (params, typeReqs)
+    return GenericClause(params: params, typeReqs: typeReqs, range: range(of: ctx))
   }
 
   public override func visitGenericParamList(_ ctx: ValParser.GenericParamListContext) -> Any {
@@ -241,10 +239,8 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     defer { currentSpace = decl.parentDeclSpace }
 
     // Visit the remainder of the declaration.
-    if let clause = ctx.genericClause() {
-      let (params, typeReqs) = clause.accept(self) as! ([GenericParamDecl], [TypeReq])
-      decl.genericParams = params
-      decl.genericTypeReqs = typeReqs
+    if let genericClause = ctx.genericClause() {
+      decl.genericClause = (genericClause.accept(self) as! GenericClause)
     }
     decl.members = ctx.declBlock()!.accept(self) as! [Decl]
     if let viewConfClause = ctx.viewConfClause() {

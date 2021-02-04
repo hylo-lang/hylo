@@ -20,8 +20,11 @@ public final class GenericEnv {
   /// The declaration space to which the environment is attached.
   public weak var space: GenericDeclSpace?
 
-  /// The generic clause of the environment.
-  public var clause: GenericClause?
+  // The generic parameters of the environment.
+  public var params: [GenericParamType] = []
+
+  /// The type requirements on the parameters of the environment.
+  public var typeReqs: [TypeReq] = []
 
   fileprivate var contextualizer: Contextualizer!
 
@@ -63,7 +66,7 @@ fileprivate final class Contextualizer: TypeWalker {
         : .stepOver(type)
     }
 
-    guard env.clause!.params.contains(param) else {
+    guard env.params.contains(param) else {
       let gds = env.space!.parentDeclSpace!.innermostGenericSpace!
       gds.prepareGenericEnv()
       return .stepOver(gds.genericEnv.contextualize(type, from: useSite))

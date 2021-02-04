@@ -44,10 +44,12 @@ public struct NodePrinter: NodeVisitor {
     return "[" + nodes.map(encode(_:)).joined(separator: ", ") + "]"
   }
 
-  func encode(_ reqs: [TypeReq]) -> String {
-    var results: [String] = []
-    for req in reqs {
-      results.append("""
+  public func encode(_ clause: GenericClause?) -> String {
+    guard let clause = clause else { return "null" }
+
+    var reqs: [String] = []
+    for req in clause.typeReqs {
+      reqs.append("""
       {
       "kind": "\(req.kind)",
       "lhs" : \(encode(req.lhs)),
@@ -55,7 +57,13 @@ public struct NodePrinter: NodeVisitor {
       }
       """)
     }
-    return "[" + results.joined(separator: ", ") + "]"
+
+    return """
+    {
+    "params"  : \(encode(clause.params)),
+    "typeReqs": [\(reqs.joined(separator: ", "))]
+    }
+    """
   }
 
   func encode(_ string: String?) -> String {
@@ -166,8 +174,7 @@ public struct NodePrinter: NodeVisitor {
     {
     \(valueDeclHeader(node)),
     "declModifiers"   : [\(mods)],
-    "genericParams"   : \(encode(node.genericParams)),
-    "genericTypeReqs" : \(encode(node.genericTypeReqs)),
+    "genericClause"   : \(encode(node.genericClause)),
     "params"          : \(encode(node.params)),
     "retSign"         : \(encode(node.retSign)),
     "body"            : \(encode(node.body))
@@ -206,8 +213,7 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(typeDeclHeader(node)),
-    "genericParams"   : \(encode(node.genericParams)),
-    "genericTypeReqs" : \(encode(node.genericTypeReqs)),
+    "genericClause"   : \(encode(node.genericClause)),
     "inheritances"    : \(encode(node.inheritances)),
     "members"         : \(encode(node.members))
     }

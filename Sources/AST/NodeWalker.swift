@@ -116,6 +116,24 @@ open class NodeWalker: NodeVisitor {
     return (true, typeRepr)
   }
 
+  /// This method is called when the walker is about to visit a generic clause.
+  ///
+  /// - Parameter clause: The generic clause that will be visited.
+  /// - Returns: `true` if the walker should visit the clause, or `false` if it should skip it. The
+  ///   default implementation returns `true`.
+  open func willVisit(_ clause: GenericClause) -> Bool {
+    return true
+  }
+
+  /// This method is called after the walker visited a generic clause.
+  ///
+  /// - Parameter clause: The generic clause that was visited.
+  /// - Returns: `true` if the walker should proceed to the next node, or `false` otherwise. The
+  ///   default implementation returns `true`.
+  open func didVisit(_ clause: GenericClause) -> Bool {
+    return true
+  }
+
   // MARK: Traversal
 
   private final var shouldContinue = true
@@ -171,10 +189,9 @@ open class NodeWalker: NodeVisitor {
       innermostSpace = innermostSpace?.parentDeclSpace
     }
 
-    for i in 0 ..< node.genericParams.count {
-      (shouldContinue, node.genericParams[i]) = walk(node.genericParams[i])
-        as! (Bool, GenericParamDecl)
-      guard shouldContinue else { return false }
+    if let clause = node.genericClause, willVisit(clause) {
+      guard visit(clause)    else { return false }
+      guard didVisit(clause) else { return false }
     }
 
     for i in 0 ..< node.params.count {
@@ -233,10 +250,9 @@ open class NodeWalker: NodeVisitor {
       innermostSpace = innermostSpace?.parentDeclSpace
     }
 
-    for i in 0 ..< node.genericParams.count {
-      (shouldContinue, node.genericParams[i]) = walk(node.genericParams[i])
-        as! (Bool, GenericParamDecl)
-      guard shouldContinue else { return false }
+    if let clause = node.genericClause, willVisit(clause) {
+      guard visit(clause)    else { return false }
+      guard didVisit(clause) else { return false }
     }
 
     for i in 0 ..< node.inheritances.count {
@@ -469,6 +485,25 @@ open class NodeWalker: NodeVisitor {
 
     for i in 0 ..< node.components.count {
       (shouldContinue, node.components[i]) = walk(node.components[i]) as! (Bool, UnqualTypeRepr)
+      guard shouldContinue else { return false }
+    }
+
+    return true
+  }
+
+  public final func visit(_ clause: GenericClause) -> Bool {
+    for i in 0 ..< clause.params.count {
+      (shouldContinue, clause.params[i]) = walk(clause.params[i])
+        as! (Bool, GenericParamDecl)
+      guard shouldContinue else { return false }
+    }
+
+    for i in 0 ..< clause.typeReqs.count {
+      (shouldContinue, clause.typeReqs[i].lhs) = walk(clause.typeReqs[i].lhs)
+        as! (Bool, IdentTypeRepr)
+      guard shouldContinue else { return false }
+
+      (shouldContinue, clause.typeReqs[i].rhs) = walk(clause.typeReqs[i].rhs)
       guard shouldContinue else { return false }
     }
 
