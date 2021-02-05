@@ -62,6 +62,11 @@ public final class GenericEnv {
     return contextualizer.walk(type)
   }
 
+  public func getExistential(from param: GenericParamType) -> ExistentialType {
+    precondition(params.contains(param), "parameter belongs to a different environment")
+    return param.context.existentialType(interface: param, genericEnv: self)
+  }
+
 }
 
 fileprivate final class Contextualizer: TypeWalker {
@@ -90,10 +95,10 @@ fileprivate final class Contextualizer: TypeWalker {
 
     guard env.params.contains(param) else {
       let gds = env.space.parentDeclSpace!.innermostGenericSpace!
-      guard let env = gds.prepareGenericEnv() else {
-        return .stepOver(type.context.errorType)
+      guard let parentEnv = gds.prepareGenericEnv() else {
+        return .stepOver(param.context.errorType)
       }
-      return .stepOver(env.contextualize(type, from: useSite))
+      return .stepOver(parentEnv.contextualize(param, from: useSite))
     }
 
     // Determine whether the generic parameter is being referred to internally or externally.
@@ -111,17 +116,17 @@ fileprivate final class Contextualizer: TypeWalker {
     if isInternal {
       // The generic parameter is being referred to internally, so it must be susbstituted by an
       // existential type.
-      let existential = type.context.existentialType(interface: type)
+      let existential = env.getExistential(from: param)
       return .stepOver(existential)
     } else {
       // The generic parameter is being referred to externally, so it must be substituted by a
       // type variable.
-      if let variable = substitutions[HashableBox(type)] {
+      if let variable = substitutions[HashableBox(param)] {
         return .stepOver(variable)
       }
 
-      let variable = TypeVar(context: type.context)
-      substitutions[HashableBox(type)] = variable
+      let variable = TypeVar(context: param.context)
+      substitutions[HashableBox(param)] = variable
       return .stepOver(variable)
     }
   }

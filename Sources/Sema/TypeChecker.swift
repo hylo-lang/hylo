@@ -105,7 +105,7 @@ public final class TypeChecker {
     var solver = TRSolver()
     guard solver.solve(typeReqs: env.typeReqs, from: env.space) else { return false }
 
-    env.equivalences = solver.computeEquivalences()
+    env.equivalences = solver.computeEquivalenceClasses(env: env)
     return true
   }
 

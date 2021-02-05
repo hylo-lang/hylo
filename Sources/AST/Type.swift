@@ -391,13 +391,17 @@ extension GenericParamType: CustomStringConvertible {
 /// - Note: The `Any` is an existential type.
 public final class ExistentialType: ValType {
 
-  init(context: Context, interface: ValType) {
+  init(context: Context, interface: ValType, genericEnv: GenericEnv) {
     self.interface = interface
+    self.genericEnv = genericEnv
     super.init(context: context, props: .isCanonical)
   }
 
   /// The interface type of this existential.
   public unowned let interface: ValType
+
+  /// The generic environment in which this existential resides.
+  public unowned let genericEnv: GenericEnv
 
   override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? ExistentialType else { return false }
