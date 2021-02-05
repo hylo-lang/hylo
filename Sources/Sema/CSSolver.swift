@@ -104,6 +104,16 @@ struct CSSolver {
       assumptions.substitute(constraint.lhs, for: tau)
       system.refresh(constraintsDependingOn: tau)
 
+    case (let lhs as ExistentialType, _):
+      if !lhs.genericEnv.equivalences.areEqual(lhs, constraint.rhs) {
+        errors.append(.conflictingTypes(constraint))
+      }
+
+    case (_, let rhs as ExistentialType):
+      if !rhs.genericEnv.equivalences.areEqual(constraint.lhs, rhs) {
+        errors.append(.conflictingTypes(constraint))
+      }
+
     default:
       // The types might be structural.
       if attemptStructuralMatch(constraint) {
@@ -187,7 +197,7 @@ struct CSSolver {
       system.insert(disjunction: guesses)
 
     default:
-      errors.append(.conflictingTypes(constraint))
+      solve(equality: constraint)
     }
   }
 
