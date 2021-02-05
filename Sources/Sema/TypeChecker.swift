@@ -103,7 +103,10 @@ public final class TypeChecker {
 
   public func prepareGenericEnv(env: GenericEnv) -> Bool {
     var solver = TRSolver()
-    return solver.solve(typeReqs: env.typeReqs, from: env.space)
+    guard solver.solve(typeReqs: env.typeReqs, from: env.space) else { return false }
+
+    env.equivalences = solver.computeEquivalences()
+    return true
   }
 
   // MARK: Internal API

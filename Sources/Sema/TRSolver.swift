@@ -12,6 +12,43 @@ struct TRSolver {
 
   private var bindings: [BindingKey: BindingValue] = [:]
 
+  /// Compute the equivalence classes inferred after solving a set of type requirements.
+  ///
+  /// This method should be called only after `solve(typeReqs:from:)` returned successfully.
+  func computeEquivalences() -> EquivalenceClassSet {
+    var classes: [[ValType]] = []
+    var count = 0
+
+    for case .parameter(let param) in bindings.keys {
+      guard case .parameter(let a) = representative(of: .parameter(param)) else {
+        fatalError("not implemented yet")
+      }
+
+      if let i = classes.firstIndex(where: { class_ in class_.contains(a) }) {
+        if a != param {
+          classes[i].append(param)
+          count += 1
+        }
+      } else {
+        if a != param {
+          classes.append([a, param])
+          count += 2
+        } else {
+          classes.append([a])
+          count += 1
+        }
+
+        if case .type(let type) = bindings[.parameter(a)] {
+          classes[classes.count - 1].append(type)
+          count += 1
+        }
+      }
+    }
+
+    return EquivalenceClassSet(classes: classes, numberOfEntries: count)
+  }
+
+  /// Solves a collection of type requirements.
   mutating func solve(typeReqs: [TypeReq], from useSite: DeclSpace) -> Bool {
     var success = true
 
