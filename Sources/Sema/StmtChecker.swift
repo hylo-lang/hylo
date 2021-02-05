@@ -40,8 +40,11 @@ struct StmtChecker: StmtVisitor {
       let signType = sign.realize(unqualifiedFrom: funDecl)
 
       if signType.props.contains(.hasTypeParams) {
-        funDecl.prepareGenericEnv()
-        retType = funDecl.genericEnv.contextualize(signType, from: useSite)
+        if let env = funDecl.prepareGenericEnv() {
+          retType = env.contextualize(signType, from: useSite)
+        } else {
+          retType = context.errorType
+        }
       } else {
         retType = signType
       }

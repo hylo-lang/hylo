@@ -42,9 +42,11 @@ struct DeclChecker: DeclVisitor {
 
       // Contextualize the signature's type if it contains references to generic type parameters.
       if signType.hasTypeParams {
-        let gds = useSite.innermostGenericSpace!
-        gds.prepareGenericEnv()
-        patternType = gds.genericEnv.contextualize(signType, from: useSite)
+        guard let env = useSite.innermostGenericSpace!.prepareGenericEnv() else {
+          setInvalid()
+          return
+        }
+        patternType = env.contextualize(signType, from: useSite)
       } else {
         patternType = signType
       }
@@ -82,7 +84,10 @@ struct DeclChecker: DeclVisitor {
     _ = node.realize()
 
     /// Initialize the function's generic environment.
-    node.prepareGenericEnv()
+    guard node.prepareGenericEnv() != nil else {
+      node.setInvalid()
+      return
+    }
 
     /// Type check the function's body, if any.
     if let body = node.body {

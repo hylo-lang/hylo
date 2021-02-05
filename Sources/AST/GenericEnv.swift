@@ -1,7 +1,7 @@
 import Basic
 
 /// A key in the existential lookup table.
-typealias ExistentialKey = HashableBox<ValType, ReferenceHashWitness<ValType>>
+fileprivate typealias ExistentialKey = HashableBox<ValType, ReferenceHashWitness<ValType>>
 
 /// An environment describing mappings between generic types and existential types.
 ///
@@ -13,20 +13,35 @@ typealias ExistentialKey = HashableBox<ValType, ReferenceHashWitness<ValType>>
 /// be "opened" as a fresh variable.
 public final class GenericEnv {
 
-  public init() {
-    contextualizer = Contextualizer(env: self)
+  public init(space: GenericDeclSpace) {
+    self.space = space
+    self.params = []
+    self.typeReqs = []
+  }
+
+  public init?(
+    space   : GenericDeclSpace,
+    params  : [GenericParamType],
+    typeReqs: [TypeReq],
+    context : Context
+  ) {
+    self.space = space
+    self.params = params
+    self.typeReqs = typeReqs
+
+    let prepare = context.prepareGenericEnv
+    precondition(prepare != nil, "no generic environment delegate")
+    guard prepare!(self) else { return nil }
   }
 
   /// The declaration space to which the environment is attached.
-  public weak var space: GenericDeclSpace?
+  public unowned let space: GenericDeclSpace
 
   // The generic parameters of the environment.
-  public var params: [GenericParamType] = []
+  public let params: [GenericParamType]
 
   /// The type requirements on the parameters of the environment.
-  public var typeReqs: [TypeReq] = []
-
-  fileprivate var contextualizer: Contextualizer!
+  public let typeReqs: [TypeReq]
 
   /// Maps the given generic type to its contextual type, depending on its use site.
   ///
@@ -36,8 +51,7 @@ public final class GenericEnv {
   ///   - useSite: The declaration space from which the type is being referred.
   public func contextualize(_ type: ValType, from useSite: DeclSpace) -> ValType {
     // FIXME: A lot of magic will have to happen here to handle associated and dependent types.
-    contextualizer.useSite = useSite
-    contextualizer.substitutions.removeAll(keepingCapacity: true)
+    let contextualizer = Contextualizer(env: self, useSite: useSite)
     return contextualizer.walk(type)
   }
 
@@ -45,15 +59,16 @@ public final class GenericEnv {
 
 fileprivate final class Contextualizer: TypeWalker {
 
-  init(env: GenericEnv) {
+  init(env: GenericEnv, useSite: DeclSpace) {
     self.env = env
+    self.useSite = useSite
   }
 
   /// The generic environment for which the type walked type is begin contextualized.
   unowned let env: GenericEnv
 
   /// The space from wich the visited type is being used.
-  unowned var useSite: DeclSpace!
+  unowned var useSite: DeclSpace
 
   /// The substitution table keeping track of the type variables that were used to open each
   /// specific generic type parameter.
@@ -67,9 +82,11 @@ fileprivate final class Contextualizer: TypeWalker {
     }
 
     guard env.params.contains(param) else {
-      let gds = env.space!.parentDeclSpace!.innermostGenericSpace!
-      gds.prepareGenericEnv()
-      return .stepOver(gds.genericEnv.contextualize(type, from: useSite))
+      let gds = env.space.parentDeclSpace!.innermostGenericSpace!
+      guard let env = gds.prepareGenericEnv() else {
+        return .stepOver(type.context.errorType)
+      }
+      return .stepOver(env.contextualize(type, from: useSite))
     }
 
     // Determine whether the generic parameter is being referred to internally or externally.
@@ -77,11 +94,11 @@ fileprivate final class Contextualizer: TypeWalker {
     if useSite is NominalTypeDecl {
       // Members of a nominal type reside directly in its declaration space. Thus, references from
       // the type's own declaration space is internal.
-      isInternal = (useSite === env.space) || useSite.isDescendant(of: env.space!)
+      isInternal = (useSite === env.space) || useSite.isDescendant(of: env.space)
     } else {
       // The body of a function is nested within the function's declaration space. Thus, references
       // from the function's own declaration space are external.
-      isInternal = useSite.isDescendant(of: env.space!)
+      isInternal = useSite.isDescendant(of: env.space)
     }
 
     if isInternal {

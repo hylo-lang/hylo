@@ -130,15 +130,18 @@ extension ValueDecl {
     // regardless of the use-site. This situation corresponds to a "fresh" use of a generic
     // declaration within its own space (e.g., a recursive call to a generic function).
     if let gds = self as? GenericDeclSpace {
-      gds.prepareGenericEnv()
-      return gds.genericEnv.contextualize(genericType, from: gds)
+      guard let env = gds.prepareGenericEnv() else {
+        return type.context.errorType
+      }
+      return env.contextualize(genericType, from: gds)
     }
 
     // Find the innermost generic space, relative to this declaration. We can assume there's one,
     // otherwise `realize()` would have failed to resolve the decl.
-    let gds = parentDeclSpace!.innermostGenericSpace!
-    gds.prepareGenericEnv()
-    return gds.genericEnv.contextualize(genericType, from: useSite)
+    guard let env = parentDeclSpace!.innermostGenericSpace!.prepareGenericEnv() else {
+      return type.context.errorType
+    }
+    return env.contextualize(genericType, from: useSite)
   }
 
 }
@@ -374,8 +377,6 @@ public class BaseFunDecl: ValueDecl, GenericDeclSpace {
     isInvalid = true
   }
 
-  public var hasOwnGenericParams: Bool { genericClause != nil }
-
   /// The "applied" type of the function.
   ///
   /// This property must be kept synchronized with the function type implicitly described by the
@@ -433,13 +434,28 @@ public class BaseFunDecl: ValueDecl, GenericDeclSpace {
     return type
   }
 
-  public var genericEnv = GenericEnv()
+  public var hasOwnGenericParams: Bool { genericClause != nil }
 
-  public func prepareGenericEnv() {
-    // FIXME: We need a mechanism to avoid recomputing the generic clause.
-    guard let clause = genericClause else { return }
-    genericEnv.space = self
-    genericEnv.params = clause.params.map({ $0.instanceType as! GenericParamType })
+  public var genericEnv: GenericEnv?
+
+  public func prepareGenericEnv() -> GenericEnv? {
+    if let env = genericEnv { return env }
+
+    if let clause = genericClause {
+      genericEnv = GenericEnv(
+        space: self,
+        params: clause.params.map({ $0.instanceType as! GenericParamType }),
+        typeReqs: clause.typeReqs,
+        context: type.context)
+      guard genericEnv != nil else {
+        setInvalid()
+        return nil
+      }
+    } else {
+      genericEnv = GenericEnv(space: self)
+    }
+
+    return genericEnv
   }
 
   // MARK: Misc.
@@ -751,15 +767,28 @@ public final class ProductTypeDecl: NominalTypeDecl, GenericDeclSpace {
   /// The generic clause of the declaration.
   public var genericClause: GenericClause?
 
-  public var genericEnv = GenericEnv()
-
   public var hasOwnGenericParams: Bool { genericClause != nil }
 
-  public func prepareGenericEnv() {
-    // FIXME: We need a mechanism to avoid recomputing the generic clause.
-    guard let clause = genericClause else { return }
-    genericEnv.space = self
-    genericEnv.params = clause.params.map({ $0.instanceType as! GenericParamType })
+  public var genericEnv: GenericEnv?
+
+  public func prepareGenericEnv() -> GenericEnv? {
+    if let env = genericEnv { return env }
+
+    if let clause = genericClause {
+      genericEnv = GenericEnv(
+        space: self,
+        params: clause.params.map({ $0.instanceType as! GenericParamType }),
+        typeReqs: clause.typeReqs,
+        context: type.context)
+      guard genericEnv != nil else {
+        setInvalid()
+        return nil
+      }
+    } else {
+      genericEnv = GenericEnv(space: self)
+    }
+
+    return genericEnv
   }
 
   public override func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {

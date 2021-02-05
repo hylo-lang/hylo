@@ -351,7 +351,7 @@ public final class ViewType: NominalType {
 }
 
 /// A generic parameter type.
-public final class GenericParamType: ValType {
+public final class GenericParamType: ValType, Hashable {
 
   init(context: Context, decl: GenericParamDecl) {
     self.decl = decl
@@ -366,7 +366,7 @@ public final class GenericParamType: ValType {
     return self.decl === that.decl
   }
 
-  override func hash(into hasher: inout Hasher) {
+  public override func hash(into hasher: inout Hasher) {
     hasher.combine(ObjectIdentifier(decl))
   }
 

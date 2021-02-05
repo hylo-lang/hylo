@@ -23,6 +23,11 @@ public final class Context {
   /// The modules loaded in the context.
   public var modules: [String: Module] = [:]
 
+  // MARK: Delegates
+
+  /// A closure that is called to prepare generic environments.
+  public var prepareGenericEnv: ((GenericEnv) -> Bool)?
+
   // MARK: Types
 
   /// The types uniqued in the context.

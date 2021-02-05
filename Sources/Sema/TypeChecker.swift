@@ -39,6 +39,9 @@ public final class TypeChecker {
 
   public init(context: AST.Context) {
     self.context = context
+
+    // Configure the context.
+    context.prepareGenericEnv = prepareGenericEnv(env:)
   }
 
   /// The context in which the pass runs.
@@ -96,6 +99,11 @@ public final class TypeChecker {
     // Apply the solution.
     let dispatcher = TypeDispatcher(solution: solution)
     (_, expr) = dispatcher.walk(expr)
+  }
+
+  public func prepareGenericEnv(env: GenericEnv) -> Bool {
+    var solver = TRSolver()
+    return solver.solve(typeReqs: env.typeReqs, from: env.space)
   }
 
   // MARK: Internal API

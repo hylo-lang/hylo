@@ -1,6 +1,8 @@
 /// A base class to implement "event-based" type visitors and transformers.
 open class TypeWalker: TypeVisitor {
 
+  public init() {}
+
   public typealias Result = ValType
 
   public enum Action {

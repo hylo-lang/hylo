@@ -78,4 +78,16 @@ extension Diagnostic {
     return Diagnostic("non-unit function should return a value", anchor: range)
   }
 
+  public static func sameTypeRequirementNotSatified(
+    range: SourceRange
+  ) -> Diagnostic {
+    return Diagnostic("same-type requirement is not satisfied", anchor: range)
+  }
+
+  public static func sameTypeRequirementIsRecursive(
+    range: SourceRange
+  ) -> Diagnostic {
+    return Diagnostic("same-type requirement is recursive", anchor: range)
+  }
+
 }

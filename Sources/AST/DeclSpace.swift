@@ -105,13 +105,13 @@ protocol IterableDeclSpace: DeclSpace {
 /// A declaration space that provides generic type parameters.
 public protocol GenericDeclSpace: DeclSpace {
 
-  /// The generic enviroment of the declaration space.
-  var genericEnv: GenericEnv { get set }
-
   /// A flag that indicates whether the space has generic parameters of its own.
   var hasOwnGenericParams: Bool { get }
 
+  /// The generic enviroment of the declaration space.
+  var genericEnv: GenericEnv? { get set }
+
   /// Prepares the generic environment.
-  func prepareGenericEnv()
+  func prepareGenericEnv() -> GenericEnv?
 
 }

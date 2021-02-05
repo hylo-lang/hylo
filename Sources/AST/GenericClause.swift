@@ -2,7 +2,7 @@ import Basic
 
 /// The generic clause of a generic declaration.
 ///
-/// This includes generic parameters, as well as the constraints by a where clause.
+/// This includes generic parameters and their type requirements.
 public class GenericClause: Node {
 
   public init(params: [GenericParamDecl], typeReqs: [TypeReq], range: SourceRange) {
@@ -17,6 +17,7 @@ public class GenericClause: Node {
   /// The type requirements in the clause.
   public var typeReqs: [TypeReq]
 
+  /// The source range of this clause's textual representation.
   public var range: SourceRange
 
 }
