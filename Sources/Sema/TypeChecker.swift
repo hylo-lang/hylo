@@ -125,7 +125,7 @@ public final class TypeChecker {
 
       // Complain if the left operand is not a generic parameter.
       // FIXME: Handle dependent types.
-      guard let param = lhs as? GenericParamType else {
+      guard let param = lhs as? GenericParamType, env.params.contains(param) else {
         context.report(
           .conformanceRequirementOnNonGenericParameter(type: lhs, range: req.lhs.range))
         continue
