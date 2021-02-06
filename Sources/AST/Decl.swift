@@ -6,19 +6,46 @@ public protocol Decl: Node {
   /// The innermost parent in which this declaration resides.
   var parentDeclSpace: DeclSpace? { get }
 
-  /// A flag that indicates whether this declaration is semantically ill-formed.
-  var isInvalid: Bool { get }
+  /// The (semantic) state of the declaration.
+  var state: DeclState { get }
 
-  /// Mark the declaration invalid.
-  ///
-  /// Once marked, the declaration will be ignored by subsequent semantic analysis phases, without
-  /// producing any further diagnostic.
-  func setInvalid()
+  /// Sets the state of this declaration.
+  func setState(_ newState: DeclState)
 
   /// Accepts the given visitor.
   ///
   /// - Parameter visitor: A declaration visitor.
   func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor
+
+}
+
+/// The state of a declaration, as it goes through type checking.
+public enum DeclState: Int, Comparable {
+
+  /// The declaration was just parsed; no semantic information is available.
+  case parsed
+
+  /// The type of the declaration is available for type inference, but the declaration has not been
+  /// type checked yet.
+  ///
+  /// For a `TypeDecl` or a `ValueDecl`, the `type` property of the declaration has been realized.
+  /// For a `TypeExtDec`, the extension has been bound.
+  case realized
+
+  /// The declaration has been scheduled for type checking. Any attempt to transition back to this
+  /// state should be interpreted as a circular dependency.
+  case typeCheckRequested
+
+  /// Type checking has been completed; the declaration is semantically well-formed.
+  case typeChecked
+
+  /// The declaration has been found to be ill-formed; it should be ignored by all subsequent
+  /// semantic analysis phases, without producing any further diagnostic.
+  case invalid
+
+  public static func < (lhs: DeclState, rhs: DeclState) -> Bool {
+    return lhs.rawValue < rhs.rawValue
+  }
 
 }
 
@@ -185,10 +212,11 @@ public final class PatternBindingDecl: Decl {
 
   public weak var parentDeclSpace: DeclSpace?
 
-  public private(set) var isInvalid = false
+  public private(set) var state = DeclState.parsed
 
-  public func setInvalid() {
-    isInvalid = true
+  public func setState(_ newState: DeclState) {
+    assert(newState >= state)
+    state = newState
   }
 
   /// The declaration of all variables declared in this pattern.
@@ -225,22 +253,21 @@ public final class VarDecl: ValueDecl {
 
   public var isOverloadable: Bool { false }
 
-  public private(set) var isInvalid = false
+  public private(set) var state = DeclState.parsed
 
-  public func setInvalid() {
-    isInvalid = true
+  public func setState(_ newState: DeclState) {
+    assert(newState >= state)
+    state = newState
   }
 
   public var type: ValType
 
   public func realize() -> ValType {
-    if (type is UnresolvedType) || (type is TypeVar) {
-      return type
-    }
+    if state >= .realized { return type }
 
-    // Create a fresh type variable.
-    type = TypeVar(context: type.context, node: self)
-    return type
+    // Variable declarations can't realize on their own. Their type is defined when the enclosing
+    // pattern binding declaration is type checked.
+    preconditionFailure("variable declarations can't realize on their own")
   }
 
   public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
@@ -371,10 +398,14 @@ public class BaseFunDecl: ValueDecl, GenericDeclSpace {
 
   // MARK: Semantic properties
 
-  public private(set) var isInvalid = false
+  public private(set) var state = DeclState.parsed
 
-  public func setInvalid() {
-    isInvalid = true
+  public func setState(_ newState: DeclState) {
+    assert(newState >= state)
+    assert((newState != .typeCheckRequested) || (state >= .realized),
+           "type checking requested before the function signature was realized")
+
+    state = newState
   }
 
   /// The "applied" type of the function.
@@ -412,7 +443,7 @@ public class BaseFunDecl: ValueDecl, GenericDeclSpace {
   /// For member functions, this is the type of the function extended with an implicit receiver
   /// parameter. For other functions, this is equal to `type`.
   public func realize() -> ValType {
-    guard type is UnresolvedType else { return type }
+    if state >= .realized { return type }
 
     // Realize the parameters.
     var paramTypeElems: [TupleType.Elem] = []
@@ -431,6 +462,7 @@ public class BaseFunDecl: ValueDecl, GenericDeclSpace {
     }
 
     type = type.context.funType(paramType: paramType, retType: retType)
+    setState(.realized)
     return type
   }
 
@@ -448,7 +480,7 @@ public class BaseFunDecl: ValueDecl, GenericDeclSpace {
         typeReqs: clause.typeReqs,
         context: type.context)
       guard genericEnv != nil else {
-        setInvalid()
+        setState(.invalid)
         return nil
       }
     } else {
@@ -520,7 +552,7 @@ public final class CtorDecl: BaseFunDecl {
   }
 
   public override func realize() -> ValType {
-    guard type is UnresolvedType else { return type }
+    if state >= .realized { return type }
 
     var paramTypeElems: [TupleType.Elem] = []
     for param in params {
@@ -531,6 +563,7 @@ public final class CtorDecl: BaseFunDecl {
     let retType = (selfDecl!.type as! InoutType).base
 
     type = type.context.funType(paramType: paramType, retType: retType)
+    setState(.realized)
     return type
   }
 
@@ -572,22 +605,25 @@ public final class FunParamDecl: ValueDecl {
 
   public var isOverloadable: Bool { false }
 
-  public private(set) var isInvalid = false
+  public private(set) var state = DeclState.parsed
 
-  public func setInvalid() {
-    isInvalid = true
+  public func setState(_ newState: DeclState) {
+    assert(newState >= state)
+    state = newState
   }
 
   public var type: ValType
 
   public func realize() -> ValType {
-    guard type is UnresolvedType else { return type }
+    if state >= .realized { return type }
 
     if let sign = self.sign {
       type = sign.realize(unqualifiedFrom: parentDeclSpace!)
     } else {
       type = TypeVar(context: type.context, node: self)
     }
+
+    setState(.realized)
     return type
   }
 
@@ -647,14 +683,14 @@ public class NominalTypeDecl: TypeDecl, DeclSpace {
 
     /// Fills the member lookup table with the given declarations.
     func fill(members: [Decl]) {
-      for decl in members where !decl.isInvalid {
+      for decl in members where decl.state != .invalid {
         switch decl {
         case let typeDecl as TypeDecl:
           // Check for invalid redeclarations.
           guard typeMemberTable![typeDecl.name] == nil else {
             type.context.report(
               .duplicateDeclaration(symbol: typeDecl.name, range: typeDecl.range))
-            typeDecl.setInvalid()
+            typeDecl.setState(.invalid)
             continue
           }
 
@@ -701,10 +737,11 @@ public class NominalTypeDecl: TypeDecl, DeclSpace {
 
   // MARK: Semantic properties
 
-  public private(set) var isInvalid = false
+  public private(set) var state = DeclState.realized
 
-  public func setInvalid() {
-    isInvalid = true
+  public func setState(_ newState: DeclState) {
+    assert(newState >= state)
+    state = newState
   }
 
   /// The resolved type of the declaration.
@@ -781,7 +818,7 @@ public final class ProductTypeDecl: NominalTypeDecl, GenericDeclSpace {
         typeReqs: clause.typeReqs,
         context: type.context)
       guard genericEnv != nil else {
-        setInvalid()
+        setState(.invalid)
         return nil
       }
     } else {
@@ -827,10 +864,11 @@ public final class GenericParamDecl: TypeDecl {
     return LookupResult()
   }
 
-  public private(set) var isInvalid = false
+  public private(set) var state = DeclState.realized
 
-  public func setInvalid() {
-    isInvalid = true
+  public func setState(_ newState: DeclState) {
+    assert(newState >= state)
+    state = newState
   }
 
   public var type: ValType
@@ -877,10 +915,11 @@ public final class TypeExtDecl: Decl, DeclSpace {
 
   // MARK: Semantic properties
 
-  public var isInvalid: Bool { state == .invalid }
+  public private(set) var state = DeclState.parsed
 
-  public func setInvalid() {
-    state = .invalid
+  public func setState(_ newState: DeclState) {
+    assert(newState >= state)
+    state = newState
   }
 
   /// The declaration of the extended type.
@@ -888,11 +927,14 @@ public final class TypeExtDecl: Decl, DeclSpace {
     return computeExtendedDecl()
   }
 
+  /// The underlying storage for `extendedDecl`.
+  private var _extendedDecl: NominalTypeDecl?
+
   /// Computes the declaration that is extended by this extension.
   public func computeExtendedDecl() -> NominalTypeDecl? {
     guard state != .invalid else { return nil }
-    if case .bound(let decl) = state {
-      return decl
+    if state >= .realized {
+      return _extendedDecl
     }
 
     let type = extendedIdent.realize(unqualifiedFrom: parentDeclSpace!)
@@ -909,37 +951,8 @@ public final class TypeExtDecl: Decl, DeclSpace {
     }
 
     parentDeclSpace = decl
-    state = .bound(decl)
+    state = .realized
     return decl
-  }
-
-  /// The binding state of the declaration.
-  public var state = State.parsed
-
-  /// The compilation state of a type extension.
-  public enum State: Equatable {
-
-    /// The declaration was parsed.
-    case parsed
-
-    /// The declaration was bound to the type it extends.
-    case bound(NominalTypeDecl)
-
-    /// The declaration is invalid and can't be bound to any type.
-    ///
-    /// The compiler should emit a diagnostic when assigning this state. All further attempt to use
-    /// the contents of this extension should be ignored and not re-diagnosed.
-    case invalid
-
-    public static func == (lhs: State, rhs: State) -> Bool {
-      switch (lhs, rhs) {
-      case (.parsed , .parsed)              : return true
-      case (.invalid, .invalid)             : return true
-      case (.bound(let d1), .bound(let d2)) : return d1 === d2
-      default: return false
-      }
-    }
-
   }
 
   public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {

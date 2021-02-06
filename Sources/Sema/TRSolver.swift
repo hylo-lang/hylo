@@ -56,7 +56,7 @@ struct TRSolver {
     var success = true
 
     for req in typeReqs where req.kind == .equality {
-      // Realize each operand' type representation.
+      // Realize each operand's type representation.
       let lhs = req.lhs.realize(unqualifiedFrom: useSite)
       let rhs = req.rhs.realize(unqualifiedFrom: useSite)
 
@@ -69,11 +69,11 @@ struct TRSolver {
         continue
 
       case .inequal:
-        lhs.context.report(.sameTypeRequirementNotSatified(range: req.range))
+        lhs.context.report(.conflictingEqualityRequitement(range: req.range))
         success = false
 
       case .recursive:
-        lhs.context.report(.sameTypeRequirementIsRecursive(range: req.range))
+        lhs.context.report(.recursiveEqualityRequirement(range: req.range))
         success = false
       }
     }

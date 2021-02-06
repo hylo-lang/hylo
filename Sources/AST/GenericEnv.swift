@@ -43,12 +43,15 @@ public final class GenericEnv {
   /// The type requirements on the parameters of the environment.
   public let typeReqs: [TypeReq]
 
-  /// Equivalence classes.
+  /// The equivalence classes of the environment.
   ///
   /// This describes the equivalence classes of the set of generic type parameters, as inferred
   /// from related type requirements. This is used by the constraint type solver to decide whether
   /// two existential types are equivalent.
   public var equivalences = EquivalenceClassSet()
+
+  /// The known conformances of the environment's generic type parameters.
+  public var conformances: [GenericParamType: [ViewConformance]] = [:]
 
   /// Maps the given generic type to its contextual type, depending on its use site.
   ///

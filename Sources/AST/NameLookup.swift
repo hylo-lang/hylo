@@ -37,8 +37,22 @@ extension ValType {
     switch self {
     case let baseType as NominalType:
       return baseType.decl.lookup(qualified: memberName)
+
     case let baseType as InoutType:
       return baseType.base.lookup(member: memberName)
+
+    case let baseType as ExistentialType:
+      let interfaceType = baseType.interface as! GenericParamType
+      guard let conformances = baseType.genericEnv.conformances[interfaceType] else {
+        return LookupResult()
+      }
+
+      var result = LookupResult()
+      for conf in conformances {
+        result.append(contentsOf: conf.viewDecl.lookup(qualified: memberName))
+      }
+      return result
+
     default:
       return LookupResult()
     }
@@ -52,7 +66,7 @@ extension IterableDeclSpace {
     var types : [TypeDecl]  = []
     var values: [ValueDecl] = []
 
-    for node in decls where !node.isInvalid {
+    for node in decls where node.state != .invalid {
       switch node {
       case let typeDecl as TypeDecl where typeDecl.name == name:
         types.append(typeDecl)

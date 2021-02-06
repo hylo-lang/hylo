@@ -11,7 +11,7 @@ struct CSSolver {
     penalities      : Int = 0,
     errors          : [TypeError] = [],
     bestScore       : Solution.Score = .worst,
-    context         : AST.Context
+    checker         : TypeChecker
   ) {
     self.system = system
     self.assumptions = assumptions
@@ -19,11 +19,11 @@ struct CSSolver {
     self.penalities = penalities
     self.errors = errors
     self.bestScore = bestScore
-    self.context = context
+    self.checker = checker
   }
 
-  /// The AST context.
-  private let context: AST.Context
+  /// The top-level type checker.
+  private let checker: TypeChecker
 
   /// The constraint system to solve.
   private var system: ConstraintSystem
@@ -47,6 +47,9 @@ struct CSSolver {
   private var currentScore: Solution.Score {
     return Solution.Score(penalities: penalities, errorCount: errors.count)
   }
+
+  /// The AST context.
+  private var context: AST.Context { checker.context }
 
   /// Solves the type constraint, or fails trying.
   mutating func solve() -> Solution {
@@ -257,16 +260,8 @@ struct CSSolver {
       return
     }
 
-    // The base should have a nominal type.
-    guard let baseTypeDecl = (baseType as? NominalType)?.decl else {
-      errors.append(.nonExistentProperty(constraint))
-      return
-    }
-
-    // Retrieve the member's declaration.
-    let decls = baseTypeDecl
-      .lookup(unqualified: constraint.memberName, in: context)
-      .values
+    // Retrieve the member's declaration(s).
+    let decls = baseType.lookup(member: constraint.memberName).values
     guard !decls.isEmpty else {
       errors.append(.nonExistentProperty(constraint))
       return
@@ -274,6 +269,10 @@ struct CSSolver {
 
     if decls.count == 1 {
       // Only one choice; we can solve an equality constraint.
+      if let varDecl = decls[0] as? VarDecl {
+        checker.check(decl: varDecl.patternBindingDecl!)
+      }
+
       let choiceType = decls[0].contextualize(from: constraint.useSite)
       let choice = RelationalConstraint(
         kind: .equality, lhs: choiceType, rhs: constraint.rhs, at: constraint.locator)
@@ -296,6 +295,10 @@ struct CSSolver {
 
     // Instanciate the type of the declaration candidates.
     let choices = constraint.declSet.map({ (decl) -> (Constraint, Int) in
+      if let varDecl = decl as? VarDecl {
+        checker.check(decl: varDecl.patternBindingDecl!)
+      }
+
       let choiceType = decl.contextualize(from: constraint.useSite)
       let choice = RelationalConstraint(
         kind: .equality, lhs: type, rhs: choiceType, at: constraint.locator)
@@ -354,7 +357,7 @@ struct CSSolver {
         penalities      : penalities + choices[i].1,
         errors          : errors,
         bestScore       : bestScore,
-        context         : context)
+        checker         : checker)
       let newSolution = subsolver.solve()
 
       // Discard inferior solutions

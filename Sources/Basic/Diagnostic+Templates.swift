@@ -78,16 +78,30 @@ extension Diagnostic {
     return Diagnostic("non-unit function should return a value", anchor: range)
   }
 
-  public static func sameTypeRequirementNotSatified(
+  public static func conflictingEqualityRequitement(
     range: SourceRange
   ) -> Diagnostic {
-    return Diagnostic("same-type requirement is not satisfied", anchor: range)
+    return Diagnostic("conflicting equality requirement", anchor: range)
   }
 
-  public static func sameTypeRequirementIsRecursive(
+  public static func recursiveEqualityRequirement(
     range: SourceRange
   ) -> Diagnostic {
-    return Diagnostic("same-type requirement is recursive", anchor: range)
+    return Diagnostic("recursive equality requirement", anchor: range)
+  }
+
+  public static func conformanceRequirementOnNonGenericParameter(
+    type: Any, range: SourceRange
+  ) -> Diagnostic {
+    return Diagnostic(
+      "view conformance requirement on non-generic type '\(type)'", anchor: range)
+  }
+
+  public static func conformanceRequirementToNonView(
+    type: Any, range: SourceRange
+  ) -> Diagnostic {
+    return Diagnostic(
+      "view conformance requirement to non-view type '\(type)'", anchor: range)
   }
 
 }

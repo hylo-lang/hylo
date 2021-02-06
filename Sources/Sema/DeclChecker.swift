@@ -15,16 +15,24 @@ struct DeclChecker: DeclVisitor {
   }
 
   func visit(_ node: PatternBindingDecl) {
-    let useSite = node.parentDeclSpace!
-
-    // Assign error types everywhere we couldn't assign a concrete type to prevent further use by
-    // the type checker.
     func setInvalid() {
-      for decl in node.varDecls where decl.type.hasUnresolved || decl.type.hasVariables {
-        decl.type = checker.context.errorType
-        decl.setInvalid()
+      // Mark the declaration invalid.
+      node.setState(.invalid)
+
+      /// Mark all variable declaration for which we couldn't assign a concrete type as invalid,
+      /// to prevent further use by the type checker.
+      for decl in node.varDecls {
+        if decl.type.hasUnresolved || decl.type.hasVariables {
+          decl.type = checker.context.errorType
+          decl.setState(.invalid)
+        } else {
+          decl.setState(.typeChecked)
+        }
       }
     }
+
+    node.setState(.typeCheckRequested)
+    let useSite = node.parentDeclSpace!
 
     // If there's a signature, use it as the authoritative type information. Otherwise, infer it
     // from the pattern initializer.
@@ -72,6 +80,11 @@ struct DeclChecker: DeclVisitor {
       setInvalid()
       return
     }
+
+    node.setState(.typeChecked)
+    for decl in node.varDecls {
+      decl.setState(.typeChecked)
+    }
   }
 
   func visit(_ node: VarDecl) {
@@ -85,14 +98,17 @@ struct DeclChecker: DeclVisitor {
 
     /// Initialize the function's generic environment.
     guard node.prepareGenericEnv() != nil else {
-      node.setInvalid()
+      node.setState(.invalid)
       return
     }
 
     /// Type check the function's body, if any.
+    node.setState(.typeCheckRequested)
     if let body = node.body {
       checker.check(stmt: body, useSite: node)
     }
+
+    node.setState(.typeChecked)
   }
 
   func visit(_ node: FunDecl) {
@@ -111,9 +127,12 @@ struct DeclChecker: DeclVisitor {
 
   func visit(_ node: ProductTypeDecl) {
     // Type-check the type's members.
+    node.setState(.typeCheckRequested)
     for member in node.members {
       member.accept(self)
     }
+
+    node.setState(.typeChecked)
   }
 
   func visit(_ node: ViewTypeDecl) {
@@ -127,9 +146,12 @@ struct DeclChecker: DeclVisitor {
     guard node.computeExtendedDecl() != nil else { return }
 
     // Type-check the extension's members.
+    node.setState(.typeCheckRequested)
     for member in node.members {
       member.accept(self)
     }
+
+    node.setState(.typeChecked)
   }
 
 }

@@ -51,6 +51,12 @@ public final class TypeChecker {
   ///
   /// - Parameter decl: The declaration to type check.
   public func check(decl: Decl) {
+    if decl.state >= .typeChecked { return }
+    if decl.state == .typeCheckRequested {
+      // FIXME: This should be a diagnostic.
+      preconditionFailure("circular dependency")
+    }
+
     decl.accept(DeclChecker(checker: self))
   }
 
@@ -90,7 +96,7 @@ public final class TypeChecker {
     }
 
     // Solve the constraint system.
-    var solver = CSSolver(system: system, context: context)
+    var solver = CSSolver(system: system, checker: self)
     let solution = solver.solve()
 
     // Report type errors.
@@ -102,10 +108,39 @@ public final class TypeChecker {
   }
 
   public func prepareGenericEnv(env: GenericEnv) -> Bool {
+    // Generate equivalence classes.
     var solver = TRSolver()
     guard solver.solve(typeReqs: env.typeReqs, from: env.space) else { return false }
-
     env.equivalences = solver.computeEquivalenceClasses(env: env)
+
+    // Register view conformances.
+    assert(env.conformances.isEmpty)
+    for req in env.typeReqs where req.kind == .conformance {
+      // Realize each operand's type representation.
+      let lhs = req.lhs.realize(unqualifiedFrom: env.space)
+      let rhs = req.rhs.realize(unqualifiedFrom: env.space)
+
+      // Skip the requirement if either of the types has an error; otherwise, unify them.
+      guard !lhs.hasErrors && !rhs.hasErrors else { continue }
+
+      // Complain if the left operand is not a generic parameter.
+      // FIXME: Handle dependent types.
+      guard let param = lhs as? GenericParamType else {
+        context.report(
+          .conformanceRequirementOnNonGenericParameter(type: lhs, range: req.lhs.range))
+        continue
+      }
+
+      // Complain if the right operand is not a view.
+      guard let view = rhs as? ViewType else {
+        context.report(.conformanceRequirementToNonView(type: rhs, range: req.rhs.range))
+        continue
+      }
+
+      env.conformances[param, default: []].append(
+        ViewConformance(viewDecl: view.decl as! ViewTypeDecl, range: req.rhs.range))
+    }
+
     return true
   }
 

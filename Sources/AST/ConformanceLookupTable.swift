@@ -31,6 +31,11 @@ public struct ConformanceLookupTable {
 /// A data structure describing a particular cnformance to a given view.
 public struct ViewConformance {
 
+  public init(viewDecl: ViewTypeDecl, range: SourceRange?) {
+    self.viewDecl = viewDecl
+    self.range = range
+  }
+
   /// The view being conformed to.
   public unowned let viewDecl: ViewTypeDecl
 
