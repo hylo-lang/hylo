@@ -125,19 +125,18 @@ public final class TypeChecker {
       // Complain if the left operand is not a generic parameter.
       // FIXME: Handle dependent types.
       guard let param = lhs as? GenericParamType, env.params.contains(param) else {
-        context.report(
-          .conformanceRequirementOnNonGenericParameter(type: lhs, range: req.lhs.range))
+        context.report(.illegalConformanceRequirement(type: lhs, range: req.lhs.range))
         continue
       }
 
       // Complain if the right operand is not a view.
       guard let view = rhs as? ViewType else {
-        context.report(.conformanceRequirementToNonView(type: rhs, range: req.rhs.range))
+        context.report(.invalidConformanceRequirement(type: rhs, range: req.rhs.range))
         continue
       }
-      let viewDecl = view.decl as! ViewTypeDecl
 
-      let existential = env.getExistential(of: param)
+      let viewDecl = view.decl as! ViewTypeDecl
+      let existential = env.existential(of: param)
       if let types = env.equivalences.equivalenceClass(containing: existential) {
         // The existential belongs to an equivalence class; register the new conformance for every
         // member of the existential's equivalence class.
@@ -146,8 +145,7 @@ public final class TypeChecker {
                 existential.genericEnv === env
           else {
             // Complain that the equivalence class contains non-generic members.
-            context.report(
-              .conformanceRequirementOnNonGenericParameter(type: lhs, range: req.lhs.range))
+            context.report(.illegalConformanceRequirement(type: lhs, range: req.lhs.range))
             break
           }
 

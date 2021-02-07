@@ -82,7 +82,11 @@ public final class GenericEnv {
     return contextualizer.walk(type)
   }
 
-  public func getExistential(of param: GenericParamType) -> ExistentialType {
+  /// Contextualizes the given generic parameter type.
+  ///
+  /// - Parameter param: A generic parameter type. `param` is assumed to be defined either within
+  ///   this generic environment or within one of its parent.
+  public func existential(of param: GenericParamType) -> ExistentialType {
     if params.contains(param) {
       return param.context.existentialType(interface: param, genericEnv: self)
     }
@@ -91,7 +95,7 @@ public final class GenericEnv {
     guard let parentEnv = gds.prepareGenericEnv() else {
       preconditionFailure("bad generic environment")
     }
-    return parentEnv.getExistential(of: param)
+    return parentEnv.existential(of: param)
   }
 
 }
@@ -143,7 +147,7 @@ fileprivate final class Contextualizer: TypeWalker {
     if isInternal {
       // The generic parameter is being referred to internally, so it must be susbstituted by an
       // existential type.
-      let existential = env.getExistential(of: param)
+      let existential = env.existential(of: param)
       return .stepOver(existential)
     } else {
       // The generic parameter is being referred to externally, so it must be substituted by a

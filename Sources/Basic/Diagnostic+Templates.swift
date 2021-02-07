@@ -90,14 +90,14 @@ extension Diagnostic {
     return Diagnostic("recursive equality requirement", anchor: range)
   }
 
-  public static func conformanceRequirementOnNonGenericParameter(
+  public static func illegalConformanceRequirement(
     type: Any, range: SourceRange
   ) -> Diagnostic {
     return Diagnostic(
       "view conformance requirement on non-generic type '\(type)'", anchor: range)
   }
 
-  public static func conformanceRequirementToNonView(
+  public static func invalidConformanceRequirement(
     type: Any, range: SourceRange
   ) -> Diagnostic {
     return Diagnostic(
