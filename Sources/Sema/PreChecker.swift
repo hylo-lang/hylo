@@ -3,16 +3,20 @@ import AST
 /// A driver for a pre-check visitor.
 final class PreCheckDriver: NodeWalker {
 
-  init(useSite: DeclSpace) {
+  init(system: UnsafeMutablePointer<ConstraintSystem>, useSite: DeclSpace) {
+    self.system = system
     super.init(innermostSpace: useSite)
   }
+
+  /// A pointer to the system in which new constraints are inserted.
+  let system: UnsafeMutablePointer<ConstraintSystem>
 
   override func willVisit(_ expr: Expr) -> (shouldWalk: Bool, nodeBefore: Expr) {
     return (!(expr is ErrorExpr), expr)
   }
 
   override func didVisit(_ expr: Expr) -> (shouldContinue: Bool, nodeAfter: Expr) {
-    let newExpr = expr.accept(PreChecker(useSite: innermostSpace!))
+    let newExpr = expr.accept(PreChecker(system: system, useSite: innermostSpace!))
     return (true, newExpr)
   }
 
@@ -23,6 +27,9 @@ final class PreCheckDriver: NodeWalker {
 struct PreChecker: ExprVisitor {
 
   typealias ExprResult = Expr
+
+  /// A pointer to the system in which new constraints are inserted.
+  let system: UnsafeMutablePointer<ConstraintSystem>
 
   /// The declaration space in which the visited expression resides.
   let useSite: DeclSpace
@@ -177,16 +184,22 @@ struct PreChecker: ExprVisitor {
     }
 
     if let decl = matches.values.first {
-      // Instanciate the declaration's type if it's generic.
-      let instType = decl.contextualize(from: useSite)
-
       // If `ref` is a member expression, make sure we keep its base around.
+      let newRef: Expr
       if let expr = ref as? MemberExpr {
         // Preserve the base expr.
-        return MemberRefExpr(base: expr.base, decl: decl, type: instType, range: expr.range)
+        newRef = MemberRefExpr(base: expr.base, decl: decl, type: ref.type, range: expr.range)
       } else {
-        return DeclRefExpr(decl: decl, type: instType, range: ref.range)
+        newRef = DeclRefExpr(decl: decl, type: ref.type, range: ref.range)
       }
+
+      // Instanciate the declaration's type if it's generic.
+      newRef.type = decl.contextualize(from: useSite, processingContraintsWith: { prototype in
+        system.pointee.insert(
+          RelationalConstraint(prototype: prototype, at: ConstraintLocator(newRef)))
+      })
+
+      return newRef
     }
 
     // FIXME: Handle overloaded type decls.

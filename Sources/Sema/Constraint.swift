@@ -31,6 +31,16 @@ struct RelationalConstraint: Constraint {
     self.locator = locator
   }
 
+  /// Creates a type constraint from prototype returned by generic environments.
+  init(prototype: GenericEnv.ConstraintPrototype, at locator: ConstraintLocator) {
+    switch prototype.kind {
+    case .equality:
+      self.init(kind: .equality, lhs: prototype.lhs, rhs: prototype.rhs, at: locator)
+    case .conformance:
+      self.init(kind: .conformance, lhs: prototype.lhs, rhs: prototype.rhs, at: locator)
+    }
+  }
+
   /// A kind of relational constraint.
   enum Kind: Int {
 

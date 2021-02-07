@@ -148,6 +148,11 @@ struct CSSolver {
         errors.append(.nonConformingType(constraint))
       }
 
+    case let existential as ExistentialType:
+      if existential.genericEnv.conformance(of: existential, to: view) == nil {
+        errors.append(.nonConformingType(constraint))
+      }
+
     case is BuiltinIntType:
       if view.decl !== context.getTypeDecl(for: .ExpressibleByBuiltinIntLiteral) {
         errors.append(.nonConformingType(constraint))
@@ -273,7 +278,10 @@ struct CSSolver {
         checker.check(decl: varDecl.patternBindingDecl!)
       }
 
-      let choiceType = decls[0].contextualize(from: constraint.useSite)
+      let choiceType = decls[0].contextualize(
+        from: constraint.useSite, processingContraintsWith: { prototype in
+          system.insert(RelationalConstraint(prototype: prototype, at: constraint.locator))
+        })
       let choice = RelationalConstraint(
         kind: .equality, lhs: choiceType, rhs: constraint.rhs, at: constraint.locator)
       solve(choice)
@@ -299,7 +307,10 @@ struct CSSolver {
         checker.check(decl: varDecl.patternBindingDecl!)
       }
 
-      let choiceType = decl.contextualize(from: constraint.useSite)
+      let choiceType = decl.contextualize(
+        from: constraint.useSite, processingContraintsWith: { prototype in
+          system.insert(RelationalConstraint(prototype: prototype, at: constraint.locator))
+        })
       let choice = RelationalConstraint(
         kind: .equality, lhs: type, rhs: choiceType, at: constraint.locator)
       return (choice, 0)

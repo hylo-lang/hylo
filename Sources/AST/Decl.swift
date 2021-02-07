@@ -148,8 +148,15 @@ extension ValueDecl {
 
   /// Contextualize the type of this declaration from the given use site.
   ///
-  /// - Parameter useSite: The declaration space from which the declaration is being referred.
-  public func contextualize(from useSite: DeclSpace) -> ValType {
+  /// - Parameters:
+  ///   - useSite: The declaration space from which the declaration is being referred.
+  ///   - handleConstraint: A closure that accepts contextualized contraint prototypes. It is not
+  ///     called unless the contextualized type contains opened existentials for which there exist
+  ///     type requirements.
+  public func contextualize(
+    from useSite: DeclSpace,
+    processingContraintsWith handleConstraint: (GenericEnv.ConstraintPrototype) -> Void = { _ in }
+  ) -> ValType {
     let genericType = realize()
     guard genericType.props.contains(.hasTypeParams) else { return genericType }
 
@@ -160,7 +167,8 @@ extension ValueDecl {
       guard let env = gds.prepareGenericEnv() else {
         return type.context.errorType
       }
-      return env.contextualize(genericType, from: gds)
+      return env.contextualize(
+        genericType, from: gds, processingContraintsWith: handleConstraint)
     }
 
     // Find the innermost generic space, relative to this declaration. We can assume there's one,
@@ -168,7 +176,8 @@ extension ValueDecl {
     guard let env = parentDeclSpace!.innermostGenericSpace!.prepareGenericEnv() else {
       return type.context.errorType
     }
-    return env.contextualize(genericType, from: useSite)
+    return env.contextualize(
+      genericType, from: useSite, processingContraintsWith: handleConstraint)
   }
 
 }

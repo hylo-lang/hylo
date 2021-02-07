@@ -8,6 +8,7 @@ final class CSGenDriver: NodeWalker {
     super.init(innermostSpace: useSite)
   }
 
+  /// A pointer to the system in which new constraints are inserted.
   let system: UnsafeMutablePointer<ConstraintSystem>
 
   override func didVisit(_ expr: Expr) -> (shouldContinue: Bool, nodeAfter: Expr) {

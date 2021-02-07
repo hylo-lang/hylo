@@ -77,13 +77,39 @@ public final class TypeChecker {
   ///     appears. For instance, the contextual type of `9` in `val x: UInt = 9` is `UInt`. No
   ///     assumption is made if it assigned to `nil`.
   ///   - useSite: The declaration space in which the expression is type checked.
-  public func check(expr: inout Expr, contextualType: ValType? = nil, useSite: DeclSpace) {
+  public func check(
+    expr: inout Expr,
+    contextualType: ValType? = nil,
+    useSite: DeclSpace
+  ) {
+    var system = ConstraintSystem()
+    check(expr: &expr, contextualType: contextualType, useSite: useSite, system: &system)
+  }
+
+  /// Type checks the given expression.
+  ///
+  /// - Parameters:
+  ///   - expr: The expression to type check.
+  ///   - contextualType: The expected type of the expression, based on the context in which it
+  ///     appears. For instance, the contextual type of `9` in `val x: UInt = 9` is `UInt`. No
+  ///     assumption is made if it assigned to `nil`.
+  ///   - useSite: The declaration space in which the expression is type checked.
+  ///   - system: A system with potential pre-existing constraints that should be solved together
+  ///     with those related to the expression.
+  func check(
+    expr: inout Expr,
+    contextualType: ValType? = nil,
+    useSite: DeclSpace,
+    system: inout ConstraintSystem
+  ) {
     // Pre-check the expression.
     // This resolves primary names, realizes type rerps and desugars constructor calls.
-    (_, expr) = PreCheckDriver(useSite: useSite).walk(expr)
+    withUnsafeMutablePointer(to: &system, { ptr in
+      let driver = PreCheckDriver(system: ptr, useSite: useSite)
+      (_, expr) = driver.walk(expr)
+    })
 
-    // Generate a constraint system.
-    var system = ConstraintSystem()
+    // Generate constraints from the expression.
     withUnsafeMutablePointer(to: &system, { ptr in
       let driver = CSGenDriver(system: ptr, useSite: useSite)
       _ = driver.walk(expr)
@@ -113,8 +139,8 @@ public final class TypeChecker {
     guard solver.solve(typeReqs: env.typeReqs, from: env.space) else { return false }
     env.equivalences = solver.computeEquivalenceClasses(env: env)
 
-    // Register view conformances.
-    for req in env.typeReqs where req.kind == .conformance {
+    // Process type requirements.
+    for req in env.typeReqs {
       // Realize each operand's type representation.
       let lhs = req.lhs.realize(unqualifiedFrom: env.space)
       let rhs = req.rhs.realize(unqualifiedFrom: env.space)
@@ -122,44 +148,60 @@ public final class TypeChecker {
       // Skip the requirement if either of the types has an error.
       guard !lhs.hasErrors && !rhs.hasErrors else { continue }
 
-      // Complain if the left operand is not a generic parameter.
-      // FIXME: Handle dependent types.
-      guard let param = lhs as? GenericParamType, env.params.contains(param) else {
-        context.report(.illegalConformanceRequirement(type: lhs, range: req.lhs.range))
-        continue
-      }
+      switch req.kind {
+      case .equality:
+        env.constraintPrototypes.append(.equality(lhs: lhs, rhs: rhs))
 
-      // Complain if the right operand is not a view.
-      guard let view = rhs as? ViewType else {
-        context.report(.invalidConformanceRequirement(type: rhs, range: req.rhs.range))
-        continue
-      }
-
-      let viewDecl = view.decl as! ViewTypeDecl
-      let existential = env.existential(of: param)
-      if let types = env.equivalences.equivalenceClass(containing: existential) {
-        // The existential belongs to an equivalence class; register the new conformance for every
-        // member of the existential's equivalence class.
-        for type in types {
-          guard let existential = type as? ExistentialType,
-                existential.genericEnv === env
-          else {
-            // Complain that the equivalence class contains non-generic members.
-            context.report(.illegalConformanceRequirement(type: lhs, range: req.lhs.range))
-            break
-          }
-
-          guard env.conformance(of: existential, to: view) == nil else { continue }
-          env.insert(
-            conformance: ViewConformance(viewDecl: viewDecl, range: req.rhs.range),
-            for: existential)
+      case .conformance:
+        if registerConformance(lhs, rhs, env, req) {
+          env.constraintPrototypes.append(.conformance(lhs: lhs, rhs: rhs as! ViewType))
         }
-      } else if env.conformance(of: existential, to: view) == nil {
-        // The existential has no equivalence class; register the new conformance fot it directly.
+      }
+    }
+
+    return true
+  }
+
+  private func registerConformance(
+    _ lhs: ValType, _ rhs: ValType, _ env: GenericEnv, _ req: TypeReq
+  ) -> Bool {
+    // Complain if the left operand is not a generic parameter.
+    // FIXME: Handle dependent types.
+    guard let param = lhs as? GenericParamType, env.params.contains(param) else {
+      context.report(.illegalConformanceRequirement(type: lhs, range: req.lhs.range))
+      return false
+    }
+
+    // Complain if the right operand is not a view.
+    guard let view = rhs as? ViewType else {
+      context.report(.invalidConformanceRequirement(type: rhs, range: req.rhs.range))
+      return false
+    }
+
+    let viewDecl = view.decl as! ViewTypeDecl
+    let existential = env.existential(of: param)
+    if let types = env.equivalences.equivalenceClass(containing: existential) {
+      // The existential belongs to an equivalence class; register the new conformance for every
+      // member of the existential's equivalence class.
+      for type in types {
+        guard let existential = type as? ExistentialType,
+              existential.genericEnv === env
+        else {
+          // Complain that the equivalence class contains non-generic members.
+          context.report(.illegalConformanceRequirement(type: lhs, range: req.lhs.range))
+          return false
+        }
+
+        guard env.conformance(of: existential, to: view) == nil else { return false }
         env.insert(
           conformance: ViewConformance(viewDecl: viewDecl, range: req.rhs.range),
           for: existential)
       }
+    } else if env.conformance(of: existential, to: view) == nil {
+      // The existential has no equivalence class; register the new conformance fot it directly.
+      env.insert(
+        conformance: ViewConformance(viewDecl: viewDecl, range: req.rhs.range),
+        for: existential)
     }
 
     return true

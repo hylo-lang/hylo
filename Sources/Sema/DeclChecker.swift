@@ -34,6 +34,9 @@ struct DeclChecker: DeclVisitor {
     node.setState(.typeCheckRequested)
     let useSite = node.parentDeclSpace!
 
+    // Create a new constraint system to infer the pattern's type.
+    var system = ConstraintSystem()
+
     // If there's a signature, use it as the authoritative type information. Otherwise, infer it
     // from the pattern initializer.
     var patternType: ValType
@@ -54,10 +57,16 @@ struct DeclChecker: DeclVisitor {
           setInvalid()
           return
         }
-        patternType = env.contextualize(signType, from: useSite)
+
+        patternType = env.contextualize(
+          signType, from: useSite,
+          processingContraintsWith: { prototype in
+            system.insert(RelationalConstraint(prototype: prototype, at: ConstraintLocator(sign)))
+          })
       } else {
         patternType = signType
       }
+
       assert(patternType.isWellFormed)
     } else if node.initializer != nil {
       patternType = TypeVar(context: checker.context, node: node.pattern)
@@ -70,7 +79,8 @@ struct DeclChecker: DeclVisitor {
 
     // Type-check the initializer if there's one.
     if node.initializer != nil {
-      checker.check(expr: &(node.initializer!), contextualType: patternType, useSite: useSite)
+      checker.check(
+        expr: &(node.initializer!), contextualType: patternType, useSite: useSite, system: &system)
       patternType = node.initializer!.type
       assert(!patternType.hasVariables)
     }
@@ -95,6 +105,7 @@ struct DeclChecker: DeclVisitor {
   func visit(_ node: BaseFunDecl) {
     /// Realize the function's signature.
     _ = node.realize()
+    node.setState(.typeCheckRequested)
 
     /// Initialize the function's generic environment.
     guard node.prepareGenericEnv() != nil else {
@@ -103,7 +114,6 @@ struct DeclChecker: DeclVisitor {
     }
 
     /// Type check the function's body, if any.
-    node.setState(.typeCheckRequested)
     if let body = node.body {
       checker.check(stmt: body, useSite: node)
     }
@@ -126,8 +136,15 @@ struct DeclChecker: DeclVisitor {
   }
 
   func visit(_ node: ProductTypeDecl) {
-    // Type-check the type's members.
     node.setState(.typeCheckRequested)
+
+    /// Initialize the type's generic environment.
+    guard node.prepareGenericEnv() != nil else {
+      node.setState(.invalid)
+      return
+    }
+
+    // Type-check the type's members.
     for member in node.members {
       member.accept(self)
     }
