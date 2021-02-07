@@ -14,3 +14,29 @@ type B<T> {
   }
 
 }
+
+fun fn<X>(x: X) {
+  view V {
+    val foo: V
+  }
+  view U {}
+
+  // #!error@+1 view conformance requirement on non-generic type 'Y'
+  fun g<Y where Y == X, Y: V>(y: Y) -> V {
+    ret y.foo
+  }
+
+  fun h<X, Y where Y == X, Y: V>(y: Y) -> V {
+    ret y.foo
+  }
+
+  fun i<X where X: U>(x: X) {
+    fun id<Y where Y: V>(x: X, y: Y) -> V {
+      var a: X = x
+
+      // #!error@+2 type '∃X.Y' is not a subtype of type '∃X.X'
+      // #!error@+1 type '∃X.X' does not conform to view 'V'
+      ret id(x: y, y: a)
+    }
+  }
+}
