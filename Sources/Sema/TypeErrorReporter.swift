@@ -26,7 +26,7 @@ struct TypeErrorReporter {
       case .conformance:
         message = "type '\(lhs)' does not conform to the view '\(rhs)'"
       case .subtyping:
-        message = "type '\(lhs)' is not a subtype of to type '\(rhs)'"
+        message = "type '\(lhs)' is not a subtype of type '\(rhs)'"
       case .conversion:
         message = "type '\(lhs)' is not expressible by type '\(rhs)' in conversion"
       }
@@ -34,6 +34,15 @@ struct TypeErrorReporter {
       // Report the diagnostic.
       let anchor = constraint.locator.resolve()
       context.report(Diagnostic(message, anchor: anchor.range))
+
+    case .nonConformingType(let constraint):
+      let lhs = solution.reify(constraint.lhs, freeVariablePolicy: .keep)
+      let rhs = solution.reify(constraint.rhs, freeVariablePolicy: .keep)
+      assert(rhs is ViewType)
+
+      let anchor = constraint.locator.resolve()
+      context.report(
+        Diagnostic("type '\(lhs)' does not conform to view '\(rhs)'", anchor: anchor.range))
 
     case .noViableOverload(let constraint):
       let message = "no viable overload to resolve '\(constraint.declSet[0].name)'"

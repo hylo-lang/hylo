@@ -7,9 +7,9 @@ enum TypeError {
 
   case conflictingLabels(RelationalConstraint)
 
-  case nonExistentProperty(Constraint)
+  case nonConformingType(RelationalConstraint)
 
-  case nonConformingType(Constraint)
+  case nonExistentProperty(Constraint)
 
   case ambiguousConstraint(Constraint)
 
