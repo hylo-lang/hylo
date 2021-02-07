@@ -74,6 +74,10 @@ open class TypeWalker: TypeVisitor {
     return type
   }
 
+  open func visit(_ type: BoundGenericType) -> ValType {
+    return type.context.boundGenericType(decl: type.decl, args: type.args.map(walk(_:)))
+  }
+
   open func visit(_ type: TupleType) -> ValType {
     return type.context.tupleType(type.elems.map({ elem in
       TupleType.Elem(label: elem.label, type: walk(elem.type))

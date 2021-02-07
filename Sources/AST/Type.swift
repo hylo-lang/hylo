@@ -427,6 +427,54 @@ extension ExistentialType: CustomStringConvertible {
 
 }
 
+/// A type whose generic parameters have been bound.
+public final class BoundGenericType: ValType {
+
+  init(context: Context, decl: NominalTypeDecl, args: [ValType]) {
+    self.decl = decl
+    self.args = args
+    super.init(context: context, props: RecursiveProps.merge(args.map({ $0.props })))
+  }
+
+  /// The declaration of the underlying generic nominal type.
+  public unowned let decl: NominalTypeDecl
+
+  /// The arguments provided for the underyling type's generic parameters.
+  public let args: [ValType]
+
+  override func isEqual(to other: ValType) -> Bool {
+    guard let that = other as? BoundGenericType else { return false }
+
+    guard self.decl === that.decl else { return false }
+    guard self.args.count == that.args.count else { return false }
+    for (lhs, rhs) in zip(self.args, that.args) {
+      guard (lhs.isEqual(to: rhs)) else { return false }
+    }
+    return true
+  }
+
+  override func hash(into hasher: inout Hasher) {
+    hasher.combine(ObjectIdentifier(decl))
+    for arg in args {
+      arg.hash(into: &hasher)
+    }
+  }
+
+  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+    visitor.visit(self)
+  }
+
+}
+
+extension BoundGenericType: CustomStringConvertible {
+
+  public var description: String {
+    let args = self.args.map(String.init(describing:)).joined(separator: ", ")
+    return "\(decl.name)<\(args)>"
+  }
+
+}
+
 /// A tuple type.
 public final class TupleType: ValType {
 

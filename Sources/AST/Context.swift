@@ -58,6 +58,10 @@ public final class Context {
     return uniqued(ExistentialType(context: self, interface: interface, genericEnv: genericEnv))
   }
 
+  public func boundGenericType(decl: NominalTypeDecl, args: [ValType]) -> BoundGenericType {
+    return uniqued(BoundGenericType(context: self, decl: decl, args: args))
+  }
+
   public func tupleType<S>(_ elems: S) -> TupleType
   where S: Sequence, S.Element == TupleType.Elem
   {

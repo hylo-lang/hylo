@@ -21,6 +21,8 @@ public protocol TypeVisitor {
 
   func visit(_ type: ExistentialType) -> Result
 
+  func visit(_ type: BoundGenericType) -> Result
+
   func visit(_ type: TupleType) -> Result
 
   func visit(_ type: FunType) -> Result
