@@ -478,13 +478,26 @@ open class NodeWalker: NodeVisitor {
     return true
   }
 
+  public final func visit(_ node: SpecializedTypeRepr) -> Bool {
+    let prevParent = parent
+    parent = node
+    defer { parent = prevParent }
+
+    for i in 0 ..< node.args.count {
+      (shouldContinue, node.args[i]) = walk(node.args[i])
+      guard shouldContinue else { return false }
+    }
+
+    return true
+  }
+
   public final func visit(_ node: CompoundTypeRepr) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
 
     for i in 0 ..< node.components.count {
-      (shouldContinue, node.components[i]) = walk(node.components[i]) as! (Bool, UnqualTypeRepr)
+      (shouldContinue, node.components[i]) = walk(node.components[i]) as! (Bool, ComponentTypeRepr)
       guard shouldContinue else { return false }
     }
 

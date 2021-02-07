@@ -121,6 +121,8 @@ public protocol TypeReprVisitor {
 
   func visit(_ node: UnqualTypeRepr) -> TypeReprResult
 
+  func visit(_ node: SpecializedTypeRepr) -> TypeReprResult
+
   func visit(_ node: CompoundTypeRepr) -> TypeReprResult
 
 }

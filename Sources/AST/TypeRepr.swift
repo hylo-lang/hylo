@@ -19,10 +19,10 @@ public protocol TypeRepr: Node {
 public protocol IdentTypeRepr: TypeRepr {
 
   /// The components of the identifier.
-  var components: [UnqualTypeRepr] { get }
+  var components: [ComponentTypeRepr] { get }
 
   /// The last component of the identifier.
-  var lastComponent: UnqualTypeRepr { get }
+  var lastComponent: ComponentTypeRepr { get }
 
 }
 
@@ -32,7 +32,7 @@ extension IdentTypeRepr {
   /// contains just one entry.
   ///
   /// - Parameter components: The components of the identifier.
-  public static func create(_ components: [UnqualTypeRepr]) -> IdentTypeRepr {
+  public static func create(_ components: [ComponentTypeRepr]) -> IdentTypeRepr {
     precondition(!components.isEmpty)
     if components.count == 1 {
       return components.first!
@@ -45,8 +45,27 @@ extension IdentTypeRepr {
 
 }
 
+/// A single component in a compund type identifier.
+public protocol ComponentTypeRepr: IdentTypeRepr {
+
+  /// The name of the type.
+  var name: String { get }
+
+  /// The semantic type realized from this representation.
+  var type: ValType { get set }
+
+}
+
+extension ComponentTypeRepr {
+
+  public var components: [ComponentTypeRepr] { [self] }
+
+  public var lastComponent: ComponentTypeRepr { self }
+
+}
+
 /// An simple, unqualified type identifier (e.g., `Int64`).
-public final class UnqualTypeRepr: IdentTypeRepr {
+public final class UnqualTypeRepr: ComponentTypeRepr {
 
   public init(name: String, type: ValType, range: SourceRange) {
     self.name = name
@@ -54,15 +73,9 @@ public final class UnqualTypeRepr: IdentTypeRepr {
     self.range = range
   }
 
-  /// The name of the type.
   public var name: String
 
-  /// The type referred by the identifier.
   public var type: ValType
-
-  public var components: [UnqualTypeRepr] { [self] }
-
-  public var lastComponent: UnqualTypeRepr { self }
 
   public var range: SourceRange
 
@@ -72,21 +85,46 @@ public final class UnqualTypeRepr: IdentTypeRepr {
 
 }
 
-/// A type compond identifier, composed of multiple components (e.g., `Builtin::Int64`).
+/// An unqualified type identifier with generic arguments (e.g., `Array<Int64>`).
+public final class SpecializedTypeRepr: ComponentTypeRepr {
+
+  public init(name: String, args: [TypeRepr], type: ValType, range: SourceRange) {
+    self.name = name
+    self.args = args
+    self.type = type
+    self.range = range
+  }
+
+  public var name: String
+
+  /// The generic arguments of the type.
+  public var args: [TypeRepr]
+
+  public var type: ValType
+
+  public var range: SourceRange
+
+  public func accept<V>(_ visitor: V) -> V.TypeReprResult where V: TypeReprVisitor {
+    return visitor.visit(self)
+  }
+
+}
+
+/// A type compond identifier, composed of multiple components (e.g., `Builtin::i64`).
 ///
 /// This always refers to the type of the last component. The others serves as explicit qualifiers.
 public final class CompoundTypeRepr: IdentTypeRepr {
 
-  public init(components: [UnqualTypeRepr], range: SourceRange) {
+  public init(components: [ComponentTypeRepr], range: SourceRange) {
     precondition(components.count > 1)
     self.components = components
     self.range = range
   }
 
   /// The components of the compound.
-  public var components: [UnqualTypeRepr]
+  public var components: [ComponentTypeRepr]
 
-  public var lastComponent: UnqualTypeRepr {
+  public var lastComponent: ComponentTypeRepr {
     return components[components.count - 1]
   }
 

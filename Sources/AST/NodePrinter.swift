@@ -448,6 +448,16 @@ public struct NodePrinter: NodeVisitor {
     """
   }
 
+  public func visit(_ node: SpecializedTypeRepr) -> String {
+    return """
+    {
+    \(typeReprHeader(node)),
+    "name"            : "\(node.name)",
+    "args"            : \(encode(node.components))
+    }
+    """
+  }
+
   public func visit(_ node: CompoundTypeRepr) -> String {
     return """
     {
