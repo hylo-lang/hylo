@@ -51,7 +51,24 @@ public final class GenericEnv {
   public var equivalences = EquivalenceClassSet()
 
   /// The known conformances of the environment's generic type parameters.
-  public var conformances: [GenericParamType: [ViewConformance]] = [:]
+  private var conformanceTables: [ExistentialKey: [ViewConformance]] = [:]
+
+  /// The set of conformances for the given existential type.
+  public func conformances(of type: ExistentialType) -> [ViewConformance]? {
+    return conformanceTables[ExistentialKey(type)]
+  }
+
+  /// Returns the information describing the given existential type's conformance to the specified
+  /// view, or `nil` if such a conformance was never established.
+  public func conformance(of type: ExistentialType, to viewType: ViewType) -> ViewConformance? {
+    guard let list = conformanceTables[ExistentialKey(type)] else { return nil }
+    return list.first(where: { $0.viewDecl === viewType.decl })
+  }
+
+  /// Inserts a new entry into the conformance lookup table for the given type.
+  public func insert(conformance: ViewConformance, for type: ExistentialType) {
+    conformanceTables[ExistentialKey(type), default: []].append(conformance)
+  }
 
   /// Maps the given generic type to its contextual type, depending on its use site.
   ///
@@ -131,12 +148,12 @@ fileprivate final class Contextualizer: TypeWalker {
     } else {
       // The generic parameter is being referred to externally, so it must be substituted by a
       // type variable.
-      if let variable = substitutions[HashableBox(param)] {
+      if let variable = substitutions[ExistentialKey(param)] {
         return .stepOver(variable)
       }
 
       let variable = TypeVar(context: param.context)
-      substitutions[HashableBox(param)] = variable
+      substitutions[ExistentialKey(param)] = variable
       return .stepOver(variable)
     }
   }

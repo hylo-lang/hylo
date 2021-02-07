@@ -33,8 +33,8 @@ public struct EquivalenceClassSet {
     if lhs === rhs { return true }
 
     // Search through the equivalence classes.
-    if let entry = mapping.first(where: { lhs == $0.0 }) {
-      for i in entry.1 ..< entry.2 {
+    if let index = mapping.first(where: { lhs == $0.0 }) {
+      for i in index.1 ..< index.2 {
         if rhs == entries[Int(truncatingIfNeeded: i)] {
           return true
         }
@@ -43,6 +43,14 @@ public struct EquivalenceClassSet {
 
     // No match.
     return false
+  }
+
+  public func equivalenceClass(containing type: ValType) -> ArraySlice<ValType>? {
+    if let index = mapping.first(where: { type == $0.0 }) {
+      return entries[Int(truncatingIfNeeded: index.1) ..< Int(truncatingIfNeeded: index.2)]
+    } else {
+      return nil
+    }
   }
 
 }

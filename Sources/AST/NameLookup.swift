@@ -42,8 +42,7 @@ extension ValType {
       return baseType.base.lookup(member: memberName)
 
     case let baseType as ExistentialType:
-      let interfaceType = baseType.interface as! GenericParamType
-      guard let conformances = baseType.genericEnv.conformances[interfaceType] else {
+      guard let conformances = baseType.genericEnv.conformances(of: baseType) else {
         return LookupResult()
       }
 

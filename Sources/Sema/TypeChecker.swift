@@ -114,13 +114,12 @@ public final class TypeChecker {
     env.equivalences = solver.computeEquivalenceClasses(env: env)
 
     // Register view conformances.
-    assert(env.conformances.isEmpty)
     for req in env.typeReqs where req.kind == .conformance {
       // Realize each operand's type representation.
       let lhs = req.lhs.realize(unqualifiedFrom: env.space)
       let rhs = req.rhs.realize(unqualifiedFrom: env.space)
 
-      // Skip the requirement if either of the types has an error; otherwise, unify them.
+      // Skip the requirement if either of the types has an error.
       guard !lhs.hasErrors && !rhs.hasErrors else { continue }
 
       // Complain if the left operand is not a generic parameter.
@@ -136,9 +135,33 @@ public final class TypeChecker {
         context.report(.conformanceRequirementToNonView(type: rhs, range: req.rhs.range))
         continue
       }
+      let viewDecl = view.decl as! ViewTypeDecl
 
-      env.conformances[param, default: []].append(
-        ViewConformance(viewDecl: view.decl as! ViewTypeDecl, range: req.rhs.range))
+      let existential = env.getExistential(of: param)
+      if let types = env.equivalences.equivalenceClass(containing: existential) {
+        // The existential belongs to an equivalence class; register the new conformance for every
+        // member of the existential's equivalence class.
+        for type in types {
+          guard let existential = type as? ExistentialType,
+                existential.genericEnv === env
+          else {
+            // Complain that the equivalence class contains non-generic members.
+            context.report(
+              .conformanceRequirementOnNonGenericParameter(type: lhs, range: req.lhs.range))
+            break
+          }
+
+          guard env.conformance(of: existential, to: view) == nil else { continue }
+          env.insert(
+            conformance: ViewConformance(viewDecl: viewDecl, range: req.rhs.range),
+            for: existential)
+        }
+      } else if env.conformance(of: existential, to: view) == nil {
+        // The existential has no equivalence class; register the new conformance fot it directly.
+        env.insert(
+          conformance: ViewConformance(viewDecl: viewDecl, range: req.rhs.range),
+          for: existential)
+      }
     }
 
     return true
