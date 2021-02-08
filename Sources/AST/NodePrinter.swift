@@ -453,7 +453,7 @@ public struct NodePrinter: NodeVisitor {
     {
     \(typeReprHeader(node)),
     "name"            : "\(node.name)",
-    "args"            : \(encode(node.components))
+    "args"            : \(encode(node.args))
     }
     """
   }
