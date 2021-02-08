@@ -193,12 +193,13 @@ struct PreChecker: ExprVisitor {
         newRef = DeclRefExpr(decl: decl, type: ref.type, range: ref.range)
       }
 
-      // Instanciate the declaration's type if it's generic.
+      // Contextualize the declaration's type if it's generic.
       newRef.type = decl.contextualize(from: useSite, processingContraintsWith: { prototype in
         system.pointee.insert(
           RelationalConstraint(prototype: prototype, at: ConstraintLocator(newRef)))
       })
 
+      assert(!newRef.type.hasTypeParams)
       return newRef
     }
 

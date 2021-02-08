@@ -50,6 +50,12 @@ struct Solution {
     case let type as KindType:
       return reify(type.type, freeVariablePolicy: freeVariablePolicy).kind
 
+    case let type as BoundGenericType:
+      return type.context
+        .boundGenericType(
+          decl: type.decl,
+          args: type.args.map({ reify($0, freeVariablePolicy: freeVariablePolicy) }))
+
     case let type as TupleType:
       return type.context
         .tupleType(type.elems.map({ elem in

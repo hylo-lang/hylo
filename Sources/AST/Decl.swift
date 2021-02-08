@@ -167,8 +167,21 @@ extension ValueDecl {
       guard let env = gds.prepareGenericEnv() else {
         return type.context.errorType
       }
+
+      // Adjust the use site depending on the type of declaration.
+      var adjustedSite: DeclSpace
+      if gds is CtorDecl {
+        // Constructors are contextualized from outside of their type declaration.
+        adjustedSite = gds.spacesUpToRoot.first(where: { $0 is TypeDecl })!
+      } else {
+        adjustedSite = useSite
+      }
+      if adjustedSite.isDescendant(of: gds) {
+        adjustedSite = gds
+      }
+
       return env.contextualize(
-        genericType, from: gds, processingContraintsWith: handleConstraint)
+        genericType, from: adjustedSite, processingContraintsWith: handleConstraint)
     }
 
     // Find the innermost generic space, relative to this declaration. We can assume there's one,
@@ -355,22 +368,34 @@ public class BaseFunDecl: ValueDecl, GenericDeclSpace {
   public lazy var selfDecl: FunParamDecl? = {
     guard props.contains(.isMember) || (self is CtorDecl) else { return nil }
 
-    let selfType: ValType
+    var selfDecl: NominalTypeDecl
     switch parentDeclSpace {
     case let typeDecl as NominalTypeDecl:
       // The declaration is in the body of a nominal type.
-      selfType = typeDecl.instanceType
+      selfDecl = typeDecl
 
     case let typeExtDecl as TypeExtDecl:
       // The declaration is in the body of a type extension.
-      if let extendedType = typeExtDecl.extendedDecl?.instanceType {
-        selfType = extendedType
-      } else {
-        selfType = type.context.unresolvedType
+      guard let extendedDecl = typeExtDecl.extendedDecl else {
+        let decl = FunParamDecl(
+          name: "self", externalName: "self", type: type.context.errorType, range: .invalid)
+        decl.setState(.invalid)
+        return decl
       }
+      selfDecl = extendedDecl
 
     default:
       fatalError("unreachable")
+    }
+
+    let selfType: ValType
+    if let productDecl = selfDecl as? ProductTypeDecl, productDecl.hasOwnGenericParams {
+      selfType = type.context.boundGenericType(
+        decl: productDecl,
+        args: productDecl.genericClause!.params.map({ $0.instanceType }))
+    } else {
+      // FIXME: `ViewTypeDecl`s too will probably conform to `GenericDeclSpace` eventually.
+      selfType = selfDecl.instanceType
     }
 
     let decl = FunParamDecl(
