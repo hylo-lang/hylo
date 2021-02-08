@@ -155,7 +155,15 @@ typeRepr
   ;
 
 identTypeRepr
-  : NAME ('::' NAME)?
+  : unqualTypeRepr ('::' unqualTypeRepr)?
+  ;
+
+unqualTypeRepr
+  : NAME genericArgList?
+  ;
+
+genericArgList
+  : '<' typeRepr (',' typeRepr)* '>'
   ;
 
 expr

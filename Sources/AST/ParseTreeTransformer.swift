@@ -346,11 +346,23 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
   }
 
   public override func visitIdentTypeRepr(_ ctx: ValParser.IdentTypeReprContext) -> Any {
-    let names = ctx.NAME()
-    return CompoundTypeRepr.create(names.map({ (name) -> UnqualTypeRepr in
-      UnqualTypeRepr(
-        name: name.getText(), type: unresolvedType, range: range(of: name.getSymbol()!))
-    }))
+    let components = ctx.unqualTypeRepr().map({ repr in repr.accept(self) as! ComponentTypeRepr })
+    return CompoundTypeRepr.create(components)
+  }
+
+  public override func visitUnqualTypeRepr(_ ctx: ValParser.UnqualTypeReprContext) -> Any {
+    if let argList = ctx.genericArgList() {
+      let args = argList.accept(self) as! [TypeRepr]
+      return SpecializedTypeRepr(
+        name: ctx.NAME()!.getText(), args: args, type: unresolvedType, range: range(of: ctx))
+    } else {
+      return UnqualTypeRepr(
+        name: ctx.NAME()!.getText(), type: unresolvedType, range: range(of: ctx))
+    }
+  }
+
+  public override func visitGenericArgList(_ ctx: ValParser.GenericArgListContext) -> Any {
+    return ctx.typeRepr().map({ arg in arg.accept(self) as! TypeRepr })
   }
 
   public override func visitExpr(_ ctx: ValParser.ExprContext) -> Any {
