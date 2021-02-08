@@ -298,16 +298,11 @@ public class NominalType: ValType, CustomStringConvertible {
 
   init(context: Context, decl: NominalTypeDecl, props: RecursiveProps = .isCanonical) {
     self.decl = decl
-    super.init(context: context, props: .isCanonical)
+    super.init(context: context, props: props)
   }
 
   /// The declaration of this nominal type.
   public unowned let decl: NominalTypeDecl
-
-  override func isEqual(to other: ValType) -> Bool {
-    guard let that = other as? NominalType else { return false }
-    return self.decl === that.decl
-  }
 
   override func hash(into hasher: inout Hasher) {
     hasher.combine(ObjectIdentifier(decl))
@@ -320,6 +315,11 @@ public class NominalType: ValType, CustomStringConvertible {
 /// A product type, representing a collection of labeled value members.
 public final class ProductType: NominalType {
 
+  override func isEqual(to other: ValType) -> Bool {
+    guard let that = other as? ProductType else { return false }
+    return self.decl === that.decl
+  }
+
   public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
     visitor.visit(self)
   }
@@ -328,6 +328,11 @@ public final class ProductType: NominalType {
 
 /// A view type.
 public final class ViewType: NominalType {
+
+  override func isEqual(to other: ValType) -> Bool {
+    guard let that = other as? ViewType else { return false }
+    return self.decl === that.decl
+  }
 
   public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
     visitor.visit(self)
