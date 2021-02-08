@@ -2,45 +2,76 @@ extension TypeRepr {
 
   /// Realize the semantic type denoted by the representation.
   ///
-  /// - Parameter space: The space in which the type representation resides. Note that the method
-  ///   does not "recompute" the type realization if it is in the `realized` or `invalud` state.
+  /// - Parameter useSite: The declaration space in which the type representation resides.
+  ///
+  /// - Note:The method does not "recompute" the type realization if it is in the `realized` or
+  ///   `invalid` state.
   @discardableResult
-  public func realize(unqualifiedFrom space: DeclSpace) -> ValType {
+  public func realize(unqualifiedFrom useSite: DeclSpace) -> ValType {
     guard type is UnresolvedType else { return type }
 
     switch self {
-    case let this as UnqualTypeRepr   : return AST.realize(this, within: space)
-    case let this as CompoundTypeRepr : return AST.realize(this, within: space)
+    case let this as ComponentTypeRepr: return AST.realize(this, from: useSite)
+    case let this as CompoundTypeRepr : return AST.realize(this, from: useSite)
     default: fatalError("unreachable")
     }
   }
 
 }
 
-extension UnqualTypeRepr {
+extension ComponentTypeRepr {
 
-  public func realize(qualifiedFrom typeDecl: TypeDecl) -> ValType {
-    let context = type.context
-
+  /// Resolves the type declaration to which this component refers.
+  ///
+  /// - Parameter typeDecl: The declaration of the type that qualifies the component.
+  public func resolve(qualifiedIn typeDecl: TypeDecl) -> TypeDecl? {
     let matches = typeDecl.lookup(qualified: name).types
     guard !matches.isEmpty else {
+      return nil
+    }
+
+    // FIXME: Handle overloaded type decls.
+    precondition(matches.count == 1, "overloaded type declarations are not supported yet")
+    return matches[0]
+  }
+
+  /// Realizes the semantic type denoted by the component, assuming it is qualified by a type.
+  ///
+  /// The main purpose of this method is to realize the component as part of a compound identifier.
+  /// Unlike `realize(unqualifiedFrom:)`, it looks for the referred type using a *qualified* name
+  /// lookup from the given type declaration.
+  ///
+  /// - Parameters:
+  ///   - typeDecl: The declaration of the type that qualifies the component.
+  ///   - useSite: The declaration space in which the type representation resides.
+  public func realize(qualifiedIn typeDecl: TypeDecl, from useSite: DeclSpace) -> ValType {
+    let context = type.context
+
+    guard let decl = resolve(qualifiedIn: typeDecl) else {
       context.report(.cannotFind(type: name, in: typeDecl.instanceType, range: range))
       type = context.errorType
       return type
     }
 
-    // FIXME: Handle overloaded type decls.
-    precondition(matches.count == 1, "overloaded type declarations are not supported yet")
-    type = matches[0].instanceType
+    if let specializedRepr = self as? SpecializedTypeRepr {
+      let baseDecl = decl as! NominalTypeDecl
+      AST.realize(typeRepr: specializedRepr, from: useSite, baseDecl: baseDecl)
+    } else {
+      type = decl.instanceType
+    }
+
+    type = decl.instanceType
     return type
   }
 
 }
 
-fileprivate func realize(_ typeRepr: UnqualTypeRepr, within space: DeclSpace) -> ValType {
+/// Realizes an unqualified identifier.
+fileprivate func realize(_ typeRepr: ComponentTypeRepr, from useSite: DeclSpace) -> ValType {
   let context = typeRepr.type.context
 
-  let matches = space.lookup(unqualified: typeRepr.name, in: context).types
+  // Search for a type declaration.
+  let matches = useSite.lookup(unqualified: typeRepr.name, in: context).types
   guard !matches.isEmpty else {
     context.report(.cannotFind(type: typeRepr.name, range: typeRepr.range))
     typeRepr.type = context.errorType
@@ -49,16 +80,42 @@ fileprivate func realize(_ typeRepr: UnqualTypeRepr, within space: DeclSpace) ->
 
   // FIXME: Handle overloaded type decls.
   precondition(matches.count == 1, "overloaded type declarations are not supported yet")
-  typeRepr.type = matches[0].instanceType
+
+  if let specializedRepr = typeRepr as? SpecializedTypeRepr {
+    let baseDecl = matches[0] as! NominalTypeDecl
+    AST.realize(typeRepr: specializedRepr, from: useSite, baseDecl: baseDecl)
+  } else {
+    typeRepr.type = matches[0].instanceType
+  }
+
   return typeRepr.type
 }
 
-fileprivate func realize(_ typeRepr: CompoundTypeRepr, within space: DeclSpace) -> ValType {
+fileprivate func realize(
+  typeRepr: SpecializedTypeRepr, from space: DeclSpace, baseDecl: NominalTypeDecl
+) {
+  let context = baseDecl.type.context
+
+  // Realize the generic arguments.
+  var argTypes: [ValType] = []
+  for arg in typeRepr.args {
+    argTypes.append(arg.realize(unqualifiedFrom: space))
+    guard arg.type !== context.errorType else {
+      typeRepr.type = context.errorType
+      return
+    }
+  }
+
+  typeRepr.type = context.boundGenericType(decl: baseDecl, args: argTypes)
+}
+
+/// Realizes a compound identifier.
+fileprivate func realize(_ typeRepr: CompoundTypeRepr, from useSite: DeclSpace) -> ValType {
   let context = typeRepr.type.context
   let components = typeRepr.components
 
   // Realize the base component, unqualified.
-  let baseType = components[0].realize(unqualifiedFrom: space)
+  let baseType = components[0].realize(unqualifiedFrom: useSite)
   guard !(baseType is ErrorType) else {
     // The diagnostic is emitted by the failed attempt to realize the base.
     components.forEach({ $0.type = context.errorType })
@@ -94,21 +151,14 @@ fileprivate func realize(_ typeRepr: CompoundTypeRepr, within space: DeclSpace) 
   }
 
   for i in 1 ..< components.count {
-    let matches = baseDecl.lookup(qualified: components[i].name).types
-    guard !matches.isEmpty else {
-      context.report(
-        .cannotFind(
-          type: components[i].name, in: baseDecl.instanceType,
-          range: components[i].range))
+    let componentType = components[0].realize(qualifiedIn: baseDecl, from: useSite)
+    guard componentType !== context.errorType else {
       components[i...].forEach({ $0.type = context.errorType })
       return context.errorType
     }
 
-    // FIXME: Handle overloaded type decls.
-    precondition(matches.count == 1, "overloaded type declarations are not supported yet")
-    components[i].type = matches[0].instanceType
-
-    baseDecl = matches[0]
+    // Components always have a nominal type.
+    baseDecl = (componentType as! NominalType).decl
   }
 
   return typeRepr.lastComponent.type

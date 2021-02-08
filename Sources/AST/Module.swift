@@ -73,7 +73,7 @@ public final class Module: IterableDeclSpace {
         guard baseDecl !== decl else { continue stmt }
 
         // Realize the next component.
-        let nextType = compound.components[i].realize(qualifiedFrom: baseDecl)
+        let nextType = compound.components[i].realize(qualifiedIn: baseDecl, from: self)
         guard let nextDecl = (nextType as? NominalType)?.decl else { continue stmt }
         baseDecl = nextDecl
       }
