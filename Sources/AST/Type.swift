@@ -41,11 +41,6 @@ public class ValType {
   /// The canonical form of the type, where all sugars have been stripped off.
   public var canonical: ValType { self }
 
-  /// The set of variables occurring free in this type.
-  public var variables: Set<TypeVar> {
-    return []
-  }
-
   public func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
     fatalError("unreachable")
   }
@@ -166,12 +161,6 @@ public final class KindType: ValType {
     return isCanonical
       ? self
       : type.canonical.kind
-  }
-
-  public override var variables: Set<TypeVar> {
-    return hasVariables
-      ? type.variables
-      : []
   }
 
   override func isEqual(to other: ValType) -> Bool {
@@ -493,14 +482,6 @@ public final class TupleType: ValType {
     }))
   }
 
-  public override var variables: Set<TypeVar> {
-    guard hasVariables else { return [] }
-
-    return elems.reduce(into: Set<TypeVar>(), { (set, elem) in
-      set.formUnion(elem.type.variables)
-    })
-  }
-
   override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? TupleType else { return false }
 
@@ -586,15 +567,6 @@ public final class FunType: ValType {
       : context.funType(paramType: paramType.canonical, retType: retType.canonical)
   }
 
-  public override var variables: Set<TypeVar> {
-    guard hasVariables else { return [] }
-
-    var result: Set<TypeVar> = []
-    result.formUnion(paramType.variables)
-    result.formUnion(retType.variables)
-    return result
-  }
-
   override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? FunType,
           retType.isEqual(to: that.retType),
@@ -641,12 +613,6 @@ public final class InoutType: ValType {
     return isCanonical
       ? self
       : context.inoutType(of: base.canonical)
-  }
-
-  public override var variables: Set<TypeVar> {
-    return hasVariables
-      ? base.variables
-      : []
   }
 
   override func isEqual(to other: ValType) -> Bool {
@@ -718,10 +684,6 @@ public final class TypeVar: ValType, Hashable {
 
   /// The optional node representing the sub-expression with which the variable is associated.
   public private(set) weak var node: Node?
-
-  public override var variables: Set<TypeVar> {
-    return [self]
-  }
 
   public override func hash(into hasher: inout Hasher) {
     hasher.combine(id)
