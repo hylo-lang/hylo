@@ -182,10 +182,10 @@ extension ValueDecl {
         // Constructors are contextualized from outside of their type declaration.
         adjustedSite = gds.spacesUpToRoot.first(where: { $0 is TypeDecl })!
       } else {
-        adjustedSite = useSite
-      }
-      if adjustedSite.isDescendant(of: gds) {
         adjustedSite = gds
+      }
+      if adjustedSite.isDescendant(of: useSite) {
+        adjustedSite = useSite
       }
 
       return env.contextualize(
