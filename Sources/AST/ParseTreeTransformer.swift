@@ -310,7 +310,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     decl.parentDeclSpace = currentSpace
 
     // Create the pattern.
-    return NamedPattern(decl: decl, range: range(of: ctx))
+    return NamedPattern(decl: decl, type: unresolvedType, range: range(of: ctx))
   }
 
   public override func visitTuplePattern(_ ctx: ValParser.TuplePatternContext) -> Any {

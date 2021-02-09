@@ -424,7 +424,7 @@ public final class ExistentialType: ValType {
   init(context: Context, interface: ValType, genericEnv: GenericEnv) {
     self.interface = interface
     self.genericEnv = genericEnv
-    super.init(context: context, props: .isCanonical)
+    super.init(context: context, props: RecursiveProps([.isCanonical, .hasExistentials]))
   }
 
   /// The interface type of this existential.

@@ -19,18 +19,16 @@ public protocol Pattern: Node {
 /// A pattern which binds an identifier.
 public final class NamedPattern: Pattern {
 
-  public init(decl: VarDecl, range: SourceRange) {
+  public init(decl: VarDecl, type: ValType, range: SourceRange) {
     self.decl = decl
+    self.type = type
     self.range = range
   }
 
   /// The variable declarations to which the name refers.
   public var decl: VarDecl
 
-  public var type: ValType {
-    get { decl.type }
-    set { decl.type = newValue }
-  }
+  public var type: ValType
 
   public var namedPatterns: [NamedPattern] { [self] }
 
