@@ -56,6 +56,15 @@ struct ConstraintGenerator: ExprVisitor {
         at: ConstraintLocator(node, .assignment)))
   }
 
+  func visit(_ node: TupleExpr) {
+    // Synthetize a type from the tuple's elements.
+    let elems = node.elems.map({ elem in
+      TupleType.Elem(label: elem.label, type: elem.value.type)
+    })
+
+    node.type = node.type.context.tupleType(elems)
+  }
+
   func visit(_ node: CallExpr) {
     // Synthetize the type of a function from the call's arguments.
     var paramTypeElems: [TupleType.Elem] = []
