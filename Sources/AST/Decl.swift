@@ -133,6 +133,14 @@ extension TypeDecl {
 
 }
 
+/// A type declaration that can have a generic clause.
+public protocol GenericTypeDecl: TypeDecl, GenericDeclSpace {
+
+  /// The generic clause of the declaration.
+  var genericClause: GenericClause? { get }
+
+}
+
 /// A named declaration.
 public protocol ValueDecl: TypeOrValueDecl {
 
@@ -821,7 +829,7 @@ public class NominalTypeDecl: TypeDecl, DeclSpace {
 }
 
 /// A product type declaration.
-public final class ProductTypeDecl: NominalTypeDecl, GenericDeclSpace {
+public final class ProductTypeDecl: NominalTypeDecl, GenericTypeDecl {
 
   public init(
     name          : String,
