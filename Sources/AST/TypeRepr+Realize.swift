@@ -96,6 +96,24 @@ fileprivate func realize(
 ) {
   let context = baseDecl.type.context
 
+  // Make sure we did't get too many arguments.
+  guard let clause = (baseDecl as? ProductTypeDecl)?.genericClause else {
+    context.report(
+      .tooManyGenericArguments(
+        type: baseDecl.instanceType, got: typeRepr.args.count, expected: 0,
+        range: typeRepr.range))
+    typeRepr.type = context.errorType
+    return
+  }
+  guard clause.params.count >= typeRepr.args.count else {
+    context.report(
+      .tooManyGenericArguments(
+        type: baseDecl.instanceType, got: typeRepr.args.count, expected: clause.params.count,
+        range: typeRepr.range))
+    typeRepr.type = context.errorType
+    return
+  }
+
   // Realize the generic arguments.
   var argTypes: [ValType] = []
   for arg in typeRepr.args {
