@@ -288,6 +288,25 @@ public struct NodePrinter: NodeVisitor {
     """
   }
 
+  public func visit(_ node: TupleExpr) -> String {
+    let elems = node.elems.map({ elem in
+      """
+      {
+      "label"   : \(encode(elem.label)),
+      "value"   : \(elem.value.accept(self))
+      }
+      """
+    })
+    .joined(separator: ", ")
+
+    return """
+    {
+    \(exprHeader(node)),
+    "elems"           : [\(elems)]
+    }
+    """
+  }
+
   public func visit(_ node: CallExpr) -> String {
     let args = node.args.map({ arg in
       """

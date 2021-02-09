@@ -362,6 +362,19 @@ open class NodeWalker: NodeVisitor {
     return true
   }
 
+  public final func visit(_ node: TupleExpr) -> Bool {
+    let prevParent = parent
+    parent = node
+    defer { parent = prevParent }
+
+    for i in 0 ..< node.elems.count {
+      (shouldContinue, node.elems[i].value) = walk(node.elems[i].value)
+      guard shouldContinue else { return false }
+    }
+
+    return true
+  }
+
   public final func visit(_ node: CallExpr) -> Bool {
     let prevParent = parent
     parent = node

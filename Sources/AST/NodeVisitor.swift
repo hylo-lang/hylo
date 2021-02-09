@@ -77,6 +77,8 @@ public protocol ExprVisitor {
 
   func visit(_ node: AssignExpr) -> ExprResult
 
+  func visit(_ node: TupleExpr) -> ExprResult
+
   func visit(_ node: CallExpr) -> ExprResult
 
   func visit(_ node: UnresolvedDeclRefExpr) -> ExprResult

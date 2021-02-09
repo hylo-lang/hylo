@@ -66,27 +66,17 @@ public final class AssignExpr: Expr {
 
 }
 
-/// A function call expression.
-///
-/// This represents any function application, including infix, prefix and postfix expressions.
-///
-/// - Note: Assignments and address-taking expressions are represented with the nodes `AssignExpr`
-///   and `AddrOfExpr`, respectively. These denote a particular behavior for which it is useful to
-///   have dedicate nodes.
-public final class CallExpr: Expr {
+/// A tuple expression (e.g. `(fst: 4, snd: 2)`).
+public final class TupleExpr: Expr {
 
-  public init(fun: Expr, args: [CallArg], type: ValType, range: SourceRange) {
-    self.fun = fun
-    self.args = args
+  public init(elems: [TupleElem], type: ValType, range: SourceRange) {
+    self.elems = elems
     self.type = type
     self.range = range
   }
 
-  /// The function being called.
-  public var fun: Expr
-
-  /// The arguments of the call.
-  public var args: [CallArg]
+  /// The elements of the tuple.
+  public var elems: [TupleElem]
 
   public var type: ValType
 
@@ -98,8 +88,8 @@ public final class CallExpr: Expr {
 
 }
 
-/// A function call's argument.
-public struct CallArg {
+/// A tuple's element, or a function call's argument.
+public struct TupleElem {
 
   public init(label: String? = nil, value: Expr, range: SourceRange) {
     self.label = label
@@ -117,6 +107,40 @@ public struct CallArg {
   public var range: SourceRange
 
 }
+
+/// A function call expression.
+///
+/// This represents any function application, including infix, prefix and postfix expressions.
+///
+/// - Note: Assignments and address-taking expressions are represented with the nodes `AssignExpr`
+///   and `AddrOfExpr`, respectively. These denote a particular behavior for which it is useful to
+///   have dedicate nodes.
+public final class CallExpr: Expr {
+
+  public init(fun: Expr, args: [TupleElem], type: ValType, range: SourceRange) {
+    self.fun = fun
+    self.args = args
+    self.type = type
+    self.range = range
+  }
+
+  /// The function being called.
+  public var fun: Expr
+
+  /// The arguments of the call.
+  public var args: [TupleElem]
+
+  public var type: ValType
+
+  public var range: SourceRange
+
+  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
+    return visitor.visit(self)
+  }
+
+}
+
+public typealias CallArg = TupleElem
 
 /// An identifier referring to an unresolved declaration.
 ///
