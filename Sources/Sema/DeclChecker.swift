@@ -15,22 +15,6 @@ struct DeclChecker: DeclVisitor {
   }
 
   func visit(_ node: PatternBindingDecl) {
-    func setInvalid() {
-      // Mark the declaration invalid.
-      node.setState(.invalid)
-
-      /// Mark all variable declaration for which we couldn't assign a concrete type as invalid,
-      /// to prevent further use by the type checker.
-      for decl in node.varDecls {
-        if decl.type.hasUnresolved || decl.type.hasVariables {
-          decl.type = checker.context.errorType
-          decl.setState(.invalid)
-        } else {
-          decl.setState(.typeChecked)
-        }
-      }
-    }
-
     node.setState(.typeCheckRequested)
     let useSite = node.parentDeclSpace!
 
@@ -42,38 +26,56 @@ struct DeclChecker: DeclVisitor {
     var patternType: ValType
     if let sign = node.sign {
       // Realize the signature, generating diagnostics as necessary.
-      let signType = sign.realize(unqualifiedFrom: useSite)
+      var signType = sign.realize(unqualifiedFrom: useSite)
       assert(!signType.hasUnresolved)
 
       // Bail out if the signature is invalid.
       guard !signType.hasErrors else {
-        setInvalid()
+        setInvalid(pbd: node)
         return
       }
 
-      // Contextualize the signature's type if it contains references to generic type parameters.
       if signType.hasTypeParams {
+        // The signature is generic; we have to contextualize its generic parameters. We can assume
+        // there's a declaration space from the use-sie, otherwise `realize()` would have failed to
+        // resolve the type repr.
         guard let env = useSite.innermostGenericSpace!.prepareGenericEnv() else {
-          setInvalid()
+          setInvalid(pbd: node)
           return
         }
 
-        patternType = env.contextualize(
+        // Contextualize the signature.
+        signType = env.contextualize(
           signType, from: useSite,
           processingContraintsWith: { prototype in
             system.insert(RelationalConstraint(prototype: prototype, at: ConstraintLocator(sign)))
           })
-      } else {
-        patternType = signType
       }
 
-      assert(patternType.isWellFormed)
+      // Check if we have to synthetize additional generic arguments, in case the the signature
+      // refers to an "underspecialized" generic nominal type.
+      guard let completeSignType = completeGenericArgs(
+        type: signType, system: &system, locator: ConstraintLocator(sign))
+      else {
+        setInvalid(pbd: node)
+        return
+      }
+
+      patternType = completeSignType
+
+      // If the signature contains opened existentials, require an initializer to infer them.
+      guard !patternType.hasVariables || node.initializer != nil else {
+        checker.context.report(
+          .referenceToGenericRequiresArguments(type: patternType, range: node.pattern.range))
+        setInvalid(pbd: node)
+        return
+      }
     } else if node.initializer != nil {
       patternType = TypeVar(context: checker.context, node: node.pattern)
     } else {
       // Unannotated declarations require an initializer.
       checker.context.report(.missingPatternInitializer(range: node.pattern.range))
-      setInvalid()
+      setInvalid(pbd: node)
       return
     }
 
@@ -87,7 +89,7 @@ struct DeclChecker: DeclVisitor {
 
     // Apply the pattern's type.
     guard TypeChecker.assign(type: patternType, to: node.pattern) else {
-      setInvalid()
+      setInvalid(pbd: node)
       return
     }
 
@@ -169,6 +171,55 @@ struct DeclChecker: DeclVisitor {
     }
 
     node.setState(.typeChecked)
+  }
+
+  // MARK: Helpers
+
+  /// Marks a pattern binding declaration invalid, along with all its associated var decls.
+  private func setInvalid(pbd node: PatternBindingDecl) {
+    node.setState(.invalid)
+
+    /// Mark all variable declaration for which we couldn't assign a concrete type as invalid,
+    /// to prevent further use by the type checker.
+    for decl in node.varDecls {
+      if decl.type.hasUnresolved || decl.type.hasVariables {
+        decl.type = checker.context.errorType
+        decl.setState(.invalid)
+      } else {
+        decl.setState(.typeChecked)
+      }
+    }
+  }
+
+  /// Completes the argument list of an "underspecified" generic nominal type.
+  ///
+  /// If `type` is a generic nominal type with too few generic arguments, this method produces a
+  /// bound generic type where all missing rgument is replaced by an opened existential. This
+  /// only happens if `type` is a bare nominal type, or if it is a bound generic type with less
+  /// arguments than the number of parameters of its declaration.
+  private func completeGenericArgs(
+    type: ValType, system: inout ConstraintSystem, locator: ConstraintLocator
+  ) -> ValType? {
+    guard let nominalType = type as? NominalType,
+          let genericDecl = nominalType.decl as? GenericTypeDecl,
+          let clause = genericDecl.genericClause
+    else { return type }
+
+    // Complete the argument list if necessary.
+    var args = (nominalType as? BoundGenericType)?.args ?? []
+    guard args.count < clause.params.count else { return type }
+
+    args.append(contentsOf: clause.params.dropFirst(args.count).map({ $0.instanceType }))
+    guard let env = genericDecl.prepareGenericEnv() else {
+      return nil
+    }
+
+    let newType = checker.context.boundGenericType(decl: nominalType.decl, args: args)
+    return env.contextualize(
+      newType, from: nominalType.decl.rootDeclSpace,
+      processingContraintsWith: { prototype in
+        system.insert(RelationalConstraint(prototype: prototype, at: locator))
+      })
   }
 
 }

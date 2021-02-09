@@ -117,6 +117,18 @@ struct CSSolver {
         errors.append(.conflictingTypes(constraint))
       }
 
+    case (let lhs as BoundGenericType, let rhs as BoundGenericType):
+      guard lhs.decl === rhs.decl else {
+        errors.append(.conflictingTypes(constraint))
+        break
+      }
+
+      assert(lhs.args.count == rhs.args.count)
+      for (larg, rarg) in zip(lhs.args, rhs.args) {
+        system.insert(
+          RelationalConstraint(kind: .equality, lhs: larg, rhs: rarg, at: constraint.locator))
+      }
+
     default:
       // The types might be structural.
       if attemptStructuralMatch(constraint) {
