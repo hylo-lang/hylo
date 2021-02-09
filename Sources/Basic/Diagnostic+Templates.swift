@@ -104,4 +104,20 @@ extension Diagnostic {
       "view conformance requirement to non-view type '\(type)'", anchor: range)
   }
 
+  public static func referenceToGenericRequiresArguments(
+    type: Any, range: SourceRange
+  ) -> Diagnostic {
+    return Diagnostic(
+      "reference to generic type '\(type)' requires type arguments", anchor: range)
+  }
+
+  public static func tooManyGenericArguments(
+    type: Any, got: Int, expected: Int, range: SourceRange
+  ) -> Diagnostic {
+    return Diagnostic(
+      "type '\(type)' specialized with too many generic arguments " +
+        "(got \(got), expected \(expected))",
+      anchor: range)
+  }
+
 }
