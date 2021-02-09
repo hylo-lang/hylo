@@ -515,6 +515,21 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
       namespace: ns, name: names.last!.getText(), type: unresolvedType, range: range(of: ctx))
   }
 
+  public override func visitTuple(_ ctx: ValParser.TupleContext) -> Any {
+    let elems = ctx.tupleElemList().map({ elems in elems.accept(self) as! [TupleElem] }) ?? []
+    return TupleExpr(elems: elems, type: unresolvedType, range: range(of: ctx))
+  }
+
+  public override func visitTupleElemList(_ ctx: ValParser.TupleElemListContext) -> Any {
+    return ctx.tupleElem().map({ elem in elem.accept(self) as! TupleElem })
+  }
+
+  public override func visitTupleElem(_ ctx: ValParser.TupleElemContext) -> Any {
+    let label = ctx.NAME()?.getText()
+    let value = ctx.expr()!.accept(self) as! Expr
+    return TupleElem(label: label, value: value, range: range(of: ctx))
+  }
+
   public override func visitWildcard(_ ctx: ValParser.WildcardContext) -> Any {
     let expr = WildcardExpr(type: unresolvedType, range: range(of: ctx))
     return expr
