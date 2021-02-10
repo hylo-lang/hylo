@@ -290,8 +290,19 @@ struct CSSolver {
         checker.check(decl: varDecl.patternBindingDecl!)
       }
 
+      let args: [GenericParamType: ValType]
+      if let boundType = baseType as? BoundGenericType,
+         let env = (boundType.decl as? GenericTypeDecl)?.prepareGenericEnv()
+      {
+        args = Dictionary(uniqueKeysWithValues: zip(env.params, boundType.args))
+      } else {
+        args = [:]
+      }
+
       let choiceType = decls[0].contextualize(
-        from: constraint.useSite, processingContraintsWith: { prototype in
+        from: constraint.useSite,
+        args: args,
+        processingContraintsWith: { prototype in
           system.insert(RelationalConstraint(prototype: prototype, at: constraint.locator))
         })
       let choice = RelationalConstraint(

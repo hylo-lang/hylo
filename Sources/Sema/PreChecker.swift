@@ -180,9 +180,6 @@ struct PreChecker: ExprVisitor {
     if matches.values.count > 1 {
       let newRef = OverloadedDeclRefExpr(
         subExpr: ref, declSet: matches.values, type: ref.type, range: ref.range)
-      newRef.type = ref.type is TypeVar
-        ? ref.type
-        : TypeVar(context: context, node: newRef)
 
       return newRef
     }

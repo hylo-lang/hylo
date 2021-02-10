@@ -158,14 +158,23 @@ extension ValueDecl {
   ///
   /// - Parameters:
   ///   - useSite: The declaration space from which the declaration is being referred.
+  ///   - args: A dictionary containing specialization arguments for generic type parameters.
   ///   - handleConstraint: A closure that accepts contextualized contraint prototypes. It is not
   ///     called unless the contextualized type contains opened existentials for which there exist
   ///     type requirements.
   public func contextualize(
     from useSite: DeclSpace,
+    args: [GenericParamType: ValType] = [:],
     processingContraintsWith handleConstraint: (GenericEnv.ConstraintPrototype) -> Void = { _ in }
   ) -> ValType {
-    let genericType = realize()
+    // Realize the declaration's type.
+    var genericType = realize()
+
+    // Specialize the generic parameters for which arguments have been provided.
+    if !args.isEmpty {
+      genericType = genericType.specialized(with: args)
+    }
+
     guard genericType.props.contains(.hasTypeParams) else { return genericType }
 
     // If the declaration is its own generic environment, then we must contextualize it externally,
@@ -413,6 +422,7 @@ public class BaseFunDecl: ValueDecl, GenericDeclSpace {
         : selfType,
       range: .invalid)
     decl.parentDeclSpace = self
+    decl.setState(.typeChecked)
     return decl
   }()
 
@@ -662,7 +672,7 @@ public final class FunParamDecl: ValueDecl {
     if let sign = self.sign {
       type = sign.realize(unqualifiedFrom: parentDeclSpace!)
     } else {
-      type = TypeVar(context: type.context, node: self)
+      preconditionFailure("cannot realize parameter declaration without a signature")
     }
 
     setState(.realized)

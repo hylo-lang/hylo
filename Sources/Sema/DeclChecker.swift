@@ -9,13 +9,20 @@ struct DeclChecker: DeclVisitor {
   unowned let checker: TypeChecker
 
   func visit(_ node: Module) {
+    guard shouldTypeCheck(node) else { return }
+    node.setState(.typeCheckRequested)
+
     for decl in node.decls {
       decl.accept(self)
     }
+
+    node.setState(.typeChecked)
   }
 
   func visit(_ node: PatternBindingDecl) {
+    guard shouldTypeCheck(node) else { return }
     node.setState(.typeCheckRequested)
+
     let useSite = node.parentDeclSpace!
 
     // Create a new constraint system to infer the pattern's type.
@@ -105,6 +112,8 @@ struct DeclChecker: DeclVisitor {
   }
 
   func visit(_ node: BaseFunDecl) {
+    guard shouldTypeCheck(node) else { return }
+
     /// Realize the function's signature.
     _ = node.realize()
     node.setState(.typeCheckRequested)
@@ -138,6 +147,7 @@ struct DeclChecker: DeclVisitor {
   }
 
   func visit(_ node: ProductTypeDecl) {
+    guard shouldTypeCheck(node) else { return }
     node.setState(.typeCheckRequested)
 
     /// Initialize the type's generic environment.
@@ -161,6 +171,8 @@ struct DeclChecker: DeclVisitor {
   }
 
   func visit(_ node: TypeExtDecl) {
+    guard shouldTypeCheck(node) else { return }
+
     // Bind the extension to the type it extends.
     guard node.computeExtendedDecl() != nil else { return }
 
@@ -174,6 +186,15 @@ struct DeclChecker: DeclVisitor {
   }
 
   // MARK: Helpers
+
+  private func shouldTypeCheck(_ node: Decl) -> Bool {
+    if node.state >= .typeChecked { return false }
+    if node.state == .typeCheckRequested {
+      // FIXME: This should be a diagnostic.
+      preconditionFailure("circular dependency")
+    }
+    return true
+  }
 
   /// Marks a pattern binding declaration invalid, along with all its associated var decls.
   private func setInvalid(pbd node: PatternBindingDecl) {

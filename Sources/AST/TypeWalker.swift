@@ -22,7 +22,7 @@ open class TypeWalker: TypeVisitor {
   ///
   /// If this is set, built-in types will be returned "as-is", without triggering `willVisit(_:)`
   /// nor `didVisit(_:)`.
-  open var shouldSkipBuiltinTypes: Bool { true }
+  open var shouldSkipBuiltinTypes: Bool { false }
 
   // MARK: Event handlers
 
@@ -106,6 +106,8 @@ open class TypeWalker: TypeVisitor {
   }
 
   public final func walk(_ type: ValType) -> ValType {
+    guard !(type is BuiltinType) || shouldSkipBuiltinTypes else { return type }
+
     // Fire the `willVisit` event.
     switch willVisit(type) {
     case .stepInto(let substitute):

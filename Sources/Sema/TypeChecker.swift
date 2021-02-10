@@ -51,12 +51,6 @@ public final class TypeChecker {
   ///
   /// - Parameter decl: The declaration to type check.
   public func check(decl: Decl) {
-    if decl.state >= .typeChecked { return }
-    if decl.state == .typeCheckRequested {
-      // FIXME: This should be a diagnostic.
-      preconditionFailure("circular dependency")
-    }
-
     decl.accept(DeclChecker(checker: self))
   }
 
@@ -219,8 +213,13 @@ public final class TypeChecker {
   ///   match that of the pattern.
   static func assign(type: ValType, to pattern: Pattern) -> Bool {
     switch pattern {
-    case is NamedPattern, is WildcardPattern:
+    case is WildcardPattern:
       pattern.type = type
+      return true
+
+    case let namedPattern as NamedPattern:
+      namedPattern.type = type
+      namedPattern.decl.type = type.uncontextualized
       return true
 
     case let tuplePattern as TuplePattern:

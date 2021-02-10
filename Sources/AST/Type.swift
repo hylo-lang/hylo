@@ -26,6 +26,9 @@ public class ValType {
   /// The type contains one or more generic type parameters.
   public var hasTypeParams: Bool { props.contains(.hasTypeParams) }
 
+  /// The type contains one or more existential types.
+  public var hasExistentials: Bool { props.contains(.hasExistentials) }
+
   /// The type contains the unresolved type.
   public var hasUnresolved: Bool { props.contains(.hasUnresolved) }
 
@@ -40,6 +43,17 @@ public class ValType {
 
   /// The canonical form of the type, where all sugars have been stripped off.
   public var canonical: ValType { self }
+
+  /// The uncontextualized interface of this type.
+  ///
+  /// This is the type in which all existentials contextualized internally are substituted for
+  /// their interface type.
+  public var uncontextualized: ValType { self }
+
+  public func specialized(with args: [GenericParamType: ValType]) -> ValType {
+    guard hasTypeParams else { return self }
+    return TypeSpecializer(args: args).walk(self)
+  }
 
   public func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
     fatalError("unreachable")
@@ -112,11 +126,12 @@ public class ValType {
       return RecursiveProps(value: value & ~props.value)
     }
 
-    public static let isCanonical   = RecursiveProps(value: 1 << 0)
-    public static let hasVariables  = RecursiveProps(value: 1 << 1)
-    public static let hasTypeParams = RecursiveProps(value: 1 << 2)
-    public static let hasUnresolved = RecursiveProps(value: 1 << 3)
-    public static let hasErrors     = RecursiveProps(value: 1 << 4)
+    public static let isCanonical     = RecursiveProps(value: 1 << 0)
+    public static let hasVariables    = RecursiveProps(value: 1 << 1)
+    public static let hasTypeParams   = RecursiveProps(value: 1 << 2)
+    public static let hasExistentials = RecursiveProps(value: 1 << 3)
+    public static let hasUnresolved   = RecursiveProps(value: 1 << 4)
+    public static let hasErrors       = RecursiveProps(value: 1 << 5)
 
     /// Merges a collection of recursive properties.
     ///
@@ -146,6 +161,29 @@ extension ValType: Equatable {
 
 }
 
+/// A simple type walker that substitutes generic arguments for their corresponding parameters.
+fileprivate final class TypeSpecializer: TypeWalker {
+
+  public init(args: [GenericParamType: ValType]) {
+    self.args = args
+  }
+
+  /// The specialization arguments to apply.
+  private let args: [GenericParamType: ValType]
+
+  public override func willVisit(_ type: ValType) -> TypeWalker.Action {
+    if let param = type as? GenericParamType {
+      return .stepOver(args[param] ?? param)
+    }
+
+    return type.hasTypeParams
+      ? .stepInto(type)
+      : .stepOver(type)
+  }
+
+}
+
+
 /// A kind type (i.e., the type of a type).
 public final class KindType: ValType {
 
@@ -161,6 +199,12 @@ public final class KindType: ValType {
     return isCanonical
       ? self
       : type.canonical.kind
+  }
+
+  public override var uncontextualized: ValType {
+    return hasExistentials
+      ? type.uncontextualized.kind
+      : self
   }
 
   override func isEqual(to other: ValType) -> Bool {
@@ -351,6 +395,18 @@ public final class BoundGenericType: NominalType {
   /// The arguments provided for the underyling type's generic parameters.
   public let args: [ValType]
 
+  public override var canonical: ValType {
+    return isCanonical
+      ? self
+      : context.boundGenericType(decl: decl, args: args.map({ $0.canonical }))
+  }
+
+  public override var uncontextualized: ValType {
+    return hasExistentials
+      ? context.boundGenericType(decl: decl, args: args.map({ $0.uncontextualized }))
+      : self
+  }
+
   override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? BoundGenericType else { return false }
 
@@ -433,6 +489,8 @@ public final class ExistentialType: ValType {
   /// The generic environment in which this existential resides.
   public unowned let genericEnv: GenericEnv
 
+  public override var uncontextualized: ValType { interface }
+
   override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? ExistentialType else { return false }
     return self.interface.isEqual(to: that.interface)
@@ -484,6 +542,15 @@ public final class TupleType: ValType {
     }
     return context.tupleType(elems.map({ elem in
       Elem(label: elem.label, type: elem.type.canonical)
+    }))
+  }
+
+  public override var uncontextualized: ValType {
+    if !hasExistentials {
+      return self
+    }
+    return context.tupleType(elems.map({ elem in
+      Elem(label: elem.label, type: elem.type.uncontextualized)
     }))
   }
 
@@ -572,6 +639,12 @@ public final class FunType: ValType {
       : context.funType(paramType: paramType.canonical, retType: retType.canonical)
   }
 
+  public override var uncontextualized: ValType {
+    return hasExistentials
+      ? context.funType(paramType: paramType.uncontextualized, retType: retType.uncontextualized)
+      : self
+  }
+
   override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? FunType,
           retType.isEqual(to: that.retType),
@@ -618,6 +691,12 @@ public final class InoutType: ValType {
     return isCanonical
       ? self
       : context.inoutType(of: base.canonical)
+  }
+
+  public override var uncontextualized: ValType {
+    return hasExistentials
+      ? context.inoutType(of: base.uncontextualized)
+      : self
   }
 
   override func isEqual(to other: ValType) -> Bool {
