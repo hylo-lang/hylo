@@ -174,8 +174,6 @@ struct PreChecker: ExprVisitor {
 
   /// Binds the given declaration reference to specified lookup result.
   func bind(ref: Expr, to matches: LookupResult) -> Expr {
-    let context = ref.type.context
-
     // Favor references to value declarations.
     if matches.values.count > 1 {
       let newRef = OverloadedDeclRefExpr(
