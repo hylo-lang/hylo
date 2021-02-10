@@ -18,6 +18,10 @@ struct ArgumentParser {
         sysroot = URL(fileURLWithPath: args[i + 1])
         i = i + 2
 
+      case "--dump-ast":
+        dumpAST = true
+        i = i + 1
+
       default:
         if args[i].starts(with: "--") {
           throw illegalParameter(args[i])
@@ -31,6 +35,9 @@ struct ArgumentParser {
 
   /// The path where the compiler looks for Val modules.
   var sysroot: URL
+
+  /// An option to dump the AST after the semantic analysis.
+  var dumpAST = false
 
   private func missingArgument(for parameter: String) -> ArgumentParserError {
     return ArgumentParserError(message: "missing argument value for '\(parameter)'")
