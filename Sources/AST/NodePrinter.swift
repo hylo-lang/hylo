@@ -84,14 +84,6 @@ public struct NodePrinter: NodeVisitor {
     return "\"\(sf.url.path):\(start.line):\(start.column) - \(end.line):\(end.column)\""
   }
 
-  struct StandardOutput: TextOutputStream {
-
-    func write(_ string: String) {
-      Swift.print(string, terminator: "")
-    }
-
-  }
-
   func valueDeclHeader<N>(_ node: N) -> String where N: ValueDecl {
     return """
     "class"           : "\(type(of: node))",
