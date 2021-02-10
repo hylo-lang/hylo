@@ -4,4 +4,11 @@
 /// declaration.
 public final class Module {
 
+  /// The module's identifier.
+  public let id: String
+
+  public init(id: String) {
+    self.id = id
+  }
+
 }

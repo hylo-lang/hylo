@@ -10,6 +10,9 @@ public struct CompileJob: Job {
   /// The name of the module to compile.
   public var moduleName: String
 
+  /// The unique identifier of the module to compiler.
+  public var moduleID: String?
+
   /// The path of the source files contained in the module.
   public var moduleFiles: [URL]
 
@@ -21,16 +24,19 @@ public struct CompileJob: Job {
   public var isStdLib: Bool
 
   public init(
-    moduleName: String, moduleFiles: [URL], parseOnly: Bool = false, isStdLib: Bool = false
+    moduleName: String, moduleID: String? = nil, moduleFiles: [URL],
+    parseOnly: Bool = false, isStdLib: Bool = false
   ) {
     self.moduleName = moduleName
+    self.moduleID = moduleID
     self.moduleFiles = moduleFiles
     self.parseOnly = parseOnly
     self.isStdLib = isStdLib
   }
 
   public init(
-    moduleName: String, moduleRootDir: URL, parseOnly: Bool = false, isStdLib: Bool = false
+    moduleName: String, moduleID: String? = nil, moduleRootDir: URL,
+    parseOnly: Bool = false, isStdLib: Bool = false
   ) {
     var moduleFiles: [URL] = []
     if let enumerator = FileManager.default.enumerator(
@@ -50,6 +56,7 @@ public struct CompileJob: Job {
 
     self.init(
       moduleName: moduleName,
+      moduleID: moduleID,
       moduleFiles: moduleFiles,
       parseOnly: parseOnly,
       isStdLib: isStdLib)
@@ -57,11 +64,11 @@ public struct CompileJob: Job {
 
   public func run(in context: Context) throws {
     guard context.modules[moduleName] == nil else {
-      throw DriverError.moduleAlreadyLoaded(moduleName: moduleName)
+      throw DriverError.moduleAlreadyLoaded(moduleID: moduleName)
     }
 
     // Create a module.
-    let module = ModuleDecl(id: moduleName, context: context)
+    let module = ModuleDecl(id: moduleID ?? moduleName, context: context)
     context.modules[module.id] = module
 
     if isStdLib {
