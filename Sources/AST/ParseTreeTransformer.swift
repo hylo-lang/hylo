@@ -4,7 +4,7 @@ import Parser
 
 public final class ParseTreeTransformer: ValVisitor<Any> {
 
-  public init(sourceFile: SourceFile, module: Module?, context: Context) {
+  public init(sourceFile: SourceFile, module: ModuleDecl?, context: Context) {
     self.sourceFile = sourceFile
     self.module = module
     self.currentSpace = module
@@ -15,7 +15,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
   public let sourceFile: SourceFile
 
   /// The module containing the parse tree's declarations.
-  public let module: Module?
+  public let module: ModuleDecl?
 
   /// The AST context into which the module is being loaded.
   public let context: Context

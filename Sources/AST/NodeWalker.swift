@@ -138,7 +138,7 @@ open class NodeWalker: NodeVisitor {
 
   private final var shouldContinue = true
 
-  public final func visit(_ node: Module) -> Bool {
+  public final func visit(_ node: ModuleDecl) -> Bool {
     let prevParent = parent
     parent = node
     innermostSpace = node

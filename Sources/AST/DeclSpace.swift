@@ -44,8 +44,8 @@ public protocol DeclSpace: Node {
 extension DeclSpace {
 
   /// The module in which this declaration space resides.
-  public var rootDeclSpace: Module {
-    return (self as? Module) ?? parentDeclSpace!.rootDeclSpace
+  public var rootDeclSpace: ModuleDecl {
+    return (self as? ModuleDecl) ?? parentDeclSpace!.rootDeclSpace
   }
 
   /// Returns whether the space is topologically nested in another.

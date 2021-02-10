@@ -31,7 +31,7 @@ public protocol DeclVisitor {
 
   associatedtype DeclResult
 
-  func visit(_ node: Module) -> DeclResult
+  func visit(_ node: ModuleDecl) -> DeclResult
 
   func visit(_ node: PatternBindingDecl) -> DeclResult
 

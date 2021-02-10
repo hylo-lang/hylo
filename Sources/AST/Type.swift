@@ -313,13 +313,13 @@ public final class BuiltinIntType: BuiltinType {
 /// (e.g., `Builtin` in `Builtin::i32`).
 public final class ModuleType: ValType {
 
-  init(context: Context, module: Module) {
+  init(context: Context, module: ModuleDecl) {
     self.module = module
     super.init(context: context, props: .isCanonical)
   }
 
   /// The module corresponding to this type.
-  public unowned let module: Module
+  public unowned let module: ModuleDecl
 
   override func hash(into hasher: inout Hasher) {
     hasher.combine(ObjectIdentifier(module))

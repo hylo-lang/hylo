@@ -25,7 +25,7 @@ import AST
 /// to be carried out lazily, so that not all of the AST need to be brought up to a particular
 /// phase at the same time.
 ///
-/// The process is "declaration-driven"; it starts at a declaration node (e.g., a `Module`) and
+/// The process is "declaration-driven"; it starts at a declaration node (e.g., a `ModuleDecl`) and
 /// visits all nested declarations recursively. Dependencies are not fully type checked. Instead,
 /// the type checker aims to move them at the minimal "phase" that satisfies the requirements of
 /// the construction it is checking. For instance, referring to a method in another type does not

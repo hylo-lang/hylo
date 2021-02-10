@@ -134,7 +134,7 @@ public struct NodePrinter: NodeVisitor {
     """
   }
 
-  public func visit(_ node: Module) -> String {
+  public func visit(_ node: ModuleDecl) -> String {
     return """
     {
     "class"           : "\(type(of: node))",

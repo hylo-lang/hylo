@@ -205,6 +205,7 @@ struct CSSolver {
       ]
 
       // If `T` is a nominal type, add all views to which it conforms to the set of guesses.
+      // FIXME: Do we actually need this?
       if let nominal = constraint.lhs as? NominalType {
         // FIXME: Should we make sure we don't accidentally load conformances that come from a
         // a non-imported module if this is type-checked?

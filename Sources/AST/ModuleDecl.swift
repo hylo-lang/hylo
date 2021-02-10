@@ -1,10 +1,10 @@
 import Basic
 
-/// A module.
+/// A module declaration.
 ///
 /// A module, or compilation unit, is a collection of types, variables and function declarations
 /// declared in one or several source files.
-public final class Module: IterableDeclSpace {
+public final class ModuleDecl: IterableDeclSpace {
 
   public init(id: String, context: Context) {
     self.id = id
@@ -89,7 +89,7 @@ public final class Module: IterableDeclSpace {
 
 }
 
-extension Module: TypeDecl {
+extension ModuleDecl: TypeDecl {
 
   public var name: String { id }
 
@@ -105,7 +105,7 @@ extension Module: TypeDecl {
 
 }
 
-extension Module: CustomStringConvertible {
+extension ModuleDecl: CustomStringConvertible {
 
   public var description: String {
     return "Module(\(id))"

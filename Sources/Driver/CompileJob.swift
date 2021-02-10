@@ -61,7 +61,7 @@ public struct CompileJob: Job {
     }
 
     // Create a module.
-    let module = Module(id: moduleName, context: context)
+    let module = ModuleDecl(id: moduleName, context: context)
     context.modules[module.id] = module
 
     if isStdLib {

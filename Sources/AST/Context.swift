@@ -21,7 +21,7 @@ public final class Context {
   public var diagnosticConsumer: DiagnosticConsumer?
 
   /// The modules loaded in the context.
-  public var modules: [String: Module] = [:]
+  public var modules: [String: ModuleDecl] = [:]
 
   // MARK: Delegates
 
@@ -108,9 +108,9 @@ public final class Context {
   // MARK: Built-ins
 
   /// The built-in module.
-  public private(set) lazy var builtin: Module = {
+  public private(set) lazy var builtin: ModuleDecl = {
     // TODO: Load built-in function declarations.
-    return Module(id: "Builtin", context: self)
+    return ModuleDecl(id: "Builtin", context: self)
   }()
 
   /// The built-in types that have been cached.
@@ -161,7 +161,7 @@ public final class Context {
   // MARK: Standard library
 
   /// The standard library.
-  public var stdlib: Module?
+  public var stdlib: ModuleDecl?
 
   /// Returns the requested type from the standard library.
   ///

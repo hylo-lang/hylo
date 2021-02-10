@@ -8,7 +8,7 @@ struct DeclChecker: DeclVisitor {
   /// The top-level type checker.
   unowned let checker: TypeChecker
 
-  func visit(_ node: Module) {
+  func visit(_ node: ModuleDecl) {
     guard shouldTypeCheck(node) else { return }
     node.setState(.typeCheckRequested)
 

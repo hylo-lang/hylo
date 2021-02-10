@@ -58,7 +58,7 @@ extension Decl {
 
     outer:while let node = next {
       switch node {
-      case let delc as Module:
+      case let delc as ModuleDecl:
         components.append(delc.name)
 
       case let decl as VarDecl:

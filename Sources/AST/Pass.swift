@@ -5,6 +5,6 @@ public protocol Pass {
   static var name: String { get }
 
   /// Executes the pass on the given module in the specified AST context.
-  func run(on module: Module) throws
+  func run(on module: ModuleDecl) throws
 
 }
