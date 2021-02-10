@@ -709,6 +709,10 @@ public class NominalTypeDecl: TypeDecl, DeclSpace {
   public var inheritances: [TypeRepr]
 
   /// The member declarations of the type.
+  ///
+  /// This is the list of explicit declarations found directly within the type declaration. Use
+  /// `allTypeAndValueMembers` to enumerate all member declarations, including those that are
+  /// declared in extensions, inherited by conformance or synthetized.
   public var members: [Decl]
 
   public var range: SourceRange
@@ -719,26 +723,35 @@ public class NominalTypeDecl: TypeDecl, DeclSpace {
 
   public var isOverloadable: Bool { false }
 
-  /// An internal lookup table keeping track of type members.
-  var typeMemberTable: [String: TypeDecl]?
-
   /// An internal lookup table keeping track of value members.
   var valueMemberTable: [String: [ValueDecl]]?
+
+  /// An internal lookup table keeping track of type members.
+  var typeMemberTable: [String: TypeDecl]?
 
   // Updates or initializes the member lookup tables.
   func updateMemberTables() {
     guard valueMemberTable == nil else { return }
 
     // Initialize type lookup tables.
-    typeMemberTable  = [:]
     valueMemberTable = [:]
+    typeMemberTable  = [:]
 
     /// Fills the member lookup table with the given declarations.
-    func fill(members: [Decl]) {
+    func fill<S>(members: S) where S: Sequence, S.Element == Decl {
       for decl in members where decl.state != .invalid {
         switch decl {
+        case let valueDecl as ValueDecl:
+          valueMemberTable![valueDecl.name, default: []].append(valueDecl)
+
+        case let pbDecl as PatternBindingDecl:
+          for pattern in pbDecl.pattern.namedPatterns {
+            valueMemberTable![pattern.decl.name, default: []].append(pattern.decl)
+          }
+
         case let typeDecl as TypeDecl:
           // Check for invalid redeclarations.
+          // FIXME: Shadow declaration inherited declarations.
           guard typeMemberTable![typeDecl.name] == nil else {
             type.context.report(
               .duplicateDeclaration(symbol: typeDecl.name, range: typeDecl.range))
@@ -747,14 +760,6 @@ public class NominalTypeDecl: TypeDecl, DeclSpace {
           }
 
           typeMemberTable![typeDecl.name] = typeDecl
-
-        case let valueDecl as ValueDecl:
-          valueMemberTable![valueDecl.name, default: []].append(valueDecl)
-
-        case let pbDecl as PatternBindingDecl:
-          for pattern in pbDecl.pattern.namedPatterns {
-            valueMemberTable![pattern.decl.name, default: []].append(pattern.decl)
-          }
 
         default:
           continue
@@ -777,7 +782,10 @@ public class NominalTypeDecl: TypeDecl, DeclSpace {
       }
     }
 
-    // FIXME: Populate the lookup table with members inherited by conformance.
+    // Populate the lookup table with members inherited by conformance.
+    for conformance in conformances {
+      fill(members: conformance.viewDecl.allTypeAndValueMembers.lazy.map({ $0.decl }))
+    }
   }
 
   public func lookup(qualified name: String) -> LookupResult {
@@ -785,6 +793,60 @@ public class NominalTypeDecl: TypeDecl, DeclSpace {
     return LookupResult(
       types : typeMemberTable![name].map({ [$0] }) ?? [],
       values: valueMemberTable![name] ?? [])
+  }
+
+  /// A sequence with all members in this type.
+  public var allTypeAndValueMembers: MemberIterator {
+    updateMemberTables()
+    return MemberIterator(decl: self)
+  }
+
+  /// An iterator over all the member declarations of a type.
+  public struct MemberIterator: IteratorProtocol, Sequence {
+
+    public typealias Element = (name: String, decl: TypeOrValueDecl)
+
+    fileprivate init(decl: NominalTypeDecl) {
+      self.decl = decl
+      self.valueMemberIndex = (decl.valueMemberTable!.startIndex, 0)
+      self.typeMemberIndex = decl.typeMemberTable!.startIndex
+    }
+
+    fileprivate unowned let decl: NominalTypeDecl
+
+    fileprivate var valueMemberIndex: (Dictionary<String, [ValueDecl]>.Index, Int)
+
+    fileprivate var typeMemberIndex: Dictionary<String, TypeDecl>.Index
+
+    public mutating func next() -> (name: String, decl: TypeOrValueDecl)? {
+      // Iterate over value members.
+      let valueTable = decl.valueMemberTable!
+      if valueMemberIndex.0 < valueTable.endIndex {
+        // Extract the next member.
+        let (name, bucket) = valueTable[valueMemberIndex.0]
+        let member = bucket[valueMemberIndex.1]
+
+        // Update the value member index.
+        let i = valueMemberIndex.1 + 1
+        valueMemberIndex = (i >= bucket.endIndex)
+          ? (valueTable.index(after: valueMemberIndex.0), 0)
+          : (valueMemberIndex.0, i)
+
+        return (name, member)
+      }
+
+      // Iterate over type members.
+      let typeTable = decl.typeMemberTable!
+      if typeMemberIndex < typeTable.endIndex {
+        let (name, member) = typeTable[typeMemberIndex]
+        typeMemberIndex = typeTable.index(after: typeMemberIndex)
+        return (name, member)
+      }
+
+      // We reached the end of the sequence.
+      return nil
+    }
+
   }
 
   // MARK: Semantic properties
@@ -809,7 +871,8 @@ public class NominalTypeDecl: TypeDecl, DeclSpace {
     if conformanceTable == nil {
       conformanceTable = ConformanceLookupTable()
       for repr in inheritances {
-        if let viewType = repr.type as? ViewType {
+        let reprType = repr.realize(unqualifiedFrom: parentDeclSpace!)
+        if let viewType = reprType as? ViewType {
           conformanceTable!.insert(viewType, range: repr.range)
         }
       }
