@@ -189,7 +189,7 @@ extension ValueDecl {
       var adjustedSite: DeclSpace
       if gds is CtorDecl {
         // Constructors are contextualized from outside of their type declaration.
-        adjustedSite = gds.spacesUpToRoot.first(where: { $0 is TypeDecl })!
+        adjustedSite = gds.spacesUpToRoot.first(where: { $0 is TypeDecl })!.parentDeclSpace!
       } else {
         adjustedSite = gds
       }
