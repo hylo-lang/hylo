@@ -243,8 +243,8 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
       decl.genericClause = (genericClause.accept(self) as! GenericClause)
     }
     decl.members = ctx.declBlock()!.accept(self) as! [Decl]
-    if let viewConfClause = ctx.viewConfClause() {
-      decl.inheritances = viewConfClause.accept(self) as! [IdentTypeRepr]
+    if let inheritanceClause = ctx.inheritanceClause() {
+      decl.inheritances = inheritanceClause.accept(self) as! [IdentTypeRepr]
     }
 
     return decl
@@ -262,8 +262,8 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
 
     // Visit the remainder of the declaration.
     decl.members = ctx.declBlock()!.accept(self) as! [Decl]
-    if let viewConfClause = ctx.viewConfClause() {
-      decl.inheritances = viewConfClause.accept(self) as! [IdentTypeRepr]
+    if let inheritanceClause = ctx.inheritanceClause() {
+      decl.inheritances = inheritanceClause.accept(self) as! [IdentTypeRepr]
     }
 
     return decl
@@ -282,7 +282,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     return decl
   }
 
-  public override func visitViewConfClause(_ ctx: ValParser.ViewConfClauseContext) -> Any {
+  public override func visitInheritanceClause(_ ctx: ValParser.InheritanceClauseContext) -> Any {
     return ctx.identTypeRepr().map({ ident in ident.accept(self) as! IdentTypeRepr })
   }
 

@@ -97,11 +97,11 @@ typeDecl
   ;
 
 productTypeDecl
-  : 'type' NAME genericClause? viewConfClause? declBlock
+  : 'type' NAME genericClause? inheritanceClause? declBlock
   ;
 
 viewTypeDecl
-  : 'view' NAME viewConfClause? declBlock
+  : 'view' NAME inheritanceClause? declBlock
   ;
 
 typeDeclKeyword
@@ -112,8 +112,8 @@ extDecl
   : 'extn' identTypeRepr declBlock
   ;
 
-viewConfClause
-  : ':' identTypeRepr (',' identTypeRepr)*
+  inheritanceClause
+  : ':' identTypeRepr ('&' identTypeRepr)*
   ;
 
 ctrl
