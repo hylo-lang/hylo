@@ -7,6 +7,7 @@ var driver = Driver()
 driver.context.diagnosticConsumer = Terminal(sourceManager: driver.context.sourceManager)
 
 driver.jobs.append(CompileJob.stdlib(path: arguments.sysroot))
+driver.jobs.append(EmitVILJob(moduleID: "Val"))
 if arguments.dumpAST {
   driver.jobs.append(DumpJob())
 }
