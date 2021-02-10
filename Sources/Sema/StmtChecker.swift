@@ -56,7 +56,7 @@ struct StmtChecker: StmtVisitor {
 
     if var value = node.value {
       // Type check the returned expression.
-      checker.check(expr: &value, contextualType: retType, useSite: useSite)
+      checker.check(expr: &value, expectedType: retType, useSite: useSite)
       node.value = value
     } else if (retType != context.unitType) && !(funDecl is CtorDecl) {
       // Complain that non-unit function should return a value.

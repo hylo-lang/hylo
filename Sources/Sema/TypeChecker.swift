@@ -67,24 +67,24 @@ public final class TypeChecker {
   ///
   /// - Parameters:
   ///   - expr: The expression to type check.
-  ///   - contextualType: The expected type of the expression, based on the context in which it
+  ///   - expectedType: The expected type of the expression, based on the context in which it
   ///     appears. For instance, the contextual type of `9` in `val x: UInt = 9` is `UInt`. No
   ///     assumption is made if it assigned to `nil`.
   ///   - useSite: The declaration space in which the expression is type checked.
   public func check(
     expr: inout Expr,
-    contextualType: ValType? = nil,
+    expectedType: ValType? = nil,
     useSite: DeclSpace
   ) {
     var system = ConstraintSystem()
-    check(expr: &expr, contextualType: contextualType, useSite: useSite, system: &system)
+    check(expr: &expr, expectedType: expectedType, useSite: useSite, system: &system)
   }
 
   /// Type checks the given expression.
   ///
   /// - Parameters:
   ///   - expr: The expression to type check.
-  ///   - contextualType: The expected type of the expression, based on the context in which it
+  ///   - expectedType: The expected type of the expression, based on the context in which it
   ///     appears. For instance, the contextual type of `9` in `val x: UInt = 9` is `UInt`. No
   ///     assumption is made if it assigned to `nil`.
   ///   - useSite: The declaration space in which the expression is type checked.
@@ -92,7 +92,7 @@ public final class TypeChecker {
   ///     with those related to the expression.
   func check(
     expr: inout Expr,
-    contextualType: ValType? = nil,
+    expectedType: ValType? = nil,
     useSite: DeclSpace,
     system: inout ConstraintSystem
   ) {
@@ -109,7 +109,7 @@ public final class TypeChecker {
       _ = driver.walk(expr)
     })
 
-    if let type = contextualType {
+    if let type = expectedType {
       system.insert(
         RelationalConstraint(
           kind: .subtyping, lhs: expr.type, rhs: type, at: ConstraintLocator(expr)))

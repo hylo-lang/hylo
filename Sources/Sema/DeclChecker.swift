@@ -30,7 +30,7 @@ struct DeclChecker: DeclVisitor {
 
     // If there's a signature, use it as the authoritative type information. Otherwise, infer it
     // from the pattern initializer.
-    var patternType: ValType
+    let patternType: ValType
     if let sign = node.sign {
       // Realize the signature, generating diagnostics as necessary.
       var signType = sign.realize(unqualifiedFrom: useSite)
@@ -68,17 +68,27 @@ struct DeclChecker: DeclVisitor {
         return
       }
 
-      patternType = completeSignType
-
       // If the signature contains opened existentials, require an initializer to infer them.
-      guard !patternType.hasVariables || node.initializer != nil else {
+      guard !completeSignType.hasVariables || node.initializer != nil else {
         checker.context.report(
-          .referenceToGenericRequiresArguments(type: patternType, range: node.pattern.range))
+          .referenceToGenericRequiresArguments(type: completeSignType, range: node.pattern.range))
         setInvalid(pbd: node)
         return
       }
+
+      // Type-check the initializer if there's one.
+      if node.initializer != nil {
+        checker.check(
+          expr: &(node.initializer!), expectedType: completeSignType,
+          useSite: useSite, system: &system)
+        patternType = node.initializer!.type
+      } else {
+        patternType = completeSignType
+      }
     } else if node.initializer != nil {
-      patternType = TypeVar(context: checker.context, node: node.pattern)
+      // Infer everything from the initializer alone.
+      checker.check(expr: &(node.initializer!), useSite: useSite, system: &system)
+      patternType = node.initializer!.type
     } else {
       // Unannotated declarations require an initializer.
       checker.context.report(.missingPatternInitializer(range: node.pattern.range))
@@ -86,13 +96,7 @@ struct DeclChecker: DeclVisitor {
       return
     }
 
-    // Type-check the initializer if there's one.
-    if node.initializer != nil {
-      checker.check(
-        expr: &(node.initializer!), contextualType: patternType, useSite: useSite, system: &system)
-      patternType = node.initializer!.type
-      assert(!patternType.hasVariables)
-    }
+    assert(!patternType.hasVariables)
 
     // Apply the pattern's type.
     guard TypeChecker.assign(type: patternType, to: node.pattern) else {
