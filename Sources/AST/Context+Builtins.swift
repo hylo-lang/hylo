@@ -26,33 +26,38 @@ extension Context {
     params: ArraySlice<String>,
     ret: String
   ) -> FunDecl {
+    // Create the declaration of the function.
+    let funDecl = FunDecl(name: name, type: unresolvedType, range: .invalid)
+
+    // Create the declaration(s) of the function's parameter.
     var paramTypes: [TupleType.Elem] = []
-    var paramDecls: [FunParamDecl] = []
     for (i, param) in params.enumerated() {
+      // Create the parameter's type
       let type = getBuiltinType(named: param)!
       paramTypes.append(TupleType.Elem(type: type))
+
+      // Create the declaration of the parameter.
       let decl = FunParamDecl(
         name: "_\(i)",
         typeSign: UnqualTypeRepr(name: param, type: type, range: .invalid),
         type: type,
         range: .invalid)
-      paramDecls.append(decl)
+      decl.parentDeclSpace = funDecl
+      decl.setState(.typeChecked)
+
+      funDecl.params.append(decl)
     }
 
-    let retTypeSign: TypeRepr? = ret.isEmpty
+    // Setup the function's signature.
+    funDecl.retSign = ret.isEmpty
       ? nil
       : UnqualTypeRepr(name: ret, type: getBuiltinType(named: ret)!, range: .invalid)
-
-    let builtinFunType = funType(
+    funDecl.type = funType(
       paramType: tupleType(paramTypes),
-      retType  : retTypeSign?.type ?? unitType)
+      retType  : funDecl.retSign?.type ?? unitType)
 
-    return FunDecl(
-      name: name,
-      params: paramDecls,
-      retTypeSign: retTypeSign,
-      type: builtinFunType,
-      range: .invalid)
+    funDecl.setState(.typeChecked)
+    return funDecl
   }
 
 }
