@@ -120,3 +120,28 @@ open class TypeWalker: TypeVisitor {
   }
 
 }
+
+/// A type walker whose event handlers are built from closures.
+public final class FunctionalTypeWalker: TypeWalker {
+
+  public init(
+    willVisit willVisitHandler: @escaping (ValType) -> TypeWalker.Action = { .stepInto($0) },
+    didVisit didVisitHandler: @escaping (ValType) -> ValType = { $0 }
+  ) {
+    self.willVisitHandler = willVisitHandler
+    self.didVisitHandler = didVisitHandler
+  }
+
+  private let willVisitHandler: (ValType) -> TypeWalker.Action
+
+  private let didVisitHandler: (ValType) -> ValType
+
+  public override func willVisit(_ type: ValType) -> TypeWalker.Action {
+    return willVisitHandler(type)
+  }
+
+  public override func didVisit(_ type: ValType) -> ValType {
+    return didVisitHandler(type)
+  }
+
+}
