@@ -199,7 +199,7 @@ struct CSSolver {
     case is (ValType, TypeVar):
       // The type variable is above a more concrete type. We should compute the "join" of all types
       // to which `T` is coercible and that are below `U`.
-      var guesses: [Constraint] = [
+      var guesses = [
         RelationalConstraint(
           kind: .equality, lhs: constraint.lhs, rhs: constraint.rhs, at: constraint.locator)
       ]
@@ -237,7 +237,7 @@ struct CSSolver {
         let defaultType = context.getTypeDecl(for: .Int)!.instanceType
         let defaultChoice = RelationalConstraint(
           kind: .equality, lhs: constraint.lhs, rhs: defaultType, at: constraint.locator)
-        system.insertDisjuncConf(disjunctionOfConstraintsWithWeights: [
+        system.insert(disjunctionOfConstraintsWithWeights: [
           (defaultChoice, 0),
           (simplified   , 1),
         ])

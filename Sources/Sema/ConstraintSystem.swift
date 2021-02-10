@@ -42,7 +42,7 @@ struct ConstraintSystem {
   ///   contains only a choice, then the constraint is inserted "as-is" into the system. Otherwise,
   ///   a disjunction is created The method has no effect if `choices` is empty.
   @discardableResult
-  mutating func insertDisjuncConf<S>(disjunctionOfConstraintsWithWeights choices: S) -> Constraint?
+  mutating func insert<S>(disjunctionOfConstraintsWithWeights choices: S) -> Constraint?
   where S: Sequence, S.Element == (Constraint, Int)
   {
     let choices = Array(choices)
@@ -66,7 +66,7 @@ struct ConstraintSystem {
   mutating func insert<S>(disjunction sequence: S) -> Constraint?
   where S: Sequence, S.Element == Constraint
   {
-    return insertDisjuncConf(disjunctionOfConstraintsWithWeights: sequence.map({ ($0, 0) }))
+    return insert(disjunctionOfConstraintsWithWeights: sequence.map({ ($0, 0) }))
   }
 
 }
