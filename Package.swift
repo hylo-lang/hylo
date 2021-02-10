@@ -22,6 +22,7 @@ let package = Package(
       dependencies: ["Antlr4", "Basic"],
       exclude: ["Val.g4", "Val.interp", "Val.tokens", "ValLexer.interp", "ValLexer.tokens"]),
     .target(name: "Sema", dependencies: ["AST", "Basic"]),
+    .target(name: "VIL", dependencies: ["AST", "Basic"]),
 
     .testTarget(
       name: "ValTests",
