@@ -1,40 +1,62 @@
 import AST
 
 /// The representation of runtime value.
-public protocol Value {}
-
-/// A constant "unit" value.
-public struct UnitValue: Value {
-
-  public init(context: AST.Context) {
-    self.type = context.unitType
-  }
+public protocol Value: AnyObject {
 
   /// The type of the value.
-  public let type: ValType
+  var type: VILType { get }
+
+}
+
+// MARK: Constants
+
+/// A constant "unit" value.
+public final class UnitValue: Value {
+
+  /// The type of the value.
+  public let type: VILType
+
+  public init(context: AST.Context) {
+    self.type = .object(context.unitType)
+  }
 
 }
 
 /// A constant integer literal.
-public struct IntLiteralValue: Value {
+public final class IntLiteralValue: Value {
+
+  public let type: VILType
 
   public init(type: ValType) {
-    self.type = type
+    self.type = .object(type)
   }
-
-  /// The type of the value.
-  public let type: ValType
 
 }
 
-/// The incoming argument of a function.
-public struct ArgumentValue: Value {
+/// An error value.
+public final class ErrorValue: Value {
 
-  /// The type of the argument.
-  public let type: ValType
+  public let type: VILType
+
+  public init(context: AST.Context) {
+    self.type = .object(context.errorType)
+  }
+
+}
+
+// MARK: Other values
+
+/// The incoming argument of a block or function.
+public final class ArgumentValue: Value {
+
+  public let type: VILType
 
   /// The function to which the argument belongs.
   public unowned let function: Function
 
-}
+  init(type: VILType, function: Function) {
+    self.type = type
+    self.function = function
+  }
 
+}

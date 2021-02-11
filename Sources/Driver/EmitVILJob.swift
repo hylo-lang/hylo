@@ -22,11 +22,8 @@ public struct EmitVILJob: Job {
     let builder = VIL.Builder(module: module)
     let emitter = Emitter(context: context, builder: builder)
 
-    // Emit each declaration in the module.
-    for decl in moduleDecl.decls {
-      emitter.emit(decl: decl)
-    }
-
+    // Emit the module declaration.
+    emitter.emit(moduleDecl: moduleDecl)
     module.dump()
   }
 

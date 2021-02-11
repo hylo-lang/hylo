@@ -28,10 +28,10 @@ public class Function {
     self.arguments = []
     if let tupleType = type.paramType as? TupleType {
       arguments = tupleType.elems.map({ (elem) -> ArgumentValue in
-        ArgumentValue(type: elem.type, function: self)
+        ArgumentValue(type: .object(elem.type), function: self)
       })
     } else {
-      arguments = [ArgumentValue(type: type.paramType, function: self)]
+      arguments = [ArgumentValue(type: .object(type.paramType), function: self)]
     }
   }
 
@@ -40,12 +40,6 @@ public class Function {
     let block = BasicBlock(function: self, arguments: arguments)
     blocks.append(block)
     return block
-  }
-
-  /// Dumps a textual representation of the function to the given output stream.
-  public func dump<S>(to stream: inout S) where S: TextOutputStream {
-    stream.write("vilfun \(name) : \(type) {\n")
-    stream.write("}\n")
   }
 
 }

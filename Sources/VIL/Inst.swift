@@ -1,29 +1,47 @@
 import AST
 
 /// A VIL instruction.
-public protocol Inst {}
+public protocol Inst: AnyObject {
+
+  /// The result of the instruction.
+  var result: Value? { get }
+
+}
 
 /// A stack allocation.
-public struct AllocStackInst: Inst, Value {
-
-  /// The type of the value produced by the allocation.
-  public let type: VILType
+public final class AllocStackInst: Inst, Value {
 
   /// The type of the allocated object.
   public let allocatedType: ValType
 
+  public var type: VILType { .address(allocatedType) }
+
+  public var result: Value? { self }
+
+  init(allocatedType: ValType) {
+    self.allocatedType = allocatedType
+  }
+
 }
 
-/// The creation of an uninitialized record value (i.e., an instance of a product type).
-public struct RecordInst: Inst, Value {
+/// A record value (i.e., an instance of a product type).
+public final class RecordInst: Inst, Value {
 
   /// The declaration of the type of which the record value is an instance.
   public let typeDecl: NominalTypeDecl
 
+  public var type: VILType { .object(typeDecl.instanceType) }
+
+  public var result: Value? { self }
+
+  init(typeDecl: NominalTypeDecl) {
+    self.typeDecl = typeDecl
+  }
+
 }
 
 /// The address of a stored member in a record value.
-public struct RecordMemberAddrInst: Inst, Value {
+public final class RecordMemberAddrInst: Inst, Value {
 
   /// The record value for which the member's address is computed.
   public let record: Value
@@ -31,15 +49,71 @@ public struct RecordMemberAddrInst: Inst, Value {
   /// The declaration of the member whose address is computed.
   public let memberDecl: VarDecl
 
+  public var type: VILType { .object(memberDecl.type) }
+
+  public var result: Value? { self }
+
+  init(record: Value, memberDecl: VarDecl) {
+    self.record = record
+    self.memberDecl = memberDecl
+  }
+
+}
+
+/// A tuple value.
+public final class TupleInst: Inst, Value {
+
+  /// The type of the tuple.
+  public let tupleType: TupleType
+
+  /// The value of the tuple's elements.
+  public let elems: [Value]
+
+  public var type: VILType { .object(tupleType) }
+
+  public var result: Value? { self }
+
+  init(type: TupleType, elems: [Value]) {
+    self.tupleType = type
+    self.elems = elems
+  }
+
 }
 
 /// A store instruction.
-public struct StoreInst: Inst {
+public final class StoreInst: Inst {
 
   /// The location (or target) of the store.
   public let lvalue: Value
 
   /// The value being stored.
   public let rvalue: Value
+
+  public var result: Value? { nil }
+
+  init(lvalue: Value, rvalue: Value) {
+    self.lvalue = lvalue
+    self.rvalue = rvalue
+  }
+
+}
+
+/// A load instruction.
+public final class LoadInst: Inst, Value {
+
+  /// The location to load.
+  public let lvalue: Value
+
+  public var type: VILType {
+    guard case .address(let valType) = lvalue.type else { fatalError("unreachable") }
+    return .object(valType)
+  }
+
+  public var result: Value? { self }
+
+  init(lvalue: Value) {
+    precondition(lvalue.type.isAddress)
+    self.lvalue = lvalue
+  }
 
 }

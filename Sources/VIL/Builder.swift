@@ -42,7 +42,7 @@ public final class Builder {
   ///
   /// - Parameter type: The type of the allocated object.
   public func buildAllocStack(type: ValType) -> AllocStackInst {
-    let inst = AllocStackInst(type: .address(type), allocatedType: type)
+    let inst = AllocStackInst(allocatedType: type)
     block!.instructions.append(inst)
     return inst
   }
@@ -67,6 +67,13 @@ public final class Builder {
     return inst
   }
 
+  /// Builds a tuple value instruction.
+  public func buildTuple(type: TupleType, elems: [Value]) -> TupleInst {
+    let inst = TupleInst(type: type, elems: elems)
+    block!.instructions.append(inst)
+    return inst
+  }
+
   /// Builds a `store` instruction.
   ///
   /// - Parameters:
@@ -75,6 +82,15 @@ public final class Builder {
   @discardableResult
   public func buildStore(lvalue: Value, rvalue: Value) -> StoreInst {
     let inst = StoreInst(lvalue: lvalue, rvalue: rvalue)
+    block!.instructions.append(inst)
+    return inst
+  }
+
+  /// Builds as `load` instruction.
+  ///
+  /// - Parameter lvalue: The location to load. `lvalue` must have an address type.
+  public func buildLoad(lvalue: Value) -> LoadInst {
+    let inst = LoadInst(lvalue: lvalue)
     block!.instructions.append(inst)
     return inst
   }
