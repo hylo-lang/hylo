@@ -367,6 +367,12 @@ public class BaseFunDecl: ValueDecl, GenericDeclSpace {
   /// The name of the function (empty for anonymous functions).
   public var name: String
 
+  /// The local discriminator for the function.
+  ///
+  /// This is the index of the function in the sequence of anonymous declarations in the parent
+  /// declaration space.
+  public var discriminator = 0
+
   /// The semantic properties of the declaration.
   public var props: FunDeclProps
 
