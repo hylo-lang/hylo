@@ -20,12 +20,14 @@ public struct EmitVILJob: Job {
     // Initialize the VIL emitter.
     let module = Module(id: moduleID)
     let builder = VIL.Builder(module: module)
-    let emitter = Emitter(builder: builder)
+    let emitter = Emitter(context: context, builder: builder)
 
     // Emit each declaration in the module.
     for decl in moduleDecl.decls {
       emitter.emit(decl: decl)
     }
+
+    module.dump()
   }
 
 }

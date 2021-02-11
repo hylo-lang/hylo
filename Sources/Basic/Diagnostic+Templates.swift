@@ -120,4 +120,13 @@ extension Diagnostic {
       anchor: range)
   }
 
+  public static func codeAfterReturnNeverExecuted(
+    range: SourceRange
+  ) -> Diagnostic {
+    return Diagnostic(
+      "code after return statement will never be executed",
+      level: .warning,
+      anchor: range)
+  }
+
 }

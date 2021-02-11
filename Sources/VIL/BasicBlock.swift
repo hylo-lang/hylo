@@ -8,7 +8,7 @@ public struct BasicBlock {
   public unowned let function: Function
 
   /// The arguments of the block.
-  public var args: [Value]
+  public var arguments: [Value]
 
   /// The instructions in the block.
   public var instructions: [Inst] = []

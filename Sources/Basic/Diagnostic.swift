@@ -52,6 +52,9 @@ public struct Diagnostic {
     /// An unrecoverable error that prevents compilation.
     case error
 
+    /// An error that does not prevent compilation.
+    case warning
+
   }
 
 }
@@ -60,7 +63,8 @@ extension Diagnostic.Level: CustomStringConvertible {
 
   public var description: String {
     switch self {
-    case .error: return "error"
+    case .error   : return "error"
+    case .warning : return "warning"
     }
   }
 
