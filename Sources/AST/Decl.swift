@@ -283,10 +283,14 @@ public final class VarDecl: ValueDecl {
 
   public var range: SourceRange
 
+  /// The backend of the variable.
+  public var backend: VarBackend = .storage
+
+  /// A flag indicating whether the variable has storage.
+  public var hasStorage: Bool { backend == .storage }
+
   /// A flag indicating whether the variable is mutable.
-  public var isMutable: Bool {
-    return patternBindingDecl?.isMutable ?? false
-  }
+  public var isMutable: Bool { patternBindingDecl?.isMutable ?? false }
 
   public weak var parentDeclSpace: DeclSpace?
 
@@ -312,6 +316,16 @@ public final class VarDecl: ValueDecl {
   public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
+
+}
+
+/// The "backend" of a variable declaration, describing how its value is stored and retrieved.
+///
+/// In the future, we may use this enum to represent computed and lazy properties.
+public enum VarBackend {
+
+  /// The value of the variable is stored in memory.
+  case storage
 
 }
 
