@@ -9,6 +9,9 @@ public protocol Pattern: Node {
   /// Returns the named patterns contained within this pattern.
   var namedPatterns: [NamedPattern] { get }
 
+  /// If the pattern binds a single variable without destructuring, returns its declaration.
+  var singleVarDecl: VarDecl? { get }
+
   /// Accepts the given visitor.
   ///
   /// - Parameter visitor: A pattern visitor.
@@ -31,6 +34,8 @@ public final class NamedPattern: Pattern {
   public var type: ValType
 
   public var namedPatterns: [NamedPattern] { [self] }
+
+  public var singleVarDecl: VarDecl? { decl }
 
   public var range: SourceRange
 
@@ -56,6 +61,11 @@ public final class TuplePattern: Pattern {
 
   public var namedPatterns: [NamedPattern] {
     return Array(elems.map({ el in el.pattern.namedPatterns }).joined())
+  }
+
+  public var singleVarDecl: VarDecl? {
+    guard elems.count == 1 else { return nil }
+    return elems[0].pattern.singleVarDecl
   }
 
   public var range: SourceRange
@@ -97,6 +107,8 @@ public final class WildcardPattern: Pattern {
   public var type: ValType
 
   public var namedPatterns: [NamedPattern] { [] }
+
+  public var singleVarDecl: VarDecl? { nil }
 
   public var range: SourceRange
 
