@@ -41,8 +41,12 @@ public enum DeclState: Int, Comparable {
 
   /// The declaration has been found to be ill-formed; it should be ignored by all subsequent
   /// semantic analysis phases, without producing any further diagnostic.
+  ///
+  /// - Note: `invalid` must have the largest raw value, so that `.invalid < validState` always
+  ///   answer `false` for any arbitrary valid state.
   case invalid
 
+  /// Returns a Boolean value indicating whether one state is more "advanced" than the other.
   public static func < (lhs: DeclState, rhs: DeclState) -> Bool {
     return lhs.rawValue < rhs.rawValue
   }
@@ -91,6 +95,9 @@ public protocol GenericTypeDecl: TypeDecl, GenericDeclSpace {
 
 /// A named declaration.
 public protocol ValueDecl: TypeOrValueDecl {
+
+  /// A flag indicating whether the declaration describes the member of a type.
+  var isMember: Bool { get }
 
   /// The type of the declaration.
   var type: ValType { get set }
@@ -183,6 +190,11 @@ public final class PatternBindingDecl: Decl {
   /// A flag indicating whether the declared variables are mutable.
   public var isMutable: Bool
 
+  /// A flag indicating whether the declaration describes member variables.
+  public var isMember: Bool {
+    return (parentDeclSpace is NominalTypeDecl || parentDeclSpace is TypeExtDecl)
+  }
+
   /// The pattern being bound.
   public var pattern: Pattern
 
@@ -240,9 +252,12 @@ public final class VarDecl: ValueDecl {
   /// A flag indicating whether the variable is mutable.
   public var isMutable: Bool { patternBindingDecl?.isMutable ?? false }
 
-  public weak var parentDeclSpace: DeclSpace?
+  /// A flag indicating whether the variable is member of a pattern binding declared as a member.
+  public var isMember: Bool { patternBindingDecl?.isMember ?? false }
 
   public var isOverloadable: Bool { false }
+
+  public weak var parentDeclSpace: DeclSpace?
 
   public private(set) var state = DeclState.parsed
 
@@ -323,6 +338,8 @@ public class BaseFunDecl: ValueDecl, GenericDeclSpace {
 
   /// The semantic properties of the declaration.
   public var props: FunDeclProps
+
+  public var isMember: Bool { props.contains(.isMember) }
 
   /// The declaration modifiers of the function.
   ///
@@ -622,6 +639,8 @@ public final class FunParamDecl: ValueDecl {
   public var range: SourceRange
 
   public weak var parentDeclSpace: DeclSpace?
+
+  public var isMember: Bool { false }
 
   public var isOverloadable: Bool { false }
 
