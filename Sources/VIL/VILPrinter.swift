@@ -51,11 +51,13 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
 
   var indentation = 0
 
-  var nextBlockID = 0
-
   var nextValueID = 0
 
   var valueIDTable: [ObjectIdentifier: Int] = [:]
+
+  func makeID(for block: BasicBlock) -> Int {
+    return block.function.blocks.firstIndex(where: { $0 === block })!
+  }
 
   mutating func makeID(for value: Value) -> Int {
     if let id = valueIDTable[ObjectIdentifier(value)] {
@@ -69,9 +71,7 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
   }
 
   mutating func dump(block: BasicBlock) {
-    let id = nextBlockID
-    nextBlockID += 1
-    self << "bb\(id)("
+    self << "bb\(makeID(for: block))("
     for argument in block.arguments {
       self << IDAndType(id: makeID(for: argument), type: argument.type)
     }
@@ -110,6 +110,26 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
       self << "_\(id) = load "
       self << IDAndType(id: makeID(for: load.lvalue), type: load.lvalue.type)
       self << "\n"
+
+    case let branch as BranchInst:
+      self << "branch bb\(makeID(for: branch.dest))("
+      for argument in branch.args {
+        self << IDAndType(id: makeID(for: argument), type: argument.type)
+      }
+      self << ")\n"
+
+    case let branch as CondBranchInst:
+      self << "cond_branch "
+      self << IDAndType(id: makeID(for: branch.cond), type: branch.cond.type)
+      self << " bb\(makeID(for: branch.thenDest))("
+      for argument in branch.thenArgs {
+        self << IDAndType(id: makeID(for: argument), type: argument.type)
+      }
+      self << ") bb\(makeID(for: branch.elseDest))("
+      for argument in branch.elseArgs {
+        self << IDAndType(id: makeID(for: argument), type: argument.type)
+      }
+      self << ")\n"
 
     default:
       fatalError()

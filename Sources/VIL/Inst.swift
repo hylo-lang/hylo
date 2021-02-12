@@ -117,3 +117,60 @@ public final class LoadInst: Inst, Value {
   }
 
 }
+
+/// An unconditional branch instruction.
+public final class BranchInst: Inst {
+
+  /// The block to which the execution should jump.
+  public unowned let dest: BasicBlock
+
+  /// The arguments of the destination block.
+  public let args: [Value]
+
+  public var result: Value? { nil }
+
+  init(dest: BasicBlock, args: [Value]) {
+    precondition(dest.arguments.count == args.count, "invalid arguments")
+    // FIXME: Check for argument types.
+
+    self.dest = dest
+    self.args = args
+  }
+
+}
+
+/// A conditional branch instruction.
+public final class CondBranchInst: Inst {
+
+  /// The condition.
+  ///
+  /// This must be a Boolean value.
+  public let cond: Value
+
+  /// The block to which the execution should jump if the condition holds.
+  public unowned let thenDest: BasicBlock
+
+  /// The arguments of the "then" destination block.
+  public let thenArgs: [Value]
+
+  /// The block to which the execution should jump if the condition does not hold.
+  public unowned let elseDest: BasicBlock
+
+  /// The arguments of the "else" destination block.
+  public let elseArgs: [Value]
+
+  public var result: Value? { nil }
+
+  init(
+    cond: Value,
+    thenDest: BasicBlock, thenArgs: [Value],
+    elseDest: BasicBlock, elseArgs: [Value]
+  ) {
+    self.cond = cond
+    self.thenDest = thenDest
+    self.thenArgs = thenArgs
+    self.elseDest = elseDest
+    self.elseArgs = elseArgs
+  }
+
+}

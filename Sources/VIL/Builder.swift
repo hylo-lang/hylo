@@ -86,11 +86,51 @@ public final class Builder {
     return inst
   }
 
-  /// Builds as `load` instruction.
+  /// Builds a `load` instruction.
   ///
   /// - Parameter lvalue: The location to load. `lvalue` must have an address type.
   public func buildLoad(lvalue: Value) -> LoadInst {
     let inst = LoadInst(lvalue: lvalue)
+    block!.instructions.append(inst)
+    return inst
+  }
+
+  /// Builds an unconditional `branch` instruction.
+  ///
+  /// - Parameters:
+  ///   - dest: The basic block to which the execution should branch. `dest` must be in the current
+  ///   function.
+  ///   - args: The arguments of the destination block. `args` Should must the number and type of
+  ///   the arguments expected by `dest.`
+  public func buildBranch(dest: BasicBlock, args: [Value]) -> BranchInst {
+    precondition(dest.function === function, "invalid destination")
+
+    let inst = BranchInst(dest: dest, args: args)
+    block!.instructions.append(inst)
+    return inst
+  }
+
+  /// Builds a `cond_branch` instruction.
+  ///
+  /// - Parameters:
+  ///   - cond: A condition that determines the block to which the execution should branch. `cond`
+  ///   must be a Boolean value.
+  ///   - thenDest: The basic block to which the execution should branch if the condition holds
+  ///   `thenDest` must be in the current function, and be different than `elseDest`.
+  ///   - thenArgs: The arguments of `thenDest`.
+  ///   - elseDest: The basic block to which the execution should branch if the condition doesn not
+  ///   hold. `elseDest` must be in the current function, and be different than `thenDest`.
+  ///   - elseArgs: The arguments of `elseDest`.
+  public func buildCondBranch(
+    cond: Value,
+    thenDest: BasicBlock, thenArgs: [Value],
+    elseDest: BasicBlock, elseArgs: [Value]
+  ) -> CondBranchInst {
+    precondition(thenDest.function === function, "invalid destination")
+    precondition(elseDest.function === function, "invalid destination")
+
+    let inst = CondBranchInst(
+      cond: cond, thenDest: thenDest, thenArgs: thenArgs, elseDest: elseDest, elseArgs: elseArgs)
     block!.instructions.append(inst)
     return inst
   }
