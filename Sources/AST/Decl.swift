@@ -553,6 +553,9 @@ public class BaseFunDecl: ValueDecl, GenericDeclSpace {
     /// Indicates whether the function is static.
     public static let isStatic   = FunDeclProps(rawValue: 1 << 2)
 
+    /// Indicates whether the function is built-in.
+    public static let isBuiltin  = FunDeclProps(rawValue: 1 << 3)
+
   }
 
 }

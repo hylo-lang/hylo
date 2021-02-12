@@ -57,6 +57,7 @@ extension Context {
       retType  : funDecl.retSign?.type ?? unitType)
 
     funDecl.setState(.typeChecked)
+    funDecl.props.insert(.isBuiltin)
     return funDecl
   }
 
