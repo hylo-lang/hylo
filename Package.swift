@@ -16,7 +16,7 @@ let package = Package(
       dependencies: ["Basic", "Parser"],
       resources: [.copy("Builtins.json")]),
     .target(name: "Basic"),
-    .target(name: "Driver", dependencies: ["AST", "Basic", "Parser", "Sema"]),
+    .target(name: "Driver", dependencies: ["AST", "Basic", "Parser", "Sema", "VIL"]),
     .target(
       name: "Parser",
       dependencies: ["Antlr4", "Basic"],
