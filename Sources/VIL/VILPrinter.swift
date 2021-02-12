@@ -72,9 +72,7 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
 
   mutating func dump(block: BasicBlock) {
     self << "bb\(makeID(for: block))("
-    for argument in block.arguments {
-      self << IDAndType(id: makeID(for: argument), type: argument.type)
-    }
+    self << block.arguments
     self << "):\n"
 
     indentation += 1
@@ -90,45 +88,51 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
       let id = makeID(for: alloc)
       self << "_\(id) = alloc_stack \(alloc.allocatedType)\n"
 
+    case let apply as ApplyInst:
+      let id = makeID(for: apply)
+      self << "_\(id) = apply "
+      self << apply.fun
+      self << " to ("
+      self << apply.args
+      self << ")\n"
+
+    case let addr as RecordMemberAddrInst:
+      let id = makeID(for: addr)
+      self << "_\(id) = record_member_addr "
+      self << addr.record
+      self << ", \(addr.memberDecl.name)\n"
+
     case let tuple as TupleInst:
       let id = makeID(for: tuple)
       self << "_\(id) = tuple \(tuple.type) ("
-      for elem in tuple.elems {
-        self << IDAndType(id: makeID(for: elem), type: elem.type)
-      }
+      self << tuple.elems
       self << ")\n"
 
     case let store as StoreInst:
       self << "store "
-      self << IDAndType(id: makeID(for: store.rvalue), type: store.rvalue.type)
+      self << store.rvalue
       self << " to "
-      self << IDAndType(id: makeID(for: store.lvalue), type: store.lvalue.type)
+      self << store.lvalue
       self << "\n"
 
     case let load as LoadInst:
       let id = makeID(for: load)
       self << "_\(id) = load "
-      self << IDAndType(id: makeID(for: load.lvalue), type: load.lvalue.type)
+      self << load.lvalue
       self << "\n"
 
     case let branch as BranchInst:
       self << "branch bb\(makeID(for: branch.dest))("
-      for argument in branch.args {
-        self << IDAndType(id: makeID(for: argument), type: argument.type)
-      }
+      self << branch.args
       self << ")\n"
 
     case let branch as CondBranchInst:
       self << "cond_branch "
-      self << IDAndType(id: makeID(for: branch.cond), type: branch.cond.type)
+      self << branch.cond
       self << " bb\(makeID(for: branch.thenDest))("
-      for argument in branch.thenArgs {
-        self << IDAndType(id: makeID(for: argument), type: argument.type)
-      }
+      self << branch.thenArgs
       self << ") bb\(makeID(for: branch.elseDest))("
-      for argument in branch.elseArgs {
-        self << IDAndType(id: makeID(for: argument), type: argument.type)
-      }
+      self << branch.elseArgs
       self << ")\n"
 
     default:
@@ -167,6 +171,24 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
 
   static func << (lhs: inout PrintContext, rhs: String) {
     lhs.write(rhs)
+  }
+
+  static func << (lhs: inout PrintContext, rhs: Value) {
+    if rhs is LiteralValue {
+      lhs.write("\(rhs) : \(rhs.type)")
+    } else {
+      let id = lhs.makeID(for: rhs)
+      lhs.write("_\(id) : \(rhs.type)")
+    }
+  }
+
+  static func << (lhs: inout PrintContext, rhs: [Value]) {
+    for i in 0 ..< rhs.count {
+      lhs << rhs[i]
+      if i < rhs.count - 1 {
+        lhs.write(", ")
+      }
+    }
   }
 
   static func << (lhs: inout PrintContext, rhs: IDAndType) {

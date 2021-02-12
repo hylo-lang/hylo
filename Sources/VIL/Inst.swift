@@ -24,6 +24,27 @@ public final class AllocStackInst: Inst, Value {
 
 }
 
+/// The application of a function.
+public final class ApplyInst: Inst, Value {
+
+  /// The function being applied.
+  public let fun: Value
+
+  /// The arguments of the function application.
+  public let args: [Value]
+
+  public let type: VILType
+
+  public var result: Value? { self }
+
+  init(fun: Value, args: [Value], type: VILType) {
+    self.fun = fun
+    self.args = args
+    self.type = type
+  }
+
+}
+
 /// A record value (i.e., an instance of a product type).
 public final class RecordInst: Inst, Value {
 
@@ -49,7 +70,7 @@ public final class RecordMemberAddrInst: Inst, Value {
   /// The declaration of the member whose address is computed.
   public let memberDecl: VarDecl
 
-  public var type: VILType { .object(memberDecl.type) }
+  public var type: VILType { .address(memberDecl.type) }
 
   public var result: Value? { self }
 

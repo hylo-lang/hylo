@@ -47,6 +47,23 @@ public final class Builder {
     return inst
   }
 
+  /// Builds a function application.
+  ///
+  /// - Parameters:
+  ///   - fun: The function to apply. `fun` must have a function type.
+  ///   - args: The arguments of the function application.
+  public func buildApply(fun: Value, args: [Value]) -> ApplyInst {
+    guard case .object(let funType as FunType) = fun.type else {
+      preconditionFailure("apply to non-function type '\(fun.type)'")
+    }
+
+    // FIXME: Perhaps we could do some argument validation here?
+
+    let inst = ApplyInst(fun: fun, args: args, type: .object(funType.retType))
+    block!.instructions.append(inst)
+    return inst
+  }
+
   /// Builds a record value instruction.
   ///
   /// - Parameter typeDecl: The declaration of the type of which the record value is an instance.

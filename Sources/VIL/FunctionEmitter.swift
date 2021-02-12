@@ -4,7 +4,7 @@ import AST
 final class FunctionEmitter: StmtVisitor, ExprVisitor {
 
   typealias StmtResult = Void
-  typealias ExprResult = Value
+  typealias ExprResult = Result<Value, EmitterError>
 
   /// The top-level emitter.
   unowned let parent: Emitter
@@ -72,7 +72,7 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
 
     // Emit the initializer, if any.
     if let initializer = node.initializer {
-      let rv = initializer.accept(self)
+      let rv = emit(expr: initializer)
 
       // Emit a store right away if the pattern matches a single value.
       if node.pattern.singleVarDecl != nil {
@@ -95,6 +95,22 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     let value = builder.buildAllocStack(type: node.type)
     locals[ObjectIdentifier(node)] = value
     return value
+  }
+
+  func emit(expr node: Expr) -> Value {
+    // Emit an error value for any expression that has an error type.
+    guard node.type !== context.errorType else {
+      return ErrorValue(context: context)
+    }
+
+    switch node.accept(self) {
+    case .success(let value):
+      return value
+
+    case .failure(let error):
+      print(error)
+      return ErrorValue(context: context)
+    }
   }
 
   func visit(_ node: BraceStmt) {
@@ -129,93 +145,128 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
   func visit(_ node: RetStmt) {
   }
 
-  func visit(_ node: IntLiteralExpr) -> Value {
-    if node.type is BuiltinIntType {
-      return IntLiteralValue(type: node.type)
-    }
+  func visit(_ node: IntLiteralExpr) -> ExprResult {
+    // We can assume the expression's type conforms to `ExpressibleBy***Literal` (as type checking
+    // succeeded). Therefore we can look for a conversion constructor `new(literal:)`.
 
-    // FIXME: Handle other kinds of integer types.
-    fatalError()
+    // FIXME: There must be a more reliable way to retrieve the constructor declaration.
+    let ctorType = context.funType(
+      paramType: context.tupleType([
+        TupleType.Elem(label: "literal", type: context.getBuiltinType(named: "IntLiteral")!)
+      ]),
+      retType: node.type)
+    let ctorDecl = node.type
+      .lookup(member: "new").values
+      .first(where: { $0.type === ctorType }) as! CtorDecl
+
+    // Get the VIL function corresponding to the conversion constructor.
+    var mangler = Mangler()
+    mangler.append(funDecl: ctorDecl)
+    let function = builder.getOrCreateFunction(
+      name: mangler.finalize(), type: ctorDecl.unappliedType as! FunType)
+
+    // Emit a call to the constructor.
+    let funref = FunRef(function: function)
+    let literal = IntLiteralValue(value: node.value, context: context)
+    return .success(builder.buildApply(fun: funref, args: [literal]))
   }
 
-  func visit(_ node: AssignExpr) -> Value {
+  func visit(_ node: AssignExpr) -> ExprResult {
     // Emit the left operand first.
-    let lvalue = node.lvalue.accept(LValueEmitter(parent: self))
-    let rvalue = node.rvalue.accept(self)
-    builder.buildStore(lvalue: lvalue, rvalue: rvalue)
-    return UnitValue(context: context)
-  }
+    switch node.lvalue.accept(LValueEmitter(parent: self)) {
+    case .success(let lvalue):
+      let rvalue = emit(expr: node.rvalue)
+      builder.buildStore(lvalue: lvalue, rvalue: rvalue)
 
-  func visit(_ node: TupleExpr) -> Value {
-    return builder.buildTuple(
-      type: node.type as! TupleType,
-      elems: node.elems.map({ elem in elem.value.accept(self) }))
-  }
-
-  func visit(_ node: CallExpr) -> Value {
-    fatalError()
-  }
-
-  func visit(_ node: UnresolvedDeclRefExpr) -> Value {
-    fatalError()
-  }
-
-  func visit(_ node: UnresolvedMemberExpr) -> Value {
-    fatalError()
-  }
-
-  func visit(_ node: UnresolvedQualDeclRefExpr) -> Value {
-    fatalError()
-  }
-
-  func visit(_ node: OverloadedDeclRefExpr) -> Value {
-    fatalError()
-  }
-
-  func visit(_ node: DeclRefExpr) -> Value {
-    // If the expression refers to a variable, we have to emit its access.
-    if let decl = node.decl as? VarDecl {
-      precondition(decl.hasStorage)
-
-      // If the variable declaration resides in a nominal type declaration, then the expression
-      // must implicitly refers to a member declaration (i.e., without spelling `self`).
-      if decl.parentDeclSpace is NominalTypeDecl {
-        let selfDecl = funDecl.selfDecl!
-        let selfLV = locals[ObjectIdentifier(selfDecl)]!
-        return builder.buildRecordMemberAddr(record: selfLV, memberDecl: decl)
+    case .failure(let error):
+      // Diagnostic common l-value errors.
+      switch error {
+      case .immutableSelf:
+        context.report(.cannotAssignImmutableSelf(range: node.lvalue.range))
+      case .immutableLocation:
+        context.report(.cannotAssignToImmutableLocation(range: node.lvalue.range))
       }
 
-      // The variable is local. Emit a load instruction.
-      let lv = locals[ObjectIdentifier(node.decl)]!
-      return builder.buildLoad(lvalue: lv)
+      return .success(UnitValue(context: context))
     }
 
-    // If the expression refers to a local function argument, just lookup the symbol table.
-    if let decl = node.decl as? FunParamDecl {
-      return locals[ObjectIdentifier(decl)]!
+    // Assignments always result in a unit value.
+    return .success(UnitValue(context: context))
+  }
+
+  func visit(_ node: TupleExpr) -> ExprResult {
+    let tuple = builder.buildTuple(
+      type: node.type as! TupleType,
+      elems: node.elems.map({ elem in emit(expr: elem.value) }))
+    return .success(tuple)
+  }
+
+  func visit(_ node: CallExpr) -> ExprResult {
+    // Emit the callee and its arguments.
+    let funref = emit(expr: node.fun)
+    let args = node.args.map({ (arg: TupleElem) -> Value in
+      return emit(expr: arg.value)
+    })
+
+    return .success(builder.buildApply(fun: funref, args: args))
+  }
+
+  func visit(_ node: UnresolvedDeclRefExpr) -> ExprResult {
+    fatalError()
+  }
+
+  func visit(_ node: UnresolvedMemberExpr) -> ExprResult {
+    fatalError()
+  }
+
+  func visit(_ node: UnresolvedQualDeclRefExpr) -> ExprResult {
+    fatalError()
+  }
+
+  func visit(_ node: OverloadedDeclRefExpr) -> ExprResult {
+    fatalError()
+  }
+
+  func visit(_ node: DeclRefExpr) -> ExprResult {
+    // FIXME: We need a better, more reliable way to easily determine whether the node requires
+    // l-value to r-value conversion.
+    if let decl = node.decl as? FunDecl {
+      if decl.props.contains(.isBuiltin) {
+        return .success(BuiltinFunRef(decl: decl))
+      }
     }
 
-    // FIXME: Handle global symbols.
-    fatalError("unreachable")
+    if let decl = node.decl as? FunParamDecl, !(decl.type is InoutType) {
+      let rv = locals[ObjectIdentifier(decl)]!
+      return .success(rv)
+    }
+
+    // Emit a l-value and convert it to an r-value.
+    switch node.accept(LValueEmitter(parent: self)) {
+    case .success(let lvalue):
+      return .success(builder.buildLoad(lvalue: lvalue))
+    case let failure:
+      return failure
+    }
   }
 
-  func visit(_ node: TypeDeclRefExpr) -> Value {
+  func visit(_ node: TypeDeclRefExpr) -> ExprResult {
     fatalError()
   }
 
-  func visit(_ node: MemberRefExpr) -> Value {
+  func visit(_ node: MemberRefExpr) -> ExprResult {
     fatalError()
   }
 
-  func visit(_ node: AddrOfExpr) -> Value {
+  func visit(_ node: AddrOfExpr) -> ExprResult {
     fatalError()
   }
 
-  func visit(_ node: WildcardExpr) -> Value {
+  func visit(_ node: WildcardExpr) -> ExprResult {
     fatalError()
   }
 
-  func visit(_ node: ErrorExpr) -> Value {
+  func visit(_ node: ErrorExpr) -> ExprResult {
     fatalError()
   }
 

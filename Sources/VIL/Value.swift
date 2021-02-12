@@ -10,37 +10,89 @@ public protocol Value: AnyObject {
 
 // MARK: Constants
 
-/// A constant "unit" value.
-public final class UnitValue: Value {
+/// A literal value.
+public class LiteralValue: Value {
 
-  /// The type of the value.
+  /// The type of the constant.
   public let type: VILType
 
-  public init(context: AST.Context) {
-    self.type = .object(context.unitType)
+  fileprivate init(type: VILType) {
+    self.type = type
   }
 
 }
 
-/// A constant integer literal.
-public final class IntLiteralValue: Value {
+/// A constant "unit" value.
+public final class UnitValue: LiteralValue, CustomStringConvertible {
 
-  public let type: VILType
+  public init(context: AST.Context) {
+    super.init(type: .object(context.unitType))
+  }
 
-  public init(type: ValType) {
-    self.type = .object(type)
+  public var description: String { "unit" }
+
+}
+
+/// A constant integer value.
+public final class IntLiteralValue: LiteralValue, CustomStringConvertible {
+
+  /// The literal's value.
+  public let value: Int
+
+  public init(value: Int, context: AST.Context) {
+    self.value = value
+    super.init(type: .object(context.getBuiltinType(named: "IntLiteral")!))
+  }
+
+  public var description: String {
+    return String(describing: value)
+  }
+
+}
+
+/// A reference to a built-in function.
+public final class BuiltinFunRef: LiteralValue, CustomStringConvertible {
+
+  /// The built-in function declaration that is being referred.
+  public let decl: FunDecl
+
+  public init(decl: FunDecl) {
+    precondition(decl.props.contains(.isBuiltin))
+    self.decl = decl
+    super.init(type: .object(decl.type))
+  }
+
+  public var description: String {
+    return "b\"\(decl.name)\""
+  }
+
+}
+
+/// A reference to a VIL function.
+public final class FunRef: LiteralValue, CustomStringConvertible {
+
+  /// The function being referenced.
+  public unowned let function: Function
+
+  init(function: Function) {
+    self.function = function
+    super.init(type: .object(function.type))
+  }
+
+  public var description: String {
+    return "@\(function.name)"
   }
 
 }
 
 /// An error value.
-public final class ErrorValue: Value {
-
-  public let type: VILType
+public final class ErrorValue: LiteralValue, CustomStringConvertible {
 
   public init(context: AST.Context) {
-    self.type = .object(context.errorType)
+    super.init(type: .object(context.errorType))
   }
+
+  public var description: String { "error" }
 
 }
 

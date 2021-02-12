@@ -37,6 +37,19 @@ public final class Emitter {
         emit(decl: memberDecl)
       }
 
+    case let pdDecl as PatternBindingDecl:
+      if pdDecl.isMember {
+        // If the decl is a physical member of a type declaration, we're done.
+        if pdDecl.varDecls.allSatisfy({ decl in decl.hasStorage }) {
+          return
+        }
+
+        // FIXME: Handle initializers in snythetized constructors.
+      }
+
+      // FIXME: Handle global variables.
+      fatalError()
+
     case let funDecl as BaseFunDecl:
       // Emit a function.
       let functionEmitter = FunctionEmitter(parent: self, funDecl: funDecl)

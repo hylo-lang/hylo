@@ -28,7 +28,12 @@ public class Function {
     self.arguments = []
     if let tupleType = type.paramType as? TupleType {
       arguments = tupleType.elems.map({ (elem) -> ArgumentValue in
-        ArgumentValue(type: .object(elem.type), function: self)
+        // Inout parameters get an address type.
+        if let inoutType = elem.type as? InoutType {
+          return ArgumentValue(type: .address(inoutType.base), function: self)
+        } else {
+          return ArgumentValue(type: .object(elem.type), function: self)
+        }
       })
     } else {
       arguments = [ArgumentValue(type: .object(type.paramType), function: self)]

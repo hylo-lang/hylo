@@ -120,6 +120,18 @@ extension Diagnostic {
       anchor: range)
   }
 
+  public static func cannotAssignToImmutableLocation(
+    range: SourceRange
+  ) -> Diagnostic {
+    return Diagnostic("I can't assign an immutable location", anchor: range)
+  }
+
+  public static func cannotAssignImmutableSelf(
+    range: SourceRange
+  ) -> Diagnostic {
+    return Diagnostic("I can't assign property to of immutable 'self'", anchor: range)
+  }
+
   public static func codeAfterReturnNeverExecuted(
     range: SourceRange
   ) -> Diagnostic {
