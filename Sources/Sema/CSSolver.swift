@@ -185,16 +185,22 @@ struct CSSolver {
 
     case is (TypeVar, ValType):
       // The type variable is below a more concrete type. We should compute the "meet" of all types
-      // coercible to `U` and that are above `T`. Since we can't enumerate this set, we have to
-      // make an educated guess about `T`.
+      // coercible to `U` and that are above `T`. Unfortunately, we can't enumerate such a set; it
+      // would essentially boils down to computing the set of types that are subtypes of `U`. The
+      // current strategy is to just pick `U` as a guess.
+      var guess = constraint.rhs
+      if let inoutType = guess as? InoutType {
+        // Don't preserve l-valueness.
+        guess = inoutType.base
+      }
       let simplified = RelationalConstraint(
-        kind: .equality, lhs: constraint.lhs, rhs: constraint.rhs, at: constraint.locator)
+        kind: .equality, lhs: constraint.lhs, rhs: guess, at: constraint.locator)
       solve(simplified)
 
-      // FIXME: The above strategy will fail to handle cases where `T` is more trightly constrained
-      // by another constraint that we haven't solved yet. One strategy to handle this case might
-      // be to fork the system with a "strict subtyping" constraint. Should it succeed, it will get
-      // a better score that the current solution.
+      // FIXME: The above strategy will fail to handle cases where `T` is more tightly constrained
+      // by another relation that we haven't solved yet. One strategy to tackle this issue might be
+      // to fork the system with a "strict subtyping" constraint. Should it succeed, it will get a
+      // better score that the current solution.
 
     case is (ValType, TypeVar):
       // The type variable is above a more concrete type. We should compute the "join" of all types
