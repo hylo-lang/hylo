@@ -135,6 +135,11 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
       self << branch.elseArgs
       self << ")\n"
 
+    case let ret as RetInst:
+      self << "ret "
+      self << ret.value
+      self << "\n"
+
     default:
       fatalError()
     }

@@ -47,21 +47,36 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     // We're done if the function doesn't have body.
     guard let body = funDecl.body else { return }
 
-    // Setup the local symbol table.
+    // Create an entry block.
+    builder.block = function.createBasicBlock(arguments: function.arguments)
     var arguments = function.arguments[0...]
-    if let selfDecl = funDecl.selfDecl {
-      locals[ObjectIdentifier(selfDecl)] = arguments.first!
+
+    // Register the function's receiver in the local symbol table, if necessary.
+    if funDecl.isMember {
+      // Member functions accept their receiver has their first parameter.
+      locals[ObjectIdentifier(funDecl.selfDecl!)] = function.arguments[0]
       arguments = arguments.dropFirst()
+    } else if (funDecl is CtorDecl) {
+      // Constructors should allocate `self`.
+      let selfType = (funDecl.selfDecl!.type as! InoutType).base
+      locals[ObjectIdentifier(funDecl.selfDecl!)] = builder.buildAllocStack(type: selfType)
     }
 
+    // Register the function's formal parameters in the local symbol table..
     assert(funDecl.params.count == arguments.count)
     for (param, argument) in zip(funDecl.params, arguments) {
       locals[ObjectIdentifier(param)] = argument
     }
 
     // Emit the function's body.
-    builder.block = function.createBasicBlock(arguments: function.arguments)
     visit(body)
+
+    // If the function's a constructor, emit the implicit return statement.
+    if funDecl is CtorDecl {
+      let selfLoc = locals[ObjectIdentifier(funDecl.selfDecl!)]
+      let selfVal = builder.buildLoad(lvalue: selfLoc!)
+      builder.buildRet(value: selfVal)
+    }
   }
 
   func emit(localPBDecl node: PatternBindingDecl) {

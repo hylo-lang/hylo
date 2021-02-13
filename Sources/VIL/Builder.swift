@@ -119,6 +119,7 @@ public final class Builder {
   ///   function.
   ///   - args: The arguments of the destination block. `args` Should must the number and type of
   ///   the arguments expected by `dest.`
+  @discardableResult
   public func buildBranch(dest: BasicBlock, args: [Value]) -> BranchInst {
     precondition(dest.function === function, "invalid destination")
 
@@ -138,6 +139,7 @@ public final class Builder {
   ///   - elseDest: The basic block to which the execution should branch if the condition doesn not
   ///   hold. `elseDest` must be in the current function, and be different than `thenDest`.
   ///   - elseArgs: The arguments of `elseDest`.
+  @discardableResult
   public func buildCondBranch(
     cond: Value,
     thenDest: BasicBlock, thenArgs: [Value],
@@ -148,6 +150,14 @@ public final class Builder {
 
     let inst = CondBranchInst(
       cond: cond, thenDest: thenDest, thenArgs: thenArgs, elseDest: elseDest, elseArgs: elseArgs)
+    block!.instructions.append(inst)
+    return inst
+  }
+
+  /// Builds a `ret` instruction.
+  @discardableResult
+  public func buildRet(value: Value) -> RetInst {
+    let inst = RetInst(value: value)
     block!.instructions.append(inst)
     return inst
   }

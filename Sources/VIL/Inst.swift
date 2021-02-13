@@ -195,3 +195,17 @@ public final class CondBranchInst: Inst {
   }
 
 }
+
+/// A return instruction
+public final class RetInst: Inst {
+
+  /// The value being returned.
+  public let value: Value
+
+  public var result: Value? { nil }
+
+  init(value: Value) {
+    self.value = value
+  }
+
+}
