@@ -125,7 +125,9 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     }
 
     if (currentSpace is NominalTypeDecl || currentSpace is TypeExtDecl) {
-      decl.props.insert(.isMember)
+      if !(decl is CtorDecl) {
+        decl.props.insert(.isMember)
+      }
     } else if decl is CtorDecl {
       preconditionFailure("constructor declared outside of a type declaration")
     }
