@@ -73,11 +73,24 @@ public final class Builder {
     return inst
   }
 
+  /// Builds a `record_member` instruction.
+  ///
+  /// - Parameters:
+  ///   - record: The record value whose member is extracted.
+  ///   - memberDecl: The declaration of the extracted member. `memberDecl` must describe a stored
+  ///   member of the product type.
+  public func buildRecordMember(record: Value, memberDecl: VarDecl) -> RecordMemberInst {
+    let inst = RecordMemberInst(record: record, memberDecl: memberDecl)
+    block!.instructions.append(inst)
+    return inst
+  }
+
   /// Builds a `record_member_addr` instruction.
   ///
   /// - Parameters:
   ///   - record: The record value for which the member's address is computed.
-  ///   - memberDecl: The declaration of the member whose address is computed.
+  ///   - memberDecl: The declaration of the member whose address is computed. `memberDecl` must
+  ///   describe a stored member of the product type.
   public func buildRecordMemberAddr(record: Value, memberDecl: VarDecl) -> RecordMemberAddrInst {
     let inst = RecordMemberAddrInst(record: record, memberDecl: memberDecl)
     block!.instructions.append(inst)

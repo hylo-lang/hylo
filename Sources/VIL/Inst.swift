@@ -61,6 +61,26 @@ public final class RecordInst: Inst, Value {
 
 }
 
+/// The value of a stored member in a record value.
+public final class RecordMemberInst: Inst, Value {
+
+  /// The record value whose member is extracted.
+  public let record: Value
+
+  /// The declaration of the extracted member.
+  public let memberDecl: VarDecl
+
+  public var type: VILType { .object(memberDecl.type) }
+
+  public var result: Value? { self }
+
+  init(record: Value, memberDecl: VarDecl) {
+    self.record = record
+    self.memberDecl = memberDecl
+  }
+
+}
+
 /// The address of a stored member in a record value.
 public final class RecordMemberAddrInst: Inst, Value {
 

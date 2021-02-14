@@ -96,6 +96,12 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
       self << apply.args
       self << ")\n"
 
+    case let member as RecordMemberInst:
+      let id = makeID(for: member)
+      self << "_\(id) = record_member "
+      self << member.record
+      self << ", \(member.memberDecl.name)\n"
+
     case let addr as RecordMemberAddrInst:
       let id = makeID(for: addr)
       self << "_\(id) = record_member_addr "
