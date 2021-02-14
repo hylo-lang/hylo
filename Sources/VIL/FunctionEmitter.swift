@@ -177,10 +177,7 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
       .first(where: { $0.type === ctorType }) as! CtorDecl
 
     // Get the VIL function corresponding to the conversion constructor.
-    var mangler = Mangler()
-    mangler.append(funDecl: ctorDecl)
-    let function = builder.getOrCreateFunction(
-      name: mangler.finalize(), type: ctorDecl.unappliedType as! FunType)
+    let function = builder.getOrCreateFunction(from: ctorDecl)
 
     // Emit a call to the constructor.
     let funref = FunRef(function: function)
@@ -219,11 +216,30 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
   }
 
   func visit(_ node: CallExpr) -> ExprResult {
-    // Emit the callee and its arguments.
-    let funref = emit(expr: node.fun)
-    let args = node.args.map({ (arg: TupleElem) -> Value in
-      return emit(expr: arg.value)
-    })
+    let funref: Value
+    var args: [Value] = []
+
+    // Emit the function's callee.
+    switch node.fun {
+    case let memberRef as MemberRefExpr where memberRef.decl.isMember:
+      if let methodDecl = memberRef.decl as? BaseFunDecl {
+        // This is a call `foo.bar(x: 0, y: 1)`, where `bar` is a method. Therefore, `foo` must be
+        // passed as the method's receiver.
+        funref = FunRef(function: builder.getOrCreateFunction(from: methodDecl))
+        args.append(emit(expr: memberRef.base))
+      } else {
+        fatalError()
+      }
+
+    default:
+      // Emit the callee "as is"
+      funref = emit(expr: node.fun)
+    }
+
+    // Emit the function's arguments.
+    for arg in node.args {
+      args.append(emit(expr: arg.value))
+    }
 
     return .success(builder.buildApply(fun: funref, args: args))
   }
@@ -245,17 +261,30 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
   }
 
   func visit(_ node: DeclRefExpr) -> ExprResult {
+
+    // FIXME: Implicit references to `self` should be desugared during the sema, so we no longer
+    // have to deal with this every time we emit a resolvable.
+
     // FIXME: We need a better, more reliable way to easily determine whether the node requires
     // l-value to r-value conversion.
-    if let decl = node.decl as? FunDecl {
-      if decl.props.contains(.isBuiltin) {
-        return .success(BuiltinFunRef(decl: decl))
-      }
-    }
 
-    if let decl = node.decl as? FunParamDecl, !(decl.type is InoutType) {
+    switch node.decl {
+    case let decl as FunDecl where decl.props.contains(.isBuiltin):
+      // Emit a regular function.
+      return .success(BuiltinFunRef(decl: decl))
+
+    case let decl as CtorDecl:
+      // Emit a constructor.
+      let function = builder.getOrCreateFunction(from: decl)
+      return .success(FunRef(function: function))
+
+    case let decl as FunParamDecl where !(decl.type is InoutType):
+      // Emit a parameter.
       let rv = locals[ObjectIdentifier(decl)]!
       return .success(rv)
+
+    default:
+      break
     }
 
     // Emit a l-value and convert it to an r-value.

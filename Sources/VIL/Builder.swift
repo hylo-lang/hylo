@@ -38,6 +38,15 @@ public final class Builder {
     return function
   }
 
+  /// Retrieves or create a function from the given declaration.
+  ///
+  /// - Parameter funDecl: A function declaration.
+  public func getOrCreateFunction(from funDecl: BaseFunDecl) -> Function {
+    var mangler = Mangler()
+    mangler.append(funDecl: funDecl)
+    return getOrCreateFunction(name: mangler.finalize(), type: funDecl.unappliedType as! FunType)
+  }
+
   /// Buils a stack allocation.
   ///
   /// - Parameter type: The type of the allocated object.
