@@ -183,13 +183,13 @@ struct CSSolver {
       // coercible to `U` and that are above `T`. Unfortunately, we can't enumerate such a set; it
       // would essentially boils down to computing the set of types that are subtypes of `U`. The
       // current strategy is to just pick `U` as a guess.
-      var guess = constraint.rhs
-      if let inoutType = guess as? InoutType {
+      var upper = constraint.rhs
+      if let inoutType = upper as? InoutType {
         // Don't preserve l-valueness.
-        guess = inoutType.base
+        upper = inoutType.base
       }
       let simplified = RelationalConstraint(
-        kind: .equality, lhs: constraint.lhs, rhs: guess, at: constraint.locator)
+        kind: .equality, lhs: constraint.lhs, rhs: upper, at: constraint.locator)
       solve(simplified)
 
       // FIXME: The above strategy will fail to handle cases where `T` is more tightly constrained
@@ -200,14 +200,20 @@ struct CSSolver {
     case is (ValType, TypeVar):
       // The type variable is above a more concrete type. We should compute the "join" of all types
       // to which `T` is coercible and that are below `U`.
+      var lower = constraint.lhs
+      if let inoutType = lower as? InoutType {
+        // Don't preserve l-valueness.
+        lower = inoutType.base
+      }
       var guesses = [
         RelationalConstraint(
-          kind: .equality, lhs: constraint.lhs, rhs: constraint.rhs, at: constraint.locator)
+          kind: .equality, lhs: lower, rhs: constraint.rhs, at: constraint.locator)
       ]
 
-      // If `T` is a nominal type, add all views to which it conforms to the set of guesses.
+      // If `T` is an immutable nominal type, use all views to which it conforms as alternative
+      // choices. This effectively computes an implicit "upcast".
       // FIXME: Do we actually need this?
-      if let nominal = constraint.lhs as? NominalType {
+      if let nominal = lower as? NominalType, !(lower is InoutType) {
         // FIXME: Should we make sure we don't accidentally load conformances that come from a
         // a non-imported module if this is type-checked?
         guesses.append(contentsOf: nominal.decl.conformances.map({ conf in
