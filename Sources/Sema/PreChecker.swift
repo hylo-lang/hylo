@@ -149,27 +149,26 @@ struct PreChecker: ExprVisitor {
   ///
   /// - Parameter call: A call expression whose `fun` is a `TypeDeclRefExpr`.
   func desugar(constructorCall call: CallExpr) -> CallExpr {
+    func newCall(newFunExpr: Expr) -> CallExpr {
+      return CallExpr(fun: newFunExpr, args: call.args, type: call.type, range: call.range)
+    }
+
     let context = call.type.context
 
-    func newCall(newFun: Expr) -> CallExpr {
-      return CallExpr(fun: newFun, args: call.args, type: call.type, range: call.range)
-    }
-
-    let fun = call.fun as! TypeDeclRefExpr
-    guard let typeDecl = fun.decl as? NominalTypeDecl else {
-      context.report(.cannotFind(member: "new", in: fun.decl.type, range: fun.range))
-      return newCall(newFun: ErrorExpr(type: context.errorType, range: fun.range))
-    }
-
-    let matches = typeDecl.lookup(qualified: "new")
+    // Search for a constructor declaration
+    let matches = (call.fun as! TypeDeclRefExpr).decl.instanceType.lookup(member: "new")
     guard !matches.values.isEmpty else {
-      context.report(.cannotFind(member: "new", in: fun.decl.type, range: fun.range))
-      return newCall(newFun: ErrorExpr(type: context.errorType, range: fun.range))
+      context.report(.cannotFind(member: "new", in: call.fun.type, range: call.fun.range))
+      return newCall(newFunExpr: ErrorExpr(type: context.errorType, range: call.fun.range))
     }
 
-    let newFun = bind(ref: fun, to: matches)
-    assert(!(newFun is TypeDeclRefExpr))
-    return newCall(newFun: newFun)
+    // Substitute the callee for an overload set.
+    let newFunExpr = bind(ref: call.fun, to: matches)
+    assert(!(newFunExpr is TypeDeclRefExpr))
+    newFunExpr.type = context.unresolvedType
+
+    // Desugar the constructor call.
+    return newCall(newFunExpr: newFunExpr)
   }
 
   /// Binds the given declaration reference to specified lookup result.
