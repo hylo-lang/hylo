@@ -165,11 +165,6 @@ struct CSSolver {
         errors.append(.nonConformingType(constraint))
       }
 
-    case is BuiltinIntType:
-      if view.decl !== context.getTypeDecl(for: .ExpressibleByBuiltinIntLiteral) {
-        errors.append(.nonConformingType(constraint))
-      }
-
     default:
       // FIXME: Handle structural view conformance.
       errors.append(.conflictingTypes(constraint))
