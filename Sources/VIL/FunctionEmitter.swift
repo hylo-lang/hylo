@@ -158,6 +158,8 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
   }
 
   func visit(_ node: RetStmt) {
+    let value = node.value.map(emit(expr:)) ?? UnitValue(context: context)
+    builder.buildRet(value: value)
   }
 
   func visit(_ node: IntLiteralExpr) -> ExprResult {
