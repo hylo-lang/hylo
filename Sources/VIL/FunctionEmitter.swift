@@ -270,6 +270,27 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
   }
 
   func visit(_ node: MemberRefExpr) -> ExprResult {
+    // Emit the base value.
+    let base: Value
+    switch node.base.accept(self) {
+    case .success(let b):
+      base = b
+    case let failure:
+      return failure
+    }
+
+    switch node.base.type {
+    case is ProductType:
+      if let decl = node.decl as? VarDecl {
+        if decl.hasStorage {
+          return .success(builder.buildRecordMember(record: base, memberDecl: decl))
+        }
+      }
+
+    default:
+      break
+    }
+
     fatalError()
   }
 

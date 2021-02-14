@@ -104,7 +104,6 @@ struct LValueEmitter: ExprVisitor {
     case let failure:
       return failure
     }
-
   }
 
   func visit(_ node: AddrOfExpr) -> ExprResult {

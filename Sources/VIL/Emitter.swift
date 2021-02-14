@@ -39,7 +39,7 @@ public final class Emitter {
 
     case let pdDecl as PatternBindingDecl:
       if pdDecl.isMember {
-        // If the decl is a physical member of a type declaration, we're done.
+        // If the decl is a stored member of a type declaration, we're done.
         if pdDecl.varDecls.allSatisfy({ decl in decl.hasStorage }) {
           return
         }
