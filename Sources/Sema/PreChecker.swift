@@ -165,7 +165,6 @@ struct PreChecker: ExprVisitor {
     // Substitute the callee for an overload set.
     let newFunExpr = bind(ref: call.fun, to: matches)
     assert(!(newFunExpr is TypeDeclRefExpr))
-    newFunExpr.type = context.unresolvedType
 
     // Desugar the constructor call.
     return newCall(newFunExpr: newFunExpr)
@@ -175,10 +174,10 @@ struct PreChecker: ExprVisitor {
   func bind(ref: Expr, to matches: LookupResult) -> Expr {
     // Favor references to value declarations.
     if matches.values.count > 1 {
-      let newRef = OverloadedDeclRefExpr(
-        subExpr: ref, declSet: matches.values, type: ref.type, range: ref.range)
-
-      return newRef
+      assert(!ref.type.hasVariables)
+      let unresolved = ref.type.context.unresolvedType
+      return OverloadedDeclRefExpr(
+        subExpr: ref, declSet: matches.values, type: unresolved, range: ref.range)
     }
 
     if let decl = matches.values.first {
