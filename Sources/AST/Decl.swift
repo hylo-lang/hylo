@@ -888,11 +888,16 @@ public class NominalTypeDecl: TypeDecl, DeclSpace {
     }
   }
 
-  /// Returns the information describing the type's conformance to the specified view, or `nil` if
-  /// it does not conform.
-  public func conformance(to viewType: ViewType) -> ViewConformance? {
+  /// Returns whether the declared type conforms to the given view.
+  ///
+  /// - Parameter viewType: A view.
+  ///
+  /// - Returns: `true` if there exists a type checked conformance between the declared type and
+  ///   the given view. Otherwise, returns `false`.
+  public func conforms(to viewType: ViewType) -> Bool {
     updateConformanceTable()
-    return _conformanceTable![viewType]
+    guard let conformance = _conformanceTable![viewType] else { return false }
+    return conformance.state == .checked
   }
 
   public var hasOwnGenericParams: Bool { false }
