@@ -90,9 +90,17 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
       let rv = emit(expr: initializer)
 
       // Emit a store right away if the pattern matches a single value.
-      if node.pattern.singleVarDecl != nil {
+      if let varDecl = node.pattern.singleVarDecl {
         assert(lvs.count == 1)
-        builder.buildStore(lvalue: lvs[0], rvalue: rv)
+
+        // Check if the value to store must be packed into an existential container.
+        // FIXME: Handle view composition.
+        if let view = varDecl.type as? ViewType {
+          let container = builder.buildPack(value: rv, interface: view)
+          builder.buildStore(lvalue: lvs[0], rvalue: container)
+        } else {
+          builder.buildStore(lvalue: lvs[0], rvalue: rv)
+        }
       } else {
         // FIXME: Handle destructuring,
         fatalError()
