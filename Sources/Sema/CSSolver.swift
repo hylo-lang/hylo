@@ -216,7 +216,7 @@ struct CSSolver {
       if let nominal = lower as? NominalType, !(lower is InoutType) {
         // FIXME: Should we make sure we don't accidentally load conformances that come from a
         // a non-imported module if this is type-checked?
-        guesses.append(contentsOf: nominal.decl.conformances.map({ conf in
+        guesses.append(contentsOf: nominal.decl.conformanceTable.values.map({ conf in
           RelationalConstraint(
             kind: .equality, lhs: conf.viewDecl.instanceType, rhs: constraint.rhs,
             at: constraint.locator)
@@ -300,7 +300,7 @@ struct CSSolver {
 
       let args: [GenericParamType: ValType]
       if let boundType = baseType as? BoundGenericType,
-         let env = (boundType.decl as? GenericTypeDecl)?.prepareGenericEnv()
+         let env = boundType.decl.prepareGenericEnv()
       {
         args = Dictionary(uniqueKeysWithValues: zip(env.params, boundType.args))
       } else {

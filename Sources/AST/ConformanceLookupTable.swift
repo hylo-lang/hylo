@@ -3,43 +3,25 @@ import Basic
 /// A lookup table that keeps track of the views to which a nominal type conforms.
 public struct ConformanceLookupTable {
 
-  public init() {
-  }
+  public typealias Values = Dictionary<ObjectIdentifier, ViewConformance>.Values
 
-  var conformances: [ViewConformance] = []
+  /// Creates an empty conformance table.
+  public init() {}
 
-  @discardableResult
-  public mutating func insert(
-    _ newViewType: ViewType,
-    range: SourceRange? = nil
-  ) -> (inserted: Bool, conformance: ViewConformance) {
-    if let conformance = self[newViewType] {
-      return (false, conformance)
-    }
+  /// The conformances in the table, indexed by view declaration.
+  private var conformances: [ObjectIdentifier: ViewConformance] = [:]
 
-    let conformance = ViewConformance(viewDecl: newViewType.decl as! ViewTypeDecl, range: range)
-    conformances.append(conformance)
-    return (true, conformance)
-  }
-
+  /// Accesses the description of a particular view conformance, if such conformance exists.
+  ///
+  /// - Parameter viewType: The conformed view.
   public subscript(viewType: ViewType) -> ViewConformance? {
-    return conformances.first(where: { $0.viewDecl === viewType.decl })
+    get { conformances[ObjectIdentifier(viewType)] }
+    set { conformances[ObjectIdentifier(viewType)] = newValue }
   }
 
-}
-
-/// A data structure describing a particular cnformance to a given view.
-public struct ViewConformance {
-
-  public init(viewDecl: ViewTypeDecl, range: SourceRange?) {
-    self.viewDecl = viewDecl
-    self.range = range
+  /// The set of view conformance relations in the table.
+  public var values: Values {
+    return conformances.values
   }
-
-  /// The view being conformed to.
-  public unowned let viewDecl: ViewTypeDecl
-
-  /// The source range of this conformance's declaration.
-  public let range: SourceRange?
 
 }

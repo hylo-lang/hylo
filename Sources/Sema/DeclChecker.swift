@@ -165,10 +165,89 @@ struct DeclChecker: DeclVisitor {
       member.accept(self)
     }
 
+    // Type check the type's conformances.
+    let receiverType = node.receiverType
+    for var conformance in node.conformanceTable.values {
+      // Retrieve the view's `Self` generic parameter.
+      let viewReceiverType = conformance.viewDecl.receiverType as! GenericParamType
+
+      // Identify each requirement's implementation.
+      var satisfied = true
+      for (name, reqs) in conformance.viewDecl.valueMemberTable {
+        for req in reqs {
+          let reqParams: [GenericParamType]
+          if let env = (req as? GenericDeclSpace)?.genericEnv {
+            reqParams = env.params
+          } else {
+            reqParams = []
+          }
+
+          let candidates = node.lookup(qualified: name).values.filter({ (decl) -> Bool in
+            // Skip the requirement itself.
+            guard req !== decl else { return false }
+
+            // Discard the candidate if it's not the same kind of construct. This prevents a method
+            // requirement to be fulfilled with a property, and vice versa.
+            guard (req is BaseFunDecl) && (decl is BaseFunDecl) ||
+                  (req is VarDecl) && (decl is VarDecl)
+            else { return false }
+
+            // Discard the candidate if it doesn't have the same number of generic arguments.
+            let declParams: [GenericParamType]
+            if let env = (decl as? GenericDeclSpace)?.genericEnv {
+              declParams = env.params
+            } else {
+              declParams = []
+            }
+            guard reqParams.count == declParams.count else { return false }
+
+            // Check if the type of the requirement matches that of the candidate, modulo a
+            // substition of its generic type parameters.
+            var subst = [viewReceiverType: receiverType]
+            subst.merge(zip(reqParams, declParams), uniquingKeysWith: { lhs, _ in lhs })
+
+            return req.type.specialized(with: subst) == decl.type
+          })
+
+          if candidates.count == 1 {
+            conformance.entries.append((req, candidates[0]))
+          } else {
+            node.type.context.report(
+              .conformanceRequiresMissingImplementation(
+                view: conformance.viewDecl.name,
+                requirement: req.name,
+                range: conformance.range ?? (node.range.lowerBound ..< node.range.lowerBound)))
+            satisfied = false
+          }
+        }
+      }
+
+      // Update the conformance relation in the lookup table.
+      conformance.state = satisfied
+        ? .checked
+        : .invalid
+      node.conformanceTable[conformance.viewType] = conformance
+    }
+
     node.setState(.typeChecked)
   }
 
   func visit(_ node: ViewTypeDecl) {
+    guard shouldTypeCheck(node) else { return }
+    node.setState(.typeCheckRequested)
+
+    // Initialize the type's generic environment.
+    guard node.prepareGenericEnv() != nil else {
+      node.setState(.invalid)
+      return
+    }
+
+    // Type-check the type's members.
+    for member in node.members {
+      member.accept(self)
+    }
+
+    node.setState(.typeChecked)
   }
 
   func visit(_ node: GenericParamDecl) {
@@ -219,7 +298,7 @@ struct DeclChecker: DeclVisitor {
   /// Completes the argument list of an "underspecified" generic nominal type.
   ///
   /// If `type` is a generic nominal type with too few generic arguments, this method produces a
-  /// bound generic type where all missing rgument is replaced by an opened existential. This
+  /// bound generic type where all missing argument is replaced by an opened existential. This
   /// only happens if `type` is a bare nominal type, or if it is a bound generic type with less
   /// arguments than the number of parameters of its declaration.
   private func completeGenericArgs(

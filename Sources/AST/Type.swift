@@ -183,7 +183,6 @@ fileprivate final class TypeSpecializer: TypeWalker {
 
 }
 
-
 /// A kind type (i.e., the type of a type).
 public final class KindType: ValType {
 

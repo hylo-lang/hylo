@@ -70,7 +70,7 @@ public protocol TypeOrValueDecl: Decl {
 /// A type declaration.
 public protocol TypeDecl: TypeOrValueDecl, DeclSpace {
 
-  /// The type of instances of the declared type.
+  /// The (unbound) type of instances of the declared type.
   ///
   /// For the type of the declaration itself, use `type`, which returns a kind.
   var instanceType: ValType { get }
@@ -367,44 +367,34 @@ public class BaseFunDecl: ValueDecl, GenericDeclSpace {
   ///
   /// - Note: Accessing this property will trap if the function declaration is in an extension that
   ///   hasn't been bound to a nominal type yet.
-  public lazy var selfDecl: FunParamDecl? = {
+  public private(set) lazy var selfDecl: FunParamDecl? = {
     guard props.contains(.isMember) || (self is CtorDecl) else { return nil }
 
-    var selfDecl: NominalTypeDecl
+    let receiverType: ValType
     switch parentDeclSpace {
     case let typeDecl as NominalTypeDecl:
-      // The declaration is in the body of a nominal type.
-      selfDecl = typeDecl
+      // The function is declared in the body of a nominal type.
+      receiverType = typeDecl.receiverType
 
-    case let typeExtDecl as TypeExtDecl:
-      // The declaration is in the body of a type extension.
-      guard let extendedDecl = typeExtDecl.extendedDecl else {
+    case let extnDecl as TypeExtDecl:
+      // The function is declared in the body of a type extension.
+      guard let typeDecl = extnDecl.extendedDecl else {
         let decl = FunParamDecl(
           name: "self", externalName: "self", type: type.context.errorType, range: .invalid)
         decl.setState(.invalid)
         return decl
       }
-      selfDecl = extendedDecl
+      receiverType = typeDecl.receiverType
 
     default:
       fatalError("unreachable")
     }
 
-    let selfType: ValType
-    if let productDecl = selfDecl as? ProductTypeDecl, productDecl.hasOwnGenericParams {
-      selfType = type.context.boundGenericType(
-        decl: productDecl,
-        args: productDecl.genericClause!.params.map({ $0.instanceType }))
-    } else {
-      // FIXME: `ViewTypeDecl`s too will probably conform to `GenericDeclSpace` eventually.
-      selfType = selfDecl.instanceType
-    }
-
     let decl = FunParamDecl(
       name: "self", externalName: "self",
       type: props.contains(.isMutating)
-        ? type.context.inoutType(of: selfType)
-        : selfType,
+        ? type.context.inoutType(of: receiverType)
+        : receiverType,
       range: .invalid)
     decl.parentDeclSpace = self
     decl.setState(.typeChecked)
@@ -713,43 +703,62 @@ public class NominalTypeDecl: TypeDecl, DeclSpace {
 
   public var isOverloadable: Bool { false }
 
-  /// An internal lookup table keeping track of value members.
-  var valueMemberTable: [String: [ValueDecl]]?
+  /// The internal cache backing `valueMemberTable`.
+  private var _valueMemberTable: [String: [ValueDecl]]?
 
-  /// An internal lookup table keeping track of type members.
-  var typeMemberTable: [String: TypeDecl]?
+  /// A lookup table keeping track of value members.
+  public var valueMemberTable: [String: [ValueDecl]] {
+    updateMemberTables()
+    return _valueMemberTable!
+  }
+
+  /// The internal cache backing `typeMemberTable`.
+  private var _typeMemberTable: [String: TypeDecl]?
+
+  /// A lookup table keeping track of type members.
+  public var typeMemberTable: [String: TypeDecl] {
+    updateMemberTables()
+    return _typeMemberTable!
+  }
+
+  public func lookup(qualified name: String) -> LookupResult {
+    updateMemberTables()
+    return LookupResult(
+      types : _typeMemberTable![name].map({ [$0] }) ?? [],
+      values: _valueMemberTable![name] ?? [])
+  }
 
   // Updates or initializes the member lookup tables.
-  func updateMemberTables() {
-    guard valueMemberTable == nil else { return }
+  public func updateMemberTables() {
+    guard _valueMemberTable == nil else { return }
 
     // Initialize type lookup tables.
-    valueMemberTable = [:]
-    typeMemberTable  = [:]
+    _valueMemberTable = [:]
+    _typeMemberTable  = [:]
 
     /// Fills the member lookup table with the given declarations.
     func fill<S>(members: S) where S: Sequence, S.Element == Decl {
       for decl in members where decl.state != .invalid {
         switch decl {
         case let valueDecl as ValueDecl:
-          valueMemberTable![valueDecl.name, default: []].append(valueDecl)
+          _valueMemberTable![valueDecl.name, default: []].append(valueDecl)
 
         case let pbDecl as PatternBindingDecl:
           for pattern in pbDecl.pattern.namedPatterns {
-            valueMemberTable![pattern.decl.name, default: []].append(pattern.decl)
+            _valueMemberTable![pattern.decl.name, default: []].append(pattern.decl)
           }
 
         case let typeDecl as TypeDecl:
           // Check for invalid redeclarations.
-          // FIXME: Shadow declaration inherited declarations.
-          guard typeMemberTable![typeDecl.name] == nil else {
+          // FIXME: Shadow abstract type declarations inherited by conformance.
+          guard _typeMemberTable![typeDecl.name] == nil else {
             type.context.report(
               .duplicateDeclaration(symbol: typeDecl.name, range: typeDecl.range))
             typeDecl.setState(.invalid)
             continue
           }
 
-          typeMemberTable![typeDecl.name] = typeDecl
+          _typeMemberTable![typeDecl.name] = typeDecl
 
         default:
           continue
@@ -773,16 +782,10 @@ public class NominalTypeDecl: TypeDecl, DeclSpace {
     }
 
     // Populate the lookup table with members inherited by conformance.
-    for conformance in conformances {
+    updateConformanceTable()
+    for conformance in _conformanceTable!.values {
       fill(members: conformance.viewDecl.allTypeAndValueMembers.lazy.map({ $0.decl }))
     }
-  }
-
-  public func lookup(qualified name: String) -> LookupResult {
-    updateMemberTables()
-    return LookupResult(
-      types : typeMemberTable![name].map({ [$0] }) ?? [],
-      values: valueMemberTable![name] ?? [])
   }
 
   /// A sequence with all members in this type.
@@ -798,8 +801,8 @@ public class NominalTypeDecl: TypeDecl, DeclSpace {
 
     fileprivate init(decl: NominalTypeDecl) {
       self.decl = decl
-      self.valueMemberIndex = (decl.valueMemberTable!.startIndex, 0)
-      self.typeMemberIndex = decl.typeMemberTable!.startIndex
+      self.valueMemberIndex = (decl._valueMemberTable!.startIndex, 0)
+      self.typeMemberIndex = decl._typeMemberTable!.startIndex
     }
 
     fileprivate unowned let decl: NominalTypeDecl
@@ -810,7 +813,7 @@ public class NominalTypeDecl: TypeDecl, DeclSpace {
 
     public mutating func next() -> (name: String, decl: TypeOrValueDecl)? {
       // Iterate over value members.
-      let valueTable = decl.valueMemberTable!
+      let valueTable = decl._valueMemberTable!
       if valueMemberIndex.0 < valueTable.endIndex {
         // Extract the next member.
         let (name, bucket) = valueTable[valueMemberIndex.0]
@@ -826,7 +829,7 @@ public class NominalTypeDecl: TypeDecl, DeclSpace {
       }
 
       // Iterate over type members.
-      let typeTable = decl.typeMemberTable!
+      let typeTable = decl._typeMemberTable!
       if typeMemberIndex < typeTable.endIndex {
         let (name, member) = typeTable[typeMemberIndex]
         typeMemberIndex = typeTable.index(after: typeMemberIndex)
@@ -853,17 +856,30 @@ public class NominalTypeDecl: TypeDecl, DeclSpace {
   /// - Important: This should only be set at the time of the node's creation.
   public var type: ValType
 
-  /// An internal table keeping track of the views to which the declared type conforms.
-  var conformanceTable: ConformanceLookupTable?
+  /// The uncontextualized type of a reference to `self` within the context of this type.
+  public var receiverType: ValType { fatalError("unreachable") }
+
+  /// The internal cache backing `conformanceTable`.
+  private var _conformanceTable: ConformanceLookupTable?
+
+  /// A lookup table keeping track of the views to which the declared type conforms.
+  public var conformanceTable: ConformanceLookupTable {
+    get {
+      updateConformanceTable()
+      return _conformanceTable!
+    }
+    set { _conformanceTable = newValue }
+  }
 
   // Updates or initializes the conformance lookup table.
-  func updateConformanceTable() {
-    if conformanceTable == nil {
-      conformanceTable = ConformanceLookupTable()
+  public func updateConformanceTable() {
+    if _conformanceTable == nil {
+      _conformanceTable = ConformanceLookupTable()
       for repr in inheritances {
         let reprType = repr.realize(unqualifiedFrom: parentDeclSpace!)
         if let viewType = reprType as? ViewType {
-          conformanceTable!.insert(viewType, range: repr.range)
+          _conformanceTable![viewType] = ViewConformance(
+            viewDecl: viewType.decl as! ViewTypeDecl, range: repr.range)
         }
       }
 
@@ -876,13 +892,15 @@ public class NominalTypeDecl: TypeDecl, DeclSpace {
   /// it does not conform.
   public func conformance(to viewType: ViewType) -> ViewConformance? {
     updateConformanceTable()
-    return conformanceTable![viewType]
+    return _conformanceTable![viewType]
   }
 
-  /// The set of conformances for this type.
-  public var conformances: [ViewConformance] {
-    updateConformanceTable()
-    return conformanceTable!.conformances
+  public var hasOwnGenericParams: Bool { false }
+
+  public var genericEnv: GenericEnv?
+
+  public func prepareGenericEnv() -> GenericEnv? {
+    fatalError()
   }
 
   public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
@@ -906,14 +924,11 @@ public final class ProductTypeDecl: NominalTypeDecl, GenericTypeDecl {
     super.init(name: name, inheritances: inheritances, members: members, type: type, range: range)
   }
 
-  /// The generic clause of the declaration.
   public var genericClause: GenericClause?
 
-  public var hasOwnGenericParams: Bool { genericClause != nil }
+  public override var hasOwnGenericParams: Bool { genericClause != nil }
 
-  public var genericEnv: GenericEnv?
-
-  public func prepareGenericEnv() -> GenericEnv? {
+  public override func prepareGenericEnv() -> GenericEnv? {
     if let env = genericEnv { return env }
 
     if let clause = genericClause {
@@ -933,6 +948,22 @@ public final class ProductTypeDecl: NominalTypeDecl, GenericTypeDecl {
     return genericEnv
   }
 
+  /// The uncontextualized type of a reference to `self` within the context of this type.
+  ///
+  /// If the type declaration introduces its own generic type parameters, this wraps `instanceType`
+  /// within a `BoundGenericType` where each parameter is bound to itself. Otherwise, this is the
+  /// same as `instanceType`.
+  public override var receiverType: ValType {
+    if let clause = genericClause {
+      // The instance type is generic (e.g., `Foo<Bar>`).
+      return type.context.boundGenericType(
+        decl: self,
+        args: clause.params.map({ $0.instanceType }))
+    } else {
+      return instanceType
+    }
+  }
+
   public override func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
@@ -940,7 +971,50 @@ public final class ProductTypeDecl: NominalTypeDecl, GenericTypeDecl {
 }
 
 /// A view type declaration.
-public final class ViewTypeDecl: NominalTypeDecl {
+public final class ViewTypeDecl: NominalTypeDecl, GenericDeclSpace {
+
+  public override var hasOwnGenericParams: Bool { true }
+
+  /// The implicit declaration of the `Self` generic type parameter.
+  public lazy var selfTypeDecl: GenericParamDecl = {
+    let paramDecl = GenericParamDecl(
+      name: "Self",
+      type: type.context.unresolvedType,
+      range: range.lowerBound ..< range.lowerBound)
+
+    paramDecl.parentDeclSpace = self
+    paramDecl.type = type.context.genericParamType(decl: paramDecl).kind
+    paramDecl.setState(.typeChecked)
+
+    return paramDecl
+  }()
+
+  /// The uncontextualized type of a reference to `self` within the context of this type.
+  public override var receiverType: ValType { selfTypeDecl.instanceType }
+
+  /// Prepares the generic environment.
+  ///
+  /// View declarations delimit a generic space with a unique type parameter `Self`, which denotes
+  /// conforming types existentially. `Self` is declared implicitly in a generic clause of the form
+  /// `<Self where Self: V>`, where `V` is the name of the declared view.
+  public override func prepareGenericEnv() -> GenericEnv? {
+    if let env = genericEnv { return env }
+
+    let selfType = selfTypeDecl.instanceType as! GenericParamType
+
+    // Create the view's generic type requirements (i.e., `Self: V`).
+    let range = self.range.lowerBound ..< self.range.lowerBound
+    let req = TypeReq(
+      kind: .conformance,
+      lhs: UnqualTypeRepr(name: "Self", type: selfType, range: range),
+      rhs: UnqualTypeRepr(name: name, type: instanceType, range: range),
+      range: range)
+
+    // Create and return the view's generic environment.
+    genericEnv = GenericEnv(
+      space: self, params: [selfType], typeReqs: [req], context: type.context)
+    return genericEnv
+  }
 
   public override func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
