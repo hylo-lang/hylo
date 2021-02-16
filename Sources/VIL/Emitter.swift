@@ -5,6 +5,9 @@ import Basic
 ///
 /// This class is the entry point to VIL code generation phase, which lowers a type checked module
 /// declaration to a VIL module.
+///
+/// - Important: Do not emit VIL code for unchecked or ill-formed ASTs. The emitter assumes that
+///   all declarations are successfully well-typed; its behavior is undefined otherwise.
 public final class Emitter {
 
   /// The context in which the pass runs.
@@ -12,9 +15,6 @@ public final class Emitter {
 
   /// The VIL builder used by the emitter.
   public let builder: Builder
-
-  /// The declaration of `self` in the context of the member function being emitted.
-  private var localSelfDecl: Value?
 
   public init(context: AST.Context, builder: Builder) {
     self.context = context
@@ -28,27 +28,16 @@ public final class Emitter {
   }
 
   func emit(decl: Decl) {
-    guard decl.state >= .typeChecked else { return }
-
     switch decl {
-    case let typeDecl as NominalTypeDecl:
-      // Emit the members of the declaration.
-      for memberDecl in typeDecl.members {
-        emit(decl: memberDecl)
-      }
+    case is ViewTypeDecl:
+      // Views are abstract constructs; there's nothing to emit.
+      return
+
+    case let typeDecl as ProductTypeDecl:
+      emit(decl: typeDecl)
 
     case let pdDecl as PatternBindingDecl:
-      if pdDecl.isMember {
-        // If the decl is a stored member of a type declaration, we're done.
-        if pdDecl.varDecls.allSatisfy({ decl in decl.hasStorage }) {
-          return
-        }
-
-        // FIXME: Handle initializers in snythetized constructors.
-      }
-
-      // FIXME: Handle global variables.
-      fatalError()
+      emit(decl: pdDecl)
 
     case let funDecl as BaseFunDecl:
       // Emit a function.
@@ -61,6 +50,31 @@ public final class Emitter {
     default:
       fatalError("I don't know how to emit '\(decl)'")
     }
+  }
+
+  func emit(decl: ProductTypeDecl) {
+    // Emit the the type's witness table(s).
+    for conformance in decl.conformanceTable.values {
+    }
+
+    // Emit the members of the declaration.
+    for memberDecl in decl.members {
+      emit(decl: memberDecl)
+    }
+  }
+
+  func emit(decl: PatternBindingDecl) {
+    if decl.isMember {
+      // If the decl is a stored member of a type declaration, we're done.
+      if decl.varDecls.allSatisfy({ varDecl in varDecl.hasStorage }) {
+        return
+      }
+
+      // FIXME: Handle initializers in snythetized constructors.
+    }
+
+    // FIXME: Handle global variables.
+    fatalError()
   }
 
 }
