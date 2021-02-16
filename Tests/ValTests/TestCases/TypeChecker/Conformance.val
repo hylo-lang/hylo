@@ -1,0 +1,18 @@
+view V {
+  new()
+  fun foo()
+  fun bar(a: A) -> B
+}
+
+type A: V {
+  new() {}
+  fun foo() {}
+  fun bar(a: A) -> B
+}
+
+// #!error@+2 conformance to 'V' requires a matching implementation of 'new'
+// #!error@+1 conformance to 'V' requires a matching implementation of 'bar'
+type B: V {
+  new(a: A) {}
+  fun foo() {}
+}
