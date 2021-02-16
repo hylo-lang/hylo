@@ -89,7 +89,7 @@ public struct CompileJob: Job {
 
     // Type-check the module, unless instructed otherwise.
     if !parseOnly {
-      TypeChecker(context: context).check(decl: module)
+      _ = TypeChecker(context: context).check(decl: module)
     }
   }
 

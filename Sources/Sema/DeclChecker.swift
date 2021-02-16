@@ -1,26 +1,29 @@
 import AST
+import Basic
 
 /// The type checker for Val's declarations.
 struct DeclChecker: DeclVisitor {
 
-  typealias DeclResult = Void
+  typealias DeclResult = Bool
 
   /// The top-level type checker.
   unowned let checker: TypeChecker
 
-  func visit(_ node: ModuleDecl) {
-    guard shouldTypeCheck(node) else { return }
+  func visit(_ node: ModuleDecl) -> Bool {
+    guard node.state < .typeChecked else { return handleCheckState(node) }
     node.setState(.typeCheckRequested)
 
+    var isWellFormed = true
     for decl in node.decls {
-      decl.accept(self)
+      isWellFormed = isWellFormed && decl.accept(self)
     }
 
-    node.setState(.typeChecked)
+    node.setState(isWellFormed ? .typeChecked : .invalid)
+    return isWellFormed
   }
 
-  func visit(_ node: PatternBindingDecl) {
-    guard shouldTypeCheck(node) else { return }
+  func visit(_ node: PatternBindingDecl) -> Bool {
+    guard node.state < .typeChecked else { return handleCheckState(node) }
     node.setState(.typeCheckRequested)
 
     let useSite = node.parentDeclSpace!
@@ -39,7 +42,7 @@ struct DeclChecker: DeclVisitor {
       // Bail out if the signature is invalid.
       guard !signType.hasErrors else {
         setInvalid(pbd: node)
-        return
+        return false
       }
 
       if signType.hasTypeParams {
@@ -48,7 +51,7 @@ struct DeclChecker: DeclVisitor {
         // resolve the type repr.
         guard let env = useSite.innermostGenericSpace!.prepareGenericEnv() else {
           setInvalid(pbd: node)
-          return
+          return false
         }
 
         // Contextualize the signature.
@@ -65,7 +68,7 @@ struct DeclChecker: DeclVisitor {
         type: signType, system: &system, locator: ConstraintLocator(sign))
       else {
         setInvalid(pbd: node)
-        return
+        return false
       }
 
       // If the signature contains opened generic parameter, require an initializer to infer them.
@@ -73,7 +76,7 @@ struct DeclChecker: DeclVisitor {
         checker.context.report(
           .referenceToGenericRequiresArguments(type: completeSignType, range: node.pattern.range))
         setInvalid(pbd: node)
-        return
+        return false
       }
 
       // Type-check the initializer if there's one.
@@ -93,7 +96,7 @@ struct DeclChecker: DeclVisitor {
       // Unannotated declarations require an initializer.
       checker.context.report(.missingPatternInitializer(range: node.pattern.range))
       setInvalid(pbd: node)
-      return
+      return false
     }
 
     assert(!patternType.hasVariables)
@@ -101,22 +104,23 @@ struct DeclChecker: DeclVisitor {
     // Apply the pattern's type.
     guard TypeChecker.assign(type: patternType, to: node.pattern) else {
       setInvalid(pbd: node)
-      return
+      return false
     }
 
     node.setState(.typeChecked)
     for decl in node.varDecls {
       decl.setState(.typeChecked)
     }
+    return true
   }
 
-  func visit(_ node: VarDecl) {
+  func visit(_ node: VarDecl) -> Bool {
     // VarDecls are always visited through their pattern, never directly.
     fatalError("unreachable")
   }
 
-  func visit(_ node: BaseFunDecl) {
-    guard shouldTypeCheck(node) else { return }
+  func visit(_ node: BaseFunDecl) -> Bool {
+    guard node.state < .typeChecked else { return handleCheckState(node) }
 
     /// Realize the function's signature.
     _ = node.realize()
@@ -125,7 +129,7 @@ struct DeclChecker: DeclVisitor {
     /// Initialize the function's generic environment.
     guard node.prepareGenericEnv() != nil else {
       node.setState(.invalid)
-      return
+      return false
     }
 
     /// Type check the function's body, if any.
@@ -134,35 +138,39 @@ struct DeclChecker: DeclVisitor {
     }
 
     node.setState(.typeChecked)
+    return true
   }
 
-  func visit(_ node: FunDecl) {
-    visit(node as BaseFunDecl)
+  func visit(_ node: FunDecl) -> Bool {
+    return visit(node as BaseFunDecl)
   }
 
-  func visit(_ node: CtorDecl) {
-    visit(node as BaseFunDecl)
+  func visit(_ node: CtorDecl) -> Bool {
+    return visit(node as BaseFunDecl)
   }
 
-  func visit(_ node: FunParamDecl) {
+  func visit(_ node: FunParamDecl) -> Bool {
+    fatalError("unreachable")
   }
 
-  func visit(_ node: NominalTypeDecl) {
+  func visit(_ node: NominalTypeDecl) -> Bool {
+    fatalError("unreachable")
   }
 
-  func visit(_ node: ProductTypeDecl) {
-    guard shouldTypeCheck(node) else { return }
+  func visit(_ node: ProductTypeDecl) -> Bool {
+    guard node.state < .typeChecked else { return handleCheckState(node) }
     node.setState(.typeCheckRequested)
 
     /// Initialize the type's generic environment.
     guard node.prepareGenericEnv() != nil else {
       node.setState(.invalid)
-      return
+      return false
     }
 
     // Type-check the type's members.
+    var isWellFormed = true
     for member in node.members {
-      member.accept(self)
+      isWellFormed = isWellFormed && member.accept(self)
     }
 
     // Type check the type's conformances.
@@ -227,56 +235,77 @@ struct DeclChecker: DeclVisitor {
         ? .checked
         : .invalid
       node.conformanceTable[conformance.viewType] = conformance
+      isWellFormed = isWellFormed && satisfied
     }
 
-    node.setState(.typeChecked)
+    node.setState(isWellFormed ? .typeChecked : .invalid)
+    return isWellFormed
   }
 
-  func visit(_ node: ViewTypeDecl) {
-    guard shouldTypeCheck(node) else { return }
+  func visit(_ node: ViewTypeDecl) -> Bool {
+    guard node.state < .typeChecked else { return handleCheckState(node) }
     node.setState(.typeCheckRequested)
 
     // Initialize the type's generic environment.
     guard node.prepareGenericEnv() != nil else {
       node.setState(.invalid)
-      return
+      return false
     }
 
     // Type-check the type's members.
+    var isWellFormed = true
     for member in node.members {
-      member.accept(self)
+      isWellFormed = isWellFormed && member.accept(self)
     }
 
-    node.setState(.typeChecked)
+    node.setState(isWellFormed ? .typeChecked : .invalid)
+    return isWellFormed
   }
 
-  func visit(_ node: GenericParamDecl) {
+  func visit(_ node: GenericParamDecl) -> Bool {
+    fatalError("unreachable")
   }
 
-  func visit(_ node: TypeExtDecl) {
-    guard shouldTypeCheck(node) else { return }
+  func visit(_ node: TypeExtDecl) -> Bool {
+    guard node.state < .typeChecked else { return handleCheckState(node) }
+    node.setState(.typeCheckRequested)
 
     // Bind the extension to the type it extends.
-    guard node.computeExtendedDecl() != nil else { return }
+    guard node.computeExtendedDecl() != nil else { return false }
 
     // Type-check the extension's members.
     node.setState(.typeCheckRequested)
+    var isWellFormed = true
     for member in node.members {
-      member.accept(self)
+      isWellFormed = isWellFormed && member.accept(self)
     }
 
-    node.setState(.typeChecked)
+    node.setState(isWellFormed ? .typeChecked : .invalid)
+    return isWellFormed
   }
 
   // MARK: Helpers
 
-  private func shouldTypeCheck(_ node: Decl) -> Bool {
-    if node.state >= .typeChecked { return false }
-    if node.state == .typeCheckRequested {
-      // FIXME: This should be a diagnostic.
-      preconditionFailure("circular dependency")
+  /// Returns whether or not type checking succeeded, depending on the current state of the
+  /// declaration.
+  private func handleCheckState(_ node: Decl) -> Bool {
+    switch node.state {
+    case .invalid:
+      // Type checking has already failed.
+      return false
+
+    case .typeChecked:
+      // Type checking has already succeeded.
+      return true
+
+    case .typeCheckRequested:
+      // Type checking was requested on the same path.
+      checker.context.report(Diagnostic("circular dependency detected", anchor: node.range))
+      return false
+
+    default:
+      fatalError("unreachable")
     }
-    return true
   }
 
   /// Marks a pattern binding declaration invalid, along with all its associated var decls.

@@ -51,7 +51,7 @@ public final class TypeChecker {
   /// Type checks the given declaration. This is the main entry point into the type checker.
   ///
   /// - Parameter decl: The declaration to type check.
-  public func check(decl: Decl) {
+  public func check(decl: Decl) -> Bool {
     decl.accept(DeclChecker(checker: self))
   }
 

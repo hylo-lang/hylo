@@ -311,7 +311,7 @@ struct CSSolver {
     if decls.count == 1 {
       // Only one choice; we can solve an equality constraint.
       if let varDecl = decls[0] as? VarDecl {
-        checker.check(decl: varDecl.patternBindingDecl!)
+        _ = checker.check(decl: varDecl.patternBindingDecl!)
       }
 
       let args: [GenericParamType: ValType]
@@ -351,7 +351,7 @@ struct CSSolver {
     // Instanciate the type of the declaration candidates.
     let choices = constraint.declSet.map({ (decl) -> (Constraint, Int) in
       if let varDecl = decl as? VarDecl {
-        checker.check(decl: varDecl.patternBindingDecl!)
+        _ = checker.check(decl: varDecl.patternBindingDecl!)
       }
 
       let choiceType = decl.contextualize(

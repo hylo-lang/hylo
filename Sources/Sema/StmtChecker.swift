@@ -15,7 +15,7 @@ struct StmtChecker: StmtVisitor {
     for i in 0 ..< node.stmts.count {
       switch node.stmts[i] {
       case let decl as Decl:
-        checker.check(decl: decl)
+        _ = checker.check(decl: decl)
 
       case let stmt as Stmt:
         checker.check(stmt: stmt, useSite: node)

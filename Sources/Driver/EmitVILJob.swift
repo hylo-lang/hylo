@@ -17,6 +17,11 @@ public struct EmitVILJob: Job {
       throw DriverError.moduleNotFound(moduleID: moduleID)
     }
 
+    // Make sure the module is type checked.
+    guard moduleDecl.state == .typeChecked else {
+      return
+    }
+
     // Initialize the VIL emitter.
     let module = Module(id: moduleID)
     let builder = VIL.Builder(module: module)
