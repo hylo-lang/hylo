@@ -12,8 +12,9 @@ import AST
 /// - **Conformance enumeration**
 ///   Initializes the view conformance set of all nominal types. This includes listing inherited
 ///   and synthetized conformances.
-/// - **Existential realization**
-///   Realizes existential types from generic type signatures.
+/// - **Generic environment realization**
+///   Realizes generic type signatures, establishing equivalence classes and conformance relations
+///   for each generic type parameter.
 /// - **Name resolution**
 ///   Resolves type and variable identifiers to their declaration.
 /// - **Semantic type checking**
@@ -177,29 +178,29 @@ public final class TypeChecker {
     }
 
     let viewDecl = view.decl as! ViewTypeDecl
-    let existential = env.existential(of: param)
-    if let types = env.equivalences.equivalenceClass(containing: existential) {
-      // The existential belongs to an equivalence class; register the new conformance for every
-      // member of the existential's equivalence class.
+    let skolem = env.skolemize(param)
+    if let types = env.equivalences.equivalenceClass(containing: skolem) {
+      // The skolem belongs to an equivalence class; register the new conformance for every member
+      // of the skolem's equivalence class.
       for type in types {
-        guard let existential = type as? ExistentialType,
-              existential.genericEnv === env
+        guard let skolem = type as? SkolemType,
+              skolem.genericEnv === env
         else {
           // Complain that the equivalence class contains non-generic members.
           context.report(.illegalConformanceRequirement(type: lhs, range: req.lhs.range))
           return false
         }
 
-        guard env.conformance(of: existential, to: view) == nil else { return false }
+        guard env.conformance(of: skolem, to: view) == nil else { return false }
         env.insert(
           conformance: ViewConformance(viewDecl: viewDecl, range: req.rhs.range),
-          for: existential)
+          for: skolem)
       }
-    } else if env.conformance(of: existential, to: view) == nil {
-      // The existential has no equivalence class; register the new conformance fot it directly.
+    } else if env.conformance(of: skolem, to: view) == nil {
+      // The skolem has no equivalence class; register the new conformance fot it directly.
       env.insert(
         conformance: ViewConformance(viewDecl: viewDecl, range: req.rhs.range),
-        for: existential)
+        for: skolem)
     }
 
     return true

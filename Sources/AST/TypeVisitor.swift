@@ -19,7 +19,7 @@ public protocol TypeVisitor {
 
   func visit(_ type: GenericParamType) -> Result
 
-  func visit(_ type: ExistentialType) -> Result
+  func visit(_ type: SkolemType) -> Result
 
   func visit(_ type: BoundGenericType) -> Result
 

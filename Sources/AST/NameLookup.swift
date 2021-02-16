@@ -41,7 +41,7 @@ extension ValType {
     case let baseType as InoutType:
       return baseType.base.lookup(member: memberName)
 
-    case let baseType as ExistentialType:
+    case let baseType as SkolemType:
       guard let conformances = baseType.genericEnv.conformances(of: baseType) else {
         return LookupResult()
       }

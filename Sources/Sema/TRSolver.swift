@@ -24,8 +24,8 @@ struct TRSolver {
         fatalError("not implemented yet")
       }
 
-      let entryA = env.existential(of: param)
-      let entryB = env.existential(of: repr)
+      let entryA = env.skolemize(param)
+      let entryB = env.skolemize(repr)
 
       if let i = classes.firstIndex(where: { class_ in class_.contains(entryB) }) {
         if entryA != entryB {

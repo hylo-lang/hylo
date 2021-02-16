@@ -1,16 +1,16 @@
 import Basic
 
-/// A key in the existential lookup table.
-fileprivate typealias ExistentialKey = HashableBox<ValType, ReferenceHashWitness<ValType>>
+/// A key in a conformance lookup table.
+fileprivate typealias SkolemKey = HashableBox<SkolemType, ReferenceHashWitness<SkolemType>>
 
-/// An environment describing mappings between generic types and existential types.
+/// An environment describing mappings between generic types and skolem types.
 ///
 /// Generic types have to be "contextualized" before they can be assigned to an expression. This
-/// consists of substituting either fresh variables or existential types for each of their generic
-/// type parameters, depending on the declaration space from which they are being used. If a type
-/// parameter is used *within* the generic space that introduces it, it has to be substituted by an
-/// existential type. In contrast, if it is used *outside* of its declaration space, then it must
-/// be "opened" as a fresh variable.
+/// consists of substituting either fresh or skolem type variable for each of their generic type
+/// parameters, depending on the declaration space from which they are being used. If a parameter
+/// is being used *within* the generic space that declares it, it is substituted by a skolem. In
+/// contrast, if it is used *outside* of its environment space, then it must be be "opened" as a
+/// fresh type variable.
 public final class GenericEnv {
 
   public init(space: GenericDeclSpace) {
@@ -44,7 +44,7 @@ public final class GenericEnv {
   /// The type requirements on the parameters of the environment.
   public let typeReqs: [TypeReq]
 
-  /// The prototypes of the constraints to apply on opened existentials.
+  /// The prototypes of the constraints to apply on opened parameters.
   ///
   /// - Note: This property is initialized by the type checker.
   /// - SeeAlso: `Context.prepareGenericEnv`
@@ -54,7 +54,7 @@ public final class GenericEnv {
   ///
   /// This describes the equivalence classes of the set of generic type parameters, as inferred
   /// from related type requirements. This is used by the constraint type solver to decide whether
-  /// two existential types are equivalent.
+  /// two skolems are equivalent.
   ///
   /// - Note: This property is initialized by the type checker.
   /// - SeeAlso: `Context.prepareGenericEnv`
@@ -64,23 +64,23 @@ public final class GenericEnv {
   ///
   /// - Note: This property is initialized by the type checker.
   /// - SeeAlso: `Context.prepareGenericEnv`
-  private var conformanceTables: [ExistentialKey: [ViewConformance]] = [:]
+  private var conformanceTables: [SkolemKey: [ViewConformance]] = [:]
 
-  /// The set of conformances for the given existential type.
-  public func conformances(of type: ExistentialType) -> [ViewConformance]? {
-    return conformanceTables[ExistentialKey(type)]
+  /// The set of conformances for the given skolem type.
+  public func conformances(of type: SkolemType) -> [ViewConformance]? {
+    return conformanceTables[SkolemKey(type)]
   }
 
-  /// Returns the information describing the given existential type's conformance to the specified
-  /// view, or `nil` if such a conformance was never established.
-  public func conformance(of type: ExistentialType, to viewType: ViewType) -> ViewConformance? {
-    guard let list = conformanceTables[ExistentialKey(type)] else { return nil }
+  /// Returns the information describing the given skolem type's conformance to the specified view,
+  /// or `nil` if such a conformance was never established.
+  public func conformance(of type: SkolemType, to viewType: ViewType) -> ViewConformance? {
+    guard let list = conformanceTables[SkolemKey(type)] else { return nil }
     return list.first(where: { $0.viewDecl === viewType.decl })
   }
 
   /// Inserts a new entry into the conformance lookup table for the given type.
-  public func insert(conformance: ViewConformance, for type: ExistentialType) {
-    conformanceTables[ExistentialKey(type), default: []].append(conformance)
+  public func insert(conformance: ViewConformance, for type: SkolemType) {
+    conformanceTables[SkolemKey(type), default: []].append(conformance)
   }
 
   /// Returns whether the given declaration space is contained within this generic environment.
@@ -104,9 +104,9 @@ public final class GenericEnv {
   ///   - type: A generic type. This method returns `type` unchanged if it does not contain any
   ///     generic type parameter.
   ///   - useSite: The declaration space from which the type is being referred.
-  ///   - handleConstraint: A closure that accepts contextualized contraint prototypes. It is not
-  ///     called unless the contextualized type contains opened existentials for which there exist
-  ///     type requirements.
+  ///   - handleConstraint: A closure that accepts contextualized contraint prototypes. It is
+  ///     called only if the contextualized type contains opened generic types for which there
+  ///     exist type requirements.
   public func contextualize(
     _ type: ValType,
     from useSite: DeclSpace,
@@ -118,7 +118,7 @@ public final class GenericEnv {
     let contextualizer = Contextualizer(env: self, useSite: useSite)
     let newType = contextualizer.walk(type)
 
-    // Contextualize the type constraint prototypes for each opened existential.
+    // Contextualize the type constraint prototypes for each opened parameter.
     contextualizeTypeReqs(with: contextualizer, processingContraintsWith: handleConstraint)
 
     return newType
@@ -145,19 +145,19 @@ public final class GenericEnv {
   ///
   /// - Parameter param: A generic parameter type. `param` is assumed to be defined either within
   ///   this generic environment or within one of its parent.
-  public func existential(of param: GenericParamType) -> ExistentialType {
+  public func skolemize(_ param: GenericParamType) -> SkolemType {
     if params.contains(param) {
-      return param.context.existentialType(interface: param, genericEnv: self)
+      return param.context.skolemType(interface: param, genericEnv: self)
     }
 
     let gds = space.parentDeclSpace!.innermostGenericSpace!
     guard let parentEnv = gds.prepareGenericEnv() else {
       preconditionFailure("bad generic environment")
     }
-    return parentEnv.existential(of: param)
+    return parentEnv.skolemize(param)
   }
 
-  /// A prototype of a constraint on an opened existential, described by a type requirement.
+  /// A prototype of a constraint on an opened generic parameter, described by a type requirement.
   public struct ConstraintPrototype {
 
     /// The kind of contraint described by the prototype.
@@ -211,7 +211,7 @@ fileprivate final class Contextualizer: TypeWalker {
 
   /// The substitution table keeping track of the type variables that were used to open each
   /// specific generic type parameter.
-  var substitutions: [ExistentialKey: TypeVar] = [:]
+  var substitutions: [GenericParamType: TypeVar] = [:]
 
   override func willVisit(_ type: ValType) -> TypeWalker.Action {
     guard let param = type as? GenericParamType else {
@@ -234,19 +234,19 @@ fileprivate final class Contextualizer: TypeWalker {
     }
 
     if env.isContained(useSite: useSite) {
-      // The generic parameter is being referred to internally, so it must be susbstituted by an
-      // existential type.
-      let existential = env.existential(of: param)
-      return .stepOver(existential)
+      // The generic parameter is being referred to internally, so it must be susbstituted by a
+      // skolem type.
+      let skolem = env.skolemize(param)
+      return .stepOver(skolem)
     } else {
       // The generic parameter is being referred to externally, so it must be substituted by a
-      // type variable.
-      if let variable = substitutions[ExistentialKey(param)] {
+      // fresh type variable.
+      if let variable = substitutions[param] {
         return .stepOver(variable)
       }
 
       let variable = TypeVar(context: param.context)
-      substitutions[ExistentialKey(param)] = variable
+      substitutions[param] = variable
       return .stepOver(variable)
     }
   }

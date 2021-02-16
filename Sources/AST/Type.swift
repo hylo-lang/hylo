@@ -26,8 +26,8 @@ public class ValType {
   /// The type contains one or more generic type parameters.
   public var hasTypeParams: Bool { props.contains(.hasTypeParams) }
 
-  /// The type contains one or more existential types.
-  public var hasExistentials: Bool { props.contains(.hasExistentials) }
+  /// The type contains one or more skolems.
+  public var hasSkolems: Bool { props.contains(.hasSkolems) }
 
   /// The type contains the unresolved type.
   public var hasUnresolved: Bool { props.contains(.hasUnresolved) }
@@ -46,8 +46,7 @@ public class ValType {
 
   /// The uncontextualized interface of this type.
   ///
-  /// This is the type in which all existentials contextualized internally are substituted for
-  /// their interface type.
+  /// This is the type in which all skolems are substituted for their interface type.
   public var uncontextualized: ValType { self }
 
   public func specialized(with args: [GenericParamType: ValType]) -> ValType {
@@ -129,7 +128,7 @@ public class ValType {
     public static let isCanonical     = RecursiveProps(value: 1 << 0)
     public static let hasVariables    = RecursiveProps(value: 1 << 1)
     public static let hasTypeParams   = RecursiveProps(value: 1 << 2)
-    public static let hasExistentials = RecursiveProps(value: 1 << 3)
+    public static let hasSkolems      = RecursiveProps(value: 1 << 3)
     public static let hasUnresolved   = RecursiveProps(value: 1 << 4)
     public static let hasErrors       = RecursiveProps(value: 1 << 5)
 
@@ -201,7 +200,7 @@ public final class KindType: ValType {
   }
 
   public override var uncontextualized: ValType {
-    return hasExistentials
+    return hasSkolems
       ? type.uncontextualized.kind
       : self
   }
@@ -401,7 +400,7 @@ public final class BoundGenericType: NominalType {
   }
 
   public override var uncontextualized: ValType {
-    return hasExistentials
+    return hasSkolems
       ? context.boundGenericType(decl: decl, args: args.map({ $0.uncontextualized }))
       : self
   }
@@ -467,36 +466,33 @@ extension GenericParamType: CustomStringConvertible {
 
 }
 
-/// An existential type.
+/// A skolem type (a.k.a. rigid) type variable.
 ///
-/// This denotes an unspecified type that is known to conform to a set of views at runtime. It is
-/// used to represent generic parameters within their generic context, as well as the type of
-/// existential containers.
-///
-/// - Note: The `Any` is an existential type.
-public final class ExistentialType: ValType {
+/// This denotes a generic type parameter that has been existentially quantified within its generic
+/// environment (e.g., `X` in within the scope of a function `fun foo<X>(...)`.
+public final class SkolemType: ValType {
 
   init(context: Context, interface: ValType, genericEnv: GenericEnv) {
     self.interface = interface
     self.genericEnv = genericEnv
-    super.init(context: context, props: RecursiveProps([.isCanonical, .hasExistentials]))
+    super.init(context: context, props: RecursiveProps([.isCanonical, .hasSkolems]))
   }
 
-  /// The interface type of this existential.
+  /// The interface type of this skolem.
   public unowned let interface: ValType
 
-  /// The generic environment in which this existential resides.
+  /// The generic environment in which this skolem is existentially qunatified.
   public unowned let genericEnv: GenericEnv
 
   public override var uncontextualized: ValType { interface }
 
   override func isEqual(to other: ValType) -> Bool {
-    guard let that = other as? ExistentialType else { return false }
+    guard let that = other as? SkolemType else { return false }
     return self.interface.isEqual(to: that.interface)
   }
 
   override func hash(into hasher: inout Hasher) {
-    withUnsafeBytes(of: ExistentialType.self, { hasher.combine(bytes: $0) })
+    withUnsafeBytes(of: SkolemType.self, { hasher.combine(bytes: $0) })
     interface.hash(into: &hasher)
   }
 
@@ -506,7 +502,7 @@ public final class ExistentialType: ValType {
 
 }
 
-extension ExistentialType: CustomStringConvertible {
+extension SkolemType: CustomStringConvertible {
 
   public var description: String {
     return "∃X.\(interface)"
@@ -545,7 +541,7 @@ public final class TupleType: ValType {
   }
 
   public override var uncontextualized: ValType {
-    if !hasExistentials {
+    if !hasSkolems {
       return self
     }
     return context.tupleType(elems.map({ elem in
@@ -639,7 +635,7 @@ public final class FunType: ValType {
   }
 
   public override var uncontextualized: ValType {
-    return hasExistentials
+    return hasSkolems
       ? context.funType(paramType: paramType.uncontextualized, retType: retType.uncontextualized)
       : self
   }
@@ -693,7 +689,7 @@ public final class InoutType: ValType {
   }
 
   public override var uncontextualized: ValType {
-    return hasExistentials
+    return hasSkolems
       ? context.inoutType(of: base.uncontextualized)
       : self
   }

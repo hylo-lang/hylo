@@ -107,12 +107,12 @@ struct CSSolver {
       assumptions.substitute(constraint.lhs, for: tau)
       system.refresh(constraintsDependingOn: tau)
 
-    case (let lhs as ExistentialType, _):
+    case (let lhs as SkolemType, _):
       if !lhs.genericEnv.equivalences.areEqual(lhs, constraint.rhs) {
         errors.append(.conflictingTypes(constraint))
       }
 
-    case (_, let rhs as ExistentialType):
+    case (_, let rhs as SkolemType):
       if !rhs.genericEnv.equivalences.areEqual(constraint.lhs, rhs) {
         errors.append(.conflictingTypes(constraint))
       }
@@ -160,8 +160,8 @@ struct CSSolver {
         errors.append(.nonConformingType(constraint))
       }
 
-    case let existential as ExistentialType:
-      if existential.genericEnv.conformance(of: existential, to: view) == nil {
+    case let skolem as SkolemType:
+      if skolem.genericEnv.conformance(of: skolem, to: view) == nil {
         errors.append(.nonConformingType(constraint))
       }
 
@@ -194,7 +194,7 @@ struct CSSolver {
       }
 
       switch upper {
-      case is ProductType, is ExistentialType:
+      case is ProductType, is SkolemType:
         // `U` is a "final" type that cannot have any subtype.
         let simplified = RelationalConstraint(
           kind: .equality, lhs: constraint.lhs, rhs: upper, at: constraint.locator)

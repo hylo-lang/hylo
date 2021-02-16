@@ -114,9 +114,9 @@ extension ValueDecl {
   /// - Parameters:
   ///   - useSite: The declaration space from which the declaration is being referred.
   ///   - args: A dictionary containing specialization arguments for generic type parameters.
-  ///   - handleConstraint: A closure that accepts contextualized contraint prototypes. It is not
-  ///     called unless the contextualized type contains opened existentials for which there exist
-  ///     type requirements.
+  ///   - handleConstraint: A closure that accepts contextualized contraint prototypes. It is
+  ///     called only if the contextualized type contains opened generic types for which there
+  ///     exist type requirements.
   public func contextualize(
     from useSite: DeclSpace,
     args: [GenericParamType: ValType] = [:],

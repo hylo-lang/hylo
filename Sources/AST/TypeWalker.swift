@@ -70,7 +70,7 @@ open class TypeWalker: TypeVisitor {
     return type
   }
 
-  open func visit(_ type: ExistentialType) -> ValType {
+  open func visit(_ type: SkolemType) -> ValType {
     return type
   }
 

@@ -68,7 +68,7 @@ struct DeclChecker: DeclVisitor {
         return
       }
 
-      // If the signature contains opened existentials, require an initializer to infer them.
+      // If the signature contains opened generic parameter, require an initializer to infer them.
       guard !completeSignType.hasVariables || node.initializer != nil else {
         checker.context.report(
           .referenceToGenericRequiresArguments(type: completeSignType, range: node.pattern.range))
@@ -298,8 +298,8 @@ struct DeclChecker: DeclVisitor {
   /// Completes the argument list of an "underspecified" generic nominal type.
   ///
   /// If `type` is a generic nominal type with too few generic arguments, this method produces a
-  /// bound generic type where all missing argument is replaced by an opened existential. This
-  /// only happens if `type` is a bare nominal type, or if it is a bound generic type with less
+  /// bound generic type where all missing argument is replaced by an opened parameter. This only
+  /// happens if `type` is a bare nominal type, or if it is a bound generic type with less
   /// arguments than the number of parameters of its declaration.
   private func completeGenericArgs(
     type: ValType, system: inout ConstraintSystem, locator: ConstraintLocator
