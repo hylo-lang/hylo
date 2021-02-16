@@ -178,24 +178,40 @@ struct CSSolver {
       // We can't solve anything yet if both types are still unknown.
       system.staleConstraints.append(constraint)
 
+    case (_ as TypeVar, let rhs as InoutType) where rhs.base is TypeVar:
+      // We can't solve anything yet if both types are still unknown.
+      system.staleConstraints.append(constraint)
+
     case is (TypeVar, ValType):
       // The type variable is below a more concrete type. We should compute the "meet" of all types
       // coercible to `U` and that are above `T`. Unfortunately, we can't enumerate such a set; it
-      // would essentially boils down to computing the set of types that are subtypes of `U`. The
-      // current strategy is to just pick `U` as a guess.
+      // would essentially boils down to computing the set of types that are subtypes of `U`. Thus,
+      // we have to make an educated guess, based on `U`.
       var upper = constraint.rhs
       if let inoutType = upper as? InoutType {
         // Don't preserve l-valueness.
         upper = inoutType.base
       }
-      let simplified = RelationalConstraint(
-        kind: .equality, lhs: constraint.lhs, rhs: upper, at: constraint.locator)
-      solve(simplified)
 
-      // FIXME: The above strategy will fail to handle cases where `T` is more tightly constrained
-      // by another relation that we haven't solved yet. One strategy to tackle this issue might be
-      // to fork the system with a "strict subtyping" constraint. Should it succeed, it will get a
-      // better score that the current solution.
+      switch upper {
+      case is ProductType, is ExistentialType:
+        // `U` is a "final" type that cannot have any subtype.
+        let simplified = RelationalConstraint(
+          kind: .equality, lhs: constraint.lhs, rhs: upper, at: constraint.locator)
+        solve(simplified)
+
+      case is ViewType:
+        // `U` is a view type that could be conformed any type. Hence, binding `T` to `U` might
+        // fail if `T` is more tightly constrained by another relation that we haven't solved yet.
+        // Instead, we can try to solve the constraint as a conformance relation.
+        let simplified = RelationalConstraint(
+          kind: .conformance, lhs: constraint.lhs, rhs: upper, at: constraint.locator)
+        solve(simplified)
+
+      default:
+        // FIXME: Handle structural subtyping.
+        system.staleConstraints.append(constraint)
+      }
 
     case is (ValType, TypeVar):
       // The type variable is above a more concrete type. We should compute the "join" of all types

@@ -90,12 +90,14 @@ public final class TypeChecker {
   ///   - useSite: The declaration space in which the expression is type checked.
   ///   - system: A system with potential pre-existing constraints that should be solved together
   ///     with those related to the expression.
+  /// - Returns: The best solution found by the type solver
+  @discardableResult
   func check(
     expr: inout Expr,
     expectedType: ValType? = nil,
     useSite: DeclSpace,
     system: inout ConstraintSystem
-  ) {
+  ) -> Solution {
     // Pre-check the expression.
     // This resolves primary names, realizes type rerps and desugars constructor calls.
     withUnsafeMutablePointer(to: &system, { ptr in
@@ -125,6 +127,8 @@ public final class TypeChecker {
     // Apply the solution.
     let dispatcher = TypeDispatcher(solution: solution)
     (_, expr) = dispatcher.walk(expr)
+
+    return solution
   }
 
   public func prepareGenericEnv(env: GenericEnv) -> Bool {

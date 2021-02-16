@@ -78,10 +78,10 @@ struct DeclChecker: DeclVisitor {
 
       // Type-check the initializer if there's one.
       if node.initializer != nil {
-        checker.check(
+        let solution = checker.check(
           expr: &(node.initializer!), expectedType: completeSignType,
           useSite: useSite, system: &system)
-        patternType = node.initializer!.type
+        patternType = solution.reify(completeSignType, freeVariablePolicy: .bindToErrorType)
       } else {
         patternType = completeSignType
       }
