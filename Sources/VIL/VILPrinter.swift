@@ -88,6 +88,12 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
       let id = makeID(for: alloc)
       self << "_\(id) = alloc_stack \(alloc.allocatedType)\n"
 
+    case let pack as PackInst:
+      let id = makeID(for: pack)
+      self << "_\(id) = pack "
+      self << pack.value
+      self << " as \(pack.interface)\n"
+
     case let apply as ApplyInst:
       let id = makeID(for: apply)
       self << "_\(id) = apply "

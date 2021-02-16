@@ -24,6 +24,29 @@ public final class AllocStackInst: Inst, Value {
 
 }
 
+/// The packing of a value into an existential container.
+///
+/// This takes a value of type `T` and packs it into an existential container that is known to
+/// conform to the view(s) `V`.
+public final class PackInst: Inst, Value {
+
+  /// The value to pack.
+  public let value: Value
+
+  /// The view(s) to which the existential container is known to conform (i.e., its interface).
+  public let interface: ViewType
+
+  public var type: VILType { .object(interface) }
+
+  public var result: Value? { self }
+
+  init(value: Value, interface: ViewType) {
+    self.value = value
+    self.interface = interface
+  }
+
+}
+
 /// The application of a function.
 public final class ApplyInst: Inst, Value {
 

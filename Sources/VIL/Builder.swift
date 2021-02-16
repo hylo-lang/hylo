@@ -56,6 +56,18 @@ public final class Builder {
     return inst
   }
 
+  /// Builds a `pack` instruction.
+  ///
+  /// - Parameters:
+  ///   - value: The value to pack.
+  ///   - interface: The interface of the existential container. `value` must conform to all views
+  ///     described by `interface`.
+  public func buildPack(value: Value, interface: ViewType) -> PackInst {
+    let inst = PackInst(value: value, interface: interface)
+    block!.instructions.append(inst)
+    return inst
+  }
+
   /// Builds a function application.
   ///
   /// - Parameters:
