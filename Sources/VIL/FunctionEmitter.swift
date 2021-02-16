@@ -29,7 +29,7 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
   ///   - parent: The top-level emitter.
   ///   - builder: The builder used to create new instructions.
   ///   - funDecl: The declaration of the function to emit. The initializer will fail if `funDecl`
-  ///   is not type checked.
+  ///     is not type checked.
   init(parent: Emitter, funDecl: BaseFunDecl) {
     precondition(funDecl.state >= .typeChecked)
     self.parent = parent

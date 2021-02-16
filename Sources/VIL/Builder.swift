@@ -26,7 +26,7 @@ public final class Builder {
   /// - Parameters:
   ///   - name: The name of the function to retrieve or create.
   ///   - type: The type of the function. If the module already contains a function `name`, then it
-  ///   has to have the same type as `type`.
+  ///     has to have the same type as `type`.
   public func getOrCreateFunction(name: String, type: FunType) -> Function {
     if let function = module.functions[name] {
       precondition(function.type === type, "function \(name) already exists with a different type")
@@ -47,7 +47,7 @@ public final class Builder {
     return getOrCreateFunction(name: mangler.finalize(), type: funDecl.unappliedType as! FunType)
   }
 
-  /// Buils a stack allocation.
+  /// Builds a stack allocation.
   ///
   /// - Parameter type: The type of the allocated object.
   public func buildAllocStack(type: ValType) -> AllocStackInst {
@@ -87,7 +87,7 @@ public final class Builder {
   /// - Parameters:
   ///   - record: The record value whose member is extracted.
   ///   - memberDecl: The declaration of the extracted member. `memberDecl` must describe a stored
-  ///   member of the product type.
+  ///     member of the product type.
   public func buildRecordMember(record: Value, memberDecl: VarDecl) -> RecordMemberInst {
     let inst = RecordMemberInst(record: record, memberDecl: memberDecl)
     block!.instructions.append(inst)
@@ -99,7 +99,7 @@ public final class Builder {
   /// - Parameters:
   ///   - record: The record value for which the member's address is computed.
   ///   - memberDecl: The declaration of the member whose address is computed. `memberDecl` must
-  ///   describe a stored member of the product type.
+  ///     describe a stored member of the product type.
   public func buildRecordMemberAddr(record: Value, memberDecl: VarDecl) -> RecordMemberAddrInst {
     let inst = RecordMemberAddrInst(record: record, memberDecl: memberDecl)
     block!.instructions.append(inst)
@@ -138,9 +138,9 @@ public final class Builder {
   ///
   /// - Parameters:
   ///   - dest: The basic block to which the execution should branch. `dest` must be in the current
-  ///   function.
+  ///     function.
   ///   - args: The arguments of the destination block. `args` Should must the number and type of
-  ///   the arguments expected by `dest.`
+  ///     the arguments expected by `dest.`
   @discardableResult
   public func buildBranch(dest: BasicBlock, args: [Value]) -> BranchInst {
     precondition(dest.function === function, "invalid destination")
@@ -156,10 +156,10 @@ public final class Builder {
   ///   - cond: A condition that determines the block to which the execution should branch. `cond`
   ///   must be a Boolean value.
   ///   - thenDest: The basic block to which the execution should branch if the condition holds
-  ///   `thenDest` must be in the current function, and be different than `elseDest`.
+  ///     `thenDest` must be in the current function, and be different than `elseDest`.
   ///   - thenArgs: The arguments of `thenDest`.
   ///   - elseDest: The basic block to which the execution should branch if the condition doesn not
-  ///   hold. `elseDest` must be in the current function, and be different than `thenDest`.
+  ///     hold. `elseDest` must be in the current function, and be different than `thenDest`.
   ///   - elseArgs: The arguments of `elseDest`.
   @discardableResult
   public func buildCondBranch(
