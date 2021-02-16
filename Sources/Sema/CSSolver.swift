@@ -156,7 +156,7 @@ struct CSSolver {
 
     case let nominal as NominalType:
       // Handle explicit and inherited view conformance.
-      if !nominal.decl.conforms(to: view) {
+      if nominal.decl.conformanceTable[view] == nil {
         errors.append(.nonConformingType(constraint))
       }
 
@@ -216,8 +216,7 @@ struct CSSolver {
       if let nominal = lower as? NominalType, !(lower is InoutType) {
         // FIXME: Should we make sure we don't accidentally load conformances that come from a
         // a non-imported module if this is type-checked?
-        guesses.append(contentsOf: nominal.decl.conformanceTable.values.compactMap({ conf in
-          guard conf.state == .checked else { return nil }
+        guesses.append(contentsOf: nominal.decl.conformanceTable.values.map({ conf in
           return RelationalConstraint(
             kind: .equality, lhs: conf.viewDecl.instanceType, rhs: constraint.rhs,
             at: constraint.locator)
