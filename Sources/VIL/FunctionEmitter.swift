@@ -173,22 +173,24 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
   func visit(_ node: IntLiteralExpr) -> ExprResult {
     // We can assume the expression's type conforms to `ExpressibleBy***Literal` (as type checking
     // succeeded). Therefore we can look for a conversion constructor `new(literal:)`.
+    let view = context.getTypeDecl(for: .ExpressibleByBuiltinIntLiteral)!.instanceType as! ViewType
 
-    // FIXME: There must be a more reliable way to retrieve the constructor declaration.
-    let ctorType = context.funType(
-      paramType: context.tupleType([
-        TupleType.Elem(label: "literal", type: context.getBuiltinType(named: "IntLiteral")!)
-      ]),
-      retType: node.type)
-    let ctorDecl = node.type
-      .lookup(member: "new").values
-      .first(where: { $0.type === ctorType }) as! CtorDecl
-
-    // Get the VIL function corresponding to the conversion constructor.
-    let function = builder.getOrCreateFunction(from: ctorDecl)
+    let funref: Value
+    if let type = node.type as? NominalType {
+      // The node has a concrete type; we can dispatch `new(literal:)` statically.
+      let conformance = type.decl.conformanceTable[view]!
+      let function = builder.getOrCreateFunction(from: conformance.entries[0].impl as! CtorDecl)
+      funref = FunRef(function: function)
+    } else if let type = node.type as? SkolemType {
+      // The node has an skolem type; we have to dispatch dynamically.
+      funref = builder.buildWitnessFun(
+        base: type,
+        decl: view.decl.valueMemberTable["new"]![0] as! CtorDecl)
+    } else {
+      fatalError("unreachable")
+    }
 
     // Emit a call to the constructor.
-    let funref = FunRef(function: function)
     let literal = IntLiteralValue(value: node.value, context: context)
     return .success(builder.buildApply(fun: funref, args: [literal]))
   }
@@ -231,9 +233,17 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     switch node.fun {
     case let memberRef as MemberRefExpr where memberRef.decl.isMember:
       if let methodDecl = memberRef.decl as? BaseFunDecl {
-        // This is a call `foo.bar(x: 0, y: 1)`, where `bar` is a method. Therefore, `foo` must be
-        // passed as the method's receiver.
-        funref = FunRef(function: builder.getOrCreateFunction(from: methodDecl))
+        // This is a call `foo.bar(x: 0, y: 1)`, where `bar` is a method. We have to determine
+        // whether it should be dispatched statically or dynamically.
+        if memberRef.base.type is ViewType {
+          // The receiver is an existential container; dispatch dynamically.
+          funref = builder.buildWitnessFun(base: memberRef.base.type, decl: methodDecl)
+        } else {
+          // The receiver is a concrete type; dispatch statically.
+          funref = FunRef(function: builder.getOrCreateFunction(from: methodDecl))
+        }
+
+        // Since the call applies a method, we have to pass the receiver as an argument.
         args.append(emit(expr: memberRef.base))
       } else {
         fatalError()

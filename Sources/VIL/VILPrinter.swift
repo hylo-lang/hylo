@@ -94,6 +94,10 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
       self << pack.value
       self << " as \(pack.interface)\n"
 
+    case let witnessFun as WitnessFunInst:
+      let id = makeID(for: witnessFun)
+      self << "_\(id) = witness_fun \(witnessFun.base), \(witnessFun.decl.name)\n"
+
     case let apply as ApplyInst:
       let id = makeID(for: apply)
       self << "_\(id) = apply "

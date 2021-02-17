@@ -47,6 +47,29 @@ public final class PackInst: Inst, Value {
 
 }
 
+/// The creation of a reference to the implementation of a view method for the witness of an
+/// existential container.
+public final class WitnessFunInst: Inst, Value {
+
+  /// The type of an existential container that conforms to the view declaring the referred method.
+  public let base: ValType
+
+  /// The declaration of a view method.
+  ///
+  /// This should be either a regular method or a constructor declaration.
+  public let decl: BaseFunDecl
+
+  public var type: VILType { .object(decl.unappliedType) }
+
+  public var result: Value? { self }
+
+  init(base: ValType, decl: BaseFunDecl) {
+    self.base = base
+    self.decl = decl
+  }
+
+}
+
 /// The application of a function.
 public final class ApplyInst: Inst, Value {
 

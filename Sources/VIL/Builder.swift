@@ -68,6 +68,21 @@ public final class Builder {
     return inst
   }
 
+  /// Builds a `witness_fun` instruction.
+  public func buildWitnessFun(base: ValType, decl: BaseFunDecl) -> WitnessFunInst {
+    precondition({
+      if let parent = decl.parentDeclSpace as? TypeExtDecl {
+        return parent.extendedDecl is ViewTypeDecl
+      } else {
+        return decl.parentDeclSpace is ViewTypeDecl
+      }
+    }(), "'\(decl.debugID)' is not declared in a view")
+
+    let inst = WitnessFunInst(base: base, decl: decl)
+    block!.instructions.append(inst)
+    return inst
+  }
+
   /// Builds a function application.
   ///
   /// - Parameters:
