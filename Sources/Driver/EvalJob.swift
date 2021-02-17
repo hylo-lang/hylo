@@ -13,7 +13,7 @@ public struct EvalJob: Job {
   public func run(with driver: inout Driver) throws {
     guard let module = driver.stack.last as? Module else { return }
     var interpreter = Interpreter()
-    interpreter.eval(module: module)
+    try interpreter.eval(module: module)
   }
 
 }
