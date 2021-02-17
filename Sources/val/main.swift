@@ -11,5 +11,6 @@ driver.jobs.append(EmitVILJob())
 if arguments.dumpAST {
   driver.jobs.append(DumpJob())
 }
+driver.jobs.append(EvalJob())
 
 try driver.run()

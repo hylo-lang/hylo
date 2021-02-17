@@ -16,11 +16,12 @@ let package = Package(
       dependencies: ["Basic", "Parser"],
       resources: [.copy("Builtins.json")]),
     .target(name: "Basic"),
-    .target(name: "Driver", dependencies: ["AST", "Basic", "Parser", "Sema", "VIL"]),
+    .target(name: "Driver", dependencies: ["AST", "Basic", "Eval", "Parser", "Sema", "VIL"]),
     .target(
       name: "Parser",
       dependencies: ["Antlr4", "Basic"],
       exclude: ["Val.g4", "Val.interp", "Val.tokens", "ValLexer.interp", "ValLexer.tokens"]),
+    .target(name: "Eval", dependencies: ["AST", "Basic", "VIL"]),
     .target(name: "Sema", dependencies: ["AST", "Basic"]),
     .target(name: "VIL", dependencies: ["AST", "Basic"]),
 
