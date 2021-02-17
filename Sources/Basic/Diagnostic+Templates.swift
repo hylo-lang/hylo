@@ -140,6 +140,12 @@ extension Diagnostic {
     return Diagnostic("I can't assign property to of immutable 'self'", anchor: range)
   }
 
+  public static func missingReturnValueInNonUnitFunction(
+    range: SourceRange
+  ) -> Diagnostic {
+    return Diagnostic("missing return value in non-unit function", anchor: range)
+  }
+
   public static func codeAfterReturnNeverExecuted(
     range: SourceRange
   ) -> Diagnostic {

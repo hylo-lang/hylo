@@ -908,6 +908,18 @@ public class NominalTypeDecl: TypeDecl, DeclSpace {
     fatalError()
   }
 
+  // MARK: Lowering
+
+  /// The list of properties that have storage in this type.
+  public var storedVarDecls: [VarDecl] {
+    var result: [VarDecl] = []
+    for case let pbDecl as PatternBindingDecl in members {
+      // FIXME: Filter out computed properties.
+      result.append(contentsOf: pbDecl.varDecls)
+    }
+    return result
+  }
+
   public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }

@@ -32,8 +32,8 @@ extension Context {
     // Create the declaration(s) of the function's parameter.
     var paramTypes: [TupleType.Elem] = []
     for (i, param) in params.enumerated() {
-      // Create the parameter's type
-      let type = getBuiltinType(named: param)!
+      // Create the parameter's type.
+      let type = parse(typeNamed: param)
       paramTypes.append(TupleType.Elem(type: type))
 
       // Create the declaration of the parameter.
@@ -51,7 +51,7 @@ extension Context {
     // Setup the function's signature.
     funDecl.retSign = ret.isEmpty
       ? nil
-      : UnqualTypeRepr(name: ret, type: getBuiltinType(named: ret)!, range: .invalid)
+      : UnqualTypeRepr(name: ret, type: parse(typeNamed: ret), range: .invalid)
     funDecl.type = funType(
       paramType: tupleType(paramTypes),
       retType  : funDecl.retSign?.type ?? unitType)
@@ -59,6 +59,12 @@ extension Context {
     funDecl.setState(.typeChecked)
     funDecl.props.insert(.isBuiltin)
     return funDecl
+  }
+
+  func parse(typeNamed name: String) -> ValType {
+    return name == "Unit"
+      ? unitType
+      : getBuiltinType(named: name)!
   }
 
 }

@@ -12,7 +12,7 @@ public struct EvalJob: Job {
 
   public func run(with driver: inout Driver) throws {
     guard let module = driver.stack.last as? Module else { return }
-    var interpreter = Interpreter()
+    var interpreter = Interpreter(context: driver.context)
     try interpreter.eval(module: module)
   }
 
