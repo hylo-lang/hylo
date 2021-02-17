@@ -42,9 +42,18 @@ public final class Builder {
   ///
   /// - Parameter funDecl: A function declaration.
   public func getOrCreateFunction(from funDecl: BaseFunDecl) -> Function {
-    var mangler = Mangler()
-    mangler.append(funDecl: funDecl)
-    return getOrCreateFunction(name: mangler.finalize(), type: funDecl.unappliedType as! FunType)
+    // Mangle the function's name.
+    // FIXME: We have to implement an attribute like "@vilname(...)".
+    let name: String
+    if funDecl.name == "main" {
+      name = funDecl.name
+    } else {
+      var mangler = Mangler()
+      mangler.append(funDecl: funDecl)
+      name = mangler.finalize()
+    }
+
+    return getOrCreateFunction(name: name, type: funDecl.unappliedType as! FunType)
   }
 
   /// Builds a stack allocation.

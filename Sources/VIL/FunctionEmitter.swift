@@ -1,4 +1,5 @@
 import AST
+import Basic
 
 /// A visitor that emits the VIL code of a function declaration.
 final class FunctionEmitter: StmtVisitor, ExprVisitor {
@@ -39,10 +40,7 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
   /// Emits the function.
   func emit() {
     // Create (i.e., declare) the function in the module.
-    var mangler = Mangler()
-    mangler.append(funDecl: funDecl)
-    let name = mangler.finalize()
-    let function = builder.getOrCreateFunction(name: name, type: funDecl.unappliedType as! FunType)
+    let function = builder.getOrCreateFunction(from: funDecl)
 
     // We're done if the function doesn't have body.
     guard let body = funDecl.body else { return }
@@ -76,6 +74,15 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
       let selfLoc = locals[ObjectIdentifier(funDecl.selfDecl!)]
       let selfVal = builder.buildLoad(lvalue: selfLoc!)
       builder.buildRet(value: selfVal)
+    }
+
+    if !(builder.block?.instructions.last is RetInst) {
+      if (funDecl.type as! FunType).retType == context.unitType {
+        builder.buildRet(value: UnitValue(context: context))
+      } else {
+        let range = body.range.upperBound ..< body.range.upperBound
+        context.report(.missingReturnValueInNonUnitFunction(range: range))
+      }
     }
   }
 
