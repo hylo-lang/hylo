@@ -13,6 +13,9 @@ public struct Driver {
   /// The jobs to run.
   public var jobs: [Job] = []
 
+  /// A "stack" that can be used by the jobs to store results and consume inputs.
+  public var stack: [Any] = []
+
   public init(
     sourceManager: SourceManager? = nil,
     diagnosticConsumer: DiagnosticConsumer? = nil
@@ -23,7 +26,9 @@ public struct Driver {
   }
 
   public mutating func run() throws {
-    try jobs.forEach({ try $0.run(in: context) })
+    for job in jobs {
+      try job.run(with: &self)
+    }
     jobs.removeAll()
   }
 

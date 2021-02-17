@@ -1,35 +1,35 @@
 import AST
 import VIL
 
-/// An job that lowers a type checked module declaration to VIL.
+/// A job that lowers a type checked module declaration to VIL.
+///
+/// This job should typcially be run after a `CompileJob`. It will consume all module declarations
+/// on top of the driver's stack and produce a VIL module for each of them.
 public struct EmitVILJob: Job {
 
-  /// The unique identifier of the module to lower.
-  public var moduleID: String
-
-  public init(moduleID: String) {
-    self.moduleID = moduleID
+  public init() {
   }
 
-  public func run(in context: Context) throws {
-    // Retrieve the module to lower.
-    guard let moduleDecl = context.modules[moduleID] else {
-      throw DriverError.moduleNotFound(moduleID: moduleID)
+  public func run(with driver: inout Driver) throws {
+    var results: [Module] = []
+
+    while let moduleDecl = driver.stack.last as? ModuleDecl {
+      driver.stack.removeLast()
+      guard moduleDecl.state == .typeChecked else { continue }
+
+      // Initialize the VIL emitter.
+      let module = Module(id: moduleDecl.id)
+      let builder = VIL.Builder(module: module)
+      let emitter = Emitter(context: driver.context, builder: builder)
+
+      // Emit the module declaration.
+      emitter.emit(moduleDecl: moduleDecl)
+      module.dump()
+
+      results.append(module)
     }
 
-    // Make sure the module is type checked.
-    guard moduleDecl.state == .typeChecked else {
-      return
-    }
-
-    // Initialize the VIL emitter.
-    let module = Module(id: moduleID)
-    let builder = VIL.Builder(module: module)
-    let emitter = Emitter(context: context, builder: builder)
-
-    // Emit the module declaration.
-    emitter.emit(moduleDecl: moduleDecl)
-    module.dump()
+    driver.stack.append(contentsOf: results.reversed())
   }
 
 }

@@ -62,7 +62,8 @@ public struct CompileJob: Job {
       isStdLib: isStdLib)
   }
 
-  public func run(in context: Context) throws {
+  public func run(with driver: inout Driver) throws {
+    let context = driver.context
     guard context.modules[moduleName] == nil else {
       throw DriverError.moduleAlreadyLoaded(moduleID: moduleName)
     }
@@ -91,6 +92,8 @@ public struct CompileJob: Job {
     if !parseOnly {
       _ = TypeChecker(context: context).check(decl: module)
     }
+
+    driver.stack.append(module)
   }
 
   public static func stdlib(path: URL, parseOnly: Bool = false) -> CompileJob {
