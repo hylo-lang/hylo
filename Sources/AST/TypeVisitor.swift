@@ -21,6 +21,8 @@ public protocol TypeVisitor {
 
   func visit(_ type: SkolemType) -> Result
 
+  func visit(_ type: ViewCompositionType) -> Result
+
   func visit(_ type: BoundGenericType) -> Result
 
   func visit(_ type: TupleType) -> Result

@@ -58,6 +58,12 @@ public final class Context {
     return uniqued(SkolemType(context: self, interface: interface, genericEnv: genericEnv))
   }
 
+  public func viewCompositionType<S>(_ views: S) -> ViewCompositionType
+  where S: Sequence, S.Element == ViewType
+  {
+    return uniqued(ViewCompositionType(context: self, views: Array(views)))
+  }
+
   public func boundGenericType(decl: NominalTypeDecl, args: [ValType]) -> BoundGenericType {
     return uniqued(BoundGenericType(context: self, decl: decl, args: args))
   }
@@ -95,6 +101,10 @@ public final class Context {
 
   public private(set) lazy var unitType: TupleType = {
     return tupleType([])
+  }()
+
+  public private(set) lazy var anyType: ViewCompositionType = {
+    return viewCompositionType([])
   }()
 
   public private(set) lazy var unresolvedType: UnresolvedType = {

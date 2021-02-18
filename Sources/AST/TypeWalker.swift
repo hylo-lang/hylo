@@ -74,6 +74,12 @@ open class TypeWalker: TypeVisitor {
     return type
   }
 
+  open func visit(_ type: ViewCompositionType) -> ValType {
+    return type.context.viewCompositionType(type.views.map({ view in
+      walk(view) as! ViewType
+    }))
+  }
+
   open func visit(_ type: BoundGenericType) -> ValType {
     return type.context.boundGenericType(decl: type.decl, args: type.args.map(walk(_:)))
   }

@@ -380,6 +380,93 @@ public final class ViewType: NominalType {
     visitor.visit(self)
   }
 
+  /// Determines if a view must appear before another one in a canonical composition, based on
+  /// module and name.
+  fileprivate static func precedes(lhs: ViewType, rhs: ViewType) -> Bool {
+    guard lhs !== rhs else { return false }
+
+    if lhs.decl.rootDeclSpace === rhs.decl.rootDeclSpace {
+      return lhs.decl.name.lexicographicallyPrecedes(rhs.decl.name)
+    } else {
+      return lhs.decl.rootDeclSpace.id.lexicographicallyPrecedes(rhs.decl.rootDeclSpace.id)
+    }
+  }
+
+}
+
+/// A view composition type.
+///
+/// This is the type of an existential package whose witness is known to conform to a set of views.
+/// If this set is empty, then the witness can be any (synchronous) type (a.k.a., `Any`).
+public final class ViewCompositionType: ValType {
+
+  /// The views that are part of the compositio.
+  public let views: [ViewType]
+
+  init(context: Context, views: [ViewType]) {
+    self.views = views
+    var props = RecursiveProps.merge(views.map({ $0.props }))
+
+    // Determine canonicity.
+    if views.count == 1 {
+      // The canonical form of a composition with a unique view is the view itself.
+      props = props.removing(.isCanonical)
+    } else if views.count > 1 {
+      // The composition is canonical if the views are "sorted".
+      for i in 1 ..< views.count {
+        guard ViewType.precedes(lhs: views[i - 1], rhs: views[i]) else {
+          props = props.removing(.isCanonical)
+          break
+        }
+      }
+    }
+
+    super.init(context: context, props: props)
+  }
+
+  public override var canonical: ValType {
+    if isCanonical {
+      return self
+    } else if views.count == 1 {
+      return views[0]
+    } else {
+      return context.viewCompositionType(views.sorted(by: ViewType.precedes(lhs:rhs:)))
+    }
+  }
+
+  override func isEqual(to other: ValType) -> Bool {
+    guard let that = other as? ViewCompositionType,
+          views.count == that.views.count
+    else { return false }
+
+    for (lhs, rhs) in zip(views, that.views) {
+      guard lhs.isEqual(to: rhs) else { return false }
+    }
+    return true
+  }
+
+  override func hash(into hasher: inout Hasher) {
+    for view in views {
+      view.hash(into: &hasher)
+    }
+  }
+
+  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+    visitor.visit(self)
+  }
+
+}
+
+extension ViewCompositionType: CustomStringConvertible {
+
+  public var description: String {
+    if views.isEmpty {
+      return "Any"
+    } else {
+      return views.map(String.init(describing:)).joined(separator: " & ")
+    }
+  }
+
 }
 
 /// A type whose generic parameters have been bound.
