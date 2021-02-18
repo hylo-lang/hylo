@@ -135,18 +135,33 @@ public struct Interpreter {
   }
 
   func evalBuiltinApply(funDecl: FunDecl, args: [RuntimeValue]) -> RuntimeValue {
-    switch funDecl.name {
-    case "i64_print":
-      guard case .i64(let i) = args[0] else { fatalError("bas VIL code") }
-      print(i)
-      return .unit
+    if funDecl.name.starts(with: "i64_") {
+      switch funDecl.name.dropFirst(4) {
+      case "print":
+        guard case .i64(let i) = args[0] else { fatalError("bas VIL code") }
+        print(i)
+        return .unit
 
-    case "i64_trunc_IntLiteral":
-      return .i64(Int64(truncatingIfNeeded: args[0].asIntLiteral()))
+      case "trunc_IntLiteral":
+        return .i64(Int64(truncatingIfNeeded: args[0].asIntLiteral()))
 
-    default:
-      fatalError("undefined built-in function '\(funDecl.name)'")
+      case let suffix:
+        // The function must take 2 operands.
+        guard case .i64(let lhs) = args[0] else { fatalError("bas VIL code") }
+        guard case .i64(let rhs) = args[1] else { fatalError("bas VIL code") }
+
+        switch suffix {
+        case "add": return .i64(lhs + rhs)
+        case "sub": return .i64(lhs - rhs)
+        case "mul": return .i64(lhs * rhs)
+        case "div": return .i64(lhs / rhs)
+        case "mod": return .i64(lhs % rhs)
+        default: break
+        }
+      }
     }
+
+    fatalError("undefined built-in function '\(funDecl.name)'")
   }
 
   mutating func eval(inst: RecordMemberAddrInst) -> ProgramCounter? {

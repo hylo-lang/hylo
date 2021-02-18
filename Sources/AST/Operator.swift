@@ -4,19 +4,19 @@ import Basic
 public enum PrefixOperator: String, CustomStringConvertible {
 
   /// The `+` operator.
-  case plus   = "+"
+  case plus     = "+"
 
   /// The `-` operator.
-  case minus  = "-"
+  case minus    = "-"
 
   /// The `!` operator.
-  case bang   = "!"
+  case bang     = "!"
 
   /// The `~` operator.
-  case tilde  = "~"
+  case tilde    = "~"
 
   /// The `&` operator.
-  case amp    = "&"
+  case amp      = "&"
 
   public var description: String { rawValue }
 
@@ -26,24 +26,44 @@ public enum PrefixOperator: String, CustomStringConvertible {
 public enum InfixOperator: String, CustomStringConvertible {
 
   /// The copy operator `=`.
-  case copy   = "="
+  case copy     = "="
 
   /// The `+` operator.
-  case plus   = "+"
+  case plus     = "+"
+
+  /// The `-` operator.
+  case minus    = "-"
+
+  /// The `*` operator.
+  case star     = "*"
+
+  /// The `/` operator.
+  case slash    = "/"
+
+  /// The `%` operator.
+  case percent  = "%"
 
   /// The operator's precedence, as a numeric value.
   public var precedence: Int {
     switch self {
-    case .copy: return 0
-    case .plus: return 400
+    case .copy    : return 0
+    case .plus    : return 400
+    case .minus   : return 400
+    case .star    : return 800
+    case .slash   : return 800
+    case .percent : return 800
     }
   }
 
   /// The operator's associativity.
   public var associativity: Associativity? {
     switch self {
-    case .copy: return .left
-    case .plus: return .left
+    case .copy    : return .left
+    case .plus    : return .left
+    case .minus   : return .left
+    case .star    : return .left
+    case .slash   : return .left
+    case .percent : return .left
     }
   }
 
