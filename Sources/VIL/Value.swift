@@ -57,7 +57,7 @@ public final class BuiltinFunRef: LiteralValue, CustomStringConvertible {
   public let decl: FunDecl
 
   public init(decl: FunDecl) {
-    precondition(decl.props.contains(.isBuiltin))
+    precondition(decl.isBuiltin)
     self.decl = decl
     super.init(type: .object(decl.type))
   }

@@ -44,7 +44,7 @@ struct Solution {
     _ type: ValType,
     freeVariablePolicy: FreeTypeVarBindingPolicy
   ) -> ValType {
-    guard type.props.contains(.hasVariables) else { return type }
+    guard type.hasVariables else { return type }
 
     switch type {
     case let type as KindType:

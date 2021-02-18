@@ -215,7 +215,7 @@ fileprivate final class Contextualizer: TypeWalker {
 
   override func willVisit(_ type: ValType) -> TypeWalker.Action {
     guard let param = type as? GenericParamType else {
-      return type.props.contains(.hasTypeParams)
+      return type.hasTypeParams
         ? .stepInto(type)
         : .stepOver(type)
     }

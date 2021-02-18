@@ -130,7 +130,7 @@ extension ValueDecl {
       genericType = genericType.specialized(with: args)
     }
 
-    guard genericType.props.contains(.hasTypeParams) else { return genericType }
+    guard genericType.hasTypeParams else { return genericType }
 
     // If the declaration is its own generic environment, then we must contextualize it externally,
     // regardless of the use-site. This situation corresponds to a "fresh" use of a generic
@@ -339,7 +339,19 @@ public class BaseFunDecl: ValueDecl, GenericDeclSpace {
   /// The semantic properties of the declaration.
   public var props: FunDeclProps
 
+  /// Indicates whether the function is a member of a type.
+  ///
+  /// - Note: Constructors are *not* considered to be member functions.
   public var isMember: Bool { props.contains(.isMember) }
+
+  /// Indicates whether the function is mutating its receiver.
+  public var isMutating: Bool { props.contains(.isMutating) }
+
+  /// Indicates whether the function is static.
+  public var isStatic: Bool { props.contains(.isStatic) }
+
+  /// Indicates whether the function is built-in.
+  public var isBuiltin: Bool { props.contains(.isBuiltin) }
 
   /// The declaration modifiers of the function.
   ///
@@ -368,7 +380,7 @@ public class BaseFunDecl: ValueDecl, GenericDeclSpace {
   /// - Note: Accessing this property will trap if the function declaration is in an extension that
   ///   hasn't been bound to a nominal type yet.
   public private(set) lazy var selfDecl: FunParamDecl? = {
-    guard props.contains(.isMember) || (self is CtorDecl) else { return nil }
+    guard isMember || (self is CtorDecl) else { return nil }
 
     let receiverType: ValType
     switch parentDeclSpace {
@@ -392,7 +404,7 @@ public class BaseFunDecl: ValueDecl, GenericDeclSpace {
 
     let decl = FunParamDecl(
       name: "self", externalName: "self",
-      type: props.contains(.isMutating)
+      type: isMutating
         ? type.context.inoutType(of: receiverType)
         : receiverType,
       range: .invalid)
@@ -453,7 +465,7 @@ public class BaseFunDecl: ValueDecl, GenericDeclSpace {
   /// For member functions, this is the type of the function extended with an implicit receiver
   /// parameter. For other functions, this is equal to `type`.
   public var unappliedType: ValType {
-    guard props.contains(.isMember) else { return type }
+    guard isMember else { return type }
 
     let funType = type as! FunType
     var paramTypeElems = (funType.paramType as? TupleType)?.elems
@@ -532,18 +544,9 @@ public class BaseFunDecl: ValueDecl, GenericDeclSpace {
 
     public let rawValue: Int
 
-    /// Indicates whether the function is a member of a type.
-    ///
-    /// - Note: Constructors are *not* considered to be member functions.
     public static let isMember   = FunDeclProps(rawValue: 1 << 0)
-
-    /// Indicates whether the function is mutating its receiver.
     public static let isMutating = FunDeclProps(rawValue: 1 << 1)
-
-    /// Indicates whether the function is static.
     public static let isStatic   = FunDeclProps(rawValue: 1 << 2)
-
-    /// Indicates whether the function is built-in.
     public static let isBuiltin  = FunDeclProps(rawValue: 1 << 3)
 
   }

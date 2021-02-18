@@ -294,7 +294,7 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     // l-value to r-value conversion.
 
     switch node.decl {
-    case let decl as FunDecl where decl.props.contains(.isBuiltin):
+    case let decl as FunDecl where decl.isBuiltin:
       // Emit a regular function.
       return .success(BuiltinFunRef(decl: decl))
 
