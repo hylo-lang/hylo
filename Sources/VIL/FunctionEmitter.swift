@@ -138,6 +138,24 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
       return value
 
     case .failure(let error):
+      // FIXME: This should be reported.
+      print(error)
+      return ErrorValue(context: context)
+    }
+  }
+
+  func emit(lvalue node: Expr) -> Value {
+    // Emit an error value for any expression that has an error type.
+    guard node.type !== context.errorType else {
+      return ErrorValue(context: context)
+    }
+
+    switch node.accept(LValueEmitter(parent: self)) {
+    case .success(let value):
+      return value
+
+    case .failure(let error):
+      // FIXME: This should be reported.
       print(error)
       return ErrorValue(context: context)
     }
@@ -251,7 +269,11 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
         }
 
         // Since the call applies a method, we have to pass the receiver as an argument.
-        args.append(emit(expr: memberRef.base))
+        if methodDecl.isMutating {
+          args.append(emit(lvalue: memberRef.base))
+        } else {
+          args.append(emit(expr: memberRef.base))
+        }
       } else {
         fatalError()
       }
