@@ -172,7 +172,6 @@ struct CSSolver {
   }
 
   private mutating func solve(subtyping constraint: RelationalConstraint) {
-    // Otherwise, attempt to solve the constraint.
     switch (constraint.lhs, constraint.rhs) {
     case is (TypeVar, TypeVar):
       // We can't solve anything yet if both types are still unknown.
@@ -239,6 +238,18 @@ struct CSSolver {
         }))
       }
       system.insert(disjunction: guesses)
+
+    case (_, let rhs as ViewCompositionType):
+      // All types trivially conform to any.
+      // FIXME: Fail the constraint if the left operand is asynchronous.
+      if rhs.views.isEmpty { return }
+
+      // Break the constraint into conformance relations for each of the views in the composition.
+      for view in rhs.views {
+        system.insert(
+          RelationalConstraint(
+            kind: .conformance, lhs: constraint.lhs, rhs: view, at: constraint.locator))
+      }
 
     default:
       solve(equality: constraint)
