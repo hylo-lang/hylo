@@ -482,6 +482,20 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     return expr
   }
 
+  public override func visitCastExpr(_ ctx: ValParser.CastExprContext) -> Any {
+    let value = ctx.postExpr()!.accept(self) as! Expr
+    let opLoc = ctx.castOper()!.accept(self) as! CastOperatorLoc
+    let sign  = ctx.typeRepr()!.accept(self) as! TypeRepr
+
+    switch opLoc.castOp {
+    case .unsafeCast:
+      return UnsafeCastExpr(value: value, sign: sign, type: unresolvedType, range: range(of: ctx))
+
+    default:
+      fatalError("not implemented")
+    }
+  }
+
   public override func visitPrimaryExpr(_ ctx: ValParser.PrimaryExprContext) -> Any {
     return ctx.primary()!.accept(self) as! Expr
   }
@@ -551,6 +565,13 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     return InfixOperatorLoc(infixOp: infixOp, range: range(of: ctx))
   }
 
+  public override func visitCastOper(_ ctx: ValParser.CastOperContext) -> Any {
+    guard let castOp = CastOperator(rawValue: ctx.getText()) else {
+      preconditionFailure("undefined cast operator '\(ctx.getText())'")
+    }
+    return CastOperatorLoc(castOp: castOp, range: range(of: ctx))
+  }
+
   /// Expands a sequence of declaration contexts into an array of nodes.
   ///
   /// This method is meant to handle situations in which statements from concrete syntax gets get
@@ -600,6 +621,15 @@ fileprivate struct PrefixOperatorLoc {
 fileprivate struct InfixOperatorLoc {
 
   let infixOp: InfixOperator
+
+  let range: SourceRange
+
+}
+
+/// An cast operator, together with its source location.
+fileprivate struct CastOperatorLoc {
+
+  let castOp: CastOperator
 
   let range: SourceRange
 

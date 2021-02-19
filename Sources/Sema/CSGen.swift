@@ -56,6 +56,9 @@ struct ConstraintGenerator: ExprVisitor {
         at: ConstraintLocator(node, .assignment)))
   }
 
+  func visit(_ node: UnsafeCastExpr) {
+  }
+
   func visit(_ node: TupleExpr) {
     // Synthetize a type from the tuple's elements.
     let elems = node.elems.map({ elem in

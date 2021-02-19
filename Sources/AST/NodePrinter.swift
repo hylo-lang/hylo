@@ -280,6 +280,14 @@ public struct NodePrinter: NodeVisitor {
     """
   }
 
+  public func visit(_ node: UnsafeCastExpr) -> String {
+    return """
+    \(exprHeader(node)),
+    "value"           : \(encode(node.value)),
+    "sign"            : \(encode(node.sign))
+    """
+  }
+
   public func visit(_ node: TupleExpr) -> String {
     let elems = node.elems.map({ elem in
       """

@@ -42,6 +42,10 @@ struct PreChecker: ExprVisitor {
     return node
   }
 
+  func visit(_ node: UnsafeCastExpr) -> Expr {
+    return node
+  }
+
   func visit(_ node: TupleExpr) -> Expr {
     return node
   }

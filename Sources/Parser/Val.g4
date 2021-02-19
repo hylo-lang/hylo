@@ -179,9 +179,10 @@ binExpr
   ;
 
 postExpr
-  : postExpr '(' argList? ')' # callExpr
-  | postExpr '.' NAME         # memberExpr
-  | primary                   # primaryExpr
+  : postExpr '(' argList? ')'   # callExpr
+  | postExpr '.' NAME           # memberExpr
+  | postExpr castOper typeRepr  # castExpr
+  | primary                     # primaryExpr
   ;
 
 argList
@@ -232,6 +233,10 @@ infixOper
   | '+'  | '-'  | '*'  | '/'  | '%'
   | '<'  | '>'  | '<=' | '>=' | '==' | '!='
   | '&&' | '||' | '~'  | '&'  | '|'  | '^'
+  ;
+
+castOper
+  : 'as!' | 'as?' | 'as'
   ;
 
 overridableOper

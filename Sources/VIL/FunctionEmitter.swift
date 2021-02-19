@@ -244,6 +244,10 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     return .success(UnitValue(context: context))
   }
 
+  func visit(_ node: UnsafeCastExpr) -> Result<Value, EmitterError> {
+    fatalError()
+  }
+
   func visit(_ node: TupleExpr) -> ExprResult {
     let tuple = builder.buildTuple(
       type: node.type as! TupleType,

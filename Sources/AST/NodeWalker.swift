@@ -362,6 +362,20 @@ open class NodeWalker: NodeVisitor {
     return true
   }
 
+  public final func visit(_ node: UnsafeCastExpr) -> Bool {
+    let prevParent = parent
+    parent = node
+    defer { parent = prevParent }
+
+    (shouldContinue, node.value) = walk(node.value)
+    guard shouldContinue else { return false }
+
+    (shouldContinue, node.sign) = walk(node.sign)
+    guard shouldContinue else { return false }
+
+    return true
+  }
+
   public final func visit(_ node: TupleExpr) -> Bool {
     let prevParent = parent
     parent = node

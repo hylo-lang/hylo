@@ -81,3 +81,19 @@ public enum InfixOperator: String, CustomStringConvertible {
   public var description: String { rawValue }
 
 }
+
+/// A cast operator.
+public enum CastOperator: String, CustomStringConvertible {
+
+  /// The downcast operator.
+  case downCast   = "as"
+
+  /// The dynamic cast operator `as?`.
+  case dynCast    = "as?"
+
+  /// The unsafe cast operator `as!`.
+  case unsafeCast = "as!"
+
+  public var description: String { rawValue }
+
+}

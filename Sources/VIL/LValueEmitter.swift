@@ -16,6 +16,10 @@ struct LValueEmitter: ExprVisitor {
     fatalError()
   }
 
+  func visit(_ node: UnsafeCastExpr) -> Result<Value, EmitterError> {
+    fatalError()
+  }
+
   func visit(_ node: TupleExpr) -> ExprResult {
     fatalError()
   }

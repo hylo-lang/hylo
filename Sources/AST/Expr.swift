@@ -63,6 +63,31 @@ public final class AssignExpr: Expr {
     return visitor.visit(self)
   }
 
+}
+
+/// An unsafe cast expression (e.g., `foo as! Bar`).
+public final class UnsafeCastExpr: Expr {
+
+  public init(value: Expr, sign: TypeRepr, type: ValType, range: SourceRange) {
+    self.value = value
+    self.sign = sign
+    self.type = type
+    self.range = range
+  }
+
+  /// The value being cast.
+  public var value: Expr
+
+  /// The type to which the value is being cast.
+  public var sign: TypeRepr
+
+  public var type: ValType
+
+  public var range: SourceRange
+
+  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
+    return visitor.visit(self)
+  }
 
 }
 
