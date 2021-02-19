@@ -1,12 +1,7 @@
 import AST
 
 /// A VIL instruction.
-public protocol Inst: AnyObject {
-
-  /// The result of the instruction.
-  var result: Value? { get }
-
-}
+public protocol Inst: AnyObject {}
 
 /// Allocates a block of uninitalized memory on the stack.
 public final class AllocStackInst: Inst, Value {
@@ -15,8 +10,6 @@ public final class AllocStackInst: Inst, Value {
   public let allocatedType: ValType
 
   public var type: VILType { .address(allocatedType) }
-
-  public var result: Value? { self }
 
   init(allocatedType: ValType) {
     self.allocatedType = allocatedType
@@ -34,8 +27,6 @@ public final class AllocExistentialInst: Inst, Value {
   public let witness: ValType
 
   public var type: VILType { .address(witness) }
-
-  public var result: Value? { self }
 
   init(container: Value, witness: ValType) {
     self.container = container
@@ -58,8 +49,6 @@ public final class WitnessFunInst: Inst, Value {
 
   public var type: VILType { .object(decl.unappliedType) }
 
-  public var result: Value? { self }
-
   init(base: ValType, decl: BaseFunDecl) {
     self.base = base
     self.decl = decl
@@ -78,8 +67,6 @@ public final class ApplyInst: Inst, Value {
 
   public let type: VILType
 
-  public var result: Value? { self }
-
   init(fun: Value, args: [Value], type: VILType) {
     self.fun = fun
     self.args = args
@@ -95,8 +82,6 @@ public final class RecordInst: Inst, Value {
   public let typeDecl: NominalTypeDecl
 
   public var type: VILType { .object(typeDecl.instanceType) }
-
-  public var result: Value? { self }
 
   init(typeDecl: NominalTypeDecl) {
     self.typeDecl = typeDecl
@@ -114,8 +99,6 @@ public final class RecordMemberInst: Inst, Value {
   public let memberDecl: VarDecl
 
   public var type: VILType { .object(memberDecl.type) }
-
-  public var result: Value? { self }
 
   init(record: Value, memberDecl: VarDecl) {
     self.record = record
@@ -135,8 +118,6 @@ public final class RecordMemberAddrInst: Inst, Value {
 
   public var type: VILType { .address(memberDecl.type) }
 
-  public var result: Value? { self }
-
   init(record: Value, memberDecl: VarDecl) {
     self.record = record
     self.memberDecl = memberDecl
@@ -155,8 +136,6 @@ public final class TupleInst: Inst, Value {
 
   public var type: VILType { .object(tupleType) }
 
-  public var result: Value? { self }
-
   init(type: TupleType, elems: [Value]) {
     self.tupleType = type
     self.elems = elems
@@ -172,8 +151,6 @@ public final class StoreInst: Inst {
 
   /// The value being stored.
   public let rvalue: Value
-
-  public var result: Value? { nil }
 
   init(lvalue: Value, rvalue: Value) {
     self.lvalue = lvalue
@@ -193,8 +170,6 @@ public final class LoadInst: Inst, Value {
     return .object(valType)
   }
 
-  public var result: Value? { self }
-
   init(lvalue: Value) {
     precondition(lvalue.type.isAddress)
     self.lvalue = lvalue
@@ -210,8 +185,6 @@ public final class BranchInst: Inst {
 
   /// The arguments of the destination block.
   public let args: [Value]
-
-  public var result: Value? { nil }
 
   init(dest: BasicBlock, args: [Value]) {
     precondition(dest.arguments.count == args.count, "invalid arguments")
@@ -242,8 +215,6 @@ public final class CondBranchInst: Inst {
 
   /// The arguments of the "else" destination block.
   public let elseArgs: [Value]
-
-  public var result: Value? { nil }
 
   init(
     cond: Value,
