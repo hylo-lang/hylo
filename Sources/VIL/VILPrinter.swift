@@ -94,6 +94,25 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
       self << alloc.container
       self << ", \(alloc.witness)\n"
 
+    case let open as OpenExistentialAddrInst:
+      let id = makeID(for: open)
+      self << "_\(id) = open_existential_addr "
+      self << open.container
+      self << " as \(open.type)\n"
+
+    case let copy as CopyAddrInst:
+      self << "copy_addr "
+      self << copy.source
+      self << " to "
+      self << copy.dest
+      self << "\n"
+
+    case let cast as UnsafeCastAddrInst:
+      let id = makeID(for: cast)
+      self << "_\(id) = unsafe_cast_addr "
+      self << cast.source
+      self << " as \(cast.type)\n"
+
     case let witnessFun as WitnessFunInst:
       let id = makeID(for: witnessFun)
       self << "_\(id) = witness_fun \(witnessFun.base), \(witnessFun.decl.name)\n"
@@ -155,6 +174,9 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
       self << "ret "
       self << ret.value
       self << "\n"
+
+    case let halt as HaltInst:
+      self << "halt \"\(halt.reason)\"\n"
 
     default:
       fatalError()

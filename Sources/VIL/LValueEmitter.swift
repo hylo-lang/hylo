@@ -17,7 +17,14 @@ struct LValueEmitter: ExprVisitor {
   }
 
   func visit(_ node: UnsafeCastExpr) -> Result<Value, EmitterError> {
-    fatalError()
+    let source = parent.emit(lvalue: node.value)
+    guard node.type != node.value.type else {
+      parent.context.report(.unsafeCastToSameTimeHasNoEffect(type: node.type, range: node.range))
+      return .success(source)
+    }
+
+    let cast = parent.builder.buildUnsafeCastAddr(source: source, type: .address(node.type))
+    return .success(cast)
   }
 
   func visit(_ node: TupleExpr) -> ExprResult {

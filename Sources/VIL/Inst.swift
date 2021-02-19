@@ -18,6 +18,9 @@ public final class AllocStackInst: Inst, Value {
 }
 
 /// Allocates the memory necessary to pack an existential package into the specified container.
+///
+/// This returns the address of memory block large enough to store an instance of the package's
+/// witness.
 public final class AllocExistentialInst: Inst, Value {
 
   /// The address of the existential container.
@@ -31,6 +34,59 @@ public final class AllocExistentialInst: Inst, Value {
   init(container: Value, witness: ValType) {
     self.container = container
     self.witness = witness
+  }
+
+}
+
+/// Obtains the address of the concrete value packaged inside an existential container.
+public final class OpenExistentialAddrInst: Inst, Value {
+
+  /// The address of the existential container to open.
+  public let container: Value
+
+  /// The type of the opened address.
+  public let type: VILType
+
+  init(container: Value, type: VILType) {
+    self.container = container
+    self.type = type
+  }
+
+}
+
+/// Copies the contents located at the given source address to another location.
+public final class CopyAddrInst: Inst {
+
+  /// The target address of the copy.
+  public let dest: Value
+
+  /// The address of the object to copy.
+  public let source: Value
+
+  init(dest: Value, source: Value) {
+    self.dest = dest
+    self.source = source
+  }
+
+}
+
+/// Converts an address to a different type.
+///
+/// Using the resulting address triggers a runtime error unless the layout of the object to which
+/// it refers matches that of the converted type.
+public final class UnsafeCastAddrInst: Inst, Value {
+
+  /// The address to convert.
+  public let source: Value
+
+  /// The type to which the address is converted.
+  ///
+  /// This must be an address type.
+  public let type: VILType
+
+  init(source: Value, type: VILType) {
+    self.source = source
+    self.type = type
   }
 
 }
@@ -240,6 +296,18 @@ public final class RetInst: Inst {
 
   init(value: Value) {
     self.value = value
+  }
+
+}
+
+/// Halts the execution of the program.
+public final class HaltInst: Inst {
+
+  /// The halting reason.
+  public let reason: String
+
+  init(reason: String) {
+    self.reason = reason
   }
 
 }

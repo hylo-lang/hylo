@@ -88,7 +88,7 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
 
   func emit(localPBDecl node: PatternBindingDecl) {
     // Create the variable locations for each name in the pattern.
-    let lvs = node.pattern.namedPatterns.map({ name in
+    let lvalues = node.pattern.namedPatterns.map({ name in
       emit(localVarDecl: name.decl, type: name.type)
     })
 
@@ -96,14 +96,8 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     if let initializer = node.initializer {
       // Emit a store right away if the pattern matches a single value.
       if let varDecl = node.pattern.singleVarDecl {
-        assert(lvs.count == 1)
-
-        // Check if the value to store must be packed into an existential container.
-        let lvalue: Value = varDecl.type.isExistential
-          ? builder.buildAllocExistential(container: lvs[0], witness: initializer.type)
-          : lvs[0]
-        let rvalue = emit(expr: initializer)
-        builder.buildStore(lvalue: lvalue, rvalue: rvalue)
+        assert((lvalues.count == 1) && (lvalues[0] === locals[ObjectIdentifier(varDecl)]))
+        emit(assign: initializer, to: lvalues[0])
       } else {
         // FIXME: Handle destructuring,
         fatalError()
@@ -137,6 +131,37 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
       // FIXME: This should be reported.
       print(error)
       return ErrorValue(context: context)
+    }
+  }
+
+  func emit(assign expr: Expr, to lvalue: Value) {
+    let rvalue = emit(expr: expr)
+
+    if lvalue.type.unwrap.isExistential {
+      // The l-value is an existential container. There are two cases to consider.
+      if expr.type.isExistential {
+        // The r-value is another existential container, we may copy its contents.
+        if lvalue.type.unwrap == rvalue.type.unwrap {
+          // The r-value has the same type as the l-value; we may emit a simple store.
+          builder.buildStore(lvalue: lvalue, rvalue: rvalue)
+        } else {
+          // The r-value has a different type as the l-value; we need a cast.
+          // FIXME: We could skip the allocation if we knew whether `expr` can be emitted as an
+          // l-value, so that we could emit `copy_addr` directly.
+          var tmp: Value = builder.buildAllocStack(type: rvalue.type.unwrap)
+          builder.buildStore(lvalue: tmp, rvalue: rvalue)
+          tmp = builder.buildUnsafeCastAddr(source: tmp, type: lvalue.type)
+          builder.buildCopyAddr(dest: lvalue, source: tmp)
+        }
+      } else {
+        // The r-value is concrete; it has to be packed unto the l-value.
+        let lvalue = builder.buildAllocExistential(container: lvalue, witness: expr.type)
+        builder.buildStore(lvalue: lvalue, rvalue: rvalue)
+      }
+    } else {
+      // The l-value is concrete.
+      assert(!expr.type.isExistential)
+      builder.buildStore(lvalue: lvalue, rvalue: rvalue)
     }
   }
 
@@ -219,14 +244,8 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
   func visit(_ node: AssignExpr) -> ExprResult {
     // Emit the left operand first.
     switch node.lvalue.accept(LValueEmitter(parent: self)) {
-    case .success(var lvalue):
-      // Check if the value to store must be packed into an existential container.
-      if node.lvalue.type.isExistential {
-        lvalue = builder.buildAllocExistential(container: lvalue, witness: node.rvalue.type)
-      }
-
-      let rvalue = emit(expr: node.rvalue)
-      builder.buildStore(lvalue: lvalue, rvalue: rvalue)
+    case .success(let lvalue):
+      emit(assign: node.rvalue, to: lvalue)
 
     case .failure(let error):
       // Diagnostic common l-value errors.
@@ -245,7 +264,29 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
   }
 
   func visit(_ node: UnsafeCastExpr) -> Result<Value, EmitterError> {
-    fatalError()
+    // Check for trivial casts.
+    guard node.type != node.value.type else {
+      context.report(.unsafeCastToSameTimeHasNoEffect(type: node.type, range: node.range))
+      return node.value.accept(self)
+    }
+
+    // If the target type is existential, store the node's value into a new container.
+    if node.type.isExistential {
+      let container = builder.buildAllocStack(type: node.type)
+      emit(assign: node.value, to: container)
+      return .success(builder.buildLoad(lvalue: container))
+    }
+
+    if node.value.type.isExistential {
+      let contAddr = builder.buildAllocStack(type: node.value.type)
+      builder.buildStore(lvalue: contAddr, rvalue: emit(expr: node.value))
+      let packAddr = builder.buildOpenExistentialAddr(
+        container: contAddr, type: .address(node.type))
+      return .success(builder.buildLoad(lvalue: packAddr))
+    }
+
+    // FIXME: Implement "structural cast".
+    fatalError("not implemented")
   }
 
   func visit(_ node: TupleExpr) -> ExprResult {

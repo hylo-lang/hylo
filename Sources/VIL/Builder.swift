@@ -72,7 +72,47 @@ public final class Builder {
   ///   - witness: The type of the exitential package's witness. `witness` must conform to the
   ///     view(s) described by the type of the container.
   public func buildAllocExistential(container: Value, witness: ValType) -> AllocExistentialInst {
+    precondition(container.type.isAddress)
     let inst = AllocExistentialInst(container: container, witness: witness)
+    block!.instructions.append(inst)
+    return inst
+  }
+
+  /// Builds a `open_existential_addr` instruction.
+  ///
+  /// - Parameters:
+  ///   - container: The address of an existential container.
+  ///   - type: The type of the opened address. `type` must be an address type that matches the
+  ///     package's witness. It can either be a concrete type, or an "opened" existential.
+  public func buildOpenExistentialAddr(
+    container: Value, type: VILType
+  ) -> OpenExistentialAddrInst {
+    precondition(container.type.isAddress)
+    let inst = OpenExistentialAddrInst(container: container, type: type)
+    block!.instructions.append(inst)
+    return inst
+  }
+
+  /// Builds a `copy_addr` instruction.
+  ///
+  /// - Parameters:
+  ///   - dest: The target address of the copy.
+  ///   - source: The address of the object to copy.
+  @discardableResult
+  public func buildCopyAddr(dest: Value, source: Value) -> CopyAddrInst {
+    let inst = CopyAddrInst(dest: dest, source: source)
+    block!.instructions.append(inst)
+    return inst
+  }
+
+  /// Builds a `unsafe_cast_addr` instruction.
+  ///
+  /// - Parameters:
+  ///   - source: The address to convert.
+  ///   - type: The type to which the address is converted. `type` must be an address type.
+  public func buildUnsafeCastAddr(source: Value, type: VILType) -> UnsafeCastAddrInst {
+    precondition(type.isAddress, "the type of the cast must be an address")
+    let inst = UnsafeCastAddrInst(source: source, type: type)
     block!.instructions.append(inst)
     return inst
   }
@@ -216,6 +256,16 @@ public final class Builder {
   @discardableResult
   public func buildRet(value: Value) -> RetInst {
     let inst = RetInst(value: value)
+    block!.instructions.append(inst)
+    return inst
+  }
+
+  /// Builds a `halt` instruction.
+  ///
+  /// - Parameter reason: The halting reason.
+  @discardableResult
+  public func buildHalt(reason: String) -> HaltInst {
+    let inst = HaltInst(reason: reason)
     block!.instructions.append(inst)
     return inst
   }
