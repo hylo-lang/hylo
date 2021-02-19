@@ -2,6 +2,17 @@ import AST
 import VIL
 
 /// A VIL code interpreter.
+///
+/// Memory Management
+/// =================
+///
+/// The interpreter maintains a runtime stack that serves to store stack-allocated memory, function
+/// arguments and return addresses, as well as a stack of local frames, which maps each virtual
+/// register in scope onto its runtime value.
+///
+/// All runtime values are implemented with the same size, so that they can fit in a simple Swift
+/// array. Unfortunately, an significant drawback of this approach is that we cannot emulate stack
+/// allocation accurately. Specifically, the storage of a record has to be allocated in the heap.
 public struct Interpreter {
 
   /// The AST context in which the interpreter runs.
@@ -10,8 +21,8 @@ public struct Interpreter {
   /// The runtime stack of the interpreter.
   private var stack: [RuntimeValue] = []
 
-  /// The mappings associating local registers to their offset in the stack.
-  private var locals: [[RegisterID: Int]] = []
+  /// The values of the local registers.
+  private var locals: [[RegisterID: RuntimeValue]] = []
 
   /// The program counter of the interpreter.
   private var pc = ProgramCounter()
@@ -43,9 +54,11 @@ public struct Interpreter {
     // Dispatch the next instrunction to its handler.
     switch pc.inst {
     case let inst as AllocStackInst       : return eval(inst: inst)
+    case let inst as AllocExistentialInst : return eval(inst: inst)
     case let inst as ApplyInst            : return eval(inst: inst)
     case let inst as RecordMemberAddrInst : return eval(inst: inst)
     case let inst as RecordMemberInst     : return eval(inst: inst)
+    case let inst as TupleInst            : return eval(inst: inst)
     case let inst as StoreInst            : return eval(inst: inst)
     case let inst as LoadInst             : return eval(inst: inst)
     case let inst as RetInst              : return eval(inst: inst)
@@ -60,10 +73,8 @@ public struct Interpreter {
   func eval(operand value: Value) -> RuntimeValue {
     if let literal = value as? LiteralValue {
       return eval(literal: literal)
-    } else if let offset = locals[locals.count - 1][RegisterID(value)] {
-      return stack[offset]
     } else {
-      fatalError("bad VIL operand")
+      return locals[locals.count - 1][RegisterID(value)]!
     }
   }
 
@@ -86,14 +97,28 @@ public struct Interpreter {
   }
 
   mutating func eval(inst: AllocStackInst) -> ProgramCounter? {
-    // Allocate a new record on the stack.
-    let record = Record.new(inst.allocatedType)!
-    stack.append(.record(record))
+    // Allocate a new block of memory on the stack.
+    stack.append(RuntimeValue(ofType: inst.allocatedType))
 
     // Map the instruction onto the record's address.
     let address = Address(base: stack.count - 1)
-    stack.append(.address(address))
-    locals[locals.count - 1][RegisterID(inst)] = stack.count - 1
+    locals[locals.count - 1][RegisterID(inst)] = .address(address)
+
+    return pc.incremented()
+  }
+
+  mutating func eval(inst: AllocExistentialInst) -> ProgramCounter? {
+    // Allocate memory for an existential package.
+    let containerAddress = eval(operand: inst.container).asAddress
+    var container = load(from: containerAddress).asContainer
+    container.storage = .allocate(capacity: 1)
+    container.storage!.initialize(to: RuntimeValue(ofType: inst.witness))
+    container.witness = inst.witness
+    store(.container(container), at: containerAddress)
+
+    // Map the instruction onto the allocated address.
+    let address = containerAddress.appending(offset: 0)
+    locals[locals.count - 1][RegisterID(inst)] = .address(address)
 
     return pc.incremented()
   }
@@ -106,23 +131,19 @@ public struct Interpreter {
     switch eval(operand: inst.fun) {
     case .builtinFunction(let decl):
       // The function is built-in.
-      stack.append(evalBuiltinApply(funDecl: decl, args: argvals))
-      locals[locals.count - 1][RegisterID(inst)] = stack.count - 1
+      let value = evalBuiltinApply(funDecl: decl, args: argvals)
+      locals[locals.count - 1][RegisterID(inst)] = value
       return pc.incremented()
 
     case .function(let function):
-      // Allocate space for the return value.
-      stack.append(.junk)
-      locals[locals.count - 1][RegisterID(inst)] = stack.count - 1
-
-      // Save the current program counter. This will be used as a sentinel to delimit stack frames.
-      stack.append(.pc(pc))
+      // Save the return info. This will serve as a sentinel to delimit the start of the call
+      // frame, and indicate to the callee where the return value should be stored.
+      stack.append(.returnInfo(pc, RegisterID(inst)))
 
       // Setup the callee's environment.
-      var frame: [RegisterID: Int] = [:]
+      var frame: [RegisterID: RuntimeValue] = [:]
       for (argval, argref) in zip(argvals, function.arguments) {
-        stack.append(argval.copy())
-        frame[RegisterID(argref)] = stack.count - 1
+        frame[RegisterID(argref)] = argval
       }
       locals.append(frame)
 
@@ -143,12 +164,12 @@ public struct Interpreter {
         return .unit
 
       case "trunc_IntLiteral":
-        return .i64(Int64(truncatingIfNeeded: args[0].asIntLiteral()))
+        return .i64(Int64(truncatingIfNeeded: args[0].asIntLiteral))
 
       case let suffix:
         // The function must take 2 operands.
-        guard case .i64(let lhs) = args[0] else { fatalError("bas VIL code") }
-        guard case .i64(let rhs) = args[1] else { fatalError("bas VIL code") }
+        let lhs = args[0].asI64
+        let rhs = args[1].asI64
 
         switch suffix {
         case "add": return .i64(lhs + rhs)
@@ -166,7 +187,7 @@ public struct Interpreter {
 
   mutating func eval(inst: RecordMemberAddrInst) -> ProgramCounter? {
     // Retrieve the address of the record.
-    let recordAddress = eval(operand: inst.record).asAddress()
+    let recordAddress = eval(operand: inst.record).asAddress
 
     // Compute the record member's address.
     let memberOffset: Int = (inst.record.type.unwrap as! NominalType).decl.storedVarDecls
@@ -174,67 +195,84 @@ public struct Interpreter {
     let memberAddress = recordAddress.appending(offset: memberOffset)
 
     // Map the instruction onto the member's address.
-    stack.append(.address(memberAddress))
-    locals[locals.count - 1][RegisterID(inst)] = stack.count - 1
+    locals[locals.count - 1][RegisterID(inst)] = .address(memberAddress)
 
     return pc.incremented()
   }
 
   mutating func eval(inst: RecordMemberInst) -> ProgramCounter? {
     // Retrieve the record value.
-    let record = eval(operand: inst.record).asRecord()
+    let record = eval(operand: inst.record)
 
     // Compute the record member's offset.
     let memberOffset: Int = (inst.record.type.unwrap as! NominalType).decl.storedVarDecls
       .firstIndex(where: { decl in decl === inst.memberDecl })!
-    let member = record[memberOffset]
+    let member = record[[memberOffset]]
 
     // Map the instruction onto the member.
-    stack.append(member.copy())
-    locals[locals.count - 1][RegisterID(inst)] = stack.count - 1
+    locals[locals.count - 1][RegisterID(inst)] = member
+
+    return pc.incremented()
+  }
+
+  mutating func eval(inst: TupleInst) -> ProgramCounter? {
+    if inst.tupleType == context.unitType {
+      locals[locals.count - 1][RegisterID(inst)] = .unit
+    } else {
+      let record = Record.new(inst.tupleType)!
+      locals[locals.count - 1][RegisterID(inst)] = .record(record)
+    }
 
     return pc.incremented()
   }
 
   mutating func eval(inst: StoreInst) -> ProgramCounter? {
-    let lv = eval(operand: inst.lvalue).asAddress()
+    let lv = eval(operand: inst.lvalue).asAddress
     let rv = eval(operand: inst.rvalue)
-    store(value: rv.copy(), at: lv)
+    store(rv, at: lv)
 
     return pc.incremented()
   }
 
   mutating func eval(inst: LoadInst) -> ProgramCounter? {
-    let lv = eval(operand: inst.lvalue).asAddress()
-    stack.append(load(from: lv).copy())
-    locals[locals.count - 1][RegisterID(inst)] = stack.count - 1
+    let lv = eval(operand: inst.lvalue).asAddress
+    locals[locals.count - 1][RegisterID(inst)] = load(from: lv)
 
     return pc.incremented()
   }
 
   mutating func eval(inst: RetInst) -> ProgramCounter? {
     // Search for start of the current stack frame..
-    var returnPCIndex = -1
+    var returnInfoIndex = -1
     for i in (0 ..< stack.count).reversed() {
-      if case .pc = stack[i] {
-        returnPCIndex = i
+      if case .returnInfo = stack[i] {
+        returnInfoIndex = i
         break
       }
     }
-    guard returnPCIndex > -1 else { return nil }
+    guard returnInfoIndex > -1 else { return nil }
+    let returnInfo = stack[returnInfoIndex].asReturnInfo
 
     // Store the return value.
-    stack[returnPCIndex - 1] = eval(operand: inst.value).copy()
-    let returnPC = stack[returnPCIndex].asProgramCounter()
+    locals[locals.count - 2][returnInfo.register] = eval(operand: inst.value).copy()
 
-    // Deallocate stack-allocated objects and clear the stack frame.
-    for value in stack[(returnPCIndex + 1)...] {
-      value.delete()
+    // Deallocate stack-allocated objects and values assigned to return instructions.
+    for (registerID, value) in locals.last! {
+      switch registerID.value {
+      case is RetInst:
+        value.delete()
+      case is AllocStackInst:
+        stack[value.asAddress.base].delete()
+      default:
+        continue
+      }
     }
-    stack.removeSubrange(returnPCIndex...)
+
+    // Clear the local frames.
+    stack.removeSubrange(returnInfoIndex...)
     locals.removeLast()
 
-    return returnPC.incremented()
+    return returnInfo.pc.incremented()
   }
 
   // MARK: Helpers
@@ -244,43 +282,26 @@ public struct Interpreter {
   /// - Parameters:
   ///   - value: A runtime value.
   ///   - address: A memory denoting a location in the interpreter's memory.
-  private mutating func store(value: RuntimeValue, at address: Address) {
+  private mutating func store(_ value: RuntimeValue, at address: Address) {
     if address.offsets.isEmpty {
-      stack[Int(truncatingIfNeeded: address.base)] = value
+      stack[address.base] = value
     } else {
-      var base = stack[Int(truncatingIfNeeded: address.base)].asRecord()
-      base[address.offsets] = value
+      // FIXME: There will be a leak here if no other stack cell contains this object.
+      var object = stack[address.base].copy()
+      object[address.offsets] = value
+      stack[address.base] = object
     }
   }
 
-  /// Stores a value from the given address.
+  /// Loads a value from the given address.
   ///
-  /// - Parameter address: A memory denoting a location in the interpreter's memory.
+  /// - Parameter address: An address denoting a location in the interpreter's memory.
   private func load(from address: Address) -> RuntimeValue {
-    let base = stack[Int(truncatingIfNeeded: address.base)]
     if address.offsets.isEmpty {
-      return base
+      return stack[address.base]
     } else {
-      return base.asRecord()[address.offsets]
+      return stack[address.base][address.offsets]
     }
-  }
-
-}
-
-fileprivate struct RegisterID: Hashable {
-
-  unowned let value: AnyObject
-
-  init(_ value: AnyObject) {
-    self.value = value
-  }
-
-  func hash(into hasher: inout Hasher) {
-    hasher.combine(ObjectIdentifier(value))
-  }
-
-  static func == (lhs: RegisterID, rhs: RegisterID) -> Bool {
-    return lhs.value === rhs.value
   }
 
 }

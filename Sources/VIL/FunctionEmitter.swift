@@ -94,20 +94,16 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
 
     // Emit the initializer, if any.
     if let initializer = node.initializer {
-      let rv = emit(expr: initializer)
-
       // Emit a store right away if the pattern matches a single value.
       if let varDecl = node.pattern.singleVarDecl {
         assert(lvs.count == 1)
 
         // Check if the value to store must be packed into an existential container.
-        // FIXME: Handle view composition.
-        if let view = varDecl.type as? ViewType {
-          let container = builder.buildPack(value: rv, interface: view)
-          builder.buildStore(lvalue: lvs[0], rvalue: container)
-        } else {
-          builder.buildStore(lvalue: lvs[0], rvalue: rv)
-        }
+        let lvalue: Value = varDecl.type.isExistential
+          ? builder.buildAllocExistential(container: lvs[0], witness: initializer.type)
+          : lvs[0]
+        let rvalue = emit(expr: initializer)
+        builder.buildStore(lvalue: lvalue, rvalue: rvalue)
       } else {
         // FIXME: Handle destructuring,
         fatalError()
@@ -223,7 +219,12 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
   func visit(_ node: AssignExpr) -> ExprResult {
     // Emit the left operand first.
     switch node.lvalue.accept(LValueEmitter(parent: self)) {
-    case .success(let lvalue):
+    case .success(var lvalue):
+      // Check if the value to store must be packed into an existential container.
+      if node.lvalue.type.isExistential {
+        lvalue = builder.buildAllocExistential(container: lvalue, witness: node.rvalue.type)
+      }
+
       let rvalue = emit(expr: node.rvalue)
       builder.buildStore(lvalue: lvalue, rvalue: rvalue)
 

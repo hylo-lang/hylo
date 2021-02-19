@@ -8,7 +8,7 @@ public protocol Inst: AnyObject {
 
 }
 
-/// A stack allocation.
+/// Allocates a block of uninitalized memory on the stack.
 public final class AllocStackInst: Inst, Value {
 
   /// The type of the allocated object.
@@ -24,31 +24,28 @@ public final class AllocStackInst: Inst, Value {
 
 }
 
-/// The packing of a value into an existential container.
-///
-/// This takes a value of type `T` and packs it into an existential container that is known to
-/// conform to the view(s) `V`.
-public final class PackInst: Inst, Value {
+/// Allocates the memory necessary to pack an existential package into the specified container.
+public final class AllocExistentialInst: Inst, Value {
 
-  /// The value to pack.
-  public let value: Value
+  /// The address of the existential container.
+  public let container: Value
 
-  /// The view(s) to which the existential container is known to conform (i.e., its interface).
-  public let interface: ViewType
+  /// The type of the package's witness.
+  public let witness: ValType
 
-  public var type: VILType { .object(interface) }
+  public var type: VILType { .address(witness) }
 
   public var result: Value? { self }
 
-  init(value: Value, interface: ViewType) {
-    self.value = value
-    self.interface = interface
+  init(container: Value, witness: ValType) {
+    self.container = container
+    self.witness = witness
   }
 
 }
 
-/// The creation of a reference to the implementation of a view method for the witness of an
-/// existential container.
+/// Creates a reference to the implementation of a view method for the witness of an existential
+/// package.
 public final class WitnessFunInst: Inst, Value {
 
   /// The type of an existential container that conforms to the view declaring the referred method.
@@ -70,7 +67,7 @@ public final class WitnessFunInst: Inst, Value {
 
 }
 
-/// The application of a function.
+/// Applies a function.
 public final class ApplyInst: Inst, Value {
 
   /// The function being applied.
@@ -91,7 +88,7 @@ public final class ApplyInst: Inst, Value {
 
 }
 
-/// A record value (i.e., an instance of a product type).
+/// Creates a record value (i.e., an instance of a product type).
 public final class RecordInst: Inst, Value {
 
   /// The declaration of the type of which the record value is an instance.
@@ -107,7 +104,7 @@ public final class RecordInst: Inst, Value {
 
 }
 
-/// The value of a stored member in a record value.
+/// Extracts the value of a stored member from a record.
 public final class RecordMemberInst: Inst, Value {
 
   /// The record value whose member is extracted.
@@ -127,7 +124,7 @@ public final class RecordMemberInst: Inst, Value {
 
 }
 
-/// The address of a stored member in a record value.
+/// Computes the address of a stored member from the address of a record.
 public final class RecordMemberAddrInst: Inst, Value {
 
   /// The record value for which the member's address is computed.
@@ -147,7 +144,7 @@ public final class RecordMemberAddrInst: Inst, Value {
 
 }
 
-/// A tuple value.
+/// Creates a tuple value.
 public final class TupleInst: Inst, Value {
 
   /// The type of the tuple.
@@ -167,7 +164,7 @@ public final class TupleInst: Inst, Value {
 
 }
 
-/// A store instruction.
+/// Stores a value at the specified address.
 public final class StoreInst: Inst {
 
   /// The location (or target) of the store.
@@ -185,7 +182,7 @@ public final class StoreInst: Inst {
 
 }
 
-/// A load instruction.
+/// Loads a value from the specified address.
 public final class LoadInst: Inst, Value {
 
   /// The location to load.
@@ -205,7 +202,7 @@ public final class LoadInst: Inst, Value {
 
 }
 
-/// An unconditional branch instruction.
+/// Branches unconditionally to the start of a basic block.
 public final class BranchInst: Inst {
 
   /// The block to which the execution should jump.
@@ -226,7 +223,7 @@ public final class BranchInst: Inst {
 
 }
 
-/// A conditional branch instruction.
+/// Branches conditionally to the start of a basic block.
 public final class CondBranchInst: Inst {
 
   /// The condition.
@@ -262,7 +259,7 @@ public final class CondBranchInst: Inst {
 
 }
 
-/// A return instruction
+/// Returns from a function.
 public final class RetInst: Inst {
 
   /// The value being returned.

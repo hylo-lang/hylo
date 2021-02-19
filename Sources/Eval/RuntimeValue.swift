@@ -3,31 +3,103 @@ import VIL
 
 typealias RuntimeValuePointer = UnsafeMutablePointer<RuntimeValue>
 
+/// A runtime value.
 enum RuntimeValue {
+
+  init(ofType type: ValType) {
+    if type == type.context.unitType {
+      self = .unit
+    } else if type.isExistential {
+      self = .container(Container())
+    } else if let record = Record.new(type) {
+      self = .record(record)
+    } else {
+      fatalError("failed to create a runtime representation of type '\(type)'")
+    }
+  }
 
   /// A unit value.
   case unit
 
-  /// The payload of the instance of a product type, or the instance of a tuple.
+  /// The payload of a record, or a tuple.
   case record(Record)
+
+  var asRecord: Record {
+    if case .record(let value) = self {
+      return value
+    }
+    fatalError("unreachable")
+  }
+
+  /// An existential container.
+  case container(Container)
+
+  var asContainer: Container {
+    if case .container(let value) = self {
+      return value
+    }
+    fatalError("unreachable")
+  }
 
   /// The address of a runtime value, relative to the stack of the interpreter.
   case address(Address)
 
+  var asAddress: Address {
+    if case .address(let value) = self {
+      return value
+    }
+    fatalError("unreachable")
+  }
+
   /// The value of a program counter.
-  case pc(ProgramCounter)
+  case returnInfo(ProgramCounter, RegisterID)
+
+  var asReturnInfo: (pc: ProgramCounter, register: RegisterID) {
+    if case .returnInfo(let pc, let register) = self {
+      return (pc, register)
+    }
+    fatalError("unreachable")
+  }
 
   /// An integer literal.
   case intLiteral(Int)
 
+  var asIntLiteral: Int {
+    if case .intLiteral(let value) = self {
+      return value
+    }
+    fatalError("unreachable")
+  }
+
   /// A built-in 64-bit signed integer value.
   case i64(Int64)
+
+  var asI64: Int64 {
+    if case .i64(let value) = self {
+      return value
+    }
+    fatalError("unreachable")
+  }
 
   /// A VIL function.
   case function(Function)
 
+  var asFunction: Function {
+    if case .function(let value) = self {
+      return value
+    }
+    fatalError("unreachable")
+  }
+
   /// A built-in function.
   case builtinFunction(FunDecl)
+
+  var asBuiltinFunction: FunDecl {
+    if case .builtinFunction(let value) = self {
+      return value
+    }
+    fatalError("unreachable")
+  }
 
   /// A undefined, junk value.
   case junk
@@ -35,89 +107,70 @@ enum RuntimeValue {
   /// An explicit error value.
   case error
 
-  func asRecord() -> Record {
-    guard case .record(let value) = self else { fatalError("bad VIL code") }
-    return value
+  subscript<C>(offsets: C) -> RuntimeValue where C: BidirectionalCollection, C.Element == Int {
+    get {
+      precondition(!offsets.isEmpty)
+      var result = self
+      for offset in offsets {
+        result = result.storage!.advanced(by: offset).pointee
+      }
+      return result
+    }
+
+    set {
+      precondition(!offsets.isEmpty)
+      var target = storage
+      for offset in offsets.dropLast() {
+        target = storage!.advanced(by: offset)
+      }
+      target!.advanced(by: offsets.last!).pointee = newValue
+    }
   }
 
-  func asAddress() -> Address {
-    guard case .address(let value) = self else { fatalError("bad VIL code") }
-    return value
-  }
+  var storage: RuntimeValuePointer? {
+    get {
+      switch self {
+      case .record(let record):
+        return record.storage
+      case .container(let container):
+        return container.storage
+      default:
+        fatalError("unreachable")
+      }
+    }
 
-  func asIntLiteral() -> Int {
-    guard case .intLiteral(let value) = self else { fatalError("bad VIL code") }
-    return value
-  }
-
-  func asProgramCounter() -> ProgramCounter {
-    guard case .pc(let value) = self else { fatalError("bad VIL code") }
-    return value
+    set {
+      switch self {
+      case .container(var container):
+        container.storage = newValue
+        self = .container(container)
+      default:
+        fatalError("unreachable")
+      }
+    }
   }
 
   func delete() {
     switch self {
-    case .record(let value) : value.delete()
-    case .address(let value): value.delete()
+    case .record(let value): value.delete()
     default: break
     }
   }
 
   func copy() -> RuntimeValue {
     switch self {
-    case .record(let value) : return .record(value.copy())
-    case .address(let value): return .address(value.copy())
+    case .record(let val)   : return .record(val.copy())
+    case .container(let val): return .container(val.copy())
     default: return self
     }
   }
 
 }
 
-struct Address {
-
-  /// The base of the address. This is an index in the interpreter's stack.
-  let base: Int32
-
-  /// The offset(s) of the member denoted by the address.
-  let offsets: UnsafeMutableBufferPointer<Int32>
-
-  init(base: Int32, offsets: UnsafeMutableBufferPointer<Int32>) {
-    self.base = base
-    self.offsets = offsets
-  }
-
-  init(base: Int) {
-    self.base = Int32(truncatingIfNeeded: base)
-    self.offsets = UnsafeMutableBufferPointer(start: nil, count: 0)
-  }
-
-  init<C>(base: Int, offsets: C) where C: Collection, C.Element == Int {
-    self.base = Int32(truncatingIfNeeded: base)
-    self.offsets = .allocate(capacity: offsets.count)
-    for (i, offset) in offsets.enumerated() {
-      self.offsets[i] = Int32(truncatingIfNeeded: offset)
-    }
-  }
-
-  func delete() {
-    self.offsets.deallocate()
-  }
-
-  func copy() -> Address {
-    let buffer = UnsafeMutableBufferPointer<Int32>.allocate(capacity: offsets.count)
-    _ = buffer.initialize(from: offsets)
-    return Address(base: base, offsets: buffer)
-  }
-
-  func appending(offset newOffset: Int) -> Address {
-    let buffer = UnsafeMutableBufferPointer<Int32>.allocate(capacity: offsets.count + 1)
-    _ = buffer.initialize(from: offsets)
-    buffer[offsets.count] = Int32(truncatingIfNeeded: newOffset)
-    return Address(base: base, offsets: buffer)
-  }
-
-}
-
+/// The payload (i.e. phyiscal storage) of a product or tuple type.
+///
+/// Since all runtime values must fit the same size, the storage of the record has a buffer of
+/// runtime values on the heap, which must be deallocated explicitly.
 struct Record {
 
   /// The storage of the record.
@@ -140,37 +193,13 @@ struct Record {
     storage.deallocate()
   }
 
+  /// Returns a deep copy of this record.
   func copy() -> Record {
     let newRecord = Record(capacity: capacity)
     for i in 0 ..< capacity {
       newRecord.storage[i] = storage[i].copy()
     }
     return newRecord
-  }
-
-  subscript(offset: Int) -> RuntimeValue {
-    get { storage.advanced(by: offset).pointee }
-    set { storage.advanced(by: offset).pointee = newValue }
-  }
-
-  subscript(offsets: UnsafeMutableBufferPointer<Int32>) -> RuntimeValue {
-    get {
-      var result = RuntimeValue.record(self)
-      for offset in offsets {
-        let base = result.asRecord()
-        result = base.storage.advanced(by: Int(truncatingIfNeeded: offset)).pointee
-      }
-      return result
-    }
-
-    set {
-      precondition(offsets.count > 0)
-      var target = self
-      for offset in offsets.dropLast() {
-        target = target.storage.advanced(by: Int(truncatingIfNeeded: offset)).pointee.asRecord()
-      }
-      target.storage.advanced(by: Int(truncatingIfNeeded: offsets.last!)).pointee = newValue
-    }
   }
 
   static func new(_ type: ValType) -> Record? {
@@ -184,6 +213,63 @@ struct Record {
     }
 
     return nil
+  }
+
+}
+
+/// The address of a memory block in the interpreter.
+///
+/// An address is represented as a squence of offsets. The first is the offset of the interpreter's
+/// runtime stack, while the following are indices of a record or existential container. In other
+/// words, the sequence denotes a path in the interpreter's memory tree.
+///
+/// Note that this essentially emulates a pointer on top of the interpreter's memory architecture.
+struct Address {
+
+  private var indices: [Int]
+
+  init(indices: [Int]) {
+    self.indices = indices
+  }
+
+  init<S>(base: Int, offsets: S) where S: Sequence, S.Element == Int {
+    indices = [base] + Array(offsets)
+  }
+
+  init(base: Int) {
+    indices = [base]
+  }
+
+  /// An offset in the interpreter's runtime stack.
+  var base: Int { indices[0] }
+
+  /// A sequence of offsets denoting a path in the memory tree rooted by the value located at
+  /// `base` in the interpreter's runtime stack.
+  var offsets: ArraySlice<Int> { indices.dropFirst() }
+
+  /// Returns a copy of this address, appending the given offset at the end of `offsets`.
+  ///
+  /// - Parameter offset: An offset.
+  func appending(offset newOffset: Int) -> Address {
+    return Address(indices: indices + [newOffset])
+  }
+
+}
+
+/// An existential container.
+struct Container {
+
+  var storage: RuntimeValuePointer?
+
+  var witness: ValType?
+
+  /// Returns a deep copy of this container.
+  func copy() -> Container {
+    guard let value = storage?.pointee else { return self }
+
+    let newStorage = RuntimeValuePointer.allocate(capacity: 1)
+    newStorage.initialize(to: value.copy())
+    return Container(storage: newStorage, witness: witness)
   }
 
 }

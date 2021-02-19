@@ -38,6 +38,24 @@ public class ValType {
   /// The type is well-formed; it does not contain type variables, unresolved or error types.
   public var isWellFormed: Bool { !hasVariables && !hasUnresolved && !hasErrors }
 
+  /// The type is existential.
+  ///
+  /// A type is existential if it cannot be resolved to a concrete representation statically. It is
+  /// a placeholder for a runtime type that is known to satisfy a set of requirements. Instances of
+  /// existential types are represented by existential packages.
+  public final var isExistential: Bool {
+    switch self {
+    case is ViewType, is ViewCompositionType, is SkolemType:
+      return true
+    case let kType as KindType:
+      return kType.type.isExistential
+    case let iType as InoutType:
+      return iType.base.isExistential
+    default:
+      return false
+    }
+  }
+
   /// The kind of the type.
   public var kind: KindType { context.kindType(type: self) }
 

@@ -70,6 +70,12 @@ extension ComponentTypeRepr {
 fileprivate func realize(_ typeRepr: ComponentTypeRepr, from useSite: DeclSpace) -> ValType {
   let context = typeRepr.type.context
 
+  // Bypass name lookup if the repr is `Any`.
+  if typeRepr.name == "Any" {
+    typeRepr.type = context.anyType
+    return context.anyType
+  }
+
   // Search for a type declaration.
   let matches = useSite.lookup(unqualified: typeRepr.name, in: context).types
   guard !matches.isEmpty else {

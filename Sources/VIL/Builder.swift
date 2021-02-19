@@ -56,7 +56,7 @@ public final class Builder {
     return getOrCreateFunction(name: name, type: funDecl.unappliedType as! FunType)
   }
 
-  /// Builds a stack allocation.
+  /// Builds an `alloc_stack` instruction.
   ///
   /// - Parameter type: The type of the allocated object.
   public func buildAllocStack(type: ValType) -> AllocStackInst {
@@ -65,14 +65,14 @@ public final class Builder {
     return inst
   }
 
-  /// Builds a `pack` instruction.
+  /// Builds an `alloc_existential` instruction.
   ///
   /// - Parameters:
-  ///   - value: The value to pack.
-  ///   - interface: The interface of the existential container. `value` must conform to all views
-  ///     described by `interface`.
-  public func buildPack(value: Value, interface: ViewType) -> PackInst {
-    let inst = PackInst(value: value, interface: interface)
+  ///   - container: The address of an existential container.
+  ///   - witness: The type of the exitential package's witness. `witness` must conform to the
+  ///     view(s) described by the type of the container.
+  public func buildAllocExistential(container: Value, witness: ValType) -> AllocExistentialInst {
+    let inst = AllocExistentialInst(container: container, witness: witness)
     block!.instructions.append(inst)
     return inst
   }
