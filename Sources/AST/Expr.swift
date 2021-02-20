@@ -122,13 +122,13 @@ public struct TupleElem {
     self.range = range
   }
 
-  /// The label of the argument.
+  /// The label of the element.
   public var label: String?
 
-  /// The value of the argument.
+  /// The value of the element.
   public var value: Expr
 
-  /// The source range of this argument’s textual representation.
+  /// The source range of this element's textual representation.
   public var range: SourceRange
 
 }

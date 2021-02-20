@@ -344,24 +344,35 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
   }
 
   public override func visitTypeRepr(_ ctx: ValParser.TypeReprContext) -> Any {
-    let lhs = ctx.maxtermTypeRepr().map({ term in term.accept(self) as! TypeRepr })
+    let lhs = ctx.maxtermTypeRepr()!.accept(self) as! TypeRepr
 
-    // FIXME: Parse function reprs
-    return lhs!
+    if let rhs = ctx.typeRepr().map({ repr in repr.accept(self) as! TypeRepr }) {
+      return FunTypeRepr(paramSign: lhs, retSign: rhs, type: unresolvedType, range: range(of: ctx))
+    } else {
+      return lhs
+    }
   }
 
   public override func visitMaxtermTypeRepr(_ ctx: ValParser.MaxtermTypeReprContext) -> Any {
     let terms = ctx.mintermTypeRepr().map({ term in term.accept(self) as! TypeRepr })
+    assert(!terms.isEmpty)
 
-    // FIXME: Parse union reprs
-    return terms[0]
+    if terms.count == 1 {
+      return terms[0]
+    } else {
+      return UnionTypeRepr(elems: terms, type: unresolvedType, range: range(of: ctx))
+    }
   }
 
   public override func visitMintermTypeRepr(_ ctx: ValParser.MintermTypeReprContext) -> Any {
     let primaries = ctx.primaryTypeRepr().map({ primary in primary.accept(self) as! TypeRepr })
+    assert(!primaries.isEmpty)
 
-    // FIXME: Parse view composition reprs
-    return primaries[0]
+    if primaries.count == 1 {
+      return primaries[0]
+    } else {
+      return ViewCompTypeRepr(views: primaries, type: unresolvedType, range: range(of: ctx))
+    }
   }
 
   public override func visitPrimaryTypeRepr(_ ctx: ValParser.PrimaryTypeReprContext) -> Any {

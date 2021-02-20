@@ -458,6 +458,53 @@ public struct NodePrinter: NodeVisitor {
     """
   }
 
+  public func visit(_ node: TupleTypeRepr) -> String {
+    let elems = node.elems.map({ elem in
+      """
+      {
+      "label"   : \(encode(elem.label)),
+      "sign"    : \(elem.sign.accept(self))
+      }
+      """
+    })
+    .joined(separator: ", ")
+
+    return """
+    {
+    \(typeReprHeader(node)),
+    "elems"           : [\(elems)]
+    }
+    """
+  }
+
+  public func visit(_ node: FunTypeRepr) -> String {
+    return """
+    {
+    \(typeReprHeader(node)),
+    "paramSign"       : \(node.paramSign.accept(self)),
+    "retSign  "       : \(node.retSign.accept(self)),
+    }
+    """
+  }
+
+  public func visit(_ node: UnionTypeRepr) -> String {
+    return """
+    {
+    \(typeReprHeader(node)),
+    "elems"           : \(encode(node.elems))
+    }
+    """
+  }
+
+  public func visit(_ node: ViewCompTypeRepr) -> String {
+    return """
+    {
+    \(typeReprHeader(node)),
+    "views"           : \(encode(node.views))
+    }
+    """
+  }
+
   public func visit(_ node: UnqualTypeRepr) -> String {
     return """
     {

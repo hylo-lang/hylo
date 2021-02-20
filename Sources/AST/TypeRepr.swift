@@ -13,6 +13,118 @@ public protocol TypeRepr: Node {
 
 }
 
+/// The signature of a tuple type (e.g., `(foo: A, bar: B)`).
+public final class TupleTypeRepr: TypeRepr {
+
+  public init(elems: [TupleTypeElem], type: ValType, range: SourceRange) {
+    self.elems = elems
+    self.type = type
+    self.range = range
+  }
+
+  /// The elements of the tuple.
+  public var elems: [TupleTypeElem]
+
+  public var type: ValType
+
+  public var range: SourceRange
+
+  public func accept<V>(_ visitor: V) -> V.TypeReprResult where V: TypeReprVisitor {
+    return visitor.visit(self)
+  }
+
+}
+
+/// The element of a tuple type signature.
+public struct TupleTypeElem {
+
+  public init(label: String? = nil, sign: TypeRepr, range: SourceRange) {
+    self.label = label
+    self.sign = sign
+    self.range = range
+  }
+
+  /// The label of the element.
+  public var label: String?
+
+  /// The signature of the element.
+  public var sign: TypeRepr
+
+  /// The source range of this element’s textual representation.
+  public var range: SourceRange
+
+}
+
+/// The signature of a function type (e.g., `A -> B`).
+public final class FunTypeRepr: TypeRepr {
+
+  public init(paramSign: TypeRepr, retSign: TypeRepr, type: ValType, range: SourceRange) {
+    self.paramSign = paramSign
+    self.retSign = retSign
+    self.type = type
+    self.range = range
+  }
+
+  /// The signature of the function's domain.
+  public var paramSign: TypeRepr
+
+  /// The signature of the function's codomain.
+  public var retSign: TypeRepr
+
+  public var type: ValType
+
+  public var range: SourceRange
+
+  public func accept<V>(_ visitor: V) -> V.TypeReprResult where V: TypeReprVisitor {
+    return visitor.visit(self)
+  }
+
+}
+
+/// The signature of a union type (e.g., `A | B`).
+public final class UnionTypeRepr: TypeRepr {
+
+  public init(elems: [TypeRepr], type: ValType, range: SourceRange) {
+    self.elems = elems
+    self.type = type
+    self.range = range
+  }
+
+  /// The elements of the union.
+  public var elems: [TypeRepr]
+
+  public var type: ValType
+
+  public var range: SourceRange
+
+  public func accept<V>(_ visitor: V) -> V.TypeReprResult where V: TypeReprVisitor {
+    return visitor.visit(self)
+  }
+
+}
+
+/// The signature of a view composition (e.g., `V & U`).
+public final class ViewCompTypeRepr: TypeRepr {
+
+  public init(views: [TypeRepr], type: ValType, range: SourceRange) {
+    self.views = views
+    self.type = type
+    self.range = range
+  }
+
+  /// The views of the composition.
+  public var views: [TypeRepr]
+
+  public var type: ValType
+
+  public var range: SourceRange
+
+  public func accept<V>(_ visitor: V) -> V.TypeReprResult where V: TypeReprVisitor {
+    return visitor.visit(self)
+  }
+
+}
+
 /// A type identifier composed of one or several components.
 ///
 /// This protocol abstracts over unqualified and compound type identifiers.

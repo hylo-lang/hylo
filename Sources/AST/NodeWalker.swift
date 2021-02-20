@@ -501,6 +501,59 @@ open class NodeWalker: NodeVisitor {
     return true
   }
 
+  public final func visit(_ node: TupleTypeRepr) -> Bool {
+    let prevParent = parent
+    parent = node
+    defer { parent = prevParent }
+
+    for i in 0 ..< node.elems.count {
+      (shouldContinue, node.elems[i].sign) = walk(node.elems[i].sign)
+      guard shouldContinue else { return false }
+    }
+
+    return true
+  }
+
+  public final func visit(_ node: FunTypeRepr) -> Bool {
+    let prevParent = parent
+    parent = node
+    defer { parent = prevParent }
+
+    (shouldContinue, node.paramSign) = walk(node.paramSign)
+    guard shouldContinue else { return false }
+
+    (shouldContinue, node.retSign) = walk(node.retSign)
+    guard shouldContinue else { return false }
+
+    return true
+  }
+
+  public final func visit(_ node: UnionTypeRepr) -> Bool {
+    let prevParent = parent
+    parent = node
+    defer { parent = prevParent }
+
+    for i in 0 ..< node.elems.count {
+      (shouldContinue, node.elems[i]) = walk(node.elems[i])
+      guard shouldContinue else { return false }
+    }
+
+    return true
+  }
+
+  public final func visit(_ node: ViewCompTypeRepr) -> Bool {
+    let prevParent = parent
+    parent = node
+    defer { parent = prevParent }
+
+    for i in 0 ..< node.views.count {
+      (shouldContinue, node.views[i]) = walk(node.views[i])
+      guard shouldContinue else { return false }
+    }
+
+    return true
+  }
+
   public final func visit(_ node: UnqualTypeRepr) -> Bool {
     return true
   }
