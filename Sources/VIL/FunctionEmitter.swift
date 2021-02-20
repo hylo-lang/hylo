@@ -135,32 +135,42 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
   }
 
   func emit(assign expr: Expr, to lvalue: Value) {
-    let rvalue = emit(expr: expr)
-
     if lvalue.type.unwrap.isExistential {
-      // The l-value is an existential container. There are two cases to consider.
+      // The l-value is an existential container.
       if expr.type.isExistential {
-        // The r-value is another existential container, we may copy its contents.
-        if lvalue.type.unwrap == rvalue.type.unwrap {
-          // The r-value has the same type as the l-value; we may emit a simple store.
-          builder.buildStore(lvalue: lvalue, rvalue: rvalue)
+        // Both operands are existential containers. Hence, the goal is to copy the existential
+        // package from one container to the other. If the right operand can be treated as an
+        // l-value, then this boils down to a mere `copy_addr`.
+        if case .success(var rvalue) = expr.accept(LValueEmitter(parent: self)) {
+          if lvalue.type.unwrap != expr.type {
+            // The r-value has a different type as the l-value; we need a cast.
+            rvalue = builder.buildUnsafeCastAddr(source: rvalue, type: lvalue.type)
+          }
+          builder.buildCopyAddr(dest: lvalue, source: rvalue)
         } else {
-          // The r-value has a different type as the l-value; we need a cast.
-          // FIXME: We could skip the allocation if we knew whether `expr` can be emitted as an
-          // l-value, so that we could emit `copy_addr` directly.
-          var tmp: Value = builder.buildAllocStack(type: rvalue.type.unwrap)
-          builder.buildStore(lvalue: tmp, rvalue: rvalue)
-          tmp = builder.buildUnsafeCastAddr(source: tmp, type: lvalue.type)
-          builder.buildCopyAddr(dest: lvalue, source: tmp)
+          // The right operand is a true r-value (e.g., the result of a cast on a r-value).
+          var rvalue = emit(expr: expr)
+          if lvalue.type.unwrap == expr.type {
+            // The r-value has the same type as the l-value; we only need a store.
+            builder.buildStore(lvalue: lvalue, rvalue: rvalue)
+          } else {
+            // The r-value has a different type; we need a temporary location to cast its package.
+            let tmp: Value = builder.buildAllocStack(type: rvalue.type.unwrap)
+            builder.buildStore(lvalue: tmp, rvalue: rvalue)
+            rvalue = builder.buildUnsafeCastAddr(source: tmp, type: lvalue.type)
+            builder.buildCopyAddr(dest: lvalue, source: rvalue)
+          }
         }
       } else {
         // The r-value is concrete; it has to be packed unto the l-value.
+        let rvalue = emit(expr: expr)
         let lvalue = builder.buildAllocExistential(container: lvalue, witness: expr.type)
         builder.buildStore(lvalue: lvalue, rvalue: rvalue)
       }
     } else {
       // The l-value is concrete.
       assert(!expr.type.isExistential)
+      let rvalue = emit(expr: expr)
       builder.buildStore(lvalue: lvalue, rvalue: rvalue)
     }
   }
@@ -254,6 +264,8 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
         context.report(.cannotAssignImmutableSelf(range: node.lvalue.range))
       case .immutableLocation:
         context.report(.cannotAssignToImmutableLocation(range: node.lvalue.range))
+      case .immutableExpr:
+        context.report(.cannotAssignImmutableExpr(range: node.lvalue.range))
       }
 
       return .success(UnitValue(context: context))

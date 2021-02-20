@@ -140,6 +140,12 @@ extension Diagnostic {
     return Diagnostic("I can't assign property to of immutable 'self'", anchor: range)
   }
 
+  public static func cannotAssignImmutableExpr(
+    range: SourceRange
+  ) -> Diagnostic {
+    return Diagnostic("I can't assign an immutable expression", anchor: range)
+  }
+
   public static func missingReturnValueInNonUnitFunction(
     range: SourceRange
   ) -> Diagnostic {
@@ -151,6 +157,15 @@ extension Diagnostic {
   ) -> Diagnostic {
     return Diagnostic(
       "code after return statement will never be executed",
+      level: .warning,
+      anchor: range)
+  }
+
+  public static func unsafeCastToSameTimeHasNoEffect(
+    type: Any, range: SourceRange
+  ) -> Diagnostic {
+    return Diagnostic(
+      "unsafe cast from '\(type)' to the same type has no effect",
       level: .warning,
       anchor: range)
   }

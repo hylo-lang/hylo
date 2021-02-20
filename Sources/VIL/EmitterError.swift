@@ -5,4 +5,6 @@ public enum EmitterError: Error {
 
   case immutableSelf
 
+  case immutableExpr
+
 }

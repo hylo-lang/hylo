@@ -9,46 +9,52 @@ struct LValueEmitter: ExprVisitor {
   unowned let parent: FunctionEmitter
 
   func visit(_ node: IntLiteralExpr) -> ExprResult {
-    fatalError()
+    return .failure(.immutableExpr)
   }
 
   func visit(_ node: AssignExpr) -> ExprResult {
-    fatalError()
+    return .failure(.immutableExpr)
   }
 
   func visit(_ node: UnsafeCastExpr) -> Result<Value, EmitterError> {
-    let source = parent.emit(lvalue: node.value)
-    guard node.type != node.value.type else {
-      parent.context.report(.unsafeCastToSameTimeHasNoEffect(type: node.type, range: node.range))
-      return .success(source)
-    }
+    // The value being cast hast to be emittable as an l-value.
+    switch node.value.accept(self) {
+    case .success(let source):
+      guard node.type != node.value.type else {
+        parent.context.report(.unsafeCastToSameTimeHasNoEffect(type: node.type, range: node.range))
+        return .success(source)
+      }
 
-    let cast = parent.builder.buildUnsafeCastAddr(source: source, type: .address(node.type))
-    return .success(cast)
+      let cast = parent.builder.buildUnsafeCastAddr(source: source, type: .address(node.type))
+      return .success(cast)
+
+    case let failure:
+      return failure
+    }
   }
 
   func visit(_ node: TupleExpr) -> ExprResult {
-    fatalError()
+    fatalError("not implemented")
   }
 
   func visit(_ node: CallExpr) -> ExprResult {
-    fatalError()
+    return .failure(.immutableExpr)
   }
 
   func visit(_ node: UnresolvedDeclRefExpr) -> ExprResult {
-    fatalError()
+    fatalError("unreachable")
   }
 
   func visit(_ node: UnresolvedMemberExpr) -> ExprResult {
-    fatalError()
+    fatalError("unreachable")
   }
 
   func visit(_ node: UnresolvedQualDeclRefExpr) -> ExprResult {
-    fatalError()
+    fatalError("unreachable")
   }
 
   func visit(_ node: OverloadedDeclRefExpr) -> ExprResult {
-    fatalError()
+    fatalError("unreachable")
   }
 
   func visit(_ node: DeclRefExpr) -> ExprResult {
@@ -86,15 +92,15 @@ struct LValueEmitter: ExprVisitor {
     }
 
     // FIXME: Handle global symbols.
-    fatalError("unreachable")
+    fatalError("not implemented")
   }
 
   func visit(_ node: TypeDeclRefExpr) -> ExprResult {
-    fatalError()
+    fatalError("not implemented")
   }
 
   func visit(_ node: MemberRefExpr) -> ExprResult {
-    // Note that the base has to be emittable as an l-value.
+    // The base has to be emittable as an l-value.
     switch node.base.accept(self) {
     case .success(let base):
       // Make sure the base has an address type.
@@ -118,15 +124,15 @@ struct LValueEmitter: ExprVisitor {
   }
 
   func visit(_ node: AddrOfExpr) -> ExprResult {
-    fatalError()
+    fatalError("not implemented")
   }
 
   func visit(_ node: WildcardExpr) -> ExprResult {
-    fatalError()
+    return .failure(.immutableExpr)
   }
 
   func visit(_ node: ErrorExpr) -> ExprResult {
-    fatalError()
+    return .failure(.immutableExpr)
   }
 
 }

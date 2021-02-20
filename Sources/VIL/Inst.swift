@@ -6,7 +6,7 @@ public protocol Inst: AnyObject {}
 /// Allocates a block of uninitalized memory on the stack.
 public final class AllocStackInst: Inst, Value {
 
-  /// The type of the allocated object.
+  /// The (Val) type of the allocated object.
   public let allocatedType: ValType
 
   public var type: VILType { .address(allocatedType) }
