@@ -151,7 +151,20 @@ wildcardPattern
   ;
 
 typeRepr
+  : maxtermTypeRepr ('->' typeRepr)?
+  ;
+
+maxtermTypeRepr
+  : mintermTypeRepr ('|' mintermTypeRepr)*
+  ;
+
+mintermTypeRepr
+  : primaryTypeRepr ('&' primaryTypeRepr)*
+  ;
+
+primaryTypeRepr
   : identTypeRepr
+  | tupleTypeRepr
   ;
 
 identTypeRepr
@@ -164,6 +177,18 @@ unqualTypeRepr
 
 genericArgList
   : '<' typeRepr (',' typeRepr)* '>'
+  ;
+
+tupleTypeRepr
+  : '(' tupleTypeElemList? ')'
+  ;
+
+tupleTypeElemList
+  : tupleTypeElem (',' tupleTypeElem)*
+  ;
+
+tupleTypeElem
+  : (NAME ':')? typeRepr
   ;
 
 expr
