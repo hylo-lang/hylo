@@ -165,6 +165,16 @@ enum RuntimeValue {
     }
   }
 
+  // MARK: Debug
+
+  var isAddress: Bool {
+    if case .address = self {
+      return true
+    } else {
+      return false
+    }
+  }
+
 }
 
 /// The payload (i.e. phyiscal storage) of a product or tuple type.

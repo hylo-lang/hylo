@@ -53,15 +53,18 @@ public struct Interpreter {
   mutating func step() -> ProgramCounter? {
     // Dispatch the next instrunction to its handler.
     switch pc.inst {
-    case let inst as AllocStackInst       : return eval(inst: inst)
-    case let inst as AllocExistentialInst : return eval(inst: inst)
-    case let inst as ApplyInst            : return eval(inst: inst)
-    case let inst as RecordMemberAddrInst : return eval(inst: inst)
-    case let inst as RecordMemberInst     : return eval(inst: inst)
-    case let inst as TupleInst            : return eval(inst: inst)
-    case let inst as StoreInst            : return eval(inst: inst)
-    case let inst as LoadInst             : return eval(inst: inst)
-    case let inst as RetInst              : return eval(inst: inst)
+    case let inst as AllocStackInst         : return eval(inst: inst)
+    case let inst as AllocExistentialInst   : return eval(inst: inst)
+    case let inst as OpenExistentialAddrInst: return eval(inst: inst)
+    case let inst as CopyAddrInst           : return eval(inst: inst)
+    case let inst as UnsafeCastAddrInst     : return eval(inst: inst)
+    case let inst as ApplyInst              : return eval(inst: inst)
+    case let inst as RecordMemberAddrInst   : return eval(inst: inst)
+    case let inst as RecordMemberInst       : return eval(inst: inst)
+    case let inst as TupleInst              : return eval(inst: inst)
+    case let inst as StoreInst              : return eval(inst: inst)
+    case let inst as LoadInst               : return eval(inst: inst)
+    case let inst as RetInst                : return eval(inst: inst)
     case nil:
       fatalError("invalid program counter")
     case .some:
@@ -109,17 +112,46 @@ public struct Interpreter {
 
   mutating func eval(inst: AllocExistentialInst) -> ProgramCounter? {
     // Allocate memory for an existential package.
-    let containerAddress = eval(operand: inst.container).asAddress
-    var container = load(from: containerAddress).asContainer
+    let containerAddr = eval(operand: inst.container).asAddress
+    var container = load(from: containerAddr).asContainer
     container.storage = .allocate(capacity: 1)
     container.storage!.initialize(to: RuntimeValue(ofType: inst.witness))
     container.witness = inst.witness
-    store(.container(container), at: containerAddress)
+    store(.container(container), at: containerAddr)
 
     // Map the instruction onto the allocated address.
-    let address = containerAddress.appending(offset: 0)
+    let address = containerAddr.appending(offset: 0)
     locals[locals.count - 1][RegisterID(inst)] = .address(address)
 
+    return pc.incremented()
+  }
+
+  mutating func eval(inst: OpenExistentialAddrInst) -> ProgramCounter? {
+    let containerAddr = eval(operand: inst.container).asAddress
+
+    // Map the instruction onto the address of the existential package.
+    let address = containerAddr.appending(offset: 0)
+    locals[locals.count - 1][RegisterID(inst)] = .address(address)
+
+    return pc.incremented()
+  }
+
+  mutating func eval(inst: CopyAddrInst) -> ProgramCounter? {
+    let source = eval(operand: inst.source)
+    let dest = eval(operand: inst.dest)
+    assert(source.isAddress && dest.isAddress)
+
+    store(load(from: source.asAddress), at: dest.asAddress)
+
+    return pc.incremented()
+  }
+
+  mutating func eval(inst: UnsafeCastAddrInst) -> ProgramCounter? {
+    let addr = eval(operand: inst.source)
+    assert(addr.isAddress)
+
+    // FIXME: Check that the layout of the source object is compatible with the target type.
+    locals[locals.count - 1][RegisterID(inst)] = addr
     return pc.incremented()
   }
 
@@ -284,11 +316,11 @@ public struct Interpreter {
   ///   - address: A memory denoting a location in the interpreter's memory.
   private mutating func store(_ value: RuntimeValue, at address: Address) {
     if address.offsets.isEmpty {
-      stack[address.base] = value
+      stack[address.base] = value.copy()
     } else {
       // FIXME: There will be a leak here if no other stack cell contains this object.
       var object = stack[address.base].copy()
-      object[address.offsets] = value
+      object[address.offsets] = value.copy()
       stack[address.base] = object
     }
   }
