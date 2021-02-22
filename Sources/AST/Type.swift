@@ -356,13 +356,13 @@ extension ModuleType: CustomStringConvertible {
 /// A nominal type.
 public class NominalType: ValType, CustomStringConvertible {
 
-  init(context: Context, decl: NominalTypeDecl, props: RecursiveProps = .isCanonical) {
+  init(context: Context, decl: GenericTypeDecl, props: RecursiveProps = .isCanonical) {
     self.decl = decl
     super.init(context: context, props: props)
   }
 
   /// The declaration of this nominal type.
-  public unowned let decl: NominalTypeDecl
+  public unowned let decl: GenericTypeDecl
 
   override func hash(into hasher: inout Hasher) {
     hasher.combine(ObjectIdentifier(decl))
@@ -374,6 +374,10 @@ public class NominalType: ValType, CustomStringConvertible {
 
 /// A product type, representing a collection of labeled value members.
 public final class ProductType: NominalType {
+
+  init(context: Context, decl: ProductTypeDecl) {
+    super.init(context: context, decl: decl)
+  }
 
   override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? ProductType else { return false }
@@ -388,6 +392,10 @@ public final class ProductType: NominalType {
 
 /// A view type.
 public final class ViewType: NominalType {
+
+  init(context: Context, decl: ViewTypeDecl) {
+    super.init(context: context, decl: decl)
+  }
 
   override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? ViewType else { return false }
@@ -408,6 +416,20 @@ public final class ViewType: NominalType {
     } else {
       return lhs.decl.rootDeclSpace.id.lexicographicallyPrecedes(rhs.decl.rootDeclSpace.id)
     }
+  }
+
+}
+
+/// A reference to a possibly generic type expression.
+public final class AliasType: NominalType {
+
+  init(context: Context, decl: AliasTypeDecl) {
+    super.init(context: context, decl: decl)
+  }
+
+  override func isEqual(to other: ValType) -> Bool {
+    guard let that = other as? AliasType else { return false }
+    return self.decl === that.decl
   }
 
 }
@@ -490,7 +512,7 @@ extension ViewCompositionType: CustomStringConvertible {
 /// A type whose generic parameters have been bound.
 public final class BoundGenericType: NominalType {
 
-  init(context: Context, decl: NominalTypeDecl, args: [ValType]) {
+  init(context: Context, decl: GenericTypeDecl, args: [ValType]) {
     self.args = args
     super.init(context: context, decl: decl, props: RecursiveProps.merge(args.map({ $0.props })))
   }

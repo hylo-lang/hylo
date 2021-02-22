@@ -43,6 +43,7 @@ struct PreChecker: ExprVisitor {
   }
 
   func visit(_ node: UnsafeCastExpr) -> Expr {
+    node.type = node.sign.realize(unqualifiedFrom: useSite)
     return node
   }
 

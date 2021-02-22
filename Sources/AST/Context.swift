@@ -50,6 +50,10 @@ public final class Context {
     return uniqued(ViewType(context: self, decl: decl))
   }
 
+  public func aliasType(decl: AliasTypeDecl) -> AliasType {
+    return uniqued(AliasType(context: self, decl: decl))
+  }
+
   public func genericParamType(decl: GenericParamDecl) -> GenericParamType {
     return uniqued(GenericParamType(context: self, decl: decl))
   }
@@ -64,7 +68,7 @@ public final class Context {
     return uniqued(ViewCompositionType(context: self, views: Array(views)))
   }
 
-  public func boundGenericType(decl: NominalTypeDecl, args: [ValType]) -> BoundGenericType {
+  public func boundGenericType(decl: GenericTypeDecl, args: [ValType]) -> BoundGenericType {
     return uniqued(BoundGenericType(context: self, decl: decl, args: args))
   }
 

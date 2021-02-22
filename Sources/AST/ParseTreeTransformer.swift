@@ -231,8 +231,8 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
   }
 
   public override func visitProductTypeDecl(_ ctx: ValParser.ProductTypeDeclContext) -> Any {
-    let decl = ProductTypeDecl(
-      name: ctx.NAME()!.getText(), type: unresolvedType, range: range(of: ctx))
+    // Create the declaration.
+    let decl = ProductTypeDecl(name: "", type: unresolvedType, range: range(of: ctx))
     decl.type = context.productType(decl: decl).kind
 
     // Update the current decl space.
@@ -240,14 +240,39 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     currentSpace = decl
     defer { currentSpace = decl.parentDeclSpace }
 
-    // Visit the remainder of the declaration.
-    if let genericClause = ctx.genericClause() {
-      decl.genericClause = (genericClause.accept(self) as! GenericClause)
-    }
+    // Visit the declaration's head.
+    let head = ctx.typeDeclHead()!.accept(self) as! TypeDeclHead
+    decl.name = head.name
+    decl.genericClause = head.genericClause
+    decl.inheritances = head.inheritances
+
+    // Visit the declaration's members.
     decl.members = ctx.declBlock()!.accept(self) as! [Decl]
-    if let inheritanceClause = ctx.inheritanceClause() {
-      decl.inheritances = inheritanceClause.accept(self) as! [IdentTypeRepr]
-    }
+
+    return decl
+  }
+
+  public override func visitAliasTypeDecl(_ ctx: ValParser.AliasTypeDeclContext) -> Any {
+    // Create the declaration.
+    let decl = AliasTypeDecl(
+      name: "",
+      aliasedSign: UnqualTypeRepr(name: "", type: unresolvedType, range: .invalid),
+      type: unresolvedType,
+      range: range(of: ctx))
+
+    // Update the current decl space.
+    decl.parentDeclSpace = currentSpace
+    currentSpace = decl
+    defer { currentSpace = decl.parentDeclSpace }
+
+    // Visit the declaration's head.
+    let head = ctx.typeDeclHead()!.accept(self) as! TypeDeclHead
+    decl.name = head.name
+    decl.genericClause = head.genericClause
+    decl.inheritances = head.inheritances
+
+    // Visit the aliased signature.
+    decl.aliasedSign = ctx.typeRepr()!.accept(self) as! TypeRepr
 
     return decl
   }
@@ -262,13 +287,36 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     currentSpace = decl
     defer { currentSpace = decl.parentDeclSpace }
 
-    // Visit the remainder of the declaration.
-    decl.members = ctx.declBlock()!.accept(self) as! [Decl]
+    // Visit the declaration's head.
     if let inheritanceClause = ctx.inheritanceClause() {
       decl.inheritances = inheritanceClause.accept(self) as! [IdentTypeRepr]
     }
 
+    // Visit the declaration's members.
+    decl.members = ctx.declBlock()!.accept(self) as! [Decl]
+
     return decl
+  }
+
+  public override func visitTypeDeclHead(_ ctx: ValParser.TypeDeclHeadContext) -> Any {
+    let genericClause: GenericClause?
+    if let clause = ctx.genericClause() {
+      genericClause = (clause.accept(self) as! GenericClause)
+    } else {
+      genericClause = nil
+    }
+
+    let inheritances: [IdentTypeRepr]
+    if let clause = ctx.inheritanceClause() {
+      inheritances = clause.accept(self) as! [IdentTypeRepr]
+    } else {
+      inheritances = []
+    }
+
+    return TypeDeclHead(
+      name: ctx.NAME()!.getText(),
+      genericClause: genericClause,
+      inheritances: inheritances)
   }
 
   public override func visitExtDecl(_ ctx: ValParser.ExtDeclContext) -> Any {
@@ -637,6 +685,17 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     let stop = token.getStopIndex()
     return sourceFile.index(i, offsetBy: start) ..< sourceFile.index(i, offsetBy: stop + 1)
   }
+
+}
+
+/// The head of a product or alias type declaration.
+fileprivate struct TypeDeclHead {
+
+  let name: String
+
+  let genericClause: GenericClause?
+
+  let inheritances: [IdentTypeRepr]
 
 }
 

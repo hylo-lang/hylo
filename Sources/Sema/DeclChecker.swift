@@ -153,6 +153,10 @@ struct DeclChecker: DeclVisitor {
     fatalError("unreachable")
   }
 
+  func visit(_ node: GenericTypeDecl) -> Bool {
+    fatalError("unreachable")
+  }
+
   func visit(_ node: NominalTypeDecl) -> Bool {
     fatalError("unreachable")
   }
@@ -262,6 +266,10 @@ struct DeclChecker: DeclVisitor {
     return isWellFormed
   }
 
+  func visit(_ node: AliasTypeDecl) -> Bool {
+    fatalError("not implemented")
+  }
+
   func visit(_ node: GenericParamDecl) -> Bool {
     fatalError("unreachable")
   }
@@ -334,8 +342,7 @@ struct DeclChecker: DeclVisitor {
     type: ValType, system: inout ConstraintSystem, locator: ConstraintLocator
   ) -> ValType? {
     guard let nominalType = type as? NominalType,
-          let genericDecl = nominalType.decl as? GenericTypeDecl,
-          let clause = genericDecl.genericClause
+          let clause = nominalType.decl.genericClause
     else { return type }
 
     // Complete the argument list if necessary.
@@ -343,7 +350,7 @@ struct DeclChecker: DeclVisitor {
     guard args.count < clause.params.count else { return type }
 
     args.append(contentsOf: clause.params.dropFirst(args.count).map({ $0.instanceType }))
-    guard let env = genericDecl.prepareGenericEnv() else {
+    guard let env = nominalType.decl.prepareGenericEnv() else {
       return nil
     }
 

@@ -293,7 +293,7 @@ struct CSSolver {
       return
     }
 
-    // If `T` is an inout-type, then we should solve the constraint for its base.
+    // If `T` is an in-out type, then we should solve the constraint for its base.
     if let inoutType = baseType as? InoutType {
       baseType = inoutType.base
     }

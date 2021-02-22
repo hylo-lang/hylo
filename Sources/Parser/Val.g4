@@ -93,19 +93,24 @@ typeReq
 
 typeDecl
   : productTypeDecl
+  | aliasTypeDecl
   | viewTypeDecl
   ;
 
 productTypeDecl
-  : 'type' NAME genericClause? inheritanceClause? declBlock
+  : typeDeclHead declBlock
+  ;
+
+aliasTypeDecl
+  : typeDeclHead '=' typeRepr
   ;
 
 viewTypeDecl
   : 'view' NAME inheritanceClause? declBlock
   ;
 
-typeDeclKeyword
-  : 'type' | 'view'
+typeDeclHead
+  : 'type' NAME genericClause? inheritanceClause?
   ;
 
 extDecl

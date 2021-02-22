@@ -37,7 +37,7 @@ public final class ModuleDecl: IterableDeclSpace {
   }
 
   /// Returns the extensions of the given type declaration.
-  public func extensions(of decl: NominalTypeDecl) -> [TypeExtDecl] {
+  public func extensions(of decl: GenericTypeDecl) -> [TypeExtDecl] {
     var matches: [TypeExtDecl] = []
 
     // Loop through all extensions in the module, (partially) binding them if necessary.

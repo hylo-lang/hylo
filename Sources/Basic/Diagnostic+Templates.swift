@@ -48,6 +48,27 @@ extension Diagnostic {
     return Diagnostic("I can't extend non-nominal type '\(type)'", anchor: range)
   }
 
+  public static func typeAliasReferencesItself(
+    type name: String, range: SourceRange
+  ) -> Diagnostic {
+    return Diagnostic("type alias '\(name)' references itself", anchor: range)
+  }
+
+  public static func newConformanceOnNominalTypeAlias(
+    range: SourceRange
+  ) -> Diagnostic {
+    return Diagnostic(
+      "I can't declare new conformances for a nominal type through an alias declaration; " +
+        "use an extension",
+      anchor: range)
+  }
+
+  public static func invalidMutatingTypeModifier(
+    range: SourceRange
+  ) -> Diagnostic {
+    return Diagnostic("mutating type modifier is only valid on function parameters", anchor: range)
+  }
+
   public static func missingPatternInitializer(
     range: SourceRange
   ) -> Diagnostic {

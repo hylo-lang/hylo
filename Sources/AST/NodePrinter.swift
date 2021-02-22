@@ -192,6 +192,15 @@ public struct NodePrinter: NodeVisitor {
     """
   }
 
+  public func visit(_ node: GenericTypeDecl) -> String {
+    switch node {
+    case let decl as NominalTypeDecl: return visit(decl)
+    case let decl as AliasTypeDecl  : return visit(decl)
+    default:
+      fatalError("unreachable")
+    }
+  }
+
   public func visit(_ node: NominalTypeDecl) -> String {
     switch node {
     case let decl as ProductTypeDecl: return visit(decl)
@@ -218,6 +227,16 @@ public struct NodePrinter: NodeVisitor {
     \(typeDeclHeader(node)),
     "inheritances"    : \(encode(node.inheritances)),
     "members"         : \(encode(node.members))
+    }
+    """
+  }
+
+  public func visit(_ node: AliasTypeDecl) -> String {
+    return """
+    {
+    \(typeDeclHeader(node)),
+    "aliasedSign"     : \(encode(node.aliasedSign))
+    }
     }
     """
   }

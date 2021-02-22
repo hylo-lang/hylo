@@ -233,6 +233,14 @@ open class NodeWalker: NodeVisitor {
     return true
   }
 
+  public final func visit(_ node: GenericTypeDecl) -> Bool {
+    switch node {
+    case let decl as NominalTypeDecl: return visit(decl)
+    case let decl as AliasTypeDecl  : return visit(decl)
+    default: fatalError("unreachable")
+    }
+  }
+
   public final func visit(_ node: NominalTypeDecl) -> Bool {
     switch node {
     case let decl as ProductTypeDecl: return visit(decl)
@@ -286,6 +294,31 @@ open class NodeWalker: NodeVisitor {
       (shouldContinue, node.members[i]) = walk(node.members[i])
       guard shouldContinue else { return false }
     }
+
+    return true
+  }
+
+  public final func visit(_ node: AliasTypeDecl) -> Bool {
+    let prevParent = parent
+    parent = node
+    innermostSpace = node
+    defer {
+      parent = prevParent
+      innermostSpace = innermostSpace?.parentDeclSpace
+    }
+
+//    if let clause = node.genericClause, willVisit(clause) {
+//      guard visit(clause)    else { return false }
+//      guard didVisit(clause) else { return false }
+//    }
+//
+//    for i in 0 ..< node.inheritances.count {
+//      (shouldContinue, node.inheritances[i]) = walk(node.inheritances[i])
+//      guard shouldContinue else { return false }
+//    }
+
+    (shouldContinue, node.aliasedSign) = walk(node.aliasedSign)
+    guard shouldContinue else { return false }
 
     return true
   }

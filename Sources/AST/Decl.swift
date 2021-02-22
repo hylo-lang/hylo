@@ -25,6 +25,9 @@ public enum DeclState: Int, Comparable {
   /// The declaration was just parsed; no semantic information is available.
   case parsed
 
+  /// The type of the declaration has been requested and is being realized.
+  case realizationRequested
+
   /// The type of the declaration is available for type inference, but the declaration has not been
   /// type checked yet.
   ///
@@ -82,14 +85,6 @@ extension TypeDecl {
   public var instanceType: ValType {
     return (type as! KindType).type
   }
-
-}
-
-/// A type declaration that can have a generic clause.
-public protocol GenericTypeDecl: TypeDecl, GenericDeclSpace {
-
-  /// The generic clause of the declaration.
-  var genericClause: GenericClause? { get }
 
 }
 
@@ -668,55 +663,61 @@ public final class FunParamDecl: ValueDecl {
 
 }
 
-/// The base class for nominal type declarations.
-public class NominalTypeDecl: TypeDecl, DeclSpace {
+/// A type declaration that can have explicit or implicit generic parameters.
+public class GenericTypeDecl: TypeDecl, GenericDeclSpace {
 
-  public init(
-    name        : String,
-    inheritances: [UnqualTypeRepr] = [],
-    members     : [Decl]           = [],
-    type        : ValType,
-    range       : SourceRange
-  ) {
+  fileprivate init(name: String, type: ValType, range: SourceRange, state: DeclState) {
     self.name = name
-    self.inheritances = inheritances
-    self.members = members
     self.type = type
     self.range = range
+    self.state = state
   }
 
   /// The name of the type.
-  public var name: String
+  public var name: String = ""
+
+  /// The generic clause of the declaration, if any.
+  public var genericClause: GenericClause?
+
+  /// The generic environment described by the type.
+  public var genericEnv: GenericEnv?
 
   /// The views to which the type should conform.
-  public var inheritances: [TypeRepr]
+  public var inheritances: [TypeRepr] = []
 
-  /// The member declarations of the type.
+  /// The resolved type of the declaration.
   ///
-  /// This is the list of explicit declarations found directly within the type declaration. Use
-  /// `allTypeAndValueMembers` to enumerate all member declarations, including those that are
-  /// declared in extensions, inherited by conformance or synthetized.
-  public var members: [Decl]
-
-  public var range: SourceRange
-
-  // MARK: Name lookup
+  /// - Important: This should only be set at the time of the node's creation.
+  public var type: ValType
 
   public weak var parentDeclSpace: DeclSpace?
 
-  public var isOverloadable: Bool { false }
+  public private(set) var state: DeclState
 
   /// The internal cache backing `valueMemberTable`.
   private var _valueMemberTable: [String: [ValueDecl]]?
+
+  /// The internal cache backing `typeMemberTable`.
+  private var _typeMemberTable: [String: TypeDecl]?
+
+  /// The internal cache backing `conformanceTable`.
+  private var _conformanceTable: ConformanceLookupTable?
+
+  public var range: SourceRange
+
+  public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
+    return visitor.visit(self)
+  }
+
+  // MARK: Name lookup
+
+  public var isOverloadable: Bool { false }
 
   /// A lookup table keeping track of value members.
   public var valueMemberTable: [String: [ValueDecl]] {
     updateMemberTables()
     return _valueMemberTable!
   }
-
-  /// The internal cache backing `typeMemberTable`.
-  private var _typeMemberTable: [String: TypeDecl]?
 
   /// A lookup table keeping track of type members.
   public var typeMemberTable: [String: TypeDecl] {
@@ -739,47 +740,17 @@ public class NominalTypeDecl: TypeDecl, DeclSpace {
     _valueMemberTable = [:]
     _typeMemberTable  = [:]
 
-    /// Fills the member lookup table with the given declarations.
-    func fill<S>(members: S) where S: Sequence, S.Element == Decl {
-      for decl in members where decl.state != .invalid {
-        switch decl {
-        case let valueDecl as ValueDecl:
-          _valueMemberTable![valueDecl.name, default: []].append(valueDecl)
-
-        case let pbDecl as PatternBindingDecl:
-          for pattern in pbDecl.pattern.namedPatterns {
-            _valueMemberTable![pattern.decl.name, default: []].append(pattern.decl)
-          }
-
-        case let typeDecl as TypeDecl:
-          // Check for invalid redeclarations.
-          // FIXME: Shadow abstract type declarations inherited by conformance.
-          guard _typeMemberTable![typeDecl.name] == nil else {
-            type.context.report(
-              .duplicateDeclaration(symbol: typeDecl.name, range: typeDecl.range))
-            typeDecl.setState(.invalid)
-            continue
-          }
-
-          _typeMemberTable![typeDecl.name] = typeDecl
-
-        default:
-          continue
-        }
-      }
-    }
-
     // Populate the lookup table with generic parameters.
-    if let clause = (self as? ProductTypeDecl)?.genericClause {
+    if let clause = genericClause {
       fill(members: clause.params)
     }
 
-    // Populate the lookup table with members.
-    fill(members: members)
+    // Populate the lookup table with explicit members.
+    fill(members: explicitMembers())
 
     // Populate the lookup table with members declared in extensions.
     for module in type.context.modules.values {
-      for extDecl in module.extensions(of: self) {
+      for extDecl in extensions(in: module) {
         fill(members: extDecl.members)
       }
     }
@@ -788,6 +759,46 @@ public class NominalTypeDecl: TypeDecl, DeclSpace {
     updateConformanceTable()
     for conformance in _conformanceTable!.values {
       fill(members: conformance.viewDecl.allTypeAndValueMembers.lazy.map({ $0.decl }))
+    }
+  }
+
+  /// Returns the declarations of each "explicit" member in the type.
+  fileprivate func explicitMembers() -> [Decl] {
+    return []
+  }
+
+  /// Returns the extensions of the declaration in the given module.
+  fileprivate func extensions(in module: ModuleDecl) -> [TypeExtDecl] {
+    return module.extensions(of: self)
+  }
+
+  /// Fills the member lookup table with the given declarations.
+  private func fill<S>(members: S) where S: Sequence, S.Element == Decl {
+    for decl in members where decl.state != .invalid {
+      switch decl {
+      case let valueDecl as ValueDecl:
+        _valueMemberTable![valueDecl.name, default: []].append(valueDecl)
+
+      case let pbDecl as PatternBindingDecl:
+        for pattern in pbDecl.pattern.namedPatterns {
+          _valueMemberTable![pattern.decl.name, default: []].append(pattern.decl)
+        }
+
+      case let typeDecl as TypeDecl:
+        // Check for invalid redeclarations.
+        // FIXME: Shadow abstract type declarations inherited by conformance.
+        guard _typeMemberTable![typeDecl.name] == nil else {
+          type.context.report(
+            .duplicateDeclaration(symbol: typeDecl.name, range: typeDecl.range))
+          typeDecl.setState(.invalid)
+          continue
+        }
+
+        _typeMemberTable![typeDecl.name] = typeDecl
+
+      default:
+        continue
+      }
     }
   }
 
@@ -802,13 +813,13 @@ public class NominalTypeDecl: TypeDecl, DeclSpace {
 
     public typealias Element = (name: String, decl: TypeOrValueDecl)
 
-    fileprivate init(decl: NominalTypeDecl) {
+    fileprivate init(decl: GenericTypeDecl) {
       self.decl = decl
       self.valueMemberIndex = (decl._valueMemberTable!.startIndex, 0)
       self.typeMemberIndex = decl._typeMemberTable!.startIndex
     }
 
-    fileprivate unowned let decl: NominalTypeDecl
+    fileprivate unowned let decl: GenericTypeDecl
 
     fileprivate var valueMemberIndex: (Dictionary<String, [ValueDecl]>.Index, Int)
 
@@ -845,25 +856,15 @@ public class NominalTypeDecl: TypeDecl, DeclSpace {
 
   }
 
-  // MARK: Semantic properties
+  // MARK: Generic parameters
 
-  public private(set) var state = DeclState.realized
+  public var hasOwnGenericParams: Bool { false }
 
-  public func setState(_ newState: DeclState) {
-    assert(newState >= state)
-    state = newState
+  public func prepareGenericEnv() -> GenericEnv? {
+    fatalError()
   }
 
-  /// The resolved type of the declaration.
-  ///
-  /// - Important: This should only be set at the time of the node's creation.
-  public var type: ValType
-
-  /// The uncontextualized type of a reference to `self` within the context of this type.
-  public var receiverType: ValType { fatalError("unreachable") }
-
-  /// The internal cache backing `conformanceTable`.
-  private var _conformanceTable: ConformanceLookupTable?
+  // MARK: View conformance
 
   /// A lookup table keeping track of the views to which the declared type conforms.
   public var conformanceTable: ConformanceLookupTable {
@@ -903,18 +904,43 @@ public class NominalTypeDecl: TypeDecl, DeclSpace {
     return conformance.state == .checked
   }
 
-  public var hasOwnGenericParams: Bool { false }
+  // MARK: Semantic properties
 
-  public var genericEnv: GenericEnv?
+  /// The uncontextualized type of a reference to `self` within the context of this type.
+  public var receiverType: ValType { fatalError("unreachable") }
 
-  public func prepareGenericEnv() -> GenericEnv? {
-    fatalError()
+  public func setState(_ newState: DeclState) {
+    assert(newState >= state)
+    state = newState
   }
 
-  // MARK: Lowering
+  // MARK: Memory layout
 
   /// The list of properties that have storage in this type.
-  public var storedVarDecls: [VarDecl] {
+  public var storedVarDecls: [VarDecl] { [] }
+
+}
+
+/// The base class for nominal type declarations.
+public class NominalTypeDecl: GenericTypeDecl {
+
+  public init(name: String, type: ValType, range: SourceRange) {
+    super.init(name: name, type: type, range: range, state: .realized)
+  }
+
+  /// The member declarations of the type.
+  ///
+  /// This is the list of explicit declarations found directly within the type declaration. Use
+  /// `allTypeAndValueMembers` to enumerate all member declarations, including those that are
+  /// declared in extensions, inherited by conformance or synthetized.
+  public var members: [Decl] = []
+
+  fileprivate override func explicitMembers() -> [Decl] {
+    return members
+  }
+
+  /// The list of properties that have storage in this type.
+  public override var storedVarDecls: [VarDecl] {
     var result: [VarDecl] = []
     for case let pbDecl as PatternBindingDecl in members {
       // FIXME: Filter out computed properties.
@@ -923,28 +949,14 @@ public class NominalTypeDecl: TypeDecl, DeclSpace {
     return result
   }
 
-  public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
+  public override func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
 
 }
 
 /// A product type declaration.
-public final class ProductTypeDecl: NominalTypeDecl, GenericTypeDecl {
-
-  public init(
-    name          : String,
-    genericClause : GenericClause?   = nil,
-    inheritances  : [UnqualTypeRepr] = [],
-    members       : [Decl]           = [],
-    type          : ValType,
-    range         : SourceRange
-  ) {
-    self.genericClause = genericClause
-    super.init(name: name, inheritances: inheritances, members: members, type: type, range: range)
-  }
-
-  public var genericClause: GenericClause?
+public final class ProductTypeDecl: NominalTypeDecl {
 
   public override var hasOwnGenericParams: Bool { genericClause != nil }
 
@@ -991,7 +1003,7 @@ public final class ProductTypeDecl: NominalTypeDecl, GenericTypeDecl {
 }
 
 /// A view type declaration.
-public final class ViewTypeDecl: NominalTypeDecl, GenericDeclSpace {
+public final class ViewTypeDecl: NominalTypeDecl {
 
   public override var hasOwnGenericParams: Bool { true }
 
@@ -1034,6 +1046,124 @@ public final class ViewTypeDecl: NominalTypeDecl, GenericDeclSpace {
     genericEnv = GenericEnv(
       space: self, params: [selfType], typeReqs: [req], context: type.context)
     return genericEnv
+  }
+
+  public override func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
+    return visitor.visit(self)
+  }
+
+}
+
+/// A type alias declaration.
+///
+/// An alias declaration denotes either a "true" alias, or a type definition. The former merely
+/// introduces a synonym for an existing nominal type (e.g., `type Num = Int`), while the latter
+/// gives a name to a type expression (e.g., `type Handler = Event -> Unit`).
+public final class AliasTypeDecl: GenericTypeDecl {
+
+  public init(name: String, aliasedSign: TypeRepr, type: ValType, range: SourceRange) {
+    self.aliasedSign = aliasedSign
+    super.init(name: name, type: type, range: range, state: .parsed)
+  }
+
+  /// The signature of the aliased type.
+  public var aliasedSign: TypeRepr
+
+  /// If the declaration is a "true" type alias, the aliased declaration. Otherwise, `nil`.
+  public var aliasedDecl: GenericTypeDecl? {
+    switch realize() {
+    case let type as NominalType:
+      return type.decl
+    case let type as BoundGenericType:
+      return type.decl
+
+    default:
+      return nil
+    }
+  }
+
+  /// The uncontextualized type of a reference to `self` within the context of this type.
+  ///
+  /// If the type declaration introduces its own generic type parameters, this wraps `instanceType`
+  /// within a `BoundGenericType` where each parameter is bound to itself. Otherwise, this is the
+  /// same as `instanceType`.
+  public override var receiverType: ValType {
+    if let clause = genericClause {
+      // The instance type is generic (e.g., `Foo<Bar>`).
+      return type.context.boundGenericType(
+        decl: self,
+        args: clause.params.map({ $0.instanceType }))
+    } else {
+      return instanceType
+    }
+  }
+
+  /// Realizes the semantic type denoted by the declaration.
+  public func realize() -> ValType {
+    guard state < .realized else { return type }
+    setState(.realizationRequested)
+
+    // Realize the aliased signature.
+    let aliasedType = aliasedSign.realize(unqualifiedFrom: parentDeclSpace!)
+    type = aliasedType.kind
+    guard !aliasedType.hasErrors else {
+      setState(.invalid)
+      return type
+    }
+
+    /// Complain if the signature references the declaration itself.
+    // FIXME
+
+    // Complain if the aliased signature describes an in-out type.
+    if type is InoutType {
+      type.context.report(.invalidMutatingTypeModifier(range: aliasedSign.range))
+      setState(.invalid)
+      return type
+    }
+
+    // If the aliased type is a single generic type, complain if the alias declares additional
+    // view conformances. These should be expressed with an extension.
+    if !inheritances.isEmpty && (aliasedType is NominalType) {
+      type.context.report(.newConformanceOnNominalTypeAlias(range: inheritances[0].range))
+    }
+
+    return type
+  }
+
+  public override func lookup(qualified name: String) -> LookupResult {
+    // Name lookups require the declaration to be realized, so that we can search into possible
+    // extensions. However, realizing the aliased signature will trigger name lookups into this
+    // declaration, causing infinite recursion. That's because the signature's identifiers may
+    // refer to generic parameters. To break the cycle, we should restrict the search space to
+    // to the generic clause until the declaration is fully realized. This is fine, because the
+    // types referred by the aliased signature can't be declared within the aliased type.
+    if state == .realizationRequested {
+      guard let param = genericClause?.params.first(where: { $0.name == name }) else {
+        return LookupResult()
+      }
+      return LookupResult(types: [param], values: [])
+    }
+
+    // Realize the aliased signature.
+    _ = realize()
+    guard state >= .realized else { return LookupResult() }
+
+    // Search within the declaration and its conformances.
+    var results = super.lookup(qualified: name)
+
+    // Complete the results with the members of the declared type.
+    let aliasedResults = aliasedSign.type.lookup(member: name)
+    results.append(contentsOf: aliasedResults)
+
+    return results
+  }
+
+  fileprivate override func extensions(in module: ModuleDecl) -> [TypeExtDecl] {
+    if let decl = aliasedDecl {
+      return decl.extensions(in: module)
+    } else {
+      return module.extensions(of: self)
+    }
   }
 
   public override func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
@@ -1122,7 +1252,7 @@ public final class TypeExtDecl: Decl, DeclSpace {
   }
 
   /// The declaration of the extended type.
-  public var extendedDecl: NominalTypeDecl? {
+  public var extendedDecl: GenericTypeDecl? {
     return computeExtendedDecl()
   }
 
@@ -1130,7 +1260,7 @@ public final class TypeExtDecl: Decl, DeclSpace {
   private var _extendedDecl: NominalTypeDecl?
 
   /// Computes the declaration that is extended by this extension.
-  public func computeExtendedDecl() -> NominalTypeDecl? {
+  public func computeExtendedDecl() -> GenericTypeDecl? {
     guard state != .invalid else { return nil }
     if state >= .realized {
       return _extendedDecl

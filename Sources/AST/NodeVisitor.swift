@@ -45,11 +45,15 @@ public protocol DeclVisitor {
 
   func visit(_ node: FunParamDecl) -> DeclResult
 
+  func visit(_ node: GenericTypeDecl) -> DeclResult
+
   func visit(_ node: NominalTypeDecl) -> DeclResult
 
   func visit(_ node: ProductTypeDecl) -> DeclResult
 
   func visit(_ node: ViewTypeDecl) -> DeclResult
+
+  func visit(_ node: AliasTypeDecl) -> DeclResult
 
   func visit(_ node: GenericParamDecl) -> DeclResult
 
@@ -122,6 +126,14 @@ public protocol PatternVisitor {
 public protocol TypeReprVisitor {
 
   associatedtype TypeReprResult
+
+  func visit(_ node: TupleTypeRepr) -> TypeReprResult
+
+  func visit(_ node: FunTypeRepr) -> TypeReprResult
+
+  func visit(_ node: UnionTypeRepr) -> TypeReprResult
+
+  func visit(_ node: ViewCompTypeRepr) -> TypeReprResult
 
   func visit(_ node: UnqualTypeRepr) -> TypeReprResult
 
