@@ -18,6 +18,9 @@ public struct Interpreter {
   /// The AST context in which the interpreter runs.
   public let context: AST.Context
 
+  /// The witness tables of each loaded module.
+  private var witnessTables: [WitnessTable] = []
+
   /// The runtime stack of the interpreter.
   private var stack: [RuntimeValue] = []
 
@@ -39,6 +42,9 @@ public struct Interpreter {
     }
     pc = ProgramCounter(atStartOf: entry)
 
+    // Register the witness tables.
+    witnessTables = module.witnessTables
+
     // (Re)initialize the interpreter's state.
     stack  = []
     locals = [[:]]
@@ -55,9 +61,11 @@ public struct Interpreter {
     switch pc.inst {
     case let inst as AllocStackInst         : return eval(inst: inst)
     case let inst as AllocExistentialInst   : return eval(inst: inst)
+    case let inst as OpenExistentialInst    : return eval(inst: inst)
     case let inst as OpenExistentialAddrInst: return eval(inst: inst)
     case let inst as CopyAddrInst           : return eval(inst: inst)
     case let inst as UnsafeCastAddrInst     : return eval(inst: inst)
+    case let inst as WitnessMethodInst      : return eval(inst: inst)
     case let inst as ApplyInst              : return eval(inst: inst)
     case let inst as RecordMemberAddrInst   : return eval(inst: inst)
     case let inst as RecordMemberInst       : return eval(inst: inst)
@@ -67,8 +75,8 @@ public struct Interpreter {
     case let inst as RetInst                : return eval(inst: inst)
     case nil:
       fatalError("invalid program counter")
-    case .some:
-      fatalError("unreachable")
+    case let inst:
+      fatalError("unexpected instruction '\(type(of: inst))'")
     }
   }
 
@@ -126,6 +134,13 @@ public struct Interpreter {
     return pc.incremented()
   }
 
+  mutating func eval(inst: OpenExistentialInst) -> ProgramCounter? {
+    let container = eval(operand: inst.container).asContainer
+
+    locals[locals.count - 1][RegisterID(inst)] = container.storage!.pointee
+    return pc.incremented()
+  }
+
   mutating func eval(inst: OpenExistentialAddrInst) -> ProgramCounter? {
     let containerAddr = eval(operand: inst.container).asAddress
 
@@ -152,6 +167,26 @@ public struct Interpreter {
 
     // FIXME: Check that the layout of the source object is compatible with the target type.
     locals[locals.count - 1][RegisterID(inst)] = addr
+    return pc.incremented()
+  }
+
+  mutating func eval(inst: WitnessMethodInst) -> ProgramCounter? {
+    let container = eval(operand: inst.container).asContainer
+    let viewType: ViewType
+    if let parent = inst.decl.parentDeclSpace as? TypeExtDecl {
+      viewType = (parent.extendedDecl as! ViewTypeDecl).instanceType as! ViewType
+    } else {
+      viewType = (inst.decl.parentDeclSpace as! ViewTypeDecl).instanceType as! ViewType
+    }
+
+    let table = witnessTables.first(where: { table in
+      table.type === container.witness && table.view == viewType
+    })!
+    let (_, function) = table.entries.first(where: { entry in
+      entry.decl === inst.decl
+    })!
+
+    locals[locals.count - 1][RegisterID(inst)] = .function(function)
     return pc.incremented()
   }
 

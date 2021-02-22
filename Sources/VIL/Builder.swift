@@ -78,7 +78,20 @@ public final class Builder {
     return inst
   }
 
-  /// Builds a `open_existential_addr` instruction.
+  /// Builds an `open_existential` instruction.
+  ///
+  /// - Parameters:
+  ///   - container. An existential container.
+  ///   - type: The type of the opened address. `type` must be an object type that matches the
+  ///     package's witness. It can either be a concrete type, or an "opened" existential.
+  public func buildOpenExistential(container: Value, type: VILType) -> OpenExistentialInst {
+    precondition(!container.type.isAddress)
+    let inst = OpenExistentialInst(container: container, type: type)
+    block!.instructions.append(inst)
+    return inst
+  }
+
+  /// Builds an `open_existential_addr` instruction.
   ///
   /// - Parameters:
   ///   - container: The address of an existential container.
@@ -117,8 +130,8 @@ public final class Builder {
     return inst
   }
 
-  /// Builds a `witness_fun` instruction.
-  public func buildWitnessFun(base: ValType, decl: BaseFunDecl) -> WitnessFunInst {
+  /// Builds a `witness_method` instruction.
+  public func buildWitnessMethod(container: Value, decl: BaseFunDecl) -> WitnessMethodInst {
     precondition({
       if let parent = decl.parentDeclSpace as? TypeExtDecl {
         return parent.extendedDecl is ViewTypeDecl
@@ -127,7 +140,7 @@ public final class Builder {
       }
     }(), "'\(decl.debugID)' is not declared in a view")
 
-    let inst = WitnessFunInst(base: base, decl: decl)
+    let inst = WitnessMethodInst(container: container, decl: decl)
     block!.instructions.append(inst)
     return inst
   }

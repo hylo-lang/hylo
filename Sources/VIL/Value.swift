@@ -74,7 +74,7 @@ public final class FunRef: LiteralValue, CustomStringConvertible {
   /// The function being referenced.
   public unowned let function: Function
 
-  init(function: Function) {
+  public init(function: Function) {
     self.function = function
     super.init(type: .object(function.type))
   }

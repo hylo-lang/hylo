@@ -55,6 +55,18 @@ public final class Emitter {
   func emit(decl: ProductTypeDecl) {
     // Emit the the type's witness table(s).
     for conformance in decl.conformanceTable.values {
+      var entries: [(decl: BaseFunDecl, impl: Function)] = []
+      for (req, impl) in conformance.entries {
+        if let reqFunDecl = req as? BaseFunDecl {
+          let implFunDecl = impl as! BaseFunDecl
+          let function = emit(witness: implFunDecl, forReq: reqFunDecl)
+          entries.append((reqFunDecl, function))
+        }
+      }
+
+      let table = WitnessTable(
+        type: decl.instanceType as! NominalType, view: conformance.viewType, entries: entries)
+      builder.module.witnessTables.append(table)
     }
 
     // Emit the members of the declaration.
@@ -75,6 +87,46 @@ public final class Emitter {
 
     // FIXME: Handle global variables.
     fatalError()
+  }
+
+  /// Emits a function wrapping a call to the function satisfying the method requirement of a view
+  /// conformance.
+  ///
+  /// - Parameters:
+  ///   - impl: The declaration of the function that implements the requirement.
+  ///   - req: The declaration of the function requirement.
+  private func emit(witness impl: BaseFunDecl, forReq req: BaseFunDecl) -> Function {
+    // Create the VIL function object.
+    var mangler = Mangler()
+    mangler.append(witnessImpl: impl, for: req)
+    let name = mangler.finalize()
+    let function = builder.getOrCreateFunction(name: name, type: req.unappliedType as! FunType)
+
+    // Create the function's entry point.
+    var args: [Value] = function.arguments
+    builder.block = function.createBasicBlock(arguments: function.arguments)
+
+    // Emit the function's body.
+    let openedSelfType = impl.selfDecl!.type
+    if req.isMutating {
+      args[0] = builder.buildOpenExistentialAddr(
+        container: args[0],
+        type: .address((openedSelfType as! InoutType).base))
+
+      if !impl.isMutating {
+        args[0] = builder.buildLoad(lvalue: args[0])
+      }
+    } else {
+      assert(!impl.isMutating)
+      args[0] = builder.buildOpenExistential(
+        container: args[0],
+        type: .object(openedSelfType))
+    }
+    let openedFun = builder.getOrCreateFunction(from: impl)
+    let ret = builder.buildApply(fun: FunRef(function: openedFun), args: args)
+    builder.buildRet(value: ret)
+
+    return function
   }
 
 }

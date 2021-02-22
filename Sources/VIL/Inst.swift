@@ -38,6 +38,21 @@ public final class AllocExistentialInst: Inst, Value {
 
 }
 
+/// Extracts the concrete value packaed inside an existential container.
+public final class OpenExistentialInst: Inst, Value {
+
+  /// The existential container.
+  public let container: Value
+
+  public var type: VILType
+
+  init(container: Value, type: VILType) {
+    self.container = container
+    self.type = type
+  }
+
+}
+
 /// Obtains the address of the concrete value packaged inside an existential container.
 public final class OpenExistentialAddrInst: Inst, Value {
 
@@ -93,10 +108,10 @@ public final class UnsafeCastAddrInst: Inst, Value {
 
 /// Creates a reference to the implementation of a view method for the witness of an existential
 /// package.
-public final class WitnessFunInst: Inst, Value {
+public final class WitnessMethodInst: Inst, Value {
 
-  /// The type of an existential container that conforms to the view declaring the referred method.
-  public let base: ValType
+  /// An existential container that conforms to the view for which the method is being looked up.
+  public let container: Value
 
   /// The declaration of a view method.
   ///
@@ -105,8 +120,8 @@ public final class WitnessFunInst: Inst, Value {
 
   public var type: VILType { .object(decl.unappliedType) }
 
-  init(base: ValType, decl: BaseFunDecl) {
-    self.base = base
+  init(container: Value, decl: BaseFunDecl) {
+    self.container = container
     self.decl = decl
   }
 

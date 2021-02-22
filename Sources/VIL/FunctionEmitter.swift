@@ -237,11 +237,9 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
       let conformance = type.decl.conformanceTable[view]!
       let function = builder.getOrCreateFunction(from: conformance.entries[0].impl as! CtorDecl)
       funref = FunRef(function: function)
-    } else if let type = node.type as? SkolemType {
+    } else if node.type is SkolemType {
       // The node has an skolem type; we have to dispatch dynamically.
-      funref = builder.buildWitnessFun(
-        base: type,
-        decl: view.decl.valueMemberTable["new"]![0] as! CtorDecl)
+      fatalError("not implemented")
     } else {
       fatalError("unreachable")
     }
@@ -316,21 +314,19 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     switch node.fun {
     case let memberRef as MemberRefExpr where memberRef.decl.isMember:
       if let methodDecl = memberRef.decl as? BaseFunDecl {
-        // This is a call `foo.bar(x: 0, y: 1)`, where `bar` is a method. We have to determine
-        // whether it should be dispatched statically or dynamically.
+        // This is a call `foo.bar(x: 0, y: 1)`, where `bar` is a method and `foo` its receiver.
+        let receiver = methodDecl.isMutating
+          ? emit(lvalue: memberRef.base)
+          : emit(expr: memberRef.base)
+        args.append(receiver)
+
+        // We have to determine whether it should be dispatched statically or dynamically.
         if memberRef.base.type is ViewType {
           // The receiver is an existential container; dispatch dynamically.
-          funref = builder.buildWitnessFun(base: memberRef.base.type, decl: methodDecl)
+          funref = builder.buildWitnessMethod(container: receiver, decl: methodDecl)
         } else {
           // The receiver is a concrete type; dispatch statically.
           funref = FunRef(function: builder.getOrCreateFunction(from: methodDecl))
-        }
-
-        // Since the call applies a method, we have to pass the receiver as an argument.
-        if methodDecl.isMutating {
-          args.append(emit(lvalue: memberRef.base))
-        } else {
-          args.append(emit(expr: memberRef.base))
         }
       } else {
         fatalError()

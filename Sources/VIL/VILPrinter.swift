@@ -94,6 +94,12 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
       self << alloc.container
       self << ", \(alloc.witness)\n"
 
+    case let open as OpenExistentialInst:
+      let id = makeID(for: open)
+      self << "_\(id) = open_existential "
+      self << open.container
+      self << " as \(open.type)\n"
+
     case let open as OpenExistentialAddrInst:
       let id = makeID(for: open)
       self << "_\(id) = open_existential_addr "
@@ -113,9 +119,11 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
       self << cast.source
       self << " as \(cast.type)\n"
 
-    case let witnessFun as WitnessFunInst:
+    case let witnessFun as WitnessMethodInst:
       let id = makeID(for: witnessFun)
-      self << "_\(id) = witness_fun \(witnessFun.base), \(witnessFun.decl.name)\n"
+      self << "_\(id) = witness_method "
+      self << witnessFun.container
+      self << ", \(witnessFun.decl.debugID)\n"
 
     case let apply as ApplyInst:
       let id = makeID(for: apply)
@@ -129,13 +137,13 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
       let id = makeID(for: member)
       self << "_\(id) = record_member "
       self << member.record
-      self << ", \(member.memberDecl.name)\n"
+      self << ", \(member.memberDecl.debugID)\n"
 
     case let addr as RecordMemberAddrInst:
       let id = makeID(for: addr)
       self << "_\(id) = record_member_addr "
       self << addr.record
-      self << ", \(addr.memberDecl.name)\n"
+      self << ", \(addr.memberDecl.debugID)\n"
 
     case let tuple as TupleInst:
       let id = makeID(for: tuple)

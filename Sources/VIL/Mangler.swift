@@ -66,16 +66,22 @@ public struct Mangler {
 
   public mutating func append(funDecl: BaseFunDecl) {
     append(space: funDecl.parentDeclSpace!)
-    if !funDecl.name.isEmpty {
-      append(name: funDecl.name)
-    }
-
-    append(type: funDecl.type)
-
     if funDecl.name.isEmpty {
       append(index: funDecl.discriminator)
+    } else {
+      append(name: funDecl.name)
     }
+    append(type: funDecl.type)
     append(key: .funDecl)
+  }
+
+  public mutating func append(witnessImpl impl: BaseFunDecl, for req: BaseFunDecl) {
+    append(space: impl.parentDeclSpace!)
+    append(space: req.parentDeclSpace!)
+    append(name: impl.name)
+    append(type: req.type)
+    append(key: .funDecl)
+    append(key: .witnessImpl)
   }
 
   public mutating func append(type: ValType) {
@@ -132,6 +138,8 @@ public enum ManglingOperatorKey: String {
   case moduleDecl     = "M"
   case productDecl    = "P"
   case viewDecl       = "V"
+
+  case witnessImpl    = "W"
 
   case builtinType    = "b"
   case tupleType      = "t"
