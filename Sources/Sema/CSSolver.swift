@@ -177,9 +177,19 @@ struct CSSolver {
       // We can't solve anything yet if both types are still unknown.
       system.staleConstraints.append(constraint)
 
-    case (_ as TypeVar, let rhs as InoutType) where rhs.base is TypeVar:
-      // We can't solve anything yet if both types are still unknown.
-      system.staleConstraints.append(constraint)
+    case (let lhs as InoutType, _):
+      // If `T` is an in-out type, strenghten the constraint as an equality.
+      let upper = (constraint.rhs as? InoutType)?.base ?? constraint.rhs
+      let simplified = RelationalConstraint(
+        kind: .equality, lhs: lhs.base, rhs: upper, at: constraint.locator)
+      solve(simplified)
+
+    case (_, let rhs as InoutType):
+      // If `U` is an in-out type, strenghten the constraint as an equality.
+      let lower = (constraint.lhs as? InoutType)?.base ?? constraint.lhs
+      let simplified = RelationalConstraint(
+        kind: .equality, lhs: lower, rhs: rhs.base, at: constraint.locator)
+      solve(simplified)
 
     case is (TypeVar, ValType):
       // The type variable is below a more concrete type. We should compute the "meet" of all types
