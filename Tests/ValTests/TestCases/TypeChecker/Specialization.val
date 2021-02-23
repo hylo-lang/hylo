@@ -34,8 +34,8 @@ fun fn<X>(x: X) {
     fun id<Y where Y: V>(x: X, y: Y) -> V {
       var a: X = x
 
-      // #!error@+2 type '∃X.Y' is not a subtype of type '∃X.X'
-      // #!error@+1 type '∃X.X' does not conform to view 'V'
+      // #!error@+2 type '$Y' is not a subtype of type '$X'
+      // #!error@+1 type '$X' does not conform to view 'V'
       ret id(x: y, y: a)
     }
   }

@@ -632,7 +632,12 @@ public final class SkolemType: ValType {
 extension SkolemType: CustomStringConvertible {
 
   public var description: String {
-    return "∃X.\(interface)"
+    switch interface {
+    case is ViewCompositionType, is FunType, is InoutType:
+      return "$(\(interface))"
+    default:
+      return "$\(interface)"
+    }
   }
 
 }
