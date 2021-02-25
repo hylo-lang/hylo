@@ -26,7 +26,7 @@ public class LiteralValue: Value {
 public final class UnitValue: LiteralValue, CustomStringConvertible {
 
   public init(context: AST.Context) {
-    super.init(type: .object(context.unitType))
+    super.init(type: .lower(context.unitType))
   }
 
   public var description: String { "unit" }
@@ -41,7 +41,7 @@ public final class IntLiteralValue: LiteralValue, CustomStringConvertible {
 
   public init(value: Int, context: AST.Context) {
     self.value = value
-    super.init(type: .object(context.getBuiltinType(named: "IntLiteral")!))
+    super.init(type: .lower(context.getBuiltinType(named: "IntLiteral")!))
   }
 
   public var description: String {
@@ -59,7 +59,7 @@ public final class BuiltinFunRef: LiteralValue, CustomStringConvertible {
   public init(decl: FunDecl) {
     precondition(decl.isBuiltin)
     self.decl = decl
-    super.init(type: .object(decl.type))
+    super.init(type: .lower(decl.type))
   }
 
   public var description: String {
@@ -76,7 +76,7 @@ public final class FunRef: LiteralValue, CustomStringConvertible {
 
   public init(function: Function) {
     self.function = function
-    super.init(type: .object(function.type))
+    super.init(type: function.type)
   }
 
   public var description: String {
@@ -89,7 +89,7 @@ public final class FunRef: LiteralValue, CustomStringConvertible {
 public final class ErrorValue: LiteralValue, CustomStringConvertible {
 
   public init(context: AST.Context) {
-    super.init(type: .object(context.errorType))
+    super.init(type: .lower(context.errorType))
   }
 
   public var description: String { "error" }

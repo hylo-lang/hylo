@@ -7,19 +7,33 @@ typealias RuntimeValuePointer = UnsafeMutablePointer<RuntimeValue>
 enum RuntimeValue {
 
   init(ofType type: ValType) {
-    if type == type.context.unitType {
-      self = .unit
-    } else if type.isExistential {
+    switch type {
+    case let pType as ProductType:
+      let capacity = pType.decl.storedVarDecls.count
+      self = .record(Record(capacity: capacity))
+
+    case let tType as TupleType:
+      self = .record(Record(capacity: tType.elems.count))
+
+    case let bgType as BoundGenericType:
+      self = RuntimeValue(ofType: bgType.decl.instanceType)
+
+    case _ where type.isExistential:
       self = .container(Container())
-    } else if let record = Record.new(type) {
-      self = .record(record)
-    } else {
+
+    default:
       fatalError("failed to create a runtime representation of type '\(type)'")
     }
   }
 
   /// A unit value.
-  case unit
+  static var unit = RuntimeValue.record(Record(capacity: 0))
+
+  /// A undefined, junk value.
+  case junk
+
+  /// An explicit error value.
+  case error
 
   /// The payload of a record, or a tuple.
   case record(Record)
@@ -61,26 +75,6 @@ enum RuntimeValue {
     fatalError("unreachable")
   }
 
-  /// An integer literal.
-  case intLiteral(Int)
-
-  var asIntLiteral: Int {
-    if case .intLiteral(let value) = self {
-      return value
-    }
-    fatalError("unreachable")
-  }
-
-  /// A built-in 64-bit signed integer value.
-  case i64(Int64)
-
-  var asI64: Int64 {
-    if case .i64(let value) = self {
-      return value
-    }
-    fatalError("unreachable")
-  }
-
   /// A VIL function.
   case function(Function)
 
@@ -101,11 +95,16 @@ enum RuntimeValue {
     fatalError("unreachable")
   }
 
-  /// A undefined, junk value.
-  case junk
+  /// A native value.
+  case native(Any)
 
-  /// An explicit error value.
-  case error
+  func asNative<T>(ofType: T.Type) -> T {
+    guard case .native(let value) = self else { fatalError("unreachable") }
+    return value as! T
+  }
+
+  var asIntLiteral: Int   { asNative(ofType: Int.self) }
+  var asI64       : Int64 { asNative(ofType: Int64.self) }
 
   subscript<C>(offsets: C) -> RuntimeValue where C: BidirectionalCollection, C.Element == Int {
     get {
@@ -152,16 +151,24 @@ enum RuntimeValue {
 
   func delete() {
     switch self {
-    case .record(let value): value.delete()
-    default: break
+    case .record(let value):
+      value.delete()
+    case .container(let value):
+      value.storage?.deinitialize(count: 1)
+      value.storage?.deallocate()
+    default:
+      break
     }
   }
 
   func copy() -> RuntimeValue {
     switch self {
-    case .record(let val)   : return .record(val.copy())
-    case .container(let val): return .container(val.copy())
-    default: return self
+    case .record(let val):
+      return .record(val.copy())
+    case .container(let val):
+      return .container(val.copy())
+    default:
+      return self
     }
   }
 
@@ -177,6 +184,33 @@ enum RuntimeValue {
 
 }
 
+extension RuntimeValue: CustomStringConvertible {
+
+  var description: String {
+    switch self {
+    case .record(let value):
+      return String(describing: value)
+    case .container(let value):
+      return String(describing: value)
+    case .address(let value):
+      return String(describing: value)
+    case .function(let value):
+      return "@\(value.name)"
+    case .builtinFunction(let value):
+      return "b\"\(value.name)\""
+    case .native(let value):
+      return "native(\(value)"
+    case .junk:
+      return "junk"
+    case .error:
+      return "error"
+    case .returnInfo:
+      return "retinfo"
+    }
+  }
+
+}
+
 /// The payload (i.e. phyiscal storage) of a product or tuple type.
 ///
 /// Since all runtime values must fit the same size, the storage of the record has a buffer of
@@ -184,45 +218,49 @@ enum RuntimeValue {
 struct Record {
 
   /// The storage of the record.
-  let storage: RuntimeValuePointer
+  let storage: RuntimeValuePointer?
 
   /// The number of values contained in the storage.
   let capacity: Int
 
-  private init(capacity: Int) {
+  init(capacity: Int) {
     self.capacity = capacity
-    storage = .allocate(capacity: capacity)
-    storage.initialize(repeating: .junk, count: capacity)
+    if capacity > 0 {
+      storage = .allocate(capacity: capacity)
+      storage!.initialize(repeating: .junk, count: capacity)
+    } else {
+      storage = nil
+    }
   }
 
   func delete() {
+    guard let buffer = storage else { return }
+
     for i in 0 ..< capacity {
-      storage.advanced(by: i).pointee.delete()
+      buffer.advanced(by: i).pointee.delete()
     }
-    storage.deinitialize(count: capacity)
-    storage.deallocate()
+    buffer.deinitialize(count: capacity)
+    buffer.deallocate()
   }
 
   /// Returns a deep copy of this record.
   func copy() -> Record {
     let newRecord = Record(capacity: capacity)
     for i in 0 ..< capacity {
-      newRecord.storage[i] = storage[i].copy()
+      newRecord.storage![i] = storage![i].copy()
     }
     return newRecord
   }
 
-  static func new(_ type: ValType) -> Record? {
-    if let pType = type as? ProductType {
-      return Record(capacity: pType.decl.storedVarDecls.count)
-    }
+}
 
-    if let tType = type as? TupleType {
-      precondition(!tType.elems.isEmpty, "empty tuple should not be allocated")
-      return Record(capacity: tType.elems.count)
-    }
+extension Record: CustomStringConvertible {
 
-    return nil
+  var description: String {
+    let members = (0 ..< capacity)
+      .map({ i in String(describing: storage![i]) })
+      .joined(separator: ", ")
+    return "(\(members))"
   }
 
 }
@@ -266,6 +304,15 @@ struct Address {
 
 }
 
+extension Address: CustomStringConvertible {
+
+  var description: String {
+    let indices = self.indices.map(String.init(describing:)).joined(separator: ".")
+    return "addr(\(indices))"
+  }
+
+}
+
 /// An existential container.
 struct Container {
 
@@ -280,6 +327,18 @@ struct Container {
     let newStorage = RuntimeValuePointer.allocate(capacity: 1)
     newStorage.initialize(to: value.copy())
     return Container(storage: newStorage, witness: witness)
+  }
+
+}
+
+extension Container: CustomStringConvertible {
+
+  var description: String {
+    if let value = storage?.pointee {
+      return "{\(value), \(witness!)}"
+    } else {
+      return "{}"
+    }
   }
 
 }

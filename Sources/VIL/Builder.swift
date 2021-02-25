@@ -25,15 +25,21 @@ public final class Builder {
   ///
   /// - Parameters:
   ///   - name: The name of the function to retrieve or create.
-  ///   - type: The type of the function. If the module already contains a function `name`, then it
-  ///     has to have the same type as `type`.
+  ///   - type: The unapplied type of the function. If the module already contains a function
+  ///     `name`, then it has to have the same type as `type`.
   public func getOrCreateFunction(name: String, type: FunType) -> Function {
     if let function = module.functions[name] {
-      precondition(function.type === type, "function \(name) already exists with a different type")
+      precondition(
+        function.type.valType === type,
+        "function \(name) already exists with a different type")
       return function
     }
 
-    let function = Function(name: name, type: type)
+    // Lower the function type.
+    let loweredType = VILType.lower(type) as! VILFunType
+
+    // Create the function object.
+    let function = Function(name: name, type: loweredType)
     module.functions[name] = function
     return function
   }
@@ -58,8 +64,8 @@ public final class Builder {
 
   /// Builds an `alloc_stack` instruction.
   ///
-  /// - Parameter type: The type of the allocated object.
-  public func buildAllocStack(type: ValType) -> AllocStackInst {
+  /// - Parameter type: The type of the allocated object. `type` must be an object type.
+  public func buildAllocStack(type: VILType) -> AllocStackInst {
     let inst = AllocStackInst(allocatedType: type)
     block!.instructions.append(inst)
     return inst
@@ -71,8 +77,7 @@ public final class Builder {
   ///   - container: The address of an existential container.
   ///   - witness: The type of the exitential package's witness. `witness` must conform to the
   ///     view(s) described by the type of the container.
-  public func buildAllocExistential(container: Value, witness: ValType) -> AllocExistentialInst {
-    precondition(container.type.isAddress)
+  public func buildAllocExistential(container: Value, witness: VILType) -> AllocExistentialInst {
     let inst = AllocExistentialInst(container: container, witness: witness)
     block!.instructions.append(inst)
     return inst
@@ -151,22 +156,25 @@ public final class Builder {
   ///   - fun: The function to apply. `fun` must have a function type.
   ///   - args: The arguments of the function application.
   public func buildApply(fun: Value, args: [Value]) -> ApplyInst {
-    guard case .object(let funType as FunType) = fun.type else {
+    guard let funType = fun.type.valType as? FunType else {
       preconditionFailure("apply to non-function type '\(fun.type)'")
     }
 
     // FIXME: Perhaps we could do some argument validation here?
 
-    let inst = ApplyInst(fun: fun, args: args, type: .object(funType.retType))
+    let inst = ApplyInst(fun: fun, args: args, type: .lower(funType.retType))
     block!.instructions.append(inst)
     return inst
   }
 
   /// Builds a record value instruction.
   ///
-  /// - Parameter typeDecl: The declaration of the type of which the record value is an instance.
-  public func buildRecord(typeDecl: NominalTypeDecl) -> RecordInst {
-    let inst = RecordInst(typeDecl: typeDecl)
+  /// - Parameters:
+  ///   - typeDecl: The declaration of a product type.
+  ///   - type: The type of the record. `type` must be a value type that matches the instance type
+  ///     of `typeDecl`.
+  public func buildRecord(typeDecl: ProductTypeDecl, type: VILType) -> RecordInst {
+    let inst = RecordInst(typeDecl: typeDecl, type: type)
     block!.instructions.append(inst)
     return inst
   }
@@ -174,11 +182,16 @@ public final class Builder {
   /// Builds a `record_member` instruction.
   ///
   /// - Parameters:
-  ///   - record: The record value whose member is extracted.
-  ///   - memberDecl: The declaration of the extracted member. `memberDecl` must describe a stored
-  ///     member of the product type.
-  public func buildRecordMember(record: Value, memberDecl: VarDecl) -> RecordMemberInst {
-    let inst = RecordMemberInst(record: record, memberDecl: memberDecl)
+  ///   - record: The record whose member is being extracted.
+  ///   - memberDecl: The declaration of the member being extracted. `memberDecl` must refer to
+  ///     a stored member of `record`'s type.
+  ///   - type: The type of the member being extracted.
+  public func buildRecordMember(
+    record: Value,
+    memberDecl: VarDecl,
+    type: VILType
+  ) -> RecordMemberInst {
+    let inst = RecordMemberInst(record: record, memberDecl: memberDecl, type: type)
     block!.instructions.append(inst)
     return inst
   }
@@ -186,11 +199,16 @@ public final class Builder {
   /// Builds a `record_member_addr` instruction.
   ///
   /// - Parameters:
-  ///   - record: The record value for which the member's address is computed.
-  ///   - memberDecl: The declaration of the member whose address is computed. `memberDecl` must
-  ///     describe a stored member of the product type.
-  public func buildRecordMemberAddr(record: Value, memberDecl: VarDecl) -> RecordMemberAddrInst {
-    let inst = RecordMemberAddrInst(record: record, memberDecl: memberDecl)
+  ///   - record: The address of the the record value for which the member's address is computed.
+  ///   - memberDecl: The declaration of the member being extracted. `memberDecl` must refer to
+  ///     a stored member of `record`'s type.
+  ///   - type: The type of the member being extracted.
+  public func buildRecordMemberAddr(
+    record: Value,
+    memberDecl: VarDecl,
+    type: VILType
+  ) -> RecordMemberAddrInst {
+    let inst = RecordMemberAddrInst(record: record, memberDecl: memberDecl, type: type)
     block!.instructions.append(inst)
     return inst
   }

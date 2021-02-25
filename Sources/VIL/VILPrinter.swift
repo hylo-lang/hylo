@@ -29,10 +29,6 @@ extension Function {
 
     withUnsafeMutablePointer(to: &stream, { ptr in
       var context = PrintContext(stream: ptr)
-      for (i, argument) in arguments.enumerated() {
-        context.valueIDTable[ObjectIdentifier(argument)] = i
-      }
-      context.nextValueID = arguments.count
       for block in blocks {
         context.dump(block: block)
       }

@@ -82,15 +82,14 @@ public final class Emitter {
         return
       }
 
-      // FIXME: Handle initializers in snythetized constructors.
+      // FIXME: Handle initializers in synthetized constructors.
     }
 
     // FIXME: Handle global variables.
     fatalError()
   }
 
-  /// Emits a function wrapping a call to the function satisfying the method requirement of a view
-  /// conformance.
+  /// Emits a function wrapping the implementation satisfying a conformance requirement.
   ///
   /// - Parameters:
   ///   - impl: The declaration of the function that implements the requirement.
@@ -103,25 +102,27 @@ public final class Emitter {
     let function = builder.getOrCreateFunction(name: name, type: req.unappliedType as! FunType)
 
     // Create the function's entry point.
-    var args: [Value] = function.arguments
-    builder.block = function.createBasicBlock(arguments: function.arguments)
+    var args = function.type.paramTypes.map({ type -> Value in
+      return ArgumentValue(type: type, function: function)
+    })
+    builder.block = function.createBasicBlock(arguments: args)
 
     // Emit the function's body.
-    let openedSelfType = impl.selfDecl!.type
-    if req.isMutating {
-      args[0] = builder.buildOpenExistentialAddr(
-        container: args[0],
-        type: .address((openedSelfType as! InoutType).base))
+    if !(req is CtorDecl) {
+      // Unless the function is a constructor, we have to open the self parameter.
+      let openedSelfType = impl.selfDecl!.type
+      if req.isMutating {
+        args[0] = builder.buildOpenExistentialAddr(container: args[0], type: .lower(openedSelfType))
 
-      if !impl.isMutating {
-        args[0] = builder.buildLoad(lvalue: args[0])
+        if !impl.isMutating {
+          args[0] = builder.buildLoad(lvalue: args[0])
+        }
+      } else {
+        assert(!impl.isMutating)
+        args[0] = builder.buildOpenExistential(container: args[0], type: .lower(openedSelfType))
       }
-    } else {
-      assert(!impl.isMutating)
-      args[0] = builder.buildOpenExistential(
-        container: args[0],
-        type: .object(openedSelfType))
     }
+
     let openedFun = builder.getOrCreateFunction(from: impl)
     let ret = builder.buildApply(fun: FunRef(function: openedFun), args: args)
     builder.buildRet(value: ret)

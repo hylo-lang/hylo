@@ -3,15 +3,17 @@ import AST
 /// A VIL instruction.
 public protocol Inst: AnyObject {}
 
-/// Allocates a block of uninitalized memory on the stack.
+/// Allocates a block of uninitalized memory on the stack, large enough to contain a value of the
+/// specified type.
 public final class AllocStackInst: Inst, Value {
 
   /// The (Val) type of the allocated object.
-  public let allocatedType: ValType
+  public let allocatedType: VILType
 
-  public var type: VILType { .address(allocatedType) }
+  public var type: VILType { allocatedType.address }
 
-  init(allocatedType: ValType) {
+  init(allocatedType: VILType) {
+    assert(!allocatedType.isAddress, "allocated type cannot be an address type")
     self.allocatedType = allocatedType
   }
 
@@ -19,19 +21,21 @@ public final class AllocStackInst: Inst, Value {
 
 /// Allocates the memory necessary to pack an existential package into the specified container.
 ///
-/// This returns the address of memory block large enough to store an instance of the package's
-/// witness.
+/// This returns the address of an uninitialized memory block, large enough to store an instance of
+/// the specified witness.
 public final class AllocExistentialInst: Inst, Value {
 
   /// The address of the existential container.
   public let container: Value
 
   /// The type of the package's witness.
-  public let witness: ValType
+  public let witness: VILType
 
-  public var type: VILType { .address(witness) }
+  public var type: VILType { witness.address }
 
-  init(container: Value, witness: ValType) {
+  init(container: Value, witness: VILType) {
+    assert(!witness.isAddress, "type witness cannot be an address type")
+    assert(!witness.isExistential, "type witness cannot be existential")
     self.container = container
     self.witness = witness
   }
@@ -118,7 +122,7 @@ public final class WitnessMethodInst: Inst, Value {
   /// This should be either a regular method or a constructor declaration.
   public let decl: BaseFunDecl
 
-  public var type: VILType { .object(decl.unappliedType) }
+  public var type: VILType { .lower(decl.unappliedType) }
 
   init(container: Value, decl: BaseFunDecl) {
     self.container = container
@@ -146,16 +150,19 @@ public final class ApplyInst: Inst, Value {
 
 }
 
-/// Creates a record value (i.e., an instance of a product type).
+/// Creates a record value (i.e., the instance of a product type).
 public final class RecordInst: Inst, Value {
 
   /// The declaration of the type of which the record value is an instance.
   public let typeDecl: NominalTypeDecl
 
-  public var type: VILType { .object(typeDecl.instanceType) }
+  public let type: VILType
 
-  init(typeDecl: NominalTypeDecl) {
+  init(typeDecl: NominalTypeDecl, type: VILType) {
+    assert(!type.isAddress, "instruction must have a value type")
+
     self.typeDecl = typeDecl
+    self.type = type
   }
 
 }
@@ -163,17 +170,21 @@ public final class RecordInst: Inst, Value {
 /// Extracts the value of a stored member from a record.
 public final class RecordMemberInst: Inst, Value {
 
-  /// The record value whose member is extracted.
+  /// The record value whose member is being extracted.
   public let record: Value
 
-  /// The declaration of the extracted member.
+  /// The declaration of the member being extracted.
   public let memberDecl: VarDecl
 
-  public var type: VILType { .object(memberDecl.type) }
+  /// The type of the record member.
+  public let type: VILType
 
-  init(record: Value, memberDecl: VarDecl) {
+  init(record: Value, memberDecl: VarDecl, type: VILType) {
+    assert(!type.isAddress, "instruction must have a value type")
+
     self.record = record
     self.memberDecl = memberDecl
+    self.type = type
   }
 
 }
@@ -181,17 +192,21 @@ public final class RecordMemberInst: Inst, Value {
 /// Computes the address of a stored member from the address of a record.
 public final class RecordMemberAddrInst: Inst, Value {
 
-  /// The record value for which the member's address is computed.
+  /// The address of the the record value for which the member's address is computed.
   public let record: Value
 
   /// The declaration of the member whose address is computed.
   public let memberDecl: VarDecl
 
-  public var type: VILType { .address(memberDecl.type) }
+  /// The type of an address to the record member.
+  public var type: VILType
 
-  init(record: Value, memberDecl: VarDecl) {
+  init(record: Value, memberDecl: VarDecl, type: VILType) {
+    assert(type.isAddress, "instruction must have an address type")
+
     self.record = record
     self.memberDecl = memberDecl
+    self.type = type
   }
 
 }
@@ -205,7 +220,7 @@ public final class TupleInst: Inst, Value {
   /// The value of the tuple's elements.
   public let elems: [Value]
 
-  public var type: VILType { .object(tupleType) }
+  public var type: VILType { .lower(tupleType) }
 
   init(type: TupleType, elems: [Value]) {
     self.tupleType = type
@@ -236,10 +251,7 @@ public final class LoadInst: Inst, Value {
   /// The location to load.
   public let lvalue: Value
 
-  public var type: VILType {
-    guard case .address(let valType) = lvalue.type else { fatalError("unreachable") }
-    return .object(valType)
-  }
+  public var type: VILType { lvalue.type.object }
 
   init(lvalue: Value) {
     precondition(lvalue.type.isAddress)

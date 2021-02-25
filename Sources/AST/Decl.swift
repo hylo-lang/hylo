@@ -861,7 +861,7 @@ public class GenericTypeDecl: TypeDecl, GenericDeclSpace {
   public var hasOwnGenericParams: Bool { false }
 
   public func prepareGenericEnv() -> GenericEnv? {
-    fatalError()
+    fatalError("unreachable")
   }
 
   // MARK: View conformance

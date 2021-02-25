@@ -45,25 +45,36 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     // We're done if the function doesn't have body.
     guard let body = funDecl.body else { return }
 
+    // Contextualize the function's arguments.
+    let genericEnv = funDecl.genericEnv!
+    var args = function.type.paramTypes.map({ type -> Value in
+      return ArgumentValue(
+        type: type.contextualized(in: genericEnv, from: body), function: function)
+    })
+
     // Create an entry block.
-    builder.block = function.createBasicBlock(arguments: function.arguments)
-    var arguments = function.arguments[0...]
+    builder.block = function.createBasicBlock(arguments: args)
 
     // Register the function's receiver in the local symbol table, if necessary.
-    if funDecl.isMember {
-      // Member functions accept their receiver has their first parameter.
-      locals[ObjectIdentifier(funDecl.selfDecl!)] = function.arguments[0]
-      arguments = arguments.dropFirst()
-    } else if (funDecl is CtorDecl) {
-      // Constructors should allocate `self`.
-      let selfType = (funDecl.selfDecl!.type as! InoutType).base
-      locals[ObjectIdentifier(funDecl.selfDecl!)] = builder.buildAllocStack(type: selfType)
+    if let selfDecl = funDecl.selfDecl {
+      var selfType = genericEnv.contextualize(selfDecl.type, from: body)
+      if funDecl.isMember {
+        // Member functions accept their receiver an implicit parameter.
+        locals[ObjectIdentifier(funDecl.selfDecl!)] = args[0]
+        args.removeFirst()
+      } else {
+        // Constructors should allocate `self`.
+        assert(funDecl is CtorDecl)
+        selfType = (selfType as! InoutType).base
+        locals[ObjectIdentifier(funDecl.selfDecl!)] = builder.buildAllocStack(
+          type: .lower(selfType))
+      }
     }
 
-    // Register the function's formal parameters in the local symbol table..
-    assert(funDecl.params.count == arguments.count)
-    for (param, argument) in zip(funDecl.params, arguments) {
-      locals[ObjectIdentifier(param)] = argument
+    // Register the function's formal parameters in the local symbol table.
+    assert(funDecl.params.count == args.count)
+    for (param, arg) in zip(funDecl.params, args) {
+      locals[ObjectIdentifier(param)] = arg
     }
 
     // Emit the function's body.
@@ -112,7 +123,7 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     precondition(node.hasStorage, "computed properties are not supported yet")
 
     // Allocate storage on the stack for the variable.
-    let value = builder.buildAllocStack(type: node.type)
+    let value = builder.buildAllocStack(type: .lower(node.type))
     locals[ObjectIdentifier(node)] = value
     return value
   }
@@ -135,14 +146,14 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
   }
 
   func emit(assign expr: Expr, to lvalue: Value) {
-    if lvalue.type.unwrap.isExistential {
+    if lvalue.type.valType.isExistential {
       // The l-value is an existential container.
       if expr.type.isExistential {
         // Both operands are existential containers. Hence, the goal is to copy the existential
         // package from one container to the other. If the right operand can be treated as an
         // l-value, then this boils down to a mere `copy_addr`.
         if case .success(var rvalue) = expr.accept(LValueEmitter(parent: self)) {
-          if lvalue.type.unwrap != expr.type {
+          if lvalue.type.valType != expr.type {
             // The r-value has a different type as the l-value; we need a cast.
             rvalue = builder.buildUnsafeCastAddr(source: rvalue, type: lvalue.type)
           }
@@ -150,12 +161,12 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
         } else {
           // The right operand is a true r-value (e.g., the result of a cast on a r-value).
           var rvalue = emit(expr: expr)
-          if lvalue.type.unwrap == expr.type {
+          if lvalue.type.valType == expr.type {
             // The r-value has the same type as the l-value; we only need a store.
             builder.buildStore(lvalue: lvalue, rvalue: rvalue)
           } else {
             // The r-value has a different type; we need a temporary location to cast its package.
-            let tmp: Value = builder.buildAllocStack(type: rvalue.type.unwrap)
+            let tmp: Value = builder.buildAllocStack(type: rvalue.type)
             builder.buildStore(lvalue: tmp, rvalue: rvalue)
             rvalue = builder.buildUnsafeCastAddr(source: tmp, type: lvalue.type)
             builder.buildCopyAddr(dest: lvalue, source: rvalue)
@@ -164,7 +175,7 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
       } else {
         // The r-value is concrete; it has to be packed unto the l-value.
         let rvalue = emit(expr: expr)
-        let lvalue = builder.buildAllocExistential(container: lvalue, witness: expr.type)
+        let lvalue = builder.buildAllocExistential(container: lvalue, witness: rvalue.type)
         builder.buildStore(lvalue: lvalue, rvalue: rvalue)
       }
     } else {
@@ -282,17 +293,15 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
 
     // If the target type is existential, store the node's value into a new container.
     if node.type.isExistential {
-      let container = builder.buildAllocStack(type: node.type)
+      let container = builder.buildAllocStack(type: .lower(node.type))
       emit(assign: node.value, to: container)
       return .success(builder.buildLoad(lvalue: container))
     }
 
     if node.value.type.isExistential {
-      let contAddr = builder.buildAllocStack(type: node.value.type)
-      builder.buildStore(lvalue: contAddr, rvalue: emit(expr: node.value))
-      let packAddr = builder.buildOpenExistentialAddr(
-        container: contAddr, type: .address(node.type))
-      return .success(builder.buildLoad(lvalue: packAddr))
+      let container = emit(expr: node.value)
+      let value = builder.buildOpenExistential(container: container, type: .lower(node.type))
+      return.success(value)
     }
 
     // FIXME: Implement "structural cast".
@@ -338,11 +347,42 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     }
 
     // Emit the function's arguments.
-    for arg in node.args {
-      args.append(emit(expr: arg.value))
+    let fType = funref.type as! VILFunType
+    for i in 0 ..< node.args.count {
+      var value = emit(expr: node.args[i].value)
+
+      // Check if the argument needs to be prepared before being passed.
+      if fType.paramTypes[i].isExistential || (fType.paramConvs[i] == .exist) {
+        // The parameter has an existential type, or its convention prescribes that it should be
+        // passed as an existential container. If the argument isn't packaged as an existential,
+        // then we need to wrap it into a container. Otherwise, we can pass it "as is", since all
+        // existential containers have the same memory layout.
+        if !value.type.isExistential {
+          let tmp = builder.buildAllocStack(type: .lower(context.anyType))
+          let ptr = builder.buildAllocExistential(container: tmp, witness: value.type)
+          builder.buildStore(lvalue: ptr, rvalue: value)
+          value = builder.buildLoad(lvalue: tmp)
+
+          // FIXME: Allocating a container of type `Any`, completely erases the argument's type.
+          // Hence, the resulting VIL is in fact ill-typed, since could call a function expecting
+          // an argument of type `T` with a value of type `Any`. A better strategy would be to
+          // create an existential container that meets the parameter's requirements.
+        }
+      }
+
+      args.append(value)
     }
 
-    return .success(builder.buildApply(fun: funref, args: args))
+    // Emit the call.
+    var value: Value = builder.buildApply(fun: funref, args: args)
+
+    // Emit the extraction of the result value.
+    if fType.retConv == .exist {
+      value = builder.buildOpenExistential(container: value, type: .lower(node.type))
+    }
+
+    // FIXME: Deallocate the memory that we allocated for indirect parameters.
+    return .success(value)
   }
 
   func visit(_ node: UnresolvedDeclRefExpr) -> ExprResult {
@@ -371,11 +411,11 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
 
     switch node.decl {
     case let decl as FunDecl where decl.isBuiltin:
-      // Emit a regular function.
+      // Emit a built-in function.
       return .success(BuiltinFunRef(decl: decl))
 
-    case let decl as CtorDecl:
-      // Emit a constructor.
+    case let decl as BaseFunDecl:
+      // Emit a function reference.
       let function = builder.getOrCreateFunction(from: decl)
       return .success(FunRef(function: function))
 
@@ -415,7 +455,9 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     case is ProductType:
       if let decl = node.decl as? VarDecl {
         if decl.hasStorage {
-          return .success(builder.buildRecordMember(record: base, memberDecl: decl))
+          let member = builder.buildRecordMember(
+            record: base, memberDecl: decl, type: .lower(node.type))
+          return .success(member)
         }
       }
 

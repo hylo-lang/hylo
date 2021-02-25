@@ -25,7 +25,8 @@ struct LValueEmitter: ExprVisitor {
         return .success(source)
       }
 
-      let cast = parent.builder.buildUnsafeCastAddr(source: source, type: .address(node.type))
+      let cast = parent.builder.buildUnsafeCastAddr(
+        source: source, type: VILType.lower(node.type).address)
       return .success(cast)
 
     case let failure:
@@ -78,7 +79,9 @@ struct LValueEmitter: ExprVisitor {
         }
 
         let base = parent.locals[ObjectIdentifier(selfDecl)]!
-        return .success(parent.builder.buildRecordMemberAddr(record: base, memberDecl: decl))
+        let memberAddr = parent.builder.buildRecordMemberAddr(
+          record: base, memberDecl: decl, type: VILType.lower(node.type).address)
+        return .success(memberAddr)
       }
 
       fatalError("unreachable")
@@ -104,18 +107,34 @@ struct LValueEmitter: ExprVisitor {
     switch node.base.accept(self) {
     case .success(let base):
       // Make sure the base has an address type.
-      guard case .address(let baseType) = base.type
+      guard base.type.isAddress else { return .failure(.immutableLocation) }
+      let baseType = base.type.valType
+
+      // The expression must refer to a variable declaration; member functions are never l-values.
+      guard let decl = node.decl as? VarDecl
       else { return .failure(.immutableLocation) }
 
-      // The expression must refer to a variable declaration; function are never l-values.
-      guard let decl = node.decl as? VarDecl,
-            decl.hasStorage
-      else { return .failure(.immutableLocation) }
+      if decl.hasStorage {
+        // The member has physical storage.
+        switch baseType {
+        case is ProductType:
+          // The member refers to a stored property of a concrete product type.
+          let memberAddr = parent.builder.buildRecordMemberAddr(
+            record: base, memberDecl: decl, type: VILType.lower(node.type).address)
+          return .success(memberAddr)
 
-      if baseType is ProductType {
-        return .success(parent.builder.buildRecordMemberAddr(record: base, memberDecl: decl))
+        case let bgType as BoundGenericType where bgType.decl.instanceType is ProductType:
+          let memberAddr = parent.builder.buildRecordMemberAddr(
+            record: base, memberDecl: decl, type: VILType.lower(node.type).address)
+          return .success(memberAddr)
+
+        default:
+          // FIXME: Handle tuples.
+          fatalError("not implemented")
+        }
       } else {
-        fatalError()
+        // FIXME: Handle property setters.
+        fatalError("not implemented")
       }
 
     case let failure:

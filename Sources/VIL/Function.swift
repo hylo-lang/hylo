@@ -4,14 +4,11 @@ import Basic
 /// A VIL function.
 public class Function {
 
-  /// The name of the function.
+  /// The mangled name of the function.
   public let name: String
 
-  /// The type of the function.
-  public let type: FunType
-
-  /// The arguments of the function.
-  public private(set) var arguments: [ArgumentValue]
+  /// The VIL type of the function.
+  public let type: VILFunType
 
   /// The basic blocks of the function.
   public var blocks: [BasicBlock] = []
@@ -20,24 +17,12 @@ public class Function {
   ///
   /// - Parameters:
   ///   - name: The name of the function.
-  init(name: String, type: FunType) {
+  ///   - type: The unapplied type of the function.
+  ///   - paramConv: The passing convention of the function's parameters.
+  ///   - retConv: The passing convention of the funtion's return value.
+  init(name: String, type: VILFunType) {
     self.name = name
     self.type = type
-
-    // Create the function's arguments.
-    self.arguments = []
-    if let tupleType = type.paramType as? TupleType {
-      arguments = tupleType.elems.map({ (elem) -> ArgumentValue in
-        // Inout parameters get an address type.
-        if let inoutType = elem.type as? InoutType {
-          return ArgumentValue(type: .address(inoutType.base), function: self)
-        } else {
-          return ArgumentValue(type: .object(elem.type), function: self)
-        }
-      })
-    } else {
-      arguments = [ArgumentValue(type: .object(type.paramType), function: self)]
-    }
   }
 
   /// Creates a new base block at the end of the function.

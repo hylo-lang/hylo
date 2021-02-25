@@ -53,6 +53,7 @@ public struct Interpreter {
     while let nextPC = step() {
       pc = nextPC
     }
+    print(stack)
   }
 
   /// Executes the instruction pointed by the program counter.
@@ -95,7 +96,7 @@ public struct Interpreter {
     case is UnitValue:
       return .unit
     case let literal as IntLiteralValue:
-      return .intLiteral(literal.value)
+      return .native(literal.value)
     case let literal as FunRef:
       return .function(literal.function)
     case let literal as BuiltinFunRef:
@@ -109,11 +110,11 @@ public struct Interpreter {
 
   mutating func eval(inst: AllocStackInst) -> ProgramCounter? {
     // Allocate a new block of memory on the stack.
-    stack.append(RuntimeValue(ofType: inst.allocatedType))
+    stack.append(RuntimeValue(ofType: inst.allocatedType.valType))
 
     // Map the instruction onto the record's address.
-    let address = Address(base: stack.count - 1)
-    locals[locals.count - 1][RegisterID(inst)] = .address(address)
+    let addr = Address(base: stack.count - 1)
+    locals[locals.count - 1][RegisterID(inst)] = .address(addr)
 
     return pc.incremented()
   }
@@ -122,32 +123,27 @@ public struct Interpreter {
     // Allocate memory for an existential package.
     let containerAddr = eval(operand: inst.container).asAddress
     var container = load(from: containerAddr).asContainer
+
     container.storage = .allocate(capacity: 1)
-    container.storage!.initialize(to: RuntimeValue(ofType: inst.witness))
-    container.witness = inst.witness
+    container.storage!.initialize(to: RuntimeValue(ofType: inst.witness.valType))
+    container.witness = inst.witness.valType
     store(.container(container), at: containerAddr)
 
-    // Map the instruction onto the allocated address.
-    let address = containerAddr.appending(offset: 0)
-    locals[locals.count - 1][RegisterID(inst)] = .address(address)
-
+    let addr = containerAddr.appending(offset: 0)
+    locals[locals.count - 1][RegisterID(inst)] = .address(addr)
     return pc.incremented()
   }
 
   mutating func eval(inst: OpenExistentialInst) -> ProgramCounter? {
     let container = eval(operand: inst.container).asContainer
-
-    locals[locals.count - 1][RegisterID(inst)] = container.storage!.pointee
+    locals[locals.count - 1][RegisterID(inst)] = container.storage!.pointee.copy()
     return pc.incremented()
   }
 
   mutating func eval(inst: OpenExistentialAddrInst) -> ProgramCounter? {
     let containerAddr = eval(operand: inst.container).asAddress
-
-    // Map the instruction onto the address of the existential package.
-    let address = containerAddr.appending(offset: 0)
-    locals[locals.count - 1][RegisterID(inst)] = .address(address)
-
+    let addr = containerAddr.appending(offset: 0)
+    locals[locals.count - 1][RegisterID(inst)] = .address(addr)
     return pc.incremented()
   }
 
@@ -156,8 +152,7 @@ public struct Interpreter {
     let dest = eval(operand: inst.dest)
     assert(source.isAddress && dest.isAddress)
 
-    store(load(from: source.asAddress), at: dest.asAddress)
-
+    store(load(from: source.asAddress).copy(), at: dest.asAddress)
     return pc.incremented()
   }
 
@@ -203,19 +198,22 @@ public struct Interpreter {
       return pc.incremented()
 
     case .function(let function):
+      // Make sure the function has an entry point.
+      guard let entry = function.blocks.first else { return nil }
+
       // Save the return info. This will serve as a sentinel to delimit the start of the call
       // frame, and indicate to the callee where the return value should be stored.
       stack.append(.returnInfo(pc, RegisterID(inst)))
 
       // Setup the callee's environment.
       var frame: [RegisterID: RuntimeValue] = [:]
-      for (argval, argref) in zip(argvals, function.arguments) {
-        frame[RegisterID(argref)] = argval
+      for (argval, argref) in zip(argvals, entry.arguments) {
+        frame[RegisterID(argref)] = argval.copy()
       }
       locals.append(frame)
 
       // Jump inside the callee.
-      return ProgramCounter(atStartOf: function.blocks.first!)
+      return ProgramCounter(atStartOf: entry)
 
     default:
       fatalError("unreachable")
@@ -226,12 +224,11 @@ public struct Interpreter {
     if funDecl.name.starts(with: "i64_") {
       switch funDecl.name.dropFirst(4) {
       case "print":
-        guard case .i64(let i) = args[0] else { fatalError("bas VIL code") }
-        print(i)
+        print(args[0].asI64)
         return .unit
 
       case "trunc_IntLiteral":
-        return .i64(Int64(truncatingIfNeeded: args[0].asIntLiteral))
+        return .native(Int64(truncatingIfNeeded: args[0].asIntLiteral))
 
       case let suffix:
         // The function must take 2 operands.
@@ -239,11 +236,11 @@ public struct Interpreter {
         let rhs = args[1].asI64
 
         switch suffix {
-        case "add": return .i64(lhs + rhs)
-        case "sub": return .i64(lhs - rhs)
-        case "mul": return .i64(lhs * rhs)
-        case "div": return .i64(lhs / rhs)
-        case "mod": return .i64(lhs % rhs)
+        case "add": return .native(lhs + rhs)
+        case "sub": return .native(lhs - rhs)
+        case "mul": return .native(lhs * rhs)
+        case "div": return .native(lhs / rhs)
+        case "mod": return .native(lhs % rhs)
         default: break
         }
       }
@@ -254,16 +251,15 @@ public struct Interpreter {
 
   mutating func eval(inst: RecordMemberAddrInst) -> ProgramCounter? {
     // Retrieve the address of the record.
-    let recordAddress = eval(operand: inst.record).asAddress
+    let recordAddr = eval(operand: inst.record).asAddress
 
     // Compute the record member's address.
-    let memberOffset: Int = (inst.record.type.unwrap as! NominalType).decl.storedVarDecls
+    let memberOffset: Int = (inst.record.type.valType as! NominalType).decl.storedVarDecls
       .firstIndex(where: { decl in decl === inst.memberDecl })!
-    let memberAddress = recordAddress.appending(offset: memberOffset)
+    let memberAddr = recordAddr.appending(offset: memberOffset)
 
     // Map the instruction onto the member's address.
-    locals[locals.count - 1][RegisterID(inst)] = .address(memberAddress)
-
+    locals[locals.count - 1][RegisterID(inst)] = .address(memberAddr)
     return pc.incremented()
   }
 
@@ -272,39 +268,31 @@ public struct Interpreter {
     let record = eval(operand: inst.record)
 
     // Compute the record member's offset.
-    let memberOffset: Int = (inst.record.type.unwrap as! NominalType).decl.storedVarDecls
+    let memberOffset: Int = (inst.record.type.valType as! NominalType).decl.storedVarDecls
       .firstIndex(where: { decl in decl === inst.memberDecl })!
     let member = record[[memberOffset]]
 
     // Map the instruction onto the member.
-    locals[locals.count - 1][RegisterID(inst)] = member
-
+    locals[locals.count - 1][RegisterID(inst)] = member.copy()
     return pc.incremented()
   }
 
   mutating func eval(inst: TupleInst) -> ProgramCounter? {
-    if inst.tupleType == context.unitType {
-      locals[locals.count - 1][RegisterID(inst)] = .unit
-    } else {
-      let record = Record.new(inst.tupleType)!
-      locals[locals.count - 1][RegisterID(inst)] = .record(record)
-    }
-
+    let record = Record(capacity: inst.tupleType.elems.count)
+    locals[locals.count - 1][RegisterID(inst)] = .record(record)
     return pc.incremented()
   }
 
   mutating func eval(inst: StoreInst) -> ProgramCounter? {
     let lv = eval(operand: inst.lvalue).asAddress
     let rv = eval(operand: inst.rvalue)
-    store(rv, at: lv)
-
+    store(rv.copy(), at: lv)
     return pc.incremented()
   }
 
   mutating func eval(inst: LoadInst) -> ProgramCounter? {
     let lv = eval(operand: inst.lvalue).asAddress
-    locals[locals.count - 1][RegisterID(inst)] = load(from: lv)
-
+    locals[locals.count - 1][RegisterID(inst)] = load(from: lv).copy()
     return pc.incremented()
   }
 
@@ -323,19 +311,15 @@ public struct Interpreter {
     // Store the return value.
     locals[locals.count - 2][returnInfo.register] = eval(operand: inst.value).copy()
 
-    // Deallocate stack-allocated objects and values assigned to return instructions.
-    for (registerID, value) in locals.last! {
-      switch registerID.value {
-      case is RetInst:
-        value.delete()
-      case is AllocStackInst:
-        stack[value.asAddress.base].delete()
-      default:
-        continue
-      }
+    // Deallocate objects created in the current call frame.
+    for value in stack[returnInfoIndex...] {
+      value.delete()
+    }
+    for (_, value) in locals.last! {
+      value.delete()
     }
 
-    // Clear the local frames.
+    // Clear the local frame.
     stack.removeSubrange(returnInfoIndex...)
     locals.removeLast()
 

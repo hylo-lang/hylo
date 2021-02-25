@@ -40,12 +40,14 @@ public class ValType {
 
   /// The type is existential.
   ///
-  /// A type is existential if it cannot be resolved to a concrete representation statically. It is
-  /// a placeholder for a runtime type that is known to satisfy a set of requirements. Instances of
-  /// existential types are represented by existential packages.
+  /// A type is existential if it cannot be resolved to a concrete representation statically, but
+  /// is known to represent a runtime type that satisfies a set of requirements. Note that this
+  /// does not include type variables, as those have yet to be inferred as a proper type.
+  ///
+  /// Instances of existential types are represented by existential packages.
   public final var isExistential: Bool {
     switch self {
-    case is ViewType, is ViewCompositionType, is SkolemType:
+    case is ViewType, is ViewCompositionType, is SkolemType, is GenericParamType:
       return true
     case let kType as KindType:
       return kType.type.isExistential
@@ -759,6 +761,17 @@ public final class FunType: ValType {
 
   /// The function's codomain.
   public let retType: ValType
+
+  /// A list with the type of each individual function parameter.
+  ///
+  /// This automatically iterates over the elements of `paramType` if it is a tuple.
+  public var paramTypeList: [ValType] {
+    if let tuple = paramType as? TupleType {
+      return tuple.elems.map({ elem in elem.type })
+    } else {
+      return [paramType]
+    }
+  }
 
   public override var canonical: ValType {
     return isCanonical

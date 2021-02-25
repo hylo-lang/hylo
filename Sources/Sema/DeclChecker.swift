@@ -165,7 +165,7 @@ struct DeclChecker: DeclVisitor {
     guard node.state < .typeChecked else { return handleCheckState(node) }
     node.setState(.typeCheckRequested)
 
-    /// Initialize the type's generic environment.
+    // Initialize the type's generic environment.
     guard node.prepareGenericEnv() != nil else {
       node.setState(.invalid)
       return false

@@ -12,7 +12,21 @@ final class PreCheckDriver: NodeWalker {
   let system: UnsafeMutablePointer<ConstraintSystem>
 
   override func willVisit(_ expr: Expr) -> (shouldWalk: Bool, nodeBefore: Expr) {
-    return (!(expr is ErrorExpr), expr)
+    switch expr {
+    case let tuple as TupleExpr:
+      // Substitute 'e' for '(e)', effectively eliminating parenthesized expressions.
+      if (tuple.elems.count == 1) && (tuple.elems[0].label == nil) {
+        return (true, tuple.elems[0].value)
+      } else {
+        return (true, tuple)
+      }
+
+    case is ErrorExpr:
+      return (false, expr)
+
+    default:
+      return (true, expr)
+    }
   }
 
   override func didVisit(_ expr: Expr) -> (shouldContinue: Bool, nodeAfter: Expr) {
