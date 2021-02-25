@@ -68,6 +68,12 @@ public final class Context {
     return uniqued(ViewCompositionType(context: self, views: Array(views)))
   }
 
+  public func unionType<S>(_ elems: S) -> UnionType
+  where S: Sequence, S.Element == ValType
+  {
+    return uniqued(UnionType(context: self, elems: Array(elems)))
+  }
+
   public func boundGenericType(decl: GenericTypeDecl, args: [ValType]) -> BoundGenericType {
     return uniqued(BoundGenericType(context: self, decl: decl, args: args))
   }
@@ -109,6 +115,10 @@ public final class Context {
 
   public private(set) lazy var anyType: ViewCompositionType = {
     return viewCompositionType([])
+  }()
+
+  public private(set) lazy var unhabitedType: UnionType = {
+    return unionType([])
   }()
 
   public private(set) lazy var unresolvedType: UnresolvedType = {

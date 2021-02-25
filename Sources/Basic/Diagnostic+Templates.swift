@@ -42,6 +42,12 @@ extension Diagnostic {
     return Diagnostic("built-in types are not namespaces", anchor: range)
   }
 
+  public static func nonViewTypeInViewComposition(
+    type name: Any, range: SourceRange
+  ) -> Diagnostic {
+    return Diagnostic("cannot insert non-view type '\(name)' into view composition", anchor: range)
+  }
+
   public static func nonNominalExtension(
     _ type: Any, range: SourceRange
   ) -> Diagnostic {

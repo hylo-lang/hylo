@@ -15,6 +15,8 @@ extension TypeRepr {
     case let this as CompoundTypeRepr : return AST.realize(this, from: useSite)
     case let this as TupleTypeRepr    : return AST.realize(this, from: useSite)
     case let this as FunTypeRepr      : return AST.realize(this, from: useSite)
+    case let this as ViewCompTypeRepr : return AST.realize(this, from: useSite)
+    case let this as UnionTypeRepr    : return AST.realize(this, from: useSite)
     default: fatalError("unreachable")
     }
   }
@@ -209,5 +211,40 @@ fileprivate func realize(_ typeRepr: FunTypeRepr, from useSite: DeclSpace) -> Va
   let retType = typeRepr.retSign.realize(unqualifiedFrom: useSite)
 
   typeRepr.type = typeRepr.type.context.funType(paramType: paramType, retType: retType)
+  return typeRepr.type
+}
+
+/// Realizes a view composition signature.
+fileprivate func realize(_ typeRepr: ViewCompTypeRepr, from useSite: DeclSpace) -> ValType {
+  assert(!typeRepr.views.isEmpty, "ill-formed AST; composition is empty")
+  let context = typeRepr.type.context
+
+  var views: [ViewType] = []
+  for repr in typeRepr.views {
+    switch repr.realize(unqualifiedFrom: useSite) {
+    case let view as ViewType:
+      views.append(view)
+
+    case is ErrorType:
+      typeRepr.type = context.errorType
+      return context.errorType
+
+    case let type:
+      context.report(.nonViewTypeInViewComposition(type: type, range: repr.range))
+      typeRepr.type = context.errorType
+      return context.errorType
+    }
+  }
+
+  typeRepr.type = context.viewCompositionType(views)
+  return typeRepr.type
+}
+
+/// Realizes a union type signature.
+fileprivate func realize(_ typeRepr: UnionTypeRepr, from useSite: DeclSpace) -> ValType {
+  assert(!typeRepr.elems.isEmpty, "ill-formed AST; type union is empty")
+  let elems = typeRepr.elems.map({ repr in repr.realize(unqualifiedFrom: useSite) })
+
+  typeRepr.type = typeRepr.type.context.unionType(elems)
   return typeRepr.type
 }
