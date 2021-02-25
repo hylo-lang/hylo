@@ -78,15 +78,36 @@ public class ValType {
     fatalError("unreachable")
   }
 
+  /// Returns whether this type matches another one.
+  ///
+  /// This walks down the type expression in parallel with the argument, calling `reconcile` for
+  /// each mismatching pair.
+  ///
+  /// - Parameters:
+  ///   - other: Another type.
+  ///   - reconcile: A closure that accepts two non-identical types at the same structural position
+  ///     and returns `true` if they should match nonetheless.
+  /// - Returns: `false` if any call to `reconcile` returns `false`; otherwise, `true`.
+  public func matches(
+    with other: ValType,
+    reconcilingWith reconcile: (ValType, ValType) -> Bool
+  ) -> Bool {
+    return (self == other) || reconcile(self, other)
+  }
+
   /// Returns whether this type is equal to another one.
   ///
   /// This method is intended to be overridden in derived classes. It is used internally to
   /// uniquing new instances.
+  ///
+  /// - Parameter other: Another type.
   func isEqual(to other: ValType) -> Bool {
     return self === other
   }
 
   /// Hashes the essential components of type into the given hasher.
+  ///
+  /// - Parameter hasher: The hasher to use when combining the components of this type.
   func hash(into hasher: inout Hasher) {
   }
 
@@ -225,9 +246,19 @@ public final class KindType: ValType {
       : self
   }
 
+  public override func matches(
+    with other: ValType,
+    reconcilingWith reconcile: (ValType, ValType) -> Bool
+  ) -> Bool {
+    if self == other { return true }
+
+    guard let that = other as? KindType else { return reconcile(self, other) }
+    return type.matches(with: that.type, reconcilingWith: reconcile)
+  }
+
   override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? KindType else { return false }
-    return self.type.isEqual(to: that.type)
+    return type.isEqual(to: that.type)
   }
 
   override func hash(into hasher: inout Hasher) {
@@ -534,12 +565,30 @@ public final class BoundGenericType: NominalType {
       : self
   }
 
-  override func isEqual(to other: ValType) -> Bool {
-    guard let that = other as? BoundGenericType else { return false }
+  public override func matches(
+    with other: ValType,
+    reconcilingWith reconcile: (ValType, ValType) -> Bool
+  ) -> Bool {
+    if self == other { return true }
 
-    guard self.decl === that.decl else { return false }
-    guard self.args.count == that.args.count else { return false }
-    for (lhs, rhs) in zip(self.args, that.args) {
+    guard let that = other as? BoundGenericType,
+          decl === that.decl,
+          args.count == that.args.count
+    else { return reconcile(self, other) }
+
+    for (lhs, rhs) in zip(args, that.args) {
+      guard lhs.matches(with: rhs, reconcilingWith: reconcile) else { return false }
+    }
+    return true
+  }
+
+  override func isEqual(to other: ValType) -> Bool {
+    guard let that = other as? BoundGenericType,
+          decl === that.decl,
+          args.count == that.args.count
+    else { return false }
+
+    for (lhs, rhs) in zip(args, that.args) {
       guard (lhs.isEqual(to: rhs)) else { return false }
     }
     return true
@@ -683,10 +732,28 @@ public final class TupleType: ValType {
     }))
   }
 
-  override func isEqual(to other: ValType) -> Bool {
-    guard let that = other as? TupleType else { return false }
+  public override func matches(
+    with other: ValType,
+    reconcilingWith reconcile: (ValType, ValType) -> Bool
+  ) -> Bool {
+    if self == other { return true }
 
-    guard elems.count == that.elems.count else { return false }
+    guard let that = other as? TupleType,
+          elems.count == that.elems.count
+    else { return reconcile(self, other) }
+
+    for (lhs, rhs) in zip(elems, that.elems) {
+      guard lhs.label == rhs.label else { return reconcile(self, other) }
+      guard lhs.type.matches(with: rhs.type, reconcilingWith: reconcile) else { return false }
+    }
+    return true
+  }
+
+  override func isEqual(to other: ValType) -> Bool {
+    guard let that = other as? TupleType,
+          elems.count == that.elems.count
+    else { return false }
+
     for (lhs, rhs) in zip(elems, that.elems) {
       guard (lhs.label == rhs.label) && (lhs.type.isEqual(to: rhs.type)) else { return false }
     }
@@ -785,6 +852,17 @@ public final class FunType: ValType {
       : self
   }
 
+  public override func matches(
+    with other: ValType,
+    reconcilingWith reconcile: (ValType, ValType) -> Bool
+  ) -> Bool {
+    if self == other { return true }
+
+    guard let that = other as? FunType else { return reconcile(self, other) }
+    return retType.matches(with: that.retType, reconcilingWith: reconcile) &&
+           paramType.matches(with: that.paramType, reconcilingWith: reconcile)
+  }
+
   override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? FunType,
           retType.isEqual(to: that.retType),
@@ -837,6 +915,16 @@ public final class InoutType: ValType {
     return hasSkolems
       ? context.inoutType(of: base.uncontextualized)
       : self
+  }
+
+  public override func matches(
+    with other: ValType,
+    reconcilingWith reconcile: (ValType, ValType) -> Bool
+  ) -> Bool {
+    if self == other { return true }
+
+    guard let that = other as? InoutType else { return reconcile(self, other) }
+    return base.matches(with: that.base, reconcilingWith: reconcile)
   }
 
   override func isEqual(to other: ValType) -> Bool {

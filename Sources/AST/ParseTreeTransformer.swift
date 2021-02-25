@@ -447,6 +447,22 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     return ctx.typeRepr().map({ arg in arg.accept(self) as! TypeRepr })
   }
 
+  public override func visitTupleTypeRepr(_ ctx: ValParser.TupleTypeReprContext) -> Any {
+    let elems = ctx.tupleTypeElemList()
+      .map({ elems in elems.accept(self) as! [TupleTypeReprElem] }) ?? []
+    return TupleTypeRepr(elems: elems, type: unresolvedType, range: range(of: ctx))
+  }
+
+  public override func visitTupleTypeElemList(_ ctx: ValParser.TupleTypeElemListContext) -> Any {
+    return ctx.tupleTypeElem().map({ elem in elem.accept(self) as! TupleTypeReprElem })
+  }
+
+  public override func visitTupleTypeElem(_ ctx: ValParser.TupleTypeElemContext) -> Any {
+    let label = ctx.NAME()?.getText()
+    let sign = ctx.typeRepr()!.accept(self) as! TypeRepr
+    return TupleTypeReprElem(label: label, sign: sign, range: range(of: ctx))
+  }
+
   public override func visitExpr(_ ctx: ValParser.ExprContext) -> Any {
     typealias Link = (loc: InfixOperatorLoc, expr: Expr)
 

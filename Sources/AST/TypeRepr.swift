@@ -16,14 +16,14 @@ public protocol TypeRepr: Node {
 /// The signature of a tuple type (e.g., `(foo: A, bar: B)`).
 public final class TupleTypeRepr: TypeRepr {
 
-  public init(elems: [TupleTypeElem], type: ValType, range: SourceRange) {
+  public init(elems: [TupleTypeReprElem], type: ValType, range: SourceRange) {
     self.elems = elems
     self.type = type
     self.range = range
   }
 
   /// The elements of the tuple.
-  public var elems: [TupleTypeElem]
+  public var elems: [TupleTypeReprElem]
 
   public var type: ValType
 
@@ -36,7 +36,7 @@ public final class TupleTypeRepr: TypeRepr {
 }
 
 /// The element of a tuple type signature.
-public struct TupleTypeElem {
+public struct TupleTypeReprElem {
 
   public init(label: String? = nil, sign: TypeRepr, range: SourceRange) {
     self.label = label

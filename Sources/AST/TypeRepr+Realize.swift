@@ -13,6 +13,8 @@ extension TypeRepr {
     switch self {
     case let this as ComponentTypeRepr: return AST.realize(this, from: useSite)
     case let this as CompoundTypeRepr : return AST.realize(this, from: useSite)
+    case let this as TupleTypeRepr    : return AST.realize(this, from: useSite)
+    case let this as FunTypeRepr      : return AST.realize(this, from: useSite)
     default: fatalError("unreachable")
     }
   }
@@ -97,6 +99,7 @@ fileprivate func realize(_ typeRepr: ComponentTypeRepr, from useSite: DeclSpace)
   return typeRepr.type
 }
 
+/// Realizes a specialized identifier.
 fileprivate func realize(
   typeRepr: SpecializedTypeRepr, from space: DeclSpace, baseDecl: NominalTypeDecl
 ) {
@@ -186,4 +189,25 @@ fileprivate func realize(_ typeRepr: CompoundTypeRepr, from useSite: DeclSpace) 
   }
 
   return typeRepr.lastComponent.type
+}
+
+/// Realizes a tuple type signature.
+fileprivate func realize(_ typeRepr: TupleTypeRepr, from useSite: DeclSpace) -> ValType {
+  let elems = typeRepr.elems.map({ (repr: TupleTypeReprElem) -> TupleType.Elem in
+    TupleType.Elem(
+      label: repr.label,
+      type: repr.sign.realize(unqualifiedFrom: useSite))
+  })
+
+  typeRepr.type = typeRepr.type.context.tupleType(elems)
+  return typeRepr.type
+}
+
+/// Realizes a function type signature.
+fileprivate func realize(_ typeRepr: FunTypeRepr, from useSite: DeclSpace) -> ValType {
+  let paramType = typeRepr.paramSign.realize(unqualifiedFrom: useSite)
+  let retType = typeRepr.retSign.realize(unqualifiedFrom: useSite)
+
+  typeRepr.type = typeRepr.type.context.funType(paramType: paramType, retType: retType)
+  return typeRepr.type
 }
