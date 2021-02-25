@@ -486,6 +486,7 @@ public final class ViewCompositionType: ValType {
       props = props.removing(.isCanonical)
     } else if views.count > 1 {
       // The composition is canonical if the views are "sorted".
+      // FIXME: We should also remove duplicate views.
       for i in 1 ..< views.count {
         guard ViewType.precedes(lhs: views[i - 1], rhs: views[i]) else {
           props = props.removing(.isCanonical)
@@ -537,6 +538,112 @@ extension ViewCompositionType: CustomStringConvertible {
       return "Any"
     } else {
       return views.map(String.init(describing:)).joined(separator: " & ")
+    }
+  }
+
+}
+
+/// A union type (e.g. `A | B`).
+public final class UnionType: ValType {
+
+  /// The members of the union.
+  ///
+  /// Uniqueness of each element is not guaranteed, unless the union type is canonical.
+  public let elems: [ValType]
+
+  init(context: Context, elems: [ValType]) {
+    assert(elems.allSatisfy({ !($0 is UnionType) }), "union types cannot be nested")
+
+    self.elems = elems
+    var props = RecursiveProps.merge(elems.map({ $0.props }))
+
+    // Determine canonicity.
+    if elems.count == 1 {
+      // The canonical form of a union with a unique element is the element itself.
+      props = props.removing(.isCanonical)
+    }
+
+    // The composition is canonical if the views are "sorted".
+    // FIXME: Do we need a more stable ordering, that doesn't depend on the runtime?
+    if !UnionType.isCanonicalList(elems) {
+      props = props.removing(.isCanonical)
+    }
+
+    super.init(context: context, props: props)
+  }
+
+  public override var canonical: ValType {
+    if isCanonical {
+      return self
+    } else if elems.count == 1 {
+      return elems[0].canonical
+    }
+
+    var filtered: [ValType] = []
+    for elem in elems {
+      let canonical = elem.canonical
+      let index = filtered.sortedInsertionIndex(of: canonical, sortedBy: { a, b in
+        ObjectIdentifier(a) < ObjectIdentifier(b)
+      })
+      guard (index == 0) || (filtered[index] != canonical) else { continue }
+      filtered.insert(canonical, at: index)
+    }
+
+    if filtered.count == 1 {
+      return filtered[0]
+    } else {
+      return context.unionType(filtered)
+    }
+  }
+
+  override func isEqual(to other: ValType) -> Bool {
+    guard let that = other as? UnionType,
+          elems.count == that.elems.count
+    else { return false }
+
+    for (lhs, rhs) in zip(elems, that.elems) {
+      guard lhs.isEqual(to: rhs) else { return false }
+    }
+    return true
+  }
+
+  override func hash(into hasher: inout Hasher) {
+    for elem in elems {
+      elem.hash(into: &hasher)
+    }
+  }
+
+  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+    visitor.visit(self)
+  }
+
+  /// Returns whether the given list of types is in canonical form, which holds if and only if all
+  /// types appear only once, and in order. Note that this does *not* require the types themselves
+  /// to be in canonical form.
+  ///
+  /// - Parameter elems: An array of types.
+  private static func isCanonicalList(_ elems: [ValType]) -> Bool {
+    if elems.count == 0 {
+      return true
+    } else if elems.count == 1 {
+      return false
+    }
+
+    for i in 1 ..< elems.count {
+      guard ObjectIdentifier(elems[i - 1]) < ObjectIdentifier(elems[i]) else { return false }
+    }
+    return true
+  }
+
+}
+
+extension UnionType: CustomStringConvertible {
+
+  public var description: String {
+    if elems.isEmpty {
+      return "Unhabited"
+    } else {
+      return elems.map(String.init(describing:)).joined(separator: " | ")
     }
   }
 

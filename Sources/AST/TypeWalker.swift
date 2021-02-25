@@ -80,6 +80,12 @@ open class TypeWalker: TypeVisitor {
     }))
   }
 
+  open func visit(_ type: UnionType) -> ValType {
+    return type.context.unionType(type.elems.map({ elem in
+      walk(elem)
+    }))
+  }
+
   open func visit(_ type: BoundGenericType) -> ValType {
     return type.context.boundGenericType(decl: type.decl, args: type.args.map(walk(_:)))
   }
