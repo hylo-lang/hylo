@@ -130,6 +130,12 @@ struct CSSolver {
           RelationalConstraint(kind: .equality, lhs: larg, rhs: rarg, at: constraint.locator))
       }
 
+    case (let lhs as UnionType, let rhs as UnionType):
+      guard lhs.canonical === rhs.canonical else {
+        errors.append(.conflictingTypes(constraint))
+        break
+      }
+
     default:
       // The types might be structural.
       if attemptStructuralMatch(constraint) {
@@ -248,6 +254,22 @@ struct CSSolver {
           RelationalConstraint(
             kind: .conformance, lhs: constraint.lhs, rhs: view, at: constraint.locator))
       }
+
+    case (let lhs as UnionType, let rhs as UnionType):
+      // Both `T` and `U` are union types: every element in `T` must be a subtype of `U`.
+      for elem in lhs.elems {
+        system.insert(
+          RelationalConstraint(
+            kind: .subtyping, lhs: elem, rhs: rhs, at: constraint.locator))
+      }
+
+    case (_, let rhs as UnionType):
+      // `T` is a single type that must be a subtype of at least one element in `U`.
+      let choices = rhs.elems.map({ elem in
+        RelationalConstraint(
+          kind: .subtyping, lhs: constraint.lhs, rhs: elem, at: constraint.locator)
+      })
+      system.insert(disjunction: choices)
 
     default:
       solve(equality: constraint)

@@ -553,6 +553,9 @@ public final class UnionType: ValType {
 
   init(context: Context, elems: [ValType]) {
     assert(elems.allSatisfy({ !($0 is UnionType) }), "union types cannot be nested")
+    assert(
+      elems.allSatisfy({ !($0 is TypeVar) }),
+      "unconstrained type variables cannot occur in union type")
 
     self.elems = elems
     var props = RecursiveProps.merge(elems.map({ $0.props }))
