@@ -141,10 +141,9 @@ struct PreChecker: ExprVisitor {
     }
 
     // If the base is known to resolve to a concrete type, we could attempt to resolve the whole
-    // expression as a `MemberDeclRefExpr` directly here, rather than letting the type solver do
-    // it. However, this wouldn't for overloaded members, unless we modify `OverloadedDeclRefExpr`
-    // so that it can keep track of a base expression.
-
+    // expression as a `MemberDeclRefExpr` directly here, rather than having the type solver do it.
+    // However, this won't work for overloaded members, unless we modify `OverloadedDeclRefExpr` so
+    // that it can keep track of a base expression.
     return node
   }
 
@@ -153,6 +152,14 @@ struct PreChecker: ExprVisitor {
   }
 
   func visit(_ node: TupleMemberExpr) -> Expr {
+    let context = node.type.context
+
+    // Propagate error expressions.
+    if node.base is ErrorExpr {
+      // We can assume a diagnostic has been emitted by a previous attempt to bind the base.
+      return ErrorExpr(type: context.errorType, range: node.range)
+    }
+
     return node
   }
 

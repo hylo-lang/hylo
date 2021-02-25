@@ -70,8 +70,11 @@ public enum ConstraintPathComponent: Hashable {
   /// The value of a return statement.
   case returnValue
 
-  /// The member of an value expression.
+  /// The member of a value expression.
   case valueMember(String)
+
+  /// The i-th element of tuple expression.
+  case tupleElem(Int)
 
   /// The i-th element of a tuple type.
   case typeTupleElem(Int)

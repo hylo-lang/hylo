@@ -121,6 +121,10 @@ struct ConstraintGenerator: ExprVisitor {
   }
 
   func visit(_ node: TupleMemberExpr) {
+    system.pointee.insert(
+      TupleMemberConstraint(
+        node.base.type, hasMemberAt: node.memberIndex, ofType: node.type,
+        at: ConstraintLocator(node, .tupleElem(node.memberIndex))))
   }
 
   func visit(_ node: AddrOfExpr) {

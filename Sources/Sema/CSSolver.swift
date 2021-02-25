@@ -61,6 +61,7 @@ struct CSSolver {
       switch constraint {
       case let c as RelationalConstraint      : solve(c)
       case let c as ValueMemberConstraint     : solve(c)
+      case let c as TupleMemberConstraint     : solve(c)
       case let c as OverloadBindingConstraint : return solve(c)
       case let c as DisjunctionConstraint     : return solve(c)
       default:
@@ -295,7 +296,21 @@ struct CSSolver {
       baseType = inoutType.base
     }
 
-    // FIXME: Handle tuple types.
+    // Handle tuple types.
+    if let tupleType = baseType as? TupleType {
+      // Pick the first element that has the same label as the constraint member. This implies that
+      // only the first occurence of a label can be referred by name.
+      guard let elem = tupleType.elems.first(where: { $0.label == constraint.memberName }) else {
+        errors.append(.nonExistentProperty(constraint))
+        return
+      }
+
+      // Solve an equality constraint.
+      let simplified = RelationalConstraint(
+        kind: .equality, lhs: elem.type, rhs: constraint.rhs, at: constraint.locator)
+      solve(simplified)
+      return
+    }
 
     // Handle assignment operators on built-in types.
     if let builtinType = baseType as? BuiltinType,
@@ -350,6 +365,38 @@ struct CSSolver {
         constraint.rhs, declSet: decls, useSite: constraint.useSite, at: constraint.locator)
       system.insert(simplified)
     }
+  }
+
+  private mutating func solve(_ constraint: TupleMemberConstraint) {
+    // We can't solve anything yet if `T` is still unknown.
+    var baseType = assumptions[constraint.lhs]
+    guard !(baseType is TypeVar) else {
+      system.staleConstraints.append(constraint)
+      return
+    }
+
+    // If `T` is an in-out type, then we should solve the constraint for its base.
+    if let inoutType = baseType as? InoutType {
+      baseType = inoutType.base
+    }
+
+    // The constraint obviously fails if `T` is not a tuple-type.
+    guard let tupleType = baseType as? TupleType else {
+      errors.append(.nonExistentProperty(constraint))
+      return
+    }
+
+    // Make sure the tuple has enough members.
+    guard tupleType.elems.count > constraint.memberIndex else {
+      errors.append(.nonExistentProperty(constraint))
+      return
+    }
+
+    // Simplify the constraint.
+    let simplified = RelationalConstraint(
+      kind: .equality, lhs: tupleType.elems[constraint.memberIndex].type, rhs: constraint.rhs,
+      at: constraint.locator)
+    solve(simplified)
   }
 
   private mutating func solve(_ constraint: OverloadBindingConstraint) -> Solution {

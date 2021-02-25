@@ -18,7 +18,7 @@ public protocol Constraint {
 }
 
 /// A relational type constraint `T ◇ U`, which relates two types.
-struct RelationalConstraint: Constraint {
+struct RelationalConstraint: Constraint, CustomStringConvertible {
 
   init(kind: Kind, lhs: ValType, rhs: ValType, at locator: ConstraintLocator) {
     assert(!(lhs is UnresolvedType) && !(rhs is UnresolvedType))
@@ -89,10 +89,6 @@ struct RelationalConstraint: Constraint {
     return (lhs === tau) || (rhs === tau)
   }
 
-}
-
-extension RelationalConstraint: CustomStringConvertible {
-
   var description: String {
     switch kind {
     case .equality      : return "\(lhs) == \(rhs)"
@@ -108,7 +104,7 @@ extension RelationalConstraint: CustomStringConvertible {
 /// to a particular overloaded declaration `Di`.
 ///
 /// This typically results from a reference to an overloaded symbol.
-struct OverloadBindingConstraint: Constraint {
+struct OverloadBindingConstraint: Constraint, CustomStringConvertible {
 
   init(
     _ type    : ValType,
@@ -139,10 +135,6 @@ struct OverloadBindingConstraint: Constraint {
     return type === tau
   }
 
-}
-
-extension OverloadBindingConstraint: CustomStringConvertible {
-
   var description: String {
     let decls = declSet
       .map({ decl in decl.debugID })
@@ -153,7 +145,7 @@ extension OverloadBindingConstraint: CustomStringConvertible {
 }
 
 /// A constraint `T[.x] == U` specifying that `T` has a value member `x` with type `U`.
-struct ValueMemberConstraint: Constraint {
+struct ValueMemberConstraint: Constraint, CustomStringConvertible {
 
   init(
     _ lhs     : ValType,
@@ -191,16 +183,50 @@ struct ValueMemberConstraint: Constraint {
     return (lhs === tau) || (rhs === tau)
   }
 
-}
-
-extension ValueMemberConstraint: CustomStringConvertible {
-
   var description: String { "\(lhs)[.\(memberName)] == \(rhs)" }
 
 }
 
+/// A constraint `T[.i] == U` specifying that `T` is a tuple whose `i`-th element has type `U`.
+struct TupleMemberConstraint: Constraint, CustomStringConvertible {
+
+  init(
+    _ lhs     : ValType,
+    hasMemberAt memberIndex: Int,
+    ofType rhs: ValType,
+    at locator: ConstraintLocator
+  ) {
+    assert(!(lhs is UnresolvedType) && !(rhs is UnresolvedType))
+
+    self.lhs = lhs
+    self.memberIndex = memberIndex
+    self.rhs = rhs
+    self.locator = locator
+  }
+
+  /// A type.
+  let lhs: ValType
+
+  /// A member index.
+  let memberIndex: Int
+
+  /// Another type.
+  let rhs: ValType
+
+  let locator: ConstraintLocator
+
+  var precedence: Int { 10 }
+
+  func depends(on tau: TypeVar) -> Bool {
+    return (lhs === tau) || (rhs === tau)
+  }
+
+  var description: String { "\(lhs)[.\(memberIndex)] == \(rhs)" }
+
+}
+
 /// A disjunction of two or more constraints.
-struct DisjunctionConstraint: Constraint {
+struct DisjunctionConstraint: Constraint, CustomStringConvertible {
 
   typealias Element = (constraint: Constraint, weight: Int)
 
@@ -217,10 +243,6 @@ struct DisjunctionConstraint: Constraint {
   func depends(on tau: TypeVar) -> Bool {
     return elements.contains(where: { elem in elem.constraint.depends(on: tau) })
   }
-
-}
-
-extension DisjunctionConstraint: CustomStringConvertible {
 
   var description: String {
     let elems = elements.map({ (elem) -> String in
