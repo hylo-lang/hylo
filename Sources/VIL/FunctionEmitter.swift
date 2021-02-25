@@ -321,7 +321,7 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
 
     // Emit the function's callee.
     switch node.fun {
-    case let memberRef as MemberRefExpr where memberRef.decl.isMember:
+    case let memberRef as MemberDeclRefExpr where memberRef.decl.isMember:
       if let methodDecl = memberRef.decl as? BaseFunDecl {
         // This is a call `foo.bar(x: 0, y: 1)`, where `bar` is a method and `foo` its receiver.
         let receiver = methodDecl.isMutating
@@ -441,7 +441,7 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     fatalError()
   }
 
-  func visit(_ node: MemberRefExpr) -> ExprResult {
+  func visit(_ node: MemberDeclRefExpr) -> ExprResult {
     // Emit the base value.
     let base: Value
     switch node.base.accept(self) {
@@ -465,6 +465,10 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
       break
     }
 
+    fatalError()
+  }
+
+  func visit(_ node: TupleMemberExpr) -> ExprResult {
     fatalError()
   }
 

@@ -99,7 +99,9 @@ public protocol ExprVisitor {
 
   func visit(_ node: TypeDeclRefExpr) -> ExprResult
 
-  func visit(_ node: MemberRefExpr) -> ExprResult
+  func visit(_ node: MemberDeclRefExpr) -> ExprResult
+
+  func visit(_ node: TupleMemberExpr) -> ExprResult
 
   func visit(_ node: AddrOfExpr) -> ExprResult
 

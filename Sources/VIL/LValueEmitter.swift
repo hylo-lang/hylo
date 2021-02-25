@@ -102,7 +102,7 @@ struct LValueEmitter: ExprVisitor {
     fatalError("not implemented")
   }
 
-  func visit(_ node: MemberRefExpr) -> ExprResult {
+  func visit(_ node: MemberDeclRefExpr) -> ExprResult {
     // The base has to be emittable as an l-value.
     switch node.base.accept(self) {
     case .success(let base):
@@ -140,6 +140,10 @@ struct LValueEmitter: ExprVisitor {
     case let failure:
       return failure
     }
+  }
+
+  func visit(_ node: TupleMemberExpr) -> Result<Value, EmitterError> {
+    fatalError("not implemented")
   }
 
   func visit(_ node: AddrOfExpr) -> ExprResult {

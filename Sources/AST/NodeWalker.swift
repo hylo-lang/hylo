@@ -476,7 +476,18 @@ open class NodeWalker: NodeVisitor {
     return true
   }
 
-  public final func visit(_ node: MemberRefExpr) -> Bool {
+  public final func visit(_ node: MemberDeclRefExpr) -> Bool {
+    let prevParent = parent
+    parent = node
+    defer { parent = prevParent }
+
+    (shouldContinue, node.base) = walk(node.base)
+    guard shouldContinue else { return false }
+
+    return true
+  }
+
+  public final func visit(_ node: TupleMemberExpr) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }

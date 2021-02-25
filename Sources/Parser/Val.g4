@@ -210,7 +210,7 @@ binExpr
 
 postExpr
   : postExpr '(' argList? ')'   # callExpr
-  | postExpr '.' NAME           # memberExpr
+  | postExpr '.' memberIdent    # memberExpr
   | postExpr castOper typeRepr  # castExpr
   | primary                     # primaryExpr
   ;
@@ -221,6 +221,11 @@ argList
 
 arg
   : (NAME ':')? expr
+  ;
+
+memberIdent
+  : NAME
+  | INT
   ;
 
 primary

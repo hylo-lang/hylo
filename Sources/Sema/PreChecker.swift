@@ -141,14 +141,18 @@ struct PreChecker: ExprVisitor {
     }
 
     // If the base is known to resolve to a concrete type, we could attempt to resolve the whole
-    // expression as a `MemberRefExpr` directly here, rather than letting the type solver do it.
-    // However, this wouldn't for overloaded members, unless we modify `OverloadedDeclRefExpr` so
-    // that it can keep track of a base expression.
+    // expression as a `MemberDeclRefExpr` directly here, rather than letting the type solver do
+    // it. However, this wouldn't for overloaded members, unless we modify `OverloadedDeclRefExpr`
+    // so that it can keep track of a base expression.
 
     return node
   }
 
-  func visit(_ node: MemberRefExpr) -> Expr {
+  func visit(_ node: MemberDeclRefExpr) -> Expr {
+    return node
+  }
+
+  func visit(_ node: TupleMemberExpr) -> Expr {
     return node
   }
 
@@ -204,7 +208,7 @@ struct PreChecker: ExprVisitor {
       let newRef: Expr
       if let expr = ref as? MemberExpr {
         // Preserve the base expr.
-        newRef = MemberRefExpr(base: expr.base, decl: decl, type: ref.type, range: expr.range)
+        newRef = MemberDeclRefExpr(base: expr.base, decl: decl, type: ref.type, range: expr.range)
       } else {
         newRef = DeclRefExpr(decl: decl, type: ref.type, range: ref.range)
       }

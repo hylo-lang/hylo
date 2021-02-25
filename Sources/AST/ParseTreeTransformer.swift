@@ -556,10 +556,28 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
 
   public override func visitMemberExpr(_ ctx: ValParser.MemberExprContext) -> Any {
     let base = ctx.postExpr()!.accept(self) as! Expr
-    let memberName = ctx.NAME()!.getText()
-    let expr = UnresolvedMemberExpr(
-      base: base, memberName: memberName, type: unresolvedType, range: range(of: ctx))
-    return expr
+    switch ctx.memberIdent()!.accept(self) {
+    case let name as String:
+      return UnresolvedMemberExpr(
+        base: base, memberName: name, type: unresolvedType, range: range(of: ctx))
+
+    case let index as Int:
+      return TupleMemberExpr(
+        base: base, memberIndex: index, type: unresolvedType, range: range(of: ctx))
+
+    default:
+      fatalError("unreachable")
+    }
+  }
+
+  public override func visitMemberIdent(_ ctx: ValParser.MemberIdentContext) -> Any {
+    if let name = ctx.NAME() {
+      return name.getText()
+    } else if let index = ctx.INT() {
+      return Int(index.getText())!
+    } else {
+      fatalError("unreachable")
+    }
   }
 
   public override func visitCastExpr(_ ctx: ValParser.CastExprContext) -> Any {

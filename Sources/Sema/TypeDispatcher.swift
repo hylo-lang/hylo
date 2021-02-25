@@ -27,7 +27,7 @@ final class TypeDispatcher: NodeWalker {
 
   override func didVisit(_ expr: Expr) -> (shouldContinue: Bool, nodeAfter: Expr) {
     switch expr {
-    case is MemberRefExpr:
+    case is MemberDeclRefExpr:
       break
 
     case let e as UnresolvedMemberExpr:
@@ -80,7 +80,8 @@ final class TypeDispatcher: NodeWalker {
     // Retrieve the selected overload from the solution.
     let locator = ConstraintLocator(expr)
     if let selected = solution.overloadChoices[locator], selected.count == 1{
-      return MemberRefExpr(base: expr.base, decl: selected[0], type: expr.type, range: expr.range)
+      return MemberDeclRefExpr(
+        base: expr.base, decl: selected[0], type: expr.type, range: expr.range)
     }
 
     return expr

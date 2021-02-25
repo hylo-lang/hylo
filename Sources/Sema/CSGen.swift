@@ -117,7 +117,10 @@ struct ConstraintGenerator: ExprVisitor {
   func visit(_ node: TypeDeclRefExpr) {
   }
 
-  func visit(_ node: MemberRefExpr) {
+  func visit(_ node: MemberDeclRefExpr) {
+  }
+
+  func visit(_ node: TupleMemberExpr) {
   }
 
   func visit(_ node: AddrOfExpr) {

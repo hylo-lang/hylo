@@ -91,7 +91,7 @@ public final class UnsafeCastExpr: Expr {
 
 }
 
-/// A tuple expression (e.g. `(fst: 4, snd: 2)`).
+/// A tuple expression (e.g., `(fst: 4, snd: 2)`).
 public final class TupleExpr: Expr {
 
   public init(elems: [TupleElem], type: ValType, range: SourceRange) {
@@ -336,7 +336,10 @@ public final class UnresolvedMemberExpr: MemberExpr {
 }
 
 /// An expression referring to a resolved member declaration.
-public final class MemberRefExpr: MemberExpr {
+///
+/// This does not represent expressions that denote the member of a tuple, as tuple member do not
+/// have declarations. Instead, those are represented by `TupleMemberExpr`.
+public final class MemberDeclRefExpr: MemberExpr {
 
   public init(base: Expr, decl: ValueDecl, type: ValType, range: SourceRange) {
     self.base = base
@@ -350,6 +353,38 @@ public final class MemberRefExpr: MemberExpr {
 
   /// The declaration referred by the expresssion.
   public var decl: ValueDecl
+
+  public var type: ValType
+
+  public var range: SourceRange
+
+  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
+    return visitor.visit(self)
+  }
+
+}
+
+/// An expression that refers to the member of a tuple (e.g., `(fst: 3, snd: 2).fst`).
+public final class TupleMemberExpr: MemberExpr {
+
+  public init(base: Expr, memberIndex: Int, type: ValType, range: SourceRange) {
+    self.base = base
+    self.memberIndex = memberIndex
+    self.type = type
+    self.range = range
+  }
+
+  /// The base expression.
+  public var base: Expr
+
+  /// The index of the member in the tuple.
+  public var memberIndex: Int
+
+  /// The label of the member in the tuple, if any.
+  public var memberLabel: String? {
+    guard let tType = type as? TupleType else { return nil }
+    return tType.elems[memberIndex].label
+  }
 
   public var type: ValType
 

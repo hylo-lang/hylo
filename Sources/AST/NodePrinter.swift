@@ -406,12 +406,22 @@ public struct NodePrinter: NodeVisitor {
     """
   }
 
-  public func visit(_ node: MemberRefExpr) -> String {
+  public func visit(_ node: MemberDeclRefExpr) -> String {
     return """
     {
     \(exprHeader(node)),
     "base"            : \(node.base.accept(self)),
     "decl"            : \(encode(referenceTo: node.decl))
+    }
+    """
+  }
+
+  public func visit(_ node: TupleMemberExpr) -> String {
+    return """
+    {
+    \(exprHeader(node)),
+    "base"            : \(node.base.accept(self)),
+    "memberIndex"     : \(node.memberIndex)
     }
     """
   }
