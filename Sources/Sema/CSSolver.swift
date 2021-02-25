@@ -223,31 +223,18 @@ struct CSSolver {
       }
 
     case is (ValType, TypeVar):
-      // The type variable is above a more concrete type. We should compute the "join" of all types
-      // to which `T` is coercible and that are below `U`.
-      var lower = constraint.lhs
-      if let inoutType = lower as? InoutType {
-        // Don't preserve l-valueness.
-        lower = inoutType.base
-      }
-      var guesses = [
-        RelationalConstraint(
-          kind: .equality, lhs: lower, rhs: constraint.rhs, at: constraint.locator)
-      ]
+      // The type variable is above a more concrete type. We could compute the "join" of all types
+      // to which `T` is coercible and that are below `U`. But since the solver should choose the
+      // most precise substitution anyway, we may as well simply use `T` as a guess.
+      let simplified = RelationalConstraint(
+        kind: .equality, lhs: constraint.lhs, rhs: constraint.rhs, at: constraint.locator)
+      solve(simplified)
 
-      // If `T` is an immutable nominal type, use all views to which it conforms as alternative
-      // choices. This effectively computes an implicit "upcast".
-      // FIXME: Do we actually need this?
-      if let nominal = lower as? NominalType, !(lower is InoutType) {
-        // FIXME: Should we make sure we don't accidentally load conformances that come from a
-        // a non-imported module if this is type-checked?
-        guesses.append(contentsOf: nominal.decl.conformanceTable.values.map({ conf in
-          return RelationalConstraint(
-            kind: .equality, lhs: conf.viewDecl.instanceType, rhs: constraint.rhs,
-            at: constraint.locator)
-        }))
-      }
-      system.insert(disjunction: guesses)
+    case (_, let rhs as ViewType):
+      // `U` is a view, to which `T` should conform.
+      let simplified = RelationalConstraint(
+        kind: .conformance, lhs: constraint.lhs, rhs: rhs, at: constraint.locator)
+      solve(simplified)
 
     case (_, let rhs as ViewCompositionType):
       // All types trivially conform to any.
