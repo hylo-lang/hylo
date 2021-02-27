@@ -115,8 +115,7 @@ struct DeclChecker: DeclVisitor {
   }
 
   func visit(_ node: VarDecl) -> Bool {
-    // VarDecls are always visited through their pattern, never directly.
-    fatalError("unreachable")
+    return visit(node.patternBindingDecl!)
   }
 
   func visit(_ node: BaseFunDecl) -> Bool {

@@ -368,7 +368,8 @@ struct CSSolver {
         args = [:]
       }
 
-      let choiceType = decls[0].contextualize(
+      let choiceType = checker.contextualize(
+        decl: decls[0],
         from: constraint.useSite,
         args: args,
         processingContraintsWith: { prototype in
@@ -431,12 +432,15 @@ struct CSSolver {
         _ = checker.check(decl: varDecl.patternBindingDecl!)
       }
 
-      let choiceType = decl.contextualize(
-        from: constraint.useSite, processingContraintsWith: { prototype in
+      let choiceType = checker.contextualize(
+        decl: decl,
+        from: constraint.useSite,
+        processingContraintsWith: { prototype in
           system.insert(RelationalConstraint(prototype: prototype, at: constraint.locator))
         })
       let choice = RelationalConstraint(
         kind: .equality, lhs: type, rhs: choiceType, at: constraint.locator)
+
       return (choice, 0)
     })
 

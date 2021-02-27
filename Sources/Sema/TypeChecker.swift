@@ -102,7 +102,7 @@ public final class TypeChecker {
     // Pre-check the expression.
     // This resolves primary names, realizes type rerps and desugars constructor calls.
     withUnsafeMutablePointer(to: &system, { ptr in
-      let driver = PreCheckDriver(system: ptr, useSite: useSite)
+      let driver = PreCheckDriver(system: ptr, checker: self, useSite: useSite)
       (_, expr) = driver.walk(expr)
     })
 
@@ -159,6 +159,97 @@ public final class TypeChecker {
     }
 
     return true
+  }
+
+  /// Contextualize the type the given declaration from the specified use site.
+  ///
+  /// - Parameters:
+  ///   - decl: The declaration to contextualize.
+  ///   - useSite: The declaration space from which the `decl` is being referred.
+  ///   - args: A dictionary containing specialization arguments for generic type parameters.
+  ///   - handleConstraint: A closure that accepts contextualized contraint prototypes. It is
+  ///     called if the contextualized type contains opened generic parameters for which there
+  ///     exist type requirements.
+  public func contextualize(
+    decl: ValueDecl,
+    from useSite: DeclSpace,
+    args: [GenericParamType: ValType] = [:],
+    processingContraintsWith handleConstraint: (GenericEnv.ConstraintPrototype) -> Void = { _ in }
+  ) -> ValType {
+    // Realize the declaration's type.
+    var genericType: ValType
+    switch decl {
+    case let varDecl as VarDecl:
+      // Variable declarations must be type checked, as in their type might be inferred.
+      _ = check(decl: varDecl)
+      genericType = varDecl.type
+
+      // FIXME: We could slightly more clever and avoid fully type checking annotated declarations
+      // by simply realizing their signature.
+
+    case let ctorDecl as CtorDecl where ctorDecl.isSynthesized:
+      // Synthesized constructors can't be realized until all stored properties of the constructed
+      // type have been type checked.
+      let typeDecl = ctorDecl.parentDeclSpace as! NominalTypeDecl
+      assert(typeDecl.storedVars.count == ctorDecl.params.count)
+      for (varDecl, paramDecl) in zip(typeDecl.storedVars, ctorDecl.params) {
+        // Type check the variable declaration.
+        guard check(decl: varDecl) else {
+          ctorDecl.setState(.invalid)
+          return decl.type.context.errorType
+        }
+
+        // Assign the type of the declaration to its corresponding parameter.
+        paramDecl.type = varDecl.type
+        paramDecl.setState(.typeChecked)
+      }
+
+      // Once all parameters have been attributed a proper type, the constructor can be realized.
+      genericType = ctorDecl.realize()
+
+    default:
+      genericType = decl.realize()
+    }
+
+    // Specialize the generic parameters for which arguments have been provided.
+    if !args.isEmpty {
+      genericType = genericType.specialized(with: args)
+    }
+
+    // If the declaration's type does not contain any free parameter, our work is done.
+    guard genericType.hasTypeParams else { return genericType }
+
+    // If the declaration is its own generic environment, then we must contextualize it externally,
+    // regardless of the use-site. This situation corresponds to a "fresh" use of a generic
+    // declaration within its own space (e.g., a recursive call to a generic function).
+    if let gds = decl as? GenericDeclSpace {
+      guard let env = gds.prepareGenericEnv() else {
+        return decl.type.context.errorType
+      }
+
+      // Adjust the use site depending on the type of declaration.
+      var adjustedSite: DeclSpace
+      if gds is CtorDecl {
+        // Constructors are contextualized from outside of their type declaration.
+        adjustedSite = gds.spacesUpToRoot.first(where: { $0 is TypeDecl })!.parentDeclSpace!
+      } else {
+        adjustedSite = gds
+      }
+      if adjustedSite.isDescendant(of: useSite) {
+        adjustedSite = useSite
+      }
+
+      return env.contextualize(
+        genericType, from: adjustedSite, processingContraintsWith: handleConstraint)
+    }
+
+    // Find the innermost generic space, relative to this declaration. We can assume there's one,
+    // otherwise `realize()` would have failed to resolve the decl.
+    guard let env = decl.parentDeclSpace!.innermostGenericSpace!.prepareGenericEnv() else {
+      return decl.type.context.errorType
+    }
+    return env.contextualize(
+      genericType, from: useSite, processingContraintsWith: handleConstraint)
   }
 
   private func registerConformance(

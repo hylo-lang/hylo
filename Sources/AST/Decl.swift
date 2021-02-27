@@ -102,66 +102,6 @@ public protocol ValueDecl: TypeOrValueDecl {
 
 }
 
-extension ValueDecl {
-
-  /// Contextualize the type of this declaration from the given use site.
-  ///
-  /// - Parameters:
-  ///   - useSite: The declaration space from which the declaration is being referred.
-  ///   - args: A dictionary containing specialization arguments for generic type parameters.
-  ///   - handleConstraint: A closure that accepts contextualized contraint prototypes. It is
-  ///     called only if the contextualized type contains opened generic types for which there
-  ///     exist type requirements.
-  public func contextualize(
-    from useSite: DeclSpace,
-    args: [GenericParamType: ValType] = [:],
-    processingContraintsWith handleConstraint: (GenericEnv.ConstraintPrototype) -> Void = { _ in }
-  ) -> ValType {
-    // Realize the declaration's type.
-    var genericType = realize()
-
-    // Specialize the generic parameters for which arguments have been provided.
-    if !args.isEmpty {
-      genericType = genericType.specialized(with: args)
-    }
-
-    guard genericType.hasTypeParams else { return genericType }
-
-    // If the declaration is its own generic environment, then we must contextualize it externally,
-    // regardless of the use-site. This situation corresponds to a "fresh" use of a generic
-    // declaration within its own space (e.g., a recursive call to a generic function).
-    if let gds = self as? GenericDeclSpace {
-      guard let env = gds.prepareGenericEnv() else {
-        return type.context.errorType
-      }
-
-      // Adjust the use site depending on the type of declaration.
-      var adjustedSite: DeclSpace
-      if gds is CtorDecl {
-        // Constructors are contextualized from outside of their type declaration.
-        adjustedSite = gds.spacesUpToRoot.first(where: { $0 is TypeDecl })!.parentDeclSpace!
-      } else {
-        adjustedSite = gds
-      }
-      if adjustedSite.isDescendant(of: useSite) {
-        adjustedSite = useSite
-      }
-
-      return env.contextualize(
-        genericType, from: adjustedSite, processingContraintsWith: handleConstraint)
-    }
-
-    // Find the innermost generic space, relative to this declaration. We can assume there's one,
-    // otherwise `realize()` would have failed to resolve the decl.
-    guard let env = parentDeclSpace!.innermostGenericSpace!.prepareGenericEnv() else {
-      return type.context.errorType
-    }
-    return env.contextualize(
-      genericType, from: useSite, processingContraintsWith: handleConstraint)
-  }
-
-}
-
 /// A declaration that consists of a pattern and an optional initializer for the variables declared
 /// in this pattern.
 public final class PatternBindingDecl: Decl {
@@ -266,8 +206,8 @@ public final class VarDecl: ValueDecl {
   public func realize() -> ValType {
     if state >= .realized { return type }
 
-    // Variable declarations can't realize on their own. Their type is defined when the enclosing
-    // pattern binding declaration is type checked.
+    // Variable declarations can't be realized on their own. Their type is defined when the
+    // enclosing pattern binding declaration is type checked.
     preconditionFailure("variable declarations can't realize on their own")
   }
 
@@ -347,6 +287,13 @@ public class BaseFunDecl: ValueDecl, GenericDeclSpace {
 
   /// Indicates whether the function is built-in.
   public var isBuiltin: Bool { props.contains(.isBuiltin) }
+
+  /// Indicates whether the declaration is synthesized.
+  ///
+  /// Synthesized declarations are created during semantic analysis. The may not necessarily have
+  /// a well-formed syntactic representation (e.g., a synthesized method declaration does need to
+  /// have a body).
+  public var isSynthesized: Bool { props.contains(.isSynthesized) }
 
   /// The declaration modifiers of the function.
   ///
@@ -539,10 +486,11 @@ public class BaseFunDecl: ValueDecl, GenericDeclSpace {
 
     public let rawValue: Int
 
-    public static let isMember   = FunDeclProps(rawValue: 1 << 0)
-    public static let isMutating = FunDeclProps(rawValue: 1 << 1)
-    public static let isStatic   = FunDeclProps(rawValue: 1 << 2)
-    public static let isBuiltin  = FunDeclProps(rawValue: 1 << 3)
+    public static let isMember      = FunDeclProps(rawValue: 1 << 0)
+    public static let isMutating    = FunDeclProps(rawValue: 1 << 1)
+    public static let isStatic      = FunDeclProps(rawValue: 1 << 2)
+    public static let isBuiltin     = FunDeclProps(rawValue: 1 << 3)
+    public static let isSynthesized = FunDeclProps(rawValue: 1 << 4)
 
   }
 
@@ -695,13 +643,13 @@ public class GenericTypeDecl: TypeDecl, GenericDeclSpace {
   public private(set) var state: DeclState
 
   /// The internal cache backing `valueMemberTable`.
-  private var _valueMemberTable: [String: [ValueDecl]]?
+  fileprivate var _valueMemberTable: [String: [ValueDecl]]?
 
   /// The internal cache backing `typeMemberTable`.
-  private var _typeMemberTable: [String: TypeDecl]?
+  fileprivate var _typeMemberTable: [String: TypeDecl]?
 
   /// The internal cache backing `conformanceTable`.
-  private var _conformanceTable: ConformanceLookupTable?
+  fileprivate var _conformanceTable: ConformanceLookupTable?
 
   public var range: SourceRange
 
@@ -917,7 +865,7 @@ public class GenericTypeDecl: TypeDecl, GenericDeclSpace {
   // MARK: Memory layout
 
   /// The list of properties that have storage in this type.
-  public var storedVarDecls: [VarDecl] { [] }
+  public var storedVars: [VarDecl] { [] }
 
 }
 
@@ -935,12 +883,43 @@ public class NominalTypeDecl: GenericTypeDecl {
   /// declared in extensions, inherited by conformance or synthetized.
   public var members: [Decl] = []
 
+  public override func updateMemberTables() {
+    super.updateMemberTables()
+
+    // Synthetize default constructors if necessary.
+    if _valueMemberTable!["new"] == nil {
+      let context = type.context
+      let range = self.range.lowerBound ..< self.range.lowerBound
+
+      // Create a constructor declaration.
+      let ctor = CtorDecl(type: context.unresolvedType, range: range)
+      ctor.genericClause = genericClause
+      ctor.parentDeclSpace = self
+      ctor.props.insert(.isSynthesized)
+
+      // Create a parameter for each stored property.
+      ctor.params = storedVars.map({ (varDecl: VarDecl) -> FunParamDecl in
+        let param = FunParamDecl(
+          name: varDecl.name,
+          externalName: varDecl.name,
+          typeSign: nil,
+          type: context.unresolvedType,
+          range: range)
+        param.parentDeclSpace = ctor
+        return param
+      })
+
+      // Insert the synthetized declaration into the member's table.
+      _valueMemberTable!["new"] = [ctor]
+    }
+  }
+
   fileprivate override func explicitMembers() -> [Decl] {
     return members
   }
 
   /// The list of properties that have storage in this type.
-  public override var storedVarDecls: [VarDecl] {
+  public override var storedVars: [VarDecl] {
     var result: [VarDecl] = []
     for case let pbDecl as PatternBindingDecl in members {
       // FIXME: Filter out computed properties.

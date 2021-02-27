@@ -254,7 +254,7 @@ public struct Interpreter {
     let recordAddr = eval(operand: inst.record).asAddress
 
     // Compute the record member's address.
-    let memberOffset: Int = (inst.record.type.valType as! NominalType).decl.storedVarDecls
+    let memberOffset: Int = (inst.record.type.valType as! NominalType).decl.storedVars
       .firstIndex(where: { decl in decl === inst.memberDecl })!
     let memberAddr = recordAddr.appending(offset: memberOffset)
 
@@ -268,7 +268,7 @@ public struct Interpreter {
     let record = eval(operand: inst.record)
 
     // Compute the record member's offset.
-    let memberOffset: Int = (inst.record.type.valType as! NominalType).decl.storedVarDecls
+    let memberOffset: Int = (inst.record.type.valType as! NominalType).decl.storedVars
       .firstIndex(where: { decl in decl === inst.memberDecl })!
     let member = record[[memberOffset]]
 

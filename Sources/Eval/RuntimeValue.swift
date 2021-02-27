@@ -9,7 +9,7 @@ enum RuntimeValue {
   init(ofType type: ValType) {
     switch type {
     case let pType as ProductType:
-      let capacity = pType.decl.storedVarDecls.count
+      let capacity = pType.decl.storedVars.count
       self = .record(Record(capacity: capacity))
 
     case let tType as TupleType:
