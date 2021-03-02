@@ -18,7 +18,10 @@ public struct Interpreter {
   /// The AST context in which the interpreter runs.
   public let context: AST.Context
 
-  /// The witness tables of each loaded module.
+  /// The functions loaded into the interpreter.
+  private var functions: [String: Function] = [:]
+
+  /// The witness tables loaded into the interpreter.
   private var witnessTables: [WitnessTable] = []
 
   /// The runtime stack of the interpreter.
@@ -34,22 +37,34 @@ public struct Interpreter {
     self.context = context
   }
 
-  /// Evaluates the given module.
-  public mutating func eval(module: Module) throws {
-    // Set the interpreter's program counter at the start of the main function.
-    guard let entry = module.functions["main"]?.blocks.first else {
+  /// Loads the given module.
+  ///
+  /// - Parameter module: A VIL module.
+  public mutating func load(module: Module) throws {
+    try functions.merge(module.functions, uniquingKeysWith: { (lhs, rhs) throws -> Function in
+      if lhs.blocks.isEmpty {
+        return rhs
+      } else if rhs.blocks.isEmpty {
+        return lhs
+      } else {
+        throw RuntimeError(message: "duplicate symbol '\(lhs)'")
+      }
+    })
+    witnessTables.append(contentsOf: module.witnessTables)
+  }
+
+  /// Start the interpreter.
+  public mutating func start() throws {
+    guard let entry = functions["main"]?.blocks.first else {
       throw RuntimeError(message: "no entry point")
     }
-    pc = ProgramCounter(atStartOf: entry)
-
-    // Register the witness tables.
-    witnessTables = module.witnessTables
 
     // (Re)initialize the interpreter's state.
+    pc     = ProgramCounter(atStartOf: entry)
     stack  = []
     locals = [[:]]
 
-    // Execute the function.
+    // Execute the entry point.
     while let nextPC = step() {
       pc = nextPC
     }
@@ -199,7 +214,9 @@ public struct Interpreter {
 
     case .function(let function):
       // Make sure the function has an entry point.
-      guard let entry = function.blocks.first else { return nil }
+      guard let entry = function.blocks.first else {
+        fatalError("function '\(function.name)' has no entry block")
+      }
 
       // Save the return info. This will serve as a sentinel to delimit the start of the call
       // frame, and indicate to the callee where the return value should be stored.

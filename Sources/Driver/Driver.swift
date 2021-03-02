@@ -133,19 +133,7 @@ public struct Driver {
 
     // Emit the module declaration.
     emitter.emit(moduleDecl: moduleDecl)
-    module.dump()
-
     return module
-  }
-
-  /// Evaluates the given VIL module.
-  ///
-  /// - Parameter module: The module to evaluate. `module` must define a main entry point (i.e., an
-  ///   unmangled `main` function) and have been lowered in the same context as the driver's
-  ///   loaded into the driver's context.
-  public func eval(module: Module) throws {
-    var interpreter = Interpreter(context: context)
-    try interpreter.eval(module: module)
   }
 
   /// Dumps the driver's context into the standard output.

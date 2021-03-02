@@ -1,5 +1,7 @@
 import Foundation
+
 import Driver
+import Eval
 
 func main(commandLineArgs: [String]) throws {
   let args = try ArgumentParser(commandLineArgs)
@@ -25,9 +27,15 @@ func main(commandLineArgs: [String]) throws {
       driver.dump()
     }
 
-    // Lower and evaluate the module.
-    let module = try driver.lower(moduleDecl: decl)
-    try driver.eval(module: module)
+    // Lower the module to VIL code.
+    let main = try driver.lower(moduleDecl: decl)
+    main.dump()
+
+    // Interpret the module.
+    var interpreter = Interpreter(context: driver.context)
+    try interpreter.load(module: driver.lower(moduleDecl: driver.context.stdlib!))
+    try interpreter.load(module: main)
+    try interpreter.start()
   }
 }
 

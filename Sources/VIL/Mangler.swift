@@ -60,7 +60,7 @@ public struct Mangler {
       append(funDecl: decl)
 
     case is FileUnit, is BraceStmt:
-      break
+      append(space: space.parentDeclSpace!)
 
     default:
       fatalError("unexpected declaration space")

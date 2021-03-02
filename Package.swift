@@ -10,13 +10,13 @@ let package = Package(
     .package(name: "Antlr4", path: "antlr4/runtime/Swift"),
   ],
   targets: [
-    .target(name: "val", dependencies: ["Driver", "Basic"]),
+    .target(name: "val", dependencies: ["Basic", "Driver", "Eval"]),
     .target(
       name: "AST",
       dependencies: ["Basic", "Parser"],
       resources: [.copy("Builtins.json")]),
     .target(name: "Basic"),
-    .target(name: "Driver", dependencies: ["AST", "Basic", "Eval", "Parser", "Sema", "VIL"]),
+    .target(name: "Driver", dependencies: ["AST", "Basic", "Parser", "Sema", "VIL"]),
     .target(
       name: "Parser",
       dependencies: ["Antlr4", "Basic"],
