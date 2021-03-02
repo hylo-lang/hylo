@@ -725,8 +725,8 @@ public class GenericTypeDecl: TypeDecl, GenericDeclSpace {
         fill(members: clause.params)
       }
 
-      // Populate the lookup table with explicit members.
-      fill(members: explicitMembers())
+      // Populate the lookup table with direct members.
+      fill(members: directMembers())
     }
 
     // Populate the lookup table with members declared in extensions.
@@ -745,8 +745,8 @@ public class GenericTypeDecl: TypeDecl, GenericDeclSpace {
     memberTablesGeneration = type.context.generation
   }
 
-  /// Returns the declarations of each "explicit" member in the type.
-  fileprivate func explicitMembers() -> [Decl] {
+  /// Returns the member declarations that resides directly within the type's declaration space.
+  fileprivate func directMembers() -> [Decl] {
     return []
   }
 
@@ -922,11 +922,15 @@ public class NominalTypeDecl: GenericTypeDecl {
     super.init(name: name, type: type, range: range, state: .realized)
   }
 
-  /// The member declarations of the type.
+  /// The "direct" member declarations of the type.
   ///
-  /// This is the list of explicit declarations found directly within the type declaration. Use
-  /// `allTypeAndValueMembers` to enumerate all member declarations, including those that are
-  /// declared in extensions, inherited by conformance or synthetized.
+  /// This collection contains the member declarations found directly within to scope of this type
+  /// declaration. This may include synthesized members, created during the semantic analysis, for
+  /// which a concrete source representation does not exist.
+  ///
+  /// Do not use this property for qualified name lookups. It does not contain members declared or
+  /// synthesized in extensions, or inherited by conformance. You should use `lookup(qualified:)`
+  /// for specific lookups, or `allTypeAndValueMembers` to enumerate all member declarations.
   public var members: [Decl] = []
 
   public override func updateMemberTables() {
@@ -957,10 +961,11 @@ public class NominalTypeDecl: GenericTypeDecl {
 
       // Insert the synthetized declaration into the member's table.
       _valueMemberTable["new"] = [ctor]
+      members.append(ctor)
     }
   }
 
-  fileprivate override func explicitMembers() -> [Decl] {
+  fileprivate override func directMembers() -> [Decl] {
     return members
   }
 

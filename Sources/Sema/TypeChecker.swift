@@ -179,6 +179,9 @@ public final class TypeChecker {
     // Realize the declaration's type.
     var genericType: ValType
     switch decl {
+    case _ where decl.state >= .realized:
+      genericType = decl.type
+
     case let varDecl as VarDecl:
       // Variable declarations must be type checked, as in their type might be inferred.
       _ = check(decl: varDecl)

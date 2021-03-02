@@ -132,8 +132,9 @@ struct DeclChecker: DeclVisitor {
   func visit(_ node: BaseFunDecl) -> Bool {
     guard node.state < .typeChecked else { return handleCheckState(node) }
 
-    /// Realize the function's signature.
-    _ = node.realize()
+    // Realize the function's signature. Note that we use the checker's 'contextualize' method, to
+    // handle synthesized declarations that require type checking (e.g., constructors).
+    _ = checker.contextualize(decl: node, from: node.rootDeclSpace)
     node.setState(.typeCheckRequested)
 
     /// Initialize the function's generic environment.
@@ -174,6 +175,7 @@ struct DeclChecker: DeclVisitor {
   func visit(_ node: ProductTypeDecl) -> Bool {
     guard node.state < .typeChecked else { return handleCheckState(node) }
     node.setState(.typeCheckRequested)
+    var isWellFormed = true
 
     // Initialize the type's generic environment.
     guard node.prepareGenericEnv() != nil else {
@@ -181,8 +183,8 @@ struct DeclChecker: DeclVisitor {
       return false
     }
 
-    // Type-check the type's members.
-    var isWellFormed = true
+    // Type check the type's direct members.
+    node.updateMemberTables()
     for member in node.members {
       isWellFormed = isWellFormed && member.accept(self)
     }
@@ -259,6 +261,7 @@ struct DeclChecker: DeclVisitor {
   func visit(_ node: ViewTypeDecl) -> Bool {
     guard node.state < .typeChecked else { return handleCheckState(node) }
     node.setState(.typeCheckRequested)
+    var isWellFormed = true
 
     // Initialize the type's generic environment.
     guard node.prepareGenericEnv() != nil else {
@@ -267,7 +270,7 @@ struct DeclChecker: DeclVisitor {
     }
 
     // Type-check the type's members.
-    var isWellFormed = true
+    node.updateMemberTables()
     for member in node.members {
       isWellFormed = isWellFormed && member.accept(self)
     }
@@ -287,13 +290,13 @@ struct DeclChecker: DeclVisitor {
   func visit(_ node: TypeExtDecl) -> Bool {
     guard node.state < .typeChecked else { return handleCheckState(node) }
     node.setState(.typeCheckRequested)
+    var isWellFormed = true
 
     // Bind the extension to the type it extends.
     guard node.computeExtendedDecl() != nil else { return false }
 
     // Type-check the extension's members.
     node.setState(.typeCheckRequested)
-    var isWellFormed = true
     for member in node.members {
       isWellFormed = isWellFormed && member.accept(self)
     }
