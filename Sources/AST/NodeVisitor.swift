@@ -33,6 +33,8 @@ public protocol DeclVisitor {
 
   func visit(_ node: ModuleDecl) -> DeclResult
 
+  func visit(_ node: ImportDecl) -> DeclResult
+
   func visit(_ node: PatternBindingDecl) -> DeclResult
 
   func visit(_ node: VarDecl) -> DeclResult

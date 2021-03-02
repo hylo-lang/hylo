@@ -23,6 +23,12 @@ public final class Context {
   /// The modules loaded in the context.
   public var modules: [String: ModuleDecl] = [:]
 
+  /// The current generation number of the context, denoting the number of times new modules have
+  /// been loaded.
+  ///
+  /// This number serves to determine whether name lookup caches are up to date.
+  public var generation = 0
+
   // MARK: Delegates
 
   /// A closure that is called to prepare generic environments.
@@ -134,7 +140,7 @@ public final class Context {
   /// The built-in module.
   public private(set) lazy var builtin: ModuleDecl = {
     // TODO: Load built-in function declarations.
-    return ModuleDecl(id: "Builtin", context: self)
+    return ModuleDecl(name: "Builtin", generation: 0, context: self)
   }()
 
   /// The built-in types that have been cached.

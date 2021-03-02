@@ -6,7 +6,7 @@
 /// Spaces do not necessarily match concrete, lexical scopes in the program source. They may simply
 /// denote a collection of nodes grouped under a single abstract entity, such as a module.
 /// Nonetheless, they always form a topological hierarchy.
-public protocol DeclSpace: Node {
+public protocol DeclSpace: AnyObject {
 
   /// The innermost parent in which this declaration space resides.
   ///

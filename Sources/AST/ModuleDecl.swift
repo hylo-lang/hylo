@@ -2,22 +2,36 @@ import Basic
 
 /// A module declaration.
 ///
-/// A module, or compilation unit, is a collection of types, variables and function declarations
-/// declared in one or several source files.
-public final class ModuleDecl: IterableDeclSpace {
+/// A module (a.k.a. compilation unit) is an abstract collection of types and function declared in
+/// one or several file units. It is internally treated as a type, whose members are the top-level
+/// declarations that are defined within its file units.
+///
+/// Module declarations conform the `Collection` protocol, allowing iteration over all top-level
+/// entities.
+public final class ModuleDecl {
 
-  public init(id: String, context: Context) {
-    self.id = id
-
-    type = context.unresolvedType
-    type = ModuleType(context: context, module: self).kind
+  public init(name: String, generation: Int, context: Context) {
+    self.name = name
+    self.generation = generation
+    self.type = context.unresolvedType
+    self.type = ModuleType(context: context, module: self).kind
   }
 
-  /// The module's identifier (typically its name).
-  public let id: String
+  public var name: String
 
-  /// The top-level declarations of the module.
-  public var decls: [Decl] = []
+  /// The generation number of the module.
+  public let generation: Int
+
+  /// The dependencies of the module.
+  public var dependencies: Set<ModuleDecl> = []
+
+  /// The file units in the module.
+  public var units: [FileUnit] = []
+
+  /// The type of the module.
+  ///
+  /// This is set directly within the module's constructor.
+  public private(set) var type: ValType
 
   public private(set) var state = DeclState.realized
 
@@ -25,11 +39,6 @@ public final class ModuleDecl: IterableDeclSpace {
     assert(newState.rawValue >= state.rawValue)
     state = newState
   }
-
-  /// The type of the module.
-  ///
-  /// This is set directly within the module's constructor.
-  public private(set) var type: ValType
 
   public var parentDeclSpace: DeclSpace? {
     get { nil }
@@ -89,9 +98,82 @@ public final class ModuleDecl: IterableDeclSpace {
 
 }
 
-extension ModuleDecl: TypeDecl {
+extension ModuleDecl: BidirectionalCollection, MutableCollection {
 
-  public var name: String { id }
+  public var startIndex: Index {
+    let i = Index(unitIndex: 0, declIndex: 0)
+    return !units.isEmpty && units[0].decls.isEmpty
+      ? index(after: i)
+      : i
+  }
+
+  public var endIndex: Index {
+    return Index(unitIndex: units.count, declIndex: 0)
+  }
+
+  public func index(after i: Index) -> Index {
+    var newIndex = i
+
+    while true {
+      newIndex.declIndex += 1
+      if newIndex.declIndex >= units[newIndex.unitIndex].decls.count {
+        newIndex.unitIndex += 1
+        newIndex.declIndex = 0
+        guard newIndex.unitIndex < units.count else { return newIndex }
+      }
+
+      if !units[newIndex.unitIndex].decls.isEmpty {
+        return newIndex
+      }
+    }
+  }
+
+  public func index(before i: Index) -> Index {
+    var newIndex = i
+
+    while true {
+      newIndex.declIndex -= 1
+      if newIndex.declIndex < 0 {
+        newIndex.unitIndex -= 1
+        newIndex.declIndex = units[newIndex.unitIndex].decls.count - 1
+      }
+
+      if !units[newIndex.unitIndex].decls.isEmpty {
+        return newIndex
+      }
+    }
+  }
+
+  public subscript(position: Index) -> Decl {
+    get { units[position.unitIndex].decls[position.declIndex] }
+    set { units[position.unitIndex].decls[position.declIndex] = newValue }
+  }
+
+  public struct Index: Comparable {
+
+    fileprivate var unitIndex: Int
+
+    fileprivate var declIndex: Int
+
+    public static func < (lhs: Index, rhs: Index) -> Bool {
+      return lhs.unitIndex == rhs.unitIndex
+        ? lhs.declIndex < rhs.declIndex
+        : lhs.unitIndex < rhs.unitIndex
+    }
+
+  }
+
+}
+
+extension ModuleDecl: IterableDeclSpace {
+
+  typealias DeclSequence = ModuleDecl
+
+  var decls: ModuleDecl { self }
+
+}
+
+extension ModuleDecl: TypeDecl {
 
   public var fullyQualName: [String] { [name] }
 
@@ -105,10 +187,22 @@ extension ModuleDecl: TypeDecl {
 
 }
 
+extension ModuleDecl: Hashable {
+
+  public func hash(into hasher: inout Hasher) {
+    hasher.combine(name)
+  }
+
+  public static func == (lhs: ModuleDecl, rhs: ModuleDecl) -> Bool {
+    return lhs === rhs
+  }
+
+}
+
 extension ModuleDecl: CustomStringConvertible {
 
   public var description: String {
-    return "Module(\(id))"
+    return "Module(\(name))"
   }
 
 }

@@ -147,9 +147,19 @@ open class NodeWalker: NodeVisitor {
       innermostSpace = nil
     }
 
-    for i in 0 ..< node.decls.count {
-      (shouldContinue, node.decls[i]) = walk(node.decls[i])
+    for i in node.indices {
+      (shouldContinue, node[i]) = walk(node[i])
       guard shouldContinue else { return false }
+    }
+
+    return true
+  }
+
+  public final func visit(_ node: ImportDecl) -> Bool {
+    let prevParent = parent
+    parent = node
+    defer {
+      parent = prevParent
     }
 
     return true

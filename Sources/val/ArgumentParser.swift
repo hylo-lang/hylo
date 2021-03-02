@@ -23,11 +23,12 @@ struct ArgumentParser {
         i = i + 1
 
       default:
-        if args[i].starts(with: "--") {
+        guard !args[i].starts(with: "-") else {
           throw illegalParameter(args[i])
-        } else {
-          throw unexpectedArgument(args[i])
         }
+
+        files.append(args[i])
+        i += 1
       }
     }
 
@@ -38,6 +39,9 @@ struct ArgumentParser {
 
   /// An option to dump the AST after the semantic analysis.
   var dumpAST = false
+
+  /// The input files.
+  var files: [String] = []
 
   private func missingArgument(for parameter: String) -> ArgumentParserError {
     return ArgumentParserError(message: "missing argument value for '\(parameter)'")

@@ -22,7 +22,7 @@ public final class Emitter {
   }
 
   public func emit(moduleDecl: ModuleDecl) {
-    for decl in moduleDecl.decls {
+    for decl in moduleDecl {
       emit(decl: decl)
     }
   }

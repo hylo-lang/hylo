@@ -447,7 +447,7 @@ public final class ViewType: NominalType {
     if lhs.decl.rootDeclSpace === rhs.decl.rootDeclSpace {
       return lhs.decl.name.lexicographicallyPrecedes(rhs.decl.name)
     } else {
-      return lhs.decl.rootDeclSpace.id.lexicographicallyPrecedes(rhs.decl.rootDeclSpace.id)
+      return lhs.decl.rootDeclSpace.name.lexicographicallyPrecedes(rhs.decl.rootDeclSpace.name)
     }
   }
 

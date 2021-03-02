@@ -14,12 +14,23 @@ struct DeclChecker: DeclVisitor {
     node.setState(.typeCheckRequested)
 
     var isWellFormed = true
-    for decl in node.decls {
+    for decl in node {
       isWellFormed = isWellFormed && decl.accept(self)
     }
 
     node.setState(isWellFormed ? .typeChecked : .invalid)
     return isWellFormed
+  }
+
+  func visit(_ node: ImportDecl) -> Bool {
+    // Check that the imported module belongs to the current module's dependencies.
+    let module = node.parentDeclSpace!.rootDeclSpace
+    if !module.dependencies.contains(where: { $0.name == node.name }) {
+      module.type.context.report(.cannotFind(module: node.name, range: node.range))
+      return false
+    }
+
+    return true
   }
 
   func visit(_ node: PatternBindingDecl) -> Bool {

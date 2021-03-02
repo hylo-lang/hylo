@@ -25,16 +25,22 @@ extension Function {
 
   /// Dumps a textual representation of the function to the given output stream.
   public func dump<S>(to stream: inout S) where S: TextOutputStream {
-    stream.write("vilfun \(name) : \(type) {\n")
+    // Dump the function's prologue.
+    stream.write("vilfun \(name) : \(type)")
 
-    withUnsafeMutablePointer(to: &stream, { ptr in
-      var context = PrintContext(stream: ptr)
-      for block in blocks {
-        context.dump(block: block)
-      }
-    })
-
-    stream.write("}\n")
+    // Dump the function's body, if any.
+    if blocks.isEmpty {
+      stream.write("\n\n")
+    } else {
+      stream.write(" {\n")
+      withUnsafeMutablePointer(to: &stream, { ptr in
+        var context = PrintContext(stream: ptr)
+        for block in blocks {
+          context.dump(block: block)
+        }
+      })
+      stream.write("}\n\n")
+    }
   }
 
 }

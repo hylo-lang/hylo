@@ -36,6 +36,12 @@ extension Diagnostic {
     return Diagnostic("'\(name)' is not a built-in symbol", anchor: range)
   }
 
+  public static func cannotFind(
+    module name: String, range: SourceRange
+  ) -> Diagnostic {
+    return Diagnostic("I don't know about a module named '\(name)'", anchor: range)
+  }
+
   public static func builtinTypesAreNotNamespaces(
     range: SourceRange
   ) -> Diagnostic {

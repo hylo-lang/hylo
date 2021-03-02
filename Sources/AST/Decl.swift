@@ -102,6 +102,34 @@ public protocol ValueDecl: TypeOrValueDecl {
 
 }
 
+/// A module import declaration.
+public final class ImportDecl: Decl {
+
+  public init(name: String, range: SourceRange) {
+    self.name = name
+    self.range = range
+  }
+
+  /// The name of the module being imported.
+  public var name: String
+
+  public var parentDeclSpace: DeclSpace?
+
+  public var state = DeclState.parsed
+
+  public func setState(_ newState: DeclState) {
+    assert(newState >= state)
+    state = newState
+  }
+
+  public var range: SourceRange
+
+  public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
+    return visitor.visit(self)
+  }
+
+}
+
 /// A declaration that consists of a pattern and an optional initializer for the variables declared
 /// in this pattern.
 public final class PatternBindingDecl: Decl {
@@ -643,13 +671,19 @@ public class GenericTypeDecl: TypeDecl, GenericDeclSpace {
   public private(set) var state: DeclState
 
   /// The internal cache backing `valueMemberTable`.
-  fileprivate var _valueMemberTable: [String: [ValueDecl]]?
+  fileprivate var _valueMemberTable: [String: [ValueDecl]] = [:]
 
   /// The internal cache backing `typeMemberTable`.
-  fileprivate var _typeMemberTable: [String: TypeDecl]?
+  fileprivate var _typeMemberTable: [String: TypeDecl] = [:]
 
   /// The internal cache backing `conformanceTable`.
-  fileprivate var _conformanceTable: ConformanceLookupTable?
+  fileprivate var _conformanceTable = ConformanceLookupTable()
+
+  /// The context generation for which the member tables were last updated.
+  fileprivate var memberTablesGeneration = -1
+
+  /// The context generation for which `_conformanceTable` was last updated.
+  fileprivate var conformanceTableGeneration = -1
 
   public var range: SourceRange
 
@@ -664,50 +698,51 @@ public class GenericTypeDecl: TypeDecl, GenericDeclSpace {
   /// A lookup table keeping track of value members.
   public var valueMemberTable: [String: [ValueDecl]] {
     updateMemberTables()
-    return _valueMemberTable!
+    return _valueMemberTable
   }
 
   /// A lookup table keeping track of type members.
   public var typeMemberTable: [String: TypeDecl] {
     updateMemberTables()
-    return _typeMemberTable!
+    return _typeMemberTable
   }
 
   public func lookup(qualified name: String) -> LookupResult {
     updateMemberTables()
     return LookupResult(
-      types : _typeMemberTable![name].map({ [$0] }) ?? [],
-      values: _valueMemberTable![name] ?? [])
+      types : _typeMemberTable[name].map({ [$0] }) ?? [],
+      values: _valueMemberTable[name] ?? [])
   }
 
   // Updates or initializes the member lookup tables.
   public func updateMemberTables() {
-    guard _valueMemberTable == nil else { return }
+    guard memberTablesGeneration < type.context.generation else { return }
 
-    // Initialize type lookup tables.
-    _valueMemberTable = [:]
-    _typeMemberTable  = [:]
+    // Initialize the lookup tables with the direct members of the type.
+    if memberTablesGeneration < 0 {
+      // Populate the lookup table with generic parameters.
+      if let clause = genericClause {
+        fill(members: clause.params)
+      }
 
-    // Populate the lookup table with generic parameters.
-    if let clause = genericClause {
-      fill(members: clause.params)
+      // Populate the lookup table with explicit members.
+      fill(members: explicitMembers())
     }
 
-    // Populate the lookup table with explicit members.
-    fill(members: explicitMembers())
-
     // Populate the lookup table with members declared in extensions.
-    for module in type.context.modules.values {
+    for module in type.context.modules.values where module.generation > memberTablesGeneration {
       for extDecl in extensions(in: module) {
         fill(members: extDecl.members)
       }
     }
 
     // Populate the lookup table with members inherited by conformance.
-    updateConformanceTable()
-    for conformance in _conformanceTable!.values {
+    let newConfs = updateConformanceTable()
+    for conformance in newConfs {
       fill(members: conformance.viewDecl.allTypeAndValueMembers.lazy.map({ $0.decl }))
     }
+
+    memberTablesGeneration = type.context.generation
   }
 
   /// Returns the declarations of each "explicit" member in the type.
@@ -725,24 +760,24 @@ public class GenericTypeDecl: TypeDecl, GenericDeclSpace {
     for decl in members where decl.state != .invalid {
       switch decl {
       case let valueDecl as ValueDecl:
-        _valueMemberTable![valueDecl.name, default: []].append(valueDecl)
+        _valueMemberTable[valueDecl.name, default: []].append(valueDecl)
 
       case let pbDecl as PatternBindingDecl:
         for pattern in pbDecl.pattern.namedPatterns {
-          _valueMemberTable![pattern.decl.name, default: []].append(pattern.decl)
+          _valueMemberTable[pattern.decl.name, default: []].append(pattern.decl)
         }
 
       case let typeDecl as TypeDecl:
         // Check for invalid redeclarations.
         // FIXME: Shadow abstract type declarations inherited by conformance.
-        guard _typeMemberTable![typeDecl.name] == nil else {
+        guard _typeMemberTable[typeDecl.name] == nil else {
           type.context.report(
             .duplicateDeclaration(symbol: typeDecl.name, range: typeDecl.range))
           typeDecl.setState(.invalid)
           continue
         }
 
-        _typeMemberTable![typeDecl.name] = typeDecl
+        _typeMemberTable[typeDecl.name] = typeDecl
 
       default:
         continue
@@ -763,8 +798,8 @@ public class GenericTypeDecl: TypeDecl, GenericDeclSpace {
 
     fileprivate init(decl: GenericTypeDecl) {
       self.decl = decl
-      self.valueMemberIndex = (decl._valueMemberTable!.startIndex, 0)
-      self.typeMemberIndex = decl._typeMemberTable!.startIndex
+      self.valueMemberIndex = (decl._valueMemberTable.startIndex, 0)
+      self.typeMemberIndex = decl._typeMemberTable.startIndex
     }
 
     fileprivate unowned let decl: GenericTypeDecl
@@ -775,7 +810,7 @@ public class GenericTypeDecl: TypeDecl, GenericDeclSpace {
 
     public mutating func next() -> (name: String, decl: TypeOrValueDecl)? {
       // Iterate over value members.
-      let valueTable = decl._valueMemberTable!
+      let valueTable = decl._valueMemberTable
       if valueMemberIndex.0 < valueTable.endIndex {
         // Extract the next member.
         let (name, bucket) = valueTable[valueMemberIndex.0]
@@ -791,7 +826,7 @@ public class GenericTypeDecl: TypeDecl, GenericDeclSpace {
       }
 
       // Iterate over type members.
-      let typeTable = decl._typeMemberTable!
+      let typeTable = decl._typeMemberTable
       if typeMemberIndex < typeTable.endIndex {
         let (name, member) = typeTable[typeMemberIndex]
         typeMemberIndex = typeTable.index(after: typeMemberIndex)
@@ -818,26 +853,37 @@ public class GenericTypeDecl: TypeDecl, GenericDeclSpace {
   public var conformanceTable: ConformanceLookupTable {
     get {
       updateConformanceTable()
-      return _conformanceTable!
+      return _conformanceTable
     }
     set { _conformanceTable = newValue }
   }
 
-  // Updates or initializes the conformance lookup table.
-  public func updateConformanceTable() {
-    if _conformanceTable == nil {
-      _conformanceTable = ConformanceLookupTable()
+  /// Updates or initializes the conformance lookup table.
+  ///
+  /// - Returns: The new conformances that have been created.
+  @discardableResult
+  public func updateConformanceTable() -> [ViewConformance] {
+    guard conformanceTableGeneration < type.context.generation else { return [] }
+
+    // Initialize the conformance table with the inheritance clause of the type declaration.
+    var newConfs: [ViewConformance] = []
+    if conformanceTableGeneration < 0 {
       for repr in inheritances {
         let reprType = repr.realize(unqualifiedFrom: parentDeclSpace!)
         if let viewType = reprType as? ViewType {
-          _conformanceTable![viewType] = ViewConformance(
-            viewDecl: viewType.decl as! ViewTypeDecl, range: repr.range)
+          let conf = ViewConformance(viewDecl: viewType.decl as! ViewTypeDecl, range: repr.range)
+          _conformanceTable[viewType] = conf
+          newConfs.append(conf)
         }
       }
 
       // FIXME: Insert inherited conformance.
-      // FIXME: Insert conformance declared in extensions.
     }
+
+    // FIXME: Insert conformance declared in extensions.
+    conformanceTableGeneration = type.context.generation
+
+    return newConfs
   }
 
   /// Returns whether the declared type conforms to the given view.
@@ -848,7 +894,7 @@ public class GenericTypeDecl: TypeDecl, GenericDeclSpace {
   ///   the given view. Otherwise, returns `false`.
   public func conforms(to viewType: ViewType) -> Bool {
     updateConformanceTable()
-    guard let conformance = _conformanceTable![viewType] else { return false }
+    guard let conformance = _conformanceTable[viewType] else { return false }
     return conformance.state == .checked
   }
 
@@ -887,7 +933,7 @@ public class NominalTypeDecl: GenericTypeDecl {
     super.updateMemberTables()
 
     // Synthetize default constructors if necessary.
-    if _valueMemberTable!["new"] == nil {
+    if _valueMemberTable["new"] == nil {
       let context = type.context
       let range = self.range.lowerBound ..< self.range.lowerBound
 
@@ -910,7 +956,7 @@ public class NominalTypeDecl: GenericTypeDecl {
       })
 
       // Insert the synthetized declaration into the member's table.
-      _valueMemberTable!["new"] = [ctor]
+      _valueMemberTable["new"] = [ctor]
     }
   }
 

@@ -127,11 +127,35 @@ public struct NodePrinter: NodeVisitor {
   }
 
   public func visit(_ node: ModuleDecl) -> String {
+    let units = "[" + node.units.map(visit(_:)).joined(separator: ", ") + "]"
+
     return """
     {
     "class"           : "\(type(of: node))",
-    "id"              : "\(node.id)",
-    "decls"           : \(encode(node.decls))
+    "name"            : "\(node.name)",
+    "units"           : \(units)
+    }
+    """
+  }
+
+  public func visit(_ unit: FileUnit) -> String {
+    let path = (unit as? SourceUnit)?.source.url.path ?? ""
+
+    return """
+    {
+    "class"           : "\(type(of: unit))",
+    "path"            : "\(path)",
+    "decls"           : \(encode(unit.decls))
+    }
+    """
+  }
+
+  public func visit(_ node: ImportDecl) -> String {
+    return """
+    {
+    "class"           : "\(type(of: node))",
+    "range"           : \(encode(node.range)),
+    "name"            : \(encode(node.name))
     }
     """
   }

@@ -1,16 +1,16 @@
 extension DeclSpace {
 
   public func lookup(unqualified name: String, in context: Context) -> LookupResult {
-    var space: DeclSpace? = self
+    var space: DeclSpace = self
     var result = LookupResult()
 
     // Only function and type declarations are overloadable. Thus we must filter out every other
     // value declaration once the first has been found.
     var hasNonOverloadableDecl = false
 
-    while let ns = space {
+    while true {
       // Enumerate the symbols declared directly within the current space.
-      var locals = ns.lookup(qualified: name)
+      var locals = space.lookup(qualified: name)
       if hasNonOverloadableDecl {
         locals = locals.filter({ $0.isOverloadable })
       } else {
@@ -18,7 +18,13 @@ extension DeclSpace {
       }
 
       result.append(contentsOf: locals)
-      space = ns.parentDeclSpace
+      if let parent = space.parentDeclSpace {
+        space = parent
+      } else if let stdlib = context.stdlib, space !== stdlib {
+        space = stdlib
+      } else {
+        break
+      }
     }
 
     // Handle the implicit import of the built-in module in the standard library.

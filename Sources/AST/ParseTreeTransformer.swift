@@ -27,10 +27,13 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
   private var unresolvedType: UnresolvedType { context.unresolvedType }
 
   public override func visitFile(_ ctx: ValParser.FileContext) -> Any {
-    var decls: [Decl] = []
-    expand(decls: ctx.decl(), into: &decls)
-    module?.decls.append(contentsOf: decls)
-    return decls
+    let unit = SourceUnit(source: sourceFile)
+    unit.parentDeclSpace = module
+    currentSpace = unit
+
+    expand(decls: ctx.decl(), into: &unit.decls)
+    module?.units.append(unit)
+    return unit
   }
 
   public override func visitCodeBlock(_ ctx: ValParser.CodeBlockContext) -> Any {
@@ -60,6 +63,12 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
 
   public override func visitDecl(_ ctx: ValParser.DeclContext) -> Any {
     return ctx.children![0].accept(self)!
+  }
+
+  public override func visitImportDecl(_ ctx: ValParser.ImportDeclContext) -> Any {
+    let stmt = ImportDecl(name: ctx.NAME()!.getText(), range: range(of: ctx))
+    stmt.parentDeclSpace = currentSpace
+    return stmt
   }
 
   public override func visitDeclModifierList(_ ctx: ValParser.DeclModifierListContext) -> Any {

@@ -3,7 +3,7 @@ import Foundation
 /// A handle to a source file, owned by a source manager.
 ///
 /// A source manager is essentially a large buffer of concatenated source files. This type provide
-/// a thin abstraction over this buffer to manipulate to interact with a single source file.
+/// a thin abstraction over a section of this buffer to manipulate to interact with a single file.
 public struct SourceFile {
 
   /// The manager owning the contents of the source file.

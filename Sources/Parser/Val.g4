@@ -19,10 +19,15 @@ statement
   ;
 
 decl
-  : patternBindingDecl
+  : importDecl
+  | patternBindingDecl
   | funDecl
   | typeDecl
   | extDecl
+  ;
+
+importDecl
+  : 'import' NAME
   ;
 
 declModifierList

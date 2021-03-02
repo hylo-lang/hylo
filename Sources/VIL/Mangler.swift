@@ -43,7 +43,7 @@ public struct Mangler {
   public mutating func append(space: DeclSpace) {
     switch space {
     case let decl as ModuleDecl:
-      append(name: decl.id)
+      append(name: decl.name)
       append(key: .moduleDecl)
 
     case let decl as ViewTypeDecl:
@@ -58,6 +58,9 @@ public struct Mangler {
 
     case let decl as BaseFunDecl:
       append(funDecl: decl)
+
+    case is FileUnit, is BraceStmt:
+      break
 
     default:
       fatalError("unexpected declaration space")

@@ -1,5 +1,7 @@
 {
   "functions": [
+    ["i1_false", "i1"],
+
     ["i64_print", "i64", "Unit"],
     ["i64_trunc_IntLiteral", "IntLiteral", "i64"],
 

@@ -10,13 +10,16 @@ extension Context {
       preconditionFailure("I coudn't load builtin definitions")
     }
 
+    let unit = BuiltinUnit()
+    builtin.units.append(unit)
+
     for function in config.functions {
       let decl = createBuiltinFunDecl(
         name  : function[0],
         params: function[1 ..< (function.count - 1)],
         ret   : function[function.count - 1])
-      decl.parentDeclSpace = builtin
-      builtin.decls.append(decl)
+      decl.parentDeclSpace = unit
+      unit.decls.append(decl)
       builtinDecls[decl.name] = decl
     }
   }
