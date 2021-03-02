@@ -43,13 +43,13 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     let function = builder.getOrCreateFunction(from: funDecl)
 
     // We're done if the function doesn't have body.
-    guard let body = funDecl.body else { return }
+    guard (funDecl.body != nil) || funDecl.isSynthesized else { return }
 
     // Contextualize the function's arguments.
     let genericEnv = funDecl.genericEnv!
     var args = function.type.paramTypes.map({ type -> Value in
       return ArgumentValue(
-        type: type.contextualized(in: genericEnv, from: body), function: function)
+        type: type.contextualized(in: genericEnv, from: funDecl), function: function)
     })
 
     // Create an entry block.
@@ -57,7 +57,7 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
 
     // Register the function's receiver in the local symbol table, if necessary.
     if let selfDecl = funDecl.selfDecl {
-      var selfType = genericEnv.contextualize(selfDecl.type, from: body)
+      var selfType = genericEnv.contextualize(selfDecl.type, from: funDecl)
       if funDecl.isMember {
         // Member functions accept their receiver an implicit parameter.
         locals[ObjectIdentifier(funDecl.selfDecl!)] = args[0]
@@ -78,7 +78,9 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     }
 
     // Emit the function's body.
-    visit(body)
+    guard let body = funDecl.body else {
+      return emitSynthesizedBody()
+    }
 
     // If the function's a constructor, emit the implicit return statement.
     if funDecl is CtorDecl {
@@ -94,6 +96,30 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
         let range = body.range.upperBound ..< body.range.upperBound
         context.report(.missingReturnValueInNonUnitFunction(range: range))
       }
+    }
+  }
+
+  func emitSynthesizedBody() {
+    assert(funDecl.isSynthesized)
+
+    switch funDecl.name {
+    case "new":
+      // Emit a synthesized constructor.
+      let base = locals[ObjectIdentifier(funDecl.selfDecl!)]!
+      let type = funDecl.parentDeclSpace as! NominalTypeDecl
+
+      for (varDecl, paramDecl) in zip(type.storedVars, funDecl.params) {
+        let memberAddr = builder.buildRecordMemberAddr(
+          record: base, memberDecl: varDecl, type: VILType.lower(varDecl.type).address)
+        let value = locals[ObjectIdentifier(paramDecl)]!
+        builder.buildStore(lvalue: memberAddr, rvalue: value)
+      }
+
+      let selfVal = builder.buildLoad(lvalue: base)
+      builder.buildRet(value: selfVal)
+
+    default:
+      preconditionFailure("unexpected synthesized declaration '\(funDecl.name)'")
     }
   }
 

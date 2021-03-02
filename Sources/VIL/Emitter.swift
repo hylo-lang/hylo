@@ -69,7 +69,7 @@ public final class Emitter {
       builder.module.witnessTables.append(table)
     }
 
-    // Emit the members of the declaration.
+    // Emit the direct members of the declaration.
     for memberDecl in decl.members {
       emit(decl: memberDecl)
     }
