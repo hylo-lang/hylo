@@ -9,7 +9,7 @@ final class ValTests: XCTestCase {
       "No test case found")
 
     for url in urls {
-      var driver = Driver()
+      let driver = Driver()
       let source = try driver.context.sourceManager.load(contentsOf: url)
 
       let checker = DiagnosticChecker(context: driver.context)
@@ -17,8 +17,8 @@ final class ValTests: XCTestCase {
       checker.scan(source)
 
       let moduleName = url.deletingPathExtension().lastPathComponent
-      driver.jobs.append(CompileJob(moduleName: moduleName, moduleFiles: [url]))
-      try driver.run()
+      let moduleDecl = try driver.parse(moduleName: moduleName, moduleFiles: [url])
+      driver.typeCheck(moduleDecl: moduleDecl)
 
       checker.finalize(source)
     }
