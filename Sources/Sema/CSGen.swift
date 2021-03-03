@@ -127,6 +127,9 @@ struct ConstraintGenerator: ExprVisitor {
         at: ConstraintLocator(node, .tupleElem(node.memberIndex))))
   }
 
+  func visit(_ node: AsyncExpr) -> Void {
+  }
+
   func visit(_ node: AwaitExpr) {
   }
 

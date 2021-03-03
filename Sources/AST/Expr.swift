@@ -396,7 +396,32 @@ public final class TupleMemberExpr: MemberExpr {
 
 }
 
-/// An expression awaiting the result of an asynchronous value (e.g., `await foo(bar)`).
+/// An expression that is evaluated asynchronously (e.g., `async foo()`).
+///
+/// An async expression is a wrapper around a "future". It describes a value that might still being
+/// computed, typically by a concurrent thread.
+public final class AsyncExpr: Expr {
+
+  public init(value: Expr, type: ValType, range: SourceRange) {
+    self.value = value
+    self.type = type
+    self.range = range
+  }
+
+  /// The expression to evaluate asynchronously.
+  public var value: Expr
+
+  public var type: ValType
+
+  public var range: SourceRange
+
+  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
+    return visitor.visit(self)
+  }
+
+}
+
+/// An expression awaiting the result of an asynchronous value (e.g., `await foo()`).
 public final class AwaitExpr: Expr {
 
   public init(value: Expr, type: ValType, range: SourceRange) {

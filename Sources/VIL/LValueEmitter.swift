@@ -142,11 +142,15 @@ struct LValueEmitter: ExprVisitor {
     }
   }
 
-  func visit(_ node: TupleMemberExpr) -> Result<Value, EmitterError> {
+  func visit(_ node: TupleMemberExpr) -> ExprResult {
     fatalError("not implemented")
   }
 
-  func visit(_ node: AwaitExpr) -> Result<Value, EmitterError> {
+  func visit(_ node: AsyncExpr) -> ExprResult {
+    fatalError("not implemented")
+  }
+
+  func visit(_ node: AwaitExpr) -> ExprResult {
     fatalError("not implemented")
   }
 

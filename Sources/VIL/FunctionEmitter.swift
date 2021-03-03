@@ -500,6 +500,10 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     fatalError()
   }
 
+  func visit(_ node: AsyncExpr) -> ExprResult {
+    fatalError()
+  }
+
   func visit(_ node: AwaitExpr) -> ExprResult {
     fatalError()
   }

@@ -565,13 +565,15 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     let expr = tree(head: head, tail: tail[0...])
 
     // Wrap the tree into an await expression if necessary.
-    if ctx.awaitOp() != nil {
+    switch ctx.asyncOp()?.getText() {
+    case "async":
+      return AsyncExpr(value: expr, type: unresolvedType, range: range(of: ctx))
+    case "await":
       return AwaitExpr(value: expr, type: unresolvedType, range: range(of: ctx))
-    } else {
+    default:
       return expr
     }
   }
-
 
   public override func visitPreExpr(_ ctx: ValParser.PreExprContext) -> Any {
     let expr = ctx.postExpr()!.accept(self) as! Expr

@@ -105,6 +105,8 @@ public protocol ExprVisitor {
 
   func visit(_ node: TupleMemberExpr) -> ExprResult
 
+  func visit(_ node: AsyncExpr) -> ExprResult
+
   func visit(_ node: AwaitExpr) -> ExprResult
 
   func visit(_ node: AddrOfExpr) -> ExprResult

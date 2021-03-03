@@ -171,6 +171,10 @@ struct PreChecker: ExprVisitor {
     return node
   }
 
+  func visit(_ node: AsyncExpr) -> Expr {
+    return node
+  }
+
   func visit(_ node: AwaitExpr) -> Expr {
     return node
   }

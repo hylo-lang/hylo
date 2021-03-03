@@ -500,6 +500,15 @@ open class NodeWalker: NodeVisitor {
     return shouldContinue
   }
 
+  public final func visit(_ node: AsyncExpr) -> Bool {
+    let prevParent = parent
+    parent = node
+    defer { parent = prevParent }
+
+    (shouldContinue, node.value) = walk(node.value)
+    return shouldContinue
+  }
+
   public final func visit(_ node: AwaitExpr) -> Bool {
     let prevParent = parent
     parent = node
