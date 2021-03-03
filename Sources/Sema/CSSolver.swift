@@ -90,10 +90,11 @@ struct CSSolver {
     if updated.lhs == updated.rhs { return }
 
     switch updated.kind {
-    case .equality      : solve(equality   : updated)
-    case .conformance   : solve(conformance: updated)
-    case .subtyping     : solve(subtyping  : updated)
-    case .conversion    : solve(conversion : updated)
+    case .equality      : solve(equality      : updated)
+    case .oneWayEquality: solve(oneWayEquality: updated)
+    case .conformance   : solve(conformance   : updated)
+    case .subtyping     : solve(subtyping     : updated)
+    case .conversion    : solve(conversion    : updated)
     }
   }
 
@@ -143,6 +144,19 @@ struct CSSolver {
       }
       errors.append(.conflictingTypes(constraint))
     }
+  }
+
+  private mutating func solve(oneWayEquality constraint: RelationalConstraint) {
+    // Postpone the constraint if the right operand has not been determined yet.
+    guard !(constraint.rhs is TypeVar) else {
+      system.staleConstraints.append(constraint)
+      return
+    }
+
+    // Simplfy the constraint as a standard equality.
+    let simplified = RelationalConstraint(
+      kind: .equality, lhs: constraint.lhs, rhs: constraint.rhs, at: constraint.locator)
+    solve(equality: simplified)
   }
 
   private mutating func solve(conformance constraint: RelationalConstraint) {
@@ -264,12 +278,27 @@ struct CSSolver {
       }
 
     case (_, let rhs as UnionType):
-      // `T` is a single type that must be a subtype of at least one element in `U`.
+      // `T` is (partially) determined and is not a union type. Therefore, it must be a subtype of
+      // at least one element in `U`.
       let choices = rhs.elems.map({ elem in
         RelationalConstraint(
           kind: .subtyping, lhs: constraint.lhs, rhs: elem, at: constraint.locator)
       })
       system.insert(disjunction: choices)
+
+    case (let lhs as AsyncType, let rhs as AsyncType):
+      // `T` and `U` are both asynchronous. We can simplify the constraint by only considering
+      // their respective underlying type.
+      let simplified = RelationalConstraint(
+        kind: .subtyping, lhs: lhs.base, rhs: rhs.base, at: constraint.locator)
+      solve(subtyping: simplified)
+
+    case (_, let rhs as AsyncType):
+      // `T` is (partially) determined and is not an asynchronous type. Therefore, it must be
+      // a subtype of `U`'s underlying type.
+      let simplified = RelationalConstraint(
+        kind: .subtyping, lhs: constraint.lhs, rhs: rhs.base, at: constraint.locator)
+      solve(simplified)
 
     default:
       solve(equality: constraint)
@@ -566,6 +595,13 @@ struct CSSolver {
         RelationalConstraint(
           kind: constraint.kind, lhs: lhs.retType, rhs: rhs.retType,
           at: constraint.locator.appending(.returnType)))
+      return true
+
+    case (let lhs as AsyncType, let rhs as AsyncType):
+      system.insert(
+        RelationalConstraint(
+          kind: constraint.kind, lhs: lhs.base, rhs: rhs.base,
+          at: constraint.locator))
       return true
 
     default:

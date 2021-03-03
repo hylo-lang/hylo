@@ -16,9 +16,16 @@ final class CSGenDriver: NodeWalker {
       return (true, expr)
     }
 
+    // Async expressions always have the type `async T`.
+    if let asyncExpr = expr as? AsyncExpr {
+      asyncExpr.type = asyncExpr.type.context.asyncType(of: asyncExpr.value.type)
+      return (true, asyncExpr)
+    }
+
     // Assign fresh variables to the expressions with unresolved types.
     if (expr.type is UnresolvedType) &&
-        !(expr is UnresolvedDeclRefExpr) && !(expr is UnresolvedQualDeclRefExpr)
+        !(expr is UnresolvedDeclRefExpr) &&
+        !(expr is UnresolvedQualDeclRefExpr)
     {
       expr.type = TypeVar(context: expr.type.context, node: expr)
     }
@@ -131,6 +138,11 @@ struct ConstraintGenerator: ExprVisitor {
   }
 
   func visit(_ node: AwaitExpr) {
+    let awaitedType = node.type.context.asyncType(of: node.type)
+    system.pointee.insert(
+      RelationalConstraint(
+        kind: .oneWayEquality, lhs: awaitedType, rhs: node.value.type,
+        at: ConstraintLocator(node.value)))
   }
 
   func visit(_ node: AddrOfExpr) {

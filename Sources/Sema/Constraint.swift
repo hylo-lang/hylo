@@ -70,6 +70,10 @@ struct RelationalConstraint: Constraint, CustomStringConvertible {
     /// corresponding to a literal type `U`.
     case conversion
 
+    /// A constraints `T == U` that requires `U` to be (partially) determined before it is treated
+    /// exactly like an equality containst.
+    case oneWayEquality
+
   }
 
   /// The kind of relation described by the constraint.
@@ -91,7 +95,8 @@ struct RelationalConstraint: Constraint, CustomStringConvertible {
 
   var description: String {
     switch kind {
-    case .equality      : return "\(lhs) == \(rhs)"
+    case .equality,
+         .oneWayEquality: return "\(lhs) == \(rhs)"
     case .subtyping     : return "\(lhs) <: \(rhs)"
     case .conformance   : return "\(lhs) : \(rhs)"
     case .conversion    : return "\(lhs) ⊏ \(rhs)"

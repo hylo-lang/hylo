@@ -21,7 +21,7 @@ struct TypeErrorReporter {
       // Compute the diagnostic's message.
       let message: String
       switch constraint.kind {
-      case .equality:
+      case .equality, .oneWayEquality:
         message = "type '\(lhs)' is not equal to type '\(rhs)'"
       case .conformance:
         message = "type '\(lhs)' does not conform to the view '\(rhs)'"
