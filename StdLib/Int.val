@@ -4,38 +4,45 @@ view ExpressibleByBuiltinIntLiteral {
 
 }
 
+/// A signed integer value.
 type Int: ExpressibleByBuiltinIntLiteral {
 
-  new () {
-    self.value = 0
-  }
-
-  new (literal value: Builtin::IntLiteral) {
-    self.value = value
-  }
-
+  /// the wrapped built-in integer value.
   var value: Builtin::i64
 
-  /// Mutate this value.
-  mut fun = (_ other: Int) {
-    self.value = other.value
+  /// Creates a new value equal to zero.
+  new () {
+    self = 0
   }
 
-  /// Returns the sum of this value and `other`.
+  /// Creates a new value from a built-in literal.
+  ///
+  /// This constructor is meant to be used internally and should not be called directly.
+  new (literal value: Builtin::IntLiteral) {
+    self.value = Builtin::i64_trunc_IntLiteral(value)
+  }
+
+  /// Returns the result of adding `other` to this value.
+  ///
+  /// - Parameter other: An integer value.
   fun + (_ other: Int) -> Int {
     var result = Int()
     result.value = Builtin::i64_add(self.value, other.value)
     ret result
   }
 
-}
-
-extn Int {
-
+  /// Returns the result of subtracting `other` from this value.
+  ///
+  /// - Parameter other: An integer value.
   fun - (_ other: Int) -> Int {
     var result = Int()
     result.value = Builtin::i64_sub(self.value, other.value)
     ret result
+  }
+
+  /// Negates this value, effectively producing the same value with the opposite sign.
+  mut fun negate() {
+    self = 0 - self
   }
 
 }
