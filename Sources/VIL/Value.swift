@@ -71,16 +71,16 @@ public final class BuiltinFunRef: LiteralValue, CustomStringConvertible {
 /// A reference to a VIL function.
 public final class FunRef: LiteralValue, CustomStringConvertible {
 
-  /// The function being referenced.
-  public unowned let function: Function
+  /// The name of the function being referenced.
+  public let name: String
 
   public init(function: Function) {
-    self.function = function
+    self.name = function.name
     super.init(type: function.type)
   }
 
   public var description: String {
-    return "@\(function.name)"
+    return "@\(name)"
   }
 
 }

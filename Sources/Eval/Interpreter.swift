@@ -113,7 +113,7 @@ public struct Interpreter {
     case let literal as IntLiteralValue:
       return .native(literal.value)
     case let literal as FunRef:
-      return .function(literal.function)
+      return .function(functions[literal.name]!)
     case let literal as BuiltinFunRef:
       return .builtinFunction(literal.decl)
     case is Error:
