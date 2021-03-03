@@ -14,7 +14,7 @@ extension Module {
     stream.write("// module \(id)\n")
 
     // Dump the functions in the module.
-    for function in functions.values {
+    for function in functions.values.sorted(by: { a, b in a.name < b.name }) {
       function.dump(to: &stream)
     }
   }
