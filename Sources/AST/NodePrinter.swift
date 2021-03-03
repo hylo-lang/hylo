@@ -325,9 +325,11 @@ public struct NodePrinter: NodeVisitor {
 
   public func visit(_ node: UnsafeCastExpr) -> String {
     return """
+    {
     \(exprHeader(node)),
     "value"           : \(encode(node.value)),
     "sign"            : \(encode(node.sign))
+    }
     """
   }
 
