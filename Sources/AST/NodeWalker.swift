@@ -458,9 +458,7 @@ open class NodeWalker: NodeVisitor {
     defer { parent = prevParent }
 
     (shouldContinue, node.namespace) = walk(node.namespace) as! (Bool, IdentTypeRepr)
-    guard shouldContinue else { return false }
-
-    return true
+    return shouldContinue
   }
 
   public final func visit(_ node: OverloadedDeclRefExpr) -> Bool {
@@ -481,9 +479,7 @@ open class NodeWalker: NodeVisitor {
     defer { parent = prevParent }
 
     (shouldContinue, node.base) = walk(node.base)
-    guard shouldContinue else { return false }
-
-    return true
+    return shouldContinue
   }
 
   public final func visit(_ node: MemberDeclRefExpr) -> Bool {
@@ -492,9 +488,7 @@ open class NodeWalker: NodeVisitor {
     defer { parent = prevParent }
 
     (shouldContinue, node.base) = walk(node.base)
-    guard shouldContinue else { return false }
-
-    return true
+    return shouldContinue
   }
 
   public final func visit(_ node: TupleMemberExpr) -> Bool {
@@ -503,9 +497,16 @@ open class NodeWalker: NodeVisitor {
     defer { parent = prevParent }
 
     (shouldContinue, node.base) = walk(node.base)
-    guard shouldContinue else { return false }
+    return shouldContinue
+  }
 
-    return true
+  public final func visit(_ node: AwaitExpr) -> Bool {
+    let prevParent = parent
+    parent = node
+    defer { parent = prevParent }
+
+    (shouldContinue, node.value) = walk(node.value)
+    return shouldContinue
   }
 
   public final func visit(_ node: AddrOfExpr) -> Bool {
@@ -514,9 +515,7 @@ open class NodeWalker: NodeVisitor {
     defer { parent = prevParent }
 
     (shouldContinue, node.value) = walk(node.value)
-    guard shouldContinue else { return false }
-
-    return true
+    return shouldContinue
   }
 
   public final func visit(_ node: WildcardExpr) -> Bool {
@@ -533,9 +532,7 @@ open class NodeWalker: NodeVisitor {
     defer { parent = prevParent }
 
     (shouldContinue, node.decl) = walk(node.decl) as! (Bool, VarDecl)
-    guard shouldContinue else { return false }
-
-    return true
+    return shouldContinue
   }
 
   public final func visit(_ node: TuplePattern) -> Bool {

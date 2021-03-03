@@ -206,7 +206,7 @@ tupleTypeElem
   ;
 
 expr
-  : preExpr binExpr*
+  : awaitOp? preExpr binExpr*
   ;
 
 preExpr
@@ -266,6 +266,10 @@ tupleElem
 
 wildcard
   : '_'
+  ;
+
+awaitOp
+  : 'await'
   ;
 
 prefixOper

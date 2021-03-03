@@ -82,6 +82,8 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
       return emitSynthesizedBody()
     }
 
+    visit(body)
+
     // If the function's a constructor, emit the implicit return statement.
     if funDecl is CtorDecl {
       let selfLoc = locals[ObjectIdentifier(funDecl.selfDecl!)]
@@ -495,6 +497,10 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
   }
 
   func visit(_ node: TupleMemberExpr) -> ExprResult {
+    fatalError()
+  }
+
+  func visit(_ node: AwaitExpr) -> ExprResult {
     fatalError()
   }
 

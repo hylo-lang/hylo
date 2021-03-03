@@ -146,6 +146,10 @@ struct LValueEmitter: ExprVisitor {
     fatalError("not implemented")
   }
 
+  func visit(_ node: AwaitExpr) -> Result<Value, EmitterError> {
+    fatalError("not implemented")
+  }
+
   func visit(_ node: AddrOfExpr) -> ExprResult {
     fatalError("not implemented")
   }

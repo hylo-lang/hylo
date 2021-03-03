@@ -535,28 +535,41 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
         rhs = tree(head: tail[index].expr, tail: tail[(index + 1)...])
       }
 
+      // Compute the range of the sub-expression.
+      let rg = lhs.range.lowerBound ..< rhs.range.upperBound
+
       // The assignment operator has a dedicated expression.
       if loc.infixOp == .copy {
-        return AssignExpr(lvalue: lhs, rvalue: rhs, range: range(of: ctx))
+        return AssignExpr(lvalue: lhs, rvalue: rhs, range: rg)
       }
 
+      // Create an infix call.
       let infixFun = UnresolvedMemberExpr(
         base: lhs, memberName: loc.infixOp.rawValue, type: unresolvedType, range: loc.range)
       let infixCall = CallExpr(
         fun: infixFun,
         args: [CallArg(value: rhs, range: rhs.range)],
         type: unresolvedType,
-        range: range(of: ctx))
+        range: rg)
       return infixCall
     }
 
+    // Build a sequence of expressions, separated by infix operators.
     let head = ctx.preExpr()?.accept(self) as! Expr
     let tail = ctx.binExpr().map({ (pair) -> Link in
       let loc = pair.infixOper()!.accept(self) as! InfixOperatorLoc
       return (loc: loc, expr: pair.preExpr()!.accept(self) as! Expr)
     })
 
-    return tree(head: head, tail: tail[0...])
+    // Transform the sequence into a tree, applying precedence and associativity.
+    let expr = tree(head: head, tail: tail[0...])
+
+    // Wrap the tree into an await expression if necessary.
+    if ctx.awaitOp() != nil {
+      return AwaitExpr(value: expr, type: unresolvedType, range: range(of: ctx))
+    } else {
+      return expr
+    }
   }
 
 

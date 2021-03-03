@@ -396,6 +396,28 @@ public final class TupleMemberExpr: MemberExpr {
 
 }
 
+/// An expression awaiting the result of an asynchronous value (e.g., `await foo(bar)`).
+public final class AwaitExpr: Expr {
+
+  public init(value: Expr, type: ValType, range: SourceRange) {
+    self.value = value
+    self.type = type
+    self.range = range
+  }
+
+  /// The asynchronous value to await.
+  public var value: Expr
+
+  public var type: ValType
+
+  public var range: SourceRange
+
+  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
+    return visitor.visit(self)
+  }
+
+}
+
 /// An expression resolving to the address of a value (e.g., `&foo.bar`).
 public final class AddrOfExpr: Expr {
 
@@ -405,6 +427,7 @@ public final class AddrOfExpr: Expr {
     self.range = range
   }
 
+  /// The expression representing the address to resolve.
   public var value: Expr
 
   public var type: ValType

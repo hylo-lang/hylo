@@ -450,6 +450,15 @@ public struct NodePrinter: NodeVisitor {
     """
   }
 
+  public func visit(_ node: AwaitExpr) -> String {
+    return """
+    {
+    \(exprHeader(node)),
+    "value"           : \(encode(node.value))
+    }
+    """
+  }
+
   public func visit(_ node: AddrOfExpr) -> String {
     return """
     {
