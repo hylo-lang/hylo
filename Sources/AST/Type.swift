@@ -231,6 +231,17 @@ fileprivate final class TypeSpecializer: TypeWalker {
 
 }
 
+/// Converts the given type to a string suitable to be inserted into the textual representation
+/// of a type expression.
+///
+/// - Parameter type: A type.
+fileprivate func stringify(_ type: ValType) -> String {
+  let desc = String(describing: type)
+  return desc.contains(" ")
+    ? "(\(desc))"
+    : desc
+}
+
 /// A kind type (i.e., the type of a type).
 public final class KindType: ValType {
 
@@ -283,7 +294,7 @@ public final class KindType: ValType {
 extension KindType: CustomStringConvertible {
 
   public var description: String {
-    return "\(type)::Kind"
+    return "\(stringify(type))::Kind"
   }
 
 }
@@ -545,7 +556,7 @@ extension ViewCompositionType: CustomStringConvertible {
     if views.isEmpty {
       return "Any"
     } else {
-      return views.map(String.init(describing:)).joined(separator: " & ")
+      return views.map(stringify(_:)).joined(separator: " & ")
     }
   }
 
@@ -654,7 +665,7 @@ extension UnionType: CustomStringConvertible {
     if elems.isEmpty {
       return "Unhabited"
     } else {
-      return elems.map(String.init(describing:)).joined(separator: " | ")
+      return elems.map(stringify(_:)).joined(separator: " | ")
     }
   }
 
@@ -801,12 +812,7 @@ public final class SkolemType: ValType {
 extension SkolemType: CustomStringConvertible {
 
   public var description: String {
-    switch interface {
-    case is ViewCompositionType, is FunType, is InoutType:
-      return "$(\(interface))"
-    default:
-      return "$\(interface)"
-    }
+    return "$\(stringify(interface))"
   }
 
 }
@@ -1075,6 +1081,12 @@ public final class AsyncType: ValType {
 
 }
 
+extension AsyncType: CustomStringConvertible {
+
+  public var description: String { "async \(stringify(base))" }
+
+}
+
 /// An "inout" type (e.g. `mut Int`)
 ///
 /// In-out types can only appear as function parameters. They indicate that an argument is expected
@@ -1128,6 +1140,12 @@ public final class InoutType: ValType {
   public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
     visitor.visit(self)
   }
+
+}
+
+extension InoutType: CustomStringConvertible {
+
+  public var description: String { "mut \(stringify(base))" }
 
 }
 
