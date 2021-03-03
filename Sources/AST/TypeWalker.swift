@@ -101,6 +101,10 @@ open class TypeWalker: TypeVisitor {
       paramType: walk(type.paramType), retType: walk(type.retType))
   }
 
+  open func visit(_ type: AsyncType) -> ValType {
+    return type.context.asyncType(of: walk(type.base))
+  }
+
   open func visit(_ type: InoutType) -> ValType {
     return type.context.inoutType(of: walk(type.base))
   }

@@ -81,6 +81,58 @@ public final class FunTypeRepr: TypeRepr {
 
 }
 
+/// The signature of an asynchronous type (e.g., `async A`).
+public final class AsyncTypeRepr: TypeRepr {
+
+  public init(base: TypeRepr, type: ValType, modifierRange: SourceRange, range: SourceRange) {
+    self.base = base
+    self.type = type
+    self.modifierRange = modifierRange
+    self.range = range
+  }
+
+  /// The signature of the underyling type.
+  public var base: TypeRepr
+
+  public var type: ValType
+
+  /// The source range of the `async` keyword at the start of the signature.
+  public var modifierRange: SourceRange
+
+  public var range: SourceRange
+
+  public func accept<V>(_ visitor: V) -> V.TypeReprResult where V: TypeReprVisitor {
+    return visitor.visit(self)
+  }
+
+}
+
+/// The signature of a mutating (a.k.a. in-out) parameter type (e.g., `mut A`).
+public final class InoutTypeRepr: TypeRepr {
+
+  public init(base: TypeRepr, type: ValType, modifierRange: SourceRange, range: SourceRange) {
+    self.base = base
+    self.type = type
+    self.modifierRange = modifierRange
+    self.range = range
+  }
+
+  /// The signature of the underyling type.
+  public var base: TypeRepr
+
+  public var type: ValType
+
+  /// The source range of the `async` keyword at the start of the signature.
+  public var modifierRange: SourceRange
+
+  public var range: SourceRange
+
+  public func accept<V>(_ visitor: V) -> V.TypeReprResult where V: TypeReprVisitor {
+    return visitor.visit(self)
+  }
+
+}
+
 /// The signature of a union type (e.g., `A | B`).
 public final class UnionTypeRepr: TypeRepr {
 

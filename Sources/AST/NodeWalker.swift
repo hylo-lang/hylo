@@ -582,6 +582,24 @@ open class NodeWalker: NodeVisitor {
     return true
   }
 
+  public final func visit(_ node: AsyncTypeRepr) -> Bool {
+    let prevParent = parent
+    parent = node
+    defer { parent = prevParent }
+
+    (shouldContinue, node.base) = walk(node.base)
+    return shouldContinue
+  }
+
+  public final func visit(_ node: InoutTypeRepr) -> Bool {
+    let prevParent = parent
+    parent = node
+    defer { parent = prevParent }
+
+    (shouldContinue, node.base) = walk(node.base)
+    return shouldContinue
+  }
+
   public final func visit(_ node: UnionTypeRepr) -> Bool {
     let prevParent = parent
     parent = node

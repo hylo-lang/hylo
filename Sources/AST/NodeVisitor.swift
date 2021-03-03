@@ -135,6 +135,10 @@ public protocol TypeReprVisitor {
 
   func visit(_ node: FunTypeRepr) -> TypeReprResult
 
+  func visit(_ node: AsyncTypeRepr) -> TypeReprResult
+
+  func visit(_ node: InoutTypeRepr) -> TypeReprResult
+
   func visit(_ node: UnionTypeRepr) -> TypeReprResult
 
   func visit(_ node: ViewCompTypeRepr) -> TypeReprResult

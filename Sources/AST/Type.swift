@@ -17,28 +17,34 @@ public class ValType {
   /// A set of recursively defined properties.
   public let props: RecursiveProps
 
-  /// The type is in canonical form.
+  /// Indicates whether the type is in canonical form.
   public var isCanonical: Bool { props.contains(.isCanonical) }
 
-  /// The type contains one or more type variables.
+  /// Indicates whether the type contains one or more async types.
+  public var hasAsync: Bool { props.contains(.hasAsync) }
+
+  /// Indicates whether the type contains one or more inout types.
+  public var hasInout: Bool { props.contains(.hasInout) }
+
+  /// Indicates whether the type contains one or more type variables.
   public var hasVariables: Bool { props.contains(.hasVariables) }
 
-  /// The type contains one or more generic type parameters.
+  /// Indicates whether the type contains one or more generic type parameters.
   public var hasTypeParams: Bool { props.contains(.hasTypeParams) }
 
-  /// The type contains one or more skolems.
+  /// Indicates whether the type contains one or more skolems.
   public var hasSkolems: Bool { props.contains(.hasSkolems) }
 
-  /// The type contains the unresolved type.
+  /// Indicates whether the type contains the unresolved type.
   public var hasUnresolved: Bool { props.contains(.hasUnresolved) }
 
-  /// The type contains the error type.
+  /// Indicates whether the type contains the error type.
   public var hasErrors: Bool { props.contains(.hasErrors) }
 
-  /// The type is well-formed; it does not contain type variables, unresolved or error types.
+  /// Indicates whether the type is well-formed; it does not contain type variables, unresolved or error types.
   public var isWellFormed: Bool { !hasVariables && !hasUnresolved && !hasErrors }
 
-  /// The type is existential.
+  /// Indicates whether the type is existential.
   ///
   /// A type is existential if it cannot be resolved to a concrete representation statically, but
   /// is known to represent a runtime type that satisfies a set of requirements. Note that this
@@ -167,11 +173,13 @@ public class ValType {
     }
 
     public static let isCanonical     = RecursiveProps(value: 1 << 0)
-    public static let hasVariables    = RecursiveProps(value: 1 << 1)
-    public static let hasTypeParams   = RecursiveProps(value: 1 << 2)
-    public static let hasSkolems      = RecursiveProps(value: 1 << 3)
-    public static let hasUnresolved   = RecursiveProps(value: 1 << 4)
-    public static let hasErrors       = RecursiveProps(value: 1 << 5)
+    public static let hasAsync        = RecursiveProps(value: 1 << 1)
+    public static let hasInout        = RecursiveProps(value: 1 << 2)
+    public static let hasVariables    = RecursiveProps(value: 1 << 3)
+    public static let hasTypeParams   = RecursiveProps(value: 1 << 4)
+    public static let hasSkolems      = RecursiveProps(value: 1 << 5)
+    public static let hasUnresolved   = RecursiveProps(value: 1 << 6)
+    public static let hasErrors       = RecursiveProps(value: 1 << 7)
 
     /// Merges a collection of recursive properties.
     ///
@@ -1000,16 +1008,84 @@ extension FunType: CustomStringConvertible {
 
 }
 
-/// An "inout" type (e.g. `mut Int`)
-///
-/// Inout types can only appear as function parameters. They specify that arguments are expected to
-/// be passed by reference (using the `&` prefix operator). They also denote the implicit receiver
-/// type of a mutating method.
-public final class InoutType: ValType {
+/// An asynchronous type (e.g., `async Int`).
+public final class AsyncType: ValType {
 
   init(context: Context, base: ValType) {
     self.base = base
-    super.init(context: context, props: base.props)
+
+    // The canonical form collapses the async modifiers.
+    var props = base.props.merged(with: .hasAsync)
+    if props.contains(.isCanonical) && (base is AsyncType) {
+      props = props.removing(.isCanonical)
+    }
+
+    super.init(context: context, props: props)
+  }
+
+  /// A type.
+  public let base: ValType
+
+  public override var canonical: ValType {
+    if isCanonical {
+      return self
+    }
+
+    switch base.canonical {
+    case let asyncType as AsyncType:
+      return asyncType
+
+    case let type:
+      // FIXME: We might add more equivalence classes (e.g., 'async (a: T) == (a: async T)').
+      return context.asyncType(of: type)
+    }
+  }
+
+  public override var uncontextualized: ValType {
+    return hasSkolems
+      ? context.asyncType(of: base.uncontextualized)
+      : self
+  }
+
+  public override func matches(
+    with other: ValType,
+    reconcilingWith reconcile: (ValType, ValType) -> Bool
+  ) -> Bool {
+    if self == other { return true }
+
+    guard let that = other as? AsyncType else { return reconcile(self, other) }
+    return base.matches(with: that.base, reconcilingWith: reconcile)
+  }
+
+  override func isEqual(to other: ValType) -> Bool {
+    guard let that = other as? AsyncType,
+          base.isEqual(to: that.base)
+    else { return false }
+    return true
+  }
+
+  override func hash(into hasher: inout Hasher) {
+    withUnsafeBytes(of: AsyncType.self, { hasher.combine(bytes: $0) })
+    base.hash(into: &hasher)
+  }
+
+  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+    visitor.visit(self)
+  }
+
+}
+
+/// An "inout" type (e.g. `mut Int`)
+///
+/// In-out types can only appear as function parameters. They indicate that an argument is expected
+/// to be be passed as a mutable alias (using the `&` prefix operator). The implicit receiver of a
+/// mutating method is always an in-out parameter.
+public final class InoutType: ValType {
+
+  init(context: Context, base: ValType) {
+    assert(!base.hasInout, "bad type: base type cannot contain in-out types")
+    self.base = base
+    super.init(context: context, props: base.props.merged(with: .hasInout))
   }
 
   /// A type.
@@ -1052,12 +1128,6 @@ public final class InoutType: ValType {
   public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
     visitor.visit(self)
   }
-
-}
-
-extension InoutType: CustomStringConvertible {
-
-  public var description: String { "mut \(base)" }
 
 }
 

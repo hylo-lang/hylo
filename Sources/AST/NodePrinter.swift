@@ -540,6 +540,24 @@ public struct NodePrinter: NodeVisitor {
     """
   }
 
+  public func visit(_ node: AsyncTypeRepr) -> String {
+    return """
+    {
+    \(typeReprHeader(node)),
+    "base"            : \(node.base.accept(self))
+    }
+    """
+  }
+
+  public func visit(_ node: InoutTypeRepr) -> String {
+    return """
+    {
+    \(typeReprHeader(node)),
+    "base"            : \(node.base.accept(self))
+    }
+    """
+  }
+
   public func visit(_ node: UnionTypeRepr) -> String {
     return """
     {

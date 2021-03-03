@@ -15,6 +15,8 @@ extension TypeRepr {
     case let this as CompoundTypeRepr : return AST.realize(this, from: useSite)
     case let this as TupleTypeRepr    : return AST.realize(this, from: useSite)
     case let this as FunTypeRepr      : return AST.realize(this, from: useSite)
+    case let this as AsyncTypeRepr    : return AST.realize(this, from: useSite)
+    case let this as InoutTypeRepr    : return AST.realize(this, from: useSite)
     case let this as ViewCompTypeRepr : return AST.realize(this, from: useSite)
     case let this as UnionTypeRepr    : return AST.realize(this, from: useSite)
     default: fatalError("unreachable")
@@ -211,6 +213,25 @@ fileprivate func realize(_ typeRepr: FunTypeRepr, from useSite: DeclSpace) -> Va
   let retType = typeRepr.retSign.realize(unqualifiedFrom: useSite)
 
   typeRepr.type = typeRepr.type.context.funType(paramType: paramType, retType: retType)
+  return typeRepr.type
+}
+
+/// Realizes an asynchronous type signature.
+fileprivate func realize(_ typeRepr: AsyncTypeRepr, from useSite: DeclSpace) -> ValType {
+  let baseType = typeRepr.base.realize(unqualifiedFrom: useSite)
+  if baseType is AsyncType {
+    baseType.context.report(.superfluousTypeModifier(range: typeRepr.modifierRange))
+  }
+
+  typeRepr.type = baseType.context.asyncType(of: baseType)
+  return typeRepr.type
+}
+
+/// Realizes an in-out type signature.
+fileprivate func realize(_ typeRepr: InoutTypeRepr, from useSite: DeclSpace) -> ValType {
+  let baseType = typeRepr.base.realize(unqualifiedFrom: useSite)
+
+  typeRepr.type = baseType.context.inoutType(of: baseType)
   return typeRepr.type
 }
 

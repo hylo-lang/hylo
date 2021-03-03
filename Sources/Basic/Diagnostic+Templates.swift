@@ -130,7 +130,7 @@ extension Diagnostic {
       "view conformance requirement on non-generic type '\(type)'", anchor: range)
   }
 
-  public static func invalidConformanceRequirement(
+  public static func nonViewTypeConformanceRequirement(
     type: Any, range: SourceRange
   ) -> Diagnostic {
     return Diagnostic(
@@ -183,6 +183,12 @@ extension Diagnostic {
     range: SourceRange
   ) -> Diagnostic {
     return Diagnostic("missing return value in non-unit function", anchor: range)
+  }
+
+  public static func superfluousTypeModifier(
+    range: SourceRange
+  ) -> Diagnostic {
+    return Diagnostic("superfluous type qualified", level: .warning, anchor: range)
   }
 
   public static func codeAfterReturnNeverExecuted(

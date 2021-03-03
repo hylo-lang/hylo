@@ -403,10 +403,35 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
   public override func visitTypeRepr(_ ctx: ValParser.TypeReprContext) -> Any {
     let lhs = ctx.maxtermTypeRepr()!.accept(self) as! TypeRepr
 
+    let base: TypeRepr
     if let rhs = ctx.typeRepr().map({ repr in repr.accept(self) as! TypeRepr }) {
-      return FunTypeRepr(paramSign: lhs, retSign: rhs, type: unresolvedType, range: range(of: ctx))
+      let range = lhs.range.lowerBound ..< rhs.range.upperBound
+      base = FunTypeRepr(paramSign: lhs, retSign: rhs, type: unresolvedType, range: range)
     } else {
-      return lhs
+      base = lhs
+    }
+
+    guard let modifier = ctx.typeModifier() else {
+      return base
+    }
+
+    switch modifier.getText() {
+    case "async":
+      return AsyncTypeRepr(
+        base: base,
+        type: unresolvedType,
+        modifierRange: range(of: modifier),
+        range: range(of: ctx))
+
+    case "mut":
+      return InoutTypeRepr(
+        base: base,
+        type: unresolvedType,
+        modifierRange: range(of: modifier),
+        range: range(of: ctx))
+
+    default:
+      fatalError("unreachable")
     }
   }
 

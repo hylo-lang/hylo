@@ -167,7 +167,7 @@ public final class PatternBindingDecl: Decl {
   /// The initializer for the variables declared by the pattern.
   public var initializer: Expr?
 
-  /// The source range of this declaration `val` or `var` keyword.
+  /// The source range of the `val` or `var` keyword at the start of the declaration.
   public var declKeywordRange: SourceRange
 
   public var range: SourceRange

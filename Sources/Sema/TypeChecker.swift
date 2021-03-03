@@ -267,7 +267,7 @@ public final class TypeChecker {
 
     // Complain if the right operand is not a view.
     guard let view = rhs as? ViewType else {
-      context.report(.invalidConformanceRequirement(type: rhs, range: req.rhs.range))
+      context.report(.nonViewTypeConformanceRequirement(type: rhs, range: req.rhs.range))
       return false
     }
 

@@ -161,7 +161,7 @@ wildcardPattern
   ;
 
 typeRepr
-  : maxtermTypeRepr ('->' typeRepr)?
+  : typeModifier? maxtermTypeRepr ('->' typeRepr)?
   ;
 
 maxtermTypeRepr
@@ -175,6 +175,10 @@ mintermTypeRepr
 primaryTypeRepr
   : identTypeRepr
   | tupleTypeRepr
+  ;
+
+typeModifier
+  : 'async' | 'mut'
   ;
 
 identTypeRepr

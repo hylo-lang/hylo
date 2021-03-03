@@ -110,8 +110,11 @@ public final class Context {
     return uniqued(FunType(context: self, paramType: paramType, retType: retType))
   }
 
+  public func asyncType(of type: ValType) -> AsyncType {
+    return uniqued(AsyncType(context: self, base: type))
+  }
+
   public func inoutType(of type: ValType) -> InoutType {
-    precondition(!(type is InoutType), "cannot nest in-out types")
     return uniqued(InoutType(context: self, base: type))
   }
 
