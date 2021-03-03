@@ -1019,32 +1019,17 @@ public final class AsyncType: ValType {
 
   init(context: Context, base: ValType) {
     self.base = base
-
-    // The canonical form collapses the async modifiers.
-    var props = base.props.merged(with: .hasAsync)
-    if props.contains(.isCanonical) && (base is AsyncType) {
-      props = props.removing(.isCanonical)
-    }
-
-    super.init(context: context, props: props)
+    super.init(context: context, props: base.props.merged(with: .hasAsync))
   }
 
   /// A type.
   public let base: ValType
 
   public override var canonical: ValType {
-    if isCanonical {
-      return self
-    }
-
-    switch base.canonical {
-    case let asyncType as AsyncType:
-      return asyncType
-
-    case let type:
-      // FIXME: We might add more equivalence classes (e.g., 'async (a: T) == (a: async T)').
-      return context.asyncType(of: type)
-    }
+    return isCanonical
+      ? self
+      : context.inoutType(of: base.canonical)
+    // FIXME: We might add more equivalence classes (e.g., 'async (a: T) == (a: async T)').
   }
 
   public override var uncontextualized: ValType {
