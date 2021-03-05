@@ -4,7 +4,7 @@ file
   : decl* EOF
   ;
 
-codeBlock
+braceStmt
   : '{' statement* '}'
   ;
 
@@ -47,7 +47,7 @@ varDeclKeyword
   ;
 
 funDecl
-  : declModifierList? funDeclKeyword funName? genericClause? '(' funParamList? ')' funRetAnnot? codeBlock?
+  : declModifierList? funDeclKeyword funName? genericClause? '(' funParamList? ')' funRetAnnot? braceStmt?
   ;
 
 funDeclKeyword
@@ -137,6 +137,7 @@ retStmt
 pattern
   : namedPattern
   | tuplePattern
+  | bindingPattern
   | wildcardPattern
   ;
 
@@ -154,6 +155,10 @@ tuplePatternElemList
 
 tuplePatternElem
   : (NAME ':')? pattern
+  ;
+
+bindingPattern
+  : varDeclKeyword pattern (':' typeRepr)?
   ;
 
 wildcardPattern
@@ -241,6 +246,7 @@ primary
   : integer
   | ident
   | tuple
+  | match
   | wildcard
   ;
 
@@ -262,6 +268,22 @@ tupleElemList
 
 tupleElem
   : (NAME ':')? expr
+  ;
+
+match
+  : 'match' expr matchBody
+  ;
+
+matchBody
+  : '{' matchCase+ '}'
+  ;
+
+matchCase
+  : 'case' pattern matchCaseCond? braceStmt
+  ;
+
+matchCaseCond
+  : 'where' expr
   ;
 
 wildcard

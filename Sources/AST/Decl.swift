@@ -138,31 +138,31 @@ public final class ImportDecl: Decl {
 public final class PatternBindingDecl: Decl {
 
   public init(
-    isMutable       : Bool,
-    pattern         : Pattern,
-    typeSign        : TypeRepr?,
-    initializer     : Expr?,
-    declKeywordRange: SourceRange,
-    range           : SourceRange
+    isMutable   : Bool,
+    pattern     : Pattern,
+    sign        : TypeRepr?,
+    initializer : Expr?,
+    keywordRange: SourceRange,
+    range       : SourceRange
   ) {
     self.isMutable = isMutable
     self.pattern = pattern
-    self.sign = typeSign
+    self.sign = sign
     self.initializer = initializer
-    self.declKeywordRange = declKeywordRange
+    self.keywordRange = keywordRange
     self.range = range
   }
 
   /// A flag indicating whether the declared variables are mutable.
   public var isMutable: Bool
 
-  /// A flag indicating whether the declaration describes member variables.
-  public var isMember: Bool {
-    return (parentDeclSpace is NominalTypeDecl || parentDeclSpace is TypeExtDecl)
-  }
-
   /// The pattern being bound.
   public var pattern: Pattern
+
+  /// The declaration of each variable introduced by the pattern.
+  ///
+  /// This is essentially a cache gathering the declaration of each named sub-pattern.
+  public var varDecls: [VarDecl] = []
 
   /// The signature of the pattern.
   public var sign: TypeRepr?
@@ -171,7 +171,7 @@ public final class PatternBindingDecl: Decl {
   public var initializer: Expr?
 
   /// The source range of the `val` or `var` keyword at the start of the declaration.
-  public var declKeywordRange: SourceRange
+  public var keywordRange: SourceRange
 
   public var range: SourceRange
 
@@ -179,13 +179,15 @@ public final class PatternBindingDecl: Decl {
 
   public private(set) var state = DeclState.parsed
 
+  /// A flag indicating whether the declaration describes member variables.
+  public var isMember: Bool {
+    return (parentDeclSpace is NominalTypeDecl || parentDeclSpace is TypeExtDecl)
+  }
+
   public func setState(_ newState: DeclState) {
     assert(newState >= state)
     state = newState
   }
-
-  /// The declaration of all variables declared in this pattern.
-  public var varDecls: [VarDecl] = []
 
   public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
@@ -194,6 +196,11 @@ public final class PatternBindingDecl: Decl {
 }
 
 /// A variable declaration.
+///
+/// Variable declarations not top-level AST nodes. Instead, they result from constructions that
+/// bind named patterns. For instance, `val foo = 1` tanslates as a pattern binding declaration,
+/// which binds a name pattern to an expression, hence involving a variable declaration for the
+/// name `foo`.
 public final class VarDecl: ValueDecl {
 
   public init(name: String, type: ValType, range: SourceRange) {
@@ -204,19 +211,21 @@ public final class VarDecl: ValueDecl {
 
   public var name: String
 
-  /// The pattern binding declaration that introduces this variable declaration.
+  /// The pattern binding declaration that introduces this variable declaration, if any.
+  ///
+  /// This is `nil` if the variable being declared is introduced by a match case statement.
   public weak var patternBindingDecl: PatternBindingDecl?
 
   public var range: SourceRange
 
   /// The backend of the variable.
-  public var backend: VarBackend = .storage
+  public var backend = VarBackend.storage
 
   /// A flag indicating whether the variable has storage.
   public var hasStorage: Bool { backend == .storage }
 
   /// A flag indicating whether the variable is mutable.
-  public var isMutable: Bool { patternBindingDecl?.isMutable ?? false }
+  public var isMutable = false
 
   /// A flag indicating whether the variable is member of a pattern binding declared as a member.
   public var isMember: Bool { patternBindingDecl?.isMember ?? false }

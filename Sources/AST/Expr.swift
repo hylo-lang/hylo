@@ -465,6 +465,39 @@ public final class AddrOfExpr: Expr {
 
 }
 
+/// A match expressions or statement.
+///
+/// This denotes either a match expression or a match statement, depending on the context in which
+/// the node appears: it is an expression when it represents a sub-expression, otherwise it is a
+/// statement.
+///
+/// All cases of a match *expression* must contain exactly one expression, which should have the
+/// same type as all its siblings.
+public final class MatchExpr: Expr {
+
+  public init(subject: Expr, cases: [MatchCaseStmt], type: ValType, range: SourceRange) {
+    self.subject = subject
+    self.cases = cases
+    self.type = type
+    self.range = range
+  }
+
+  /// The subject being matched
+  public var subject: Expr
+
+  /// The patterns against which the subject is being matched.
+  public var cases: [MatchCaseStmt]
+
+  public var type: ValType
+
+  public var range: SourceRange
+
+  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
+    return visitor.visit(self)
+  }
+
+}
+
 /// A wildcard expression.
 public final class WildcardExpr: Expr {
 

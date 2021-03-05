@@ -183,6 +183,10 @@ struct PreChecker: ExprVisitor {
     return node
   }
 
+  func visit(_ node: MatchExpr) -> Expr {
+    return node
+  }
+
   func visit(_ node: WildcardExpr) -> Expr {
     return node
   }

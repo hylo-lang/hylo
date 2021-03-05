@@ -265,6 +265,10 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     builder.buildRet(value: value)
   }
 
+  func visit(_ node: MatchCaseStmt) -> Void {
+    fatalError()
+  }
+
   func visit(_ node: IntLiteralExpr) -> ExprResult {
     // We can assume the expression's type conforms to `ExpressibleBy***Literal` (as type checking
     // succeeded). Therefore we can look for a conversion constructor `new(literal:)`.
@@ -509,6 +513,10 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
   }
 
   func visit(_ node: AddrOfExpr) -> ExprResult {
+    fatalError()
+  }
+
+  func visit(_ node: MatchExpr) -> ExprResult {
     fatalError()
   }
 

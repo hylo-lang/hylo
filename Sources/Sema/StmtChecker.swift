@@ -64,4 +64,8 @@ struct StmtChecker: StmtVisitor {
     }
   }
 
+  func visit(_ node: MatchCaseStmt) -> Void {
+    fatalError("not implemented")
+  }
+
 }

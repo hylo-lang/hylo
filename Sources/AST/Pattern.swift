@@ -28,16 +28,16 @@ public final class NamedPattern: Pattern {
     self.range = range
   }
 
-  /// The variable declarations to which the name refers.
+  /// The variable declaration to which the name refers.
   public var decl: VarDecl
 
   public var type: ValType
 
+  public var range: SourceRange
+
   public var namedPatterns: [NamedPattern] { [self] }
 
   public var singleVarDecl: VarDecl? { decl }
-
-  public var range: SourceRange
 
   public func accept<V>(_ visitor: V) -> V.PatternResult where V: PatternVisitor {
     return visitor.visit(self)
@@ -59,6 +59,8 @@ public final class TuplePattern: Pattern {
 
   public var type: ValType
 
+  public var range: SourceRange
+
   public var namedPatterns: [NamedPattern] {
     return Array(elems.map({ el in el.pattern.namedPatterns }).joined())
   }
@@ -67,8 +69,6 @@ public final class TuplePattern: Pattern {
     guard elems.count == 1 else { return nil }
     return elems[0].pattern.singleVarDecl
   }
-
-  public var range: SourceRange
 
   public func accept<V>(_ visitor: V) -> V.PatternResult where V: PatternVisitor {
     return visitor.visit(self)
@@ -96,6 +96,58 @@ public final class TuplePattern: Pattern {
 
 }
 
+/// A pattern that introduces new variables.
+///
+/// This pattern alters the semantics of its sub-pattern. Nested name patterns create new variable
+/// bindings, instead or referring to existing declarations.
+public final class BindingPattern: Pattern {
+
+  public init(
+    isMutable   : Bool,
+    subpattern  : Pattern,
+    sign        : TypeRepr?,
+    type        : ValType,
+    keywordRange: SourceRange,
+    range       : SourceRange
+  ) {
+    self.isMutable = isMutable
+    self.subpattern = subpattern
+    self.sign = sign
+    self.type = type
+    self.keywordRange = keywordRange
+    self.range = range
+  }
+
+  /// A flag indicating whether the declared variables are mutable.
+  public var isMutable: Bool
+
+  /// The sub-pattern.
+  public var subpattern: Pattern
+
+  /// The signature of the pattern.
+  public var sign: TypeRepr?
+
+  public var type: ValType
+
+  /// The source range of the `val` or `var` keyword at the start of the pattern.
+  public var keywordRange: SourceRange
+
+  public var range: SourceRange
+
+  public var namedPatterns: [NamedPattern] {
+    return subpattern.namedPatterns
+  }
+
+  public var singleVarDecl: VarDecl? {
+    return subpattern.singleVarDecl
+  }
+
+  public func accept<V>(_ visitor: V) -> V.PatternResult where V: PatternVisitor {
+    return visitor.visit(self)
+  }
+
+}
+
 /// A pattern that matches an arbitrary value, but does not bind it to a name.
 public final class WildcardPattern: Pattern {
 
@@ -106,11 +158,11 @@ public final class WildcardPattern: Pattern {
 
   public var type: ValType
 
+  public var range: SourceRange
+
   public var namedPatterns: [NamedPattern] { [] }
 
   public var singleVarDecl: VarDecl? { nil }
-
-  public var range: SourceRange
 
   public func accept<V>(_ visitor: V) -> V.PatternResult where V: PatternVisitor {
     return visitor.visit(self)

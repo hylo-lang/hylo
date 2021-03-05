@@ -58,3 +58,30 @@ public final class RetStmt: Stmt {
   }
 
 }
+
+/// A case statement of a match construct.
+public final class MatchCaseStmt: Stmt {
+
+  public init(pattern: Pattern, condition: Expr?, body: BraceStmt, range: SourceRange) {
+    self.pattern = pattern
+    self.condition = condition
+    self.body = body
+    self.range = range
+  }
+
+  /// The pattern of the case.
+  public var pattern: Pattern
+
+  /// The optional condition of the case.
+  public var condition: Expr?
+
+  /// The body of the case.
+  public var body: BraceStmt
+
+  public var range: SourceRange
+
+  public func accept<V>(_ visitor: V) -> V.StmtResult where V: StmtVisitor {
+    return visitor.visit(self)
+  }
+
+}

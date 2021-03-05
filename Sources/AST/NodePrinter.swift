@@ -304,6 +304,18 @@ public struct NodePrinter: NodeVisitor {
     """
   }
 
+  public func visit(_ node: MatchCaseStmt) -> String {
+    return """
+    {
+    "class"           : "\(type(of: node))",
+    "range"           : \(encode(node.range)),
+    "pattern"         : \(encode(node.pattern)),
+    "condition"       : \(encode(node.condition)),
+    "body"            : \(encode(node.body))
+    }
+    """
+  }
+
   public func visit(_ node: IntLiteralExpr) -> String {
     return """
     {
@@ -479,6 +491,16 @@ public struct NodePrinter: NodeVisitor {
     """
   }
 
+  public func visit(_ node: MatchExpr) -> String {
+    return """
+    {
+    \(exprHeader(node)),
+    "subject"         : \(encode(node.subject)),
+    "cases"           : \(encode(node.cases))
+    }
+    """
+  }
+
   public func visit(_ node: WildcardExpr) -> String {
     return """
     {
@@ -519,6 +541,16 @@ public struct NodePrinter: NodeVisitor {
     {
     \(patternHeader(node)),
     "elems"           : [\(elems)]
+    }
+    """
+  }
+
+  public func visit(_ node: BindingPattern) -> String {
+    return """
+    {
+    \(patternHeader(node)),
+    "subpattern"      : \(node.subpattern.accept(self))
+    "sign"            : \(encode(node.sign)),
     }
     """
   }

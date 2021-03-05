@@ -148,6 +148,9 @@ struct ConstraintGenerator: ExprVisitor {
   func visit(_ node: AddrOfExpr) {
   }
 
+  func visit(_ node: MatchExpr) {
+  }
+
   func visit(_ node: WildcardExpr) {
   }
 

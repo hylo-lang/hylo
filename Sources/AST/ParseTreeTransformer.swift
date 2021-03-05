@@ -36,7 +36,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     return unit
   }
 
-  public override func visitCodeBlock(_ ctx: ValParser.CodeBlockContext) -> Any {
+  public override func visitBraceStmt(_ ctx: ValParser.BraceStmtContext) -> Any {
     // Create a stub of the code block.
     let block = BraceStmt(statements: [], range: range(of: ctx))
     block.parentDeclSpace = currentSpace
@@ -84,23 +84,24 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
 
   public override func visitPatternBindingDecl(_ ctx: ValParser.PatternBindingDeclContext) -> Any {
     // Create a stub for the declaration.
-    let declKeyword = ctx.varDeclKeyword()!
+    let keyword     = ctx.varDeclKeyword()!
     let pattern     = ctx.pattern()!.accept(self) as! Pattern
-    let typeSign    = ctx.typeRepr().map({ repr in repr.accept(self) as! TypeRepr })
+    let sign        = ctx.typeRepr().map({ repr in repr.accept(self) as! TypeRepr })
     let initializer = ctx.expr().map({ expr in expr.accept(self) as! Expr })
 
     // Create the pattern binding declaration.
     let decl = PatternBindingDecl(
-      isMutable: declKeyword.getText() == "var",
-      pattern: pattern,
-      typeSign: typeSign,
-      initializer: initializer,
-      declKeywordRange: range(of: declKeyword),
-      range: range(of: ctx))
+      isMutable   : keyword.getText() == "var",
+      pattern     : pattern,
+      sign        : sign,
+      initializer : initializer,
+      keywordRange: range(of: keyword),
+      range       : range(of: ctx))
     decl.parentDeclSpace = currentSpace
 
     // Associate each introduced variable declaration to the new pattern binding declaration.
     for pattern in decl.pattern.namedPatterns {
+      pattern.decl.isMutable = decl.isMutable
       pattern.decl.patternBindingDecl = decl
       decl.varDecls.append(pattern.decl)
     }
@@ -157,7 +158,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
       precondition(!(decl is CtorDecl), "constructors do not have explicit return types")
       decl.retSign = (sign.accept(self) as! TypeRepr)
     }
-    if let body = ctx.codeBlock() {
+    if let body = ctx.braceStmt() {
       decl.body = (body.accept(self) as! BraceStmt)
     }
 
@@ -394,6 +395,28 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     let label = ctx.NAME()?.getText()
     let pattern = ctx.pattern()!.accept(self) as! Pattern
     return TuplePattern.Elem(label: label, pattern: pattern, range: range(of: ctx))
+  }
+
+  public override func visitBindingPattern(_ ctx: ValParser.BindingPatternContext) -> Any {
+    let keyword    = ctx.varDeclKeyword()!
+    let subpattern = ctx.pattern()!.accept(self) as! Pattern
+    let sign       = ctx.typeRepr().map({ repr in repr.accept(self) as! TypeRepr })
+
+    let pattern = BindingPattern(
+      isMutable   : keyword.getText() == "var",
+      subpattern  : subpattern,
+      sign        : sign,
+      type        : unresolvedType,
+      keywordRange: range(of: keyword),
+      range       : range(of: ctx))
+
+//    // Associate each introduced variable declaration to the new pattern binding declaration.
+//    for pattern in decl.pattern.namedPatterns {
+//      pattern.decl.patternBindingDecl = decl
+//      decl.varDecls.append(pattern.decl)
+//    }
+
+    return pattern
   }
 
   public override func visitWildcardPattern(_ ctx: ValParser.WildcardPatternContext) -> Any {
@@ -708,6 +731,24 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     let label = ctx.NAME()?.getText()
     let value = ctx.expr()!.accept(self) as! Expr
     return TupleElem(label: label, value: value, range: range(of: ctx))
+  }
+
+  public override func visitMatch(_ ctx: ValParser.MatchContext) -> Any {
+    let subject = ctx.expr()!.accept(self) as! Expr
+    let cases = ctx.matchBody()!.accept(self) as! [MatchCaseStmt]
+    return MatchExpr(
+      subject: subject, cases: cases, type: unresolvedType, range: range(of: ctx))
+  }
+
+  public override func visitMatchBody(_ ctx: ValParser.MatchBodyContext) -> Any {
+    return ctx.matchCase().map({ stmt in stmt.accept(self) as! MatchCaseStmt })
+  }
+
+  public override func visitMatchCase(_ ctx: ValParser.MatchCaseContext) -> Any {
+    let pattern = ctx.pattern()!.accept(self) as! Pattern
+    let condition = ctx.matchCaseCond().map({ expr in expr.accept(self) as! Expr })
+    let body = ctx.braceStmt()!.accept(self) as! BraceStmt
+    return MatchCaseStmt(pattern: pattern, condition: condition, body: body, range: range(of: ctx))
   }
 
   public override func visitWildcard(_ ctx: ValParser.WildcardContext) -> Any {

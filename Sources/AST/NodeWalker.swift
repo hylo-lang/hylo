@@ -171,8 +171,8 @@ open class NodeWalker: NodeVisitor {
     defer { parent = prevParent }
 
     (shouldContinue, node.pattern) = walk(node.pattern)
-
     guard shouldContinue else { return false }
+
     if let signature = node.sign {
       (shouldContinue, node.sign) = walk(signature)
       guard shouldContinue else { return false }
@@ -387,6 +387,25 @@ open class NodeWalker: NodeVisitor {
     return true
   }
 
+  public final func visit(_ node: MatchCaseStmt) -> Bool {
+    let prevParent = parent
+    parent = node
+    defer { parent = prevParent }
+
+    (shouldContinue, node.pattern) = walk(node.pattern)
+    guard shouldContinue else { return false }
+
+    if let condition = node.condition {
+      (shouldContinue, node.condition) = walk(condition)
+      guard shouldContinue else { return false }
+    }
+
+    (shouldContinue, node.body) = walk(node.body) as! (Bool, BraceStmt)
+    guard shouldContinue else { return false }
+
+    return true
+  }
+
   public final func visit(_ node: IntLiteralExpr) -> Bool {
     return true
   }
@@ -527,6 +546,22 @@ open class NodeWalker: NodeVisitor {
     return shouldContinue
   }
 
+  public final func visit(_ node: MatchExpr) -> Bool {
+    let prevParent = parent
+    parent = node
+    defer { parent = prevParent }
+
+    (shouldContinue, node.subject) = walk(node.subject)
+    guard shouldContinue else { return false }
+
+    for i in 0 ..< node.cases.count {
+      (shouldContinue, node.cases[i]) = walk(node.cases[i]) as! (Bool, MatchCaseStmt)
+      guard shouldContinue else { return false }
+    }
+
+    return true
+  }
+
   public final func visit(_ node: WildcardExpr) -> Bool {
     return true
   }
@@ -551,6 +586,22 @@ open class NodeWalker: NodeVisitor {
 
     for i in 0 ..< node.elems.count {
       (shouldContinue, node.elems[i].pattern) = walk(node.elems[i].pattern)
+      guard shouldContinue else { return false }
+    }
+
+    return true
+  }
+
+  public final func visit(_ node: BindingPattern) -> Bool {
+    let prevParent = parent
+    parent = node
+    defer { parent = prevParent }
+
+    (shouldContinue, node.subpattern) = walk(node.subpattern)
+    guard shouldContinue else { return false }
+
+    if let signature = node.sign {
+      (shouldContinue, node.sign) = walk(signature)
       guard shouldContinue else { return false }
     }
 

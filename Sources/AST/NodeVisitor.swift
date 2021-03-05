@@ -72,6 +72,8 @@ public protocol StmtVisitor {
 
   func visit(_ node: RetStmt) -> StmtResult
 
+  func visit(_ node: MatchCaseStmt) -> StmtResult
+
 }
 
 /// Base protocol for types visiting expression nodes.
@@ -111,6 +113,8 @@ public protocol ExprVisitor {
 
   func visit(_ node: AddrOfExpr) -> ExprResult
 
+  func visit(_ node: MatchExpr) -> ExprResult
+
   func visit(_ node: WildcardExpr) -> ExprResult
 
   func visit(_ node: ErrorExpr) -> ExprResult
@@ -125,6 +129,8 @@ public protocol PatternVisitor {
   func visit(_ node: NamedPattern) -> PatternResult
 
   func visit(_ node: TuplePattern) -> PatternResult
+
+  func visit(_ node: BindingPattern) -> PatternResult
 
   func visit(_ node: WildcardPattern) -> PatternResult
 

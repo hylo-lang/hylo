@@ -158,6 +158,10 @@ struct LValueEmitter: ExprVisitor {
     fatalError("not implemented")
   }
 
+  func visit(_ node: MatchExpr) -> ExprResult {
+    return .failure(.immutableExpr)
+  }
+
   func visit(_ node: WildcardExpr) -> ExprResult {
     return .failure(.immutableExpr)
   }
