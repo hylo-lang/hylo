@@ -162,7 +162,7 @@ bindingPattern
   ;
 
 wildcardPattern
-  : '-'
+  : '_'
   ;
 
 typeRepr
