@@ -10,6 +10,9 @@ public protocol Decl: Node {
   var state: DeclState { get }
 
   /// Sets the state of this declaration.
+  ///
+  /// - Parameter newState: The new state of the declaration. `newState` must be a valid successor
+  ///   of the declaration's current state.
   func setState(_ newState: DeclState)
 
   /// Accepts the given visitor.
@@ -62,7 +65,7 @@ public protocol TypeOrValueDecl: Decl {
   /// The name of the declaration.
   var name: String { get }
 
-  /// The semantic type of the declaration, outside of its generic context.
+  /// The semantic type of the declaration, uncontextualized.
   var type: ValType { get }
 
   /// A flag indicating whether the declaration is overloadable.
@@ -255,26 +258,79 @@ public enum VarBackend {
 
 }
 
+/// The base class for generic type or value declarations.
+public class BaseGenericDecl: GenericDeclSpace {
+
+  fileprivate init(type: ValType, state: DeclState) {
+    self.type = type
+    self.state = state
+  }
+
+  /// The semantic type of the declaration, outside of its generic context.
+  public var type: ValType
+
+  /// The state of the declaration.
+  public private(set) var state: DeclState
+
+  /// The generic clause of the declaration.
+  public var genericClause: GenericClause?
+
+  public var genericEnv: GenericEnv?
+
+  public weak var parentDeclSpace: DeclSpace?
+
+  public var hasOwnGenericParams: Bool { genericClause != nil }
+
+  public func prepareGenericEnv() -> GenericEnv? {
+    if let env = genericEnv { return env }
+
+    if let clause = genericClause {
+      genericEnv = GenericEnv(
+        space: self,
+        params: clause.params.map({ $0.instanceType as! GenericParamType }),
+        typeReqs: clause.typeReqs,
+        context: type.context)
+      guard genericEnv != nil else {
+        setState(.invalid)
+        return nil
+      }
+    } else {
+      genericEnv = GenericEnv(space: self)
+    }
+
+    return genericEnv
+  }
+
+  /// Sets the state of this declaration.
+  ///
+  /// - Parameter newState: The new state of the declaration. `newState` must be a valid successor
+  ///   of the declaration's current state.
+  public func setState(_ newState: DeclState) {
+    assert(newState >= state)
+    state = newState
+  }
+
+  public func lookup(qualified name: String) -> LookupResult {
+    fatalError("unreachable")
+  }
+
+}
+
 /// The base class for function declarations.
-public class BaseFunDecl: ValueDecl, GenericDeclSpace {
+public class BaseFunDecl: BaseGenericDecl, ValueDecl {
 
   public init(
     name          : String,
     declModifiers : [DeclModifier] = [],
-    genericClause : GenericClause? = nil,
     params        : [FunParamDecl] = [],
     retTypeSign   : TypeRepr?      = nil,
-    body          : BraceStmt?     = nil,
     type          : ValType,
     range         : SourceRange
   ) {
     self.name = name
     self.declModifiers = declModifiers
-    self.genericClause = genericClause
     self.params = params
     self.retSign = retTypeSign
-    self.body = body
-    self.type = type
     self.range = range
 
     // Process the function modifiers.
@@ -286,6 +342,8 @@ public class BaseFunDecl: ValueDecl, GenericDeclSpace {
       default     : continue
       }
     }
+
+    super.init(type: type, state: .parsed)
   }
 
   // MARK: Source properties
@@ -328,9 +386,6 @@ public class BaseFunDecl: ValueDecl, GenericDeclSpace {
   /// This array only contains the declaration modifiers as found in source. It may not accurately
   /// describe the relevant bits in `props`, nor vice-versa.
   public var declModifiers: [DeclModifier]
-
-  /// The generic clause of the declaration.
-  public var genericClause: GenericClause?
 
   /// The parameters of the function.
   public var params: [FunParamDecl]
@@ -385,8 +440,6 @@ public class BaseFunDecl: ValueDecl, GenericDeclSpace {
 
   // MARK: Name Lookup
 
-  public weak var parentDeclSpace: DeclSpace?
-
   public var isOverloadable: Bool { true }
 
   /// Looks up for declarations that match the given name, directly enclosed within the function
@@ -395,7 +448,7 @@ public class BaseFunDecl: ValueDecl, GenericDeclSpace {
   /// The returned type declarations are the function's generic parameters. The value declarations
   /// are its explicit and implicit parameters. The declarations scoped within the function's body
   /// are **not** included in either of these sets. Those reside in a nested space.
-  public func lookup(qualified name: String) -> LookupResult {
+  public override func lookup(qualified name: String) -> LookupResult {
     let types  = genericClause.map({ clause in clause.params.filter({ $0.name == name }) }) ?? []
     var values = params.filter({ $0.name == name })
     if name == "self", let selfDecl = self.selfDecl {
@@ -407,33 +460,24 @@ public class BaseFunDecl: ValueDecl, GenericDeclSpace {
 
   // MARK: Semantic properties
 
-  public private(set) var state = DeclState.parsed
-
-  public func setState(_ newState: DeclState) {
-    assert(newState >= state)
+  public override func setState(_ newState: DeclState) {
     assert((newState != .typeCheckRequested) || (state >= .realized),
            "type checking requested before the function signature was realized")
-
-    state = newState
+    super.setState(newState)
   }
 
-  /// The "applied" type of the function.
+  /// The "unapplied" type of the function.
+  ///
+  /// Member functions accept a receiver (i.e., `self`) as an implicit first parameter. Hence, a
+  /// a call to a method `T -> U` is actually a call to an *unapplied* function `(Self, T) -> U`,
+  /// where `Self` is the receiver's type. This property denotes the *applied* type, which should
+  /// be understood as the return type the unapplied function's partial application. The unapplied
+  /// type of a member function is the type of its declaration, extended with an implicit receiver
+  /// parameter. For non-member functions, it is equal the declaration's type.
   ///
   /// This property must be kept synchronized with the function type implicitly described by the
   /// parameter list and return signature. Setting its value directly is discouraged, you should
   /// use `realize()` instead.
-  ///
-  /// - Note: Member functions accept the receiver (i.e., `self`) as an implicit first parameter.
-  ///   This means that a call to a method `T -> U` is actually an application of an *unapplied*
-  ///   function `(Self, T) -> U`, where `Self` is the receiver's type. This property denotes the
-  ///   *applied* type, which should be understood as the return type the unapplied function's
-  ///   partial application.
-  public var type: ValType
-
-  /// The "unapplied" type of the function.
-  ///
-  /// For member functions, this is the type of the function extended with an implicit receiver
-  /// parameter. For other functions, this is equal to `type`.
   public var unappliedType: ValType {
     guard isMember else { return type }
 
@@ -475,30 +519,6 @@ public class BaseFunDecl: ValueDecl, GenericDeclSpace {
     return type
   }
 
-  public var hasOwnGenericParams: Bool { genericClause != nil }
-
-  public var genericEnv: GenericEnv?
-
-  public func prepareGenericEnv() -> GenericEnv? {
-    if let env = genericEnv { return env }
-
-    if let clause = genericClause {
-      genericEnv = GenericEnv(
-        space: self,
-        params: clause.params.map({ $0.instanceType as! GenericParamType }),
-        typeReqs: clause.typeReqs,
-        context: type.context)
-      guard genericEnv != nil else {
-        setState(.invalid)
-        return nil
-      }
-    } else {
-      genericEnv = GenericEnv(space: self)
-    }
-
-    return genericEnv
-  }
-
   // MARK: Misc.
 
   public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
@@ -538,18 +558,14 @@ public final class CtorDecl: BaseFunDecl {
 
   public init(
     declModifiers : [DeclModifier] = [],
-    genericClause : GenericClause? = nil,
     params        : [FunParamDecl] = [],
-    body          : BraceStmt?     = nil,
     type          : ValType,
     range         : SourceRange
   ) {
     super.init(
       name: "new",
       declModifiers: declModifiers,
-      genericClause: genericClause,
       params: params,
-      body: body,
       type: type,
       range: range)
     props.insert(.isMutating)
@@ -640,35 +656,19 @@ public final class FunParamDecl: ValueDecl {
 }
 
 /// A type declaration that can have explicit or implicit generic parameters.
-public class GenericTypeDecl: TypeDecl, GenericDeclSpace {
+public class GenericTypeDecl: BaseGenericDecl, TypeDecl {
 
   fileprivate init(name: String, type: ValType, range: SourceRange, state: DeclState) {
     self.name = name
-    self.type = type
     self.range = range
-    self.state = state
+    super.init(type: type, state: state)
   }
 
   /// The name of the type.
   public var name: String = ""
 
-  /// The generic clause of the declaration, if any.
-  public var genericClause: GenericClause?
-
-  /// The generic environment described by the type.
-  public var genericEnv: GenericEnv?
-
   /// The views to which the type should conform.
   public var inheritances: [TypeRepr] = []
-
-  /// The resolved type of the declaration.
-  ///
-  /// - Important: This should only be set at the time of the node's creation.
-  public var type: ValType
-
-  public weak var parentDeclSpace: DeclSpace?
-
-  public private(set) var state: DeclState
 
   /// The internal cache backing `valueMemberTable`.
   fileprivate var _valueMemberTable: [String: [ValueDecl]] = [:]
@@ -707,7 +707,7 @@ public class GenericTypeDecl: TypeDecl, GenericDeclSpace {
     return _typeMemberTable
   }
 
-  public func lookup(qualified name: String) -> LookupResult {
+  public override func lookup(qualified name: String) -> LookupResult {
     updateMemberTables()
     return LookupResult(
       types : _typeMemberTable[name].map({ [$0] }) ?? [],
@@ -839,14 +839,6 @@ public class GenericTypeDecl: TypeDecl, GenericDeclSpace {
 
   }
 
-  // MARK: Generic parameters
-
-  public var hasOwnGenericParams: Bool { false }
-
-  public func prepareGenericEnv() -> GenericEnv? {
-    fatalError("unreachable")
-  }
-
   // MARK: View conformance
 
   /// A lookup table keeping track of the views to which the declared type conforms.
@@ -902,11 +894,6 @@ public class GenericTypeDecl: TypeDecl, GenericDeclSpace {
 
   /// The uncontextualized type of a reference to `self` within the context of this type.
   public var receiverType: ValType { fatalError("unreachable") }
-
-  public func setState(_ newState: DeclState) {
-    assert(newState >= state)
-    state = newState
-  }
 
   // MARK: Memory layout
 
@@ -988,28 +975,6 @@ public class NominalTypeDecl: GenericTypeDecl {
 /// A product type declaration.
 public final class ProductTypeDecl: NominalTypeDecl {
 
-  public override var hasOwnGenericParams: Bool { genericClause != nil }
-
-  public override func prepareGenericEnv() -> GenericEnv? {
-    if let env = genericEnv { return env }
-
-    if let clause = genericClause {
-      genericEnv = GenericEnv(
-        space: self,
-        params: clause.params.map({ $0.instanceType as! GenericParamType }),
-        typeReqs: clause.typeReqs,
-        context: type.context)
-      guard genericEnv != nil else {
-        setState(.invalid)
-        return nil
-      }
-    } else {
-      genericEnv = GenericEnv(space: self)
-    }
-
-    return genericEnv
-  }
-
   /// The uncontextualized type of a reference to `self` within the context of this type.
   ///
   /// If the type declaration introduces its own generic type parameters, this wraps `instanceType`
@@ -1035,8 +1000,6 @@ public final class ProductTypeDecl: NominalTypeDecl {
 /// A view type declaration.
 public final class ViewTypeDecl: NominalTypeDecl {
 
-  public override var hasOwnGenericParams: Bool { true }
-
   /// The implicit declaration of the `Self` generic type parameter.
   public lazy var selfTypeDecl: GenericParamDecl = {
     let paramDecl = GenericParamDecl(
@@ -1054,11 +1017,16 @@ public final class ViewTypeDecl: NominalTypeDecl {
   /// The uncontextualized type of a reference to `self` within the context of this type.
   public override var receiverType: ValType { selfTypeDecl.instanceType }
 
-  /// Prepares the generic environment.
+  /// Always returns `true` -- views have a unique, implicit generic type parameter `Self`.
+  public override var hasOwnGenericParams: Bool { true }
+
+  /// Prepares the generic environment of the view.
   ///
-  /// View declarations delimit a generic space with a unique type parameter `Self`, which denotes
-  /// conforming types existentially. `Self` is declared implicitly in a generic clause of the form
-  /// `<Self where Self: V>`, where `V` is the name of the declared view.
+  /// This implementation overrides the default behavior for generic type and valur declarations.
+  ///
+  /// View declarations delimit a generic space with a unique generic type parameter `Self`, which
+  /// denotes conforming types existentially. `Self` is declared implicitly in a generic clause of
+  /// the form `<Self where Self: V>`, where `V` is the name of the declared view.
   public override func prepareGenericEnv() -> GenericEnv? {
     if let env = genericEnv { return env }
 
@@ -1128,20 +1096,19 @@ public final class AliasTypeDecl: GenericTypeDecl {
     }
   }
 
-  /// Realizes the semantic type denoted by the declaration.
+  /// Realizes the aliased type signature.
   public func realize() -> ValType {
-    guard state < .realized else { return type }
+    guard state < .realized else { return aliasedSign.type }
     setState(.realizationRequested)
 
     // Realize the aliased signature.
-    let aliasedType = aliasedSign.realize(unqualifiedFrom: parentDeclSpace!)
-    type = aliasedType.kind
+    let aliasedType = aliasedSign.realize(unqualifiedFrom: self)
     guard !aliasedType.hasErrors else {
       setState(.invalid)
       return type
     }
 
-    /// Complain if the signature references the declaration itself.
+    // Complain if the signature references the declaration itself.
     // FIXME
 
     // Complain if the aliased signature describes an in-out type.
@@ -1157,6 +1124,7 @@ public final class AliasTypeDecl: GenericTypeDecl {
       type.context.report(.newConformanceOnNominalTypeAlias(range: inheritances[0].range))
     }
 
+    setState(.realized)
     return type
   }
 
