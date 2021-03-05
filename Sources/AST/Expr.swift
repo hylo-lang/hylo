@@ -475,12 +475,22 @@ public final class AddrOfExpr: Expr {
 /// same type as all its siblings.
 public final class MatchExpr: Expr {
 
-  public init(subject: Expr, cases: [MatchCaseStmt], type: ValType, range: SourceRange) {
+  public init(
+    isSubExpr : Bool,
+    subject   : Expr,
+    cases     : [MatchCaseStmt],
+    type      : ValType,
+    range     : SourceRange
+  ) {
+    self.isSubExpr = isSubExpr
     self.subject = subject
     self.cases = cases
     self.type = type
     self.range = range
   }
+
+  /// Indicates whether the match appears as a sub-expression, in a larger expression.
+  public var isSubExpr: Bool
 
   /// The subject being matched
   public var subject: Expr

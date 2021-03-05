@@ -58,7 +58,11 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
   }
 
   public override func visitStatement(_ ctx: ValParser.StatementContext) -> Any {
-    return ctx.children![0].accept(self)!
+    let node = ctx.children![0].accept(self)!
+    if let match = node as? MatchExpr {
+      match.isSubExpr = false
+    }
+    return node
   }
 
   public override func visitDecl(_ ctx: ValParser.DeclContext) -> Any {
@@ -737,7 +741,11 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     let subject = ctx.expr()!.accept(self) as! Expr
     let cases = ctx.matchBody()!.accept(self) as! [MatchCaseStmt]
     return MatchExpr(
-      subject: subject, cases: cases, type: unresolvedType, range: range(of: ctx))
+      isSubExpr : true,
+      subject   : subject,
+      cases     : cases,
+      type      : unresolvedType,
+      range     : range(of: ctx))
   }
 
   public override func visitMatchBody(_ ctx: ValParser.MatchBodyContext) -> Any {
