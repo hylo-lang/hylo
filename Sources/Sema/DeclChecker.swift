@@ -280,10 +280,27 @@ struct DeclChecker: DeclVisitor {
   }
 
   func visit(_ node: AliasTypeDecl) -> Bool {
-    fatalError("not implemented")
+    // Realize the aliased type.
+    _ = node.realize()
+
+    // Initiate type checking.
+    guard node.state < .typeChecked else { return handleCheckState(node) }
+    node.setState(.typeCheckRequested)
+
+    // Initialize the type's generic environment.
+    guard node.prepareGenericEnv() != nil else {
+      node.setState(.invalid)
+      return false
+    }
+
+    // FIXME: Type check the type's conformances.
+
+    node.setState(.typeChecked)
+    return true
   }
 
   func visit(_ node: GenericParamDecl) -> Bool {
+    // Generic parameter are visited through their associated type declaration.
     fatalError("unreachable")
   }
 

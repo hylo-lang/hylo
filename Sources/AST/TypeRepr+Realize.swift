@@ -36,8 +36,7 @@ extension ComponentTypeRepr {
       return nil
     }
 
-    // FIXME: Handle overloaded type decls.
-    precondition(matches.count == 1, "overloaded type declarations are not supported yet")
+    assert(matches.count == 1)
     return matches[0]
   }
 
@@ -90,11 +89,11 @@ fileprivate func realize(_ typeRepr: ComponentTypeRepr, from useSite: DeclSpace)
     return context.errorType
   }
 
-  // FIXME: Handle overloaded type decls.
-  precondition(matches.count == 1, "overloaded type declarations are not supported yet")
+  assert(matches.count == 1)
 
+  // If the repr is specialized (e.g., `Foo<Bar>`), we must realize its arguments as well.
   if let specializedRepr = typeRepr as? SpecializedTypeRepr {
-    let baseDecl = matches[0] as! NominalTypeDecl
+    let baseDecl = matches[0] as! GenericTypeDecl
     AST.realize(typeRepr: specializedRepr, from: useSite, baseDecl: baseDecl)
   } else {
     typeRepr.type = matches[0].instanceType
@@ -105,12 +104,12 @@ fileprivate func realize(_ typeRepr: ComponentTypeRepr, from useSite: DeclSpace)
 
 /// Realizes a specialized identifier.
 fileprivate func realize(
-  typeRepr: SpecializedTypeRepr, from space: DeclSpace, baseDecl: NominalTypeDecl
+  typeRepr: SpecializedTypeRepr, from space: DeclSpace, baseDecl: GenericTypeDecl
 ) {
   let context = baseDecl.type.context
 
-  // Make sure we did't get too many arguments.
-  guard let clause = (baseDecl as? ProductTypeDecl)?.genericClause else {
+  // Make sure we didn't get too many arguments.
+  guard let clause = baseDecl.genericClause else {
     context.report(
       .tooManyGenericArguments(
         type: baseDecl.instanceType, got: typeRepr.args.count, expected: 0,
@@ -118,6 +117,7 @@ fileprivate func realize(
     typeRepr.type = context.errorType
     return
   }
+
   guard clause.params.count >= typeRepr.args.count else {
     context.report(
       .tooManyGenericArguments(

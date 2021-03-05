@@ -138,10 +138,17 @@ struct CSSolver {
       }
 
     default:
+      // Attempt to solve the constraint after desugaring the types.
+      if attemptSolveDesugared(constraint) {
+        return
+      }
+
       // The types might be structural.
       if attemptStructuralMatch(constraint) {
         return
       }
+
+      // The constraint failed.
       errors.append(.conflictingTypes(constraint))
     }
   }
@@ -258,8 +265,13 @@ struct CSSolver {
       solve(simplified)
 
     case (_, let rhs as ViewCompositionType):
+      // Complain if the left operand is asynchronous.
+      guard !(constraint.lhs is AsyncType) else {
+        errors.append(.nonSubtype(constraint))
+        return
+      }
+
       // All types trivially conform to any.
-      // FIXME: Fail the constraint if the left operand is asynchronous.
       if rhs.views.isEmpty { return }
 
       // Break the constraint into conformance relations for each of the views in the composition.
@@ -301,6 +313,12 @@ struct CSSolver {
       solve(simplified)
 
     default:
+      // Attempt to solve the constraint after desugaring the types.
+      if attemptSolveDesugared(constraint) {
+        return
+      }
+
+      // The types might be unifiable.
       solve(equality: constraint)
     }
   }
@@ -539,6 +557,43 @@ struct CSSolver {
     }
 
     return results
+  }
+
+  private mutating func attemptSolveDesugared(_ constraint: RelationalConstraint) -> Bool {
+    switch (constraint.lhs, constraint.rhs) {
+    case (let lhs as AliasType, _):
+      let aliasedType = (lhs.decl as! AliasTypeDecl).realize()
+      let simplified = RelationalConstraint(
+        kind: constraint.kind, lhs: aliasedType, rhs: constraint.rhs, at: constraint.locator)
+      solve(simplified)
+      return true
+
+    case (_, let rhs as AliasType):
+      let aliasedType = (rhs.decl as! AliasTypeDecl).realize()
+      let simplified = RelationalConstraint(
+        kind: constraint.kind, lhs: constraint.lhs, rhs: aliasedType, at: constraint.locator)
+      solve(simplified)
+      return true
+
+    case (let lhs as BoundGenericType, _) where lhs.decl is AliasTypeDecl:
+      let aliasedDecl = lhs.decl as! AliasTypeDecl
+      let aliasedType = aliasedDecl.realize().specialized(with: lhs.bindings)
+      let simplified = RelationalConstraint(
+        kind: constraint.kind, lhs: aliasedType, rhs: constraint.rhs, at: constraint.locator)
+      solve(simplified)
+      return true
+
+    case (_, let rhs as BoundGenericType) where rhs.decl is AliasTypeDecl:
+      let aliasedDecl = rhs.decl as! AliasTypeDecl
+      let aliasedType = aliasedDecl.realize().specialized(with: rhs.bindings)
+      let simplified = RelationalConstraint(
+        kind: constraint.kind, lhs: constraint.lhs, rhs: aliasedType, at: constraint.locator)
+      solve(simplified)
+      return true
+
+    default:
+      return false
+    }
   }
 
   private mutating func attemptStructuralMatch(_ constraint: RelationalConstraint) -> Bool {

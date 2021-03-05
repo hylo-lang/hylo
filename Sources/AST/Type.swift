@@ -682,6 +682,12 @@ public final class BoundGenericType: NominalType {
   /// The arguments provided for the underyling type's generic parameters.
   public let args: [ValType]
 
+  /// A dictionary mapping the generic type parameters of the underlying type to their argument.
+  public var bindings: [GenericParamType: ValType] {
+    let env = decl.genericEnv!
+    return Dictionary(zip(env.params, args), uniquingKeysWith: { lhs, _ in lhs })
+  }
+
   public override var canonical: ValType {
     return isCanonical
       ? self

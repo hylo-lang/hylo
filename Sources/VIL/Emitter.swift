@@ -36,6 +36,10 @@ public final class Emitter {
     case let typeDecl as ProductTypeDecl:
       emit(decl: typeDecl)
 
+    case is AliasTypeDecl:
+      // FIXME: Emit the type's witness table.
+      break
+
     case let pdDecl as PatternBindingDecl:
       emit(decl: pdDecl)
 

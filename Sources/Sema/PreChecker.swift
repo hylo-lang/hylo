@@ -249,8 +249,7 @@ struct PreChecker: ExprVisitor {
       return newRef
     }
 
-    // FIXME: Handle overloaded type decls.
-    precondition(matches.count == 1, "overloaded type declarations are not supported yet")
+    assert(matches.count == 1)
     return TypeDeclRefExpr(decl: matches.types[0], range: ref.range)
   }
 
