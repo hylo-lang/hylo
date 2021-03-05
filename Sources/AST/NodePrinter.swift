@@ -261,7 +261,6 @@ public struct NodePrinter: NodeVisitor {
     \(typeDeclHeader(node)),
     "aliasedSign"     : \(encode(node.aliasedSign))
     }
-    }
     """
   }
 
@@ -549,8 +548,8 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(patternHeader(node)),
-    "subpattern"      : \(node.subpattern.accept(self))
-    "sign"            : \(encode(node.sign)),
+    "subpattern"      : \(node.subpattern.accept(self)),
+    "sign"            : \(encode(node.sign))
     }
     """
   }
