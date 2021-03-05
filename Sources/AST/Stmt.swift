@@ -24,13 +24,13 @@ public final class BraceStmt: Stmt, IterableDeclSpace {
   /// The declarations, statements and expressions in the code block.
   public var stmts: [Node]
 
-  public var decls: DeclSequence {
-    return stmts.lazy.compactMap({ $0 as? Decl })
-  }
-
   public weak var parentDeclSpace: DeclSpace?
 
   public var range: SourceRange
+
+  public var decls: DeclSequence {
+    return stmts.lazy.compactMap({ $0 as? Decl })
+  }
 
   public func accept<V>(_ visitor: V) -> V.StmtResult where V: StmtVisitor {
     return visitor.visit(self)
@@ -60,7 +60,9 @@ public final class RetStmt: Stmt {
 }
 
 /// A case statement of a match construct.
-public final class MatchCaseStmt: Stmt {
+public final class MatchCaseStmt: Stmt, IterableDeclSpace {
+
+  public typealias DeclSequence = LazyMapSequence<LazySequence<[NamedPattern]>.Elements, Decl>
 
   public init(pattern: Pattern, condition: Expr?, body: BraceStmt, range: SourceRange) {
     self.pattern = pattern
@@ -78,7 +80,13 @@ public final class MatchCaseStmt: Stmt {
   /// The body of the case.
   public var body: BraceStmt
 
+  public weak var parentDeclSpace: DeclSpace?
+
   public var range: SourceRange
+
+  public var decls: DeclSequence {
+    return pattern.namedPatterns.lazy.map({ $0.decl })
+  }
 
   public func accept<V>(_ visitor: V) -> V.StmtResult where V: StmtVisitor {
     return visitor.visit(self)

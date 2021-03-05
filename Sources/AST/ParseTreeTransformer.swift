@@ -46,7 +46,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     currentSpace = block
     defer { currentSpace = parentDeclSpace }
 
-    /// Visit the block's statements.
+    // Visit the block's statements.
     expand(decls: ctx.statement(), into: &block.stmts)
     return block
   }
@@ -93,7 +93,6 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     let sign        = ctx.typeRepr().map({ repr in repr.accept(self) as! TypeRepr })
     let initializer = ctx.expr().map({ expr in expr.accept(self) as! Expr })
 
-    // Create the pattern binding declaration.
     let decl = PatternBindingDecl(
       isMutable   : keyword.getText() == "var",
       pattern     : pattern,
@@ -753,10 +752,25 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
   }
 
   public override func visitMatchCase(_ ctx: ValParser.MatchCaseContext) -> Any {
-    let pattern = ctx.pattern()!.accept(self) as! Pattern
-    let condition = ctx.matchCaseCond().map({ expr in expr.accept(self) as! Expr })
-    let body = ctx.braceStmt()!.accept(self) as! BraceStmt
-    return MatchCaseStmt(pattern: pattern, condition: condition, body: body, range: range(of: ctx))
+    // Create a stub of the case statement.
+    let stmt = MatchCaseStmt(
+      pattern: WildcardPattern(type: unresolvedType, range: .invalid),
+      condition: nil,
+      body: BraceStmt(statements: [], range: .invalid),
+      range: range(of: ctx))
+    stmt.parentDeclSpace = currentSpace
+
+    // Update the current decl space.
+    let parentDeclSpace = currentSpace
+    currentSpace = stmt
+    defer { currentSpace = parentDeclSpace }
+
+    // Visit the statement.
+    stmt.pattern = ctx.pattern()!.accept(self) as! Pattern
+    stmt.condition = ctx.matchCaseCond().map({ expr in expr.accept(self) as! Expr })
+    stmt.body = ctx.braceStmt()!.accept(self) as! BraceStmt
+
+    return stmt
   }
 
   public override func visitWildcard(_ ctx: ValParser.WildcardContext) -> Any {
