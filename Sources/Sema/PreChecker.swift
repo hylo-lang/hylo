@@ -184,6 +184,22 @@ struct PreChecker: ExprVisitor {
   }
 
   func visit(_ node: MatchExpr) -> Expr {
+    let context = node.type.context
+
+    // If the match is not a sub-expression, we can just type it as `Unit`.
+    guard node.isSubExpr else {
+      node.type = context.unitType
+      return node
+    }
+
+    // If the match is a sub-expression, make sure that its cases are single expressions.
+    for stmt in node.cases {
+      guard (stmt.body.stmts.count == 1) && (stmt.body.stmts[0] is Expr) else {
+        context.report(.multipleStatementInMatchExpression(range: stmt.range))
+        return ErrorExpr(type: context.errorType, range: node.range)
+      }
+    }
+
     return node
   }
 

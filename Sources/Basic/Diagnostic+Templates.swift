@@ -1,5 +1,13 @@
 extension Diagnostic {
 
+  public static func multipleStatementInMatchExpression(
+    range: SourceRange
+  ) -> Diagnostic {
+    return Diagnostic(
+      "case of match used as an expression must be a single expression",
+      anchor: range)
+  }
+
   public static func duplicateDeclaration(
     symbol name: String, range: SourceRange
   ) -> Diagnostic {

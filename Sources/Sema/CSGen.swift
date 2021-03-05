@@ -35,12 +35,23 @@ final class CSGenDriver: NodeWalker {
     return (true, expr)
   }
 
+  override func didVisit(_ pattern: Pattern) -> (shouldContinue: Bool, nodeAfter: Pattern) {
+    // There's nothing to do if the pattern already has a type.
+    if !(pattern.type is UnresolvedType) {
+      return (true, pattern)
+    }
+
+    pattern.accept(ConstraintGenerator(system: system, useSite: innermostSpace!))
+    return (true, pattern)
+  }
+
 }
 
-/// An AST visitor that generates type constraints for a statement or an expression.
-struct ConstraintGenerator: ExprVisitor {
+/// An AST visitor that generates type constraints on expressions.
+struct ConstraintGenerator: ExprVisitor, PatternVisitor {
 
   typealias ExprResult = Void
+  typealias PatternResult = Void
 
   /// A pointer to the system in which new constraints are inserted.
   let system: UnsafeMutablePointer<ConstraintSystem>
@@ -71,7 +82,6 @@ struct ConstraintGenerator: ExprVisitor {
     let elems = node.elems.map({ elem in
       TupleType.Elem(label: elem.label, type: elem.value.type)
     })
-
     node.type = node.type.context.tupleType(elems)
   }
 
@@ -149,12 +159,72 @@ struct ConstraintGenerator: ExprVisitor {
   }
 
   func visit(_ node: MatchExpr) {
+    for stmt in node.cases {
+      // All patterns must have the same type as the expresion.
+      system.pointee.insert(
+        RelationalConstraint(
+          kind: .subtyping, lhs: stmt.pattern.type, rhs: node.subject.type,
+          at: ConstraintLocator(stmt.pattern)))
+
+      // FIXME: The condition must have a boolean type.
+
+      // Nothing more to do unless the match is a sub-expression.
+      guard node.isSubExpr else { continue }
+
+      // If the match is a sub-expression, then all cases must have a coercible type. Note that we
+      // can assume that the case statement is a single expression, as it's already been verified
+      // by the pre-checker.
+      let expr = stmt.body.stmts[0] as! Expr
+      system.pointee.insert(
+        RelationalConstraint(
+          kind: .subtyping, lhs: expr.type, rhs: node.type, at: ConstraintLocator(expr)))
+    }
   }
 
   func visit(_ node: WildcardExpr) {
   }
 
   func visit(_ node: ErrorExpr) {
+    assert(node.type is ErrorType)
+  }
+
+  func visit(_ node: NamedPattern) {
+    assert(node.decl.patternBindingDecl == nil)
+    assert(node.decl.type is UnresolvedType)
+
+    node.decl.type = TypeVar(context: node.type.context, node: node.decl)
+    node.type = node.decl.type
+  }
+
+  func visit(_ node: TuplePattern) {
+    // Synthetize a type from the tuple's elements.
+    let elems = node.elems.map({ elem in
+      TupleType.Elem(label: elem.label, type: elem.pattern.type)
+    })
+    node.type = node.type.context.tupleType(elems)
+  }
+
+  func visit(_ node: BindingPattern) {
+    node.type = node.subpattern.type
+
+    if let sign = node.sign {
+      // Contextualize the type signature.
+      guard let signType = TypeChecker.contextualize(
+              repr: sign, from: useSite, system: &system.pointee)
+      else {
+        node.type = node.type.context.errorType
+        return
+      }
+
+      system.pointee.insert(
+        RelationalConstraint(
+          kind: .equality, lhs: node.type, rhs: signType,
+          at: ConstraintLocator(node.subpattern)))
+    }
+  }
+
+  func visit(_ node: WildcardPattern) {
+    node.type = TypeVar(context: node.type.context, node: node)
   }
 
 }

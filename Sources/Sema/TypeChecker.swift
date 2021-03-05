@@ -91,6 +91,7 @@ public final class TypeChecker {
   ///   - useSite: The declaration space in which the expression is type checked.
   ///   - system: A system with potential pre-existing constraints that should be solved together
   ///     with those related to the expression.
+  ///
   /// - Returns: The best solution found by the type solver
   @discardableResult
   func check(
@@ -161,7 +162,7 @@ public final class TypeChecker {
     return true
   }
 
-  /// Contextualize the type the given declaration from the specified use site.
+  /// Contextualizes the type the given declaration from the specified use site.
   ///
   /// - Parameters:
   ///   - decl: The declaration to contextualize.
@@ -170,6 +171,8 @@ public final class TypeChecker {
   ///   - handleConstraint: A closure that accepts contextualized contraint prototypes. It is
   ///     called if the contextualized type contains opened generic parameters for which there
   ///     exist type requirements.
+  ///
+  /// - Returns: The contextualized type of the declaration.
   public func contextualize(
     decl: ValueDecl,
     from useSite: DeclSpace,
@@ -302,20 +305,96 @@ public final class TypeChecker {
 
   // MARK: Internal API
 
+  /// Contextualizes the type of a the given type signature.
+  ///
+  /// - Parameters:
+  ///   - repr: The type signature to contextualize.
+  ///   - useSite: The declaration space in which the signature is type checked.
+  ///   - system: A system with potential pre-existing constraints that should be solved together
+  ///     with those related to the signature.
+  ///
+  /// - Returns: The contextualized type of the declaration if it is valid; otherwise, `nil`.
+  static func contextualize(
+    repr: TypeRepr,
+    from useSite: DeclSpace,
+    system: inout ConstraintSystem
+  ) -> ValType? {
+    // Realize the signature, generating diagnostics as necessary.
+    var signType = repr.realize(unqualifiedFrom: useSite)
+    assert(!signType.hasUnresolved)
+
+    // Bail out if the signature is invalid.
+    guard !signType.hasErrors else { return nil }
+
+    if signType.hasTypeParams {
+      // The signature is generic; we have to contextualize its parameters. We can assume that
+      // there's a declaration space from the use-site, otherwise `realize()` would have failed to
+      // resolve the type repr.
+      guard let env = useSite.innermostGenericSpace!.prepareGenericEnv() else { return nil }
+
+      // Contextualize the signature.
+      signType = env.contextualize(
+        signType, from: useSite,
+        processingContraintsWith: { prototype in
+          system.insert(RelationalConstraint(prototype: prototype, at: ConstraintLocator(repr)))
+        })
+    }
+
+    // Check if we have to synthetize additional generic arguments, in case the signature refers
+    // to an "underspecialized" generic nominal type.
+    return completeGenericArgs(
+      type: signType, system: &system, locator: ConstraintLocator(repr))
+  }
+
+  /// Completes the argument list of an "underspecified" generic nominal type.
+  ///
+  /// If `type` is a generic nominal type with too few generic arguments, this method produces a
+  /// bound generic type in which all missing arguments are replaced by opened parameters. This
+  /// requires that `type` be a bare nominal type, or a bound generic type with fewer arguments
+  /// than the number of parameters of its declaration.
+  ///
+  /// - Parameters:
+  ///   - type: Either a bare nominal type or a bound generic type.
+  ///   - system: The system in which constraints on opened type parameters are inserted.
+  ///   - locator: A locator for all generated constraints.
+  ///
+  /// - Returns: A bound generic type filling out missing generic arguments with fresh type
+  ///   variables, if `type` is an underspecified generic nominal type; otherwise, `nil`.
+  static func completeGenericArgs(
+    type: ValType, system: inout ConstraintSystem, locator: ConstraintLocator
+  ) -> ValType? {
+    guard let nominalType = type as? NominalType,
+          let clause = nominalType.decl.genericClause
+    else { return type }
+
+    // Complete the argument list if necessary.
+    var args = (nominalType as? BoundGenericType)?.args ?? []
+    guard args.count < clause.params.count else { return type }
+
+    args.append(contentsOf: clause.params.dropFirst(args.count).map({ $0.instanceType }))
+    guard let env = nominalType.decl.prepareGenericEnv() else {
+      return nil
+    }
+
+    let newType = nominalType.context.boundGenericType(decl: nominalType.decl, args: args)
+    return env.contextualize(
+      newType, from: nominalType.decl.rootDeclSpace,
+      processingContraintsWith: { prototype in
+        system.insert(RelationalConstraint(prototype: prototype, at: locator))
+      })
+  }
+
   /// Recursively assigns the given type to a pattern and its sub-patterns, generating diagnostics
   /// upon failure.
   ///
   /// - Parameters:
   ///   - type: A type.
   ///   - pattern: A pattern.
+  ///
   /// - Returns: `true` if the type was successfully applied, or `false` if its layout does not
   ///   match that of the pattern.
   static func assign(type: ValType, to pattern: Pattern) -> Bool {
     switch pattern {
-    case is WildcardPattern:
-      pattern.type = type
-      return true
-
     case let namedPattern as NamedPattern:
       namedPattern.type = type
       namedPattern.decl.type = type.uncontextualized
@@ -339,6 +418,10 @@ public final class TypeChecker {
       assert(tuplePattern.elems.count == 1)
       tuplePattern.type = type
       tuplePattern.elems[0].pattern.type = type
+      return true
+
+    case is WildcardPattern:
+      pattern.type = type
       return true
 
     default:
