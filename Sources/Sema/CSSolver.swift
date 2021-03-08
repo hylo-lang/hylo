@@ -87,23 +87,29 @@ struct CSSolver {
     if updated.lhs == updated.rhs { return }
 
     switch updated.kind {
-    case .equality      : solve(equality      : updated)
-    case .oneWayEquality: solve(oneWayEquality: updated)
-    case .conformance   : solve(conformance   : updated)
-    case .subtyping     : solve(subtyping     : updated)
-    case .conversion    : solve(conversion    : updated)
+    case .equality,
+         .oneWayEquality: solve(equality    : updated)
+    case .conformance   : solve(conformance : updated)
+    case .subtyping     : solve(subtyping   : updated)
+    case .conversion    : solve(conversion  : updated)
     }
   }
 
   private mutating func solve(equality constraint: RelationalConstraint) {
     // Attempt to unify the two types.
     switch (constraint.lhs, constraint.rhs) {
-    case (let tau as TypeVar, _):
-      assumptions.substitute(constraint.rhs, for: tau)
+    case (_, let tau as TypeVar):
+      // Check if we're allowed to unify the right operand.
+      guard constraint.kind != .oneWayEquality else {
+        system.staleConstraints.append(constraint)
+        return
+      }
+
+      assumptions.substitute(constraint.lhs, for: tau)
       system.refresh(constraintsDependingOn: tau)
 
-    case (_, let tau as TypeVar):
-      assumptions.substitute(constraint.lhs, for: tau)
+    case (let tau as TypeVar, _):
+      assumptions.substitute(constraint.rhs, for: tau)
       system.refresh(constraintsDependingOn: tau)
 
     case (let lhs as SkolemType, _):
@@ -148,19 +154,6 @@ struct CSSolver {
       // The constraint failed.
       errors.append(.conflictingTypes(constraint))
     }
-  }
-
-  private mutating func solve(oneWayEquality constraint: RelationalConstraint) {
-    // Postpone the constraint if the right operand has not been determined yet.
-    guard !(constraint.rhs is TypeVar) else {
-      system.staleConstraints.append(constraint)
-      return
-    }
-
-    // Simplfy the constraint as a standard equality.
-    let simplified = RelationalConstraint(
-      kind: .equality, lhs: constraint.lhs, rhs: constraint.rhs, at: constraint.locator)
-    solve(equality: simplified)
   }
 
   private mutating func solve(conformance constraint: RelationalConstraint) {

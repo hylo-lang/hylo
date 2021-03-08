@@ -47,14 +47,15 @@ final class TypeDispatcher: NodeWalker {
     return (true, expr)
   }
 
-  override func willVisit(_ pattern: Pattern) -> (shouldWalk: Bool, nodeBefore: Pattern) {
-    switch pattern {
-    case is NamedPattern:
-      // Nothing to do here.
-      break
+  override func didVisit(_ pattern: Pattern) -> (shouldContinue: Bool, nodeAfter: Pattern) {
+    pattern.type = solution.reify(pattern.type, freeVariablePolicy: freeVariablePolicy)
 
-    default:
-      pattern.type = solution.reify(pattern.type, freeVariablePolicy: freeVariablePolicy)
+    if let decl = (pattern as? NamedPattern)?.decl {
+      if decl.state < .typeChecked {
+        decl.type = pattern.type.uncontextualized
+        decl.setState(.typeChecked)
+      }
+      assert(!(decl.type is UnresolvedType))
     }
 
     return (true, pattern)

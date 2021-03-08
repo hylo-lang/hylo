@@ -70,8 +70,8 @@ struct RelationalConstraint: Constraint, CustomStringConvertible {
     /// corresponding to a literal type `U`.
     case conversion
 
-    /// A constraints `T == U` that requires `U` to be (partially) determined before it is treated
-    /// exactly like an equality containst.
+    /// A constraint `T == U` that requires `U` to be (partially) determined before it is treated
+    /// exactly like a regular equality constraint.
     case oneWayEquality
 
   }

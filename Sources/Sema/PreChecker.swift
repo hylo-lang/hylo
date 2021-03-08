@@ -13,13 +13,20 @@ final class PreCheckDriver: NodeWalker {
 
   override func willVisit(_ expr: Expr) -> (shouldWalk: Bool, nodeBefore: Expr) {
     switch expr {
-    case let tuple as TupleExpr:
+    case let tupleExpr as TupleExpr:
       // Substitute 'e' for '(e)', effectively eliminating parenthesized expressions.
-      if (tuple.elems.count == 1) && (tuple.elems[0].label == nil) {
-        return (true, tuple.elems[0].value)
+      if (tupleExpr.elems.count == 1) && (tupleExpr.elems[0].label == nil) {
+        return (true, tupleExpr.elems[0].value)
       } else {
-        return (true, tuple)
+        return (true, tupleExpr)
       }
+
+    case let matchExpr as MatchExpr:
+      // Match expressions require special handling to deal with case inference.
+      let newExpr = matchExpr.accept(
+        PreChecker(system: system, useSite: innermostSpace!))
+
+      return (false, matchExpr)
 
     case is ErrorExpr:
       return (false, expr)
@@ -177,7 +184,29 @@ struct PreChecker: ExprVisitor {
   }
 
   func visit(_ node: MatchExpr) -> Expr {
+    // Type check the subject of the match before visiting its cases, so that its type can be used
+    // to infer that of each case's ptattern. This is done in a separate constraint system, since
+    // the subject's type does't depend on the expression in which the match appears (only the type
+    // of the match itself does). However, since case patterns do not contribute to the subject's
+    // type inference neither, and therefore cannot help disambiguate overloading.
+    TypeChecker.check(expr: &node.subject, useSite: useSite)
+
+    // Bail out if the subjet doesn't have a valid type.
     let context = node.type.context
+    guard !node.subject.type.hasErrors else {
+      return ErrorExpr(type: context.errorType, range: node.range)
+    }
+
+    // Type check each case statement.
+    for i in 0 ..< node.cases.count {
+      var cs = ConstraintSystem()
+      TypeChecker.check(
+        pattern     : node.cases[i].pattern,
+        expectedType: node.subject.type,
+        useSite     : useSite,
+        system      : &cs)
+      TypeChecker.check(stmt: node.cases[i].body, useSite: useSite)
+    }
 
     // If the match is not a sub-expression, we can just type it as `Unit`.
     guard node.isSubExpr else {
@@ -185,7 +214,8 @@ struct PreChecker: ExprVisitor {
       return node
     }
 
-    // If the match is a sub-expression, make sure that its cases are single expressions.
+    // If the match is a sub-expression, make sure that its cases are single expressions and keep
+    // its type unresolved.
     for stmt in node.cases {
       guard (stmt.body.stmts.count == 1) && (stmt.body.stmts[0] is Expr) else {
         context.report(.multipleStatementInMatchExpression(range: stmt.range))

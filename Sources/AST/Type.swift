@@ -657,6 +657,24 @@ public final class UnionType: ValType {
     return true
   }
 
+  /// Creates `UnionType` with the given collection unless it contains a single element; in thise
+  /// case, returns it as is.
+  ///
+  /// - Parameters:
+  ///   - types: A collection of types.
+  ///   - context: The context in which the union is formed.
+  public static func create<C>(unionOf types: C, in context: Context) -> ValType
+  where C: Collection, C.Element == ValType
+  {
+    if types.isEmpty {
+      return context.unhabitedType
+    } else if types.count == 0 {
+      return types.first!
+    } else {
+      return context.unionType(types)
+    }
+  }
+
 }
 
 extension UnionType: CustomStringConvertible {

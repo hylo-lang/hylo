@@ -96,12 +96,17 @@ struct DeclChecker: DeclVisitor {
   }
 
   func visit(_ node: VarDecl) -> Bool {
+    guard node.state < .typeChecked else { return handleCheckState(node) }
+    node.setState(.typeCheckRequested)
+
     // If the variable is introduced by a pattern binding declaration, type check it.
     if let pbd = node.patternBindingDecl {
       return visit(pbd)
     }
 
-    return true
+    // Otherwise, the declaration belongs to a binding pattern in a case statement and its type
+    // should have been inferred before it is looked up.
+    preconditionFailure("cannot type check variable declaration in a binding pattern")
   }
 
   func visit(_ node: BaseFunDecl) -> Bool {

@@ -11,6 +11,17 @@ final class CSGenDriver: NodeWalker {
   /// A pointer to the system in which new constraints are inserted.
   let system: UnsafeMutablePointer<ConstraintSystem>
 
+  override func willVisit(_ expr: Expr) -> (shouldWalk: Bool, nodeBefore: Expr) {
+    // Skip the recursive descent into match constructs, as the heavy-lifting ahs already been done
+    // by the pre-checker. There's nothing more to do unless the match is treated as an expression.
+    if let matchExpr = expr as? MatchExpr, matchExpr.isSubExpr {
+      matchExpr.accept(ConstraintGenerator(system: system, useSite: innermostSpace!))
+      return (false, matchExpr)
+    }
+
+    return (true, expr)
+  }
+
   override func didVisit(_ expr: Expr) -> (shouldContinue: Bool, nodeAfter: Expr) {
     if expr.type.hasErrors {
       return (true, expr)
@@ -159,26 +170,23 @@ struct ConstraintGenerator: ExprVisitor, PatternVisitor {
   }
 
   func visit(_ node: MatchExpr) {
-    for stmt in node.cases {
-      // All patterns must have the same type as the expresion.
-      system.pointee.insert(
-        RelationalConstraint(
-          kind: .subtyping, lhs: stmt.pattern.type, rhs: node.subject.type,
-          at: ConstraintLocator(stmt.pattern)))
+    precondition(node.isSubExpr)
 
-      // FIXME: The condition must have a boolean type.
-
-      // Nothing more to do unless the match is a sub-expression.
-      guard node.isSubExpr else { continue }
-
-      // If the match is a sub-expression, then all cases must have a coercible type. Note that we
-      // can assume that the case statement is a single expression, as it's already been verified
-      // by the pre-checker.
-      let expr = stmt.body.stmts[0] as! Expr
-      system.pointee.insert(
-        RelationalConstraint(
-          kind: .subtyping, lhs: expr.type, rhs: node.type, at: ConstraintLocator(expr)))
+    if node.type is UnresolvedType {
+      node.type = TypeVar(context: node.type.context, node: node)
     }
+
+    // All cases must produce a value with a type coercible to that of the node.
+    let caseTypes = node.cases.compactMap({ (stmt: MatchCaseStmt) -> ValType? in
+      let expr = stmt.body.stmts[0] as! Expr
+      return expr.type is ErrorType
+        ? nil
+        : expr.type
+    })
+    let unionType = UnionType.create(unionOf: caseTypes, in: node.type.context)
+    system.pointee.insert(
+      RelationalConstraint(
+        kind: .subtyping, lhs: unionType, rhs: node.type, at: ConstraintLocator(node)))
   }
 
   func visit(_ node: WildcardExpr) {
@@ -189,11 +197,12 @@ struct ConstraintGenerator: ExprVisitor, PatternVisitor {
   }
 
   func visit(_ node: NamedPattern) {
-    assert(node.decl.patternBindingDecl == nil)
-    assert(node.decl.type is UnresolvedType)
+    guard node.decl.state < .typeChecked else {
+      assert(!(node.type is UnresolvedType))
+      return
+    }
 
-    node.decl.type = TypeVar(context: node.type.context, node: node.decl)
-    node.type = node.decl.type
+    node.type = TypeVar(context: node.type.context, node: node)
   }
 
   func visit(_ node: TuplePattern) {
@@ -224,7 +233,9 @@ struct ConstraintGenerator: ExprVisitor, PatternVisitor {
   }
 
   func visit(_ node: WildcardPattern) {
-    node.type = TypeVar(context: node.type.context, node: node)
+    if node.type is UnresolvedType {
+      node.type = TypeVar(context: node.type.context, node: node)
+    }
   }
 
 }
