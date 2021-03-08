@@ -97,9 +97,11 @@ public struct Driver {
   @discardableResult
   public func typeCheck(moduleDecl: ModuleDecl) -> Bool {
     assert(context.modules.values.contains(moduleDecl))
-    let tc = TypeChecker(context: context)
+
     context.isCompilingStdLib = (moduleDecl === context.stdlib)
-    let result = tc.check(decl: moduleDecl)
+    TypeChecker.initialize(in: context)
+    let result = TypeChecker.check(decl: moduleDecl)
+
     context.generation += 1
     return result
   }

@@ -6,9 +6,6 @@ struct DeclChecker: DeclVisitor {
 
   typealias DeclResult = Bool
 
-  /// The top-level type checker.
-  unowned let checker: TypeChecker
-
   func visit(_ node: ModuleDecl) -> Bool {
     guard node.state < .typeChecked else { return handleCheckState(node) }
     node.setState(.typeCheckRequested)
@@ -38,6 +35,7 @@ struct DeclChecker: DeclVisitor {
     node.setState(.typeCheckRequested)
 
     let useSite = node.parentDeclSpace!
+    let context = useSite.rootDeclSpace.type.context
 
     // Create a new constraint system to infer the pattern's type.
     var system = ConstraintSystem()
@@ -56,7 +54,7 @@ struct DeclChecker: DeclVisitor {
 
       // If the signature contains opened generic parameter, require an initializer to infer them.
       guard !signType.hasVariables || node.initializer != nil else {
-        checker.context.report(
+        context.report(
           .referenceToGenericRequiresArguments(type: signType, range: node.pattern.range))
         setInvalid(pbd: node)
         return false
@@ -64,7 +62,7 @@ struct DeclChecker: DeclVisitor {
 
       // Type-check the initializer if there's one.
       if node.initializer != nil {
-        let solution = checker.check(
+        let solution = TypeChecker.check(
           expr: &(node.initializer!), expectedType: signType,
           useSite: useSite, system: &system)
         patternType = solution.reify(signType, freeVariablePolicy: .bindToErrorType)
@@ -73,11 +71,11 @@ struct DeclChecker: DeclVisitor {
       }
     } else if node.initializer != nil {
       // Infer everything from the initializer alone.
-      checker.check(expr: &(node.initializer!), useSite: useSite, system: &system)
+      TypeChecker.check(expr: &(node.initializer!), useSite: useSite, system: &system)
       patternType = node.initializer!.type
     } else {
       // Unannotated declarations require an initializer.
-      checker.context.report(.missingPatternInitializer(range: node.pattern.range))
+      context.report(.missingPatternInitializer(range: node.pattern.range))
       setInvalid(pbd: node)
       return false
     }
@@ -111,7 +109,7 @@ struct DeclChecker: DeclVisitor {
 
     // Realize the function's signature. Note that we use the checker's 'contextualize' method, to
     // handle synthesized declarations that require type checking (e.g., constructors).
-    _ = checker.contextualize(decl: node, from: node.rootDeclSpace)
+    _ = TypeChecker.contextualize(decl: node, from: node.rootDeclSpace)
     node.setState(.typeCheckRequested)
 
     /// Initialize the function's generic environment.
@@ -122,7 +120,7 @@ struct DeclChecker: DeclVisitor {
 
     /// Type check the function's body, if any.
     if let body = node.body {
-      checker.check(stmt: body, useSite: node)
+      TypeChecker.check(stmt: body, useSite: node)
     }
 
     node.setState(.typeChecked)
@@ -315,7 +313,8 @@ struct DeclChecker: DeclVisitor {
 
     case .typeCheckRequested:
       // Type checking was requested on the same path.
-      checker.context.report(Diagnostic("circular dependency detected", anchor: node.range))
+      let context = node.parentDeclSpace!.rootDeclSpace.type.context
+      context.report(Diagnostic("circular dependency detected", anchor: node.range))
       return false
 
     default:
@@ -331,7 +330,7 @@ struct DeclChecker: DeclVisitor {
     /// to prevent further use by the type checker.
     for decl in node.varDecls {
       if decl.type.hasUnresolved || decl.type.hasVariables {
-        decl.type = checker.context.errorType
+        decl.type = decl.type.context.errorType
         decl.setState(.invalid)
       } else {
         decl.setState(.typeChecked)

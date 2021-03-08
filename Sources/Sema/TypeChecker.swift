@@ -2,9 +2,9 @@ import AST
 
 /// Val's type checker.
 ///
-/// This class is the entry point to Val's type checker. Its purpose is twofold: determine whether
-/// program sources satisfy Val's (flow-insensitive) static type system; resolve type and variable
-/// identifiers to their declaration.
+/// The type checker serves two purposes: first, it verifies that program sources satisfy Val's
+/// (flow-insensitive) static type system; second, it resolves type and variable identifiers to
+/// their declaration.
 ///
 /// Conceptually, type checking is a composition of multiple phases:
 /// - **Extension binding**
@@ -36,23 +36,18 @@ import AST
 /// The "phase" at which a particular node sits is encoded by the node itself, either explicitly
 /// within its properties or by its very type (e.g., name resolution substitutes `DeclRefExpr`s for
 /// `UnresolvedDeclRefExpr`s).
-public final class TypeChecker {
+public enum TypeChecker {
 
-  public init(context: AST.Context) {
-    self.context = context
-
-    // Configure the context.
+  /// Initializes the type checker.
+  public static func initialize(in context: AST.Context) {
     context.prepareGenericEnv = prepareGenericEnv(env:)
   }
-
-  /// The context in which the pass runs.
-  public unowned let context: AST.Context
 
   /// Type checks the given declaration. This is the main entry point into the type checker.
   ///
   /// - Parameter decl: The declaration to type check.
-  public func check(decl: Decl) -> Bool {
-    decl.accept(DeclChecker(checker: self))
+  public static func check(decl: Decl) -> Bool {
+    decl.accept(DeclChecker())
   }
 
   /// Type checks the given statement.
@@ -60,8 +55,8 @@ public final class TypeChecker {
   /// - Parameters:
   ///   - stmt: The statement to type check.
   ///   - useSite: The declaration space in which the statement is type checked.
-  public func check(stmt: Stmt, useSite: DeclSpace) {
-    stmt.accept(StmtChecker(checker: self, useSite: useSite))
+  public static func check(stmt: Stmt, useSite: DeclSpace) {
+    stmt.accept(StmtChecker(useSite: useSite))
   }
 
   /// Type checks the given expression.
@@ -72,7 +67,7 @@ public final class TypeChecker {
   ///     appears. For instance, the contextual type of `9` in `val x: UInt = 9` is `UInt`. No
   ///     assumption is made if it assigned to `nil`.
   ///   - useSite: The declaration space in which the expression is type checked.
-  public func check(
+  public static func check(
     expr: inout Expr,
     expectedType: ValType? = nil,
     useSite: DeclSpace
@@ -81,59 +76,7 @@ public final class TypeChecker {
     check(expr: &expr, expectedType: expectedType, useSite: useSite, system: &system)
   }
 
-  /// Type checks the given expression.
-  ///
-  /// - Parameters:
-  ///   - expr: The expression to type check.
-  ///   - expectedType: The expected type of the expression, based on the context in which it
-  ///     appears. For instance, the contextual type of `9` in `val x: UInt = 9` is `UInt`. No
-  ///     assumption is made if it assigned to `nil`.
-  ///   - useSite: The declaration space in which the expression is type checked.
-  ///   - system: A system with potential pre-existing constraints that should be solved together
-  ///     with those related to the expression.
-  ///
-  /// - Returns: The best solution found by the type solver
-  @discardableResult
-  func check(
-    expr: inout Expr,
-    expectedType: ValType? = nil,
-    useSite: DeclSpace,
-    system: inout ConstraintSystem
-  ) -> Solution {
-    // Pre-check the expression.
-    // This resolves primary names, realizes type rerps and desugars constructor calls.
-    withUnsafeMutablePointer(to: &system, { ptr in
-      let driver = PreCheckDriver(system: ptr, checker: self, useSite: useSite)
-      (_, expr) = driver.walk(expr)
-    })
-
-    // Generate constraints from the expression.
-    withUnsafeMutablePointer(to: &system, { ptr in
-      let driver = CSGenDriver(system: ptr, useSite: useSite)
-      _ = driver.walk(expr)
-    })
-
-    if let type = expectedType {
-      system.insert(
-        RelationalConstraint(
-          kind: .subtyping, lhs: expr.type, rhs: type, at: ConstraintLocator(expr)))
-    }
-
-    // Solve the constraint system.
-    var solver = CSSolver(system: system, checker: self)
-    let solution = solver.solve()
-
-    // Report type errors.
-    TypeErrorReporter(context: context, solution: solution).report(solution.errors)
-
-    // Apply the solution.
-    let dispatcher = TypeDispatcher(solution: solution)
-    (_, expr) = dispatcher.walk(expr)
-
-    return solution
-  }
-
-  public func prepareGenericEnv(env: GenericEnv) -> Bool {
+  public static func prepareGenericEnv(env: GenericEnv) -> Bool {
     // Generate equivalence classes.
     var solver = TRSolver()
     guard solver.solve(typeReqs: env.typeReqs, from: env.space) else { return false }
@@ -173,7 +116,7 @@ public final class TypeChecker {
   ///     exist type requirements.
   ///
   /// - Returns: The contextualized type of the declaration.
-  public func contextualize(
+  public static func contextualize(
     decl: ValueDecl,
     from useSite: DeclSpace,
     args: [GenericParamType: ValType] = [:],
@@ -258,52 +201,93 @@ public final class TypeChecker {
       genericType, from: useSite, processingContraintsWith: handleConstraint)
   }
 
-  private func registerConformance(
-    _ lhs: ValType, _ rhs: ValType, _ env: GenericEnv, _ req: TypeReq
-  ) -> Bool {
-    // Complain if the left operand is not a generic parameter.
-    // FIXME: Handle dependent types.
-    guard let param = lhs as? GenericParamType, env.params.contains(param) else {
-      context.report(.illegalConformanceRequirement(type: lhs, range: req.lhs.range))
-      return false
+  // MARK: Internal API
+
+  /// Type checks the given expression.
+  ///
+  /// - Parameters:
+  ///   - expr: The expression to type check.
+  ///   - expectedType: The expected type of the expression, based on the context in which it
+  ///     appears. For instance, the contextual type of `9` in `val x: UInt = 9` is `UInt`. No
+  ///     assumption is made if it assigned to `nil`.
+  ///   - useSite: The declaration space in which the expression is type checked.
+  ///   - system: A system with potential pre-existing constraints that should be solved together
+  ///     with those related to the expression.
+  ///
+  /// - Returns: The best solution found by the type solver
+  @discardableResult
+  static func check(
+    expr: inout Expr,
+    expectedType: ValType? = nil,
+    useSite: DeclSpace,
+    system: inout ConstraintSystem
+  ) -> Solution {
+    // Pre-check the expression.
+    // This resolves primary names, realizes type rerps and desugars constructor calls.
+    withUnsafeMutablePointer(to: &system, { ptr in
+      let driver = PreCheckDriver(system: ptr, useSite: useSite)
+      (_, expr) = driver.walk(expr)
+    })
+
+    // Generate constraints from the expression.
+    withUnsafeMutablePointer(to: &system, { ptr in
+      let driver = CSGenDriver(system: ptr, useSite: useSite)
+      _ = driver.walk(expr)
+    })
+
+    if let type = expectedType {
+      system.insert(
+        RelationalConstraint(
+          kind: .subtyping, lhs: expr.type, rhs: type, at: ConstraintLocator(expr)))
     }
 
-    // Complain if the right operand is not a view.
-    guard let view = rhs as? ViewType else {
-      context.report(.nonViewTypeConformanceRequirement(type: rhs, range: req.rhs.range))
-      return false
-    }
+    // Solve the constraint system.
+    var solver = CSSolver(system: system, context: expr.type.context)
+    let solution = solver.solve()
 
-    let viewDecl = view.decl as! ViewTypeDecl
-    let skolem = env.skolemize(param)
-    if let types = env.equivalences.equivalenceClass(containing: skolem) {
-      // The skolem belongs to an equivalence class; register the new conformance for every member
-      // of the skolem's equivalence class.
-      for type in types {
-        guard let skolem = type as? SkolemType,
-              skolem.genericEnv === env
-        else {
-          // Complain that the equivalence class contains non-generic members.
-          context.report(.illegalConformanceRequirement(type: lhs, range: req.lhs.range))
-          return false
-        }
+    // Report type errors.
+    TypeErrorReporter(context: expr.type.context, solution: solution).report(solution.errors)
 
-        guard env.conformance(of: skolem, to: view) == nil else { return false }
-        env.insert(
-          conformance: ViewConformance(viewDecl: viewDecl, range: req.rhs.range),
-          for: skolem)
-      }
-    } else if env.conformance(of: skolem, to: view) == nil {
-      // The skolem has no equivalence class; register the new conformance fot it directly.
-      env.insert(
-        conformance: ViewConformance(viewDecl: viewDecl, range: req.rhs.range),
-        for: skolem)
-    }
+    // Apply the solution.
+    let dispatcher = TypeDispatcher(solution: solution)
+    (_, expr) = dispatcher.walk(expr)
 
-    return true
+    return solution
   }
 
-  // MARK: Internal API
+  /// Type checks the given pattern.
+  @discardableResult
+  static func check(
+    pattern: Pattern,
+    expectedType: ValType? = nil,
+    useSite: DeclSpace,
+    system: inout ConstraintSystem
+  ) -> Solution {
+    // Generate constraints from the pattern.
+    withUnsafeMutablePointer(to: &system, { ptr in
+      let driver = CSGenDriver(system: ptr, useSite: useSite)
+      _ = driver.walk(pattern)
+    })
+
+    if let type = expectedType {
+      system.insert(
+        RelationalConstraint(
+          kind: .subtyping, lhs: pattern.type, rhs: type, at: ConstraintLocator(pattern)))
+    }
+
+    // Solve the constraint system.
+    var solver = CSSolver(system: system, context: pattern.type.context)
+    let solution = solver.solve()
+
+    // Report type errors.
+    TypeErrorReporter(context: pattern.type.context, solution: solution).report(solution.errors)
+
+    // Apply the solution.
+    let dispatcher = TypeDispatcher(solution: solution)
+    _ = dispatcher.walk(pattern)
+
+    return solution
+  }
 
   /// Contextualizes the type of a the given type signature.
   ///
@@ -427,6 +411,53 @@ public final class TypeChecker {
     default:
       fatalError("unreachable")
     }
+  }
+
+  private static func registerConformance(
+    _ lhs: ValType, _ rhs: ValType, _ env: GenericEnv, _ req: TypeReq
+  ) -> Bool {
+    let context = lhs.context
+
+    // Complain if the left operand is not a generic parameter.
+    // FIXME: Handle dependent types.
+    guard let param = lhs as? GenericParamType, env.params.contains(param) else {
+      context.report(.illegalConformanceRequirement(type: lhs, range: req.lhs.range))
+      return false
+    }
+
+    // Complain if the right operand is not a view.
+    guard let view = rhs as? ViewType else {
+      context.report(.nonViewTypeConformanceRequirement(type: rhs, range: req.rhs.range))
+      return false
+    }
+
+    let viewDecl = view.decl as! ViewTypeDecl
+    let skolem = env.skolemize(param)
+    if let types = env.equivalences.equivalenceClass(containing: skolem) {
+      // The skolem belongs to an equivalence class; register the new conformance for every member
+      // of the skolem's equivalence class.
+      for type in types {
+        guard let skolem = type as? SkolemType,
+              skolem.genericEnv === env
+        else {
+          // Complain that the equivalence class contains non-generic members.
+          context.report(.illegalConformanceRequirement(type: lhs, range: req.lhs.range))
+          return false
+        }
+
+        guard env.conformance(of: skolem, to: view) == nil else { return false }
+        env.insert(
+          conformance: ViewConformance(viewDecl: viewDecl, range: req.rhs.range),
+          for: skolem)
+      }
+    } else if env.conformance(of: skolem, to: view) == nil {
+      // The skolem has no equivalence class; register the new conformance fot it directly.
+      env.insert(
+        conformance: ViewConformance(viewDecl: viewDecl, range: req.rhs.range),
+        for: skolem)
+    }
+
+    return true
   }
 
 }

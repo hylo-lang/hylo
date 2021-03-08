@@ -3,17 +3,13 @@ import AST
 /// A driver for a pre-check visitor.
 final class PreCheckDriver: NodeWalker {
 
-  init(system: UnsafeMutablePointer<ConstraintSystem>, checker: TypeChecker, useSite: DeclSpace) {
+  init(system: UnsafeMutablePointer<ConstraintSystem>, useSite: DeclSpace) {
     self.system = system
-    self.checker = checker
     super.init(innermostSpace: useSite)
   }
 
   /// A pointer to the system in which new constraints are inserted.
   let system: UnsafeMutablePointer<ConstraintSystem>
-
-  /// The top-level type checker.
-  unowned let checker: TypeChecker
 
   override func willVisit(_ expr: Expr) -> (shouldWalk: Bool, nodeBefore: Expr) {
     switch expr {
@@ -35,7 +31,7 @@ final class PreCheckDriver: NodeWalker {
 
   override func didVisit(_ expr: Expr) -> (shouldContinue: Bool, nodeAfter: Expr) {
     let newExpr = expr.accept(
-      PreChecker(system: system, checker: checker, useSite: innermostSpace!))
+      PreChecker(system: system, useSite: innermostSpace!))
     return (true, newExpr)
   }
 
@@ -49,9 +45,6 @@ struct PreChecker: ExprVisitor {
 
   /// A pointer to the system in which new constraints are inserted.
   let system: UnsafeMutablePointer<ConstraintSystem>
-
-  /// The top-level type checker.
-  unowned let checker: TypeChecker
 
   /// The declaration space in which the visited expression resides.
   let useSite: DeclSpace
@@ -257,7 +250,7 @@ struct PreChecker: ExprVisitor {
       }
 
       // Contextualize the declaration's type if it's generic.
-      newRef.type = checker.contextualize(
+      newRef.type = TypeChecker.contextualize(
         decl: decl,
         from: useSite,
         processingContraintsWith: { prototype in

@@ -5,9 +5,6 @@ struct StmtChecker: StmtVisitor {
 
   typealias StmtResult = Void
 
-  /// The top-level type checker.
-  unowned let checker: TypeChecker
-
   /// The declaration space in which the visited statement resides.
   let useSite: DeclSpace
 
@@ -15,13 +12,13 @@ struct StmtChecker: StmtVisitor {
     for i in 0 ..< node.stmts.count {
       switch node.stmts[i] {
       case let decl as Decl:
-        _ = checker.check(decl: decl)
+        _ = TypeChecker.check(decl: decl)
 
       case let stmt as Stmt:
-        checker.check(stmt: stmt, useSite: node)
+        TypeChecker.check(stmt: stmt, useSite: node)
 
       case var expr as Expr:
-        checker.check(expr: &expr, useSite: node)
+        TypeChecker.check(expr: &expr, useSite: node)
         node.stmts[i] = expr
 
       default:
@@ -56,7 +53,7 @@ struct StmtChecker: StmtVisitor {
 
     if var value = node.value {
       // Type check the returned expression.
-      checker.check(expr: &value, expectedType: retType, useSite: useSite)
+      TypeChecker.check(expr: &value, expectedType: retType, useSite: useSite)
       node.value = value
     } else if (retType != context.unitType) && !(funDecl is CtorDecl) {
       // Complain that non-unit function should return a value.
@@ -65,7 +62,7 @@ struct StmtChecker: StmtVisitor {
   }
 
   func visit(_ node: MatchCaseStmt) -> Void {
-    fatalError("not implemented")
+    fatalError("unreachable")
   }
 
 }

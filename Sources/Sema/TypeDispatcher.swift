@@ -20,6 +20,7 @@ final class TypeDispatcher: NodeWalker {
 
   override func didVisit(_ decl: Decl) -> (shouldContinue: Bool, nodeAfter: Decl) {
     if let valueDecl = decl as? ValueDecl {
+      // FIXME: Should this be uncontextualized?
       valueDecl.type = solution.reify(valueDecl.type, freeVariablePolicy: freeVariablePolicy)
     }
     return (true, decl)

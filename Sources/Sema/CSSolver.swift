@@ -11,7 +11,7 @@ struct CSSolver {
     penalities      : Int = 0,
     errors          : [TypeError] = [],
     bestScore       : Solution.Score = .worst,
-    checker         : TypeChecker
+    context         : AST.Context
   ) {
     self.system = system
     self.assumptions = assumptions
@@ -19,11 +19,8 @@ struct CSSolver {
     self.penalities = penalities
     self.errors = errors
     self.bestScore = bestScore
-    self.checker = checker
+    self.context = context
   }
-
-  /// The top-level type checker.
-  private let checker: TypeChecker
 
   /// The constraint system to solve.
   private var system: ConstraintSystem
@@ -43,13 +40,13 @@ struct CSSolver {
   /// The score of the best solution that was computed so far.
   private var bestScore: Solution.Score
 
+  /// The AST context.
+  private var context: AST.Context
+
   /// The current score of the solver's solution.
   private var currentScore: Solution.Score {
     return Solution.Score(penalities: penalities, errorCount: errors.count)
   }
-
-  /// The AST context.
-  private var context: AST.Context { checker.context }
 
   /// Solves the type constraint, or fails trying.
   mutating func solve() -> Solution {
@@ -403,7 +400,7 @@ struct CSSolver {
     if decls.count == 1 {
       // Only one choice; we can solve an equality constraint.
       if let varDecl = decls[0] as? VarDecl {
-        _ = checker.check(decl: varDecl.patternBindingDecl!)
+        _ = TypeChecker.check(decl: varDecl.patternBindingDecl!)
       }
 
       let args: [GenericParamType: ValType]
@@ -415,7 +412,7 @@ struct CSSolver {
         args = [:]
       }
 
-      let choiceType = checker.contextualize(
+      let choiceType = TypeChecker.contextualize(
         decl: decls[0],
         from: constraint.useSite,
         args: args,
@@ -476,10 +473,10 @@ struct CSSolver {
     // Instanciate the type of the declaration candidates.
     let choices = constraint.declSet.map({ (decl) -> (Constraint, Int) in
       if let varDecl = decl as? VarDecl {
-        _ = checker.check(decl: varDecl.patternBindingDecl!)
+        _ = TypeChecker.check(decl: varDecl.patternBindingDecl!)
       }
 
-      let choiceType = checker.contextualize(
+      let choiceType = TypeChecker.contextualize(
         decl: decl,
         from: constraint.useSite,
         processingContraintsWith: { prototype in
@@ -543,7 +540,7 @@ struct CSSolver {
         penalities      : penalities + choices[i].1,
         errors          : errors,
         bestScore       : bestScore,
-        checker         : checker)
+        context         : context)
       let newSolution = subsolver.solve()
 
       // Discard inferior solutions
