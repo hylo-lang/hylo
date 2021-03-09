@@ -133,7 +133,7 @@ public class ValType {
   }
 
   /// A set of recursively defined properties.
-  public struct RecursiveProps {
+  public struct RecursiveProps: Equatable, ExpressibleByArrayLiteral {
 
     public init(value: UInt = 0) {
       self.value = value
@@ -141,6 +141,10 @@ public class ValType {
 
     public init<S>(_ flags: S) where S: Sequence, S.Element == RecursiveProps {
       self.value = flags.reduce(0, { $0 | $1.value })
+    }
+
+    public init(arrayLiteral elements: RecursiveProps...) {
+      self = .merge(elements)
     }
 
     private let value: UInt
@@ -497,15 +501,22 @@ public final class ViewCompositionType: ValType {
 
   init(context: Context, views: [ViewType]) {
     self.views = views
-    var props = RecursiveProps.merge(views.map({ $0.props }))
 
     // Determine canonicity.
-    if views.count == 1 {
+    var props: RecursiveProps
+    switch views.count {
+    case 0:
+      // This is the `Any` type.
+      props = .isCanonical
+
+    case 1:
       // The canonical form of a composition with a unique view is the view itself.
-      props = props.removing(.isCanonical)
-    } else if views.count > 1 {
+      props = views[0].props.removing(.isCanonical)
+
+    default:
       // The composition is canonical if the views are "sorted".
       // FIXME: We should also remove duplicate views.
+      props = .merge(views.map({ $0.props }))
       for i in 1 ..< views.count {
         guard ViewType.precedes(lhs: views[i - 1], rhs: views[i]) else {
           props = props.removing(.isCanonical)
@@ -577,18 +588,25 @@ public final class UnionType: ValType {
       "unconstrained type variables cannot occur in union type")
 
     self.elems = elems
-    var props = RecursiveProps.merge(elems.map({ $0.props }))
 
     // Determine canonicity.
-    if elems.count == 1 {
-      // The canonical form of a union with a unique element is the element itself.
-      props = props.removing(.isCanonical)
-    }
+    var props: RecursiveProps
+    switch elems.count {
+    case 0:
+      // This is the `Unhabited` type.
+      props = .isCanonical
 
-    // The composition is canonical if the views are "sorted".
-    // FIXME: Do we need a more stable ordering, that doesn't depend on the runtime?
-    if !UnionType.isCanonicalList(elems) {
-      props = props.removing(.isCanonical)
+    case 1:
+      // The canonical form of a union with a unique type element is the element itself.
+      props = elems[0].props.removing(.isCanonical)
+
+    default:
+      // The union is canonical if the types are "sorted".
+      // FIXME: Do we need a more stable ordering, that doesn't depend on the runtime?
+      props = .merge(elems.map({ $0.props }))
+      if !UnionType.isCanonicalList(elems) {
+        props = props.removing(.isCanonical)
+      }
     }
 
     super.init(context: context, props: props)
