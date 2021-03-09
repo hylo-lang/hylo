@@ -17,15 +17,17 @@ public protocol TypeVisitor {
 
   func visit(_ type: ViewType) -> Result
 
-  func visit(_ type: GenericParamType) -> Result
-
-  func visit(_ type: SkolemType) -> Result
+  func visit(_ type: AliasType) -> Result
 
   func visit(_ type: ViewCompositionType) -> Result
 
   func visit(_ type: UnionType) -> Result
 
   func visit(_ type: BoundGenericType) -> Result
+
+  func visit(_ type: GenericParamType) -> Result
+
+  func visit(_ type: SkolemType) -> Result
 
   func visit(_ type: TupleType) -> Result
 

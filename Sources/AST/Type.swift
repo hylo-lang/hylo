@@ -488,6 +488,10 @@ public final class AliasType: NominalType {
     return self.decl === that.decl
   }
 
+  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+    visitor.visit(self)
+  }
+
 }
 
 /// A view composition type.
