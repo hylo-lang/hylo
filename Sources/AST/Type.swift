@@ -157,7 +157,7 @@ public class ValType {
     }
 
     public init(arrayLiteral elements: RecursiveProps...) {
-      self = .merge(elements)
+      self.value = elements.reduce(0, { (result, props) in result | props.value })
     }
 
     private let value: UInt
