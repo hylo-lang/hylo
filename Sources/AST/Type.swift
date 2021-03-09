@@ -169,7 +169,7 @@ public class ValType {
       return (value & props.value) == props.value
     }
 
-    /// Returns the union of this property set with another.
+    /// Returns the merge of this property set with another.
     ///
     /// This computes the intersection of the universal properties and the union of the existential
     /// properties that are defined in each property set.
@@ -180,6 +180,13 @@ public class ValType {
       // properties are existential only.
       return RecursiveProps(
         value: ~1 & (value | other.value) | (value & other.value))
+    }
+
+    /// Returns the union of this set with another.
+    ///
+    /// - Parameter props: Another property set.
+    public func union(with other: RecursiveProps) -> RecursiveProps {
+      return RecursiveProps(value: value | other.value)
     }
 
     /// Returns this set without the given properties.
@@ -504,7 +511,7 @@ public final class AliasType: NominalType {
 
     let props: RecursiveProps
     if let nominalType = decl.aliasedSign.type as? NominalType {
-      props = nominalType.props.removing(.isCanonical).merged(with: .hasAlias)
+      props = nominalType.props.merged(with: .hasAlias)
     } else {
       props = [.isCanonical, .hasAlias]
     }
@@ -1145,7 +1152,7 @@ public final class AsyncType: ValType {
 
   init(context: Context, base: ValType) {
     self.base = base
-    super.init(context: context, props: base.props.merged(with: .hasAsync))
+    super.init(context: context, props: base.props.union(with: .hasAsync))
   }
 
   /// A type.
@@ -1154,7 +1161,7 @@ public final class AsyncType: ValType {
   public override var canonical: ValType {
     return isCanonical
       ? self
-      : context.inoutType(of: base.canonical)
+      : context.asyncType(of: base.canonical)
     // FIXME: We might add more equivalence classes (e.g., 'async (a: T) == (a: async T)').
   }
 
@@ -1214,7 +1221,7 @@ public final class InoutType: ValType {
   init(context: Context, base: ValType) {
     assert(!base.hasInout, "bad type: base type cannot contain in-out types")
     self.base = base
-    super.init(context: context, props: base.props.merged(with: .hasInout))
+    super.init(context: context, props: base.props.union(with: .hasInout))
   }
 
   /// A type.

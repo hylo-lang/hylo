@@ -102,14 +102,44 @@ final class TypeTests: XCTestCase {
     XCTAssert(unit.canonical === unit)
 
     // `(a: ())` is canonical.
-    let t1 = context.tupleType([TupleType.Elem(label: "a", type: unit)])
-    XCTAssertEqual(t1.props, .isCanonical)
-    XCTAssert(t1.canonical === t1)
+    let t0 = context.tupleType([TupleType.Elem(label: "a", type: unit)])
+    XCTAssertEqual(t0.props, .isCanonical)
+    XCTAssert(t0.canonical === t0)
 
     // `(())` is not canonical.
-    let t2 = context.tupleType([TupleType.Elem(label: nil, type: unit)])
-    XCTAssertEqual(t2.props, [])
-    XCTAssert(t2.canonical === unit)
+    let t1 = context.tupleType([TupleType.Elem(label: nil, type: unit)])
+    XCTAssertEqual(t1.props, [])
+    XCTAssert(t1.canonical === unit)
+  }
+
+  func testFunTypeCanonical() {
+    let unit = context.unitType  // ()
+    let parenthesized = context.tupleType([TupleType.Elem(label: nil, type: unit)])  // (())
+
+    let f0 = context.funType(paramType: unit, retType: unit)
+    XCTAssertEqual(f0.props, .isCanonical)
+    XCTAssert(f0.canonical === f0)
+
+    let f1 = context.funType(paramType: parenthesized, retType: unit)
+    XCTAssertEqual(f1.props, [])
+    XCTAssert(f1.canonical === f0)
+
+    let f2 = context.funType(paramType: unit, retType: parenthesized)
+    XCTAssertEqual(f2.props, [])
+    XCTAssert(f2.canonical === f0)
+  }
+
+  func testAsyncTypeCanonical() {
+    let unit = context.unitType  // ()
+    let parenthesized = context.tupleType([TupleType.Elem(label: nil, type: unit)])  // (())
+
+    let at0 = context.asyncType(of: unit)
+    XCTAssertEqual(at0.props, [.isCanonical, .hasAsync])
+    XCTAssert(at0.canonical === at0)
+
+    let at1 = context.asyncType(of: parenthesized)
+    XCTAssertEqual(at1.props, [.hasAsync])
+    XCTAssert(at1.canonical === at0)
   }
 
 }
