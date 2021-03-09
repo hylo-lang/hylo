@@ -25,6 +25,7 @@ let package = Package(
     .target(name: "Sema", dependencies: ["AST", "Basic"]),
     .target(name: "VIL", dependencies: ["AST", "Basic"]),
 
+    .testTarget(name: "ASTTests", dependencies: ["AST", "Basic"]),
     .testTarget(
       name: "ValTests",
       dependencies: ["Basic", "Driver"],
