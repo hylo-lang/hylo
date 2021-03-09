@@ -1081,8 +1081,12 @@ public final class AliasTypeDecl: GenericTypeDecl {
   public var aliasedSign: TypeRepr
 
   /// If the declaration is a "true" type alias, the aliased declaration. Otherwise, `nil`.
+  ///
+  /// - Warning: Do not call this property before parsing is completed. Computing it requires the
+  ///   type realization of the aliased signature, which may trigger unqualified name lookups to
+  ///   resolve type symbols.
   public var aliasedDecl: GenericTypeDecl? {
-    switch realize() {
+    switch realizeAliasedType() {
     case let type as NominalType:
       return type.decl
     case let type as BoundGenericType:
@@ -1109,36 +1113,45 @@ public final class AliasTypeDecl: GenericTypeDecl {
     }
   }
 
-  /// Realizes the aliased type signature.
-  public func realize() -> ValType {
-    guard state < .realized else { return aliasedSign.type }
+  /// Realizes the semantic type of the declaration.
+  public func realize() -> KindType {
+    guard state < .realized else { return type as! KindType }
     setState(.realizationRequested)
 
     // Realize the aliased signature.
+    let context = type.context
     let aliasedType = aliasedSign.realize(unqualifiedFrom: self)
+    setState(.realized)
+    type = context.aliasType(decl: self).kind
+
     guard !aliasedType.hasErrors else {
       setState(.invalid)
-      return type
+      return type as! KindType
     }
 
     // Complain if the signature references the declaration itself.
     // FIXME
 
     // Complain if the aliased signature describes an in-out type.
-    if type is InoutType {
-      type.context.report(.invalidMutatingTypeModifier(range: aliasedSign.range))
+    if aliasedType is InoutType {
+      context.report(.invalidMutatingTypeModifier(range: aliasedSign.range))
       setState(.invalid)
-      return type
+      return type as! KindType
     }
 
     // If the declaration denotes a "true" alias, complain if it declares additional conformances.
     // These should be expressed with an extension of the aliased type.
     if !inheritances.isEmpty && (aliasedType is NominalType) {
-      type.context.report(.newConformanceOnNominalTypeAlias(range: inheritances[0].range))
+      context.report(.newConformanceOnNominalTypeAlias(range: inheritances[0].range))
     }
 
-    setState(.realized)
-    return type
+    return type as! KindType
+  }
+
+  /// Realizes the aliased type expression.
+  public func realizeAliasedType() -> ValType {
+    _ = realize()
+    return aliasedSign.type
   }
 
   public override func lookup(qualified name: String) -> LookupResult {
@@ -1156,7 +1169,7 @@ public final class AliasTypeDecl: GenericTypeDecl {
     }
 
     // Realize the aliased signature.
-    _ = realize()
+    _ = realizeAliasedType()
     guard state >= .realized else { return LookupResult() }
 
     // Search within the declaration and its conformances.

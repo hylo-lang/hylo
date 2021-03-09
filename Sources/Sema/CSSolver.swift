@@ -552,14 +552,14 @@ struct CSSolver {
   private mutating func attemptSolveDesugared(_ constraint: RelationalConstraint) -> Bool {
     switch (constraint.lhs, constraint.rhs) {
     case (let lhs as AliasType, _):
-      let aliasedType = (lhs.decl as! AliasTypeDecl).realize()
+      let aliasedType = (lhs.decl as! AliasTypeDecl).realizeAliasedType()
       let simplified = RelationalConstraint(
         kind: constraint.kind, lhs: aliasedType, rhs: constraint.rhs, at: constraint.locator)
       solve(simplified)
       return true
 
     case (_, let rhs as AliasType):
-      let aliasedType = (rhs.decl as! AliasTypeDecl).realize()
+      let aliasedType = (rhs.decl as! AliasTypeDecl).realizeAliasedType()
       let simplified = RelationalConstraint(
         kind: constraint.kind, lhs: constraint.lhs, rhs: aliasedType, at: constraint.locator)
       solve(simplified)
@@ -567,7 +567,7 @@ struct CSSolver {
 
     case (let lhs as BoundGenericType, _) where lhs.decl is AliasTypeDecl:
       let aliasedDecl = lhs.decl as! AliasTypeDecl
-      let aliasedType = aliasedDecl.realize().specialized(with: lhs.bindings)
+      let aliasedType = aliasedDecl.realizeAliasedType().specialized(with: lhs.bindings)
       let simplified = RelationalConstraint(
         kind: constraint.kind, lhs: aliasedType, rhs: constraint.rhs, at: constraint.locator)
       solve(simplified)
@@ -575,7 +575,7 @@ struct CSSolver {
 
     case (_, let rhs as BoundGenericType) where rhs.decl is AliasTypeDecl:
       let aliasedDecl = rhs.decl as! AliasTypeDecl
-      let aliasedType = aliasedDecl.realize().specialized(with: rhs.bindings)
+      let aliasedType = aliasedDecl.realizeAliasedType().specialized(with: rhs.bindings)
       let simplified = RelationalConstraint(
         kind: constraint.kind, lhs: constraint.lhs, rhs: aliasedType, at: constraint.locator)
       solve(simplified)

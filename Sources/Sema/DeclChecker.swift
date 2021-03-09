@@ -261,7 +261,7 @@ struct DeclChecker: DeclVisitor {
 
   func visit(_ node: AliasTypeDecl) -> Bool {
     // Realize the aliased type.
-    _ = node.realize()
+    _ = node.realizeAliasedType()
 
     // Initiate type checking.
     guard node.state < .typeChecked else { return handleCheckState(node) }

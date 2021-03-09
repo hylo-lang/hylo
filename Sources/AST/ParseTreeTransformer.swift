@@ -272,7 +272,6 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
       aliasedSign: UnqualTypeRepr(name: "", type: unresolvedType, range: .invalid),
       type: unresolvedType,
       range: range(of: ctx))
-    decl.type = context.aliasType(decl: decl).kind
 
     // Update the current decl space.
     decl.parentDeclSpace = currentSpace

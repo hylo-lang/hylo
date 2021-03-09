@@ -500,9 +500,11 @@ public final class ViewType: NominalType {
 public final class AliasType: NominalType {
 
   init(context: Context, decl: AliasTypeDecl) {
+    assert(decl.state >= .realized, "can't create alias type from unrealized declaration")
+
     let props: RecursiveProps
-    if let aliasedDecl = decl.aliasedDecl {
-      props = aliasedDecl.type.props.removing(.isCanonical).merged(with: .hasAlias)
+    if let nominalType = decl.aliasedSign.type as? NominalType {
+      props = nominalType.props.removing(.isCanonical).merged(with: .hasAlias)
     } else {
       props = [.isCanonical, .hasAlias]
     }
@@ -521,7 +523,7 @@ public final class AliasType: NominalType {
   }
 
   public override var dealiased: ValType {
-    return (decl as! AliasTypeDecl).realize().dealiased
+    return (decl as! AliasTypeDecl).realizeAliasedType().dealiased
   }
 
   override func isEqual(to other: ValType) -> Bool {
@@ -785,7 +787,7 @@ public final class BoundGenericType: NominalType {
     let dealiasedArgs = args.map({ $0.dealiased })
 
     if let aliasDecl = decl as? AliasTypeDecl {
-      let underylingType = aliasDecl.realize().dealiased
+      let underylingType = aliasDecl.realizeAliasedType().dealiased
       assert(!(underylingType is AliasType))
 
       let subst = Dictionary(
