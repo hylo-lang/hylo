@@ -2,7 +2,6 @@ import Foundation
 
 import AST
 import Basic
-import Eval
 import Parser
 import Sema
 import VIL
