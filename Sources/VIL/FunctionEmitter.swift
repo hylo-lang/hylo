@@ -206,12 +206,25 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
         let lvalue = builder.buildAllocExistential(container: lvalue, witness: rvalue.type)
         builder.buildStore(lvalue: lvalue, rvalue: rvalue)
       }
-    } else {
-      // The l-value is concrete.
-      assert(!expr.type.isExistential)
-      let rvalue = emit(expr: expr)
-      builder.buildStore(lvalue: lvalue, rvalue: rvalue)
+      return
     }
+
+    if lvalue.type.valType is UnionType {
+      // The l-value has a union type.
+      let rvalue = emit(expr: expr)
+      if rvalue.type.valType is UnionType {
+        builder.buildStore(lvalue: lvalue, rvalue: rvalue)
+      } else {
+        let variant = builder.buildVariant(bareValue: rvalue, type: lvalue.type)
+        builder.buildStore(lvalue: lvalue, rvalue: variant)
+      }
+      return
+    }
+
+    // The l-value has a non-union, concrete type.
+    assert(!expr.type.isExistential)
+    let rvalue = emit(expr: expr)
+    builder.buildStore(lvalue: lvalue, rvalue: rvalue)
   }
 
   func emit(lvalue node: Expr) -> Value {
@@ -317,23 +330,34 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
   }
 
   func visit(_ node: UnsafeCastExpr) -> Result<Value, EmitterError> {
+    let sourceType = node.value.type.dealiased
+    let targetType = node.type.dealiased
+
     // Check for trivial casts.
-    guard node.type != node.value.type else {
+    guard sourceType !== targetType else {
       context.report(.unsafeCastToSameTimeHasNoEffect(type: node.type, range: node.range))
       return node.value.accept(self)
     }
 
     // If the target type is existential, store the node's value into a new container.
-    if node.type.isExistential {
-      let container = builder.buildAllocStack(type: .lower(node.type))
+    if targetType.isExistential {
+      let container = builder.buildAllocStack(type: .lower(targetType))
       emit(assign: node.value, to: container)
       return .success(builder.buildLoad(lvalue: container))
     }
 
-    if node.value.type.isExistential {
+    // If the value being cast is an existential container, open it.
+    if sourceType.isExistential {
       let container = emit(expr: node.value)
-      let value = builder.buildOpenExistential(container: container, type: .lower(node.type))
-      return.success(value)
+      let value = builder.buildOpenExistential(container: container, type: .lower(targetType))
+      return .success(value)
+    }
+
+    // If the value being cast is a variant, open it.
+    if sourceType is UnionType {
+      let variant = emit(expr: node.value)
+      let value = builder.buildOpenVariant(variant: variant, type: .lower(targetType))
+      return .success(value)
     }
 
     // FIXME: Implement "structural cast".
