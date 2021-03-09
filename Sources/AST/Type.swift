@@ -936,7 +936,9 @@ public final class TupleType: ValType {
 
     // Compute the type's recursive properties.
     var props = RecursiveProps.merge(elems.map({ $0.type.props }))
-    if (elems.count == 1) && (elems[0].label == nil) {
+    if elems.count == 0 {
+      props = .isCanonical
+    } else if (elems.count == 1) && (elems[0].label == nil) {
       props = props.removing(.isCanonical)
     }
 

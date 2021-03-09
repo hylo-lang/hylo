@@ -96,4 +96,20 @@ final class TypeTests: XCTestCase {
     XCTAssert(u1.canonical === context.unitType)
   }
 
+  func testTupleTypeCanonical() {
+    let unit = context.unitType
+    XCTAssertEqual(unit.props, .isCanonical)
+    XCTAssert(unit.canonical === unit)
+
+    // `(a: ())` is canonical.
+    let t1 = context.tupleType([TupleType.Elem(label: "a", type: unit)])
+    XCTAssertEqual(t1.props, .isCanonical)
+    XCTAssert(t1.canonical === t1)
+
+    // `(())` is not canonical.
+    let t2 = context.tupleType([TupleType.Elem(label: nil, type: unit)])
+    XCTAssertEqual(t2.props, [])
+    XCTAssert(t2.canonical === unit)
+  }
+
 }
