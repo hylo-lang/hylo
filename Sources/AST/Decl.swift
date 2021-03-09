@@ -1066,6 +1066,10 @@ public final class ViewTypeDecl: NominalTypeDecl {
 /// An alias declaration denotes either a "true" alias, or a type definition. The former merely
 /// introduces a synonym for an existing nominal type (e.g., `type Num = Int`), while the latter
 /// gives a name to a type expression (e.g., `type Handler = Event -> Unit`).
+///
+/// A type definition is not a mere syntactic sugar. Instead, it is treated as a proper type for
+/// which one may define view conformances and declare type extensions. These only apply on the
+/// type definition and have no effect on the underlying expression.
 public final class AliasTypeDecl: GenericTypeDecl {
 
   public init(name: String, aliasedSign: TypeRepr, type: ValType, range: SourceRange) {
@@ -1127,8 +1131,8 @@ public final class AliasTypeDecl: GenericTypeDecl {
       return type
     }
 
-    // If the aliased type is a single generic type, complain if the alias declares additional
-    // view conformances. These should be expressed with an extension.
+    // If the declaration denotes a "true" alias, complain if it declares additional conformances.
+    // These should be expressed with an extension of the aliased type.
     if !inheritances.isEmpty && (aliasedType is NominalType) {
       type.context.report(.newConformanceOnNominalTypeAlias(range: inheritances[0].range))
     }

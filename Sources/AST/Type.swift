@@ -18,31 +18,34 @@ public class ValType {
   public let props: RecursiveProps
 
   /// Indicates whether the type is in canonical form.
-  public var isCanonical: Bool { props.contains(.isCanonical) }
+  public var isCanonical  : Bool { props.contains(.isCanonical) }
 
   /// Indicates whether the type contains one or more async types.
-  public var hasAsync: Bool { props.contains(.hasAsync) }
+  public var hasAsync     : Bool { props.contains(.hasAsync) }
 
   /// Indicates whether the type contains one or more inout types.
-  public var hasInout: Bool { props.contains(.hasInout) }
+  public var hasInout     : Bool { props.contains(.hasInout) }
+
+  /// Indicates whether the type contains one or more aliases.
+  public var hasAlias     : Bool { props.contains(.hasAlias) }
 
   /// Indicates whether the type contains one or more type variables.
-  public var hasVariables: Bool { props.contains(.hasVariables) }
+  public var hasVariables : Bool { props.contains(.hasVariables) }
 
   /// Indicates whether the type contains one or more generic type parameters.
   public var hasTypeParams: Bool { props.contains(.hasTypeParams) }
 
   /// Indicates whether the type contains one or more skolems.
-  public var hasSkolems: Bool { props.contains(.hasSkolems) }
+  public var hasSkolems   : Bool { props.contains(.hasSkolems) }
 
   /// Indicates whether the type contains the unresolved type.
   public var hasUnresolved: Bool { props.contains(.hasUnresolved) }
 
   /// Indicates whether the type contains the error type.
-  public var hasErrors: Bool { props.contains(.hasErrors) }
+  public var hasErrors    : Bool { props.contains(.hasErrors) }
 
   /// Indicates whether the type is well-formed; it does not contain type variables, unresolved or error types.
-  public var isWellFormed: Bool { !hasVariables && !hasUnresolved && !hasErrors }
+  public var isWellFormed : Bool { !hasVariables && !hasUnresolved && !hasErrors }
 
   /// Indicates whether the type is existential.
   ///
@@ -67,8 +70,18 @@ public class ValType {
   /// The kind of the type.
   public var kind: KindType { context.kindType(type: self) }
 
-  /// The canonical form of the type, where all sugars have been stripped off.
+  /// The canonical form of the type.
+  ///
+  /// This denotes a unique representation of the type, resilient to its syntactic representation.
+  /// For instance, both `(Int)` and `((Int))` have the same canonical type (i.e., `Int`). It is
+  /// typically used to check whether two types are equal.
+  ///
+  /// - Note: Type aliases that are not mere synonyms for an existing nominal type (a.k.a. type
+  ///   definitions) are canonical.
   public var canonical: ValType { self }
+
+  /// This type with all aliases resolved to their canonical form.
+  public var dealiased: ValType { self }
 
   /// The uncontextualized interface of this type.
   ///
@@ -179,11 +192,12 @@ public class ValType {
     public static let isCanonical     = RecursiveProps(value: 1 << 0)
     public static let hasAsync        = RecursiveProps(value: 1 << 1)
     public static let hasInout        = RecursiveProps(value: 1 << 2)
-    public static let hasVariables    = RecursiveProps(value: 1 << 3)
-    public static let hasTypeParams   = RecursiveProps(value: 1 << 4)
-    public static let hasSkolems      = RecursiveProps(value: 1 << 5)
-    public static let hasUnresolved   = RecursiveProps(value: 1 << 6)
-    public static let hasErrors       = RecursiveProps(value: 1 << 7)
+    public static let hasAlias        = RecursiveProps(value: 1 << 3)
+    public static let hasVariables    = RecursiveProps(value: 1 << 4)
+    public static let hasTypeParams   = RecursiveProps(value: 1 << 5)
+    public static let hasSkolems      = RecursiveProps(value: 1 << 6)
+    public static let hasUnresolved   = RecursiveProps(value: 1 << 7)
+    public static let hasErrors       = RecursiveProps(value: 1 << 8)
 
     /// Merges a collection of recursive properties.
     ///
@@ -261,6 +275,12 @@ public final class KindType: ValType {
     return isCanonical
       ? self
       : type.canonical.kind
+  }
+
+  public override var dealiased: ValType {
+    return hasAlias
+      ? type.dealiased.kind
+      : self
   }
 
   public override var uncontextualized: ValType {
@@ -412,7 +432,7 @@ extension ModuleType: CustomStringConvertible {
 /// A nominal type.
 public class NominalType: ValType, CustomStringConvertible {
 
-  init(context: Context, decl: GenericTypeDecl, props: RecursiveProps = .isCanonical) {
+  init(context: Context, decl: GenericTypeDecl, props: RecursiveProps) {
     self.decl = decl
     super.init(context: context, props: props)
   }
@@ -432,7 +452,7 @@ public class NominalType: ValType, CustomStringConvertible {
 public final class ProductType: NominalType {
 
   init(context: Context, decl: ProductTypeDecl) {
-    super.init(context: context, decl: decl)
+    super.init(context: context, decl: decl, props: .isCanonical)
   }
 
   override func isEqual(to other: ValType) -> Bool {
@@ -450,7 +470,7 @@ public final class ProductType: NominalType {
 public final class ViewType: NominalType {
 
   init(context: Context, decl: ViewTypeDecl) {
-    super.init(context: context, decl: decl)
+    super.init(context: context, decl: decl, props: .isCanonical)
   }
 
   override func isEqual(to other: ValType) -> Bool {
@@ -476,11 +496,32 @@ public final class ViewType: NominalType {
 
 }
 
-/// A reference to a possibly generic type expression.
+/// A type alias denoting a possibly generic type expression.
 public final class AliasType: NominalType {
 
   init(context: Context, decl: AliasTypeDecl) {
-    super.init(context: context, decl: decl)
+    let props: RecursiveProps
+    if let aliasedDecl = decl.aliasedDecl {
+      props = aliasedDecl.type.props.removing(.isCanonical).merged(with: .hasAlias)
+    } else {
+      props = [.isCanonical, .hasAlias]
+    }
+
+    super.init(context: context, decl: decl, props: props)
+  }
+
+  public override var canonical: ValType {
+    guard let aliasedDecl = (decl as! AliasTypeDecl).aliasedDecl else {
+      assert(isCanonical)
+      return self
+    }
+
+    assert(!isCanonical)
+    return aliasedDecl.type.canonical
+  }
+
+  public override var dealiased: ValType {
+    return (decl as! AliasTypeDecl).realize().dealiased
   }
 
   override func isEqual(to other: ValType) -> Bool {
@@ -640,6 +681,12 @@ public final class UnionType: ValType {
     }
   }
 
+  public override var dealiased: ValType {
+    return UnionType
+      .create(unionOf: elems.map({ $0.dealiased }), in: context)
+      .canonical
+  }
+
   override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? UnionType,
           elems.count == that.elems.count
@@ -732,6 +779,22 @@ public final class BoundGenericType: NominalType {
     return isCanonical
       ? self
       : context.boundGenericType(decl: decl, args: args.map({ $0.canonical }))
+  }
+
+  public override var dealiased: ValType {
+    let dealiasedArgs = args.map({ $0.dealiased })
+
+    if let aliasDecl = decl as? AliasTypeDecl {
+      let underylingType = aliasDecl.realize().dealiased
+      assert(!(underylingType is AliasType))
+
+      let subst = Dictionary(
+        zip(decl.genericEnv!.params, dealiasedArgs),
+        uniquingKeysWith: { lhs, _ in lhs })
+      return underylingType.specialized(with: subst)
+    }
+
+    return context.boundGenericType(decl: decl, args: dealiasedArgs)
   }
 
   public override var uncontextualized: ValType {
@@ -893,6 +956,13 @@ public final class TupleType: ValType {
     }))
   }
 
+  public override var dealiased: ValType {
+    let newTupleType = context.tupleType(elems.map({ elem in
+      Elem(label: elem.label, type: elem.type.dealiased)
+    }))
+    return newTupleType.canonical
+  }
+
   public override var uncontextualized: ValType {
     if !hasSkolems {
       return self
@@ -1016,6 +1086,12 @@ public final class FunType: ValType {
       : context.funType(paramType: paramType.canonical, retType: retType.canonical)
   }
 
+  public override var dealiased: ValType {
+    return context
+      .funType(paramType: paramType.dealiased, retType: retType.dealiased)
+      .canonical
+  }
+
   public override var uncontextualized: ValType {
     return hasSkolems
       ? context.funType(paramType: paramType.uncontextualized, retType: retType.uncontextualized)
@@ -1078,6 +1154,12 @@ public final class AsyncType: ValType {
     // FIXME: We might add more equivalence classes (e.g., 'async (a: T) == (a: async T)').
   }
 
+  public override var dealiased: ValType {
+    return hasAlias
+      ? context.asyncType(of: base.dealiased)
+      : self
+  }
+
   public override var uncontextualized: ValType {
     return hasSkolems
       ? context.asyncType(of: base.uncontextualized)
@@ -1138,6 +1220,12 @@ public final class InoutType: ValType {
     return isCanonical
       ? self
       : context.inoutType(of: base.canonical)
+  }
+
+  public override var dealiased: ValType {
+    return hasAlias
+      ? context.inoutType(of: base.dealiased)
+      : self
   }
 
   public override var uncontextualized: ValType {
