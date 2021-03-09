@@ -142,4 +142,17 @@ final class TypeTests: XCTestCase {
     XCTAssert(at1.canonical === at0)
   }
 
+  func testInoutTypeCanonical() {
+    let unit = context.unitType  // ()
+    let parenthesized = context.tupleType([TupleType.Elem(label: nil, type: unit)])  // (())
+
+    let io0 = context.inoutType(of: unit)
+    XCTAssertEqual(io0.props, [.isCanonical, .hasInout])
+    XCTAssert(io0.canonical === io0)
+
+    let io1 = context.inoutType(of: parenthesized)
+    XCTAssertEqual(io1.props, [.hasInout])
+    XCTAssert(io1.canonical === io0)
+  }
+
 }
