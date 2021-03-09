@@ -157,7 +157,7 @@ public class ValType {
     }
 
     public init(arrayLiteral elements: RecursiveProps...) {
-      self.value = elements.reduce(0, { (result, props) in result | props.value })
+      self = RecursiveProps(elements)
     }
 
     private let value: UInt
@@ -864,7 +864,7 @@ public final class GenericParamType: ValType, Hashable {
 
   init(context: Context, decl: GenericParamDecl) {
     self.decl = decl
-    super.init(context: context, props: RecursiveProps([.isCanonical, .hasTypeParams]))
+    super.init(context: context, props: [.isCanonical, .hasTypeParams])
   }
 
   /// The declaration of this generic parameter type.
@@ -900,7 +900,7 @@ public final class SkolemType: ValType {
   init(context: Context, interface: ValType, genericEnv: GenericEnv) {
     self.interface = interface
     self.genericEnv = genericEnv
-    super.init(context: context, props: RecursiveProps([.isCanonical, .hasSkolems]))
+    super.init(context: context, props: [.isCanonical, .hasSkolems])
   }
 
   /// The interface type of this skolem.
@@ -1285,7 +1285,7 @@ extension InoutType: CustomStringConvertible {
 public final class UnresolvedType: ValType {
 
   init(context: Context) {
-    super.init(context: context, props: RecursiveProps([.isCanonical, .hasUnresolved]))
+    super.init(context: context, props: [.isCanonical, .hasUnresolved])
   }
 
   public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
@@ -1301,7 +1301,7 @@ public final class UnresolvedType: ValType {
 public final class ErrorType: ValType {
 
   init(context: Context) {
-    super.init(context: context, props: RecursiveProps([.isCanonical, .hasErrors]))
+    super.init(context: context, props: [.isCanonical, .hasErrors])
   }
 
   public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
@@ -1316,7 +1316,7 @@ public final class TypeVar: ValType, Hashable {
   public init(context: Context, node: Node? = nil) {
     self.id = TypeVar.createID()
     self.node = node
-    super.init(context: context, props: RecursiveProps([.isCanonical, .hasVariables]))
+    super.init(context: context, props: [.isCanonical, .hasVariables])
   }
 
   /// The variable's identifier.
