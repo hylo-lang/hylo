@@ -50,15 +50,15 @@ public class VILType: CustomStringConvertible {
   public var isExistential: Bool { valType.isExistential }
 
   public var description: String {
-    if isAddress {
-      return "*(\(valType))"
-    } else {
-      return String(describing: valType)
+    var desc = String(describing: valType)
+    if desc.contains(" ") {
+      desc = "(\(desc))"
     }
+    return isAddress ? "*\(desc)" : desc
   }
 
   static func lower(_ type: ValType) -> VILType {
-    switch type {
+    switch type.dealiased {
     case let fType as FunType:
       // Lower each parameter and determine its passing convention.
       var paramTypes: [VILType] = []
@@ -84,7 +84,7 @@ public class VILType: CustomStringConvertible {
       // Mutable parameters get an address type.
       return VILType(valType: ioType.base, isAddress: true)
 
-    default:
+    case let type:
       return VILType(valType: type, isAddress: false)
     }
   }

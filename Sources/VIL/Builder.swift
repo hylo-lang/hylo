@@ -87,10 +87,9 @@ public final class Builder {
   ///
   /// - Parameters:
   ///   - container. An existential container.
-  ///   - type: The type of the opened address. `type` must be an object type that matches the
+  ///   - type: The type of the opened value. `type` must be an object type that matches the
   ///     package's witness. It can either be a concrete type, or an "opened" existential.
   public func buildOpenExistential(container: Value, type: VILType) -> OpenExistentialInst {
-    precondition(!container.type.isAddress)
     let inst = OpenExistentialInst(container: container, type: type)
     block!.instructions.append(inst)
     return inst
@@ -105,7 +104,6 @@ public final class Builder {
   public func buildOpenExistentialAddr(
     container: Value, type: VILType
   ) -> OpenExistentialAddrInst {
-    precondition(container.type.isAddress)
     let inst = OpenExistentialAddrInst(container: container, type: type)
     block!.instructions.append(inst)
     return inst
@@ -216,6 +214,20 @@ public final class Builder {
   /// Builds a tuple value instruction.
   public func buildTuple(type: TupleType, elems: [Value]) -> TupleInst {
     let inst = TupleInst(type: type, elems: elems)
+    block!.instructions.append(inst)
+    return inst
+  }
+
+  /// Builds a variant value.
+  public func buildVariant(bareValue: Value, type: VILType) -> VariantInst {
+    let inst = VariantInst(bareValue: bareValue, type: type)
+    block!.instructions.append(inst)
+    return inst
+  }
+
+  /// Builds an `open_variant` instruction.
+  public func buildOpenVariant(variant: Value, type: VILType) -> OpenVariantInst {
+    let inst = OpenVariantInst(variant: variant, type: type)
     block!.instructions.append(inst)
     return inst
   }

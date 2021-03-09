@@ -153,6 +153,18 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
       self << tuple.elems
       self << ")\n"
 
+    case let variant as VariantInst:
+      let id = makeID(for: variant)
+      self << "_\(id) = variant "
+      self << variant.bareValue
+      self << " in \(variant.type)\n"
+
+    case let open as OpenVariantInst:
+      let id = makeID(for: open)
+      self << "_\(id) = open_variant "
+      self << open.variant
+      self << " as \(open.type)\n"
+
     case let store as StoreInst:
       self << "store "
       self << store.rvalue

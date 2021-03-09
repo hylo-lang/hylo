@@ -7,13 +7,13 @@ public protocol Inst: AnyObject {}
 /// specified type.
 public final class AllocStackInst: Inst, Value {
 
-  /// The (Val) type of the allocated object.
+  /// The (Val) type of the allocated value.
   public let allocatedType: VILType
 
   public var type: VILType { allocatedType.address }
 
   init(allocatedType: VILType) {
-    assert(!allocatedType.isAddress, "allocated type cannot be an address type")
+    assert(!allocatedType.isAddress, "allocated type must be an value type")
     self.allocatedType = allocatedType
   }
 
@@ -34,15 +34,16 @@ public final class AllocExistentialInst: Inst, Value {
   public var type: VILType { witness.address }
 
   init(container: Value, witness: VILType) {
-    assert(!witness.isAddress, "type witness cannot be an address type")
+    assert(!witness.isAddress, "type witness must be an value type")
     assert(!witness.isExistential, "type witness cannot be existential")
+
     self.container = container
     self.witness = witness
   }
 
 }
 
-/// Extracts the concrete value packaed inside an existential container.
+/// Extracts the value packed inside an existential container.
 public final class OpenExistentialInst: Inst, Value {
 
   /// The existential container.
@@ -51,6 +52,8 @@ public final class OpenExistentialInst: Inst, Value {
   public var type: VILType
 
   init(container: Value, type: VILType) {
+    assert(!container.type.isAddress, "container must have an value type")
+
     self.container = container
     self.type = type
   }
@@ -67,6 +70,8 @@ public final class OpenExistentialAddrInst: Inst, Value {
   public let type: VILType
 
   init(container: Value, type: VILType) {
+    assert(container.type.isAddress, "container must have an address type")
+
     self.container = container
     self.type = type
   }
@@ -225,6 +230,43 @@ public final class TupleInst: Inst, Value {
   init(type: TupleType, elems: [Value]) {
     self.tupleType = type
     self.elems = elems
+  }
+
+}
+
+/// Packs the given value into a variant container.
+public final class VariantInst: Inst, Value {
+
+  /// The bare value of the variant.
+  public let bareValue: Value
+
+  /// The type of the variant.
+  ///
+  /// This must be a union type containing the type of the variant's bare value.
+  public let type: VILType
+
+  init(bareValue: Value, type: VILType) {
+    assert(type.valType is UnionType, "variant must have a union type")
+
+    self.bareValue = bareValue
+    self.type = type
+  }
+
+}
+
+/// Extracts the value packed inside a variant container.
+public final class OpenVariantInst: Inst, Value {
+
+  /// The variant container.
+  public let variant: Value
+
+  public var type: VILType
+
+  init(variant: Value, type: VILType) {
+    assert(!variant.type.isAddress, "variant cannot have a value type")
+
+    self.variant = variant
+    self.type = type
   }
 
 }
