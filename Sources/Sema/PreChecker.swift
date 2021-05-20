@@ -185,10 +185,10 @@ struct PreChecker: ExprVisitor {
 
   func visit(_ node: MatchExpr) -> Expr {
     // Type check the subject of the match before visiting its cases, so that its type can be used
-    // to infer that of each case's ptattern. This is done in a separate constraint system, since
+    // to infer that of each case's pattern. This is done in a separate constraint system, since
     // the subject's type does't depend on the expression in which the match appears (only the type
-    // of the match itself does). However, since case patterns do not contribute to the subject's
-    // type inference neither, and therefore cannot help disambiguate overloading.
+    // of the match itself does). Hence, since case patterns do not contribute to the inference of
+    // the subject's type they cannot help disambiguate overloading.
     TypeChecker.check(expr: &node.subject, useSite: useSite)
 
     // Bail out if the subjet doesn't have a valid type.

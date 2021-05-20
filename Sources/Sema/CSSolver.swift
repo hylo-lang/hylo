@@ -142,14 +142,10 @@ struct CSSolver {
 
     default:
       // Attempt to solve the constraint after desugaring the types.
-      if attemptSolveDesugared(constraint) {
-        return
-      }
+      if attemptSolveDesugared(constraint) { return }
 
       // The types might be structural.
-      if attemptStructuralMatch(constraint) {
-        return
-      }
+      if attemptStructuralMatch(constraint) { return }
 
       // The constraint failed.
       errors.append(.conflictingTypes(constraint))
@@ -236,6 +232,9 @@ struct CSSolver {
         solve(simplified)
 
       default:
+        // Attempt to solve the constraint after desugaring the types.
+        if attemptSolveDesugared(constraint) { return }
+
         // FIXME: Handle structural subtyping.
         system.staleConstraints.append(constraint)
       }
@@ -304,9 +303,7 @@ struct CSSolver {
 
     default:
       // Attempt to solve the constraint after desugaring the types.
-      if attemptSolveDesugared(constraint) {
-        return
-      }
+      if attemptSolveDesugared(constraint) { return }
 
       // The types might be unifiable.
       solve(equality: constraint)

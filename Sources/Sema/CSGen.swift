@@ -177,16 +177,15 @@ struct ConstraintGenerator: ExprVisitor, PatternVisitor {
     }
 
     // All cases must produce a value with a type coercible to that of the node.
-    let caseTypes = node.cases.compactMap({ (stmt: MatchCaseStmt) -> ValType? in
+    // We insert them in reverse order so that the type checker visit them from top to bottom.
+    for stmt in node.cases.reversed() {
       let expr = stmt.body.stmts[0] as! Expr
-      return expr.type is ErrorType
-        ? nil
-        : expr.type
-    })
-    let unionType = UnionType.create(unionOf: caseTypes, in: node.type.context)
-    system.pointee.insert(
-      RelationalConstraint(
-        kind: .subtyping, lhs: unionType, rhs: node.type, at: ConstraintLocator(node)))
+      if !(expr.type is ErrorType) {
+        system.pointee.insert(
+          RelationalConstraint(
+            kind: .subtyping, lhs: expr.type, rhs: node.type, at: ConstraintLocator(stmt)))
+      }
+    }
   }
 
   func visit(_ node: WildcardExpr) {

@@ -223,7 +223,7 @@ public enum TypeChecker {
     system: inout ConstraintSystem
   ) -> Solution {
     // Pre-check the expression.
-    // This resolves primary names, realizes type rerps and desugars constructor calls.
+    // This resolves primary names, realizes type reprs and desugars constructor calls.
     withUnsafeMutablePointer(to: &system, { ptr in
       let driver = PreCheckDriver(system: ptr, useSite: useSite)
       (_, expr) = driver.walk(expr)
@@ -236,9 +236,16 @@ public enum TypeChecker {
     })
 
     if let type = expectedType {
+      // Since the type of a match expression is inferred as a supertype of all case statements, we
+      // must create an equality constraint rather than a subtyping one, so that the solver does
+      // not need to solve `A <: $T && $T <: B`.
+      let kind: RelationalConstraint.Kind = (expr is MatchExpr) && (expr.type is TypeVar)
+        ? .equality
+        : .subtyping
+
+      // Insert the expected type into the constraint system.
       system.insert(
-        RelationalConstraint(
-          kind: .subtyping, lhs: expr.type, rhs: type, at: ConstraintLocator(expr)))
+        RelationalConstraint(kind: kind, lhs: expr.type, rhs: type, at: ConstraintLocator(expr)))
     }
 
     // Solve the constraint system.
