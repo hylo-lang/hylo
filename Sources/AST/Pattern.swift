@@ -12,6 +12,9 @@ public protocol Pattern: Node {
   /// If the pattern binds a single variable without destructuring, returns its declaration.
   var singleVarDecl: VarDecl? { get }
 
+  /// Indicates whether the pattern is refutable.
+  var isRefutable: Bool { get }
+
   /// Accepts the given visitor.
   ///
   /// - Parameter visitor: A pattern visitor.
@@ -38,6 +41,8 @@ public final class NamedPattern: Pattern {
   public var namedPatterns: [NamedPattern] { [self] }
 
   public var singleVarDecl: VarDecl? { decl }
+
+  public var isRefutable: Bool { false }
 
   public func accept<V>(_ visitor: V) -> V.PatternResult where V: PatternVisitor {
     return visitor.visit(self)
@@ -68,6 +73,10 @@ public final class TuplePattern: Pattern {
   public var singleVarDecl: VarDecl? {
     guard elems.count == 1 else { return nil }
     return elems[0].pattern.singleVarDecl
+  }
+
+  public var isRefutable: Bool {
+    return (elems.count == 1) && elems[0].pattern.isRefutable
   }
 
   public func accept<V>(_ visitor: V) -> V.PatternResult where V: PatternVisitor {
@@ -134,12 +143,12 @@ public final class BindingPattern: Pattern {
 
   public var range: SourceRange
 
-  public var namedPatterns: [NamedPattern] {
-    return subpattern.namedPatterns
-  }
+  public var namedPatterns: [NamedPattern] { subpattern.namedPatterns }
 
-  public var singleVarDecl: VarDecl? {
-    return subpattern.singleVarDecl
+  public var singleVarDecl: VarDecl? { subpattern.singleVarDecl }
+
+  public var isRefutable: Bool {
+    return (sign != nil) || subpattern.isRefutable
   }
 
   public func accept<V>(_ visitor: V) -> V.PatternResult where V: PatternVisitor {
@@ -163,6 +172,8 @@ public final class WildcardPattern: Pattern {
   public var namedPatterns: [NamedPattern] { [] }
 
   public var singleVarDecl: VarDecl? { nil }
+
+  public var isRefutable: Bool { false }
 
   public func accept<V>(_ visitor: V) -> V.PatternResult where V: PatternVisitor {
     return visitor.visit(self)

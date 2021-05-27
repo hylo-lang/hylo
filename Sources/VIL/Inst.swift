@@ -13,7 +13,7 @@ public final class AllocStackInst: Inst, Value {
   public var type: VILType { allocatedType.address }
 
   init(allocatedType: VILType) {
-    assert(!allocatedType.isAddress, "allocated type must be an value type")
+    assert(allocatedType.isObject, "allocated type must be an object type")
     self.allocatedType = allocatedType
   }
 
@@ -34,7 +34,7 @@ public final class AllocExistentialInst: Inst, Value {
   public var type: VILType { witness.address }
 
   init(container: Value, witness: VILType) {
-    assert(!witness.isAddress, "type witness must be an value type")
+    assert(witness.isObject, "type witness must be an object type")
     assert(!witness.isExistential, "type witness cannot be existential")
 
     self.container = container
@@ -52,7 +52,7 @@ public final class OpenExistentialInst: Inst, Value {
   public var type: VILType
 
   init(container: Value, type: VILType) {
-    assert(!container.type.isAddress, "container must have an value type")
+    assert(container.type.isObject, "container must have an object type")
 
     self.container = container
     self.type = type
@@ -96,8 +96,8 @@ public final class CopyAddrInst: Inst {
 
 /// Converts an address to a different type.
 ///
-/// Using the resulting address triggers a runtime error unless the layout of the object to which
-/// it refers matches that of the converted type.
+/// The instruction checks whether the conversion is legal and fails at runtime error if `source`
+/// does not have a layout that matches the requested type.
 public final class UnsafeCastAddrInst: Inst, Value {
 
   /// The address to convert.
@@ -109,6 +109,29 @@ public final class UnsafeCastAddrInst: Inst, Value {
   public let type: VILType
 
   init(source: Value, type: VILType) {
+    self.source = source
+    self.type = type
+  }
+
+}
+
+/// Attempts to convert an address to a different type.
+///
+/// The instruction produces an address suitable to load an object of the requested type if the
+/// conversion is legal, or a null location otherwise.
+public final class CheckedCastAddrInst: Inst, Value {
+
+  /// The address to convert.
+  public let source: Value
+
+  /// The type to which the address is converted.
+  ///
+  /// This must be an address type.
+  public let type: VILType
+
+  init(source: Value, type: VILType) {
+    assert(type.isAddress, "type must be an address type")
+
     self.source = source
     self.type = type
   }
@@ -164,7 +187,7 @@ public final class RecordInst: Inst, Value {
   public let type: VILType
 
   init(typeDecl: NominalTypeDecl, type: VILType) {
-    assert(!type.isAddress, "instruction must have a value type")
+    assert(type.isObject, "instruction must have an object type")
 
     self.typeDecl = typeDecl
     self.type = type
@@ -185,7 +208,7 @@ public final class RecordMemberInst: Inst, Value {
   public let type: VILType
 
   init(record: Value, memberDecl: VarDecl, type: VILType) {
-    assert(!type.isAddress, "instruction must have a value type")
+    assert(type.isObject, "instruction must have an object type")
 
     self.record = record
     self.memberDecl = memberDecl
@@ -246,6 +269,7 @@ public final class VariantInst: Inst, Value {
   public let type: VILType
 
   init(bareValue: Value, type: VILType) {
+    assert(type.isObject, "variant must have an object type")
     assert(type.valType is UnionType, "variant must have a union type")
 
     self.bareValue = bareValue
@@ -263,7 +287,8 @@ public final class OpenVariantInst: Inst, Value {
   public var type: VILType
 
   init(variant: Value, type: VILType) {
-    assert(!variant.type.isAddress, "variant cannot have a value type")
+    assert(variant.type.isObject, "variant must have an object type")
+    assert(variant.type.valType is UnionType, "variant must have a union type")
 
     self.variant = variant
     self.type = type
@@ -281,6 +306,8 @@ public final class StoreInst: Inst {
   public let rvalue: Value
 
   init(lvalue: Value, rvalue: Value) {
+    assert(lvalue.type.isAddress, "l-value must have an address type")
+
     self.lvalue = lvalue
     self.rvalue = rvalue
   }
@@ -296,8 +323,32 @@ public final class LoadInst: Inst, Value {
   public var type: VILType { lvalue.type.object }
 
   init(lvalue: Value) {
-    precondition(lvalue.type.isAddress)
+    assert(lvalue.type.isAddress, "l-value must have an address type")
     self.lvalue = lvalue
+  }
+
+}
+
+/// Determines whether two addresses are equal.
+public final class EqualAddrInst: Inst, Value {
+
+  /// An address.
+  public let lhs: Value
+
+  /// Another address.
+  public let rhs: Value
+
+  public let type: VILType
+
+  init(lhs: Value, rhs: Value) {
+    assert(lhs.type.isAddress, "lhs must have an address type")
+    assert(rhs.type.isAddress, "rhs must have an address type")
+
+    self.lhs = lhs
+    self.rhs = rhs
+
+    let context = lhs.type.valType.context
+    self.type = .lower(context.getBuiltinType(named: "i1")!)
   }
 
 }
@@ -354,6 +405,8 @@ public final class CondBranchInst: Inst {
   }
 
 }
+
+/// Branches conditionally to one of several blocks depending on the value of
 
 /// Returns from a function.
 public final class RetInst: Inst {

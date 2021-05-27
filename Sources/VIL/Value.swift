@@ -85,6 +85,18 @@ public final class FunRef: LiteralValue, CustomStringConvertible {
 
 }
 
+/// A null location.
+public final class NullAddr: LiteralValue, CustomStringConvertible {
+
+  public override init(type: VILType) {
+    assert(type.isAddress, "type must be an address type")
+    super.init(type: type)
+  }
+
+  public var description: String { "null_addr" }
+
+}
+
 /// An error value.
 public final class ErrorValue: LiteralValue, CustomStringConvertible {
 

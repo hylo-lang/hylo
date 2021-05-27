@@ -21,7 +21,7 @@ struct LValueEmitter: ExprVisitor {
     switch node.value.accept(self) {
     case .success(let source):
       guard node.type != node.value.type else {
-        parent.context.report(.unsafeCastToSameTimeHasNoEffect(type: node.type, range: node.range))
+        parent.context.report(.unsafeCastToSameTypeHasNoEffect(type: node.type, range: node.range))
         return .success(source)
       }
 

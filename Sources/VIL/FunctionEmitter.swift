@@ -125,10 +125,11 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     }
   }
 
+  /// Emits a local pattern binding declaration.
   func emit(localPBDecl node: PatternBindingDecl) {
     // Create the variable locations for each name in the pattern.
     let lvalues = node.pattern.namedPatterns.map({ name in
-      emit(localVarDecl: name.decl, type: name.type)
+      emit(localVarDecl: name.decl)
     })
 
     // Emit the initializer, if any.
@@ -144,7 +145,8 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     }
   }
 
-  func emit(localVarDecl node: VarDecl, type: ValType) -> Value {
+  /// Emits a local variable declaration.
+  func emit(localVarDecl node: VarDecl) -> Value {
     guard node.state >= .typeChecked else {
       return ErrorValue(context: context)
     }
@@ -173,60 +175,76 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     }
   }
 
-  func emit(assign expr: Expr, to lvalue: Value) {
+  /// Emits the assignment of `rvalue` to `lvalue`.
+  func emit(assign rvalue: Value, ofType rvalueType: ValType, to lvalue: Value) {
+    // If the l-value has the same type as the r-value, we can emit a simple store.
+    if lvalue.type.valType == rvalueType {
+      builder.buildStore(lvalue: lvalue, rvalue: rvalue)
+      return
+    }
+
+    // If both the l-value and the r-value have a union type, we can emit a simple store.
+    if (rvalue.type.valType is UnionType) && (rvalueType is UnionType) {
+      builder.buildStore(lvalue: lvalue, rvalue: rvalue)
+      return
+    }
+
+    // If the l-value is an existential container, then there are two cases to consider.
     if lvalue.type.valType.isExistential {
-      // The l-value is an existential container.
-      if expr.type.isExistential {
-        // Both operands are existential containers. Hence, the goal is to copy the existential
-        // package from one container to the other. If the right operand can be treated as an
-        // l-value, then this boils down to a mere `copy_addr`.
-        if case .success(var rvalue) = expr.accept(LValueEmitter(parent: self)) {
-          if lvalue.type.valType != expr.type {
-            // The r-value has a different type as the l-value; we need a cast.
-            rvalue = builder.buildUnsafeCastAddr(source: rvalue, type: lvalue.type)
-          }
-          builder.buildCopyAddr(dest: lvalue, source: rvalue)
-        } else {
-          // The right operand is a true r-value (e.g., the result of a cast on a r-value).
-          var rvalue = emit(expr: expr)
-          if lvalue.type.valType == expr.type {
-            // The r-value has the same type as the l-value; we only need a store.
-            builder.buildStore(lvalue: lvalue, rvalue: rvalue)
-          } else {
-            // The r-value has a different type; we need a temporary location to cast its package.
-            let tmp: Value = builder.buildAllocStack(type: rvalue.type)
-            builder.buildStore(lvalue: tmp, rvalue: rvalue)
-            rvalue = builder.buildUnsafeCastAddr(source: tmp, type: lvalue.type)
-            builder.buildCopyAddr(dest: lvalue, source: rvalue)
-          }
-        }
+      assert(lvalue.type.valType != rvalueType)
+
+      if rvalueType.isExistential {
+        // If the r-value is an existential container too (but with a different type), then we need
+        // to cast its package.
+        var tmp: Value = builder.buildAllocStack(type: rvalue.type)
+        builder.buildStore(lvalue: tmp, rvalue: rvalue)
+        tmp = builder.buildUnsafeCastAddr(source: tmp, type: lvalue.type)
+        builder.buildCopyAddr(dest: lvalue, source: tmp)
       } else {
-        // The r-value is concrete; it has to be packed unto the l-value.
-        let rvalue = emit(expr: expr)
+        // If the r-value has a concrete type, then it must be packed into an existential container
+        // before being stored
         let lvalue = builder.buildAllocExistential(container: lvalue, witness: rvalue.type)
         builder.buildStore(lvalue: lvalue, rvalue: rvalue)
       }
+
       return
     }
 
+    // If the l-value has a union type, then we must wrap the r-value in a variabt.
     if lvalue.type.valType is UnionType {
-      // The l-value has a union type.
-      let rvalue = emit(expr: expr)
-      if rvalue.type.valType is UnionType {
-        builder.buildStore(lvalue: lvalue, rvalue: rvalue)
-      } else {
-        let variant = builder.buildVariant(bareValue: rvalue, type: lvalue.type)
-        builder.buildStore(lvalue: lvalue, rvalue: variant)
-      }
+      assert(!(rvalueType is UnionType))
+
+      let variant = builder.buildVariant(bareValue: rvalue, type: lvalue.type.object)
+      builder.buildStore(lvalue: lvalue, rvalue: variant)
       return
     }
 
-    // The l-value has a non-union, concrete type.
-    assert(!expr.type.isExistential)
-    let rvalue = emit(expr: expr)
     builder.buildStore(lvalue: lvalue, rvalue: rvalue)
   }
 
+  /// Emits the assignment of the value represented by `expr` to `lvalue`.
+  func emit(assign expr: Expr, to lvalue: Value) {
+    // If both operands have an existential layout and the r-value can be treated as a location,
+    // then we may simply emit `copy_addr`.
+    if lvalue.type.valType.isExistential && expr.type.isExistential {
+      if case .success(var rvalue) = expr.accept(LValueEmitter(parent: self)) {
+        // If the r-value has a different type than the l-value, it must be casted.
+        if lvalue.type.valType != expr.type {
+          rvalue = builder.buildUnsafeCastAddr(source: rvalue, type: lvalue.type)
+        }
+
+        /// Copies the contents from the location on the right to the location on the left.
+        builder.buildCopyAddr(dest: lvalue, source: rvalue)
+        return
+      }
+    }
+
+    // Otherwise, emit the rvalue and fall back to the regular path.
+    let rvalue = emit(expr: expr)
+    emit(assign: rvalue, ofType: expr.type, to: lvalue)
+  }
+
+  /// Emits an l-value.
   func emit(lvalue node: Expr) -> Value {
     // Emit an error value for any expression that has an error type.
     guard node.type !== context.errorType else {
@@ -243,6 +261,10 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
       return ErrorValue(context: context)
     }
   }
+
+  // ----------------------------------------------------------------------------------------------
+  // MARK: Visitors
+  // ----------------------------------------------------------------------------------------------
 
   func visit(_ node: BraceStmt) {
     precondition(builder.block != nil, "not in a basic block")
@@ -335,7 +357,7 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
 
     // Check for trivial casts.
     guard sourceType !== targetType else {
-      context.report(.unsafeCastToSameTimeHasNoEffect(type: node.type, range: node.range))
+      context.report(.unsafeCastToSameTypeHasNoEffect(type: node.type, range: node.range))
       return node.value.accept(self)
     }
 
@@ -541,7 +563,77 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
   }
 
   func visit(_ node: MatchExpr) -> ExprResult {
-    fatalError()
+    guard let function = builder.function else { fatalError("unreachable") }
+    assert(!node.cases.isEmpty)
+
+    // Emit the subject of the match.
+    let subject = emit(expr: node.subject)
+
+    // If the node is a sub-expression, allocate storage for its "value".
+    let storage: AllocStackInst? = node.isSubExpr
+      ? builder.buildAllocStack(type: .lower(node.type))
+      : nil
+
+    // Create a block for all cases to branch unconditionally (unless they yield control).
+    let lastBlock = function.createBasicBlock()
+
+    // Emit each case statement.
+    for (i, stmt) in node.cases.enumerated() {
+      // Update the builder's insertion point and prepare the case's block.
+      let thenBlock = function.createBasicBlock(before: lastBlock)
+      var elseBlock = lastBlock
+
+      // Handle irrefutable patterns.
+      if !stmt.pattern.isRefutable {
+        // No condition. We can simply jump into the case's block.
+        builder.buildBranch(dest: thenBlock)
+
+        if let decl = stmt.pattern.singleVarDecl {
+          // Assign the subject to a local variable.
+          let lvalue = emit(localVarDecl: decl)
+          emit(assign: subject, ofType: node.type, to: lvalue)
+        }
+      } else if let pattern = stmt.pattern as? BindingPattern {
+        // Refutable binding pattern require a type check.
+        var lval: Value = builder.buildAllocStack(type: subject.type)
+        builder.buildStore(lvalue: lval, rvalue: subject)
+        lval = builder.buildCheckedCastAddr(source: lval, type: .lower(pattern.type).address)
+
+        let cond = builder.buildEqualAddr(lhs: lval, rhs: NullAddr(type: lval.type))
+        if i < node.cases.count - 1 {
+          elseBlock = function.createBasicBlock(before: lastBlock)
+        }
+        builder.buildCondBranch(cond: cond, thenDest: thenBlock, elseDest: elseBlock)
+
+        if let decl = stmt.pattern.singleVarDecl {
+          locals[ObjectIdentifier(decl)] = lval
+        }
+      } else {
+        // FIXME: Handle complex conditional patterns recrusively.
+        fatalError()
+      }
+
+      builder.block = thenBlock
+
+      // Emit the statement's body.
+      if let storage = storage {
+        let value = emit(expr: stmt.body.stmts[0] as! Expr)
+        builder.buildStore(lvalue: storage, rvalue: value)
+      } else {
+        visit(stmt.body)
+      }
+
+      // Jump to the end of the match.
+      builder.buildBranch(dest: lastBlock)
+      builder.block = elseBlock
+      guard stmt.pattern.isRefutable else { break }
+    }
+
+    if let storage = storage {
+      return .success(builder.buildLoad(lvalue: storage))
+    } else {
+      return .success(UnitValue(context: context))
+    }
   }
 
   func visit(_ node: WildcardExpr) -> ExprResult {

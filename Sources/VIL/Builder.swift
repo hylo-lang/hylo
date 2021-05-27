@@ -133,6 +133,17 @@ public final class Builder {
     return inst
   }
 
+  /// Builds a `check_cast_addr` instruction.
+  ///
+  /// - Parameters:
+  ///   - source: The address to convert.
+  ///   - type: The type to which the address is converted.
+  public func buildCheckedCastAddr(source: Value, type: VILType) -> CheckedCastAddrInst {
+    let inst = CheckedCastAddrInst(source: source, type: type)
+    block!.instructions.append(inst)
+    return inst
+  }
+
   /// Builds a `witness_method` instruction.
   public func buildWitnessMethod(container: Value, decl: BaseFunDecl) -> WitnessMethodInst {
     precondition({
@@ -253,6 +264,17 @@ public final class Builder {
     return inst
   }
 
+  /// Builds a `equal_addr` instruction
+  ///
+  ///  - Parameters:
+  ///    - lhs: An address.
+  ///    - rhs: Another address.
+  public func buildEqualAddr(lhs: Value, rhs: Value) -> EqualAddrInst {
+    let inst = EqualAddrInst(lhs: lhs, rhs: rhs)
+    block!.instructions.append(inst)
+    return inst
+  }
+
   /// Builds an unconditional `branch` instruction.
   ///
   /// - Parameters:
@@ -261,7 +283,7 @@ public final class Builder {
   ///   - args: The arguments of the destination block. `args` Should must the number and type of
   ///     the arguments expected by `dest.`
   @discardableResult
-  public func buildBranch(dest: BasicBlock, args: [Value]) -> BranchInst {
+  public func buildBranch(dest: BasicBlock, args: [Value] = []) -> BranchInst {
     precondition(dest.function === function, "invalid destination")
 
     let inst = BranchInst(dest: dest, args: args)
@@ -283,8 +305,8 @@ public final class Builder {
   @discardableResult
   public func buildCondBranch(
     cond: Value,
-    thenDest: BasicBlock, thenArgs: [Value],
-    elseDest: BasicBlock, elseArgs: [Value]
+    thenDest: BasicBlock, thenArgs: [Value] = [],
+    elseDest: BasicBlock, elseArgs: [Value] = []
   ) -> CondBranchInst {
     precondition(thenDest.function === function, "invalid destination")
     precondition(elseDest.function === function, "invalid destination")

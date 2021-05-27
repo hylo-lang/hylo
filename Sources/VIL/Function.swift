@@ -26,9 +26,24 @@ public class Function {
   }
 
   /// Creates a new base block at the end of the function.
-  public func createBasicBlock(arguments: [Value] = []) -> BasicBlock {
+  ///
+  /// - Parameters:
+  ///   - arguments: The arguments of the basic block.
+  ///   - successor: The basic block before which the new block should be inserted.
+  public func createBasicBlock(
+    arguments: [Value] = [],
+    before successor: BasicBlock? = nil
+  ) -> BasicBlock {
     let block = BasicBlock(function: self, arguments: arguments)
-    blocks.append(block)
+
+    if let s = successor,
+       let i = blocks.firstIndex(where: {$0 === s })
+    {
+      blocks.insert(block, at: i)
+    } else {
+      blocks.append(block)
+    }
+
     return block
   }
 

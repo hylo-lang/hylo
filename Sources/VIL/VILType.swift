@@ -12,8 +12,8 @@ import AST
 /// storage internally. Hence, when lowered to VIL, these expressions must be associated with an
 /// address type and must be loaded explicitly before being used as an actual value.
 ///
-/// Because Val does not have a first-class notion of pointer or reference, note that addressable
-/// values are not first-class: the address of an address is not a legal value in VIL.
+/// Because Val does not have a first-class notion of reference, addressable values are not
+/// first-class: the address of an address is not a legal value in VIL.
 public class VILType: CustomStringConvertible {
 
   /// The high level Val from which this type is lowered.
@@ -21,6 +21,9 @@ public class VILType: CustomStringConvertible {
 
   /// A flag that indicates whether the type is an address type.
   public final let isAddress: Bool
+
+  /// A flag that indicates whether the type is an object type.
+  public final var isObject: Bool { !isAddress }
 
   fileprivate init(valType: ValType, isAddress: Bool) {
     self.valType = valType

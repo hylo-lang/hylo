@@ -208,7 +208,7 @@ extension Diagnostic {
       anchor: range)
   }
 
-  public static func unsafeCastToSameTimeHasNoEffect(
+  public static func unsafeCastToSameTypeHasNoEffect(
     type: Any, range: SourceRange
   ) -> Diagnostic {
     return Diagnostic(

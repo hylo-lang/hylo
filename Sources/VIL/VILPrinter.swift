@@ -23,6 +23,12 @@ extension Module {
 
 extension Function {
 
+  /// Dumps a textual representation of the function.
+  public func dump() {
+    var stream = StandardOutput()
+    dump(to: &stream)
+  }
+
   /// Dumps a textual representation of the function to the given output stream.
   public func dump<S>(to stream: inout S) where S: TextOutputStream {
     // Dump the function's prologue.
@@ -121,6 +127,12 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
       self << cast.source
       self << " as \(cast.type)\n"
 
+    case let cast as CheckedCastAddrInst:
+      let id = makeID(for: cast)
+      self << "_\(id) = checked_cast_addr "
+      self << cast.source
+      self << " as \(cast.type)\n"
+
     case let witnessFun as WitnessMethodInst:
       let id = makeID(for: witnessFun)
       self << "_\(id) = witness_method "
@@ -176,6 +188,14 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
       let id = makeID(for: load)
       self << "_\(id) = load "
       self << load.lvalue
+      self << "\n"
+
+    case let equal as EqualAddrInst:
+      let id = makeID(for: equal)
+      self << "_\(id) = equal_addr "
+      self << equal.lhs
+      self << ", "
+      self << equal.rhs
       self << "\n"
 
     case let branch as BranchInst:
