@@ -24,9 +24,6 @@ extension Array {
       }
     }
 
-    while try (lower > 0) && !areInIncreasingOrder(self[lower - 1], self[lower]) {
-      lower += 1
-    }
     return lower
   }
 

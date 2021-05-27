@@ -44,7 +44,8 @@ public class ValType {
   /// Indicates whether the type contains the error type.
   public var hasErrors    : Bool { props.contains(.hasErrors) }
 
-  /// Indicates whether the type is well-formed; it does not contain type variables, unresolved or error types.
+  /// Indicates whether the type is well-formed (i.e., it does not contain type variables,
+  /// unresolved or error types).
   public var isWellFormed : Bool { !hasVariables && !hasUnresolved && !hasErrors }
 
   /// Indicates whether the type is existential.
@@ -76,8 +77,8 @@ public class ValType {
   /// For instance, both `(Int)` and `((Int))` have the same canonical type (i.e., `Int`). It is
   /// typically used to check whether two types are equal.
   ///
-  /// - Note: Type aliases that are not mere synonyms for an existing nominal type (a.k.a. type
-  ///   definitions) are canonical.
+  /// - Note: Type aliases that are not mere synonyms for an existing nominal type are canonical.
+  ///   For instance, given an alias `type A = B | C`, type `A` is canonical.
   public var canonical: ValType { self }
 
   /// This type with all aliases resolved to their canonical form.
@@ -675,12 +676,16 @@ public final class UnionType: ValType {
 
     var filtered: [ValType] = []
     for elem in elems {
+      // Compute the index of the element in the backing array.
       let canonical = elem.canonical
       let index = filtered.sortedInsertionIndex(of: canonical, sortedBy: { a, b in
         ObjectIdentifier(a) < ObjectIdentifier(b)
       })
-      guard (index == 0) || (filtered[index] != canonical) else { continue }
-      filtered.insert(canonical, at: index)
+
+      // Skip duplicates.
+      if (index == 0) || (index >= filtered.endIndex) || (filtered[index] != canonical) {
+        filtered.insert(canonical, at: index)
+      }
     }
 
     if filtered.count == 1 {
@@ -746,7 +751,7 @@ public final class UnionType: ValType {
   {
     if types.isEmpty {
       return context.unhabitedType
-    } else if types.count == 0 {
+    } else if types.count == 1 {
       return types.first!
     } else {
       return context.unionType(types)
