@@ -7,7 +7,7 @@ typealias RuntimeValuePointer = UnsafeMutablePointer<RuntimeValue>
 enum RuntimeValue {
 
   init(ofType type: ValType) {
-    switch type {
+    switch type.dealiased {
     case let pType as ProductType:
       let capacity = pType.decl.storedVars.count
       self = .record(Record(capacity: capacity))
@@ -272,7 +272,7 @@ extension Record: CustomStringConvertible {
 /// words, the sequence denotes a path in the interpreter's memory tree.
 ///
 /// Note that this essentially emulates a pointer on top of the interpreter's memory architecture.
-struct Address {
+struct Address: Equatable {
 
   private var indices: [Int]
 
@@ -301,6 +301,9 @@ struct Address {
   func appending(offset newOffset: Int) -> Address {
     return Address(indices: indices + [newOffset])
   }
+
+  /// The null location.
+  static var null = Address(base: -1)
 
 }
 

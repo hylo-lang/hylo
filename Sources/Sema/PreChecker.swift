@@ -23,10 +23,8 @@ final class PreCheckDriver: NodeWalker {
 
     case let matchExpr as MatchExpr:
       // Match expressions require special handling to deal with case inference.
-      let newExpr = matchExpr.accept(
-        PreChecker(system: system, useSite: innermostSpace!))
-
-      return (false, matchExpr)
+      let newExpr = matchExpr.accept(PreChecker(system: system, useSite: innermostSpace!))
+      return (false, newExpr)
 
     case is ErrorExpr:
       return (false, expr)

@@ -81,6 +81,7 @@ public struct Interpreter {
     case let inst as OpenExistentialAddrInst: return eval(inst: inst)
     case let inst as CopyAddrInst           : return eval(inst: inst)
     case let inst as UnsafeCastAddrInst     : return eval(inst: inst)
+    case let inst as CheckedCastAddrInst    : return eval(inst: inst)
     case let inst as WitnessMethodInst      : return eval(inst: inst)
     case let inst as ApplyInst              : return eval(inst: inst)
     case let inst as RecordMemberAddrInst   : return eval(inst: inst)
@@ -88,10 +89,13 @@ public struct Interpreter {
     case let inst as TupleInst              : return eval(inst: inst)
     case let inst as StoreInst              : return eval(inst: inst)
     case let inst as LoadInst               : return eval(inst: inst)
+    case let inst as EqualAddrInst          : return eval(inst: inst)
+    case let inst as BranchInst             : return eval(inst: inst)
+    case let inst as CondBranchInst         : return eval(inst: inst)
     case let inst as RetInst                : return eval(inst: inst)
     case nil:
       fatalError("invalid program counter")
-    case let inst:
+    case .some(let inst):
       fatalError("unexpected instruction '\(type(of: inst))'")
     }
   }
@@ -116,6 +120,8 @@ public struct Interpreter {
       return .function(functions[literal.name]!)
     case let literal as BuiltinFunRef:
       return .builtinFunction(literal.decl)
+    case is NullAddr:
+      return .address(.null)
     case is Error:
       return .error
     default:
@@ -151,13 +157,23 @@ public struct Interpreter {
 
   mutating func eval(inst: OpenExistentialInst) -> ProgramCounter? {
     let container = eval(operand: inst.container).asContainer
+
+    // FIXME: Check whether `container.witness` is a subtype of `inst.type`.
+
     locals[locals.count - 1][RegisterID(inst)] = container.storage!.pointee.copy()
     return pc.incremented()
   }
 
   mutating func eval(inst: OpenExistentialAddrInst) -> ProgramCounter? {
     let containerAddr = eval(operand: inst.container).asAddress
-    let addr = containerAddr.appending(offset: 0)
+    var addr = containerAddr.appending(offset: 0)
+
+    // FIXME: Handle more complex subtyping relations.
+    guard case .container(let container) = load(from: containerAddr) else { fatalError() }
+    if container.witness != inst.type.valType {
+      addr = .null
+    }
+
     locals[locals.count - 1][RegisterID(inst)] = .address(addr)
     return pc.incremented()
   }
@@ -174,6 +190,26 @@ public struct Interpreter {
   mutating func eval(inst: UnsafeCastAddrInst) -> ProgramCounter? {
     let addr = eval(operand: inst.source)
     assert(addr.isAddress)
+
+    // FIXME: Check that the layout of the source object is compatible with the target type.
+    locals[locals.count - 1][RegisterID(inst)] = addr
+    return pc.incremented()
+  }
+
+  mutating func eval(inst: CheckedCastAddrInst) -> ProgramCounter? {
+    var addr = eval(operand: inst.source)
+    assert(addr.isAddress)
+
+    // FIXME: Handle more complex subtyping relations.
+    switch load(from: addr.asAddress) {
+    case .container(let container):
+      if container.witness != inst.type.valType {
+        addr = .address(.null)
+      }
+
+    default:
+      addr = .address(.null)
+    }
 
     // FIXME: Check that the layout of the source object is compatible with the target type.
     locals[locals.count - 1][RegisterID(inst)] = addr
@@ -311,6 +347,33 @@ public struct Interpreter {
     let lv = eval(operand: inst.lvalue).asAddress
     locals[locals.count - 1][RegisterID(inst)] = load(from: lv).copy()
     return pc.incremented()
+  }
+
+  mutating func eval(inst: EqualAddrInst) -> ProgramCounter? {
+    guard case .address(let lhs) = eval(operand: inst.lhs),
+          case .address(let rhs) = eval(operand: inst.rhs)
+    else { fatalError() }
+
+    locals[locals.count - 1][RegisterID(inst)] = .native(lhs == rhs)
+    return pc.incremented()
+  }
+
+  mutating func eval(inst: BranchInst) -> ProgramCounter? {
+    // FIXME: Handle block arguments.
+    return ProgramCounter(atStartOf: inst.dest)
+  }
+
+  mutating func eval(inst: CondBranchInst) -> ProgramCounter? {
+    guard case .native(let operand) = eval(operand: inst.cond),
+          let cond = operand as? Bool
+    else { fatalError() }
+
+    // FIXME: Handle block arguments.
+    if cond {
+      return ProgramCounter(atStartOf: inst.thenDest)
+    } else {
+      return ProgramCounter(atStartOf: inst.elseDest)
+    }
   }
 
   mutating func eval(inst: RetInst) -> ProgramCounter? {

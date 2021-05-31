@@ -7,6 +7,9 @@ public class Function {
   /// The mangled name of the function.
   public let name: String
 
+  /// An optional debug name describing the function.
+  public let debugName: String?
+
   /// The VIL type of the function.
   public let type: VILFunType
 
@@ -18,10 +21,10 @@ public class Function {
   /// - Parameters:
   ///   - name: The name of the function.
   ///   - type: The unapplied type of the function.
-  ///   - paramConv: The passing convention of the function's parameters.
-  ///   - retConv: The passing convention of the funtion's return value.
-  init(name: String, type: VILFunType) {
+  ///   - debugName: An optional debug name describing the function.
+  init(name: String, type: VILFunType, debugName: String? = nil) {
     self.name = name
+    self.debugName = debugName
     self.type = type
   }
 

@@ -25,9 +25,14 @@ public final class Builder {
   ///
   /// - Parameters:
   ///   - name: The name of the function to retrieve or create.
-  ///   - type: The unapplied type of the function. If the module already contains a function
-  ///     `name`, then it has to have the same type as `type`.
-  public func getOrCreateFunction(name: String, type: FunType) -> Function {
+  ///   - type: The unapplied type of the function. If the module already contains a function with
+  ///     the same name, then it must have the same type as `type`.
+  ///   - debugName: An optional debug name describing the function.
+  public func getOrCreateFunction(
+    name     : String,
+    type     : FunType,
+    debugName: String? = nil
+  ) -> Function {
     if let function = module.functions[name] {
       precondition(
         function.type.valType === type,
@@ -39,7 +44,7 @@ public final class Builder {
     let loweredType = VILType.lower(type) as! VILFunType
 
     // Create the function object.
-    let function = Function(name: name, type: loweredType)
+    let function = Function(name: name, type: loweredType, debugName: debugName)
     module.functions[name] = function
     return function
   }
@@ -59,7 +64,10 @@ public final class Builder {
       name = mangler.finalize()
     }
 
-    return getOrCreateFunction(name: name, type: funDecl.unappliedType as! FunType)
+    return getOrCreateFunction(
+      name: name,
+      type: funDecl.unappliedType as! FunType,
+      debugName: funDecl.debugID)
   }
 
   /// Builds an `alloc_stack` instruction.
@@ -225,20 +233,6 @@ public final class Builder {
   /// Builds a tuple value instruction.
   public func buildTuple(type: TupleType, elems: [Value]) -> TupleInst {
     let inst = TupleInst(type: type, elems: elems)
-    block!.instructions.append(inst)
-    return inst
-  }
-
-  /// Builds a variant value.
-  public func buildVariant(bareValue: Value, type: VILType) -> VariantInst {
-    let inst = VariantInst(bareValue: bareValue, type: type)
-    block!.instructions.append(inst)
-    return inst
-  }
-
-  /// Builds an `open_variant` instruction.
-  public func buildOpenVariant(variant: Value, type: VILType) -> OpenVariantInst {
-    let inst = OpenVariantInst(variant: variant, type: type)
     block!.instructions.append(inst)
     return inst
   }

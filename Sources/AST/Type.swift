@@ -57,12 +57,14 @@ public class ValType {
   /// Instances of existential types are represented by existential packages.
   public final var isExistential: Bool {
     switch self {
-    case is ViewType, is ViewCompositionType, is SkolemType, is GenericParamType:
+    case is ViewType, is ViewCompositionType, is UnionType, is SkolemType, is GenericParamType:
       return true
     case let kType as KindType:
       return kType.type.isExistential
     case let iType as InoutType:
       return iType.base.isExistential
+    case let bType as BoundGenericType where bType.decl is AliasTypeDecl:
+      return bType.dealiased.isExistential
     default:
       return false
     }

@@ -61,6 +61,10 @@ public final class OpenExistentialInst: Inst, Value {
 }
 
 /// Obtains the address of the concrete value packaged inside an existential container.
+///
+/// The instruction checks whether the container is witnessed by `type`. If it is, the resulting
+/// address can be loaded as an instance of `type`. Otherwise, the instruction produces a null
+/// location.
 public final class OpenExistentialAddrInst: Inst, Value {
 
   /// The address of the existential container to open.
@@ -71,6 +75,7 @@ public final class OpenExistentialAddrInst: Inst, Value {
 
   init(container: Value, type: VILType) {
     assert(container.type.isAddress, "container must have an address type")
+    assert(type.isAddress, "type must be an address type")
 
     self.container = container
     self.type = type
@@ -109,6 +114,8 @@ public final class UnsafeCastAddrInst: Inst, Value {
   public let type: VILType
 
   init(source: Value, type: VILType) {
+    assert(type.isAddress, "type must be an address type")
+
     self.source = source
     self.type = type
   }
@@ -253,45 +260,6 @@ public final class TupleInst: Inst, Value {
   init(type: TupleType, elems: [Value]) {
     self.tupleType = type
     self.elems = elems
-  }
-
-}
-
-/// Packs the given value into a variant container.
-public final class VariantInst: Inst, Value {
-
-  /// The bare value of the variant.
-  public let bareValue: Value
-
-  /// The type of the variant.
-  ///
-  /// This must be a union type containing the type of the variant's bare value.
-  public let type: VILType
-
-  init(bareValue: Value, type: VILType) {
-    assert(type.isObject, "variant must have an object type")
-    assert(type.valType is UnionType, "variant must have a union type")
-
-    self.bareValue = bareValue
-    self.type = type
-  }
-
-}
-
-/// Extracts the value packed inside a variant container.
-public final class OpenVariantInst: Inst, Value {
-
-  /// The variant container.
-  public let variant: Value
-
-  public var type: VILType
-
-  init(variant: Value, type: VILType) {
-    assert(variant.type.isObject, "variant must have an object type")
-    assert(variant.type.valType is UnionType, "variant must have a union type")
-
-    self.variant = variant
-    self.type = type
   }
 
 }

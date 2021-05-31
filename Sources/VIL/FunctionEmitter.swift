@@ -210,15 +210,6 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
       return
     }
 
-    // If the l-value has a union type, then we must wrap the r-value in a variabt.
-    if lvalue.type.valType is UnionType {
-      assert(!(rvalueType is UnionType))
-
-      let variant = builder.buildVariant(bareValue: rvalue, type: lvalue.type.object)
-      builder.buildStore(lvalue: lvalue, rvalue: variant)
-      return
-    }
-
     builder.buildStore(lvalue: lvalue, rvalue: rvalue)
   }
 
@@ -372,13 +363,6 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     if sourceType.isExistential {
       let container = emit(expr: node.value)
       let value = builder.buildOpenExistential(container: container, type: .lower(targetType))
-      return .success(value)
-    }
-
-    // If the value being cast is a variant, open it.
-    if sourceType is UnionType {
-      let variant = emit(expr: node.value)
-      let value = builder.buildOpenVariant(variant: variant, type: .lower(targetType))
       return .success(value)
     }
 
@@ -577,6 +561,15 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     // Create a block for all cases to branch unconditionally (unless they yield control).
     let lastBlock = function.createBasicBlock()
 
+    func irrefutable(stmt: MatchCaseStmt) {
+      if let decl = stmt.pattern.singleVarDecl {
+        // Assign the subject to a local variable.
+        let lvalue = emit(localVarDecl: decl)
+        emit(assign: subject, ofType: node.type, to: lvalue)
+      }
+      builder.buildBranch(dest: lastBlock)
+    }
+
     // Emit each case statement.
     for (i, stmt) in node.cases.enumerated() {
       // Update the builder's insertion point and prepare the case's block.
@@ -585,32 +578,44 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
 
       // Handle irrefutable patterns.
       if !stmt.pattern.isRefutable {
-        // No condition. We can simply jump into the case's block.
-        builder.buildBranch(dest: thenBlock)
-
-        if let decl = stmt.pattern.singleVarDecl {
-          // Assign the subject to a local variable.
-          let lvalue = emit(localVarDecl: decl)
-          emit(assign: subject, ofType: node.type, to: lvalue)
-        }
+        irrefutable(stmt: stmt)
+        break
       } else if let pattern = stmt.pattern as? BindingPattern {
-        // Refutable binding pattern require a type check.
-        var lval: Value = builder.buildAllocStack(type: subject.type)
-        builder.buildStore(lvalue: lval, rvalue: subject)
-        lval = builder.buildCheckedCastAddr(source: lval, type: .lower(pattern.type).address)
+        // Check for trivial casts that actually make the pattern irrefutable.
+        guard pattern.type !== node.subject.type else {
+          irrefutable(stmt: stmt)
+          break
+        }
 
-        let cond = builder.buildEqualAddr(lhs: lval, rhs: NullAddr(type: lval.type))
+        // Refutable binding pattern require a type check.
+        let patType = VILType.lower(pattern.type)
+        var patLoc: Value = builder.buildAllocStack(type: subject.type)
+        builder.buildStore(lvalue: patLoc, rvalue: subject)
+
+        if node.subject.type.isExistential {
+          if pattern.type.isExistential {
+            patLoc = builder.buildCheckedCastAddr(source: patLoc, type: patType.address)
+          } else {
+            patLoc = builder.buildOpenExistentialAddr(container: patLoc, type: patType.address)
+          }
+        } else {
+          fatalError("not implemented")
+        }
+
+        let cond = builder.buildEqualAddr(lhs: patLoc, rhs: NullAddr(type: patLoc.type))
         if i < node.cases.count - 1 {
           elseBlock = function.createBasicBlock(before: lastBlock)
         }
-        builder.buildCondBranch(cond: cond, thenDest: thenBlock, elseDest: elseBlock)
+        builder.buildCondBranch(cond: cond, thenDest: elseBlock, elseDest: thenBlock)
 
         if let decl = stmt.pattern.singleVarDecl {
-          locals[ObjectIdentifier(decl)] = lval
+          locals[ObjectIdentifier(decl)] = patLoc
+        } else {
+          fatalError("not implemented")
         }
       } else {
         // FIXME: Handle complex conditional patterns recrusively.
-        fatalError()
+        fatalError("not implemented")
       }
 
       builder.block = thenBlock

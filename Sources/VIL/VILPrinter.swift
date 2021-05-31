@@ -32,6 +32,9 @@ extension Function {
   /// Dumps a textual representation of the function to the given output stream.
   public func dump<S>(to stream: inout S) where S: TextOutputStream {
     // Dump the function's prologue.
+    if let debugName = self.debugName {
+      stream.write("// \(debugName)\n")
+    }
     stream.write("vilfun \(name) : \(type)")
 
     // Dump the function's body, if any.
@@ -164,18 +167,6 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
       self << "_\(id) = tuple \(tuple.type) ("
       self << tuple.elems
       self << ")\n"
-
-    case let variant as VariantInst:
-      let id = makeID(for: variant)
-      self << "_\(id) = variant "
-      self << variant.bareValue
-      self << " in \(variant.type)\n"
-
-    case let open as OpenVariantInst:
-      let id = makeID(for: open)
-      self << "_\(id) = open_variant "
-      self << open.variant
-      self << " as \(open.type)\n"
 
     case let store as StoreInst:
       self << "store "
