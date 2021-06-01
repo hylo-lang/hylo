@@ -126,7 +126,7 @@ public final class Context {
     return viewCompositionType([])
   }()
 
-  public private(set) lazy var unhabitedType: UnionType = {
+  public private(set) lazy var uninhabitedType: UnionType = {
     return unionType([])
   }()
 
