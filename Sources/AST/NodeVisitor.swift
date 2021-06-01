@@ -85,6 +85,10 @@ public protocol ExprVisitor {
 
   func visit(_ node: AssignExpr) -> ExprResult
 
+  func visit(_ node: BaseCastExpr) -> ExprResult
+
+  func visit(_ node: DynCastExpr) -> ExprResult
+
   func visit(_ node: UnsafeCastExpr) -> ExprResult
 
   func visit(_ node: TupleExpr) -> ExprResult

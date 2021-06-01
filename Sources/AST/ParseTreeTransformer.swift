@@ -677,9 +677,10 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     let sign  = ctx.typeRepr()!.accept(self) as! TypeRepr
 
     switch opLoc.castOp {
+    case .dynCast:
+      return DynCastExpr(value: value, sign: sign, type: unresolvedType, range: range(of: ctx))
     case .unsafeCast:
       return UnsafeCastExpr(value: value, sign: sign, type: unresolvedType, range: range(of: ctx))
-
     default:
       fatalError("not implemented")
     }

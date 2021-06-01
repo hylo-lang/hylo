@@ -424,7 +424,7 @@ open class NodeWalker: NodeVisitor {
     return true
   }
 
-  public final func visit(_ node: UnsafeCastExpr) -> Bool {
+  public final func visit(_ node: BaseCastExpr) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
@@ -436,6 +436,14 @@ open class NodeWalker: NodeVisitor {
     guard shouldContinue else { return false }
 
     return true
+  }
+
+  public final func visit(_ node: DynCastExpr) -> Bool {
+    return visit(node as BaseCastExpr)
+  }
+
+  public final func visit(_ node: UnsafeCastExpr) -> Bool {
+    return visit(node as BaseCastExpr)
   }
 
   public final func visit(_ node: TupleExpr) -> Bool {

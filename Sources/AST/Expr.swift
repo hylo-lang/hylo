@@ -65,8 +65,8 @@ public final class AssignExpr: Expr {
 
 }
 
-/// An unsafe cast expression (e.g., `foo as! Bar`).
-public final class UnsafeCastExpr: Expr {
+/// The base class for cast expressions.
+public class BaseCastExpr: Expr {
 
   public init(value: Expr, sign: TypeRepr, type: ValType, range: SourceRange) {
     self.value = value
@@ -86,6 +86,24 @@ public final class UnsafeCastExpr: Expr {
   public var range: SourceRange
 
   public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
+    return visitor.visit(self)
+  }
+
+}
+
+/// A safe, dynamic cast expression (e.g., `foo as? Bar`).
+public final class DynCastExpr: BaseCastExpr {
+
+  public override func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
+    return visitor.visit(self)
+  }
+
+}
+
+/// An unsafe cast expression (e.g., `foo as! Bar`).
+public final class UnsafeCastExpr: BaseCastExpr {
+
+  public override func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
   }
 

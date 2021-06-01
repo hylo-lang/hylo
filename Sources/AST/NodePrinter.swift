@@ -334,7 +334,7 @@ public struct NodePrinter: NodeVisitor {
     """
   }
 
-  public func visit(_ node: UnsafeCastExpr) -> String {
+  public func visit(_ node: BaseCastExpr) -> String {
     return """
     {
     \(exprHeader(node)),
@@ -342,6 +342,14 @@ public struct NodePrinter: NodeVisitor {
     "sign"            : \(encode(node.sign))
     }
     """
+  }
+
+  public func visit(_ node: DynCastExpr) -> String {
+    return visit(node as BaseCastExpr)
+  }
+
+  public func visit(_ node: UnsafeCastExpr) -> String {
+    return visit(node as BaseCastExpr)
   }
 
   public func visit(_ node: TupleExpr) -> String {
