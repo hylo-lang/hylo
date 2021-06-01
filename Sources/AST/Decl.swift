@@ -929,38 +929,6 @@ public class NominalTypeDecl: GenericTypeDecl {
   /// for specific lookups, or `allTypeAndValueMembers` to enumerate all member declarations.
   public var members: [Decl] = []
 
-  public override func updateMemberTables() {
-    super.updateMemberTables()
-
-    // Synthetize default constructors if necessary.
-    if _valueMemberTable["new"] == nil {
-      let context = type.context
-      let range = self.range.lowerBound ..< self.range.lowerBound
-
-      // Create a constructor declaration.
-      let ctor = CtorDecl(type: context.unresolvedType, range: range)
-      ctor.genericClause = genericClause
-      ctor.parentDeclSpace = self
-      ctor.props.insert(.isSynthesized)
-
-      // Create a parameter for each stored property.
-      ctor.params = storedVars.map({ (varDecl: VarDecl) -> FunParamDecl in
-        let param = FunParamDecl(
-          name: varDecl.name,
-          externalName: varDecl.name,
-          typeSign: nil,
-          type: context.unresolvedType,
-          range: range)
-        param.parentDeclSpace = ctor
-        return param
-      })
-
-      // Insert the synthetized declaration into the member's table.
-      _valueMemberTable["new"] = [ctor]
-      members.append(ctor)
-    }
-  }
-
   fileprivate override func directMembers() -> [Decl] {
     return members
   }
@@ -997,6 +965,38 @@ public final class ProductTypeDecl: NominalTypeDecl {
         args: clause.params.map({ $0.instanceType }))
     } else {
       return instanceType
+    }
+  }
+
+  public override func updateMemberTables() {
+    super.updateMemberTables()
+
+    // Synthetize default constructors if necessary.
+    if _valueMemberTable["new"] == nil {
+      let context = type.context
+      let range = self.range.lowerBound ..< self.range.lowerBound
+
+      // Create a constructor declaration.
+      let ctor = CtorDecl(type: context.unresolvedType, range: range)
+      ctor.genericClause = genericClause
+      ctor.parentDeclSpace = self
+      ctor.props.insert(.isSynthesized)
+
+      // Create a parameter for each stored property.
+      ctor.params = storedVars.map({ (varDecl: VarDecl) -> FunParamDecl in
+        let param = FunParamDecl(
+          name: varDecl.name,
+          externalName: varDecl.name,
+          typeSign: nil,
+          type: context.unresolvedType,
+          range: range)
+        param.parentDeclSpace = ctor
+        return param
+      })
+
+      // Insert the synthetized declaration into the member's table.
+      _valueMemberTable["new"] = [ctor]
+      members.append(ctor)
     }
   }
 
