@@ -639,7 +639,6 @@ public final class UnionType: ValType {
   public let elems: [ValType]
 
   init(context: Context, elems: [ValType]) {
-    assert(elems.allSatisfy({ !($0 is UnionType) }), "union types cannot be nested")
     assert(
       elems.allSatisfy({ !($0 is TypeVar) }),
       "unconstrained type variables cannot occur in union type")
@@ -658,11 +657,22 @@ public final class UnionType: ValType {
       props = elems[0].props.removing(.isCanonical)
 
     default:
-      // The union is canonical if the types are "sorted".
-      // FIXME: Do we need a more stable ordering, that doesn't depend on the runtime?
-      props = .merge(elems.map({ $0.props }))
-      if !UnionType.isCanonicalList(elems) {
-        props = props.removing(.isCanonical)
+      props = elems[0].props
+
+      // Determines canonicity.
+      for i in 1 ..< elems.count {
+        props = props.merged(with: elems[i].props)
+
+        // The union is not canonical if it's not flat (e.g., `A | (B | C)`).
+        if elems[i] is UnionType {
+          props = props.removing(.isCanonical)
+        }
+
+        // The union is not canonical if it's not sorted.
+        // FIXME: Do we need a more stable ordering, independent of the compiler's runtime?
+        if ObjectIdentifier(elems[i - 1]) >= ObjectIdentifier(elems[i]) {
+          props = props.removing(.isCanonical)
+        }
       }
     }
 
@@ -722,24 +732,6 @@ public final class UnionType: ValType {
 
   public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
     visitor.visit(self)
-  }
-
-  /// Returns whether the given list of types is in canonical form, which holds if and only if all
-  /// types appear only once, and in order. Note that this does *not* require the types themselves
-  /// to be in canonical form.
-  ///
-  /// - Parameter elems: An array of types.
-  private static func isCanonicalList(_ elems: [ValType]) -> Bool {
-    if elems.count == 0 {
-      return true
-    } else if elems.count == 1 {
-      return false
-    }
-
-    for i in 1 ..< elems.count {
-      guard ObjectIdentifier(elems[i - 1]) < ObjectIdentifier(elems[i]) else { return false }
-    }
-    return true
   }
 
   /// Creates `UnionType` with the given collection unless it contains a single element; in thise
@@ -807,7 +799,7 @@ public final class BoundGenericType: NominalType {
       let subst = Dictionary(
         zip(decl.genericEnv!.params, dealiasedArgs),
         uniquingKeysWith: { lhs, _ in lhs })
-      return underylingType.specialized(with: subst)
+      return underylingType.specialized(with: subst).dealiased
     }
 
     return context.boundGenericType(decl: decl, args: dealiasedArgs)

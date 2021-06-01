@@ -95,6 +95,7 @@ struct CSSolver {
     }
   }
 
+  /// Solves an equality constraint.
   private mutating func solve(equality constraint: RelationalConstraint) {
     // Attempt to unify the two types.
     switch (constraint.lhs, constraint.rhs) {
@@ -152,6 +153,7 @@ struct CSSolver {
     }
   }
 
+  /// Solves a view conformance constraint.
   private mutating func solve(conformance constraint: RelationalConstraint) {
     let view = constraint.rhs as! ViewType
 
@@ -185,6 +187,7 @@ struct CSSolver {
     }
   }
 
+  /// Solves a subtyping constraint.
   private mutating func solve(subtyping constraint: RelationalConstraint) {
     switch (constraint.lhs, constraint.rhs) {
     case is (TypeVar, TypeVar):
@@ -224,7 +227,7 @@ struct CSSolver {
         solve(simplified)
 
       case is ViewType:
-        // `U` is a view type that could be conformed any type. Hence, binding `T` to `U` might
+        // `U` is a view type that to which any type could conform. Hence, binding `T` to `U` might
         // fail if `T` is more tightly constrained by another relation that we haven't solved yet.
         // Instead, we can try to solve the constraint as a conformance relation.
         let simplified = RelationalConstraint(
@@ -232,9 +235,6 @@ struct CSSolver {
         solve(simplified)
 
       default:
-        // Attempt to solve the constraint after desugaring the types.
-        if attemptSolveDesugared(constraint) { return }
-
         // FIXME: Handle structural subtyping.
         system.staleConstraints.append(constraint)
       }
@@ -310,6 +310,7 @@ struct CSSolver {
     }
   }
 
+  /// Solves a conversion constraint.
   private mutating func solve(conversion constraint: RelationalConstraint) {
     switch constraint.rhs {
     case is BuiltinIntLiteralType:
@@ -339,6 +340,7 @@ struct CSSolver {
     }
   }
 
+  /// Solves a value member constraint.
   private mutating func solve(_ constraint: ValueMemberConstraint) {
     // We can't solve anything yet if `T` is still unknown.
     var baseType = assumptions[constraint.lhs]
@@ -424,6 +426,7 @@ struct CSSolver {
     }
   }
 
+  /// Solves a tuple member constraint.
   private mutating func solve(_ constraint: TupleMemberConstraint) {
     // We can't solve anything yet if `T` is still unknown.
     var baseType = assumptions[constraint.lhs]
@@ -456,6 +459,7 @@ struct CSSolver {
     solve(simplified)
   }
 
+  /// Solves an overloaded constraint.
   private mutating func solve(_ constraint: OverloadBindingConstraint) -> Solution {
     assert(!constraint.declSet.isEmpty)
     let type = assumptions[constraint.type]
@@ -497,6 +501,7 @@ struct CSSolver {
     return solve()
   }
 
+  /// Solves a disjunction constraint.
   private mutating func solve(_ constraint: DisjunctionConstraint) -> Solution {
     precondition(!constraint.elements.isEmpty)
     let results = branch(choices: constraint.elements)
