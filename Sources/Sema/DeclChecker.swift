@@ -288,14 +288,13 @@ struct DeclChecker: DeclVisitor {
 
   func visit(_ node: TypeExtDecl) -> Bool {
     guard node.state < .typeChecked else { return handleCheckState(node) }
-    node.setState(.typeCheckRequested)
-    var isWellFormed = true
 
     // Bind the extension to the type it extends.
     guard node.computeExtendedDecl() != nil else { return false }
 
     // Type-check the extension's members.
     node.setState(.typeCheckRequested)
+    var isWellFormed = true
     for member in node.members {
       isWellFormed = isWellFormed && member.accept(self)
     }

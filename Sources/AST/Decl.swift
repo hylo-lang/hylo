@@ -1276,19 +1276,11 @@ public final class TypeExtDecl: Decl, DeclSpace {
   }
 
   /// The declaration of the extended type.
-  public var extendedDecl: GenericTypeDecl? {
-    return computeExtendedDecl()
-  }
-
-  /// The underlying storage for `extendedDecl`.
-  private var _extendedDecl: NominalTypeDecl?
+  public lazy var extendedDecl: GenericTypeDecl? = computeExtendedDecl()
 
   /// Computes the declaration that is extended by this extension.
   public func computeExtendedDecl() -> GenericTypeDecl? {
     guard state != .invalid else { return nil }
-    if state >= .realized {
-      return _extendedDecl
-    }
 
     let type = extendedIdent.realize(unqualifiedFrom: parentDeclSpace!)
     guard !(type is ErrorType) else {

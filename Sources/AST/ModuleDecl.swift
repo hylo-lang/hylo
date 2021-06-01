@@ -54,11 +54,12 @@ public final class ModuleDecl {
       // Skip invalid declarations.
       guard ext.state != .invalid else { continue }
 
+      // The extension is already bound, so we can check if it's bound to `decl` directly.
       if ext.state >= .realized {
         if decl === ext.extendedDecl {
-          // Simplest case. The extension was already bound to `decl`!
           matches.append(ext)
         }
+        continue stmt
       }
 
       // The extension isn't bound yet, so we need to realize to resolve its identifier.
