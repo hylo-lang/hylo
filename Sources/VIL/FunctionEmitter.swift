@@ -177,6 +177,8 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
 
   /// Emits the assignment of `rvalue` to `lvalue`.
   func emit(assign rvalue: Value, ofType rvalueType: ValType, to lvalue: Value) {
+    assert(rvalueType.isCanonical)
+
     // If the l-value has the same type as the r-value, we can emit a simple store.
     if lvalue.type.valType == rvalueType {
       builder.buildStore(lvalue: lvalue, rvalue: rvalue)
@@ -232,7 +234,7 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
 
     // Otherwise, emit the rvalue and fall back to the regular path.
     let rvalue = emit(expr: expr)
-    emit(assign: rvalue, ofType: expr.type, to: lvalue)
+    emit(assign: rvalue, ofType: expr.type.dealiased, to: lvalue)
   }
 
   /// Emits an l-value.
@@ -565,7 +567,7 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
       if let decl = stmt.pattern.singleVarDecl {
         // Assign the subject to a local variable.
         let lvalue = emit(localVarDecl: decl)
-        emit(assign: subject, ofType: node.type, to: lvalue)
+        emit(assign: subject, ofType: node.type.dealiased, to: lvalue)
       }
       builder.buildBranch(dest: lastBlock)
     }

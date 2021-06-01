@@ -33,15 +33,16 @@ public final class Builder {
     type     : FunType,
     debugName: String? = nil
   ) -> Function {
+    // Lower the function type.
+    let loweredType = VILType.lower(type) as! VILFunType
+
+    // Check if the module already contains a module with the specified name.
     if let function = module.functions[name] {
       precondition(
-        function.type.valType === type,
+        function.type.valType == loweredType.valType,
         "function \(name) already exists with a different type")
       return function
     }
-
-    // Lower the function type.
-    let loweredType = VILType.lower(type) as! VILFunType
 
     // Create the function object.
     let function = Function(name: name, type: loweredType, debugName: debugName)

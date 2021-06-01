@@ -21,44 +21,46 @@ public final class Emitter {
     self.builder = builder
   }
 
-  public func emit(moduleDecl: ModuleDecl) {
-    for decl in moduleDecl {
-      emit(decl: decl)
-    }
-  }
-
-  func emit(decl: Decl) {
+  public func emit(decl: Decl) {
     switch decl {
     case is ViewTypeDecl:
       // Views are abstract constructs; there's nothing to emit.
       return
 
-    case let typeDecl as ProductTypeDecl:
-      emit(decl: typeDecl)
+    case let decl as ProductTypeDecl:
+      emit(productTypeDecl: decl)
+
+    case let decl as TypeExtDecl:
+      emit(typeExtDecl: decl)
 
     case is AliasTypeDecl:
       // FIXME: Emit the type's witness table.
       break
 
-    case let pdDecl as PatternBindingDecl:
-      emit(decl: pdDecl)
+    case let decl as PatternBindingDecl:
+      emit(patternBindingDecl: decl)
 
-    case let funDecl as BaseFunDecl:
-      // Emit a function.
-      let functionEmitter = FunctionEmitter(parent: self, funDecl: funDecl)
+    case let decl as BaseFunDecl:
+      let functionEmitter = FunctionEmitter(parent: self, funDecl: decl)
       functionEmitter.emit()
 
-    case let moduleDecl as ModuleDecl:
-      emit(moduleDecl: moduleDecl)
+    case let decl as ModuleDecl:
+      emit(decl: decl)
 
     default:
       fatalError("I don't know how to emit '\(decl)'")
     }
   }
 
-  func emit(decl: ProductTypeDecl) {
+  public func emit(moduleDecl: ModuleDecl) {
+    for topLevelDecl in moduleDecl {
+      emit(decl: topLevelDecl)
+    }
+  }
+
+  func emit(productTypeDecl: ProductTypeDecl) {
     // Emit the the type's witness table(s).
-    for conformance in decl.conformanceTable.values {
+    for conformance in productTypeDecl.conformanceTable.values {
       var entries: [(decl: BaseFunDecl, impl: Function)] = []
       for (req, impl) in conformance.entries {
         if let reqFunDecl = req as? BaseFunDecl {
@@ -69,20 +71,27 @@ public final class Emitter {
       }
 
       let table = WitnessTable(
-        type: decl.instanceType as! NominalType, view: conformance.viewType, entries: entries)
+        type: productTypeDecl.instanceType as! NominalType, view: conformance.viewType, entries: entries)
       builder.module.witnessTables.append(table)
     }
 
     // Emit the direct members of the declaration.
-    for memberDecl in decl.members {
+    for memberDecl in productTypeDecl.members {
       emit(decl: memberDecl)
     }
   }
 
-  func emit(decl: PatternBindingDecl) {
-    if decl.isMember {
+  func emit(typeExtDecl: TypeExtDecl) {
+    // Emit the direct members of the declaration.
+    for memberDecl in typeExtDecl.members {
+      emit(decl: memberDecl)
+    }
+  }
+
+  func emit(patternBindingDecl: PatternBindingDecl) {
+    if patternBindingDecl.isMember {
       // If the decl is a stored member of a type declaration, we're done.
-      if decl.varDecls.allSatisfy({ varDecl in varDecl.hasStorage }) {
+      if patternBindingDecl.varDecls.allSatisfy({ varDecl in varDecl.hasStorage }) {
         return
       }
 
