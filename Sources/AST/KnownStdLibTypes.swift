@@ -3,6 +3,7 @@ public enum KnownStdLibTypes: String {
 
   case ExpressibleByBuiltinIntLiteral
   case Int
+  case Maybe
 
   public var name: String { rawValue }
 
