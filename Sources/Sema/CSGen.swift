@@ -59,7 +59,7 @@ final class CSGenDriver: NodeWalker {
 }
 
 /// An AST visitor that generates type constraints on expressions.
-struct ConstraintGenerator: ExprVisitor, PatternVisitor {
+private struct ConstraintGenerator: ExprVisitor, PatternVisitor {
 
   typealias ExprResult = Void
   typealias PatternResult = Void
@@ -83,6 +83,12 @@ struct ConstraintGenerator: ExprVisitor, PatternVisitor {
       RelationalConstraint(
         kind: .subtyping, lhs: node.rvalue.type, rhs: node.lvalue.type,
         at: ConstraintLocator(node, .assignment)))
+  }
+
+  func visit(_ node: BaseCastExpr) {
+  }
+
+  func visit(_ node: DynCastExpr) {
   }
 
   func visit(_ node: UnsafeCastExpr) {
