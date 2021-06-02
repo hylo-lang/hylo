@@ -68,7 +68,6 @@ public struct Interpreter {
     while let nextPC = step() {
       pc = nextPC
     }
-    print(stack)
   }
 
   /// Executes the instruction pointed by the program counter.
