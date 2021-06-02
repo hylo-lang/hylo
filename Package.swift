@@ -8,9 +8,18 @@ let package = Package(
   ],
   dependencies: [
     .package(name: "Antlr4", path: "antlr4/runtime/Swift"),
+    .package(name: "swift-argument-parser", url: "https://github.com/apple/swift-argument-parser.git", from: "0.4.0"),
   ],
   targets: [
-    .target(name: "val", dependencies: ["Basic", "Driver", "Eval"]),
+    // The compiler's executable target.
+    .target(
+      name: "val",
+      dependencies: [
+        "Basic", "Driver", "Eval",
+        .product(name: "ArgumentParser", package: "swift-argument-parser"),
+      ]),
+
+    // Targets related to the compiler's internal library.
     .target(
       name: "AST",
       dependencies: ["Basic", "Parser"],
@@ -25,6 +34,7 @@ let package = Package(
     .target(name: "Sema", dependencies: ["AST", "Basic"]),
     .target(name: "VIL", dependencies: ["AST", "Basic"]),
 
+    // Test targets.
     .testTarget(name: "ASTTests", dependencies: ["AST", "Basic"]),
     .testTarget(
       name: "ValTests",

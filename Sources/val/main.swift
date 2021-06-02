@@ -1,42 +1,58 @@
 import Foundation
 
+import ArgumentParser
 import Driver
 import Eval
 
-func main(commandLineArgs: [String]) throws {
-  let args = try ArgumentParser(commandLineArgs)
+/// The compiler's command parser.
+struct ValCommand: ParsableCommand {
 
-  // Create a new driver.
-  let driver = Driver()
-  driver.context.diagnosticConsumer = Terminal(sourceManager: driver.context.sourceManager)
+  /// The home path for Val's runtime and standard library.
+  static var home = URL(fileURLWithPath: "/opt/local/lib/val")
 
-  // Load the standard library.
-  try driver.loadStdLib(path: args.sysroot)
+  @Argument(help: "The input file(s).", transform: URL.init(fileURLWithPath:))
+  var input: [URL]
 
-  // Load the given input files as a module.
-  if !args.files.isEmpty {
-    // Parse the module.
-    let files = args.files.map(URL.init(fileURLWithPath:))
-    let decl = try driver.parse(moduleName: "main", moduleFiles: files)
+  @Option(help: "The location Val's runtime environment.", transform: URL.init(fileURLWithPath:))
+  var home = ValCommand.home
 
-    // Type check the module.
-    guard driver.typeCheck(moduleDecl: decl) else { return }
+  @Flag(help: "Parse and type-check input file(s) and dump AST(s).")
+  var dumpAST = false
 
-    // Dump the module, if requested.
-    if args.dumpAST {
-      driver.dump()
+  func run() throws {
+    // Create a new driver.
+    let driver = Driver()
+    driver.context.diagnosticConsumer = Terminal(sourceManager: driver.context.sourceManager)
+
+    // Load the standard library.
+    try driver.loadStdLib(path: home.appendingPathComponent("StdLib"))
+
+    // Load the given input files as a module.
+    if !input.isEmpty {
+      // Parse the module.
+      let decl = try driver.parse(moduleName: "main", moduleFiles: input)
+
+      // Type check the module.
+      guard driver.typeCheck(moduleDecl: decl) else { return }
+
+      // Dump the module, if requested.
+      if dumpAST {
+        driver.dump()
+        return
+      }
+
+      // Lower the module to VIL code.
+      let main = try driver.lower(moduleDecl: decl)
+      main.dump()
+
+      // Interpret the module.
+      var interpreter = Interpreter(context: driver.context)
+      try interpreter.load(module: driver.lower(moduleDecl: driver.context.stdlib!))
+      try interpreter.load(module: main)
+      try interpreter.start()
     }
-
-    // Lower the module to VIL code.
-    let main = try driver.lower(moduleDecl: decl)
-    main.dump()
-
-    // Interpret the module.
-    var interpreter = Interpreter(context: driver.context)
-    try interpreter.load(module: driver.lower(moduleDecl: driver.context.stdlib!))
-    try interpreter.load(module: main)
-    try interpreter.start()
   }
+
 }
 
-try main(commandLineArgs: CommandLine.arguments)
+ValCommand.main()
