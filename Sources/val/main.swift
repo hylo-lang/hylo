@@ -19,6 +19,9 @@ struct ValCommand: ParsableCommand {
   @Flag(help: "Parse and type-check input file(s) and dump AST(s).")
   var dumpAST = false
 
+  @Flag(help: "Emit raw VIL code.")
+  var emitVIL = false
+
   func run() throws {
     // Create a new driver.
     let driver = Driver()
@@ -43,7 +46,12 @@ struct ValCommand: ParsableCommand {
 
       // Lower the module to VIL code.
       let main = try driver.lower(moduleDecl: decl)
-      main.dump()
+
+      // Dump the VIL code if requested.
+      if emitVIL {
+        main.dump()
+        return
+      }
 
       // Interpret the module.
       var interpreter = Interpreter(context: driver.context)
