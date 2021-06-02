@@ -1,17 +1,20 @@
 # Val
 
-Val is a safe, concurrent programming language without any reference.
+Val aims to be a safe, concurrent, general-purpose programming language based on value semantics.
 
-Val supports most features modern languages typically offer (overloading, first-class functions, types with methods, subtype polymorphism, etc.).
-However, unlike many high-level languages, it does not rely on references to build abstractions.
-Everything in Val is a value and adopts *value semantics*.
-In other words, an object is defined only by its value, not its identity.
-This means that
+```val
+// Declares a generic 'Pair' type.
+type Pair<T, U> { var fst: T; var snd: U }
 
+// Instantiates the type 'Pair', inferring the specialization arguments.
+var foo = Pair(fst: 4, snd: 2)
+
+// Copies the instance an mutates it.
+var bar = foo
+bar.fst = 8
+
+// Prints 4, not 8, because 'foo' and 'bar' are two independent values.
+print(bar.fst)
 ```
-var a1 = [1, 2, 3]
-var a2 = a1
-a1.append(4)
-print(a2)
-// Prints "1, 2, 3"
-```
+
+Val is heavily inspired by (and implemented in) [Swift](https://swift.org) and adopts many of its features, including higher-order functions, mutating methods, and a relatively powerful support for generic programming (a.k.a. parametric polymorphism).
