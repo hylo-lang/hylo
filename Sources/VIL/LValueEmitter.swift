@@ -16,8 +16,16 @@ struct LValueEmitter: ExprVisitor {
     return .failure(.immutableExpr)
   }
 
+  func visit(_ node: BaseCastExpr) -> Result<Value, EmitterError> {
+    fatalError("unreachable")
+  }
+
+  func visit(_ node: DynCastExpr) -> Result<Value, EmitterError> {
+    return .failure(.immutableExpr)
+  }
+
   func visit(_ node: UnsafeCastExpr) -> Result<Value, EmitterError> {
-    // The value being cast hast to be emittable as an l-value.
+    // The value being cast has to be emittable as an l-value.
     switch node.value.accept(self) {
     case .success(let source):
       guard node.type != node.value.type else {

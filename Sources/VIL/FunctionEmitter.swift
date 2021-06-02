@@ -255,6 +255,12 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     }
   }
 
+  /// Emits a nil value.
+  func emitNil() -> Value {
+    let decl = context.getTypeDecl(for: .Nil) as! ProductTypeDecl
+    return builder.buildRecord(typeDecl: decl, type: .lower(decl.instanceType))
+  }
+
   // ----------------------------------------------------------------------------------------------
   // MARK: Visitors
   // ----------------------------------------------------------------------------------------------
@@ -342,6 +348,59 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
 
     // Assignments always result in a unit value.
     return .success(UnitValue(context: context))
+  }
+
+  func visit(_ node: BaseCastExpr) -> Result<Value, EmitterError> {
+    fatalError("unreachable")
+  }
+
+  func visit(_ node: DynCastExpr) -> Result<Value, EmitterError> {
+    // The type of the node should be `Maybe<T>`.
+    guard let nodeType = node.type as? BoundGenericType else {
+      preconditionFailure("dynamic cast should have a maybe type")
+    }
+    let targetType = nodeType.args[0]
+    let vilTargetType = VILType.lower(targetType)
+
+    // Allocate space for the result of the cast.
+    let result = parent.builder.buildAllocStack(type: .lower(node.type))
+
+    let source: Value
+    if case .success(let s) = node.value.accept(LValueEmitter(parent: self)) {
+      source = s
+    } else {
+      source = builder.buildAllocStack(type: .lower(node.type))
+      builder.buildStore(lvalue: source, rvalue: emit(expr: node.value))
+    }
+
+    // Cast the value.
+    let cast = parent.builder.buildCheckedCastAddr(source: source, type: vilTargetType.address)
+    let test = parent.builder.buildEqualAddr(
+      lhs: cast, rhs: NullAddr(type: vilTargetType.address))
+
+    guard let function = parent.builder.function else { fatalError("unreachable") }
+    let success = function.createBasicBlock()
+    let failure = function.createBasicBlock()
+    let finally = function.createBasicBlock()
+    parent.builder.buildCondBranch(cond: test, thenDest: failure, elseDest: success)
+
+    // If the cast succeeded ...
+    parent.builder.block = success
+    parent.builder.buildCopyAddr(
+      dest: parent.builder.buildAllocExistential(container: result, witness: vilTargetType),
+      source: cast)
+    parent.builder.buildBranch(dest: finally)
+
+    // If the cast failed ...
+    parent.builder.block = failure
+    let nilValue = emitNil()
+    parent.builder.buildStore(
+      lvalue: parent.builder.buildAllocExistential(container: result, witness: nilValue.type),
+      rvalue: nilValue)
+    parent.builder.buildBranch(dest: finally)
+
+    parent.builder.block = finally
+    return .success(builder.buildLoad(lvalue: result))
   }
 
   func visit(_ node: UnsafeCastExpr) -> Result<Value, EmitterError> {

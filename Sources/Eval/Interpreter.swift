@@ -197,22 +197,22 @@ public struct Interpreter {
   }
 
   mutating func eval(inst: CheckedCastAddrInst) -> ProgramCounter? {
-    var addr = eval(operand: inst.source)
-    assert(addr.isAddress)
+    var addr = eval(operand: inst.source).asAddress
 
-    // FIXME: Handle more complex subtyping relations.
-    switch load(from: addr.asAddress) {
+    switch load(from: addr) {
     case .container(let container):
       if container.witness != inst.type.valType {
-        addr = .address(.null)
+        addr = .null
+      } else {
+        addr = addr.appending(offset: 0)
       }
 
     default:
-      addr = .address(.null)
+      addr = .null
     }
 
     // FIXME: Check that the layout of the source object is compatible with the target type.
-    locals[locals.count - 1][RegisterID(inst)] = addr
+    locals[locals.count - 1][RegisterID(inst)] = .address(addr)
     return pc.incremented()
   }
 
