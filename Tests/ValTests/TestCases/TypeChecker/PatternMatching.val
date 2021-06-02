@@ -1,0 +1,13 @@
+type A {}
+type B {}
+type C {}
+
+type ABC = A | B | C
+
+fun main() {
+  val foo: ABC = A()
+  val b: A | B = match foo {
+    case val bar: A | B  { bar }
+    case val bar: C { B() }
+  }
+}
