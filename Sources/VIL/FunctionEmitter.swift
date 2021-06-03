@@ -596,11 +596,27 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
   }
 
   func visit(_ node: AsyncExpr) -> ExprResult {
-    fatalError()
+    // Save the current basic block.
+    let currentBlock = builder.block
+
+    // Create the type of the function wrapping the async expression.
+    assert(node.type is AsyncType)
+    let context = node.type.context
+    let fnType = context.funType(
+      paramType: context.unitType,
+      retType: (node.type as! AsyncType).base)
+
+    // Emit the expression wrapper.
+    let fn = builder.getOrCreateFunction(name: "_async\(builder.buildUniqueID())", type: fnType)
+    builder.block = fn.createBasicBlock()
+    builder.buildRet(value: emit(expr: node.value))
+    builder.block = currentBlock
+
+    return .success(builder.buildAsync(function: fn))
   }
 
   func visit(_ node: AwaitExpr) -> ExprResult {
-    fatalError()
+    return .success(builder.buildAwait(value: emit(expr: node.value)))
   }
 
   func visit(_ node: AddrOfExpr) -> ExprResult {

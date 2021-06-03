@@ -12,6 +12,9 @@ public final class Builder {
   /// The current function in which new instructions are being inserted.
   public var function: Function? { block?.function }
 
+  /// A counter to generate unique IDs.
+  private var nextID = 0
+
   /// Creates a new VIL instruction builder.
   ///
   /// - Parameters:
@@ -19,6 +22,12 @@ public final class Builder {
   ///   - module: The module to edit with the builder.
   public init(module: Module) {
     self.module = module
+  }
+
+  /// Builds a unique identifier.
+  public func buildUniqueID() -> Int {
+    defer { nextID += 1 }
+    return nextID
   }
 
   /// Retrieves or creates a function with the specified name and type.
@@ -234,6 +243,24 @@ public final class Builder {
   /// Builds a tuple value instruction.
   public func buildTuple(type: TupleType, elems: [Value]) -> TupleInst {
     let inst = TupleInst(type: type, elems: elems)
+    block!.instructions.append(inst)
+    return inst
+  }
+
+  /// Builds a `async` instruction.
+  ///
+  /// - Parameter function: The function that represents the asynchronous execution.
+  public func buildAsync(function: Function) -> AsyncInst {
+    let inst = AsyncInst(function: function)
+    block!.instructions.append(inst)
+    return inst
+  }
+
+  /// Builds an `await` instruction.
+  ///
+  /// - Parameter value: The value being awaited.
+  public func buildAwait(value: Value) -> AwaitInst {
+    let inst = AwaitInst(value: value)
     block!.instructions.append(inst)
     return inst
   }

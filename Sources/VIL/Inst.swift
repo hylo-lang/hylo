@@ -264,6 +264,39 @@ public final class TupleInst: Inst, Value {
 
 }
 
+/// Creates an asynchronous value.
+public final class AsyncInst: Inst, Value {
+
+  /// The function that represents the asynchronous execution.
+  public let function: Function
+
+  public var type: VILType {
+    let valType = function.type.retType.valType
+    let context = valType.context
+    return .lower(context.asyncType(of: valType))
+  }
+
+  init(function: Function) {
+    self.function = function
+  }
+
+}
+
+/// Awaits an asynchronous value.
+public final class AwaitInst: Inst, Value {
+
+  /// The value being awaited.
+  public let value: Value
+
+  public var type: VILType { .lower((value.type.valType as! AsyncType).base) }
+
+  init(value: Value) {
+    assert(value.type.valType is AsyncType, "awaited value must have an asynchronous type")
+    self.value = value
+  }
+
+}
+
 /// Stores a value at the specified address.
 public final class StoreInst: Inst {
 

@@ -150,6 +150,10 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
       self << apply.args
       self << ")\n"
 
+    case let record as RecordInst:
+      let id = makeID(for: record)
+      self << "_\(id) = record \(record.type)\n"
+
     case let member as RecordMemberInst:
       let id = makeID(for: member)
       self << "_\(id) = record_member "
@@ -167,6 +171,16 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
       self << "_\(id) = tuple \(tuple.type) ("
       self << tuple.elems
       self << ")\n"
+
+    case let inst as AsyncInst:
+      let id = makeID(for: inst)
+      self << "_\(id) = async \(inst.function.name)\n"
+
+    case let inst as AwaitInst:
+      let id = makeID(for: inst)
+      self << "_\(id) = await "
+      self << inst.value
+      self << "\n"
 
     case let store as StoreInst:
       self << "store "
