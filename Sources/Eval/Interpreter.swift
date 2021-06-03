@@ -86,6 +86,8 @@ public struct Interpreter {
     case let inst as RecordMemberAddrInst   : return eval(inst: inst)
     case let inst as RecordMemberInst       : return eval(inst: inst)
     case let inst as TupleInst              : return eval(inst: inst)
+    case let inst as AsyncInst              : return eval(inst: inst)
+    case let inst as AwaitInst              : return eval(inst: inst)
     case let inst as StoreInst              : return eval(inst: inst)
     case let inst as LoadInst               : return eval(inst: inst)
     case let inst as EqualAddrInst          : return eval(inst: inst)
@@ -243,36 +245,42 @@ public struct Interpreter {
     switch eval(operand: inst.fun) {
     case .builtinFunction(let decl):
       // The function is built-in.
-      let value = evalBuiltinApply(funDecl: decl, args: argvals)
+      let value = applyBuiltin(funDecl: decl, args: argvals)
       locals[locals.count - 1][RegisterID(inst)] = value
       return pc.incremented()
 
     case .function(let function):
-      // Make sure the function has an entry point.
-      guard let entry = function.blocks.first else {
-        fatalError("function '\(function.name)' has no entry block")
-      }
-
-      // Save the return info. This will serve as a sentinel to delimit the start of the call
-      // frame, and indicate to the callee where the return value should be stored.
-      stack.append(.returnInfo(pc, RegisterID(inst)))
-
-      // Setup the callee's environment.
-      var frame: [RegisterID: RuntimeValue] = [:]
-      for (argval, argref) in zip(argvals, entry.arguments) {
-        frame[RegisterID(argref)] = argval.copy()
-      }
-      locals.append(frame)
-
-      // Jump inside the callee.
-      return ProgramCounter(atStartOf: entry)
+      return apply(function, args: argvals, retID: RegisterID(inst))
 
     default:
       fatalError("unreachable")
     }
   }
 
-  func evalBuiltinApply(funDecl: FunDecl, args: [RuntimeValue]) -> RuntimeValue {
+  private mutating func apply(
+    _ function: Function, args: [RuntimeValue], retID: RegisterID
+  ) -> ProgramCounter {
+    // Make sure the function has an entry point.
+    guard let entry = function.blocks.first else {
+      fatalError("function '\(function.name)' has no entry block")
+    }
+
+    // Save the return info. This will serve as a sentinel to delimit the start of the call
+    // frame, and indicate to the callee where the return value should be stored.
+    stack.append(.returnInfo(pc, retID))
+
+    // Setup the callee's environment.
+    var frame: [RegisterID: RuntimeValue] = [:]
+    for (argval, argref) in zip(args, entry.arguments) {
+      frame[RegisterID(argref)] = argval.copy()
+    }
+    locals.append(frame)
+
+    // Jump inside the callee.
+    return ProgramCounter(atStartOf: entry)
+  }
+
+  private func applyBuiltin(funDecl: FunDecl, args: [RuntimeValue]) -> RuntimeValue {
     if funDecl.name.starts(with: "i64_") {
       switch funDecl.name.dropFirst(4) {
       case "print":
@@ -332,6 +340,15 @@ public struct Interpreter {
   mutating func eval(inst: TupleInst) -> ProgramCounter? {
     let record = Record(capacity: inst.tupleType.elems.count)
     locals[locals.count - 1][RegisterID(inst)] = .record(record)
+    return pc.incremented()
+  }
+
+  mutating func eval(inst: AsyncInst) -> ProgramCounter? {
+    return apply(inst.function, args: [], retID: RegisterID(inst))
+  }
+
+  mutating func eval(inst: AwaitInst) -> ProgramCounter? {
+    locals[locals.count - 1][RegisterID(inst)] = eval(operand: inst.value)
     return pc.incremented()
   }
 

@@ -18,6 +18,9 @@ enum RuntimeValue {
     case let bgType as BoundGenericType:
       self = RuntimeValue(ofType: bgType.decl.instanceType)
 
+    case is AsyncType:
+      self = .junk
+
     case _ where type.isExistential:
       self = .container(Container())
 
