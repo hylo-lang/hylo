@@ -211,22 +211,22 @@ tupleTypeElem
   ;
 
 expr
-  : asyncOp? preExpr binExpr*
+  : prefixExpr binaryTrailer*       # binaryExpr
   ;
 
-preExpr
-  : prefixOper? postExpr
+prefixExpr
+  : prefixOper? postfixExpr
   ;
 
-binExpr
-  : infixOper preExpr
+binaryTrailer
+  : infixOper prefixExpr
   ;
 
-postExpr
-  : postExpr '(' argList? ')'   # callExpr
-  | postExpr '.' memberIdent    # memberExpr
-  | postExpr castOper typeRepr  # castExpr
-  | primary                     # primaryExpr
+postfixExpr
+  : postfixExpr '(' argList? ')'    # callExpr
+  | postfixExpr '.' memberIdent     # memberExpr
+  | postfixExpr castOper typeRepr   # castExpr
+  | primary                         # primaryExpr
   ;
 
 argList
@@ -290,12 +290,9 @@ wildcard
   : '_'
   ;
 
-asyncOp
-  : 'async' | 'await'
-  ;
-
 prefixOper
   : '+'  | '-'  | '!'  | '~'  | '&'
+  | 'async' | 'await'
   ;
 
 infixOper

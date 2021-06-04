@@ -523,7 +523,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     return TupleTypeReprElem(label: label, sign: sign, range: range(of: ctx))
   }
 
-  public override func visitExpr(_ ctx: ValParser.ExprContext) -> Any {
+  public override func visitBinaryExpr(_ ctx: ValParser.BinaryExprContext) -> Any {
     typealias Link = (loc: InfixOperatorLoc, expr: Expr)
 
     /// Transforms a sequence of expressions and operators into a binary tree.
@@ -581,51 +581,45 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     }
 
     // Build a sequence of expressions, separated by infix operators.
-    let head = ctx.preExpr()?.accept(self) as! Expr
-    let tail = ctx.binExpr().map({ (pair) -> Link in
+    let head = ctx.prefixExpr()?.accept(self) as! Expr
+    let tail = ctx.binaryTrailer().map({ (pair) -> Link in
       let loc = pair.infixOper()!.accept(self) as! InfixOperatorLoc
-      return (loc: loc, expr: pair.preExpr()!.accept(self) as! Expr)
+      return (loc: loc, expr: pair.prefixExpr()!.accept(self) as! Expr)
     })
 
     // Transform the sequence into a tree, applying precedence and associativity.
-    let expr = tree(head: head, tail: tail[0...])
-
-    // Wrap the tree into an await expression if necessary.
-    switch ctx.asyncOp()?.getText() {
-    case "async":
-      return AsyncExpr(value: expr, type: unresolvedType, range: range(of: ctx))
-    case "await":
-      return AwaitExpr(value: expr, type: unresolvedType, range: range(of: ctx))
-    default:
-      return expr
-    }
+    return tree(head: head, tail: tail[0...])
   }
 
-  public override func visitPreExpr(_ ctx: ValParser.PreExprContext) -> Any {
-    let expr = ctx.postExpr()!.accept(self) as! Expr
+  public override func visitPrefixExpr(_ ctx: ValParser.PrefixExprContext) -> Any {
+    let expr = ctx.postfixExpr()!.accept(self) as! Expr
 
-    guard let loc = ctx.prefixOper().map({ op in op.accept(self) as! PrefixOperatorLoc }) else {
-      return expr
-    }
+    // Process the prefix operator, if any.
+    guard let op = ctx.prefixOper() else { return expr }
+    let loc = op.accept(self) as! PrefixOperatorLoc
 
-
-    // The "address-of" operator has a dedicated expression.
-    if loc.prefixOp == .amp {
+    // A few operators have dedicated representations.
+    switch loc.prefixOp {
+    case .amp:
       return AddrOfExpr(value: expr, type: unresolvedType, range: range(of: ctx))
+    case .async:
+      return AsyncExpr(value: expr, type: unresolvedType, range: range(of: ctx))
+    case .await:
+      return AwaitExpr(value: expr, type: unresolvedType, range: range(of: ctx))
+    default:
+      // Other operators are parsed as call expressions.
+      let prefixFun = UnresolvedMemberExpr(
+        base: expr, memberName: loc.prefixOp.rawValue, type: unresolvedType, range: loc.range)
+      return CallExpr(
+        fun: prefixFun,
+        args: [CallArg(value: expr, range: expr.range)],
+        type: unresolvedType,
+        range: range(of: ctx))
     }
-
-    let prefixFun = UnresolvedMemberExpr(
-      base: expr, memberName: loc.prefixOp.rawValue, type: unresolvedType, range: loc.range)
-    let prefixCall = CallExpr(
-      fun: prefixFun,
-      args: [CallArg(value: expr, range: expr.range)],
-      type: unresolvedType,
-      range: range(of: ctx))
-    return prefixCall
   }
 
   public override func visitCallExpr(_ ctx: ValParser.CallExprContext) -> Any {
-    let fun = ctx.postExpr()!.accept(self) as! Expr
+    let fun = ctx.postfixExpr()!.accept(self) as! Expr
     let expr = CallExpr(fun: fun, args: [], type: unresolvedType, range: range(of: ctx))
 
     if let argList = ctx.argList() {
@@ -646,7 +640,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
   }
 
   public override func visitMemberExpr(_ ctx: ValParser.MemberExprContext) -> Any {
-    let base = ctx.postExpr()!.accept(self) as! Expr
+    let base = ctx.postfixExpr()!.accept(self) as! Expr
     switch ctx.memberIdent()!.accept(self) {
     case let name as String:
       return UnresolvedMemberExpr(
@@ -672,7 +666,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
   }
 
   public override func visitCastExpr(_ ctx: ValParser.CastExprContext) -> Any {
-    let value = ctx.postExpr()!.accept(self) as! Expr
+    let value = ctx.postfixExpr()!.accept(self) as! Expr
     let opLoc = ctx.castOper()!.accept(self) as! CastOperatorLoc
     let sign  = ctx.typeRepr()!.accept(self) as! TypeRepr
 

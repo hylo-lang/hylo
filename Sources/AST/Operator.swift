@@ -18,6 +18,12 @@ public enum PrefixOperator: String, CustomStringConvertible {
   /// The `&` operator.
   case amp      = "&"
 
+  /// The `async` operator.
+  case async    = "async"
+
+  /// The `await` operator.
+  case await    = "await"
+
   public var description: String { rawValue }
 
 }
