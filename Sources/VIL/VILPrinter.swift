@@ -224,8 +224,8 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
       self << ret.value
       self << "\n"
 
-    case let halt as HaltInst:
-      self << "halt \"\(halt.reason)\"\n"
+    case is HaltInst:
+      self << "halt\n"
 
     default:
       fatalError()

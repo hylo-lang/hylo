@@ -24,11 +24,11 @@ struct ValCommand: ParsableCommand {
 
   func run() throws {
     // Create a new driver.
-    let driver = Driver()
+    let driver = Driver(home: home)
     driver.context.diagnosticConsumer = Terminal(sourceManager: driver.context.sourceManager)
 
     // Load the standard library.
-    try driver.loadStdLib(path: home.appendingPathComponent("StdLib"))
+    try driver.loadStdLib()
 
     // Load the given input files as a module.
     if !input.isEmpty {
@@ -57,7 +57,10 @@ struct ValCommand: ParsableCommand {
       var interpreter = Interpreter(context: driver.context)
       try interpreter.load(module: driver.lower(moduleDecl: driver.context.stdlib!))
       try interpreter.load(module: main)
-      try interpreter.start()
+      let status = try interpreter.start()
+      if status != 0 {
+        print("program exited with status \(status)")
+      }
     }
   }
 

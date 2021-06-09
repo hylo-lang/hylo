@@ -350,11 +350,9 @@ public final class Builder {
   }
 
   /// Builds a `halt` instruction.
-  ///
-  /// - Parameter reason: The halting reason.
   @discardableResult
-  public func buildHalt(reason: String) -> HaltInst {
-    let inst = HaltInst(reason: reason)
+  public func buildHalt() -> HaltInst {
+    let inst = HaltInst()
     block!.instructions.append(inst)
     return inst
   }

@@ -92,10 +92,21 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
       builder.buildRet(value: selfVal)
     }
 
-    if !(builder.block?.instructions.last is RetInst) {
-      if (funDecl.type as! FunType).retType == context.unitType {
-        builder.buildRet(value: UnitValue(context: context))
-      } else {
+    // Emit the function's epilogue.
+    let funType = funDecl.type as! FunType
+    switch funType.retType {
+    case context.nothingType:
+      // If the function never returns, emit a halt statement.
+      builder.buildHalt()
+
+    case context.unitType:
+      // The function returns unit.
+      builder.buildRet(value: UnitValue(context: context))
+
+    default:
+      // The function should have a return statement.
+      // FIXME: Handle non-returning blocks in last position.
+      if !(builder.block?.instructions.last is RetInst) {
         let range = body.range.upperBound ..< body.range.upperBound
         context.report(.missingReturnValueInNonUnitFunction(range: range))
       }

@@ -15,19 +15,33 @@ public struct Driver {
   /// throughout the compilation process.
   public let context: AST.Context
 
+  /// The home path for Val's runtime and standard library.
+  public var home: URL
+
   public init(
     sourceManager: SourceManager? = nil,
-    diagnosticConsumer: DiagnosticConsumer? = nil
+    diagnosticConsumer: DiagnosticConsumer? = nil,
+    home: URL? = nil
   ) {
     // Create the driver's AST context.
     context = AST.Context(sourceManager: sourceManager ?? SourceManager())
     context.diagnosticConsumer = diagnosticConsumer
+
+    // Set the home path.
+    if let h = home {
+      self.home = h
+    } else if let p = ProcessInfo.processInfo.environment["VAL_HOME"] {
+      self.home = URL(fileURLWithPath: p)
+    } else {
+      self.home = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+    }
   }
 
   /// Loads the standard library into the driver's context.
   @discardableResult
-  public func loadStdLib(path: URL) throws -> ModuleDecl  {
-    let moduleDecl = try parse(moduleName: "Val", moduleRoot: path, isStdLib: true)
+  public func loadStdLib(url: URL? = nil) throws -> ModuleDecl  {
+    let rootURL = url ?? home.appendingPathComponent("StdLib")
+    let moduleDecl = try parse(moduleName: "Val", moduleRoot: rootURL, isStdLib: true)
     typeCheck(moduleDecl: moduleDecl)
     return moduleDecl
   }
@@ -84,6 +98,10 @@ public struct Driver {
         else { return nil }
         return url
       })
+    }
+
+    guard !moduleFiles.isEmpty else {
+      throw DriverError.moduleNotFound(moduleName: moduleName)
     }
 
     return try parse(moduleName: moduleName, moduleFiles: moduleFiles, isStdLib: isStdLib)

@@ -18,6 +18,9 @@ public struct Interpreter {
   /// The AST context in which the interpreter runs.
   public let context: AST.Context
 
+  /// The function the interpreter uses to write data on its standard output or standard error.
+  private let stdWrite: (String) -> Void
+
   /// The functions loaded into the interpreter.
   private var functions: [String: Function] = [:]
 
@@ -33,8 +36,15 @@ public struct Interpreter {
   /// The program counter of the interpreter.
   private var pc = ProgramCounter()
 
-  public init(context: AST.Context) {
+  /// The status of the interpreter.
+  private var status: Int64 = 0
+
+  public init(
+    context: AST.Context,
+    stdWrite: @escaping (String) -> Void = { print($0, terminator: "") }
+  ) {
     self.context = context
+    self.stdWrite = stdWrite
   }
 
   /// Loads the given module.
@@ -54,7 +64,7 @@ public struct Interpreter {
   }
 
   /// Start the interpreter.
-  public mutating func start() throws {
+  public mutating func start() throws -> Int64 {
     guard let entry = functions["main"]?.blocks.first else {
       throw RuntimeError(message: "no entry point")
     }
@@ -68,6 +78,8 @@ public struct Interpreter {
     while let nextPC = step() {
       pc = nextPC
     }
+
+    return status
   }
 
   /// Executes the instruction pointed by the program counter.
@@ -94,6 +106,7 @@ public struct Interpreter {
     case let inst as BranchInst             : return eval(inst: inst)
     case let inst as CondBranchInst         : return eval(inst: inst)
     case let inst as RetInst                : return eval(inst: inst)
+    case let inst as HaltInst               : return eval(inst: inst)
     case nil:
       fatalError("invalid program counter")
     case .some(let inst):
@@ -280,11 +293,11 @@ public struct Interpreter {
     return ProgramCounter(atStartOf: entry)
   }
 
-  private func applyBuiltin(funDecl: FunDecl, args: [RuntimeValue]) -> RuntimeValue {
+  private mutating func applyBuiltin(funDecl: FunDecl, args: [RuntimeValue]) -> RuntimeValue {
     if funDecl.name.starts(with: "i64_") {
       switch funDecl.name.dropFirst(4) {
       case "print":
-        print(args[0].asI64)
+        stdWrite("\(args[0].asI64)\n")
         return .unit
 
       case "trunc_IntLiteral":
@@ -306,7 +319,14 @@ public struct Interpreter {
       }
     }
 
-    fatalError("undefined built-in function '\(funDecl.name)'")
+    switch funDecl.name {
+    case "set_status":
+      status = args[0].asI64
+      return .unit
+
+    default:
+      fatalError("undefined built-in function '\(funDecl.name)'")
+    }
   }
 
   mutating func eval(inst: RecordMemberAddrInst) -> ProgramCounter? {
@@ -425,6 +445,10 @@ public struct Interpreter {
     locals.removeLast()
 
     return returnInfo.pc.incremented()
+  }
+
+  func eval(inst: HaltInst) -> ProgramCounter? {
+    return nil
   }
 
   // MARK: Helpers

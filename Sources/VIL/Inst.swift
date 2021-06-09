@@ -430,13 +430,4 @@ public final class RetInst: Inst {
 }
 
 /// Halts the execution of the program.
-public final class HaltInst: Inst {
-
-  /// The halting reason.
-  public let reason: String
-
-  init(reason: String) {
-    self.reason = reason
-  }
-
-}
+public final class HaltInst: Inst {}
