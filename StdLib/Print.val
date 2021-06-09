@@ -1,3 +1,0 @@
-fun print(_ item: Any) {
-  Builtin::i64_print((item as! Int).value)
-}
