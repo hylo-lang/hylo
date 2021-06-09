@@ -649,7 +649,7 @@ public final class UnionType: ValType {
     var props: RecursiveProps
     switch elems.count {
     case 0:
-      // This is the `Uninhabited` type.
+      // This is the `Nothing` (a.k.a., uninhabited) type.
       props = .isCanonical
 
     case 1:
@@ -744,7 +744,7 @@ public final class UnionType: ValType {
   where C: Collection, C.Element == ValType
   {
     if types.isEmpty {
-      return context.uninhabitedType
+      return context.nothingType
     } else if types.count == 1 {
       return types.first!
     } else {
@@ -758,7 +758,7 @@ extension UnionType: CustomStringConvertible {
 
   public var description: String {
     if elems.isEmpty {
-      return "Uninhabited"
+      return "Nothing"
     } else {
       return elems.map(stringify(_:)).joined(separator: " | ")
     }
