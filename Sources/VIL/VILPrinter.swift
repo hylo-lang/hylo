@@ -146,7 +146,7 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
       let id = makeID(for: apply)
       self << "_\(id) = apply "
       self << apply.fun
-      self << " to ("
+      self << " ("
       self << apply.args
       self << ")\n"
 
@@ -174,7 +174,9 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
 
     case let inst as AsyncInst:
       let id = makeID(for: inst)
-      self << "_\(id) = async \(inst.function.name)\n"
+      self << "_\(id) = async \(inst.fun.name) ("
+      self << inst.args
+      self << ")\n"
 
     case let inst as AwaitInst:
       let id = makeID(for: inst)

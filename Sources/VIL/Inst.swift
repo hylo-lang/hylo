@@ -268,16 +268,22 @@ public final class TupleInst: Inst, Value {
 public final class AsyncInst: Inst, Value {
 
   /// The function that represents the asynchronous execution.
-  public let function: Function
+  public let fun: Function
+
+  /// The values captured by the asynchronous expression.
+  ///
+  /// These values are the arguments that are passed to `function`.
+  public let args: [Value]
 
   public var type: VILType {
-    let valType = function.type.retType.valType
+    let valType = fun.type.retType.valType
     let context = valType.context
     return .lower(context.asyncType(of: valType))
   }
 
-  init(function: Function) {
-    self.function = function
+  init(fun: Function, args: [Value] = []) {
+    self.fun = fun
+    self.args = args
   }
 
 }

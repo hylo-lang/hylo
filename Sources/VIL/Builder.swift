@@ -249,9 +249,11 @@ public final class Builder {
 
   /// Builds a `async` instruction.
   ///
-  /// - Parameter function: The function that represents the asynchronous execution.
-  public func buildAsync(function: Function) -> AsyncInst {
-    let inst = AsyncInst(function: function)
+  /// - Parameters:
+  ///   - fun: The function that represents the asynchronous execution.
+  ///   - args: The values captured by the asynchronous expression.
+  public func buildAsync(fun: Function, args: [Value] = []) -> AsyncInst {
+    let inst = AsyncInst(fun: fun, args: args)
     block!.instructions.append(inst)
     return inst
   }
