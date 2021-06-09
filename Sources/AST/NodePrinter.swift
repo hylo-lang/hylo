@@ -10,25 +10,6 @@ public struct NodePrinter: NodeVisitor {
 
   let context: Context
 
-  public func print() {
-    var stream = StandardOutput()
-    print(to: &stream)
-  }
-
-  public func print<S>(to stream: inout S) where S: TextOutputStream {
-    stream.write("[")
-    var isFirst = true
-    for module in context.modules.values {
-      if isFirst {
-        isFirst = false
-      } else {
-        stream.write(",")
-      }
-      stream.write(visit(module))
-    }
-    stream.write("]")
-  }
-
   func encode(_ node: Node?) -> String {
     switch node {
     case let n as Decl    : return n.accept(self)

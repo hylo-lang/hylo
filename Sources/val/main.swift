@@ -40,7 +40,7 @@ struct ValCommand: ParsableCommand {
 
       // Dump the module, if requested.
       if dumpAST {
-        driver.dump()
+        decl.dump(context: driver.context)
         return
       }
 

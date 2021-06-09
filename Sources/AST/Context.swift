@@ -212,4 +212,29 @@ public final class Context {
     diagnosticConsumer?.consume(diagnostic)
   }
 
+  /// Dumps the contents of the context into the standard output.
+  public func dump() {
+    var stream = StandardOutput()
+    print(to: &stream)
+  }
+
+  /// Dumps the contents of the context into the given stream.
+  ///
+  /// - Parameter stream: A text output stream.
+  public func dump<S>(to stream: inout S) where S: TextOutputStream {
+    let printer = NodePrinter(context: self)
+
+    stream.write("[")
+    var isFirst = true
+    for module in modules.values {
+      if isFirst {
+        isFirst = false
+      } else {
+        stream.write(",")
+      }
+      stream.write(printer.visit(module))
+    }
+    stream.write("]")
+  }
+
 }

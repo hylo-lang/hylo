@@ -155,17 +155,4 @@ public struct Driver {
     return module
   }
 
-  /// Dumps the driver's context into the standard output.
-  public func dump() {
-    var stream = StandardOutput()
-    dump(to: &stream)
-  }
-
-  /// Dumps the driver's context into the given stream.
-  ///
-  /// - Parameter stream: A text output stream.
-  public func dump<S>(to stream: inout S) where S: TextOutputStream {
-    NodePrinter(context: context).print(to: &stream)
-  }
-
 }

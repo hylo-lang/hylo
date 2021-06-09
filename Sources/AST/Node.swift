@@ -15,3 +15,24 @@ public protocol Node: AnyObject {
   var range: SourceRange { get }
 
 }
+
+extension Node {
+
+  /// Dumps a textual representation of the node into the standard output.
+  ///
+  /// - Parameter context: The AST context in which the node was created.
+  public func dump(context: Context) {
+    var stream = StandardOutput()
+    dump(context: context, to: &stream)
+  }
+
+  /// Dumps a textual representation of the node into the given stream.
+  ///
+  /// - Parameters:
+  ///   - context: The AST context in which the node was created.
+  ///   - stream: A text output stream.
+  public func dump<S>(context: Context, to stream: inout S) where S: TextOutputStream {
+    stream.write(NodePrinter(context: context).visit(any: self))
+  }
+
+}
