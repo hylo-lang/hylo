@@ -18,11 +18,11 @@ enum RuntimeValue {
     case let bgType as BoundGenericType:
       self = RuntimeValue(ofType: bgType.decl.instanceType)
 
-    case is AsyncType:
-      self = .junk
-
     case _ where type.isExistential:
       self = .container(Container())
+
+    case is AsyncType, is FunType:
+      self = .junk
 
     default:
       fatalError("failed to create a runtime representation of type '\(type)'")

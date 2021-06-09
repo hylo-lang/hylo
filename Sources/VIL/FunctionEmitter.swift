@@ -170,23 +170,6 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     return value
   }
 
-  func emit(expr node: Expr) -> Value {
-    // Emit an error value for any expression that has an error type.
-    guard node.type !== context.errorType else {
-      return ErrorValue(context: context)
-    }
-
-    switch node.accept(self) {
-    case .success(let value):
-      return value
-
-    case .failure(let error):
-      // FIXME: This should be reported.
-      print(error)
-      return ErrorValue(context: context)
-    }
-  }
-
   /// Emits the assignment of `rvalue` to `lvalue`.
   func emit(assign rvalue: Value, ofType rvalueType: ValType, to lvalue: Value) {
     assert(rvalueType.isCanonical)
@@ -244,9 +227,27 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
       }
     }
 
-    // Otherwise, emit the rvalue and fall back to the regular path.
-    let rvalue = emit(expr: expr)
+    // Otherwise, emit the r-value and fall back to the regular path.
+    let rvalue = emit(rvalue: expr)
     emit(assign: rvalue, ofType: expr.type.dealiased, to: lvalue)
+  }
+
+  /// Emits a r-value.
+  func emit(rvalue node: Expr) -> Value {
+    // Emit an error value for any expression that has an error type.
+    guard node.type !== context.errorType else {
+      return ErrorValue(context: context)
+    }
+
+    switch node.accept(self) {
+    case .success(let value):
+      return value
+
+    case .failure(let error):
+      // FIXME: This should be reported.
+      print(error)
+      return ErrorValue(context: context)
+    }
   }
 
   /// Emits an l-value.
@@ -307,7 +308,7 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
   }
 
   func visit(_ node: RetStmt) {
-    let value = node.value.map(emit(expr:)) ?? UnitValue(context: context)
+    let value = node.value.map(emit(rvalue:)) ?? UnitValue(context: context)
     builder.buildRet(value: value)
   }
 
@@ -382,7 +383,7 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
       source = s
     } else {
       source = builder.buildAllocStack(type: .lower(node.type))
-      builder.buildStore(lvalue: source, rvalue: emit(expr: node.value))
+      builder.buildStore(lvalue: source, rvalue: emit(rvalue: node.value))
     }
 
     // Cast the value.
@@ -434,7 +435,7 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
 
     // If the value being cast is an existential container, open it.
     if sourceType.isExistential {
-      let container = emit(expr: node.value)
+      let container = emit(rvalue: node.value)
       let value = builder.buildOpenExistential(container: container, type: .lower(targetType))
       return .success(value)
     }
@@ -446,7 +447,7 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
   func visit(_ node: TupleExpr) -> ExprResult {
     let tuple = builder.buildTuple(
       type: node.type as! TupleType,
-      elems: node.elems.map({ elem in emit(expr: elem.value) }))
+      elems: node.elems.map({ elem in emit(rvalue: elem.value) }))
     return .success(tuple)
   }
 
@@ -457,34 +458,34 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     // Emit the function's callee.
     switch node.fun {
     case let memberRef as MemberDeclRefExpr where memberRef.decl.isMember:
+      // The callee is a reference to a member declaration. It can either be a method or a
+      // functional property.
       if let methodDecl = memberRef.decl as? BaseFunDecl {
-        // This is a call `foo.bar(x: 0, y: 1)`, where `bar` is a method and `foo` its receiver.
+        // This is a call `foo.bar(x: 0, y: 1)`, where `bar` is a method and `foo` is its receiver.
         let receiver = methodDecl.isMutating
           ? emit(lvalue: memberRef.base)
-          : emit(expr: memberRef.base)
+          : emit(rvalue: memberRef.base)
         args.append(receiver)
 
-        // We have to determine whether it should be dispatched statically or dynamically.
-        if memberRef.base.type is ViewType {
-          // The receiver is an existential container; dispatch dynamically.
-          funref = builder.buildWitnessMethod(container: receiver, decl: methodDecl)
-        } else {
-          // The receiver is a concrete type; dispatch statically.
-          funref = FunRef(function: builder.getOrCreateFunction(from: methodDecl))
-        }
+        // If the reciever is a existential, the method must be dispatched dynamically, otherwise
+        // it must be dispatched statically.
+        funref = memberRef.base.type.isExistential
+          ? builder.buildWitnessMethod(container: receiver, decl: methodDecl)
+          : FunRef(function: builder.getOrCreateFunction(from: methodDecl))
       } else {
-        fatalError()
+        // This is a call `foo.bar(x: 0, y: 1)`, where `bar` is a functional property of `foo`.
+        fatalError("not implemented")
       }
 
     default:
       // Emit the callee "as is"
-      funref = emit(expr: node.fun)
+      funref = emit(rvalue: node.fun)
     }
 
     // Emit the function's arguments.
     let fType = funref.type as! VILFunType
     for i in 0 ..< node.args.count {
-      var value = emit(expr: node.args[i].value)
+      var value = emit(rvalue: node.args[i].value)
 
       // Check if the argument needs to be prepared before being passed.
       if fType.paramTypes[i].isExistential || (fType.paramConvs[i] == .exist) {
@@ -618,7 +619,7 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     let fnType = context.funType(
       paramType: context.tupleType(types: collector.captures.map({ $0.value.decl.type })),
       retType: (node.type as! AsyncType).base)
-    let args = collector.captures.map({ emit(expr: $0.value) })
+    let args = collector.captures.map({ emit(rvalue: $0.value) })
 
     // Emit the expression wrapper.
     let fn = builder.getOrCreateFunction(name: "_async\(builder.buildUniqueID())", type: fnType)
@@ -637,7 +638,7 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
       locals[ObjectIdentifier(box.value.decl)] = alloc
     }
 
-    builder.buildRet(value: emit(expr: node.value))
+    builder.buildRet(value: emit(rvalue: node.value))
 
     // Restore the emitter context.
     builder.block = currentBlock
@@ -648,7 +649,7 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
   }
 
   func visit(_ node: AwaitExpr) -> ExprResult {
-    return .success(builder.buildAwait(value: emit(expr: node.value)))
+    return .success(builder.buildAwait(value: emit(rvalue: node.value)))
   }
 
   func visit(_ node: AddrOfExpr) -> ExprResult {
@@ -660,7 +661,7 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     assert(!node.cases.isEmpty)
 
     // Emit the subject of the match.
-    let subject = emit(expr: node.subject)
+    let subject = emit(rvalue: node.subject)
 
     // If the node is a sub-expression, allocate storage for its "value".
     let storage: AllocStackInst? = node.isSubExpr
@@ -731,7 +732,7 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
 
       // Emit the statement's body.
       if let storage = storage {
-        let value = emit(expr: stmt.body.stmts[0] as! Expr)
+        let value = emit(rvalue: stmt.body.stmts[0] as! Expr)
         builder.buildStore(lvalue: storage, rvalue: value)
       } else {
         visit(stmt.body)

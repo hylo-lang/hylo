@@ -114,14 +114,37 @@ public final class VILFunType: VILType {
     paramTypes: [VILType],
     paramConvs: [VILParamConv],
     retType   : VILType,
-    retConv   : VILParamConv
+    retConv   : VILParamConv,
+    isAddress : Bool = false
   ) {
     assert(paramTypes.count == paramConvs.count)
     self.paramTypes = paramTypes
     self.paramConvs = paramConvs
     self.retType = retType
     self.retConv = retConv
-    super.init(valType: valType, isAddress: false)
+    super.init(valType: valType, isAddress: isAddress)
+  }
+
+  /// The address variant of this type.
+  public override var address: VILType {
+    return VILFunType(
+      valType   : valType as! FunType,
+      paramTypes: paramTypes,
+      paramConvs: paramConvs,
+      retType   : retType,
+      retConv   : retConv,
+      isAddress : true)
+  }
+
+  /// The object variant of this type.
+  public override var object: VILType {
+    return VILFunType(
+      valType   : valType as! FunType,
+      paramTypes: paramTypes,
+      paramConvs: paramConvs,
+      retType   : retType,
+      retConv   : retConv,
+      isAddress : false)
   }
 
   public override var description: String {
