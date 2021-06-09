@@ -12,7 +12,7 @@ final class CSGenDriver: NodeWalker {
   let system: UnsafeMutablePointer<ConstraintSystem>
 
   override func willVisit(_ expr: Expr) -> (shouldWalk: Bool, nodeBefore: Expr) {
-    // Skip the recursive descent into match constructs, as the heavy-lifting ahs already been done
+    // Skip the recursive descent into match constructs, as the heavy-lifting has already been done
     // by the pre-checker. There's nothing more to do unless the match is treated as an expression.
     if let matchExpr = expr as? MatchExpr, matchExpr.isSubExpr {
       matchExpr.accept(ConstraintGenerator(system: system, useSite: innermostSpace!))
