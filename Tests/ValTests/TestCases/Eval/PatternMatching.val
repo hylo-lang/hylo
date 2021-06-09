@@ -1,0 +1,19 @@
+type A {
+  val i: Int
+}
+
+fun main() {
+  var x: Maybe<A> = A(i: 30)
+  val y: Int = match x {
+    case val a: A   { a.i }
+    case val a: Nil { 12 }
+  }
+
+  x = Nil()
+  val z: Int = match x {
+    case val a: A   { a.i }
+    case val a: Nil { 12 }
+  }
+
+  exit(y + z)
+}

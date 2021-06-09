@@ -1,0 +1,10 @@
+type A {
+  val i: Int
+}
+
+fun main() {
+  val n = 42
+  val a = async A(i: n)
+  val b = await a
+  exit(b.i)
+}

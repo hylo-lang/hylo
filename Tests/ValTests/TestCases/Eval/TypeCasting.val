@@ -1,0 +1,10 @@
+type A {
+  val i: Int
+}
+
+fun main() {
+  val x: Any = A(i: 42)
+  val y: A | Int = (x as! A).i
+  val z = y as? Int
+  exit(z as! Int)
+}
