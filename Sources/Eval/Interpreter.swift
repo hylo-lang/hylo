@@ -344,7 +344,12 @@ public struct Interpreter {
   }
 
   mutating func eval(inst: AsyncInst) -> ProgramCounter? {
-    return apply(inst.function, args: [], retID: RegisterID(inst))
+    // Evaluate the expression's captures.
+    let argvals = inst.args.map(eval(operand:))
+
+    // Evaluate the "asynchronous" expression.
+    // FIXME: Execute this in an actual asynchronous process.
+    return apply(inst.fun, args: argvals, retID: RegisterID(inst))
   }
 
   mutating func eval(inst: AwaitInst) -> ProgramCounter? {
