@@ -89,7 +89,7 @@ final class TypeTests: XCTestCase {
     let u0 = context.unionType([])
     XCTAssertEqual(u0.props, .isCanonical)
     XCTAssert(u0.canonical === u0)
-    XCTAssert(u0 === context.uninhabitedType)
+    XCTAssert(u0 === context.nothingType)
 
     let u1 = context.unionType([context.unitType])
     XCTAssertEqual(u1.props, [])

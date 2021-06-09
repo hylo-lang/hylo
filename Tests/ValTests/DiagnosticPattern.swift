@@ -2,7 +2,8 @@ import Basic
 
 struct DiagnosticPattern {
 
-  var message: String?
+  /// The message of the diagnostic.
+  let message: String?
 
   static func ~= (pattern: DiagnosticPattern, diagnostic: Diagnostic) -> Bool {
     if let message = pattern.message {

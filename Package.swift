@@ -38,6 +38,6 @@ let package = Package(
     .testTarget(name: "ASTTests", dependencies: ["AST", "Basic"]),
     .testTarget(
       name: "ValTests",
-      dependencies: ["Basic", "Driver"],
+      dependencies: ["Basic", "Driver", "Eval"],
       resources: [.copy("TestCases")]),
   ])
