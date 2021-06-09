@@ -1,5 +1,6 @@
 import AST
 import Basic
+import Sema
 
 /// A visitor that emits the VIL code of a function declaration.
 final class FunctionEmitter: StmtVisitor, ExprVisitor {
@@ -596,23 +597,43 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
   }
 
   func visit(_ node: AsyncExpr) -> ExprResult {
-    // Save the current basic block.
-    let currentBlock = builder.block
+    // Collect the declarations being captured by the async expression.
+    let collector = CaptureCollector(relativeTo: nil)
+    _ = node.value.accept(collector)
 
     // Create the type of the function wrapping the async expression.
     assert(node.type is AsyncType)
     let context = node.type.context
     let fnType = context.funType(
-      paramType: context.unitType,
+      paramType: context.tupleType(types: collector.captures.map({ $0.value.decl.type })),
       retType: (node.type as! AsyncType).base)
+    let args = collector.captures.map({ emit(expr: $0.value) })
 
     // Emit the expression wrapper.
     let fn = builder.getOrCreateFunction(name: "_async\(builder.buildUniqueID())", type: fnType)
-    builder.block = fn.createBasicBlock()
-    builder.buildRet(value: emit(expr: node.value))
-    builder.block = currentBlock
 
-    return .success(builder.buildAsync(function: fn))
+    // Save the emitter context.
+    let currentLocals = locals
+    let currentBlock = builder.block
+
+    // Emit the wrapper's body.
+    locals = [:]
+    builder.block = fn.createBasicBlock(arguments: args)
+    for (i, box) in collector.captures.enumerated() {
+      let type = fn.type.paramTypes[i].contextualized(in: funDecl.genericEnv!, from: funDecl)
+      let alloc = builder.buildAllocStack(type: type)
+      builder.buildStore(lvalue: alloc, rvalue: builder.block!.arguments[i])
+      locals[ObjectIdentifier(box.value.decl)] = alloc
+    }
+
+    builder.buildRet(value: emit(expr: node.value))
+
+    // Restore the emitter context.
+    builder.block = currentBlock
+    locals = currentLocals
+
+    // Emit the async instruction.
+    return .success(builder.buildAsync(fun: fn, args: args))
   }
 
   func visit(_ node: AwaitExpr) -> ExprResult {
