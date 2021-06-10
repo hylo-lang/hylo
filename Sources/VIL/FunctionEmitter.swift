@@ -1,6 +1,5 @@
 import AST
 import Basic
-import Sema
 
 /// A visitor that emits the VIL code of a function declaration.
 final class FunctionEmitter: StmtVisitor, ExprVisitor {
@@ -611,7 +610,7 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
   func visit(_ node: AsyncExpr) -> ExprResult {
     // Collect the declarations being captured by the async expression.
     let collector = CaptureCollector(relativeTo: nil)
-    _ = node.value.accept(collector)
+    _ = collector.walk(node.value)
 
     // Create the type of the function wrapping the async expression.
     assert(node.type is AsyncType)

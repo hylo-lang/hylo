@@ -1,4 +1,3 @@
-import AST
 import Basic
 
 /// A node visitor that gathers the values that are captured by an expression.

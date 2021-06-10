@@ -32,7 +32,7 @@ let package = Package(
       exclude: ["Val.g4", "Val.interp", "Val.tokens", "ValLexer.interp", "ValLexer.tokens"]),
     .target(name: "Eval", dependencies: ["AST", "Basic", "VIL"]),
     .target(name: "Sema", dependencies: ["AST", "Basic"]),
-    .target(name: "VIL", dependencies: ["AST", "Sema", "Basic"]),
+    .target(name: "VIL", dependencies: ["AST", "Basic"]),
 
     // Test targets.
     .testTarget(name: "ASTTests", dependencies: ["AST", "Basic"]),
