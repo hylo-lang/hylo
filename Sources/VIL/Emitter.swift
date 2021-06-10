@@ -1,14 +1,16 @@
 import AST
 import Basic
 
-/// A VIL emitter.
+/// A VIL declaration emitter.
 ///
 /// This class is the entry point to VIL code generation phase, which lowers a type checked module
 /// declaration to a VIL module.
 ///
 /// - Important: Do not emit VIL code for unchecked or ill-formed ASTs. The emitter assumes that
 ///   all declarations are successfully well-typed; its behavior is undefined otherwise.
-public final class Emitter {
+public final class Emitter: DeclVisitor {
+
+  public typealias DeclResult = Void
 
   /// The context in which the pass runs.
   public let context: AST.Context
@@ -16,90 +18,99 @@ public final class Emitter {
   /// The VIL builder used by the emitter.
   public let builder: Builder
 
+  /// Creates a new declaration emitter.
+  ///
+  /// - Parameters:
+  ///   - context: The context in which the declarations are being emitted.
+  ///   - builder: The builder being used to generate VIL code.
   public init(context: AST.Context, builder: Builder) {
     self.context = context
     self.builder = builder
   }
 
-  public func emit(decl: Decl) {
-    switch decl {
-    case is ViewTypeDecl:
-      // Views are abstract constructs; there's nothing to emit.
-      return
-
-    case let decl as ProductTypeDecl:
-      emit(productTypeDecl: decl)
-
-    case let decl as TypeExtDecl:
-      emit(typeExtDecl: decl)
-
-    case is AliasTypeDecl:
-      // FIXME: Emit the type's witness table.
-      break
-
-    case let decl as PatternBindingDecl:
-      emit(patternBindingDecl: decl)
-
-    case let decl as BaseFunDecl:
-      let functionEmitter = FunctionEmitter(parent: self, funDecl: decl)
-      functionEmitter.emit()
-
-    case let decl as ModuleDecl:
-      emit(decl: decl)
-
-    default:
-      fatalError("I don't know how to emit '\(decl)'")
-    }
+  public func visit(_ decl: ModuleDecl) {
+    decl.forEach({ $0.accept(self) })
   }
 
-  public func emit(moduleDecl: ModuleDecl) {
-    for topLevelDecl in moduleDecl {
-      emit(decl: topLevelDecl)
-    }
+  public func visit(_ decl: BaseFunDecl) {
+    FunctionEmitter(parent: self, funDecl: decl).emit()
   }
 
-  func emit(productTypeDecl: ProductTypeDecl) {
+  public func visit(_ decl: FunDecl) {
+    visit(decl as BaseFunDecl)
+  }
+
+  public func visit(_ decl: CtorDecl) {
+    visit(decl as BaseFunDecl)
+  }
+
+  public func visit(_ decl: ViewTypeDecl) {
+    // Views are abstract constructs; there's nothing to emit.
+  }
+
+  public func visit(_ decl: ProductTypeDecl) {
     // Emit the the type's witness table(s).
-    for conformance in productTypeDecl.conformanceTable.values {
+    for conformance in decl.conformanceTable.values {
       var entries: [(decl: BaseFunDecl, impl: Function)] = []
       for (req, impl) in conformance.entries {
         if let reqFunDecl = req as? BaseFunDecl {
           let implFunDecl = impl as! BaseFunDecl
-          let function = emit(witness: implFunDecl, forReq: reqFunDecl)
+          let function = emit(witness: implFunDecl, for: reqFunDecl)
           entries.append((reqFunDecl, function))
         }
       }
 
       let table = WitnessTable(
-        type: productTypeDecl.instanceType as! NominalType, view: conformance.viewType, entries: entries)
+        type: decl.instanceType as! NominalType, view: conformance.viewType, entries: entries)
       builder.module.witnessTables.append(table)
     }
 
     // Emit the direct members of the declaration.
-    for memberDecl in productTypeDecl.members {
-      emit(decl: memberDecl)
-    }
+    decl.members.forEach({ $0.accept(self) })
   }
 
-  func emit(typeExtDecl: TypeExtDecl) {
-    // Emit the direct members of the declaration.
-    for memberDecl in typeExtDecl.members {
-      emit(decl: memberDecl)
-    }
+  public func visit(_ decl: TypeExtDecl) {
+    decl.members.forEach({ $0.accept(self) })
   }
 
-  func emit(patternBindingDecl: PatternBindingDecl) {
-    if patternBindingDecl.isMember {
+  public func visit(_ decl: AliasTypeDecl) {
+    // FIXME: Emit the type's witness table.
+  }
+
+  public func visit(_ decl: PatternBindingDecl) {
+    if decl.isMember {
       // If the decl is a stored member of a type declaration, we're done.
-      if patternBindingDecl.varDecls.allSatisfy({ varDecl in varDecl.hasStorage }) {
-        return
-      }
+      if decl.varDecls[0].hasStorage { return }
 
       // FIXME: Handle initializers in synthetized constructors.
     }
 
     // FIXME: Handle global variables.
-    fatalError()
+    fatalError("not implemented")
+  }
+
+  public func visit(_ decl: ImportDecl) {
+    fatalError("not implemented")
+  }
+
+  public func visit(_ decl: VarDecl) {
+    fatalError("unreachable")
+  }
+
+  public func visit(_ decl: FunParamDecl) {
+    fatalError("unreachable")
+  }
+
+  public func visit(_ decl: GenericTypeDecl) {
+    fatalError("unreachable")
+  }
+
+  public func visit(_ decl: NominalTypeDecl) {
+    fatalError("unreachable")
+  }
+
+  public func visit(_ decl: GenericParamDecl) {
+    fatalError("unreachable")
   }
 
   /// Emits a function wrapping the implementation satisfying a conformance requirement.
@@ -107,7 +118,7 @@ public final class Emitter {
   /// - Parameters:
   ///   - impl: The declaration of the function that implements the requirement.
   ///   - req: The declaration of the function requirement.
-  private func emit(witness impl: BaseFunDecl, forReq req: BaseFunDecl) -> Function {
+  private func emit(witness impl: BaseFunDecl, for req: BaseFunDecl) -> Function {
     // Create the VIL function object.
     var mangler = Mangler()
     mangler.append(witnessImpl: impl, for: req)
