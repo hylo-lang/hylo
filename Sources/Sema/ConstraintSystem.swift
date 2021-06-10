@@ -69,6 +69,18 @@ struct ConstraintSystem {
     return insert(disjunctionOfConstraintsWithWeights: sequence.map({ ($0, 0) }))
   }
 
+  /// Inserts a new relational constraint created from the specified prototype.
+  ///
+  /// - Parameters:
+  ///   - prototype: The prototype of a constraint on an opened generic parameter.
+  ///   - locator: A locator for the constraint.
+  mutating func insert(
+    prototype: GenericEnv.ConstraintPrototype,
+    at locator: ConstraintLocator
+  ) {
+    insert(RelationalConstraint(prototype: prototype, at: locator))
+  }
+
 }
 
 extension Array {

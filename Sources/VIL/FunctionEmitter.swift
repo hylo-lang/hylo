@@ -59,7 +59,7 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     if let selfDecl = funDecl.selfDecl {
       var selfType = genericEnv.contextualize(selfDecl.type, from: funDecl)
       if funDecl.isMember {
-        // Member functions accept their receiver an implicit parameter.
+        // Member functions accept their receiver as an implicit parameter.
         locals[ObjectIdentifier(funDecl.selfDecl!)] = args[0]
         args.removeFirst()
       } else {
@@ -537,9 +537,6 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
   }
 
   func visit(_ node: DeclRefExpr) -> ExprResult {
-
-    // FIXME: Implicit references to `self` should be desugared during the sema, so we no longer
-    // have to deal with this every time we emit a resolvable.
 
     // FIXME: We need a better, more reliable way to easily determine whether the node requires
     // l-value to r-value conversion.

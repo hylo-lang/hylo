@@ -281,11 +281,24 @@ struct PreChecker: ExprVisitor {
     }
 
     if let decl = matches.values.first {
-      // If `ref` is a member expression, make sure we keep its base around.
+      // Rewrite the given expression as an explicit declaration reference.
       let newRef: Expr
       if let expr = ref as? MemberExpr {
         // Preserve the base expr.
         newRef = MemberDeclRefExpr(base: expr.base, decl: decl, type: ref.type, range: expr.range)
+      } else if decl.isMember {
+        // Desugar an implicit reference to `self`.
+        let matches = useSite.lookup(unqualified: "self", in: decl.type.context)
+        let selfDecl = matches.values[0]
+        let selfExpr = DeclRefExpr(decl: selfDecl, type: selfDecl.type, range: ref.range)
+        selfExpr.type = TypeChecker.contextualize(
+          decl: selfDecl,
+          from: useSite,
+          processingContraintsWith: {
+            system.pointee.insert(prototype: $0, at: ConstraintLocator(selfExpr))
+          })
+
+        newRef = MemberDeclRefExpr(base: selfExpr, decl: decl, type: ref.type, range: ref.range)
       } else {
         newRef = DeclRefExpr(decl: decl, type: ref.type, range: ref.range)
       }
@@ -294,9 +307,8 @@ struct PreChecker: ExprVisitor {
       newRef.type = TypeChecker.contextualize(
         decl: decl,
         from: useSite,
-        processingContraintsWith: { prototype in
-          system.pointee.insert(
-            RelationalConstraint(prototype: prototype, at: ConstraintLocator(newRef)))
+        processingContraintsWith: {
+          system.pointee.insert(prototype: $0, at: ConstraintLocator(newRef))
         })
 
       assert(!newRef.type.hasTypeParams)

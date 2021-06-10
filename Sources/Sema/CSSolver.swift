@@ -408,9 +408,7 @@ struct CSSolver {
         decl: decls[0],
         from: constraint.useSite,
         args: args,
-        processingContraintsWith: { prototype in
-          system.insert(RelationalConstraint(prototype: prototype, at: constraint.locator))
-        })
+        processingContraintsWith: { system.insert(prototype: $0, at: constraint.locator) })
       let choice = RelationalConstraint(
         kind: .equality, lhs: choiceType, rhs: constraint.rhs, at: constraint.locator)
       solve(choice)
@@ -473,9 +471,7 @@ struct CSSolver {
       let choiceType = TypeChecker.contextualize(
         decl: decl,
         from: constraint.useSite,
-        processingContraintsWith: { prototype in
-          system.insert(RelationalConstraint(prototype: prototype, at: constraint.locator))
-        })
+        processingContraintsWith: { system.insert(prototype: $0, at: constraint.locator) })
       let choice = RelationalConstraint(
         kind: .equality, lhs: type, rhs: choiceType, at: constraint.locator)
 

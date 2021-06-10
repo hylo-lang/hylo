@@ -105,7 +105,7 @@ public enum TypeChecker {
     return true
   }
 
-  /// Contextualizes the type the given declaration from the specified use site.
+  /// Contextualizes the type of the given declaration from the specified use site.
   ///
   /// - Parameters:
   ///   - decl: The declaration to contextualize.
@@ -326,9 +326,7 @@ public enum TypeChecker {
       // Contextualize the signature.
       signType = env.contextualize(
         signType, from: useSite,
-        processingContraintsWith: { prototype in
-          system.insert(RelationalConstraint(prototype: prototype, at: ConstraintLocator(repr)))
-        })
+        processingContraintsWith: { system.insert(prototype: $0, at: ConstraintLocator(repr)) })
     }
 
     // Check if we have to synthetize additional generic arguments, in case the signature refers
@@ -370,9 +368,7 @@ public enum TypeChecker {
     let newType = nominalType.context.boundGenericType(decl: nominalType.decl, args: args)
     return env.contextualize(
       newType, from: nominalType.decl.rootDeclSpace,
-      processingContraintsWith: { prototype in
-        system.insert(RelationalConstraint(prototype: prototype, at: locator))
-      })
+      processingContraintsWith: { system.insert(prototype: $0, at: locator) })
   }
 
   /// Recursively assigns the given type to a pattern and its sub-patterns, generating diagnostics

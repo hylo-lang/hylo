@@ -32,6 +32,10 @@ struct RelationalConstraint: Constraint, CustomStringConvertible {
   }
 
   /// Creates a type constraint from prototype returned by generic environments.
+  ///
+  /// - Parameters:
+  ///   - prototype: The prototype of a constraint on an opened generic parameter.
+  ///   - locator: A locator for the constraint.
   init(prototype: GenericEnv.ConstraintPrototype, at locator: ConstraintLocator) {
     switch prototype.kind {
     case .equality:
