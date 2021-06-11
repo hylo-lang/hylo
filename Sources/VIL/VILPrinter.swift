@@ -150,6 +150,14 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
       self << inst.args
       self << ")\n"
 
+    case let inst as PartialApplyInst:
+      let id = makeID(for: inst)
+      self << "_\(id) = partial_apply "
+      self << describe(inst.fun, withType: false)
+      self << "("
+      self << inst.args
+      self << ")\n"
+
     case let inst as RecordInst:
       let id = makeID(for: inst)
       self << "_\(id) = record \(inst.type)\n"

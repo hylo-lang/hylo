@@ -185,6 +185,32 @@ public final class ApplyInst: Inst, Value {
 
 }
 
+/// Creates the partial application of a function.
+public final class PartialApplyInst: Inst, Value {
+
+  /// The function being partially applied.
+  public let fun: Value
+
+  /// The partial list of arguments of the function application (from left to right).
+  public let args: [Value]
+
+  public let type: VILType
+
+  init(fun: Value, args: [Value]) {
+    self.fun = fun
+    self.args = args
+
+    let context = fun.type.valType.context
+    let baseValType = fun.type.valType as! FunType
+    let partialValType = context.funType(
+      paramType: context.tupleType(types: baseValType.paramTypeList.dropLast(args.count)),
+      retType  : baseValType.retType)
+
+    self.type = .lower(partialValType)
+  }
+
+}
+
 /// Creates a record value (i.e., the instance of a product type).
 public final class RecordInst: Inst, Value {
 

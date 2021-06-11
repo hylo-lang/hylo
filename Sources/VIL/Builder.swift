@@ -194,6 +194,17 @@ public final class Builder {
     return inst
   }
 
+  /// Builds a partial application.
+  ///
+  /// - Parameters:
+  ///   - fun: The function being partially applied.
+  ///   - args: The partial list of arguments of the function application (from left to right).
+  public func buildPartialApply(fun: Value, args: [Value]) -> PartialApplyInst {
+    let inst = PartialApplyInst(fun: fun, args: args)
+    block!.instructions.append(inst)
+    return inst
+  }
+
   /// Builds a record value instruction.
   ///
   /// - Parameters:
