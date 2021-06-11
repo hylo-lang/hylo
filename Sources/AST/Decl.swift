@@ -369,6 +369,14 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
   /// The semantic properties of the declaration.
   public var props: FunDeclProps
 
+  /// Indicates whether the function is local.
+  public var isLocal: Bool {
+    return !(parentDeclSpace is SourceUnit)
+      && !isStatic
+      && !isMember
+      && !(self is CtorDecl)
+  }
+
   /// Indicates whether the function is a member of a type.
   ///
   /// - Note: Constructors are *not* considered to be member functions.
@@ -414,8 +422,10 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
   /// - Note: Accessing this property will trap if the function declaration is in an extension that
   ///   hasn't been bound to a nominal type yet.
   public private(set) lazy var selfDecl: FunParamDecl? = {
+    // Only constructors and member methods have a implicit `self` parameter.
     guard isMember || (self is CtorDecl) else { return nil }
 
+    // Compute the type of `self` in the context of the function.
     let receiverType: ValType
     switch parentDeclSpace {
     case let typeDecl as NominalTypeDecl:
@@ -526,6 +536,33 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
     type = type.context.funType(paramType: paramType, retType: retType)
     setState(.realized)
     return type
+  }
+
+  /// The set of variable declarations captured in the function's closure.
+  private var captures: [DeclRefExpr]?
+
+  /// Computes the list of declaration references that are captured in the function's closure.
+  ///
+  /// - Parameter recompute: A flag that indicates whether to use cached results, if available.
+  ///
+  ///- Note: This method only returns resolved declaration references. It should only be called
+  ///  after type checking is complete.
+  public func computeCaptures(recompute: Bool = false) -> [DeclRefExpr] {
+    if let captures = self.captures, !recompute {
+      return captures
+    }
+
+    // Non-local functions cannot capture any declaration.
+    guard isLocal else {
+      captures = []
+      return []
+    }
+
+    // Compute the set of captured declarations.
+    let collector = CaptureCollector(relativeTo: parentDeclSpace)
+    _ = collector.walk(self)
+    captures = collector.captures.map({ $0.value })
+    return captures!
   }
 
   // MARK: Misc.

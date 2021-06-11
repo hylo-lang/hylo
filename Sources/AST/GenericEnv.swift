@@ -98,6 +98,7 @@ public final class GenericEnv {
       return useSite.isDescendant(of: space)
     }
   }
+
   /// Maps the given generic type to its contextual type, depending on its use site.
   ///
   /// - Parameters:
