@@ -35,7 +35,7 @@ extension Function {
     if let debugName = self.debugName {
       stream.write("// \(debugName)\n")
     }
-    stream.write("vilfun \(name) : \(type)")
+    stream.write("vilfun \(name): \(type)")
 
     // Dump the function's body, if any.
     if blocks.isEmpty {
@@ -95,81 +95,81 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
 
   mutating func dump(inst: Inst) {
     switch inst {
-    case let alloc as AllocStackInst:
-      let id = makeID(for: alloc)
-      self << "_\(id) = alloc_stack \(alloc.allocatedType)\n"
+    case let inst as AllocStackInst:
+      let id = makeID(for: inst)
+      self << "_\(id) = alloc_stack \(inst.allocatedType)\n"
 
-    case let alloc as AllocExistentialInst:
-      let id = makeID(for: alloc)
+    case let inst as AllocExistentialInst:
+      let id = makeID(for: inst)
       self << "_\(id) = alloc_existential "
-      self << alloc.container
-      self << ", \(alloc.witness)\n"
+      self << inst.container
+      self << ", \(inst.witness)\n"
 
-    case let open as OpenExistentialInst:
-      let id = makeID(for: open)
+    case let inst as OpenExistentialInst:
+      let id = makeID(for: inst)
       self << "_\(id) = open_existential "
-      self << open.container
-      self << " as \(open.type)\n"
+      self << inst.container
+      self << " as \(inst.type)\n"
 
-    case let open as OpenExistentialAddrInst:
-      let id = makeID(for: open)
+    case let inst as OpenExistentialAddrInst:
+      let id = makeID(for: inst)
       self << "_\(id) = open_existential_addr "
-      self << open.container
-      self << " as \(open.type)\n"
+      self << inst.container
+      self << " as \(inst.type)\n"
 
-    case let copy as CopyAddrInst:
+    case let inst as CopyAddrInst:
       self << "copy_addr "
-      self << copy.source
+      self << inst.source
       self << " to "
-      self << copy.dest
+      self << inst.dest
       self << "\n"
 
-    case let cast as UnsafeCastAddrInst:
-      let id = makeID(for: cast)
+    case let inst as UnsafeCastAddrInst:
+      let id = makeID(for: inst)
       self << "_\(id) = unsafe_cast_addr "
-      self << cast.source
-      self << " as \(cast.type)\n"
+      self << inst.source
+      self << " as \(inst.type)\n"
 
-    case let cast as CheckedCastAddrInst:
-      let id = makeID(for: cast)
+    case let inst as CheckedCastAddrInst:
+      let id = makeID(for: inst)
       self << "_\(id) = checked_cast_addr "
-      self << cast.source
-      self << " as \(cast.type)\n"
+      self << inst.source
+      self << " as \(inst.type)\n"
 
-    case let witnessFun as WitnessMethodInst:
-      let id = makeID(for: witnessFun)
+    case let inst as WitnessMethodInst:
+      let id = makeID(for: inst)
       self << "_\(id) = witness_method "
-      self << witnessFun.container
-      self << ", \(witnessFun.decl.debugID)\n"
+      self << inst.container
+      self << ", \(inst.decl.debugID)\n"
 
-    case let apply as ApplyInst:
-      let id = makeID(for: apply)
+    case let inst as ApplyInst:
+      let id = makeID(for: inst)
       self << "_\(id) = apply "
-      self << apply.fun
-      self << " ("
-      self << apply.args
+      self << describe(inst.fun, withType: false)
+      self << "("
+      self << inst.args
       self << ")\n"
 
-    case let record as RecordInst:
-      let id = makeID(for: record)
-      self << "_\(id) = record \(record.type)\n"
+    case let inst as RecordInst:
+      let id = makeID(for: inst)
+      self << "_\(id) = record \(inst.type)\n"
 
-    case let member as RecordMemberInst:
-      let id = makeID(for: member)
+    case let inst as RecordMemberInst:
+      let id = makeID(for: inst)
       self << "_\(id) = record_member "
-      self << member.record
-      self << ", \(member.memberDecl.debugID)\n"
+      self << inst.record
+      self << ", \(inst.memberDecl.debugID)\n"
 
-    case let addr as RecordMemberAddrInst:
-      let id = makeID(for: addr)
+    case let inst as RecordMemberAddrInst:
+      let id = makeID(for: inst)
       self << "_\(id) = record_member_addr "
-      self << addr.record
-      self << ", \(addr.memberDecl.debugID)\n"
+      self << inst.record
+      self << ", \(inst.memberDecl.debugID)\n"
 
-    case let tuple as TupleInst:
-      let id = makeID(for: tuple)
-      self << "_\(id) = tuple \(tuple.type) ("
-      self << tuple.elems
+    case let inst as TupleInst:
+      let id = makeID(for: inst)
+      self << "_\(id) = tuple \(inst.type) ("
+      self << inst.elems
       self << ")\n"
 
     case let inst as AsyncInst:
@@ -184,44 +184,44 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
       self << inst.value
       self << "\n"
 
-    case let store as StoreInst:
+    case let inst as StoreInst:
       self << "store "
-      self << store.rvalue
+      self << inst.rvalue
       self << " to "
-      self << store.lvalue
+      self << inst.lvalue
       self << "\n"
 
-    case let load as LoadInst:
-      let id = makeID(for: load)
+    case let inst as LoadInst:
+      let id = makeID(for: inst)
       self << "_\(id) = load "
-      self << load.lvalue
+      self << inst.lvalue
       self << "\n"
 
-    case let equal as EqualAddrInst:
-      let id = makeID(for: equal)
+    case let inst as EqualAddrInst:
+      let id = makeID(for: inst)
       self << "_\(id) = equal_addr "
-      self << equal.lhs
+      self << inst.lhs
       self << ", "
-      self << equal.rhs
+      self << inst.rhs
       self << "\n"
 
-    case let branch as BranchInst:
-      self << "branch bb\(makeID(for: branch.dest))("
-      self << branch.args
+    case let inst as BranchInst:
+      self << "branch bb\(makeID(for: inst.dest))("
+      self << inst.args
       self << ")\n"
 
-    case let branch as CondBranchInst:
+    case let inst as CondBranchInst:
       self << "cond_branch "
-      self << branch.cond
-      self << " bb\(makeID(for: branch.thenDest))("
-      self << branch.thenArgs
-      self << ") bb\(makeID(for: branch.elseDest))("
-      self << branch.elseArgs
+      self << inst.cond
+      self << " bb\(makeID(for: inst.thenDest))("
+      self << inst.thenArgs
+      self << ") bb\(makeID(for: inst.elseDest))("
+      self << inst.elseArgs
       self << ")\n"
 
-    case let ret as RetInst:
+    case let inst as RetInst:
       self << "ret "
-      self << ret.value
+      self << inst.value
       self << "\n"
 
     case is HaltInst:
@@ -230,6 +230,15 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
     default:
       fatalError()
     }
+  }
+
+  mutating func describe(_ value: Value, withType: Bool = true) -> String {
+    let description = value is LiteralValue
+      ? String(describing: value)
+      : "_\(makeID(for: value))"
+    return withType
+      ? "\(description): \(value.type)"
+      : description
   }
 
   mutating func write(_ string: String) {
@@ -253,7 +262,6 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
       }
 
       if string.last!.isNewline {
-//        stream.pointee.write("\n")
         isAtLineStart = true
       } else {
         isAtLineStart = false
@@ -266,12 +274,7 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
   }
 
   static func << (lhs: inout PrintContext, rhs: Value) {
-    if rhs is LiteralValue {
-      lhs.write("\(rhs) : \(rhs.type)")
-    } else {
-      let id = lhs.makeID(for: rhs)
-      lhs.write("_\(id) : \(rhs.type)")
-    }
+    lhs.write(lhs.describe(rhs))
   }
 
   static func << (lhs: inout PrintContext, rhs: [Value]) {
@@ -284,7 +287,7 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
   }
 
   static func << (lhs: inout PrintContext, rhs: IDAndType) {
-    lhs.write("_\(rhs.id) : \(rhs.type)")
+    lhs.write("_\(rhs.id): \(rhs.type)")
   }
 
   struct IDAndType {
@@ -296,33 +299,3 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
   }
 
 }
-
-//fileprivate struct IndentedStream<Base>: TextOutputStream where Base: TextOutputStream {
-//
-//  var base: UnsafeMutablePointer<Base>
-//
-//  var isAtLineStart: Bool = true
-//
-//  mutating func write(_ string: String) {
-//    guard !string.isEmpty else { return }
-//
-//    let lines = string.split(separator: "\n")
-//    if isAtLineStart {
-//      base.pointee.write("  ")
-//      base.pointee.write(String(lines[0]))
-//    }
-//
-//    for line in lines[1...] {
-//      base.pointee.write("\n  ")
-//      base.pointee.write(String(line))
-//    }
-//
-//    if string.last!.isNewline {
-//      base.pointee.write("\n")
-//      isAtLineStart = true
-//    } else {
-//      isAtLineStart = false
-//    }
-//  }
-//
-//}
