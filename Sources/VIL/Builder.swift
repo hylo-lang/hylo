@@ -61,23 +61,34 @@ public final class Builder {
 
   /// Retrieves or create a function from the given declaration.
   ///
-  /// - Parameter funDecl: A function declaration.
-  public func getOrCreateFunction(from funDecl: BaseFunDecl) -> Function {
+  /// - Parameter decl: A function declaration.
+  public func getOrCreateFunction(from decl: BaseFunDecl) -> Function {
     // Mangle the function's name.
     // FIXME: We have to implement an attribute like "@vilname(...)".
     let name: String
-    if funDecl.name == "main" {
-      name = funDecl.name
+    if decl.name == "main" {
+      name = decl.name
     } else {
       var mangler = Mangler()
-      mangler.append(funDecl: funDecl)
+      mangler.append(funDecl: decl)
       name = mangler.finalize()
     }
 
-    return getOrCreateFunction(
-      name: name,
-      type: funDecl.unappliedType as! FunType,
-      debugName: funDecl.debugID)
+    // Extract the function's unapplied type.
+    var unappliedType = decl.unappliedType as! FunType
+
+    // Extend the function's arguments with the type of each captured symbol.
+    let captures = decl.computeCaptures()
+    if !captures.isEmpty {
+      let context   = unappliedType.context
+      let extra     = captures.map({ $0.decl.type })
+      let paramType = context.tupleType(types: extra + unappliedType.paramTypeList)
+      unappliedType = context.funType(
+        paramType: paramType, retType: unappliedType.retType)
+    }
+
+    // Create the function.
+    return getOrCreateFunction(name: name, type: unappliedType, debugName: decl.debugID)
   }
 
   /// Builds an `alloc_stack` instruction.

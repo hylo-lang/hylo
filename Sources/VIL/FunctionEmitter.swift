@@ -13,16 +13,16 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
   /// The declaration of the function being emitted.
   let funDecl: BaseFunDecl
 
+  /// A symbol table that locally visible declarations to their emitted value.
+  ///
+  /// This is populated by function parameters and pattern binding declarations.
+  var locals: [ObjectIdentifier: Value] = [:]
+
   /// The VIL builder used by the emitter.
   var builder: Builder { parent.builder }
 
   /// The context in which the function declaration is defined.
   var context: AST.Context { funDecl.type.context }
-
-  /// A symbol table that locally visible declarations to their emitted value.
-  ///
-  /// This is populated by function parameters and pattern binding declarations.
-  var locals: [ObjectIdentifier: Value] = [:]
 
   /// Creates a function emitter.
   ///
@@ -52,7 +52,9 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
         type: type.contextualized(in: genericEnv, from: funDecl), function: function)
     })
 
-    // Create an entry block.
+    // Create the function's entry block.
+    let currentBlock = builder.block
+    defer { builder.block = currentBlock }
     builder.block = function.createBasicBlock(arguments: args)
 
     // Register the function's receiver in the local symbol table, if necessary.
@@ -72,8 +74,11 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     }
 
     // Register the function's formal parameters in the local symbol table.
-    assert(funDecl.params.count == args.count)
-    for (param, arg) in zip(funDecl.params, args) {
+    let captures = funDecl.computeCaptures()
+    for (ref, arg) in zip(captures, args) {
+      locals[ObjectIdentifier(ref.decl)] = arg
+    }
+    for (param, arg) in zip(funDecl.params, args[captures.count...]) {
       locals[ObjectIdentifier(param)] = arg
     }
 
@@ -137,16 +142,16 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
   }
 
   /// Emits a local pattern binding declaration.
-  func emit(localPBDecl node: PatternBindingDecl) {
+  func emit(localPatternBindingDecl decl: PatternBindingDecl) {
     // Create the variable locations for each name in the pattern.
-    let lvalues = node.pattern.namedPatterns.map({ name in
+    let lvalues = decl.pattern.namedPatterns.map({ name in
       emit(localVarDecl: name.decl)
     })
 
     // Emit the initializer, if any.
-    if let initializer = node.initializer {
+    if let initializer = decl.initializer {
       // Emit a store right away if the pattern matches a single value.
-      if let varDecl = node.pattern.singleVarDecl {
+      if let varDecl = decl.pattern.singleVarDecl {
         assert((lvalues.count == 1) && (lvalues[0] === locals[ObjectIdentifier(varDecl)]))
         emit(assign: initializer, to: lvalues[0])
       } else {
@@ -157,15 +162,15 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
   }
 
   /// Emits a local variable declaration.
-  func emit(localVarDecl node: VarDecl) -> Value {
-    guard node.state >= .typeChecked else {
+  func emit(localVarDecl decl: VarDecl) -> Value {
+    guard decl.state >= .typeChecked else {
       return ErrorValue(context: context)
     }
-    precondition(node.hasStorage, "computed properties are not supported yet")
+    precondition(decl.hasStorage, "computed properties are not supported yet")
 
     // Allocate storage on the stack for the variable.
-    let value = builder.buildAllocStack(type: .lower(node.type))
-    locals[ObjectIdentifier(node)] = value
+    let value = builder.buildAllocStack(type: .lower(decl.type))
+    locals[ObjectIdentifier(decl)] = value
     return value
   }
 
@@ -282,11 +287,28 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
 
     for i in 0 ..< node.stmts.count {
       switch node.stmts[i] {
-      case let pdDecl as PatternBindingDecl:
-        emit(localPBDecl: pdDecl)
+      case let decl as PatternBindingDecl:
+        emit(localPatternBindingDecl: decl)
+
+      case let decl as FunDecl:
+        decl.accept(parent)
+
+        // Emit the value of each captured declaration.
+        let partialArgs = decl.computeCaptures().map(emit(rvalue:))
+
+        // Local function with captures declarations require stack allocation.
+        if !partialArgs.isEmpty {
+          let fun = FunRef(function: builder.getOrCreateFunction(from: decl))
+          let loc = builder.buildAllocStack(type: .lower(decl.type))
+
+          locals[ObjectIdentifier(decl)] = loc
+          builder.buildStore(
+            lvalue: loc,
+            rvalue: builder.buildPartialApply(fun: fun, args: partialArgs))
+        }
         
       case let decl as Decl:
-        parent.emit(decl: decl)
+        decl.accept(parent)
 
       case let stmt as Stmt:
         stmt.accept(self)
@@ -298,6 +320,7 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
         }
 
       case let expr as Expr:
+        // FIXME: Drop the result of the expression.
         _ = expr.accept(self)
 
       default:
@@ -375,7 +398,7 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     let vilTargetType = VILType.lower(targetType)
 
     // Allocate space for the result of the cast.
-    let result = parent.builder.buildAllocStack(type: .lower(node.type))
+    let result = builder.buildAllocStack(type: .lower(node.type))
 
     let source: Value
     if case .success(let s) = node.value.accept(LValueEmitter(parent: self)) {
@@ -386,32 +409,32 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     }
 
     // Cast the value.
-    let cast = parent.builder.buildCheckedCastAddr(source: source, type: vilTargetType.address)
-    let test = parent.builder.buildEqualAddr(
+    let cast = builder.buildCheckedCastAddr(source: source, type: vilTargetType.address)
+    let test = builder.buildEqualAddr(
       lhs: cast, rhs: NullAddr(type: vilTargetType.address))
 
-    guard let function = parent.builder.function else { fatalError("unreachable") }
+    guard let function = builder.function else { fatalError("unreachable") }
     let success = function.createBasicBlock()
     let failure = function.createBasicBlock()
     let finally = function.createBasicBlock()
-    parent.builder.buildCondBranch(cond: test, thenDest: failure, elseDest: success)
+    builder.buildCondBranch(cond: test, thenDest: failure, elseDest: success)
 
     // If the cast succeeded ...
-    parent.builder.block = success
-    parent.builder.buildCopyAddr(
-      dest: parent.builder.buildAllocExistential(container: result, witness: vilTargetType),
+    builder.block = success
+    builder.buildCopyAddr(
+      dest: builder.buildAllocExistential(container: result, witness: vilTargetType),
       source: cast)
-    parent.builder.buildBranch(dest: finally)
+    builder.buildBranch(dest: finally)
 
     // If the cast failed ...
-    parent.builder.block = failure
+    builder.block = failure
     let nilValue = emitNil()
-    parent.builder.buildStore(
-      lvalue: parent.builder.buildAllocExistential(container: result, witness: nilValue.type),
+    builder.buildStore(
+      lvalue: builder.buildAllocExistential(container: result, witness: nilValue.type),
       rvalue: nilValue)
-    parent.builder.buildBranch(dest: finally)
+    builder.buildBranch(dest: finally)
 
-    parent.builder.block = finally
+    builder.block = finally
     return .success(builder.buildLoad(lvalue: result))
   }
 
@@ -451,7 +474,7 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
   }
 
   func visit(_ node: CallExpr) -> ExprResult {
-    let funref: Value
+    let callee: Value
     var args: [Value] = []
 
     // Emit the function's callee.
@@ -468,7 +491,7 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
 
         // If the reciever is a existential, the method must be dispatched dynamically, otherwise
         // it must be dispatched statically.
-        funref = memberRef.base.type.isExistential
+        callee = memberRef.base.type.isExistential
           ? builder.buildWitnessMethod(container: receiver, decl: methodDecl)
           : FunRef(function: builder.getOrCreateFunction(from: methodDecl))
       } else {
@@ -478,16 +501,16 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
 
     default:
       // Emit the callee "as is"
-      funref = emit(rvalue: node.fun)
+      callee = emit(rvalue: node.fun)
     }
 
     // Emit the function's arguments.
-    let fType = funref.type as! VILFunType
+    let calleeType = callee.type as! VILFunType
     for i in 0 ..< node.args.count {
       var value = emit(rvalue: node.args[i].value)
 
       // Check if the argument needs to be prepared before being passed.
-      if fType.paramTypes[i].isExistential || (fType.paramConvs[i] == .exist) {
+      if calleeType.paramTypes[i].isExistential || (calleeType.paramConvs[i] == .exist) {
         // The parameter has an existential type, or its convention prescribes that it should be
         // passed as an existential container. If the argument isn't packaged as an existential,
         // then we need to wrap it into a container. Otherwise, we can pass it "as is", since all
@@ -509,10 +532,10 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     }
 
     // Emit the call.
-    var value: Value = builder.buildApply(fun: funref, args: args)
+    var value: Value = builder.buildApply(fun: callee, args: args)
 
     // Emit the extraction of the result value.
-    if fType.retConv == .exist {
+    if calleeType.retConv == .exist {
       value = builder.buildOpenExistential(container: value, type: .lower(node.type))
     }
 
@@ -542,11 +565,24 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     // l-value to r-value conversion.
 
     switch node.decl {
+    case let decl as VarDecl:
+      if let value = locals[ObjectIdentifier(decl)] {
+        return value.type.isAddress
+          ? .success(builder.buildLoad(lvalue: value))
+          : .success(value)
+      }
+
     case let decl as FunDecl where decl.isBuiltin:
       // Emit a built-in function.
       return .success(BuiltinFunRef(decl: decl))
 
     case let decl as BaseFunDecl:
+      // Look for the declaration in the function's locals.
+      if let loc = locals[ObjectIdentifier(decl)] {
+        assert(loc.type.isAddress)
+        return .success(builder.buildLoad(lvalue: loc))
+      }
+
       // Emit a function reference.
       let function = builder.getOrCreateFunction(from: decl)
       return .success(FunRef(function: function))

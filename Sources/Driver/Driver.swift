@@ -151,7 +151,7 @@ public struct Driver {
     let emitter = Emitter(context: context, builder: builder)
 
     // Emit the module declaration.
-    emitter.emit(moduleDecl: moduleDecl)
+    moduleDecl.accept(emitter)
     return module
   }
 

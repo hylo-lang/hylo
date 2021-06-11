@@ -69,6 +69,7 @@ struct LValueEmitter: ExprVisitor {
   func visit(_ node: DeclRefExpr) -> ExprResult {
     // If the expression refers to a variable, we have to emit its access.
     if let decl = node.decl as? VarDecl {
+      // FIXME: Handle computed properties.
       guard decl.hasStorage else { return .failure(.immutableLocation) }
 
       // If the variable is already in the local symbol table, just return its value.
@@ -77,9 +78,11 @@ struct LValueEmitter: ExprVisitor {
         return .success(lv)
       }
 
-      // If the variable declaration resides in a nominal type declaration, then the expression
-      // probably refers to a member declaration implicitly (i.e., without spelling `self`).
-      if decl.parentDeclSpace is NominalTypeDecl {
+      // If the expression refers to a member declaration, emit a property access.
+      if decl.isMember {
+        // The expression shout refer to a stored property declaration.
+        assert(decl.parentDeclSpace is NominalTypeDecl)
+
         // Make sure that `self` is mutable.
         let selfDecl = parent.funDecl.selfDecl!
         guard selfDecl.type is InoutType else {
