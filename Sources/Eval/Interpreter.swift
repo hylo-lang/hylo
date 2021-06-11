@@ -95,6 +95,7 @@ public struct Interpreter {
     case let inst as CheckedCastAddrInst    : return eval(inst: inst)
     case let inst as WitnessMethodInst      : return eval(inst: inst)
     case let inst as ApplyInst              : return eval(inst: inst)
+    case let inst as PartialApplyInst       : return eval(inst: inst)
     case let inst as RecordMemberAddrInst   : return eval(inst: inst)
     case let inst as RecordMemberInst       : return eval(inst: inst)
     case let inst as TupleInst              : return eval(inst: inst)
@@ -251,19 +252,34 @@ public struct Interpreter {
   }
 
   mutating func eval(inst: ApplyInst) -> ProgramCounter? {
-    // Evaluate the call's arguments.
-    let argvals = inst.args.map(eval(operand:))
+    // Evaluate the callee and its arguments.
+    let callee = eval(operand: inst.fun)
+    let args = inst.args.map(eval(operand:))
 
-    // Apply the function
-    switch eval(operand: inst.fun) {
+    // Apply the function.
+    return apply(callee, args: args, retID: RegisterID(inst))
+  }
+
+  private mutating func apply(
+    _ callee: RuntimeValue,
+    args    : [RuntimeValue],
+    retID   : RegisterID
+  ) -> ProgramCounter? {
+    switch callee {
     case .builtinFunction(let decl):
       // The function is built-in.
-      let value = applyBuiltin(funDecl: decl, args: argvals)
-      locals[locals.count - 1][RegisterID(inst)] = value
+      let value = applyBuiltin(funDecl: decl, args: args)
+      locals[locals.count - 1][retID] = value
       return pc.incremented()
 
     case .function(let function):
-      return apply(function, args: argvals, retID: RegisterID(inst))
+      return apply(function, args: args, retID: retID)
+
+    case .record(let thunk):
+      return apply(
+        thunk.storage![0],
+        args: (1 ..< thunk.capacity).map({ thunk.storage![$0] }) + args,
+        retID: retID)
 
     default:
       fatalError("unreachable")
@@ -271,7 +287,9 @@ public struct Interpreter {
   }
 
   private mutating func apply(
-    _ function: Function, args: [RuntimeValue], retID: RegisterID
+    _ function: Function
+    , args    : [RuntimeValue],
+    retID     : RegisterID
   ) -> ProgramCounter {
     // Make sure the function has an entry point.
     guard let entry = function.blocks.first else {
@@ -327,6 +345,21 @@ public struct Interpreter {
     default:
       fatalError("undefined built-in function '\(funDecl.name)'")
     }
+  }
+
+  mutating func eval(inst: PartialApplyInst) -> ProgramCounter? {
+    // Create a new thunk.
+    let thunk = Record(capacity: inst.args.count + 1)
+
+    // Store the callee followed by its partial list of arguments.
+    thunk.storage![0] = eval(operand: inst.fun)
+    for i in 0 ..< inst.args.count {
+      thunk.storage![i + 1] = eval(operand: inst.args[i])
+    }
+
+    // Assign the thunk to the instruction register.
+    locals[locals.count - 1][RegisterID(inst)] = .record(thunk)
+    return pc.incremented()
   }
 
   mutating func eval(inst: RecordMemberAddrInst) -> ProgramCounter? {
