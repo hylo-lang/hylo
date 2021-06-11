@@ -5,15 +5,15 @@ import AST
 /// The type of an expression in Val purposely hide a number of implementation details that are
 /// only relevant in the context of Val's low-level operational semantics. The most important
 /// abstraction relates to the distinction between addressable and non-addressable values. The
-/// former denote values that are stored in memory and can therefore be referenced by their
-/// address, whereas the latter represent notional or temporary values.
+/// former are stored in memory and can therefore be referenced by their address, whereas the
+/// latter represent notional or temporary values.
 ///
 /// Stored variables, properties and parameter references are represented by pointers to a phyiscal
 /// storage internally. Hence, when lowered to VIL, these expressions must be associated with an
 /// address type and must be loaded explicitly before being used as an actual value.
 ///
-/// Because Val does not have a first-class notion of reference, addressable values are not
-/// first-class: the address of an address is not a legal value in VIL.
+/// As Val does not have a first-class references, addressable values are not first-class neither:
+/// the address of an address is not a legal value in VIL.
 public class VILType: CustomStringConvertible {
 
   /// The high level Val from which this type is lowered.
@@ -46,7 +46,10 @@ public class VILType: CustomStringConvertible {
   ///   - env: A generic environment.
   ///   - useSite: The declaration space in which the type is being used.
   public func contextualized(in env: GenericEnv, from useSite: DeclSpace) -> VILType {
-    return VILType(valType: env.contextualize(valType, from: useSite), isAddress: isAddress)
+    let type = VILType.lower(env.contextualize(valType, from: useSite))
+    return isAddress
+      ? type.address
+      : type.object
   }
 
   /// A flag that indicates whether the type is existential.
@@ -62,33 +65,33 @@ public class VILType: CustomStringConvertible {
 
   static func lower(_ type: ValType) -> VILType {
     switch type.dealiased {
-    case let fType as FunType:
+    case let valType as FunType:
       // Lower each parameter and determine its passing convention.
       var paramTypes: [VILType] = []
       var paramConvs: [VILParamConv] = []
-      for valType in fType.paramTypeList {
+      for valType in valType.paramTypeList {
         paramTypes.append(lower(valType))
         paramConvs.append(VILParamConv(for: valType))
       }
 
       // Lower the return type and determine its passing convention.
-      let retType = lower(fType.retType)
-      let retConv = VILParamConv(for: fType.retType)
+      let retType = lower(valType.retType)
+      let retConv = VILParamConv(for: valType.retType)
 
       // Create a VIL function type.
       return VILFunType(
-        valType: fType,
+        valType   : valType,
         paramTypes: paramTypes,
         paramConvs: paramConvs,
-        retType: retType,
-        retConv: retConv)
+        retType   : retType,
+        retConv   : retConv)
 
-    case let ioType as InoutType:
+    case let valType as InoutType:
       // Mutable parameters get an address type.
-      return VILType(valType: ioType.base, isAddress: true)
+      return VILType(valType: valType.base, isAddress: true)
 
-    case let type:
-      return VILType(valType: type, isAddress: false)
+    case let valType:
+      return VILType(valType: valType, isAddress: false)
     }
   }
 
@@ -166,7 +169,7 @@ public final class VILFunType: VILType {
 }
 
 /// The convention of a VIL parameter.
-public enum VILParamConv: CustomStringConvertible {
+public enum VILParamConv: String, CustomStringConvertible {
 
   /// The parameter is passed directly, by value.
   case val
@@ -197,13 +200,6 @@ public enum VILParamConv: CustomStringConvertible {
     }
   }
 
-  public var description: String {
-    switch self {
-    case .val   : return "@val"
-    case .brw   : return "@brw"
-    case .mut   : return "@mut"
-    case .exist : return "@exist"
-    }
-  }
+  public var description: String { "@" + rawValue }
 
 }
