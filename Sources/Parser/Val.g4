@@ -99,6 +99,7 @@ typeReq
 typeDecl
   : productTypeDecl
   | aliasTypeDecl
+  | abstractTypeDecl
   | viewTypeDecl
   ;
 
@@ -108,6 +109,10 @@ productTypeDecl
 
 aliasTypeDecl
   : typeDeclHead '=' typeRepr
+  ;
+
+abstractTypeDecl
+  : 'type' NAME inheritanceClause? typeReqClause?
   ;
 
 viewTypeDecl

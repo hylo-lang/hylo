@@ -245,16 +245,17 @@ open class NodeWalker: NodeVisitor {
 
   public final func visit(_ node: GenericTypeDecl) -> Bool {
     switch node {
-    case let decl as NominalTypeDecl: return visit(decl)
-    case let decl as AliasTypeDecl  : return visit(decl)
+    case let decl as NominalTypeDecl  : return visit(decl)
+    case let decl as AliasTypeDecl    : return visit(decl)
     default: fatalError("unreachable")
     }
   }
 
   public final func visit(_ node: NominalTypeDecl) -> Bool {
     switch node {
-    case let decl as ProductTypeDecl: return visit(decl)
-    case let decl as ViewTypeDecl   : return visit(decl)
+    case let decl as ProductTypeDecl  : return visit(decl)
+    case let decl as ViewTypeDecl     : return visit(decl)
+    case let decl as AbstractTypeDecl : return visit(decl)
     default: fatalError("unreachable")
     }
   }
@@ -302,6 +303,32 @@ open class NodeWalker: NodeVisitor {
 
     for i in 0 ..< node.members.count {
       (shouldContinue, node.members[i]) = walk(node.members[i])
+      guard shouldContinue else { return false }
+    }
+
+    return true
+  }
+
+  public final func visit(_ node: AbstractTypeDecl) -> Bool {
+    let prevParent = parent
+    parent = node
+    innermostSpace = node
+    defer {
+      parent = prevParent
+      innermostSpace = innermostSpace?.parentDeclSpace
+    }
+
+    for i in 0 ..< node.inheritances.count {
+      (shouldContinue, node.inheritances[i]) = walk(node.inheritances[i])
+      guard shouldContinue else { return false }
+    }
+
+    for i in 0 ..< node.typeReqs.count {
+      (shouldContinue, node.typeReqs[i].lhs) = walk(node.typeReqs[i].lhs)
+        as! (Bool, IdentTypeRepr)
+      guard shouldContinue else { return false }
+
+      (shouldContinue, node.typeReqs[i].rhs) = walk(node.typeReqs[i].rhs)
       guard shouldContinue else { return false }
     }
 

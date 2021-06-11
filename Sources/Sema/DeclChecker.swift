@@ -261,6 +261,10 @@ struct DeclChecker: DeclVisitor {
     return isWellFormed
   }
 
+  func visit(_ node: AbstractTypeDecl) -> Bool {
+    fatalError("not implemented")
+  }
+
   func visit(_ node: AliasTypeDecl) -> Bool {
     // Realize the aliased type.
     _ = node.realizeAliasedType()

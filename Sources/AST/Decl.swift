@@ -1098,6 +1098,18 @@ public final class ViewTypeDecl: NominalTypeDecl {
 
 }
 
+/// An abstract type declaration.
+public final class AbstractTypeDecl: NominalTypeDecl {
+
+  /// The type requirements of the abstract type.
+  public var typeReqs: [TypeReq] = []
+
+  public override func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
+    return visitor.visit(self)
+  }
+
+}
+
 /// A type alias declaration.
 ///
 /// An alias declaration denotes either a "true" alias, or a type definition. The former merely

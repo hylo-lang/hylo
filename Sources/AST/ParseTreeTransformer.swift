@@ -245,7 +245,10 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
 
   public override func visitProductTypeDecl(_ ctx: ValParser.ProductTypeDeclContext) -> Any {
     // Create the declaration.
-    let decl = ProductTypeDecl(name: "", type: unresolvedType, range: range(of: ctx))
+    let decl = ProductTypeDecl(
+      name: "",
+      type: unresolvedType,
+      range: range(of: ctx))
     decl.type = context.productType(decl: decl).kind
 
     // Update the current decl space.
@@ -290,9 +293,35 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     return decl
   }
 
+  public override func visitAbstractTypeDecl(_ ctx: ValParser.AbstractTypeDeclContext) -> Any {
+    // Create the declaration.
+    let decl = AbstractTypeDecl(
+      name: ctx.NAME()!.getText(),
+      type: unresolvedType,
+      range: range(of: ctx))
+
+    // Update the current decl space.
+    decl.parentDeclSpace = currentSpace
+    currentSpace = decl
+    defer { currentSpace = decl.parentDeclSpace }
+
+    /// Visit the declaration's inheriance and requirement clauses.
+    if let clause = ctx.inheritanceClause() {
+      decl.inheritances = clause.accept(self) as! [IdentTypeRepr]
+    }
+    if let clause = ctx.typeReqClause() {
+      decl.typeReqs = clause.accept(self) as! [TypeReq]
+    }
+
+    return decl
+  }
+
   public override func visitViewTypeDecl(_ ctx: ValParser.ViewTypeDeclContext) -> Any {
+    // Create the declaration.
     let decl = ViewTypeDecl(
-      name: ctx.NAME()!.getText(), type: unresolvedType, range: range(of: ctx))
+      name: ctx.NAME()!.getText(),
+      type : unresolvedType,
+      range: range(of: ctx))
     decl.type = context.viewType(decl: decl).kind
 
     // Update the current decl space.

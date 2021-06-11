@@ -55,6 +55,8 @@ public protocol DeclVisitor {
 
   func visit(_ node: ViewTypeDecl) -> DeclResult
 
+  func visit(_ node: AbstractTypeDecl) -> DeclResult
+
   func visit(_ node: AliasTypeDecl) -> DeclResult
 
   func visit(_ node: GenericParamDecl) -> DeclResult
