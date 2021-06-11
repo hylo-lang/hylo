@@ -119,7 +119,7 @@ extension Diagnostic {
     return Diagnostic("non-unit function should return a value", anchor: range)
   }
 
-  public static func conflictingEqualityRequitement(
+  public static func conflictingEqualityRequirement(
     range: SourceRange
   ) -> Diagnostic {
     return Diagnostic("conflicting equality requirement", anchor: range)

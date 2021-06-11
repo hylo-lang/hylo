@@ -3,9 +3,9 @@ import Basic
 
 /// A type requirement solver.
 ///
-/// This solver is responsible to validate type requirements in generic signatures. Unlike the type
-/// constraint solver, this one operates on generic type parameters rather than type variables, and
-/// does not try to infer concrete types when the constraint system is underspecified.
+/// This solver is responsible for validating type requirements in generic signatures. Unlike the
+/// constraint solver, it operates on generic type parameters rather than type variables, and does
+/// not try to infer concrete types when the constraint system is underspecified.
 struct TRSolver {
 
   public init() {}
@@ -69,7 +69,7 @@ struct TRSolver {
         continue
 
       case .inequal:
-        lhs.context.report(.conflictingEqualityRequitement(range: req.range))
+        lhs.context.report(.conflictingEqualityRequirement(range: req.range))
         success = false
 
       case .recursive:
