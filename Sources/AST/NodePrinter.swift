@@ -236,19 +236,19 @@ public struct NodePrinter: NodeVisitor {
     """
   }
 
-  public func visit(_ node: AbstractTypeDecl) -> String {
-    return """
-    {
-    \(typeDeclHeader(node))
-    }
-    """
-  }
-
   public func visit(_ node: AliasTypeDecl) -> String {
     return """
     {
     \(typeDeclHeader(node)),
     "aliasedSign"     : \(encode(node.aliasedSign))
+    }
+    """
+  }
+
+  public func visit(_ node: AbstractTypeDecl) -> String {
+    return """
+    {
+    \(typeDeclHeader(node))
     }
     """
   }

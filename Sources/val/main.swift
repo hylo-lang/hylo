@@ -16,6 +16,9 @@ struct ValCommand: ParsableCommand {
   @Option(help: "The location Val's runtime environment.", transform: URL.init(fileURLWithPath:))
   var home = ValCommand.home
 
+  @Flag(help: "Parse input file(s) and dump AST(s), before semantic analyis.")
+  var dumpRawAST = false
+
   @Flag(help: "Parse and type-check input file(s) and dump AST(s).")
   var dumpAST = false
 
@@ -34,6 +37,12 @@ struct ValCommand: ParsableCommand {
     if !input.isEmpty {
       // Parse the module.
       let decl = try driver.parse(moduleName: "main", moduleFiles: input)
+
+      // Dump the module before semantic analysis, if requested.
+      if dumpRawAST {
+        decl.dump(context: driver.context)
+        return
+      }
 
       // Type check the module.
       guard driver.typeCheck(moduleDecl: decl) else { return }

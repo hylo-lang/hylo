@@ -73,12 +73,12 @@ public final class Emitter: DeclVisitor {
     decl.members.forEach({ $0.accept(self) })
   }
 
-  public func visit(_ node: AbstractTypeDecl) -> Void {
-    fatalError("not implemented")
-  }
-
   public func visit(_ decl: AliasTypeDecl) {
     // FIXME: Emit the type's witness table.
+  }
+
+  public func visit(_ node: AbstractTypeDecl) -> Void {
+    fatalError("not implemented")
   }
 
   public func visit(_ decl: PatternBindingDecl) {
