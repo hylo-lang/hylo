@@ -1066,6 +1066,16 @@ public final class ViewTypeDecl: NominalTypeDecl {
   /// Always returns `true` -- views have a unique, implicit generic type parameter `Self`.
   public override var hasOwnGenericParams: Bool { true }
 
+  public override func updateMemberTables() {
+    super.updateMemberTables()
+
+    if _typeMemberTable["Self"] == nil {
+      _typeMemberTable["Self"] = selfTypeDecl
+    } else {
+      assert(_typeMemberTable["Self"] === selfTypeDecl)
+    }
+  }
+
   /// Prepares the generic environment of the view.
   ///
   /// This implementation overrides the default behavior for generic type and valur declarations.
