@@ -1,4 +1,4 @@
-/// Small acceleration structure search for equivalences in a set of equivalence classes.
+/// A small acceleration structure to search for equivalences in a set of equivalence classes.
 public struct EquivalenceClassSet {
 
   public init() {

@@ -122,7 +122,7 @@ public final class InoutTypeRepr: TypeRepr {
 
   public var type: ValType
 
-  /// The source range of the `async` keyword at the start of the signature.
+  /// The source range of the `inout` keyword at the start of the signature.
   public var modifierRange: SourceRange
 
   public var range: SourceRange

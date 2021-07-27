@@ -51,8 +51,8 @@ public class ValType {
   /// Indicates whether the type is existential.
   ///
   /// A type is existential if it cannot be resolved to a concrete representation statically, but
-  /// is known to represent a runtime type that satisfies a set of requirements. Note that this
-  /// does not include type variables, as those have yet to be inferred as a proper type.
+  /// it is known to represent a runtime type that satisfies a set of requirements. That does *not*
+  /// include type variables, which have yet to be inferred as actual (potentially conrete) types.
   ///
   /// Instances of existential types are represented by existential packages.
   public final var isExistential: Bool {
@@ -892,8 +892,8 @@ extension GenericParamType: CustomStringConvertible {
 
 /// A skolem type (a.k.a. rigid) type variable.
 ///
-/// This denotes a generic type parameter that has been existentially quantified within its generic
-/// environment (e.g., `X` in within the scope of a function `fun foo<X>(...)`.
+/// A skolem type is a generic type parameter that has been existentially quantified within its
+/// generic environment (e.g., `X` in within the scope of a function `fun foo<X>(...)`.
 public final class SkolemType: ValType {
 
   init(context: Context, interface: ValType, genericEnv: GenericEnv) {
@@ -905,7 +905,7 @@ public final class SkolemType: ValType {
   /// The interface type of this skolem.
   public unowned let interface: ValType
 
-  /// The generic environment in which this skolem is existentially qunatified.
+  /// The generic environment in which this skolem is existentially quantified.
   public unowned let genericEnv: GenericEnv
 
   public override var uncontextualized: ValType { interface }
