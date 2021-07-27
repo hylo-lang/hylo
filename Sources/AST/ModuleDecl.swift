@@ -47,6 +47,11 @@ public final class ModuleDecl {
 
   /// Returns the extensions of the given type declaration.
   public func extensions(of decl: GenericTypeDecl) -> [TypeExtDecl] {
+    var dealiasedDecl = decl
+    while let alias = (dealiasedDecl as? AliasTypeDecl)?.aliasedDecl {
+      dealiasedDecl = alias
+    }
+
     var matches: [TypeExtDecl] = []
 
     // Loop through all extensions in the module, (partially) binding them if necessary.
@@ -56,7 +61,7 @@ public final class ModuleDecl {
 
       // The extension is already bound, so we can check if it's bound to `decl` directly.
       if ext.state >= .realized {
-        if decl === ext.extendedDecl {
+        if dealiasedDecl === ext.extendedDecl {
           matches.append(ext)
         }
         continue stmt
@@ -64,7 +69,7 @@ public final class ModuleDecl {
 
       // The extension isn't bound yet, so we need to realize to resolve its identifier.
       if ext.extendedIdent is UnqualTypeRepr {
-        if ext.extendedDecl === decl {
+        if ext.extendedDecl === dealiasedDecl {
           matches.append(ext)
         }
         continue stmt
@@ -80,7 +85,7 @@ public final class ModuleDecl {
 
       for i in 1 ..< compound.components.count {
         // The signature points within `decl`; we have to give up.
-        guard baseDecl !== decl else { continue stmt }
+        guard baseDecl !== dealiasedDecl else { continue stmt }
 
         // Realize the next component.
         let nextType = compound.components[i].realize(qualifiedIn: baseDecl, from: self)
@@ -89,7 +94,7 @@ public final class ModuleDecl {
       }
 
       // Check if the declaration to which the signature resolves is `decl`.
-      if baseDecl === decl {
+      if baseDecl === dealiasedDecl {
         matches.append(ext)
       }
     }

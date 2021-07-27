@@ -74,7 +74,7 @@ public protocol TypeOrValueDecl: Decl {
 }
 
 /// A type declaration.
-public protocol TypeDecl: TypeOrValueDecl, DeclSpace {
+public protocol TypeDecl: TypeOrValueDecl {
 
   /// The (unbound) type of instances of the declared type.
   ///
@@ -295,10 +295,10 @@ public class BaseGenericDecl: GenericDeclSpace {
 
     if let clause = genericClause {
       genericEnv = GenericEnv(
-        space: self,
-        params: clause.params.map({ $0.instanceType as! GenericParamType }),
+        space   : self,
+        params  : clause.params.map({ $0.instanceType as! GenericParamType }),
         typeReqs: clause.typeReqs,
-        context: type.context)
+        context : type.context)
       guard genericEnv != nil else {
         setState(.invalid)
         return nil
@@ -777,7 +777,7 @@ public class GenericTypeDecl: BaseGenericDecl, TypeDecl {
 
     // Populate the lookup table with members declared in extensions.
     for module in type.context.modules.values where module.generation > memberTablesGeneration {
-      for extDecl in extensions(in: module) {
+      for extDecl in module.extensions(of: self) {
         fill(members: extDecl.members)
       }
     }
@@ -796,34 +796,42 @@ public class GenericTypeDecl: BaseGenericDecl, TypeDecl {
     return []
   }
 
-  /// Returns the extensions of the declaration in the given module.
-  fileprivate func extensions(in module: ModuleDecl) -> [TypeExtDecl] {
-    return module.extensions(of: self)
-  }
-
   /// Fills the member lookup table with the given declarations.
   private func fill<S>(members: S) where S: Sequence, S.Element == Decl {
     for decl in members where decl.state != .invalid {
       switch decl {
-      case let valueDecl as ValueDecl:
-        _valueMemberTable[valueDecl.name, default: []].append(valueDecl)
+      case let decl as ValueDecl:
+        // FIXME: Handle invalid redeclarations of non-overloadable symbols.
+        _valueMemberTable[decl.name, default: []].append(decl)
 
-      case let pbDecl as PatternBindingDecl:
-        for pattern in pbDecl.pattern.namedPatterns {
+      case let decl as PatternBindingDecl:
+        // FIXME: Handle invalid redeclarations of non-overloadable symbols.
+        for pattern in decl.pattern.namedPatterns {
           _valueMemberTable[pattern.decl.name, default: []].append(pattern.decl)
         }
 
-      case let typeDecl as TypeDecl:
+      case let decl as TypeDecl:
         // Check for invalid redeclarations.
-        // FIXME: Shadow abstract type declarations inherited by conformance.
-        guard _typeMemberTable[typeDecl.name] == nil else {
-          type.context.report(
-            .duplicateDeclaration(symbol: typeDecl.name, range: typeDecl.range))
-          typeDecl.setState(.invalid)
-          continue
+        if let duplicate = _typeMemberTable[decl.name] {
+          // Types may not be overloaded. However, abstract type declarations inherited by view
+          // conformance must be shadowed in conforming types.
+          if duplicate is AbstractTypeDecl {
+            if !(decl is AbstractTypeDecl) {
+              // The new member is shadowing an abstract declaration from a conformed view.
+              _typeMemberTable[decl.name] = decl
+              continue
+            }
+          } else if decl is AbstractTypeDecl {
+            // The new member is an abstract declaration that's already been shadowed; we're done.
+            continue
+          }
+
+          type.context.report(.duplicateDeclaration(symbol: decl.name, range: decl.range))
+          decl.setState(.invalid)
         }
 
-        _typeMemberTable[typeDecl.name] = typeDecl
+        // No duplicate declaration.
+        _typeMemberTable[decl.name] = decl
 
       default:
         continue
@@ -1044,13 +1052,21 @@ public final class ProductTypeDecl: NominalTypeDecl {
 }
 
 /// A view type declaration.
+///
+/// A view declaration delimits a generic space with at least one type parameter `Self`, denoting
+/// its conforming type existentially, as well as additional parameters for each abstract type
+/// declared in the view. These are synthesized when the view's generic environment is prepared.
+///
+/// Conceptually, a view `V` has an implicit clause `<Self, A1, ... where Self: V, A1: Q1, ...>`,
+/// where `A1, ...` are `V`'s abstract types and `Q1, ....` are the views to which these abstract
+/// types conform.
 public final class ViewTypeDecl: NominalTypeDecl {
 
   /// The implicit declaration of the `Self` generic type parameter.
   public lazy var selfTypeDecl: GenericParamDecl = {
     let paramDecl = GenericParamDecl(
-      name: "Self",
-      type: type.context.unresolvedType,
+      name : "Self",
+      type : type.context.unresolvedType,
       range: range.lowerBound ..< range.lowerBound)
 
     paramDecl.parentDeclSpace = self
@@ -1069,36 +1085,40 @@ public final class ViewTypeDecl: NominalTypeDecl {
   public override func updateMemberTables() {
     super.updateMemberTables()
 
+    // Add the synthesized generic parameters to the type member table.
     if _typeMemberTable["Self"] == nil {
       _typeMemberTable["Self"] = selfTypeDecl
-    } else {
-      assert(_typeMemberTable["Self"] === selfTypeDecl)
     }
+
+    assert(_typeMemberTable["Self"] === selfTypeDecl)
   }
 
-  /// Prepares the generic environment of the view.
+  /// Prepares the view's generic environment.
   ///
-  /// This implementation overrides the default behavior for generic type and valur declarations.
-  ///
-  /// View declarations delimit a generic space with a unique generic type parameter `Self`, which
-  /// denotes conforming types existentially. `Self` is declared implicitly in a generic clause of
-  /// the form `<Self where Self: V>`, where `V` is the name of the declared view.
+  /// This method synthesize the type requirements on `Self` and completes the generic environment
+  /// with the abstract types declared in the view.
   public override func prepareGenericEnv() -> GenericEnv? {
     if let env = genericEnv { return env }
 
+    // Synthesize the requirement `Self: V`.
     let selfType = selfTypeDecl.instanceType as! GenericParamType
+    let selfReq  = TypeReq(
+      kind : .conformance,
+      lhs  : UnqualTypeRepr(name: "Self", type: selfType, range: selfTypeDecl.range),
+      rhs  : UnqualTypeRepr(name: name, type: instanceType, range: selfTypeDecl.range),
+      range: selfTypeDecl.range)
 
-    // Create the view's generic type requirements (i.e., `Self: V`).
-    let range = self.range.lowerBound ..< self.range.lowerBound
-    let req = TypeReq(
-      kind: .conformance,
-      lhs: UnqualTypeRepr(name: "Self", type: selfType, range: range),
-      rhs: UnqualTypeRepr(name: name, type: instanceType, range: range),
-      range: range)
+    // Collect the abstract types of the view.
+    let abstractTypes = members.compactMap({ decl in
+      (decl as? AbstractTypeDecl)?.instanceType as? GenericParamType
+    })
 
     // Create and return the view's generic environment.
     genericEnv = GenericEnv(
-      space: self, params: [selfType], typeReqs: [req], context: type.context)
+      space   : self,
+      params  : [selfType] + abstractTypes,
+      typeReqs: [selfReq],
+      context : type.context)
     return genericEnv
   }
 
@@ -1229,26 +1249,6 @@ public final class AliasTypeDecl: GenericTypeDecl {
     return results
   }
 
-  fileprivate override func extensions(in module: ModuleDecl) -> [TypeExtDecl] {
-    if let decl = aliasedDecl {
-      return decl.extensions(in: module)
-    } else {
-      return module.extensions(of: self)
-    }
-  }
-
-  public override func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
-    return visitor.visit(self)
-  }
-
-}
-
-/// An abstract type declaration.
-public final class AbstractTypeDecl: NominalTypeDecl {
-
-  /// The type requirements of the abstract type.
-  public var typeReqs: [TypeReq] = []
-
   public override func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
@@ -1256,7 +1256,17 @@ public final class AbstractTypeDecl: NominalTypeDecl {
 }
 
 /// The declaration of a generic parameter.
-public final class GenericParamDecl: TypeDecl {
+public class GenericParamDecl: TypeDecl {
+
+  public final var range: SourceRange
+
+  public final var parentDeclSpace: DeclSpace?
+
+  public final var state = DeclState.parsed
+
+  public final var type: ValType
+
+  public final var name: String
 
   public init(name: String, type: ValType, range: SourceRange) {
     self.name = name
@@ -1264,28 +1274,32 @@ public final class GenericParamDecl: TypeDecl {
     self.range = range
   }
 
-  public var name: String
+  public final var isOverloadable: Bool { false }
 
-  public var range: SourceRange
-
-  public weak var parentDeclSpace: DeclSpace?
-
-  public var isOverloadable: Bool { false }
-
-  public func lookup(qualified name: String) -> LookupResult {
-    return LookupResult()
-  }
-
-  public private(set) var state = DeclState.realized
-
-  public func setState(_ newState: DeclState) {
+  public final func setState(_ newState: DeclState) {
     assert(newState >= state)
     state = newState
   }
 
-  public var type: ValType
-
   public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
+    return visitor.visit(self)
+  }
+
+}
+
+/// The declaration of an abstract type in a view.
+public final class AbstractTypeDecl: GenericParamDecl {
+
+  /// The views to which the abstract type conforms.
+  public var inheritances: [TypeRepr] = []
+
+  /// The type requirements associated with the abstract type.
+  ///
+  /// Type requirements are not scoped by the declaration. They apply globally on all abstract
+  /// types declared within the view declaration.
+  public var typeReqs: [TypeReq] = []
+
+  public override func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
 

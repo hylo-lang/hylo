@@ -145,7 +145,7 @@ extension Diagnostic {
       "view conformance requirement to non-view type '\(type)'", anchor: range)
   }
 
-  public static func conformanceRequiresMissingImplementation(
+  public static func conformanceRequiresMatchingImplementation(
     view: String, requirement: String, range: SourceRange
   ) -> Diagnostic {
     return Diagnostic(

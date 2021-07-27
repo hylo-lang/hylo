@@ -255,7 +255,6 @@ open class NodeWalker: NodeVisitor {
     switch node {
     case let decl as ProductTypeDecl  : return visit(decl)
     case let decl as ViewTypeDecl     : return visit(decl)
-    case let decl as AbstractTypeDecl : return visit(decl)
     default: fatalError("unreachable")
     }
   }
@@ -337,10 +336,8 @@ open class NodeWalker: NodeVisitor {
   public final func visit(_ node: AbstractTypeDecl) -> Bool {
     let prevParent = parent
     parent = node
-    innermostSpace = node
     defer {
       parent = prevParent
-      innermostSpace = innermostSpace?.parentDeclSpace
     }
 
     for i in 0 ..< node.inheritances.count {

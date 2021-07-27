@@ -12,7 +12,7 @@ struct DeclChecker: DeclVisitor {
 
     var isWellFormed = true
     for decl in node {
-      isWellFormed = isWellFormed && decl.accept(self)
+      isWellFormed = decl.accept(self) && isWellFormed
     }
 
     node.setState(isWellFormed ? .typeChecked : .invalid)
@@ -114,7 +114,7 @@ struct DeclChecker: DeclVisitor {
   func visit(_ node: BaseFunDecl) -> Bool {
     guard node.state < .typeChecked else { return handleCheckState(node) }
 
-    // Realize the function's signature. Note that we use the checker's 'contextualize' method, to
+    // Realize the function's signature. The call to `TypeChecker.contextualize` only serves to
     // handle synthesized declarations that require type checking (e.g., constructors).
     _ = TypeChecker.contextualize(decl: node, from: node.rootDeclSpace)
     node.setState(.typeCheckRequested)
@@ -168,58 +168,77 @@ struct DeclChecker: DeclVisitor {
     // Type check the type's direct members.
     node.updateMemberTables()
     for member in node.members {
-      isWellFormed = isWellFormed && member.accept(self)
+      isWellFormed = member.accept(self) && isWellFormed
     }
 
-    // Type check the type's conformances.
     let receiverType = node.receiverType
-    for var conformance in node.conformanceTable.values {
-      // Retrieve the view's `Self` generic parameter.
-      let viewReceiverType = conformance.viewDecl.receiverType as! GenericParamType
+    let context = node.type.context
 
-      // Identify each requirement's implementation.
+    // Type check the type's conformances.
+    for var conformance in node.conformanceTable.values {
       var satisfied = true
+
+      // Build a substitution table mapping the view's generic type parameters to their
+      // specialization in the conforming type.
+      let viewReceiverType = conformance.viewDecl.receiverType as! GenericParamType
+      var substitutions = [viewReceiverType: receiverType]
+
+      // Verify that abstract type requirements are satisfied.
+      for case let req as AbstractTypeDecl in conformance.viewDecl.typeMemberTable.values {
+        // Look for a declaration in the type member table that shadows the abstract requirement.
+        guard let member = node.typeMemberTable[req.name],
+              member.state != .invalid,
+              !(member is AbstractTypeDecl)
+        else {
+          context.report(
+            .conformanceRequiresMatchingImplementation(
+              view: conformance.viewDecl.name,
+              requirement: req.name,
+              range: conformance.range ?? (node.range.lowerBound ..< node.range.lowerBound)))
+          satisfied = false
+          continue
+        }
+
+        // Register the type member as a substitution for the abstract requirement.
+        substitutions[req.instanceType as! GenericParamType] = member.instanceType
+      }
+
+      // Verify that value member requirements are satisfied.
       for (name, reqs) in conformance.viewDecl.valueMemberTable {
         for req in reqs {
-          let reqParams: [GenericParamType]
-          if let env = (req as? GenericDeclSpace)?.genericEnv {
-            reqParams = env.params
-          } else {
-            reqParams = []
-          }
+          // FIXME: Skip requirements that have a default implementation.
 
+          // Gather the generic parameters of the requirement.
+          let reqParams = (req as? GenericDeclSpace)?.genericEnv?.params ?? []
+
+          // Search for a valid candidate.
           let candidates = node.lookup(qualified: name).values.filter({ (decl) -> Bool in
             // Skip the requirement itself.
             guard req !== decl else { return false }
 
-            // Discard the candidate if it's not the same kind of construct. This prevents a method
-            // requirement to be fulfilled with a property, and vice versa.
+            // Discard the candidate if it's not the same kind of construct, preventing a method
+            // requirement from being fulfilled by a property, or vice versa.
             guard (req is BaseFunDecl) && (decl is BaseFunDecl) ||
-                  (req is VarDecl) && (decl is VarDecl)
+                  (req is VarDecl)     && (decl is VarDecl)
             else { return false }
 
             // Discard the candidate if it doesn't have the same number of generic arguments.
-            let declParams: [GenericParamType]
-            if let env = (decl as? GenericDeclSpace)?.genericEnv {
-              declParams = env.params
-            } else {
-              declParams = []
-            }
+            let declParams = (decl as? GenericDeclSpace)?.genericEnv?.params ?? []
             guard reqParams.count == declParams.count else { return false }
 
-            // Check if the type of the requirement matches that of the candidate, modulo a
-            // substition of its generic type parameters.
-            var subst = [viewReceiverType: receiverType]
-            subst.merge(zip(reqParams, declParams), uniquingKeysWith: { lhs, _ in lhs })
+            // Substitute the generic parameters of the requirement with that of the candidate.
+            let subst = substitutions.merging(disjointKeysWithValues: zip(reqParams, declParams))
+            let reqType = req.type.specialized(with: subst)
 
-            return req.type.specialized(with: subst) == decl.type
+            // Select the candidate if its type matches that of the requirement.
+            return reqType.dealiased == decl.type.dealiased
           })
 
           if candidates.count == 1 {
             conformance.entries.append((req, candidates[0]))
           } else {
-            node.type.context.report(
-              .conformanceRequiresMissingImplementation(
+            context.report(
+              .conformanceRequiresMatchingImplementation(
                 view: conformance.viewDecl.name,
                 requirement: req.name,
                 range: conformance.range ?? (node.range.lowerBound ..< node.range.lowerBound)))
@@ -233,7 +252,7 @@ struct DeclChecker: DeclVisitor {
         ? .checked
         : .invalid
       node.conformanceTable[conformance.viewType] = conformance
-      isWellFormed = isWellFormed && satisfied
+      isWellFormed = satisfied && isWellFormed
     }
 
     node.setState(isWellFormed ? .typeChecked : .invalid)
@@ -254,7 +273,7 @@ struct DeclChecker: DeclVisitor {
     // Type-check the type's members.
     node.updateMemberTables()
     for member in node.members {
-      isWellFormed = isWellFormed && member.accept(self)
+      isWellFormed = member.accept(self) && isWellFormed
     }
 
     node.setState(isWellFormed ? .typeChecked : .invalid)
@@ -262,11 +281,15 @@ struct DeclChecker: DeclVisitor {
   }
 
   func visit(_ node: AliasTypeDecl) -> Bool {
+    guard node.state < .typeChecked else { return handleCheckState(node) }
+
     // Realize the aliased type.
-    _ = node.realizeAliasedType()
+    if node.state < .realizationRequested {
+      node.setState(.realizationRequested)
+      _ = node.realizeAliasedType()
+    }
 
     // Initiate type checking.
-    guard node.state < .typeChecked else { return handleCheckState(node) }
     node.setState(.typeCheckRequested)
 
     // Initialize the type's generic environment.
@@ -282,7 +305,15 @@ struct DeclChecker: DeclVisitor {
   }
 
   func visit(_ node: AbstractTypeDecl) -> Bool {
-    fatalError("not implemented")
+    guard node.state < .typeChecked else { return handleCheckState(node) }
+    node.setState(.typeCheckRequested)
+
+    // FIXME: Handle type requirements.
+    // FIXME: Warn or complain about conformances added through type requirements rather than in
+    // the inheritance clause (e.g., type E where E: V)
+
+    node.setState(.typeChecked)
+    return true
   }
 
   func visit(_ node: GenericParamDecl) -> Bool {
@@ -300,7 +331,7 @@ struct DeclChecker: DeclVisitor {
     node.setState(.typeCheckRequested)
     var isWellFormed = true
     for member in node.members {
-      isWellFormed = isWellFormed && member.accept(self)
+      isWellFormed = member.accept(self) && isWellFormed
     }
 
     node.setState(isWellFormed ? .typeChecked : .invalid)

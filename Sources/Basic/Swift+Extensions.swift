@@ -41,3 +41,21 @@ extension Array where Element: Comparable {
   }
 
 }
+
+extension Dictionary {
+
+  /// Creates a dictionary by merging key-value pairs in a sequence into the dictionary.
+  ///
+  /// - Parameter keysAndValues: A sequence of key-value pairs.
+  public func merging<S>(disjointKeysWithValues keysAndValues: S) -> Dictionary
+  where S: Sequence, S.Element == (Key, Value)
+  {
+    var d = self
+    for (key, value) in keysAndValues {
+      precondition(d[key] == nil, "duplicate key '\(key)'")
+      d[key] = value
+    }
+    return d
+  }
+
+}

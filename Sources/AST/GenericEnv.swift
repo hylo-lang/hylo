@@ -221,23 +221,21 @@ fileprivate final class Contextualizer: TypeWalker {
         : .stepOver(type)
     }
 
-    guard env.params.contains(param) else {
-      let gds = env.space.parentDeclSpace!.innermostGenericSpace!
-      guard let parentEnv = gds.prepareGenericEnv() else {
+    // Search the environment that defines the current generic parameter.
+    var definingEnv = env
+    while !definingEnv.params.contains(param) {
+      let parentDeclSpace = definingEnv.space.parentDeclSpace
+      let parentGenericSpace = parentDeclSpace?.innermostGenericSpace
+      guard let parentEnv = parentGenericSpace?.prepareGenericEnv() else {
         return .stepOver(param.context.errorType)
       }
-
-      let childEnv = env
-      env = parentEnv
-      guard case .stepOver(let walked) = willVisit(type) else { fatalError("unreachable") }
-      env = childEnv
-      return .stepOver(walked)
+      definingEnv = parentEnv
     }
 
-    if env.isContained(useSite: useSite) {
+    if definingEnv.isContained(useSite: useSite) {
       // The generic parameter is being referred to internally, so it must be susbstituted by a
       // skolem type.
-      let skolem = env.skolemize(param)
+      let skolem = definingEnv.skolemize(param)
       return .stepOver(skolem)
     } else {
       // The generic parameter is being referred to externally, so it must be substituted by a

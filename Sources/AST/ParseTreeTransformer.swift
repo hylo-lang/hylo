@@ -296,14 +296,11 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
   public override func visitAbstractTypeDecl(_ ctx: ValParser.AbstractTypeDeclContext) -> Any {
     // Create the declaration.
     let decl = AbstractTypeDecl(
-      name: ctx.NAME()!.getText(),
-      type: unresolvedType,
+      name : ctx.NAME()!.getText(),
+      type : unresolvedType,
       range: range(of: ctx))
-
-    // Update the current decl space.
     decl.parentDeclSpace = currentSpace
-    currentSpace = decl
-    defer { currentSpace = decl.parentDeclSpace }
+    decl.type = context.genericParamType(decl: decl).kind
 
     /// Visit the declaration's inheriance and requirement clauses.
     if let clause = ctx.inheritanceClause() {
@@ -319,7 +316,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
   public override func visitViewTypeDecl(_ ctx: ValParser.ViewTypeDeclContext) -> Any {
     // Create the declaration.
     let decl = ViewTypeDecl(
-      name: ctx.NAME()!.getText(),
+      name : ctx.NAME()!.getText(),
       type : unresolvedType,
       range: range(of: ctx))
     decl.type = context.viewType(decl: decl).kind

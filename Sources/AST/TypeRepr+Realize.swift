@@ -31,6 +31,11 @@ extension ComponentTypeRepr {
   ///
   /// - Parameter typeDecl: The declaration of the type that qualifies the component.
   public func resolve(qualifiedIn typeDecl: TypeDecl) -> TypeDecl? {
+    // FIXME: Handle other type declarations.
+    guard let typeDecl = typeDecl as? NominalTypeDecl else {
+      fatalError("not implemented")
+    }
+
     let matches = typeDecl.lookup(qualified: name).types
     guard !matches.isEmpty else {
       return nil
@@ -190,7 +195,7 @@ fileprivate func realize(_ typeRepr: CompoundTypeRepr, from useSite: DeclSpace) 
   }
 
   for i in 1 ..< components.count {
-    let componentType = components[0].realize(qualifiedIn: baseDecl, from: useSite)
+    let componentType = components[i].realize(qualifiedIn: baseDecl, from: useSite)
     guard componentType !== context.errorType else {
       components[i...].forEach({ $0.type = context.errorType })
       return context.errorType
