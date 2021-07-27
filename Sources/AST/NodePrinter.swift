@@ -28,23 +28,25 @@ public struct NodePrinter: NodeVisitor {
   public func encode(_ clause: GenericClause?) -> String {
     guard let clause = clause else { return "null" }
 
-    var reqs: [String] = []
-    for req in clause.typeReqs {
-      reqs.append("""
+    return """
+    {
+    "params"  : \(encode(clause.params)),
+    "typeReqs": \(encode(clause.typeReqs))
+    }
+    """
+  }
+
+  func encode(_ typeReqs: [TypeReq]) -> String {
+    let reqs: [String] = typeReqs.reduce(into: [], { result, req in
+      result.append("""
       {
       "kind": "\(req.kind)",
       "lhs" : \(encode(req.lhs)),
       "rhs" : \(encode(req.rhs))
       }
       """)
-    }
-
-    return """
-    {
-    "params"  : \(encode(clause.params)),
-    "typeReqs": [\(reqs.joined(separator: ", "))]
-    }
-    """
+    })
+    return "[\(reqs.joined(separator: ", "))]"
   }
 
   func encode(_ string: String?) -> String {
@@ -248,7 +250,11 @@ public struct NodePrinter: NodeVisitor {
   public func visit(_ node: AbstractTypeDecl) -> String {
     return """
     {
-    \(typeDeclHeader(node))
+    "class"           : "\(type(of: node))",
+    "range"           : \(encode(node.range)),
+    "name"            : \(encode(node.name)),
+    "inheritances"    : \(encode(node.name)),
+    "typeReqs"        : \(encode(node.typeReqs))
     }
     """
   }
