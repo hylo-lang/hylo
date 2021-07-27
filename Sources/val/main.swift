@@ -16,6 +16,9 @@ struct ValCommand: ParsableCommand {
   @Option(help: "The location Val's runtime environment.", transform: URL.init(fileURLWithPath:))
   var home = ValCommand.home
 
+  @Flag(help: "Do not load the standard library.")
+  var noStdlib = false
+
   @Flag(help: "Parse input file(s) and dump AST(s), before semantic analyis.")
   var dumpRawAST = false
 
@@ -31,7 +34,9 @@ struct ValCommand: ParsableCommand {
     driver.context.diagnosticConsumer = Terminal(sourceManager: driver.context.sourceManager)
 
     // Load the standard library.
-    try driver.loadStdLib()
+    if !noStdlib {
+      try driver.loadStdLib()
+    }
 
     // Load the given input files as a module.
     if !input.isEmpty {
