@@ -1107,16 +1107,35 @@ public final class ViewTypeDecl: NominalTypeDecl {
       rhs  : UnqualIdentSign(name: name, type: instanceType, range: selfTypeDecl.range),
       range: selfTypeDecl.range)
 
-    // Collect the abstract types of the view.
-    let abstractTypes = members.compactMap({ decl in
-      (decl as? AbstractTypeDecl)?.instanceType as? GenericParamType
-    })
+    // Collect the abstract types of the view, and their requirements.
+    var abstractTypes: [GenericParamType] = []
+    var abstractReqs: [TypeReq] = []
+
+    for case let decl as AbstractTypeDecl in members {
+      // The declaration should have a generic parameter type.
+      guard let type = decl.instanceType as? GenericParamType else {
+        assert(decl.state == .invalid)
+        continue
+      }
+      abstractTypes.append(type)
+
+      // Desugar the inheritance clause as regular type requirements.
+      let inheritanceReqs = decl.inheritances.map({ (sign) -> TypeReq in
+        TypeReq(
+          kind : .conformance,
+          lhs  : UnqualIdentSign(name: decl.name, type: type, range: decl.range),
+          rhs  : sign,
+          range: sign.range)
+      })
+      abstractReqs.append(contentsOf: inheritanceReqs)
+      abstractReqs.append(contentsOf: decl.typeReqs)
+    }
 
     // Create and return the view's generic environment.
     genericEnv = GenericEnv(
       space   : self,
       params  : [selfType] + abstractTypes,
-      typeReqs: [selfReq],
+      typeReqs: [selfReq] + abstractReqs,
       context : type.context)
     return genericEnv
   }
