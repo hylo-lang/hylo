@@ -16,7 +16,7 @@ public struct NodePrinter: NodeVisitor {
     case let n as Stmt    : return n.accept(self)
     case let n as Expr    : return n.accept(self)
     case let n as Pattern : return n.accept(self)
-    case let n as TypeRepr: return n.accept(self)
+    case let n as Sign: return n.accept(self)
     default               : return "null"
     }
   }
@@ -101,7 +101,7 @@ public struct NodePrinter: NodeVisitor {
     """
   }
 
-  func typeReprHeader<N>(_ node: N) -> String where N: TypeRepr {
+  func signHeader<N>(_ node: N) -> String where N: Sign {
     return """
     "class"           : "\(type(of: node))",
     "range"           : \(encode(node.range)),
@@ -565,7 +565,7 @@ public struct NodePrinter: NodeVisitor {
     """
   }
 
-  public func visit(_ node: TupleTypeRepr) -> String {
+  public func visit(_ node: TupleSign) -> String {
     let elems = node.elems.map({ elem in
       """
       {
@@ -578,81 +578,81 @@ public struct NodePrinter: NodeVisitor {
 
     return """
     {
-    \(typeReprHeader(node)),
+    \(signHeader(node)),
     "elems"           : [\(elems)]
     }
     """
   }
 
-  public func visit(_ node: FunTypeRepr) -> String {
+  public func visit(_ node: FunSign) -> String {
     return """
     {
-    \(typeReprHeader(node)),
+    \(signHeader(node)),
     "paramSign"       : \(node.paramSign.accept(self)),
     "retSign  "       : \(node.retSign.accept(self)),
     }
     """
   }
 
-  public func visit(_ node: AsyncTypeRepr) -> String {
+  public func visit(_ node: AsyncSign) -> String {
     return """
     {
-    \(typeReprHeader(node)),
+    \(signHeader(node)),
     "base"            : \(node.base.accept(self))
     }
     """
   }
 
-  public func visit(_ node: InoutTypeRepr) -> String {
+  public func visit(_ node: InoutSign) -> String {
     return """
     {
-    \(typeReprHeader(node)),
+    \(signHeader(node)),
     "base"            : \(node.base.accept(self))
     }
     """
   }
 
-  public func visit(_ node: UnionTypeRepr) -> String {
+  public func visit(_ node: UnionSign) -> String {
     return """
     {
-    \(typeReprHeader(node)),
+    \(signHeader(node)),
     "elems"           : \(encode(node.elems))
     }
     """
   }
 
-  public func visit(_ node: ViewCompTypeRepr) -> String {
+  public func visit(_ node: ViewCompSign) -> String {
     return """
     {
-    \(typeReprHeader(node)),
+    \(signHeader(node)),
     "views"           : \(encode(node.views))
     }
     """
   }
 
-  public func visit(_ node: UnqualTypeRepr) -> String {
+  public func visit(_ node: UnqualIdentSign) -> String {
     return """
     {
-    \(typeReprHeader(node)),
+    \(signHeader(node)),
     "name"            : "\(node.name)"
     }
     """
   }
 
-  public func visit(_ node: SpecializedTypeRepr) -> String {
+  public func visit(_ node: SpecializedIdentSign) -> String {
     return """
     {
-    \(typeReprHeader(node)),
+    \(signHeader(node)),
     "name"            : "\(node.name)",
     "args"            : \(encode(node.args))
     }
     """
   }
 
-  public func visit(_ node: CompoundTypeRepr) -> String {
+  public func visit(_ node: CompoundIdentSign) -> String {
     return """
     {
-    \(typeReprHeader(node)),
+    \(signHeader(node)),
     "components"      : \(encode(node.components))
     }
     """

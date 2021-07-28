@@ -56,7 +56,7 @@ struct TRSolver {
     var success = true
 
     for req in typeReqs where req.kind == .equality {
-      // Realize each operand's type representation.
+      // Realize each operand's signature.
       let lhs = req.lhs.realize(unqualifiedFrom: useSite)
       let rhs = req.rhs.realize(unqualifiedFrom: useSite)
 

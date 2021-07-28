@@ -13,26 +13,41 @@ fileprivate typealias SkolemKey = HashableBox<SkolemType, ReferenceHashWitness<S
 /// fresh type variable.
 public final class GenericEnv {
 
-  public init(space: GenericDeclSpace) {
-    self.space = space
-    self.params = []
-    self.typeReqs = []
-  }
+  /// A prototype of a constraint on an opened generic parameter, described by a type requirement.
+  public struct ConstraintPrototype {
 
-  public init?(
-    space   : GenericDeclSpace,
-    params  : [GenericParamType],
-    typeReqs: [TypeReq],
-    context : Context
-  ) {
-    self.space = space
-    self.params = params
-    self.typeReqs = typeReqs
+    public enum Kind {
 
-    // Initialize semantic properties.
-    let prepare = context.prepareGenericEnv
-    precondition(prepare != nil, "no generic environment delegate")
-    guard prepare!(self) else { return nil }
+      /// The two types must be equal.
+      case equality
+
+      /// The left side must conform to the right side.
+      case conformance
+
+    }
+
+    /// The kind of contraint described by the prototype.
+    public let kind: Kind
+
+    /// The constraint's left operand.
+    public let lhs: ValType
+
+    /// The constraint's right operand.
+    public let rhs: ValType
+
+    fileprivate func contextualized(with contextualizer: Contextualizer) -> ConstraintPrototype {
+      return ConstraintPrototype(
+        kind: kind, lhs: contextualizer.walk(lhs), rhs: contextualizer.walk(rhs))
+    }
+
+    public static func equality(lhs: ValType, rhs: ValType) -> ConstraintPrototype {
+      ConstraintPrototype(kind: .equality, lhs: lhs, rhs: rhs)
+    }
+
+    public static func conformance(lhs: ValType, rhs: ViewType) -> ConstraintPrototype {
+      ConstraintPrototype(kind: .conformance, lhs: lhs, rhs: rhs)
+    }
+
   }
 
   /// The declaration space to which the environment is attached.
@@ -65,6 +80,28 @@ public final class GenericEnv {
   /// - Note: This property is initialized by the type checker.
   /// - SeeAlso: `Context.prepareGenericEnv`
   private var conformanceTables: [SkolemKey: [ViewConformance]] = [:]
+
+  public init(space: GenericDeclSpace) {
+    self.space = space
+    self.params = []
+    self.typeReqs = []
+  }
+
+  public init?(
+    space   : GenericDeclSpace,
+    params  : [GenericParamType],
+    typeReqs: [TypeReq],
+    context : Context
+  ) {
+    self.space = space
+    self.params = params
+    self.typeReqs = typeReqs
+
+    // Initialize semantic properties.
+    let prepare = context.prepareGenericEnv
+    precondition(prepare != nil, "no generic environment delegate")
+    guard prepare!(self) else { return nil }
+  }
 
   /// The set of conformances for the given skolem type.
   public func conformances(of type: SkolemType) -> [ViewConformance]? {
@@ -158,51 +195,9 @@ public final class GenericEnv {
     return parentEnv.skolemize(param)
   }
 
-  /// A prototype of a constraint on an opened generic parameter, described by a type requirement.
-  public struct ConstraintPrototype {
-
-    /// The kind of contraint described by the prototype.
-    public let kind: Kind
-
-    /// The constraint's left operand.
-    public let lhs: ValType
-
-    /// The constraint's right operand.
-    public let rhs: ValType
-
-    fileprivate func contextualized(with contextualizer: Contextualizer) -> ConstraintPrototype {
-      return ConstraintPrototype(
-        kind: kind, lhs: contextualizer.walk(lhs), rhs: contextualizer.walk(rhs))
-    }
-
-    public static func equality(lhs: ValType, rhs: ValType) -> ConstraintPrototype {
-      ConstraintPrototype(kind: .equality, lhs: lhs, rhs: rhs)
-    }
-
-    public static func conformance(lhs: ValType, rhs: ViewType) -> ConstraintPrototype {
-      ConstraintPrototype(kind: .conformance, lhs: lhs, rhs: rhs)
-    }
-
-    public enum Kind {
-
-      /// The two types must be equal.
-      case equality
-
-      /// The left side must conform to the right side.
-      case conformance
-
-    }
-
-  }
-
 }
 
 fileprivate final class Contextualizer: TypeWalker {
-
-  init(env: GenericEnv, useSite: DeclSpace) {
-    self.env = env
-    self.useSite = useSite
-  }
 
   /// The generic environment for which the type walked type is begin contextualized.
   unowned var env: GenericEnv
@@ -213,6 +208,11 @@ fileprivate final class Contextualizer: TypeWalker {
   /// The substitution table keeping track of the type variables that were used to open each
   /// specific generic type parameter.
   var substitutions: [GenericParamType: TypeVar] = [:]
+
+  init(env: GenericEnv, useSite: DeclSpace) {
+    self.env = env
+    self.useSite = useSite
+  }
 
   override func willVisit(_ type: ValType) -> TypeWalker.Action {
     guard let param = type as? GenericParamType else {

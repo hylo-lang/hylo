@@ -1,10 +1,10 @@
 /// Base protocol for types implementing exhaustive AST visitation.
-public protocol NodeVisitor: DeclVisitor, StmtVisitor, ExprVisitor, PatternVisitor, TypeReprVisitor
+public protocol NodeVisitor: DeclVisitor, StmtVisitor, ExprVisitor, PatternVisitor, SignVisitor
 where Result == DeclResult,
       Result == StmtResult,
       Result == ExprResult,
       Result == PatternResult,
-      Result == TypeReprResult
+      Result == SignResult
 {
 
   associatedtype Result
@@ -19,7 +19,7 @@ extension NodeVisitor {
     case let s as Stmt    : return s.accept(self)
     case let e as Expr    : return e.accept(self)
     case let p as Pattern : return p.accept(self)
-    case let t as TypeRepr: return t.accept(self)
+    case let t as Sign    : return t.accept(self)
     default: fatalError("unreachable")
     }
   }
@@ -142,27 +142,27 @@ public protocol PatternVisitor {
 
 }
 
-/// Base protocol for types visiting type representation nodes.
-public protocol TypeReprVisitor {
+/// Base protocol for types visiting type signature nodes.
+public protocol SignVisitor {
 
-  associatedtype TypeReprResult
+  associatedtype SignResult
 
-  func visit(_ node: TupleTypeRepr) -> TypeReprResult
+  func visit(_ node: TupleSign) -> SignResult
 
-  func visit(_ node: FunTypeRepr) -> TypeReprResult
+  func visit(_ node: FunSign) -> SignResult
 
-  func visit(_ node: AsyncTypeRepr) -> TypeReprResult
+  func visit(_ node: AsyncSign) -> SignResult
 
-  func visit(_ node: InoutTypeRepr) -> TypeReprResult
+  func visit(_ node: InoutSign) -> SignResult
 
-  func visit(_ node: UnionTypeRepr) -> TypeReprResult
+  func visit(_ node: UnionSign) -> SignResult
 
-  func visit(_ node: ViewCompTypeRepr) -> TypeReprResult
+  func visit(_ node: ViewCompSign) -> SignResult
 
-  func visit(_ node: UnqualTypeRepr) -> TypeReprResult
+  func visit(_ node: UnqualIdentSign) -> SignResult
 
-  func visit(_ node: SpecializedTypeRepr) -> TypeReprResult
+  func visit(_ node: SpecializedIdentSign) -> SignResult
 
-  func visit(_ node: CompoundTypeRepr) -> TypeReprResult
+  func visit(_ node: CompoundIdentSign) -> SignResult
 
 }

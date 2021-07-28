@@ -10,14 +10,11 @@ import Basic
 /// entities.
 public final class ModuleDecl {
 
-  public init(name: String, generation: Int, context: Context) {
-    self.name = name
-    self.generation = generation
-    self.type = context.unresolvedType
-    self.type = ModuleType(context: context, module: self).kind
-  }
+  public private(set) var state = DeclState.realized
 
   public var name: String
+
+  public private(set) var type: ValType
 
   /// The generation number of the module.
   public let generation: Int
@@ -28,21 +25,21 @@ public final class ModuleDecl {
   /// The file units in the module.
   public var units: [FileUnit] = []
 
-  /// The type of the module.
-  ///
-  /// This is set directly within the module's constructor.
-  public private(set) var type: ValType
-
-  public private(set) var state = DeclState.realized
-
-  public func setState(_ newState: DeclState) {
-    assert(newState.rawValue >= state.rawValue)
-    state = newState
+  public init(name: String, generation: Int, context: Context) {
+    self.name = name
+    self.generation = generation
+    self.type = context.unresolvedType
+    self.type = ModuleType(context: context, module: self).kind
   }
 
   public var parentDeclSpace: DeclSpace? {
     get { nil }
     set { precondition(newValue == nil) }
+  }
+
+  public func setState(_ newState: DeclState) {
+    assert(newState.rawValue >= state.rawValue)
+    state = newState
   }
 
   /// Returns the extensions of the given type declaration.
@@ -68,18 +65,18 @@ public final class ModuleDecl {
       }
 
       // The extension isn't bound yet, so we need to realize to resolve its identifier.
-      if ext.extendedIdent is UnqualTypeRepr {
+      if ext.extendedIdent is UnqualIdentSign {
         if ext.extendedDecl === dealiasedDecl {
           matches.append(ext)
         }
         continue stmt
       }
 
-      // If the identifier is a `CompoundTypeRepr`, we can't realize the full signature at once,
+      // If the identifier is a `CompoundIdentSign`, we can't realize the full signature at once,
       // as we may risk to trigger infinite recursion of name lookups if the signature points
       // within `decl`. Instead, we must realize it lazily and abort if we detect that we're
       // about to start a lookup from `decl`.
-      let compound = ext.extendedIdent as! CompoundTypeRepr
+      let compound = ext.extendedIdent as! CompoundIdentSign
       let baseType = compound.components[0].realize(unqualifiedFrom: self)
       guard var baseDecl = (baseType as? NominalType)?.decl else { continue stmt }
 

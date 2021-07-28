@@ -108,24 +108,24 @@ public protocol ValueDecl: TypeOrValueDecl {
 /// A module import declaration.
 public final class ImportDecl: Decl {
 
+  public var range: SourceRange
+
+  public weak var parentDeclSpace: DeclSpace?
+
+  public var state = DeclState.parsed
+
+  /// The name of the module being imported.
+  public var name: String
+
   public init(name: String, range: SourceRange) {
     self.name = name
     self.range = range
   }
 
-  /// The name of the module being imported.
-  public var name: String
-
-  public var parentDeclSpace: DeclSpace?
-
-  public var state = DeclState.parsed
-
   public func setState(_ newState: DeclState) {
     assert(newState >= state)
     state = newState
   }
-
-  public var range: SourceRange
 
   public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
@@ -137,21 +137,11 @@ public final class ImportDecl: Decl {
 /// in this pattern.
 public final class PatternBindingDecl: Decl {
 
-  public init(
-    isMutable   : Bool,
-    pattern     : Pattern,
-    sign        : TypeRepr?,
-    initializer : Expr?,
-    keywordRange: SourceRange,
-    range       : SourceRange
-  ) {
-    self.isMutable = isMutable
-    self.pattern = pattern
-    self.sign = sign
-    self.initializer = initializer
-    self.keywordRange = keywordRange
-    self.range = range
-  }
+  public var range: SourceRange
+
+  public weak var parentDeclSpace: DeclSpace?
+
+  public var state = DeclState.parsed
 
   /// A flag indicating whether the declared variables are mutable.
   public var isMutable: Bool
@@ -165,7 +155,7 @@ public final class PatternBindingDecl: Decl {
   public var varDecls: [VarDecl] = []
 
   /// The signature of the pattern.
-  public var sign: TypeRepr?
+  public var sign: Sign?
 
   /// The initializer for the variables declared by the pattern.
   public var initializer: Expr?
@@ -173,11 +163,21 @@ public final class PatternBindingDecl: Decl {
   /// The source range of the `val` or `var` keyword at the start of the declaration.
   public var keywordRange: SourceRange
 
-  public var range: SourceRange
-
-  public weak var parentDeclSpace: DeclSpace?
-
-  public private(set) var state = DeclState.parsed
+  public init(
+    isMutable   : Bool,
+    pattern     : Pattern,
+    sign        : Sign?,
+    initializer : Expr?,
+    keywordRange: SourceRange,
+    range       : SourceRange
+  ) {
+    self.isMutable = isMutable
+    self.pattern = pattern
+    self.sign = sign
+    self.initializer = initializer
+    self.keywordRange = keywordRange
+    self.range = range
+  }
 
   /// A flag indicating whether the declaration describes member variables.
   public var isMember: Bool {
@@ -197,26 +197,26 @@ public final class PatternBindingDecl: Decl {
 
 /// A variable declaration.
 ///
-/// Variable declarations not top-level AST nodes. Instead, they result from constructions that
-/// bind named patterns. For instance, `val foo = 1` tanslates as a pattern binding declaration,
-/// which binds a name pattern to an expression, hence involving a variable declaration for the
-/// name `foo`.
+/// Variable declarations are not top-level AST nodes. Instead, they result from constructions that
+/// bind named patterns. For instance, `val (foo, bar) = f()` is parsed as a declaration that binds
+/// a tuple pattern to an expression. The tuple pattern contains two variable declarations, one for
+/// each named pattern.
 public final class VarDecl: ValueDecl {
 
-  public init(name: String, type: ValType, range: SourceRange) {
-    self.name = name
-    self.type = type
-    self.range = range
-  }
+  public var range: SourceRange
+
+  public weak var parentDeclSpace: DeclSpace?
+
+  public var state = DeclState.parsed
 
   public var name: String
+
+  public var type: ValType
 
   /// The pattern binding declaration that introduces this variable declaration, if any.
   ///
   /// This is `nil` if the variable being declared is introduced by a match case statement.
   public weak var patternBindingDecl: PatternBindingDecl?
-
-  public var range: SourceRange
 
   /// The backend of the variable.
   public var backend = VarBackend.storage
@@ -227,21 +227,20 @@ public final class VarDecl: ValueDecl {
   /// A flag indicating whether the variable is mutable.
   public var isMutable = false
 
-  /// A flag indicating whether the variable is member of a pattern binding declared as a member.
-  public var isMember: Bool { patternBindingDecl?.isMember ?? false }
+  public init(name: String, type: ValType, range: SourceRange) {
+    self.name = name
+    self.type = type
+    self.range = range
+  }
 
   public var isOverloadable: Bool { false }
 
-  public weak var parentDeclSpace: DeclSpace?
-
-  public private(set) var state = DeclState.parsed
+  public var isMember: Bool { patternBindingDecl?.isMember ?? false }
 
   public func setState(_ newState: DeclState) {
     assert(newState >= state)
     state = newState
   }
-
-  public var type: ValType
 
   public func realize() -> ValType {
     if state >= .realized { return type }
@@ -270,23 +269,23 @@ public enum VarBackend {
 /// The base class for generic type or value declarations.
 public class BaseGenericDecl: GenericDeclSpace {
 
-  fileprivate init(type: ValType, state: DeclState) {
-    self.type = type
-    self.state = state
-  }
+  public weak var parentDeclSpace: DeclSpace?
+
+  public var genericEnv: GenericEnv?
+
+  /// The (semantic) state of the declaration.
+  public private(set) var state: DeclState
 
   /// The semantic type of the declaration, outside of its generic context.
   public var type: ValType
 
-  /// The state of the declaration.
-  public private(set) var state: DeclState
-
   /// The generic clause of the declaration.
   public var genericClause: GenericClause?
 
-  public var genericEnv: GenericEnv?
-
-  public weak var parentDeclSpace: DeclSpace?
+  fileprivate init(type: ValType, state: DeclState) {
+    self.type = type
+    self.state = state
+  }
 
   public var hasOwnGenericParams: Bool { genericClause != nil }
 
@@ -328,11 +327,28 @@ public class BaseGenericDecl: GenericDeclSpace {
 /// The base class for function declarations.
 public class BaseFunDecl: BaseGenericDecl, ValueDecl {
 
+  /// A set representing various properties of a function declaration.
+  public struct FunDeclProps: OptionSet {
+
+    public init(rawValue: Int) {
+      self.rawValue = rawValue
+    }
+
+    public let rawValue: Int
+
+    public static let isMember      = FunDeclProps(rawValue: 1 << 0)
+    public static let isMutating    = FunDeclProps(rawValue: 1 << 1)
+    public static let isStatic      = FunDeclProps(rawValue: 1 << 2)
+    public static let isBuiltin     = FunDeclProps(rawValue: 1 << 3)
+    public static let isSynthesized = FunDeclProps(rawValue: 1 << 4)
+
+  }
+
   public init(
     name          : String,
     declModifiers : [DeclModifier] = [],
     params        : [FunParamDecl] = [],
-    retTypeSign   : TypeRepr?      = nil,
+    retTypeSign   : Sign?          = nil,
     type          : ValType,
     range         : SourceRange
   ) {
@@ -408,7 +424,7 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
   public var params: [FunParamDecl]
 
   /// The signature of the function's return type.
-  public var retSign: TypeRepr?
+  public var retSign: Sign?
 
   /// The body of the function.
   public var body: BraceStmt?
@@ -565,27 +581,10 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
     return captures!
   }
 
-  // MARK: Misc.
+  // MARK: Visitation
 
   public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
-  }
-
-  /// A set representing various properties of a function declaration.
-  public struct FunDeclProps: OptionSet {
-
-    public init(rawValue: Int) {
-      self.rawValue = rawValue
-    }
-
-    public let rawValue: Int
-
-    public static let isMember      = FunDeclProps(rawValue: 1 << 0)
-    public static let isMutating    = FunDeclProps(rawValue: 1 << 1)
-    public static let isStatic      = FunDeclProps(rawValue: 1 << 2)
-    public static let isBuiltin     = FunDeclProps(rawValue: 1 << 3)
-    public static let isSynthesized = FunDeclProps(rawValue: 1 << 4)
-
   }
 
 }
@@ -642,10 +641,27 @@ public final class CtorDecl: BaseFunDecl {
 /// The declaration of a function parameter.
 public final class FunParamDecl: ValueDecl {
 
+  public var range: SourceRange
+
+  public weak var parentDeclSpace: DeclSpace?
+
+  public var state = DeclState.parsed
+
+  public var type: ValType
+
+  /// The internal name of the parameter.
+  public var name: String
+
+  /// The external name of the parameter.
+  public var externalName: String?
+
+  /// The signature of the parameter's type.
+  public var sign: Sign?
+
   public init(
     name        : String,
     externalName: String?   = nil,
-    typeSign    : TypeRepr? = nil,
+    typeSign    : Sign? = nil,
     type        : ValType,
     range       : SourceRange
   ) {
@@ -656,31 +672,14 @@ public final class FunParamDecl: ValueDecl {
     self.range = range
   }
 
-  /// The internal name of the parameter.
-  public var name: String
-
-  /// The external name of the parameter.
-  public var externalName: String?
-
-  /// The signature of the parameter's type.
-  public var sign: TypeRepr?
-
-  public var range: SourceRange
-
-  public weak var parentDeclSpace: DeclSpace?
-
-  public var isMember: Bool { false }
-
   public var isOverloadable: Bool { false }
 
-  public private(set) var state = DeclState.parsed
+  public var isMember: Bool { false }
 
   public func setState(_ newState: DeclState) {
     assert(newState >= state)
     state = newState
   }
-
-  public var type: ValType
 
   public func realize() -> ValType {
     if state >= .realized { return type }
@@ -714,7 +713,7 @@ public class GenericTypeDecl: BaseGenericDecl, TypeDecl {
   public var name: String = ""
 
   /// The views to which the type should conform.
-  public var inheritances: [TypeRepr] = []
+  public var inheritances: [Sign] = []
 
   /// The internal cache backing `valueMemberTable`.
   fileprivate var _valueMemberTable: [String: [ValueDecl]] = [:]
@@ -738,6 +737,54 @@ public class GenericTypeDecl: BaseGenericDecl, TypeDecl {
   }
 
   // MARK: Name lookup
+
+  /// An iterator over all the member declarations of a type.
+  public struct MemberIterator: IteratorProtocol, Sequence {
+
+    public typealias Element = (name: String, decl: TypeOrValueDecl)
+
+    fileprivate init(decl: GenericTypeDecl) {
+      self.decl = decl
+      self.valueMemberIndex = (decl._valueMemberTable.startIndex, 0)
+      self.typeMemberIndex = decl._typeMemberTable.startIndex
+    }
+
+    fileprivate unowned let decl: GenericTypeDecl
+
+    fileprivate var valueMemberIndex: (Dictionary<String, [ValueDecl]>.Index, Int)
+
+    fileprivate var typeMemberIndex: Dictionary<String, TypeDecl>.Index
+
+    public mutating func next() -> (name: String, decl: TypeOrValueDecl)? {
+      // Iterate over value members.
+      let valueTable = decl._valueMemberTable
+      if valueMemberIndex.0 < valueTable.endIndex {
+        // Extract the next member.
+        let (name, bucket) = valueTable[valueMemberIndex.0]
+        let member = bucket[valueMemberIndex.1]
+
+        // Update the value member index.
+        let i = valueMemberIndex.1 + 1
+        valueMemberIndex = (i >= bucket.endIndex)
+          ? (valueTable.index(after: valueMemberIndex.0), 0)
+          : (valueMemberIndex.0, i)
+
+        return (name, member)
+      }
+
+      // Iterate over type members.
+      let typeTable = decl._typeMemberTable
+      if typeMemberIndex < typeTable.endIndex {
+        let (name, member) = typeTable[typeMemberIndex]
+        typeMemberIndex = typeTable.index(after: typeMemberIndex)
+        return (name, member)
+      }
+
+      // We reached the end of the sequence.
+      return nil
+    }
+
+  }
 
   public var isOverloadable: Bool { false }
 
@@ -845,54 +892,6 @@ public class GenericTypeDecl: BaseGenericDecl, TypeDecl {
     return MemberIterator(decl: self)
   }
 
-  /// An iterator over all the member declarations of a type.
-  public struct MemberIterator: IteratorProtocol, Sequence {
-
-    public typealias Element = (name: String, decl: TypeOrValueDecl)
-
-    fileprivate init(decl: GenericTypeDecl) {
-      self.decl = decl
-      self.valueMemberIndex = (decl._valueMemberTable.startIndex, 0)
-      self.typeMemberIndex = decl._typeMemberTable.startIndex
-    }
-
-    fileprivate unowned let decl: GenericTypeDecl
-
-    fileprivate var valueMemberIndex: (Dictionary<String, [ValueDecl]>.Index, Int)
-
-    fileprivate var typeMemberIndex: Dictionary<String, TypeDecl>.Index
-
-    public mutating func next() -> (name: String, decl: TypeOrValueDecl)? {
-      // Iterate over value members.
-      let valueTable = decl._valueMemberTable
-      if valueMemberIndex.0 < valueTable.endIndex {
-        // Extract the next member.
-        let (name, bucket) = valueTable[valueMemberIndex.0]
-        let member = bucket[valueMemberIndex.1]
-
-        // Update the value member index.
-        let i = valueMemberIndex.1 + 1
-        valueMemberIndex = (i >= bucket.endIndex)
-          ? (valueTable.index(after: valueMemberIndex.0), 0)
-          : (valueMemberIndex.0, i)
-
-        return (name, member)
-      }
-
-      // Iterate over type members.
-      let typeTable = decl._typeMemberTable
-      if typeMemberIndex < typeTable.endIndex {
-        let (name, member) = typeTable[typeMemberIndex]
-        typeMemberIndex = typeTable.index(after: typeMemberIndex)
-        return (name, member)
-      }
-
-      // We reached the end of the sequence.
-      return nil
-    }
-
-  }
-
   // MARK: View conformance
 
   /// A lookup table keeping track of the views to which the declared type conforms.
@@ -914,10 +913,10 @@ public class GenericTypeDecl: BaseGenericDecl, TypeDecl {
     // Initialize the conformance table with the inheritance clause of the type declaration.
     var newConfs: [ViewConformance] = []
     if conformanceTableGeneration < 0 {
-      for repr in inheritances {
-        let reprType = repr.realize(unqualifiedFrom: parentDeclSpace!)
-        if let viewType = reprType as? ViewType {
-          let conf = ViewConformance(viewDecl: viewType.decl as! ViewTypeDecl, range: repr.range)
+      for sign in inheritances {
+        let signType = sign.realize(unqualifiedFrom: parentDeclSpace!)
+        if let viewType = signType as? ViewType {
+          let conf = ViewConformance(viewDecl: viewType.decl as! ViewTypeDecl, range: sign.range)
           _conformanceTable[viewType] = conf
           newConfs.append(conf)
         }
@@ -1104,8 +1103,8 @@ public final class ViewTypeDecl: NominalTypeDecl {
     let selfType = selfTypeDecl.instanceType as! GenericParamType
     let selfReq  = TypeReq(
       kind : .conformance,
-      lhs  : UnqualTypeRepr(name: "Self", type: selfType, range: selfTypeDecl.range),
-      rhs  : UnqualTypeRepr(name: name, type: instanceType, range: selfTypeDecl.range),
+      lhs  : UnqualIdentSign(name: "Self", type: selfType, range: selfTypeDecl.range),
+      rhs  : UnqualIdentSign(name: name, type: instanceType, range: selfTypeDecl.range),
       range: selfTypeDecl.range)
 
     // Collect the abstract types of the view.
@@ -1139,13 +1138,13 @@ public final class ViewTypeDecl: NominalTypeDecl {
 /// type definition and have no effect on the underlying expression.
 public final class AliasTypeDecl: GenericTypeDecl {
 
-  public init(name: String, aliasedSign: TypeRepr, type: ValType, range: SourceRange) {
+  public init(name: String, aliasedSign: Sign, type: ValType, range: SourceRange) {
     self.aliasedSign = aliasedSign
     super.init(name: name, type: type, range: range, state: .parsed)
   }
 
   /// The signature of the aliased type.
-  public var aliasedSign: TypeRepr
+  public var aliasedSign: Sign
 
   /// If the declaration is a "true" type alias, the aliased declaration. Otherwise, `nil`.
   ///
@@ -1291,7 +1290,7 @@ public class GenericParamDecl: TypeDecl {
 public final class AbstractTypeDecl: GenericParamDecl {
 
   /// The views to which the abstract type conforms.
-  public var inheritances: [TypeRepr] = []
+  public var inheritances: [Sign] = []
 
   /// The type requirements associated with the abstract type.
   ///
@@ -1311,14 +1310,14 @@ public final class AbstractTypeDecl: GenericParamDecl {
 /// of declarations that should be "added" to a type.
 public final class TypeExtDecl: Decl, DeclSpace {
 
-  public init(extendedIdent: IdentTypeRepr, members: [Decl], range: SourceRange) {
+  public init(extendedIdent: IdentSign, members: [Decl], range: SourceRange) {
     self.extendedIdent = extendedIdent
     self.members = members
     self.range = range
   }
 
   /// The identifier of the type being extended.
-  public var extendedIdent: IdentTypeRepr
+  public var extendedIdent: IdentSign
 
   /// The member declarations of the type.
   public var members: [Decl]

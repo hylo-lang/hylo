@@ -84,7 +84,7 @@ public enum TypeChecker {
 
     // Process type requirements.
     for req in env.typeReqs {
-      // Realize each operand's type representation.
+      // Realize each operand's signature.
       let lhs = req.lhs.realize(unqualifiedFrom: env.space)
       let rhs = req.rhs.realize(unqualifiedFrom: env.space)
 
@@ -217,13 +217,13 @@ public enum TypeChecker {
   /// - Returns: The best solution found by the type solver
   @discardableResult
   static func check(
-    expr: inout Expr,
+    expr        : inout Expr,
     expectedType: ValType? = nil,
-    useSite: DeclSpace,
-    system: inout ConstraintSystem
+    useSite     : DeclSpace,
+    system      : inout ConstraintSystem
   ) -> Solution {
-    // Pre-check the expression.
-    // This resolves primary names, realizes type reprs and desugars constructor calls.
+    // Pre-check the expression to resolve unqualified identifiers, realize type signatures and
+    // desugar constructor calls.
     withUnsafeMutablePointer(to: &system, { ptr in
       let driver = PreCheckDriver(system: ptr, useSite: useSite)
       (_, expr) = driver.walk(expr)
@@ -299,19 +299,19 @@ public enum TypeChecker {
   /// Contextualizes the type of a the given type signature.
   ///
   /// - Parameters:
-  ///   - repr: The type signature to contextualize.
+  ///   - sign: The type signature to contextualize.
   ///   - useSite: The declaration space in which the signature is type checked.
   ///   - system: A system with potential pre-existing constraints that should be solved together
   ///     with those related to the signature.
   ///
   /// - Returns: The contextualized type of the declaration if it is valid; otherwise, `nil`.
   static func contextualize(
-    repr: TypeRepr,
+    sign: Sign,
     from useSite: DeclSpace,
     system: inout ConstraintSystem
   ) -> ValType? {
     // Realize the signature, generating diagnostics as necessary.
-    var signType = repr.realize(unqualifiedFrom: useSite)
+    var signType = sign.realize(unqualifiedFrom: useSite)
     assert(!signType.hasUnresolved)
 
     // Bail out if the signature is invalid.
@@ -320,19 +320,19 @@ public enum TypeChecker {
     if signType.hasTypeParams {
       // The signature is generic; we have to contextualize its parameters. We can assume that
       // there's a declaration space from the use-site, otherwise `realize()` would have failed to
-      // resolve the type repr.
+      // resolve the signature.
       guard let env = useSite.innermostGenericSpace!.prepareGenericEnv() else { return nil }
 
       // Contextualize the signature.
       signType = env.contextualize(
-        signType, from: useSite,
-        processingContraintsWith: { system.insert(prototype: $0, at: ConstraintLocator(repr)) })
+        signType,
+        from: useSite,
+        processingContraintsWith: { system.insert(prototype: $0, at: ConstraintLocator(sign)) })
     }
 
     // Check if we have to synthetize additional generic arguments, in case the signature refers
     // to an "underspecialized" generic nominal type.
-    return completeGenericArgs(
-      type: signType, system: &system, locator: ConstraintLocator(repr))
+    return completeGenericArgs(type: signType, system: &system, locator: ConstraintLocator(sign))
   }
 
   /// Completes the argument list of an "underspecified" generic nominal type.

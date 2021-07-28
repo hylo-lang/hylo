@@ -16,18 +16,18 @@ public protocol Expr: Node {
 /// An integer literal.
 public final class IntLiteralExpr: Expr {
 
+  public var range: SourceRange
+
+  public var type: ValType
+
+  /// The literal's value.
+  public var value: Int
+
   public init(value: Int, type: ValType, range: SourceRange) {
     self.value = value
     self.type = type
     self.range = range
   }
-
-  /// The literal's value.
-  public var value: Int
-
-  public var type: ValType
-
-  public var range: SourceRange
 
   public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
@@ -40,11 +40,10 @@ public final class IntLiteralExpr: Expr {
 /// This has always a unit type.
 public final class AssignExpr: Expr {
 
-  public init(lvalue: Expr, rvalue: Expr, range: SourceRange) {
-    self.lvalue = lvalue
-    self.rvalue = rvalue
-    self.type = lvalue.type.context.unitType
-    self.range = range
+  public var range: SourceRange
+
+  public var type: ValType {
+    didSet { assert(type is TupleType) }
   }
 
   /// An expression representing the storage to which `rvalue` is assigned.
@@ -53,11 +52,12 @@ public final class AssignExpr: Expr {
   /// The value of the assignment.
   public var rvalue: Expr
 
-  public var type: ValType {
-    didSet { assert(type is TupleType) }
+  public init(lvalue: Expr, rvalue: Expr, range: SourceRange) {
+    self.lvalue = lvalue
+    self.rvalue = rvalue
+    self.type = lvalue.type.context.unitType
+    self.range = range
   }
-
-  public var range: SourceRange
 
   public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
@@ -68,22 +68,22 @@ public final class AssignExpr: Expr {
 /// The base class for cast expressions.
 public class BaseCastExpr: Expr {
 
-  public init(value: Expr, sign: TypeRepr, type: ValType, range: SourceRange) {
-    self.value = value
-    self.sign = sign
-    self.type = type
-    self.range = range
-  }
+  public var range: SourceRange
+
+  public var type: ValType
 
   /// The value being cast.
   public var value: Expr
 
   /// The type to which the value is being cast.
-  public var sign: TypeRepr
+  public var sign: Sign
 
-  public var type: ValType
-
-  public var range: SourceRange
+  public init(value: Expr, sign: Sign, type: ValType, range: SourceRange) {
+    self.value = value
+    self.sign = sign
+    self.type = type
+    self.range = range
+  }
 
   public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
@@ -112,18 +112,18 @@ public final class UnsafeCastExpr: BaseCastExpr {
 /// A tuple expression (e.g., `(fst: 4, snd: 2)`).
 public final class TupleExpr: Expr {
 
+  public var range: SourceRange
+
+  public var type: ValType
+
+  /// The elements of the tuple.
+  public var elems: [TupleElem]
+
   public init(elems: [TupleElem], type: ValType, range: SourceRange) {
     self.elems = elems
     self.type = type
     self.range = range
   }
-
-  /// The elements of the tuple.
-  public var elems: [TupleElem]
-
-  public var type: ValType
-
-  public var range: SourceRange
 
   public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
@@ -134,11 +134,8 @@ public final class TupleExpr: Expr {
 /// A tuple's element, or a function call's argument.
 public struct TupleElem {
 
-  public init(label: String? = nil, value: Expr, range: SourceRange) {
-    self.label = label
-    self.value = value
-    self.range = range
-  }
+  /// The source range of this element's textual representation.
+  public var range: SourceRange
 
   /// The label of the element.
   public var label: String?
@@ -146,8 +143,11 @@ public struct TupleElem {
   /// The value of the element.
   public var value: Expr
 
-  /// The source range of this element's textual representation.
-  public var range: SourceRange
+  public init(label: String? = nil, value: Expr, range: SourceRange) {
+    self.label = label
+    self.value = value
+    self.range = range
+  }
 
 }
 
@@ -160,12 +160,9 @@ public struct TupleElem {
 ///   have dedicate nodes.
 public final class CallExpr: Expr {
 
-  public init(fun: Expr, args: [TupleElem], type: ValType, range: SourceRange) {
-    self.fun = fun
-    self.args = args
-    self.type = type
-    self.range = range
-  }
+  public var range: SourceRange
+
+  public var type: ValType
 
   /// The function being called.
   public var fun: Expr
@@ -173,9 +170,12 @@ public final class CallExpr: Expr {
   /// The arguments of the call.
   public var args: [TupleElem]
 
-  public var type: ValType
-
-  public var range: SourceRange
+  public init(fun: Expr, args: [TupleElem], type: ValType, range: SourceRange) {
+    self.fun = fun
+    self.args = args
+    self.type = type
+    self.range = range
+  }
 
   public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
@@ -191,20 +191,20 @@ public typealias CallArg = TupleElem
 /// analysis, which should ultimately substitute this node with a `DeclRefExpr`.
 public final class UnresolvedDeclRefExpr: Expr {
 
-  public init(name: String, type: UnresolvedType, range: SourceRange) {
-    self.name = name
-    self.type = type
-    self.range = range
-  }
-
-  /// An identifier.
-  public let name: String
+  public var range: SourceRange
 
   public var type: ValType {
     didSet { assert(type is UnresolvedType) }
   }
 
-  public var range: SourceRange
+  /// An identifier.
+  public let name: String
+
+  public init(name: String, type: UnresolvedType, range: SourceRange) {
+    self.name = name
+    self.type = type
+    self.range = range
+  }
 
   public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
@@ -219,24 +219,24 @@ public final class UnresolvedDeclRefExpr: Expr {
 /// into which it points. The type prefix is resolved during name binding.
 public final class UnresolvedQualDeclRefExpr: Expr {
 
-  public init(namespace: IdentTypeRepr, name: String, type: UnresolvedType, range: SourceRange) {
-    self.namespace = namespace
-    self.name = name
-    self.type = type
-    self.range = range
-  }
-
-  /// A type identifier.
-  public var namespace: IdentTypeRepr
-
-  /// An identifier.
-  public let name: String
+  public var range: SourceRange
 
   public var type: ValType {
     didSet { assert(type is UnresolvedType) }
   }
 
-  public var range: SourceRange
+  /// A type identifier.
+  public var namespace: IdentSign
+
+  /// An identifier.
+  public let name: String
+
+  public init(namespace: IdentSign, name: String, type: UnresolvedType, range: SourceRange) {
+    self.namespace = namespace
+    self.name = name
+    self.type = type
+    self.range = range
+  }
 
   public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
@@ -251,18 +251,18 @@ public final class UnresolvedQualDeclRefExpr: Expr {
 /// expression can be finally substituted with a `DeclRefExpr`.
 public final class OverloadedDeclRefExpr: Expr {
 
+  public var range: SourceRange
+
+  public var type: ValType
+
+  /// The set of candidate declarations for the expresssion.
+  public var declSet: [ValueDecl] = []
+
   public init(subExpr: Expr, declSet: [ValueDecl], type: ValType, range: SourceRange) {
     self.declSet = declSet
     self.type = type
     self.range = range
   }
-
-  /// The set of candidate declarations for the expresssion.
-  public var declSet: [ValueDecl] = []
-
-  public var type: ValType
-
-  public var range: SourceRange
 
   public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
@@ -273,18 +273,18 @@ public final class OverloadedDeclRefExpr: Expr {
 /// An identifier referring to a resolved value declaration.
 public final class DeclRefExpr: Expr {
 
+  public var range: SourceRange
+
+  public var type: ValType
+
+  /// The declaration referred by the expresssion.
+  public var decl: ValueDecl
+
   public init(decl: ValueDecl, type: ValType, range: SourceRange) {
     self.decl = decl
     self.type = type
     self.range = range
   }
-
-  /// The declaration referred by the expresssion.
-  public var decl: ValueDecl
-
-  public var type: ValType
-
-  public var range: SourceRange
 
   public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
@@ -295,20 +295,20 @@ public final class DeclRefExpr: Expr {
 /// An identifier referring to a resolved type declaration.
 public final class TypeDeclRefExpr: Expr {
 
-  public init(decl: TypeDecl, range: SourceRange) {
-    self.decl = decl
-    self.range = range
-  }
-
-  /// The declaration referred by the expresssion.
-  public var decl: TypeDecl
+  public var range: SourceRange
 
   public var type: ValType {
     get { decl.type }
     set { assert(newValue === decl.type) }
   }
 
-  public var range: SourceRange
+  /// The declaration referred by the expresssion.
+  public var decl: TypeDecl
+
+  public init(decl: TypeDecl, range: SourceRange) {
+    self.decl = decl
+    self.range = range
+  }
 
   public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
@@ -330,12 +330,9 @@ public protocol MemberExpr: Expr {
 /// determine the member declaration to which the node refers.
 public final class UnresolvedMemberExpr: MemberExpr {
 
-  public init(base: Expr, memberName: String, type: UnresolvedType, range: SourceRange) {
-    self.base = base
-    self.memberName = memberName
-    self.type = type
-    self.range = range
-  }
+  public var range: SourceRange
+
+  public var type: ValType
 
   /// The base expression.
   public var base: Expr
@@ -343,9 +340,12 @@ public final class UnresolvedMemberExpr: MemberExpr {
   /// The name of the member.
   public var memberName: String
 
-  public var type: ValType
-
-  public var range: SourceRange
+  public init(base: Expr, memberName: String, type: UnresolvedType, range: SourceRange) {
+    self.base = base
+    self.memberName = memberName
+    self.type = type
+    self.range = range
+  }
 
   public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
@@ -359,12 +359,9 @@ public final class UnresolvedMemberExpr: MemberExpr {
 /// have declarations. Instead, those are represented by `TupleMemberExpr`.
 public final class MemberDeclRefExpr: MemberExpr {
 
-  public init(base: Expr, decl: ValueDecl, type: ValType, range: SourceRange) {
-    self.base = base
-    self.decl = decl
-    self.type = type
-    self.range = range
-  }
+  public var range: SourceRange
+
+  public var type: ValType
 
   /// The base expression.
   public var base: Expr
@@ -372,9 +369,12 @@ public final class MemberDeclRefExpr: MemberExpr {
   /// The declaration referred by the expresssion.
   public var decl: ValueDecl
 
-  public var type: ValType
-
-  public var range: SourceRange
+  public init(base: Expr, decl: ValueDecl, type: ValType, range: SourceRange) {
+    self.base = base
+    self.decl = decl
+    self.type = type
+    self.range = range
+  }
 
   public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
@@ -385,12 +385,9 @@ public final class MemberDeclRefExpr: MemberExpr {
 /// An expression that refers to the member of a tuple (e.g., `(fst: 3, snd: 2).fst`).
 public final class TupleMemberExpr: MemberExpr {
 
-  public init(base: Expr, memberIndex: Int, type: ValType, range: SourceRange) {
-    self.base = base
-    self.memberIndex = memberIndex
-    self.type = type
-    self.range = range
-  }
+  public var range: SourceRange
+
+  public var type: ValType
 
   /// The base expression.
   public var base: Expr
@@ -398,15 +395,18 @@ public final class TupleMemberExpr: MemberExpr {
   /// The index of the member in the tuple.
   public var memberIndex: Int
 
+  public init(base: Expr, memberIndex: Int, type: ValType, range: SourceRange) {
+    self.base = base
+    self.memberIndex = memberIndex
+    self.type = type
+    self.range = range
+  }
+
   /// The label of the member in the tuple, if any.
   public var memberLabel: String? {
     guard let tType = type as? TupleType else { return nil }
     return tType.elems[memberIndex].label
   }
-
-  public var type: ValType
-
-  public var range: SourceRange
 
   public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
@@ -420,18 +420,18 @@ public final class TupleMemberExpr: MemberExpr {
 /// computed, typically by a concurrent thread.
 public final class AsyncExpr: Expr {
 
+  public var range: SourceRange
+
+  public var type: ValType
+
+  /// The expression to evaluate asynchronously.
+  public var value: Expr
+
   public init(value: Expr, type: ValType, range: SourceRange) {
     self.value = value
     self.type = type
     self.range = range
   }
-
-  /// The expression to evaluate asynchronously.
-  public var value: Expr
-
-  public var type: ValType
-
-  public var range: SourceRange
 
   public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
@@ -442,18 +442,18 @@ public final class AsyncExpr: Expr {
 /// An expression awaiting the result of an asynchronous value (e.g., `await foo()`).
 public final class AwaitExpr: Expr {
 
+  public var range: SourceRange
+
+  public var type: ValType
+
+  /// The asynchronous value to await.
+  public var value: Expr
+
   public init(value: Expr, type: ValType, range: SourceRange) {
     self.value = value
     self.type = type
     self.range = range
   }
-
-  /// The asynchronous value to await.
-  public var value: Expr
-
-  public var type: ValType
-
-  public var range: SourceRange
 
   public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
@@ -464,18 +464,18 @@ public final class AwaitExpr: Expr {
 /// An expression resolving to the address of a value (e.g., `&foo.bar`).
 public final class AddrOfExpr: Expr {
 
+  public var range: SourceRange
+
+  public var type: ValType
+
+  /// The expression representing the address to resolve.
+  public var value: Expr
+
   public init(value: Expr, type: ValType, range: SourceRange) {
     self.value = value
     self.type = type
     self.range = range
   }
-
-  /// The expression representing the address to resolve.
-  public var value: Expr
-
-  public var type: ValType
-
-  public var range: SourceRange
 
   public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
@@ -493,6 +493,19 @@ public final class AddrOfExpr: Expr {
 /// same type as all its siblings.
 public final class MatchExpr: Expr {
 
+  public var range: SourceRange
+
+  public var type: ValType
+
+  /// Indicates whether the match appears as a sub-expression, in a larger expression.
+  public var isSubExpr: Bool
+
+  /// The subject being matched
+  public var subject: Expr
+
+  /// The patterns against which the subject is being matched.
+  public var cases: [MatchCaseStmt]
+
   public init(
     isSubExpr : Bool,
     subject   : Expr,
@@ -507,19 +520,6 @@ public final class MatchExpr: Expr {
     self.range = range
   }
 
-  /// Indicates whether the match appears as a sub-expression, in a larger expression.
-  public var isSubExpr: Bool
-
-  /// The subject being matched
-  public var subject: Expr
-
-  /// The patterns against which the subject is being matched.
-  public var cases: [MatchCaseStmt]
-
-  public var type: ValType
-
-  public var range: SourceRange
-
   public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
   }
@@ -529,14 +529,14 @@ public final class MatchExpr: Expr {
 /// A wildcard expression.
 public final class WildcardExpr: Expr {
 
+  public var range: SourceRange
+
+  public var type: ValType
+
   public init(type: ValType, range: SourceRange) {
     self.type = type
     self.range = range
   }
-
-  public var type: ValType
-
-  public var range: SourceRange
 
   public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
@@ -550,16 +550,16 @@ public final class WildcardExpr: Expr {
 /// stages need not to reason about the cause of the error.
 public final class ErrorExpr: Expr {
 
-  public init(type: ErrorType, range: SourceRange) {
-    self.type = type
-    self.range = range
-  }
+  public var range: SourceRange
 
   public var type: ValType  {
     didSet { assert(type is ErrorType) }
   }
 
-  public var range: SourceRange
+  public init(type: ErrorType, range: SourceRange) {
+    self.type = type
+    self.range = range
+  }
 
   public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     visitor.visit(self)

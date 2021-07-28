@@ -90,7 +90,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     // Create a stub for the declaration.
     let keyword     = ctx.varDeclKeyword()!
     let pattern     = ctx.pattern()!.accept(self) as! Pattern
-    let sign        = ctx.typeRepr().map({ repr in repr.accept(self) as! TypeRepr })
+    let sign        = ctx.typeRepr().map({ repr in repr.accept(self) as! Sign })
     let initializer = ctx.expr().map({ expr in expr.accept(self) as! Expr })
 
     let decl = PatternBindingDecl(
@@ -159,7 +159,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     }
     if let sign = ctx.funRetAnnot() {
       precondition(!(decl is CtorDecl), "constructors do not have explicit return types")
-      decl.retSign = (sign.accept(self) as! TypeRepr)
+      decl.retSign = (sign.accept(self) as! Sign)
     }
     if let body = ctx.braceStmt() {
       decl.body = (body.accept(self) as! BraceStmt)
@@ -188,7 +188,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     decl.parentDeclSpace = currentSpace
 
     if let repr = ctx.typeRepr() {
-      decl.sign = (repr.accept(self) as! TypeRepr)
+      decl.sign = (repr.accept(self) as! Sign)
     }
 
     return decl
@@ -228,14 +228,14 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
   }
 
   public override func visitSameTypeReq(_ ctx: ValParser.SameTypeReqContext) -> Any {
-    let lhs = ctx.identTypeRepr()!.accept(self) as! IdentTypeRepr
-    let rhs = ctx.typeRepr()!.accept(self) as! TypeRepr
+    let lhs = ctx.identTypeRepr()!.accept(self) as! IdentSign
+    let rhs = ctx.typeRepr()!.accept(self) as! Sign
     return TypeReq(kind: .equality, lhs: lhs, rhs: rhs, range: range(of: ctx))
   }
 
   public override func visitViewConfReq(_ ctx: ValParser.ViewConfReqContext) -> Any {
-    let lhs = ctx.identTypeRepr(0)!.accept(self) as! IdentTypeRepr
-    let rhs = ctx.identTypeRepr(1)!.accept(self) as! IdentTypeRepr
+    let lhs = ctx.identTypeRepr(0)!.accept(self) as! IdentSign
+    let rhs = ctx.identTypeRepr(1)!.accept(self) as! IdentSign
     return TypeReq(kind: .conformance, lhs: lhs, rhs: rhs, range: range(of: ctx))
   }
 
@@ -272,7 +272,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     // Create the declaration.
     let decl = AliasTypeDecl(
       name: "",
-      aliasedSign: UnqualTypeRepr(name: "", type: unresolvedType, range: .invalid),
+      aliasedSign: UnqualIdentSign(name: "", type: unresolvedType, range: .invalid),
       type: unresolvedType,
       range: range(of: ctx))
 
@@ -288,7 +288,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     decl.inheritances = head.inheritances
 
     // Visit the aliased signature.
-    decl.aliasedSign = ctx.typeRepr()!.accept(self) as! TypeRepr
+    decl.aliasedSign = ctx.typeRepr()!.accept(self) as! Sign
 
     return decl
   }
@@ -304,7 +304,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
 
     /// Visit the declaration's inheriance and requirement clauses.
     if let clause = ctx.inheritanceClause() {
-      decl.inheritances = clause.accept(self) as! [IdentTypeRepr]
+      decl.inheritances = clause.accept(self) as! [IdentSign]
     }
     if let clause = ctx.typeReqClause() {
       decl.typeReqs = clause.accept(self) as! [TypeReq]
@@ -328,7 +328,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
 
     // Visit the declaration's head.
     if let inheritanceClause = ctx.inheritanceClause() {
-      decl.inheritances = inheritanceClause.accept(self) as! [IdentTypeRepr]
+      decl.inheritances = inheritanceClause.accept(self) as! [IdentSign]
     }
 
     // Visit the declaration's members.
@@ -345,9 +345,9 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
       genericClause = nil
     }
 
-    let inheritances: [IdentTypeRepr]
+    let inheritances: [IdentSign]
     if let clause = ctx.inheritanceClause() {
-      inheritances = clause.accept(self) as! [IdentTypeRepr]
+      inheritances = clause.accept(self) as! [IdentSign]
     } else {
       inheritances = []
     }
@@ -359,7 +359,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
   }
 
   public override func visitExtDecl(_ ctx: ValParser.ExtDeclContext) -> Any {
-    let ident = ctx.identTypeRepr()!.accept(self) as! IdentTypeRepr
+    let ident = ctx.identTypeRepr()!.accept(self) as! IdentSign
     let decl = TypeExtDecl(extendedIdent: ident, members: [], range: range(of: ctx))
 
     // Update the current decl space.
@@ -372,7 +372,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
   }
 
   public override func visitInheritanceClause(_ ctx: ValParser.InheritanceClauseContext) -> Any {
-    return ctx.identTypeRepr().map({ ident in ident.accept(self) as! IdentTypeRepr })
+    return ctx.identTypeRepr().map({ ident in ident.accept(self) as! IdentSign })
   }
 
   public override func visitCtrl(_ ctx: ValParser.CtrlContext) -> Any {
@@ -428,7 +428,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
   public override func visitBindingPattern(_ ctx: ValParser.BindingPatternContext) -> Any {
     let keyword    = ctx.varDeclKeyword()!
     let subpattern = ctx.pattern()!.accept(self) as! Pattern
-    let sign       = ctx.typeRepr().map({ repr in repr.accept(self) as! TypeRepr })
+    let sign       = ctx.typeRepr().map({ repr in repr.accept(self) as! Sign })
 
     let pattern = BindingPattern(
       isMutable   : keyword.getText() == "var",
@@ -453,12 +453,12 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
   }
 
   public override func visitTypeRepr(_ ctx: ValParser.TypeReprContext) -> Any {
-    let lhs = ctx.maxtermTypeRepr()!.accept(self) as! TypeRepr
+    let lhs = ctx.maxtermTypeRepr()!.accept(self) as! Sign
 
-    let base: TypeRepr
-    if let rhs = ctx.typeRepr().map({ repr in repr.accept(self) as! TypeRepr }) {
+    let base: Sign
+    if let rhs = ctx.typeRepr().map({ repr in repr.accept(self) as! Sign }) {
       let range = lhs.range.lowerBound ..< rhs.range.upperBound
-      base = FunTypeRepr(paramSign: lhs, retSign: rhs, type: unresolvedType, range: range)
+      base = FunSign(paramSign: lhs, retSign: rhs, type: unresolvedType, range: range)
     } else {
       base = lhs
     }
@@ -469,14 +469,14 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
 
     switch modifier.getText() {
     case "async":
-      return AsyncTypeRepr(
+      return AsyncSign(
         base: base,
         type: unresolvedType,
         modifierRange: range(of: modifier),
         range: range(of: ctx))
 
     case "mut":
-      return InoutTypeRepr(
+      return InoutSign(
         base: base,
         type: unresolvedType,
         modifierRange: range(of: modifier),
@@ -488,65 +488,65 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
   }
 
   public override func visitMaxtermTypeRepr(_ ctx: ValParser.MaxtermTypeReprContext) -> Any {
-    let terms = ctx.mintermTypeRepr().map({ term in term.accept(self) as! TypeRepr })
+    let terms = ctx.mintermTypeRepr().map({ term in term.accept(self) as! Sign })
     assert(!terms.isEmpty)
 
     if terms.count == 1 {
       return terms[0]
     } else {
-      return UnionTypeRepr(elems: terms, type: unresolvedType, range: range(of: ctx))
+      return UnionSign(elems: terms, type: unresolvedType, range: range(of: ctx))
     }
   }
 
   public override func visitMintermTypeRepr(_ ctx: ValParser.MintermTypeReprContext) -> Any {
-    let primaries = ctx.primaryTypeRepr().map({ primary in primary.accept(self) as! TypeRepr })
+    let primaries = ctx.primaryTypeRepr().map({ primary in primary.accept(self) as! Sign })
     assert(!primaries.isEmpty)
 
     if primaries.count == 1 {
       return primaries[0]
     } else {
-      return ViewCompTypeRepr(views: primaries, type: unresolvedType, range: range(of: ctx))
+      return ViewCompSign(views: primaries, type: unresolvedType, range: range(of: ctx))
     }
   }
 
   public override func visitPrimaryTypeRepr(_ ctx: ValParser.PrimaryTypeReprContext) -> Any {
-    return ctx.children![0].accept(self) as! TypeRepr
+    return ctx.children![0].accept(self) as! Sign
   }
 
   public override func visitIdentTypeRepr(_ ctx: ValParser.IdentTypeReprContext) -> Any {
-    let components = ctx.unqualTypeRepr().map({ repr in repr.accept(self) as! ComponentTypeRepr })
-    return CompoundTypeRepr.create(components)
+    let components = ctx.unqualTypeRepr().map({ repr in repr.accept(self) as! IdentCompSign })
+    return CompoundIdentSign.create(components)
   }
 
   public override func visitUnqualTypeRepr(_ ctx: ValParser.UnqualTypeReprContext) -> Any {
     if let argList = ctx.genericArgList() {
-      let args = argList.accept(self) as! [TypeRepr]
-      return SpecializedTypeRepr(
+      let args = argList.accept(self) as! [Sign]
+      return SpecializedIdentSign(
         name: ctx.NAME()!.getText(), args: args, type: unresolvedType, range: range(of: ctx))
     } else {
-      return UnqualTypeRepr(
+      return UnqualIdentSign(
         name: ctx.NAME()!.getText(), type: unresolvedType, range: range(of: ctx))
     }
   }
 
   public override func visitGenericArgList(_ ctx: ValParser.GenericArgListContext) -> Any {
-    return ctx.typeRepr().map({ arg in arg.accept(self) as! TypeRepr })
+    return ctx.typeRepr().map({ arg in arg.accept(self) as! Sign })
   }
 
   public override func visitTupleTypeRepr(_ ctx: ValParser.TupleTypeReprContext) -> Any {
     let elems = ctx.tupleTypeElemList()
-      .map({ elems in elems.accept(self) as! [TupleTypeReprElem] }) ?? []
-    return TupleTypeRepr(elems: elems, type: unresolvedType, range: range(of: ctx))
+      .map({ elems in elems.accept(self) as! [TupleSignElem] }) ?? []
+    return TupleSign(elems: elems, type: unresolvedType, range: range(of: ctx))
   }
 
   public override func visitTupleTypeElemList(_ ctx: ValParser.TupleTypeElemListContext) -> Any {
-    return ctx.tupleTypeElem().map({ elem in elem.accept(self) as! TupleTypeReprElem })
+    return ctx.tupleTypeElem().map({ elem in elem.accept(self) as! TupleSignElem })
   }
 
   public override func visitTupleTypeElem(_ ctx: ValParser.TupleTypeElemContext) -> Any {
     let label = ctx.NAME()?.getText()
-    let sign = ctx.typeRepr()!.accept(self) as! TypeRepr
-    return TupleTypeReprElem(label: label, sign: sign, range: range(of: ctx))
+    let sign = ctx.typeRepr()!.accept(self) as! Sign
+    return TupleSignElem(label: label, sign: sign, range: range(of: ctx))
   }
 
   public override func visitBinaryExpr(_ ctx: ValParser.BinaryExprContext) -> Any {
@@ -694,7 +694,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
   public override func visitCastExpr(_ ctx: ValParser.CastExprContext) -> Any {
     let value = ctx.postfixExpr()!.accept(self) as! Expr
     let opLoc = ctx.castOper()!.accept(self) as! CastOperatorLoc
-    let sign  = ctx.typeRepr()!.accept(self) as! TypeRepr
+    let sign  = ctx.typeRepr()!.accept(self) as! Sign
 
     switch opLoc.castOp {
     case .dynCast:
@@ -732,9 +732,9 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
         range: range(of: names[0].getSymbol()!))
     }
 
-    let ns = CompoundTypeRepr
-      .create(names.dropLast().map({ (name) -> UnqualTypeRepr in
-        UnqualTypeRepr(
+    let ns = CompoundIdentSign
+      .create(names.dropLast().map({ (name) -> UnqualIdentSign in
+        UnqualIdentSign(
           name: name.getText(), type: unresolvedType, range: range(of: name.getSymbol()!))
       }))
     return UnresolvedQualDeclRefExpr(
@@ -862,7 +862,7 @@ fileprivate struct TypeDeclHead {
 
   let genericClause: GenericClause?
 
-  let inheritances: [IdentTypeRepr]
+  let inheritances: [IdentSign]
 
 }
 

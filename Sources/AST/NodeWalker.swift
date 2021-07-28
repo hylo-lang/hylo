@@ -96,24 +96,24 @@ open class NodeWalker: NodeVisitor {
     return (true, pattern)
   }
 
-  /// This method is called when the walker is about to visit a type representation.
+  /// This method is called when the walker is about to visit a type signature.
   ///
-  /// - Parameter typeRepr: The type representation that will be visited.
-  /// - Returns: `(flag, node)` where `node` subsitutes `typeRepr` in the AST, and `flag` is a
+  /// - Parameter sign: The type signature that will be visited.
+  /// - Returns: `(flag, node)`, where `node` subsitutes `sign` in the AST, and `flag` is a
   ///   Boolean value that indicates whether the walker should visit `node`. The default
-  ///   implementation returns `(true, typeRepr)`.
-  open func willVisit(_ typeRepr: TypeRepr) -> (shouldWalk: Bool, nodeBefore: TypeRepr) {
-    return (true, typeRepr)
+  ///   implementation returns `(true, expr)`.
+  open func willVisit(_ sign: Sign) -> (shouldWalk: Bool, nodeBefore: Sign) {
+    return (true, sign)
   }
 
-  /// This method is called after the walker visited a type representation.
+  /// This method is called after the walker visited a type signature.
   ///
-  /// - Parameter expr: The type representation that was visited.
-  /// - Returns: `(flag, node)` where `node` subsitutes `typeRepr` in the AST, and `flag` is a
+  /// - Parameter expr: The type signature that was visited.
+  /// - Returns: `(flag, node)` where `node` subsitutes `sign` in the AST, and `flag` is a
   ///   Boolean value that indicates whether the walker should proceed to the next node. The
-  ///   default implementation returns `(true, typeRepr)`.
-  open func didVisit(_ typeRepr: TypeRepr) -> (shouldContinue: Bool, nodeAfter: TypeRepr) {
-    return (true, typeRepr)
+  ///   default implementation returns `(true, sign)`.
+  open func didVisit(_ sign: Sign) -> (shouldContinue: Bool, nodeAfter: Sign) {
+    return (true, sign)
   }
 
   /// This method is called when the walker is about to visit a generic clause.
@@ -347,7 +347,7 @@ open class NodeWalker: NodeVisitor {
 
     for i in 0 ..< node.typeReqs.count {
       (shouldContinue, node.typeReqs[i].lhs) = walk(node.typeReqs[i].lhs)
-        as! (Bool, IdentTypeRepr)
+        as! (Bool, IdentSign)
       guard shouldContinue else { return false }
 
       (shouldContinue, node.typeReqs[i].rhs) = walk(node.typeReqs[i].rhs)
@@ -370,7 +370,7 @@ open class NodeWalker: NodeVisitor {
       innermostSpace = innermostSpace?.parentDeclSpace
     }
 
-    (shouldContinue, node.extendedIdent) = walk(node.extendedIdent) as! (Bool, IdentTypeRepr)
+    (shouldContinue, node.extendedIdent) = walk(node.extendedIdent) as! (Bool, IdentSign)
     guard shouldContinue else { return false }
 
     for i in 0 ..< node.members.count {
@@ -508,7 +508,7 @@ open class NodeWalker: NodeVisitor {
     parent = node
     defer { parent = prevParent }
 
-    (shouldContinue, node.namespace) = walk(node.namespace) as! (Bool, IdentTypeRepr)
+    (shouldContinue, node.namespace) = walk(node.namespace) as! (Bool, IdentSign)
     return shouldContinue
   }
 
@@ -644,7 +644,7 @@ open class NodeWalker: NodeVisitor {
     return true
   }
 
-  public final func visit(_ node: TupleTypeRepr) -> Bool {
+  public final func visit(_ node: TupleSign) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
@@ -657,7 +657,7 @@ open class NodeWalker: NodeVisitor {
     return true
   }
 
-  public final func visit(_ node: FunTypeRepr) -> Bool {
+  public final func visit(_ node: FunSign) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
@@ -671,7 +671,7 @@ open class NodeWalker: NodeVisitor {
     return true
   }
 
-  public final func visit(_ node: AsyncTypeRepr) -> Bool {
+  public final func visit(_ node: AsyncSign) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
@@ -680,7 +680,7 @@ open class NodeWalker: NodeVisitor {
     return shouldContinue
   }
 
-  public final func visit(_ node: InoutTypeRepr) -> Bool {
+  public final func visit(_ node: InoutSign) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
@@ -689,7 +689,7 @@ open class NodeWalker: NodeVisitor {
     return shouldContinue
   }
 
-  public final func visit(_ node: UnionTypeRepr) -> Bool {
+  public final func visit(_ node: UnionSign) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
@@ -702,7 +702,7 @@ open class NodeWalker: NodeVisitor {
     return true
   }
 
-  public final func visit(_ node: ViewCompTypeRepr) -> Bool {
+  public final func visit(_ node: ViewCompSign) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
@@ -715,11 +715,11 @@ open class NodeWalker: NodeVisitor {
     return true
   }
 
-  public final func visit(_ node: UnqualTypeRepr) -> Bool {
+  public final func visit(_ node: UnqualIdentSign) -> Bool {
     return true
   }
 
-  public final func visit(_ node: SpecializedTypeRepr) -> Bool {
+  public final func visit(_ node: SpecializedIdentSign) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
@@ -732,13 +732,13 @@ open class NodeWalker: NodeVisitor {
     return true
   }
 
-  public final func visit(_ node: CompoundTypeRepr) -> Bool {
+  public final func visit(_ node: CompoundIdentSign) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
 
     for i in 0 ..< node.components.count {
-      (shouldContinue, node.components[i]) = walk(node.components[i]) as! (Bool, ComponentTypeRepr)
+      (shouldContinue, node.components[i]) = walk(node.components[i]) as! (Bool, IdentCompSign)
       guard shouldContinue else { return false }
     }
 
@@ -754,7 +754,7 @@ open class NodeWalker: NodeVisitor {
 
     for i in 0 ..< clause.typeReqs.count {
       (shouldContinue, clause.typeReqs[i].lhs) = walk(clause.typeReqs[i].lhs)
-        as! (Bool, IdentTypeRepr)
+        as! (Bool, IdentSign)
       guard shouldContinue else { return false }
 
       (shouldContinue, clause.typeReqs[i].rhs) = walk(clause.typeReqs[i].rhs)
@@ -828,9 +828,9 @@ open class NodeWalker: NodeVisitor {
     return didVisit(substitute)
   }
 
-  public final func walk(_ typeRepr: TypeRepr) -> (Bool, TypeRepr) {
+  public final func walk(_ sign: Sign) -> (Bool, Sign) {
     // Fire the `willVisit` event.
-    let (shouldVisit, substitute) = willVisit(typeRepr)
+    let (shouldVisit, substitute) = willVisit(sign)
     guard shouldVisit else {
       return (true, substitute)
     }
@@ -850,7 +850,7 @@ open class NodeWalker: NodeVisitor {
     case let s as Stmt    : return walk(s)
     case let e as Expr    : return walk(e)
     case let p as Pattern : return walk(p)
-    case let t as TypeRepr: return walk(t)
+    case let t as Sign    : return walk(t)
     default: fatalError("unreachable")
     }
   }

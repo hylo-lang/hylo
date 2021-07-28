@@ -5,11 +5,8 @@ import Basic
 /// This includes generic parameters and their type requirements.
 public class GenericClause: Node {
 
-  public init(params: [GenericParamDecl], typeReqs: [TypeReq], range: SourceRange) {
-    self.params = params
-    self.typeReqs = typeReqs
-    self.range = range
-  }
+  /// The source range of this clause's textual representation.
+  public var range: SourceRange
 
   /// The generic parameter types of the signature.
   public var params: [GenericParamDecl]
@@ -17,32 +14,16 @@ public class GenericClause: Node {
   /// The type requirements in the clause.
   public var typeReqs: [TypeReq]
 
-  /// The source range of this clause's textual representation.
-  public var range: SourceRange
+  public init(params: [GenericParamDecl], typeReqs: [TypeReq], range: SourceRange) {
+    self.params = params
+    self.typeReqs = typeReqs
+    self.range = range
+  }
 
 }
 
 /// A type requirement in a generic clause.
 public struct TypeReq {
-
-  public init(kind: Kind, lhs: IdentTypeRepr, rhs: TypeRepr, range: SourceRange) {
-    self.kind = kind
-    self.lhs = lhs
-    self.rhs = rhs
-    self.range = range
-  }
-
-  /// The kind of the requirement.
-  public var kind: Kind
-
-  /// The left operand of the requirement.
-  public var lhs: IdentTypeRepr
-
-  /// The right operand of the requirement.
-  public var rhs: TypeRepr
-
-  /// The source range of this requirement's textual representation.
-  public var range: SourceRange
 
   /// The kind of a type requirement.
   public enum Kind {
@@ -53,6 +34,25 @@ public struct TypeReq {
     /// A requirement `T: V` prescribing that the generic parameter `T` conform to the view `V`.
     case conformance
 
+  }
+
+  /// The kind of the requirement.
+  public var kind: Kind
+
+  /// The left operand of the requirement.
+  public var lhs: IdentSign
+
+  /// The right operand of the requirement.
+  public var rhs: Sign
+
+  /// The source range of this requirement's textual representation.
+  public var range: SourceRange
+
+  public init(kind: Kind, lhs: IdentSign, rhs: Sign, range: SourceRange) {
+    self.kind = kind
+    self.lhs = lhs
+    self.rhs = rhs
+    self.range = range
   }
 
 }

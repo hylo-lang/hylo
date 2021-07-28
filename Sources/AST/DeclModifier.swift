@@ -3,17 +3,6 @@ import Basic
 /// A modifier that refines the semantics of a declaration.
 public struct DeclModifier {
 
-  public init(kind: Kind, range: SourceRange) {
-    self.kind = kind
-    self.range = range
-  }
-
-  /// The value of the modifier.
-  public var kind: Kind
-
-  /// The source range of this modifier's textual representation.
-  public var range: SourceRange
-
   /// The value of a declaration modifier.
   public enum Kind {
 
@@ -28,5 +17,16 @@ public struct DeclModifier {
     case moveonly
 
   }
+
+  public init(kind: Kind, range: SourceRange) {
+    self.kind = kind
+    self.range = range
+  }
+
+  /// The value of the modifier.
+  public var kind: Kind
+
+  /// The source range of this modifier's textual representation.
+  public var range: SourceRange
 
 }

@@ -223,8 +223,8 @@ private struct ConstraintGenerator: ExprVisitor, PatternVisitor {
 
     if let sign = node.sign {
       // Contextualize the type signature.
-      guard let signType = TypeChecker.contextualize(
-              repr: sign, from: useSite, system: &system.pointee)
+      guard let signType = TypeChecker
+              .contextualize(sign: sign, from: useSite, system: &system.pointee)
       else {
         node.type = node.type.context.errorType
         return

@@ -31,6 +31,17 @@ public enum PrefixOperator: String, CustomStringConvertible {
 /// An infix operator.
 public enum InfixOperator: String, CustomStringConvertible {
 
+  /// An operator associativity.
+  public enum Associativity {
+
+    /// Left-associative (i.e., `a ◇ b ◇ c = (a ◇ b) ◇ c`).
+    case left
+
+    /// Right-associative (i.e., `a ◇ b ◇ c = a ◇ (b ◇ c)`).
+    case right
+
+  }
+
   /// The copy operator `=`.
   case copy     = "="
 
@@ -71,17 +82,6 @@ public enum InfixOperator: String, CustomStringConvertible {
     case .slash   : return .left
     case .percent : return .left
     }
-  }
-
-  /// An operator associativity.
-  public enum Associativity {
-
-    /// Left-associative (i.e., `a ◇ b ◇ c = (a ◇ b) ◇ c`).
-    case left
-
-    /// Right-associative (i.e., `a ◇ b ◇ c = a ◇ (b ◇ c)`).
-    case right
-
   }
 
   public var description: String { rawValue }

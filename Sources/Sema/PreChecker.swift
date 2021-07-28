@@ -42,8 +42,8 @@ final class PreCheckDriver: NodeWalker {
 
 }
 
-/// A pre-check visitor, that resolves primary names, realizes type representations and desugars
-/// various expressions.
+/// A pre-check visitor that resolves unqualified identifiers, realizes type signatures and
+/// desugars some expressions.
 struct PreChecker: ExprVisitor {
 
   typealias ExprResult = Expr
@@ -133,7 +133,7 @@ struct PreChecker: ExprVisitor {
       return ErrorExpr(type: context.errorType, range: node.range)
     }
 
-    // Note that this will throw the type repr away.
+    // Note that this will throw the type signature away.
     return bind(ref: node, to: matches)
   }
 

@@ -45,8 +45,7 @@ struct DeclChecker: DeclVisitor {
     let patternType: ValType
     if let sign = node.sign {
       // Contextualize the type signature.
-      guard let signType = TypeChecker.contextualize(
-              repr: sign, from: useSite, system: &system)
+      guard let signType = TypeChecker.contextualize(sign: sign, from: useSite, system: &system)
       else {
         setInvalid(pbd: node)
         return false

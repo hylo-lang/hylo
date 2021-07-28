@@ -9,13 +9,13 @@ import Basic
 /// enclosing module.
 public class FileUnit: DeclSpace {
 
-  fileprivate init() {}
+  /// The module in which the unit resides.
+  public var parentDeclSpace: DeclSpace?
 
   /// The top-level declarations of the unit.
   public var decls: [Decl] = []
 
-  /// The module in which the unit resides.
-  public var parentDeclSpace: DeclSpace?
+  fileprivate init() {}
 
   /// Overrides the default lookup mechanism.
   public func lookup(qualified name: String) -> LookupResult {
@@ -34,11 +34,11 @@ public final class BuiltinUnit: FileUnit {
 /// A source file containing Val code.
 public final class SourceUnit: FileUnit {
 
+  /// A handle to the contents of the file in the context's file manager.
+  public let source: SourceFile
+
   public init(source: SourceFile) {
     self.source = source
   }
-
-  /// A handle to the contents of the file in the context's file manager.
-  public let source: SourceFile
 
 }

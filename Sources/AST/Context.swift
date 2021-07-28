@@ -1,12 +1,18 @@
+import Foundation
 import Basic
 
 /// A structure that holds AST nodes along with other long-lived metadata.
 public final class Context {
 
   /// Creates a new AST context.
+  ///
+  /// - Parameter sourceManager: The source manager handling the source files that will be loaded
+  ///   in this context.
   public init(sourceManager: SourceManager) {
     self.sourceManager = sourceManager
   }
+
+  // MARK: General properties
 
   /// A flag that indicates whether the compiler is processing the standard library.
   ///
@@ -16,9 +22,6 @@ public final class Context {
 
   /// The manager handling the source files loaded in the context.
   public let sourceManager: SourceManager
-
-  /// The consumer for all in-flight diagnostics.
-  public var diagnosticConsumer: DiagnosticConsumer?
 
   /// The modules loaded in the context.
   public var modules: [String: ModuleDecl] = [:]
@@ -141,16 +144,13 @@ public final class Context {
   // MARK: Built-ins
 
   /// The built-in module.
-  public private(set) lazy var builtin: ModuleDecl = {
-    // TODO: Load built-in function declarations.
-    return ModuleDecl(name: "Builtin", generation: 0, context: self)
-  }()
+  public private(set) lazy var builtin = ModuleDecl(name: "Builtin", generation: 0, context: self)
 
   /// The built-in types that have been cached.
   private var builtinTypes: [String: BuiltinType] = [:]
 
   /// The built-in declarations that have been cached.
-  var builtinDecls: [String: ValueDecl] = [:]
+  private var builtinDecls: [String: ValueDecl] = [:]
 
   /// Returns the built-in type with the specified name.
   public func getBuiltinType(named name: String) -> BuiltinType? {
@@ -191,6 +191,67 @@ public final class Context {
     return builtinDecls[name]
   }
 
+  /// Synthesize built-in declarations.
+  private func loadBuiltinDecls() {
+    guard let url = Bundle.module.url(forResource: "Builtins", withExtension: "json"),
+          let config = try? JSONDecoder().decode(BuiltinConfig.self, from: Data(contentsOf: url))
+    else { preconditionFailure("I coudn't load builtin definitions") }
+
+    let unit = BuiltinUnit()
+    builtin.units.append(unit)
+
+    for spec in config.functions {
+      let decl = createBuiltinFunDecl(
+        name: spec[0], params: spec[1 ..< (spec.count - 1)], ret: spec[spec.count - 1])
+      decl.parentDeclSpace = unit
+      unit.decls.append(decl)
+      builtinDecls[decl.name] = decl
+    }
+  }
+
+  private func createBuiltinFunDecl(
+    name: String,
+    params: ArraySlice<String>,
+    ret: String
+  ) -> FunDecl {
+    // Create the declaration of the function.
+    let funDecl = FunDecl(name: name, type: unresolvedType, range: .invalid)
+
+    // Create the declaration(s) of the function's parameter.
+    var paramTypes: [TupleType.Elem] = []
+    for (i, param) in params.enumerated() {
+      // Create the parameter's type.
+      let type = parse(typeNamed: param)
+      paramTypes.append(TupleType.Elem(type: type))
+
+      // Create the declaration of the parameter.
+      let sign = UnqualIdentSign(name: param, type: type, range: .invalid)
+      let decl = FunParamDecl(name: "_\(i)", typeSign: sign, type: type, range: .invalid)
+      decl.parentDeclSpace = funDecl
+      decl.setState(.typeChecked)
+
+      funDecl.params.append(decl)
+    }
+
+    // Setup the function's signature.
+    funDecl.retSign = ret.isEmpty
+      ? nil
+      : UnqualIdentSign(name: ret, type: parse(typeNamed: ret), range: .invalid)
+    funDecl.type = funType(
+      paramType: tupleType(paramTypes),
+      retType: funDecl.retSign?.type ?? unitType)
+
+    funDecl.setState(.typeChecked)
+    funDecl.props.insert(.isBuiltin)
+    return funDecl
+  }
+
+  private func parse(typeNamed name: String) -> ValType {
+    return name == "Unit"
+      ? unitType
+      : getBuiltinType(named: name)!
+  }
+
   // MARK: Standard library
 
   /// The standard library.
@@ -206,6 +267,9 @@ public final class Context {
   }
 
   // MARK: Diagnostics
+
+  /// The consumer for all in-flight diagnostics.
+  public var diagnosticConsumer: DiagnosticConsumer?
 
   /// Reports an in-flight diagnostic.
   public func report(_ diagnostic: Diagnostic) {
@@ -236,5 +300,16 @@ public final class Context {
     }
     stream.write("]")
   }
+
+}
+
+fileprivate struct BuiltinConfig: Codable {
+
+  /// The signatures of all built-in functions.
+  ///
+  /// Signatures are represented as sequence of strings composed of the function's name (in first
+  /// position), the type of its parameters and its return type (in last position). If the function
+  /// doesn't return any value (e.g., `i64_cpy`), then the last element is an empty string.
+  let functions: [[String]]
 
 }
