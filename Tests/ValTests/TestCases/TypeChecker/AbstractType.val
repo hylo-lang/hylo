@@ -1,0 +1,31 @@
+view V {
+  type X
+  fun foo(x: X) -> X
+}
+
+// #!error@+1 conformance to 'V' requires a matching implementation of 'X'
+type A: V {
+}
+
+type B<X>: V {
+  fun foo(x: X) -> X { ret x }
+}
+
+type C {
+  type X {}
+  fun foo(x: X) -> X { ret x }
+}
+
+view U {
+  type X: V
+}
+
+// #!error@+1 type '$X' does not conform to view 'V'
+type D<X>: U {
+}
+
+type E<X where X: V> {}
+
+type F {
+  type X = C
+}
