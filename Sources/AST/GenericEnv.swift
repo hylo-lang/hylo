@@ -139,27 +139,30 @@ public final class GenericEnv {
   /// Maps the given generic type to its contextual type, depending on its use site.
   ///
   /// - Parameters:
-  ///   - type: A generic type. This method returns `type` unchanged if it does not contain any
-  ///     generic type parameter.
-  ///   - useSite: The declaration space from which the type is being referred.
-  ///   - handleConstraint: A closure that accepts contextualized contraint prototypes. It is
-  ///     called only if the contextualized type contains opened generic types for which there
-  ///     exist type requirements.
+  ///   - type: A (presumably generic) type. `type` is returned unchanged if it does not contain
+  ///     any generic type parameter.
+  ///   - useSite: The declaration space from which `type` is being referred.
+  ///   - handleConstraint: A closure that accepts contextualized contraint prototypes and that is
+  ///     called when the contextualized type contains opened generic types for which there exist
+  ///     type requirements.
+  /// - Returns: `(contextualType, openedParams)` where `contextualType` is the contextualized type
+  ///   and `openedParams` is a table mapping opened generic type parameters to the corresponding
+  ///   type variable.
   public func contextualize(
     _ type: ValType,
     from useSite: DeclSpace,
     processingContraintsWith handleConstraint: (ConstraintPrototype) -> Void = { _ in }
-  ) -> ValType {
+  ) -> (contextualType: ValType, openedParams: [GenericParamType: TypeVar]) {
     // FIXME: A lot of magic will have to happen here to handle associated and dependent types.
 
     // Contextualize the type.
     let contextualizer = Contextualizer(env: self, useSite: useSite)
-    let newType = contextualizer.walk(type)
+    let contextualType = contextualizer.walk(type)
 
     // Contextualize the type constraint prototypes for each opened parameter.
     contextualizeTypeReqs(with: contextualizer, processingContraintsWith: handleConstraint)
 
-    return newType
+    return (contextualType: contextualType, openedParams: contextualizer.substitutions)
   }
 
   /// Contextualize the environment's type constraint prototypes with the given contextualizer.

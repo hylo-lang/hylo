@@ -46,10 +46,11 @@ public class VILType: CustomStringConvertible {
   ///   - env: A generic environment.
   ///   - useSite: The declaration space in which the type is being used.
   public func contextualized(in env: GenericEnv, from useSite: DeclSpace) -> VILType {
-    let type = VILType.lower(env.contextualize(valType, from: useSite))
+    let (contextualType, _) = env.contextualize(valType, from: useSite)
+    let vilType = VILType.lower(contextualType)
     return isAddress
-      ? type.address
-      : type.object
+      ? vilType.address
+      : vilType.object
   }
 
   /// A flag that indicates whether the type is existential.

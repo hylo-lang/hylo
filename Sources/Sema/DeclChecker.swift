@@ -159,7 +159,7 @@ struct DeclChecker: DeclVisitor {
     var isWellFormed = true
 
     // Initialize the type's generic environment.
-    guard node.prepareGenericEnv() != nil else {
+    guard let declEnv = node.prepareGenericEnv() else {
       node.setState(.invalid)
       return false
     }
@@ -170,32 +170,40 @@ struct DeclChecker: DeclVisitor {
       isWellFormed = member.accept(self) && isWellFormed
     }
 
-    let receiverType = node.receiverType
+    let conformingType = node.receiverType
     let context = node.type.context
 
     // Type check the type's conformances.
-    for var conformance in node.conformanceTable.values {
-      var satisfied = true
+    outer:for var conformance in node.conformanceTable.values {
+      defer { node.conformanceTable[conformance.viewType] = conformance }
+      conformance.state = .checked
 
       // Build a substitution table mapping the view's generic type parameters to their
       // specialization in the conforming type.
       let viewReceiverType = conformance.viewDecl.receiverType as! GenericParamType
-      var substitutions = [viewReceiverType: receiverType]
+      var substitutions = [viewReceiverType: conformingType]
 
       // Verify that abstract type requirements are satisfied.
       for case let req as AbstractTypeDecl in conformance.viewDecl.typeMemberTable.values {
         // Look for a declaration in the type member table that shadows the abstract requirement.
-        guard let member = node.typeMemberTable[req.name],
-              member.state != .invalid,
-              !(member is AbstractTypeDecl)
-        else {
+        guard let member = node.typeMemberTable[req.name] else {
           context.report(
             .conformanceRequiresMatchingImplementation(
               view: conformance.viewDecl.name,
               requirement: req.name,
               range: conformance.range ?? (node.range.lowerBound ..< node.range.lowerBound)))
-          satisfied = false
-          continue
+
+          // Mark the conformance as invalid.
+          conformance.state = .invalid
+          isWellFormed = false
+          continue outer
+        }
+
+        // Bail out if the member is invalid.
+        guard member.state != .invalid else {
+          conformance.state = .invalid
+          isWellFormed = false
+          continue outer
         }
 
         // Register the type member as a substitution for the abstract requirement.
@@ -241,17 +249,45 @@ struct DeclChecker: DeclVisitor {
                 view: conformance.viewDecl.name,
                 requirement: req.name,
                 range: conformance.range ?? (node.range.lowerBound ..< node.range.lowerBound)))
-            satisfied = false
+
+            // Mark the conformance as invalid.
+            conformance.state = .invalid
+            isWellFormed = false
           }
         }
       }
 
-      // Update the conformance relation in the lookup table.
-      conformance.state = satisfied
-        ? .checked
-        : .invalid
-      node.conformanceTable[conformance.viewType] = conformance
-      isWellFormed = satisfied && isWellFormed
+      // Bail out if the conformance is invalid.
+      guard conformance.state != .invalid else { continue outer }
+
+      // Finally, we must type check the abstract requirements.
+      let locator = ConstraintLocator(node)
+
+      // Contextualize the view's `Self` to translate the view's abstract requirements in the
+      // context of the conforming type.
+      var system = ConstraintSystem()
+      let viewEnv = conformance.viewDecl.prepareGenericEnv()
+      let (_, openedParams) = viewEnv!.contextualize(
+        viewReceiverType,
+        from: node,
+        processingContraintsWith: { system.insert(prototype: $0, at: locator) })
+
+      // Map opened parameters to their contextal type.
+      for (param, member) in substitutions {
+        guard let opened = openedParams[param] else { continue }
+        let (tau, _) = declEnv.contextualize(member, from: node)
+        system.insert(RelationalConstraint(kind: .equality, lhs: opened, rhs: tau, at: locator))
+      }
+
+      // Type check the constraint system.
+      var solver = CSSolver(system: system, context: context)
+      let solution = solver.solve()
+
+      if !solution.errors.isEmpty {
+        solution.reportAllErrors(in: context)
+        conformance.state = .invalid
+        isWellFormed = false
+      }
     }
 
     node.setState(isWellFormed ? .typeChecked : .invalid)

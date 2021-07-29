@@ -111,10 +111,9 @@ public enum TypeChecker {
   ///   - decl: The declaration to contextualize.
   ///   - useSite: The declaration space from which the `decl` is being referred.
   ///   - args: A dictionary containing specialization arguments for generic type parameters.
-  ///   - handleConstraint: A closure that accepts contextualized contraint prototypes. It is
-  ///     called if the contextualized type contains opened generic parameters for which there
-  ///     exist type requirements.
-  ///
+  ///   - handleConstraint: A closure that accepts contextualized contraint prototypes and that is
+  ///     called when the contextualized type contains opened generic types for which there exist
+  ///     type requirements.
   /// - Returns: The contextualized type of the declaration.
   public static func contextualize(
     decl: ValueDecl,
@@ -188,8 +187,9 @@ public enum TypeChecker {
         adjustedSite = useSite
       }
 
-      return env.contextualize(
+      let (contextualType, _) = env.contextualize(
         genericType, from: adjustedSite, processingContraintsWith: handleConstraint)
+      return contextualType
     }
 
     // Find the innermost generic space, relative to this declaration. We can assume there's one,
@@ -197,8 +197,10 @@ public enum TypeChecker {
     guard let env = decl.parentDeclSpace!.innermostGenericSpace!.prepareGenericEnv() else {
       return decl.type.context.errorType
     }
-    return env.contextualize(
+
+    let (contextualType, _) = env.contextualize(
       genericType, from: useSite, processingContraintsWith: handleConstraint)
+    return contextualType
   }
 
   // MARK: Internal API
@@ -213,7 +215,6 @@ public enum TypeChecker {
   ///   - useSite: The declaration space in which the expression is type checked.
   ///   - system: A system with potential pre-existing constraints that should be solved together
   ///     with those related to the expression.
-  ///
   /// - Returns: The best solution found by the type solver
   @discardableResult
   static func check(
@@ -253,7 +254,7 @@ public enum TypeChecker {
     let solution = solver.solve()
 
     // Report type errors.
-    TypeErrorReporter(context: expr.type.context, solution: solution).report(solution.errors)
+    solution.reportAllErrors(in: expr.type.context)
 
     // Apply the solution.
     let dispatcher = TypeDispatcher(solution: solution)
@@ -287,7 +288,7 @@ public enum TypeChecker {
     let solution = solver.solve()
 
     // Report type errors.
-    TypeErrorReporter(context: pattern.type.context, solution: solution).report(solution.errors)
+    solution.reportAllErrors(in: pattern.type.context)
 
     // Apply the solution.
     let dispatcher = TypeDispatcher(solution: solution)
@@ -303,7 +304,6 @@ public enum TypeChecker {
   ///   - useSite: The declaration space in which the signature is type checked.
   ///   - system: A system with potential pre-existing constraints that should be solved together
   ///     with those related to the signature.
-  ///
   /// - Returns: The contextualized type of the declaration if it is valid; otherwise, `nil`.
   static func contextualize(
     sign: Sign,
@@ -324,7 +324,7 @@ public enum TypeChecker {
       guard let env = useSite.innermostGenericSpace!.prepareGenericEnv() else { return nil }
 
       // Contextualize the signature.
-      signType = env.contextualize(
+      (signType, _) = env.contextualize(
         signType,
         from: useSite,
         processingContraintsWith: { system.insert(prototype: $0, at: ConstraintLocator(sign)) })
@@ -346,7 +346,6 @@ public enum TypeChecker {
   ///   - type: Either a bare nominal type or a bound generic type.
   ///   - system: The system in which constraints on opened type parameters are inserted.
   ///   - locator: A locator for all generated constraints.
-  ///
   /// - Returns: A bound generic type filling out missing generic arguments with fresh type
   ///   variables, if `type` is an underspecified generic nominal type; otherwise, `nil`.
   static func completeGenericArgs(
@@ -365,10 +364,12 @@ public enum TypeChecker {
       return nil
     }
 
-    let newType = nominalType.context.boundGenericType(decl: nominalType.decl, args: args)
-    return env.contextualize(
-      newType, from: nominalType.decl.rootDeclSpace,
+    let boundType = nominalType.context.boundGenericType(decl: nominalType.decl, args: args)
+    let (contextualType, _) = env.contextualize(
+      boundType,
+      from: nominalType.decl.rootDeclSpace,
       processingContraintsWith: { system.insert(prototype: $0, at: locator) })
+    return contextualType
   }
 
   /// Recursively assigns the given type to a pattern and its sub-patterns, generating diagnostics
@@ -377,7 +378,6 @@ public enum TypeChecker {
   /// - Parameters:
   ///   - type: A type.
   ///   - pattern: A pattern.
-  ///
   /// - Returns: `true` if the type was successfully applied, or `false` if its layout does not
   ///   match that of the pattern.
   static func assign(type: ValType, to pattern: Pattern) -> Bool {

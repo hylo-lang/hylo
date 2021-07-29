@@ -183,7 +183,7 @@ struct CSSolver {
 
     default:
       // FIXME: Handle structural view conformance.
-      errors.append(.conflictingTypes(constraint))
+      errors.append(.nonConformingType(constraint))
     }
   }
 

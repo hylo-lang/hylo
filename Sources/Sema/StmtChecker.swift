@@ -38,7 +38,7 @@ struct StmtChecker: StmtVisitor {
 
       if signType.hasTypeParams {
         if let env = funDecl.prepareGenericEnv() {
-          retType = env.contextualize(signType, from: useSite)
+          (retType, _) = env.contextualize(signType, from: useSite)
         } else {
           retType = context.errorType
         }

@@ -18,6 +18,29 @@ enum FreeTypeVarBindingPolicy {
 /// mapping that keep tracks of selected overloads.
 struct Solution {
 
+  /// The score of a solution.
+  struct Score: RawRepresentable, Comparable {
+
+    init(rawValue: UInt64) {
+      self.rawValue = rawValue
+    }
+
+    init(penalities: Int, errorCount: Int) {
+      rawValue =
+        (UInt64(UInt32(truncatingIfNeeded: penalities))) |
+        (UInt64(UInt32(truncatingIfNeeded: errorCount)) << 32)
+    }
+
+    let rawValue: UInt64
+
+    static func < (lhs: Score, rhs: Score) -> Bool {
+      return lhs.rawValue < rhs.rawValue
+    }
+
+    static var worst = Score(rawValue: UInt64.max)
+
+  }
+
   /// The type bindings that were made to solve the constraint system.
   var bindings: [TypeVar: ValType]
 
@@ -96,27 +119,67 @@ struct Solution {
     }
   }
 
-  /// The score of a solution.
-  struct Score: RawRepresentable, Comparable {
+  /// Reports a type error.
+  ///
+  /// - Parameters:
+  ///   - error: A type error.
+  ///   - context: The AST conext in which type checking occured.
+  func report(_ error: TypeError, in context: Context) {
+    switch error {
+    case .conflictingTypes(let constraint):
+      let lhs = reify(constraint.lhs, freeVariablePolicy: .keep)
+      let rhs = reify(constraint.rhs, freeVariablePolicy: .keep)
 
-    init(rawValue: UInt64) {
-      self.rawValue = rawValue
+      // Compute the diagnostic's message.
+      let message: String
+      switch constraint.kind {
+      case .equality, .oneWayEquality:
+        message = "type '\(lhs)' is not equal to type '\(rhs)'"
+      case .conformance:
+        message = "type '\(lhs)' does not conform to the view '\(rhs)'"
+      case .subtyping:
+        message = "type '\(lhs)' is not a subtype of type '\(rhs)'"
+      case .conversion:
+        message = "type '\(lhs)' is not expressible by type '\(rhs)' in conversion"
+      }
+
+      // Report the diagnostic.
+      let anchor = constraint.locator.resolve()
+      context.report(Diagnostic(message, anchor: anchor.range))
+
+    case .nonConformingType(let constraint):
+      let lhs = reify(constraint.lhs, freeVariablePolicy: .keep)
+      let rhs = reify(constraint.rhs, freeVariablePolicy: .keep)
+      assert(rhs is ViewType)
+
+      let anchor = constraint.locator.resolve()
+      context.report(
+        Diagnostic("type '\(lhs)' does not conform to view '\(rhs)'", anchor: anchor.range))
+
+    case .noViableOverload(let constraint):
+      let message = "no viable overload to resolve '\(constraint.declSet[0].name)'"
+      let anchor = constraint.locator.resolve()
+      context.report(Diagnostic(message, anchor: anchor.range))
+
+    case .multipleOverloads(let constraint, let decls):
+      let message = "ambiguous use of '\(decls[0].name)'"
+      let anchor = constraint.locator.resolve()
+      context.report(Diagnostic(message, anchor: anchor.range))
+
+    default:
+      let anchor = error.constraint.locator.resolve()
+      context.report(Diagnostic(String(describing: error), anchor: anchor.range))
     }
+  }
 
-    init(penalities: Int, errorCount: Int) {
-      rawValue =
-        (UInt64(UInt32(truncatingIfNeeded: penalities))) |
-        (UInt64(UInt32(truncatingIfNeeded: errorCount)) << 32)
+  /// Reports all the type errors of this solution.
+  ///
+  /// - Parameter context: The AST conext in which type checking occured.
+  func reportAllErrors(in context: Context) {
+    // Sort the errors by source location.
+    for error in errors.sorted(by: <) {
+      report(error, in: context)
     }
-
-    let rawValue: UInt64
-
-    static func < (lhs: Score, rhs: Score) -> Bool {
-      return lhs.rawValue < rhs.rawValue
-    }
-
-    static var worst = Score(rawValue: UInt64.max)
-
   }
 
 }

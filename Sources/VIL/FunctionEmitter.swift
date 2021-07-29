@@ -59,7 +59,7 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
 
     // Register the function's receiver in the local symbol table, if necessary.
     if let selfDecl = funDecl.selfDecl {
-      var selfType = genericEnv.contextualize(selfDecl.type, from: funDecl)
+      var (selfType, _) = genericEnv.contextualize(selfDecl.type, from: funDecl)
       if funDecl.isMember {
         // Member functions accept their receiver as an implicit parameter.
         locals[ObjectIdentifier(funDecl.selfDecl!)] = args[0]
