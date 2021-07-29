@@ -264,13 +264,16 @@ public final class UnresolvedDeclRefExpr: Expr {
   }
 
   /// An identifier.
-  public let name: String
+  public var ident: Ident
 
-  public init(name: String, type: UnresolvedType, range: SourceRange) {
-    self.name = name
+  public init(ident: Ident, type: UnresolvedType, range: SourceRange) {
+    self.ident = ident
     self.type = type
     self.range = range
   }
+
+  /// The unqualified name of the referred declaration.
+  public var name: String { ident.name }
 
   public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
@@ -295,14 +298,17 @@ public final class UnresolvedQualDeclRefExpr: Expr {
   public var namespace: IdentSign
 
   /// An identifier.
-  public let name: String
+  public var ident: Ident
 
-  public init(namespace: IdentSign, name: String, type: UnresolvedType, range: SourceRange) {
+  public init(namespace: IdentSign, ident: Ident, type: UnresolvedType, range: SourceRange) {
     self.namespace = namespace
-    self.name = name
+    self.ident = ident
     self.type = type
     self.range = range
   }
+
+  /// The unqualified name of the referred declaration.
+  public var name: String { ident.name }
 
   public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
@@ -403,15 +409,18 @@ public final class UnresolvedMemberExpr: MemberExpr {
   /// The base expression.
   public var base: Expr
 
-  /// The name of the member.
-  public var memberName: String
+  /// The member's identifier.
+  public var ident: Ident
 
-  public init(base: Expr, memberName: String, type: UnresolvedType, range: SourceRange) {
+  public init(base: Expr, ident: Ident, type: UnresolvedType, range: SourceRange) {
     self.base = base
-    self.memberName = memberName
+    self.ident = ident
     self.type = type
     self.range = range
   }
+
+  /// The unqualified name of the member.
+  public var memberName: String { ident.name }
 
   public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
