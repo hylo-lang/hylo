@@ -829,11 +829,12 @@ public class GenericTypeDecl: BaseGenericDecl, TypeDecl {
       }
     }
 
-    // Populate the lookup table with members inherited by conformance.
-    let newConfs = updateConformanceTable()
-    for conformance in newConfs {
-      fill(members: conformance.viewDecl.allTypeAndValueMembers.lazy.map({ $0.decl }))
-    }
+    // Populate the lookup table with concrete members inherited by conformance.
+    // FIXME: Insert members that have a default implementation, or are defined in extensions.
+    // let newConfs = updateConformanceTable()
+    // for conformance in newConfs {
+    //   fill(members: conformance.viewDecl.members)
+    // }
 
     memberTablesGeneration = type.context.generation
   }
@@ -859,29 +860,15 @@ public class GenericTypeDecl: BaseGenericDecl, TypeDecl {
 
       case let decl as TypeDecl:
         // Check for invalid redeclarations.
-        if let duplicate = _typeMemberTable[decl.name] {
-          // Types may not be overloaded. However, abstract type declarations inherited by view
-          // conformance must be shadowed in conforming types.
-          if duplicate is AbstractTypeDecl {
-            if !(decl is AbstractTypeDecl) {
-              // The new member is shadowing an abstract declaration from a conformed view.
-              _typeMemberTable[decl.name] = decl
-              continue
-            }
-          } else if decl is AbstractTypeDecl {
-            // The new member is an abstract declaration that's already been shadowed; we're done.
-            continue
-          }
-
+        guard _typeMemberTable[decl.name] == nil else {
           type.context.report(.duplicateDeclaration(symbol: decl.name, range: decl.range))
           decl.setState(.invalid)
+          continue
         }
-
-        // No duplicate declaration.
         _typeMemberTable[decl.name] = decl
 
       default:
-        continue
+        break
       }
     }
   }
@@ -909,6 +896,9 @@ public class GenericTypeDecl: BaseGenericDecl, TypeDecl {
   @discardableResult
   public func updateConformanceTable() -> [ViewConformance] {
     guard conformanceTableGeneration < type.context.generation else { return [] }
+
+    // FIXME: Insert inherited conformance.
+    // FIXME: Insert conformance declared in extensions.
 
     // Initialize the conformance table with the inheritance clause of the type declaration.
     var newConfs: [ViewConformance] = []
