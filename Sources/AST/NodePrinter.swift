@@ -310,7 +310,34 @@ public struct NodePrinter: NodeVisitor {
     """
   }
 
+  public func visit(_ node: BoolLiteralExpr) -> String {
+    return """
+    {
+    \(exprHeader(node)),
+    "value"           : \(node.value)
+    }
+    """
+  }
+
   public func visit(_ node: IntLiteralExpr) -> String {
+    return """
+    {
+    \(exprHeader(node)),
+    "value"           : \(node.value)
+    }
+    """
+  }
+
+  public func visit(_ node: FloatLiteralExpr) -> String {
+    return """
+    {
+    \(exprHeader(node)),
+    "value"           : \(node.value)
+    }
+    """
+  }
+
+  public func visit(_ node: StringLiteralExpr) -> String {
     return """
     {
     \(exprHeader(node)),

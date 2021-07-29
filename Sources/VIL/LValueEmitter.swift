@@ -8,7 +8,19 @@ struct LValueEmitter: ExprVisitor {
   /// The function emitter that owns this emitter.
   unowned let parent: FunctionEmitter
 
+  func visit(_ node: BoolLiteralExpr) -> Result<Value, EmitterError> {
+    return .failure(.immutableExpr)
+  }
+
   func visit(_ node: IntLiteralExpr) -> ExprResult {
+    return .failure(.immutableExpr)
+  }
+
+  func visit(_ node: FloatLiteralExpr) -> ExprResult {
+    return .failure(.immutableExpr)
+  }
+
+  func visit(_ node: StringLiteralExpr) -> ExprResult {
     return .failure(.immutableExpr)
   }
 

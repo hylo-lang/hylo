@@ -54,7 +54,19 @@ struct PreChecker: ExprVisitor {
   /// The declaration space in which the visited expression resides.
   let useSite: DeclSpace
 
+  func visit(_ node: BoolLiteralExpr) -> Expr {
+    return node
+  }
+
   func visit(_ node: IntLiteralExpr) -> Expr {
+    return node
+  }
+
+  func visit(_ node: FloatLiteralExpr) -> Expr {
+    return node
+  }
+
+  func visit(_ node: StringLiteralExpr) -> Expr {
     return node
   }
 

@@ -83,7 +83,13 @@ public protocol ExprVisitor {
 
   associatedtype ExprResult
 
+  func visit(_ node: BoolLiteralExpr) -> ExprResult
+
   func visit(_ node: IntLiteralExpr) -> ExprResult
+
+  func visit(_ node: FloatLiteralExpr) -> ExprResult
+
+  func visit(_ node: StringLiteralExpr) -> ExprResult
 
   func visit(_ node: AssignExpr) -> ExprResult
 

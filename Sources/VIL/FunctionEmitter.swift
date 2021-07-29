@@ -338,6 +338,10 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     fatalError()
   }
 
+  func visit(_ node: BoolLiteralExpr) -> Result<Value, EmitterError> {
+    fatalError("not implemented")
+  }
+
   func visit(_ node: IntLiteralExpr) -> ExprResult {
     // We can assume the expression's type conforms to `ExpressibleBy***Literal` (as type checking
     // succeeded). Therefore we can look for a conversion constructor `new(literal:)`.
@@ -359,6 +363,14 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     // Emit a call to the constructor.
     let literal = IntLiteralValue(value: node.value, context: context)
     return .success(builder.buildApply(fun: funref, args: [literal]))
+  }
+
+  func visit(_ node: FloatLiteralExpr) -> Result<Value, EmitterError> {
+    fatalError("not implemented")
+  }
+
+  func visit(_ node: StringLiteralExpr) -> Result<Value, EmitterError> {
+    fatalError("not implemented")
   }
 
   func visit(_ node: AssignExpr) -> ExprResult {

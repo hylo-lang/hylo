@@ -70,12 +70,24 @@ private struct ConstraintGenerator: ExprVisitor, PatternVisitor {
   /// The declaration space from which nodes are being visited.
   unowned let useSite: DeclSpace
 
+  func visit(_ node: BoolLiteralExpr) -> Void {
+    fatalError("not implemented")
+  }
+
   func visit(_ node: IntLiteralExpr) {
     let literalType = node.type.context.getBuiltinType(named: "IntLiteral")!
     system.pointee.insert(
       RelationalConstraint(
         kind: .conversion, lhs: node.type, rhs: literalType,
         at: ConstraintLocator(node)))
+  }
+
+  func visit(_ node: FloatLiteralExpr) -> Void {
+    fatalError("not implemented")
+  }
+
+  func visit(_ node: StringLiteralExpr) -> Void {
+    fatalError("not implemented")
   }
 
   func visit(_ node: AssignExpr) {

@@ -13,6 +13,28 @@ public protocol Expr: Node {
 
 }
 
+/// A Boolean literal.
+public final class BoolLiteralExpr: Expr {
+
+  public var range: SourceRange
+
+  public var type: ValType
+
+  /// The value of the literal.
+  public var value: Bool
+
+  public init(value: Bool, type: ValType, range: SourceRange) {
+    self.value = value
+    self.type  = type
+    self.range = range
+  }
+
+  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
+    return visitor.visit(self)
+  }
+
+}
+
 /// An integer literal.
 public final class IntLiteralExpr: Expr {
 
@@ -20,12 +42,56 @@ public final class IntLiteralExpr: Expr {
 
   public var type: ValType
 
-  /// The literal's value.
+  /// The value of the literal.
   public var value: Int
 
   public init(value: Int, type: ValType, range: SourceRange) {
     self.value = value
-    self.type = type
+    self.type  = type
+    self.range = range
+  }
+
+  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
+    return visitor.visit(self)
+  }
+
+}
+
+/// A floating-point literal.
+public final class FloatLiteralExpr: Expr {
+
+  public var range: SourceRange
+
+  public var type: ValType
+
+  /// The value of the literal.
+  public var value: Double
+
+  public init(value: Double, type: ValType, range: SourceRange) {
+    self.value = value
+    self.type  = type
+    self.range = range
+  }
+
+  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
+    return visitor.visit(self)
+  }
+
+}
+
+/// A string literal.
+public final class StringLiteralExpr: Expr {
+
+  public var range: SourceRange
+
+  public var type: ValType
+
+  /// The value of the literal.
+  public var value: String
+
+  public init(value: String, type: ValType, range: SourceRange) {
+    self.value = value
+    self.type  = type
     self.range = range
   }
 
