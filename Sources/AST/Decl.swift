@@ -722,7 +722,7 @@ public class GenericTypeDecl: BaseGenericDecl, TypeDecl {
   fileprivate var _typeMemberTable: [String: TypeDecl] = [:]
 
   /// The internal cache backing `conformanceTable`.
-  fileprivate var _conformanceTable = ConformanceLookupTable()
+  fileprivate var _conformanceTable: ReferenceTable<ViewType, ViewConformance> = [:]
 
   /// The context generation for which the member tables were last updated.
   fileprivate var memberTablesGeneration = -1
@@ -882,12 +882,18 @@ public class GenericTypeDecl: BaseGenericDecl, TypeDecl {
   // MARK: View conformance
 
   /// A lookup table keeping track of the views to which the declared type conforms.
-  public var conformanceTable: ConformanceLookupTable {
+  public var conformanceTable: ReferenceTable<ViewType, ViewConformance> {
     get {
       updateConformanceTable()
       return _conformanceTable
     }
-    set { _conformanceTable = newValue }
+    set {
+      _conformanceTable = newValue
+    }
+    _modify {
+      updateConformanceTable()
+      yield &_conformanceTable
+    }
   }
 
   /// Updates or initializes the conformance lookup table.
@@ -911,22 +917,17 @@ public class GenericTypeDecl: BaseGenericDecl, TypeDecl {
           newConfs.append(conf)
         }
       }
-
-      // FIXME: Insert inherited conformance.
     }
 
-    // FIXME: Insert conformance declared in extensions.
     conformanceTableGeneration = type.context.generation
-
     return newConfs
   }
 
   /// Returns whether the declared type conforms to the given view.
   ///
   /// - Parameter viewType: A view.
-  ///
   /// - Returns: `true` if there exists a type checked conformance between the declared type and
-  ///   the given view. Otherwise, returns `false`.
+  ///   the given view; otherwise, `false`.
   public func conforms(to viewType: ViewType) -> Bool {
     updateConformanceTable()
     guard let conformance = _conformanceTable[viewType] else { return false }
