@@ -84,9 +84,19 @@ public final class FunSign: Sign {
   /// The signature of the function's codomain.
   public var retSign: Sign
 
-  public init(paramSign: Sign, retSign: Sign, type: ValType, range: SourceRange) {
+  /// A Boolean value that indicates whether the function is volatile.
+  public var isVolatile: Bool
+
+  public init(
+    paramSign : Sign,
+    retSign   : Sign,
+    isVolatile: Bool = false,
+    type      : ValType,
+    range     : SourceRange
+  ) {
     self.paramSign = paramSign
     self.retSign = retSign
+    self.isVolatile = isVolatile
     self.type = type
     self.range = range
   }
@@ -262,25 +272,6 @@ public protocol IdentSign: Sign {
 
 }
 
-extension IdentSign {
-
-  /// Creates either a `CompoundIdentSign` with the given array, or returns its last element if it
-  /// contains just one entry.
-  ///
-  /// - Parameter components: The components of the identifier.
-  public static func create(_ components: [IdentCompSign]) -> IdentSign {
-    precondition(!components.isEmpty)
-    if components.count == 1 {
-      return components.first!
-    } else {
-      return CompoundIdentSign(
-        components: components,
-        range: components.first!.range.lowerBound ..< components.last!.range.upperBound)
-    }
-  }
-
-}
-
 /// A single component in a compound type identifier.
 public protocol IdentCompSign: IdentSign {
 
@@ -386,20 +377,22 @@ extension IdentCompSign {
 
 }
 
-/// An simple, unqualified type identifier (e.g., `Int64`).
-public final class UnqualIdentSign: IdentCompSign {
-
-  public var range: SourceRange
+/// An bare, unqualified type identifier (e.g., `Int64`).
+public final class BareIdentSign: IdentCompSign {
 
   public var type: ValType
 
-  public var name: String
+  /// An identifier.
+  public var ident: Ident
 
-  public init(name: String, type: ValType, range: SourceRange) {
-    self.name = name
-    self.type = type
-    self.range = range
+  public init(ident: Ident, type: ValType) {
+    self.ident = ident
+    self.type  = type
   }
+
+  public var name: String { ident.name }
+
+  public var range: SourceRange { ident.range }
 
   public func accept<V>(_ visitor: V) -> V.SignResult where V: SignVisitor {
     return visitor.visit(self)
@@ -410,21 +403,24 @@ public final class UnqualIdentSign: IdentCompSign {
 /// An unqualified type identifier with generic arguments (e.g., `Array<Int64>`).
 public final class SpecializedIdentSign: IdentCompSign {
 
-  public var range: SourceRange
-
   public var type: ValType
 
-  public var name: String
+  public var range: SourceRange
+
+  /// An identifier.
+  public var ident: Ident
 
   /// The generic arguments of the type.
   public var args: [Sign]
 
-  public init(name: String, args: [Sign], type: ValType, range: SourceRange) {
-    self.name = name
-    self.args = args
-    self.type = type
+  public init(ident: Ident, args: [Sign], type: ValType, range: SourceRange) {
+    self.ident = ident
+    self.args  = args
+    self.type  = type
     self.range = range
   }
+
+  public var name: String { ident.name }
 
   public func realize(from space: DeclSpace, baseDecl: GenericTypeDecl) {
     let context = baseDecl.type.context
@@ -547,6 +543,48 @@ public final class CompoundIdentSign: IdentSign {
 
   public func accept<V>(_ visitor: V) -> V.SignResult where V: SignVisitor {
     return visitor.visit(self)
+  }
+
+  /// Creates either a `CompoundIdentSign` with the given array, or returns its last element if it
+  /// contains just one entry.
+  ///
+  /// - Parameter components: The components of the identifier.
+  public static func create(_ components: [IdentCompSign]) -> IdentSign {
+    precondition(!components.isEmpty)
+    if components.count == 1 {
+      return components.first!
+    } else {
+      return CompoundIdentSign(
+        components: components,
+        range: components.first!.range.lowerBound ..< components.last!.range.upperBound)
+    }
+  }
+
+}
+
+/// An ill-formed signature.
+///
+/// The compiler should emit a diagnostic every time this type is assigned to a node, so that later
+/// stages need not to reason about the cause of the error.
+public final class ErrorSign: Sign {
+
+  public var range: SourceRange
+
+  public var type: ValType  {
+    didSet { assert(type is ErrorType) }
+  }
+
+  public init(type: ErrorType, range: SourceRange) {
+    self.type = type
+    self.range = range
+  }
+
+  public func realize(unqualifiedFrom useSite: DeclSpace) -> ValType {
+    return type
+  }
+
+  public func accept<V>(_ visitor: V) -> V.SignResult where V: SignVisitor {
+    visitor.visit(self)
   }
 
 }

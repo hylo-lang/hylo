@@ -25,7 +25,8 @@ let package = Package(
       dependencies: ["Basic", "Parser"],
       resources: [.copy("Builtins.json")]),
     .target(name: "Basic"),
-    .target(name: "Driver", dependencies: ["AST", "Basic", "Parser", "Sema", "VIL"]),
+    .target(name: "Driver", dependencies: ["AST", "Basic", "Parse", "Parser", "Sema", "VIL"]),
+    .target(name: "Parse", dependencies: ["AST", "Basic"]),
     .target(
       name: "Parser",
       dependencies: ["Antlr4", "Basic"],
@@ -36,6 +37,7 @@ let package = Package(
 
     // Test targets.
     .testTarget(name: "ASTTests", dependencies: ["AST", "Basic"]),
+    .testTarget(name: "ParseTests", dependencies: ["AST", "Parse", "Basic"]),
     .testTarget(
       name: "ValTests",
       dependencies: ["Basic", "Driver", "Eval"],

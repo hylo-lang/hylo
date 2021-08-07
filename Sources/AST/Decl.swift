@@ -143,6 +143,12 @@ public final class PatternBindingDecl: Decl {
 
   public var state = DeclState.parsed
 
+  /// The declaration modifiers of the declaration.
+  ///
+  /// This array only contains the modifiers specified at the creation of the declaration. It may
+  /// not accurately match the corresponding semantic properties of the declaration.
+  public let modifiers: [DeclModifier]
+
   /// A flag indicating whether the declared variables are mutable.
   public var isMutable: Bool
 
@@ -161,27 +167,29 @@ public final class PatternBindingDecl: Decl {
   public var initializer: Expr?
 
   /// The source range of the `val` or `var` keyword at the start of the declaration.
-  public var keywordRange: SourceRange
+  public var introRange: SourceRange?
 
   public init(
-    isMutable   : Bool,
-    pattern     : Pattern,
-    sign        : Sign?,
-    initializer : Expr?,
-    keywordRange: SourceRange,
-    range       : SourceRange
+    modifiers: [DeclModifier] = [],
+    isMutable: Bool,
+    pattern: Pattern,
+    sign: Sign?,
+    initializer: Expr?,
+    introRange: SourceRange?,
+    range: SourceRange
   ) {
+    self.modifiers = modifiers
     self.isMutable = isMutable
     self.pattern = pattern
     self.sign = sign
     self.initializer = initializer
-    self.keywordRange = keywordRange
+    self.introRange = introRange
     self.range = range
   }
 
   /// A flag indicating whether the declaration describes member variables.
   public var isMember: Bool {
-    return (parentDeclSpace is NominalTypeDecl || parentDeclSpace is TypeExtDecl)
+    return (parentDeclSpace is NominalTypeDecl || parentDeclSpace is TypeExtnDecl)
   }
 
   public func setState(_ newState: DeclState) {
@@ -209,9 +217,10 @@ public final class VarDecl: ValueDecl {
 
   public var state = DeclState.parsed
 
-  public var name: String
-
   public var type: ValType
+
+  /// The variable's identifier.
+  public var ident: Ident
 
   /// The pattern binding declaration that introduces this variable declaration, if any.
   ///
@@ -227,11 +236,13 @@ public final class VarDecl: ValueDecl {
   /// A flag indicating whether the variable is mutable.
   public var isMutable = false
 
-  public init(name: String, type: ValType, range: SourceRange) {
-    self.name = name
+  public init(ident: Ident, type: ValType, range: SourceRange) {
+    self.ident = ident
     self.type = type
     self.range = range
   }
+
+  public var name: String { ident.name }
 
   public var isOverloadable: Bool { false }
 
@@ -294,10 +305,10 @@ public class BaseGenericDecl: GenericDeclSpace {
 
     if let clause = genericClause {
       genericEnv = GenericEnv(
-        space   : self,
-        params  : clause.params.map({ $0.instanceType as! GenericParamType }),
+        space: self,
+        params: clause.params.map({ $0.instanceType as! GenericParamType }),
         typeReqs: clause.typeReqs,
-        context : type.context)
+        context: type.context)
       guard genericEnv != nil else {
         setState(.invalid)
         return nil
@@ -345,26 +356,26 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
   }
 
   public init(
-    name          : String,
-    declModifiers : [DeclModifier] = [],
-    params        : [FunParamDecl] = [],
-    retTypeSign   : Sign?          = nil,
-    type          : ValType,
-    range         : SourceRange
+    ident: Ident? = nil,
+    modifiers: [DeclModifier] = [],
+    params: [FunParamDecl] = [],
+    retTypeSign: Sign? = nil,
+    type: ValType,
+    range: SourceRange
   ) {
-    self.name = name
-    self.declModifiers = declModifiers
+    self.ident = ident
+    self.modifiers = modifiers
     self.params = params
     self.retSign = retTypeSign
     self.range = range
 
     // Process the function modifiers.
     self.props = FunDeclProps()
-    for modifier in declModifiers {
+    for modifier in modifiers {
       switch modifier.kind {
       case .mut   : props.formUnion(.isMutating)
       case .static: props.formUnion(.isStatic)
-      default     : continue
+      default: continue
       }
     }
 
@@ -373,8 +384,11 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
 
   // MARK: Source properties
 
+  /// The identifier of the function, if any.
+  public var ident: Ident?
+
   /// The name of the function (empty for anonymous functions).
-  public var name: String
+  public var name: String { ident?.name ?? "" }
 
   /// The local discriminator for the function.
   ///
@@ -416,9 +430,9 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
 
   /// The declaration modifiers of the function.
   ///
-  /// This array only contains the declaration modifiers as found in source. It may not accurately
-  /// describe the relevant bits in `props`, nor vice-versa.
-  public var declModifiers: [DeclModifier]
+  /// This array only contains the declaration modifiers specified at the creation of the
+  /// declaration. It may not accurately describe the relevant bits in `props`, nor vice-versa.
+  public let modifiers: [DeclModifier]
 
   /// The parameters of the function.
   public var params: [FunParamDecl]
@@ -448,7 +462,7 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
       // The function is declared in the body of a nominal type.
       receiverType = typeDecl.receiverType
 
-    case let extnDecl as TypeExtDecl:
+    case let extnDecl as TypeExtnDecl:
       // The function is declared in the body of a type extension.
       guard let typeDecl = extnDecl.extendedDecl else {
         let decl = FunParamDecl(
@@ -602,14 +616,15 @@ public final class FunDecl: BaseFunDecl {
 public final class CtorDecl: BaseFunDecl {
 
   public init(
-    declModifiers : [DeclModifier] = [],
-    params        : [FunParamDecl] = [],
-    type          : ValType,
-    range         : SourceRange
+    modifiers: [DeclModifier] = [],
+    params: [FunParamDecl] = [],
+    type: ValType,
+    introRange: SourceRange? = nil,
+    range: SourceRange
   ) {
     super.init(
-      name: "new",
-      declModifiers: declModifiers,
+      ident: Ident(name: "new", range: introRange ?? .invalid),
+      modifiers: modifiers,
       params: params,
       type: type,
       range: range)
@@ -1093,9 +1108,9 @@ public final class ViewTypeDecl: NominalTypeDecl {
     // Synthesize the requirement `Self: V`.
     let selfType = selfTypeDecl.instanceType as! GenericParamType
     let selfReq  = TypeReq(
-      kind : .conformance,
-      lhs  : UnqualIdentSign(name: "Self", type: selfType, range: selfTypeDecl.range),
-      rhs  : UnqualIdentSign(name: name, type: instanceType, range: selfTypeDecl.range),
+      kind: .conformance,
+      lhs: BareIdentSign(ident: Ident(name: "Self", range: selfTypeDecl.range), type: selfType),
+      rhs: BareIdentSign(ident: Ident(name: name, range: selfTypeDecl.range), type: instanceType),
       range: selfTypeDecl.range)
 
     // Collect the abstract types of the view, and their requirements.
@@ -1114,7 +1129,7 @@ public final class ViewTypeDecl: NominalTypeDecl {
       let inheritanceReqs = decl.inheritances.map({ (sign) -> TypeReq in
         TypeReq(
           kind : .conformance,
-          lhs  : UnqualIdentSign(name: decl.name, type: type, range: decl.range),
+          lhs  : BareIdentSign(ident: Ident(name: decl.name, range: decl.range), type: type),
           rhs  : sign,
           range: sign.range)
       })
@@ -1318,7 +1333,7 @@ public final class AbstractTypeDecl: GenericParamDecl {
 ///
 /// This is not a `TypeDecl`, as it does not define any type. An extension merely represents a set
 /// of declarations that should be "added" to a type.
-public final class TypeExtDecl: Decl, DeclSpace {
+public final class TypeExtnDecl: Decl, DeclSpace {
 
   public init(extendedIdent: IdentSign, members: [Decl], range: SourceRange) {
     self.extendedIdent = extendedIdent

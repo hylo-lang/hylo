@@ -708,7 +708,7 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     let subject = emit(rvalue: node.subject)
 
     // If the node is a sub-expression, allocate storage for its "value".
-    let storage: AllocStackInst? = node.isSubExpr
+    let storage: AllocStackInst? = node.isSubexpr
       ? builder.buildAllocStack(type: .lower(node.type))
       : nil
 

@@ -4,7 +4,7 @@ public protocol DiagnosticConsumer {
   /// Consumes and reports a diagnostic.
   ///
   /// - Parameter diagnostic: A diagnostic.
-  func consume(_ diagnostic: Diagnostic)
+  mutating func consume(_ diagnostic: Diagnostic)
 
 }
 
@@ -47,13 +47,17 @@ public struct Diagnostic {
   }
 
   /// The severity of a diagnostic.
-  public enum Level {
+  public enum Level: Int, Comparable {
+
+    /// An error that does not prevent compilation.
+    case warning = 0
 
     /// An unrecoverable error that prevents compilation.
     case error
 
-    /// An error that does not prevent compilation.
-    case warning
+    public static func < (lhs: Diagnostic.Level, rhs: Diagnostic.Level) -> Bool {
+      lhs.rawValue < rhs.rawValue
+    }
 
   }
 

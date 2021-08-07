@@ -356,7 +356,7 @@ struct DeclChecker: DeclVisitor {
     fatalError("unreachable")
   }
 
-  func visit(_ node: TypeExtDecl) -> Bool {
+  func visit(_ node: TypeExtnDecl) -> Bool {
     guard node.state < .typeChecked else { return handleCheckState(node) }
 
     // Bind the extension to the type it extends.

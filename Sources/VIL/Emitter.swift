@@ -69,7 +69,7 @@ public final class Emitter: DeclVisitor {
     decl.members.forEach({ $0.accept(self) })
   }
 
-  public func visit(_ decl: TypeExtDecl) {
+  public func visit(_ decl: TypeExtnDecl) {
     decl.members.forEach({ $0.accept(self) })
   }
 

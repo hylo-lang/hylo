@@ -215,7 +215,8 @@ public final class Context {
     ret: String
   ) -> FunDecl {
     // Create the declaration of the function.
-    let funDecl = FunDecl(name: name, type: unresolvedType, range: .invalid)
+    let ident = Ident(name: name, range: .invalid)
+    let funDecl = FunDecl(ident: ident, type: unresolvedType, range: .invalid)
 
     // Create the declaration(s) of the function's parameter.
     var paramTypes: [TupleType.Elem] = []
@@ -225,7 +226,7 @@ public final class Context {
       paramTypes.append(TupleType.Elem(type: type))
 
       // Create the declaration of the parameter.
-      let sign = UnqualIdentSign(name: param, type: type, range: .invalid)
+      let sign = BareIdentSign(ident: Ident(name: param, range: .invalid), type: type)
       let decl = FunParamDecl(name: "_\(i)", typeSign: sign, type: type, range: .invalid)
       decl.parentDeclSpace = funDecl
       decl.setState(.typeChecked)
@@ -234,9 +235,10 @@ public final class Context {
     }
 
     // Setup the function's signature.
-    funDecl.retSign = ret.isEmpty
-      ? nil
-      : UnqualIdentSign(name: ret, type: parse(typeNamed: ret), range: .invalid)
+    if !ret.isEmpty {
+      funDecl.retSign = BareIdentSign(
+        ident: Ident(name: ret, range: .invalid), type: parse(typeNamed: ret))
+    }
     funDecl.type = funType(
       paramType: tupleType(paramTypes),
       retType: funDecl.retSign?.type ?? unitType)
@@ -274,6 +276,11 @@ public final class Context {
   /// Reports an in-flight diagnostic.
   public func report(_ diagnostic: Diagnostic) {
     diagnosticConsumer?.consume(diagnostic)
+  }
+
+  /// Reports an in-flight diagnostic.
+  public func report(_ message: String, level: Diagnostic.Level = .error, anchor: SourceRange?) {
+    diagnosticConsumer?.consume(Diagnostic(message, anchor: anchor))
   }
 
   /// Dumps the contents of the context into the standard output.

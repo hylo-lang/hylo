@@ -226,6 +226,23 @@ public struct TupleElem {
 ///   have dedicate nodes.
 public final class CallExpr: Expr {
 
+  /// The notation of a call expression.
+  public enum Notation {
+
+    /// Standard notation: the arguments are given in parentheses after the callee.
+    case standard
+
+    /// Infix notation: the callee is between two operands.
+    case infix
+
+    /// Prefix notation: the callee is an operator that directly precedes a single operand.
+    case prefix
+
+    /// Postfix notation: the callee is an operator that directly follows a signle operand.
+    case postfix
+
+  }
+
   public var range: SourceRange
 
   public var type: ValType
@@ -236,15 +253,47 @@ public final class CallExpr: Expr {
   /// The arguments of the call.
   public var args: [TupleElem]
 
-  public init(fun: Expr, args: [TupleElem], type: ValType, range: SourceRange) {
+  /// The notation of the call.
+  public var notation: Notation
+
+  public init(
+    fun     : Expr,
+    args    : [TupleElem],
+    notation: Notation = .standard,
+    type    : ValType,
+    range   : SourceRange
+  ) {
     self.fun = fun
     self.args = args
+    self.notation = notation
     self.type = type
     self.range = range
   }
 
   public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
+  }
+
+  /// Creates a prefix call.
+  public static func prefix(fun: MemberExpr, type: ValType, range: SourceRange) -> CallExpr {
+    return CallExpr(fun: fun, args: [], notation: .prefix, type: type, range: range)
+  }
+
+  /// Creates a postfix call.
+  public static func postfix(fun: MemberExpr, type: ValType, range: SourceRange) -> CallExpr {
+    return CallExpr(fun: fun, args: [], notation: .postfix, type: type, range: range)
+  }
+
+  /// Creates an infix call.
+  public static func infix(
+    fun: MemberExpr, operand: Expr, type: ValType, range: SourceRange
+  ) -> CallExpr {
+    return CallExpr(
+      fun: fun,
+      args: [CallArg(value: operand, range: operand.range)],
+      notation: .prefix,
+      type: type,
+      range: range)
   }
 
 }
@@ -573,7 +622,7 @@ public final class MatchExpr: Expr {
   public var type: ValType
 
   /// Indicates whether the match appears as a sub-expression, in a larger expression.
-  public var isSubExpr: Bool
+  public var isSubexpr: Bool
 
   /// The subject being matched
   public var subject: Expr
@@ -588,7 +637,7 @@ public final class MatchExpr: Expr {
     type      : ValType,
     range     : SourceRange
   ) {
-    self.isSubExpr = isSubExpr
+    self.isSubexpr = isSubExpr
     self.subject = subject
     self.cases = cases
     self.type = type

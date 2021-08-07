@@ -128,12 +128,12 @@ public final class BindingPattern: Pattern {
   public var keywordRange: SourceRange
 
   public init(
-    isMutable   : Bool,
-    subpattern  : Pattern,
-    sign        : Sign?,
-    type        : ValType,
+    isMutable: Bool,
+    subpattern: Pattern,
+    sign: Sign?,
+    type: ValType,
     keywordRange: SourceRange,
-    range       : SourceRange
+    range: SourceRange
   ) {
     self.isMutable = isMutable
     self.subpattern = subpattern

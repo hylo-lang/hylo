@@ -61,7 +61,7 @@ public protocol DeclVisitor {
 
   func visit(_ node: GenericParamDecl) -> DeclResult
 
-  func visit(_ node: TypeExtDecl) -> DeclResult
+  func visit(_ node: TypeExtnDecl) -> DeclResult
 
 }
 
@@ -165,10 +165,12 @@ public protocol SignVisitor {
 
   func visit(_ node: ViewCompSign) -> SignResult
 
-  func visit(_ node: UnqualIdentSign) -> SignResult
+  func visit(_ node: BareIdentSign) -> SignResult
 
   func visit(_ node: SpecializedIdentSign) -> SignResult
 
   func visit(_ node: CompoundIdentSign) -> SignResult
+
+  func visit(_ node: ErrorSign) -> SignResult
 
 }

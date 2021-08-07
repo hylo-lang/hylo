@@ -232,7 +232,7 @@ struct PreChecker: ExprVisitor {
     }
 
     // If the match is not a sub-expression, we can just type it as `Unit`.
-    guard node.isSubExpr else {
+    guard node.isSubexpr else {
       node.type = context.unitType
       return node
     }

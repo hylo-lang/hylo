@@ -3,27 +3,29 @@ import Foundation
 import AST
 import Basic
 import Parser
+import Parse
 import Sema
 import VIL
 
-/// Val's compiler driver, that manages the compilation process.
+/// A helper to manage the compilation of Val source files.
 public struct Driver {
 
   /// The AST context.
   ///
-  /// This is the central repository for long-lived objects (e.g., types and declarations) created
-  /// throughout the compilation process.
+  /// The context is the central repository for long-lived objects (e.g., types and declarations)
+  /// created throughout the compilation process.
   public let context: AST.Context
 
   /// The home path for Val's runtime and standard library.
   public var home: URL
 
+  /// Creates a new diver.
   public init(
     sourceManager: SourceManager? = nil,
     diagnosticConsumer: DiagnosticConsumer? = nil,
     home: URL? = nil
   ) {
-    // Create the driver's AST context.
+    // Create the AST context.
     context = AST.Context(sourceManager: sourceManager ?? SourceManager())
     context.diagnosticConsumer = diagnosticConsumer
 
@@ -38,6 +40,9 @@ public struct Driver {
   }
 
   /// Loads the standard library into the driver's context.
+  ///
+  /// - Parameter url: The root URL of the standard library. By default, the driver will look for
+  ///   a directly `Stdlib` at the root of its home path.
   @discardableResult
   public func loadStdLib(url: URL? = nil) throws -> ModuleDecl  {
     let rootURL = url ?? home.appendingPathComponent("StdLib")
@@ -67,13 +72,25 @@ public struct Driver {
       context.stdlib = module
     }
 
+//    // Parse the module's files.
+//    for url in moduleFiles {
+//      let source = try context.sourceManager.load(contentsOf: url)
+//      let parser = try ValParser(sourceFile: source)
+//      let parseTree = try parser.file()
+//      let transformer = ParseTreeTransformer(sourceFile: source, module: module, context: context)
+//      _ = parseTree.accept(transformer)
+//    }
     // Parse the module's files.
     for url in moduleFiles {
       let source = try context.sourceManager.load(contentsOf: url)
-      let parser = try ValParser(sourceFile: source)
-      let parseTree = try parser.file()
-      let transformer = ParseTreeTransformer(sourceFile: source, module: module, context: context)
-      _ = parseTree.accept(transformer)
+      let parser = Parser(context: context)
+      let (unit, hasError) = parser.parse(source: source)
+
+      module.units.append(unit)
+      unit.parentDeclSpace = module
+      if hasError {
+        module.setState(.invalid)
+      }
     }
 
     return module

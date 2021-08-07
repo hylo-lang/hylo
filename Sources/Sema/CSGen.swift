@@ -14,7 +14,7 @@ final class CSGenDriver: NodeWalker {
   override func willVisit(_ expr: Expr) -> (shouldWalk: Bool, nodeBefore: Expr) {
     // Skip the recursive descent into match constructs, as the heavy-lifting has already been done
     // by the pre-checker. There's nothing more to do unless the match is treated as an expression.
-    if let matchExpr = expr as? MatchExpr, matchExpr.isSubExpr {
+    if let matchExpr = expr as? MatchExpr, matchExpr.isSubexpr {
       matchExpr.accept(ConstraintGenerator(system: system, useSite: innermostSpace!))
       return (false, matchExpr)
     }
@@ -188,7 +188,7 @@ private struct ConstraintGenerator: ExprVisitor, PatternVisitor {
   }
 
   func visit(_ node: MatchExpr) {
-    precondition(node.isSubExpr)
+    precondition(node.isSubexpr)
 
     if node.type is UnresolvedType {
       node.type = TypeVar(context: node.type.context, node: node)

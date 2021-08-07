@@ -60,7 +60,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
   public override func visitStatement(_ ctx: ValParser.StatementContext) -> Any {
     let node = ctx.children![0].accept(self)!
     if let match = node as? MatchExpr {
-      match.isSubExpr = false
+      match.isSubexpr = false
     }
     return node
   }
@@ -98,7 +98,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
       pattern     : pattern,
       sign        : sign,
       initializer : initializer,
-      keywordRange: range(of: keyword),
+      introRange  : range(of: keyword),
       range       : range(of: ctx))
     decl.parentDeclSpace = currentSpace
 
@@ -114,7 +114,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
 
   public override func visitFunDecl(_ ctx: ValParser.FunDeclContext) -> Any {
     // Build the declaration modifiers.
-    let declModifiers = ctx.declModifierList().map({ mods in
+    let modifiers = ctx.declModifierList().map({ mods in
       mods.accept(self) as! [DeclModifier]
     }) ?? []
 
@@ -122,22 +122,28 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     let decl: BaseFunDecl
     switch ctx.funDeclKeyword()!.getText() {
     case "fun":
-      let declName = ctx.funName()?.getText() ?? ""
-      decl = FunDecl(
-        name: declName, declModifiers: declModifiers, type: unresolvedType, range: range(of: ctx))
+      let id = ctx.funName().map({ name in
+        Ident(name: name.getText(), range: range(of: name))
+      })
+
+      decl = FunDecl(ident: id, modifiers: modifiers, type: unresolvedType, range: range(of: ctx))
 
     case "new":
-      decl = CtorDecl(declModifiers: declModifiers, type: unresolvedType, range: range(of: ctx))
+      decl = CtorDecl(
+        modifiers: modifiers,
+        type: unresolvedType,
+        introRange: range(of: ctx.funDeclKeyword()!),
+        range: range(of: ctx))
 
     default:
       fatalError("unreachable")
     }
 
-    if declModifiers.contains(where: { mod in mod.kind == .mut }) {
+    if modifiers.contains(where: { mod in mod.kind == .mut }) {
       decl.props.insert(.isMutating)
     }
 
-    if (currentSpace is NominalTypeDecl || currentSpace is TypeExtDecl) {
+    if (currentSpace is NominalTypeDecl || currentSpace is TypeExtnDecl) {
       if !(decl is CtorDecl) {
         decl.props.insert(.isMember)
       }
@@ -272,7 +278,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     // Create the declaration.
     let decl = AliasTypeDecl(
       name: "",
-      aliasedSign: UnqualIdentSign(name: "", type: unresolvedType, range: .invalid),
+      aliasedSign: BareIdentSign(ident: Ident(name: "", range: .invalid), type: unresolvedType),
       type: unresolvedType,
       range: range(of: ctx))
 
@@ -360,7 +366,7 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
 
   public override func visitExtDecl(_ ctx: ValParser.ExtDeclContext) -> Any {
     let ident = ctx.identTypeRepr()!.accept(self) as! IdentSign
-    let decl = TypeExtDecl(extendedIdent: ident, members: [], range: range(of: ctx))
+    let decl = TypeExtnDecl(extendedIdent: ident, members: [], range: range(of: ctx))
 
     // Update the current decl space.
     decl.parentDeclSpace = currentSpace
@@ -395,7 +401,8 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
 
   public override func visitNamedPattern(_ ctx: ValParser.NamedPatternContext) -> Any {
     // Create a variable declaration for the pattern.
-    let decl = VarDecl(name: ctx.getText(), type: unresolvedType, range: range(of: ctx))
+    let ident = Ident(name: ctx.getText(), range: range(of: ctx))
+    let decl = VarDecl(ident: ident, type: unresolvedType, range: range(of: ctx))
     decl.parentDeclSpace = currentSpace
 
     // Create the pattern.
@@ -519,13 +526,13 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
   }
 
   public override func visitUnqualTypeRepr(_ ctx: ValParser.UnqualTypeReprContext) -> Any {
+    let ident = self.ident(ctx.NAME()!)
     if let argList = ctx.genericArgList() {
       let args = argList.accept(self) as! [Sign]
       return SpecializedIdentSign(
-        name: ctx.NAME()!.getText(), args: args, type: unresolvedType, range: range(of: ctx))
+        ident: ident, args: args, type: unresolvedType, range: range(of: ctx))
     } else {
-      return UnqualIdentSign(
-        name: ctx.NAME()!.getText(), type: unresolvedType, range: range(of: ctx))
+      return BareIdentSign(ident: ident, type: unresolvedType)
     }
   }
 
@@ -596,8 +603,9 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
       }
 
       // Create an infix call.
+      let memberIdent = Ident(name: loc.infixOp.rawValue, range: loc.range)
       let infixFun = UnresolvedMemberExpr(
-        base: lhs, memberName: loc.infixOp.rawValue, type: unresolvedType, range: loc.range)
+        base: lhs, ident: memberIdent, type: unresolvedType, range: loc.range)
       let infixCall = CallExpr(
         fun: infixFun,
         args: [CallArg(value: rhs, range: rhs.range)],
@@ -634,8 +642,9 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
       return AwaitExpr(value: expr, type: unresolvedType, range: range(of: ctx))
     default:
       // Other operators are parsed as call expressions.
+      let memberIdent = Ident(name: loc.prefixOp.rawValue, range: loc.range)
       let prefixFun = UnresolvedMemberExpr(
-        base: expr, memberName: loc.prefixOp.rawValue, type: unresolvedType, range: loc.range)
+        base: expr, ident: memberIdent, type: unresolvedType, range: loc.range)
       return CallExpr(
         fun: prefixFun,
         args: [CallArg(value: expr, range: expr.range)],
@@ -669,8 +678,9 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
     let base = ctx.postfixExpr()!.accept(self) as! Expr
     switch ctx.memberIdent()!.accept(self) {
     case let name as String:
+      let memberIdent = Ident(name: name, range: range(of: ctx.memberIdent()!))
       return UnresolvedMemberExpr(
-        base: base, memberName: name, type: unresolvedType, range: range(of: ctx))
+        base: base, ident: memberIdent, type: unresolvedType, range: range(of: ctx))
 
     case let index as Int:
       return TupleMemberExpr(
@@ -727,18 +737,18 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
 
     if names.count == 1 {
       return UnresolvedDeclRefExpr(
-        name: names[0].getText(),
+        ident: ident(names[0]),
         type: unresolvedType,
         range: range(of: names[0].getSymbol()!))
     }
 
     let ns = CompoundIdentSign
-      .create(names.dropLast().map({ (name) -> UnqualIdentSign in
-        UnqualIdentSign(
-          name: name.getText(), type: unresolvedType, range: range(of: name.getSymbol()!))
+      .create(names.dropLast().map({ (name) -> BareIdentSign in
+        return BareIdentSign(ident: ident(name), type: unresolvedType)
       }))
+
     return UnresolvedQualDeclRefExpr(
-      namespace: ns, name: names.last!.getText(), type: unresolvedType, range: range(of: ctx))
+      namespace: ns, ident: ident(names.last!), type: unresolvedType, range: range(of: ctx))
   }
 
   public override func visitTuple(_ ctx: ValParser.TupleContext) -> Any {
@@ -834,6 +844,10 @@ public final class ParseTreeTransformer: ValVisitor<Any> {
       default: fatalError("unreachable")
       }
     }
+  }
+
+  private func ident(_ node: TerminalNode) -> Ident {
+    return Ident(name: node.getText(), range: range(of: node.getSymbol()!))
   }
 
   /// Returns the range of the specified rule context in the source file.

@@ -68,7 +68,7 @@ type Int: ExpressibleByBuiltinIntLiteral {
   }
 
   /// Negates this value, effectively producing the same value with the opposite sign.
-  mut fun negate() {
+  prefix mut fun negate() {
     self = 0 - self
   }
 

@@ -176,7 +176,7 @@ public final class Builder {
   /// Builds a `witness_method` instruction.
   public func buildWitnessMethod(container: Value, decl: BaseFunDecl) -> WitnessMethodInst {
     precondition({
-      if let parent = decl.parentDeclSpace as? TypeExtDecl {
+      if let parent = decl.parentDeclSpace as? TypeExtnDecl {
         return parent.extendedDecl is ViewTypeDecl
       } else {
         return decl.parentDeclSpace is ViewTypeDecl

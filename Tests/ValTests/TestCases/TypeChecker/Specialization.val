@@ -9,18 +9,19 @@ type B<T> {
   fun fn<U>(x: T, y: U) {
     fn(x: property, y: A())
 
-    // #!error@+1
+    // #!error@+1 ambiguous use of 'fn'
     fn(x: y, y: A())
   }
 
 }
 
-fun fn<X>(x: X) {
-  view V {
-    val foo: V
-  }
-  view U {}
+view V {
+  val foo: V
+}
 
+view U {}
+
+fun fn<X>(x: X) {
   // #!error@+1 view conformance requirement on non-generic type 'Y'
   fun g<Y where Y == X, Y: V>(y: Y) -> V {
     ret y.foo

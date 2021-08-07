@@ -1,6 +1,9 @@
 import Foundation
 
 /// An object that manages the contents of source files.
+///
+/// A source manager is essentially a large buffer of concatenated source files. Internally, each
+/// loaded file is identified by a URL that is mapped to a slice of that buffer.
 public final class SourceManager {
 
   /// Creates a new source manager.
@@ -79,7 +82,7 @@ public final class SourceManager {
   /// Returns the contents of the given source file.
   ///
   /// - Parameter sourceFile: A source file.
-  public func contents(of sourceFile: SourceFile) -> Substring {
+  func contents(of sourceFile: SourceFile) -> Substring {
     precondition(sourceFile.manager === self)
     return buffer[sourceFile.startIndex ..< sourceFile.endIndex]
   }

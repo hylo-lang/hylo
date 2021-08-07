@@ -43,16 +43,16 @@ public final class ModuleDecl {
   }
 
   /// Returns the extensions of the given type declaration.
-  public func extensions(of decl: GenericTypeDecl) -> [TypeExtDecl] {
+  public func extensions(of decl: GenericTypeDecl) -> [TypeExtnDecl] {
     var dealiasedDecl = decl
     while let alias = (dealiasedDecl as? AliasTypeDecl)?.aliasedDecl {
       dealiasedDecl = alias
     }
 
-    var matches: [TypeExtDecl] = []
+    var matches: [TypeExtnDecl] = []
 
     // Loop through all extensions in the module, (partially) binding them if necessary.
-    stmt:for case let ext as TypeExtDecl in decls {
+    stmt:for case let ext as TypeExtnDecl in decls {
       // Skip invalid declarations.
       guard ext.state != .invalid else { continue }
 
@@ -65,7 +65,7 @@ public final class ModuleDecl {
       }
 
       // The extension isn't bound yet, so we need to realize to resolve its identifier.
-      if ext.extendedIdent is UnqualIdentSign {
+      if ext.extendedIdent is BareIdentSign {
         if ext.extendedDecl === dealiasedDecl {
           matches.append(ext)
         }
