@@ -17,7 +17,7 @@ public struct Parser {
     var lexer: Lexer
 
     /// The lookahead buffer.
-    var lookahead: [Token] = []
+    var lookahead: Token?
 
     /// The current location of the lexer in the input stream.
     var loc: SourceRange.Bound { lexer.index }
@@ -34,22 +34,25 @@ public struct Parser {
 
     /// Returns the next element in the token stream, without consuming it.
     mutating func peek() -> Token? {
-      // Return the first element of the lookahead buffer, if available.
-      if let token = lookahead.first {
+      // Return the token in the lookahead buffer, if available.
+      if let token = lookahead {
         return token
       }
 
       // Attempt to pull a new element from the lexer.
       guard let token = lexer.next() else { return nil }
-      lookahead.append(token)
+      lookahead = token
       return token
     }
 
     /// Consumes the next element from the token stream.
     mutating func take() -> Token? {
-      return lookahead.isEmpty
-        ? lexer.next()
-        : lookahead.removeFirst()
+      if let token = lookahead {
+        lookahead = nil
+        return token
+      } else {
+        return lexer.next()
+      }
     }
 
     /// Consumes the next element from the token stream, if it has the specified kind.
