@@ -19,16 +19,6 @@ public struct Parser {
     /// The lookahead buffer.
     var lookahead: Token?
 
-    /// The current location of the lexer in the input stream.
-    var loc: SourceRange.Bound { lexer.index }
-
-    /// The source range of the next character in the lexer's stream.
-    var range: SourceRange {
-      return lexer.index < lexer.source.endIndex
-        ? lexer.index ..< lexer.source.index(after: lexer.index)
-        : lexer.source.endIndex ..< lexer.source.endIndex
-    }
-
     /// The flags of the parser's state.
     var flags = Flags.isParsingTopLevel
 
@@ -990,7 +980,7 @@ public struct Parser {
 
     let closer = state.take(.rAngle)
     if closer == nil {
-      context.report("expected '>' delimiter", anchor: state.range)
+      context.report("expected '>' delimiter", anchor: state.errorRange())
       state.hasError = true
     }
 
@@ -1030,7 +1020,7 @@ public struct Parser {
 
     default:
       context.report(
-        "expected '==' or ':' to specify a type requirement", anchor: oper?.range ?? state.range)
+        "expected '==' or ':' to specify a type requirement", anchor: state.errorRange())
       state.hasError = true
       kind = .equality
     }
@@ -1265,7 +1255,7 @@ public struct Parser {
     guard let value = parseCompoundExpr(state: &state) else {
       context.report("expected operand expression", anchor: state.errorRange())
       state.hasError = true
-      return ErrorExpr(type: context.errorType, range: oper.range.lowerBound ..< state.loc)
+      return ErrorExpr(type: context.errorType, range: oper.range)
     }
 
     // Prefix operators cannot be separated from their operand.
@@ -1339,8 +1329,7 @@ public struct Parser {
           base = TupleMemberExpr(
             base: base, memberIndex: i, type: unresolved, range: base.range ..< index.range)
         } else {
-          let anchor = state.peek()?.range ?? state.range
-          context.report("expected member identifier", anchor: anchor)
+          context.report("expected member identifier", anchor: state.errorRange())
           state.hasError = true
           return ErrorExpr(type: context.errorType, range: base.range ..< token.range)
         }
@@ -1890,11 +1879,14 @@ public struct Parser {
   ///     maxterm-sign ::= minterm-sign ('|' minterm-sign)*
   private func parseMaxtermSign(state: inout State) -> Sign? {
     let items = parseTermSign(state: &state, oper: "|", element: parseMintermSign(state:))
-    if items.count > 1 {
+    switch items.count {
+    case 0:
+      return nil
+    case 1:
+      return items[0]
+    default:
       return UnionSign(
         elems: items, type: unresolved, range: items.first!.range ..< items.last!.range)
-    } else {
-      return items[0]
     }
   }
 
@@ -1903,11 +1895,14 @@ public struct Parser {
   ///     minterm-sign ::= primary-sign ('&' primary-sign)*
   private func parseMintermSign(state: inout State) -> Sign? {
     let items = parseTermSign(state: &state, oper: "&", element: parsePrimarySign(state:))
-    if items.count > 1 {
+    switch items.count {
+    case 0:
+      return nil
+    case 1:
+      return items[0]
+    default:
       return ViewCompSign(
         views: items, type: unresolved, range: items.first!.range ..< items.last!.range)
-    } else {
-      return items[0]
     }
   }
 
@@ -2069,8 +2064,7 @@ public struct Parser {
         context.report("unexpected ',' separator", anchor: token.range)
         state.hasError = true
       } else {
-        let anchor = state.peek()?.range ?? state.range
-        context.report("expected '\(delimiters.right)' delimiter", anchor: anchor)
+        context.report("expected '\(delimiters.right)' delimiter", anchor: state.errorRange())
         state.hasError = true
       }
 
