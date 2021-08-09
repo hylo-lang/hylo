@@ -2,7 +2,6 @@ import Foundation
 
 import AST
 import Basic
-import Parser
 import Parse
 import Sema
 import VIL
@@ -72,14 +71,6 @@ public struct Driver {
       context.stdlib = module
     }
 
-//    // Parse the module's files.
-//    for url in moduleFiles {
-//      let source = try context.sourceManager.load(contentsOf: url)
-//      let parser = try ValParser(sourceFile: source)
-//      let parseTree = try parser.file()
-//      let transformer = ParseTreeTransformer(sourceFile: source, module: module, context: context)
-//      _ = parseTree.accept(transformer)
-//    }
     // Parse the module's files.
     for url in moduleFiles {
       let source = try context.sourceManager.load(contentsOf: url)
