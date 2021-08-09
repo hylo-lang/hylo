@@ -8,8 +8,8 @@ public final class Context {
   ///
   /// - Parameter sourceManager: The source manager handling the source files that will be loaded
   ///   in this context.
-  public init(sourceManager: SourceManager) {
-    self.sourceManager = sourceManager
+  public init(sourceManager: SourceManager? = nil) {
+    self.sourceManager = sourceManager ?? SourceManager()
   }
 
   // MARK: General properties

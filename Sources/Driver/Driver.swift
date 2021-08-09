@@ -1,7 +1,7 @@
 import Foundation
 
-import AST
-import Basic
+@_exported import AST
+@_exported import Basic
 import Parse
 import Sema
 import VIL
@@ -18,15 +18,13 @@ public struct Driver {
   /// The home path for Val's runtime and standard library.
   public var home: URL
 
-  /// Creates a new diver.
-  public init(
-    sourceManager: SourceManager? = nil,
-    diagnosticConsumer: DiagnosticConsumer? = nil,
-    home: URL? = nil
-  ) {
-    // Create the AST context.
-    context = AST.Context(sourceManager: sourceManager ?? SourceManager())
-    context.diagnosticConsumer = diagnosticConsumer
+  /// Creates a new driver.
+  ///
+  /// - Parameters:
+  ///   - context: An AST context.
+  ///   - home: The root URL of Val's runtime environment.
+  public init(context: Context? = nil, home: URL? = nil) {
+    self.context = context ?? Context()
 
     // Set the home path.
     if let h = home {
@@ -50,7 +48,7 @@ public struct Driver {
     return moduleDecl
   }
 
-  /// Parse the given source files as a module declaration.
+  /// Parses the given source files as a module declaration.
   @discardableResult
   public func parse(
     moduleName: String, moduleFiles: [URL], isStdlib: Bool = false
