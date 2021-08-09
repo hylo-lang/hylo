@@ -3,7 +3,7 @@ import XCTest
 import AST
 import Basic
 
-final class DiagnosticChecker: DiagnosticConsumer {
+final class DiagnosticChecker: DiagConsumer {
 
   init(
     context: AST.Context,
@@ -27,7 +27,7 @@ final class DiagnosticChecker: DiagnosticConsumer {
   /// The line number at which assertion failures are thrown.
   let xcLine: UInt
 
-  func consume(_ diagnostic: Diagnostic) {
+  func consume(_ diagnostic: Diag) {
     guard let sourceLocation = diagnostic.reportLocation else {
       XCTFail("unexpected diagnostic: \(diagnostic.message)", file: xcFile, line: xcLine)
       return

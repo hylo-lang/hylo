@@ -271,16 +271,16 @@ public final class Context {
   // MARK: Diagnostics
 
   /// The consumer for all in-flight diagnostics.
-  public var diagnosticConsumer: DiagnosticConsumer?
+  public var diagConsumer: DiagConsumer?
 
   /// Reports an in-flight diagnostic.
-  public func report(_ diagnostic: Diagnostic) {
-    diagnosticConsumer?.consume(diagnostic)
+  public func report(_ diagnostic: Diag) {
+    diagConsumer?.consume(diagnostic)
   }
 
   /// Reports an in-flight diagnostic.
-  public func report(_ message: String, level: Diagnostic.Level = .error, anchor: SourceRange?) {
-    diagnosticConsumer?.consume(Diagnostic(message, anchor: anchor))
+  public func report(_ message: String, level: Diag.Level = .error, anchor: SourceRange?) {
+    diagConsumer?.consume(Diag(message, anchor: anchor))
   }
 
   /// Dumps the contents of the context into the standard output.

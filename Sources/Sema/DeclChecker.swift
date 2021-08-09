@@ -390,7 +390,7 @@ struct DeclChecker: DeclVisitor {
     case .typeCheckRequested:
       // Type checking was requested on the same path.
       let context = node.parentDeclSpace!.rootDeclSpace.type.context
-      context.report(Diagnostic("circular dependency detected", anchor: node.range))
+      context.report(Diag("circular dependency detected", anchor: node.range))
       return false
 
     default:

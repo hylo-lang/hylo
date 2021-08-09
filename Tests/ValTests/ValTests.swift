@@ -15,7 +15,7 @@ final class ValTests: XCTestCase {
       let source = try driver.context.sourceManager.load(contentsOf: url)
 
       let checker = DiagnosticChecker(context: driver.context)
-      driver.context.diagnosticConsumer = checker
+      driver.context.diagConsumer = checker
 
       var parser = TestAnnotationParser()
       parser.scan(source)

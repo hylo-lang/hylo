@@ -12,9 +12,9 @@ struct Terminal {
 
 }
 
-extension Terminal: DiagnosticConsumer {
+extension Terminal: DiagConsumer {
 
-  func consume(_ diagnostic: Diagnostic) {
+  func consume(_ diagnostic: Diag) {
     // Print the location at which the diagnostic occured.
     if let location = diagnostic.reportLocation,
        let source = sourceManager.source(containing: location)

@@ -1,15 +1,15 @@
 /// An object that can consume and report in-flight diagnostics.
-public protocol DiagnosticConsumer {
+public protocol DiagConsumer {
 
   /// Consumes and reports a diagnostic.
   ///
   /// - Parameter diagnostic: A diagnostic.
-  mutating func consume(_ diagnostic: Diagnostic)
+  mutating func consume(_ diagnostic: Diag)
 
 }
 
 /// An in-flight diagnostic about a compilation issue.
-public struct Diagnostic {
+public struct Diag {
 
   /// Creates a new in-flight diagnostic.
   ///
@@ -40,7 +40,7 @@ public struct Diagnostic {
   /// The source ranges related to this diagnostic.
   public var ranges: [SourceRange] = []
 
-  public func set<T>(_ key: WritableKeyPath<Diagnostic, T>, value: T) -> Diagnostic {
+  public func set<T>(_ key: WritableKeyPath<Diag, T>, value: T) -> Diag {
     var copy = self
     copy[keyPath: key] = value
     return copy
@@ -55,7 +55,7 @@ public struct Diagnostic {
     /// An unrecoverable error that prevents compilation.
     case error
 
-    public static func < (lhs: Diagnostic.Level, rhs: Diagnostic.Level) -> Bool {
+    public static func < (lhs: Diag.Level, rhs: Diag.Level) -> Bool {
       lhs.rawValue < rhs.rawValue
     }
 
@@ -63,7 +63,7 @@ public struct Diagnostic {
 
 }
 
-extension Diagnostic.Level: CustomStringConvertible {
+extension Diag.Level: CustomStringConvertible {
 
   public var description: String {
     switch self {

@@ -177,7 +177,7 @@ public struct Parser {
       // Parse a declaration.
       do {
         guard let decl = try parseDecl(state: &state) else {
-          throw ParseError(Diagnostic("expected declaration", anchor: state.errorRange()))
+          throw ParseError(Diag("expected declaration", anchor: state.errorRange()))
         }
         unit.decls.append(decl)
       } catch let error as ParseError {
@@ -276,7 +276,7 @@ public struct Parser {
       // We must commit to a failure, unless we didn't parse any modifier.
       if let modifier = modifiers.last {
         throw ParseError(
-          Diagnostic("expected declaration after \(modifier.kind)", anchor: state.errorRange()))
+          Diag("expected declaration after \(modifier.kind)", anchor: state.errorRange()))
       } else {
         return nil
       }
@@ -880,7 +880,7 @@ public struct Parser {
       // Parse a member.
       do {
         guard let member = try parseDecl(state: &state) else {
-          throw ParseError(Diagnostic("expected declaration", anchor: state.errorRange()))
+          throw ParseError(Diag("expected declaration", anchor: state.errorRange()))
         }
         members.append(member)
       } catch let error as ParseError {
@@ -1133,17 +1133,17 @@ public struct Parser {
       do {
         if head.mayBeginDecl {
           guard let decl = try parseDecl(state: &state) else {
-            throw ParseError(Diagnostic("expected declaration", anchor: state.errorRange()))
+            throw ParseError(Diag("expected declaration", anchor: state.errorRange()))
           }
           scope.stmts.append(decl)
         } else if head.mayBeginCtrlStmt {
           guard let stmt = parseCtrlStmt(state: &state) else {
-            throw ParseError(Diagnostic("expected statement", anchor: state.errorRange()))
+            throw ParseError(Diag("expected statement", anchor: state.errorRange()))
           }
           scope.stmts.append(stmt)
         } else {
           guard let expr = parseExpr(state: &state) else {
-            throw ParseError(Diagnostic("expected expression", anchor: state.errorRange()))
+            throw ParseError(Diag("expected expression", anchor: state.errorRange()))
           }
           scope.stmts.append(expr)
 
@@ -1456,8 +1456,8 @@ public struct Parser {
     // if the parsed identifier is not followed by '::'. At each iteration, we must save potential
     // diagnostics until we decide to commit. After the list, we parse a single identifier.
     let tmpConsumer = DiagSaver()
-    var oldConsumer = context.diagnosticConsumer
-    context.diagnosticConsumer = tmpConsumer
+    var oldConsumer = context.diagConsumer
+    context.diagConsumer = tmpConsumer
 
     var comps: [IdentCompSign] = []
     var backup = state.save()
@@ -1478,7 +1478,7 @@ public struct Parser {
         // Little shortcut: if the signature we parsed is a bare type identifier, we can simply
         // transform it as a bare unqualified declaration reference and avoid backtracking.
         assert(tmpConsumer.diags.isEmpty)
-        context.diagnosticConsumer = oldConsumer
+        context.diagConsumer = oldConsumer
 
         if comps.isEmpty {
           return UnresolvedDeclRefExpr(ident: bare.ident, type: unresolved, range: bare.range)
@@ -1490,7 +1490,7 @@ public struct Parser {
         }
       } else {
         state.restore(backup)
-        context.diagnosticConsumer = oldConsumer
+        context.diagConsumer = oldConsumer
         break
       }
     }
@@ -2180,20 +2180,20 @@ fileprivate enum InfixTree {
 /// A parse error.
 public struct ParseError: Error {
 
-  public init(_ diag: Diagnostic) {
+  public init(_ diag: Diag) {
     self.diag = diag
   }
 
-  public let diag: Diagnostic
+  public let diag: Diag
 
 }
 
 /// A diagnostic consumer that saves all diagnostics.
-final class DiagSaver: DiagnosticConsumer {
+final class DiagSaver: DiagConsumer {
 
-  var diags: [Diagnostic] = []
+  var diags: [Diag] = []
 
-  func consume(_ diagnostic: Diagnostic) {
+  func consume(_ diagnostic: Diag) {
     diags.append(diagnostic)
   }
 
