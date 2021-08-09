@@ -13,6 +13,28 @@ public protocol Expr: Node {
 
 }
 
+/// A Boolean literal.
+public final class BoolLiteralExpr: Expr {
+
+  public var range: SourceRange
+
+  public var type: ValType
+
+  /// The value of the literal.
+  public var value: Bool
+
+  public init(value: Bool, type: ValType, range: SourceRange) {
+    self.value = value
+    self.type  = type
+    self.range = range
+  }
+
+  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
+    return visitor.visit(self)
+  }
+
+}
+
 /// An integer literal.
 public final class IntLiteralExpr: Expr {
 
@@ -20,12 +42,56 @@ public final class IntLiteralExpr: Expr {
 
   public var type: ValType
 
-  /// The literal's value.
+  /// The value of the literal.
   public var value: Int
 
   public init(value: Int, type: ValType, range: SourceRange) {
     self.value = value
-    self.type = type
+    self.type  = type
+    self.range = range
+  }
+
+  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
+    return visitor.visit(self)
+  }
+
+}
+
+/// A floating-point literal.
+public final class FloatLiteralExpr: Expr {
+
+  public var range: SourceRange
+
+  public var type: ValType
+
+  /// The value of the literal.
+  public var value: Double
+
+  public init(value: Double, type: ValType, range: SourceRange) {
+    self.value = value
+    self.type  = type
+    self.range = range
+  }
+
+  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
+    return visitor.visit(self)
+  }
+
+}
+
+/// A string literal.
+public final class StringLiteralExpr: Expr {
+
+  public var range: SourceRange
+
+  public var type: ValType
+
+  /// The value of the literal.
+  public var value: String
+
+  public init(value: String, type: ValType, range: SourceRange) {
+    self.value = value
+    self.type  = type
     self.range = range
   }
 
@@ -160,6 +226,23 @@ public struct TupleElem {
 ///   have dedicate nodes.
 public final class CallExpr: Expr {
 
+  /// The notation of a call expression.
+  public enum Notation {
+
+    /// Standard notation: the arguments are given in parentheses after the callee.
+    case standard
+
+    /// Infix notation: the callee is between two operands.
+    case infix
+
+    /// Prefix notation: the callee is an operator that directly precedes a single operand.
+    case prefix
+
+    /// Postfix notation: the callee is an operator that directly follows a signle operand.
+    case postfix
+
+  }
+
   public var range: SourceRange
 
   public var type: ValType
@@ -170,15 +253,47 @@ public final class CallExpr: Expr {
   /// The arguments of the call.
   public var args: [TupleElem]
 
-  public init(fun: Expr, args: [TupleElem], type: ValType, range: SourceRange) {
+  /// The notation of the call.
+  public var notation: Notation
+
+  public init(
+    fun     : Expr,
+    args    : [TupleElem],
+    notation: Notation = .standard,
+    type    : ValType,
+    range   : SourceRange
+  ) {
     self.fun = fun
     self.args = args
+    self.notation = notation
     self.type = type
     self.range = range
   }
 
   public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
+  }
+
+  /// Creates a prefix call.
+  public static func prefix(fun: MemberExpr, type: ValType, range: SourceRange) -> CallExpr {
+    return CallExpr(fun: fun, args: [], notation: .prefix, type: type, range: range)
+  }
+
+  /// Creates a postfix call.
+  public static func postfix(fun: MemberExpr, type: ValType, range: SourceRange) -> CallExpr {
+    return CallExpr(fun: fun, args: [], notation: .postfix, type: type, range: range)
+  }
+
+  /// Creates an infix call.
+  public static func infix(
+    fun: MemberExpr, operand: Expr, type: ValType, range: SourceRange
+  ) -> CallExpr {
+    return CallExpr(
+      fun: fun,
+      args: [CallArg(value: operand, range: operand.range)],
+      notation: .prefix,
+      type: type,
+      range: range)
   }
 
 }
@@ -198,13 +313,16 @@ public final class UnresolvedDeclRefExpr: Expr {
   }
 
   /// An identifier.
-  public let name: String
+  public var ident: Ident
 
-  public init(name: String, type: UnresolvedType, range: SourceRange) {
-    self.name = name
+  public init(ident: Ident, type: UnresolvedType, range: SourceRange) {
+    self.ident = ident
     self.type = type
     self.range = range
   }
+
+  /// The unqualified name of the referred declaration.
+  public var name: String { ident.name }
 
   public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
@@ -229,14 +347,17 @@ public final class UnresolvedQualDeclRefExpr: Expr {
   public var namespace: IdentSign
 
   /// An identifier.
-  public let name: String
+  public var ident: Ident
 
-  public init(namespace: IdentSign, name: String, type: UnresolvedType, range: SourceRange) {
+  public init(namespace: IdentSign, ident: Ident, type: UnresolvedType, range: SourceRange) {
     self.namespace = namespace
-    self.name = name
+    self.ident = ident
     self.type = type
     self.range = range
   }
+
+  /// The unqualified name of the referred declaration.
+  public var name: String { ident.name }
 
   public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
@@ -337,15 +458,18 @@ public final class UnresolvedMemberExpr: MemberExpr {
   /// The base expression.
   public var base: Expr
 
-  /// The name of the member.
-  public var memberName: String
+  /// The member's identifier.
+  public var ident: Ident
 
-  public init(base: Expr, memberName: String, type: UnresolvedType, range: SourceRange) {
+  public init(base: Expr, ident: Ident, type: UnresolvedType, range: SourceRange) {
     self.base = base
-    self.memberName = memberName
+    self.ident = ident
     self.type = type
     self.range = range
   }
+
+  /// The unqualified name of the member.
+  public var memberName: String { ident.name }
 
   public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
@@ -498,7 +622,7 @@ public final class MatchExpr: Expr {
   public var type: ValType
 
   /// Indicates whether the match appears as a sub-expression, in a larger expression.
-  public var isSubExpr: Bool
+  public var isSubexpr: Bool
 
   /// The subject being matched
   public var subject: Expr
@@ -513,7 +637,7 @@ public final class MatchExpr: Expr {
     type      : ValType,
     range     : SourceRange
   ) {
-    self.isSubExpr = isSubExpr
+    self.isSubexpr = isSubExpr
     self.subject = subject
     self.cases = cases
     self.type = type

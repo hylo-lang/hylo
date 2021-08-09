@@ -1,9 +1,6 @@
 import Foundation
 
 /// A handle to a source file, owned by a source manager.
-///
-/// A source manager is essentially a large buffer of concatenated source files. This type provide
-/// a thin abstraction over a section of this buffer to manipulate to interact with a single file.
 public struct SourceFile {
 
   /// The manager owning the contents of the source file.
@@ -12,15 +9,17 @@ public struct SourceFile {
   /// The source's URL.
   public let url: URL
 
+  /// The index of the first character in the source file.
   public let startIndex: String.Index
 
+  /// One part the index of the last character in the source file.
   public let endIndex: String.Index
 
   /// The line containing the given location.
   ///
   /// - Parameter location: A location within this source file.
   public func line(containing location: String.Index) -> Substring {
-    precondition((startIndex ..< endIndex) ~= location)
+    precondition((startIndex ... endIndex) ~= location)
 
     let contents = manager.contents(of: self)
     var lower = location
@@ -45,15 +44,20 @@ public struct SourceFile {
   ///
   /// - Parameter location: A location within this source file.
   public func lineColumnIndices(at location: String.Index) -> (line: Int, column: Int) {
-    precondition((startIndex ..< endIndex) ~= location)
-
+    precondition((startIndex ... endIndex) ~= location)
     var contents = manager.contents(of: self)
+
+    if location == endIndex {
+      let lines = contents.split(whereSeparator: { $0.isNewline })
+      return (line: lines.count, column: (lines.last?.count ?? 0) + 1)
+    }
+
     var lineIndex = 1
     for c in contents[...location] where c.isNewline {
       lineIndex += 1
     }
 
-    contents = manager.contents(of: self).prefix(through: location)
+    contents = contents.prefix(through: location)
     var columnIndex = 0
     for c in contents.reversed() {
       guard !c.isNewline else { break }
@@ -61,45 +65,6 @@ public struct SourceFile {
     }
 
     return (lineIndex, columnIndex)
-  }
-
-  /// The 1-based line index of the given location.
-  ///
-  /// - Parameter location: A location within this source file.
-  @available(*, deprecated, renamed: "lineColumnIndices(at:)")
-  public func lineIndex(at location: String.Index) -> Int {
-    precondition((startIndex ..< endIndex) ~= location)
-
-    let contents = manager.contents(of: self)
-    var n = 1
-    for c in contents[...location] where c.isNewline {
-      n += 1
-    }
-    return n
-  }
-
-  /// The 1-based column index of the given location.
-  ///
-  /// - Parameter location: A location within this source file.
-  @available(*, deprecated, renamed: "lineColumnIndices(at:)")
-  public func columnIndex(at location: String.Index) -> Int {
-    precondition((startIndex ..< endIndex) ~= location)
-
-    let contents = manager.contents(of: self).prefix(through: location)
-    var n = 0
-    for c in contents.reversed() {
-      guard !c.isNewline else { break }
-      n += 1
-    }
-    return n
-  }
-
-}
-
-extension SourceFile: Equatable {
-
-  public static func == (lhs: SourceFile, rhs: SourceFile) -> Bool {
-    return (lhs.manager === rhs.manager) && (lhs.startIndex == rhs.startIndex)
   }
 
 }
@@ -111,12 +76,20 @@ extension SourceFile: Hashable {
     hasher.combine(startIndex)
   }
 
+  public static func == (lhs: SourceFile, rhs: SourceFile) -> Bool {
+    return (lhs.manager === rhs.manager) && (lhs.startIndex == rhs.startIndex)
+  }
+
 }
 
-extension SourceFile: Collection {
+extension SourceFile: BidirectionalCollection {
 
   public func index(after i: String.Index) -> String.Index {
     return manager.contents(of: self).index(after: i)
+  }
+
+  public func index(before i: String.Index) -> String.Index {
+    return manager.contents(of: self).index(before: i)
   }
 
   public subscript(position: String.Index) -> Character {

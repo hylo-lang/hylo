@@ -234,7 +234,7 @@ public struct Interpreter {
   mutating func eval(inst: WitnessMethodInst) -> ProgramCounter? {
     let container = eval(operand: inst.container).asContainer
     let viewType: ViewType
-    if let parent = inst.decl.parentDeclSpace as? TypeExtDecl {
+    if let parent = inst.decl.parentDeclSpace as? TypeExtnDecl {
       viewType = (parent.extendedDecl as! ViewTypeDecl).instanceType as! ViewType
     } else {
       viewType = (inst.decl.parentDeclSpace as! ViewTypeDecl).instanceType as! ViewType

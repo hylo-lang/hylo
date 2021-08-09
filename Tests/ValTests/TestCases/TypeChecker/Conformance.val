@@ -7,7 +7,9 @@ view V {
 type A: V {
   new() {}
   fun foo() {}
-  fun bar(a: A) -> B
+  fun bar(a: A) -> B {
+    ret B(a: self)
+  }
 }
 
 // #!error@+2 conformance to 'V' requires a matching implementation of 'new'

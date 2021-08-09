@@ -59,3 +59,29 @@ extension Dictionary {
   }
 
 }
+
+extension Sequence {
+
+  /// Returns the first element in the sequence that has the specified type.
+  public func first<T>(as elementType: T.Type) -> T? {
+    for case let element as T in self {
+      return element
+    }
+    return nil
+  }
+
+}
+
+infix operator ?< : NilCoalescingPrecedence
+
+/// Performs a nil-coalescing operation, returning the wrapped value of an Optional instance or
+/// calling the specified closure for a default value.
+public func ?< <T>(lhs: T?, rhs: () -> T?) -> T? {
+  return lhs ?? rhs()
+}
+
+/// Performs a nil-coalescing operation, returning the wrapped value of an Optional instance or
+/// calling the specified closure for a default value.
+public func ?< <T>(lhs: T?, rhs: () -> T) -> T {
+  return lhs ?? rhs()
+}

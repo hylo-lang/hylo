@@ -54,7 +54,19 @@ struct PreChecker: ExprVisitor {
   /// The declaration space in which the visited expression resides.
   let useSite: DeclSpace
 
+  func visit(_ node: BoolLiteralExpr) -> Expr {
+    return node
+  }
+
   func visit(_ node: IntLiteralExpr) -> Expr {
+    return node
+  }
+
+  func visit(_ node: FloatLiteralExpr) -> Expr {
+    return node
+  }
+
+  func visit(_ node: StringLiteralExpr) -> Expr {
     return node
   }
 
@@ -220,7 +232,7 @@ struct PreChecker: ExprVisitor {
     }
 
     // If the match is not a sub-expression, we can just type it as `Unit`.
-    guard node.isSubExpr else {
+    guard node.isSubexpr else {
       node.type = context.unitType
       return node
     }

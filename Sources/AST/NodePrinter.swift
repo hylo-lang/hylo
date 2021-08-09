@@ -12,12 +12,12 @@ public struct NodePrinter: NodeVisitor {
 
   func encode(_ node: Node?) -> String {
     switch node {
-    case let n as Decl    : return n.accept(self)
-    case let n as Stmt    : return n.accept(self)
-    case let n as Expr    : return n.accept(self)
-    case let n as Pattern : return n.accept(self)
-    case let n as Sign: return n.accept(self)
-    default               : return "null"
+    case let n as Decl   : return n.accept(self)
+    case let n as Stmt   : return n.accept(self)
+    case let n as Expr   : return n.accept(self)
+    case let n as Pattern: return n.accept(self)
+    case let n as Sign   : return n.accept(self)
+    default: return "null"
     }
   }
 
@@ -25,12 +25,12 @@ public struct NodePrinter: NodeVisitor {
     return "[" + nodes.map(encode(_:)).joined(separator: ", ") + "]"
   }
 
-  public func encode(_ clause: GenericClause?) -> String {
+  func encode(_ clause: GenericClause?) -> String {
     guard let clause = clause else { return "null" }
 
     return """
     {
-    "params"  : \(encode(clause.params)),
+    "params": \(encode(clause.params)),
     "typeReqs": \(encode(clause.typeReqs))
     }
     """
@@ -41,8 +41,8 @@ public struct NodePrinter: NodeVisitor {
       result.append("""
       {
       "kind": "\(req.kind)",
-      "lhs" : \(encode(req.lhs)),
-      "rhs" : \(encode(req.rhs))
+      "lhs": \(encode(req.lhs)),
+      "rhs": \(encode(req.rhs))
       }
       """)
     })
@@ -53,8 +53,17 @@ public struct NodePrinter: NodeVisitor {
     return string.map({ "\"\($0)\"" }) ?? "null"
   }
 
-  func encode(referenceTo decl: Decl) -> String {
-    return "\"" + decl.debugID + "\""
+  func encode(refToDecl decl: Decl) -> String {
+    return "\"\(decl.debugID)\""
+  }
+
+  func encode(refToSpace space: DeclSpace?) -> String {
+    guard let space = space else { return "null" }
+    if let decl = space as? Decl {
+      return encode(refToDecl: decl)
+    } else {
+      return "\"\(type(of: space))\""
+    }
   }
 
   func encode(_ range: SourceRange) -> String {
@@ -69,43 +78,45 @@ public struct NodePrinter: NodeVisitor {
 
   func valueDeclHeader<N>(_ node: N) -> String where N: ValueDecl {
     return """
-    "class"           : "\(type(of: node))",
-    "range"           : \(encode(node.range)),
-    "type"            : "\(node.type)",
-    "name"            : "\(node.name)"
+    "class": "\(type(of: node))",
+    "range": \(encode(node.range)),
+    "type": "\(node.type)",
+    "parentDeclSpace": \(encode(refToSpace: node.parentDeclSpace)),
+    "name": "\(node.name)"
     """
   }
 
   func typeDeclHeader<N>(_ node: N) -> String where N: TypeDecl {
     return """
-    "class"           : "\(type(of: node))",
-    "range"           : \(encode(node.range)),
-    "type"            : "\(node.type)",
-    "name"            : "\(node.name)"
+    "class": "\(type(of: node))",
+    "range": \(encode(node.range)),
+    "type": "\(node.type)",
+    "parentDeclSpace": \(encode(refToSpace: node.parentDeclSpace)),
+    "name": "\(node.name)"
     """
   }
 
   func exprHeader<N>(_ node: N) -> String where N: Expr {
     return """
-    "class"           : "\(type(of: node))",
-    "range"           : \(encode(node.range)),
-    "type"            : "\(node.type)"
+    "class": "\(type(of: node))",
+    "range": \(encode(node.range)),
+    "type": "\(node.type)"
     """
   }
 
   func patternHeader<N>(_ node: N) -> String where N: Pattern {
     return """
-    "class"           : "\(type(of: node))",
-    "range"           : \(encode(node.range)),
-    "type"            : "\(node.type)"
+    "class": "\(type(of: node))",
+    "range": \(encode(node.range)),
+    "type": "\(node.type)"
     """
   }
 
   func signHeader<N>(_ node: N) -> String where N: Sign {
     return """
-    "class"           : "\(type(of: node))",
-    "range"           : \(encode(node.range)),
-    "type"            : "\(node.type)"
+    "class": "\(type(of: node))",
+    "range": \(encode(node.range)),
+    "type": "\(node.type)"
     """
   }
 
@@ -114,9 +125,9 @@ public struct NodePrinter: NodeVisitor {
 
     return """
     {
-    "class"           : "\(type(of: node))",
-    "name"            : "\(node.name)",
-    "units"           : \(units)
+    "class": "\(type(of: node))",
+    "name": "\(node.name)",
+    "units": \(units)
     }
     """
   }
@@ -126,9 +137,10 @@ public struct NodePrinter: NodeVisitor {
 
     return """
     {
-    "class"           : "\(type(of: unit))",
-    "path"            : "\(path)",
-    "decls"           : \(encode(unit.decls))
+    "class": "\(type(of: unit))",
+    "parentDeclSpace": \(encode(refToSpace: unit.parentDeclSpace)),
+    "path": "\(path)",
+    "decls": \(encode(unit.decls))
     }
     """
   }
@@ -136,9 +148,10 @@ public struct NodePrinter: NodeVisitor {
   public func visit(_ node: ImportDecl) -> String {
     return """
     {
-    "class"           : "\(type(of: node))",
-    "range"           : \(encode(node.range)),
-    "name"            : \(encode(node.name))
+    "class": "\(type(of: node))",
+    "range": \(encode(node.range)),
+    "parentDeclSpace": \(encode(refToSpace: node.parentDeclSpace)),
+    "name": \(encode(node.name))
     }
     """
   }
@@ -146,12 +159,13 @@ public struct NodePrinter: NodeVisitor {
   public func visit(_ node: PatternBindingDecl) -> String {
     return """
     {
-    "class"           : "\(type(of: node))",
-    "range"           : \(encode(node.range)),
-    "isMutable"       : \(node.isMutable),
-    "pattern"         : \(node.pattern.accept(self)),
-    "sign"            : \(encode(node.sign)),
-    "initializer"     : \(encode(node.initializer))
+    "class": "\(type(of: node))",
+    "range": \(encode(node.range)),
+    "parentDeclSpace": \(encode(refToSpace: node.parentDeclSpace)),
+    "isMutable": \(node.isMutable),
+    "pattern": \(node.pattern.accept(self)),
+    "sign": \(encode(node.sign)),
+    "initializer": \(encode(node.initializer))
     }
     """
   }
@@ -160,23 +174,23 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(valueDeclHeader(node)),
-    "isMutable"       : \(node.isMutable)
+    "isMutable": \(node.isMutable)
     }
     """
   }
 
   public func visit(_ node: BaseFunDecl) -> String {
-    let mods = node.declModifiers.map({ mod in "\"\(mod)\"" })
+    let mods = node.modifiers.map({ mod in "\"\(mod)\"" })
       .joined(separator: ", ")
 
     return """
     {
     \(valueDeclHeader(node)),
-    "declModifiers"   : [\(mods)],
-    "genericClause"   : \(encode(node.genericClause)),
-    "params"          : \(encode(node.params)),
-    "retSign"         : \(encode(node.retSign)),
-    "body"            : \(encode(node.body))
+    "declModifiers": [\(mods)],
+    "genericClause": \(encode(node.genericClause)),
+    "params": \(encode(node.params)),
+    "retSign": \(encode(node.retSign)),
+    "body": \(encode(node.body))
     }
     """
   }
@@ -193,8 +207,8 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(valueDeclHeader(node)),
-    "externalName"    : \(encode(node.externalName)),
-    "sign"            : \(encode(node.sign))
+    "externalName": \(encode(node.externalName)),
+    "sign": \(encode(node.sign))
     }
     """
   }
@@ -202,7 +216,7 @@ public struct NodePrinter: NodeVisitor {
   public func visit(_ node: GenericTypeDecl) -> String {
     switch node {
     case let decl as NominalTypeDecl: return visit(decl)
-    case let decl as AliasTypeDecl  : return visit(decl)
+    case let decl as AliasTypeDecl: return visit(decl)
     default:
       fatalError("unreachable")
     }
@@ -211,7 +225,7 @@ public struct NodePrinter: NodeVisitor {
   public func visit(_ node: NominalTypeDecl) -> String {
     switch node {
     case let decl as ProductTypeDecl: return visit(decl)
-    case let decl as ViewTypeDecl:    return visit(decl)
+    case let decl as ViewTypeDecl: return visit(decl)
     default:
       fatalError("unreachable")
     }
@@ -221,9 +235,9 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(typeDeclHeader(node)),
-    "genericClause"   : \(encode(node.genericClause)),
-    "inheritances"    : \(encode(node.inheritances)),
-    "members"         : \(encode(node.members))
+    "genericClause": \(encode(node.genericClause)),
+    "inheritances": \(encode(node.inheritances)),
+    "members": \(encode(node.members))
     }
     """
   }
@@ -232,8 +246,8 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(typeDeclHeader(node)),
-    "inheritances"    : \(encode(node.inheritances)),
-    "members"         : \(encode(node.members))
+    "inheritances": \(encode(node.inheritances)),
+    "members": \(encode(node.members))
     }
     """
   }
@@ -242,7 +256,7 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(typeDeclHeader(node)),
-    "aliasedSign"     : \(encode(node.aliasedSign))
+    "aliasedSign": \(encode(node.aliasedSign))
     }
     """
   }
@@ -250,11 +264,9 @@ public struct NodePrinter: NodeVisitor {
   public func visit(_ node: AbstractTypeDecl) -> String {
     return """
     {
-    "class"           : "\(type(of: node))",
-    "range"           : \(encode(node.range)),
-    "name"            : \(encode(node.name)),
-    "inheritances"    : \(encode(node.name)),
-    "typeReqs"        : \(encode(node.typeReqs))
+    \(typeDeclHeader(node)),
+    "inheritances": \(encode(node.name)),
+    "typeReqs": \(encode(node.typeReqs))
     }
     """
   }
@@ -267,13 +279,14 @@ public struct NodePrinter: NodeVisitor {
     """
   }
 
-  public func visit(_ node: TypeExtDecl) -> String {
+  public func visit(_ node: TypeExtnDecl) -> String {
     return """
     {
-    "class"           : "\(type(of: node))",
-    "range"           : \(encode(node.range)),
-    "extendedIdent"   : \(encode(node.extendedIdent)),
-    "members"         : \(encode(node.members))
+    "class": "\(type(of: node))",
+    "range": \(encode(node.range)),
+    "parentDeclSpace": \(encode(refToSpace: node.parentDeclSpace)),
+    "extendedIdent": \(encode(node.extendedIdent)),
+    "members": \(encode(node.members))
     }
     """
   }
@@ -281,19 +294,23 @@ public struct NodePrinter: NodeVisitor {
   public func visit(_ node: BraceStmt) -> String {
     return """
     {
-    "class"           : "\(type(of: node))",
-    "range"           : \(encode(node.range)),
-    "stmts"           : \(encode(node.stmts))
+    "class": "\(type(of: node))",
+    "range": \(encode(node.range)),
+    "parentDeclSpace": \(encode(refToSpace: node.parentDeclSpace)),
+    "stmts": \(encode(node.stmts))
     }
     """
   }
 
   public func visit(_ node: RetStmt) -> String {
+    let funDecl = node.funDecl.map(encode(refToDecl:)) ?? "null"
+
     return """
     {
-    "class"           : "\(type(of: node))",
-    "range"           : \(encode(node.range)),
-    "value"           : \(encode(node.value))
+    "class": "\(type(of: node))",
+    "range": \(encode(node.range)),
+    "value": \(encode(node.value)),
+    "funDecl": \(funDecl)
     }
     """
   }
@@ -301,11 +318,21 @@ public struct NodePrinter: NodeVisitor {
   public func visit(_ node: MatchCaseStmt) -> String {
     return """
     {
-    "class"           : "\(type(of: node))",
-    "range"           : \(encode(node.range)),
-    "pattern"         : \(encode(node.pattern)),
-    "condition"       : \(encode(node.condition)),
-    "body"            : \(encode(node.body))
+    "class": "\(type(of: node))",
+    "range": \(encode(node.range)),
+    "parentDeclSpace": \(encode(refToSpace: node.parentDeclSpace)),
+    "pattern": \(encode(node.pattern)),
+    "condition": \(encode(node.condition)),
+    "body": \(encode(node.body))
+    }
+    """
+  }
+
+  public func visit(_ node: BoolLiteralExpr) -> String {
+    return """
+    {
+    \(exprHeader(node)),
+    "value": \(node.value)
     }
     """
   }
@@ -314,7 +341,25 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(exprHeader(node)),
-    "value"           : \(node.value)
+    "value": \(node.value)
+    }
+    """
+  }
+
+  public func visit(_ node: FloatLiteralExpr) -> String {
+    return """
+    {
+    \(exprHeader(node)),
+    "value": \(node.value)
+    }
+    """
+  }
+
+  public func visit(_ node: StringLiteralExpr) -> String {
+    return """
+    {
+    \(exprHeader(node)),
+    "value": \(node.value)
     }
     """
   }
@@ -323,8 +368,8 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(exprHeader(node)),
-    "lvalue"          : \(encode(node.lvalue)),
-    "rvalue"          : \(encode(node.rvalue))
+    "lvalue": \(encode(node.lvalue)),
+    "rvalue": \(encode(node.rvalue))
     }
     """
   }
@@ -333,8 +378,8 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(exprHeader(node)),
-    "value"           : \(encode(node.value)),
-    "sign"            : \(encode(node.sign))
+    "value": \(encode(node.value)),
+    "sign": \(encode(node.sign))
     }
     """
   }
@@ -351,8 +396,8 @@ public struct NodePrinter: NodeVisitor {
     let elems = node.elems.map({ elem in
       """
       {
-      "label"   : \(encode(elem.label)),
-      "value"   : \(elem.value.accept(self))
+      "label": \(encode(elem.label)),
+      "value": \(elem.value.accept(self))
       }
       """
     })
@@ -361,7 +406,7 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(exprHeader(node)),
-    "elems"           : [\(elems)]
+    "elems": [\(elems)]
     }
     """
   }
@@ -370,8 +415,8 @@ public struct NodePrinter: NodeVisitor {
     let args = node.args.map({ arg in
       """
       {
-      "label"   : \(encode(arg.label)),
-      "value"   : \(arg.value.accept(self))
+      "label": \(encode(arg.label)),
+      "value": \(arg.value.accept(self))
       }
       """
     })
@@ -380,8 +425,8 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(exprHeader(node)),
-    "fun"             : \(node.fun.accept(self)),
-    "args"            : [\(args)]
+    "fun": \(node.fun.accept(self)),
+    "args": [\(args)]
     }
     """
   }
@@ -390,7 +435,7 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(exprHeader(node)),
-    "name"            : "\(node.name)"
+    "name": "\(node.name)"
     }
     """
   }
@@ -399,21 +444,21 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(exprHeader(node)),
-    "namespace"       : \(encode(node.namespace)),
-    "name"            : "\(node.name)"
+    "namespace": \(encode(node.namespace)),
+    "name": "\(node.name)"
     }
     """
   }
 
   public func visit(_ node: OverloadedDeclRefExpr) -> String {
     let declSet = node.declSet
-      .map(encode(referenceTo:))
+      .map(encode(refToDecl:))
       .joined(separator: ", ")
 
     return """
     {
     \(exprHeader(node)),
-    "declSet"         : [\(declSet)]
+    "declSet": [\(declSet)]
     }
     """
   }
@@ -422,7 +467,7 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(exprHeader(node)),
-    "decl"            : \(encode(referenceTo: node.decl))
+    "decl": \(encode(refToDecl: node.decl))
     }
     """
   }
@@ -431,7 +476,7 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(exprHeader(node)),
-    "decl"            : \(encode(referenceTo: node.decl))
+    "decl": \(encode(refToDecl: node.decl))
     }
     """
   }
@@ -440,8 +485,8 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(exprHeader(node)),
-    "base"            : \(encode(node.base)),
-    "memberName"      : "\(node.memberName)"
+    "base": \(encode(node.base)),
+    "memberName": "\(node.memberName)"
     }
     """
   }
@@ -450,8 +495,8 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(exprHeader(node)),
-    "base"            : \(node.base.accept(self)),
-    "decl"            : \(encode(referenceTo: node.decl))
+    "base": \(node.base.accept(self)),
+    "decl": \(encode(refToDecl: node.decl))
     }
     """
   }
@@ -460,8 +505,8 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(exprHeader(node)),
-    "base"            : \(node.base.accept(self)),
-    "memberIndex"     : \(node.memberIndex)
+    "base": \(node.base.accept(self)),
+    "memberIndex": \(node.memberIndex)
     }
     """
   }
@@ -470,7 +515,7 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(exprHeader(node)),
-    "value"           : \(encode(node.value))
+    "value": \(encode(node.value))
     }
     """
   }
@@ -479,7 +524,7 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(exprHeader(node)),
-    "value"           : \(encode(node.value))
+    "value": \(encode(node.value))
     }
     """
   }
@@ -488,7 +533,7 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(exprHeader(node)),
-    "value"           : \(encode(node.value))
+    "value": \(encode(node.value))
     }
     """
   }
@@ -497,8 +542,8 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(exprHeader(node)),
-    "subject"         : \(encode(node.subject)),
-    "cases"           : \(encode(node.cases))
+    "subject": \(encode(node.subject)),
+    "cases": \(encode(node.cases))
     }
     """
   }
@@ -523,7 +568,7 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(patternHeader(node)),
-    "decl"            : \(encode(node.decl))
+    "decl": \(encode(node.decl))
     }
     """
   }
@@ -532,8 +577,8 @@ public struct NodePrinter: NodeVisitor {
     let elems = node.elems.map({ elem in
       """
       {
-      "label"   : \(encode(elem.label)),
-      "pattern" : \(elem.pattern.accept(self))
+      "label": \(encode(elem.label)),
+      "pattern": \(elem.pattern.accept(self))
       }
       """
     })
@@ -542,7 +587,7 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(patternHeader(node)),
-    "elems"           : [\(elems)]
+    "elems": [\(elems)]
     }
     """
   }
@@ -551,8 +596,8 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(patternHeader(node)),
-    "subpattern"      : \(node.subpattern.accept(self)),
-    "sign"            : \(encode(node.sign))
+    "subpattern": \(node.subpattern.accept(self)),
+    "sign": \(encode(node.sign))
     }
     """
   }
@@ -569,8 +614,8 @@ public struct NodePrinter: NodeVisitor {
     let elems = node.elems.map({ elem in
       """
       {
-      "label"   : \(encode(elem.label)),
-      "sign"    : \(elem.sign.accept(self))
+      "label": \(encode(elem.label)),
+      "sign": \(elem.sign.accept(self))
       }
       """
     })
@@ -579,7 +624,7 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(signHeader(node)),
-    "elems"           : [\(elems)]
+    "elems": [\(elems)]
     }
     """
   }
@@ -588,8 +633,9 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(signHeader(node)),
-    "paramSign"       : \(node.paramSign.accept(self)),
-    "retSign  "       : \(node.retSign.accept(self)),
+    "paramSign": \(node.paramSign.accept(self)),
+    "retSign": \(node.retSign.accept(self)),
+    "isVolatile": \(node.isVolatile)
     }
     """
   }
@@ -598,7 +644,7 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(signHeader(node)),
-    "base"            : \(node.base.accept(self))
+    "base": \(node.base.accept(self))
     }
     """
   }
@@ -607,7 +653,7 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(signHeader(node)),
-    "base"            : \(node.base.accept(self))
+    "base": \(node.base.accept(self))
     }
     """
   }
@@ -616,7 +662,7 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(signHeader(node)),
-    "elems"           : \(encode(node.elems))
+    "elems": \(encode(node.elems))
     }
     """
   }
@@ -625,16 +671,16 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(signHeader(node)),
-    "views"           : \(encode(node.views))
+    "views": \(encode(node.views))
     }
     """
   }
 
-  public func visit(_ node: UnqualIdentSign) -> String {
+  public func visit(_ node: BareIdentSign) -> String {
     return """
     {
     \(signHeader(node)),
-    "name"            : "\(node.name)"
+    "name": "\(node.name)"
     }
     """
   }
@@ -643,8 +689,8 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(signHeader(node)),
-    "name"            : "\(node.name)",
-    "args"            : \(encode(node.args))
+    "name": "\(node.name)",
+    "args": \(encode(node.args))
     }
     """
   }
@@ -653,7 +699,15 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(signHeader(node)),
-    "components"      : \(encode(node.components))
+    "components": \(encode(node.components))
+    }
+    """
+  }
+
+  public func visit(_ node: ErrorSign) -> String {
+    return """
+    {
+    \(signHeader(node))
     }
     """
   }

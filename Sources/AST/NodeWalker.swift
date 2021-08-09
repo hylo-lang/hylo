@@ -361,7 +361,7 @@ open class NodeWalker: NodeVisitor {
     return true
   }
 
-  public final func visit(_ node: TypeExtDecl) -> Bool {
+  public final func visit(_ node: TypeExtnDecl) -> Bool {
     let prevParent = parent
     parent = node
     innermostSpace = node
@@ -430,7 +430,19 @@ open class NodeWalker: NodeVisitor {
     return true
   }
 
+  public final func visit(_ node: BoolLiteralExpr) -> Bool {
+    return true
+  }
+
   public final func visit(_ node: IntLiteralExpr) -> Bool {
+    return true
+  }
+
+  public final func visit(_ node: FloatLiteralExpr) -> Bool {
+    return true
+  }
+
+  public final func visit(_ node: StringLiteralExpr) -> Bool {
     return true
   }
 
@@ -715,7 +727,7 @@ open class NodeWalker: NodeVisitor {
     return true
   }
 
-  public final func visit(_ node: UnqualIdentSign) -> Bool {
+  public final func visit(_ node: BareIdentSign) -> Bool {
     return true
   }
 
@@ -742,6 +754,10 @@ open class NodeWalker: NodeVisitor {
       guard shouldContinue else { return false }
     }
 
+    return true
+  }
+
+  public final func visit(_ node: ErrorSign) -> Bool {
     return true
   }
 

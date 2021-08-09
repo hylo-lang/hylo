@@ -36,7 +36,7 @@ public final class CaptureCollector: NodeWalker {
       // If the referre declaration is a function, make sure it is a identifying a local closure.
       if let decl = expr.decl as? BaseFunDecl {
         switch decl.parentDeclSpace {
-        case is TypeDecl, is TypeExtDecl, is SourceUnit:
+        case is TypeDecl, is TypeExtnDecl, is SourceUnit:
           return (true, expr)
         default:
           break
