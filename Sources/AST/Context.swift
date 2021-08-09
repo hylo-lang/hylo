@@ -18,7 +18,7 @@ public final class Context {
   ///
   /// The standard library requires the compiler to behave slightly differently, so as to to handle
   /// built-in definitions. This flag enables this
-  public var isCompilingStdLib = false
+  public var isCompilingStdlib = false
 
   /// The manager handling the source files loaded in the context.
   public let sourceManager: SourceManager
@@ -263,7 +263,7 @@ public final class Context {
   ///
   /// - Note: This method always returns `nil` until the standard library has been parsed and
   ///   loaded into the context.
-  public func getTypeDecl(for type: KnownStdLibTypes) -> TypeDecl? {
+  public func getTypeDecl(for type: KnownStdTypes) -> TypeDecl? {
     guard let stdlib = self.stdlib else { return nil }
     return stdlib.lookup(unqualified: type.name, in: self).types.first
   }

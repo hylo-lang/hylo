@@ -35,7 +35,7 @@ struct ValCommand: ParsableCommand {
 
     // Load the standard library.
     if !noStdlib {
-      try driver.loadStdLib()
+      try driver.loadStdlib()
     }
 
     // Load the given input files as a module.

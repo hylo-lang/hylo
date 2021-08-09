@@ -43,9 +43,9 @@ public struct Driver {
   /// - Parameter url: The root URL of the standard library. By default, the driver will look for
   ///   a directly `Stdlib` at the root of its home path.
   @discardableResult
-  public func loadStdLib(url: URL? = nil) throws -> ModuleDecl  {
-    let rootURL = url ?? home.appendingPathComponent("StdLib")
-    let moduleDecl = try parse(moduleName: "Val", moduleRoot: rootURL, isStdLib: true)
+  public func loadStdlib(url: URL? = nil) throws -> ModuleDecl  {
+    let rootURL = url ?? home.appendingPathComponent("Stdlib")
+    let moduleDecl = try parse(moduleName: "Val", moduleRoot: rootURL, isStdlib: true)
     typeCheck(moduleDecl: moduleDecl)
     return moduleDecl
   }
@@ -53,7 +53,7 @@ public struct Driver {
   /// Parse the given source files as a module declaration.
   @discardableResult
   public func parse(
-    moduleName: String, moduleFiles: [URL], isStdLib: Bool = false
+    moduleName: String, moduleFiles: [URL], isStdlib: Bool = false
   ) throws -> ModuleDecl {
     guard context.modules[moduleName] == nil else {
       throw DriverError.moduleAlreadyLoaded(moduleName: moduleName)
@@ -65,9 +65,9 @@ public struct Driver {
 
     if let stdlib = context.stdlib {
       // All modules but the standard library implicitly depend on the standard library.
-      precondition(!isStdLib, "standard library is already loaded")
+      precondition(!isStdlib, "standard library is already loaded")
       module.dependencies = [stdlib]
-    } else if isStdLib {
+    } else if isStdlib {
       context.stdlib = module
     }
 
@@ -90,7 +90,7 @@ public struct Driver {
   /// Parse the given source files as a module declaration.
   @discardableResult
   public func parse(
-    moduleName: String, moduleRoot: URL, isStdLib: Bool = false
+    moduleName: String, moduleRoot: URL, isStdlib: Bool = false
   ) throws -> ModuleDecl {
     var moduleFiles: [URL] = []
     if let enumerator = FileManager.default.enumerator(
@@ -112,7 +112,7 @@ public struct Driver {
       throw DriverError.moduleNotFound(moduleName: moduleName)
     }
 
-    return try parse(moduleName: moduleName, moduleFiles: moduleFiles, isStdLib: isStdLib)
+    return try parse(moduleName: moduleName, moduleFiles: moduleFiles, isStdlib: isStdlib)
   }
 
   /// Type checks the given module declaration.
@@ -123,7 +123,7 @@ public struct Driver {
   public func typeCheck(moduleDecl: ModuleDecl) -> Bool {
     assert(context.modules.values.contains(moduleDecl))
 
-    context.isCompilingStdLib = (moduleDecl === context.stdlib)
+    context.isCompilingStdlib = (moduleDecl === context.stdlib)
     TypeChecker.initialize(in: context)
     let result = TypeChecker.check(decl: moduleDecl)
 

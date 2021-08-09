@@ -43,7 +43,7 @@ final class ValTests: XCTestCase {
 
     for url in urls {
       let driver = Driver()
-      try driver.loadStdLib()
+      try driver.loadStdlib()
       let source = try driver.context.sourceManager.load(contentsOf: url)
 
       var parser = TestAnnotationParser()
