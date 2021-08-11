@@ -67,7 +67,11 @@ public final class Context {
     return uniqued(GenericParamType(context: self, decl: decl))
   }
 
-  public func skolemType(interface: ValType, genericEnv: GenericEnv) -> SkolemType {
+  public func assocType(interface: GenericParamType, base: ValType) -> AssocType {
+    return uniqued(AssocType(context: self, interface: interface, base: base))
+  }
+
+  public func skolemType(interface: GenericParamType, genericEnv: GenericEnv) -> SkolemType {
     return uniqued(SkolemType(context: self, interface: interface, genericEnv: genericEnv))
   }
 

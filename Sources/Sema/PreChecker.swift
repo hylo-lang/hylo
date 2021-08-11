@@ -14,7 +14,7 @@ final class PreCheckDriver: NodeWalker {
   override func willVisit(_ expr: Expr) -> (shouldWalk: Bool, nodeBefore: Expr) {
     switch expr {
     case let tupleExpr as TupleExpr:
-      // Substitute 'e' for '(e)', effectively eliminating parenthesized expressions.
+      // Substitute `e` for `(e)`, effectively eliminating parenthesized expressions.
       if (tupleExpr.elems.count == 1) && (tupleExpr.elems[0].label == nil) {
         return (true, tupleExpr.elems[0].value)
       } else {
@@ -35,8 +35,7 @@ final class PreCheckDriver: NodeWalker {
   }
 
   override func didVisit(_ expr: Expr) -> (shouldContinue: Bool, nodeAfter: Expr) {
-    let newExpr = expr.accept(
-      PreChecker(system: system, useSite: innermostSpace!))
+    let newExpr = expr.accept(PreChecker(system: system, useSite: innermostSpace!))
     return (true, newExpr)
   }
 

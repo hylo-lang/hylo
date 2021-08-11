@@ -27,8 +27,7 @@ extension Decl {
       case let decl as AliasTypeDecl:
         components.append(decl.name)
 
-      case let decl as TypeExtnDecl:
-        components.append(contentsOf: decl.extendedIdent.components.map({ $0.name }))
+      case is TypeExtnDecl:
         break
 
       default:

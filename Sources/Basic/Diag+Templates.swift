@@ -50,6 +50,14 @@ extension Diag {
     return Diag("I don't know about a module named '\(name)'", anchor: range)
   }
 
+  public static func cannotReferToForeignTypeParameter(
+    _ parameter: String, range: SourceRange
+  ) -> Diag {
+    return Diag(
+      "cannot refer to generic type parameter: '\(parameter)' is defined in another scope",
+      anchor: range)
+  }
+
   public static func builtinTypesAreNotNamespaces(
     range: SourceRange
   ) -> Diag {
@@ -78,8 +86,10 @@ extension Diag {
     range: SourceRange
   ) -> Diag {
     return Diag(
-      "I can't declare new conformances for a nominal type through an alias declaration; " +
-        "use an extension",
+      """
+      I can't declare new conformances for a nominal type through an alias declaration; \
+      use an extension
+      """,
       anchor: range)
   }
 
@@ -153,7 +163,13 @@ extension Diag {
       anchor: range)
   }
 
-  public static func referenceToGenericRequiresArguments(
+  public static func cannotSpecializeNonGenericType(
+    type: Any, range: SourceRange
+  ) -> Diag {
+    return Diag("cannot specialize non-generic type \(type)", anchor: range)
+  }
+
+  public static func referenceToGenericTypeRequiresArguments(
     type: Any, range: SourceRange
   ) -> Diag {
     return Diag(
@@ -164,8 +180,10 @@ extension Diag {
     type: Any, got: Int, expected: Int, range: SourceRange
   ) -> Diag {
     return Diag(
-      "type '\(type)' specialized with too many generic arguments " +
-        "(got \(got), expected \(expected))",
+      """
+      type '\(type)' specialized with too many generic arguments: \
+      (got \(got), expected \(expected))
+      """,
       anchor: range)
   }
 

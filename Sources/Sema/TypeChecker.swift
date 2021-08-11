@@ -6,12 +6,11 @@ import AST
 /// (flow-insensitive) static type system; second, it resolves type and variable identifiers to
 /// their declaration.
 ///
-/// Conceptually, type checking is a composition of multiple phases:
+/// Conceptually, type checking is a composition of five phases:
 /// - **Extension binding**
 ///   Binds extensions to the declaration they extend.
 /// - **Conformance enumeration**
-///   Initializes the view conformance set of all nominal types. This includes listing inherited
-///   and synthetized conformances.
+///   Gather the explicit, inherited and synthesized conformances for all nominal types.
 /// - **Generic environment realization**
 ///   Realizes generic type signatures, establishing equivalence classes and conformance relations
 ///   for each generic type parameter.
@@ -20,22 +19,17 @@ import AST
 /// - **Semantic type checking**
 ///   Checks that a particular declaration satisfies Val's type system.
 ///
-/// These phases cannot be performed completely sequentially, because some operations may require
-/// results from "later" phases. For instance, binding the extension of a member type requires to
-/// run name resolution over a qualified type reference (e.g., `Foo::Bar`). Thus, the process has
-/// to be carried out lazily, so that not all of the AST need to be brought up to a particular
-/// phase at the same time.
+/// These phases cannot be performed sequentially, as some operations may require results from
+/// "later" phases. Thus, the process is carried out lazily, so that not all of the AST need to be
+/// brought up to a particular phase at the same time.
 ///
-/// The process is "declaration-driven"; it starts at a declaration node (e.g., a `ModuleDecl`) and
-/// visits all nested declarations recursively. Dependencies are not fully type checked. Instead,
-/// the type checker aims to move them at the minimal "phase" that satisfies the requirements of
-/// the construction it is checking. For instance, referring to a method in another type does not
-/// triggers said type to be fully type checked; it is sufficient to build its member lookup table
-/// and realize the signature of the method.
+/// Type checking is "declaration-driven". We start from a declaration (e.g., a module) and visit
+/// all nested declaration recursively. Dependencies are not eagerly type checked. Instead, we move
+/// them at the minimal "phase" that satisfies the requirements of the whathever we are processing.
 ///
-/// The "phase" at which a particular node sits is encoded by the node itself, either explicitly
-/// within its properties or by its very type (e.g., name resolution substitutes `DeclRefExpr`s for
-/// `UnresolvedDeclRefExpr`s).
+/// The "phase" at which a particular node sits is encoded either explicitly as node properties, or
+/// by the class of the node itself. For instance, an `UnresolvedDeclRefExpr` will be substituted
+/// for a `DeclRefExpr` after name resolution.
 public enum TypeChecker {
 
   /// Initializes the type checker.
@@ -110,10 +104,9 @@ public enum TypeChecker {
   /// - Parameters:
   ///   - decl: The declaration to contextualize.
   ///   - useSite: The declaration space from which the `decl` is being referred.
-  ///   - args: A dictionary containing specialization arguments for generic type parameters.
-  ///   - handleConstraint: A closure that accepts contextualized contraint prototypes and that is
-  ///     called when the contextualized type contains opened generic types for which there exist
-  ///     type requirements.
+  ///   - args: A substitution table mapping generic type parameters to specialization arguments.
+  ///   - handleConstraint: A closure that accepts contextualized contraint prototypes generated
+  ///     for each opened generic associated with type requirements.
   /// - Returns: The contextualized type of the declaration.
   public static func contextualize(
     decl: ValueDecl,
@@ -164,31 +157,29 @@ public enum TypeChecker {
       genericType = genericType.specialized(with: args)
     }
 
-    // If the declaration's type does not contain any free parameter, our work is done.
+    // If the declaration's type doesn't contain free parameters, we're done.
     guard genericType.hasTypeParams else { return genericType }
 
-    // If the declaration is its own generic environment, then we must contextualize it externally,
-    // regardless of the use-site. This situation corresponds to a "fresh" use of a generic
-    // declaration within its own space (e.g., a recursive call to a generic function).
-    if let gds = decl as? GenericDeclSpace {
-      guard let env = gds.prepareGenericEnv() else {
+    // If the declaration is a generic environment, we have to contextualize its own parameters
+    // externally, regardless of the use-site. That situation denotes a "fresh" reference to a
+    // generic declaration within its own space (e.g., a recursive call to a generic function).
+    if let space = decl as? GenericDeclSpace {
+      guard let env = space.prepareGenericEnv() else {
         return decl.type.context.errorType
       }
 
-      // Adjust the use site depending on the type of declaration.
-      var adjustedSite: DeclSpace
-      if gds is CtorDecl {
-        // Constructors are contextualized from outside of their type declaration.
-        adjustedSite = gds.spacesUpToRoot.first(where: { $0 is TypeDecl })!.parentDeclSpace!
-      } else {
-        adjustedSite = gds
-      }
+      // Constructors are contextualized from outside of their type declaration.
+      var adjustedSite: DeclSpace = space is CtorDecl
+        ? space.spacesUpToRoot.first(where: { $0 is TypeDecl })!.parentDeclSpace!
+        : space
       if adjustedSite.isDescendant(of: useSite) {
         adjustedSite = useSite
       }
 
       let (contextualType, _) = env.contextualize(
-        genericType, from: adjustedSite, processingContraintsWith: handleConstraint)
+        genericType,
+        from: adjustedSite,
+        processingContraintsWith: handleConstraint)
       return contextualType
     }
 
@@ -421,45 +412,41 @@ public enum TypeChecker {
   ) -> Bool {
     let context = lhs.context
 
-    // Complain if the left operand is not a generic parameter.
-    // FIXME: Handle dependent types.
-    guard let param = lhs as? GenericParamType, env.params.contains(param) else {
-      context.report(.illegalConformanceRequirement(type: lhs, range: req.lhs.range))
-      return false
-    }
-
-    // Complain if the right operand is not a view.
     guard let view = rhs as? ViewType else {
       context.report(.nonViewTypeConformanceRequirement(type: rhs, range: req.rhs.range))
       return false
     }
-
     let viewDecl = view.decl as! ViewTypeDecl
-    let skolem = env.skolemize(param)
-    if let types = env.equivalences.equivalenceClass(containing: skolem) {
-      // The skolem belongs to an equivalence class; register the new conformance for every member
-      // of the skolem's equivalence class.
-      for type in types {
-        guard let skolem = type as? SkolemType,
-              skolem.genericEnv === env
-        else {
-          // Complain that the equivalence class contains non-generic members.
+
+    // Be sure not to register the same conformance twice.
+    guard env.conformance(of: lhs, to: view) == nil else {
+      assert(env.equivalences
+              .equivalenceClass(containing: lhs)?
+              .allSatisfy({ env.conformance(of: $0, to: view) != nil })
+              ?? true)
+      return true
+    }
+
+    // Register the conformance for all members of `lhs`'s equivalence class, provided they all are
+    // either generic parameters or associated types defined in the same environment.
+    let conformance = ViewConformance(viewDecl: viewDecl, range: req.rhs.range)
+    if let equivalenceClass = env.equivalences.equivalenceClass(containing: lhs) {
+      for type in equivalenceClass {
+        guard env.defines(type: type) else {
           context.report(.illegalConformanceRequirement(type: lhs, range: req.lhs.range))
           return false
         }
-
-        guard env.conformance(of: skolem, to: view) == nil else { return false }
-        env.insert(
-          conformance: ViewConformance(viewDecl: viewDecl, range: req.rhs.range),
-          for: skolem)
+        env.insert(conformance: conformance, for: type)
       }
-    } else if env.conformance(of: skolem, to: view) == nil {
-      // The skolem has no equivalence class; register the new conformance fot it directly.
-      env.insert(
-        conformance: ViewConformance(viewDecl: viewDecl, range: req.rhs.range),
-        for: skolem)
+    } else {
+      guard env.defines(type: lhs) else {
+        context.report(.illegalConformanceRequirement(type: lhs, range: req.lhs.range))
+        return false
+      }
+      env.insert(conformance: conformance, for: lhs)
     }
 
+    // View conformance successfully registered.
     return true
   }
 

@@ -79,6 +79,13 @@ struct Solution {
           decl: type.decl,
           args: type.args.map({ reify($0, freeVariablePolicy: freeVariablePolicy) }))
 
+    case let type as AssocType:
+      return type.context
+        .assocType(
+          interface: type.interface,
+          base: reify(type.base, freeVariablePolicy: freeVariablePolicy))
+        .canonical
+
     case let type as TupleType:
       return type.context
         .tupleType(type.elems.map({ elem in
@@ -127,8 +134,8 @@ struct Solution {
   func report(_ error: TypeError, in context: Context) {
     switch error {
     case .conflictingTypes(let constraint):
-      let lhs = reify(constraint.lhs, freeVariablePolicy: .keep)
-      let rhs = reify(constraint.rhs, freeVariablePolicy: .keep)
+      let lhs = describe(reify(constraint.lhs, freeVariablePolicy: .keep))
+      let rhs = describe(reify(constraint.rhs, freeVariablePolicy: .keep))
 
       // Compute the diagnostic's message.
       let message: String
@@ -148,9 +155,8 @@ struct Solution {
       context.report(Diag(message, anchor: anchor.range))
 
     case .nonConformingType(let constraint):
-      let lhs = reify(constraint.lhs, freeVariablePolicy: .keep)
-      let rhs = reify(constraint.rhs, freeVariablePolicy: .keep)
-      assert(rhs is ViewType)
+      let lhs = describe(reify(constraint.lhs, freeVariablePolicy: .keep))
+      let rhs = describe(reify(constraint.rhs, freeVariablePolicy: .keep))
 
       let anchor = constraint.locator.resolve()
       context.report(
@@ -180,6 +186,12 @@ struct Solution {
     for error in errors.sorted(by: <) {
       report(error, in: context)
     }
+  }
+
+  private func describe(_ type: ValType) -> String {
+    return type.isCanonical
+      ? "\(type)"
+      : "\(type) (i.e. \(type.canonical))"
   }
 
 }

@@ -90,6 +90,10 @@ open class TypeWalker: TypeVisitor {
     return type
   }
 
+  open func visit(_ type: AssocType) -> ValType {
+    return type.context.assocType(interface: type.interface, base: walk(type.base))
+  }
+
   open func visit(_ type: SkolemType) -> ValType {
     return type
   }
@@ -101,8 +105,7 @@ open class TypeWalker: TypeVisitor {
   }
 
   open func visit(_ type: FunType) -> ValType {
-    return type.context.funType(
-      paramType: walk(type.paramType), retType: walk(type.retType))
+    return type.context.funType(paramType: walk(type.paramType), retType: walk(type.retType))
   }
 
   open func visit(_ type: AsyncType) -> ValType {

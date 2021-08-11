@@ -19,13 +19,10 @@ struct TRSolver {
     var classes: [[ValType]] = []
     var count = 0
 
-    for case .parameter(let param) in bindings.keys {
-      guard case .parameter(let repr) = representative(of: .parameter(param)) else {
+    for case .parameter(let entryA) in bindings.keys {
+      guard case .parameter(let entryB) = representative(of: .parameter(entryA)) else {
         fatalError("not implemented yet")
       }
-
-      let entryA = env.skolemize(param)
-      let entryB = env.skolemize(repr)
 
       if let i = classes.firstIndex(where: { class_ in class_.contains(entryB) }) {
         if entryA != entryB {
@@ -41,7 +38,7 @@ struct TRSolver {
           count += 1
         }
 
-        if case .type(let type) = bindings[.parameter(repr)] {
+        if case .type(let type) = bindings[.parameter(entryB)] {
           classes[classes.count - 1].append(type)
           count += 1
         }

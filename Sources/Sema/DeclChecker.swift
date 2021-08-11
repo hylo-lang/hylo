@@ -54,7 +54,7 @@ struct DeclChecker: DeclVisitor {
       // If the signature contains opened generic parameter, require an initializer to infer them.
       guard !signType.hasVariables || node.initializer != nil else {
         context.report(
-          .referenceToGenericRequiresArguments(type: signType, range: node.pattern.range))
+          .referenceToGenericTypeRequiresArguments(type: signType, range: node.pattern.range))
         setInvalid(pbd: node)
         return false
       }
@@ -116,6 +116,7 @@ struct DeclChecker: DeclVisitor {
     // Realize the function's signature. The call to `TypeChecker.contextualize` only serves to
     // handle synthesized declarations that require type checking (e.g., constructors).
     _ = TypeChecker.contextualize(decl: node, from: node.rootDeclSpace)
+    guard node.state < .invalid else { return false }
     node.setState(.typeCheckRequested)
 
     /// Initialize the function's generic environment.
@@ -174,44 +175,56 @@ struct DeclChecker: DeclVisitor {
     let context = node.type.context
 
     // Type check the type's conformances.
-    outer:for var conformance in node.conformanceTable.values {
-      defer { node.conformanceTable[conformance.viewType] = conformance }
-      conformance.state = .checked
+    for (view, conformance) in node.conformanceTable {
+      // Assume the conformance holds.
+      node.conformanceTable[view]!.state = .checked
 
       // Build a substitution table mapping the view's generic type parameters to their
       // specialization in the conforming type.
-      let viewReceiverType = conformance.viewDecl.receiverType as! GenericParamType
-      var substitutions = [viewReceiverType: conformingType]
+      let viewReceiverType = view.decl.receiverType as! GenericParamType
+      var substitutions: [ReferenceBox<ValType>: ValType] = [:]
+      substitutions[ReferenceBox(viewReceiverType)] = conformingType
 
       // Verify that abstract type requirements are satisfied.
-      for case let req as AbstractTypeDecl in conformance.viewDecl.typeMemberTable.values {
+      for case let req as AbstractTypeDecl in view.decl.typeMemberTable.values {
         // Look for a declaration in the type member table that shadows the abstract requirement.
         guard let member = node.typeMemberTable[req.name] else {
           context.report(
             .conformanceRequiresMatchingImplementation(
-              view: conformance.viewDecl.name,
+              view: view.decl.name,
               requirement: req.name,
               range: conformance.range ?? (node.range.lowerBound ..< node.range.lowerBound)))
 
           // Mark the conformance as invalid.
-          conformance.state = .invalid
+          node.conformanceTable[view]!.state = .invalid
           isWellFormed = false
-          continue outer
+          continue
         }
 
         // Bail out if the member is invalid.
         guard member.state != .invalid else {
-          conformance.state = .invalid
           isWellFormed = false
-          continue outer
+          continue
         }
 
-        // Register the type member as a substitution for the abstract requirement.
-        substitutions[req.instanceType as! GenericParamType] = member.instanceType
+        // Register the member as a witness.
+        node.conformanceTable[view]!.entries.append((req, member))
+        let key = context.assocType(
+          interface: req.instanceType as! GenericParamType,
+          base: viewReceiverType)
+        substitutions[ReferenceBox(key)] = member.instanceType
+
+        if member.state == .invalid {
+          node.conformanceTable[view]!.state = .invalid
+          isWellFormed = false
+        }
       }
 
+      // Bail out if the abstract type requirements were not satisfied.
+      guard node.conformanceTable[view]!.state != .invalid else { continue }
+
       // Verify that value member requirements are satisfied.
-      for (name, reqs) in conformance.viewDecl.valueMemberTable {
+      for (name, reqs) in view.decl.valueMemberTable {
         for req in reqs {
           // FIXME: Skip requirements that have a default implementation.
 
@@ -220,8 +233,7 @@ struct DeclChecker: DeclVisitor {
 
           // Search for a valid candidate.
           let candidates = node.lookup(qualified: name).values.filter({ (decl) -> Bool in
-            // Skip the requirement itself.
-            guard req !== decl else { return false }
+            assert(req !== decl)
 
             // Discard the candidate if it's not the same kind of construct, preventing a method
             // requirement from being fulfilled by a property, or vice versa.
@@ -229,36 +241,41 @@ struct DeclChecker: DeclVisitor {
                   (req is VarDecl)     && (decl is VarDecl)
             else { return false }
 
-            // Discard the candidate if it doesn't have the same number of generic arguments.
+            // If the requirement has generic parameters, we need to match them with those of the
+            // candidate by completing the substitution table.
+            var subst = substitutions
             let declParams = (decl as? GenericDeclSpace)?.genericEnv?.params ?? []
             guard reqParams.count == declParams.count else { return false }
+            for i in 0 ..< reqParams.count {
+              subst[ReferenceBox(reqParams[i])] = declParams[i]
+            }
 
-            // Substitute the generic parameters of the requirement with that of the candidate.
-            let subst = substitutions.merging(disjointKeysWithValues: zip(reqParams, declParams))
-            let reqType = req.type.specialized(with: subst)
-
-            // Select the candidate if its type matches that of the requirement.
-            return reqType.dealiased == decl.type.dealiased
+            // Check if the candidate satisfies the requirement.
+            let a = req.type.dealiased.canonical
+            let b = decl.type.dealiased.canonical
+            return a.matches(with: b, reconcilingWith: { (lhs, rhs) -> Bool in
+              subst[ReferenceBox(lhs)] === rhs
+            })
           })
 
           if candidates.count == 1 {
-            conformance.entries.append((req, candidates[0]))
+            node.conformanceTable[view]!.entries.append((req, candidates[0]))
           } else {
             context.report(
               .conformanceRequiresMatchingImplementation(
-                view: conformance.viewDecl.name,
+                view: view.decl.name,
                 requirement: req.name,
                 range: conformance.range ?? (node.range.lowerBound ..< node.range.lowerBound)))
 
             // Mark the conformance as invalid.
-            conformance.state = .invalid
+            node.conformanceTable[view]!.state = .invalid
             isWellFormed = false
           }
         }
       }
 
       // Bail out if the conformance is invalid.
-      guard conformance.state != .invalid else { continue outer }
+      guard node.conformanceTable[view]!.state != .invalid else { continue }
 
       // Finally, we must type check the abstract requirements.
       let locator = ConstraintLocator(node)
@@ -266,15 +283,16 @@ struct DeclChecker: DeclVisitor {
       // Contextualize the view's `Self` to translate the view's abstract requirements in the
       // context of the conforming type.
       var system = ConstraintSystem()
-      let viewEnv = conformance.viewDecl.prepareGenericEnv()
-      let (_, openedParams) = viewEnv!.contextualize(
+      let (_, openedParams) = view.decl.genericEnv!.contextualize(
         viewReceiverType,
         from: node,
         processingContraintsWith: { system.insert(prototype: $0, at: locator) })
 
       // Map opened parameters to their contextal type.
-      for (param, member) in substitutions {
-        guard let opened = openedParams[param] else { continue }
+      for (key, member) in substitutions {
+        guard let param = key.value as? GenericParamType,
+              let opened = openedParams[param]
+        else { continue }
         let (tau, _) = declEnv.contextualize(member, from: node)
         system.insert(RelationalConstraint(kind: .equality, lhs: opened, rhs: tau, at: locator))
       }
@@ -283,9 +301,11 @@ struct DeclChecker: DeclVisitor {
       var solver = CSSolver(system: system, context: context)
       let solution = solver.solve()
 
-      if !solution.errors.isEmpty {
+      if solution.errors.isEmpty {
+        node.conformanceTable[view]!.state = .checked
+      } else {
         solution.reportAllErrors(in: context)
-        conformance.state = .invalid
+        node.conformanceTable[view]!.state = .invalid
         isWellFormed = false
       }
     }

@@ -85,3 +85,12 @@ public func ?< <T>(lhs: T?, rhs: () -> T?) -> T? {
 public func ?< <T>(lhs: T?, rhs: () -> T) -> T {
   return lhs ?? rhs()
 }
+
+/// Unwraps the left operand or evaluates the specified non-terminating expression.
+public func ?< <T>(lhs: T?, rhs: @autoclosure () -> Never) -> T {
+  if let lhs = lhs {
+    return lhs
+  } else {
+    rhs()
+  }
+}

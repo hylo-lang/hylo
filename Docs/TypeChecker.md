@@ -33,11 +33,11 @@ Type inference is used at the third line, both to infer the type of the value `x
 
 ## Implementation Overview
 
-Conceptually, type checking is a composition of multiple phases:
+Conceptually, type checking is a composition of five phases:
 - **Extension binding**
   Binds extensions to the declaration they extend.
 - **Conformance enumeration**
-  Initializes the view conformance set of all nominal types. This includes listing inherited and synthetized conformances.
+  Gather the explicit, inherited and synthesized conformances for all nominal types.
 - **Existential realization**
   Realizes existential types from generic type signatures.
 - **Name resolution**
@@ -45,8 +45,8 @@ Conceptually, type checking is a composition of multiple phases:
 - **Semantic type checking**
   Checks that a particular declaration satisfies Val's type system.
 
-Note that the compiler does not perform these phases completely sequentially, not only because of performance concerns, but also because some operations may require results from "later" phases.
-Consider the following example, which is perfectly legal in Val:
+Note that the compiler does not perform these phases sequentially, not only because of performance concerns, but also because some operations may require results from "later" phases.
+Consider the following example:
 
 ```val
 type A {
@@ -72,19 +72,67 @@ For instance, referring to a method in another type does not triggers said type 
 In the above example, the signature `B::C` of the property `c` will be assigned a temporary "unresolved" type and will not be processed until the checker encounters an expression that refers to it, or the type `A` is scheduled to be fully checked.
 This means that extension binding can be delayed until the type `A::B` is involved in some other type checking operation.
 
-## Constraint generation
+## Semantic Type Checking
 
-This step consists of walking the AST to generate type constraints from expressions.
+Semantic type checking essentially consists of solving a relatively large constraint system.
+Most of these constraints serve to create substitution tables allowing each symbol to be linked to its declaration.
+Others only serve to verify that a particular annotation holds.
+Consider the following example:
 
-### Literals
+```val
+type A {}
+
+fun main() {
+  val a: A = A()
+}
+```
+
+Type inference determines that the expression `A()` (i.e., a call to `A`'s' constructor) has type `A`.
+Hence, the type checker must verify that the type denoted by the annotation is indeed the same as the one inferred.
+
+### Constraint generation
+
+This step consists of walking the AST to generate type constraints.
+
+#### Literals
 
 Literal expressions are given a type variable which the solver will try to substitute for a type that conforms to `ExpressibleByBuiltin*Literal` (defined in the standard library).
 During constraint solving, the solver uses a default conforming type for each literal as an escape hatch if surrounding context doesn't provide enough information to infer the conforming type.
 
-## Constraint solving
+#### Abstract Types
+
+Abstract type requirements are realized as generic parameter types in the context of the nesting view.
+For instance, in the following, `W` is an abstract type that is realized as an implicit generic type parameter in `V`'s environment.
+
+```val
+view V {
+  type W
+  var w: W
+}
+```
+
+In type signatures, abstract types are realized as associated types (i.e., instances of `AssocType`) rather than generic type parameters.
+The reason is that we need to model the link between the existential type that will represent the abstract requirement, and the other existential type in which it is defined.
+Consider the following example:
+
+```val
+view V {
+  type W
+  var w: W
+}
+
+fun foo<X, Y where X: V, Y: V>(x: X, y: Y) {
+  x.w = y.w
+}
+```
+
+The body `foo` is ill-typed because the type checker cannot establish that `x.w` has the same type as `y.w`, even if both properties refer to the same abstract type requirement.
+The distinction is encoded in the types realized for `x` and `y` type annotations: `X::W` and `Y::W`, respectively.
+
+### Constraint solving
 
 This step consists of solving the generated equations, through type inference.
 
-## Solution application
+### Solution application
 
 This pass consists of applying the solution computed by the previous pass to the AST.

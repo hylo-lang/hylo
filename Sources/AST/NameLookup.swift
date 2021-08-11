@@ -65,31 +65,3 @@ extension IterableDeclSpace {
   }
 
 }
-
-extension ValType {
-
-  public func lookup(member memberName: String) -> LookupResult {
-    switch self {
-    case let baseType as NominalType:
-      return baseType.decl.lookup(qualified: memberName)
-
-    case let baseType as InoutType:
-      return baseType.base.lookup(member: memberName)
-
-    case let baseType as SkolemType:
-      guard let conformances = baseType.genericEnv.conformances(of: baseType) else {
-        return LookupResult()
-      }
-
-      var result = LookupResult()
-      for conf in conformances {
-        result.append(contentsOf: conf.viewDecl.lookup(qualified: memberName))
-      }
-      return result
-
-    default:
-      return LookupResult()
-    }
-  }
-
-}

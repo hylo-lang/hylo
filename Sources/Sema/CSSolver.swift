@@ -5,13 +5,13 @@ import Basic
 struct CSSolver {
 
   init(
-    system          : ConstraintSystem,
-    assumptions     : SubstitutionTable = SubstitutionTable(),
-    overloadChoices : [ConstraintLocator: [ValueDecl]] = [:],
-    penalities      : Int = 0,
-    errors          : [TypeError] = [],
-    bestScore       : Solution.Score = .worst,
-    context         : AST.Context
+    system: ConstraintSystem,
+    assumptions: SubstitutionTable = SubstitutionTable(),
+    overloadChoices: [ConstraintLocator: [ValueDecl]] = [:],
+    penalities: Int = 0,
+    errors: [TypeError] = [],
+    bestScore: Solution.Score = .worst,
+    context: AST.Context
   ) {
     self.system = system
     self.assumptions = assumptions
@@ -69,10 +69,10 @@ struct CSSolver {
     // FIXME: Handle stale constraints.
 
     return Solution(
-      bindings        : assumptions.flattened(),
-      overloadChoices : overloadChoices,
-      penalities      : penalities,
-      errors          : errors)
+      bindings: assumptions.flattened(),
+      overloadChoices: overloadChoices,
+      penalities: penalities,
+      errors: errors)
   }
 
   private mutating func solve(_ constraint: RelationalConstraint) {
@@ -177,7 +177,7 @@ struct CSSolver {
       }
 
     case let skolem as SkolemType:
-      if skolem.genericEnv.conformance(of: skolem, to: view) == nil {
+      if skolem.genericEnv.conformance(of: skolem.interface, to: view) == nil {
         errors.append(.nonConformingType(constraint))
       }
 
@@ -342,22 +342,21 @@ struct CSSolver {
 
   /// Solves a value member constraint.
   private mutating func solve(_ constraint: ValueMemberConstraint) {
-    // We can't solve anything yet if `T` is still unknown.
+    // We can't solve anything if `T` is still unknown.
     var baseType = assumptions[constraint.lhs]
     guard !(baseType is TypeVar) else {
       system.staleConstraints.append(constraint)
       return
     }
 
-    // If `T` is an in-out type, then we should solve the constraint for its base.
+    // If `T` is an in-out type, we must solve the constraint for its base.
     if let inoutType = baseType as? InoutType {
       baseType = inoutType.base
+      assert(!(baseType is InoutType))
     }
 
-    // Handle tuple types.
+    // If `T` is a tuple type, we try to match the specified member name with a label.
     if let tupleType = baseType as? TupleType {
-      // Pick the first element that has the same label as the constraint member. This implies that
-      // only the first occurence of a label can be referred by name.
       guard let elem = tupleType.elems.first(where: { $0.label == constraint.memberName }) else {
         errors.append(.nonExistentProperty(constraint))
         return
@@ -370,16 +369,13 @@ struct CSSolver {
       return
     }
 
-    // Handle assignment operators on built-in types.
-    if let builtinType = baseType as? BuiltinType,
-       constraint.memberName == InfixOperator.copy.rawValue
-    {
-      let assignType = context.getBuiltinAssignOperatorType(builtinType)
-      let simplified = RelationalConstraint(
-        kind: .equality, lhs: assignType, rhs: constraint.rhs,
-        at: constraint.locator.appending(.valueMember(constraint.memberName)))
-      solve(simplified)
-      return
+    // `T` must be a nominal type, or an existential type.
+    var args: [GenericParamType: ValType] = [:]
+    let selfDecls = baseType.lookup(member: "Self").types
+    if !selfDecls.isEmpty {
+      assert(selfDecls.count == 1)
+      let existentialSelf = selfDecls[0].instanceType as! GenericParamType
+      args[existentialSelf] = constraint.lhs
     }
 
     // Retrieve the member's declaration(s).
@@ -389,19 +385,20 @@ struct CSSolver {
       return
     }
 
+    // print(baseType.lookup(member: "Self"))
+
     if decls.count == 1 {
       // Only one choice; we can solve an equality constraint.
       if let varDecl = decls[0] as? VarDecl {
         _ = TypeChecker.check(decl: varDecl.patternBindingDecl!)
       }
 
-      let args: [GenericParamType: ValType]
       if let boundType = baseType as? BoundGenericType,
          let env = boundType.decl.prepareGenericEnv()
       {
-        args = Dictionary(uniqueKeysWithValues: zip(env.params, boundType.args))
-      } else {
-        args = [:]
+        args.merge(
+          zip(env.params, boundType.args),
+          uniquingKeysWith: { (_, _) in fatalError("unreachable") })
       }
 
       let choiceType = TypeChecker.contextualize(

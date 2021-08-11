@@ -3,7 +3,7 @@ import Basic
 /// The base class for all semantic types.
 ///
 /// Types are uniqued in the AST context. Once created, they remain immutable.
-public class ValType {
+public class ValType: CustomStringConvertible, Equatable {
 
   /// An internal witness of `ValType`'s conformance to `Hashable`.
   struct HashWitness: Basic.HashWitness {
@@ -23,25 +23,25 @@ public class ValType {
   /// A set of recursively defined properties.
   public struct RecursiveProps: Equatable, ExpressibleByArrayLiteral {
 
-    public init(value: UInt = 0) {
-      self.value = value
+    private let rawValue: UInt
+
+    private init(rawValue: UInt) {
+      self.rawValue = rawValue
     }
 
     public init<S>(_ flags: S) where S: Sequence, S.Element == RecursiveProps {
-      self.value = flags.reduce(0, { $0 | $1.value })
+      self.rawValue = flags.reduce(0, { $0 | $1.rawValue })
     }
 
     public init(arrayLiteral elements: RecursiveProps...) {
       self = RecursiveProps(elements)
     }
 
-    private let value: UInt
-
     /// Returns whether the set contains all the specified properties.
     ///
     /// - Parameter props: A set of properties.
     public func contains(_ props: RecursiveProps) -> Bool {
-      return (value & props.value) == props.value
+      return (rawValue & props.rawValue) == props.rawValue
     }
 
     /// Returns the merge of this property set with another.
@@ -54,32 +54,32 @@ public class ValType {
       // A type expression is canonical only if *all* sub-expressions are canonical, whereas other
       // properties are existential only.
       return RecursiveProps(
-        value: ~1 & (value | other.value) | (value & other.value))
+        rawValue: ~1 & (rawValue | other.rawValue) | (rawValue & other.rawValue))
     }
 
     /// Returns the union of this set with another.
     ///
     /// - Parameter props: Another property set.
     public func union(with other: RecursiveProps) -> RecursiveProps {
-      return RecursiveProps(value: value | other.value)
+      return RecursiveProps(rawValue: rawValue | other.rawValue)
     }
 
     /// Returns this set without the given properties.
     ///
     /// - Parameter props: The properties to remove.
     public func removing(_ props: RecursiveProps) -> RecursiveProps {
-      return RecursiveProps(value: value & ~props.value)
+      return RecursiveProps(rawValue: rawValue & ~props.rawValue)
     }
 
-    public static let isCanonical     = RecursiveProps(value: 1 << 0)
-    public static let hasAsync        = RecursiveProps(value: 1 << 1)
-    public static let hasInout        = RecursiveProps(value: 1 << 2)
-    public static let hasAlias        = RecursiveProps(value: 1 << 3)
-    public static let hasVariables    = RecursiveProps(value: 1 << 4)
-    public static let hasTypeParams   = RecursiveProps(value: 1 << 5)
-    public static let hasSkolems      = RecursiveProps(value: 1 << 6)
-    public static let hasUnresolved   = RecursiveProps(value: 1 << 7)
-    public static let hasErrors       = RecursiveProps(value: 1 << 8)
+    public static let isCanonical   = RecursiveProps(rawValue: 1 << 0)
+    public static let hasAsync      = RecursiveProps(rawValue: 1 << 1)
+    public static let hasInout      = RecursiveProps(rawValue: 1 << 2)
+    public static let hasAlias      = RecursiveProps(rawValue: 1 << 3)
+    public static let hasVariables  = RecursiveProps(rawValue: 1 << 4)
+    public static let hasTypeParams = RecursiveProps(rawValue: 1 << 5)
+    public static let hasSkolems    = RecursiveProps(rawValue: 1 << 6)
+    public static let hasUnresolved = RecursiveProps(rawValue: 1 << 7)
+    public static let hasErrors     = RecursiveProps(rawValue: 1 << 8)
 
     /// Merges a collection of recursive properties.
     ///
@@ -90,7 +90,7 @@ public class ValType {
     public static func merge<C>(_ collection: C) -> RecursiveProps
     where C: Collection, C.Element == RecursiveProps
     {
-      guard var result = collection.first else { return RecursiveProps(value: 0) }
+      guard var result = collection.first else { return RecursiveProps(rawValue: 0) }
       for props in collection.dropFirst() {
         result = result.merged(with: props)
       }
@@ -159,6 +159,8 @@ public class ValType {
       return type.base.isExistential
     case let type as BoundGenericType where type.decl is AliasTypeDecl:
       return type.dealiased.isExistential
+    case let type as AssocType:
+      return type.base.isExistential
     default:
       return false
     }
@@ -174,24 +176,30 @@ public class ValType {
   /// Canonical types are typically used to check whether two types are equal.
   ///
   /// - Note: Type aliases that are not mere synonyms for an existing nominal type are canonical.
-  ///   For instance, given an alias `type A = B | C`, type `A` is canonical.
+  ///   For instance, given an alias `type A = B | C`, type `A` is canonical. Use `dealiased` if
+  ///   you need to expand an alias.
   public var canonical: ValType { self }
 
   /// This type with all aliases resolved to their canonical form.
   public var dealiased: ValType { self }
 
-  /// The uncontextualized interface of this type.
-  ///
-  /// This is the type in which all skolems are substituted for their interface type.
+  /// The uncontextualized interface of this type, that is the type in which all skolems and
+  /// their associated types have been substituted by their interface type.
   public var uncontextualized: ValType { self }
 
+  /// Returns this type after substituting generic type parameters with the given mapping.
+  ///
+  /// - Parameter args: A substitution table.
   public func specialized(with args: [GenericParamType: ValType]) -> ValType {
     guard hasTypeParams else { return self }
     return TypeSpecializer(args: args).walk(self)
   }
 
-  public func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
-    fatalError("unreachable")
+  /// Looks up for member declarations that match the given.
+  ///
+  /// - Parameter memberName: The bare name of the member to search.
+  public func lookup(member memberName: String) -> LookupResult {
+    return LookupResult()
   }
 
   /// Returns whether this type matches another one.
@@ -213,8 +221,9 @@ public class ValType {
 
   /// Returns whether this type is equal to another one.
   ///
-  /// This method is intended to be overridden in derived classes. It is used internally to
-  /// uniquing new instances.
+  /// This method is used internally for uniquing new instances. All derived classes should
+  /// override it to implement their one value equality logic. The default implementation uses
+  /// reference equality.
   ///
   /// - Parameter other: Another type.
   func isEqual(to other: ValType) -> Bool {
@@ -223,13 +232,18 @@ public class ValType {
 
   /// Hashes the essential components of type into the given hasher.
   ///
+  /// This method is used internally for uniquing new instances. All derived classes should
+  /// override it to implement their own hashing logic. The default implementation is a no-op.
+  ///
   /// - Parameter hasher: The hasher to use when combining the components of this type.
   func hash(into hasher: inout Hasher) {
   }
 
-}
+  public func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+    fatalError("unreachable")
+  }
 
-extension ValType: Equatable {
+  public var description: String { String(describing: type(of: self)) }
 
   public static func == (lhs: ValType, rhs: ValType) -> Bool {
     return lhs.canonical === rhs.canonical
@@ -315,7 +329,7 @@ public final class KindType: ValType {
   }
 
   override func hash(into hasher: inout Hasher) {
-    withUnsafeBytes(of: KindType.self, { hasher.combine(bytes: $0) })
+    hasher.combine(ObjectIdentifier(KindType.self))
     type.hash(into: &hasher)
   }
 
@@ -323,13 +337,7 @@ public final class KindType: ValType {
     visitor.visit(self)
   }
 
-}
-
-extension KindType: CustomStringConvertible {
-
-  public var description: String {
-    return "\(stringify(type))::Kind"
-  }
+  public override var description: String { stringify(type) + "::Kind" }
 
 }
 
@@ -347,7 +355,6 @@ public class BuiltinType: ValType {
   }
 
   override func hash(into hasher: inout Hasher) {
-    withUnsafeBytes(of: BuiltinType.self, { hasher.combine(bytes: $0) })
     hasher.combine(name)
   }
 
@@ -355,11 +362,7 @@ public class BuiltinType: ValType {
     visitor.visit(self)
   }
 
-}
-
-extension BuiltinType: CustomStringConvertible {
-
-  public var description: String { name }
+  public override var description: String { name }
 
 }
 
@@ -399,7 +402,6 @@ public final class BuiltinIntType: BuiltinType {
   }
 
   override func hash(into hasher: inout Hasher) {
-    withUnsafeBytes(of: BuiltinIntType.self, { hasher.combine(bytes: $0) })
     hasher.combine(bitWidth)
   }
 
@@ -431,16 +433,12 @@ public final class ModuleType: ValType {
     visitor.visit(self)
   }
 
-}
-
-extension ModuleType: CustomStringConvertible {
-
-  public var description: String { module.name }
+  public override var description: String { module.name }
 
 }
 
 /// A nominal type.
-public class NominalType: ValType, CustomStringConvertible {
+public class NominalType: ValType {
 
   /// The declaration of this nominal type.
   public unowned let decl: GenericTypeDecl
@@ -450,11 +448,15 @@ public class NominalType: ValType, CustomStringConvertible {
     super.init(context: context, props: props)
   }
 
+  public final override func lookup(member memberName: String) -> LookupResult {
+    return decl.lookup(qualified: memberName)
+  }
+
   override func hash(into hasher: inout Hasher) {
     hasher.combine(ObjectIdentifier(decl))
   }
 
-  public var description: String { decl.name }
+  public override var description: String { decl.name }
 
 }
 
@@ -616,11 +618,7 @@ public final class ViewCompositionType: ValType {
     visitor.visit(self)
   }
 
-}
-
-extension ViewCompositionType: CustomStringConvertible {
-
-  public var description: String {
+  public override var description: String {
     if views.isEmpty {
       return "Any"
     } else {
@@ -734,6 +732,14 @@ public final class UnionType: ValType {
     visitor.visit(self)
   }
 
+  public override var description: String {
+    if elems.isEmpty {
+      return "Nothing"
+    } else {
+      return elems.map(stringify(_:)).joined(separator: " | ")
+    }
+  }
+
   /// Creates `UnionType` with the given collection unless it contains a single element; in thise
   /// case, returns it as is.
   ///
@@ -749,18 +755,6 @@ public final class UnionType: ValType {
       return types.first!
     } else {
       return context.unionType(types)
-    }
-  }
-
-}
-
-extension UnionType: CustomStringConvertible {
-
-  public var description: String {
-    if elems.isEmpty {
-      return "Nothing"
-    } else {
-      return elems.map(stringify(_:)).joined(separator: " | ")
     }
   }
 
@@ -869,6 +863,18 @@ public final class GenericParamType: ValType, Hashable {
     super.init(context: context, props: [.isCanonical, .hasTypeParams])
   }
 
+  // Search the generic environment that defines this generic parameter type.
+  var genericEnv: GenericEnv? {
+    var space = decl.parentDeclSpace?.innermostGenericSpace
+    while let env = space?.prepareGenericEnv() {
+      if env.params.contains(self) {
+        return env
+      }
+      space = env.space.parentDeclSpace?.innermostGenericSpace
+    }
+    return nil
+  }
+
   override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? GenericParamType else { return false }
     return self.decl === that.decl
@@ -882,27 +888,106 @@ public final class GenericParamType: ValType, Hashable {
     visitor.visit(self)
   }
 
+  public override var description: String { decl.name }
+
 }
 
-extension GenericParamType: CustomStringConvertible {
+/// A type that refers to a type member of some existentially quantified parameter (e.g., `X::Y`
+/// within the scope of a function `fun foo<X: V>(...)`, where `V::Y` is an abstract type).
+public final class AssocType: ValType {
 
-  public var description: String { decl.name }
+  /// The type of which this type is a member.
+  public let base: ValType
+
+  /// The interface type of this associated type.
+  public unowned let interface: GenericParamType
+
+  init(context: Context, interface: GenericParamType, base: ValType) {
+    var props = base.props.union(with: .hasTypeParams)
+    switch base {
+    case is NominalType:
+      props = props.removing(.isCanonical)
+    case is GenericParamType, is TypeVar:
+      break
+    default:
+      fatalError("illegal base for associated type")
+    }
+
+    self.base = base
+    self.interface = interface
+    super.init(context: context, props: props)
+  }
+
+  /// The root of this type.
+  public var root: ValType {
+    if let parent = base as? AssocType {
+      return parent.base
+    } else {
+      return base
+    }
+  }
+
+  public override var canonical: ValType {
+    switch base {
+    case let type as NominalType:
+      guard let witness = type.decl.witness(for: interface.decl)
+      else { return context.errorType }
+
+      if let type = type as? BoundGenericType,
+         let param = witness.instanceType as? GenericParamType,
+         let argument = type.bindings[param]
+      {
+        return argument
+      } else {
+        return witness.instanceType.canonical
+      }
+
+    case is GenericParamType, is TypeVar:
+      assert(isCanonical)
+      return self
+
+    default:
+      fatalError("unreachable")
+    }
+  }
+
+  public override var dealiased: ValType {
+    return context.assocType(interface: interface, base: base.dealiased)
+  }
+
+  public override var uncontextualized: ValType { interface }
+
+  override func isEqual(to other: ValType) -> Bool {
+    guard let that = other as? AssocType else { return false }
+    return self.base.isEqual(to: that.base) && self.interface.isEqual(to: that.interface)
+  }
+
+  public override func hash(into hasher: inout Hasher) {
+    interface.hash(into: &hasher)
+    base.hash(into: &hasher)
+  }
+
+  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+    visitor.visit(self)
+  }
+
+  public override var description: String { "\(base)::\(interface)" }
 
 }
 
 /// A skolem type (a.k.a. rigid) type variable.
 ///
 /// A skolem type is a generic type parameter that has been existentially quantified within its
-/// generic environment (e.g., `X` in within the scope of a function `fun foo<X>(...)`.
+/// generic environment (e.g., `X` within the scope of a function `fun foo<X>(...)`.
 public final class SkolemType: ValType {
 
   /// The interface type of this skolem.
-  public unowned let interface: ValType
+  public unowned let interface: GenericParamType
 
   /// The generic environment in which this skolem is existentially quantified.
   public unowned let genericEnv: GenericEnv
 
-  init(context: Context, interface: ValType, genericEnv: GenericEnv) {
+  init(context: Context, interface: GenericParamType, genericEnv: GenericEnv) {
     self.interface = interface
     self.genericEnv = genericEnv
     super.init(context: context, props: [.isCanonical, .hasSkolems])
@@ -910,13 +995,28 @@ public final class SkolemType: ValType {
 
   public override var uncontextualized: ValType { interface }
 
+  public override func lookup(member memberName: String) -> LookupResult {
+    // Members of a skolem can only be generic parameters, defined as abstract type requirements in
+    // the views to which the skolem conforms (note: concrete type declarations can't be nested in
+    // a view). These members must be returned as associated types rather than uncontextualized
+    // parameters, so that they remain bound to the same quantifier.
+
+    var result = LookupResult()
+    guard let conformances = genericEnv.conformances(of: interface) else { return result }
+    for conf in conformances {
+      result.append(contentsOf: conf.viewDecl.lookup(qualified: memberName))
+    }
+
+    return result
+  }
+
   override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? SkolemType else { return false }
     return self.interface.isEqual(to: that.interface)
   }
 
   override func hash(into hasher: inout Hasher) {
-    withUnsafeBytes(of: SkolemType.self, { hasher.combine(bytes: $0) })
+    hasher.combine(ObjectIdentifier(SkolemType.self))
     interface.hash(into: &hasher)
   }
 
@@ -924,13 +1024,7 @@ public final class SkolemType: ValType {
     visitor.visit(self)
   }
 
-}
-
-extension SkolemType: CustomStringConvertible {
-
-  public var description: String {
-    return "$\(stringify(interface))"
-  }
+  public override var description: String { "$" + stringify(interface) }
 
 }
 
@@ -938,7 +1032,7 @@ extension SkolemType: CustomStringConvertible {
 public final class TupleType: ValType {
 
   /// An element in a tuple type.
-  public struct Elem: Equatable {
+  public struct Elem: CustomStringConvertible, Equatable {
 
     /// The label of the element, if any.
     public let label: String?
@@ -949,6 +1043,14 @@ public final class TupleType: ValType {
     public init(label: String? = nil, type: ValType) {
       self.label = label
       self.type = type
+    }
+
+    public var description: String {
+      if let label = self.label {
+        return "\(label): \(type)"
+      } else {
+        return String(describing: type)
+      }
     }
 
     public static func == (lhs: Elem, rhs: Elem) -> Bool {
@@ -1041,25 +1143,9 @@ public final class TupleType: ValType {
     visitor.visit(self)
   }
 
-}
-
-extension TupleType: CustomStringConvertible {
-
-  public var description: String {
+  public override var description: String {
     let elems = self.elems.map(String.init(describing:)).joined(separator: ", ")
     return "(\(elems))"
-  }
-
-}
-
-extension TupleType.Elem: CustomStringConvertible {
-
-  public var description: String {
-    if let label = self.label {
-      return "\(label): \(type)"
-    } else {
-      return String(describing: type)
-    }
   }
 
 }
@@ -1136,13 +1222,7 @@ public final class FunType: ValType {
     visitor.visit(self)
   }
 
-}
-
-extension FunType: CustomStringConvertible {
-
-  public var description: String {
-    return "\(paramType) -> \(retType)"
-  }
+  public override var description: String { "\(paramType) -> \(retType)" }
 
 }
 
@@ -1161,7 +1241,7 @@ public final class AsyncType: ValType {
     return isCanonical
       ? self
       : context.asyncType(of: base.canonical)
-    // FIXME: We might add more equivalence classes (e.g., 'async (a: T) == (a: async T)').
+    // FIXME: We might add more equivalence classes (e.g., `async (a: T) == (a: async T)`).
   }
 
   public override var dealiased: ValType {
@@ -1194,7 +1274,7 @@ public final class AsyncType: ValType {
   }
 
   override func hash(into hasher: inout Hasher) {
-    withUnsafeBytes(of: AsyncType.self, { hasher.combine(bytes: $0) })
+    hasher.combine(ObjectIdentifier(AsyncType.self))
     base.hash(into: &hasher)
   }
 
@@ -1202,11 +1282,7 @@ public final class AsyncType: ValType {
     visitor.visit(self)
   }
 
-}
-
-extension AsyncType: CustomStringConvertible {
-
-  public var description: String { "async \(stringify(base))" }
+  public override var description: String { "async \(stringify(base))" }
 
 }
 
@@ -1244,6 +1320,10 @@ public final class InoutType: ValType {
       : self
   }
 
+  public override func lookup(member memberName: String) -> LookupResult {
+    return base.lookup(member: memberName)
+  }
+
   public override func matches(
     with other: ValType,
     reconcilingWith reconcile: (ValType, ValType) -> Bool
@@ -1262,7 +1342,7 @@ public final class InoutType: ValType {
   }
 
   override func hash(into hasher: inout Hasher) {
-    withUnsafeBytes(of: InoutType.self, { hasher.combine(bytes: $0) })
+    hasher.combine(ObjectIdentifier(InoutType.self))
     base.hash(into: &hasher)
   }
 
@@ -1270,11 +1350,7 @@ public final class InoutType: ValType {
     visitor.visit(self)
   }
 
-}
-
-extension InoutType: CustomStringConvertible {
-
-  public var description: String { "mut \(stringify(base))" }
+  public override var description: String { "mut \(stringify(base))" }
 
 }
 
@@ -1332,17 +1408,13 @@ public final class TypeVar: ValType, Hashable {
     visitor.visit(self)
   }
 
+  public override var description: String { "τ\(id)" }
+
   private static var nextID = 0
 
   private static func createID() -> Int {
     nextID += 1
     return nextID
   }
-
-}
-
-extension TypeVar: CustomStringConvertible {
-
-  public var description: String { "τ\(id)" }
 
 }

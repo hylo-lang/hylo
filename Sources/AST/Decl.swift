@@ -674,11 +674,11 @@ public final class FunParamDecl: ValueDecl {
   public var sign: Sign?
 
   public init(
-    name        : String,
-    externalName: String?   = nil,
-    typeSign    : Sign? = nil,
-    type        : ValType,
-    range       : SourceRange
+    name: String,
+    externalName: String? = nil,
+    typeSign: Sign? = nil,
+    type: ValType,
+    range: SourceRange
   ) {
     self.name = name
     self.externalName = externalName
@@ -949,6 +949,30 @@ public class GenericTypeDecl: BaseGenericDecl, TypeDecl {
     return conformance.state == .checked
   }
 
+  /// Returns the declaration that witnesses the given requirement.
+  ///
+  /// - Parameter requirement: A value requirement, defined in a conformed view.
+  public func witness(for requirement: ValueDecl) -> ValueDecl? {
+    for conformance in conformanceTable.values {
+      if let decl = conformance.witness(for: requirement) {
+        return decl
+      }
+    }
+    return nil
+  }
+
+  /// Returns the declaration that witnesses the given requirement.
+  ///
+  /// - Parameter requirement: A type requirement, defined in a conformed view.
+  public func witness(for requirement: TypeDecl) -> TypeDecl? {
+    for conformance in conformanceTable.values {
+      if let decl = conformance.witness(for: requirement) {
+        return decl
+      }
+    }
+    return nil
+  }
+
   // MARK: Semantic properties
 
   /// The uncontextualized type of a reference to `self` within the context of this type.
@@ -1028,7 +1052,6 @@ public final class ProductTypeDecl: NominalTypeDecl {
 
       // Create a constructor declaration.
       let ctor = CtorDecl(type: context.unresolvedType, range: range)
-      ctor.genericClause = genericClause
       ctor.parentDeclSpace = self
       ctor.props.insert(.isSynthesized)
 

@@ -32,7 +32,7 @@ public struct ViewConformance {
   public let range: SourceRange?
 
   /// A mapping describing how each of the view's requirement is satisfied.
-  public var entries: [(req: Decl, impl: Decl)] = []
+  public var entries: [(req: TypeOrValueDecl, impl: TypeOrValueDecl)] = []
 
   /// The (semantic) state of the conformance relation.
   public var state = State.realized
@@ -40,6 +40,22 @@ public struct ViewConformance {
   public init(viewDecl: ViewTypeDecl, range: SourceRange?) {
     self.viewDecl = viewDecl
     self.range = range
+  }
+
+  /// Returns the declaration that witnesses the given requirement.
+  ///
+  /// - Parameter requirement: A value requirement, defined in a conformed view.
+  public func witness(for requirement: ValueDecl) -> ValueDecl? {
+    guard let entry = entries.first(where: { $0.req === requirement }) else { return nil }
+    return entry.impl as? ValueDecl
+  }
+
+  /// Returns the declaration that witnesses the given requirement.
+  ///
+  /// - Parameter requirement: A type requirement, defined in a conformed view.
+  public func witness(for requirement: TypeDecl) -> TypeDecl? {
+    guard let entry = entries.first(where: { $0.req === requirement }) else { return nil }
+    return entry.impl as? TypeDecl
   }
 
 }

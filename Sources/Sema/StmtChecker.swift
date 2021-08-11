@@ -1,4 +1,5 @@
 import AST
+import Basic
 
 /// The type checker for Val's statements.
 struct StmtChecker: StmtVisitor {
@@ -28,7 +29,7 @@ struct StmtChecker: StmtVisitor {
   }
 
   func visit(_ node: RetStmt) {
-    guard let funDecl = node.funDecl else { return }
+    let funDecl = node.funDecl ?< fatalError("return statement outside of a function")
     let context = funDecl.type.context
 
     // Retrieve the expected return type.

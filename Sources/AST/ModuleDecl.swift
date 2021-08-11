@@ -77,21 +77,21 @@ public final class ModuleDecl {
       // within `decl`. Instead, we must realize it lazily and abort if we detect that we're
       // about to start a lookup from `decl`.
       let compound = ext.extendedIdent as! CompoundIdentSign
-      let baseType = compound.components[0].realize(unqualifiedFrom: self)
-      guard var baseDecl = (baseType as? NominalType)?.decl else { continue stmt }
+      var compType = compound.components[0].realize(unqualifiedFrom: self)
+      var compDecl = (compType as? NominalType)?.decl
 
       for i in 1 ..< compound.components.count {
-        // The signature points within `decl`; we have to give up.
-        guard baseDecl !== dealiasedDecl else { continue stmt }
+        // We should give up if the signature doesn't denote a norminal type, or if it refers to a
+        // type nested inside of `decl`.
+        guard (compDecl != nil) && (compDecl !== dealiasedDecl) else { continue stmt }
 
         // Realize the next component.
-        let nextType = compound.components[i].realize(qualifiedIn: baseDecl, from: self)
-        guard let nextDecl = (nextType as? NominalType)?.decl else { continue stmt }
-        baseDecl = nextDecl
+        compType = compound.components[i].realize(in: compType, from: self)
+        compDecl = (compType as? NominalType)?.decl
       }
 
       // Check if the declaration to which the signature resolves is `decl`.
-      if baseDecl === dealiasedDecl {
+      if compDecl === dealiasedDecl {
         matches.append(ext)
       }
     }

@@ -1,8 +1,5 @@
 import Basic
 
-/// A key in a conformance lookup table.
-fileprivate typealias SkolemKey = HashableBox<SkolemType, ReferenceHashWitness<SkolemType>>
-
 /// An environment describing mappings between generic types and skolem types.
 ///
 /// Generic types have to be "contextualized" before they can be assigned to an expression. This
@@ -67,9 +64,9 @@ public final class GenericEnv {
 
   /// The equivalence classes of the environment.
   ///
-  /// This describes the equivalence classes of the set of generic type parameters, as inferred
-  /// from related type requirements. This is used by the constraint type solver to decide whether
-  /// two skolems are equivalent.
+  /// This property is used during type checking to determine whether two skolems and/or associated
+  /// types are equivalent. The equivalence classes are inferred from the type requirements of the
+  /// environment.
   ///
   /// - Note: This property is initialized by the type checker.
   /// - SeeAlso: `Context.prepareGenericEnv`
@@ -79,7 +76,7 @@ public final class GenericEnv {
   ///
   /// - Note: This property is initialized by the type checker.
   /// - SeeAlso: `Context.prepareGenericEnv`
-  private var conformanceTables: [SkolemKey: [ViewConformance]] = [:]
+  private var conformanceTables: [ReferenceBox<ValType>: [ViewConformance]] = [:]
 
   public init(space: GenericDeclSpace) {
     self.space = space
@@ -98,32 +95,42 @@ public final class GenericEnv {
     self.typeReqs = typeReqs
 
     // Initialize semantic properties.
-    let prepare = context.prepareGenericEnv
-    precondition(prepare != nil, "no generic environment delegate")
-    guard prepare!(self) else { return nil }
+    let prepare = context.prepareGenericEnv ?< fatalError("no generic environment delegate")
+    guard prepare(self) else { return nil }
   }
 
-  /// The set of conformances for the given skolem type.
-  public func conformances(of type: SkolemType) -> [ViewConformance]? {
-    return conformanceTables[SkolemKey(type)]
+  /// The set of conformances registered in this environment for the given type.
+  ///
+  /// - Parameter type: A generic type parameter, or an associated type rooted at a parameter.
+  public func conformances(of type: ValType) -> [ViewConformance]? {
+    return conformanceTables[ReferenceBox(type)]
   }
 
-  /// Returns the information describing the given skolem type's conformance to the specified view,
+  /// Returns the conformance registered in this environment for the given type to the given view,
   /// or `nil` if such a conformance was never established.
-  public func conformance(of type: SkolemType, to viewType: ViewType) -> ViewConformance? {
-    guard let list = conformanceTables[SkolemKey(type)] else { return nil }
-    return list.first(where: { $0.viewDecl === viewType.decl })
+  ///
+  /// - Parameters:
+  ///   - type: A generic type parameter, or an associated type rooted at a parameter.
+  ///   - view: The view to which `type` is supposed to conform.
+  public func conformance(of type: ValType, to view: ViewType) -> ViewConformance? {
+    guard let list = conformanceTables[ReferenceBox(type)] else { return nil }
+    return list.first(where: { $0.viewDecl === view.decl })
   }
 
   /// Inserts a new entry into the conformance lookup table for the given type.
-  public func insert(conformance: ViewConformance, for type: SkolemType) {
-    conformanceTables[SkolemKey(type), default: []].append(conformance)
+  ///
+  /// - Parameters:
+  ///   - conformance: A view conformance.
+  ///   - type: A generic type parameter, or an associated type rooted at a parameter.
+  public func insert(conformance: ViewConformance, for type: ValType) {
+    assert(type is GenericParamType || (type as? AssocType)?.root is GenericParamType)
+    conformanceTables[ReferenceBox(type), default: []].append(conformance)
   }
 
   /// Returns whether the given declaration space is contained within this generic environment.
   ///
   /// - Parameter useSite: A declaration space.
-  public func isContained(useSite: DeclSpace) -> Bool {
+  public func contains(useSite: DeclSpace) -> Bool {
     // Determine whether the generic parameter is being referred to internally or externally.
     if useSite is NominalTypeDecl {
       // Members of a nominal type reside directly in its declaration space. Thus, references from
@@ -136,15 +143,30 @@ public final class GenericEnv {
     }
   }
 
+  /// Returns whether the given type is rooted in this environment.
+  ///
+  /// - Parameter type: A type.
+  /// - Returns: `true` if `type` is either a generic parameter defined by this environment, or
+  ///   an associated type whose root is defined in this environment. Otherwise, `false`.
+  public func defines(type: ValType) -> Bool {
+    switch type {
+    case let type as GenericParamType:
+      return params.contains(type)
+    case let type as AssocType:
+      return defines(type: type.base)
+    default:
+      return false
+    }
+  }
+
   /// Maps the given generic type to its contextual type, depending on its use site.
   ///
   /// - Parameters:
   ///   - type: A (presumably generic) type. `type` is returned unchanged if it does not contain
   ///     any generic type parameter.
   ///   - useSite: The declaration space from which `type` is being referred.
-  ///   - handleConstraint: A closure that accepts contextualized contraint prototypes and that is
-  ///     called when the contextualized type contains opened generic types for which there exist
-  ///     type requirements.
+  ///   - handleConstraint: A closure that accepts contextualized contraint prototypes generated
+  ///     for each opened generic associated with type requirements.
   /// - Returns: `(contextualType, openedParams)` where `contextualType` is the contextualized type
   ///   and `openedParams` is a table mapping opened generic type parameters to the corresponding
   ///   type variable.
@@ -153,8 +175,6 @@ public final class GenericEnv {
     from useSite: DeclSpace,
     processingContraintsWith handleConstraint: (ConstraintPrototype) -> Void = { _ in }
   ) -> (contextualType: ValType, openedParams: [GenericParamType: TypeVar]) {
-    // FIXME: A lot of magic will have to happen here to handle associated and dependent types.
-
     // Contextualize the type.
     let contextualizer = Contextualizer(env: self, useSite: useSite)
     let contextualType = contextualizer.walk(type)
@@ -174,7 +194,7 @@ public final class GenericEnv {
   ) {
     var next: GenericEnv? = self
     while let env = next {
-      guard !env.isContained(useSite: contextualizer.useSite) else { break }
+      guard !env.contains(useSite: contextualizer.useSite) else { break }
       env.constraintPrototypes.forEach({ prototype in
         handleConstraint(prototype.contextualized(with: contextualizer))
       })
@@ -218,38 +238,37 @@ fileprivate final class Contextualizer: TypeWalker {
   }
 
   override func willVisit(_ type: ValType) -> TypeWalker.Action {
-    guard let param = type as? GenericParamType else {
+    switch type {
+    case let type as GenericParamType:
+      return .stepOver(contextualize(param: type))
+
+    default:
       return type.hasTypeParams
         ? .stepInto(type)
         : .stepOver(type)
     }
+  }
 
-    // Search the environment that defines the current generic parameter.
-    var definingEnv = env
-    while !definingEnv.params.contains(param) {
-      let parentDeclSpace = definingEnv.space.parentDeclSpace
-      let parentGenericSpace = parentDeclSpace?.innermostGenericSpace
-      guard let parentEnv = parentGenericSpace?.prepareGenericEnv() else {
-        return .stepOver(param.context.errorType)
-      }
-      definingEnv = parentEnv
+  private func contextualize(param: GenericParamType) -> ValType {
+    guard let definingEnv = param.genericEnv else {
+      // Not sure that's really unreachable.
+      fatalError("unreachable")
     }
 
-    if definingEnv.isContained(useSite: useSite) {
-      // The generic parameter is being referred to internally, so it must be susbstituted by a
-      // skolem type.
-      let skolem = definingEnv.skolemize(param)
-      return .stepOver(skolem)
+    // FIXME: Should we contextualize abstract type declarations as associated types here?
+
+    if definingEnv.contains(useSite: useSite) {
+      // The reference is internal; the parameter must be subsituted by a skolem.
+      return definingEnv.skolemize(param)
     } else {
-      // The generic parameter is being referred to externally, so it must be substituted by a
-      // fresh type variable.
+      // The reference is external; the parameter must be subsituted by a fresh type variable.
       if let variable = substitutions[param] {
-        return .stepOver(variable)
+        return variable
       }
 
       let variable = TypeVar(context: param.context)
       substitutions[param] = variable
-      return .stepOver(variable)
+      return variable
     }
   }
 
