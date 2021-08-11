@@ -158,26 +158,47 @@ struct CSSolver {
     let view = constraint.rhs as! ViewType
 
     switch constraint.lhs {
-    case let tau as TypeVar:
+    case let lhs as TypeVar:
       // Postpone the constraint if `T` is still unknown, unless `V` is a literal view. In this
       // case fall back to the associated default.
       if view.decl === context.getTypeDecl(for: .ExpressibleByBuiltinIntLiteral) {
         let defaultType = context.getTypeDecl(for: .Int)!.instanceType
         let simplified = RelationalConstraint(
-          kind: .equality, lhs: tau, rhs: defaultType, at: constraint.locator)
+          kind: .equality, lhs: lhs, rhs: defaultType, at: constraint.locator)
         solve(simplified)
       } else {
         system.staleConstraints.append(constraint)
       }
 
-    case let nominal as NominalType:
+    case let lhs as NominalType:
       // Handle explicit and inherited view conformance.
-      if nominal.decl.conformanceTable[view] == nil {
+      if lhs.decl.conformanceTable[view] == nil {
         errors.append(.nonConformingType(constraint))
       }
 
-    case let skolem as SkolemType:
-      if skolem.genericEnv.conformance(of: skolem.interface, to: view) == nil {
+    case let lhs as SkolemType:
+      if lhs.genericEnv.conformance(of: lhs.interface, to: view) == nil {
+        errors.append(.nonConformingType(constraint))
+      }
+
+    case let lhs as AssocType:
+      switch assumptions[lhs.base] {
+      case let parent as NominalType:
+        // We've resolved the base of the associated type, so we can resolve the associated type.
+        let member = context.assocType(interface: lhs.interface, base: parent).canonical
+        if member is ErrorType {
+          errors.append(.nonConformingType(constraint))
+        } else {
+          let simplified = RelationalConstraint(
+            kind: .conformance, lhs: member, rhs: view, at: constraint.locator)
+          solve(simplified)
+        }
+
+      case is TypeVar:
+        // The base has yet to be resolved.
+        system.staleConstraints.append(constraint)
+
+      default:
         errors.append(.nonConformingType(constraint))
       }
 

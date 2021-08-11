@@ -11,21 +11,36 @@ type B<X>: V {
   fun foo(x: X) -> X { ret x }
 }
 
-type C {
+type C: V {
   type X {}
   fun foo(x: X) -> X { ret x }
 }
 
 view U {
-  type X: V
+  type Y: V
+  fun bar(y: Y, u: Self)
 }
 
-// #!error@+1 type '$X' does not conform to view 'V'
-type D<X>: U {
+// #!error@+1 conformance to 'U' requires a matching implementation of 'Y'
+type D: U {
 }
 
-type E<X where X: V> {}
+// #!error@+1 type '$Y' does not conform to view 'V'
+type E<Y>: U {
+  fun bar(y: Y, u: E<Y>) {
+  }
+}
 
-type F {
-  type X = C
+type F<Y where Y: V>: U {
+  val x: Y::X
+  fun bar(y: Y, u: F<Y>) {
+    y.foo(x: x)
+  }
+}
+
+type G: U {
+  type Y = C
+  fun bar(y: Y, u: G) {
+    y.foo(x: C::X())
+  }
 }

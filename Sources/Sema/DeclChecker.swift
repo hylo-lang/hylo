@@ -212,7 +212,7 @@ struct DeclChecker: DeclVisitor {
         let key = context.assocType(
           interface: req.instanceType as! GenericParamType,
           base: viewReceiverType)
-        substitutions[ReferenceBox(key)] = member.instanceType
+        substitutions[ReferenceBox(key)] = member.instanceType.dealiased.canonical
 
         if member.state == .invalid {
           node.conformanceTable[view]!.state = .invalid

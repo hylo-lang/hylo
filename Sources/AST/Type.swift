@@ -531,7 +531,7 @@ public final class AliasType: NominalType {
     }
 
     assert(!isCanonical)
-    return aliasedDecl.type.canonical
+    return aliasedDecl.instanceType.canonical
   }
 
   public override var dealiased: ValType {
@@ -907,7 +907,7 @@ public final class AssocType: ValType {
     switch base {
     case is NominalType:
       props = props.removing(.isCanonical)
-    case is GenericParamType, is TypeVar:
+    case is GenericParamType, is SkolemType, is TypeVar:
       break
     default:
       fatalError("illegal base for associated type")
@@ -942,7 +942,7 @@ public final class AssocType: ValType {
         return witness.instanceType.canonical
       }
 
-    case is GenericParamType, is TypeVar:
+    case is GenericParamType, is SkolemType, is TypeVar:
       assert(isCanonical)
       return self
 
