@@ -1,0 +1,13 @@
+type A {
+  val p: B::C
+}
+
+extn A {
+  type B {
+    val q: C
+  }
+}
+
+extn A::B {
+  type C {}
+}
