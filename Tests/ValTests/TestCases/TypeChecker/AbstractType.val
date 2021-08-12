@@ -1,24 +1,34 @@
 view V {
   type X
+
+  new(any: Any)
   fun foo(x: X) -> X
+  fun bar(one: X, two: X) -> (one: X, two: X)
+}
+
+view U {
+  type Y: V
+
+  fun ham(y: Y, u: Self)
 }
 
 // #!error@+1 conformance to 'V' requires a matching implementation of 'X'
 type A: V {
 }
 
+// #!error@+2 conformance to 'V' requires a matching implementation of 'new'
+// #!error@+1 conformance to 'V' requires a matching implementation of 'bar'
 type B<X>: V {
   fun foo(x: X) -> X { ret x }
+  fun bar(one: X) -> X { ret one }
 }
 
 type C: V {
   type X {}
-  fun foo(x: X) -> X { ret x }
-}
 
-view U {
-  type Y: V
-  fun bar(y: Y, u: Self)
+  new(any: Any) {}
+  fun foo(x: X) -> X { ret x }
+  fun bar(one: X, two: X) -> (one: X, two: X) { ret (one, two) }
 }
 
 // #!error@+1 conformance to 'U' requires a matching implementation of 'Y'
@@ -27,20 +37,22 @@ type D: U {
 
 // #!error@+1 type '$Y' does not conform to view 'V'
 type E<Y>: U {
-  fun bar(y: Y, u: E<Y>) {
+  fun ham(y: Y, u: E<Y>) {
   }
 }
 
 type F<Y where Y: V>: U {
   val x: Y::X
-  fun bar(y: Y, u: F<Y>) {
+
+  fun ham(y: Y, u: F<Y>) {
     y.foo(x: x)
   }
 }
 
 type G: U {
   type Y = C
-  fun bar(y: Y, u: G) {
+
+  fun ham(y: Y, u: G) {
     y.foo(x: C::X())
   }
 }
