@@ -91,6 +91,9 @@ private struct ConstraintGenerator: ExprVisitor, PatternVisitor {
   }
 
   func visit(_ node: AssignExpr) {
+    // Don't create any constraint if the left operand has an error type.
+    guard !(node.lvalue.type is ErrorType) else { return }
+
     system.pointee.insert(
       RelationalConstraint(
         kind: .subtyping, lhs: node.rvalue.type, rhs: node.lvalue.type,
