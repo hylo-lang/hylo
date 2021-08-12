@@ -1,0 +1,14 @@
+fun main() {
+  // #!error@+1 use of local binding 'i' before its declaration
+  i = ()
+  var i: ()
+  i = ()
+
+  val f = foo
+  fun foo() {}
+
+  val j = ()
+  fun bar() {
+    val j = j
+  }
+}
