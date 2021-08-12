@@ -12,7 +12,7 @@ import Basic
 public protocol Node: AnyObject {
 
   /// The source range of this node's textual representation.
-  var range: SourceRange { get }
+  var range: SourceRange? { get }
 
 }
 

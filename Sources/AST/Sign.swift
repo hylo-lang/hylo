@@ -23,14 +23,14 @@ public protocol Sign: Node {
 /// The signature of a tuple type (e.g., `(foo: A, bar: B)`).
 public final class TupleSign: Sign {
 
-  public var range: SourceRange
+  public var range: SourceRange?
 
   public var type: ValType
 
   /// The elements of the tuple.
   public var elems: [TupleSignElem]
 
-  public init(elems: [TupleSignElem], type: ValType, range: SourceRange) {
+  public init(elems: [TupleSignElem], type: ValType, range: SourceRange? = nil) {
     self.elems = elems
     self.type = type
     self.range = range
@@ -61,9 +61,9 @@ public struct TupleSignElem {
   public var sign: Sign
 
   /// The source range of this element’s textual representation.
-  public var range: SourceRange
+  public var range: SourceRange?
 
-  public init(label: String? = nil, sign: Sign, range: SourceRange) {
+  public init(label: String? = nil, sign: Sign, range: SourceRange? = nil) {
     self.label = label
     self.sign = sign
     self.range = range
@@ -74,7 +74,7 @@ public struct TupleSignElem {
 /// The signature of a function type (e.g., `A -> B`).
 public final class FunSign: Sign {
 
-  public var range: SourceRange
+  public var range: SourceRange?
 
   public var type: ValType
 
@@ -88,11 +88,11 @@ public final class FunSign: Sign {
   public var isVolatile: Bool
 
   public init(
-    paramSign : Sign,
-    retSign   : Sign,
+    paramSign: Sign,
+    retSign: Sign,
     isVolatile: Bool = false,
-    type      : ValType,
-    range     : SourceRange
+    type: ValType,
+    range: SourceRange? = nil
   ) {
     self.paramSign = paramSign
     self.retSign = retSign
@@ -118,7 +118,7 @@ public final class FunSign: Sign {
 /// The signature of an asynchronous type (e.g., `async A`).
 public final class AsyncSign: Sign {
 
-  public var range: SourceRange
+  public var range: SourceRange?
 
   public var type: ValType
 
@@ -126,12 +126,11 @@ public final class AsyncSign: Sign {
   public var base: Sign
 
   /// The source range of the `async` keyword at the start of the signature.
-  public var modifierRange: SourceRange
+  public var modifierRange: SourceRange?
 
-  public init(base: Sign, type: ValType, modifierRange: SourceRange, range: SourceRange) {
+  public init(base: Sign, type: ValType, range: SourceRange? = nil) {
     self.base = base
     self.type = type
-    self.modifierRange = modifierRange
     self.range = range
   }
 
@@ -154,7 +153,7 @@ public final class AsyncSign: Sign {
 /// The signature of a mutating (a.k.a. in-out) parameter type (e.g., `mut A`).
 public final class InoutSign: Sign {
 
-  public var range: SourceRange
+  public var range: SourceRange?
 
   public var type: ValType
 
@@ -162,12 +161,11 @@ public final class InoutSign: Sign {
   public var base: Sign
 
   /// The source range of the `inout` keyword at the start of the signature.
-  public var modifierRange: SourceRange
+  public var modifierRange: SourceRange?
 
-  public init(base: Sign, type: ValType, modifierRange: SourceRange, range: SourceRange) {
+  public init(base: Sign, type: ValType, range: SourceRange? = nil) {
     self.base = base
     self.type = type
-    self.modifierRange = modifierRange
     self.range = range
   }
 
@@ -186,14 +184,14 @@ public final class InoutSign: Sign {
 /// The signature of a union type (e.g., `A | B`).
 public final class UnionSign: Sign {
 
-  public var range: SourceRange
+  public var range: SourceRange?
 
   public var type: ValType
 
   /// The elements of the union.
   public var elems: [Sign]
 
-  public init(elems: [Sign], type: ValType, range: SourceRange) {
+  public init(elems: [Sign], type: ValType, range: SourceRange? = nil) {
     self.elems = elems
     self.type = type
     self.range = range
@@ -215,14 +213,14 @@ public final class UnionSign: Sign {
 /// The signature of a view composition (e.g., `V & U`).
 public final class ViewCompSign: Sign {
 
-  public var range: SourceRange
+  public var range: SourceRange?
 
   public var type: ValType
 
   /// The views of the composition.
   public var views: [Sign]
 
-  public init(views: [Sign], type: ValType, range: SourceRange) {
+  public init(views: [Sign], type: ValType, range: SourceRange? = nil) {
     self.views = views
     self.type = type
     self.range = range
@@ -426,12 +424,12 @@ public final class BareIdentSign: IdentCompSign {
 
   public init(ident: Ident, type: ValType) {
     self.ident = ident
-    self.type  = type
+    self.type = type
   }
 
   public var name: String { ident.name }
 
-  public var range: SourceRange { ident.range }
+  public var range: SourceRange? { ident.range }
 
   public func accept<V>(_ visitor: V) -> V.SignResult where V: SignVisitor {
     return visitor.visit(self)
@@ -444,7 +442,7 @@ public final class SpecializedIdentSign: IdentCompSign {
 
   public var type: ValType
 
-  public var range: SourceRange
+  public var range: SourceRange?
 
   /// An identifier.
   public var ident: Ident
@@ -452,10 +450,10 @@ public final class SpecializedIdentSign: IdentCompSign {
   /// The generic arguments of the type.
   public var args: [Sign]
 
-  public init(ident: Ident, args: [Sign], type: ValType, range: SourceRange) {
+  public init(ident: Ident, args: [Sign], type: ValType, range: SourceRange? = nil) {
     self.ident = ident
-    self.args  = args
-    self.type  = type
+    self.args = args
+    self.type = type
     self.range = range
   }
 
@@ -512,12 +510,12 @@ public final class SpecializedIdentSign: IdentCompSign {
 /// This always refers to the type of the last component. The others serves as explicit qualifiers.
 public final class CompoundIdentSign: IdentSign {
 
-  public var range: SourceRange
+  public var range: SourceRange?
 
   /// The components of the compound.
   public var components: [IdentCompSign]
 
-  public init(components: [IdentCompSign], range: SourceRange) {
+  public init(components: [IdentCompSign], range: SourceRange? = nil) {
     precondition(components.count > 1)
     self.components = components
     self.range = range
@@ -586,9 +584,16 @@ public final class CompoundIdentSign: IdentSign {
     if components.count == 1 {
       return components.first!
     } else {
-      return CompoundIdentSign(
-        components: components,
-        range: components.first!.range.lowerBound ..< components.last!.range.upperBound)
+      let range: SourceRange?
+      if let lowerLoc = components.first!.range?.lowerBound,
+         let upperLoc = components.last!.range?.upperBound
+      {
+        range = lowerLoc ..< upperLoc
+      } else {
+        range = nil
+      }
+
+      return CompoundIdentSign(components: components, range: range)
     }
   }
 
@@ -600,15 +605,20 @@ public final class CompoundIdentSign: IdentSign {
 /// stages need not to reason about the cause of the error.
 public final class ErrorSign: Sign {
 
-  public var range: SourceRange
+  public var range: SourceRange?
 
   public var type: ValType  {
     didSet { assert(type is ErrorType) }
   }
 
-  public init(type: ErrorType, range: SourceRange) {
+  public init(type: ErrorType, range: SourceRange? = nil) {
     self.type = type
     self.range = range
+  }
+
+  public init(replacing sign: Sign) {
+    self.type = sign.type.context.errorType
+    self.range = sign.range
   }
 
   public func realize(unqualifiedFrom useSite: DeclSpace) -> ValType {

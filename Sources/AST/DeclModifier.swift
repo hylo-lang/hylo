@@ -36,15 +36,15 @@ public struct DeclModifier {
 
   }
 
-  public init(kind: Kind, range: SourceRange) {
-    self.kind = kind
-    self.range = range
-  }
-
   /// The value of the modifier.
   public var kind: Kind
 
   /// The source range of this modifier's textual representation.
-  public var range: SourceRange
+  public var range: SourceRange?
+
+  public init(kind: Kind, range: SourceRange? = nil) {
+    self.kind = kind
+    self.range = range
+  }
 
 }

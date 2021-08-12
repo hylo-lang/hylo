@@ -72,7 +72,8 @@ struct DeclChecker: DeclVisitor {
       }
     } else if node.initializer != nil {
       // Infer everything from the initializer alone.
-      TypeChecker.check(expr: &(node.initializer!), useSite: useSite, system: &system)
+      TypeChecker.check(
+        expr: &(node.initializer!), expectedType: nil, useSite: useSite, system: &system)
       patternType = node.initializer!.type
     } else {
       // Unannotated declarations require an initializer.
@@ -193,7 +194,7 @@ struct DeclChecker: DeclVisitor {
             .conformanceRequiresMatchingImplementation(
               view: view.decl.name,
               requirement: req.name,
-              range: conformance.range ?? (node.range.lowerBound ..< node.range.lowerBound)))
+              range: conformance.range ?? node.introRange))
 
           // Mark the conformance as invalid.
           node.conformanceTable[view]!.state = .invalid
@@ -265,7 +266,7 @@ struct DeclChecker: DeclVisitor {
               .conformanceRequiresMatchingImplementation(
                 view: view.decl.name,
                 requirement: req.name,
-                range: conformance.range ?? (node.range.lowerBound ..< node.range.lowerBound)))
+                range: conformance.range ?? node.introRange))
 
             // Mark the conformance as invalid.
             node.conformanceTable[view]!.state = .invalid

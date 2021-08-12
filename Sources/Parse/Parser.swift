@@ -201,19 +201,20 @@ public struct Parser {
     var modifiers: [DeclModifier] = []
 
     loop:while let token = state.peek() {
-      let m: DeclModifier
+      var m: DeclModifier
       switch token.kind {
-      case .pub     : m = DeclModifier(kind: .pub     , range: token.range)
-      case .mod     : m = DeclModifier(kind: .mod     , range: token.range)
-      case .mut     : m = DeclModifier(kind: .mut     , range: token.range)
-      case .infix   : m = DeclModifier(kind: .infix   , range: token.range)
-      case .prefix  : m = DeclModifier(kind: .prefix  , range: token.range)
-      case .postfix : m = DeclModifier(kind: .postfix , range: token.range)
-      case .volatile: m = DeclModifier(kind: .volatile, range: token.range)
-      case .static  : m = DeclModifier(kind: .static  , range: token.range)
-      case .moveonly: m = DeclModifier(kind: .moveonly, range: token.range)
+      case .pub     : m = DeclModifier(kind: .pub)
+      case .mod     : m = DeclModifier(kind: .mod)
+      case .mut     : m = DeclModifier(kind: .mut)
+      case .infix   : m = DeclModifier(kind: .infix)
+      case .prefix  : m = DeclModifier(kind: .prefix)
+      case .postfix : m = DeclModifier(kind: .postfix)
+      case .volatile: m = DeclModifier(kind: .volatile)
+      case .static  : m = DeclModifier(kind: .static)
+      case .moveonly: m = DeclModifier(kind: .moveonly)
       default       : break loop
       }
+      m.range = token.range
       _ = state.take()
 
       guard kinds.insert(m.kind).inserted else {
@@ -292,9 +293,8 @@ public struct Parser {
     state: inout State, rawModifiers: [DeclModifier]
   ) -> PatternBindingDecl {
     let introducer = state.take(if: { $0.kind == .val || $0.kind == .var })!
-    let startRange = rawModifiers.isEmpty
-      ? introducer.range
-      : rawModifiers[0].range.lowerBound ..< introducer.range.upperBound
+    let lowerLoc = rawModifiers.first?.range?.lowerBound ?? introducer.range.lowerBound
+    var upperLoc = introducer.range.upperBound
 
     // Filter out modifiers that are not applicable in this context.
     let modifiers = rawModifiers.filter({ (modifier: DeclModifier) -> Bool in
@@ -331,14 +331,13 @@ public struct Parser {
       isMutable: introducer.kind == .var,
       pattern: WildcardPattern(type: unresolved, range: state.errorRange()),
       sign: nil,
-      initializer: nil,
-      introRange: introducer.range,
-      range: startRange)
+      initializer: nil)
+    decl.introRange = introducer.range
     decl.parentDeclSpace = state.declSpace
 
     if let pattern = parsePattern(state: &state) {
       decl.pattern = pattern
-      decl.range = decl.range ..< pattern.range
+      upperLoc = pattern.range!.upperBound
 
       // Associate each introduced variable declaration to the new pattern binding declaration.
       for name in decl.pattern.namedPatterns {
@@ -355,7 +354,7 @@ public struct Parser {
       // We've consumed a colon, so we're committed to parse a type signature.
       if let sign = parseSign(state: &state) {
         decl.sign = sign
-        decl.range = decl.range ..< sign.range
+        upperLoc = sign.range!.upperBound
       } else {
         context.report("expected type signature after ':'", anchor: state.errorRange())
         state.hasError = true
@@ -366,7 +365,7 @@ public struct Parser {
       // We've consumed an assignment operator, so we're committed to parse an initializer.
       if let expr = parseExpr(state: &state) {
         decl.initializer = expr
-        decl.range = decl.range ..< expr.range
+        upperLoc = expr.range!.upperBound
       } else {
         context.report("expected expression after '='", anchor: state.errorRange())
         state.hasError = true
@@ -378,6 +377,7 @@ public struct Parser {
       }
     }
 
+    decl.range = lowerLoc ..< upperLoc
     return decl
   }
 
@@ -390,9 +390,8 @@ public struct Parser {
   /// The next token is expected to be 'fun', 'new' or 'del'.
   private func parseFunDecl(state: inout State, rawModifiers: [DeclModifier]) -> BaseFunDecl {
     let introducer = state.take(if: { $0.kind == .fun || $0.kind == .new || $0.kind == .del })!
-    let startRange = rawModifiers.isEmpty
-      ? introducer.range
-      : rawModifiers[0].range.lowerBound ..< introducer.range.upperBound
+    let lowerLoc = rawModifiers.first?.range?.lowerBound ?? introducer.range.lowerBound
+    var upperLoc = introducer.range.upperBound
 
     // Filter out the modifiers that are not applicable in this context.
     let modifiers = rawModifiers.filter({ (modifier: DeclModifier) -> Bool in
@@ -457,7 +456,8 @@ public struct Parser {
 
     switch introducer.kind {
     case .fun:
-      decl = FunDecl(modifiers: modifiers, type: unresolved, range: startRange)
+      decl = FunDecl(modifiers: modifiers, type: unresolved)
+      decl.introRange = introducer.range
 
       if state.flags & .isParsingTypeBody {
         decl.props.insert(.isMember)
@@ -482,8 +482,8 @@ public struct Parser {
       }
 
     case .new:
-      decl = CtorDecl(
-        modifiers: modifiers, type: unresolved, introRange: introducer.range, range: startRange)
+      decl = CtorDecl(modifiers: modifiers, type: unresolved)
+      decl.introRange = introducer.range
 
       if !(state.flags & .isParsingTypeBody) {
         context.report("constructors are only allowed inside of a type", anchor: introducer.range)
@@ -511,7 +511,7 @@ public struct Parser {
         state: &state, delimiters: (.lParen, .rParen), parser: parseParamDecl(state:))
     {
       decl.params = params
-      decl.range = decl.range ..< (closer?.range ?? params.last?.range ?? opener.range)
+      upperLoc = (closer?.range ?? params.last?.range ?? opener.range).upperBound
 
       if isOperator {
         switch params.count {
@@ -552,7 +552,7 @@ public struct Parser {
       // We've consumed an arrow operator, so we're committed to parse a type signature.
       if let sign = parseSign(state: &state) {
         decl.retSign = sign
-        decl.range = decl.range ..< sign.range
+        upperLoc = sign.range!.upperBound
       } else {
         context.report("expected return type signature after '->'", anchor: state.errorRange())
         state.hasError = true
@@ -566,7 +566,7 @@ public struct Parser {
     state.flags = .isParsingFunBody
     if let body = parseBraceStmt(state: &state) {
       decl.body = body
-      decl.range = decl.range ..< body.range
+      upperLoc = body.range!.upperBound
     }
     state.flags = oldFlags
 
@@ -576,6 +576,7 @@ public struct Parser {
       state.hasError = true
     }
 
+    decl.range = lowerLoc ..< upperLoc
     return decl
   }
 
@@ -587,16 +588,17 @@ public struct Parser {
     // a name, then we can use it as the internal name. Owtherwise, we can use the first token both
     // the external label and the internal name.
     guard let external = state.take(if: { $0.kind == .under || $0.isLabel }) else { return nil }
+    let lowerLoc = external.range.lowerBound
+    var upperLoc = external.range.upperBound
 
     // Create the declaration.
-    let decl = FunParamDecl(
-      name: "", externalName: nil, typeSign: nil, type: unresolved, range: external.range)
+    let decl = FunParamDecl(name: "", externalName: nil, typeSign: nil, type: unresolved)
     decl.parentDeclSpace = state.declSpace
 
     if let internal_ = state.take(.name) {
       // We parsed an external label *and* an internal identifier.
       decl.name = String(state.lexer.source[internal_.range])
-      decl.range = external.range ..< internal_.range
+      upperLoc = internal_.range.upperBound
 
       // Further, if the token for the external label is '_', the parameter is anonymous.
       if external.kind != .under {
@@ -622,12 +624,13 @@ public struct Parser {
     // Parse the type signature of the parameter.
     if state.take(.colon) != nil, let sign = parseSign(state: &state) {
       decl.sign = sign
-      decl.range = external.range ..< sign.range
+      upperLoc = sign.range!.upperBound
     } else {
       context.report("expected type signature", anchor: state.errorRange())
       state.hasError = true
     }
 
+    decl.range = lowerLoc ..< upperLoc
     return decl
   }
 
@@ -639,9 +642,8 @@ public struct Parser {
     // declaration before we can instantiate a new declaration node. Unfortunately, that means that
     // we'll have to rebind the declaration space of the generic clause.
     let head = parseTypeDeclHead(state: &state)
-    let startRange = rawModifiers.isEmpty
-      ? head.introducer.range
-      : rawModifiers[0].range.lowerBound ..< head.introducer.range.upperBound
+    let lowerLoc = rawModifiers.first?.range?.lowerBound ?? head.introducer.range.lowerBound
+    var upperLoc = head.introducer.range.upperBound
 
     // Filter out the modifiers that are not applicable in this context.
     let modifiers = rawModifiers.filter({ (modifier: DeclModifier) -> Bool in
@@ -659,7 +661,7 @@ public struct Parser {
 
     // If the introducer was 'view', then we know what we're parsing already.
     if head.introducer.kind == .view {
-      let decl = ViewTypeDecl(name: head.ident.name, type: unresolved, range: startRange)
+      let decl = ViewTypeDecl(name: head.ident.name, type: unresolved)
       decl.parentDeclSpace = state.declSpace
       decl.inheritances = head.inheritances
       decl.type = context.viewType(decl: decl).kind
@@ -687,7 +689,7 @@ public struct Parser {
       let body = parseDeclBody(state: &state)
       decl.members = body.members
       if let closer = body.closer {
-        decl.range = startRange ..< closer.range
+        upperLoc = closer.range.upperBound
       }
 
       for case let member as TypeDecl in decl.members where !(member is AbstractTypeDecl) {
@@ -696,6 +698,7 @@ public struct Parser {
         state.hasError = true
       }
 
+      decl.range = lowerLoc ..< upperLoc
       return decl
     }
 
@@ -703,7 +706,7 @@ public struct Parser {
     switch state.peek()?.kind {
     case .lBrace:
       // We're parsing a product type declaration.
-      let decl = ProductTypeDecl(name: head.ident.name, type: unresolved, range: startRange)
+      let decl = ProductTypeDecl(name: head.ident.name, type: unresolved)
       decl.parentDeclSpace = state.declSpace
       decl.inheritances = head.inheritances
       decl.type = context.productType(decl: decl).kind
@@ -725,7 +728,7 @@ public struct Parser {
       let body = parseDeclBody(state: &state)
       decl.members = body.members
       if let closer = body.closer {
-        decl.range = startRange ..< closer.range
+        upperLoc = closer.range.upperBound
       }
 
       for case let member as AbstractTypeDecl in decl.members {
@@ -733,6 +736,7 @@ public struct Parser {
         state.hasError = true
       }
 
+      decl.range = lowerLoc ..< upperLoc
       return decl
 
     case .assign:
@@ -744,12 +748,9 @@ public struct Parser {
         state.hasError = true
         return ErrorSign(type: context.errorType, range: state.errorRange())
       }
+      upperLoc = sign.range!.upperBound
 
-      let decl = AliasTypeDecl(
-        name: head.ident.name,
-        aliasedSign: sign,
-        type: unresolved,
-        range: startRange ..< sign.range)
+      let decl = AliasTypeDecl(name: head.ident.name, aliasedSign: sign, type: unresolved)
       decl.parentDeclSpace = state.declSpace
       decl.inheritances = head.inheritances
 
@@ -761,14 +762,16 @@ public struct Parser {
         }
       }
 
+      decl.range = lowerLoc ..< upperLoc
       return decl
 
     default:
       // We're most likely parsing an asbtract type declaration.
-      let decl = AbstractTypeDecl(name: head.ident.name, type: unresolved, range: startRange)
+      let decl = AbstractTypeDecl(name: head.ident.name, type: unresolved)
       decl.parentDeclSpace = state.declSpace
       decl.inheritances = head.inheritances
       decl.type = context.genericParamType(decl: decl).kind
+      upperLoc = head.ident.range!.upperBound
 
       if let clause = head.genericClause {
         context.report(
@@ -796,9 +799,12 @@ public struct Parser {
           context.report("expected type requirement", anchor: state.errorRange())
           state.hasError = true
           state.skip(while: { $0.kind == .comma })
+        } else {
+          upperLoc = decl.typeReqs.last!.range!.upperBound
         }
       }
 
+      decl.range = lowerLoc ..< upperLoc
       return decl
     }
   }
@@ -902,9 +908,8 @@ public struct Parser {
   /// The next token is expected to be 'extn'.
   private func parseTypeExtn(state: inout State, rawModifiers: [DeclModifier]) -> TypeExtnDecl {
     let introducer = state.take(.extn)!
-    let startRange = rawModifiers.isEmpty
-      ? introducer.range
-      : rawModifiers[0].range.lowerBound ..< introducer.range.upperBound
+    let lowerLoc = rawModifiers.first?.range?.lowerBound ?? introducer.range.lowerBound
+    var upperLoc = introducer.range.upperBound
 
     for modifier in rawModifiers {
       context.report(
@@ -929,7 +934,7 @@ public struct Parser {
     }
 
     // Create the declaration.
-    let decl = TypeExtnDecl(extendedIdent: identSign, members: [], range: startRange)
+    let decl = TypeExtnDecl(extendedIdent: identSign, members: [])
     decl.parentDeclSpace = state.declSpace
 
     // Parse the members of the declaration.
@@ -941,9 +946,10 @@ public struct Parser {
     let body = parseDeclBody(state: &state)
     decl.members = body.members
     if let closer = body.closer {
-      decl.range = startRange ..< closer.range
+      upperLoc = closer.range.upperBound
     }
 
+    decl.range = lowerLoc ..< upperLoc
     return decl
   }
 
@@ -955,14 +961,12 @@ public struct Parser {
   private func parseGenericClause(state: inout State) -> GenericClause? {
     guard let opener = state.take(.lAngle) else { return nil }
 
-    let clause = GenericClause(params: [], typeReqs: [], range: opener.range)
+    let clause = GenericClause(params: [], typeReqs: [])
 
     // Parse a list of generic parameter names.
     while let token = state.take(.name) {
-      let decl = GenericParamDecl(
-        name: String(state.lexer.source[token.range]),
-        type: unresolved,
-        range: token.range)
+      let decl = GenericParamDecl(name: String(state.lexer.source[token.range]), type: unresolved)
+      decl.range = token.range
       decl.parentDeclSpace = state.declSpace
       decl.type = context.genericParamType(decl: decl).kind
       clause.params.append(decl)
@@ -984,11 +988,11 @@ public struct Parser {
       state.hasError = true
     }
 
-    let endRange = closer?.range
-      ?? clause.typeReqs.last?.range
-      ?? clause.params.last?.range
-      ?? opener.range
-    clause.range = opener.range ..< endRange
+    let upperLoc = closer?.range.upperBound
+      ?? clause.typeReqs.last?.range?.upperBound
+      ?? clause.params.last?.range?.upperBound
+      ?? opener.range.upperBound
+    clause.range = opener.range.lowerBound ..< upperLoc
     return clause
   }
 
@@ -1032,7 +1036,7 @@ public struct Parser {
       return ErrorSign(type: context.errorType, range: state.errorRange())
     }
 
-    return TypeReq(kind: kind, lhs: identSign, rhs: rhs, range: lhs.range ..< rhs.range)
+    return TypeReq(kind: kind, lhs: identSign, rhs: rhs, range: lhs.range! ..< rhs.range!)
   }
 
   /// Parses a control statement.
@@ -1092,7 +1096,7 @@ public struct Parser {
 
     if let expr = parseExpr(state: &state) {
       stmt.value = expr
-      stmt.range = stmt.range ..< expr.range
+      stmt.range = opener.range ..< expr.range!
     }
 
     if state.flags & .isParsingFunBody {
@@ -1174,7 +1178,7 @@ public struct Parser {
     var tree = InfixTree.leaf(.expr(head))
 
     // Parse a sequence of binary suffixes.
-    var upperRange = head.range.upperBound
+    var upperLoc = head.range!.upperBound
     while true {
       let oper: Ident
       let group: PrecedenceGroup?
@@ -1190,7 +1194,7 @@ public struct Parser {
         // The next token might be an infix identifier. However, we require that it be on the same
         // line as the left operand, to to avoid any ambiguity with statements that may begin with
         // a name on the next line.
-        let gap = state.lexer.source[upperRange ..< name.range.lowerBound]
+        let gap = state.lexer.source[upperLoc ..< name.range.lowerBound]
         guard !gap.contains(where: { $0.isNewline }) else { break }
 
         _ = state.take()
@@ -1205,7 +1209,7 @@ public struct Parser {
         }
 
         // Append the new operator/operand to the tree.
-        upperRange = rhs.range.upperBound
+        upperLoc = rhs.range!.upperBound
         tree.append(oper: state.ident(token), group: .casting, rhs: .sign(rhs))
         continue
       } else {
@@ -1221,8 +1225,8 @@ public struct Parser {
       }
 
       // Check that spacing around the operator is consistent.
-      let lGap = upperRange < oper.range.lowerBound
-      let rGap = upperRange < oper.range.lowerBound
+      let lGap = upperLoc < oper.range!.lowerBound
+      let rGap = upperLoc < oper.range!.lowerBound
       if lGap != rGap {
         context.report("inconsistent spacing around infix operator", anchor: oper.range)
         state.hasError = true
@@ -1230,10 +1234,10 @@ public struct Parser {
 
       // Append the new operator/operand to the tree.
       if let group = group {
-        upperRange = rhs.range.upperBound
+        upperLoc = rhs.range!.upperBound
         tree.append(oper: oper, group: group, rhs: .expr(rhs))
       } else {
-        head = ErrorExpr(type: context.errorType, range: head.range ..< rhs.range)
+        head = ErrorExpr(type: context.errorType, range: head.range! ..< rhs.range!)
         tree = InfixTree.leaf(.expr(head))
       }
     }
@@ -1259,18 +1263,18 @@ public struct Parser {
     }
 
     // Prefix operators cannot be separated from their operand.
-    if oper.range.upperBound != value.range.lowerBound {
+    if oper.range!.upperBound != value.range!.lowerBound {
       context.report("prefix operator cannot be separated from its operand", anchor: oper.range)
       state.hasError = true
-      return ErrorExpr(type: context.errorType, range: oper.range ..< value.range)
+      return ErrorExpr(type: context.errorType, range: oper.range! ..< value.range!)
     }
 
     // If the operator is '&', then return an AddrOfExpr; otherwise, return a prefix call.
     if oper.name == "&" {
-      return AddrOfExpr(value: value, type: unresolved, range: oper.range ..< value.range)
+      return AddrOfExpr(value: value, type: unresolved, range: oper.range! ..< value.range!)
     } else {
       let fun = UnresolvedMemberExpr(base: value, ident: oper, type: unresolved, range: oper.range)
-      return CallExpr.prefix(fun: fun, type: unresolved, range: oper.range ..< value.range)
+      return CallExpr.prefix(fun: fun, type: unresolved, range: oper.range! ..< value.range!)
     }
   }
 
@@ -1282,6 +1286,7 @@ public struct Parser {
   ///     member ::= '.' (label | oper | INTEGER)
   private func parseCompoundExpr(state: inout State) -> Expr? {
     guard var base = parsePrimaryExpr(state: &state) else { return nil }
+    let lowerLoc = base.range!.lowerBound
 
     // Parse a sequence of primary suffixes.
     while let token = state.peek() {
@@ -1289,7 +1294,7 @@ public struct Parser {
       case .lParen:
         // We require call suffixes to start on the same line, to avoid any ambiguity with
         // statements that may begin with a left parenthesis on the next line.
-        let gap = state.lexer.source[base.range.upperBound ..< token.range.lowerBound]
+        let gap = state.lexer.source[base.range!.upperBound ..< token.range.lowerBound]
         guard !gap.contains(where: { $0.isNewline }) else { return base }
 
         // Parse an argument list.
@@ -1297,9 +1302,12 @@ public struct Parser {
           state: &state, delimiters: (.lParen, .rParen), parser: parseTupleExprElem(state:))!
 
         // Create a call expression.
-        let range = base.range ..< (closer?.range ?? elems.last?.range ?? opener.range)
         base = CallExpr(
-          fun: base, args: elems, notation: .standard, type: unresolved, range: range)
+          fun: base,
+          args: elems,
+          notation: .standard,
+          type: unresolved,
+          range: lowerLoc ..< (closer?.range ?? elems.last?.range ?? opener.range).upperBound)
 
       case .lBrack:
         fatalError("not implemented")
@@ -1310,28 +1318,29 @@ public struct Parser {
 
         // Parse the member identifier or index.
         if let name = state.take(if: { $0.isLabel }) {
-          let ident = state.ident(name)
-          base = UnresolvedMemberExpr(
-            base: base, ident: ident, type: unresolved, range: base.range ..< ident.range)
-          continue
+          let expr = UnresolvedMemberExpr(base: base, ident: state.ident(name), type: unresolved)
+          expr.range = lowerLoc ..< expr.ident.range!.upperBound
+          base = expr
         } else if let oper = state.takeOperator() {
-          base = UnresolvedMemberExpr(
-            base: base, ident: oper, type: unresolved, range: base.range ..< oper.range)
+          let expr = UnresolvedMemberExpr(base: base, ident: oper, type: unresolved)
+          expr.range = lowerLoc ..< oper.range!.upperBound
+          base = expr
         } else if let index = state.take(.int) {
           let value = state.lexer.source[index.range]
 
           guard !value.contains(where: { !$0.isDigit }), let i = Int(value) else {
             context.report("'\(value)' is not a valid tuple index", anchor: index.range)
             state.hasError = true
-            return ErrorExpr(type: context.errorType, range: base.range ..< index.range)
+            return ErrorExpr(type: context.errorType, range: lowerLoc ..< index.range.upperBound)
           }
 
-          base = TupleMemberExpr(
-            base: base, memberIndex: i, type: unresolved, range: base.range ..< index.range)
+          let expr = TupleMemberExpr(base: base, memberIndex: i, type: unresolved)
+          expr.range = lowerLoc ..< index.range.upperBound
+          base = expr
         } else {
           context.report("expected member identifier", anchor: state.errorRange())
           state.hasError = true
-          return ErrorExpr(type: context.errorType, range: base.range ..< token.range)
+          return ErrorExpr(type: context.errorType, range: lowerLoc ..< token.range.upperBound)
         }
 
       case _ where token.isOperator:
@@ -1342,9 +1351,9 @@ public struct Parser {
         }
 
         // Postfix operators must be attached to the expression, and followed by a whitespace.
-        let lGap = base.range.upperBound != oper.range.lowerBound
-        let rGap = (oper.range.upperBound == state.lexer.source.endIndex)
-          || state.lexer.source[oper.range.upperBound].isWhitespace
+        let lGap = base.range!.upperBound != oper.range!.lowerBound
+        let rGap = (oper.range!.upperBound == state.lexer.source.endIndex)
+          || state.lexer.source[oper.range!.upperBound].isWhitespace
         guard !lGap && rGap else {
           state.restore(backup)
           return base
@@ -1352,7 +1361,8 @@ public struct Parser {
 
         let fun = UnresolvedMemberExpr(
           base: base, ident: oper, type: unresolved, range: oper.range)
-        base = CallExpr.postfix(fun: fun, type: unresolved, range: base.range ..< oper.range)
+        base = CallExpr.postfix(
+          fun: fun, type: unresolved, range: lowerLoc ..< oper.range!.upperBound)
 
       default:
         return base
@@ -1440,14 +1450,11 @@ public struct Parser {
       tokens.append(token)
     }
 
-    if tokens.isEmpty {
-      let value = String(state.lexer.source[tokens[0].range])
-      return StringLiteralExpr(value: value, type: unresolved, range: tokens[0].range)
-    } else {
-      let value = tokens.reduce(into: "", { $0 += String(state.lexer.source[$1.range]) })
-      return StringLiteralExpr(
-        value: value, type: unresolved, range: tokens.first!.range ..< tokens.last!.range)
-    }
+    let value = tokens.isEmpty
+      ? String(state.lexer.source[tokens[0].range])
+      : tokens.reduce(into: "", { $0 += String(state.lexer.source[$1.range]) })
+    return StringLiteralExpr(
+      value: value, type: unresolved, range: tokens.first!.range ..< tokens.last!.range)
   }
 
   /// Parses a declaration reference.
@@ -1481,12 +1488,14 @@ public struct Parser {
         context.diagConsumer = oldConsumer
 
         if comps.isEmpty {
-          return UnresolvedDeclRefExpr(ident: bare.ident, type: unresolved, range: bare.range)
+          return UnresolvedDeclRefExpr(ident: bare.ident, type: unresolved)
         } else {
           let space = CompoundIdentSign.create(comps)
-          let range = space.range ..< bare.range
           return UnresolvedQualDeclRefExpr(
-            namespace: space, ident: bare.ident, type: unresolved, range: range)
+            namespace: space,
+            ident: bare.ident,
+            type: unresolved,
+            range: space.range!.lowerBound ..< bare.range!.upperBound)
         }
       } else {
         state.restore(backup)
@@ -1501,18 +1510,23 @@ public struct Parser {
     // isn't, we may also parse an operator.
     if comps.isEmpty {
       guard let name = state.take(.name) else { return nil }
-      return UnresolvedDeclRefExpr(ident: state.ident(name), type: unresolved, range: name.range)
+      return UnresolvedDeclRefExpr(ident: state.ident(name), type: unresolved)
     }
 
     let space = CompoundIdentSign.create(comps)
 
     if let name = state.take(.name) {
-      let ident = state.ident(name)
       return UnresolvedQualDeclRefExpr(
-        namespace: space, ident: ident, type: unresolved, range: space.range ..< ident.range)
+        namespace: space,
+        ident: state.ident(name),
+        type: unresolved,
+        range: space.range!.lowerBound ..< name.range.upperBound)
     } else if let ident = state.takeOperator() {
       return UnresolvedQualDeclRefExpr(
-        namespace: space, ident: ident, type: unresolved, range: space.range ..< ident.range)
+        namespace: space,
+        ident: ident,
+        type: unresolved,
+        range: space.range!.lowerBound ..< ident.range!.upperBound)
     } else {
       context.report("expected identifier", anchor: state.errorRange())
       state.hasError = true
@@ -1532,7 +1546,7 @@ public struct Parser {
       return ErrorExpr(type: context.errorType, range: introducer.range)
     }
 
-    return AsyncExpr(value: value, type: unresolved, range: introducer.range ..< value.range)
+    return AsyncExpr(value: value, type: unresolved, range: introducer.range ..< value.range!)
   }
 
   /// Parses an await expression.
@@ -1547,8 +1561,7 @@ public struct Parser {
       return ErrorExpr(type: context.errorType, range: introducer.range)
     }
 
-    return AwaitExpr(
-      value: value, type: unresolved, range: introducer.range ..< value.range)
+    return AwaitExpr(value: value, type: unresolved, range: introducer.range ..< value.range!)
   }
 
   /// Parses a match expression.
@@ -1564,17 +1577,21 @@ public struct Parser {
     }
 
     let expr = MatchExpr(
-      isSubExpr: true, subject: subject, cases: [], type: unresolved, range: introducer.range)
+      isSubexpr: true, subject: subject, cases: [], type: unresolved, range: introducer.range)
 
     guard state.take(.lBrace) != nil else {
       context.report("expected '{' after match subject expression", anchor: state.errorRange())
       state.hasError = true
       return expr
     }
+
     while let case_ = parseMatchCase(state: &state) {
       expr.cases.append(case_)
     }
-    if state.take(.rBrace) == nil {
+
+    if let closer = state.take(.rBrace) {
+      expr.range = introducer.range.lowerBound ..< closer.range.upperBound
+    } else {
       context.report("expected '}' delimiter", anchor: state.errorRange())
       state.hasError = true
     }
@@ -1611,8 +1628,8 @@ public struct Parser {
       return BraceStmt(statements: [], range: state.errorRange())
     }
 
-    let stmt = MatchCaseStmt(
-      pattern: pattern, condition: condition, body: body, range: introducer.range ..< body.range)
+    let stmt = MatchCaseStmt(pattern: pattern, condition: condition, body: body)
+    stmt.range = introducer.range.lowerBound ..< body.range!.upperBound
     stmt.parentDeclSpace = state.declSpace
     body.parentDeclSpace = stmt
     return stmt
@@ -1626,8 +1643,9 @@ public struct Parser {
             state: &state, delimiters: (.lParen, .rParen), parser: parseTupleExprElem(state:))
     else { return nil }
 
-    let range = opener.range ..< (closer?.range ?? elems.last?.range ?? opener.range)
-    return TupleExpr(elems: elems, type: unresolved, range: range)
+    let expr = TupleExpr(elems: elems, type: unresolved)
+    expr.range = opener.range ..< (closer?.range ?? elems.last?.range ?? opener.range)
+    return expr
   }
 
   /// Parses a single element in a tuple expression.
@@ -1660,7 +1678,9 @@ public struct Parser {
       return nil
     }
 
-    return TupleElem(label: label, value: value, range: opener.range ..< value.range)
+    var elem = TupleElem(label: label, value: value)
+    elem.range = opener.range.lowerBound ..< value.range!.upperBound
+    return elem
   }
 
   /// Parses a wildcard expression.
@@ -1690,7 +1710,8 @@ public struct Parser {
     guard let token = state.take(.name) else { return nil }
 
     // Create a variable declaration for the pattern.
-    let decl = VarDecl(ident: state.ident(token), type: unresolved, range: token.range)
+    let decl = VarDecl(ident: state.ident(token), type: unresolved)
+    decl.range = token.range
     decl.parentDeclSpace = state.declSpace
 
     // Create the pattern.
@@ -1714,9 +1735,9 @@ public struct Parser {
       isMutable: introducer.kind == .var,
       subpattern: subpattern,
       sign: nil,
-      type: unresolved,
-      keywordRange: introducer.range,
-      range: introducer.range ..< subpattern.range)
+      type: unresolved)
+    pattern.range = introducer.range.lowerBound ..< subpattern.range!.upperBound
+    pattern.introRange = introducer.range
 
     // Attempt to parse a type signature.
     if state.take(.colon) != nil {
@@ -1740,8 +1761,9 @@ public struct Parser {
             state: &state, delimiters: (.lParen, .rParen), parser: parseTuplePatternElem(state:))
     else { return nil }
 
-    let range = opener.range ..< (closer?.range ?? elems.last?.range ?? opener.range)
-    return TuplePattern(elems: elems, type: unresolved, range: range)
+    let pattern = TuplePattern(elems: elems, type: unresolved)
+    pattern.range = opener.range ..< (closer?.range ?? elems.last?.range ?? opener.range)
+    return pattern
   }
 
   /// Parses a single element in a tuple pattern.
@@ -1774,8 +1796,9 @@ public struct Parser {
       return nil
     }
 
-    return TuplePattern.Elem(
-      label: label, pattern: subpattern, range: opener.range ..< subpattern.range)
+    var elem = TuplePattern.Elem(label: label, pattern: subpattern)
+    elem.range = opener.range.lowerBound ..< subpattern.range!.upperBound
+    return elem
   }
 
   /// Parses a wildcard pattern.
@@ -1825,12 +1848,13 @@ public struct Parser {
         return ErrorSign(type : context.errorType, range: opener.range ..< arrow.range)
       }
 
-      base = FunSign(
+      let sign = FunSign(
         paramSign: base,
         retSign: retSign,
         isVolatile: modifiers[.volatile] != nil,
-        type: unresolved,
-        range: opener.range ..< retSign.range)
+        type: unresolved)
+      sign.range = opener.range.lowerBound ..< retSign.range!.upperBound
+      base = sign
     } else if let modifier = modifiers[.volatile] {
       context.report(
         "'volatile' modifier can only be applied on function signature", anchor: modifier.range)
@@ -1839,11 +1863,10 @@ public struct Parser {
     }
 
     if let modifier = modifiers[.mut] {
-      return InoutSign(
-        base: base,
-        type: unresolved,
-        modifierRange: modifier.range,
-        range: opener.range ..< base.range)
+      let sign = InoutSign(base: base, type: unresolved)
+      sign.modifierRange = modifier.range
+      sign.range = opener.range.lowerBound ..< base.range!.upperBound
+      return sign
     } else {
       return base
     }
@@ -1863,11 +1886,10 @@ public struct Parser {
         return ErrorSign(type: context.errorType, range: modifier.range)
       }
 
-      return AsyncSign(
-        base: base,
-        type: unresolved,
-        modifierRange: modifier.range,
-        range: modifier.range ..< base.range)
+      let sign = AsyncSign( base: base, type: unresolved)
+      sign.modifierRange = modifier.range
+      sign.range = modifier.range.lowerBound ..< base.range!.upperBound
+      return sign
     }
 
     // Parse a maxterm signature.
@@ -1882,11 +1904,14 @@ public struct Parser {
     switch items.count {
     case 0:
       return nil
+
     case 1:
       return items[0]
+
     default:
-      return UnionSign(
-        elems: items, type: unresolved, range: items.first!.range ..< items.last!.range)
+      let sign = UnionSign(elems: items, type: unresolved)
+      sign.range = items.first!.range!.lowerBound ..< items.last!.range!.upperBound
+      return sign
     }
   }
 
@@ -1898,11 +1923,14 @@ public struct Parser {
     switch items.count {
     case 0:
       return nil
+
     case 1:
       return items[0]
+
     default:
-      return ViewCompSign(
-        views: items, type: unresolved, range: items.first!.range ..< items.last!.range)
+      let sign = ViewCompSign(views: items, type: unresolved)
+      sign.range = items.first!.range!.lowerBound ..< items.last!.range!.upperBound
+      return sign
     }
   }
 
@@ -1924,7 +1952,7 @@ public struct Parser {
       guard let sign = element(&state) else {
         context.report("expected type signature", anchor: state.errorRange())
         state.hasError = true
-        items = [ErrorSign(type: context.errorType, range: items[0].range ..< items.last!.range)]
+        items = [ErrorSign(type: context.errorType, range: items[0].range! ..< items.last!.range!)]
         continue
       }
 
@@ -1960,7 +1988,7 @@ public struct Parser {
       guard let sign = parseIdentCompSign(state: &state) else {
         context.report("expected type identifier", anchor: state.errorRange())
         state.hasError = true
-        return ErrorSign(type: context.errorType, range: comps[0].range ..< comps.last!.range)
+        return ErrorSign(type: context.errorType, range: comps[0].range! ..< comps.last!.range!)
       }
       comps.append(sign)
     }
@@ -1981,8 +2009,9 @@ public struct Parser {
         state: &state, delimiters: (.lAngle, .rAngle), parser: parseSign(state:))
     {
       // Return a specialized identifier.
-      let range = opener.range ..< (closer?.range ?? args.last?.range ?? opener.range)
-      return SpecializedIdentSign(ident: ident, args: args, type : unresolved, range: range)
+      let sign = SpecializedIdentSign(ident: ident, args: args, type : unresolved)
+      sign.range = opener.range ..< (closer?.range ?? args.last?.range ?? opener.range)
+      return sign
     }
 
     // Return a bare identifier.
@@ -1997,8 +2026,9 @@ public struct Parser {
             state: &state, delimiters: (.lParen, .rParen), parser: tupleSignElem(state:))
     else { return nil }
 
-    let range = opener.range ..< (closer?.range ?? elems.last?.range ?? opener.range)
-    return TupleSign(elems: elems, type: unresolved, range: range)
+    let sign = TupleSign(elems: elems, type: unresolved)
+    sign.range = opener.range ..< (closer?.range ?? elems.last?.range ?? opener.range)
+    return sign
   }
 
   /// Parses a single element in a tuple signature.
@@ -2033,7 +2063,9 @@ public struct Parser {
       }
     }
 
-    return TupleSignElem(label: label, sign: sign, range: opener.range ..< sign.range)
+    var elem = TupleSignElem(label: label, sign: sign)
+    elem.range = opener.range.lowerBound ..< sign.range!.upperBound
+    return elem
   }
 
   /// Parses a comma-separated list of elements, delimited by the specified tokens.
@@ -2149,25 +2181,28 @@ fileprivate enum InfixTree {
       switch oper.name {
       case "=":
         let rhs = right.flattened()
-        return AssignExpr(lvalue: lhs, rvalue: rhs, range: lhs.range ..< rhs.range)
+        let expr = AssignExpr(lvalue: lhs, rvalue: rhs)
+        expr.range = lhs.range!.lowerBound ..< rhs.range!.upperBound
+        return expr
 
       case "as?":
         guard case .leaf(.sign(let rhs)) = right else { fatalError("unreachable") }
-        return DynCastExpr(
-          value: lhs, sign: rhs, type: unresolved, range: lhs.range ..< rhs.range)
+        let expr = DynCastExpr(value: lhs, sign: rhs, type: unresolved)
+        expr.range = lhs.range!.lowerBound ..< rhs.range!.upperBound
+        return expr
 
       case "as!":
         guard case .leaf(.sign(let rhs)) = right else { fatalError("unreachable") }
-        return UnsafeCastExpr(
-          value: lhs, sign: rhs, type: unresolved, range: lhs.range ..< rhs.range)
+        let expr = UnsafeCastExpr(value: lhs, sign: rhs, type: unresolved)
+        expr.range = lhs.range!.lowerBound ..< rhs.range!.upperBound
+        return expr
 
       default:
         let rhs = right.flattened()
-        return CallExpr.infix(
-          fun: UnresolvedMemberExpr(base: lhs, ident: oper, type: unresolved, range: oper.range),
-          operand: rhs,
-          type: unresolved,
-          range: lhs.range ..< rhs.range)
+        let fun = UnresolvedMemberExpr(base: lhs, ident: oper, type: unresolved, range: oper.range)
+        let expr = CallExpr.infix(fun: fun, operand: rhs, type: unresolved)
+        expr.range = lhs.range!.lowerBound ..< rhs.range!.upperBound
+        return expr
       }
 
     case .leaf(.sign):

@@ -66,14 +66,16 @@ public struct NodePrinter: NodeVisitor {
     }
   }
 
-  func encode(_ range: SourceRange) -> String {
-    guard let sf = context.sourceManager.source(containing: range.lowerBound) else {
+  func encode(_ range: SourceRange?) -> String {
+    guard let range = range,
+          let source = context.sourceManager.source(containing: range.lowerBound)
+    else {
       return "null"
     }
 
-    let start = sf.lineColumnIndices(at: range.lowerBound)
-    let end = sf.lineColumnIndices(at: range.upperBound)
-    return "\"\(sf.url.path):\(start.line):\(start.column) - \(end.line):\(end.column)\""
+    let start = source.lineColumnIndices(at: range.lowerBound)
+    let end = source.lineColumnIndices(at: range.upperBound)
+    return "\"\(source.url.path):\(start.line):\(start.column) - \(end.line):\(end.column)\""
   }
 
   func valueDeclHeader<N>(_ node: N) -> String where N: ValueDecl {

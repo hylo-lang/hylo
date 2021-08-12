@@ -10,20 +10,20 @@ public protocol Stmt: Node {
 
 }
 
-/// A block of code.
+/// A collection of declarations, control statements, and expressions processed sequentially.
 public final class BraceStmt: Stmt, IterableDeclSpace {
 
   public typealias DeclSequence = LazyMapSequence<
     LazyFilterSequence<LazyMapSequence<LazySequence<[Node]>.Elements, Decl?>>, Decl>
 
-  public var range: SourceRange
+  public var range: SourceRange?
 
   public weak var parentDeclSpace: DeclSpace?
 
   /// The declarations, statements and expressions in the code block.
   public var stmts: [Node]
 
-  public init(statements: [Node], range: SourceRange) {
+  public init(statements: [Node], range: SourceRange? = nil) {
     self.stmts = statements
     self.range = range
   }
@@ -41,7 +41,7 @@ public final class BraceStmt: Stmt, IterableDeclSpace {
 /// A return statement.
 public final class RetStmt: Stmt {
 
-  public var range: SourceRange
+  public var range: SourceRange?
 
   /// The returned value.
   public var value: Expr?
@@ -49,7 +49,7 @@ public final class RetStmt: Stmt {
   /// The innermost function in which the return statement resides.
   public weak var funDecl: BaseFunDecl?
 
-  public init(value: Expr?, range: SourceRange) {
+  public init(value: Expr?, range: SourceRange? = nil) {
     self.value = value
     self.range = range
   }
@@ -65,7 +65,7 @@ public final class MatchCaseStmt: Stmt, IterableDeclSpace {
 
   public typealias DeclSequence = LazyMapSequence<LazySequence<[NamedPattern]>.Elements, Decl>
 
-  public var range: SourceRange
+  public var range: SourceRange?
 
   public weak var parentDeclSpace: DeclSpace?
 
@@ -78,7 +78,7 @@ public final class MatchCaseStmt: Stmt, IterableDeclSpace {
   /// The body of the case.
   public var body: BraceStmt
 
-  public init(pattern: Pattern, condition: Expr?, body: BraceStmt, range: SourceRange) {
+  public init(pattern: Pattern, condition: Expr?, body: BraceStmt, range: SourceRange? = nil) {
     self.pattern = pattern
     self.condition = condition
     self.body = body

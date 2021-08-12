@@ -33,9 +33,15 @@ enum TypeError {
   }
 
   static func < (_ lhs: TypeError, _ rhs: TypeError) -> Bool {
-    let a = lhs.constraint.locator.anchor.range.lowerBound
-    let b = rhs.constraint.locator.anchor.range.lowerBound
-    return a < b
+    if let a = lhs.constraint.locator.anchor.range?.lowerBound {
+      if let b = rhs.constraint.locator.anchor.range?.lowerBound {
+        return a < b
+      } else {
+        return true
+      }
+    } else {
+      return rhs.constraint.locator.anchor.range != nil
+    }
   }
 
 }

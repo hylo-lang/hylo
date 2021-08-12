@@ -16,16 +16,16 @@ public protocol Expr: Node {
 /// A Boolean literal.
 public final class BoolLiteralExpr: Expr {
 
-  public var range: SourceRange
+  public var range: SourceRange?
 
   public var type: ValType
 
   /// The value of the literal.
   public var value: Bool
 
-  public init(value: Bool, type: ValType, range: SourceRange) {
+  public init(value: Bool, type: ValType, range: SourceRange? = nil) {
     self.value = value
-    self.type  = type
+    self.type = type
     self.range = range
   }
 
@@ -38,16 +38,16 @@ public final class BoolLiteralExpr: Expr {
 /// An integer literal.
 public final class IntLiteralExpr: Expr {
 
-  public var range: SourceRange
+  public var range: SourceRange?
 
   public var type: ValType
 
   /// The value of the literal.
   public var value: Int
 
-  public init(value: Int, type: ValType, range: SourceRange) {
+  public init(value: Int, type: ValType, range: SourceRange? = nil) {
     self.value = value
-    self.type  = type
+    self.type = type
     self.range = range
   }
 
@@ -60,16 +60,16 @@ public final class IntLiteralExpr: Expr {
 /// A floating-point literal.
 public final class FloatLiteralExpr: Expr {
 
-  public var range: SourceRange
+  public var range: SourceRange?
 
   public var type: ValType
 
   /// The value of the literal.
   public var value: Double
 
-  public init(value: Double, type: ValType, range: SourceRange) {
+  public init(value: Double, type: ValType, range: SourceRange? = nil) {
     self.value = value
-    self.type  = type
+    self.type = type
     self.range = range
   }
 
@@ -82,16 +82,16 @@ public final class FloatLiteralExpr: Expr {
 /// A string literal.
 public final class StringLiteralExpr: Expr {
 
-  public var range: SourceRange
+  public var range: SourceRange?
 
   public var type: ValType
 
   /// The value of the literal.
   public var value: String
 
-  public init(value: String, type: ValType, range: SourceRange) {
+  public init(value: String, type: ValType, range: SourceRange? = nil) {
     self.value = value
-    self.type  = type
+    self.type = type
     self.range = range
   }
 
@@ -106,7 +106,7 @@ public final class StringLiteralExpr: Expr {
 /// This has always a unit type.
 public final class AssignExpr: Expr {
 
-  public var range: SourceRange
+  public var range: SourceRange?
 
   public var type: ValType {
     didSet { assert(type is TupleType) }
@@ -118,7 +118,7 @@ public final class AssignExpr: Expr {
   /// The value of the assignment.
   public var rvalue: Expr
 
-  public init(lvalue: Expr, rvalue: Expr, range: SourceRange) {
+  public init(lvalue: Expr, rvalue: Expr, range: SourceRange? = nil) {
     self.lvalue = lvalue
     self.rvalue = rvalue
     self.type = lvalue.type.context.unitType
@@ -134,7 +134,7 @@ public final class AssignExpr: Expr {
 /// The base class for cast expressions.
 public class BaseCastExpr: Expr {
 
-  public var range: SourceRange
+  public var range: SourceRange?
 
   public var type: ValType
 
@@ -144,7 +144,7 @@ public class BaseCastExpr: Expr {
   /// The type to which the value is being cast.
   public var sign: Sign
 
-  public init(value: Expr, sign: Sign, type: ValType, range: SourceRange) {
+  public init(value: Expr, sign: Sign, type: ValType, range: SourceRange? = nil) {
     self.value = value
     self.sign = sign
     self.type = type
@@ -178,14 +178,14 @@ public final class UnsafeCastExpr: BaseCastExpr {
 /// A tuple expression (e.g., `(fst: 4, snd: 2)`).
 public final class TupleExpr: Expr {
 
-  public var range: SourceRange
+  public var range: SourceRange?
 
   public var type: ValType
 
   /// The elements of the tuple.
   public var elems: [TupleElem]
 
-  public init(elems: [TupleElem], type: ValType, range: SourceRange) {
+  public init(elems: [TupleElem], type: ValType, range: SourceRange? = nil) {
     self.elems = elems
     self.type = type
     self.range = range
@@ -201,7 +201,7 @@ public final class TupleExpr: Expr {
 public struct TupleElem {
 
   /// The source range of this element's textual representation.
-  public var range: SourceRange
+  public var range: SourceRange?
 
   /// The label of the element.
   public var label: String?
@@ -209,7 +209,7 @@ public struct TupleElem {
   /// The value of the element.
   public var value: Expr
 
-  public init(label: String? = nil, value: Expr, range: SourceRange) {
+  public init(label: String? = nil, value: Expr, range: SourceRange? = nil) {
     self.label = label
     self.value = value
     self.range = range
@@ -243,7 +243,7 @@ public final class CallExpr: Expr {
 
   }
 
-  public var range: SourceRange
+  public var range: SourceRange?
 
   public var type: ValType
 
@@ -257,11 +257,11 @@ public final class CallExpr: Expr {
   public var notation: Notation
 
   public init(
-    fun     : Expr,
-    args    : [TupleElem],
+    fun: Expr,
+    args: [TupleElem],
     notation: Notation = .standard,
-    type    : ValType,
-    range   : SourceRange
+    type: ValType,
+    range: SourceRange? = nil
   ) {
     self.fun = fun
     self.args = args
@@ -275,25 +275,32 @@ public final class CallExpr: Expr {
   }
 
   /// Creates a prefix call.
-  public static func prefix(fun: MemberExpr, type: ValType, range: SourceRange) -> CallExpr {
+  public static func prefix(
+    fun: MemberExpr,
+    type: ValType,
+    range: SourceRange? = nil
+  ) -> CallExpr {
     return CallExpr(fun: fun, args: [], notation: .prefix, type: type, range: range)
   }
 
   /// Creates a postfix call.
-  public static func postfix(fun: MemberExpr, type: ValType, range: SourceRange) -> CallExpr {
+  public static func postfix(
+    fun: MemberExpr,
+    type: ValType,
+    range: SourceRange? = nil
+  ) -> CallExpr {
     return CallExpr(fun: fun, args: [], notation: .postfix, type: type, range: range)
   }
 
   /// Creates an infix call.
   public static func infix(
-    fun: MemberExpr, operand: Expr, type: ValType, range: SourceRange
+    fun: MemberExpr,
+    operand: Expr,
+    type: ValType,
+    range: SourceRange? = nil
   ) -> CallExpr {
-    return CallExpr(
-      fun: fun,
-      args: [CallArg(value: operand, range: operand.range)],
-      notation: .prefix,
-      type: type,
-      range: range)
+    let arg = CallArg(value: operand, range: operand.range)
+    return CallExpr(fun: fun, args: [arg], notation: .prefix, type: type, range: range)
   }
 
 }
@@ -306,8 +313,6 @@ public typealias CallArg = TupleElem
 /// analysis, which should ultimately substitute this node with a `DeclRefExpr`.
 public final class UnresolvedDeclRefExpr: Expr {
 
-  public var range: SourceRange
-
   public var type: ValType {
     didSet { assert(type is UnresolvedType) }
   }
@@ -315,14 +320,15 @@ public final class UnresolvedDeclRefExpr: Expr {
   /// An identifier.
   public var ident: Ident
 
-  public init(ident: Ident, type: UnresolvedType, range: SourceRange) {
+  public init(ident: Ident, type: UnresolvedType) {
     self.ident = ident
     self.type = type
-    self.range = range
   }
 
   /// The unqualified name of the referred declaration.
   public var name: String { ident.name }
+
+  public var range: SourceRange? { ident.range }
 
   public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
@@ -337,7 +343,7 @@ public final class UnresolvedDeclRefExpr: Expr {
 /// into which it points. The type prefix is resolved during name binding.
 public final class UnresolvedQualDeclRefExpr: Expr {
 
-  public var range: SourceRange
+  public var range: SourceRange?
 
   public var type: ValType {
     didSet { assert(type is UnresolvedType) }
@@ -349,7 +355,12 @@ public final class UnresolvedQualDeclRefExpr: Expr {
   /// An identifier.
   public var ident: Ident
 
-  public init(namespace: IdentSign, ident: Ident, type: UnresolvedType, range: SourceRange) {
+  public init(
+    namespace: IdentSign,
+    ident: Ident,
+    type: UnresolvedType,
+    range: SourceRange? = nil
+  ) {
     self.namespace = namespace
     self.ident = ident
     self.type = type
@@ -372,14 +383,14 @@ public final class UnresolvedQualDeclRefExpr: Expr {
 /// expression can be finally substituted with a `DeclRefExpr`.
 public final class OverloadedDeclRefExpr: Expr {
 
-  public var range: SourceRange
+  public var range: SourceRange?
 
   public var type: ValType
 
   /// The set of candidate declarations for the expresssion.
   public var declSet: [ValueDecl] = []
 
-  public init(subExpr: Expr, declSet: [ValueDecl], type: ValType, range: SourceRange) {
+  public init(subExpr: Expr, declSet: [ValueDecl], type: ValType, range: SourceRange? = nil) {
     self.declSet = declSet
     self.type = type
     self.range = range
@@ -394,14 +405,14 @@ public final class OverloadedDeclRefExpr: Expr {
 /// An identifier referring to a resolved value declaration.
 public final class DeclRefExpr: Expr {
 
-  public var range: SourceRange
+  public var range: SourceRange?
 
   public var type: ValType
 
   /// The declaration referred by the expresssion.
   public var decl: ValueDecl
 
-  public init(decl: ValueDecl, type: ValType, range: SourceRange) {
+  public init(decl: ValueDecl, type: ValType, range: SourceRange? = nil) {
     self.decl = decl
     self.type = type
     self.range = range
@@ -416,7 +427,7 @@ public final class DeclRefExpr: Expr {
 /// An identifier referring to a resolved type declaration.
 public final class TypeDeclRefExpr: Expr {
 
-  public var range: SourceRange
+  public var range: SourceRange?
 
   public var type: ValType {
     get { decl.type }
@@ -426,7 +437,7 @@ public final class TypeDeclRefExpr: Expr {
   /// The declaration referred by the expresssion.
   public var decl: TypeDecl
 
-  public init(decl: TypeDecl, range: SourceRange) {
+  public init(decl: TypeDecl, range: SourceRange? = nil) {
     self.decl = decl
     self.range = range
   }
@@ -451,7 +462,7 @@ public protocol MemberExpr: Expr {
 /// determine the member declaration to which the node refers.
 public final class UnresolvedMemberExpr: MemberExpr {
 
-  public var range: SourceRange
+  public var range: SourceRange?
 
   public var type: ValType
 
@@ -461,7 +472,7 @@ public final class UnresolvedMemberExpr: MemberExpr {
   /// The member's identifier.
   public var ident: Ident
 
-  public init(base: Expr, ident: Ident, type: UnresolvedType, range: SourceRange) {
+  public init(base: Expr, ident: Ident, type: UnresolvedType, range: SourceRange? = nil) {
     self.base = base
     self.ident = ident
     self.type = type
@@ -483,7 +494,7 @@ public final class UnresolvedMemberExpr: MemberExpr {
 /// have declarations. Instead, those are represented by `TupleMemberExpr`.
 public final class MemberDeclRefExpr: MemberExpr {
 
-  public var range: SourceRange
+  public var range: SourceRange?
 
   public var type: ValType
 
@@ -493,7 +504,7 @@ public final class MemberDeclRefExpr: MemberExpr {
   /// The declaration referred by the expresssion.
   public var decl: ValueDecl
 
-  public init(base: Expr, decl: ValueDecl, type: ValType, range: SourceRange) {
+  public init(base: Expr, decl: ValueDecl, type: ValType, range: SourceRange? = nil) {
     self.base = base
     self.decl = decl
     self.type = type
@@ -509,7 +520,7 @@ public final class MemberDeclRefExpr: MemberExpr {
 /// An expression that refers to the member of a tuple (e.g., `(fst: 3, snd: 2).fst`).
 public final class TupleMemberExpr: MemberExpr {
 
-  public var range: SourceRange
+  public var range: SourceRange?
 
   public var type: ValType
 
@@ -519,7 +530,7 @@ public final class TupleMemberExpr: MemberExpr {
   /// The index of the member in the tuple.
   public var memberIndex: Int
 
-  public init(base: Expr, memberIndex: Int, type: ValType, range: SourceRange) {
+  public init(base: Expr, memberIndex: Int, type: ValType, range: SourceRange? = nil) {
     self.base = base
     self.memberIndex = memberIndex
     self.type = type
@@ -544,14 +555,14 @@ public final class TupleMemberExpr: MemberExpr {
 /// computed, typically by a concurrent thread.
 public final class AsyncExpr: Expr {
 
-  public var range: SourceRange
+  public var range: SourceRange?
 
   public var type: ValType
 
   /// The expression to evaluate asynchronously.
   public var value: Expr
 
-  public init(value: Expr, type: ValType, range: SourceRange) {
+  public init(value: Expr, type: ValType, range: SourceRange? = nil) {
     self.value = value
     self.type = type
     self.range = range
@@ -566,14 +577,14 @@ public final class AsyncExpr: Expr {
 /// An expression awaiting the result of an asynchronous value (e.g., `await foo()`).
 public final class AwaitExpr: Expr {
 
-  public var range: SourceRange
+  public var range: SourceRange?
 
   public var type: ValType
 
   /// The asynchronous value to await.
   public var value: Expr
 
-  public init(value: Expr, type: ValType, range: SourceRange) {
+  public init(value: Expr, type: ValType, range: SourceRange? = nil) {
     self.value = value
     self.type = type
     self.range = range
@@ -588,14 +599,14 @@ public final class AwaitExpr: Expr {
 /// An expression resolving to the address of a value (e.g., `&foo.bar`).
 public final class AddrOfExpr: Expr {
 
-  public var range: SourceRange
+  public var range: SourceRange?
 
   public var type: ValType
 
   /// The expression representing the address to resolve.
   public var value: Expr
 
-  public init(value: Expr, type: ValType, range: SourceRange) {
+  public init(value: Expr, type: ValType, range: SourceRange? = nil) {
     self.value = value
     self.type = type
     self.range = range
@@ -617,7 +628,7 @@ public final class AddrOfExpr: Expr {
 /// same type as all its siblings.
 public final class MatchExpr: Expr {
 
-  public var range: SourceRange
+  public var range: SourceRange?
 
   public var type: ValType
 
@@ -631,13 +642,13 @@ public final class MatchExpr: Expr {
   public var cases: [MatchCaseStmt]
 
   public init(
-    isSubExpr : Bool,
-    subject   : Expr,
-    cases     : [MatchCaseStmt],
-    type      : ValType,
-    range     : SourceRange
+    isSubexpr: Bool,
+    subject: Expr,
+    cases: [MatchCaseStmt],
+    type: ValType,
+    range: SourceRange? = nil
   ) {
-    self.isSubexpr = isSubExpr
+    self.isSubexpr = isSubexpr
     self.subject = subject
     self.cases = cases
     self.type = type
@@ -653,11 +664,11 @@ public final class MatchExpr: Expr {
 /// A wildcard expression.
 public final class WildcardExpr: Expr {
 
-  public var range: SourceRange
+  public var range: SourceRange?
 
   public var type: ValType
 
-  public init(type: ValType, range: SourceRange) {
+  public init(type: ValType, range: SourceRange? = nil) {
     self.type = type
     self.range = range
   }
@@ -674,15 +685,20 @@ public final class WildcardExpr: Expr {
 /// stages need not to reason about the cause of the error.
 public final class ErrorExpr: Expr {
 
-  public var range: SourceRange
+  public var range: SourceRange?
 
   public var type: ValType  {
     didSet { assert(type is ErrorType) }
   }
 
-  public init(type: ErrorType, range: SourceRange) {
+  public init(type: ErrorType, range: SourceRange? = nil) {
     self.type = type
     self.range = range
+  }
+
+  public init(replacing expr: Expr) {
+    self.type = expr.type.context.errorType
+    self.range = expr.range
   }
 
   public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {

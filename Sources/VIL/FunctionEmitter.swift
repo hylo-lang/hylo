@@ -111,7 +111,7 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
       // The function should have a return statement.
       // FIXME: Handle non-returning blocks in last position.
       if !(builder.block?.instructions.last is RetInst) {
-        let range = body.range.upperBound ..< body.range.upperBound
+        let range = body.range.map({ $0.upperBound ..< $0.upperBound })
         context.report(.missingReturnValueInNonUnitFunction(range: range))
       }
     }

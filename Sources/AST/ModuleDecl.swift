@@ -180,7 +180,7 @@ extension ModuleDecl: TypeDecl {
 
   public var fullyQualName: [String] { [name] }
 
-  public var range: SourceRange { .invalid }
+  public var range: SourceRange? { nil }
 
   public var isOverloadable: Bool { false }
 

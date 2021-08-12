@@ -61,11 +61,7 @@ public enum TypeChecker {
   ///     appears. For instance, the contextual type of `9` in `val x: UInt = 9` is `UInt`. No
   ///     assumption is made if it assigned to `nil`.
   ///   - useSite: The declaration space in which the expression is type checked.
-  public static func check(
-    expr: inout Expr,
-    expectedType: ValType? = nil,
-    useSite: DeclSpace
-  ) {
+  public static func check(expr: inout Expr, expectedType: ValType? = nil, useSite: DeclSpace) {
     var system = ConstraintSystem()
     check(expr: &expr, expectedType: expectedType, useSite: useSite, system: &system)
   }
@@ -209,10 +205,10 @@ public enum TypeChecker {
   /// - Returns: The best solution found by the type solver
   @discardableResult
   static func check(
-    expr        : inout Expr,
-    expectedType: ValType? = nil,
-    useSite     : DeclSpace,
-    system      : inout ConstraintSystem
+    expr: inout Expr,
+    expectedType: ValType?,
+    useSite: DeclSpace,
+    system: inout ConstraintSystem
   ) -> Solution {
     // Pre-check the expression to resolve unqualified identifiers, realize type signatures and
     // desugar constructor calls.

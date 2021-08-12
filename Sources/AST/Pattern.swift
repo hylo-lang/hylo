@@ -25,14 +25,14 @@ public protocol Pattern: Node {
 /// A pattern which binds an identifier.
 public final class NamedPattern: Pattern {
 
-  public var range: SourceRange
+  public var range: SourceRange?
 
   public var type: ValType
 
   /// The variable declaration to which the name refers.
   public var decl: VarDecl
 
-  public init(decl: VarDecl, type: ValType, range: SourceRange) {
+  public init(decl: VarDecl, type: ValType, range: SourceRange? = nil) {
     self.decl = decl
     self.type = type
     self.range = range
@@ -63,9 +63,9 @@ public final class TuplePattern: Pattern {
     public var pattern: Pattern
 
     /// The source range of this element's textual representation.
-    public var range: SourceRange
+    public var range: SourceRange?
 
-    public init(label: String?, pattern: Pattern, range: SourceRange) {
+    public init(label: String?, pattern: Pattern, range: SourceRange? = nil) {
       self.label = label
       self.pattern = pattern
       self.range = range
@@ -73,14 +73,14 @@ public final class TuplePattern: Pattern {
 
   }
 
-  public var range: SourceRange
+  public var range: SourceRange?
 
   public var type: ValType
 
   /// The elements of the tuple.
   public var elems: [Elem]
 
-  public init(elems: [Elem], type: ValType, range: SourceRange) {
+  public init(elems: [Elem], type: ValType, range: SourceRange? = nil) {
     self.elems = elems
     self.type = type
     self.range = range
@@ -111,7 +111,7 @@ public final class TuplePattern: Pattern {
 /// bindings, instead or referring to existing declarations.
 public final class BindingPattern: Pattern {
 
-  public var range: SourceRange
+  public var range: SourceRange?
 
   public var type: ValType
 
@@ -125,21 +125,19 @@ public final class BindingPattern: Pattern {
   public var sign: Sign?
 
   /// The source range of the `val` or `var` keyword at the start of the pattern.
-  public var keywordRange: SourceRange
+  public var introRange: SourceRange?
 
   public init(
     isMutable: Bool,
     subpattern: Pattern,
     sign: Sign?,
     type: ValType,
-    keywordRange: SourceRange,
-    range: SourceRange
+    range: SourceRange? = nil
   ) {
     self.isMutable = isMutable
     self.subpattern = subpattern
     self.sign = sign
     self.type = type
-    self.keywordRange = keywordRange
     self.range = range
   }
 
@@ -160,11 +158,11 @@ public final class BindingPattern: Pattern {
 /// A pattern that matches an arbitrary value, but does not bind it to a name.
 public final class WildcardPattern: Pattern {
 
-  public var range: SourceRange
+  public var range: SourceRange?
 
   public var type: ValType
 
-  public init(type: ValType, range: SourceRange) {
+  public init(type: ValType, range: SourceRange? = nil) {
     self.type = type
     self.range = range
   }

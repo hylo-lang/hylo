@@ -219,8 +219,7 @@ public final class Context {
     ret: String
   ) -> FunDecl {
     // Create the declaration of the function.
-    let ident = Ident(name: name, range: .invalid)
-    let funDecl = FunDecl(ident: ident, type: unresolvedType, range: .invalid)
+    let funDecl = FunDecl(ident: Ident(name: name), type: unresolvedType)
 
     // Create the declaration(s) of the function's parameter.
     var paramTypes: [TupleType.Elem] = []
@@ -230,8 +229,8 @@ public final class Context {
       paramTypes.append(TupleType.Elem(type: type))
 
       // Create the declaration of the parameter.
-      let sign = BareIdentSign(ident: Ident(name: param, range: .invalid), type: type)
-      let decl = FunParamDecl(name: "_\(i)", typeSign: sign, type: type, range: .invalid)
+      let sign = BareIdentSign(ident: Ident(name: param), type: type)
+      let decl = FunParamDecl(name: "_\(i)", typeSign: sign, type: type)
       decl.parentDeclSpace = funDecl
       decl.setState(.typeChecked)
 
@@ -240,8 +239,7 @@ public final class Context {
 
     // Setup the function's signature.
     if !ret.isEmpty {
-      funDecl.retSign = BareIdentSign(
-        ident: Ident(name: ret, range: .invalid), type: parse(typeNamed: ret))
+      funDecl.retSign = BareIdentSign(ident: Ident(name: ret), type: parse(typeNamed: ret))
     }
     funDecl.type = funType(
       paramType: tupleType(paramTypes),

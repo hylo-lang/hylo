@@ -6,7 +6,7 @@ import Basic
 public class GenericClause: Node {
 
   /// The source range of this clause's textual representation.
-  public var range: SourceRange
+  public var range: SourceRange?
 
   /// The generic parameter types of the signature.
   public var params: [GenericParamDecl]
@@ -14,10 +14,9 @@ public class GenericClause: Node {
   /// The type requirements in the clause.
   public var typeReqs: [TypeReq]
 
-  public init(params: [GenericParamDecl], typeReqs: [TypeReq], range: SourceRange) {
+  public init(params: [GenericParamDecl], typeReqs: [TypeReq]) {
     self.params = params
     self.typeReqs = typeReqs
-    self.range = range
   }
 
 }
@@ -46,9 +45,9 @@ public struct TypeReq {
   public var rhs: Sign
 
   /// The source range of this requirement's textual representation.
-  public var range: SourceRange
+  public var range: SourceRange?
 
-  public init(kind: Kind, lhs: IdentSign, rhs: Sign, range: SourceRange) {
+  public init(kind: Kind, lhs: IdentSign, rhs: Sign, range: SourceRange? = nil) {
     self.kind = kind
     self.lhs = lhs
     self.rhs = rhs
