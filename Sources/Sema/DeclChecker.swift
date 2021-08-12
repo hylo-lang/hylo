@@ -342,6 +342,7 @@ struct DeclChecker: DeclVisitor {
     if node.state < .realizationRequested {
       node.setState(.realizationRequested)
       _ = node.realizeAliasedType()
+      guard node.state != .invalid else { return false }
     }
 
     // Initiate type checking.
