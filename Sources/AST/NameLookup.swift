@@ -4,8 +4,8 @@ extension DeclSpace {
     var space: DeclSpace = self
     var result = LookupResult()
 
-    // Only function and type declarations are overloadable. Thus we must filter out every other
-    // value declaration once the first has been found.
+    // Only function declarations are overloadable. Hence, as soon as we find a non-overloadable
+    // symbol, we should skip all non-overloadable declaration.
     var hasNonOverloadableDecl = false
 
     while true {

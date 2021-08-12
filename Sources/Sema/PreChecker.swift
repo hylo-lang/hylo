@@ -1,4 +1,5 @@
 import AST
+import Basic
 
 /// A driver for a pre-check visitor.
 final class PreCheckDriver: NodeWalker {
@@ -107,9 +108,46 @@ struct PreChecker: ExprVisitor {
   func visit(_ node: UnresolvedDeclRefExpr) -> Expr {
     let context = node.type.context
 
-    let matches = useSite.lookup(unqualified: node.name, in: node.type.context)
+    var forwardDecl: TypeOrValueDecl?
+    var matches: LookupResult
+
+    // If we're in a brace statement, look for local bindings first.
+    if useSite is BraceStmt {
+      matches = useSite.lookup(qualified: node.name)
+
+      if let decl = matches.values.first(where: { !$0.isOverloadable }) {
+        // We found a local, non-overloadable value declaration. That should be either a parameter
+        // or a local variable. If it appears syntactically before the identifier, then we're done.
+        // Otherwise, we'll check outer results for a better candidate.
+        let declRange = (decl as? VarDecl)?.patternBindingDecl?.range ?? decl.range
+        if let declLoc = declRange?.upperBound,
+           let nodeLoc = node.range?.lowerBound,
+           nodeLoc >= declLoc
+        {
+          return bind(ref: node, to: LookupResult(types: [], values: [decl]))
+        } else {
+          matches.values.removeAll()
+          matches.types.removeAll()
+          forwardDecl = decl
+        }
+      } else if !matches.types.isEmpty {
+        // We found one local type declaration. We're done.
+        matches.values.removeAll()
+        return bind(ref: node, to: matches)
+      }
+
+      let outer = useSite.parentDeclSpace!.lookup(unqualified: node.name, in: node.type.context)
+      matches.append(contentsOf: outer)
+    } else {
+      matches = useSite.lookup(unqualified: node.name, in: node.type.context)
+    }
+
     guard !matches.isEmpty else {
-      context.report(.cannotFind(symbol: node.name, range: node.range))
+      if forwardDecl != nil {
+        context.report(.useOfLocalBindingBeforeDeclaration(symbol: node.name, range: node.range))
+      } else {
+        context.report(.cannotFind(symbol: node.name, range: node.range))
+      }
       return ErrorExpr(type: context.errorType, range: node.range)
     }
 
@@ -326,7 +364,6 @@ struct PreChecker: ExprVisitor {
       return newRef
     }
 
-    assert(matches.count == 1)
     return TypeDeclRefExpr(decl: matches.types[0], range: ref.range)
   }
 

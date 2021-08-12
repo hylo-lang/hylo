@@ -14,6 +14,12 @@ extension Diag {
     return Diag("duplicate declaration of '\(name)'", anchor: range)
   }
 
+  public static func useOfLocalBindingBeforeDeclaration(
+    symbol name: String, range: SourceRange?
+  ) -> Diag {
+    return Diag("use of local binding '\(name)' before its declaration", anchor: range)
+  }
+
   public static func cannotFind(
     symbol name: String, range: SourceRange?
   ) -> Diag {
