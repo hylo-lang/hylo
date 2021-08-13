@@ -40,14 +40,14 @@ final class TypeTests: XCTestCase {
   }
 
   func testProductTypeCanonical() {
-    let decl = ProductTypeDecl(name: "A", type: context.unresolvedType, range: .invalid)
+    let decl = ProductTypeDecl(name: "A", type: context.unresolvedType)
     let type = context.productType(decl: decl)
     XCTAssertEqual(type.props, .isCanonical)
     XCTAssert(type.canonical === type)
   }
 
   func testViewTypeCanonical() {
-    let decl = ViewTypeDecl(name: "V", type: context.unresolvedType, range: .invalid)
+    let decl = ViewTypeDecl(name: "V", type: context.unresolvedType)
     let type = context.viewType(decl: decl)
     XCTAssertEqual(type.props, .isCanonical)
     XCTAssert(type.canonical === type)
@@ -55,8 +55,8 @@ final class TypeTests: XCTestCase {
 
   func testViewCompTypeCanonical() {
     let decls = [
-      ViewTypeDecl(name: "U", type: context.unresolvedType, range: .invalid),
-      ViewTypeDecl(name: "V", type: context.unresolvedType, range: .invalid)
+      ViewTypeDecl(name: "U", type: context.unresolvedType),
+      ViewTypeDecl(name: "V", type: context.unresolvedType)
     ]
 
     let views = decls.map({ (decl) -> ViewType in
