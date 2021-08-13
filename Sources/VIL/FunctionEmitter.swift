@@ -346,14 +346,19 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     // We can assume the expression's type conforms to `ExpressibleBy***Literal` (as type checking
     // succeeded). Therefore we can look for a conversion constructor `new(literal:)`.
     let view = context.getTypeDecl(for: .ExpressibleByBuiltinIntLiteral)!.instanceType as! ViewType
-
     let funref: Value
-    if let type = node.type as? NominalType {
+
+    var type = node.type.dealiased.canonical
+    if let inoutType = type as? InoutType {
+      type = inoutType.base
+    }
+
+    if let type = type as? NominalType {
       // The node has a concrete type; we can dispatch `new(literal:)` statically.
       let conformance = type.decl.conformanceTable[view]!
       let function = builder.getOrCreateFunction(from: conformance.entries[0].impl as! CtorDecl)
       funref = FunRef(function: function)
-    } else if node.type is SkolemType {
+    } else if type is SkolemType {
       // The node has an skolem type; we have to dispatch dynamically.
       fatalError("not implemented")
     } else {

@@ -12,7 +12,7 @@ final class CSGenDriver: NodeWalker {
   let system: UnsafeMutablePointer<ConstraintSystem>
 
   override func willVisit(_ expr: Expr) -> (shouldWalk: Bool, nodeBefore: Expr) {
-    // Skip the recursive descent into match constructs, as the heavy-lifting has already been done
+    // Skip the recursive descent into match statements, as the heavy-lifting has already been done
     // by the pre-checker. There's nothing more to do unless the match is treated as an expression.
     if let matchExpr = expr as? MatchExpr, matchExpr.isSubexpr {
       matchExpr.accept(ConstraintGenerator(system: system, useSite: innermostSpace!))
@@ -25,20 +25,6 @@ final class CSGenDriver: NodeWalker {
   override func didVisit(_ expr: Expr) -> (shouldContinue: Bool, nodeAfter: Expr) {
     if expr.type.hasErrors {
       return (true, expr)
-    }
-
-    // Async expressions always have the type `async T`.
-    if let asyncExpr = expr as? AsyncExpr {
-      asyncExpr.type = asyncExpr.type.context.asyncType(of: asyncExpr.value.type)
-      return (true, asyncExpr)
-    }
-
-    // Assign fresh variables to the expressions with unresolved types.
-    if (expr.type is UnresolvedType) &&
-        !(expr is UnresolvedDeclRefExpr) &&
-        !(expr is UnresolvedQualDeclRefExpr)
-    {
-      expr.type = TypeVar(context: expr.type.context, node: expr)
     }
 
     // Generate constraints.
@@ -75,6 +61,10 @@ private struct ConstraintGenerator: ExprVisitor, PatternVisitor {
   }
 
   func visit(_ node: IntLiteralExpr) {
+    if node.type is UnresolvedType {
+      node.type = TypeVar(context: node.type.context, node: node)
+    }
+
     let literalType = node.type.context.getBuiltinType(named: "IntLiteral")!
     system.pointee.insert(
       RelationalConstraint(
@@ -101,12 +91,21 @@ private struct ConstraintGenerator: ExprVisitor, PatternVisitor {
   }
 
   func visit(_ node: BaseCastExpr) {
+    if node.type is UnresolvedType {
+      node.type = TypeVar(context: node.type.context, node: node)
+    }
   }
 
   func visit(_ node: DynCastExpr) {
+    if node.type is UnresolvedType {
+      node.type = TypeVar(context: node.type.context, node: node)
+    }
   }
 
   func visit(_ node: UnsafeCastExpr) {
+    if node.type is UnresolvedType {
+      node.type = TypeVar(context: node.type.context, node: node)
+    }
   }
 
   func visit(_ node: TupleExpr) {
@@ -118,6 +117,10 @@ private struct ConstraintGenerator: ExprVisitor, PatternVisitor {
   }
 
   func visit(_ node: CallExpr) {
+    if node.type is UnresolvedType {
+      node.type = TypeVar(context: node.type.context, node: node)
+    }
+
     // Synthetize the type of a function from the call's arguments.
     var paramTypeElems: [TupleType.Elem] = []
     for (i, arg) in node.args.enumerated() {
@@ -142,6 +145,10 @@ private struct ConstraintGenerator: ExprVisitor, PatternVisitor {
   }
 
   func visit(_ node: UnresolvedMemberExpr) {
+    if node.type is UnresolvedType {
+      node.type = TypeVar(context: node.type.context, node: node)
+    }
+
     system.pointee.insert(
       ValueMemberConstraint(
         node.base.type, hasValueMember: node.memberName, ofType: node.type, useSite: useSite,
@@ -154,6 +161,10 @@ private struct ConstraintGenerator: ExprVisitor, PatternVisitor {
   func visit(_ node: OverloadedDeclRefExpr) {
     assert(node.declSet.count >= 1)
 
+    if node.type is UnresolvedType {
+      node.type = TypeVar(context: node.type.context, node: node)
+    }
+
     system.pointee.insert(
       OverloadBindingConstraint(
         node.type, declSet: node.declSet, useSite: useSite,
@@ -161,15 +172,28 @@ private struct ConstraintGenerator: ExprVisitor, PatternVisitor {
   }
 
   func visit(_ node: DeclRefExpr) {
+    if node.type is UnresolvedType {
+      node.type = TypeVar(context: node.type.context, node: node)
+    }
   }
 
   func visit(_ node: TypeDeclRefExpr) {
+    if node.type is UnresolvedType {
+      node.type = TypeVar(context: node.type.context, node: node)
+    }
   }
 
   func visit(_ node: MemberDeclRefExpr) {
+    if node.type is UnresolvedType {
+      node.type = TypeVar(context: node.type.context, node: node)
+    }
   }
 
   func visit(_ node: TupleMemberExpr) {
+    if node.type is UnresolvedType {
+      node.type = TypeVar(context: node.type.context, node: node)
+    }
+
     system.pointee.insert(
       TupleMemberConstraint(
         node.base.type, hasMemberAt: node.memberIndex, ofType: node.type,
@@ -177,9 +201,14 @@ private struct ConstraintGenerator: ExprVisitor, PatternVisitor {
   }
 
   func visit(_ node: AsyncExpr) -> Void {
+    node.type = node.type.context.asyncType(of: node.value.type)
   }
 
   func visit(_ node: AwaitExpr) {
+    if node.type is UnresolvedType {
+      node.type = TypeVar(context: node.type.context, node: node)
+    }
+
     let awaitedType = node.type.context.asyncType(of: node.type)
     system.pointee.insert(
       RelationalConstraint(
@@ -188,10 +217,19 @@ private struct ConstraintGenerator: ExprVisitor, PatternVisitor {
   }
 
   func visit(_ node: AddrOfExpr) {
+    if node.value.type is InoutType {
+      node.type = node.value.type
+    } else {
+      node.type = node.type.context.inoutType(of: node.value.type)
+    }
   }
 
   func visit(_ node: MatchExpr) {
-    precondition(node.isSubexpr)
+    assert(node.isSubexpr)
+
+    if node.type is UnresolvedType {
+      node.type = TypeVar(context: node.type.context, node: node)
+    }
 
     if node.type is UnresolvedType {
       node.type = TypeVar(context: node.type.context, node: node)
@@ -210,6 +248,9 @@ private struct ConstraintGenerator: ExprVisitor, PatternVisitor {
   }
 
   func visit(_ node: WildcardExpr) {
+    if node.type is UnresolvedType {
+      node.type = TypeVar(context: node.type.context, node: node)
+    }
   }
 
   func visit(_ node: ErrorExpr) {

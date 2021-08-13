@@ -210,17 +210,15 @@ public enum TypeChecker {
     useSite: DeclSpace,
     system: inout ConstraintSystem
   ) -> Solution {
-    // Pre-check the expression to resolve unqualified identifiers, realize type signatures and
-    // desugar constructor calls.
     withUnsafeMutablePointer(to: &system, { ptr in
-      let driver = PreCheckDriver(system: ptr, useSite: useSite)
-      (_, expr) = driver.walk(expr)
-    })
+      // Pre-check the expression to resolve unqualified identifiers, realize type signatures and
+      // desugar constructor calls.
+      let precheck = PreCheckDriver(system: ptr, useSite: useSite)
+      (_, expr) = precheck.walk(expr)
 
-    // Generate constraints from the expression.
-    withUnsafeMutablePointer(to: &system, { ptr in
-      let driver = CSGenDriver(system: ptr, useSite: useSite)
-      _ = driver.walk(expr)
+      // Generate constraints from the expression.
+      let csgen = CSGenDriver(system: ptr, useSite: useSite)
+      (_, expr) = csgen.walk(expr)
     })
 
     if let type = expectedType {

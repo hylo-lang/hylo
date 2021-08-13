@@ -215,36 +215,39 @@ struct CSSolver {
       // We can't solve anything yet if both types are still unknown.
       system.staleConstraints.append(constraint)
 
-    case (let lhs as InoutType, _):
-      // If `T` is an in-out type, strenghten the constraint as an equality.
-      let upper = (constraint.rhs as? InoutType)?.base ?? constraint.rhs
+    case (_, let rhs as InoutType):
+      // If `U` is an in-out type, then `T` must be equal and the subtyping constraint can be
+      // strenghten as an equality constraint.
       let simplified = RelationalConstraint(
-        kind: .equality, lhs: lhs.base, rhs: upper, at: constraint.locator)
+        kind: .equality, lhs: constraint.lhs, rhs: rhs, at: constraint.locator)
       solve(simplified)
 
-    case (_, let rhs as InoutType):
-      // If `U` is an in-out type, strenghten the constraint as an equality.
-      let lower = (constraint.lhs as? InoutType)?.base ?? constraint.lhs
-      let simplified = RelationalConstraint(
-        kind: .equality, lhs: lower, rhs: rhs.base, at: constraint.locator)
-      solve(simplified)
+    case (let lhs as InoutType, _):
+      // If `T` is an in-out type, then we can solve the subtyping constraint w.r.t. to its base.
+      // Nonetheless, if `U` is a type variable, we'd like to favor inferring `U` as `T`, so that
+      // we don't forget about mutability.
+      // Note that `U` can't be in-out, otherwise we would have matched the previous case.
+      let weakened = RelationalConstraint(
+        kind: .subtyping, lhs: lhs.base, rhs: constraint.rhs, at: constraint.locator)
+
+      if let rhs = constraint.rhs as? TypeVar {
+        let favorite = RelationalConstraint(
+          kind: .equality, lhs: lhs, rhs: rhs, at: constraint.locator)
+        system.insert(disjunctionOfConstraintsWithWeights: [(favorite, 0), (weakened, 1)])
+      } else {
+        solve(weakened)
+      }
 
     case is (TypeVar, ValType):
       // The type variable is below a more concrete type. We should compute the "meet" of all types
       // coercible to `U` and that are above `T`. Unfortunately, we can't enumerate such a set; it
       // would essentially boils down to computing the set of types that are subtypes of `U`. Thus,
       // we have to make an educated guess, based on `U`.
-      var upper = constraint.rhs
-      if let inoutType = upper as? InoutType {
-        // Don't preserve l-valueness.
-        upper = inoutType.base
-      }
-
-      switch upper {
+      switch constraint.rhs {
       case is ProductType, is SkolemType:
         // `U` is a "final" type that cannot have any subtype.
         let simplified = RelationalConstraint(
-          kind: .equality, lhs: constraint.lhs, rhs: upper, at: constraint.locator)
+          kind: .equality, lhs: constraint.lhs, rhs: constraint.rhs, at: constraint.locator)
         solve(simplified)
 
       case is ViewType:
@@ -252,7 +255,7 @@ struct CSSolver {
         // fail if `T` is more tightly constrained by another relation that we haven't solved yet.
         // Instead, we can try to solve the constraint as a conformance relation.
         let simplified = RelationalConstraint(
-          kind: .conformance, lhs: constraint.lhs, rhs: upper, at: constraint.locator)
+          kind: .conformance, lhs: constraint.lhs, rhs: constraint.rhs, at: constraint.locator)
         solve(simplified)
 
       default:
