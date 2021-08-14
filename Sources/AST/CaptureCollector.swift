@@ -1,7 +1,13 @@
 import Basic
 
 /// A node visitor that gathers the values that are captured by an expression.
-public final class CaptureCollector: NodeWalker {
+public struct CaptureCollector: NodeWalker {
+
+  public typealias Result = Bool
+
+  public var parent: Node?
+
+  public var innermostSpace: DeclSpace?
 
   /// The declaration space in which the visited expression is being analyzed.
   private var space: DeclSpace?
@@ -20,17 +26,17 @@ public final class CaptureCollector: NodeWalker {
     self.captureSet = []
   }
 
-  public override func willVisit(_ decl: Decl) -> (shouldWalk: Bool, nodeBefore: Decl) {
-    guard let decl = decl as? BaseFunDecl else { return (true, decl) }
+  public mutating func willVisit(_ decl: Decl) -> Bool {
+    guard let decl = decl as? BaseFunDecl else { return true }
 
     let currentSpace = space
     space = decl
-    _ = decl.accept(self)
+    _ = decl.accept(&self)
     space = currentSpace
-    return (false, decl)
+    return false
   }
 
-  public override func didVisit(_ expr: Expr) -> (shouldContinue: Bool, nodeAfter: Expr) {
+  public mutating func didVisit(_ expr: Expr) -> (shouldContinue: Bool, nodeAfter: Expr) {
     // Check whether the expression is a declaration reference.
     if let expr = expr as? DeclRefExpr {
       // If the referre declaration is a function, make sure it is a identifying a local closure.

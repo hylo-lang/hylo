@@ -41,7 +41,8 @@ public enum TypeChecker {
   ///
   /// - Parameter decl: The declaration to type check.
   public static func check(decl: Decl) -> Bool {
-    decl.accept(DeclChecker())
+    var checker = DeclChecker()
+    return decl.accept(&checker)
   }
 
   /// Type checks the given statement.
@@ -50,7 +51,8 @@ public enum TypeChecker {
   ///   - stmt: The statement to type check.
   ///   - useSite: The declaration space in which the statement is type checked.
   public static func check(stmt: Stmt, useSite: DeclSpace) {
-    stmt.accept(StmtChecker(useSite: useSite))
+    var checker = StmtChecker(useSite: useSite)
+    return stmt.accept(&checker)
   }
 
   /// Type checks the given expression.
@@ -213,12 +215,12 @@ public enum TypeChecker {
     withUnsafeMutablePointer(to: &system, { ptr in
       // Pre-check the expression to resolve unqualified identifiers, realize type signatures and
       // desugar constructor calls.
-      let precheck = PreCheckDriver(system: ptr, useSite: useSite)
-      (_, expr) = precheck.walk(expr)
+      var precheck = PreCheckDriver(system: ptr, useSite: useSite)
+      (_, expr) = precheck.walk(expr: expr)
 
       // Generate constraints from the expression.
-      let csgen = CSGenDriver(system: ptr, useSite: useSite)
-      (_, expr) = csgen.walk(expr)
+      var csgen = CSGenDriver(system: ptr, useSite: useSite)
+      (_, expr) = csgen.walk(expr: expr)
     })
 
     if let type = expectedType {
@@ -242,8 +244,8 @@ public enum TypeChecker {
     solution.reportAllErrors(in: expr.type.context)
 
     // Apply the solution.
-    let dispatcher = TypeDispatcher(solution: solution)
-    (_, expr) = dispatcher.walk(expr)
+    var dispatcher = TypeDispatcher(solution: solution)
+    (_, expr) = dispatcher.walk(expr: expr)
 
     return solution
   }
@@ -258,8 +260,8 @@ public enum TypeChecker {
   ) -> Solution {
     // Generate constraints from the pattern.
     withUnsafeMutablePointer(to: &system, { ptr in
-      let driver = CSGenDriver(system: ptr, useSite: useSite)
-      _ = driver.walk(pattern)
+      var driver = CSGenDriver(system: ptr, useSite: useSite)
+      driver.walk(pattern: pattern)
     })
 
     if let type = expectedType {
@@ -276,8 +278,8 @@ public enum TypeChecker {
     solution.reportAllErrors(in: pattern.type.context)
 
     // Apply the solution.
-    let dispatcher = TypeDispatcher(solution: solution)
-    _ = dispatcher.walk(pattern)
+    var dispatcher = TypeDispatcher(solution: solution)
+    dispatcher.walk(pattern: pattern)
 
     return solution
   }

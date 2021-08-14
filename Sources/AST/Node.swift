@@ -32,7 +32,8 @@ extension Node {
   ///   - context: The AST context in which the node was created.
   ///   - stream: A text output stream.
   public func dump<S>(context: Context, to stream: inout S) where S: TextOutputStream {
-    stream.write(NodePrinter(context: context).visit(any: self))
+    var printer = NodePrinter(context: context)
+    stream.write(printer.visit(any: self))
   }
 
 }

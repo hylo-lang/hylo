@@ -6,7 +6,7 @@ public protocol Stmt: Node {
   /// Accepts the given visitor.
   ///
   /// - Parameter visitor: A statement visitor.
-  func accept<V>(_ visitor: V) -> V.StmtResult where V: StmtVisitor
+  func accept<V>(_ visitor: inout V) -> V.StmtResult where V: StmtVisitor
 
 }
 
@@ -32,7 +32,7 @@ public final class BraceStmt: Stmt, IterableDeclSpace {
     return stmts.lazy.compactMap({ $0 as? Decl })
   }
 
-  public func accept<V>(_ visitor: V) -> V.StmtResult where V: StmtVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.StmtResult where V: StmtVisitor {
     return visitor.visit(self)
   }
 
@@ -54,7 +54,7 @@ public final class RetStmt: Stmt {
     self.range = range
   }
 
-  public func accept<V>(_ visitor: V) -> V.StmtResult where V: StmtVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.StmtResult where V: StmtVisitor {
     return visitor.visit(self)
   }
 
@@ -89,7 +89,7 @@ public final class MatchCaseStmt: Stmt, IterableDeclSpace {
     return pattern.namedPatterns.lazy.map({ $0.decl })
   }
 
-  public func accept<V>(_ visitor: V) -> V.StmtResult where V: StmtVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.StmtResult where V: StmtVisitor {
     return visitor.visit(self)
   }
 

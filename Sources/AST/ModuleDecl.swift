@@ -184,7 +184,7 @@ extension ModuleDecl: TypeDecl {
 
   public var isOverloadable: Bool { false }
 
-  public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
 

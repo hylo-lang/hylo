@@ -295,7 +295,7 @@ public final class Context {
   ///
   /// - Parameter stream: A text output stream.
   public func dump<S>(to stream: inout S) where S: TextOutputStream {
-    let printer = NodePrinter(context: self)
+    var printer = NodePrinter(context: self)
 
     stream.write("[")
     var isFirst = true

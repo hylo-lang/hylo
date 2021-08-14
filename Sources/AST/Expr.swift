@@ -9,7 +9,7 @@ public protocol Expr: Node {
   /// Accepts the given visitor.
   ///
   /// - Parameter visitor: An expression visitor.
-  func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor
+  func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor
 
 }
 
@@ -29,7 +29,7 @@ public final class BoolLiteralExpr: Expr {
     self.range = range
   }
 
-  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
   }
 
@@ -51,7 +51,7 @@ public final class IntLiteralExpr: Expr {
     self.range = range
   }
 
-  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
   }
 
@@ -73,7 +73,7 @@ public final class FloatLiteralExpr: Expr {
     self.range = range
   }
 
-  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
   }
 
@@ -95,7 +95,7 @@ public final class StringLiteralExpr: Expr {
     self.range = range
   }
 
-  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
   }
 
@@ -125,7 +125,7 @@ public final class AssignExpr: Expr {
     self.range = range
   }
 
-  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
   }
 
@@ -151,7 +151,7 @@ public class BaseCastExpr: Expr {
     self.range = range
   }
 
-  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
   }
 
@@ -160,7 +160,7 @@ public class BaseCastExpr: Expr {
 /// A safe, dynamic cast expression (e.g., `foo as? Bar`).
 public final class DynCastExpr: BaseCastExpr {
 
-  public override func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
+  public override func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
   }
 
@@ -169,7 +169,7 @@ public final class DynCastExpr: BaseCastExpr {
 /// An unsafe cast expression (e.g., `foo as! Bar`).
 public final class UnsafeCastExpr: BaseCastExpr {
 
-  public override func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
+  public override func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
   }
 
@@ -191,7 +191,7 @@ public final class TupleExpr: Expr {
     self.range = range
   }
 
-  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
   }
 
@@ -270,7 +270,7 @@ public final class CallExpr: Expr {
     self.range = range
   }
 
-  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
   }
 
@@ -330,7 +330,7 @@ public final class UnresolvedDeclRefExpr: Expr {
 
   public var range: SourceRange? { ident.range }
 
-  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
   }
 
@@ -370,7 +370,7 @@ public final class UnresolvedQualDeclRefExpr: Expr {
   /// The unqualified name of the referred declaration.
   public var name: String { ident.name }
 
-  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
   }
 
@@ -396,7 +396,7 @@ public final class OverloadedDeclRefExpr: Expr {
     self.range = range
   }
 
-  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
   }
 
@@ -418,7 +418,7 @@ public final class DeclRefExpr: Expr {
     self.range = range
   }
 
-  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
   }
 
@@ -442,7 +442,7 @@ public final class TypeDeclRefExpr: Expr {
     self.range = range
   }
 
-  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
   }
 
@@ -482,7 +482,7 @@ public final class UnresolvedMemberExpr: MemberExpr {
   /// The unqualified name of the member.
   public var memberName: String { ident.name }
 
-  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
   }
 
@@ -511,7 +511,7 @@ public final class MemberDeclRefExpr: MemberExpr {
     self.range = range
   }
 
-  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
   }
 
@@ -543,7 +543,7 @@ public final class TupleMemberExpr: MemberExpr {
     return tType.elems[memberIndex].label
   }
 
-  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
   }
 
@@ -568,7 +568,7 @@ public final class AsyncExpr: Expr {
     self.range = range
   }
 
-  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
   }
 
@@ -590,7 +590,7 @@ public final class AwaitExpr: Expr {
     self.range = range
   }
 
-  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
   }
 
@@ -612,7 +612,7 @@ public final class AddrOfExpr: Expr {
     self.range = range
   }
 
-  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
   }
 
@@ -655,7 +655,7 @@ public final class MatchExpr: Expr {
     self.range = range
   }
 
-  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
   }
 
@@ -673,7 +673,7 @@ public final class WildcardExpr: Expr {
     self.range = range
   }
 
-  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
   }
 
@@ -701,7 +701,7 @@ public final class ErrorExpr: Expr {
     self.range = expr.range
   }
 
-  public func accept<V>(_ visitor: V) -> V.ExprResult where V: ExprVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
     visitor.visit(self)
   }
 

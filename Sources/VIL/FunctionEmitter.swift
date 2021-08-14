@@ -2,27 +2,20 @@ import AST
 import Basic
 
 /// A visitor that emits the VIL code of a function declaration.
-final class FunctionEmitter: StmtVisitor, ExprVisitor {
+struct FunctionEmitter: StmtVisitor, ExprVisitor {
 
   typealias StmtResult = Void
   typealias ExprResult = Result<Value, EmitterError>
 
-  /// The top-level emitter.
-  unowned let parent: Emitter
+  /// The VIL builder used by the emitter.
+  var builder: Builder
 
   /// The declaration of the function being emitted.
   let funDecl: BaseFunDecl
 
-  /// A symbol table that locally visible declarations to their emitted value.
-  ///
-  /// This is populated by function parameters and pattern binding declarations.
+  /// A symbol table that locally visible declarations to their emitted value, populated by
+  /// function parameters and local pattern binding declarations.
   var locals: [ObjectIdentifier: Value] = [:]
-
-  /// The VIL builder used by the emitter.
-  var builder: Builder { parent.builder }
-
-  /// The context in which the function declaration is defined.
-  var context: AST.Context { funDecl.type.context }
 
   /// Creates a function emitter.
   ///
@@ -31,14 +24,17 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
   ///   - builder: The builder used to create new instructions.
   ///   - funDecl: The declaration of the function to emit. The initializer will fail if `funDecl`
   ///     is not type checked.
-  init(parent: Emitter, funDecl: BaseFunDecl) {
+  init(builder: Builder, funDecl: BaseFunDecl) {
     precondition(funDecl.state >= .typeChecked)
-    self.parent = parent
+    self.builder = builder
     self.funDecl = funDecl
   }
 
+  /// The context in which the function declaration is defined.
+  var context: AST.Context { funDecl.type.context }
+
   /// Emits the function.
-  func emit() {
+  mutating func emit() {
     // Create (i.e., declare) the function in the module.
     let function = builder.getOrCreateFunction(from: funDecl)
 
@@ -142,7 +138,7 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
   }
 
   /// Emits a local pattern binding declaration.
-  func emit(localPatternBindingDecl decl: PatternBindingDecl) {
+  mutating func emit(localPatternBindingDecl decl: PatternBindingDecl) {
     // Create the variable locations for each name in the pattern.
     let lvalues = decl.pattern.namedPatterns.map({ name in
       emit(localVarDecl: name.decl)
@@ -162,7 +158,7 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
   }
 
   /// Emits a local variable declaration.
-  func emit(localVarDecl decl: VarDecl) -> Value {
+  mutating func emit(localVarDecl decl: VarDecl) -> Value {
     guard decl.state >= .typeChecked else {
       return ErrorValue(context: context)
     }
@@ -215,11 +211,12 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
   }
 
   /// Emits the assignment of the value represented by `expr` to `lvalue`.
-  func emit(assign expr: Expr, to lvalue: Value) {
+  mutating func emit(assign expr: Expr, to lvalue: Value) {
     // If both operands have an existential layout and the r-value can be treated as a location,
     // then we may simply emit `copy_addr`.
     if lvalue.type.valType.isExistential && expr.type.isExistential {
-      if case .success(var rvalue) = expr.accept(LValueEmitter(parent: self)) {
+      var lvalueEmitter = LValueEmitter(builder: builder, funDecl: funDecl, locals: locals)
+      if case .success(var rvalue) = expr.accept(&lvalueEmitter) {
         // If the r-value has a different type than the l-value, it must be casted.
         if lvalue.type.valType != expr.type {
           rvalue = builder.buildUnsafeCastAddr(source: rvalue, type: lvalue.type)
@@ -237,13 +234,13 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
   }
 
   /// Emits a r-value.
-  func emit(rvalue node: Expr) -> Value {
+  mutating func emit(rvalue node: Expr) -> Value {
     // Emit an error value for any expression that has an error type.
     guard node.type !== context.errorType else {
       return ErrorValue(context: context)
     }
 
-    switch node.accept(self) {
+    switch node.accept(&self) {
     case .success(let value):
       return value
 
@@ -261,7 +258,8 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
       return ErrorValue(context: context)
     }
 
-    switch node.accept(LValueEmitter(parent: self)) {
+    var lvalueEmitter = LValueEmitter(builder: builder, funDecl: funDecl, locals: locals)
+    switch node.accept(&lvalueEmitter) {
     case .success(let value):
       return value
 
@@ -282,19 +280,20 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
   // MARK: Visitors
   // ----------------------------------------------------------------------------------------------
 
-  func visit(_ node: BraceStmt) {
+  mutating func visit(_ node: BraceStmt) {
     precondition(builder.block != nil, "not in a basic block")
 
+    var declEmitter = DeclEmitter(builder: builder, context: context)
     for i in 0 ..< node.stmts.count {
       switch node.stmts[i] {
       case let decl as PatternBindingDecl:
         emit(localPatternBindingDecl: decl)
 
       case let decl as FunDecl:
-        decl.accept(parent)
+        decl.accept(&declEmitter)
 
         // Emit the value of each captured declaration.
-        let partialArgs = decl.computeCaptures().map(emit(rvalue:))
+        let partialArgs = decl.computeCaptures().map({ emit(rvalue: $0) })
 
         // Local function with captures declarations require stack allocation.
         if !partialArgs.isEmpty {
@@ -308,10 +307,10 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
         }
         
       case let decl as Decl:
-        decl.accept(parent)
+        decl.accept(&declEmitter)
 
       case let stmt as Stmt:
-        stmt.accept(self)
+        stmt.accept(&self)
 
         // Discard everything after a return statement.
         if (stmt is RetStmt) && (i > node.stmts.count - 1) {
@@ -321,7 +320,7 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
 
       case let expr as Expr:
         // FIXME: Drop the result of the expression.
-        _ = expr.accept(self)
+        _ = expr.accept(&self)
 
       default:
         fatalError("unreachable")
@@ -329,8 +328,8 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     }
   }
 
-  func visit(_ node: RetStmt) {
-    let value = node.value.map(emit(rvalue:)) ?? UnitValue(context: context)
+  mutating func visit(_ node: RetStmt) {
+    let value = node.value.map({ emit(rvalue: $0) }) ?? UnitValue(context: context)
     builder.buildRet(value: value)
   }
 
@@ -378,9 +377,10 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     fatalError("not implemented")
   }
 
-  func visit(_ node: AssignExpr) -> ExprResult {
+  mutating func visit(_ node: AssignExpr) -> ExprResult {
     // Emit the left operand first.
-    switch node.lvalue.accept(LValueEmitter(parent: self)) {
+    var lvalueEmitter = LValueEmitter(builder: builder, funDecl: funDecl, locals: locals)
+    switch node.lvalue.accept(&lvalueEmitter) {
     case .success(let lvalue):
       emit(assign: node.rvalue, to: lvalue)
 
@@ -406,7 +406,7 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     fatalError("unreachable")
   }
 
-  func visit(_ node: DynCastExpr) -> Result<Value, EmitterError> {
+  mutating func visit(_ node: DynCastExpr) -> Result<Value, EmitterError> {
     // The type of the node should be `Maybe<T>`.
     guard let nodeType = node.type as? BoundGenericType else {
       preconditionFailure("dynamic cast should have a maybe type")
@@ -418,7 +418,8 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     let result = builder.buildAllocStack(type: .lower(node.type))
 
     let source: Value
-    if case .success(let s) = node.value.accept(LValueEmitter(parent: self)) {
+    var lvalueEmitter = LValueEmitter(builder: builder, funDecl: funDecl, locals: locals)
+    if case .success(let s) = node.value.accept(&lvalueEmitter) {
       source = s
     } else {
       source = builder.buildAllocStack(type: .lower(node.type))
@@ -455,14 +456,14 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     return .success(builder.buildLoad(lvalue: result))
   }
 
-  func visit(_ node: UnsafeCastExpr) -> Result<Value, EmitterError> {
+  mutating func visit(_ node: UnsafeCastExpr) -> Result<Value, EmitterError> {
     let sourceType = node.value.type.dealiased
     let targetType = node.type.dealiased
 
     // Check for trivial casts.
     guard sourceType !== targetType else {
       context.report(.unsafeCastToSameTypeHasNoEffect(type: node.type, range: node.range))
-      return node.value.accept(self)
+      return node.value.accept(&self)
     }
 
     // If the target type is existential, store the node's value into a new container.
@@ -483,14 +484,14 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     fatalError("not implemented")
   }
 
-  func visit(_ node: TupleExpr) -> ExprResult {
+  mutating func visit(_ node: TupleExpr) -> ExprResult {
     let tuple = builder.buildTuple(
       type: node.type as! TupleType,
       elems: node.elems.map({ elem in emit(rvalue: elem.value) }))
     return .success(tuple)
   }
 
-  func visit(_ node: CallExpr) -> ExprResult {
+  mutating func visit(_ node: CallExpr) -> ExprResult {
     let callee: Value
     var args: [Value] = []
 
@@ -614,7 +615,8 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     }
 
     // Emit a l-value and convert it to an r-value.
-    switch node.accept(LValueEmitter(parent: self)) {
+    var lvalueEmitter = LValueEmitter(builder: builder, funDecl: funDecl, locals: locals)
+    switch node.accept(&lvalueEmitter) {
     case .success(let lvalue):
       return .success(builder.buildLoad(lvalue: lvalue))
     case let failure:
@@ -626,10 +628,10 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     fatalError()
   }
 
-  func visit(_ node: MemberDeclRefExpr) -> ExprResult {
+  mutating func visit(_ node: MemberDeclRefExpr) -> ExprResult {
     // Emit the base value.
     let base: Value
-    switch node.base.accept(self) {
+    switch node.base.accept(&self) {
     case .success(let b):
       base = b
     case let failure:
@@ -657,10 +659,10 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     fatalError()
   }
 
-  func visit(_ node: AsyncExpr) -> ExprResult {
+  mutating func visit(_ node: AsyncExpr) -> ExprResult {
     // Collect the declarations being captured by the async expression.
-    let collector = CaptureCollector(relativeTo: nil)
-    _ = collector.walk(node.value)
+    var collector = CaptureCollector(relativeTo: nil)
+    collector.walk(expr: node.value)
 
     // Create the type of the function wrapping the async expression.
     assert(node.type is AsyncType)
@@ -697,7 +699,7 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     return .success(builder.buildAsync(fun: fn, args: args))
   }
 
-  func visit(_ node: AwaitExpr) -> ExprResult {
+  mutating func visit(_ node: AwaitExpr) -> ExprResult {
     return .success(builder.buildAwait(value: emit(rvalue: node.value)))
   }
 
@@ -705,7 +707,7 @@ final class FunctionEmitter: StmtVisitor, ExprVisitor {
     fatalError()
   }
 
-  func visit(_ node: MatchExpr) -> ExprResult {
+  mutating func visit(_ node: MatchExpr) -> ExprResult {
     guard let function = builder.function else { fatalError("unreachable") }
     assert(!node.cases.isEmpty)
 

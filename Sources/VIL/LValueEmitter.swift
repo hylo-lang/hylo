@@ -5,8 +5,18 @@ struct LValueEmitter: ExprVisitor {
 
   typealias ExprResult = Result<Value, EmitterError>
 
-  /// The function emitter that owns this emitter.
-  unowned let parent: FunctionEmitter
+  /// The VIL builder used by the emitter.
+  var builder: Builder
+
+  /// The declaration of the function being emitted.
+  let funDecl: BaseFunDecl
+
+  /// A symbol table that locally visible declarations to their emitted value, populated by
+  /// function parameters and local pattern binding declarations.
+  var locals: [ObjectIdentifier: Value] = [:]
+
+  /// The context in which the function declaration is defined.
+  var context: AST.Context { funDecl.type.context }
 
   func visit(_ node: BoolLiteralExpr) -> Result<Value, EmitterError> {
     return .failure(.immutableExpr)
@@ -36,16 +46,16 @@ struct LValueEmitter: ExprVisitor {
     return .failure(.immutableExpr)
   }
 
-  func visit(_ node: UnsafeCastExpr) -> Result<Value, EmitterError> {
+  mutating func visit(_ node: UnsafeCastExpr) -> Result<Value, EmitterError> {
     // The value being cast has to be emittable as an l-value.
-    switch node.value.accept(self) {
+    switch node.value.accept(&self) {
     case .success(let source):
       guard node.type != node.value.type else {
-        parent.context.report(.unsafeCastToSameTypeHasNoEffect(type: node.type, range: node.range))
+        context.report(.unsafeCastToSameTypeHasNoEffect(type: node.type, range: node.range))
         return .success(source)
       }
 
-      let cast = parent.builder.buildUnsafeCastAddr(
+      let cast = builder.buildUnsafeCastAddr(
         source: source, type: VILType.lower(node.type).address)
       return .success(cast)
 
@@ -85,7 +95,7 @@ struct LValueEmitter: ExprVisitor {
       guard decl.hasStorage else { return .failure(.immutableLocation) }
 
       // If the variable is already in the local symbol table, just return its value.
-      if let lv = parent.locals[ObjectIdentifier(node.decl)] {
+      if let lv = locals[ObjectIdentifier(node.decl)] {
         guard lv.type.isAddress else { return .failure(.immutableLocation) }
         return .success(lv)
       }
@@ -96,13 +106,13 @@ struct LValueEmitter: ExprVisitor {
         assert(decl.parentDeclSpace is NominalTypeDecl)
 
         // Make sure that `self` is mutable.
-        let selfDecl = parent.funDecl.selfDecl!
+        let selfDecl = funDecl.selfDecl!
         guard selfDecl.type is InoutType else {
           return .failure(.immutableSelf)
         }
 
-        let base = parent.locals[ObjectIdentifier(selfDecl)]!
-        let memberAddr = parent.builder.buildRecordMemberAddr(
+        let base = locals[ObjectIdentifier(selfDecl)]!
+        let memberAddr = builder.buildRecordMemberAddr(
           record: base, memberDecl: decl, type: VILType.lower(node.type).address)
         return .success(memberAddr)
       }
@@ -112,7 +122,7 @@ struct LValueEmitter: ExprVisitor {
 
     // If the expression refers to a local function argument, just lookup the symbol table.
     if let decl = node.decl as? FunParamDecl {
-      let lv = parent.locals[ObjectIdentifier(decl)]!
+      let lv = locals[ObjectIdentifier(decl)]!
       guard lv.type.isAddress else { return .failure(.immutableLocation) }
       return .success(lv)
     }
@@ -125,9 +135,9 @@ struct LValueEmitter: ExprVisitor {
     fatalError("not implemented")
   }
 
-  func visit(_ node: MemberDeclRefExpr) -> ExprResult {
+  mutating func visit(_ node: MemberDeclRefExpr) -> ExprResult {
     // The base has to be emittable as an l-value.
-    switch node.base.accept(self) {
+    switch node.base.accept(&self) {
     case .success(let base):
       // Make sure the base has an address type.
       guard base.type.isAddress else { return .failure(.immutableLocation) }
@@ -142,12 +152,12 @@ struct LValueEmitter: ExprVisitor {
         switch baseType {
         case is ProductType:
           // The member refers to a stored property of a concrete product type.
-          let memberAddr = parent.builder.buildRecordMemberAddr(
+          let memberAddr = builder.buildRecordMemberAddr(
             record: base, memberDecl: decl, type: VILType.lower(node.type).address)
           return .success(memberAddr)
 
         case let bgType as BoundGenericType where bgType.decl.instanceType is ProductType:
-          let memberAddr = parent.builder.buildRecordMemberAddr(
+          let memberAddr = builder.buildRecordMemberAddr(
             record: base, memberDecl: decl, type: VILType.lower(node.type).address)
           return .success(memberAddr)
 

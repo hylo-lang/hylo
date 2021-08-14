@@ -1,44 +1,53 @@
 import AST
 
 /// A driver for a constraint generator.
-final class CSGenDriver: NodeWalker {
+struct CSGenDriver: NodeWalker {
+
+  typealias Result = Bool
+
+  var parent: Node?
+
+  var innermostSpace: DeclSpace?
 
   init(system: UnsafeMutablePointer<ConstraintSystem>, useSite: DeclSpace) {
     self.system = system
-    super.init(innermostSpace: useSite)
+    self.innermostSpace = useSite
   }
 
   /// A pointer to the system in which new constraints are inserted.
   let system: UnsafeMutablePointer<ConstraintSystem>
 
-  override func willVisit(_ expr: Expr) -> (shouldWalk: Bool, nodeBefore: Expr) {
+  mutating func willVisit(_ expr: Expr) -> (shouldWalk: Bool, nodeBefore: Expr) {
     // Skip the recursive descent into match statements, as the heavy-lifting has already been done
     // by the pre-checker. There's nothing more to do unless the match is treated as an expression.
     if let matchExpr = expr as? MatchExpr, matchExpr.isSubexpr {
-      matchExpr.accept(ConstraintGenerator(system: system, useSite: innermostSpace!))
+      var csgen = ConstraintGenerator(system: system, useSite: innermostSpace!)
+      matchExpr.accept(&csgen)
       return (false, matchExpr)
     }
 
     return (true, expr)
   }
 
-  override func didVisit(_ expr: Expr) -> (shouldContinue: Bool, nodeAfter: Expr) {
+  mutating func didVisit(_ expr: Expr) -> (shouldContinue: Bool, nodeAfter: Expr) {
     if expr.type.hasErrors {
       return (true, expr)
     }
 
     // Generate constraints.
-    expr.accept(ConstraintGenerator(system: system, useSite: innermostSpace!))
+    var csgen = ConstraintGenerator(system: system, useSite: innermostSpace!)
+    expr.accept(&csgen)
     return (true, expr)
   }
 
-  override func didVisit(_ pattern: Pattern) -> (shouldContinue: Bool, nodeAfter: Pattern) {
+  mutating func didVisit(_ pattern: Pattern) -> (shouldContinue: Bool, nodeAfter: Pattern) {
     // There's nothing to do if the pattern already has a type.
     if !(pattern.type is UnresolvedType) {
       return (true, pattern)
     }
 
-    pattern.accept(ConstraintGenerator(system: system, useSite: innermostSpace!))
+    var csgen = ConstraintGenerator(system: system, useSite: innermostSpace!)
+    pattern.accept(&csgen)
     return (true, pattern)
   }
 

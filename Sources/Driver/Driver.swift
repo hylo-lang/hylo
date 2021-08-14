@@ -152,12 +152,12 @@ public struct Driver {
     }
 
     // Initialize the VIL emitter.
-    let module  = Module(id: moduleDecl.name)
-    let builder = VIL.Builder(module: module)
-    let emitter = Emitter(context: context, builder: builder)
+    let module = Module(id: moduleDecl.name)
+    let builder = Builder(module: module)
+    var emitter = DeclEmitter(builder: builder, context: context)
 
     // Emit the module declaration.
-    moduleDecl.accept(emitter)
+    moduleDecl.accept(&emitter)
     return module
   }
 

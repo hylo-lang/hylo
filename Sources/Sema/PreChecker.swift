@@ -2,17 +2,23 @@ import AST
 import Basic
 
 /// A driver for a pre-check visitor.
-final class PreCheckDriver: NodeWalker {
+struct PreCheckDriver: NodeWalker {
+
+  typealias Result = Bool
+
+  var parent: Node?
+
+  var innermostSpace: DeclSpace?
 
   init(system: UnsafeMutablePointer<ConstraintSystem>, useSite: DeclSpace) {
     self.system = system
-    super.init(innermostSpace: useSite)
+    self.innermostSpace = useSite
   }
 
   /// A pointer to the system in which new constraints are inserted.
   let system: UnsafeMutablePointer<ConstraintSystem>
 
-  override func willVisit(_ expr: Expr) -> (shouldWalk: Bool, nodeBefore: Expr) {
+  mutating func willVisit(_ expr: Expr) -> (shouldWalk: Bool, nodeBefore: Expr) {
     switch expr {
     case let tupleExpr as TupleExpr:
       // Substitute `e` for `(e)`, effectively eliminating parenthesized expressions.
@@ -24,7 +30,8 @@ final class PreCheckDriver: NodeWalker {
 
     case let matchExpr as MatchExpr:
       // Match expressions require special handling to deal with case inference.
-      let newExpr = matchExpr.accept(PreChecker(system: system, useSite: innermostSpace!))
+      var checker = PreChecker(system: system, useSite: innermostSpace!)
+      let newExpr = matchExpr.accept(&checker)
       return (false, newExpr)
 
     case is ErrorExpr:
@@ -35,8 +42,9 @@ final class PreCheckDriver: NodeWalker {
     }
   }
 
-  override func didVisit(_ expr: Expr) -> (shouldContinue: Bool, nodeAfter: Expr) {
-    let newExpr = expr.accept(PreChecker(system: system, useSite: innermostSpace!))
+  mutating func didVisit(_ expr: Expr) -> (shouldContinue: Bool, nodeAfter: Expr) {
+    var checker = PreChecker(system: system, useSite: innermostSpace!)
+    let newExpr = expr.accept(&checker)
     return (true, newExpr)
   }
 
@@ -74,8 +82,8 @@ struct PreChecker: ExprVisitor {
     return node
   }
 
-  func visit(_ node: BaseCastExpr) -> Expr {
-    return node.accept(self)
+  mutating func visit(_ node: BaseCastExpr) -> Expr {
+    return node.accept(&self)
   }
 
   func visit(_ node: DynCastExpr) -> Expr {

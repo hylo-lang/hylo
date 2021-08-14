@@ -18,7 +18,7 @@ public protocol Decl: Node {
   /// Accepts the given visitor.
   ///
   /// - Parameter visitor: A declaration visitor.
-  func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor
+  func accept<V>(_ visitor: inout V) -> V.DeclResult where V: DeclVisitor
 
 }
 
@@ -126,7 +126,7 @@ public final class ImportDecl: Decl {
     state = newState
   }
 
-  public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
 
@@ -192,7 +192,7 @@ public final class PatternBindingDecl: Decl {
     state = newState
   }
 
-  public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
 
@@ -255,7 +255,7 @@ public final class VarDecl: ValueDecl {
     preconditionFailure("variable declarations can't realize on their own")
   }
 
-  public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
 
@@ -581,15 +581,15 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
     }
 
     // Compute the set of captured declarations.
-    let collector = CaptureCollector(relativeTo: parentDeclSpace)
-    _ = collector.walk(self)
+    var collector = CaptureCollector(relativeTo: parentDeclSpace)
+    collector.walk(decl: self)
     captures = collector.captures.map({ $0.value })
     return captures!
   }
 
   // MARK: Visitation
 
-  public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
 
@@ -598,7 +598,7 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
 /// A function declaration.
 public final class FunDecl: BaseFunDecl {
 
-  public override func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
+  public override func accept<V>(_ visitor: inout V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
 
@@ -632,7 +632,7 @@ public final class CtorDecl: BaseFunDecl {
     return type
   }
 
-  public override func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
+  public override func accept<V>(_ visitor: inout V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
 
@@ -687,7 +687,7 @@ public final class FunParamDecl: ValueDecl {
     return type
   }
 
-  public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
 
@@ -727,7 +727,7 @@ public class GenericTypeDecl: BaseGenericDecl, TypeDecl {
     super.init(type: type, state: state)
   }
 
-  public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
 
@@ -997,7 +997,7 @@ public class NominalTypeDecl: GenericTypeDecl {
     return result
   }
 
-  public override func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
+  public override func accept<V>(_ visitor: inout V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
 
@@ -1052,7 +1052,7 @@ public final class ProductTypeDecl: NominalTypeDecl {
     }
   }
 
-  public override func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
+  public override func accept<V>(_ visitor: inout V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
 
@@ -1144,7 +1144,7 @@ public final class ViewTypeDecl: NominalTypeDecl {
     return genericEnv
   }
 
-  public override func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
+  public override func accept<V>(_ visitor: inout V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
 
@@ -1271,7 +1271,7 @@ public final class AliasTypeDecl: GenericTypeDecl {
     return results
   }
 
-  public override func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
+  public override func accept<V>(_ visitor: inout V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
 
@@ -1302,7 +1302,7 @@ public class GenericParamDecl: TypeDecl {
     state = newState
   }
 
-  public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
 
@@ -1320,7 +1320,7 @@ public final class AbstractTypeDecl: GenericParamDecl {
   /// types declared within the view declaration.
   public var typeReqs: [TypeReq] = []
 
-  public override func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
+  public override func accept<V>(_ visitor: inout V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
 
@@ -1393,7 +1393,7 @@ public final class TypeExtnDecl: Decl, DeclSpace {
     return decl
   }
 
-  public func accept<V>(_ visitor: V) -> V.DeclResult where V: DeclVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
 

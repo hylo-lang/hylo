@@ -16,7 +16,7 @@ public protocol Sign: Node {
   /// Accepts the given visitor.
   ///
   /// - Parameter visitor: A type signature visitor.
-  func accept<V>(_ visitor: V) -> V.SignResult where V: SignVisitor
+  func accept<V>(_ visitor: inout V) -> V.SignResult where V: SignVisitor
 
 }
 
@@ -45,7 +45,7 @@ public final class TupleSign: Sign {
     return type
   }
 
-  public func accept<V>(_ visitor: V) -> V.SignResult where V: SignVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.SignResult where V: SignVisitor {
     return visitor.visit(self)
   }
 
@@ -109,7 +109,7 @@ public final class FunSign: Sign {
     return type
   }
 
-  public func accept<V>(_ visitor: V) -> V.SignResult where V: SignVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.SignResult where V: SignVisitor {
     return visitor.visit(self)
   }
 
@@ -144,7 +144,7 @@ public final class AsyncSign: Sign {
     return type
   }
 
-  public func accept<V>(_ visitor: V) -> V.SignResult where V: SignVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.SignResult where V: SignVisitor {
     return visitor.visit(self)
   }
 
@@ -175,7 +175,7 @@ public final class InoutSign: Sign {
     return type
   }
 
-  public func accept<V>(_ visitor: V) -> V.SignResult where V: SignVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.SignResult where V: SignVisitor {
     return visitor.visit(self)
   }
 
@@ -204,7 +204,7 @@ public final class UnionSign: Sign {
    return type
  }
 
-  public func accept<V>(_ visitor: V) -> V.SignResult where V: SignVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.SignResult where V: SignVisitor {
     return visitor.visit(self)
   }
 
@@ -251,7 +251,7 @@ public final class ViewCompSign: Sign {
     return type
   }
 
-  public func accept<V>(_ visitor: V) -> V.SignResult where V: SignVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.SignResult where V: SignVisitor {
     return visitor.visit(self)
   }
 
@@ -431,7 +431,7 @@ public final class BareIdentSign: IdentCompSign {
 
   public var range: SourceRange? { ident.range }
 
-  public func accept<V>(_ visitor: V) -> V.SignResult where V: SignVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.SignResult where V: SignVisitor {
     return visitor.visit(self)
   }
 
@@ -499,7 +499,7 @@ public final class SpecializedIdentSign: IdentCompSign {
     type = context.boundGenericType(decl: baseDecl, args: argTypes)
   }
 
-  public func accept<V>(_ visitor: V) -> V.SignResult where V: SignVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.SignResult where V: SignVisitor {
     return visitor.visit(self)
   }
 
@@ -571,7 +571,7 @@ public final class CompoundIdentSign: IdentSign {
     return parentType
   }
 
-  public func accept<V>(_ visitor: V) -> V.SignResult where V: SignVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.SignResult where V: SignVisitor {
     return visitor.visit(self)
   }
 
@@ -625,7 +625,7 @@ public final class ErrorSign: Sign {
     return type
   }
 
-  public func accept<V>(_ visitor: V) -> V.SignResult where V: SignVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.SignResult where V: SignVisitor {
     visitor.visit(self)
   }
 

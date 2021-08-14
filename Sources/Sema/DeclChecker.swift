@@ -6,13 +6,13 @@ struct DeclChecker: DeclVisitor {
 
   typealias DeclResult = Bool
 
-  func visit(_ node: ModuleDecl) -> Bool {
+  mutating func visit(_ node: ModuleDecl) -> Bool {
     guard node.state < .typeChecked else { return handleCheckState(node) }
     node.setState(.typeCheckRequested)
 
     var isWellFormed = true
     for decl in node {
-      isWellFormed = decl.accept(self) && isWellFormed
+      isWellFormed = decl.accept(&self) && isWellFormed
     }
 
     node.setState(isWellFormed ? .typeChecked : .invalid)
@@ -155,7 +155,7 @@ struct DeclChecker: DeclVisitor {
     fatalError("unreachable")
   }
 
-  func visit(_ node: ProductTypeDecl) -> Bool {
+  mutating func visit(_ node: ProductTypeDecl) -> Bool {
     guard node.state < .typeChecked else { return handleCheckState(node) }
     node.setState(.typeCheckRequested)
     var isWellFormed = true
@@ -169,7 +169,7 @@ struct DeclChecker: DeclVisitor {
     // Type check the type's direct members.
     node.updateMemberTables()
     for member in node.members {
-      isWellFormed = member.accept(self) && isWellFormed
+      isWellFormed = member.accept(&self) && isWellFormed
     }
 
     let conformingType = node.receiverType
@@ -315,7 +315,7 @@ struct DeclChecker: DeclVisitor {
     return isWellFormed
   }
 
-  func visit(_ node: ViewTypeDecl) -> Bool {
+  mutating func visit(_ node: ViewTypeDecl) -> Bool {
     guard node.state < .typeChecked else { return handleCheckState(node) }
     node.setState(.typeCheckRequested)
     var isWellFormed = true
@@ -329,7 +329,7 @@ struct DeclChecker: DeclVisitor {
     // Type-check the type's members.
     node.updateMemberTables()
     for member in node.members {
-      isWellFormed = member.accept(self) && isWellFormed
+      isWellFormed = member.accept(&self) && isWellFormed
     }
 
     node.setState(isWellFormed ? .typeChecked : .invalid)
@@ -378,7 +378,7 @@ struct DeclChecker: DeclVisitor {
     fatalError("unreachable")
   }
 
-  func visit(_ node: TypeExtnDecl) -> Bool {
+  mutating func visit(_ node: TypeExtnDecl) -> Bool {
     guard node.state < .typeChecked else { return handleCheckState(node) }
 
     // Bind the extension to the type it extends.
@@ -388,7 +388,7 @@ struct DeclChecker: DeclVisitor {
     node.setState(.typeCheckRequested)
     var isWellFormed = true
     for member in node.members {
-      isWellFormed = member.accept(self) && isWellFormed
+      isWellFormed = member.accept(&self) && isWellFormed
     }
 
     node.setState(isWellFormed ? .typeChecked : .invalid)

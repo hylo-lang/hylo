@@ -8,32 +8,33 @@ import Basic
 ///
 /// - Important: Do not emit VIL code for unchecked or ill-formed ASTs. The emitter assumes that
 ///   all declarations are successfully well-typed; its behavior is undefined otherwise.
-public final class Emitter: DeclVisitor {
+public struct DeclEmitter: DeclVisitor {
 
   public typealias DeclResult = Void
 
-  /// The context in which the pass runs.
-  public let context: AST.Context
-
   /// The VIL builder used by the emitter.
   public let builder: Builder
+
+  /// The context in which the pass runs.
+  public let context: AST.Context
 
   /// Creates a new declaration emitter.
   ///
   /// - Parameters:
   ///   - context: The context in which the declarations are being emitted.
   ///   - builder: The builder being used to generate VIL code.
-  public init(context: AST.Context, builder: Builder) {
-    self.context = context
+  public init(builder: Builder, context: AST.Context) {
     self.builder = builder
+    self.context = context
   }
 
-  public func visit(_ decl: ModuleDecl) {
-    decl.forEach({ $0.accept(self) })
+  public mutating func visit(_ decl: ModuleDecl) {
+    decl.forEach({ $0.accept(&self) })
   }
 
   public func visit(_ decl: BaseFunDecl) {
-    FunctionEmitter(parent: self, funDecl: decl).emit()
+    var emitter = FunctionEmitter(builder: builder, funDecl: decl)
+    emitter.emit()
   }
 
   public func visit(_ decl: FunDecl) {
@@ -48,7 +49,7 @@ public final class Emitter: DeclVisitor {
     // Views are abstract constructs; there's nothing to emit.
   }
 
-  public func visit(_ decl: ProductTypeDecl) {
+  public mutating func visit(_ decl: ProductTypeDecl) {
     // Emit the the type's witness table(s).
     for conformance in decl.conformanceTable.values {
       var entries: [(decl: BaseFunDecl, impl: Function)] = []
@@ -66,11 +67,11 @@ public final class Emitter: DeclVisitor {
     }
 
     // Emit the direct members of the declaration.
-    decl.members.forEach({ $0.accept(self) })
+    decl.members.forEach({ $0.accept(&self) })
   }
 
-  public func visit(_ decl: TypeExtnDecl) {
-    decl.members.forEach({ $0.accept(self) })
+  public mutating func visit(_ decl: TypeExtnDecl) {
+    decl.members.forEach({ $0.accept(&self) })
   }
 
   public func visit(_ decl: AliasTypeDecl) {

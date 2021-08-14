@@ -18,7 +18,7 @@ public protocol Pattern: Node {
   /// Accepts the given visitor.
   ///
   /// - Parameter visitor: A pattern visitor.
-  func accept<V>(_ visitor: V) -> V.PatternResult where V: PatternVisitor
+  func accept<V>(_ visitor: inout V) -> V.PatternResult where V: PatternVisitor
 
 }
 
@@ -44,7 +44,7 @@ public final class NamedPattern: Pattern {
 
   public var isRefutable: Bool { false }
 
-  public func accept<V>(_ visitor: V) -> V.PatternResult where V: PatternVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.PatternResult where V: PatternVisitor {
     return visitor.visit(self)
   }
 
@@ -99,7 +99,7 @@ public final class TuplePattern: Pattern {
     return (elems.count == 1) && elems[0].pattern.isRefutable
   }
 
-  public func accept<V>(_ visitor: V) -> V.PatternResult where V: PatternVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.PatternResult where V: PatternVisitor {
     return visitor.visit(self)
   }
 
@@ -149,7 +149,7 @@ public final class BindingPattern: Pattern {
     return (sign != nil) || subpattern.isRefutable
   }
 
-  public func accept<V>(_ visitor: V) -> V.PatternResult where V: PatternVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.PatternResult where V: PatternVisitor {
     return visitor.visit(self)
   }
 
@@ -173,7 +173,7 @@ public final class WildcardPattern: Pattern {
 
   public var isRefutable: Bool { false }
 
-  public func accept<V>(_ visitor: V) -> V.PatternResult where V: PatternVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.PatternResult where V: PatternVisitor {
     return visitor.visit(self)
   }
 

@@ -1,18 +1,11 @@
-/// A base class to implement "event-based" AST visitors and transformers.
-open class NodeWalker: NodeVisitor {
-
-  public typealias Result = Bool
-
-  public init(parent: Node? = nil, innermostSpace: DeclSpace? = nil) {
-    self.parent = parent
-    self.innermostSpace = innermostSpace
-  }
+/// A protocol to implement "event-based" AST visitors and transformers.
+public protocol NodeWalker: NodeVisitor where Result == Bool {
 
   /// The parent of the node being visited.
-  public final private(set) var parent: Node?
+  var parent: Node? { get set }
 
   /// The innermost declaration space in which the next node will be visited.
-  public final private(set) var innermostSpace: DeclSpace?
+  var innermostSpace: DeclSpace? { get set }
 
   // MARK: Event handlers
 
@@ -22,9 +15,7 @@ open class NodeWalker: NodeVisitor {
   /// - Returns: `(flag, node)`, where `node` subsitutes `expr` in the AST, and `flag` is a
   ///   Boolean value that indicates whether the walker should visit `node`. The default
   ///   implementation returns `(true, decl)`.
-  open func willVisit(_ decl: Decl) -> (shouldWalk: Bool, nodeBefore: Decl) {
-    return (true, decl)
-  }
+  mutating func willVisit(_ decl: Decl) -> Bool
 
   /// This method is called after the walker visited a declaration.
   ///
@@ -32,9 +23,7 @@ open class NodeWalker: NodeVisitor {
   /// - Returns: `(flag, node)` where `node` subsitutes `expr` in the AST, and `flag` is a
   ///   Boolean value that indicates whether the walker should proceed to the next node. The
   ///   default implementation returns `(true, decl)`.
-  open func didVisit(_ decl: Decl) -> (shouldContinue: Bool, nodeAfter: Decl) {
-    return (true, decl)
-  }
+  mutating func didVisit(_ decl: Decl) -> Bool
 
   /// This method is called when the walker is about to visit a statement.
   ///
@@ -42,9 +31,7 @@ open class NodeWalker: NodeVisitor {
   /// - Returns: `(flag, node)`, where `node` subsitutes `stmt` in the AST, and `flag` is a
   ///   Boolean value that indicates whether the walker should visit `node`. The default
   ///   implementation returns `(true, stmt)`.
-  open func willVisit(_ stmt: Stmt) -> (shouldWalk: Bool, nodeBefore: Stmt) {
-    return (true, stmt)
-  }
+  mutating func willVisit(_ stmt: Stmt) -> Bool
 
   /// This method is called after the walker visited a statement.
   ///
@@ -52,9 +39,7 @@ open class NodeWalker: NodeVisitor {
   /// - Returns: `(flag, node)` where `node` subsitutes `stmt` in the AST, and `flag` is a
   ///   Boolean value that indicates whether the walker should proceed to the next node. The
   ///   default implementation returns `(true, stmt)`.
-  open func didVisit(_ stmt: Stmt) -> (shouldContinue: Bool, nodeAfter: Stmt) {
-    return (true, stmt)
-  }
+  mutating func didVisit(_ stmt: Stmt) -> Bool
 
   /// This method is called when the walker is about to visit an expression.
   ///
@@ -62,9 +47,7 @@ open class NodeWalker: NodeVisitor {
   /// - Returns: `(flag, node)`, where `node` subsitutes `expr` in the AST, and `flag` is a
   ///   Boolean value that indicates whether the walker should visit `node`. The default
   ///   implementation returns `(true, expr)`.
-  open func willVisit(_ expr: Expr) -> (shouldWalk: Bool, nodeBefore: Expr) {
-    return (true, expr)
-  }
+  mutating func willVisit(_ expr: Expr) -> (shouldWalk: Bool, nodeBefore: Expr)
 
   /// This method is called after the walker visited an expression.
   ///
@@ -72,9 +55,7 @@ open class NodeWalker: NodeVisitor {
   /// - Returns: `(flag, node)` where `node` subsitutes `expr` in the AST, and `flag` is a
   ///   Boolean value that indicates whether the walker should proceed to the next node. The
   ///   default implementation returns `(true, expr)`.
-  open func didVisit(_ expr: Expr) -> (shouldContinue: Bool, nodeAfter: Expr) {
-    return (true, expr)
-  }
+  mutating func didVisit(_ expr: Expr) -> (shouldContinue: Bool, nodeAfter: Expr)
 
   /// This method is called when the walker is about to visit a pattern.
   ///
@@ -82,9 +63,7 @@ open class NodeWalker: NodeVisitor {
   /// - Returns: `(flag, node)` where `node` subsitutes `pattern` in the AST, and `flag` is a
   ///   Boolean value that indicates whether the walker should visit `node`. The default
   ///   implementation returns `(true, pattern)`.
-  open func willVisit(_ pattern: Pattern) -> (shouldWalk: Bool, nodeBefore: Pattern) {
-    return (true, pattern)
-  }
+  mutating func willVisit(_ pattern: Pattern) -> (shouldWalk: Bool, nodeBefore: Pattern)
 
   /// This method is called after the walker visited a pattern.
   ///
@@ -92,9 +71,7 @@ open class NodeWalker: NodeVisitor {
   /// - Returns: `(flag, node)` where `node` subsitutes `pattern` in the AST, and `flag` is a
   ///   Boolean value that indicates whether the walker should proceed to the next node. The
   ///   default implementation returns `(true, pattern)`.
-  open func didVisit(_ pattern: Pattern) -> (shouldContinue: Bool, nodeAfter: Pattern) {
-    return (true, pattern)
-  }
+  mutating func didVisit(_ pattern: Pattern) -> (shouldContinue: Bool, nodeAfter: Pattern)
 
   /// This method is called when the walker is about to visit a type signature.
   ///
@@ -102,9 +79,7 @@ open class NodeWalker: NodeVisitor {
   /// - Returns: `(flag, node)`, where `node` subsitutes `sign` in the AST, and `flag` is a
   ///   Boolean value that indicates whether the walker should visit `node`. The default
   ///   implementation returns `(true, expr)`.
-  open func willVisit(_ sign: Sign) -> (shouldWalk: Bool, nodeBefore: Sign) {
-    return (true, sign)
-  }
+  mutating func willVisit(_ sign: Sign) -> (shouldWalk: Bool, nodeBefore: Sign)
 
   /// This method is called after the walker visited a type signature.
   ///
@@ -112,33 +87,162 @@ open class NodeWalker: NodeVisitor {
   /// - Returns: `(flag, node)` where `node` subsitutes `sign` in the AST, and `flag` is a
   ///   Boolean value that indicates whether the walker should proceed to the next node. The
   ///   default implementation returns `(true, sign)`.
-  open func didVisit(_ sign: Sign) -> (shouldContinue: Bool, nodeAfter: Sign) {
-    return (true, sign)
-  }
+  mutating func didVisit(_ sign: Sign) -> (shouldContinue: Bool, nodeAfter: Sign)
 
   /// This method is called when the walker is about to visit a generic clause.
   ///
   /// - Parameter clause: The generic clause that will be visited.
   /// - Returns: `true` if the walker should visit the clause, or `false` if it should skip it. The
   ///   default implementation returns `true`.
-  open func willVisit(_ clause: GenericClause) -> Bool {
-    return true
-  }
+  mutating func willVisit(_ clause: GenericClause) -> Bool
 
   /// This method is called after the walker visited a generic clause.
   ///
   /// - Parameter clause: The generic clause that was visited.
   /// - Returns: `true` if the walker should proceed to the next node, or `false` otherwise. The
   ///   default implementation returns `true`.
-  open func didVisit(_ clause: GenericClause) -> Bool {
+  mutating func didVisit(_ clause: GenericClause) -> Bool
+
+}
+
+extension NodeWalker {
+
+  @discardableResult
+  public mutating func walk(decl: Decl) -> Bool {
+    // Fire the `willVisit` event.
+    guard willVisit(decl) else { return true }
+
+    // Visit the node's children.
+    guard decl.accept(&self) else { return false }
+
+    // Fire the `didVisit` event.
+    return didVisit(decl)
+  }
+
+  @discardableResult
+  public mutating func walk(stmt: Stmt) -> Bool {
+    // Fire the `willVisit` event.
+    guard willVisit(stmt) else { return true }
+
+    // Visit the node's children.
+    guard stmt.accept(&self) else { return false }
+
+    // Fire the `didVisit` event.
+    return didVisit(stmt)
+  }
+
+  @discardableResult
+  public mutating func walk(expr: Expr) -> (Bool, Expr) {
+    // Fire the `willVisit` event.
+    let (shouldVisit, substitute) = willVisit(expr)
+    guard shouldVisit else {
+      return (true, substitute)
+    }
+
+    // Visit the node's children.
+    guard substitute.accept(&self) else {
+      return (false, substitute)
+    }
+
+    // Fire the `didVisit` event.
+    return didVisit(substitute)
+  }
+
+  @discardableResult
+  public mutating func walk(pattern: Pattern) -> (Bool, Pattern) {
+    // Fire the `willVisit` event.
+    let (shouldVisit, substitute) = willVisit(pattern)
+    guard shouldVisit else {
+      return (true, substitute)
+    }
+
+    // Visit the node's children.
+    guard substitute.accept(&self) else {
+      return (false, substitute)
+    }
+
+    // Fire the `didVisit` event.
+    return didVisit(substitute)
+  }
+
+  @discardableResult
+  public mutating func walk(sign: Sign) -> (Bool, Sign) {
+    // Fire the `willVisit` event.
+    let (shouldVisit, substitute) = willVisit(sign)
+    guard shouldVisit else {
+      return (true, substitute)
+    }
+
+    // Visit the node's children.
+    guard substitute.accept(&self) else {
+      return (false, substitute)
+    }
+
+    // Fire the `didVisit` event.
+    return didVisit(substitute)
+  }
+
+  @discardableResult
+  public mutating func walk(any node: Node) -> (Bool, Node) {
+    switch node {
+    case let node as Decl    : return (walk(decl: node), node)
+    case let node as Stmt    : return (walk(stmt: node), node)
+    case let node as Expr    : return walk(expr: node)
+    case let node as Pattern : return walk(pattern: node)
+    case let node as Sign    : return walk(sign: node)
+    default: fatalError("unreachable")
+    }
+  }
+
+  public mutating func willVisit(_ decl: Decl) -> Bool {
     return true
   }
 
-  // MARK: Traversal
+  public mutating func didVisit(_ decl: Decl) -> Bool {
+    return true
+  }
 
-  private final var shouldContinue = true
+  public mutating func willVisit(_ stmt: Stmt) -> Bool {
+    return true
+  }
 
-  public final func visit(_ node: ModuleDecl) -> Bool {
+  public mutating func didVisit(_ stmt: Stmt) -> Bool {
+    return true
+  }
+
+  public mutating func willVisit(_ expr: Expr) -> (shouldWalk: Bool, nodeBefore: Expr) {
+    return (true, expr)
+  }
+
+  public mutating func didVisit(_ expr: Expr) -> (shouldContinue: Bool, nodeAfter: Expr) {
+    return (true, expr)
+  }
+
+  public mutating func willVisit(_ pattern: Pattern) -> (shouldWalk: Bool, nodeBefore: Pattern) {
+    return (true, pattern)
+  }
+
+  public mutating func didVisit(_ pattern: Pattern) -> (shouldContinue: Bool, nodeAfter: Pattern) {
+    return (true, pattern)
+  }
+
+  public mutating func willVisit(_ sign: Sign) -> (shouldWalk: Bool, nodeBefore: Sign) {
+    return (true, sign)
+  }
+
+  public mutating func didVisit(_ sign: Sign) -> (shouldContinue: Bool, nodeAfter: Sign) {
+    return (true, sign)
+  }
+
+  public mutating func willVisit(_ clause: GenericClause) -> Bool {
+    return true
+  }
+
+  public mutating func didVisit(_ clause: GenericClause) -> Bool {
+    return true
+  }
+
+  public mutating func visit(_ node: ModuleDecl) -> Bool {
     let prevParent = parent
     parent = node
     innermostSpace = node
@@ -148,14 +252,13 @@ open class NodeWalker: NodeVisitor {
     }
 
     for i in node.indices {
-      (shouldContinue, node[i]) = walk(node[i])
-      guard shouldContinue else { return false }
+      guard walk(decl: node[i]) else { return false }
     }
 
     return true
   }
 
-  public final func visit(_ node: ImportDecl) -> Bool {
+  public mutating func visit(_ node: ImportDecl) -> Bool {
     let prevParent = parent
     parent = node
     defer {
@@ -165,32 +268,33 @@ open class NodeWalker: NodeVisitor {
     return true
   }
 
-  public final func visit(_ node: PatternBindingDecl) -> Bool {
+  public mutating func visit(_ node: PatternBindingDecl) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
 
-    (shouldContinue, node.pattern) = walk(node.pattern)
+    var shouldContinue: Bool
+    (shouldContinue, node.pattern) = walk(pattern: node.pattern)
     guard shouldContinue else { return false }
 
     if let signature = node.sign {
-      (shouldContinue, node.sign) = walk(signature)
+      (shouldContinue, node.sign) = walk(sign: signature)
       guard shouldContinue else { return false }
     }
 
     if let initializer = node.initializer {
-      (shouldContinue, node.initializer) = walk(initializer)
+      (shouldContinue, node.initializer) = walk(expr: initializer)
       guard shouldContinue else { return false }
     }
 
     return true
   }
 
-  public final func visit(_ node: VarDecl) -> Bool {
+  public mutating func visit(_ node: VarDecl) -> Bool {
     return true
   }
 
-  public final func visit(_ node: BaseFunDecl) -> Bool {
+  public mutating func visit(_ node: BaseFunDecl) -> Bool {
     let prevParent = parent
     parent = node
     innermostSpace = node
@@ -205,45 +309,45 @@ open class NodeWalker: NodeVisitor {
     }
 
     for i in 0 ..< node.params.count {
-      (shouldContinue, node.params[i]) = walk(node.params[i]) as! (Bool, FunParamDecl)
-      guard shouldContinue else { return false }
+      guard walk(decl: node.params[i]) else { return false }
     }
 
+    var shouldContinue: Bool
     if let signature = node.retSign {
-      (shouldContinue, node.retSign) = walk(signature)
+      (shouldContinue, node.retSign) = walk(sign: signature)
       guard shouldContinue else { return false }
     }
 
     if let body = node.body {
-      (shouldContinue, node.body) = walk(body) as! (Bool, BraceStmt)
-      guard shouldContinue else { return false }
+      guard walk(stmt: body) else { return false }
     }
 
     return true
   }
 
-  public final func visit(_ node: FunDecl) -> Bool {
+  public mutating func visit(_ node: FunDecl) -> Bool {
     return visit(node as BaseFunDecl)
   }
 
-  public final func visit(_ node: CtorDecl) -> Bool {
+  public mutating func visit(_ node: CtorDecl) -> Bool {
     return visit(node as BaseFunDecl)
   }
 
-  public final func visit(_ node: FunParamDecl) -> Bool {
+  public mutating func visit(_ node: FunParamDecl) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
 
+    var shouldContinue: Bool
     if let signature = node.sign {
-      (shouldContinue, node.sign) = walk(signature)
+      (shouldContinue, node.sign) = walk(sign: signature)
       guard shouldContinue else { return false }
     }
 
     return true
   }
 
-  public final func visit(_ node: GenericTypeDecl) -> Bool {
+  public mutating func visit(_ node: GenericTypeDecl) -> Bool {
     switch node {
     case let decl as NominalTypeDecl  : return visit(decl)
     case let decl as AliasTypeDecl    : return visit(decl)
@@ -251,7 +355,7 @@ open class NodeWalker: NodeVisitor {
     }
   }
 
-  public final func visit(_ node: NominalTypeDecl) -> Bool {
+  public mutating func visit(_ node: NominalTypeDecl) -> Bool {
     switch node {
     case let decl as ProductTypeDecl  : return visit(decl)
     case let decl as ViewTypeDecl     : return visit(decl)
@@ -259,7 +363,7 @@ open class NodeWalker: NodeVisitor {
     }
   }
 
-  public final func visit(_ node: ProductTypeDecl) -> Bool {
+  public mutating func visit(_ node: ProductTypeDecl) -> Bool {
     let prevParent = parent
     parent = node
     innermostSpace = node
@@ -273,20 +377,20 @@ open class NodeWalker: NodeVisitor {
       guard didVisit(clause) else { return false }
     }
 
+    var shouldContinue: Bool
     for i in 0 ..< node.inheritances.count {
-      (shouldContinue, node.inheritances[i]) = walk(node.inheritances[i])
+      (shouldContinue, node.inheritances[i]) = walk(sign: node.inheritances[i])
       guard shouldContinue else { return false }
     }
 
     for i in 0 ..< node.members.count {
-      (shouldContinue, node.members[i]) = walk(node.members[i])
-      guard shouldContinue else { return false }
+      guard walk(decl: node.members[i]) else { return false }
     }
 
     return true
   }
 
-  public final func visit(_ node: ViewTypeDecl) -> Bool {
+  public mutating func visit(_ node: ViewTypeDecl) -> Bool {
     let prevParent = parent
     parent = node
     innermostSpace = node
@@ -295,20 +399,20 @@ open class NodeWalker: NodeVisitor {
       innermostSpace = innermostSpace?.parentDeclSpace
     }
 
+    var shouldContinue: Bool
     for i in 0 ..< node.inheritances.count {
-      (shouldContinue, node.inheritances[i]) = walk(node.inheritances[i])
+      (shouldContinue, node.inheritances[i]) = walk(sign: node.inheritances[i])
       guard shouldContinue else { return false }
     }
 
     for i in 0 ..< node.members.count {
-      (shouldContinue, node.members[i]) = walk(node.members[i])
-      guard shouldContinue else { return false }
+      guard walk(decl: node.members[i]) else { return false }
     }
 
     return true
   }
 
-  public final func visit(_ node: AliasTypeDecl) -> Bool {
+  public mutating func visit(_ node: AliasTypeDecl) -> Bool {
     let prevParent = parent
     parent = node
     innermostSpace = node
@@ -317,51 +421,53 @@ open class NodeWalker: NodeVisitor {
       innermostSpace = innermostSpace?.parentDeclSpace
     }
 
-//    if let clause = node.genericClause, willVisit(clause) {
-//      guard visit(clause)    else { return false }
-//      guard didVisit(clause) else { return false }
-//    }
-//
-//    for i in 0 ..< node.inheritances.count {
-//      (shouldContinue, node.inheritances[i]) = walk(node.inheritances[i])
-//      guard shouldContinue else { return false }
-//    }
+    if let clause = node.genericClause, willVisit(clause) {
+      guard visit(clause)    else { return false }
+      guard didVisit(clause) else { return false }
+    }
 
-    (shouldContinue, node.aliasedSign) = walk(node.aliasedSign)
+    var shouldContinue: Bool
+    for i in 0 ..< node.inheritances.count {
+      (shouldContinue, node.inheritances[i]) = walk(sign: node.inheritances[i])
+      guard shouldContinue else { return false }
+    }
+
+    (shouldContinue, node.aliasedSign) = walk(sign: node.aliasedSign)
     guard shouldContinue else { return false }
 
     return true
   }
 
-  public final func visit(_ node: AbstractTypeDecl) -> Bool {
+  public mutating func visit(_ node: AbstractTypeDecl) -> Bool {
     let prevParent = parent
     parent = node
     defer {
       parent = prevParent
     }
 
+    var shouldContinue: Bool
     for i in 0 ..< node.inheritances.count {
-      (shouldContinue, node.inheritances[i]) = walk(node.inheritances[i])
+      (shouldContinue, node.inheritances[i]) = walk(sign: node.inheritances[i])
       guard shouldContinue else { return false }
     }
 
     for i in 0 ..< node.typeReqs.count {
-      (shouldContinue, node.typeReqs[i].lhs) = walk(node.typeReqs[i].lhs)
+      (shouldContinue, node.typeReqs[i].lhs) = walk(sign: node.typeReqs[i].lhs)
         as! (Bool, IdentSign)
       guard shouldContinue else { return false }
 
-      (shouldContinue, node.typeReqs[i].rhs) = walk(node.typeReqs[i].rhs)
+      (shouldContinue, node.typeReqs[i].rhs) = walk(sign: node.typeReqs[i].rhs)
       guard shouldContinue else { return false }
     }
 
     return true
   }
 
-  public final func visit(_ node: GenericParamDecl) -> Bool {
+  public mutating func visit(_ node: GenericParamDecl) -> Bool {
     return true
   }
 
-  public final func visit(_ node: TypeExtnDecl) -> Bool {
+  public mutating func visit(_ node: TypeExtnDecl) -> Bool {
     let prevParent = parent
     parent = node
     innermostSpace = node
@@ -370,18 +476,18 @@ open class NodeWalker: NodeVisitor {
       innermostSpace = innermostSpace?.parentDeclSpace
     }
 
-    (shouldContinue, node.extendedIdent) = walk(node.extendedIdent) as! (Bool, IdentSign)
+    var shouldContinue: Bool
+    (shouldContinue, node.extendedIdent) = walk(sign: node.extendedIdent) as! (Bool, IdentSign)
     guard shouldContinue else { return false }
 
     for i in 0 ..< node.members.count {
-      (shouldContinue, node.members[i]) = walk(node.members[i])
-      guard shouldContinue else { return false }
+      guard walk(decl: node.members[i]) else { return false }
     }
 
     return true
   }
 
-  public final func visit(_ node: BraceStmt) -> Bool {
+  public mutating func visit(_ node: BraceStmt) -> Bool {
     let prevParent = parent
     parent = node
     innermostSpace = node
@@ -390,485 +496,416 @@ open class NodeWalker: NodeVisitor {
       innermostSpace = innermostSpace?.parentDeclSpace
     }
 
+    var shouldContinue: Bool
     for i in 0 ..< node.stmts.count {
-      (shouldContinue, node.stmts[i]) = walk(node.stmts[i])
+      (shouldContinue, node.stmts[i]) = walk(any: node.stmts[i])
       guard shouldContinue else { return false }
     }
 
     return true
   }
 
-  public final func visit(_ node: RetStmt) -> Bool {
+  public mutating func visit(_ node: RetStmt) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
 
+    var shouldContinue: Bool
     if let value = node.value {
-      (shouldContinue, node.value) = walk(value)
+      (shouldContinue, node.value) = walk(expr: value)
       guard shouldContinue else { return false }
     }
 
     return true
   }
 
-  public final func visit(_ node: MatchCaseStmt) -> Bool {
+  public mutating func visit(_ node: MatchCaseStmt) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
 
-    (shouldContinue, node.pattern) = walk(node.pattern)
+    var shouldContinue: Bool
+    (shouldContinue, node.pattern) = walk(pattern: node.pattern)
     guard shouldContinue else { return false }
 
     if let condition = node.condition {
-      (shouldContinue, node.condition) = walk(condition)
+      (shouldContinue, node.condition) = walk(expr: condition)
       guard shouldContinue else { return false }
     }
 
-    (shouldContinue, node.body) = walk(node.body) as! (Bool, BraceStmt)
-    guard shouldContinue else { return false }
+    guard walk(stmt: node.body) else { return false }
 
     return true
   }
 
-  public final func visit(_ node: BoolLiteralExpr) -> Bool {
+  public mutating func visit(_ node: BoolLiteralExpr) -> Bool {
     return true
   }
 
-  public final func visit(_ node: IntLiteralExpr) -> Bool {
+  public mutating func visit(_ node: IntLiteralExpr) -> Bool {
     return true
   }
 
-  public final func visit(_ node: FloatLiteralExpr) -> Bool {
+  public mutating func visit(_ node: FloatLiteralExpr) -> Bool {
     return true
   }
 
-  public final func visit(_ node: StringLiteralExpr) -> Bool {
+  public mutating func visit(_ node: StringLiteralExpr) -> Bool {
     return true
   }
 
-  public final func visit(_ node: AssignExpr) -> Bool {
+  public mutating func visit(_ node: AssignExpr) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
 
-    (shouldContinue, node.lvalue) = walk(node.lvalue)
+    var shouldContinue: Bool
+    (shouldContinue, node.lvalue) = walk(expr: node.lvalue)
     guard shouldContinue else { return false }
 
-    (shouldContinue, node.rvalue) = walk(node.rvalue)
+    (shouldContinue, node.rvalue) = walk(expr: node.rvalue)
     guard shouldContinue else { return false }
 
     return true
   }
 
-  public final func visit(_ node: BaseCastExpr) -> Bool {
+  public mutating func visit(_ node: BaseCastExpr) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
 
-    (shouldContinue, node.value) = walk(node.value)
+    var shouldContinue: Bool
+    (shouldContinue, node.value) = walk(expr: node.value)
     guard shouldContinue else { return false }
 
-    (shouldContinue, node.sign) = walk(node.sign)
+    (shouldContinue, node.sign) = walk(sign: node.sign)
     guard shouldContinue else { return false }
 
     return true
   }
 
-  public final func visit(_ node: DynCastExpr) -> Bool {
+  public mutating func visit(_ node: DynCastExpr) -> Bool {
     return visit(node as BaseCastExpr)
   }
 
-  public final func visit(_ node: UnsafeCastExpr) -> Bool {
+  public mutating func visit(_ node: UnsafeCastExpr) -> Bool {
     return visit(node as BaseCastExpr)
   }
 
-  public final func visit(_ node: TupleExpr) -> Bool {
+  public mutating func visit(_ node: TupleExpr) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
 
+    var shouldContinue: Bool
     for i in 0 ..< node.elems.count {
-      (shouldContinue, node.elems[i].value) = walk(node.elems[i].value)
+      (shouldContinue, node.elems[i].value) = walk(expr: node.elems[i].value)
       guard shouldContinue else { return false }
     }
 
     return true
   }
 
-  public final func visit(_ node: CallExpr) -> Bool {
+  public mutating func visit(_ node: CallExpr) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
 
-    (shouldContinue, node.fun) = walk(node.fun)
+    var shouldContinue: Bool
+    (shouldContinue, node.fun) = walk(expr: node.fun)
     guard shouldContinue else { return false }
 
     for i in 0 ..< node.args.count {
-      (shouldContinue, node.args[i].value) = walk(node.args[i].value)
+      (shouldContinue, node.args[i].value) = walk(expr: node.args[i].value)
       guard shouldContinue else { return false }
     }
 
     return true
   }
 
-  public final func visit(_ node: UnresolvedDeclRefExpr) -> Bool {
+  public mutating func visit(_ node: UnresolvedDeclRefExpr) -> Bool {
     return true
   }
 
-  public final func visit(_ node: UnresolvedQualDeclRefExpr) -> Bool {
+  public mutating func visit(_ node: UnresolvedQualDeclRefExpr) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
 
-    (shouldContinue, node.namespace) = walk(node.namespace) as! (Bool, IdentSign)
+    var shouldContinue: Bool
+    (shouldContinue, node.namespace) = walk(sign: node.namespace) as! (Bool, IdentSign)
     return shouldContinue
   }
 
-  public final func visit(_ node: OverloadedDeclRefExpr) -> Bool {
+  public mutating func visit(_ node: OverloadedDeclRefExpr) -> Bool {
     return true
   }
 
-  public final func visit(_ node: DeclRefExpr) -> Bool {
+  public mutating func visit(_ node: DeclRefExpr) -> Bool {
     return true
   }
 
-  public final func visit(_ node: TypeDeclRefExpr) -> Bool {
+  public mutating func visit(_ node: TypeDeclRefExpr) -> Bool {
     return true
   }
 
-  public final func visit(_ node: UnresolvedMemberExpr) -> Bool {
+  public mutating func visit(_ node: UnresolvedMemberExpr) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
 
-    (shouldContinue, node.base) = walk(node.base)
+    var shouldContinue: Bool
+    (shouldContinue, node.base) = walk(expr: node.base)
     return shouldContinue
   }
 
-  public final func visit(_ node: MemberDeclRefExpr) -> Bool {
+  public mutating func visit(_ node: MemberDeclRefExpr) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
 
-    (shouldContinue, node.base) = walk(node.base)
+    var shouldContinue: Bool
+    (shouldContinue, node.base) = walk(expr: node.base)
     return shouldContinue
   }
 
-  public final func visit(_ node: TupleMemberExpr) -> Bool {
+  public mutating func visit(_ node: TupleMemberExpr) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
 
-    (shouldContinue, node.base) = walk(node.base)
+    var shouldContinue: Bool
+    (shouldContinue, node.base) = walk(expr: node.base)
     return shouldContinue
   }
 
-  public final func visit(_ node: AsyncExpr) -> Bool {
+  public mutating func visit(_ node: AsyncExpr) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
 
-    (shouldContinue, node.value) = walk(node.value)
+    var shouldContinue: Bool
+    (shouldContinue, node.value) = walk(expr: node.value)
     return shouldContinue
   }
 
-  public final func visit(_ node: AwaitExpr) -> Bool {
+  public mutating func visit(_ node: AwaitExpr) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
 
-    (shouldContinue, node.value) = walk(node.value)
+    var shouldContinue: Bool
+    (shouldContinue, node.value) = walk(expr: node.value)
     return shouldContinue
   }
 
-  public final func visit(_ node: AddrOfExpr) -> Bool {
+  public mutating func visit(_ node: AddrOfExpr) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
 
-    (shouldContinue, node.value) = walk(node.value)
+    var shouldContinue: Bool
+    (shouldContinue, node.value) = walk(expr: node.value)
     return shouldContinue
   }
 
-  public final func visit(_ node: MatchExpr) -> Bool {
+  public mutating func visit(_ node: MatchExpr) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
 
-    (shouldContinue, node.subject) = walk(node.subject)
+    var shouldContinue: Bool
+    (shouldContinue, node.subject) = walk(expr: node.subject)
     guard shouldContinue else { return false }
 
     for i in 0 ..< node.cases.count {
-      (shouldContinue, node.cases[i]) = walk(node.cases[i]) as! (Bool, MatchCaseStmt)
-      guard shouldContinue else { return false }
+      guard walk(stmt: node.cases[i]) else { return false }
     }
 
     return true
   }
 
-  public final func visit(_ node: WildcardExpr) -> Bool {
+  public mutating func visit(_ node: WildcardExpr) -> Bool {
     return true
   }
 
-  public final func visit(_ node: ErrorExpr) -> Bool {
+  public mutating func visit(_ node: ErrorExpr) -> Bool {
     return true
   }
 
-  public final func visit(_ node: NamedPattern) -> Bool {
+  public mutating func visit(_ node: NamedPattern) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
 
-    (shouldContinue, node.decl) = walk(node.decl) as! (Bool, VarDecl)
-    return shouldContinue
+    return walk(decl: node.decl)
   }
 
-  public final func visit(_ node: TuplePattern) -> Bool {
+  public mutating func visit(_ node: TuplePattern) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
 
+    var shouldContinue: Bool
     for i in 0 ..< node.elems.count {
-      (shouldContinue, node.elems[i].pattern) = walk(node.elems[i].pattern)
+      (shouldContinue, node.elems[i].pattern) = walk(pattern: node.elems[i].pattern)
       guard shouldContinue else { return false }
     }
 
     return true
   }
 
-  public final func visit(_ node: BindingPattern) -> Bool {
+  public mutating func visit(_ node: BindingPattern) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
 
-    (shouldContinue, node.subpattern) = walk(node.subpattern)
+    var shouldContinue: Bool
+    (shouldContinue, node.subpattern) = walk(pattern: node.subpattern)
     guard shouldContinue else { return false }
 
     if let signature = node.sign {
-      (shouldContinue, node.sign) = walk(signature)
+      (shouldContinue, node.sign) = walk(sign: signature)
       guard shouldContinue else { return false }
     }
 
     return true
   }
 
-  public final func visit(_ node: WildcardPattern) -> Bool {
+  public mutating func visit(_ node: WildcardPattern) -> Bool {
     return true
   }
 
-  public final func visit(_ node: TupleSign) -> Bool {
+  public mutating func visit(_ node: TupleSign) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
 
+    var shouldContinue: Bool
     for i in 0 ..< node.elems.count {
-      (shouldContinue, node.elems[i].sign) = walk(node.elems[i].sign)
+      (shouldContinue, node.elems[i].sign) = walk(sign: node.elems[i].sign)
       guard shouldContinue else { return false }
     }
 
     return true
   }
 
-  public final func visit(_ node: FunSign) -> Bool {
+  public mutating func visit(_ node: FunSign) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
 
-    (shouldContinue, node.paramSign) = walk(node.paramSign)
+    var shouldContinue: Bool
+    (shouldContinue, node.paramSign) = walk(sign: node.paramSign)
     guard shouldContinue else { return false }
 
-    (shouldContinue, node.retSign) = walk(node.retSign)
+    (shouldContinue, node.retSign) = walk(sign: node.retSign)
     guard shouldContinue else { return false }
 
     return true
   }
 
-  public final func visit(_ node: AsyncSign) -> Bool {
+  public mutating func visit(_ node: AsyncSign) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
 
-    (shouldContinue, node.base) = walk(node.base)
+    var shouldContinue: Bool
+    (shouldContinue, node.base) = walk(sign: node.base)
     return shouldContinue
   }
 
-  public final func visit(_ node: InoutSign) -> Bool {
+  public mutating func visit(_ node: InoutSign) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
 
-    (shouldContinue, node.base) = walk(node.base)
+    var shouldContinue: Bool
+    (shouldContinue, node.base) = walk(sign: node.base)
     return shouldContinue
   }
 
-  public final func visit(_ node: UnionSign) -> Bool {
+  public mutating func visit(_ node: UnionSign) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
 
+    var shouldContinue: Bool
     for i in 0 ..< node.elems.count {
-      (shouldContinue, node.elems[i]) = walk(node.elems[i])
+      (shouldContinue, node.elems[i]) = walk(sign: node.elems[i])
       guard shouldContinue else { return false }
     }
 
     return true
   }
 
-  public final func visit(_ node: ViewCompSign) -> Bool {
+  public mutating func visit(_ node: ViewCompSign) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
 
+    var shouldContinue: Bool
     for i in 0 ..< node.views.count {
-      (shouldContinue, node.views[i]) = walk(node.views[i])
+      (shouldContinue, node.views[i]) = walk(sign: node.views[i])
       guard shouldContinue else { return false }
     }
 
     return true
   }
 
-  public final func visit(_ node: BareIdentSign) -> Bool {
+  public mutating func visit(_ node: BareIdentSign) -> Bool {
     return true
   }
 
-  public final func visit(_ node: SpecializedIdentSign) -> Bool {
+  public mutating func visit(_ node: SpecializedIdentSign) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
 
+    var shouldContinue: Bool
     for i in 0 ..< node.args.count {
-      (shouldContinue, node.args[i]) = walk(node.args[i])
+      (shouldContinue, node.args[i]) = walk(sign: node.args[i])
       guard shouldContinue else { return false }
     }
 
     return true
   }
 
-  public final func visit(_ node: CompoundIdentSign) -> Bool {
+  public mutating func visit(_ node: CompoundIdentSign) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
 
+    var shouldContinue: Bool
     for i in 0 ..< node.components.count {
-      (shouldContinue, node.components[i]) = walk(node.components[i]) as! (Bool, IdentCompSign)
+      (shouldContinue, node.components[i]) = walk(sign: node.components[i])
+        as! (Bool, IdentCompSign)
       guard shouldContinue else { return false }
     }
 
     return true
   }
 
-  public final func visit(_ node: ErrorSign) -> Bool {
+  public mutating func visit(_ node: ErrorSign) -> Bool {
     return true
   }
 
-  public final func visit(_ clause: GenericClause) -> Bool {
+  public mutating func visit(_ clause: GenericClause) -> Bool {
     for i in 0 ..< clause.params.count {
-      (shouldContinue, clause.params[i]) = walk(clause.params[i])
-        as! (Bool, GenericParamDecl)
-      guard shouldContinue else { return false }
+      guard walk(decl: clause.params[i]) else { return false }
     }
 
+    var shouldContinue: Bool
     for i in 0 ..< clause.typeReqs.count {
-      (shouldContinue, clause.typeReqs[i].lhs) = walk(clause.typeReqs[i].lhs)
+      (shouldContinue, clause.typeReqs[i].lhs) = walk(sign: clause.typeReqs[i].lhs)
         as! (Bool, IdentSign)
       guard shouldContinue else { return false }
 
-      (shouldContinue, clause.typeReqs[i].rhs) = walk(clause.typeReqs[i].rhs)
+      (shouldContinue, clause.typeReqs[i].rhs) = walk(sign: clause.typeReqs[i].rhs)
       guard shouldContinue else { return false }
     }
 
     return true
-  }
-
-  public final func walk(_ decl: Decl) -> (Bool, Decl) {
-    // Fire the `willVisit` event.
-    let (shouldVisit, substitute) = willVisit(decl)
-    guard shouldVisit else {
-      return (true, substitute)
-    }
-
-    // Visit the node's children.
-    guard substitute.accept(self) else {
-      return (false, substitute)
-    }
-
-    // Fire the `didVisit` event.
-    return didVisit(substitute)
-  }
-
-  public final func walk(_ stmt: Stmt) -> (Bool, Stmt) {
-    // Fire the `willVisit` event.
-    let (shouldVisit, substitute) = willVisit(stmt)
-    guard shouldVisit else {
-      return (true, substitute)
-    }
-
-    // Visit the node's children.
-    guard substitute.accept(self) else {
-      return (false, substitute)
-    }
-
-    // Fire the `didVisit` event.
-    return didVisit(substitute)
-  }
-
-  public final func walk(_ expr: Expr) -> (Bool, Expr) {
-    // Fire the `willVisit` event.
-    let (shouldVisit, substitute) = willVisit(expr)
-    guard shouldVisit else {
-      return (true, substitute)
-    }
-
-    // Visit the node's children.
-    guard substitute.accept(self) else {
-      return (false, substitute)
-    }
-
-    // Fire the `didVisit` event.
-    return didVisit(substitute)
-  }
-
-  public final func walk(_ pattern: Pattern) -> (Bool, Pattern) {
-    // Fire the `willVisit` event.
-    let (shouldVisit, substitute) = willVisit(pattern)
-    guard shouldVisit else {
-      return (true, substitute)
-    }
-
-    // Visit the node's children.
-    guard substitute.accept(self) else {
-      return (false, substitute)
-    }
-
-    // Fire the `didVisit` event.
-    return didVisit(substitute)
-  }
-
-  public final func walk(_ sign: Sign) -> (Bool, Sign) {
-    // Fire the `willVisit` event.
-    let (shouldVisit, substitute) = willVisit(sign)
-    guard shouldVisit else {
-      return (true, substitute)
-    }
-
-    // Visit the node's children.
-    guard substitute.accept(self) else {
-      return (false, substitute)
-    }
-
-    // Fire the `didVisit` event.
-    return didVisit(substitute)
-  }
-
-  public final func walk(_ node: Node) -> (Bool, Node) {
-    switch node {
-    case let d as Decl    : return walk(d)
-    case let s as Stmt    : return walk(s)
-    case let e as Expr    : return walk(e)
-    case let p as Pattern : return walk(p)
-    case let t as Sign    : return walk(t)
-    default: fatalError("unreachable")
-    }
   }
 
 }

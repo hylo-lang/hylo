@@ -2,7 +2,13 @@ import AST
 import Basic
 
 /// A node walker that applies a solution produced by a type solver to the AST.
-final class TypeDispatcher: NodeWalker {
+struct TypeDispatcher: NodeWalker {
+
+  typealias Result = Bool
+
+  var parent: Node?
+
+  var innermostSpace: DeclSpace?
 
   init(
     solution: Solution,
@@ -18,15 +24,15 @@ final class TypeDispatcher: NodeWalker {
   /// The binding policy to adopt for free type variables.
   let freeVariablePolicy: FreeTypeVarBindingPolicy
 
-  override func didVisit(_ decl: Decl) -> (shouldContinue: Bool, nodeAfter: Decl) {
+  mutating func didVisit(_ decl: Decl) -> Bool {
     if let valueDecl = decl as? ValueDecl {
       // FIXME: Should this be uncontextualized?
       valueDecl.type = solution.reify(valueDecl.type, freeVariablePolicy: freeVariablePolicy)
     }
-    return (true, decl)
+    return true
   }
 
-  override func didVisit(_ expr: Expr) -> (shouldContinue: Bool, nodeAfter: Expr) {
+  mutating func didVisit(_ expr: Expr) -> (shouldContinue: Bool, nodeAfter: Expr) {
     switch expr {
     case is MemberDeclRefExpr:
       break
@@ -47,7 +53,7 @@ final class TypeDispatcher: NodeWalker {
     return (true, expr)
   }
 
-  override func didVisit(_ pattern: Pattern) -> (shouldContinue: Bool, nodeAfter: Pattern) {
+  mutating func didVisit(_ pattern: Pattern) -> (shouldContinue: Bool, nodeAfter: Pattern) {
     pattern.type = solution.reify(pattern.type, freeVariablePolicy: freeVariablePolicy)
 
     if let decl = (pattern as? NamedPattern)?.decl {
