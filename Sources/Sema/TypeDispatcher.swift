@@ -24,11 +24,9 @@ struct TypeDispatcher: NodeWalker {
   /// The binding policy to adopt for free type variables.
   let freeVariablePolicy: FreeTypeVarBindingPolicy
 
-  mutating func didVisit(_ decl: Decl) -> Bool {
-    if let valueDecl = decl as? ValueDecl {
-      // FIXME: Should this be uncontextualized?
-      valueDecl.type = solution.reify(valueDecl.type, freeVariablePolicy: freeVariablePolicy)
-    }
+  mutating func visit(_ decl: ValueDecl) -> Bool {
+    // FIXME: Should this be uncontextualized?
+    decl.type = solution.reify(decl.type, freeVariablePolicy: freeVariablePolicy)
     return true
   }
 

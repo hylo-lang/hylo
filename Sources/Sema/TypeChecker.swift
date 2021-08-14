@@ -215,11 +215,11 @@ public enum TypeChecker {
     withUnsafeMutablePointer(to: &system, { ptr in
       // Pre-check the expression to resolve unqualified identifiers, realize type signatures and
       // desugar constructor calls.
-      var precheck = PreCheckDriver(system: ptr, useSite: useSite)
-      (_, expr) = precheck.walk(expr: expr)
+      var prechecker = PreChecker(system: ptr, useSite: useSite)
+      (_, expr) = prechecker.walk(expr: expr)
 
       // Generate constraints from the expression.
-      var csgen = CSGenDriver(system: ptr, useSite: useSite)
+      var csgen = ConstraintGenerator(system: ptr, useSite: useSite)
       (_, expr) = csgen.walk(expr: expr)
     })
 
@@ -260,7 +260,7 @@ public enum TypeChecker {
   ) -> Solution {
     // Generate constraints from the pattern.
     withUnsafeMutablePointer(to: &system, { ptr in
-      var driver = CSGenDriver(system: ptr, useSite: useSite)
+      var driver = ConstraintGenerator(system: ptr, useSite: useSite)
       driver.walk(pattern: pattern)
     })
 

@@ -1,7 +1,7 @@
 import AST
 
-/// A driver for a constraint generator.
-struct CSGenDriver: NodeWalker {
+/// An AST visitor that generates type constraints on expressions.
+struct ConstraintGenerator: NodeWalker {
 
   typealias Result = Bool
 
@@ -9,67 +9,29 @@ struct CSGenDriver: NodeWalker {
 
   var innermostSpace: DeclSpace?
 
+  /// A pointer to the system in which new constraints are inserted.
+  let system: UnsafeMutablePointer<ConstraintSystem>
+
   init(system: UnsafeMutablePointer<ConstraintSystem>, useSite: DeclSpace) {
     self.system = system
     self.innermostSpace = useSite
   }
 
-  /// A pointer to the system in which new constraints are inserted.
-  let system: UnsafeMutablePointer<ConstraintSystem>
-
   mutating func willVisit(_ expr: Expr) -> (shouldWalk: Bool, nodeBefore: Expr) {
-    // Skip the recursive descent into match statements, as the heavy-lifting has already been done
-    // by the pre-checker. There's nothing more to do unless the match is treated as an expression.
-    if let matchExpr = expr as? MatchExpr, matchExpr.isSubexpr {
-      var csgen = ConstraintGenerator(system: system, useSite: innermostSpace!)
-      matchExpr.accept(&csgen)
-      return (false, matchExpr)
-    }
-
-    return (true, expr)
+    // Skip the recursive descent into expressions that have errors.
+    return (!expr.type.hasErrors, expr)
   }
 
-  mutating func didVisit(_ expr: Expr) -> (shouldContinue: Bool, nodeAfter: Expr) {
-    if expr.type.hasErrors {
-      return (true, expr)
-    }
-
-    // Generate constraints.
-    var csgen = ConstraintGenerator(system: system, useSite: innermostSpace!)
-    expr.accept(&csgen)
-    return (true, expr)
-  }
-
-  mutating func didVisit(_ pattern: Pattern) -> (shouldContinue: Bool, nodeAfter: Pattern) {
+  mutating func willVisit(_ pattern: Pattern) -> (shouldWalk: Bool, nodeAfter: Pattern) {
     // There's nothing to do if the pattern already has a type.
-    if !(pattern.type is UnresolvedType) {
-      return (true, pattern)
-    }
-
-    var csgen = ConstraintGenerator(system: system, useSite: innermostSpace!)
-    pattern.accept(&csgen)
-    return (true, pattern)
+    return (pattern.type is UnresolvedType, pattern)
   }
 
-}
-
-/// An AST visitor that generates type constraints on expressions.
-private struct ConstraintGenerator: ExprVisitor, PatternVisitor {
-
-  typealias ExprResult = Void
-  typealias PatternResult = Void
-
-  /// A pointer to the system in which new constraints are inserted.
-  let system: UnsafeMutablePointer<ConstraintSystem>
-
-  /// The declaration space from which nodes are being visited.
-  unowned let useSite: DeclSpace
-
-  func visit(_ node: BoolLiteralExpr) -> Void {
+  func visit(_ node: BoolLiteralExpr) -> Bool {
     fatalError("not implemented")
   }
 
-  func visit(_ node: IntLiteralExpr) {
+  func visit(_ node: IntLiteralExpr) -> Bool {
     if node.type is UnresolvedType {
       node.type = TypeVar(context: node.type.context, node: node)
     }
@@ -79,53 +41,80 @@ private struct ConstraintGenerator: ExprVisitor, PatternVisitor {
       RelationalConstraint(
         kind: .conversion, lhs: node.type, rhs: literalType,
         at: ConstraintLocator(node)))
+
+    return true
   }
 
-  func visit(_ node: FloatLiteralExpr) -> Void {
+  func visit(_ node: FloatLiteralExpr) -> Bool {
     fatalError("not implemented")
   }
 
-  func visit(_ node: StringLiteralExpr) -> Void {
+  func visit(_ node: StringLiteralExpr) -> Bool {
     fatalError("not implemented")
   }
 
-  func visit(_ node: AssignExpr) {
+  mutating func visit(_ node: AssignExpr) -> Bool {
+    guard traverse(node) else { return false }
+
     // Don't create any constraint if the left operand has an error type.
-    guard !(node.lvalue.type is ErrorType) else { return }
+    guard !(node.lvalue.type is ErrorType) else { return true }
 
     system.pointee.insert(
       RelationalConstraint(
         kind: .subtyping, lhs: node.rvalue.type, rhs: node.lvalue.type,
         at: ConstraintLocator(node, .assignment)))
+
+    return true
   }
 
-  func visit(_ node: BaseCastExpr) {
+  mutating func visit(_ node: BaseCastExpr) -> Bool {
+    guard traverse(node) else { return false }
+
+    // FIXME: There should be a relationshup with the value's type.
     if node.type is UnresolvedType {
       node.type = TypeVar(context: node.type.context, node: node)
     }
+
+    return true
   }
 
-  func visit(_ node: DynCastExpr) {
+  mutating func visit(_ node: DynCastExpr) -> Bool {
+    guard traverse(node) else { return false }
+
+    // FIXME: There should be a relationshup with the value's type.
     if node.type is UnresolvedType {
       node.type = TypeVar(context: node.type.context, node: node)
     }
+
+    return true
   }
 
-  func visit(_ node: UnsafeCastExpr) {
+  mutating func visit(_ node: UnsafeCastExpr) -> Bool {
+    guard traverse(node) else { return false }
+
+    // FIXME: We should implement sanity checks on the cast's validity w.r.t. the value's type.
     if node.type is UnresolvedType {
       node.type = TypeVar(context: node.type.context, node: node)
     }
+
+    return true
   }
 
-  func visit(_ node: TupleExpr) {
+  mutating func visit(_ node: TupleExpr) -> Bool {
+    guard traverse(node) else { return false }
+
     // Synthetize a type from the tuple's elements.
     let elems = node.elems.map({ elem in
       TupleType.Elem(label: elem.label, type: elem.value.type)
     })
     node.type = node.type.context.tupleType(elems)
+
+    return true
   }
 
-  func visit(_ node: CallExpr) {
+  mutating func visit(_ node: CallExpr) -> Bool {
+    guard traverse(node) else { return false }
+
     if node.type is UnresolvedType {
       node.type = TypeVar(context: node.type.context, node: node)
     }
@@ -148,26 +137,37 @@ private struct ConstraintGenerator: ExprVisitor, PatternVisitor {
       RelationalConstraint(
         kind: .equality, lhs: node.fun.type, rhs: funType,
         at: ConstraintLocator(node.fun)))
+
+    return true
   }
 
-  func visit(_ node: UnresolvedDeclRefExpr) {
+  func visit(_ node: UnresolvedDeclRefExpr) -> Bool {
+    return true
   }
 
-  func visit(_ node: UnresolvedMemberExpr) {
+  mutating func visit(_ node: UnresolvedMemberExpr) -> Bool {
+    guard traverse(node) else { return false }
+
     if node.type is UnresolvedType {
       node.type = TypeVar(context: node.type.context, node: node)
     }
 
     system.pointee.insert(
       ValueMemberConstraint(
-        node.base.type, hasValueMember: node.memberName, ofType: node.type, useSite: useSite,
+        node.base.type,
+        hasValueMember: node.memberName,
+        ofType: node.type,
+        useSite: innermostSpace!,
         at: ConstraintLocator(node, .valueMember(node.memberName))))
+
+    return true
   }
 
-  func visit(_ node: UnresolvedQualDeclRefExpr) {
+  func visit(_ node: UnresolvedQualDeclRefExpr) -> Bool {
+    return true
   }
 
-  func visit(_ node: OverloadedDeclRefExpr) {
+  func visit(_ node: OverloadedDeclRefExpr) -> Bool {
     assert(node.declSet.count >= 1)
 
     if node.type is UnresolvedType {
@@ -176,29 +176,43 @@ private struct ConstraintGenerator: ExprVisitor, PatternVisitor {
 
     system.pointee.insert(
       OverloadBindingConstraint(
-        node.type, declSet: node.declSet, useSite: useSite,
+        node.type,
+        declSet: node.declSet,
+        useSite: innermostSpace!,
         at: ConstraintLocator(node)))
+
+    return true
   }
 
-  func visit(_ node: DeclRefExpr) {
+  func visit(_ node: DeclRefExpr) -> Bool {
     if node.type is UnresolvedType {
       node.type = TypeVar(context: node.type.context, node: node)
     }
+
+    return true
   }
 
-  func visit(_ node: TypeDeclRefExpr) {
+  func visit(_ node: TypeDeclRefExpr) -> Bool {
     if node.type is UnresolvedType {
       node.type = TypeVar(context: node.type.context, node: node)
     }
+
+    return true
   }
 
-  func visit(_ node: MemberDeclRefExpr) {
+  mutating func visit(_ node: MemberDeclRefExpr) -> Bool {
+    guard traverse(node) else { return false }
+
     if node.type is UnresolvedType {
       node.type = TypeVar(context: node.type.context, node: node)
     }
+
+    return true
   }
 
-  func visit(_ node: TupleMemberExpr) {
+  mutating func visit(_ node: TupleMemberExpr) -> Bool {
+    guard traverse(node) else { return false }
+
     if node.type is UnresolvedType {
       node.type = TypeVar(context: node.type.context, node: node)
     }
@@ -207,13 +221,20 @@ private struct ConstraintGenerator: ExprVisitor, PatternVisitor {
       TupleMemberConstraint(
         node.base.type, hasMemberAt: node.memberIndex, ofType: node.type,
         at: ConstraintLocator(node, .tupleElem(node.memberIndex))))
+
+    return true
   }
 
-  func visit(_ node: AsyncExpr) -> Void {
+  mutating func visit(_ node: AsyncExpr) -> Bool {
+    guard traverse(node) else { return false }
     node.type = node.type.context.asyncType(of: node.value.type)
+
+    return true
   }
 
-  func visit(_ node: AwaitExpr) {
+  mutating func visit(_ node: AwaitExpr) -> Bool {
+    guard traverse(node) else { return false }
+
     if node.type is UnresolvedType {
       node.type = TypeVar(context: node.type.context, node: node)
     }
@@ -223,18 +244,28 @@ private struct ConstraintGenerator: ExprVisitor, PatternVisitor {
       RelationalConstraint(
         kind: .oneWayEquality, lhs: awaitedType, rhs: node.value.type,
         at: ConstraintLocator(node.value)))
+
+    return true
   }
 
-  func visit(_ node: AddrOfExpr) {
+  mutating func visit(_ node: AddrOfExpr) -> Bool {
+    guard traverse(node) else { return false }
+
     if node.value.type is InoutType {
       node.type = node.value.type
     } else {
       node.type = node.type.context.inoutType(of: node.value.type)
     }
+
+    return true
   }
 
-  func visit(_ node: MatchExpr) {
-    assert(node.isSubexpr)
+  mutating func visit(_ node: MatchExpr) -> Bool {
+    guard traverse(node) else { return false }
+
+    // The the heavy-lifting has already been done by the pre-checker. There's nothing more to do
+    // unless the match is treated as an expression.
+    guard node.isSubexpr else { return true }
 
     if node.type is UnresolvedType {
       node.type = TypeVar(context: node.type.context, node: node)
@@ -254,45 +285,57 @@ private struct ConstraintGenerator: ExprVisitor, PatternVisitor {
             kind: .subtyping, lhs: expr.type, rhs: node.type, at: ConstraintLocator(stmt)))
       }
     }
+
+    return true
   }
 
-  func visit(_ node: WildcardExpr) {
+  mutating func visit(_ node: WildcardExpr) -> Bool {
     if node.type is UnresolvedType {
       node.type = TypeVar(context: node.type.context, node: node)
     }
+
+    return true
   }
 
-  func visit(_ node: ErrorExpr) {
+  func visit(_ node: ErrorExpr) -> Bool {
     assert(node.type is ErrorType)
+    return true
   }
 
-  func visit(_ node: NamedPattern) {
+  func visit(_ node: NamedPattern) -> Bool {
     guard node.decl.state < .typeChecked else {
       assert(!(node.type is UnresolvedType))
-      return
+      return true
     }
 
     node.type = TypeVar(context: node.type.context, node: node)
+    return true
   }
 
-  func visit(_ node: TuplePattern) {
+  mutating func visit(_ node: TuplePattern) -> Bool {
+    guard traverse(node) else { return false }
+
     // Synthetize a type from the tuple's elements.
     let elems = node.elems.map({ elem in
       TupleType.Elem(label: elem.label, type: elem.pattern.type)
     })
     node.type = node.type.context.tupleType(elems)
+
+    return true
   }
 
-  func visit(_ node: BindingPattern) {
+  mutating func visit(_ node: BindingPattern) -> Bool {
+    guard traverse(node) else { return false }
+
     node.type = node.subpattern.type
 
     if let sign = node.sign {
       // Contextualize the type signature.
-      guard let signType = TypeChecker
-              .contextualize(sign: sign, from: useSite, system: &system.pointee)
+      guard let signType = TypeChecker.contextualize(
+              sign: sign, from: innermostSpace!, system: &system.pointee)
       else {
         node.type = node.type.context.errorType
-        return
+        return true
       }
 
       system.pointee.insert(
@@ -300,12 +343,16 @@ private struct ConstraintGenerator: ExprVisitor, PatternVisitor {
           kind: .equality, lhs: node.type, rhs: signType,
           at: ConstraintLocator(node.subpattern)))
     }
+
+    return true
   }
 
-  func visit(_ node: WildcardPattern) {
+  func visit(_ node: WildcardPattern) -> Bool {
     if node.type is UnresolvedType {
       node.type = TypeVar(context: node.type.context, node: node)
     }
+
+    return true
   }
 
 }

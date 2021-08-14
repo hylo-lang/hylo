@@ -1,8 +1,9 @@
 import AST
 import Basic
 
-/// A driver for a pre-check visitor.
-struct PreCheckDriver: NodeWalker {
+/// An AST visitor that resolves unqualified identifiers, realizes type signatures and desugars
+/// some expressions, before constraint generation.
+struct PreChecker: NodeWalker {
 
   typealias Result = Bool
 
@@ -10,13 +11,13 @@ struct PreCheckDriver: NodeWalker {
 
   var innermostSpace: DeclSpace?
 
+  /// A pointer to the system in which new constraints are inserted.
+  let system: UnsafeMutablePointer<ConstraintSystem>
+
   init(system: UnsafeMutablePointer<ConstraintSystem>, useSite: DeclSpace) {
     self.system = system
     self.innermostSpace = useSite
   }
-
-  /// A pointer to the system in which new constraints are inserted.
-  let system: UnsafeMutablePointer<ConstraintSystem>
 
   mutating func willVisit(_ expr: Expr) -> (shouldWalk: Bool, nodeBefore: Expr) {
     switch expr {
@@ -30,7 +31,7 @@ struct PreCheckDriver: NodeWalker {
 
     case let matchExpr as MatchExpr:
       // Match expressions require special handling to deal with case inference.
-      var checker = PreChecker(system: system, useSite: innermostSpace!)
+      var checker = PreCheckerImpl(system: system, useSite: innermostSpace!)
       let newExpr = matchExpr.accept(&checker)
       return (false, newExpr)
 
@@ -43,16 +44,16 @@ struct PreCheckDriver: NodeWalker {
   }
 
   mutating func didVisit(_ expr: Expr) -> (shouldContinue: Bool, nodeAfter: Expr) {
-    var checker = PreChecker(system: system, useSite: innermostSpace!)
+    var checker = PreCheckerImpl(system: system, useSite: innermostSpace!)
     let newExpr = expr.accept(&checker)
     return (true, newExpr)
   }
 
 }
 
-/// A pre-check visitor that resolves unqualified identifiers, realizes type signatures and
-/// desugars some expressions.
-struct PreChecker: ExprVisitor {
+// FIXME: We could merge this visitor directly into the pre-checker if `ExprVisitor.visit(_:)`
+// accepted inout expressions.
+fileprivate struct PreCheckerImpl: ExprVisitor {
 
   typealias ExprResult = Expr
 

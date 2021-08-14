@@ -5,63 +5,6 @@ public struct CaptureCollector: NodeWalker {
 
   public typealias Result = Bool
 
-  public var parent: Node?
-
-  public var innermostSpace: DeclSpace?
-
-  /// The declaration space in which the visited expression is being analyzed.
-  private var space: DeclSpace?
-
-  /// The set of declaration captured by the visited expression.
-  private var captureSet: Set<HashableBox<DeclRefExpr, CaptureHashWitness>>
-
-  /// The declaration references of the caputed values, sorted.
-  public var captures: [HashableBox<DeclRefExpr, CaptureHashWitness>] {
-    return captureSet
-      .sorted(by: { a, b in a.value.decl.name < b.value.decl.name })
-  }
-
-  public init(relativeTo space: DeclSpace?) {
-    self.space = space
-    self.captureSet = []
-  }
-
-  public mutating func willVisit(_ decl: Decl) -> Bool {
-    guard let decl = decl as? BaseFunDecl else { return true }
-
-    let currentSpace = space
-    space = decl
-    _ = decl.accept(&self)
-    space = currentSpace
-    return false
-  }
-
-  public mutating func didVisit(_ expr: Expr) -> (shouldContinue: Bool, nodeAfter: Expr) {
-    // Check whether the expression is a declaration reference.
-    if let expr = expr as? DeclRefExpr {
-      // If the referre declaration is a function, make sure it is a identifying a local closure.
-      if let decl = expr.decl as? BaseFunDecl {
-        switch decl.parentDeclSpace {
-        case is TypeDecl, is TypeExtnDecl, is SourceUnit:
-          return (true, expr)
-        default:
-          break
-        }
-      }
-
-      // Check whether the symbol is defined outside of the expression's declaration space.
-      let declSpace = expr.decl.parentDeclSpace!
-      if let space = self.space, declSpace.isDescendant(of: space) {
-        return (true, expr)
-      }
-
-      // Register a new capture.
-      captureSet.insert(HashableBox(expr))
-    }
-
-    return (true, expr)
-  }
-
   public struct CaptureHashWitness: HashWitness {
 
     public typealias Value = DeclRefExpr
@@ -74,6 +17,57 @@ public struct CaptureCollector: NodeWalker {
       return lhs.decl === rhs.decl
     }
 
+  }
+
+  public var parent: Node?
+
+  public var innermostSpace: DeclSpace?
+
+  /// The outermost declaration space in which declarations are considered local, not captured.
+  private var boundary: DeclSpace?
+
+  /// The set of declaration captured by the visited expression.
+  private var captureSet: Set<HashableBox<DeclRefExpr, CaptureHashWitness>>
+
+  /// The declaration references of the caputed values, sorted.
+  public var captures: [HashableBox<DeclRefExpr, CaptureHashWitness>] {
+    return captureSet
+      .sorted(by: { a, b in a.value.decl.name < b.value.decl.name })
+  }
+
+  public init(relativeTo boundary: DeclSpace?) {
+    self.boundary = boundary
+    self.captureSet = []
+  }
+
+  public mutating func visit(_ decl: BaseFunDecl) -> Bool {
+    let currentBoundary = boundary
+    boundary = decl
+    _ = traverse(decl)
+    boundary = currentBoundary
+    return true
+  }
+
+  public mutating func visit(_ expr: DeclRefExpr) -> Bool {
+    // If the referred declaration is a function, make sure it is a identifying a local closure.
+    if let decl = expr.decl as? BaseFunDecl {
+      switch decl.parentDeclSpace {
+      case is TypeDecl, is TypeExtnDecl, is SourceUnit:
+        return true
+      default:
+        break
+      }
+    }
+
+    // Check whether the symbol is defined beyond the boundary.
+    let declSpace = expr.decl.parentDeclSpace!
+    if let boundary = self.boundary, declSpace.isDescendant(of: boundary) {
+      return true
+    }
+
+    // Register a new capture.
+    captureSet.insert(HashableBox(expr))
+    return true
   }
 
 }

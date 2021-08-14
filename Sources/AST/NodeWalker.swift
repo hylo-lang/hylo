@@ -12,33 +12,29 @@ public protocol NodeWalker: NodeVisitor where Result == Bool {
   /// This method is called when the walker is about to visit a declaration.
   ///
   /// - Parameter decl: The declaration that will be visited.
-  /// - Returns: `(flag, node)`, where `node` subsitutes `expr` in the AST, and `flag` is a
-  ///   Boolean value that indicates whether the walker should visit `node`. The default
-  ///   implementation returns `(true, decl)`.
+  /// - Returns: A Boolean value that indicates whether the walker should visit `decl`.
+  ///   The default implementation returns `true`.
   mutating func willVisit(_ decl: Decl) -> Bool
 
   /// This method is called after the walker visited a declaration.
   ///
   /// - Parameter decl: The declaration that was visited.
-  /// - Returns: `(flag, node)` where `node` subsitutes `expr` in the AST, and `flag` is a
-  ///   Boolean value that indicates whether the walker should proceed to the next node. The
-  ///   default implementation returns `(true, decl)`.
+  /// - Returns: A Boolean value that indicates whether the walker should proceed to the next node.
+  ///   The default implementation returns `true`.
   mutating func didVisit(_ decl: Decl) -> Bool
 
   /// This method is called when the walker is about to visit a statement.
   ///
   /// - Parameter stmt: The statement that will be visited.
-  /// - Returns: `(flag, node)`, where `node` subsitutes `stmt` in the AST, and `flag` is a
-  ///   Boolean value that indicates whether the walker should visit `node`. The default
-  ///   implementation returns `(true, stmt)`.
+  /// - Returns: A Boolean value that indicates whether the walker should visit `stmt`.
+  ///   The default implementation returns `true`.
   mutating func willVisit(_ stmt: Stmt) -> Bool
 
   /// This method is called after the walker visited a statement.
   ///
   /// - Parameter stmt: The statement that was visited.
-  /// - Returns: `(flag, node)` where `node` subsitutes `stmt` in the AST, and `flag` is a
-  ///   Boolean value that indicates whether the walker should proceed to the next node. The
-  ///   default implementation returns `(true, stmt)`.
+  /// - Returns: A Boolean value that indicates whether the walker should proceed to the next node.
+  ///   The default implementation returns `true`.
   mutating func didVisit(_ stmt: Stmt) -> Bool
 
   /// This method is called when the walker is about to visit an expression.
@@ -92,15 +88,15 @@ public protocol NodeWalker: NodeVisitor where Result == Bool {
   /// This method is called when the walker is about to visit a generic clause.
   ///
   /// - Parameter clause: The generic clause that will be visited.
-  /// - Returns: `true` if the walker should visit the clause, or `false` if it should skip it. The
-  ///   default implementation returns `true`.
+  /// - Returns: A Boolean value that indicates whether the walker should visit `clause`.
+  ///   The default implementation returns `true`.
   mutating func willVisit(_ clause: GenericClause) -> Bool
 
   /// This method is called after the walker visited a generic clause.
   ///
   /// - Parameter clause: The generic clause that was visited.
-  /// - Returns: `true` if the walker should proceed to the next node, or `false` otherwise. The
-  ///   default implementation returns `true`.
+  /// - Returns: A Boolean value that indicates whether the walker should proceed to the next node.
+  ///   The default implementation returns `true`.
   mutating func didVisit(_ clause: GenericClause) -> Bool
 
 }
@@ -182,18 +178,6 @@ extension NodeWalker {
     return didVisit(substitute)
   }
 
-  @discardableResult
-  public mutating func walk(any node: Node) -> (Bool, Node) {
-    switch node {
-    case let node as Decl    : return (walk(decl: node), node)
-    case let node as Stmt    : return (walk(stmt: node), node)
-    case let node as Expr    : return walk(expr: node)
-    case let node as Pattern : return walk(pattern: node)
-    case let node as Sign    : return walk(sign: node)
-    default: fatalError("unreachable")
-    }
-  }
-
   public mutating func willVisit(_ decl: Decl) -> Bool {
     return true
   }
@@ -243,6 +227,10 @@ extension NodeWalker {
   }
 
   public mutating func visit(_ node: ModuleDecl) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: ModuleDecl) -> Bool {
     let prevParent = parent
     parent = node
     innermostSpace = node
@@ -259,6 +247,10 @@ extension NodeWalker {
   }
 
   public mutating func visit(_ node: ImportDecl) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: ImportDecl) -> Bool {
     let prevParent = parent
     parent = node
     defer {
@@ -269,6 +261,10 @@ extension NodeWalker {
   }
 
   public mutating func visit(_ node: PatternBindingDecl) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: PatternBindingDecl) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
@@ -295,6 +291,10 @@ extension NodeWalker {
   }
 
   public mutating func visit(_ node: BaseFunDecl) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: BaseFunDecl) -> Bool {
     let prevParent = parent
     parent = node
     innermostSpace = node
@@ -304,7 +304,7 @@ extension NodeWalker {
     }
 
     if let clause = node.genericClause, willVisit(clause) {
-      guard visit(clause)    else { return false }
+      guard visit(clause) else { return false }
       guard didVisit(clause) else { return false }
     }
 
@@ -326,14 +326,18 @@ extension NodeWalker {
   }
 
   public mutating func visit(_ node: FunDecl) -> Bool {
-    return visit(node as BaseFunDecl)
+    return traverse(node)
   }
 
   public mutating func visit(_ node: CtorDecl) -> Bool {
-    return visit(node as BaseFunDecl)
+    return traverse(node)
   }
 
   public mutating func visit(_ node: FunParamDecl) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: FunParamDecl) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
@@ -364,6 +368,10 @@ extension NodeWalker {
   }
 
   public mutating func visit(_ node: ProductTypeDecl) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: ProductTypeDecl) -> Bool {
     let prevParent = parent
     parent = node
     innermostSpace = node
@@ -373,7 +381,7 @@ extension NodeWalker {
     }
 
     if let clause = node.genericClause, willVisit(clause) {
-      guard visit(clause)    else { return false }
+      guard visit(clause) else { return false }
       guard didVisit(clause) else { return false }
     }
 
@@ -391,6 +399,10 @@ extension NodeWalker {
   }
 
   public mutating func visit(_ node: ViewTypeDecl) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: ViewTypeDecl) -> Bool {
     let prevParent = parent
     parent = node
     innermostSpace = node
@@ -413,6 +425,10 @@ extension NodeWalker {
   }
 
   public mutating func visit(_ node: AliasTypeDecl) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: AliasTypeDecl) -> Bool {
     let prevParent = parent
     parent = node
     innermostSpace = node
@@ -422,7 +438,7 @@ extension NodeWalker {
     }
 
     if let clause = node.genericClause, willVisit(clause) {
-      guard visit(clause)    else { return false }
+      guard visit(clause) else { return false }
       guard didVisit(clause) else { return false }
     }
 
@@ -439,6 +455,10 @@ extension NodeWalker {
   }
 
   public mutating func visit(_ node: AbstractTypeDecl) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: AbstractTypeDecl) -> Bool {
     let prevParent = parent
     parent = node
     defer {
@@ -468,6 +488,10 @@ extension NodeWalker {
   }
 
   public mutating func visit(_ node: TypeExtnDecl) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: TypeExtnDecl) -> Bool {
     let prevParent = parent
     parent = node
     innermostSpace = node
@@ -488,6 +512,10 @@ extension NodeWalker {
   }
 
   public mutating func visit(_ node: BraceStmt) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: BraceStmt) -> Bool {
     let prevParent = parent
     parent = node
     innermostSpace = node
@@ -498,7 +526,16 @@ extension NodeWalker {
 
     var shouldContinue: Bool
     for i in 0 ..< node.stmts.count {
-      (shouldContinue, node.stmts[i]) = walk(any: node.stmts[i])
+      switch node.stmts[i] {
+      case let decl as Decl:
+        shouldContinue = walk(decl: decl)
+      case let stmt as Stmt:
+        shouldContinue = walk(stmt: stmt)
+      case let expr as Expr:
+        (shouldContinue, node.stmts[i]) = walk(expr: expr)
+      default:
+        fatalError("unreachable")
+      }
       guard shouldContinue else { return false }
     }
 
@@ -506,6 +543,10 @@ extension NodeWalker {
   }
 
   public mutating func visit(_ node: RetStmt) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: RetStmt) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
@@ -520,6 +561,10 @@ extension NodeWalker {
   }
 
   public mutating func visit(_ node: MatchCaseStmt) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: MatchCaseStmt) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
@@ -555,6 +600,10 @@ extension NodeWalker {
   }
 
   public mutating func visit(_ node: AssignExpr) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: AssignExpr) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
@@ -570,6 +619,10 @@ extension NodeWalker {
   }
 
   public mutating func visit(_ node: BaseCastExpr) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: BaseCastExpr) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
@@ -593,6 +646,10 @@ extension NodeWalker {
   }
 
   public mutating func visit(_ node: TupleExpr) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: TupleExpr) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
@@ -607,6 +664,10 @@ extension NodeWalker {
   }
 
   public mutating func visit(_ node: CallExpr) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: CallExpr) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
@@ -628,6 +689,10 @@ extension NodeWalker {
   }
 
   public mutating func visit(_ node: UnresolvedQualDeclRefExpr) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: UnresolvedQualDeclRefExpr) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
@@ -650,6 +715,10 @@ extension NodeWalker {
   }
 
   public mutating func visit(_ node: UnresolvedMemberExpr) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: UnresolvedMemberExpr) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
@@ -660,6 +729,10 @@ extension NodeWalker {
   }
 
   public mutating func visit(_ node: MemberDeclRefExpr) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: MemberDeclRefExpr) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
@@ -670,6 +743,10 @@ extension NodeWalker {
   }
 
   public mutating func visit(_ node: TupleMemberExpr) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: TupleMemberExpr) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
@@ -680,6 +757,10 @@ extension NodeWalker {
   }
 
   public mutating func visit(_ node: AsyncExpr) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: AsyncExpr) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
@@ -690,6 +771,10 @@ extension NodeWalker {
   }
 
   public mutating func visit(_ node: AwaitExpr) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: AwaitExpr) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
@@ -700,6 +785,10 @@ extension NodeWalker {
   }
 
   public mutating func visit(_ node: AddrOfExpr) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: AddrOfExpr) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
@@ -710,6 +799,10 @@ extension NodeWalker {
   }
 
   public mutating func visit(_ node: MatchExpr) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: MatchExpr) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
@@ -734,6 +827,10 @@ extension NodeWalker {
   }
 
   public mutating func visit(_ node: NamedPattern) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: NamedPattern) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
@@ -742,6 +839,10 @@ extension NodeWalker {
   }
 
   public mutating func visit(_ node: TuplePattern) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: TuplePattern) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
@@ -756,6 +857,10 @@ extension NodeWalker {
   }
 
   public mutating func visit(_ node: BindingPattern) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: BindingPattern) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
@@ -777,6 +882,10 @@ extension NodeWalker {
   }
 
   public mutating func visit(_ node: TupleSign) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: TupleSign) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
@@ -791,6 +900,10 @@ extension NodeWalker {
   }
 
   public mutating func visit(_ node: FunSign) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: FunSign) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
@@ -806,6 +919,10 @@ extension NodeWalker {
   }
 
   public mutating func visit(_ node: AsyncSign) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: AsyncSign) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
@@ -816,6 +933,10 @@ extension NodeWalker {
   }
 
   public mutating func visit(_ node: InoutSign) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: InoutSign) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
@@ -826,6 +947,10 @@ extension NodeWalker {
   }
 
   public mutating func visit(_ node: UnionSign) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: UnionSign) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
@@ -840,6 +965,10 @@ extension NodeWalker {
   }
 
   public mutating func visit(_ node: ViewCompSign) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: ViewCompSign) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
@@ -858,6 +987,10 @@ extension NodeWalker {
   }
 
   public mutating func visit(_ node: SpecializedIdentSign) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: SpecializedIdentSign) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
@@ -872,6 +1005,10 @@ extension NodeWalker {
   }
 
   public mutating func visit(_ node: CompoundIdentSign) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: CompoundIdentSign) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
@@ -891,6 +1028,10 @@ extension NodeWalker {
   }
 
   public mutating func visit(_ clause: GenericClause) -> Bool {
+    return traverse(clause)
+  }
+
+  public mutating func traverse(_ clause: GenericClause) -> Bool {
     for i in 0 ..< clause.params.count {
       guard walk(decl: clause.params[i]) else { return false }
     }
