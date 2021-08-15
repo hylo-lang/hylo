@@ -56,11 +56,16 @@ struct CSSolver {
 
       // Attempt to solve the next constraint.
       switch constraint {
-      case let c as RelationalConstraint      : solve(c)
-      case let c as ValueMemberConstraint     : solve(c)
-      case let c as TupleMemberConstraint     : solve(c)
-      case let c as OverloadBindingConstraint : return solve(c)
-      case let c as DisjunctionConstraint     : return solve(c)
+      case let c as RelationalConstraint:
+        solve(c)
+      case let c as ValueMemberConstraint:
+        solve(c)
+      case let c as TupleMemberConstraint:
+        solve(c)
+      case let c as OverloadBindingConstraint:
+        return solve(c)
+      case let c as DisjunctionConstraint:
+        return solve(c)
       default:
         fatalError("unreachable")
       }
@@ -88,11 +93,14 @@ struct CSSolver {
     if updated.lhs == updated.rhs { return }
 
     switch updated.kind {
-    case .equality,
-         .oneWayEquality: solve(equality    : updated)
-    case .conformance   : solve(conformance : updated)
-    case .subtyping     : solve(subtyping   : updated)
-    case .conversion    : solve(conversion  : updated)
+    case .equality, .oneWayEquality:
+      solve(equality: updated)
+    case .conformance:
+      solve(conformance: updated)
+    case .subtyping:
+      solve(subtyping: updated)
+    case .conversion:
+      solve(conversion: updated)
     }
   }
 

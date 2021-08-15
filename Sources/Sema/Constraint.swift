@@ -48,23 +48,24 @@ struct RelationalConstraint: Constraint, CustomStringConvertible {
   /// A kind of relational constraint.
   enum Kind: Int {
 
-    /// A constraint `T == U` specifying that `T` is excatly the same type as `U`.
+    /// A constraint `T == U` specifying that `T` is exactly the same type as `U`.
     ///
     /// This is the only commutative relational constraint.
     case equality = 0
 
     /// A constraint `T : V` specifying that `T` conforms to the view `V`.
     ///
-    /// The `rhs` type of a conformance constraint must always be a view.
+    /// The right hand side of a conformance constraint must always be a view.
     case conformance
 
     /// A constraint `T <: U` specifying that `T` is a subtype of `U`.
     ///
-    /// Subtyping describes a notion of  substitutability. If `T <: U` and `Γ, x: U ⊢ e: V`, then
-    /// `Γ, x: T ⊢ e: V'`. For nominal types, this corresponds to view conformance. Specifically,
-    /// a value of type `T` can substituted for a value of type `U` if `T` conforms to all the
-    /// views to which `U` conforms. Variance additionally describes how structural types relate
-    /// to one another.
+    /// Subtyping describes a notion of substitutability. If `T <: U` and `Γ, x: U ⊢ e: V`, then
+    /// `Γ, x: T ⊢ e: V'`.
+    ///
+    /// For nominal types, subtyping is equivalent to view conformance: a value of type `T` can
+    /// substituted for a value of type `U` if `T` conforms to all the views to which `U` conforms.
+    /// Variance additionally describes how structural types relate to one another.
     case subtyping
 
     /// A constraint `T ⊏ U` specifying that `T` is expressible by `U`.
@@ -74,8 +75,8 @@ struct RelationalConstraint: Constraint, CustomStringConvertible {
     /// corresponding to a literal type `U`.
     case conversion
 
-    /// A constraint `T == U` that requires `U` to be (partially) determined before it is treated
-    /// exactly like a regular equality constraint.
+    /// A constraint `T == U` that requires `U` to be (partially) determined before the constraint
+    /// is solved like a standard equality constraint.
     case oneWayEquality
 
   }
@@ -99,11 +100,14 @@ struct RelationalConstraint: Constraint, CustomStringConvertible {
 
   var description: String {
     switch kind {
-    case .equality,
-         .oneWayEquality: return "\(lhs) == \(rhs)"
-    case .subtyping     : return "\(lhs) <: \(rhs)"
-    case .conformance   : return "\(lhs) : \(rhs)"
-    case .conversion    : return "\(lhs) ⊏ \(rhs)"
+    case .equality, .oneWayEquality:
+      return "\(lhs) == \(rhs)"
+    case .subtyping:
+      return "\(lhs) <: \(rhs)"
+    case .conformance:
+      return "\(lhs) : \(rhs)"
+    case .conversion:
+      return "\(lhs) ⊏ \(rhs)"
     }
   }
 
@@ -116,9 +120,9 @@ struct RelationalConstraint: Constraint, CustomStringConvertible {
 struct OverloadBindingConstraint: Constraint, CustomStringConvertible {
 
   init(
-    _ type    : ValType,
-    declSet   : [ValueDecl],
-    useSite   : DeclSpace,
+    _ type: ValType,
+    declSet: [ValueDecl],
+    useSite: DeclSpace,
     at locator: ConstraintLocator
   ) {
     self.type = type
@@ -157,10 +161,10 @@ struct OverloadBindingConstraint: Constraint, CustomStringConvertible {
 struct ValueMemberConstraint: Constraint, CustomStringConvertible {
 
   init(
-    _ lhs     : ValType,
+    _ lhs: ValType,
     hasValueMember memberName: String,
     ofType rhs: ValType,
-    useSite   : DeclSpace,
+    useSite: DeclSpace,
     at locator: ConstraintLocator
   ) {
     assert(!(lhs is UnresolvedType) && !(rhs is UnresolvedType))
@@ -200,7 +204,7 @@ struct ValueMemberConstraint: Constraint, CustomStringConvertible {
 struct TupleMemberConstraint: Constraint, CustomStringConvertible {
 
   init(
-    _ lhs     : ValType,
+    _ lhs: ValType,
     hasMemberAt memberIndex: Int,
     ofType rhs: ValType,
     at locator: ConstraintLocator
