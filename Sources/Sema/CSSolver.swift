@@ -67,6 +67,7 @@ struct CSSolver {
     }
 
     // FIXME: Handle stale constraints.
+    penalities += system.staleConstraints.count
 
     return Solution(
       bindings: assumptions.flattened(),
