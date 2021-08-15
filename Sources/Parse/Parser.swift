@@ -622,7 +622,7 @@ public struct Parser {
     }
 
     // Parse the type signature of the parameter.
-    if state.take(.colon) != nil, let sign = parseSign(state: &state) {
+    if state.take(.colon) != nil, let sign = parseSign(state: &state, isParamSign: true) {
       decl.sign = sign
       upperLoc = sign.range!.upperBound
     } else {
@@ -1818,20 +1818,33 @@ public struct Parser {
   /// Parses a type signature.
   ///
   ///     sign ::= ('mut' | 'volatile')* async-sign ('->' sign)
-  private func parseSign(state: inout State) -> Sign? {
+  private func parseSign(state: inout State, isParamSign: Bool = false) -> Sign? {
     guard let opener = state.peek() else { return nil }
     var lastModifier: Token?
 
     // Consume a list of type modifiers.
     var modifiers: [Token.Kind: Token] = [:]
     while let token = state.take(if: { $0.isOf(kind: [.mut, .volatile]) }) {
-      if modifiers[token.kind] != nil {
+      guard modifiers[token.kind] == nil else {
         context.report(
           "ignoring duplicate modifier \(token.kind)", level: .warning, anchor: token.range)
-      } else {
-        modifiers[token.kind] = token
-        lastModifier = token
+        continue
       }
+
+      if token.kind == .mut {
+        guard isParamSign else {
+          context.report("'mut' is only allowed on parameter signatures", anchor: token.range)
+          state.hasError = true
+          continue
+        }
+        guard modifiers.isEmpty else {
+          context.report("'mut' should appear first", level: .warning, anchor: token.range)
+          continue
+        }
+      }
+
+      modifiers[token.kind] = token
+      lastModifier = token
     }
 
     // Parse an async signture.
@@ -1865,7 +1878,7 @@ public struct Parser {
       base = sign
     } else if let modifier = modifiers[.volatile] {
       context.report(
-        "'volatile' modifier can only be applied on function signature", anchor: modifier.range)
+        "'volatile' is only allowed on function signatures", anchor: modifier.range)
       state.hasError = true
       return ErrorSign(type: context.errorType, range: base.range)
     }
@@ -2014,7 +2027,7 @@ public struct Parser {
 
     // Attempt to parse a list of generic arguments.
     if let (opener, args, closer) = list(
-        state: &state, delimiters: (.lAngle, .rAngle), parser: parseSign(state:))
+        state: &state, delimiters: (.lAngle, .rAngle), parser: { parseSign(state: &$0) })
     {
       // Return a specialized identifier.
       let sign = SpecializedIdentSign(ident: ident, args: args, type : unresolved)
