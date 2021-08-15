@@ -179,6 +179,8 @@ struct RValueEmitter: ExprVisitor {
     case .failure(let error):
       // Diagnostic common l-value errors.
       switch error {
+      case .immutableBinding(let decl):
+        context.report(.cannotAssignToImmutableBinding(name: decl.name, range: node.lvalue.range))
       case .immutableSelf:
         context.report(.cannotAssignImmutableSelf(range: node.lvalue.range))
       case .immutableLocation:

@@ -89,20 +89,22 @@ struct LValueEmitter: ExprVisitor {
   }
 
   func visit(_ node: DeclRefExpr) -> ExprResult {
-    // If the expression refers to a variable, we have to emit its access.
-    if let decl = node.decl as? VarDecl {
-      // FIXME: Handle computed properties.
-      guard decl.hasStorage else { return .failure(.immutableLocation) }
+    switch node.decl {
+    case let decl as VarDecl:
+      guard decl.isMutable else { return .failure(.immutableBinding(decl)) }
 
-      // If the variable is already in the local symbol table, just return its value.
-      if let lv = locals[ObjectIdentifier(node.decl)] {
-        guard lv.type.isAddress else { return .failure(.immutableLocation) }
-        return .success(lv)
+      // FIXME: Handle computed properties.
+      assert(decl.hasStorage)
+
+      // If the identifier denotes a local binding, lookup the local symbol table.
+      if let loc = locals[ObjectIdentifier(node.decl)] {
+        assert(loc.type.isAddress)
+        return .success(loc)
       }
 
-      // If the expression refers to a member declaration, emit a property access.
+      // If the expression refers to a member declaration, we must emit a property access.
       if decl.isMember {
-        // The expression shout refer to a stored property declaration.
+        // The expression should refer to a stored property declaration.
         assert(decl.parentDeclSpace is NominalTypeDecl)
 
         // Make sure that `self` is mutable.
@@ -118,17 +120,19 @@ struct LValueEmitter: ExprVisitor {
       }
 
       fatalError("unreachable")
-    }
 
-    // If the expression refers to a local function argument, just lookup the symbol table.
-    if let decl = node.decl as? FunParamDecl {
-      let lv = locals[ObjectIdentifier(decl)]!
-      guard lv.type.isAddress else { return .failure(.immutableLocation) }
-      return .success(lv)
-    }
+    case let decl as FunParamDecl:
+      guard decl.type is InoutType else { return .failure(.immutableBinding(decl)) }
 
-    // FIXME: Handle global symbols.
-    fatalError("not implemented")
+      // If the expression refers to a mutating parameter, just look at the symbol table.
+      let loc = locals[ObjectIdentifier(decl)]!
+      assert(loc.type.isAddress)
+      return .success(loc)
+
+    default:
+      // FIXME: Handle global symbols.
+      fatalError("not implemented")
+    }
   }
 
   func visit(_ node: TypeDeclRefExpr) -> ExprResult {
