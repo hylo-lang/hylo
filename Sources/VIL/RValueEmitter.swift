@@ -1,174 +1,23 @@
 import AST
 import Basic
 
-/// A visitor that emits the VIL code of a function declaration.
-struct FunctionEmitter: StmtVisitor, ExprVisitor {
+/// A VIL emitter for statements and r-values.
+struct RValueEmitter: ExprVisitor {
 
-  typealias StmtResult = Void
   typealias ExprResult = Result<Value, EmitterError>
-
-  /// The VIL builder used by the emitter.
-  var builder: Builder
 
   /// The declaration of the function being emitted.
   let funDecl: BaseFunDecl
 
-  /// A symbol table that locally visible declarations to their emitted value, populated by
+  /// A symbol table that maps locally visible declarations to their emitted value, populated by
   /// function parameters and local pattern binding declarations.
-  var locals: [ObjectIdentifier: Value] = [:]
+  var locals: SymbolTable
 
-  /// Creates a function emitter.
-  ///
-  /// - Parameters:
-  ///   - parent: The top-level emitter.
-  ///   - builder: The builder used to create new instructions.
-  ///   - funDecl: The declaration of the function to emit. The initializer will fail if `funDecl`
-  ///     is not type checked.
-  init(builder: Builder, funDecl: BaseFunDecl) {
-    precondition(funDecl.state >= .typeChecked)
-    self.builder = builder
-    self.funDecl = funDecl
-  }
+  /// The VIL builder used by the emitter.
+  let builder: Builder
 
   /// The context in which the function declaration is defined.
   var context: AST.Context { funDecl.type.context }
-
-  /// Emits the function.
-  mutating func emit() {
-    // Create (i.e., declare) the function in the module.
-    let function = builder.getOrCreateFunction(from: funDecl)
-
-    // We're done if the function doesn't have body.
-    guard (funDecl.body != nil) || funDecl.isSynthesized else { return }
-
-    // Contextualize the function's arguments.
-    let genericEnv = funDecl.genericEnv!
-    var args = function.type.paramTypes.map({ type -> Value in
-      return ArgumentValue(
-        type: type.contextualized(in: genericEnv, from: funDecl), function: function)
-    })
-
-    // Create the function's entry block.
-    let currentBlock = builder.block
-    defer { builder.block = currentBlock }
-    builder.block = function.createBasicBlock(arguments: args)
-
-    // Register the function's receiver in the local symbol table, if necessary.
-    if let selfDecl = funDecl.selfDecl {
-      var (selfType, _) = genericEnv.contextualize(selfDecl.type, from: funDecl)
-      if funDecl.isMember {
-        // Member functions accept their receiver as an implicit parameter.
-        locals[ObjectIdentifier(funDecl.selfDecl!)] = args[0]
-        args.removeFirst()
-      } else {
-        // Constructors should allocate `self`.
-        assert(funDecl is CtorDecl)
-        selfType = (selfType as! InoutType).base
-        locals[ObjectIdentifier(funDecl.selfDecl!)] = builder.buildAllocStack(
-          type: .lower(selfType))
-      }
-    }
-
-    // Register the function's formal parameters in the local symbol table.
-    let captures = funDecl.computeCaptures()
-    for (ref, arg) in zip(captures, args) {
-      locals[ObjectIdentifier(ref.decl)] = arg
-    }
-    for (param, arg) in zip(funDecl.params, args[captures.count...]) {
-      locals[ObjectIdentifier(param)] = arg
-    }
-
-    // Emit the function's body.
-    guard let body = funDecl.body else {
-      return emitSynthesizedBody()
-    }
-
-    visit(body)
-
-    // If the function's a constructor, emit the implicit return statement.
-    if funDecl is CtorDecl {
-      let selfLoc = locals[ObjectIdentifier(funDecl.selfDecl!)]
-      let selfVal = builder.buildLoad(lvalue: selfLoc!)
-      builder.buildRet(value: selfVal)
-    }
-
-    // Emit the function's epilogue.
-    let funType = funDecl.type as! FunType
-    switch funType.retType {
-    case context.nothingType:
-      // If the function never returns, emit a halt statement.
-      builder.buildHalt()
-
-    case context.unitType:
-      // The function returns unit.
-      builder.buildRet(value: UnitValue(context: context))
-
-    default:
-      // The function should have a return statement.
-      // FIXME: Handle non-returning blocks in last position.
-      if !(builder.block?.instructions.last is RetInst) {
-        let range = body.range.map({ $0.upperBound ..< $0.upperBound })
-        context.report(.missingReturnValueInNonUnitFunction(range: range))
-      }
-    }
-  }
-
-  func emitSynthesizedBody() {
-    assert(funDecl.isSynthesized)
-
-    switch funDecl.name {
-    case "new":
-      // Emit a synthesized constructor.
-      let base = locals[ObjectIdentifier(funDecl.selfDecl!)]!
-      let type = funDecl.parentDeclSpace as! NominalTypeDecl
-
-      for (varDecl, paramDecl) in zip(type.storedVars, funDecl.params) {
-        let memberAddr = builder.buildRecordMemberAddr(
-          record: base, memberDecl: varDecl, type: VILType.lower(varDecl.type).address)
-        let value = locals[ObjectIdentifier(paramDecl)]!
-        builder.buildStore(lvalue: memberAddr, rvalue: value)
-      }
-
-      let selfVal = builder.buildLoad(lvalue: base)
-      builder.buildRet(value: selfVal)
-
-    default:
-      preconditionFailure("unexpected synthesized declaration '\(funDecl.name)'")
-    }
-  }
-
-  /// Emits a local pattern binding declaration.
-  mutating func emit(localPatternBindingDecl decl: PatternBindingDecl) {
-    // Create the variable locations for each name in the pattern.
-    let lvalues = decl.pattern.namedPatterns.map({ name in
-      emit(localVarDecl: name.decl)
-    })
-
-    // Emit the initializer, if any.
-    if let initializer = decl.initializer {
-      // Emit a store right away if the pattern matches a single value.
-      if let varDecl = decl.pattern.singleVarDecl {
-        assert((lvalues.count == 1) && (lvalues[0] === locals[ObjectIdentifier(varDecl)]))
-        emit(assign: initializer, to: lvalues[0])
-      } else {
-        // FIXME: Handle destructuring,
-        fatalError()
-      }
-    }
-  }
-
-  /// Emits a local variable declaration.
-  mutating func emit(localVarDecl decl: VarDecl) -> Value {
-    guard decl.state >= .typeChecked else {
-      return ErrorValue(context: context)
-    }
-    precondition(decl.hasStorage, "computed properties are not supported yet")
-
-    // Allocate storage on the stack for the variable.
-    let value = builder.buildAllocStack(type: .lower(decl.type))
-    locals[ObjectIdentifier(decl)] = value
-    return value
-  }
 
   /// Emits the assignment of `rvalue` to `lvalue`.
   func emit(assign rvalue: Value, ofType rvalueType: ValType, to lvalue: Value) {
@@ -215,8 +64,8 @@ struct FunctionEmitter: StmtVisitor, ExprVisitor {
     // If both operands have an existential layout and the r-value can be treated as a location,
     // then we may simply emit `copy_addr`.
     if lvalue.type.valType.isExistential && expr.type.isExistential {
-      var lvalueEmitter = LValueEmitter(builder: builder, funDecl: funDecl, locals: locals)
-      if case .success(var rvalue) = expr.accept(&lvalueEmitter) {
+      var emitter = LValueEmitter(funDecl: funDecl, locals: locals, builder: builder)
+      if case .success(var rvalue) = expr.accept(&emitter) {
         // If the r-value has a different type than the l-value, it must be casted.
         if lvalue.type.valType != expr.type {
           rvalue = builder.buildUnsafeCastAddr(source: rvalue, type: lvalue.type)
@@ -258,8 +107,8 @@ struct FunctionEmitter: StmtVisitor, ExprVisitor {
       return ErrorValue(context: context)
     }
 
-    var lvalueEmitter = LValueEmitter(builder: builder, funDecl: funDecl, locals: locals)
-    switch node.accept(&lvalueEmitter) {
+    var emitter = LValueEmitter(funDecl: funDecl, locals: locals, builder: builder)
+    switch node.accept(&emitter) {
     case .success(let value):
       return value
 
@@ -279,63 +128,6 @@ struct FunctionEmitter: StmtVisitor, ExprVisitor {
   // ----------------------------------------------------------------------------------------------
   // MARK: Visitors
   // ----------------------------------------------------------------------------------------------
-
-  mutating func visit(_ node: BraceStmt) {
-    precondition(builder.block != nil, "not in a basic block")
-
-    var declEmitter = DeclEmitter(builder: builder, context: context)
-    for i in 0 ..< node.stmts.count {
-      switch node.stmts[i] {
-      case let decl as PatternBindingDecl:
-        emit(localPatternBindingDecl: decl)
-
-      case let decl as FunDecl:
-        decl.accept(&declEmitter)
-
-        // Emit the value of each captured declaration.
-        let partialArgs = decl.computeCaptures().map({ emit(rvalue: $0) })
-
-        // Local function with captures declarations require stack allocation.
-        if !partialArgs.isEmpty {
-          let fun = FunRef(function: builder.getOrCreateFunction(from: decl))
-          let loc = builder.buildAllocStack(type: .lower(decl.type))
-
-          locals[ObjectIdentifier(decl)] = loc
-          builder.buildStore(
-            lvalue: loc,
-            rvalue: builder.buildPartialApply(fun: fun, args: partialArgs))
-        }
-        
-      case let decl as Decl:
-        decl.accept(&declEmitter)
-
-      case let stmt as Stmt:
-        stmt.accept(&self)
-
-        // Discard everything after a return statement.
-        if (stmt is RetStmt) && (i > node.stmts.count - 1) {
-          context.report(.codeAfterReturnNeverExecuted(range: node.stmts[i + 1].range))
-          break
-        }
-
-      case let expr as Expr:
-        // FIXME: Drop the result of the expression.
-        _ = expr.accept(&self)
-
-      default:
-        fatalError("unreachable")
-      }
-    }
-  }
-
-  mutating func visit(_ node: RetStmt) {
-    let value = node.value.map({ emit(rvalue: $0) }) ?? UnitValue(context: context)
-    builder.buildRet(value: value)
-  }
-
-  func visit(_ node: MatchCaseStmt) -> Void {
-    fatalError()
-  }
 
   func visit(_ node: BoolLiteralExpr) -> Result<Value, EmitterError> {
     fatalError("not implemented")
@@ -379,8 +171,8 @@ struct FunctionEmitter: StmtVisitor, ExprVisitor {
 
   mutating func visit(_ node: AssignExpr) -> ExprResult {
     // Emit the left operand first.
-    var lvalueEmitter = LValueEmitter(builder: builder, funDecl: funDecl, locals: locals)
-    switch node.lvalue.accept(&lvalueEmitter) {
+    var emitter = LValueEmitter(funDecl: funDecl, locals: locals, builder: builder)
+    switch node.lvalue.accept(&emitter) {
     case .success(let lvalue):
       emit(assign: node.rvalue, to: lvalue)
 
@@ -418,8 +210,8 @@ struct FunctionEmitter: StmtVisitor, ExprVisitor {
     let result = builder.buildAllocStack(type: .lower(node.type))
 
     let source: Value
-    var lvalueEmitter = LValueEmitter(builder: builder, funDecl: funDecl, locals: locals)
-    if case .success(let s) = node.value.accept(&lvalueEmitter) {
+    var emitter = LValueEmitter(funDecl: funDecl, locals: locals, builder: builder)
+    if case .success(let s) = node.value.accept(&emitter) {
       source = s
     } else {
       source = builder.buildAllocStack(type: .lower(node.type))
@@ -615,8 +407,8 @@ struct FunctionEmitter: StmtVisitor, ExprVisitor {
     }
 
     // Emit a l-value and convert it to an r-value.
-    var lvalueEmitter = LValueEmitter(builder: builder, funDecl: funDecl, locals: locals)
-    switch node.accept(&lvalueEmitter) {
+    var emitter = LValueEmitter(funDecl: funDecl, locals: locals, builder: builder)
+    switch node.accept(&emitter) {
     case .success(let lvalue):
       return .success(builder.buildLoad(lvalue: lvalue))
     case let failure:
@@ -725,7 +517,7 @@ struct FunctionEmitter: StmtVisitor, ExprVisitor {
     func irrefutable(stmt: MatchCaseStmt) {
       if let decl = stmt.pattern.singleVarDecl {
         // Assign the subject to a local variable.
-        let lvalue = emit(localVarDecl: decl)
+        let lvalue = Emitter.emit(localVar: decl, locals: &locals, into: builder)
         emit(assign: subject, ofType: node.type.dealiased, to: lvalue)
       }
       builder.buildBranch(dest: lastBlock)
@@ -786,7 +578,7 @@ struct FunctionEmitter: StmtVisitor, ExprVisitor {
         let value = emit(rvalue: stmt.body.stmts[0] as! Expr)
         builder.buildStore(lvalue: storage, rvalue: value)
       } else {
-        visit(stmt.body)
+        Emitter.emit(brace: stmt.body, funDecl: funDecl, locals: &locals, into: builder)
       }
 
       // Jump to the end of the match.

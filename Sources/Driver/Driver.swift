@@ -151,13 +151,10 @@ public struct Driver {
       throw DriverError.moduleNotTypeChecked(moduleName: moduleDecl.name)
     }
 
-    // Initialize the VIL emitter.
+    // Emit the module declaration.
     let module = Module(id: moduleDecl.name)
     let builder = Builder(module: module)
-    var emitter = DeclEmitter(builder: builder, context: context)
-
-    // Emit the module declaration.
-    moduleDecl.accept(&emitter)
+    Emitter.emit(module: moduleDecl, into: builder)
     return module
   }
 

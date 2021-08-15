@@ -1,19 +1,19 @@
 import AST
 
-/// A visitor that emits the VIL code of an l-value.
+/// A VIL emitter for l-values.
 struct LValueEmitter: ExprVisitor {
 
   typealias ExprResult = Result<Value, EmitterError>
 
-  /// The VIL builder used by the emitter.
-  var builder: Builder
-
   /// The declaration of the function being emitted.
   let funDecl: BaseFunDecl
 
-  /// A symbol table that locally visible declarations to their emitted value, populated by
+  /// A symbol table that maps locally visible declarations to their emitted value, populated by
   /// function parameters and local pattern binding declarations.
-  var locals: [ObjectIdentifier: Value] = [:]
+  var locals: SymbolTable = [:]
+
+  /// The VIL builder used by the emitter.
+  var builder: Builder
 
   /// The context in which the function declaration is defined.
   var context: AST.Context { funDecl.type.context }

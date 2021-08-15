@@ -2,9 +2,9 @@ import AST
 
 /// Val's type checker.
 ///
-/// The type checker serves two purposes: first, it verifies that program sources satisfy Val's
-/// (flow-insensitive) static type system; second, it resolves type and variable identifiers to
-/// their declaration.
+/// The type checker resolves type and variable identifiers and verifies that the program satisfies
+/// Val's (flow-insensitive) type system. This process starts with an untyped AST, produced by the
+/// parser, and it ends with a typed AST ready to be lowered to VIL.
 ///
 /// Conceptually, type checking is a composition of five phases:
 /// - **Extension binding**
@@ -26,7 +26,7 @@ import AST
 /// Type checking is "declaration-driven". We start from a declaration (e.g., a module) and visit
 /// all nested declaration recursively. Dependencies are not eagerly type checked. Instead, we move
 /// them at the minimal "phase" that satisfies the requirements of the whathever we are processing.
-///
+
 /// The "phase" at which a particular node sits is encoded either explicitly as node properties, or
 /// by the class of the node itself. For instance, an `UnresolvedDeclRefExpr` will be substituted
 /// for a `DeclRefExpr` after name resolution.
