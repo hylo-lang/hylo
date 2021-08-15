@@ -827,6 +827,14 @@ public struct Parser {
       ident = Ident(name: "", range: state.errorRange())
     }
 
+    switch ident.name {
+    case "Any", "Unit", "Nothing":
+      context.report("'\(ident.name)' is a reserved type identifier", anchor: ident.range)
+      state.hasError = true
+    default:
+      break
+    }
+
     let genericClause = parseGenericClause(state: &state)
 
     var inheritances: [IdentSign] = []
