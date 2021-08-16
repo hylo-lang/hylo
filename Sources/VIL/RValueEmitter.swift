@@ -35,20 +35,19 @@ struct RValueEmitter: ExprVisitor {
       return
     }
 
-    // If the l-value is an existential container, then there are two cases to consider.
+    // If the l-value is an existential container, then there are two cases to consider:
+    // 1. If the r-value is an existential container too (but with a different type, ortherwise the
+    //    test above would have succeeded), then we need to cast its package.
+    // 2. If the r-value has a concrete type, then it must be packed into an existential container.
     if lvalue.type.valType.isExistential {
       assert(lvalue.type.valType != rvalueType)
 
       if rvalueType.isExistential {
-        // If the r-value is an existential container too (but with a different type), then we need
-        // to cast its package.
         var tmp: Value = builder.buildAllocStack(type: rvalue.type)
         builder.buildStore(lvalue: tmp, rvalue: rvalue)
         tmp = builder.buildUnsafeCastAddr(source: tmp, type: lvalue.type)
         builder.buildCopyAddr(dest: lvalue, source: tmp)
       } else {
-        // If the r-value has a concrete type, then it must be packed into an existential container
-        // before being stored
         let lvalue = builder.buildAllocExistential(container: lvalue, witness: rvalue.type)
         builder.buildStore(lvalue: lvalue, rvalue: rvalue)
       }
@@ -66,7 +65,7 @@ struct RValueEmitter: ExprVisitor {
     if lvalue.type.valType.isExistential && expr.type.isExistential {
       var emitter = LValueEmitter(funDecl: funDecl, locals: locals, builder: builder)
       if case .success(var rvalue) = expr.accept(&emitter) {
-        // If the r-value has a different type than the l-value, it must be casted.
+        // Convert the r-value into the l-value's type if it has a different type.
         if lvalue.type.valType != expr.type {
           rvalue = builder.buildUnsafeCastAddr(source: rvalue, type: lvalue.type)
         }
@@ -79,7 +78,7 @@ struct RValueEmitter: ExprVisitor {
 
     // Otherwise, emit the r-value and fall back to the regular path.
     let rvalue = emit(rvalue: expr)
-    emit(assign: rvalue, ofType: expr.type.dealiased, to: lvalue)
+    emit(assign: rvalue, ofType: expr.type.dealiased.canonical, to: lvalue)
   }
 
   /// Emits a r-value.
@@ -177,22 +176,17 @@ struct RValueEmitter: ExprVisitor {
       emit(assign: node.rvalue, to: lvalue)
 
     case .failure(let error):
-      // Diagnostic common l-value errors.
       switch error {
       case .immutableBinding(let decl):
-        context.report(.cannotAssignToImmutableBinding(name: decl.name, range: node.lvalue.range))
-      case .immutableSelf:
-        context.report(.cannotAssignImmutableSelf(range: node.lvalue.range))
-      case .immutableLocation:
-        context.report(.cannotAssignToImmutableLocation(range: node.lvalue.range))
+        context.report(.assignToImmut(binding: decl.name, range: node.lvalue.range))
+      case .immutableSelf(let property):
+        context.report(.assignToImmutSelf(propertyName: property.name, range: node.lvalue.range))
       case .immutableExpr:
-        context.report(.cannotAssignImmutableExpr(range: node.lvalue.range))
+        context.report(.assignToImmutValue(range: node.lvalue.range))
       }
-
-      return .success(UnitValue(context: context))
     }
 
-    // Assignments always result in a unit value.
+    // An assignment always results in a unit value.
     return .success(UnitValue(context: context))
   }
 
@@ -251,8 +245,8 @@ struct RValueEmitter: ExprVisitor {
   }
 
   mutating func visit(_ node: UnsafeCastExpr) -> Result<Value, EmitterError> {
-    let sourceType = node.value.type.dealiased
-    let targetType = node.type.dealiased
+    let sourceType = node.value.type.dealiased.canonical
+    let targetType = node.type.dealiased.canonical
 
     // Check for trivial casts.
     guard sourceType !== targetType else {
@@ -334,7 +328,7 @@ struct RValueEmitter: ExprVisitor {
           value = builder.buildLoad(lvalue: tmp)
 
           // FIXME: Allocating a container of type `Any`, completely erases the argument's type.
-          // Hence, the resulting VIL is in fact ill-typed, since could call a function expecting
+          // Hence, the resulting VIL is in fact ill-typed, as we could call a function expecting
           // an argument of type `T` with a value of type `Any`. A better strategy would be to
           // create an existential container that meets the parameter's requirements.
         }
@@ -356,19 +350,19 @@ struct RValueEmitter: ExprVisitor {
   }
 
   func visit(_ node: UnresolvedDeclRefExpr) -> ExprResult {
-    fatalError()
+    fatalError("unreachable")
   }
 
   func visit(_ node: UnresolvedMemberExpr) -> ExprResult {
-    fatalError()
+    fatalError("unreachable")
   }
 
   func visit(_ node: UnresolvedQualDeclRefExpr) -> ExprResult {
-    fatalError()
+    fatalError("unreachable")
   }
 
   func visit(_ node: OverloadedDeclRefExpr) -> ExprResult {
-    fatalError()
+    fatalError("unreachable")
   }
 
   func visit(_ node: DeclRefExpr) -> ExprResult {
@@ -498,7 +492,25 @@ struct RValueEmitter: ExprVisitor {
   }
 
   func visit(_ node: AddrOfExpr) -> ExprResult {
-    fatalError()
+    var emitter = LValueEmitter(funDecl: funDecl, locals: locals, builder: builder)
+    let result = node.value.accept(&emitter)
+
+    switch result {
+    case .success:
+      break
+
+    case .failure(let error):
+      switch error {
+      case .immutableBinding(let decl):
+        context.report(.mutRefToImmut(binding: decl.name, range: node.value.range))
+      case .immutableSelf(let property):
+        context.report(.mutRefToImmutSelf(propertyName: property.name, range: node.value.range))
+      case .immutableExpr:
+        context.report(.mutRefToImmutValue(range: node.value.range))
+      }
+    }
+
+    return result
   }
 
   mutating func visit(_ node: MatchExpr) -> ExprResult {
@@ -520,7 +532,7 @@ struct RValueEmitter: ExprVisitor {
       if let decl = stmt.pattern.singleVarDecl {
         // Assign the subject to a local variable.
         let lvalue = Emitter.emit(localVar: decl, locals: &locals, into: builder)
-        emit(assign: subject, ofType: node.type.dealiased, to: lvalue)
+        emit(assign: subject, ofType: node.type.dealiased.canonical, to: lvalue)
       }
       builder.buildBranch(dest: lastBlock)
     }
@@ -569,7 +581,7 @@ struct RValueEmitter: ExprVisitor {
           fatalError("not implemented")
         }
       } else {
-        // FIXME: Handle complex conditional patterns recrusively.
+        // FIXME: Handle complex conditional patterns recursively.
         fatalError("not implemented")
       }
 

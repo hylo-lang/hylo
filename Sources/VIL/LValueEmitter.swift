@@ -110,7 +110,7 @@ struct LValueEmitter: ExprVisitor {
         // Make sure that `self` is mutable.
         let selfDecl = funDecl.selfDecl!
         guard selfDecl.type is InoutType else {
-          return .failure(.immutableSelf)
+          return .failure(.immutableSelf(property: decl))
         }
 
         let base = locals[ObjectIdentifier(selfDecl)]!
@@ -144,12 +144,12 @@ struct LValueEmitter: ExprVisitor {
     switch node.base.accept(&self) {
     case .success(let base):
       // Make sure the base has an address type.
-      guard base.type.isAddress else { return .failure(.immutableLocation) }
+      guard base.type.isAddress else { return .failure(.immutableExpr) }
       let baseType = base.type.valType
 
       // The expression must refer to a variable declaration; member functions are never l-values.
       guard let decl = node.decl as? VarDecl
-      else { return .failure(.immutableLocation) }
+      else { return .failure(.immutableExpr) }
 
       if decl.hasStorage {
         // The member has physical storage.

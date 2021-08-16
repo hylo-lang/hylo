@@ -3,13 +3,13 @@ import AST
 /// An error that occured during VIL code emission.
 public enum EmitterError: Error {
 
-  /// An error denoting an assignment to an immutable (i.e., `val`) binding.
+  /// The merror attempted to use an immutable binding in a mutable context.
   case immutableBinding(ValueDecl)
 
-  case immutableLocation
+  /// The emitter attempted to treat an immutable reference to `self` in a mutable context.
+  case immutableSelf(property: ValueDecl)
 
-  case immutableSelf
-
+  /// The emitter attempted to treat an immutable expression in a mutable context.
   case immutableExpr
 
 }

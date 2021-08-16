@@ -151,14 +151,16 @@ extension Diag {
     type: Any, range: SourceRange?
   ) -> Diag {
     return Diag(
-      "view conformance requirement on non-generic type '\(type)'", anchor: range)
+      "view conformance requirement on non-generic type '\(type)'",
+      anchor: range)
   }
 
   public static func nonViewTypeConformanceRequirement(
     type: Any, range: SourceRange?
   ) -> Diag {
     return Diag(
-      "view conformance requirement to non-view type '\(type)'", anchor: range)
+      "view conformance requirement to non-view type '\(type)'",
+      anchor: range)
   }
 
   public static func conformanceRequiresMatchingImplementation(
@@ -179,7 +181,8 @@ extension Diag {
     type: Any, range: SourceRange?
   ) -> Diag {
     return Diag(
-      "reference to generic type '\(type)' requires type arguments", anchor: range)
+      "reference to generic type '\(type)' requires type arguments",
+      anchor: range)
   }
 
   public static func tooManyGenericArguments(
@@ -191,24 +194,6 @@ extension Diag {
       (got \(got), expected \(expected))
       """,
       anchor: range)
-  }
-
-  public static func cannotAssignToImmutableLocation(
-    range: SourceRange?
-  ) -> Diag {
-    return Diag("I can't assign an immutable location", anchor: range)
-  }
-
-  public static func cannotAssignImmutableSelf(
-    range: SourceRange?
-  ) -> Diag {
-    return Diag("I can't assign property to of immutable 'self'", anchor: range)
-  }
-
-  public static func cannotAssignImmutableExpr(
-    range: SourceRange?
-  ) -> Diag {
-    return Diag("I can't assign an immutable expression", anchor: range)
   }
 
   public static func missingReturnValueInNonUnitFunction(
@@ -239,6 +224,47 @@ extension Diag {
       "unsafe cast from '\(type)' to the same type has no effect",
       level: .warning,
       anchor: range)
+  }
+
+  // MARK: Assignments to immutable locations and invalid uses of in-out arguments.
+
+  public static func assignToImmut(
+    binding bindingName: String, range: SourceRange?
+  ) -> Diag {
+    return Diag("cannot assign to immutable binding '\(bindingName)'", anchor: range)
+  }
+
+  public static func assignToImmutSelf(
+    propertyName: String, range: SourceRange?
+  ) -> Diag {
+    return Diag("cannot assign to property '\(propertyName)'; 'self' is immutable", anchor: range)
+  }
+
+  public static func assignToImmutValue(
+    range: SourceRange?
+  ) -> Diag {
+    return Diag("cannot assign to immutable value", anchor: range)
+  }
+
+  public static func mutRefToImmut(
+    binding bindingName: String, range: SourceRange?
+  ) -> Diag {
+    return Diag(
+      "cannot pass immutable binding '\(bindingName)' as a mutable argument",
+      anchor: range)
+  }
+
+  public static func mutRefToImmutSelf(
+    propertyName: String, range: SourceRange?
+  ) -> Diag {
+    return Diag(
+      "cannot pass property '\(propertyName)' as a mutable argument; 'self' is immutable",
+      anchor: range)
+  }
+  public static func mutRefToImmutValue(
+    range: SourceRange?
+  ) -> Diag {
+    return Diag("cannot pass immutable value as mutable argument", anchor: range)
   }
 
 }
