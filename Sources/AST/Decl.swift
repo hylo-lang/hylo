@@ -156,7 +156,7 @@ public final class PatternBindingDecl: Decl {
 
   /// The declaration of each variable introduced by the pattern.
   ///
-  /// This is essentially a cache gathering the declaration of each named sub-pattern.
+  /// This property is essentially a cache gathering the declaration of each named sub-pattern.
   public var varDecls: [VarDecl] = []
 
   /// The signature of the pattern.

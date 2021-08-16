@@ -290,16 +290,17 @@ extension IdentCompSign {
   public func realize(unqualifiedFrom useSite: DeclSpace) -> ValType {
     let context = type.context
 
-    // Bypass name lookup if the signature is `Any` or `Nothing`.
+    // Bypass name lookup if the signature is `Any`, `Unit`, or `Nothing`.
     switch name {
     case "Any":
       type = context.anyType
-      return context.anyType
-
+      return type
+    case "Unit":
+      type = context.unitType
+      return type
     case "Nothing":
       type = context.nothingType
-      return context.nothingType
-
+      return type
     default:
       break
     }
@@ -400,7 +401,7 @@ extension IdentCompSign {
       }
 
     default:
-      fatalError("unexpected parent type")
+      return fail(.cannotFind(type: name, in: parentType, range: range))
     }
 
     return type
