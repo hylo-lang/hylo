@@ -293,7 +293,7 @@ struct RValueEmitter: ExprVisitor {
 
       if calleeType.paramConvs[i] == .mut {
         // A parameter with the 'mut' convention prescribes that the argument be mutable argument.
-        assert(node.args[i].value is AddrOfExpr || value is ErrorValue)
+        assert(node.args[i].value is AddrOfExpr || value is PoisonValue)
         args.append(value)
         continue
       }
@@ -495,7 +495,7 @@ struct RValueEmitter: ExprVisitor {
       }
     }
 
-    return .success(ErrorValue(context: node.type.context))
+    return .success(PoisonValue(context: node.type.context))
   }
 
   mutating func visit(_ node: MatchExpr) -> ExprResult {

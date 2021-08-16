@@ -303,7 +303,7 @@ public enum Emitter {
     with builder: Builder
   ) -> Value {
     guard decl.state >= .typeChecked else {
-      return ErrorValue(context: decl.type.context)
+      return PoisonValue(context: decl.type.context)
     }
     precondition(decl.hasStorage, "computed properties are not supported yet")
 
@@ -471,7 +471,7 @@ public enum Emitter {
     with builder: Builder
   ) -> Value {
     // Emit an error value for any expression that has an error type.
-    guard !(expr.type is ErrorType) else { return ErrorValue(context: expr.type.context) }
+    guard !(expr.type is ErrorType) else { return PoisonValue(context: expr.type.context) }
 
     let result = withUnsafeMutablePointer(to: &env, { (e) -> LValueEmitter.ExprResult in
       var emitter = LValueEmitter(env: e, builder: builder)
@@ -485,7 +485,7 @@ public enum Emitter {
     case .failure(let error):
       // FIXME: This should be reported.
       print(error)
-      return ErrorValue(context: expr.type.context)
+      return PoisonValue(context: expr.type.context)
     }
   }
 
@@ -496,7 +496,7 @@ public enum Emitter {
     with builder: Builder
   ) -> Value {
     // Emit an error value for any expression that has an error type.
-    guard !(expr.type is ErrorType) else { return ErrorValue(context: expr.type.context) }
+    guard !(expr.type is ErrorType) else { return PoisonValue(context: expr.type.context) }
 
     // Note: We do not need to copy back the contents of `locals`, because evaluating an expression
     // never produces new bindings outside of that expression.
@@ -512,7 +512,7 @@ public enum Emitter {
     case .failure(let error):
       // FIXME: This should be reported.
       print(error)
-      return ErrorValue(context: expr.type.context)
+      return PoisonValue(context: expr.type.context)
     }
   }
 

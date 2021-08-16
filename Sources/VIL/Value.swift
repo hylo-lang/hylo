@@ -97,14 +97,14 @@ public final class NullAddr: LiteralValue, CustomStringConvertible {
 
 }
 
-/// An error value.
-public final class ErrorValue: LiteralValue, CustomStringConvertible {
+/// A poison value.
+public final class PoisonValue: LiteralValue, CustomStringConvertible {
 
   public init(context: AST.Context) {
     super.init(type: .lower(context.errorType))
   }
 
-  public var description: String { "error" }
+  public var description: String { "poison" }
 
 }
 
