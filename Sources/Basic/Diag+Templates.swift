@@ -261,10 +261,17 @@ extension Diag {
       "cannot pass property '\(propertyName)' as a mutable argument; 'self' is immutable",
       anchor: range)
   }
+
   public static func mutRefToImmutValue(
     range: SourceRange?
   ) -> Diag {
     return Diag("cannot pass immutable value as mutable argument", anchor: range)
+  }
+
+  public static func exclusiveAccessViolation(
+    range: SourceRange?
+  ) -> Diag {
+    return Diag("exclusive access violation", anchor: range)
   }
 
 }

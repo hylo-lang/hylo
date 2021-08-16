@@ -3,22 +3,21 @@ import AST
 /// A VIL emitter for l-values.
 struct LValueEmitter: ExprVisitor {
 
-  typealias ExprResult = Result<Value, EmitterError>
+  typealias ExprResult = Result<(loc: Value, pathID: PathIdentifier), EmitterError>
 
-  /// The declaration of the function being emitted.
-  let funDecl: BaseFunDecl
-
-  /// A symbol table that maps locally visible declarations to their emitted value, populated by
-  /// function parameters and local pattern binding declarations.
-  var locals: SymbolTable = [:]
+  /// The environment in with the r-value is emitted.
+  let env: UnsafeMutablePointer<Emitter.Environment>
 
   /// The VIL builder used by the emitter.
   var builder: Builder
 
-  /// The context in which the function declaration is defined.
-  var context: AST.Context { funDecl.type.context }
+  var funDecl: BaseFunDecl { env.pointee.funDecl }
 
-  func visit(_ node: BoolLiteralExpr) -> Result<Value, EmitterError> {
+  var locals: SymbolTable { env.pointee.locals }
+
+  var context: AST.Context { env.pointee.funDecl.type.context }
+
+  func visit(_ node: BoolLiteralExpr) -> ExprResult {
     return .failure(.immutableExpr)
   }
 
@@ -38,26 +37,26 @@ struct LValueEmitter: ExprVisitor {
     return .failure(.immutableExpr)
   }
 
-  func visit(_ node: BaseCastExpr) -> Result<Value, EmitterError> {
+  func visit(_ node: BaseCastExpr) -> ExprResult {
     fatalError("unreachable")
   }
 
-  func visit(_ node: DynCastExpr) -> Result<Value, EmitterError> {
+  func visit(_ node: DynCastExpr) -> ExprResult {
     return .failure(.immutableExpr)
   }
 
-  mutating func visit(_ node: UnsafeCastExpr) -> Result<Value, EmitterError> {
+  mutating func visit(_ node: UnsafeCastExpr) -> ExprResult {
     // The value being cast has to be emittable as an l-value.
     switch node.value.accept(&self) {
-    case .success(let source):
+    case .success(let result):
       guard node.type != node.value.type else {
         context.report(.unsafeCastToSameTypeHasNoEffect(type: node.type, range: node.range))
-        return .success(source)
+        return .success(result)
       }
 
       let cast = builder.buildUnsafeCastAddr(
-        source: source, type: VILType.lower(node.type).address)
-      return .success(cast)
+        source: result.loc, type: VILType.lower(node.type).address)
+      return .success((loc: cast, pathID: result.pathID))
 
     case let failure:
       return failure
@@ -99,7 +98,7 @@ struct LValueEmitter: ExprVisitor {
       // If the identifier denotes a local binding, lookup the local symbol table.
       if let loc = locals[ObjectIdentifier(node.decl)] {
         assert(loc.type.isAddress)
-        return .success(loc)
+        return .success((loc: loc, pathID: .binding(decl: decl)))
       }
 
       // If the expression refers to a member declaration, we must emit a property access.
@@ -116,7 +115,8 @@ struct LValueEmitter: ExprVisitor {
         let base = locals[ObjectIdentifier(selfDecl)]!
         let memberAddr = builder.buildRecordMemberAddr(
           record: base, memberDecl: decl, type: VILType.lower(node.type).address)
-        return .success(memberAddr)
+        return .success(
+          (loc: memberAddr, pathID: .member(base: .binding(decl: selfDecl), decl: decl)))
       }
 
       fatalError("unreachable")
@@ -127,7 +127,7 @@ struct LValueEmitter: ExprVisitor {
       // If the expression refers to a mutating parameter, just look at the symbol table.
       let loc = locals[ObjectIdentifier(decl)]!
       assert(loc.type.isAddress)
-      return .success(loc)
+      return .success((loc: loc, pathID: .binding(decl: decl)))
 
     default:
       // FIXME: Handle global symbols.
@@ -142,10 +142,10 @@ struct LValueEmitter: ExprVisitor {
   mutating func visit(_ node: MemberDeclRefExpr) -> ExprResult {
     // The base has to be emittable as an l-value.
     switch node.base.accept(&self) {
-    case .success(let base):
+    case .success(let (loc, pathID)):
       // Make sure the base has an address type.
-      guard base.type.isAddress else { return .failure(.immutableExpr) }
-      let baseType = base.type.valType
+      guard loc.type.isAddress else { return .failure(.immutableExpr) }
+      let baseType = loc.type.valType
 
       // The expression must refer to a variable declaration; member functions are never l-values.
       guard let decl = node.decl as? VarDecl
@@ -157,13 +157,13 @@ struct LValueEmitter: ExprVisitor {
         case is ProductType:
           // The member refers to a stored property of a concrete product type.
           let memberAddr = builder.buildRecordMemberAddr(
-            record: base, memberDecl: decl, type: VILType.lower(node.type).address)
-          return .success(memberAddr)
+            record: loc, memberDecl: decl, type: VILType.lower(node.type).address)
+          return .success((loc: memberAddr, .member(base: pathID, decl: node.decl)))
 
         case let bgType as BoundGenericType where bgType.decl.instanceType is ProductType:
           let memberAddr = builder.buildRecordMemberAddr(
-            record: base, memberDecl: decl, type: VILType.lower(node.type).address)
-          return .success(memberAddr)
+            record: loc, memberDecl: decl, type: VILType.lower(node.type).address)
+          return .success((loc: memberAddr, .member(base: pathID, decl: node.decl)))
 
         default:
           // FIXME: Handle tuples.

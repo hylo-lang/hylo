@@ -7,6 +7,21 @@ import Basic
 /// into a lower-level language, better suited for data-flow analysis and code optimizations.
 public enum Emitter {
 
+  /// A data structure representing the environment in which an AST is being lowered.
+  public struct Environment {
+
+    /// The declaration of the function being emitted.
+    let funDecl: BaseFunDecl
+
+    /// A symbol table that maps locally visible declarations to their emitted value, populated by
+    /// function parameters and local pattern binding declarations.
+    var locals: SymbolTable
+
+    /// A set identifying the paths currently known to be borrowed.
+    var loans: Set<PathIdentifier>
+
+  }
+
   /// Lowers to VIL a module declaration into the specified builder.
   ///
   /// This method is the entry point to VIL code generation. It lowers a module declaration to its
@@ -16,27 +31,27 @@ public enum Emitter {
   ///   - module: A module declaration. `module` must be type checked: all symbols must be resolved
   ///     or substituted by error nodes.
   ///   - builder: A VIL builder.
-  public static func emit(module: ModuleDecl, into builder: Builder) {
+  public static func emit(module: ModuleDecl, with builder: Builder) {
     for decl in module {
-      emit(topLevel: decl, into: builder)
+      emit(topLevel: decl, with: builder)
     }
   }
 
   /// Lowers the given "top-level" declaration.
-  public static func emit(topLevel decl: Decl, into builder: Builder) {
+  public static func emit(topLevel decl: Decl, with builder: Builder) {
     switch decl {
     case let decl as ModuleDecl:
-      emit(module: decl, into: builder)
+      emit(module: decl, with: builder)
     case is ImportDecl:
       fatalError("not implemented")
     case is PatternBindingDecl:
       fatalError("not implemented")
     case let decl as BaseFunDecl:
-      emit(function: decl, into: builder)
+      emit(function: decl, with: builder)
     case let decl as ProductTypeDecl:
-      emit(productType: decl, into: builder)
+      emit(productType: decl, with: builder)
     case let decl as TypeExtnDecl:
-      emit(typeExtn: decl, into: builder)
+      emit(typeExtn: decl, with: builder)
 
     case is ViewTypeDecl, is AbstractTypeDecl:
       // Views and abstract types are not concrete; there's nothing to emit.
@@ -51,18 +66,18 @@ public enum Emitter {
     }
   }
 
-  public static func emit(member decl: Decl, into builder: Builder) {
+  public static func emit(member decl: Decl, with builder: Builder) {
     switch decl {
     case let decl as PatternBindingDecl:
       // Pattern binding declarations are member properties in the context of a type declaration
-      emit(property: decl, into: builder)
+      emit(property: decl, with: builder)
 
     default:
-      emit(topLevel: decl, into: builder)
+      emit(topLevel: decl, with: builder)
     }
   }
 
-  public static func emit(property decl: PatternBindingDecl, into builder: Builder) {
+  public static func emit(property decl: PatternBindingDecl, with builder: Builder) {
     assert(decl.isMember)
 
     // FIXME: Emit computed properties and handle initializes in synthesized constructors.
@@ -70,56 +85,14 @@ public enum Emitter {
     assert(decl.initializer == nil)
   }
 
-  /// Emits a local pattern binding declaration.
-  static func emit(
-    localBinding decl: PatternBindingDecl,
-    funDecl: BaseFunDecl,
-    locals: inout SymbolTable,
-    into builder: Builder
-  ) {
-    // Create the variable locations for each name in the pattern.
-    let lvalues = decl.pattern.namedPatterns.map({ pattern in
-      emit(localVar: pattern.decl, locals: &locals, into: builder)
-    })
-
-    // Emit the initializer, if any.
-    if let initializer = decl.initializer {
-      // Emit a store right away if the pattern matches a single value.
-      if let varDecl = decl.pattern.singleVarDecl {
-        assert((lvalues.count == 1) && (lvalues[0] === locals[ObjectIdentifier(varDecl)]))
-        emit(assign: initializer, to: lvalues[0], funDecl: funDecl, locals: &locals, into: builder)
-      } else {
-        // FIXME: Handle destructuring,
-        fatalError("not implemented")
-      }
-    }
-  }
-
-  /// Emits a local variable declaration.
-  static func emit(
-    localVar decl: VarDecl,
-    locals: inout SymbolTable,
-    into builder: Builder
-  ) -> Value {
-    guard decl.state >= .typeChecked else {
-      return ErrorValue(context: decl.type.context)
-    }
-    precondition(decl.hasStorage, "computed properties are not supported yet")
-
-    // Allocate storage on the stack for the variable.
-    let value = builder.buildAllocStack(type: .lower(decl.type))
-    locals[ObjectIdentifier(decl)] = value
-    return value
-  }
-
-  public static func emit(productType decl: ProductTypeDecl, into builder: Builder) {
+  public static func emit(productType decl: ProductTypeDecl, with builder: Builder) {
     // Emit the the type's witness table(s).
     for conformance in decl.conformanceTable.values {
       var entries: [(decl: BaseFunDecl, impl: Function)] = []
       for (req, impl) in conformance.entries {
         if let reqFunDecl = req as? BaseFunDecl {
           let implFunDecl = impl as! BaseFunDecl
-          let function = emit(witness: implFunDecl, for: reqFunDecl, into: builder)
+          let function = emit(witness: implFunDecl, for: reqFunDecl, with: builder)
           entries.append((reqFunDecl, function))
         }
       }
@@ -131,18 +104,18 @@ public enum Emitter {
 
     // Emit the direct members of the declaration.
     for member in decl.members {
-      emit(member: member, into: builder)
+      emit(member: member, with: builder)
     }
   }
 
-  public static func emit(typeExtn decl: TypeExtnDecl, into builder: Builder) {
+  public static func emit(typeExtn decl: TypeExtnDecl, with builder: Builder) {
     for member in decl.members {
-      emit(member: member, into: builder)
+      emit(member: member, with: builder)
     }
   }
 
   /// Emits a function.
-  public static func emit(function decl: BaseFunDecl, into builder: Builder) {
+  public static func emit(function decl: BaseFunDecl, with builder: Builder) {
     // Create (i.e., declare) the function in the module.
     let function = builder.getOrCreateFunction(from: decl)
 
@@ -187,11 +160,12 @@ public enum Emitter {
     }
 
     // Emit the function's body.
+    var env = Environment(funDecl: decl, locals: locals, loans: [])
     guard let body = decl.body else {
-      return emit(synthesizedBodyOf: decl, locals: locals, into: builder)
+      return emit(synthesizedBodyOf: decl, locals: env.locals, with: builder)
     }
 
-    emit(brace: body, funDecl: decl, locals: &locals, into: builder)
+    emit(brace: body, in: &env, with: builder)
 
     // If the function's a constructor, emit the implicit return statement.
     if decl is CtorDecl {
@@ -227,7 +201,7 @@ public enum Emitter {
   static func emit(
     synthesizedBodyOf decl: BaseFunDecl,
     locals: SymbolTable,
-    into builder: Builder
+    with builder: Builder
   ) {
     assert(decl.isSynthesized)
 
@@ -261,7 +235,7 @@ public enum Emitter {
   static func emit(
     witness impl: BaseFunDecl,
     for req: BaseFunDecl,
-    into builder: Builder
+    with builder: Builder
   ) -> Function {
     // Create the VIL function object.
     var mangler = Mangler()
@@ -298,25 +272,65 @@ public enum Emitter {
     return function
   }
 
+  /// Emits a local pattern binding declaration.
+  static func emit(
+    localBinding decl: PatternBindingDecl,
+    in env: inout Environment,
+    with builder: Builder
+  ) {
+    // Create the variable locations for each name in the pattern.
+    let lvalues = decl.pattern.namedPatterns.map({ pattern in
+      emit(localVar: pattern.decl, into: &env.locals, with: builder)
+    })
+
+    // Emit the initializer, if any.
+    if let initializer = decl.initializer {
+      // Emit a store right away if the pattern matches a single value.
+      if let varDecl = decl.pattern.singleVarDecl {
+        assert((lvalues.count == 1) && (lvalues[0] === env.locals[ObjectIdentifier(varDecl)]))
+        emit(assign: initializer, to: lvalues[0], in: &env, with: builder)
+      } else {
+        // FIXME: Handle destructuring,
+        fatalError("not implemented")
+      }
+    }
+  }
+
+  /// Emits a local variable declaration.
+  static func emit(
+    localVar decl: VarDecl,
+    into locals: inout SymbolTable,
+    with builder: Builder
+  ) -> Value {
+    guard decl.state >= .typeChecked else {
+      return ErrorValue(context: decl.type.context)
+    }
+    precondition(decl.hasStorage, "computed properties are not supported yet")
+
+    // Allocate storage on the stack for the variable.
+    let value = builder.buildAllocStack(type: .lower(decl.type))
+    locals[ObjectIdentifier(decl)] = value
+    return value
+  }
+
   static func emit(
     brace: BraceStmt,
-    funDecl: BaseFunDecl,
-    locals: inout SymbolTable,
-    into builder: Builder
+    in env: inout Environment,
+    with builder: Builder
   ) {
     assert(builder.block != nil, "not in a basic block")
 
     for i in 0 ..< brace.stmts.count {
       switch brace.stmts[i] {
       case let decl as PatternBindingDecl:
-        emit(localBinding: decl, funDecl: funDecl, locals: &locals, into: builder)
+        emit(localBinding: decl, in: &env, with: builder)
 
       case let decl as FunDecl:
-        emit(function: decl, into: builder)
+        emit(function: decl, with: builder)
 
         // Emit the value of each captured declaration.
         let partialArgs = decl.computeCaptures().map({ ref in
-          emit(rvalue: ref, funDecl: funDecl, locals: &locals, into: builder)
+          emit(rvalue: ref, in: &env, with: builder)
         })
 
         // Local function with captures declarations require stack allocation.
@@ -324,29 +338,29 @@ public enum Emitter {
           let fun = FunRef(function: builder.getOrCreateFunction(from: decl))
           let loc = builder.buildAllocStack(type: .lower(decl.type))
 
-          locals[ObjectIdentifier(decl)] = loc
+          env.locals[ObjectIdentifier(decl)] = loc
           builder.buildStore(
             lvalue: loc,
             rvalue: builder.buildPartialApply(fun: fun, args: partialArgs))
         }
 
       case let decl as NominalTypeDecl:
-        emit(topLevel: decl, into: builder)
+        emit(topLevel: decl, with: builder)
 
       case let stmt as BraceStmt:
-        emit(brace: stmt, funDecl: funDecl, locals: &locals, into: builder)
+        emit(brace: stmt, in: &env, with: builder)
 
       case let stmt as RetStmt:
-        emit(stmt: stmt, funDecl: funDecl, locals: &locals, into: builder)
+        emit(stmt: stmt, in: &env, with: builder)
         if i > brace.stmts.count - 1 {
-          let context = funDecl.type.context
+          let context = env.funDecl.type.context
           context.report(.codeAfterReturnNeverExecuted(range: brace.stmts[i + 1].range))
           return
         }
 
       case let expr as Expr:
         // FIXME: Drop the result of the expression.
-        _ = emit(rvalue: expr, funDecl: funDecl, locals: &locals, into: builder)
+        _ = emit(rvalue: expr, in: &env, with: builder)
 
       default:
         fatalError("unreachable")
@@ -356,15 +370,14 @@ public enum Emitter {
 
   static func emit(
     stmt: RetStmt,
-    funDecl: BaseFunDecl,
-    locals: inout SymbolTable,
-    into builder: Builder
+    in env: inout Environment,
+    with builder: Builder
   ) {
     let result: Value
     if let expr = stmt.value {
-      result = emit(rvalue: expr, funDecl: funDecl, locals: &locals, into: builder)
+      result = emit(rvalue: expr, in: &env, with: builder)
     } else {
-      result = UnitValue(context: funDecl.type.context)
+      result = UnitValue(context: env.funDecl.type.context)
     }
 
     builder.buildRet(value: result)
@@ -373,31 +386,37 @@ public enum Emitter {
   /// Emits the assignment of the value represented by `expr` to `lvalue`.
   static func emit(
     assign expr: Expr,
-    to lvalue: Value,
-    funDecl: BaseFunDecl,
-    locals: inout SymbolTable,
-    into builder: Builder
+    to dest: Value,
+    in env: inout Environment,
+    with builder: Builder
   ) {
+    let exprType = expr.type.dealiased.canonical
+    let destType = dest.type.valType
+
     // If both operands have an existential layout and the r-value can be treated as a location,
     // then we may simply emit `copy_addr`.
-    if lvalue.type.valType.isExistential && expr.type.isExistential {
-      var emitter = LValueEmitter(funDecl: funDecl, locals: locals, builder: builder)
-      if case .success(var rvalue) = expr.accept(&emitter) {
+    if destType.isExistential && expr.type.isExistential {
+      let result = withUnsafeMutablePointer(to: &env, { (e) -> LValueEmitter.ExprResult in
+        var emitter = LValueEmitter(env: e, builder: builder)
+        return expr.accept(&emitter)
+      })
+
+      if case .success(let result) = result {
         // If the r-value has a different type than the l-value, it must be casted.
-        if lvalue.type.valType != expr.type {
-          rvalue = builder.buildUnsafeCastAddr(source: rvalue, type: lvalue.type)
+        var source = result.loc
+        if destType != exprType {
+          source = builder.buildUnsafeCastAddr(source: source, type: dest.type)
         }
 
         /// Copies the contents from the location on the right to the location on the left.
-        builder.buildCopyAddr(dest: lvalue, source: rvalue)
+        builder.buildCopyAddr(dest: dest, source: source)
         return
       }
     }
 
     // Otherwise, emit the r-value and fall back to the regular path.
-    let rvalue = emit(rvalue: expr, funDecl: funDecl, locals: &locals, into: builder)
-    let rvalueType = expr.type.dealiased.canonical
-    emit(assign: rvalue, ofType: rvalueType, to: lvalue, into: builder)
+    let rvalue = emit(rvalue: expr, in: &env, with: builder)
+    emit(assign: rvalue, ofType: exprType, to: dest, with: builder)
   }
 
   /// Emits the assignment of `rvalue` to `lvalue`.
@@ -405,7 +424,7 @@ public enum Emitter {
     assign rvalue: Value,
     ofType rvalueType: ValType,
     to lvalue: Value,
-    into builder: Builder
+    with builder: Builder
   ) {
     assert(rvalueType.isCanonical)
 
@@ -445,24 +464,23 @@ public enum Emitter {
     builder.buildStore(lvalue: lvalue, rvalue: rvalue)
   }
 
-  /// Emits a r-value.
+  /// Emits an l-value.
   static func emit(
-    rvalue expr: Expr,
-    funDecl: BaseFunDecl,
-    locals: inout SymbolTable,
-    into builder: Builder
+    lvalue expr: Expr,
+    in env: inout Environment,
+    with builder: Builder
   ) -> Value {
     // Emit an error value for any expression that has an error type.
     guard !(expr.type is ErrorType) else { return ErrorValue(context: expr.type.context) }
 
-    // Note: We do not need to copy back the contents of `locals`, because evaluating an expression
-    // never produces new bindings outside of that expression.
-    var emitter = RValueEmitter(funDecl: funDecl, locals: locals, builder: builder)
-    defer { locals = emitter.locals }
+    let result = withUnsafeMutablePointer(to: &env, { (e) -> LValueEmitter.ExprResult in
+      var emitter = LValueEmitter(env: e, builder: builder)
+      return expr.accept(&emitter)
+    })
 
-    switch expr.accept(&emitter) {
-    case .success(let value):
-      return value
+    switch result {
+    case .success(let result):
+      return result.loc
 
     case .failure(let error):
       // FIXME: This should be reported.
@@ -471,26 +489,37 @@ public enum Emitter {
     }
   }
 
-  /// Emits an l-value.
-  func emit(
-    lvalue expr: Expr,
-    funDecl: BaseFunDecl,
-    locals: SymbolTable,
-    into builder: Builder
+  /// Emits a r-value.
+  static func emit(
+    rvalue expr: Expr,
+    in env: inout Environment,
+    with builder: Builder
   ) -> Value {
     // Emit an error value for any expression that has an error type.
     guard !(expr.type is ErrorType) else { return ErrorValue(context: expr.type.context) }
 
-    var emitter = LValueEmitter(funDecl: funDecl, locals: locals, builder: builder)
-    switch expr.accept(&emitter) {
-    case .success(let value):
-      return value
+    // Note: We do not need to copy back the contents of `locals`, because evaluating an expression
+    // never produces new bindings outside of that expression.
+    let result = withUnsafeMutablePointer(to: &env, { (e) -> RValueEmitter.ExprResult in
+      var emitter = RValueEmitter(env: e, builder: builder)
+      return expr.accept(&emitter)
+    })
+
+    switch result {
+    case .success(let result):
+      return result
 
     case .failure(let error):
       // FIXME: This should be reported.
       print(error)
       return ErrorValue(context: expr.type.context)
     }
+  }
+
+  /// Emits a nil value.
+  static func emitNil(context: Context, with builder: Builder) -> Value {
+    let decl = context.getTypeDecl(for: .Nil) as! ProductTypeDecl
+    return builder.buildRecord(typeDecl: decl, type: .lower(decl.instanceType))
   }
 
 }
