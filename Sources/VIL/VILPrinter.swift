@@ -244,6 +244,8 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
     let description: String
 
     switch value {
+    case is UnitValue, is PoisonValue:
+      return String(describing: value)
     case is LiteralValue:
       description = String(describing: value)
     default:
