@@ -241,11 +241,17 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
   }
 
   mutating func describe(_ value: Value, withType: Bool = true) -> String {
-    let description = value is LiteralValue
-      ? String(describing: value)
-      : "_\(makeID(for: value))"
+    let description: String
+
+    switch value {
+    case is LiteralValue:
+      description = String(describing: value)
+    default:
+      description = "_" + String(describing: makeID(for: value))
+    }
+
     return withType
-      ? "\(description): \(value.type)"
+      ? "\(value.type) \(description)"
       : description
   }
 
@@ -292,18 +298,6 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
         lhs.write(", ")
       }
     }
-  }
-
-  static func << (lhs: inout PrintContext, rhs: IDAndType) {
-    lhs.write("_\(rhs.id): \(rhs.type)")
-  }
-
-  struct IDAndType {
-
-    let id: Int
-
-    let type: VILType
-
   }
 
 }
