@@ -562,7 +562,7 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
   }
 
   /// The set of variable declarations captured in the function's closure.
-  private var captures: OrderedSet<CaptureCollector.Capture>?
+  private var captureTable: CaptureTable?
 
   /// Computes the list of declaration references that are captured in the function's closure.
   ///
@@ -570,22 +570,22 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
   ///
   /// - Note: This method only returns resolved declaration references. Therefore, it should not be
   ///   called before type checking is complete.
-  public func computeCaptures(recompute: Bool = false) -> OrderedSet<CaptureCollector.Capture> {
-    if let captures = self.captures, !recompute {
-      return captures
+  public func computeCaptureTable(recompute: Bool = false) -> CaptureTable {
+    if let table = self.captureTable, !recompute {
+      return table
     }
 
     // Non-local functions cannot capture any declaration.
     guard isLocal else {
-      captures = []
-      return []
+      captureTable = CaptureTable()
+      return captureTable!
     }
 
     // Compute the set of captured declarations.
     var collector = CaptureCollector(relativeTo: parentDeclSpace)
     collector.walk(decl: self)
-    captures = collector.captures
-    return collector.captures
+    captureTable = collector.table
+    return collector.table
   }
 
   // MARK: Visitation

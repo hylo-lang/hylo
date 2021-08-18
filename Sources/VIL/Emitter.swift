@@ -151,9 +151,9 @@ public enum Emitter {
     }
 
     // Register the function's formal parameters in the local symbol table.
-    let captures = decl.computeCaptures()
+    let captures = decl.computeCaptureTable().captures
     for (capture, arg) in zip(captures, args) {
-      locals[ObjectIdentifier(capture.expr.decl)] = arg
+      locals[ObjectIdentifier(capture.decl)] = arg
     }
     for (param, arg) in zip(decl.params, args[captures.count...]) {
       locals[ObjectIdentifier(param)] = arg
@@ -329,8 +329,8 @@ public enum Emitter {
         emit(function: decl, with: builder)
 
         // Emit the value of each captured declaration.
-        let partialArgs = decl.computeCaptures().map({ capture in
-          emit(rvalue: capture.expr, in: &env, with: builder)
+        let partialArgs = decl.computeCaptureTable().map({ (_, refs) -> Value in
+          return emit(rvalue: refs.first!, in: &env, with: builder)
         })
 
         // Local function with captures declarations require stack allocation.

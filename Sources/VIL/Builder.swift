@@ -78,10 +78,10 @@ public final class Builder {
     var unappliedType = decl.unappliedType as! FunType
 
     // Extend the function's arguments with the type of each captured symbol.
-    let captures = decl.computeCaptures()
+    let captures = decl.computeCaptureTable().captures
     if !captures.isEmpty {
       let context = unappliedType.context
-      let extra = captures.map({ $0.expr.decl.type })
+      let extra = captures.map({ $0.decl.type })
       let paramType = context.tupleType(types: extra + unappliedType.paramTypeList)
       unappliedType = context.funType(
         paramType: paramType, retType: unappliedType.retType)

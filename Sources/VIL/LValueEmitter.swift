@@ -92,6 +92,11 @@ struct LValueEmitter: ExprVisitor {
     case let decl as VarDecl:
       guard decl.isMutable else { return .failure(.immutableBinding(decl)) }
 
+      // FIXME: Handle explicit capture lists.
+      guard funDecl.computeCaptureTable()[decl] == nil else {
+        return .failure(.immutableCapture(decl))
+      }
+
       // FIXME: Handle computed properties.
       assert(decl.hasStorage)
 

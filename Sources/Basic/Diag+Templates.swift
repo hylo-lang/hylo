@@ -231,13 +231,19 @@ extension Diag {
   public static func assignToImmut(
     binding bindingName: String, range: SourceRange?
   ) -> Diag {
-    return Diag("cannot assign to immutable binding '\(bindingName)'", anchor: range)
+    return Diag("cannot assign to '\(bindingName)': binding is immutable", anchor: range)
+  }
+
+  public static func assignToImmutCapture(
+    binding bindingName: String, range: SourceRange?
+  ) -> Diag {
+    return Diag("cannot assign to '\(bindingName)': binding is captured immutable", anchor: range)
   }
 
   public static func assignToImmutSelf(
     propertyName: String, range: SourceRange?
   ) -> Diag {
-    return Diag("cannot assign to property '\(propertyName)'; 'self' is immutable", anchor: range)
+    return Diag("cannot assign to property '\(propertyName)': 'self' is immutable", anchor: range)
   }
 
   public static func assignToImmutValue(
@@ -250,7 +256,15 @@ extension Diag {
     binding bindingName: String, range: SourceRange?
   ) -> Diag {
     return Diag(
-      "cannot pass immutable binding '\(bindingName)' as a mutable argument",
+      "cannot pass '\(bindingName)' as a mutable argument: binding is immutable",
+      anchor: range)
+  }
+
+  public static func mutRefToImmutCapture(
+    binding bindingName: String, range: SourceRange?
+  ) -> Diag {
+    return Diag(
+      "cannot pass '\(bindingName)' as a mutable argument: binding is captured immutable",
       anchor: range)
   }
 
@@ -258,7 +272,7 @@ extension Diag {
     propertyName: String, range: SourceRange?
   ) -> Diag {
     return Diag(
-      "cannot pass property '\(propertyName)' as a mutable argument; 'self' is immutable",
+      "cannot pass property '\(propertyName)' as a mutable argument: 'self' is immutable",
       anchor: range)
   }
 

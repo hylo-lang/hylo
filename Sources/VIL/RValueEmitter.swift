@@ -153,6 +153,8 @@ struct RValueEmitter: ExprVisitor {
       switch error {
       case .immutableBinding(let decl):
         context.report(.assignToImmut(binding: decl.name, range: node.lvalue.range))
+      case .immutableCapture(let decl):
+        context.report(.assignToImmutCapture(binding: decl.name, range: node.lvalue.range))
       case .immutableSelf(let property):
         context.report(.assignToImmutSelf(propertyName: property.name, range: node.lvalue.range))
       case .immutableExpr:
@@ -348,10 +350,8 @@ struct RValueEmitter: ExprVisitor {
   }
 
   func visit(_ node: DeclRefExpr) -> ExprResult {
-
     // FIXME: We need a better, more reliable way to easily determine whether the node requires
     // l-value to r-value conversion.
-
     switch node.decl {
     case let decl as VarDecl:
       if let value = locals[ObjectIdentifier(decl)] {
@@ -437,10 +437,17 @@ struct RValueEmitter: ExprVisitor {
     // Create the type of the function wrapping the async expression.
     assert(node.type is AsyncType)
     let context = node.type.context
+
+    var paramTypes: [ValType] = []
+    var args: [Value] = []
+    for (capture, refs) in collector.table {
+      paramTypes.append(capture.decl.type)
+      args.append(emit(rvalue: refs.first!))
+    }
+
     let fnType = context.funType(
-      paramType: context.tupleType(types: collector.captures.map({ $0.expr.decl.type })),
+      paramType: context.tupleType(types: paramTypes),
       retType: (node.type as! AsyncType).base)
-    let args = collector.captures.map({ emit(rvalue: $0.expr) })
 
     // Emit the expression wrapper.
     let fn = builder.getOrCreateFunction(name: "_async\(builder.buildUniqueID())", type: fnType)
@@ -452,11 +459,11 @@ struct RValueEmitter: ExprVisitor {
     // Emit the wrapper's body.
     locals = [:]
     builder.block = fn.createBasicBlock(arguments: args)
-    for (i, box) in collector.captures.enumerated() {
+    for (i, capture) in collector.table.captures.enumerated() {
       let type = fn.type.paramTypes[i].contextualized(in: funDecl.genericEnv!, from: funDecl)
       let alloc = builder.buildAllocStack(type: type)
       builder.buildStore(lvalue: alloc, rvalue: builder.block!.arguments[i])
-      locals[ObjectIdentifier(box.expr.decl)] = alloc
+      locals[ObjectIdentifier(capture.decl)] = alloc
     }
 
     builder.buildRet(value: emit(rvalue: node.value))
@@ -488,6 +495,8 @@ struct RValueEmitter: ExprVisitor {
       switch error {
       case .immutableBinding(let decl):
         context.report(.mutRefToImmut(binding: decl.name, range: node.value.range))
+      case .immutableCapture(let decl):
+        context.report(.mutRefToImmutCapture(binding: decl.name, range: node.value.range))
       case .immutableSelf(let property):
         context.report(.mutRefToImmutSelf(propertyName: property.name, range: node.value.range))
       case .immutableExpr:
