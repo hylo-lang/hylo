@@ -8,6 +8,7 @@ let package = Package(
   ],
   dependencies: [
     .package(name: "swift-argument-parser", url: "https://github.com/apple/swift-argument-parser.git", from: "0.4.0"),
+    .package(url: "https://github.com/apple/swift-collections", from: "0.0.1"),
   ],
   targets: [
     // The compiler's executable target.
@@ -19,7 +20,10 @@ let package = Package(
       ]),
 
     // Targets related to the compiler's internal library.
-    .target(name: "AST", dependencies: ["Basic",], resources: [.copy("Builtins.json")]),
+    .target(
+      name: "AST",
+      dependencies: ["Basic", .product(name: "OrderedCollections", package: "swift-collections")],
+      resources: [.copy("Builtins.json")]),
     .target(name: "Basic"),
     .target(name: "Driver", dependencies: ["AST", "Basic", "Parse", "Sema", "VIL"]),
     .target(name: "Parse", dependencies: ["AST", "Basic"]),
