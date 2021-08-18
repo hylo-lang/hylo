@@ -366,7 +366,7 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
     self.props = FunDeclProps()
     for modifier in modifiers {
       switch modifier.kind {
-      case .mut   : props.formUnion(.isMutating)
+      case .mut: props.formUnion(.isMutating)
       case .static: props.formUnion(.isStatic)
       default: continue
       }
@@ -390,9 +390,16 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
 
   /// The declaration modifiers of the function.
   ///
-  /// This array only contains the declaration modifiers specified at the creation of the
+  /// This array only contains the declaration modifiers specified explicitly with the function
   /// declaration. It may not accurately describe the relevant bits in `props`, nor vice-versa.
   public let modifiers: [DeclModifier]
+
+  /// The explicit capture list of the function.
+  ///
+  /// This property only contains the captures declared explicitly in the function's capture list.
+  /// Use `computeCaptureTable(recompute:)` to get the exhaustive list of captured declarations
+  /// after name resolution completed.
+  public var captureList: [CaptureDecl] = []
 
   /// The parameters of the function.
   public var params: [FunParamDecl]
@@ -635,6 +642,44 @@ public final class CtorDecl: BaseFunDecl {
 
   public override func accept<V>(_ visitor: inout V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
+  }
+
+}
+
+/// The declaration of a capture in a function's capture list.
+public struct CaptureDecl {
+
+  /// The semantics of a capture.
+  public enum Semantics {
+
+    /// The declaration is captured as an immutable copy.
+    case `val`
+
+    /// The declaration is captured as a mutable copy.
+    case `var`
+
+    /// The declaration is captured as an exclusive mutable reference.
+    case `mut`
+
+  }
+
+  /// The semantics of the capture.
+  public var semantics: Semantics
+
+  /// The identifier of the declaration being captured.
+  public var ident: Ident
+
+  /// The captured declaration.
+  public weak var decl: ValueDecl?
+
+  /// The source range of the capture's explicit declaration.
+  public var range: SourceRange?
+
+  public init(semantics: Semantics, ident: Ident, decl: ValueDecl?, range: SourceRange?) {
+    self.semantics = semantics
+    self.ident = ident
+    self.decl = decl
+    self.range = range
   }
 
 }

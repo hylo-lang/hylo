@@ -209,7 +209,6 @@ public struct Parser {
       case .infix   : m = DeclModifier(kind: .infix)
       case .prefix  : m = DeclModifier(kind: .prefix)
       case .postfix : m = DeclModifier(kind: .postfix)
-      case .volatile: m = DeclModifier(kind: .volatile)
       case .static  : m = DeclModifier(kind: .static)
       case .moveonly: m = DeclModifier(kind: .moveonly)
       default       : break loop
@@ -383,7 +382,7 @@ public struct Parser {
 
   /// Parses a function declaration.
   ///
-  ///     fun-decl ::= 'fun' fun-ident? generic-clause? fun-interface brace-stmt?
+  ///     fun-decl ::= 'fun' fun-ident? generic-clause? capture-list? fun-interface brace-stmt?
   ///     fun-ident ::= operator | NAME
   ///     fun-interface ::= param-decl-list ('->' sign)?
   ///
@@ -428,15 +427,6 @@ public struct Parser {
         guard state.flags & .isParsingTypeBody else {
           context.report(
             "'static' is only allowed inside of a type", anchor: modifier.range)
-          state.hasError = true
-          return false
-        }
-        return true
-
-      case .volatile where introducer.kind == .fun:
-        guard !(state.flags & .isParsingTypeBody) else {
-          context.report(
-            "'volatile' can only be applied to free functions", anchor: modifier.range)
           state.hasError = true
           return false
         }
@@ -506,6 +496,15 @@ public struct Parser {
     defer { state.declSpace = decl.parentDeclSpace }
 
     decl.genericClause = parseGenericClause(state: &state)
+
+    // Parse a capture list.
+    if let opener = state.peek(), opener.kind == .lBrack {
+      decl.captureList = parseCaptureList(state: &state)!
+      if state.flags & .isParsingTypeBody {
+        context.report("capture lists are only allowed on free functions", anchor: opener.range)
+        state.hasError = true
+      }
+    }
 
     if let (opener, params, closer) = list(
         state: &state, delimiters: (.lParen, .rParen), parser: parseParamDecl(state:))
@@ -578,6 +577,56 @@ public struct Parser {
 
     decl.range = lowerLoc ..< upperLoc
     return decl
+  }
+
+  /// Parses a capture list.
+  ///
+  ///     capture-list ::= '[' capture-decl (',' capture-decl)* ','? ']'
+  private func parseCaptureList(state: inout State) -> [CaptureDecl]? {
+    guard state.take(.lBrack) != nil else { return nil }
+
+    var list: [CaptureDecl] = []
+    while let decl = parseCaptureDecl(state: &state) {
+      list.append(decl)
+      guard state.take(.comma) != nil else { break }
+    }
+
+    if state.take(.rBrack) == nil {
+      context.report("expected ']' delimiter", anchor: state.errorRange())
+      state.hasError = true
+    }
+
+    return list
+  }
+
+  /// Parses a capture declaration.
+  ///
+  ///     capture-decl ::= ('val' | 'var') NAME
+  private func parseCaptureDecl(state: inout State) -> CaptureDecl? {
+    let semantics: CaptureDecl.Semantics
+    switch state.peek()?.kind {
+    case .val: semantics = .val
+    case .var: semantics = .var
+    case .mut: semantics = .mut
+    default:
+      return nil
+    }
+    let introducer = state.take()!
+
+    let ident: Ident
+    if let name = state.take(.name) {
+      ident = state.ident(name)
+    } else {
+      context.report("expected identifier", anchor: state.errorRange())
+      state.hasError = true
+      ident = Ident(name: "", range: state.errorRange())
+    }
+
+    return CaptureDecl(
+      semantics: semantics,
+      ident: ident,
+      decl: nil,
+      range: introducer.range.lowerBound ..< ident.range!.upperBound)
   }
 
   /// Parses a parameter declaration.
