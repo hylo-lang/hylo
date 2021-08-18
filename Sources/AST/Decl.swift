@@ -1,4 +1,5 @@
 import Basic
+import OrderedCollections
 
 /// A node representing the declaration of one or more entities.
 public protocol Decl: Node {
@@ -561,15 +562,15 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
   }
 
   /// The set of variable declarations captured in the function's closure.
-  private var captures: [DeclRefExpr]?
+  private var captures: OrderedSet<CaptureCollector.Capture>?
 
   /// Computes the list of declaration references that are captured in the function's closure.
   ///
   /// - Parameter recompute: A flag that indicates whether to use cached results, if available.
   ///
-  ///- Note: This method only returns resolved declaration references. It should only be called
-  ///  after type checking is complete.
-  public func computeCaptures(recompute: Bool = false) -> [DeclRefExpr] {
+  /// - Note: This method only returns resolved declaration references. Therefore, it should not be
+  ///   called before type checking is complete.
+  public func computeCaptures(recompute: Bool = false) -> OrderedSet<CaptureCollector.Capture> {
     if let captures = self.captures, !recompute {
       return captures
     }
@@ -583,8 +584,8 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
     // Compute the set of captured declarations.
     var collector = CaptureCollector(relativeTo: parentDeclSpace)
     collector.walk(decl: self)
-    captures = collector.captures.map({ $0.value })
-    return captures!
+    captures = collector.captures
+    return collector.captures
   }
 
   // MARK: Visitation

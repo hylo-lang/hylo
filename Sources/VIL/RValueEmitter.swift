@@ -438,9 +438,9 @@ struct RValueEmitter: ExprVisitor {
     assert(node.type is AsyncType)
     let context = node.type.context
     let fnType = context.funType(
-      paramType: context.tupleType(types: collector.captures.map({ $0.value.decl.type })),
+      paramType: context.tupleType(types: collector.captures.map({ $0.expr.decl.type })),
       retType: (node.type as! AsyncType).base)
-    let args = collector.captures.map({ emit(rvalue: $0.value) })
+    let args = collector.captures.map({ emit(rvalue: $0.expr) })
 
     // Emit the expression wrapper.
     let fn = builder.getOrCreateFunction(name: "_async\(builder.buildUniqueID())", type: fnType)
@@ -456,7 +456,7 @@ struct RValueEmitter: ExprVisitor {
       let type = fn.type.paramTypes[i].contextualized(in: funDecl.genericEnv!, from: funDecl)
       let alloc = builder.buildAllocStack(type: type)
       builder.buildStore(lvalue: alloc, rvalue: builder.block!.arguments[i])
-      locals[ObjectIdentifier(box.value.decl)] = alloc
+      locals[ObjectIdentifier(box.expr.decl)] = alloc
     }
 
     builder.buildRet(value: emit(rvalue: node.value))

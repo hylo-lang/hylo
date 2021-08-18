@@ -1,20 +1,23 @@
 import Basic
+import OrderedCollections
 
 /// A node visitor that gathers the values that are captured by an expression.
 public struct CaptureCollector: NodeWalker {
 
   public typealias Result = Bool
 
-  public struct CaptureHashWitness: HashWitness {
+  /// A capture.
+  public struct Capture: Hashable {
 
-    public typealias Value = DeclRefExpr
+    /// A reference to the declaration being captured.
+    public let expr: DeclRefExpr
 
-    public static func hash(_ value: DeclRefExpr, into hasher: inout Hasher) {
-      hasher.combine(ObjectIdentifier(value.decl))
+    public func hash(into hasher: inout Hasher) {
+      hasher.combine(ObjectIdentifier(expr.decl))
     }
 
-    public static func equals(_ lhs: DeclRefExpr, _ rhs: DeclRefExpr) -> Bool {
-      return lhs.decl === rhs.decl
+    public static func == (_ lhs: Capture, _ rhs: Capture) -> Bool {
+      return lhs.expr.decl === rhs.expr.decl
     }
 
   }
@@ -26,18 +29,14 @@ public struct CaptureCollector: NodeWalker {
   /// The outermost declaration space in which declarations are considered local, not captured.
   private var boundary: DeclSpace?
 
-  /// The set of declaration captured by the visited expression.
-  private var captureSet: Set<HashableBox<DeclRefExpr, CaptureHashWitness>>
-
-  /// The declaration references of the caputed values, sorted.
-  public var captures: [HashableBox<DeclRefExpr, CaptureHashWitness>] {
-    return captureSet
-      .sorted(by: { a, b in a.value.decl.name < b.value.decl.name })
-  }
+  /// The set of declaration references captured by the visited expression.
+  ///
+  /// This set only contains the first occurence of each reference to a captured declaration.
+  public private(set) var captures: OrderedSet<Capture>
 
   public init(relativeTo boundary: DeclSpace?) {
     self.boundary = boundary
-    self.captureSet = []
+    self.captures = []
   }
 
   public mutating func visit(_ decl: BaseFunDecl) -> Bool {
@@ -66,7 +65,7 @@ public struct CaptureCollector: NodeWalker {
     }
 
     // Register a new capture.
-    captureSet.insert(HashableBox(expr))
+    captures.append(Capture(expr: expr))
     return true
   }
 
