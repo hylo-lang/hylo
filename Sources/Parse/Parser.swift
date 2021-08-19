@@ -183,7 +183,7 @@ public struct Parser {
       } catch let error as ParseError {
         context.report(error.diag)
         state.hasError = true
-        state.skip(while: { !$0.isOf(kind: [.semi, .rBrace]) && !$0.mayBeginDecl })
+        state.skip(while: { ($0.kind != .semi) && !$0.mayBeginDecl })
       } catch {
         fatalError("unreachable")
       }
@@ -543,7 +543,7 @@ public struct Parser {
       context.report("expected parameter list", anchor: state.errorRange())
       state.hasError = true
       state.skip(while: {
-        !$0.isOf(kind: [.semi, .rBrace]) && !$0.mayBeginDecl && !$0.mayBeginCtrlStmt
+        !$0.isOf(kind: [.semi, .lBrace]) && !$0.mayBeginDecl && !$0.mayBeginCtrlStmt
       })
     }
 
