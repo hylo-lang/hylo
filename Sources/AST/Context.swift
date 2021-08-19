@@ -154,7 +154,7 @@ public final class Context {
   private var builtinTypes: [String: BuiltinType] = [:]
 
   /// The built-in declarations that have been cached.
-  private var builtinDecls: [String: ValueDecl] = [:]
+  private var builtinDecls: [String: FunDecl] = [:]
 
   /// Returns the built-in type with the specified name.
   public func getBuiltinType(named name: String) -> BuiltinType? {
@@ -188,7 +188,7 @@ public final class Context {
   ///
   /// - Parameter name: A built-in name.
   /// - Returns: A named declaration if `name` is a built-in symbol; otherwise `nil`.
-  public func getBuiltinDecl(for name: String) -> ValueDecl? {
+  public func getBuiltinDecl(for name: String) -> FunDecl? {
     if builtinDecls.isEmpty {
       loadBuiltinDecls()
     }

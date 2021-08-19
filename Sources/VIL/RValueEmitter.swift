@@ -350,47 +350,30 @@ struct RValueEmitter: ExprVisitor {
   }
 
   func visit(_ node: DeclRefExpr) -> ExprResult {
-    // FIXME: We need a better, more reliable way to easily determine whether the node requires
-    // l-value to r-value conversion.
+    // First, we look for an entry in the local symbol table.
+    if let value = locals[ObjectIdentifier(node.decl)] {
+      // FIXME: We should have a more reliable way to determine whether an address must be loaded.
+      return value.type.isAddress
+        ? .success(builder.buildLoad(lvalue: value))
+        : .success(value)
+    }
+
     switch node.decl {
-    case let decl as VarDecl:
-      if let value = locals[ObjectIdentifier(decl)] {
-        return value.type.isAddress
-          ? .success(builder.buildLoad(lvalue: value))
-          : .success(value)
-      }
+    case is VarDecl:
+      // FIXME: Handle computed properties.
+      fatalError("not implemented")
 
     case let decl as FunDecl where decl.isBuiltin:
       // Emit a built-in function.
       return .success(BuiltinFunRef(decl: decl))
 
     case let decl as BaseFunDecl:
-      // Look for the declaration in the function's locals.
-      if let loc = locals[ObjectIdentifier(decl)] {
-        assert(loc.type.isAddress)
-        return .success(builder.buildLoad(lvalue: loc))
-      }
-
       // Emit a function reference.
       let function = builder.getOrCreateFunction(from: decl)
       return .success(FunRef(function: function))
 
-    case let decl as FunParamDecl where !(decl.type is InoutType):
-      // Emit a parameter.
-      let rv = locals[ObjectIdentifier(decl)]!
-      return .success(rv)
-
     default:
-      break
-    }
-
-    // Emit a l-value and convert it to an r-value.
-    var emitter = LValueEmitter(env: env, builder: builder)
-    switch node.accept(&emitter) {
-    case .success(let result):
-      return .success(builder.buildLoad(lvalue: result.loc))
-    case .failure(let error):
-      return .failure(error)
+      fatalError("unreachable")
     }
   }
 
@@ -440,9 +423,9 @@ struct RValueEmitter: ExprVisitor {
 
     var paramTypes: [ValType] = []
     var args: [Value] = []
-    for (capture, refs) in collector.table {
-      paramTypes.append(capture.decl.type)
-      args.append(emit(rvalue: refs.first!))
+    for (_, value) in collector.table {
+      paramTypes.append(value.type)
+      args.append(emit(rvalue: value.refs.first!))
     }
 
     let fnType = context.funType(
@@ -463,7 +446,7 @@ struct RValueEmitter: ExprVisitor {
       let type = fn.type.paramTypes[i].contextualized(in: funDecl.genericEnv!, from: funDecl)
       let alloc = builder.buildAllocStack(type: type)
       builder.buildStore(lvalue: alloc, rvalue: builder.block!.arguments[i])
-      locals[ObjectIdentifier(capture.decl)] = alloc
+      locals[ObjectIdentifier(capture.capturedDecl)] = alloc
     }
 
     builder.buildRet(value: emit(rvalue: node.value))

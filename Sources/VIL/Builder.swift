@@ -38,8 +38,8 @@ public final class Builder {
   ///     the same name, then it must have the same type as `type`.
   ///   - debugName: An optional debug name describing the function.
   public func getOrCreateFunction(
-    name     : String,
-    type     : FunType,
+    name: String,
+    type: FunType,
     debugName: String? = nil
   ) -> Function {
     // Lower the function type.
@@ -78,13 +78,18 @@ public final class Builder {
     var unappliedType = decl.unappliedType as! FunType
 
     // Extend the function's arguments with the type of each captured symbol.
-    let captures = decl.computeCaptureTable().captures
-    if !captures.isEmpty {
+    let captureTable = decl.computeAllCaptures()
+    if !captureTable.isEmpty {
       let context = unappliedType.context
-      let extra = captures.map({ $0.decl.type })
+      let extra = captureTable.map({ (_, value) -> ValType in
+        // Captures with mutable semantics are represented by in-out parameters.
+        return value.semantics == .val
+          ? value.type
+          : context.inoutType(of: value.type)
+      })
+
       let paramType = context.tupleType(types: extra + unappliedType.paramTypeList)
-      unappliedType = context.funType(
-        paramType: paramType, retType: unappliedType.retType)
+      unappliedType = context.funType(paramType: paramType, retType: unappliedType.retType)
     }
 
     // Create the function.

@@ -36,16 +36,6 @@ public struct NodePrinter: NodeVisitor {
     """
   }
 
-  func encode(captureDecl capture: CaptureDecl) -> String {
-    let decl = capture.decl.map(encode(refToDecl:)) ?? "null"
-
-    return """
-    "name": "\(capture.ident.name)",
-    "semantics": "\(capture.semantics)",
-    "decl": "\(decl)"
-    """
-  }
-
   mutating func encode(typeReqs: [TypeReq]) -> String {
     let reqs: [String] = typeReqs.reduce(into: [], { result, req in
       result.append("""
@@ -194,15 +184,13 @@ public struct NodePrinter: NodeVisitor {
   public mutating func visit(_ node: BaseFunDecl) -> String {
     let modifiers = node.modifiers.map({ mod in "\"\(mod)\"" })
       .joined(separator: ", ")
-    let captureList = node.captureList.map(encode(captureDecl:))
-      .joined(separator: ", ")
 
     return """
     {
     \(valueDeclHeader(node)),
     "declModifiers": [\(modifiers)],
     "genericClause": \(encode(genericClause: node.genericClause)),
-    "captureList": [\(captureList)],
+    "captureList": \(encode(nodes: node.explicitCaptures)),
     "params": \(encode(nodes: node.params)),
     "retSign": \(encode(node.retSign)),
     "body": \(encode(node.body))
@@ -216,6 +204,21 @@ public struct NodePrinter: NodeVisitor {
 
   public mutating func visit(_ node: CtorDecl) -> String {
     visit(node as BaseFunDecl)
+  }
+
+  public mutating func visit(_ node: CaptureDecl) -> String {
+    let capturedDecl = node.capturedDecl.map(encode(refToDecl:)) ?? "null"
+
+    return """
+    {
+    "class": "\(type(of: node))",
+    "range": \(encode(range: node.range)),
+    "parentDeclSpace": \(encode(refToSpace: node.parentDeclSpace)),
+    "name": "\(node.ident.name)",
+    "semantics": "\(node.semantics)",
+    "capturedDecl": "\(capturedDecl)"
+    }
+    """
   }
 
   public mutating func visit(_ node: FunParamDecl) -> String {

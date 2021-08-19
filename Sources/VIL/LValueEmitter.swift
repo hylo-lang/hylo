@@ -88,51 +88,41 @@ struct LValueEmitter: ExprVisitor {
   }
 
   func visit(_ node: DeclRefExpr) -> ExprResult {
+    // Implicit captures are never mutable.
+    guard funDecl.computeAllCaptures()[node.decl] == nil else {
+      return .failure(.immutableCapture(node.decl))
+    }
+
     switch node.decl {
     case let decl as VarDecl:
+      // The node is either a reference to a local binding or to a member property. In either case,
+      // we must check that the referred declaration is indeed mutable. In the latter case, we
+      // must additionally check that `self` (referred implicitly) is mutable.
       guard decl.isMutable else { return .failure(.immutableBinding(decl)) }
-
-      // FIXME: Handle explicit capture lists.
-      guard funDecl.computeCaptureTable()[decl] == nil else {
-        return .failure(.immutableCapture(decl))
-      }
 
       // FIXME: Handle computed properties.
       assert(decl.hasStorage)
 
-      // If the identifier denotes a local binding, lookup the local symbol table.
-      if let loc = locals[ObjectIdentifier(node.decl)] {
-        assert(loc.type.isAddress)
-        return .success((loc: loc, pathID: .binding(decl: decl)))
-      }
+      guard let loc = locals[ObjectIdentifier(node.decl)] else { fatalError("unreachable") }
+      assert(loc.type.isAddress)
+      return .success((loc: loc, pathID: .binding(decl: decl)))
 
-      // If the expression refers to a member declaration, we must emit a property access.
-      if decl.isMember {
-        // The expression should refer to a stored property declaration.
-        assert(decl.parentDeclSpace is NominalTypeDecl)
-
-        // Make sure that `self` is mutable.
-        let selfDecl = funDecl.selfDecl!
-        guard selfDecl.type is InoutType else {
-          return .failure(.immutableSelf(property: decl))
-        }
-
-        let base = locals[ObjectIdentifier(selfDecl)]!
-        let memberAddr = builder.buildRecordMemberAddr(
-          record: base, memberDecl: decl, type: VILType.lower(node.type).address)
-        return .success(
-          (loc: memberAddr, pathID: .member(base: .binding(decl: selfDecl), decl: decl)))
-      }
-
-      fatalError("unreachable")
-
-    case let decl as FunParamDecl:
-      guard decl.type is InoutType else { return .failure(.immutableBinding(decl)) }
-
-      // If the expression refers to a mutating parameter, just look at the symbol table.
+    case let decl as CaptureDecl:
+      // The node is a reference to an explicit capture.
+      guard decl.semantics != .val else { return .failure(.immutableCapture(node.decl)) }
       let loc = locals[ObjectIdentifier(decl)]!
       assert(loc.type.isAddress)
       return .success((loc: loc, pathID: .binding(decl: decl)))
+
+    case let decl as FunParamDecl:
+      // The node is a reference to a mutable parameter.
+      guard decl.type is InoutType else { return .failure(.immutableBinding(decl)) }
+      let loc = locals[ObjectIdentifier(decl)]!
+      assert(loc.type.isAddress)
+      return .success((loc: loc, pathID: .binding(decl: decl)))
+
+    case is BaseFunDecl:
+      return .failure(.immutableBinding(node.decl))
 
     default:
       // FIXME: Handle global symbols.

@@ -35,8 +35,10 @@ public enum DeclState: Int, Comparable {
   /// The type of the declaration is available for type inference, but the declaration has not been
   /// type checked yet.
   ///
-  /// For a `TypeDecl` or a `ValueDecl`, the `type` property of the declaration has been realized.
-  /// For a `TypeExtDec`, the extension has been bound.
+  /// The precise meaning of this state depends on the declaration.
+  /// * On type declarations, function declarations, and parameter declarations, it indicates that
+  ///   the `type` property has been realized.
+  /// * On extension declarations, it indicates that the extended type has been bound.
   case realized
 
   /// The declaration has been scheduled for type checking. Any attempt to transition back to this
@@ -100,9 +102,6 @@ public protocol ValueDecl: TypeOrValueDecl {
 
   /// The type of the declaration.
   var type: ValType { get set }
-
-  /// Realizes the semantic type of the value being declared.
-  func realize() -> ValType
 
 }
 
@@ -220,7 +219,8 @@ public final class VarDecl: ValueDecl {
 
   /// The pattern binding declaration that introduces this variable declaration, if any.
   ///
-  /// This is `nil` if the variable being declared is introduced by a match case statement.
+  /// This is `nil` if the variable being declared is introduced by a case statement or by an
+  /// explicit capture declaration.
   public weak var patternBindingDecl: PatternBindingDecl?
 
   /// The backend of the variable.
@@ -246,14 +246,6 @@ public final class VarDecl: ValueDecl {
   public func setState(_ newState: DeclState) {
     assert(newState >= state)
     state = newState
-  }
-
-  public func realize() -> ValType {
-    if state >= .realized { return type }
-
-    // Variable declarations can't be realized on their own. Their type is defined when the
-    // enclosing pattern binding declaration is type checked.
-    preconditionFailure("variable declarations can't realize on their own")
   }
 
   public func accept<V>(_ visitor: inout V) -> V.DeclResult where V: DeclVisitor {
@@ -397,9 +389,9 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
   /// The explicit capture list of the function.
   ///
   /// This property only contains the captures declared explicitly in the function's capture list.
-  /// Use `computeCaptureTable(recompute:)` to get the exhaustive list of captured declarations
+  /// Use `computeAllCaptures(recompute:)` to get the exhaustive list of captured declarations
   /// after name resolution completed.
-  public var captureList: [CaptureDecl] = []
+  public var explicitCaptures: [CaptureDecl] = []
 
   /// The parameters of the function.
   public var params: [FunParamDecl]
@@ -487,6 +479,41 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
     return decl
   }()
 
+  /// A cache that stores the capture table.
+  private var captureTable: CaptureTable?
+
+  /// Returns the set of all declarations that are captured in the function's closure, explicitly
+  /// implicitly (i.e., without an explicit declaration in function's capture list).
+  ///
+  /// - Parameter recompute: A flag that indicates whether to use cached results for, if available.
+  ///
+  /// - Note: Implicit captures are identified using resolved declaration references only. Hence,
+  ///   this method should not be called before type checking is complete.
+  public func computeAllCaptures(recomputeImplicit: Bool = false) -> CaptureTable {
+    if let table = self.captureTable, !recomputeImplicit {
+      return table
+    }
+
+    // Non-local functions cannot capture any declaration.
+    guard isLocal else {
+      captureTable = CaptureTable()
+      return captureTable!
+    }
+
+    // Initialize the capture table with the list of explicit captures.
+    var collector = CaptureCollector(relativeTo: parentDeclSpace)
+    for capture in explicitCaptures {
+      guard let decl = capture.capturedDecl else { continue }
+      collector.table[decl] = CaptureTable.Value(referredDecl: capture, type: capture.type)
+    }
+
+    // Compute the set of implicit captures.
+    collector.walk(decl: self)
+    captureTable = collector.table
+
+    return collector.table
+  }
+
   // MARK: Name Lookup
 
   public var isOverloadable: Bool { true }
@@ -498,10 +525,14 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
   /// are its explicit and implicit parameters. The declarations scoped within the function's body
   /// are **not** included in either of these sets. Those reside in a nested space.
   public override func lookup(qualified name: String) -> LookupResult {
-    let types  = genericClause.map({ clause in clause.params.filter({ $0.name == name }) }) ?? []
-    var values = params.filter({ $0.name == name })
+    let types = genericClause.map({ clause in clause.params.filter({ $0.name == name }) }) ?? []
+
+    var values: [ValueDecl] = params.filter({ $0.name == name })
     if name == "self", let selfDecl = self.selfDecl {
       values.append(selfDecl)
+    }
+    if !explicitCaptures.isEmpty {
+      values.append(contentsOf: explicitCaptures.filter({ $0.name == name }))
     }
 
     return LookupResult(types: types, values: values)
@@ -568,33 +599,6 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
     return type
   }
 
-  /// The set of variable declarations captured in the function's closure.
-  private var captureTable: CaptureTable?
-
-  /// Computes the list of declaration references that are captured in the function's closure.
-  ///
-  /// - Parameter recompute: A flag that indicates whether to use cached results, if available.
-  ///
-  /// - Note: This method only returns resolved declaration references. Therefore, it should not be
-  ///   called before type checking is complete.
-  public func computeCaptureTable(recompute: Bool = false) -> CaptureTable {
-    if let table = self.captureTable, !recompute {
-      return table
-    }
-
-    // Non-local functions cannot capture any declaration.
-    guard isLocal else {
-      captureTable = CaptureTable()
-      return captureTable!
-    }
-
-    // Compute the set of captured declarations.
-    var collector = CaptureCollector(relativeTo: parentDeclSpace)
-    collector.walk(decl: self)
-    captureTable = collector.table
-    return collector.table
-  }
-
   // MARK: Visitation
 
   public func accept<V>(_ visitor: inout V) -> V.DeclResult where V: DeclVisitor {
@@ -647,7 +651,7 @@ public final class CtorDecl: BaseFunDecl {
 }
 
 /// The declaration of a capture in a function's capture list.
-public struct CaptureDecl {
+public final class CaptureDecl: ValueDecl {
 
   /// The semantics of a capture.
   public enum Semantics {
@@ -663,23 +667,43 @@ public struct CaptureDecl {
 
   }
 
+  public var range: SourceRange?
+
+  public weak var parentDeclSpace: DeclSpace?
+
+  public var state = DeclState.parsed
+
+  public var type: ValType
+
   /// The semantics of the capture.
   public var semantics: Semantics
 
   /// The identifier of the declaration being captured.
   public var ident: Ident
 
-  /// The captured declaration.
-  public weak var decl: ValueDecl?
+  /// The declaration being captured.
+  public weak var capturedDecl: ValueDecl?
 
-  /// The source range of the capture's explicit declaration.
-  public var range: SourceRange?
-
-  public init(semantics: Semantics, ident: Ident, decl: ValueDecl?, range: SourceRange?) {
+  public init(semantics: Semantics, ident: Ident, type: ValType, range: SourceRange?) {
     self.semantics = semantics
     self.ident = ident
-    self.decl = decl
+    self.type = type
     self.range = range
+  }
+
+  public var name: String { ident.name }
+
+  public var isMember: Bool { false }
+
+  public var isOverloadable: Bool { false }
+
+  public func setState(_ newState: DeclState) {
+    assert(newState >= state)
+    state = newState
+  }
+
+  public func accept<V>(_ visitor: inout V) -> V.DeclResult where V : DeclVisitor {
+    return visitor.visit(self)
   }
 
 }
@@ -715,11 +739,6 @@ public final class FunParamDecl: ValueDecl {
 
   public var isMember: Bool { false }
 
-  public func setState(_ newState: DeclState) {
-    assert(newState >= state)
-    state = newState
-  }
-
   public func realize() -> ValType {
     if state >= .realized { return type }
 
@@ -731,6 +750,11 @@ public final class FunParamDecl: ValueDecl {
 
     setState(.realized)
     return type
+  }
+
+  public func setState(_ newState: DeclState) {
+    assert(newState >= state)
+    state = newState
   }
 
   public func accept<V>(_ visitor: inout V) -> V.DeclResult where V: DeclVisitor {
@@ -1265,7 +1289,7 @@ public final class AliasTypeDecl: GenericTypeDecl {
     }
 
     // Complain if the signature references the declaration itself.
-    // FIXME
+    // FIXME: Detect circular alias declarations.
 
     // Complain if the aliased signature describes an in-out type.
     if aliasedType is InoutType {

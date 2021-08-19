@@ -70,7 +70,7 @@ struct ConstraintGenerator: NodeWalker {
   mutating func visit(_ node: BaseCastExpr) -> Bool {
     guard traverse(node) else { return false }
 
-    // FIXME: There should be a relationshup with the value's type.
+    // FIXME: There should be a relationship with the value's type.
     if node.type is UnresolvedType {
       node.type = TypeVar(context: node.type.context, node: node)
     }
@@ -81,7 +81,7 @@ struct ConstraintGenerator: NodeWalker {
   mutating func visit(_ node: DynCastExpr) -> Bool {
     guard traverse(node) else { return false }
 
-    // FIXME: There should be a relationshup with the value's type.
+    // FIXME: There should be a relationship with the value's type.
     if node.type is UnresolvedType {
       node.type = TypeVar(context: node.type.context, node: node)
     }

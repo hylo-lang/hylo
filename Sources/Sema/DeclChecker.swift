@@ -120,19 +120,26 @@ struct DeclChecker: DeclVisitor {
     guard node.state < .invalid else { return false }
     node.setState(.typeCheckRequested)
 
-    /// Initialize the function's generic environment.
+    // Initialize the function's generic environment.
     guard node.prepareGenericEnv() != nil else {
       node.setState(.invalid)
       return false
     }
 
-    /// Type check the function's body, if any.
+    var isWellTyped = true
+
+    // Resolve the function's explicit captures.
+    for capture in node.explicitCaptures {
+      isWellTyped = visit(capture) && isWellTyped
+    }
+
+    // Type check the function's body, if any.
     if let body = node.body {
       TypeChecker.check(stmt: body, useSite: node)
     }
 
     node.setState(.typeChecked)
-    return true
+    return isWellTyped
   }
 
   func visit(_ node: FunDecl) -> Bool {
@@ -141,6 +148,36 @@ struct DeclChecker: DeclVisitor {
 
   func visit(_ node: CtorDecl) -> Bool {
     return visit(node as BaseFunDecl)
+  }
+
+  func visit(_ node: CaptureDecl) -> Bool {
+    guard node.state < .typeChecked else { return handleCheckState(node) }
+    node.setState(.typeCheckRequested)
+
+    let context = node.type.context
+    let funDecl = node.parentDeclSpace!
+
+    let matches = funDecl.parentDeclSpace!.lookup(unqualified: node.name, in: context)
+    switch matches.values.count {
+    case 1:
+      node.capturedDecl = matches.values[0]
+      node.type = TypeChecker.contextualize(decl: matches.values[0], from: funDecl)
+      node.setState(.typeChecked)
+      return true
+
+    case 0:
+      context.report(.cannotFind(symbol: node.name, range: node.range))
+      node.setState(.invalid)
+      return false
+
+    default:
+      // FIXME: We forbid explicit capture declarations on overloaded symbols, because we have
+      // currently no way to disambiguate them. We could support type signatures on capture
+      // declarations to solve this issue.
+      context.report(.ambiguousReference(to: node.name, range: node.range))
+      node.setState(.invalid)
+      return false
+    }
   }
 
   func visit(_ node: FunParamDecl) -> Bool {

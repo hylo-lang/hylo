@@ -13,7 +13,7 @@ public struct CaptureCollector: NodeWalker {
   private var boundary: DeclSpace?
 
   /// The capture table of the visited expression.
-  public private(set) var table = CaptureTable()
+  public var table = CaptureTable()
 
   public init(relativeTo boundary: DeclSpace?) {
     self.boundary = boundary

@@ -333,6 +333,10 @@ extension NodeWalker {
     return traverse(node)
   }
 
+  public mutating func visit(_ node: CaptureDecl) -> Bool {
+    return true
+  }
+
   public mutating func visit(_ node: FunParamDecl) -> Bool {
     return traverse(node)
   }

@@ -204,7 +204,7 @@ public final class PartialApplyInst: Inst, Value {
     let baseValType = fun.type.valType as! FunType
     let partialValType = context.funType(
       paramType: context.tupleType(types: baseValType.paramTypeList.dropLast(args.count)),
-      retType  : baseValType.retType)
+      retType: baseValType.retType)
 
     self.type = .lower(partialValType)
   }

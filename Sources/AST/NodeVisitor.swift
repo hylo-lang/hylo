@@ -45,6 +45,8 @@ public protocol DeclVisitor {
 
   mutating func visit(_ node: CtorDecl) -> DeclResult
 
+  mutating func visit(_ node: CaptureDecl) -> DeclResult
+
   mutating func visit(_ node: FunParamDecl) -> DeclResult
 
   mutating func visit(_ node: GenericTypeDecl) -> DeclResult

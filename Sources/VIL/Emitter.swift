@@ -151,11 +151,11 @@ public enum Emitter {
     }
 
     // Register the function's formal parameters in the local symbol table.
-    let captures = decl.computeCaptureTable().captures
-    for (capture, arg) in zip(captures, args) {
-      locals[ObjectIdentifier(capture.decl)] = arg
+    let captureTable = decl.computeAllCaptures()
+    for (entry, arg) in zip(captureTable, args) {
+      locals[ObjectIdentifier(entry.value.referredDecl)] = arg
     }
-    for (param, arg) in zip(decl.params, args[captures.count...]) {
+    for (param, arg) in zip(decl.params, args[captureTable.count...]) {
       locals[ObjectIdentifier(param)] = arg
     }
 
@@ -328,9 +328,14 @@ public enum Emitter {
       case let decl as FunDecl:
         emit(function: decl, with: builder)
 
-        // Emit the value of each captured declaration.
-        let partialArgs = decl.computeCaptureTable().map({ (_, refs) -> Value in
-          return emit(rvalue: refs.first!, in: &env, with: builder)
+        // Emit the value of each captured declaration. Capture with `val` or `var` semantics are
+        // copied from the environment, and so we must emit a r-value either way.
+        let captureTable = decl.computeAllCaptures()
+        let partialArgs = captureTable.map({ (key, value) -> Value in
+          // FIXME: Implement capture-by-reference (requires local bindings).
+          assert(value.semantics != .mut, "not implemented")
+          let expr = DeclRefExpr(decl: key.capturedDecl, type: value.type)
+          return emit(rvalue: expr, in: &env, with: builder)
         })
 
         // Local function with captures declarations require stack allocation.

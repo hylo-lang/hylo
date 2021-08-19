@@ -495,17 +495,19 @@ public struct Parser {
     state.declSpace = decl
     defer { state.declSpace = decl.parentDeclSpace }
 
+    // Parse the generic clause.
     decl.genericClause = parseGenericClause(state: &state)
 
-    // Parse a capture list.
+    // Parse the capture list.
     if let opener = state.peek(), opener.kind == .lBrack {
-      decl.captureList = parseCaptureList(state: &state)!
+      decl.explicitCaptures = parseCaptureList(state: &state)!
       if state.flags & .isParsingTypeBody {
         context.report("capture lists are only allowed on free functions", anchor: opener.range)
         state.hasError = true
       }
     }
 
+    // Parse the parameter list.
     if let (opener, params, closer) = list(
         state: &state, delimiters: (.lParen, .rParen), parser: parseParamDecl(state:))
     {
@@ -622,11 +624,14 @@ public struct Parser {
       ident = Ident(name: "", range: state.errorRange())
     }
 
-    return CaptureDecl(
+    let decl = CaptureDecl(
       semantics: semantics,
       ident: ident,
-      decl: nil,
+      type: unresolved,
       range: introducer.range.lowerBound ..< ident.range!.upperBound)
+    decl.parentDeclSpace = state.declSpace
+
+    return decl
   }
 
   /// Parses a parameter declaration.

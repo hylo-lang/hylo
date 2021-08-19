@@ -146,8 +146,14 @@ public enum TypeChecker {
       // Once all parameters have been attributed a proper type, the constructor can be realized.
       genericType = ctorDecl.realize()
 
-    default:
+    case let decl as BaseFunDecl:
       genericType = decl.realize()
+
+    case let decl as FunParamDecl:
+      genericType = decl.realize()
+
+    default:
+      fatalError("cannot realize type of \(type(of: decl))")
     }
 
     // Specialize the generic parameters for which arguments have been provided.
