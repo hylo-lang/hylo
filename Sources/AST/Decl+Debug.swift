@@ -18,7 +18,7 @@ extension Decl {
 
       case let decl as BaseFunDecl:
         let sign = decl.params.map({ ($0.externalName ?? "_") + ":" }).joined()
-        let name = decl.name.isEmpty ? "_" : decl.name
+        let name = decl.ident?.name ?? "$\(decl.discriminator)"
         components.append("\(name)(\(sign))")
 
       case let decl as NominalTypeDecl:

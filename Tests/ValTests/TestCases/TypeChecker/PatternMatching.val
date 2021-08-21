@@ -6,8 +6,22 @@ type ABC = A | B | C
 
 fun main() {
   val foo: ABC = A()
-  val b: A | B = match foo {
-    case val bar: A | B  { bar }
-    case val bar: C { B() }
+  val x: A | B = match foo {
+    case val bar: A     { bar }
+    case val bar: A | B { bar }
+    case val bar: C     { A() }
+  }
+
+  val y = match foo {
+    case val bar: A { bar }
+    case _          { A() }
+  }
+
+  val z = match foo {
+    case val bar: A { bar }
+    // #!error@+1 type 'B' is not equal to type 'A'
+    case val bar: B { bar }
+    // #!error@+1 type 'C' is not equal to type 'A'
+    case val bar: C { bar }
   }
 }

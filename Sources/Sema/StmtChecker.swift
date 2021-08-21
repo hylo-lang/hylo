@@ -4,65 +4,76 @@ import Basic
 /// The type checker for Val's statements.
 struct StmtChecker: StmtVisitor {
 
-  typealias StmtResult = Void
+  typealias StmtResult = Bool
 
-  /// The declaration space in which the visited statement resides.
-  let useSite: DeclSpace
+  /// The declaration space in which the visited statements reside.
+  var useSite: DeclSpace
 
-  func visit(_ node: BraceStmt) {
+  /// The binding policy to adopt for substituting free type variables.
+  let freeVarBindingPolicy: FreeTypeVarBindingPolicy
+
+  /// The return statements that have been visited by the checker.
+  var retStmts: [RetStmt] = []
+
+  mutating func visit(_ node: BraceStmt) -> Bool {
+    let oldUseSite = useSite
+    useSite = node
+    defer { useSite = oldUseSite }
+
+    var isWellTyped = true
     for i in 0 ..< node.stmts.count {
       switch node.stmts[i] {
       case let decl as Decl:
-        _ = TypeChecker.check(decl: decl)
+        isWellTyped = TypeChecker.check(decl: decl) && isWellTyped
 
       case let stmt as Stmt:
-        TypeChecker.check(stmt: stmt, useSite: node)
+        isWellTyped = stmt.accept(&self) && isWellTyped
 
       case var expr as Expr:
-        TypeChecker.check(expr: &expr, useSite: node)
+        TypeChecker.check(expr: &expr, useSite: node, freeVarBindingPolicy: freeVarBindingPolicy)
         node.stmts[i] = expr
+        isWellTyped = !expr.type.hasErrors && isWellTyped
 
       default:
         fatalError("unexpected node")
       }
     }
+    return isWellTyped
   }
 
-  func visit(_ node: RetStmt) {
+  mutating func visit(_ node: RetStmt) -> Bool {
+    retStmts.append(node)
+
+    // Use the return type of the function as the fixed type of the returned value.
     let funDecl = node.funDecl ?< fatalError("return statement outside of a function")
-    let context = funDecl.type.context
+    assert(funDecl.state >= .realized)
+    let funType = funDecl.type as! FunType
+    var fixedRetType = funType.retType
 
-    // Retrieve the expected return type.
-    let retType: ValType
-    if let sign = funDecl.retSign {
-      let signType = sign.realize(unqualifiedFrom: funDecl)
-
-      if signType.hasTypeParams {
-        if let env = funDecl.prepareGenericEnv() {
-          (retType, _) = env.contextualize(signType, from: useSite)
-        } else {
-          retType = context.errorType
-        }
+    if fixedRetType.hasTypeParams {
+      if let env = funDecl.prepareGenericEnv() {
+        (fixedRetType, _) = env.contextualize(fixedRetType, from: useSite)
       } else {
-        retType = signType
+        fixedRetType = funType.context.errorType
       }
-
-      guard retType.isWellFormed else { return }
-    } else {
-      retType = context.unitType
     }
 
+    // Type check the returned value.
     if var value = node.value {
       // Type check the returned expression.
-      TypeChecker.check(expr: &value, expectedType: retType, useSite: useSite)
+      TypeChecker.check(expr: &value, fixedType: fixedRetType, useSite: useSite)
       node.value = value
-    } else if (retType != context.unitType) && !(funDecl is CtorDecl) {
-      // Complain that non-unit function should return a value.
-      context.report(.missingReturnValue(range: node.range))
+      return !value.type.hasErrors
+    } else {
+      return true
     }
+//    if (fixedRetType != context.unitType) && !(funDecl is CtorDecl) {
+//      // Complain that non-unit function should return a value.
+//      context.report(.missingReturnValue(range: node.range))
+//    }
   }
 
-  func visit(_ node: MatchCaseStmt) -> Void {
+  func visit(_ node: MatchCaseStmt) -> Bool {
     fatalError("unreachable")
   }
 

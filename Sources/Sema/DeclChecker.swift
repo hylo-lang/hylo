@@ -62,10 +62,10 @@ struct DeclChecker: DeclVisitor {
       // Type-check the initializer if there's one.
       if node.initializer != nil {
         let solution = TypeChecker.check(
-          expr        : &(node.initializer!),
-          expectedType: signType,
-          useSite     : useSite,
-          system      : &system)
+          expr: &(node.initializer!),
+          fixedType: signType,
+          useSite: useSite,
+          system: &system)
         patternType = solution.reify(signType, freeVariablePolicy: .bindToErrorType)
       } else {
         patternType = signType
@@ -73,7 +73,7 @@ struct DeclChecker: DeclVisitor {
     } else if node.initializer != nil {
       // Infer everything from the initializer alone.
       TypeChecker.check(
-        expr: &(node.initializer!), expectedType: nil, useSite: useSite, system: &system)
+        expr: &(node.initializer!), fixedType: nil, useSite: useSite, system: &system)
       patternType = node.initializer!.type
     } else {
       // Unannotated declarations require an initializer.
@@ -135,7 +135,7 @@ struct DeclChecker: DeclVisitor {
 
     // Type check the function's body, if any.
     if let body = node.body {
-      TypeChecker.check(stmt: body, useSite: node)
+      isWellTyped = TypeChecker.check(stmt: body, useSite: node) && isWellTyped
     }
 
     node.setState(.typeChecked)

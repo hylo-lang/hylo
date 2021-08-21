@@ -81,11 +81,11 @@ public class VILType: CustomStringConvertible {
 
       // Create a VIL function type.
       return VILFunType(
-        valType   : valType,
+        valType: valType,
         paramTypes: paramTypes,
         paramConvs: paramConvs,
-        retType   : retType,
-        retConv   : retConv)
+        retType: retType,
+        retConv: retConv)
 
     case let valType as InoutType:
       // Mutable parameters get an address type.
@@ -114,12 +114,12 @@ public final class VILFunType: VILType {
   let retConv: VILParamConv
 
   init(
-    valType   : FunType,
+    valType: FunType,
     paramTypes: [VILType],
     paramConvs: [VILParamConv],
-    retType   : VILType,
-    retConv   : VILParamConv,
-    isAddress : Bool = false
+    retType: VILType,
+    retConv: VILParamConv,
+    isAddress: Bool = false
   ) {
     assert(paramTypes.count == paramConvs.count)
     self.paramTypes = paramTypes
@@ -132,23 +132,23 @@ public final class VILFunType: VILType {
   /// The address variant of this type.
   public override var address: VILType {
     return VILFunType(
-      valType   : valType as! FunType,
+      valType: valType as! FunType,
       paramTypes: paramTypes,
       paramConvs: paramConvs,
-      retType   : retType,
-      retConv   : retConv,
-      isAddress : true)
+      retType: retType,
+      retConv: retConv,
+      isAddress: true)
   }
 
   /// The object variant of this type.
   public override var object: VILType {
     return VILFunType(
-      valType   : valType as! FunType,
+      valType: valType as! FunType,
       paramTypes: paramTypes,
       paramConvs: paramConvs,
-      retType   : retType,
-      retConv   : retConv,
-      isAddress : false)
+      retType: retType,
+      retConv: retConv,
+      isAddress: false)
   }
 
   public override var description: String {
@@ -195,9 +195,9 @@ public enum VILParamConv: String, CustomStringConvertible {
 
   public init(for type: ValType) {
     switch type {
-    case is InoutType         : self = .mut
-    case is GenericParamType  : self = .exist
-    default                   : self = .val
+    case is InoutType: self = .mut
+    case is GenericParamType: self = .exist
+    default: self = .val
     }
   }
 

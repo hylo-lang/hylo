@@ -413,50 +413,20 @@ struct RValueEmitter: ExprVisitor {
   }
 
   mutating func visit(_ node: AsyncExpr) -> ExprResult {
-    // Collect the declarations being captured by the async expression.
-    var collector = CaptureCollector(relativeTo: nil)
-    collector.walk(expr: node.value)
+    // Emit the function representing the body of the expression.
+    let fun = Emitter.emit(function: node.body, with: builder)
 
-    // Create the type of the function wrapping the async expression.
-    assert(node.type is AsyncType)
-    let context = node.type.context
+    // Emit the value of each captured declaration. Capture with `val` or `var` semantics are
+    // copied from the environment, and so we must emit a r-value either way.
+    let captureTable = node.body.computeAllCaptures()
+    let partialArgs = captureTable.map({ (key, value) -> Value in
+      // FIXME: Implement capture-by-reference (requires local bindings).
+      assert(value.semantics != .mut, "not implemented")
+      let expr = DeclRefExpr(decl: key.capturedDecl, type: value.type)
+      return emit(rvalue: expr)
+    })
 
-    var paramTypes: [ValType] = []
-    var args: [Value] = []
-    for (_, value) in collector.table {
-      paramTypes.append(value.type)
-      args.append(emit(rvalue: value.refs.first!))
-    }
-
-    let fnType = context.funType(
-      paramType: context.tupleType(types: paramTypes),
-      retType: (node.type as! AsyncType).base)
-
-    // Emit the expression wrapper.
-    let fn = builder.getOrCreateFunction(name: "_async\(builder.buildUniqueID())", type: fnType)
-
-    // Save the emitter context.
-    let currentLocals = locals
-    let currentBlock = builder.block
-
-    // Emit the wrapper's body.
-    locals = [:]
-    builder.block = fn.createBasicBlock(arguments: args)
-    for (i, capture) in collector.table.captures.enumerated() {
-      let type = fn.type.paramTypes[i].contextualized(in: funDecl.genericEnv!, from: funDecl)
-      let alloc = builder.buildAllocStack(type: type)
-      builder.buildStore(lvalue: alloc, rvalue: builder.block!.arguments[i])
-      locals[ObjectIdentifier(capture.capturedDecl)] = alloc
-    }
-
-    builder.buildRet(value: emit(rvalue: node.value))
-
-    // Restore the emitter context.
-    builder.block = currentBlock
-    locals = currentLocals
-
-    // Emit the async instruction.
-    return .success(builder.buildAsync(fun: fn, args: args))
+    return .success(builder.buildAsync(fun: fun, args: partialArgs))
   }
 
   mutating func visit(_ node: AwaitExpr) -> ExprResult {

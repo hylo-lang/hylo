@@ -3,7 +3,7 @@ import AST
 /// An object that denotes the location of a constraint.
 public struct ConstraintLocator {
 
-  public init<P>(_ anchor: Node, path: P) where P: Sequence, P.Element == ConstraintPathComponent {
+  public init<P>(anchor: Node, path: P) where P: Sequence, P.Element == ConstraintPathComponent {
     self.anchor = anchor
     self.path = Array(path)
   }
@@ -31,7 +31,7 @@ public struct ConstraintLocator {
 
   /// Returns a new locator prefixed by this one and suffixed by the specified path component.
   public func appending(_ component: ConstraintPathComponent) -> ConstraintLocator {
-    return ConstraintLocator(anchor, path: path + [component])
+    return ConstraintLocator(anchor: anchor, path: path + [component])
   }
 
 }
@@ -86,30 +86,40 @@ public enum ConstraintPathComponent: Hashable {
     switch self {
     case .annotation:
       switch base {
-      case let node as PatternBindingDecl : return node.sign
-      default: return nil
+      case let node as PatternBindingDecl:
+        return node.sign
+      default:
+        return nil
       }
 
     case .assignment:
       switch base {
-      case let node as PatternBindingDecl : return node.initializer
-      case let node as AssignExpr         : return node.rvalue
-      default: return nil
+      case let node as PatternBindingDecl:
+        return node.initializer
+      case let node as AssignExpr:
+        return node.rvalue
+      default:
+        return nil
       }
 
     case .returnValue:
       switch base {
-      case let node as RetStmt            : return node.value
-      default: return nil
+      case let node as RetStmt:
+        return node.value
+      default:
+        return nil
       }
 
     case .argument(let i):
-      guard let node = base as? CallExpr,
-            i < node.args.count
-      else { return nil }
-      return node.args[i].value
+      switch base {
+      case let node as CallExpr where i < node.args.count:
+        return node.args[i].value
+      default:
+        return nil
+      }
 
-    default: return nil
+    default:
+      return nil
     }
   }
 

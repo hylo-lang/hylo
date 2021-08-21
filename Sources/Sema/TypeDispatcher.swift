@@ -10,23 +10,20 @@ struct TypeDispatcher: NodeWalker {
 
   var innermostSpace: DeclSpace?
 
-  init(
-    solution: Solution,
-    freeVariablePolicy: FreeTypeVarBindingPolicy = .bindToErrorType
-  ) {
+  init(solution: Solution, freeVarBindingPolicy: FreeTypeVarBindingPolicy) {
     self.solution = solution
-    self.freeVariablePolicy = freeVariablePolicy
+    self.freeVarBindingPolicy = freeVarBindingPolicy
   }
 
   /// The solution to apply.
   let solution: Solution
 
-  /// The binding policy to adopt for free type variables.
-  let freeVariablePolicy: FreeTypeVarBindingPolicy
+  /// The binding policy to adopt for substituting free type variables.
+  let freeVarBindingPolicy: FreeTypeVarBindingPolicy
 
   mutating func visit(_ decl: ValueDecl) -> Bool {
     // FIXME: Should this be uncontextualized?
-    decl.type = solution.reify(decl.type, freeVariablePolicy: freeVariablePolicy)
+    decl.type = solution.reify(decl.type, freeVariablePolicy: freeVarBindingPolicy)
     return true
   }
 
@@ -45,14 +42,14 @@ struct TypeDispatcher: NodeWalker {
       fatalError("unexpected primary unresolved expr")
 
     default:
-      expr.type = solution.reify(expr.type, freeVariablePolicy: freeVariablePolicy)
+      expr.type = solution.reify(expr.type, freeVariablePolicy: freeVarBindingPolicy)
     }
 
     return (true, expr)
   }
 
   mutating func didVisit(_ pattern: Pattern) -> (shouldContinue: Bool, nodeAfter: Pattern) {
-    pattern.type = solution.reify(pattern.type, freeVariablePolicy: freeVariablePolicy)
+    pattern.type = solution.reify(pattern.type, freeVariablePolicy: freeVarBindingPolicy)
 
     if let decl = (pattern as? NamedPattern)?.decl {
       if decl.state < .typeChecked {
@@ -66,7 +63,7 @@ struct TypeDispatcher: NodeWalker {
   }
 
   private func dispatch(_ expr: OverloadedDeclRefExpr) -> Expr {
-    expr.type = solution.reify(expr.type, freeVariablePolicy: freeVariablePolicy)
+    expr.type = solution.reify(expr.type, freeVariablePolicy: freeVarBindingPolicy)
 
     // Retrieve the selected overload from the solution.
     let locator = ConstraintLocator(expr)
@@ -81,7 +78,7 @@ struct TypeDispatcher: NodeWalker {
   }
 
   private func dispatch(_ expr: UnresolvedMemberExpr) -> Expr {
-    expr.type = solution.reify(expr.type, freeVariablePolicy: freeVariablePolicy)
+    expr.type = solution.reify(expr.type, freeVariablePolicy: freeVarBindingPolicy)
 
     // If the base has a tuple type, this refers to the first element labeled after the member.
     if let tupleType = expr.base.type as? TupleType {

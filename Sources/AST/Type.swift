@@ -166,6 +166,21 @@ public class ValType: CustomStringConvertible, Equatable {
     }
   }
 
+  /// Indicates whether the type is `Unit`.
+  public final var isUnit: Bool { self === context.unitType }
+
+  /// Indicates whether the type is `Any`.
+  public final var isAny: Bool { self === context.anyType }
+
+  /// Indicates whether the type is `Nothing`.
+  public final var isNothing: Bool { self === context.nothingType }
+
+  /// Indicates whether the type is the unresolved type.
+  public final var isUnresolved: Bool { self === context.unresolvedType }
+
+  /// Indicates whether the type is the error type.
+  public final var isError: Bool { self === context.errorType }
+
   /// The kind of the type.
   public var kind: KindType { context.kindType(type: self) }
 
@@ -1069,18 +1084,23 @@ public final class TupleType: ValType {
     var props = RecursiveProps.merge(elems.map({ $0.type.props }))
     if elems.count == 0 {
       props = .isCanonical
-    } else if (elems.count == 1) && (elems[0].label == nil) {
+    } else if (elems.count == 1) && (elems[0].label == nil) && !elems[0].type.isUnit {
       props = props.removing(.isCanonical)
     }
 
     super.init(context: context, props: props)
   }
 
+  /// The canonical form of the tuple.
+  ///
+  /// A tuple with only one element is canonical if and only if that element has a label or if that
+  /// element is the unit type (i.e., `(()) != ()`).
   public override var canonical: ValType {
     if isCanonical {
       return self
     }
-    if (elems.count == 1) && elems[0].label == nil {
+    if (elems.count == 1) && (elems[0].label == nil) {
+      assert(!elems[0].type.isUnit)
       return elems[0].type.canonical
     }
     return context.tupleType(elems.map({ elem in

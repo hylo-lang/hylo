@@ -115,12 +115,12 @@ public enum Emitter {
   }
 
   /// Emits a function.
-  public static func emit(function decl: BaseFunDecl, with builder: Builder) {
+  public static func emit(function decl: BaseFunDecl, with builder: Builder) -> Function {
     // Create (i.e., declare) the function in the module.
     let function = builder.getOrCreateFunction(from: decl)
 
     // We're done if the function doesn't have body.
-    guard (decl.body != nil) || decl.isSynthesized else { return }
+    guard (decl.body != nil) || decl.isSynthesized else { return function }
 
     // Contextualize the function's arguments.
     let genericEnv = decl.genericEnv!
@@ -162,7 +162,8 @@ public enum Emitter {
     // Emit the function's body.
     var env = Environment(funDecl: decl, locals: locals, loans: [])
     guard let body = decl.body else {
-      return emit(synthesizedBodyOf: decl, locals: env.locals, with: builder)
+      emit(synthesizedBodyOf: decl, locals: env.locals, with: builder)
+      return function
     }
 
     emit(brace: body, in: &env, with: builder)
@@ -195,6 +196,8 @@ public enum Emitter {
         context.report(.missingReturnValueInNonUnitFunction(range: range))
       }
     }
+
+    return function
   }
 
   /// Emits the synthesized body of a function.
@@ -326,7 +329,7 @@ public enum Emitter {
         emit(localBinding: decl, in: &env, with: builder)
 
       case let decl as FunDecl:
-        emit(function: decl, with: builder)
+        _ = emit(function: decl, with: builder)
 
         // Emit the value of each captured declaration. Capture with `val` or `var` semantics are
         // copied from the environment, and so we must emit a r-value either way.

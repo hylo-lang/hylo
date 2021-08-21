@@ -10,12 +10,15 @@ struct SubstitutionTable {
   private var substitutions: [TypeVar: ValType]
 
   subscript(type: ValType) -> ValType {
-    guard let tau = type as? TypeVar else { return type }
-    var walked = substitutions[tau]
-    while let sigma = walked as? TypeVar {
-      walked = substitutions[sigma]
+    var walked = type
+    while let t = walked as? TypeVar {
+      if let u = substitutions[t] {
+        walked = u
+      } else {
+        break
+      }
     }
-    return walked ?? type
+    return walked
   }
 
   mutating func substitute(_ type: ValType, for tau: TypeVar) {

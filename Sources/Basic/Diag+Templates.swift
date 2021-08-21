@@ -8,6 +8,12 @@ extension Diag {
       anchor: range)
   }
 
+  public static func complexReturnTypeInference(
+    range: SourceRange?
+  ) -> Diag {
+    return Diag("unable to infer return type over multiple statements", anchor: range)
+  }
+
   public static func duplicateDeclaration(
     symbol name: String, range: SourceRange?
   ) -> Diag {

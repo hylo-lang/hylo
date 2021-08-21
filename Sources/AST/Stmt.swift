@@ -85,6 +85,15 @@ public final class MatchCaseStmt: Stmt, IterableDeclSpace {
     self.range = range
   }
 
+  /// The expression of the case, if that case only contains a single expression.
+  public var singleExprBody: Expr? {
+    if body.stmts.count == 1 {
+      return body.stmts[0] as? Expr
+    } else {
+      return nil
+    }
+  }
+
   public var decls: DeclSequence {
     return pattern.namedPatterns.lazy.map({ $0.decl })
   }

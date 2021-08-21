@@ -141,13 +141,13 @@ struct Solution {
       let message: String
       switch constraint.kind {
       case .equality, .oneWayEquality:
-        message = "type '\(lhs)' is not equal to type '\(rhs)'"
+        message = "type \(lhs) is not equal to type \(rhs)"
       case .conformance:
-        message = "type '\(lhs)' does not conform to the view '\(rhs)'"
+        message = "type \(lhs) does not conform to the view \(rhs)"
       case .subtyping:
-        message = "type '\(lhs)' is not a subtype of type '\(rhs)'"
+        message = "type \(lhs) is not a subtype of type \(rhs)"
       case .conversion:
-        message = "type '\(lhs)' is not expressible by type '\(rhs)' in conversion"
+        message = "type \(lhs) is not expressible by type \(rhs) in conversion"
       }
 
       // Report the diagnostic.
@@ -160,7 +160,7 @@ struct Solution {
 
       let anchor = constraint.locator.resolve()
       context.report(
-        Diag("type '\(lhs)' does not conform to view '\(rhs)'", anchor: anchor.range))
+        Diag("type \(lhs) does not conform to view \(rhs)", anchor: anchor.range))
 
     case .noViableOverload(let constraint):
       let message = "no viable overload to resolve '\(constraint.declSet[0].name)'"
@@ -189,9 +189,14 @@ struct Solution {
   }
 
   private func describe(_ type: ValType) -> String {
-    return type.isCanonical
-      ? "\(type)"
-      : "\(type) (i.e. \(type.canonical))"
+    if type.isCanonical {
+      return "'\(type)'"
+    } else if let type = type as? UnionType {
+      let elems = type.elems.map({ String(describing: $0.canonical) }).joined(separator: " | ")
+      return "'\(elems)'"
+    } else {
+      return "'\(type)' (i.e., '\(type.canonical)')"
+    }
   }
 
 }

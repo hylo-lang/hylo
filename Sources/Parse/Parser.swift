@@ -22,6 +22,9 @@ public struct Parser {
     /// The flags of the parser's state.
     var flags = Flags.isParsingTopLevel
 
+    /// The counter that is used to generate discriminators for anonymous functions.
+    var discriminator = 0
+
     /// Returns the next element in the token stream, without consuming it.
     mutating func peek() -> Token? {
       // Return the token in the lookahead buffer, if available.
@@ -116,6 +119,12 @@ public struct Parser {
       return Ident(name: String(name), range: token.range)
     }
 
+    /// Returns a unique function discriminator.
+    mutating func nextDiscriminator() -> Int {
+      discriminator += 1
+      return discriminator
+    }
+
     /// Returns a source range suitable to report an error at the current stream position.
     mutating func errorRange() -> SourceRange {
       return peek()?.range ?? (lexer.source.endIndex ..< lexer.source.endIndex)
@@ -180,6 +189,10 @@ public struct Parser {
           throw ParseError(Diag("expected declaration", anchor: state.errorRange()))
         }
         unit.decls.append(decl)
+        if let decl = decl as? FunDecl, decl.ident == nil {
+          context.report(
+            "anonymous function can never be called", level: .warning, anchor: decl.introRange)
+        }
       } catch let error as ParseError {
         context.report(error.diag)
         state.hasError = true
@@ -469,6 +482,9 @@ public struct Parser {
             anchor: oper.range)
           state.hasError = true
         }
+      } else {
+        // The function is anonymous.
+        decl.discriminator = state.nextDiscriminator()
       }
 
     case .new:
@@ -951,6 +967,10 @@ public struct Parser {
           throw ParseError(Diag("expected declaration", anchor: state.errorRange()))
         }
         members.append(member)
+        if let decl = member as? FunDecl, decl.ident == nil {
+          context.report(
+            "anonymous member function can never be called", level: .warning, anchor: decl.introRange)
+        }
       } catch let error as ParseError {
         context.report(error.diag)
         state.hasError = true
@@ -1202,6 +1222,10 @@ public struct Parser {
             throw ParseError(Diag("expected declaration", anchor: state.errorRange()))
           }
           scope.stmts.append(decl)
+          if let decl = decl as? FunDecl, decl.ident == nil {
+            context.report(
+              "anonymous function can never be called", level: .warning, anchor: decl.introRange)
+          }
         } else if head.mayBeginCtrlStmt {
           guard let stmt = parseCtrlStmt(state: &state) else {
             throw ParseError(Diag("expected statement", anchor: state.errorRange()))
@@ -1598,17 +1622,62 @@ public struct Parser {
 
   /// Parses an async expression.
   ///
-  ///     async-expr ::= 'async' expr
+  ///     async-expr ::= 'async' capture-list? ('->' sign)? (expr | brace-stmt)
   private func parseAsyncExpr(state: inout State) -> Expr? {
     guard let introducer = state.take(.async) else { return nil }
 
-    guard let value = parseExpr(state: &state) else {
+    // Create the implicit function declaration representing the body of the async expression.
+    let decl = FunDecl(type: unresolved)
+    decl.introRange = introducer.range
+    decl.discriminator = state.nextDiscriminator()
+
+    decl.parentDeclSpace = state.declSpace
+    state.declSpace = decl
+    defer { state.declSpace = decl.parentDeclSpace }
+
+    // Parse the capture list.
+    if let opener = state.peek(), opener.kind == .lBrack {
+      decl.explicitCaptures = parseCaptureList(state: &state)!
+      if state.flags & .isParsingTypeBody {
+        context.report("capture lists are only allowed on free functions", anchor: opener.range)
+        state.hasError = true
+      }
+    }
+
+    // Parse an explicit type annotation.
+    if state.take(.arrow) != nil {
+      if let sign = parseSign(state: &state) {
+        decl.retSign = sign
+      } else {
+        context.report("expected type signature after '->'", anchor: state.errorRange())
+        state.hasError = true
+      }
+    }
+
+    // The body of the async expression can be either a brace statement (just like the body of a
+    // function) or a single expression, in which case we synthesize a return statement.
+    let oldFlags = state.flags
+    state.flags = .isParsingFunBody
+    if let body = parseBraceStmt(state: &state) {
+      decl.body = body
+      decl.range = body.range
+    } else if let value = parseExpr(state: &state) {
+      let ret = RetStmt(value: value, range: value.range)
+      ret.funDecl = decl
+
+      decl.body = BraceStmt(statements: [ret], range: value.range)
+      decl.body!.parentDeclSpace = decl
+      decl.range = value.range
+    }
+    state.flags = oldFlags
+
+    if decl.body == nil {
       context.report("expected expression", anchor: state.errorRange())
       state.hasError = true
       return ErrorExpr(type: context.errorType, range: introducer.range)
     }
 
-    return AsyncExpr(value: value, type: unresolved, range: introducer.range ..< value.range!)
+    return AsyncExpr(body: decl, type: unresolved, range: introducer.range ..< decl.range!)
   }
 
   /// Parses an await expression.

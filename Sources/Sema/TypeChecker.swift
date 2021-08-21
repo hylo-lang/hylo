@@ -50,8 +50,13 @@ public enum TypeChecker {
   /// - Parameters:
   ///   - stmt: The statement to type check.
   ///   - useSite: The declaration space in which the statement is type checked.
-  public static func check(stmt: Stmt, useSite: DeclSpace) {
-    var checker = StmtChecker(useSite: useSite)
+  ///   - freeVarBindingPolicy: The binding policy to adopt for substituting free type variables.
+  static func check(
+    stmt: Stmt,
+    useSite: DeclSpace,
+    freeVarBindingPolicy: FreeTypeVarBindingPolicy = .bindToErrorType
+  ) -> Bool {
+    var checker = StmtChecker(useSite: useSite, freeVarBindingPolicy: freeVarBindingPolicy)
     return stmt.accept(&checker)
   }
 
@@ -59,16 +64,105 @@ public enum TypeChecker {
   ///
   /// - Parameters:
   ///   - expr: The expression to type check.
-  ///   - expectedType: The expected type of the expression, based on the context in which it
-  ///     appears. For instance, the contextual type of `9` in `val x: UInt = 9` is `UInt`. No
-  ///     assumption is made if it assigned to `nil`.
+  ///   - fixedType: The expected type of the expression, based on the context in which it appears.
   ///   - useSite: The declaration space in which the expression is type checked.
-  public static func check(expr: inout Expr, expectedType: ValType? = nil, useSite: DeclSpace) {
+  static func check(
+    expr: inout Expr,
+    fixedType: ValType? = nil,
+    useSite: DeclSpace,
+    freeVarBindingPolicy: FreeTypeVarBindingPolicy = .bindToErrorType
+  ) {
     var system = ConstraintSystem()
-    check(expr: &expr, expectedType: expectedType, useSite: useSite, system: &system)
+    check(
+      expr: &expr,
+      fixedType: fixedType,
+      useSite: useSite,
+      system: &system,
+      freeVarBindingPolicy: freeVarBindingPolicy)
   }
 
-  public static func prepareGenericEnv(env: GenericEnv) -> Bool {
+  /// Type checks the given expression.
+  ///
+  /// - Parameters:
+  ///   - expr: The expression to type check.
+  ///   - fixedType: The expected type of the expression, based on the context in which it appears.
+  ///   - useSite: The declaration space in which the expression is type checked.
+  ///   - system: A system with potential pre-existing constraints that should be solved together
+  ///     with those related to the expression.
+  ///   - freeVarBindingPolicy: The binding policy to adopt for substituting free type variables.
+  /// - Returns: The best solution found by the type solver
+  @discardableResult
+  static func check(
+    expr: inout Expr,
+    fixedType: ValType?,
+    useSite: DeclSpace,
+    system: inout ConstraintSystem,
+    freeVarBindingPolicy: FreeTypeVarBindingPolicy = .bindToErrorType
+  ) -> Solution {
+    withUnsafeMutablePointer(to: &system, { ptr in
+      // Pre-check the expression to resolve unqualified identifiers, realize type signatures and
+      // desugar constructor calls.
+      var prechecker = PreChecker(system: ptr, useSite: useSite)
+      (_, expr) = prechecker.walk(expr: expr)
+
+      // Generate constraints from the expression.
+      var csgen = ConstraintGenerator(system: ptr, useSite: useSite, fixedType: fixedType)
+      (_, expr) = csgen.walk(expr: expr)
+    })
+
+    // Solve the constraint system.
+    var solver = CSSolver(system: system, context: expr.type.context)
+    let solution = solver.solve()
+
+    // Report type errors.
+    solution.reportAllErrors(in: expr.type.context)
+
+    // Apply the solution.
+    var dispatcher = TypeDispatcher(solution: solution, freeVarBindingPolicy: freeVarBindingPolicy)
+    (_, expr) = dispatcher.walk(expr: expr)
+
+    return solution
+  }
+
+  /// Type checks the given pattern.
+  ///
+  /// - Parameters:
+  ///   - pattern: The pattern to type check.
+  ///   - fixedType: The expected type of the pattern, based on the context in which it appears.
+  ///   - useSite: The declaration space in which the pattern is type checked.
+  ///   - system: A system with potential pre-existing constraints that should be solved together
+  ///     with those related to the pattern.
+  ///   - freeVarBindingPolicy: The binding policy to adopt for substituting free type variables.
+  /// - Returns: The best solution found by the type solver
+  @discardableResult
+  static func check(
+    pattern: Pattern,
+    fixedType: ValType? = nil,
+    useSite: DeclSpace,
+    system: inout ConstraintSystem,
+    freeVarBindingPolicy: FreeTypeVarBindingPolicy = .bindToErrorType
+  ) -> Solution {
+    // Generate constraints from the pattern.
+    withUnsafeMutablePointer(to: &system, { ptr in
+      var driver = ConstraintGenerator(system: ptr, useSite: useSite, fixedType: fixedType)
+      driver.walk(pattern: pattern)
+    })
+
+    // Solve the constraint system.
+    var solver = CSSolver(system: system, context: pattern.type.context)
+    let solution = solver.solve()
+
+    // Report type errors.
+    solution.reportAllErrors(in: pattern.type.context)
+
+    // Apply the solution.
+    var dispatcher = TypeDispatcher(solution: solution, freeVarBindingPolicy: freeVarBindingPolicy)
+    dispatcher.walk(pattern: pattern)
+
+    return solution
+  }
+
+  static func prepareGenericEnv(env: GenericEnv) -> Bool {
     // Generate equivalence classes.
     var solver = TRSolver()
     guard solver.solve(typeReqs: env.typeReqs, from: env.space) else { return false }
@@ -106,7 +200,7 @@ public enum TypeChecker {
   ///   - handleConstraint: A closure that accepts contextualized contraint prototypes generated
   ///     for each opened generic associated with type requirements.
   /// - Returns: The contextualized type of the declaration.
-  public static func contextualize(
+  static func contextualize(
     decl: ValueDecl,
     from useSite: DeclSpace,
     args: [GenericParamType: ValType] = [:],
@@ -196,98 +290,6 @@ public enum TypeChecker {
     let (contextualType, _) = env.contextualize(
       genericType, from: useSite, processingContraintsWith: handleConstraint)
     return contextualType
-  }
-
-  // MARK: Internal API
-
-  /// Type checks the given expression.
-  ///
-  /// - Parameters:
-  ///   - expr: The expression to type check.
-  ///   - expectedType: The expected type of the expression, based on the context in which it
-  ///     appears. For instance, the contextual type of `9` in `val x: UInt = 9` is `UInt`. No
-  ///     assumption is made if it assigned to `nil`.
-  ///   - useSite: The declaration space in which the expression is type checked.
-  ///   - system: A system with potential pre-existing constraints that should be solved together
-  ///     with those related to the expression.
-  /// - Returns: The best solution found by the type solver
-  @discardableResult
-  static func check(
-    expr: inout Expr,
-    expectedType: ValType?,
-    useSite: DeclSpace,
-    system: inout ConstraintSystem
-  ) -> Solution {
-    withUnsafeMutablePointer(to: &system, { ptr in
-      // Pre-check the expression to resolve unqualified identifiers, realize type signatures and
-      // desugar constructor calls.
-      var prechecker = PreChecker(system: ptr, useSite: useSite)
-      (_, expr) = prechecker.walk(expr: expr)
-
-      // Generate constraints from the expression.
-      var csgen = ConstraintGenerator(system: ptr, useSite: useSite)
-      (_, expr) = csgen.walk(expr: expr)
-    })
-
-    if let type = expectedType {
-      // Since the type of a match expression is inferred as a supertype of all case statements, we
-      // must create an equality constraint rather than a subtyping one, so that the solver does
-      // not need to solve `A <: $T && $T <: B`.
-      let kind: RelationalConstraint.Kind = (expr is MatchExpr) && (expr.type is TypeVar)
-        ? .equality
-        : .subtyping
-
-      // Insert the expected type into the constraint system.
-      system.insert(
-        RelationalConstraint(kind: kind, lhs: expr.type, rhs: type, at: ConstraintLocator(expr)))
-    }
-
-    // Solve the constraint system.
-    var solver = CSSolver(system: system, context: expr.type.context)
-    let solution = solver.solve()
-
-    // Report type errors.
-    solution.reportAllErrors(in: expr.type.context)
-
-    // Apply the solution.
-    var dispatcher = TypeDispatcher(solution: solution)
-    (_, expr) = dispatcher.walk(expr: expr)
-
-    return solution
-  }
-
-  /// Type checks the given pattern.
-  @discardableResult
-  static func check(
-    pattern: Pattern,
-    expectedType: ValType? = nil,
-    useSite: DeclSpace,
-    system: inout ConstraintSystem
-  ) -> Solution {
-    // Generate constraints from the pattern.
-    withUnsafeMutablePointer(to: &system, { ptr in
-      var driver = ConstraintGenerator(system: ptr, useSite: useSite)
-      driver.walk(pattern: pattern)
-    })
-
-    if let type = expectedType {
-      system.insert(
-        RelationalConstraint(
-          kind: .subtyping, lhs: pattern.type, rhs: type, at: ConstraintLocator(pattern)))
-    }
-
-    // Solve the constraint system.
-    var solver = CSSolver(system: system, context: pattern.type.context)
-    let solution = solver.solve()
-
-    // Report type errors.
-    solution.reportAllErrors(in: pattern.type.context)
-
-    // Apply the solution.
-    var dispatcher = TypeDispatcher(solution: solution)
-    dispatcher.walk(pattern: pattern)
-
-    return solution
   }
 
   /// Contextualizes the type of a the given type signature.

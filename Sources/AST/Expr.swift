@@ -109,7 +109,7 @@ public final class AssignExpr: Expr {
   public var range: SourceRange?
 
   public var type: ValType {
-    didSet { assert(type is TupleType) }
+    didSet { assert(type.isUnit) }
   }
 
   /// An expression representing the storage to which `rvalue` is assigned.
@@ -314,7 +314,7 @@ public typealias CallArg = TupleElem
 public final class UnresolvedDeclRefExpr: Expr {
 
   public var type: ValType {
-    didSet { assert(type is UnresolvedType) }
+    didSet { assert(type.isUnresolved) }
   }
 
   /// An identifier.
@@ -346,7 +346,7 @@ public final class UnresolvedQualDeclRefExpr: Expr {
   public var range: SourceRange?
 
   public var type: ValType {
-    didSet { assert(type is UnresolvedType) }
+    didSet { assert(type.isUnresolved) }
   }
 
   /// A type identifier.
@@ -559,11 +559,11 @@ public final class AsyncExpr: Expr {
 
   public var type: ValType
 
-  /// The expression to evaluate asynchronously.
-  public var value: Expr
+  /// The function to evaluate asynchronously.
+  public var body: FunDecl
 
-  public init(value: Expr, type: ValType, range: SourceRange? = nil) {
-    self.value = value
+  public init(body: FunDecl, type: ValType, range: SourceRange? = nil) {
+    self.body = body
     self.type = type
     self.range = range
   }
@@ -688,7 +688,7 @@ public final class ErrorExpr: Expr {
   public var range: SourceRange?
 
   public var type: ValType  {
-    didSet { assert(type is ErrorType) }
+    didSet { assert(type.isError) }
   }
 
   public init(type: ErrorType, range: SourceRange? = nil) {

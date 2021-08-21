@@ -30,9 +30,9 @@ struct PreChecker: NodeWalker {
       }
 
     case let matchExpr as MatchExpr:
-      // Match expressions require special handling to deal with case inference.
-      var checker = PreCheckerImpl(system: system, useSite: innermostSpace!)
-      let newExpr = matchExpr.accept(&checker)
+      // Match expressions require special handling to deal with the bindings declared as patterns.
+      let checker = PreCheckerImpl(system: system, useSite: innermostSpace!)
+      let newExpr = checker.visit(matchExpr)
       return (false, newExpr)
 
     case is ErrorExpr:
@@ -47,6 +47,15 @@ struct PreChecker: NodeWalker {
     var checker = PreCheckerImpl(system: system, useSite: innermostSpace!)
     let newExpr = expr.accept(&checker)
     return (true, newExpr)
+  }
+
+  mutating func visit(_ node: MatchExpr) -> Bool {
+    // No need to visit the subject of the expression, or any of the case patterns. Those have
+    // already been type checked in `willVisit(_:)`.
+    for i in 0 ..< node.cases.count {
+      guard walk(stmt: node.cases[i].body) else { return false }
+    }
+    return true
   }
 
 }
@@ -83,8 +92,8 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
     return node
   }
 
-  mutating func visit(_ node: BaseCastExpr) -> Expr {
-    return node.accept(&self)
+  func visit(_ node: BaseCastExpr) -> Expr {
+    fatalError("unreachable")
   }
 
   func visit(_ node: DynCastExpr) -> Expr {
@@ -241,6 +250,12 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
   }
 
   func visit(_ node: AsyncExpr) -> Expr {
+    if let sign = node.body.retSign {
+      let retType = sign.realize(unqualifiedFrom: useSite)
+      node.body.type = node.type.context.funType(paramType: node.type.context.unitType, retType: retType)
+      node.body.setState(.realized)
+    }
+
     return node
   }
 
@@ -266,30 +281,30 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
       return ErrorExpr(type: context.errorType, range: node.range)
     }
 
-    // Type check each case statement.
-    for i in 0 ..< node.cases.count {
+    var driver = PreChecker(system: system, useSite: useSite)
+    driver.parent = node
+
+    for `case` in node.cases {
+      // Type check each case pattern.
       var cs = ConstraintSystem()
       TypeChecker.check(
-        pattern     : node.cases[i].pattern,
-        expectedType: node.subject.type,
-        useSite     : useSite,
-        system      : &cs)
-      TypeChecker.check(stmt: node.cases[i].body, useSite: useSite)
-    }
+        pattern: `case`.pattern,
+        fixedType: node.subject.type,
+        useSite: useSite,
+        system: &cs)
 
-    // If the match is not a sub-expression, we can just type it as `Unit`.
-    guard node.isSubexpr else {
-      node.type = context.unitType
-      return node
-    }
-
-    // If the match is a sub-expression, make sure that its cases are single expressions and keep
-    // its type unresolved.
-    for stmt in node.cases {
-      guard (stmt.body.stmts.count == 1) && (stmt.body.stmts[0] is Expr) else {
-        context.report(.multipleStatementInMatchExpression(range: stmt.range))
+      // If the match is a sub-expression, make sure that its cases are single expressions.
+      guard !node.isSubexpr || (`case`.body.stmts.count == 1) && (`case`.body.stmts[0] is Expr)
+      else {
+        context.report(.multipleStatementInMatchExpression(range: `case`.range))
         return ErrorExpr(type: context.errorType, range: node.range)
       }
+      driver.walk(stmt: `case`.body)
+    }
+
+    // If the match is a not a sub-expression, just type it as `Unit`.
+    if !node.isSubexpr {
+      node.type = context.unitType
     }
 
     return node

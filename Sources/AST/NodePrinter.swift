@@ -533,7 +533,7 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(exprHeader(node)),
-    "value": \(encode(node.value))
+    "body": \(encode(node.body))
     }
     """
   }

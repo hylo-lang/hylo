@@ -402,6 +402,27 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
   /// The body of the function.
   public var body: BraceStmt?
 
+  /// The expression that consitutes the body of the function, if that body only contains a single
+  /// expression, or a single return statement (e.g., `bar` in `fun foo() { ret bar }`).
+  public var singleExprBody: Expr? {
+    guard let body = body else { return nil }
+
+    if body.stmts.count == 1 {
+      switch body.stmts[0] {
+      case let expr as Expr:
+        return expr
+      case let stmt as RetStmt:
+        return stmt.value ?? TupleExpr(elems: [], type: type.context.unitType)
+      default:
+        return nil
+      }
+    } else if body.stmts.isEmpty {
+      return TupleExpr(elems: [], type: type.context.unitType)
+    } else {
+      return nil
+    }
+  }
+
   /// The local discriminator for the function.
   ///
   /// This is the index of the function in the sequence of anonymous declarations in the parent
@@ -411,8 +432,10 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
   /// The semantic properties of the declaration.
   public var props: FunDeclProps
 
-  /// Indicates whether the function is local.
-  public var isLocal: Bool {
+  /// Indicates whether the function is nested in the declaration of another function.
+  public var isNested: Bool {
+    guard !isStatic && !isMember else { return false }
+
     return !(parentDeclSpace is SourceUnit)
       && !isStatic
       && !isMember
@@ -494,8 +517,8 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
       return table
     }
 
-    // Non-local functions cannot capture any declaration.
-    guard isLocal else {
+    // Non-nested functions cannot capture any declaration.
+    guard isNested else {
       captureTable = CaptureTable()
       return captureTable!
     }

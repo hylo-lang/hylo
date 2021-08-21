@@ -4,7 +4,7 @@ import AST
 ///
 /// A constraint is a basic block that serves to describe the properties and relationships of the
 /// types of a program's declarations, statements and expressions.
-public protocol Constraint {
+protocol Constraint {
 
   /// The locator of the constraint.
   var locator: ConstraintLocator { get }

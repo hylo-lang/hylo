@@ -769,9 +769,7 @@ extension NodeWalker {
     parent = node
     defer { parent = prevParent }
 
-    var shouldContinue: Bool
-    (shouldContinue, node.value) = walk(expr: node.value)
-    return shouldContinue
+    return walk(decl: node.body)
   }
 
   public mutating func visit(_ node: AwaitExpr) -> Bool {
