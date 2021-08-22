@@ -47,7 +47,7 @@ public enum Emitter {
     case is PatternBindingDecl:
       fatalError("not implemented")
     case let decl as BaseFunDecl:
-      emit(function: decl, with: builder)
+      _ = emit(function: decl, with: builder)
     case let decl as ProductTypeDecl:
       emit(productType: decl, with: builder)
     case let decl as TypeExtnDecl:
@@ -130,9 +130,10 @@ public enum Emitter {
     })
 
     // Create the function's entry block.
-    let currentBlock = builder.block
-    defer { builder.block = currentBlock }
-    builder.block = function.createBasicBlock(arguments: args)
+    let oldIP = builder.insertionPoint
+    defer { builder.insertionPoint = oldIP }
+    builder.insertionPoint = InsertionPoint(
+      function: function, blockID: function.createBasicBlock(arguments: args))
     var locals: SymbolTable = [:]
 
     // Register the function's receiver in the local symbol table, if necessary.
@@ -189,12 +190,8 @@ public enum Emitter {
       builder.buildRet(value: UnitValue(context: context))
 
     default:
-      // The function should have a return statement.
-      // FIXME: Handle non-returning blocks in last position.
-      if !(builder.block?.instructions.last is RetInst) {
-        let range = body.range.map({ $0.upperBound ..< $0.upperBound })
-        context.report(.missingReturnValueInNonUnitFunction(range: range))
-      }
+      // FIXME: Detect missing return value in non unit functions.
+      break
     }
 
     return function
@@ -250,7 +247,8 @@ public enum Emitter {
     var args = function.type.paramTypes.map({ type -> Value in
       return ArgumentValue(type: type, function: function)
     })
-    builder.block = function.createBasicBlock(arguments: args)
+    builder.insertionPoint = InsertionPoint(
+      function: function, blockID: function.createBasicBlock(arguments: args))
 
     // Emit the function's body.
     if !(req is CtorDecl) {
@@ -321,7 +319,7 @@ public enum Emitter {
     in env: inout Environment,
     with builder: Builder
   ) {
-    assert(builder.block != nil, "not in a basic block")
+    assert(builder.insertionPoint != nil, "insertion block not configured")
 
     for i in 0 ..< brace.stmts.count {
       switch brace.stmts[i] {

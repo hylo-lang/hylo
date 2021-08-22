@@ -6,11 +6,8 @@ public final class Builder {
   /// The module that is being edited.
   public let module: Module
 
-  /// The current basic block in which new instructions are being inserted.
-  public var block: BasicBlock?
-
-  /// The current function in which new instructions are being inserted.
-  public var function: Function? { block?.function }
+  /// The current insertion point of the builder.
+  public var insertionPoint: InsertionPoint?
 
   /// A counter to generate unique IDs.
   private var nextID = 0
@@ -101,7 +98,7 @@ public final class Builder {
   /// - Parameter type: The type of the allocated object. `type` must be an object type.
   public func buildAllocStack(type: VILType) -> AllocStackInst {
     let inst = AllocStackInst(allocatedType: type)
-    block!.instructions.append(inst)
+    insert(inst)
     return inst
   }
 
@@ -113,7 +110,7 @@ public final class Builder {
   ///     view(s) described by the type of the container.
   public func buildAllocExistential(container: Value, witness: VILType) -> AllocExistentialInst {
     let inst = AllocExistentialInst(container: container, witness: witness)
-    block!.instructions.append(inst)
+    insert(inst)
     return inst
   }
 
@@ -125,7 +122,7 @@ public final class Builder {
   ///     package's witness. It can either be a concrete type, or an "opened" existential.
   public func buildOpenExistential(container: Value, type: VILType) -> OpenExistentialInst {
     let inst = OpenExistentialInst(container: container, type: type)
-    block!.instructions.append(inst)
+    insert(inst)
     return inst
   }
 
@@ -139,7 +136,7 @@ public final class Builder {
     container: Value, type: VILType
   ) -> OpenExistentialAddrInst {
     let inst = OpenExistentialAddrInst(container: container, type: type)
-    block!.instructions.append(inst)
+    insert(inst)
     return inst
   }
 
@@ -151,7 +148,7 @@ public final class Builder {
   @discardableResult
   public func buildCopyAddr(dest: Value, source: Value) -> CopyAddrInst {
     let inst = CopyAddrInst(dest: dest, source: source)
-    block!.instructions.append(inst)
+    insert(inst)
     return inst
   }
 
@@ -163,7 +160,7 @@ public final class Builder {
   public func buildUnsafeCastAddr(source: Value, type: VILType) -> UnsafeCastAddrInst {
     precondition(type.isAddress, "the type of the cast must be an address")
     let inst = UnsafeCastAddrInst(source: source, type: type)
-    block!.instructions.append(inst)
+    insert(inst)
     return inst
   }
 
@@ -174,7 +171,7 @@ public final class Builder {
   ///   - type: The type to which the address is converted.
   public func buildCheckedCastAddr(source: Value, type: VILType) -> CheckedCastAddrInst {
     let inst = CheckedCastAddrInst(source: source, type: type)
-    block!.instructions.append(inst)
+    insert(inst)
     return inst
   }
 
@@ -189,7 +186,7 @@ public final class Builder {
     }(), "'\(decl.debugID)' is not declared in a view")
 
     let inst = WitnessMethodInst(container: container, decl: decl)
-    block!.instructions.append(inst)
+    insert(inst)
     return inst
   }
 
@@ -206,7 +203,7 @@ public final class Builder {
     // FIXME: Perhaps we could do some argument validation here?
 
     let inst = ApplyInst(fun: fun, args: args, type: .lower(funType.retType))
-    block!.instructions.append(inst)
+    insert(inst)
     return inst
   }
 
@@ -217,7 +214,7 @@ public final class Builder {
   ///   - args: The partial list of arguments of the function application (from left to right).
   public func buildPartialApply(fun: Value, args: [Value]) -> PartialApplyInst {
     let inst = PartialApplyInst(fun: fun, args: args)
-    block!.instructions.append(inst)
+    insert(inst)
     return inst
   }
 
@@ -229,7 +226,7 @@ public final class Builder {
   ///     of `typeDecl`.
   public func buildRecord(typeDecl: ProductTypeDecl, type: VILType) -> RecordInst {
     let inst = RecordInst(typeDecl: typeDecl, type: type)
-    block!.instructions.append(inst)
+    insert(inst)
     return inst
   }
 
@@ -246,7 +243,7 @@ public final class Builder {
     type: VILType
   ) -> RecordMemberInst {
     let inst = RecordMemberInst(record: record, memberDecl: memberDecl, type: type)
-    block!.instructions.append(inst)
+    insert(inst)
     return inst
   }
 
@@ -263,14 +260,14 @@ public final class Builder {
     type: VILType
   ) -> RecordMemberAddrInst {
     let inst = RecordMemberAddrInst(record: record, memberDecl: memberDecl, type: type)
-    block!.instructions.append(inst)
+    insert(inst)
     return inst
   }
 
   /// Builds a tuple value instruction.
   public func buildTuple(type: TupleType, elems: [Value]) -> TupleInst {
     let inst = TupleInst(type: type, elems: elems)
-    block!.instructions.append(inst)
+    insert(inst)
     return inst
   }
 
@@ -281,7 +278,7 @@ public final class Builder {
   ///   - args: The values captured by the asynchronous expression.
   public func buildAsync(fun: Function, args: [Value] = []) -> AsyncInst {
     let inst = AsyncInst(fun: fun, args: args)
-    block!.instructions.append(inst)
+    insert(inst)
     return inst
   }
 
@@ -290,7 +287,7 @@ public final class Builder {
   /// - Parameter value: The value being awaited.
   public func buildAwait(value: Value) -> AwaitInst {
     let inst = AwaitInst(value: value)
-    block!.instructions.append(inst)
+    insert(inst)
     return inst
   }
 
@@ -302,7 +299,7 @@ public final class Builder {
   @discardableResult
   public func buildStore(lvalue: Value, rvalue: Value) -> StoreInst {
     let inst = StoreInst(lvalue: lvalue, rvalue: rvalue)
-    block!.instructions.append(inst)
+    insert(inst)
     return inst
   }
 
@@ -311,7 +308,7 @@ public final class Builder {
   /// - Parameter lvalue: The location to load. `lvalue` must have an address type.
   public func buildLoad(lvalue: Value) -> LoadInst {
     let inst = LoadInst(lvalue: lvalue)
-    block!.instructions.append(inst)
+    insert(inst)
     return inst
   }
 
@@ -322,7 +319,7 @@ public final class Builder {
   ///    - rhs: Another address.
   public func buildEqualAddr(lhs: Value, rhs: Value) -> EqualAddrInst {
     let inst = EqualAddrInst(lhs: lhs, rhs: rhs)
-    block!.instructions.append(inst)
+    insert(inst)
     return inst
   }
 
@@ -334,11 +331,12 @@ public final class Builder {
   ///   - args: The arguments of the destination block. `args` Should must the number and type of
   ///     the arguments expected by `dest.`
   @discardableResult
-  public func buildBranch(dest: BasicBlock, args: [Value] = []) -> BranchInst {
-    precondition(dest.function === function, "invalid destination")
+  public func buildBranch(dest: BasicBlock.ID, args: [Value] = []) -> BranchInst {
+    guard let fun = insertionPoint?.function else { fatalError("not in a function") }
+    precondition(fun.blocks[dest] != nil, "invalid destination")
 
     let inst = BranchInst(dest: dest, args: args)
-    block!.instructions.append(inst)
+    insert(inst)
     return inst
   }
 
@@ -356,15 +354,16 @@ public final class Builder {
   @discardableResult
   public func buildCondBranch(
     cond: Value,
-    thenDest: BasicBlock, thenArgs: [Value] = [],
-    elseDest: BasicBlock, elseArgs: [Value] = []
+    thenDest: BasicBlock.ID, thenArgs: [Value] = [],
+    elseDest: BasicBlock.ID, elseArgs: [Value] = []
   ) -> CondBranchInst {
-    precondition(thenDest.function === function, "invalid destination")
-    precondition(elseDest.function === function, "invalid destination")
+    guard let fun = insertionPoint?.function else { fatalError("not in a function") }
+    precondition(fun.blocks[thenDest] != nil, "invalid destination")
+    precondition(fun.blocks[elseDest] != nil, "invalid destination")
 
     let inst = CondBranchInst(
       cond: cond, thenDest: thenDest, thenArgs: thenArgs, elseDest: elseDest, elseArgs: elseArgs)
-    block!.instructions.append(inst)
+    insert(inst)
     return inst
   }
 
@@ -372,7 +371,7 @@ public final class Builder {
   @discardableResult
   public func buildRet(value: Value) -> RetInst {
     let inst = RetInst(value: value)
-    block!.instructions.append(inst)
+    insert(inst)
     return inst
   }
 
@@ -380,8 +379,13 @@ public final class Builder {
   @discardableResult
   public func buildHalt() -> HaltInst {
     let inst = HaltInst()
-    block!.instructions.append(inst)
+    insert(inst)
     return inst
+  }
+
+  private func insert(_ inst: Inst) {
+    guard let ip = insertionPoint else { fatalError("insertion block not configured") }
+    ip.function.blocks[ip.blockID]!.instructions.append(inst)
   }
 
 }

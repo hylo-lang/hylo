@@ -2,10 +2,9 @@
 ///
 /// A basic block is a single unit of control flow. It is a sequence of instructions, ended by a
 /// "terminator" which indicates which block(s) should be executed next.
-public final class BasicBlock {
+public struct BasicBlock {
 
-  /// The function in which this block resides.
-  public unowned let function: Function
+  public typealias ID = Int
 
   /// The arguments of the block.
   public var arguments: [Value]
@@ -13,8 +12,7 @@ public final class BasicBlock {
   /// The instructions in the block.
   public var instructions: [Inst] = []
 
-  init(function: Function, arguments: [Value]) {
-    self.function = function
+  init(arguments: [Value]) {
     self.arguments = arguments
   }
 

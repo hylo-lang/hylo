@@ -34,7 +34,7 @@ public struct Interpreter {
   private var locals: [[RegisterID: RuntimeValue]] = []
 
   /// The program counter of the interpreter.
-  private var pc = ProgramCounter()
+  private var pc = ProgramCounter.undefined
 
   /// The status of the interpreter.
   private var status: Int64 = 0
@@ -65,13 +65,15 @@ public struct Interpreter {
 
   /// Start the interpreter.
   public mutating func start() throws -> Int64 {
-    guard let entry = functions["main"]?.blocks.first else {
+    guard let function = functions["main"],
+          let entryID = function.order.first
+    else {
       throw RuntimeError(message: "no entry point")
     }
 
     // (Re)initialize the interpreter's state.
-    pc     = ProgramCounter(atStartOf: entry)
-    stack  = []
+    pc = ProgramCounter(atStartOf: entryID, in: function)
+    stack = []
     locals = [[:]]
 
     // Execute the entry point.
@@ -287,12 +289,12 @@ public struct Interpreter {
   }
 
   private mutating func apply(
-    _ function: Function
-    , args    : [RuntimeValue],
-    retID     : RegisterID
+    _ function: Function,
+    args: [RuntimeValue],
+    retID: RegisterID
   ) -> ProgramCounter {
     // Make sure the function has an entry point.
-    guard let entry = function.blocks.first else {
+    guard let entry = function.entry else {
       fatalError("function '\(function.name)' has no entry block")
     }
 
@@ -308,7 +310,7 @@ public struct Interpreter {
     locals.append(frame)
 
     // Jump inside the callee.
-    return ProgramCounter(atStartOf: entry)
+    return ProgramCounter(atStartOf: function.order[0], in: function)
   }
 
   private mutating func applyBuiltin(funDecl: FunDecl, args: [RuntimeValue]) -> RuntimeValue {
@@ -434,7 +436,7 @@ public struct Interpreter {
 
   mutating func eval(inst: BranchInst) -> ProgramCounter? {
     // FIXME: Handle block arguments.
-    return ProgramCounter(atStartOf: inst.dest)
+    return ProgramCounter(atStartOf: inst.dest, in: pc.function!)
   }
 
   mutating func eval(inst: CondBranchInst) -> ProgramCounter? {
@@ -444,9 +446,9 @@ public struct Interpreter {
 
     // FIXME: Handle block arguments.
     if cond {
-      return ProgramCounter(atStartOf: inst.thenDest)
+      return ProgramCounter(atStartOf: inst.thenDest, in: pc.function!)
     } else {
-      return ProgramCounter(atStartOf: inst.elseDest)
+      return ProgramCounter(atStartOf: inst.elseDest, in: pc.function!)
     }
   }
 

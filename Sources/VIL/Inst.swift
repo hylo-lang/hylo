@@ -390,15 +390,12 @@ public final class EqualAddrInst: Inst, Value {
 public final class BranchInst: Inst {
 
   /// The block to which the execution should jump.
-  public unowned let dest: BasicBlock
+  public let dest: BasicBlock.ID
 
   /// The arguments of the destination block.
   public let args: [Value]
 
-  init(dest: BasicBlock, args: [Value]) {
-    precondition(dest.arguments.count == args.count, "invalid arguments")
-    // FIXME: Check for argument types.
-
+  init(dest: BasicBlock.ID, args: [Value]) {
     self.dest = dest
     self.args = args
   }
@@ -414,21 +411,21 @@ public final class CondBranchInst: Inst {
   public let cond: Value
 
   /// The block to which the execution should jump if the condition holds.
-  public unowned let thenDest: BasicBlock
+  public let thenDest: BasicBlock.ID
 
   /// The arguments of the "then" destination block.
   public let thenArgs: [Value]
 
   /// The block to which the execution should jump if the condition does not hold.
-  public unowned let elseDest: BasicBlock
+  public let elseDest: BasicBlock.ID
 
   /// The arguments of the "else" destination block.
   public let elseArgs: [Value]
 
   init(
     cond: Value,
-    thenDest: BasicBlock, thenArgs: [Value],
-    elseDest: BasicBlock, elseArgs: [Value]
+    thenDest: BasicBlock.ID, thenArgs: [Value],
+    elseDest: BasicBlock.ID, elseArgs: [Value]
   ) {
     self.cond = cond
     self.thenDest = thenDest

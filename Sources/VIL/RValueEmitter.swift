@@ -195,28 +195,28 @@ struct RValueEmitter: ExprVisitor {
     let test = builder.buildEqualAddr(
       lhs: cast, rhs: NullAddr(type: vilTargetType.address))
 
-    guard let function = builder.function else { fatalError("unreachable") }
+    guard let function = builder.insertionPoint?.function else { fatalError("unreachable") }
     let success = function.createBasicBlock()
     let failure = function.createBasicBlock()
     let finally = function.createBasicBlock()
     builder.buildCondBranch(cond: test, thenDest: failure, elseDest: success)
 
     // If the cast succeeded ...
-    builder.block = success
+    builder.insertionPoint!.blockID = success
     builder.buildCopyAddr(
       dest: builder.buildAllocExistential(container: result, witness: vilTargetType),
       source: cast)
     builder.buildBranch(dest: finally)
 
     // If the cast failed ...
-    builder.block = failure
+    builder.insertionPoint!.blockID = failure
     let nilValue = Emitter.emitNil(context: context, with: builder)
     builder.buildStore(
       lvalue: builder.buildAllocExistential(container: result, witness: nilValue.type),
       rvalue: nilValue)
     builder.buildBranch(dest: finally)
 
-    builder.block = finally
+    builder.insertionPoint!.blockID = finally
     return .success(builder.buildLoad(lvalue: result))
   }
 
@@ -461,7 +461,7 @@ struct RValueEmitter: ExprVisitor {
   }
 
   mutating func visit(_ node: MatchExpr) -> ExprResult {
-    guard let function = builder.function else { fatalError("unreachable") }
+    guard let function = builder.insertionPoint?.function else { fatalError("unreachable") }
     assert(!node.cases.isEmpty)
 
     // Emit the subject of the match.
@@ -532,7 +532,7 @@ struct RValueEmitter: ExprVisitor {
         fatalError("not implemented")
       }
 
-      builder.block = thenBlock
+      builder.insertionPoint!.blockID = thenBlock
 
       // Emit the statement's body.
       if let storage = storage {
@@ -544,7 +544,7 @@ struct RValueEmitter: ExprVisitor {
 
       // Jump to the end of the match.
       builder.buildBranch(dest: lastBlock)
-      builder.block = elseBlock
+      builder.insertionPoint!.blockID = elseBlock
       guard stmt.pattern.isRefutable else { break }
     }
 

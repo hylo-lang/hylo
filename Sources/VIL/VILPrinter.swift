@@ -44,8 +44,8 @@ extension Function {
       stream.write(" {\n")
       withUnsafeMutablePointer(to: &stream, { ptr in
         var context = PrintContext(stream: ptr)
-        for block in blocks {
-          context.dump(block: block)
+        for blockID in order {
+          context.dump(blockID: blockID, in: self)
         }
       })
       stream.write("}\n\n")
@@ -66,10 +66,6 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
 
   var valueIDTable: [ObjectIdentifier: Int] = [:]
 
-  func makeID(for block: BasicBlock) -> Int {
-    return block.function.blocks.firstIndex(where: { $0 === block })!
-  }
-
   mutating func makeID(for value: Value) -> Int {
     if let id = valueIDTable[ObjectIdentifier(value)] {
       return id
@@ -81,13 +77,13 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
     return valueID
   }
 
-  mutating func dump(block: BasicBlock) {
-    self << "bb\(makeID(for: block))("
-    self << block.arguments
+  mutating func dump(blockID: BasicBlock.ID, in function: Function) {
+    self << "bb\(function.index(of: blockID)!)("
+    self << function.blocks[blockID]!.arguments
     self << "):\n"
 
     indentation += 1
-    for inst in block.instructions {
+    for inst in function.blocks[blockID]!.instructions {
       dump(inst: inst)
     }
     indentation -= 1
@@ -214,16 +210,16 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
       self << "\n"
 
     case let inst as BranchInst:
-      self << "branch bb\(makeID(for: inst.dest))("
+      self << "branch bb\(inst.dest)("
       self << inst.args
       self << ")\n"
 
     case let inst as CondBranchInst:
       self << "cond_branch "
       self << inst.cond
-      self << " bb\(makeID(for: inst.thenDest))("
+      self << " bb\(inst.thenDest)("
       self << inst.thenArgs
-      self << ") bb\(makeID(for: inst.elseDest))("
+      self << ") bb\(inst.elseDest)("
       self << inst.elseArgs
       self << ")\n"
 

@@ -183,7 +183,7 @@ struct LValueEmitter: ExprVisitor {
   }
 
   func visit(_ node: AwaitExpr) -> ExprResult {
-    fatalError("not implemented")
+    return .failure(.immutableExpr)
   }
 
   func visit(_ node: AddrOfExpr) -> ExprResult {
