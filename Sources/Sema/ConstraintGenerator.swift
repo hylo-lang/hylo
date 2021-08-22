@@ -37,7 +37,7 @@ struct ConstraintGenerator: NodeWalker {
   }
 
   mutating func visit(_ node: IntLiteralExpr) -> Bool {
-    prepare(node)
+    prepare(expr: node, fixedType: fixedType, inferredType: nil)
 
     // The type of the node must be expressible by `Builtin::IntLiteral`.
     let literalType = node.type.context.getBuiltinType(named: "IntLiteral")!
@@ -58,17 +58,22 @@ struct ConstraintGenerator: NodeWalker {
 
   mutating func visit(_ node: AssignExpr) -> Bool {
     if let fixedType = fixedType, !fixedType.isUnit {
-      // This constraint will necessarily fail. We add it so that the error will be diagnosed.
+      // Assign expressions always have the unit type, so this constraint will necessarily fail. We
+      // add it so that the error will be diagnosed.
       insert(RelationalConstraint(
               kind: .equality, lhs: node.type, rhs: fixedType,
               at: ConstraintLocator(node)))
     }
 
-    fixedType = nil
-    guard traverse(node) else { return false }
-
     // Don't create any constraint if the left operand has an error type.
-    guard !(node.lvalue.type is ErrorType) else { return true }
+    fixedType = nil
+    var (shouldContinue, _) = walk(expr: node.lvalue)
+    guard shouldContinue else { return false }
+    guard shouldContinue && !node.lvalue.type.isError else { return false }
+
+    fixedType = node.lvalue.type
+    (shouldContinue, _) = walk(expr: node.rvalue)
+    guard shouldContinue else { return false }
 
     insert(RelationalConstraint(
             kind: .subtyping, lhs: node.rvalue.type, rhs: node.lvalue.type,
@@ -82,7 +87,7 @@ struct ConstraintGenerator: NodeWalker {
   }
 
   mutating func visit(_ node: DynCastExpr) -> Bool {
-    prepare(node)
+    prepare(expr: node, fixedType: fixedType, inferredType: nil)
     fixedType = nil
     guard traverse(node) else { return false }
 
@@ -92,7 +97,7 @@ struct ConstraintGenerator: NodeWalker {
   }
 
   mutating func visit(_ node: UnsafeCastExpr) -> Bool {
-    prepare(node)
+    prepare(expr: node, fixedType: fixedType, inferredType: nil)
     fixedType = nil
     guard traverse(node) else { return false }
 
@@ -102,8 +107,20 @@ struct ConstraintGenerator: NodeWalker {
 
   mutating func visit(_ node: TupleExpr) -> Bool {
     let fixedTypeForThisNode = fixedType
-    fixedType = nil
-    guard traverse(node) else { return false }
+
+    // If the fixed type is a tuple type of the correct size, we can deconstruct it to obtain a
+    // fixed type for each element. Otherwise, we should visit each sub-expression without any
+    // contextual information.
+    if let tupleType = fixedType as? TupleType, tupleType.elems.count == node.elems.count {
+      for i in 0 ..< node.elems.count {
+        fixedType = tupleType.elems[i].type
+        let (shouldContinue, _) = walk(expr: node.elems[i].value)
+        guard shouldContinue else { return false }
+      }
+    } else {
+      fixedType = nil
+      guard traverse(node) else { return false }
+    }
 
     // Infer type of the tuple from the type of each element.
     let elems = node.elems.map({ elem in
@@ -111,27 +128,12 @@ struct ConstraintGenerator: NodeWalker {
     })
     let inferredType = node.type.context.tupleType(elems)
 
-    // Apply the inferred type.
-    if node.type.isUnresolved {
-      node.type = inferredType
-    } else {
-      insert(RelationalConstraint(
-              kind: .equality, lhs: node.type, rhs: inferredType,
-              at: ConstraintLocator(node)))
-    }
-
-    // Apply the fixed type.
-    if let fixedType = fixedTypeForThisNode {
-      insert(RelationalConstraint(
-              kind: .subtyping, lhs: node.type, rhs: fixedType,
-              at: ConstraintLocator(node)))
-    }
-
+    prepare(expr: node, fixedType: fixedTypeForThisNode, inferredType: inferredType)
     return true
   }
 
   mutating func visit(_ node: CallExpr) -> Bool {
-    prepare(node)
+    prepare(expr: node, fixedType: fixedType, inferredType: nil)
     fixedType = nil
     guard traverse(node) else { return false }
 
@@ -160,7 +162,7 @@ struct ConstraintGenerator: NodeWalker {
   }
 
   mutating func visit(_ node: UnresolvedMemberExpr) -> Bool {
-    prepare(node)
+    prepare(expr: node, fixedType: fixedType, inferredType: nil)
     fixedType = nil
     guard traverse(node) else { return false }
 
@@ -180,7 +182,7 @@ struct ConstraintGenerator: NodeWalker {
 
   mutating func visit(_ node: OverloadedDeclRefExpr) -> Bool {
     assert(node.declSet.count >= 1)
-    prepare(node)
+    prepare(expr: node, fixedType: fixedType, inferredType: nil)
 
     insert(OverloadBindingConstraint(
             node.type,
@@ -192,23 +194,23 @@ struct ConstraintGenerator: NodeWalker {
   }
 
   mutating func visit(_ node: DeclRefExpr) -> Bool {
-    prepare(node)
+    prepare(expr: node, fixedType: fixedType, inferredType: nil)
     return true
   }
 
   mutating func visit(_ node: TypeDeclRefExpr) -> Bool {
-    prepare(node)
+    prepare(expr: node, fixedType: fixedType, inferredType: nil)
     return true
   }
 
   mutating func visit(_ node: MemberDeclRefExpr) -> Bool {
-    prepare(node)
+    prepare(expr: node, fixedType: fixedType, inferredType: nil)
     fixedType = nil
     return traverse(node)
   }
 
   mutating func visit(_ node: TupleMemberExpr) -> Bool {
-    prepare(node)
+    prepare(expr: node, fixedType: fixedType, inferredType: nil)
     fixedType = nil
     guard traverse(node) else { return false }
 
@@ -258,27 +260,14 @@ struct ConstraintGenerator: NodeWalker {
     }
     let inferredType = context.asyncType(of: inferredBareType)
 
-    // Apply the inferred type.
-    if node.type.isUnresolved {
-      node.type = inferredType
-    } else {
-      insert(RelationalConstraint(
-              kind: .equality, lhs: node.type, rhs: inferredType,
-              at: ConstraintLocator(node)))
-    }
-
-    // Apply the fixed type.
-    if let fixedType = fixedTypeForThisNode {
-      insert(RelationalConstraint(
-              kind: .subtyping, lhs: node.type, rhs: fixedType,
-              at: ConstraintLocator(node)))
-    }
-
+    prepare(expr: node, fixedType: fixedTypeForThisNode, inferredType: inferredType)
     return true
   }
 
   mutating func visit(_ node: AwaitExpr) -> Bool {
-    prepare(node)
+    let fixedTypeForThisNode = fixedType
+
+    // If we have a fixed type for this node, we can create the fixed type of the sub-expression.
     if let bareType = fixedType {
       fixedType = bareType.context.asyncType(of: bareType)
     } else {
@@ -286,32 +275,47 @@ struct ConstraintGenerator: NodeWalker {
     }
     guard traverse(node) else { return false }
 
-    let awaitedType = node.type.context.asyncType(of: node.type)
-    system.pointee.insert(
-      RelationalConstraint(
-        kind: .oneWayEquality, lhs: awaitedType, rhs: node.value.type,
-        at: ConstraintLocator(node.value)))
-
-    return true
-  }
-
-  mutating func visit(_ node: AddrOfExpr) -> Bool {
-    prepare(node)
-    fixedType = nil
-    guard traverse(node) else { return false }
-
-    if node.value.type is InoutType {
-      node.type = node.value.type
+    if let awaitedType = node.value.type as? AsyncType {
+      prepare(expr: node, fixedType: fixedTypeForThisNode, inferredType: awaitedType.base)
     } else {
-      node.type = node.type.context.inoutType(of: node.value.type)
+      prepare(expr: node, fixedType: fixedTypeForThisNode, inferredType: nil)
+      let awaitedType = node.type.context.asyncType(of: node.type)
+      system.pointee.insert(
+        RelationalConstraint(
+          kind: .oneWayEquality, lhs: awaitedType, rhs: node.value.type,
+          at: ConstraintLocator(node.value)))
     }
 
     return true
   }
 
+  mutating func visit(_ node: AddrOfExpr) -> Bool {
+    let fixedTypeForThisNode = fixedType
+
+    // If the fixed type is an in-out type, we can create the fixed type of the sub-expression.
+    if let inoutType = fixedType as? InoutType {
+      fixedType = inoutType.base
+    } else {
+      fixedType = nil
+    }
+    guard traverse(node) else { return false }
+
+    // If the sub-expression has an in-out type (e.g., because it's a reference to a mutable
+    //parameter), we shouldn't wrap it again.
+    let inferredType: ValType
+    if node.value.type is InoutType {
+      inferredType = node.value.type
+    } else {
+      inferredType = node.type.context.inoutType(of: node.value.type)
+    }
+
+    prepare(expr: node, fixedType: fixedTypeForThisNode, inferredType: inferredType)
+    return true
+  }
+
   mutating func visit(_ node: MatchExpr) -> Bool {
     // Note that the subject of the match has aleady been type checked by the pre checker.
-    prepare(node)
+    prepare(expr: node, fixedType: fixedType, inferredType: nil)
     let caseType = fixedType
     for i in 0 ..< node.cases.count {
       if node.isSubexpr {
@@ -340,7 +344,7 @@ struct ConstraintGenerator: NodeWalker {
   }
 
   mutating func visit(_ node: WildcardExpr) -> Bool {
-    prepare(node)
+    prepare(expr: node, fixedType: fixedType, inferredType: nil)
     return true
   }
 
@@ -351,7 +355,7 @@ struct ConstraintGenerator: NodeWalker {
 
   mutating func visit(_ node: NamedPattern) -> Bool {
     assert((node.decl.state < .typeChecked) || !node.type.isUnresolved)
-    prepare(node)
+    prepare(pattern: node, fixedType: fixedType, inferredType: nil)
     return true
   }
 
@@ -366,22 +370,7 @@ struct ConstraintGenerator: NodeWalker {
     })
     let inferredType = node.type.context.tupleType(elems)
 
-    // Apply the inferred type.
-    if node.type.isUnresolved {
-      node.type = inferredType
-    } else {
-      insert(RelationalConstraint(
-              kind: .equality, lhs: node.type, rhs: inferredType,
-              at: ConstraintLocator(node)))
-    }
-
-    // Apply the fixed type.
-    if let fixedType = fixedTypeForThisNode {
-      insert(RelationalConstraint(
-              kind: .subtyping, lhs: node.type, rhs: fixedType,
-              at: ConstraintLocator(node)))
-    }
-
+    prepare(pattern: node, fixedType: fixedTypeForThisNode, inferredType: inferredType)
     return true
   }
 
@@ -409,7 +398,7 @@ struct ConstraintGenerator: NodeWalker {
   }
 
   mutating func visit(_ node: WildcardPattern) -> Bool {
-    prepare(node)
+    prepare(pattern: node, fixedType: fixedType, inferredType: nil)
     return true
   }
 
@@ -417,9 +406,13 @@ struct ConstraintGenerator: NodeWalker {
     system.pointee.insert(constraint)
   }
 
-  private mutating func prepare(_ expr: Expr) {
+  private mutating func prepare(expr: Expr, fixedType: ValType?, inferredType: ValType?) {
     if expr.type.isUnresolved {
-      expr.type = TypeVar(context: expr.type.context, node: expr)
+      expr.type = inferredType ?? TypeVar(context: expr.type.context, node: expr)
+    } else if let inferredType = inferredType {
+      insert(RelationalConstraint(
+              kind: .equality, lhs: expr.type, rhs: inferredType,
+              at: ConstraintLocator(expr)))
     }
 
     if let fixedType = fixedType {
@@ -429,9 +422,13 @@ struct ConstraintGenerator: NodeWalker {
     }
   }
 
-  private mutating func prepare(_ pattern: Pattern) {
+  private mutating func prepare(pattern: Pattern, fixedType: ValType?, inferredType: ValType?) {
     if pattern.type.isUnresolved {
-      pattern.type = TypeVar(context: pattern.type.context, node: pattern)
+      pattern.type = inferredType ?? TypeVar(context: pattern.type.context, node: pattern)
+    } else if let inferredType = inferredType {
+      insert(RelationalConstraint(
+              kind: .equality, lhs: pattern.type, rhs: inferredType,
+              at: ConstraintLocator(pattern)))
     }
 
     if let fixedType = fixedType {
