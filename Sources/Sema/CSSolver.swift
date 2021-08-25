@@ -195,7 +195,7 @@ struct CSSolver {
       case let parent as NominalType:
         // We've resolved the base of the associated type, so we can resolve the associated type.
         let member = context.assocType(interface: lhs.interface, base: parent).canonical
-        if member is ErrorType {
+        if member.isError {
           errors.append(.nonConformingType(constraint))
         } else {
           let simplified = RelationalConstraint(
@@ -651,8 +651,8 @@ struct CSSolver {
 
     case (let lhs as FunType, let rhs as FunType):
       if constraint.kind == .subtyping {
-        // Notice that we swap `lhs.paramType` with `rhs.paramType`, so as to account for the
-        // contravariance of function parameters if the constraint has subtyping semantics.
+        // We swap `lhs.paramType` with `rhs.paramType` to account for the contravariance of
+        // function parameters when the constraint has subtyping semantics.
         system.insert(
           RelationalConstraint(
             kind: constraint.kind, lhs: rhs.paramType, rhs: lhs.paramType,
@@ -675,6 +675,22 @@ struct CSSolver {
         RelationalConstraint(
           kind: constraint.kind, lhs: lhs.base, rhs: rhs.base,
           at: constraint.locator))
+      return true
+
+    case (let lhs as InoutType, let rhs as InoutType):
+      // Because `T <: U` does not imply `mut T <: mut U`, we must equality for subtyping.
+      let kind: RelationalConstraint.Kind
+      switch constraint.kind {
+      case .equality, .oneWayEquality:
+        kind = constraint.kind
+      case .subtyping:
+        kind = .equality
+      default:
+        fatalError("unreachable")
+      }
+
+      system.insert(
+        RelationalConstraint(kind: kind, lhs: lhs.base, rhs: rhs.base, at: constraint.locator))
       return true
 
     default:
