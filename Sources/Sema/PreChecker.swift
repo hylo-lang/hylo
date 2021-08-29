@@ -177,7 +177,7 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
     let context = node.type.context
 
     let baseType = node.namespace.realize(unqualifiedFrom: useSite)
-    guard !(baseType is ErrorType) else {
+    guard !baseType.isError else {
       // The diagnostic is emitted by the failed attempt to realize the base.
       return ErrorExpr(type: context.errorType, range: node.range)
     }

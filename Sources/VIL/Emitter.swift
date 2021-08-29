@@ -97,9 +97,9 @@ public enum Emitter {
         }
       }
 
-      let table = WitnessTable(
+      let table = ViewWitnessTable(
         type: decl.instanceType as! NominalType, view: conformance.viewType, entries: entries)
-      builder.module.witnessTables.append(table)
+      builder.module.viewWitnessTables.append(table)
     }
 
     // Emit the direct members of the declaration.
@@ -408,7 +408,7 @@ public enum Emitter {
       })
 
       if case .success(let result) = result {
-        // If the r-value has a different type than the l-value, it must be casted.
+        // If the r-value has a different type than the l-value, it must be cast.
         var source = result.loc
         if destType != exprType {
           source = builder.buildUnsafeCastAddr(source: source, type: dest.type)
@@ -477,7 +477,7 @@ public enum Emitter {
     with builder: Builder
   ) -> Value {
     // Emit an error value for any expression that has an error type.
-    guard !(expr.type is ErrorType) else { return PoisonValue(context: expr.type.context) }
+    guard !expr.type.isError else { return PoisonValue(context: expr.type.context) }
 
     let result = withUnsafeMutablePointer(to: &env, { (e) -> LValueEmitter.ExprResult in
       var emitter = LValueEmitter(env: e, builder: builder)
@@ -502,7 +502,7 @@ public enum Emitter {
     with builder: Builder
   ) -> Value {
     // Emit an error value for any expression that has an error type.
-    guard !(expr.type is ErrorType) else { return PoisonValue(context: expr.type.context) }
+    guard !expr.type.isError else { return PoisonValue(context: expr.type.context) }
 
     // Note: We do not need to copy back the contents of `locals`, because evaluating an expression
     // never produces new bindings outside of that expression.

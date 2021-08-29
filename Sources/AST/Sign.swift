@@ -535,7 +535,7 @@ public final class CompoundIdentSign: IdentSign {
 
     // Realize the base component, unqualified.
     let baseType = components[0].realize(unqualifiedFrom: useSite)
-    guard !(baseType is ErrorType) else {
+    guard !baseType.isError else {
       // The diagnostic is emitted by the failed attempt to realize the base.
       components.forEach({ $0.type = context.errorType })
       return context.errorType
@@ -609,7 +609,7 @@ public final class ErrorSign: Sign {
   public var range: SourceRange?
 
   public var type: ValType  {
-    didSet { assert(type is ErrorType) }
+    didSet { assert(type.isError) }
   }
 
   public init(type: ErrorType, range: SourceRange? = nil) {

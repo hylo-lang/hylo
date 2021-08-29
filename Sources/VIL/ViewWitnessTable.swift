@@ -1,7 +1,7 @@
 import AST
 
-/// A witness table, describing how a type conforms to a view.
-public struct WitnessTable: Identifiable {
+/// A view witness table, describing how a type conforms to a view.
+public struct ViewWitnessTable: Identifiable {
 
   /// The conforming type.
   public let type: NominalType

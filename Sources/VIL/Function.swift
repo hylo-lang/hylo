@@ -37,6 +37,11 @@ public final class Function {
     self.type = type
   }
 
+  /// The ID of the function's entry.
+  public var entryID: BasicBlock.ID? {
+    return order.first
+  }
+
   /// The entry block of the function.
   public var entry: BasicBlock? {
     guard !order.isEmpty else { return nil }

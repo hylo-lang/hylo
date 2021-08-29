@@ -7,7 +7,7 @@ public protocol Inst: AnyObject {}
 /// specified type.
 public final class AllocStackInst: Inst, Value {
 
-  /// The (Val) type of the allocated value.
+  /// The type of the allocated value.
   public let allocatedType: VILType
 
   public var type: VILType { allocatedType.address }
@@ -21,8 +21,8 @@ public final class AllocStackInst: Inst, Value {
 
 /// Allocates the memory necessary to pack an existential package into the specified container.
 ///
-/// This returns the address of an uninitialized memory block, large enough to store an instance of
-/// the specified witness.
+/// `alloc_existential` returns the address of an uninitialized memory block, large enough to store
+/// an instance of the specified witness.
 public final class AllocExistentialInst: Inst, Value {
 
   /// The address of the existential container.
@@ -61,10 +61,6 @@ public final class OpenExistentialInst: Inst, Value {
 }
 
 /// Obtains the address of the concrete value packaged inside an existential container.
-///
-/// The instruction checks whether the container is witnessed by `type`. If it is, the resulting
-/// address can be loaded as an instance of `type`. Otherwise, the instruction produces a null
-/// location.
 public final class OpenExistentialAddrInst: Inst, Value {
 
   /// The address of the existential container to open.
@@ -101,8 +97,8 @@ public final class CopyAddrInst: Inst {
 
 /// Converts an address to a different type.
 ///
-/// The instruction checks whether the conversion is legal and fails at runtime error if `source`
-/// does not have a layout that matches the requested type.
+/// `unsafe_cast_addr` checks whether the conversion is legal and fails at runtime if `source` does
+/// not have a layout that matches the requested type.
 public final class UnsafeCastAddrInst: Inst, Value {
 
   /// The address to convert.
@@ -124,7 +120,7 @@ public final class UnsafeCastAddrInst: Inst, Value {
 
 /// Attempts to convert an address to a different type.
 ///
-/// The instruction produces an address suitable to load an object of the requested type if the
+/// `checked_cast_addr` produces an address suitable to load an object of the requested type if the
 /// conversion is legal, or a null location otherwise.
 public final class CheckedCastAddrInst: Inst, Value {
 
@@ -197,6 +193,7 @@ public final class PartialApplyInst: Inst, Value {
   public let type: VILType
 
   init(fun: Value, args: [Value]) {
+    assert(args.count > 0)
     self.fun = fun
     self.args = args
 
@@ -211,7 +208,24 @@ public final class PartialApplyInst: Inst, Value {
 
 }
 
-/// Creates a record value (i.e., the instance of a product type).
+/// Wraps a bare function reference into a thick function container with an empty environment.
+///
+/// Bare function references can only appear as operands. This instruction serves to wrap them into
+/// a thick container so that they have the same layout as partially applied functions.
+public final class ThinToThickInst: Inst, Value {
+
+  /// A bare reference to a VIL function.
+  public let ref: FunRef
+
+  public init(ref: FunRef) {
+    self.ref = ref
+  }
+
+  public var type: VILType { ref.type }
+
+}
+
+/// Creates an uninitialized record value (i.e., the instance of a product type).
 public final class RecordInst: Inst, Value {
 
   /// The declaration of the type of which the record value is an instance.
@@ -436,15 +450,11 @@ public final class CondBranchInst: Inst {
 
 }
 
-/// Branches conditionally to one of several blocks depending on the value of
-
 /// Returns from a function.
 public final class RetInst: Inst {
 
   /// The value being returned.
   public let value: Value
-
-  public var result: Value? { nil }
 
   init(value: Value) {
     self.value = value

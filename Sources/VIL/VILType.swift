@@ -102,16 +102,16 @@ public class VILType: CustomStringConvertible {
 public final class VILFunType: VILType {
 
   // The VIL type of each parameter.
-  let paramTypes: [VILType]
+  public let paramTypes: [VILType]
 
   /// The passing convention of the function's parameters.
-  let paramConvs: [VILParamConv]
+  public let paramConvs: [VILParamConv]
 
   /// The VIL type of the function's return value.
-  let retType: VILType
+  public let retType: VILType
 
   /// The passing convention of the function's return value.
-  let retConv: VILParamConv
+  public let retConv: VILParamConv
 
   init(
     valType: FunType,

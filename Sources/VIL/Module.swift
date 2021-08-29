@@ -10,8 +10,8 @@ public final class Module {
   /// The functions in the module.
   public var functions: [String: Function] = [:]
 
-  /// The witness tables in the module.
-  public var witnessTables: [WitnessTable] = []
+  /// The view witness tables in the module.
+  public var viewWitnessTables: [ViewWitnessTable] = []
 
   public init(id: String) {
     self.id = id

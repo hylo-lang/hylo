@@ -349,7 +349,7 @@ struct ConstraintGenerator: NodeWalker {
   }
 
   func visit(_ node: ErrorExpr) -> Bool {
-    assert(node.type is ErrorType)
+    assert(node.type.isError)
     return true
   }
 

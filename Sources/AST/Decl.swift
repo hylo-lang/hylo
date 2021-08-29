@@ -1469,7 +1469,7 @@ public final class TypeExtnDecl: Decl, DeclSpace {
     guard state != .invalid else { return nil }
 
     let type = extendedIdent.realize(unqualifiedFrom: parentDeclSpace!)
-    guard !(type is ErrorType) else {
+    guard !type.isError else {
       // The diagnostic is emitted by the failed attempt to realize the base.
       state = .invalid
       return nil

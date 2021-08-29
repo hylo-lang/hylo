@@ -1,6 +1,9 @@
 // swift-tools-version:5.3
 import PackageDescription
 
+let OrderedCollections = Target.Dependency.product(name: "OrderedCollections", package: "swift-collections")
+let DequeModule = Target.Dependency.product(name: "DequeModule", package: "swift-collections")
+
 let package = Package(
   name: "Val",
   products: [
@@ -22,12 +25,14 @@ let package = Package(
     // Targets related to the compiler's internal library.
     .target(
       name: "AST",
-      dependencies: ["Basic", .product(name: "OrderedCollections", package: "swift-collections")],
+      dependencies: ["Basic", OrderedCollections],
       resources: [.copy("Builtins.json")]),
     .target(name: "Basic"),
     .target(name: "Driver", dependencies: ["AST", "Basic", "Parse", "Sema", "VIL"]),
     .target(name: "Parse", dependencies: ["AST", "Basic"]),
-    .target(name: "Eval", dependencies: ["AST", "Basic", "VIL"]),
+    .target(
+      name: "Eval",
+      dependencies: ["AST", "Basic", "VIL", DequeModule]),
     .target(name: "Sema", dependencies: ["AST", "Basic"]),
     .target(name: "VIL", dependencies: ["AST", "Basic"]),
 

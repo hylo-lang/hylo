@@ -154,6 +154,12 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
       self << inst.args
       self << ")\n"
 
+    case let inst as ThinToThickInst:
+      let id = makeID(for: inst)
+      self << "_\(id) = thin_to_thick "
+      self << describe(inst.ref, withType: false)
+      self << "\n"
+
     case let inst as RecordInst:
       let id = makeID(for: inst)
       self << "_\(id) = record \(inst.type)\n"

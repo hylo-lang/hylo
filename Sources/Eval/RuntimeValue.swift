@@ -1,350 +1,170 @@
-import AST
-import VIL
-
-typealias RuntimeValuePointer = UnsafeMutablePointer<RuntimeValue>
-
 /// A runtime value.
-enum RuntimeValue {
+struct RuntimeValue {
 
-  init(ofType type: ValType) {
-    switch type.dealiased {
-    case let pType as ProductType:
-      let capacity = pType.decl.storedVars.count
-      self = .record(Record(capacity: capacity))
-
-    case let tType as TupleType:
-      self = .record(Record(capacity: tType.elems.count))
-
-    case let bgType as BoundGenericType:
-      self = RuntimeValue(ofType: bgType.decl.instanceType)
-
-    case _ where type.isExistential:
-      self = .container(Container())
-
-    case is AsyncType, is FunType:
-      self = .junk
-
-    default:
-      fatalError("failed to create a runtime representation of type '\(type)'")
-    }
-  }
-
-  /// A unit value.
-  static var unit = RuntimeValue.record(Record(capacity: 0))
-
-  /// A undefined, junk value.
-  case junk
-
-  /// An explicit error value.
-  case error
-
-  /// The payload of a record, or a tuple.
-  case record(Record)
-
-  var asRecord: Record {
-    if case .record(let value) = self {
-      return value
-    }
-    fatalError("unreachable")
-  }
-
-  /// An existential container.
-  case container(Container)
-
-  var asContainer: Container {
-    if case .container(let value) = self {
-      return value
-    }
-    fatalError("unreachable")
-  }
-
-  /// The address of a runtime value, relative to the stack of the interpreter.
-  case address(Address)
-
-  var asAddress: Address {
-    if case .address(let value) = self {
-      return value
-    }
-    fatalError("unreachable")
-  }
-
-  /// The value of a program counter.
-  case returnInfo(ProgramCounter, RegisterID)
-
-  var asReturnInfo: (pc: ProgramCounter, register: RegisterID) {
-    if case .returnInfo(let pc, let register) = self {
-      return (pc, register)
-    }
-    fatalError("unreachable")
-  }
-
-  /// A VIL function.
-  case function(Function)
-
-  var asFunction: Function {
-    if case .function(let value) = self {
-      return value
-    }
-    fatalError("unreachable")
-  }
-
-  /// A built-in function.
-  case builtinFunction(FunDecl)
-
-  var asBuiltinFunction: FunDecl {
-    if case .builtinFunction(let value) = self {
-      return value
-    }
-    fatalError("unreachable")
-  }
-
-  /// A native value.
-  case native(Any)
-
-  func asNative<T>(ofType: T.Type) -> T {
-    guard case .native(let value) = self else { fatalError("unreachable") }
-    return value as! T
-  }
-
-  var asIntLiteral: Int   { asNative(ofType: Int.self) }
-  var asI64       : Int64 { asNative(ofType: Int64.self) }
-
-  subscript<C>(offsets: C) -> RuntimeValue where C: BidirectionalCollection, C.Element == Int {
-    get {
-      precondition(!offsets.isEmpty)
-      var result = self
-      for offset in offsets {
-        result = result.storage!.advanced(by: offset).pointee
-      }
-      return result
-    }
-
-    set {
-      precondition(!offsets.isEmpty)
-      var target = storage
-      for offset in offsets.dropLast() {
-        target = storage!.advanced(by: offset)
-      }
-      target!.advanced(by: offsets.last!).pointee = newValue
-    }
-  }
-
-  var storage: RuntimeValuePointer? {
-    get {
-      switch self {
-      case .record(let record):
-        return record.storage
-      case .container(let container):
-        return container.storage
-      default:
-        fatalError("unreachable")
-      }
-    }
-
-    set {
-      switch self {
-      case .container(var container):
-        container.storage = newValue
-        self = .container(container)
-      default:
-        fatalError("unreachable")
-      }
-    }
-  }
-
-  func delete() {
-    switch self {
-    case .record(let value):
-      value.delete()
-    case .container(let value):
-      value.storage?.deinitialize(count: 1)
-      value.storage?.deallocate()
-    default:
-      break
-    }
-  }
-
-  func copy() -> RuntimeValue {
-    switch self {
-    case .record(let val):
-      return .record(val.copy())
-    case .container(let val):
-      return .container(val.copy())
-    default:
-      return self
-    }
-  }
-
-  // MARK: Debug
-
-  var isAddress: Bool {
-    if case .address = self {
-      return true
-    } else {
-      return false
-    }
-  }
-
-}
-
-extension RuntimeValue: CustomStringConvertible {
-
-  var description: String {
-    switch self {
-    case .record(let value):
-      return String(describing: value)
-    case .container(let value):
-      return String(describing: value)
-    case .address(let value):
-      return String(describing: value)
-    case .function(let value):
-      return "@\(value.name)"
-    case .builtinFunction(let value):
-      return "b\"\(value.name)\""
-    case .native(let value):
-      return "native(\(value)"
-    case .junk:
-      return "junk"
-    case .error:
-      return "error"
-    case .returnInfo:
-      return "retinfo"
-    }
-  }
-
-}
-
-/// The payload (i.e. phyiscal storage) of a product or tuple type.
-///
-/// Since all runtime values must fit the same size, the storage of the record has a buffer of
-/// runtime values on the heap, which must be deallocated explicitly.
-struct Record {
-
-  /// The storage of the record.
-  let storage: RuntimeValuePointer?
-
-  /// The number of values contained in the storage.
-  let capacity: Int
-
-  init(capacity: Int) {
-    self.capacity = capacity
-    if capacity > 0 {
-      storage = .allocate(capacity: capacity)
-      storage!.initialize(repeating: .junk, count: capacity)
-    } else {
-      storage = nil
-    }
-  }
-
-  func delete() {
-    guard let buffer = storage else { return }
-
-    for i in 0 ..< capacity {
-      buffer.advanced(by: i).pointee.delete()
-    }
-    buffer.deinitialize(count: capacity)
-    buffer.deallocate()
-  }
-
-  /// Returns a deep copy of this record.
-  func copy() -> Record {
-    let newRecord = Record(capacity: capacity)
-    for i in 0 ..< capacity {
-      newRecord.storage![i] = storage![i].copy()
-    }
-    return newRecord
-  }
-
-}
-
-extension Record: CustomStringConvertible {
-
-  var description: String {
-    let members = (0 ..< capacity)
-      .map({ i in String(describing: storage![i]) })
-      .joined(separator: ", ")
-    return "(\(members))"
-  }
-
-}
-
-/// The address of a memory block in the interpreter.
-///
-/// An address is represented as a squence of offsets. The first is the offset of the interpreter's
-/// runtime stack, while the following are indices of a record or existential container. In other
-/// words, the sequence denotes a path in the interpreter's memory tree.
-///
-/// Note that this essentially emulates a pointer on top of the interpreter's memory architecture.
-struct Address: Equatable {
-
-  private var indices: [Int]
-
-  init(indices: [Int]) {
-    self.indices = indices
-  }
-
-  init<S>(base: Int, offsets: S) where S: Sequence, S.Element == Int {
-    indices = [base] + Array(offsets)
-  }
-
-  init(base: Int) {
-    indices = [base]
-  }
-
-  /// An offset in the interpreter's runtime stack.
-  var base: Int { indices[0] }
-
-  /// A sequence of offsets denoting a path in the memory tree rooted by the value located at
-  /// `base` in the interpreter's runtime stack.
-  var offsets: ArraySlice<Int> { indices.dropFirst() }
-
-  /// Returns a copy of this address, appending the given offset at the end of `offsets`.
+  /// A small inline buffer, suitable for storing small runtime values on the host's stack.
   ///
-  /// - Parameter offset: An offset.
-  func appending(offset newOffset: Int) -> Address {
-    return Address(indices: indices + [newOffset])
+  /// The contents of this struct is designed to occupy exacty two words minus 2 bytes. The two
+  /// last bytes are used to store the size of the buffer and a tag in an enum.
+  private struct InlineBuffer {
+
+#if arch(x86_64) || arch(arm64) || arch(s390x) || arch(powerpc64) || arch(powerpc64le)
+    typealias Bytes = (UInt8, UInt8, UInt8, UInt8,
+                       UInt8, UInt8, UInt8, UInt8,
+                       UInt8, UInt8, UInt8, UInt8,
+                       UInt8, UInt8)
+#else
+    typealias Bytes = (UInt8, UInt8, UInt8, UInt8,
+                       UInt8, UInt8)
+#endif
+
+    var bytes: Bytes
+
+    var count: UInt8
+
+    init(copying buffer: UnsafeRawBufferPointer) {
+      assert(buffer.count <= MemoryLayout<Bytes>.size)
+#if arch(x86_64) || arch(arm64) || arch(s390x) || arch(powerpc64) || arch(powerpc64le)
+      bytes = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+#else
+      bytes = (0, 0, 0, 0, 0)
+#endif
+      count = UInt8(buffer.count)
+
+      if !buffer.isEmpty {
+        Swift.withUnsafeMutableBytes(of: &bytes, { storage in
+          storage.copyMemory(from: buffer)
+        })
+      }
+    }
+
+    static func holds(byteCount: Int) -> Bool {
+      return byteCount <= MemoryLayout<Bytes>.size
+    }
+
   }
 
-  /// The null location.
-  static var null = Address(base: -1)
+#if arch(x86_64) || arch(arm64) || arch(s390x) || arch(powerpc64) || arch(powerpc64le)
+  private typealias HalfUInt = UInt32
+#else
+  private typealias HalfUInt = UInt16
+#endif
 
-}
+  /// A buffer representing data borrowed from a different buffer.
+  ///
+  /// This struct stores a pointer to a buffer and uses half of a word to store the number of bytes
+  /// borrowed from that pointer.
+  private struct BorrowedBuffer {
 
-extension Address: CustomStringConvertible {
+    var baseAddress: UnsafeRawPointer?
 
-  var description: String {
-    let indices = self.indices.map(String.init(describing:)).joined(separator: ".")
-    return "addr(\(indices))"
+    var count: HalfUInt
+
+    static func holds(byteCount: Int) -> Bool {
+      return byteCount <= HalfUInt.max
+    }
+
   }
 
-}
+  /// A buffer of owned data.
+  private final class OwnedBuffer {
 
-/// An existential container.
-struct Container {
+    var baseAddress: UnsafeMutableRawPointer?
 
-  var storage: RuntimeValuePointer?
+    var count: Int
 
-  var witness: ValType?
+    init(copying buffer: UnsafeRawBufferPointer) {
+      baseAddress = .allocate(byteCount: buffer.count, alignment: MemoryLayout<Int>.alignment)
+      count = buffer.count
+      if let address = buffer.baseAddress {
+        baseAddress!.copyMemory(from: address, byteCount: buffer.count)
+      }
+    }
 
-  /// Returns a deep copy of this container.
-  func copy() -> Container {
-    guard let value = storage?.pointee else { return self }
+    deinit {
+      baseAddress?.deallocate()
+    }
 
-    let newStorage = RuntimeValuePointer.allocate(capacity: 1)
-    newStorage.initialize(to: value.copy())
-    return Container(storage: newStorage, witness: witness)
   }
 
-}
+  /// The actual storage for the runtime value's representation.
+  private enum Representation {
 
-extension Container: CustomStringConvertible {
+    case inline(InlineBuffer)
 
-  var description: String {
-    if let value = storage?.pointee {
-      return "{\(value), \(witness!)}"
+    case borrowed(BorrowedBuffer)
+
+    case owned(OwnedBuffer)
+
+  }
+
+  private var representation: Representation
+
+  init<T>(copyingRawBytesOf value: T) {
+    assert(isTrivial(T.self), "cannot copy bytes of non-trivial type")
+    representation = Swift.withUnsafeBytes(of: value, { (bytes) -> Representation in
+      if InlineBuffer.holds(byteCount: MemoryLayout<T>.size) {
+        return .inline(InlineBuffer(copying: bytes))
+      } else {
+        return .owned(OwnedBuffer(copying: bytes))
+      }
+    })
+  }
+
+  init(copying buffer: UnsafeRawBufferPointer) {
+    if InlineBuffer.holds(byteCount: buffer.count) {
+      representation = .inline(InlineBuffer(copying: buffer))
     } else {
-      return "{}"
+      representation = .owned(OwnedBuffer(copying: buffer))
     }
   }
+
+  init(borrowing buffer: UnsafeRawBufferPointer) {
+    if BorrowedBuffer.holds(byteCount: buffer.count) {
+      representation = .borrowed(
+        BorrowedBuffer(baseAddress: buffer.baseAddress, count: HalfUInt(buffer.count)))
+    } else {
+      representation = .owned(OwnedBuffer(copying: buffer))
+    }
+  }
+
+  var byteCount: Int {
+    switch representation {
+    case .inline(let buffer):
+      return Int(buffer.count)
+    case .borrowed(let buffer):
+      return Int(buffer.count)
+    case .owned(let buffer):
+      return buffer.count
+    }
+  }
+
+  func open<T>(as: T.Type) -> T {
+    return withUnsafeBytes({ return $0.load(as: T.self) })
+  }
+
+  func copyMemory(to pointer: UnsafeMutableRawPointer) {
+    withUnsafeBytes({ bytes in
+      if bytes.count > 0 {
+        pointer.copyMemory(from: bytes.baseAddress!, byteCount: bytes.count)
+      }
+    })
+  }
+
+  func withUnsafeBytes<R>(_ body: (UnsafeRawBufferPointer) -> R) -> R {
+    switch representation {
+    case .inline(let buffer):
+      return Swift.withUnsafeBytes(of: buffer.bytes, { bytes in
+        body(UnsafeRawBufferPointer(start: bytes.baseAddress, count: Int(buffer.count)))
+      })
+
+    case .borrowed(let buffer):
+      return body(UnsafeRawBufferPointer(start: buffer.baseAddress, count: Int(buffer.count)))
+
+    case .owned(let buffer):
+      return body(UnsafeRawBufferPointer(start: buffer.baseAddress, count: buffer.count))
+    }
+  }
+
+  static var unit = RuntimeValue(copying: UnsafeRawBufferPointer(start: nil, count: 0))
 
 }

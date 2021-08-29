@@ -1,4 +1,5 @@
 import AST
+import Basic
 
 /// A builder for VIL code.
 public final class Builder {
@@ -9,8 +10,8 @@ public final class Builder {
   /// The current insertion point of the builder.
   public var insertionPoint: InsertionPoint?
 
-  /// A counter to generate unique IDs.
-  private var nextID = 0
+  /// An identifier factory.
+  private var idFactory = AutoIncrementFactory()
 
   /// Creates a new VIL instruction builder.
   ///
@@ -23,8 +24,7 @@ public final class Builder {
 
   /// Builds a unique identifier.
   public func buildUniqueID() -> Int {
-    defer { nextID += 1 }
-    return nextID
+    return idFactory.makeID()
   }
 
   /// Retrieves or creates a function with the specified name and type.
@@ -190,7 +190,7 @@ public final class Builder {
     return inst
   }
 
-  /// Builds a function application.
+  /// Builds an `apply` instruction.
   ///
   /// - Parameters:
   ///   - fun: The function to apply. `fun` must have a function type.
@@ -207,13 +207,22 @@ public final class Builder {
     return inst
   }
 
-  /// Builds a partial application.
+  /// Builds a `partial_apply` instruction.
   ///
   /// - Parameters:
   ///   - fun: The function being partially applied.
   ///   - args: The partial list of arguments of the function application (from left to right).
   public func buildPartialApply(fun: Value, args: [Value]) -> PartialApplyInst {
     let inst = PartialApplyInst(fun: fun, args: args)
+    insert(inst)
+    return inst
+  }
+
+  /// Builds a `thin_to_thick` instruction.
+  ///
+  /// - Parameter ref: A reference to a VIL function.
+  public func buildThinToThick(ref: FunRef) -> ThinToThickInst {
+    let inst = ThinToThickInst(ref: ref)
     insert(inst)
     return inst
   }

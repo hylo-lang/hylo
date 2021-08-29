@@ -261,23 +261,22 @@ struct RValueEmitter: ExprVisitor {
 
     // Emit the function's callee.
     switch node.fun {
-    case let memberRef as MemberDeclRefExpr where memberRef.decl.isMember:
-      // The callee is a reference to a member declaration. It can either be a method or a
-      // functional property.
-      if let methodDecl = memberRef.decl as? BaseFunDecl {
-        // This is a call `foo.bar(x: 0, y: 1)`, where `bar` is a method and `foo` is its receiver.
+    case let member as MemberDeclRefExpr where member.decl.isMember:
+      // The callee is a reference to a member declaration: it's either a method or a functional
+      // property. If it's the former, we have to emit its receiver; othwerise, we just have to
+      // emit a member access.
+      if let methodDecl = member.decl as? BaseFunDecl {
         let receiver = methodDecl.isMutating
-          ? emit(lvalue: memberRef.base)
-          : emit(rvalue: memberRef.base)
+          ? emit(lvalue: member.base)
+          : emit(rvalue: member.base)
         args.append(receiver)
 
         // If the reciever is a existential, the method must be dispatched dynamically, otherwise
         // it must be dispatched statically.
-        callee = memberRef.base.type.isExistential
+        callee = member.base.type.isExistential
           ? builder.buildWitnessMethod(container: receiver, decl: methodDecl)
           : FunRef(function: builder.getOrCreateFunction(from: methodDecl))
       } else {
-        // This is a call `foo.bar(x: 0, y: 1)`, where `bar` is a functional property of `foo`.
         fatalError("not implemented")
       }
 
@@ -364,13 +363,14 @@ struct RValueEmitter: ExprVisitor {
       fatalError("not implemented")
 
     case let decl as FunDecl where decl.isBuiltin:
-      // Emit a built-in function.
+      // Emit a built-in function reference.
       return .success(BuiltinFunRef(decl: decl))
 
     case let decl as BaseFunDecl:
-      // Emit a function reference.
+      // Emit a function reference, wrapped into a thick container.
       let function = builder.getOrCreateFunction(from: decl)
-      return .success(FunRef(function: function))
+      let thick = builder.buildThinToThick(ref: FunRef(function: function))
+      return .success(thick)
 
     default:
       fatalError("unreachable")
@@ -405,7 +405,7 @@ struct RValueEmitter: ExprVisitor {
       break
     }
 
-    fatalError()
+    fatalError("not implemented")
   }
 
   func visit(_ node: TupleMemberExpr) -> ExprResult {
@@ -507,11 +507,7 @@ struct RValueEmitter: ExprVisitor {
         builder.buildStore(lvalue: patLoc, rvalue: subject)
 
         if node.subject.type.isExistential {
-          if pattern.type.isExistential {
-            patLoc = builder.buildCheckedCastAddr(source: patLoc, type: patType.address)
-          } else {
-            patLoc = builder.buildOpenExistentialAddr(container: patLoc, type: patType.address)
-          }
+          patLoc = builder.buildCheckedCastAddr(source: patLoc, type: patType.address)
         } else {
           fatalError("not implemented")
         }

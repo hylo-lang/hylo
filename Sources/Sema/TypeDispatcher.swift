@@ -56,7 +56,7 @@ struct TypeDispatcher: NodeWalker {
         decl.type = pattern.type.uncontextualized
         decl.setState(.typeChecked)
       }
-      assert(!(decl.type is UnresolvedType))
+      assert(!decl.type.isUnresolved)
     }
 
     return (true, pattern)

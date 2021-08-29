@@ -21,7 +21,7 @@ protocol Constraint {
 struct RelationalConstraint: Constraint, CustomStringConvertible {
 
   init(kind: Kind, lhs: ValType, rhs: ValType, at locator: ConstraintLocator) {
-    assert(!(lhs is UnresolvedType) && !(rhs is UnresolvedType))
+    assert(!lhs.isUnresolved && !rhs.isUnresolved)
     assert(kind != .conformance || rhs is ViewType)
     assert(kind != .conversion  || rhs is BuiltinLiteral)
 
@@ -167,7 +167,7 @@ struct ValueMemberConstraint: Constraint, CustomStringConvertible {
     useSite: DeclSpace,
     at locator: ConstraintLocator
   ) {
-    assert(!(lhs is UnresolvedType) && !(rhs is UnresolvedType))
+    assert(!lhs.isUnresolved && !rhs.isUnresolved)
 
     self.lhs = lhs
     self.memberName = memberName
@@ -209,7 +209,7 @@ struct TupleMemberConstraint: Constraint, CustomStringConvertible {
     ofType rhs: ValType,
     at locator: ConstraintLocator
   ) {
-    assert(!(lhs is UnresolvedType) && !(rhs is UnresolvedType))
+    assert(!lhs.isUnresolved && !rhs.isUnresolved)
 
     self.lhs = lhs
     self.memberIndex = memberIndex

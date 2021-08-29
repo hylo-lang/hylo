@@ -53,11 +53,11 @@ final class ValTests: XCTestCase {
       let moduleDecl = try driver.parse(moduleName: moduleName, moduleFiles: [url])
       driver.typeCheck(moduleDecl: moduleDecl)
 
-      var interpreter = Interpreter(context: driver.context)
+      var interpreter = Interpreter()
       try interpreter.load(module: driver.lower(moduleDecl: driver.context.stdlib!))
       try interpreter.load(module: driver.lower(moduleDecl: moduleDecl))
 
-      XCTAssertEqual(try interpreter.start(), 42)
+      XCTAssertEqual(interpreter.start(), 42)
     }
   }
 
