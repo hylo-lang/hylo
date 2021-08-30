@@ -6,7 +6,7 @@ struct RValueEmitter: ExprVisitor {
 
   typealias ExprResult = Result<Value, EmitterError>
 
-  /// The environment in with the r-value is emitted.
+  /// The environment in which the r-value is emitted.
   let env: UnsafeMutablePointer<Emitter.Environment>
 
   /// The VIL builder used by the emitter.
@@ -89,13 +89,36 @@ struct RValueEmitter: ExprVisitor {
   }
 
   /// Emits a r-value.
-  mutating func emit(rvalue expr: Expr) -> Value {
+  func emit(rvalue expr: Expr) -> Value {
     Emitter.emit(rvalue: expr, in: &env.pointee, with: builder)
   }
 
   /// Emits an l-value.
-  func emit(lvalue expr: Expr) -> Value {
-    Emitter.emit(lvalue: expr, in: &env.pointee, with: builder)
+  mutating func emit(lvalue expr: Expr) -> Value {
+    var emitter = LValueEmitter(env: env, builder: builder)
+    switch expr.accept(&emitter) {
+    case .success(let result):
+      // Check for violation of exclusive access.
+      if loans.insert(result.pathID).inserted {
+        return result.loc
+      } else {
+        context.report(.exclusiveAccessViolation(range: expr.range))
+      }
+
+    case .failure(let error):
+      switch error {
+      case .immutableBinding(let decl):
+        context.report(.mutRefToImmut(binding: decl.name, range: expr.range))
+      case .immutableCapture(let decl):
+        context.report(.mutRefToImmutCapture(binding: decl.name, range: expr.range))
+      case .immutableSelf(let property):
+        context.report(.mutRefToImmutSelf(propertyName: property.name, range: expr.range))
+      case .immutableExpr:
+        context.report(.mutRefToImmutValue(range: expr.range))
+      }
+    }
+
+    return PoisonValue(context: expr.type.context)
   }
 
   // ----------------------------------------------------------------------------------------------
@@ -143,11 +166,14 @@ struct RValueEmitter: ExprVisitor {
   }
 
   mutating func visit(_ node: AssignExpr) -> ExprResult {
-    // Emit the left operand first.
+    // Emit the right operand first.
+    let value = emit(rvalue: node.rvalue)
+
+    // Emit the left operand, followed by the assignment.
     var emitter = LValueEmitter(env: env, builder: builder)
     switch node.lvalue.accept(&emitter) {
     case .success(let result):
-      emit(assign: node.rvalue, to: result.loc)
+      emit(assign: value, ofType: node.rvalue.type, to: result.loc)
 
     case .failure(let error):
       switch error {
@@ -256,6 +282,9 @@ struct RValueEmitter: ExprVisitor {
   }
 
   mutating func visit(_ node: CallExpr) -> ExprResult {
+    let oldLoans = loans
+    defer { loans = oldLoans }
+
     let callee: Value
     var args: [Value] = []
 
@@ -271,8 +300,7 @@ struct RValueEmitter: ExprVisitor {
           : emit(rvalue: member.base)
         args.append(receiver)
 
-        // If the reciever is a existential, the method must be dispatched dynamically, otherwise
-        // it must be dispatched statically.
+        // If the reciever is a existential, the method must be dispatched dynamically.
         callee = member.base.type.isExistential
           ? builder.buildWitnessMethod(container: receiver, decl: methodDecl)
           : FunRef(function: builder.getOrCreateFunction(from: methodDecl))
@@ -287,7 +315,6 @@ struct RValueEmitter: ExprVisitor {
 
     // Emit the function's arguments.
     let calleeType = callee.type as! VILFunType
-    let oldLoans = loans
 
     for i in 0 ..< node.args.count {
       var value = emit(rvalue: node.args[i].value)
@@ -321,7 +348,6 @@ struct RValueEmitter: ExprVisitor {
 
     // Emit the call.
     var value: Value = builder.buildApply(fun: callee, args: args)
-    loans = oldLoans
 
     // Emit the extraction of the result value.
     if calleeType.retConv == .exist {
@@ -434,30 +460,7 @@ struct RValueEmitter: ExprVisitor {
   }
 
   mutating func visit(_ node: AddrOfExpr) -> ExprResult {
-    var emitter = LValueEmitter(env: env, builder: builder)
-    switch node.value.accept(&emitter) {
-    case .success(let result):
-      // Check for violation of exclusive access.
-      if loans.insert(result.pathID).inserted {
-        return .success(result.loc)
-      } else {
-        context.report(.exclusiveAccessViolation(range: node.range))
-      }
-
-    case .failure(let error):
-      switch error {
-      case .immutableBinding(let decl):
-        context.report(.mutRefToImmut(binding: decl.name, range: node.value.range))
-      case .immutableCapture(let decl):
-        context.report(.mutRefToImmutCapture(binding: decl.name, range: node.value.range))
-      case .immutableSelf(let property):
-        context.report(.mutRefToImmutSelf(propertyName: property.name, range: node.value.range))
-      case .immutableExpr:
-        context.report(.mutRefToImmutValue(range: node.value.range))
-      }
-    }
-
-    return .success(PoisonValue(context: node.type.context))
+    return .success(emit(lvalue: node.value))
   }
 
   mutating func visit(_ node: MatchExpr) -> ExprResult {

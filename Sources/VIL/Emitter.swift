@@ -470,31 +470,6 @@ public enum Emitter {
     builder.buildStore(lvalue: lvalue, rvalue: rvalue)
   }
 
-  /// Emits an l-value.
-  static func emit(
-    lvalue expr: Expr,
-    in env: inout Environment,
-    with builder: Builder
-  ) -> Value {
-    // Emit an error value for any expression that has an error type.
-    guard !expr.type.isError else { return PoisonValue(context: expr.type.context) }
-
-    let result = withUnsafeMutablePointer(to: &env, { (e) -> LValueEmitter.ExprResult in
-      var emitter = LValueEmitter(env: e, builder: builder)
-      return expr.accept(&emitter)
-    })
-
-    switch result {
-    case .success(let result):
-      return result.loc
-
-    case .failure(let error):
-      // FIXME: This should be reported.
-      print(error)
-      return PoisonValue(context: expr.type.context)
-    }
-  }
-
   /// Emits a r-value.
   static func emit(
     rvalue expr: Expr,
