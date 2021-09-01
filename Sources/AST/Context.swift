@@ -1,7 +1,7 @@
 import Foundation
 import Basic
 
-/// A structure that holds AST nodes along with other long-lived metadata.
+/// A central repository for long-lived objects and shared information about a compiling pipeline.
 public final class Context {
 
   /// Creates a new AST context.
@@ -10,6 +10,80 @@ public final class Context {
   ///   in this context.
   public init(sourceManager: SourceManager? = nil) {
     self.sourceManager = sourceManager ?? SourceManager()
+  }
+
+  deinit {
+    for buffer in buffers.values {
+      buffer.deinitializer(buffer.baseAddress)
+      buffer.baseAddress.deallocate()
+    }
+  }
+
+  // MARK: Shared memory
+
+  /// A key identifying a shared buffer.
+  public enum SharedBufferKey: Hashable {
+
+    case vilConstantValueStore
+
+  }
+
+  /// A memory buffer.
+  private struct SharedBuffer {
+
+    /// An opaque pointer to a buffer.
+    public let baseAddress: UnsafeMutableRawPointer
+
+    /// A closure that accepts `pointer` and deinitialize its memory before it can be deallocated.
+    public let deinitializer: (UnsafeMutableRawPointer) -> Void
+
+  }
+
+  /// The shared buffers own by this context.
+  private var buffers: [SharedBufferKey: SharedBuffer] = [:]
+
+  /// Allocates a memory buffer in the context.
+  public func allocateBuffer<T>(
+    forKey key: SharedBufferKey,
+    ofType: T.Type,
+    capacity: Int = 1,
+    deinitializer: ((UnsafeMutablePointer<T>) -> Void)? = nil
+  ) -> Bool {
+    guard buffers[key] == nil else { return false }
+
+    let addr = UnsafeMutablePointer<T>.allocate(capacity: capacity)
+    let drop: (UnsafeMutableRawPointer) -> Void
+
+    if let d = deinitializer {
+      drop = { (ptr: UnsafeMutableRawPointer) -> Void in
+        d(ptr.assumingMemoryBound(to: T.self))
+      }
+    } else {
+      drop = { (ptr: UnsafeMutableRawPointer) -> Void in
+        ptr.assumingMemoryBound(to: T.self).deinitialize(count: capacity)
+      }
+    }
+
+    buffers[key] = SharedBuffer(baseAddress: addr, deinitializer: drop)
+    return true
+  }
+
+  /// Deallocates a memory buffer in the context.
+  public func deallocateBuffer(forKey key: SharedBufferKey) -> Bool {
+    guard let buffer = buffers[key] else { return false }
+    buffer.deinitializer(buffer.baseAddress)
+    buffer.baseAddress.deallocate()
+    buffers[key] = nil
+    return true
+  }
+
+  /// Accesses the contents of a buffer in the context.
+  public func withBuffer<T, R>(
+    forKey key: SharedBufferKey,
+    of: T.Type,
+    _ action: (UnsafeMutablePointer<T>) throws -> R
+  ) rethrows -> R? {
+    return try (buffers[key]?.baseAddress.assumingMemoryBound(to: T.self)).map(action)
   }
 
   // MARK: General properties
