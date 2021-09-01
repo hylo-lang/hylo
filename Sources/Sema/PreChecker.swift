@@ -121,8 +121,10 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
     return node
   }
 
-  /// Resolves an `UnresolvedDeclRefExpr`, performing an unqualified name lookup from the
-  /// declaration space in which it resides.
+  /// Resolves an `UnresolvedDeclRefExpr`.
+  ///
+  /// The name is resolved with an unqualified name lookup from the declaration space in which the
+  /// reference resides. Implicit member references are rewritten with an explicit `self`.
   func visit(_ node: UnresolvedDeclRefExpr) -> Expr {
     let context = node.type.context
 
@@ -172,7 +174,9 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
     return bind(ref: node, to: matches)
   }
 
-  /// Resolves an `UnresolvedQualDeclRefExpr`, performing a qualified name lookup on its base.
+  /// Resolves an `UnresolvedQualDeclRefExpr`.
+  ///
+  /// The name is resolved with a qualified lookup from the base of the reference.
   func visit(_ node: UnresolvedQualDeclRefExpr) -> Expr {
     let context = node.type.context
 
@@ -343,9 +347,9 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
     return newCall(newFunExpr: newFunExpr)
   }
 
-  /// Binds the given declaration reference to specified lookup result.
+  /// Binds a declaration reference to a lookup result, rewriting the expression accordingly.
   func bind(ref: Expr, to matches: LookupResult) -> Expr {
-    // Favor references to value declarations.
+    // Favor values over types.
     if matches.values.count > 1 {
       assert(!ref.type.hasVariables)
       let unresolved = ref.type.context.unresolvedType
@@ -354,7 +358,7 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
     }
 
     if let decl = matches.values.first {
-      // Rewrite the given expression as an explicit declaration reference.
+      // Rewrite the given expression as an explicit member reference.
       let newRef: Expr
       if let expr = ref as? MemberExpr {
         // Preserve the base expr.

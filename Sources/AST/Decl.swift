@@ -506,7 +506,7 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
   private var captureTable: CaptureTable?
 
   /// Returns the set of all declarations that are captured in the function's closure, explicitly
-  /// implicitly (i.e., without an explicit declaration in function's capture list).
+  /// or implicitly (i.e., without an explicit declaration in function's capture list).
   ///
   /// - Parameter recompute: A flag that indicates whether to use cached results for, if available.
   ///
