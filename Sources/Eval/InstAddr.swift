@@ -3,9 +3,8 @@ import VIL
 /// The address of an instruction.
 public struct InstAddr: Equatable {
 
-  /// The address of a function, stored as a pointer to an unmanaged reference to sidestep Swift's
-  /// reference counting.
-  let functionPtr: UnsafeMutableRawPointer?
+  /// The VIL name of the function.
+  let funName: VILName
 
   /// The ID of the block in the function pointed by `functionPtr`.
   var blockID: BasicBlock.ID
@@ -14,13 +13,13 @@ public struct InstAddr: Equatable {
   var offset: Int
 
   private init() {
-    self.functionPtr = nil
+    self.funName = VILName("")
     self.blockID = 0
     self.offset = 0
   }
 
-  public init(function: Function, blockID: BasicBlock.ID, offset: Int) {
-    self.functionPtr = Unmanaged.passUnretained(function).toOpaque()
+  public init(fun: VILFun, blockID: BasicBlock.ID, offset: Int) {
+    self.funName = fun.name
     self.blockID = blockID
     self.offset = offset
   }

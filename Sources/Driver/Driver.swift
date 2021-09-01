@@ -152,10 +152,7 @@ public struct Driver {
     }
 
     // Emit the module declaration.
-    let module = Module(id: moduleDecl.name)
-    let builder = Builder(module: module)
-    Emitter.emit(module: moduleDecl, with: builder)
-    return module
+    return Emitter.emit(module: moduleDecl)
   }
 
 }

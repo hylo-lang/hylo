@@ -14,14 +14,14 @@ extension Module {
     stream.write("// module \(id)\n")
 
     // Dump the functions in the module.
-    for function in functions.values.sorted(by: { a, b in a.name < b.name }) {
+    for function in functions.values {
       function.dump(to: &stream)
     }
   }
 
 }
 
-extension Function {
+extension VILFun {
 
   /// Dumps a textual representation of the function.
   public func dump() {
@@ -44,7 +44,10 @@ extension Function {
       stream.write(" {\n")
       withUnsafeMutablePointer(to: &stream, { ptr in
         var context = PrintContext(stream: ptr)
-        for blockID in order {
+        if let entryID = self.entryID {
+          context.dump(blockID: entryID, in: self)
+        }
+        for blockID in blocks.keys where blockID != entryID {
           context.dump(blockID: blockID, in: self)
         }
       })
@@ -77,9 +80,9 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
     return valueID
   }
 
-  mutating func dump(blockID: BasicBlock.ID, in function: Function) {
-    self << "bb\(function.index(of: blockID)!)("
-    self << function.blocks[blockID]!.arguments
+  mutating func dump(blockID: BasicBlock.ID, in function: VILFun) {
+    self << "bb\(blockID)("
+    self << function.blocks[blockID]!.params
     self << "):\n"
 
     indentation += 1
@@ -91,15 +94,85 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
 
   mutating func dump(inst: Inst) {
     switch inst {
-    case let inst as AllocStackInst:
-      let id = makeID(for: inst)
-      self << "_\(id) = alloc_stack \(inst.allocatedType)\n"
-
     case let inst as AllocExistentialInst:
       let id = makeID(for: inst)
       self << "_\(id) = alloc_existential "
       self << inst.container
       self << ", \(inst.witness)\n"
+
+    case let inst as AllocStackInst:
+      let id = makeID(for: inst)
+      self << "_\(id) = alloc_stack \(inst.allocatedType)\n"
+
+    case let inst as ApplyInst:
+      let id = makeID(for: inst)
+      self << "_\(id) = apply "
+      self << describe(inst.callee, withType: false)
+      self << "("
+      self << inst.args
+      self << ")\n"
+
+    case let inst as AsyncInst:
+      let id = makeID(for: inst)
+      self << "_\(id) = async \(inst.ref.name) ("
+      self << inst.captures
+      self << ")\n"
+
+    case let inst as AwaitInst:
+      let id = makeID(for: inst)
+      self << "_\(id) = await "
+      self << inst.value
+      self << "\n"
+
+    case let inst as BranchInst:
+      self << "branch bb\(inst.dest)("
+      self << inst.operands
+      self << ")\n"
+
+    case let inst as CheckedCastAddrInst:
+      let id = makeID(for: inst)
+      self << "_\(id) = checked_cast_addr "
+      self << inst.source
+      self << " as \(inst.type)\n"
+
+    case let inst as CondBranchInst:
+      self << "cond_branch "
+      self << inst.cond
+      self << " bb\(inst.thenDest)("
+      self << inst.thenArgs
+      self << ") bb\(inst.elseDest)("
+      self << inst.elseArgs
+      self << ")\n"
+
+    case let inst as CopyAddrInst:
+      self << "copy_addr "
+      self << inst.source
+      self << " to "
+      self << inst.target
+      self << "\n"
+
+    case let inst as EqualAddrInst:
+      let id = makeID(for: inst)
+      self << "_\(id) = equal_addr "
+      self << inst.lhs
+      self << ", "
+      self << inst.rhs
+      self << "\n"
+
+    case is HaltInst:
+      self << "halt\n"
+
+    case let inst as LoadInst:
+      let id = makeID(for: inst)
+      self << "_\(id) = load "
+      self << inst.location
+      self << "\n"
+
+    case let inst as MarkUninitializedInst:
+      let id = makeID(for: inst)
+      self << "_\(id) = mark_uninitialized "
+      self << inst.location
+      self << "\n"
 
     case let inst as OpenExistentialInst:
       let id = makeID(for: inst)
@@ -113,52 +186,13 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
       self << inst.container
       self << " as \(inst.type)\n"
 
-    case let inst as CopyAddrInst:
-      self << "copy_addr "
-      self << inst.source
-      self << " to "
-      self << inst.dest
-      self << "\n"
-
-    case let inst as UnsafeCastAddrInst:
-      let id = makeID(for: inst)
-      self << "_\(id) = unsafe_cast_addr "
-      self << inst.source
-      self << " as \(inst.type)\n"
-
-    case let inst as CheckedCastAddrInst:
-      let id = makeID(for: inst)
-      self << "_\(id) = checked_cast_addr "
-      self << inst.source
-      self << " as \(inst.type)\n"
-
-    case let inst as WitnessMethodInst:
-      let id = makeID(for: inst)
-      self << "_\(id) = witness_method "
-      self << inst.container
-      self << ", \(inst.decl.debugID)\n"
-
-    case let inst as ApplyInst:
-      let id = makeID(for: inst)
-      self << "_\(id) = apply "
-      self << describe(inst.fun, withType: false)
-      self << "("
-      self << inst.args
-      self << ")\n"
-
     case let inst as PartialApplyInst:
       let id = makeID(for: inst)
       self << "_\(id) = partial_apply "
-      self << describe(inst.fun, withType: false)
+      self << describe(inst.delegator, withType: false)
       self << "("
-      self << inst.args
+      self << inst.partialArgs
       self << ")\n"
-
-    case let inst as ThinToThickInst:
-      let id = makeID(for: inst)
-      self << "_\(id) = thin_to_thick "
-      self << describe(inst.ref, withType: false)
-      self << "\n"
 
     case let inst as RecordInst:
       let id = makeID(for: inst)
@@ -176,66 +210,41 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
       self << inst.record
       self << ", \(inst.memberDecl.debugID)\n"
 
-    case let inst as TupleInst:
-      let id = makeID(for: inst)
-      self << "_\(id) = tuple \(inst.type) ("
-      self << inst.elems
-      self << ")\n"
-
-    case let inst as AsyncInst:
-      let id = makeID(for: inst)
-      self << "_\(id) = async \(inst.fun.name) ("
-      self << inst.args
-      self << ")\n"
-
-    case let inst as AwaitInst:
-      let id = makeID(for: inst)
-      self << "_\(id) = await "
-      self << inst.value
-      self << "\n"
-
-    case let inst as StoreInst:
-      self << "store "
-      self << inst.rvalue
-      self << " to "
-      self << inst.lvalue
-      self << "\n"
-
-    case let inst as LoadInst:
-      let id = makeID(for: inst)
-      self << "_\(id) = load "
-      self << inst.lvalue
-      self << "\n"
-
-    case let inst as EqualAddrInst:
-      let id = makeID(for: inst)
-      self << "_\(id) = equal_addr "
-      self << inst.lhs
-      self << ", "
-      self << inst.rhs
-      self << "\n"
-
-    case let inst as BranchInst:
-      self << "branch bb\(inst.dest)("
-      self << inst.args
-      self << ")\n"
-
-    case let inst as CondBranchInst:
-      self << "cond_branch "
-      self << inst.cond
-      self << " bb\(inst.thenDest)("
-      self << inst.thenArgs
-      self << ") bb\(inst.elseDest)("
-      self << inst.elseArgs
-      self << ")\n"
-
     case let inst as RetInst:
       self << "ret "
       self << inst.value
       self << "\n"
 
-    case is HaltInst:
-      self << "halt\n"
+    case let inst as StoreInst:
+      self << "store "
+      self << inst.value
+      self << " to "
+      self << inst.target
+      self << "\n"
+
+    case let inst as ThinToThickInst:
+      let id = makeID(for: inst)
+      self << "_\(id) = thin_to_thick "
+      self << describe(inst.ref, withType: false)
+      self << "\n"
+
+    case let inst as TupleInst:
+      let id = makeID(for: inst)
+      self << "_\(id) = tuple \(inst.type) ("
+      self << inst.operands
+      self << ")\n"
+
+    case let inst as UnsafeCastAddrInst:
+      let id = makeID(for: inst)
+      self << "_\(id) = unsafe_cast_addr "
+      self << inst.source
+      self << " as \(inst.type)\n"
+
+    case let inst as WitnessMethodInst:
+      let id = makeID(for: inst)
+      self << "_\(id) = witness_method "
+      self << inst.container
+      self << ", \(inst.decl.debugID)\n"
 
     default:
       fatalError()

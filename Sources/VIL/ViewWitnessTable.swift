@@ -12,12 +12,12 @@ public struct ViewWitnessTable: Identifiable {
   /// The table's entries.
   ///
   /// Each entry maps a view requirement to the VIL function which implements it.
-  public let entries: [(decl: BaseFunDecl, impl: Function)]
+  public let entries: [(decl: BaseFunDecl, impl: VILFun)]
 
   public init(
     type: NominalType,
     view: ViewType,
-    entries: [(decl: BaseFunDecl, impl: Function)])
+    entries: [(decl: BaseFunDecl, impl: VILFun)])
   {
     self.type = type
     self.view = view

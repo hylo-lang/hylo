@@ -6,7 +6,7 @@ struct ThickFunction {
   /// A value representing the delegator of a partially applied function.
   enum Delegator {
 
-    case thin(UnsafeRawPointer)
+    case thin(VILName)
 
     case thick(UnsafeRawPointer)
 
@@ -28,8 +28,8 @@ struct ThickFunction {
     self.env = env
   }
 
-  init(thin function: VIL.Function) {
-    self.delegator = .thin(UnsafeRawPointer(Unmanaged.passUnretained(function).toOpaque()))
+  init(thin fun: VILFun) {
+    self.delegator = .thin(fun.name)
     self.env = nil
   }
 

@@ -1,35 +1,50 @@
 import AST
+import Basic
 
 /// The representation of runtime value.
-public protocol Value: AnyObject {
+public class Value {
 
   /// The type of the value.
-  var type: VILType { get }
+  public let type: VILType
+
+  /// The uses of this value.
+  public var uses: [Use] = []
+
+  init(type: VILType) {
+    self.type = type
+  }
+
+}
+
+/// A simple pair representing the use of a value in an instruction.
+public struct Use {
+
+  /// The user that contains this use.
+  unowned let user: Inst
+
+  /// The index of this use in `user`'s operands.
+  let index: Int
 
 }
 
 // MARK: Constants
 
 /// A literal value.
-public class LiteralValue: Value {
+public class LiteralValue: Value {}
 
-  /// The type of the constant.
-  public let type: VILType
+/// A poison value.
+public final class PoisonValue: LiteralValue, CustomStringConvertible {
 
-  fileprivate init(type: VILType) {
-    self.type = type
-  }
+  public var description: String { "poison" }
 
 }
 
 /// A constant "unit" value.
 public final class UnitValue: LiteralValue, CustomStringConvertible {
 
-  public init(context: AST.Context) {
-    super.init(type: .lower(context.unitType))
-  }
-
   public var description: String { "unit" }
+
+  private static var _instance: UnitValue?
 
 }
 
@@ -39,7 +54,7 @@ public final class IntLiteralValue: LiteralValue, CustomStringConvertible {
   /// The literal's value.
   public let value: Int
 
-  public init(value: Int, context: AST.Context) {
+  init(value: Int, context: Context) {
     self.value = value
     super.init(type: .lower(context.getBuiltinType(named: "IntLiteral")!))
   }
@@ -56,7 +71,7 @@ public final class BuiltinFunRef: LiteralValue, CustomStringConvertible {
   /// The built-in function declaration that is being referred.
   public let decl: FunDecl
 
-  public init(decl: FunDecl) {
+  init(decl: FunDecl) {
     precondition(decl.isBuiltin)
     self.decl = decl
     super.init(type: .lower(decl.type))
@@ -72,9 +87,9 @@ public final class BuiltinFunRef: LiteralValue, CustomStringConvertible {
 public final class FunRef: LiteralValue, CustomStringConvertible {
 
   /// The name of the function being referenced.
-  public let name: String
+  public let name: VILName
 
-  public init(function: Function) {
+  init(function: VILFun) {
     self.name = function.name
     super.init(type: function.type)
   }
@@ -88,7 +103,7 @@ public final class FunRef: LiteralValue, CustomStringConvertible {
 /// A null location.
 public final class NullAddr: LiteralValue, CustomStringConvertible {
 
-  public override init(type: VILType) {
+  override init(type: VILType) {
     assert(type.isAddress, "type must be an address type")
     super.init(type: type)
   }
@@ -97,30 +112,17 @@ public final class NullAddr: LiteralValue, CustomStringConvertible {
 
 }
 
-/// A poison value.
-public final class PoisonValue: LiteralValue, CustomStringConvertible {
+// MARK: Arguments
 
-  public init(context: AST.Context) {
-    super.init(type: .lower(context.errorType))
-  }
-
-  public var description: String { "poison" }
-
-}
-
-// MARK: Other values
-
-/// The incoming argument of a block or function.
+/// The formal argument (a.k.a. parameter) of a block or function.
 public final class ArgumentValue: Value {
 
-  public let type: VILType
+  /// A back reference to the function in which the argument resides.
+  public let function: VILName
 
-  /// The function to which the argument belongs.
-  public unowned let function: Function
-
-  init(type: VILType, function: Function) {
-    self.type = type
+  init(type: VILType, function: VILName) {
     self.function = function
+    super.init(type: type)
   }
 
 }

@@ -45,7 +45,7 @@ public struct Interpreter {
   private var layout = DataLayout()
 
   /// The functions loaded into the interpreter.
-  private var functions: [String: Function] = [:]
+  private var functions: [VILName: VILFun] = [:]
 
   /// The view witness tables loaded into the interpreter.
   private var viewWitnessTables: [ViewWitnessTable] = []
@@ -92,7 +92,7 @@ public struct Interpreter {
   ///
   /// - Parameter module: A VIL module.
   public mutating func load(module: Module) throws {
-    try functions.merge(module.functions, uniquingKeysWith: { (lhs, rhs) throws -> Function in
+    try functions.merge(module.functions, uniquingKeysWith: { (lhs, rhs) throws -> VILFun in
       if lhs.blocks.isEmpty {
         return rhs
       } else if rhs.blocks.isEmpty {
@@ -116,9 +116,9 @@ public struct Interpreter {
     ]
 
     // Invoke the program's entry point.
-    let main = functions["main"]
+    let main = functions[VILName("main")]
       ?< fatalError("no main function")
-    invoke(function: main, threadID: 0, callerAddr: .null, args: [], returnKey: nil)
+    invoke(fun: main, threadID: 0, callerAddr: .null, args: [], returnKey: nil)
     run()
 
     /// Deinitialize all threads.
@@ -159,7 +159,7 @@ public struct Interpreter {
   /// The epilogue of the call is implemented by the `ret` instruction.
   ///
   /// - Parameters:
-  ///   - function: A VIL function.
+  ///   - fun: A VIL function.
   ///   - threadID: The identifier of the thread on which the function is invoked. The thread must
   ///     already exist.
   ///   - callerAddr: The address of the `apply` instruction that triggered the call. `callerAddr`
@@ -167,18 +167,18 @@ public struct Interpreter {
   ///   - args: The arguments of the function.
   ///   - returnKey: A key identifying the register in which the result of the call must be stored.
   private mutating func invoke<Arguments>(
-    function: Function,
+    fun: VILFun,
     threadID: VirtualThread.ID,
     callerAddr: InstAddr,
     args: Arguments,
     returnKey: RegisterTableKey?
   ) where Arguments: Sequence, Arguments.Element == RuntimeValue {
-    let entryID = function.entryID
-      ?< fatalError("function '\(function.name)' has no entry block")
+    let entryID = fun.entryID
+      ?< fatalError("function '\(fun.name)' has no entry block")
 
     // Reserve the return register, if any.
     if let key = returnKey {
-      let valueWT = valueWitnessTables[valueWitnessTableKey(of: function.type.retType).index]
+      let valueWT = valueWitnessTables[valueWitnessTableKey(of: fun.type.retType).index]
       threads[threadID]!.registerStack.reserve(
         byteCount: valueWT.size, alignedAt: valueWT.alignment, forKey: key)
     }
@@ -187,12 +187,12 @@ public struct Interpreter {
     threads[threadID]!.callStack.pushFrame()
     threads[threadID]!.registerStack.pushFrame()
     threads[threadID]!.registerStack.assign(native: callerAddr, to: .callerAddr)
-    for (arg, reg) in zip(args, function.blocks[entryID]!.arguments) {
-      threads[threadID]!.registerStack.assign(value: arg, to: .value(reg))
+    for (arg, param) in zip(args, fun.blocks[entryID]!.params) {
+      threads[threadID]!.registerStack.assign(value: arg, to: .value(param))
     }
 
     // Jump into the callee.
-    threads[threadID]!.programCounter = InstAddr(function: function, blockID: entryID, offset: 0)
+    threads[threadID]!.programCounter = InstAddr(fun: fun, blockID: entryID, offset: 0)
   }
 
   /// Notify all threads that the given thread has terminated.
@@ -306,7 +306,7 @@ public struct Interpreter {
   private mutating func eval(inst: ApplyInst) {
     // The callee is either a function literal identifying a built-in or a thin function, or a
     // reference to a register that holds a thick function.
-    switch inst.fun {
+    switch inst.callee {
     case let literal as BuiltinFunRef:
       let callee = BuiltinFunction(literal: literal)
         ?< fatalError("no built-in function named '\(literal.decl.name)'")
@@ -319,20 +319,20 @@ public struct Interpreter {
     case let literal as FunRef:
       let args = inst.args.map({ eval(value: $0) })
       invoke(
-        function: functions[literal.name]!,
+        fun: functions[literal.name]!,
         threadID: activeThreadID,
         callerAddr: activeThread.programCounter,
         args: args,
         returnKey: .value(inst))
 
     default:
-      var thick = eval(value: inst.fun).open(as: ThickFunction.self)
+      var thick = eval(value: inst.callee).open(as: ThickFunction.self)
       var args = Deque<RuntimeValue>()
       for value in inst.args {
         args.append(eval(value: value))
       }
 
-      var function: Function?
+      var fun: VILFun?
       loop:while true {
         // Unpack the environment.
         if let env = thick.env {
@@ -341,8 +341,8 @@ public struct Interpreter {
 
         // Unroll the chain of delegators.
         switch thick.delegator {
-        case .thin(let ptr):
-          function = Unmanaged<Function>.fromOpaque(ptr).takeUnretainedValue()
+        case .thin(let name):
+          fun = functions[name]!
           break loop
         case .thick(let ptr):
           thick = ptr.assumingMemoryBound(to: ThickFunction.self).pointee
@@ -350,7 +350,7 @@ public struct Interpreter {
       }
 
       invoke(
-        function: function!,
+        fun: fun!,
         threadID: activeThreadID,
         callerAddr: activeThread.programCounter,
         args: args,
@@ -360,7 +360,7 @@ public struct Interpreter {
 
   private mutating func eval(inst: AsyncInst) {
     var args: [RuntimeValue] = []
-    for value in inst.args {
+    for value in inst.captures {
       args.append(eval(value: value))
     }
 
@@ -372,7 +372,7 @@ public struct Interpreter {
       callStackCapacity: callStackCapacity)
 
     invoke(
-      function: inst.fun,
+      fun: functions[inst.ref.name]!,
       threadID: supplierID,
       callerAddr: .null,
       args: args,
@@ -402,7 +402,7 @@ public struct Interpreter {
 
   private mutating func eval(inst: BranchInst) {
     // FIXME: Handle block arguments.
-    assert(inst.args.isEmpty)
+    assert(inst.operands.isEmpty)
     activeThread.programCounter.blockID = inst.dest
     activeThread.programCounter.offset = 0
   }
@@ -461,7 +461,7 @@ public struct Interpreter {
   }
 
   private mutating func eval(inst: CopyAddrInst) {
-    let dst = eval(value: inst.dest).open(as: ValueAddr.self)
+    let dst = eval(value: inst.target).open(as: ValueAddr.self)
     let src = eval(value: inst.source).open(as: ValueAddr.self)
 
     let byteCount = layout.size(of: inst.source.type.object)
@@ -505,7 +505,7 @@ public struct Interpreter {
   }
 
   private mutating func eval(inst: LoadInst) {
-    let src = eval(value: inst.lvalue).open(as: ValueAddr.self)
+    let src = eval(value: inst.location).open(as: ValueAddr.self)
     load(byteCount: layout.size(of: inst.type), from: src, into: .value(inst))
     activeThread.programCounter.offset += 1
   }
@@ -562,19 +562,19 @@ public struct Interpreter {
     func _makeEnvironment() -> UnsafeRawPointer {
       var args: [RuntimeValue] = []
       var params: [VILType] = []
-      for i in 0 ..< inst.args.count {
-        args.append(eval(value: inst.args[i]))
-        params.append(inst.args[i].type)
+      for i in 0 ..< inst.partialArgs.count {
+        args.append(eval(value: inst.partialArgs[i]))
+        params.append(inst.partialArgs[i].type)
       }
       return makeEnvironment(args: args, params: params)
     }
 
-    switch inst.fun {
+    switch inst.delegator {
     case is BuiltinFunRef:
       fatalError("cannot partially apply built-in function")
 
     case let literal as FunRef:
-      let delegator = Unmanaged.passUnretained(functions[literal.name]!).toOpaque()
+      let delegator = literal.name
       let env = _makeEnvironment()
       let partial = ThickFunction(delegator: .thin(delegator), env: env)
       activeThread.registerStack.assign(native: partial, to: .value(inst))
@@ -663,8 +663,8 @@ public struct Interpreter {
   }
 
   private mutating func eval(inst: StoreInst) {
-    let dest = eval(value: inst.lvalue).open(as: ValueAddr.self)
-    store(value: eval(value: inst.rvalue), at: dest)
+    let dest = eval(value: inst.target).open(as: ValueAddr.self)
+    store(value: eval(value: inst.value), at: dest)
     activeThread.programCounter.offset += 1
   }
 
@@ -697,10 +697,8 @@ public struct Interpreter {
 
   /// Dereferences the basic block containing the instruction referenced by the given address.
   private func load(blockContaining addr: InstAddr) -> BasicBlock? {
-    guard let ptr = addr.functionPtr else { return nil }
-
-    let function = Unmanaged<Function>.fromOpaque(ptr).takeUnretainedValue()
-    return function.blocks[addr.blockID]
+    guard let fun = functions[addr.funName] else { return nil }
+    return fun.blocks[addr.blockID]
   }
 
   /// Dereferences an instruction address.

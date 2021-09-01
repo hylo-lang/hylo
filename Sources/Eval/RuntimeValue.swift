@@ -86,7 +86,6 @@ struct RuntimeValue {
 
   }
 
-  /// The actual storage for the runtime value's representation.
   private enum Representation {
 
     case inline(InlineBuffer)
@@ -97,6 +96,7 @@ struct RuntimeValue {
 
   }
 
+  /// The actual storage for the runtime value's representation.
   private var representation: Representation
 
   init<T>(copyingRawBytesOf value: T) {

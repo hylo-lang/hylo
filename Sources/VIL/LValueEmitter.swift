@@ -5,17 +5,30 @@ struct LValueEmitter: ExprVisitor {
 
   typealias ExprResult = Result<(loc: Value, pathID: PathIdentifier), EmitterError>
 
-  /// The environment in with the r-value is emitted.
-  let env: UnsafeMutablePointer<Emitter.Environment>
+  /// The environment in which the r-value is emitted.
+  let _env: UnsafeMutablePointer<Emitter.Environment>
 
   /// The VIL builder used by the emitter.
-  var builder: Builder
+  let _builder: UnsafeMutablePointer<Builder>
 
-  var funDecl: BaseFunDecl { env.pointee.funDecl }
+  var context: Context { _env.pointee.funDecl.type.context }
 
-  var locals: SymbolTable { env.pointee.locals }
+  var funDecl: BaseFunDecl { _env.pointee.funDecl }
 
-  var context: AST.Context { env.pointee.funDecl.type.context }
+  var locals: SymbolTable {
+    get { _env.pointee.locals }
+    _modify { yield &_env.pointee.locals }
+  }
+
+  var loans: Set<PathIdentifier> {
+    get { _env.pointee.loans }
+    _modify { yield &_env.pointee.loans }
+  }
+
+  var builder: Builder {
+    get { _builder.pointee }
+    _modify { yield &_builder.pointee }
+  }
 
   func visit(_ node: BoolLiteralExpr) -> ExprResult {
     return .failure(.immutableExpr)
@@ -88,7 +101,8 @@ struct LValueEmitter: ExprVisitor {
   }
 
   func visit(_ node: DeclRefExpr) -> ExprResult {
-    // Implicit captures are never mutable.
+    // The keys of a capture table are either original declarations, for implicit captures, or
+    // explicit redeclarations in the capture list. Implicit captures are always immutable.
     guard funDecl.computeAllCaptures()[node.decl] == nil else {
       return .failure(.immutableCapture(node.decl))
     }

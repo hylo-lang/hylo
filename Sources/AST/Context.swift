@@ -211,6 +211,10 @@ public final class Context {
     return unionType([])
   }()
 
+  public var nilType: ValType {
+    return getTypeDecl(for: .Nil)!.instanceType
+  }
+
   public private(set) lazy var unresolvedType: UnresolvedType = {
     return UnresolvedType(context: self)
   }()

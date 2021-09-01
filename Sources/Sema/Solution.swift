@@ -37,7 +37,7 @@ struct Solution {
       return lhs.rawValue < rhs.rawValue
     }
 
-    static var worst = Score(rawValue: UInt64.max)
+    static let worst = Score(rawValue: UInt64.max)
 
   }
 
