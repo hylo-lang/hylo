@@ -5,24 +5,24 @@ struct LValueEmitter: ExprVisitor {
 
   typealias ExprResult = Result<(loc: Value, pathID: PathIdentifier), EmitterError>
 
-  /// The environment in which the r-value is emitted.
-  let _env: UnsafeMutablePointer<Emitter.Environment>
+  /// The srate in which the r-value is emitted.
+  let _state: UnsafeMutablePointer<Emitter.State>
 
   /// The VIL builder used by the emitter.
   let _builder: UnsafeMutablePointer<Builder>
 
-  var context: Context { _env.pointee.funDecl.type.context }
+  var context: Context { _state.pointee.funDecl.type.context }
 
-  var funDecl: BaseFunDecl { _env.pointee.funDecl }
+  var funDecl: BaseFunDecl { _state.pointee.funDecl }
 
   var locals: SymbolTable {
-    get { _env.pointee.locals }
-    _modify { yield &_env.pointee.locals }
+    get { _state.pointee.locals }
+    _modify { yield &_state.pointee.locals }
   }
 
   var loans: Set<PathIdentifier> {
-    get { _env.pointee.loans }
-    _modify { yield &_env.pointee.loans }
+    get { _state.pointee.loans }
+    _modify { yield &_state.pointee.loans }
   }
 
   var builder: Builder {

@@ -283,6 +283,19 @@ public struct StableDoublyLinkedList<Element> {
   /// element inserted into the list.
   public var nextStableIndex: Index { Index(offset: list.nextFreeOffset) }
 
+  /// A collection containing the indices of this list, in order.
+  public var indices: [Index] {
+    var result: [Index] = []
+    result.reserveCapacity(count)
+
+    var i = startIndex
+    while i != endIndex {
+      result.append(i)
+      i = index(after: i)
+    }
+    return result
+  }
+
   /// Returns `true` if the index `i` precedes the index `j`.
   ///
   /// - Complexity: O(n), where n is the number of elements in the list.

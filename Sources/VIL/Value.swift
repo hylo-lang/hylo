@@ -16,14 +16,14 @@ public class Value {
 
 }
 
-/// A simple pair representing the use of a value in an instruction.
-public struct Use {
+/// A pair representing the use of a value in an instruction.
+public struct Use: Hashable {
 
-  /// The user that contains this use.
-  unowned let user: Inst
+  /// The path of the user that contains this use.
+  public let userPath: InstPath
 
   /// The index of this use in `user`'s operands.
-  let index: Int
+  public let index: Int
 
 }
 
@@ -117,11 +117,11 @@ public final class NullAddr: LiteralValue, CustomStringConvertible {
 /// The formal argument (a.k.a. parameter) of a block or function.
 public final class ArgumentValue: Value {
 
-  /// A back reference to the function in which the argument resides.
-  public let function: VILName
+  /// A back reference to the basic block in which the formal argument is defined.
+  public let parentBlockID: BasicBlock.ID
 
-  init(type: VILType, function: VILName) {
-    self.function = function
+  init(type: VILType, parentBlockID: BasicBlock.ID) {
+    self.parentBlockID = parentBlockID
     super.init(type: type)
   }
 

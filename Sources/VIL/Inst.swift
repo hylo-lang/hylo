@@ -8,6 +8,51 @@ public protocol Inst: AnyObject {
 
 }
 
+/// The absolute path of an instruction.
+///
+/// The path is stable: it is not invalidated by the insertion or removal of other instructions at
+/// any position, in any basic block.
+public struct InstPath: Hashable {
+
+  /// The name of the function in which the instruction resides.
+  var funName: VILName
+
+  /// The basic block in which the instruction resides.
+  var blockID: BasicBlock.ID
+
+  /// The index of the instruction in the containing basic block.
+  var instIndex: BasicBlock.Index
+
+}
+
+/// A storage assignment instruction.
+public protocol StorageAssignmentInst: Inst {
+
+  /// The semantics of the assignment represented by this instruction.
+  var semantics: AssignmentSemantics { get }
+
+}
+
+/// The semantics of a storage assignment instruction.
+public enum AssignmentSemantics {
+
+  /// The assignment is initializing memory and requires exclusive write access.
+  case init_
+
+  /// The assignment is modifying initialized memory and requires exclusive modify access.
+  case modify
+
+  /// The assignment is either initializing or modifying memory; it requires exclusive write access.
+  ///
+  /// The `init_or_modify` semantics applies to assignment instructions whose semantics can't be
+  /// determined statically (i.e., when there isn't any dominating assignment instruction).
+  case initOrModify
+
+  /// The assignment has unknown semantics. This mode is valid only in the raw stage.
+  case unknown
+
+}
+
 // MARK: Stack Allocations
 
 /// Allocates a block of uninitalized memory on the stack, large enough to contain a value of the
@@ -17,8 +62,12 @@ public final class AllocStackInst: Value, Inst {
   /// The type of the allocated value.
   public let allocatedType: VILType
 
-  init(allocatedType: VILType) {
+  /// The Val declaration related to the allocation, for debugging.
+  public private(set) unowned var decl: ValueDecl?
+
+  init(allocatedType: VILType, decl: ValueDecl?) {
     self.allocatedType = allocatedType
+    self.decl = decl
     super.init(type: allocatedType.address)
   }
 
@@ -26,10 +75,32 @@ public final class AllocStackInst: Value, Inst {
 
 }
 
+/// Deallocates memory previously allocated by `alloc_stack`.
+///
+/// This instruction formally terminates the lifetime of the memory allocation. Accessing the
+/// referenced memory after `dealloc_stack` causes undefined behavior.
+///
+/// Stack deallocation must be in FILO order: The operand must be the last `alloc_stack` preceeding
+/// the deallocation.
+public final class DeallocStackInst: Inst {
+
+  /// The corresponding stack allocation.
+  public let alloc: AllocStackInst
+
+  init(alloc: AllocStackInst) {
+    self.alloc = alloc
+  }
+
+  public var operands: [Value] { [alloc] }
+
+}
+
 // MARK: Memory Access
 
-/// Copies the contents located at the given source address to another location.
-public final class CopyAddrInst: Inst {
+/// Assigns the contents located at a source address to another location.
+public final class CopyAddrInst: StorageAssignmentInst {
+
+  public let semantics: AssignmentSemantics
 
   /// The target address of the copy.
   public let target: Value
@@ -37,9 +108,10 @@ public final class CopyAddrInst: Inst {
   /// The address of the object to copy.
   public let source: Value
 
-  init(target: Value, source: Value) {
+  init(target: Value, source: Value, semantics: AssignmentSemantics) {
     self.target = target
     self.source = source
+    self.semantics = semantics
   }
 
   public var operands: [Value] { [target, source] }
@@ -105,7 +177,9 @@ public final class MarkUninitializedInst: Value, Inst {
 }
 
 /// Stores a value at the specified address.
-public final class StoreInst: Inst {
+public final class StoreInst: StorageAssignmentInst {
+
+  public let semantics: AssignmentSemantics
 
   /// The location at which the value must be stored.
   public let target: Value
@@ -113,9 +187,10 @@ public final class StoreInst: Inst {
   /// The value being stored.
   public let value: Value
 
-  init(target: Value, value: Value) {
+  init(target: Value, value: Value, semantics: AssignmentSemantics) {
     self.target = target
     self.value = value
+    self.semantics = semantics
   }
 
   public var operands: [Value] { [target, value] }

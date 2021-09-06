@@ -11,4 +11,7 @@ public enum DriverError: Error {
   /// Occurs when the driver attempts to lower a module that has not been type checked.
   case moduleNotTypeChecked(moduleName: String)
 
+  /// Occurs when the driver failed to lower a module to verified VIL.
+  case moduleLoweringFailed(moduleName: String)
+
 }

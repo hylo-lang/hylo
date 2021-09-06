@@ -145,10 +145,17 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
       self << ")\n"
 
     case let inst as CopyAddrInst:
-      self << "copy_addr "
+      self << "copy_addr ["
+      self << snakenize(String(describing: inst.semantics))
+      self << "] "
       self << inst.source
       self << " to "
       self << inst.target
+      self << "\n"
+
+    case let inst as DeallocStackInst:
+      self << "dealloc_stack "
+      self << inst.alloc
       self << "\n"
 
     case let inst as EqualAddrInst:
@@ -216,7 +223,9 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
       self << "\n"
 
     case let inst as StoreInst:
-      self << "store "
+      self << "store ["
+      self << snakenize(String(describing: inst.semantics))
+      self << "] "
       self << inst.value
       self << " to "
       self << inst.target
@@ -313,4 +322,12 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
     }
   }
 
+}
+
+func snakenize(_ string: String) -> String {
+  return string.reduce(into: "", { (partial, char) in
+    partial += char.isUppercase
+      ? "_\(char.lowercased())"
+      : "\(char)"
+  })
 }

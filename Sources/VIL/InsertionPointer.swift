@@ -5,7 +5,7 @@ public struct InsertionPointer {
 
     case end
 
-    case at(index: Int)
+    case before(index: BasicBlock.Index)
 
   }
 
@@ -26,6 +26,12 @@ public struct InsertionPointer {
     self.funName = funName
     self.blockID = blockID
     self.position = position
+  }
+
+  public init(before path: InstPath) {
+    self.funName = path.funName
+    self.blockID = path.blockID
+    self.position = .before(index: path.instIndex)
   }
 
 }

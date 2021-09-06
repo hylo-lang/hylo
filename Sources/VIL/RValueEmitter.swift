@@ -6,24 +6,29 @@ struct RValueEmitter: ExprVisitor {
 
   typealias ExprResult = Result<Value, EmitterError>
 
-  /// The environment in which the r-value is emitted.
-  let _env: UnsafeMutablePointer<Emitter.Environment>
+  /// The state in which the r-value is emitted.
+  let _state: UnsafeMutablePointer<Emitter.State>
 
   /// The VIL builder used by the emitter.
   let _builder: UnsafeMutablePointer<Builder>
 
-  var context: Context { _env.pointee.funDecl.type.context }
+  var context: Context { _state.pointee.funDecl.type.context }
 
-  var funDecl: BaseFunDecl { _env.pointee.funDecl }
+  var funDecl: BaseFunDecl { _state.pointee.funDecl }
 
   var locals: SymbolTable {
-    get { _env.pointee.locals }
-    _modify { yield &_env.pointee.locals }
+    get { _state.pointee.locals }
+    _modify { yield &_state.pointee.locals }
+  }
+
+  var allocs: [AllocStackInst] {
+    get { _state.pointee.allocs }
+    _modify { yield &_state.pointee.allocs }
   }
 
   var loans: Set<PathIdentifier> {
-    get { _env.pointee.loans }
-    _modify { yield &_env.pointee.loans }
+    get { _state.pointee.loans }
+    _modify { yield &_state.pointee.loans }
   }
 
   var builder: Builder {
@@ -49,10 +54,11 @@ struct RValueEmitter: ExprVisitor {
     // 2. If the value has a concrete type, then it must be packed into an existential container.
     if targetType.isExistential {
       if valueType.isExistential {
-        var tmp: Value = builder.buildAllocStack(type: value.type)
-        builder.buildStore(target: tmp, value: value)
-        tmp = builder.buildUnsafeCastAddr(source: tmp, type: target.type)
+        let loc = builder.buildAllocStack(type: value.type)
+        builder.buildStore(target: loc, value: value, semantics: .init_)
+        let tmp = builder.buildUnsafeCastAddr(source: loc, type: target.type)
         builder.buildCopyAddr(target: target, source: tmp)
+        builder.buildDeallocStack(alloc: loc)
       } else {
         let lvalue = builder.buildAllocExistential(container: target, witness: value.type)
         builder.buildStore(target: lvalue, value: value)
@@ -72,7 +78,7 @@ struct RValueEmitter: ExprVisitor {
     // If both operands have an existential layout and the r-value can be treated as a location,
     // then we may simply emit `copy_addr`.
     if targetType.isExistential && exprType.isExistential {
-      var emitter = LValueEmitter(_env: _env, _builder: _builder)
+      var emitter = LValueEmitter(_state: _state, _builder: _builder)
       if case .success(let result) = expr.accept(&emitter) {
         // Convert the r-value into the l-value's type if it has a different type.
         var source = result.loc
@@ -93,12 +99,12 @@ struct RValueEmitter: ExprVisitor {
 
   /// Emits a r-value.
   mutating func emit(rvalue expr: Expr) -> Value {
-    Emitter.emit(rvalue: expr, in: &_env.pointee, with: &_builder.pointee)
+    Emitter.emit(rvalue: expr, in: &_state.pointee, with: &_builder.pointee)
   }
 
   /// Emits an l-value.
   mutating func emit(lvalue expr: Expr) -> Value {
-    var emitter = LValueEmitter(_env: _env, _builder: _builder)
+    var emitter = LValueEmitter(_state: _state, _builder: _builder)
     switch expr.accept(&emitter) {
     case .success(let result):
       // Check for violation of exclusive access.
@@ -173,7 +179,7 @@ struct RValueEmitter: ExprVisitor {
     let value = emit(rvalue: node.rvalue)
 
     // Emit the left operand, followed by the assignment.
-    var emitter = LValueEmitter(_env: _env, _builder: _builder)
+    var emitter = LValueEmitter(_state: _state, _builder: _builder)
     switch node.lvalue.accept(&emitter) {
     case .success(let result):
       emit(assign: value, ofType: node.rvalue.type, to: result.loc)
@@ -207,23 +213,25 @@ struct RValueEmitter: ExprVisitor {
     let targetType = nodeType.args[0]
     let vilTargetType = VILType.lower(targetType)
 
-    // Allocate space for the result of the cast.
-    let result = builder.buildAllocStack(type: .lower(node.type))
-
-    let lvalue: Value
-    var emitter = LValueEmitter(_env: _env, _builder: _builder)
-    if case .success(let result) = node.value.accept(&emitter) {
-      lvalue = result.loc
-    } else {
-      lvalue = builder.buildAllocStack(type: .lower(node.type))
-      builder.buildStore(target: lvalue, value: emit(rvalue: node.value))
-    }
+    // Allocate an existential container to hold the result of the cast.
+    let container = builder.buildAllocStack(type: .lower(node.type))
+    allocs.append(container)
 
     // Cast the value.
-    let cast = builder.buildCheckedCastAddr(source: lvalue, type: vilTargetType.address)
+    let cast: CheckedCastAddrInst
+    var emitter = LValueEmitter(_state: _state, _builder: _builder)
+    if case .success(let result) = node.value.accept(&emitter) {
+      cast = builder.buildCheckedCastAddr(source: result.loc, type: vilTargetType.address)
+    } else {
+      let tmp = builder.buildAllocStack(type: .lower(node.type))
+      builder.buildStore(target: tmp, value: emit(rvalue: node.value), semantics: .init_)
+      cast = builder.buildCheckedCastAddr(source: tmp, type: vilTargetType.address)
+      builder.buildDeallocStack(alloc: tmp)
+    }
+
+    // Handle control flow, depending on the outcome of the cast.
     let test = builder.buildEqualAddr(
       lhs: cast, rhs: builder.buildNullAddr(type: vilTargetType.address))
-
     let success = builder.buildBasicBlock()
     let failure = builder.buildBasicBlock()
     let finally = builder.buildBasicBlock()
@@ -232,7 +240,7 @@ struct RValueEmitter: ExprVisitor {
     // If the cast succeeded ...
     builder.insertionPointer!.blockID = success
     builder.buildCopyAddr(
-      target: builder.buildAllocExistential(container: result, witness: vilTargetType),
+      target: builder.buildAllocExistential(container: container, witness: vilTargetType),
       source: cast)
     builder.buildBranch(dest: finally)
 
@@ -240,12 +248,14 @@ struct RValueEmitter: ExprVisitor {
     builder.insertionPointer!.blockID = failure
     let nilValue = builder.buildNil()
     builder.buildStore(
-      target: builder.buildAllocExistential(container: result, witness: nilValue.type),
+      target: builder.buildAllocExistential(container: container, witness: nilValue.type),
       value: nilValue)
     builder.buildBranch(dest: finally)
 
     builder.insertionPointer!.blockID = finally
-    return .success(builder.buildLoad(location: result))
+    let result = builder.buildLoad(location: container)
+    builder.buildDeallocStack(alloc: container)
+    return .success(result)
   }
 
   mutating func visit(_ node: UnsafeCastExpr) -> Result<Value, EmitterError> {
@@ -258,11 +268,13 @@ struct RValueEmitter: ExprVisitor {
       return node.value.accept(&self)
     }
 
-    // If the target type is existential, store the node's value into a new container.
+    // If the target type is existential, store the node's value into a temporary container.
     if targetType.isExistential {
-      let container = builder.buildAllocStack(type: .lower(targetType))
-      emit(assign: node.value, to: container)
-      return .success(builder.buildLoad(location: container))
+      let tmp = builder.buildAllocStack(type: .lower(targetType))
+      emit(assign: node.value, to: tmp)
+      let result = builder.buildLoad(location: tmp)
+      builder.buildDeallocStack(alloc: tmp)
+      return .success(result)
     }
 
     // If the value being cast is an existential container, open it.
@@ -342,6 +354,7 @@ struct RValueEmitter: ExprVisitor {
           let ptr = builder.buildAllocExistential(container: tmp, witness: value.type)
           builder.buildStore(target: ptr, value: value)
           value = builder.buildLoad(location: tmp)
+          builder.buildDeallocStack(alloc: tmp)
         }
       }
 
@@ -472,79 +485,92 @@ struct RValueEmitter: ExprVisitor {
     // Create a block for all cases to branch unconditionally (unless they yield control).
     let lastBlock = builder.buildBasicBlock()
 
-    func irrefutable(stmt: MatchCaseStmt) {
-      if let decl = stmt.pattern.singleVarDecl {
-        // Assign the subject to a local variable.
-        let lvalue = Emitter.emit(
-          localVar: decl, into: &_env.pointee.locals, with: &_builder.pointee)
-        emit(assign: subject, ofType: node.type.dealiased.canonical, to: lvalue)
+    /// Emits the body of a case in the current block.
+    func emitCaseBody(body: BraceStmt) {
+      if let storage = storage {
+        let value = emit(rvalue: body.stmts[0] as! Expr)
+        builder.buildStore(target: storage, value: value)
+      } else {
+        Emitter.emit(brace: body, in: &_state.pointee, with: &_builder.pointee)
       }
-      builder.buildBranch(dest: lastBlock)
     }
 
     // Emit each case statement.
-    for (i, stmt) in node.cases.enumerated() {
-      // Update the builder's insertion point and prepare the case's block.
-      let thenBlock = builder.buildBasicBlock()
-      var elseBlock = lastBlock
-
-      // Handle irrefutable patterns.
-      if !stmt.pattern.isRefutable {
-        irrefutable(stmt: stmt)
+    for stmt in node.cases {
+      // Wildcard patterns are irrefutable.
+      if stmt.pattern is WildcardPattern {
+        assert(stmt.pattern.type == node.subject.type)
+        emitCaseBody(body: stmt.body)
+        builder.buildBranch(dest: lastBlock)
+        builder.insertionPointer!.blockID = lastBlock
         break
-      } else if let pattern = stmt.pattern as? BindingPattern {
-        // Check for trivial casts that actually make the pattern irrefutable.
-        guard pattern.type !== node.subject.type else {
-          irrefutable(stmt: stmt)
+      }
+
+      // Binding patterns must be allocated.
+      if let pattern = stmt.pattern as? BindingPattern {
+        let patterns = pattern.namedPatterns
+        // FIXME: Handle destructuring.
+        precondition(patterns.count == 1, "not implemented")
+        let patLoc = Emitter.emit(
+          storedLocalVar: patterns[0].decl, in: &_state.pointee, with: &_builder.pointee)
+
+        // If the subject has the same type as the pattern, the latter is actually irrefutable.
+        // Otherwise, we must try to cast the subject and branch over the result.
+        if pattern.type === node.subject.type {
+          Emitter.emit(
+            assign: subject,
+            ofType: node.subject.type,
+            to: patLoc,
+            asInit: true,
+            with: &_builder.pointee)
+          emitCaseBody(body: stmt.body)
+
+          // Deallocate the pattern's memory.
+          if let loc = patLoc as? AllocStackInst { builder.buildDeallocStack(alloc: loc) }
+          builder.buildBranch(dest: lastBlock)
+          builder.insertionPointer!.blockID = lastBlock
           break
         }
 
-        // Refutable binding pattern require a type check.
-        let patType = VILType.lower(pattern.type)
-        var patLoc: Value = builder.buildAllocStack(type: subject.type)
-        builder.buildStore(target: patLoc, value: subject)
+        // FIXME: Handle down casts.
+        precondition(node.subject.type.isExistential, "not implemented")
 
-        if node.subject.type.isExistential {
-          patLoc = builder.buildCheckedCastAddr(source: patLoc, type: patType.address)
-        } else {
-          fatalError("not implemented")
-        }
+        let patType = VILType.lower(pattern.type)
+        let tmp = builder.buildAllocStack(type: subject.type)
+        builder.buildStore(target: tmp, value: subject, semantics: .init_)
+        let cast = builder.buildCheckedCastAddr(source: tmp, type: patType.address)
+        builder.buildDeallocStack(alloc: tmp)
+
+        let thenBlock = builder.buildBasicBlock()
+        let elseBlock = builder.buildBasicBlock()
 
         let cond = builder.buildEqualAddr(
-          lhs: patLoc, rhs: builder.buildNullAddr(type: patLoc.type))
-        if i < node.cases.count - 1 {
-          elseBlock = builder.buildBasicBlock()
-        }
+          lhs: cast, rhs: builder.buildNullAddr(type: patType.address))
         builder.buildCondBranch(cond: cond, thenDest: elseBlock, elseDest: thenBlock)
 
-        if let decl = stmt.pattern.singleVarDecl {
-          locals[ObjectIdentifier(decl)] = patLoc
-        } else {
-          fatalError("not implemented")
-        }
-      } else {
-        // FIXME: Handle complex conditional patterns recursively.
-        fatalError("not implemented")
+        builder.insertionPointer!.blockID = thenBlock
+        locals[ObjectIdentifier(patterns[0].decl)] = cast
+        emitCaseBody(body: stmt.body)
+        if let loc = patLoc as? AllocStackInst { builder.buildDeallocStack(alloc: loc) }
+        builder.buildBranch(dest: lastBlock)
+
+        builder.insertionPointer!.blockID = elseBlock
+        if let loc = patLoc as? AllocStackInst { builder.buildDeallocStack(alloc: loc) }
+        builder.buildBranch(dest: lastBlock)
+        builder.insertionPointer!.blockID = lastBlock
+
+        continue
       }
 
-      builder.insertionPointer!.blockID = thenBlock
-
-      // Emit the statement's body.
-      if let storage = storage {
-        let value = emit(rvalue: stmt.body.stmts[0] as! Expr)
-        builder.buildStore(target: storage, value: value)
-      } else {
-        Emitter.emit(brace: stmt.body, in: &_env.pointee, with: &_builder.pointee)
-      }
-
-      // Jump to the end of the match.
-      builder.buildBranch(dest: lastBlock)
-      builder.insertionPointer!.blockID = elseBlock
-      guard stmt.pattern.isRefutable else { break }
+      // FIXME: Handle complex conditional patterns recursively.
+      fatalError("not implemented")
     }
 
+    assert(builder.insertionPointer?.blockID == lastBlock)
     if let storage = storage {
-      return .success(builder.buildLoad(location: storage))
+      let result = builder.buildLoad(location: storage)
+      builder.buildDeallocStack(alloc: storage)
+      return .success(result)
     } else {
       return .success(builder.buildUnit())
     }

@@ -14,6 +14,10 @@ public struct Builder {
   private var idFactory = AutoIncrementFactory()
 
   /// The current insertion point of the builder.
+  ///
+  /// The observer of that property maintains the following invariants:
+  /// - If `insertionPointer` is set, then it refers to an existing function.
+  /// - If `insertionPointer.blockID` is set, then it refers to an existing block.
   public var insertionPointer: InsertionPointer? {
     didSet {
       guard let ip = insertionPointer else { return }
@@ -57,9 +61,42 @@ public struct Builder {
     }
   }
 
+  /// Calls the given closure with the function referenced by the builder's insertion pointer
+  /// passed as an inout argument.
+  ///
+  /// - Parameter action: A closure that accepts the current function. `action` is not called if
+  ///   the insertion pointer does not refer to any function.
+  /// - Returns: The result of `action` or `nil` if it was not called.
+  public mutating func withCurrentFun<R>(_ action: (inout VILFun) -> R) -> R? {
+    if let funName = insertionPointer?.funName {
+      return action(&module.functions[funName]!)
+    } else {
+      return nil
+    }
+  }
+
+  /// Calls the given closure with the basic block referenced by the builder's insertion pointer
+  /// passed as an inout argument.
+  ///
+  /// - Parameter action: A closure that accepts the current basic block. `action` is not called if
+  ///   the insertion pointer does not refer to any basic block.
+  /// - Returns: The result of `action` or `nil` if it was not called.
+  public mutating func withCurrentBasicBlock<R>(_ action: (inout BasicBlock) -> R) -> R? {
+    if let blockID = insertionPointer?.blockID {
+      return action(&module.functions[insertionPointer!.funName]!.blocks[blockID]!)
+    } else {
+      return nil
+    }
+  }
+
   /// Builds a unique identifier.
   public mutating func makeUID() -> Int {
     return idFactory.makeID()
+  }
+
+  /// Builds a unique basic block identifier.
+  public mutating func makeBasicBlockID() -> BasicBlock.ID {
+    return UInt32(makeUID())
   }
 
   // MARK: Functions and blocks
@@ -136,30 +173,24 @@ public struct Builder {
   /// method fails if that insertion point does not refer to a function.
   ///
   /// - Parameters:
-  ///   - operands: The operands of the basic block.
+  ///   - paramTypes: The type of each formal argument.
   ///   - isEntry: A Boolean value that indicates whether the new block should be set as the
   ///     function's entry.
   public mutating func buildBasicBlock(
-    params: [ArgumentValue] = [],
+    paramTypes: [VILType] = [],
     isEntry: Bool = false
   ) -> BasicBlock.ID {
-    guard let ip = insertionPointer else { fatalError("invalid insertion pointer") }
+    precondition(insertionPointer != nil, "insertion pointer is not configured")
 
-    let blockID = makeUID()
-    module.functions[ip.funName]!.blocks[blockID] = BasicBlock(params: params)
-    if isEntry {
-      module.functions[ip.funName]!.entryID = blockID
-    }
+    let blockID = makeBasicBlockID()
+    withCurrentFun({ fun in
+      fun.blocks[blockID] = BasicBlock(id: blockID, paramTypes: paramTypes)
+      if isEntry {
+       fun.entryID = blockID
+      }
+    })
+
     return blockID
-  }
-
-  /// Builds an argument.
-  ///
-  /// The argument is created in the function referenced by the builder's insertion point. The
-  /// method fails if that insertion point does not refer to a function.
-  public mutating func buildArgument(type: VILType) -> ArgumentValue {
-    guard let fun = currentFun else { fatalError("invalid insertion pointer") }
-    return ArgumentValue(type: type, function: fun.name)
   }
 
   // MARK: Constants
@@ -268,11 +299,16 @@ public struct Builder {
 
   /// Builds an `alloc_stack` instruction.
   ///
-  /// - Parameter type: The type of the allocated object. `type` must be an object type.
-  public mutating func buildAllocStack(type: VILType) -> AllocStackInst {
+  /// - Parameters:
+  ///   - type: The type of the allocated object. `type` must be an object type.
+  ///   - decl: The Val declaration related to the allocation, for debugging.
+  public mutating func buildAllocStack(
+    type: VILType,
+    decl: ValueDecl? = nil
+  ) -> AllocStackInst {
     precondition(type.isObject, "allocated type must be an object type")
 
-    let inst = AllocStackInst(allocatedType: type)
+    let inst = AllocStackInst(allocatedType: type, decl: decl)
     insert(inst)
     return inst
   }
@@ -283,9 +319,8 @@ public struct Builder {
   ///   - callee: The function to apply. `callee` must have a function type.
   ///   - args: The arguments of the function application.
   public mutating func buildApply(callee: Value, args: [Value]) -> ApplyInst {
-    guard let calleeType = callee.type.valType as? FunType else {
-      preconditionFailure("apply on non-function operand")
-    }
+    let calleeType = callee.type.valType as? FunType
+      ?< preconditionFailure("apply on non-function operand")
 
     // FIXME: Perhaps we could do some argument validation here?
 
@@ -325,11 +360,16 @@ public struct Builder {
   ///     formal arguments expected expected by `dest.`
   @discardableResult
   public mutating func buildBranch(dest: BasicBlock.ID, args: [Value] = []) -> BranchInst {
-    guard let fun = currentFun else { fatalError("invalid insertion pointer") }
+    guard let fun = currentFun else { fatalError("insertion pointer is not configured") }
     precondition(fun.blocks[dest] != nil, "invalid destination")
 
     let inst = BranchInst(dest: dest, args: args)
     insert(inst)
+
+    // Update the function's CFG.
+    let blockID = insertionPointer!.blockID!
+    module.functions[insertionPointer!.funName]!.insertControlEdge(from: blockID, to: dest)
+
     return inst
   }
 
@@ -363,12 +403,28 @@ public struct Builder {
     thenDest: BasicBlock.ID, thenArgs: [Value] = [],
     elseDest: BasicBlock.ID, elseArgs: [Value] = []
   ) -> CondBranchInst {
-    guard let fun = currentFun else { fatalError("invalid insertion pointer") }
+    guard let fun = currentFun else { fatalError("insertion pointer is not configured") }
     precondition(fun.blocks[thenDest] != nil, "invalid destination")
     precondition(fun.blocks[elseDest] != nil, "invalid destination")
 
     let inst = CondBranchInst(
       cond: cond, thenDest: thenDest, thenArgs: thenArgs, elseDest: elseDest, elseArgs: elseArgs)
+    insert(inst)
+
+    // Update the function's CFG.
+    let blockID = insertionPointer!.blockID!
+    module.functions[insertionPointer!.funName]!.insertControlEdge(from: blockID, to: thenDest)
+    module.functions[insertionPointer!.funName]!.insertControlEdge(from: blockID, to: elseDest)
+
+    return inst
+  }
+
+  /// Builds a `dealloc_stack` instruction.
+  ///
+  /// - Parameter alloc: The corresponding stack allocation.
+  @discardableResult
+  public mutating func buildDeallocStack(alloc: AllocStackInst) -> DeallocStackInst {
+    let inst = DeallocStackInst(alloc: alloc)
     insert(inst)
     return inst
   }
@@ -378,9 +434,14 @@ public struct Builder {
   /// - Parameters:
   ///   - target: The target address of the copy.
   ///   - source: The address of the object to copy.
+  ///   - semantics: The assignment semantics of the instruction.
   @discardableResult
-  public mutating func buildCopyAddr(target: Value, source: Value) -> CopyAddrInst {
-    let inst = CopyAddrInst(target: target, source: source)
+  public mutating func buildCopyAddr(
+    target: Value,
+    source: Value,
+    semantics: AssignmentSemantics = .unknown
+  ) -> CopyAddrInst {
+    let inst = CopyAddrInst(target: target, source: source, semantics: semantics)
     insert(inst)
     return inst
   }
@@ -547,13 +608,18 @@ public struct Builder {
   /// - Parameters:
   ///   - target: The location (or target) of the store.
   ///   - value: The value being stored.
+  ///   - semantics: The assignment semantics of the instruction.
   @discardableResult
-  public mutating func buildStore(target: Value, value: Value) -> StoreInst {
+  public mutating func buildStore(
+    target: Value,
+    value: Value,
+    semantics: AssignmentSemantics = .unknown
+  ) -> StoreInst {
     precondition(target.type.isAddress, "'target' must have an address type")
     precondition(value.type.isObject, "'value' must have an object type")
     // FIXME: Additionally, check that the value's type is compatible with the target's.
 
-    let inst = StoreInst(target: target, value: value)
+    let inst = StoreInst(target: target, value: value, semantics: semantics)
     insert(inst)
     return inst
   }
@@ -608,21 +674,52 @@ public struct Builder {
     return inst
   }
 
-  private mutating func insert(_ inst: Inst) {
-    guard let blockID = insertionPointer?.blockID else { fatalError("invalid insertion pointer") }
-    let funName = insertionPointer!.funName
+  /// Removes an instruction.
+  public mutating func remove(at path: InstPath) {
+    let inst = module[path]
+    if let value = inst as? Value { precondition(value.uses.isEmpty, "instruction has uses") }
 
-    // Insert the instruction.
-    switch insertionPointer!.position {
-    case .end:
-      module.functions[funName]!.blocks[blockID]!.instructions.append(inst)
-    case .at(let index):
-      module.functions[funName]!.blocks[blockID]!.instructions.insert(inst, at: index)
+    // Update the use lists of the instruction's operands.
+    for op in inst.operands {
+      op.uses.removeAll(where: { $0.userPath == path })
     }
 
-    // Update the use lists.
+    // Remove the instruction from the block.
+    module.functions[path.funName]!.blocks[path.blockID]?.instructions.remove(at: path.instIndex)
+  }
+
+  public mutating func replaceUses(of value: Value, with newValue: Value) {
+    fatalError()
+  }
+
+  private mutating func insert(_ inst: Inst) {
+    precondition(insertionPointer?.blockID != nil, "invalid insertion pointer")
+
+    // Insert the instruction.
+    let (instIndex, insertionPosition) = withCurrentBasicBlock(
+      { [ip = insertionPointer!] (block) -> (BasicBlock.Index, InsertionPointer.Position) in
+        let instIndex = block.instructions.nextStableIndex
+
+        switch ip.position {
+        case .end:
+          block.instructions.append(inst)
+          return (instIndex, .end)
+
+        case .before(let index):
+          block.instructions.insert(inst, before: index)
+          return (instIndex, .before(index: instIndex))
+        }
+      })!
+
+    // Update the insertion pointer.
+    insertionPointer!.position = insertionPosition
+
+    // Update the use lists of the instruction's operands.
+    let funName = insertionPointer!.funName
+    let blockID = insertionPointer!.blockID!
     for i in 0 ..< inst.operands.count {
-      inst.operands[i].uses.append(Use(user: inst, index: i))
+      let userPath = InstPath(funName: funName, blockID: blockID, instIndex: instIndex)
+      inst.operands[i].uses.append(Use(userPath: userPath, index: i))
     }
   }
 

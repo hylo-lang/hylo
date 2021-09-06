@@ -1,3 +1,5 @@
+import Basic
+
 /// A linear sequence of instructions.
 ///
 /// A basic block is well-formed if it contains a list of non-terminating instructions, followed by
@@ -8,16 +10,18 @@
 /// resumes at the same place after they are evaluated.
 public struct BasicBlock {
 
-  public typealias ID = Int
+  public typealias ID = UInt32
+
+  public typealias Index = StableDoublyLinkedList<Inst>.Index
 
   /// The formal arguments of the block.
   public let params: [ArgumentValue]
 
   /// The instructions in the block.
-  public var instructions: [Inst] = []
+  public var instructions: StableDoublyLinkedList<Inst> = []
 
-  init(params: [ArgumentValue]) {
-    self.params = params
+  init(id: ID, paramTypes: [VILType]) {
+    params = paramTypes.map({ ArgumentValue(type: $0, parentBlockID: id) })
   }
 
 }

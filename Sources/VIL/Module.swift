@@ -17,4 +17,9 @@ public struct Module {
     self.id = id
   }
 
+  /// Dereference an instruction path, assuming it refers into this module.
+  public subscript(path: InstPath) -> Inst {
+    return functions[path.funName]!.blocks[path.blockID]!.instructions[path.instIndex]
+  }
+
 }

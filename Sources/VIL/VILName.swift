@@ -2,7 +2,7 @@
 ///
 /// This struct is essentially a pointer to an immutable string buffer, using the value of that
 /// pointer as its identity.
-public struct VILName: Identifiable {
+public struct VILName {
 
   private class Data {
 
@@ -30,8 +30,6 @@ public struct VILName: Identifiable {
 
   }
 
-  public typealias ID = Int
-
   private var data: Data
 
   public init(_ name: String) {
@@ -58,8 +56,6 @@ public struct VILName: Identifiable {
     self.data = Data(name)
     VILName.buckets[h, default: []].append(WeakDataRef(data: self.data))
   }
-
-  public var id: Int { Int(bitPattern: data.cString.baseAddress) }
 
   private static var buckets: [Int: [WeakDataRef]] = [:]
 

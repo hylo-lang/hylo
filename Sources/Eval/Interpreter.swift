@@ -45,7 +45,10 @@ public struct Interpreter {
   private var layout = DataLayout()
 
   /// The functions loaded into the interpreter.
-  private var functions: [VILName: VILFun] = [:]
+  private var functions: [VILFun] = []
+
+  /// A table mapping a function name to its address in the interpreter's memory.
+  private var funTable: [VILName: Int] = [:]
 
   /// The view witness tables loaded into the interpreter.
   private var viewWitnessTables: [ViewWitnessTable] = []
@@ -92,15 +95,11 @@ public struct Interpreter {
   ///
   /// - Parameter module: A VIL module.
   public mutating func load(module: Module) throws {
-    try functions.merge(module.functions, uniquingKeysWith: { (lhs, rhs) throws -> VILFun in
-      if lhs.blocks.isEmpty {
-        return rhs
-      } else if rhs.blocks.isEmpty {
-        return lhs
-      } else {
-        throw RuntimeError(message: "duplicate symbol '\(lhs)'")
-      }
-    })
+    for (name, fun) in module.functions where fun.hasEntry {
+      if funTable[name] != nil { throw RuntimeError(message: "duplicate symbol '\(name)'") }
+      funTable[name] = functions.count
+      functions.append(fun)
+    }
     viewWitnessTables.append(contentsOf: module.viewWitnessTables)
   }
 
@@ -116,9 +115,8 @@ public struct Interpreter {
     ]
 
     // Invoke the program's entry point.
-    let main = functions[VILName("main")]
-      ?< fatalError("no main function")
-    invoke(fun: main, threadID: 0, callerAddr: .null, args: [], returnKey: nil)
+    let main = funTable[VILName("main")] ?< fatalError("no main function")
+    invoke(fun: functions[main], threadID: 0, callerAddr: .null, args: [], returnKey: nil)
     run()
 
     /// Deinitialize all threads.
@@ -192,7 +190,7 @@ public struct Interpreter {
     }
 
     // Jump into the callee.
-    threads[threadID]!.programCounter = InstAddr(fun: fun, blockID: entryID, offset: 0)
+    threads[threadID]!.programCounter = entryAddr(of: fun)
   }
 
   /// Notify all threads that the given thread has terminated.
@@ -293,14 +291,14 @@ public struct Interpreter {
       })
 
     activeThread.registerStack.assign(native: addr, to: .value(inst))
-    activeThread.programCounter.offset += 1
+    increment(counter: &activeThread.programCounter)
   }
 
   private mutating func eval(inst: AllocStackInst) {
     precondition(!activeThread.callStack.isEmpty, "allocation outside of a call frame")
     let addr = activeThread.callStack.allocate(type: inst.allocatedType, layout: layout)
     activeThread.registerStack.assign(native: addr, to: .value(inst))
-    activeThread.programCounter.offset += 1
+    increment(counter: &activeThread.programCounter)
   }
 
   private mutating func eval(inst: ApplyInst) {
@@ -314,12 +312,12 @@ public struct Interpreter {
 
       let result = callee.apply(to: Array(args), in: &self)
       activeThread.registerStack.assign(value: result, to: .value(inst))
-      activeThread.programCounter.offset += 1
+      increment(counter: &activeThread.programCounter)
 
     case let literal as FunRef:
       let args = inst.args.map({ eval(value: $0) })
       invoke(
-        fun: functions[literal.name]!,
+        fun: functions[funTable[literal.name]!],
         threadID: activeThreadID,
         callerAddr: activeThread.programCounter,
         args: args,
@@ -341,8 +339,8 @@ public struct Interpreter {
 
         // Unroll the chain of delegators.
         switch thick.delegator {
-        case .thin(let name):
-          fun = functions[name]!
+        case .thin(let index):
+          fun = functions[index]
           break loop
         case .thick(let ptr):
           thick = ptr.assumingMemoryBound(to: ThickFunction.self).pointee
@@ -372,7 +370,7 @@ public struct Interpreter {
       callStackCapacity: callStackCapacity)
 
     invoke(
-      fun: functions[inst.ref.name]!,
+      fun: functions[funTable[inst.ref.name]!],
       threadID: supplierID,
       callerAddr: .null,
       args: args,
@@ -382,7 +380,7 @@ public struct Interpreter {
     // the latter's ID into a register.
     threadDependencyGraph.insertDependency(dependent: activeThreadID, supplier: supplierID)
     activeThread.registerStack.assign(native: supplierID, to: .value(inst))
-    activeThread.programCounter.offset += 1
+    increment(counter: &activeThread.programCounter)
   }
 
   private mutating func eval(inst: AwaitInst) {
@@ -397,14 +395,13 @@ public struct Interpreter {
     result.withUnsafeBytes({ buffer in
       activeThread.registerStack.assign(contentsOf: buffer, to: .value(inst))
     })
-    activeThread.programCounter.offset += 1
+    increment(counter: &activeThread.programCounter)
   }
 
   private mutating func eval(inst: BranchInst) {
     // FIXME: Handle block arguments.
     assert(inst.operands.isEmpty)
-    activeThread.programCounter.blockID = inst.dest
-    activeThread.programCounter.offset = 0
+    move(counter: &activeThread.programCounter, atStartOf: inst.dest)
   }
 
   private mutating func eval(inst: CheckedCastAddrInst) {
@@ -442,7 +439,7 @@ public struct Interpreter {
     }
 
     activeThread.registerStack.assign(native: castAddr, to: .value(inst))
-    activeThread.programCounter.offset += 1
+    increment(counter: &activeThread.programCounter)
   }
 
   public mutating func eval(inst: CondBranchInst) {
@@ -452,11 +449,9 @@ public struct Interpreter {
     assert(inst.thenArgs.isEmpty && inst.elseArgs.isEmpty)
 
     if cond {
-      activeThread.programCounter.blockID = inst.thenDest
-      activeThread.programCounter.offset = 0
+      move(counter: &activeThread.programCounter, atStartOf: inst.thenDest)
     } else {
-      activeThread.programCounter.blockID = inst.elseDest
-      activeThread.programCounter.offset = 0
+      move(counter: &activeThread.programCounter, atStartOf: inst.elseDest)
     }
   }
 
@@ -487,14 +482,14 @@ public struct Interpreter {
       fatalError("null address")
     }
 
-    activeThread.programCounter.offset += 1
+    increment(counter: &activeThread.programCounter)
   }
 
   private mutating func eval(inst: EqualAddrInst) {
     let lhs = eval(value: inst.lhs).open(as: ValueAddr.self)
     let rhs = eval(value: inst.rhs).open(as: ValueAddr.self)
     activeThread.registerStack.assign(native: lhs == rhs, to: .value(inst))
-    activeThread.programCounter.offset += 1
+    increment(counter: &activeThread.programCounter)
   }
 
   private mutating func eval(inst: HaltInst) {
@@ -507,7 +502,7 @@ public struct Interpreter {
   private mutating func eval(inst: LoadInst) {
     let src = eval(value: inst.location).open(as: ValueAddr.self)
     load(byteCount: layout.size(of: inst.type), from: src, into: .value(inst))
-    activeThread.programCounter.offset += 1
+    increment(counter: &activeThread.programCounter)
   }
 
   private mutating func eval(inst: OpenExistentialInst) {
@@ -532,7 +527,7 @@ public struct Interpreter {
       activeThread.registerStack.assign(contentsOf: buffer, to: .value(inst))
     }
 
-    activeThread.programCounter.offset += 1
+    increment(counter: &activeThread.programCounter)
   }
 
   private mutating func eval(inst: OpenExistentialAddrInst) {
@@ -555,7 +550,7 @@ public struct Interpreter {
       })
 
     activeThread.registerStack.assign(native: addr, to: .value(inst))
-    activeThread.programCounter.offset += 1
+    increment(counter: &activeThread.programCounter)
   }
 
   private mutating func eval(inst: PartialApplyInst) {
@@ -574,7 +569,7 @@ public struct Interpreter {
       fatalError("cannot partially apply built-in function")
 
     case let literal as FunRef:
-      let delegator = literal.name
+      let delegator = funTable[literal.name]!
       let env = _makeEnvironment()
       let partial = ThickFunction(delegator: .thin(delegator), env: env)
       activeThread.registerStack.assign(native: partial, to: .value(inst))
@@ -583,7 +578,7 @@ public struct Interpreter {
       fatalError("not implemented")
     }
 
-    activeThread.programCounter.offset += 1
+    increment(counter: &activeThread.programCounter)
   }
 
   private mutating func eval(inst: RecordInst) {
@@ -592,7 +587,7 @@ public struct Interpreter {
       byteCount: valueWT.size, alignedAt: valueWT.alignment, forKey: .value(inst))
     activeThread.registerStack.assignNoAlloc(
       contentsOf: UnsafeRawBufferPointer(start: nil, count: 0), to: .value(inst))
-    activeThread.programCounter.offset += 1
+    increment(counter: &activeThread.programCounter)
   }
 
   private mutating func eval(inst: RecordMemberInst) {
@@ -607,7 +602,7 @@ public struct Interpreter {
     })
 
     activeThread.registerStack.assign(value: member, to: .value(inst))
-    activeThread.programCounter.offset += 1
+    increment(counter: &activeThread.programCounter)
   }
 
   private mutating func eval(inst: RecordMemberAddrInst) {
@@ -616,7 +611,7 @@ public struct Interpreter {
       ?< fatalError("failed to compute member offset")
 
     activeThread.registerStack.assign(native: base.advanced(by: offset), to: .value(inst))
-    activeThread.programCounter.offset += 1
+    increment(counter: &activeThread.programCounter)
   }
 
   private mutating func eval(inst: RetInst) {
@@ -641,7 +636,7 @@ public struct Interpreter {
         activeThread.registerStack.assignNoAlloc(contentsOf: bytes, to: .value(callerInst))
       })
       activeThread.programCounter = callerAddr
-      activeThread.programCounter.offset += 1
+      increment(counter: &activeThread.programCounter)
     } else {
       activeThread.result = result.withUnsafeBytes(RuntimeValue.init(copying:))
       activeThread.programCounter = .null
@@ -665,13 +660,13 @@ public struct Interpreter {
   private mutating func eval(inst: StoreInst) {
     let dest = eval(value: inst.target).open(as: ValueAddr.self)
     store(value: eval(value: inst.value), at: dest)
-    activeThread.programCounter.offset += 1
+    increment(counter: &activeThread.programCounter)
   }
 
   private mutating func eval(inst: ThinToThickInst) {
-    let thick = ThickFunction(thin: functions[inst.ref.name]!)
+    let thick = ThickFunction(thin: funTable[inst.ref.name]!)
     activeThread.registerStack.assign(native: thick, to: .value(inst))
-    activeThread.programCounter.offset += 1
+    increment(counter: &activeThread.programCounter)
   }
 
   /// Evaluates a value.
@@ -695,18 +690,58 @@ public struct Interpreter {
     }
   }
 
-  /// Dereferences the basic block containing the instruction referenced by the given address.
-  private func load(blockContaining addr: InstAddr) -> BasicBlock? {
-    guard let fun = functions[addr.funName] else { return nil }
-    return fun.blocks[addr.blockID]
+  /// Returns the address of the first instruction in the given function.
+  private func entryAddr(of fun: VILFun) -> InstAddr {
+    return .some(
+      fun: funTable[fun.name]!,
+      block: fun.entryID!,
+      inst: fun.entry!.instructions.startIndex)
   }
 
+
+  /// Increments the given program counter.
+  private func increment(counter: inout InstAddr) {
+    switch counter {
+    case .null:
+      fatalError("null address")
+
+    case .some(let funIndex, let blockID, let instIndex):
+      let block = functions[funIndex].blocks[blockID]!
+      let i = block.instructions.index(after: instIndex)
+      counter = .some(fun: funIndex, block: blockID, inst: i)
+    }
+  }
+
+  /// Moves the given program counter at the beginning of the specified block.
+  private func move(counter: inout InstAddr, atStartOf blockID: BasicBlock.ID) {
+    switch counter {
+    case .null:
+      fatalError("null address")
+
+    case .some(let funIndex, _, _):
+      let block = functions[funIndex].blocks[blockID]!
+      counter = .some(fun: funIndex, block: blockID, inst: block.instructions.startIndex)
+    }
+  }
+
+//  /// Dereferences the basic block containing the instruction referenced by the given address.
+//  private func load(blockContaining instAddr: InstAddr) -> BasicBlock {
+//    precondition(instAddr != .null, "null address")
+//    return functions[instAddr.funIndex].blocks[instAddr.blockID]!
+//  }
+
   /// Dereferences an instruction address.
-  private func load(instAddr addr: InstAddr) -> Inst? {
-    guard let block = load(blockContaining: addr) else { return nil }
-    return addr.offset < block.instructions.count
-      ? block.instructions[addr.offset]
-      : nil
+  private func load(instAddr: InstAddr) -> Inst? {
+    switch instAddr {
+    case .null:
+      return nil
+
+    case .some(let funIndex, let blockID, let instIndex):
+      let block = functions[funIndex].blocks[blockID]!
+      return instIndex != block.instructions.endIndex
+        ? block.instructions[instIndex]
+        : nil
+    }
   }
 
   /// Loads `byteCount` bytes from the given address into a register.
