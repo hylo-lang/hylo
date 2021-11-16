@@ -32,6 +32,20 @@ public struct ReferenceTable<Key, Value> where Key: AnyObject {
     return storage.values
   }
 
+  /// Merges the given table into this table, using a combining closure to determine the value for
+  /// any duplicate keys.
+  ///
+  /// - Parameters:
+  ///   - other: Another table.
+  ///   - combine: A closure that takes the current and new values for any duplicate keys. The
+  ///     closure returns the desired value for the final table.
+  public mutating func merge(
+    _ other: ReferenceTable<Key, Value>,
+    uniquingKeysWith combine: (Value, Value) throws -> Value
+  ) rethrows {
+    try storage.merge(other.storage, uniquingKeysWith: combine)
+  }
+
 }
 
 extension ReferenceTable: Collection {
