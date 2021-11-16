@@ -1430,6 +1430,9 @@ public final class TypeExtnDecl: Decl, DeclSpace {
   /// The identifier of the type being extended.
   public var extendedIdent: IdentSign
 
+  /// The views to which the type should conform.
+  public var inheritances: [Sign] = []
+
   /// The member declarations of the type.
   public var members: [Decl]
 

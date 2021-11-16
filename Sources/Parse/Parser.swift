@@ -906,42 +906,54 @@ public struct Parser {
     }
 
     let genericClause = parseGenericClause(state: &state)
-
-    var inheritances: [IdentSign] = []
-    if state.take(.colon) != nil {
-      // We've consumed a colon, so we're committed to parse an inheritance list.
-      var mustParse = true
-      while let sign = parseSign(state: &state) {
-        mustParse = false
-
-        // The signature must designate an identifier. We can't inherit from a structural type.
-        if let identSign = sign as? IdentSign {
-          inheritances.append(identSign)
-        } else {
-          context.report("expected type identifier", anchor: sign.range)
-          state.hasError = true
-        }
-
-        // If we consume a comma, then we're committed to parse another signature.
-        if state.take(.comma) != nil {
-          mustParse = true
-        } else {
-          break
-        }
-      }
-
-      if mustParse {
-        context.report("expected type identifier", anchor: state.errorRange())
-        state.hasError = true
-        state.skip(while: { $0.kind == .comma })
-      }
-    }
+    let inheritances = state.peek()?.kind == .colon
+      ? parseInheritanceList(state: &state)
+      : []
 
     return TypeDeclHead(
       introducer: introducer,
       ident: ident,
       genericClause: genericClause,
       inheritances: inheritances)
+  }
+
+  /// Parses an inheritance list.
+  ///
+  ///     inheritance-list ::= ':' ident-sign (',' ident-sign)*
+  ///
+  /// The next token is expected to be ':'.
+  private func parseInheritanceList(state: inout State) -> [IdentSign] {
+    _ = state.take(.colon)!
+    var inheritances: [IdentSign] = []
+
+    // We've consumed a colon, so we're committed to parse an inheritance list.
+    var mustParse = true
+    while let sign = parseSign(state: &state) {
+      mustParse = false
+
+      // The signature must designate an identifier. We can't inherit from a structural type.
+      if let identSign = sign as? IdentSign {
+        inheritances.append(identSign)
+      } else {
+        context.report("expected type identifier", anchor: sign.range)
+        state.hasError = true
+      }
+
+      // If we consume a comma, then we're committed to parse another signature.
+      if state.take(.comma) != nil {
+        mustParse = true
+      } else {
+        break
+      }
+    }
+
+    if mustParse {
+      context.report("expected type identifier", anchor: state.errorRange())
+      state.hasError = true
+      state.skip(while: { $0.kind == .comma })
+    }
+
+    return inheritances
   }
 
   /// Parses the body of a product type or view declaration.
@@ -1015,9 +1027,14 @@ public struct Parser {
         type: context.errorType)
     }
 
+    let inheritances = state.peek()?.kind == .colon
+      ? parseInheritanceList(state: &state)
+      : []
+
     // Create the declaration.
     let decl = TypeExtnDecl(extendedIdent: identSign, members: [])
     decl.parentDeclSpace = state.declSpace
+    decl.inheritances = inheritances
 
     // Parse the members of the declaration.
     let before = (state.flags, state.declSpace)
