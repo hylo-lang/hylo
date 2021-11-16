@@ -155,10 +155,10 @@ public final class VILFunType: VILType {
     var domain = "("
     for i in 0 ..< paramTypes.count {
       if i > 0 { domain.append(", ") }
-      domain += "\(paramConvs[i]) \(paramTypes[i])"
+      domain += "@\(paramConvs[i]) \(paramTypes[i])"
     }
     domain += ")"
-    let codomain = "\(retConv) \(retType)"
+    let codomain = "@\(retConv) \(retType)"
 
     if isAddress {
       return "*(\(domain) -> \(codomain))"
@@ -170,37 +170,31 @@ public final class VILFunType: VILType {
 }
 
 /// The convention of a VIL parameter.
-public enum VILParamConv: String, CustomStringConvertible {
+public enum VILParamConv {
 
-  /// The parameter is passed directly, by value.
-  case val
+  /// The value is passed directly and must be consumed by the callee.
+  case owned
 
-  /// The parameter is passed indirectly, by reference, and considered immutable.
+  /// The value is passed directly and must *not* be consumed by the callee.
+  case localOwned
+
+  /// The value is passed indirectly, by reference.
   ///
-  /// The pointee is initialized and may be aliased. Both the caller and the callee agree not to
-  /// mutate it for the duration of the call.
-  case brw
+  /// The referenced value is initialized and may be aliased. Both the caller and the callee agree
+  /// not to mutate it for the duration of the call.
+  case borrowed
 
-  /// The parameter is passed indirectly, by reference.
+  /// The value is passed indirectly, by reference.
   ///
-  /// The pointee is initialized and unaliased. The caller promise not to mutate it for the
-  /// duration of the call; the callee promise not to deinitialize it.
-  case mut
-
-  /// The parameter is wrapped into an existential container, which is passed directly.
-  ///
-  /// This requires that the type of the parameter have an existential layout: it should be either
-  /// a generic type parameter, a skolem, a view or a view composition.
-  case exist
+  /// The referenced value is initialized and unaliased. The caller must not to mutate it for the
+  /// duration of the call; the callee must not to consume it.
+  case mutating
 
   public init(for type: ValType) {
     switch type {
-    case is InoutType: self = .mut
-    case is GenericParamType: self = .exist
-    default: self = .val
+    case is InoutType: self = .mutating
+    default: self = .owned
     }
   }
-
-  public var description: String { "@" + rawValue }
 
 }

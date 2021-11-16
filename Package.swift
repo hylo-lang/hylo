@@ -34,7 +34,7 @@ let package = Package(
       name: "Eval",
       dependencies: ["AST", "Basic", "VIL", DequeModule]),
     .target(name: "Sema", dependencies: ["AST", "Basic"]),
-    .target(name: "VIL", dependencies: ["AST", "Basic"]),
+    .target(name: "VIL", dependencies: ["AST", "Basic", DequeModule]),
 
     // Test targets.
     .testTarget(name: "ASTTests", dependencies: ["AST", "Basic"]),

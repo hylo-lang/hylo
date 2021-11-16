@@ -279,36 +279,20 @@ public struct Builder {
 
   // MARK: Instructions
 
-  /// Builds an `alloc_existential` instruction.
-  ///
-  /// - Parameters:
-  ///   - container: The address of an existential container.
-  ///   - witness: The type of the exitential package's witness. `witness` must conform to the
-  ///     view(s) described by the type of the container.
-  public mutating func buildAllocExistential(
-    container: Value,
-    witness: VILType
-  ) -> AllocExistentialInst {
-    precondition(witness.isObject, "'witness' must be an object type")
-    precondition(!witness.isExistential, "'witness' cannot be existential")
-
-    let inst = AllocExistentialInst(container: container, witness: witness)
-    insert(inst)
-    return inst
-  }
-
   /// Builds an `alloc_stack` instruction.
   ///
   /// - Parameters:
   ///   - type: The type of the allocated object. `type` must be an object type.
   ///   - decl: The Val declaration related to the allocation, for debugging.
+  ///   - isSelf: A flag indicating whether the allocated value is `self` in a constructor.
   public mutating func buildAllocStack(
     type: VILType,
-    decl: ValueDecl? = nil
+    decl: ValueDecl? = nil,
+    isSelf: Bool = false
   ) -> AllocStackInst {
     precondition(type.isObject, "allocated type must be an object type")
 
-    let inst = AllocStackInst(allocatedType: type, decl: decl)
+    let inst = AllocStackInst(allocatedType: type, decl: decl, isSelf: isSelf)
     insert(inst)
     return inst
   }
@@ -319,12 +303,21 @@ public struct Builder {
   ///   - callee: The function to apply. `callee` must have a function type.
   ///   - args: The arguments of the function application.
   public mutating func buildApply(callee: Value, args: [Value]) -> ApplyInst {
-    let calleeType = callee.type.valType as? FunType
+    let calleeType = callee.type as? VILFunType
       ?< preconditionFailure("apply on non-function operand")
+
+    // Validate the arguments according to the function's parameter convention.
+    for (arg, conv) in zip(args, calleeType.paramConvs) {
+      if arg is LiteralValue {
+        guard (conv == .owned) || (conv == .localOwned) else {
+          fatalError("bad VIL: illegal operand")
+        }
+      }
+    }
 
     // FIXME: Perhaps we could do some argument validation here?
 
-    let inst = ApplyInst(callee: callee, args: args, type: .lower(calleeType.retType))
+    let inst = ApplyInst(callee: callee, args: args, type: calleeType.retType)
     insert(inst)
     return inst
   }
@@ -434,19 +427,43 @@ public struct Builder {
   /// - Parameters:
   ///   - target: The target address of the copy.
   ///   - source: The address of the object to copy.
-  ///   - semantics: The assignment semantics of the instruction.
   @discardableResult
-  public mutating func buildCopyAddr(
-    target: Value,
-    source: Value,
-    semantics: AssignmentSemantics = .unknown
-  ) -> CopyAddrInst {
-    let inst = CopyAddrInst(target: target, source: source, semantics: semantics)
+  public mutating func buildCopyAddr(target: Value, source: Value) -> CopyAddrInst {
+    let inst = CopyAddrInst(target: target, source: source)
     insert(inst)
     return inst
   }
 
-  /// Builds a `equal_addr` instruction
+  /// Builds an `copy_existential` instruction.
+  ///
+  /// - Parameters:
+  ///   - container. An existential container.
+  ///   - type: The type of the copied value. `type` must be an object type that matches the
+  ///     package's witness. It can either be a concrete type, or an "opened" existential.
+  public mutating func buildCopyExistential(
+    container: Value,
+    type: VILType
+  ) -> CopyExistentialInst {
+    precondition(container.type.isObject, "'container' must have an object type")
+
+    let inst = CopyExistentialInst(container: container, type: type)
+    insert(inst)
+    return inst
+  }
+
+  /// Builds a `delete_addr` instruction.
+  ///
+  /// - Parameter target: The address of the object to delete.
+  @discardableResult
+  public mutating func buildDeleteAddr(target: Value) -> DeleteAddrInst {
+    precondition(target.type.isAddress, "'target' must have an address type")
+
+    let inst = DeleteAddrInst(target: target)
+    insert(inst)
+    return inst
+  }
+
+  /// Builds a `equal_addr` instruction.
   ///
   /// - Parameters:
   ///   - lhs: An address.
@@ -468,57 +485,28 @@ public struct Builder {
     return inst
   }
 
+  /// Builds a `init_existential_addr` instruction.
+  @discardableResult
+  public mutating func buildInitExistentialAddr(
+    container: Value,
+    value: Value
+  ) -> InitExistentialAddrInst {
+    precondition(container.type.isAddress, "'container' must have an address type")
+    precondition(value.type.isObject, "'value' must have an object type")
+
+    let inst = InitExistentialAddrInst(container: container, value: value)
+    insert(inst)
+    return inst
+  }
+
   /// Builds a `load` instruction.
   ///
-  /// - Parameter lvalue: The location to load. `lvalue` must have an address type.
-  public mutating func buildLoad(location: Value) -> LoadInst {
+  /// - Parameter lvalue: The location to copy and load. `lvalue` must have an address type and it
+  ///   must be copyable.
+  public mutating func buildLoadCopy(location: Value) -> LoadCopyInst {
     precondition(location.type.isAddress, "'location' must have an address type")
 
-    let inst = LoadInst(location: location)
-    insert(inst)
-    return inst
-  }
-
-  /// Builds a `mark_uninitialized` instruction.
-  public mutating func buildMarkUninitialized(location: Value) -> MarkUninitializedInst {
-    precondition(location.type.isAddress, "'location' must have an address type")
-
-    let inst = MarkUninitializedInst(location: location)
-    insert(inst)
-    return inst
-  }
-
-  /// Builds an `open_existential` instruction.
-  ///
-  /// - Parameters:
-  ///   - container. An existential container.
-  ///   - type: The type of the opened value. `type` must be an object type that matches the
-  ///     package's witness. It can either be a concrete type, or an "opened" existential.
-  public mutating func buildOpenExistential(
-    container: Value,
-    type: VILType
-  ) -> OpenExistentialInst {
-    precondition(container.type.isObject, "'container' must have an object type")
-
-    let inst = OpenExistentialInst(container: container, type: type)
-    insert(inst)
-    return inst
-  }
-
-  /// Builds an `open_existential_addr` instruction.
-  ///
-  /// - Parameters:
-  ///   - container: The address of an existential container.
-  ///   - type: The type of the opened address. `type` must be an address type that matches the
-  ///     package's witness. It can either be a concrete type, or an "opened" existential.
-  public mutating func buildOpenExistentialAddr(
-    container: Value,
-    type: VILType
-  ) -> OpenExistentialAddrInst {
-    precondition(container.type.isAddress, "'container' must have an address type")
-    precondition(type.isAddress, "'type' must be an address type")
-
-    let inst = OpenExistentialAddrInst(container: container, type: type)
+    let inst = LoadCopyInst(location: location)
     insert(inst)
     return inst
   }
@@ -535,6 +523,24 @@ public struct Builder {
     precondition(partialArgs.count > 0)
 
     let inst = PartialApplyInst(delegator: delegator, partialArgs: partialArgs)
+    insert(inst)
+    return inst
+  }
+
+  /// Builds a `project_existential_addr` instruction.
+  ///
+  /// - Parameters:
+  ///   - container: The address of an existential container.
+  ///   - type: The type of the projected address. `type` must be an address type that matches the
+  ///     package's witness. It can either be a concrete type, or an "opened" existential.
+  public mutating func buildProjectExistentialAddr(
+    container: Value,
+    type: VILType
+  ) -> ProjectExistentialAddrInst {
+    precondition(container.type.isAddress, "'container' must have an address type")
+    precondition(type.isAddress, "'type' must be an address type")
+
+    let inst = ProjectExistentialAddrInst(container: container, type: type)
     insert(inst)
     return inst
   }
@@ -556,11 +562,12 @@ public struct Builder {
   /// Builds a `record_member` instruction.
   ///
   /// - Parameters:
+  ///   - useKind: The kind of the ownership use of the record value.
   ///   - record: The record whose member is being extracted.
-  ///   - memberDecl: The declaration of the member being extracted. `memberDecl` must refer to
-  ///     a stored member of `record`'s type.
+  ///   - memberDecl: The declaration of the member being extracted.
   ///   - type: The type of the member being extracted.
   public mutating func buildRecordMember(
+    useKind: OwnershipUseKind,
     record: Value,
     memberDecl: VarDecl,
     type: VILType
@@ -568,7 +575,8 @@ public struct Builder {
     precondition(record.type.isObject, "'record' must have an object type")
     precondition(type.isObject, "'type' must have be object type")
 
-    let inst = RecordMemberInst(record: record, memberDecl: memberDecl, type: type)
+    let inst = RecordMemberInst(
+      useKind: useKind, record: record, memberDecl: memberDecl, type: type)
     insert(inst)
     return inst
   }
@@ -577,8 +585,7 @@ public struct Builder {
   ///
   /// - Parameters:
   ///   - record: The address of the the record value for which the member's address is computed.
-  ///   - memberDecl: The declaration of the member being extracted. `memberDecl` must refer to
-  ///     a stored member of `record`'s type.
+  ///   - memberDecl: The declaration of the member being extracted.
   ///   - type: The type of the member being extracted.
   public mutating func buildRecordMemberAddr(
     record: Value,
@@ -608,18 +615,13 @@ public struct Builder {
   /// - Parameters:
   ///   - target: The location (or target) of the store.
   ///   - value: The value being stored.
-  ///   - semantics: The assignment semantics of the instruction.
   @discardableResult
-  public mutating func buildStore(
-    target: Value,
-    value: Value,
-    semantics: AssignmentSemantics = .unknown
-  ) -> StoreInst {
+  public mutating func buildStore(target: Value, value: Value) -> StoreInst {
     precondition(target.type.isAddress, "'target' must have an address type")
     precondition(value.type.isObject, "'value' must have an object type")
     // FIXME: Additionally, check that the value's type is compatible with the target's.
 
-    let inst = StoreInst(target: target, value: value, semantics: semantics)
+    let inst = StoreInst(target: target, value: value)
     insert(inst)
     return inst
   }

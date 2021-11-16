@@ -36,65 +36,28 @@ struct RValueEmitter: ExprVisitor {
     _modify { yield &_builder.pointee }
   }
 
-  /// Emits the assignment of `value` to `target`.
-  mutating func emit(assign value: Value, ofType valueType: ValType, to target: Value) {
-    assert(valueType.isCanonical)
-    let targetType = target.type.valType
-
-    // If the destination has the same type as the value to assign, or if both have a union type,
-    // then we can emit a simple store instruction.
-    if (targetType == valueType) || (targetType is UnionType && valueType is UnionType) {
-      builder.buildStore(target: target, value: value)
-      return
-    }
-
-    // If the destination is an existential container, then there are two cases to consider:
-    // 1. If the destination is an existential container too (but with a different type, ortherwise
-    //    the test above would have succeeded), then we need to cast its package.
-    // 2. If the value has a concrete type, then it must be packed into an existential container.
-    if targetType.isExistential {
-      if valueType.isExistential {
-        let loc = builder.buildAllocStack(type: value.type)
-        builder.buildStore(target: loc, value: value, semantics: .init_)
-        let tmp = builder.buildUnsafeCastAddr(source: loc, type: target.type)
-        builder.buildCopyAddr(target: target, source: tmp)
-        builder.buildDeallocStack(alloc: loc)
-      } else {
-        let lvalue = builder.buildAllocExistential(container: target, witness: value.type)
-        builder.buildStore(target: lvalue, value: value)
-      }
-      return
-    }
-
-    // FIXME: We should check that the assignment is legal.
-    builder.buildStore(target: target, value: value)
+  /// Emits the assignment of the value represented by `expr` to `target`.
+  mutating func emit(assign expr: Expr, to target: Value, isInitializer: Bool = false) {
+    Emitter.emit(
+      assign: expr,
+      to: target,
+      isInitializer: isInitializer,
+      in: &_state.pointee,
+      with: &_builder.pointee)
   }
 
-  /// Emits the assignment of the value represented by `expr` to `target`.
-  mutating func emit(assign expr: Expr, to target: Value) {
-    let exprType = expr.type.dealiased.canonical
-    let targetType = target.type.valType
-
-    // If both operands have an existential layout and the r-value can be treated as a location,
-    // then we may simply emit `copy_addr`.
-    if targetType.isExistential && exprType.isExistential {
-      var emitter = LValueEmitter(_state: _state, _builder: _builder)
-      if case .success(let result) = expr.accept(&emitter) {
-        // Convert the r-value into the l-value's type if it has a different type.
-        var source = result.loc
-        if targetType != exprType {
-          source = builder.buildUnsafeCastAddr(source: source, type: target.type)
-        }
-
-        /// Copies the contents from the location on the right to the location on the left.
-        builder.buildCopyAddr(target: target, source: source)
-        return
-      }
-    }
-
-    // Otherwise, emit the r-value and fall back to the regular path.
-    let value = emit(rvalue: expr)
-    emit(assign: value, ofType: exprType, to: target)
+  mutating func emit(
+    assign rvalue: Value,
+    ofType rvalueType: ValType,
+    to lvalue: Value,
+    isInitializer: Bool = false,
+    with builder: inout Builder
+  ) {
+    Emitter.emit(
+      assign: rvalue,
+      ofType: rvalueType,
+      to: lvalue,
+      with: &_builder.pointee)
   }
 
   /// Emits a r-value.
@@ -103,6 +66,7 @@ struct RValueEmitter: ExprVisitor {
   }
 
   /// Emits an l-value.
+  // FIXME: Should we transfer that method in the Emitter?
   mutating func emit(lvalue expr: Expr) -> Value {
     var emitter = LValueEmitter(_state: _state, _builder: _builder)
     switch expr.accept(&emitter) {
@@ -182,7 +146,7 @@ struct RValueEmitter: ExprVisitor {
     var emitter = LValueEmitter(_state: _state, _builder: _builder)
     switch node.lvalue.accept(&emitter) {
     case .success(let result):
-      emit(assign: value, ofType: node.rvalue.type, to: result.loc)
+      Emitter.emit(assign: value, ofType: node.rvalue.type, to: result.loc, with: &builder)
 
     case .failure(let error):
       switch error {
@@ -224,7 +188,7 @@ struct RValueEmitter: ExprVisitor {
       cast = builder.buildCheckedCastAddr(source: result.loc, type: vilTargetType.address)
     } else {
       let tmp = builder.buildAllocStack(type: .lower(node.type))
-      builder.buildStore(target: tmp, value: emit(rvalue: node.value), semantics: .init_)
+      builder.buildStore(target: tmp, value: emit(rvalue: node.value))
       cast = builder.buildCheckedCastAddr(source: tmp, type: vilTargetType.address)
       builder.buildDeallocStack(alloc: tmp)
     }
@@ -239,21 +203,16 @@ struct RValueEmitter: ExprVisitor {
 
     // If the cast succeeded ...
     builder.insertionPointer!.blockID = success
-    builder.buildCopyAddr(
-      target: builder.buildAllocExistential(container: container, witness: vilTargetType),
-      source: cast)
+    builder.buildCopyAddr(target: container, source: cast)
     builder.buildBranch(dest: finally)
 
     // If the cast failed ...
     builder.insertionPointer!.blockID = failure
-    let nilValue = builder.buildNil()
-    builder.buildStore(
-      target: builder.buildAllocExistential(container: container, witness: nilValue.type),
-      value: nilValue)
+    builder.buildInitExistentialAddr(container: container, value: builder.buildNil())
     builder.buildBranch(dest: finally)
 
     builder.insertionPointer!.blockID = finally
-    let result = builder.buildLoad(location: container)
+    let result = builder.buildLoadCopy(location: container)
     builder.buildDeallocStack(alloc: container)
     return .success(result)
   }
@@ -271,8 +230,8 @@ struct RValueEmitter: ExprVisitor {
     // If the target type is existential, store the node's value into a temporary container.
     if targetType.isExistential {
       let tmp = builder.buildAllocStack(type: .lower(targetType))
-      emit(assign: node.value, to: tmp)
-      let result = builder.buildLoad(location: tmp)
+      Emitter.emit(assign: node.value, to: tmp, in: &_state.pointee, with: &_builder.pointee)
+      let result = builder.buildLoadCopy(location: tmp)
       builder.buildDeallocStack(alloc: tmp)
       return .success(result)
     }
@@ -280,7 +239,7 @@ struct RValueEmitter: ExprVisitor {
     // If the value being cast is an existential container, open it.
     if sourceType.isExistential {
       let container = emit(rvalue: node.value)
-      let value = builder.buildOpenExistential(container: container, type: .lower(targetType))
+      let value = builder.buildCopyExistential(container: container, type: .lower(targetType))
       return .success(value)
     }
 
@@ -333,27 +292,25 @@ struct RValueEmitter: ExprVisitor {
     for i in 0 ..< node.args.count {
       var value = emit(rvalue: node.args[i].value)
 
-      if calleeType.paramConvs[i] == .mut {
+      if calleeType.paramConvs[i] == .mutating {
         // A parameter with the 'mut' convention prescribes that the argument be mutable argument.
         assert(node.args[i].value is AddrOfExpr || value is PoisonValue)
         args.append(value)
         continue
       }
 
-      if calleeType.paramTypes[i].isExistential || (calleeType.paramConvs[i] == .exist) {
-        // The parameter has an existential type, or its convention prescribes that it should be
-        // passed as an existential container. If the argument isn't already packaged, we have to
-        // wrap it into a container. Otherwise, we can pass it "as is", since all existential
-        // containers have the same memory layout.
+      if calleeType.paramTypes[i].isExistential {
+        // The parameter has an existential type and must be passed as an existential container. If
+        // the argument isn't already packaged, we have to wrap it into a container. Otherwise, we
+        // can pass it "as is", since all existential containers have the same memory layout.
         if !value.type.isExistential {
           // FIXME: Allocating a container of type `Any`, completely erases the argument's type.
           // Hence, the resulting VIL is in fact ill-typed, as we could call a function expecting
           // an argument of type `T` with a value of type `Any`. A better strategy would be to
           // create an existential container that meets the parameter's requirements.
           let tmp = builder.buildAllocStack(type: .lower(context.anyType))
-          let ptr = builder.buildAllocExistential(container: tmp, witness: value.type)
-          builder.buildStore(target: ptr, value: value)
-          value = builder.buildLoad(location: tmp)
+          builder.buildInitExistentialAddr(container: tmp, value: value)
+          value = builder.buildLoadCopy(location: tmp)
           builder.buildDeallocStack(alloc: tmp)
         }
       }
@@ -365,8 +322,8 @@ struct RValueEmitter: ExprVisitor {
     var value: Value = builder.buildApply(callee: callee, args: args)
 
     // Emit the extraction of the result value.
-    if calleeType.retConv == .exist {
-      value = builder.buildOpenExistential(container: value, type: .lower(node.type))
+    if calleeType.retType.isExistential {
+      value = builder.buildCopyExistential(container: value, type: .lower(node.type))
     }
 
     // FIXME: Deallocate the memory that we allocated for indirect parameters.
@@ -394,7 +351,7 @@ struct RValueEmitter: ExprVisitor {
     if let value = locals[ObjectIdentifier(node.decl)] {
       // FIXME: We should have a more reliable way to determine whether an address must be loaded.
       return value.type.isAddress
-        ? .success(builder.buildLoad(location: value))
+        ? .success(builder.buildLoadCopy(location: value))
         : .success(value)
     }
 
@@ -434,7 +391,7 @@ struct RValueEmitter: ExprVisitor {
 
     if let decl = node.decl as? VarDecl, decl.hasStorage {
       let member = builder.buildRecordMember(
-        record: base, memberDecl: decl, type: .lower(node.type))
+        useKind: .copy, record: base, memberDecl: decl, type: .lower(node.type))
       return .success(member)
     }
 
@@ -521,7 +478,6 @@ struct RValueEmitter: ExprVisitor {
             assign: subject,
             ofType: node.subject.type,
             to: patLoc,
-            asInit: true,
             with: &_builder.pointee)
           emitCaseBody(body: stmt.body)
 
@@ -537,7 +493,7 @@ struct RValueEmitter: ExprVisitor {
 
         let patType = VILType.lower(pattern.type)
         let tmp = builder.buildAllocStack(type: subject.type)
-        builder.buildStore(target: tmp, value: subject, semantics: .init_)
+        builder.buildStore(target: tmp, value: subject)
         let cast = builder.buildCheckedCastAddr(source: tmp, type: patType.address)
         builder.buildDeallocStack(alloc: tmp)
 
@@ -568,7 +524,7 @@ struct RValueEmitter: ExprVisitor {
 
     assert(builder.insertionPointer?.blockID == lastBlock)
     if let storage = storage {
-      let result = builder.buildLoad(location: storage)
+      let result = builder.buildLoadCopy(location: storage)
       builder.buildDeallocStack(alloc: storage)
       return .success(result)
     } else {

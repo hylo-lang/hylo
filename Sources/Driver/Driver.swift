@@ -156,9 +156,9 @@ public struct Driver {
     let module = Emitter.emit(module: moduleDecl)
     var builder = Builder(module: module, context: context)
 
-    let pass = DefiniteAssignment()
+    let pass = TypestateAnalysis()
     for funName in builder.module.functions.keys {
-      guard pass.run(on: funName, with: &builder, in: context) else {
+      guard pass.run(funName, with: &builder) else {
         throw DriverError.moduleLoweringFailed(moduleName: moduleDecl.name)
       }
     }

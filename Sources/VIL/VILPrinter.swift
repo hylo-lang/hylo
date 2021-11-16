@@ -94,15 +94,11 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
 
   mutating func dump(inst: Inst) {
     switch inst {
-    case let inst as AllocExistentialInst:
-      let id = makeID(for: inst)
-      self << "_\(id) = alloc_existential "
-      self << inst.container
-      self << ", \(inst.witness)\n"
-
     case let inst as AllocStackInst:
       let id = makeID(for: inst)
-      self << "_\(id) = alloc_stack \(inst.allocatedType)\n"
+      self << "_\(id) = alloc_stack "
+      if inst.isSelf { self << "[self] " }
+      self << "\(inst.allocatedType)\n"
 
     case let inst as ApplyInst:
       let id = makeID(for: inst)
@@ -145,17 +141,26 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
       self << ")\n"
 
     case let inst as CopyAddrInst:
-      self << "copy_addr ["
-      self << snakenize(String(describing: inst.semantics))
-      self << "] "
+      self << "copy_addr "
       self << inst.source
       self << " to "
       self << inst.target
       self << "\n"
 
+    case let inst as CopyExistentialInst:
+      let id = makeID(for: inst)
+      self << "_\(id) = copy_existential "
+      self << inst.container
+      self << " as \(inst.type)\n"
+
     case let inst as DeallocStackInst:
       self << "dealloc_stack "
       self << inst.alloc
+      self << "\n"
+
+    case let inst as DeleteAddrInst:
+      self << "delete_addr "
+      self << inst.target
       self << "\n"
 
     case let inst as EqualAddrInst:
@@ -169,27 +174,22 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
     case is HaltInst:
       self << "halt\n"
 
-    case let inst as LoadInst:
-      let id = makeID(for: inst)
-      self << "_\(id) = load "
-      self << inst.location
-      self << "\n"
-
-    case let inst as MarkUninitializedInst:
-      let id = makeID(for: inst)
-      self << "_\(id) = mark_uninitialized "
-      self << inst.location
-      self << "\n"
-
-    case let inst as OpenExistentialInst:
-      let id = makeID(for: inst)
-      self << "_\(id) = open_existential "
+    case let inst as InitExistentialAddrInst:
+      self << "init_existential_addr "
       self << inst.container
-      self << " as \(inst.type)\n"
+      self << " with "
+      self << inst.value
+      self << "\n"
 
-    case let inst as OpenExistentialAddrInst:
+    case let inst as LoadCopyInst:
       let id = makeID(for: inst)
-      self << "_\(id) = open_existential_addr "
+      self << "_\(id) = load_copy "
+      self << inst.location
+      self << "\n"
+
+    case let inst as ProjectExistentialAddrInst:
+      let id = makeID(for: inst)
+      self << "_\(id) = project_existential_addr "
       self << inst.container
       self << " as \(inst.type)\n"
 
@@ -207,7 +207,7 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
 
     case let inst as RecordMemberInst:
       let id = makeID(for: inst)
-      self << "_\(id) = record_member "
+      self << "_\(id) = record_member [\(inst.useKind)] "
       self << inst.record
       self << ", \(inst.memberDecl.debugID)\n"
 
@@ -223,9 +223,7 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
       self << "\n"
 
     case let inst as StoreInst:
-      self << "store ["
-      self << snakenize(String(describing: inst.semantics))
-      self << "] "
+      self << "store "
       self << inst.value
       self << " to "
       self << inst.target
@@ -322,12 +320,4 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
     }
   }
 
-}
-
-func snakenize(_ string: String) -> String {
-  return string.reduce(into: "", { (partial, char) in
-    partial += char.isUppercase
-      ? "_\(char.lowercased())"
-      : "\(char)"
-  })
 }

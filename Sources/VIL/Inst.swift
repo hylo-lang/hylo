@@ -25,31 +25,12 @@ public struct InstPath: Hashable {
 
 }
 
-/// A storage assignment instruction.
-public protocol StorageAssignmentInst: Inst {
+/// The kind of an ownership use.
+public enum OwnershipUseKind {
 
-  /// The semantics of the assignment represented by this instruction.
-  var semantics: AssignmentSemantics { get }
+  case copy
 
-}
-
-/// The semantics of a storage assignment instruction.
-public enum AssignmentSemantics {
-
-  /// The assignment is initializing memory and requires exclusive write access.
-  case init_
-
-  /// The assignment is modifying initialized memory and requires exclusive modify access.
-  case modify
-
-  /// The assignment is either initializing or modifying memory; it requires exclusive write access.
-  ///
-  /// The `init_or_modify` semantics applies to assignment instructions whose semantics can't be
-  /// determined statically (i.e., when there isn't any dominating assignment instruction).
-  case initOrModify
-
-  /// The assignment has unknown semantics. This mode is valid only in the raw stage.
-  case unknown
+  case move
 
 }
 
@@ -65,9 +46,16 @@ public final class AllocStackInst: Value, Inst {
   /// The Val declaration related to the allocation, for debugging.
   public private(set) unowned var decl: ValueDecl?
 
-  init(allocatedType: VILType, decl: ValueDecl?) {
+  /// A flag indicating whether the allocated value is `self` in a constructor.
+  ///
+  /// This flag should only be set for the `alloc_stack` representing the allocation of `self` in
+  /// the constructor of a product type.
+  public let isSelf: Bool
+
+  init(allocatedType: VILType, decl: ValueDecl?, isSelf: Bool) {
     self.allocatedType = allocatedType
     self.decl = decl
+    self.isSelf = isSelf
     super.init(type: allocatedType.address)
   }
 
@@ -77,11 +65,11 @@ public final class AllocStackInst: Value, Inst {
 
 /// Deallocates memory previously allocated by `alloc_stack`.
 ///
-/// This instruction formally terminates the lifetime of the memory allocation. Accessing the
-/// referenced memory after `dealloc_stack` causes undefined behavior.
+/// This instruction formally terminates the lifetime of the allocation. Accessing the referenced
+/// memory after `dealloc_stack` causes undefined behavior.
 ///
-/// Stack deallocation must be in FILO order: The operand must be the last `alloc_stack` preceeding
-/// the deallocation.
+/// Deallocation must be in first-in last-out order: the operand must denote the last `alloc_stack`
+/// preceeding the deallocation.
 public final class DeallocStackInst: Inst {
 
   /// The corresponding stack allocation.
@@ -97,10 +85,8 @@ public final class DeallocStackInst: Inst {
 
 // MARK: Memory Access
 
-/// Assigns the contents located at a source address to another location.
-public final class CopyAddrInst: StorageAssignmentInst {
-
-  public let semantics: AssignmentSemantics
+/// Assigns a copy of the contents located at a source address to another location.
+public final class CopyAddrInst: Inst {
 
   /// The target address of the copy.
   public let target: Value
@@ -108,13 +94,30 @@ public final class CopyAddrInst: StorageAssignmentInst {
   /// The address of the object to copy.
   public let source: Value
 
-  init(target: Value, source: Value, semantics: AssignmentSemantics) {
+  init(target: Value, source: Value) {
     self.target = target
     self.source = source
-    self.semantics = semantics
   }
 
   public var operands: [Value] { [target, source] }
+
+}
+
+/// Destroys the contents located at the specified address, calling its destructor and leaving the
+/// memory uninitialized.
+///
+/// The specified address must be initialized. If the referenced memory is bound to an existential
+/// type, it must hold an initialized container.
+public final class DeleteAddrInst: Inst {
+
+  /// The address of the object to delete.
+  public let target: Value
+
+  init(target: Value) {
+    self.target = target
+  }
+
+  public var operands: [Value] { [target] }
 
 }
 
@@ -139,11 +142,16 @@ public final class EqualAddrInst: Value, Inst {
 
 }
 
-/// Loads a value from the specified address.
-public final class LoadInst: Value, Inst {
+/// Copies and loads the value at the specified address.
+///
+/// The instruction operates on the source location directly. Hence, if it is assigned to an
+/// existential container, the entire container is copied, not only the packaged value.
+public final class LoadCopyInst: Value, Inst {
 
-  /// The location to load.
+  /// The location to copy and load.
   public let location: Value
+
+  // FIXME: Have a single `load` inst with an ownership use property.
 
   init(location: Value) {
     self.location = location
@@ -154,32 +162,8 @@ public final class LoadInst: Value, Inst {
 
 }
 
-/// Marks a location as being uninitialized.
-///
-/// The location must be explicitly initialized before it can be access for read or modify, and
-/// before the current function returns. Write accesses are allowed.
-///
-/// This instruction is meant to support definite assignment analysis in raw VIL and should be
-/// eliminated from sound VIL.
-public final class MarkUninitializedInst: Value, Inst {
-
-  /// The location that is marked uninitialized.
-  public let location: Value
-
-  init(location: Value) {
-    self.location = location
-    super.init(type: location.type)
-  }
-
-  /// The location that is assumed uninitialized.
-  public var operands: [Value] { [location] }
-
-}
-
-/// Stores a value at the specified address.
-public final class StoreInst: StorageAssignmentInst {
-
-  public let semantics: AssignmentSemantics
+/// Stores a consumable value at the specified address, transferring its ownership.
+public final class StoreInst: Inst {
 
   /// The location at which the value must be stored.
   public let target: Value
@@ -187,10 +171,9 @@ public final class StoreInst: StorageAssignmentInst {
   /// The value being stored.
   public let value: Value
 
-  init(target: Value, value: Value, semantics: AssignmentSemantics) {
+  init(target: Value, value: Value) {
     self.target = target
     self.value = value
-    self.semantics = semantics
   }
 
   public var operands: [Value] { [target, value] }
@@ -200,6 +183,9 @@ public final class StoreInst: StorageAssignmentInst {
 // MARK: Aggregate Types
 
 /// Creates an uninitialized record value (i.e., the instance of a product type).
+///
+/// FIXME: Currently, the only use of this intruction is to create `Nil` instances. If there are no
+/// other use cases, then it should be removed for something more specific.
 public final class RecordInst: Value, Inst {
 
   /// The declaration of the type of which the record value is an instance.
@@ -217,13 +203,17 @@ public final class RecordInst: Value, Inst {
 /// Extracts the value of a stored member from a record.
 public final class RecordMemberInst: Value, Inst {
 
+  /// The kind of the ownership use of the record value.
+  public let useKind: OwnershipUseKind
+
   /// The record value whose member is being extracted.
   public let record: Value
 
   /// The declaration of the member being extracted.
   public let memberDecl: VarDecl
 
-  init(record: Value, memberDecl: VarDecl, type: VILType) {
+  init(useKind: OwnershipUseKind, record: Value, memberDecl: VarDecl, type: VILType) {
+    self.useKind = useKind
     self.record = record
     self.memberDecl = memberDecl
     super.init(type: type)
@@ -293,10 +283,10 @@ public final class AllocExistentialInst: Value, Inst {
 
 }
 
-/// Extracts the value packed inside an existential container.
-public final class OpenExistentialInst: Value, Inst {
+/// Copies the value packaged inside of an existential container.
+public final class CopyExistentialInst: Value, Inst {
 
-  /// The existential container to open.
+  /// The existential container from which the pacakged value is copied.
   public let container: Value
 
   init(container: Value, type: VILType) {
@@ -308,10 +298,28 @@ public final class OpenExistentialInst: Value, Inst {
 
 }
 
-/// Obtains the address of the concrete value packaged inside an existential container.
-public final class OpenExistentialAddrInst: Value, Inst {
+/// Initializes the value packaged inside of an existential container.
+public final class InitExistentialAddrInst: Inst {
 
-  /// The address of the existential container to open.
+  /// The address of the existential container to initialize.
+  public let container: Value
+
+  /// The value that initializes the container.
+  public let value: Value
+
+  init(container: Value, value: Value) {
+    self.container = container
+    self.value = value
+  }
+
+  public var operands: [Value] { [container, value] }
+
+}
+
+/// Projects the address of the concrete value packaged inside of an existential container.
+public final class ProjectExistentialAddrInst: Value, Inst {
+
+  /// The address of the existential container to project.
   public let container: Value
 
   init(container: Value, type: VILType) {

@@ -239,11 +239,11 @@ public struct Interpreter {
         eval(inst: inst)
       case let inst as HaltInst:
         eval(inst: inst)
-      case let inst as LoadInst:
+      case let inst as LoadCopyInst:
         eval(inst: inst)
-      case let inst as OpenExistentialInst:
+      case let inst as CopyExistentialInst:
         eval(inst: inst)
-      case let inst as OpenExistentialAddrInst:
+      case let inst as ProjectExistentialAddrInst:
         eval(inst: inst)
       case let inst as PartialApplyInst:
         eval(inst: inst)
@@ -499,13 +499,13 @@ public struct Interpreter {
     }
   }
 
-  private mutating func eval(inst: LoadInst) {
+  private mutating func eval(inst: LoadCopyInst) {
     let src = eval(value: inst.location).open(as: ValueAddr.self)
     load(byteCount: layout.size(of: inst.type), from: src, into: .value(inst))
     increment(counter: &activeThread.programCounter)
   }
 
-  private mutating func eval(inst: OpenExistentialInst) {
+  private mutating func eval(inst: CopyExistentialInst) {
     let container = eval(value: inst.container).open(as: ExistentialContainer.self)
 
     // Make sure the has the expected witness.
@@ -530,7 +530,7 @@ public struct Interpreter {
     increment(counter: &activeThread.programCounter)
   }
 
-  private mutating func eval(inst: OpenExistentialAddrInst) {
+  private mutating func eval(inst: ProjectExistentialAddrInst) {
     let containerAddr = eval(value: inst.container).open(as: ValueAddr.self)
     let tableKey = valueWitnessTableKey(of: inst.type.object)
     let table = valueWitnessTables[tableKey.index]

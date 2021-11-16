@@ -7,6 +7,8 @@ public enum ControlEdge {
 
 }
 
+public typealias ControlFlowGraph = AdjacencyList<BasicBlock.ID, ControlEdge>
+
 /// A VIL function.
 public struct VILFun {
 
@@ -73,7 +75,7 @@ public struct VILFun {
   /// - if `l = .forward`, then `A` is a predecessor of `B`;
   /// - if `l = .backward`, then `A` is a successor of `B`;
   /// - if `l = .bidirectional`, then `A` is a predecessor *and* a successor of `B`.
-  public var cfg = AdjacencyList<BasicBlock.ID, ControlEdge>()
+  public var cfg = ControlFlowGraph()
 
   /// Creates a new VIL function.
   ///

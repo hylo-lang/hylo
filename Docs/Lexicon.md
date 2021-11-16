@@ -1,5 +1,8 @@
 #  Lexicon
 
+### (Storage) Assignment instruction [VIL]
+An instruction that assigns a value to a memory location.
+
 ### Bound function
 A bound function (or a method) is a function that is part of a type, and that is bound to an instance of that type (i.e., the implicit `self` parameter).
 
@@ -30,3 +33,8 @@ This typically denote either LLVM or VIL's interpreter.
 
 ### VIL
 Val's Intermediate Language; The IR used by the compiler flow to carry out flow-sensitive analysis, language-specific optimizations, interpretation and code generation.
+
+VIL has multiple stages:
+- *Raw VIL* is the output that the VIL emitter produces by walking a typed AST.
+- *Checked VIL* is VIL code that has passed type state anaylsis.
+- *Optimized VIL* is VIL code where guaranteed optimizations have been applied.

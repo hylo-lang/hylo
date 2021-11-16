@@ -25,6 +25,27 @@ public struct DominatorTree {
     }
   }
 
+  /// A collection of the blocks of this tree in breadth-first order.
+  public var breadthFirstBlocks: [BasicBlock.ID] {
+    guard let entryID = fun.entryID else { return [] }
+
+    let children: [BasicBlock.ID: [BasicBlock.ID]] = idoms.reduce(
+      into: [:],
+      { (children, pair) in
+        if case .some(let parent) = pair.value {
+          children[parent, default: []].append(pair.key)
+        }
+      })
+
+    var results = [entryID]
+    var i = 0
+    while i < results.count {
+      results.append(contentsOf: children[results[i], default: []])
+      i += 1
+    }
+    return results
+  }
+
   /// Returns `true` if the basic block identified by `a` dominates the block identified by `b`.
   ///
   /// Both basic blocks are assumed to reside in this tree's function.

@@ -84,7 +84,7 @@ public enum Emitter {
   public static func emit(property decl: PatternBindingDecl, with builder: inout Builder) {
     assert(decl.isMember)
 
-    // FIXME: Emit computed properties and handle initializes in synthesized constructors.
+    // FIXME: Emit computed properties and handle initializers in synthesized constructors.
     assert(decl.varDecls.isEmpty || decl.varDecls[0].hasStorage)
     assert(decl.initializer == nil)
   }
@@ -154,7 +154,7 @@ public enum Emitter {
         // Constructors should allocate `self`.
         assert(decl is CtorDecl)
         selfType = (selfType as! InoutType).base
-        let loc = builder.buildAllocStack(type: .lower(selfType))
+        let loc = builder.buildAllocStack(type: .lower(selfType), isSelf: true)
         state.locals[ObjectIdentifier(selfDecl)] = loc
         state.allocs.append(loc)
       }
@@ -180,7 +180,7 @@ public enum Emitter {
     // If the function's a constructor, emit the implicit return statement.
     if decl is CtorDecl {
       let selfLoc = state.locals[ObjectIdentifier(decl.selfDecl!)]
-      let selfVal = builder.buildLoad(location: selfLoc!)
+      let selfVal = builder.buildLoadCopy(location: selfLoc!)
       builder.buildDeallocStack(alloc: selfLoc as! AllocStackInst)
       builder.buildRet(value: selfVal)
     }
@@ -217,7 +217,7 @@ public enum Emitter {
     switch decl {
     case is CtorDecl:
       // Emit a synthesized constructor.
-      let base = locals[ObjectIdentifier(decl.selfDecl!)]!
+      let base = locals[ObjectIdentifier(decl.selfDecl!)] as! AllocStackInst
       let type = decl.parentDeclSpace as! NominalTypeDecl
 
       for (varDecl, paramDecl) in zip(type.storedVars, decl.params) {
@@ -227,7 +227,8 @@ public enum Emitter {
         builder.buildStore(target: memberAddr, value: value)
       }
 
-      let selfVal = builder.buildLoad(location: base)
+      let selfVal = builder.buildLoadCopy(location: base)
+      builder.buildDeallocStack(alloc: base)
       builder.buildRet(value: selfVal)
 
     default:
@@ -264,14 +265,15 @@ public enum Emitter {
       // Unless the function is a constructor, we have to open the self parameter.
       let openedSelfType = impl.selfDecl!.type
       if req.isMutating {
-        args[0] = builder.buildOpenExistentialAddr(container: args[0], type: .lower(openedSelfType))
+        args[0] = builder.buildProjectExistentialAddr(
+          container: args[0], type: .lower(openedSelfType))
 
         if !impl.isMutating {
-          args[0] = builder.buildLoad(location: args[0])
+          args[0] = builder.buildLoadCopy(location: args[0])
         }
       } else {
         assert(!impl.isMutating)
-        args[0] = builder.buildOpenExistential(container: args[0], type: .lower(openedSelfType))
+        args[0] = builder.buildCopyExistential(container: args[0], type: .lower(openedSelfType))
       }
     }
 
@@ -297,7 +299,7 @@ public enum Emitter {
       let patterns = decl.pattern.namedPatterns
       if patterns.count == 1 {
         let loc = emit(storedLocalVar: patterns[0].decl, in: &state, with: &builder)
-        emit(assign: initializer, to: loc, asInit: true, in: &state, with: &builder)
+        emit(assign: initializer, to: loc, isInitializer: true, in: &state, with: &builder)
         state.locals[ObjectIdentifier(patterns[0].decl)] = loc
       } else {
         // FIXME: Handle destructuring,
@@ -360,8 +362,7 @@ public enum Emitter {
 
           builder.buildStore(
             target: loc,
-            value: builder.buildPartialApply(delegator: fun, partialArgs: partialArgs),
-            semantics: .init_)
+            value: builder.buildPartialApply(delegator: fun, partialArgs: partialArgs))
         }
 
       case let decl as NominalTypeDecl:
@@ -408,11 +409,11 @@ public enum Emitter {
     builder.buildRet(value: result)
   }
 
-  /// Emits the assignment of the value represented by `expr` to `lvalue`.
+  /// Emits the assignment of the value represented by `expr` to `target`.
   static func emit(
     assign expr: Expr,
     to target: Value,
-    asInit isInit: Bool,
+    isInitializer: Bool = false,
     in state: inout State,
     with builder: inout Builder
   ) {
@@ -438,63 +439,55 @@ public enum Emitter {
         }
 
         /// Copies the contents from the location on the right to the location on the left.
-        let semantics: AssignmentSemantics = isInit ? .init_ : .unknown
-        builder.buildCopyAddr(target: target, source: source, semantics: semantics)
+        builder.buildCopyAddr(target: target, source: source)
         return
       }
     }
 
     // Otherwise, emit the r-value and fall back to the regular path.
-    let rvalue = emit(rvalue: expr, in: &state, with: &builder)
-    emit(assign: rvalue, ofType: exprType, to: target, asInit: isInit, with: &builder)
+    let value = emit(rvalue: expr, in: &state, with: &builder)
+    emit(assign: value, ofType: exprType, to: target, with: &builder)
   }
 
-  /// Emits the assignment of `rvalue` to `lvalue`.
+  /// Emits the assignment of `rvalue` to `target`.
   static func emit(
     assign rvalue: Value,
     ofType rvalueType: ValType,
-    to lvalue: Value,
-    asInit isInit: Bool,
+    to target: Value,
     with builder: inout Builder
   ) {
     assert(rvalueType.isCanonical)
-    let semantics: AssignmentSemantics = isInit ? .init_ : .unknown
 
     // If the l-value has the same type as the r-value, we can emit a simple store.
-    if lvalue.type.valType == rvalueType {
-      builder.buildStore(target: lvalue, value: rvalue, semantics: semantics)
+    if target.type.valType == rvalueType {
+      builder.buildStore(target: target, value: rvalue)
       return
     }
 
     // If both the l-value and the r-value have a union type, we can emit a simple store.
     if (rvalue.type.valType is UnionType) && (rvalueType is UnionType) {
-      builder.buildStore(target: lvalue, value: rvalue, semantics: semantics)
+      builder.buildStore(target: target, value: rvalue)
       return
     }
 
-    // If the l-value is an existential container, then there are two cases to consider.
-    if lvalue.type.valType.isExistential {
-      assert(lvalue.type.valType != rvalueType)
-
+    // If the l-value is an existential container, we must prepare the r-value. If its another
+    // existential container, then we can copy its contents directly. Otherwise, the container on
+    // the left must be (re)initialized.
+    if target.type.valType.isExistential {
       if rvalueType.isExistential {
-        // If the r-value is an existential container too (but with a different type), then we need
-        // to cast its package.
         let loc = builder.buildAllocStack(type: rvalue.type)
-        builder.buildStore(target: loc, value: rvalue, semantics: .init_)
-        let tmp = builder.buildUnsafeCastAddr(source: loc, type: lvalue.type)
-        builder.buildCopyAddr(target: lvalue, source: tmp, semantics: semantics)
+        builder.buildStore(target: loc, value: rvalue)
+        let tmp = builder.buildUnsafeCastAddr(source: loc, type: target.type)
+        builder.buildCopyAddr(target: target, source: tmp)
         builder.buildDeallocStack(alloc: loc)
       } else {
-        // If the r-value has a concrete type, then it must be packed into an existential container
-        // before being stored
-        let lvalue = builder.buildAllocExistential(container: lvalue, witness: rvalue.type)
-        builder.buildStore(target: lvalue, value: rvalue, semantics: semantics)
+        builder.buildInitExistentialAddr(container: target, value: rvalue)
       }
 
       return
     }
 
-    builder.buildStore(target: lvalue, value: rvalue, semantics: semantics)
+    builder.buildStore(target: target, value: rvalue)
   }
 
   /// Emits a r-value.
@@ -526,6 +519,7 @@ public enum Emitter {
   }
 
   /// Emits a nil value.
+  @available(swift, obsoleted: 5.0)
   static func emitNil(context: Context, with builder: inout Builder) -> Value {
     let decl = context.getTypeDecl(for: .Nil) as! ProductTypeDecl
     return builder.buildRecord(typeDecl: decl, type: .lower(decl.instanceType))
