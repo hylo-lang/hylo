@@ -69,10 +69,22 @@ extension ReferenceTable: Collection {
 
 }
 
+extension ReferenceTable: Equatable where Value: Equatable {}
+
+extension ReferenceTable: Hashable where Value: Hashable {}
+
 extension ReferenceTable: ExpressibleByDictionaryLiteral {
 
   public init(dictionaryLiteral elements: (Key, Value)...) {
     self.init(uniqueKeysWithValues: elements)
+  }
+
+}
+
+extension ReferenceTable: CustomReflectable {
+
+  public var customMirror: Mirror {
+    return Mirror(self, unlabeledChildren: self, displayStyle: .collection)
   }
 
 }
