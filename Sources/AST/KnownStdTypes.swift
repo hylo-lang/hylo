@@ -2,6 +2,7 @@
 public enum KnownStdTypes: String {
 
   case ExpressibleByBuiltinIntLiteral
+  case Copyable
   case Int
   case Maybe
   case Nil

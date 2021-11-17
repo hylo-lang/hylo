@@ -1,0 +1,7 @@
+/// A type whose instances are copyable.
+view Copyable {
+
+  /// Returns a copy of this value.
+  fun copy() -> Self
+
+}
