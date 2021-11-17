@@ -73,3 +73,13 @@ type Int: ExpressibleByBuiltinIntLiteral {
   }
 
 }
+
+extn Int: Copyable {
+
+  fun copy() -> Int {
+    var result = Int()
+    result.value = self.value
+    ret result
+  }
+
+}
