@@ -209,11 +209,23 @@ struct DeclChecker: DeclVisitor {
       isWellFormed = member.accept(&self) && isWellFormed
     }
 
-    let conformingType = node.receiverType
+    // Type check known extensions.
     let context = node.type.context
+    for module in context.modules.values {
+      for extDecl in module.extensions(of: node) {
+        isWellFormed = extDecl.accept(&self) && isWellFormed
+      }
+    }
 
     // Type check the type's conformances.
+    let conformingType = node.receiverType
     for (view, conformance) in node.conformanceTable {
+      // Typecheck the view declaration if necessary.
+      guard view.decl.accept(&self) else {
+        node.conformanceTable[view]!.state = .invalid
+        continue
+      }
+
       // Assume the conformance holds.
       node.conformanceTable[view]!.state = .checked
 
@@ -241,6 +253,7 @@ struct DeclChecker: DeclVisitor {
 
         // Bail out if the member is invalid.
         guard member.state != .invalid else {
+          node.conformanceTable[view]!.state = .invalid
           isWellFormed = false
           continue
         }

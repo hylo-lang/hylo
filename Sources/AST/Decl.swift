@@ -989,25 +989,38 @@ public class GenericTypeDecl: BaseGenericDecl, TypeDecl {
   /// - Returns: The new conformances that have been created.
   @discardableResult
   public func updateConformanceTable() -> [ViewConformance] {
-    guard conformanceTableGeneration < type.context.generation else { return [] }
+    let context = type.context
+    guard conformanceTableGeneration < context.generation else { return [] }
 
     // FIXME: Insert inherited conformance.
-    // FIXME: Insert conformance declared in extensions.
+
+    var newConfs: [ViewConformance] = []
+    func insertConformance(to sign: Sign) {
+      let signType = sign.realize(unqualifiedFrom: parentDeclSpace!)
+      if let viewType = signType as? ViewType {
+        let conf = ViewConformance(viewDecl: viewType.decl as! ViewTypeDecl, range: sign.range)
+        _conformanceTable[viewType] = conf
+        newConfs.append(conf)
+      }
+    }
 
     // Initialize the conformance table with the inheritance clause of the type declaration.
-    var newConfs: [ViewConformance] = []
     if conformanceTableGeneration < 0 {
       for sign in inheritances {
-        let signType = sign.realize(unqualifiedFrom: parentDeclSpace!)
-        if let viewType = signType as? ViewType {
-          let conf = ViewConformance(viewDecl: viewType.decl as! ViewTypeDecl, range: sign.range)
-          _conformanceTable[viewType] = conf
-          newConfs.append(conf)
+        insertConformance(to: sign)
+      }
+    }
+
+    // Insert conformances declared in extensions.
+    for module in context.modules.values where module.generation > conformanceTableGeneration {
+      for extDecl in module.extensions(of: self) {
+        for sign in extDecl.inheritances {
+          insertConformance(to: sign)
         }
       }
     }
 
-    conformanceTableGeneration = type.context.generation
+    conformanceTableGeneration = context.generation
     return newConfs
   }
 
