@@ -211,8 +211,12 @@ public final class Context {
     return unionType([])
   }()
 
-  public var nilType: ValType {
-    return getTypeDecl(for: .Nil)!.instanceType
+  public var nilType: ProductType {
+    return getTypeDecl(for: .Nil)!.instanceType as! ProductType
+  }
+
+  public var copyableType: ViewType {
+    return getTypeDecl(for: .Copyable)!.instanceType as! ViewType
   }
 
   public private(set) lazy var unresolvedType: UnresolvedType = {

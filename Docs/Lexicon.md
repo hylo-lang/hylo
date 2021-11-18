@@ -36,5 +36,5 @@ Val's Intermediate Language; The IR used by the compiler flow to carry out flow-
 
 VIL has multiple stages:
 - *Raw VIL* is the output that the VIL emitter produces by walking a typed AST.
-- *Checked VIL* is VIL code that has passed type state anaylsis.
+- *Checked VIL* is VIL code that has passed typestate anaylsis.
 - *Optimized VIL* is VIL code where guaranteed optimizations have been applied.

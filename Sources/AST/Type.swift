@@ -181,6 +181,9 @@ public class ValType: CustomStringConvertible, Equatable {
   /// Indicates whether the type is the error type.
   public final var isError: Bool { self === context.errorType }
 
+  /// Indicates whether the type is copyable.
+  public var isCopyable: Bool { fatalError("unreachable") }
+
   /// The kind of the type.
   public var kind: KindType { context.kindType(type: self) }
 
@@ -328,6 +331,8 @@ public final class KindType: ValType {
       : self
   }
 
+  public override var isCopyable: Bool { true }
+
   public override func matches(
     with other: ValType,
     reconcilingWith reconcile: (ValType, ValType) -> Bool
@@ -368,6 +373,8 @@ public class BuiltinType: ValType {
     self.name = name
     super.init(context: context, props: .isCanonical)
   }
+
+  public override var isCopyable: Bool { true }
 
   override func hash(into hasher: inout Hasher) {
     hasher.combine(name)
@@ -464,7 +471,7 @@ public class NominalType: ValType {
     super.init(context: context, props: props)
   }
 
-  public final override func lookup(member memberName: String) -> LookupResult {
+  public override func lookup(member memberName: String) -> LookupResult {
     return decl.lookup(qualified: memberName)
   }
 
@@ -483,6 +490,10 @@ public final class ProductType: NominalType {
     super.init(context: context, decl: decl, props: .isCanonical)
   }
 
+  public override var isCopyable: Bool {
+    return decl.conformanceTable[context.copyableType] != nil
+  }
+
   override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? ProductType else { return false }
     return self.decl === that.decl
@@ -499,6 +510,10 @@ public final class ViewType: NominalType {
 
   init(context: Context, decl: ViewTypeDecl) {
     super.init(context: context, decl: decl, props: .isCanonical)
+  }
+
+  public override var isCopyable: Bool {
+    return decl.conformanceTable[context.copyableType] != nil
   }
 
   override func isEqual(to other: ValType) -> Bool {
@@ -538,6 +553,10 @@ public final class AliasType: NominalType {
     }
 
     super.init(context: context, decl: decl, props: props)
+  }
+
+  public override var isCopyable: Bool {
+    return canonical.isCopyable
   }
 
   public override var canonical: ValType {
@@ -601,6 +620,11 @@ public final class ViewCompositionType: ValType {
     }
 
     super.init(context: context, props: props)
+  }
+
+  public override var isCopyable: Bool {
+    // `Any` is not copyable!
+    return !views.isEmpty && views.allSatisfy({ $0.isCopyable })
   }
 
   public override var canonical: ValType {
@@ -691,6 +715,10 @@ public final class UnionType: ValType {
     }
 
     super.init(context: context, props: props)
+  }
+
+  public override var isCopyable: Bool {
+    return elems.allSatisfy({ $0.isCopyable })
   }
 
   public override var canonical: ValType {
@@ -791,6 +819,10 @@ public final class BoundGenericType: NominalType {
   public var bindings: [GenericParamType: ValType] {
     let env = decl.genericEnv!
     return Dictionary(zip(env.params, args), uniquingKeysWith: { lhs, _ in lhs })
+  }
+
+  public override var isCopyable: Bool {
+    return decl.conformanceTable[context.copyableType] != nil
   }
 
   public override var canonical: ValType {
@@ -1009,6 +1041,10 @@ public final class SkolemType: ValType {
     super.init(context: context, props: [.isCanonical, .hasSkolems])
   }
 
+  public override var isCopyable: Bool {
+    return genericEnv.conformance(of: self, to: context.copyableType) != nil
+  }
+
   public override var uncontextualized: ValType { interface }
 
   public override func lookup(member memberName: String) -> LookupResult {
@@ -1090,6 +1126,10 @@ public final class TupleType: ValType {
     }
 
     super.init(context: context, props: props)
+  }
+
+  public override var isCopyable: Bool {
+    return elems.allSatisfy({ $0.type.isCopyable })
   }
 
   /// The canonical form of the tuple.
@@ -1197,6 +1237,8 @@ public final class FunType: ValType {
     }
   }
 
+  public override var isCopyable: Bool { true }
+
   public override var canonical: ValType {
     return isCanonical
       ? self
@@ -1257,6 +1299,8 @@ public final class AsyncType: ValType {
     self.base = base
     super.init(context: context, props: base.props.union(with: .hasAsync))
   }
+
+  public override var isCopyable: Bool { false }
 
   public override var canonical: ValType {
     return isCanonical
@@ -1322,6 +1366,8 @@ public final class InoutType: ValType {
     self.base = base
     super.init(context: context, props: base.props.union(with: .hasInout))
   }
+
+  public override var isCopyable: Bool { base.isCopyable }
 
   public override var canonical: ValType {
     return isCanonical
