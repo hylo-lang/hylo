@@ -180,7 +180,7 @@ public enum Emitter {
     // If the function's a constructor, emit the implicit return statement.
     if decl is CtorDecl {
       let selfLoc = state.locals[ObjectIdentifier(decl.selfDecl!)]
-      let selfVal = builder.buildLoadCopy(location: selfLoc!)
+      let selfVal = builder.buildLoad(location: selfLoc!)
       builder.buildDeallocStack(alloc: selfLoc as! AllocStackInst)
       builder.buildRet(value: selfVal)
     }
@@ -227,7 +227,7 @@ public enum Emitter {
         builder.buildStore(target: memberAddr, value: value)
       }
 
-      let selfVal = builder.buildLoadCopy(location: base)
+      let selfVal = builder.buildLoad(location: base)
       builder.buildDeallocStack(alloc: base)
       builder.buildRet(value: selfVal)
 
@@ -269,7 +269,7 @@ public enum Emitter {
           container: args[0], type: .lower(openedSelfType))
 
         if !impl.isMutating {
-          args[0] = builder.buildLoadCopy(location: args[0])
+          args[0] = builder.buildLoad(location: args[0])
         }
       } else {
         assert(!impl.isMutating)
@@ -496,7 +496,7 @@ public enum Emitter {
     in state: inout State,
     with builder: inout Builder
   ) -> Value {
-    // Emit an error value for any expression that has an error type.
+    // Emit a poison value for any expression that has an error type.
     guard !expr.type.isError else { return builder.buildPoison() }
 
     let result =

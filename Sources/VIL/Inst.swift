@@ -142,19 +142,32 @@ public final class EqualAddrInst: Value, Inst {
 
 }
 
-/// Copies and loads the value at the specified address.
+/// Loads the value at the specified address.
 ///
 /// The instruction operates on the source location directly. Hence, if it is assigned to an
-/// existential container, the entire container is copied, not only the packaged value.
-public final class LoadCopyInst: Value, Inst {
+/// existential container, the entire container is loaded, not only the packaged value.
+public final class LoadInst: Value, Inst {
 
-  /// The location to copy and load.
+  /// The semantics of a `load` instruction.
+  public enum Semantics {
+
+    /// The value is loaded by copy. The value at the source location must have a copyable type.
+    case copy
+
+    /// The value is loaded by move.
+    case move
+
+  }
+
+  /// The location load.
   public let location: Value
 
-  // FIXME: Have a single `load` inst with an ownership use property.
+  /// The semantics of the load.
+  public let semantics: Semantics
 
-  init(location: Value) {
+  init(location: Value, semantics: Semantics) {
     self.location = location
+    self.semantics = semantics
     super.init(type: location.type.object)
   }
 

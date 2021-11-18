@@ -314,7 +314,7 @@ public struct TypestateAnalysis {
         success = visit(inst: inst, path: path, context: &context, builder: &builder) && success
       case let inst as InitExistentialAddrInst:
         success = visit(inst: inst, path: path, context: &context, builder: &builder) && success
-      case let inst as LoadCopyInst:
+      case let inst as LoadInst:
         success = visit(inst: inst, path: path, context: &context, builder: &builder) && success
       case let inst as RecordInst:
         success = visit(inst: inst, path: path, context: &context, builder: &builder) && success
@@ -576,7 +576,7 @@ public struct TypestateAnalysis {
   }
 
   private func visit(
-    inst: LoadCopyInst,
+    inst: LoadInst,
     path: InstPath,
     context: inout AbstractContext,
     builder: inout Builder
@@ -588,9 +588,24 @@ public struct TypestateAnalysis {
       builder: builder,
       anchor: nil)
 
-    // Copying produces a new value with ownership.
+    // Assume the instruction is correct, so that the analysis can carry on no matter what.
     context.locals[inst] = .owned
-    return success
+
+    switch inst.semantics {
+    case .move:
+      // Moving consumes ownership.
+      let addr = loadAsAddr(inst.location, in: context)
+      if case .lent = context.memory[addr] {
+        fatalError("not implemented")
+      }
+
+      context.memory[addr] = .moved(consumer: path)
+      return success
+
+    case .copy:
+      // Copying produces a new value with ownership.
+      return success
+    }
   }
 
   private func visit(

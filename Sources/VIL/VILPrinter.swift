@@ -181,9 +181,10 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
       self << inst.value
       self << "\n"
 
-    case let inst as LoadCopyInst:
+    case let inst as LoadInst:
       let id = makeID(for: inst)
-      self << "_\(id) = load_copy "
+      self << "_\(id) = load "
+      self << "[\(inst.semantics)] "
       self << inst.location
       self << "\n"
 

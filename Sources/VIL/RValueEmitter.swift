@@ -139,14 +139,15 @@ struct RValueEmitter: ExprVisitor {
   }
 
   mutating func visit(_ node: AssignExpr) -> ExprResult {
-    // Emit the right operand first.
-    let value = emit(rvalue: node.rvalue)
+    // Emit the right operand first and the left operand second.
+    let rvalue = emit(rvalue: node.rvalue)
+    var emitter = LValueEmitter(_state: _state, _builder: _builder)
+    let lvalue = node.lvalue.accept(&emitter)
 
     // Emit the left operand, followed by the assignment.
-    var emitter = LValueEmitter(_state: _state, _builder: _builder)
-    switch node.lvalue.accept(&emitter) {
+    switch lvalue {
     case .success(let result):
-      Emitter.emit(assign: value, ofType: node.rvalue.type, to: result.loc, with: &builder)
+      Emitter.emit(assign: rvalue, ofType: node.rvalue.type, to: result.loc, with: &builder)
 
     case .failure(let error):
       switch error {
@@ -212,7 +213,7 @@ struct RValueEmitter: ExprVisitor {
     builder.buildBranch(dest: finally)
 
     builder.insertionPointer!.blockID = finally
-    let result = builder.buildLoadCopy(location: container)
+    let result = builder.buildLoad(location: container)
     builder.buildDeallocStack(alloc: container)
     return .success(result)
   }
@@ -231,7 +232,7 @@ struct RValueEmitter: ExprVisitor {
     if targetType.isExistential {
       let tmp = builder.buildAllocStack(type: .lower(targetType))
       Emitter.emit(assign: node.value, to: tmp, in: &_state.pointee, with: &_builder.pointee)
-      let result = builder.buildLoadCopy(location: tmp)
+      let result = builder.buildLoad(location: tmp)
       builder.buildDeallocStack(alloc: tmp)
       return .success(result)
     }
@@ -301,8 +302,8 @@ struct RValueEmitter: ExprVisitor {
 
       if calleeType.paramTypes[i].isExistential {
         // The parameter has an existential type and must be passed as an existential container. If
-        // the argument isn't already packaged, we have to wrap it into a container. Otherwise, we
-        // can pass it "as is", since all existential containers have the same memory layout.
+        // the argument isn't already packaged, we have to wrap it into a new container. Otherwise,
+        // we can pass it "as is", since all existential containers have the same memory layout.
         if !value.type.isExistential {
           // FIXME: Allocating a container of type `Any`, completely erases the argument's type.
           // Hence, the resulting VIL is in fact ill-typed, as we could call a function expecting
@@ -310,7 +311,7 @@ struct RValueEmitter: ExprVisitor {
           // create an existential container that meets the parameter's requirements.
           let tmp = builder.buildAllocStack(type: .lower(context.anyType))
           builder.buildInitExistentialAddr(container: tmp, value: value)
-          value = builder.buildLoadCopy(location: tmp)
+          value = builder.buildLoad(location: tmp)
           builder.buildDeallocStack(alloc: tmp)
         }
       }
@@ -351,7 +352,7 @@ struct RValueEmitter: ExprVisitor {
     if let value = locals[ObjectIdentifier(node.decl)] {
       // FIXME: We should have a more reliable way to determine whether an address must be loaded.
       return value.type.isAddress
-        ? .success(builder.buildLoadCopy(location: value))
+        ? .success(builder.buildLoad(location: value))
         : .success(value)
     }
 
@@ -524,7 +525,7 @@ struct RValueEmitter: ExprVisitor {
 
     assert(builder.insertionPointer?.blockID == lastBlock)
     if let storage = storage {
-      let result = builder.buildLoadCopy(location: storage)
+      let result = builder.buildLoad(location: storage)
       builder.buildDeallocStack(alloc: storage)
       return .success(result)
     } else {
