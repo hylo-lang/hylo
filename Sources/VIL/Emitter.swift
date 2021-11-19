@@ -156,7 +156,6 @@ public enum Emitter {
         selfType = (selfType as! InoutType).base
         let loc = builder.buildAllocStack(type: .lower(selfType), isSelf: true)
         state.locals[ObjectIdentifier(selfDecl)] = loc
-        state.allocs.append(loc)
       }
     }
 
