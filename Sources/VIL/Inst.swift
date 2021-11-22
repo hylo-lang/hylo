@@ -425,6 +425,21 @@ public final class ApplyInst: Value, Inst {
 
 }
 
+/// Copies a value using its copy-copy constructor (if any).
+public final class CopyInst: Value, Inst {
+
+  /// The value being copied.
+  public let value: Value
+
+  init(value: Value) {
+    self.value = value
+    super.init(type: value.type)
+  }
+
+  public var operands: [Value] { [value] }
+
+}
+
 /// Creates the partial application of a function.
 public final class PartialApplyInst: Value, Inst {
 

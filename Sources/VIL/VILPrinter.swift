@@ -140,6 +140,12 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
       self << inst.elseArgs
       self << ")\n"
 
+    case let inst as CopyInst:
+      let id = makeID(for: inst)
+      self << "_\(id) = copy "
+      self << inst.value
+      self << "\n"
+
     case let inst as CopyAddrInst:
       self << "copy_addr "
       self << inst.source

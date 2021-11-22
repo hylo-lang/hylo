@@ -412,6 +412,18 @@ public struct Builder {
     return inst
   }
 
+  /// Builds a `copy` instruct.
+  ///
+  /// - Parameter value: The value to copy. `value` must have an object type that is copyable.
+  public mutating func buildCopy(value: Value) -> CopyInst {
+    precondition(value.type.isObject, "'container' must have an object type")
+    precondition(value.type.valType.isCopyable, "'value' must have a copyable type")
+
+    let inst = CopyInst(value: value)
+    insert(inst)
+    return inst
+  }
+
   /// Builds a `dealloc_stack` instruction.
   ///
   /// - Parameter alloc: The corresponding stack allocation.
