@@ -348,12 +348,23 @@ struct RValueEmitter: ExprVisitor {
   }
 
   mutating func visit(_ node: DeclRefExpr) -> ExprResult {
-    // First, we look for an entry in the local symbol table.
+    // If the identifier refers to a variable or a function parameter, its value should appear in
+    // the local symbol table.
     if let value = locals[ObjectIdentifier(node.decl)] {
-      // FIXME: We should have a more reliable way to determine whether an address must be loaded.
-      return value.type.isAddress
-        ? .success(builder.buildLoad(location: value))
-        : .success(value)
+      // Always emit a copying operation if the variable has a copyable type. Unnecessary copies
+      // will be removed by the optimizer.
+      let semantics: LoadInst.Semantics = value.type.valType.isCopyable
+        ? .copy
+        : .move
+
+      // FIXME: Is there a more reliable way to determine whether an address must be loaded?
+      if value.type.isAddress {
+        return .success(builder.buildLoad(location: value, semantics: semantics))
+      } else if semantics == .copy {
+        return .success(builder.buildCopy(value: value))
+      } else {
+        return .success(value)
+      }
     }
 
     switch node.decl {

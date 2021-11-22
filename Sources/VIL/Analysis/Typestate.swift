@@ -302,6 +302,8 @@ public struct TypestateAnalysis {
         success = visit(inst: inst, path: path, context: &context, builder: &builder) && success
       case let inst as ApplyInst:
         success = visit(inst: inst, path: path, context: &context, builder: &builder) && success
+      case let inst as CopyInst:
+        success = visit(inst: inst, path: path, context: &context, builder: &builder) && success
       case let inst as CopyAddrInst:
         success = visit(inst: inst, path: path, context: &context, builder: &builder) && success
       case let inst as CopyExistentialInst:
@@ -423,6 +425,31 @@ public struct TypestateAnalysis {
     }
 
     return success
+  }
+
+  private func visit(
+    inst: CopyInst,
+    path: InstPath,
+    context: inout AbstractContext,
+    builder: inout Builder
+  ) -> Bool {
+    switch context.locals[inst.value] {
+    case .owned, .lent:
+      context.locals[inst] = .owned
+      return true
+
+    case .uninitialized:
+      builder.context.report(.useBeforeInit(location: inst, anchor: nil))
+      return false
+
+    case .moved(let consumer):
+      builder.context.report(
+        .useAfterMove(location: inst, consumer: builder.module[consumer]))
+      return false
+
+    default:
+      fatalError("bad VIL: illegal operand")
+    }
   }
 
   private func visit(
