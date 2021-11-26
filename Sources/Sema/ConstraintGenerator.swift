@@ -432,8 +432,13 @@ struct ConstraintGenerator: NodeWalker {
     }
 
     if let fixedType = fixedType {
+      // If the pattern is a wildcard, there's nothing more we can infer from its type. Hence, we
+      // can assume it has exactly the expected type.
+      let kind: RelationalConstraint.Kind = pattern is WildcardPattern
+        ? .equality
+        : .subtyping
       insert(RelationalConstraint(
-              kind: .subtyping, lhs: pattern.type, rhs: fixedType,
+              kind: kind, lhs: pattern.type, rhs: fixedType,
               at: ConstraintLocator(pattern)))
     }
   }
