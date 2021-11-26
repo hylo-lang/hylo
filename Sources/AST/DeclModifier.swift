@@ -12,7 +12,12 @@ public struct DeclModifier {
     /// The declaration is only visible within its module.
     case mod
 
-    /// The declaration expects `self` to be mutating. That modifier is valid only on methods.
+    /// On a method declaration, the modifier indicates that `self` is consuming. On a parameter
+    /// declaration, the modifier indicates that the parameter is consuming.
+    case consuming
+
+    /// On a method declaration, the modifier indicates that `self` is mutating. On a parameter
+    /// declaration, the modifier indicates that the parameter is mutating.
     case mut
 
     /// The declaration denotes a function that might be called as an infix operator.
@@ -30,9 +35,6 @@ public struct DeclModifier {
     /// The declaration is a member of a type itself, rather than instances of the type. That
     /// modifier is valid only on method and property declarations.
     case `static`
-
-    /// The declaration denotes a type whose instances cannot be copied.
-    case moveonly
 
   }
 

@@ -483,7 +483,7 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
     case let extnDecl as TypeExtnDecl:
       // The function is declared in the body of a type extension.
       guard let typeDecl = extnDecl.extendedDecl else {
-        let decl = FunParamDecl(name: "self", externalName: nil, type: type.context.errorType)
+        let decl = FunParamDecl(policy: .local, name: "self", type: type.context.errorType)
         decl.setState(.invalid)
         return decl
       }
@@ -494,9 +494,10 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
     }
 
     let decl = FunParamDecl(
+      policy: isMutating ? .inout : .local,
       name: "self",
       externalName: nil,
-      type: isMutating ? type.context.inoutType(of: receiverType) : receiverType)
+      type: receiverType)
     decl.parentDeclSpace = self
     decl.setState(.typeChecked)
     return decl
@@ -734,6 +735,23 @@ public final class CaptureDecl: ValueDecl {
 /// The declaration of a function parameter.
 public final class FunParamDecl: ValueDecl {
 
+  /// A parameter passing policy.
+  public enum PassingPolicy {
+
+    /// An immutable value that is guaranteed to be live over the entire scope of the function.
+    case local
+
+    /// A mutable borrowed value that is guaranteed unique over the entire scope of the function.
+    case `inout`
+
+    /// An immutable value whose ownership has been transferred from the caller to the callee.
+    case consuming
+
+    /// A mutable value whose ownership has been transferred from the caller to the callee.
+    case consumingMutable
+
+  }
+
   public var range: SourceRange?
 
   public weak var parentDeclSpace: DeclSpace?
@@ -741,6 +759,9 @@ public final class FunParamDecl: ValueDecl {
   public var state = DeclState.parsed
 
   public var type: ValType
+
+  /// The passing policly of the parameter.
+  public var policy: PassingPolicy
 
   /// The internal name of the parameter.
   public var name: String
@@ -751,7 +772,14 @@ public final class FunParamDecl: ValueDecl {
   /// The signature of the parameter's type.
   public var sign: Sign?
 
-  public init(name: String, externalName: String? = nil, typeSign: Sign? = nil, type: ValType) {
+  public init(
+    policy: PassingPolicy,
+    name: String,
+    externalName: String? = nil,
+    typeSign: Sign? = nil,
+    type: ValType
+  ) {
+    self.policy = policy
     self.name = name
     self.externalName = externalName
     self.sign = typeSign
@@ -1144,6 +1172,7 @@ public final class ProductTypeDecl: NominalTypeDecl {
       // Create a parameter for each stored property.
       ctor.params = storedVars.map({ (varDecl: VarDecl) -> FunParamDecl in
         let param = FunParamDecl(
+          policy: .consuming,
           name: varDecl.name,
           externalName: varDecl.name,
           typeSign: nil,

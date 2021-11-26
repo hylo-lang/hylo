@@ -216,22 +216,21 @@ public struct Parser {
     loop:while let token = state.peek() {
       var m: DeclModifier
       switch token.kind {
-      case .pub     : m = DeclModifier(kind: .pub)
-      case .mod     : m = DeclModifier(kind: .mod)
-      case .mut     : m = DeclModifier(kind: .mut)
-      case .infix   : m = DeclModifier(kind: .infix)
-      case .prefix  : m = DeclModifier(kind: .prefix)
-      case .postfix : m = DeclModifier(kind: .postfix)
-      case .static  : m = DeclModifier(kind: .static)
-      case .moveonly: m = DeclModifier(kind: .moveonly)
-      default       : break loop
+      case .pub       : m = DeclModifier(kind: .pub)
+      case .mod       : m = DeclModifier(kind: .mod)
+      case .consuming : m = DeclModifier(kind: .consuming)
+      case .mut       : m = DeclModifier(kind: .mut)
+      case .infix     : m = DeclModifier(kind: .infix)
+      case .prefix    : m = DeclModifier(kind: .prefix)
+      case .postfix   : m = DeclModifier(kind: .postfix)
+      case .static    : m = DeclModifier(kind: .static)
+      default         : break loop
       }
       m.range = token.range
       _ = state.take()
 
       guard kinds.insert(m.kind).inserted else {
-        context.report(
-          "ignoring duplicate modifier \(m.kind)", level: .warning, anchor: token.range)
+        context.report("ignoring duplicate modifier \(m.kind)", level: .warning, anchor: m.range)
         continue
       }
 
@@ -619,7 +618,7 @@ public struct Parser {
 
   /// Parses a capture declaration.
   ///
-  ///     capture-decl ::= ('val' | 'var') NAME
+  ///     capture-decl ::= ('val' | 'var' | 'mut') NAME
   private func parseCaptureDecl(state: inout State) -> CaptureDecl? {
     let semantics: CaptureDecl.Semantics
     switch state.peek()?.kind {
@@ -652,18 +651,30 @@ public struct Parser {
 
   /// Parses a parameter declaration.
   ///
-  ///     param-decl ::= (label | '_')? NAME ':' sign
+  ///     param-decl ::= param-policy? (label | '_')? NAME ':' sign
   private func parseParamDecl(state: inout State) -> FunParamDecl? {
+    // Parse the parameter policy first.
+    let paramPolicy = parseParamPolicy(state: &state)
+
+    // Create the declaration.
+    let decl = FunParamDecl(policy: paramPolicy?.policy ?? .local, name: "", type: unresolved)
+    decl.parentDeclSpace = state.declSpace
+
     // We assume that the first token corresponds to the external label. If the following token is
     // a name, then we can use it as the internal name. Owtherwise, we can use the first token both
     // the external label and the internal name.
-    guard let external = state.take(if: { $0.kind == .under || $0.isLabel }) else { return nil }
-    let lowerLoc = external.range.lowerBound
+    guard let external = state.take(if: { $0.kind == .under || $0.isLabel }) else {
+      // If we parsed a policy but couldn't parse any parameter name, we must commit to an error.
+      if paramPolicy == nil {
+        return nil
+      } else {
+        context.report("expected parameter name after passing policy", anchor: state.errorRange())
+        state.hasError = true
+        return decl
+      }
+    }
+    let lowerLoc = paramPolicy?.range.lowerBound ?? external.range.lowerBound
     var upperLoc = external.range.upperBound
-
-    // Create the declaration.
-    let decl = FunParamDecl(name: "", externalName: nil, typeSign: nil, type: unresolved)
-    decl.parentDeclSpace = state.declSpace
 
     if let internal_ = state.take(.name) {
       // We parsed an external label *and* an internal identifier.
@@ -704,6 +715,43 @@ public struct Parser {
     return decl
   }
 
+  /// Parses a parameter passing policy.
+  ///
+  ///     param-policy ::= 'mut'? 'consuming'?
+  private func parseParamPolicy(
+    state: inout State
+  ) -> (policy: FunParamDecl.PassingPolicy, range: SourceRange)? {
+    // A policy is described by a sequence of declaration modifiers.
+    var range: SourceRange?
+    var mask = 0
+    loop:while let token = state.peek() {
+      let m: Int
+      switch token.kind {
+      case .mut      : m = 1
+      case .consuming: m = 2
+      default: break loop
+      }
+      _ = state.take()
+
+      guard mask & m == 0 else {
+        context.report(
+          "ignoring duplicate modifier \(token.kind)", level: .warning, anchor: token.range)
+        continue
+      }
+
+      if mask == 0 { range = token.range }
+      mask |= m
+    }
+
+    // Select the policy depending on the modifiers that we parsed.
+    switch mask {
+    case 1 : return (policy: .inout, range: range!)
+    case 2 : return (policy: .consuming, range: range!)
+    case 3 : return (policy: .consumingMutable, range: range!)
+    default: return nil
+    }
+  }
+
   /// Parses a type declaration.
   ///
   /// The next token is expected to be 'type' or 'view'.
@@ -718,7 +766,7 @@ public struct Parser {
     // Filter out the modifiers that are not applicable in this context.
     let modifiers = rawModifiers.filter({ (modifier: DeclModifier) -> Bool in
       switch modifier.kind {
-      case .pub, .mod, .moveonly:
+      case .pub, .mod:
         return true
 
       default:
@@ -1957,30 +2005,18 @@ public struct Parser {
 
   /// Parses a type signature.
   ///
-  ///     sign ::= ('mut' | 'volatile')* async-sign ('->' sign)
+  ///     sign ::= 'volatile'? async-sign ('->' sign)
   private func parseSign(state: inout State, isParamSign: Bool = false) -> Sign? {
     guard let opener = state.peek() else { return nil }
     var lastModifier: Token?
 
-    // Consume a list of type modifiers.
+    // Consume type modifiers.
     var modifiers: [Token.Kind: Token] = [:]
-    while let token = state.take(if: { $0.isOf(kind: [.mut, .volatile]) }) {
+    while let token = state.take(.volatile) {
       guard modifiers[token.kind] == nil else {
         context.report(
           "ignoring duplicate modifier \(token.kind)", level: .warning, anchor: token.range)
         continue
-      }
-
-      if token.kind == .mut {
-        guard isParamSign else {
-          context.report("'mut' is only allowed on parameter signatures", anchor: token.range)
-          state.hasError = true
-          continue
-        }
-        guard modifiers.isEmpty else {
-          context.report("'mut' should appear first", level: .warning, anchor: token.range)
-          continue
-        }
       }
 
       modifiers[token.kind] = token
@@ -2023,14 +2059,7 @@ public struct Parser {
       return ErrorSign(type: context.errorType, range: base.range)
     }
 
-    if let modifier = modifiers[.mut] {
-      let sign = InoutSign(base: base, type: unresolved)
-      sign.modifierRange = modifier.range
-      sign.range = opener.range.lowerBound ..< base.range!.upperBound
-      return sign
-    } else {
-      return base
-    }
+    return base
   }
 
 
