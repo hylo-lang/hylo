@@ -2,9 +2,14 @@ type A {
   val i: Int
 }
 
+fun foo() -> Int {
+  ret 2
+}
+
 fun main() {
-  val n = 42
+  val n = 40
   val a = async A(i: n)
-  val b = await a
-  exit(b.i)
+  val b = async foo()
+  val c = (await a).i + await b
+  exit(c)
 }
