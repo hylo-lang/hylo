@@ -239,7 +239,7 @@ public struct Interpreter {
         eval(inst: inst)
       case let inst as HaltInst:
         eval(inst: inst)
-      case let inst as LoadCopyInst:
+      case let inst as LoadInst:
         eval(inst: inst)
       case let inst as CopyExistentialInst:
         eval(inst: inst)
@@ -407,7 +407,7 @@ public struct Interpreter {
   private mutating func eval(inst: CheckedCastAddrInst) {
     // A cast from a concrete type to another type can only be successful if it's an identity cast
     // or an upcast, if the target is existential. Either way, such an operation can be checked
-    // statically and should be optimized away during VIL code emission.
+    // statically and must be optimized away during VIL code emission.
     precondition(inst.source.type.isExistential, "unreachable: source value is not existential")
 
     let sourceAddr = eval(value: inst.source).open(as: ValueAddr.self)
@@ -499,7 +499,7 @@ public struct Interpreter {
     }
   }
 
-  private mutating func eval(inst: LoadCopyInst) {
+  private mutating func eval(inst: LoadInst) {
     let src = eval(value: inst.location).open(as: ValueAddr.self)
     load(byteCount: layout.size(of: inst.type), from: src, into: .value(inst))
     increment(counter: &activeThread.programCounter)
