@@ -366,16 +366,37 @@ public struct Builder {
     return inst
   }
 
-  /// Builds a `check_cast_addr` instruction.
+  /// Builds a `checked_cast_branch` instruction.
   ///
   /// - Parameters:
-  ///   - source: The address to convert.
-  ///   - type: The type to which the address is converted.
-  public mutating func buildCheckedCastAddr(source: Value, type: VILType) -> CheckedCastAddrInst {
-    precondition(type.isAddress, "type must be an address type")
+  ///   - container: An existential container.
+  ///   - type: The type to which convert the value.
+  ///   - thenDest: The basic block that receives control if the conversion succeeds. `thenDest`
+  ///     must be in the current function and accept an argument of the requested type.
+  ///   - elseDest: The basic block that receives control if the conversion fails. `elseDest` must
+  ///     be in the current function and accept an argument of `container`'s type.
+  @discardableResult
+  public mutating func buildCheckedCastBranch(
+    value: Value,
+    type: VILType,
+    thenDest: BasicBlock.ID,
+    elseDest: BasicBlock.ID
+  ) -> CheckedCastBranchInst {
+    guard let fun = currentFun else { fatalError("insertion pointer is not configured") }
+    guard let thenBB = fun.blocks[thenDest] else { fatalError("invalid 'then' destination") }
+    guard let elseBB = fun.blocks[elseDest] else { fatalError("invalid 'else' destination") }
+    precondition(thenBB.params.count == 1, "'then' destination must accept 1 argument")
+    precondition(elseBB.params.count == 1, "'else' destination must accept 1 argument")
 
-    let inst = CheckedCastAddrInst(source: source, type: type)
+    let inst = CheckedCastBranchInst(
+      value: value, type: type, thenDest: thenDest, elseDest: elseDest)
     insert(inst)
+
+    // Update the function's CFG.
+    let blockID = insertionPointer!.blockID!
+    module.functions[insertionPointer!.funName]!.insertControlEdge(from: blockID, to: thenDest)
+    module.functions[insertionPointer!.funName]!.insertControlEdge(from: blockID, to: elseDest)
+
     return inst
   }
 
@@ -459,6 +480,18 @@ public struct Builder {
     precondition(container.type.isObject, "'container' must have an object type")
 
     let inst = CopyExistentialInst(container: container, type: type)
+    insert(inst)
+    return inst
+  }
+
+  /// Builds a `delete` instruction.
+  ///
+  /// - Paramter value: The value to delete.
+  @discardableResult
+  public mutating func buildDelete(value: Value) -> DeleteInst {
+    precondition(value.type.isObject, "'value' must have an object type")
+
+    let inst = DeleteInst(value: value)
     insert(inst)
     return inst
   }
@@ -586,12 +619,10 @@ public struct Builder {
   /// Builds a `record_member` instruction.
   ///
   /// - Parameters:
-  ///   - useKind: The kind of the ownership use of the record value.
   ///   - record: The record whose member is being extracted.
   ///   - memberDecl: The declaration of the member being extracted.
   ///   - type: The type of the member being extracted.
   public mutating func buildRecordMember(
-    useKind: OwnershipUseKind,
     record: Value,
     memberDecl: VarDecl,
     type: VILType
@@ -599,8 +630,7 @@ public struct Builder {
     precondition(record.type.isObject, "'record' must have an object type")
     precondition(type.isObject, "'type' must have be object type")
 
-    let inst = RecordMemberInst(
-      useKind: useKind, record: record, memberDecl: memberDecl, type: type)
+    let inst = RecordMemberInst(record: record, memberDecl: memberDecl, type: type)
     insert(inst)
     return inst
   }

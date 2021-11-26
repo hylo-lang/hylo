@@ -25,15 +25,6 @@ public struct InstPath: Hashable {
 
 }
 
-/// The kind of an ownership use.
-public enum OwnershipUseKind {
-
-  case copy
-
-  case move
-
-}
-
 // MARK: Stack Allocations
 
 /// Allocates a block of uninitalized memory on the stack, large enough to contain a value of the
@@ -216,17 +207,13 @@ public final class RecordInst: Value, Inst {
 /// Extracts the value of a stored member from a record.
 public final class RecordMemberInst: Value, Inst {
 
-  /// The kind of the ownership use of the record value.
-  public let useKind: OwnershipUseKind
-
   /// The record value whose member is being extracted.
   public let record: Value
 
   /// The declaration of the member being extracted.
   public let memberDecl: VarDecl
 
-  init(useKind: OwnershipUseKind, record: Value, memberDecl: VarDecl, type: VILType) {
-    self.useKind = useKind
+  init(record: Value, memberDecl: VarDecl, type: VILType) {
     self.record = record
     self.memberDecl = memberDecl
     super.init(type: type)
@@ -372,6 +359,7 @@ public final class WitnessMethodInst: Value, Inst {
 ///
 /// `checked_cast_addr` produces an address suitable to load an object of the requested type if
 /// the conversion is legal, or a null location otherwise.
+@available(*, deprecated, message: "Use CheckedCastBranchInst instead")
 public final class CheckedCastAddrInst: Value, Inst {
 
   /// The address to convert.
@@ -434,6 +422,20 @@ public final class CopyInst: Value, Inst {
   init(value: Value) {
     self.value = value
     super.init(type: value.type)
+  }
+
+  public var operands: [Value] { [value] }
+
+}
+
+/// Destroys the specified value, calling its destructor.
+public final class DeleteInst: Inst {
+
+  /// The value to delete.
+  public let value: Value
+
+  init(value: Value) {
+    self.value = value
   }
 
   public var operands: [Value] { [value] }
@@ -535,6 +537,36 @@ public final class BranchInst: Inst {
     self.dest = dest
     self.operands = args
   }
+
+}
+
+/// Attempts to convert an existential container to a value of a different type.
+///
+/// If the conversion succeeds control is transferred to `thenDest` with an owned value of the
+/// requested type as argument. Otherwise, control is transferred to `elseDest` with a owned value
+/// of the original type as argument. Either way, the ownership of the specified value is consumed.
+public final class CheckedCastBranchInst: Inst {
+
+  /// The value to convert.
+  public let value: Value
+
+  /// The type to which the value is converted.
+  public let type: VILType
+
+  /// The block to which the execution should jump if the cast succeeds.
+  public let thenDest: BasicBlock.ID
+
+  /// The block to which the execution should jump if the condition does not hold.
+  public let elseDest: BasicBlock.ID
+
+  init(value: Value, type: VILType, thenDest: BasicBlock.ID, elseDest: BasicBlock.ID) {
+    self.value = value
+    self.type = type
+    self.thenDest = thenDest
+    self.elseDest = elseDest
+  }
+
+  public var operands: [Value] { [value] }
 
 }
 

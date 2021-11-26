@@ -131,6 +131,13 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
       self << inst.source
       self << " as \(inst.type)\n"
 
+    case let inst as CheckedCastBranchInst:
+      self << "checked_cast_branch "
+      self << inst.value
+      self << " as \(inst.type) "
+      self << "bb\(inst.thenDest) "
+      self << "bb\(inst.elseDest)\n"
+
     case let inst as CondBranchInst:
       self << "cond_branch "
       self << inst.cond
@@ -162,6 +169,11 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
     case let inst as DeallocStackInst:
       self << "dealloc_stack "
       self << inst.alloc
+      self << "\n"
+
+    case let inst as DeleteInst:
+      self << "delete "
+      self << inst.value
       self << "\n"
 
     case let inst as DeleteAddrInst:
@@ -214,7 +226,7 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
 
     case let inst as RecordMemberInst:
       let id = makeID(for: inst)
-      self << "_\(id) = record_member [\(inst.useKind)] "
+      self << "_\(id) = record_member "
       self << inst.record
       self << ", \(inst.memberDecl.debugID)\n"
 

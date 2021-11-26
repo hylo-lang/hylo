@@ -70,14 +70,14 @@ fileprivate enum AbstractValue: Equatable {
   /// A value that has moved (or consumed) by an instruction.
   case moved(consumer: InstPath)
 
-  /// An immutable borrowed value.
+  /// A value that has been borrowed by an instruction.
   case lent(borrower: InstPath?)
 
-  /// A partially initialized record.
+  /// A partially initialized `self` record.
   ///
-  /// This state represents a partially initialized record, typically `self` in a constructor before
-  /// all parts have been properly initialized. The associated value lists the stored properties of
-  /// the record and is used to determine when it becomes fully initialized.
+  /// This state represents a partially initialized `self` record in a constructor before all parts
+  /// have been properly initialized. The associated value lists the record's stored properties and
+  /// is used to determine when it becomes fully initialized.
   case partial(properties: [String])
 
   /// An independent value that's "owned" by the context.
@@ -232,12 +232,10 @@ public struct TypestateAnalysis {
       case .owned, .localOwned:
         pre.locals[param] = .owned
 
-      case .mutating, .borrowed:
+      case .mutating:
         let a: AbstractAddress = .base(ReferenceBox(param))
         pre.locals[param] = .address(a)
-        pre.memory[a] = conv == .borrowed
-          ? .lent(borrower: nil)
-          : .owned
+        pre.memory[a] = .owned
       }
     }
 
@@ -251,14 +249,22 @@ public struct TypestateAnalysis {
     ]
 
     while let blockID = work.popFirst() {
-      // Enumerate the block's predecessors.
+      // Make sure we visited all of the block's predecessors, or pick another one.
       let predecessors = fun.cfg.edges(from: blockID).filter({ $0.label != .forward })
+      guard predecessors.allSatisfy({ store[$0.target] != nil }) else {
+        work.append(blockID)
+        continue
+      }
 
-      // Compute the pre-context of the block, based on the post-context of its predecessors.
+      // Compute the pre-context of the block, based on its own arguments and the post-context of
+      // its predecessors.
       pre = predecessors.reduce(into: AbstractContext(), { (context, pred) in
         guard let post = store[pred.target]?.post else { return }
         context.merge(post)
       })
+      for param in fun.blocks[blockID]!.params {
+        pre.locals[param] = .owned
+      }
 
       // If the pre-context didn't change, then we don't need to re-compute the post-context and
       // we're done with the current block.
@@ -270,18 +276,27 @@ public struct TypestateAnalysis {
       post = pre
       success = process(blockID: blockID, fun: fun, context: &post, builder: &builder)
 
-      // We're done with the current block if 1) we're done with all of its predecessors, 2) the
-      // only predecessor that's not done is the block itself and the post-context didn't change,
-      // or 3) we found an error somewhere in the function.
-      let notDone = predecessors.filter({ !done.contains($0.target) })
-      if !success
-          || notDone.isEmpty
-          || notDone.first!.target == blockID && store[blockID]?.post == post
-      {
+      // We're done with the current block if ...
+      let isBlockDone: Bool = {
+        // 1) we found an error somewhere in the function.
+        if !success { return true }
+
+        // 2) we're done with all of the block's predecessors, or
+        let pending = predecessors.filter({ !done.contains($0.target) })
+        if pending.isEmpty { return true }
+
+        // 3) the only predecessor left is the block itself, yet the post-context didn't change.
+        return (pending.count == 1)
+          && (pending[0].target == blockID)
+          && (store[blockID]?.post == post)
+      }()
+
+      // Either way, store the pre/post context pair and move to the next block.
+      store[blockID] = (pre: pre, post: post)
+      if isBlockDone {
         done.insert(blockID)
       } else {
         work.append(blockID)
-        store[blockID] = (pre: pre, post: post)
       }
     }
 
@@ -306,9 +321,13 @@ public struct TypestateAnalysis {
         success = visit(inst: inst, path: path, context: &context, builder: &builder) && success
       case let inst as CopyAddrInst:
         success = visit(inst: inst, path: path, context: &context, builder: &builder) && success
+      case let inst as CheckedCastBranchInst:
+        success = visit(inst: inst, path: path, context: &context, builder: &builder) && success
       case let inst as CopyExistentialInst:
         success = visit(inst: inst, path: path, context: &context, builder: &builder) && success
       case let inst as DeallocStackInst:
+        success = visit(inst: inst, path: path, context: &context, builder: &builder) && success
+      case let inst as DeleteInst:
         success = visit(inst: inst, path: path, context: &context, builder: &builder) && success
       case let inst as DeleteAddrInst:
         success = visit(inst: inst, path: path, context: &context, builder: &builder) && success
@@ -397,23 +416,36 @@ public struct TypestateAnalysis {
       switch conv {
       case .owned:
         // `@owned` consumes the argument.
-        success = consume(value: arg, consumer: path, in: &context) && success
+        success = consume(value: arg, consumer: path, in: &context, with: &builder) && success
 
       case .localOwned:
         // `@local_owned` consumes the argument too, but since it can't escape, it "comes back" at
         // the end of the call.
-        success = consume(value: arg, consumer: path, in: &context) && success
+        success = consume(value: arg, consumer: path, in: &context, with: &builder) && success
         localOwnedArgs.append(arg)
 
-      case .mutating, .borrowed:
-        // `@borrowed` require uniqueness: the argument has to refer to an owned memory location.
+      case .mutating:
+        // `@mutating` requires uniqueness: the argument has to refer to an owned memory location.
         let addr = loadAsAddr(arg, in: context)
-        if stage(at: addr, in: context) == .owned {
-          stageBeforeLoan[addr] = context.memory[addr]
+        stageBeforeLoan[addr] = context.memory[addr]
+
+        switch stage(at: addr, in: context) {
+        case .owned:
           context.memory[addr] = .lent(borrower: path)
-        } else {
-          // FIXME: Emit a diganostic, don't fail.
-          fatalError("violation of uniqueness")
+        case .partial:
+          builder.context.report(.useOfPartialValue(location: arg))
+          success = false
+        case .lent:
+          builder.context.report(.overlappingAccess(location: arg))
+          success = false
+        case .moved(let cp):
+          builder.context.report(.useAfterMove(location: arg, consumer: builder.module[cp]))
+          success = false
+        case .uninitialized:
+          builder.context.report(.useBeforeInit(location: arg, anchor: nil))
+          success = false
+        default:
+          fatalError("bad VIL: illegal operand")
         }
       }
     }
@@ -434,22 +466,30 @@ public struct TypestateAnalysis {
     builder: inout Builder
   ) -> Bool {
     switch context.locals[inst.value] {
-    case .owned, .lent:
+    case .owned:
       context.locals[inst] = .owned
       return true
-
+    case .partial:
+      builder.context.report(.useOfPartialValue(location: inst.value))
+    case .lent:
+      builder.context.report(.overlappingAccess(location: inst.value))
+    case .moved(let cp):
+      builder.context.report(.useAfterMove(location: inst, consumer: builder.module[cp]))
     case .uninitialized:
       builder.context.report(.useBeforeInit(location: inst, anchor: nil))
-      return false
-
-    case .moved(let consumer):
-      builder.context.report(
-        .useAfterMove(location: inst, consumer: builder.module[consumer]))
-      return false
-
     default:
       fatalError("bad VIL: illegal operand")
     }
+    return false
+  }
+
+  private func visit(
+    inst: CheckedCastBranchInst,
+    path: InstPath,
+    context: inout AbstractContext,
+    builder: inout Builder
+  ) -> Bool {
+    return consume(value: inst.value, consumer: path, in: &context, with: &builder)
   }
 
   private func visit(
@@ -543,18 +583,29 @@ public struct TypestateAnalysis {
   }
 
   private func visit(
+    inst: DeleteInst,
+    path: InstPath,
+    context: inout AbstractContext,
+    builder: inout Builder
+  ) -> Bool {
+    return consume(value: inst.value, consumer: path, in: &context, with: &builder)
+  }
+
+  private func visit(
     inst: DeleteAddrInst,
     path: InstPath,
     context: inout AbstractContext,
     builder: inout Builder
   ) -> Bool {
     let addr = loadAsAddr(inst.target, in: context)
-    if stage(at: addr, in: context) == .owned {
+    switch stage(at: addr, in: context) {
+    case .owned:
       context.memory[addr] = .uninitialized
       return true
-    } else {
-      // FIXME: Handle deallocation of (partially) uninitialized/lent data gracefully.
-      fatalError("deinitialization of partially moved/lent data")
+
+    default:
+      // FIXME: Handle deallocation of unowned values gracefully.
+      fatalError("deinitialization of unowned value")
     }
   }
 
@@ -599,7 +650,7 @@ public struct TypestateAnalysis {
     }
 
     context.memory[addr] = .owned
-    return consume(value: inst.value, consumer: path, in: &context) && success
+    return consume(value: inst.value, consumer: path, in: &context, with: &builder) && success
   }
 
   private func visit(
@@ -657,11 +708,7 @@ public struct TypestateAnalysis {
   ) -> Bool {
     switch context.locals[inst.record] {
     case .owned:
-      if inst.useKind == .copy {
-        context.locals[inst] = .owned
-      } else {
-        fatalError("todo")
-      }
+      context.locals[inst] = .owned
 
     default:
       fatalError("bad VIL: illegal operand")
@@ -677,7 +724,7 @@ public struct TypestateAnalysis {
     builder: inout Builder
   ) -> Bool {
     let addr = loadAsAddr(inst.record, in: context)
-    let propAddr: AbstractAddress = .property(parent: addr, property: inst.memberDecl.name)
+    let propAddr = AbstractAddress.property(parent: addr, property: inst.memberDecl.name)
     context.locals[inst] = .address(propAddr)
 
     switch context.memory[addr] {
@@ -719,7 +766,7 @@ public struct TypestateAnalysis {
     builder: inout Builder
   ) -> Bool {
     // We currently only support return with ownership.
-    return consume(value: inst.value, consumer: path, in: &context)
+    return consume(value: inst.value, consumer: path, in: &context, with: &builder)
   }
 
   private func visit(
@@ -736,7 +783,7 @@ public struct TypestateAnalysis {
       // The target is uninitialized; we can store a new value to it.
       break
 
-    case .partial, .owned:
+    case .owned:
       // The target holds an owned value; we must delete it first. If the value is only partially
       // initialized, the visitor for `delete_addr` will handle the error.
       builder.insertionPointer = InsertionPointer(before: path)
@@ -744,12 +791,18 @@ public struct TypestateAnalysis {
       let p = builder.module.path(before: path)
       success = visit(inst: i, path: p, context: &context, builder: &builder)
 
+    case .partial:
+      // The target holds a partially initialized `self`; we must delete all initialized properties
+      // first. Note: We don't need to handle partial initialization recursively since only `self`
+      // can be partially initialized; its properties cannot.
+      fatalError("not implemented")
+
     default:
       fatalError("bad VIL: illegal operand")
     }
 
     // The target takes ownership of the source, unless it's a non-linear literal value.
-    success = consume(value: inst.value, consumer: path, in: &context) && success
+    success = consume(value: inst.value, consumer: path, in: &context, with: &builder) && success
     context.memory[addr] = .owned
 
     // Update the state of the address' owner, if any.
@@ -842,22 +895,39 @@ public struct TypestateAnalysis {
     }
   }
 
-  /// Attempts to consumes the ownership of the given value.
+  /// Consumes the ownership of the given value.
+  ///
+  /// If `value` is a literal value, the method always succeeds and does not update the context.
+  ///
+  /// - Returns: If the method succeeds, it returns `true` and updates `context.locals[value]` to
+  ///   to reflect the ownership transfer. Otherwise, it returns `false` and reports the cause of
+  ///   the failure.
   private func consume(
     value: Value,
     consumer: InstPath,
-    in context: inout AbstractContext
+    in context: inout AbstractContext,
+    with builder: inout Builder
   ) -> Bool {
     // Literal values are non-linear.
     if value is LiteralValue { return true }
 
     // Attempt to consume the value.
-    if context.locals[value] == .owned {
+    switch context.locals[value] {
+    case .owned:
       context.locals[value] = .moved(consumer: consumer)
       return true
-    } else {
-      return false
+    case .partial:
+      builder.context.report(.useOfPartialValue(location: value))
+    case .lent:
+      builder.context.report(.overlappingAccess(location: value))
+    case .moved(let cp):
+      builder.context.report(.useAfterMove(location: value, consumer: builder.module[cp]))
+    case .uninitialized:
+      builder.context.report(.useBeforeInit(location: value, anchor: nil))
+    default:
+      fatalError("bad VIL: illegal operand")
     }
+    return false
   }
 
   /// Checks that the value at the specified location is ready to be used for copy or move and
@@ -875,7 +945,7 @@ public struct TypestateAnalysis {
     anchor: SourceRange?
   ) -> Bool {
     let addr = loadAsAddr(location, in: context)
-    switch context.memory[addr] {
+    switch stage(at: addr, in: context) {
     case .uninitialized:
       // The source location is not initialized; that's a use before initialization.
       builder.context.report(.useBeforeInit(location: location, anchor: anchor))

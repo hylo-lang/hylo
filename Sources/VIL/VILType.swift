@@ -180,12 +180,6 @@ public enum VILParamConv {
 
   /// The value is passed indirectly, by reference.
   ///
-  /// The referenced value is initialized and may be aliased. Both the caller and the callee agree
-  /// not to mutate it for the duration of the call.
-  case borrowed
-
-  /// The value is passed indirectly, by reference.
-  ///
   /// The referenced value is initialized and unaliased. The caller must not to mutate it for the
   /// duration of the call; the callee must not to consume it.
   case mutating
