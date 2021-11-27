@@ -660,10 +660,9 @@ public final class CtorDecl: BaseFunDecl {
       _ = param.realize()
       paramTypeElems.append(TupleType.Elem(label: param.externalName, type: param.type))
     }
-    let paramType = type.context.tupleType(paramTypeElems)
-    let retType = (selfDecl!.type as! InoutType).base
 
-    type = type.context.funType(paramType: paramType, retType: retType)
+    let paramType = type.context.tupleType(paramTypeElems)
+    type = type.context.funType(paramType: paramType, retType: selfDecl!.type)
     setState(.realized)
     return type
   }
@@ -1355,13 +1354,6 @@ public final class AliasTypeDecl: GenericTypeDecl {
 
     // Complain if the signature references the declaration itself.
     // FIXME: Detect circular alias declarations.
-
-    // Complain if the aliased signature describes an in-out type.
-    if aliasedType is InoutType {
-      context.report(.invalidMutatingTypeModifier(range: aliasedSign.range))
-      setState(.invalid)
-      return type as! KindType
-    }
 
     // If the declaration denotes a "true" alias, complain if it declares additional conformances.
     // These should be expressed with an extension of the aliased type.

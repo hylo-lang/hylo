@@ -73,13 +73,12 @@ public class ValType: CustomStringConvertible, Equatable {
 
     public static let isCanonical   = RecursiveProps(rawValue: 1 << 0)
     public static let hasAsync      = RecursiveProps(rawValue: 1 << 1)
-    public static let hasInout      = RecursiveProps(rawValue: 1 << 2)
-    public static let hasAlias      = RecursiveProps(rawValue: 1 << 3)
-    public static let hasVariables  = RecursiveProps(rawValue: 1 << 4)
-    public static let hasTypeParams = RecursiveProps(rawValue: 1 << 5)
-    public static let hasSkolems    = RecursiveProps(rawValue: 1 << 6)
-    public static let hasUnresolved = RecursiveProps(rawValue: 1 << 7)
-    public static let hasErrors     = RecursiveProps(rawValue: 1 << 8)
+    public static let hasAlias      = RecursiveProps(rawValue: 1 << 2)
+    public static let hasVariables  = RecursiveProps(rawValue: 1 << 3)
+    public static let hasTypeParams = RecursiveProps(rawValue: 1 << 4)
+    public static let hasSkolems    = RecursiveProps(rawValue: 1 << 5)
+    public static let hasUnresolved = RecursiveProps(rawValue: 1 << 6)
+    public static let hasErrors     = RecursiveProps(rawValue: 1 << 7)
 
     /// Merges a collection of recursive properties.
     ///
@@ -117,9 +116,6 @@ public class ValType: CustomStringConvertible, Equatable {
   /// Indicates whether the type contains one or more async types.
   public var hasAsync     : Bool { props.contains(.hasAsync) }
 
-  /// Indicates whether the type contains one or more inout types.
-  public var hasInout     : Bool { props.contains(.hasInout) }
-
   /// Indicates whether the type contains one or more aliases.
   public var hasAlias     : Bool { props.contains(.hasAlias) }
 
@@ -155,8 +151,6 @@ public class ValType: CustomStringConvertible, Equatable {
       return true
     case let type as KindType:
       return type.type.isExistential
-    case let type as InoutType:
-      return type.base.isExistential
     case let type as BoundGenericType where type.decl is AliasTypeDecl:
       return type.dealiased.isExistential
     case let type as AssocType:
@@ -1348,76 +1342,6 @@ public final class AsyncType: ValType {
   }
 
   public override var description: String { "async \(stringify(base))" }
-
-}
-
-/// An "inout" type (e.g. `mut Int`)
-///
-/// In-out types can only appear as function parameters. They indicate that an argument is expected
-/// to be be passed as a mutable alias (using the `&` prefix operator). The implicit receiver of a
-/// mutating method is always an in-out parameter.
-public final class InoutType: ValType {
-
-  /// A type.
-  public let base: ValType
-
-  init(context: Context, base: ValType) {
-    assert(!base.hasInout, "bad type: base type cannot contain in-out types")
-    self.base = base
-    super.init(context: context, props: base.props.union(with: .hasInout))
-  }
-
-  public override var isCopyable: Bool { base.isCopyable }
-
-  public override var canonical: ValType {
-    return isCanonical
-      ? self
-      : context.inoutType(of: base.canonical)
-  }
-
-  public override var dealiased: ValType {
-    return hasAlias
-      ? context.inoutType(of: base.dealiased)
-      : self
-  }
-
-  public override var uncontextualized: ValType {
-    return hasSkolems
-      ? context.inoutType(of: base.uncontextualized)
-      : self
-  }
-
-  public override func lookup(member memberName: String) -> LookupResult {
-    return base.lookup(member: memberName)
-  }
-
-  public override func matches(
-    with other: ValType,
-    reconcilingWith reconcile: (ValType, ValType) -> Bool
-  ) -> Bool {
-    if self == other { return true }
-
-    guard let that = other as? InoutType else { return reconcile(self, other) }
-    return base.matches(with: that.base, reconcilingWith: reconcile)
-  }
-
-  override func isEqual(to other: ValType) -> Bool {
-    guard let that = other as? InoutType,
-          base.isEqual(to: that.base)
-    else { return false }
-    return true
-  }
-
-  override func hash(into hasher: inout Hasher) {
-    hasher.combine(ObjectIdentifier(InoutType.self))
-    base.hash(into: &hasher)
-  }
-
-  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
-    visitor.visit(self)
-  }
-
-  public override var description: String { "mut \(stringify(base))" }
 
 }
 

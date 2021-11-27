@@ -130,7 +130,10 @@ struct LValueEmitter: ExprVisitor {
 
     case let decl as FunParamDecl:
       // The node is a reference to a mutable parameter.
-      guard decl.type is InoutType else { return .failure(.immutableBinding(decl)) }
+      guard decl.policy == .inout || decl.policy == .mutableConsuming else {
+        return .failure(.immutableBinding(decl))
+      }
+
       let loc = locals[ObjectIdentifier(decl)]!
       assert(loc.type.isAddress)
       return .success((loc: loc, pathID: .binding(decl: decl)))

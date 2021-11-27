@@ -87,10 +87,6 @@ public class VILType: CustomStringConvertible {
         retType: retType,
         retConv: retConv)
 
-    case let valType as InoutType:
-      // Mutable parameters get an address type.
-      return VILType(valType: valType.base, isAddress: true)
-
     case let valType:
       return VILType(valType: valType, isAddress: false)
     }
@@ -185,10 +181,7 @@ public enum VILParamConv {
   case mutating
 
   public init(for type: ValType) {
-    switch type {
-    case is InoutType: self = .mutating
-    default: self = .owned
-    }
+    fatalError("reimplement me")
   }
 
 }

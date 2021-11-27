@@ -106,10 +106,6 @@ struct Solution {
       return type.context
         .asyncType(of: reify(type.base, freeVariablePolicy: freeVariablePolicy))
 
-    case let type as InoutType:
-      return type.context
-        .inoutType(of: reify(type.base, freeVariablePolicy: freeVariablePolicy))
-
     case let type as TypeVar:
       if let binding = bindings[type] {
         return reify(binding, freeVariablePolicy: freeVariablePolicy)

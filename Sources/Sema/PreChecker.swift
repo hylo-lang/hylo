@@ -388,11 +388,6 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
           system.pointee.insert(prototype: $0, at: ConstraintLocator(newRef))
         })
 
-      // Drop the "inoutness" of the declaration.
-      if let type = newRef.type as? InoutType {
-        newRef.type = type.base
-      }
-
       assert(!newRef.type.hasTypeParams)
       return newRef
     }

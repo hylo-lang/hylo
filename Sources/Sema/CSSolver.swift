@@ -224,29 +224,6 @@ struct CSSolver {
       // We can't solve anything yet if both types are still unknown.
       system.staleConstraints.append(constraint)
 
-    case (_, let rhs as InoutType):
-      // If `U` is an in-out type, then `T` must be equal and the subtyping constraint can be
-      // strenghten as an equality constraint.
-      let simplified = RelationalConstraint(
-        kind: .equality, lhs: constraint.lhs, rhs: rhs, at: constraint.locator)
-      solve(simplified)
-
-    case (let lhs as InoutType, _):
-      // If `T` is an in-out type, then we can solve the subtyping constraint w.r.t. to its base.
-      // Nonetheless, if `U` is a type variable, we'd like to favor inferring `U` as `T`, so that
-      // we don't forget about mutability.
-      // Note that `U` can't be in-out, otherwise we would have matched the previous case.
-      let weakened = RelationalConstraint(
-        kind: .subtyping, lhs: lhs.base, rhs: constraint.rhs, at: constraint.locator)
-
-      if let rhs = constraint.rhs as? TypeVar {
-        let favorite = RelationalConstraint(
-          kind: .equality, lhs: lhs, rhs: rhs, at: constraint.locator)
-        system.insert(disjunctionOfConstraintsWithWeights: [(favorite, 0), (weakened, 1)])
-      } else {
-        solve(weakened)
-      }
-
     case is (TypeVar, ValType):
       // The type variable is below a more concrete type. We should compute the "meet" of all types
       // coercible to `U` and that are above `T`. Unfortunately, we can't enumerate such a set; it
@@ -382,12 +359,6 @@ struct CSSolver {
       return
     }
 
-    // If `T` is an in-out type, we must solve the constraint for its base.
-    if let inoutType = baseType as? InoutType {
-      baseType = inoutType.base
-      assert(!(baseType is InoutType))
-    }
-
     // If `T` is a tuple type, we try to match the specified member name with a label.
     if let tupleType = baseType as? TupleType {
       guard let elem = tupleType.elems.first(where: { $0.label == constraint.memberName }) else {
@@ -461,11 +432,6 @@ struct CSSolver {
     guard !(baseType is TypeVar) else {
       system.staleConstraints.append(constraint)
       return
-    }
-
-    // If `T` is an in-out type, then we should solve the constraint for its base.
-    if let inoutType = baseType as? InoutType {
-      baseType = inoutType.base
     }
 
     // The constraint obviously fails if `T` is not a tuple-type.
@@ -675,22 +641,6 @@ struct CSSolver {
         RelationalConstraint(
           kind: constraint.kind, lhs: lhs.base, rhs: rhs.base,
           at: constraint.locator))
-      return true
-
-    case (let lhs as InoutType, let rhs as InoutType):
-      // Because `T <: U` does not imply `mut T <: mut U`, we must equality for subtyping.
-      let kind: RelationalConstraint.Kind
-      switch constraint.kind {
-      case .equality, .oneWayEquality:
-        kind = constraint.kind
-      case .subtyping:
-        kind = .equality
-      default:
-        fatalError("unreachable")
-      }
-
-      system.insert(
-        RelationalConstraint(kind: kind, lhs: lhs.base, rhs: rhs.base, at: constraint.locator))
       return true
 
     default:

@@ -290,26 +290,8 @@ struct ConstraintGenerator: NodeWalker {
   }
 
   mutating func visit(_ node: AddrOfExpr) -> Bool {
-    let fixedTypeForThisNode = fixedType
-
-    // If the fixed type is an in-out type, we can create the fixed type of the sub-expression.
-    if let inoutType = fixedType as? InoutType {
-      fixedType = inoutType.base
-    } else {
-      fixedType = nil
-    }
     guard traverse(node) else { return false }
-
-    // If the sub-expression has an in-out type (e.g., because it's a reference to a mutable
-    //parameter), we shouldn't wrap it again.
-    let inferredType: ValType
-    if node.value.type is InoutType {
-      inferredType = node.value.type
-    } else {
-      inferredType = node.type.context.inoutType(of: node.value.type)
-    }
-
-    prepare(expr: node, fixedType: fixedTypeForThisNode, inferredType: inferredType)
+    node.type = node.value.type
     return true
   }
 

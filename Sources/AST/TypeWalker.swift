@@ -112,10 +112,6 @@ open class TypeWalker: TypeVisitor {
     return type.context.asyncType(of: walk(type.base))
   }
 
-  open func visit(_ type: InoutType) -> ValType {
-    return type.context.inoutType(of: walk(type.base))
-  }
-
   open func visit(_ type: UnresolvedType) -> ValType {
     return type
   }

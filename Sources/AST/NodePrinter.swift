@@ -668,15 +668,6 @@ public struct NodePrinter: NodeVisitor {
     """
   }
 
-  public mutating func visit(_ node: InoutSign) -> String {
-    return """
-    {
-    \(signHeader(node)),
-    "base": \(node.base.accept(&self))
-    }
-    """
-  }
-
   public mutating func visit(_ node: UnionSign) -> String {
     return """
     {

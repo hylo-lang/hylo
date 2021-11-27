@@ -195,10 +195,6 @@ public final class Context {
     return uniqued(AsyncType(context: self, base: type))
   }
 
-  public func inoutType(of type: ValType) -> InoutType {
-    return uniqued(InoutType(context: self, base: type))
-  }
-
   public private(set) lazy var unitType: TupleType = {
     return tupleType([])
   }()
@@ -312,7 +308,7 @@ public final class Context {
 
       // Create the declaration of the parameter.
       let sign = BareIdentSign(ident: Ident(name: param), type: type)
-      let decl = FunParamDecl(name: "_\(i)", typeSign: sign, type: type)
+      let decl = FunParamDecl(policy: .local, name: "_\(i)", typeSign: sign, type: type)
       decl.parentDeclSpace = funDecl
       decl.setState(.typeChecked)
 

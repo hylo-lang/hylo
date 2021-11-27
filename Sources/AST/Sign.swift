@@ -150,37 +150,6 @@ public final class AsyncSign: Sign {
 
 }
 
-/// The signature of a mutating (a.k.a. in-out) parameter type (e.g., `mut A`).
-public final class InoutSign: Sign {
-
-  public var range: SourceRange?
-
-  public var type: ValType
-
-  /// The signature of the underyling type.
-  public var base: Sign
-
-  /// The source range of the `inout` keyword at the start of the signature.
-  public var modifierRange: SourceRange?
-
-  public init(base: Sign, type: ValType, range: SourceRange? = nil) {
-    self.base = base
-    self.type = type
-    self.range = range
-  }
-
-  public func realize(unqualifiedFrom useSite: DeclSpace) -> ValType {
-    let baseType = base.realize(unqualifiedFrom: useSite)
-    type = baseType.context.inoutType(of: baseType)
-    return type
-  }
-
-  public func accept<V>(_ visitor: inout V) -> V.SignResult where V: SignVisitor {
-    return visitor.visit(self)
-  }
-
-}
-
 /// The signature of a union type (e.g., `A | B`).
 public final class UnionSign: Sign {
 

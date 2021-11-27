@@ -37,8 +37,6 @@ public protocol TypeVisitor {
 
   func visit(_ type: AsyncType) -> Result
 
-  func visit(_ type: InoutType) -> Result
-
   func visit(_ type: UnresolvedType) -> Result
 
   func visit(_ type: ErrorType) -> Result

@@ -145,7 +145,7 @@ public enum Emitter {
     // In both cases, we must register the receiver in the local symbol table, if necessary.
     var state = State(funDecl: decl, locals: [:], allocs: [], loans: [])
     if let selfDecl = decl.selfDecl {
-      var (selfType, _) = genericEnv.contextualize(selfDecl.type, from: decl)
+      let (selfType, _) = genericEnv.contextualize(selfDecl.type, from: decl)
       if decl.isMember {
         // Member functions accept their receiver as an implicit parameter.
         state.locals[ObjectIdentifier(selfDecl)] = params[0]
@@ -153,7 +153,6 @@ public enum Emitter {
       } else {
         // Constructors should allocate `self`.
         assert(decl is CtorDecl)
-        selfType = (selfType as! InoutType).base
         let loc = builder.buildAllocStack(type: .lower(selfType), isSelf: true)
         state.locals[ObjectIdentifier(selfDecl)] = loc
       }

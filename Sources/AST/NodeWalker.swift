@@ -934,20 +934,6 @@ extension NodeWalker {
     return shouldContinue
   }
 
-  public mutating func visit(_ node: InoutSign) -> Bool {
-    return traverse(node)
-  }
-
-  public mutating func traverse(_ node: InoutSign) -> Bool {
-    let prevParent = parent
-    parent = node
-    defer { parent = prevParent }
-
-    var shouldContinue: Bool
-    (shouldContinue, node.base) = walk(sign: node.base)
-    return shouldContinue
-  }
-
   public mutating func visit(_ node: UnionSign) -> Bool {
     return traverse(node)
   }

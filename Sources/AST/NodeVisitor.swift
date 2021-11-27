@@ -161,8 +161,6 @@ public protocol SignVisitor {
 
   mutating func visit(_ node: AsyncSign) -> SignResult
 
-  mutating func visit(_ node: InoutSign) -> SignResult
-
   mutating func visit(_ node: UnionSign) -> SignResult
 
   mutating func visit(_ node: ViewCompSign) -> SignResult

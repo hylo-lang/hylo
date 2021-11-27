@@ -111,9 +111,6 @@ struct RValueEmitter: ExprVisitor {
     let callee: Value
 
     var type = node.type.dealiased.canonical
-    if let inoutType = type as? InoutType {
-      type = inoutType.base
-    }
 
     if let type = type as? NominalType {
       // The node has a concrete type; we can dispatch `new(literal:)` statically.
