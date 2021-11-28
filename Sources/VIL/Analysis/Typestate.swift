@@ -666,21 +666,14 @@ public struct TypestateAnalysis {
     // Assume the instruction is correct, so that the analysis can carry on no matter what.
     context.locals[inst] = .owned
 
-    switch inst.semantics {
-    case .move:
-      // Moving consumes ownership.
-      let addr = loadAsAddr(inst.location, in: context)
-      if case .lent = context.memory[addr] {
-        fatalError("not implemented")
-      }
-
-      context.memory[addr] = .moved(consumer: path)
-      return success
-
-    case .copy:
-      // Copying produces a new value with ownership.
-      return success
+    // Moving consumes ownership.
+    let addr = loadAsAddr(inst.location, in: context)
+    if case .lent = context.memory[addr] {
+      fatalError("not implemented")
     }
+
+    context.memory[addr] = .moved(consumer: path)
+    return success
   }
 
   private func visit(

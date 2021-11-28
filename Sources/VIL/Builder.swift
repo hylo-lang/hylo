@@ -553,24 +553,11 @@ public struct Builder {
 
   /// Builds a `load` instruction.
   ///
-  /// - Parameters:
-  ///   - location: The location to load. `lvalue` must have an address type.
-  ///   - semantics: The semantics of the load. If assigned to `nil`, the builder will select the
-  ///     semantics based on the type of `location`.
-  public mutating func buildLoad(
-    location: Value,
-    semantics: LoadInst.Semantics? = nil
-  ) -> LoadInst {
+  /// - Parameter location: The location to load. `lvalue` must have an address type.
+  public mutating func buildLoad(location: Value) -> LoadInst {
     precondition(location.type.isAddress, "'location' must have an address type")
 
-    let sem: LoadInst.Semantics
-    if let s = semantics {
-      sem = s
-    } else {
-      sem = location.type.valType.isCopyable ? .copy : .move
-    }
-
-    let inst = LoadInst(location: location, semantics: sem)
+    let inst = LoadInst(location: location)
     insert(inst)
     return inst
   }
