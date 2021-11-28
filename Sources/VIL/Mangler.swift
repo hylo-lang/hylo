@@ -115,7 +115,14 @@ public struct Mangler {
       append(key: .tupleType)
 
     case let funType as FunType:
-      append(type: funType.paramType)
+      for param in funType.params {
+        if let label = param.label {
+          append(name: label)
+          append(key: .tupleTypeLabel)
+        }
+        append(type: param.type)
+        append(key: .tupleTypeElem)
+      }
       append(key: .funTypeParam)
       append(type: funType.retType)
       append(key: .funType)

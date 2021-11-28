@@ -911,13 +911,29 @@ extension NodeWalker {
     defer { parent = prevParent }
 
     var shouldContinue: Bool
-    (shouldContinue, node.paramSign) = walk(sign: node.paramSign)
-    guard shouldContinue else { return false }
+    for i in 0 ..< node.params.count {
+      (shouldContinue, node.params[i]) = walk(sign: node.params[i]) as! (Bool, FunParamSign)
+      guard shouldContinue else { return false }
+    }
 
     (shouldContinue, node.retSign) = walk(sign: node.retSign)
     guard shouldContinue else { return false }
 
     return true
+  }
+
+  public mutating func visit(_ node: FunParamSign) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: FunParamSign) -> Bool {
+    let prevParent = parent
+    parent = node
+    defer { parent = prevParent }
+
+    let shouldContinue: Bool
+    (shouldContinue, node.rawSign) = walk(sign: node.rawSign)
+    return shouldContinue
   }
 
   public mutating func visit(_ node: AsyncSign) -> Bool {

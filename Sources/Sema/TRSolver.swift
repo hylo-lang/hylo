@@ -129,8 +129,13 @@ struct TRSolver {
           : .inequal
       }
 
-      let result = unify(lhs.paramType, rhs.paramType)
-      guard result == .success else { return result }
+      guard lhs.params.count == rhs.params.count else { return .inequal }
+      for (a, b) in zip(lhs.params, rhs.params) {
+        guard (a.label == b.label) && (a.policy == b.policy) else { return .inequal }
+        let result = unify(a.type, b.type)
+        guard result == .success else { return result }
+      }
+
       return unify(lhs.retType, rhs.retType)
 
     default:

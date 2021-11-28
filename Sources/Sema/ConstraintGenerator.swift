@@ -138,18 +138,19 @@ struct ConstraintGenerator: NodeWalker {
     guard traverse(node) else { return false }
 
     // Synthetize the type of a function from the call's arguments.
-    var paramTypeElems: [TupleType.Elem] = []
+    var params: [FunType.Param] = []
     for (i, arg) in node.args.enumerated() {
-      // The subtyping constraint handle cases where the argument is a subtype of the parameter.
+      // The subtyping constraint handles cases where the argument is a subtype of the parameter.
+      // The type dispatcher is responsible for checking that the argument's type is equal to the
+      // parameter's if the function expects an inout argument at that position.
       let paramType = TypeVar(context: node.type.context, node: arg.value)
       insert(RelationalConstraint(
               kind: .subtyping, lhs: arg.value.type, rhs: paramType,
               at: ConstraintLocator(node, .argument(i))))
-      paramTypeElems.append(TupleType.Elem(label: arg.label, type: paramType))
+      params.append(FunType.Param(label: arg.label, type: paramType))
     }
 
-    let paramType = node.type.context.tupleType(paramTypeElems)
-    let funType = node.type.context.funType(paramType: paramType, retType: node.type)
+    let funType = node.type.context.funType(params: params, retType: node.type)
     insert(RelationalConstraint(
             kind: .equality, lhs: node.fun.type, rhs: funType,
             at: ConstraintLocator(node.fun)))
@@ -233,13 +234,13 @@ struct ConstraintGenerator: NodeWalker {
 
       if let type = fixedBareType, !type.hasVariables {
         // We have a concrete fixed type, we can use it to select `T`.
-        node.body.type = context.funType(paramType: context.unitType, retType: type)
+        node.body.type = context.funType(params: [], retType: type)
         node.body.setState(.realized)
       } else if let expr = node.body.singleExprBody {
         // The function is expression-bodied, so we can infer `T` as the type of a sub-expression.
         fixedType = fixedBareType
         _ = expr.accept(&self)
-        node.body.type = context.funType(paramType: context.unitType, retType: expr.type)
+        node.body.type = context.funType(params: [], retType: expr.type)
         node.body.setState(.realized)
       } else {
         // Complain that we can't infer `T` over multiple statements.

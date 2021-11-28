@@ -1078,7 +1078,7 @@ public final class SkolemType: ValType {
 public final class TupleType: ValType {
 
   /// An element in a tuple type.
-  public struct Elem: CustomStringConvertible, Equatable {
+  public struct Elem: Hashable, CustomStringConvertible {
 
     /// The label of the element, if any.
     public let label: String?
@@ -1091,6 +1091,11 @@ public final class TupleType: ValType {
       self.type = type
     }
 
+    public func hash(into hasher: inout Hasher) {
+      hasher.combine(label)
+      type.hash(into: &hasher)
+    }
+
     public var description: String {
       if let label = self.label {
         return "\(label): \(type)"
@@ -1100,7 +1105,7 @@ public final class TupleType: ValType {
     }
 
     public static func == (lhs: Elem, rhs: Elem) -> Bool {
-      return (lhs.label == rhs.label) && (lhs.type == rhs.type)
+      return lhs.label == rhs.label && lhs.type.isEqual(to: rhs.type)
     }
 
   }
@@ -1188,10 +1193,7 @@ public final class TupleType: ValType {
   }
 
   override func hash(into hasher: inout Hasher) {
-    for elem in elems {
-      hasher.combine(elem.label)
-      elem.type.hash(into: &hasher)
-    }
+    hasher.combine(elems)
   }
 
   public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
@@ -1208,46 +1210,91 @@ public final class TupleType: ValType {
 /// A function type.
 public final class FunType: ValType {
 
+  /// A parameter of a function type.
+  public struct Param: Hashable, CustomStringConvertible {
+
+    /// The label of the parameter, if any.
+    public let label: String?
+
+    /// The passing policly of the parameter.
+    public let policy: PassingPolicy
+
+    /// The type of the parameter.
+    public let type: ValType
+
+    public init(label: String? = nil, policy: PassingPolicy = .local, type: ValType) {
+      self.label = label
+      self.policy = policy
+      self.type = type
+    }
+
+    /// Returns a new parameter with the same label and policy, but whose type is transformed by
+    /// of the given closure.
+    ///
+    /// - Parameter transform: A closure that transforms the parameter's type.
+    public func map(_ transform: (ValType) -> ValType) -> Param {
+      return Param(label: label, policy: policy, type: transform(type))
+    }
+
+    public func hash(into hasher: inout Hasher) {
+      hasher.combine(label)
+      hasher.combine(policy)
+      type.hash(into: &hasher)
+    }
+
+    public var description: String {
+      let policy = self.policy == .local
+        ? ""
+        : "\(self.policy) "
+      if let label = self.label {
+        return "\(label): \(policy)\(type)"
+      } else {
+        return "\(policy)\(type)"
+      }
+    }
+
+    public static func == (lhs: Param, rhs: Param) -> Bool {
+      return (lhs.label == rhs.label
+              && lhs.policy == rhs.policy
+              && lhs.type.isEqual(to: rhs.type))
+    }
+
+  }
+
   /// The function's domain.
-  public let paramType: ValType
+  public let params: [Param]
 
   /// The function's codomain.
   public let retType: ValType
 
-  init(context: Context, paramType: ValType, retType: ValType) {
-    self.paramType = paramType
+  init(context: Context, params: [Param], retType: ValType) {
+    self.params = params
     self.retType = retType
-    super.init(context: context, props: paramType.props.merged(with: retType.props))
-  }
 
-  /// A list with the type of each individual function parameter.
-  ///
-  /// This automatically iterates over the elements of `paramType` if it is a tuple.
-  public var paramTypeList: [ValType] {
-    if let tuple = paramType as? TupleType {
-      return tuple.elems.map({ elem in elem.type })
-    } else {
-      return [paramType]
-    }
+    let props = RecursiveProps.merge(params.map({ $0.type.props }))
+    super.init(context: context, props: props.merged(with: retType.props))
   }
 
   public override var isCopyable: Bool { true }
 
   public override var canonical: ValType {
+    let params = self.params.map({ param in param.map({ $0.canonical }) })
     return isCanonical
       ? self
-      : context.funType(paramType: paramType.canonical, retType: retType.canonical)
+      : context.funType(params: params, retType: retType.canonical)
   }
 
   public override var dealiased: ValType {
+    let params = self.params.map({ param in param.map({ $0.dealiased }) })
     return context
-      .funType(paramType: paramType.dealiased, retType: retType.dealiased)
+      .funType(params: params, retType: retType.dealiased)
       .canonical
   }
 
   public override var uncontextualized: ValType {
+    let params = self.params.map({ param in param.map({ $0.uncontextualized }) })
     return hasSkolems
-      ? context.funType(paramType: paramType.uncontextualized, retType: retType.uncontextualized)
+      ? context.funType(params: params, retType: retType.uncontextualized)
       : self
   }
 
@@ -1257,21 +1304,28 @@ public final class FunType: ValType {
   ) -> Bool {
     if self == other { return true }
 
-    guard let that = other as? FunType else { return reconcile(self, other) }
-    return retType.matches(with: that.retType, reconcilingWith: reconcile) &&
-           paramType.matches(with: that.paramType, reconcilingWith: reconcile)
+    guard let that = other as? FunType,
+          params.count == that.params.count
+    else { return reconcile(self, other) }
+
+    for (a, b) in zip(params, that.params) {
+      guard (a.label == b.label) && (a.policy == b.policy) else { return reconcile(self, other) }
+      guard a.type.matches(with: b.type, reconcilingWith: reconcile) else { return false }
+    }
+
+    return retType.matches(with: that.retType, reconcilingWith: reconcile)
   }
 
   override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? FunType,
-          retType.isEqual(to: that.retType),
-          paramType.isEqual(to: that.paramType)
+          params == that.params,
+          retType.isEqual(to: that.retType)
     else { return false }
     return true
   }
 
   override func hash(into hasher: inout Hasher) {
-    paramType.hash(into: &hasher)
+    hasher.combine(params)
     retType.hash(into: &hasher)
   }
 
@@ -1279,7 +1333,10 @@ public final class FunType: ValType {
     visitor.visit(self)
   }
 
-  public override var description: String { "\(paramType) -> \(retType)" }
+  public override var description: String {
+    let params = self.params.map(String.init(describing:)).joined(separator: ", ")
+    return "(\(params)) -> \(retType)"
+  }
 
 }
 

@@ -474,30 +474,30 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
     guard isMember || (self is CtorDecl) else { return nil }
 
     // Compute the type of `self` in the context of the function.
-    let receiverType: ValType
+    let selfType: ValType
     switch parentDeclSpace {
     case let typeDecl as NominalTypeDecl:
       // The function is declared in the body of a nominal type.
-      receiverType = typeDecl.receiverType
+      selfType = typeDecl.receiverType
 
     case let extnDecl as TypeExtnDecl:
       // The function is declared in the body of a type extension.
       guard let typeDecl = extnDecl.extendedDecl else {
-        let decl = FunParamDecl(policy: .local, name: "self", type: type.context.errorType)
+        let decl = FunParamDecl(name: "self", policy: .local, type: type.context.errorType)
         decl.setState(.invalid)
         return decl
       }
-      receiverType = typeDecl.receiverType
+      selfType = typeDecl.receiverType
 
     default:
       fatalError("unreachable")
     }
 
     let decl = FunParamDecl(
-      policy: isMutating ? .inout : .local,
       name: "self",
       externalName: nil,
-      type: receiverType)
+      policy: isMutating ? .inout : .local,
+      type: selfType)
     decl.parentDeclSpace = self
     decl.setState(.typeChecked)
     return decl
@@ -586,13 +586,12 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
     guard isMember else { return type }
 
     let funType = type as! FunType
-    var paramTypeElems = (funType.paramType as? TupleType)?.elems
-      ?? [TupleType.Elem(type: funType.paramType)]
-    paramTypeElems.insert(TupleType.Elem(label: "self", type: selfDecl!.type), at: 0)
+    var params = funType.params
 
-    return type.context.funType(
-      paramType: type.context.tupleType(paramTypeElems),
-      retType: funType.retType)
+    let selfPolicy: PassingPolicy = isMutating ? .inout : .local
+    params.insert(FunType.Param(label: "self", policy: selfPolicy, type: selfDecl!.type), at: 0)
+
+    return type.context.funType(params: params, retType: funType.retType)
   }
 
   /// Realizes the "applied" type of the function from its signature.
@@ -603,12 +602,11 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
     if state >= .realized { return type }
 
     // Realize the parameters.
-    var paramTypeElems: [TupleType.Elem] = []
+    var paramTypes: [FunType.Param] = []
     for param in params {
-      _ = param.realize()
-      paramTypeElems.append(TupleType.Elem(label: param.externalName, type: param.type))
+      let ty = param.realize()
+      paramTypes.append(FunType.Param(label: param.externalName, policy: param.policy, type: ty))
     }
-    let paramType = type.context.tupleType(paramTypeElems)
 
     // Realize the return type.
     let retType: ValType
@@ -618,7 +616,7 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
       retType = type.context.unitType
     }
 
-    type = type.context.funType(paramType: paramType, retType: retType)
+    type = type.context.funType(params: paramTypes, retType: retType)
     setState(.realized)
     return type
   }
@@ -655,14 +653,13 @@ public final class CtorDecl: BaseFunDecl {
   public override func realize() -> ValType {
     if state >= .realized { return type }
 
-    var paramTypeElems: [TupleType.Elem] = []
+    var paramTypes: [FunType.Param] = []
     for param in params {
-      _ = param.realize()
-      paramTypeElems.append(TupleType.Elem(label: param.externalName, type: param.type))
+      let ty = param.realize()
+      paramTypes.append(FunType.Param(label: param.externalName, policy: param.policy, type: ty))
     }
 
-    let paramType = type.context.tupleType(paramTypeElems)
-    type = type.context.funType(paramType: paramType, retType: selfDecl!.type)
+    type = type.context.funType(params: paramTypes, retType: selfDecl!.type)
     setState(.realized)
     return type
   }
@@ -734,23 +731,6 @@ public final class CaptureDecl: ValueDecl {
 /// The declaration of a function parameter.
 public final class FunParamDecl: ValueDecl {
 
-  /// A parameter passing policy.
-  public enum PassingPolicy {
-
-    /// An immutable value that is guaranteed to be live over the entire scope of the function.
-    case local
-
-    /// A mutable borrowed value that is guaranteed unique over the entire scope of the function.
-    case `inout`
-
-    /// An immutable value whose ownership has been transferred from the caller to the callee.
-    case consuming
-
-    /// A mutable value whose ownership has been transferred from the caller to the callee.
-    case consumingMutable
-
-  }
-
   public var range: SourceRange?
 
   public weak var parentDeclSpace: DeclSpace?
@@ -759,29 +739,29 @@ public final class FunParamDecl: ValueDecl {
 
   public var type: ValType
 
-  /// The passing policly of the parameter.
-  public var policy: PassingPolicy
-
   /// The internal name of the parameter.
   public var name: String
 
   /// The external name of the parameter.
   public var externalName: String?
 
+  /// The passing policly of the parameter.
+  public var policy: PassingPolicy
+
   /// The signature of the parameter's type.
   public var sign: Sign?
 
   public init(
-    policy: PassingPolicy,
     name: String,
     externalName: String? = nil,
-    typeSign: Sign? = nil,
+    policy: PassingPolicy = .local,
+    sign: Sign? = nil,
     type: ValType
   ) {
-    self.policy = policy
     self.name = name
     self.externalName = externalName
-    self.sign = typeSign
+    self.policy = policy
+    self.sign = sign
     self.type = type
   }
 
@@ -792,10 +772,11 @@ public final class FunParamDecl: ValueDecl {
   public func realize() -> ValType {
     if state >= .realized { return type }
 
-    if let sign = self.sign {
+    if let sign = self.sign as? FunParamSign {
+      precondition(policy == sign.policy, "declaration policy does not match signature")
       type = sign.realize(unqualifiedFrom: parentDeclSpace!)
     } else {
-      preconditionFailure("cannot realize parameter declaration without a signature")
+      preconditionFailure("cannot realize parameter declaration without a parameter signature")
     }
 
     setState(.realized)
@@ -1171,10 +1152,9 @@ public final class ProductTypeDecl: NominalTypeDecl {
       // Create a parameter for each stored property.
       ctor.params = storedVars.map({ (varDecl: VarDecl) -> FunParamDecl in
         let param = FunParamDecl(
-          policy: .consuming,
           name: varDecl.name,
           externalName: varDecl.name,
-          typeSign: nil,
+          policy: .consuming,
           type: context.unresolvedType)
         param.parentDeclSpace = ctor
         return param

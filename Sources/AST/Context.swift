@@ -187,8 +187,8 @@ public final class Context {
     }))
   }
 
-  public func funType(paramType: ValType, retType: ValType) -> FunType {
-    return uniqued(FunType(context: self, paramType: paramType, retType: retType))
+  public func funType(params: [FunType.Param], retType: ValType) -> FunType {
+    return uniqued(FunType(context: self, params: params, retType: retType))
   }
 
   public func asyncType(of type: ValType) -> AsyncType {
@@ -259,7 +259,7 @@ public final class Context {
 
   // Returns the type of an assignment operator for the specified built-in type.
   public func getBuiltinAssignOperatorType(_ type: BuiltinType) -> FunType {
-    return funType(paramType: tupleType(types: [type, type]), retType: type)
+    return funType(params: [FunType.Param(type: type), FunType.Param(type: type)], retType: type)
   }
 
   /// Returns the declaration of the given built-in symbol.
@@ -298,33 +298,29 @@ public final class Context {
   ) -> FunDecl {
     // Create the declaration of the function.
     let funDecl = FunDecl(ident: Ident(name: name), type: unresolvedType)
+    funDecl.props.insert(.isBuiltin)
 
     // Create the declaration(s) of the function's parameter.
-    var paramTypes: [TupleType.Elem] = []
+    var paramTypes: [FunType.Param] = []
     for (i, param) in params.enumerated() {
       // Create the parameter's type.
       let type = parse(typeNamed: param)
-      paramTypes.append(TupleType.Elem(type: type))
+      paramTypes.append(FunType.Param(type: type))
 
       // Create the declaration of the parameter.
-      let sign = BareIdentSign(ident: Ident(name: param), type: type)
-      let decl = FunParamDecl(policy: .local, name: "_\(i)", typeSign: sign, type: type)
+      let decl = FunParamDecl(name: "_\(i)", policy: .local, type: type)
       decl.parentDeclSpace = funDecl
       decl.setState(.typeChecked)
 
       funDecl.params.append(decl)
     }
 
-    // Setup the function's signature.
-    if !ret.isEmpty {
-      funDecl.retSign = BareIdentSign(ident: Ident(name: ret), type: parse(typeNamed: ret))
-    }
+    // Create the function's type.
     funDecl.type = funType(
-      paramType: tupleType(paramTypes),
-      retType: funDecl.retSign?.type ?? unitType)
-
+      params: paramTypes,
+      retType: ret.isEmpty ? unitType : parse(typeNamed: ret))
     funDecl.setState(.typeChecked)
-    funDecl.props.insert(.isBuiltin)
+
     return funDecl
   }
 

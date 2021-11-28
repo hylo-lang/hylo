@@ -130,7 +130,7 @@ struct LValueEmitter: ExprVisitor {
 
     case let decl as FunParamDecl:
       // The node is a reference to a mutable parameter.
-      guard decl.policy == .inout || decl.policy == .mutableConsuming else {
+      guard decl.policy == .inout || decl.policy == .consumingMutable else {
         return .failure(.immutableBinding(decl))
       }
 

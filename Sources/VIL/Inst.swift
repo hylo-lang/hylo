@@ -458,7 +458,7 @@ public final class PartialApplyInst: Value, Inst {
     let context = delegator.type.valType.context
     let baseValType = delegator.type.valType as! FunType
     let partialValType = context.funType(
-      paramType: context.tupleType(types: baseValType.paramTypeList.dropLast(partialArgs.count)),
+      params: baseValType.params.dropLast(partialArgs.count),
       retType: baseValType.retType)
     super.init(type: .lower(partialValType))
   }

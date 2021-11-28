@@ -256,7 +256,7 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
   func visit(_ node: AsyncExpr) -> Expr {
     if let sign = node.body.retSign {
       let retType = sign.realize(unqualifiedFrom: useSite)
-      node.body.type = node.type.context.funType(paramType: node.type.context.unitType, retType: retType)
+      node.body.type = node.type.context.funType(params: [], retType: retType)
       node.body.setState(.realized)
     }
 

@@ -652,9 +652,19 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(signHeader(node)),
-    "paramSign": \(node.paramSign.accept(&self)),
+    "params": \(encode(nodes: node.params)),
     "retSign": \(node.retSign.accept(&self)),
     "isVolatile": \(node.isVolatile)
+    }
+    """
+  }
+
+  public mutating func visit(_ node: FunParamSign) -> String {
+    return """
+    {
+    "label": \(encode(string: node.label)),
+    "policy": "\(node.policy)",
+    "rawSign": \(node.rawSign.accept(&self))
     }
     """
   }

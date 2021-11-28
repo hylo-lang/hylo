@@ -70,9 +70,9 @@ public class VILType: CustomStringConvertible {
       // Lower each parameter and determine its passing convention.
       var paramTypes: [VILType] = []
       var paramConvs: [VILParamConv] = []
-      for valType in valType.paramTypeList {
-        paramTypes.append(lower(valType))
-        paramConvs.append(VILParamConv(for: valType))
+      for param in valType.params {
+        paramTypes.append(lower(param.type))
+        paramConvs.append(VILParamConv(for: param.type))
       }
 
       // Lower the return type and determine its passing convention.

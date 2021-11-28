@@ -151,7 +151,6 @@ final class LexerTests: XCTestCase {
         TokenSpec(.if       , "if"),
         TokenSpec(.in       , "in"),
         TokenSpec(.infix    , "infix"),
-        TokenSpec(.inout    , "inout"),
         TokenSpec(.match    , "match"),
         TokenSpec(.mod      , "mod"),
         TokenSpec(.mut      , "mut"),

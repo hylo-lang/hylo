@@ -105,7 +105,8 @@ open class TypeWalker: TypeVisitor {
   }
 
   open func visit(_ type: FunType) -> ValType {
-    return type.context.funType(paramType: walk(type.paramType), retType: walk(type.retType))
+    let params = type.params.map({ param in param.map(walk) })
+    return type.context.funType(params: params, retType: walk(type.retType))
   }
 
   open func visit(_ type: AsyncType) -> ValType {

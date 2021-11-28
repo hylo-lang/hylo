@@ -152,14 +152,27 @@ public struct Builder {
     let captureTable = decl.computeAllCaptures()
     if !captureTable.isEmpty {
       let context = unappliedType.context
-      let extra = captureTable.map({ (_, value) -> ValType in
+      let extra = captureTable.map({ (_, value) -> FunType.Param in
         // Captures with mutable semantics are represented by in-out parameters.
-        fatalError("fixme")
-        return value.type
+        switch value.semantics {
+        case .val:
+          // Immutable captures are consuming to leave the closure independent.
+          // FIXME: We could relax this constraint if we can guarantee that the closure is local.
+          return FunType.Param(policy: .consuming, type: value.type)
+
+        case .var:
+          // Mutable captures are consuming mutable.
+          return FunType.Param(policy: .consumingMutable, type: value.type)
+
+        case .mut:
+          // Borrowed captures are inout.
+          return FunType.Param(policy: .inout, type: value.type)
+        }
       })
 
-      let paramType = context.tupleType(types: extra + unappliedType.paramTypeList)
-      unappliedType = context.funType(paramType: paramType, retType: unappliedType.retType)
+      unappliedType = context.funType(
+        params: extra + unappliedType.params,
+        retType: unappliedType.retType)
     }
 
     // Create the function.

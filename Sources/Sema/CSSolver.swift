@@ -265,7 +265,7 @@ struct CSSolver {
 
     case (_, let rhs as ViewCompositionType):
       // Complain if the left operand is asynchronous.
-      guard !(constraint.lhs is AsyncType) else {
+      if constraint.lhs is AsyncType {
         errors.append(.nonSubtype(constraint))
         return
       }
@@ -353,8 +353,8 @@ struct CSSolver {
   /// Solves a value member constraint.
   private mutating func solve(_ constraint: ValueMemberConstraint) {
     // We can't solve anything if `T` is still unknown.
-    var baseType = assumptions[constraint.lhs]
-    guard !(baseType is TypeVar) else {
+    let baseType = assumptions[constraint.lhs]
+    if baseType is TypeVar {
       system.staleConstraints.append(constraint)
       return
     }
@@ -428,8 +428,8 @@ struct CSSolver {
   /// Solves a tuple member constraint.
   private mutating func solve(_ constraint: TupleMemberConstraint) {
     // We can't solve anything yet if `T` is still unknown.
-    var baseType = assumptions[constraint.lhs]
-    guard !(baseType is TypeVar) else {
+    let baseType = assumptions[constraint.lhs]
+    if baseType is TypeVar {
       system.staleConstraints.append(constraint)
       return
     }
@@ -616,20 +616,20 @@ struct CSSolver {
       return true
 
     case (let lhs as FunType, let rhs as FunType):
-      if constraint.kind == .subtyping {
-        // We swap `lhs.paramType` with `rhs.paramType` to account for the contravariance of
-        // function parameters when the constraint has subtyping semantics.
-        system.insert(
-          RelationalConstraint(
-            kind: constraint.kind, lhs: rhs.paramType, rhs: lhs.paramType,
-            at: constraint.locator.appending(.parameter)))
-      } else {
-        system.insert(
-          RelationalConstraint(
-            kind: constraint.kind, lhs: lhs.paramType, rhs: rhs.paramType,
-            at: constraint.locator.appending(.parameter)))
-      }
+      // Parameter lists are transformed into tuples to recusrsively apply a structural match. Note
+      // that policies are ignored, as they do not participate to overloading.
+      let context = lhs.context
+      var a = context.tupleType(lhs.params.map({ TupleType.Elem(label: $0.label, type: $0.type) }))
+      var b = context.tupleType(rhs.params.map({ TupleType.Elem(label: $0.label, type: $0.type) }))
 
+      // Parameters are contravariant. Hence, if the constraint denotes a subtyping relation, we
+      // must swap the direction of the constraint.
+      if constraint.kind == .subtyping { swap(&a, &b) }
+
+      system.insert(
+        RelationalConstraint(
+          kind: constraint.kind, lhs: a, rhs: b,
+          at: constraint.locator.appending(.parameter)))
       system.insert(
         RelationalConstraint(
           kind: constraint.kind, lhs: lhs.retType, rhs: rhs.retType,

@@ -98,7 +98,9 @@ struct Solution {
     case let type as FunType:
       return type.context
         .funType(
-          paramType: reify(type.paramType, freeVariablePolicy: freeVariablePolicy),
+          params: type.params.map({ param in
+            param.map({ reify($0, freeVariablePolicy: freeVariablePolicy) })
+          }),
           retType: reify(type.retType, freeVariablePolicy: freeVariablePolicy))
         .canonical
 

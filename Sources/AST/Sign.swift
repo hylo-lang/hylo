@@ -23,21 +23,41 @@ public protocol Sign: Node {
 /// The signature of a tuple type (e.g., `(foo: A, bar: B)`).
 public final class TupleSign: Sign {
 
+  /// The element of a tuple type signature.
+  public struct Elem {
+
+    /// The label of the element.
+    public var label: String?
+
+    /// The signature of the element.
+    public var sign: Sign
+
+    /// The source range of this element’s textual representation.
+    public var range: SourceRange?
+
+    public init(label: String? = nil, sign: Sign, range: SourceRange? = nil) {
+      self.label = label
+      self.sign = sign
+      self.range = range
+    }
+
+  }
+
   public var range: SourceRange?
 
   public var type: ValType
 
   /// The elements of the tuple.
-  public var elems: [TupleSignElem]
+  public var elems: [Elem]
 
-  public init(elems: [TupleSignElem], type: ValType, range: SourceRange? = nil) {
+  public init(elems: [Elem], type: ValType, range: SourceRange? = nil) {
     self.elems = elems
     self.type = type
     self.range = range
   }
 
   public func realize(unqualifiedFrom useSite: DeclSpace) -> ValType {
-    let elems = elems.map({ (elem: TupleSignElem) -> TupleType.Elem in
+    let elems = elems.map({ (elem: TupleSign.Elem) -> TupleType.Elem in
       TupleType.Elem(label: elem.label, type: elem.sign.realize(unqualifiedFrom: useSite))
     })
 
@@ -51,26 +71,6 @@ public final class TupleSign: Sign {
 
 }
 
-/// The element of a tuple type signature.
-public struct TupleSignElem {
-
-  /// The label of the element.
-  public var label: String?
-
-  /// The signature of the element.
-  public var sign: Sign
-
-  /// The source range of this element’s textual representation.
-  public var range: SourceRange?
-
-  public init(label: String? = nil, sign: Sign, range: SourceRange? = nil) {
-    self.label = label
-    self.sign = sign
-    self.range = range
-  }
-
-}
-
 /// The signature of a function type (e.g., `A -> B`).
 public final class FunSign: Sign {
 
@@ -79,7 +79,7 @@ public final class FunSign: Sign {
   public var type: ValType
 
   /// The signature of the function's domain.
-  public var paramSign: Sign
+  public var params: [FunParamSign]
 
   /// The signature of the function's codomain.
   public var retSign: Sign
@@ -88,13 +88,13 @@ public final class FunSign: Sign {
   public var isVolatile: Bool
 
   public init(
-    paramSign: Sign,
+    params: [FunParamSign],
     retSign: Sign,
     isVolatile: Bool = false,
     type: ValType,
     range: SourceRange? = nil
   ) {
-    self.paramSign = paramSign
+    self.params = params
     self.retSign = retSign
     self.isVolatile = isVolatile
     self.type = type
@@ -102,10 +102,54 @@ public final class FunSign: Sign {
   }
 
   public func realize(unqualifiedFrom useSite: DeclSpace) -> ValType {
-    let paramType = paramSign.realize(unqualifiedFrom: useSite)
+    let params = self.params.map({ (sign) -> FunType.Param in
+      let ty = sign.realize(unqualifiedFrom: useSite)
+      return FunType.Param(label: sign.label, policy: sign.policy, type: ty)
+    })
     let retType = retSign.realize(unqualifiedFrom: useSite)
 
-    type = type.context.funType(paramType: paramType, retType: retType)
+    type = type.context.funType(params: params, retType: retType)
+    return type
+  }
+
+  public func accept<V>(_ visitor: inout V) -> V.SignResult where V: SignVisitor {
+    return visitor.visit(self)
+  }
+
+}
+
+/// The signature of a function parameter.
+public final class FunParamSign: Sign {
+
+  public var range: SourceRange?
+
+  public var type: ValType
+
+  /// The label of the parameter, if any.
+  public var label: String?
+
+  /// The passing policly of the parameter.
+  public var policy: PassingPolicy
+
+  /// The raw signature of the parameter.
+  public var rawSign: Sign
+
+  public init(
+    label: String? = nil,
+    policy: PassingPolicy = .local,
+    rawSign: Sign,
+    type: ValType,
+    range: SourceRange? = nil
+  ) {
+    self.label = label
+    self.policy = policy
+    self.rawSign = rawSign
+    self.type = type
+    self.range = range
+  }
+
+  public func realize(unqualifiedFrom useSite: DeclSpace) -> ValType {
+    type = rawSign.realize(unqualifiedFrom: useSite)
     return type
   }
 
