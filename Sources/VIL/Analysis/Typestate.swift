@@ -227,14 +227,14 @@ public struct TypestateAnalysis {
     var done: Set = [work.removeFirst()]
 
     var pre = AbstractContext()
-    for (param, conv) in zip(fun.entry!.params, fun.type.paramConvs) {
-      switch conv {
-      case .owned, .localOwned:
-        pre.locals[param] = .owned
+    for (actual, formal) in zip(fun.entry!.params, fun.type.params!) {
+      switch formal.policy {
+      case .local, .consuming, .consumingMutable:
+        pre.locals[actual] = .owned
 
-      case .mutating:
-        let a: AbstractAddress = .base(ReferenceBox(param))
-        pre.locals[param] = .address(a)
+      case .inout:
+        let a: AbstractAddress = .base(ReferenceBox(actual))
+        pre.locals[actual] = .address(a)
         pre.memory[a] = .owned
       }
     }
@@ -401,10 +401,7 @@ public struct TypestateAnalysis {
     context: inout AbstractContext,
     builder: inout Builder
   ) -> Bool {
-    let funType = inst.callee.type as! VILFunType
-
-    // `@owned` is currently the only legal return convention.
-    assert(funType.retConv == .owned)
+    // The result of a function call is always owned.
     context.locals[inst] = .owned
 
     // Verify and update the ownership stage of each parameter.
@@ -412,37 +409,37 @@ public struct TypestateAnalysis {
     var localOwnedArgs: [Value] = []
     var success = true
 
-    for (arg, conv) in zip(inst.args, funType.paramConvs) {
-      switch conv {
-      case .owned:
-        // `@owned` consumes the argument.
-        success = consume(value: arg, consumer: path, in: &context, with: &builder) && success
+    for (actual, formal) in zip(inst.args,  inst.callee.type.params!) {
+      switch formal.policy {
+      case .local:
+        // `local` consumes the argument, but since it can't escape, it "comes back" at the end of
+        // the call.
+        success = consume(value: actual, consumer: path, in: &context, with: &builder) && success
+        localOwnedArgs.append(actual)
 
-      case .localOwned:
-        // `@local_owned` consumes the argument too, but since it can't escape, it "comes back" at
-        // the end of the call.
-        success = consume(value: arg, consumer: path, in: &context, with: &builder) && success
-        localOwnedArgs.append(arg)
+      case .consuming, .consumingMutable:
+        // `consuming` and `consumingMutable` consumes the argument.
+        success = consume(value: actual, consumer: path, in: &context, with: &builder) && success
 
-      case .mutating:
-        // `@mutating` requires uniqueness: the argument has to refer to an owned memory location.
-        let addr = loadAsAddr(arg, in: context)
+      case .inout:
+        // `inout` requires uniqueness: the argument has to refer to an owned memory location.
+        let addr = loadAsAddr(actual, in: context)
         stageBeforeLoan[addr] = context.memory[addr]
 
         switch stage(at: addr, in: context) {
         case .owned:
           context.memory[addr] = .lent(borrower: path)
         case .partial:
-          builder.context.report(.useOfPartialValue(location: arg))
+          builder.context.report(.useOfPartialValue(location: actual))
           success = false
         case .lent:
-          builder.context.report(.overlappingAccess(location: arg))
+          builder.context.report(.overlappingAccess(location: actual))
           success = false
         case .moved(let cp):
-          builder.context.report(.useAfterMove(location: arg, consumer: builder.module[cp]))
+          builder.context.report(.useAfterMove(location: actual, consumer: builder.module[cp]))
           success = false
         case .uninitialized:
-          builder.context.report(.useBeforeInit(location: arg, anchor: nil))
+          builder.context.report(.useBeforeInit(location: actual, anchor: nil))
           success = false
         default:
           fatalError("bad VIL: illegal operand")

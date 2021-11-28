@@ -500,7 +500,7 @@ public final class AsyncInst: Value, Inst {
   init(ref: FunRef, captures: [Value] = []) {
     self.ref = ref
     self.captures = captures
-    super.init(type: (ref.type as! VILFunType).retType)
+    super.init(type: ref.type.retType!)
   }
 
   public var operands: [Value] { [ref] + captures }

@@ -114,7 +114,7 @@ public struct Builder {
     debugName: String? = nil
   ) -> VILFun {
     // Lower the function type.
-    let loweredType = VILType.lower(type) as! VILFunType
+    let loweredType = VILType.lower(type)
 
     // Check if the module already contains a module with the specified name.
     if let fun = module.functions[name] {
@@ -315,21 +315,16 @@ public struct Builder {
   ///   - callee: The function to apply. `callee` must have a function type.
   ///   - args: The arguments of the function application.
   public mutating func buildApply(callee: Value, args: [Value]) -> ApplyInst {
-    let calleeType = callee.type as? VILFunType
-      ?< preconditionFailure("apply on non-function operand")
-
     // Validate the arguments according to the function's parameter convention.
-    for (arg, conv) in zip(args, calleeType.paramConvs) {
-      if arg is LiteralValue {
-        guard (conv == .owned) || (conv == .localOwned) else {
-          fatalError("bad VIL: illegal operand")
-        }
+    for (actual, formal) in zip(args, callee.type.params!) {
+      if actual is LiteralValue {
+        guard formal.policy == .local else { fatalError("bad VIL: illegal operand") }
       }
     }
 
     // FIXME: Perhaps we could do some argument validation here?
 
-    let inst = ApplyInst(callee: callee, args: args, type: calleeType.retType)
+    let inst = ApplyInst(callee: callee, args: args, type: callee.type.retType!)
     insert(inst)
     return inst
   }

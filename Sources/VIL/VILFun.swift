@@ -52,7 +52,7 @@ public struct VILFun {
   public let debugName: String?
 
   /// The VIL type of the function.
-  public let type: VILFunType
+  public let type: VILType
 
   /// The basic blocks of the function.
   ///
@@ -83,7 +83,7 @@ public struct VILFun {
   ///   - name: The name of the function.
   ///   - type: The unapplied type of the function.
   ///   - debugName: An optional debug name describing the function.
-  init(name: VILName, type: VILFunType, debugName: String? = nil) {
+  init(name: VILName, type: VILType, debugName: String? = nil) {
     self.name = name
     self.debugName = debugName
     self.type = type

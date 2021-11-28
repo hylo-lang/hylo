@@ -176,7 +176,7 @@ public struct Interpreter {
 
     // Reserve the return register, if any.
     if let key = returnKey {
-      let valueWT = valueWitnessTables[valueWitnessTableKey(of: fun.type.retType).index]
+      let valueWT = valueWitnessTables[valueWitnessTableKey(of: fun.type.retType!).index]
       threads[threadID]!.registerStack.reserve(
         byteCount: valueWT.size, alignedAt: valueWT.alignment, forKey: key)
     }

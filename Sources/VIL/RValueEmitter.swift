@@ -283,19 +283,18 @@ struct RValueEmitter: ExprVisitor {
     }
 
     // Emit the function's arguments.
-    let calleeType = callee.type as! VILFunType
-
+    let params = callee.type.params!
     for i in 0 ..< node.args.count {
       var value = emit(rvalue: node.args[i].value)
 
-      if calleeType.paramConvs[i] == .mutating {
-        // A parameter with the 'mut' convention prescribes that the argument be mutable argument.
+      if params[i].policy == .inout {
+        // A parameter with the 'inout' policy prescribes that the argument be mutable argument.
         assert(node.args[i].value is AddrOfExpr || value is PoisonValue)
         args.append(value)
         continue
       }
 
-      if calleeType.paramTypes[i].isExistential {
+      if params[i].type.isExistential {
         // The parameter has an existential type and must be passed as an existential container. If
         // the argument isn't already packaged, we have to wrap it into a new container. Otherwise,
         // we can pass it "as is", since all existential containers have the same memory layout.
@@ -318,7 +317,7 @@ struct RValueEmitter: ExprVisitor {
     var value: Value = builder.buildApply(callee: callee, args: args)
 
     // Emit the extraction of the result value.
-    if calleeType.retType.isExistential {
+    if callee.type.retType!.isExistential {
       value = builder.buildCopyExistential(container: value, type: .lower(node.type))
     }
 

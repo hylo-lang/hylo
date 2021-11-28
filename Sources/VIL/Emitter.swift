@@ -132,8 +132,8 @@ public enum Emitter {
 
     // Contextualize the function's arguments.
     let genericEnv = decl.genericEnv!
-    let paramTypes = fun.type.paramTypes.map({ (type) -> VILType in
-      return type.contextualized(in: genericEnv, from: decl)
+    let paramTypes = fun.type.params!.map({ (param) -> VILType in
+      return VILType.lower(param.type).contextualized(in: genericEnv, from: decl)
     })
 
     // Create the function's entry block.
@@ -254,7 +254,8 @@ public enum Emitter {
     // Create the function's entry point.
     builder.insertionPointer = InsertionPointer(funName: name)
     builder.insertionPointer!.blockID = builder.buildBasicBlock(
-      paramTypes: fun.type.paramTypes, isEntry: true)
+      paramTypes: fun.type.params!.map({ .lower($0.type) }),
+      isEntry: true)
     let params = builder.currentFun!.entry!.params
 
     // Emit the function's body.
