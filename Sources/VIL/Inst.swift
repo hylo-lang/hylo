@@ -1,4 +1,5 @@
 import AST
+import Basic
 
 /// A VIL instruction.
 public protocol Inst: AnyObject {
@@ -6,12 +7,15 @@ public protocol Inst: AnyObject {
   /// The instruction's operands.
   var operands: [Value] { get }
 
+  /// The range in Val source corresponding to the instruction, if any.
+  var range: SourceRange? { get }
+
 }
 
 /// The absolute path of an instruction.
 ///
-/// The path is stable: it is not invalidated by the insertion or removal of other instructions at
-/// any position, in any basic block.
+/// An instruction path is stable: it is not invalidated by the insertion or removal of other
+/// instructions at any position, in any basic block.
 public struct InstPath: Hashable {
 
   /// The name of the function in which the instruction resides.
@@ -31,6 +35,8 @@ public struct InstPath: Hashable {
 /// specified type.
 public final class AllocStackInst: Value, Inst {
 
+  public let range: SourceRange?
+
   /// The type of the allocated value.
   public let allocatedType: VILType
 
@@ -43,10 +49,11 @@ public final class AllocStackInst: Value, Inst {
   /// the constructor of a product type.
   public let isSelf: Bool
 
-  init(allocatedType: VILType, decl: ValueDecl?, isSelf: Bool) {
+  init(allocatedType: VILType, decl: ValueDecl?, isSelf: Bool, range: SourceRange?) {
     self.allocatedType = allocatedType
     self.decl = decl
     self.isSelf = isSelf
+    self.range = range ?? decl?.range
     super.init(type: allocatedType.address)
   }
 
@@ -63,11 +70,14 @@ public final class AllocStackInst: Value, Inst {
 /// preceeding the deallocation.
 public final class DeallocStackInst: Inst {
 
+  public let range: SourceRange?
+
   /// The corresponding stack allocation.
   public let alloc: AllocStackInst
 
-  init(alloc: AllocStackInst) {
+  init(alloc: AllocStackInst, range: SourceRange?) {
     self.alloc = alloc
+    self.range = range
   }
 
   public var operands: [Value] { [alloc] }
@@ -79,15 +89,18 @@ public final class DeallocStackInst: Inst {
 /// Assigns a copy of the contents located at a source address to another location.
 public final class CopyAddrInst: Inst {
 
+  public let range: SourceRange?
+
   /// The target address of the copy.
   public let target: Value
 
   /// The address of the object to copy.
   public let source: Value
 
-  init(target: Value, source: Value) {
+  init(target: Value, source: Value, range: SourceRange?) {
     self.target = target
     self.source = source
+    self.range = range
   }
 
   public var operands: [Value] { [target, source] }
@@ -101,11 +114,14 @@ public final class CopyAddrInst: Inst {
 /// type, it must hold an initialized container.
 public final class DeleteAddrInst: Inst {
 
+  public let range: SourceRange?
+
   /// The address of the object to delete.
   public let target: Value
 
-  init(target: Value) {
+  init(target: Value, range: SourceRange?) {
     self.target = target
+    self.range = range
   }
 
   public var operands: [Value] { [target] }
@@ -115,15 +131,18 @@ public final class DeleteAddrInst: Inst {
 /// Determines whether two addresses are equal.
 public final class EqualAddrInst: Value, Inst {
 
+  public let range: SourceRange?
+
   /// An address.
   public let lhs: Value
 
   /// Another address.
   public let rhs: Value
 
-  init(lhs: Value, rhs: Value) {
+  init(lhs: Value, rhs: Value, range: SourceRange?) {
     self.lhs = lhs
     self.rhs = rhs
+    self.range = range
 
     let context = lhs.type.valType.context
     super.init(type: .lower(context.getBuiltinType(named: "i1")!))
@@ -139,11 +158,14 @@ public final class EqualAddrInst: Value, Inst {
 /// existential container, the entire container is loaded, not only the packaged value.
 public final class LoadInst: Value, Inst {
 
+  public let range: SourceRange?
+
   /// The location load.
   public let location: Value
 
-  init(location: Value) {
+  init(location: Value, range: SourceRange?) {
     self.location = location
+    self.range = range
     super.init(type: location.type.object)
   }
 
@@ -154,15 +176,18 @@ public final class LoadInst: Value, Inst {
 /// Stores a consumable value at the specified address, transferring its ownership.
 public final class StoreInst: Inst {
 
+  public let range: SourceRange?
+
   /// The location at which the value must be stored.
   public let target: Value
 
   /// The value being stored.
   public let value: Value
 
-  init(target: Value, value: Value) {
+  init(target: Value, value: Value, range: SourceRange?) {
     self.target = target
     self.value = value
+    self.range = range
   }
 
   public var operands: [Value] { [target, value] }
@@ -177,11 +202,14 @@ public final class StoreInst: Inst {
 /// other use cases, then it should be removed for something more specific.
 public final class RecordInst: Value, Inst {
 
+  public let range: SourceRange?
+
   /// The declaration of the type of which the record value is an instance.
   public let typeDecl: NominalTypeDecl
 
-  init(typeDecl: NominalTypeDecl, type: VILType) {
+  init(typeDecl: NominalTypeDecl, type: VILType, range: SourceRange?) {
     self.typeDecl = typeDecl
+    self.range = range
     super.init(type: type)
   }
 
@@ -192,15 +220,18 @@ public final class RecordInst: Value, Inst {
 /// Extracts the value of a stored member from a record.
 public final class RecordMemberInst: Value, Inst {
 
+  public let range: SourceRange?
+
   /// The record value whose member is being extracted.
   public let record: Value
 
   /// The declaration of the member being extracted.
   public let memberDecl: VarDecl
 
-  init(record: Value, memberDecl: VarDecl, type: VILType) {
+  init(record: Value, memberDecl: VarDecl, type: VILType, range: SourceRange?) {
     self.record = record
     self.memberDecl = memberDecl
+    self.range = range
     super.init(type: type)
   }
 
@@ -211,15 +242,18 @@ public final class RecordMemberInst: Value, Inst {
 /// Computes the address of a stored member from the address of a record.
 public final class RecordMemberAddrInst: Value, Inst {
 
+  public let range: SourceRange?
+
   /// The address of the the record value for which the member's address is computed.
   public let record: Value
 
   /// The declaration of the member whose address is computed.
   public let memberDecl: VarDecl
 
-  init(record: Value, memberDecl: VarDecl, type: VILType) {
+  init(record: Value, memberDecl: VarDecl, type: VILType, range: SourceRange?) {
     self.record = record
     self.memberDecl = memberDecl
+    self.range = range
     super.init(type: type)
   }
 
@@ -230,15 +264,18 @@ public final class RecordMemberAddrInst: Value, Inst {
 /// Creates a tuple value.
 public final class TupleInst: Value, Inst {
 
+  /// The values of the tuple's elements.
+  public let operands: [Value]
+
+  public let range: SourceRange?
+
   /// The type of the tuple.
   public let tupleType: TupleType
 
-  /// The value of the tuple's elements.
-  public let operands: [Value]
-
-  init(type: TupleType, operands: [Value]) {
+  init(type: TupleType, operands: [Value], range: SourceRange?) {
     self.tupleType = type
     self.operands = operands
+    self.range = range
     super.init(type: .lower(tupleType))
   }
 
@@ -252,15 +289,18 @@ public final class TupleInst: Value, Inst {
 /// an instance of the specified witness.
 public final class AllocExistentialInst: Value, Inst {
 
+  public let range: SourceRange?
+
   /// The address of the existential container.
   public let container: Value
 
   /// The type of the package's witness.
   public let witness: VILType
 
-  init(container: Value, witness: VILType) {
+  init(container: Value, witness: VILType, range: SourceRange?) {
     self.container = container
     self.witness = witness
+    self.range = range
     super.init(type: witness.address)
   }
 
@@ -271,11 +311,14 @@ public final class AllocExistentialInst: Value, Inst {
 /// Copies the value packaged inside of an existential container.
 public final class CopyExistentialInst: Value, Inst {
 
+  public let range: SourceRange?
+
   /// The existential container from which the pacakged value is copied.
   public let container: Value
 
-  init(container: Value, type: VILType) {
+  init(container: Value, type: VILType, range: SourceRange?) {
     self.container = container
+    self.range = range
     super.init(type: type)
   }
 
@@ -286,15 +329,18 @@ public final class CopyExistentialInst: Value, Inst {
 /// Initializes the value packaged inside of an existential container.
 public final class InitExistentialAddrInst: Inst {
 
+  public let range: SourceRange?
+
   /// The address of the existential container to initialize.
   public let container: Value
 
   /// The value that initializes the container.
   public let value: Value
 
-  init(container: Value, value: Value) {
+  init(container: Value, value: Value, range: SourceRange?) {
     self.container = container
     self.value = value
+    self.range = range
   }
 
   public var operands: [Value] { [container, value] }
@@ -304,11 +350,14 @@ public final class InitExistentialAddrInst: Inst {
 /// Projects the address of the concrete value packaged inside of an existential container.
 public final class ProjectExistentialAddrInst: Value, Inst {
 
+  public let range: SourceRange?
+
   /// The address of the existential container to project.
   public let container: Value
 
-  init(container: Value, type: VILType) {
+  init(container: Value, type: VILType, range: SourceRange?) {
     self.container = container
+    self.range = range
     super.init(type: type)
   }
 
@@ -320,6 +369,8 @@ public final class ProjectExistentialAddrInst: Value, Inst {
 /// existential package.
 public final class WitnessMethodInst: Value, Inst {
 
+  public let range: SourceRange?
+
   /// An existential container that conforms to the view for which the method is being looked up.
   public let container: Value
 
@@ -328,9 +379,10 @@ public final class WitnessMethodInst: Value, Inst {
   /// This should be either a regular method or a constructor declaration.
   public let decl: BaseFunDecl
 
-  init(container: Value, decl: BaseFunDecl) {
+  init(container: Value, decl: BaseFunDecl, range: SourceRange?) {
     self.container = container
     self.decl = decl
+    self.range = range
     super.init(type: .lower(decl.unappliedType))
   }
 
@@ -347,11 +399,14 @@ public final class WitnessMethodInst: Value, Inst {
 @available(*, deprecated, message: "Use CheckedCastBranchInst instead")
 public final class CheckedCastAddrInst: Value, Inst {
 
+  public let range: SourceRange?
+
   /// The address to convert.
   public let source: Value
 
-  init(source: Value, type: VILType) {
+  init(source: Value, type: VILType, range: SourceRange?) {
     self.source = source
+    self.range = range
     super.init(type: type)
   }
 
@@ -365,11 +420,14 @@ public final class CheckedCastAddrInst: Value, Inst {
 /// not have a layout that matches the requested type.
 public final class UnsafeCastAddrInst: Value, Inst {
 
+  public let range: SourceRange?
+
   /// The address to convert.
   public let source: Value
 
-  init(source: Value, type: VILType) {
+  init(source: Value, type: VILType, range: SourceRange?) {
     self.source = source
+    self.range = range
     super.init(type: type)
   }
 
@@ -382,15 +440,18 @@ public final class UnsafeCastAddrInst: Value, Inst {
 /// Applies a function.
 public final class ApplyInst: Value, Inst {
 
+  public let range: SourceRange?
+
   /// The function being applied.
   public let callee: Value
 
   /// The arguments of the function application.
   public let args: [Value]
 
-  init(callee: Value, args: [Value], type: VILType) {
+  init(callee: Value, args: [Value], type: VILType, range: SourceRange?) {
     self.callee = callee
     self.args = args
+    self.range = range
     super.init(type: type)
   }
 
@@ -401,11 +462,14 @@ public final class ApplyInst: Value, Inst {
 /// Copies a value using its copy-copy constructor (if any).
 public final class CopyInst: Value, Inst {
 
+  public let range: SourceRange?
+
   /// The value being copied.
   public let value: Value
 
-  init(value: Value) {
+  init(value: Value, range: SourceRange?) {
     self.value = value
+    self.range = range
     super.init(type: value.type)
   }
 
@@ -416,11 +480,14 @@ public final class CopyInst: Value, Inst {
 /// Destroys the specified value, calling its destructor.
 public final class DeleteInst: Inst {
 
+  public let range: SourceRange?
+
   /// The value to delete.
   public let value: Value
 
-  init(value: Value) {
+  init(value: Value, range: SourceRange?) {
     self.value = value
+    self.range = range
   }
 
   public var operands: [Value] { [value] }
@@ -430,21 +497,25 @@ public final class DeleteInst: Inst {
 /// Creates the partial application of a function.
 public final class PartialApplyInst: Value, Inst {
 
+  public let range: SourceRange?
+
   /// The function being partially applied.
   public let delegator: Value
 
   /// The partial list of arguments of the function application (from left to right).
   public let partialArgs: [Value]
 
-  init(delegator: Value, partialArgs: [Value]) {
+  init(delegator: Value, partialArgs: [Value], range: SourceRange?) {
     self.delegator = delegator
     self.partialArgs = partialArgs
+    self.range = range
 
     let context = delegator.type.valType.context
     let baseValType = delegator.type.valType as! FunType
     let partialValType = context.funType(
       params: baseValType.params.dropLast(partialArgs.count),
       retType: baseValType.retType)
+
     super.init(type: .lower(partialValType))
   }
 
@@ -458,11 +529,14 @@ public final class PartialApplyInst: Value, Inst {
 /// a thick container so that they have the same layout as partially applied functions.
 public final class ThinToThickInst: Value, Inst {
 
+  public let range: SourceRange?
+
   /// A bare reference to a VIL function.
   public let ref: FunRef
 
-  public init(ref: FunRef) {
+  public init(ref: FunRef, range: SourceRange?) {
     self.ref = ref
+    self.range = range
     super.init(type: ref.type)
   }
 
@@ -475,6 +549,8 @@ public final class ThinToThickInst: Value, Inst {
 /// Creates an asynchronous value.
 public final class AsyncInst: Value, Inst {
 
+  public let range: SourceRange?
+
   /// A bare reference to the function that represents the asynchronous execution.
   public let ref: FunRef
 
@@ -482,9 +558,10 @@ public final class AsyncInst: Value, Inst {
   /// underlying function.
   public let captures: [Value]
 
-  init(ref: FunRef, captures: [Value] = []) {
+  init(ref: FunRef, captures: [Value], range: SourceRange?) {
     self.ref = ref
     self.captures = captures
+    self.range = range
     super.init(type: ref.type.retType!)
   }
 
@@ -495,11 +572,14 @@ public final class AsyncInst: Value, Inst {
 /// Awaits an asynchronous value.
 public final class AwaitInst: Value, Inst {
 
+  public let range: SourceRange?
+
   /// The value being awaited.
   public let value: Value
 
-  init(value: Value) {
+  init(value: Value, range: SourceRange?) {
     self.value = value
+    self.range = range
     super.init(type: .lower((value.type.valType as! AsyncType).base))
   }
 
@@ -512,15 +592,17 @@ public final class AwaitInst: Value, Inst {
 /// Branches unconditionally to the start of a basic block.
 public final class BranchInst: Inst {
 
+  public let operands: [Value]
+
+  public let range: SourceRange?
+
   /// The block to which the execution should jump.
   public let dest: BasicBlock.ID
 
-  /// The arguments of the destination block.
-  public let operands: [Value]
-
-  init(dest: BasicBlock.ID, args: [Value]) {
+  init(dest: BasicBlock.ID, args: [Value], range: SourceRange?) {
     self.dest = dest
     self.operands = args
+    self.range = range
   }
 
 }
@@ -531,6 +613,8 @@ public final class BranchInst: Inst {
 /// requested type as argument. Otherwise, control is transferred to `elseDest` with a owned value
 /// of the original type as argument. Either way, the ownership of the specified value is consumed.
 public final class CheckedCastBranchInst: Inst {
+
+  public let range: SourceRange?
 
   /// The value to convert.
   public let value: Value
@@ -544,11 +628,18 @@ public final class CheckedCastBranchInst: Inst {
   /// The block to which the execution should jump if the condition does not hold.
   public let elseDest: BasicBlock.ID
 
-  init(value: Value, type: VILType, thenDest: BasicBlock.ID, elseDest: BasicBlock.ID) {
+  init(
+    value: Value,
+    type: VILType,
+    thenDest: BasicBlock.ID,
+    elseDest: BasicBlock.ID,
+    range: SourceRange?
+  ) {
     self.value = value
     self.type = type
     self.thenDest = thenDest
     self.elseDest = elseDest
+    self.range = range
   }
 
   public var operands: [Value] { [value] }
@@ -557,6 +648,8 @@ public final class CheckedCastBranchInst: Inst {
 
 /// Branches conditionally to the start of a basic block.
 public final class CondBranchInst: Inst {
+
+  public let range: SourceRange?
 
   /// A Boolean condition.
   public let cond: Value
@@ -576,13 +669,15 @@ public final class CondBranchInst: Inst {
   init(
     cond: Value,
     thenDest: BasicBlock.ID, thenArgs: [Value],
-    elseDest: BasicBlock.ID, elseArgs: [Value]
+    elseDest: BasicBlock.ID, elseArgs: [Value],
+    range: SourceRange?
   ) {
     self.cond = cond
     self.thenDest = thenDest
     self.thenArgs = thenArgs
     self.elseDest = elseDest
     self.elseArgs = elseArgs
+    self.range = range
   }
 
   public var operands: [Value] { [cond] + thenArgs + elseArgs }
@@ -592,6 +687,12 @@ public final class CondBranchInst: Inst {
 /// Halts the execution of the program.
 public final class HaltInst: Inst {
 
+  public let range: SourceRange?
+
+  init(range: SourceRange?) {
+    self.range = range
+  }
+
   public var operands: [Value] { [] }
 
 }
@@ -599,11 +700,14 @@ public final class HaltInst: Inst {
 /// Returns from a function.
 public final class RetInst: Inst {
 
+  public let range: SourceRange?
+
   /// The value being returned.
   public let value: Value
 
-  init(value: Value) {
+  init(value: Value, range: SourceRange?) {
     self.value = value
+    self.range = range
   }
 
   public var operands: [Value] { [value] }
