@@ -117,30 +117,6 @@ public class ValType: CustomStringConvertible, Equatable {
     return props.contains(props)
   }
 
-  /// Indicates whether the type is in canonical form.
-  public var isCanonical  : Bool { props.contains(.isCanonical) }
-
-  /// Indicates whether the type contains one or more async types.
-  public var hasAsync     : Bool { props.contains(.hasAsync) }
-
-  /// Indicates whether the type contains one or more aliases.
-  public var hasAlias     : Bool { props.contains(.hasAlias) }
-
-  /// Indicates whether the type contains one or more type variables.
-  public var hasVariables : Bool { props.contains(.hasVariables) }
-
-  /// Indicates whether the type contains one or more generic type parameters.
-  public var hasTypeParams: Bool { props.contains(.hasTypeParams) }
-
-  /// Indicates whether the type contains one or more skolems.
-  public var hasSkolems   : Bool { props.contains(.hasSkolems) }
-
-  /// Indicates whether the type contains the unresolved type.
-  public var hasUnresolved: Bool { props.contains(.hasUnresolved) }
-
-  /// Indicates whether the type contains the error type.
-  public var hasErrors    : Bool { props.contains(.hasErrors) }
-
   /// Indicates whether the type is well-formed (i.e., it does not contain variables, function
   /// parameter types, unresolved types, or error types).
   public var isWellFormed: Bool {
@@ -215,7 +191,7 @@ public class ValType: CustomStringConvertible, Equatable {
   ///
   /// - Parameter args: A substitution table.
   public func specialized(with args: [GenericParamType: ValType]) -> ValType {
-    guard hasTypeParams else { return self }
+    guard self[.hasTypeParams] else { return self }
     return TypeSpecializer(args: args).walk(self)
   }
 
@@ -290,7 +266,7 @@ fileprivate final class TypeSpecializer: TypeWalker {
       return .stepOver(args[param] ?? param)
     }
 
-    return type.hasTypeParams
+    return type[.hasTypeParams]
       ? .stepInto(type)
       : .stepOver(type)
   }
@@ -320,19 +296,19 @@ public final class KindType: ValType {
   }
 
   public override var canonical: ValType {
-    return isCanonical
+    return self[.isCanonical]
       ? self
       : type.canonical.kind
   }
 
   public override var dealiased: ValType {
-    return hasAlias
+    return self[.hasAlias]
       ? type.dealiased.kind
       : self
   }
 
   public override var uncontextualized: ValType {
-    return hasSkolems
+    return self[.hasSkolems]
       ? type.uncontextualized.kind
       : self
   }
@@ -567,11 +543,11 @@ public final class AliasType: NominalType {
 
   public override var canonical: ValType {
     guard let aliasedDecl = (decl as! AliasTypeDecl).aliasedDecl else {
-      assert(isCanonical)
+      assert(self[.isCanonical])
       return self
     }
 
-    assert(!isCanonical)
+    assert(!self[.isCanonical])
     return aliasedDecl.instanceType.canonical
   }
 
@@ -634,7 +610,7 @@ public final class ViewCompositionType: ValType {
   }
 
   public override var canonical: ValType {
-    if isCanonical {
+    if self[.isCanonical] {
       return self
     } else if views.count == 1 {
       return views[0]
@@ -728,7 +704,7 @@ public final class UnionType: ValType {
   }
 
   public override var canonical: ValType {
-    if isCanonical {
+    if self[.isCanonical] {
       return self
     } else if elems.count == 1 {
       return elems[0].canonical
@@ -832,7 +808,7 @@ public final class BoundGenericType: NominalType {
   }
 
   public override var canonical: ValType {
-    return isCanonical
+    return self[.isCanonical]
       ? self
       : context.boundGenericType(decl: decl, args: args.map({ $0.canonical }))
   }
@@ -854,7 +830,7 @@ public final class BoundGenericType: NominalType {
   }
 
   public override var uncontextualized: ValType {
-    return hasSkolems
+    return self[.hasSkolems]
       ? context.boundGenericType(decl: decl, args: args.map({ $0.uncontextualized }))
       : self
   }
@@ -997,7 +973,7 @@ public final class AssocType: ValType {
       }
 
     case is GenericParamType, is SkolemType, is TypeVar:
-      assert(isCanonical)
+      assert(self[.isCanonical])
       return self
 
     default:
@@ -1148,7 +1124,7 @@ public final class TupleType: ValType {
   /// A tuple with only one element is canonical if and only if that element has a label or if that
   /// element is the unit type (i.e., `(()) != ()`).
   public override var canonical: ValType {
-    if isCanonical {
+    if self[.isCanonical] {
       return self
     }
     if (elems.count == 1) && (elems[0].label == nil) {
@@ -1168,7 +1144,7 @@ public final class TupleType: ValType {
   }
 
   public override var uncontextualized: ValType {
-    if !hasSkolems {
+    if !self[.hasSkolems] {
       return self
     }
     return context.tupleType(elems.map({ elem in
@@ -1291,7 +1267,7 @@ public final class FunType: ValType {
 
   public override var canonical: ValType {
     let params = self.params.map({ param in param.map({ $0.canonical }) })
-    return isCanonical
+    return self[.isCanonical]
       ? self
       : context.funType(params: params, retType: retType.canonical)
   }
@@ -1305,7 +1281,7 @@ public final class FunType: ValType {
 
   public override var uncontextualized: ValType {
     let params = self.params.map({ param in param.map({ $0.uncontextualized }) })
-    return hasSkolems
+    return self[.hasSkolems]
       ? context.funType(params: params, retType: retType.uncontextualized)
       : self
   }
@@ -1417,20 +1393,20 @@ public final class AsyncType: ValType {
   public override var isCopyable: Bool { false }
 
   public override var canonical: ValType {
-    return isCanonical
+    return self[.isCanonical]
       ? self
       : context.asyncType(of: base.canonical)
     // FIXME: We might add more equivalence classes (e.g., `async (a: T) == (a: async T)`).
   }
 
   public override var dealiased: ValType {
-    return hasAlias
+    return self[.hasAlias]
       ? context.asyncType(of: base.dealiased)
       : self
   }
 
   public override var uncontextualized: ValType {
-    return hasSkolems
+    return self[.hasSkolems]
       ? context.asyncType(of: base.uncontextualized)
       : self
   }

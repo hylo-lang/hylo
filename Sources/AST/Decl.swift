@@ -336,9 +336,10 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
 
     public static let isMember      = FunDeclProps(rawValue: 1 << 0)
     public static let isMutating    = FunDeclProps(rawValue: 1 << 1)
-    public static let isStatic      = FunDeclProps(rawValue: 1 << 2)
-    public static let isBuiltin     = FunDeclProps(rawValue: 1 << 3)
-    public static let isSynthesized = FunDeclProps(rawValue: 1 << 4)
+    public static let isConsuming   = FunDeclProps(rawValue: 1 << 2)
+    public static let isStatic      = FunDeclProps(rawValue: 1 << 3)
+    public static let isBuiltin     = FunDeclProps(rawValue: 1 << 4)
+    public static let isSynthesized = FunDeclProps(rawValue: 1 << 5)
 
   }
 
@@ -1327,7 +1328,7 @@ public final class AliasTypeDecl: GenericTypeDecl {
     setState(.realized)
     type = context.aliasType(decl: self).kind
 
-    guard !aliasedType.hasErrors else {
+    guard !aliasedType[.hasErrors] else {
       setState(.invalid)
       return type as! KindType
     }

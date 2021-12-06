@@ -243,7 +243,7 @@ fileprivate final class Contextualizer: TypeWalker {
       return .stepOver(contextualize(param: type))
 
     default:
-      return type.hasTypeParams
+      return type[.hasTypeParams]
         ? .stepInto(type)
         : .stepOver(type)
     }
