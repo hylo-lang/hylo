@@ -4,24 +4,6 @@ import Basic
 /// A constraint system solver.
 struct CSSolver {
 
-  init(
-    system: ConstraintSystem,
-    assumptions: SubstitutionTable = SubstitutionTable(),
-    overloadChoices: [ConstraintLocator: [ValueDecl]] = [:],
-    penalities: Int = 0,
-    errors: [TypeError] = [],
-    bestScore: Solution.Score = .worst,
-    context: AST.Context
-  ) {
-    self.system = system
-    self.assumptions = assumptions
-    self.overloadChoices = overloadChoices
-    self.penalities = penalities
-    self.errors = errors
-    self.bestScore = bestScore
-    self.context = context
-  }
-
   /// The constraint system to solve.
   private var system: ConstraintSystem
 
@@ -48,8 +30,26 @@ struct CSSolver {
     return Solution.Score(penalities: penalities, errorCount: errors.count)
   }
 
+  init(
+    system: ConstraintSystem,
+    assumptions: SubstitutionTable = SubstitutionTable(),
+    overloadChoices: [ConstraintLocator: [ValueDecl]] = [:],
+    penalities: Int = 0,
+    errors: [TypeError] = [],
+    bestScore: Solution.Score = .worst,
+    context: AST.Context
+  ) {
+    self.system = system
+    self.assumptions = assumptions
+    self.overloadChoices = overloadChoices
+    self.penalities = penalities
+    self.errors = errors
+    self.bestScore = bestScore
+    self.context = context
+  }
+
   /// Solves the type constraint, or fails trying.
-  mutating func solve() -> Solution {
+  mutating func solve() -> (succeeded: Bool, solution: Solution) {
     while let constraint = system.freshConstraints.popLast() {
       // Make sure the current solution is still worth exploring.
       guard currentScore <= bestScore else { break }
@@ -72,13 +72,17 @@ struct CSSolver {
     }
 
     // FIXME: Handle stale constraints.
-    penalities += system.staleConstraints.count
+    if !system.staleConstraints.isEmpty {
+      penalities += system.staleConstraints.count
+      errors.append(.staleConstraints(system.staleConstraints))
+    }
 
-    return Solution(
+    let solution = Solution(
       bindings: assumptions.flattened(),
       overloadChoices: overloadChoices,
       penalities: penalities,
       errors: errors)
+    return (errors.isEmpty, solution)
   }
 
   private mutating func solve(_ constraint: RelationalConstraint) {
@@ -454,7 +458,9 @@ struct CSSolver {
   }
 
   /// Solves an overloaded constraint.
-  private mutating func solve(_ constraint: OverloadBindingConstraint) -> Solution {
+  private mutating func solve(
+    _ constraint: OverloadBindingConstraint
+  ) -> (succeeded: Bool, solution: Solution) {
     assert(!constraint.declSet.isEmpty)
     let type = assumptions[constraint.type]
 
@@ -478,12 +484,12 @@ struct CSSolver {
     let results = branch(choices: choices)
     let declSet = results.map({ constraint.declSet[$0.index] })
 
-    // If there's only one single best solution, we found our winner.
+    // If there's only one single best solution, we found a winner.
     let locator = ConstraintLocator(constraint.locator.resolve())
     if results.count == 1 {
       var solution = results[0].solution
       solution.overloadChoices[locator] = declSet
-      return solution
+      return (solution.errors.isEmpty, solution)
     } else {
       overloadChoices[locator] = declSet
     }
@@ -494,7 +500,9 @@ struct CSSolver {
   }
 
   /// Solves a disjunction constraint.
-  private mutating func solve(_ constraint: DisjunctionConstraint) -> Solution {
+  private mutating func solve(
+    _ constraint: DisjunctionConstraint
+  ) -> (succeeded: Bool, solution: Solution) {
     precondition(!constraint.elements.isEmpty)
     let results = branch(choices: constraint.elements)
     var solution = results[0].solution
@@ -511,7 +519,7 @@ struct CSSolver {
       solution.errors.append(.ambiguousConstraint(constraint))
     }
 
-    return solution
+    return (solution.errors.isEmpty, solution)
   }
 
   private mutating func branch(
@@ -521,14 +529,14 @@ struct CSSolver {
 
     for i in 0 ..< choices.count {
       var subsolver = CSSolver(
-        system          : system.fork(inserting: choices[i].0),
-        assumptions     : assumptions,
-        overloadChoices : overloadChoices,
-        penalities      : penalities + choices[i].1,
-        errors          : errors,
-        bestScore       : bestScore,
-        context         : context)
-      let newSolution = subsolver.solve()
+        system: system.fork(inserting: choices[i].0),
+        assumptions: assumptions,
+        overloadChoices: overloadChoices,
+        penalities: penalities + choices[i].1,
+        errors: errors,
+        bestScore: bestScore,
+        context: context)
+      let (_, newSolution) = subsolver.solve()
 
       // Discard inferior solutions
       if results.isEmpty || newSolution.score == bestScore {
@@ -616,8 +624,8 @@ struct CSSolver {
       return true
 
     case (let lhs as FunType, let rhs as FunType):
-      // Parameter lists are transformed into tuples to recusrsively apply a structural match. Note
-      // that policies are ignored, as they do not participate to overloading.
+      // Convert parameter lists into tuples to apply structural match recursively. Policies are
+      // ignored, as they do not participate to overloading.
       let context = lhs.context
       var a = context.tupleType(lhs.params.map({ TupleType.Elem(label: $0.label, type: $0.type) }))
       var b = context.tupleType(rhs.params.map({ TupleType.Elem(label: $0.label, type: $0.type) }))
@@ -658,7 +666,7 @@ struct CSSolver {
     }
 
     // The tuples don't match unless they have the same labels.
-    for (lhs, rhs) in zip(lhs.elems, lhs.elems) where lhs.label != rhs.label {
+    for (lhs, rhs) in zip(lhs.elems, rhs.elems) where lhs.label != rhs.label {
       errors.append(.conflictingLabels(constraint))
       return
     }

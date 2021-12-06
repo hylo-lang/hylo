@@ -141,11 +141,14 @@ struct ConstraintGenerator: NodeWalker {
     var params: [FunType.Param] = []
     for (i, arg) in node.args.enumerated() {
       // The subtyping constraint handles cases where the argument is a subtype of the parameter.
-      // The type dispatcher is responsible for checking that the argument's type is equal to the
-      // parameter's if the function expects an inout argument at that position.
+      // If the parameter is mutating, however, the type of the argument should be equal.
+      let kind: RelationalConstraint.Kind = arg.value is AddrOfExpr
+        ? .equality
+        : .subtyping
+
       let paramType = TypeVar(context: node.type.context, node: arg.value)
       insert(RelationalConstraint(
-              kind: .subtyping, lhs: arg.value.type, rhs: paramType,
+              kind: kind, lhs: arg.value.type, rhs: paramType,
               at: ConstraintLocator(node, .argument(i))))
       params.append(FunType.Param(label: arg.label, type: paramType))
     }

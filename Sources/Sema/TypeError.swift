@@ -19,6 +19,8 @@ enum TypeError {
 
   case multipleOverloads(OverloadBindingConstraint, [ValueDecl])
 
+  case staleConstraints([Constraint])
+
   var constraint: Constraint {
     switch self {
     case .conflictingTypes    (let c)   : return c
@@ -29,6 +31,7 @@ enum TypeError {
     case .ambiguousConstraint (let c)   : return c
     case .noViableOverload    (let c)   : return c
     case .multipleOverloads   (let c, _): return c
+    case .staleConstraints    (let cs)  : return cs.first!
     }
   }
 

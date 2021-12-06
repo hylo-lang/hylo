@@ -11,6 +11,9 @@ struct PreChecker: NodeWalker {
 
   var innermostSpace: DeclSpace?
 
+  /// A Boolean value that indicates whether the walker encountered errors.
+  var hasErrors = false
+
   /// A pointer to the system in which new constraints are inserted.
   let system: UnsafeMutablePointer<ConstraintSystem>
 
@@ -33,6 +36,7 @@ struct PreChecker: NodeWalker {
       // Match expressions require special handling to deal with the bindings declared as patterns.
       let checker = PreCheckerImpl(system: system, useSite: innermostSpace!)
       let newExpr = checker.visit(matchExpr)
+      hasErrors = newExpr.type.hasErrors || hasErrors
       return (false, newExpr)
 
     case is ErrorExpr:
@@ -46,6 +50,7 @@ struct PreChecker: NodeWalker {
   mutating func didVisit(_ expr: Expr) -> (shouldContinue: Bool, nodeAfter: Expr) {
     var checker = PreCheckerImpl(system: system, useSite: innermostSpace!)
     let newExpr = expr.accept(&checker)
+    hasErrors = newExpr.type.hasErrors || hasErrors
     return (true, newExpr)
   }
 
@@ -277,11 +282,11 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
     // the subject's type does't depend on the expression in which the match appears (only the type
     // of the match itself does). Hence, since case patterns do not contribute to the inference of
     // the subject's type they cannot help disambiguate overloading.
-    TypeChecker.check(expr: &node.subject, useSite: useSite)
+    let success = TypeChecker.check(expr: &node.subject, useSite: useSite)
 
     // Bail out if the subjet doesn't have a valid type.
     let context = node.type.context
-    guard !node.subject.type.hasErrors else {
+    guard success else {
       return ErrorExpr(type: context.errorType, range: node.range)
     }
 
@@ -291,11 +296,14 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
     for `case` in node.cases {
       // Type check each case pattern.
       var cs = ConstraintSystem()
-      TypeChecker.check(
+      let (success, _) = TypeChecker.check(
         pattern: `case`.pattern,
         fixedType: node.subject.type,
         useSite: useSite,
         system: &cs)
+      guard success else {
+        return ErrorExpr(type: context.errorType, range: node.range)
+      }
 
       // If the match is a sub-expression, make sure that its cases are single expressions.
       guard !node.isSubexpr || (`case`.body.stmts.count == 1) && (`case`.body.stmts[0] is Expr)

@@ -9,8 +9,8 @@ struct StmtChecker: StmtVisitor {
   /// The declaration space in which the visited statements reside.
   var useSite: DeclSpace
 
-  /// The binding policy to adopt for substituting free type variables.
-  let freeVarBindingPolicy: FreeTypeVarBindingPolicy
+  /// The policy to adopt for substituting free type variables.
+  let freeVarSubstPolicy: FreeTypeVarSubstPolicy
 
   /// The return statements that have been visited by the checker.
   var retStmts: [RetStmt] = []
@@ -20,25 +20,26 @@ struct StmtChecker: StmtVisitor {
     useSite = node
     defer { useSite = oldUseSite }
 
-    var isWellTyped = true
+    var success = true
     for i in 0 ..< node.stmts.count {
       switch node.stmts[i] {
       case let decl as Decl:
-        isWellTyped = TypeChecker.check(decl: decl) && isWellTyped
+        success = TypeChecker.check(decl: decl) && success
 
       case let stmt as Stmt:
-        isWellTyped = stmt.accept(&self) && isWellTyped
+        success = stmt.accept(&self) && success
 
       case var expr as Expr:
-        TypeChecker.check(expr: &expr, useSite: node, freeVarBindingPolicy: freeVarBindingPolicy)
+        success = TypeChecker.check(
+          expr: &expr, useSite: node, freeTypeVarSubstPolicy: freeVarSubstPolicy) && success
         node.stmts[i] = expr
-        isWellTyped = !expr.type.hasErrors && isWellTyped
 
       default:
         fatalError("unexpected node")
       }
     }
-    return isWellTyped
+
+    return success
   }
 
   mutating func visit(_ node: RetStmt) -> Bool {
@@ -61,9 +62,9 @@ struct StmtChecker: StmtVisitor {
     // Type check the returned value.
     if var value = node.value {
       // Type check the returned expression.
-      TypeChecker.check(expr: &value, fixedType: fixedRetType, useSite: useSite)
+      let success = TypeChecker.check(expr: &value, fixedType: fixedRetType, useSite: useSite)
       node.value = value
-      return !value.type.hasErrors
+      return success
     } else {
       return true
     }

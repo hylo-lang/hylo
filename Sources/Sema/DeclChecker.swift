@@ -39,6 +39,7 @@ struct DeclChecker: DeclVisitor {
 
     // Create a new constraint system to infer the pattern's type.
     var system = ConstraintSystem()
+    var success = true
 
     // If there's a signature, use it as the authoritative type information. Otherwise, infer it
     // from the pattern initializer.
@@ -61,18 +62,19 @@ struct DeclChecker: DeclVisitor {
 
       // Type-check the initializer if there's one.
       if node.initializer != nil {
-        let solution = TypeChecker.check(
+        let (succeeded, solution) = TypeChecker.check(
           expr: &(node.initializer!),
           fixedType: signType,
           useSite: useSite,
           system: &system)
-        patternType = solution.reify(signType, freeVariablePolicy: .bindToErrorType)
+        patternType = solution.reify(signType, substPolicy: .bindToErrorType)
+        success = succeeded
       } else {
         patternType = signType
       }
     } else if node.initializer != nil {
       // Infer everything from the initializer alone.
-      TypeChecker.check(
+      (success, _) = TypeChecker.check(
         expr: &(node.initializer!), fixedType: nil, useSite: useSite, system: &system)
       patternType = node.initializer!.type
     } else {
@@ -94,7 +96,7 @@ struct DeclChecker: DeclVisitor {
     for decl in node.varDecls {
       decl.setState(.typeChecked)
     }
-    return true
+    return success
   }
 
   func visit(_ node: VarDecl) -> Bool {
@@ -126,20 +128,20 @@ struct DeclChecker: DeclVisitor {
       return false
     }
 
-    var isWellTyped = true
+    var success = true
 
     // Resolve the function's explicit captures.
     for capture in node.explicitCaptures {
-      isWellTyped = visit(capture) && isWellTyped
+      success = visit(capture) && success
     }
 
     // Type check the function's body, if any.
     if let body = node.body {
-      isWellTyped = TypeChecker.check(stmt: body, useSite: node) && isWellTyped
+      success = TypeChecker.check(stmt: body, useSite: node) && success
     }
 
     node.setState(.typeChecked)
-    return isWellTyped
+    return success
   }
 
   func visit(_ node: FunDecl) -> Bool {
@@ -263,7 +265,7 @@ struct DeclChecker: DeclVisitor {
         let key = context.assocType(
           interface: req.instanceType as! GenericParamType,
           base: viewReceiverType)
-        substitutions[ReferenceBox(key)] = member.instanceType.dealiased.canonical
+        substitutions[ReferenceBox(key)] = member.instanceType.dealiased
 
         if member.state == .invalid {
           node.conformanceTable[view]!.state = .invalid
@@ -302,8 +304,8 @@ struct DeclChecker: DeclVisitor {
             }
 
             // Check if the candidate satisfies the requirement.
-            let a = req.type.dealiased.canonical
-            let b = decl.type.dealiased.canonical
+            let a = req.type.dealiased
+            let b = decl.type.dealiased
             return a.matches(with: b, reconcilingWith: { (lhs, rhs) -> Bool in
               subst[ReferenceBox(lhs)] === rhs
             })
@@ -350,12 +352,12 @@ struct DeclChecker: DeclVisitor {
 
       // Type check the constraint system.
       var solver = CSSolver(system: system, context: context)
-      let solution = solver.solve()
+      let result = solver.solve()
 
-      if solution.errors.isEmpty {
+      if result.succeeded {
         node.conformanceTable[view]!.state = .checked
       } else {
-        solution.reportAllErrors(in: context)
+        result.solution.reportAllErrors(in: context)
         node.conformanceTable[view]!.state = .invalid
         isWellFormed = false
       }
