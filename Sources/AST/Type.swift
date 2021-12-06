@@ -46,13 +46,12 @@ public class ValType: CustomStringConvertible, Equatable {
 
     /// Returns the merge of this property set with another.
     ///
-    /// This computes the intersection of the universal properties and the union of the existential
-    /// properties that are defined in each property set.
+    /// This method computes the intersection of the universal properties and the union of the
+    /// existential properties that are defined in each property set.
     ///
     /// - Parameter other: Another property set.
     public func merged(with other: RecursiveProps) -> RecursiveProps {
-      // A type expression is canonical only if *all* sub-expressions are canonical, whereas other
-      // properties are existential only.
+      // `isCanonical` is universal; other properties are existential.
       return RecursiveProps(
         rawValue: ~1 & (rawValue | other.rawValue) | (rawValue & other.rawValue))
     }
@@ -75,15 +74,16 @@ public class ValType: CustomStringConvertible, Equatable {
     public static let hasAsync      = RecursiveProps(rawValue: 1 << 1)
     public static let hasAlias      = RecursiveProps(rawValue: 1 << 2)
     public static let hasVariables  = RecursiveProps(rawValue: 1 << 3)
-    public static let hasTypeParams = RecursiveProps(rawValue: 1 << 4)
-    public static let hasSkolems    = RecursiveProps(rawValue: 1 << 5)
-    public static let hasUnresolved = RecursiveProps(rawValue: 1 << 6)
-    public static let hasErrors     = RecursiveProps(rawValue: 1 << 7)
+    public static let hasFunParams  = RecursiveProps(rawValue: 1 << 4)
+    public static let hasTypeParams = RecursiveProps(rawValue: 1 << 5)
+    public static let hasSkolems    = RecursiveProps(rawValue: 1 << 6)
+    public static let hasUnresolved = RecursiveProps(rawValue: 1 << 7)
+    public static let hasErrors     = RecursiveProps(rawValue: 1 << 8)
 
     /// Merges a collection of recursive properties.
     ///
-    /// This computes the intersection of all universal properties and the union of all existential
-    /// properties, over the property sets passed as an argument.
+    /// This function computes the intersection of the universal properties and the union of the
+    /// existential properties, over the property sets passed as an argument.
     ///
     /// - Parameter collection: A collection of property sets.
     public static func merge<C>(_ collection: C) -> RecursiveProps
@@ -110,6 +110,13 @@ public class ValType: CustomStringConvertible, Equatable {
     self.props = props
   }
 
+  /// Returns whether the type has the specified properties.
+  ///
+  /// - parameter props: A set of type properties.
+  public subscript(props: RecursiveProps) -> Bool {
+    return props.contains(props)
+  }
+
   /// Indicates whether the type is in canonical form.
   public var isCanonical  : Bool { props.contains(.isCanonical) }
 
@@ -134,9 +141,14 @@ public class ValType: CustomStringConvertible, Equatable {
   /// Indicates whether the type contains the error type.
   public var hasErrors    : Bool { props.contains(.hasErrors) }
 
-  /// Indicates whether the type is well-formed (i.e., it does not contain type variables,
-  /// unresolved or error types).
-  public var isWellFormed : Bool { !hasVariables && !hasUnresolved && !hasErrors }
+  /// Indicates whether the type is well-formed (i.e., it does not contain variables, function
+  /// parameter types, unresolved types, or error types).
+  public var isWellFormed: Bool {
+    return !self[.hasVariables]
+        && !self[.hasFunParams]
+        && !self[.hasUnresolved]
+        && !self[.hasErrors]
+  }
 
   /// Indicates whether the type is existential.
   ///
@@ -1316,12 +1328,23 @@ public final class FunType: ValType {
     return retType.matches(with: that.retType, reconcilingWith: reconcile)
   }
 
+  public override func isSubtype(of other: ValType) -> Bool {
+    switch other.dealiased {
+    case let that as FunType:
+      guard retType.isSubtype(of: that.retType) else { return false }
+      guard params.count == that.params.count else { return false }
+      return zip(params, that.params).allSatisfy({ (a, b) -> Bool in
+        (a.label == b.label) && (a.policy == b.policy) && b.type.isSubtype(of: a.type)
+      })
+
+    case let that:
+      return super.isSubtype(of: that)
+    }
+  }
+
   override func isEqual(to other: ValType) -> Bool {
-    guard let that = other as? FunType,
-          params == that.params,
-          retType.isEqual(to: that.retType)
-    else { return false }
-    return true
+    guard let that = other as? FunType else { return false }
+    return (params == that.params) && retType.isEqual(to: that.retType)
   }
 
   override func hash(into hasher: inout Hasher) {
@@ -1336,6 +1359,46 @@ public final class FunType: ValType {
   public override var description: String {
     let params = self.params.map(String.init(describing:)).joined(separator: ", ")
     return "(\(params)) -> \(retType)"
+  }
+
+}
+
+/// A constraint on a function parameter type.
+///
+/// This type is used during semantic analysis to carry parameter passing policies while breaking
+/// down relational constraints between function types. Parameters of well-formed function types
+/// are represented as instances of `FunType.Param`.
+public final class FunParamType: ValType {
+
+  /// The passing policly of the parameter.
+  public let policy: PassingPolicy?
+
+  /// The raw type of the parameter.
+  public let rawType: ValType
+
+  init(policy: PassingPolicy?, rawType: ValType) {
+    self.policy = policy
+    self.rawType = rawType
+    super.init(context: rawType.context, props: rawType.props.merged(with: .hasFunParams))
+  }
+
+  override func isEqual(to other: ValType) -> Bool {
+    guard let that = other as? FunParamType else { return false }
+    return (policy == that.policy) && rawType.isEqual(to: that.rawType)
+  }
+
+  override func hash(into hasher: inout Hasher) {
+    hasher.combine(policy)
+    rawType.hash(into: &hasher)
+  }
+
+  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+    visitor.visit(self)
+  }
+
+  public override var description: String {
+    let policy = self.policy.map(String.init(describing:)) ?? "_"
+    return "\(policy) \(rawType)"
   }
 
 }
@@ -1383,10 +1446,8 @@ public final class AsyncType: ValType {
   }
 
   override func isEqual(to other: ValType) -> Bool {
-    guard let that = other as? AsyncType,
-          base.isEqual(to: that.base)
-    else { return false }
-    return true
+    guard let that = other as? AsyncType else { return false }
+    return base.isEqual(to: that.base)
   }
 
   override func hash(into hasher: inout Hasher) {

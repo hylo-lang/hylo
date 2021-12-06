@@ -35,6 +35,8 @@ public protocol TypeVisitor {
 
   func visit(_ type: FunType) -> Result
 
+  func visit(_ type: FunParamType) -> Result
+
   func visit(_ type: AsyncType) -> Result
 
   func visit(_ type: UnresolvedType) -> Result

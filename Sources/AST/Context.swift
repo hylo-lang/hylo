@@ -191,6 +191,10 @@ public final class Context {
     return uniqued(FunType(context: self, params: params, retType: retType))
   }
 
+  public func funParamType(policy: PassingPolicy?, rawType: ValType) -> FunParamType {
+    return uniqued(FunParamType(policy: policy, rawType: rawType))
+  }
+
   public func asyncType(of type: ValType) -> AsyncType {
     return uniqued(AsyncType(context: self, base: type))
   }
