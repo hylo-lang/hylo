@@ -962,19 +962,13 @@ public final class AssocType: ValType {
   public unowned let interface: GenericParamType
 
   init(context: Context, interface: GenericParamType, base: ValType) {
-    var props = base.props
-    switch base {
-    case is NominalType:
-      props = props.removing(.isCanonical)
-    case is GenericParamType, is AssocType, is SkolemType, is TypeVar:
-      break
-    default:
-      fatalError("illegal base for associated type")
-    }
+    precondition(
+      base is GenericParamType || base is AssocType || base is SkolemType || base is TypeVar,
+      "illegal base for associated type")
 
     self.base = base
     self.interface = interface
-    super.init(context: context, props: props)
+    super.init(context: context, props: base.props)
   }
 
   /// The root of this type.
@@ -989,9 +983,7 @@ public final class AssocType: ValType {
   public override func lookup(member memberName: String) -> LookupResult {
     var result = LookupResult()
     guard let genericEnv = interface.genericEnv else { return result }
-    guard let decl = genericEnv.space as? ViewTypeDecl else {
-      fatalError("is this reachable?")
-    }
+    let decl = genericEnv.space as! ViewTypeDecl
 
     let key = context.assocType(interface: interface, base: decl.receiverType)
     guard let conformances = genericEnv.conformances(of: key) else { return result }
@@ -1005,9 +997,7 @@ public final class AssocType: ValType {
   public override func lookup(typeMember memberName: String) -> [TypeDecl] {
     var result: [TypeDecl] = []
     guard let genericEnv = interface.genericEnv else { return result }
-    guard let decl = genericEnv.space as? ViewTypeDecl else {
-      fatalError("is this reachable?")
-    }
+    let decl = genericEnv.space as! ViewTypeDecl
 
     let key = context.assocType(interface: interface, base: decl.receiverType)
     guard let conformances = genericEnv.conformances(of: key) else { return result }
@@ -1022,19 +1012,6 @@ public final class AssocType: ValType {
 
   public override var canonical: ValType {
     switch base.canonical {
-    case let type as NominalType:
-      guard let witness = type.decl.witness(for: interface.decl)
-      else { return context.errorType }
-
-      if let type = type as? BoundGenericType,
-         let param = witness.instanceType as? GenericParamType,
-         let argument = type.bindings[param]
-      {
-        return argument
-      } else {
-        return witness.instanceType.canonical
-      }
-
     case is GenericParamType, is SkolemType, is TypeVar:
       assert(self[.isCanonical])
       return self
