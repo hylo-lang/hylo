@@ -123,12 +123,14 @@ final class TypeTests: XCTestCase {
     let parenthesized = context.tupleType([TupleType.Elem(label: nil, type: anyType)])
 
     // `Any -> Any` is canonical.
-    let f0 = context.funType(params: [FunType.Param(type: anyType)], retType: anyType)
+    let p = context.funParamType(policy: .local, rawType: anyType)
+    let f0 = context.funType(params: [FunType.Param(type: p)], retType: anyType)
     XCTAssertEqual(f0.props, .isCanonical)
     XCTAssert(f0.canonical === f0)
 
     // `(Any) -> Any` is not canonical.
-    let f1 = context.funType(params: [FunType.Param(type: parenthesized)], retType: anyType)
+    let pp = context.funParamType(policy: .local, rawType: parenthesized)
+    let f1 = context.funType(params: [FunType.Param(type: pp)], retType: anyType)
     XCTAssertEqual(f1.props, [])
     XCTAssert(f1.canonical === f0)
   }
