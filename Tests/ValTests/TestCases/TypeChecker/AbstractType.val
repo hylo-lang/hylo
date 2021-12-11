@@ -12,6 +12,23 @@ view U {
   fun ham(y: Y, u: Self)
 }
 
+fun f0<X where X: V>(a: X, b: X::X) -> X::X {
+  ret a.foo(x: b)
+}
+
+fun f1<X where X: U>(a: X, b: X::Y, c: X::Y::X) -> X::Y::X {
+  a.ham(y: b, u: a)
+  ret b.foo(x: c)
+}
+
+// #!error@+1 type 'X' has no member type named 'Y'
+fun f2<X where X: V>(a: X::Y) {}
+
+fun f3<X, Y where X: V, Y: V>(a: mut X::X, b: Y::X) {
+  // #!error@+1 type '$Y::X' is not a subtype of type '$X::X'
+  a = b
+}
+
 // #!error@+1 conformance to 'V' requires a matching implementation of 'X'
 type A: V {
 }
@@ -28,7 +45,7 @@ type C: V {
 
   new(any: Any) {}
   fun foo(x: X) -> X { ret x }
-  fun bar(one: X, two: X) -> (one: X, two: X) { ret (one, two) }
+  fun bar(one: X, two: X) -> (one: X, two: X) { ret (one: one, two: two) }
 }
 
 // #!error@+1 conformance to 'U' requires a matching implementation of 'Y'

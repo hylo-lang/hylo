@@ -9,7 +9,7 @@ type B<T> {
   fun fn<U>(x: T, y: U) {
     fn(x: property, y: A())
 
-    // #!error@+1 ambiguous use of 'fn'
+    // #!error@+1 type '$U' is not a subtype of type '$T'
     fn(x: y, y: A())
   }
 
