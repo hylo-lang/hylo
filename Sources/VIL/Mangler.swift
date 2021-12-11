@@ -97,7 +97,7 @@ public struct Mangler {
   }
 
   public mutating func append(type: ValType) {
-    switch type {
+    switch type.dealiased {
     case let tupleType as TupleType:
       if tupleType == type.context.unitType {
         append(key: .unitType)
@@ -126,6 +126,10 @@ public struct Mangler {
       append(key: .funTypeParam)
       append(type: funType.retType)
       append(key: .funType)
+
+    case is BuiltinIntLiteralType:
+      buffer.append("il")
+      append(key: .builtinType)
 
     case let builtinType as BuiltinType:
       buffer.append(builtinType.name)

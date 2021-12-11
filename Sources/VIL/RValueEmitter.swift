@@ -12,7 +12,7 @@ struct RValueEmitter: ExprVisitor {
   /// The VIL builder used by the emitter.
   let _builder: UnsafeMutablePointer<Builder>
 
-  var context: Context { _state.pointee.funDecl.type.context }
+  var context: Context { _builder.pointee.context }
 
   var funDecl: BaseFunDecl { _state.pointee.funDecl }
 
@@ -26,74 +26,33 @@ struct RValueEmitter: ExprVisitor {
     _modify { yield &_state.pointee.allocs }
   }
 
-  var loans: Set<PathIdentifier> {
-    get { _state.pointee.loans }
-    _modify { yield &_state.pointee.loans }
-  }
-
   var builder: Builder {
     get { _builder.pointee }
     _modify { yield &_builder.pointee }
   }
 
-  /// Emits the assignment of the value represented by `expr` to `target`.
-  mutating func emit(assign expr: Expr, to target: Value, isInitializer: Bool = false) {
-    Emitter.emit(
-      assign: expr,
-      to: target,
-      isInitializer: isInitializer,
-      in: &_state.pointee,
-      with: &_builder.pointee)
-  }
-
   mutating func emit(
     assign rvalue: Value,
-    ofType rvalueType: ValType,
-    to lvalue: Value,
-    isInitializer: Bool = false,
-    with builder: inout Builder
+    to target: Value,
+    into builder: inout Builder,
+    range: SourceRange? = nil
   ) {
-    Emitter.emit(
-      assign: rvalue,
-      ofType: rvalueType,
-      to: lvalue,
-      with: &_builder.pointee)
+    Emitter.emit(assign: rvalue, to: target, into: &_builder.pointee, range: range)
   }
 
-  /// Emits a r-value.
+  /// Emits an r-value.
   mutating func emit(rvalue expr: Expr) -> Value {
-    Emitter.emit(rvalue: expr, in: &_state.pointee, with: &_builder.pointee)
+    Emitter.emit(rvalue: expr, in: &_state.pointee, into: &_builder.pointee)
   }
 
   /// Emits an l-value.
-  // FIXME: Should we transfer that method in the Emitter?
   mutating func emit(lvalue expr: Expr) -> Value {
-    var emitter = LValueEmitter(_state: _state, _builder: _builder)
-    switch expr.accept(&emitter) {
-    case .success(let result):
-      // Check for violation of exclusive access.
-      if loans.insert(result.pathID).inserted {
-        return result.loc
-      } else {
-        context.report(.exclusiveAccessViolation(range: expr.range))
-      }
+    Emitter.emit(lvalue: expr, in: &_state.pointee, into: &_builder.pointee)
+  }
 
-    case .failure(let error):
-      switch error {
-      case .immutableBinding(let decl):
-        context.report(.mutRefToImmut(binding: decl.name, range: expr.range))
-      case .immutableCapture(let decl):
-        context.report(.mutRefToImmutCapture(binding: decl.name, range: expr.range))
-      case .immutableExpr:
-        context.report(.mutRefToImmutValue(range: expr.range))
-      case .immutableSelf(let property):
-        context.report(.mutRefToImmutSelf(propertyName: property.name, range: expr.range))
-      case .nonCopyableProperty:
-        fatalError("unreachable")
-      }
-    }
-
-    return builder.buildPoison()
+  /// Emits the address of a cell holding the value of the specified expression.
+  mutating func emit(borrowable expr: Expr) -> Value {
+    Emitter.emit(borrowable: expr, in: &_state.pointee, into: &_builder.pointee)
   }
 
   // ----------------------------------------------------------------------------------------------
@@ -104,29 +63,31 @@ struct RValueEmitter: ExprVisitor {
     fatalError("not implemented")
   }
 
-  mutating   func visit(_ node: IntLiteralExpr) -> ExprResult {
+  mutating func visit(_ node: IntLiteralExpr) -> ExprResult {
     // We can assume the expression's type conforms to `ExpressibleBy***Literal` (as type checking
     // succeeded). Therefore we can look for a conversion constructor `new(literal:)`.
     let view = context.getTypeDecl(for: .ExpressibleByBuiltinIntLiteral)!.instanceType as! ViewType
     let callee: Value
 
-    var type = node.type.dealiased.canonical
-
-    if let type = type as? NominalType {
+    let type = node.type.dealiased
+    switch type {
+    case let type as NominalType:
       // The node has a concrete type; we can dispatch `new(literal:)` statically.
       let conformance = type.decl.conformanceTable[view]!
       let fun = builder.getOrCreateFunction(from: conformance.entries[0].impl as! CtorDecl)
       callee = builder.buildFunRef(function: fun)
-    } else if type is SkolemType {
+
+    case is SkolemType:
       // The node has an skolem type; we have to dispatch dynamically.
       fatalError("not implemented")
-    } else {
+
+    default:
       fatalError("unreachable")
     }
 
     // Emit a call to the constructor.
     let literal = builder.buildIntLiteral(value: node.value)
-    return .success(builder.buildApply(callee: callee, args: [literal]))
+    return .success(builder.buildApply(callee: callee, args: [literal], range: node.range))
   }
 
   func visit(_ node: FloatLiteralExpr) -> Result<Value, EmitterError> {
@@ -140,28 +101,8 @@ struct RValueEmitter: ExprVisitor {
   mutating func visit(_ node: AssignExpr) -> ExprResult {
     // Emit the right operand first and the left operand second.
     let rvalue = emit(rvalue: node.rvalue)
-    var emitter = LValueEmitter(_state: _state, _builder: _builder)
-    let lvalue = node.lvalue.accept(&emitter)
-
-    // Emit the left operand, followed by the assignment.
-    switch lvalue {
-    case .success(let result):
-      Emitter.emit(assign: rvalue, ofType: node.rvalue.type, to: result.loc, with: &builder)
-
-    case .failure(let error):
-      switch error {
-      case .immutableBinding(let decl):
-        context.report(.assignToImmut(binding: decl.name, range: node.lvalue.range))
-      case .immutableCapture(let decl):
-        context.report(.assignToImmutCapture(binding: decl.name, range: node.lvalue.range))
-      case .immutableExpr:
-        context.report(.assignToImmutValue(range: node.lvalue.range))
-      case .immutableSelf(let property):
-        context.report(.assignToImmutSelf(propertyName: property.name, range: node.lvalue.range))
-      case .nonCopyableProperty:
-        fatalError("unreachable")
-      }
-    }
+    let lvalue = emit(lvalue: node.lvalue)
+    Emitter.emit(assign: rvalue, to: lvalue, into: &builder, range: node.range)
 
     // An assignment always results in a unit value.
     return .success(builder.buildUnit())
@@ -172,75 +113,92 @@ struct RValueEmitter: ExprVisitor {
   }
 
   mutating func visit(_ node: DynCastExpr) -> Result<Value, EmitterError> {
-    // The type of the node should be `Maybe<T>`.
-    guard let nodeType = node.type as? BoundGenericType else {
-      preconditionFailure("dynamic cast should have a maybe type")
-    }
-    let targetType = nodeType.args[0]
-    let vilTargetType = VILType.lower(targetType)
+    guard let nodeType = node.type as? BoundGenericType
+      else { preconditionFailure("dynamic cast must have a maybe type") }
+
+    let lhsType = node.value.type.dealiased
+    let rhsType = nodeType.args[0].dealiased
 
     // Allocate an existential container to hold the result of the cast.
-    let container = builder.buildAllocStack(type: .lower(node.type))
+    let container = builder.buildAllocStack(allocType: .lower(nodeType), range: node.range)
+    defer { builder.buildDeallocStack(alloc: container) }
 
-    let success = builder.buildBasicBlock(paramTypes: [vilTargetType])
-    let failure = builder.buildBasicBlock(paramTypes: [.lower(node.value.type)])
-    let finally = builder.buildBasicBlock()
+    // Emit the value to convert.
+    let value: Value
+    switch node.value.accept(&self) {
+    case .success(let val):
+      value = val
+    case let failure:
+      return failure
+    }
+
+    // FIXME: Handle structural casts.
+    precondition(!(lhsType is TupleType) || !(rhsType is TupleType))
+
+    // Runtime conversion of function types always fails.
+    if (lhsType is FunType) && (rhsType is FunType) {
+      context.report(.runtimeFunctionTypeConversion(range: node.range))
+      builder.buildDelete(value: value)
+      builder.buildInitExistAddr(container: container, value: builder.buildNil())
+      return .success(builder.buildLoad(source: container))
+    }
 
     // Cast the value.
+    let succ = builder.buildBasicBlock(paramTypes: [.lower(rhsType)])
+    let fail = builder.buildBasicBlock(paramTypes: [.lower(lhsType)])
+    let tail = builder.buildBasicBlock()
     builder.buildCheckedCastBranch(
-      value: emit(rvalue: node.value),
-      type: vilTargetType,
-      thenDest: success,
-      elseDest: failure)
+      value: value,
+      type: .lower(rhsType),
+      succ: succ,
+      fail: fail,
+      range: node.range)
 
     // If the cast succeeded ...
-    var bb = builder.currentFun!.blocks[success]!
-    builder.insertionPointer!.blockID = success
-    builder.buildInitExistentialAddr(container: container, value: bb.params[0])
-    builder.buildBranch(dest: finally)
+    builder.insertionPointer!.blockID = succ
+    builder.buildInitExistAddr(
+      container: container, value: builder.currentFun!.blocks[succ]!.params[0])
+    builder.buildBranch(dest: tail)
 
     // If the cast failed ...
-    bb = builder.currentFun!.blocks[failure]!
-    builder.insertionPointer!.blockID = failure
-    builder.buildDelete(value: bb.params[0])
-    builder.buildInitExistentialAddr(container: container, value: builder.buildNil())
-    builder.buildBranch(dest: finally)
+    builder.insertionPointer!.blockID = fail
+    builder.buildDelete(value: builder.currentFun!.blocks[fail]!.params[0])
+    builder.buildInitExistAddr(container: container, value: builder.buildNil())
+    builder.buildBranch(dest: tail)
 
     // Finally ...
-    builder.insertionPointer!.blockID = finally
-    let result = builder.buildLoad(location: container)
-    builder.buildDeallocStack(alloc: container)
-    return .success(result)
+    builder.insertionPointer!.blockID = tail
+    return .success(builder.buildLoad(source: container))
   }
 
   mutating func visit(_ node: UnsafeCastExpr) -> Result<Value, EmitterError> {
-    let sourceType = node.value.type.dealiased.canonical
-    let targetType = node.type.dealiased.canonical
+    let lhsType = node.value.type.dealiased
+    let rhsType = node.type.dealiased
 
-    // Check for trivial casts.
-    guard sourceType !== targetType else {
-      context.report(.unsafeCastToSameTypeHasNoEffect(type: node.type, range: node.range))
-      return node.value.accept(&self)
+    // Emit the value to convert.
+    let value: Value
+    switch node.value.accept(&self) {
+    case .success(let val):
+      value = val
+    case let failure:
+      return failure
     }
 
-    // If the target type is existential, store the node's value into a temporary container.
-    if targetType.isExistential {
-      let tmp = builder.buildAllocStack(type: .lower(targetType))
-      Emitter.emit(assign: node.value, to: tmp, in: &_state.pointee, with: &_builder.pointee)
-      let result = builder.buildLoad(location: tmp)
-      builder.buildDeallocStack(alloc: tmp)
-      return .success(result)
+    // FIXME: Handle structural casts.
+    precondition(!(lhsType is TupleType) || !(rhsType is TupleType))
+
+    // Runtime conversion of function types always fails.
+    if (lhsType is FunType) && (rhsType is FunType) {
+      context.report(.runtimeFunctionTypeConversion(range: node.range))
+      builder.buildDelete(value: value)
+      builder.buildCondFail(cond: builder.buildTrue(), range: node.range)
+      return .success(builder.buildPoison())
     }
 
-    // If the value being cast is an existential container, open it.
-    if sourceType.isExistential {
-      let container = emit(rvalue: node.value)
-      let value = builder.buildCopyExistential(container: container, type: .lower(targetType))
-      return .success(value)
-    }
-
-    // FIXME: Implement "structural cast".
-    fatalError("not implemented")
+    // Convert the value.
+    let converted = builder.buildCheckedCast(
+      value: value, type: .lower(rhsType), range: node.range)
+    return .success(converted)
   }
 
   mutating func visit(_ node: TupleExpr) -> ExprResult {
@@ -251,77 +209,106 @@ struct RValueEmitter: ExprVisitor {
   }
 
   mutating func visit(_ node: CallExpr) -> ExprResult {
-    let oldLoans = loans
-    defer { loans = oldLoans }
-
     let callee: Value
     var args: [Value] = []
 
     // Emit the function's callee.
     switch node.fun {
-    case let member as MemberDeclRefExpr where member.decl.isMember:
-      // The callee is a reference to a member declaration: it's either a method or a functional
-      // property. If it's the former, we have to emit its receiver; othwerise, we just have to
-      // emit a member access.
-      if let methodDecl = member.decl as? BaseFunDecl {
-        let receiver = methodDecl.isMutating
-          ? emit(lvalue: member.base)
-          : emit(rvalue: member.base)
-        args.append(receiver)
-
-        // If the reciever is a existential, the method must be dispatched dynamically.
-        callee = member.base.type.isExistential
-          ? builder.buildWitnessMethod(container: receiver, decl: methodDecl)
-          : builder.buildFunRef(function: builder.getOrCreateFunction(from: methodDecl))
+    case let expr as MemberDeclRefExpr where expr.decl.isMember:
+      // The callee is a reference to a member declaration.
+      if let methodDecl = expr.decl as? BaseFunDecl {
+        // The callee is a method; emit the receiver along with the dispatched function ref.
+        if methodDecl.isConsuming {
+          // The receiver is consumed; emit an r-value whether it's mutable or not.
+          args.append(emit(rvalue: expr.base))
+          callee = expr.base.type.isExistential
+            ? builder.buildWitnessMethod(container: args[0], decl: methodDecl)
+            : builder.buildFunRef(function: builder.getOrCreateFunction(from: methodDecl))
+        } else {
+          // The receiver is borrowed; emit an l-value or allocate temporary storage.
+          let receiver = methodDecl.isMutating
+            ? emit(lvalue: expr.base)
+            : emit(borrowable: expr.base)
+          args.append(builder.buildBorrowAddr(
+            isMutable: methodDecl.isMutating, source: receiver, range: expr.base.range))
+          callee = expr.base.type.isExistential
+            ? builder.buildWitnessMethodAddr(container: args[0], decl: methodDecl)
+            : builder.buildFunRef(function: builder.getOrCreateFunction(from: methodDecl))
+        }
       } else {
-        fatalError("not implemented")
+        // The callee is a functional property; emit a regular member access.
+        callee = emit(borrowable: node.fun)
+      }
+
+    case let expr as DeclRefExpr:
+      switch expr.decl {
+      case let decl as FunDecl where decl.isBuiltin:
+        // The callee is a reference to a built-in function.
+        callee = builder.buildBuiltinFunRef(decl: decl)
+
+      case let decl as BaseFunDecl
+        where (decl is CtorDecl) || decl.computeAllCaptures().isEmpty:
+        // The callee is a reference to a thin function.
+        callee = builder.buildFunRef(function: builder.getOrCreateFunction(from: decl))
+
+      default:
+        /// The callee is a thick function.
+        callee = emit(borrowable: node.fun)
       }
 
     default:
-      // Emit the callee "as is"
-      callee = emit(rvalue: node.fun)
+      // The calle is an expression producing a thick function.
+      callee = emit(borrowable: node.fun)
     }
 
     // Emit the function's arguments.
-    let params = callee.type.params!
+    let params = (node.fun.type as! FunType).params
     for i in 0 ..< node.args.count {
-      var value = emit(rvalue: node.args[i].value)
+      switch params[0].policy! {
+      case .local:
+        // Local parameters are passed by reference. If the argument isn't an l-value, we must
+        // allocate temporary storage.
+        let loc = emit(borrowable: node.args[i].value)
+        args.append(
+          builder.buildBorrowAddr(isMutable: false, source: loc, range: node.args[i].range))
 
-      if params[i].policy == .inout {
-        // A parameter with the 'inout' policy prescribes that the argument be mutable argument.
-        assert(node.args[i].value is AddrOfExpr || value is PoisonValue)
-        args.append(value)
-        continue
+      case .inout:
+        // Mutating parameters are passed by reference. The argument must be an l-value.
+        let loc = emit(borrowable: node.args[i].value)
+        args.append(
+          builder.buildBorrowAddr(isMutable: true, source: loc, range: node.args[i].range))
+
+      case .consuming, .consumingMutable:
+        // Consuming parameters are passed by value.
+        args.append(emit(rvalue: node.args[i].value))
       }
 
-      if params[i].type.isExistential {
-        // The parameter has an existential type and must be passed as an existential container. If
-        // the argument isn't already packaged, we have to wrap it into a new container. Otherwise,
-        // we can pass it "as is", since all existential containers have the same memory layout.
-        if !value.type.isExistential {
-          // FIXME: Allocating a container of type `Any`, completely erases the argument's type.
-          // Hence, the resulting VIL is in fact ill-typed, as we could call a function expecting
-          // an argument of type `T` with a value of type `Any`. A better strategy would be to
-          // create an existential container that meets the parameter's requirements.
-          let tmp = builder.buildAllocStack(type: .lower(context.anyType))
-          builder.buildInitExistentialAddr(container: tmp, value: value)
-          value = builder.buildLoad(location: tmp)
-          builder.buildDeallocStack(alloc: tmp)
+      // If the parameter has an existential type and the argument doesn't, the latter has to be
+      // wrapped before being passed.
+      if params[i].type.isExistential && !node.args[i].value.type.isExistential {
+        assert(params[i].policy != .inout)
+        switch params[i].policy! {
+        case .local:
+          args[i] = builder.buildPackBorrow(
+            source: args[i],
+            type: callee.type.paramType(at: i).address,
+            range: node.args[i].value.range)
+
+        case .consuming, .consumingMutable:
+          let loc = builder.buildAllocStack(allocType: callee.type.paramType(at: i))
+          allocs.append(loc)
+          builder.buildInitExistAddr(container: loc, value: args[i], range: node.args[i].range)
+          args[i] = loc
+
+        case .inout:
+          // Because arguments passed mutating must have the same type.
+          fatalError("unreachable")
         }
       }
-
-      args.append(value)
     }
 
     // Emit the call.
-    var value: Value = builder.buildApply(callee: callee, args: args)
-
-    // Emit the extraction of the result value.
-    if callee.type.retType!.isExistential {
-      value = builder.buildCopyExistential(container: value, type: .lower(node.type))
-    }
-
-    // FIXME: Deallocate the memory that we allocated for indirect parameters.
+    let value = builder.buildApply(callee: callee, args: args)
     return .success(value)
   }
 
@@ -347,28 +334,22 @@ struct RValueEmitter: ExprVisitor {
     if let value = locals[ObjectIdentifier(node.decl)] {
       // FIXME: Is there a more reliable way to determine whether an address must be loaded?
       return value.type.isAddress
-        ? .success(builder.buildLoad(location: value))
+        ? .success(builder.buildLoad(source: value))
         : .success(value)
     }
 
-    switch node.decl {
-    case is VarDecl:
-      // FIXME: Handle computed properties.
-      fatalError("not implemented")
-
-    case let decl as FunDecl where decl.isBuiltin:
-      // Emit a built-in function reference.
-      return .success(builder.buildBuiltinFunRef(decl: decl))
-
-    case let decl as BaseFunDecl:
-      // Emit a function reference, wrapped into a thick container.
-      let fun = builder.getOrCreateFunction(from: decl)
-      let thick = builder.buildThinToThick(ref: builder.buildFunRef(function: fun))
-      return .success(thick)
-
-    default:
-      fatalError("unreachable")
+    // If the identifier refers to a function, wrap a reference into a thick function container.
+    // Note: the referred function must be thin or it would have already been found in the local
+    // symbol table above.
+    if let decl = node.decl as? BaseFunDecl {
+      assert(!decl.isBuiltin, "cannot wrap built-in function into a closure")
+      let ref = builder.buildFunRef(function: builder.getOrCreateFunction(from: decl))
+      let thk = builder.buildThinToThick(ref: ref)
+      return .success(thk)
     }
+
+    // FIXME: Handle computed properties.
+    fatalError("not implemented")
   }
 
   func visit(_ node: TypeDeclRefExpr) -> ExprResult {
@@ -379,8 +360,8 @@ struct RValueEmitter: ExprVisitor {
     // Emit the base value.
     let base: Value
     switch node.base.accept(&self) {
-    case .success(let b):
-      base = b
+    case .success(let val):
+      base = val
     case let failure:
       return failure
     }
@@ -402,11 +383,11 @@ struct RValueEmitter: ExprVisitor {
 
   mutating func visit(_ node: AsyncExpr) -> ExprResult {
     // Emit the function representing the body of the expression.
-    let fun = Emitter.emit(function: node.body, with: &builder)
+    let fun = Emitter.emit(function: node.body, into: &builder)
     let ref = builder.buildFunRef(function: fun)
 
     // Emit the value of each captured declaration. Capture with `val` or `var` semantics are
-    // copied from the environment, and so we must emit a r-value either way.
+    // copied from the environment, and so we must emit an r-value either way.
     let captureTable = node.body.computeAllCaptures()
     let captures = captureTable.map({ (key, value) -> Value in
       // FIXME: Implement capture-by-reference (requires local bindings).
@@ -433,26 +414,25 @@ struct RValueEmitter: ExprVisitor {
     func emitCaseBody(body: BraceStmt) {
       if let storage = storage {
         let value = emit(rvalue: body.stmts[0] as! Expr)
-        builder.buildStore(target: storage, value: value)
+        builder.buildStore(value, to: storage)
       } else {
-        Emitter.emit(brace: body, in: &_state.pointee, with: &_builder.pointee)
+        Emitter.emit(brace: body, in: &_state.pointee, into: &_builder.pointee)
       }
     }
 
     // If the node is a sub-expression, allocate storage for its "value".
     let storage: AllocStackInst? = node.isSubexpr
-      ? builder.buildAllocStack(type: .lower(node.type))
+      ? builder.buildAllocStack(allocType: .lower(node.type))
       : nil
 
-    // Emit the subject of the match.
-    var subject = emit(rvalue: node.subject)
+    // Emit the subject of the match as a borrowable address.
+    let subjectLoc = emit(borrowable: node.subject)
 
-    // Create a "sink" and a "next" block. All cases will branch unconditionally to the first one
-    // whereas the second one will be used to test each case against the subject.
+    // Create a "sink" block where all cases will branch unconditionally.
     let sink = builder.buildBasicBlock()
-    var next = builder.buildBasicBlock(paramTypes: [subject.type])
 
     // Emit each case statement.
+    let subjectType = node.subject.type.dealiased
     for stmt in node.cases {
       // Wildcard patterns are irrefutable.
       if stmt.pattern is WildcardPattern {
@@ -461,66 +441,116 @@ struct RValueEmitter: ExprVisitor {
         break
       }
 
-      // Binding patterns must be allocated.
       if let pattern = stmt.pattern as? BindingPattern {
         // FIXME: Handle destructuring.
         precondition(pattern.namedPatterns.count == 1, "not implemented")
         let decl = pattern.namedPatterns[0].decl
+        let patternType = pattern.type.dealiased
 
-        // If the subject has the same type as the pattern, the latter is actually irrefutable.
-        // Otherwise, we must try to cast the subject and branch over the result.
-        if pattern.type === node.subject.type {
+        // The pattern is irrefutable if it has the same type as the subject.
+        if patternType == subjectType {
           if decl.isMutable {
-            let loc = Emitter.emit(
-              storedLocalVar: decl, in: &_state.pointee, with: &_builder.pointee)
-            builder.buildStore(target: loc, value: subject)
-
+            // `var` bindings are consuming.
+            let loc = Emitter.emit(storedVar: decl, in: &_state.pointee, into: &_builder.pointee)
             locals[ObjectIdentifier(decl)] = loc
-            emitCaseBody(body: stmt.body)
-
-            if let alloc = loc as? AllocStackInst { builder.buildDeallocStack(alloc: alloc) }
+            builder.buildMoveAddr(from: subjectLoc, to: loc, range: pattern.range)
           } else {
-            locals[ObjectIdentifier(decl)] = subject
-            emitCaseBody(body: stmt.body)
+            // `val` bindings are borrowing immutably.
+            locals[ObjectIdentifier(decl)] = builder.buildBorrowAddr(
+              source: subjectLoc, range: pattern.range)
           }
+
+          emitCaseBody(body: stmt.body)
           builder.buildBranch(dest: sink)
           builder.insertionPointer!.blockID = sink
           break
         }
 
-        let patType = VILType.lower(pattern.type)
-        let success = builder.buildBasicBlock(paramTypes: [patType])
+        // If the pattern has a different type, attempt to cast it.
+        else {
+          // If the subject is subtype of the pattern, the pattern is irrefutable.
+          if subjectType.isSubtype(of: patternType) {
+            assert(patternType.isExistential)
+            if decl.isMutable {
+              let loc = Emitter.emit(storedVar: decl, in: &_state.pointee, into: &_builder.pointee)
+              locals[ObjectIdentifier(decl)] = loc
+              let val = builder.buildCheckedCast(
+                value: builder.buildLoad(source: subjectLoc, range: pattern.range),
+                type: .lower(patternType),
+                range: pattern.range)
+              builder.buildStore(val, to: loc, range: pattern.range)
+            } else {
+              locals[ObjectIdentifier(decl)] = builder.buildPackBorrow(
+                source: subjectLoc,
+                type: .lower(patternType).address,
+                range: pattern.range)
+            }
 
-        builder.buildCheckedCastBranch(
-          value: subject,
-          type: patType,
-          thenDest: success,
-          elseDest: next)
+            emitCaseBody(body: stmt.body)
+            builder.buildBranch(dest: sink)
+            builder.insertionPointer!.blockID = sink
+            break
+          }
 
-        // If the match succeeds, the pattern becomes the argument of the "success" block.
-        var bb = builder.currentFun!.blocks[success]!
-        builder.insertionPointer!.blockID = success
-        if decl.isMutable {
-          let loc = Emitter.emit(
-            storedLocalVar: decl, in: &_state.pointee, with: &_builder.pointee)
-          builder.buildStore(target: loc, value: bb.params[0])
+          // If the pattern is not a subtype of the subject, skip to the next case.
+          if !patternType.isSubtype(of: subjectType) {
+            context.report(
+              .dynamicCastAlwaysFails(
+                from: node.subject.type, to: pattern.type, range: pattern.range))
+            continue
+          }
 
-          locals[ObjectIdentifier(decl)] = loc
-          emitCaseBody(body: stmt.body)
+          // Runtime conversion of function types always fails.
+          if (subjectType is FunType) && (patternType is FunType) {
+            context.report(.runtimeFunctionTypeConversion(range: pattern.range))
+            continue
+          }
 
-          if let alloc = loc as? AllocStackInst { builder.buildDeallocStack(alloc: alloc) }
-        } else {
-          locals[ObjectIdentifier(decl)] = bb.params[0]
-          emitCaseBody(body: stmt.body)
+          let succ: BasicBlock.ID
+          let next: BasicBlock.ID
+          if decl.isMutable {
+            // `var` bindings are consuming.
+            succ = builder.buildBasicBlock(paramTypes: [.lower(patternType)])
+            next = builder.buildBasicBlock(paramTypes: [subjectLoc.type.object])
+            builder.buildCheckedCastBranch(
+              value: builder.buildLoad(source: subjectLoc, range: pattern.range),
+              type: .lower(patternType),
+              succ: succ,
+              fail: next,
+              range: pattern.range)
+          } else {
+            // `val` bindings are borrowing immutably.
+            succ = builder.buildBasicBlock(paramTypes: [.lower(patternType).address])
+            next = builder.buildBasicBlock(paramTypes: [subjectLoc.type])
+            builder.buildBorrowExistAddrBranch(
+              container: subjectLoc,
+              type: .lower(patternType).address,
+              succ: succ,
+              fail: next,
+              range: pattern.range)
+          }
+
+          // If the match succeeds, the pattern becomes the argument of the "succ" block.
+          builder.insertionPointer!.blockID = succ
+          var bb = builder.currentFun!.blocks[succ]!
+          if decl.isMutable {
+            let loc = Emitter.emit(storedVar: decl, in: &_state.pointee, into: &_builder.pointee)
+            locals[ObjectIdentifier(decl)] = loc
+            builder.buildStore(bb.params[0], to: loc)
+            emitCaseBody(body: stmt.body)
+          } else {
+            locals[ObjectIdentifier(decl)] = bb.params[0]
+            emitCaseBody(body: stmt.body)
+          }
+          builder.buildBranch(dest: sink)
+
+          // If the match fails, reassign `subjectLoc` if its value was consumed.
+          builder.insertionPointer!.blockID = next
+          if decl.isMutable {
+            bb = builder.currentFun!.blocks[next]!
+            builder.buildStore(bb.params[0], to: subjectLoc)
+          }
         }
-        builder.buildBranch(dest: sink)
-
-        // If the match fails, the subject becomes the argument of the "next" block.
-        bb = builder.currentFun!.blocks[next]!
-        builder.insertionPointer!.blockID = next
-        subject = bb.params[0]
-        next = builder.buildBasicBlock(paramTypes: [subject.type])
-        continue
       }
 
       // FIXME: Handle complex conditional patterns recursively.
@@ -531,7 +561,7 @@ struct RValueEmitter: ExprVisitor {
     builder.insertionPointer!.blockID = sink
 
     if let storage = storage {
-      let result = builder.buildLoad(location: storage)
+      let result = builder.buildLoad(source: storage)
       builder.buildDeallocStack(alloc: storage)
       return .success(result)
     } else {

@@ -14,9 +14,13 @@ extension Module {
     stream.write("// module \(id)\n")
 
     // Dump the functions in the module.
-    for function in functions.values {
-      function.dump(to: &stream)
-    }
+    functions.values
+      .sorted(by: { (a, b) -> Bool in
+        return !a.blocks.isEmpty && !b.blocks.isEmpty
+          ? a.name < b.name
+          : a.entryID == nil
+      })
+      .forEach({ $0.dump(to: &stream) })
   }
 
 }
@@ -42,250 +46,68 @@ extension VILFun {
       stream.write("\n\n")
     } else {
       stream.write(" {\n")
-      withUnsafeMutablePointer(to: &stream, { ptr in
-        var context = PrintContext(stream: ptr)
-        if let entryID = self.entryID {
-          context.dump(blockID: entryID, in: self)
-        }
-        for blockID in blocks.keys where blockID != entryID {
-          context.dump(blockID: blockID, in: self)
-        }
-      })
+      if let blockID = entryID {
+        dump(blockID: blockID, to: &stream)
+      }
+      for blockID in blocks.keys where blockID != entryID {
+        dump(blockID: blockID, to: &stream)
+      }
       stream.write("}\n\n")
     }
   }
 
+  private func dump<S>(blockID: BasicBlock.ID, to stream: inout S)  where S: TextOutputStream {
+    let block = blocks[blockID]!
+    var printer = PrinterContext()
+
+    printer.write("bb\(blockID)", to: &stream)
+    let params = block.params
+      .map({ printer.describe($0, withType: true) })
+      .joined(separator: ", ")
+    printer.write("(\(params)):\n", to: &stream)
+
+    printer.indentation += 1
+     for inst in block.instructions {
+       inst.dump(to: &stream, with: &printer)
+     }
+    printer.indentation -= 1
+   }
+
 }
 
-fileprivate struct PrintContext<S> where S: TextOutputStream {
+public struct PrinterContext {
 
-  var stream: UnsafeMutablePointer<S>
+  /// The current indentation level.
+  fileprivate var indentation = 0
 
-  var isAtLineStart = true
+  /// The printer is about to write at the start of a new line.
+  private var isAtLineStart = true
 
-  var indentation = 0
+  /// The next auto-generated value identifier.
+  private var nextValueID = 0
 
-  var nextValueID = 0
+  /// A table of unique identifiers.
+  private var valueIDs: ReferenceTable<Value, Int> = [:]
 
-  var valueIDTable: [ObjectIdentifier: Int] = [:]
-
-  mutating func makeID(for value: Value) -> Int {
-    if let id = valueIDTable[ObjectIdentifier(value)] {
+  /// Returns a unique identifier for the given VIL value in this context.
+  mutating func uniqueID(of value: Value) -> Int {
+    if let id = valueIDs[value] {
       return id
-    }
-
-    let valueID = nextValueID
-    nextValueID += 1
-    valueIDTable[ObjectIdentifier(value)] = valueID
-    return valueID
-  }
-
-  mutating func dump(blockID: BasicBlock.ID, in function: VILFun) {
-    self << "bb\(blockID)("
-    self << function.blocks[blockID]!.params
-    self << "):\n"
-
-    indentation += 1
-    for inst in function.blocks[blockID]!.instructions {
-      dump(inst: inst)
-    }
-    indentation -= 1
-  }
-
-  mutating func dump(inst: Inst) {
-    switch inst {
-    case let inst as AllocStackInst:
-      let id = makeID(for: inst)
-      self << "_\(id) = alloc_stack "
-      if inst.isSelf { self << "[self] " }
-      self << "\(inst.allocatedType)\n"
-
-    case let inst as ApplyInst:
-      let id = makeID(for: inst)
-      self << "_\(id) = apply "
-      self << describe(inst.callee, withType: false)
-      self << "("
-      self << inst.args
-      self << ")\n"
-
-    case let inst as AsyncInst:
-      let id = makeID(for: inst)
-      self << "_\(id) = async \(inst.ref.name) ("
-      self << inst.captures
-      self << ")\n"
-
-    case let inst as AwaitInst:
-      let id = makeID(for: inst)
-      self << "_\(id) = await "
-      self << inst.value
-      self << "\n"
-
-    case let inst as BranchInst:
-      self << "branch bb\(inst.dest)("
-      self << inst.operands
-      self << ")\n"
-
-    case let inst as CheckedCastAddrInst:
-      let id = makeID(for: inst)
-      self << "_\(id) = checked_cast_addr "
-      self << inst.source
-      self << " as \(inst.type)\n"
-
-    case let inst as CheckedCastBranchInst:
-      self << "checked_cast_branch "
-      self << inst.value
-      self << " as \(inst.type) "
-      self << "bb\(inst.thenDest) "
-      self << "bb\(inst.elseDest)\n"
-
-    case let inst as CondBranchInst:
-      self << "cond_branch "
-      self << inst.cond
-      self << " bb\(inst.thenDest)("
-      self << inst.thenArgs
-      self << ") bb\(inst.elseDest)("
-      self << inst.elseArgs
-      self << ")\n"
-
-    case let inst as CopyInst:
-      let id = makeID(for: inst)
-      self << "_\(id) = copy "
-      self << inst.value
-      self << "\n"
-
-    case let inst as CopyAddrInst:
-      self << "copy_addr "
-      self << inst.source
-      self << " to "
-      self << inst.target
-      self << "\n"
-
-    case let inst as CopyExistentialInst:
-      let id = makeID(for: inst)
-      self << "_\(id) = copy_existential "
-      self << inst.container
-      self << " as \(inst.type)\n"
-
-    case let inst as DeallocStackInst:
-      self << "dealloc_stack "
-      self << inst.alloc
-      self << "\n"
-
-    case let inst as DeleteInst:
-      self << "delete "
-      self << inst.value
-      self << "\n"
-
-    case let inst as DeleteAddrInst:
-      self << "delete_addr "
-      self << inst.target
-      self << "\n"
-
-    case let inst as EqualAddrInst:
-      let id = makeID(for: inst)
-      self << "_\(id) = equal_addr "
-      self << inst.lhs
-      self << ", "
-      self << inst.rhs
-      self << "\n"
-
-    case is HaltInst:
-      self << "halt\n"
-
-    case let inst as InitExistentialAddrInst:
-      self << "init_existential_addr "
-      self << inst.container
-      self << " with "
-      self << inst.value
-      self << "\n"
-
-    case let inst as LoadInst:
-      let id = makeID(for: inst)
-      self << "_\(id) = load "
-      self << inst.location
-      self << "\n"
-
-    case let inst as ProjectExistentialAddrInst:
-      let id = makeID(for: inst)
-      self << "_\(id) = project_existential_addr "
-      self << inst.container
-      self << " as \(inst.type)\n"
-
-    case let inst as PartialApplyInst:
-      let id = makeID(for: inst)
-      self << "_\(id) = partial_apply "
-      self << describe(inst.delegator, withType: false)
-      self << "("
-      self << inst.partialArgs
-      self << ")\n"
-
-    case let inst as RecordInst:
-      let id = makeID(for: inst)
-      self << "_\(id) = record \(inst.type)\n"
-
-    case let inst as RecordMemberInst:
-      let id = makeID(for: inst)
-      self << "_\(id) = record_member "
-      self << inst.record
-      self << ", \(inst.memberDecl.debugID)\n"
-
-    case let inst as RecordMemberAddrInst:
-      let id = makeID(for: inst)
-      self << "_\(id) = record_member_addr "
-      self << inst.record
-      self << ", \(inst.memberDecl.debugID)\n"
-
-    case let inst as RetInst:
-      self << "ret "
-      self << inst.value
-      self << "\n"
-
-    case let inst as StoreInst:
-      self << "store "
-      self << inst.value
-      self << " to "
-      self << inst.target
-      self << "\n"
-
-    case let inst as ThinToThickInst:
-      let id = makeID(for: inst)
-      self << "_\(id) = thin_to_thick "
-      self << describe(inst.ref, withType: false)
-      self << "\n"
-
-    case let inst as TupleInst:
-      let id = makeID(for: inst)
-      self << "_\(id) = tuple \(inst.type) ("
-      self << inst.operands
-      self << ")\n"
-
-    case let inst as UnsafeCastAddrInst:
-      let id = makeID(for: inst)
-      self << "_\(id) = unsafe_cast_addr "
-      self << inst.source
-      self << " as \(inst.type)\n"
-
-    case let inst as WitnessMethodInst:
-      let id = makeID(for: inst)
-      self << "_\(id) = witness_method "
-      self << inst.container
-      self << ", \(inst.decl.debugID)\n"
-
-    default:
-      fatalError()
+    } else {
+      defer { nextValueID += 1 }
+      valueIDs[value] = nextValueID
+      return nextValueID
     }
   }
 
+  /// Produces a representation of the specified value.
   mutating func describe(_ value: Value, withType: Bool = true) -> String {
     let description: String
-
     switch value {
-    case is UnitValue, is PoisonValue:
-      return String(describing: value)
-    case is LiteralValue:
-      description = String(describing: value)
+    case is UnitValue, is PoisonValue, is LiteralValue:
+      description = "\(value)"
     default:
-      description = "_" + String(describing: makeID(for: value))
+      description = "%\(uniqueID(of: value))"
     }
 
     return withType
@@ -293,23 +115,24 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
       : description
   }
 
-  mutating func write(_ string: String) {
+  /// Writes the specified string to specified stream.
+  mutating func write<S>(_ string: String, to stream: inout S) where S: TextOutputStream {
     guard !string.isEmpty else { return }
 
     if indentation == 0 {
-      stream.pointee.write(string)
+      stream.write(string)
     } else {
       let lines = string.split(separator: "\n", omittingEmptySubsequences: false)
       if isAtLineStart {
-        stream.pointee.write(String(repeating: "  ", count: indentation))
+        stream.write(String(repeating: "  ", count: indentation))
       }
-      stream.pointee.write(String(lines[0]))
+      stream.write(String(lines[0]))
 
       for line in lines[1...] {
-        stream.pointee.write("\n")
+        stream.write("\n")
         if !line.isEmpty {
-          stream.pointee.write(String(repeating: "  ", count: indentation))
-          stream.pointee.write(String(line))
+          stream.write(String(repeating: "  ", count: indentation))
+          stream.write(String(line))
         }
       }
 
@@ -317,23 +140,6 @@ fileprivate struct PrintContext<S> where S: TextOutputStream {
         isAtLineStart = true
       } else {
         isAtLineStart = false
-      }
-    }
-  }
-
-  static func << (lhs: inout PrintContext, rhs: String) {
-    lhs.write(rhs)
-  }
-
-  static func << (lhs: inout PrintContext, rhs: Value) {
-    lhs.write(lhs.describe(rhs))
-  }
-
-  static func << (lhs: inout PrintContext, rhs: [Value]) {
-    for i in 0 ..< rhs.count {
-      lhs << rhs[i]
-      if i < rhs.count - 1 {
-        lhs.write(", ")
       }
     }
   }

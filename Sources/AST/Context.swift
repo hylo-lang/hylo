@@ -24,7 +24,7 @@ public final class Context {
   /// A key identifying a shared buffer.
   public enum SharedBufferKey: Hashable {
 
-    case vilConstantValueStore
+    case vilConstantStore
 
   }
 

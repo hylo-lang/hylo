@@ -45,6 +45,20 @@ public struct VILType {
   }
 
   /// Given that this type is lowered from a function type, returns the lowered type of the
+  /// parameter at the specified index.
+  public func paramType(at index: Int) -> VILType {
+    let param = params![index]
+    let ptype = VILType.lower(param.type)
+
+    switch param.policy {
+    case .local, .inout, nil:
+      return ptype.address
+    case .consuming, .consumingMutable:
+      return ptype
+    }
+  }
+
+  /// Given that this type is lowered from a function type, returns the lowered type of the
   /// function's return value.
   public var retType: VILType? {
     return ((valType as? FunType)?.retType).map(VILType.lower)
@@ -75,11 +89,24 @@ public struct VILType {
 extension VILType: CustomStringConvertible {
 
   public var description: String {
-    var desc = String(describing: valType)
-    if desc.contains(" ") {
-      desc = "(\(desc))"
+    switch valType {
+    case is FunType:
+      let params = self.params!.enumerated()
+        .map({ (i, p) in "\(paramType(at: i))" })
+        .joined(separator: ", ")
+      let desc = "(\(params)) -> \(retType!)"
+      return isAddress ? "*(\(desc))" : desc
+
+    default:
+      let desc = String(describing: valType)
+      if isAddress {
+        return desc.contains(" ")
+          ? "*(\(desc))"
+          : "*\(desc)"
+      } else {
+        return desc
+      }
     }
-    return isAddress ? "*\(desc)" : desc
   }
 
 }

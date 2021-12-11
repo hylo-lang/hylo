@@ -14,14 +14,14 @@ public struct BasicBlock {
 
   public typealias Index = StableDoublyLinkedList<Inst>.Index
 
-  /// The formal arguments of the block.
+  /// The formal parameters of the block.
   public let params: [ArgumentValue]
 
   /// The instructions in the block.
   public var instructions: StableDoublyLinkedList<Inst> = []
 
   init(id: ID, paramTypes: [VILType]) {
-    params = paramTypes.map({ ArgumentValue(type: $0, parentBlockID: id) })
+    params = paramTypes.map(ArgumentValue.init(type:))
   }
 
 }

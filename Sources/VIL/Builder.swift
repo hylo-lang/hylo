@@ -40,12 +40,12 @@ public struct Builder {
     self.context = context
 
     // Initialize the constant value store if necessary.
-    if context.allocateBuffer(forKey: .vilConstantValueStore, ofType: ConstantValueStore.self) {
+    if context.allocateBuffer(forKey: .vilConstantStore, ofType: ConstantStore.self) {
       let errorType = VILType.lower(context.errorType)
       let unitType = VILType.lower(context.unitType)
-      context.withBuffer(forKey: .vilConstantValueStore, of: ConstantValueStore.self, { ptr in
+      context.withBuffer(forKey: .vilConstantStore, of: ConstantStore.self, { ptr in
         ptr.initialize(
-          to: ConstantValueStore(
+          to: ConstantStore(
             poison: PoisonValue(type: errorType),
             unit: UnitValue(type: unitType)))
       })
@@ -113,10 +113,8 @@ public struct Builder {
     type: FunType,
     debugName: String? = nil
   ) -> VILFun {
-    // Lower the function type.
-    let loweredType = VILType.lower(type)
-
     // Check if the module already contains a module with the specified name.
+    let loweredType = VILType.lower(type)
     if let fun = module.functions[name] {
       precondition(
         fun.type.valType == loweredType.valType,
@@ -158,15 +156,15 @@ public struct Builder {
         case .val:
           // Immutable captures are consuming to leave the closure independent.
           // FIXME: We could relax this constraint if we can guarantee that the closure is local.
-          return FunType.Param(policy: .consuming, type: value.type)
+          return FunType.Param(policy: .consuming, rawType: value.type)
 
         case .var:
           // Mutable captures are consuming mutable.
-          return FunType.Param(policy: .consumingMutable, type: value.type)
+          return FunType.Param(policy: .consumingMutable, rawType: value.type)
 
         case .mut:
           // Borrowed captures are inout.
-          return FunType.Param(policy: .inout, type: value.type)
+          return FunType.Param(policy: .inout, rawType: value.type)
         }
       })
 
@@ -210,7 +208,7 @@ public struct Builder {
   /// Builds a poising value.
   public func buildPoison() -> PoisonValue {
     return context.withBuffer(
-      forKey: .vilConstantValueStore, of: ConstantValueStore.self, { (ptr) -> PoisonValue in
+      forKey: .vilConstantStore, of: ConstantStore.self, { (ptr) -> PoisonValue in
         ptr.pointee.poison
       })!
   }
@@ -218,15 +216,35 @@ public struct Builder {
   /// Builds a unit value.
   public func buildUnit() -> UnitValue {
     return context.withBuffer(
-      forKey: .vilConstantValueStore, of: ConstantValueStore.self, { (ptr) -> UnitValue in
+      forKey: .vilConstantStore, of: ConstantStore.self, { (ptr) -> UnitValue in
         ptr.pointee.unit
       })!
+  }
+
+  /// Builds an integer value.
+  public func buildInt(bitPattern: Int64, bitWidth: Int) -> IntValue {
+    return context.withBuffer(
+      forKey: .vilConstantStore, of: ConstantStore.self, { (ptr) -> IntValue in
+        let (_, instance) = ptr.pointee.intConstants
+          .insert(IntValue(bitPattern: bitPattern, bitWidth: bitWidth, context: context))
+        return instance
+      })!
+  }
+
+  /// Builds a built-in `false` constant (i.e., `0` with the type `i1`).
+  public func buildFalse() -> IntValue {
+    return buildInt(bitPattern: 0, bitWidth: 1)
+  }
+
+  /// Builds a built-in `true` constant (i.e., `1` with the type `i1`).
+  public func buildTrue() -> IntValue {
+    return buildInt(bitPattern: 1, bitWidth: 1)
   }
 
   /// Builds an integer literal.
   public func buildIntLiteral(value: Int) -> IntLiteralValue {
     return context.withBuffer(
-      forKey: .vilConstantValueStore, of: ConstantValueStore.self, { (ptr) -> IntLiteralValue in
+      forKey: .vilConstantStore, of: ConstantStore.self, { (ptr) -> IntLiteralValue in
         if let instance = ptr.pointee.intLiterals[value] {
           return instance
         } else {
@@ -241,7 +259,7 @@ public struct Builder {
   public func buildBuiltinFunRef(decl: FunDecl) -> BuiltinFunRef {
     assert(decl.type.context === context)
     return context.withBuffer(
-      forKey: .vilConstantValueStore, of: ConstantValueStore.self, { (ptr) -> BuiltinFunRef in
+      forKey: .vilConstantStore, of: ConstantStore.self, { (ptr) -> BuiltinFunRef in
         let name = VILName(decl.name)
         if let instance = ptr.pointee.builtinFunRefs[name] {
           return instance
@@ -257,7 +275,7 @@ public struct Builder {
   public func buildFunRef(function: VILFun) -> FunRef {
     assert(function.type.valType.context === context)
     return context.withBuffer(
-      forKey: .vilConstantValueStore, of: ConstantValueStore.self, { (ptr) -> FunRef in
+      forKey: .vilConstantStore, of: ConstantStore.self, { (ptr) -> FunRef in
         if let instance = ptr.pointee.funRefs[function.name] {
           return instance
         } else {
@@ -272,7 +290,7 @@ public struct Builder {
   public func buildNullAddr(type: VILType) -> NullAddr {
     assert(type.valType.context === context)
     return context.withBuffer(
-      forKey: .vilConstantValueStore, of: ConstantValueStore.self, { (ptr) -> NullAddr in
+      forKey: .vilConstantStore, of: ConstantStore.self, { (ptr) -> NullAddr in
         if let instance = ptr.pointee.nullAddrs[type.valType] {
           return instance
         } else {
@@ -291,60 +309,31 @@ public struct Builder {
 
   // MARK: Instructions
 
-  /// Builds an `alloc_stack` instruction.
-  ///
-  /// - Parameters:
-  ///   - type: The type of the allocated object. `type` must be an object type.
-  ///   - decl: The Val declaration related to the allocation, for debugging.
-  ///   - isSelf: A flag indicating whether the allocated value is `self` in a constructor.
-  ///   - range: The range in Val source corresponding to the instruction.
   public mutating func buildAllocStack(
-    type: VILType,
+    allocType: VILType,
+    isReceiver: Bool = false,
     decl: ValueDecl? = nil,
-    isSelf: Bool = false,
     range: SourceRange? = nil
   ) -> AllocStackInst {
-    precondition(type.isObject, "allocated type must be an object type")
-
-    let inst = AllocStackInst(allocatedType: type, decl: decl, isSelf: isSelf, range: range)
+    let inst = AllocStackInst(
+      allocType: allocType, isReceiver: isReceiver, decl: decl, range: range)
     insert(inst)
     return inst
   }
 
-  /// Builds an `apply` instruction.
-  ///
-  /// - Parameters:
-  ///   - callee: The function to apply. `callee` must have a function type.
-  ///   - args: The arguments of the function application.
-  ///   - range: The range in Val source corresponding to the instruction.
   public mutating func buildApply(
     callee: Value,
     args: [Value],
     range: SourceRange? = nil
   ) -> ApplyInst {
-    // Validate the arguments according to the function's parameter convention.
-    for (actual, formal) in zip(args, callee.type.params!) {
-      if actual is LiteralValue {
-        guard formal.policy == .local else { fatalError("bad VIL: illegal operand") }
-      }
-    }
-
-    // FIXME: Perhaps we could do some argument validation here?
-
-    let inst = ApplyInst(callee: callee, args: args, type: callee.type.retType!, range: range)
+    let inst = ApplyInst(callee: callee, args: args, range: range)
     insert(inst)
     return inst
   }
 
-  /// Builds a `async` instruction.
-  ///
-  /// - Parameters:
-  ///   - fun: The function that represents the asynchronous execution.
-  ///   - args: The values captured by the asynchronous expression.
-  ///   - range: The range in Val source corresponding to the instruction.
   public mutating func buildAsync(
     ref: FunRef,
-    captures: [Value] = [],
+    captures: [Value],
     range: SourceRange? = nil
   ) -> AsyncInst {
     let inst = AsyncInst(ref: ref, captures: captures, range: range)
@@ -352,141 +341,115 @@ public struct Builder {
     return inst
   }
 
-  /// Builds an `await` instruction.
-  ///
-  /// - Parameters:
-  ///   - value: The value being awaited.
-  ///   - range: The range in Val source corresponding to the instruction.
-  public mutating func buildAwait(value: Value, range: SourceRange? = nil) -> AwaitInst {
-    precondition(value.type.valType is AsyncType, "awaited value must have an asynchronous type")
-
+  public mutating func buildAwait(
+    value: Value,
+    range: SourceRange? = nil
+  ) -> AwaitInst {
     let inst = AwaitInst(value: value, range: range)
     insert(inst)
     return inst
   }
 
-  /// Builds an unconditional `branch` instruction.
-  ///
-  /// - Parameters:
-  ///   - dest: The basic block to which the execution should branch. `dest` must be in the current
-  ///     function.
-  ///   - args: The value of earch argument passed to the destination block. `args` must match the
-  ///     formal arguments expected expected by `dest.`
-  ///   - range: The range in Val source corresponding to the instruction.
+  public mutating func buildBorrowAddr(
+    isMutable: Bool = false,
+    source: Value,
+    range: SourceRange? = nil
+  ) -> BorrowAddrInst {
+    let inst = BorrowAddrInst(isMutable: isMutable, source: source, range: range)
+    insert(inst)
+    return inst
+  }
+
+  public mutating func buildBorrowExistAddr(
+    isMutable: Bool = false,
+    container: Value,
+    type: VILType,
+    range: SourceRange? = nil
+  ) -> BorrowExistAddrInst {
+    let inst = BorrowExistAddrInst(
+      isMutable: isMutable, container: container, type: type, range: range)
+    insert(inst)
+    return inst
+  }
+
+  @discardableResult
+  public mutating func buildBorrowExistAddrBranch(
+    isMutable: Bool = false,
+    container: Value,
+    type: VILType,
+    succ: BasicBlock.ID,
+    fail: BasicBlock.ID,
+    range: SourceRange? = nil
+  ) -> BorrowExistAddrBranchInst {
+    let inst = BorrowExistAddrBranchInst(
+      isMutable: isMutable,
+      container: container,
+      type: type,
+      succ: succ,
+      fail: fail,
+      range: range)
+    insert(inst)
+    return inst
+  }
+
   @discardableResult
   public mutating func buildBranch(
     dest: BasicBlock.ID,
     args: [Value] = [],
     range: SourceRange? = nil
   ) -> BranchInst {
-    guard let fun = currentFun else { fatalError("insertion pointer is not configured") }
-    precondition(fun.blocks[dest] != nil, "invalid destination")
-
     let inst = BranchInst(dest: dest, args: args, range: range)
     insert(inst)
-
-    // Update the function's CFG.
-    let blockID = insertionPointer!.blockID!
-    module.functions[insertionPointer!.funName]!.insertControlEdge(from: blockID, to: dest)
-
     return inst
   }
 
-  /// Builds a `checked_cast_branch` instruction.
-  ///
-  /// - Parameters:
-  ///   - container: An existential container.
-  ///   - type: The type to which convert the value.
-  ///   - thenDest: The basic block that receives control if the conversion succeeds. `thenDest`
-  ///     must be in the current function and accept an argument of the requested type.
-  ///   - elseDest: The basic block that receives control if the conversion fails. `elseDest` must
-  ///     be in the current function and accept an argument of `container`'s type.
-  ///   - range: The range in Val source corresponding to the instruction.
+  public mutating func buildCheckedCast(
+    value: Value,
+    type: VILType,
+    range: SourceRange? = nil
+  ) -> CheckedCastInst {
+    let inst = CheckedCastInst(value: value, type: type, range: range)
+    insert(inst)
+    return inst
+  }
+
   @discardableResult
   public mutating func buildCheckedCastBranch(
     value: Value,
     type: VILType,
-    thenDest: BasicBlock.ID,
-    elseDest: BasicBlock.ID,
+    succ: BasicBlock.ID,
+    fail: BasicBlock.ID,
     range: SourceRange? = nil
   ) -> CheckedCastBranchInst {
-    guard let fun = currentFun else { fatalError("insertion pointer is not configured") }
-    guard let thenBB = fun.blocks[thenDest] else { fatalError("invalid 'then' destination") }
-    guard let elseBB = fun.blocks[elseDest] else { fatalError("invalid 'else' destination") }
-    precondition(thenBB.params.count == 1, "'then' destination must accept 1 argument")
-    precondition(elseBB.params.count == 1, "'else' destination must accept 1 argument")
-
     let inst = CheckedCastBranchInst(
-      value: value, type: type, thenDest: thenDest, elseDest: elseDest, range: range)
+      value: value, type: type, succ: succ, fail: fail, range: range)
     insert(inst)
-
-    // Update the function's CFG.
-    let blockID = insertionPointer!.blockID!
-    module.functions[insertionPointer!.funName]!.insertControlEdge(from: blockID, to: thenDest)
-    module.functions[insertionPointer!.funName]!.insertControlEdge(from: blockID, to: elseDest)
-
     return inst
   }
 
-  /// Builds a `cond_branch` instruction.
-  ///
-  /// - Parameters:
-  ///   - cond: A condition that determines the block to which the execution should branch. `cond`
-  ///   must be a Boolean value.
-  ///   - thenDest: The basic block to which the execution should branch if the condition holds
-  ///     `thenDest` must be in the current function, and be different than `elseDest`.
-  ///   - thenArgs: The arguments of `thenDest`.
-  ///   - elseDest: The basic block to which the execution should branch if the condition doesn not
-  ///     hold. `elseDest` must be in the current function, and be different than `thenDest`.
-  ///   - elseArgs: The arguments of `elseDest`.
-  ///   - range: The range in Val source corresponding to the instruction.
   @discardableResult
   public mutating func buildCondBranch(
     cond: Value,
-    thenDest: BasicBlock.ID, thenArgs: [Value] = [],
-    elseDest: BasicBlock.ID, elseArgs: [Value] = [],
+    succ: BasicBlock.ID, succArgs: [Value],
+    fail: BasicBlock.ID, failArgs: [Value],
     range: SourceRange? = nil
   ) -> CondBranchInst {
-    guard let fun = currentFun else { fatalError("insertion pointer is not configured") }
-    precondition(fun.blocks[thenDest] != nil, "invalid destination")
-    precondition(fun.blocks[elseDest] != nil, "invalid destination")
-
     let inst = CondBranchInst(
-      cond: cond,
-      thenDest: thenDest,
-      thenArgs: thenArgs,
-      elseDest: elseDest,
-      elseArgs: elseArgs,
-      range: range)
-    insert(inst)
-
-    // Update the function's CFG.
-    let blockID = insertionPointer!.blockID!
-    module.functions[insertionPointer!.funName]!.insertControlEdge(from: blockID, to: thenDest)
-    module.functions[insertionPointer!.funName]!.insertControlEdge(from: blockID, to: elseDest)
-
-    return inst
-  }
-
-  /// Builds a `copy` instruct.
-  ///
-  /// - Parameters:
-  ///   - value: The value to copy. `value` must have an object type that is copyable.
-  ///   - range: The range in Val source corresponding to the instruction.
-  public mutating func buildCopy(value: Value, range: SourceRange? = nil) -> CopyInst {
-    precondition(value.type.isObject, "'container' must have an object type")
-    precondition(value.type.valType.isCopyable, "'value' must have a copyable type")
-
-    let inst = CopyInst(value: value, range: range)
+      cond: cond, succ: succ, succArgs: succArgs, fail: fail, failArgs: failArgs, range: range)
     insert(inst)
     return inst
   }
 
-  /// Builds a `dealloc_stack` instruction.
-  ///
-  /// - Parameters:
-  ///   - alloc: The corresponding stack allocation.
-  ///   - range: The range in Val source corresponding to the instruction.
+  @discardableResult
+  public mutating func buildCondFail(
+    cond: Value,
+    range: SourceRange? = nil
+  ) -> CondFail {
+    let inst = CondFail(cond: cond, range: range)
+    insert(inst)
+    return inst
+  }
+
   @discardableResult
   public mutating func buildDeallocStack(
     alloc: AllocStackInst,
@@ -497,337 +460,174 @@ public struct Builder {
     return inst
   }
 
-  /// Builds a `copy_addr` instruction.
-  ///
-  /// - Parameters:
-  ///   - target: The target address of the copy.
-  ///   - source: The address of the object to copy.
-  ///   - range: The range in Val source corresponding to the instruction.
   @discardableResult
-  public mutating func buildCopyAddr(
-    target: Value,
-    source: Value,
+  public mutating func buildDelete(
+    value: Value,
     range: SourceRange? = nil
-  ) -> CopyAddrInst {
-    let inst = CopyAddrInst(target: target, source: source, range: range)
-    insert(inst)
-    return inst
-  }
-
-  /// Builds an `copy_existential` instruction.
-  ///
-  /// - Parameters:
-  ///   - container. An existential container.
-  ///   - type: The type of the copied value. `type` must be an object type that matches the
-  ///     package's witness. It can either be a concrete type, or an "opened" existential.
-  ///   - range: The range in Val source corresponding to the instruction.
-  public mutating func buildCopyExistential(
-    container: Value,
-    type: VILType,
-    range: SourceRange? = nil
-  ) -> CopyExistentialInst {
-    precondition(container.type.isObject, "'container' must have an object type")
-
-    let inst = CopyExistentialInst(container: container, type: type, range: range)
-    insert(inst)
-    return inst
-  }
-
-  /// Builds a `delete` instruction.
-  ///
-  /// - Parameters:
-  ///   - value: The value to delete.
-  ///   - range: The range in Val source corresponding to the instruction.
-  @discardableResult
-  public mutating func buildDelete(value: Value, range: SourceRange? = nil) -> DeleteInst {
-    precondition(value.type.isObject, "'value' must have an object type")
-
+  ) -> DeleteInst {
     let inst = DeleteInst(value: value, range: range)
     insert(inst)
     return inst
   }
 
-  /// Builds a `delete_addr` instruction.
-  ///
-  /// - Parameters:
-  ///   - target: The address of the object to delete.
-  ///   - range: The range in Val source corresponding to the instruction.
   @discardableResult
   public mutating func buildDeleteAddr(
     target: Value,
     range: SourceRange? = nil
   ) -> DeleteAddrInst {
-    precondition(target.type.isAddress, "'target' must have an address type")
-
     let inst = DeleteAddrInst(target: target, range: range)
     insert(inst)
     return inst
   }
 
-  /// Builds a `equal_addr` instruction.
-  ///
-  /// - Parameters:
-  ///   - lhs: An address.
-  ///   - rhs: Another address.
-  ///   - range: The range in Val source corresponding to the instruction.
-  public mutating func buildEqualAddr(
-    lhs: Value,
-    rhs: Value,
+  @discardableResult
+  public mutating func buildInitExistAddr(
+    container: Value,
+    value: Value,
     range: SourceRange? = nil
-  ) -> EqualAddrInst {
-    precondition(lhs.type.isAddress, "'lhs' must have an address type")
-    precondition(rhs.type.isAddress, "'rhs' must have an address type")
-
-    let inst = EqualAddrInst(lhs: lhs, rhs: rhs, range: range)
+  ) -> InitExistAddrInst {
+    let inst = InitExistAddrInst(container: container, value: value, range: range)
     insert(inst)
     return inst
   }
 
-  /// Builds a `halt` instruction.
-  ///
-  /// - Parameter range: The range in Val source corresponding to the instruction.
   @discardableResult
-  public mutating func buildHalt(range: SourceRange? = nil) -> HaltInst {
+  public mutating func buildHalt(
+    range: SourceRange? = nil
+  ) -> HaltInst {
     let inst = HaltInst(range: range)
     insert(inst)
     return inst
   }
 
-  /// Builds a `init_existential_addr` instruction.
-  ///
-  /// - Parameters:
-  ///   - container: The address of the existential container to initialize.
-  ///   - value: The value that initializes the container.
-  ///   - range: The range in Val source corresponding to the instruction.
-  @discardableResult
-  public mutating func buildInitExistentialAddr(
-    container: Value,
-    value: Value,
+  public mutating func buildLoad(
+    source: Value,
     range: SourceRange? = nil
-  ) -> InitExistentialAddrInst {
-    precondition(container.type.isAddress, "'container' must have an address type")
-    precondition(value.type.isObject, "'value' must have an object type")
-
-    let inst = InitExistentialAddrInst(container: container, value: value, range: range)
+  ) -> LoadInst {
+    let inst = LoadInst(source: source, range: range)
     insert(inst)
     return inst
   }
 
-  /// Builds a `load` instruction.
-  ///
-  /// - Parameters:
-  ///   - location: The location to load. `lvalue` must have an address type.
-  ///   - range: The range in Val source corresponding to the instruction.
-  public mutating func buildLoad(location: Value, range: SourceRange? = nil) -> LoadInst {
-    precondition(location.type.isAddress, "'location' must have an address type")
-
-    let inst = LoadInst(location: location, range: range)
+  @discardableResult
+  public mutating func buildMoveAddr(
+    from source: Value,
+    to target: Value,
+    range: SourceRange? = nil
+  ) -> MoveAddrInst {
+    let inst = MoveAddrInst(source: source, target: target, range: range)
     insert(inst)
     return inst
   }
 
-  /// Builds a `partial_apply` instruction.
-  ///
-  /// - Parameters:
-  ///   - delegator: The function being partially applied.
-  ///   - partialArgs: The partial list of arguments to the delegator (from left to right).
-  ///   - range: The range in Val source corresponding to the instruction.
+  public mutating func buildPackBorrow(
+    source: Value,
+    type: VILType,
+    range: SourceRange? = nil
+  ) -> PackBorrowInst {
+    let inst = PackBorrowInst(source: source, type: type, range: range)
+    insert(inst)
+    return inst
+  }
+
   public mutating func buildPartialApply(
     delegator: Value,
     partialArgs: [Value],
     range: SourceRange? = nil
   ) -> PartialApplyInst {
-    precondition(partialArgs.count > 0)
-
     let inst = PartialApplyInst(delegator: delegator, partialArgs: partialArgs, range: range)
     insert(inst)
     return inst
   }
 
-  /// Builds a `project_existential_addr` instruction.
-  ///
-  /// - Parameters:
-  ///   - container: The address of an existential container.
-  ///   - type: The type of the projected address. `type` must be an address type that matches the
-  ///     package's witness. It can either be a concrete type, or an "opened" existential.
-  ///   - range: The range in Val source corresponding to the instruction.
-  public mutating func buildProjectExistentialAddr(
-    container: Value,
-    type: VILType,
-    range: SourceRange? = nil
-  ) -> ProjectExistentialAddrInst {
-    precondition(container.type.isAddress, "'container' must have an address type")
-    precondition(type.isAddress, "'type' must be an address type")
-
-    let inst = ProjectExistentialAddrInst(container: container, type: type, range: range)
-    insert(inst)
-    return inst
-  }
-
-  /// Builds a record value instruction.
-  ///
-  /// - Parameters:
-  ///   - typeDecl: The declaration of a product type.
-  ///   - type: The type of the record. `type` must be a value type that matches the instance type
-  ///     of `typeDecl`.
-  ///   - range: The range in Val source corresponding to the instruction.
   public mutating func buildRecord(
-    typeDecl: ProductTypeDecl,
+    typeDecl: NominalTypeDecl,
     type: VILType,
     range: SourceRange? = nil
   ) -> RecordInst {
-    precondition(type.isObject, "'type' must be an object type")
-
     let inst = RecordInst(typeDecl: typeDecl, type: type, range: range)
     insert(inst)
     return inst
   }
 
-  /// Builds a `record_member` instruction.
-  ///
-  /// - Parameters:
-  ///   - record: The record whose member is being extracted.
-  ///   - memberDecl: The declaration of the member being extracted.
-  ///   - type: The type of the member being extracted.
-  ///   - range: The range in Val source corresponding to the instruction.
   public mutating func buildRecordMember(
     record: Value,
     memberDecl: VarDecl,
     type: VILType,
     range: SourceRange? = nil
   ) -> RecordMemberInst {
-    precondition(record.type.isObject, "'record' must have an object type")
-    precondition(type.isObject, "'type' must have be object type")
-
     let inst = RecordMemberInst(record: record, memberDecl: memberDecl, type: type, range: range)
     insert(inst)
     return inst
   }
 
-  /// Builds a `record_member_addr` instruction.
-  ///
-  /// - Parameters:
-  ///   - record: The address of the the record value for which the member's address is computed.
-  ///   - memberDecl: The declaration of the member being extracted.
-  ///   - type: The type of the member being extracted.
-  ///   - range: The range in Val source corresponding to the instruction.
   public mutating func buildRecordMemberAddr(
     record: Value,
     memberDecl: VarDecl,
     type: VILType,
     range: SourceRange? = nil
   ) -> RecordMemberAddrInst {
-    precondition(record.type.isAddress, "'record' must have an address type")
-    precondition(type.isAddress, "instruction must have an address type")
-
-    let inst = RecordMemberAddrInst(
-      record: record, memberDecl: memberDecl, type: type, range: range)
+    let inst = RecordMemberAddrInst(record: record, memberDecl: memberDecl, type: type, range: range)
     insert(inst)
     return inst
   }
 
-  /// Builds a `ret` instruction.
-  ///
-  /// - Parameter range: The range in Val source corresponding to the instruction.
   @discardableResult
-  public mutating func buildRet(value: Value, range: SourceRange? = nil) -> RetInst {
-    precondition(value.type.isObject, "'value' must have an address type")
-
+  public mutating func buildRet(
+    value: Value,
+    range: SourceRange? = nil
+  ) -> RetInst {
     let inst = RetInst(value: value, range: range)
     insert(inst)
     return inst
   }
 
-  /// Builds a `store` instruction.
-  ///
-  /// - Parameters:
-  ///   - target: The location (or target) of the store.
-  ///   - value: The value being stored.
-  ///   - range: The range in Val source corresponding to the instruction.
   @discardableResult
   public mutating func buildStore(
-    target: Value,
-    value: Value,
+    _ value: Value,
+    to target: Value,
     range: SourceRange? = nil
   ) -> StoreInst {
-    precondition(target.type.isAddress, "'target' must have an address type")
-    precondition(value.type.isObject, "'value' must have an object type")
-    // FIXME: Additionally, check that the value's type is compatible with the target's.
-
-    let inst = StoreInst(target: target, value: value, range: range)
+    let inst = StoreInst(value: value, target: target, range: range)
     insert(inst)
     return inst
   }
 
-  /// Builds a `thin_to_thick` instruction.
-  ///
-  /// - Parameters:
-  ///   - ref: A reference to a VIL function.
-  ///   - range: The range in Val source corresponding to the instruction.
-  public mutating func buildThinToThick(ref: FunRef, range: SourceRange? = nil) -> ThinToThickInst {
+  public mutating func buildThinToThick(
+    ref: FunRef,
+    range: SourceRange? = nil
+  ) -> ThinToThickInst {
     let inst = ThinToThickInst(ref: ref, range: range)
     insert(inst)
     return inst
   }
 
-
-  /// Builds a tuple value instruction.
-  ///
-  /// - Parameters:
-  ///   - type: type of the tuple.
-  ///   - operands: The values of the tuple's elements.
-  ///   - range: The range in Val source corresponding to the instruction.
   public mutating func buildTuple(
     type: TupleType,
     operands: [Value],
     range: SourceRange? = nil
   ) -> TupleInst {
-    precondition(operands.allSatisfy({ $0.type.isObject }), "operands must have an object type")
-
     let inst = TupleInst(type: type, operands: operands, range: range)
     insert(inst)
     return inst
   }
 
-  /// Builds a `unsafe_cast_addr` instruction.
-  ///
-  /// - Parameters:
-  ///   - source: The address to convert.
-  ///   - type: The type to which the address is converted. `type` must be an address type.
-  ///   - range: The range in Val source corresponding to the instruction.
-  public mutating func buildUnsafeCastAddr(
-    source: Value,
-    type: VILType,
-    range: SourceRange? = nil
-  ) -> UnsafeCastAddrInst {
-    precondition(type.isAddress, "'type' must be an address type")
-
-    let inst = UnsafeCastAddrInst(source: source, type: type, range: range)
-    insert(inst)
-    return inst
-  }
-
-  /// Builds a `witness_method` instruction.
-  ///
-  /// - Parameters:
-  ///   - container: An existential container that conforms to the view for which the method is
-  ///     being looked up.
-  ///   - decl: The declaration of a view method.
-  ///   - range: The range in Val source corresponding to the instruction.
   public mutating func buildWitnessMethod(
     container: Value,
     decl: BaseFunDecl,
     range: SourceRange? = nil
   ) -> WitnessMethodInst {
-    precondition({
-      if let parent = decl.parentDeclSpace as? TypeExtnDecl {
-        return parent.extendedDecl is ViewTypeDecl
-      } else {
-        return decl.parentDeclSpace is ViewTypeDecl
-      }
-    }(), "'\(decl.debugID)' is not declared in a view")
-
     let inst = WitnessMethodInst(container: container, decl: decl, range: range)
+    insert(inst)
+    return inst
+  }
+
+  public mutating func buildWitnessMethodAddr(
+    container: Value,
+    decl: BaseFunDecl,
+    range: SourceRange? = nil
+  ) -> WitnessMethodAddrInst {
+    let inst = WitnessMethodAddrInst(container: container, decl: decl, range: range)
     insert(inst)
     return inst
   }
@@ -846,10 +646,12 @@ public struct Builder {
     module.functions[path.funName]!.blocks[path.blockID]?.instructions.remove(at: path.instIndex)
   }
 
+  /// Replaces all uses of a value by another value.
   public mutating func replaceUses(of value: Value, with newValue: Value) {
     fatalError()
   }
 
+  /// Inserts the specified instruction at the current insertion point.
   private mutating func insert(_ inst: Inst) {
     precondition(insertionPointer?.blockID != nil, "invalid insertion pointer")
 
@@ -881,20 +683,22 @@ public struct Builder {
     }
   }
 
-  private func withConstantValueStore<R>(_ action: (inout ConstantValueStore) -> R) -> R? {
+  private func withConstantValueStore<R>(_ action: (inout ConstantStore) -> R) -> R? {
     return context.withBuffer(
-      forKey: .vilConstantValueStore,
-      of: ConstantValueStore.self,
+      forKey: .vilConstantStore,
+      of: ConstantStore.self,
       { action(&$0.pointee) })
   }
 
 }
 
-fileprivate struct ConstantValueStore {
+fileprivate struct ConstantStore {
 
   let poison: PoisonValue
 
   let unit: UnitValue
+
+  var intConstants: Set<IntValue> = []
 
   var intLiterals: [Int: IntLiteralValue] = [:]
 

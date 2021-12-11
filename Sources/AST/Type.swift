@@ -222,6 +222,25 @@ public class ValType: CustomStringConvertible, Equatable {
     return (self == other) || reconcile(self, other)
   }
 
+  /// Returns whether this type is subtype of another one.
+  ///
+  /// - Warning: This method relies on the current state of the AST; it will produce inaccurate
+  ///   results until type checking completes.
+  ///
+  /// - Parameter other: Another type.
+  public func isSubtype(of other: ValType) -> Bool {
+    switch other.dealiased {
+    case self.dealiased:
+      return true
+    case context.anyType:
+      return true
+    case let that as UnionType:
+      return that.elems.contains(where: isSubtype(of:))
+    default:
+      return false
+    }
+  }
+
   /// Returns whether this type is equal to another one.
   ///
   /// This method is used internally for uniquing new instances. All derived classes should
@@ -326,6 +345,15 @@ public final class KindType: ValType {
 
     guard let that = other as? KindType else { return reconcile(self, other) }
     return type.matches(with: that.type, reconcilingWith: reconcile)
+  }
+
+  public override func isSubtype(of other: ValType) -> Bool {
+    switch other.dealiased {
+    case let that as KindType:
+      return type.isSubtype(of: that.type)
+    case let that:
+      return super.isSubtype(of: that)
+    }
   }
 
   override func isEqual(to other: ValType) -> Bool {
@@ -458,6 +486,17 @@ public class NominalType: ValType {
 
   public override func lookup(member memberName: String) -> LookupResult {
     return decl.lookup(qualified: memberName)
+  }
+
+  public override func isSubtype(of other: ValType) -> Bool {
+    switch other.dealiased {
+    case let that as ViewType:
+      return decl.conformanceTable[that]?.state == .checked
+    case let that as ViewCompositionType:
+      return that.views.allSatisfy({ decl.conformanceTable[$0]?.state == .checked })
+    case let that:
+      return super.isSubtype(of: that)
+    }
   }
 
   override func hash(into hasher: inout Hasher) {
@@ -622,6 +661,17 @@ public final class ViewCompositionType: ValType {
     }
   }
 
+  public override func isSubtype(of other: ValType) -> Bool {
+    switch views.count {
+    case 0:
+      return self === other.dealiased
+    case 1:
+      return views[0].isSubtype(of: other)
+    default:
+      return views.allSatisfy({ $0.isSubtype(of: other) })
+    }
+  }
+
   override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? ViewCompositionType,
           views.count == that.views.count
@@ -738,6 +788,24 @@ public final class UnionType: ValType {
     return UnionType
       .create(unionOf: elems.map({ $0.dealiased }), in: context)
       .canonical
+  }
+
+  public override func isSubtype(of other: ValType) -> Bool {
+    switch elems.count {
+    case 0:
+      return true
+    case 1:
+      return elems[0].isSubtype(of: other)
+    default:
+      break
+    }
+
+    switch other.dealiased {
+    case let that as UnionType:
+      return elems.allSatisfy(that.elems.contains)
+    case let that:
+      return super.isSubtype(of: that)
+    }
   }
 
   override func isEqual(to other: ValType) -> Bool {
@@ -1215,6 +1283,19 @@ public final class TupleType: ValType {
     return true
   }
 
+  public override func isSubtype(of other: ValType) -> Bool {
+    switch other.dealiased {
+    case let that as TupleType:
+      guard elems.count == that.elems.count else { return false }
+      return zip(elems, that.elems).allSatisfy({ (a, b) -> Bool in
+        (a.label == b.label) && a.type.isSubtype(of: b.type)
+      })
+
+    case let that:
+      return super.isSubtype(of: that)
+    }
+  }
+
   override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? TupleType,
           elems.count == that.elems.count
@@ -1501,6 +1582,15 @@ public final class AsyncType: ValType {
 
     guard let that = other as? AsyncType else { return reconcile(self, other) }
     return base.matches(with: that.base, reconcilingWith: reconcile)
+  }
+
+  public override func isSubtype(of other: ValType) -> Bool {
+    switch other.dealiased {
+    case let that as AsyncType:
+      return base.isSubtype(of: that.base)
+    case let that:
+      return super.isSubtype(of: that)
+    }
   }
 
   override func isEqual(to other: ValType) -> Bool {

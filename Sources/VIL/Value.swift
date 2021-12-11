@@ -49,6 +49,42 @@ public final class UnitValue: LiteralValue, CustomStringConvertible {
 }
 
 /// A constant integer value.
+public final class IntValue: LiteralValue, CustomStringConvertible {
+
+  /// The constant's value.
+  ///
+  /// The value is encoded with the `bitWidth` least significant bits of that property.
+  public let bitPattern: Int64
+
+  /// The number of bits in the binary representation of values of this type.
+  public let bitWidth: Int
+
+  init(bitPattern: Int64, bitWidth: Int, context: Context) {
+    self.bitPattern = bitPattern
+    self.bitWidth = bitWidth
+    super.init(type: .lower(context.getBuiltinType(named: "i\(bitWidth)")!))
+  }
+
+  public var description: String {
+    return String(describing: bitPattern)
+  }
+
+}
+
+extension IntValue: Hashable {
+
+  public func hash(into hasher: inout Hasher) {
+    hasher.combine(bitPattern)
+    hasher.combine(bitWidth)
+  }
+
+  public static func == (lhs: IntValue, rhs: IntValue) -> Bool {
+    return (lhs.bitPattern == rhs.bitPattern) && (lhs.bitWidth == rhs.bitWidth)
+  }
+
+}
+
+/// An integer literal.
 public final class IntLiteralValue: LiteralValue, CustomStringConvertible {
 
   /// The literal's value.
@@ -91,7 +127,7 @@ public final class FunRef: LiteralValue, CustomStringConvertible {
 
   init(function: VILFun) {
     self.name = function.name
-    super.init(type: function.type)
+    super.init(type: function.type.address)
   }
 
   public var description: String {
@@ -104,7 +140,7 @@ public final class FunRef: LiteralValue, CustomStringConvertible {
 public final class NullAddr: LiteralValue, CustomStringConvertible {
 
   override init(type: VILType) {
-    assert(type.isAddress, "type must be an address type")
+    assert(type.isAddress, "'type' must be an address type")
     super.init(type: type)
   }
 
@@ -115,14 +151,4 @@ public final class NullAddr: LiteralValue, CustomStringConvertible {
 // MARK: Arguments
 
 /// The formal argument (a.k.a. parameter) of a block or function.
-public final class ArgumentValue: Value {
-
-  /// A back reference to the basic block in which the formal argument is defined.
-  public let parentBlockID: BasicBlock.ID
-
-  init(type: VILType, parentBlockID: BasicBlock.ID) {
-    self.parentBlockID = parentBlockID
-    super.init(type: type)
-  }
-
-}
+public final class ArgumentValue: Value {}

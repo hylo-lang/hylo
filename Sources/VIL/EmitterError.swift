@@ -1,21 +1,26 @@
 import AST
+import Basic
 
 /// An error that occured during VIL code emission.
 public enum EmitterError: Error {
 
-  /// The merror attempted to use an immutable binding in a mutable context.
-  case immutableBinding(ValueDecl)
-
   /// The emitter attempted to use an immutable capture in a mutable context.
   case immutableCapture(ValueDecl)
 
-  /// The emitter attempted to use an immutable expression in a mutable context.
-  case immutableExpr
-
-  /// The emitter attempted to treat an immutable reference to `self` in a mutable context.
-  case immutableSelf(property: ValueDecl)
-
   /// The emitter attempted to extract a non-copyable stored property out of a record.
   case nonCopyableProperty(VarDecl)
+
+  /// The emitter attempted to use an r-value as an l-value.
+  case useOfRValueAsLValue(Expr)
+
+  func diag() -> Diag {
+    switch self {
+    case .useOfRValueAsLValue(let expr):
+      return .useOfRValueAsLValue(expr: expr)
+
+    default:
+      fatalError()
+    }
+  }
 
 }

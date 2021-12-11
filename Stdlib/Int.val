@@ -1,6 +1,6 @@
 view ExpressibleByBuiltinIntLiteral {
 
-  new (literal: Builtin::IntLiteral)
+  new (literal: consuming Builtin::IntLiteral)
 
 }
 
@@ -18,8 +18,13 @@ type Int: ExpressibleByBuiltinIntLiteral {
   /// Creates a new value from a built-in literal.
   ///
   /// This constructor is meant to be used internally and should not be called directly.
-  new (literal value: Builtin::IntLiteral) {
+  new (literal value: consuming Builtin::IntLiteral) {
     self.value = Builtin::i64_trunc_IntLiteral(value)
+  }
+
+  /// Creates a new value from a built-in integer.
+  new (_ value: consuming Builtin::i64) {
+    self.value = value
   }
 
   /// Returns the result of adding `other` to this value.

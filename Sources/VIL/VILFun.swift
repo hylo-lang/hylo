@@ -98,17 +98,16 @@ public struct VILFun {
     return blocks[entryID]
   }
 
-  /// Returns an iterator that supplies all instructions of the function.
+  /// Returns an iterator that supplies all instructions in the function.
   ///
-  /// The iterator offers no guarantee over the order in which it returns the function's
-  /// instructions.
+  /// - Note: Instructions are returned without any particular order.
   public func makeInstIterator() -> JoinedIterator<StableDoublyLinkedList<Inst>.Iterator> {
     return JoinedIterator(blocks.values.map({ $0.instructions.makeIterator() }))
   }
 
-  /// Returns an iterator that supplies all instructions of the function, together with their path.
+  /// Returns an iterator that supplies all instructions in the function, together with their path.
   ///
-  /// The iterator offers no guarantee over the order in which instructions are returned.
+  /// - Note: Instructions are returned without any particular order.
   public func makeInstEnumerator() -> InstEnumerator {
     return InstEnumerator(funName: name, blocks: Array(blocks))
   }

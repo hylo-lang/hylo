@@ -73,6 +73,14 @@ extension VILName: Hashable {
 
 }
 
+extension VILName: Comparable {
+
+  public static func < (lhs: VILName, rhs: VILName) -> Bool {
+    return String(describing: lhs).lexicographicallyPrecedes(String(describing: rhs))
+  }
+
+}
+
 extension VILName: CustomStringConvertible {
 
   public var description: String {
@@ -81,6 +89,14 @@ extension VILName: CustomStringConvertible {
     } else {
       return ""
     }
+  }
+
+}
+
+extension VILName: CustomReflectable {
+
+  public var customMirror: Mirror {
+    return Mirror(reflecting: String(describing: self))
   }
 
 }
