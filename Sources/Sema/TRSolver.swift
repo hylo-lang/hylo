@@ -58,7 +58,7 @@ struct TRSolver {
       let rhs = req.rhs.realize(unqualifiedFrom: useSite)
 
       // Skip the requirement if either of the types has an error; otherwise, unify them.
-      guard !lhs.hasErrors && !rhs.hasErrors else { continue }
+      guard !lhs[.hasErrors] && !rhs[.hasErrors] else { continue }
 
       let result = unify(lhs, rhs)
       switch result {
@@ -108,7 +108,7 @@ struct TRSolver {
       return unify(rhs, lhs)
 
     case (let lhs as TupleType, let rhs as TupleType):
-      guard lhs.hasTypeParams || rhs.hasTypeParams else {
+      guard lhs[.hasTypeParams] || rhs[.hasTypeParams] else {
         return lhs == rhs
           ? .success
           : .inequal
@@ -123,7 +123,7 @@ struct TRSolver {
       return .success
 
     case (let lhs as FunType, let rhs as FunType):
-      guard lhs.hasTypeParams || rhs.hasTypeParams else {
+      guard lhs[.hasTypeParams] || rhs[.hasTypeParams] else {
         return lhs == rhs
           ? .success
           : .inequal
@@ -131,12 +131,16 @@ struct TRSolver {
 
       guard lhs.params.count == rhs.params.count else { return .inequal }
       for (a, b) in zip(lhs.params, rhs.params) {
-        guard (a.label == b.label) && (a.policy == b.policy) else { return .inequal }
+        guard a.label == b.label else { return .inequal }
         let result = unify(a.type, b.type)
         guard result == .success else { return result }
       }
 
       return unify(lhs.retType, rhs.retType)
+
+    case (let lhs as FunParamType, let rhs as FunParamType):
+      guard lhs.policy == rhs.policy else { return .inequal }
+      return unify(lhs.rawType, rhs.rawType)
 
     default:
       // Unification failed.

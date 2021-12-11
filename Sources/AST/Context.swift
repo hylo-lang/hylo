@@ -191,7 +191,7 @@ public final class Context {
     return uniqued(FunType(context: self, params: params, retType: retType))
   }
 
-  public func funParamType(policy: PassingPolicy?, rawType: ValType) -> FunParamType {
+  public func funParamType(policy: PassingPolicy, rawType: ValType) -> FunParamType {
     return uniqued(FunParamType(policy: policy, rawType: rawType))
   }
 
@@ -261,11 +261,6 @@ public final class Context {
     return nil
   }
 
-  // Returns the type of an assignment operator for the specified built-in type.
-  public func getBuiltinAssignOperatorType(_ type: BuiltinType) -> FunType {
-    return funType(params: [FunType.Param(type: type), FunType.Param(type: type)], retType: type)
-  }
-
   /// Returns the declaration of the given built-in symbol.
   ///
   /// - Parameter name: A built-in name.
@@ -305,14 +300,14 @@ public final class Context {
     funDecl.props.insert(.isBuiltin)
 
     // Create the declaration(s) of the function's parameter.
-    var paramTypes: [FunType.Param] = []
+    var funTypeParams: [FunType.Param] = []
     for (i, param) in params.enumerated() {
       // Create the parameter's type.
-      let type = parse(typeNamed: param)
-      paramTypes.append(FunType.Param(type: type))
+      let rawType = parse(typeNamed: param)
+      funTypeParams.append(FunType.Param(policy: .consuming, rawType: rawType))
 
       // Create the declaration of the parameter.
-      let decl = FunParamDecl(name: "_\(i)", policy: .local, type: type)
+      let decl = FunParamDecl(name: "_\(i)", policy: .consuming, type: funTypeParams.last!.type)
       decl.parentDeclSpace = funDecl
       decl.setState(.typeChecked)
 
@@ -321,7 +316,7 @@ public final class Context {
 
     // Create the function's type.
     funDecl.type = funType(
-      params: paramTypes,
+      params: funTypeParams,
       retType: ret.isEmpty ? unitType : parse(typeNamed: ret))
     funDecl.setState(.typeChecked)
 

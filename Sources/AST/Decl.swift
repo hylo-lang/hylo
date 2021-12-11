@@ -451,6 +451,9 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
   /// Indicates whether the function is mutating its receiver.
   public var isMutating: Bool { props.contains(.isMutating) }
 
+  /// Indicates whether the function is consuming its receiver.
+  public var isConsuming: Bool { props.contains(.isConsuming) }
+
   /// Indicates whether the function is static.
   public var isStatic: Bool { props.contains(.isStatic) }
 
@@ -510,12 +513,13 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
   /// Returns the set of all declarations that are captured in the function's closure, explicitly
   /// or implicitly (i.e., without an explicit declaration in function's capture list).
   ///
-  /// - Parameter recompute: A flag that indicates whether to use cached results for, if available.
+  /// - Warning: This method identifies implicit captures using resolved declaration references; it
+  ///   will produce inaccurate results until type checking completes.
   ///
-  /// - Note: Implicit captures are identified using resolved declaration references only. Hence,
-  ///   this method should not be called before type checking is complete.
-  public func computeAllCaptures(recomputeImplicit: Bool = false) -> CaptureTable {
-    if let table = self.captureTable, !recomputeImplicit {
+  /// - Parameter useCache: A Boolean value that indicates whether the method should use its cache
+  ///   or recompute the set of implicit captures.
+  public func computeAllCaptures(useCache: Bool = false) -> CaptureTable {
+    if let table = self.captureTable, !useCache {
       return table
     }
 
@@ -539,7 +543,7 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
     return collector.table
   }
 
-  // MARK: Name Lookup
+  // MARK: Name lookup
 
   public var isOverloadable: Bool { true }
 
@@ -586,13 +590,13 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
   public var unappliedType: ValType {
     guard isMember else { return type }
 
+    let selfPolicy: PassingPolicy = isMutating
+      ? (isConsuming ? .consumingMutable : .inout)
+      : (isConsuming ? .consuming : .local)
+    let selfParam = FunType.Param(label: "self", policy: selfPolicy, rawType: selfDecl!.type)
+
     let funType = type as! FunType
-    var params = funType.params
-
-    let selfPolicy: PassingPolicy = isMutating ? .inout : .local
-    params.insert(FunType.Param(label: "self", policy: selfPolicy, type: selfDecl!.type), at: 0)
-
-    return type.context.funType(params: params, retType: funType.retType)
+    return type.context.funType(params: [selfParam] + funType.params, retType: funType.retType)
   }
 
   /// Realizes the "applied" type of the function from its signature.
@@ -603,10 +607,10 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
     if state >= .realized { return type }
 
     // Realize the parameters.
-    var paramTypes: [FunType.Param] = []
-    for param in params {
-      let ty = param.realize()
-      paramTypes.append(FunType.Param(label: param.externalName, policy: param.policy, type: ty))
+    var params: [FunType.Param] = []
+    for decl in self.params {
+      let rawType = decl.realize()
+      params.append(FunType.Param(label: decl.externalName, type: rawType))
     }
 
     // Realize the return type.
@@ -617,7 +621,7 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
       retType = type.context.unitType
     }
 
-    type = type.context.funType(params: paramTypes, retType: retType)
+    type = type.context.funType(params: params, retType: retType)
     setState(.realized)
     return type
   }
@@ -654,13 +658,13 @@ public final class CtorDecl: BaseFunDecl {
   public override func realize() -> ValType {
     if state >= .realized { return type }
 
-    var paramTypes: [FunType.Param] = []
-    for param in params {
-      let ty = param.realize()
-      paramTypes.append(FunType.Param(label: param.externalName, policy: param.policy, type: ty))
+    var params: [FunType.Param] = []
+    for decl in self.params {
+      let rawType = decl.realize()
+      params.append(FunType.Param(label: decl.externalName, type: rawType))
     }
 
-    type = type.context.funType(params: paramTypes, retType: selfDecl!.type)
+    type = type.context.funType(params: params, retType: selfDecl!.type)
     setState(.realized)
     return type
   }

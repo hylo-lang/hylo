@@ -85,10 +85,10 @@ public final class GenericEnv {
   }
 
   public init?(
-    space   : GenericDeclSpace,
-    params  : [GenericParamType],
+    space: GenericDeclSpace,
+    params: [GenericParamType],
     typeReqs: [TypeReq],
-    context : Context
+    context: Context
   ) {
     self.space = space
     self.params = params

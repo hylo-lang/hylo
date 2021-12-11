@@ -74,13 +74,13 @@ public enum TypeChecker {
     freeTypeVarSubstPolicy: FreeTypeVarSubstPolicy = .bindToErrorType
   ) -> Bool {
     var system = ConstraintSystem()
-    let (succeeded, _) = check(
+    let result = check(
       expr: &expr,
       fixedType: fixedType,
       useSite: useSite,
       system: &system,
       freeTypeVarSubstPolicy: freeTypeVarSubstPolicy)
-    return succeeded
+    return result.errors.isEmpty
   }
 
   /// Type checks the given expression.
@@ -100,7 +100,7 @@ public enum TypeChecker {
     useSite: DeclSpace,
     system: inout ConstraintSystem,
     freeTypeVarSubstPolicy: FreeTypeVarSubstPolicy = .bindToErrorType
-  ) -> (succeeded: Bool, solution: Solution) {
+  ) -> Solution {
     var success = withUnsafeMutablePointer(to: &system, { (ptr) -> Bool in
       // Pre-check the expression to resolve unqualified identifiers, realize type signatures and
       // desugar constructor calls.
@@ -119,14 +119,14 @@ public enum TypeChecker {
     let result = solver.solve()
 
     // Report type errors.
-    success = result.succeeded && success
-    result.solution.reportAllErrors(in: expr.type.context)
+    success = result.errors.isEmpty && success
+    result.reportAllErrors(in: expr.type.context)
 
     // Apply the solution.
-    var dispatcher = TypeDispatcher(solution: result.solution, substPolicy: freeTypeVarSubstPolicy)
+    var dispatcher = TypeDispatcher(solution: result, substPolicy: freeTypeVarSubstPolicy)
     (_, expr) = dispatcher.walk(expr: expr)
 
-    return (success, result.solution)
+    return result
   }
 
   /// Type checks the given pattern.
@@ -146,7 +146,7 @@ public enum TypeChecker {
     useSite: DeclSpace,
     system: inout ConstraintSystem,
     freeTypeVarSubstPolicy: FreeTypeVarSubstPolicy = .bindToErrorType
-  ) -> (succeeded: Bool, solution: Solution) {
+  ) -> Solution {
     // Generate constraints from the pattern.
     withUnsafeMutablePointer(to: &system, { ptr in
       var driver = ConstraintGenerator(system: ptr, useSite: useSite, fixedType: fixedType)
@@ -158,13 +158,13 @@ public enum TypeChecker {
     let result = solver.solve()
 
     // Report type errors.
-    result.solution.reportAllErrors(in: pattern.type.context)
+    result.reportAllErrors(in: pattern.type.context)
 
     // Apply the solution.
-    var dispatcher = TypeDispatcher(solution: result.solution, substPolicy: freeTypeVarSubstPolicy)
+    var dispatcher = TypeDispatcher(solution: result, substPolicy: freeTypeVarSubstPolicy)
     dispatcher.walk(pattern: pattern)
 
-    return result
+    return (result)
   }
 
   static func prepareGenericEnv(env: GenericEnv) -> Bool {
@@ -180,7 +180,7 @@ public enum TypeChecker {
       let rhs = req.rhs.realize(unqualifiedFrom: env.space)
 
       // Skip the requirement if either of the types has an error.
-      guard !lhs.hasErrors && !rhs.hasErrors else { continue }
+      guard !lhs[.hasErrors] && !rhs[.hasErrors] else { continue }
 
       switch req.kind {
       case .equality:
@@ -238,7 +238,7 @@ public enum TypeChecker {
         }
 
         // Assign the type of the declaration to its corresponding parameter.
-        paramDecl.type = varDecl.type
+        paramDecl.type = decl.type.context.funParamType(policy: .consuming, rawType: varDecl.type)
         paramDecl.setState(.typeChecked)
       }
 
@@ -261,7 +261,7 @@ public enum TypeChecker {
     }
 
     // If the declaration's type doesn't contain free parameters, we're done.
-    guard genericType.hasTypeParams else { return genericType }
+    guard genericType[.hasTypeParams] else { return genericType }
 
     // If the declaration is a generic environment, we have to contextualize its own parameters
     // externally, regardless of the use-site. That situation denotes a "fresh" reference to a
@@ -312,12 +312,12 @@ public enum TypeChecker {
   ) -> ValType? {
     // Realize the signature, generating diagnostics as necessary.
     var signType = sign.realize(unqualifiedFrom: useSite)
-    assert(!signType.hasUnresolved)
+    assert(!signType[.hasUnresolved])
 
     // Bail out if the signature is invalid.
-    guard !signType.hasErrors else { return nil }
+    guard !signType[.hasErrors] else { return nil }
 
-    if signType.hasTypeParams {
+    if signType[.hasTypeParams] {
       // The signature is generic; we have to contextualize its parameters. We can assume that
       // there's a declaration space from the use-site, otherwise `realize()` would have failed to
       // resolve the signature.

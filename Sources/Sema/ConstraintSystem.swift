@@ -9,7 +9,7 @@ struct ConstraintSystem {
   /// The stack of "stale" constraints, which can't be solved before new bindings are inferred.
   var staleConstraints: [Constraint] = []
 
-  /// Returns a copy of this constraint system, with the additional constraint.
+  /// Returns a copy of this constraint system with additional fresh constraint.
   func fork(inserting constraint: Constraint) -> ConstraintSystem {
     var newSystem = self
     newSystem.freshConstraints.append(constraint)

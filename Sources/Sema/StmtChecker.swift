@@ -12,9 +12,6 @@ struct StmtChecker: StmtVisitor {
   /// The policy to adopt for substituting free type variables.
   let freeVarSubstPolicy: FreeTypeVarSubstPolicy
 
-  /// The return statements that have been visited by the checker.
-  var retStmts: [RetStmt] = []
-
   mutating func visit(_ node: BraceStmt) -> Bool {
     let oldUseSite = useSite
     useSite = node
@@ -43,15 +40,13 @@ struct StmtChecker: StmtVisitor {
   }
 
   mutating func visit(_ node: RetStmt) -> Bool {
-    retStmts.append(node)
-
     // Use the return type of the function as the fixed type of the returned value.
     let funDecl = node.funDecl ?< fatalError("return statement outside of a function")
     assert(funDecl.state >= .realized)
     let funType = funDecl.type as! FunType
     var fixedRetType = funType.retType
 
-    if fixedRetType.hasTypeParams {
+    if fixedRetType[.hasTypeParams] {
       if let env = funDecl.prepareGenericEnv() {
         (fixedRetType, _) = env.contextualize(fixedRetType, from: useSite)
       } else {
@@ -68,10 +63,6 @@ struct StmtChecker: StmtVisitor {
     } else {
       return true
     }
-//    if (fixedRetType != context.unitType) && !(funDecl is CtorDecl) {
-//      // Complain that non-unit function should return a value.
-//      context.report(.missingReturnValue(range: node.range))
-//    }
   }
 
   func visit(_ node: MatchCaseStmt) -> Bool {

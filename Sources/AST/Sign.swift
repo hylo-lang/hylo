@@ -103,8 +103,8 @@ public final class FunSign: Sign {
 
   public func realize(unqualifiedFrom useSite: DeclSpace) -> ValType {
     let params = self.params.map({ (sign) -> FunType.Param in
-      let ty = sign.realize(unqualifiedFrom: useSite)
-      return FunType.Param(label: sign.label, policy: sign.policy, type: ty)
+      let type = sign.realize(unqualifiedFrom: useSite)
+      return FunType.Param(label: sign.label, type: type)
     })
     let retType = retSign.realize(unqualifiedFrom: useSite)
 
@@ -149,7 +149,8 @@ public final class FunParamSign: Sign {
   }
 
   public func realize(unqualifiedFrom useSite: DeclSpace) -> ValType {
-    type = rawSign.realize(unqualifiedFrom: useSite)
+    let rawType = rawSign.realize(unqualifiedFrom: useSite)
+    type = rawType.context.funParamType(policy: policy, rawType: rawType)
     return type
   }
 
@@ -388,29 +389,24 @@ extension IdentCompSign {
         type = member.instanceType
       }
 
-    case let parentType as GenericParamType:
-      guard let conformances = parentType.genericEnv?.conformances(of: parentType) else {
+    case is GenericParamType, is AssocType:
+      let candidates = parentType.lookup(typeMember: name)
+      if candidates.isEmpty {
         return fail(.cannotFind(type: name, in: parentType, range: range))
+      } else if candidates.count > 1 {
+        // We're here because the parent type is bound existentially by multiple views defining an
+        // abstract type type with the same name.
+        // FIXME: We should pick one decl and unify all conformances.
+        return fail(.ambiguousReference(to: name, range: range))
       }
 
-      var candidates: [AssocType] = []
-      for conf in conformances {
-        if let member = conf.viewDecl.typeMemberTable[name] {
-          let interface = member.instanceType as! GenericParamType
-          candidates.append(context.assocType(interface: interface, base: parentType))
-        }
-      }
-
-      if candidates.count != 1 {
-        return candidates.isEmpty
-          ? fail(.cannotFind(type: name, in: parentType, range: range))
-          : fail(.ambiguousReference(to: name, range: range))
-      }
+      let interface = candidates[0].instanceType as! GenericParamType
+      let memberType = context.assocType(interface: interface, base: parentType)
 
       if self is SpecializedIdentSign {
-        return fail(.cannotSpecializeNonGenericType(type: candidates[0], range: range))
+        return fail(.cannotSpecializeNonGenericType(type: memberType, range: range))
       } else {
-        type = candidates[0]
+        type = memberType
       }
 
     default:
@@ -547,7 +543,7 @@ public final class CompoundIdentSign: IdentSign {
     let context = type.context
 
     // Realize the base component, unqualified.
-    let baseType = components[0].realize(unqualifiedFrom: useSite)
+    var baseType = components[0].realize(unqualifiedFrom: useSite)
     guard !baseType.isError else {
       // The diagnostic is emitted by the failed attempt to realize the base.
       components.forEach({ $0.type = context.errorType })
@@ -573,16 +569,15 @@ public final class CompoundIdentSign: IdentSign {
       return builtinType
     }
 
-    var parentType = baseType
     for i in 1 ..< components.count {
-      parentType = components[i].realize(in: parentType, from: useSite)
-      guard parentType !== context.errorType else {
+      baseType = components[i].realize(in: baseType, from: useSite)
+      guard baseType !== context.errorType else {
         components[i...].forEach({ $0.type = context.errorType })
         return context.errorType
       }
     }
 
-    return parentType
+    return baseType
   }
 
   public func accept<V>(_ visitor: inout V) -> V.SignResult where V: SignVisitor {

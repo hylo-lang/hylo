@@ -21,6 +21,8 @@ struct Solution {
   /// The score of a solution.
   struct Score: RawRepresentable, Comparable {
 
+    let rawValue: UInt64
+
     init(rawValue: UInt64) {
       self.rawValue = rawValue
     }
@@ -30,8 +32,6 @@ struct Solution {
         (UInt64(UInt32(truncatingIfNeeded: penalities))) |
         (UInt64(UInt32(truncatingIfNeeded: errorCount)) << 32)
     }
-
-    let rawValue: UInt64
 
     static func < (lhs: Score, rhs: Score) -> Bool {
       return lhs.rawValue < rhs.rawValue
@@ -67,7 +67,7 @@ struct Solution {
     _ type: ValType,
     substPolicy: FreeTypeVarSubstPolicy
   ) -> ValType {
-    guard type.hasVariables else { return type }
+    guard type[.hasVariables] else { return type }
 
     switch type {
     case let type as KindType:
@@ -104,6 +104,12 @@ struct Solution {
           retType: reify(type.retType, substPolicy: substPolicy))
         .canonical
 
+    case let type as FunParamType:
+      return type.context
+        .funParamType(
+          policy: type.policy,
+          rawType: reify(type.rawType, substPolicy: substPolicy))
+
     case let type as AsyncType:
       return type.context
         .asyncType(of: reify(type.base, substPolicy: substPolicy))
@@ -115,8 +121,8 @@ struct Solution {
 
       // The variable is free in this solution. Apply the specified policy.
       switch substPolicy {
-      case .bindToErrorType : return type.context.errorType
-      case .keep            : return type
+      case .bindToErrorType: return type.context.errorType
+      case .keep: return type
       }
 
     default:
@@ -187,7 +193,7 @@ struct Solution {
   }
 
   private func describe(_ type: ValType) -> String {
-    if type.isCanonical {
+    if type[.isCanonical] {
       return "'\(type)'"
     } else if let type = type as? UnionType {
       let elems = type.elems.map({ String(describing: $0.canonical) }).joined(separator: " | ")
@@ -195,6 +201,20 @@ struct Solution {
     } else {
       return "'\(type)' (i.e., '\(type.canonical)')"
     }
+  }
+
+}
+
+extension Solution.Score: CustomReflectable {
+
+  var customMirror: Mirror {
+    return Mirror(
+      self,
+      children: [
+        "penalities": UInt32(truncatingIfNeeded: rawValue),
+        "errorCount": UInt32(truncatingIfNeeded: rawValue >> 32),
+      ],
+      displayStyle: .struct)
   }
 
 }

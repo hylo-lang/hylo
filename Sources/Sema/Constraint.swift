@@ -1,4 +1,5 @@
 import AST
+import Basic
 
 /// A type constraint.
 ///
@@ -18,32 +19,7 @@ protocol Constraint {
 }
 
 /// A relational type constraint `T ◇ U`, which relates two types.
-struct RelationalConstraint: Constraint, CustomStringConvertible {
-
-  init(kind: Kind, lhs: ValType, rhs: ValType, at locator: ConstraintLocator) {
-    assert(!lhs.isUnresolved && !rhs.isUnresolved)
-    assert(kind != .conformance || rhs is ViewType)
-    assert(kind != .conversion  || rhs is BuiltinLiteral)
-
-    self.kind = kind
-    self.lhs = lhs
-    self.rhs = rhs
-    self.locator = locator
-  }
-
-  /// Creates a type constraint from prototype returned by generic environments.
-  ///
-  /// - Parameters:
-  ///   - prototype: The prototype of a constraint on an opened generic parameter.
-  ///   - locator: A locator for the constraint.
-  init(prototype: GenericEnv.ConstraintPrototype, at locator: ConstraintLocator) {
-    switch prototype.kind {
-    case .equality:
-      self.init(kind: .equality, lhs: prototype.lhs, rhs: prototype.rhs, at: locator)
-    case .conformance:
-      self.init(kind: .conformance, lhs: prototype.lhs, rhs: prototype.rhs, at: locator)
-    }
-  }
+struct RelationalConstraint: Constraint {
 
   /// A kind of relational constraint.
   enum Kind: Int {
@@ -81,22 +57,51 @@ struct RelationalConstraint: Constraint, CustomStringConvertible {
 
   }
 
+  var locator: ConstraintLocator
+
   /// The kind of relation described by the constraint.
-  let kind: Kind
+  var kind: Kind
 
   /// A type.
-  let lhs: ValType
+  var lhs: ValType
 
   /// Another type.
-  let rhs: ValType
+  var rhs: ValType
 
-  let locator: ConstraintLocator
+  init(kind: Kind, lhs: ValType, rhs: ValType, at locator: ConstraintLocator) {
+    assert(!lhs.isUnresolved && !rhs.isUnresolved)
+    assert(kind != .conformance || rhs is ViewType)
+    assert(kind != .conversion  || rhs is BuiltinLiteral)
+
+    self.kind = kind
+    self.lhs = lhs
+    self.rhs = rhs
+    self.locator = locator
+  }
+
+  /// Creates a type constraint from prototype returned by generic environments.
+  ///
+  /// - Parameters:
+  ///   - prototype: The prototype of a constraint on an opened generic parameter.
+  ///   - locator: A locator for the constraint.
+  init(prototype: GenericEnv.ConstraintPrototype, at locator: ConstraintLocator) {
+    switch prototype.kind {
+    case .equality:
+      self.init(kind: .equality, lhs: prototype.lhs, rhs: prototype.rhs, at: locator)
+    case .conformance:
+      self.init(kind: .conformance, lhs: prototype.lhs, rhs: prototype.rhs, at: locator)
+    }
+  }
 
   var precedence: Int { kind.rawValue }
 
   func depends(on tau: TypeVar) -> Bool {
     return (lhs === tau) || (rhs === tau)
   }
+
+}
+
+extension RelationalConstraint: CustomStringConvertible {
 
   var description: String {
     switch kind {
@@ -117,7 +122,18 @@ struct RelationalConstraint: Constraint, CustomStringConvertible {
 /// to a particular overloaded declaration `Di`.
 ///
 /// This typically results from a reference to an overloaded symbol.
-struct OverloadBindingConstraint: Constraint, CustomStringConvertible {
+struct OverloadBindingConstraint: Constraint {
+
+  var locator: ConstraintLocator
+
+  /// A type.
+  var type: ValType
+
+  /// A set of declaration to which `type` may bind.
+  var declSet: [ValueDecl]
+
+  /// The declaration space from which the declaration is being referred.
+  var useSite: DeclSpace
 
   init(
     _ type: ValType,
@@ -131,22 +147,15 @@ struct OverloadBindingConstraint: Constraint, CustomStringConvertible {
     self.locator = locator
   }
 
-  /// A type.
-  let type: ValType
-
-  /// A set of declaration to which `type` may bind.
-  let declSet: [ValueDecl]
-
-  /// The declaration space from which the declaration is being referred.
-  let useSite: DeclSpace
-
-  let locator: ConstraintLocator
-
   var precedence: Int { 1000 }
 
   func depends(on tau: TypeVar) -> Bool {
     return type === tau
   }
+
+}
+
+extension OverloadBindingConstraint: CustomStringConvertible {
 
   var description: String {
     let decls = declSet
@@ -158,7 +167,21 @@ struct OverloadBindingConstraint: Constraint, CustomStringConvertible {
 }
 
 /// A constraint `T[.x] == U` specifying that `T` has a value member `x` with type `U`.
-struct ValueMemberConstraint: Constraint, CustomStringConvertible {
+struct ValueMemberConstraint: Constraint {
+
+  var locator: ConstraintLocator
+
+  /// A type.
+  var lhs: ValType
+
+  /// A member name.
+  var memberName: String
+
+  /// Another type.
+  var rhs: ValType
+
+  /// The declaration space from which the declaration is being referred.
+  var useSite: DeclSpace
 
   init(
     _ lhs: ValType,
@@ -176,32 +199,33 @@ struct ValueMemberConstraint: Constraint, CustomStringConvertible {
     self.locator = locator
   }
 
-  /// A type.
-  let lhs: ValType
-
-  /// A member name.
-  let memberName: String
-
-  /// Another type.
-  let rhs: ValType
-
-  /// The declaration space from which the declaration is being referred.
-  let useSite: DeclSpace
-
-  let locator: ConstraintLocator
-
   var precedence: Int { 10 }
 
   func depends(on tau: TypeVar) -> Bool {
     return (lhs === tau) || (rhs === tau)
   }
 
+}
+
+extension ValueMemberConstraint: CustomStringConvertible {
+
   var description: String { "\(lhs)[.\(memberName)] == \(rhs)" }
 
 }
 
 /// A constraint `T[.i] == U` specifying that `T` is a tuple whose `i`-th element has type `U`.
-struct TupleMemberConstraint: Constraint, CustomStringConvertible {
+struct TupleMemberConstraint: Constraint {
+
+  var locator: ConstraintLocator
+
+  /// A type.
+  var lhs: ValType
+
+  /// A member index.
+  var memberIndex: Int
+
+  /// Another type.
+  var rhs: ValType
 
   init(
     _ lhs: ValType,
@@ -217,37 +241,30 @@ struct TupleMemberConstraint: Constraint, CustomStringConvertible {
     self.locator = locator
   }
 
-  /// A type.
-  let lhs: ValType
-
-  /// A member index.
-  let memberIndex: Int
-
-  /// Another type.
-  let rhs: ValType
-
-  let locator: ConstraintLocator
-
   var precedence: Int { 10 }
 
   func depends(on tau: TypeVar) -> Bool {
     return (lhs === tau) || (rhs === tau)
   }
 
+}
+
+extension TupleMemberConstraint: CustomStringConvertible {
+
   var description: String { "\(lhs)[.\(memberIndex)] == \(rhs)" }
 
 }
 
 /// A disjunction of two or more constraints.
-struct DisjunctionConstraint: Constraint, CustomStringConvertible {
+struct DisjunctionConstraint: Constraint {
 
   typealias Element = (constraint: Constraint, weight: Int)
+
+  var elements: [Element]
 
   init<S>(_ elements: S) where S: Sequence, S.Element == Element {
     self.elements = Array(elements)
   }
-
-  let elements: [Element]
 
   var locator: ConstraintLocator { elements[0].constraint.locator }
 
@@ -256,6 +273,10 @@ struct DisjunctionConstraint: Constraint, CustomStringConvertible {
   func depends(on tau: TypeVar) -> Bool {
     return elements.contains(where: { elem in elem.constraint.depends(on: tau) })
   }
+
+}
+
+extension DisjunctionConstraint: CustomStringConvertible {
 
   var description: String {
     let elems = elements.map({ (elem) -> String in

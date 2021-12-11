@@ -7,6 +7,8 @@ enum TypeError {
 
   case conflictingLabels(RelationalConstraint)
 
+  case conflictingPolicies(RelationalConstraint)
+
   case nonSubtype(RelationalConstraint)
 
   case nonConformingType(RelationalConstraint)
@@ -19,19 +21,20 @@ enum TypeError {
 
   case multipleOverloads(OverloadBindingConstraint, [ValueDecl])
 
-  case staleConstraints([Constraint])
+  case unsolvedConstraints([Constraint])
 
   var constraint: Constraint {
     switch self {
     case .conflictingTypes    (let c)   : return c
     case .conflictingLabels   (let c)   : return c
+    case .conflictingPolicies (let c)   : return c
     case .nonSubtype          (let c)   : return c
     case .nonConformingType   (let c)   : return c
     case .nonExistentProperty (let c)   : return c
     case .ambiguousConstraint (let c)   : return c
     case .noViableOverload    (let c)   : return c
     case .multipleOverloads   (let c, _): return c
-    case .staleConstraints    (let cs)  : return cs.first!
+    case .unsolvedConstraints (let cs)  : return cs.first!
     }
   }
 

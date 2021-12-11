@@ -55,14 +55,17 @@ public enum ConstraintPathComponent: Hashable {
   /// The type annotation of a value declaration.
   case annotation
 
-  /// The expression being assigned in a value binding.
-  case assignment
-
   /// A function application.
   case application
 
-  /// A function parameter.
-  case parameter
+  /// The i-th argument of a function call.
+  case argument(Int)
+
+  /// The expression being assigned in a value binding.
+  case assignment
+
+  /// The i-th parameter of a function type.
+  case parameter(Int)
 
   /// The return type of a function declaration.
   case returnType
@@ -70,17 +73,14 @@ public enum ConstraintPathComponent: Hashable {
   /// The value of a return statement.
   case returnValue
 
-  /// The member of a value expression.
-  case valueMember(String)
-
   /// The i-th element of tuple expression.
   case tupleElem(Int)
 
   /// The i-th element of a tuple type.
   case typeTupleElem(Int)
 
-  /// The i-th argument of a function call.
-  case argument(Int)
+  /// The member of a value expression.
+  case valueMember(String)
 
   fileprivate func resolve(from base: Node) -> Node? {
     switch self {
