@@ -53,7 +53,7 @@ public struct VILType {
     switch param.policy {
     case .local, .inout, nil:
       return ptype.address
-    case .consuming, .consumingMutable:
+    case .consuming:
       return ptype
     }
   }

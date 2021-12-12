@@ -590,9 +590,10 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
   public var unappliedType: ValType {
     guard isMember else { return type }
 
-    let selfPolicy: PassingPolicy = isMutating
-      ? (isConsuming ? .consumingMutable : .inout)
-      : (isConsuming ? .consuming : .local)
+    assert(!isConsuming || !isMutating)
+    let selfPolicy: PassingPolicy = isConsuming
+      ? .consuming
+      : (isMutating ? .inout : .local)
     let selfParam = FunType.Param(label: "self", policy: selfPolicy, rawType: selfDecl!.type)
 
     let funType = type as! FunType

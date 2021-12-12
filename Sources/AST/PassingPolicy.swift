@@ -10,7 +10,4 @@ public enum PassingPolicy {
   /// An immutable value whose ownership has been transferred from the caller to the callee.
   case consuming
 
-  /// A mutable value whose ownership has been transferred from the caller to the callee.
-  case consumingMutable
-
 }

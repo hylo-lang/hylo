@@ -304,7 +304,7 @@ struct RValueEmitter: ExprVisitor {
           isMutable: true, source: source, range: node.args[i].range, at: state.ip)
         args.append(Operand(borrow))
 
-      case .consuming, .consumingMutable:
+      case .consuming:
         // Consuming parameters are passed by value.
         args.append(emit(rvalue: node.args[i].value))
       }
@@ -321,7 +321,7 @@ struct RValueEmitter: ExprVisitor {
             range: node.args[i].value.range,
             at: state.ip))
 
-        case .consuming, .consumingMutable:
+        case .consuming:
           let alloc = module.insertAllocStack(
             allocType: module.type(of: callee).paramType(at: i), at: state.ip)
           allocs.append(alloc)

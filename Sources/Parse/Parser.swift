@@ -422,7 +422,7 @@ public struct Parser {
         }
         return true
 
-      case .mut, .infix, .prefix, .postfix:
+      case .consuming, .mut, .infix, .prefix, .postfix:
         guard introducer.kind == .fun,
               state.flags & .isParsingTypeBody,
               !parsedModifiers.contains(where: { $0.kind == .static })
@@ -433,6 +433,15 @@ public struct Parser {
           state.hasError = true
           return false
         }
+
+        if modifier.kind == .mut {
+          guard !parsedModifiers.contains(where: { $0.kind == .consuming }) else {
+            context.report("consuming member function cannot be mutating", anchor: modifier.range)
+            state.hasError = true
+            return false
+          }
+        }
+
         return true
 
       case .static where introducer.kind == .fun:
@@ -1977,8 +1986,8 @@ public struct Parser {
         continue
       }
 
-      // To avoid ambuiguities, we require that 'volatile' must immediately preceeds a function
-      // signature whose domain is enclosed in parentheses.
+      // To avoid ambuiguities, 'volatile' must immediately preceed a function signature whose
+      // domain is enclosed in parentheses.
       if token.kind == .volatile {
         if state.peek()?.kind != .lParen {
           context.report(
@@ -2052,7 +2061,8 @@ public struct Parser {
       } else if modifiers[.mut] == nil {
         policy = .consuming
       } else {
-        policy = .consumingMutable
+        context.report("consuming parameter cannot be mutating", anchor: modifiers[.mut]!.range)
+        policy = .consuming
       }
       base = FunParamSign(policy: policy, rawSign: base, type: unresolved, range: base.range)
     }

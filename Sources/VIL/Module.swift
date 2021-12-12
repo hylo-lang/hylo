@@ -146,14 +146,10 @@ public struct Module {
       let extra = captureTable.map({ (_, value) -> FunType.Param in
         // Captures with mutable semantics are represented by in-out parameters.
         switch value.semantics {
-        case .val:
-          // Immutable captures are consuming to leave the closure independent.
+        case .val, .var:
+          // Mutable and immutable captures are consuming to leave the closure independent.
           // FIXME: We could relax this constraint if we can guarantee that the closure is local.
           return FunType.Param(policy: .consuming, rawType: value.type)
-
-        case .var:
-          // Mutable captures are consuming mutable.
-          return FunType.Param(policy: .consumingMutable, rawType: value.type)
 
         case .mut:
           // Borrowed captures are inout.

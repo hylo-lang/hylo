@@ -141,7 +141,7 @@ public enum Emitter {
       switch param.policy! {
       case .local, .inout:
         return ty.address
-      case .consuming, .consumingMutable:
+      case .consuming:
         return ty
       }
     })
