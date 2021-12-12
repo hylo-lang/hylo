@@ -149,7 +149,7 @@ public enum Emitter {
     // Create the function's entry block.
     let entry = module.insertBasicBlock(paramTypes: paramTypes, in: fun.name, isEntry: true)
     var params = module.blocks[entry].params
-    var state = State(funDecl: decl, funName: fun.name, ip: .atEndOf(entry))
+    var state = State(funDecl: decl, funName: fun.name, ip: .endOf(entry))
 
     // If the function has a declaration for `self`, it must be either a method or a constructor.
     // In both cases, we must register the receiver in the local symbol table.
@@ -163,7 +163,7 @@ public enum Emitter {
         // Constructors should allocate `self`.
         assert(decl is CtorDecl)
         let alloc = module.insertAllocStack(
-          allocType: .lower(selfType), isReceiver: true, state.ip)
+          allocType: .lower(selfType), isReceiver: true, at: state.ip)
         state.locals[ObjectIdentifier(selfDecl)] = Operand(alloc)
       }
     }
@@ -188,21 +188,21 @@ public enum Emitter {
     if decl is CtorDecl {
       // If the function's a constructor, emit the implicit return statement.
       let alloc = state.locals[ObjectIdentifier(decl.selfDecl!)]!
-      let value = module.insertLoad(source: alloc, state.ip)
-      module.insertDeallocStack(alloc: alloc, state.ip)
-      module.insertRet(value: Operand(value), state.ip)
+      let value = module.insertLoad(source: alloc, at: state.ip)
+      module.insertDeallocStack(alloc: alloc, at: state.ip)
+      module.insertRet(value: Operand(value), at: state.ip)
     } else {
       let funType = decl.type as! FunType
 
       switch funType.retType {
       case funType.context.nothingType:
         // If the function never returns, emit a halt statement.
-        module.insertHalt(state.ip)
+        module.insertHalt(at: state.ip)
 
       case funType.context.unitType:
         // The function returns "unit".
         let unit = UnitValue(context: module.context)
-        module.insertRet(value: Operand(unit), state.ip)
+        module.insertRet(value: Operand(unit), at: state.ip)
 
       default:
         break
@@ -227,14 +227,14 @@ public enum Emitter {
           record: alloc,
           memberDecl: varDecl,
           type: .lower(varDecl.type).address,
-          state.ip)
+          at: state.ip)
         let value = state.locals[ObjectIdentifier(paramDecl)]!
-        module.insertStore(value, to: Operand(memberAddr), state.ip)
+        module.insertStore(value, to: Operand(memberAddr), at: state.ip)
       }
 
-      let value = module.insertLoad(source: alloc, state.ip)
-      module.insertDeallocStack(alloc: alloc, state.ip)
-      module.insertRet(value: Operand(value), state.ip)
+      let value = module.insertLoad(source: alloc, at: state.ip)
+      module.insertDeallocStack(alloc: alloc, at: state.ip)
+      module.insertRet(value: Operand(value), at: state.ip)
 
     default:
       preconditionFailure("unexpected synthesized declaration '\(decl.name)'")
@@ -273,7 +273,7 @@ public enum Emitter {
         isMutable: impl.isMutating,
         container: args[0],
         type: .lower(openedSelfType),
-        .atEndOf(entry))
+        at: .endOf(entry))
       args[0] = Operand(openedSelf)
     }
 
@@ -281,8 +281,8 @@ public enum Emitter {
     let value = module.insertApply(
       callee: Operand(FunRef(function: openedFun)),
       args: args,
-      .atEndOf(entry))
-    module.insertRet(value: Operand(value), .atEndOf(entry))
+      at: .endOf(entry))
+    module.insertRet(value: Operand(value), at: .endOf(entry))
 
     return fun
   }
@@ -318,7 +318,7 @@ public enum Emitter {
           isMutable: false,
           source: source,
           range: initializer.range,
-          state.ip)
+          at: state.ip)
         state.locals[ObjectIdentifier(patterns[0])] = Operand(loc)
         return
       }
@@ -347,7 +347,7 @@ public enum Emitter {
     assert(decl.state == .typeChecked)
 
     // Allocate storage on the stack for the variable.
-    let alloc = module.insertAllocStack(allocType: .lower(decl.type), decl: decl, state.ip)
+    let alloc = module.insertAllocStack(allocType: .lower(decl.type), decl: decl, at: state.ip)
     state.allocs.append(alloc)
     return alloc
   }
@@ -378,13 +378,13 @@ public enum Emitter {
         // Local function with capture declarations require stack allocation.
         if !partialArgs.isEmpty {
           let fun = FunRef(function: module.getOrCreateFunction(from: decl))
-          let loc = module.insertAllocStack(allocType: .lower(decl.type), decl: decl, state.ip)
+          let loc = module.insertAllocStack(allocType: .lower(decl.type), decl: decl, at: state.ip)
           state.locals[ObjectIdentifier(decl)] = Operand(loc)
           state.allocs.append(loc)
 
           let partial = module.insertPartialApply(
-            delegator: Operand(fun), partialArgs: partialArgs, state.ip)
-          module.insertStore(Operand(partial), to: Operand(loc), range: decl.range, state.ip)
+            delegator: Operand(fun), partialArgs: partialArgs, at: state.ip)
+          module.insertStore(Operand(partial), to: Operand(loc), range: decl.range, at: state.ip)
         }
 
       case let decl as NominalTypeDecl:
@@ -412,7 +412,7 @@ public enum Emitter {
 
     // Deallocate the `alloc_stack`s in scope.
     while let alloc = state.allocs.popLast() {
-      module.insertDeallocStack(alloc: Operand(alloc), state.ip)
+      module.insertDeallocStack(alloc: Operand(alloc), at: state.ip)
     }
   }
 
@@ -427,7 +427,7 @@ public enum Emitter {
     } else {
       result = Operand(UnitValue(context: module.context))
     }
-    module.insertRet(value: result, range: stmt.range, state.ip)
+    module.insertRet(value: result, range: stmt.range, at: state.ip)
   }
 
   /// Emits the assignment of `rvalue` to `target`.
@@ -443,10 +443,10 @@ public enum Emitter {
     let rhsType = module.type(of: rvalue)
     let lhsType = module.type(of: target)
     if lhsType.isExistential && !rhsType.isExistential {
-      module.insertInitExistAddr(container: target, value: rvalue, range: range, state.ip)
+      module.insertInitExistAddr(container: target, value: rvalue, range: range, at: state.ip)
     } else {
       assert(!lhsType.isExistential || rhsType.isExistential)
-      module.insertStore(rvalue, to: target, range: range, state.ip)
+      module.insertStore(rvalue, to: target, range: range, at: state.ip)
     }
   }
 
@@ -507,10 +507,10 @@ public enum Emitter {
     } else {
       let val = emit(rvalue: expr, state: &state, into: &module)
       let alloc = module.insertAllocStack(
-        allocType: .lower(expr.type), range: expr.range, state.ip)
+        allocType: .lower(expr.type), range: expr.range, at: state.ip)
 
       state.allocs.append(alloc)
-      module.insertStore(val, to: Operand(alloc), range: expr.range, state.ip)
+      module.insertStore(val, to: Operand(alloc), range: expr.range, at: state.ip)
       return Operand(alloc)
     }
   }

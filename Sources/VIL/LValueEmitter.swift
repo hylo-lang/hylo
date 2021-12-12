@@ -144,12 +144,12 @@ struct LValueEmitter: ExprVisitor {
         case is ProductType:
           // The member refers to a stored property of a concrete product type.
           let memberAddr = module.insertRecordMemberAddr(
-            record: loc, memberDecl: decl, type: VILType.lower(node.type).address, state.ip)
+            record: loc, memberDecl: decl, type: VILType.lower(node.type).address, at: state.ip)
           return .success(Operand(memberAddr))
 
         case let bgType as BoundGenericType where bgType.decl.instanceType is ProductType:
           let memberAddr = module.insertRecordMemberAddr(
-            record: loc, memberDecl: decl, type: VILType.lower(node.type).address, state.ip)
+            record: loc, memberDecl: decl, type: VILType.lower(node.type).address, at: state.ip)
           return .success(Operand(memberAddr))
 
         default:

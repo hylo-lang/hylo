@@ -173,10 +173,10 @@ public struct Module {
   /// Builds a `nil` value.
   public mutating func buildNil(
     range: SourceRange? = nil,
-    _ point: InsertionPoint
+    at point: InsertionPoint
   ) -> InstIndex {
     let decl = context.getTypeDecl(for: .Nil) as! ProductTypeDecl
-    return insertRecord(typeDecl: decl, type: .lower(decl.instanceType), range: range, point)
+    return insertRecord(typeDecl: decl, type: .lower(decl.instanceType), range: range, at: point)
   }
 
   // MARK: Instruction builders
@@ -186,43 +186,43 @@ public struct Module {
     isReceiver: Bool = false,
     decl: ValueDecl? = nil,
     range: SourceRange? = nil,
-    _ point: InsertionPoint
+    at point: InsertionPoint
   ) -> InstIndex {
     assert(allocType.isObject, "'allocatedType' must be an object type")
 
     let inst = AllocStackInst(
       allocType: allocType, isReceiver: isReceiver, decl: decl, range: range)
-    return insert(inst: inst, point)
+    return insert(inst: inst, at: point)
   }
 
   public mutating func insertApply(
     callee: Operand,
     args: [Operand],
     range: SourceRange? = nil,
-    _ point: InsertionPoint
+    at point: InsertionPoint
   ) -> InstIndex {
     assert(type(of: callee).valType is FunType, "'callee' must have a function type")
     assert(type(of: callee).isAddress, "'callee' must have an address type")
 
     let inst = ApplyInst(
       callee: callee, args: args, type: type(of: callee).retType!, range: range)
-    return insert(inst: inst, point)
+    return insert(inst: inst, at: point)
   }
 
   public mutating func insertAsync(
     ref: FunRef,
     captures: [Operand],
     range: SourceRange? = nil,
-    _ point: InsertionPoint
+    at point: InsertionPoint
   ) -> InstIndex {
     let inst = AsyncInst(ref: ref, captures: captures, range: range)
-    return insert(inst: inst, point)
+    return insert(inst: inst, at: point)
   }
 
   public mutating func insertAwait(
     value: Operand,
     range: SourceRange? = nil,
-    _ point: InsertionPoint
+    at point: InsertionPoint
   ) -> InstIndex {
     assert(type(of: value).isObject, "'value' must have an object type")
     assert(type(of: value).valType is AsyncType, "'value' must have an asynchronous type")
@@ -231,14 +231,14 @@ public struct Module {
       value: value,
       type: .lower((type(of: value).valType as! AsyncType).base),
       range: range)
-    return insert(inst: inst, point)
+    return insert(inst: inst, at: point)
   }
 
   public mutating func insertBorrowAddr(
     isMutable: Bool = false,
     source: Operand,
     range: SourceRange? = nil,
-    _ point: InsertionPoint
+    at point: InsertionPoint
   ) -> InstIndex {
     assert(type(of: source).isAddress, "'source' must have an address type")
 
@@ -247,7 +247,7 @@ public struct Module {
       source: source,
       type: type(of: source),
       range: range)
-    return insert(inst: inst, point)
+    return insert(inst: inst, at: point)
   }
 
   public mutating func insertBorrowExistAddr(
@@ -255,14 +255,14 @@ public struct Module {
     container: Operand,
     type: VILType,
     range: SourceRange? = nil,
-    _ point: InsertionPoint
+    at point: InsertionPoint
   ) -> InstIndex {
     assert(self.type(of: container).isAddress, "'source' must have an address type")
     assert(type.isAddress, "'type' must be an address type")
 
     let inst = BorrowExistAddrInst(
       isMutable: isMutable, container: container, type: type, range: range)
-    return insert(inst: inst, point)
+    return insert(inst: inst, at: point)
   }
 
   @discardableResult
@@ -273,7 +273,7 @@ public struct Module {
     succ: BasicBlockIndex,
     fail: BasicBlockIndex,
     range: SourceRange? = nil,
-    _ point: InsertionPoint
+    at point: InsertionPoint
   ) -> InstIndex {
     assert(self.type(of: container).isAddress, "'container' must have an address type")
     assert(type.isAddress, "'type' must be an address type")
@@ -285,7 +285,7 @@ public struct Module {
       succ: succ,
       fail: fail,
       range: range)
-    return insert(inst: inst, point)
+    return insert(inst: inst, at: point)
   }
 
   @discardableResult
@@ -293,22 +293,22 @@ public struct Module {
     dest: BasicBlockIndex,
     args: [Operand] = [],
     range: SourceRange? = nil,
-    _ point: InsertionPoint
+    at point: InsertionPoint
   ) -> InstIndex {
     let inst = BranchInst(dest: dest, args: args, range: range)
-    return insert(inst: inst, point)
+    return insert(inst: inst, at: point)
   }
 
   public mutating func insertCheckedCast(
     value: Operand,
     type: VILType,
     range: SourceRange? = nil,
-    _ point: InsertionPoint
+    at point: InsertionPoint
   ) -> InstIndex {
     assert(self.type(of: value).isObject, "'value' must have an object type")
 
     let inst = CheckedCastInst(value: value, type: type, range: range)
-    return insert(inst: inst, point)
+    return insert(inst: inst, at: point)
   }
 
   @discardableResult
@@ -318,14 +318,14 @@ public struct Module {
     succ: BasicBlockIndex,
     fail: BasicBlockIndex,
     range: SourceRange? = nil,
-    _ point: InsertionPoint
+    at point: InsertionPoint
   ) -> InstIndex {
     assert(self.type(of: value).isObject, "'value' must have an object type")
     assert(type.isObject, "'type' must be an object type")
 
     let inst = CheckedCastBranchInst(
       value: value, type: type, succ: succ, fail: fail, range: range)
-    return insert(inst: inst, point)
+    return insert(inst: inst, at: point)
   }
 
   @discardableResult
@@ -334,63 +334,63 @@ public struct Module {
     succ: BasicBlockIndex, succArgs: [Operand],
     fail: BasicBlockIndex, failArgs: [Operand],
     range: SourceRange? = nil,
-    _ point: InsertionPoint
+    at point: InsertionPoint
   ) -> InstIndex {
     assert(type(of: cond).isObject, "'cond' must have an object type")
 
     let inst = CondBranchInst(
       cond: cond, succ: succ, succArgs: succArgs, fail: fail, failArgs: failArgs, range: range)
-    return insert(inst: inst, point)
+    return insert(inst: inst, at: point)
   }
 
   @discardableResult
   public mutating func insertCondFail(
     cond: Operand,
     range: SourceRange? = nil,
-    _ point: InsertionPoint
+    at point: InsertionPoint
   ) -> InstIndex {
     assert(type(of: cond).isObject, "'cond' must have an object type")
 
     let inst = CondFail(cond: cond, range: range)
-    return insert(inst: inst, point)
+    return insert(inst: inst, at: point)
   }
 
   @discardableResult
   public mutating func insertDeallocStack(
     alloc: Operand,
     range: SourceRange? = nil,
-    _ point: InsertionPoint
+    at point: InsertionPoint
   ) -> InstIndex {
     assert(
       alloc.inst.map({ instructions[$0] }) is AllocStackInst,
       "'alloc' must be an 'alloc_stack' instruction")
 
     let inst = DeallocStackInst(alloc: alloc, range: range)
-    return insert(inst: inst, point)
+    return insert(inst: inst, at: point)
   }
 
   @discardableResult
   public mutating func insertDelete(
     value: Operand,
     range: SourceRange? = nil,
-    _ point: InsertionPoint
+    at point: InsertionPoint
   ) -> InstIndex {
     assert(type(of: value).isObject, "'value' must have an object type")
 
     let inst = DeleteInst(value: value, range: range)
-    return insert(inst: inst, point)
+    return insert(inst: inst, at: point)
   }
 
   @discardableResult
   public mutating func insertDeleteAddr(
     target: Operand,
     range: SourceRange? = nil,
-    _ point: InsertionPoint
+    at point: InsertionPoint
   ) -> InstIndex {
     assert(type(of: target).isAddress, "'target' must have an address type")
 
     let inst = DeleteAddrInst(target: target, range: range)
-    return insert(inst: inst, point)
+    return insert(inst: inst, at: point)
   }
 
   @discardableResult
@@ -398,33 +398,33 @@ public struct Module {
     container: Operand,
     value: Operand,
     range: SourceRange? = nil,
-    _ point: InsertionPoint
+    at point: InsertionPoint
   ) -> InstIndex {
     assert(type(of: container).isAddress, "'container' must have an address type")
     assert(type(of: value).isObject, "'value' must have an object type")
 
     let inst = InitExistAddrInst(container: container, value: value, range: range)
-    return insert(inst: inst, point)
+    return insert(inst: inst, at: point)
   }
 
   @discardableResult
   public mutating func insertHalt(
     range: SourceRange? = nil,
-    _ point: InsertionPoint
+    at point: InsertionPoint
   ) -> InstIndex {
     let inst = HaltInst(range: range)
-    return insert(inst: inst, point)
+    return insert(inst: inst, at: point)
   }
 
   public mutating func insertLoad(
     source: Operand,
     range: SourceRange? = nil,
-    _ point: InsertionPoint
+    at point: InsertionPoint
   ) -> InstIndex {
     assert(type(of: source).isAddress, "'source' must have an address type")
 
     let inst = LoadInst(source: source, type: type(of: source).object, range: range)
-    return insert(inst: inst, point)
+    return insert(inst: inst, at: point)
   }
 
   @discardableResult
@@ -432,34 +432,34 @@ public struct Module {
     from source: Operand,
     to target: Operand,
     range: SourceRange? = nil,
-    _ point: InsertionPoint
+    at point: InsertionPoint
   ) -> InstIndex {
     assert(type(of: source).isAddress, "'source' must have an address type")
     assert(type(of: target).isAddress, "'target' must have an address type")
 
     let inst = MoveAddrInst(source: source, target: target, range: range)
-    return insert(inst: inst, point)
+    return insert(inst: inst, at: point)
   }
 
   public mutating func insertPackBorrow(
     source: Operand,
     type: VILType,
     range: SourceRange? = nil,
-    _ point: InsertionPoint
+    at point: InsertionPoint
   ) -> InstIndex {
     assert(self.type(of: source).isAddress, "'source' must have an address type")
     assert(type.isAddress, "'type' must be an address type")
     assert(type.valType.isExistential, "'type' must be an existential type")
 
     let inst = PackBorrowInst(source: source, type: type, range: range)
-    return insert(inst: inst, point)
+    return insert(inst: inst, at: point)
   }
 
   public mutating func insertPartialApply(
     delegator: Operand,
     partialArgs: [Operand],
     range: SourceRange? = nil,
-    _ point: InsertionPoint
+    at point: InsertionPoint
   ) -> InstIndex {
     assert(type(of: delegator).isObject, "'delegator' must have an object type")
 
@@ -468,19 +468,19 @@ public struct Module {
       delegatorType: type(of: delegator).valType as! FunType,
       partialArgs: partialArgs,
       range: range)
-    return insert(inst: inst, point)
+    return insert(inst: inst, at: point)
   }
 
   public mutating func insertRecord(
     typeDecl: NominalTypeDecl,
     type: VILType,
     range: SourceRange? = nil,
-    _ point: InsertionPoint
+    at point: InsertionPoint
   ) -> InstIndex {
     assert(type.isObject, "'type' must be an object type")
 
     let inst = RecordInst(typeDecl: typeDecl, type: type, range: range)
-    return insert(inst: inst, point)
+    return insert(inst: inst, at: point)
   }
 
   public mutating func insertRecordMember(
@@ -488,13 +488,13 @@ public struct Module {
     memberDecl: VarDecl,
     type: VILType,
     range: SourceRange? = nil,
-    _ point: InsertionPoint
+    at point: InsertionPoint
   ) -> InstIndex {
     assert(self.type(of: record).isObject, "'record' must have an object type")
     assert(type.isObject, "'type' must be an object type")
 
     let inst = RecordMemberInst(record: record, memberDecl: memberDecl, type: type, range: range)
-    return insert(inst: inst, point)
+    return insert(inst: inst, at: point)
   }
 
   public mutating func insertRecordMemberAddr(
@@ -502,26 +502,26 @@ public struct Module {
     memberDecl: VarDecl,
     type: VILType,
     range: SourceRange? = nil,
-    _ point: InsertionPoint
+    at point: InsertionPoint
   ) -> InstIndex {
     assert(self.type(of: record).isAddress, "'record' must have an address type")
     assert(type.isAddress, "'type' must be an address type")
 
     let inst = RecordMemberAddrInst(
       record: record, memberDecl: memberDecl, type: type, range: range)
-    return insert(inst: inst, point)
+    return insert(inst: inst, at: point)
   }
 
   @discardableResult
   public mutating func insertRet(
     value: Operand,
     range: SourceRange? = nil,
-    _ point: InsertionPoint
+    at point: InsertionPoint
   ) -> InstIndex {
     assert(type(of: value).isObject, "'value' must have an object type")
 
     let inst = RetInst(value: value, range: range)
-    return insert(inst: inst, point)
+    return insert(inst: inst, at: point)
   }
 
   @discardableResult
@@ -529,70 +529,70 @@ public struct Module {
     _ value: Operand,
     to target: Operand,
     range: SourceRange? = nil,
-    _ point: InsertionPoint
+    at point: InsertionPoint
   ) -> InstIndex {
     assert(type(of: value).isObject, "'value' must have an object type")
     assert(type(of: target).isAddress, "'target' must have an address type")
 
     let inst = StoreInst(value: value, target: target, range: range)
-    return insert(inst: inst, point)
+    return insert(inst: inst, at: point)
   }
 
   public mutating func insertThinToThick(
     ref: FunRef,
     range: SourceRange? = nil,
-    _ point: InsertionPoint
+    at point: InsertionPoint
   ) -> InstIndex {
     let inst = ThinToThickInst(ref: ref, range: range)
-    return insert(inst: inst, point)
+    return insert(inst: inst, at: point)
   }
 
   public mutating func insertTuple(
     type: TupleType,
     operands: [Operand],
     range: SourceRange? = nil,
-    _ point: InsertionPoint
+    at point: InsertionPoint
   ) -> InstIndex {
     assert(
       operands.allSatisfy({ self.type(of: $0).isObject }),
       "all operands must have an object type")
 
     let inst = TupleInst(type: type, operands: operands, range: range)
-    return insert(inst: inst, point)
+    return insert(inst: inst, at: point)
   }
 
   public mutating func insertWitnessMethod(
     container: Operand,
     decl: BaseFunDecl,
     range: SourceRange? = nil,
-    _ point: InsertionPoint
+    at point: InsertionPoint
   ) -> InstIndex {
     assert(type(of: container).isObject, "'container' must have an object type")
 
     let inst = WitnessMethodInst(container: container, decl: decl, range: range)
-    return insert(inst: inst, point)
+    return insert(inst: inst, at: point)
   }
 
   public mutating func insertWitnessMethodAddr(
     container: Operand,
     decl: BaseFunDecl,
     range: SourceRange? = nil,
-    _ point: InsertionPoint
+    at point: InsertionPoint
   ) -> InstIndex {
     assert(type(of: container).isAddress, "'container' must have an object type")
 
     let inst = WitnessMethodAddrInst(container: container, decl: decl, range: range)
-    return insert(inst: inst, point)
+    return insert(inst: inst, at: point)
   }
 
   /// Inserts an instruction at the specified insertion point.
-  private mutating func insert(inst: Inst, _ point: InsertionPoint) -> InstIndex {
+  private mutating func insert(inst: Inst, at point: InsertionPoint) -> InstIndex {
     // Insert the instruction into the module.
     let instIndex = instructions.insert(inst)
 
     // Update the containing basic blocl.
     switch point {
-    case .atEndOf(let blockIndex):
+    case .endOf(let blockIndex):
       blocks[blockIndex].instructions.append(instIndex)
 
     case .after(let predIndex, let blockIndex):
@@ -616,9 +616,19 @@ public struct Module {
 public enum InsertionPoint {
 
   /// Insert at the end of the specified block.
-  case atEndOf(BasicBlockIndex)
+  case endOf(BasicBlockIndex)
 
   /// Insert after the specified instruction.
   case after(inst: InstIndex, in: BasicBlockIndex)
+
+  /// The index of the basic block containing this insertion point.
+  public var block: BasicBlockIndex {
+    switch self {
+    case .endOf(let index):
+      return index
+    case .after(_, let index):
+      return index
+    }
+  }
 
 }

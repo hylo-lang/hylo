@@ -94,7 +94,7 @@ struct RValueEmitter: ExprVisitor {
       callee: callee,
       args: [Operand(literal)],
       range: node.range,
-      state.ip)
+      at: state.ip)
     return .success(Operand(apply))
   }
 
@@ -134,8 +134,8 @@ struct RValueEmitter: ExprVisitor {
 
     // Allocate an existential container to hold the result of the cast.
     let container = Operand(module.insertAllocStack(
-      allocType: .lower(nodeType), range: node.range, state.ip))
-    defer { module.insertDeallocStack(alloc: container, state.ip) }
+      allocType: .lower(nodeType), range: node.range, at: state.ip))
+    defer { module.insertDeallocStack(alloc: container, at: state.ip) }
 
     // Emit the value to convert.
     let value: Operand
@@ -152,12 +152,12 @@ struct RValueEmitter: ExprVisitor {
     // Runtime conversion of function types always fails.
     if (lhsType is FunType) && (rhsType is FunType) {
       module.context.report(.runtimeFunctionTypeConversion(range: node.range))
-      module.insertDelete(value: value, state.ip)
+      module.insertDelete(value: value, at: state.ip)
       module.insertInitExistAddr(
         container: container,
-        value: Operand(module.buildNil(state.ip)),
-        state.ip)
-      return .success(Operand(module.insertLoad(source: container, state.ip)))
+        value: Operand(module.buildNil(at: state.ip)),
+        at: state.ip)
+      return .success(Operand(module.insertLoad(source: container, at: state.ip)))
     }
 
     // Cast the value.
@@ -170,24 +170,24 @@ struct RValueEmitter: ExprVisitor {
       succ: succ,
       fail: fail,
       range: node.range,
-      state.ip)
+      at: state.ip)
 
     // If the cast succeeded ...
-    state.ip = .atEndOf(succ)
+    state.ip = .endOf(succ)
     module.insertInitExistAddr(
-      container: container, value: Operand(module.blocks[succ].params[0]), state.ip)
-    module.insertBranch(dest: tail, state.ip)
+      container: container, value: Operand(module.blocks[succ].params[0]), at: state.ip)
+    module.insertBranch(dest: tail, at: state.ip)
 
     // If the cast failed ...
-    state.ip = .atEndOf(fail)
-    module.insertDelete(value: Operand(module.blocks[fail].params[0]), state.ip)
+    state.ip = .endOf(fail)
+    module.insertDelete(value: Operand(module.blocks[fail].params[0]), at: state.ip)
     module.insertInitExistAddr(
-      container: container, value: Operand(module.buildNil(state.ip)), state.ip)
-    module.insertBranch(dest: tail, state.ip)
+      container: container, value: Operand(module.buildNil(at: state.ip)), at: state.ip)
+    module.insertBranch(dest: tail, at: state.ip)
 
     // Finally ...
-    state.ip = .atEndOf(tail)
-    return .success(Operand(module.insertLoad(source: container, state.ip)))
+    state.ip = .endOf(tail)
+    return .success(Operand(module.insertLoad(source: container, at: state.ip)))
   }
 
   mutating func visit(_ node: UnsafeCastExpr) -> ExprResult {
@@ -209,22 +209,22 @@ struct RValueEmitter: ExprVisitor {
     // Runtime conversion of function types always fails.
     if (lhsType is FunType) && (rhsType is FunType) {
       module.context.report(.runtimeFunctionTypeConversion(range: node.range))
-      module.insertDelete(value: value, state.ip)
+      module.insertDelete(value: value, at: state.ip)
       module.insertCondFail(
-        cond: Operand(IntValue.makeTrue(context: module.context)), range: node.range, state.ip)
+        cond: Operand(IntValue.makeTrue(context: module.context)), range: node.range, at: state.ip)
       return .success(Operand(PoisonValue(type: .lower(rhsType))))
     }
 
     // Convert the value.
     let converted = module.insertCheckedCast(
-      value: value, type: .lower(rhsType), range: node.range, state.ip)
+      value: value, type: .lower(rhsType), range: node.range, at: state.ip)
     return .success(Operand(converted))
   }
 
   mutating func visit(_ node: TupleExpr) -> ExprResult {
     let tuple = module.insertTuple(
       type: node.type as! TupleType,
-      operands: node.elems.map({ elem in emit(rvalue: elem.value) }), state.ip)
+      operands: node.elems.map({ elem in emit(rvalue: elem.value) }), at: state.ip)
     return .success(Operand(tuple))
   }
 
@@ -236,25 +236,28 @@ struct RValueEmitter: ExprVisitor {
     switch node.fun {
     case let expr as MemberDeclRefExpr where expr.decl.isMember:
       // The callee is a reference to a member declaration.
-      if let methodDecl = expr.decl as? BaseFunDecl {
+      if let decl = expr.decl as? BaseFunDecl {
         // The callee is a method; emit the receiver along with the dispatched function ref.
-        if methodDecl.isConsuming {
+        if decl.isConsuming {
           // The receiver is consumed; emit an r-value whether it's mutable or not.
           args.append(emit(rvalue: expr.base))
           callee = expr.base.type.isExistential
-            ? Operand(module.insertWitnessMethod(container: args[0], decl: methodDecl, state.ip))
-            : Operand(FunRef(function: module.getOrCreateFunction(from: methodDecl)))
+            ? Operand(module.insertWitnessMethod(container: args[0], decl: decl, at: state.ip))
+            : Operand(FunRef(function: module.getOrCreateFunction(from: decl)))
         } else {
           // The receiver is borrowed; emit an l-value or allocate temporary storage.
-          let receiver = methodDecl.isMutating
+          let receiver = decl.isMutating
             ? emit(lvalue: expr.base)
             : emit(borrowable: expr.base)
           let borrow = module.insertBorrowAddr(
-            isMutable: methodDecl.isMutating, source: receiver, range: expr.base.range, state.ip)
+            isMutable: decl.isMutating,
+            source: receiver,
+            range: expr.base.range,
+            at: state.ip)
           args.append(Operand(borrow))
           callee = expr.base.type.isExistential
-            ? Operand(module.insertWitnessMethod(container: args[0], decl: methodDecl, state.ip))
-            : Operand(FunRef(function: module.getOrCreateFunction(from: methodDecl)))
+            ? Operand(module.insertWitnessMethod(container: args[0], decl: decl, at: state.ip))
+            : Operand(FunRef(function: module.getOrCreateFunction(from: decl)))
         }
       } else {
         // The callee is a functional property; emit a regular member access.
@@ -291,14 +294,14 @@ struct RValueEmitter: ExprVisitor {
         // allocate temporary storage.
         let source = emit(borrowable: node.args[i].value)
         let borrow = module.insertBorrowAddr(
-          isMutable: false, source: source, range: node.args[i].range, state.ip)
+          isMutable: false, source: source, range: node.args[i].range, at: state.ip)
         args.append(Operand(borrow))
 
       case .inout:
         // Mutating parameters are passed by reference. The argument must be an l-value.
         let source = emit(borrowable: node.args[i].value)
         let borrow = module.insertBorrowAddr(
-          isMutable: true, source: source, range: node.args[i].range, state.ip)
+          isMutable: true, source: source, range: node.args[i].range, at: state.ip)
         args.append(Operand(borrow))
 
       case .consuming, .consumingMutable:
@@ -316,14 +319,14 @@ struct RValueEmitter: ExprVisitor {
             source: args[i],
             type: module.type(of: callee).paramType(at: i).address,
             range: node.args[i].value.range,
-            state.ip))
+            at: state.ip))
 
         case .consuming, .consumingMutable:
           let alloc = module.insertAllocStack(
-            allocType: module.type(of: callee).paramType(at: i), state.ip)
+            allocType: module.type(of: callee).paramType(at: i), at: state.ip)
           allocs.append(alloc)
           module.insertInitExistAddr(
-            container: Operand(alloc), value: args[i], range: node.args[i].range, state.ip)
+            container: Operand(alloc), value: args[i], range: node.args[i].range, at: state.ip)
           args[i] = Operand(alloc)
 
         case .inout:
@@ -334,7 +337,7 @@ struct RValueEmitter: ExprVisitor {
     }
 
     // Emit the call.
-    return .success(Operand(module.insertApply(callee: callee, args: args, state.ip)))
+    return .success(Operand(module.insertApply(callee: callee, args: args, at: state.ip)))
   }
 
   func visit(_ node: UnresolvedDeclRefExpr) -> ExprResult {
@@ -359,7 +362,7 @@ struct RValueEmitter: ExprVisitor {
     if let value = locals[ObjectIdentifier(node.decl)] {
       // FIXME: Is there a more reliable way to determine whether an address must be loaded?
       return module.type(of: value).isAddress
-        ? .success(Operand(module.insertLoad(source: value, state.ip)))
+        ? .success(Operand(module.insertLoad(source: value, at: state.ip)))
         : .success(value)
     }
 
@@ -369,7 +372,7 @@ struct RValueEmitter: ExprVisitor {
     if let decl = node.decl as? BaseFunDecl {
       assert(!decl.isBuiltin, "cannot wrap built-in function into a closure")
       let ref = FunRef(function: module.getOrCreateFunction(from: decl))
-      let thk = module.insertThinToThick(ref: ref, state.ip)
+      let thk = module.insertThinToThick(ref: ref, at: state.ip)
       return .success(Operand(thk))
     }
 
@@ -399,7 +402,7 @@ struct RValueEmitter: ExprVisitor {
       }
 
       let member = module.insertRecordMember(
-        record: base, memberDecl: decl, type: .lower(node.type), range: node.range, state.ip)
+        record: base, memberDecl: decl, type: .lower(node.type), range: node.range, at: state.ip)
       // return .success(Operand(member))
       fatalError("not implemented")
     }
@@ -426,12 +429,12 @@ struct RValueEmitter: ExprVisitor {
       return emit(rvalue: expr)
     })
 
-    return .success(Operand(module.insertAsync(ref: ref, captures: captures, state.ip)))
+    return .success(Operand(module.insertAsync(ref: ref, captures: captures, at: state.ip)))
   }
 
   mutating func visit(_ node: AwaitExpr) -> ExprResult {
     let awaited = emit(rvalue: node.value)
-    return .success(Operand(module.insertAwait(value: awaited, state.ip)))
+    return .success(Operand(module.insertAwait(value: awaited, at: state.ip)))
   }
 
   mutating func visit(_ node: AddrOfExpr) -> ExprResult {
@@ -443,14 +446,14 @@ struct RValueEmitter: ExprVisitor {
 
     // If the node is a sub-expression, allocate storage for its "value".
     let storage: InstIndex? = node.isSubexpr
-      ? module.insertAllocStack(allocType: .lower(node.type), state.ip)
+      ? module.insertAllocStack(allocType: .lower(node.type), at: state.ip)
       : nil
 
     /// Emits the body of a case in the current block.
     func emitCaseBody(body: BraceStmt) {
       if let storage = storage {
         let value = emit(rvalue: body.stmts[0] as! Expr)
-        module.insertStore(value, to: Operand(storage), state.ip)
+        module.insertStore(value, to: Operand(storage), at: state.ip)
       } else {
         Emitter.emit(brace: body, state: &_state.pointee, into: &_module.pointee)
       }
@@ -485,17 +488,17 @@ struct RValueEmitter: ExprVisitor {
             let loc = Operand(Emitter.emit(
               storedVar: decl, state: &_state.pointee, into: &_module.pointee))
             locals[ObjectIdentifier(decl)] = loc
-            module.insertMoveAddr(from: subjectLoc, to: loc, range: pattern.range, state.ip)
+            module.insertMoveAddr(from: subjectLoc, to: loc, range: pattern.range, at: state.ip)
           } else {
             // `val` bindings are borrowing immutably.
             let borrow = module.insertBorrowAddr(
-              source: subjectLoc, range: pattern.range, state.ip)
+              source: subjectLoc, range: pattern.range, at: state.ip)
             locals[ObjectIdentifier(decl)] = Operand(borrow)
           }
 
           emitCaseBody(body: stmt.body)
-          module.insertBranch(dest: sink, state.ip)
-          state.ip = .atEndOf(sink)
+          module.insertBranch(dest: sink, at: state.ip)
+          state.ip = .endOf(sink)
           break
         }
 
@@ -510,22 +513,22 @@ struct RValueEmitter: ExprVisitor {
               locals[ObjectIdentifier(decl)] = loc
               let val = module.insertCheckedCast(
                 value: Operand(
-                  module.insertLoad(source: subjectLoc, range: pattern.range, state.ip)),
+                  module.insertLoad(source: subjectLoc, range: pattern.range, at: state.ip)),
                 type: .lower(patternType),
                 range: pattern.range,
-                state.ip)
-              module.insertStore(Operand(val), to: loc, range: pattern.range, state.ip)
+                at: state.ip)
+              module.insertStore(Operand(val), to: loc, range: pattern.range, at: state.ip)
             } else {
               locals[ObjectIdentifier(decl)] = Operand(module.insertPackBorrow(
                 source: subjectLoc,
                 type: .lower(patternType).address,
                 range: pattern.range,
-                state.ip))
+                at: state.ip))
             }
 
             emitCaseBody(body: stmt.body)
-            module.insertBranch(dest: sink, state.ip)
-            state.ip = .atEndOf(sink)
+            module.insertBranch(dest: sink, at: state.ip)
+            state.ip = .endOf(sink)
             break
           }
 
@@ -552,12 +555,12 @@ struct RValueEmitter: ExprVisitor {
               paramTypes: [.lower(node.subject.type)], in: state.funName)
             module.insertCheckedCastBranch(
               value: Operand(
-                module.insertLoad(source: subjectLoc, range: pattern.range, state.ip)),
+                module.insertLoad(source: subjectLoc, range: pattern.range, at: state.ip)),
               type: .lower(patternType),
               succ: succ,
               fail: next,
               range: pattern.range,
-              state.ip)
+              at: state.ip)
           } else {
             // `val` bindings are borrowing immutably.
             succ = module.insertBasicBlock(
@@ -570,27 +573,28 @@ struct RValueEmitter: ExprVisitor {
               succ: succ,
               fail: next,
               range: pattern.range,
-              state.ip)
+              at: state.ip)
           }
 
           // If the match succeeds, the pattern becomes the argument of the "succ" block.
-          state.ip = .atEndOf(succ)
+          state.ip = .endOf(succ)
           if decl.isMutable {
             let loc = Operand(Emitter.emit(
               storedVar: decl, state: &_state.pointee, into: &_module.pointee))
             locals[ObjectIdentifier(decl)] = loc
-            module.insertStore(Operand(module.blocks[succ].params[0]), to: loc, state.ip)
+            module.insertStore(Operand(module.blocks[succ].params[0]), to: loc, at: state.ip)
             emitCaseBody(body: stmt.body)
           } else {
             locals[ObjectIdentifier(decl)] = Operand(module.blocks[succ].params[0])
             emitCaseBody(body: stmt.body)
           }
-          module.insertBranch(dest: sink, state.ip)
+          module.insertBranch(dest: sink, at: state.ip)
 
           // If the match fails, reassign `subjectLoc` if its value was consumed.
-          state.ip = .atEndOf(next)
+          state.ip = .endOf(next)
           if decl.isMutable {
-            module.insertStore(Operand(module.blocks[succ].params[0]), to: subjectLoc, state.ip)
+            module.insertStore(
+              Operand(module.blocks[succ].params[0]), to: subjectLoc, at: state.ip)
           }
         }
       }
@@ -599,12 +603,12 @@ struct RValueEmitter: ExprVisitor {
       fatalError("not implemented")
     }
 
-    module.insertBranch(dest: sink, state.ip)
-    state.ip = .atEndOf(sink)
+    module.insertBranch(dest: sink, at: state.ip)
+    state.ip = .endOf(sink)
 
     if let storage = storage {
-      let result = module.insertLoad(source: Operand(storage), state.ip)
-      module.insertDeallocStack(alloc: Operand(storage), state.ip)
+      let result = module.insertLoad(source: Operand(storage), at: state.ip)
+      module.insertDeallocStack(alloc: Operand(storage), at: state.ip)
       return .success(Operand(result))
     } else {
       return .success(Operand(UnitValue(context: module.context)))
