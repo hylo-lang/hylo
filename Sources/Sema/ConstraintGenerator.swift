@@ -241,10 +241,15 @@ struct ConstraintGenerator: NodeWalker {
         // We have a concrete fixed type, we can use it to select `T`.
         node.body.type = context.funType(params: [], retType: type)
         node.body.setState(.realized)
-      } else if let expr = node.body.singleExprBody {
+      } else if var expr = node.body.singleExprBody {
         // The function is expression-bodied, so we can infer `T` as the type of a sub-expression.
+        // FIXME: This is a little hacky.
         fixedType = fixedBareType
-        _ = expr.accept(&self)
+        _ = TypeChecker.check(
+          expr: &expr,
+          fixedType: fixedBareType,
+          useSite: node.body.body!,
+          freeTypeVarSubstPolicy: .bindToErrorType)
         node.body.type = context.funType(params: [], retType: expr.type)
         node.body.setState(.realized)
       } else {
@@ -252,7 +257,6 @@ struct ConstraintGenerator: NodeWalker {
         context.report(.complexReturnTypeInference(range: node.range))
         node.body.type = context.errorType
         node.body.setState(.invalid)
-
         node.type = context.errorType
         return true
       }
