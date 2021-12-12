@@ -86,6 +86,15 @@ public struct VILType {
 
 }
 
+extension VILType: Hashable {
+
+  public func hash(into hasher: inout Hasher) {
+    valType.hash(into: &hasher)
+    hasher.combine(isAddress)
+  }
+
+}
+
 extension VILType: CustomStringConvertible {
 
   public var description: String {

@@ -1,52 +1,35 @@
 import AST
 import Basic
 
+/// A control flow grahp.
+///
+/// A control flow graph describes the relation between the basic blocks of the function. The
+/// direction of of its edges denotes the direction of the control flow from one block to another:
+/// there an edge from `A` to `B` if the former's terminator points to the latter.
+///
+/// The graph is represented as an adjacency list that encodes the successor and the predecessor
+/// relations, enabling efficient lookup in both directions.
+public typealias ControlFlowGraph = AdjacencyList<BasicBlockIndex, ControlEdge>
+
+/// An edge in a control flow graph.
 public enum ControlEdge {
 
-  case forward, backward, bidirectional
+  /// An edge `A -> B` denoting that `A` is a predecessor of `B`.
+  case forward
+
+  /// An edge `A -> B` denoting that `A` is a successor of `B`.
+  case backward
+
+  /// An edge `A -> B` denoting that `A` is a predecessor *and* a successor of `B`.
+  case bidirectional
 
 }
-
-public typealias ControlFlowGraph = AdjacencyList<BasicBlock.ID, ControlEdge>
 
 /// A VIL function.
 public struct VILFun {
 
-  /// An iterator that supplies pairs `(path, inst)`, where path is an instruction path and `inst`
-  /// the instruction at that path, for all the instructions in a function.
-  public struct InstEnumerator: IteratorProtocol {
-
-    fileprivate let funName: VILName
-
-    fileprivate var blocks: [(key: BasicBlock.ID, value: BasicBlock)]
-
-    fileprivate var instIndex: BasicBlock.Index?
-
-    fileprivate init(funName: VILName, blocks: [(key: BasicBlock.ID, value: BasicBlock)]) {
-      self.funName = funName
-      self.blocks = blocks
-      self.instIndex = blocks.last?.value.instructions.startIndex
-    }
-
-    public mutating func next() -> (path: InstPath, inst: Inst)? {
-      while let (blockID, block) = blocks.last, let i = instIndex {
-        if i != block.instructions.endIndex {
-          defer { instIndex = block.instructions.index(after: i) }
-          return (
-            path: InstPath(funName: funName, blockID: blockID, instIndex: i),
-            inst: block.instructions[i])
-        } else {
-          blocks.removeLast()
-          instIndex = blocks.last?.value.instructions.startIndex
-        }
-      }
-      return nil
-    }
-
-  }
-
   /// The mangled name of the function.
-  public let name: VILName
+  public let name: String
 
   /// An optional debug name describing the function.
   public let debugName: String?
@@ -54,73 +37,44 @@ public struct VILFun {
   /// The VIL type of the function.
   public let type: VILType
 
-  /// The basic blocks of the function.
-  ///
-  /// Do not add or remove blocks using this property. Use `createBlock(arguments:before:)` or
-  /// `removeBasicBlock(_:)` instead.
-  public var blocks: [BasicBlock.ID: BasicBlock] = [:]
-
-  /// The identifier of the entry block.
-  public var entryID: BasicBlock.ID?
+  /// The indices of the basic blocks in the function, starting with the entry.
+  public var blocks: [BasicBlockIndex] = []
 
   /// The control flow graph of the function.
-  ///
-  /// This graph describes the relation between the basic blocks of the function. The direction of
-  /// of its edges denotes the direction of the control flow from one block to another: there an
-  /// edge from `A` to `B` if the former's terminator points to the latter.
-  ///
-  /// The graph is represented as an adjacency list that encodes the successor and the predecessor
-  /// relations, enabling efficient lookup in both directions. Let `l` be the label on an edge
-  /// from `A` to `B`:
-  /// - if `l = .forward`, then `A` is a predecessor of `B`;
-  /// - if `l = .backward`, then `A` is a successor of `B`;
-  /// - if `l = .bidirectional`, then `A` is a predecessor *and* a successor of `B`.
   public var cfg = ControlFlowGraph()
 
   /// Creates a new VIL function.
   ///
   /// - Parameters:
   ///   - name: The name of the function.
-  ///   - type: The unapplied type of the function.
   ///   - debugName: An optional debug name describing the function.
-  init(name: VILName, type: VILType, debugName: String? = nil) {
+  ///   - type: The (unapplied) type of the function.
+  init(name: String, debugName: String? = nil, type: VILType) {
     self.name = name
     self.debugName = debugName
     self.type = type
   }
 
-  /// A Boolean value that indicates whether the function has an entry.
-  public var hasEntry: Bool { entryID != nil }
+  /// A Boolean value that indicates whether the function has an entry block.
+  public var hasEntry: Bool { !blocks.isEmpty }
 
-  /// The entry block of the function.
-  public var entry: BasicBlock? {
-    guard let entryID = self.entryID else { return nil }
-    return blocks[entryID]
-  }
+  /// The index of the function's entry block.
+  public var entry: BasicBlockIndex? { blocks.first }
 
-  /// Returns an iterator that supplies all instructions in the function.
+  /// Returns the basic block in this function that contains the specified instruction.
   ///
-  /// - Note: Instructions are returned without any particular order.
-  public func makeInstIterator() -> JoinedIterator<StableDoublyLinkedList<Inst>.Iterator> {
-    return JoinedIterator(blocks.values.map({ $0.instructions.makeIterator() }))
-  }
-
-  /// Returns an iterator that supplies all instructions in the function, together with their path.
-  ///
-  /// - Note: Instructions are returned without any particular order.
-  public func makeInstEnumerator() -> InstEnumerator {
-    return InstEnumerator(funName: name, blocks: Array(blocks))
-  }
-
-  /// Dereference an instruction path, assuming it refers into this function.
-  public subscript(path: InstPath) -> Inst {
-    assert(path.funName == name)
-    return blocks[path.blockID]!.instructions[path.instIndex]
+  /// - Parameters:
+  ///   - inst: An instruction index.
+  ///   - module: The module in which `inst` is defined.
+  public func block(containing inst: InstIndex, in module: Module) -> BasicBlockIndex? {
+    return blocks.first(where: { block in
+      module.blocks[block].instructions.contains(inst)
+    })
   }
 
   /// Inserts a control edge from one basic block to another.
-  mutating func insertControlEdge(from source: BasicBlock.ID, to target: BasicBlock.ID) {
-    assert(blocks[source] != nil && blocks[target] != nil)
+  mutating func insertControlEdge(from source: BasicBlockIndex, to target: BasicBlockIndex) {
+    assert(blocks.contains(source) && blocks.contains(target))
 
     let (inserted, label) = cfg.insertEdge(from: source, to: target, labeledBy: .forward)
     if inserted {

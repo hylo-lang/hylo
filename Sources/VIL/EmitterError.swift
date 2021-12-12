@@ -7,8 +7,8 @@ public enum EmitterError: Error {
   /// The emitter attempted to use an immutable capture in a mutable context.
   case immutableCapture(ValueDecl)
 
-  /// The emitter attempted to extract a non-copyable stored property out of a record.
-  case nonCopyableProperty(VarDecl)
+  /// The emitter attempted to move a stored property out of a non-tuple container.
+  case moveOfStoredProperty(VarDecl)
 
   /// The emitter attempted to use an r-value as an l-value.
   case useOfRValueAsLValue(Expr)

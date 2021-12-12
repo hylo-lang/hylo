@@ -243,23 +243,22 @@ public class ValType: CustomStringConvertible, Equatable {
 
   /// Returns whether this type is equal to another one.
   ///
-  /// This method is used internally for uniquing new instances. All derived classes should
-  /// override it to implement their one value equality logic. The default implementation uses
-  /// reference equality.
+  /// This method is used internally for uniquing type instances. All derived classes should
+  /// override it to implement their one value equality logic. The default implementation checks
+  /// for reference equality.
   ///
   /// - Parameter other: Another type.
-  func isEqual(to other: ValType) -> Bool {
+  public func isEqual(to other: ValType) -> Bool {
     return self === other
   }
 
   /// Hashes the essential components of type into the given hasher.
   ///
-  /// This method is used internally for uniquing new instances. All derived classes should
+  /// This method is used internally for uniquing type instances. All derived classes should
   /// override it to implement their own hashing logic. The default implementation is a no-op.
   ///
   /// - Parameter hasher: The hasher to use when combining the components of this type.
-  func hash(into hasher: inout Hasher) {
-  }
+  public func hash(into hasher: inout Hasher) {}
 
   public func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
     fatalError("unreachable")
@@ -356,12 +355,12 @@ public final class KindType: ValType {
     }
   }
 
-  override func isEqual(to other: ValType) -> Bool {
+  public override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? KindType else { return false }
     return type.isEqual(to: that.type)
   }
 
-  override func hash(into hasher: inout Hasher) {
+  public override func hash(into hasher: inout Hasher) {
     hasher.combine(ObjectIdentifier(KindType.self))
     type.hash(into: &hasher)
   }
@@ -389,7 +388,7 @@ public class BuiltinType: ValType {
 
   public override var isCopyable: Bool { true }
 
-  override func hash(into hasher: inout Hasher) {
+  public override func hash(into hasher: inout Hasher) {
     hasher.combine(name)
   }
 
@@ -437,7 +436,7 @@ public final class BuiltinIntType: BuiltinType {
     super.init(context: context, name: name)
   }
 
-  override func hash(into hasher: inout Hasher) {
+  public override func hash(into hasher: inout Hasher) {
     hasher.combine(bitWidth)
   }
 
@@ -461,7 +460,7 @@ public final class ModuleType: ValType {
     super.init(context: context, props: .isCanonical)
   }
 
-  override func hash(into hasher: inout Hasher) {
+  public override func hash(into hasher: inout Hasher) {
     hasher.combine(ObjectIdentifier(module))
   }
 
@@ -499,7 +498,7 @@ public class NominalType: ValType {
     }
   }
 
-  override func hash(into hasher: inout Hasher) {
+  public override func hash(into hasher: inout Hasher) {
     hasher.combine(ObjectIdentifier(decl))
   }
 
@@ -518,7 +517,7 @@ public final class ProductType: NominalType {
     return decl.conformanceTable[context.copyableType] != nil
   }
 
-  override func isEqual(to other: ValType) -> Bool {
+  public override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? ProductType else { return false }
     return self.decl === that.decl
   }
@@ -540,7 +539,7 @@ public final class ViewType: NominalType {
     return decl.conformanceTable[context.copyableType] != nil
   }
 
-  override func isEqual(to other: ValType) -> Bool {
+  public override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? ViewType else { return false }
     return self.decl === that.decl
   }
@@ -597,7 +596,7 @@ public final class AliasType: NominalType {
     return (decl as! AliasTypeDecl).realizeAliasedType().dealiased
   }
 
-  override func isEqual(to other: ValType) -> Bool {
+  public override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? AliasType else { return false }
     return self.decl === that.decl
   }
@@ -672,7 +671,7 @@ public final class ViewCompositionType: ValType {
     }
   }
 
-  override func isEqual(to other: ValType) -> Bool {
+  public override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? ViewCompositionType,
           views.count == that.views.count
     else { return false }
@@ -683,7 +682,7 @@ public final class ViewCompositionType: ValType {
     return true
   }
 
-  override func hash(into hasher: inout Hasher) {
+  public override func hash(into hasher: inout Hasher) {
     for view in views {
       view.hash(into: &hasher)
     }
@@ -808,7 +807,7 @@ public final class UnionType: ValType {
     }
   }
 
-  override func isEqual(to other: ValType) -> Bool {
+  public override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? UnionType,
           elems.count == that.elems.count
     else { return false }
@@ -819,7 +818,7 @@ public final class UnionType: ValType {
     return true
   }
 
-  override func hash(into hasher: inout Hasher) {
+  public override func hash(into hasher: inout Hasher) {
     for elem in elems {
       elem.hash(into: &hasher)
     }
@@ -923,7 +922,7 @@ public final class BoundGenericType: NominalType {
     return true
   }
 
-  override func isEqual(to other: ValType) -> Bool {
+  public override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? BoundGenericType,
           decl === that.decl,
           args.count == that.args.count
@@ -935,7 +934,7 @@ public final class BoundGenericType: NominalType {
     return true
   }
 
-  override func hash(into hasher: inout Hasher) {
+  public override func hash(into hasher: inout Hasher) {
     hasher.combine(ObjectIdentifier(decl))
     for arg in args {
       arg.hash(into: &hasher)
@@ -998,7 +997,7 @@ public final class GenericParamType: ValType, Hashable {
     return result
   }
 
-  override func isEqual(to other: ValType) -> Bool {
+  public override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? GenericParamType else { return false }
     return self.decl === that.decl
   }
@@ -1102,7 +1101,7 @@ public final class AssocType: ValType {
       base: base.uncontextualized)
   }
 
-  override func isEqual(to other: ValType) -> Bool {
+  public override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? AssocType else { return false }
     return self.base.isEqual(to: that.base) && self.interface.isEqual(to: that.interface)
   }
@@ -1158,12 +1157,12 @@ public final class SkolemType: ValType {
     return result
   }
 
-  override func isEqual(to other: ValType) -> Bool {
+  public override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? SkolemType else { return false }
     return self.interface.isEqual(to: that.interface)
   }
 
-  override func hash(into hasher: inout Hasher) {
+  public override func hash(into hasher: inout Hasher) {
     hasher.combine(ObjectIdentifier(SkolemType.self))
     interface.hash(into: &hasher)
   }
@@ -1296,7 +1295,7 @@ public final class TupleType: ValType {
     }
   }
 
-  override func isEqual(to other: ValType) -> Bool {
+  public override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? TupleType,
           elems.count == that.elems.count
     else { return false }
@@ -1307,7 +1306,7 @@ public final class TupleType: ValType {
     return true
   }
 
-  override func hash(into hasher: inout Hasher) {
+  public override func hash(into hasher: inout Hasher) {
     hasher.combine(elems)
   }
 
@@ -1450,12 +1449,12 @@ public final class FunType: ValType {
     }
   }
 
-  override func isEqual(to other: ValType) -> Bool {
+  public override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? FunType else { return false }
     return (params == that.params) && retType.isEqual(to: that.retType)
   }
 
-  override func hash(into hasher: inout Hasher) {
+  public override func hash(into hasher: inout Hasher) {
     for param in params {
       param.hash(into: &hasher)
     }
@@ -1524,12 +1523,12 @@ public final class FunParamType: ValType {
     return false
   }
 
-  override func isEqual(to other: ValType) -> Bool {
+  public override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? FunParamType else { return false }
     return (policy == that.policy) && rawType.isEqual(to: that.rawType)
   }
 
-  override func hash(into hasher: inout Hasher) {
+  public override func hash(into hasher: inout Hasher) {
     hasher.combine(policy)
     rawType.hash(into: &hasher)
   }
@@ -1593,12 +1592,12 @@ public final class AsyncType: ValType {
     }
   }
 
-  override func isEqual(to other: ValType) -> Bool {
+  public override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? AsyncType else { return false }
     return base.isEqual(to: that.base)
   }
 
-  override func hash(into hasher: inout Hasher) {
+  public override func hash(into hasher: inout Hasher) {
     hasher.combine(ObjectIdentifier(AsyncType.self))
     base.hash(into: &hasher)
   }

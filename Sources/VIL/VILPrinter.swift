@@ -3,120 +3,149 @@ import Basic
 
 extension Module {
 
-  /// Dumps a textual representation of the module.
+  /// Dumps a textual representation of this module.
   public func dump() {
     var stream = StandardOutput()
     dump(to: &stream)
   }
 
-  /// Dumps a textual representation of the module to the given output stream.
+  /// Dumps a textual representation of this module to the given output stream.
   public func dump<S>(to stream: inout S) where S: TextOutputStream {
     stream.write("// module \(id)\n")
 
     // Dump the functions in the module.
-    functions.values
+    functions
       .sorted(by: { (a, b) -> Bool in
-        return !a.blocks.isEmpty && !b.blocks.isEmpty
-          ? a.name < b.name
-          : a.entryID == nil
+        return !a.value.blocks.isEmpty && !b.value.blocks.isEmpty
+          ? a.key < b.key
+          : !a.value.hasEntry
       })
-      .forEach({ $0.dump(to: &stream) })
+      .forEach({ (name, _) in dump(function: name, to: &stream) })
   }
 
-}
+  /// Dumps a textual representation of the specified function.
+  public func dump<S>(function funName: String, to stream: inout S) where S: TextOutputStream {
+    let fun = functions[funName] ?< fatalError("function does not exist")
 
-extension VILFun {
-
-  /// Dumps a textual representation of the function.
-  public func dump() {
-    var stream = StandardOutput()
-    dump(to: &stream)
-  }
-
-  /// Dumps a textual representation of the function to the given output stream.
-  public func dump<S>(to stream: inout S) where S: TextOutputStream {
     // Dump the function's prologue.
-    if let debugName = self.debugName {
+    if let debugName = fun.debugName {
       stream.write("// \(debugName)\n")
     }
-    stream.write("vilfun \(name): \(type)")
+    stream.write("vilfun \(funName): \(fun.type)")
 
     // Dump the function's body, if any.
-    if blocks.isEmpty {
+    guard fun.hasEntry else {
       stream.write("\n\n")
-    } else {
-      stream.write(" {\n")
-      if let blockID = entryID {
-        dump(blockID: blockID, to: &stream)
-      }
-      for blockID in blocks.keys where blockID != entryID {
-        dump(blockID: blockID, to: &stream)
-      }
-      stream.write("}\n\n")
+      return
     }
+
+    stream.write(" {\n")
+    withUnsafePointer(to: self, { ptr in
+      var printer = PrinterContext<S>(module: ptr)
+      for block in fun.blocks {
+        printer.dump(block: block, to: &stream)
+      }
+    })
+    stream.write("}\n\n")
   }
-
-  private func dump<S>(blockID: BasicBlock.ID, to stream: inout S)  where S: TextOutputStream {
-    let block = blocks[blockID]!
-    var printer = PrinterContext()
-
-    printer.write("bb\(blockID)", to: &stream)
-    let params = block.params
-      .map({ printer.describe($0, withType: true) })
-      .joined(separator: ", ")
-    printer.write("(\(params)):\n", to: &stream)
-
-    printer.indentation += 1
-     for inst in block.instructions {
-       inst.dump(to: &stream, with: &printer)
-     }
-    printer.indentation -= 1
-   }
 
 }
 
-public struct PrinterContext {
+/// The state of a module printer.
+public struct PrinterContext<S> where S: TextOutputStream {
+
+  /// A pointer to the module being printed.
+  private let module: UnsafePointer<Module>
 
   /// The current indentation level.
-  fileprivate var indentation = 0
+  private var indentation = 0
 
   /// The printer is about to write at the start of a new line.
   private var isAtLineStart = true
 
-  /// The next auto-generated value identifier.
-  private var nextValueID = 0
+  /// A table mapping basic block indices to unique numeric identifiers.
+  private var blockIDs: [BasicBlockIndex: Int] = [:]
 
-  /// A table of unique identifiers.
-  private var valueIDs: ReferenceTable<Value, Int> = [:]
+  /// A table mapping operands to unique numeric identifiers.
+  private var operandIDs: [Operand: Int] = [:]
 
-  /// Returns a unique identifier for the given VIL value in this context.
-  mutating func uniqueID(of value: Value) -> Int {
-    if let id = valueIDs[value] {
+  fileprivate init(module: UnsafePointer<Module>) {
+    self.module = module
+  }
+
+  mutating func numericID(of block: BasicBlockIndex) -> Int {
+    if let id = blockIDs[block] {
       return id
     } else {
-      defer { nextValueID += 1 }
-      valueIDs[value] = nextValueID
-      return nextValueID
+      blockIDs[block] = blockIDs.count
+      return blockIDs[block]!
     }
   }
 
-  /// Produces a representation of the specified value.
-  mutating func describe(_ value: Value, withType: Bool = true) -> String {
+  mutating func numericID(of operand: Operand) -> Int {
+    if let id = operandIDs[operand] {
+      return id
+    } else {
+      operandIDs[operand] = operandIDs.count
+      return operandIDs[operand]!
+    }
+  }
+
+  /// Dumps a textual representation of the specified block.
+  mutating func dump(block blockIndex: BasicBlockIndex, to stream: inout S) {
+    let block = module.pointee.blocks[blockIndex]
+
+    write("bb\(numericID(of: blockIndex))", to: &stream)
+    let params = block.params
+      .map({ arg -> String in
+        return "%\(numericID(of: Operand(arg))): \(arg.type)"
+      })
+      .joined(separator: ", ")
+    write("(\(params)):\n", to: &stream)
+
+    indentation += 1
+    for instIndex in block.instructions {
+      dump(inst: instIndex, to: &stream)
+    }
+    indentation -= 1
+  }
+
+  /// Dumps a textual representation of the specified instruction.
+  mutating func dump(inst instIndex: InstIndex, to stream: inout S) {
+    let inst = module.pointee.instructions[instIndex]
+    if inst is Value {
+      write("%\(numericID(of: Operand(instIndex))) = ", to: &stream)
+    }
+    inst.dump(to: &stream, with: &self)
+  }
+
+  /// Returns a textual representation of the specified operand.
+  mutating func describe(_ operand: Operand, withType: Bool = true) -> String {
     let description: String
-    switch value {
-    case is UnitValue, is PoisonValue, is LiteralValue:
-      description = "\(value)"
-    default:
-      description = "%\(uniqueID(of: value))"
+    let type: VILType
+
+    if let index = operand.inst {
+      description = "%\(numericID(of: operand))"
+      type = (module.pointee.instructions[index] as! Value).type
+    } else if let value = operand.argument {
+      description = "%\(numericID(of: operand))"
+      type = value.type
+    } else if let value = operand.constant {
+      description = String(describing: value)
+      type = value.type
+    } else {
+      fatalError("unreachable")
     }
 
-    return withType
-      ? "\(value.type) \(description)"
-      : description
+    if withType {
+      return "\(type) \(description)"
+    } else {
+      return description
+    }
   }
 
-  /// Writes the specified string to specified stream.
-  mutating func write<S>(_ string: String, to stream: inout S) where S: TextOutputStream {
+  /// Writes the specified strling to specified stream.
+  mutating func write(_ string: String, to stream: inout S) {
     guard !string.isEmpty else { return }
 
     if indentation == 0 {

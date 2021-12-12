@@ -3,26 +3,29 @@ import AST
 /// A VIL emitter for l-values.
 struct LValueEmitter: ExprVisitor {
 
-  typealias ExprResult = Result<Value, EmitterError>
+  typealias ExprResult = Result<Operand, EmitterError>
 
   /// The srate in which the r-value is emitted.
   let _state: UnsafeMutablePointer<Emitter.State>
 
-  /// The VIL builder used by the emitter.
-  let _builder: UnsafeMutablePointer<Builder>
-
-  var context: Context { _state.pointee.funDecl.type.context }
+  /// The VIL module used by the emitter.
+  let _module: UnsafeMutablePointer<Module>
 
   var funDecl: BaseFunDecl { _state.pointee.funDecl }
 
   var locals: SymbolTable {
-    get { _state.pointee.locals }
-    _modify { yield &_state.pointee.locals }
+    get { state.locals }
+    _modify { yield &state.locals }
   }
 
-  var builder: Builder {
-    get { _builder.pointee }
-    _modify { yield &_builder.pointee }
+  var state: Emitter.State {
+    get { _state.pointee }
+    _modify { yield &_state.pointee }
+  }
+
+  var module: Module {
+    get { _module.pointee }
+    _modify { yield &_module.pointee }
   }
 
   func visit(_ node: BoolLiteralExpr) -> ExprResult {
@@ -94,19 +97,19 @@ struct LValueEmitter: ExprVisitor {
       assert(decl.hasStorage)
 
       let loc = locals[ObjectIdentifier(node.decl)]!
-      assert(loc.type.isAddress)
+      assert(module.type(of: loc).isAddress)
       return .success(loc)
 
     case let decl as CaptureDecl:
       // The node is a reference to an explicit capture.
       let loc = locals[ObjectIdentifier(decl)]!
-      assert(loc.type.isAddress)
+      assert(module.type(of: loc).isAddress)
       return .success(loc)
 
     case let decl as FunParamDecl:
       // The node is a reference to a parameter.
       let loc = locals[ObjectIdentifier(decl)]!
-      assert(loc.type.isAddress)
+      assert(module.type(of: loc).isAddress)
       return .success(loc)
 
     case is BaseFunDecl:
@@ -128,8 +131,8 @@ struct LValueEmitter: ExprVisitor {
     switch node.base.accept(&self) {
     case .success(let loc):
       // Make sure the base has an address type.
-      guard loc.type.isAddress else { return .failure(.useOfRValueAsLValue(node)) }
-      let baseType = loc.type.valType
+      guard module.type(of: loc).isAddress else { return .failure(.useOfRValueAsLValue(node)) }
+      let baseType = module.type(of: loc).valType
 
       // The expression must refer to a variable declaration; member functions are never l-values.
       guard let decl = node.decl as? VarDecl
@@ -140,14 +143,14 @@ struct LValueEmitter: ExprVisitor {
         switch baseType {
         case is ProductType:
           // The member refers to a stored property of a concrete product type.
-          let memberAddr = builder.buildRecordMemberAddr(
-            record: loc, memberDecl: decl, type: VILType.lower(node.type).address)
-          return .success(memberAddr)
+          let memberAddr = module.insertRecordMemberAddr(
+            record: loc, memberDecl: decl, type: VILType.lower(node.type).address, state.ip)
+          return .success(Operand(memberAddr))
 
         case let bgType as BoundGenericType where bgType.decl.instanceType is ProductType:
-          let memberAddr = builder.buildRecordMemberAddr(
-            record: loc, memberDecl: decl, type: VILType.lower(node.type).address)
-          return .success(memberAddr)
+          let memberAddr = module.insertRecordMemberAddr(
+            record: loc, memberDecl: decl, type: VILType.lower(node.type).address, state.ip)
+          return .success(Operand(memberAddr))
 
         default:
           // FIXME: Handle tuples.

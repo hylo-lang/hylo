@@ -152,18 +152,17 @@ public struct Driver {
     }
 
     // Emit the module declaration.
-    let context = moduleDecl.type.context
-    let module = Emitter.emit(module: moduleDecl)
-    var builder = Builder(module: module, context: context)
+    var module = Emitter.emit(module: moduleDecl)
 
-    let pass = TypestateAnalysis()
-    for funName in builder.module.functions.keys {
-      guard pass.run(funName, with: &builder) else {
+    // Run typestate analysis.
+    var pass = TypestateAnalysis()
+    for funName in module.functions.keys {
+      guard pass.run(funName, on: &module) else {
         throw DriverError.moduleLoweringFailed(moduleName: moduleDecl.name)
       }
     }
 
-    return builder.module
+    return module
   }
 
 }
