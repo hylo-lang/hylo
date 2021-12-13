@@ -8,13 +8,17 @@
 ///   resumes at the same place after they are evaluated.
 public struct BasicBlock {
 
+  /// The function that contains the instruction.
+  public let parent: String
+
   /// The formal parameters of the block.
   public let params: [ArgValue]
 
   /// The indices of the instructions in the block.
   public var instructions: [InstIndex] = []
 
-  init(paramTypes: [VILType]) {
+  init(parent: String, paramTypes: [VILType]) {
+    self.parent = parent
     self.params = paramTypes.map(ArgValue.init(type:))
   }
 

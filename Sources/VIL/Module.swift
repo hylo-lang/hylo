@@ -85,7 +85,7 @@ public struct Module {
     in funName: String,
     isEntry: Bool = false
   ) -> BasicBlockIndex {
-    let blockIndex = blocks.insert(BasicBlock(paramTypes: paramTypes))
+    let blockIndex = blocks.insert(BasicBlock(parent: funName, paramTypes: paramTypes))
     if isEntry {
       functions[funName]!.blocks.insert(blockIndex, at: 0)
     } else {
