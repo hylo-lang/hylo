@@ -2,7 +2,10 @@ import AST
 import Basic
 
 /// A VIL instruction.
-public protocol Inst {
+public protocol Inst: AnyObject {
+
+  /// The basic block that contains the instruction.
+  var parent: BasicBlockIndex { get }
 
   /// The instruction's operands.
   var operands: [Operand] { get }
@@ -40,9 +43,11 @@ extension Inst {
 ///
 /// The instruction returns the address of a cell large enough to contain an instance of
 /// `allocatedType`. That cell must be deallocated by `dealloc_stack`.
-public struct AllocStackInst: Value, Inst {
+public final class AllocStackInst: Value, Inst {
 
   public let type: VILType
+
+  public let parent: BasicBlockIndex
 
   public let range: SourceRange?
 
@@ -55,11 +60,18 @@ public struct AllocStackInst: Value, Inst {
   /// The Val declaration related to the allocation, for debugging.
   public private(set) unowned var decl: ValueDecl?
 
-  init(allocType: VILType, isReceiver: Bool, decl: ValueDecl?, range: SourceRange?) {
+  init(
+    allocType: VILType,
+    isReceiver: Bool,
+    decl: ValueDecl?,
+    parent: BasicBlockIndex,
+    range: SourceRange?
+  ) {
     self.allocType = allocType
     self.isReceiver = isReceiver
     self.decl = decl
     self.type = allocType.address
+    self.parent = parent
     self.range = range ?? decl?.range
   }
 
@@ -84,9 +96,11 @@ public struct AllocStackInst: Value, Inst {
 /// is owned, it becomes projected. Otherwise, it's typestate does not change.
 ///
 /// If the borrow is mutable, the value at `source` must be owned and it becomes inouted.
-public struct BorrowAddrInst: Value, Inst {
+public final class BorrowAddrInst: Value, Inst {
 
   public let type: VILType
+
+  public let parent: BasicBlockIndex
 
   public let range: SourceRange?
 
@@ -96,10 +110,17 @@ public struct BorrowAddrInst: Value, Inst {
   /// The source address.
   public let source: Operand
 
-  init(isMutable: Bool, source: Operand, type: VILType, range: SourceRange?) {
+  init(
+    isMutable: Bool,
+    source: Operand,
+    type: VILType,
+    parent: BasicBlockIndex,
+    range: SourceRange?
+  ) {
     self.isMutable = isMutable
     self.source = source
     self.type = type
+    self.parent = parent
     self.range = range
   }
 
@@ -123,15 +144,18 @@ public struct BorrowAddrInst: Value, Inst {
 ///
 /// Deallocation must be in first-in last-out order: the operand must denote the last `alloc_stack`
 /// preceeding the deallocation.
-public struct DeallocStackInst: Inst {
+public final class DeallocStackInst: Inst {
+
+  public let parent: BasicBlockIndex
 
   public let range: SourceRange?
 
   /// The corresponding stack allocation.
   public let alloc: Operand
 
-  init(alloc: Operand, range: SourceRange?) {
+  init(alloc: Operand, parent: BasicBlockIndex, range: SourceRange?) {
     self.alloc = alloc
+    self.parent = parent
     self.range = range
   }
 
@@ -142,15 +166,18 @@ public struct DeallocStackInst: Inst {
 }
 
 /// Destroys the specified value, calling its destructor.
-public struct DeleteInst: Inst {
+public final class DeleteInst: Inst {
+
+  public let parent: BasicBlockIndex
 
   public let range: SourceRange?
 
   /// The value to delete.
   public let value: Operand
 
-  init(value: Operand, range: SourceRange?) {
+  init(value: Operand, parent: BasicBlockIndex, range: SourceRange?) {
     self.value = value
+    self.parent = parent
     self.range = range
   }
 
@@ -165,15 +192,18 @@ public struct DeleteInst: Inst {
 ///
 /// The specified address must be initialized. If the referenced memory is bound to an existential
 /// type, it must hold an initialized container.
-public struct DeleteAddrInst: Inst {
+public final class DeleteAddrInst: Inst {
+
+  public let parent: BasicBlockIndex
 
   public let range: SourceRange?
 
   /// The address of the object to delete.
   public let target: Operand
 
-  init(target: Operand, range: SourceRange?) {
+  init(target: Operand, parent: BasicBlockIndex, range: SourceRange?) {
     self.target = target
+    self.parent = parent
     self.range = range
   }
 
@@ -187,18 +217,21 @@ public struct DeleteAddrInst: Inst {
 ///
 /// The instruction operates on the source address directly. Hence, if it is assigned to an
 /// existential container, the entire container is loaded, not only the packaged value.
-public struct LoadInst: Value, Inst {
+public final class LoadInst: Value, Inst {
 
   public let type: VILType
+
+  public let parent: BasicBlockIndex
 
   public let range: SourceRange?
 
   /// The source address.
   public let source: Operand
 
-  init(source: Operand, type: VILType, range: SourceRange?) {
+  init(source: Operand, type: VILType, parent: BasicBlockIndex, range: SourceRange?) {
     self.source = source
     self.type = type
+    self.parent = parent
     self.range = range
   }
 
@@ -212,7 +245,9 @@ public struct LoadInst: Value, Inst {
 ///
 /// The value at `source` must be owned and the value at `target` must be uninitialized. Ownership
 /// moves from `source` to `target`.
-public struct MoveAddrInst: Inst {
+public final class MoveAddrInst: Inst {
+
+  public let parent: BasicBlockIndex
 
   public let range: SourceRange?
 
@@ -222,9 +257,10 @@ public struct MoveAddrInst: Inst {
   /// The target address.
   public let target: Operand
 
-  init(source: Operand, target: Operand, range: SourceRange?) {
+  init(source: Operand, target: Operand, parent: BasicBlockIndex, range: SourceRange?) {
     self.source = source
     self.target = target
+    self.parent = parent
     self.range = range
   }
 
@@ -235,7 +271,9 @@ public struct MoveAddrInst: Inst {
 }
 
 /// Stores a value at the specified address, consuming its ownership.
-public struct StoreInst: Inst {
+public final class StoreInst: Inst {
+
+  public let parent: BasicBlockIndex
 
   public let range: SourceRange?
 
@@ -245,9 +283,10 @@ public struct StoreInst: Inst {
   /// The target address.
   public let target: Operand
 
-  init(value: Operand, target: Operand, range: SourceRange?) {
+  init(value: Operand, target: Operand, parent: BasicBlockIndex, range: SourceRange?) {
     self.value = value
     self.target = target
+    self.parent = parent
     self.range = range
   }
 
@@ -263,18 +302,21 @@ public struct StoreInst: Inst {
 ///
 /// FIXME: Currently, the only use of this intruction is to create `Nil` instances. If there are no
 /// other use cases, then it should be removed for something more specific.
-public struct RecordInst: Value, Inst {
+public final class RecordInst: Value, Inst {
 
   public let type: VILType
+
+  public let parent: BasicBlockIndex
 
   public let range: SourceRange?
 
   /// The declaration of the type of which the record value is an instance.
   public let typeDecl: NominalTypeDecl
 
-  init(typeDecl: NominalTypeDecl, type: VILType, range: SourceRange?) {
+  init(typeDecl: NominalTypeDecl, type: VILType, parent: BasicBlockIndex, range: SourceRange?) {
     self.typeDecl = typeDecl
     self.type = type
+    self.parent = parent
     self.range = range
   }
 
@@ -285,9 +327,11 @@ public struct RecordInst: Value, Inst {
 }
 
 /// Extracts the value of a stored member from a record.
-public struct RecordMemberInst: Value, Inst {
+public final class RecordMemberInst: Value, Inst {
 
   public let type: VILType
+
+  public let parent: BasicBlockIndex
 
   public let range: SourceRange?
 
@@ -297,10 +341,17 @@ public struct RecordMemberInst: Value, Inst {
   /// The declaration of the member being extracted.
   public let memberDecl: VarDecl
 
-  init(record: Operand, memberDecl: VarDecl, type: VILType, range: SourceRange?) {
+  init(
+    record: Operand,
+    memberDecl: VarDecl,
+    type: VILType,
+    parent: BasicBlockIndex,
+    range: SourceRange?
+  ) {
     self.record = record
     self.memberDecl = memberDecl
     self.type = type
+    self.parent = parent
     self.range = range
   }
 
@@ -317,9 +368,11 @@ public struct RecordMemberInst: Value, Inst {
 }
 
 /// Computes the address of a stored member from the address of a record.
-public struct RecordMemberAddrInst: Value, Inst {
+public final class RecordMemberAddrInst: Value, Inst {
 
   public let type: VILType
+
+  public let parent: BasicBlockIndex
 
   public let range: SourceRange?
 
@@ -329,10 +382,17 @@ public struct RecordMemberAddrInst: Value, Inst {
   /// The declaration of the member whose address is computed.
   public let memberDecl: VarDecl
 
-  init(record: Operand, memberDecl: VarDecl, type: VILType, range: SourceRange?) {
+  init(
+    record: Operand,
+    memberDecl: VarDecl,
+    type: VILType,
+    parent: BasicBlockIndex,
+    range: SourceRange?
+  ) {
     self.record = record
     self.memberDecl = memberDecl
     self.type = type
+    self.parent = parent
     self.range = range
   }
 
@@ -349,18 +409,21 @@ public struct RecordMemberAddrInst: Value, Inst {
 }
 
 /// Creates a tuple value.
-public struct TupleInst: Value, Inst {
+public final class TupleInst: Value, Inst {
 
   public let type: VILType
+
+  public let parent: BasicBlockIndex
 
   /// The values of the tuple's elements.
   public let operands: [Operand]
 
   public let range: SourceRange?
 
-  init(type: TupleType, operands: [Operand], range: SourceRange?) {
+  init(type: TupleType, operands: [Operand], parent: BasicBlockIndex, range: SourceRange?) {
     self.type = .lower(type)
     self.operands = operands
+    self.parent = parent
     self.range = range
   }
 
@@ -373,18 +436,21 @@ public struct TupleInst: Value, Inst {
 /// Converts the type of a value, causing a runtime failure if the conversion fails.
 ///
 /// The operand is consumed.
-public struct CheckedCastInst: Value, Inst {
+public final class CheckedCastInst: Value, Inst {
 
   public let type: VILType
+
+  public let parent: BasicBlockIndex
 
   public let range: SourceRange?
 
   /// The value to convert.
   public let value: Operand
 
-  init(value: Operand, type: VILType, range: SourceRange?) {
+  init(value: Operand, type: VILType, parent: BasicBlockIndex, range: SourceRange?) {
     self.value = value
     self.type = type
+    self.parent = parent
     self.range = range
   }
 
@@ -401,7 +467,9 @@ public struct CheckedCastInst: Value, Inst {
 /// transferred to `fail` and the operand is passed as an argument.
 ///
 /// The operand is consumed.
-public struct CheckedCastBranchInst: Inst {
+public final class CheckedCastBranchInst: Inst {
+
+  public let parent: BasicBlockIndex
 
   public let range: SourceRange?
 
@@ -422,12 +490,14 @@ public struct CheckedCastBranchInst: Inst {
     type: VILType,
     succ: BasicBlockIndex,
     fail: BasicBlockIndex,
+    parent: BasicBlockIndex,
     range: SourceRange?
   ) {
     self.value = value
     self.type = type
     self.succ = succ
     self.fail = fail
+    self.parent = parent
     self.range = range
   }
 
@@ -448,9 +518,11 @@ public struct CheckedCastBranchInst: Inst {
 /// it is owned, it becomes projected. Otherwise, it's typestate does not change.
 ///
 /// If the borrow is mutable, the container at `source` must be owned and it becomes inouted.
-public struct BorrowExistAddrInst: Value, Inst {
+public final class BorrowExistAddrInst: Value, Inst {
 
   public let type: VILType
+
+  public let parent: BasicBlockIndex
 
   public let range: SourceRange?
 
@@ -460,10 +532,17 @@ public struct BorrowExistAddrInst: Value, Inst {
   /// A Boolean value that indicates whether the borrow is mutable.
   public let isMutable: Bool
 
-  init(isMutable: Bool, container: Operand, type: VILType, range: SourceRange?) {
+  init(
+    isMutable: Bool,
+    container: Operand,
+    type: VILType,
+    parent: BasicBlockIndex,
+    range: SourceRange?
+  ) {
     self.isMutable = isMutable
     self.container = container
     self.type = type
+    self.parent = parent
     self.range = range
   }
 
@@ -490,7 +569,9 @@ public struct BorrowExistAddrInst: Value, Inst {
 /// it is owned, it becomes projected. Otherwise, it's typestate does not change.
 ///
 /// If the borrow is mutable, the container at `source` must be owned and it becomes inouted.
-public struct BorrowExistAddrBranchInst: Inst {
+public final class BorrowExistAddrBranchInst: Inst {
+
+  public let parent: BasicBlockIndex
 
   public let range: SourceRange?
 
@@ -515,6 +596,7 @@ public struct BorrowExistAddrBranchInst: Inst {
     type: VILType,
     succ: BasicBlockIndex,
     fail: BasicBlockIndex,
+    parent: BasicBlockIndex,
     range: SourceRange?
   ) {
     self.isMutable = isMutable
@@ -522,6 +604,7 @@ public struct BorrowExistAddrBranchInst: Inst {
     self.type = type
     self.succ = succ
     self.fail = fail
+    self.parent = parent
     self.range = range
   }
 
@@ -532,7 +615,9 @@ public struct BorrowExistAddrBranchInst: Inst {
 }
 
 /// Initializes the value packaged inside of an existential container.
-public struct InitExistAddrInst: Inst {
+public final class InitExistAddrInst: Inst {
+
+  public let parent: BasicBlockIndex
 
   public let range: SourceRange?
 
@@ -542,9 +627,10 @@ public struct InitExistAddrInst: Inst {
   /// The value that initializes the container.
   public let value: Operand
 
-  init(container: Operand, value: Operand, range: SourceRange?) {
+  init(container: Operand, value: Operand, parent: BasicBlockIndex, range: SourceRange?) {
     self.container = container
     self.value = value
+    self.parent = parent
     self.range = range
   }
 
@@ -558,18 +644,21 @@ public struct InitExistAddrInst: Inst {
 ///
 /// The value at `source` is borrowed immutably. It must be owned, borrowed, or projected. If it
 /// is owned, it becomes projected. Otherwise, it's typestate does not change.
-public struct PackBorrowInst: Value, Inst {
+public final class PackBorrowInst: Value, Inst {
 
   public let type: VILType
+
+  public let parent: BasicBlockIndex
 
   public let range: SourceRange?
 
   /// The source address.
   public let source: Operand
 
-  init(source: Operand, type: VILType, range: SourceRange?) {
+  init(source: Operand, type: VILType, parent: BasicBlockIndex, range: SourceRange?) {
     self.source = source
     self.type = type
+    self.parent = parent
     self.range = range
   }
 
@@ -581,7 +670,9 @@ public struct PackBorrowInst: Value, Inst {
 
 /// Creates a function reference to the implementation matching a view method in the witness of an
 /// existential container.
-public struct WitnessMethodInst: Value, Inst {
+public final class WitnessMethodInst: Value, Inst {
+
+  public let parent: BasicBlockIndex
 
   public let range: SourceRange?
 
@@ -593,9 +684,10 @@ public struct WitnessMethodInst: Value, Inst {
   /// This property should be either a regular method or a constructor declaration.
   public let decl: BaseFunDecl
 
-  init(container: Operand, decl: BaseFunDecl, range: SourceRange?) {
+  init(container: Operand, decl: BaseFunDecl, parent: BasicBlockIndex, range: SourceRange?) {
     self.container = container
     self.decl = decl
+    self.parent = parent
     self.range = range
   }
 
@@ -608,7 +700,9 @@ public struct WitnessMethodInst: Value, Inst {
 }
 
 /// Same as `witness_method`, but the container is referred by address.
-public struct WitnessMethodAddrInst: Value, Inst {
+public final class WitnessMethodAddrInst: Value, Inst {
+
+  public let parent: BasicBlockIndex
 
   public let range: SourceRange?
 
@@ -620,9 +714,10 @@ public struct WitnessMethodAddrInst: Value, Inst {
   /// This property should be either a regular method or a constructor declaration.
   public let decl: BaseFunDecl
 
-  init(container: Operand, decl: BaseFunDecl, range: SourceRange?) {
+  init(container: Operand, decl: BaseFunDecl, parent: BasicBlockIndex, range: SourceRange?) {
     self.container = container
     self.decl = decl
+    self.parent = parent
     self.range = range
   }
 
@@ -637,9 +732,11 @@ public struct WitnessMethodAddrInst: Value, Inst {
 // MARK: Functions & methods
 
 /// Applies a function.
-public struct ApplyInst: Value, Inst {
+public final class ApplyInst: Value, Inst {
 
   public let type: VILType
+
+  public let parent: BasicBlockIndex
 
   public let range: SourceRange?
 
@@ -649,10 +746,17 @@ public struct ApplyInst: Value, Inst {
   /// The arguments of the function.
   public let args: [Operand]
 
-  init(callee: Operand, args: [Operand], type: VILType, range: SourceRange?) {
+  init(
+    callee: Operand,
+    args: [Operand],
+    type: VILType,
+    parent: BasicBlockIndex,
+    range: SourceRange?
+  ) {
     self.callee = callee
     self.args = args
     self.type = type
+    self.parent = parent
     self.range = range
   }
 
@@ -672,9 +776,11 @@ public struct ApplyInst: Value, Inst {
 }
 
 /// Creates the partial application of a function.
-public struct PartialApplyInst: Value, Inst {
+public final class PartialApplyInst: Value, Inst {
 
   public let type: VILType
+
+  public let parent: BasicBlockIndex
 
   public let range: SourceRange?
 
@@ -684,9 +790,16 @@ public struct PartialApplyInst: Value, Inst {
   /// The partial list of arguments of the function application (from left to right).
   public let partialArgs: [Operand]
 
-  init(delegator: Operand, delegatorType: FunType, partialArgs: [Operand], range: SourceRange?) {
+  init(
+    delegator: Operand,
+    delegatorType: FunType,
+    partialArgs: [Operand],
+    parent: BasicBlockIndex,
+    range: SourceRange?
+  ) {
     self.delegator = delegator
     self.partialArgs = partialArgs
+    self.parent = parent
     self.range = range
 
     let partialType = delegatorType.context.funType(
@@ -705,15 +818,18 @@ public struct PartialApplyInst: Value, Inst {
 ///
 /// Bare function references are not loadable. This instruction serves to wrap them into a "thick"
 /// function container so that they have the same layout as partially applied functions.
-public struct ThinToThickInst: Value, Inst {
+public final class ThinToThickInst: Value, Inst {
+
+  public let parent: BasicBlockIndex
 
   public let range: SourceRange?
 
   /// A bare reference to a VIL function.
   public let ref: FunRef
 
-  init(ref: FunRef, range: SourceRange?) {
+  init(ref: FunRef, parent: BasicBlockIndex, range: SourceRange?) {
     self.ref = ref
+    self.parent = parent
     self.range = range
   }
 
@@ -728,7 +844,9 @@ public struct ThinToThickInst: Value, Inst {
 // MARK: Async expressions
 
 /// Creates an asynchronous value.
-public struct AsyncInst: Value, Inst {
+public final class AsyncInst: Value, Inst {
+
+  public let parent: BasicBlockIndex
 
   public let range: SourceRange?
 
@@ -739,9 +857,10 @@ public struct AsyncInst: Value, Inst {
   /// underlying function.
   public let captures: [Operand]
 
-  init(ref: FunRef, captures: [Operand], range: SourceRange?) {
+  init(ref: FunRef, captures: [Operand], parent: BasicBlockIndex, range: SourceRange?) {
     self.ref = ref
     self.captures = captures
+    self.parent = parent
     self.range = range
   }
 
@@ -754,18 +873,21 @@ public struct AsyncInst: Value, Inst {
 }
 
 /// Awaits an asynchronous value.
-public struct AwaitInst: Value, Inst {
+public final class AwaitInst: Value, Inst {
 
   public let type: VILType
+
+  public let parent: BasicBlockIndex
 
   public let range: SourceRange?
 
   /// The value being awaited.
   public let value: Operand
 
-  init(value: Operand, type: VILType, range: SourceRange?) {
+  init(value: Operand, type: VILType, parent: BasicBlockIndex, range: SourceRange?) {
     self.value = value
     self.type = type
+    self.parent = parent
     self.range = range
   }
 
@@ -780,18 +902,21 @@ public struct AwaitInst: Value, Inst {
 // MARK: Terminators
 
 /// Branches unconditionally to the start of a basic block.
-public struct BranchInst: Inst {
+public final class BranchInst: Inst {
 
   public let operands: [Operand]
+
+  public let parent: BasicBlockIndex
 
   public let range: SourceRange?
 
   /// The block to which the execution should jump.
   public let dest: BasicBlockIndex
 
-  init(dest: BasicBlockIndex, args: [Operand], range: SourceRange?) {
+  init(dest: BasicBlockIndex, args: [Operand], parent: BasicBlockIndex, range: SourceRange?) {
     self.dest = dest
     self.operands = args
+    self.parent = parent
     self.range = range
   }
 
@@ -800,7 +925,9 @@ public struct BranchInst: Inst {
 }
 
 /// Branches conditionally to the start of a basic block.
-public struct CondBranchInst: Inst {
+public final class CondBranchInst: Inst {
+
+  public let parent: BasicBlockIndex
 
   public let range: SourceRange?
 
@@ -823,6 +950,7 @@ public struct CondBranchInst: Inst {
     cond: Operand,
     succ: BasicBlockIndex, succArgs: [Operand],
     fail: BasicBlockIndex, failArgs: [Operand],
+    parent: BasicBlockIndex,
     range: SourceRange?
   ) {
     self.cond = cond
@@ -830,6 +958,7 @@ public struct CondBranchInst: Inst {
     self.succArgs = succArgs
     self.fail = fail
     self.failArgs = failArgs
+    self.parent = parent
     self.range = range
   }
 
@@ -840,11 +969,14 @@ public struct CondBranchInst: Inst {
 }
 
 /// Halts the execution of the program.
-public struct HaltInst: Inst {
+public final class HaltInst: Inst {
+
+  public let parent: BasicBlockIndex
 
   public let range: SourceRange?
 
-  init(range: SourceRange?) {
+  init(parent: BasicBlockIndex, range: SourceRange?) {
+    self.parent = parent
     self.range = range
   }
 
@@ -855,15 +987,18 @@ public struct HaltInst: Inst {
 }
 
 /// Returns from a function.
-public struct RetInst: Inst {
+public final class RetInst: Inst {
+
+  public let parent: BasicBlockIndex
 
   public let range: SourceRange?
 
   /// The value being returned.
   public let value: Operand
 
-  init(value: Operand, range: SourceRange?) {
+  init(value: Operand, parent: BasicBlockIndex, range: SourceRange?) {
     self.value = value
+    self.parent = parent
     self.range = range
   }
 
@@ -876,15 +1011,18 @@ public struct RetInst: Inst {
 // MARK: Runtime failures
 
 /// Produces a runtime failure if the operand is `true`. Otherwise, does nothing.
-public struct CondFail: Inst {
+public final class CondFail: Inst {
+
+  public let parent: BasicBlockIndex
 
   public let range: SourceRange?
 
   /// A Boolean condition.
   public let cond: Operand
 
-  init(cond: Operand, range: SourceRange?) {
+  init(cond: Operand, parent: BasicBlockIndex, range: SourceRange?) {
     self.cond = cond
+    self.parent = parent
     self.range = range
   }
 
