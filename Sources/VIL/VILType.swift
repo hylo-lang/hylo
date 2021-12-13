@@ -48,14 +48,7 @@ public struct VILType {
   /// parameter at the specified index.
   public func paramType(at index: Int) -> VILType {
     let param = params![index]
-    let ptype = VILType.lower(param.type)
-
-    switch param.policy {
-    case .local, .inout, nil:
-      return ptype.address
-    case .consuming:
-      return ptype
-    }
+    return .lower(param.type)
   }
 
   /// Given that this type is lowered from a function type, returns the lowered type of the
@@ -81,7 +74,18 @@ public struct VILType {
   public var isExistential: Bool { valType.isExistential }
 
   static func lower(_ type: ValType) -> VILType {
-    return VILType(valType: type.dealiased, isAddress: false)
+    switch type.dealiased {
+    case let type as FunParamType:
+      switch type.policy {
+      case .local, .inout:
+        return VILType(valType: type.rawType, isAddress: true)
+      case .consuming:
+        return VILType(valType: type.rawType, isAddress: false)
+      }
+
+    default:
+      return VILType(valType: type.dealiased, isAddress: false)
+    }
   }
 
 }
@@ -101,7 +105,10 @@ extension VILType: CustomStringConvertible {
     switch valType {
     case is FunType:
       let params = self.params!.enumerated()
-        .map({ (i, p) in "\(paramType(at: i))" })
+        .map({ (i, p) -> String in
+          let policy = p.policy.map(String.init(describing:)) ?? "_"
+          return "\(policy) \(paramType(at: i))"
+        })
         .joined(separator: ", ")
       let desc = "(\(params)) -> \(retType!)"
       return isAddress ? "*(\(desc))" : desc
