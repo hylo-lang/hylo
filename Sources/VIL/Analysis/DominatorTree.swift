@@ -10,27 +10,40 @@ public struct DominatorTree {
 
   }
 
-  /// The function from which this tree was created.
-  public let fun: VILFun
+  /// The control-flow graph of the function to which this tree relates.
+  public let cfg: ControlFlowGraph
+
+  /// The basic blocks of the function to which this tree relates.
+  public let blocks: [BasicBlockIndex]
 
   /// Immediate dominators.
   private var idoms: [BasicBlockIndex: Idom]
 
-  /// Creates the dominator tree of the specified function.
+  /// Creates a dominator tree from a control-flow graph.
   ///
-  /// - Parameter fun: A VIL function.
-  public init(from fun: VILFun) {
-    self.fun = fun
+  /// - Parameters
+  ///   - cfg: The control-flow graph of a function.
+  ///   - blocks: An array with all basic the basic blocks of a function, starting with its entry.
+  public init(from cfg: ControlFlowGraph, blocks: [BasicBlockIndex]) {
+    self.cfg = cfg
+    self.blocks = blocks
     self.idoms = [:]
 
     // Compute the immediate dominators of all basic blocks.
-    guard fun.hasEntry else { return }
-    for b in fun.blocks { _ = findIdom(b) }
+    guard !blocks.isEmpty else { return }
+    for b in blocks { _ = findIdom(b) }
+  }
+
+  /// Creates the dominator tree of the specified function.
+  ///
+  /// - Parameter fun: A VIL function.
+  public init(of fun: VILFun) {
+    self.init(from: fun.cfg, blocks: fun.blocks)
   }
 
   /// A collection of the blocks of this tree in breadth-first order.
   public var breadthFirstBlocks: [BasicBlockIndex] {
-    guard let entry = fun.entry else { return [] }
+    guard let entry = blocks.first else { return [] }
 
     let children: [BasicBlockIndex: [BasicBlockIndex]] = idoms.reduce(
       into: [:],
@@ -69,14 +82,12 @@ public struct DominatorTree {
   ///
   /// - Parameters:
   ///   - def: An instruction index.
-  ///   - use: A use. `use` is assumed to reside in this tree's function.
+  ///   - use: A use. `use` is assumed to reside in this tree's control-flow graph.
   ///   - module: The module in which `def` and `use` are defined.
   public func dominates(def: InstIndex, use: Use, in module: Module) -> Bool {
     // Look for the block in which `def` and `use` reside.
-    let defBlock = fun.block(containing: def, in: module) ?<
-      fatalError("'def' does not belong in this tree")
-    let useBlock = fun.block(containing: use.user, in: module) ?<
-      fatalError("'def' does not belong in this tree")
+    let defBlock = module.instructions[def].parent
+    let useBlock = module.instructions[use.user].parent
 
     // If `def` is in the same block as `use`, verify that it preceeds it.
     if defBlock == useBlock {
@@ -99,7 +110,7 @@ public struct DominatorTree {
     if let idom = idoms[b] { return idom }
 
     // Build the set of predecessors.
-    let preds = fun.cfg.edges(from: b).filter({ $0.label != .forward })
+    let preds = cfg.edges(from: b).filter({ $0.label != .forward })
     if preds.isEmpty {
       idoms[b] = .missing
       return .missing
@@ -135,7 +146,7 @@ public struct DominatorTree {
         }
 
         // Keep the chain if we reached the entry; otherwise, throw it away.
-        if ancestor == fun.entry {
+        if ancestor == blocks[0] {
           chain.append(ancestor)
           return chain
         } else {
@@ -154,7 +165,7 @@ public struct DominatorTree {
         return .some(chains[0][0])
 
       default:
-        var idom: BasicBlockIndex = fun.entry!
+        var idom: BasicBlockIndex = blocks[0]
         outer:while let candidate = chains[0].popLast() {
           for i in 1 ..< chains.count {
             if chains[i].popLast() != candidate { break outer }
