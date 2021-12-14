@@ -231,6 +231,7 @@ struct RValueEmitter: ExprVisitor {
   mutating func visit(_ node: CallExpr) -> ExprResult {
     let callee: Operand
     var args: [Operand] = []
+    var borrowedArgsIndices: [Int] = []
 
     // Emit the function's callee.
     switch node.fun {
@@ -239,13 +240,13 @@ struct RValueEmitter: ExprVisitor {
       if let decl = expr.decl as? BaseFunDecl {
         // The callee is a method; emit the receiver along with the dispatched function ref.
         if decl.isConsuming {
-          // The receiver is consumed; emit an r-value whether it's mutable or not.
+          // The receiver is consumed; emit an r-value.
           args.append(emit(rvalue: expr.base))
           callee = expr.base.type.isExistential
             ? Operand(module.insertWitnessMethod(container: args[0], decl: decl, at: state.ip))
             : Operand(FunRef(function: module.getOrCreateFunction(from: decl)))
         } else {
-          // The receiver is borrowed; emit an l-value or allocate temporary storage.
+          // The receiver is borrowed; emit a borrowable l-value.
           let receiver = decl.isMutating
             ? emit(lvalue: expr.base)
             : emit(borrowable: expr.base)
@@ -254,6 +255,7 @@ struct RValueEmitter: ExprVisitor {
             source: receiver,
             range: expr.base.range,
             at: state.ip)
+          borrowedArgsIndices.append(args.count)
           args.append(Operand(borrow))
           callee = expr.base.type.isExistential
             ? Operand(module.insertWitnessMethod(container: args[0], decl: decl, at: state.ip))
@@ -289,19 +291,15 @@ struct RValueEmitter: ExprVisitor {
     let params = (node.fun.type as! FunType).params
     for i in 0 ..< node.args.count {
       switch params[0].policy! {
-      case .local:
-        // Local parameters are passed by reference. If the argument isn't an l-value, we must
-        // allocate temporary storage.
+      case .local, .inout:
+        // Local and mutating parameters are passed by reference; emit a borrowable l-value.
         let source = emit(borrowable: node.args[i].value)
         let borrow = module.insertBorrowAddr(
-          isMutable: false, source: source, range: node.args[i].range, at: state.ip)
-        args.append(Operand(borrow))
-
-      case .inout:
-        // Mutating parameters are passed by reference. The argument must be an l-value.
-        let source = emit(borrowable: node.args[i].value)
-        let borrow = module.insertBorrowAddr(
-          isMutable: true, source: source, range: node.args[i].range, at: state.ip)
+          isMutable: params[0].policy! == .inout,
+          source: source,
+          range: node.args[i].range,
+          at: state.ip)
+        borrowedArgsIndices.append(args.count)
         args.append(Operand(borrow))
 
       case .consuming:
@@ -309,7 +307,7 @@ struct RValueEmitter: ExprVisitor {
         args.append(emit(rvalue: node.args[i].value))
       }
 
-      // If the parameter has an existential type and the argument doesn't, the latter has to be
+      // If the parameter has an existential type but the argument doesn't, the latter has to be
       // wrapped before being passed.
       if params[i].type.isExistential && !node.args[i].value.type.isExistential {
         assert(params[i].policy != .inout)
@@ -337,7 +335,14 @@ struct RValueEmitter: ExprVisitor {
     }
 
     // Emit the call.
-    return .success(Operand(module.insertApply(callee: callee, args: args, at: state.ip)))
+    let apply = module.insertApply(callee: callee, args: args, range: node.range, at: state.ip)
+
+    // End the borrowed values.
+    for i in borrowedArgsIndices.reversed() {
+      module.insertEndBorrowAddr(source: args[i], range: node.range, at: state.ip)
+    }
+
+    return .success(Operand(apply))
   }
 
   func visit(_ node: UnresolvedDeclRefExpr) -> ExprResult {
