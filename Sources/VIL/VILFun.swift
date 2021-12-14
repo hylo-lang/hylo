@@ -1,17 +1,38 @@
 import AST
 import Basic
 
-/// A control flow grahp.
+/// A control-flow graph.
 ///
-/// A control flow graph describes the relation between the basic blocks of the function. The
+/// A control-flow graph describes the relation between the basic blocks of the function. The
 /// direction of of its edges denotes the direction of the control flow from one block to another:
 /// there an edge from `A` to `B` if the former's terminator points to the latter.
 ///
-/// The graph is represented as an adjacency list that encodes the successor and the predecessor
+/// The graph is represented as an adjacency list that encodes all successor and the predecessor
 /// relations, enabling efficient lookup in both directions.
 public typealias ControlFlowGraph = AdjacencyList<BasicBlockIndex, ControlEdge>
 
-/// An edge in a control flow graph.
+extension ControlFlowGraph {
+
+  /// Inserts a control edge into the graph.
+  mutating func insertControlEdge(from source: BasicBlockIndex, to target: BasicBlockIndex) {
+    let (inserted, label) = insertEdge(from: source, to: target, labeledBy: .forward)
+    if inserted {
+      self[target, source] = .backward
+    } else if label == .backward {
+      self[source, target] = .bidirectional
+      self[target, source] = .bidirectional
+    }
+  }
+
+  /// Removes a control edge from the graph.
+  mutating func removeControlEdge(from source: BasicBlockIndex, to target: BasicBlockIndex) {
+    self[source, target] = nil
+    self[target, source] = nil
+  }
+
+}
+
+/// An edge in a control-flow graph.
 public enum ControlEdge {
 
   /// An edge `A -> B` denoting that `A` is a predecessor of `B`.
@@ -38,10 +59,10 @@ public struct VILFun {
   public let type: VILType
 
   /// The indices of the basic blocks in the function, starting with the entry.
-  public var blocks: [BasicBlockIndex] = []
+  public internal(set) var blocks: [BasicBlockIndex] = []
 
   /// The control flow graph of the function.
-  public var cfg = ControlFlowGraph()
+  public internal(set) var cfg = ControlFlowGraph()
 
   /// Creates a new VIL function.
   ///
@@ -60,29 +81,5 @@ public struct VILFun {
 
   /// The index of the function's entry block.
   public var entry: BasicBlockIndex? { blocks.first }
-
-  /// Returns the basic block in this function that contains the specified instruction.
-  ///
-  /// - Parameters:
-  ///   - inst: An instruction index.
-  ///   - module: The module in which `inst` is defined.
-  public func block(containing inst: InstIndex, in module: Module) -> BasicBlockIndex? {
-    return blocks.first(where: { block in
-      module.blocks[block].instructions.contains(inst)
-    })
-  }
-
-  /// Inserts a control edge from one basic block to another.
-  mutating func insertControlEdge(from source: BasicBlockIndex, to target: BasicBlockIndex) {
-    assert(blocks.contains(source) && blocks.contains(target))
-
-    let (inserted, label) = cfg.insertEdge(from: source, to: target, labeledBy: .forward)
-    if inserted {
-      cfg[target, source] = .backward
-    } else if label == .backward {
-      cfg[source, target] = .bidirectional
-      cfg[target, source] = .bidirectional
-    }
-  }
 
 }

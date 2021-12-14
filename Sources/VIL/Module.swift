@@ -58,7 +58,7 @@ public struct Module {
   }
 
   /// Removes an instruction.
-  public mutating func remove(inst instIndex: InstIndex, from block: BasicBlockIndex) {
+  public mutating func remove(inst instIndex: InstIndex) {
     assert(uses[Operand(instIndex), default: []].isEmpty, "instruction has uses")
     uses[Operand(instIndex)] = nil
 
@@ -69,8 +69,38 @@ public struct Module {
     }
 
     // Remove the instruction from the block.
-    let i = blocks[block].instructions.firstIndex(of: instIndex)
-    blocks[block].instructions.remove(at: i!)
+    modify(value: &blocks[inst.parent].instructions, with: { instructions in
+      let i = instructions.firstIndex(of: instIndex)
+      instructions.remove(at: i!)
+    })
+
+    // Update the function's control-flow graph if necessary.
+    switch inst {
+    case let inst as BorrowExistAddrBranchInst:
+      modify(value: &functions[blocks[inst.parent].parent]!.cfg, with: { cfg in
+        cfg.removeControlEdge(from: inst.parent, to: inst.succ)
+        cfg.removeControlEdge(from: inst.parent, to: inst.fail)
+      })
+
+    case let inst as BranchInst:
+      functions[blocks[inst.parent].parent]!.cfg.removeControlEdge(
+        from: inst.parent, to: inst.dest)
+
+    case let inst as CheckedCastBranchInst:
+      modify(value: &functions[blocks[inst.parent].parent]!.cfg, with: { cfg in
+        cfg.removeControlEdge(from: inst.parent, to: inst.succ)
+        cfg.removeControlEdge(from: inst.parent, to: inst.fail)
+      })
+
+    case let inst as CondBranchInst:
+      modify(value: &functions[blocks[inst.parent].parent]!.cfg, with: { cfg in
+        cfg.removeControlEdge(from: inst.parent, to: inst.succ)
+        cfg.removeControlEdge(from: inst.parent, to: inst.fail)
+      })
+
+    default:
+      break
+    }
   }
 
   /// Creates and inserts a basic block in the specified function.
@@ -289,6 +319,13 @@ public struct Module {
       fail: fail,
       parent: point.block,
       range: range)
+
+    let source = point.block
+    modify(value: &functions[blocks[source].parent]!.cfg, with: { cfg in
+      cfg.insertControlEdge(from: source, to: succ)
+      cfg.insertControlEdge(from: source, to: fail)
+    })
+
     return insert(inst: inst, at: point)
   }
 
@@ -300,6 +337,10 @@ public struct Module {
     at point: InsertionPoint
   ) -> InstIndex {
     let inst = BranchInst(dest: dest, args: args, parent: point.block, range: range)
+
+    let source = point.block
+    functions[blocks[source].parent]!.cfg.insertControlEdge(from: source, to: inst.dest)
+
     return insert(inst: inst, at: point)
   }
 
@@ -329,6 +370,13 @@ public struct Module {
 
     let inst = CheckedCastBranchInst(
       value: value, type: type, succ: succ, fail: fail, parent: point.block, range: range)
+
+    let source = point.block
+    modify(value: &functions[blocks[source].parent]!.cfg, with: { cfg in
+      cfg.insertControlEdge(from: source, to: succ)
+      cfg.insertControlEdge(from: source, to: fail)
+    })
+
     return insert(inst: inst, at: point)
   }
 
@@ -350,6 +398,13 @@ public struct Module {
       failArgs: failArgs,
       parent: point.block,
       range: range)
+
+    let source = point.block
+    modify(value: &functions[blocks[source].parent]!.cfg, with: { cfg in
+      cfg.insertControlEdge(from: source, to: succ)
+      cfg.insertControlEdge(from: source, to: fail)
+    })
+
     return insert(inst: inst, at: point)
   }
 
