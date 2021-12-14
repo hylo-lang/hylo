@@ -466,7 +466,7 @@ public struct Module {
   ) -> InstIndex {
     assert(type(of: source).isAddress, "'source' must have an address type")
 
-    let inst = EndBorrowAddrInst(source: source, parent: point.block, range: range)
+    let inst = EndBorrowInst(source: source, parent: point.block, range: range)
     return insert(inst: inst, at: point)
   }
 

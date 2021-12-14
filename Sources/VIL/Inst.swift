@@ -214,7 +214,9 @@ public final class DeleteAddrInst: Inst {
 }
 
 /// Ends the lifetime of a borrow.
-public final class EndBorrowAddrInst: Inst {
+///
+/// This instruction must be the last user of its operand.
+public final class EndBorrowInst: Inst {
 
   public let parent: BasicBlockIndex
 
@@ -231,7 +233,7 @@ public final class EndBorrowAddrInst: Inst {
 
   public var operands: [Operand] { [source] }
 
-  public static var opstring = "end_borrow_addr"
+  public static var opstring = "end_borrow"
 
 }
 
@@ -537,9 +539,10 @@ public final class CheckedCastBranchInst: Inst {
 /// failure if the cast fails.
 ///
 /// If the borrow is immutable, the container at `source` must be owned, borrowed, or projected. If
-/// it is owned, it becomes projected. Otherwise, it's typestate does not change.
+/// it is owned, it becomes projected. Otherwise, it's ownership does not change. If the borrow is
+/// mutable, the container at `source` must be owned and it becomes inouted.
 ///
-/// If the borrow is mutable, the container at `source` must be owned and it becomes inouted.
+/// This instruction must be post-dominated by `end_borrow`.
 public final class BorrowExistAddrInst: Value, Inst {
 
   public let type: VILType
@@ -588,9 +591,10 @@ public final class BorrowExistAddrInst: Value, Inst {
 /// is transferred to `fail` without any argument.
 ///
 /// If the borrow is immutable, the container at `source` must be owned, borrowed, or projected. If
-/// it is owned, it becomes projected. Otherwise, it's typestate does not change.
+/// it is owned, it becomes projected. Otherwise, it's ownership does not change. If the borrow is
+/// mutable, the container at `source` must be owned and it becomes inouted.
 ///
-/// If the borrow is mutable, the container at `source` must be owned and it becomes inouted.
+/// The basic block `succ` must be post-dominated by `end_borrow`.
 public final class BorrowExistAddrBranchInst: Inst {
 
   public let parent: BasicBlockIndex
