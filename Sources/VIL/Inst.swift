@@ -213,6 +213,28 @@ public final class DeleteAddrInst: Inst {
 
 }
 
+/// Ends the lifetime of a borrow.
+public final class EndBorrowAddrInst: Inst {
+
+  public let parent: BasicBlockIndex
+
+  public let range: SourceRange?
+
+  /// The borrowed address to release.
+  public let source: Operand
+
+  init(source: Operand, parent: BasicBlockIndex, range: SourceRange?) {
+    self.source = source
+    self.parent = parent
+    self.range = range
+  }
+
+  public var operands: [Operand] { [source] }
+
+  public static var opstring = "end_borrow_addr"
+
+}
+
 /// Loads the value stored at the specified address.
 ///
 /// The instruction operates on the source address directly. Hence, if it is assigned to an

@@ -459,6 +459,18 @@ public struct Module {
   }
 
   @discardableResult
+  public mutating func insertEndBorrowAddr(
+    source: Operand,
+    range: SourceRange? = nil,
+    at point: InsertionPoint
+  ) -> InstIndex {
+    assert(type(of: source).isAddress, "'source' must have an address type")
+
+    let inst = EndBorrowAddrInst(source: source, parent: point.block, range: range)
+    return insert(inst: inst, at: point)
+  }
+
+  @discardableResult
   public mutating func insertInitExistAddr(
     container: Operand,
     value: Operand,
