@@ -290,12 +290,12 @@ struct RValueEmitter: ExprVisitor {
     // Emit the function's arguments.
     let params = (node.fun.type as! FunType).params
     for i in 0 ..< node.args.count {
-      switch params[0].policy! {
+      switch params[i].policy! {
       case .local, .inout:
         // Local and mutating parameters are passed by reference; emit a borrowable l-value.
         let source = emit(borrowable: node.args[i].value)
         let borrow = module.insertBorrowAddr(
-          isMutable: params[0].policy! == .inout,
+          isMutable: params[i].policy == .inout,
           source: source,
           range: node.args[i].range,
           at: state.ip)
