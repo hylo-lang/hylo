@@ -228,6 +228,15 @@ public struct Slab<T> {
     return storage.remove(at: position)
   }
 
+  /// Returns whether or not the collection contains an element at the specified index.
+  public func hasElement(at position: Index) -> Bool {
+    return storage.withBucket(position.bucket, { (header, _) -> Bool in
+      let s = Int(position.slot)
+      let i = s / UInt.bitWidth
+      return header[i] & (1 << (s % UInt.bitWidth)) != 0
+    })
+  }
+
 }
 
 extension Slab.Index: Equatable {}
