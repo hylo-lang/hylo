@@ -29,7 +29,7 @@ public struct Module {
   public private(set) var blocks = Slab<BasicBlock>()
 
   /// The functions in the module.
-  public private(set) var functions: [String: VILFun] = [:]
+  public var functions: [String: VILFun] = [:]
 
   /// The view witness tables in the module.
   public var viewWitnessTables: [ViewWitnessTable] = []

@@ -180,6 +180,7 @@ public enum Emitter {
     // Emit the function's body.
     guard let body = decl.body else {
       emit(synthesizedBodyOf: decl, state: state, into: &module)
+      module.functions[fun.name]!.stage.insert(.optimized)
       return fun
     }
     emit(brace: body, state: &state, into: &module)
