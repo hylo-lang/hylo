@@ -47,7 +47,7 @@ public struct Token {
     case `ret`
     case `static`
     case `type`
-    case `val`
+    case `let`
     case `var`
     case `view`
     case `volatile`
@@ -112,7 +112,7 @@ public struct Token {
       case .ret       : return "'ret'"
       case .static    : return "'static'"
       case .type      : return "'type'"
-      case .val       : return "'val'"
+      case .let       : return "'let'"
       case .var       : return "'var'"
       case .view      : return "'view'"
       case .volatile  : return "'volatile'"
@@ -192,7 +192,7 @@ public struct Token {
   /// A Boolean value indicating whether this token may begin a declaration.
   public var mayBeginDecl: Bool {
     switch kind {
-    case .extn, .del, .fun, .new, .type, .val , .var, .view:
+    case .extn, .del, .fun, .new, .type, .let , .var, .view:
       return true
     default:
       return isDeclModifier

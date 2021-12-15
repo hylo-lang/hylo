@@ -1,12 +1,12 @@
 view V {
-  val foo: A
+  let foo: A
 }
 
 type A {}
 
 fun f<X where X: V>(x: X) -> A {
   // #!error@+1
-  val bar = x.bar
+  let bar = x.bar
 
   ret x.foo
 }

@@ -165,7 +165,7 @@ public final class PatternBindingDecl: Decl {
   /// The initializer for the variables declared by the pattern.
   public var initializer: Expr?
 
-  /// The source range of the `val` or `var` keyword at the start of the declaration.
+  /// The source range of the `let` or `var` keyword at the start of the declaration.
   public var introRange: SourceRange?
 
   public init(
@@ -201,7 +201,7 @@ public final class PatternBindingDecl: Decl {
 /// A variable declaration.
 ///
 /// Variable declarations are not top-level AST nodes. Instead, they result from constructions that
-/// bind named patterns. For instance, `val (foo, bar) = f()` is parsed as a declaration that binds
+/// bind named patterns. For instance, `let (foo, bar) = f()` is parsed as a declaration that binds
 /// a tuple pattern to an expression. The tuple pattern contains two variable declarations, one for
 /// each named pattern.
 public final class VarDecl: ValueDecl {
@@ -680,7 +680,7 @@ public final class CaptureDecl: ValueDecl {
   public enum Semantics {
 
     /// The declaration is captured as an immutable copy.
-    case `val`
+    case `let`
 
     /// The declaration is captured as a mutable copy.
     case `var`

@@ -1,18 +1,18 @@
 type A {
-  val i: Int
+  let i: Int
 }
 
 fun main() {
   var x: Maybe<A> = A(i: 30)
-  val y: Int = match x {
-    case val a: A   { a.i }
-    case val a: Nil { 12 }
+  let y: Int = match x {
+    case let a: A   { a.i }
+    case let a: Nil { 12 }
   }
 
   x = Nil()
-  val z: Int = match x {
-    case val a: A   { a.i }
-    case val a: Nil { 12 }
+  let z: Int = match x {
+    case let a: A   { a.i }
+    case let a: Nil { 12 }
   }
 
   exit(y + z)

@@ -1,7 +1,7 @@
 fun one() -> Int { ret 1 }
 
 fun main() {
-  val f = one
+  let f = one
   fun two() -> Int {
     ret f() + one()
   }

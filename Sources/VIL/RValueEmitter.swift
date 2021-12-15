@@ -407,7 +407,7 @@ struct RValueEmitter: ExprVisitor {
     let fun = Emitter.emit(function: node.body, with: &builder)
     let ref = builder.buildFunRef(function: fun)
 
-    // Emit the value of each captured declaration. Capture with `val` or `var` semantics are
+    // Emit the value of each captured declaration. Capture with `let` or `var` semantics are
     // copied from the environment, and so we must emit a r-value either way.
     let captureTable = node.body.computeAllCaptures()
     let captures = captureTable.map({ (key, value) -> Value in

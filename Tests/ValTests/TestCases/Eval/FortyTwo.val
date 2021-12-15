@@ -1,6 +1,6 @@
 fun main() {
   var a = 8
   a.negate()
-  val b = 58 + a * 2
+  let b = 58 + a * 2
   exit(b)
 }

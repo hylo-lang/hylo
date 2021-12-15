@@ -124,7 +124,7 @@ public final class BindingPattern: Pattern {
   /// The signature of the pattern.
   public var sign: Sign?
 
-  /// The source range of the `val` or `var` keyword at the start of the pattern.
+  /// The source range of the `let` or `var` keyword at the start of the pattern.
   public var introRange: SourceRange?
 
   public init(

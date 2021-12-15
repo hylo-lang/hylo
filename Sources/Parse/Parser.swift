@@ -262,7 +262,7 @@ public struct Parser {
     // Parse a declaration.
     let head = state.peek()
     switch head?.kind {
-    case .val, .var:
+    case .let, .var:
       return parseBindingDecl(state: &state, rawModifiers: modifiers)
 
     case .fun, .new, .del:
@@ -298,13 +298,13 @@ public struct Parser {
 
   /// Parses a pattern binding declaration.
   ///
-  ///     binding-decl ::= ('val' | 'var') NAME (':' sign)? ('=' expr)
+  ///     binding-decl ::= ('let' | 'var') NAME (':' sign)? ('=' expr)
   ///
-  /// The next token is expected to be 'val' or 'var'.
+  /// The next token is expected to be 'let' or 'var'.
   private func parseBindingDecl(
     state: inout State, rawModifiers: [DeclModifier]
   ) -> PatternBindingDecl {
-    let introducer = state.take(if: { $0.kind == .val || $0.kind == .var })!
+    let introducer = state.take(if: { $0.kind == .let || $0.kind == .var })!
     let lowerLoc = rawModifiers.first?.range?.lowerBound ?? introducer.range.lowerBound
     var upperLoc = introducer.range.upperBound
 
@@ -619,11 +619,11 @@ public struct Parser {
 
   /// Parses a capture declaration.
   ///
-  ///     capture-decl ::= ('val' | 'var') NAME
+  ///     capture-decl ::= ('let' | 'var') NAME
   private func parseCaptureDecl(state: inout State) -> CaptureDecl? {
     let semantics: CaptureDecl.Semantics
     switch state.peek()?.kind {
-    case .val: semantics = .val
+    case .let: semantics = .let
     case .var: semantics = .var
     case .mut: semantics = .mut
     default:
@@ -1842,7 +1842,7 @@ public struct Parser {
     switch state.peek()?.kind {
     case .name:
       return parseNamedPattern(state: &state)
-    case .var, .val:
+    case .var, .let:
       return parseBindingPattern(state: &state)
     case .lParen:
       return parseTuplePattern(state: &state)
@@ -1868,9 +1868,9 @@ public struct Parser {
 
   /// Parses a binding pattern.
   ///
-  ///     binding-pattern ::= ('val' | 'var') pattern (':' sign)?
+  ///     binding-pattern ::= ('let' | 'var') pattern (':' sign)?
   private func parseBindingPattern(state: inout State) -> Pattern? {
-    guard let introducer = state.take(if: { $0.isOf(kind: [.val, .var]) }) else { return nil }
+    guard let introducer = state.take(if: { $0.isOf(kind: [.let, .var]) }) else { return nil }
 
     // Commit to parse a pattern.
     guard let subpattern = parsePattern(state: &state) else {
