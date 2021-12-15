@@ -92,10 +92,11 @@ public final class AllocStackInst: Value, Inst {
 /// This instruction is operationally equivalent to the identity function. It is used during VIL
 /// analysis to identify the ownership state of the borrowed value.
 ///
-/// If the borrow is immutable, the value at `source` must be owned, borrowed, or projected. If it
-/// is owned, it becomes projected. Otherwise, it's typestate does not change.
+/// If the borrow is immutable, the value at `source` must be owned or lent. If it is owned, it
+/// becomes lent. Otherwise, it's ownership does not change. If the borrow is mutable, the value
+/// at `source` must be owned and it becomes projected.
 ///
-/// If the borrow is mutable, the value at `source` must be owned and it becomes inouted.
+/// This instruction must be post-dominated by `end_borrow`.
 public final class BorrowAddrInst: Value, Inst {
 
   public let type: VILType
@@ -538,9 +539,9 @@ public final class CheckedCastBranchInst: Inst {
 /// The instruction first performs a checked cast on the packaged value and causess a runtime
 /// failure if the cast fails.
 ///
-/// If the borrow is immutable, the container at `source` must be owned, borrowed, or projected. If
-/// it is owned, it becomes projected. Otherwise, it's ownership does not change. If the borrow is
-/// mutable, the container at `source` must be owned and it becomes inouted.
+/// If the borrow is immutable, the container at `source` must be owned or lent. If it is owned,
+/// it becomes lent. Otherwise, it's ownership does not change. If the borrow is mutable, the
+/// container at `source` must be owned and it becomes projected.
 ///
 /// This instruction must be post-dominated by `end_borrow`.
 public final class BorrowExistAddrInst: Value, Inst {
@@ -590,9 +591,9 @@ public final class BorrowExistAddrInst: Value, Inst {
 /// `succ` if the cast succeeds and a borrowed address is passed as an argument. Otherwise, control
 /// is transferred to `fail` without any argument.
 ///
-/// If the borrow is immutable, the container at `source` must be owned, borrowed, or projected. If
-/// it is owned, it becomes projected. Otherwise, it's ownership does not change. If the borrow is
-/// mutable, the container at `source` must be owned and it becomes inouted.
+/// If the borrow is immutable, the container at `source` must be owned or lent. If it is owned,
+/// it becomes lent. Otherwise, it's ownership does not change. If the borrow is mutable, the
+/// container at `source` must be owned and it becomes projected.
 ///
 /// The basic block `succ` must be post-dominated by `end_borrow`.
 public final class BorrowExistAddrBranchInst: Inst {
@@ -668,8 +669,8 @@ public final class InitExistAddrInst: Inst {
 
 /// Creates an existential container initialized with a value borrowed from the specified address.
 ///
-/// The value at `source` is borrowed immutably. It must be owned, borrowed, or projected. If it
-/// is owned, it becomes projected. Otherwise, it's typestate does not change.
+/// The value at `source` is borrowed immutably. It must be owned or lent. If it is owned, it
+/// becomes lent. Otherwise, it's ownership does not change.
 public final class PackBorrowInst: Value, Inst {
 
   public let type: VILType

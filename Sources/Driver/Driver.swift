@@ -154,8 +154,8 @@ public struct Driver {
     // Emit the module declaration.
     var module = Emitter.emit(module: moduleDecl)
 
-    // Run typestate analysis.
-    var pass = TypestateAnalysis()
+    // Run ownership analysis.
+    var pass = OwnershipAnalysis()
     for funName in module.functions.keys {
       guard pass.run(funName, on: &module) else {
         throw DriverError.moduleLoweringFailed(moduleName: moduleDecl.name)

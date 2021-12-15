@@ -328,7 +328,7 @@ struct RValueEmitter: ExprVisitor {
           args[i] = Operand(alloc)
 
         case .inout:
-          // Because arguments passed mutating must have the same type.
+          // Arguments passed mutating must have the same type.
           fatalError("unreachable")
         }
       }
@@ -489,13 +489,13 @@ struct RValueEmitter: ExprVisitor {
         // The pattern is irrefutable if it has the same type as the subject.
         if patternType == subjectType {
           if decl.isMutable {
-            // `var` bindings are consuming.
+            // Mutable bindings are consuming.
             let loc = Operand(Emitter.emit(
               storedVar: decl, state: &_state.pointee, into: &_module.pointee))
             locals[ObjectIdentifier(decl)] = loc
             module.insertMoveAddr(from: subjectLoc, to: loc, range: pattern.range, at: state.ip)
           } else {
-            // `val` bindings are borrowing immutably.
+            // Immutable bindings are borrowing immutably.
             let borrow = module.insertBorrowAddr(
               source: subjectLoc, range: pattern.range, at: state.ip)
             locals[ObjectIdentifier(decl)] = Operand(borrow)
