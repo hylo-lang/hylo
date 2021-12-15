@@ -4,11 +4,11 @@ fun main() {
   var i: ()
   i = ()
 
-  val f = foo
+  let f = foo
   fun foo() {}
 
-  val j = ()
+  let j = ()
   fun bar() {
-    val j = j
+    let j = j
   }
 }

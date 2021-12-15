@@ -123,7 +123,7 @@ struct LValueEmitter: ExprVisitor {
 
     case let decl as CaptureDecl:
       // The node is a reference to an explicit capture.
-      guard decl.semantics != .val else { return .failure(.immutableCapture(node.decl)) }
+      guard decl.semantics != .let else { return .failure(.immutableCapture(node.decl)) }
       let loc = locals[ObjectIdentifier(decl)]!
       assert(loc.type.isAddress)
       return .success((loc: loc, pathID: .binding(decl: decl)))

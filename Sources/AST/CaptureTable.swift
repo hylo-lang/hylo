@@ -40,7 +40,7 @@ public struct CaptureTable {
       if let capture = referredDecl as? CaptureDecl {
         return capture.semantics
       } else {
-        return .val
+        return .let
       }
     }
 

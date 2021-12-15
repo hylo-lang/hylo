@@ -1,10 +1,10 @@
 type A {
-  val p: B::C
+  let p: B::C
 }
 
 extn A {
   type B {
-    val q: C
+    let q: C
   }
 }
 

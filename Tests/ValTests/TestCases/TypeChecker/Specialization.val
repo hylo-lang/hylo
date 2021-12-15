@@ -16,7 +16,7 @@ type B<T> {
 }
 
 view V {
-  val foo: V
+  let foo: V
 }
 
 view U {}

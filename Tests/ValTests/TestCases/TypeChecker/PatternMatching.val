@@ -5,23 +5,23 @@ type C {}
 type ABC = A | B | C
 
 fun main() {
-  val foo: ABC = A()
-  val x: A | B = match foo {
-    case val bar: A     { bar }
-    case val bar: A | B { bar }
-    case val bar: C     { A() }
+  let foo: ABC = A()
+  let x: A | B = match foo {
+    case let bar: A     { bar }
+    case let bar: A | B { bar }
+    case let bar: C     { A() }
   }
 
-  val y = match foo {
-    case val bar: A { bar }
+  let y = match foo {
+    case let bar: A { bar }
     case _          { A() }
   }
 
-  val z = match foo {
-    case val bar: A { bar }
+  let z = match foo {
+    case let bar: A { bar }
     // #!error@+1 type 'B' is not equal to type 'A'
-    case val bar: B { bar }
+    case let bar: B { bar }
     // #!error@+1 type 'C' is not equal to type 'A'
-    case val bar: C { bar }
+    case let bar: C { bar }
   }
 }

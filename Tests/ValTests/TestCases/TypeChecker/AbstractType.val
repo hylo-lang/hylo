@@ -42,7 +42,7 @@ type E<Y>: U {
 }
 
 type F<Y where Y: V>: U {
-  val x: Y::X
+  let x: Y::X
 
   fun ham(y: Y, u: F<Y>) {
     y.foo(x: x)

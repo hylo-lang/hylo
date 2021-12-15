@@ -1,10 +1,10 @@
 type A {
-  val i: Int
+  let i: Int
 }
 
 fun main() {
-  val n = 42
-  val a = async A(i: n)
-  val b = await a
+  let n = 42
+  let a = async A(i: n)
+  let b = await a
   exit(b.i)
 }
