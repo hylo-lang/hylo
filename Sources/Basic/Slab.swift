@@ -48,7 +48,7 @@ public struct Slab<T> {
 
         // Zero-initialize all bucket headers.
         for b in 0 ..< bucketCount {
-          withBucket(b, { header, _ in
+          withBucket(b, { (header, _) in
             header.initialize(repeating: 0, count: _Storage.bitmapCount)
           })
         }
@@ -63,8 +63,8 @@ public struct Slab<T> {
       // Copy the other storage's contents.
       count = other.count
       for b in 0 ..< other.bucketCount {
-        withBucket(b, { thisHeader, thisBody  in
-          other.withBucket(b, { thatHeader, thatBody in
+        withBucket(b, { (thisHeader, thisBody)  in
+          other.withBucket(b, { (thatHeader, thatBody) in
             // Copy the bucket's header.
             thisHeader.initialize(from: thatHeader, count: _Storage.bitmapCount)
 
@@ -85,7 +85,7 @@ public struct Slab<T> {
     deinit {
       // Deinitialize the allocated slots.
       for b in 0 ..< bucketCount {
-        withBucket(b, { header, body in
+        withBucket(b, { (header, body) in
           for i in 0 ..< _Storage.bitmapCount {
             let offset = i * UInt.bitWidth
             for j in 0 ..< UInt.bitWidth {
@@ -101,7 +101,7 @@ public struct Slab<T> {
 
     /// Returns the index of the first free slot in the specified bucket.
     func firstSlot(in bucket: Int) -> Int? {
-      return withBucket(bucket, { header, _ in
+      return withBucket(bucket, { (header, _) in
         for i in 0 ..< _Storage.bitmapCount where header[i] != 0 {
           // Find the first non-zero least significant bit in the busy map.
           let busymap = header[i]
@@ -147,7 +147,7 @@ public struct Slab<T> {
       bucketCount += 1
       base = newBase
 
-      withBucket(bucketCount - 1, { header, body in
+      withBucket(bucketCount - 1, { (header, body) in
         header.initialize(repeating: 0, count: _Storage.bitmapCount)
         header[0] = 1
         body.initialize(to: newElement)
@@ -159,7 +159,7 @@ public struct Slab<T> {
     func remove(at position: Index) -> T {
       defer { count -= 1 }
 
-      return withBucket(position.bucket, { header, body in
+      return withBucket(position.bucket, { (header, body) in
         let s = Int(position.slot)
         let i = s / UInt.bitWidth
         precondition(header[i] & (1 << (s % UInt.bitWidth)) != 0, "invalid index")
@@ -305,7 +305,7 @@ extension Slab: MutableCollection {
 
   public subscript(position: Index) -> T {
     get {
-      return storage.withBucket(position.bucket, { header, body in
+      return storage.withBucket(position.bucket, { (header, body) in
         let s = Int(position.slot)
         let i = s / UInt.bitWidth
         precondition(header[i] & (1 << (s % UInt.bitWidth)) != 0, "invalid index")
@@ -318,7 +318,7 @@ extension Slab: MutableCollection {
         storage = _Storage(copying: storage, minimumCapacity: storage.count + 1)
       }
 
-      storage.withBucket(position.bucket, { header, body in
+      storage.withBucket(position.bucket, { (header, body) in
         let s = Int(position.slot)
         let i = s / UInt.bitWidth
         precondition(header[i] & (1 << (s % UInt.bitWidth)) != 0, "invalid index")
