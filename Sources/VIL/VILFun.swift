@@ -49,6 +49,25 @@ public enum ControlEdge {
 /// A VIL function.
 public struct VILFun {
 
+  /// The VIL stage of a function.
+  public struct Stage: OptionSet {
+
+    public typealias RawValue = UInt8
+
+    public let rawValue: UInt8
+
+    public init(rawValue: UInt8) {
+      self.rawValue = rawValue
+    }
+
+    static let didPassOwnership = Stage(rawValue: 1)
+
+    static let checked: Stage = [.didPassOwnership]
+
+    static let optimized: Stage = .checked
+
+  }
+
   /// The mangled name of the function.
   public let name: String
 
@@ -63,6 +82,9 @@ public struct VILFun {
 
   /// The control flow graph of the function.
   public internal(set) var cfg = ControlFlowGraph()
+
+  /// The stage of the function.
+  public var stage: Stage = []
 
   /// Creates a new VIL function.
   ///
