@@ -35,7 +35,7 @@ A more formal and authoritative documentation is on the way.
 
 ### Build Val
 
-Val is distributed in the form of a Swift package, which can be built with [Swift Package Manager](swift package manager).
+Val is distributed in the form of a Swift package, which can be built with [Swift Package Manager](https://www.swift.org/package-manager/).
 
 Clone this repository and simply run `swift build -c release` to build the project.
 This command will create an executable `.build/release/val`.
