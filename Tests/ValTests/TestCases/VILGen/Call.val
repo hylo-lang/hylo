@@ -1,0 +1,47 @@
+type A: Copyable {
+
+  var x: Int
+  var y: Int
+
+  fun copy() -> A {
+    ret A(x: x.copy(), y: y.copy())
+  }
+
+  fun f0() {}
+
+  fun f1(z: A) {}
+
+  mut fun f2(z: A) {}
+
+  mut fun f3(z: mut A) {}
+
+  fun f4(z: consuming A) {}
+
+}
+
+fun main() {
+  var a = A(x: 8, y: 4)
+  var b = a.copy()
+
+  // a is lent
+  a.f0()
+  // a is lent twice
+  a.f1(z: a)
+  // a and b are lent
+  a.f1(z: b)
+  // a is projected, b is lent
+  a.f2(z: b)
+  // a and b are projected
+  a.f3(z: &b)
+  // a is lent, b is consumed
+  a.f4(z: b)
+
+  // #!error@+1 overlappingMutableAccesses
+  a.f2(z: a)
+  // #!error@+1 overlappingMutableAccesses
+  a.f3(z: &a)
+  // #!error@+1 useOfConsumedValue
+  b.f0()
+  // #!error@+1 moveOfProjectedValue
+  a.f4(z: a)
+}

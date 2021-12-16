@@ -13,24 +13,44 @@ final class ValTests: XCTestCase {
     for url in urls {
       let driver = Driver()
       let source = try driver.context.sourceManager.load(contentsOf: url)
-
-      let checker = DiagnosticChecker(context: driver.context)
-      driver.context.diagConsumer = checker
-
       var parser = TestAnnotationParser()
       parser.scan(source)
-      for (loc, annotations) in parser.annotations {
-        checker.diagnostics[loc, default: []].append(contentsOf: annotations.compactMap({ a in
-          switch a {
-          case .diagnostic(let pattern):
-            return pattern
-          }
-        }))
-      }
 
+      let checker = DiagnosticChecker(context: driver.context)
+      checker.insert(annotations: parser.annotations)
+
+      driver.context.diagConsumer = checker
       let moduleName = url.deletingPathExtension().lastPathComponent
       let moduleDecl = try driver.parse(moduleName: moduleName, moduleFiles: [url])
       driver.typeCheck(moduleDecl: moduleDecl)
+
+      checker.finalize()
+    }
+  }
+
+  func testVILGen() throws {
+    let urls = try XCTUnwrap(
+      Bundle.module.urls(forResourcesWithExtension: "val", subdirectory: "TestCases/VILGen"),
+      "No test case found")
+
+    for url in urls {
+      let driver = Driver()
+      try driver.loadStdlib()
+      let source = try driver.context.sourceManager.load(contentsOf: url)
+      var parser = TestAnnotationParser()
+      parser.scan(source)
+
+      let checker = DiagnosticChecker(context: driver.context)
+      checker.insert(annotations: parser.annotations)
+
+      driver.context.diagConsumer = checker
+      let moduleName = url.deletingPathExtension().lastPathComponent
+      let moduleDecl = try driver.parse(moduleName: moduleName, moduleFiles: [url])
+      driver.typeCheck(moduleDecl: moduleDecl)
+      do {
+        _ = try driver.lower(moduleDecl: moduleDecl)
+      } catch DriverError.moduleLoweringFailed {
+      }
 
       checker.finalize()
     }
@@ -45,7 +65,6 @@ final class ValTests: XCTestCase {
       let driver = Driver()
       try driver.loadStdlib()
       let source = try driver.context.sourceManager.load(contentsOf: url)
-
       var parser = TestAnnotationParser()
       parser.scan(source)
 

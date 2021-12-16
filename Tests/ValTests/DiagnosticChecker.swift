@@ -5,16 +5,6 @@ import Basic
 
 final class DiagnosticChecker: DiagConsumer {
 
-  init(
-    context: AST.Context,
-    xcFile: StaticString = #file,
-    xcLine: UInt = #line
-  ) {
-    self.context = context
-    self.xcFile = xcFile
-    self.xcLine = xcLine
-  }
-
   /// The AST context in which modules are being compiled.
   unowned let context: AST.Context
 
@@ -26,6 +16,27 @@ final class DiagnosticChecker: DiagConsumer {
 
   /// The line number at which assertion failures are thrown.
   let xcLine: UInt
+
+  init(
+    context: AST.Context,
+    xcFile: StaticString = #file,
+    xcLine: UInt = #line
+  ) {
+    self.context = context
+    self.xcFile = xcFile
+    self.xcLine = xcLine
+  }
+
+  func insert(annotations: [TestAnnotation.Location: [TestAnnotation]]) {
+    for (loc, annotations) in annotations {
+      diagnostics[loc, default: []].append(contentsOf: annotations.compactMap({ a in
+        switch a {
+        case .diagnostic(let pattern):
+          return pattern
+        }
+      }))
+    }
+  }
 
   func consume(_ diagnostic: Diag) {
     guard let sourceLocation = diagnostic.reportLocation else {
