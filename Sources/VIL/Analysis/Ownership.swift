@@ -615,10 +615,12 @@ public struct OwnershipAnalysis {
         success = visit(inst: inst, index: index, context: &context) && success
       case let inst as BorrowAddrInst:
         success = visit(inst: inst, index: index, context: &context) && success
+      case let inst as BorrowExistAddrInst:
+        success = visit(inst: inst, index: index, context: &context) && success
       case let inst as DeallocStackInst:
         success = visit(inst: inst, index: index, context: &context) && success
 //      case let inst as DeleteInst:
-//        success = visit(inst: inst, path: path, context: &context, builder: &builder) && success
+//        success = visit(inst: inst, index: index, context: &context) && success
       case let inst as DeleteAddrInst:
         success = visit(inst: inst, index: index, context: &context) && success
       case let inst as EndBorrowInst:
@@ -723,16 +725,44 @@ public struct OwnershipAnalysis {
     index: InstIndex,
     context: inout AbstractContext
   ) -> Bool {
-    // Operationally, a borrow_addr is just a copy of the source address.
-    guard let source = context[in: inst.source]?.asAddress else { illegalOperand() }
+    return visitFallibleBorrow(
+      index: index,
+      isMutable: inst.isMutable,
+      source: inst.source,
+      range: inst.range,
+      context: &context)
+  }
+
+  private func visit(
+    inst: BorrowExistAddrInst,
+    index: InstIndex,
+    context: inout AbstractContext
+  ) -> Bool {
+    return visitFallibleBorrow(
+      index: index,
+      isMutable: inst.isMutable,
+      source: inst.container,
+      range: inst.range,
+      context: &context)
+  }
+
+  private func visitFallibleBorrow(
+    index: InstIndex,
+    isMutable: Bool,
+    source: Operand,
+    range: SourceRange?,
+    context: inout AbstractContext
+  ) -> Bool {
+    // Operationally, a borrow is just a copy of the source address.
+    guard let source = context[in: source]?.asAddress else { illegalOperand() }
     context[in: Operand(index)] = .address(source)
 
     do {
       // Borrow the value at the source address.
-      try context.lend(source, mutably: inst.isMutable, to: index)
+      try context.lend(source, mutably: isMutable, to: index)
       return true
     } catch {
-      report(error: error, range: inst.range)
+      report(error: error, range: range)
       return false
     }
   }
