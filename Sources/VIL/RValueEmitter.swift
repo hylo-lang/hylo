@@ -367,7 +367,7 @@ struct RValueEmitter: ExprVisitor {
     if let value = locals[ObjectIdentifier(node.decl)] {
       // FIXME: Is there a more reliable way to determine whether an address must be loaded?
       return module.type(of: value).isAddress
-        ? .success(Operand(module.insertLoad(source: value, at: state.ip)))
+        ? .success(Operand(module.insertLoad(source: value, range: node.range, at: state.ip)))
         : .success(value)
     }
 
