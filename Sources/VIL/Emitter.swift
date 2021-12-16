@@ -273,17 +273,20 @@ public enum Emitter {
       let openedSelf = module.insertBorrowExistAddr(
         isMutable: impl.isMutating,
         container: args[0],
-        type: .lower(openedSelfType),
+        type: .lower(openedSelfType).address,
         at: .endOf(entry))
       args[0] = Operand(openedSelf)
     }
 
     let openedFun = module.getOrCreateFunction(from: impl)
-    let value = module.insertApply(
+    let result = module.insertApply(
       callee: Operand(FunRef(function: openedFun)),
       args: args,
       at: .endOf(entry))
-    module.insertRet(value: Operand(value), at: .endOf(entry))
+    if !(req is CtorDecl) {
+      module.insertEndBorrowAddr(source: args[0], at: .endOf(entry))
+    }
+    module.insertRet(value: Operand(result), at: .endOf(entry))
 
     return fun
   }
