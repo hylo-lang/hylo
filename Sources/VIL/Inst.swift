@@ -31,7 +31,6 @@ extension Inst {
         .joined(separator: ", ")
       printer.write(" \(os)", to: &stream)
     }
-
     printer.write("\n", to: &stream)
   }
 
@@ -130,8 +129,7 @@ public final class BorrowAddrInst: Value, Inst {
   public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
     printer.write(Self.opstring + " ", to: &stream)
     if isMutable { printer.write("[mutable] ", to: &stream) }
-    printer.write(printer.describe(source), to: &stream)
-    printer.write("\n", to: &stream)
+    printer.write("\(printer.describe(source))\n", to: &stream)
   }
 
   public static var opstring = "borrow_addr"
@@ -577,8 +575,7 @@ public final class BorrowExistAddrInst: Value, Inst {
   public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
     printer.write(Self.opstring + " ", to: &stream)
     if isMutable { printer.write("[mutable] ", to: &stream) }
-    printer.write(printer.describe(container), to: &stream)
-    printer.write("\n", to: &stream)
+    printer.write("\(printer.describe(container)) as \(type)\n", to: &stream)
   }
 
   public static var opstring = "borrow_exist_addr"
@@ -636,6 +633,14 @@ public final class BorrowExistAddrBranchInst: Inst {
   }
 
   public var operands: [Operand] { [container] }
+
+  public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
+    printer.write(Self.opstring + " ", to: &stream)
+    if isMutable { printer.write("[mutable] ", to: &stream) }
+    printer.write("\(printer.describe(container)) as \(type),", to: &stream)
+    printer.write("\(printer.numericID(of: succ)),", to: &stream)
+    printer.write("\(printer.numericID(of: fail))\n", to: &stream)
+  }
 
   public static var opstring = "borrow_exist_addr_br"
 
