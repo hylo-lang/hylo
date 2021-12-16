@@ -355,12 +355,11 @@ fileprivate struct AbstractObject: Equatable {
 
   /// Verifies the invariants on the state of the object's parts w.r.t. to its own state.
   private func verify() -> Bool {
-    var current = state
     for part in parts.values {
       let rhs = part.derivedState
-      switch (current, rhs) {
+      switch (state, rhs) {
       case (.owned, .owned), (.owned, .lent), (.owned, .projected):
-        current = rhs
+        continue
       case (.owned, _):
         preconditionFailure("owned parent must have owned, lent, or projected parts")
 
@@ -369,14 +368,10 @@ fileprivate struct AbstractObject: Equatable {
       case (.lent, _):
         preconditionFailure("lent parent must have lent parts")
 
-      case (.projected, .projected(let b)):
-        if case .projected(let a) = state {
-          precondition(a == b, "parts of projected parent must have the same borrower")
-        }
+      case (.projected(let a), .projected(let b)):
+        precondition(a == b, "parts of projected parent must have the same borrower")
       case (.projected, _):
-        if case .projected = state {
-          preconditionFailure("projected parent must have owned parts")
-        }
+        preconditionFailure("projected parent must have owned parts")
 
       case (.consumed, _):
         preconditionFailure("consumed parent must have no parts")
