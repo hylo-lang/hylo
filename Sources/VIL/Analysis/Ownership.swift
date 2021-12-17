@@ -27,7 +27,12 @@ fileprivate struct AbstractContext: Equatable {
     }
     set {
       precondition(newValue != nil, "cannot unassign register")
-      locals[register] = newValue
+      if let newObject = newValue?.asObject?.canonical {
+        assert(newObject.verify())
+        locals[register] = .object(newObject)
+      } else {
+        locals[register] = newValue
+      }
     }
   }
 
@@ -55,28 +60,20 @@ fileprivate struct AbstractContext: Equatable {
         } else if let newObject = newObject {
           self[at: parent] = AbstractObject(state: newObject.state, parts: [property: newObject])
         }
-      } else {
+      } else if let newObject = newObject?.canonical {
+        assert(newObject.verify())
         memory[address] = newObject
+      } else {
+        memory[address] = nil
       }
     }
   }
 
   /// Consumes the object at the specified address.
   mutating func consume(_ address: AbstractAddress, with consumer: InstIndex) throws {
-    guard let object = self[at: address] else { illegalOperand() }
-    switch object.derivedState {
-    case .owned:
-      self[at: address] = AbstractObject(state: .consumed(consumer: consumer))
-
-    case .lent:
-      throw OwnershipError.moveOfProjectedValue
-    case .projected:
-      throw OwnershipError.moveOfInoutedValue
-    case .consumed, .dynamic:
-      throw OwnershipError.useOfConsumedValue
-    case .uninitialized:
-      throw OwnershipError.useOfUninitializedValue
-    }
+    guard var object = self[at: address] else { illegalOperand() }
+    try object.consume(with: consumer)
+    self[at: address] = object
   }
 
   /// Consumes the specified operand.
@@ -91,34 +88,8 @@ fileprivate struct AbstractContext: Equatable {
   /// Lends the object at the specified address.
   mutating func lend(_ address: AbstractAddress, mutably: Bool, to borrower: InstIndex) throws {
     guard var object = self[at: address] else { illegalOperand() }
-    switch object.derivedState {
-    case .owned:
-      object.state = mutably
-        ? .projected(borrower: borrower)
-        : .lent(borrowers: [borrower])
-      for k in object.parts.keys {
-        try object.parts[k]!.lend(mutably: mutably, to: borrower)
-      }
-      self[at: address] = object
-
-    case .lent(let borrowers):
-      if mutably {
-        throw OwnershipError.overlappingMutableAccesses
-      } else {
-        object.state = .lent(borrowers: borrowers.union([borrower]))
-        for k in object.parts.keys {
-          try object.parts[k]!.lend(mutably: false, to: borrower)
-        }
-      }
-      self[at: address] = object
-
-    case .projected:
-      throw OwnershipError.overlappingMutableAccesses
-    case .consumed, .dynamic:
-      throw OwnershipError.useOfConsumedValue
-    case .uninitialized:
-      throw OwnershipError.useOfUninitializedValue
-    }
+    try object.lend(mutably: mutably, to: borrower)
+    self[at: address] = object
   }
 
   /// Ends a loan on the object at the specified address.
@@ -128,29 +99,8 @@ fileprivate struct AbstractContext: Equatable {
   /// we can assume that the error was reported when the loan started.
   mutating func endLoan(at address: AbstractAddress, to borrower: InstIndex) {
     guard var object = self[at: address] else { illegalOperand() }
-    switch object.derivedState {
-    case .lent(var borrowers):
-      borrowers.remove(borrower)
-      object.state = borrowers.isEmpty
-        ? .owned
-        : .lent(borrowers: borrowers)
-      for k in object.parts.keys {
-        object.parts[k]!.endLoan(to: borrower)
-      }
-      self[at: address] = object
-
-    case .projected(let b):
-      if borrower == b {
-        object.state = .owned
-        for k in object.parts.keys {
-          object.parts[k]!.endLoan(to: borrower)
-        }
-        self[at: address] = object
-      }
-
-    default:
-      break
-    }
+    object.endLoan(to: borrower)
+    self[at: address] = object
   }
 
   mutating func merge(_ other: AbstractContext) throws {
@@ -242,23 +192,40 @@ fileprivate enum AbstractAddress: Hashable {
 }
 
 /// An abstract object.
+///
+/// This type represent objects in register or memory. More formally, an abtract object is a pair
+/// `(s, ps)` where `s` is the ownership state of the object itself and `ps` is a function mapping
+/// property identifiers to abstract objects. This data structure lets the analysis track the state
+/// of the object and its parts individually.
+///
+/// Loans are propagated through the parts of an object, so that queries to the state of a single
+/// part returns a state that implicitly encode the state of the container object. For instance,
+/// given an instance of a type `Pair`, borrowing the pair automatically borroews every pair.
+///
+/// The "derived" state of the object is defined as the most conservative state covering `s` and
+/// `ps(x)` for all properties `x`. An abstract object is "well-formed" all pairs `(s, drv(a))`
+///   for all properties `x`
+/// belong to a relation `R` denoting well-formedness invariants. These invariants are implemented
+/// in the method `verify()`. To preserve these invariants, loans are propagated through the
 fileprivate struct AbstractObject: Equatable {
 
   /// The ownership state of the object itself, without considering the state of its parts.
-  var state: OwnershipState {
-    didSet { assert(verify()) }
-  }
+  var state: OwnershipState
 
   /// The parts of the object.
-  var parts: [String: AbstractObject]  {
-    didSet { assert(verify()) }
-  }
+  var parts: [String: AbstractObject]
 
   /// Creates a new abstract object.
   init(state: OwnershipState, parts: [String: AbstractObject] = [:]) {
     self.state = state
     self.parts = parts
-    assert(verify())
+  }
+
+  /// The canonical form of that object.
+  var canonical: AbstractObject {
+    return AbstractObject(
+      state: state,
+      parts: parts.filter({ $0.value.derivedState != state }))
   }
 
   /// The derived state of the object.
@@ -302,23 +269,33 @@ fileprivate struct AbstractObject: Equatable {
   }
 
   mutating func lend(mutably: Bool, to borrower: InstIndex) throws {
-    switch derivedState {
+    var this = self
+
+    switch this.derivedState {
     case .owned:
-      state = mutably
+      this.state = mutably
         ? .projected(borrower: borrower)
         : .lent(borrowers: [borrower])
-      for k in parts.keys {
-        try parts[k]!.lend(mutably: mutably, to: borrower)
+
+      // Propagate the loan.
+      for k in this.parts.keys {
+        try this.parts[k]!.lend(mutably: mutably, to: borrower)
       }
 
-    case .lent(let borrowers):
-      if mutably {
-        throw OwnershipError.overlappingMutableAccesses
+    case .lent:
+      if mutably { throw OwnershipError.overlappingMutableAccesses }
+
+      // Add the new borrower to the current set of borrowers.
+      if case .lent(let borrowers) = this.state {
+        this.state = .lent(borrowers: borrowers.union([borrower]))
       } else {
-        state = .lent(borrowers: borrowers.union([borrower]))
-        for k in parts.keys {
-          try parts[k]!.lend(mutably: false, to: borrower)
-        }
+        assert(this.state == .owned)
+        this.state = .lent(borrowers: [borrower])
+      }
+
+      // Propagate the loan.
+      for k in this.parts.keys {
+        try this.parts[k]!.lend(mutably: false, to: borrower)
       }
 
     case .projected:
@@ -328,28 +305,27 @@ fileprivate struct AbstractObject: Equatable {
     case .uninitialized:
       throw OwnershipError.useOfUninitializedValue
     }
+
+    swap(&self, &this)
   }
 
   mutating func endLoan(to borrower: InstIndex) {
-    switch derivedState {
+    switch state {
     case .lent(var borrowers):
       borrowers.remove(borrower)
       state = borrowers.isEmpty
         ? .owned
         : .lent(borrowers: borrowers)
-      for k in parts.keys {
-        parts[k]!.endLoan(to: borrower)
-      }
 
-    case .projected(let b):
-      assert(borrower == b)
+    case .projected(borrower):
       state = .owned
-      for k in parts.keys {
-        parts[k]!.endLoan(to: borrower)
-      }
 
     default:
       break
+    }
+
+    for k in parts.keys {
+      parts[k]!.endLoan(to: borrower)
     }
   }
 
