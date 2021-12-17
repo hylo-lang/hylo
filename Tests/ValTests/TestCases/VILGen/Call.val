@@ -19,9 +19,43 @@ type A: Copyable {
 
 }
 
+fun g0(x: Int, y: Int, z: A) {}
+
+fun g1(z: A, x: Int, y: Int) {}
+
+fun g2(x: mut Int, y: Int, z: A) {}
+
+fun g3(x: mut Int, y: mut Int, z: mut A) {}
+
+fun g4(a: consuming A, b: consuming A) {}
+
 fun main() {
   var a = A(x: 8, y: 4)
   var b = a.copy()
+
+  // a.x is lent, a.y is lent, a is lent
+  g0(x: a.x, y: a.y, z: a)
+  // a is lent, a.x is lent, a.y is lent
+  g1(z: a, x: a.x, y: a.y)
+
+  // a.x is projected, a.y is lent, b is lent
+  g2(x: &a.x, y: a.y, z: b)
+  // #!error@+1 overlappingMutableAccesses
+  g2(x: &a.x, y: a.x, z: b)
+  // #!error@+1 overlappingMutableAccesses
+  g2(x: &a.x, y: a.y, z: a)
+
+  // a.x is projected, a.y is projected, b is projected
+  g3(x: &a.x, y: &a.y, z: &b)
+  // #!error@+1 overlappingMutableAccesses
+  g3(x: &a.x, y: &a.y, z: &a)
+
+  // two copies of a are consumed
+  g4(a: a.copy(), b: a.copy())
+  // #!error@+1 useOfConsumedValue
+  g4(a: a, b: a.copy())
+  
+  a = b.copy()
 
   // a is lent
   a.f0()
