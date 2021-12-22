@@ -627,13 +627,13 @@ public struct Parser {
 
   /// Parses a capture declaration.
   ///
-  ///     capture-decl ::= ('val' | 'var' | 'mut') NAME
+  ///     capture-decl ::= ('local' | 'mut' | 'consuming') NAME '=' expr
   private func parseCaptureDecl(state: inout State) -> CaptureDecl? {
-    let semantics: CaptureDecl.Semantics
+    let policy: PassingPolicy
     switch state.peek()?.kind {
-    case .val: semantics = .val
-    case .var: semantics = .var
-    case .mut: semantics = .mut
+    case .local     : policy = .local
+    case .mut       : policy = .inout
+    case .consuming : policy = .consuming
     default:
       return nil
     }
@@ -648,9 +648,24 @@ public struct Parser {
       ident = Ident(name: "", range: state.errorRange())
     }
 
+    if state.take(.assign) == nil {
+      context.report("expected '=' after capture identifier", anchor: state.errorRange())
+      state.hasError = true
+    }
+
+    let value: Expr
+    if let expr = parseExpr(state: &state) {
+      value = expr
+    } else {
+      value = ErrorExpr(type: context.errorType, range: introducer.range)
+      context.report("expected expression after '='", anchor: state.errorRange())
+      state.hasError = true
+    }
+
     let decl = CaptureDecl(
-      semantics: semantics,
+      policy: policy,
       ident: ident,
+      value: value,
       type: unresolved,
       range: introducer.range.lowerBound ..< ident.range!.upperBound)
     decl.parentDeclSpace = state.declSpace

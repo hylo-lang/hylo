@@ -171,7 +171,7 @@ public enum Emitter {
     // Register the function's formal parameters in the local symbol table.
     let captureTable = decl.computeAllCaptures()
     for (capture, param) in zip(captureTable, params) {
-      state.locals[ObjectIdentifier(capture.value.referredDecl)] = Operand(param)
+      state.locals[ObjectIdentifier(capture.key.decl)] = Operand(param)
     }
     for (paramDecl, param) in zip(decl.params, params[captureTable.count...]) {
       state.locals[ObjectIdentifier(paramDecl)] = Operand(param)
@@ -367,28 +367,40 @@ public enum Emitter {
         emit(binding: decl, state: &state, into: &module)
 
       case let decl as FunDecl:
-        _ = emit(function: decl, into: &module)
+        let fun = emit(function: decl, into: &module)
+        let ref = FunRef(function: fun)
 
         // Emit the value of each captured declaration. Capture with `val` or `var` semantics are
         // copied from the environment, and so we must emit an r-value either way.
         let captureTable = decl.computeAllCaptures()
-        let partialArgs = captureTable.map({ (key, value) -> Operand in
-          // FIXME: Implement capture-by-reference (requires local bindings).
-          assert(value.semantics != .mut, "not implemented")
-          let expr = DeclRefExpr(decl: key.capturedDecl, type: value.type)
-          return emit(rvalue: expr, state: &state, into: &module)
+        let partialArgs = captureTable.values.map({ (decl) -> Operand in
+          switch decl.policy {
+          case .local:
+            let source = emit(borrowable: decl.value, state: &state, into: &module)
+            return Operand(module.insertBorrowAddr(
+              isMutable: false, source: source, range: decl.value.range, at: state.ip))
+
+          case .inout:
+            let source = emit(lvalue: decl.value, state: &state, into: &module)
+            return Operand(module.insertBorrowAddr(
+              isMutable: false, source: source, range: decl.value.range, at: state.ip))
+
+          case .consuming:
+            return emit(rvalue: decl.value, state: &state, into: &module)
+          }
         })
 
-        // Local function with capture declarations require stack allocation.
+        // Local function with captures require stack allocation.
         if !partialArgs.isEmpty {
-          let fun = FunRef(function: module.getOrCreateFunction(from: decl))
           let loc = module.insertAllocStack(allocType: .lower(decl.type), decl: decl, at: state.ip)
           state.locals[ObjectIdentifier(decl)] = Operand(loc)
           state.allocs.append(loc)
 
           let partial = module.insertPartialApply(
-            delegator: Operand(fun), partialArgs: partialArgs, at: state.ip)
+            delegator: Operand(ref), partialArgs: partialArgs, at: state.ip)
           module.insertStore(Operand(partial), to: Operand(loc), range: decl.range, at: state.ip)
+        } else {
+          state.locals[ObjectIdentifier(decl)] = Operand(ref)
         }
 
       case let decl as NominalTypeDecl:

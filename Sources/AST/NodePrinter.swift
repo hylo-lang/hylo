@@ -207,16 +207,14 @@ public struct NodePrinter: NodeVisitor {
   }
 
   public mutating func visit(_ node: CaptureDecl) -> String {
-    let capturedDecl = node.capturedDecl.map(encode(refToDecl:)) ?? "null"
-
     return """
     {
     "class": "\(type(of: node))",
     "range": \(encode(range: node.range)),
     "parentDeclSpace": \(encode(refToSpace: node.parentDeclSpace)),
+    "policy": "\(node.policy)",
     "name": "\(node.ident.name)",
-    "semantics": "\(node.semantics)",
-    "capturedDecl": "\(capturedDecl)"
+    "value": "\(encode(node.value))"
     }
     """
   }

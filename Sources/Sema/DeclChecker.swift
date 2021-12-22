@@ -157,30 +157,11 @@ struct DeclChecker: DeclVisitor {
     guard isTypeCheckRequired(node) else { return node.state == .typeChecked }
     node.setState(.typeCheckRequested)
 
-    let context = node.type.context
-    let funDecl = node.parentDeclSpace!
-
-    let matches = funDecl.parentDeclSpace!.lookup(unqualified: node.name, in: context)
-    switch matches.values.count {
-    case 1:
-      node.capturedDecl = matches.values[0]
-      node.type = TypeChecker.contextualize(decl: matches.values[0], from: funDecl)
-      node.setState(.typeChecked)
-      return true
-
-    case 0:
-      context.report(.cannotFind(symbol: node.name, range: node.range))
-      node.setState(.invalid)
-      return false
-
-    default:
-      // FIXME: We forbid explicit capture declarations on overloaded symbols, because we have
-      // currently no way to disambiguate them. We could support type signatures on capture
-      // declarations to solve this issue.
-      context.report(.ambiguousReference(to: node.name, range: node.range))
-      node.setState(.invalid)
-      return false
-    }
+    // Infer the type of the capture from the expression of the captured value.
+    let success = TypeChecker.check(expr: &(node.value), useSite: node.parentDeclSpace!)
+    node.type = node.value.type
+    node.setState(success ? .typeChecked : .invalid)
+    return success
   }
 
   func visit(_ node: FunParamDecl) -> Bool {

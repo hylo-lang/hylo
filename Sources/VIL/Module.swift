@@ -175,14 +175,7 @@ public struct Module {
       let context = unappliedType.context
       let extra = captureTable.map({ (_, value) -> FunType.Param in
         // Captures with mutable semantics are represented by in-out parameters.
-        switch value.semantics {
-        case .val:
-          return FunType.Param(policy: .local, rawType: value.type)
-        case .var:
-          return FunType.Param(policy: .consuming, rawType: value.type)
-        case .mut:
-          return FunType.Param(policy: .inout, rawType: value.type)
-        }
+        return FunType.Param(policy: value.policy, rawType: value.type)
       })
 
       unappliedType = context.funType(

@@ -518,29 +518,38 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
   ///
   /// - Parameter useCache: A Boolean value that indicates whether the method should use its cache
   ///   or recompute the set of implicit captures.
-  public func computeAllCaptures(useCache: Bool = false) -> CaptureTable {
-    if let table = self.captureTable, !useCache {
+  public func computeAllCaptures(useCache: Bool = true) -> CaptureTable {
+    // Check the cache.
+    if let table = self.captureTable, useCache {
       return table
     }
 
     // Non-nested functions cannot capture any declaration.
-    guard isNested else {
-      captureTable = CaptureTable()
+    captureTable = CaptureTable()
+    if !isNested {
+      assert(explicitCaptures.isEmpty)
       return captureTable!
     }
 
-    // Initialize the capture table with the list of explicit captures.
+    // Collect all implicit captures.
     var collector = CaptureCollector(relativeTo: parentDeclSpace)
-    for capture in explicitCaptures {
-      guard let decl = capture.capturedDecl else { continue }
-      collector.table[decl] = CaptureTable.Value(referredDecl: capture, type: capture.type)
+    collector.walk(decl: self)
+
+    // Build the capture table.
+    captureTable = CaptureTable()
+    for decl in explicitCaptures {
+      captureTable![CaptureKey(decl)] = decl
+    }
+    for box in collector.capturedDeclRefs {
+      captureTable![CaptureKey(box.value.decl)] = CaptureDecl(
+        policy: .local,
+        ident: Ident(name: box.value.decl.name),
+        value: box.value,
+        type: box.value.type,
+        range: box.value.range)
     }
 
-    // Compute the set of implicit captures.
-    collector.walk(decl: self)
-    captureTable = collector.table
-
-    return collector.table
+    return captureTable!
   }
 
   // MARK: Name lookup
@@ -679,20 +688,6 @@ public final class CtorDecl: BaseFunDecl {
 /// The declaration of a capture in a function's capture list.
 public final class CaptureDecl: ValueDecl {
 
-  /// The semantics of a capture.
-  public enum Semantics {
-
-    /// The declaration is captured as an immutable copy.
-    case `val`
-
-    /// The declaration is captured as a mutable copy.
-    case `var`
-
-    /// The declaration is captured as an exclusive mutable reference.
-    case `mut`
-
-  }
-
   public var range: SourceRange?
 
   public weak var parentDeclSpace: DeclSpace?
@@ -701,18 +696,25 @@ public final class CaptureDecl: ValueDecl {
 
   public var type: ValType
 
-  /// The semantics of the capture.
-  public var semantics: Semantics
+  /// The capture passing policy.
+  public var policy: PassingPolicy
 
-  /// The identifier of the declaration being captured.
+  /// The capture's identifier.
   public var ident: Ident
 
-  /// The declaration being captured.
-  public weak var capturedDecl: ValueDecl?
+  /// The expression of the value being captured.
+  public var value: Expr
 
-  public init(semantics: Semantics, ident: Ident, type: ValType, range: SourceRange?) {
-    self.semantics = semantics
+  public init(
+    policy: PassingPolicy,
+    ident: Ident,
+    value: Expr,
+    type: ValType,
+    range: SourceRange?
+  ) {
+    self.policy = policy
     self.ident = ident
+    self.value = value
     self.type = type
     self.range = range
   }

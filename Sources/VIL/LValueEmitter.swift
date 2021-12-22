@@ -87,7 +87,7 @@ struct LValueEmitter: ExprVisitor {
   func visit(_ node: DeclRefExpr) -> ExprResult {
     // The keys of a capture table are either original declarations, for implicit captures, or
     // explicit declarations in the capture list. Implicit captures are always immutable.
-    guard funDecl.computeAllCaptures()[node.decl] == nil else {
+    guard funDecl.computeAllCaptures()[CaptureKey(node.decl)] == nil else {
       return .failure(.immutableCapture(node.decl))
     }
 

@@ -294,11 +294,21 @@ struct RValueEmitter: ExprVisitor {
     for i in 0 ..< node.args.count {
       argsRanges.append(node.args[i].value.range)
       switch params[i].policy! {
-      case .local, .inout:
+      case .local:
         // Local and mutating parameters are passed by reference; emit a borrowable l-value.
         let source = emit(borrowable: node.args[i].value)
         let borrow = module.insertBorrowAddr(
-          isMutable: params[i].policy == .inout,
+          isMutable: false,
+          source: source,
+          range: node.args[i].value.range,
+          at: state.ip)
+        borrowedIndex.append(args.count)
+        args.append(Operand(borrow))
+
+      case .inout:
+        let source = emit(lvalue: node.args[i].value)
+        let borrow = module.insertBorrowAddr(
+          isMutable: true,
           source: source,
           range: node.args[i].value.range,
           at: state.ip)
@@ -437,17 +447,22 @@ struct RValueEmitter: ExprVisitor {
     var captures: [Operand] = []
     for (key, value) in captureTable {
       // FIXME: locate captures more precisely.
-      let expr = DeclRefExpr(decl: key.capturedDecl, type: value.type)
+      let expr = DeclRefExpr(decl: key.decl, type: value.type)
       expr.range = node.range
 
-      switch value.semantics {
-      case .val, .mut:
+      switch value.policy {
+      case .local:
         // Capture is borrowed.
         let source = emit(borrowable: expr)
         captures.append(Operand(module.insertBorrowAddr(
-          source: source, range: expr.range, at: state.ip)))
+          isMutable: false, source: source, range: expr.range, at: state.ip)))
 
-      case .var:
+      case .inout:
+        let source = emit(lvalue: expr)
+        captures.append(Operand(module.insertBorrowAddr(
+          isMutable: true, source: source, range: expr.range, at: state.ip)))
+
+      case .consuming:
         // Capture is consumed.
         captures.append(emit(rvalue: expr))
       }
