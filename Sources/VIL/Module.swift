@@ -176,13 +176,11 @@ public struct Module {
       let extra = captureTable.map({ (_, value) -> FunType.Param in
         // Captures with mutable semantics are represented by in-out parameters.
         switch value.semantics {
-        case .val, .var:
-          // Mutable and immutable captures are consuming to leave the closure independent.
-          // FIXME: We could relax this constraint if we can guarantee that the closure is local.
+        case .val:
+          return FunType.Param(policy: .local, rawType: value.type)
+        case .var:
           return FunType.Param(policy: .consuming, rawType: value.type)
-
         case .mut:
-          // Borrowed captures are inout.
           return FunType.Param(policy: .inout, rawType: value.type)
         }
       })
@@ -225,17 +223,22 @@ public struct Module {
     callee: Operand,
     args: [Operand],
     range: SourceRange? = nil,
+    argsRanges: [SourceRange?]? = nil,
     at point: InsertionPoint
   ) -> InstIndex {
     assert(type(of: callee).valType is FunType, "'callee' must have a function type")
     assert(type(of: callee).isAddress, "'callee' must have an address type")
+
+    assert(argsRanges == nil || argsRanges!.count == args.count)
+    var ranges = argsRanges ?? Array(repeating: nil, count: args.count)
+    ranges.append(range)
 
     let inst = ApplyInst(
       callee: callee,
       args: args,
       type: type(of: callee).retType!,
       parent: point.block,
-      range: range)
+      ranges: ranges)
     return insert(inst: inst, at: point)
   }
 
@@ -243,10 +246,15 @@ public struct Module {
     ref: FunRef,
     captures: [Operand],
     range: SourceRange? = nil,
+    captureRanges: [SourceRange?]? = nil,
     at point: InsertionPoint
   ) -> InstIndex {
+    assert(captureRanges == nil || captureRanges!.count == captures.count)
+    var ranges = captureRanges ?? Array(repeating: nil, count: captures.count)
+    ranges.append(range)
+
     let inst = AsyncInst(
-      ref: ref, captures: captures, parent: point.block, range: range)
+      ref: ref, captures: captures, parent: point.block, ranges: ranges)
     return insert(inst: inst, at: point)
   }
 

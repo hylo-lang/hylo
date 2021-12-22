@@ -506,19 +506,69 @@ public enum Emitter {
     state: inout State,
     into module: inout Module
   ) -> Operand {
-    if case .success(let loc) = withLValueEmitter(state: &state, into: &module, do: expr.accept) {
-      return loc
-    } else {
-      let val = emit(rvalue: expr, state: &state, into: &module)
-      let alloc = module.insertAllocStack(
-        allocType: .lower(expr.type), range: expr.range, at: state.ip)
+    // If the expression can be emitted as an l-value, we're done.
+    if case .success(let lvalue) = withLValueEmitter(
+      state: &state, into: &module, do: expr.accept)
+    {
+      return lvalue
+    }
 
-      state.allocs.append(alloc)
-      module.insertStore(val, to: Operand(alloc), range: expr.range, at: state.ip)
-      return Operand(alloc)
+    // If the expression is a reference to a member declaration, its base must be "converted" as a
+    // temporary r-value.
+    if let expr = expr as? MemberDeclRefExpr {
+      let base = emit(rvalue: expr.base, state: &state, into: &module)
+      let baseAddr = module.insertAllocStack(
+        allocType: .lower(expr.base.type), range: expr.base.range, at: state.ip)
+      state.allocs.append(baseAddr)
+      module.insertStore(base, to: Operand(baseAddr), range: expr.range, at: state.ip)
+      return emit(
+        storedMemberAddr: expr, baseAddr: Operand(baseAddr), state: &state, into: &module)
+    }
+
+    // Otherwise, "convert" the expression as a temporary r-value.
+    let rvalue = emit(rvalue: expr, state: &state, into: &module)
+    let alloc = module.insertAllocStack(
+      allocType: .lower(expr.type), range: expr.range, at: state.ip)
+    state.allocs.append(alloc)
+    module.insertStore(rvalue, to: Operand(alloc), range: expr.range, at: state.ip)
+    return Operand(alloc)
+  }
+
+  static func emit(
+    storedMemberAddr memberDeclRefExpr: MemberDeclRefExpr,
+    baseAddr: Operand,
+    state: inout State,
+    into module: inout Module
+  ) -> Operand {
+    let memberDecl = memberDeclRefExpr.decl as! VarDecl
+    let baseType = module.type(of: baseAddr)
+    assert(baseType.isAddress)
+
+    switch baseType.valType {
+    case is ProductType:
+      // The member refers to a stored property of a concrete product type.
+      let memberAddr = module.insertRecordMemberAddr(
+        record: baseAddr,
+        memberDecl: memberDecl,
+        type: .lower(memberDeclRefExpr.type).address,
+        at: state.ip)
+      return Operand(memberAddr)
+
+    case let type as BoundGenericType where type.decl.instanceType is ProductType:
+      let memberAddr = module.insertRecordMemberAddr(
+        record: baseAddr,
+        memberDecl: memberDecl,
+        type: .lower(memberDeclRefExpr.type).address,
+        at: state.ip)
+      return Operand(memberAddr)
+
+    default:
+      // FIXME: Handle tuples and existential types.
+      fatalError("not implemented")
     }
   }
 
+  /// Calls the given closure with a r-value emitter.
   static func withRValueEmitter<T>(
     state: inout State,
     into module: inout Module,
@@ -533,6 +583,7 @@ public enum Emitter {
       }))
   }
 
+  /// Calls the given closure with an l-value emitter.
   static func withLValueEmitter<T>(
     state: inout State,
     into module: inout Module,

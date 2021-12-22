@@ -4,6 +4,8 @@ import struct Basic.SourceRange
 /// An ownership error.
 enum OwnershipError: Error {
 
+  case moveOfActiveLoans
+
   case moveOfInoutedValue
 
   case moveOfProjectedValue

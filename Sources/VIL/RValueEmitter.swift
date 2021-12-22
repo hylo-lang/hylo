@@ -231,7 +231,8 @@ struct RValueEmitter: ExprVisitor {
   mutating func visit(_ node: CallExpr) -> ExprResult {
     let callee: Operand
     var args: [Operand] = []
-    var borrowedArgsIndices: [Int] = []
+    var argsRanges: [SourceRange?] = []
+    var borrowedIndex: [Int] = []
 
     // Emit the function's callee.
     switch node.fun {
@@ -239,6 +240,7 @@ struct RValueEmitter: ExprVisitor {
       // The callee is a reference to a member declaration.
       if let decl = expr.decl as? BaseFunDecl {
         // The callee is a method; emit the receiver along with the dispatched function ref.
+        argsRanges.append(expr.base.range)
         if decl.isConsuming {
           // The receiver is consumed; emit an r-value.
           args.append(emit(rvalue: expr.base))
@@ -255,7 +257,7 @@ struct RValueEmitter: ExprVisitor {
             source: receiver,
             range: expr.base.range,
             at: state.ip)
-          borrowedArgsIndices.append(args.count)
+          borrowedIndex.append(args.count)
           args.append(Operand(borrow))
           callee = expr.base.type.isExistential
             ? Operand(module.insertWitnessMethod(container: args[0], decl: decl, at: state.ip))
@@ -290,6 +292,7 @@ struct RValueEmitter: ExprVisitor {
     // Emit the function's arguments.
     let params = (node.fun.type as! FunType).params
     for i in 0 ..< node.args.count {
+      argsRanges.append(node.args[i].value.range)
       switch params[i].policy! {
       case .local, .inout:
         // Local and mutating parameters are passed by reference; emit a borrowable l-value.
@@ -297,9 +300,9 @@ struct RValueEmitter: ExprVisitor {
         let borrow = module.insertBorrowAddr(
           isMutable: params[i].policy == .inout,
           source: source,
-          range: node.args[i].range,
+          range: node.args[i].value.range,
           at: state.ip)
-        borrowedArgsIndices.append(args.count)
+        borrowedIndex.append(args.count)
         args.append(Operand(borrow))
 
       case .consuming:
@@ -335,10 +338,15 @@ struct RValueEmitter: ExprVisitor {
     }
 
     // Emit the call.
-    let apply = module.insertApply(callee: callee, args: args, range: node.range, at: state.ip)
+    let apply = module.insertApply(
+      callee: callee,
+      args: args,
+      range: node.range,
+      argsRanges: argsRanges,
+      at: state.ip)
 
     // End the borrowed values.
-    for i in borrowedArgsIndices.reversed() {
+    for i in borrowedIndex.reversed() {
       module.insertEndBorrowAddr(source: args[i], range: node.range, at: state.ip)
     }
 
@@ -424,22 +432,39 @@ struct RValueEmitter: ExprVisitor {
     let fun = Emitter.emit(function: node.body, into: &module)
     let ref = FunRef(function: fun)
 
-    // Emit the value of each captured declaration. Capture with `val` or `var` semantics are
-    // copied from the environment, and so we must emit an r-value either way.
+    // Emit the value of each captured declaration.
     let captureTable = node.body.computeAllCaptures()
-    let captures = captureTable.map({ (key, value) -> Operand in
-      // FIXME: Implement capture-by-reference (requires local bindings).
-      assert(value.semantics != .mut, "not implemented")
+    var captures: [Operand] = []
+    for (key, value) in captureTable {
+      // FIXME: locate captures more precisely.
       let expr = DeclRefExpr(decl: key.capturedDecl, type: value.type)
-      return emit(rvalue: expr)
-    })
+      expr.range = node.range
 
-    return .success(Operand(module.insertAsync(ref: ref, captures: captures, at: state.ip)))
+      switch value.semantics {
+      case .val, .mut:
+        // Capture is borrowed.
+        let source = emit(borrowable: expr)
+        captures.append(Operand(module.insertBorrowAddr(
+          source: source, range: expr.range, at: state.ip)))
+
+      case .var:
+        // Capture is consumed.
+        captures.append(emit(rvalue: expr))
+      }
+    }
+
+    let future = module.insertAsync(
+      ref: ref,
+      captures: captures,
+      range: node.range,
+      captureRanges: Array(repeating: node.range, count: captureTable.count),
+      at: state.ip)
+    return .success(Operand(future))
   }
 
   mutating func visit(_ node: AwaitExpr) -> ExprResult {
     let awaited = emit(rvalue: node.value)
-    return .success(Operand(module.insertAwait(value: awaited, at: state.ip)))
+    return .success(Operand(module.insertAwait(value: awaited, range: node.range, at: state.ip)))
   }
 
   mutating func visit(_ node: AddrOfExpr) -> ExprResult {

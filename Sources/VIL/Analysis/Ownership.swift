@@ -70,19 +70,30 @@ fileprivate struct AbstractContext: Equatable {
   }
 
   /// Consumes the object at the specified address.
-  mutating func consume(_ address: AbstractAddress, with consumer: InstIndex) throws {
-    guard var object = self[at: address] else { illegalOperand() }
-    try object.consume(with: consumer)
-    self[at: address] = object
+  mutating func consume(
+    _ address: AbstractAddress,
+    with consumer: InstIndex
+  ) throws -> AbstractObject {
+    guard let pre = self[at: address] else { illegalOperand() }
+    var post = pre
+    try post.consume(with: consumer)
+    self[at: address] = post
+    return pre
   }
 
   /// Consumes the specified operand.
-  mutating func consume(_ operand: Operand, with consumer: InstIndex) throws {
+  mutating func consume(
+    _ operand: Operand,
+    with consumer: InstIndex
+  ) throws -> AbstractObject {
     // Constant values are non-linear.
-    guard operand.constant == nil else { return }
-    guard var object = self[in: operand]!.asObject else { illegalOperand() }
-    try object.consume(with: consumer)
-    self[in: operand] = .object(object)
+    guard operand.constant == nil else { return .owned }
+
+    guard let pre = self[in: operand]!.asObject else { illegalOperand() }
+    var post = pre
+    try post.consume(with: consumer)
+    self[in: operand] = .object(post)
+    return pre
   }
 
   /// Lends the object at the specified address.
@@ -193,31 +204,35 @@ fileprivate enum AbstractAddress: Hashable {
 
 /// An abstract object.
 ///
-/// This type represent objects in register or memory. More formally, an abtract object is a pair
-/// `(s, ps)` where `s` is the ownership state of the object itself and `ps` is a function mapping
-/// property identifiers to abstract objects. This data structure lets the analysis track the state
-/// of the object and its parts individually.
+/// This type represent objects in register or memory. More formally, an abtract object is a triple
+/// `(s, ls, ps)` where `s` is the ownership state of the object, `ls` lists its loans and and `ps`
+/// maps property identifiers to abstract objects. These elements are used by the analysis to track
+/// the state of the object and its parts individually.
 ///
-/// Loans are propagated through the parts of an object, so that queries to the state of a single
+/// Borrowing information is propagated through all parts so that querying the state of a given
 /// part returns a state that implicitly encode the state of the container object. For instance,
-/// given an instance of a type `Pair`, borrowing the pair automatically borroews every pair.
+/// given an instance of a type `Pair` with two parts `fst` and `snd`, borrowing the pair
+/// automatically borrows `fst` and `snd`.
 ///
 /// The "derived" state of the object is defined as the most conservative state covering `s` and
-/// `ps(x)` for all properties `x`. An abstract object is "well-formed" all pairs `(s, drv(a))`
-///   for all properties `x`
-/// belong to a relation `R` denoting well-formedness invariants. These invariants are implemented
-/// in the method `verify()`. To preserve these invariants, loans are propagated through the
+/// `ps(x)` for all properties `x`. An abstract object is "well-formed" all pairs `(s, drv(a))` for
+/// all properties `x` belong to a relation `R` denoting well-formedness invariants. These
+/// invariants are implemented in the method `verify()`.
 fileprivate struct AbstractObject: Equatable {
 
   /// The ownership state of the object itself, without considering the state of its parts.
   var state: OwnershipState
 
+  /// The loans of the object.
+  var loans: Set<Loan>
+
   /// The parts of the object.
   var parts: [String: AbstractObject]
 
   /// Creates a new abstract object.
-  init(state: OwnershipState, parts: [String: AbstractObject] = [:]) {
+  init(state: OwnershipState, loans: Set<Loan> = [], parts: [String: AbstractObject] = [:]) {
     self.state = state
+    self.loans = loans
     self.parts = parts
   }
 
@@ -225,7 +240,10 @@ fileprivate struct AbstractObject: Equatable {
   var canonical: AbstractObject {
     return AbstractObject(
       state: state,
-      parts: parts.filter({ $0.value.derivedState != state }))
+      loans: loans,
+      parts: parts.filter({ (_, part) in
+        !part.loans.isEmpty || (part.derivedState != state)
+      }))
   }
 
   /// The derived state of the object.
@@ -249,6 +267,11 @@ fileprivate struct AbstractObject: Equatable {
         return current
       }
     })
+  }
+
+  /// The derived loans of the object.
+  var derivedLoans: Set<Loan> {
+    return parts.values.reduce(into: loans, { $0.formUnion($1.loans) })
   }
 
   mutating func consume(with consumer: InstIndex) throws {
@@ -370,8 +393,18 @@ fileprivate struct AbstractObject: Equatable {
   static func && (_ lhs: AbstractObject, _ rhs: AbstractObject) throws -> AbstractObject {
     return try AbstractObject(
       state: lhs.derivedState && rhs.derivedState,
+      loans: lhs.loans.union(rhs.loans),
       parts: lhs.parts.merging(rhs.parts, uniquingKeysWith: &&))
   }
+
+}
+
+/// A loan transferred to an object.
+fileprivate struct Loan: Hashable {
+
+  let address: AbstractAddress
+
+  let borrower: InstIndex
 
 }
 
@@ -589,6 +622,10 @@ public struct OwnershipAnalysis {
         success = visit(inst: inst, index: index, context: &context) && success
       case let inst as ApplyInst:
         success = visit(inst: inst, index: index, context: &context) && success
+      case let inst as AsyncInst:
+        success = visit(inst: inst, index: index, context: &context) && success
+      case let inst as AwaitInst:
+        success = visit(inst: inst, index: index, context: &context) && success
       case let inst as BorrowAddrInst:
         success = visit(inst: inst, index: index, context: &context) && success
       case let inst as BorrowExistAddrInst:
@@ -663,26 +700,22 @@ public struct OwnershipAnalysis {
 
     // Verify and update the ownership state of each parameter.
     var success = true
-    for (actual, formal) in zip(inst.args, module!.type(of: inst.callee).params!) {
-      switch formal.policy {
+    let params = module!.type(of: inst.callee).params!
+    for i in 0 ..< inst.args.count {
+      switch params[i].policy {
       case .local, .inout:
-        // Local and mutating parameters are passed by reference. We'll assume that VILGen did its
-        // job and prepared borrowed values for us.
+        // Local and mutating parameters are borrowed.
         assert({
-          switch module!.instructions[actual.inst!] {
-          case is BorrowAddrInst, is BorrowExistAddrInst:
-            return true
-          default:
-            return false
-          }
+          let inst = module!.instructions[inst.args[i].inst!]
+          return (inst is BorrowAddrInst) || (inst is BorrowExistAddrInst)
         }())
 
       case .consuming:
-        // `consuming` consumes the argument (obviously).
+        // Consuming parameters are consumed.
         do {
-          try context.consume(actual, with: index)
+          _ = try context.consume(inst.args[i], with: index)
         } catch {
-          report(error: error, range: inst.range)
+          report(error: error, range: inst.argsRanges[i])
           success = false
         }
 
@@ -697,12 +730,79 @@ public struct OwnershipAnalysis {
   }
 
   private func visit(
+    inst: AsyncInst,
+    index: InstIndex,
+    context: inout AbstractContext
+  ) -> Bool {
+    // The result of an async instruction is always owned.
+    var result = AbstractObject.owned
+
+    // Verify and update the ownership state of each capture.
+    var success = true
+    let params = inst.ref.type.params!
+    for i in 0 ..< inst.captures.count {
+      switch params[i].policy {
+      case .local, .inout:
+        // Local and mutating captures are borrowed. Assuming the operand results from a borrowing
+        // instruction, we must transfer the loan to the async instruction.
+        let formerBorrower = inst.captures[i]
+        guard let address = context[in: formerBorrower]?.asAddress else { illegalOperand() }
+        context.endLoan(at: address, to: formerBorrower.inst!)
+        do {
+          try context.lend(address, mutably: params[i].policy == .inout, to: index)
+          result.loans.insert(Loan(address: address, borrower: index))
+        } catch {
+          report(error: error, range: inst.captureRanges[i])
+          success = false
+        }
+
+      case .consuming:
+        // Consuming captures are consumed.
+        do {
+          _ = try context.consume(inst.captures[i], with: index)
+        } catch {
+          report(error: error, range: inst.captureRanges[i])
+          success = false
+        }
+
+      case nil:
+        // The parameter passing is unknown. That can only happen if the type of the function we
+        // are analyzing is ill-formed.
+        fatalError("ill-formed function type")
+      }
+    }
+
+    context[in: Operand(index)] = .object(result)
+    return success
+  }
+
+  private func visit(
+    inst: AwaitInst,
+    index: InstIndex,
+    context: inout AbstractContext
+  ) -> Bool {
+    // The result of an await instruction is always owned.
+    context[in: Operand(index)] = .object(.owned)
+
+    // End the loans of the awaited operand.
+    if var object = context[in: inst.value]?.asObject {
+      for loan in object.loans {
+        context.endLoan(at: loan.address, to: loan.borrower)
+      }
+      object.loans.removeAll()
+      context[in: inst.value] = .object(object)
+    }
+
+    return true
+  }
+
+  private func visit(
     inst: BorrowAddrInst,
     index: InstIndex,
     context: inout AbstractContext
   ) -> Bool {
     return visitFallibleBorrow(
-      index: index,
+      borrower: index,
       isMutable: inst.isMutable,
       source: inst.source,
       range: inst.range,
@@ -715,7 +815,7 @@ public struct OwnershipAnalysis {
     context: inout AbstractContext
   ) -> Bool {
     return visitFallibleBorrow(
-      index: index,
+      borrower: index,
       isMutable: inst.isMutable,
       source: inst.container,
       range: inst.range,
@@ -723,7 +823,7 @@ public struct OwnershipAnalysis {
   }
 
   private func visitFallibleBorrow(
-    index: InstIndex,
+    borrower: InstIndex,
     isMutable: Bool,
     source: Operand,
     range: SourceRange?,
@@ -731,11 +831,11 @@ public struct OwnershipAnalysis {
   ) -> Bool {
     // Operationally, a borrow is just a copy of the source address.
     guard let source = context[in: source]?.asAddress else { illegalOperand() }
-    context[in: Operand(index)] = .address(source)
+    context[in: Operand(borrower)] = .address(source)
 
     do {
       // Borrow the value at the source address.
-      try context.lend(source, mutably: isMutable, to: index)
+      try context.lend(source, mutably: isMutable, to: borrower)
       return true
     } catch {
       report(error: error, range: range)
@@ -793,8 +893,17 @@ public struct OwnershipAnalysis {
     context: inout AbstractContext
   ) -> Bool {
     guard let target = context[in: inst.target]?.asAddress else { illegalOperand() }
+
+    // End the loans contracted by the object at the specified address.
+    if let object = context[at: target] {
+      for loan in object.loans {
+        context.endLoan(at: loan.address, to: loan.borrower)
+      }
+    }
+
+    // Consume the object at the specified address.
     do {
-      try context.consume(target, with: index)
+      _ = try context.consume(target, with: index)
       return true
     } catch {
       context[at: target] = AbstractObject(state: .consumed(consumer: index))
@@ -818,15 +927,12 @@ public struct OwnershipAnalysis {
     index: InstIndex,
     context: inout AbstractContext
   ) -> Bool {
-    // Load an owned value in the target regiter.
-    context[in: Operand(index)] = .object(.owned)
-
-    // Consume the value at the source address.
     guard let source = context[in: inst.source]?.asAddress else { illegalOperand() }
     do {
-      try context.consume(source, with: index)
+      context[in: Operand(index)] = .object(try context.consume(source, with: index))
       return true
     } catch {
+      context[in: Operand(index)] = .object(.owned)
       report(error: error, range: inst.range)
       return false
     }
@@ -881,7 +987,7 @@ public struct OwnershipAnalysis {
   ) -> Bool {
     do {
       // Returned values are consumed.
-      try context.consume(inst.value, with: index)
+      _ = try context.consume(inst.value, with: index)
       return true
     } catch {
       report(error: error, range: inst.range)
@@ -900,7 +1006,7 @@ public struct OwnershipAnalysis {
     // Make sure the target is uninitialized, inserting delete_addr if necessary.
     switch context[at: target]!.derivedState {
     case .owned:
-      // The memory holds an owned value; delete it first.
+      // The memory holds an owned object; delete it first.
       let i = module!.insertDeleteAddr(
         target: inst.target, at: .after(inst: index, in: inst.parent))
       success = visit(
@@ -922,14 +1028,12 @@ public struct OwnershipAnalysis {
       fatalError("not implemented")
     }
 
-    // Store an owned value at the target address.
-    context[at: target] = .owned
-
-    // Consume the value to store.
+    // Transfer the object from register to memory.
     do {
-      try context.consume(inst.value, with: index)
+      context[at: target] = try context.consume(inst.value, with: index)
       return success
     } catch {
+      context[at: target] = .owned
       report(error: error, range: inst.range)
       return false
     }

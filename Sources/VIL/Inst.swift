@@ -86,16 +86,13 @@ public final class AllocStackInst: Value, Inst {
 
 }
 
-/// Borrows the value at the specified address.
+/// Given the address `%a` of an owned or lent object `%obj`, produces an address `%b` representing
+/// a "borrowed" reference on `%obj`.
 ///
-/// This instruction is operationally equivalent to the identity function. It is used during VIL
-/// analysis to identify the ownership state of the borrowed value.
-///
-/// If the borrow is immutable, the value at `source` must be owned or lent. If it is owned, it
-/// becomes lent. Otherwise, it's ownership does not change. If the borrow is mutable, the value
-/// at `source` must be owned and it becomes projected.
-///
-/// This instruction must be post-dominated by `end_borrow`.
+/// If the borrow is immutable, the object at `source` must be owned or lent. If it is owned, it
+/// becomes lent. Otherwise, it's ownership does not change. If the borrow is mutable, the object
+/// at `source` must be owned and it becomes projected. The reference is guaranteed live until a
+/// lifetime-ending use of `%b` (e.g., `end_borrow`).
 public final class BorrowAddrInst: Value, Inst {
 
   public let type: VILType
@@ -532,16 +529,17 @@ public final class CheckedCastBranchInst: Inst {
 
 // MARK: Existential types
 
-/// Unconditionally borrows the value packaged inside of an existential container.
+/// Given the address `%a` of an owned or lent object existential container `%ec`, produces an
+/// address `%b` representing a "borrowed" reference on the object packaged inside of `%ec`,
+/// assuming it has the specified type.
 ///
 /// The instruction first performs a checked cast on the packaged value and causess a runtime
 /// failure if the cast fails.
 ///
 /// If the borrow is immutable, the container at `source` must be owned or lent. If it is owned,
 /// it becomes lent. Otherwise, it's ownership does not change. If the borrow is mutable, the
-/// container at `source` must be owned and it becomes projected.
-///
-/// This instruction must be post-dominated by `end_borrow`.
+/// container at `source` must be owned and it becomes projected. The reference is guaranteed live
+/// until a lifetime-ending use of `%b` (e.g., `end_borrow`).
 public final class BorrowExistAddrInst: Value, Inst {
 
   public let type: VILType
@@ -591,8 +589,6 @@ public final class BorrowExistAddrInst: Value, Inst {
 /// If the borrow is immutable, the container at `source` must be owned or lent. If it is owned,
 /// it becomes lent. Otherwise, it's ownership does not change. If the borrow is mutable, the
 /// container at `source` must be owned and it becomes projected.
-///
-/// The basic block `succ` must be post-dominated by `end_borrow`.
 public final class BorrowExistAddrBranchInst: Inst {
 
   public let parent: BasicBlockIndex
@@ -764,13 +760,19 @@ public final class WitnessMethodAddrInst: Value, Inst {
 // MARK: Functions & methods
 
 /// Applies a function.
+///
+/// The callee must be a function and have an address type. The list of arguments must correspond
+/// to the callee's parameters. Arguments to consuming parameters must be owned  have an object
+/// type. Arguments to local and mutating parameters must result from a borrowing instruction.
+///
+/// Uses of consuming arguments are lifetime-ending; uses of local and mutating arguments are not.
+///
+/// The result of `apply` is an owned value.
 public final class ApplyInst: Value, Inst {
 
   public let type: VILType
 
   public let parent: BasicBlockIndex
-
-  public let range: SourceRange?
 
   /// The function to applied.
   public let callee: Operand
@@ -778,21 +780,29 @@ public final class ApplyInst: Value, Inst {
   /// The arguments of the function.
   public let args: [Operand]
 
+  /// The ranges corresponding to this instruction.
+  private let ranges: [SourceRange?]
+
   init(
     callee: Operand,
     args: [Operand],
     type: VILType,
     parent: BasicBlockIndex,
-    range: SourceRange?
+    ranges: [SourceRange?]
   ) {
     self.callee = callee
     self.args = args
     self.type = type
     self.parent = parent
-    self.range = range
+    self.ranges = ranges
   }
 
   public var operands: [Operand] { [callee] + args }
+
+  public var range: SourceRange? { ranges.last! }
+
+  /// The ranges in Val source corresponding to the locations where arguments are passed.
+  public var argsRanges: ArraySlice<SourceRange?> { ranges.dropLast(1) }
 
   public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
     printer.write(Self.opstring + " ", to: &stream)
@@ -876,11 +886,15 @@ public final class ThinToThickInst: Value, Inst {
 // MARK: Async expressions
 
 /// Creates an asynchronous value.
+///
+/// The list of captures must correspond to `ref`'s parameters. Arguments to consuming captures
+/// must be owned and have an object type. Arguments to local and mutating captures must result
+/// from a borrowing instruction.
+///
+/// The instruction is a lifetime-ending use of all its operands.
 public final class AsyncInst: Value, Inst {
 
   public let parent: BasicBlockIndex
-
-  public let range: SourceRange?
 
   /// A bare reference to the function that represents the asynchronous execution.
   public let ref: FunRef
@@ -889,16 +903,28 @@ public final class AsyncInst: Value, Inst {
   /// underlying function.
   public let captures: [Operand]
 
-  init(ref: FunRef, captures: [Operand], parent: BasicBlockIndex, range: SourceRange?) {
+  /// The ranges corresponding to this instruction.
+  private let ranges: [SourceRange?]
+
+  init(ref: FunRef, captures: [Operand], parent: BasicBlockIndex, ranges: [SourceRange?]) {
     self.ref = ref
     self.captures = captures
     self.parent = parent
-    self.range = range
+    self.ranges = ranges
   }
 
-  public var type: VILType { ref.type.retType! }
+  public var type: VILType {
+    let valType = ref.type.valType as! FunType
+    let context = valType.context
+    return .lower(context.asyncType(of: valType.retType))
+  }
 
   public var operands: [Operand] { [Operand(ref)] + captures }
+
+  public var range: SourceRange? { ranges.last! }
+
+  /// The ranges in Val source corresponding to the locations where captures are formed.
+  public var captureRanges: ArraySlice<SourceRange?> { ranges.dropLast(1) }
 
   public static var opstring = "async"
 

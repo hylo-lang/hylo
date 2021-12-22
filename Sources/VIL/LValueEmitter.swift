@@ -129,35 +129,25 @@ struct LValueEmitter: ExprVisitor {
   mutating func visit(_ node: MemberDeclRefExpr) -> ExprResult {
     // The base has to be emittable as an l-value.
     switch node.base.accept(&self) {
-    case .success(let loc):
+    case .success(let baseAddr):
       // Make sure the base has an address type.
-      guard module.type(of: loc).isAddress else { return .failure(.useOfRValueAsLValue(node)) }
-      let baseType = module.type(of: loc).valType
+      let baseType = module.type(of: baseAddr)
+      guard baseType.isAddress else { return .failure(.useOfRValueAsLValue(node)) }
 
-      // The expression must refer to a variable declaration; member functions are never l-values.
-      guard let decl = node.decl as? VarDecl
-      else { return .failure(.useOfRValueAsLValue(node)) }
+      switch node.decl {
+      case let decl as VarDecl where decl.hasStorage:
+        let lvalue = Emitter.emit(
+          storedMemberAddr: node,
+          baseAddr: baseAddr,
+          state: &_state.pointee,
+          into: &_module.pointee)
+        return .success(lvalue)
 
-      if decl.hasStorage {
-        // The member has physical storage.
-        switch baseType {
-        case is ProductType:
-          // The member refers to a stored property of a concrete product type.
-          let memberAddr = module.insertRecordMemberAddr(
-            record: loc, memberDecl: decl, type: VILType.lower(node.type).address, at: state.ip)
-          return .success(Operand(memberAddr))
+      case is BaseFunDecl:
+        // Member functions are not l-values.
+        return .failure(.useOfRValueAsLValue(node))
 
-        case let bgType as BoundGenericType where bgType.decl.instanceType is ProductType:
-          let memberAddr = module.insertRecordMemberAddr(
-            record: loc, memberDecl: decl, type: VILType.lower(node.type).address, at: state.ip)
-          return .success(Operand(memberAddr))
-
-        default:
-          // FIXME: Handle tuples.
-          fatalError("not implemented")
-        }
-      } else {
-        // FIXME: Handle property setters.
+      default:
         fatalError("not implemented")
       }
 
@@ -175,7 +165,7 @@ struct LValueEmitter: ExprVisitor {
   }
 
   func visit(_ node: AwaitExpr) -> ExprResult {
-    fatalError("not implemented")
+    return .failure(.useOfRValueAsLValue(node))
   }
 
   mutating func visit(_ node: AddrOfExpr) -> ExprResult {
