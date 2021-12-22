@@ -1,7 +1,7 @@
 /// A dictionary whose keys are object with identities.
 public struct ReferenceTable<Key, Value> where Key: AnyObject {
 
-  private var storage: [HashableBox<Key, ReferenceHashWitness<Key>>: Value]
+  private var storage: [HashableBox<ReferenceHashWitness<Key>>: Value]
 
   /// Creates an empty table.
   public init() {
@@ -17,8 +17,8 @@ public struct ReferenceTable<Key, Value> where Key: AnyObject {
   }
 
   public subscript(key: Key) -> Value? {
-    get     { storage[HashableBox(key)] }
-    set     { storage[HashableBox(key)] = newValue }
+    get { storage[HashableBox(key)] }
+    set { storage[HashableBox(key)] = newValue }
     _modify { yield &storage[HashableBox(key)] }
   }
 
@@ -28,7 +28,7 @@ public struct ReferenceTable<Key, Value> where Key: AnyObject {
   }
 
   /// A collection contining just the values of the table.
-  public var values: Dictionary<HashableBox<Key, ReferenceHashWitness<Key>>, Value>.Values {
+  public var values: Dictionary<HashableBox<ReferenceHashWitness<Key>>, Value>.Values {
     return storage.values
   }
 
@@ -50,7 +50,7 @@ public struct ReferenceTable<Key, Value> where Key: AnyObject {
 
 extension ReferenceTable: Collection {
 
-  public typealias Index = Dictionary<HashableBox<Key, ReferenceHashWitness<Key>>, Value>.Index
+  public typealias Index = Dictionary<HashableBox<ReferenceHashWitness<Key>>, Value>.Index
 
   public typealias Element = (key: Key, value: Value)
 

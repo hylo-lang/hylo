@@ -24,19 +24,17 @@ public protocol HashWitness {
 /// You can use this wrapper to customize the behavior of the underlying type's conformance to
 /// `Hashable`. For instance, you may want to change the equality operator used by Swift's `Set`
 /// to implement a unique table.
-public struct HashableBox<Value, Witness>: Hashable
-where Witness: HashWitness, Witness.Value == Value
-{
+public struct HashableBox<Witness>: Hashable where Witness: HashWitness {
 
   /// Creates a box.
   ///
   /// - Parameter value: The wrapped value.
-  public init(_ value: Value) {
+  public init(_ value: Witness.Value) {
     self.value = value
   }
 
   /// The wrapped value.
-  public let value: Value
+  public let value: Witness.Value
 
   public func hash(into hasher: inout Hasher) {
     Witness.hash(value, into: &hasher)
@@ -61,5 +59,5 @@ public struct ReferenceHashWitness<Value>: HashWitness where Value: AnyObject {
 
 }
 
-public typealias ReferenceBox<Value> = HashableBox<Value, ReferenceHashWitness<Value>>
+public typealias ReferenceBox<Value> = HashableBox<ReferenceHashWitness<Value>>
 where Value: AnyObject

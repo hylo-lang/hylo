@@ -40,7 +40,7 @@ public final class Context {
   // MARK: Types
 
   /// The types uniqued in the context.
-  private var types: Set<HashableBox<ValType, ValType.HashWitness>> = []
+  private var types: Set<HashableBox<ValType.HashWitness>> = []
 
   private func uniqued<T>(_ newType: T) -> T where T: ValType {
     let (_, box) = types.insert(HashableBox(newType))
