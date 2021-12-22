@@ -93,6 +93,7 @@ public struct Lexer: IteratorProtocol, Sequence {
       case "fun"      : token.kind = .fun
       case "if"       : token.kind = .if
       case "in"       : token.kind = .in
+      case "local"    : token.kind = .local
       case "infix"    : token.kind = .infix
       case "is"       : token.kind = .cast
       case "match"    : token.kind = .match

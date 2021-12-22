@@ -36,6 +36,7 @@ public struct Token {
     case `if`
     case `in`
     case `infix`
+    case `local`
     case `match`
     case `mod`
     case `mut`

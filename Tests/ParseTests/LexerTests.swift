@@ -130,8 +130,8 @@ final class LexerTests: XCTestCase {
 
   func testKeywords() {
     let input = """
-    async await break case continue del else extn for fun if in infix match mod moveonly mut new
-    nil postfix prefix pub ret static type val var view volatile where while
+    async await break case consuming continue del else extn for fun if in infix local match mod mut
+    new nil postfix prefix pub ret static type val var view volatile where while
     """
 
     assert(
@@ -151,6 +151,7 @@ final class LexerTests: XCTestCase {
         TokenSpec(.if       , "if"),
         TokenSpec(.in       , "in"),
         TokenSpec(.infix    , "infix"),
+        TokenSpec(.local    , "local"),
         TokenSpec(.match    , "match"),
         TokenSpec(.mod      , "mod"),
         TokenSpec(.mut      , "mut"),
