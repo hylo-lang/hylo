@@ -230,6 +230,8 @@ struct RValueEmitter: ExprVisitor {
 
   mutating func visit(_ node: CallExpr) -> ExprResult {
     let callee: Operand
+    let isCalleeBorrowed: Bool
+
     var args: [Operand] = []
     var argsRanges: [SourceRange?] = []
     var borrowedIndices: [Int] = []
@@ -255,9 +257,11 @@ struct RValueEmitter: ExprVisitor {
             ? Operand(module.insertWitnessMethod(container: args[0], decl: decl, at: state.ip))
             : Operand(FunRef(function: module.getOrCreateFunction(from: decl)))
         }
+        isCalleeBorrowed = false
       } else {
         // The callee is a functional property; emit a regular member access.
         callee = emit(borrow: node.fun, mutably: false)
+        isCalleeBorrowed = true
       }
 
     case let expr as DeclRefExpr:
@@ -265,20 +269,24 @@ struct RValueEmitter: ExprVisitor {
       case let decl as FunDecl where decl.isBuiltin:
         // The callee is a reference to a built-in function.
         callee = Operand(BuiltinFunRef(decl: decl))
+        isCalleeBorrowed = false
 
       case let decl as BaseFunDecl
         where (decl is CtorDecl) || decl.computeAllCaptures().isEmpty:
         // The callee is a reference to a thin function.
         callee = Operand(FunRef(function: module.getOrCreateFunction(from: decl)))
+        isCalleeBorrowed = false
 
       default:
         /// The callee is a thick function.
         callee = emit(borrow: node.fun, mutably: false)
+        isCalleeBorrowed = true
       }
 
     default:
       // The calle is an expression producing a thick function.
       callee = emit(borrow: node.fun, mutably: false)
+      isCalleeBorrowed = true
     }
 
     // Emit the function's arguments.
@@ -339,6 +347,9 @@ struct RValueEmitter: ExprVisitor {
     // End all loans.
     for i in borrowedIndices.reversed() {
       module.insertEndBorrowAddr(source: args[i], range: node.range, at: state.ip)
+    }
+    if isCalleeBorrowed {
+      module.insertEndBorrowAddr(source: callee, range: node.range, at: state.ip)
     }
 
     return .success(Operand(apply))
