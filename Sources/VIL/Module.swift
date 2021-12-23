@@ -57,6 +57,16 @@ public struct Module {
     }
   }
 
+  /// Returns the block into which the given insertion point refers.
+  public func block(containing point: InsertionPoint) -> BasicBlockIndex {
+    switch point {
+    case .endOf(let blockIndex):
+      return blockIndex
+    case .before(let inst):
+      return instructions[inst].parent
+    }
+  }
+
   /// Removes an instruction.
   public mutating func remove(inst instIndex: InstIndex) {
     assert(uses[Operand(instIndex), default: []].isEmpty, "instruction has uses")
@@ -208,7 +218,11 @@ public struct Module {
     assert(allocType.isObject, "'allocatedType' must be an object type")
 
     let inst = AllocStackInst(
-      allocType: allocType, isReceiver: isReceiver, decl: decl, parent: point.block, range: range)
+      allocType: allocType,
+      isReceiver: isReceiver,
+      decl: decl,
+      parent: block(containing: point),
+      range: range)
     return insert(inst: inst, at: point)
   }
 
@@ -230,7 +244,7 @@ public struct Module {
       callee: callee,
       args: args,
       type: type(of: callee).retType!,
-      parent: point.block,
+      parent: block(containing: point),
       ranges: ranges)
     return insert(inst: inst, at: point)
   }
@@ -247,7 +261,7 @@ public struct Module {
     ranges.append(range)
 
     let inst = AsyncInst(
-      ref: ref, captures: captures, parent: point.block, ranges: ranges)
+      ref: ref, captures: captures, parent: block(containing: point), ranges: ranges)
     return insert(inst: inst, at: point)
   }
 
@@ -262,7 +276,7 @@ public struct Module {
     let inst = AwaitInst(
       value: value,
       type: .lower((type(of: value).valType as! AsyncType).base),
-      parent: point.block,
+      parent: block(containing: point),
       range: range)
     return insert(inst: inst, at: point)
   }
@@ -279,7 +293,7 @@ public struct Module {
       isMutable: isMutable,
       source: source,
       type: type(of: source),
-      parent: point.block,
+      parent: block(containing: point),
       range: range)
     return insert(inst: inst, at: point)
   }
@@ -295,7 +309,11 @@ public struct Module {
     assert(type.isAddress, "'type' must be an address type")
 
     let inst = BorrowExistAddrInst(
-      isMutable: isMutable, container: container, type: type, parent: point.block, range: range)
+      isMutable: isMutable,
+      container: container,
+      type: type,
+      parent: block(containing: point),
+      range: range)
     return insert(inst: inst, at: point)
   }
 
@@ -312,16 +330,16 @@ public struct Module {
     assert(self.type(of: container).isAddress, "'container' must have an address type")
     assert(type.isAddress, "'type' must be an address type")
 
+    let source = block(containing: point)
     let inst = BorrowExistAddrBranchInst(
       isMutable: isMutable,
       container: container,
       type: type,
       succ: succ,
       fail: fail,
-      parent: point.block,
+      parent: source,
       range: range)
 
-    let source = point.block
     modify(value: &functions[blocks[source].parent]!.cfg, with: { cfg in
       cfg.insertControlEdge(from: source, to: succ)
       cfg.insertControlEdge(from: source, to: fail)
@@ -337,9 +355,9 @@ public struct Module {
     range: SourceRange? = nil,
     at point: InsertionPoint
   ) -> InstIndex {
-    let inst = BranchInst(dest: dest, args: args, parent: point.block, range: range)
+    let source = block(containing: point)
+    let inst = BranchInst(dest: dest, args: args, parent: source, range: range)
 
-    let source = point.block
     functions[blocks[source].parent]!.cfg.insertControlEdge(from: source, to: inst.dest)
 
     return insert(inst: inst, at: point)
@@ -353,7 +371,8 @@ public struct Module {
   ) -> InstIndex {
     assert(self.type(of: value).isObject, "'value' must have an object type")
 
-    let inst = CheckedCastInst(value: value, type: type, parent: point.block, range: range)
+    let inst = CheckedCastInst(
+      value: value, type: type, parent: block(containing: point), range: range)
     return insert(inst: inst, at: point)
   }
 
@@ -369,10 +388,10 @@ public struct Module {
     assert(self.type(of: value).isObject, "'value' must have an object type")
     assert(type.isObject, "'type' must be an object type")
 
+    let source = block(containing: point)
     let inst = CheckedCastBranchInst(
-      value: value, type: type, succ: succ, fail: fail, parent: point.block, range: range)
+      value: value, type: type, succ: succ, fail: fail, parent: source, range: range)
 
-    let source = point.block
     modify(value: &functions[blocks[source].parent]!.cfg, with: { cfg in
       cfg.insertControlEdge(from: source, to: succ)
       cfg.insertControlEdge(from: source, to: fail)
@@ -391,16 +410,16 @@ public struct Module {
   ) -> InstIndex {
     assert(type(of: cond).isObject, "'cond' must have an object type")
 
+    let source = block(containing: point)
     let inst = CondBranchInst(
       cond: cond,
       succ: succ,
       succArgs: succArgs,
       fail: fail,
       failArgs: failArgs,
-      parent: point.block,
+      parent: source,
       range: range)
 
-    let source = point.block
     modify(value: &functions[blocks[source].parent]!.cfg, with: { cfg in
       cfg.insertControlEdge(from: source, to: succ)
       cfg.insertControlEdge(from: source, to: fail)
@@ -417,7 +436,7 @@ public struct Module {
   ) -> InstIndex {
     assert(type(of: cond).isObject, "'cond' must have an object type")
 
-    let inst = CondFail(cond: cond, parent: point.block, range: range)
+    let inst = CondFail(cond: cond, parent: block(containing: point), range: range)
     return insert(inst: inst, at: point)
   }
 
@@ -431,7 +450,7 @@ public struct Module {
       alloc.inst.map({ instructions[$0] }) is AllocStackInst,
       "'alloc' must be an 'alloc_stack' instruction")
 
-    let inst = DeallocStackInst(alloc: alloc, parent: point.block, range: range)
+    let inst = DeallocStackInst(alloc: alloc, parent: block(containing: point), range: range)
     return insert(inst: inst, at: point)
   }
 
@@ -443,7 +462,7 @@ public struct Module {
   ) -> InstIndex {
     assert(type(of: value).isObject, "'value' must have an object type")
 
-    let inst = DeleteInst(value: value, parent: point.block, range: range)
+    let inst = DeleteInst(value: value, parent: block(containing: point), range: range)
     return insert(inst: inst, at: point)
   }
 
@@ -455,7 +474,7 @@ public struct Module {
   ) -> InstIndex {
     assert(type(of: target).isAddress, "'target' must have an address type")
 
-    let inst = DeleteAddrInst(target: target, parent: point.block, range: range)
+    let inst = DeleteAddrInst(target: target, parent: block(containing: point), range: range)
     return insert(inst: inst, at: point)
   }
 
@@ -467,7 +486,7 @@ public struct Module {
   ) -> InstIndex {
     assert(type(of: source).isAddress, "'source' must have an address type")
 
-    let inst = EndBorrowInst(source: source, parent: point.block, range: range)
+    let inst = EndBorrowInst(source: source, parent: block(containing: point), range: range)
     return insert(inst: inst, at: point)
   }
 
@@ -482,7 +501,7 @@ public struct Module {
     assert(type(of: value).isObject, "'value' must have an object type")
 
     let inst = InitExistAddrInst(
-      container: container, value: value, parent: point.block, range: range)
+      container: container, value: value, parent: block(containing: point), range: range)
     return insert(inst: inst, at: point)
   }
 
@@ -491,7 +510,7 @@ public struct Module {
     range: SourceRange? = nil,
     at point: InsertionPoint
   ) -> InstIndex {
-    let inst = HaltInst(parent: point.block, range: range)
+    let inst = HaltInst(parent: block(containing: point), range: range)
     return insert(inst: inst, at: point)
   }
 
@@ -503,7 +522,10 @@ public struct Module {
     assert(type(of: source).isAddress, "'source' must have an address type")
 
     let inst = LoadInst(
-      source: source, type: type(of: source).object, parent: point.block, range: range)
+      source: source,
+      type: type(of: source).object,
+      parent: block(containing: point),
+      range: range)
     return insert(inst: inst, at: point)
   }
 
@@ -517,7 +539,8 @@ public struct Module {
     assert(type(of: source).isAddress, "'source' must have an address type")
     assert(type(of: target).isAddress, "'target' must have an address type")
 
-    let inst = MoveAddrInst(source: source, target: target, parent: point.block, range: range)
+    let inst = MoveAddrInst(
+      source: source, target: target, parent: block(containing: point), range: range)
     return insert(inst: inst, at: point)
   }
 
@@ -531,7 +554,8 @@ public struct Module {
     assert(type.isAddress, "'type' must be an address type")
     assert(type.valType.isExistential, "'type' must be an existential type")
 
-    let inst = PackBorrowInst(source: source, type: type, parent: point.block, range: range)
+    let inst = PackBorrowInst(
+      source: source, type: type, parent: block(containing: point), range: range)
     return insert(inst: inst, at: point)
   }
 
@@ -549,7 +573,7 @@ public struct Module {
     let inst = PartialApplyInst(
       delegator: delegator,
       args: args,
-      parent: point.block,
+      parent: block(containing: point),
       ranges: ranges)
     return insert(inst: inst, at: point)
   }
@@ -562,7 +586,8 @@ public struct Module {
   ) -> InstIndex {
     assert(type.isObject, "'type' must be an object type")
 
-    let inst = RecordInst(typeDecl: typeDecl, type: type, parent: point.block, range: range)
+    let inst = RecordInst(
+      typeDecl: typeDecl, type: type, parent: block(containing: point), range: range)
     return insert(inst: inst, at: point)
   }
 
@@ -577,7 +602,11 @@ public struct Module {
     assert(type.isObject, "'type' must be an object type")
 
     let inst = RecordMemberInst(
-      record: record, memberDecl: memberDecl, type: type, parent: point.block, range: range)
+      record: record,
+      memberDecl: memberDecl,
+      type: type,
+      parent: block(containing: point),
+      range: range)
     return insert(inst: inst, at: point)
   }
 
@@ -592,7 +621,11 @@ public struct Module {
     assert(type.isAddress, "'type' must be an address type")
 
     let inst = RecordMemberAddrInst(
-      record: record, memberDecl: memberDecl, type: type, parent: point.block, range: range)
+      record: record,
+      memberDecl: memberDecl,
+      type: type,
+      parent: block(containing: point),
+      range: range)
     return insert(inst: inst, at: point)
   }
 
@@ -604,7 +637,7 @@ public struct Module {
   ) -> InstIndex {
     assert(type(of: value).isObject, "'value' must have an object type")
 
-    let inst = RetInst(value: value, parent: point.block, range: range)
+    let inst = RetInst(value: value, parent: block(containing: point), range: range)
     return insert(inst: inst, at: point)
   }
 
@@ -618,7 +651,8 @@ public struct Module {
     assert(type(of: value).isObject, "'value' must have an object type")
     assert(type(of: target).isAddress, "'target' must have an address type")
 
-    let inst = StoreInst(value: value, target: target, parent: point.block, range: range)
+    let inst = StoreInst(
+      value: value, target: target, parent: block(containing: point), range: range)
     return insert(inst: inst, at: point)
   }
 
@@ -627,7 +661,7 @@ public struct Module {
     range: SourceRange? = nil,
     at point: InsertionPoint
   ) -> InstIndex {
-    let inst = ThinToThickInst(ref: ref, parent: point.block, range: range)
+    let inst = ThinToThickInst(ref: ref, parent: block(containing: point), range: range)
     return insert(inst: inst, at: point)
   }
 
@@ -641,7 +675,8 @@ public struct Module {
       operands.allSatisfy({ self.type(of: $0).isObject }),
       "all operands must have an object type")
 
-    let inst = TupleInst(type: type, operands: operands, parent: point.block, range: range)
+    let inst = TupleInst(
+      type: type, operands: operands, parent: block(containing: point), range: range)
     return insert(inst: inst, at: point)
   }
 
@@ -654,7 +689,7 @@ public struct Module {
     assert(type(of: container).isObject, "'container' must have an object type")
 
     let inst = WitnessMethodInst(
-      container: container, decl: decl, parent: point.block, range: range)
+      container: container, decl: decl, parent: block(containing: point), range: range)
     return insert(inst: inst, at: point)
   }
 
@@ -667,7 +702,7 @@ public struct Module {
     assert(type(of: container).isAddress, "'container' must have an object type")
 
     let inst = WitnessMethodAddrInst(
-      container: container, decl: decl, parent: point.block, range: range)
+      container: container, decl: decl, parent: block(containing: point), range: range)
     return insert(inst: inst, at: point)
   }
 
@@ -681,7 +716,8 @@ public struct Module {
     case .endOf(let blockIndex):
       blocks[blockIndex].instructions.append(instIndex)
 
-    case .after(let predIndex, let blockIndex):
+    case .before(let predIndex):
+      let blockIndex = instructions[predIndex].parent
       guard let insertIndex = blocks[blockIndex].instructions.firstIndex(of: predIndex) else {
         preconditionFailure("instruction is not in the specified block")
       }
@@ -704,17 +740,7 @@ public enum InsertionPoint {
   /// Insert at the end of the specified block.
   case endOf(BasicBlockIndex)
 
-  /// Insert after the specified instruction.
-  case after(inst: InstIndex, in: BasicBlockIndex)
-
-  /// The index of the basic block containing this insertion point.
-  public var block: BasicBlockIndex {
-    switch self {
-    case .endOf(let index):
-      return index
-    case .after(_, let index):
-      return index
-    }
-  }
+  /// Insert before the specified instruction.
+  case before(inst: InstIndex)
 
 }
