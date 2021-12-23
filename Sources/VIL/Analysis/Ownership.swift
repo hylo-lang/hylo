@@ -644,11 +644,15 @@ public struct OwnershipAnalysis {
 //        success = visit(inst: inst, path: path, context: &context, builder: &builder) && success
 //      case let inst as RecordMemberInst:
 //        success = visit(inst: inst, path: path, context: &context, builder: &builder) && success
+      case let inst as PartialApplyInst:
+        success = visit(inst: inst, index: index, context: &context) && success
       case let inst as RecordMemberAddrInst:
         success = visit(inst: inst, index: index, context: &context) && success
       case let inst as RetInst:
         success = visit(inst: inst, index: index, context: &context) && success
       case let inst as StoreInst:
+        success = visit(inst: inst, index: index, context: &context) && success
+      case let inst as ThinToThickInst:
         success = visit(inst: inst, index: index, context: &context) && success
 //      case let inst as WitnessMethodInst:
 //        success = visit(inst: inst, path: path, context: &context, builder: &builder) && success
@@ -657,12 +661,10 @@ public struct OwnershipAnalysis {
 //        is BranchInst,
 //        is CondBranchInst,
 //        is HaltInst,
-//        is ThinToThickInst:
 //        continue
 //
 //      case
 //        is CheckedCastAddrInst,
-//        is PartialApplyInst,
 //        is UnsafeCastAddrInst:
 //        fatalError("Not implemented")
 
@@ -744,7 +746,7 @@ public struct OwnershipAnalysis {
       switch params[i].policy {
       case .local, .inout:
         // Local and mutating captures are borrowed. Assuming the operand results from a borrowing
-        // instruction, we must transfer the loan to the async instruction.
+        // instruction, transfer the loan to the async instruction.
         let formerBorrower = inst.captures[i]
         guard let address = context[in: formerBorrower]?.asAddress else { illegalOperand() }
         context.endLoan(at: address, to: formerBorrower.inst!)
@@ -938,6 +940,53 @@ public struct OwnershipAnalysis {
     }
   }
 
+  private func visit(
+    inst: PartialApplyInst,
+    index: InstIndex,
+    context: inout AbstractContext
+  ) -> Bool {
+    // The result of a partial_apply instruction is always owned.
+    var result = AbstractObject.owned
+
+    // Verify and update the ownership state of each capture.
+    var success = true
+    let params = inst.delegator.type.params!
+    for i in 0 ..< inst.args.count {
+      switch params[i].policy {
+      case .local, .inout:
+        // Local and mutating captures are borrowed. Assuming the operand results from a borrowing
+        // instruction, transfer the loan to the partial_apply instruction.
+        let formerBorrower = inst.args[i]
+        guard let address = context[in: formerBorrower]?.asAddress else { illegalOperand() }
+        context.endLoan(at: address, to: formerBorrower.inst!)
+        do {
+          try context.lend(address, mutably: params[i].policy == .inout, to: index)
+          result.loans.insert(Loan(address: address, borrower: index))
+        } catch {
+          report(error: error, range: inst.argsRanges[i])
+          success = false
+        }
+
+      case .consuming:
+        // Consuming captures are consumed.
+        do {
+          _ = try context.consume(inst.args[i], with: index)
+        } catch {
+          report(error: error, range: inst.argsRanges[i])
+          success = false
+        }
+
+      case nil:
+        // The parameter passing is unknown. That can only happen if the type of the function we
+        // are analyzing is ill-formed.
+        fatalError("ill-formed function type")
+      }
+    }
+
+    context[in: Operand(index)] = .object(result)
+    return success
+  }
+
 //  private func visit(
 //    inst: RecordInst,
 //    path: InstPath,
@@ -1037,6 +1086,15 @@ public struct OwnershipAnalysis {
       report(error: error, range: inst.range)
       return false
     }
+  }
+
+  private func visit(
+    inst: ThinToThickInst,
+    index: InstIndex,
+    context: inout AbstractContext
+  ) -> Bool {
+    context[in: Operand(index)] = .object(.owned)
+    return true
   }
 
 //  private func visit(

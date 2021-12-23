@@ -537,15 +537,20 @@ public struct Module {
 
   public mutating func insertPartialApply(
     delegator: FunRef,
-    partialArgs: [Operand],
+    args: [Operand],
     range: SourceRange? = nil,
+    argsRanges: [SourceRange?]? = nil,
     at point: InsertionPoint
   ) -> InstIndex {
+    assert(argsRanges == nil || argsRanges!.count == args.count)
+    var ranges = argsRanges ?? Array(repeating: nil, count: args.count)
+    ranges.append(range)
+
     let inst = PartialApplyInst(
       delegator: delegator,
-      partialArgs: partialArgs,
+      args: args,
       parent: point.block,
-      range: range)
+      ranges: ranges)
     return insert(inst: inst, at: point)
   }
 

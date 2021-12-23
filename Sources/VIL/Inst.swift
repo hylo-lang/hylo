@@ -822,37 +822,43 @@ public final class PartialApplyInst: Value, Inst {
 
   public let parent: BasicBlockIndex
 
-  public let range: SourceRange?
-
   /// The function being partially applied.
   public let delegator: FunRef
 
   /// The partial list of arguments of the function application (from left to right).
-  public let partialArgs: [Operand]
+  public let args: [Operand]
+
+  /// The ranges corresponding to this instruction.
+  private let ranges: [SourceRange?]
 
   init(
     delegator: FunRef,
-    partialArgs: [Operand],
+    args: [Operand],
     parent: BasicBlockIndex,
-    range: SourceRange?
+    ranges: [SourceRange?]
   ) {
     self.delegator = delegator
-    self.partialArgs = partialArgs
+    self.args = args
     self.parent = parent
-    self.range = range
+    self.ranges = ranges
 
     let totalType = delegator.type.valType as! FunType
     let partialType = totalType.context.funType(
-      params: totalType.params.dropLast(partialArgs.count),
+      params: totalType.params.dropLast(args.count),
       retType: totalType.retType)
     self.type = .lower(partialType)
   }
 
-  public var operands: [Operand] { [Operand(delegator)] + partialArgs }
+  public var operands: [Operand] { [Operand(delegator)] + args }
+
+  public var range: SourceRange? { ranges.last! }
+
+  /// The ranges in Val source corresponding to the locations where arguments are passed.
+  public var argsRanges: ArraySlice<SourceRange?> { ranges.dropLast(1) }
 
   public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
     printer.write("\(Self.opstring) \(delegator)", to: &stream)
-    let args = partialArgs
+    let args = args
       .map({ printer.describe($0) })
       .joined(separator: ", ")
     printer.write("(\(args))\n", to: &stream)

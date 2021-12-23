@@ -373,31 +373,37 @@ public enum Emitter {
         // Emit the value of each captured declaration. Capture with `val` or `var` semantics are
         // copied from the environment, and so we must emit an r-value either way.
         let captureTable = decl.computeAllCaptures()
-        let partialArgs = captureTable.values.map({ (decl) -> Operand in
+        var args: [Operand] = []
+        var argsRanges: [SourceRange?] = []
+
+        for decl in captureTable.values {
+          argsRanges.append(decl.value.range)
           switch decl.policy {
           case .local:
             let source = emit(borrowable: decl.value, state: &state, into: &module)
-            return Operand(module.insertBorrowAddr(
-              isMutable: false, source: source, range: decl.value.range, at: state.ip))
+            let borrow = module.insertBorrowAddr(
+              isMutable: false, source: source, range: decl.value.range, at: state.ip)
+            args.append(Operand(borrow))
 
           case .inout:
             let source = emit(lvalue: decl.value, state: &state, into: &module)
-            return Operand(module.insertBorrowAddr(
-              isMutable: false, source: source, range: decl.value.range, at: state.ip))
+            let borrow = module.insertBorrowAddr(
+              isMutable: false, source: source, range: decl.value.range, at: state.ip)
+            args.append(Operand(borrow))
 
           case .consuming:
-            return emit(rvalue: decl.value, state: &state, into: &module)
+            args.append(emit(rvalue: decl.value, state: &state, into: &module))
           }
-        })
+        }
 
         // Local function with captures require stack allocation.
-        if !partialArgs.isEmpty {
+        if !args.isEmpty {
           let loc = module.insertAllocStack(allocType: .lower(decl.type), decl: decl, at: state.ip)
           state.locals[ObjectIdentifier(decl)] = Operand(loc)
           state.allocs.append(loc)
 
           let partial = module.insertPartialApply(
-            delegator: ref, partialArgs: partialArgs, at: state.ip)
+            delegator: ref, args: args, argsRanges: argsRanges, at: state.ip)
           module.insertStore(Operand(partial), to: Operand(loc), range: decl.range, at: state.ip)
         } else {
           state.locals[ObjectIdentifier(decl)] = Operand(ref)
