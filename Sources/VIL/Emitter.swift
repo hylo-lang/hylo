@@ -1,6 +1,5 @@
 import AST
 import Basic
-import Darwin
 
 /// A symbol table.
 typealias SymbolTable = [ObjectIdentifier: Operand]
@@ -304,7 +303,7 @@ public enum Emitter {
     precondition(patterns.count == 1, "not implemented") // FIXME: destructuring
 
     if !decl.isMutable {
-      // Local immutable bindings require an initializer.
+      // Immutable bindings require an initializer.
       guard let initializer = decl.initializer else {
         module.context.report(.immutableBindingRequiresInitializer(decl: decl))
         state.locals[ObjectIdentifier(patterns[0].decl)] = Operand(PoisonValue(
@@ -313,22 +312,25 @@ public enum Emitter {
         return
       }
 
-      // If the initializer is an l-value, the binding must be initialized as a borrowed reference.
-      // Otherwise, it requires storage to receive ownership, just as mutable bindings.
-      if case .success(let source) = withLValueEmitter(
-        state: &state, into: &module, do: initializer.accept)
-      {
-        let loc = module.insertBorrowAddr(
+      // If the initializer is an l-value, the binding becomes a borrowed reference. Othwerwise, it
+      // gets storage and receives ownership, just like mutable bindings.
+      let lvalue = withLValueEmitter(state: &state, into: &module, do: initializer.accept)
+      switch lvalue {
+      case .success(let source):
+        let borrow = module.insertBorrowAddr(
           isMutable: false,
           source: source,
           range: initializer.range,
           at: state.ip)
-        state.locals[ObjectIdentifier(patterns[0])] = Operand(loc)
+        state.locals[ObjectIdentifier(patterns[0])] = Operand(borrow)
         return
+
+      case .failure:
+        break
       }
     }
 
-    // Allocate storage if the binding is mutable or should receive ownership.
+    // Allocate storage to receive ownership.
     let alloc = emit(storedVar: patterns[0].decl, state: &state, into: &module)
     state.locals[ObjectIdentifier(patterns[0].decl)] = Operand(alloc)
     if let initializer = decl.initializer {
@@ -380,17 +382,9 @@ public enum Emitter {
           argsRanges.append(decl.value.range)
           switch decl.policy {
           case .local:
-            let source = emit(borrowable: decl.value, state: &state, into: &module)
-            let borrow = module.insertBorrowAddr(
-              isMutable: false, source: source, range: decl.value.range, at: state.ip)
-            args.append(Operand(borrow))
-
+            args.append(emit(borrow: decl.value, mutably: false, state: &state, into: &module))
           case .inout:
-            let source = emit(lvalue: decl.value, state: &state, into: &module)
-            let borrow = module.insertBorrowAddr(
-              isMutable: false, source: source, range: decl.value.range, at: state.ip)
-            args.append(Operand(borrow))
-
+            args.append(emit(borrow: decl.value, mutably: true, state: &state, into: &module))
           case .consuming:
             args.append(emit(rvalue: decl.value, state: &state, into: &module))
           }
@@ -518,38 +512,54 @@ public enum Emitter {
     }
   }
 
-  /// Emits the address of a cell holding the value of the specified expression.
+  /// Emits a borrowed address.
   static func emit(
-    borrowable expr: Expr,
+    borrow expr: Expr,
+    mutably: Bool,
     state: inout State,
     into module: inout Module
   ) -> Operand {
-    // If the expression can be emitted as an l-value, we're done.
-    if case .success(let lvalue) = withLValueEmitter(
-      state: &state, into: &module, do: expr.accept)
-    {
-      return lvalue
+    let lvalue = withLValueEmitter(state: &state, into: &module, do: expr.accept)
+    switch lvalue {
+    case .success(let source):
+      // If the expression can be emitted as an l-value, use it as the source of the borrow.
+      return Operand(module.insertBorrowAddr(
+        isMutable: mutably, source: source, range: expr.range, at: state.ip))
+
+    case .failure(let error) where mutably:
+      // If it can't but the address is expected to be mutable, that's a failure.
+      module.context.report(error.diag())
+      state.hasError = true
+      return Operand(PoisonValue(type: .lower(expr.type).address))
+
+    default:
+      break
     }
 
-    // If the expression is a reference to a member declaration, its base must be "converted" as a
-    // temporary r-value.
-    if let expr = expr as? MemberDeclRefExpr {
+    switch expr {
+    case let expr as MemberDeclRefExpr:
+      // If the expression is a reference to a member declaration, its base must be "converted" as
+      // a temporary r-value.
       let base = emit(rvalue: expr.base, state: &state, into: &module)
-      let baseAddr = module.insertAllocStack(
-        allocType: .lower(expr.base.type), range: expr.base.range, at: state.ip)
-      state.allocs.append(baseAddr)
+      let baseAddr = module.insertAllocStack(allocType: .lower(expr.base.type), at: state.ip)
       module.insertStore(base, to: Operand(baseAddr), range: expr.range, at: state.ip)
-      return emit(
-        storedMemberAddr: expr, baseAddr: Operand(baseAddr), state: &state, into: &module)
-    }
+      state.allocs.append(baseAddr)
 
-    // Otherwise, "convert" the expression as a temporary r-value.
-    let rvalue = emit(rvalue: expr, state: &state, into: &module)
-    let alloc = module.insertAllocStack(
-      allocType: .lower(expr.type), range: expr.range, at: state.ip)
-    state.allocs.append(alloc)
-    module.insertStore(rvalue, to: Operand(alloc), range: expr.range, at: state.ip)
-    return Operand(alloc)
+      let source = emit(
+        storedMemberAddr: expr, baseAddr: Operand(baseAddr), state: &state, into: &module)
+      return Operand(module.insertBorrowAddr(
+        isMutable: mutably, source: source, range: expr.range, at: state.ip))
+
+    default:
+      // Otherwise, "convert" the expression as a temporary r-value.
+      let rvalue = emit(rvalue: expr, state: &state, into: &module)
+      let source = module.insertAllocStack(allocType: .lower(expr.type), at: state.ip)
+      module.insertStore(rvalue, to: Operand(source), range: expr.range, at: state.ip)
+      state.allocs.append(source)
+
+      return Operand(module.insertBorrowAddr(
+        isMutable: mutably, source: Operand(source), range: expr.range, at: state.ip))
+    }
   }
 
   static func emit(

@@ -52,9 +52,9 @@ struct RValueEmitter: ExprVisitor {
     Emitter.emit(lvalue: expr, state: &_state.pointee, into: &_module.pointee)
   }
 
-  /// Emits the address of a cell holding the value of the specified expression.
-  mutating func emit(borrowable expr: Expr) -> Operand {
-    Emitter.emit(borrowable: expr, state: &_state.pointee, into: &_module.pointee)
+  /// Emits a borrowed address.
+  mutating func emit(borrow expr: Expr, mutably: Bool) -> Operand {
+    Emitter.emit(borrow: expr, mutably: mutably, state: &_state.pointee, into: &_module.pointee)
   }
 
   // ----------------------------------------------------------------------------------------------
@@ -232,7 +232,7 @@ struct RValueEmitter: ExprVisitor {
     let callee: Operand
     var args: [Operand] = []
     var argsRanges: [SourceRange?] = []
-    var borrowedIndex: [Int] = []
+    var borrowedIndices: [Int] = []
 
     // Emit the function's callee.
     switch node.fun {
@@ -249,23 +249,15 @@ struct RValueEmitter: ExprVisitor {
             : Operand(FunRef(function: module.getOrCreateFunction(from: decl)))
         } else {
           // The receiver is borrowed; emit a borrowable l-value.
-          let receiver = decl.isMutating
-            ? emit(lvalue: expr.base)
-            : emit(borrowable: expr.base)
-          let borrow = module.insertBorrowAddr(
-            isMutable: decl.isMutating,
-            source: receiver,
-            range: expr.base.range,
-            at: state.ip)
-          borrowedIndex.append(args.count)
-          args.append(Operand(borrow))
+          borrowedIndices.append(args.count)
+          args.append(emit(borrow: expr.base, mutably: decl.isMutating))
           callee = expr.base.type.isExistential
             ? Operand(module.insertWitnessMethod(container: args[0], decl: decl, at: state.ip))
             : Operand(FunRef(function: module.getOrCreateFunction(from: decl)))
         }
       } else {
         // The callee is a functional property; emit a regular member access.
-        callee = emit(borrowable: node.fun)
+        callee = emit(borrow: node.fun, mutably: false)
       }
 
     case let expr as DeclRefExpr:
@@ -281,12 +273,12 @@ struct RValueEmitter: ExprVisitor {
 
       default:
         /// The callee is a thick function.
-        callee = emit(borrowable: node.fun)
+        callee = emit(borrow: node.fun, mutably: false)
       }
 
     default:
       // The calle is an expression producing a thick function.
-      callee = emit(borrowable: node.fun)
+      callee = emit(borrow: node.fun, mutably: false)
     }
 
     // Emit the function's arguments.
@@ -295,25 +287,14 @@ struct RValueEmitter: ExprVisitor {
       argsRanges.append(node.args[i].value.range)
       switch params[i].policy! {
       case .local:
-        // Local and mutating parameters are passed by reference; emit a borrowable l-value.
-        let source = emit(borrowable: node.args[i].value)
-        let borrow = module.insertBorrowAddr(
-          isMutable: false,
-          source: source,
-          range: node.args[i].value.range,
-          at: state.ip)
-        borrowedIndex.append(args.count)
-        args.append(Operand(borrow))
+        // Local parameters are passed by reference.
+        borrowedIndices.append(args.count)
+        args.append(emit(borrow: node.args[i].value, mutably: false))
 
       case .inout:
-        let source = emit(lvalue: node.args[i].value)
-        let borrow = module.insertBorrowAddr(
-          isMutable: true,
-          source: source,
-          range: node.args[i].value.range,
-          at: state.ip)
-        borrowedIndex.append(args.count)
-        args.append(Operand(borrow))
+        // Mutating parameters are passed by reference.
+        borrowedIndices.append(args.count)
+        args.append(emit(borrow: node.args[i].value, mutably: true))
 
       case .consuming:
         // Consuming parameters are passed by value.
@@ -355,8 +336,8 @@ struct RValueEmitter: ExprVisitor {
       argsRanges: argsRanges,
       at: state.ip)
 
-    // End the borrowed values.
-    for i in borrowedIndex.reversed() {
+    // End all loans.
+    for i in borrowedIndices.reversed() {
       module.insertEndBorrowAddr(source: args[i], range: node.range, at: state.ip)
     }
 
@@ -453,14 +434,11 @@ struct RValueEmitter: ExprVisitor {
       switch value.policy {
       case .local:
         // Capture is borrowed.
-        let source = emit(borrowable: expr)
-        captures.append(Operand(module.insertBorrowAddr(
-          isMutable: false, source: source, range: expr.range, at: state.ip)))
+        captures.append(emit(borrow: expr, mutably: false))
 
       case .inout:
-        let source = emit(lvalue: expr)
-        captures.append(Operand(module.insertBorrowAddr(
-          isMutable: true, source: source, range: expr.range, at: state.ip)))
+        // Capture is borrowed.
+        captures.append(emit(borrow: expr, mutably: true))
 
       case .consuming:
         // Capture is consumed.
@@ -504,8 +482,8 @@ struct RValueEmitter: ExprVisitor {
       }
     }
 
-    // Emit the subject of the match as a borrowable address.
-    let subjectLoc = emit(borrowable: node.subject)
+    // Emit the subject of the match.
+    let subjectLoc = emit(borrow: node.subject, mutably: false)
 
     // Create a "sink" block where all cases will branch unconditionally.
     let sink = module.insertBasicBlock(in: state.funName)
