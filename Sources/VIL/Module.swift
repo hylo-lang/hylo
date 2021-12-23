@@ -376,6 +376,19 @@ public struct Module {
     return insert(inst: inst, at: point)
   }
 
+  public mutating func insertCheckedCastAddr(
+    source: Operand,
+    type: VILType,
+    range: SourceRange? = nil,
+    at point: InsertionPoint
+  ) -> InstIndex {
+    assert(self.type(of: source).isAddress, "'source' must have an address type")
+
+    let inst = CheckedCastAddrInst(
+      source: source, type: type, parent: block(containing: point), range: range)
+    return insert(inst: inst, at: point)
+  }
+
   @discardableResult
   public mutating func insertCheckedCastBranch(
     value: Operand,

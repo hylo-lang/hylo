@@ -57,7 +57,33 @@ struct LValueEmitter: ExprVisitor {
   }
 
   mutating func visit(_ node: UnsafeCastExpr) -> ExprResult {
-    return .failure(.useOfRValueAsLValue(node))
+    let lhsType = node.value.type.dealiased
+    let rhsType = node.type.dealiased
+
+    // An unsafe cast expression is an l-value if the value being cast is an l-value as well.
+    var source: Operand
+    switch node.value.accept(&self) {
+    case .success(let address):
+      source = address
+    case let failure:
+      return failure
+    }
+
+    // FIXME: Handle structural casts.
+    precondition(!(lhsType is TupleType) || !(rhsType is TupleType))
+
+    // Runtime conversion of function types always fails.
+    if (lhsType is FunType) && (rhsType is FunType) {
+      module.context.report(.runtimeFunctionTypeConversion(range: node.range))
+      module.insertCondFail(
+        cond: Operand(IntValue.makeTrue(context: module.context)), range: node.range, at: state.ip)
+      return .success(Operand(PoisonValue(type: .lower(rhsType).address)))
+    }
+
+    // Convert the value.
+    source = Operand(module.insertCheckedCastAddr(
+      source: source, type: .lower(rhsType).address, range: node.range, at: state.ip))
+    return .success(source)
   }
 
   func visit(_ node: TupleExpr) -> ExprResult {

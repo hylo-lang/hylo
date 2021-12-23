@@ -223,7 +223,7 @@ fileprivate struct AbstractObject: Equatable {
   /// The ownership state of the object itself, without considering the state of its parts.
   var state: OwnershipState
 
-  /// The loans of the object.
+  /// The loans contracted by this object on other objects.
   var loans: Set<Loan>
 
   /// The parts of the object.
@@ -399,11 +399,13 @@ fileprivate struct AbstractObject: Equatable {
 
 }
 
-/// A loan transferred to an object.
+/// A loan contracted by an object.
 fileprivate struct Loan: Hashable {
 
+  /// The address of the loan.
   let address: AbstractAddress
 
+  /// The instruction that created the loan.
   let borrower: InstIndex
 
 }
@@ -630,6 +632,8 @@ public struct OwnershipAnalysis {
         success = visit(inst: inst, index: index, context: &context) && success
       case let inst as BorrowExistAddrInst:
         success = visit(inst: inst, index: index, context: &context) && success
+      case let inst as CheckedCastAddrInst:
+        success = visit(inst: inst, index: index, context: &context) && success
       case let inst as DeallocStackInst:
         success = visit(inst: inst, index: index, context: &context) && success
 //      case let inst as DeleteInst:
@@ -658,17 +662,6 @@ public struct OwnershipAnalysis {
         success = visit(inst: inst, index: index, context: &context) && success
 //      case let inst as WitnessMethodInst:
 //        success = visit(inst: inst, path: path, context: &context, builder: &builder) && success
-//
-//      case
-//        is BranchInst,
-//        is CondBranchInst,
-//        is HaltInst,
-//        continue
-//
-//      case
-//        is CheckedCastAddrInst,
-//        is UnsafeCastAddrInst:
-//        fatalError("Not implemented")
 
       case let inst:
         fatalError("unsupported instruction '\(inst)'")
@@ -845,6 +838,16 @@ public struct OwnershipAnalysis {
       report(error: error, range: range)
       return false
     }
+  }
+
+  private mutating func visit(
+    inst: CheckedCastAddrInst,
+    index: InstIndex,
+    context: inout AbstractContext
+  ) -> Bool {
+    guard let source = context[in: inst.source]?.asAddress else { illegalOperand() }
+    context[in: Operand(index)] = .address(source)
+    return true
   }
 
   private mutating func visit(

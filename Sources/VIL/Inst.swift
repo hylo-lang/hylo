@@ -476,7 +476,40 @@ public final class CheckedCastInst: Value, Inst {
 
   public var operands: [Operand] { [value] }
 
+  public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
+    printer.write("\(Self.opstring) \(printer.describe(value)) to \(type)\n", to: &stream)
+  }
+
   public static var opstring = "checked_cast"
+
+}
+
+/// Converts an address to a different type, causing a runtime failure if the conversion fails.
+public final class CheckedCastAddrInst: Value, Inst {
+
+  public let type: VILType
+
+  public let parent: BasicBlockIndex
+
+  public let range: SourceRange?
+
+  /// The source address.
+  public let source: Operand
+
+  init(source: Operand, type: VILType, parent: BasicBlockIndex, range: SourceRange?) {
+    self.source = source
+    self.type = type
+    self.parent = parent
+    self.range = range
+  }
+
+  public var operands: [Operand] { [source] }
+
+  public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
+    printer.write("\(Self.opstring) \(printer.describe(source)) to \(type)\n", to: &stream)
+  }
+
+  public static var opstring = "checked_cast_addr"
 
 }
 
