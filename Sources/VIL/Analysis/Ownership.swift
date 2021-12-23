@@ -638,6 +638,8 @@ public struct OwnershipAnalysis {
         success = visit(inst: inst, index: index, context: &context) && success
       case let inst as EndBorrowInst:
         success = visit(inst: inst, index: index, context: &context) && success
+      case let inst as InitExistAddrInst:
+        success = visit(inst: inst, index: index, context: &context) && success
       case let inst as LoadInst:
         success = visit(inst: inst, index: index, context: &context) && success
 //      case let inst as RecordInst:
@@ -859,8 +861,7 @@ public struct OwnershipAnalysis {
     switch context[at: address]!.derivedState {
     case .owned:
       // The memory holds an owned value; delete it first.
-      let i = module!.insertDeleteAddr(
-        target: inst.alloc, at: .after(inst: index, in: inst.parent))
+      let i = module!.insertDeleteAddr(target: inst.alloc, at: .before(inst: index))
       let success = visit(
         inst: module!.instructions[i] as! DeleteAddrInst, index: i, context: &context)
       context[at: address] = nil
@@ -922,6 +923,14 @@ public struct OwnershipAnalysis {
     guard let source = context[in: inst.source]?.asAddress else { illegalOperand() }
     context.endLoan(at: source, to: inst.source.inst!)
     return true
+  }
+
+  private mutating func visit(
+    inst: InitExistAddrInst,
+    index: InstIndex,
+    context: inout AbstractContext
+  ) -> Bool {
+    return visitInit(object: inst.value, target: inst.container, index: index, context: &context)
   }
 
   private func visit(
@@ -1049,28 +1058,40 @@ public struct OwnershipAnalysis {
     index: InstIndex,
     context: inout AbstractContext
   ) -> Bool {
-    guard let target = context[in: inst.target]?.asAddress else { illegalOperand() }
+    return visitInit(object: inst.value, target: inst.target, index: index, context: &context)
+  }
+
+  private mutating func visitInit(
+    object: Operand,
+    target: Operand,
+    index: InstIndex,
+    context: inout AbstractContext
+  ) -> Bool {
+    guard let address = context[in: target]?.asAddress else { illegalOperand() }
     var success = true
 
-    // Make sure the target is uninitialized, inserting delete_addr if necessary.
-    switch context[at: target]!.derivedState {
+    // Make sure the memory at target address is uninitialized, inserting delete_addr if necessary.
+    switch context[at: address]!.derivedState {
     case .owned:
-      // The memory holds an owned object; delete it first.
-      let i = module!.insertDeleteAddr(
-        target: inst.target, at: .after(inst: index, in: inst.parent))
+      // The memory at the target address holds an owned object; delete it first.
+      let i = module!.insertDeleteAddr(target: target, at: .before(inst: index))
       success = visit(
         inst: module!.instructions[i] as! DeleteAddrInst, index: i, context: &context)
 
     case .lent:
-      report(error: OwnershipError.writeAccessToProjectedValue, range: inst.range)
+      report(
+        error: OwnershipError.writeAccessToProjectedValue,
+        range: module!.instructions[index].range)
       success = false
 
     case .projected:
-      report(error: OwnershipError.writeAccessToInoutedValue, range: inst.range)
+      report(
+        error: OwnershipError.writeAccessToInoutedValue,
+        range: module!.instructions[index].range)
       success = false
 
     case .consumed, .uninitialized:
-      // The target is uninitialized; we're good.
+      // The memory at the target address is uninitialized; we're good.
       break
 
     case .dynamic:
@@ -1079,11 +1100,11 @@ public struct OwnershipAnalysis {
 
     // Transfer the object from register to memory.
     do {
-      context[at: target] = try context.consume(inst.value, with: index)
+      context[at: address] = try context.consume(object, with: index)
       return success
     } catch {
-      context[at: target] = .owned
-      report(error: error, range: inst.range)
+      context[at: address] = .owned
+      report(error: error, range: module!.instructions[index].range)
       return false
     }
   }
