@@ -85,41 +85,21 @@ struct LValueEmitter: ExprVisitor {
   }
 
   func visit(_ node: DeclRefExpr) -> ExprResult {
-    // The keys of a capture table are either original declarations, for implicit captures, or
-    // explicit declarations in the capture list. Implicit captures are always immutable.
-    guard funDecl.computeAllCaptures()[CaptureKey(node.decl)] == nil else {
-      return .failure(.immutableCapture(node.decl))
+    // Look for the referred declaration in the local symbol table first.
+    if let loc = locals[ObjectIdentifier(node.decl)] {
+      if module.type(of: loc).isAddress {
+        return .success(loc)
+      }
     }
 
-    switch node.decl {
-    case let decl as VarDecl:
-      // FIXME: Handle computed properties.
-      assert(decl.hasStorage)
-
-      let loc = locals[ObjectIdentifier(node.decl)]!
-      assert(module.type(of: loc).isAddress)
-      return .success(loc)
-
-    case let decl as CaptureDecl:
-      // The node is a reference to an explicit capture.
-      let loc = locals[ObjectIdentifier(decl)]!
-      assert(module.type(of: loc).isAddress)
-      return .success(loc)
-
-    case let decl as FunParamDecl:
-      // The node is a reference to a parameter.
-      let loc = locals[ObjectIdentifier(decl)]!
-      assert(module.type(of: loc).isAddress)
-      return .success(loc)
-
-    case is BaseFunDecl:
-      // Functions are not l-values.
+    // If the expression refers to a function, that function must be thin or it would have been
+    // found in the local symbol table above.
+    if node.decl is BaseFunDecl {
       return .failure(.useOfRValueAsLValue(node))
-
-    default:
-      // FIXME: Handle global symbols.
-      fatalError("not implemented")
     }
+
+    // FIXME: Handle computed properties.
+    fatalError("not implemented")
   }
 
   func visit(_ node: TypeDeclRefExpr) -> ExprResult {

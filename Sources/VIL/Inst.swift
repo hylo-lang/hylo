@@ -761,13 +761,11 @@ public final class WitnessMethodAddrInst: Value, Inst {
 
 /// Applies a function.
 ///
-/// The callee must be a function and have an address type. The list of arguments must correspond
-/// to the callee's parameters. Arguments to consuming parameters must be owned  have an object
+/// The callee is treated as a borrowed reference on a function. The arguments must correspond to
+/// the callee's parameters. Arguments to consuming parameters must be owned and have an object
 /// type. Arguments to local and mutating parameters must result from a borrowing instruction.
 ///
-/// Uses of consuming arguments are lifetime-ending; uses of local and mutating arguments are not.
-///
-/// The result of `apply` is an owned value.
+/// Uses of the callee and of arguments to non-consuming parameters are not lifetime-ending.
 public final class ApplyInst: Value, Inst {
 
   public let type: VILType
@@ -827,14 +825,13 @@ public final class PartialApplyInst: Value, Inst {
   public let range: SourceRange?
 
   /// The function being partially applied.
-  public let delegator: Operand
+  public let delegator: FunRef
 
   /// The partial list of arguments of the function application (from left to right).
   public let partialArgs: [Operand]
 
   init(
-    delegator: Operand,
-    delegatorType: FunType,
+    delegator: FunRef,
     partialArgs: [Operand],
     parent: BasicBlockIndex,
     range: SourceRange?
@@ -844,13 +841,22 @@ public final class PartialApplyInst: Value, Inst {
     self.parent = parent
     self.range = range
 
-    let partialType = delegatorType.context.funType(
-      params: delegatorType.params.dropLast(partialArgs.count),
-      retType: delegatorType.retType)
+    let totalType = delegator.type.valType as! FunType
+    let partialType = totalType.context.funType(
+      params: totalType.params.dropLast(partialArgs.count),
+      retType: totalType.retType)
     self.type = .lower(partialType)
   }
 
-  public var operands: [Operand] { [delegator] + partialArgs }
+  public var operands: [Operand] { [Operand(delegator)] + partialArgs }
+
+  public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
+    printer.write("\(Self.opstring) \(delegator)", to: &stream)
+    let args = partialArgs
+      .map({ printer.describe($0) })
+      .joined(separator: ", ")
+    printer.write("(\(args))\n", to: &stream)
+  }
 
   public static var opstring = "partial_apply"
 
@@ -879,6 +885,10 @@ public final class ThinToThickInst: Value, Inst {
 
   public var operands: [Operand] { [Operand(ref)] }
 
+  public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
+    printer.write("\(Self.opstring) \(ref)\n", to: &stream)
+  }
+
   public static var opstring = "thin_to_thick"
 
 }
@@ -887,11 +897,9 @@ public final class ThinToThickInst: Value, Inst {
 
 /// Creates an asynchronous value.
 ///
-/// The list of captures must correspond to `ref`'s parameters. Arguments to consuming captures
-/// must be owned and have an object type. Arguments to local and mutating captures must result
-/// from a borrowing instruction.
-///
-/// The instruction is a lifetime-ending use of all its operands.
+/// Captures must correspond to `ref`'s parameters. Arguments to consuming captures must be owned
+/// and have an object type. Arguments to local and mutating captures must result from a borrowing
+/// instruction. All uses are lifetime-ending.
 public final class AsyncInst: Value, Inst {
 
   public let parent: BasicBlockIndex

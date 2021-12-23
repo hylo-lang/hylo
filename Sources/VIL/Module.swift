@@ -536,16 +536,13 @@ public struct Module {
   }
 
   public mutating func insertPartialApply(
-    delegator: Operand,
+    delegator: FunRef,
     partialArgs: [Operand],
     range: SourceRange? = nil,
     at point: InsertionPoint
   ) -> InstIndex {
-    assert(type(of: delegator).isObject, "'delegator' must have an object type")
-
     let inst = PartialApplyInst(
       delegator: delegator,
-      delegatorType: type(of: delegator).valType as! FunType,
       partialArgs: partialArgs,
       parent: point.block,
       range: range)

@@ -155,7 +155,7 @@ public struct BuiltinFunRef: Constant {
   init(decl: FunDecl) {
     precondition(decl.isBuiltin)
     self.decl = decl
-    self.type = .lower(decl.type)
+    self.type = .lower(decl.type).address
   }
 
   public var description: String {

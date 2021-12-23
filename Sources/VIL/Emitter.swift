@@ -397,7 +397,7 @@ public enum Emitter {
           state.allocs.append(loc)
 
           let partial = module.insertPartialApply(
-            delegator: Operand(ref), partialArgs: partialArgs, at: state.ip)
+            delegator: ref, partialArgs: partialArgs, at: state.ip)
           module.insertStore(Operand(partial), to: Operand(loc), range: decl.range, at: state.ip)
         } else {
           state.locals[ObjectIdentifier(decl)] = Operand(ref)
