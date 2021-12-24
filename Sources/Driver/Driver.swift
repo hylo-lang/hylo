@@ -154,10 +154,12 @@ public struct Driver {
     // Emit the module declaration.
     var module = Emitter.emit(module: moduleDecl)
 
-    // Run ownership analysis.
-    var pass = OwnershipAnalysis()
+    // Run VIL analysis passes.
+    var lifetime = LifetimeAnalyis()
+    var ownership = OwnershipAnalysis()
     for funName in module.functions.keys {
-      guard pass.run(funName, on: &module) else {
+      lifetime.run(on: funName, in: &module)
+      guard ownership.run(on: funName, in: &module) else {
         throw DriverError.moduleLoweringFailed(moduleName: moduleDecl.name)
       }
     }

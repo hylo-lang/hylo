@@ -64,74 +64,9 @@ public struct Module {
       return blockIndex
     case .before(let inst):
       return instructions[inst].parent
+    case .after(let inst):
+      return instructions[inst].parent
     }
-  }
-
-  /// Removes an instruction.
-  public mutating func remove(inst instIndex: InstIndex) {
-    assert(uses[Operand(instIndex), default: []].isEmpty, "instruction has uses")
-    uses[Operand(instIndex)] = nil
-
-    // Update the use lists of the instruction's operands.
-    let inst = instructions[instIndex]
-    for op in inst.operands {
-      uses[op]!.removeAll(where: { $0.user == instIndex })
-    }
-
-    // Remove the instruction from the block.
-    modify(value: &blocks[inst.parent].instructions, with: { instructions in
-      let i = instructions.firstIndex(of: instIndex)
-      instructions.remove(at: i!)
-    })
-
-    // Update the function's control-flow graph if necessary.
-    switch inst {
-    case let inst as BorrowExistAddrBranchInst:
-      modify(value: &functions[blocks[inst.parent].parent]!.cfg, with: { cfg in
-        cfg.removeControlEdge(from: inst.parent, to: inst.succ)
-        cfg.removeControlEdge(from: inst.parent, to: inst.fail)
-      })
-
-    case let inst as BranchInst:
-      functions[blocks[inst.parent].parent]!.cfg.removeControlEdge(
-        from: inst.parent, to: inst.dest)
-
-    case let inst as CheckedCastBranchInst:
-      modify(value: &functions[blocks[inst.parent].parent]!.cfg, with: { cfg in
-        cfg.removeControlEdge(from: inst.parent, to: inst.succ)
-        cfg.removeControlEdge(from: inst.parent, to: inst.fail)
-      })
-
-    case let inst as CondBranchInst:
-      modify(value: &functions[blocks[inst.parent].parent]!.cfg, with: { cfg in
-        cfg.removeControlEdge(from: inst.parent, to: inst.succ)
-        cfg.removeControlEdge(from: inst.parent, to: inst.fail)
-      })
-
-    default:
-      break
-    }
-  }
-
-  /// Creates and inserts a basic block in the specified function.
-  ///
-  /// - Parameters:
-  ///   - paramTypes: The type of each formal argument.
-  ///   - funName: The name of the function in which the block is created.
-  ///   - isEntry: A Boolean value that indicates whether the new block should be set as the
-  ///     function's entry.
-  public mutating func insertBasicBlock(
-    paramTypes: [VILType] = [],
-    in funName: String,
-    isEntry: Bool = false
-  ) -> BasicBlockIndex {
-    let blockIndex = blocks.insert(BasicBlock(parent: funName, paramTypes: paramTypes))
-    if isEntry {
-      functions[funName]!.blocks.insert(blockIndex, at: 0)
-    } else {
-      functions[funName]!.blocks.append(blockIndex)
-    }
-    return blockIndex
   }
 
   /// Retrieves or creates a function with the specified name and type.
@@ -197,16 +132,26 @@ public struct Module {
     return getOrCreateFunction(name: name, type: unappliedType, debugName: decl.debugID)
   }
 
-  /// Builds a `nil` value.
-  public mutating func buildNil(
-    range: SourceRange? = nil,
-    at point: InsertionPoint
-  ) -> InstIndex {
-    let decl = context.getTypeDecl(for: .Nil) as! ProductTypeDecl
-    return insertRecord(typeDecl: decl, type: .lower(decl.instanceType), range: range, at: point)
+  /// Creates and inserts a basic block in the specified function.
+  ///
+  /// - Parameters:
+  ///   - paramTypes: The type of each formal argument.
+  ///   - funName: The name of the function in which the block is created.
+  ///   - isEntry: A Boolean value that indicates whether the new block should be set as the
+  ///     function's entry.
+  public mutating func insertBasicBlock(
+    paramTypes: [VILType] = [],
+    in funName: String,
+    isEntry: Bool = false
+  ) -> BasicBlockIndex {
+    let blockIndex = blocks.insert(BasicBlock(parent: funName, paramTypes: paramTypes))
+    if isEntry {
+      functions[funName]!.blocks.insert(blockIndex, at: 0)
+    } else {
+      functions[funName]!.blocks.append(blockIndex)
+    }
+    return blockIndex
   }
-
-  // MARK: Instruction builders
 
   public mutating func insertAllocStack(
     allocType: VILType,
@@ -557,6 +502,15 @@ public struct Module {
     return insert(inst: inst, at: point)
   }
 
+  /// Inserts the creation of a `nil` object.
+  public mutating func insertNil(
+    range: SourceRange? = nil,
+    at point: InsertionPoint
+  ) -> InstIndex {
+    let decl = context.getTypeDecl(for: .Nil) as! ProductTypeDecl
+    return insertRecord(typeDecl: decl, type: .lower(decl.instanceType), range: range, at: point)
+  }
+
   public mutating func insertPackBorrow(
     source: Operand,
     type: VILType,
@@ -719,6 +673,52 @@ public struct Module {
     return insert(inst: inst, at: point)
   }
 
+  /// Removes an instruction.
+  public mutating func remove(inst instIndex: InstIndex) {
+    assert(uses[Operand(instIndex), default: []].isEmpty, "instruction has uses")
+    uses[Operand(instIndex)] = nil
+
+    // Update the use lists of the instruction's operands.
+    let inst = instructions[instIndex]
+    for op in inst.operands {
+      uses[op]!.removeAll(where: { $0.user == instIndex })
+    }
+
+    // Remove the instruction from the block.
+    modify(value: &blocks[inst.parent].instructions, with: { instructions in
+      let i = instructions.firstIndex(of: instIndex)
+      instructions.remove(at: i!)
+    })
+
+    // Update the function's control-flow graph if necessary.
+    switch inst {
+    case let inst as BorrowExistAddrBranchInst:
+      modify(value: &functions[blocks[inst.parent].parent]!.cfg, with: { cfg in
+        cfg.removeControlEdge(from: inst.parent, to: inst.succ)
+        cfg.removeControlEdge(from: inst.parent, to: inst.fail)
+      })
+
+    case let inst as BranchInst:
+      functions[blocks[inst.parent].parent]!.cfg.removeControlEdge(
+        from: inst.parent, to: inst.dest)
+
+    case let inst as CheckedCastBranchInst:
+      modify(value: &functions[blocks[inst.parent].parent]!.cfg, with: { cfg in
+        cfg.removeControlEdge(from: inst.parent, to: inst.succ)
+        cfg.removeControlEdge(from: inst.parent, to: inst.fail)
+      })
+
+    case let inst as CondBranchInst:
+      modify(value: &functions[blocks[inst.parent].parent]!.cfg, with: { cfg in
+        cfg.removeControlEdge(from: inst.parent, to: inst.succ)
+        cfg.removeControlEdge(from: inst.parent, to: inst.fail)
+      })
+
+    default:
+      break
+    }
+  }
+
   /// Inserts an instruction at the specified insertion point.
   private mutating func insert(inst: Inst, at point: InsertionPoint) -> InstIndex {
     // Insert the instruction into the module.
@@ -729,12 +729,16 @@ public struct Module {
     case .endOf(let blockIndex):
       blocks[blockIndex].instructions.append(instIndex)
 
-    case .before(let predIndex):
+    case .before(let succIndex):
+      let blockIndex = instructions[succIndex].parent
+      let i = blocks[blockIndex].instructions.firstIndex(of: succIndex)!
+      blocks[blockIndex].instructions.insert(instIndex, at: i)
+
+    case .after(let predIndex):
       let blockIndex = instructions[predIndex].parent
-      guard let insertIndex = blocks[blockIndex].instructions.firstIndex(of: predIndex) else {
-        preconditionFailure("instruction is not in the specified block")
-      }
-      blocks[blockIndex].instructions.insert(instIndex, at: insertIndex)
+      var i = blocks[blockIndex].instructions.firstIndex(of: predIndex)!
+      i = blocks[blockIndex].instructions.index(after: i)
+      blocks[blockIndex].instructions.insert(instIndex, at: i)
     }
 
     // Update the use lists of the instruction's operands.
@@ -755,5 +759,8 @@ public enum InsertionPoint {
 
   /// Insert before the specified instruction.
   case before(inst: InstIndex)
+
+  ///Insert after the specified instruction.
+  case after(inst: InstIndex)
 
 }

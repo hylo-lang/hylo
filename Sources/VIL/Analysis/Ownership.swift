@@ -503,7 +503,7 @@ public struct OwnershipAnalysis {
 
   public init() {}
 
-  public mutating func run(_ funName: String, on module: inout Module) -> Bool {
+  public mutating func run(on funName: String, in module: inout Module) -> Bool {
     // Borrow the module argument.
     withUnsafeMutablePointer(to: &module, { self.module = $0.move() })
     defer {

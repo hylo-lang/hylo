@@ -155,7 +155,7 @@ struct RValueEmitter: ExprVisitor {
       module.insertDelete(value: value, at: state.ip)
       module.insertInitExistAddr(
         container: container,
-        value: Operand(module.buildNil(at: state.ip)),
+        value: Operand(module.insertNil(at: state.ip)),
         at: state.ip)
       return .success(Operand(module.insertLoad(source: container, at: state.ip)))
     }
@@ -182,7 +182,7 @@ struct RValueEmitter: ExprVisitor {
     state.ip = .endOf(fail)
     module.insertDelete(value: Operand(module.blocks[fail].params[0]), at: state.ip)
     module.insertInitExistAddr(
-      container: container, value: Operand(module.buildNil(at: state.ip)), at: state.ip)
+      container: container, value: Operand(module.insertNil(at: state.ip)), at: state.ip)
     module.insertBranch(dest: tail, at: state.ip)
 
     // Finally ...
