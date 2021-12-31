@@ -3,16 +3,17 @@ import AST
 /// An error that occured during VIL code emission.
 public enum EmitterError: Error {
 
-  /// The merror attempted to use an immutable binding in a mutable context.
+  /// The given immutable binding was used in a mutable context.
   case immutableBinding(ValueDecl)
 
-  /// The emitter attempted to use an immutable capture in a mutable context.
+  /// The given immutable capture was used in a mutable context.
   case immutableCapture(ValueDecl)
 
-  /// The emitter attempted to treat an immutable reference to `self` in a mutable context.
+  /// An immutable reference to the given property of `self` was used in a
+  /// mutable context.
   case immutableSelf(property: ValueDecl)
 
-  /// The emitter attempted to use an immutable expression in a mutable context.
+  /// An immutable expression was used in a mutable context.
   case immutableExpr
 
 }

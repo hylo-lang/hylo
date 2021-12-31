@@ -1,17 +1,16 @@
 /// An error that occurred while running the driver.
 public enum DriverError: Error {
 
-  /// Occurs when the driver attempts to load a module with the name that was already bound to
-  /// another module.
+  /// The given module could not be loaded because its name was already bound to another module.
   case moduleAlreadyLoaded(moduleName: String)
 
-  /// Occurs when the driver attempts to retrieve a module that does not exists in its context.
+  /// The given module could not be retrieved because it does not exist in this context.
   case moduleNotFound(moduleName: String)
 
-  /// Occurs when the driver attempts to lower a module that has not been type checked.
+  /// The given module could not be lowered because it hasn't been type checked.
   case moduleNotTypeChecked(moduleName: String)
 
-  /// Occurs when the driver failed to lower a module to verified VIL.
+  /// The given module could not be lowered to verified VIL.
   case moduleLoweringFailed(moduleName: String)
 
 }
