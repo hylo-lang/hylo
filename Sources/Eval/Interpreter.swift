@@ -115,7 +115,7 @@ public struct Interpreter {
     ]
 
     // Invoke the program's entry point.
-    let main = funTable[VILName("main")] ?< fatalError("no main function")
+    let main = funTable[VILName("main")] ?? fatalError("no main function")
     invoke(fun: functions[main], threadID: 0, callerAddr: .null, args: [], returnKey: nil)
     run()
 
@@ -172,7 +172,7 @@ public struct Interpreter {
     returnKey: RegisterTableKey?
   ) where Arguments: Sequence, Arguments.Element == RuntimeValue {
     let entryID = fun.entryID
-      ?< fatalError("function '\(fun.name)' has no entry block")
+      ?? fatalError("function '\(fun.name)' has no entry block")
 
     // Reserve the return register, if any.
     if let key = returnKey {
@@ -307,7 +307,7 @@ public struct Interpreter {
     switch inst.callee {
     case let literal as BuiltinFunRef:
       let callee = BuiltinFunction(literal: literal)
-        ?< fatalError("no built-in function named '\(literal.decl.name)'")
+        ?? fatalError("no built-in function named '\(literal.decl.name)'")
       let args = inst.args.map({ eval(value: $0) })
 
       let result = callee.apply(to: Array(args), in: &self)
@@ -593,7 +593,7 @@ public struct Interpreter {
   private mutating func eval(inst: RecordMemberInst) {
     let record = eval(value: inst.record)
     let offset = layout.offset(of: inst.memberDecl.name, in: inst.record.type)
-      ?< fatalError("failed to compute member offset")
+      ?? fatalError("failed to compute member offset")
 
     let byteCount = layout.size(of: inst.type)
     let member = record.withUnsafeBytes({ bytes in
@@ -608,7 +608,7 @@ public struct Interpreter {
   private mutating func eval(inst: RecordMemberAddrInst) {
     let base = eval(value: inst.record).open(as: ValueAddr.self)
     let offset = layout.offset(of: inst.memberDecl.name, in: inst.record.type.object)
-      ?< fatalError("failed to compute member offset")
+      ?? fatalError("failed to compute member offset")
 
     activeThread.registerStack.assign(native: base.advanced(by: offset), to: .value(inst))
     increment(counter: &activeThread.programCounter)
@@ -630,7 +630,7 @@ public struct Interpreter {
       // frame when the function was invoked. Hence, that memory won't be overridden if we only
       // move it to the return register without allocating anything else.
       let callerInst = load(instAddr: callerAddr) as? ApplyInst
-        ?< fatalError("bad caller address")
+        ?? fatalError("bad caller address")
 
       result.withUnsafeBytes({ bytes in
         activeThread.registerStack.assignNoAlloc(contentsOf: bytes, to: .value(callerInst))

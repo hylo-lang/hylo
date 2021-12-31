@@ -195,7 +195,7 @@ struct RegisterStack {
     let header = memory.baseAddress!
       .advanced(by: lastFrameOffset)
       .assumingMemoryBound(to: FrameHeader.self)
-    let info = header.pointee.table[key] ?< fatalError("register is not reserved")
+    let info = header.pointee.table[key] ?? fatalError("register is not reserved")
     precondition(!info.busy, "register is assigned")
     precondition(info.count >= buffer.count, "buffer is too large")
 

@@ -213,7 +213,7 @@ public struct TypestateAnalysis {
   public init() {}
 
   public func run(_ funName: VILName, with builder: inout Builder) -> Bool {
-    let fun = builder.module.functions[funName] ?< fatalError("function does not exist")
+    let fun = builder.module.functions[funName] ?? fatalError("function does not exist")
     guard let entryID = fun.entryID else { return true }
 
     // Build the function's dominator tree to establish the initial visiting order.

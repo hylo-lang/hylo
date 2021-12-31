@@ -304,7 +304,7 @@ public struct Builder {
   ///   - args: The arguments of the function application.
   public mutating func buildApply(callee: Value, args: [Value]) -> ApplyInst {
     let calleeType = callee.type as? VILFunType
-      ?< preconditionFailure("apply on non-function operand")
+      ?? preconditionFailure("apply on non-function operand")
 
     // Validate the arguments according to the function's parameter convention.
     for (arg, conv) in zip(args, calleeType.paramConvs) {
