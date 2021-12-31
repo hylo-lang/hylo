@@ -54,7 +54,7 @@ public struct Driver {
     moduleName: String, moduleFiles: [URL], isStdlib: Bool = false
   ) throws -> ModuleDecl {
     guard context.modules[moduleName] == nil else {
-      throw DriverError.moduleAlreadyLoaded(moduleName: moduleName)
+      throw DriverError.moduleAlreadyLoaded(moduleName)
     }
 
     // Create a module.
@@ -107,7 +107,7 @@ public struct Driver {
     }
 
     guard !moduleFiles.isEmpty else {
-      throw DriverError.moduleNotFound(moduleName: moduleName)
+      throw DriverError.moduleNotFound(moduleName)
     }
 
     return try parse(moduleName: moduleName, moduleFiles: moduleFiles, isStdlib: isStdlib)
@@ -136,7 +136,7 @@ public struct Driver {
   @discardableResult
   public func typeCheck(moduleName: String) throws -> Bool {
     guard let moduleDecl = context.modules[moduleName] else {
-      throw DriverError.moduleNotFound(moduleName: moduleName)
+      throw DriverError.moduleNotFound(moduleName)
     }
     return typeCheck(moduleDecl: moduleDecl)
   }
@@ -148,7 +148,7 @@ public struct Driver {
   public func lower(moduleDecl: ModuleDecl) throws -> Module {
     assert(context.modules.values.contains(moduleDecl))
     guard moduleDecl.state == .typeChecked else {
-      throw DriverError.moduleNotTypeChecked(moduleName: moduleDecl.name)
+      throw DriverError.moduleNotTypeChecked(moduleDecl.name)
     }
 
     // Emit the module declaration.
@@ -159,7 +159,7 @@ public struct Driver {
     let pass = TypestateAnalysis()
     for funName in builder.module.functions.keys {
       guard pass.run(funName, with: &builder) else {
-        throw DriverError.moduleLoweringFailed(moduleName: moduleDecl.name)
+        throw DriverError.moduleLoweringFailed(moduleDecl.name)
       }
     }
 
