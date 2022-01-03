@@ -16,7 +16,7 @@ final class ValTests: XCTestCase {
       var parser = TestAnnotationParser()
       parser.scan(source)
 
-      let checker = DiagnosticChecker(context: driver.context)
+      let checker = DiagChecker(context: driver.context)
       checker.insert(annotations: parser.annotations)
 
       driver.context.diagConsumer = checker
@@ -40,7 +40,7 @@ final class ValTests: XCTestCase {
       var parser = TestAnnotationParser()
       parser.scan(source)
 
-      let checker = DiagnosticChecker(context: driver.context)
+      let checker = DiagChecker(context: driver.context)
       checker.insert(annotations: parser.annotations)
 
       driver.context.diagConsumer = checker

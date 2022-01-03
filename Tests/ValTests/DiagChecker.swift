@@ -3,13 +3,13 @@ import XCTest
 import AST
 import Basic
 
-final class DiagnosticChecker: DiagConsumer {
+final class DiagChecker: DiagConsumer {
 
   /// The AST context in which modules are being compiled.
   unowned let context: AST.Context
 
   /// The diagnostics that are expected to be received, indexed by line number.
-  var diagnostics: [TestAnnotation.Location: [DiagnosticPattern]] = [:]
+  var diagnostics: [TestAnnotation.Location: [DiagPattern]] = [:]
 
   /// The file in which assertion failures are thrown.
   let xcFile: StaticString
