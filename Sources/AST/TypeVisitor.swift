@@ -31,6 +31,8 @@ public protocol TypeVisitor {
 
   func visit(_ type: SkolemType) -> Result
 
+  func visit(_ type: WitnessType) -> Result
+
   func visit(_ type: TupleType) -> Result
 
   func visit(_ type: FunType) -> Result

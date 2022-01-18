@@ -75,6 +75,10 @@ public final class Context {
     return uniqued(SkolemType(context: self, interface: interface, genericEnv: genericEnv))
   }
 
+  public func witnessType(interface: ValType) -> WitnessType {
+    return uniqued(WitnessType(context: self, interface: interface))
+  }
+
   public func viewCompositionType<S>(_ views: S) -> ViewCompositionType
   where S: Sequence, S.Element == ViewType
   {

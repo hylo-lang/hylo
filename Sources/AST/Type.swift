@@ -1119,10 +1119,10 @@ public final class AssocType: ValType {
 
 }
 
-/// A skolem type (a.k.a. rigid) type variable.
+/// A skolemized (a.k.a. rigid) type variable.
 ///
-/// A skolem type is a generic type parameter that has been existentially quantified within its
-/// generic environment (e.g., `X` within the scope of a function `fun foo<X>(...)`.
+/// A skolem is a generic type parameter that has been existentially quantified within its generic
+/// environment (e.g., `X` within the scope of a function `fun foo<X>(...)`.
 public final class SkolemType: ValType {
 
   /// The interface type of this skolem.
@@ -1172,6 +1172,45 @@ public final class SkolemType: ValType {
   }
 
   public override var description: String { "$" + stringify(interface) }
+
+}
+
+/// The dynamic type of an opened existential at runtime.
+public final class WitnessType: ValType {
+
+  /// The existential type that this type is witnessing.
+  public unowned let interface: ValType
+
+  init(context: Context, interface: ValType) {
+    self.interface = interface
+    super.init(context: context, flags: [.isCanonical])
+  }
+
+  /// The stable identity of this witness.
+  public var id: Int { Int(bitPattern: ObjectIdentifier(self)) }
+
+  public override var isCopyable: Bool {
+    return interface.isCopyable
+  }
+
+  public override func isEqual(to other: ValType) -> Bool {
+    guard let that = other as? WitnessType else { return false }
+    return self.interface.isEqual(to: that.interface)
+  }
+
+  public override func hash(into hasher: inout Hasher) {
+    hasher.combine(ObjectIdentifier(WitnessType.self))
+    interface.hash(into: &hasher)
+  }
+
+  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+    visitor.visit(self)
+  }
+
+  public override var description: String {
+    let code = String(id, radix: 36, uppercase: true)
+    return "@opened[\(code)] \(stringify(interface))"
+  }
 
 }
 
