@@ -1,9 +1,9 @@
 /// Terminates the process immediately.
 fun exit(_ status: Int) -> Nothing {
-  Builtin::set_status(status.value)
+  Builtin::set_status(Builtin::i64_copy(status.value))
 }
 
 /// Writes a textual representations of the given item into the standard output.
 fun print(_ item: Any) {
-  Builtin::i64_print((item as! Int).value)
+  Builtin::i64_print(Builtin::i64_copy((item as! Int).value))
 }
