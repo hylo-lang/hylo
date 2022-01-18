@@ -229,8 +229,7 @@ public final class Context {
     var funTypeParams: [FunType.Param] = []
     for (i, param) in params.enumerated() {
       // Create the parameter's type.
-      let rawType = parse(typeNamed: param)
-      funTypeParams.append(FunType.Param(policy: .consuming, rawType: rawType))
+      funTypeParams.append(FunType.Param(type: parse(paramTypeNamed: param)))
 
       // Create the declaration of the parameter.
       let decl = FunParamDecl(name: "_\(i)", policy: .consuming, type: funTypeParams.last!.type)
@@ -243,16 +242,27 @@ public final class Context {
     // Create the function's type.
     funDecl.type = funType(
       params: funTypeParams,
-      retType: ret.isEmpty ? unitType : parse(typeNamed: ret))
+      retType: ret.isEmpty ? unitType : parse(typeNamed: ret[ret.startIndex...]))
     funDecl.setState(.typeChecked)
 
     return funDecl
   }
 
-  private func parse(typeNamed name: String) -> ValType {
+  private func parse<S>(typeNamed name: S) -> ValType where S: StringProtocol {
     return name == "Unit"
       ? unitType
-      : getBuiltinType(named: name)!
+      : getBuiltinType(named: String(name))!
+  }
+
+  private func parse(paramTypeNamed name: String) -> ValType {
+    switch name.last {
+    case "&":
+      return funParamType(policy: .local, rawType: parse(typeNamed: name.dropLast()))
+    case "*":
+      return funParamType(policy: .inout, rawType: parse(typeNamed: name.dropLast()))
+    default:
+      return funParamType(policy: .consuming, rawType: parse(typeNamed: name))
+    }
   }
 
   // MARK: Standard library
