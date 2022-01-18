@@ -139,6 +139,8 @@ public class ValType: CustomStringConvertible, Equatable {
       return type.dealiased.isExistential
     case let type as AssocType:
       return type.base.isExistential
+    case let type as FunParamType:
+      return type.rawType.isExistential
     default:
       return false
     }
