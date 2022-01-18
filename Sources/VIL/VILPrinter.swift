@@ -119,7 +119,7 @@ public struct PrinterContext<S> where S: TextOutputStream {
     inst.dump(to: &stream, with: &self)
   }
 
-  /// Returns a textual representation of the specified operand.
+  /// Returns the textual representation of and operand.
   mutating func describe(_ operand: Operand, withType: Bool = true) -> String {
     let description: String
     let type: VILType
@@ -138,7 +138,7 @@ public struct PrinterContext<S> where S: TextOutputStream {
     }
 
     if withType {
-      return "\(type) \(description)"
+      return "\(description) : \(type)"
     } else {
       return description
     }

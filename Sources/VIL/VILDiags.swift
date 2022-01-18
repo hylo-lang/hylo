@@ -16,24 +16,24 @@ extension Diag {
     return Diag("local immutable binding requires an initializer", anchor: decl.range)
   }
 
-  static func dynamicCastAlwaysFails(
+  static func castAlwaysFails(
     from lhs: ValType,
     to rhs: ValType,
     range: SourceRange?
   ) -> Diag {
     return Diag(
-      "dynamic cast from '\(lhs)' to '\(rhs)' will always fail",
+      "conversion from '\(lhs)' to '\(rhs)' will always fail",
       level: .warning,
       anchor: range)
   }
 
-  static func dynamicCastAlwaysSucceeds(
+  static func castAlwaysSucceeds(
     from lhs: ValType,
     to rhs: ValType,
     range: SourceRange?
   ) -> Diag {
     return Diag(
-      "dynamic cast from '\(lhs)' to '\(rhs)' will always succeed",
+      "conversion from '\(lhs)' to '\(rhs)' will always succeed",
       level: .warning,
       anchor: range)
   }

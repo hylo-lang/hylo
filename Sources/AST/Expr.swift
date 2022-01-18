@@ -141,7 +141,7 @@ public class BaseCastExpr: Expr {
   /// The value being cast.
   public var value: Expr
 
-  /// The type to which the value is being cast.
+  /// The signature of type to which the value is being cast.
   public var sign: Sign
 
   public init(value: Expr, sign: Sign, type: ValType, range: SourceRange? = nil) {

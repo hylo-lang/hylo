@@ -57,9 +57,11 @@ public struct Module {
     }
   }
 
-  /// Returns the block into which the given insertion point refers.
+  /// Returns the index of the block into which the given insertion point refers.
   public func block(containing point: InsertionPoint) -> BasicBlockIndex {
     switch point {
+    case .startOf(let blockIndex):
+      return blockIndex
     case .endOf(let blockIndex):
       return blockIndex
     case .before(let inst):
@@ -67,6 +69,11 @@ public struct Module {
     case .after(let inst):
       return instructions[inst].parent
     }
+  }
+
+  /// Returns the name of the function into which the given instruction resides.
+  public func function(containing inst: InstIndex) -> String {
+    return blocks[instructions[inst].parent].parent
   }
 
   /// Retrieves or creates a function with the specified name and type.
@@ -244,52 +251,20 @@ public struct Module {
   }
 
   public mutating func insertBorrowExistAddr(
-    isMutable: Bool = false,
-    container: Operand,
-    type: VILType,
+    source: Operand,
+    interfaceType: VILType,
     range: SourceRange? = nil,
     at point: InsertionPoint
   ) -> InstIndex {
-    assert(self.type(of: container).isAddress, "'source' must have an address type")
-    assert(type.isAddress, "'type' must be an address type")
+    assert(type(of: source).isAddress, "'source' must have an address type")
+    assert(interfaceType.isAddress, "'interfaceType' must be an address type")
+    assert(interfaceType.isExistential, "'interfaceType' must be existential")
 
     let inst = BorrowExistAddrInst(
-      isMutable: isMutable,
-      container: container,
-      type: type,
+      source: source,
+      type: interfaceType,
       parent: block(containing: point),
       range: range)
-    return insert(inst: inst, at: point)
-  }
-
-  @discardableResult
-  public mutating func insertBorrowExistAddrBranch(
-    isMutable: Bool = false,
-    container: Operand,
-    type: VILType,
-    succ: BasicBlockIndex,
-    fail: BasicBlockIndex,
-    range: SourceRange? = nil,
-    at point: InsertionPoint
-  ) -> InstIndex {
-    assert(self.type(of: container).isAddress, "'container' must have an address type")
-    assert(type.isAddress, "'type' must be an address type")
-
-    let source = block(containing: point)
-    let inst = BorrowExistAddrBranchInst(
-      isMutable: isMutable,
-      container: container,
-      type: type,
-      succ: succ,
-      fail: fail,
-      parent: source,
-      range: range)
-
-    modify(value: &functions[blocks[source].parent]!.cfg, with: { cfg in
-      cfg.insertControlEdge(from: source, to: succ)
-      cfg.insertControlEdge(from: source, to: fail)
-    })
-
     return insert(inst: inst, at: point)
   }
 
@@ -300,10 +275,10 @@ public struct Module {
     range: SourceRange? = nil,
     at point: InsertionPoint
   ) -> InstIndex {
-    let source = block(containing: point)
-    let inst = BranchInst(dest: dest, args: args, parent: source, range: range)
+    let origin = block(containing: point)
+    let inst = BranchInst(dest: dest, args: args, parent: origin, range: range)
 
-    functions[blocks[source].parent]!.cfg.insertControlEdge(from: source, to: inst.dest)
+    functions[blocks[origin].parent]!.cfg.insertControlEdge(from: origin, to: inst.dest)
 
     return insert(inst: inst, at: point)
   }
@@ -346,13 +321,13 @@ public struct Module {
     assert(self.type(of: value).isObject, "'value' must have an object type")
     assert(type.isObject, "'type' must be an object type")
 
-    let source = block(containing: point)
+    let origin = block(containing: point)
     let inst = CheckedCastBranchInst(
-      value: value, type: type, succ: succ, fail: fail, parent: source, range: range)
+      value: value, type: type, succ: succ, fail: fail, parent: origin, range: range)
 
-    modify(value: &functions[blocks[source].parent]!.cfg, with: { cfg in
-      cfg.insertControlEdge(from: source, to: succ)
-      cfg.insertControlEdge(from: source, to: fail)
+    modify(value: &functions[blocks[origin].parent]!.cfg, with: { cfg in
+      cfg.insertControlEdge(from: origin, to: succ)
+      cfg.insertControlEdge(from: origin, to: fail)
     })
 
     return insert(inst: inst, at: point)
@@ -368,19 +343,19 @@ public struct Module {
   ) -> InstIndex {
     assert(type(of: cond).isObject, "'cond' must have an object type")
 
-    let source = block(containing: point)
+    let origin = block(containing: point)
     let inst = CondBranchInst(
       cond: cond,
       succ: succ,
       succArgs: succArgs,
       fail: fail,
       failArgs: failArgs,
-      parent: source,
+      parent: origin,
       range: range)
 
-    modify(value: &functions[blocks[source].parent]!.cfg, with: { cfg in
-      cfg.insertControlEdge(from: source, to: succ)
-      cfg.insertControlEdge(from: source, to: fail)
+    modify(value: &functions[blocks[origin].parent]!.cfg, with: { cfg in
+      cfg.insertControlEdge(from: origin, to: succ)
+      cfg.insertControlEdge(from: origin, to: fail)
     })
 
     return insert(inst: inst, at: point)
@@ -396,6 +371,15 @@ public struct Module {
 
     let inst = CondFail(cond: cond, parent: block(containing: point), range: range)
     return insert(inst: inst, at: point)
+  }
+
+  @discardableResult
+  public mutating func insertFail(
+    range: SourceRange? = nil,
+    at point: InsertionPoint
+  ) -> InstIndex {
+    return insertCondFail(
+      cond: Operand(IntValue.makeTrue(context: context)), range: range, at: point)
   }
 
   @discardableResult
@@ -449,17 +433,30 @@ public struct Module {
   }
 
   @discardableResult
-  public mutating func insertInitExistAddr(
+  public mutating func insertInitExist(
     container: Operand,
-    value: Operand,
+    object: Operand,
     range: SourceRange? = nil,
     at point: InsertionPoint
   ) -> InstIndex {
     assert(type(of: container).isAddress, "'container' must have an address type")
-    assert(type(of: value).isObject, "'value' must have an object type")
+    assert(type(of: object).isObject, "'object' must have an object type")
 
-    let inst = InitExistAddrInst(
-      container: container, value: value, parent: block(containing: point), range: range)
+    let inst = InitExistInst(
+      container: container, object: object, parent: block(containing: point), range: range)
+    return insert(inst: inst, at: point)
+  }
+
+  public mutating func insertIsCastableAddr(
+    source: Operand,
+    type: VILType,
+    range: SourceRange? = nil,
+    at point: InsertionPoint
+  ) -> InstIndex {
+    assert(self.type(of: source).isAddress, "'source' must have an address type")
+
+    let inst = IsCastableAddrInst(
+      source: source, type: type, parent: block(containing: point), range: range)
     return insert(inst: inst, at: point)
   }
 
@@ -511,18 +508,35 @@ public struct Module {
     return insertRecord(typeDecl: decl, type: .lower(decl.instanceType), range: range, at: point)
   }
 
-  public mutating func insertPackBorrow(
-    source: Operand,
-    type: VILType,
+  public mutating func insertOpenExist(
+    container: Operand,
     range: SourceRange? = nil,
     at point: InsertionPoint
   ) -> InstIndex {
-    assert(self.type(of: source).isAddress, "'source' must have an address type")
-    assert(type.isAddress, "'type' must be an address type")
-    assert(type.valType.isExistential, "'type' must be an existential type")
+    assert(type(of: container).isObject, "'container' must have an object type")
 
-    let inst = PackBorrowInst(
-      source: source, type: type, parent: block(containing: point), range: range)
+    let interfaceType = type(of: container).valType
+    assert(interfaceType.isExistential)
+    let witness = interfaceType.context.witnessType(interface: interfaceType)
+
+    let inst = OpenExistInst(
+      container: container, type: witness, parent: block(containing: point), range: range)
+    return insert(inst: inst, at: point)
+  }
+
+  public mutating func insertOpenExistAddr(
+    container: Operand,
+    range: SourceRange? = nil,
+    at point: InsertionPoint
+  ) -> InstIndex {
+    assert(type(of: container).isAddress, "'container' must have an address type")
+
+    let interfaceType = type(of: container).valType
+    assert(interfaceType.isExistential)
+    let witness = interfaceType.context.witnessType(interface: interfaceType)
+
+    let inst = OpenExistAddrInst(
+      container: container, type: witness, parent: block(containing: point), range: range)
     return insert(inst: inst, at: point)
   }
 
@@ -634,16 +648,15 @@ public struct Module {
 
   public mutating func insertTuple(
     type: TupleType,
-    operands: [Operand],
+    elems: [Operand],
     range: SourceRange? = nil,
     at point: InsertionPoint
   ) -> InstIndex {
     assert(
-      operands.allSatisfy({ self.type(of: $0).isObject }),
+      elems.allSatisfy({ self.type(of: $0).isObject }),
       "all operands must have an object type")
 
-    let inst = TupleInst(
-      type: type, operands: operands, parent: block(containing: point), range: range)
+    let inst = TupleInst(type: type, elems: elems, parent: block(containing: point), range: range)
     return insert(inst: inst, at: point)
   }
 
@@ -692,12 +705,6 @@ public struct Module {
 
     // Update the function's control-flow graph if necessary.
     switch inst {
-    case let inst as BorrowExistAddrBranchInst:
-      modify(value: &functions[blocks[inst.parent].parent]!.cfg, with: { cfg in
-        cfg.removeControlEdge(from: inst.parent, to: inst.succ)
-        cfg.removeControlEdge(from: inst.parent, to: inst.fail)
-      })
-
     case let inst as BranchInst:
       functions[blocks[inst.parent].parent]!.cfg.removeControlEdge(
         from: inst.parent, to: inst.dest)
@@ -724,8 +731,12 @@ public struct Module {
     // Insert the instruction into the module.
     let instIndex = instructions.insert(inst)
 
-    // Update the containing basic blocl.
+    // Update the containing basic block.
     switch point {
+    case .startOf(let blockIndex):
+      let i = blocks[blockIndex].instructions.startIndex
+      blocks[blockIndex].instructions.insert(instIndex, at: i)
+
     case .endOf(let blockIndex):
       blocks[blockIndex].instructions.append(instIndex)
 
@@ -742,8 +753,8 @@ public struct Module {
     }
 
     // Update the use lists of the instruction's operands.
-    for (i, op) in inst.operands.enumerated() {
-      uses[op, default: []].append(Use(user: instIndex, index: i))
+    for i in 0 ..< inst.operands.count {
+      uses[inst.operands[i], default: []].append(Use(user: instIndex, index: i))
     }
 
     return instIndex
@@ -753,6 +764,9 @@ public struct Module {
 
 /// An insertion point for new instructions.
 public enum InsertionPoint {
+
+  /// Inserts at the start of the specified block.
+  case startOf(BasicBlockIndex)
 
   /// Insert at the end of the specified block.
   case endOf(BasicBlockIndex)

@@ -156,7 +156,7 @@ public struct Driver {
 
     // Run VIL analysis passes.
     var lifetime = LifetimeAnalyis()
-    var ownership = OwnershipAnalysis()
+    var ownership = OwnershipAnalysis(context: context)
     for funName in module.functions.keys {
       lifetime.run(on: funName, in: &module)
       guard ownership.run(on: funName, in: &module) else {

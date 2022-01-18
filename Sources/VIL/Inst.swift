@@ -77,7 +77,7 @@ public final class AllocStackInst: Value, Inst {
   public var operands: [Operand] { [] }
 
   public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
-    printer.write(Self.opstring + " ", to: &stream)
+    printer.write("alloc_stack ", to: &stream)
     if isReceiver { printer.write("[receiver] ", to: &stream) }
     printer.write("\(allocType)\n", to: &stream)
   }
@@ -124,7 +124,7 @@ public final class BorrowAddrInst: Value, Inst {
   public var operands: [Operand] { [source] }
 
   public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
-    printer.write(Self.opstring + " ", to: &stream)
+    printer.write("borrow_addr ", to: &stream)
     if isMutable { printer.write("[mutable] ", to: &stream) }
     printer.write("\(printer.describe(source))\n", to: &stream)
   }
@@ -342,6 +342,10 @@ public final class RecordInst: Value, Inst {
 
   public var operands: [Operand] { [] }
 
+  public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
+    printer.write("record \(type)\n", to: &stream)
+  }
+
   public static var opstring = "record"
 
 }
@@ -378,9 +382,8 @@ public final class RecordMemberInst: Value, Inst {
   public var operands: [Operand] { [record] }
 
   public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
-    printer.write(Self.opstring + " ", to: &stream)
-    printer.write("\(memberDecl.debugID) ", to: &stream)
-    printer.write("in \(printer.describe(record))\n", to: &stream)
+    printer.write(
+      "record_member \(memberDecl.debugID) in \(printer.describe(record))\n", to: &stream)
   }
 
   public static var opstring = "record_member"
@@ -419,9 +422,8 @@ public final class RecordMemberAddrInst: Value, Inst {
   public var operands: [Operand] { [record] }
 
   public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
-    printer.write(Self.opstring + " ", to: &stream)
-    printer.write("\(memberDecl.debugID) ", to: &stream)
-    printer.write("in \(printer.describe(record))\n", to: &stream)
+    printer.write(
+      "record_member_addr \(memberDecl.debugID) in \(printer.describe(record))\n", to: &stream)
   }
 
   public static var opstring = "record_member_addr"
@@ -440,9 +442,9 @@ public final class TupleInst: Value, Inst {
 
   public let range: SourceRange?
 
-  init(type: TupleType, operands: [Operand], parent: BasicBlockIndex, range: SourceRange?) {
+  init(type: TupleType, elems: [Operand], parent: BasicBlockIndex, range: SourceRange?) {
     self.type = .lower(type)
-    self.operands = operands
+    self.operands = elems
     self.parent = parent
     self.range = range
   }
@@ -452,6 +454,39 @@ public final class TupleInst: Value, Inst {
 }
 
 // MARK: Casts
+
+/// Returns whether the given address can be converted to the specified type.
+public final class IsCastableAddrInst: Value, Inst {
+
+  public let type: VILType
+
+  public let parent: BasicBlockIndex
+
+  public let range: SourceRange?
+
+  /// The source address.
+  public let source: Operand
+
+  /// The type to which the address should be converted.
+  public let targetType: VILType
+
+  init(source: Operand, type: VILType, parent: BasicBlockIndex, range: SourceRange?) {
+    self.source = source
+    self.targetType = type
+    self.type = .lower(type.valType.context.getBuiltinType(named: "i1")!)
+    self.parent = parent
+    self.range = range
+  }
+
+  public var operands: [Operand] { [source] }
+
+  public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
+    printer.write("is_castable_addr \(printer.describe(source)) to \(targetType)\n", to: &stream)
+  }
+
+  public static var opstring = "is_castable_addr"
+
+}
 
 /// Converts the type of a value, causing a runtime failure if the conversion fails.
 ///
@@ -477,7 +512,7 @@ public final class CheckedCastInst: Value, Inst {
   public var operands: [Operand] { [value] }
 
   public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
-    printer.write("\(Self.opstring) \(printer.describe(value)) to \(type)\n", to: &stream)
+    printer.write("checked_cast \(printer.describe(value)) to \(type)\n", to: &stream)
   }
 
   public static var opstring = "checked_cast"
@@ -506,7 +541,7 @@ public final class CheckedCastAddrInst: Value, Inst {
   public var operands: [Operand] { [source] }
 
   public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
-    printer.write("\(Self.opstring) \(printer.describe(source)) to \(type)\n", to: &stream)
+    printer.write("checked_cast_addr \(printer.describe(source)) to \(type)\n", to: &stream)
   }
 
   public static var opstring = "checked_cast_addr"
@@ -556,156 +591,25 @@ public final class CheckedCastBranchInst: Inst {
 
   public var operands: [Operand] { [value] }
 
+  public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
+    printer.write("checked_cast_br \(printer.describe(value)) to \(type), ", to: &stream)
+    printer.write("bb\(printer.numericID(of: succ)), ", to: &stream)
+    printer.write("bb\(printer.numericID(of: fail))\n", to: &stream)
+  }
+
   public static var opstring = "checked_cast_br"
 
 }
 
 // MARK: Existential types
 
-/// Given the address `%a` of an owned or lent object existential container `%ec`, produces an
-/// address `%b` representing a "borrowed" reference on the object packaged inside of `%ec`,
-/// assuming it has the specified type.
+/// Given the address `%a` of an owned or lent object `%obj`, produces an address `%b` representing
+/// an existential container whose package is a wrapped reference on `%obj`.
 ///
-/// The instruction first performs a checked cast on the packaged value and causess a runtime
-/// failure if the cast fails.
-///
-/// If the borrow is immutable, the container at `source` must be owned or lent. If it is owned,
-/// it becomes lent. Otherwise, it's ownership does not change. If the borrow is mutable, the
-/// container at `source` must be owned and it becomes projected. The reference is guaranteed live
-/// until a lifetime-ending use of `%b` (e.g., `end_borrow`).
+/// The borrow is immutable; the object at `source` must be owned or lent. If it is owned, it
+/// becomes lent. The container's package is guaranteed live until a lifetime-ending use of `%b`
+/// (e.g., `end_borrow`).
 public final class BorrowExistAddrInst: Value, Inst {
-
-  public let type: VILType
-
-  public let parent: BasicBlockIndex
-
-  public let range: SourceRange?
-
-  /// The address of the existential container whose value is being borrowed.
-  public let container: Operand
-
-  /// A Boolean value that indicates whether the borrow is mutable.
-  public let isMutable: Bool
-
-  init(
-    isMutable: Bool,
-    container: Operand,
-    type: VILType,
-    parent: BasicBlockIndex,
-    range: SourceRange?
-  ) {
-    self.isMutable = isMutable
-    self.container = container
-    self.type = type
-    self.parent = parent
-    self.range = range
-  }
-
-  public var operands: [Operand] { [container] }
-
-  public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
-    printer.write(Self.opstring + " ", to: &stream)
-    if isMutable { printer.write("[mutable] ", to: &stream) }
-    printer.write("\(printer.describe(container)) as \(type)\n", to: &stream)
-  }
-
-  public static var opstring = "borrow_exist_addr"
-
-}
-
-/// Borrows the value packaged inside of an existential container.
-///
-/// The instruction first performs a checked cast on the packaged value. Control is transferred to
-/// `succ` if the cast succeeds and a borrowed address is passed as an argument. Otherwise, control
-/// is transferred to `fail` without any argument.
-///
-/// If the borrow is immutable, the container at `source` must be owned or lent. If it is owned,
-/// it becomes lent. Otherwise, it's ownership does not change. If the borrow is mutable, the
-/// container at `source` must be owned and it becomes projected.
-public final class BorrowExistAddrBranchInst: Inst {
-
-  public let parent: BasicBlockIndex
-
-  public let range: SourceRange?
-
-  /// The address of the existential container whose value is being borrowed.
-  public let container: Operand
-
-  /// A Boolean value that indicates whether the borrow is mutable.
-  public let isMutable: Bool
-
-  /// The expected type of the packaged value.
-  public let type: VILType
-
-  /// The block to which the execution should jump if the cast succeeds.
-  public let succ: BasicBlockIndex
-
-  /// The block to which the execution should jump if the condition does not hold.
-  public let fail: BasicBlockIndex
-
-  init(
-    isMutable: Bool,
-    container: Operand,
-    type: VILType,
-    succ: BasicBlockIndex,
-    fail: BasicBlockIndex,
-    parent: BasicBlockIndex,
-    range: SourceRange?
-  ) {
-    self.isMutable = isMutable
-    self.container = container
-    self.type = type
-    self.succ = succ
-    self.fail = fail
-    self.parent = parent
-    self.range = range
-  }
-
-  public var operands: [Operand] { [container] }
-
-  public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
-    printer.write(Self.opstring + " ", to: &stream)
-    if isMutable { printer.write("[mutable] ", to: &stream) }
-    printer.write("\(printer.describe(container)) as \(type),", to: &stream)
-    printer.write("\(printer.numericID(of: succ)),", to: &stream)
-    printer.write("\(printer.numericID(of: fail))\n", to: &stream)
-  }
-
-  public static var opstring = "borrow_exist_addr_br"
-
-}
-
-/// Initializes the value packaged inside of an existential container.
-public final class InitExistAddrInst: Inst {
-
-  public let parent: BasicBlockIndex
-
-  public let range: SourceRange?
-
-  /// The address of the existential container to initialize.
-  public let container: Operand
-
-  /// The value that initializes the container.
-  public let value: Operand
-
-  init(container: Operand, value: Operand, parent: BasicBlockIndex, range: SourceRange?) {
-    self.container = container
-    self.value = value
-    self.parent = parent
-    self.range = range
-  }
-
-  public var operands: [Operand] { [container, value] }
-
-  public static var opstring = "init_exist_addr"
-
-}
-
-/// Creates an existential container initialized with a value borrowed from the specified address.
-///
-/// The value at `source` is borrowed immutably. It must be owned or lent. If it is owned, it
-/// becomes lent. Otherwise, it's ownership does not change.
-public final class PackBorrowInst: Value, Inst {
 
   public let type: VILType
 
@@ -716,7 +620,12 @@ public final class PackBorrowInst: Value, Inst {
   /// The source address.
   public let source: Operand
 
-  init(source: Operand, type: VILType, parent: BasicBlockIndex, range: SourceRange?) {
+  init(
+    source: Operand,
+    type: VILType,
+    parent: BasicBlockIndex,
+    range: SourceRange?
+  ) {
     self.source = source
     self.type = type
     self.parent = parent
@@ -725,7 +634,90 @@ public final class PackBorrowInst: Value, Inst {
 
   public var operands: [Operand] { [source] }
 
-  public static var opstring = "pack_borrow"
+  /// The type of the wrapping container.
+  public var interfaceType: VILType { type }
+
+  public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
+    printer.write("borrow_exist_addr \(printer.describe(source)) as \(type)\n", to: &stream)
+  }
+
+  public static var opstring = "borrow_exist_addr"
+
+}
+
+/// Initializes the contents of an existential container with by consuming object.
+public final class InitExistInst: Inst {
+
+  public let parent: BasicBlockIndex
+
+  public let range: SourceRange?
+
+  /// The address of the existential container to initialize.
+  public let container: Operand
+
+  /// The object that initializes the container.
+  public let object: Operand
+
+  init(container: Operand, object: Operand, parent: BasicBlockIndex, range: SourceRange?) {
+    self.container = container
+    self.object = object
+    self.parent = parent
+    self.range = range
+  }
+
+  public var operands: [Operand] { [container, object] }
+
+  public static var opstring = "init_exist"
+
+}
+
+/// Extracts the contents of an existential container.
+public final class OpenExistInst: Value, Inst {
+
+  public let type: VILType
+
+  public let parent: BasicBlockIndex
+
+  public let range: SourceRange?
+
+  /// An existential container.
+  public let container: Operand
+
+  init(container: Operand, type: WitnessType, parent: BasicBlockIndex, range: SourceRange?) {
+    self.container = container
+    self.type = .lower(type)
+    self.parent = parent
+    self.range = range
+  }
+
+  public var operands: [Operand] { [container] }
+
+  public static var opstring = "open_exist"
+
+}
+
+/// Obtains the address of the concrete value inside an existential container.
+public final class OpenExistAddrInst: Value, Inst {
+
+  public let type: VILType
+
+  public let parent: BasicBlockIndex
+
+  public let range: SourceRange?
+
+  /// The address of an existential container.
+  public let container: Operand
+
+  init(container: Operand, type: WitnessType, parent: BasicBlockIndex, range: SourceRange?) {
+    self.container = container
+    self.type = .lower(type).address
+    self.parent = parent
+    self.range = range
+  }
+
+  public var operands: [Operand] { [container] }
+
+  public static var opstring = "open_exist_addr"
 
 }
 
@@ -796,9 +788,8 @@ public final class WitnessMethodAddrInst: Value, Inst {
 ///
 /// The callee is treated as a borrowed reference on a function. The arguments must correspond to
 /// the callee's parameters. Arguments to consuming parameters must be owned and have an object
-/// type. Arguments to local and mutating parameters must result from a borrowing instruction.
-///
-/// Uses of the callee and of arguments to non-consuming parameters are not lifetime-ending.
+/// type. Arguments to local and mutating parameters must result from a borrowing instruction. All
+/// uses are lifetime-ending.
 public final class ApplyInst: Value, Inst {
 
   public let type: VILType
@@ -836,11 +827,11 @@ public final class ApplyInst: Value, Inst {
   public var argsRanges: ArraySlice<SourceRange?> { ranges.dropLast(1) }
 
   public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
-    printer.write(Self.opstring + " ", to: &stream)
-    printer.write(printer.describe(callee, withType: false), to: &stream)
     let args = self.args
       .map({ printer.describe($0) })
       .joined(separator: ", ")
+    printer.write("apply ", to: &stream)
+    printer.write(printer.describe(callee, withType: false), to: &stream)
     printer.write("(\(args))\n", to: &stream)
   }
 
@@ -890,11 +881,10 @@ public final class PartialApplyInst: Value, Inst {
   public var argsRanges: ArraySlice<SourceRange?> { ranges.dropLast(1) }
 
   public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
-    printer.write("\(Self.opstring) \(delegator)", to: &stream)
     let args = args
       .map({ printer.describe($0) })
       .joined(separator: ", ")
-    printer.write("(\(args))\n", to: &stream)
+    printer.write("partial_apply \(delegator)(\(args))\n", to: &stream)
   }
 
   public static var opstring = "partial_apply"
@@ -923,10 +913,6 @@ public final class ThinToThickInst: Value, Inst {
   public var type: VILType { ref.type.object }
 
   public var operands: [Operand] { [Operand(ref)] }
-
-  public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
-    printer.write("\(Self.opstring) \(ref)\n", to: &stream)
-  }
 
   public static var opstring = "thin_to_thick"
 
@@ -1025,6 +1011,10 @@ public final class BranchInst: Inst {
     self.range = range
   }
 
+  public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
+    printer.write("br bb\(printer.numericID(of: dest))\n", to: &stream)
+  }
+
   public static var opstring = "br"
 
 }
@@ -1068,6 +1058,19 @@ public final class CondBranchInst: Inst {
   }
 
   public var operands: [Operand] { [cond] + succArgs + failArgs }
+
+  public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
+    let succArgs = self.succArgs
+      .map({ printer.describe($0) })
+      .joined(separator: ", ")
+    let failArgs = self.succArgs
+      .map({ printer.describe($0) })
+      .joined(separator: ", ")
+
+    printer.write("cond_br \(printer.describe(cond)), ", to: &stream)
+    printer.write("bb\(printer.numericID(of: succ))(\(succArgs)), ", to: &stream)
+    printer.write("bb\(printer.numericID(of: fail))(\(failArgs))\n", to: &stream)
+  }
 
   public static var opstring = "cond_br"
 

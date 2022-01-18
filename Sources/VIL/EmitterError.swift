@@ -4,13 +4,16 @@ import Basic
 /// An error that occured during VIL code emission.
 public enum EmitterError: Error {
 
-  /// The emitter attempted to use an immutable capture in a mutable context.
-  case immutableCapture(ValueDecl)
-
-  /// The emitter attempted to move a stored property out of a non-tuple container.
+  /// A stored property is being moved out of a non-tuple container.
   case moveOfStoredProperty(VarDecl)
 
-  /// The emitter attempted to use an r-value as an l-value.
+  /// Runtime conversion of function types.
+  case runtimeFunctionTypeConversion(Expr)
+
+  /// An upcast is being used as an l-value.
+  case useOfUpcastAsLValue(Expr)
+
+  /// A r-value is being used as an l-value.
   case useOfRValueAsLValue(Expr)
 
   func diag() -> Diag {

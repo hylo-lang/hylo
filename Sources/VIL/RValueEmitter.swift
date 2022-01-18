@@ -126,115 +126,60 @@ struct RValueEmitter: ExprVisitor {
   }
 
   mutating func visit(_ node: DynCastExpr) -> ExprResult {
-    guard let nodeType = node.type as? BoundGenericType
-      else { preconditionFailure("dynamic cast must have a maybe type") }
-
-    let lhsType = node.value.type.dealiased
-    let rhsType = nodeType.args[0].dealiased
-
-    // Allocate an existential container to hold the result of the cast.
-    let container = Operand(module.insertAllocStack(
-      allocType: .lower(nodeType), range: node.range, at: state.ip))
-    defer { module.insertDeallocStack(alloc: container, at: state.ip) }
-
-    // Emit the value to convert.
-    let value: Operand
-    switch node.value.accept(&self) {
-    case .success(let val):
-      value = val
-    case let failure:
-      return failure
-    }
-
-    // FIXME: Handle structural casts.
-    precondition(!(lhsType is TupleType) || !(rhsType is TupleType))
-
-    // Runtime conversion of function types always fails.
-    if (lhsType is FunType) && (rhsType is FunType) {
-      module.context.report(.runtimeFunctionTypeConversion(range: node.range))
-      module.insertDelete(value: value, at: state.ip)
-      module.insertInitExistAddr(
-        container: container,
-        value: Operand(module.insertNil(at: state.ip)),
-        at: state.ip)
-      return .success(Operand(module.insertLoad(source: container, at: state.ip)))
-    }
-
-    // Cast the value.
-    let succ = module.insertBasicBlock(paramTypes: [.lower(rhsType)], in: state.funName)
-    let fail = module.insertBasicBlock(paramTypes: [.lower(lhsType)], in: state.funName)
-    let tail = module.insertBasicBlock(in: state.funName)
-    module.insertCheckedCastBranch(
-      value: value,
-      type: .lower(rhsType),
-      succ: succ,
-      fail: fail,
-      range: node.range,
-      at: state.ip)
-
-    // If the cast succeeded ...
-    state.ip = .endOf(succ)
-    module.insertInitExistAddr(
-      container: container, value: Operand(module.blocks[succ].params[0]), at: state.ip)
-    module.insertBranch(dest: tail, at: state.ip)
-
-    // If the cast failed ...
-    state.ip = .endOf(fail)
-    module.insertDelete(value: Operand(module.blocks[fail].params[0]), at: state.ip)
-    module.insertInitExistAddr(
-      container: container, value: Operand(module.insertNil(at: state.ip)), at: state.ip)
-    module.insertBranch(dest: tail, at: state.ip)
-
-    // Finally ...
-    state.ip = .endOf(tail)
-    return .success(Operand(module.insertLoad(source: container, at: state.ip)))
+    fatalError("unreachable")
   }
 
   mutating func visit(_ node: UnsafeCastExpr) -> ExprResult {
-    let lhsType = node.value.type.dealiased
-    let rhsType = node.type.dealiased
-
     // Emit the value to convert.
-    let value: Operand
+    var converted: Operand
     switch node.value.accept(&self) {
-    case .success(let val):
-      value = val
+    case .success(let object):
+      converted = object
     case let failure:
       return failure
     }
 
-    // FIXME: Handle structural casts.
-    precondition(!(lhsType is TupleType) || !(rhsType is TupleType))
+    // Determine the kind of conversion we have to emit.
+    let sourceType = node.value.type.dealiased
+    let targetType = node.type.dealiased
 
-    // Runtime conversion of function types always fails.
-    if (lhsType is FunType) && (rhsType is FunType) {
+    // FIXME: Handle structural casts.
+    precondition(!(sourceType is TupleType) || !(targetType is TupleType))
+
+    if sourceType == targetType {
+      // Same type conversion always succeeds.
+      module.context.report(
+        .castAlwaysSucceeds(from: node.value.type, to: node.type, range: node.range))
+    } else if sourceType is FunType {
+      // Runtime conversion of function types always fails.
       module.context.report(.runtimeFunctionTypeConversion(range: node.range))
-      module.insertDelete(value: value, at: state.ip)
       module.insertCondFail(
         cond: Operand(IntValue.makeTrue(context: module.context)), range: node.range, at: state.ip)
-      return .success(Operand(PoisonValue(type: .lower(rhsType))))
+      converted = Operand(PoisonValue(type: .lower(targetType)))
+    } else if sourceType.isExistential && !targetType.isExistential {
+      // Existential to grounded conversion borrows from the existential.
+      converted = Operand(module.insertOpenExist(
+        container: converted, range: node.range, at: state.ip))
+    } else {
+      // Default to scalar conversion.
+      converted = Operand(module.insertCheckedCast(
+        value: converted, type: .lower(targetType), range: node.range, at: state.ip))
     }
 
-    // Convert the value.
-    let converted = module.insertCheckedCast(
-      value: value, type: .lower(rhsType), range: node.range, at: state.ip)
-    return .success(Operand(converted))
+    return .success(converted)
   }
 
   mutating func visit(_ node: TupleExpr) -> ExprResult {
     let tuple = module.insertTuple(
       type: node.type as! TupleType,
-      operands: node.elems.map({ elem in emit(rvalue: elem.value) }), at: state.ip)
+      elems: node.elems.map({ elem in emit(rvalue: elem.value) }), at: state.ip)
     return .success(Operand(tuple))
   }
 
   mutating func visit(_ node: CallExpr) -> ExprResult {
     let callee: Operand
-    let isCalleeBorrowed: Bool
-
     var args: [Operand] = []
     var argsRanges: [SourceRange?] = []
-    var borrowedIndices: [Int] = []
 
     // Emit the function's callee.
     switch node.fun {
@@ -251,17 +196,14 @@ struct RValueEmitter: ExprVisitor {
             : Operand(FunRef(function: module.getOrCreateFunction(from: decl)))
         } else {
           // The receiver is borrowed; emit a borrowable l-value.
-          borrowedIndices.append(args.count)
           args.append(emit(borrow: expr.base, mutably: decl.isMutating))
           callee = expr.base.type.isExistential
             ? Operand(module.insertWitnessMethod(container: args[0], decl: decl, at: state.ip))
             : Operand(FunRef(function: module.getOrCreateFunction(from: decl)))
         }
-        isCalleeBorrowed = false
       } else {
         // The callee is a functional property; emit a regular member access.
         callee = emit(borrow: node.fun, mutably: false)
-        isCalleeBorrowed = true
       }
 
     case let expr as DeclRefExpr:
@@ -269,39 +211,34 @@ struct RValueEmitter: ExprVisitor {
       case let decl as FunDecl where decl.isBuiltin:
         // The callee is a reference to a built-in function.
         callee = Operand(BuiltinFunRef(decl: decl))
-        isCalleeBorrowed = false
 
       case let decl as BaseFunDecl
         where (decl is CtorDecl) || decl.computeAllCaptures().isEmpty:
         // The callee is a reference to a thin function.
         callee = Operand(FunRef(function: module.getOrCreateFunction(from: decl)))
-        isCalleeBorrowed = false
 
       default:
         /// The callee is a thick function.
         callee = emit(borrow: node.fun, mutably: false)
-        isCalleeBorrowed = true
       }
 
     default:
       // The calle is an expression producing a thick function.
       callee = emit(borrow: node.fun, mutably: false)
-      isCalleeBorrowed = true
     }
 
     // Emit the function's arguments.
     let params = (node.fun.type as! FunType).params
+    var temporaries: [InstIndex] = []
     for i in 0 ..< node.args.count {
       argsRanges.append(node.args[i].value.range)
       switch params[i].policy! {
       case .local:
         // Local parameters are passed by reference.
-        borrowedIndices.append(args.count)
         args.append(emit(borrow: node.args[i].value, mutably: false))
 
       case .inout:
         // Mutating parameters are passed by reference.
-        borrowedIndices.append(args.count)
         args.append(emit(borrow: node.args[i].value, mutably: true))
 
       case .consuming:
@@ -311,26 +248,32 @@ struct RValueEmitter: ExprVisitor {
 
       // If the parameter has an existential type but the argument doesn't, the latter has to be
       // wrapped before being passed.
-      if params[i].type.isExistential && !node.args[i].value.type.isExistential {
-        assert(params[i].policy != .inout)
+      if params[i].type.isExistential != node.args[i].value.type.isExistential {
+        let paramType = params[i].type as! FunParamType
+
         switch params[i].policy! {
         case .local:
-          args[i] = Operand(module.insertPackBorrow(
+          // Wraps a borrowed reference.
+          let borrow = module.insertBorrowExistAddr(
             source: args[i],
-            type: module.type(of: callee).paramType(at: i).address,
+            interfaceType: .lower(params[i].type).address,
             range: node.args[i].value.range,
-            at: state.ip))
+            at: state.ip)
+          args[i] = Operand(borrow)
 
         case .consuming:
-          let alloc = module.insertAllocStack(
-            allocType: module.type(of: callee).paramType(at: i), at: state.ip)
-          allocs.append(alloc)
-          module.insertInitExistAddr(
-            container: Operand(alloc), value: args[i], range: node.args[i].range, at: state.ip)
-          args[i] = Operand(alloc)
+          // Wraps an owned object.
+          let alloc = module.insertAllocStack(allocType: .lower(paramType.rawType), at: state.ip)
+          temporaries.append(alloc)
+          module.insertInitExist(
+            container: Operand(alloc),
+            object: args[i],
+            range: node.args[i].value.range,
+            at: state.ip)
+          args[i] = Operand(module.insertLoad(source: Operand(alloc), at: state.ip))
 
         case .inout:
-          // Arguments passed mutating must have the same type.
+          // Arguments to mutating parameters can't be wrapped.
           fatalError("unreachable")
         }
       }
@@ -344,12 +287,9 @@ struct RValueEmitter: ExprVisitor {
       argsRanges: argsRanges,
       at: state.ip)
 
-    // End all loans.
-    for i in borrowedIndices.reversed() {
-      module.insertEndBorrowAddr(source: args[i], range: node.range, at: state.ip)
-    }
-    if isCalleeBorrowed {
-      module.insertEndBorrowAddr(source: callee, range: node.range, at: state.ip)
+    // Deallocate temporaries.
+    for i in temporaries.reversed() {
+      module.insertDeallocStack(alloc: Operand(i), at: state.ip)
     }
 
     return .success(Operand(apply))
@@ -483,6 +423,12 @@ struct RValueEmitter: ExprVisitor {
       ? module.insertAllocStack(allocType: .lower(node.type), at: state.ip)
       : nil
 
+    // Emit the subject of the match.
+    let subjectLoc = emit(borrow: node.subject, mutably: false)
+
+    // Create a "sink" block where all cases will branch unconditionally.
+    let sink = module.insertBasicBlock(in: state.funName)
+
     /// Emits the body of a case in the current block.
     func emitCaseBody(body: BraceStmt) {
       if let storage = storage {
@@ -491,13 +437,8 @@ struct RValueEmitter: ExprVisitor {
       } else {
         Emitter.emit(brace: body, state: &_state.pointee, into: &_module.pointee)
       }
+      module.insertBranch(dest: sink, at: state.ip)
     }
-
-    // Emit the subject of the match.
-    let subjectLoc = emit(borrow: node.subject, mutably: false)
-
-    // Create a "sink" block where all cases will branch unconditionally.
-    let sink = module.insertBasicBlock(in: state.funName)
 
     // Emit each case statement.
     let subjectType = node.subject.type.dealiased
@@ -531,115 +472,63 @@ struct RValueEmitter: ExprVisitor {
           }
 
           emitCaseBody(body: stmt.body)
-          module.insertBranch(dest: sink, at: state.ip)
           state.ip = .endOf(sink)
           break
         }
 
         // If the pattern has a different type, attempt to cast it.
         else {
-          // If the subject is subtype of the pattern, the pattern is irrefutable.
-          if subjectType.isSubtype(of: patternType) {
-            assert(patternType.isExistential)
-            if decl.isMutable {
-              let loc = Operand(Emitter.emit(
-                storedVar: decl, state: &_state.pointee, into: &_module.pointee))
-              locals[ObjectIdentifier(decl)] = loc
-              let val = module.insertCheckedCast(
-                value: Operand(
-                  module.insertLoad(source: subjectLoc, range: pattern.range, at: state.ip)),
-                type: .lower(patternType),
-                range: pattern.range,
-                at: state.ip)
-              module.insertStore(Operand(val), to: loc, range: pattern.range, at: state.ip)
-            } else {
-              locals[ObjectIdentifier(decl)] = Operand(module.insertPackBorrow(
-                source: subjectLoc,
-                type: .lower(patternType).address,
-                range: pattern.range,
-                at: state.ip))
-            }
+          let loweredTargetType = VILType.lower(patternType).address
+
+          // FIXME: Handle structural casts.
+          precondition(!(subjectType is TupleType) || !(patternType is TupleType))
+
+          if subjectType is FunType {
+            // Runtime conversion of function types always fails.
+            module.context.report(.runtimeFunctionTypeConversion(range: pattern.range))
+            module.insertFail(range: pattern.range, at: state.ip)
+            locals[ObjectIdentifier(decl)] = Operand(PoisonValue(type: loweredTargetType))
 
             emitCaseBody(body: stmt.body)
-            module.insertBranch(dest: sink, at: state.ip)
             state.ip = .endOf(sink)
             break
-          }
+          } else {
+            let source: Operand
+            if subjectType.isExistential && !patternType.isExistential {
+              source = Operand(module.insertOpenExistAddr(
+                container: subjectLoc, range: pattern.range, at: state.ip))
+            } else {
+              source = subjectLoc
+            }
 
-          // If the pattern is not a subtype of the subject, skip to the next case.
-          if !patternType.isSubtype(of: subjectType) {
-            module.context.report(.dynamicCastAlwaysFails(
-              from: node.subject.type, to: pattern.type, range: pattern.range))
-            continue
-          }
-
-          // Runtime conversion of function types always fails.
-          if (subjectType is FunType) && (patternType is FunType) {
-            module.context.report(.runtimeFunctionTypeConversion(range: pattern.range))
-            continue
-          }
-
-          let succ: BasicBlockIndex
-          let next: BasicBlockIndex
-          if decl.isMutable {
-            // `var` bindings are consuming.
-            succ = module.insertBasicBlock(
-              paramTypes: [.lower(patternType)], in: state.funName)
-            next = module.insertBasicBlock(
-              paramTypes: [.lower(node.subject.type)], in: state.funName)
-            module.insertCheckedCastBranch(
-              value: Operand(
-                module.insertLoad(source: subjectLoc, range: pattern.range, at: state.ip)),
-              type: .lower(patternType),
-              succ: succ,
-              fail: next,
+            let succ = module.insertBasicBlock(in: state.funName)
+            let fail = module.insertBasicBlock(in: state.funName)
+            let cond = module.insertIsCastableAddr(
+              source: source, type: loweredTargetType, range: pattern.range, at: state.ip)
+            module.insertCondBranch(
+              cond: Operand(cond),
+              succ: succ, succArgs: [],
+              fail: fail, failArgs: [],
               range: pattern.range,
               at: state.ip)
-          } else {
-            // `val` bindings are borrowing immutably.
-            succ = module.insertBasicBlock(
-              paramTypes: [.lower(patternType).address], in: state.funName)
-            next = module.insertBasicBlock(
-              paramTypes: [.lower(node.subject.type).address], in: state.funName)
-            module.insertBorrowExistAddrBranch(
-              container: subjectLoc,
-              type: .lower(patternType).address,
-              succ: succ,
-              fail: next,
-              range: pattern.range,
-              at: state.ip)
-          }
 
-          // If the match succeeds, the pattern becomes the argument of the "succ" block.
-          state.ip = .endOf(succ)
-          if decl.isMutable {
-            let loc = Operand(Emitter.emit(
-              storedVar: decl, state: &_state.pointee, into: &_module.pointee))
-            locals[ObjectIdentifier(decl)] = loc
-            module.insertStore(Operand(module.blocks[succ].params[0]), to: loc, at: state.ip)
-            emitCaseBody(body: stmt.body)
-          } else {
-            locals[ObjectIdentifier(decl)] = Operand(module.blocks[succ].params[0])
-            emitCaseBody(body: stmt.body)
-          }
-          module.insertBranch(dest: sink, at: state.ip)
+            state.ip = .endOf(succ)
+            locals[ObjectIdentifier(decl)] = Operand(module.insertCheckedCastAddr(
+              source: source, type: loweredTargetType, range: pattern.range, at: state.ip))
 
-          // If the match fails, reassign `subjectLoc` if its value was consumed.
-          state.ip = .endOf(next)
-          if decl.isMutable {
-            module.insertStore(
-              Operand(module.blocks[succ].params[0]), to: subjectLoc, at: state.ip)
+            emitCaseBody(body: stmt.body)
+            state.ip = .endOf(fail)
           }
         }
+
+        continue
       }
 
       // FIXME: Handle complex conditional patterns recursively.
       fatalError("not implemented")
     }
 
-    module.insertBranch(dest: sink, at: state.ip)
     state.ip = .endOf(sink)
-
     if let storage = storage {
       let result = module.insertLoad(source: Operand(storage), at: state.ip)
       module.insertDeallocStack(alloc: Operand(storage), at: state.ip)
@@ -654,7 +543,7 @@ struct RValueEmitter: ExprVisitor {
   }
 
   func visit(_ node: ErrorExpr) -> ExprResult {
-    fatalError()
+    return .success(Operand(PoisonValue(type: .lower(node.type))))
   }
 
 }

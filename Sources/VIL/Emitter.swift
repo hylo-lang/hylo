@@ -267,14 +267,12 @@ public enum Emitter {
     // Emit the function's body.
     var args = module.blocks[entry].params.map(Operand.init)
     if !(req is CtorDecl) {
-      // Unless the function is a constructor, we have to open the self parameter.
+      // Unless the function is a constructor, we must "open" the receiver.
       let openedSelfType = impl.selfDecl!.type
-      let openedSelf = module.insertBorrowExistAddr(
-        isMutable: impl.isMutating,
-        container: args[0],
-        type: .lower(openedSelfType).address,
-        at: .endOf(entry))
-      args[0] = Operand(openedSelf)
+      args[0] = Operand(module.insertCheckedCastAddr(
+        source: args[0], type: .lower(openedSelfType).address, at: .endOf(entry)))
+      args[0] = Operand(module.insertBorrowAddr(
+        isMutable: impl.isMutating, source: args[0], at: .endOf(entry)))
     }
 
     let openedFun = module.getOrCreateFunction(from: impl)
@@ -307,7 +305,7 @@ public enum Emitter {
       guard let initializer = decl.initializer else {
         module.context.report(.immutableBindingRequiresInitializer(decl: decl))
         state.locals[ObjectIdentifier(patterns[0].decl)] = Operand(PoisonValue(
-          type: .lower(decl.pattern.type)))
+          type: .lower(patterns[0].type)))
         state.hasError = true
         return
       }
@@ -315,18 +313,31 @@ public enum Emitter {
       // If the initializer is an l-value, the binding becomes a borrowed reference. Othwerwise, it
       // gets storage and receives ownership, just like mutable bindings.
       let lvalue = withLValueEmitter(state: &state, into: &module, do: initializer.accept)
-      switch lvalue {
-      case .success(let source):
-        let borrow = module.insertBorrowAddr(
-          isMutable: false,
-          source: source,
-          range: initializer.range,
-          at: state.ip)
-        state.locals[ObjectIdentifier(patterns[0])] = Operand(borrow)
-        return
+      if case .success(var source) = lvalue {
+        let btype = patterns[0].type
 
-      case .failure:
-        break
+        // The l-value is borrowed directly if the binding has the same type as the initializer's.
+        // Otherwise, it is wrapped into an existential container. Note: the binding's type can't
+        // be lower than the initializer's type in a well-typed declaration.
+        if btype == initializer.type {
+          let borrow = module.insertBorrowAddr(
+            isMutable: false,
+            source: source,
+            range: initializer.range,
+            at: state.ip)
+          source = Operand(borrow)
+        } else {
+          assert(btype.isExistential)
+          let borrow = module.insertBorrowExistAddr(
+            source: source,
+            interfaceType: .lower(btype).address,
+            range: patterns[0].range,
+            at: state.ip)
+          source = Operand(borrow)
+        }
+
+        state.locals[ObjectIdentifier(patterns[0].decl)] = source
+        return
       }
     }
 
@@ -459,7 +470,7 @@ public enum Emitter {
     let rhsType = module.type(of: rvalue)
     let lhsType = module.type(of: target)
     if lhsType.isExistential && !rhsType.isExistential {
-      module.insertInitExistAddr(container: target, value: rvalue, range: range, at: state.ip)
+      module.insertInitExist(container: target, object: rvalue, range: range, at: state.ip)
     } else {
       assert(!lhsType.isExistential || rhsType.isExistential)
       module.insertStore(rvalue, to: target, range: range, at: state.ip)

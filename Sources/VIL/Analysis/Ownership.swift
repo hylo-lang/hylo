@@ -167,9 +167,6 @@ fileprivate enum AbstractAddress: Hashable {
   /// The abstract address of a part from a value.
   indirect case part(parent: AbstractAddress, property: String)
 
-//  /// The root of an existential package, in an existential container.
-//  indirect case existential(parent: AbstractAddress)
-
   /// A Boolean value that indicates whether this address is a base address.
   var isBase: Bool {
     if case .base = self {
@@ -186,8 +183,6 @@ fileprivate enum AbstractAddress: Hashable {
       return self
     case .part(let parent, _):
       return parent.base
-//    case .existential(let parent):
-//      return parent.base
     }
   }
 
@@ -453,9 +448,9 @@ fileprivate enum OwnershipState: Equatable {
     case (.owned, .owned):
       return .owned
     case (.owned, .lent):
-      throw MergeError(lhs: lhs, rhs: rhs)
+      return rhs
     case (.owned, .projected):
-      throw MergeError(lhs: lhs, rhs: rhs)
+      return rhs
     case (.owned, .consumed(let consumer)):
       return .dynamic(consumer: consumer)
     case (.owned, .uninitialized):
@@ -463,14 +458,21 @@ fileprivate enum OwnershipState: Equatable {
     case (.owned, .dynamic):
       return rhs
 
+    case (.lent, .owned):
+      return lhs
     case (.lent(let a), .lent(let b)):
       return .lent(borrowers: a.union(b))
+    case (.lent(let a), .projected(let b)):
+      return .lent(borrowers: a.union([b]))
     case (.lent, _):
       throw MergeError(lhs: lhs, rhs: rhs)
 
-    case (.projected(let a), .projected(let b)):
-      guard a == b else { throw MergeError(lhs: lhs, rhs: rhs) }
+    case (.projected, .owned):
       return lhs
+    case (.projected(let a), .lent(let b)):
+      return .lent(borrowers: b.union([a]))
+    case (.projected(let a), .projected(let b)):
+      return a == b ? lhs : .lent(borrowers: [a, b])
     case (.projected, _):
       throw MergeError(lhs: lhs, rhs: rhs)
 
@@ -499,60 +501,31 @@ fileprivate enum OwnershipState: Equatable {
 /// The ownership analysis pass.
 public struct OwnershipAnalysis {
 
-  private var module: Module?
+  private var module: Module
 
-  public init() {}
+  public init(context: Context) {
+    self.module = Module(id: "_", context: context)
+  }
 
   public mutating func run(on funName: String, in module: inout Module) -> Bool {
     // Borrow the module argument.
-    withUnsafeMutablePointer(to: &module, { self.module = $0.move() })
-    defer {
-      withUnsafeMutablePointer(to: &module, { orig in
-        withUnsafeMutablePointer(to: &self.module, { this in
-          orig.initialize(to: this.move()!)
-          this.initialize(to: nil)
-        })
-      })
-    }
+    swap(&self.module, &module)
+    defer { swap(&self.module, &module) }
 
-    let fun = module.functions[funName] ?< fatalError("function does not exist")
+    let fun = self.module.functions[funName] ?< fatalError("function does not exist")
     guard !fun.stage.contains(.didPassOwnership) else { return true }
     guard let entry = fun.entry else { return true }
 
     // Build the function's dominator tree to establish the initial visiting order.
     let tree = DominatorTree(of: fun)
     var work = Deque(tree.breadthFirstBlocks)
-
-    // Start by processing the entry. We can assume that it never needs to be processed more than
-    // once, because it can't be the successor of any other block in well-formed VIL.
+    var done: Set<BasicBlockIndex> = []
     assert(work.first == entry)
     assert(fun.cfg.edges(from: entry).allSatisfy({ $0.label == .forward }))
-    var done: Set = [work.removeFirst()]
-
-    var pre = AbstractContext()
-    for (actual, formal) in zip(module.blocks[entry].params, fun.type.params!) {
-      let arg = Operand(actual)
-
-      switch formal.policy! {
-      case .local, .inout:
-        let a: AbstractAddress = .base(arg)
-        pre[in: arg] = .address(a)
-        pre[at: a] = .owned
-
-      case .consuming:
-        pre[in: arg] = .object(.owned)
-      }
-    }
-
-    var post = pre
-    var success = process(block: entry, context: &post)
-    if work.isEmpty { return success }
 
     // Go through the work list, (re)visiting each basic block until we reach a fixed point.
-    var store: [BasicBlockIndex: (pre: AbstractContext, post: AbstractContext)] = [
-      entry: (pre: pre, post: post)
-    ]
-
+    var store: [BasicBlockIndex: (pre: AbstractContext, post: AbstractContext)] = [:]
+    var success = true
     while let block = work.popFirst() {
       // Make sure we visited all of the block's predecessors, or pick another one.
       let predecessors = fun.cfg.edges(from: block).filter({ $0.label != .forward })
@@ -561,18 +534,29 @@ public struct OwnershipAnalysis {
         continue
       }
 
-      // Compute the pre-context of the block, based on its own arguments and the post-context of
-      // its predecessors.
-      pre = predecessors.reduce(into: AbstractContext(), { (context, pred) in
-        guard let post = store[pred.target]?.post else { return }
-        do {
-          try context.merge(post)
-        } catch {
-          success = false
+      // Compute the pre-context of the block.
+      var pre = AbstractContext()
+      if block == entry {
+        for (actual, formal) in zip(self.module.blocks[entry].params, fun.type.params!) {
+          switch formal.policy! {
+          case .local, .inout:
+            let a: AbstractAddress = .base(Operand(actual))
+            pre[in: Operand(actual)] = .address(a)
+            pre[at: a] = .owned
+
+          case .consuming:
+            pre[in: Operand(actual)] = .object(.owned)
+          }
         }
-      })
-      for arg in module.blocks[block].params where arg.type.isObject {
-        pre[in: Operand(arg)] = .object(.owned)
+      } else {
+        for pred in predecessors {
+          do {
+            try pre.merge(store[pred.target]!.post)
+          } catch {
+            report(error: error, range: nil)
+            success = false
+          }
+        }
       }
 
       // If the pre-context didn't change, then we don't need to re-compute the post-context and
@@ -582,8 +566,8 @@ public struct OwnershipAnalysis {
         continue
       }
 
-      post = pre
-      success = process(block: block, context: &post)
+      var post = pre
+      success = process(block: block, context: &post) && success
 
       // We're done with the current block if ...
       let isBlockDone: Bool = {
@@ -609,7 +593,7 @@ public struct OwnershipAnalysis {
       }
     }
 
-    if success { module.functions[fun.name]!.stage.insert(.didPassOwnership) }
+    if success { self.module.functions[fun.name]!.stage.insert(.didPassOwnership) }
     return success
   }
 
@@ -618,8 +602,8 @@ public struct OwnershipAnalysis {
     context: inout AbstractContext
   ) -> Bool {
     var success = true
-    for index in module!.blocks[block].instructions {
-      switch module!.instructions[index] {
+    for index in module.blocks[block].instructions {
+      switch module.instructions[index] {
       case let inst as AllocStackInst:
         success = visit(inst: inst, index: index, context: &context) && success
       case let inst as ApplyInst:
@@ -632,25 +616,29 @@ public struct OwnershipAnalysis {
         success = visit(inst: inst, index: index, context: &context) && success
       case let inst as BorrowExistAddrInst:
         success = visit(inst: inst, index: index, context: &context) && success
+      case let inst as BranchInst:
+        success = visit(inst: inst, index: index, context: &context) && success
       case let inst as CheckedCastAddrInst:
+        success = visit(inst: inst, index: index, context: &context) && success
+      case let inst as CondBranchInst:
         success = visit(inst: inst, index: index, context: &context) && success
       case let inst as DeallocStackInst:
         success = visit(inst: inst, index: index, context: &context) && success
-//      case let inst as DeleteInst:
-//        success = visit(inst: inst, index: index, context: &context) && success
       case let inst as DeleteAddrInst:
         success = visit(inst: inst, index: index, context: &context) && success
       case let inst as EndBorrowInst:
         success = visit(inst: inst, index: index, context: &context) && success
-      case let inst as InitExistAddrInst:
+      case let inst as InitExistInst:
+        success = visit(inst: inst, index: index, context: &context) && success
+      case let inst as IsCastableAddrInst:
         success = visit(inst: inst, index: index, context: &context) && success
       case let inst as LoadInst:
         success = visit(inst: inst, index: index, context: &context) && success
-//      case let inst as RecordInst:
-//        success = visit(inst: inst, path: path, context: &context, builder: &builder) && success
-//      case let inst as RecordMemberInst:
-//        success = visit(inst: inst, path: path, context: &context, builder: &builder) && success
+      case let inst as OpenExistAddrInst:
+        success = visit(inst: inst, index: index, context: &context) && success
       case let inst as PartialApplyInst:
+        success = visit(inst: inst, index: index, context: &context) && success
+      case let inst as RecordInst:
         success = visit(inst: inst, index: index, context: &context) && success
       case let inst as RecordMemberAddrInst:
         success = visit(inst: inst, index: index, context: &context) && success
@@ -660,8 +648,6 @@ public struct OwnershipAnalysis {
         success = visit(inst: inst, index: index, context: &context) && success
       case let inst as ThinToThickInst:
         success = visit(inst: inst, index: index, context: &context) && success
-//      case let inst as WitnessMethodInst:
-//        success = visit(inst: inst, path: path, context: &context, builder: &builder) && success
 
       case let inst:
         fatalError("unsupported instruction '\(inst)'")
@@ -697,15 +683,13 @@ public struct OwnershipAnalysis {
 
     // Verify and update the ownership state of each parameter.
     var success = true
-    let params = module!.type(of: inst.callee).params!
+    let params = module.type(of: inst.callee).params!
     for i in 0 ..< inst.args.count {
       switch params[i].policy {
       case .local, .inout:
         // Local and mutating parameters are borrowed.
-        assert({
-          let inst = module!.instructions[inst.args[i].inst!]
-          return (inst is BorrowAddrInst) || (inst is BorrowExistAddrInst)
-        }())
+        let inst = module.instructions[inst.args[i].inst!]
+        assert((inst is BorrowAddrInst) || (inst is BorrowExistAddrInst))
 
       case .consuming:
         // Consuming parameters are consumed.
@@ -742,9 +726,9 @@ public struct OwnershipAnalysis {
       case .local, .inout:
         // Local and mutating captures are borrowed. Assuming the operand results from a borrowing
         // instruction, transfer the loan to the async instruction.
-        let formerBorrower = inst.captures[i]
-        guard let address = context[in: formerBorrower]?.asAddress else { illegalOperand() }
-        context.endLoan(at: address, to: formerBorrower.inst!)
+        let capture = inst.captures[i]
+        guard let address = context[in: capture]?.asAddress else { illegalOperand() }
+        context.endLoan(at: address, to: capture.inst!)
         do {
           try context.lend(address, mutably: params[i].policy == .inout, to: index)
           result.loans.insert(Loan(address: address, borrower: index))
@@ -793,51 +777,50 @@ public struct OwnershipAnalysis {
     return true
   }
 
-  private func visit(
+  private mutating func visit(
     inst: BorrowAddrInst,
     index: InstIndex,
     context: inout AbstractContext
   ) -> Bool {
-    return visitFallibleBorrow(
-      borrower: index,
-      isMutable: inst.isMutable,
-      source: inst.source,
-      range: inst.range,
-      context: &context)
+    // Copy the address of the borrowed object.
+    guard let source = context[in: inst.source]?.asAddress else { illegalOperand() }
+    context[in: Operand(index)] = .address(source)
+
+    // Borrow the source's object.
+    do {
+      try context.lend(source, mutably: inst.isMutable, to: index)
+      return true
+    } catch {
+      report(error: error, range: inst.range)
+      return false
+    }
   }
 
-  private func visit(
+  private mutating func visit(
     inst: BorrowExistAddrInst,
     index: InstIndex,
     context: inout AbstractContext
   ) -> Bool {
-    return visitFallibleBorrow(
-      borrower: index,
-      isMutable: inst.isMutable,
-      source: inst.container,
-      range: inst.range,
-      context: &context)
-  }
+    // Copy the address of the borrowed object.
+    guard let source = context[in: inst.source]?.asAddress else { illegalOperand() }
+    context[in: Operand(index)] = .address(source)
 
-  private func visitFallibleBorrow(
-    borrower: InstIndex,
-    isMutable: Bool,
-    source: Operand,
-    range: SourceRange?,
-    context: inout AbstractContext
-  ) -> Bool {
-    // Operationally, a borrow is just a copy of the source address.
-    guard let source = context[in: source]?.asAddress else { illegalOperand() }
-    context[in: Operand(borrower)] = .address(source)
-
+    // Borrow the source's object.
     do {
-      // Borrow the value at the source address.
-      try context.lend(source, mutably: isMutable, to: borrower)
+      try context.lend(source, mutably: false, to: index)
       return true
     } catch {
-      report(error: error, range: range)
+      report(error: error, range: inst.range)
       return false
     }
+  }
+
+  private mutating func visit(
+    inst: BranchInst,
+    index: InstIndex,
+    context: inout AbstractContext
+  ) -> Bool {
+    return true
   }
 
   private mutating func visit(
@@ -851,47 +834,54 @@ public struct OwnershipAnalysis {
   }
 
   private mutating func visit(
+    inst: CondBranchInst,
+    index: InstIndex,
+    context: inout AbstractContext
+  ) -> Bool {
+    var success = true
+
+    do {
+      _ = try context.consume(inst.cond, with: index)
+    } catch {
+      report(error: error, range: inst.range)
+      success = false
+    }
+
+    // Consume object arguments.
+    func consume(_ operands: [Operand]) {
+      for operand in operands where module.type(of: operand).isObject {
+        do {
+          _ = try context.consume(operand, with: index)
+        } catch {
+          report(error: error, range: inst.range)
+          success = false
+        }
+      }
+    }
+    consume(inst.succArgs)
+    consume(inst.failArgs)
+
+    return success
+  }
+
+  private mutating func visit(
     inst: DeallocStackInst,
     index: InstIndex,
     context: inout AbstractContext
   ) -> Bool {
     guard let address = context[in: inst.alloc]?.asAddress else { illegalOperand() }
     assert(
-      address.isBase && module!.instructions[address.provenance.inst!] is AllocStackInst,
+      address.isBase && module.instructions[address.provenance.inst!] is AllocStackInst,
       "bad VIL: operand of dealloc_stack is not alloc_stack")
 
     // Make sure the deallocated is uninitialized, inserting delete_addr if necessary.
-    switch context[at: address]!.derivedState {
-    case .owned:
-      // The memory holds an owned value; delete it first.
-      let i = module!.insertDeleteAddr(target: inst.alloc, at: .before(inst: index))
-      let success = visit(
-        inst: module!.instructions[i] as! DeleteAddrInst, index: i, context: &context)
-      context[at: address] = nil
-      return success
-
-    case .lent, .projected:
-      report(error: OwnershipError.useAfterFree, range: inst.range)
-      return false
-
-    case .consumed, .uninitialized:
-      // The memory is unitialized; we're good.
+    if ensureDeinit(target: inst.alloc, before: index, context: &context) {
       context[at: address] = nil
       return true
-
-    case .dynamic:
-      fatalError("not implemented")
+    } else {
+      return false
     }
   }
-
-//  private func visit(
-//    inst: DeleteInst,
-//    path: InstPath,
-//    context: inout AbstractContext,
-//    builder: inout Builder
-//  ) -> Bool {
-//    return consume(value: inst.value, consumer: path, in: &context)
-//  }
 
   private func visit(
     inst: DeleteAddrInst,
@@ -912,8 +902,8 @@ public struct OwnershipAnalysis {
       _ = try context.consume(target, with: index)
       return true
     } catch {
+      // Assume the error has been reported already.
       context[at: target] = AbstractObject(state: .consumed(consumer: index))
-      report(error: error, range: inst.range)
       return false
     }
   }
@@ -924,16 +914,40 @@ public struct OwnershipAnalysis {
     context: inout AbstractContext
   ) -> Bool {
     guard let source = context[in: inst.source]?.asAddress else { illegalOperand() }
-    context.endLoan(at: source, to: inst.source.inst!)
+    if let borrower = inst.source.inst {
+      context.endLoan(at: source, to: borrower)
+    }
     return true
   }
 
   private mutating func visit(
-    inst: InitExistAddrInst,
+    inst: InitExistInst,
     index: InstIndex,
     context: inout AbstractContext
   ) -> Bool {
-    return visitInit(object: inst.value, target: inst.container, index: index, context: &context)
+    return visitInit(object: inst.object, target: inst.container, index: index, context: &context)
+  }
+
+  private mutating func visit(
+    inst: IsCastableAddrInst,
+    index: InstIndex,
+    context: inout AbstractContext
+  ) -> Bool {
+    context[in: Operand(index)] = .object(.owned)
+
+    guard let source = context[in: inst.source]?.asAddress else { illegalOperand() }
+    switch context[at: source]!.state {
+    case .uninitialized:
+      report(error: OwnershipError.useOfUninitializedValue, range: inst.range)
+      return false
+
+    case .consumed:
+      report(error: OwnershipError.useOfConsumedValue, range: inst.range)
+      return false
+
+    default:
+      return true
+    }
   }
 
   private func visit(
@@ -953,6 +967,16 @@ public struct OwnershipAnalysis {
   }
 
   private func visit(
+    inst: OpenExistAddrInst,
+    index: InstIndex,
+    context: inout AbstractContext
+  ) -> Bool {
+    guard let source = context[in: inst.container]?.asAddress else { illegalOperand() }
+    context[in: Operand(index)] = .address(source)
+    return true
+  }
+
+  private func visit(
     inst: PartialApplyInst,
     index: InstIndex,
     context: inout AbstractContext
@@ -966,11 +990,12 @@ public struct OwnershipAnalysis {
     for i in 0 ..< inst.args.count {
       switch params[i].policy {
       case .local, .inout:
-        // Local and mutating captures are borrowed. Assuming the operand results from a borrowing
-        // instruction, transfer the loan to the partial_apply instruction.
-        let formerBorrower = inst.args[i]
-        guard let address = context[in: formerBorrower]?.asAddress else { illegalOperand() }
-        context.endLoan(at: address, to: formerBorrower.inst!)
+        // Local and mutating captures are borrowed; we must transfer the loan to the instruction.
+        let capture = inst.args[i]
+        guard let address = context[in: capture]?.asAddress else { illegalOperand() }
+        if let borrower = capture.inst {
+          context.endLoan(at: address, to: borrower)
+        }
         do {
           try context.lend(address, mutably: params[i].policy == .inout, to: index)
           result.loans.insert(Loan(address: address, borrower: index))
@@ -999,36 +1024,24 @@ public struct OwnershipAnalysis {
     return success
   }
 
-//  private func visit(
-//    inst: RecordInst,
-//    path: InstPath,
-//    context: inout AbstractContext,
-//    builder: inout Builder
-//  ) -> Bool {
-//    if inst.typeDecl.storedVars.isEmpty {
-//      context.locals[inst] = .owned
-//    } else {
-//      context.locals[inst] = .partial(properties: inst.typeDecl.storedVars.map({ $0.name }))
-//    }
-//    return true
-//  }
-//
-//  private func visit(
-//    inst: RecordMemberInst,
-//    path: InstPath,
-//    context: inout AbstractContext,
-//    builder: inout Builder
-//  ) -> Bool {
-//    switch context.locals[inst.record] {
-//    case .owned:
-//      context.locals[inst] = .owned
-//
-//    default:
-//      fatalError("bad VIL: illegal operand")
-//    }
-//
-//    return true
-//  }
+  private func visit(
+    inst: RecordInst,
+    index: InstIndex,
+    context: inout AbstractContext
+  ) -> Bool {
+    var success = true
+    for i in 0 ..< inst.operands.count {
+      do {
+        _ = try context.consume(inst.operands[i], with: index)
+      } catch {
+        report(error: error, range: inst.range)
+        success = false
+      }
+    }
+
+    context[in: Operand(index)] = .object(.owned)
+    return success
+  }
 
   private func visit(
     inst: RecordMemberAddrInst,
@@ -1064,54 +1077,6 @@ public struct OwnershipAnalysis {
     return visitInit(object: inst.value, target: inst.target, index: index, context: &context)
   }
 
-  private mutating func visitInit(
-    object: Operand,
-    target: Operand,
-    index: InstIndex,
-    context: inout AbstractContext
-  ) -> Bool {
-    guard let address = context[in: target]?.asAddress else { illegalOperand() }
-    var success = true
-
-    // Make sure the memory at target address is uninitialized, inserting delete_addr if necessary.
-    switch context[at: address]!.derivedState {
-    case .owned:
-      // The memory at the target address holds an owned object; delete it first.
-      let i = module!.insertDeleteAddr(target: target, at: .before(inst: index))
-      success = visit(
-        inst: module!.instructions[i] as! DeleteAddrInst, index: i, context: &context)
-
-    case .lent:
-      report(
-        error: OwnershipError.writeAccessToProjectedValue,
-        range: module!.instructions[index].range)
-      success = false
-
-    case .projected:
-      report(
-        error: OwnershipError.writeAccessToInoutedValue,
-        range: module!.instructions[index].range)
-      success = false
-
-    case .consumed, .uninitialized:
-      // The memory at the target address is uninitialized; we're good.
-      break
-
-    case .dynamic:
-      fatalError("not implemented")
-    }
-
-    // Transfer the object from register to memory.
-    do {
-      context[at: address] = try context.consume(object, with: index)
-      return success
-    } catch {
-      context[at: address] = .owned
-      report(error: error, range: module!.instructions[index].range)
-      return false
-    }
-  }
-
   private func visit(
     inst: ThinToThickInst,
     index: InstIndex,
@@ -1121,27 +1086,67 @@ public struct OwnershipAnalysis {
     return true
   }
 
-//  private func visit(
-//    inst: WitnessMethodInst,
-//    path: InstPath,
-//    context: inout AbstractContext,
-//    builder: inout Builder
-//  ) -> Bool {
-//    switch context.locals[inst.container] {
-//    case .owned:
-//      context.locals[inst] = .owned
-//      return true
-//
-//    default:
-//      fatalError("bad VIL: illegal operand")
-//    }
-//  }
+  private mutating func visitInit(
+    object: Operand,
+    target: Operand,
+    index: InstIndex,
+    context: inout AbstractContext
+  ) -> Bool {
+    let success = ensureDeinit(target: target, before: index, context: &context)
+
+    // Transfer the object from register to memory.
+    guard let address = context[in: target]?.asAddress else { illegalOperand() }
+    do {
+      context[at: address] = try context.consume(object, with: index)
+      return success
+    } catch {
+      context[at: address] = .owned
+      report(error: error, range: module.instructions[index].range)
+      return false
+    }
+  }
+
+  // Ensures that the memory at `target` is uninitialized before the instruction at `index`,
+  // inserting `delete_addr` if necessary.
+  private mutating func ensureDeinit(
+    target: Operand,
+    before index: InstIndex,
+    context: inout AbstractContext
+  ) -> Bool {
+    guard let address = context[in: target]?.asAddress else { illegalOperand() }
+    switch context[at: address]!.derivedState {
+    case .owned:
+      // The memory at the target address holds an owned object; delete it first.
+      let i = module.insertDeleteAddr(target: target, at: .before(inst: index))
+      return visit(
+        inst: module.instructions[i] as! DeleteAddrInst, index: i, context: &context)
+
+    case .lent:
+      report(
+        error: OwnershipError.writeAccessToProjectedValue,
+        range: module.instructions[index].range)
+      return false
+
+    case .projected:
+      report(
+        error: OwnershipError.writeAccessToInoutedValue,
+        range: module.instructions[index].range)
+      return false
+
+    case .consumed, .uninitialized:
+      // The memory at the target address is uninitialized; we're good.
+      return true
+
+    case .dynamic:
+      fatalError("not implemented")
+    }
+  }
 
   private func report(error: Error, range: SourceRange?) {
     if let error = error as? OwnershipError {
-      module!.context.report(error.diag(anchor: range))
+      module.context.report(error.diag(anchor: range))
     } else {
-      module!.context.report(Diag(error.localizedDescription, anchor: range))
+      module.context.report(Diag(error.localizedDescription, anchor: range))
     }
   }
 

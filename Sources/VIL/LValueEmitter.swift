@@ -1,4 +1,5 @@
 import AST
+import Basic
 
 /// A VIL emitter for l-values.
 struct LValueEmitter: ExprVisitor {
@@ -53,37 +54,48 @@ struct LValueEmitter: ExprVisitor {
   }
 
   func visit(_ node: DynCastExpr) -> ExprResult {
-    return .failure(.useOfRValueAsLValue(node))
+    fatalError("unreachable")
   }
 
   mutating func visit(_ node: UnsafeCastExpr) -> ExprResult {
-    let lhsType = node.value.type.dealiased
-    let rhsType = node.type.dealiased
-
-    // An unsafe cast expression is an l-value if the value being cast is an l-value as well.
-    var source: Operand
+    // Cast expressions are l-values iff the expression being cast is an l-value as well.
+    var converted: Operand
     switch node.value.accept(&self) {
     case .success(let address):
-      source = address
+      converted = address
     case let failure:
       return failure
     }
 
-    // FIXME: Handle structural casts.
-    precondition(!(lhsType is TupleType) || !(rhsType is TupleType))
+    // Determine the kind of conversion we have to emit.
+    let sourceType = node.value.type.dealiased
+    let targetType = node.type.dealiased
 
-    // Runtime conversion of function types always fails.
-    if (lhsType is FunType) && (rhsType is FunType) {
+    // FIXME: Handle structural casts.
+    precondition(!(sourceType is TupleType) || !(targetType is TupleType))
+
+    if sourceType == targetType {
+      // Same type conversion always succeeds.
+      module.context.report(
+        .castAlwaysSucceeds(from: node.value.type, to: node.type, range: node.range))
+    } else if sourceType is FunType {
+      // Runtime conversion of function types always fails.
       module.context.report(.runtimeFunctionTypeConversion(range: node.range))
-      module.insertCondFail(
-        cond: Operand(IntValue.makeTrue(context: module.context)), range: node.range, at: state.ip)
-      return .success(Operand(PoisonValue(type: .lower(rhsType).address)))
+      module.insertFail(range: node.range, at: state.ip)
+      converted = Operand(PoisonValue(type: .lower(targetType).address))
+    } else if sourceType.isExistential && !targetType.isExistential {
+      // Existential to grounded conversion borrows from the existential.
+      converted = Operand(module.insertOpenExistAddr(
+        container: converted, range: node.range, at: state.ip))
+      converted = Operand(module.insertCheckedCastAddr(
+        source: converted, type: .lower(targetType).address, range: node.range, at: state.ip))
+    } else {
+      // Default to scalar conversion.
+      converted = Operand(module.insertCheckedCastAddr(
+        source: converted, type: .lower(targetType).address, range: node.range, at: state.ip))
     }
 
-    // Convert the value.
-    source = Operand(module.insertCheckedCastAddr(
-      source: source, type: .lower(rhsType).address, range: node.range, at: state.ip))
-    return .success(source)
+    return .success(converted)
   }
 
   func visit(_ node: TupleExpr) -> ExprResult {

@@ -30,6 +30,22 @@ extension ControlFlowGraph {
     self[target, source] = nil
   }
 
+  /// Returns the successors of the given block.
+  func successors(of source: BasicBlockIndex) -> [BasicBlockIndex] {
+    return edges(from: source).compactMap({ tip in
+      tip.label != .backward ? tip.target : nil
+    })
+  }
+
+  /// Returns the predecessors of the given block.
+  func predecessors(of target: BasicBlockIndex) -> [BasicBlockIndex] {
+    return self.reduce(into: [], { (result, edge) in
+      if edge.target == target && edge.label != .backward {
+        result.append(edge.source)
+      }
+    })
+  }
+
 }
 
 /// An edge in a control-flow graph.
