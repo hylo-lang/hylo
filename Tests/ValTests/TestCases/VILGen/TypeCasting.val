@@ -1,0 +1,29 @@
+type A {
+  val i: Int
+}
+
+view V {}
+
+fun f(x: Any) {}
+fun g(x: mut Any) {}
+
+fun main() {
+  val i = 123
+  val a: Any = 123
+
+  // Creation of an existential.
+  val b0: Any = i
+  f(x: i)
+
+  // Same type conversion.
+  val b1 = i as! Int  // #!warning conversion from 'Int' to 'Int' will always succeed
+
+  // Existential to existential conversion.
+  val b3 = a as! V
+
+  // Existential to grounded conversion.
+  val b5 = a as! Int
+
+  // // Grounded to existential.
+  val b7 = i as! Any
+}
