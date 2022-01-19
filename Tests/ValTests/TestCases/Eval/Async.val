@@ -1,5 +1,5 @@
 type A {
-  val i: Int
+  let i: Int
 }
 
 fun foo() -> Int {

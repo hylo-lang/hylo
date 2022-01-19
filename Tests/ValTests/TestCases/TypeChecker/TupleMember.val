@@ -2,7 +2,7 @@ type A { new() {} }
 type B { new() {} }
 
 fun main() {
-  val p = (fst: A(), snd: B())
+  let p = (fst: A(), snd: B())
 
   var p0: A = p.0
   p0 = p.fst
@@ -10,9 +10,9 @@ fun main() {
   p1 = p.snd
 
   // #!error@+1
-  val p2 = p.2
+  let p2 = p.2
 
-  val q = (fst: A(), fst: B())
+  let q = (fst: A(), fst: B())
   var q0: A = q.0
   q0 = q.fst
   var q1: B = q.1

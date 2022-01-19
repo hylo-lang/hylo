@@ -11,9 +11,9 @@ fun main() {
     ret b
   }
 
-  val x1 = mono(A())
-  val x2 = mono(B())
+  let x1 = mono(A())
+  let x2 = mono(B())
 
   // #!error@+1 ambiguous use of 'mono'
-  val x3 = mono(C())
+  let x3 = mono(C())
 }

@@ -342,7 +342,7 @@ public enum Emitter {
       case let decl as FunDecl:
         _ = emit(function: decl, with: &builder)
 
-        // Emit the value of each captured declaration. Capture with `val` or `var` semantics are
+        // Emit the value of each captured declaration. Capture with `let` or `var` semantics are
         // copied from the environment, and so we must emit a r-value either way.
         let captureTable = decl.computeAllCaptures()
         let partialArgs = captureTable.map({ (key, value) -> Value in

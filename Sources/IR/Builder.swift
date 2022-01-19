@@ -154,7 +154,7 @@ public struct Builder {
       let context = unappliedType.context
       let extra = captureTable.map({ (_, value) -> ValType in
         // Captures with mutable semantics are represented by in-out parameters.
-        return value.semantics == .val
+        return value.semantics == .let
           ? value.type
           : context.inoutType(of: value.type)
       })

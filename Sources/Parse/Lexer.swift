@@ -107,7 +107,7 @@ public struct Lexer: IteratorProtocol, Sequence {
       case "static"   : token.kind = .static
       case "true"     : token.kind = .bool
       case "type"     : token.kind = .type
-      case "val"      : token.kind = .val
+      case "let"      : token.kind = .let
       case "var"      : token.kind = .var
       case "view"     : token.kind = .view
       case "volatile" : token.kind = .volatile
