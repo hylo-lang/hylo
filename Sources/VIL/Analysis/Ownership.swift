@@ -628,6 +628,8 @@ public struct OwnershipAnalysis {
         success = visit(inst: inst, index: index, context: &context) && success
       case let inst as EndBorrowInst:
         success = visit(inst: inst, index: index, context: &context) && success
+      case let inst as HaltInst:
+        success = visit(inst: inst, index: index, context: &context) && success
       case let inst as InitExistInst:
         success = visit(inst: inst, index: index, context: &context) && success
       case let inst as IsCastableAddrInst:
@@ -917,6 +919,14 @@ public struct OwnershipAnalysis {
     if let borrower = inst.source.inst {
       context.endLoan(at: source, to: borrower)
     }
+    return true
+  }
+
+  private func visit(
+    inst: HaltInst,
+    index: InstIndex,
+    context: inout AbstractContext
+  ) -> Bool {
     return true
   }
 
