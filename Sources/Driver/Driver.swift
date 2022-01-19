@@ -92,9 +92,9 @@ public struct Driver {
   ) throws -> ModuleDecl {
     var moduleFiles: [URL] = []
     if let enumerator = FileManager.default.enumerator(
-            at: moduleRoot,
-            includingPropertiesForKeys: [.isRegularFileKey],
-            options: [.skipsHiddenFiles, .skipsPackageDescendants])
+      at: moduleRoot,
+      includingPropertiesForKeys: [.isRegularFileKey],
+      options: [.skipsHiddenFiles, .skipsPackageDescendants])
     {
       moduleFiles = enumerator.compactMap({ (el: Any) -> URL? in
         guard let url = el as? URL,
@@ -160,7 +160,7 @@ public struct Driver {
     for funName in module.functions.keys {
       lifetime.run(on: funName, in: &module)
       guard ownership.run(on: funName, in: &module) else {
-        throw DriverError.moduleLoweringFailed(moduleName: moduleDecl.name)
+        throw DriverError.loweringFailed(inFunction: funName, inModule: module.id)
       }
     }
 

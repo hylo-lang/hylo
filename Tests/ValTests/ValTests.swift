@@ -49,7 +49,7 @@ final class ValTests: XCTestCase {
       driver.typeCheck(moduleDecl: moduleDecl)
       do {
         _ = try driver.lower(moduleDecl: moduleDecl)
-      } catch DriverError.moduleLoweringFailed {
+      } catch DriverError.loweringFailed {
       }
 
       checker.finalize()
