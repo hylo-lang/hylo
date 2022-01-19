@@ -157,8 +157,8 @@ public class BaseCastExpr: Expr {
 
 }
 
-/// An unsafe cast expression (e.g., `foo as! Bar`).
-public final class UnsafeCastExpr: BaseCastExpr {
+/// An runtime cast expression (e.g., `foo as! Bar`).
+public final class RuntimeCastExpr: BaseCastExpr {
 
   public override func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)

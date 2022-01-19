@@ -82,7 +82,7 @@ struct ConstraintGenerator: NodeWalker {
     fatalError("unreachable")
   }
 
-  mutating func visit(_ node: UnsafeCastExpr) -> Bool {
+  mutating func visit(_ node: RuntimeCastExpr) -> Bool {
     prepare(expr: node, fixedType: fixedType, inferredType: nil)
     fixedType = nil
     guard traverse(node) else { return false }

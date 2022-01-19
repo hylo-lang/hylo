@@ -101,7 +101,7 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
     fatalError("unreachable")
   }
 
-  func visit(_ node: UnsafeCastExpr) -> Expr {
+  func visit(_ node: RuntimeCastExpr) -> Expr {
     node.type = node.sign.realize(unqualifiedFrom: useSite)
     return node
   }

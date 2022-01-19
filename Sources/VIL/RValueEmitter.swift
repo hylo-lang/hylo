@@ -125,7 +125,7 @@ struct RValueEmitter: ExprVisitor {
     fatalError("unreachable")
   }
 
-  mutating func visit(_ node: UnsafeCastExpr) -> ExprResult {
+  mutating func visit(_ node: RuntimeCastExpr) -> ExprResult {
     // Emit the value to convert.
     var converted: Operand
     switch node.value.accept(&self) {
