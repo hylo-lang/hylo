@@ -80,13 +80,13 @@ public struct LifetimeAnalyis {
 
     outer:for use in (uses + updates) {
       let user = module.instructions[use.user]
-      guard covered.insert(use.user).inserted else { continue }
+      guard covered.insert(use.user).inserted else { continue outer }
       covered.insert(use.user)
 
       // Skip consuming uses.
       switch user {
       case is DeleteAddrInst, is AsyncInst, is PartialApplyInst, is LoadInst:
-        continue
+        continue outer
       default:
         break
       }
@@ -97,12 +97,15 @@ public struct LifetimeAnalyis {
       var last = use.user
 
       for i in startIndex ..< list.count where users.contains(list[i]) {
+        // Go the the next use if we already covered that range.
+        guard covered.insert(list[i]).inserted else { continue outer }
+
         switch module.instructions[list[i]] {
-        case is StoreInst, is InitExistInst:
+        case is StoreInst, is InitExistInst, is DeallocStackInst:
           users.insert(module.insertDeleteAddr(target: address, at: .after(inst: last)))
           continue outer
 
-        case is DeleteAddrInst, is DeallocStackInst, is AsyncInst, is PartialApplyInst:
+        case is DeleteAddrInst, is AsyncInst, is PartialApplyInst, is LoadInst:
           continue outer
 
         default:
