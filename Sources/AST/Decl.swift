@@ -1145,13 +1145,9 @@ public final class ProductTypeDecl: NominalTypeDecl {
   }
 
   public override func updateMemberTables() {
-    super.updateMemberTables()
-
-    // Synthetize default constructors if necessary.
-    if _valueMemberTable["new"] == nil {
+    if _valueMemberTable.isEmpty {
+      // Synthetize a default constructor declaration.
       let context = type.context
-
-      // Create a constructor declaration.
       let ctor = CtorDecl(type: context.unresolvedType)
       ctor.range = introRange
       ctor.parentDeclSpace = self
@@ -1170,8 +1166,9 @@ public final class ProductTypeDecl: NominalTypeDecl {
 
       // Insert the synthetized declaration into the member's table.
       _valueMemberTable["new"] = [ctor]
-      members.append(ctor)
     }
+
+    super.updateMemberTables()
   }
 
   public override func accept<V>(_ visitor: inout V) -> V.DeclResult where V: DeclVisitor {

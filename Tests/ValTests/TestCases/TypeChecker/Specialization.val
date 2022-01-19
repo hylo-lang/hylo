@@ -1,6 +1,4 @@
-type A {
-  new() {}
-}
+type A {}
 
 type B<T> {
 
