@@ -125,10 +125,6 @@ struct RValueEmitter: ExprVisitor {
     fatalError("unreachable")
   }
 
-  mutating func visit(_ node: DynCastExpr) -> ExprResult {
-    fatalError("unreachable")
-  }
-
   mutating func visit(_ node: UnsafeCastExpr) -> ExprResult {
     // Emit the value to convert.
     var converted: Operand

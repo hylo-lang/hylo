@@ -157,15 +157,6 @@ public class BaseCastExpr: Expr {
 
 }
 
-/// A safe, dynamic cast expression (e.g., `foo as? Bar`).
-public final class DynCastExpr: BaseCastExpr {
-
-  public override func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
-    return visitor.visit(self)
-  }
-
-}
-
 /// An unsafe cast expression (e.g., `foo as! Bar`).
 public final class UnsafeCastExpr: BaseCastExpr {
 

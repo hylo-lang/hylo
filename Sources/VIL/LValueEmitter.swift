@@ -53,10 +53,6 @@ struct LValueEmitter: ExprVisitor {
     fatalError("unreachable")
   }
 
-  func visit(_ node: DynCastExpr) -> ExprResult {
-    fatalError("unreachable")
-  }
-
   mutating func visit(_ node: UnsafeCastExpr) -> ExprResult {
     // Cast expressions are l-values iff the expression being cast is an l-value as well.
     var converted: Operand

@@ -641,10 +641,6 @@ extension NodeWalker {
     return true
   }
 
-  public mutating func visit(_ node: DynCastExpr) -> Bool {
-    return visit(node as BaseCastExpr)
-  }
-
   public mutating func visit(_ node: UnsafeCastExpr) -> Bool {
     return visit(node as BaseCastExpr)
   }

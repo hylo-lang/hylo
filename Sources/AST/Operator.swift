@@ -88,22 +88,6 @@ public enum InfixOperator: String, CustomStringConvertible {
 
 }
 
-/// A cast operator.
-public enum CastOperator: String, CustomStringConvertible {
-
-  /// The downcast operator.
-  case downCast   = "as"
-
-  /// The dynamic cast operator `as?`.
-  case dynCast    = "as?"
-
-  /// The unsafe cast operator `as!`.
-  case unsafeCast = "as!"
-
-  public var description: String { rawValue }
-
-}
-
 /// The precedence group of an operator.
 public enum PrecedenceGroup: String {
 
@@ -148,7 +132,7 @@ public enum PrecedenceGroup: String {
     case "??", "!!":
       self = .nilCoalescing
 
-    case "is", "as", "as?", "as!":
+    case "is", "as", "as!":
       self = .casting
 
     case "+", "-", "|", "^", "+!", "-!":

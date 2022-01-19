@@ -401,10 +401,6 @@ public struct NodePrinter: NodeVisitor {
     """
   }
 
-  public mutating func visit(_ node: DynCastExpr) -> String {
-    return visit(node as BaseCastExpr)
-  }
-
   public mutating func visit(_ node: UnsafeCastExpr) -> String {
     return visit(node as BaseCastExpr)
   }

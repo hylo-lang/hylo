@@ -101,15 +101,6 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
     fatalError("unreachable")
   }
 
-  func visit(_ node: DynCastExpr) -> Expr {
-    let context = node.type.context
-    let maybeDecl = context.getTypeDecl(for: .Maybe) as! AliasTypeDecl
-    let targetType = node.sign.realize(unqualifiedFrom: useSite)
-
-    node.type = context.boundGenericType(decl: maybeDecl, args: [targetType])
-    return node
-  }
-
   func visit(_ node: UnsafeCastExpr) -> Expr {
     node.type = node.sign.realize(unqualifiedFrom: useSite)
     return node

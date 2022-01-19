@@ -97,8 +97,6 @@ public protocol ExprVisitor {
 
   mutating func visit(_ node: BaseCastExpr) -> ExprResult
 
-  mutating func visit(_ node: DynCastExpr) -> ExprResult
-
   mutating func visit(_ node: UnsafeCastExpr) -> ExprResult
 
   mutating func visit(_ node: TupleExpr) -> ExprResult

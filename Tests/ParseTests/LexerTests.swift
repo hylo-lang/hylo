@@ -229,13 +229,12 @@ final class LexerTests: XCTestCase {
   }
 
   func testCastOperators() {
-    let input = "is as as? as!"
+    let input = "is as as!"
     assert(
       that: tokenize(input),
       match: [
         TokenSpec(.cast     , "is"),
         TokenSpec(.cast     , "as"),
-        TokenSpec(.cast     , "as?"),
         TokenSpec(.cast     , "as!"),
       ],
       in: input)

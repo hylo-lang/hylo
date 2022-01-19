@@ -82,16 +82,6 @@ struct ConstraintGenerator: NodeWalker {
     fatalError("unreachable")
   }
 
-  mutating func visit(_ node: DynCastExpr) -> Bool {
-    prepare(expr: node, fixedType: fixedType, inferredType: nil)
-    fixedType = nil
-    guard traverse(node) else { return false }
-
-    // There is no additional constraint to add as a true constraint here, as we can't infer the
-    // relationship between the subject of the cast and the target type.
-    return true
-  }
-
   mutating func visit(_ node: UnsafeCastExpr) -> Bool {
     prepare(expr: node, fixedType: fixedType, inferredType: nil)
     fixedType = nil
