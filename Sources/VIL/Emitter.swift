@@ -161,8 +161,7 @@ public enum Emitter {
       } else {
         // Constructors should allocate `self`.
         assert(decl is CtorDecl)
-        let alloc = module.insertAllocStack(
-          allocType: .lower(selfType), isReceiver: true, at: state.ip)
+        let alloc = module.insertAllocStack(allocType: .lower(selfType), at: state.ip)
         state.locals[ObjectIdentifier(selfDecl)] = Operand(alloc)
       }
     }

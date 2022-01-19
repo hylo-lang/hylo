@@ -162,7 +162,6 @@ public struct Module {
 
   public mutating func insertAllocStack(
     allocType: VILType,
-    isReceiver: Bool = false,
     decl: ValueDecl? = nil,
     range: SourceRange? = nil,
     at point: InsertionPoint
@@ -171,7 +170,6 @@ public struct Module {
 
     let inst = AllocStackInst(
       allocType: allocType,
-      isReceiver: isReceiver,
       decl: decl,
       parent: block(containing: point),
       range: range)

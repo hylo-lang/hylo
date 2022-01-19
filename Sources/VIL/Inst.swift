@@ -53,21 +53,16 @@ public final class AllocStackInst: Value, Inst {
   /// The type of the allocated value.
   public let allocType: VILType
 
-  /// A flag indicating whether the allocated value represents a constructor's receiver.
-  public let isReceiver: Bool
-
   /// The Val declaration related to the allocation, for debugging.
   public private(set) unowned var decl: ValueDecl?
 
   init(
     allocType: VILType,
-    isReceiver: Bool,
     decl: ValueDecl?,
     parent: BasicBlockIndex,
     range: SourceRange?
   ) {
     self.allocType = allocType
-    self.isReceiver = isReceiver
     self.decl = decl
     self.type = allocType.address
     self.parent = parent
@@ -77,9 +72,7 @@ public final class AllocStackInst: Value, Inst {
   public var operands: [Operand] { [] }
 
   public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
-    printer.write("alloc_stack ", to: &stream)
-    if isReceiver { printer.write("[receiver] ", to: &stream) }
-    printer.write("\(allocType)\n", to: &stream)
+    printer.write("alloc_stack \(allocType)\n", to: &stream)
   }
 
   public static var opstring = "alloc_stack"
