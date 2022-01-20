@@ -28,13 +28,14 @@ let package = Package(
       dependencies: ["Basic", OrderedCollections],
       resources: [.copy("Builtins.json")]),
     .target(name: "Basic"),
-    .target(name: "Driver", dependencies: ["AST", "Basic", "Parse", "Sema", "VIL"]),
+    .target(name: "Driver", dependencies: ["AST", "Basic", "Parse", "Sema", "ValLibrary", "VIL"]),
+    .target(name: "Eval", dependencies: ["AST", "Basic", "VIL", DequeModule]),
     .target(name: "Parse", dependencies: ["AST", "Basic"]),
-    .target(
-      name: "Eval",
-      dependencies: ["AST", "Basic", "VIL", DequeModule]),
     .target(name: "Sema", dependencies: ["AST", "Basic"]),
     .target(name: "VIL", dependencies: ["AST", "Basic", DequeModule]),
+
+    // Val sources.
+    .target(name: "ValLibrary", path: "Library", resources: [.copy("Public")]),
 
     // Test targets.
     .testTarget(name: "ASTTests", dependencies: ["AST", "Basic"]),

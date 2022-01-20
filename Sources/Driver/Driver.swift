@@ -4,6 +4,7 @@ import Foundation
 @_exported import Basic
 import Parse
 import Sema
+import ValLibrary
 import VIL
 
 /// A helper to manage the compilation of Val source files.
@@ -29,8 +30,8 @@ public struct Driver {
     // Set the home path.
     if let h = home {
       self.home = h
-    } else if let p = ProcessInfo.processInfo.environment["VAL_HOME"] {
-      self.home = URL(fileURLWithPath: p)
+    } else if let h = ValLibrary.public {
+      self.home = h
     } else {
       self.home = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
     }
@@ -42,7 +43,7 @@ public struct Driver {
   ///   a directly `Stdlib` at the root of its home path.
   @discardableResult
   public func loadStdlib(url: URL? = nil) throws -> ModuleDecl  {
-    let rootURL = url ?? home.appendingPathComponent("Stdlib")
+    let rootURL = url ?? home.appendingPathComponent("Core")
     let moduleDecl = try parse(moduleName: "Val", moduleRoot: rootURL, isStdlib: true)
     typeCheck(moduleDecl: moduleDecl)
     return moduleDecl

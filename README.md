@@ -43,10 +43,7 @@ You can run that command with the flag `--help` to get a summary of its options.
 
 ### Run the Tests
 
-The test suite expects to get the location of the standard library files in the environment variable `VAL_HOME`.
-This environment variable should point to the root of this repository.
-Then, you can run `swift test` to execute all tests.
+Run `swift test` to execute all tests.
 
-Most of the tests are run on actual Val programs.
-Those are located in the directory `Tests/ValTests/TestCases`.
-Each file is a single program, annotated with comments that instruct the test runner of the expected results.
+Most tests are actual Val programs annotated with comments that instruct the test runner of the expected results.
+They are located in the directory `Tests/ValTests/TestCases`
