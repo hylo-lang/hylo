@@ -32,8 +32,10 @@ struct ConstraintGenerator: NodeWalker {
     return (true, pattern)
   }
 
-  func visit(_ node: BoolLiteralExpr) -> Bool {
-    fatalError("not implemented")
+  mutating func visit(_ node: BoolLiteralExpr) -> Bool {
+    let boolType = node.type.context.getTypeDecl(for: .Bool)!.instanceType
+    prepare(expr: node, fixedType: fixedType, inferredType: boolType)
+    return true
   }
 
   mutating func visit(_ node: IntLiteralExpr) -> Bool {

@@ -407,7 +407,7 @@ public protocol BuiltinLiteral {}
 
 /// A built-in integer literal type.
 ///
-/// This is the type of an integer literal expression.
+/// This type is used during type checking to infer the type of an literal expression.
 public final class BuiltinIntLiteralType: BuiltinType, BuiltinLiteral {
 
   init(context: Context) {
@@ -422,11 +422,11 @@ public final class BuiltinIntLiteralType: BuiltinType, BuiltinLiteral {
 
 /// A built-in integer type.
 ///
-/// Built-in integer types corresponds directly to the target's integer types. They can be of any
-/// bitwidth and do not specify signedness.
+/// This type represents the target's integer types. These can be of any bitwidth and do not
+/// specify signedness.
 ///
-/// This type does *not* correspond to Val's `Int`. The latter is an actual Val type, defined in
-/// the standard library, which wrap a built-in integer type.
+/// - Note: This type does *not* correspond to Val's `Int`. The latter is an actual Val type,
+///   defined in the standard library, which wrap a built-in integer type.
 public final class BuiltinIntType: BuiltinType {
 
   /// The number of bits in the binary representation of values of this type.

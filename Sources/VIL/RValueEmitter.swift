@@ -66,8 +66,8 @@ struct RValueEmitter: ExprVisitor {
   }
 
   mutating func visit(_ node: IntLiteralExpr) -> ExprResult {
-    // We can assume the expression's type conforms to `ExpressibleBy***Literal` (as type checking
-    // succeeded). Therefore we can look for a conversion constructor `new(literal:)`.
+    // Assuming the expression's type conforms to `ExpressibleByBuiltinIntLiteral`, look for a
+    // conversion constructor `new(literal:)`.
     let view = module.context.getTypeDecl(for: .ExpressibleByBuiltinIntLiteral)!.instanceType
       as! ViewType
     let callee: Operand
