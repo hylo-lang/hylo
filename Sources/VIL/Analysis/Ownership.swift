@@ -512,7 +512,7 @@ public struct OwnershipAnalysis {
     swap(&self.module, &module)
     defer { swap(&self.module, &module) }
 
-    let fun = self.module.functions[funName] ?< fatalError("function does not exist")
+    let fun = self.module.functions[funName] ?? fatalError("function does not exist")
     guard !fun.stage.contains(.didPassOwnership) else { return true }
     guard let entry = fun.entry else { return true }
 

@@ -25,7 +25,7 @@ extension Module {
 
   /// Dumps a textual representation of the specified function.
   public func dump<S>(function funName: String, to stream: inout S) where S: TextOutputStream {
-    let fun = functions[funName] ?< fatalError("function does not exist")
+    let fun = functions[funName] ?? fatalError("function does not exist")
 
     // Dump the function's prologue.
     if let debugName = fun.debugName {

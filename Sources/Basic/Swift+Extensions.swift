@@ -81,22 +81,8 @@ public func modify<T, U>(value: inout T, with mutate: (inout T) throws -> U) ret
   return try mutate(&value)
 }
 
-infix operator ?< : NilCoalescingPrecedence
-
-/// Performs a nil-coalescing operation, returning the wrapped value of an Optional instance or
-/// calling the specified closure for a default value.
-public func ?< <T>(lhs: T?, rhs: () -> T?) -> T? {
-  return lhs ?? rhs()
-}
-
-/// Performs a nil-coalescing operation, returning the wrapped value of an Optional instance or
-/// calling the specified closure for a default value.
-public func ?< <T>(lhs: T?, rhs: () -> T) -> T {
-  return lhs ?? rhs()
-}
-
-/// Unwraps the left operand or evaluates the specified non-terminating expression.
-public func ?< <T>(lhs: T?, rhs: @autoclosure () -> Never) -> T {
+/// Returns `lhs!` if `lhs` is non-`nil`; evaluates `rhs()`, which never returns, otherwise.
+public func ?? <T>(lhs: T?, rhs: @autoclosure () -> Never) -> T {
   if let lhs = lhs {
     return lhs
   } else {

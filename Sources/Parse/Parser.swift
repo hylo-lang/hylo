@@ -836,11 +836,11 @@ public struct Parser {
       // We're parsing a type alias declaration.
       _ = state.take()
 
-      let sign = parseSign(state: &state) ?< { () -> Sign in
+      let sign = parseSign(state: &state) ?? { () -> Sign in
         context.report("expected type signature", anchor: state.errorRange())
         state.hasError = true
         return ErrorSign(type: context.errorType, range: state.errorRange())
-      }
+      }()
       upperLoc = sign.range!.upperBound
 
       let decl = AliasTypeDecl(name: head.ident.name, aliasedSign: sign, type: unresolved)
@@ -1152,11 +1152,11 @@ public struct Parser {
     }
 
     // Parse the right operand of the requirement.
-    let rhs = parseSign(state: &state) ?< { () -> Sign in
+    let rhs = parseSign(state: &state) ?? { () -> Sign in
       context.report("expected type signature", anchor: state.errorRange())
       state.hasError = true
       return ErrorSign(type: context.errorType, range: state.errorRange())
-    }
+    }()
 
     return TypeReq(kind: kind, lhs: identSign, rhs: rhs, range: lhs.range! ..< rhs.range!)
   }
@@ -1312,10 +1312,10 @@ public struct Parser {
       if let ident = state.takeOperator() {
         // The operator is a standard non-cast infix operator,.
         oper = ident
-        group = PrecedenceGroup(for: ident.name) ?< {
+        group = PrecedenceGroup(for: ident.name) ?? {
           context.report("unknown infix operator '\(oper.name)'", anchor: oper.range)
           return nil
-        }
+        }()
       } else if let name = state.peek(), name.kind == .name {
         // The next token might be an infix identifier. However, we require that it be on the same
         // line as the left operand, to to avoid any ambiguity with statements that may begin with
@@ -1741,11 +1741,11 @@ public struct Parser {
   private func parseMatchExpr(state: inout State) -> Expr? {
     guard let introducer = state.take(.match) else { return nil }
 
-    let subject = parseExpr(state: &state) ?< { () -> Expr in
+    let subject = parseExpr(state: &state) ?? { () -> Expr in
       context.report("expected expression", anchor: state.errorRange())
       state.hasError = true
       return ErrorExpr(type: context.errorType, range: state.errorRange())
-    }
+    }()
 
     let expr = MatchExpr(
       isSubexpr: true, subject: subject, cases: [], type: unresolved, range: introducer.range)
@@ -1776,28 +1776,28 @@ public struct Parser {
   private func parseMatchCase(state: inout State) -> MatchCaseStmt? {
     guard let introducer = state.take(.case) else { return nil }
 
-    let pattern = parsePattern(state: &state) ?< { () -> Pattern in
+    let pattern = parsePattern(state: &state) ?? { () -> Pattern in
       context.report("expected pattern", anchor: state.errorRange())
       state.hasError = true
       return WildcardPattern(type: context.errorType, range: state.errorRange())
-    }
+    }()
 
     let condition: Expr?
     if state.take(.where) != nil {
-      condition = parseExpr(state: &state) ?< {
+      condition = parseExpr(state: &state) ?? {
         context.report("expected condition", anchor: state.errorRange())
         state.hasError = true
         return nil
-      }
+      }()
     } else {
       condition = nil
     }
 
-    let body = parseBraceStmt(state: &state) ?< { () -> BraceStmt in
+    let body = parseBraceStmt(state: &state) ?? { () -> BraceStmt in
       context.report("expected '{' after case pattern", anchor: state.errorRange())
       state.hasError = true
       return BraceStmt(statements: [], range: state.errorRange())
-    }
+    }()
 
     let stmt = MatchCaseStmt(pattern: pattern, condition: condition, body: body)
     stmt.range = introducer.range.lowerBound ..< body.range!.upperBound
