@@ -1,5 +1,5 @@
-type A { new() {} }
-type B { new() {} }
+type A {}
+type B {}
 
 fun main() {
   let p = (fst: A(), snd: B())

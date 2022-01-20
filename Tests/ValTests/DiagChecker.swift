@@ -3,7 +3,19 @@ import XCTest
 import AST
 import Basic
 
-final class DiagnosticChecker: DiagConsumer {
+final class DiagChecker: DiagConsumer {
+
+  /// The AST context in which modules are being compiled.
+  unowned let context: AST.Context
+
+  /// The diagnostics that are expected to be received, indexed by line number.
+  var diagnostics: [TestAnnotation.Location: [DiagPattern]] = [:]
+
+  /// The file in which assertion failures are thrown.
+  let xcFile: StaticString
+
+  /// The line number at which assertion failures are thrown.
+  let xcLine: UInt
 
   init(
     context: AST.Context,
@@ -15,17 +27,16 @@ final class DiagnosticChecker: DiagConsumer {
     self.xcLine = xcLine
   }
 
-  /// The AST context in which modules are being compiled.
-  unowned let context: AST.Context
-
-  /// The diagnostics that are expected to be received, indexed by line number.
-  var diagnostics: [TestAnnotation.Location: [DiagnosticPattern]] = [:]
-
-  /// The file in which assertion failures are thrown.
-  let xcFile: StaticString
-
-  /// The line number at which assertion failures are thrown.
-  let xcLine: UInt
+  func insert(annotations: [TestAnnotation.Location: [TestAnnotation]]) {
+    for (loc, annotations) in annotations {
+      diagnostics[loc, default: []].append(contentsOf: annotations.compactMap({ a in
+        switch a {
+        case .diagnostic(let pattern):
+          return pattern
+        }
+      }))
+    }
+  }
 
   func consume(_ diagnostic: Diag) {
     guard let sourceLocation = diagnostic.reportLocation else {

@@ -2,7 +2,7 @@ import AST
 import Basic
 
 /// A binding policy for reifying type expression containing free variables.
-enum FreeTypeVarBindingPolicy {
+enum FreeTypeVarSubstPolicy {
 
   /// Bind the free variables to the error type.
   case bindToErrorType
@@ -21,6 +21,8 @@ struct Solution {
   /// The score of a solution.
   struct Score: RawRepresentable, Comparable {
 
+    let rawValue: UInt64
+
     init(rawValue: UInt64) {
       self.rawValue = rawValue
     }
@@ -30,8 +32,6 @@ struct Solution {
         (UInt64(UInt32(truncatingIfNeeded: penalities))) |
         (UInt64(UInt32(truncatingIfNeeded: errorCount)) << 32)
     }
-
-    let rawValue: UInt64
 
     static func < (lhs: Score, rhs: Score) -> Bool {
       return lhs.rawValue < rhs.rawValue
@@ -62,28 +62,28 @@ struct Solution {
   ///
   /// - Parameters:
   ///   - type: The type to reify.
-  ///   - freeVariablePolicy: The binding policy to adopt for free type variables.
+  ///   - substPolicy: The substitution policy to adopt for free type variables.
   func reify(
     _ type: ValType,
-    freeVariablePolicy: FreeTypeVarBindingPolicy
+    substPolicy: FreeTypeVarSubstPolicy
   ) -> ValType {
-    guard type.hasVariables else { return type }
+    guard type[.hasVariables] else { return type }
 
     switch type {
     case let type as KindType:
-      return reify(type.type, freeVariablePolicy: freeVariablePolicy).kind
+      return reify(type.type, substPolicy: substPolicy).kind
 
     case let type as BoundGenericType:
       return type.context
         .boundGenericType(
           decl: type.decl,
-          args: type.args.map({ reify($0, freeVariablePolicy: freeVariablePolicy) }))
+          args: type.args.map({ reify($0, substPolicy: substPolicy) }))
 
     case let type as AssocType:
       return type.context
         .assocType(
           interface: type.interface,
-          base: reify(type.base, freeVariablePolicy: freeVariablePolicy))
+          base: reify(type.base, substPolicy: substPolicy))
         .canonical
 
     case let type as TupleType:
@@ -91,34 +91,38 @@ struct Solution {
         .tupleType(type.elems.map({ elem in
           TupleType.Elem(
             label: elem.label,
-            type: reify(elem.type, freeVariablePolicy: freeVariablePolicy))
+            type: reify(elem.type, substPolicy: substPolicy))
         }))
         .canonical
 
     case let type as FunType:
       return type.context
         .funType(
-          paramType: reify(type.paramType, freeVariablePolicy: freeVariablePolicy),
-          retType: reify(type.retType, freeVariablePolicy: freeVariablePolicy))
+          params: type.params.map({ param in
+            param.map({ reify($0, substPolicy: substPolicy) })
+          }),
+          retType: reify(type.retType, substPolicy: substPolicy))
         .canonical
+
+    case let type as FunParamType:
+      return type.context
+        .funParamType(
+          policy: type.policy,
+          rawType: reify(type.rawType, substPolicy: substPolicy))
 
     case let type as AsyncType:
       return type.context
-        .asyncType(of: reify(type.base, freeVariablePolicy: freeVariablePolicy))
-
-    case let type as InoutType:
-      return type.context
-        .inoutType(of: reify(type.base, freeVariablePolicy: freeVariablePolicy))
+        .asyncType(of: reify(type.base, substPolicy: substPolicy))
 
     case let type as TypeVar:
       if let binding = bindings[type] {
-        return reify(binding, freeVariablePolicy: freeVariablePolicy)
+        return reify(binding, substPolicy: substPolicy)
       }
 
       // The variable is free in this solution. Apply the specified policy.
-      switch freeVariablePolicy {
-      case .bindToErrorType : return type.context.errorType
-      case .keep            : return type
+      switch substPolicy {
+      case .bindToErrorType: return type.context.errorType
+      case .keep: return type
       }
 
     default:
@@ -134,8 +138,8 @@ struct Solution {
   func report(_ error: TypeError, in context: Context) {
     switch error {
     case .conflictingTypes(let constraint):
-      let lhs = describe(reify(constraint.lhs, freeVariablePolicy: .keep))
-      let rhs = describe(reify(constraint.rhs, freeVariablePolicy: .keep))
+      let lhs = describe(reify(constraint.lhs, substPolicy: .keep))
+      let rhs = describe(reify(constraint.rhs, substPolicy: .keep))
 
       // Compute the diagnostic's message.
       let message: String
@@ -155,8 +159,8 @@ struct Solution {
       context.report(Diag(message, anchor: anchor.range))
 
     case .nonConformingType(let constraint):
-      let lhs = describe(reify(constraint.lhs, freeVariablePolicy: .keep))
-      let rhs = describe(reify(constraint.rhs, freeVariablePolicy: .keep))
+      let lhs = describe(reify(constraint.lhs, substPolicy: .keep))
+      let rhs = describe(reify(constraint.rhs, substPolicy: .keep))
 
       let anchor = constraint.locator.resolve()
       context.report(
@@ -189,7 +193,7 @@ struct Solution {
   }
 
   private func describe(_ type: ValType) -> String {
-    if type.isCanonical {
+    if type[.isCanonical] {
       return "'\(type)'"
     } else if let type = type as? UnionType {
       let elems = type.elems.map({ String(describing: $0.canonical) }).joined(separator: " | ")
@@ -197,6 +201,20 @@ struct Solution {
     } else {
       return "'\(type)' (i.e., '\(type.canonical)')"
     }
+  }
+
+}
+
+extension Solution.Score: CustomReflectable {
+
+  var customMirror: Mirror {
+    return Mirror(
+      self,
+      children: [
+        "penalities": UInt32(truncatingIfNeeded: rawValue),
+        "errorCount": UInt32(truncatingIfNeeded: rawValue >> 32),
+      ],
+      displayStyle: .struct)
   }
 
 }

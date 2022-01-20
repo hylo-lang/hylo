@@ -135,7 +135,7 @@ extension AdjacencyList: Collection {
   }
 
   public func index(after i: Index) -> Index {
-    if i.edgeIndex < links[i.linkIndex].value.endIndex {
+    if i.edgeIndex < (links[i.linkIndex].value.endIndex - 1) {
       return Index(linkIndex: i.linkIndex, edgeIndex: i.edgeIndex + 1)
     } else {
       return Index(linkIndex: links.index(after: i.linkIndex), edgeIndex: 0)

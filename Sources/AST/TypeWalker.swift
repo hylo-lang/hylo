@@ -98,6 +98,10 @@ open class TypeWalker: TypeVisitor {
     return type
   }
 
+  open func visit(_ type: WitnessType) -> ValType {
+    return type
+  }
+
   open func visit(_ type: TupleType) -> ValType {
     return type.context.tupleType(type.elems.map({ elem in
       TupleType.Elem(label: elem.label, type: walk(elem.type))
@@ -105,15 +109,17 @@ open class TypeWalker: TypeVisitor {
   }
 
   open func visit(_ type: FunType) -> ValType {
-    return type.context.funType(paramType: walk(type.paramType), retType: walk(type.retType))
+    return type.context.funType(
+      params: type.params.map({ $0.map(walk(_:)) }),
+      retType: walk(type.retType))
+  }
+
+  open func visit(_ type: FunParamType) -> ValType {
+    return type.context.funParamType(policy: type.policy, rawType: walk(type.rawType))
   }
 
   open func visit(_ type: AsyncType) -> ValType {
     return type.context.asyncType(of: walk(type.base))
-  }
-
-  open func visit(_ type: InoutType) -> ValType {
-    return type.context.inoutType(of: walk(type.base))
   }
 
   open func visit(_ type: UnresolvedType) -> ValType {

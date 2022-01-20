@@ -130,8 +130,8 @@ final class LexerTests: XCTestCase {
 
   func testKeywords() {
     let input = """
-    async await break case continue del else extn for fun if in infix match mod moveonly mut new
-    nil postfix prefix pub ret static type let var view volatile where while
+    async await break case consuming continue del else extn for fun if in infix local match mod mut
+    new nil postfix prefix pub ret static type let var view volatile where while
     """
 
     assert(
@@ -141,6 +141,7 @@ final class LexerTests: XCTestCase {
         TokenSpec(.await    , "await"),
         TokenSpec(.break    , "break"),
         TokenSpec(.case     , "case"),
+        TokenSpec(.consuming, "consuming"),
         TokenSpec(.continue , "continue"),
         TokenSpec(.del      , "del"),
         TokenSpec(.else     , "else"),
@@ -150,9 +151,9 @@ final class LexerTests: XCTestCase {
         TokenSpec(.if       , "if"),
         TokenSpec(.in       , "in"),
         TokenSpec(.infix    , "infix"),
+        TokenSpec(.local    , "local"),
         TokenSpec(.match    , "match"),
         TokenSpec(.mod      , "mod"),
-        TokenSpec(.moveonly , "moveonly"),
         TokenSpec(.mut      , "mut"),
         TokenSpec(.new      , "new"),
         TokenSpec(.nil      , "nil"),
@@ -228,13 +229,12 @@ final class LexerTests: XCTestCase {
   }
 
   func testCastOperators() {
-    let input = "is as as? as!"
+    let input = "is as as!"
     assert(
       that: tokenize(input),
       match: [
         TokenSpec(.cast     , "is"),
         TokenSpec(.cast     , "as"),
-        TokenSpec(.cast     , "as?"),
         TokenSpec(.cast     , "as!"),
       ],
       in: input)

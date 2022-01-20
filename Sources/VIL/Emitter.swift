@@ -1,6 +1,9 @@
 import AST
 import Basic
 
+/// A symbol table.
+typealias SymbolTable = [ObjectIdentifier: Operand]
+
 /// A VIL emitter.
 ///
 /// VIL generation consists of transforming the high-level representation of Val (i.e., AST nodes)
@@ -13,16 +16,22 @@ public enum Emitter {
     /// The declaration of the function being emitted.
     let funDecl: BaseFunDecl
 
+    /// The mangled name of the function being emitted.
+    let funName: String
+
+    /// The current insertion point.
+    var ip: InsertionPoint
+
     /// A symbol table that maps locally visible declarations to their emitted value, populated by
     /// function parameters and local pattern binding declarations.
-    var locals: SymbolTable
+    var locals: SymbolTable = [:]
 
     /// A list containing the stack allocations that have been built in the current scope and must
     /// be balanced by a deallocation.
-    var allocs: [AllocStackInst]
+    var allocs: [InstIndex] = []
 
-    /// A set identifying the paths currently known to be borrowed.
-    var loans: Set<PathIdentifier>
+    /// A Boolean value that indicates whether the emitter encountered an error.
+    var hasError = false
 
   }
 
@@ -34,15 +43,15 @@ public enum Emitter {
   /// - Parameter decl: A module declaration. `decl` must be type checked: all symbols must be
   ///   resolved or substituted by error nodes.
   public static func emit(module decl: ModuleDecl) -> Module {
-    var builder = Builder(module: Module(id: decl.name), context: decl.type.context)
+    var module = Module(id: decl.name, context: decl.type.context)
     for decl in decl {
-      emit(topLevel: decl, with: &builder)
+      emit(topLevel: decl, into: &module)
     }
-    return builder.module
+    return module
   }
 
   /// Lowers the given "top-level" declaration.
-  public static func emit(topLevel decl: Decl, with builder: inout Builder) {
+  public static func emit(topLevel decl: Decl, into module: inout Module) {
     switch decl {
     case is ModuleDecl:
       fatalError("unreachable")
@@ -51,11 +60,11 @@ public enum Emitter {
     case is PatternBindingDecl:
       fatalError("not implemented")
     case let decl as BaseFunDecl:
-      _ = emit(function: decl, with: &builder)
+      _ = emit(function: decl, into: &module)
     case let decl as ProductTypeDecl:
-      emit(productType: decl, with: &builder)
+      emit(productType: decl, into: &module)
     case let decl as TypeExtnDecl:
-      emit(typeExtn: decl, with: &builder)
+      emit(typeExtn: decl, into: &module)
 
     case is ViewTypeDecl, is AbstractTypeDecl:
       // Views and abstract types are not concrete; there's nothing to emit.
@@ -70,18 +79,16 @@ public enum Emitter {
     }
   }
 
-  public static func emit(member decl: Decl, with builder: inout Builder) {
+  public static func emit(member decl: Decl, into module: inout Module) {
     switch decl {
     case let decl as PatternBindingDecl:
-      // Pattern binding declarations are member properties in the context of a type declaration
-      emit(property: decl, with: &builder)
-
+      emit(property: decl, into: &module)
     default:
-      emit(topLevel: decl, with: &builder)
+      emit(topLevel: decl, into: &module)
     }
   }
 
-  public static func emit(property decl: PatternBindingDecl, with builder: inout Builder) {
+  public static func emit(property decl: PatternBindingDecl, into module: inout Module) {
     assert(decl.isMember)
 
     // FIXME: Emit computed properties and handle initializers in synthesized constructors.
@@ -89,146 +96,144 @@ public enum Emitter {
     assert(decl.initializer == nil)
   }
 
-  public static func emit(productType decl: ProductTypeDecl, with builder: inout Builder) {
+  public static func emit(productType decl: ProductTypeDecl, into module: inout Module) {
     // Emit the the type's witness table(s).
     for conformance in decl.conformanceTable.values {
       var entries: [(decl: BaseFunDecl, impl: VILFun)] = []
       for (req, impl) in conformance.entries {
         if let reqFunDecl = req as? BaseFunDecl {
           let implFunDecl = impl as! BaseFunDecl
-          let fun = emit(witness: implFunDecl, for: reqFunDecl, with: &builder)
+          let fun = emit(witness: implFunDecl, for: reqFunDecl, into: &module)
           entries.append((reqFunDecl, fun))
         }
       }
 
       let table = ViewWitnessTable(
         type: decl.instanceType as! NominalType, view: conformance.viewType, entries: entries)
-      builder.module.viewWitnessTables.append(table)
+      module.viewWitnessTables.append(table)
     }
 
     // Emit the direct members of the declaration.
     for member in decl.members {
-      emit(member: member, with: &builder)
+      emit(member: member, into: &module)
     }
   }
 
-  public static func emit(typeExtn decl: TypeExtnDecl, with builder: inout Builder) {
+  public static func emit(typeExtn decl: TypeExtnDecl, into module: inout Module) {
     for member in decl.members {
-      emit(member: member, with: &builder)
+      emit(member: member, into: &module)
     }
   }
 
   /// Emits a function.
-  public static func emit(function decl: BaseFunDecl, with builder: inout Builder) -> VILFun {
+  public static func emit(function decl: BaseFunDecl, into module: inout Module) -> VILFun {
     // Create (i.e., declare) the function in the module.
-    let fun = builder.getOrCreateFunction(from: decl)
+    let fun = module.getOrCreateFunction(from: decl)
 
     // We're done if the function doesn't have body.
-    guard (decl.body != nil) || decl.isSynthesized else { return fun }
-
-    let oldIP = builder.insertionPointer
-    defer { builder.insertionPointer = oldIP }
-    builder.insertionPointer = InsertionPointer(funName: fun.name)
+    if (decl.body == nil) && !decl.isSynthesized { return fun }
 
     // Contextualize the function's arguments.
     let genericEnv = decl.genericEnv!
-    let paramTypes = fun.type.paramTypes.map({ (type) -> VILType in
-      return type.contextualized(in: genericEnv, from: decl)
+    let paramTypes = fun.type.params!.map({ (param) -> VILType in
+      let ty = VILType.lower(param.type).contextualized(in: genericEnv, from: decl)
+      switch param.policy! {
+      case .local, .inout:
+        return ty.address
+      case .consuming:
+        return ty
+      }
     })
 
     // Create the function's entry block.
-    builder.insertionPointer!.blockID = builder.buildBasicBlock(
-      paramTypes: paramTypes, isEntry: true)
-    var params = builder.currentFun!.entry!.params
+    let entry = module.insertBasicBlock(paramTypes: paramTypes, in: fun.name, isEntry: true)
+    var params = module.blocks[entry].params
+    var state = State(funDecl: decl, funName: fun.name, ip: .endOf(entry))
 
     // If the function has a declaration for `self`, it must be either a method or a constructor.
-    // In both cases, we must register the receiver in the local symbol table, if necessary.
-    var state = State(funDecl: decl, locals: [:], allocs: [], loans: [])
+    // In both cases, we must register the receiver in the local symbol table.
     if let selfDecl = decl.selfDecl {
-      var (selfType, _) = genericEnv.contextualize(selfDecl.type, from: decl)
+      let (selfType, _) = genericEnv.contextualize(selfDecl.type, from: decl)
       if decl.isMember {
         // Member functions accept their receiver as an implicit parameter.
-        state.locals[ObjectIdentifier(selfDecl)] = params[0]
+        state.locals[ObjectIdentifier(selfDecl)] = Operand(params[0])
         params.removeFirst()
       } else {
         // Constructors should allocate `self`.
         assert(decl is CtorDecl)
-        selfType = (selfType as! InoutType).base
-        let loc = builder.buildAllocStack(type: .lower(selfType), isSelf: true)
-        state.locals[ObjectIdentifier(selfDecl)] = loc
+        let alloc = module.insertAllocStack(allocType: .lower(selfType), at: state.ip)
+        state.locals[ObjectIdentifier(selfDecl)] = Operand(alloc)
       }
     }
 
     // Register the function's formal parameters in the local symbol table.
     let captureTable = decl.computeAllCaptures()
     for (capture, param) in zip(captureTable, params) {
-      state.locals[ObjectIdentifier(capture.value.referredDecl)] = param
+      state.locals[ObjectIdentifier(capture.key.decl)] = Operand(param)
     }
     for (paramDecl, param) in zip(decl.params, params[captureTable.count...]) {
-      state.locals[ObjectIdentifier(paramDecl)] = param
+      state.locals[ObjectIdentifier(paramDecl)] = Operand(param)
     }
 
     // Emit the function's body.
     guard let body = decl.body else {
-      emit(synthesizedBodyOf: decl, locals: state.locals, with: &builder)
+      emit(synthesizedBodyOf: decl, state: state, into: &module)
+      module.functions[fun.name]!.stage.insert(.optimized)
       return fun
     }
-
-    emit(brace: body, in: &state, with: &builder)
-
-    // If the function's a constructor, emit the implicit return statement.
-    if decl is CtorDecl {
-      let selfLoc = state.locals[ObjectIdentifier(decl.selfDecl!)]
-      let selfVal = builder.buildLoad(location: selfLoc!)
-      builder.buildDeallocStack(alloc: selfLoc as! AllocStackInst)
-      builder.buildRet(value: selfVal)
-    }
+    emit(brace: body, state: &state, into: &module)
 
     // Emit the function's epilogue.
-    let funType = decl.type as! FunType
-    let context = funType.context
+    if decl is CtorDecl {
+      // If the function's a constructor, emit the implicit return statement.
+      let alloc = state.locals[ObjectIdentifier(decl.selfDecl!)]!
+      let value = module.insertLoad(source: alloc, at: state.ip)
+      module.insertDeallocStack(alloc: alloc, at: state.ip)
+      module.insertRet(value: Operand(value), at: state.ip)
+    } else {
+      let funType = decl.type as! FunType
 
-    switch funType.retType {
-    case context.nothingType:
-      // If the function never returns, emit a halt statement.
-      builder.buildHalt()
+      switch funType.retType {
+      case funType.context.nothingType:
+        // If the function never returns, emit a halt statement.
+        module.insertHalt(at: state.ip)
 
-    case context.unitType:
-      // The function returns unit.
-      builder.buildRet(value: builder.buildUnit())
+      case funType.context.unitType:
+        // The function returns "unit".
+        let unit = UnitValue(context: module.context)
+        module.insertRet(value: Operand(unit), at: state.ip)
 
-    default:
-      // FIXME: Detect missing return value in non unit functions.
-      break
+      default:
+        break
+      }
     }
 
     return fun
   }
 
-  /// Emits the synthesized body of a function.
-  static func emit(
-    synthesizedBodyOf decl: BaseFunDecl,
-    locals: SymbolTable,
-    with builder: inout Builder
-  ) {
+  /// Emits the body of a synthesized function declaration.
+  static func emit(synthesizedBodyOf decl: BaseFunDecl, state: State, into module: inout Module) {
     assert(decl.isSynthesized)
 
     switch decl {
     case is CtorDecl:
       // Emit a synthesized constructor.
-      let base = locals[ObjectIdentifier(decl.selfDecl!)] as! AllocStackInst
+      let alloc = state.locals[ObjectIdentifier(decl.selfDecl!)]!
       let type = decl.parentDeclSpace as! NominalTypeDecl
 
       for (varDecl, paramDecl) in zip(type.storedVars, decl.params) {
-        let memberAddr = builder.buildRecordMemberAddr(
-          record: base, memberDecl: varDecl, type: VILType.lower(varDecl.type).address)
-        let value = locals[ObjectIdentifier(paramDecl)]!
-        builder.buildStore(target: memberAddr, value: value)
+        let memberAddr = module.insertRecordMemberAddr(
+          record: alloc,
+          memberDecl: varDecl,
+          type: .lower(varDecl.type).address,
+          at: state.ip)
+        let value = state.locals[ObjectIdentifier(paramDecl)]!
+        module.insertStore(value, to: Operand(memberAddr), at: state.ip)
       }
 
-      let selfVal = builder.buildLoad(location: base)
-      builder.buildDeallocStack(alloc: base)
-      builder.buildRet(value: selfVal)
+      let value = module.insertLoad(source: alloc, at: state.ip)
+      module.insertDeallocStack(alloc: alloc, at: state.ip)
+      module.insertRet(value: Operand(value), at: state.ip)
 
     default:
       preconditionFailure("unexpected synthesized declaration '\(decl.name)'")
@@ -244,134 +249,178 @@ public enum Emitter {
   static func emit(
     witness impl: BaseFunDecl,
     for req: BaseFunDecl,
-    with builder: inout Builder
+    into module: inout Module
   ) -> VILFun {
     // Create the VIL function object.
     var mangler = Mangler()
     mangler.append(witnessImpl: impl, for: req)
-    let name = VILName(mangler.finalize())
-    let fun = builder.getOrCreateFunction(name: name, type: req.unappliedType as! FunType)
+    let name = mangler.finalize()
+    let fun = module.getOrCreateFunction(name: name, type: req.unappliedType as! FunType)
 
     // Create the function's entry point.
-    builder.insertionPointer = InsertionPointer(funName: name)
-    builder.insertionPointer!.blockID = builder.buildBasicBlock(
-      paramTypes: fun.type.paramTypes, isEntry: true)
-    let params = builder.currentFun!.entry!.params
+    let entry = module.insertBasicBlock(
+      paramTypes: fun.type.params!.map({ .lower($0.type) }),
+      in: fun.name,
+      isEntry: true)
 
     // Emit the function's body.
-    var args: [Value] = params
+    var args = module.blocks[entry].params.map(Operand.init)
     if !(req is CtorDecl) {
-      // Unless the function is a constructor, we have to open the self parameter.
+      // Unless the function is a constructor, we must "open" the receiver.
       let openedSelfType = impl.selfDecl!.type
-      if req.isMutating {
-        args[0] = builder.buildProjectExistentialAddr(
-          container: args[0], type: .lower(openedSelfType))
-
-        if !impl.isMutating {
-          args[0] = builder.buildLoad(location: args[0])
-        }
-      } else {
-        assert(!impl.isMutating)
-        args[0] = builder.buildCopyExistential(container: args[0], type: .lower(openedSelfType))
-      }
+      args[0] = Operand(module.insertCheckedCastAddr(
+        source: args[0], type: .lower(openedSelfType).address, at: .endOf(entry)))
+      args[0] = Operand(module.insertBorrowAddr(
+        isMutable: impl.isMutating, source: args[0], at: .endOf(entry)))
     }
 
-    let openedFun = builder.getOrCreateFunction(from: impl)
-    let ret = builder.buildApply(callee: builder.buildFunRef(function: openedFun), args: args)
-    builder.buildRet(value: ret)
+    let openedFun = module.getOrCreateFunction(from: impl)
+    let result = module.insertApply(
+      callee: Operand(FunRef(function: openedFun)),
+      args: args,
+      at: .endOf(entry))
+    if !(req is CtorDecl) {
+      module.insertEndBorrowAddr(source: args[0], at: .endOf(entry))
+    }
+    module.insertRet(value: Operand(result), at: .endOf(entry))
 
     return fun
   }
 
   /// Emits a local pattern binding declaration.
   static func emit(
-    localBinding decl: PatternBindingDecl,
-    in state: inout State,
-    with builder: inout Builder
+    binding decl: PatternBindingDecl,
+    state: inout State,
+    into module: inout Module
   ) {
-    // That should be catched by the frontend until we implement local computed properties.
+    // FIXME: implement local computed properties.
     assert(decl.varDecls.first?.hasStorage ?? true, "not implemented")
 
-    // If the declaration has an initializer, emit a `store [init]`.
+    let patterns = decl.pattern.namedPatterns
+    precondition(patterns.count == 1, "not implemented") // FIXME: destructuring
+
+    if !decl.isMutable {
+      // Immutable bindings require an initializer.
+      guard let initializer = decl.initializer else {
+        module.context.report(.immutableBindingRequiresInitializer(decl: decl))
+        state.locals[ObjectIdentifier(patterns[0].decl)] = Operand(PoisonValue(
+          type: .lower(patterns[0].type)))
+        state.hasError = true
+        return
+      }
+
+      // If the initializer is an l-value, the binding becomes a borrowed reference. Othwerwise, it
+      // gets storage and receives ownership, just like mutable bindings.
+      let lvalue = withLValueEmitter(state: &state, into: &module, do: initializer.accept)
+      if case .success(var source) = lvalue {
+        let btype = patterns[0].type
+
+        // The l-value is borrowed directly if the binding has the same type as the initializer's.
+        // Otherwise, it is wrapped into an existential container. Note: the binding's type can't
+        // be lower than the initializer's type in a well-typed declaration.
+        if btype == initializer.type {
+          let borrow = module.insertBorrowAddr(
+            isMutable: false,
+            source: source,
+            range: initializer.range,
+            at: state.ip)
+          source = Operand(borrow)
+        } else {
+          assert(btype.isExistential)
+          let borrow = module.insertBorrowExistAddr(
+            source: source,
+            interfaceType: .lower(btype).address,
+            range: patterns[0].range,
+            at: state.ip)
+          source = Operand(borrow)
+        }
+
+        state.locals[ObjectIdentifier(patterns[0].decl)] = source
+        return
+      }
+    }
+
+    // Allocate storage to receive ownership.
+    let alloc = emit(storedVar: patterns[0].decl, state: &state, into: &module)
+    state.locals[ObjectIdentifier(patterns[0].decl)] = Operand(alloc)
     if let initializer = decl.initializer {
-      // Emit the fast assignment path if we don't need destructuring.
-      let patterns = decl.pattern.namedPatterns
-      if patterns.count == 1 {
-        let loc = emit(storedLocalVar: patterns[0].decl, in: &state, with: &builder)
-        emit(assign: initializer, to: loc, isInitializer: true, in: &state, with: &builder)
-        state.locals[ObjectIdentifier(patterns[0].decl)] = loc
-      } else {
-        // FIXME: Handle destructuring,
-        fatalError("not implemented")
-      }
-    } else {
-      for pattern in decl.pattern.namedPatterns {
-        let loc = emit(storedLocalVar: pattern.decl, in: &state, with: &builder)
-        state.locals[ObjectIdentifier(pattern.decl)] = loc
-      }
+      emit(
+        assign: emit(rvalue: initializer, state: &state, into: &module),
+        to: Operand(alloc),
+        state: &state,
+        into: &module,
+        range: initializer.range)
     }
   }
 
   /// Emits the declaration of a stored local variable.
   static func emit(
-    storedLocalVar decl: VarDecl,
-    in state: inout State,
-    with builder: inout Builder
-  ) -> Value {
+    storedVar decl: VarDecl,
+    state: inout State,
+    into module: inout Module
+  ) -> InstIndex {
     assert(decl.hasStorage)
-    if decl.state < .typeChecked { return builder.buildPoison() }
+    assert(decl.state == .typeChecked)
 
     // Allocate storage on the stack for the variable.
-    let loc = builder.buildAllocStack(type: .lower(decl.type), decl: decl)
-    state.allocs.append(loc)
-    return loc
+    let alloc = module.insertAllocStack(allocType: .lower(decl.type), decl: decl, at: state.ip)
+    state.allocs.append(alloc)
+    return alloc
   }
 
   static func emit(
     brace: BraceStmt,
-    in state: inout State,
-    with builder: inout Builder
+    state: inout State,
+    into module: inout Module
   ) {
-    assert(builder.insertionPointer != nil, "insertion block not configured")
-
     for i in 0 ..< brace.stmts.count {
       switch brace.stmts[i] {
       case let decl as PatternBindingDecl:
-        emit(localBinding: decl, in: &state, with: &builder)
+        emit(binding: decl, state: &state, into: &module)
 
       case let decl as FunDecl:
-        _ = emit(function: decl, with: &builder)
+        let fun = emit(function: decl, into: &module)
+        let ref = FunRef(function: fun)
 
-        // Emit the value of each captured declaration. Capture with `let` or `var` semantics are
-        // copied from the environment, and so we must emit a r-value either way.
+        // Emit the value of each captured declaration. Captures with the `consuming` are emitted
+        // as r-values and consumed from the environment. Other captures are borrowed.
         let captureTable = decl.computeAllCaptures()
-        let partialArgs = captureTable.map({ (key, value) -> Value in
-          // FIXME: Implement capture-by-reference (requires local bindings).
-          assert(value.semantics != .mut, "not implemented")
-          let expr = DeclRefExpr(decl: key.capturedDecl, type: value.type)
-          return emit(rvalue: expr, in: &state, with: &builder)
-        })
+        var args: [Operand] = []
+        var argsRanges: [SourceRange?] = []
 
-        // Local function with capture declarations require stack allocation.
-        if !partialArgs.isEmpty {
-          let fun = builder.buildFunRef(function: builder.getOrCreateFunction(from: decl))
-          let loc = builder.buildAllocStack(type: .lower(decl.type))
-          state.locals[ObjectIdentifier(decl)] = loc
+        for decl in captureTable.values {
+          argsRanges.append(decl.value.range)
+          switch decl.policy {
+          case .local:
+            args.append(emit(borrow: decl.value, mutably: false, state: &state, into: &module))
+          case .inout:
+            args.append(emit(borrow: decl.value, mutably: true, state: &state, into: &module))
+          case .consuming:
+            args.append(emit(rvalue: decl.value, state: &state, into: &module))
+          }
+        }
+
+        // Local function with captures require stack allocation.
+        if !args.isEmpty {
+          let loc = module.insertAllocStack(allocType: .lower(decl.type), decl: decl, at: state.ip)
+          state.locals[ObjectIdentifier(decl)] = Operand(loc)
           state.allocs.append(loc)
 
-          builder.buildStore(
-            target: loc,
-            value: builder.buildPartialApply(delegator: fun, partialArgs: partialArgs))
+          let partial = module.insertPartialApply(
+            delegator: ref, args: args, argsRanges: argsRanges, at: state.ip)
+          module.insertStore(Operand(partial), to: Operand(loc), range: decl.range, at: state.ip)
+        } else {
+          state.locals[ObjectIdentifier(decl)] = Operand(ref)
         }
 
       case let decl as NominalTypeDecl:
-        emit(topLevel: decl, with: &builder)
+        emit(topLevel: decl, into: &module)
 
       case let stmt as BraceStmt:
-        emit(brace: stmt, in: &state, with: &builder)
+        emit(brace: stmt, state: &state, into: &module)
 
       case let stmt as RetStmt:
-        emit(stmt: stmt, in: &state, with: &builder)
+        emit(stmt: stmt, state: &state, into: &module)
         if i > brace.stmts.count - 1 {
           let context = state.funDecl.type.context
           context.report(.codeAfterReturnNeverExecuted(range: brace.stmts[i + 1].range))
@@ -380,7 +429,7 @@ public enum Emitter {
 
       case let expr as Expr:
         // FIXME: Drop the result of the expression.
-        _ = emit(rvalue: expr, in: &state, with: &builder)
+        _ = emit(rvalue: expr, state: &state, into: &module)
 
       default:
         fatalError("unreachable")
@@ -388,140 +437,203 @@ public enum Emitter {
     }
 
     // Deallocate the `alloc_stack`s in scope.
-    while let loc = state.allocs.popLast() {
-      builder.buildDeallocStack(alloc: loc)
+    while let alloc = state.allocs.popLast() {
+      module.insertDeallocStack(alloc: Operand(alloc), at: state.ip)
     }
   }
 
   static func emit(
     stmt: RetStmt,
-    in state: inout State,
-    with builder: inout Builder
+    state: inout State,
+    into module: inout Module
   ) {
-    let result: Value
+    let result: Operand
     if let expr = stmt.value {
-      result = emit(rvalue: expr, in: &state, with: &builder)
+      result = emit(rvalue: expr, state: &state, into: &module)
     } else {
-      result = builder.buildUnit()
+      result = Operand(UnitValue(context: module.context))
     }
-
-    builder.buildRet(value: result)
-  }
-
-  /// Emits the assignment of the value represented by `expr` to `target`.
-  static func emit(
-    assign expr: Expr,
-    to target: Value,
-    isInitializer: Bool = false,
-    in state: inout State,
-    with builder: inout Builder
-  ) {
-    let exprType = expr.type.dealiased.canonical
-    let targetType = target.type.valType
-
-    // If both operands have an existential layout and the r-value can be treated as a location,
-    // then we may simply emit `copy_addr`.
-    if targetType.isExistential && expr.type.isExistential {
-      let result =
-        withUnsafeMutablePointer(to: &state, { (_state) -> LValueEmitter.ExprResult in
-        withUnsafeMutablePointer(to: &builder, { (_builder) -> LValueEmitter.ExprResult in
-          var emitter = LValueEmitter(_state: _state, _builder: _builder)
-          return expr.accept(&emitter)
-        })
-        })
-
-      if case .success(let result) = result {
-        // If the r-value has a different type than the l-value, it must be cast.
-        var source = result.loc
-        if targetType != exprType {
-          source = builder.buildUnsafeCastAddr(source: source, type: target.type)
-        }
-
-        /// Copies the contents from the location on the right to the location on the left.
-        builder.buildCopyAddr(target: target, source: source)
-        return
-      }
-    }
-
-    // Otherwise, emit the r-value and fall back to the regular path.
-    let value = emit(rvalue: expr, in: &state, with: &builder)
-    emit(assign: value, ofType: exprType, to: target, with: &builder)
+    module.insertRet(value: result, range: stmt.range, at: state.ip)
   }
 
   /// Emits the assignment of `rvalue` to `target`.
   static func emit(
-    assign rvalue: Value,
-    ofType rvalueType: ValType,
-    to target: Value,
-    with builder: inout Builder
+    assign rvalue: Operand,
+    to target: Operand,
+    state: inout State,
+    into module: inout Module,
+    range: SourceRange? = nil
   ) {
-    assert(rvalueType.isCanonical)
-
-    // If the l-value has the same type as the r-value, we can emit a simple store.
-    if target.type.valType == rvalueType {
-      builder.buildStore(target: target, value: rvalue)
-      return
+    // Assuming type checking succeeded, we know that the LHS can't have an existential layout
+    // unless the RHS does too.
+    let rhsType = module.type(of: rvalue)
+    let lhsType = module.type(of: target)
+    if lhsType.isExistential && !rhsType.isExistential {
+      module.insertInitExist(container: target, object: rvalue, range: range, at: state.ip)
+    } else {
+      assert(!lhsType.isExistential || rhsType.isExistential)
+      module.insertStore(rvalue, to: target, range: range, at: state.ip)
     }
-
-    // If both the l-value and the r-value have a union type, we can emit a simple store.
-    if (rvalue.type.valType is UnionType) && (rvalueType is UnionType) {
-      builder.buildStore(target: target, value: rvalue)
-      return
-    }
-
-    // If the l-value is an existential container, we must prepare the r-value. If its another
-    // existential container, then we can copy its contents directly. Otherwise, the container on
-    // the left must be (re)initialized.
-    if target.type.valType.isExistential {
-      if rvalueType.isExistential {
-        let loc = builder.buildAllocStack(type: rvalue.type)
-        builder.buildStore(target: loc, value: rvalue)
-        let tmp = builder.buildUnsafeCastAddr(source: loc, type: target.type)
-        builder.buildCopyAddr(target: target, source: tmp)
-        builder.buildDeallocStack(alloc: loc)
-      } else {
-        builder.buildInitExistentialAddr(container: target, value: rvalue)
-      }
-
-      return
-    }
-
-    builder.buildStore(target: target, value: rvalue)
   }
 
-  /// Emits a r-value.
+  /// Emits an r-value.
   static func emit(
     rvalue expr: Expr,
-    in state: inout State,
-    with builder: inout Builder
-  ) -> Value {
+    state: inout State,
+    into module: inout Module
+  ) -> Operand {
     // Emit a poison value for any expression that has an error type.
-    guard !expr.type.isError else { return builder.buildPoison() }
+    guard !expr.type.isError else {
+      return Operand(PoisonValue(type: .lower(module.context.errorType)))
+    }
 
-    let result =
-      withUnsafeMutablePointer(to: &state, { (_state) -> RValueEmitter.ExprResult in
-      withUnsafeMutablePointer(to: &builder, { (_builder) -> RValueEmitter.ExprResult in
-        var emitter = RValueEmitter(_state: _state, _builder: _builder)
-        return expr.accept(&emitter)
-      })
-      })
-
+    let result = withRValueEmitter(state: &state, into: &module, do: expr.accept)
     switch result {
-    case .success(let result):
-      return result
+    case .success(let val):
+      return val
 
     case .failure(let error):
-      // FIXME: This should be reported.
-      print(error)
-      return builder.buildPoison()
+      module.context.report(error.diag())
+      state.hasError = true
+      return Operand(PoisonValue(type: .lower(module.context.errorType)))
     }
   }
 
-  /// Emits a nil value.
-  @available(swift, obsoleted: 5.0)
-  static func emitNil(context: Context, with builder: inout Builder) -> Value {
-    let decl = context.getTypeDecl(for: .Nil) as! ProductTypeDecl
-    return builder.buildRecord(typeDecl: decl, type: .lower(decl.instanceType))
+  /// Emits an l-value.
+  static func emit(
+    lvalue expr: Expr,
+    state: inout State,
+    into module: inout Module
+  ) -> Operand {
+    // Emit a poison value for any expression that has an error type.
+    guard !expr.type.isError else {
+      return Operand(PoisonValue(type: .lower(module.context.errorType).address))
+    }
+
+    let result = withLValueEmitter(state: &state, into: &module, do: expr.accept)
+    switch result {
+    case .success(let loc):
+      return loc
+
+    case .failure(let error):
+      module.context.report(error.diag())
+      state.hasError = true
+      return Operand(PoisonValue(type: .lower(module.context.errorType).address))
+    }
+  }
+
+  /// Emits a borrowed address.
+  static func emit(
+    borrow expr: Expr,
+    mutably: Bool,
+    state: inout State,
+    into module: inout Module
+  ) -> Operand {
+    let lvalue = withLValueEmitter(state: &state, into: &module, do: expr.accept)
+    switch lvalue {
+    case .success(let source):
+      // If the expression can be emitted as an l-value, use it as the source of the borrow.
+      return Operand(module.insertBorrowAddr(
+        isMutable: mutably, source: source, range: expr.range, at: state.ip))
+
+    case .failure(let error) where mutably:
+      // If it can't but the address is expected to be mutable, that's a failure.
+      module.context.report(error.diag())
+      state.hasError = true
+      return Operand(PoisonValue(type: .lower(expr.type).address))
+
+    default:
+      break
+    }
+
+    switch expr {
+    case let expr as MemberDeclRefExpr:
+      // If the expression is a reference to a member declaration, its base must be "converted" as
+      // a temporary r-value.
+      let base = emit(rvalue: expr.base, state: &state, into: &module)
+      let baseAddr = module.insertAllocStack(allocType: .lower(expr.base.type), at: state.ip)
+      module.insertStore(base, to: Operand(baseAddr), range: expr.range, at: state.ip)
+      state.allocs.append(baseAddr)
+
+      let source = emit(
+        storedMemberAddr: expr, baseAddr: Operand(baseAddr), state: &state, into: &module)
+      return Operand(module.insertBorrowAddr(
+        isMutable: mutably, source: source, range: expr.range, at: state.ip))
+
+    default:
+      // Otherwise, "convert" the expression as a temporary r-value.
+      let rvalue = emit(rvalue: expr, state: &state, into: &module)
+      let source = module.insertAllocStack(allocType: .lower(expr.type), at: state.ip)
+      module.insertStore(rvalue, to: Operand(source), range: expr.range, at: state.ip)
+      state.allocs.append(source)
+
+      return Operand(module.insertBorrowAddr(
+        isMutable: mutably, source: Operand(source), range: expr.range, at: state.ip))
+    }
+  }
+
+  static func emit(
+    storedMemberAddr memberDeclRefExpr: MemberDeclRefExpr,
+    baseAddr: Operand,
+    state: inout State,
+    into module: inout Module
+  ) -> Operand {
+    let memberDecl = memberDeclRefExpr.decl as! VarDecl
+    let baseType = module.type(of: baseAddr)
+    assert(baseType.isAddress)
+
+    switch baseType.valType {
+    case is ProductType:
+      // The member refers to a stored property of a concrete product type.
+      let memberAddr = module.insertRecordMemberAddr(
+        record: baseAddr,
+        memberDecl: memberDecl,
+        type: .lower(memberDeclRefExpr.type).address,
+        at: state.ip)
+      return Operand(memberAddr)
+
+    case let type as BoundGenericType where type.decl.instanceType is ProductType:
+      let memberAddr = module.insertRecordMemberAddr(
+        record: baseAddr,
+        memberDecl: memberDecl,
+        type: .lower(memberDeclRefExpr.type).address,
+        at: state.ip)
+      return Operand(memberAddr)
+
+    default:
+      // FIXME: Handle tuples and existential types.
+      fatalError("not implemented")
+    }
+  }
+
+  /// Calls the given closure with a r-value emitter.
+  static func withRValueEmitter<T>(
+    state: inout State,
+    into module: inout Module,
+    do action: (inout RValueEmitter) -> T
+  ) -> T {
+    return (
+      withUnsafeMutablePointer(to: &state, { (_state) -> T in
+      withUnsafeMutablePointer(to: &module, { (_module) -> T in
+        var emitter = RValueEmitter(_state: _state, _module: _module)
+        return action(&emitter)
+      })
+      }))
+  }
+
+  /// Calls the given closure with an l-value emitter.
+  static func withLValueEmitter<T>(
+    state: inout State,
+    into module: inout Module,
+    do action: (inout LValueEmitter) -> T
+  ) -> T {
+    return (
+      withUnsafeMutablePointer(to: &state, { (_state) -> T in
+      withUnsafeMutablePointer(to: &module, { (_module) -> T in
+        var emitter = LValueEmitter(_state: _state, _module: _module)
+        return action(&emitter)
+      })
+      }))
   }
 
 }

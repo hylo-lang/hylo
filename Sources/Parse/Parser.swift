@@ -216,22 +216,21 @@ public struct Parser {
     loop:while let token = state.peek() {
       var m: DeclModifier
       switch token.kind {
-      case .pub     : m = DeclModifier(kind: .pub)
-      case .mod     : m = DeclModifier(kind: .mod)
-      case .mut     : m = DeclModifier(kind: .mut)
-      case .infix   : m = DeclModifier(kind: .infix)
-      case .prefix  : m = DeclModifier(kind: .prefix)
-      case .postfix : m = DeclModifier(kind: .postfix)
-      case .static  : m = DeclModifier(kind: .static)
-      case .moveonly: m = DeclModifier(kind: .moveonly)
-      default       : break loop
+      case .pub       : m = DeclModifier(kind: .pub)
+      case .mod       : m = DeclModifier(kind: .mod)
+      case .consuming : m = DeclModifier(kind: .consuming)
+      case .mut       : m = DeclModifier(kind: .mut)
+      case .infix     : m = DeclModifier(kind: .infix)
+      case .prefix    : m = DeclModifier(kind: .prefix)
+      case .postfix   : m = DeclModifier(kind: .postfix)
+      case .static    : m = DeclModifier(kind: .static)
+      default         : break loop
       }
       m.range = token.range
       _ = state.take()
 
       guard kinds.insert(m.kind).inserted else {
-        context.report(
-          "ignoring duplicate modifier \(m.kind)", level: .warning, anchor: token.range)
+        context.report("ignoring duplicate modifier \(m.kind)", level: .warning, anchor: m.range)
         continue
       }
 
@@ -263,27 +262,27 @@ public struct Parser {
     let head = state.peek()
     switch head?.kind {
     case .let, .var:
-      return parseBindingDecl(state: &state, rawModifiers: modifiers)
+      return parseBindingDecl(state: &state, parsedModifiers: modifiers)
 
     case .fun, .new, .del:
-      return parseFunDecl(state: &state, rawModifiers: modifiers)
+      return parseFunDecl(state: &state, parsedModifiers: modifiers)
 
     case .type:
-      return parseTypeDecl(state: &state, rawModifiers: modifiers)
+      return parseTypeDecl(state: &state, parsedModifiers: modifiers)
 
     case .view:
       if !(state.flags & .isParsingTopLevel) {
         context.report("view declarations can only appear at top level", anchor: head?.range)
         state.hasError = true
       }
-      return parseTypeDecl(state: &state, rawModifiers: modifiers)
+      return parseTypeDecl(state: &state, parsedModifiers: modifiers)
 
     case .extn:
       if !(state.flags & .isParsingTopLevel) {
         context.report("extensions can only appear at top level", anchor: head?.range)
         state.hasError = true
       }
-      return parseTypeExtn(state: &state, rawModifiers: modifiers)
+      return parseTypeExtn(state: &state, parsedModifiers: modifiers)
 
     default:
       // We must commit to a failure, unless we didn't parse any modifier.
@@ -302,14 +301,14 @@ public struct Parser {
   ///
   /// The next token is expected to be 'let' or 'var'.
   private func parseBindingDecl(
-    state: inout State, rawModifiers: [DeclModifier]
+    state: inout State, parsedModifiers: [DeclModifier]
   ) -> PatternBindingDecl {
     let introducer = state.take(if: { $0.kind == .let || $0.kind == .var })!
-    let lowerLoc = rawModifiers.first?.range?.lowerBound ?? introducer.range.lowerBound
+    let lowerLoc = parsedModifiers.first?.range?.lowerBound ?? introducer.range.lowerBound
     var upperLoc = introducer.range.upperBound
 
     // Filter out modifiers that are not applicable in this context.
-    let modifiers = rawModifiers.filter({ (modifier: DeclModifier) -> Bool in
+    let modifiers = parsedModifiers.filter({ (modifier: DeclModifier) -> Bool in
       switch modifier.kind {
       case .pub, .mod:
         guard !(state.flags & .isParsingViewBody) else {
@@ -400,13 +399,13 @@ public struct Parser {
   ///     fun-interface ::= param-decl-list ('->' sign)?
   ///
   /// The next token is expected to be 'fun', 'new' or 'del'.
-  private func parseFunDecl(state: inout State, rawModifiers: [DeclModifier]) -> BaseFunDecl {
+  private func parseFunDecl(state: inout State, parsedModifiers: [DeclModifier]) -> BaseFunDecl {
     let introducer = state.take(if: { $0.kind == .fun || $0.kind == .new || $0.kind == .del })!
-    let lowerLoc = rawModifiers.first?.range?.lowerBound ?? introducer.range.lowerBound
+    let lowerLoc = parsedModifiers.first?.range?.lowerBound ?? introducer.range.lowerBound
     var upperLoc = introducer.range.upperBound
 
     // Filter out the modifiers that are not applicable in this context.
-    let modifiers = rawModifiers.filter({ (modifier: DeclModifier) -> Bool in
+    let modifiers = parsedModifiers.filter({ (modifier: DeclModifier) -> Bool in
       switch modifier.kind {
       case .pub, .mod:
         guard introducer.kind != .del else {
@@ -423,10 +422,10 @@ public struct Parser {
         }
         return true
 
-      case .mut, .infix, .prefix, .postfix:
+      case .consuming, .mut, .infix, .prefix, .postfix:
         guard introducer.kind == .fun,
               state.flags & .isParsingTypeBody,
-              !rawModifiers.contains(where: { $0.kind == .static })
+              !parsedModifiers.contains(where: { $0.kind == .static })
         else {
           context.report(
             "'\(modifier.kind) can only be applied to non-static member functions",
@@ -434,6 +433,15 @@ public struct Parser {
           state.hasError = true
           return false
         }
+
+        if modifier.kind == .mut {
+          guard !parsedModifiers.contains(where: { $0.kind == .consuming }) else {
+            context.report("consuming member function cannot be mutating", anchor: modifier.range)
+            state.hasError = true
+            return false
+          }
+        }
+
         return true
 
       case .static where introducer.kind == .fun:
@@ -619,13 +627,13 @@ public struct Parser {
 
   /// Parses a capture declaration.
   ///
-  ///     capture-decl ::= ('let' | 'var') NAME
+  ///     capture-decl ::= ('local' | 'mut' | 'consuming') NAME '=' expr
   private func parseCaptureDecl(state: inout State) -> CaptureDecl? {
-    let semantics: CaptureDecl.Semantics
+    let policy: PassingPolicy
     switch state.peek()?.kind {
-    case .let: semantics = .let
-    case .var: semantics = .var
-    case .mut: semantics = .mut
+    case .local     : policy = .local
+    case .mut       : policy = .inout
+    case .consuming : policy = .consuming
     default:
       return nil
     }
@@ -640,9 +648,24 @@ public struct Parser {
       ident = Ident(name: "", range: state.errorRange())
     }
 
+    if state.take(.assign) == nil {
+      context.report("expected '=' after capture identifier", anchor: state.errorRange())
+      state.hasError = true
+    }
+
+    let value: Expr
+    if let expr = parseExpr(state: &state) {
+      value = expr
+    } else {
+      value = ErrorExpr(type: context.errorType, range: introducer.range)
+      context.report("expected expression after '='", anchor: state.errorRange())
+      state.hasError = true
+    }
+
     let decl = CaptureDecl(
-      semantics: semantics,
+      policy: policy,
       ident: ident,
+      value: value,
       type: unresolved,
       range: introducer.range.lowerBound ..< ident.range!.upperBound)
     decl.parentDeclSpace = state.declSpace
@@ -662,7 +685,7 @@ public struct Parser {
     var upperLoc = external.range.upperBound
 
     // Create the declaration.
-    let decl = FunParamDecl(name: "", externalName: nil, typeSign: nil, type: unresolved)
+    let decl = FunParamDecl(name: "", policy: .local, type: unresolved)
     decl.parentDeclSpace = state.declSpace
 
     if let internal_ = state.take(.name) {
@@ -692,8 +715,9 @@ public struct Parser {
     }
 
     // Parse the type signature of the parameter.
-    if state.take(.colon) != nil, let sign = parseSign(state: &state, isParamSign: true) {
+    if state.take(.colon) != nil, let sign = parseFunParamSign(state: &state) {
       decl.sign = sign
+      decl.policy = sign.policy
       upperLoc = sign.range!.upperBound
     } else {
       context.report("expected type signature", anchor: state.errorRange())
@@ -707,27 +731,26 @@ public struct Parser {
   /// Parses a type declaration.
   ///
   /// The next token is expected to be 'type' or 'view'.
-  private func parseTypeDecl(state: inout State, rawModifiers: [DeclModifier]) -> TypeDecl {
+  private func parseTypeDecl(state: inout State, parsedModifiers: [DeclModifier]) -> TypeDecl {
     // All type declarations but views have similar prefixes. Thus, we must parse the "head" of the
     // declaration before we can instantiate a new declaration node. Unfortunately, that means that
     // we'll have to rebind the declaration space of the generic clause.
     let head = parseTypeDeclHead(state: &state)
-    let lowerLoc = rawModifiers.first?.range?.lowerBound ?? head.introducer.range.lowerBound
+    let lowerLoc = parsedModifiers.first?.range?.lowerBound ?? head.introducer.range.lowerBound
     var upperLoc = head.introducer.range.upperBound
 
     // Filter out the modifiers that are not applicable in this context.
-    let modifiers = rawModifiers.filter({ (modifier: DeclModifier) -> Bool in
+    for modifier in parsedModifiers {
       switch modifier.kind {
-      case .pub, .mod, .moveonly:
-        return true
+      case .pub, .mod:
+        continue
 
       default:
         context.report(
           "'\(modifier.kind)' cannot be applied to this declaration", anchor: modifier.range)
         state.hasError = true
-        return false
       }
-    })
+    }
 
     // If the introducer was 'view', then we know what we're parsing already.
     if head.introducer.kind == .view {
@@ -1000,12 +1023,12 @@ public struct Parser {
   ///     type-extn-decl ::= 'extn' compound-ident-sign decl-body
   ///
   /// The next token is expected to be 'extn'.
-  private func parseTypeExtn(state: inout State, rawModifiers: [DeclModifier]) -> TypeExtnDecl {
+  private func parseTypeExtn(state: inout State, parsedModifiers: [DeclModifier]) -> TypeExtnDecl {
     let introducer = state.take(.extn)!
-    let lowerLoc = rawModifiers.first?.range?.lowerBound ?? introducer.range.lowerBound
+    let lowerLoc = parsedModifiers.first?.range?.lowerBound ?? introducer.range.lowerBound
     var upperLoc = introducer.range.upperBound
 
-    for modifier in rawModifiers {
+    for modifier in parsedModifiers {
       context.report(
         "'\(modifier.kind)' cannot be applied to this declaration", anchor: modifier.range)
       state.hasError = true
@@ -1957,82 +1980,122 @@ public struct Parser {
 
   /// Parses a type signature.
   ///
-  ///     sign ::= ('mut' | 'volatile')* async-sign ('->' sign)
-  private func parseSign(state: inout State, isParamSign: Bool = false) -> Sign? {
+  ///     sign ::= type-modifier* (async-sign | fun-sign)
+  ///     fun-sign ::= 'sign' -> 'sign'
+  ///               |  'volatile' tuple-sign '->' sign
+  ///
+  /// This parser produces an instance of `FunParamSign` only if the parsed signature is prefixed
+  /// by a parameter type modifier. Otherwise, it returns a raw signature.
+  ///
+  /// Use `parseFunParamSign` instead if you are expecteding to parse a parameter type signature.
+  private func parseSign(state: inout State) -> Sign? {
     guard let opener = state.peek() else { return nil }
     var lastModifier: Token?
 
-    // Consume a list of type modifiers.
+    // Parse type modifiers.
     var modifiers: [Token.Kind: Token] = [:]
-    while let token = state.take(if: { $0.isOf(kind: [.mut, .volatile]) }) {
+    while let token = state.take(if: { $0.isOf(kind: [.mut, .consuming, .volatile]) }) {
       guard modifiers[token.kind] == nil else {
         context.report(
           "ignoring duplicate modifier \(token.kind)", level: .warning, anchor: token.range)
         continue
       }
 
-      if token.kind == .mut {
-        guard isParamSign else {
-          context.report("'mut' is only allowed on parameter signatures", anchor: token.range)
-          state.hasError = true
-          continue
+      // To avoid ambuiguities, 'volatile' must immediately preceed a function signature whose
+      // domain is enclosed in parentheses.
+      if token.kind == .volatile {
+        if state.peek()?.kind != .lParen {
+          context.report(
+            "volatile function signature requires parentheses",
+            level: .warning,
+            anchor: state.errorRange())
         }
-        guard modifiers.isEmpty else {
-          context.report("'mut' should appear first", level: .warning, anchor: token.range)
-          continue
-        }
+        break
       }
 
       modifiers[token.kind] = token
       lastModifier = token
     }
 
-    // Parse an async signture.
+    // Parse an async signature.
     guard var base = parseAsyncSign(state: &state) else {
       // We must commit to a failure, unless we didn't parse any modifier.
-      if let modifier = lastModifier {
-        context.report(
-          "expected type signature after \(modifier.kind)", anchor: state.errorRange())
+      if let m = lastModifier {
+        context.report("expected type signature after \(m.kind)", anchor: state.errorRange())
         state.hasError = true
-        return ErrorSign(type: context.errorType, range: opener.range ..< modifier.range)
+        return ErrorSign(type: context.errorType, range: opener.range ..< m.range)
       } else {
         return nil
       }
     }
 
-    // Attempt to parse a function signature.
+    // If the next token is an arrow, we're parsing a function signature.
     if let arrow = state.take(.arrow) {
       guard let retSign = parseSign(state: &state) else {
-        context.report(
-          "expected type signature after '->'", anchor: state.errorRange())
+        context.report("expected type signature after '->'", anchor: state.errorRange())
         state.hasError = true
         return ErrorSign(type : context.errorType, range: opener.range ..< arrow.range)
       }
 
+      // If we parsed a tuple signature on the LHS of the arrow, we have to transform each element
+      // into a parameter signature, reusing the element's label. Otherwise, the whole signature
+      // that is a interpreted as a single parameter.
+      var params: [FunParamSign] = []
+      if let tuple = base as? TupleSign {
+        params = tuple.elems.map({ (elem) -> FunParamSign in
+          let sign = FunParamSign(
+            label: elem.label, rawSign: elem.sign, type: unresolved, range: elem.range)
+          if let s = elem.sign as? FunParamSign {
+            sign.policy = s.policy
+            sign.rawSign = s.rawSign
+          }
+          return sign
+        })
+      } else {
+        params = [FunParamSign(rawSign: base, type: unresolved, range: base.range)]
+      }
+
       let sign = FunSign(
-        paramSign: base,
+        params: params,
         retSign: retSign,
         isVolatile: modifiers[.volatile] != nil,
         type: unresolved)
       sign.range = opener.range.lowerBound ..< retSign.range!.upperBound
       base = sign
-    } else if let modifier = modifiers[.volatile] {
-      context.report(
-        "'volatile' is only allowed on function signatures", anchor: modifier.range)
+    } else if let m = modifiers[.volatile] {
+      context.report("'volatile' is only allowed on function signatures", anchor: m.range)
       state.hasError = true
       return ErrorSign(type: context.errorType, range: base.range)
     }
 
-    if let modifier = modifiers[.mut] {
-      let sign = InoutSign(base: base, type: unresolved)
-      sign.modifierRange = modifier.range
-      sign.range = opener.range.lowerBound ..< base.range!.upperBound
-      return sign
-    } else {
-      return base
+    // If we parsed a 'mut' or 'consuming' modifier, the signature denotes a function parameter.
+    if modifiers[.mut] != nil || modifiers[.consuming] != nil {
+      let policy: PassingPolicy
+      if modifiers[.consuming] == nil {
+        policy = .inout
+      } else if modifiers[.mut] == nil {
+        policy = .consuming
+      } else {
+        context.report("consuming parameter cannot be mutating", anchor: modifiers[.mut]!.range)
+        policy = .consuming
+      }
+      base = FunParamSign(policy: policy, rawSign: base, type: unresolved, range: base.range)
     }
+
+    return base
   }
 
+  /// Parses a parameter signature.
+  ///
+  ///     fun-param-sign ::= 'mut'? 'consuming'? sign
+  private func parseFunParamSign(state: inout State) -> FunParamSign? {
+    guard let sign = parseSign(state: &state) else { return nil }
+    if let s = sign as? FunParamSign {
+      return s
+    } else {
+      return FunParamSign(rawSign: sign, type: sign.type, range: sign.range)
+    }
+  }
 
   /// Parses a maxterm signature, optionally prefix by an async modifier.
   ///
@@ -2184,7 +2247,7 @@ public struct Parser {
   ///     tuple-sign ::= list['(', tuple-sign-elem, ')']
   private func parseTupleSign(state: inout State) -> Sign? {
     guard let (opener, elems, closer) = list(
-            state: &state, delimiters: (.lParen, .rParen), parser: tupleSignElem(state:))
+      state: &state, delimiters: (.lParen, .rParen), parser: tupleSignElem(state:))
     else { return nil }
 
     let sign = TupleSign(elems: elems, type: unresolved)
@@ -2195,7 +2258,7 @@ public struct Parser {
   /// Parses a single element in a tuple signature.
   ///
   ///     tuple-sign-elem ::= (label ':')? sign
-  private func tupleSignElem(state: inout State) -> TupleSignElem? {
+  private func tupleSignElem(state: inout State) -> TupleSign.Elem? {
     guard let opener = state.peek() else { return nil }
     let backup = state.save()
     let label: String?
@@ -2224,7 +2287,7 @@ public struct Parser {
       }
     }
 
-    var elem = TupleSignElem(label: label, sign: sign)
+    var elem = TupleSign.Elem(label: label, sign: sign)
     elem.range = opener.range.lowerBound ..< sign.range!.upperBound
     return elem
   }
@@ -2346,15 +2409,9 @@ fileprivate enum InfixTree {
         expr.range = lhs.range!.lowerBound ..< rhs.range!.upperBound
         return expr
 
-      case "as?":
-        guard case .leaf(.sign(let rhs)) = right else { fatalError("unreachable") }
-        let expr = DynCastExpr(value: lhs, sign: rhs, type: unresolved)
-        expr.range = lhs.range!.lowerBound ..< rhs.range!.upperBound
-        return expr
-
       case "as!":
         guard case .leaf(.sign(let rhs)) = right else { fatalError("unreachable") }
-        let expr = UnsafeCastExpr(value: lhs, sign: rhs, type: unresolved)
+        let expr = RuntimeCastExpr(value: lhs, sign: rhs, type: unresolved)
         expr.range = lhs.range!.lowerBound ..< rhs.range!.upperBound
         return expr
 

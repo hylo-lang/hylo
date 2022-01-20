@@ -12,80 +12,6 @@ public final class Context {
     self.sourceManager = sourceManager ?? SourceManager()
   }
 
-  deinit {
-    for buffer in buffers.values {
-      buffer.deinitializer(buffer.baseAddress)
-      buffer.baseAddress.deallocate()
-    }
-  }
-
-  // MARK: Shared memory
-
-  /// A key identifying a shared buffer.
-  public enum SharedBufferKey: Hashable {
-
-    case vilConstantValueStore
-
-  }
-
-  /// A memory buffer.
-  private struct SharedBuffer {
-
-    /// An opaque pointer to a buffer.
-    public let baseAddress: UnsafeMutableRawPointer
-
-    /// A closure that accepts `pointer` and deinitialize its memory before it can be deallocated.
-    public let deinitializer: (UnsafeMutableRawPointer) -> Void
-
-  }
-
-  /// The shared buffers own by this context.
-  private var buffers: [SharedBufferKey: SharedBuffer] = [:]
-
-  /// Allocates a memory buffer in the context.
-  public func allocateBuffer<T>(
-    forKey key: SharedBufferKey,
-    ofType: T.Type,
-    capacity: Int = 1,
-    deinitializer: ((UnsafeMutablePointer<T>) -> Void)? = nil
-  ) -> Bool {
-    guard buffers[key] == nil else { return false }
-
-    let addr = UnsafeMutablePointer<T>.allocate(capacity: capacity)
-    let drop: (UnsafeMutableRawPointer) -> Void
-
-    if let d = deinitializer {
-      drop = { (ptr: UnsafeMutableRawPointer) -> Void in
-        d(ptr.assumingMemoryBound(to: T.self))
-      }
-    } else {
-      drop = { (ptr: UnsafeMutableRawPointer) -> Void in
-        ptr.assumingMemoryBound(to: T.self).deinitialize(count: capacity)
-      }
-    }
-
-    buffers[key] = SharedBuffer(baseAddress: addr, deinitializer: drop)
-    return true
-  }
-
-  /// Deallocates a memory buffer in the context.
-  public func deallocateBuffer(forKey key: SharedBufferKey) -> Bool {
-    guard let buffer = buffers[key] else { return false }
-    buffer.deinitializer(buffer.baseAddress)
-    buffer.baseAddress.deallocate()
-    buffers[key] = nil
-    return true
-  }
-
-  /// Accesses the contents of a buffer in the context.
-  public func withBuffer<T, R>(
-    forKey key: SharedBufferKey,
-    of: T.Type,
-    _ action: (UnsafeMutablePointer<T>) throws -> R
-  ) rethrows -> R? {
-    return try (buffers[key]?.baseAddress.assumingMemoryBound(to: T.self)).map(action)
-  }
-
   // MARK: General properties
 
   /// A flag that indicates whether the compiler is processing the standard library.
@@ -114,7 +40,7 @@ public final class Context {
   // MARK: Types
 
   /// The types uniqued in the context.
-  private var types: Set<HashableBox<ValType, ValType.HashWitness>> = []
+  private var types: Set<HashableBox<ValType.HashWitness>> = []
 
   private func uniqued<T>(_ newType: T) -> T where T: ValType {
     let (_, box) = types.insert(HashableBox(newType))
@@ -147,6 +73,10 @@ public final class Context {
 
   public func skolemType(interface: GenericParamType, genericEnv: GenericEnv) -> SkolemType {
     return uniqued(SkolemType(context: self, interface: interface, genericEnv: genericEnv))
+  }
+
+  public func witnessType(interface: ValType) -> WitnessType {
+    return uniqued(WitnessType(context: self, interface: interface))
   }
 
   public func viewCompositionType<S>(_ views: S) -> ViewCompositionType
@@ -187,16 +117,16 @@ public final class Context {
     }))
   }
 
-  public func funType(paramType: ValType, retType: ValType) -> FunType {
-    return uniqued(FunType(context: self, paramType: paramType, retType: retType))
+  public func funType(params: [FunType.Param], retType: ValType) -> FunType {
+    return uniqued(FunType(context: self, params: params, retType: retType))
+  }
+
+  public func funParamType(policy: PassingPolicy, rawType: ValType) -> FunParamType {
+    return uniqued(FunParamType(policy: policy, rawType: rawType))
   }
 
   public func asyncType(of type: ValType) -> AsyncType {
     return uniqued(AsyncType(context: self, base: type))
-  }
-
-  public func inoutType(of type: ValType) -> InoutType {
-    return uniqued(InoutType(context: self, base: type))
   }
 
   public private(set) lazy var unitType: TupleType = {
@@ -261,11 +191,6 @@ public final class Context {
     return nil
   }
 
-  // Returns the type of an assignment operator for the specified built-in type.
-  public func getBuiltinAssignOperatorType(_ type: BuiltinType) -> FunType {
-    return funType(paramType: tupleType(types: [type, type]), retType: type)
-  }
-
   /// Returns the declaration of the given built-in symbol.
   ///
   /// - Parameter name: A built-in name.
@@ -302,40 +227,46 @@ public final class Context {
   ) -> FunDecl {
     // Create the declaration of the function.
     let funDecl = FunDecl(ident: Ident(name: name), type: unresolvedType)
+    funDecl.props.insert(.isBuiltin)
 
     // Create the declaration(s) of the function's parameter.
-    var paramTypes: [TupleType.Elem] = []
+    var funTypeParams: [FunType.Param] = []
     for (i, param) in params.enumerated() {
       // Create the parameter's type.
-      let type = parse(typeNamed: param)
-      paramTypes.append(TupleType.Elem(type: type))
+      funTypeParams.append(FunType.Param(type: parse(paramTypeNamed: param)))
 
       // Create the declaration of the parameter.
-      let sign = BareIdentSign(ident: Ident(name: param), type: type)
-      let decl = FunParamDecl(name: "_\(i)", typeSign: sign, type: type)
+      let decl = FunParamDecl(name: "_\(i)", policy: .consuming, type: funTypeParams.last!.type)
       decl.parentDeclSpace = funDecl
       decl.setState(.typeChecked)
 
       funDecl.params.append(decl)
     }
 
-    // Setup the function's signature.
-    if !ret.isEmpty {
-      funDecl.retSign = BareIdentSign(ident: Ident(name: ret), type: parse(typeNamed: ret))
-    }
+    // Create the function's type.
     funDecl.type = funType(
-      paramType: tupleType(paramTypes),
-      retType: funDecl.retSign?.type ?? unitType)
-
+      params: funTypeParams,
+      retType: ret.isEmpty ? unitType : parse(typeNamed: ret[ret.startIndex...]))
     funDecl.setState(.typeChecked)
-    funDecl.props.insert(.isBuiltin)
+
     return funDecl
   }
 
-  private func parse(typeNamed name: String) -> ValType {
+  private func parse<S>(typeNamed name: S) -> ValType where S: StringProtocol {
     return name == "Unit"
       ? unitType
-      : getBuiltinType(named: name)!
+      : getBuiltinType(named: String(name))!
+  }
+
+  private func parse(paramTypeNamed name: String) -> ValType {
+    switch name.last {
+    case "&":
+      return funParamType(policy: .local, rawType: parse(typeNamed: name.dropLast()))
+    case "*":
+      return funParamType(policy: .inout, rawType: parse(typeNamed: name.dropLast()))
+    default:
+      return funParamType(policy: .consuming, rawType: parse(typeNamed: name))
+    }
   }
 
   // MARK: Standard library

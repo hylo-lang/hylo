@@ -5,6 +5,5 @@ type A {
 fun main() {
   let x: Any = A(i: 42)
   let y: A | Int = (x as! A).i
-  let z = y as? Int
-  exit(z as! Int)
+  exit(y as! Int)
 }

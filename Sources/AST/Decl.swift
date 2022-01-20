@@ -336,9 +336,10 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
 
     public static let isMember      = FunDeclProps(rawValue: 1 << 0)
     public static let isMutating    = FunDeclProps(rawValue: 1 << 1)
-    public static let isStatic      = FunDeclProps(rawValue: 1 << 2)
-    public static let isBuiltin     = FunDeclProps(rawValue: 1 << 3)
-    public static let isSynthesized = FunDeclProps(rawValue: 1 << 4)
+    public static let isConsuming   = FunDeclProps(rawValue: 1 << 2)
+    public static let isStatic      = FunDeclProps(rawValue: 1 << 3)
+    public static let isBuiltin     = FunDeclProps(rawValue: 1 << 4)
+    public static let isSynthesized = FunDeclProps(rawValue: 1 << 5)
 
   }
 
@@ -450,6 +451,9 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
   /// Indicates whether the function is mutating its receiver.
   public var isMutating: Bool { props.contains(.isMutating) }
 
+  /// Indicates whether the function is consuming its receiver.
+  public var isConsuming: Bool { props.contains(.isConsuming) }
+
   /// Indicates whether the function is static.
   public var isStatic: Bool { props.contains(.isStatic) }
 
@@ -474,20 +478,20 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
     guard isMember || (self is CtorDecl) else { return nil }
 
     // Compute the type of `self` in the context of the function.
-    let receiverType: ValType
+    let selfType: ValType
     switch parentDeclSpace {
     case let typeDecl as NominalTypeDecl:
       // The function is declared in the body of a nominal type.
-      receiverType = typeDecl.receiverType
+      selfType = typeDecl.receiverType
 
     case let extnDecl as TypeExtnDecl:
       // The function is declared in the body of a type extension.
       guard let typeDecl = extnDecl.extendedDecl else {
-        let decl = FunParamDecl(name: "self", externalName: nil, type: type.context.errorType)
+        let decl = FunParamDecl(name: "self", policy: .local, type: type.context.errorType)
         decl.setState(.invalid)
         return decl
       }
-      receiverType = typeDecl.receiverType
+      selfType = typeDecl.receiverType
 
     default:
       fatalError("unreachable")
@@ -496,7 +500,8 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
     let decl = FunParamDecl(
       name: "self",
       externalName: nil,
-      type: isMutating ? type.context.inoutType(of: receiverType) : receiverType)
+      policy: isMutating ? .inout : .local,
+      type: selfType)
     decl.parentDeclSpace = self
     decl.setState(.typeChecked)
     return decl
@@ -508,36 +513,46 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
   /// Returns the set of all declarations that are captured in the function's closure, explicitly
   /// or implicitly (i.e., without an explicit declaration in function's capture list).
   ///
-  /// - Parameter recompute: A flag that indicates whether to use cached results for, if available.
+  /// - Warning: This method identifies implicit captures using resolved declaration references; it
+  ///   will produce inaccurate results until type checking completes.
   ///
-  /// - Note: Implicit captures are identified using resolved declaration references only. Hence,
-  ///   this method should not be called before type checking is complete.
-  public func computeAllCaptures(recomputeImplicit: Bool = false) -> CaptureTable {
-    if let table = self.captureTable, !recomputeImplicit {
+  /// - Parameter useCache: A Boolean value that indicates whether the method should use its cache
+  ///   or recompute the set of implicit captures.
+  public func computeAllCaptures(useCache: Bool = true) -> CaptureTable {
+    // Check the cache.
+    if let table = self.captureTable, useCache {
       return table
     }
 
     // Non-nested functions cannot capture any declaration.
-    guard isNested else {
-      captureTable = CaptureTable()
+    captureTable = CaptureTable()
+    if !isNested {
+      assert(explicitCaptures.isEmpty)
       return captureTable!
     }
 
-    // Initialize the capture table with the list of explicit captures.
+    // Collect all implicit captures.
     var collector = CaptureCollector(relativeTo: parentDeclSpace)
-    for capture in explicitCaptures {
-      guard let decl = capture.capturedDecl else { continue }
-      collector.table[decl] = CaptureTable.Value(referredDecl: capture, type: capture.type)
+    collector.walk(decl: self)
+
+    // Build the capture table.
+    captureTable = CaptureTable()
+    for decl in explicitCaptures {
+      captureTable![CaptureKey(decl)] = decl
+    }
+    for box in collector.capturedDeclRefs {
+      captureTable![CaptureKey(box.value.decl)] = CaptureDecl(
+        policy: .local,
+        ident: Ident(name: box.value.decl.name),
+        value: box.value,
+        type: box.value.type,
+        range: box.value.range)
     }
 
-    // Compute the set of implicit captures.
-    collector.walk(decl: self)
-    captureTable = collector.table
-
-    return collector.table
+    return captureTable!
   }
 
-  // MARK: Name Lookup
+  // MARK: Name lookup
 
   public var isOverloadable: Bool { true }
 
@@ -584,14 +599,14 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
   public var unappliedType: ValType {
     guard isMember else { return type }
 
-    let funType = type as! FunType
-    var paramTypeElems = (funType.paramType as? TupleType)?.elems
-      ?? [TupleType.Elem(type: funType.paramType)]
-    paramTypeElems.insert(TupleType.Elem(label: "self", type: selfDecl!.type), at: 0)
+    assert(!isConsuming || !isMutating)
+    let selfPolicy: PassingPolicy = isConsuming
+      ? .consuming
+      : (isMutating ? .inout : .local)
+    let selfParam = FunType.Param(label: "self", policy: selfPolicy, rawType: selfDecl!.type)
 
-    return type.context.funType(
-      paramType: type.context.tupleType(paramTypeElems),
-      retType: funType.retType)
+    let funType = type as! FunType
+    return type.context.funType(params: [selfParam] + funType.params, retType: funType.retType)
   }
 
   /// Realizes the "applied" type of the function from its signature.
@@ -602,12 +617,11 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
     if state >= .realized { return type }
 
     // Realize the parameters.
-    var paramTypeElems: [TupleType.Elem] = []
-    for param in params {
-      _ = param.realize()
-      paramTypeElems.append(TupleType.Elem(label: param.externalName, type: param.type))
+    var params: [FunType.Param] = []
+    for decl in self.params {
+      let rawType = decl.realize()
+      params.append(FunType.Param(label: decl.externalName, type: rawType))
     }
-    let paramType = type.context.tupleType(paramTypeElems)
 
     // Realize the return type.
     let retType: ValType
@@ -617,7 +631,7 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
       retType = type.context.unitType
     }
 
-    type = type.context.funType(paramType: paramType, retType: retType)
+    type = type.context.funType(params: params, retType: retType)
     setState(.realized)
     return type
   }
@@ -654,15 +668,13 @@ public final class CtorDecl: BaseFunDecl {
   public override func realize() -> ValType {
     if state >= .realized { return type }
 
-    var paramTypeElems: [TupleType.Elem] = []
-    for param in params {
-      _ = param.realize()
-      paramTypeElems.append(TupleType.Elem(label: param.externalName, type: param.type))
+    var params: [FunType.Param] = []
+    for decl in self.params {
+      let rawType = decl.realize()
+      params.append(FunType.Param(label: decl.externalName, type: rawType))
     }
-    let paramType = type.context.tupleType(paramTypeElems)
-    let retType = (selfDecl!.type as! InoutType).base
 
-    type = type.context.funType(paramType: paramType, retType: retType)
+    type = type.context.funType(params: params, retType: selfDecl!.type)
     setState(.realized)
     return type
   }
@@ -676,20 +688,6 @@ public final class CtorDecl: BaseFunDecl {
 /// The declaration of a capture in a function's capture list.
 public final class CaptureDecl: ValueDecl {
 
-  /// The semantics of a capture.
-  public enum Semantics {
-
-    /// The declaration is captured as an immutable copy.
-    case `let`
-
-    /// The declaration is captured as a mutable copy.
-    case `var`
-
-    /// The declaration is captured as an exclusive mutable reference.
-    case `mut`
-
-  }
-
   public var range: SourceRange?
 
   public weak var parentDeclSpace: DeclSpace?
@@ -698,18 +696,25 @@ public final class CaptureDecl: ValueDecl {
 
   public var type: ValType
 
-  /// The semantics of the capture.
-  public var semantics: Semantics
+  /// The capture passing policy.
+  public var policy: PassingPolicy
 
-  /// The identifier of the declaration being captured.
+  /// The capture's identifier.
   public var ident: Ident
 
-  /// The declaration being captured.
-  public weak var capturedDecl: ValueDecl?
+  /// The expression of the value being captured.
+  public var value: Expr
 
-  public init(semantics: Semantics, ident: Ident, type: ValType, range: SourceRange?) {
-    self.semantics = semantics
+  public init(
+    policy: PassingPolicy,
+    ident: Ident,
+    value: Expr,
+    type: ValType,
+    range: SourceRange?
+  ) {
+    self.policy = policy
     self.ident = ident
+    self.value = value
     self.type = type
     self.range = range
   }
@@ -748,13 +753,23 @@ public final class FunParamDecl: ValueDecl {
   /// The external name of the parameter.
   public var externalName: String?
 
+  /// The passing policly of the parameter.
+  public var policy: PassingPolicy
+
   /// The signature of the parameter's type.
   public var sign: Sign?
 
-  public init(name: String, externalName: String? = nil, typeSign: Sign? = nil, type: ValType) {
+  public init(
+    name: String,
+    externalName: String? = nil,
+    policy: PassingPolicy = .local,
+    sign: Sign? = nil,
+    type: ValType
+  ) {
     self.name = name
     self.externalName = externalName
-    self.sign = typeSign
+    self.policy = policy
+    self.sign = sign
     self.type = type
   }
 
@@ -765,10 +780,11 @@ public final class FunParamDecl: ValueDecl {
   public func realize() -> ValType {
     if state >= .realized { return type }
 
-    if let sign = self.sign {
+    if let sign = self.sign as? FunParamSign {
+      precondition(policy == sign.policy, "declaration policy does not match signature")
       type = sign.realize(unqualifiedFrom: parentDeclSpace!)
     } else {
-      preconditionFailure("cannot realize parameter declaration without a signature")
+      preconditionFailure("cannot realize parameter declaration without a parameter signature")
     }
 
     setState(.realized)
@@ -1129,13 +1145,9 @@ public final class ProductTypeDecl: NominalTypeDecl {
   }
 
   public override func updateMemberTables() {
-    super.updateMemberTables()
-
-    // Synthetize default constructors if necessary.
-    if _valueMemberTable["new"] == nil {
+    if _valueMemberTable.isEmpty {
+      // Synthetize a default constructor declaration.
       let context = type.context
-
-      // Create a constructor declaration.
       let ctor = CtorDecl(type: context.unresolvedType)
       ctor.range = introRange
       ctor.parentDeclSpace = self
@@ -1146,7 +1158,7 @@ public final class ProductTypeDecl: NominalTypeDecl {
         let param = FunParamDecl(
           name: varDecl.name,
           externalName: varDecl.name,
-          typeSign: nil,
+          policy: .consuming,
           type: context.unresolvedType)
         param.parentDeclSpace = ctor
         return param
@@ -1154,8 +1166,9 @@ public final class ProductTypeDecl: NominalTypeDecl {
 
       // Insert the synthetized declaration into the member's table.
       _valueMemberTable["new"] = [ctor]
-      members.append(ctor)
     }
+
+    super.updateMemberTables()
   }
 
   public override func accept<V>(_ visitor: inout V) -> V.DeclResult where V: DeclVisitor {
@@ -1319,20 +1332,13 @@ public final class AliasTypeDecl: GenericTypeDecl {
     setState(.realized)
     type = context.aliasType(decl: self).kind
 
-    guard !aliasedType.hasErrors else {
+    guard !aliasedType[.hasErrors] else {
       setState(.invalid)
       return type as! KindType
     }
 
     // Complain if the signature references the declaration itself.
     // FIXME: Detect circular alias declarations.
-
-    // Complain if the aliased signature describes an in-out type.
-    if aliasedType is InoutType {
-      context.report(.invalidMutatingTypeModifier(range: aliasedSign.range))
-      setState(.invalid)
-      return type as! KindType
-    }
 
     // If the declaration denotes a "true" alias, complain if it declares additional conformances.
     // These should be expressed with an extension of the aliased type.

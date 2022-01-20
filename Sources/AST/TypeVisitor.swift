@@ -31,13 +31,15 @@ public protocol TypeVisitor {
 
   func visit(_ type: SkolemType) -> Result
 
+  func visit(_ type: WitnessType) -> Result
+
   func visit(_ type: TupleType) -> Result
 
   func visit(_ type: FunType) -> Result
 
-  func visit(_ type: AsyncType) -> Result
+  func visit(_ type: FunParamType) -> Result
 
-  func visit(_ type: InoutType) -> Result
+  func visit(_ type: AsyncType) -> Result
 
   func visit(_ type: UnresolvedType) -> Result
 

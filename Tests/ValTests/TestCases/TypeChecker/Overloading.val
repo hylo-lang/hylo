@@ -1,6 +1,6 @@
-type A { new() {} }
-type B { new() {} }
-type C { new() {} }
+type A {}
+type B {}
+type C {}
 
 fun mono(_ a: A) -> A {
   ret a

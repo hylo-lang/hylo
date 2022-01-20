@@ -1,96 +1,178 @@
 import AST
+import Basic
 
 /// A VIL instruction.
 public protocol Inst: AnyObject {
 
+  /// The basic block that contains the instruction.
+  var parent: BasicBlockIndex { get }
+
   /// The instruction's operands.
-  var operands: [Value] { get }
+  var operands: [Operand] { get }
+
+  /// The range in Val source corresponding to the instruction, if any.
+  var range: SourceRange? { get }
+
+  /// Dumps the instruction to the given stream.
+  func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>)
+
+  /// The opstring of the instruction in textual VIL.
+  static var opstring: String { get }
 
 }
 
-/// The absolute path of an instruction.
+extension Inst {
+
+  public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
+    printer.write("\(Self.opstring)", to: &stream)
+    if !operands.isEmpty {
+      let os = operands
+        .map({ printer.describe($0) })
+        .joined(separator: ", ")
+      printer.write(" \(os)", to: &stream)
+    }
+    printer.write("\n", to: &stream)
+  }
+
+}
+
+// MARK: Memory instructions
+
+/// Allocates uninitalized memory on the stack.
 ///
-/// The path is stable: it is not invalidated by the insertion or removal of other instructions at
-/// any position, in any basic block.
-public struct InstPath: Hashable {
-
-  /// The name of the function in which the instruction resides.
-  var funName: VILName
-
-  /// The basic block in which the instruction resides.
-  var blockID: BasicBlock.ID
-
-  /// The index of the instruction in the containing basic block.
-  var instIndex: BasicBlock.Index
-
-}
-
-// MARK: Stack Allocations
-
-/// Allocates a block of uninitalized memory on the stack, large enough to contain a value of the
-/// specified type.
+/// The instruction returns the address of a cell large enough to contain an instance of
+/// `allocatedType`. That cell must be deallocated by `dealloc_stack`.
 public final class AllocStackInst: Value, Inst {
 
+  public let type: VILType
+
+  public let parent: BasicBlockIndex
+
+  public let range: SourceRange?
+
   /// The type of the allocated value.
-  public let allocatedType: VILType
+  public let allocType: VILType
 
   /// The Val declaration related to the allocation, for debugging.
   public private(set) unowned var decl: ValueDecl?
 
-  /// A flag indicating whether the allocated value is `self` in a constructor.
-  ///
-  /// This flag should only be set for the `alloc_stack` representing the allocation of `self` in
-  /// the constructor of a product type.
-  public let isSelf: Bool
-
-  init(allocatedType: VILType, decl: ValueDecl?, isSelf: Bool) {
-    self.allocatedType = allocatedType
+  init(
+    allocType: VILType,
+    decl: ValueDecl?,
+    parent: BasicBlockIndex,
+    range: SourceRange?
+  ) {
+    self.allocType = allocType
     self.decl = decl
-    self.isSelf = isSelf
-    super.init(type: allocatedType.address)
+    self.type = allocType.address
+    self.parent = parent
+    self.range = range ?? decl?.range
   }
 
-  public var operands: [Value] { [] }
+  public var operands: [Operand] { [] }
+
+  public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
+    printer.write("alloc_stack \(allocType)\n", to: &stream)
+  }
+
+  public static var opstring = "alloc_stack"
+
+}
+
+/// Given the address `%a` of an owned or lent object `%obj`, produces an address `%b` representing
+/// a "borrowed" reference on `%obj`.
+///
+/// If the borrow is immutable, the object at `source` must be owned or lent. If it is owned, it
+/// becomes lent. Otherwise, it's ownership does not change. If the borrow is mutable, the object
+/// at `source` must be owned and it becomes projected. The reference is guaranteed live until a
+/// lifetime-ending use of `%b` (e.g., `end_borrow`).
+public final class BorrowAddrInst: Value, Inst {
+
+  public let type: VILType
+
+  public let parent: BasicBlockIndex
+
+  public let range: SourceRange?
+
+  /// A Boolean value that indicates whether the borrow is mutable.
+  public let isMutable: Bool
+
+  /// The source address.
+  public let source: Operand
+
+  init(
+    isMutable: Bool,
+    source: Operand,
+    type: VILType,
+    parent: BasicBlockIndex,
+    range: SourceRange?
+  ) {
+    self.isMutable = isMutable
+    self.source = source
+    self.type = type
+    self.parent = parent
+    self.range = range
+  }
+
+  public var operands: [Operand] { [source] }
+
+  public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
+    printer.write("borrow_addr ", to: &stream)
+    if isMutable { printer.write("[mutable] ", to: &stream) }
+    printer.write("\(printer.describe(source))\n", to: &stream)
+  }
+
+  public static var opstring = "borrow_addr"
 
 }
 
 /// Deallocates memory previously allocated by `alloc_stack`.
 ///
-/// This instruction formally terminates the lifetime of the allocation. Accessing the referenced
-/// memory after `dealloc_stack` causes undefined behavior.
+/// The memory at `alloc` must be uninitialized. The allocation is formally freed. Accessing the
+/// referenced memory after `dealloc_stack` causes undefined behavior.
 ///
 /// Deallocation must be in first-in last-out order: the operand must denote the last `alloc_stack`
 /// preceeding the deallocation.
 public final class DeallocStackInst: Inst {
 
-  /// The corresponding stack allocation.
-  public let alloc: AllocStackInst
+  public let parent: BasicBlockIndex
 
-  init(alloc: AllocStackInst) {
+  public let range: SourceRange?
+
+  /// The corresponding stack allocation.
+  public let alloc: Operand
+
+  init(alloc: Operand, parent: BasicBlockIndex, range: SourceRange?) {
     self.alloc = alloc
+    self.parent = parent
+    self.range = range
   }
 
-  public var operands: [Value] { [alloc] }
+  public var operands: [Operand] { [alloc] }
+
+  public static var opstring = "dealloc_stack"
 
 }
 
-// MARK: Memory Access
+/// Destroys the specified value, calling its destructor.
+public final class DeleteInst: Inst {
 
-/// Assigns a copy of the contents located at a source address to another location.
-public final class CopyAddrInst: Inst {
+  public let parent: BasicBlockIndex
 
-  /// The target address of the copy.
-  public let target: Value
+  public let range: SourceRange?
 
-  /// The address of the object to copy.
-  public let source: Value
+  /// The value to delete.
+  public let value: Operand
 
-  init(target: Value, source: Value) {
-    self.target = target
-    self.source = source
+  init(value: Operand, parent: BasicBlockIndex, range: SourceRange?) {
+    self.value = value
+    self.parent = parent
+    self.range = range
   }
 
-  public var operands: [Value] { [target, source] }
+  public var operands: [Operand] { [value] }
+
+  public static var opstring = "delete"
 
 }
 
@@ -101,90 +183,133 @@ public final class CopyAddrInst: Inst {
 /// type, it must hold an initialized container.
 public final class DeleteAddrInst: Inst {
 
+  public let parent: BasicBlockIndex
+
+  public let range: SourceRange?
+
   /// The address of the object to delete.
-  public let target: Value
+  public let target: Operand
 
-  init(target: Value) {
+  init(target: Operand, parent: BasicBlockIndex, range: SourceRange?) {
     self.target = target
+    self.parent = parent
+    self.range = range
   }
 
-  public var operands: [Value] { [target] }
+  public var operands: [Operand] { [target] }
+
+  public static var opstring = "delete_addr"
 
 }
 
-/// Determines whether two addresses are equal.
-public final class EqualAddrInst: Value, Inst {
-
-  /// An address.
-  public let lhs: Value
-
-  /// Another address.
-  public let rhs: Value
-
-  init(lhs: Value, rhs: Value) {
-    self.lhs = lhs
-    self.rhs = rhs
-
-    let context = lhs.type.valType.context
-    super.init(type: .lower(context.getBuiltinType(named: "i1")!))
-  }
-
-  public var operands: [Value] { [lhs, rhs] }
-
-}
-
-/// Loads the value at the specified address.
+/// Ends the lifetime of a borrow.
 ///
-/// The instruction operates on the source location directly. Hence, if it is assigned to an
+/// This instruction must be the last user of its operand.
+public final class EndBorrowInst: Inst {
+
+  public let parent: BasicBlockIndex
+
+  public let range: SourceRange?
+
+  /// The borrowed address to release.
+  public let source: Operand
+
+  init(source: Operand, parent: BasicBlockIndex, range: SourceRange?) {
+    self.source = source
+    self.parent = parent
+    self.range = range
+  }
+
+  public var operands: [Operand] { [source] }
+
+  public static var opstring = "end_borrow"
+
+}
+
+/// Loads the value stored at the specified address.
+///
+/// The instruction operates on the source address directly. Hence, if it is assigned to an
 /// existential container, the entire container is loaded, not only the packaged value.
 public final class LoadInst: Value, Inst {
 
-  /// The semantics of a `load` instruction.
-  public enum Semantics {
+  public let type: VILType
 
-    /// The value is loaded by copy. The value at the source location must have a copyable type.
-    case copy
+  public let parent: BasicBlockIndex
 
-    /// The value is loaded by move.
-    case move
+  public let range: SourceRange?
 
+  /// The source address.
+  public let source: Operand
+
+  init(source: Operand, type: VILType, parent: BasicBlockIndex, range: SourceRange?) {
+    self.source = source
+    self.type = type
+    self.parent = parent
+    self.range = range
   }
 
-  /// The location load.
-  public let location: Value
+  public var operands: [Operand] { [source] }
 
-  /// The semantics of the load.
-  public let semantics: Semantics
-
-  init(location: Value, semantics: Semantics) {
-    self.location = location
-    self.semantics = semantics
-    super.init(type: location.type.object)
-  }
-
-  public var operands: [Value] { [location] }
+  public static var opstring = "load"
 
 }
 
-/// Stores a consumable value at the specified address, transferring its ownership.
+/// Moves the contents from one location to another.
+///
+/// The value at `source` must be owned and the value at `target` must be uninitialized. Ownership
+/// moves from `source` to `target`.
+public final class MoveAddrInst: Inst {
+
+  public let parent: BasicBlockIndex
+
+  public let range: SourceRange?
+
+  /// The source address.
+  public let source: Operand
+
+  /// The target address.
+  public let target: Operand
+
+  init(source: Operand, target: Operand, parent: BasicBlockIndex, range: SourceRange?) {
+    self.source = source
+    self.target = target
+    self.parent = parent
+    self.range = range
+  }
+
+  public var operands: [Operand] { [source, target] }
+
+  public static var opstring = "move_addr"
+
+}
+
+/// Stores a value at the specified address, consuming its ownership.
 public final class StoreInst: Inst {
 
-  /// The location at which the value must be stored.
-  public let target: Value
+  public let parent: BasicBlockIndex
 
-  /// The value being stored.
-  public let value: Value
+  public let range: SourceRange?
 
-  init(target: Value, value: Value) {
-    self.target = target
+  /// The value to store.
+  public let value: Operand
+
+  /// The target address.
+  public let target: Operand
+
+  init(value: Operand, target: Operand, parent: BasicBlockIndex, range: SourceRange?) {
     self.value = value
+    self.target = target
+    self.parent = parent
+    self.range = range
   }
 
-  public var operands: [Value] { [target, value] }
+  public var operands: [Operand] { [value, target] }
+
+  public static var opstring = "store"
 
 }
 
-// MARK: Aggregate Types
+// MARK: Aggregate types
 
 /// Creates an uninitialized record value (i.e., the instance of a product type).
 ///
@@ -192,333 +317,669 @@ public final class StoreInst: Inst {
 /// other use cases, then it should be removed for something more specific.
 public final class RecordInst: Value, Inst {
 
+  public let type: VILType
+
+  public let parent: BasicBlockIndex
+
+  public let range: SourceRange?
+
   /// The declaration of the type of which the record value is an instance.
   public let typeDecl: NominalTypeDecl
 
-  init(typeDecl: NominalTypeDecl, type: VILType) {
+  init(typeDecl: NominalTypeDecl, type: VILType, parent: BasicBlockIndex, range: SourceRange?) {
     self.typeDecl = typeDecl
-    super.init(type: type)
+    self.type = type
+    self.parent = parent
+    self.range = range
   }
 
-  public var operands: [Value] { [] }
+  public var operands: [Operand] { [] }
+
+  public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
+    printer.write("record \(type)\n", to: &stream)
+  }
+
+  public static var opstring = "record"
 
 }
 
 /// Extracts the value of a stored member from a record.
 public final class RecordMemberInst: Value, Inst {
 
+  public let type: VILType
+
+  public let parent: BasicBlockIndex
+
+  public let range: SourceRange?
+
   /// The record value whose member is being extracted.
-  public let record: Value
+  public let record: Operand
 
   /// The declaration of the member being extracted.
   public let memberDecl: VarDecl
 
-  init(record: Value, memberDecl: VarDecl, type: VILType) {
+  init(
+    record: Operand,
+    memberDecl: VarDecl,
+    type: VILType,
+    parent: BasicBlockIndex,
+    range: SourceRange?
+  ) {
     self.record = record
     self.memberDecl = memberDecl
-    super.init(type: type)
+    self.type = type
+    self.parent = parent
+    self.range = range
   }
 
-  public var operands: [Value] { [record] }
+  public var operands: [Operand] { [record] }
+
+  public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
+    printer.write(
+      "record_member \(memberDecl.debugID) in \(printer.describe(record))\n", to: &stream)
+  }
+
+  public static var opstring = "record_member"
 
 }
 
 /// Computes the address of a stored member from the address of a record.
 public final class RecordMemberAddrInst: Value, Inst {
 
+  public let type: VILType
+
+  public let parent: BasicBlockIndex
+
+  public let range: SourceRange?
+
   /// The address of the the record value for which the member's address is computed.
-  public let record: Value
+  public let record: Operand
 
   /// The declaration of the member whose address is computed.
   public let memberDecl: VarDecl
 
-  init(record: Value, memberDecl: VarDecl, type: VILType) {
+  init(
+    record: Operand,
+    memberDecl: VarDecl,
+    type: VILType,
+    parent: BasicBlockIndex,
+    range: SourceRange?
+  ) {
     self.record = record
     self.memberDecl = memberDecl
-    super.init(type: type)
+    self.type = type
+    self.parent = parent
+    self.range = range
   }
 
-  public var operands: [Value] { [record] }
+  public var operands: [Operand] { [record] }
+
+  public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
+    printer.write(
+      "record_member_addr \(memberDecl.debugID) in \(printer.describe(record))\n", to: &stream)
+  }
+
+  public static var opstring = "record_member_addr"
 
 }
 
 /// Creates a tuple value.
 public final class TupleInst: Value, Inst {
 
-  /// The type of the tuple.
-  public let tupleType: TupleType
+  public let type: VILType
 
-  /// The value of the tuple's elements.
-  public let operands: [Value]
+  public let parent: BasicBlockIndex
 
-  init(type: TupleType, operands: [Value]) {
-    self.tupleType = type
-    self.operands = operands
-    super.init(type: .lower(tupleType))
+  /// The values of the tuple's elements.
+  public let operands: [Operand]
+
+  public let range: SourceRange?
+
+  init(type: TupleType, elems: [Operand], parent: BasicBlockIndex, range: SourceRange?) {
+    self.type = .lower(type)
+    self.operands = elems
+    self.parent = parent
+    self.range = range
   }
+
+  public static var opstring = "tuple"
 
 }
 
-// MARK: Existential Types
+// MARK: Casts
 
-/// Allocates the memory necessary to pack an existential package into the specified container.
+/// Returns whether the given address can be converted to the specified type.
+public final class IsCastableAddrInst: Value, Inst {
+
+  public let type: VILType
+
+  public let parent: BasicBlockIndex
+
+  public let range: SourceRange?
+
+  /// The source address.
+  public let source: Operand
+
+  /// The type to which the address should be converted.
+  public let targetType: VILType
+
+  init(source: Operand, type: VILType, parent: BasicBlockIndex, range: SourceRange?) {
+    self.source = source
+    self.targetType = type
+    self.type = .lower(type.valType.context.getBuiltinType(named: "i1")!)
+    self.parent = parent
+    self.range = range
+  }
+
+  public var operands: [Operand] { [source] }
+
+  public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
+    printer.write("is_castable_addr \(printer.describe(source)) to \(targetType)\n", to: &stream)
+  }
+
+  public static var opstring = "is_castable_addr"
+
+}
+
+/// Converts the type of a value, causing a runtime failure if the conversion fails.
 ///
-/// `alloc_existential` returns the address of an uninitialized memory block, large enough to store
-/// an instance of the specified witness.
-public final class AllocExistentialInst: Value, Inst {
+/// The operand is consumed.
+public final class CheckedCastInst: Value, Inst {
 
-  /// The address of the existential container.
-  public let container: Value
+  public let type: VILType
 
-  /// The type of the package's witness.
-  public let witness: VILType
+  public let parent: BasicBlockIndex
 
-  init(container: Value, witness: VILType) {
-    self.container = container
-    self.witness = witness
-    super.init(type: witness.address)
+  public let range: SourceRange?
+
+  /// The value to convert.
+  public let value: Operand
+
+  init(value: Operand, type: VILType, parent: BasicBlockIndex, range: SourceRange?) {
+    self.value = value
+    self.type = type
+    self.parent = parent
+    self.range = range
   }
 
-  public var operands: [Value] { [container] }
+  public var operands: [Operand] { [value] }
+
+  public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
+    printer.write("checked_cast \(printer.describe(value)) to \(type)\n", to: &stream)
+  }
+
+  public static var opstring = "checked_cast"
 
 }
 
-/// Copies the value packaged inside of an existential container.
-public final class CopyExistentialInst: Value, Inst {
+/// Converts an address to a different type, causing a runtime failure if the conversion fails.
+public final class CheckedCastAddrInst: Value, Inst {
 
-  /// The existential container from which the pacakged value is copied.
-  public let container: Value
+  public let type: VILType
 
-  init(container: Value, type: VILType) {
-    self.container = container
-    super.init(type: type)
+  public let parent: BasicBlockIndex
+
+  public let range: SourceRange?
+
+  /// The source address.
+  public let source: Operand
+
+  init(source: Operand, type: VILType, parent: BasicBlockIndex, range: SourceRange?) {
+    self.source = source
+    self.type = type
+    self.parent = parent
+    self.range = range
   }
 
-  public var operands: [Value] { [container] }
+  public var operands: [Operand] { [source] }
+
+  public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
+    printer.write("checked_cast_addr \(printer.describe(source)) to \(type)\n", to: &stream)
+  }
+
+  public static var opstring = "checked_cast_addr"
 
 }
 
-/// Initializes the value packaged inside of an existential container.
-public final class InitExistentialAddrInst: Inst {
+/// Converts the type of a value.
+///
+/// The instruction first performs a checked of the operand. Control is transferred to `succ` if
+/// the cast succeeds and the result of the cast is passed as an argument. Otherwise, control is
+/// transferred to `fail` and the operand is passed as an argument.
+///
+/// The operand is consumed.
+public final class CheckedCastBranchInst: Inst {
+
+  public let parent: BasicBlockIndex
+
+  public let range: SourceRange?
+
+  /// The value to convert.
+  public let value: Operand
+
+  /// The expected type of the packaged value.
+  public let type: VILType
+
+  /// The block to which the execution should jump if the cast succeeds.
+  public let succ: BasicBlockIndex
+
+  /// The block to which the execution should jump if the condition does not hold.
+  public let fail: BasicBlockIndex
+
+  init(
+    value: Operand,
+    type: VILType,
+    succ: BasicBlockIndex,
+    fail: BasicBlockIndex,
+    parent: BasicBlockIndex,
+    range: SourceRange?
+  ) {
+    self.value = value
+    self.type = type
+    self.succ = succ
+    self.fail = fail
+    self.parent = parent
+    self.range = range
+  }
+
+  public var operands: [Operand] { [value] }
+
+  public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
+    printer.write("checked_cast_br \(printer.describe(value)) to \(type), ", to: &stream)
+    printer.write("bb\(printer.numericID(of: succ)), ", to: &stream)
+    printer.write("bb\(printer.numericID(of: fail))\n", to: &stream)
+  }
+
+  public static var opstring = "checked_cast_br"
+
+}
+
+// MARK: Existential types
+
+/// Given the address `%a` of an owned or lent object `%obj`, produces an address `%b` representing
+/// an existential container whose package is a wrapped reference on `%obj`.
+///
+/// The borrow is immutable; the object at `source` must be owned or lent. If it is owned, it
+/// becomes lent. The container's package is guaranteed live until a lifetime-ending use of `%b`
+/// (e.g., `end_borrow`).
+public final class BorrowExistAddrInst: Value, Inst {
+
+  public let type: VILType
+
+  public let parent: BasicBlockIndex
+
+  public let range: SourceRange?
+
+  /// The source address.
+  public let source: Operand
+
+  init(
+    source: Operand,
+    type: VILType,
+    parent: BasicBlockIndex,
+    range: SourceRange?
+  ) {
+    self.source = source
+    self.type = type
+    self.parent = parent
+    self.range = range
+  }
+
+  public var operands: [Operand] { [source] }
+
+  /// The type of the wrapping container.
+  public var interfaceType: VILType { type }
+
+  public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
+    printer.write("borrow_exist_addr \(printer.describe(source)) as \(type)\n", to: &stream)
+  }
+
+  public static var opstring = "borrow_exist_addr"
+
+}
+
+/// Initializes the contents of an existential container with by consuming object.
+public final class InitExistInst: Inst {
+
+  public let parent: BasicBlockIndex
+
+  public let range: SourceRange?
 
   /// The address of the existential container to initialize.
-  public let container: Value
+  public let container: Operand
 
-  /// The value that initializes the container.
-  public let value: Value
+  /// The object that initializes the container.
+  public let object: Operand
 
-  init(container: Value, value: Value) {
+  init(container: Operand, object: Operand, parent: BasicBlockIndex, range: SourceRange?) {
     self.container = container
-    self.value = value
+    self.object = object
+    self.parent = parent
+    self.range = range
   }
 
-  public var operands: [Value] { [container, value] }
+  public var operands: [Operand] { [container, object] }
+
+  public static var opstring = "init_exist"
 
 }
 
-/// Projects the address of the concrete value packaged inside of an existential container.
-public final class ProjectExistentialAddrInst: Value, Inst {
+/// Extracts the contents of an existential container.
+public final class OpenExistInst: Value, Inst {
 
-  /// The address of the existential container to project.
-  public let container: Value
+  public let type: VILType
 
-  init(container: Value, type: VILType) {
+  public let parent: BasicBlockIndex
+
+  public let range: SourceRange?
+
+  /// An existential container.
+  public let container: Operand
+
+  init(container: Operand, type: WitnessType, parent: BasicBlockIndex, range: SourceRange?) {
     self.container = container
-    super.init(type: type)
+    self.type = .lower(type)
+    self.parent = parent
+    self.range = range
   }
 
-  public var operands: [Value] { [container] }
+  public var operands: [Operand] { [container] }
+
+  public static var opstring = "open_exist"
+
+}
+
+/// Obtains the address of the concrete value inside an existential container.
+public final class OpenExistAddrInst: Value, Inst {
+
+  public let type: VILType
+
+  public let parent: BasicBlockIndex
+
+  public let range: SourceRange?
+
+  /// The address of an existential container.
+  public let container: Operand
+
+  init(container: Operand, type: WitnessType, parent: BasicBlockIndex, range: SourceRange?) {
+    self.container = container
+    self.type = .lower(type).address
+    self.parent = parent
+    self.range = range
+  }
+
+  public var operands: [Operand] { [container] }
+
+  public static var opstring = "open_exist_addr"
 
 }
 
 /// Creates a function reference to the implementation matching a view method in the witness of an
-/// existential package.
+/// existential container.
 public final class WitnessMethodInst: Value, Inst {
 
+  public let parent: BasicBlockIndex
+
+  public let range: SourceRange?
+
   /// An existential container that conforms to the view for which the method is being looked up.
-  public let container: Value
+  public let container: Operand
 
   /// The declaration of a view method.
   ///
-  /// This should be either a regular method or a constructor declaration.
+  /// This property should be either a regular method or a constructor declaration.
   public let decl: BaseFunDecl
 
-  init(container: Value, decl: BaseFunDecl) {
+  init(container: Operand, decl: BaseFunDecl, parent: BasicBlockIndex, range: SourceRange?) {
     self.container = container
     self.decl = decl
-    super.init(type: .lower(decl.unappliedType))
+    self.parent = parent
+    self.range = range
   }
 
-  public var operands: [Value] { [container] }
+  public var type: VILType { .lower(decl.unappliedType) }
+
+  public var operands: [Operand] { [container] }
+
+  public static var opstring = "witness_method"
 
 }
 
-// MARK: Cast Operations
+/// Same as `witness_method`, but the container is referred by address.
+public final class WitnessMethodAddrInst: Value, Inst {
 
-/// Attempts to convert an address to a different type.
-///
-/// `checked_cast_addr` produces an address suitable to load an object of the requested type if
-/// the conversion is legal, or a null location otherwise.
-@available(*, deprecated, message: "Use CheckedCastBranchInst instead")
-public final class CheckedCastAddrInst: Value, Inst {
+  public let parent: BasicBlockIndex
 
-  /// The address to convert.
-  public let source: Value
+  public let range: SourceRange?
 
-  init(source: Value, type: VILType) {
-    self.source = source
-    super.init(type: type)
+  /// An existential container that conforms to the view for which the method is being looked up.
+  public let container: Operand
+
+  /// The declaration of a view method.
+  ///
+  /// This property should be either a regular method or a constructor declaration.
+  public let decl: BaseFunDecl
+
+  init(container: Operand, decl: BaseFunDecl, parent: BasicBlockIndex, range: SourceRange?) {
+    self.container = container
+    self.decl = decl
+    self.parent = parent
+    self.range = range
   }
 
-  public var operands: [Value] { [source] }
+  public var type: VILType { .lower(decl.unappliedType) }
+
+  public var operands: [Operand] { [container] }
+
+  public static var opstring = "witness_method_addr"
 
 }
 
-/// Converts an address to a different type.
-///
-/// `unsafe_cast_addr` checks whether the conversion is legal and fails at runtime if `source` does
-/// not have a layout that matches the requested type.
-public final class UnsafeCastAddrInst: Value, Inst {
-
-  /// The address to convert.
-  public let source: Value
-
-  init(source: Value, type: VILType) {
-    self.source = source
-    super.init(type: type)
-  }
-
-  public var operands: [Value] { [source] }
-
-}
-
-// MARK: Functions
+// MARK: Functions & methods
 
 /// Applies a function.
+///
+/// The callee is treated as a borrowed reference on a function. The arguments must correspond to
+/// the callee's parameters. Arguments to consuming parameters must be owned and have an object
+/// type. Arguments to local and mutating parameters must result from a borrowing instruction. All
+/// uses are lifetime-ending.
 public final class ApplyInst: Value, Inst {
 
-  /// The function being applied.
-  public let callee: Value
+  public let type: VILType
 
-  /// The arguments of the function application.
-  public let args: [Value]
+  public let parent: BasicBlockIndex
 
-  init(callee: Value, args: [Value], type: VILType) {
+  /// The function to applied.
+  public let callee: Operand
+
+  /// The arguments of the function.
+  public let args: [Operand]
+
+  /// The ranges corresponding to this instruction.
+  private let ranges: [SourceRange?]
+
+  init(
+    callee: Operand,
+    args: [Operand],
+    type: VILType,
+    parent: BasicBlockIndex,
+    ranges: [SourceRange?]
+  ) {
     self.callee = callee
     self.args = args
-    super.init(type: type)
+    self.type = type
+    self.parent = parent
+    self.ranges = ranges
   }
 
-  public var operands: [Value] { [callee] + args }
+  public var operands: [Operand] { [callee] + args }
 
-}
+  public var range: SourceRange? { ranges.last! }
 
-/// Copies a value using its copy-copy constructor (if any).
-public final class CopyInst: Value, Inst {
+  /// The ranges in Val source corresponding to the locations where arguments are passed.
+  public var argsRanges: ArraySlice<SourceRange?> { ranges.dropLast(1) }
 
-  /// The value being copied.
-  public let value: Value
-
-  init(value: Value) {
-    self.value = value
-    super.init(type: value.type)
+  public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
+    let args = self.args
+      .map({ printer.describe($0) })
+      .joined(separator: ", ")
+    printer.write("apply ", to: &stream)
+    printer.write(printer.describe(callee, withType: false), to: &stream)
+    printer.write("(\(args))\n", to: &stream)
   }
 
-  public var operands: [Value] { [value] }
-
-}
-
-/// Destroys the specified value, calling its destructor.
-public final class DeleteInst: Inst {
-
-  /// The value to delete.
-  public let value: Value
-
-  init(value: Value) {
-    self.value = value
-  }
-
-  public var operands: [Value] { [value] }
+  public static var opstring = "apply"
 
 }
 
 /// Creates the partial application of a function.
 public final class PartialApplyInst: Value, Inst {
 
+  public let type: VILType
+
+  public let parent: BasicBlockIndex
+
   /// The function being partially applied.
-  public let delegator: Value
+  public let delegator: FunRef
 
   /// The partial list of arguments of the function application (from left to right).
-  public let partialArgs: [Value]
+  public let args: [Operand]
 
-  init(delegator: Value, partialArgs: [Value]) {
+  /// The ranges corresponding to this instruction.
+  private let ranges: [SourceRange?]
+
+  init(
+    delegator: FunRef,
+    args: [Operand],
+    parent: BasicBlockIndex,
+    ranges: [SourceRange?]
+  ) {
     self.delegator = delegator
-    self.partialArgs = partialArgs
+    self.args = args
+    self.parent = parent
+    self.ranges = ranges
 
-    let context = delegator.type.valType.context
-    let baseValType = delegator.type.valType as! FunType
-    let partialValType = context.funType(
-      paramType: context.tupleType(types: baseValType.paramTypeList.dropLast(partialArgs.count)),
-      retType: baseValType.retType)
-    super.init(type: .lower(partialValType))
+    let totalType = delegator.type.valType as! FunType
+    let partialType = totalType.context.funType(
+      params: totalType.params.dropLast(args.count),
+      retType: totalType.retType)
+    self.type = .lower(partialType)
   }
 
-  public var operands: [Value] { [delegator] + partialArgs }
+  public var operands: [Operand] { [Operand(delegator)] + args }
+
+  public var range: SourceRange? { ranges.last! }
+
+  /// The ranges in Val source corresponding to the locations where arguments are passed.
+  public var argsRanges: ArraySlice<SourceRange?> { ranges.dropLast(1) }
+
+  public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
+    let args = args
+      .map({ printer.describe($0) })
+      .joined(separator: ", ")
+    printer.write("partial_apply \(delegator)(\(args))\n", to: &stream)
+  }
+
+  public static var opstring = "partial_apply"
 
 }
 
 /// Wraps a bare function reference into a thick function container with an empty environment.
 ///
-/// Bare function references can only appear as operands. This instruction serves to wrap them into
-/// a thick container so that they have the same layout as partially applied functions.
+/// Bare function references are not loadable. This instruction serves to wrap them into a "thick"
+/// function container so that they have the same layout as partially applied functions.
 public final class ThinToThickInst: Value, Inst {
+
+  public let parent: BasicBlockIndex
+
+  public let range: SourceRange?
 
   /// A bare reference to a VIL function.
   public let ref: FunRef
 
-  public init(ref: FunRef) {
+  init(ref: FunRef, parent: BasicBlockIndex, range: SourceRange?) {
     self.ref = ref
-    super.init(type: ref.type)
+    self.parent = parent
+    self.range = range
   }
 
-  public var operands: [Value] { [ref] }
+  public var type: VILType { ref.type.object }
+
+  public var operands: [Operand] { [Operand(ref)] }
+
+  public static var opstring = "thin_to_thick"
 
 }
 
-// MARK: Async Expressions
+// MARK: Async expressions
 
 /// Creates an asynchronous value.
+///
+/// Captures must correspond to `ref`'s parameters. Arguments to consuming captures must be owned
+/// and have an object type. Arguments to local and mutating captures must result from a borrowing
+/// instruction. All uses are lifetime-ending.
 public final class AsyncInst: Value, Inst {
+
+  public let parent: BasicBlockIndex
 
   /// A bare reference to the function that represents the asynchronous execution.
   public let ref: FunRef
 
   /// The values captured by the asynchronous expression, representing the arguments passed to the
   /// underlying function.
-  public let captures: [Value]
+  public let captures: [Operand]
 
-  init(ref: FunRef, captures: [Value] = []) {
+  /// The ranges corresponding to this instruction.
+  private let ranges: [SourceRange?]
+
+  init(ref: FunRef, captures: [Operand], parent: BasicBlockIndex, ranges: [SourceRange?]) {
     self.ref = ref
     self.captures = captures
-    super.init(type: (ref.type as! VILFunType).retType)
+    self.parent = parent
+    self.ranges = ranges
   }
 
-  public var operands: [Value] { [ref] + captures }
+  public var type: VILType {
+    let valType = ref.type.valType as! FunType
+    let context = valType.context
+    return .lower(context.asyncType(of: valType.retType))
+  }
+
+  public var operands: [Operand] { [Operand(ref)] + captures }
+
+  public var range: SourceRange? { ranges.last! }
+
+  /// The ranges in Val source corresponding to the locations where captures are formed.
+  public var captureRanges: ArraySlice<SourceRange?> { ranges.dropLast(1) }
+
+  public static var opstring = "async"
 
 }
 
 /// Awaits an asynchronous value.
 public final class AwaitInst: Value, Inst {
 
-  /// The value being awaited.
-  public let value: Value
+  public let type: VILType
 
-  init(value: Value) {
+  public let parent: BasicBlockIndex
+
+  public let range: SourceRange?
+
+  /// The value being awaited.
+  public let value: Operand
+
+  init(value: Operand, type: VILType, parent: BasicBlockIndex, range: SourceRange?) {
     self.value = value
-    super.init(type: .lower((value.type.valType as! AsyncType).base))
+    self.type = type
+    self.parent = parent
+    self.range = range
   }
 
-  public var operands: [Value] { [value] }
+  // public var type: VILType { .lower((value.type.valType as! AsyncType).base) }
+
+  public var operands: [Operand] { [value] }
+
+  public static var opstring = "await"
 
 }
 
@@ -527,100 +988,147 @@ public final class AwaitInst: Value, Inst {
 /// Branches unconditionally to the start of a basic block.
 public final class BranchInst: Inst {
 
+  public let operands: [Operand]
+
+  public let parent: BasicBlockIndex
+
+  public let range: SourceRange?
+
   /// The block to which the execution should jump.
-  public let dest: BasicBlock.ID
+  public let dest: BasicBlockIndex
 
-  /// The arguments of the destination block.
-  public let operands: [Value]
-
-  init(dest: BasicBlock.ID, args: [Value]) {
+  init(dest: BasicBlockIndex, args: [Operand], parent: BasicBlockIndex, range: SourceRange?) {
     self.dest = dest
     self.operands = args
+    self.parent = parent
+    self.range = range
   }
 
-}
-
-/// Attempts to convert an existential container to a value of a different type.
-///
-/// If the conversion succeeds control is transferred to `thenDest` with an owned value of the
-/// requested type as argument. Otherwise, control is transferred to `elseDest` with a owned value
-/// of the original type as argument. Either way, the ownership of the specified value is consumed.
-public final class CheckedCastBranchInst: Inst {
-
-  /// The value to convert.
-  public let value: Value
-
-  /// The type to which the value is converted.
-  public let type: VILType
-
-  /// The block to which the execution should jump if the cast succeeds.
-  public let thenDest: BasicBlock.ID
-
-  /// The block to which the execution should jump if the condition does not hold.
-  public let elseDest: BasicBlock.ID
-
-  init(value: Value, type: VILType, thenDest: BasicBlock.ID, elseDest: BasicBlock.ID) {
-    self.value = value
-    self.type = type
-    self.thenDest = thenDest
-    self.elseDest = elseDest
+  public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
+    printer.write("br bb\(printer.numericID(of: dest))\n", to: &stream)
   }
 
-  public var operands: [Value] { [value] }
+  public static var opstring = "br"
 
 }
 
 /// Branches conditionally to the start of a basic block.
 public final class CondBranchInst: Inst {
 
+  public let parent: BasicBlockIndex
+
+  public let range: SourceRange?
+
   /// A Boolean condition.
-  public let cond: Value
+  public let cond: Operand
 
   /// The block to which the execution should jump if the condition holds.
-  public let thenDest: BasicBlock.ID
+  public let succ: BasicBlockIndex
 
-  /// The arguments of the "then" destination block.
-  public let thenArgs: [Value]
+  /// The arguments of the "succ" destination block.
+  public let succArgs: [Operand]
 
   /// The block to which the execution should jump if the condition does not hold.
-  public let elseDest: BasicBlock.ID
+  public let fail: BasicBlockIndex
 
-  /// The arguments of the "else" destination block.
-  public let elseArgs: [Value]
+  /// The arguments of the "fail" destination block.
+  public let failArgs: [Operand]
 
   init(
-    cond: Value,
-    thenDest: BasicBlock.ID, thenArgs: [Value],
-    elseDest: BasicBlock.ID, elseArgs: [Value]
+    cond: Operand,
+    succ: BasicBlockIndex, succArgs: [Operand],
+    fail: BasicBlockIndex, failArgs: [Operand],
+    parent: BasicBlockIndex,
+    range: SourceRange?
   ) {
     self.cond = cond
-    self.thenDest = thenDest
-    self.thenArgs = thenArgs
-    self.elseDest = elseDest
-    self.elseArgs = elseArgs
+    self.succ = succ
+    self.succArgs = succArgs
+    self.fail = fail
+    self.failArgs = failArgs
+    self.parent = parent
+    self.range = range
   }
 
-  public var operands: [Value] { [cond] + thenArgs + elseArgs }
+  public var operands: [Operand] { [cond] + succArgs + failArgs }
+
+  public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
+    let succArgs = self.succArgs
+      .map({ printer.describe($0) })
+      .joined(separator: ", ")
+    let failArgs = self.succArgs
+      .map({ printer.describe($0) })
+      .joined(separator: ", ")
+
+    printer.write("cond_br \(printer.describe(cond)), ", to: &stream)
+    printer.write("bb\(printer.numericID(of: succ))(\(succArgs)), ", to: &stream)
+    printer.write("bb\(printer.numericID(of: fail))(\(failArgs))\n", to: &stream)
+  }
+
+  public static var opstring = "cond_br"
 
 }
 
 /// Halts the execution of the program.
 public final class HaltInst: Inst {
 
-  public var operands: [Value] { [] }
+  public let parent: BasicBlockIndex
+
+  public let range: SourceRange?
+
+  init(parent: BasicBlockIndex, range: SourceRange?) {
+    self.parent = parent
+    self.range = range
+  }
+
+  public var operands: [Operand] { [] }
+
+  public static var opstring = "halt"
 
 }
 
 /// Returns from a function.
 public final class RetInst: Inst {
 
-  /// The value being returned.
-  public let value: Value
+  public let parent: BasicBlockIndex
 
-  init(value: Value) {
+  public let range: SourceRange?
+
+  /// The value being returned.
+  public let value: Operand
+
+  init(value: Operand, parent: BasicBlockIndex, range: SourceRange?) {
     self.value = value
+    self.parent = parent
+    self.range = range
   }
 
-  public var operands: [Value] { [value] }
+  public var operands: [Operand] { [value] }
+
+  public static var opstring = "ret"
+
+}
+
+// MARK: Runtime failures
+
+/// Produces a runtime failure if the operand is `true`. Otherwise, does nothing.
+public final class CondFail: Inst {
+
+  public let parent: BasicBlockIndex
+
+  public let range: SourceRange?
+
+  /// A Boolean condition.
+  public let cond: Operand
+
+  init(cond: Operand, parent: BasicBlockIndex, range: SourceRange?) {
+    self.cond = cond
+    self.parent = parent
+    self.range = range
+  }
+
+  public var operands: [Operand] { [cond] }
+
+  public static var opstring = "cond_fail"
 
 }

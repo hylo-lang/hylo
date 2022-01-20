@@ -11,6 +11,9 @@ struct PreChecker: NodeWalker {
 
   var innermostSpace: DeclSpace?
 
+  /// A Boolean value that indicates whether the walker encountered errors.
+  var hasErrors = false
+
   /// A pointer to the system in which new constraints are inserted.
   let system: UnsafeMutablePointer<ConstraintSystem>
 
@@ -33,6 +36,7 @@ struct PreChecker: NodeWalker {
       // Match expressions require special handling to deal with the bindings declared as patterns.
       let checker = PreCheckerImpl(system: system, useSite: innermostSpace!)
       let newExpr = checker.visit(matchExpr)
+      hasErrors = newExpr.type[.hasErrors] || hasErrors
       return (false, newExpr)
 
     case is ErrorExpr:
@@ -46,6 +50,7 @@ struct PreChecker: NodeWalker {
   mutating func didVisit(_ expr: Expr) -> (shouldContinue: Bool, nodeAfter: Expr) {
     var checker = PreCheckerImpl(system: system, useSite: innermostSpace!)
     let newExpr = expr.accept(&checker)
+    hasErrors = newExpr.type[.hasErrors] || hasErrors
     return (true, newExpr)
   }
 
@@ -96,16 +101,7 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
     fatalError("unreachable")
   }
 
-  func visit(_ node: DynCastExpr) -> Expr {
-    let context = node.type.context
-    let maybeDecl = context.getTypeDecl(for: .Maybe) as! AliasTypeDecl
-    let targetType = node.sign.realize(unqualifiedFrom: useSite)
-
-    node.type = context.boundGenericType(decl: maybeDecl, args: [targetType])
-    return node
-  }
-
-  func visit(_ node: UnsafeCastExpr) -> Expr {
+  func visit(_ node: RuntimeCastExpr) -> Expr {
     node.type = node.sign.realize(unqualifiedFrom: useSite)
     return node
   }
@@ -256,7 +252,7 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
   func visit(_ node: AsyncExpr) -> Expr {
     if let sign = node.body.retSign {
       let retType = sign.realize(unqualifiedFrom: useSite)
-      node.body.type = node.type.context.funType(paramType: node.type.context.unitType, retType: retType)
+      node.body.type = node.type.context.funType(params: [], retType: retType)
       node.body.setState(.realized)
     }
 
@@ -277,11 +273,11 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
     // the subject's type does't depend on the expression in which the match appears (only the type
     // of the match itself does). Hence, since case patterns do not contribute to the inference of
     // the subject's type they cannot help disambiguate overloading.
-    TypeChecker.check(expr: &node.subject, useSite: useSite)
+    let success = TypeChecker.check(expr: &node.subject, useSite: useSite)
 
     // Bail out if the subjet doesn't have a valid type.
     let context = node.type.context
-    guard !node.subject.type.hasErrors else {
+    guard success else {
       return ErrorExpr(type: context.errorType, range: node.range)
     }
 
@@ -291,11 +287,14 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
     for `case` in node.cases {
       // Type check each case pattern.
       var cs = ConstraintSystem()
-      TypeChecker.check(
+      let result = TypeChecker.check(
         pattern: `case`.pattern,
         fixedType: node.subject.type,
         useSite: useSite,
         system: &cs)
+      guard result.errors.isEmpty else {
+        return ErrorExpr(type: context.errorType, range: node.range)
+      }
 
       // If the match is a sub-expression, make sure that its cases are single expressions.
       guard !node.isSubexpr || (`case`.body.stmts.count == 1) && (`case`.body.stmts[0] is Expr)
@@ -351,7 +350,7 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
   func bind(ref: Expr, to matches: LookupResult) -> Expr {
     // Favor values over types.
     if matches.values.count > 1 {
-      assert(!ref.type.hasVariables)
+      assert(!ref.type[.hasVariables])
       let unresolved = ref.type.context.unresolvedType
       return OverloadedDeclRefExpr(
         subExpr: ref, declSet: matches.values, type: unresolved, range: ref.range)
@@ -380,7 +379,7 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
         newRef = DeclRefExpr(decl: decl, type: ref.type, range: ref.range)
       }
 
-      // Contextualize the declaration's type if it's generic.
+      // Contextualize the declaration's type in case it is generic.
       newRef.type = TypeChecker.contextualize(
         decl: decl,
         from: useSite,
@@ -388,12 +387,13 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
           system.pointee.insert(prototype: $0, at: ConstraintLocator(newRef))
         })
 
-      // Drop the "inoutness" of the declaration.
-      if let type = newRef.type as? InoutType {
-        newRef.type = type.base
+      // Erase parameter passing policies from the type of parameter declaration references.
+      if let paramType = newRef.type as? FunParamType {
+        assert(decl is FunParamDecl)
+        newRef.type = paramType.rawType
       }
 
-      assert(!newRef.type.hasTypeParams)
+      assert(!newRef.type[.hasTypeParams])
       return newRef
     }
 

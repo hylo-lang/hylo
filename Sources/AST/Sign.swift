@@ -23,21 +23,41 @@ public protocol Sign: Node {
 /// The signature of a tuple type (e.g., `(foo: A, bar: B)`).
 public final class TupleSign: Sign {
 
+  /// The element of a tuple type signature.
+  public struct Elem {
+
+    /// The label of the element.
+    public var label: String?
+
+    /// The signature of the element.
+    public var sign: Sign
+
+    /// The source range of this element’s textual representation.
+    public var range: SourceRange?
+
+    public init(label: String? = nil, sign: Sign, range: SourceRange? = nil) {
+      self.label = label
+      self.sign = sign
+      self.range = range
+    }
+
+  }
+
   public var range: SourceRange?
 
   public var type: ValType
 
   /// The elements of the tuple.
-  public var elems: [TupleSignElem]
+  public var elems: [Elem]
 
-  public init(elems: [TupleSignElem], type: ValType, range: SourceRange? = nil) {
+  public init(elems: [Elem], type: ValType, range: SourceRange? = nil) {
     self.elems = elems
     self.type = type
     self.range = range
   }
 
   public func realize(unqualifiedFrom useSite: DeclSpace) -> ValType {
-    let elems = elems.map({ (elem: TupleSignElem) -> TupleType.Elem in
+    let elems = elems.map({ (elem: TupleSign.Elem) -> TupleType.Elem in
       TupleType.Elem(label: elem.label, type: elem.sign.realize(unqualifiedFrom: useSite))
     })
 
@@ -51,26 +71,6 @@ public final class TupleSign: Sign {
 
 }
 
-/// The element of a tuple type signature.
-public struct TupleSignElem {
-
-  /// The label of the element.
-  public var label: String?
-
-  /// The signature of the element.
-  public var sign: Sign
-
-  /// The source range of this element’s textual representation.
-  public var range: SourceRange?
-
-  public init(label: String? = nil, sign: Sign, range: SourceRange? = nil) {
-    self.label = label
-    self.sign = sign
-    self.range = range
-  }
-
-}
-
 /// The signature of a function type (e.g., `A -> B`).
 public final class FunSign: Sign {
 
@@ -79,7 +79,7 @@ public final class FunSign: Sign {
   public var type: ValType
 
   /// The signature of the function's domain.
-  public var paramSign: Sign
+  public var params: [FunParamSign]
 
   /// The signature of the function's codomain.
   public var retSign: Sign
@@ -88,13 +88,13 @@ public final class FunSign: Sign {
   public var isVolatile: Bool
 
   public init(
-    paramSign: Sign,
+    params: [FunParamSign],
     retSign: Sign,
     isVolatile: Bool = false,
     type: ValType,
     range: SourceRange? = nil
   ) {
-    self.paramSign = paramSign
+    self.params = params
     self.retSign = retSign
     self.isVolatile = isVolatile
     self.type = type
@@ -102,10 +102,55 @@ public final class FunSign: Sign {
   }
 
   public func realize(unqualifiedFrom useSite: DeclSpace) -> ValType {
-    let paramType = paramSign.realize(unqualifiedFrom: useSite)
+    let params = self.params.map({ (sign) -> FunType.Param in
+      let type = sign.realize(unqualifiedFrom: useSite)
+      return FunType.Param(label: sign.label, type: type)
+    })
     let retType = retSign.realize(unqualifiedFrom: useSite)
 
-    type = type.context.funType(paramType: paramType, retType: retType)
+    type = type.context.funType(params: params, retType: retType)
+    return type
+  }
+
+  public func accept<V>(_ visitor: inout V) -> V.SignResult where V: SignVisitor {
+    return visitor.visit(self)
+  }
+
+}
+
+/// The signature of a function parameter.
+public final class FunParamSign: Sign {
+
+  public var range: SourceRange?
+
+  public var type: ValType
+
+  /// The label of the parameter, if any.
+  public var label: String?
+
+  /// The passing policly of the parameter.
+  public var policy: PassingPolicy
+
+  /// The raw signature of the parameter.
+  public var rawSign: Sign
+
+  public init(
+    label: String? = nil,
+    policy: PassingPolicy = .local,
+    rawSign: Sign,
+    type: ValType,
+    range: SourceRange? = nil
+  ) {
+    self.label = label
+    self.policy = policy
+    self.rawSign = rawSign
+    self.type = type
+    self.range = range
+  }
+
+  public func realize(unqualifiedFrom useSite: DeclSpace) -> ValType {
+    let rawType = rawSign.realize(unqualifiedFrom: useSite)
+    type = rawType.context.funParamType(policy: policy, rawType: rawType)
     return type
   }
 
@@ -141,37 +186,6 @@ public final class AsyncSign: Sign {
     }
 
     type = baseType.context.asyncType(of: baseType)
-    return type
-  }
-
-  public func accept<V>(_ visitor: inout V) -> V.SignResult where V: SignVisitor {
-    return visitor.visit(self)
-  }
-
-}
-
-/// The signature of a mutating (a.k.a. in-out) parameter type (e.g., `mut A`).
-public final class InoutSign: Sign {
-
-  public var range: SourceRange?
-
-  public var type: ValType
-
-  /// The signature of the underyling type.
-  public var base: Sign
-
-  /// The source range of the `inout` keyword at the start of the signature.
-  public var modifierRange: SourceRange?
-
-  public init(base: Sign, type: ValType, range: SourceRange? = nil) {
-    self.base = base
-    self.type = type
-    self.range = range
-  }
-
-  public func realize(unqualifiedFrom useSite: DeclSpace) -> ValType {
-    let baseType = base.realize(unqualifiedFrom: useSite)
-    type = baseType.context.inoutType(of: baseType)
     return type
   }
 
@@ -375,29 +389,24 @@ extension IdentCompSign {
         type = member.instanceType
       }
 
-    case let parentType as GenericParamType:
-      guard let conformances = parentType.genericEnv?.conformances(of: parentType) else {
+    case is GenericParamType, is AssocType:
+      let candidates = parentType.lookup(typeMember: name)
+      if candidates.isEmpty {
         return fail(.cannotFind(type: name, in: parentType, range: range))
+      } else if candidates.count > 1 {
+        // We're here because the parent type is bound existentially by multiple views defining an
+        // abstract type type with the same name.
+        // FIXME: We should pick one decl and unify all conformances.
+        return fail(.ambiguousReference(to: name, range: range))
       }
 
-      var candidates: [AssocType] = []
-      for conf in conformances {
-        if let member = conf.viewDecl.typeMemberTable[name] {
-          let interface = member.instanceType as! GenericParamType
-          candidates.append(context.assocType(interface: interface, base: parentType))
-        }
-      }
-
-      if candidates.count != 1 {
-        return candidates.isEmpty
-          ? fail(.cannotFind(type: name, in: parentType, range: range))
-          : fail(.ambiguousReference(to: name, range: range))
-      }
+      let interface = candidates[0].instanceType as! GenericParamType
+      let memberType = context.assocType(interface: interface, base: parentType)
 
       if self is SpecializedIdentSign {
-        return fail(.cannotSpecializeNonGenericType(type: candidates[0], range: range))
+        return fail(.cannotSpecializeNonGenericType(type: memberType, range: range))
       } else {
-        type = candidates[0]
+        type = memberType
       }
 
     default:
@@ -534,7 +543,7 @@ public final class CompoundIdentSign: IdentSign {
     let context = type.context
 
     // Realize the base component, unqualified.
-    let baseType = components[0].realize(unqualifiedFrom: useSite)
+    var baseType = components[0].realize(unqualifiedFrom: useSite)
     guard !baseType.isError else {
       // The diagnostic is emitted by the failed attempt to realize the base.
       components.forEach({ $0.type = context.errorType })
@@ -560,16 +569,15 @@ public final class CompoundIdentSign: IdentSign {
       return builtinType
     }
 
-    var parentType = baseType
     for i in 1 ..< components.count {
-      parentType = components[i].realize(in: parentType, from: useSite)
-      guard parentType !== context.errorType else {
+      baseType = components[i].realize(in: baseType, from: useSite)
+      guard baseType !== context.errorType else {
         components[i...].forEach({ $0.type = context.errorType })
         return context.errorType
       }
     }
 
-    return parentType
+    return baseType
   }
 
   public func accept<V>(_ visitor: inout V) -> V.SignResult where V: SignVisitor {

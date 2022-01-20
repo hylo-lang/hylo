@@ -85,10 +85,10 @@ public final class GenericEnv {
   }
 
   public init?(
-    space   : GenericDeclSpace,
-    params  : [GenericParamType],
+    space: GenericDeclSpace,
+    params: [GenericParamType],
     typeReqs: [TypeReq],
-    context : Context
+    context: Context
   ) {
     self.space = space
     self.params = params
@@ -243,7 +243,7 @@ fileprivate final class Contextualizer: TypeWalker {
       return .stepOver(contextualize(param: type))
 
     default:
-      return type.hasTypeParams
+      return type[.hasTypeParams]
         ? .stepInto(type)
         : .stepOver(type)
     }

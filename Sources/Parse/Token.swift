@@ -4,7 +4,7 @@ import Basic
 public struct Token {
 
   /// The kind of a token.
-  public enum Kind: Int, CustomStringConvertible {
+  public enum Kind: Int {
 
     // Errors
     case invalid  = 0
@@ -26,6 +26,7 @@ public struct Token {
     case `await`
     case `break`
     case `case`
+    case `consuming`
     case `continue`
     case `del`
     case `else`
@@ -35,9 +36,9 @@ public struct Token {
     case `if`
     case `in`
     case `infix`
+    case `local`
     case `match`
     case `mod`
-    case `moveonly`
     case `mut`
     case `new`
     case `nil`
@@ -77,7 +78,7 @@ public struct Token {
     case lAngle
     case rAngle
 
-    public var description: String {
+    public var longDescription: String {
       switch self {
       case .bool      : return "Boolean literal"
       case .int       : return "integer literal"
@@ -87,40 +88,8 @@ public struct Token {
       case .name      : return "name"
       case .under     : return "'_'"
 
-      case .async     : return "'async'"
-      case .await     : return "'await'"
-      case .break     : return "'break'"
-      case .case      : return "'case'"
-      case .continue  : return "'continue'"
-      case .del       : return "'del'"
-      case .else      : return "'else'"
-      case .extn      : return "'extn'"
-      case .for       : return "'for'"
-      case .fun       : return "'fun'"
-      case .if        : return "'if'"
-      case .in        : return "'in'"
-      case .infix     : return "'infix'"
-      case .match     : return "'match'"
-      case .mod       : return "'mod'"
-      case .moveonly  : return "'moveonly'"
-      case .mut       : return "'mut'"
-      case .new       : return "'new'"
-      case .nil       : return "'nil'"
-      case .postfix   : return "'postfix'"
-      case .prefix    : return "'prefix'"
-      case .pub       : return "'pub'"
-      case .ret       : return "'ret'"
-      case .static    : return "'static'"
-      case .type      : return "'type'"
-      case .let       : return "'let'"
-      case .var       : return "'var'"
-      case .view      : return "'view'"
-      case .volatile  : return "'volatile'"
-      case .where     : return "'where'"
-      case .while     : return "'while'"
-
       case .oper      : return "operator"
-      case .cast      : return "operator"
+      case .cast      : return "casting operator"
       case .arrow     : return "'->'"
       case .assign    : return "'='"
 
@@ -142,6 +111,8 @@ public struct Token {
       case .invalid: return "invalid token"
       case .unterminatedString: return "unterminated string"
       case .unterminatedBlockComment: return "unterminated block comment"
+
+      default: return "'\(self)'"
       }
     }
 
@@ -175,7 +146,7 @@ public struct Token {
   /// A Boolean value indicating whether the token is a declaration modifier.
   public var isDeclModifier: Bool {
     switch kind {
-    case .infix, .mod, .moveonly, .mut, .postfix, .prefix, .pub, .static, .volatile:
+    case .consuming, .infix, .mod, .mut, .postfix, .prefix, .pub, .static, .volatile:
       return true
     default:
       return false

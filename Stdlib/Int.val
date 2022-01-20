@@ -1,6 +1,6 @@
 view ExpressibleByBuiltinIntLiteral {
 
-  new (literal: Builtin::IntLiteral)
+  new (literal: consuming Builtin::IntLiteral)
 
 }
 
@@ -18,53 +18,48 @@ type Int: ExpressibleByBuiltinIntLiteral {
   /// Creates a new value from a built-in literal.
   ///
   /// This constructor is meant to be used internally and should not be called directly.
-  new (literal value: Builtin::IntLiteral) {
-    self.value = Builtin::i64_trunc_IntLiteral(value)
+  new (literal value: consuming Builtin::IntLiteral) {
+    self = Int(value: Builtin::i64_trunc_IntLiteral(value))
   }
 
   /// Returns the result of adding `other` to this value.
   ///
   /// - Parameter other: An integer value.
   fun + (_ other: Int) -> Int {
-    var result = Int()
-    result.value = Builtin::i64_add(self.value, other.value)
-    ret result
+    ret Int(value: Builtin::i64_add(
+      Builtin::i64_copy(self.value), Builtin::i64_copy(other.value)))
   }
 
   /// Returns the result of subtracting `other` from this value.
   ///
   /// - Parameter other: An integer value.
   fun - (_ other: Int) -> Int {
-    var result = Int()
-    result.value = Builtin::i64_sub(self.value, other.value)
-    ret result
+    ret Int(value: Builtin::i64_sub(
+      Builtin::i64_copy(self.value), Builtin::i64_copy(other.value)))
   }
 
   /// Returns the result of multiplying `other` with this value.
   ///
   /// - Parameter other: An integer value.
   fun * (_ other: Int) -> Int {
-    var result = Int()
-    result.value = Builtin::i64_mul(self.value, other.value)
-    ret result
+    ret Int(value: Builtin::i64_mul(
+      Builtin::i64_copy(self.value), Builtin::i64_copy(other.value)))
   }
 
   /// Returns the result of dividing this value by `other`.
   ///
   /// - Parameter other: An integer value.
   fun / (_ other: Int) -> Int {
-    var result = Int()
-    result.value = Builtin::i64_div(self.value, other.value)
-    ret result
+    ret Int(value: Builtin::i64_div(
+      Builtin::i64_copy(self.value), Builtin::i64_copy(other.value)))
   }
 
   /// Returns the remainder of dividing this value by `other`.
   ///
   /// - Parameter other: An integer value.
   fun % (_ other: Int) -> Int {
-    var result = Int()
-    result.value = Builtin::i64_rem(self.value, other.value)
-    ret result
+    ret Int(value: Builtin::i64_rem(
+      Builtin::i64_copy(self.value), Builtin::i64_copy(other.value)))
   }
 
   /// Negates this value, effectively producing the same value with the opposite sign.
@@ -77,9 +72,7 @@ type Int: ExpressibleByBuiltinIntLiteral {
 extn Int: Copyable {
 
   fun copy() -> Int {
-    var result = Int()
-    result.value = self.value
-    ret result
+    ret Int(value: Builtin::i64_copy(self.value))
   }
 
 }

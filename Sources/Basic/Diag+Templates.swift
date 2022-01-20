@@ -85,7 +85,7 @@ extension Diag {
   public static func nonNominalExtension(
     _ type: Any, range: SourceRange?
   ) -> Diag {
-    return Diag("I can't extend non-nominal type '\(type)'", anchor: range)
+    return Diag("cannot extend non-nominal type '\(type)'", anchor: range)
   }
 
   public static func typeAliasReferencesItself(
@@ -99,7 +99,7 @@ extension Diag {
   ) -> Diag {
     return Diag(
       """
-      I can't declare new conformances for a nominal type through an alias declaration; \
+      cannot declare new conformances for a nominal type through an alias declaration; \
       use an extension
       """,
       anchor: range)
@@ -219,15 +219,6 @@ extension Diag {
   ) -> Diag {
     return Diag(
       "code after return statement will never be executed",
-      level: .warning,
-      anchor: range)
-  }
-
-  public static func unsafeCastToSameTypeHasNoEffect(
-    type: Any, range: SourceRange?
-  ) -> Diag {
-    return Diag(
-      "unsafe cast from '\(type)' to the same type has no effect",
       level: .warning,
       anchor: range)
   }

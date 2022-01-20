@@ -207,16 +207,14 @@ public struct NodePrinter: NodeVisitor {
   }
 
   public mutating func visit(_ node: CaptureDecl) -> String {
-    let capturedDecl = node.capturedDecl.map(encode(refToDecl:)) ?? "null"
-
     return """
     {
     "class": "\(type(of: node))",
     "range": \(encode(range: node.range)),
     "parentDeclSpace": \(encode(refToSpace: node.parentDeclSpace)),
+    "policy": "\(node.policy)",
     "name": "\(node.ident.name)",
-    "semantics": "\(node.semantics)",
-    "capturedDecl": "\(capturedDecl)"
+    "value": "\(encode(node.value))"
     }
     """
   }
@@ -225,6 +223,7 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(valueDeclHeader(node)),
+    "policy": "\(node.policy)",
     "externalName": \(encode(string: node.externalName)),
     "sign": \(encode(node.sign))
     }
@@ -402,11 +401,7 @@ public struct NodePrinter: NodeVisitor {
     """
   }
 
-  public mutating func visit(_ node: DynCastExpr) -> String {
-    return visit(node as BaseCastExpr)
-  }
-
-  public mutating func visit(_ node: UnsafeCastExpr) -> String {
+  public mutating func visit(_ node: RuntimeCastExpr) -> String {
     return visit(node as BaseCastExpr)
   }
 
@@ -651,23 +646,24 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(signHeader(node)),
-    "paramSign": \(node.paramSign.accept(&self)),
+    "params": \(encode(nodes: node.params)),
     "retSign": \(node.retSign.accept(&self)),
     "isVolatile": \(node.isVolatile)
     }
     """
   }
 
-  public mutating func visit(_ node: AsyncSign) -> String {
+  public mutating func visit(_ node: FunParamSign) -> String {
     return """
     {
-    \(signHeader(node)),
-    "base": \(node.base.accept(&self))
+    "label": \(encode(string: node.label)),
+    "policy": "\(node.policy)",
+    "rawSign": \(node.rawSign.accept(&self))
     }
     """
   }
 
-  public mutating func visit(_ node: InoutSign) -> String {
+  public mutating func visit(_ node: AsyncSign) -> String {
     return """
     {
     \(signHeader(node)),

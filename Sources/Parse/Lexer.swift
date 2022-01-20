@@ -83,6 +83,7 @@ public struct Lexer: IteratorProtocol, Sequence {
       case "await"    : token.kind = .await
       case "break"    : token.kind = .break
       case "case"     : token.kind = .case
+      case "consuming": token.kind = .consuming
       case "continue" : token.kind = .continue
       case "del"      : token.kind = .del
       case "else"     : token.kind = .else
@@ -92,11 +93,11 @@ public struct Lexer: IteratorProtocol, Sequence {
       case "fun"      : token.kind = .fun
       case "if"       : token.kind = .if
       case "in"       : token.kind = .in
+      case "local"    : token.kind = .local
       case "infix"    : token.kind = .infix
       case "is"       : token.kind = .cast
       case "match"    : token.kind = .match
       case "mod"      : token.kind = .mod
-      case "moveonly" : token.kind = .moveonly
       case "mut"      : token.kind = .mut
       case "new"      : token.kind = .new
       case "nil"      : token.kind = .nil

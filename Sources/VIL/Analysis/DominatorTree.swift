@@ -1,35 +1,51 @@
+import Basic
+
 public struct DominatorTree {
 
   private enum Idom {
 
-    case some(BasicBlock.ID)
+    case some(BasicBlockIndex)
 
     case missing
 
   }
 
-  /// The function from which this tree was created.
-  public let fun: VILFun
+  /// The control-flow graph of the function to which this tree relates.
+  public let cfg: ControlFlowGraph
+
+  /// The basic blocks of the function to which this tree relates.
+  public let blocks: [BasicBlockIndex]
 
   /// Immediate dominators.
-  private var idoms: [BasicBlock.ID: Idom]
+  private var idoms: [BasicBlockIndex: Idom]
 
-  public init(fun: VILFun) {
-    self.fun = fun
+  /// Creates a dominator tree from a control-flow graph.
+  ///
+  /// - Parameters
+  ///   - cfg: The control-flow graph of a function.
+  ///   - blocks: An array with all basic the basic blocks of a function, starting with its entry.
+  public init(from cfg: ControlFlowGraph, blocks: [BasicBlockIndex]) {
+    self.cfg = cfg
+    self.blocks = blocks
     self.idoms = [:]
 
     // Compute the immediate dominators of all basic blocks.
-    guard fun.entryID != nil else { return }
-    for b in fun.blocks.keys {
-      _ = findIdom(b)
-    }
+    guard !blocks.isEmpty else { return }
+    for b in blocks { _ = findIdom(b) }
+  }
+
+  /// Creates the dominator tree of the specified function.
+  ///
+  /// - Parameter fun: A VIL function.
+  public init(of fun: VILFun) {
+    self.init(from: fun.cfg, blocks: fun.blocks)
   }
 
   /// A collection of the blocks of this tree in breadth-first order.
-  public var breadthFirstBlocks: [BasicBlock.ID] {
-    guard let entryID = fun.entryID else { return [] }
+  public var breadthFirstBlocks: [BasicBlockIndex] {
+    guard let entry = blocks.first else { return [] }
 
-    let children: [BasicBlock.ID: [BasicBlock.ID]] = idoms.reduce(
+    let children: [BasicBlockIndex: [BasicBlockIndex]] = idoms.reduce(
       into: [:],
       { (children, pair) in
         if case .some(let parent) = pair.value {
@@ -37,7 +53,7 @@ public struct DominatorTree {
         }
       })
 
-    var results = [entryID]
+    var results = [entry]
     var i = 0
     while i < results.count {
       results.append(contentsOf: children[results[i], default: []])
@@ -49,7 +65,7 @@ public struct DominatorTree {
   /// Returns `true` if the basic block identified by `a` dominates the block identified by `b`.
   ///
   /// Both basic blocks are assumed to reside in this tree's function.
-  public func dominates(_ a: BasicBlock.ID, _ b: BasicBlock.ID) -> Bool {
+  public func dominates(_ a: BasicBlockIndex, _ b: BasicBlockIndex) -> Bool {
     // By definition, every block dominates itself.
     if (a == b) { return true }
 
@@ -62,56 +78,47 @@ public struct DominatorTree {
     return false
   }
 
-  /// Returns `true` if the instruction at `defPath` dominates `use`.
+  /// Returns `true` if the instruction at `def` dominates `use`.
   ///
   /// - Parameters:
-  ///   - defPath: The path to an instruction.
-  ///   - use: A use. `use` is assumed to reside in this tree's function.
-  public func dominates(defPath: InstPath, use: Use) -> Bool {
-    assert(defPath.funName == fun.name)
+  ///   - def: An instruction index.
+  ///   - use: A use. `use` is assumed to reside in this tree's control-flow graph.
+  ///   - module: The module in which `def` and `use` are defined.
+  public func dominates(def: InstIndex, use: Use, in module: Module) -> Bool {
+    // Look for the block in which `def` and `use` reside.
+    let defBlock = module.instructions[def].parent
+    let useBlock = module.instructions[use.user].parent
 
     // If `def` is in the same block as `use`, verify that it preceeds it.
-    if defPath.blockID == use.userPath.blockID {
-      for i in fun.blocks[defPath.blockID]!.instructions.indices {
-        var instPath = defPath
-        instPath.instIndex = i
-
-        if instPath == defPath {
+    if defBlock == useBlock {
+      for i in module.blocks[defBlock].instructions {
+        if i == def {
           return true
-        } else if instPath == use.userPath {
+        } else if i == use.user {
           return false
         }
       }
-
-      fatalError("'defPath' and 'use' do not refer to instructions in that function")
-//      let defInst = fun[def]
-//      for inst in fun.blocks[def.blockID]!.instructions {
-//        if inst === defInst {
-//          return true
-//        } else if inst === fun[use.userPath] {
-//          return false
-//        }
-//      }
+      fatalError("unreachable")
     }
 
     // Verify that the block in which `def` resides dominates the block containing `use`.
-    return dominates(defPath.blockID, use.userPath.blockID)
+    return dominates(defBlock, useBlock)
   }
 
-  private mutating func findIdom(_ b: BasicBlock.ID) -> Idom {
+  private mutating func findIdom(_ b: BasicBlockIndex) -> Idom {
     // Check the cache.
     if let idom = idoms[b] { return idom }
 
     // Build the set of predecessors.
-    let preds = fun.cfg.edges(from: b).filter({ $0.label != .forward })
+    let preds = cfg.edges(from: b).filter({ $0.label != .forward })
     if preds.isEmpty {
       idoms[b] = .missing
       return .missing
     }
 
-    // If a block `b` has no predecessors, `b` is unreachable. If `b` has a single predecessor `a`,
-    // `a` is its immediate dominator. If `b` has multiple direct predecessors, its immediate
-    // dominator is the lowest common immediate dominator of all its direct predecessors.
+    // If `b` has no predecessors, it is unreachable. If `b` has one single predecessor `a`, its
+    // immediate dominator is `a`. If `b` has multiple direct predecessors, its immediate dominator
+    // is is the lowest common immediate dominator of all its direct predecessors.
     switch preds.count {
     case 0:
       idoms[b] = .missing
@@ -127,10 +134,10 @@ public struct DominatorTree {
       // immediate dominator is is the first block of the longest common suffix of all remaining
       // chains. If there are no chains left, then all successors are unreachable and the block
       // simply doesn't have a dominator.
-      var chains = preds.compactMap({ (pred) -> [BasicBlock.ID]? in
+      var chains = preds.compactMap({ (pred) -> [BasicBlockIndex]? in
         if pred.target == b { return nil }
 
-        var chain: [BasicBlock.ID] = []
+        var chain: [BasicBlockIndex] = []
         var ancestor = pred.target
         while case .some(let a) = findIdom(ancestor) {
           if a == b { return nil }
@@ -139,7 +146,7 @@ public struct DominatorTree {
         }
 
         // Keep the chain if we reached the entry; otherwise, throw it away.
-        if ancestor == fun.entryID {
+        if ancestor == blocks[0] {
           chain.append(ancestor)
           return chain
         } else {
@@ -158,7 +165,7 @@ public struct DominatorTree {
         return .some(chains[0][0])
 
       default:
-        var idom: BasicBlock.ID = fun.entryID!
+        var idom: BasicBlockIndex = blocks[0]
         outer:while let candidate = chains[0].popLast() {
           for i in 1 ..< chains.count {
             if chains[i].popLast() != candidate { break outer }

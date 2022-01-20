@@ -11,25 +11,7 @@ enum RegisterTableKey: Hashable {
   case callerAddr
 
   /// A key identifying a value register.
-  case value(Value)
-
-  /// Encodes the key into a raw value, using pointer tagging to represent the `callerAddr` case.
-  var rawValue: Int {
-    switch self {
-    case .callerAddr:
-      return 1
-    case .value(let inst):
-      return Int(bitPattern: ObjectIdentifier(inst))
-    }
-  }
-
-  func hash(into hasher: inout Hasher) {
-    hasher.combine(rawValue)
-  }
-
-  static func == (lhs: RegisterTableKey, rhs: RegisterTableKey) -> Bool {
-    return lhs.rawValue == rhs.rawValue
-  }
+  case value(Operand)
 
 }
 

@@ -1,135 +1,123 @@
 import AST
 import Basic
 
-public enum ControlEdge {
+/// A control-flow graph.
+///
+/// A control-flow graph describes the relation between the basic blocks of the function. The
+/// direction of of its edges denotes the direction of the control flow from one block to another:
+/// there an edge from `A` to `B` if the former's terminator points to the latter.
+///
+/// The graph is represented as an adjacency list that encodes all successor and the predecessor
+/// relations, enabling efficient lookup in both directions.
+public typealias ControlFlowGraph = AdjacencyList<BasicBlockIndex, ControlEdge>
 
-  case forward, backward, bidirectional
+extension ControlFlowGraph {
+
+  /// Inserts a control edge into the graph.
+  mutating func insertControlEdge(from source: BasicBlockIndex, to target: BasicBlockIndex) {
+    let (inserted, label) = insertEdge(from: source, to: target, labeledBy: .forward)
+    if inserted {
+      self[target, source] = .backward
+    } else if label == .backward {
+      self[source, target] = .bidirectional
+      self[target, source] = .bidirectional
+    }
+  }
+
+  /// Removes a control edge from the graph.
+  mutating func removeControlEdge(from source: BasicBlockIndex, to target: BasicBlockIndex) {
+    self[source, target] = nil
+    self[target, source] = nil
+  }
+
+  /// Returns the successors of the given block.
+  func successors(of source: BasicBlockIndex) -> [BasicBlockIndex] {
+    return edges(from: source).compactMap({ tip in
+      tip.label != .backward ? tip.target : nil
+    })
+  }
+
+  /// Returns the predecessors of the given block.
+  func predecessors(of target: BasicBlockIndex) -> [BasicBlockIndex] {
+    return self.reduce(into: [], { (result, edge) in
+      if edge.target == target && edge.label != .backward {
+        result.append(edge.source)
+      }
+    })
+  }
 
 }
 
-public typealias ControlFlowGraph = AdjacencyList<BasicBlock.ID, ControlEdge>
+/// An edge in a control-flow graph.
+public enum ControlEdge {
+
+  /// An edge `A -> B` denoting that `A` is a predecessor of `B`.
+  case forward
+
+  /// An edge `A -> B` denoting that `A` is a successor of `B`.
+  case backward
+
+  /// An edge `A -> B` denoting that `A` is a predecessor *and* a successor of `B`.
+  case bidirectional
+
+}
 
 /// A VIL function.
 public struct VILFun {
 
-  /// An iterator that supplies pairs `(path, inst)`, where path is an instruction path and `inst`
-  /// the instruction at that path, for all the instructions in a function.
-  public struct InstEnumerator: IteratorProtocol {
+  /// The VIL stage of a function.
+  public struct Stage: OptionSet {
 
-    fileprivate let funName: VILName
+    public typealias RawValue = UInt8
 
-    fileprivate var blocks: [(key: BasicBlock.ID, value: BasicBlock)]
+    public let rawValue: UInt8
 
-    fileprivate var instIndex: BasicBlock.Index?
-
-    fileprivate init(funName: VILName, blocks: [(key: BasicBlock.ID, value: BasicBlock)]) {
-      self.funName = funName
-      self.blocks = blocks
-      self.instIndex = blocks.last?.value.instructions.startIndex
+    public init(rawValue: UInt8) {
+      self.rawValue = rawValue
     }
 
-    public mutating func next() -> (path: InstPath, inst: Inst)? {
-      while let (blockID, block) = blocks.last, let i = instIndex {
-        if i != block.instructions.endIndex {
-          defer { instIndex = block.instructions.index(after: i) }
-          return (
-            path: InstPath(funName: funName, blockID: blockID, instIndex: i),
-            inst: block.instructions[i])
-        } else {
-          blocks.removeLast()
-          instIndex = blocks.last?.value.instructions.startIndex
-        }
-      }
-      return nil
-    }
+    static let didPassOwnership = Stage(rawValue: 1)
+
+    static let checked: Stage = [.didPassOwnership]
+
+    static let optimized: Stage = .checked
 
   }
 
   /// The mangled name of the function.
-  public let name: VILName
+  public let name: String
 
   /// An optional debug name describing the function.
   public let debugName: String?
 
   /// The VIL type of the function.
-  public let type: VILFunType
+  public let type: VILType
 
-  /// The basic blocks of the function.
-  ///
-  /// Do not add or remove blocks using this property. Use `createBlock(arguments:before:)` or
-  /// `removeBasicBlock(_:)` instead.
-  public var blocks: [BasicBlock.ID: BasicBlock] = [:]
-
-  /// The identifier of the entry block.
-  public var entryID: BasicBlock.ID?
+  /// The indices of the basic blocks in the function, starting with the entry.
+  public internal(set) var blocks: [BasicBlockIndex] = []
 
   /// The control flow graph of the function.
-  ///
-  /// This graph describes the relation between the basic blocks of the function. The direction of
-  /// of its edges denotes the direction of the control flow from one block to another: there an
-  /// edge from `A` to `B` if the former's terminator points to the latter.
-  ///
-  /// The graph is represented as an adjacency list that encodes the successor and the predecessor
-  /// relations, enabling efficient lookup in both directions. Let `l` be the label on an edge
-  /// from `A` to `B`:
-  /// - if `l = .forward`, then `A` is a predecessor of `B`;
-  /// - if `l = .backward`, then `A` is a successor of `B`;
-  /// - if `l = .bidirectional`, then `A` is a predecessor *and* a successor of `B`.
-  public var cfg = ControlFlowGraph()
+  public internal(set) var cfg = ControlFlowGraph()
+
+  /// The stage of the function.
+  public var stage: Stage = []
 
   /// Creates a new VIL function.
   ///
   /// - Parameters:
   ///   - name: The name of the function.
-  ///   - type: The unapplied type of the function.
   ///   - debugName: An optional debug name describing the function.
-  init(name: VILName, type: VILFunType, debugName: String? = nil) {
+  ///   - type: The (unapplied) type of the function.
+  init(name: String, debugName: String? = nil, type: VILType) {
     self.name = name
     self.debugName = debugName
     self.type = type
   }
 
-  /// A Boolean value that indicates whether the function has an entry.
-  public var hasEntry: Bool { entryID != nil }
+  /// A Boolean value that indicates whether the function has an entry block.
+  public var hasEntry: Bool { !blocks.isEmpty }
 
-  /// The entry block of the function.
-  public var entry: BasicBlock? {
-    guard let entryID = self.entryID else { return nil }
-    return blocks[entryID]
-  }
-
-  /// Returns an iterator that supplies all instructions of the function.
-  ///
-  /// The iterator offers no guarantee over the order in which it returns the function's
-  /// instructions.
-  public func makeInstIterator() -> JoinedIterator<StableDoublyLinkedList<Inst>.Iterator> {
-    return JoinedIterator(blocks.values.map({ $0.instructions.makeIterator() }))
-  }
-
-  /// Returns an iterator that supplies all instructions of the function, together with their path.
-  ///
-  /// The iterator offers no guarantee over the order in which instructions are returned.
-  public func makeInstEnumerator() -> InstEnumerator {
-    return InstEnumerator(funName: name, blocks: Array(blocks))
-  }
-
-  /// Dereference an instruction path, assuming it refers into this function.
-  public subscript(path: InstPath) -> Inst {
-    assert(path.funName == name)
-    return blocks[path.blockID]!.instructions[path.instIndex]
-  }
-
-  /// Inserts a control edge from one basic block to another.
-  mutating func insertControlEdge(from source: BasicBlock.ID, to target: BasicBlock.ID) {
-    assert(blocks[source] != nil && blocks[target] != nil)
-
-    let (inserted, label) = cfg.insertEdge(from: source, to: target, labeledBy: .forward)
-    if inserted {
-      cfg[target, source] = .backward
-    } else if label == .backward {
-      cfg[source, target] = .bidirectional
-      cfg[target, source] = .bidirectional
-    }
-  }
+  /// The index of the function's entry block.
+  public var entry: BasicBlockIndex? { blocks.first }
 
 }

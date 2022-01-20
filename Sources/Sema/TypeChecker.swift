@@ -3,8 +3,8 @@ import AST
 /// Val's type checker.
 ///
 /// The type checker resolves type and variable identifiers and verifies that the program satisfies
-/// Val's (flow-insensitive) type system. This process starts with an untyped AST, produced by the
-/// parser, and it ends with a typed AST ready to be lowered to VIL.
+/// Val's (flow-insensitive) type system. This process starts with an untyped AST and ends with a
+/// typed AST ready to be lowered to VIL.
 ///
 /// Conceptually, type checking is a composition of five phases:
 /// - **Extension binding**
@@ -20,16 +20,15 @@ import AST
 ///   Checks that a particular declaration satisfies Val's type system.
 ///
 /// These phases cannot be performed sequentially, as some operations may require results from
-/// "later" phases. Thus, the process is carried out lazily, so that not all of the AST need to be
-/// brought up to a particular phase at the same time.
+/// "later" phases. Instead, the process is carried out lazily so that not all of the AST need to
+/// be brought up to a particular phase at the same time.
 ///
-/// Type checking is "declaration-driven". We start from a declaration (e.g., a module) and visit
-/// all nested declaration recursively. Dependencies are not eagerly type checked. Instead, we move
-/// them at the minimal "phase" that satisfies the requirements of the whathever we are processing.
-
-/// The "phase" at which a particular node sits is encoded either explicitly as node properties, or
-/// by the class of the node itself. For instance, an `UnresolvedDeclRefExpr` will be substituted
-/// for a `DeclRefExpr` after name resolution.
+/// Type checking is "declaration-driven": it starts from a declaration (e.g., a module) and visits
+/// all nested declarations recursively. Nodes on which a declaration depends are brought to the
+/// minimal "phase" that satisfies the requirements of the whathever we are processing.
+///
+/// A "phase" is encoded either explicitly as node properties, or by the class of the node itself.
+/// For instance, `UnresolvedDeclRefExpr` is substituted for `DeclRefExpr` after name resolution.
 public enum TypeChecker {
 
   /// Initializes the type checker.
@@ -50,13 +49,14 @@ public enum TypeChecker {
   /// - Parameters:
   ///   - stmt: The statement to type check.
   ///   - useSite: The declaration space in which the statement is type checked.
-  ///   - freeVarBindingPolicy: The binding policy to adopt for substituting free type variables.
+  ///   - freeVarSubstPolicy: The policy to adopt for substituting free type variables.
+  /// - Returns: A Boolean value indicating whether type checking succeeded.
   static func check(
     stmt: Stmt,
     useSite: DeclSpace,
-    freeVarBindingPolicy: FreeTypeVarBindingPolicy = .bindToErrorType
+    freeVarSubstPolicy: FreeTypeVarSubstPolicy = .bindToErrorType
   ) -> Bool {
-    var checker = StmtChecker(useSite: useSite, freeVarBindingPolicy: freeVarBindingPolicy)
+    var checker = StmtChecker(useSite: useSite, freeVarSubstPolicy: freeVarSubstPolicy)
     return stmt.accept(&checker)
   }
 
@@ -66,19 +66,21 @@ public enum TypeChecker {
   ///   - expr: The expression to type check.
   ///   - fixedType: The expected type of the expression, based on the context in which it appears.
   ///   - useSite: The declaration space in which the expression is type checked.
+  /// - Returns: A Boolean value indicating whether type checking succeeded.
   static func check(
     expr: inout Expr,
     fixedType: ValType? = nil,
     useSite: DeclSpace,
-    freeVarBindingPolicy: FreeTypeVarBindingPolicy = .bindToErrorType
-  ) {
+    freeTypeVarSubstPolicy: FreeTypeVarSubstPolicy = .bindToErrorType
+  ) -> Bool {
     var system = ConstraintSystem()
-    check(
+    let result = check(
       expr: &expr,
       fixedType: fixedType,
       useSite: useSite,
       system: &system,
-      freeVarBindingPolicy: freeVarBindingPolicy)
+      freeTypeVarSubstPolicy: freeTypeVarSubstPolicy)
+    return result.errors.isEmpty
   }
 
   /// Type checks the given expression.
@@ -89,17 +91,17 @@ public enum TypeChecker {
   ///   - useSite: The declaration space in which the expression is type checked.
   ///   - system: A system with potential pre-existing constraints that should be solved together
   ///     with those related to the expression.
-  ///   - freeVarBindingPolicy: The binding policy to adopt for substituting free type variables.
-  /// - Returns: The best solution found by the type solver
-  @discardableResult
+  ///   - freeTypeVarSubstPolicy: The policy to adopt for substituting free type variables.
+  /// - Returns: A Boolean value indicating whether type checking succeeded along with the best
+  ///   solution found by the type solver.
   static func check(
     expr: inout Expr,
     fixedType: ValType?,
     useSite: DeclSpace,
     system: inout ConstraintSystem,
-    freeVarBindingPolicy: FreeTypeVarBindingPolicy = .bindToErrorType
+    freeTypeVarSubstPolicy: FreeTypeVarSubstPolicy = .bindToErrorType
   ) -> Solution {
-    withUnsafeMutablePointer(to: &system, { ptr in
+    var success = withUnsafeMutablePointer(to: &system, { (ptr) -> Bool in
       // Pre-check the expression to resolve unqualified identifiers, realize type signatures and
       // desugar constructor calls.
       var prechecker = PreChecker(system: ptr, useSite: useSite)
@@ -108,20 +110,23 @@ public enum TypeChecker {
       // Generate constraints from the expression.
       var csgen = ConstraintGenerator(system: ptr, useSite: useSite, fixedType: fixedType)
       (_, expr) = csgen.walk(expr: expr)
+
+      return !prechecker.hasErrors
     })
 
     // Solve the constraint system.
     var solver = CSSolver(system: system, context: expr.type.context)
-    let solution = solver.solve()
+    let result = solver.solve()
 
     // Report type errors.
-    solution.reportAllErrors(in: expr.type.context)
+    success = result.errors.isEmpty && success
+    result.reportAllErrors(in: expr.type.context)
 
     // Apply the solution.
-    var dispatcher = TypeDispatcher(solution: solution, freeVarBindingPolicy: freeVarBindingPolicy)
+    var dispatcher = TypeDispatcher(solution: result, substPolicy: freeTypeVarSubstPolicy)
     (_, expr) = dispatcher.walk(expr: expr)
 
-    return solution
+    return result
   }
 
   /// Type checks the given pattern.
@@ -132,15 +137,15 @@ public enum TypeChecker {
   ///   - useSite: The declaration space in which the pattern is type checked.
   ///   - system: A system with potential pre-existing constraints that should be solved together
   ///     with those related to the pattern.
-  ///   - freeVarBindingPolicy: The binding policy to adopt for substituting free type variables.
-  /// - Returns: The best solution found by the type solver
-  @discardableResult
+  ///   - freeTypeVarSubstPolicy: The policy to adopt for substituting free type variables.
+  /// - Returns: A Boolean value indicating whether type checking succeeded along with the best
+  ///   solution found by the type solver.
   static func check(
     pattern: Pattern,
     fixedType: ValType? = nil,
     useSite: DeclSpace,
     system: inout ConstraintSystem,
-    freeVarBindingPolicy: FreeTypeVarBindingPolicy = .bindToErrorType
+    freeTypeVarSubstPolicy: FreeTypeVarSubstPolicy = .bindToErrorType
   ) -> Solution {
     // Generate constraints from the pattern.
     withUnsafeMutablePointer(to: &system, { ptr in
@@ -150,16 +155,16 @@ public enum TypeChecker {
 
     // Solve the constraint system.
     var solver = CSSolver(system: system, context: pattern.type.context)
-    let solution = solver.solve()
+    let result = solver.solve()
 
     // Report type errors.
-    solution.reportAllErrors(in: pattern.type.context)
+    result.reportAllErrors(in: pattern.type.context)
 
     // Apply the solution.
-    var dispatcher = TypeDispatcher(solution: solution, freeVarBindingPolicy: freeVarBindingPolicy)
+    var dispatcher = TypeDispatcher(solution: result, substPolicy: freeTypeVarSubstPolicy)
     dispatcher.walk(pattern: pattern)
 
-    return solution
+    return (result)
   }
 
   static func prepareGenericEnv(env: GenericEnv) -> Bool {
@@ -175,7 +180,7 @@ public enum TypeChecker {
       let rhs = req.rhs.realize(unqualifiedFrom: env.space)
 
       // Skip the requirement if either of the types has an error.
-      guard !lhs.hasErrors && !rhs.hasErrors else { continue }
+      guard !lhs[.hasErrors] && !rhs[.hasErrors] else { continue }
 
       switch req.kind {
       case .equality:
@@ -233,7 +238,7 @@ public enum TypeChecker {
         }
 
         // Assign the type of the declaration to its corresponding parameter.
-        paramDecl.type = varDecl.type
+        paramDecl.type = decl.type.context.funParamType(policy: .consuming, rawType: varDecl.type)
         paramDecl.setState(.typeChecked)
       }
 
@@ -256,7 +261,7 @@ public enum TypeChecker {
     }
 
     // If the declaration's type doesn't contain free parameters, we're done.
-    guard genericType.hasTypeParams else { return genericType }
+    guard genericType[.hasTypeParams] else { return genericType }
 
     // If the declaration is a generic environment, we have to contextualize its own parameters
     // externally, regardless of the use-site. That situation denotes a "fresh" reference to a
@@ -307,12 +312,12 @@ public enum TypeChecker {
   ) -> ValType? {
     // Realize the signature, generating diagnostics as necessary.
     var signType = sign.realize(unqualifiedFrom: useSite)
-    assert(!signType.hasUnresolved)
+    assert(!signType[.hasUnresolved])
 
     // Bail out if the signature is invalid.
-    guard !signType.hasErrors else { return nil }
+    guard !signType[.hasErrors] else { return nil }
 
-    if signType.hasTypeParams {
+    if signType[.hasTypeParams] {
       // The signature is generic; we have to contextualize its parameters. We can assume that
       // there's a declaration space from the use-site, otherwise `realize()` would have failed to
       // resolve the signature.

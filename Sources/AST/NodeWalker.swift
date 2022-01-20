@@ -641,11 +641,7 @@ extension NodeWalker {
     return true
   }
 
-  public mutating func visit(_ node: DynCastExpr) -> Bool {
-    return visit(node as BaseCastExpr)
-  }
-
-  public mutating func visit(_ node: UnsafeCastExpr) -> Bool {
+  public mutating func visit(_ node: RuntimeCastExpr) -> Bool {
     return visit(node as BaseCastExpr)
   }
 
@@ -911,8 +907,10 @@ extension NodeWalker {
     defer { parent = prevParent }
 
     var shouldContinue: Bool
-    (shouldContinue, node.paramSign) = walk(sign: node.paramSign)
-    guard shouldContinue else { return false }
+    for i in 0 ..< node.params.count {
+      (shouldContinue, node.params[i]) = walk(sign: node.params[i]) as! (Bool, FunParamSign)
+      guard shouldContinue else { return false }
+    }
 
     (shouldContinue, node.retSign) = walk(sign: node.retSign)
     guard shouldContinue else { return false }
@@ -920,25 +918,25 @@ extension NodeWalker {
     return true
   }
 
+  public mutating func visit(_ node: FunParamSign) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: FunParamSign) -> Bool {
+    let prevParent = parent
+    parent = node
+    defer { parent = prevParent }
+
+    let shouldContinue: Bool
+    (shouldContinue, node.rawSign) = walk(sign: node.rawSign)
+    return shouldContinue
+  }
+
   public mutating func visit(_ node: AsyncSign) -> Bool {
     return traverse(node)
   }
 
   public mutating func traverse(_ node: AsyncSign) -> Bool {
-    let prevParent = parent
-    parent = node
-    defer { parent = prevParent }
-
-    var shouldContinue: Bool
-    (shouldContinue, node.base) = walk(sign: node.base)
-    return shouldContinue
-  }
-
-  public mutating func visit(_ node: InoutSign) -> Bool {
-    return traverse(node)
-  }
-
-  public mutating func traverse(_ node: InoutSign) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }

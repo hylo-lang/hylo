@@ -1,79 +1,97 @@
 import AST
+import Basic
 
 /// A VIL emitter for l-values.
 struct LValueEmitter: ExprVisitor {
 
-  typealias ExprResult = Result<(loc: Value, pathID: PathIdentifier), EmitterError>
+  typealias ExprResult = Result<Operand, EmitterError>
 
   /// The srate in which the r-value is emitted.
   let _state: UnsafeMutablePointer<Emitter.State>
 
-  /// The VIL builder used by the emitter.
-  let _builder: UnsafeMutablePointer<Builder>
-
-  var context: Context { _state.pointee.funDecl.type.context }
+  /// The VIL module used by the emitter.
+  let _module: UnsafeMutablePointer<Module>
 
   var funDecl: BaseFunDecl { _state.pointee.funDecl }
 
   var locals: SymbolTable {
-    get { _state.pointee.locals }
-    _modify { yield &_state.pointee.locals }
+    get { state.locals }
+    _modify { yield &state.locals }
   }
 
-  var loans: Set<PathIdentifier> {
-    get { _state.pointee.loans }
-    _modify { yield &_state.pointee.loans }
+  var state: Emitter.State {
+    get { _state.pointee }
+    _modify { yield &_state.pointee }
   }
 
-  var builder: Builder {
-    get { _builder.pointee }
-    _modify { yield &_builder.pointee }
+  var module: Module {
+    get { _module.pointee }
+    _modify { yield &_module.pointee }
   }
 
   func visit(_ node: BoolLiteralExpr) -> ExprResult {
-    return .failure(.immutableExpr)
+    return .failure(.useOfRValueAsLValue(node))
   }
 
   func visit(_ node: IntLiteralExpr) -> ExprResult {
-    return .failure(.immutableExpr)
+    return .failure(.useOfRValueAsLValue(node))
   }
 
   func visit(_ node: FloatLiteralExpr) -> ExprResult {
-    return .failure(.immutableExpr)
+    return .failure(.useOfRValueAsLValue(node))
   }
 
   func visit(_ node: StringLiteralExpr) -> ExprResult {
-    return .failure(.immutableExpr)
+    return .failure(.useOfRValueAsLValue(node))
   }
 
   func visit(_ node: AssignExpr) -> ExprResult {
-    return .failure(.immutableExpr)
+    return .failure(.useOfRValueAsLValue(node))
   }
 
   func visit(_ node: BaseCastExpr) -> ExprResult {
     fatalError("unreachable")
   }
 
-  func visit(_ node: DynCastExpr) -> ExprResult {
-    return .failure(.immutableExpr)
-  }
-
-  mutating func visit(_ node: UnsafeCastExpr) -> ExprResult {
-    // The value being cast has to be emittable as an l-value.
+  mutating func visit(_ node: RuntimeCastExpr) -> ExprResult {
+    // Cast expressions are l-values iff the expression being cast is an l-value as well.
+    var converted: Operand
     switch node.value.accept(&self) {
-    case .success(let result):
-      guard node.type != node.value.type else {
-        context.report(.unsafeCastToSameTypeHasNoEffect(type: node.type, range: node.range))
-        return .success(result)
-      }
-
-      let cast = builder.buildUnsafeCastAddr(
-        source: result.loc, type: VILType.lower(node.type).address)
-      return .success((loc: cast, pathID: result.pathID))
-
+    case .success(let address):
+      converted = address
     case let failure:
       return failure
     }
+
+    // Determine the kind of conversion we have to emit.
+    let sourceType = node.value.type.dealiased
+    let targetType = node.type.dealiased
+
+    // FIXME: Handle structural casts.
+    precondition(!(sourceType is TupleType) || !(targetType is TupleType))
+
+    if sourceType == targetType {
+      // Same type conversion always succeeds.
+      module.context.report(
+        .castAlwaysSucceeds(from: node.value.type, to: node.type, range: node.range))
+    } else if sourceType is FunType {
+      // Runtime conversion of function types always fails.
+      module.context.report(.runtimeFunctionTypeConversion(range: node.range))
+      module.insertFail(range: node.range, at: state.ip)
+      converted = Operand(PoisonValue(type: .lower(targetType).address))
+    } else if sourceType.isExistential && !targetType.isExistential {
+      // Existential to grounded conversion borrows from the existential.
+      converted = Operand(module.insertOpenExistAddr(
+        container: converted, range: node.range, at: state.ip))
+      converted = Operand(module.insertCheckedCastAddr(
+        source: converted, type: .lower(targetType).address, range: node.range, at: state.ip))
+    } else {
+      // Default to scalar conversion.
+      converted = Operand(module.insertCheckedCastAddr(
+        source: converted, type: .lower(targetType).address, range: node.range, at: state.ip))
+    }
+
+    return .success(converted)
   }
 
   func visit(_ node: TupleExpr) -> ExprResult {
@@ -81,7 +99,7 @@ struct LValueEmitter: ExprVisitor {
   }
 
   func visit(_ node: CallExpr) -> ExprResult {
-    return .failure(.immutableExpr)
+    return .failure(.useOfRValueAsLValue(node))
   }
 
   func visit(_ node: UnresolvedDeclRefExpr) -> ExprResult {
@@ -101,47 +119,21 @@ struct LValueEmitter: ExprVisitor {
   }
 
   func visit(_ node: DeclRefExpr) -> ExprResult {
-    // The keys of a capture table are either original declarations, for implicit captures, or
-    // explicit redeclarations in the capture list. Implicit captures are always immutable.
-    guard funDecl.computeAllCaptures()[node.decl] == nil else {
-      return .failure(.immutableCapture(node.decl))
+    // Look for the referred declaration in the local symbol table first.
+    if let loc = locals[ObjectIdentifier(node.decl)] {
+      if module.type(of: loc).isAddress {
+        return .success(loc)
+      }
     }
 
-    switch node.decl {
-    case let decl as VarDecl:
-      // The node is either a reference to a local binding or to a member property. In either case,
-      // we must check that the referred declaration is indeed mutable. In the latter case, we
-      // must additionally check that `self` (referred implicitly) is mutable.
-      guard decl.isMutable else { return .failure(.immutableBinding(decl)) }
-
-      // FIXME: Handle computed properties.
-      assert(decl.hasStorage)
-
-      guard let loc = locals[ObjectIdentifier(node.decl)] else { fatalError("unreachable") }
-      assert(loc.type.isAddress)
-      return .success((loc: loc, pathID: .binding(decl: decl)))
-
-    case let decl as CaptureDecl:
-      // The node is a reference to an explicit capture.
-      guard decl.semantics != .let else { return .failure(.immutableCapture(node.decl)) }
-      let loc = locals[ObjectIdentifier(decl)]!
-      assert(loc.type.isAddress)
-      return .success((loc: loc, pathID: .binding(decl: decl)))
-
-    case let decl as FunParamDecl:
-      // The node is a reference to a mutable parameter.
-      guard decl.type is InoutType else { return .failure(.immutableBinding(decl)) }
-      let loc = locals[ObjectIdentifier(decl)]!
-      assert(loc.type.isAddress)
-      return .success((loc: loc, pathID: .binding(decl: decl)))
-
-    case is BaseFunDecl:
-      return .failure(.immutableBinding(node.decl))
-
-    default:
-      // FIXME: Handle global symbols.
-      fatalError("not implemented")
+    // If the expression refers to a function, that function must be thin or it would have been
+    // found in the local symbol table above.
+    if node.decl is BaseFunDecl {
+      return .failure(.useOfRValueAsLValue(node))
     }
+
+    // FIXME: Handle computed properties.
+    fatalError("not implemented")
   }
 
   func visit(_ node: TypeDeclRefExpr) -> ExprResult {
@@ -151,35 +143,25 @@ struct LValueEmitter: ExprVisitor {
   mutating func visit(_ node: MemberDeclRefExpr) -> ExprResult {
     // The base has to be emittable as an l-value.
     switch node.base.accept(&self) {
-    case .success(let (loc, pathID)):
+    case .success(let baseAddr):
       // Make sure the base has an address type.
-      guard loc.type.isAddress else { return .failure(.immutableExpr) }
-      let baseType = loc.type.valType
+      let baseType = module.type(of: baseAddr)
+      guard baseType.isAddress else { return .failure(.useOfRValueAsLValue(node)) }
 
-      // The expression must refer to a variable declaration; member functions are never l-values.
-      guard let decl = node.decl as? VarDecl
-      else { return .failure(.immutableExpr) }
+      switch node.decl {
+      case let decl as VarDecl where decl.hasStorage:
+        let lvalue = Emitter.emit(
+          storedMemberAddr: node,
+          baseAddr: baseAddr,
+          state: &_state.pointee,
+          into: &_module.pointee)
+        return .success(lvalue)
 
-      if decl.hasStorage {
-        // The member has physical storage.
-        switch baseType {
-        case is ProductType:
-          // The member refers to a stored property of a concrete product type.
-          let memberAddr = builder.buildRecordMemberAddr(
-            record: loc, memberDecl: decl, type: VILType.lower(node.type).address)
-          return .success((loc: memberAddr, .member(base: pathID, decl: node.decl)))
+      case is BaseFunDecl:
+        // Member functions are not l-values.
+        return .failure(.useOfRValueAsLValue(node))
 
-        case let bgType as BoundGenericType where bgType.decl.instanceType is ProductType:
-          let memberAddr = builder.buildRecordMemberAddr(
-            record: loc, memberDecl: decl, type: VILType.lower(node.type).address)
-          return .success((loc: memberAddr, .member(base: pathID, decl: node.decl)))
-
-        default:
-          // FIXME: Handle tuples.
-          fatalError("not implemented")
-        }
-      } else {
-        // FIXME: Handle property setters.
+      default:
         fatalError("not implemented")
       }
 
@@ -193,27 +175,27 @@ struct LValueEmitter: ExprVisitor {
   }
 
   func visit(_ node: AsyncExpr) -> ExprResult {
-    fatalError("not implemented")
+    return .failure(.useOfRValueAsLValue(node))
   }
 
   func visit(_ node: AwaitExpr) -> ExprResult {
-    return .failure(.immutableExpr)
+    return .failure(.useOfRValueAsLValue(node))
   }
 
-  func visit(_ node: AddrOfExpr) -> ExprResult {
-    fatalError("not implemented")
+  mutating func visit(_ node: AddrOfExpr) -> ExprResult {
+    return node.value.accept(&self)
   }
 
   func visit(_ node: MatchExpr) -> ExprResult {
-    return .failure(.immutableExpr)
+    return .failure(.useOfRValueAsLValue(node))
   }
 
   func visit(_ node: WildcardExpr) -> ExprResult {
-    return .failure(.immutableExpr)
+    return .failure(.useOfRValueAsLValue(node))
   }
 
   func visit(_ node: ErrorExpr) -> ExprResult {
-    return .failure(.immutableExpr)
+    return .failure(.useOfRValueAsLValue(node))
   }
 
 }

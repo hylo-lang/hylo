@@ -6,7 +6,7 @@ struct DataLayout {
 
   /// Returns the number of bytes of a type's memory representation.
   func size(of type: VILType) -> Int {
-    if type.isAddress || (type is VILFunType) {
+    if type.isAddress || (type.valType is FunType) {
       return MemoryLayout<ThickFunction>.size
     } else if type.isExistential {
       return MemoryLayout<ExistentialContainer>.stride

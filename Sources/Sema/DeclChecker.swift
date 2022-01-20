@@ -7,7 +7,7 @@ struct DeclChecker: DeclVisitor {
   typealias DeclResult = Bool
 
   mutating func visit(_ node: ModuleDecl) -> Bool {
-    guard node.state < .typeChecked else { return handleCheckState(node) }
+    guard isTypeCheckRequired(node) else { return node.state == .typeChecked }
     node.setState(.typeCheckRequested)
 
     var isWellFormed = true
@@ -31,7 +31,7 @@ struct DeclChecker: DeclVisitor {
   }
 
   func visit(_ node: PatternBindingDecl) -> Bool {
-    guard node.state < .typeChecked else { return handleCheckState(node) }
+    guard isTypeCheckRequired(node) else { return node.state == .typeChecked }
     node.setState(.typeCheckRequested)
 
     let useSite = node.parentDeclSpace!
@@ -39,6 +39,7 @@ struct DeclChecker: DeclVisitor {
 
     // Create a new constraint system to infer the pattern's type.
     var system = ConstraintSystem()
+    var success = true
 
     // If there's a signature, use it as the authoritative type information. Otherwise, infer it
     // from the pattern initializer.
@@ -52,7 +53,7 @@ struct DeclChecker: DeclVisitor {
       }
 
       // If the signature contains opened generic parameter, require an initializer to infer them.
-      guard !signType.hasVariables || node.initializer != nil else {
+      guard !signType[.hasVariables] || node.initializer != nil else {
         context.report(
           .referenceToGenericTypeRequiresArguments(type: signType, range: node.pattern.range))
         setInvalid(pbd: node)
@@ -66,15 +67,17 @@ struct DeclChecker: DeclVisitor {
           fixedType: signType,
           useSite: useSite,
           system: &system)
-        patternType = solution.reify(signType, freeVariablePolicy: .bindToErrorType)
+        patternType = solution.reify(signType, substPolicy: .bindToErrorType)
+        success = solution.errors.isEmpty
       } else {
         patternType = signType
       }
     } else if node.initializer != nil {
       // Infer everything from the initializer alone.
-      TypeChecker.check(
+      let solution = TypeChecker.check(
         expr: &(node.initializer!), fixedType: nil, useSite: useSite, system: &system)
       patternType = node.initializer!.type
+      success = solution.errors.isEmpty
     } else {
       // Unannotated declarations require an initializer.
       context.report(.missingPatternInitializer(range: node.pattern.range))
@@ -82,7 +85,7 @@ struct DeclChecker: DeclVisitor {
       return false
     }
 
-    assert(!patternType.hasVariables)
+    assert(!patternType[.hasVariables])
 
     // Apply the pattern's type.
     guard TypeChecker.assign(type: patternType, to: node.pattern) else {
@@ -94,11 +97,11 @@ struct DeclChecker: DeclVisitor {
     for decl in node.varDecls {
       decl.setState(.typeChecked)
     }
-    return true
+    return success
   }
 
   func visit(_ node: VarDecl) -> Bool {
-    guard node.state < .typeChecked else { return handleCheckState(node) }
+    guard isTypeCheckRequired(node) else { return node.state == .typeChecked }
     node.setState(.typeCheckRequested)
 
     // If the variable is introduced by a pattern binding declaration, type check it.
@@ -112,10 +115,10 @@ struct DeclChecker: DeclVisitor {
   }
 
   func visit(_ node: BaseFunDecl) -> Bool {
-    guard node.state < .typeChecked else { return handleCheckState(node) }
+    guard isTypeCheckRequired(node) else { return node.state == .typeChecked }
 
-    // Realize the function's signature. The call to `TypeChecker.contextualize` only serves to
-    // handle synthesized declarations that require type checking (e.g., constructors).
+    // Realize the function's signature, calling `contextualize(node:from:)` to handle synthesized
+    // declarations that require type checking (e.g., constructors).
     _ = TypeChecker.contextualize(decl: node, from: node.rootDeclSpace)
     guard node.state < .invalid else { return false }
     node.setState(.typeCheckRequested)
@@ -126,20 +129,20 @@ struct DeclChecker: DeclVisitor {
       return false
     }
 
-    var isWellTyped = true
+    var success = true
 
     // Resolve the function's explicit captures.
     for capture in node.explicitCaptures {
-      isWellTyped = visit(capture) && isWellTyped
+      success = visit(capture) && success
     }
 
     // Type check the function's body, if any.
     if let body = node.body {
-      isWellTyped = TypeChecker.check(stmt: body, useSite: node) && isWellTyped
+      success = TypeChecker.check(stmt: body, useSite: node) && success
     }
 
     node.setState(.typeChecked)
-    return isWellTyped
+    return success
   }
 
   func visit(_ node: FunDecl) -> Bool {
@@ -151,33 +154,14 @@ struct DeclChecker: DeclVisitor {
   }
 
   func visit(_ node: CaptureDecl) -> Bool {
-    guard node.state < .typeChecked else { return handleCheckState(node) }
+    guard isTypeCheckRequired(node) else { return node.state == .typeChecked }
     node.setState(.typeCheckRequested)
 
-    let context = node.type.context
-    let funDecl = node.parentDeclSpace!
-
-    let matches = funDecl.parentDeclSpace!.lookup(unqualified: node.name, in: context)
-    switch matches.values.count {
-    case 1:
-      node.capturedDecl = matches.values[0]
-      node.type = TypeChecker.contextualize(decl: matches.values[0], from: funDecl)
-      node.setState(.typeChecked)
-      return true
-
-    case 0:
-      context.report(.cannotFind(symbol: node.name, range: node.range))
-      node.setState(.invalid)
-      return false
-
-    default:
-      // FIXME: We forbid explicit capture declarations on overloaded symbols, because we have
-      // currently no way to disambiguate them. We could support type signatures on capture
-      // declarations to solve this issue.
-      context.report(.ambiguousReference(to: node.name, range: node.range))
-      node.setState(.invalid)
-      return false
-    }
+    // Infer the type of the capture from the expression of the captured value.
+    let success = TypeChecker.check(expr: &(node.value), useSite: node.parentDeclSpace!)
+    node.type = node.value.type
+    node.setState(success ? .typeChecked : .invalid)
+    return success
   }
 
   func visit(_ node: FunParamDecl) -> Bool {
@@ -193,7 +177,7 @@ struct DeclChecker: DeclVisitor {
   }
 
   mutating func visit(_ node: ProductTypeDecl) -> Bool {
-    guard node.state < .typeChecked else { return handleCheckState(node) }
+    guard isTypeCheckRequired(node) else { return node.state == .typeChecked }
     node.setState(.typeCheckRequested)
     var isWellFormed = true
 
@@ -263,7 +247,7 @@ struct DeclChecker: DeclVisitor {
         let key = context.assocType(
           interface: req.instanceType as! GenericParamType,
           base: viewReceiverType)
-        substitutions[ReferenceBox(key)] = member.instanceType.dealiased.canonical
+        substitutions[ReferenceBox(key)] = member.instanceType.dealiased
 
         if member.state == .invalid {
           node.conformanceTable[view]!.state = .invalid
@@ -302,8 +286,8 @@ struct DeclChecker: DeclVisitor {
             }
 
             // Check if the candidate satisfies the requirement.
-            let a = req.type.dealiased.canonical
-            let b = decl.type.dealiased.canonical
+            let a = req.type.dealiased
+            let b = decl.type.dealiased
             return a.matches(with: b, reconcilingWith: { (lhs, rhs) -> Bool in
               subst[ReferenceBox(lhs)] === rhs
             })
@@ -350,12 +334,12 @@ struct DeclChecker: DeclVisitor {
 
       // Type check the constraint system.
       var solver = CSSolver(system: system, context: context)
-      let solution = solver.solve()
+      let result = solver.solve()
 
-      if solution.errors.isEmpty {
+      if result.errors.isEmpty {
         node.conformanceTable[view]!.state = .checked
       } else {
-        solution.reportAllErrors(in: context)
+        result.reportAllErrors(in: context)
         node.conformanceTable[view]!.state = .invalid
         isWellFormed = false
       }
@@ -366,7 +350,7 @@ struct DeclChecker: DeclVisitor {
   }
 
   mutating func visit(_ node: ViewTypeDecl) -> Bool {
-    guard node.state < .typeChecked else { return handleCheckState(node) }
+    guard isTypeCheckRequired(node) else { return node.state == .typeChecked }
     node.setState(.typeCheckRequested)
     var isWellFormed = true
 
@@ -387,7 +371,7 @@ struct DeclChecker: DeclVisitor {
   }
 
   func visit(_ node: AliasTypeDecl) -> Bool {
-    guard node.state < .typeChecked else { return handleCheckState(node) }
+    guard isTypeCheckRequired(node) else { return node.state == .typeChecked }
 
     // Realize the aliased type.
     if node.state < .realizationRequested {
@@ -412,7 +396,7 @@ struct DeclChecker: DeclVisitor {
   }
 
   func visit(_ node: AbstractTypeDecl) -> Bool {
-    guard node.state < .typeChecked else { return handleCheckState(node) }
+    guard isTypeCheckRequired(node) else { return node.state == .typeChecked }
     node.setState(.typeCheckRequested)
 
     // FIXME: Handle type requirements.
@@ -429,7 +413,7 @@ struct DeclChecker: DeclVisitor {
   }
 
   mutating func visit(_ node: TypeExtnDecl) -> Bool {
-    guard node.state < .typeChecked else { return handleCheckState(node) }
+    guard isTypeCheckRequired(node) else { return node.state == .typeChecked }
 
     // Bind the extension to the type it extends.
     guard node.computeExtendedDecl() != nil else { return false }
@@ -447,26 +431,30 @@ struct DeclChecker: DeclVisitor {
 
   // MARK: Helpers
 
-  /// Returns whether or not type checking succeeded, depending on the current state of the
-  /// declaration.
-  private func handleCheckState(_ node: Decl) -> Bool {
+  /// Returns whether the specified declaration must be type checked.
+  ///
+  /// If type checking has already been requested (but not yet completed) on `node`, the method
+  /// reports a circular dependency error and marks the declaration invalid.
+  private func isTypeCheckRequired(_ node: Decl) -> Bool {
     switch node.state {
-    case .invalid:
-      // Type checking has already failed.
-      return false
-
-    case .typeChecked:
-      // Type checking has already succeeded.
+    case .parsed, .realizationRequested, .realized:
+      // Type checking was not done yet.
       return true
 
     case .typeCheckRequested:
       // Type checking was requested on the same path.
       let context = node.parentDeclSpace!.rootDeclSpace.type.context
       context.report(Diag("circular dependency detected", anchor: node.range))
+      node.setState(.invalid)
       return false
 
-    default:
-      fatalError("unreachable")
+    case .typeChecked:
+      // Type checking has already succeeded.
+      return false
+
+    case .invalid:
+      // Type checking has already failed.
+      return false
     }
   }
 
@@ -477,7 +465,7 @@ struct DeclChecker: DeclVisitor {
     /// Mark all variable declaration for which we couldn't assign a concrete type as invalid,
     /// to prevent further use by the type checker.
     for decl in node.varDecls {
-      if decl.type.hasUnresolved || decl.type.hasVariables {
+      if decl.type[.hasUnresolved] || decl.type[.hasVariables] {
         decl.type = decl.type.context.errorType
         decl.setState(.invalid)
       } else {

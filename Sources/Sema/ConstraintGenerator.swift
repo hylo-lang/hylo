@@ -24,7 +24,7 @@ struct ConstraintGenerator: NodeWalker {
   mutating func willVisit(_ expr: Expr) -> (shouldWalk: Bool, nodeBefore: Expr) {
     // Skip the recursive descent into expressions that have errors, based on the assumption that
     // these errors must have beeb reported already.
-    return (!expr.type.hasErrors, expr)
+    return (!expr.type[.hasErrors], expr)
   }
 
   mutating func willVisit(_ pattern: Pattern) -> (shouldWalk: Bool, nodeBefore: Pattern) {
@@ -42,8 +42,8 @@ struct ConstraintGenerator: NodeWalker {
     // The type of the node must be expressible by `Builtin::IntLiteral`.
     let literalType = node.type.context.getBuiltinType(named: "IntLiteral")!
     insert(RelationalConstraint(
-            kind: .conversion, lhs: node.type, rhs: literalType,
-            at: ConstraintLocator(node)))
+      kind: .conversion, lhs: node.type, rhs: literalType,
+      at: ConstraintLocator(node)))
 
     return true
   }
@@ -61,8 +61,8 @@ struct ConstraintGenerator: NodeWalker {
       // Assign expressions always have the unit type, so this constraint will necessarily fail. We
       // add it so that the error will be diagnosed.
       insert(RelationalConstraint(
-              kind: .equality, lhs: node.type, rhs: fixedType,
-              at: ConstraintLocator(node)))
+        kind: .equality, lhs: node.type, rhs: fixedType,
+        at: ConstraintLocator(node)))
     }
 
     // Don't create any constraint if the left operand has an error type.
@@ -75,10 +75,6 @@ struct ConstraintGenerator: NodeWalker {
     (shouldContinue, _) = walk(expr: node.rvalue)
     guard shouldContinue else { return false }
 
-    insert(RelationalConstraint(
-            kind: .subtyping, lhs: node.rvalue.type, rhs: node.lvalue.type,
-            at: ConstraintLocator(node, .assignment)))
-
     return true
   }
 
@@ -86,17 +82,7 @@ struct ConstraintGenerator: NodeWalker {
     fatalError("unreachable")
   }
 
-  mutating func visit(_ node: DynCastExpr) -> Bool {
-    prepare(expr: node, fixedType: fixedType, inferredType: nil)
-    fixedType = nil
-    guard traverse(node) else { return false }
-
-    // There is no additional constraint to add as a true constraint here, as we can't infer the
-    // relationship between the subject of the cast and the target type.
-    return true
-  }
-
-  mutating func visit(_ node: UnsafeCastExpr) -> Bool {
+  mutating func visit(_ node: RuntimeCastExpr) -> Bool {
     prepare(expr: node, fixedType: fixedType, inferredType: nil)
     fixedType = nil
     guard traverse(node) else { return false }
@@ -138,21 +124,31 @@ struct ConstraintGenerator: NodeWalker {
     guard traverse(node) else { return false }
 
     // Synthetize the type of a function from the call's arguments.
-    var paramTypeElems: [TupleType.Elem] = []
+    var params: [FunType.Param] = []
     for (i, arg) in node.args.enumerated() {
-      // The subtyping constraint handle cases where the argument is a subtype of the parameter.
-      let paramType = TypeVar(context: node.type.context, node: arg.value)
-      insert(RelationalConstraint(
-              kind: .subtyping, lhs: arg.value.type, rhs: paramType,
-              at: ConstraintLocator(node, .argument(i))))
-      paramTypeElems.append(TupleType.Elem(label: arg.label, type: paramType))
+      // If the argument is passed mutating, the parameter must be mutating and its raw type
+      // should be the same as the argument's type.
+      if arg.value is AddrOfExpr {
+        let param = FunType.Param(
+          label: arg.label, policy: .inout, rawType: arg.value.type)
+        params.append(param)
+      }
+
+      // Otherwise, the solver must infer the parameter's raw type and passing policy based on
+      // the argument's type, using a subtyping constraint.
+      else {
+        let paramType = TypeVar(context: node.type.context, node: arg.value)
+        insert(RelationalConstraint(
+          kind: .subtyping, lhs: arg.value.type, rhs: paramType,
+          at: ConstraintLocator(node, .argument(i))))
+        params.append(FunType.Param(label: arg.label, type: paramType))
+      }
     }
 
-    let paramType = node.type.context.tupleType(paramTypeElems)
-    let funType = node.type.context.funType(paramType: paramType, retType: node.type)
+    let funType = node.type.context.funType(params: params, retType: node.type)
     insert(RelationalConstraint(
-            kind: .equality, lhs: node.fun.type, rhs: funType,
-            at: ConstraintLocator(node.fun)))
+      kind: .equality, lhs: node.fun.type, rhs: funType,
+      at: ConstraintLocator(node.fun)))
 
     return true
   }
@@ -167,11 +163,11 @@ struct ConstraintGenerator: NodeWalker {
     guard traverse(node) else { return false }
 
     insert(ValueMemberConstraint(
-            node.base.type,
-            hasValueMember: node.memberName,
-            ofType: node.type,
-            useSite: innermostSpace!,
-            at: ConstraintLocator(node, .valueMember(node.memberName))))
+      node.base.type,
+      hasValueMember: node.memberName,
+      ofType: node.type,
+      useSite: innermostSpace!,
+      at: ConstraintLocator(node, .valueMember(node.memberName))))
 
     return true
   }
@@ -185,10 +181,10 @@ struct ConstraintGenerator: NodeWalker {
     prepare(expr: node, fixedType: fixedType, inferredType: nil)
 
     insert(OverloadBindingConstraint(
-            node.type,
-            declSet: node.declSet,
-            useSite: innermostSpace!,
-            at: ConstraintLocator(node)))
+      node.type,
+      declSet: node.declSet,
+      useSite: innermostSpace!,
+      at: ConstraintLocator(node)))
 
     return true
   }
@@ -215,8 +211,8 @@ struct ConstraintGenerator: NodeWalker {
     guard traverse(node) else { return false }
 
     insert(TupleMemberConstraint(
-            node.base.type, hasMemberAt: node.memberIndex, ofType: node.type,
-            at: ConstraintLocator(node, .tupleElem(node.memberIndex))))
+      node.base.type, hasMemberAt: node.memberIndex, ofType: node.type,
+      at: ConstraintLocator(node, .tupleElem(node.memberIndex))))
 
     return true
   }
@@ -231,22 +227,26 @@ struct ConstraintGenerator: NodeWalker {
     if node.body.state < .realized {
       let fixedBareType = (fixedType as? AsyncType)?.base
 
-      if let type = fixedBareType, !type.hasVariables {
+      if let type = fixedBareType, !type[.hasVariables] {
         // We have a concrete fixed type, we can use it to select `T`.
-        node.body.type = context.funType(paramType: context.unitType, retType: type)
+        node.body.type = context.funType(params: [], retType: type)
         node.body.setState(.realized)
-      } else if let expr = node.body.singleExprBody {
+      } else if var expr = node.body.singleExprBody {
         // The function is expression-bodied, so we can infer `T` as the type of a sub-expression.
+        // FIXME: This is a little hacky.
         fixedType = fixedBareType
-        _ = expr.accept(&self)
-        node.body.type = context.funType(paramType: context.unitType, retType: expr.type)
+        _ = TypeChecker.check(
+          expr: &expr,
+          fixedType: fixedBareType,
+          useSite: node.body.body!,
+          freeTypeVarSubstPolicy: .bindToErrorType)
+        node.body.type = context.funType(params: [], retType: expr.type)
         node.body.setState(.realized)
       } else {
         // Complain that we can't infer `T` over multiple statements.
         context.report(.complexReturnTypeInference(range: node.range))
         node.body.type = context.errorType
         node.body.setState(.invalid)
-
         node.type = context.errorType
         return true
       }
@@ -280,36 +280,17 @@ struct ConstraintGenerator: NodeWalker {
     } else {
       prepare(expr: node, fixedType: fixedTypeForThisNode, inferredType: nil)
       let awaitedType = node.type.context.asyncType(of: node.type)
-      system.pointee.insert(
-        RelationalConstraint(
-          kind: .oneWayEquality, lhs: awaitedType, rhs: node.value.type,
-          at: ConstraintLocator(node.value)))
+      system.pointee.insert(RelationalConstraint(
+        kind: .oneWayEquality, lhs: awaitedType, rhs: node.value.type,
+        at: ConstraintLocator(node.value)))
     }
 
     return true
   }
 
   mutating func visit(_ node: AddrOfExpr) -> Bool {
-    let fixedTypeForThisNode = fixedType
-
-    // If the fixed type is an in-out type, we can create the fixed type of the sub-expression.
-    if let inoutType = fixedType as? InoutType {
-      fixedType = inoutType.base
-    } else {
-      fixedType = nil
-    }
     guard traverse(node) else { return false }
-
-    // If the sub-expression has an in-out type (e.g., because it's a reference to a mutable
-    //parameter), we shouldn't wrap it again.
-    let inferredType: ValType
-    if node.value.type is InoutType {
-      inferredType = node.value.type
-    } else {
-      inferredType = node.type.context.inoutType(of: node.value.type)
-    }
-
-    prepare(expr: node, fixedType: fixedTypeForThisNode, inferredType: inferredType)
+    node.type = node.value.type
     return true
   }
 
@@ -330,8 +311,8 @@ struct ConstraintGenerator: NodeWalker {
         if caseType == nil {
           let kind: RelationalConstraint.Kind = (i == 0) ? .equality : .oneWayEquality
           insert(RelationalConstraint(
-                  kind: kind, lhs: expr.type, rhs: node.type,
-                  at: ConstraintLocator(expr)))
+            kind: kind, lhs: expr.type, rhs: node.type,
+            at: ConstraintLocator(expr)))
         }
       } else {
         // If the match expression is used as a control statement, then we can just walk the body
@@ -388,10 +369,9 @@ struct ConstraintGenerator: NodeWalker {
         return true
       }
 
-      system.pointee.insert(
-        RelationalConstraint(
-          kind: .equality, lhs: node.type, rhs: signType,
-          at: ConstraintLocator(node.subpattern)))
+      system.pointee.insert(RelationalConstraint(
+        kind: .equality, lhs: node.type, rhs: signType,
+        at: ConstraintLocator(node.subpattern)))
     }
 
     return true
@@ -411,14 +391,14 @@ struct ConstraintGenerator: NodeWalker {
       expr.type = inferredType ?? TypeVar(context: expr.type.context, node: expr)
     } else if let inferredType = inferredType {
       insert(RelationalConstraint(
-              kind: .equality, lhs: expr.type, rhs: inferredType,
-              at: ConstraintLocator(expr)))
+        kind: .equality, lhs: expr.type, rhs: inferredType,
+        at: ConstraintLocator(expr)))
     }
 
     if let fixedType = fixedType {
       insert(RelationalConstraint(
-              kind: .subtyping, lhs: expr.type, rhs: fixedType,
-              at: ConstraintLocator(expr)))
+        kind: .subtyping, lhs: expr.type, rhs: fixedType,
+        at: ConstraintLocator(expr)))
     }
   }
 
@@ -427,8 +407,8 @@ struct ConstraintGenerator: NodeWalker {
       pattern.type = inferredType ?? TypeVar(context: pattern.type.context, node: pattern)
     } else if let inferredType = inferredType {
       insert(RelationalConstraint(
-              kind: .equality, lhs: pattern.type, rhs: inferredType,
-              at: ConstraintLocator(pattern)))
+        kind: .equality, lhs: pattern.type, rhs: inferredType,
+        at: ConstraintLocator(pattern)))
     }
 
     if let fixedType = fixedType {
@@ -438,8 +418,8 @@ struct ConstraintGenerator: NodeWalker {
         ? .equality
         : .subtyping
       insert(RelationalConstraint(
-              kind: kind, lhs: pattern.type, rhs: fixedType,
-              at: ConstraintLocator(pattern)))
+        kind: kind, lhs: pattern.type, rhs: fixedType,
+        at: ConstraintLocator(pattern)))
     }
   }
 

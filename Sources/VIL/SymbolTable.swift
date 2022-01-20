@@ -1,1 +1,0 @@
-typealias SymbolTable = [ObjectIdentifier: Value]

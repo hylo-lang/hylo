@@ -97,9 +97,7 @@ public protocol ExprVisitor {
 
   mutating func visit(_ node: BaseCastExpr) -> ExprResult
 
-  mutating func visit(_ node: DynCastExpr) -> ExprResult
-
-  mutating func visit(_ node: UnsafeCastExpr) -> ExprResult
+  mutating func visit(_ node: RuntimeCastExpr) -> ExprResult
 
   mutating func visit(_ node: TupleExpr) -> ExprResult
 
@@ -159,9 +157,9 @@ public protocol SignVisitor {
 
   mutating func visit(_ node: FunSign) -> SignResult
 
-  mutating func visit(_ node: AsyncSign) -> SignResult
+  mutating func visit(_ node: FunParamSign) -> SignResult
 
-  mutating func visit(_ node: InoutSign) -> SignResult
+  mutating func visit(_ node: AsyncSign) -> SignResult
 
   mutating func visit(_ node: UnionSign) -> SignResult
 

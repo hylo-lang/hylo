@@ -141,7 +141,7 @@ public class BaseCastExpr: Expr {
   /// The value being cast.
   public var value: Expr
 
-  /// The type to which the value is being cast.
+  /// The signature of type to which the value is being cast.
   public var sign: Sign
 
   public init(value: Expr, sign: Sign, type: ValType, range: SourceRange? = nil) {
@@ -157,17 +157,8 @@ public class BaseCastExpr: Expr {
 
 }
 
-/// A safe, dynamic cast expression (e.g., `foo as? Bar`).
-public final class DynCastExpr: BaseCastExpr {
-
-  public override func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
-    return visitor.visit(self)
-  }
-
-}
-
-/// An unsafe cast expression (e.g., `foo as! Bar`).
-public final class UnsafeCastExpr: BaseCastExpr {
+/// An runtime cast expression (e.g., `foo as! Bar`).
+public final class RuntimeCastExpr: BaseCastExpr {
 
   public override func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)

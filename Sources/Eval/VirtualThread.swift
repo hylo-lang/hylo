@@ -12,7 +12,7 @@ struct VirtualThread {
   var callStack: CallStack
 
   /// The current program counter of the thread.
-  var programCounter = InstAddr.null
+  var programCounter: InstAddr = nil
 
   /// The result of the thread, once it has returned from its entry point.
   var result: RuntimeValue?

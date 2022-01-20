@@ -20,8 +20,8 @@ public class ValType: CustomStringConvertible, Equatable {
 
   }
 
-  /// A set of recursively defined properties.
-  public struct RecursiveProps: Equatable, ExpressibleByArrayLiteral {
+  /// A set of type flags.
+  public struct Flags: Equatable, ExpressibleByArrayLiteral {
 
     private let rawValue: UInt
 
@@ -29,70 +29,68 @@ public class ValType: CustomStringConvertible, Equatable {
       self.rawValue = rawValue
     }
 
-    public init<S>(_ flags: S) where S: Sequence, S.Element == RecursiveProps {
+    public init<S>(_ flags: S) where S: Sequence, S.Element == Flags {
       self.rawValue = flags.reduce(0, { $0 | $1.rawValue })
     }
 
-    public init(arrayLiteral elements: RecursiveProps...) {
-      self = RecursiveProps(elements)
+    public init(arrayLiteral elements: Flags...) {
+      self = Flags(elements)
     }
 
-    /// Returns whether the set contains all the specified properties.
+    /// Returns whether the set contains all the specified flags.
     ///
-    /// - Parameter props: A set of properties.
-    public func contains(_ props: RecursiveProps) -> Bool {
-      return (rawValue & props.rawValue) == props.rawValue
+    /// - Parameter flags: A set of type flags.
+    public func contains(_ flags: Flags) -> Bool {
+      return (rawValue & flags.rawValue) == flags.rawValue
     }
 
-    /// Returns the merge of this property set with another.
+    /// Returns this set of type flags merged with another one.
     ///
-    /// This computes the intersection of the universal properties and the union of the existential
-    /// properties that are defined in each property set.
+    /// Merging is defined as the intersection of the universal flags and the union of the
+    /// existential flags that are defined in each set.
     ///
-    /// - Parameter other: Another property set.
-    public func merged(with other: RecursiveProps) -> RecursiveProps {
-      // A type expression is canonical only if *all* sub-expressions are canonical, whereas other
-      // properties are existential only.
-      return RecursiveProps(
+    /// - Parameter other: Another set of type flags.
+    public func merged(with other: Flags) -> Flags {
+      // `isCanonical` is universal; other flags are existential.
+      return Flags(
         rawValue: ~1 & (rawValue | other.rawValue) | (rawValue & other.rawValue))
     }
 
     /// Returns the union of this set with another.
     ///
-    /// - Parameter props: Another property set.
-    public func union(with other: RecursiveProps) -> RecursiveProps {
-      return RecursiveProps(rawValue: rawValue | other.rawValue)
+    /// - Parameter other: Another set of type flags.
+    public func union(with other: Flags) -> Flags {
+      return Flags(rawValue: rawValue | other.rawValue)
     }
 
-    /// Returns this set without the given properties.
+    /// Returns this set without the specified flags.
     ///
-    /// - Parameter props: The properties to remove.
-    public func removing(_ props: RecursiveProps) -> RecursiveProps {
-      return RecursiveProps(rawValue: rawValue & ~props.rawValue)
+    /// - Parameter flags: The flags to remove.
+    public func removing(_ flags: Flags) -> Flags {
+      return Flags(rawValue: rawValue & ~flags.rawValue)
     }
 
-    public static let isCanonical   = RecursiveProps(rawValue: 1 << 0)
-    public static let hasAsync      = RecursiveProps(rawValue: 1 << 1)
-    public static let hasInout      = RecursiveProps(rawValue: 1 << 2)
-    public static let hasAlias      = RecursiveProps(rawValue: 1 << 3)
-    public static let hasVariables  = RecursiveProps(rawValue: 1 << 4)
-    public static let hasTypeParams = RecursiveProps(rawValue: 1 << 5)
-    public static let hasSkolems    = RecursiveProps(rawValue: 1 << 6)
-    public static let hasUnresolved = RecursiveProps(rawValue: 1 << 7)
-    public static let hasErrors     = RecursiveProps(rawValue: 1 << 8)
+    public static let isCanonical   = Flags(rawValue: 1 << 0)
+    public static let hasAsync      = Flags(rawValue: 1 << 1)
+    public static let hasAlias      = Flags(rawValue: 1 << 2)
+    public static let hasVariables  = Flags(rawValue: 1 << 3)
+    public static let hasTypeParams = Flags(rawValue: 1 << 4)
+    public static let hasSkolems    = Flags(rawValue: 1 << 5)
+    public static let hasUnresolved = Flags(rawValue: 1 << 6)
+    public static let hasErrors     = Flags(rawValue: 1 << 7)
 
-    /// Merges a collection of recursive properties.
+    /// Merges a collection of flags.
     ///
-    /// This computes the intersection of all universal properties and the union of all existential
-    /// properties, over the property sets passed as an argument.
+    /// Merging is defined as the intersection of the universal flags and the union of the
+    /// existential flags that are defined in each set.
     ///
-    /// - Parameter collection: A collection of property sets.
-    public static func merge<C>(_ collection: C) -> RecursiveProps
-    where C: Collection, C.Element == RecursiveProps
+    /// - Parameter collection: A collection of set of type flags.
+    public static func merge<C>(_ collection: C) -> Flags
+    where C: Collection, C.Element == Flags
     {
-      guard var result = collection.first else { return RecursiveProps(rawValue: 0) }
-      for props in collection.dropFirst() {
-        result = result.merged(with: props)
+      guard var result = collection.first else { return Flags(rawValue: 0) }
+      for flags in collection.dropFirst() {
+        result = result.merged(with: flags)
       }
       return result
     }
@@ -102,45 +100,27 @@ public class ValType: CustomStringConvertible, Equatable {
   /// The AST context in which this type was uniqued.
   public unowned let context: Context
 
-  /// A set of recursively defined properties.
-  public let props: RecursiveProps
+  /// A set of type flags, defined recursively.
+  public let flags: Flags
 
   /// Create a new type.
-  init(context: Context, props: RecursiveProps) {
+  init(context: Context, flags: Flags) {
     self.context = context
-    self.props = props
+    self.flags = flags
   }
 
-  /// Indicates whether the type is in canonical form.
-  public var isCanonical  : Bool { props.contains(.isCanonical) }
+  /// Returns whether the specified flags are raised on this type.
+  ///
+  /// - parameter flags: A set of type flags.
+  public subscript(flags: Flags) -> Bool {
+    return self.flags.contains(flags)
+  }
 
-  /// Indicates whether the type contains one or more async types.
-  public var hasAsync     : Bool { props.contains(.hasAsync) }
-
-  /// Indicates whether the type contains one or more inout types.
-  public var hasInout     : Bool { props.contains(.hasInout) }
-
-  /// Indicates whether the type contains one or more aliases.
-  public var hasAlias     : Bool { props.contains(.hasAlias) }
-
-  /// Indicates whether the type contains one or more type variables.
-  public var hasVariables : Bool { props.contains(.hasVariables) }
-
-  /// Indicates whether the type contains one or more generic type parameters.
-  public var hasTypeParams: Bool { props.contains(.hasTypeParams) }
-
-  /// Indicates whether the type contains one or more skolems.
-  public var hasSkolems   : Bool { props.contains(.hasSkolems) }
-
-  /// Indicates whether the type contains the unresolved type.
-  public var hasUnresolved: Bool { props.contains(.hasUnresolved) }
-
-  /// Indicates whether the type contains the error type.
-  public var hasErrors    : Bool { props.contains(.hasErrors) }
-
-  /// Indicates whether the type is well-formed (i.e., it does not contain type variables,
-  /// unresolved or error types).
-  public var isWellFormed : Bool { !hasVariables && !hasUnresolved && !hasErrors }
+  /// Indicates whether the type is well-formed (i.e., it does not contain variables, unresolved
+  /// types, or error types).
+  public var isWellFormed: Bool {
+    return !self[.hasVariables] && !self[.hasUnresolved] && !self[.hasErrors]
+  }
 
   /// Indicates whether the type is existential.
   ///
@@ -150,17 +130,17 @@ public class ValType: CustomStringConvertible, Equatable {
   ///
   /// Instances of existential types are represented by existential packages.
   public final var isExistential: Bool {
-    switch self {
+    switch dealiased {
     case is ViewType, is ViewCompositionType, is UnionType, is SkolemType, is GenericParamType:
       return true
     case let type as KindType:
       return type.type.isExistential
-    case let type as InoutType:
-      return type.base.isExistential
     case let type as BoundGenericType where type.decl is AliasTypeDecl:
       return type.dealiased.isExistential
     case let type as AssocType:
       return type.base.isExistential
+    case let type as FunParamType:
+      return type.rawType.isExistential
     default:
       return false
     }
@@ -201,23 +181,30 @@ public class ValType: CustomStringConvertible, Equatable {
   /// This type with all aliases resolved to their canonical form.
   public var dealiased: ValType { self }
 
-  /// The uncontextualized interface of this type, that is the type in which all skolems and
-  /// their associated types have been substituted by their interface type.
+  /// The uncontextualized interface of this type, that is the type in which all skolems have been
+  /// substituted by their interface type.
   public var uncontextualized: ValType { self }
 
   /// Returns this type after substituting generic type parameters with the given mapping.
   ///
   /// - Parameter args: A substitution table.
-  public func specialized(with args: [GenericParamType: ValType]) -> ValType {
-    guard hasTypeParams else { return self }
+  public final func specialized(with args: [GenericParamType: ValType]) -> ValType {
+    guard self[.hasTypeParams] else { return self }
     return TypeSpecializer(args: args).walk(self)
   }
 
-  /// Looks up for member declarations that match the given.
+  /// Looks up for member declarations that match the given name.
   ///
   /// - Parameter memberName: The bare name of the member to search.
   public func lookup(member memberName: String) -> LookupResult {
     return LookupResult()
+  }
+
+  /// Looks up for type member declarations that match the given name.
+  ///
+  /// - Parameter memberName: The bare name of the type member to search.
+  public func lookup(typeMember memberName: String) -> [TypeDecl] {
+    return lookup(member: memberName).types
   }
 
   /// Returns whether this type matches another one.
@@ -237,25 +224,43 @@ public class ValType: CustomStringConvertible, Equatable {
     return (self == other) || reconcile(self, other)
   }
 
-  /// Returns whether this type is equal to another one.
+  /// Returns whether this type is subtype of another one.
   ///
-  /// This method is used internally for uniquing new instances. All derived classes should
-  /// override it to implement their one value equality logic. The default implementation uses
-  /// reference equality.
+  /// - Warning: This method relies on the current state of the AST; it will produce inaccurate
+  ///   results until type checking completes.
   ///
   /// - Parameter other: Another type.
-  func isEqual(to other: ValType) -> Bool {
+  public func isSubtype(of other: ValType) -> Bool {
+    switch other.dealiased {
+    case self.dealiased:
+      return true
+    case context.anyType:
+      return true
+    case let that as UnionType:
+      return that.elems.contains(where: isSubtype(of:))
+    default:
+      return false
+    }
+  }
+
+  /// Returns whether this type is equal to another one.
+  ///
+  /// This method is used internally for uniquing type instances. All derived classes should
+  /// override it to implement their one value equality logic. The default implementation checks
+  /// for reference equality.
+  ///
+  /// - Parameter other: Another type.
+  public func isEqual(to other: ValType) -> Bool {
     return self === other
   }
 
   /// Hashes the essential components of type into the given hasher.
   ///
-  /// This method is used internally for uniquing new instances. All derived classes should
+  /// This method is used internally for uniquing type instances. All derived classes should
   /// override it to implement their own hashing logic. The default implementation is a no-op.
   ///
   /// - Parameter hasher: The hasher to use when combining the components of this type.
-  func hash(into hasher: inout Hasher) {
-  }
+  public func hash(into hasher: inout Hasher) {}
 
   public func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
     fatalError("unreachable")
@@ -284,7 +289,7 @@ fileprivate final class TypeSpecializer: TypeWalker {
       return .stepOver(args[param] ?? param)
     }
 
-    return type.hasTypeParams
+    return type[.hasTypeParams]
       ? .stepInto(type)
       : .stepOver(type)
   }
@@ -310,23 +315,23 @@ public final class KindType: ValType {
 
   init(context: Context, type: ValType) {
     self.type = type
-    super.init(context: context, props: type.props)
+    super.init(context: context, flags: type.flags)
   }
 
   public override var canonical: ValType {
-    return isCanonical
+    return self[.isCanonical]
       ? self
       : type.canonical.kind
   }
 
   public override var dealiased: ValType {
-    return hasAlias
+    return self[.hasAlias]
       ? type.dealiased.kind
       : self
   }
 
   public override var uncontextualized: ValType {
-    return hasSkolems
+    return self[.hasSkolems]
       ? type.uncontextualized.kind
       : self
   }
@@ -343,12 +348,21 @@ public final class KindType: ValType {
     return type.matches(with: that.type, reconcilingWith: reconcile)
   }
 
-  override func isEqual(to other: ValType) -> Bool {
+  public override func isSubtype(of other: ValType) -> Bool {
+    switch other.dealiased {
+    case let that as KindType:
+      return type.isSubtype(of: that.type)
+    case let that:
+      return super.isSubtype(of: that)
+    }
+  }
+
+  public override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? KindType else { return false }
     return type.isEqual(to: that.type)
   }
 
-  override func hash(into hasher: inout Hasher) {
+  public override func hash(into hasher: inout Hasher) {
     hasher.combine(ObjectIdentifier(KindType.self))
     type.hash(into: &hasher)
   }
@@ -371,12 +385,12 @@ public class BuiltinType: ValType {
 
   init(context: Context, name: String) {
     self.name = name
-    super.init(context: context, props: .isCanonical)
+    super.init(context: context, flags: .isCanonical)
   }
 
   public override var isCopyable: Bool { true }
 
-  override func hash(into hasher: inout Hasher) {
+  public override func hash(into hasher: inout Hasher) {
     hasher.combine(name)
   }
 
@@ -424,7 +438,7 @@ public final class BuiltinIntType: BuiltinType {
     super.init(context: context, name: name)
   }
 
-  override func hash(into hasher: inout Hasher) {
+  public override func hash(into hasher: inout Hasher) {
     hasher.combine(bitWidth)
   }
 
@@ -445,10 +459,10 @@ public final class ModuleType: ValType {
 
   init(context: Context, module: ModuleDecl) {
     self.module = module
-    super.init(context: context, props: .isCanonical)
+    super.init(context: context, flags: .isCanonical)
   }
 
-  override func hash(into hasher: inout Hasher) {
+  public override func hash(into hasher: inout Hasher) {
     hasher.combine(ObjectIdentifier(module))
   }
 
@@ -466,16 +480,27 @@ public class NominalType: ValType {
   /// The declaration of this nominal type.
   public unowned let decl: GenericTypeDecl
 
-  init(context: Context, decl: GenericTypeDecl, props: RecursiveProps) {
+  init(context: Context, decl: GenericTypeDecl, flags: Flags) {
     self.decl = decl
-    super.init(context: context, props: props)
+    super.init(context: context, flags: flags)
   }
 
   public override func lookup(member memberName: String) -> LookupResult {
     return decl.lookup(qualified: memberName)
   }
 
-  override func hash(into hasher: inout Hasher) {
+  public override func isSubtype(of other: ValType) -> Bool {
+    switch other.dealiased {
+    case let that as ViewType:
+      return decl.conformanceTable[that]?.state == .checked
+    case let that as ViewCompositionType:
+      return that.views.allSatisfy({ decl.conformanceTable[$0]?.state == .checked })
+    case let that:
+      return super.isSubtype(of: that)
+    }
+  }
+
+  public override func hash(into hasher: inout Hasher) {
     hasher.combine(ObjectIdentifier(decl))
   }
 
@@ -487,14 +512,14 @@ public class NominalType: ValType {
 public final class ProductType: NominalType {
 
   init(context: Context, decl: ProductTypeDecl) {
-    super.init(context: context, decl: decl, props: .isCanonical)
+    super.init(context: context, decl: decl, flags: .isCanonical)
   }
 
   public override var isCopyable: Bool {
     return decl.conformanceTable[context.copyableType] != nil
   }
 
-  override func isEqual(to other: ValType) -> Bool {
+  public override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? ProductType else { return false }
     return self.decl === that.decl
   }
@@ -509,14 +534,14 @@ public final class ProductType: NominalType {
 public final class ViewType: NominalType {
 
   init(context: Context, decl: ViewTypeDecl) {
-    super.init(context: context, decl: decl, props: .isCanonical)
+    super.init(context: context, decl: decl, flags: .isCanonical)
   }
 
   public override var isCopyable: Bool {
     return decl.conformanceTable[context.copyableType] != nil
   }
 
-  override func isEqual(to other: ValType) -> Bool {
+  public override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? ViewType else { return false }
     return self.decl === that.decl
   }
@@ -545,14 +570,14 @@ public final class AliasType: NominalType {
   init(context: Context, decl: AliasTypeDecl) {
     assert(decl.state >= .realized, "can't create alias type from unrealized declaration")
 
-    let props: RecursiveProps
+    let flags: Flags
     if let nominalType = decl.aliasedSign.type as? NominalType {
-      props = nominalType.props.merged(with: .hasAlias)
+      flags = nominalType.flags.merged(with: .hasAlias)
     } else {
-      props = [.isCanonical, .hasAlias]
+      flags = [.isCanonical, .hasAlias]
     }
 
-    super.init(context: context, decl: decl, props: props)
+    super.init(context: context, decl: decl, flags: flags)
   }
 
   public override var isCopyable: Bool {
@@ -561,11 +586,11 @@ public final class AliasType: NominalType {
 
   public override var canonical: ValType {
     guard let aliasedDecl = (decl as! AliasTypeDecl).aliasedDecl else {
-      assert(isCanonical)
+      assert(self[.isCanonical])
       return self
     }
 
-    assert(!isCanonical)
+    assert(!self[.isCanonical])
     return aliasedDecl.instanceType.canonical
   }
 
@@ -573,7 +598,7 @@ public final class AliasType: NominalType {
     return (decl as! AliasTypeDecl).realizeAliasedType().dealiased
   }
 
-  override func isEqual(to other: ValType) -> Bool {
+  public override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? AliasType else { return false }
     return self.decl === that.decl
   }
@@ -597,29 +622,29 @@ public final class ViewCompositionType: ValType {
     self.views = views
 
     // Determine canonicity.
-    var props: RecursiveProps
+    var flags: Flags
     switch views.count {
     case 0:
       // This is the `Any` type.
-      props = .isCanonical
+      flags = .isCanonical
 
     case 1:
       // The canonical form of a composition with a unique view is the view itself.
-      props = views[0].props.removing(.isCanonical)
+      flags = views[0].flags.removing(.isCanonical)
 
     default:
       // The composition is canonical if the views are "sorted".
       // FIXME: We should also remove duplicate views.
-      props = .merge(views.map({ $0.props }))
+      flags = .merge(views.map({ $0.flags }))
       for i in 1 ..< views.count {
         guard ViewType.precedes(lhs: views[i - 1], rhs: views[i]) else {
-          props = props.removing(.isCanonical)
+          flags = flags.removing(.isCanonical)
           break
         }
       }
     }
 
-    super.init(context: context, props: props)
+    super.init(context: context, flags: flags)
   }
 
   public override var isCopyable: Bool {
@@ -628,7 +653,7 @@ public final class ViewCompositionType: ValType {
   }
 
   public override var canonical: ValType {
-    if isCanonical {
+    if self[.isCanonical] {
       return self
     } else if views.count == 1 {
       return views[0]
@@ -637,7 +662,18 @@ public final class ViewCompositionType: ValType {
     }
   }
 
-  override func isEqual(to other: ValType) -> Bool {
+  public override func isSubtype(of other: ValType) -> Bool {
+    switch views.count {
+    case 0:
+      return self === other.dealiased
+    case 1:
+      return views[0].isSubtype(of: other)
+    default:
+      return views.allSatisfy({ $0.isSubtype(of: other) })
+    }
+  }
+
+  public override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? ViewCompositionType,
           views.count == that.views.count
     else { return false }
@@ -648,7 +684,7 @@ public final class ViewCompositionType: ValType {
     return true
   }
 
-  override func hash(into hasher: inout Hasher) {
+  public override func hash(into hasher: inout Hasher) {
     for view in views {
       view.hash(into: &hasher)
     }
@@ -684,37 +720,37 @@ public final class UnionType: ValType {
     self.elems = elems
 
     // Determine canonicity.
-    var props: RecursiveProps
+    var flags: Flags
     switch elems.count {
     case 0:
       // This is the `Nothing` (a.k.a., uninhabited) type.
-      props = .isCanonical
+      flags = .isCanonical
 
     case 1:
       // The canonical form of a union with a unique type element is the element itself.
-      props = elems[0].props.removing(.isCanonical)
+      flags = elems[0].flags.removing(.isCanonical)
 
     default:
-      props = elems[0].props
+      flags = elems[0].flags
 
       // Determines canonicity.
       for i in 1 ..< elems.count {
-        props = props.merged(with: elems[i].props)
+        flags = flags.merged(with: elems[i].flags)
 
         // The union is not canonical if it's not flat (e.g., `A | (B | C)`).
         if elems[i] is UnionType {
-          props = props.removing(.isCanonical)
+          flags = flags.removing(.isCanonical)
         }
 
         // The union is not canonical if it's not sorted.
         // FIXME: Do we need a more stable ordering, independent of the compiler's runtime?
         if ObjectIdentifier(elems[i - 1]) >= ObjectIdentifier(elems[i]) {
-          props = props.removing(.isCanonical)
+          flags = flags.removing(.isCanonical)
         }
       }
     }
 
-    super.init(context: context, props: props)
+    super.init(context: context, flags: flags)
   }
 
   public override var isCopyable: Bool {
@@ -722,7 +758,7 @@ public final class UnionType: ValType {
   }
 
   public override var canonical: ValType {
-    if isCanonical {
+    if self[.isCanonical] {
       return self
     } else if elems.count == 1 {
       return elems[0].canonical
@@ -755,7 +791,25 @@ public final class UnionType: ValType {
       .canonical
   }
 
-  override func isEqual(to other: ValType) -> Bool {
+  public override func isSubtype(of other: ValType) -> Bool {
+    switch elems.count {
+    case 0:
+      return true
+    case 1:
+      return elems[0].isSubtype(of: other)
+    default:
+      break
+    }
+
+    switch other.dealiased {
+    case let that as UnionType:
+      return elems.allSatisfy(that.elems.contains)
+    case let that:
+      return super.isSubtype(of: that)
+    }
+  }
+
+  public override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? UnionType,
           elems.count == that.elems.count
     else { return false }
@@ -766,7 +820,7 @@ public final class UnionType: ValType {
     return true
   }
 
-  override func hash(into hasher: inout Hasher) {
+  public override func hash(into hasher: inout Hasher) {
     for elem in elems {
       elem.hash(into: &hasher)
     }
@@ -812,7 +866,7 @@ public final class BoundGenericType: NominalType {
 
   init(context: Context, decl: GenericTypeDecl, args: [ValType]) {
     self.args = args
-    super.init(context: context, decl: decl, props: RecursiveProps.merge(args.map({ $0.props })))
+    super.init(context: context, decl: decl, flags: Flags.merge(args.map({ $0.flags })))
   }
 
   /// A dictionary mapping the generic type parameters of the underlying type to their argument.
@@ -826,7 +880,7 @@ public final class BoundGenericType: NominalType {
   }
 
   public override var canonical: ValType {
-    return isCanonical
+    return self[.isCanonical]
       ? self
       : context.boundGenericType(decl: decl, args: args.map({ $0.canonical }))
   }
@@ -848,7 +902,7 @@ public final class BoundGenericType: NominalType {
   }
 
   public override var uncontextualized: ValType {
-    return hasSkolems
+    return self[.hasSkolems]
       ? context.boundGenericType(decl: decl, args: args.map({ $0.uncontextualized }))
       : self
   }
@@ -870,7 +924,7 @@ public final class BoundGenericType: NominalType {
     return true
   }
 
-  override func isEqual(to other: ValType) -> Bool {
+  public override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? BoundGenericType,
           decl === that.decl,
           args.count == that.args.count
@@ -882,7 +936,7 @@ public final class BoundGenericType: NominalType {
     return true
   }
 
-  override func hash(into hasher: inout Hasher) {
+  public override func hash(into hasher: inout Hasher) {
     hasher.combine(ObjectIdentifier(decl))
     for arg in args {
       arg.hash(into: &hasher)
@@ -908,10 +962,10 @@ public final class GenericParamType: ValType, Hashable {
 
   init(context: Context, decl: GenericParamDecl) {
     self.decl = decl
-    super.init(context: context, props: [.isCanonical, .hasTypeParams])
+    super.init(context: context, flags: [.isCanonical, .hasTypeParams])
   }
 
-  // Search the generic environment that defines this generic parameter type.
+  // Searches the generic environment that defines this generic parameter type.
   var genericEnv: GenericEnv? {
     var space = decl.parentDeclSpace?.innermostGenericSpace
     while let env = space?.prepareGenericEnv() {
@@ -923,7 +977,29 @@ public final class GenericParamType: ValType, Hashable {
     return nil
   }
 
-  override func isEqual(to other: ValType) -> Bool {
+  public override func lookup(member memberName: String) -> LookupResult {
+    var result = LookupResult()
+    guard let conformances = genericEnv?.conformances(of: self) else { return result }
+    for conf in conformances {
+      result.append(contentsOf: conf.viewDecl.lookup(qualified: memberName))
+    }
+
+    return result
+  }
+
+  public override func lookup(typeMember memberName: String) -> [TypeDecl] {
+    var result: [TypeDecl] = []
+    guard let conformances = genericEnv?.conformances(of: self) else { return [] }
+    for conf in conformances {
+      if let member = conf.viewDecl.typeMemberTable[memberName] {
+        result.append(member)
+      }
+    }
+
+    return result
+  }
+
+  public override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? GenericParamType else { return false }
     return self.decl === that.decl
   }
@@ -948,22 +1024,20 @@ public final class AssocType: ValType {
   public let base: ValType
 
   /// The interface type of this associated type.
+  ///
+  /// This type parameter identifies a particular abstract type in the type members of `base`. It
+  /// is not meant to be substituted by a skolem if contextualized. Hence, it does not trigger the
+  /// associated type to raise the `hasTypeParams` flag.
   public unowned let interface: GenericParamType
 
   init(context: Context, interface: GenericParamType, base: ValType) {
-    var props = base.props.union(with: .hasTypeParams)
-    switch base {
-    case is NominalType:
-      props = props.removing(.isCanonical)
-    case is GenericParamType, is SkolemType, is TypeVar:
-      break
-    default:
-      fatalError("illegal base for associated type")
-    }
+    precondition(
+      base is GenericParamType || base is AssocType || base is SkolemType || base is TypeVar,
+      "illegal base for associated type")
 
     self.base = base
     self.interface = interface
-    super.init(context: context, props: props)
+    super.init(context: context, flags: base.flags)
   }
 
   /// The root of this type.
@@ -975,24 +1049,44 @@ public final class AssocType: ValType {
     }
   }
 
-  public override var canonical: ValType {
-    switch base {
-    case let type as NominalType:
-      guard let witness = type.decl.witness(for: interface.decl)
-      else { return context.errorType }
+  public override func lookup(member memberName: String) -> LookupResult {
+    var result = LookupResult()
+    guard let genericEnv = interface.genericEnv else { return result }
+    let decl = genericEnv.space as! ViewTypeDecl
 
-      if let type = type as? BoundGenericType,
-         let param = witness.instanceType as? GenericParamType,
-         let argument = type.bindings[param]
-      {
-        return argument
-      } else {
-        return witness.instanceType.canonical
+    let key = context.assocType(interface: interface, base: decl.receiverType)
+    guard let conformances = genericEnv.conformances(of: key) else { return result }
+    for conf in conformances {
+      result.append(contentsOf: conf.viewDecl.lookup(qualified: memberName))
+    }
+
+    return result
+  }
+
+  public override func lookup(typeMember memberName: String) -> [TypeDecl] {
+    var result: [TypeDecl] = []
+    guard let genericEnv = interface.genericEnv else { return result }
+    let decl = genericEnv.space as! ViewTypeDecl
+
+    let key = context.assocType(interface: interface, base: decl.receiverType)
+    guard let conformances = genericEnv.conformances(of: key) else { return result }
+    for conf in conformances {
+      if let member = conf.viewDecl.typeMemberTable[memberName] {
+        result.append(member)
       }
+    }
 
+    return result
+  }
+
+  public override var canonical: ValType {
+    switch base.canonical {
     case is GenericParamType, is SkolemType, is TypeVar:
-      assert(isCanonical)
+      assert(self[.isCanonical])
       return self
+
+    case is AssocType:
+      return context.assocType(interface: interface, base: base)
 
     default:
       fatalError("unreachable")
@@ -1003,9 +1097,13 @@ public final class AssocType: ValType {
     return context.assocType(interface: interface, base: base.dealiased)
   }
 
-  public override var uncontextualized: ValType { interface }
+  public override var uncontextualized: ValType {
+    return context.assocType(
+      interface: interface,
+      base: base.uncontextualized)
+  }
 
-  override func isEqual(to other: ValType) -> Bool {
+  public override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? AssocType else { return false }
     return self.base.isEqual(to: that.base) && self.interface.isEqual(to: that.interface)
   }
@@ -1023,10 +1121,10 @@ public final class AssocType: ValType {
 
 }
 
-/// A skolem type (a.k.a. rigid) type variable.
+/// A skolemized (a.k.a. rigid) type variable.
 ///
-/// A skolem type is a generic type parameter that has been existentially quantified within its
-/// generic environment (e.g., `X` within the scope of a function `fun foo<X>(...)`.
+/// A skolem is a generic type parameter that has been existentially quantified within its generic
+/// environment (e.g., `X` within the scope of a function `fun foo<X>(...)`.
 public final class SkolemType: ValType {
 
   /// The interface type of this skolem.
@@ -1038,7 +1136,7 @@ public final class SkolemType: ValType {
   init(context: Context, interface: GenericParamType, genericEnv: GenericEnv) {
     self.interface = interface
     self.genericEnv = genericEnv
-    super.init(context: context, props: [.isCanonical, .hasSkolems])
+    super.init(context: context, flags: [.isCanonical, .hasSkolems])
   }
 
   public override var isCopyable: Bool {
@@ -1052,7 +1150,6 @@ public final class SkolemType: ValType {
     // the views to which the skolem conforms (note: concrete type declarations can't be nested in
     // a view). These members must be returned as associated types rather than uncontextualized
     // parameters, so that they remain bound to the same quantifier.
-
     var result = LookupResult()
     guard let conformances = genericEnv.conformances(of: interface) else { return result }
     for conf in conformances {
@@ -1062,12 +1159,12 @@ public final class SkolemType: ValType {
     return result
   }
 
-  override func isEqual(to other: ValType) -> Bool {
+  public override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? SkolemType else { return false }
     return self.interface.isEqual(to: that.interface)
   }
 
-  override func hash(into hasher: inout Hasher) {
+  public override func hash(into hasher: inout Hasher) {
     hasher.combine(ObjectIdentifier(SkolemType.self))
     interface.hash(into: &hasher)
   }
@@ -1080,11 +1177,50 @@ public final class SkolemType: ValType {
 
 }
 
+/// The dynamic type of an opened existential at runtime.
+public final class WitnessType: ValType {
+
+  /// The existential type that this type is witnessing.
+  public unowned let interface: ValType
+
+  init(context: Context, interface: ValType) {
+    self.interface = interface
+    super.init(context: context, flags: [.isCanonical])
+  }
+
+  /// The stable identity of this witness.
+  public var id: Int { Int(bitPattern: ObjectIdentifier(self)) }
+
+  public override var isCopyable: Bool {
+    return interface.isCopyable
+  }
+
+  public override func isEqual(to other: ValType) -> Bool {
+    guard let that = other as? WitnessType else { return false }
+    return self.interface.isEqual(to: that.interface)
+  }
+
+  public override func hash(into hasher: inout Hasher) {
+    hasher.combine(ObjectIdentifier(WitnessType.self))
+    interface.hash(into: &hasher)
+  }
+
+  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+    visitor.visit(self)
+  }
+
+  public override var description: String {
+    let code = String(id, radix: 36, uppercase: true)
+    return "@opened[\(code)] \(stringify(interface))"
+  }
+
+}
+
 /// A tuple type.
 public final class TupleType: ValType {
 
   /// An element in a tuple type.
-  public struct Elem: CustomStringConvertible, Equatable {
+  public struct Elem: Hashable, CustomStringConvertible {
 
     /// The label of the element, if any.
     public let label: String?
@@ -1097,6 +1233,11 @@ public final class TupleType: ValType {
       self.type = type
     }
 
+    public func hash(into hasher: inout Hasher) {
+      hasher.combine(label)
+      type.hash(into: &hasher)
+    }
+
     public var description: String {
       if let label = self.label {
         return "\(label): \(type)"
@@ -1106,7 +1247,7 @@ public final class TupleType: ValType {
     }
 
     public static func == (lhs: Elem, rhs: Elem) -> Bool {
-      return (lhs.label == rhs.label) && (lhs.type == rhs.type)
+      return lhs.label == rhs.label && lhs.type.isEqual(to: rhs.type)
     }
 
   }
@@ -1117,15 +1258,15 @@ public final class TupleType: ValType {
   init(context: Context, elems: [Elem]) {
     self.elems = elems
 
-    // Compute the type's recursive properties.
-    var props = RecursiveProps.merge(elems.map({ $0.type.props }))
+    // Compute the type's flags.
+    var flags = Flags.merge(elems.map({ $0.type.flags }))
     if elems.count == 0 {
-      props = .isCanonical
+      flags = .isCanonical
     } else if (elems.count == 1) && (elems[0].label == nil) && !elems[0].type.isUnit {
-      props = props.removing(.isCanonical)
+      flags = flags.removing(.isCanonical)
     }
 
-    super.init(context: context, props: props)
+    super.init(context: context, flags: flags)
   }
 
   public override var isCopyable: Bool {
@@ -1137,7 +1278,7 @@ public final class TupleType: ValType {
   /// A tuple with only one element is canonical if and only if that element has a label or if that
   /// element is the unit type (i.e., `(()) != ()`).
   public override var canonical: ValType {
-    if isCanonical {
+    if self[.isCanonical] {
       return self
     }
     if (elems.count == 1) && (elems[0].label == nil) {
@@ -1157,7 +1298,7 @@ public final class TupleType: ValType {
   }
 
   public override var uncontextualized: ValType {
-    if !hasSkolems {
+    if !self[.hasSkolems] {
       return self
     }
     return context.tupleType(elems.map({ elem in
@@ -1182,7 +1323,20 @@ public final class TupleType: ValType {
     return true
   }
 
-  override func isEqual(to other: ValType) -> Bool {
+  public override func isSubtype(of other: ValType) -> Bool {
+    switch other.dealiased {
+    case let that as TupleType:
+      guard elems.count == that.elems.count else { return false }
+      return zip(elems, that.elems).allSatisfy({ (a, b) -> Bool in
+        (a.label == b.label) && a.type.isSubtype(of: b.type)
+      })
+
+    case let that:
+      return super.isSubtype(of: that)
+    }
+  }
+
+  public override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? TupleType,
           elems.count == that.elems.count
     else { return false }
@@ -1193,11 +1347,8 @@ public final class TupleType: ValType {
     return true
   }
 
-  override func hash(into hasher: inout Hasher) {
-    for elem in elems {
-      hasher.combine(elem.label)
-      elem.type.hash(into: &hasher)
-    }
+  public override func hash(into hasher: inout Hasher) {
+    hasher.combine(elems)
   }
 
   public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
@@ -1214,47 +1365,97 @@ public final class TupleType: ValType {
 /// A function type.
 public final class FunType: ValType {
 
+  /// A parameter of in a function type.
+  public struct Param: Hashable, CustomStringConvertible {
+
+    /// The label of the parameter, if any.
+    public let label: String?
+
+    /// The type of the parameter.
+    public let type: ValType
+
+    public init(label: String? = nil, type: ValType) {
+      assert(type is FunParamType || type is TypeVar || type is ErrorType)
+      self.label = label
+      self.type = type
+    }
+
+    public init(label: String? = nil, policy: PassingPolicy, rawType: ValType) {
+      assert(!(rawType is FunParamType))
+      self.label = label
+      self.type = rawType.context.funParamType(policy: policy, rawType: rawType)
+    }
+
+    /// The passing policy of this parameter.
+    public var policy: PassingPolicy? { (type as? FunParamType)?.policy }
+
+    /// Returns a new parameter with the same label but whose type is transformed by of the given
+    /// closure.
+    ///
+    /// - Parameter transform: A closure that transforms the parameter's type.
+    public func map(_ transform: (ValType) -> ValType) -> Param {
+      return Param(label: label, type: transform(type))
+    }
+
+    public func hash(into hasher: inout Hasher) {
+      hasher.combine(label)
+      type.hash(into: &hasher)
+    }
+
+    public var description: String {
+      if let label = self.label {
+        return "\(label): \(type)"
+      } else {
+        return "\(type)"
+      }
+    }
+
+    public static func == (lhs: Param, rhs: Param) -> Bool {
+      return (lhs.label == rhs.label && lhs.type.isEqual(to: rhs.type))
+    }
+
+  }
+
   /// The function's domain.
-  public let paramType: ValType
+  public let params: [Param]
 
   /// The function's codomain.
   public let retType: ValType
 
-  init(context: Context, paramType: ValType, retType: ValType) {
-    self.paramType = paramType
+  init(context: Context, params: [Param], retType: ValType) {
+    self.params = params
     self.retType = retType
-    super.init(context: context, props: paramType.props.merged(with: retType.props))
-  }
 
-  /// A list with the type of each individual function parameter.
-  ///
-  /// This automatically iterates over the elements of `paramType` if it is a tuple.
-  public var paramTypeList: [ValType] {
-    if let tuple = paramType as? TupleType {
-      return tuple.elems.map({ elem in elem.type })
-    } else {
-      return [paramType]
-    }
+    let flags = Flags.merge(params.map({ $0.type.flags }))
+    super.init(context: context, flags: flags.merged(with: retType.flags))
   }
 
   public override var isCopyable: Bool { true }
 
   public override var canonical: ValType {
-    return isCanonical
-      ? self
-      : context.funType(paramType: paramType.canonical, retType: retType.canonical)
+    if self[.isCanonical] {
+      return self
+    } else {
+      return context.funType(
+        params: params.map({ $0.map({ $0.canonical }) }),
+        retType: retType.canonical)
+    }
   }
 
   public override var dealiased: ValType {
-    return context
-      .funType(paramType: paramType.dealiased, retType: retType.dealiased)
-      .canonical
+    return context.funType(
+      params: params.map({ $0.map({ $0.dealiased }) }),
+      retType: retType.dealiased)
   }
 
   public override var uncontextualized: ValType {
-    return hasSkolems
-      ? context.funType(paramType: paramType.uncontextualized, retType: retType.uncontextualized)
-      : self
+    if self[.hasSkolems] {
+      return self
+    } else {
+      return context.funType(
+        params: params.map({ $0.map({ $0.uncontextualized }) }),
+        retType: retType.uncontextualized)
+    }
   }
 
   public override func matches(
@@ -1263,21 +1464,41 @@ public final class FunType: ValType {
   ) -> Bool {
     if self == other { return true }
 
-    guard let that = other as? FunType else { return reconcile(self, other) }
-    return retType.matches(with: that.retType, reconcilingWith: reconcile) &&
-           paramType.matches(with: that.paramType, reconcilingWith: reconcile)
-  }
-
-  override func isEqual(to other: ValType) -> Bool {
     guard let that = other as? FunType,
-          retType.isEqual(to: that.retType),
-          paramType.isEqual(to: that.paramType)
-    else { return false }
-    return true
+          params.count == that.params.count
+    else { return reconcile(self, other) }
+
+    for (a, b) in zip(params, that.params) {
+      guard (a.label == b.label) else { return reconcile(self, other) }
+      guard a.type.matches(with: b.type, reconcilingWith: reconcile) else { return false }
+    }
+
+    return retType.matches(with: that.retType, reconcilingWith: reconcile)
   }
 
-  override func hash(into hasher: inout Hasher) {
-    paramType.hash(into: &hasher)
+  public override func isSubtype(of other: ValType) -> Bool {
+    switch other.dealiased {
+    case let that as FunType:
+      guard retType.isSubtype(of: that.retType) else { return false }
+      guard params.count == that.params.count else { return false }
+      return zip(params, that.params).allSatisfy({ (lhs, rhs) -> Bool in
+        return (lhs.label == rhs.label) && (rhs.type.isSubtype(of: lhs.type))
+      })
+
+    case let that:
+      return super.isSubtype(of: that)
+    }
+  }
+
+  public override func isEqual(to other: ValType) -> Bool {
+    guard let that = other as? FunType else { return false }
+    return (params == that.params) && retType.isEqual(to: that.retType)
+  }
+
+  public override func hash(into hasher: inout Hasher) {
+    for param in params {
+      param.hash(into: &hasher)
+    }
     retType.hash(into: &hasher)
   }
 
@@ -1285,7 +1506,79 @@ public final class FunType: ValType {
     visitor.visit(self)
   }
 
-  public override var description: String { "\(paramType) -> \(retType)" }
+  public override var description: String {
+    let params = self.params.map(String.init(describing:)).joined(separator: ", ")
+    return "(\(params)) -> \(retType)"
+  }
+
+}
+
+/// A function parameter type.
+public final class FunParamType: ValType {
+
+  /// The passing policly of the parameter.
+  public let policy: PassingPolicy
+
+  /// The raw type of the parameter.
+  public let rawType: ValType
+
+  init(policy: PassingPolicy, rawType: ValType) {
+    self.policy = policy
+    self.rawType = rawType
+    super.init(context: rawType.context, flags: rawType.flags)
+  }
+
+  public override var isCopyable: Bool { rawType.isCopyable }
+
+  public override var canonical: ValType {
+    return self[.isCanonical]
+      ? self
+      : context.funParamType(policy: policy, rawType: rawType.canonical)
+  }
+
+  public override var dealiased: ValType {
+    return context.funParamType(policy: policy, rawType: rawType.dealiased)
+  }
+
+  public override var uncontextualized: ValType {
+    return self[.hasSkolems]
+      ? self
+      : context.funParamType(policy: policy, rawType: rawType.uncontextualized)
+  }
+
+  public override func matches(
+    with other: ValType,
+    reconcilingWith reconcile: (ValType, ValType) -> Bool
+  ) -> Bool {
+    if self == other { return true }
+
+    guard
+      let that = other as? FunParamType,
+      policy == that.policy
+    else { return reconcile(self, other) }
+
+    return rawType.matches(with: that.rawType, reconcilingWith: reconcile)
+  }
+
+  public override func isSubtype(of other: ValType) -> Bool {
+    return false
+  }
+
+  public override func isEqual(to other: ValType) -> Bool {
+    guard let that = other as? FunParamType else { return false }
+    return (policy == that.policy) && rawType.isEqual(to: that.rawType)
+  }
+
+  public override func hash(into hasher: inout Hasher) {
+    hasher.combine(policy)
+    rawType.hash(into: &hasher)
+  }
+
+  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+    visitor.visit(self)
+  }
+
+  public override var description: String { "\(policy) \(rawType)" }
 
 }
 
@@ -1297,26 +1590,26 @@ public final class AsyncType: ValType {
 
   init(context: Context, base: ValType) {
     self.base = base
-    super.init(context: context, props: base.props.union(with: .hasAsync))
+    super.init(context: context, flags: base.flags.union(with: .hasAsync))
   }
 
   public override var isCopyable: Bool { false }
 
   public override var canonical: ValType {
-    return isCanonical
+    return self[.isCanonical]
       ? self
       : context.asyncType(of: base.canonical)
     // FIXME: We might add more equivalence classes (e.g., `async (a: T) == (a: async T)`).
   }
 
   public override var dealiased: ValType {
-    return hasAlias
+    return self[.hasAlias]
       ? context.asyncType(of: base.dealiased)
       : self
   }
 
   public override var uncontextualized: ValType {
-    return hasSkolems
+    return self[.hasSkolems]
       ? context.asyncType(of: base.uncontextualized)
       : self
   }
@@ -1331,14 +1624,21 @@ public final class AsyncType: ValType {
     return base.matches(with: that.base, reconcilingWith: reconcile)
   }
 
-  override func isEqual(to other: ValType) -> Bool {
-    guard let that = other as? AsyncType,
-          base.isEqual(to: that.base)
-    else { return false }
-    return true
+  public override func isSubtype(of other: ValType) -> Bool {
+    switch other.dealiased {
+    case let that as AsyncType:
+      return base.isSubtype(of: that.base)
+    case let that:
+      return super.isSubtype(of: that)
+    }
   }
 
-  override func hash(into hasher: inout Hasher) {
+  public override func isEqual(to other: ValType) -> Bool {
+    guard let that = other as? AsyncType else { return false }
+    return base.isEqual(to: that.base)
+  }
+
+  public override func hash(into hasher: inout Hasher) {
     hasher.combine(ObjectIdentifier(AsyncType.self))
     base.hash(into: &hasher)
   }
@@ -1351,83 +1651,13 @@ public final class AsyncType: ValType {
 
 }
 
-/// An "inout" type (e.g. `mut Int`)
-///
-/// In-out types can only appear as function parameters. They indicate that an argument is expected
-/// to be be passed as a mutable alias (using the `&` prefix operator). The implicit receiver of a
-/// mutating method is always an in-out parameter.
-public final class InoutType: ValType {
-
-  /// A type.
-  public let base: ValType
-
-  init(context: Context, base: ValType) {
-    assert(!base.hasInout, "bad type: base type cannot contain in-out types")
-    self.base = base
-    super.init(context: context, props: base.props.union(with: .hasInout))
-  }
-
-  public override var isCopyable: Bool { base.isCopyable }
-
-  public override var canonical: ValType {
-    return isCanonical
-      ? self
-      : context.inoutType(of: base.canonical)
-  }
-
-  public override var dealiased: ValType {
-    return hasAlias
-      ? context.inoutType(of: base.dealiased)
-      : self
-  }
-
-  public override var uncontextualized: ValType {
-    return hasSkolems
-      ? context.inoutType(of: base.uncontextualized)
-      : self
-  }
-
-  public override func lookup(member memberName: String) -> LookupResult {
-    return base.lookup(member: memberName)
-  }
-
-  public override func matches(
-    with other: ValType,
-    reconcilingWith reconcile: (ValType, ValType) -> Bool
-  ) -> Bool {
-    if self == other { return true }
-
-    guard let that = other as? InoutType else { return reconcile(self, other) }
-    return base.matches(with: that.base, reconcilingWith: reconcile)
-  }
-
-  override func isEqual(to other: ValType) -> Bool {
-    guard let that = other as? InoutType,
-          base.isEqual(to: that.base)
-    else { return false }
-    return true
-  }
-
-  override func hash(into hasher: inout Hasher) {
-    hasher.combine(ObjectIdentifier(InoutType.self))
-    base.hash(into: &hasher)
-  }
-
-  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
-    visitor.visit(self)
-  }
-
-  public override var description: String { "mut \(stringify(base))" }
-
-}
-
 /// An unresolved type.
 ///
 /// This is used internally to denote the type of an unresolved declaration reference.
 public final class UnresolvedType: ValType {
 
   init(context: Context) {
-    super.init(context: context, props: [.isCanonical, .hasUnresolved])
+    super.init(context: context, flags: [.isCanonical, .hasUnresolved])
   }
 
   public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
@@ -1443,7 +1673,7 @@ public final class UnresolvedType: ValType {
 public final class ErrorType: ValType {
 
   init(context: Context) {
-    super.init(context: context, props: [.isCanonical, .hasErrors])
+    super.init(context: context, flags: [.isCanonical, .hasErrors])
   }
 
   public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
@@ -1464,7 +1694,7 @@ public final class TypeVar: ValType, Hashable {
   public init(context: Context, node: Node? = nil) {
     self.id = TypeVar.idFactory.makeID()
     self.node = node
-    super.init(context: context, props: [.isCanonical, .hasVariables])
+    super.init(context: context, flags: [.isCanonical, .hasVariables])
   }
 
   public override func hash(into hasher: inout Hasher) {

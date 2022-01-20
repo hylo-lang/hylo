@@ -1,7 +1,22 @@
+import struct OrderedCollections.OrderedSet
 import Basic
 
 /// A node visitor that gathers the values that are captured by an expression.
 public struct CaptureCollector: NodeWalker {
+
+  public enum _DeclRefHashWitness: HashWitness {
+
+    public typealias Value = DeclRefExpr
+
+    public static func hash(_ value: Value, into hasher: inout Hasher) {
+      hasher.combine(ObjectIdentifier(value.decl))
+    }
+
+    public static func equals(_ lhs: Value, _ rhs: Value) -> Bool {
+      return lhs.decl === rhs.decl
+    }
+
+  }
 
   public typealias Result = Bool
 
@@ -12,11 +27,12 @@ public struct CaptureCollector: NodeWalker {
   /// The outermost declaration space in which declarations are considered local, not captured.
   private var boundary: DeclSpace?
 
-  /// The capture table of the visited expression.
-  public var table = CaptureTable()
+  /// The first representative of each captured declaration that was collected.
+  public var capturedDeclRefs: OrderedSet<HashableBox<_DeclRefHashWitness>>
 
   public init(relativeTo boundary: DeclSpace?) {
     self.boundary = boundary
+    self.capturedDeclRefs = []
   }
 
   public mutating func visit(_ decl: BaseFunDecl) -> Bool {
@@ -45,7 +61,7 @@ public struct CaptureCollector: NodeWalker {
     }
 
     // Register a new capture.
-    table.append(ref: expr)
+    capturedDeclRefs.append(HashableBox(expr))
     return true
   }
 

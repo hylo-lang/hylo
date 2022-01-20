@@ -7,9 +7,9 @@ fun foo() -> Int {
 }
 
 fun main() {
-  val n = 40
-  val a = async A(i: n)
-  val b = async foo()
-  val c = (await a).i + await b
+  let n = 40
+  let a = async A(i: n)
+  let b = async foo()
+  let c = (await a).i + await b
   exit(c)
 }

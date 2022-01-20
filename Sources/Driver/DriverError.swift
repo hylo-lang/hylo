@@ -12,6 +12,6 @@ public enum DriverError: Error {
   case moduleNotTypeChecked(moduleName: String)
 
   /// Occurs when the driver failed to lower a module to verified VIL.
-  case moduleLoweringFailed(moduleName: String)
+  case loweringFailed(inFunction: String, inModule: String)
 
 }

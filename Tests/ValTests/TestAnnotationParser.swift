@@ -36,12 +36,16 @@ struct TestAnnotationParser {
       let loc = TestAnnotation.Location(url: source.url, line: i + offset)
 
       // Register the annotation.
+      let pattern: DiagPattern
       switch command {
       case "error":
-        annotations[loc, default: []].append(.diagnostic(DiagnosticPattern(message: argument)))
+        pattern = DiagPattern(level: .error, message: argument)
+      case "warning":
+        pattern = DiagPattern(level: .warning, message: argument)
       default:
         fatalError("unrecognized command: \(command)")
       }
+      annotations[loc, default: []].append(.diagnostic(pattern))
     }
   }
 
@@ -50,7 +54,7 @@ struct TestAnnotationParser {
 /// A test annotation.
 enum TestAnnotation {
 
-  case diagnostic(DiagnosticPattern)
+  case diagnostic(DiagPattern)
 
   /// The location of a test annotation.
   struct Location: Hashable {

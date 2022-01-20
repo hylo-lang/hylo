@@ -72,6 +72,15 @@ extension Sequence {
 
 }
 
+/// Mutates a value with the specified closure.
+///
+/// - Parameters:
+///   - value: The value to mutate.
+///   - mutator: A closure that accepts `value` as an inout argument.
+public func modify<T, U>(value: inout T, with mutate: (inout T) throws -> U) rethrows -> U {
+  return try mutate(&value)
+}
+
 infix operator ?< : NilCoalescingPrecedence
 
 /// Performs a nil-coalescing operation, returning the wrapped value of an Optional instance or
