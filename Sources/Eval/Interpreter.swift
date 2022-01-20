@@ -122,7 +122,7 @@ public struct Interpreter {
     ]
 
     // Invoke the program's entry point.
-    let main = funTable["main"] ?< fatalError("no main function")
+    let main = funTable["main"] ?? fatalError("no main function")
     invoke(
       funName: main.funName,
       in: modules[main.moduleID]!,
@@ -189,7 +189,7 @@ public struct Interpreter {
     returnKey: RegisterTableKey?
   ) where Arguments: Sequence, Arguments.Element == RuntimeValue {
     let fun = module.functions[funName]!
-    let entry = fun.entry ?< fatalError("function '\(fun.name)' has no entry block")
+    let entry = fun.entry ?? fatalError("function '\(fun.name)' has no entry block")
 
     // Reserve the return register, if any.
     if let key = returnKey {

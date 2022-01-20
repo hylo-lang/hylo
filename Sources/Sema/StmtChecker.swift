@@ -41,7 +41,7 @@ struct StmtChecker: StmtVisitor {
 
   mutating func visit(_ node: RetStmt) -> Bool {
     // Use the return type of the function as the fixed type of the returned value.
-    let funDecl = node.funDecl ?< fatalError("return statement outside of a function")
+    let funDecl = node.funDecl ?? fatalError("return statement outside of a function")
     assert(funDecl.state >= .realized)
     let funType = funDecl.type as! FunType
     var fixedRetType = funType.retType

@@ -95,7 +95,7 @@ public final class GenericEnv {
     self.typeReqs = typeReqs
 
     // Initialize semantic properties.
-    let prepare = context.prepareGenericEnv ?< fatalError("no generic environment delegate")
+    let prepare = context.prepareGenericEnv ?? fatalError("no generic environment delegate")
     guard prepare(self) else { return nil }
   }
 
