@@ -7,7 +7,7 @@ let DequeModule = Target.Dependency.product(name: "DequeModule", package: "swift
 let package = Package(
   name: "Val",
   products: [
-    .executable(name: "val", targets: ["val"]),
+    .executable(name: "val", targets: ["cli"]),
   ],
   dependencies: [
     .package(name: "swift-argument-parser", url: "https://github.com/apple/swift-argument-parser.git", from: "0.4.0"),
@@ -16,7 +16,7 @@ let package = Package(
   targets: [
     // The compiler's executable target.
     .target(
-      name: "val",
+      name: "cli",
       dependencies: [
         "Basic", "Driver", "Eval",
         .product(name: "ArgumentParser", package: "swift-argument-parser"),

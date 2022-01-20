@@ -1,4 +1,4 @@
-import Foundation
+import struct Foundation.URL
 
 import ArgumentParser
 import Driver
@@ -7,14 +7,11 @@ import Eval
 /// The compiler's command parser.
 struct ValCommand: ParsableCommand {
 
-  /// The home path for Val's runtime and standard library.
-  static var home = URL(fileURLWithPath: "/opt/local/lib/val")
-
   @Argument(help: "The input file(s).", transform: URL.init(fileURLWithPath:))
   var input: [URL]
 
   @Option(help: "The location Val's runtime environment.", transform: URL.init(fileURLWithPath:))
-  var home = ValCommand.home
+  var home: URL?
 
   @Flag(help: "Do not load the standard library.")
   var noStdlib = false
