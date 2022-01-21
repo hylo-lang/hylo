@@ -65,6 +65,10 @@ struct StmtChecker: StmtVisitor {
     }
   }
 
+  func visit(_ node: IfStmt) -> Bool {
+    fatalError("not implemented")
+  }
+
   func visit(_ node: MatchCaseStmt) -> Bool {
     fatalError("unreachable")
   }

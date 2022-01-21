@@ -564,6 +564,27 @@ extension NodeWalker {
     return true
   }
 
+  public mutating func visit(_ node: IfStmt) -> StmtResult {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: IfStmt) -> StmtResult {
+    let prevParent = parent
+    parent = node
+    defer { parent = prevParent }
+
+    var shouldContinue: Bool
+    (shouldContinue, node.condition) = walk(expr: node.condition)
+    guard shouldContinue else { return false }
+
+    guard walk(stmt: node.thenBody) else { return false }
+    if let elseBody = node.elseBody {
+      guard walk(stmt: elseBody) else { return false }
+    }
+
+    return true
+  }
+
   public mutating func visit(_ node: MatchCaseStmt) -> Bool {
     return traverse(node)
   }

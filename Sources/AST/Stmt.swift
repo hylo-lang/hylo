@@ -60,6 +60,38 @@ public final class RetStmt: Stmt {
 
 }
 
+/// A conditional statement.
+public final class IfStmt: Stmt {
+
+  public var range: SourceRange?
+
+  /// A Boolean condition.
+  public var condition: Expr
+
+  /// The statements to execute if the condition holds.
+  public var thenBody: BraceStmt
+
+  /// The statements to execute if the condition does not hold.
+  public var elseBody: Stmt?
+
+  public init(
+    condition: Expr,
+    thenBody: BraceStmt,
+    elseBody: Stmt?,
+    range: SourceRange? = nil
+  ) {
+    self.condition = condition
+    self.thenBody = thenBody
+    self.elseBody = elseBody
+    self.range = range
+  }
+
+  public func accept<V>(_ visitor: inout V) -> V.StmtResult where V: StmtVisitor {
+    return visitor.visit(self)
+  }
+
+}
+
 /// A case statement of a match construct.
 public final class MatchCaseStmt: Stmt, IterableDeclSpace {
 

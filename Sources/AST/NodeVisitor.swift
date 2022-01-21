@@ -76,6 +76,8 @@ public protocol StmtVisitor {
 
   mutating func visit(_ node: RetStmt) -> StmtResult
 
+  mutating func visit(_ node: IfStmt) -> StmtResult
+
   mutating func visit(_ node: MatchCaseStmt) -> StmtResult
 
 }

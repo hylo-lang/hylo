@@ -1168,6 +1168,8 @@ public struct Parser {
       return parseBreakStmt(state: &state)
     case .continue:
       return parseContinueStmt(state: &state)
+    case .if:
+      return parseIfStmt(state: &state)
     case .ret:
       return parseRetStmt(state: &state)
     case .for:
@@ -1207,6 +1209,55 @@ public struct Parser {
     }
 
     fatalError("not implemented")
+  }
+
+  /// Parses a conditional statement.
+  ///
+  ///     if-stmt ::= 'if' expr brace-stmt ('else' brace-stmt | if-stmt)?
+  private func parseIfStmt(state: inout State) -> IfStmt? {
+    guard let opener = state.take(.if) else { return nil }
+
+    let condition: Expr
+    if let c = parseExpr(state: &state) {
+      condition = c
+    } else {
+      context.report("expected expression", anchor: state.errorRange())
+      state.hasError = true
+      condition = ErrorExpr(type: context.errorType, range: state.errorRange())
+    }
+
+    let thenBody: BraceStmt
+    if let b = parseBraceStmt(state: &state) {
+      thenBody = b
+    } else {
+      context.report("expected '{' after condition", anchor: state.errorRange())
+      state.hasError = true
+      thenBody = BraceStmt(statements: [], range: state.errorRange())
+    }
+
+    let elseBody: Stmt?
+    let endLocation: SourceRange.Bound
+    if state.take(.else) != nil {
+      if let b = parseIfStmt(state: &state) {
+        elseBody = b
+      } else if let b = parseBraceStmt(state: &state) {
+        elseBody = b
+      } else {
+        context.report("expected '{' after 'else'", anchor: state.errorRange())
+        state.hasError = true
+        elseBody = BraceStmt(statements: [], range: state.errorRange())
+      }
+      endLocation = elseBody!.range!.upperBound
+    } else {
+      elseBody = nil
+      endLocation = thenBody.range!.upperBound
+    }
+
+    return IfStmt(
+      condition: condition,
+      thenBody: thenBody,
+      elseBody: elseBody,
+      range: opener.range.lowerBound ..< endLocation)
   }
 
   /// Parses a return statement.
@@ -1517,8 +1568,6 @@ public struct Parser {
       return parseAsyncExpr(state: &state)
     case .await:
       return parseAwaitExpr(state: &state)
-    case .if:
-      fatalError("not implemented")
     case .match:
       return parseMatchExpr(state: &state)
     case .lParen:

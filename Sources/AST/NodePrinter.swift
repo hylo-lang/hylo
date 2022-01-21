@@ -332,6 +332,18 @@ public struct NodePrinter: NodeVisitor {
     """
   }
 
+  public mutating func visit(_ node: IfStmt) -> String {
+    return """
+    {
+    "class": "\(type(of: node))",
+    "range": \(encode(range: node.range)),
+    "condition": \(encode(node.condition)),
+    "thenBody": \(encode(node.thenBody)),
+    "elseBody": \(encode(node.elseBody))
+    }
+    """
+  }
+
   public mutating func visit(_ node: MatchCaseStmt) -> String {
     return """
     {
