@@ -4,29 +4,62 @@ Val is an open source, general-purpose programming language designed around on t
 The language aims to be safe and efficient, yet expressive enough to support multiple programming paradigms and implement concurrent algorithms safely and efficiently.
 
 Value semantics brings several advantages in terms of software correctness, performance, and maintainability.
-In particular, it upholds local reasoning, allowing programmers (and compilers) to safely focus on confined sections of the program, without worrying about unintended side effects in unrelated components (a.k.a. spooky actions at a distance).
+In particular, it upholds local reasoning, allowing programmers (and compilers) to safely focus on confined sections of the program, without worrying about unintended side effects in unrelated components.
 
-Val is heavily inspired by (and implemented in) [Swift](https://swift.org) and adopts many of its features, including higher-order functions, mutating methods, and relatively powerful support for generic programming (a.k.a. parametric polymorphism).
+Val is heavily inspired by [Swift](https://swift.org) and [Rust](https://www.rust-lang.org), and 
+it adopts many of their features.
+Those include borrowing, higher-order functions, and relatively powerful support for generic programming (a.k.a. parametric polymorphism).
 
 ### (Mutable) Value Semantics
 
-A type has value semantics if the value of a variable of this type can only be changed through operations on that variable.
-A type has _mutable_ value semantics if it supports part-wise, in-place mutation.
+A type has value semantics if values of that type are independent: the value of a variable cannot change through operations on another variable.
 
 ```val
 // Declares a generic 'Pair' type.
 type Pair<T, U> { var fst: T; var snd: U }
 
-// Creates two pairs.
-var foo = Pair(fst: 4, snd: 2)
-var bar = foo
+// Creates a pair and call a function.
+var p1 = Pair(fst: 4, snd: 2)
+foo(p1)
 
-// Mutates the second pair in-place (i.e., without new allocations).
-bar.fst = 8
-
-// Prints 4, not 8, because 'foo' and 'bar' are two independent values.
-print(bar.fst)
+// Always prints 'Pair(fst: 4, snd: 2)', regardless of what 'foo' does.
+print(p1)
 ```
+
+Because `Pair` has value semantics, `p1`'s value is guaranteed not to change through operations on `foo`'s argument.
+This behavior is unlike most modern object-oriented languages (e.g., Java or Python) in which values of a compound type such as `Pair` can share a mutable state.
+
+A type has _mutable_ value semantics if it supports part-wise, in-place mutation (i.e., without reassigning a variable of the type to a whole new value).
+
+```val
+p1.fst = 8    // Mutates `p1` in-place.
+print(p1.fst) // Prints '8'
+```
+
+Assigning a variable to another variable cannot result in shared mutable state.
+There are two ways to uphold that guarantee: copying or ["moving"](https://doc.rust-lang.org/rust-by-example/scope/move.html) the right hand side.
+Since copying large data structures can be expensive, Val never copies explicitly; assigning a variable destructively moves it.
+
+```val
+var p2 = p1   // `p1` moves into `p2`
+print(p2)     // Prints 'Pair(fst: 4, snd: 2)'
+p1.fst = 0    // Type error!
+```
+
+Because sharing is only harmful in the presence of mutation, Val lets immutable values share their state.
+
+```val
+var p1 = Pair(fst: 4, snd: 2)
+let p2 = p1
+print(p2)     // Prints 'Pair(fst: 4, snd: 2)'
+p1.fst = 0    // OK!
+```
+
+Here, `p2` is declared constant with `let`.
+Hence, `p1` does not have to be moved as long as neither `p1` nor `p2` change.
+In other words, `p1` temporarily shares its state with `p2`, until `p2`'s value is no longer used.
+
+This behavior explains why calls to `print` did not cause any move in earlier examples: `print` is only reading the value so its argument can temporarily (i.e., for the duration of the call) share its state.
 
 ## Documentation
 
