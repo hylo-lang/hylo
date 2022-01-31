@@ -65,8 +65,19 @@ struct StmtChecker: StmtVisitor {
     }
   }
 
-  func visit(_ node: IfStmt) -> Bool {
-    fatalError("not implemented")
+  mutating func visit(_ node: IfStmt) -> Bool {
+    let context = node.condition.type.context
+
+    // The condition must have a Boolean type.
+    let bool = context.getTypeDecl(for: .Bool)!.instanceType
+    var success = TypeChecker.check(expr: &node.condition, fixedType: bool, useSite: useSite)
+
+    success = node.thenBody.accept(&self) && success
+    if let elseBody = node.elseBody {
+      success = elseBody.accept(&self) && success
+    }
+
+    return success
   }
 
   func visit(_ node: MatchCaseStmt) -> Bool {

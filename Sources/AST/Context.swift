@@ -274,13 +274,15 @@ public final class Context {
   /// The standard library.
   public var stdlib: ModuleDecl?
 
-  /// Returns the requested type from the standard library.
+  /// Returns the declaration of a type from the standard library.
+  ///
+  /// - Parameter id: The identifier of a type from the standard library.
   ///
   /// - Note: This method always returns `nil` until the standard library has been parsed and
   ///   loaded into the context.
-  public func getTypeDecl(for type: KnownStdTypes) -> TypeDecl? {
+  public func getTypeDecl(for id: KnownStdTypes) -> TypeDecl? {
     guard let stdlib = self.stdlib else { return nil }
-    return stdlib.lookup(unqualified: type.name, in: self).types.first
+    return stdlib.lookup(unqualified: id.name, in: self).types.first
   }
 
   // MARK: Diagnostics
