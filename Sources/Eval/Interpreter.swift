@@ -169,7 +169,7 @@ public struct Interpreter {
   /// - Assign the value of each argument to their respective register.
   /// - Move the program counter into the callee.
   ///
-  /// The epilogue of the call is implemented by the `ret` instruction.
+  /// The epilogue of the call is implemented by the `return` instruction.
   ///
   /// - Parameters:
   ///   - funName: The name of a VIL function.

@@ -3,7 +3,7 @@ type A {
 }
 
 fun foo() -> Int {
-  ret 2
+  return 2
 }
 
 fun main() {

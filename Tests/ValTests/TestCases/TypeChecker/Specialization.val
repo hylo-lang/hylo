@@ -22,11 +22,11 @@ view U {}
 fun fn<X>(x: X) {
   // #!error@+1 view conformance requirement on non-generic type 'Y'
   fun g<Y where Y == X, Y: V>(y: Y) -> V {
-    ret y.foo
+    return y.foo
   }
 
   fun h<X, Y where Y == X, Y: V>(y: Y) -> V {
-    ret y.foo
+    return y.foo
   }
 
   fun i<X where X: U>(x: X) {
@@ -35,7 +35,7 @@ fun fn<X>(x: X) {
 
       // #!error@+2 type '$Y' is not a subtype of type '$X'
       // #!error@+1 type '$X' does not conform to view 'V'
-      ret id(x: y, y: a)
+      return id(x: y, y: a)
     }
   }
 }

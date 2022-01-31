@@ -3,7 +3,7 @@ fun one() -> Int { ret 1 }
 fun main() {
   let f = one
   fun two() -> Int {
-    ret f() + one()
+    return f() + one()
   }
 
   exit(40 + two())

@@ -13,12 +13,12 @@ view U {
 }
 
 fun f0<X where X: V>(a: X, b: X::X) -> X::X {
-  ret a.foo(x: b)
+  return a.foo(x: b)
 }
 
 fun f1<X where X: U>(a: X, b: X::Y, c: X::Y::X) -> X::Y::X {
   a.ham(y: b, u: a)
-  ret b.foo(x: c)
+  return b.foo(x: c)
 }
 
 // #!error@+1 type 'X' has no member type named 'Y'
@@ -36,16 +36,16 @@ type A: V {
 // #!error@+2 conformance to 'V' requires a matching implementation of 'new'
 // #!error@+1 conformance to 'V' requires a matching implementation of 'bar'
 type B<X>: V {
-  fun foo(x: X) -> X { ret x }
-  fun bar(one: X) -> X { ret one }
+  fun foo(x: X) -> X { return x }
+  fun bar(one: X) -> X { return one }
 }
 
 type C: V {
   type X {}
 
   new(any: Any) {}
-  fun foo(x: X) -> X { ret x }
-  fun bar(one: X, two: X) -> (one: X, two: X) { ret (one: one, two: two) }
+  fun foo(x: X) -> X { return x }
+  fun bar(one: X, two: X) -> (one: X, two: X) { return (one: one, two: two) }
 }
 
 // #!error@+1 conformance to 'U' requires a matching implementation of 'Y'

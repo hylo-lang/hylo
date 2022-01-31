@@ -4,7 +4,7 @@ type A: Copyable {
   var y: Int
 
   fun copy() -> A {
-    ret A(x: x.copy(), y: y.copy())
+    return A(x: x.copy(), y: y.copy())
   }
 
   fun f0() {}

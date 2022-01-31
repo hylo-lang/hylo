@@ -1117,7 +1117,7 @@ public final class RetInst: Inst {
 
   public var operands: [Operand] { [value] }
 
-  public static var opstring = "ret"
+  public static var opstring = "return"
 
 }
 

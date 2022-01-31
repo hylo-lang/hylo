@@ -1170,7 +1170,7 @@ public struct Parser {
       return parseContinueStmt(state: &state)
     case .if:
       return parseIfStmt(state: &state)
-    case .ret:
+    case .return:
       return parseRetStmt(state: &state)
     case .for:
       fatalError("not implemented")
@@ -1262,9 +1262,9 @@ public struct Parser {
 
   /// Parses a return statement.
   ///
-  ///     ret-stmt ::= 'ret' expr?
+  ///     return-stmt ::= 'return' expr?
   private func parseRetStmt(state: inout State) -> RetStmt? {
-    guard let opener = state.take(.ret) else { return nil }
+    guard let opener = state.take(.return) else { return nil }
     let stmt = RetStmt(value: nil, range: opener.range)
 
     if let expr = parseExpr(state: &state) {

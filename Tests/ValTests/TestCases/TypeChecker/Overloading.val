@@ -3,12 +3,12 @@ type B {}
 type C {}
 
 fun mono(_ a: A) -> A {
-  ret a
+  return a
 }
 
 fun main() {
   fun mono(_ b: B) -> B {
-    ret b
+    return b
   }
 
   let x1 = mono(A())

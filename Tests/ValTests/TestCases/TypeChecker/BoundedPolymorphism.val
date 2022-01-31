@@ -8,5 +8,5 @@ fun f<X where X: V>(x: X) -> A {
   // #!error@+1
   let bar = x.bar
 
-  ret x.foo
+  return x.foo
 }

@@ -26,7 +26,7 @@ type Int: ExpressibleByBuiltinIntLiteral {
   ///
   /// - Parameter other: An integer value.
   fun + (_ other: Int) -> Int {
-    ret Int(value: Builtin::i64_add(
+    return Int(value: Builtin::i64_add(
       Builtin::i64_copy(self.value), Builtin::i64_copy(other.value)))
   }
 
@@ -34,7 +34,7 @@ type Int: ExpressibleByBuiltinIntLiteral {
   ///
   /// - Parameter other: An integer value.
   fun - (_ other: Int) -> Int {
-    ret Int(value: Builtin::i64_sub(
+    return Int(value: Builtin::i64_sub(
       Builtin::i64_copy(self.value), Builtin::i64_copy(other.value)))
   }
 
@@ -42,7 +42,7 @@ type Int: ExpressibleByBuiltinIntLiteral {
   ///
   /// - Parameter other: An integer value.
   fun * (_ other: Int) -> Int {
-    ret Int(value: Builtin::i64_mul(
+    return Int(value: Builtin::i64_mul(
       Builtin::i64_copy(self.value), Builtin::i64_copy(other.value)))
   }
 
@@ -50,7 +50,7 @@ type Int: ExpressibleByBuiltinIntLiteral {
   ///
   /// - Parameter other: An integer value.
   fun / (_ other: Int) -> Int {
-    ret Int(value: Builtin::i64_div(
+    return Int(value: Builtin::i64_div(
       Builtin::i64_copy(self.value), Builtin::i64_copy(other.value)))
   }
 
@@ -58,7 +58,7 @@ type Int: ExpressibleByBuiltinIntLiteral {
   ///
   /// - Parameter other: An integer value.
   fun % (_ other: Int) -> Int {
-    ret Int(value: Builtin::i64_rem(
+    return Int(value: Builtin::i64_rem(
       Builtin::i64_copy(self.value), Builtin::i64_copy(other.value)))
   }
 
@@ -72,7 +72,7 @@ type Int: ExpressibleByBuiltinIntLiteral {
 extn Int: Copyable {
 
   fun copy() -> Int {
-    ret Int(value: Builtin::i64_copy(self.value))
+    return Int(value: Builtin::i64_copy(self.value))
   }
 
 }

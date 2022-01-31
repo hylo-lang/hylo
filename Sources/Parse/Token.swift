@@ -46,7 +46,7 @@ public struct Token {
     case `postfix`
     case `prefix`
     case `pub`
-    case `ret`
+    case `return`
     case `static`
     case `type`
     case `var`
@@ -173,7 +173,7 @@ public struct Token {
   /// A Boolean value indicating whether this token may begin a control statement.
   public var mayBeginCtrlStmt: Bool {
     switch kind {
-    case .break, .continue, .for, .if, .lBrace, .ret, .while:
+    case .break, .continue, .for, .if, .lBrace, .return, .while:
       return true
     default:
       return false
