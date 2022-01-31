@@ -311,32 +311,42 @@ public final class StoreInst: Inst {
 
 // MARK: Aggregate types
 
-/// Creates an uninitialized record value (i.e., the instance of a product type).
-///
-/// FIXME: Currently, the only use of this intruction is to create `Nil` instances. If there are no
-/// other use cases, then it should be removed for something more specific.
+/// Creates a record value (i.e., the instance of a product type) from its concrete parts.
 public final class RecordInst: Value, Inst {
 
   public let type: VILType
 
   public let parent: BasicBlockIndex
 
+  public let operands: [Operand]
+
   public let range: SourceRange?
 
   /// The declaration of the type of which the record value is an instance.
   public let typeDecl: NominalTypeDecl
 
-  init(typeDecl: NominalTypeDecl, type: VILType, parent: BasicBlockIndex, range: SourceRange?) {
+  init(
+    typeDecl: NominalTypeDecl,
+    type: VILType,
+    parts: [Operand],
+    parent: BasicBlockIndex,
+    range: SourceRange?
+  ) {
     self.typeDecl = typeDecl
     self.type = type
     self.parent = parent
+    self.operands = parts
     self.range = range
   }
 
-  public var operands: [Operand] { [] }
+  /// The concrete (a.k.a. stored) parts of the record's elements.
+  public var parts: [Operand] { operands }
 
   public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
-    printer.write("record \(type)\n", to: &stream)
+    let parts = self.parts
+      .map({ printer.describe($0) })
+      .joined(separator: ", ")
+    printer.write("record \(type) (\(parts))\n", to: &stream)
   }
 
   public static var opstring = "record"
@@ -430,17 +440,19 @@ public final class TupleInst: Value, Inst {
 
   public let parent: BasicBlockIndex
 
-  /// The values of the tuple's elements.
   public let operands: [Operand]
 
   public let range: SourceRange?
 
-  init(type: TupleType, elems: [Operand], parent: BasicBlockIndex, range: SourceRange?) {
+  init(type: TupleType, parts: [Operand], parent: BasicBlockIndex, range: SourceRange?) {
     self.type = .lower(type)
-    self.operands = elems
+    self.operands = parts
     self.parent = parent
     self.range = range
   }
+
+  /// The parts of the tuple.
+  public var parts: [Operand] { operands }
 
   public static var opstring = "tuple"
 
@@ -988,9 +1000,9 @@ public final class AwaitInst: Value, Inst {
 /// Branches unconditionally to the start of a basic block.
 public final class BranchInst: Inst {
 
-  public let operands: [Operand]
-
   public let parent: BasicBlockIndex
+
+  public let operands: [Operand]
 
   public let range: SourceRange?
 

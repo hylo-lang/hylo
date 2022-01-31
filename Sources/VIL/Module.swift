@@ -503,7 +503,8 @@ public struct Module {
     at point: InsertionPoint
   ) -> InstIndex {
     let decl = context.getTypeDecl(for: .Nil) as! ProductTypeDecl
-    return insertRecord(typeDecl: decl, type: .lower(decl.instanceType), range: range, at: point)
+    let type = VILType.lower(decl.instanceType)
+    return insertRecord(typeDecl: decl, type: type, parts: [], range: range, at: point)
   }
 
   public mutating func insertOpenExist(
@@ -560,13 +561,14 @@ public struct Module {
   public mutating func insertRecord(
     typeDecl: NominalTypeDecl,
     type: VILType,
+    parts: [Operand],
     range: SourceRange? = nil,
     at point: InsertionPoint
   ) -> InstIndex {
     assert(type.isObject, "'type' must be an object type")
 
     let inst = RecordInst(
-      typeDecl: typeDecl, type: type, parent: block(containing: point), range: range)
+      typeDecl: typeDecl, type: type, parts: parts, parent: block(containing: point), range: range)
     return insert(inst: inst, at: point)
   }
 
@@ -646,15 +648,15 @@ public struct Module {
 
   public mutating func insertTuple(
     type: TupleType,
-    elems: [Operand],
+    parts: [Operand],
     range: SourceRange? = nil,
     at point: InsertionPoint
   ) -> InstIndex {
     assert(
-      elems.allSatisfy({ self.type(of: $0).isObject }),
+      parts.allSatisfy({ self.type(of: $0).isObject }),
       "all operands must have an object type")
 
-    let inst = TupleInst(type: type, elems: elems, parent: block(containing: point), range: range)
+    let inst = TupleInst(type: type, parts: parts, parent: block(containing: point), range: range)
     return insert(inst: inst, at: point)
   }
 

@@ -61,8 +61,17 @@ struct RValueEmitter: ExprVisitor {
   // MARK: Visitors
   // ----------------------------------------------------------------------------------------------
 
-  func visit(_ node: BoolLiteralExpr) -> ExprResult {
-    fatalError("not implemented")
+  mutating func visit(_ node: BoolLiteralExpr) -> ExprResult {
+    let decl = module.context.getTypeDecl(for: .Bool) as! ProductTypeDecl
+    let type = VILType.lower(decl.instanceType)
+
+    let value = node.value
+      ? IntValue.makeTrue(context: module.context)
+      : IntValue.makeFalse(context: module.context)
+    let object = module.insertRecord(
+      typeDecl: decl, type: type, parts: [Operand(value)], range: node.range, at: state.ip)
+
+    return .success(Operand(object))
   }
 
   mutating func visit(_ node: IntLiteralExpr) -> ExprResult {
@@ -168,7 +177,7 @@ struct RValueEmitter: ExprVisitor {
   mutating func visit(_ node: TupleExpr) -> ExprResult {
     let tuple = module.insertTuple(
       type: node.type as! TupleType,
-      elems: node.elems.map({ elem in emit(rvalue: elem.value) }), at: state.ip)
+      parts: node.elems.map({ elem in emit(rvalue: elem.value) }), at: state.ip)
     return .success(Operand(tuple))
   }
 

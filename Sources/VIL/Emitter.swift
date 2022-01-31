@@ -427,6 +427,9 @@ public enum Emitter {
           return
         }
 
+      case let stmt as IfStmt:
+        emit(stmt: stmt, state: &state, into: &module)
+
       case let expr as Expr:
         // FIXME: Drop the result of the expression.
         _ = emit(rvalue: expr, state: &state, into: &module)
@@ -454,6 +457,61 @@ public enum Emitter {
       result = Operand(UnitValue(context: module.context))
     }
     module.insertRet(value: result, range: stmt.range, at: state.ip)
+  }
+
+  static func emit(
+    stmt: IfStmt,
+    state: inout State,
+    into module: inout Module
+  ) {
+    let context = module.context
+    let boolDecl = context.getTypeDecl(for: .Bool) as! ProductTypeDecl
+    let boolMemberDecl = boolDecl.lookup(qualified: "value").values.first as! VarDecl
+    let builtinBoolType = context.getBuiltinType(named: "i1")!
+    let builtinBoolCopyDecl = context.getBuiltinDecl(for: "i1_copy")!
+
+    // Copy the built-in value representing the Boolean condition.
+    let condRecord = emit(borrow: stmt.condition, mutably: false, state: &state, into: &module)
+    var cond = module.insertRecordMemberAddr(
+      record: condRecord,
+      memberDecl: boolMemberDecl,
+      type: .lower(builtinBoolType).address,
+      range: stmt.condition.range,
+      at: state.ip)
+    cond = module.insertBorrowAddr(source: Operand(cond), at: state.ip)
+    cond = module.insertApply(
+      callee: Operand(BuiltinFunRef(decl: builtinBoolCopyDecl)),
+      args: [Operand(cond)],
+      at: state.ip)
+
+    let succ = module.insertBasicBlock(in: state.funName)
+    let fail = module.insertBasicBlock(in: state.funName)
+    let tail = module.insertBasicBlock(in: state.funName)
+    module.insertCondBranch(
+      cond: Operand(cond),
+      succ: succ, succArgs: [],
+      fail: fail, failArgs: [],
+      range: stmt.condition.range,
+      at: state.ip)
+
+    state.ip = .endOf(succ)
+    emit(brace: stmt.thenBody, state: &state, into: &module)
+    module.insertBranch(dest: tail, at: state.ip)
+
+    state.ip = .endOf(fail)
+    switch stmt.elseBody {
+    case let body as BraceStmt:
+      emit(brace: body, state: &state, into: &module)
+    case let body as IfStmt:
+      emit(stmt: body, state: &state, into: &module)
+    case nil:
+      break
+    default:
+      fatalError("unreachable")
+    }
+    module.insertBranch(dest: tail, at: state.ip)
+
+    state.ip = .endOf(tail)
   }
 
   /// Emits the assignment of `rvalue` to `target`.
