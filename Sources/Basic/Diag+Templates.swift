@@ -208,6 +208,14 @@ extension Diag {
     return Diag("missing return value in non-unit function", anchor: range)
   }
 
+  public static func complexClosureType(
+    range: SourceRange?
+  ) -> Diag {
+    return Diag(
+      "unable to infer complex closure return type; add explicit type annotation to disambiguate",
+      anchor: range)
+  }
+
   public static func superfluousTypeModifier(
     range: SourceRange?
   ) -> Diag {

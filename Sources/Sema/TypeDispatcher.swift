@@ -32,14 +32,18 @@ struct TypeDispatcher: NodeWalker {
     case is MemberDeclRefExpr:
       break
 
-    case let e as UnresolvedMemberExpr:
-      return (true, dispatch(e))
+    case let expr as UnresolvedMemberExpr:
+      return (true, dispatch(expr))
 
-    case let e as OverloadedDeclRefExpr:
-      return (true, dispatch(e))
+    case let expr as OverloadedDeclRefExpr:
+      return (true, dispatch(expr))
 
     case is UnresolvedDeclRefExpr, is UnresolvedQualDeclRefExpr:
       fatalError("unexpected primary unresolved expr")
+
+    case let expr as LambdaExpr:
+      expr.decl.type = solution.reify(expr.decl.type, substPolicy: substPolicy)
+      expr.type = expr.decl.type
 
     default:
       expr.type = solution.reify(expr.type, substPolicy: substPolicy)

@@ -797,6 +797,18 @@ extension NodeWalker {
     return shouldContinue
   }
 
+  public mutating func visit(_ node: LambdaExpr) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: LambdaExpr) -> Bool {
+    let prevParent = parent
+    parent = node
+    defer { parent = prevParent }
+
+    return walk(decl: node.decl)
+  }
+
   public mutating func visit(_ node: AsyncExpr) -> Bool {
     return traverse(node)
   }

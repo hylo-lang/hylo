@@ -540,6 +540,53 @@ public final class TupleMemberExpr: MemberExpr {
 
 }
 
+/// An anonymous function.
+public final class LambdaExpr: Expr {
+
+  public var range: SourceRange?
+
+  public var type: ValType
+
+  /// The declaration of the function.
+  public var decl: FunDecl
+
+  public init(decl: FunDecl, type: ValType, range: SourceRange? = nil) {
+    self.decl = decl
+    self.type = type
+    self.range = range
+  }
+
+  /// Realizes the type of the function, filling blanks with fresh type variables.
+  public func realize() -> ValType {
+    if decl.state >= .realized { return decl.type }
+
+    // Realize the type of the parameters.
+    var params: [FunType.Param] = []
+    for param in decl.params {
+      let rawType: ValType
+      if let sign = param.sign {
+        rawType = sign.realize(unqualifiedFrom: decl)
+      } else {
+        rawType = TypeVar(context: type.context, node: param)
+        param.setState(.realized)
+      }
+      params.append(FunType.Param(label: param.label, type: rawType))
+    }
+
+    // Realize the return type.
+    let retType = decl.retSign?.realize(unqualifiedFrom: decl) ?? TypeVar(context: type.context)
+
+    decl.type = type.context.funType(params: params, retType: retType)
+    decl.setState(.realized)
+    return decl.type
+  }
+
+  public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
+    return visitor.visit(self)
+  }
+
+}
+
 /// An expression that is evaluated asynchronously (e.g., `async foo()`).
 ///
 /// An async expression is a wrapper around a "future". It describes a value that might still being

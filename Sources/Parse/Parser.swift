@@ -266,7 +266,7 @@ public struct Parser {
       return parseBindingDecl(state: &state, parsedModifiers: modifiers)
 
     case .fun, .new, .del:
-      return parseFunDecl(state: &state, parsedModifiers: modifiers)
+      return parseFunDecl(state: &state, parsedModifiers: modifiers, requiringParamSign: true)
 
     case .type:
       return parseTypeDecl(state: &state, parsedModifiers: modifiers)
@@ -409,7 +409,11 @@ public struct Parser {
   ///     fun-interface ::= param-decl-list ('->' sign)?
   ///
   /// The next token is expected to be 'fun', 'new' or 'del'.
-  private func parseFunDecl(state: inout State, parsedModifiers: [DeclModifier]) -> BaseFunDecl {
+  private func parseFunDecl(
+    state: inout State,
+    parsedModifiers: [DeclModifier],
+    requiringParamSign: Bool
+  ) -> BaseFunDecl {
     let introducer = state.take(if: { $0.kind == .fun || $0.kind == .new || $0.kind == .del })!
     let lowerLoc = parsedModifiers.first?.range?.lowerBound ?? introducer.range.lowerBound
     var upperLoc = introducer.range.upperBound
@@ -543,7 +547,9 @@ public struct Parser {
 
     // Parse the parameter list.
     if let (opener, params, closer) = list(
-        state: &state, delimiters: (.lParen, .rParen), parser: parseParamDecl(state:))
+      state: &state,
+      delimiters: (.lParen, .rParen),
+      parser: { parseParamDecl(state: &$0, requiringSign: requiringParamSign) })
     {
       decl.params = params
       upperLoc = (closer?.range ?? params.last?.range ?? opener.range).upperBound
@@ -574,8 +580,8 @@ public struct Parser {
       }
     } else {
       // We're missing the opening parenthesis of the parameter list. We'll pretend the user forgot
-      // to define the function's parameters and try to recover before the arrow of the return type
-      // signature, or before the opening brace of the function's body.
+      // the parameters and try to recover before the arrow of the return type signature, or before
+      // the opening brace of the function's body.
       context.report("expected parameter list", anchor: state.errorRange())
       state.hasError = true
       state.skip(while: {
@@ -686,7 +692,7 @@ public struct Parser {
   /// Parses a parameter declaration.
   ///
   ///     param-decl ::= (label | '_')? NAME ':' sign
-  private func parseParamDecl(state: inout State) -> FunParamDecl? {
+  private func parseParamDecl(state: inout State, requiringSign: Bool) -> FunParamDecl? {
     // We assume that the first token corresponds to the parameter label. If the following token is
     // a name, then we can use it as the name. Owtherwise, we can use the first token for both the
     // label and name.
@@ -729,7 +735,7 @@ public struct Parser {
       decl.sign = sign
       decl.policy = sign.policy
       upperLoc = sign.range!.upperBound
-    } else {
+    } else if requiringSign {
       context.report("expected type signature", anchor: state.errorRange())
       state.hasError = true
     }
@@ -1631,6 +1637,8 @@ public struct Parser {
       return parseDeclRefExpr(state: &state)
     case .dot:
       fatalError("not implemented")
+    case .fun:
+      return parseLambdaExpr(state: &state)
     case .async:
       return parseAsyncExpr(state: &state)
     case .await:
@@ -1774,6 +1782,29 @@ public struct Parser {
       state.hasError = true
       return ErrorExpr(type: context.errorType, range: space.range)
     }
+  }
+
+  /// Parses a lambda expression.
+  ///
+  ///     lambda-expr ::= 'fun' capture-list? fun-interface brace-stmt
+  private func parseLambdaExpr(state: inout State) -> Expr? {
+    guard state.peek()?.kind == .fun else { return nil }
+
+    // Parse a standard function declaration. The result must be a FunDecl since we peeked `fun`.
+    let decl = parseFunDecl(
+      state: &state, parsedModifiers: [], requiringParamSign: false) as! FunDecl
+
+    // Check that the parsed declaration is valid for a lambda.
+    if let ident = decl.ident {
+      context.report("lambda functions must be anonymous", anchor: ident.range)
+      state.hasError = true
+    }
+    if let clause = decl.genericClause {
+      context.report("lambda functions cannot be generic", anchor: clause.range)
+      state.hasError = true
+    }
+
+    return LambdaExpr(decl: decl, type: unresolved, range: decl.range)
   }
 
   /// Parses an async expression.

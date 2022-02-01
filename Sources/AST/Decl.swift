@@ -612,12 +612,10 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
   public func realize() -> ValType {
     if state >= .realized { return type }
 
-    // Realize the parameters.
-    var params: [FunType.Param] = []
-    for decl in self.params {
-      let rawType = decl.realize()
-      params.append(FunType.Param(label: decl.label, type: rawType))
-    }
+    // Realize the type of the parameters.
+    let params = self.params.map({ decl in
+      return FunType.Param(label: decl.label, type: decl.realize())
+    })
 
     // Realize the return type.
     let retType: ValType

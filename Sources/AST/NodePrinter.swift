@@ -547,6 +547,15 @@ public struct NodePrinter: NodeVisitor {
     """
   }
 
+  public mutating func visit(_ node: LambdaExpr) -> String {
+    return """
+    {
+    \(exprHeader(node)),
+    "decl": \(encode(node.decl))
+    }
+    """
+  }
+
   public mutating func visit(_ node: AsyncExpr) -> String {
     return """
     {

@@ -123,6 +123,8 @@ public protocol ExprVisitor {
 
   mutating func visit(_ node: TupleMemberExpr) -> ExprResult
 
+  mutating func visit(_ node: LambdaExpr) -> ExprResult
+
   mutating func visit(_ node: AsyncExpr) -> ExprResult
 
   mutating func visit(_ node: AwaitExpr) -> ExprResult

@@ -101,7 +101,19 @@ public enum TypeChecker {
     system: inout ConstraintSystem,
     freeTypeVarSubstPolicy: FreeTypeVarSubstPolicy = .bindToErrorType
   ) -> Solution {
-    var success = withUnsafeMutablePointer(to: &system, { (ptr) -> Bool in
+    if let expr = expr as? LambdaExpr {
+      // Lambda expressions require special handling to infer function signatures.
+      let type = expr.realize() as! FunType
+      if let fixedType = fixedType {
+        system.insert(RelationalConstraint(
+          kind: .equality, lhs: type, rhs: fixedType,
+          at: ConstraintLocator(expr)))
+      } else if (type.retType is TypeVar) && (expr.decl.singleExprBody == nil) {
+        expr.type.context.report(.complexClosureType(range: expr.range))
+      }
+    }
+
+    withUnsafeMutablePointer(to: &system, { ptr in
       // Pre-check the expression to resolve unqualified identifiers, realize type signatures and
       // desugar constructor calls.
       var prechecker = PreChecker(system: ptr, useSite: useSite)
@@ -110,8 +122,6 @@ public enum TypeChecker {
       // Generate constraints from the expression.
       var csgen = ConstraintGenerator(system: ptr, useSite: useSite, fixedType: fixedType)
       (_, expr) = csgen.walk(expr: expr)
-
-      return !prechecker.hasErrors
     })
 
     // Solve the constraint system.
@@ -119,7 +129,6 @@ public enum TypeChecker {
     let result = solver.solve()
 
     // Report type errors.
-    success = result.errors.isEmpty && success
     result.reportAllErrors(in: expr.type.context)
 
     // Apply the solution.
@@ -164,7 +173,7 @@ public enum TypeChecker {
     var dispatcher = TypeDispatcher(solution: result, substPolicy: freeTypeVarSubstPolicy)
     dispatcher.walk(pattern: pattern)
 
-    return (result)
+    return result
   }
 
   static func prepareGenericEnv(env: GenericEnv) -> Bool {

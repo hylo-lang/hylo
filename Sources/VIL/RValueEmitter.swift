@@ -374,6 +374,10 @@ struct RValueEmitter: ExprVisitor {
     fatalError("not implemented")
   }
 
+  func visit(_ node: LambdaExpr) -> ExprResult {
+    fatalError("not implemented")
+  }
+
   mutating func visit(_ node: AsyncExpr) -> ExprResult {
     // Emit the function representing the body of the expression.
     let fun = Emitter.emit(function: node.body, into: &module)

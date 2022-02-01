@@ -36,7 +36,7 @@ struct PreChecker: NodeWalker {
       // Match expressions require special handling to deal with the bindings declared as patterns.
       let checker = PreCheckerImpl(system: system, useSite: innermostSpace!)
       let newExpr = checker.visit(matchExpr)
-      hasErrors = newExpr.type[.hasErrors] || hasErrors
+      hasErrors = hasErrors || newExpr.type[.hasErrors]
       return (false, newExpr)
 
     case is ErrorExpr:
@@ -246,6 +246,10 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
       return ErrorExpr(type: context.errorType, range: node.range)
     }
 
+    return node
+  }
+
+  func visit(_ node: LambdaExpr) -> Expr {
     return node
   }
 

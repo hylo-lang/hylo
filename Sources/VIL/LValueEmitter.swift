@@ -174,6 +174,10 @@ struct LValueEmitter: ExprVisitor {
     fatalError("not implemented")
   }
 
+  func visit(_ node: LambdaExpr) -> ExprResult {
+    return .failure(.useOfRValueAsLValue(node))
+  }
+
   func visit(_ node: AsyncExpr) -> ExprResult {
     return .failure(.useOfRValueAsLValue(node))
   }
