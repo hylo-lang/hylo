@@ -308,6 +308,17 @@ public struct NodePrinter: NodeVisitor {
     """
   }
 
+  public mutating func visit(_ node: NamespaceDecl) -> String {
+    return """
+    {
+    "class": "\(type(of: node))",
+    "range": \(encode(range: node.range)),
+    "parentDeclSpace": \(encode(refToSpace: node.parentDeclSpace)),
+    "decls": \(encode(nodes: node.decls))
+    }
+    """
+  }
+
   public mutating func visit(_ node: BraceStmt) -> String {
     return """
     {

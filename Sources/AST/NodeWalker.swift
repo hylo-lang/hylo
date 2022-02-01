@@ -515,6 +515,26 @@ extension NodeWalker {
     return true
   }
 
+  public mutating func visit(_ node: NamespaceDecl) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: NamespaceDecl) -> Bool {
+    let prevParent = parent
+    parent = node
+    innermostSpace = node
+    defer {
+      parent = prevParent
+      innermostSpace = innermostSpace?.parentDeclSpace
+    }
+
+    for i in 0 ..< node.decls.count {
+      guard walk(decl: node.decls[i]) else { return false }
+    }
+
+    return true
+  }
+
   public mutating func visit(_ node: BraceStmt) -> Bool {
     return traverse(node)
   }

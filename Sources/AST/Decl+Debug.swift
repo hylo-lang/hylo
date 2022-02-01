@@ -30,6 +30,9 @@ extension Decl {
       case is TypeExtnDecl:
         break
 
+      case let decl as NamespaceDecl:
+        components.append(decl.name)
+
       default:
         let id = String(Int(bitPattern: ObjectIdentifier(node)), radix: 36)
         components.append("\(type(of: node))@\(id)")

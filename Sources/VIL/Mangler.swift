@@ -63,7 +63,12 @@ public struct Mangler {
 
     case let decl as TypeExtnDecl:
       append(space: decl.parentDeclSpace!)
-      append(key: .extDecl)
+      append(key: .extnDecl)
+
+    case let decl as NamespaceDecl:
+      append(space: decl.parentDeclSpace!)
+      append(name: decl.name)
+      append(key: .namespaceDecl)
 
     case let decl as BaseFunDecl:
       append(funDecl: decl)
@@ -162,7 +167,8 @@ public enum ManglingOperatorKey: String {
   case productDecl    = "P"
   case viewDecl       = "V"
   case aliasDecl      = "A"
-  case extDecl        = "X"
+  case extnDecl       = "X"
+  case namespaceDecl  = "N"
 
   case witnessImpl    = "W"
 

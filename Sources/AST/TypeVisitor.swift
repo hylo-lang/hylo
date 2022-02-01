@@ -13,6 +13,8 @@ public protocol TypeVisitor {
 
   func visit(_ type: ModuleType) -> Result
 
+  func visit(_ type: NamespaceType) -> Result
+
   func visit(_ type: ProductType) -> Result
 
   func visit(_ type: ViewType) -> Result

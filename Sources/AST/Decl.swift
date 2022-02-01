@@ -1513,3 +1513,46 @@ public final class TypeExtnDecl: Decl, DeclSpace {
   }
 
 }
+
+/// A namespace declaration.
+public final class NamespaceDecl: TypeDecl, IterableDeclSpace {
+
+  public typealias DeclSequence = [Decl]
+
+  public var range: SourceRange?
+
+  public var type: ValType
+
+  /// The unqualified name of this namespace.
+  public var name: String
+
+  /// The member declarations in this namespace.
+  public var decls: [Decl]
+
+  public init(name: String, decls: [Decl], context: Context) {
+    self.name = name
+    self.decls = decls
+    self.type = context.unresolvedType
+    self.type = NamespaceType(context: context, decl: self).kind
+  }
+
+  public var isOverloadable: Bool { false }
+
+  // MARK: Name lookup
+
+  public var parentDeclSpace: DeclSpace?
+
+  // MARK: Semantic properties
+
+  public private(set) var state = DeclState.parsed
+
+  public func setState(_ newState: DeclState) {
+    assert(newState >= state)
+    state = newState
+  }
+
+  public func accept<V>(_ visitor: inout V) -> V.DeclResult where V : DeclVisitor {
+    return visitor.visit(self)
+  }
+
+}

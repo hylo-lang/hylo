@@ -39,6 +39,13 @@ final class TypeTests: XCTestCase {
     XCTAssert(module.instanceType.canonical === module.instanceType)
   }
 
+  func testNamespaceTypeCanonical() {
+    let decl = NamespaceDecl(name: "A", decls: [], context: context)
+    let type = decl.instanceType
+    XCTAssertEqual(type.flags, .isCanonical)
+    XCTAssert(type.canonical === type)
+  }
+
   func testProductTypeCanonical() {
     let decl = ProductTypeDecl(name: "A", type: context.unresolvedType)
     let type = context.productType(decl: decl)

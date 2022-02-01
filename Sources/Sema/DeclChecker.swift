@@ -429,6 +429,19 @@ struct DeclChecker: DeclVisitor {
     return isWellFormed
   }
 
+  mutating func visit(_ node: NamespaceDecl) -> Bool {
+    guard isTypeCheckRequired(node) else { return node.state == .typeChecked }
+
+    node.setState(.typeCheckRequested)
+    var isWellFormed = true
+    for decl in node.decls {
+      isWellFormed = decl.accept(&self) && isWellFormed
+    }
+
+    node.setState(isWellFormed ? .typeChecked : .invalid)
+    return isWellFormed
+  }
+
   // MARK: Helpers
 
   /// Returns whether the specified declaration must be type checked.

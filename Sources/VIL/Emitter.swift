@@ -65,6 +65,8 @@ public enum Emitter {
       emit(productType: decl, into: &module)
     case let decl as TypeExtnDecl:
       emit(typeExtn: decl, into: &module)
+    case let decl as NamespaceDecl:
+      emit(namespace: decl, into: &module)
 
     case is ViewTypeDecl, is AbstractTypeDecl:
       // Views and abstract types are not concrete; there's nothing to emit.
@@ -122,6 +124,12 @@ public enum Emitter {
   public static func emit(typeExtn decl: TypeExtnDecl, into module: inout Module) {
     for member in decl.members {
       emit(member: member, into: &module)
+    }
+  }
+
+  public static func emit(namespace decl: NamespaceDecl, into module: inout Module) {
+    for decl in decl.decls {
+      emit(topLevel: decl, into: &module)
     }
   }
 

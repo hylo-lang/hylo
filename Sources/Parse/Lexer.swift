@@ -100,6 +100,7 @@ public struct Lexer: IteratorProtocol, Sequence {
       case "match"    : token.kind = .match
       case "mod"      : token.kind = .mod
       case "mut"      : token.kind = .mut
+      case "namespace": token.kind = .namespace
       case "new"      : token.kind = .new
       case "nil"      : token.kind = .nil
       case "postfix"  : token.kind = .postfix

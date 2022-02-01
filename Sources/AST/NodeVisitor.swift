@@ -65,6 +65,8 @@ public protocol DeclVisitor {
 
   mutating func visit(_ node: TypeExtnDecl) -> DeclResult
 
+  mutating func visit(_ node: NamespaceDecl) -> DeclResult
+
 }
 
 /// Base protocol for types visiting statement nodes.

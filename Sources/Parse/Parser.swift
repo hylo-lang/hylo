@@ -146,11 +146,12 @@ public struct Parser {
     }
 
     static let isParsingTopLevel  = Flags(rawValue: 1 << 0)
-    static let isParsingProdBody  = Flags(rawValue: 1 << 1)
-    static let isParsingViewBody  = Flags(rawValue: 1 << 2)
-    static let isParsingExtnBody  = Flags(rawValue: 1 << 3)
-    static let isParsingFunBody   = Flags(rawValue: 1 << 4)
-    static let isParsingLoopBody  = Flags(rawValue: 1 << 5)
+    static let isParsingNamespace = Flags(rawValue: 1 << 1)
+    static let isParsingProdBody  = Flags(rawValue: 1 << 2)
+    static let isParsingViewBody  = Flags(rawValue: 1 << 3)
+    static let isParsingExtnBody  = Flags(rawValue: 1 << 4)
+    static let isParsingFunBody   = Flags(rawValue: 1 << 5)
+    static let isParsingLoopBody  = Flags(rawValue: 1 << 6)
 
     static let isParsingTypeBody  = isParsingProdBody + isParsingViewBody + isParsingExtnBody
 
@@ -283,6 +284,15 @@ public struct Parser {
         state.hasError = true
       }
       return parseTypeExtn(state: &state, parsedModifiers: modifiers)
+
+    case .namespace:
+      if !(state.flags & (.isParsingTopLevel + .isParsingNamespace)) {
+        context.report(
+          "namespace declarations can only appear at top level or in another namespace",
+          anchor: head?.range)
+        state.hasError = true
+      }
+      return parseNamespaceDecl(state: &state, parsedModifiers: modifiers)
 
     default:
       // We must commit to a failure, unless we didn't parse any modifier.
@@ -1067,6 +1077,63 @@ public struct Parser {
 
     let body = parseDeclBody(state: &state)
     decl.members = body.members
+    if let closer = body.closer {
+      upperLoc = closer.range.upperBound
+    }
+
+    decl.range = lowerLoc ..< upperLoc
+    return decl
+  }
+
+  /// Parses a namespace.
+  ///
+  ///     namespace-decl ::= 'namespace' ident decl-body
+  ///
+  /// The next token is expected to be 'namespace'.
+  private func parseNamespaceDecl(
+    state: inout State,
+    parsedModifiers: [DeclModifier]
+  ) -> NamespaceDecl {
+    let introducer = state.take(.namespace)!
+    let lowerLoc = parsedModifiers.first?.range?.lowerBound ?? introducer.range.lowerBound
+    var upperLoc = introducer.range.upperBound
+
+    for modifier in parsedModifiers {
+      context.report(
+        "'\(modifier.kind)' cannot be applied to this declaration", anchor: modifier.range)
+      state.hasError = true
+    }
+
+    // Parse the name of the declaration.
+    let ident: Ident
+    if let name = state.take(.name) {
+      ident = state.ident(name)
+    } else {
+      context.report("expected namespace identifier", anchor: state.errorRange())
+      state.hasError = true
+      ident = Ident(name: "", range: state.errorRange())
+    }
+
+    switch ident.name {
+    case "Any", "Unit", "Nothing":
+      context.report("'\(ident.name)' is a reserved type identifier", anchor: ident.range)
+      state.hasError = true
+    default:
+      break
+    }
+
+    // Create the declaration.
+    let decl = NamespaceDecl(name: ident.name, decls: [], context: context)
+    decl.parentDeclSpace = state.declSpace
+
+    // Parse the members of the declaration.
+    let before = (state.flags, state.declSpace)
+    state.flags = .isParsingNamespace
+    state.declSpace = decl
+    defer { (state.flags, state.declSpace) = before }
+
+    let body = parseDeclBody(state: &state)
+    decl.decls = body.members
     if let closer = body.closer {
       upperLoc = closer.range.upperBound
     }

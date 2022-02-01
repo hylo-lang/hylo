@@ -58,6 +58,10 @@ open class TypeWalker: TypeVisitor {
     return type
   }
 
+  open func visit(_ type: NamespaceType) -> ValType {
+    return type
+  }
+
   open func visit(_ type: ProductType) -> ValType {
     return type
   }

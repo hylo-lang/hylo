@@ -449,9 +449,6 @@ public final class BuiltinIntType: BuiltinType {
 }
 
 /// The type of a module.
-///
-/// This is the type given to a module value, typically given to the base of a qualified identifier
-/// (e.g., `Builtin` in `Builtin::i32`).
 public final class ModuleType: ValType {
 
   /// The module corresponding to this type.
@@ -471,6 +468,33 @@ public final class ModuleType: ValType {
   }
 
   public override var description: String { module.name }
+
+}
+
+/// The type of a namespace.
+public final class NamespaceType: ValType {
+
+  /// The namespace corresponding to this type.
+  public unowned let decl: NamespaceDecl
+
+  init(context: Context, decl: NamespaceDecl) {
+    self.decl = decl
+    super.init(context: context, flags: .isCanonical)
+  }
+
+  public override func lookup(member memberName: String) -> LookupResult {
+    return decl.lookup(qualified: memberName)
+  }
+
+  public override func hash(into hasher: inout Hasher) {
+    hasher.combine(ObjectIdentifier(decl))
+  }
+
+  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+    visitor.visit(self)
+  }
+
+  public override var description: String { decl.name }
 
 }
 

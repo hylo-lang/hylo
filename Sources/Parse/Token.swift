@@ -41,6 +41,7 @@ public struct Token {
     case `match`
     case `mod`
     case `mut`
+    case `namespace`
     case `new`
     case `nil`
     case `postfix`
@@ -163,7 +164,7 @@ public struct Token {
   /// A Boolean value indicating whether this token may begin a declaration.
   public var mayBeginDecl: Bool {
     switch kind {
-    case .extension, .del, .fun, .new, .type, .let , .var, .view:
+    case .extension, .del, .fun, .let, .namespace, .new, .type, .var, .view:
       return true
     default:
       return isDeclModifier

@@ -373,9 +373,9 @@ extension IdentCompSign {
       }
 
       if let member = member as? GenericParamDecl {
-        // FIXME: If the parent type is not a bound generic, it probably means that we're realizing
-        // a signature of the form `A::X`, where `A` is a generic type parameterized by `X`. We
-        // should either accept this signature, or provide a different kind of error message.
+        // We're probably here because we're realizing a signature of the form `A::X`, where `A` is
+        // a generic type parameterized by `X`.
+        // FIXME: Accept the signature or provide a different error message.
         let param = member.instanceType as! GenericParamType
         guard let arg = (parentType as? BoundGenericType)?.bindings[param] else {
           return fail(.cannotFind(type: name, in: parentType, range: range))
@@ -396,7 +396,7 @@ extension IdentCompSign {
       } else if candidates.count > 1 {
         // We're here because the parent type is bound existentially by multiple views defining an
         // abstract type type with the same name.
-        // FIXME: We should pick one decl and unify all conformances.
+        // FIXME: Pick one decl and unify all conformances.
         return fail(.ambiguousReference(to: name, range: range))
       }
 
@@ -407,6 +407,16 @@ extension IdentCompSign {
         return fail(.cannotSpecializeNonGenericType(type: memberType, range: range))
       } else {
         type = memberType
+      }
+
+    case is NamespaceType:
+      let candidates = parentType.lookup(typeMember: name)
+      if candidates.isEmpty {
+        return fail(.cannotFind(type: name, in: parentType, range: range))
+      } else if candidates.count > 1 {
+        return fail(.ambiguousReference(to: name, range: range))
+      } else {
+        type = candidates[0].instanceType
       }
 
     default:
