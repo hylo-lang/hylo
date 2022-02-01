@@ -2,12 +2,12 @@ type A {
   let p: B::C
 }
 
-extn A {
+extension A {
   type B {
     let q: C
   }
 }
 
-extn A::B {
+extension A::B {
   type C {}
 }

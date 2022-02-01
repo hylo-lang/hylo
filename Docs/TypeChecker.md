@@ -55,7 +55,7 @@ type A {
   val c: B::C
 }
 
-extn A::B {
+extension A::B {
   type C {}
 }
 ```

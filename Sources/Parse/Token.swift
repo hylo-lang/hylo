@@ -30,7 +30,7 @@ public struct Token {
     case `continue`
     case `del`
     case `else`
-    case `extn`
+    case `extension`
     case `for`
     case `fun`
     case `if`
@@ -163,7 +163,7 @@ public struct Token {
   /// A Boolean value indicating whether this token may begin a declaration.
   public var mayBeginDecl: Bool {
     switch kind {
-    case .extn, .del, .fun, .new, .type, .let , .var, .view:
+    case .extension, .del, .fun, .new, .type, .let , .var, .view:
       return true
     default:
       return isDeclModifier

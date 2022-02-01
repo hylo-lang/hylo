@@ -277,9 +277,9 @@ public struct Parser {
       }
       return parseTypeDecl(state: &state, parsedModifiers: modifiers)
 
-    case .extn:
+    case .extension:
       if !(state.flags & .isParsingTopLevel) {
-        context.report("extensions can only appear at top level", anchor: head?.range)
+        context.report("extension declarations can only appear at top level", anchor: head?.range)
         state.hasError = true
       }
       return parseTypeExtn(state: &state, parsedModifiers: modifiers)
@@ -1022,9 +1022,9 @@ public struct Parser {
   ///
   ///     type-extn-decl ::= 'extn' compound-ident-sign decl-body
   ///
-  /// The next token is expected to be 'extn'.
+  /// The next token is expected to be 'extension'.
   private func parseTypeExtn(state: inout State, parsedModifiers: [DeclModifier]) -> TypeExtnDecl {
-    let introducer = state.take(.extn)!
+    let introducer = state.take(.extension)!
     let lowerLoc = parsedModifiers.first?.range?.lowerBound ?? introducer.range.lowerBound
     var upperLoc = introducer.range.upperBound
 

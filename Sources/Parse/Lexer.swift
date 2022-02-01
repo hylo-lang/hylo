@@ -87,7 +87,7 @@ public struct Lexer: IteratorProtocol, Sequence {
       case "continue" : token.kind = .continue
       case "del"      : token.kind = .del
       case "else"     : token.kind = .else
-      case "extn"     : token.kind = .extn
+      case "extension": token.kind = .extension
       case "false"    : token.kind = .bool
       case "for"      : token.kind = .for
       case "fun"      : token.kind = .fun

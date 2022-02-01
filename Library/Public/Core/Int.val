@@ -69,7 +69,7 @@ type Int: ExpressibleByBuiltinIntLiteral {
 
 }
 
-extn Int: Copyable {
+extension Int: Copyable {
 
   fun copy() -> Int {
     return Int(value: Builtin::i64_copy(self.value))
