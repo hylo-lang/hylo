@@ -17,7 +17,7 @@ extension Decl {
         components.append(decl.name)
 
       case let decl as BaseFunDecl:
-        let sign = decl.params.map({ ($0.externalName ?? "_") + ":" }).joined()
+        let sign = decl.params.map({ ($0.label ?? "_") + ":" }).joined()
         let name = decl.ident?.name ?? "$\(decl.discriminator)"
         components.append("\(name)(\(sign))")
 

@@ -224,7 +224,7 @@ public struct NodePrinter: NodeVisitor {
     {
     \(valueDeclHeader(node)),
     "policy": "\(node.policy)",
-    "externalName": \(encode(string: node.externalName)),
+    "label": \(encode(string: node.label)),
     "sign": \(encode(node.sign))
     }
     """

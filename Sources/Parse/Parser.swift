@@ -687,39 +687,39 @@ public struct Parser {
   ///
   ///     param-decl ::= (label | '_')? NAME ':' sign
   private func parseParamDecl(state: inout State) -> FunParamDecl? {
-    // We assume that the first token corresponds to the external label. If the following token is
-    // a name, then we can use it as the internal name. Owtherwise, we can use the first token both
-    // the external label and the internal name.
-    guard let external = state.take(if: { $0.kind == .under || $0.isLabel }) else { return nil }
-    let lowerLoc = external.range.lowerBound
-    var upperLoc = external.range.upperBound
+    // We assume that the first token corresponds to the parameter label. If the following token is
+    // a name, then we can use it as the name. Owtherwise, we can use the first token for both the
+    // label and name.
+    guard let label = state.take(if: { $0.kind == .under || $0.isLabel }) else { return nil }
+    let lowerLoc = label.range.lowerBound
+    var upperLoc = label.range.upperBound
 
     // Create the declaration.
     let decl = FunParamDecl(name: "", policy: .local, type: unresolved)
     decl.parentDeclSpace = state.declSpace
 
-    if let internal_ = state.take(.name) {
-      // We parsed an external label *and* an internal identifier.
-      decl.name = String(state.lexer.source[internal_.range])
-      upperLoc = internal_.range.upperBound
+    if let name = state.take(.name) {
+      // We parsed a label *and* a name.
+      decl.name = String(state.lexer.source[name.range])
+      upperLoc = name.range.upperBound
 
-      // Further, if the token for the external label is '_', the parameter is anonymous.
-      if external.kind != .under {
-        decl.externalName = String(state.lexer.source[external.range])
+      // Further, if the token for the label is '_', the parameter is anonymous.
+      if label.kind != .under {
+        decl.label = String(state.lexer.source[label.range])
       }
 
       // Warn against identical extraneous parameter names.
-      if decl.name == decl.externalName {
-        context.report("extraneous parameter name", level: .warning, anchor: internal_.range)
+      if decl.name == decl.label {
+        context.report("extraneous parameter name", level: .warning, anchor: name.range)
       }
     } else {
-      // The next token is a colon: the external label should be used as the parameter name.
-      decl.name = String(state.lexer.source[external.range])
-      decl.externalName = decl.name
+      // The next token is a colon: the label should be used as the name.
+      decl.name = String(state.lexer.source[label.range])
+      decl.label = decl.name
 
       // Require that the parameter name be a valid identifier.
-      if external.kind != .name {
-        context.report("'\(decl.name)' is not a valid parameter name", anchor: external.range)
+      if label.kind != .name {
+        context.report("'\(decl.name)' is not a valid parameter name", anchor: label.range)
         state.hasError = true
       }
     }

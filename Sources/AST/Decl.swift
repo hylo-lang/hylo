@@ -497,11 +497,7 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
       fatalError("unreachable")
     }
 
-    let decl = FunParamDecl(
-      name: "self",
-      externalName: nil,
-      policy: isMutating ? .inout : .local,
-      type: selfType)
+    let decl = FunParamDecl(name: "self", policy: isMutating ? .inout : .local, type: selfType)
     decl.parentDeclSpace = self
     decl.setState(.typeChecked)
     return decl
@@ -620,7 +616,7 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
     var params: [FunType.Param] = []
     for decl in self.params {
       let rawType = decl.realize()
-      params.append(FunType.Param(label: decl.externalName, type: rawType))
+      params.append(FunType.Param(label: decl.label, type: rawType))
     }
 
     // Realize the return type.
@@ -671,7 +667,7 @@ public final class CtorDecl: BaseFunDecl {
     var params: [FunType.Param] = []
     for decl in self.params {
       let rawType = decl.realize()
-      params.append(FunType.Param(label: decl.externalName, type: rawType))
+      params.append(FunType.Param(label: decl.label, type: rawType))
     }
 
     type = type.context.funType(params: params, retType: selfDecl!.type)
@@ -747,11 +743,11 @@ public final class FunParamDecl: ValueDecl {
 
   public var type: ValType
 
-  /// The internal name of the parameter.
+  /// The name of the parameter.
   public var name: String
 
-  /// The external name of the parameter.
-  public var externalName: String?
+  /// The label of the parameter.
+  public var label: String?
 
   /// The passing policly of the parameter.
   public var policy: PassingPolicy
@@ -761,13 +757,13 @@ public final class FunParamDecl: ValueDecl {
 
   public init(
     name: String,
-    externalName: String? = nil,
+    label: String? = nil,
     policy: PassingPolicy = .local,
     sign: Sign? = nil,
     type: ValType
   ) {
     self.name = name
-    self.externalName = externalName
+    self.label = label
     self.policy = policy
     self.sign = sign
     self.type = type
@@ -1157,7 +1153,7 @@ public final class ProductTypeDecl: NominalTypeDecl {
       ctor.params = storedVars.map({ (varDecl: VarDecl) -> FunParamDecl in
         let param = FunParamDecl(
           name: varDecl.name,
-          externalName: varDecl.name,
+          label: varDecl.name,
           policy: .consuming,
           type: context.unresolvedType)
         param.parentDeclSpace = ctor
