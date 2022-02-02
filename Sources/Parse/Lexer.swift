@@ -119,6 +119,9 @@ public struct Lexer: IteratorProtocol, Sequence {
       case "as":
         if let c = peek(), (c == "!") {
           index = source.index(after: index)
+          if let c = peek(), (c == "!") {
+            index = source.index(after: index)
+          }
         }
         token.range = token.range.lowerBound ..< index
         token.kind = .cast
