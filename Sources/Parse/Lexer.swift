@@ -117,7 +117,7 @@ public struct Lexer: IteratorProtocol, Sequence {
       case "while"    : token.kind = .while
 
       case "as":
-        if let c = peek(), (c == "?") || (c == "!") {
+        if let c = peek(), (c == "!") {
           index = source.index(after: index)
         }
         token.range = token.range.lowerBound ..< index
