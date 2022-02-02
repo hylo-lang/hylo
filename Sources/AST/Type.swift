@@ -402,6 +402,19 @@ public class BuiltinType: ValType {
 
 }
 
+/// A built-in pointer type.
+public final class BuiltinPointerType: BuiltinType {
+
+  init(context: Context) {
+    super.init(context: context, name: "Pointer")
+  }
+
+  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+    visitor.visit(self)
+  }
+
+}
+
 /// A built-in literal type.
 public protocol BuiltinLiteral {}
 

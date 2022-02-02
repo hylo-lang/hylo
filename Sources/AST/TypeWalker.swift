@@ -46,6 +46,10 @@ open class TypeWalker: TypeVisitor {
     return type
   }
 
+  open func visit(_ type: BuiltinPointerType) -> ValType {
+    return type
+  }
+
   open func visit(_ type: BuiltinIntLiteralType) -> ValType {
     return type
   }

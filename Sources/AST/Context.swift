@@ -174,6 +174,12 @@ public final class Context {
       return type
     }
 
+    if name == "Pointer" {
+      let type = BuiltinPointerType(context: self)
+      builtinTypes[name] = type
+      return type
+    }
+
     if name == "IntLiteral" {
       let type = BuiltinIntLiteralType(context: self)
       builtinTypes[name] = type

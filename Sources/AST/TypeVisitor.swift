@@ -7,6 +7,8 @@ public protocol TypeVisitor {
 
   func visit(_ type: BuiltinType) -> Result
 
+  func visit(_ type: BuiltinPointerType) -> Result
+
   func visit(_ type: BuiltinIntLiteralType) -> Result
 
   func visit(_ type: BuiltinIntType) -> Result
