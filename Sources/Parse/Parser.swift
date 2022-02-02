@@ -2556,6 +2556,12 @@ fileprivate enum InfixTree {
         expr.range = lhs.range!.lowerBound ..< rhs.range!.upperBound
         return expr
 
+      case "as":
+        guard case .leaf(.sign(let rhs)) = right else { fatalError("unreachable") }
+        let expr = StaticCastExpr(value: lhs, sign: rhs, type: unresolved)
+        expr.range = lhs.range!.lowerBound ..< rhs.range!.upperBound
+        return expr
+
       case "as!":
         guard case .leaf(.sign(let rhs)) = right else { fatalError("unreachable") }
         let expr = RuntimeCastExpr(value: lhs, sign: rhs, type: unresolved)

@@ -424,6 +424,10 @@ public struct NodePrinter: NodeVisitor {
     """
   }
 
+  public mutating func visit(_ node: StaticCastExpr) -> String {
+    return visit(node as BaseCastExpr)
+  }
+
   public mutating func visit(_ node: RuntimeCastExpr) -> String {
     return visit(node as BaseCastExpr)
   }

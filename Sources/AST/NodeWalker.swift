@@ -682,6 +682,10 @@ extension NodeWalker {
     return true
   }
 
+  public mutating func visit(_ node: StaticCastExpr) -> Bool {
+    return visit(node as BaseCastExpr)
+  }
+
   public mutating func visit(_ node: RuntimeCastExpr) -> Bool {
     return visit(node as BaseCastExpr)
   }

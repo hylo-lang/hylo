@@ -84,7 +84,21 @@ struct ConstraintGenerator: NodeWalker {
     fatalError("unreachable")
   }
 
+  mutating func visit(_ node: StaticCastExpr) -> Bool {
+    // Note: the type of the expression is set by the pre-checker to the RHS.
+    prepare(expr: node, fixedType: fixedType, inferredType: nil)
+    fixedType = nil
+    guard traverse(node) else { return false }
+
+    insert(RelationalConstraint(
+      kind: .subtyping, lhs: node.value.type, rhs: node.type,
+      at: ConstraintLocator(node)))
+
+    return true
+  }
+
   mutating func visit(_ node: RuntimeCastExpr) -> Bool {
+    // Note: the type of the expression is set by the pre-checker to the RHS.
     prepare(expr: node, fixedType: fixedType, inferredType: nil)
     fixedType = nil
     guard traverse(node) else { return false }

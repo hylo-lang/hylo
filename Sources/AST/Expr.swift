@@ -157,7 +157,16 @@ public class BaseCastExpr: Expr {
 
 }
 
-/// An runtime cast expression (e.g., `foo as! Bar`).
+/// A static cast expression (e.g., `foo as Bar`).
+public final class StaticCastExpr: BaseCastExpr {
+
+  public override func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
+    return visitor.visit(self)
+  }
+
+}
+
+/// An runtime checked cast expression (e.g., `foo as! Bar`).
 public final class RuntimeCastExpr: BaseCastExpr {
 
   public override func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {

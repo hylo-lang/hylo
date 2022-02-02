@@ -134,6 +134,10 @@ struct RValueEmitter: ExprVisitor {
     fatalError("unreachable")
   }
 
+  func visit(_ node: StaticCastExpr) -> ExprResult {
+    fatalError("not implemented")
+  }
+
   mutating func visit(_ node: RuntimeCastExpr) -> ExprResult {
     // Emit the value to convert.
     var converted: Operand

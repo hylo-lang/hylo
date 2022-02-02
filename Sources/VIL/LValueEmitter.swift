@@ -53,6 +53,10 @@ struct LValueEmitter: ExprVisitor {
     fatalError("unreachable")
   }
 
+  func visit(_ node: StaticCastExpr) -> ExprResult {
+    fatalError("not implemented")
+  }
+
   mutating func visit(_ node: RuntimeCastExpr) -> ExprResult {
     // Cast expressions are l-values iff the expression being cast is an l-value as well.
     var converted: Operand
