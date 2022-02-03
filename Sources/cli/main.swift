@@ -17,7 +17,7 @@ struct ValCommand: ParsableCommand {
   var noStdlib = false
 
   @Flag(help: "Parse input file(s) and dump AST(s), before semantic analyis.")
-  var dumpRawAST = false
+  var dumpParse = false
 
   @Flag(help: "Parse and type-check input file(s) and dump AST(s).")
   var dumpAST = false
@@ -41,7 +41,7 @@ struct ValCommand: ParsableCommand {
       let decl = try driver.parse(moduleName: "main", moduleFiles: input)
 
       // Dump the module before semantic analysis, if requested.
-      if dumpRawAST {
+      if dumpParse {
         decl.dump(context: driver.context)
         return
       }
