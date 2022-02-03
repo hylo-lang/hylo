@@ -360,6 +360,7 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
     for modifier in modifiers {
       switch modifier.kind {
       case .mut: props.formUnion(.isMutating)
+      case .consuming: props.formUnion(.isConsuming)
       case .static: props.formUnion(.isStatic)
       default: continue
       }
