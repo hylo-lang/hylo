@@ -159,7 +159,7 @@ struct RValueEmitter: ExprVisitor {
       // Same type conversion always succeeds.
       module.context.report(
         .castAlwaysSucceeds(from: node.value.type, to: node.type, range: node.range))
-    } else if sourceType is FunType {
+    } else if targetType is FunType {
       // Runtime conversion of function types always fails.
       module.context.report(.runtimeFunctionTypeConversion(range: node.range))
       module.insertCondFail(
