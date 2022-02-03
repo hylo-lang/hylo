@@ -54,15 +54,6 @@ struct PreChecker: NodeWalker {
     return (true, newExpr)
   }
 
-  mutating func visit(_ node: MatchExpr) -> Bool {
-    // No need to visit the subject of the expression, or any of the case patterns. Those have
-    // already been type checked in `willVisit(_:)`.
-    for i in 0 ..< node.cases.count {
-      guard walk(stmt: node.cases[i].body) else { return false }
-    }
-    return true
-  }
-
 }
 
 // FIXME: We could merge this visitor directly into the pre-checker if `ExprVisitor.visit(_:)`
