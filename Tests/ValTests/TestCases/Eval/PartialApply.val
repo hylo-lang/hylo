@@ -1,4 +1,4 @@
-fun one() -> Int { ret 1 }
+fun one() -> Int { return 1 }
 
 fun main() {
   let f = one
