@@ -74,13 +74,13 @@ public enum TypeChecker {
     freeTypeVarSubstPolicy: FreeTypeVarSubstPolicy = .bindToErrorType
   ) -> Bool {
     var system = ConstraintSystem()
-    let result = check(
+    let (didSucceed, _) = check(
       expr: &expr,
       fixedType: fixedType,
       useSite: useSite,
       system: &system,
       freeTypeVarSubstPolicy: freeTypeVarSubstPolicy)
-    return result.errors.isEmpty
+    return didSucceed
   }
 
   /// Type checks the given expression.
@@ -100,7 +100,9 @@ public enum TypeChecker {
     useSite: DeclSpace,
     system: inout ConstraintSystem,
     freeTypeVarSubstPolicy: FreeTypeVarSubstPolicy = .bindToErrorType
-  ) -> Solution {
+  ) -> (didSucceed: Bool, solution: Solution) {
+    var hasErrors = false
+
     if let expr = expr as? LambdaExpr {
       // Lambda expressions require special handling to infer function signatures.
       let type = expr.realize() as! FunType
@@ -110,6 +112,7 @@ public enum TypeChecker {
           at: ConstraintLocator(expr)))
       } else if (type.retType is TypeVar) && (expr.decl.singleExprBody == nil) {
         expr.type.context.report(.complexClosureType(range: expr.range))
+        hasErrors = true
       }
     }
 
@@ -118,10 +121,12 @@ public enum TypeChecker {
       // desugar constructor calls.
       var prechecker = PreChecker(system: ptr, useSite: useSite)
       (_, expr) = prechecker.walk(expr: expr)
+      hasErrors = hasErrors || prechecker.hasErrors
 
       // Generate constraints from the expression.
       var csgen = ConstraintGenerator(system: ptr, useSite: useSite, fixedType: fixedType)
       (_, expr) = csgen.walk(expr: expr)
+      hasErrors = hasErrors || prechecker.hasErrors
     })
 
     // Solve the constraint system.
@@ -135,7 +140,7 @@ public enum TypeChecker {
     var dispatcher = TypeDispatcher(solution: result, substPolicy: freeTypeVarSubstPolicy)
     (_, expr) = dispatcher.walk(expr: expr)
 
-    return result
+    return (didSucceed: !hasErrors && result.errors.isEmpty, solution: result)
   }
 
   /// Type checks the given pattern.

@@ -9,17 +9,19 @@ struct PreChecker: NodeWalker {
 
   var parent: Node?
 
-  var innermostSpace: DeclSpace?
+  /// The internal implementation of the expression visitor.
+  private var impl: PreCheckerImpl
 
   /// A Boolean value that indicates whether the walker encountered errors.
   var hasErrors = false
 
-  /// A pointer to the system in which new constraints are inserted.
-  let system: UnsafeMutablePointer<ConstraintSystem>
-
   init(system: UnsafeMutablePointer<ConstraintSystem>, useSite: DeclSpace) {
-    self.system = system
-    self.innermostSpace = useSite
+    impl = PreCheckerImpl(system: system, useSite: useSite)
+  }
+
+  var innermostSpace: DeclSpace? {
+    get { impl.useSite }
+    set { impl.useSite = newValue }
   }
 
   mutating func willVisit(_ expr: Expr) -> (shouldWalk: Bool, nodeBefore: Expr) {
@@ -34,8 +36,7 @@ struct PreChecker: NodeWalker {
 
     case let matchExpr as MatchExpr:
       // Match expressions require special handling to deal with the bindings declared as patterns.
-      let checker = PreCheckerImpl(system: system, useSite: innermostSpace!)
-      let newExpr = checker.visit(matchExpr)
+      let newExpr = impl.visit(matchExpr)
       hasErrors = hasErrors || newExpr.type[.hasErrors]
       return (false, newExpr)
 
@@ -48,16 +49,14 @@ struct PreChecker: NodeWalker {
   }
 
   mutating func didVisit(_ expr: Expr) -> (shouldContinue: Bool, nodeAfter: Expr) {
-    var checker = PreCheckerImpl(system: system, useSite: innermostSpace!)
-    let newExpr = expr.accept(&checker)
+    let newExpr = expr.accept(&impl)
     hasErrors = newExpr.type[.hasErrors] || hasErrors
     return (true, newExpr)
   }
 
 }
 
-// FIXME: We could merge this visitor directly into the pre-checker if `ExprVisitor.visit(_:)`
-// accepted inout expressions.
+/// The internal pre-checker visitor.
 fileprivate struct PreCheckerImpl: ExprVisitor {
 
   typealias ExprResult = Expr
@@ -66,7 +65,7 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
   let system: UnsafeMutablePointer<ConstraintSystem>
 
   /// The declaration space in which the visited expression resides.
-  let useSite: DeclSpace
+  var useSite: DeclSpace?
 
   func visit(_ node: BoolLiteralExpr) -> Expr {
     return node
@@ -89,7 +88,7 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
   }
 
   func visit(_ node: BaseCastExpr) -> Expr {
-    node.type = node.sign.realize(unqualifiedFrom: useSite)
+    node.type = node.sign.realize(unqualifiedFrom: useSite!)
     return node
   }
 
@@ -128,7 +127,7 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
 
     // If we're in a brace statement, look for local bindings first.
     if useSite is BraceStmt {
-      matches = useSite.lookup(qualified: node.name)
+      matches = useSite!.lookup(qualified: node.name)
 
       if let decl = matches.values.first(where: { !$0.isOverloadable }) {
         // We found a local, non-overloadable value declaration. That should be either a parameter
@@ -151,10 +150,10 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
         return bind(ref: node, to: matches)
       }
 
-      let outer = useSite.parentDeclSpace!.lookup(unqualified: node.name, in: node.type.context)
+      let outer = useSite!.parentDeclSpace!.lookup(unqualified: node.name, in: node.type.context)
       matches.append(contentsOf: outer)
     } else {
-      matches = useSite.lookup(unqualified: node.name, in: node.type.context)
+      matches = useSite!.lookup(unqualified: node.name, in: node.type.context)
     }
 
     guard !matches.isEmpty else {
@@ -175,7 +174,7 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
   func visit(_ node: UnresolvedQualDeclRefExpr) -> Expr {
     let context = node.type.context
 
-    let baseType = node.namespace.realize(unqualifiedFrom: useSite)
+    let baseType = node.namespace.realize(unqualifiedFrom: useSite!)
     guard !baseType.isError else {
       // The diagnostic is emitted by the failed attempt to realize the base.
       return ErrorExpr(type: context.errorType, range: node.range)
@@ -254,7 +253,7 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
 
   func visit(_ node: AsyncExpr) -> Expr {
     if let sign = node.body.retSign {
-      let retType = sign.realize(unqualifiedFrom: useSite)
+      let retType = sign.realize(unqualifiedFrom: useSite!)
       node.body.type = node.type.context.funType(params: [], retType: retType)
       node.body.setState(.realized)
     }
@@ -276,7 +275,7 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
     // the subject's type does't depend on the expression in which the match appears (only the type
     // of the match itself does). Hence, since case patterns do not contribute to the inference of
     // the subject's type they cannot help disambiguate overloading.
-    let success = TypeChecker.check(expr: &node.subject, useSite: useSite)
+    let success = TypeChecker.check(expr: &node.subject, useSite: useSite!)
 
     // Bail out if the subjet doesn't have a valid type.
     let context = node.type.context
@@ -284,7 +283,7 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
       return ErrorExpr(type: context.errorType, range: node.range)
     }
 
-    var driver = PreChecker(system: system, useSite: useSite)
+    var driver = PreChecker(system: system, useSite: useSite!)
     driver.parent = node
 
     for `case` in node.cases {
@@ -293,7 +292,7 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
       let result = TypeChecker.check(
         pattern: `case`.pattern,
         fixedType: node.subject.type,
-        useSite: useSite,
+        useSite: useSite!,
         system: &cs)
       guard result.errors.isEmpty else {
         return ErrorExpr(type: context.errorType, range: node.range)
@@ -367,12 +366,12 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
         newRef = MemberDeclRefExpr(base: expr.base, decl: decl, type: ref.type, range: expr.range)
       } else if decl.isMember {
         // Desugar an implicit reference to `self`.
-        let matches = useSite.lookup(unqualified: "self", in: decl.type.context)
+        let matches = useSite!.lookup(unqualified: "self", in: decl.type.context)
         let selfDecl = matches.values[0]
         let selfExpr = DeclRefExpr(decl: selfDecl, type: selfDecl.type, range: ref.range)
         selfExpr.type = TypeChecker.contextualize(
           decl: selfDecl,
-          from: useSite,
+          from: useSite!,
           processingContraintsWith: {
             system.pointee.insert(prototype: $0, at: ConstraintLocator(selfExpr))
           })
@@ -385,7 +384,7 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
       // Contextualize the declaration's type in case it is generic.
       newRef.type = TypeChecker.contextualize(
         decl: decl,
-        from: useSite,
+        from: useSite!,
         processingContraintsWith: {
           system.pointee.insert(prototype: $0, at: ConstraintLocator(newRef))
         })

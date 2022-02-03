@@ -9,6 +9,9 @@ struct ConstraintGenerator: NodeWalker {
 
   var innermostSpace: DeclSpace?
 
+  /// A Boolean value that indicates whether the walker encountered errors.
+  var hasErrors = false
+
   /// The expected type of the expression, based on the context in which it appears.
   var fixedType: ValType?
 
@@ -271,6 +274,7 @@ struct ConstraintGenerator: NodeWalker {
         node.body.type = context.errorType
         node.body.setState(.invalid)
         node.type = context.errorType
+        hasErrors = true
         return true
       }
     }
@@ -386,7 +390,7 @@ struct ConstraintGenerator: NodeWalker {
     if let sign = node.sign {
       // Contextualize the type signature.
       guard let signType = TypeChecker.contextualize(
-              sign: sign, from: innermostSpace!, system: &system.pointee)
+        sign: sign, from: innermostSpace!, system: &system.pointee)
       else {
         node.type = node.type.context.errorType
         return true

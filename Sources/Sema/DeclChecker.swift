@@ -62,22 +62,22 @@ struct DeclChecker: DeclVisitor {
 
       // Type-check the initializer if there's one.
       if node.initializer != nil {
-        let solution = TypeChecker.check(
+        let (didSucceed, solution) = TypeChecker.check(
           expr: &(node.initializer!),
           fixedType: signType,
           useSite: useSite,
           system: &system)
         patternType = solution.reify(signType, substPolicy: .bindToErrorType)
-        success = solution.errors.isEmpty
+        success = didSucceed
       } else {
         patternType = signType
       }
     } else if node.initializer != nil {
       // Infer everything from the initializer alone.
-      let solution = TypeChecker.check(
+      let (didSucceed, _) = TypeChecker.check(
         expr: &(node.initializer!), fixedType: nil, useSite: useSite, system: &system)
       patternType = node.initializer!.type
-      success = solution.errors.isEmpty
+      success = didSucceed
     } else {
       // Unannotated declarations require an initializer.
       context.report(.missingPatternInitializer(range: node.pattern.range))
