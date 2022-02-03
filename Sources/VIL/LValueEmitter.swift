@@ -98,6 +98,10 @@ struct LValueEmitter: ExprVisitor {
     return .success(converted)
   }
 
+  func visit(_ node: PointerCastExpr) -> ExprResult {
+    fatalError("not implemented")
+  }
+
   func visit(_ node: TupleExpr) -> ExprResult {
     fatalError("not implemented")
   }

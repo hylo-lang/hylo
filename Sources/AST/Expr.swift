@@ -175,6 +175,18 @@ public final class RuntimeCastExpr: BaseCastExpr {
 
 }
 
+/// A built-in pointer cast expression (e.g., `foo as!! Bar`).
+///
+/// Pointer casts are used in the standard library to convert a built-in raw pointer type into a
+/// function argument of a specific type.
+public final class PointerCastExpr: BaseCastExpr {
+
+  public override func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
+    return visitor.visit(self)
+  }
+
+}
+
 /// A tuple expression (e.g., `(fst: 4, snd: 2)`).
 public final class TupleExpr: Expr {
 

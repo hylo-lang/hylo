@@ -85,25 +85,32 @@ struct ConstraintGenerator: NodeWalker {
   }
 
   mutating func visit(_ node: StaticCastExpr) -> Bool {
-    // Note: the type of the expression is set by the pre-checker to the RHS.
-    prepare(expr: node, fixedType: fixedType, inferredType: nil)
-    fixedType = nil
-    guard traverse(node) else { return false }
-
+    // Note: the type of the expression is set to the RHS by the pre-checker.
     insert(RelationalConstraint(
       kind: .subtyping, lhs: node.value.type, rhs: node.type,
       at: ConstraintLocator(node)))
 
+    prepare(expr: node, fixedType: fixedType, inferredType: nil)
+    fixedType = nil
+    guard traverse(node) else { return false }
     return true
   }
 
   mutating func visit(_ node: RuntimeCastExpr) -> Bool {
-    // Note: the type of the expression is set by the pre-checker to the RHS.
+    // Note: the type of the expression is set to the RHS by the pre-checker.
     prepare(expr: node, fixedType: fixedType, inferredType: nil)
     fixedType = nil
     guard traverse(node) else { return false }
+    return true
+  }
 
-    // FIXME: We should implement sanity checks on the cast's validity w.r.t. the value's type.
+  mutating func visit(_ node: PointerCastExpr) -> Bool {
+    // Note: the type of the expression is set to the RHS by the pre-checker.
+    prepare(expr: node, fixedType: fixedType, inferredType: nil)
+
+    // The LHS must be a built-in pointer.
+    fixedType = node.type.context.getBuiltinType(named: "Pointer")
+    guard traverse(node) else { return false }
     return true
   }
 

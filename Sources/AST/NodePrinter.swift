@@ -432,6 +432,10 @@ public struct NodePrinter: NodeVisitor {
     return visit(node as BaseCastExpr)
   }
 
+  public mutating func visit(_ node: PointerCastExpr) -> String {
+    return visit(node as BaseCastExpr)
+  }
+
   public mutating func visit(_ node: TupleExpr) -> String {
     let elems = node.elems.map({ elem in
       """

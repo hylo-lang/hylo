@@ -98,17 +98,20 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
   }
 
   func visit(_ node: BaseCastExpr) -> Expr {
-    fatalError("unreachable")
+    node.type = node.sign.realize(unqualifiedFrom: useSite)
+    return node
   }
 
   func visit(_ node: StaticCastExpr) -> Expr {
-    node.type = node.sign.realize(unqualifiedFrom: useSite)
-    return node
+    return visit(node as BaseCastExpr)
   }
 
   func visit(_ node: RuntimeCastExpr) -> Expr {
-    node.type = node.sign.realize(unqualifiedFrom: useSite)
-    return node
+    return visit(node as BaseCastExpr)
+  }
+
+  func visit(_ node: PointerCastExpr) -> Expr {
+    return visit(node as BaseCastExpr)
   }
 
   func visit(_ node: TupleExpr) -> Expr {

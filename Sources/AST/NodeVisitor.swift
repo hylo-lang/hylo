@@ -105,6 +105,8 @@ public protocol ExprVisitor {
 
   mutating func visit(_ node: RuntimeCastExpr) -> ExprResult
 
+  mutating func visit(_ node: PointerCastExpr) -> ExprResult
+
   mutating func visit(_ node: TupleExpr) -> ExprResult
 
   mutating func visit(_ node: CallExpr) -> ExprResult

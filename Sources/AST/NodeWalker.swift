@@ -690,6 +690,10 @@ extension NodeWalker {
     return visit(node as BaseCastExpr)
   }
 
+  public mutating func visit(_ node: PointerCastExpr) -> Bool {
+    return visit(node as BaseCastExpr)
+  }
+
   public mutating func visit(_ node: TupleExpr) -> Bool {
     return traverse(node)
   }

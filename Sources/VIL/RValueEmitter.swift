@@ -178,6 +178,10 @@ struct RValueEmitter: ExprVisitor {
     return .success(converted)
   }
 
+  func visit(_ node: PointerCastExpr) -> ExprResult {
+    fatalError("not implemented")
+  }
+
   mutating func visit(_ node: TupleExpr) -> ExprResult {
     let tuple = module.insertTuple(
       type: node.type as! TupleType,
