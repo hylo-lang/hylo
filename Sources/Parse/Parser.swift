@@ -157,6 +157,15 @@ public struct Parser {
 
   }
 
+  /// The result of an attempt to parse with backtracking.
+  fileprivate enum AttemptResult<T> {
+
+    case success(T)
+
+    case failure
+
+  }
+
   /// The AST context in which the parser operates.
   public let context: Context
 
@@ -1645,10 +1654,35 @@ public struct Parser {
       return parseAwaitExpr(state: &state)
     case .match:
       return parseMatchExpr(state: &state)
-    case .lParen:
-      return parseTupleExpr(state: &state)
     case .under:
       return parseWildcardExpr(state: &state)
+    case .lParen:
+      // We might be parsing a tuple expression or a kind reference prefixed by a parenthesized
+      // signature. Assume the latter first.
+      if let expr = attempt(state: &state, { (state) -> AttemptResult<Expr> in
+        let opener = state.take()!
+        guard
+          let sign = parseSign(state: &state),
+          state.take(.rParen) != nil,
+          state.take(.twoColons) != nil
+        else { return .failure }
+
+        // We've parsed a parenthesized signature followed by '::'. we should commit to parsing a
+        // qualified declaration reference.
+        guard let ident = parseIdent(state: &state) else {
+          context.report("expected identifier", anchor: state.errorRange())
+          state.hasError = true
+          return .success(ErrorExpr(type: context.errorType, range: sign.range))
+        }
+
+        return .success(UnresolvedQualDeclRefExpr(
+          namespace: sign, ident: ident, type: unresolved, range: opener.range ..< ident.range!))
+      }) {
+        return expr
+      } else {
+        return parseTupleExpr(state: &state)
+      }
+
     default:
       return nil
     }
@@ -1708,79 +1742,53 @@ public struct Parser {
   }
 
   /// Parses a declaration reference.
+  ///
+  ///     decl-ref ::= (sign '::')? ident
   private func parseDeclRefExpr(state: inout State) -> Expr? {
-    // We first attempt to parse a sequence of unqualified type identifiers. We stop on failure, or
-    // if the parsed identifier is not followed by '::'. At each iteration, we must save potential
-    // diagnostics until we decide to commit. After the list, we parse a single identifier.
-    let tmpConsumer = DiagSaver()
-    var oldConsumer = context.diagConsumer
-    context.diagConsumer = tmpConsumer
+    if let sign = parsePrimarySign(state: &state) {
+      // We parsed a type signature. If the next token is '::', then the whole signature is a
+      // namespace qualifying some declaration reference. Otherwise, the declaration reference
+      // might have been parsed with the signature.
+      if state.take(.twoColons) == nil {
+        switch sign {
+        case let sign as BareIdentSign:
+          return UnresolvedDeclRefExpr(ident: sign.ident, type: unresolved)
 
-    var comps: [IdentCompSign] = []
-    var backup = state.save()
-    while let sign = parseIdentCompSign(state: &state) {
-      // We succeeded to parse a type identifier. It's part of the namespace if the next token is
-      // '::'; otherwise, we backtrack.
-      if state.take(.twoColons) != nil {
-        comps.append(sign)
-        backup = state.save()
-
-        // Now that we've committed, we can emit the potential diagnostics we emitted while we
-        // parsed the type signature.
-        for diag in tmpConsumer.diags {
-          oldConsumer?.consume(diag)
-        }
-        tmpConsumer.diags.removeAll()
-      } else if let bare = sign as? BareIdentSign {
-        // Little shortcut: if the signature we parsed is a bare type identifier, we can simply
-        // transform it as a bare unqualified declaration reference and avoid backtracking.
-        assert(tmpConsumer.diags.isEmpty)
-        context.diagConsumer = oldConsumer
-
-        if comps.isEmpty {
-          return UnresolvedDeclRefExpr(ident: bare.ident, type: unresolved)
-        } else {
-          let space = CompoundIdentSign.create(comps)
+        case let sign as CompoundIdentSign where sign.lastComponent is BareIdentSign:
+          let namespace = CompoundIdentSign.create(sign.components.dropLast())
+          let last = sign.lastComponent as! BareIdentSign
           return UnresolvedQualDeclRefExpr(
-            namespace: space,
-            ident: bare.ident,
-            type: unresolved,
-            range: space.range!.lowerBound ..< bare.range!.upperBound)
-        }
-      } else {
-        state.restore(backup)
-        context.diagConsumer = oldConsumer
-        break
-      }
-    }
+            namespace: namespace, ident: last.ident, type: unresolved, range: sign.range)
 
-    // Either we've just failed to parse a type signature, or we've backtracked the beginning of a
-    // a sequence that could have been interpreter as a type signature. Either way, we're expecting
-    // a declaration reference now. If the namespace is empty, we're expecting an identifier. If it
-    // isn't, we may also parse an operator.
-    if comps.isEmpty {
+        default:
+          context.report("expected '::' after type signature", anchor: state.errorRange())
+          state.hasError = true
+          return ErrorExpr(type: context.errorType, range: sign.range)
+        }
+      }
+
+      // We've just parse the qualifying namespace. We're expecting a name or an operator.
+      guard let ident = parseIdent(state: &state) else {
+        context.report("expected identifier", anchor: state.errorRange())
+        state.hasError = true
+        return ErrorExpr(type: context.errorType, range: sign.range)
+      }
+
+      return UnresolvedQualDeclRefExpr(
+        namespace: sign, ident: ident, type: unresolved, range: sign.range! ..< ident.range!)
+    } else {
+      // We didn't parse a type signature. We're expecting a name.
       guard let name = state.take(.name) else { return nil }
       return UnresolvedDeclRefExpr(ident: state.ident(name), type: unresolved)
     }
+  }
 
-    let space = CompoundIdentSign.create(comps)
-
+  /// Parses an identifier.
+  private func parseIdent(state: inout State) -> Ident? {
     if let name = state.take(.name) {
-      return UnresolvedQualDeclRefExpr(
-        namespace: space,
-        ident: state.ident(name),
-        type: unresolved,
-        range: space.range!.lowerBound ..< name.range.upperBound)
-    } else if let ident = state.takeOperator() {
-      return UnresolvedQualDeclRefExpr(
-        namespace: space,
-        ident: ident,
-        type: unresolved,
-        range: space.range!.lowerBound ..< ident.range!.upperBound)
+      return state.ident(name)
     } else {
-      context.report("expected identifier", anchor: state.errorRange())
-      state.hasError = true
-      return ErrorExpr(type: context.errorType, range: space.range)
+      return state.takeOperator()
     }
   }
 
@@ -2128,8 +2136,7 @@ public struct Parser {
   /// Parses a type signature.
   ///
   ///     sign ::= type-modifier* (async-sign | fun-sign)
-  ///     fun-sign ::= 'sign' -> 'sign'
-  ///               |  'volatile' tuple-sign '->' sign
+  ///     fun-sign ::= (sign -> sign) | ('volatile' tuple-sign '->' sign)
   ///
   /// This parser produces an instance of `FunParamSign` only if the parsed signature is prefixed
   /// by a parameter type modifier. Otherwise, it returns a raw signature.
@@ -2202,14 +2209,12 @@ public struct Parser {
         params = [FunParamSign(rawSign: base, type: unresolved, range: base.range)]
       }
 
-      let sign = FunSign(
-        params: params,
-        retSign: retSign,
-        isVolatile: modifiers[.volatile] != nil,
-        type: unresolved)
-      sign.range = opener.range.lowerBound ..< retSign.range!.upperBound
+      let sign = FunSign(params: params, retSign: retSign, type: unresolved)
+      sign.isVolatile = modifiers[.volatile] != nil
+      sign.range = opener.range ..< retSign.range!
       base = sign
     } else if let m = modifiers[.volatile] {
+      // If we're not parsing a function signature, then 'volatile' is illegal.
       context.report("'volatile' is only allowed on function signatures", anchor: m.range)
       state.hasError = true
       return ErrorSign(type: context.errorType, range: base.range)
@@ -2305,7 +2310,7 @@ public struct Parser {
     }
   }
 
-  /// Parses a a minterm or a maxterm signature.
+  /// Parses a minterm or a maxterm signature.
   private func parseTermSign(
     state: inout State,
     oper: String,
@@ -2479,6 +2484,33 @@ public struct Parser {
     return (opener, elems, closer)
   }
 
+  /// Attempts to execute the given closure and backtracks if it fails.
+  ///
+  /// - Parameters:
+  ///   - state: The parser's state.
+  ///   - action: A closure that performs some action with the parser's state.
+  private func attempt<T>(state: inout State, _ action: (inout State) -> AttemptResult<T>) -> T? {
+    // Save the current parser state and configure the context to store all diagnostics.
+    let backup = state.save()
+    let oldConsumer = context.diagConsumer
+    let saver = DiagSaver()
+    context.diagConsumer = saver
+
+    switch action(&state) {
+    case .success(let result):
+      // If the action succeeds, report all saved diagnostics and forward the result.
+      context.diagConsumer = oldConsumer
+      saver.diags.forEach(context.report(_:))
+      return result
+
+    case .failure:
+      // Otherwise, ignore all saved diagnostics and restore the parser state.
+      context.diagConsumer = oldConsumer
+      state.restore(backup)
+      return nil
+    }
+  }
+
 }
 
 /// The head of a type declaration.
@@ -2590,7 +2622,7 @@ fileprivate enum InfixTree {
 }
 
 /// A parse error.
-public struct ParseError: Error {
+fileprivate struct ParseError: Error {
 
   public init(_ diag: Diag) {
     self.diag = diag
@@ -2601,7 +2633,7 @@ public struct ParseError: Error {
 }
 
 /// A diagnostic consumer that saves all diagnostics.
-final class DiagSaver: DiagConsumer {
+fileprivate final class DiagSaver: DiagConsumer {
 
   var diags: [Diag] = []
 

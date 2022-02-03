@@ -348,8 +348,8 @@ public final class UnresolvedDeclRefExpr: Expr {
 
 }
 
-/// An identifier referring to an unresolved declaration, explicitly qualified by a type namespace
-/// (e.g., `Builtin::bitcast`).
+/// An identifier referring to an unresolved declaration, explicitly qualified by the namespace of
+/// a type (e.g., `Builtin::bitcast`).
 ///
 /// Conceptually, this wraps an unresolved declaration reference, providing context for the space
 /// into which it points. The type prefix is resolved during name binding.
@@ -361,14 +361,14 @@ public final class UnresolvedQualDeclRefExpr: Expr {
     didSet { assert(type.isUnresolved) }
   }
 
-  /// A type identifier.
-  public var namespace: IdentSign
+  /// A type signature describing the qualifying namespace.
+  public var namespace: Sign
 
   /// An identifier.
   public var ident: Ident
 
   public init(
-    namespace: IdentSign,
+    namespace: Sign,
     ident: Ident,
     type: UnresolvedType,
     range: SourceRange? = nil
