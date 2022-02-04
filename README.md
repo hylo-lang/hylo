@@ -12,7 +12,7 @@ Those include borrowing, higher-order functions, and relatively powerful support
 
 ### (Mutable) Value Semantics
 
-A type has value semantics if values of that type are independent: the value of a variable cannot change through operations on another variable.
+A type has value semantics if variables of that type have independent values: the value of a variable cannot change through operations on another variable.
 
 ```val
 // Declares a generic 'Pair' type.
@@ -27,18 +27,17 @@ print(p1)
 ```
 
 Because `Pair` has value semantics, `p1`'s value is guaranteed not to change through operations on `foo`'s argument.
-This behavior is unlike most modern object-oriented languages (e.g., Java or Python) in which values of a compound type such as `Pair` can share a mutable state.
+This behavior is unlike most modern object-oriented languages (e.g., Java or Python) in which values of a compound type such as `Pair` share mutable state.
 
 A type has _mutable_ value semantics if it supports part-wise, in-place mutation (i.e., without reassigning a variable of the type to a whole new value).
 
 ```val
-p1.fst = 8    // Mutates `p1` in-place.
+p1.fst = 8    // Mutates the `fst` part of `p1` in-place.
 print(p1.fst) // Prints '8'
 ```
 
-Assigning a variable to another variable cannot result in shared mutable state.
-There are two ways to uphold that guarantee: copying or ["moving"](https://doc.rust-lang.org/rust-by-example/scope/move.html) the right hand side.
-Since copying large data structures can be expensive, Val never copies explicitly; assigning a variable destructively moves it.
+To prevent assignments from creating shared mutable state, the right-hand side can either be copied or ["moved"](https://doc.rust-lang.org/rust-by-example/scope/move.html).
+Since copying large data structures can be expensive, Val never copies implicitly; assigning a variable destructively moves it.
 
 ```val
 var p2 = p1   // `p1` moves into `p2`
