@@ -88,7 +88,15 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
   }
 
   func visit(_ node: BaseCastExpr) -> Expr {
-    node.type = node.sign.realize(unqualifiedFrom: useSite!)
+    // Contextualize the type signature on the RHS.
+    guard let rhs = TypeChecker.contextualize(
+      sign: node.sign, from: useSite!, system: &system.pointee)
+    else {
+      return ErrorExpr(type: node.type.context.errorType, range: node.range)
+    }
+
+    // Cast expressions are always assumed to have the type denoted by the signature.
+    node.type = rhs
     return node
   }
 
