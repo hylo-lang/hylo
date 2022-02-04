@@ -786,7 +786,10 @@ fileprivate struct SolutionSet<T> {
     if results.isEmpty || (newElement.solution.score < results[0].solution.score) {
       results = [newElement]
     } else if newElement.solution.score == results[0].solution.score {
-      results.append(newElement)
+      // Don't insert duplicates.
+      if !results.contains(where: { $0.solution ~= newElement.solution }) {
+        results.append(newElement)
+      }
     }
     return results[0].solution.score
   }
@@ -794,12 +797,14 @@ fileprivate struct SolutionSet<T> {
   var isEmpty: Bool { results.isEmpty }
 
   var best: Element? {
-    if results.count == 1 {
+    if results.isEmpty {
+      return nil
+    } else if results.count == 1 {
       return results[0]
     }
 
     // FIXME: Sort solutions by the number of coercions they have to do.
-    // We reached this point because there's was no way to identify a unique best solution,.
+    // We reached this point because there's was no way to identify a unique best solution.
     return nil
   }
 

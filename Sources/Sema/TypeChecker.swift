@@ -54,7 +54,7 @@ public enum TypeChecker {
   static func check(
     stmt: Stmt,
     useSite: DeclSpace,
-    freeVarSubstPolicy: FreeTypeVarSubstPolicy = .bindToErrorType
+    freeVarSubstPolicy: FreeTypeVarSubstPolicy = .bindToError
   ) -> Bool {
     var checker = StmtChecker(useSite: useSite, freeVarSubstPolicy: freeVarSubstPolicy)
     return stmt.accept(&checker)
@@ -71,7 +71,7 @@ public enum TypeChecker {
     expr: inout Expr,
     fixedType: ValType? = nil,
     useSite: DeclSpace,
-    freeTypeVarSubstPolicy: FreeTypeVarSubstPolicy = .bindToErrorType
+    freeTypeVarSubstPolicy: FreeTypeVarSubstPolicy = .bindToError
   ) -> Bool {
     var system = ConstraintSystem()
     let (didSucceed, _) = check(
@@ -99,7 +99,7 @@ public enum TypeChecker {
     fixedType: ValType?,
     useSite: DeclSpace,
     system: inout ConstraintSystem,
-    freeTypeVarSubstPolicy: FreeTypeVarSubstPolicy = .bindToErrorType
+    freeTypeVarSubstPolicy: FreeTypeVarSubstPolicy = .bindToError
   ) -> (didSucceed: Bool, solution: Solution) {
     var hasErrors = false
 
@@ -159,7 +159,7 @@ public enum TypeChecker {
     fixedType: ValType? = nil,
     useSite: DeclSpace,
     system: inout ConstraintSystem,
-    freeTypeVarSubstPolicy: FreeTypeVarSubstPolicy = .bindToErrorType
+    freeTypeVarSubstPolicy: FreeTypeVarSubstPolicy = .bindToError
   ) -> Solution {
     // Generate constraints from the pattern.
     withUnsafeMutablePointer(to: &system, { ptr in

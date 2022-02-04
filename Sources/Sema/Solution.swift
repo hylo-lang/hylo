@@ -5,7 +5,7 @@ import Basic
 enum FreeTypeVarSubstPolicy {
 
   /// Bind the free variables to the error type.
-  case bindToErrorType
+  case bindToError
 
   /// Keep the free variables.
   case keep
@@ -121,7 +121,7 @@ struct Solution {
 
       // The variable is free in this solution. Apply the specified policy.
       switch substPolicy {
-      case .bindToErrorType: return type.context.errorType
+      case .bindToError: return type.context.errorType
       case .keep: return type
       }
 
@@ -201,6 +201,21 @@ struct Solution {
     } else {
       return "'\(type)' (i.e., '\(type.canonical)')"
     }
+  }
+
+}
+
+extension Solution {
+
+  static func ~= (lhs: Solution, rhs: Solution) -> Bool {
+    guard lhs.bindings.count == rhs.bindings.count else { return false }
+    for (key, a) in lhs.bindings {
+      guard
+        let b = rhs.bindings[key],
+        lhs.reify(a, substPolicy: .bindToError) == rhs.reify(b, substPolicy: .bindToError)
+      else { return false }
+    }
+    return true
   }
 
 }

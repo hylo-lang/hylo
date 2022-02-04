@@ -265,7 +265,7 @@ struct ConstraintGenerator: NodeWalker {
           expr: &expr,
           fixedType: fixedBareType,
           useSite: node.body.body!,
-          freeTypeVarSubstPolicy: .bindToErrorType)
+          freeTypeVarSubstPolicy: .bindToError)
         node.body.type = context.funType(params: [], retType: expr.type)
         node.body.setState(.realized)
       } else {

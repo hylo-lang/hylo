@@ -67,7 +67,7 @@ struct DeclChecker: DeclVisitor {
           fixedType: signType,
           useSite: useSite,
           system: &system)
-        patternType = solution.reify(signType, substPolicy: .bindToErrorType)
+        patternType = solution.reify(signType, substPolicy: .bindToError)
         success = didSucceed
       } else {
         patternType = signType
