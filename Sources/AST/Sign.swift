@@ -419,6 +419,10 @@ extension IdentCompSign {
         return fail(.cannotFind(type: name, in: parentType, range: range))
       } else if candidates.count > 1 {
         return fail(.ambiguousReference(to: name, range: range))
+      }
+
+      if let specialized = self as? SpecializedIdentSign {
+        specialized.realize(from: useSite, baseDecl: candidates[0] as! GenericTypeDecl)
       } else {
         type = candidates[0].instanceType
       }
