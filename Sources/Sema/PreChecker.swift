@@ -26,17 +26,25 @@ struct PreChecker: NodeWalker {
 
   mutating func willVisit(_ expr: Expr) -> (shouldWalk: Bool, nodeBefore: Expr) {
     switch expr {
-    case let tupleExpr as TupleExpr:
+    case let expr as TupleExpr:
       // Substitute `e` for `(e)`, effectively eliminating parenthesized expressions.
-      if (tupleExpr.elems.count == 1) && (tupleExpr.elems[0].label == nil) {
-        return (true, tupleExpr.elems[0].value)
+      if (expr.elems.count == 1) && (expr.elems[0].label == nil) {
+        return (true, expr.elems[0].value)
       } else {
-        return (true, tupleExpr)
+        return (true, expr)
       }
 
-    case let matchExpr as MatchExpr:
+    case let expr as LambdaExpr:
+      // Realize a type for the lambda using potential information from its signature.
+      expr.type = expr.realize()
+
+      // If the lambda's body is a single expression, prepare it for the constraint generator.
+      // Otherwise, it will be type checked after we've inferred the type of the signature.
+      return (expr.decl.singleExprBody != nil, expr)
+
+    case let expr as MatchExpr:
       // Match expressions require special handling to deal with the bindings declared as patterns.
-      let newExpr = impl.visit(matchExpr)
+      let newExpr = impl.visit(expr)
       hasErrors = hasErrors || newExpr.type[.hasErrors]
       return (false, newExpr)
 
@@ -139,8 +147,8 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
 
       if let decl = matches.values.first(where: { !$0.isOverloadable }) {
         // We found a local, non-overloadable value declaration. That should be either a parameter
-        // or a local variable. If it appears syntactically before the identifier, then we're done.
-        // Otherwise, we'll check outer results for a better candidate.
+        // or a local variable. We're done if it syntactically before the identifier. Otherwise, we
+        // must check in outer spaces for a better candidate.
         let declRange = (decl as? VarDecl)?.patternBindingDecl?.range ?? decl.range
         if let declLoc = declRange?.upperBound,
            let nodeLoc = node.range?.lowerBound,

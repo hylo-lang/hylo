@@ -591,6 +591,8 @@ public final class LambdaExpr: Expr {
         rawType = TypeVar(context: type.context, node: param)
         param.setState(.realized)
       }
+
+      param.type = type.context.funParamType(policy: param.policy, rawType: rawType)
       params.append(FunType.Param(label: param.label, type: rawType))
     }
 

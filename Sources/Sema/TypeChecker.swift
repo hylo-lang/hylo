@@ -102,20 +102,6 @@ public enum TypeChecker {
     freeTypeVarSubstPolicy: FreeTypeVarSubstPolicy = .bindToError
   ) -> (didSucceed: Bool, solution: Solution) {
     var hasErrors = false
-
-    if let expr = expr as? LambdaExpr {
-      // Lambda expressions require special handling to infer function signatures.
-      let type = expr.realize() as! FunType
-      if let fixedType = fixedType {
-        system.insert(RelationalConstraint(
-          kind: .equality, lhs: type, rhs: fixedType,
-          at: ConstraintLocator(expr)))
-      } else if (type.retType is TypeVar) && (expr.decl.singleExprBody == nil) {
-        expr.type.context.report(.complexClosureType(range: expr.range))
-        hasErrors = true
-      }
-    }
-
     withUnsafeMutablePointer(to: &system, { ptr in
       // Pre-check the expression to resolve unqualified identifiers, realize type signatures and
       // desugar constructor calls.

@@ -243,6 +243,49 @@ struct ConstraintGenerator: NodeWalker {
     return true
   }
 
+  mutating func visit(_ node: LambdaExpr) -> Bool {
+    // If the lambda's body is a single expression, we can use it to infer a return type. If we
+    // also have an explicit type signature, the body's type must be a subtype. Otherwise, we'll
+    // assume that's the exact type.
+    if let body = node.decl.singleExprBody {
+      // If we also have an expected type, then the lambda's type must be a subtype.
+      if let fixedType = fixedType {
+        system.pointee.insert(RelationalConstraint(
+          kind: .subtyping, lhs: node.type, rhs: fixedType,
+          at: ConstraintLocator(node)))
+        self.fixedType = (fixedType as? FunType)?.retType
+      }
+
+      // Generate the constraints related to the lambda's body.
+      guard traverse(node) else { return false }
+
+      // Relate the lambda's return type to that of its body.
+      if let retType = (node.type as? FunType)?.retType {
+        system.pointee.insert(RelationalConstraint(
+          kind: (retType is TypeVar) ? .equality : .subtyping,
+          lhs: body.type, rhs: retType,
+          at: ConstraintLocator(node)))
+      }
+
+      return true
+    }
+
+    // If the lambda has a complex body, then we need either an explicit return signature or we
+    // must rely on the expected type. The system is underspecified if we have neither.
+    if let fixedType = fixedType {
+      system.pointee.insert(RelationalConstraint(
+        kind: .subtyping, lhs: node.type, rhs: fixedType,
+        at: ConstraintLocator(node)))
+    } else if node.decl.retSign == nil {
+      node.type.context.report(.complexReturnTypeInference(range: node.range))
+      node.decl.type = node.type.context.errorType
+      node.decl.setState(.invalid)
+      node.type = node.type.context.errorType
+      hasErrors = true
+    }
+    return true
+  }
+
   mutating func visit(_ node: AsyncExpr) -> Bool {
     // First, we must realize the type of the underlying function that represents the body of the
     // expression. We know that this function has a type `() -> T`, assuming the expression has a
