@@ -24,8 +24,8 @@ public struct Driver {
   /// - Parameters:
   ///   - context: An AST context.
   ///   - home: The root URL of Val's runtime environment.
-  public init(context: Context? = nil, home: URL? = nil) {
-    self.context = context ?? Context()
+  public init(context: Context = Context(), home: URL? = nil) {
+    self.context = context
 
     // Set the home path.
     if let h = home {
