@@ -204,8 +204,8 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
     // Handle built-ins.
     if baseType === context.builtin.instanceType {
       guard let decl = context.getBuiltinDecl(for: node.name) else {
-        context.report(.cannotFind(builtin: node.name, range: node.range))
-        return ErrorExpr(type: context.errorType, range: node.range)
+        context.report(.cannotFind(builtin: node.name, range: node.ident.range))
+        return ErrorExpr(type: context.errorType, range: node.ident.range)
       }
 
       // There's no need to contextualize the type, built-ins are never generic.
@@ -215,8 +215,8 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
     // Run a qualified lookup if the namespace resolved to a nominal type.
     let matches = baseType.lookup(member: node.name)
     guard !matches.isEmpty else {
-      context.report(.cannotFind(member: node.name, in: baseType, range: node.range))
-      return ErrorExpr(type: context.errorType, range: node.range)
+      context.report(.cannotFind(member: node.name, in: baseType, range: node.ident.range))
+      return ErrorExpr(type: context.errorType, range: node.ident.range)
     }
 
     // Note that this will throw the type signature away.
