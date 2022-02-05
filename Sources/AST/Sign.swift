@@ -366,6 +366,10 @@ extension IdentCompSign {
   func realize(in parentType: ValType, from useSite: DeclSpace) -> ValType {
     let context = type.context
 
+    if name == "Kind" {
+      return parentType.kind
+    }
+
     switch parentType {
     case let parentType as NominalType:
       guard let member = parentType.decl.typeMemberTable[name] else {

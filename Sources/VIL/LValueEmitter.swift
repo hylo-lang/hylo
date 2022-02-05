@@ -148,6 +148,10 @@ struct LValueEmitter: ExprVisitor {
     fatalError("not implemented")
   }
 
+  func visit(_ node: KindRefExpr) -> ExprResult {
+    fatalError("not implemented")
+  }
+
   mutating func visit(_ node: MemberDeclRefExpr) -> ExprResult {
     // The base has to be emittable as an l-value.
     switch node.base.accept(&self) {

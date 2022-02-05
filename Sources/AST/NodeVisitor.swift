@@ -123,6 +123,8 @@ public protocol ExprVisitor {
 
   mutating func visit(_ node: TypeDeclRefExpr) -> ExprResult
 
+  mutating func visit(_ node: KindRefExpr) -> ExprResult
+
   mutating func visit(_ node: MemberDeclRefExpr) -> ExprResult
 
   mutating func visit(_ node: TupleMemberExpr) -> ExprResult

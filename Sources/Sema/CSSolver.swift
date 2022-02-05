@@ -209,7 +209,7 @@ struct CSSolver {
       // Attempt to solve the constraint after desugaring the types.
       if attemptSolveDesugared(constraint) { return }
 
-      // The types might be structural.
+      // Attempt to simplify the constraint if the types match structurally.
       if attemptStructuralMatch(constraint) { return }
 
       // The constraint failed.
@@ -396,8 +396,7 @@ struct CSSolver {
       system.insert(disjunction: choices)
 
     case (let lhs as AsyncType, let rhs as AsyncType):
-      // LHS and RHS are both asynchronous. We can simplify the constraint by only considering
-      // their respective underlying type.
+      // LHS and RHS are both asynchronous. Simplify with their respective underlying type.
       let simplified = RelationalConstraint(
         kind: .subtyping, lhs: lhs.base, rhs: rhs.base, at: constraint.locator)
       solve(subtyping: simplified)
@@ -407,6 +406,12 @@ struct CSSolver {
       // a subtype of RHS's underlying type.
       let simplified = RelationalConstraint(
         kind: .subtyping, lhs: constraint.lhs, rhs: rhs.base, at: constraint.locator)
+      solve(simplified)
+
+    case (let lhs as KindType, let rhs as KindType):
+      // LHS and RHS are both kind types. Simplify with their respective instance type.
+      let simplified = RelationalConstraint(
+        kind: .subtyping, lhs: lhs.type, rhs: rhs.type, at: constraint.locator)
       solve(simplified)
 
     default:
@@ -766,6 +771,12 @@ struct CSSolver {
     case (let lhs as AsyncType, let rhs as AsyncType):
       system.insert(RelationalConstraint(
         kind: constraint.kind, lhs: lhs.base, rhs: rhs.base,
+        at: constraint.locator))
+      return true
+
+    case (let lhs as KindType, let rhs as KindType):
+      system.insert(RelationalConstraint(
+        kind: constraint.kind, lhs: lhs.type, rhs: rhs.type,
         at: constraint.locator))
       return true
 

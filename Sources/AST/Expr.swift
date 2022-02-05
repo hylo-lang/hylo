@@ -460,6 +460,26 @@ public final class TypeDeclRefExpr: Expr {
 
 }
 
+/// An identifier referring to a type kind (e.g., `Int::self`).
+public final class KindRefExpr: Expr {
+
+  public var range: SourceRange?
+
+  public var type: ValType {
+    willSet { assert(newValue is KindType) }
+  }
+
+  public init(type: KindType, range: SourceRange? = nil) {
+    self.type = type
+    self.range = range
+  }
+
+  public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
+    return visitor.visit(self)
+  }
+
+}
+
 /// A member expression (e.g., `foo.bar`).
 public protocol MemberExpr: Expr {
 

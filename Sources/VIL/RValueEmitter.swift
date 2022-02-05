@@ -349,7 +349,11 @@ struct RValueEmitter: ExprVisitor {
   }
 
   func visit(_ node: TypeDeclRefExpr) -> ExprResult {
-    fatalError()
+    fatalError("not implemented")
+  }
+
+  func visit(_ node: KindRefExpr) -> ExprResult {
+    fatalError("not implemented")
   }
 
   mutating func visit(_ node: MemberDeclRefExpr) -> ExprResult {

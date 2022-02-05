@@ -196,6 +196,11 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
       return ErrorExpr(type: context.errorType, range: node.range)
     }
 
+    // Handle `T::self`.
+    if node.name == "self" {
+      return KindRefExpr(type: baseType.kind, range: node.range)
+    }
+
     // Handle built-ins.
     if baseType === context.builtin.instanceType {
       guard let decl = context.getBuiltinDecl(for: node.name) else {
@@ -227,6 +232,10 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
   }
 
   func visit(_ node: TypeDeclRefExpr) -> Expr {
+    return node
+  }
+
+  func visit(_ node: KindRefExpr) -> Expr {
     return node
   }
 

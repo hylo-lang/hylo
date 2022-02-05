@@ -763,6 +763,10 @@ extension NodeWalker {
     return true
   }
 
+  public mutating func visit(_ node: KindRefExpr) -> Bool {
+    return true
+  }
+
   public mutating func visit(_ node: UnresolvedMemberExpr) -> Bool {
     return traverse(node)
   }

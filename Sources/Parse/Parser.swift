@@ -946,7 +946,7 @@ public struct Parser {
     }
 
     switch ident.name {
-    case "Any", "Unit", "Nothing":
+    case "Any", "Kind", "Nothing", "Unit":
       context.report("'\(ident.name)' is a reserved type identifier", anchor: ident.range)
       state.hasError = true
     default:

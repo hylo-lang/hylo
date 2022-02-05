@@ -525,6 +525,14 @@ public struct NodePrinter: NodeVisitor {
     """
   }
 
+  public mutating func visit(_ node: KindRefExpr) -> String {
+    return """
+    {
+    \(exprHeader(node))
+    }
+    """
+  }
+
   public mutating func visit(_ node: UnresolvedMemberExpr) -> String {
     return """
     {
