@@ -592,6 +592,13 @@ struct CSSolver {
         from: constraint.useSite,
         processingContraintsWith: { system.insert(prototype: $0, at: constraint.locator) })
 
+      // Discard choices that are structurally incompatible.
+      if let lhs = type as? FunType {
+        guard let rhs = choiceType as? FunType, lhs.params.count == rhs.params.count else {
+          return nil
+        }
+      }
+
       let choice = RelationalConstraint(
         kind: .equality, lhs: type, rhs: choiceType, at: constraint.locator)
       return (choice, 0)
