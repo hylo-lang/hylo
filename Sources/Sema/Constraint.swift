@@ -44,6 +44,10 @@ struct RelationalConstraint: Constraint {
     /// Variance additionally describes how structural types relate to one another.
     case subtyping
 
+    /// A constraint `T <: U` specifying that `T` is a subtype of `U` and that `U` is a the type of
+    /// a function parameter.
+    case paramSubtyping
+
     /// A constraint `T ⊏ U` specifying that `T` is expressible by `U`.
     ///
     /// Type conversion relates to literal expressions. It relaxes subtying by also including cases
@@ -71,7 +75,7 @@ struct RelationalConstraint: Constraint {
   init(kind: Kind, lhs: ValType, rhs: ValType, at locator: ConstraintLocator) {
     assert(!lhs.isUnresolved && !rhs.isUnresolved)
     assert(kind != .conformance || rhs is ViewType)
-    assert(kind != .conversion  || rhs is BuiltinLiteral)
+    assert(kind != .conversion || rhs is BuiltinLiteral)
 
     self.kind = kind
     self.lhs = lhs
@@ -93,6 +97,16 @@ struct RelationalConstraint: Constraint {
     }
   }
 
+  /// Indicates whether this constraint denote a structural relation between LHS and RHS.
+  var isStructural: Bool {
+    switch kind {
+    case .equality, .oneWayEquality, .subtyping, .paramSubtyping:
+      return true
+    case .conformance, .conversion:
+      return false
+    }
+  }
+
   var precedence: Int { kind.rawValue }
 
   func depends(on tau: TypeVar) -> Bool {
@@ -107,7 +121,7 @@ extension RelationalConstraint: CustomStringConvertible {
     switch kind {
     case .equality, .oneWayEquality:
       return "\(lhs) == \(rhs)"
-    case .subtyping:
+    case .subtyping, .paramSubtyping:
       return "\(lhs) <: \(rhs)"
     case .conformance:
       return "\(lhs) : \(rhs)"

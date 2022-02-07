@@ -165,7 +165,7 @@ struct ConstraintGenerator: NodeWalker {
       else {
         let paramType = TypeVar(context: node.type.context, node: arg.value)
         insert(RelationalConstraint(
-          kind: .subtyping, lhs: arg.value.type, rhs: paramType,
+          kind: .paramSubtyping, lhs: arg.value.type, rhs: paramType,
           at: ConstraintLocator(node, .argument(i))))
         params.append(FunType.Param(label: arg.label, type: paramType))
       }

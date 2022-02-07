@@ -148,7 +148,7 @@ struct Solution {
         message = "type \(lhs) is not equal to type \(rhs)"
       case .conformance:
         message = "type \(lhs) does not conform to the view \(rhs)"
-      case .subtyping:
+      case .subtyping, .paramSubtyping:
         message = "type \(lhs) is not a subtype of type \(rhs)"
       case .conversion:
         message = "type \(lhs) is not expressible by type \(rhs) in conversion"

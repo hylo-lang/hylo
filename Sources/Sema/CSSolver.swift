@@ -103,9 +103,9 @@ struct CSSolver {
     // Attempt to refresh stale subtyping constraints.
     if !system.staleConstraints.isEmpty {
 
-      // Implementation note: Constraints of the form `T <: τ` or `τ <: T` become stale when the
-      // solver couldn't find a way to constrain `τ` more tightly. In these cases, picking `T` as
-      // a substitution for `τ` may break the stalemate.
+      // Implementation note: constraints of the form `T <: τ` or `τ <: T` become stale when the
+      // solver can't find a way to constrain `τ` more tightly. Picking `T` as a substitution for
+      // `τ` may break the stalemate.
       //
       // We iteratively substitute each stale subtyping constraint into a fresh equality constraint
       // and try to solve the system in a sub-solver. That process is guaranteed to terminate as
@@ -114,8 +114,20 @@ struct CSSolver {
       var solutions = SolutionSet<()>()
       for i in 0 ..< system.staleConstraints.count {
         let constraint = system.staleConstraints.removeLast()
+        defer {
+          system.staleConstraints.append(constraint)
+          system.staleConstraints.swapAt(i, system.staleConstraints.count - 1)
+        }
 
-        if var constraint = constraint as? RelationalConstraint, constraint.kind == .subtyping {
+        if var constraint = constraint as? RelationalConstraint {
+          guard
+            constraint.kind == .subtyping ||
+            constraint.kind == .paramSubtyping && (
+              constraint.lhs is FunParamType || constraint.rhs is FunParamType)
+          else {
+            continue
+          }
+
           constraint.kind = .equality
           var subsolver = fork(
             system: system.fork(inserting: constraint),
@@ -123,9 +135,6 @@ struct CSSolver {
           let newSolution = subsolver.solve()
           bestScore = min(bestScore, solutions.insert(((), newSolution)))
         }
-
-        system.staleConstraints.append(constraint)
-        system.staleConstraints.swapAt(i, system.staleConstraints.count - 1)
       }
 
       // Make sure there is only one solution.
@@ -152,7 +161,7 @@ struct CSSolver {
       solve(equality: updated)
     case .conformance:
       solve(conformance: updated)
-    case .subtyping:
+    case .subtyping, .paramSubtyping:
       solve(subtyping: updated)
     case .conversion:
       solve(conversion: updated)
@@ -342,7 +351,7 @@ struct CSSolver {
       solve(simplified)
 
     case (_, let rhs as FunParamType):
-      // RHS is a parameter type. If RHS is mutating, then LHS must have the raw type as RHS.
+      // RHS is a parameter type. If RHS is mutating, then LHS must be the same as RHS.
       var simplified = RelationalConstraint(
         kind: .subtyping, lhs: constraint.lhs, rhs: rhs.rawType, at: constraint.locator)
       if rhs.policy == .inout {
@@ -351,8 +360,7 @@ struct CSSolver {
       solve(simplified)
 
     case (let lhs as FunParamType, _):
-      // LHS is a parameter type. We can solve the constraint w.r.t. its raw type. Note that RHS
-      // can't be a type variable; this case would have been caught above.
+      // LHS is a parameter type. We can solve the constraint w.r.t. its raw type.
       let simplified = RelationalConstraint(
         kind: .subtyping, lhs: lhs.rawType, rhs: constraint.rhs, at: constraint.locator)
       solve(simplified)
@@ -383,7 +391,7 @@ struct CSSolver {
       // Both LHS and RHS are union types: every element in LHS must be a subtype of RHS.
       for elem in lhs.elems {
         system.insert(RelationalConstraint(
-          kind: .subtyping, lhs: elem, rhs: rhs, at: constraint.locator))
+          kind: constraint.kind, lhs: elem, rhs: rhs, at: constraint.locator))
       }
 
     case (_, let rhs as UnionType):
@@ -391,27 +399,28 @@ struct CSSolver {
       // at least one element in RHS.
       let choices = rhs.elems.map({ elem in
         RelationalConstraint(
-          kind: .subtyping, lhs: constraint.lhs, rhs: elem, at: constraint.locator)
+          kind: constraint.kind, lhs: constraint.lhs, rhs: elem, at: constraint.locator)
       })
       system.insert(disjunction: choices)
 
     case (let lhs as AsyncType, let rhs as AsyncType):
       // LHS and RHS are both asynchronous. Simplify with their respective underlying type.
       let simplified = RelationalConstraint(
-        kind: .subtyping, lhs: lhs.base, rhs: rhs.base, at: constraint.locator)
+        kind: constraint.kind, lhs: lhs.base, rhs: rhs.base, at: constraint.locator)
       solve(subtyping: simplified)
 
     case (_, let rhs as AsyncType):
+      // FIXME: Is that correct?
       // LHS is (partially) determined and is not an asynchronous type. Therefore, it must be
       // a subtype of RHS's underlying type.
       let simplified = RelationalConstraint(
-        kind: .subtyping, lhs: constraint.lhs, rhs: rhs.base, at: constraint.locator)
+        kind: constraint.kind, lhs: constraint.lhs, rhs: rhs.base, at: constraint.locator)
       solve(simplified)
 
     case (let lhs as KindType, let rhs as KindType):
       // LHS and RHS are both kind types. Simplify with their respective instance type.
       let simplified = RelationalConstraint(
-        kind: .subtyping, lhs: lhs.type, rhs: rhs.type, at: constraint.locator)
+        kind: constraint.kind, lhs: lhs.type, rhs: rhs.type, at: constraint.locator)
       solve(simplified)
 
     default:
@@ -686,6 +695,7 @@ struct CSSolver {
   }
 
   private mutating func attemptStructuralMatch(_ constraint: RelationalConstraint) -> Bool {
+    assert(constraint.isStructural)
     switch (constraint.lhs, constraint.rhs) {
     case (let lhs as TupleType, let rhs as TupleType):
       // Number of elements should match.
@@ -732,17 +742,20 @@ struct CSSolver {
       }
 
       // Break down the constraint.
+      let paramConstraintKind: RelationalConstraint.Kind = constraint.kind == .subtyping
+        ? .paramSubtyping
+        : .equality
+
       for i in 0 ..< min(lhs.params.count, rhs.params.count) {
         var (a, b) = (lhs.params[i], rhs.params[i])
 
         // Labels should match.
         if a.label != b.label { errors.append(.conflictingLabels(constraint)) }
 
-        // Parameters are contravariant. If the constraint denotes a subtyping relation, we must
-        // swap its direction.
+        // Parameters are contravariant.
         if constraint.kind == .subtyping { swap(&a, &b) }
         system.insert(RelationalConstraint(
-          kind: constraint.kind, lhs: a.type, rhs: b.type,
+          kind: paramConstraintKind, lhs: a.type, rhs: b.type,
           at: constraint.locator.appending(.parameter(i))))
       }
 
@@ -761,7 +774,7 @@ struct CSSolver {
       }
 
       // If RHS is mutating, then LHS must have the raw type as RHS.
-      if (rhs.policy == .inout) && (simplified.kind == .subtyping) {
+      if rhs.policy == .inout {
         simplified.kind = .equality
       }
 
