@@ -185,7 +185,7 @@ public final class GenericEnv {
     return (contextualType: contextualType, openedParams: contextualizer.substitutions)
   }
 
-  /// Contextualize the environment's type constraint prototypes with the given contextualizer.
+  /// Contextualizes the environment's type constraint prototypes with the given contextualizer.
   ///
   /// - Parameter contextualizer: The contextualizer that was used to open generic type parameters.
   fileprivate func contextualizeTypeReqs(
@@ -202,10 +202,10 @@ public final class GenericEnv {
     }
   }
 
-  /// Contextualizes the given generic parameter type.
+  /// Skolemizes the given generic parameter type in this environment.
   ///
-  /// - Parameter param: A generic parameter type. `param` is assumed to be defined either within
-  ///   this generic environment or within one of its parent.
+  /// - Precondition: `param` is assumed to be defined either within this generic environment or
+  ///   within one of its parent.
   public func skolemize(_ param: GenericParamType) -> SkolemType {
     if params.contains(param) {
       return param.context.skolemType(interface: param, genericEnv: self)
@@ -216,6 +216,15 @@ public final class GenericEnv {
       preconditionFailure("bad generic environment")
     }
     return parentEnv.skolemize(param)
+  }
+
+  /// Skolemizes the generic parameter types that occur in `type` in this environment.
+  ///
+  /// - Precondition: All generic parameter types are assumed to be defined either within this
+  ///   generic environment or within one of its parent.
+  public func skolemize(paramsIn type: ValType) -> ValType {
+    let skolemizer = Skolemizer(env: self)
+    return skolemizer.walk(type)
   }
 
 }
@@ -269,6 +278,29 @@ fileprivate final class Contextualizer: TypeWalker {
       let variable = TypeVar(context: param.context)
       substitutions[param] = variable
       return variable
+    }
+  }
+
+}
+
+fileprivate final class Skolemizer: TypeWalker {
+
+  /// The generic environment for which the type walked type is begin skolemized.
+  unowned var env: GenericEnv
+
+  init(env: GenericEnv) {
+    self.env = env
+  }
+
+  override func willVisit(_ type: ValType) -> TypeWalker.Action {
+    switch type {
+    case let type as GenericParamType:
+      return .stepOver(env.skolemize(type))
+
+    default:
+      return type[.hasTypeParams]
+        ? .stepInto(type)
+        : .stepOver(type)
     }
   }
 

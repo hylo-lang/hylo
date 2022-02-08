@@ -57,19 +57,6 @@ public struct VILType {
     return ((valType as? FunType)?.retType).map(VILType.lower)
   }
 
-  /// Returns this vil type contextualized in the given environment.
-  ///
-  /// - Parameters:
-  ///   - env: A generic environment.
-  ///   - useSite: The declaration space in which the type is being used.
-  public func contextualized(in env: GenericEnv, from useSite: DeclSpace) -> VILType {
-    let (contextualType, _) = env.contextualize(valType, from: useSite)
-    let vilType = VILType.lower(contextualType)
-    return isAddress
-      ? vilType.address
-      : vilType.object
-  }
-
   /// A flag that indicates whether the type is existential.
   public var isExistential: Bool { valType.isExistential }
 

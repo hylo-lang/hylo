@@ -141,15 +141,15 @@ public enum Emitter {
     // We're done if the function doesn't have body.
     if (decl.body == nil) && !decl.isSynthesized { return fun }
 
-    // Contextualize the function's arguments.
+    // Skolemize the type of each argument.
     let genericEnv = decl.genericEnv!
     let paramTypes = fun.type.params!.map({ (param) -> VILType in
-      let ty = VILType.lower(param.type).contextualized(in: genericEnv, from: decl)
+      let skolemizedType = genericEnv.skolemize(paramsIn: param.type)
       switch param.policy! {
       case .local, .inout:
-        return ty.address
+        return .lower(skolemizedType).address
       case .consuming:
-        return ty
+        return .lower(skolemizedType)
       }
     })
 
