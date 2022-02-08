@@ -161,10 +161,13 @@ fileprivate enum AbstractValue: Equatable {
 /// The abstract representation of an address.
 fileprivate enum AbstractAddress: Hashable {
 
-  /// A base address.
+  /// The address of an operand.
   case base(Operand)
 
-  /// The abstract address of a part from a value.
+  /// An address unsafely converted from a pointer.
+  case pointer(Int)
+
+  /// The address of a part from a value.
   indirect case part(parent: AbstractAddress, property: String)
 
   /// A Boolean value that indicates whether this address is a base address.
@@ -179,7 +182,7 @@ fileprivate enum AbstractAddress: Hashable {
   /// The base of this address.
   var base: AbstractAddress {
     switch self {
-    case .base:
+    case .base, .pointer:
       return self
     case .part(let parent, _):
       return parent.base
@@ -503,6 +506,8 @@ public struct OwnershipAnalysis {
 
   private var module: Module
 
+  private var pointerIDFactory = AutoIncrementFactory()
+
   public init(context: Context) {
     self.module = Module(id: "_", context: context)
   }
@@ -639,6 +644,8 @@ public struct OwnershipAnalysis {
       case let inst as OpenExistAddrInst:
         success = visit(inst: inst, index: index, context: &context) && success
       case let inst as PartialApplyInst:
+        success = visit(inst: inst, index: index, context: &context) && success
+      case let inst as PointerCastInst:
         success = visit(inst: inst, index: index, context: &context) && success
       case let inst as RecordInst:
         success = visit(inst: inst, index: index, context: &context) && success
@@ -1032,6 +1039,17 @@ public struct OwnershipAnalysis {
 
     context[in: Operand(index)] = .object(result)
     return success
+  }
+
+  private mutating func visit(
+    inst: PointerCastInst,
+    index: InstIndex,
+    context: inout AbstractContext
+  ) -> Bool {
+    let address = AbstractAddress.pointer(pointerIDFactory.makeID())
+    context[in: Operand(index)] = .address(address)
+    context[at: address] = .owned
+    return true
   }
 
   private func visit(

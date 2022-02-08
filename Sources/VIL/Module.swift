@@ -558,6 +558,20 @@ public struct Module {
     return insert(inst: inst, at: point)
   }
 
+  public mutating func insertPointerCast(
+    pointer: Operand,
+    type: VILType,
+    range: SourceRange? = nil,
+    at point: InsertionPoint
+  ) -> InstIndex {
+    assert(self.type(of: pointer).isAddress, "'pointer' must have an address type")
+    assert(type.isAddress, "'type' must be an address type")
+
+    let inst = PointerCastInst(
+      pointer: pointer, type: type, parent: block(containing: point), range: range)
+    return insert(inst: inst, at: point)
+  }
+
   public mutating func insertRecord(
     typeDecl: NominalTypeDecl,
     type: VILType,

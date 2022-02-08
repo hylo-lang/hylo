@@ -65,6 +65,19 @@ public struct UnitValue: Constant, Hashable {
 
 }
 
+/// A constant type kind.
+public struct KindValue: Constant, Hashable {
+
+  public let type: VILType
+
+  init(type: KindType) {
+    self.type = .lower(type)
+  }
+
+  public var description: String { "kind" }
+
+}
+
 /// A constant integer value.
 public struct IntValue: Constant {
 

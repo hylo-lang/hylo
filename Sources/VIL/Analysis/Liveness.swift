@@ -1,4 +1,4 @@
-// Implementation note: The search for the last user of an operand implements a variant of Appel's
+// Implementation note: the search for the last user of an operand implements a variant of Appel's
 // path exploration algorithm, suggested by Brandner et al.'s research report "Computing Liveness
 // Sets for SSA-Form Programs".
 

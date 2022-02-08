@@ -22,6 +22,8 @@
     ["i64_lt", "i64", "i64", "i1"],
     ["i64_le", "i64", "i64", "i1"],
 
+    ["ptr_copy", "Pointer&", "Pointer"],
+
     ["set_status", "i64", "Unit"]
   ]
 }

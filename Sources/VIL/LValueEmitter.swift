@@ -98,8 +98,12 @@ struct LValueEmitter: ExprVisitor {
     return .success(converted)
   }
 
-  func visit(_ node: PointerCastExpr) -> ExprResult {
-    fatalError("not implemented")
+  mutating func visit(_ node: PointerCastExpr) -> ExprResult {
+    let pointer = Emitter.emit(
+      borrow: node.value, mutably: false, state: &_state.pointee, into: &_module.pointee)
+    let address = Operand(module.insertPointerCast(
+      pointer: pointer, type: .lower(node.type).address, range: node.range, at: state.ip))
+    return .success(address)
   }
 
   func visit(_ node: TupleExpr) -> ExprResult {

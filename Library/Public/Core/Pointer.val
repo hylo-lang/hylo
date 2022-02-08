@@ -1,0 +1,52 @@
+
+/// An untyped pointer for accessing untyped data unsafely.
+type AnyPointer {
+
+  /// The underlying built-in pointer.
+  var value: Builtin::Pointer
+
+  fun assuming_memory_bound<T>(to: T::Kind) -> Pointer<T> {
+    return Pointer(value: Builtin::ptr_copy(value))
+  }
+
+}
+
+/// An untyped pointer for accessing and modifying untyped data unsafely.
+type AnyMutablePointer {
+
+  /// The underlying built-in pointer.
+  var value: Builtin::Pointer
+
+  fun assuming_memory_bound<T>(to: T::Kind) -> MutablePointer<T> {
+    return MutablePointer(value: Builtin::ptr_copy(value))
+  }
+
+}
+
+/// A pointer for accessing data unsafely.
+type Pointer<Pointee> {
+
+  /// The underlying (untyped) built-in pointer.
+  var value: Builtin::Pointer
+
+  fun with_unsafe_pointee<T>(do action: (Pointee) -> T) -> T {
+    return action(value as!! Pointee)
+  }
+
+}
+
+/// A pointer for accessing and modifying data unsafely.
+type MutablePointer<Pointee> {
+
+  /// The underlying (untyped) built-in pointer.
+  var value: Builtin::Pointer
+
+  fun with_unsafe_pointee<T>(do action: (Pointee) -> T) -> T {
+    return action(value as!! Pointee)
+  }
+
+  fun with_unsafe_pointee<T>(do action: (mut Pointee) -> T) -> T {
+    return action(&(value as!! Pointee))
+  }
+
+}

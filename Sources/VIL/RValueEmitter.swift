@@ -179,7 +179,7 @@ struct RValueEmitter: ExprVisitor {
   }
 
   func visit(_ node: PointerCastExpr) -> ExprResult {
-    fatalError("not implemented")
+    fatalError("illegal pointer cast")
   }
 
   mutating func visit(_ node: TupleExpr) -> ExprResult {
@@ -353,7 +353,7 @@ struct RValueEmitter: ExprVisitor {
   }
 
   func visit(_ node: KindRefExpr) -> ExprResult {
-    fatalError("not implemented")
+    return .success(Operand(KindValue(type: node.type as! KindType)))
   }
 
   mutating func visit(_ node: MemberDeclRefExpr) -> ExprResult {

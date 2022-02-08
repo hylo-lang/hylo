@@ -569,7 +569,7 @@ public final class CheckedCastBranchInst: Inst {
   /// The value to convert.
   public let value: Operand
 
-  /// The expected type of the packaged value.
+  /// The type to which `value` should be converted.
   public let type: VILType
 
   /// The block to which the execution should jump if the cast succeeds.
@@ -603,6 +603,35 @@ public final class CheckedCastBranchInst: Inst {
   }
 
   public static var opstring = "checked_cast_br"
+
+}
+
+/// Converts a pointer to an address.
+public final class PointerCastInst: Value, Inst {
+
+  public let type: VILType
+
+  public let parent: BasicBlockIndex
+
+  public let range: SourceRange?
+
+  /// The pointer to convert.
+  public let pointer: Operand
+
+  init(pointer: Operand, type: VILType, parent: BasicBlockIndex, range: SourceRange?) {
+    self.pointer = pointer
+    self.type = type
+    self.parent = parent
+    self.range = range
+  }
+
+  public var operands: [Operand] { [pointer] }
+
+  public func dump<S>(to stream: inout S, with printer: inout PrinterContext<S>) {
+    printer.write("pointer_cast \(printer.describe(pointer)) to \(type)\n", to: &stream)
+  }
+
+  public static var opstring = "pointer_cast"
 
 }
 
