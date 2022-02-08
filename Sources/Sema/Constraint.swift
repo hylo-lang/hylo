@@ -269,23 +269,29 @@ extension TupleMemberConstraint: CustomStringConvertible {
 
 }
 
-/// A disjunction of two or more constraints.
+/// A disjunction of two or more constraint sets.
 struct DisjunctionConstraint: Constraint {
 
-  typealias Element = (constraint: Constraint, weight: Int)
+  typealias Choice = (constraints: [Constraint], weight: Int)
 
-  var elements: [Element]
+  var choices: [Choice]
 
-  init<S>(_ elements: S) where S: Sequence, S.Element == Element {
-    self.elements = Array(elements)
+  var locator: ConstraintLocator
+
+  init<S>(_ choices: S, locator: ConstraintLocator) where S: Sequence, S.Element == Choice {
+    self.choices = Array(choices)
+    self.locator = locator
   }
-
-  var locator: ConstraintLocator { elements[0].constraint.locator }
 
   var precedence: Int { 1000 }
 
   func depends(on tau: TypeVar) -> Bool {
-    return elements.contains(where: { elem in elem.constraint.depends(on: tau) })
+    for (constraints, _) in choices {
+      if constraints.contains(where: { $0.depends(on: tau) }) {
+        return true
+      }
+    }
+    return false
   }
 
 }
@@ -293,10 +299,9 @@ struct DisjunctionConstraint: Constraint {
 extension DisjunctionConstraint: CustomStringConvertible {
 
   var description: String {
-    let elems = elements.map({ (elem) -> String in
-      "(\(elem.constraint), \(elem.weight))"
-    })
-    return elems.joined(separator: " | ")
+    return choices
+      .map({ e in "\(e.weight): \(e.constraints)" })
+      .joined(separator: " | ")
   }
 
 }

@@ -398,10 +398,10 @@ struct CSSolver {
       // LHS is (partially) determined and is not a union type. Therefore, it must be a subtype of
       // at least one element in RHS.
       let choices = rhs.elems.map({ elem in
-        RelationalConstraint(
-          kind: constraint.kind, lhs: constraint.lhs, rhs: elem, at: constraint.locator)
+        [RelationalConstraint(
+          kind: constraint.kind, lhs: constraint.lhs, rhs: elem, at: constraint.locator)]
       })
-      system.insert(disjunction: choices)
+      system.insert(disjunction: choices, locator: constraint.locator)
 
     case (let lhs as AsyncType, let rhs as AsyncType):
       // LHS and RHS are both asynchronous. Simplify with their respective underlying type.
@@ -439,7 +439,7 @@ struct CSSolver {
       // A conversion constraint can always be solved as a conformance to the corresponding
       // `ExpressibleBy***` view.
       let literalView = context.getTypeDecl(for: .ExpressibleByBuiltinIntLiteral)!.instanceType
-      let simplified = RelationalConstraint(
+      let conformanceChoice = RelationalConstraint(
           kind: .conformance, lhs: constraint.lhs, rhs: literalView, at: constraint.locator)
 
       if constraint.lhs is TypeVar {
@@ -449,12 +449,11 @@ struct CSSolver {
         let defaultType = context.getTypeDecl(for: .Int)!.instanceType
         let defaultChoice = RelationalConstraint(
           kind: .equality, lhs: constraint.lhs, rhs: defaultType, at: constraint.locator)
-        system.insert(disjunctionOfConstraintsWithWeights: [
-          (defaultChoice, 0),
-          (simplified   , 1),
-        ])
+        system.insert(
+          disjunctionWithWeights: [([defaultChoice], 0), ([conformanceChoice], 1)],
+          locator: constraint.locator)
       } else {
-        solve(simplified)
+        solve(conformanceChoice)
       }
 
     default:
@@ -579,7 +578,7 @@ struct CSSolver {
     let type = assumptions[constraint.type]
 
     // Instanciate the type of the declaration candidates.
-    let choices = constraint.declSet.compactMap({ (decl) -> DisjunctionConstraint.Element? in
+    let choices = constraint.declSet.compactMap({ (decl) -> ([Constraint], Int)? in
       // If the candidate is a variable, we may have to type-check the pattern binding declaration
       // to infer the variable's type from its initializer.
       if let decl = decl as? VarDecl {
@@ -587,10 +586,13 @@ struct CSSolver {
       }
 
       // Contextualize the declaration's type in case it is generic.
+      var constraints: [Constraint] = []
       let choiceType = TypeChecker.contextualize(
         decl: decl,
         from: constraint.useSite,
-        processingContraintsWith: { system.insert(prototype: $0, at: constraint.locator) })
+        processingContraintsWith: { prototype in
+          constraints.append(RelationalConstraint(prototype: prototype, at: constraint.locator))
+        })
 
       // Discard choices that are structurally incompatible.
       if let lhs = type as? FunType {
@@ -599,9 +601,9 @@ struct CSSolver {
         }
       }
 
-      let choice = RelationalConstraint(
-        kind: .equality, lhs: type, rhs: choiceType, at: constraint.locator)
-      return (choice, 0)
+      constraints.append(RelationalConstraint(
+        kind: .equality, lhs: type, rhs: choiceType, at: constraint.locator))
+      return (constraints, 0)
     })
 
     // Bail out if all available overloads failed type checking.
@@ -630,8 +632,8 @@ struct CSSolver {
 
   /// Solves a disjunction constraint.
   private mutating func solve(_ constraint: DisjunctionConstraint) -> Solution {
-    precondition(!constraint.elements.isEmpty)
-    let solutions = branch(choices: constraint.elements)
+    precondition(!constraint.choices.isEmpty)
+    let solutions = branch(choices: constraint.choices)
 
     guard let (_, best) = solutions.best else {
       // We couldn't find a single best solution. Let's use what we were able to infer so far.
@@ -644,16 +646,14 @@ struct CSSolver {
     return best
   }
 
-  private mutating func branch(
-    choices: [DisjunctionConstraint.Element]
-  ) -> SolutionSet<Int> {
-
+  private mutating func branch(choices: [DisjunctionConstraint.Choice]) -> SolutionSet<Int> {
     // Solve each branch in a sub-solver.
     var solutions = SolutionSet<Int>()
     for i in 0 ..< choices.count {
-      var subsolver = fork(
-        system: system.fork(inserting: choices[i].constraint),
-        penalities: penalities + choices[i].weight)
+      var subsystem = system
+      subsystem.freshConstraints.append(contentsOf: choices[i].constraints)
+
+      var subsolver = fork(system: subsystem, penalities: penalities + choices[i].weight)
       let newSolution = subsolver.solve()
       bestScore = min(bestScore, solutions.insert((i, newSolution)))
     }

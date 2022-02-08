@@ -38,35 +38,34 @@ struct ConstraintSystem {
 
   /// Inserts a disjunction of weighted constraints into the system.
   ///
-  /// - Parameter choices: A sequence of pairs of a constraint with an associated weight. If it
-  ///   contains only a choice, then the constraint is inserted "as-is" into the system. Otherwise,
-  ///   a disjunction is created The method has no effect if `choices` is empty.
-  @discardableResult
-  mutating func insert<S>(disjunctionOfConstraintsWithWeights choices: S) -> Constraint?
-  where S: Sequence, S.Element == (Constraint, Int)
+  /// - Parameters:
+  ///   - choices: A sequence of pairs `(constraints, weight)` where `constraints` is a an array
+  ///     with the constraints of a specific choice and `weight` is the associated penalty. If the
+  ///     sequence contains a single choice, `constraints` are inserted into the system directly.
+  ///     Otherwise, a disjunction is created. The method has no effect if `choices` is empty.
+  ///   - locator: The locator of the disjunction.
+  mutating func insert<S>(disjunctionWithWeights choices: S, locator: ConstraintLocator)
+  where S: Sequence, S.Element == DisjunctionConstraint.Choice
   {
     let choices = Array(choices)
 
-    guard !choices.isEmpty else { return nil }
-    guard choices.count > 1 else {
-      freshConstraints.append(choices[0].0)
-      return choices[0].0
+    if choices.count == 1 {
+      freshConstraints.append(contentsOf: choices[0].0)
+    } else if choices.count > 1 {
+      let cons = DisjunctionConstraint(choices, locator: locator)
+      freshConstraints.insert(cons, at: 0)
     }
-
-    let cons = DisjunctionConstraint(choices)
-    freshConstraints.insert(cons, at: 0)
-    return cons
   }
 
   /// Inserts a disjunction of constraints into the system.
   ///
-  /// This is an alias for `insert(disjunctionOfConstraintsWithWeights:)` where all choices have
-  /// the same weight.
-  @discardableResult
-  mutating func insert<S>(disjunction sequence: S) -> Constraint?
-  where S: Sequence, S.Element == Constraint
+  /// This method is an alias for `insert(disjunctionOfConstraintsWithWeights:)` where all choices
+  /// have the same weight.
+  mutating func insert<S>(disjunction sequence: S, locator: ConstraintLocator)
+  where S: Sequence, S.Element == [Constraint]
   {
-    return insert(disjunctionOfConstraintsWithWeights: sequence.map({ ($0, 0) }))
+    let choices = sequence.map({ (constraints: $0, weight: 0) })
+    insert(disjunctionWithWeights: choices, locator: locator)
   }
 
   /// Inserts a new relational constraint created from the specified prototype.
