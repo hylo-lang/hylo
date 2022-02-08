@@ -32,7 +32,9 @@ public final class GenericEnv {
     /// The constraint's right operand.
     public let rhs: ValType
 
-    fileprivate func contextualized(with contextualizer: Contextualizer) -> ConstraintPrototype {
+    fileprivate func contextualized(
+      with contextualizer: inout Contextualizer
+    ) -> ConstraintPrototype {
       return ConstraintPrototype(
         kind: kind, lhs: contextualizer.walk(lhs), rhs: contextualizer.walk(rhs))
     }
@@ -176,11 +178,11 @@ public final class GenericEnv {
     processingContraintsWith handleConstraint: (ConstraintPrototype) -> Void = { _ in }
   ) -> (contextualType: ValType, openedParams: [GenericParamType: TypeVar]) {
     // Contextualize the type.
-    let contextualizer = Contextualizer(env: self, useSite: useSite)
+    var contextualizer = Contextualizer(env: self, useSite: useSite)
     let contextualType = contextualizer.walk(type)
 
     // Contextualize the type constraint prototypes for each opened parameter.
-    contextualizeTypeReqs(with: contextualizer, processingContraintsWith: handleConstraint)
+    contextualizeTypeReqs(with: &contextualizer, processingContraintsWith: handleConstraint)
 
     return (contextualType: contextualType, openedParams: contextualizer.substitutions)
   }
@@ -189,14 +191,14 @@ public final class GenericEnv {
   ///
   /// - Parameter contextualizer: The contextualizer that was used to open generic type parameters.
   fileprivate func contextualizeTypeReqs(
-    with contextualizer: Contextualizer,
+    with contextualizer: inout Contextualizer,
     processingContraintsWith handleConstraint: (ConstraintPrototype) -> Void
   ) {
     var next: GenericEnv? = self
     while let env = next {
       guard !env.contains(useSite: contextualizer.useSite) else { break }
       env.constraintPrototypes.forEach({ prototype in
-        handleConstraint(prototype.contextualized(with: contextualizer))
+        handleConstraint(prototype.contextualized(with: &contextualizer))
       })
       next = env.space.parentDeclSpace?.innermostGenericSpace?.prepareGenericEnv()
     }
@@ -223,13 +225,15 @@ public final class GenericEnv {
   /// - Precondition: All generic parameter types are assumed to be defined either within this
   ///   generic environment or within one of its parent.
   public func skolemize(paramsIn type: ValType) -> ValType {
-    let skolemizer = Skolemizer(env: self)
+    var skolemizer = Skolemizer(env: self)
     return skolemizer.walk(type)
   }
 
 }
 
 fileprivate final class Contextualizer: TypeWalker {
+
+  var parent: ValType?
 
   /// The generic environment for which the type walked type is begin contextualized.
   unowned var env: GenericEnv
@@ -246,7 +250,7 @@ fileprivate final class Contextualizer: TypeWalker {
     self.useSite = useSite
   }
 
-  override func willVisit(_ type: ValType) -> TypeWalker.Action {
+  func willVisit(_ type: ValType) -> TypeWalkerAction {
     switch type {
     case let type as GenericParamType:
       return .stepOver(contextualize(param: type))
@@ -283,7 +287,9 @@ fileprivate final class Contextualizer: TypeWalker {
 
 }
 
-fileprivate final class Skolemizer: TypeWalker {
+struct Skolemizer: TypeWalker {
+
+  var parent: ValType?
 
   /// The generic environment for which the type walked type is begin skolemized.
   unowned var env: GenericEnv
@@ -292,7 +298,7 @@ fileprivate final class Skolemizer: TypeWalker {
     self.env = env
   }
 
-  override func willVisit(_ type: ValType) -> TypeWalker.Action {
+  func willVisit(_ type: ValType) -> TypeWalkerAction {
     switch type {
     case let type as GenericParamType:
       return .stepOver(env.skolemize(type))

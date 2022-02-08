@@ -3,52 +3,52 @@ public protocol TypeVisitor {
 
   associatedtype Result
 
-  func visit(_ type: KindType) -> Result
+  mutating func visit(_ type: KindType) -> Result
 
-  func visit(_ type: BuiltinType) -> Result
+  mutating func visit(_ type: BuiltinType) -> Result
 
-  func visit(_ type: BuiltinPointerType) -> Result
+  mutating func visit(_ type: BuiltinPointerType) -> Result
 
-  func visit(_ type: BuiltinIntLiteralType) -> Result
+  mutating func visit(_ type: BuiltinIntLiteralType) -> Result
 
-  func visit(_ type: BuiltinIntType) -> Result
+  mutating func visit(_ type: BuiltinIntType) -> Result
 
-  func visit(_ type: ModuleType) -> Result
+  mutating func visit(_ type: ModuleType) -> Result
 
-  func visit(_ type: NamespaceType) -> Result
+  mutating func visit(_ type: NamespaceType) -> Result
 
-  func visit(_ type: ProductType) -> Result
+  mutating func visit(_ type: ProductType) -> Result
 
-  func visit(_ type: ViewType) -> Result
+  mutating func visit(_ type: ViewType) -> Result
 
-  func visit(_ type: AliasType) -> Result
+  mutating func visit(_ type: AliasType) -> Result
 
-  func visit(_ type: ViewCompositionType) -> Result
+  mutating func visit(_ type: ViewCompositionType) -> Result
 
-  func visit(_ type: UnionType) -> Result
+  mutating func visit(_ type: UnionType) -> Result
 
-  func visit(_ type: BoundGenericType) -> Result
+  mutating func visit(_ type: BoundGenericType) -> Result
 
-  func visit(_ type: GenericParamType) -> Result
+  mutating func visit(_ type: GenericParamType) -> Result
 
-  func visit(_ type: AssocType) -> Result
+  mutating func visit(_ type: AssocType) -> Result
 
-  func visit(_ type: SkolemType) -> Result
+  mutating func visit(_ type: SkolemType) -> Result
 
-  func visit(_ type: WitnessType) -> Result
+  mutating func visit(_ type: WitnessType) -> Result
 
-  func visit(_ type: TupleType) -> Result
+  mutating func visit(_ type: TupleType) -> Result
 
-  func visit(_ type: FunType) -> Result
+  mutating func visit(_ type: FunType) -> Result
 
-  func visit(_ type: FunParamType) -> Result
+  mutating func visit(_ type: FunParamType) -> Result
 
-  func visit(_ type: AsyncType) -> Result
+  mutating func visit(_ type: AsyncType) -> Result
 
-  func visit(_ type: UnresolvedType) -> Result
+  mutating func visit(_ type: UnresolvedType) -> Result
 
-  func visit(_ type: ErrorType) -> Result
+  mutating func visit(_ type: ErrorType) -> Result
 
-  func visit(_ type: TypeVar) -> Result
+  mutating func visit(_ type: TypeVar) -> Result
 
 }

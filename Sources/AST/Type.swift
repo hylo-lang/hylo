@@ -190,7 +190,8 @@ public class ValType: CustomStringConvertible, Equatable {
   /// - Parameter args: A substitution table.
   public final func specialized(with args: [GenericParamType: ValType]) -> ValType {
     guard self[.hasTypeParams] else { return self }
-    return TypeSpecializer(args: args).walk(self)
+    var specializer = TypeSpecializer(args: args)
+    return specializer.walk(self)
   }
 
   /// Looks up for member declarations that match the given name.
@@ -262,7 +263,7 @@ public class ValType: CustomStringConvertible, Equatable {
   /// - Parameter hasher: The hasher to use when combining the components of this type.
   public func hash(into hasher: inout Hasher) {}
 
-  public func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+  public func accept<V>(_ visitor: inout V) -> V.Result where V: TypeVisitor {
     fatalError("unreachable")
   }
 
@@ -275,7 +276,9 @@ public class ValType: CustomStringConvertible, Equatable {
 }
 
 /// A simple type walker that substitutes generic arguments for their corresponding parameters.
-fileprivate final class TypeSpecializer: TypeWalker {
+struct TypeSpecializer: TypeWalker {
+
+  var parent: ValType?
 
   /// The specialization arguments to apply.
   private let args: [GenericParamType: ValType]
@@ -284,7 +287,7 @@ fileprivate final class TypeSpecializer: TypeWalker {
     self.args = args
   }
 
-  public override func willVisit(_ type: ValType) -> TypeWalker.Action {
+  public func willVisit(_ type: ValType) -> TypeWalkerAction {
     if let param = type as? GenericParamType {
       return .stepOver(args[param] ?? param)
     }
@@ -367,7 +370,7 @@ public final class KindType: ValType {
     type.hash(into: &hasher)
   }
 
-  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+  public override func accept<V>(_ visitor: inout V) -> V.Result where V: TypeVisitor {
     visitor.visit(self)
   }
 
@@ -394,7 +397,7 @@ public class BuiltinType: ValType {
     hasher.combine(name)
   }
 
-  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+  public override func accept<V>(_ visitor: inout V) -> V.Result where V: TypeVisitor {
     visitor.visit(self)
   }
 
@@ -409,7 +412,7 @@ public final class BuiltinPointerType: BuiltinType {
     super.init(context: context, name: "Pointer")
   }
 
-  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+  public override func accept<V>(_ visitor: inout V) -> V.Result where V: TypeVisitor {
     visitor.visit(self)
   }
 
@@ -427,7 +430,7 @@ public final class BuiltinIntLiteralType: BuiltinType, BuiltinLiteral {
     super.init(context: context, name: "IntLiteral")
   }
 
-  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+  public override func accept<V>(_ visitor: inout V) -> V.Result where V: TypeVisitor {
     visitor.visit(self)
   }
 
@@ -455,7 +458,7 @@ public final class BuiltinIntType: BuiltinType {
     hasher.combine(bitWidth)
   }
 
-  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+  public override func accept<V>(_ visitor: inout V) -> V.Result where V: TypeVisitor {
     visitor.visit(self)
   }
 
@@ -476,7 +479,7 @@ public final class ModuleType: ValType {
     hasher.combine(ObjectIdentifier(module))
   }
 
-  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+  public override func accept<V>(_ visitor: inout V) -> V.Result where V: TypeVisitor {
     visitor.visit(self)
   }
 
@@ -503,7 +506,7 @@ public final class NamespaceType: ValType {
     hasher.combine(ObjectIdentifier(decl))
   }
 
-  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+  public override func accept<V>(_ visitor: inout V) -> V.Result where V: TypeVisitor {
     visitor.visit(self)
   }
 
@@ -561,7 +564,7 @@ public final class ProductType: NominalType {
     return self.decl === that.decl
   }
 
-  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+  public override func accept<V>(_ visitor: inout V) -> V.Result where V: TypeVisitor {
     visitor.visit(self)
   }
 
@@ -583,7 +586,7 @@ public final class ViewType: NominalType {
     return self.decl === that.decl
   }
 
-  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+  public override func accept<V>(_ visitor: inout V) -> V.Result where V: TypeVisitor {
     visitor.visit(self)
   }
 
@@ -640,7 +643,7 @@ public final class AliasType: NominalType {
     return self.decl === that.decl
   }
 
-  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+  public override func accept<V>(_ visitor: inout V) -> V.Result where V: TypeVisitor {
     visitor.visit(self)
   }
 
@@ -727,7 +730,7 @@ public final class ViewCompositionType: ValType {
     }
   }
 
-  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+  public override func accept<V>(_ visitor: inout V) -> V.Result where V: TypeVisitor {
     visitor.visit(self)
   }
 
@@ -863,7 +866,7 @@ public final class UnionType: ValType {
     }
   }
 
-  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+  public override func accept<V>(_ visitor: inout V) -> V.Result where V: TypeVisitor {
     visitor.visit(self)
   }
 
@@ -980,7 +983,7 @@ public final class BoundGenericType: NominalType {
     }
   }
 
-  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+  public override func accept<V>(_ visitor: inout V) -> V.Result where V: TypeVisitor {
     visitor.visit(self)
   }
 
@@ -1045,7 +1048,7 @@ public final class GenericParamType: ValType, Hashable {
     hasher.combine(ObjectIdentifier(decl))
   }
 
-  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+  public override func accept<V>(_ visitor: inout V) -> V.Result where V: TypeVisitor {
     visitor.visit(self)
   }
 
@@ -1150,7 +1153,7 @@ public final class AssocType: ValType {
     base.hash(into: &hasher)
   }
 
-  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+  public override func accept<V>(_ visitor: inout V) -> V.Result where V: TypeVisitor {
     visitor.visit(self)
   }
 
@@ -1206,7 +1209,7 @@ public final class SkolemType: ValType {
     interface.hash(into: &hasher)
   }
 
-  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+  public override func accept<V>(_ visitor: inout V) -> V.Result where V: TypeVisitor {
     visitor.visit(self)
   }
 
@@ -1242,7 +1245,7 @@ public final class WitnessType: ValType {
     interface.hash(into: &hasher)
   }
 
-  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+  public override func accept<V>(_ visitor: inout V) -> V.Result where V: TypeVisitor {
     visitor.visit(self)
   }
 
@@ -1388,7 +1391,7 @@ public final class TupleType: ValType {
     hasher.combine(elems)
   }
 
-  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+  public override func accept<V>(_ visitor: inout V) -> V.Result where V: TypeVisitor {
     visitor.visit(self)
   }
 
@@ -1539,7 +1542,7 @@ public final class FunType: ValType {
     retType.hash(into: &hasher)
   }
 
-  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+  public override func accept<V>(_ visitor: inout V) -> V.Result where V: TypeVisitor {
     visitor.visit(self)
   }
 
@@ -1611,7 +1614,7 @@ public final class FunParamType: ValType {
     rawType.hash(into: &hasher)
   }
 
-  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+  public override func accept<V>(_ visitor: inout V) -> V.Result where V: TypeVisitor {
     visitor.visit(self)
   }
 
@@ -1680,7 +1683,7 @@ public final class AsyncType: ValType {
     base.hash(into: &hasher)
   }
 
-  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+  public override func accept<V>(_ visitor: inout V) -> V.Result where V: TypeVisitor {
     visitor.visit(self)
   }
 
@@ -1697,7 +1700,7 @@ public final class UnresolvedType: ValType {
     super.init(context: context, flags: [.isCanonical, .hasUnresolved])
   }
 
-  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+  public override func accept<V>(_ visitor: inout V) -> V.Result where V: TypeVisitor {
     visitor.visit(self)
   }
 
@@ -1713,7 +1716,7 @@ public final class ErrorType: ValType {
     super.init(context: context, flags: [.isCanonical, .hasErrors])
   }
 
-  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+  public override func accept<V>(_ visitor: inout V) -> V.Result where V: TypeVisitor {
     visitor.visit(self)
   }
 
@@ -1738,7 +1741,7 @@ public final class TypeVar: ValType, Hashable {
     hasher.combine(id)
   }
 
-  public override func accept<V>(_ visitor: V) -> V.Result where V: TypeVisitor {
+  public override func accept<V>(_ visitor: inout V) -> V.Result where V: TypeVisitor {
     visitor.visit(self)
   }
 
