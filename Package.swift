@@ -1,47 +1,54 @@
 // swift-tools-version:5.3
 import PackageDescription
 
-let OrderedCollections = Target.Dependency.product(name: "OrderedCollections", package: "swift-collections")
-let DequeModule = Target.Dependency.product(name: "DequeModule", package: "swift-collections")
+let OrderedCollections = Target.Dependency.product(
+  name: "OrderedCollections", package: "swift-collections")
+let DequeModule = Target.Dependency.product(
+  name: "DequeModule", package: "swift-collections")
 
 let package = Package(
   name: "Val",
+
   products: [
-    .executable(name: "val", targets: ["cli"]),
+    .executable(name: "val", targets: ["CLI"]),
   ],
+
   dependencies: [
-    .package(name: "swift-argument-parser", url: "https://github.com/apple/swift-argument-parser.git", from: "0.4.0"),
-    .package(url: "https://github.com/apple/swift-collections", from: "0.0.1"),
+    .package(
+      name: "swift-argument-parser",
+      url: "https://github.com/apple/swift-argument-parser.git",
+      from: "0.4.0"),
+    .package(
+      url: "https://github.com/apple/swift-collections",
+      from: "0.0.1"),
   ],
+
   targets: [
     // The compiler's executable target.
     .target(
-      name: "cli",
+      name: "CLI",
       dependencies: [
-        "Basic", "Driver", "Eval",
+        "Compiler", "Driver", "Eval",
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
       ]),
 
     // Targets related to the compiler's internal library.
     .target(
-      name: "AST",
-      dependencies: ["Basic", OrderedCollections],
+      name: "Compiler",
+      dependencies: ["Utils", OrderedCollections],
       resources: [.copy("Builtins.json")]),
-    .target(name: "Basic"),
-    .target(name: "Driver", dependencies: ["AST", "Basic", "Parse", "Sema", "ValLibrary", "VIL"]),
-    .target(name: "Eval", dependencies: ["AST", "Basic", "VIL", DequeModule]),
-    .target(name: "Parse", dependencies: ["AST", "Basic"]),
-    .target(name: "Sema", dependencies: ["AST", "Basic"]),
-    .target(name: "VIL", dependencies: ["AST", "Basic", DequeModule]),
+    .target(name: "Utils"),
+    .target(name: "Driver", dependencies: ["Compiler", "Utils", "ValLibrary"]),
+    .target(name: "Eval", dependencies: ["Compiler", DequeModule]),
 
     // Val sources.
     .target(name: "ValLibrary", path: "Library", resources: [.copy("Public")]),
 
     // Test targets.
     .testTarget(name: "ASTTests", dependencies: ["AST", "Basic"]),
-    .testTarget(name: "ParseTests", dependencies: ["AST", "Parse", "Basic"]),
+    .testTarget(name: "ParseTests", dependencies: ["Compiler", DequeModule]),
     .testTarget(
       name: "ValTests",
-      dependencies: ["Basic", "Driver", "Eval"],
+      dependencies: ["Compiler", "Driver", "Eval"],
       resources: [.copy("TestCases")]),
   ])

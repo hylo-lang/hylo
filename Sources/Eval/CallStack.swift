@@ -1,4 +1,4 @@
-import VIL
+import Compiler
 
 /// A call stack.
 ///

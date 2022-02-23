@@ -1,7 +1,5 @@
 import XCTest
-
-import Basic
-import Parse
+import Compiler
 
 final class LexerTests: XCTestCase {
 

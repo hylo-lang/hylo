@@ -1,11 +1,8 @@
 import Foundation
-
-@_exported import AST
-@_exported import Basic
-import Parse
-import Sema
 import ValLibrary
-import VIL
+
+@_exported import Compiler
+@_exported import Utils
 
 /// A helper to manage the compilation of Val source files.
 public struct Driver {
@@ -14,7 +11,7 @@ public struct Driver {
   ///
   /// The context is the central repository for long-lived objects (e.g., types and declarations)
   /// created throughout the compilation process.
-  public let context: AST.Context
+  public let context: Context
 
   /// The home path for Val's runtime and standard library.
   public var home: URL

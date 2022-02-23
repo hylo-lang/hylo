@@ -1,9 +1,7 @@
-import class Foundation.FileHandle
-
-import class AST.ValType
-import Basic
+import Compiler
 import DequeModule
-import VIL
+import Foundation
+import Utils
 
 /// A virtual machine that interprets VIL code.
 ///

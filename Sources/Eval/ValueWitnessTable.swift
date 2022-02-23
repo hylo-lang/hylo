@@ -1,4 +1,4 @@
-import VIL
+import Compiler
 
 /// A data structure that supplies the implementation of fundamental operations for allocating,
 /// copying and destrying values of a type.

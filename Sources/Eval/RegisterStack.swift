@@ -1,5 +1,5 @@
-import Basic
-import VIL
+import Compiler
+import Utils
 
 /// A table mapping register keys to a value.
 typealias RegisterTable = [RegisterTableKey: RegisterEntryInfo]

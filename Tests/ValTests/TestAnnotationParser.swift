@@ -1,5 +1,5 @@
+import Compiler
 import Foundation
-import Basic
 
 struct TestAnnotationParser {
 
