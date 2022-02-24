@@ -45,7 +45,6 @@ let package = Package(
     .target(name: "ValLibrary", path: "Library", resources: [.copy("Public")]),
 
     // Test targets.
-    .testTarget(name: "ASTTests", dependencies: ["AST", "Basic"]),
     .testTarget(name: "ParseTests", dependencies: ["Compiler", DequeModule]),
     .testTarget(
       name: "ValTests",
