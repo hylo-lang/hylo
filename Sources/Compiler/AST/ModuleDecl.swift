@@ -42,29 +42,31 @@ public final class ModuleDecl {
 
   /// Returns the extensions of the given type declaration.
   public func extensions(of decl: GenericTypeDecl) -> [TypeExtnDecl] {
-    var dealiasedDecl = decl
-    while let alias = (dealiasedDecl as? AliasTypeDecl)?.aliasedDecl {
-      dealiasedDecl = alias
+    func delegate(_ d: GenericTypeDecl) -> GenericTypeDecl {
+      if let alias = (d as? AliasTypeDecl)?.aliasedSign.type as? NominalType {
+        return delegate(alias.decl)
+      } else {
+        return d
+      }
     }
 
-    var matches: [TypeExtnDecl] = []
+    // Follow chain of aliases to identify the name being extended.
+    let decl = delegate(decl)
 
     // Loop through all extensions in the module, (partially) binding them if necessary.
-    stmt:for case let ext as TypeExtnDecl in decls {
-      // Skip invalid declarations.
-      guard ext.state != .invalid else { continue }
-
-      // The extension is already bound, so we can check if it's bound to `decl` directly.
+    var matches: [TypeExtnDecl] = []
+    stmt:for case let ext as TypeExtnDecl in decls where ext.state != .invalid {
+      // Check if the extension is already bound to decl.
       if ext.state >= .realized {
-        if dealiasedDecl === ext.extendedDecl {
+        if let d = ext.extendedDecl, delegate(d) === decl {
           matches.append(ext)
         }
         continue stmt
       }
 
-      // The extension isn't bound yet, so we need to realize to resolve its identifier.
+      // The extension isn't bound yet: we must resolve its identifier.
       if ext.extendedIdent is BareIdentSign {
-        if ext.extendedDecl === dealiasedDecl {
+        if let d = ext.extendedDecl, delegate(d) === decl {
           matches.append(ext)
         }
         continue stmt
@@ -81,15 +83,17 @@ public final class ModuleDecl {
       for i in 1 ..< compound.components.count {
         // We should give up if the signature doesn't denote a norminal type, or if it refers to a
         // type nested inside of `decl`.
-        guard (compDecl != nil) && (compDecl !== dealiasedDecl) else { continue stmt }
+        guard var d = compDecl else { continue stmt }
+        d = delegate(d)
+        guard d !== decl else { continue stmt }
 
         // Realize the next component.
-        compType = compound.components[i].realize(in: compType, from: self)
+        compType = compound.components[i].realize(in: d.instanceType, from: self)
         compDecl = (compType as? NominalType)?.decl
       }
 
       // Check if the declaration to which the signature resolves is `decl`.
-      if compDecl === dealiasedDecl {
+      if compDecl === decl {
         matches.append(ext)
       }
     }

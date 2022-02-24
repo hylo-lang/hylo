@@ -594,13 +594,27 @@ public final class AliasType: NominalType {
     assert(decl.state >= .realized, "can't create alias type from unrealized declaration")
 
     let flags: Flags
-    if let nominalType = decl.aliasedSign.type as? NominalType {
-      flags = nominalType.flags.merged(with: .hasAlias)
+    if let type = decl.aliasedSign.type as? NominalType {
+      flags = type.flags.merged(with: .hasAlias).removing(.isCanonical)
     } else {
       flags = [.isCanonical, .hasAlias]
     }
-
     super.init(context: context, decl: decl, flags: flags)
+  }
+
+  /// The nominal type represented by this alias.
+  ///
+  /// If the alias denotes a synonym, its delegate is the nominal type to which it ultimately
+  /// refers. If the alias denotes a type definition, the alias is its own delegate.
+  public var delegate: NominalType {
+    var nominal: NominalType = self
+    while let alias = nominal as? AliasType {
+      guard let next = (alias.decl as! AliasTypeDecl).aliasedSign.type as? NominalType else {
+        return alias
+      }
+      nominal = next
+    }
+    return nominal
   }
 
   public override var isCopyable: Bool {
@@ -608,7 +622,11 @@ public final class AliasType: NominalType {
   }
 
   public override var canonical: ValType {
-    return (decl as! AliasTypeDecl).realizeAliasedType().canonical
+    if self[.isCanonical] {
+      return self
+    } else {
+      return delegate.canonical
+    }
   }
 
   public override func isEqual(to other: ValType) -> Bool {

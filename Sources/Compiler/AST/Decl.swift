@@ -981,9 +981,9 @@ public class GenericTypeDecl: BaseGenericDecl, TypeDecl {
 
   /// A lookup table keeping track of the views to which the declared type conforms.
   public var conformanceTable: ReferenceTable<ViewType, ViewConformance> {
-    get {
+    _read {
       updateConformanceTable()
-      return _conformanceTable
+      yield _conformanceTable
     }
     set {
       _conformanceTable = newValue
@@ -1265,13 +1265,12 @@ public final class ViewTypeDecl: NominalTypeDecl {
 
 /// A type alias declaration.
 ///
-/// An alias declaration denotes either a "true" alias, or a type definition. The former merely
-/// introduces a synonym for an existing nominal type (e.g., `type Num = Int`), while the latter
-/// gives a name to a type expression (e.g., `type Handler = Event -> Unit`).
+/// A type alias declaration is either a synonym or a type definition. A synonym introduces an
+/// alias for an existing nominal type (e.g., `type Num = Int`). A definition introduces a new
+/// nominal type, identifying a specific structural type (e.g., `type Handler = Event -> Unit`).
 ///
-/// A type definition is not a mere syntactic sugar. Instead, it is treated as a proper type for
-/// which one may define view conformances and declare type extensions. These only apply on the
-/// type definition and have no effect on the underlying expression.
+/// Extensions of a synonym apply to the referred nominal type. Extensions of a type definition
+/// apply to the newly introduced nominal type.
 public final class AliasTypeDecl: GenericTypeDecl {
 
   /// The signature of the aliased type.
@@ -1280,23 +1279,6 @@ public final class AliasTypeDecl: GenericTypeDecl {
   public init(name: String, aliasedSign: Sign, type: ValType) {
     self.aliasedSign = aliasedSign
     super.init(name: name, type: type, state: .parsed)
-  }
-
-  /// If the declaration is a "true" type alias, the aliased declaration. Otherwise, `nil`.
-  ///
-  /// - Warning: Do not call this property before parsing is completed. Computing it requires the
-  ///   type realization of the aliased signature, which may trigger unqualified name lookups to
-  ///   resolve type symbols.
-  public var aliasedDecl: GenericTypeDecl? {
-    switch realizeAliasedType() {
-    case let type as NominalType:
-      return type.decl
-    case let type as BoundGenericType:
-      return type.decl
-
-    default:
-      return nil
-    }
   }
 
   /// The uncontextualized type of a reference to `self` within the context of this type.
@@ -1334,8 +1316,8 @@ public final class AliasTypeDecl: GenericTypeDecl {
     // Complain if the signature references the declaration itself.
     // FIXME: Detect circular alias declarations.
 
-    // If the declaration denotes a "true" alias, complain if it declares additional conformances.
-    // These should be expressed with an extension of the aliased type.
+    // If the declaration denotes a synonym, complain if it declares additional conformances. These
+    // should be expressed with an extension of the aliased type.
     if !inheritances.isEmpty && (aliasedType is NominalType) {
       context.report(.newConformanceOnNominalTypeAlias(range: inheritances[0].range))
     }
@@ -1373,7 +1355,6 @@ public final class AliasTypeDecl: GenericTypeDecl {
     // Complete the results with the members of the declared type.
     let aliasedResults = aliasedSign.type.lookup(member: name)
     results.append(contentsOf: aliasedResults)
-
     return results
   }
 

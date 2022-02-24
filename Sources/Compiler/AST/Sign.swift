@@ -341,7 +341,12 @@ extension IdentCompSign {
       return type
     }
 
-    // The signature refers to any other nominal type.
+    // If the signature refers to an alias, we must realize it as well.
+    if let decl = matches[0] as? AliasTypeDecl {
+      type = decl.realize().type
+      return type
+    }
+
     type = matches[0].instanceType
     return type
   }
