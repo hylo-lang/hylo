@@ -130,13 +130,13 @@ public class ValType: CustomStringConvertible, Equatable {
   ///
   /// Instances of existential types are represented by existential packages.
   public final var isExistential: Bool {
-    switch dealiased {
+    switch canonical {
     case is ViewType, is ViewCompositionType, is UnionType, is SkolemType, is GenericParamType:
       return true
     case let type as KindType:
       return type.type.isExistential
     case let type as BoundGenericType where type.decl is AliasTypeDecl:
-      return type.dealiased.isExistential
+      return type.canonical.isExistential
     case let type as AssocType:
       return type.base.isExistential
     case let type as FunParamType:
@@ -168,18 +168,7 @@ public class ValType: CustomStringConvertible, Equatable {
   public var kind: KindType { context.kindType(type: self) }
 
   /// The canonical form of the type.
-  ///
-  /// A canonical type is a unique representation of a type, resilient to its syntactic spelling.
-  /// For instance, both `(Int)` and `((Int))` have the same canonical type (i.e., `Int`).
-  /// Canonical types are typically used to check whether two types are equal.
-  ///
-  /// - Note: Type aliases that are not mere synonyms for an existing nominal type are canonical.
-  ///   For instance, given an alias `type A = B | C`, type `A` is canonical. Use `dealiased` if
-  ///   you need to expand an alias.
   public var canonical: ValType { self }
-
-  /// This type with all aliases resolved to their canonical form.
-  public var dealiased: ValType { self }
 
   /// The uncontextualized interface of this type, that is the type in which all skolems have been
   /// substituted by their interface type.
@@ -232,8 +221,8 @@ public class ValType: CustomStringConvertible, Equatable {
   ///
   /// - Parameter other: Another type.
   public func isSubtype(of other: ValType) -> Bool {
-    switch other.dealiased {
-    case self.dealiased:
+    switch other.canonical {
+    case self.canonical:
       return true
     case context.anyType:
       return true
@@ -322,14 +311,8 @@ public final class KindType: ValType {
   }
 
   public override var canonical: ValType {
-    return self[.isCanonical]
-      ? self
-      : type.canonical.kind
-  }
-
-  public override var dealiased: ValType {
     return self[.hasAlias]
-      ? type.dealiased.kind
+      ? type.canonical.kind
       : self
   }
 
@@ -352,7 +335,7 @@ public final class KindType: ValType {
   }
 
   public override func isSubtype(of other: ValType) -> Bool {
-    switch other.dealiased {
+    switch other.canonical {
     case let that as KindType:
       return type.isSubtype(of: that.type)
     case let that:
@@ -530,7 +513,7 @@ public class NominalType: ValType {
   }
 
   public override func isSubtype(of other: ValType) -> Bool {
-    switch other.dealiased {
+    switch other.canonical {
     case let that as ViewType:
       return decl.conformanceTable[that]?.state == .checked
     case let that as ViewCompositionType:
@@ -625,17 +608,7 @@ public final class AliasType: NominalType {
   }
 
   public override var canonical: ValType {
-    guard let aliasedDecl = (decl as! AliasTypeDecl).aliasedDecl else {
-      assert(self[.isCanonical])
-      return self
-    }
-
-    assert(!self[.isCanonical])
-    return aliasedDecl.instanceType.canonical
-  }
-
-  public override var dealiased: ValType {
-    return (decl as! AliasTypeDecl).realizeAliasedType().dealiased
+    return (decl as! AliasTypeDecl).realizeAliasedType().canonical
   }
 
   public override func isEqual(to other: ValType) -> Bool {
@@ -692,20 +665,10 @@ public final class ViewCompositionType: ValType {
     return !views.isEmpty && views.allSatisfy({ $0.isCopyable })
   }
 
-  public override var canonical: ValType {
-    if self[.isCanonical] {
-      return self
-    } else if views.count == 1 {
-      return views[0]
-    } else {
-      return context.viewCompositionType(views.sorted(by: ViewType.precedes(lhs:rhs:)))
-    }
-  }
-
   public override func isSubtype(of other: ValType) -> Bool {
     switch views.count {
     case 0:
-      return self === other.dealiased
+      return self === other.canonical
     case 1:
       return views[0].isSubtype(of: other)
     default:
@@ -798,37 +761,8 @@ public final class UnionType: ValType {
   }
 
   public override var canonical: ValType {
-    if self[.isCanonical] {
-      return self
-    } else if elems.count == 1 {
-      return elems[0].canonical
-    }
-
-    var filtered: [ValType] = []
-    for elem in elems {
-      // Compute the index of the element in the backing array.
-      let canonical = elem.canonical
-      let index = filtered.sortedInsertionIndex(of: canonical, sortedBy: { a, b in
-        ObjectIdentifier(a) < ObjectIdentifier(b)
-      })
-
-      // Skip duplicates.
-      if (index == 0) || (index >= filtered.endIndex) || (filtered[index] != canonical) {
-        filtered.insert(canonical, at: index)
-      }
-    }
-
-    if filtered.count == 1 {
-      return filtered[0]
-    } else {
-      return context.unionType(filtered)
-    }
-  }
-
-  public override var dealiased: ValType {
     return UnionType
-      .create(unionOf: elems.map({ $0.dealiased }), in: context)
-      .canonical
+      .create(unionOf: elems.map({ $0.canonical }), in: context)
   }
 
   public override func isSubtype(of other: ValType) -> Bool {
@@ -841,7 +775,7 @@ public final class UnionType: ValType {
       break
     }
 
-    switch other.dealiased {
+    switch other.canonical {
     case let that as UnionType:
       return elems.allSatisfy(that.elems.contains)
     case let that:
@@ -920,22 +854,16 @@ public final class BoundGenericType: NominalType {
   }
 
   public override var canonical: ValType {
-    return self[.isCanonical]
-      ? self
-      : context.boundGenericType(decl: decl, args: args.map({ $0.canonical }))
-  }
-
-  public override var dealiased: ValType {
-    let dealiasedArgs = args.map({ $0.dealiased })
+    let dealiasedArgs = args.map({ $0.canonical })
 
     if let aliasDecl = decl as? AliasTypeDecl {
-      let underylingType = aliasDecl.realizeAliasedType().dealiased
+      let underylingType = aliasDecl.realizeAliasedType().canonical
       assert(!(underylingType is AliasType))
 
       let subst = Dictionary(
         zip(decl.genericEnv!.params, dealiasedArgs),
         uniquingKeysWith: { lhs, _ in lhs })
-      return underylingType.specialized(with: subst).dealiased
+      return underylingType.specialized(with: subst).canonical
     }
 
     return context.boundGenericType(decl: decl, args: dealiasedArgs)
@@ -1120,21 +1048,7 @@ public final class AssocType: ValType {
   }
 
   public override var canonical: ValType {
-    switch base.canonical {
-    case is GenericParamType, is SkolemType, is TypeVar:
-      assert(self[.isCanonical])
-      return self
-
-    case is AssocType:
-      return context.assocType(interface: interface, base: base)
-
-    default:
-      fatalError("unreachable")
-    }
-  }
-
-  public override var dealiased: ValType {
-    return context.assocType(interface: interface, base: base.dealiased)
+    return context.assocType(interface: interface, base: base.canonical)
   }
 
   public override var uncontextualized: ValType {
@@ -1318,23 +1232,10 @@ public final class TupleType: ValType {
   /// A tuple with only one element is canonical if and only if that element has a label or if that
   /// element is the unit type (i.e., `(()) != ()`).
   public override var canonical: ValType {
-    if self[.isCanonical] {
-      return self
-    }
-    if (elems.count == 1) && (elems[0].label == nil) {
-      assert(!elems[0].type.isUnit)
-      return elems[0].type.canonical
-    }
-    return context.tupleType(elems.map({ elem in
+    let newTupleType = context.tupleType(elems.map({ elem in
       Elem(label: elem.label, type: elem.type.canonical)
     }))
-  }
-
-  public override var dealiased: ValType {
-    let newTupleType = context.tupleType(elems.map({ elem in
-      Elem(label: elem.label, type: elem.type.dealiased)
-    }))
-    return newTupleType.canonical
+    return newTupleType
   }
 
   public override var uncontextualized: ValType {
@@ -1364,7 +1265,7 @@ public final class TupleType: ValType {
   }
 
   public override func isSubtype(of other: ValType) -> Bool {
-    switch other.dealiased {
+    switch other.canonical {
     case let that as TupleType:
       guard elems.count == that.elems.count else { return false }
       return zip(elems, that.elems).allSatisfy({ (a, b) -> Bool in
@@ -1473,19 +1374,9 @@ public final class FunType: ValType {
   public override var isCopyable: Bool { true }
 
   public override var canonical: ValType {
-    if self[.isCanonical] {
-      return self
-    } else {
-      return context.funType(
-        params: params.map({ $0.map({ $0.canonical }) }),
-        retType: retType.canonical)
-    }
-  }
-
-  public override var dealiased: ValType {
     return context.funType(
-      params: params.map({ $0.map({ $0.dealiased }) }),
-      retType: retType.dealiased)
+      params: params.map({ $0.map({ $0.canonical }) }),
+      retType: retType.canonical)
   }
 
   public override var uncontextualized: ValType {
@@ -1517,7 +1408,7 @@ public final class FunType: ValType {
   }
 
   public override func isSubtype(of other: ValType) -> Bool {
-    switch other.dealiased {
+    switch other.canonical {
     case let that as FunType:
       guard retType.isSubtype(of: that.retType) else { return false }
       guard params.count == that.params.count else { return false }
@@ -1571,13 +1462,7 @@ public final class FunParamType: ValType {
   public override var isCopyable: Bool { rawType.isCopyable }
 
   public override var canonical: ValType {
-    return self[.isCanonical]
-      ? self
-      : context.funParamType(policy: policy, rawType: rawType.canonical)
-  }
-
-  public override var dealiased: ValType {
-    return context.funParamType(policy: policy, rawType: rawType.dealiased)
+    return context.funParamType(policy: policy, rawType: rawType.canonical)
   }
 
   public override var uncontextualized: ValType {
@@ -1636,15 +1521,8 @@ public final class AsyncType: ValType {
   public override var isCopyable: Bool { false }
 
   public override var canonical: ValType {
-    return self[.isCanonical]
-      ? self
-      : context.asyncType(of: base.canonical)
-    // FIXME: We might add more equivalence classes (e.g., `async (a: T) == (a: async T)`).
-  }
-
-  public override var dealiased: ValType {
     return self[.hasAlias]
-      ? context.asyncType(of: base.dealiased)
+      ? context.asyncType(of: base.canonical)
       : self
   }
 
@@ -1665,7 +1543,7 @@ public final class AsyncType: ValType {
   }
 
   public override func isSubtype(of other: ValType) -> Bool {
-    switch other.dealiased {
+    switch other.canonical {
     case let that as AsyncType:
       return base.isSubtype(of: that.base)
     case let that:

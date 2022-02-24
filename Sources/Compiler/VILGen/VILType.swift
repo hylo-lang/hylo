@@ -59,7 +59,7 @@ public struct VILType {
   public var isExistential: Bool { valType.isExistential }
 
   static func lower(_ type: ValType) -> VILType {
-    switch type.dealiased {
+    switch type.canonical {
     case let type as FunParamType:
       switch type.policy {
       case .local, .inout:
@@ -69,7 +69,7 @@ public struct VILType {
       }
 
     default:
-      return VILType(valType: type.dealiased, isAddress: false)
+      return VILType(valType: type.canonical, isAddress: false)
     }
   }
 

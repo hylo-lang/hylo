@@ -65,8 +65,8 @@ struct LValueEmitter: ExprVisitor {
     }
 
     // Determine the kind of conversion we have to emit.
-    let sourceType = node.value.type.dealiased
-    let targetType = node.type.dealiased
+    let sourceType = node.value.type.canonical
+    let targetType = node.type.canonical
 
     // FIXME: Handle structural casts.
     precondition(!(sourceType is TupleType) || !(targetType is TupleType))

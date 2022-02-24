@@ -193,10 +193,10 @@ struct Solution {
     if type[.isCanonical] {
       return "'\(type)'"
     } else if let type = type as? UnionType {
-      let elems = type.elems.map({ String(describing: $0.canonical) }).joined(separator: " | ")
+      let elems = type.elems.map(String.init(describing:)).joined(separator: " | ")
       return "'\(elems)'"
     } else {
-      return "'\(type)' (i.e., '\(type.canonical)')"
+      return "'\(type)'"
     }
   }
 

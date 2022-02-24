@@ -246,7 +246,7 @@ struct DeclChecker: DeclVisitor {
         let key = context.assocType(
           interface: req.instanceType as! GenericParamType,
           base: viewReceiverType)
-        substitutions[ReferenceBox(key)] = member.instanceType.dealiased
+        substitutions[ReferenceBox(key)] = member.instanceType.canonical
 
         if member.state == .invalid {
           node.conformanceTable[view]!.state = .invalid
@@ -285,8 +285,8 @@ struct DeclChecker: DeclVisitor {
             }
 
             // Check if the candidate satisfies the requirement.
-            let a = req.type.dealiased
-            let b = decl.type.dealiased
+            let a = req.type.canonical
+            let b = decl.type.canonical
             return a.matches(with: b, reconcilingWith: { (lhs, rhs) -> Bool in
               subst[ReferenceBox(lhs)] === rhs
             })

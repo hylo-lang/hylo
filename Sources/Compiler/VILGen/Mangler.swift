@@ -172,7 +172,7 @@ extension Mangler: TypeVisitor {
   }
 
   public mutating func visit(_ type: AliasType) {
-    type.dealiased.accept(&self)
+    type.canonical.accept(&self)
   }
 
   public mutating func visit(_ type: ViewCompositionType) {

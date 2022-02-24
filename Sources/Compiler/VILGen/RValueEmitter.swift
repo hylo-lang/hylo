@@ -78,7 +78,7 @@ struct RValueEmitter: ExprVisitor {
       as! ViewType
     let callee: Operand
 
-    let type = node.type.dealiased
+    let type = node.type.canonical
     switch type {
     case let type as NominalType:
       // The node has a concrete type; we can dispatch `new(literal:)` statically.
@@ -146,8 +146,8 @@ struct RValueEmitter: ExprVisitor {
     }
 
     // Determine the kind of conversion we have to emit.
-    let sourceType = node.value.type.dealiased
-    let targetType = node.type.dealiased
+    let sourceType = node.value.type.canonical
+    let targetType = node.type.canonical
 
     // FIXME: Handle structural casts.
     precondition(!(sourceType is TupleType) || !(targetType is TupleType))
@@ -366,7 +366,7 @@ struct RValueEmitter: ExprVisitor {
     if let decl = node.decl as? VarDecl, decl.hasStorage {
       // If the base is a tuple, extract the selected member and end destroy the other ones.
       // Extracting stored properties from other data types is illegal.
-      guard node.base.type.dealiased is TupleType else {
+      guard node.base.type.canonical is TupleType else {
         return .failure(.moveOfStoredProperty(decl))
       }
 
@@ -455,7 +455,7 @@ struct RValueEmitter: ExprVisitor {
     }
 
     // Emit each case statement.
-    let subjectType = node.subject.type.dealiased
+    let subjectType = node.subject.type.canonical
     for stmt in node.cases {
       // Wildcard patterns are irrefutable.
       if stmt.pattern is WildcardPattern {
@@ -468,7 +468,7 @@ struct RValueEmitter: ExprVisitor {
         // FIXME: Handle destructuring.
         precondition(pattern.namedPatterns.count == 1, "not implemented")
         let decl = pattern.namedPatterns[0].decl
-        let patternType = pattern.type.dealiased
+        let patternType = pattern.type.canonical
 
         // The pattern is irrefutable if it has the same type as the subject.
         if patternType == subjectType {
