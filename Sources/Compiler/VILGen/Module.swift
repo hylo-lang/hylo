@@ -19,7 +19,7 @@ public struct Module {
   public let id: String
 
   /// The AST context in which module was created.
-  public unowned let context: Context
+  public unowned let context: Compiler
 
   /// The instructions in the module.
   public private(set) var instructions = Slab<Inst>()
@@ -36,7 +36,7 @@ public struct Module {
   /// The def-use chains of the values in this module.
   public var uses: [Operand: [Use]] = [:]
 
-  public init(id: String, context: Context) {
+  public init(id: String, context: Compiler) {
     self.id = id
     self.context = context
   }

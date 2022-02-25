@@ -29,11 +29,6 @@
 /// For instance, `UnresolvedDeclRefExpr` is substituted for `DeclRefExpr` after name resolution.
 public enum TypeChecker {
 
-  /// Initializes the type checker.
-  public static func initialize(in context: Context) {
-    context.prepareGenericEnv = prepareGenericEnv(env:)
-  }
-
   /// Type checks the given declaration. This is the main entry point into the type checker.
   ///
   /// - Parameter decl: The declaration to type check.
@@ -165,7 +160,7 @@ public enum TypeChecker {
     return result
   }
 
-  static func prepareGenericEnv(env: GenericEnv) -> Bool {
+  static func prepare(genericEnv env: GenericEnv) -> Bool {
     // Generate equivalence classes.
     var solver = TRSolver()
     guard solver.solve(typeReqs: env.typeReqs, from: env.space) else { return false }

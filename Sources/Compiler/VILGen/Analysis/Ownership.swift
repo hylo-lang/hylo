@@ -507,7 +507,7 @@ public struct OwnershipAnalysis {
 
   private var pointerIDFactory = AutoIncrementFactory()
 
-  public init(context: Context) {
+  public init(context: Compiler) {
     self.module = Module(id: "_", context: context)
   }
 

@@ -2,11 +2,11 @@ public struct NodePrinter: NodeVisitor {
 
   public typealias Result = String
 
-  public init(context: Context) {
+  public init(context: Compiler) {
     self.context = context
   }
 
-  let context: Context
+  let context: Compiler
 
   mutating func encode(_ node: Node?) -> String {
     switch node {

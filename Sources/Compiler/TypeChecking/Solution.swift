@@ -132,7 +132,7 @@ struct Solution {
   /// - Parameters:
   ///   - error: A type error.
   ///   - context: The AST conext in which type checking occured.
-  func report(_ error: TypeError, in context: Context) {
+  func report(_ error: TypeError, in context: Compiler) {
     switch error {
     case .conflictingTypes(let constraint):
       let lhs = describe(reify(constraint.lhs, substPolicy: .keep))
@@ -182,7 +182,7 @@ struct Solution {
   /// Reports all the type errors of this solution.
   ///
   /// - Parameter context: The AST conext in which type checking occured.
-  func reportAllErrors(in context: Context) {
+  func reportAllErrors(in context: Compiler) {
     // Sort the errors by source location.
     for error in errors.sorted(by: <) {
       report(error, in: context)

@@ -4,7 +4,7 @@ import Compiler
 final class DiagChecker: DiagConsumer {
 
   /// The AST context in which modules are being compiled.
-  unowned let context: Context
+  unowned let context: Compiler
 
   /// The diagnostics that are expected to be received, indexed by line number.
   var diagnostics: [TestAnnotation.Location: [DiagPattern]] = [:]
@@ -16,7 +16,7 @@ final class DiagChecker: DiagConsumer {
   let xcLine: UInt
 
   init(
-    context: Context,
+    context: Compiler,
     xcFile: StaticString = #file,
     xcLine: UInt = #line
   ) {

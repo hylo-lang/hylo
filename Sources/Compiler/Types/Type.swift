@@ -98,13 +98,13 @@ public class ValType: CustomStringConvertible, Equatable {
   }
 
   /// The AST context in which this type was uniqued.
-  public unowned let context: Context
+  public unowned let context: Compiler
 
   /// A set of type flags, defined recursively.
   public let flags: Flags
 
   /// Create a new type.
-  init(context: Context, flags: Flags) {
+  init(context: Compiler, flags: Flags) {
     self.context = context
     self.flags = flags
   }
@@ -305,7 +305,7 @@ public final class KindType: ValType {
   /// The type constructed by this kind.
   public let type: ValType
 
-  init(context: Context, type: ValType) {
+  init(context: Compiler, type: ValType) {
     self.type = type
     super.init(context: context, flags: type.flags)
   }
@@ -369,7 +369,7 @@ public class BuiltinType: ValType {
   /// The name of the type.
   public let name: String
 
-  init(context: Context, name: String) {
+  init(context: Compiler, name: String) {
     self.name = name
     super.init(context: context, flags: .isCanonical)
   }
@@ -391,7 +391,7 @@ public class BuiltinType: ValType {
 /// A built-in pointer type.
 public final class BuiltinPointerType: BuiltinType {
 
-  init(context: Context) {
+  init(context: Compiler) {
     super.init(context: context, name: "Pointer")
   }
 
@@ -409,7 +409,7 @@ public protocol BuiltinLiteral {}
 /// This type is used during type checking to infer the type of an literal expression.
 public final class BuiltinIntLiteralType: BuiltinType, BuiltinLiteral {
 
-  init(context: Context) {
+  init(context: Compiler) {
     super.init(context: context, name: "IntLiteral")
   }
 
@@ -431,7 +431,7 @@ public final class BuiltinIntType: BuiltinType {
   /// The number of bits in the binary representation of values of this type.
   public let bitWidth: Int
 
-  init(context: Context, name: String, bitWidth: Int) {
+  init(context: Compiler, name: String, bitWidth: Int) {
     assert(bitWidth > 0)
     self.bitWidth = bitWidth
     super.init(context: context, name: name)
@@ -453,7 +453,7 @@ public final class ModuleType: ValType {
   /// The module corresponding to this type.
   public unowned let module: ModuleDecl
 
-  init(context: Context, module: ModuleDecl) {
+  init(context: Compiler, module: ModuleDecl) {
     self.module = module
     super.init(context: context, flags: .isCanonical)
   }
@@ -476,7 +476,7 @@ public final class NamespaceType: ValType {
   /// The namespace corresponding to this type.
   public unowned let decl: NamespaceDecl
 
-  init(context: Context, decl: NamespaceDecl) {
+  init(context: Compiler, decl: NamespaceDecl) {
     self.decl = decl
     super.init(context: context, flags: .isCanonical)
   }
@@ -503,7 +503,7 @@ public class NominalType: ValType {
   /// The declaration of this nominal type.
   public unowned let decl: GenericTypeDecl
 
-  init(context: Context, decl: GenericTypeDecl, flags: Flags) {
+  init(context: Compiler, decl: GenericTypeDecl, flags: Flags) {
     self.decl = decl
     super.init(context: context, flags: flags)
   }
@@ -534,7 +534,7 @@ public class NominalType: ValType {
 /// A product type, representing a collection of labeled value members.
 public final class ProductType: NominalType {
 
-  init(context: Context, decl: ProductTypeDecl) {
+  init(context: Compiler, decl: ProductTypeDecl) {
     super.init(context: context, decl: decl, flags: .isCanonical)
   }
 
@@ -556,7 +556,7 @@ public final class ProductType: NominalType {
 /// A view type.
 public final class ViewType: NominalType {
 
-  init(context: Context, decl: ViewTypeDecl) {
+  init(context: Compiler, decl: ViewTypeDecl) {
     super.init(context: context, decl: decl, flags: .isCanonical)
   }
 
@@ -590,7 +590,7 @@ public final class ViewType: NominalType {
 /// A type alias denoting a possibly generic type expression.
 public final class AliasType: NominalType {
 
-  init(context: Context, decl: AliasTypeDecl) {
+  init(context: Compiler, decl: AliasTypeDecl) {
     assert(decl.state >= .realized, "can't create alias type from unrealized declaration")
 
     let flags: Flags
@@ -649,7 +649,7 @@ public final class ViewCompositionType: ValType {
   /// The views that are part of the compositio.
   public let views: [ViewType]
 
-  init(context: Context, views: [ViewType]) {
+  init(context: Compiler, views: [ViewType]) {
     self.views = views
 
     // Determine canonicity.
@@ -733,7 +733,7 @@ public final class UnionType: ValType {
   /// Uniqueness of each element is not guaranteed, unless the union type is canonical.
   public let elems: [ValType]
 
-  init(context: Context, elems: [ValType]) {
+  init(context: Compiler, elems: [ValType]) {
     assert(
       elems.allSatisfy({ !($0 is TypeVar) }),
       "unconstrained type variables cannot occur in union type")
@@ -836,7 +836,7 @@ public final class UnionType: ValType {
   /// - Parameters:
   ///   - types: A collection of types.
   ///   - context: The context in which the union is formed.
-  public static func create<C>(unionOf types: C, in context: Context) -> ValType
+  public static func create<C>(unionOf types: C, in context: Compiler) -> ValType
   where C: Collection, C.Element == ValType
   {
     if types.isEmpty {
@@ -856,7 +856,7 @@ public final class BoundGenericType: NominalType {
   /// The arguments provided for the underyling type's generic parameters.
   public let args: [ValType]
 
-  init(context: Context, decl: GenericTypeDecl, args: [ValType]) {
+  init(context: Compiler, decl: GenericTypeDecl, args: [ValType]) {
     self.args = args
     super.init(context: context, decl: decl, flags: Flags.merge(args.map({ $0.flags })))
   }
@@ -946,7 +946,7 @@ public final class GenericParamType: ValType, Hashable {
   /// The declaration of this generic parameter type.
   public unowned let decl: GenericParamDecl
 
-  init(context: Context, decl: GenericParamDecl) {
+  init(context: Compiler, decl: GenericParamDecl) {
     self.decl = decl
     super.init(context: context, flags: [.isCanonical, .hasTypeParams])
   }
@@ -1016,7 +1016,7 @@ public final class AssocType: ValType {
   /// associated type to raise the `hasTypeParams` flag.
   public unowned let interface: GenericParamType
 
-  init(context: Context, interface: GenericParamType, base: ValType) {
+  init(context: Compiler, interface: GenericParamType, base: ValType) {
     precondition(
       base is GenericParamType || base is AssocType || base is SkolemType || base is TypeVar,
       "illegal base for associated type")
@@ -1105,7 +1105,7 @@ public final class SkolemType: ValType {
   /// The generic environment in which this skolem is existentially quantified.
   public unowned let genericEnv: GenericEnv
 
-  init(context: Context, interface: GenericParamType, genericEnv: GenericEnv) {
+  init(context: Compiler, interface: GenericParamType, genericEnv: GenericEnv) {
     self.interface = interface
     self.genericEnv = genericEnv
     super.init(context: context, flags: [.isCanonical, .hasSkolems])
@@ -1155,7 +1155,7 @@ public final class WitnessType: ValType {
   /// The existential type that this type is witnessing.
   public unowned let interface: ValType
 
-  init(context: Context, interface: ValType) {
+  init(context: Compiler, interface: ValType) {
     self.interface = interface
     super.init(context: context, flags: [.isCanonical])
   }
@@ -1227,7 +1227,7 @@ public final class TupleType: ValType {
   /// The elements of the tuple.
   public let elems: [Elem]
 
-  init(context: Context, elems: [Elem]) {
+  init(context: Compiler, elems: [Elem]) {
     self.elems = elems
 
     // Compute the type's flags.
@@ -1381,7 +1381,7 @@ public final class FunType: ValType {
   /// The function's codomain.
   public let retType: ValType
 
-  init(context: Context, params: [Param], retType: ValType) {
+  init(context: Compiler, params: [Param], retType: ValType) {
     self.params = params
     self.retType = retType
 
@@ -1531,7 +1531,7 @@ public final class AsyncType: ValType {
   /// A type.
   public let base: ValType
 
-  init(context: Context, base: ValType) {
+  init(context: Compiler, base: ValType) {
     self.base = base
     super.init(context: context, flags: base.flags.union(with: .hasAsync))
   }
@@ -1592,7 +1592,7 @@ public final class AsyncType: ValType {
 /// This is used internally to denote the type of an unresolved declaration reference.
 public final class UnresolvedType: ValType {
 
-  init(context: Context) {
+  init(context: Compiler) {
     super.init(context: context, flags: [.isCanonical, .hasUnresolved])
   }
 
@@ -1608,7 +1608,7 @@ public final class UnresolvedType: ValType {
 /// stages need not to reason about the cause of the error.
 public final class ErrorType: ValType {
 
-  init(context: Context) {
+  init(context: Compiler) {
     super.init(context: context, flags: [.isCanonical, .hasErrors])
   }
 
@@ -1627,7 +1627,7 @@ public final class TypeVar: ValType, Hashable {
   /// The optional node representing the sub-expression with which the variable is associated.
   public private(set) weak var node: Node?
 
-  public init(context: Context, node: Node? = nil) {
+  public init(context: Compiler, node: Node? = nil) {
     self.id = TypeVar.idFactory.makeID()
     self.node = node
     super.init(context: context, flags: [.isCanonical, .hasVariables])

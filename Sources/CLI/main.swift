@@ -41,7 +41,7 @@ struct ValCommand: ParsableCommand {
 
       // Dump the module before semantic analysis, if requested.
       if dumpParse {
-        decl.dump(context: driver.context)
+        decl.dump(context: driver.compiler)
         return
       }
 
@@ -50,7 +50,7 @@ struct ValCommand: ParsableCommand {
 
       // Dump the module, if requested.
       if dumpAST {
-        decl.dump(context: driver.context)
+        decl.dump(context: driver.compiler)
         return
       }
 
@@ -65,7 +65,7 @@ struct ValCommand: ParsableCommand {
 
       // Interpret the module.
       var interpreter = Interpreter()
-      if let stdlib = driver.context.stdlib {
+      if let stdlib = driver.compiler.stdlib {
         try interpreter.load(module: driver.lower(moduleDecl: stdlib))
       }
       try interpreter.load(module: main)

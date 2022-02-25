@@ -20,7 +20,7 @@ struct CSSolver {
   private var bestScore: Solution.Score
 
   /// The AST context.
-  private var context: Context
+  private var context: Compiler
 
   /// The current score of the solver's solution.
   private var currentScore: Solution.Score {
@@ -34,7 +34,7 @@ struct CSSolver {
     penalities: Int = 0,
     errors: [TypeError] = [],
     bestScore: Solution.Score = .worst,
-    context: Context
+    context: Compiler
   ) {
     self.system = system
     self.assumptions = assumptions

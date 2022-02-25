@@ -33,7 +33,7 @@ public protocol DeclSpace: AnyObject {
   /// - Parameters:
   ///   - name: The bare name to search.
   ///   - context: The AST context in which the search is carried out.
-  func lookup(unqualified name: String, in context: Context) -> LookupResult
+  func lookup(unqualified name: String, in context: Compiler) -> LookupResult
 
   /// Looks up for declarations that match the given name, directly enclosed in this space.
   ///

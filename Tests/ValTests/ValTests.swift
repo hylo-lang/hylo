@@ -15,10 +15,10 @@ final class ValTests: XCTestCase {
       var parser = TestAnnotationParser()
       parser.scan(source)
 
-      let checker = DiagChecker(context: driver.context)
+      let checker = DiagChecker(context: driver.compiler)
       checker.insert(annotations: parser.annotations)
 
-      driver.context.diagConsumer = checker
+      driver.compiler.diagConsumer = checker
       let moduleName = url.deletingPathExtension().lastPathComponent
       let moduleDecl = try driver.parse(moduleName: moduleName, moduleFiles: [url])
       driver.typeCheck(moduleDecl: moduleDecl)
@@ -39,10 +39,10 @@ final class ValTests: XCTestCase {
       var parser = TestAnnotationParser()
       parser.scan(source)
 
-      let checker = DiagChecker(context: driver.context)
+      let checker = DiagChecker(context: driver.compiler)
       checker.insert(annotations: parser.annotations)
 
-      driver.context.diagConsumer = checker
+      driver.compiler.diagConsumer = checker
       let moduleName = url.deletingPathExtension().lastPathComponent
       let moduleDecl = try driver.parse(moduleName: moduleName, moduleFiles: [url])
       driver.typeCheck(moduleDecl: moduleDecl)
@@ -72,7 +72,7 @@ final class ValTests: XCTestCase {
       driver.typeCheck(moduleDecl: moduleDecl)
 
       var interpreter = Interpreter()
-      try interpreter.load(module: driver.lower(moduleDecl: driver.context.stdlib!))
+      try interpreter.load(module: driver.lower(moduleDecl: driver.compiler.stdlib!))
       try interpreter.load(module: driver.lower(moduleDecl: moduleDecl))
 
       XCTAssertEqual(interpreter.start(), 42)

@@ -1,6 +1,6 @@
 extension DeclSpace {
 
-  public func lookup(unqualified name: String, in context: Context) -> LookupResult {
+  public func lookup(unqualified name: String, in context: Compiler) -> LookupResult {
     var space: DeclSpace = self
     var result = LookupResult()
 

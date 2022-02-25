@@ -21,7 +21,7 @@ extension Node {
   /// Dumps a textual representation of the node into the standard output.
   ///
   /// - Parameter context: The AST context in which the node was created.
-  public func dump(context: Context) {
+  public func dump(context: Compiler) {
     var stream = StandardOutput()
     dump(context: context, to: &stream)
   }
@@ -31,7 +31,7 @@ extension Node {
   /// - Parameters:
   ///   - context: The AST context in which the node was created.
   ///   - stream: A text output stream.
-  public func dump<S>(context: Context, to stream: inout S) where S: TextOutputStream {
+  public func dump<S>(context: Compiler, to stream: inout S) where S: TextOutputStream {
     var printer = NodePrinter(context: context)
     stream.write(printer.visit(any: self))
   }

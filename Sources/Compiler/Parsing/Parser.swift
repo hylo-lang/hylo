@@ -164,7 +164,7 @@ public struct Parser {
   }
 
   /// The AST context in which the parser operates.
-  public let context: Context
+  public let context: Compiler
 
   /// An alias to the context's unresolved type.
   private var unresolved: UnresolvedType { context.unresolvedType }

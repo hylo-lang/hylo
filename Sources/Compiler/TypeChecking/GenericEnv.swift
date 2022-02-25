@@ -90,15 +90,14 @@ public final class GenericEnv {
     space: GenericDeclSpace,
     params: [GenericParamType],
     typeReqs: [TypeReq],
-    context: Context
+    context: Compiler
   ) {
     self.space = space
     self.params = params
     self.typeReqs = typeReqs
 
     // Initialize semantic properties.
-    let prepare = context.prepareGenericEnv ?? fatalError("no generic environment delegate")
-    guard prepare(self) else { return nil }
+    guard TypeChecker.prepare(genericEnv: self) else { return nil }
   }
 
   /// The set of conformances registered in this environment for the given type.

@@ -54,7 +54,7 @@ public struct UnitValue: Constant, Hashable {
 
   public let type: VILType
 
-  init(context: Context) {
+  init(context: Compiler) {
     self.type = .lower(context.unitType)
   }
 
@@ -88,7 +88,7 @@ public struct IntValue: Constant {
   /// The number of bits in the binary representation of values of this type.
   public let bitWidth: Int
 
-  init(bitPattern: Int64, bitWidth: Int, context: Context) {
+  init(bitPattern: Int64, bitWidth: Int, context: Compiler) {
     self.bitPattern = bitPattern
     self.bitWidth = bitWidth
     self.type = .lower(context.getBuiltinType(named: "i\(bitWidth)")!)
@@ -99,12 +99,12 @@ public struct IntValue: Constant {
   }
 
   /// Creates a built-in `false` constant (i.e., `0` with the type `i1`).
-  public static func makeFalse(context: Context) -> IntValue {
+  public static func makeFalse(context: Compiler) -> IntValue {
     return IntValue(bitPattern: 0, bitWidth: 1, context: context)
   }
 
   /// Creates a built-in `true` constant (i.e., `1` with the type `i1`).
-  static func makeTrue(context: Context) -> IntValue {
+  static func makeTrue(context: Compiler) -> IntValue {
     return IntValue(bitPattern: 1, bitWidth: 1, context: context)
   }
 
@@ -131,7 +131,7 @@ public struct IntLiteralValue: Constant {
   /// The literal's value.
   public let value: Int
 
-  init(value: Int, context: Context) {
+  init(value: Int, context: Compiler) {
     self.value = value
     self.type = .lower(context.getBuiltinType(named: "IntLiteral")!)
   }

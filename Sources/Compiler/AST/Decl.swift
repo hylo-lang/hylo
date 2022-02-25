@@ -1504,7 +1504,7 @@ public final class NamespaceDecl: TypeDecl, IterableDeclSpace {
   /// The member declarations in this namespace.
   public var decls: [Decl]
 
-  public init(name: String, decls: [Decl], context: Context) {
+  public init(name: String, decls: [Decl], context: Compiler) {
     self.name = name
     self.decls = decls
     self.type = context.unresolvedType

@@ -1,16 +1,11 @@
 import Foundation
 import Utils
 
-/// A central repository for long-lived objects and shared information about a compiling pipeline.
-public final class Context {
+/// A central repository for AST nodes and data shared across compilation phases.
+public final class Compiler {
 
-  /// Creates a new AST context.
-  ///
-  /// - Parameter sourceManager: The source manager handling the source files that will be loaded
-  ///   in this context.
-  public init(sourceManager: SourceManager? = nil) {
-    self.sourceManager = sourceManager ?? SourceManager()
-  }
+  /// Creates a new compiler instance.
+  public init() {}
 
   // MARK: General properties
 
@@ -20,9 +15,6 @@ public final class Context {
   /// built-in definitions. This flag enables this
   public var isCompilingStdlib = false
 
-  /// The manager handling the source files loaded in the context.
-  public let sourceManager: SourceManager
-
   /// The modules loaded in the context.
   public var modules: [String: ModuleDecl] = [:]
 
@@ -31,11 +23,6 @@ public final class Context {
   ///
   /// This number serves to determine whether name lookup caches are up to date.
   public var generation = 0
-
-  // MARK: Delegates
-
-  /// A closure that is called to prepare generic environments.
-  public var prepareGenericEnv: ((GenericEnv) -> Bool)?
 
   // MARK: Types
 

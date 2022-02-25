@@ -23,7 +23,7 @@ public final class ModuleDecl {
   /// The file units in the module.
   public var units: [FileUnit] = []
 
-  public init(name: String, generation: Int, context: Context) {
+  public init(name: String, generation: Int, context: Compiler) {
     self.name = name
     self.generation = generation
     self.type = context.unresolvedType
