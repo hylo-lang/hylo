@@ -1,3 +1,5 @@
+import Foundation
+
 /// The parser for Val source code.
 public struct Parser {
 
@@ -124,7 +126,7 @@ public struct Parser {
 
     /// Returns a source range suitable to report an error at the current stream position.
     mutating func errorRange() -> SourceRange {
-      return peek()?.range ?? (lexer.source.endIndex ..< lexer.source.endIndex)
+      return peek()?.range ?? (lexer.location ..< lexer.location)
     }
 
   }
@@ -172,18 +174,14 @@ public struct Parser {
   /// Creates a parser.
   ///
   /// - Parameter context: The AST context in which source files will be parsed.
-  public init(context: Context) {
+  public init(context: Compiler) {
     self.context = context
   }
 
-  /// Parses the specified source file.
-  ///
-  /// - Parameters:
-  ///   - source: A source file.
-  ///   - context: The AST context in which the source file is parsed.
-  public func parse(source: SourceFile) -> (unit: SourceUnit, hasError: Bool) {
-    let unit = SourceUnit(source: source)
-    var state = State(declSpace: unit, lexer: Lexer(source: source))
+  /// Parses the contents of the file at the specified URL.
+  public func parse(contentsOf url: URL) throws -> (unit: SourceUnit, hasError: Bool) {
+    let unit = SourceUnit(url: url)
+    var state = try State(declSpace: unit, lexer: Lexer(contentsOf: url))
 
     while true {
       // Skip leading semicolons and exit the loop once we've reached the end of the stream
@@ -1608,8 +1606,8 @@ public struct Parser {
 
         // Postfix operators must be attached to the expression, and followed by a whitespace.
         let lGap = base.range!.upperBound != oper.range!.lowerBound
-        let rGap = (oper.range!.upperBound == state.lexer.source.endIndex)
-          || state.lexer.source[oper.range!.upperBound].isWhitespace
+        let rGap = (oper.range!.upperBound.index == state.lexer.source.endIndex)
+          || state.lexer.source[oper.range!.upperBound.index].isWhitespace
         guard !lGap && rGap else {
           state.restore(backup)
           return base
@@ -2642,4 +2640,12 @@ fileprivate final class DiagSaver: DiagConsumer {
 
 fileprivate func ..< (lhs: SourceRange, rhs: SourceRange) -> SourceRange {
   return lhs.lowerBound ..< rhs.upperBound
+}
+
+fileprivate extension String {
+
+  subscript(range: SourceRange) -> Substring {
+    return self[range.lowerBound.index ..< range.upperBound.index]
+  }
+
 }

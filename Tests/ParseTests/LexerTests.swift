@@ -3,16 +3,6 @@ import Compiler
 
 final class LexerTests: XCTestCase {
 
-  private var manager: SourceManager?
-
-  override func setUp() {
-    manager = SourceManager()
-  }
-
-  override func tearDown() {
-    manager = nil
-  }
-
   func testBool() {
     let input = "true false"
     assert(
@@ -307,17 +297,16 @@ final class LexerTests: XCTestCase {
   }
 
   private func tokenize(_ input: String) -> [Token] {
-    let file = manager!.load(string: input)
-    let lexer = Lexer(source: file)
+    let lexer = Lexer(contents: input)
     return Array(lexer)
   }
 
   private func assert(
-    that tokens : [Token],
-    match specs : [TokenSpec],
-    in source   : String,
-    file        : StaticString = #filePath,
-    line        : UInt = #line
+    that tokens: [Token],
+    match specs: [TokenSpec],
+    in source: String,
+    file: StaticString = #filePath,
+    line: UInt = #line
   ) {
     // The list of tokens should have the same lenght as that of the specifications.
     XCTAssert(
@@ -332,9 +321,11 @@ final class LexerTests: XCTestCase {
         "token has kind '\(token.kind)', not '\(spec.kind)'",
         file: spec.file,
         line: spec.line)
+
+      let value = source[token.range.lowerBound.index ..< token.range.upperBound.index]
       XCTAssert(
-        source[token.range] == spec.value,
-        "token has value '\(source[token.range])', not '\(spec.value)'",
+        value == spec.value,
+        "token has value '\(value)', not '\(spec.value)'",
         file: spec.file,
         line: spec.line)
     }

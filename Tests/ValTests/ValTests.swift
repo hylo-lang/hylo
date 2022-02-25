@@ -11,9 +11,8 @@ final class ValTests: XCTestCase {
 
     for url in urls {
       let driver = Driver()
-      let source = try driver.context.sourceManager.load(contentsOf: url)
-      var parser = TestAnnotationParser()
-      parser.scan(source)
+      var parser = TestSpecParser()
+      try parser.scan(contentsOf: url)
 
       let checker = DiagChecker(context: driver.compiler)
       checker.insert(annotations: parser.annotations)
@@ -35,9 +34,8 @@ final class ValTests: XCTestCase {
     for url in urls {
       let driver = Driver()
       try driver.loadStdlib()
-      let source = try driver.context.sourceManager.load(contentsOf: url)
-      var parser = TestAnnotationParser()
-      parser.scan(source)
+      var parser = TestSpecParser()
+      try parser.scan(contentsOf: url)
 
       let checker = DiagChecker(context: driver.compiler)
       checker.insert(annotations: parser.annotations)
@@ -63,9 +61,8 @@ final class ValTests: XCTestCase {
     for url in urls {
       let driver = Driver()
       try driver.loadStdlib()
-      let source = try driver.context.sourceManager.load(contentsOf: url)
-      var parser = TestAnnotationParser()
-      parser.scan(source)
+      var parser = TestSpecParser()
+      try parser.scan(contentsOf: url)
 
       let moduleName = url.deletingPathExtension().lastPathComponent
       let moduleDecl = try driver.parse(moduleName: moduleName, moduleFiles: [url])

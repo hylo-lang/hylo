@@ -65,15 +65,12 @@ public struct NodePrinter: NodeVisitor {
   }
 
   func encode(range: SourceRange?) -> String {
-    guard let range = range,
-          let source = context.sourceManager.source(containing: range.lowerBound)
-    else {
-      return "null"
-    }
+    guard let range = range else { return "null" }
 
-    let start = source.lineColumnIndices(at: range.lowerBound)
-    let end = source.lineColumnIndices(at: range.upperBound)
-    return "\"\(source.url.path):\(start.line):\(start.column) - \(end.line):\(end.column)\""
+    let path = range.lowerBound.url.path
+    let start = range.lowerBound.lineColumnIndices
+    let end = range.upperBound.lineColumnIndices
+    return "\"\(path):\(start.line):\(start.column) - \(end.line):\(end.column)\""
   }
 
   func valueDeclHeader<N>(_ node: N) -> String where N: ValueDecl {
@@ -133,7 +130,7 @@ public struct NodePrinter: NodeVisitor {
   }
 
   public mutating func visit(_ unit: FileUnit) -> String {
-    let path = (unit as? SourceUnit)?.source.url.path ?? ""
+    let path = (unit as? SourceUnit)?.url.path ?? ""
 
     return """
     {

@@ -1,1 +1,1 @@
-public typealias SourceRange = Range<SourceFile.Index>
+public typealias SourceRange = Range<SourceLoc>

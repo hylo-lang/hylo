@@ -1,14 +1,16 @@
 import Compiler
 import Foundation
 
-struct TestAnnotationParser {
+struct TestSpecParser {
 
   /// The test annotations that have been parsed.
-  var annotations: [TestAnnotation.Location: [TestAnnotation]] = [:]
+  var annotations: [TestSpec.Loc: [TestSpec]] = [:]
 
   /// Scans the given source file for test annotations.
-  mutating func scan(_ source: SourceFile) {
-    let lines = source.split(separator: "\n", omittingEmptySubsequences: false)
+  mutating func scan(contentsOf url: URL) throws {
+    let contents = try String(contentsOf: url)
+    let lines = contents.split(separator: "\n", omittingEmptySubsequences: false)
+
     for (i, line) in lines.enumerated() {
       // Check if the line contains a test annotation.
       guard let range = line.range(of: "#!") else { continue }
@@ -33,7 +35,7 @@ struct TestAnnotationParser {
         : String(suffix)
 
       // Determine the location of the annotation.
-      let loc = TestAnnotation.Location(url: source.url, line: i + offset)
+      let specLoc = TestSpec.Loc(url: url, line: i + offset)
 
       // Register the annotation.
       let pattern: DiagPattern
@@ -45,19 +47,17 @@ struct TestAnnotationParser {
       default:
         fatalError("unrecognized command: \(command)")
       }
-      annotations[loc, default: []].append(.diagnostic(pattern))
+      annotations[specLoc, default: []].append(.diagnostic(pattern))
     }
   }
 
 }
 
 /// A test annotation.
-enum TestAnnotation {
-
-  case diagnostic(DiagPattern)
+enum TestSpec {
 
   /// The location of a test annotation.
-  struct Location: Hashable {
+  struct Loc: Hashable {
 
     /// The URL of the source file from which the annotation comes.
     let url: URL
@@ -66,5 +66,7 @@ enum TestAnnotation {
     let line: Int
 
   }
+
+  case diagnostic(DiagPattern)
 
 }

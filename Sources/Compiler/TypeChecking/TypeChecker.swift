@@ -1,4 +1,4 @@
-/// Val's type checker.
+/// This file implements the API to Val's type checker.
 ///
 /// The type checker resolves type and variable identifiers and verifies that the program satisfies
 /// Val's (flow-insensitive) type system. This process starts with an untyped AST and ends with a
