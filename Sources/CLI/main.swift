@@ -41,7 +41,7 @@ struct ValCommand: ParsableCommand {
 
       // Dump the module before semantic analysis, if requested.
       if dumpParse {
-        decl.dump(context: driver.compiler)
+        decl.dump()
         return
       }
 
@@ -50,7 +50,7 @@ struct ValCommand: ParsableCommand {
 
       // Dump the module, if requested.
       if dumpAST {
-        decl.dump(context: driver.compiler)
+        decl.dump()
         return
       }
 

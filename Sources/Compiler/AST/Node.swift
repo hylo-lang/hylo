@@ -19,20 +19,14 @@ public protocol Node: AnyObject {
 extension Node {
 
   /// Dumps a textual representation of the node into the standard output.
-  ///
-  /// - Parameter context: The AST context in which the node was created.
-  public func dump(context: Compiler) {
+  public func dump() {
     var stream = StandardOutput()
-    dump(context: context, to: &stream)
+    dump(to: &stream)
   }
 
   /// Dumps a textual representation of the node into the given stream.
-  ///
-  /// - Parameters:
-  ///   - context: The AST context in which the node was created.
-  ///   - stream: A text output stream.
-  public func dump<S>(context: Compiler, to stream: inout S) where S: TextOutputStream {
-    var printer = NodePrinter(context: context)
+  public func dump<S>(to stream: inout S) where S: TextOutputStream {
+    var printer = NodePrinter()
     stream.write(printer.visit(any: self))
   }
 

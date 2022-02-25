@@ -299,11 +299,9 @@ public final class Compiler {
     print(to: &stream)
   }
 
-  /// Dumps the contents of the context into the given stream.
-  ///
-  /// - Parameter stream: A text output stream.
-  public func dump<S>(to stream: inout S) where S: TextOutputStream {
-    var printer = NodePrinter(context: self)
+  /// Dumps the AST into the given stream.
+  public func dumpAST<S>(to stream: inout S) where S: TextOutputStream {
+    var printer = NodePrinter()
 
     stream.write("[")
     var isFirst = true
