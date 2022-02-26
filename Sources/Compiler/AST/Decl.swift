@@ -1183,14 +1183,16 @@ public final class ProductTypeDecl: NominalTypeDecl {
 public final class ViewTypeDecl: NominalTypeDecl {
 
   /// The implicit declaration of the `Self` generic type parameter.
-  public lazy var selfTypeDecl: GenericParamDecl = {
-    let paramDecl = GenericParamDecl(name: "Self", type: type.context.unresolvedType)
-    paramDecl.range = introRange
-    paramDecl.parentDeclSpace = self
-    paramDecl.type = type.context.genericParamType(decl: paramDecl).kind
-    paramDecl.setState(.typeChecked)
-    return paramDecl
-  }()
+  public let selfTypeDecl: GenericParamDecl
+
+  public override init(name: String, type: ValType) {
+    selfTypeDecl = GenericParamDecl(name: "Self", type: type.context.unresolvedType)
+    super.init(name: name, type: type)
+
+    selfTypeDecl.parentDeclSpace = self
+    selfTypeDecl.type = type.context.genericParamType(decl: selfTypeDecl).kind
+    selfTypeDecl.setState(.typeChecked)
+  }
 
   /// The uncontextualized type of a reference to `self` within the context of this type.
   public override var receiverType: ValType { selfTypeDecl.instanceType }
