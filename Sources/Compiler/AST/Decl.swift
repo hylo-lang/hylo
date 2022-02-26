@@ -1461,10 +1461,10 @@ public final class TypeExtnDecl: Decl, DeclSpace {
   }
 
   /// The declaration of the extended type.
-  public lazy var extendedDecl: GenericTypeDecl? = computeExtendedDecl()
+  public private(set) lazy var extendedDecl: GenericTypeDecl? = computeExtendedDecl()
 
   /// Computes the declaration that is extended by this extension.
-  public func computeExtendedDecl() -> GenericTypeDecl? {
+  private func computeExtendedDecl() -> GenericTypeDecl? {
     guard state != .invalid else { return nil }
 
     let type = extendedIdent.realize(unqualifiedFrom: parentDeclSpace!)

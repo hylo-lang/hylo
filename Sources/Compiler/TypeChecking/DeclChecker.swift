@@ -415,7 +415,7 @@ struct DeclChecker: DeclVisitor {
     guard isTypeCheckRequired(node) else { return node.state == .typeChecked }
 
     // Bind the extension to the type it extends.
-    guard node.computeExtendedDecl() != nil else { return false }
+    guard node.extendedDecl != nil else { return false }
 
     // Type-check the extension's members.
     node.setState(.typeCheckRequested)
