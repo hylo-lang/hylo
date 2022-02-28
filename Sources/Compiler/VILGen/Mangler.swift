@@ -52,7 +52,7 @@ public struct Mangler {
       append(space: decl.parentDeclSpace!)
       append(name: decl.name)
 
-    case let decl as TypeExtnDecl:
+    case let decl as ExtensionDecl:
       append(space: decl.parentDeclSpace!)
 
     case let decl as NamespaceDecl:

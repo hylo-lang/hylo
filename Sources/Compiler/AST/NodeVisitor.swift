@@ -63,7 +63,7 @@ public protocol DeclVisitor {
 
   mutating func visit(_ node: GenericParamDecl) -> DeclResult
 
-  mutating func visit(_ node: TypeExtnDecl) -> DeclResult
+  mutating func visit(_ node: ExtensionDecl) -> DeclResult
 
   mutating func visit(_ node: NamespaceDecl) -> DeclResult
 

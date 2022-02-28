@@ -298,7 +298,7 @@ public struct Parser {
           "extension declarations can only appear at top level", anchor: head?.range))
         state.hasError = true
       }
-      return parseTypeExtn(state: &state, parsedModifiers: modifiers)
+      return parseExtnDecl(state: &state, parsedModifiers: modifiers)
 
     case .namespace:
       if !(state.flags & (.isParsingTopLevel + .isParsingNamespace)) {
@@ -1062,10 +1062,13 @@ public struct Parser {
 
   /// Parses a type extension.
   ///
-  ///     type-extn-decl ::= 'extn' compound-ident-sign decl-body
+  ///     extn-decl ::= 'extn' compound-ident-sign decl-body
   ///
   /// The next token is expected to be 'extension'.
-  private func parseTypeExtn(state: inout State, parsedModifiers: [DeclModifier]) -> TypeExtnDecl {
+  private func parseExtnDecl(
+    state: inout State,
+    parsedModifiers: [DeclModifier]
+  ) -> ExtensionDecl {
     let introducer = state.take(.extension)!
     let lowerLoc = parsedModifiers.first?.range?.lowerBound ?? introducer.range.lowerBound
     var upperLoc = introducer.range.upperBound
@@ -1097,7 +1100,7 @@ public struct Parser {
       : []
 
     // Create the declaration.
-    let decl = TypeExtnDecl(extendedIdent: identSign, members: [])
+    let decl = ExtensionDecl(extendedIdent: identSign, members: [])
     decl.parentDeclSpace = state.declSpace
     decl.inheritances = inheritances
 

@@ -491,11 +491,11 @@ extension NodeWalker {
     return true
   }
 
-  public mutating func visit(_ node: TypeExtnDecl) -> Bool {
+  public mutating func visit(_ node: ExtensionDecl) -> Bool {
     return traverse(node)
   }
 
-  public mutating func traverse(_ node: TypeExtnDecl) -> Bool {
+  public mutating func traverse(_ node: ExtensionDecl) -> Bool {
     let prevParent = parent
     parent = node
     innermostSpace = node

@@ -287,7 +287,7 @@ public struct NodePrinter: NodeVisitor {
     """
   }
 
-  public mutating func visit(_ node: TypeExtnDecl) -> String {
+  public mutating func visit(_ node: ExtensionDecl) -> String {
     return """
     {
     "class": "\(type(of: node))",

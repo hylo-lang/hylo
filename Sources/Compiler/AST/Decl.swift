@@ -183,7 +183,7 @@ public final class PatternBindingDecl: Decl {
 
   /// A flag indicating whether the declaration describes member variables.
   public var isMember: Bool {
-    return (parentDeclSpace is NominalTypeDecl || parentDeclSpace is TypeExtnDecl)
+    return (parentDeclSpace is NominalTypeDecl || parentDeclSpace is ExtensionDecl)
   }
 
   public func setState(_ newState: DeclState) {
@@ -484,7 +484,7 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
       // The function is declared in the body of a nominal type.
       selfType = typeDecl.receiverType
 
-    case let extnDecl as TypeExtnDecl:
+    case let extnDecl as ExtensionDecl:
       // The function is declared in the body of a type extension.
       guard let typeDecl = extnDecl.extendedDecl else {
         let decl = FunParamDecl(name: "self", policy: .local, type: type.context.errorType)
@@ -1421,7 +1421,7 @@ public final class AbstractTypeDecl: GenericParamDecl {
 ///
 /// This is not a `TypeDecl`, as it does not define any type. An extension merely represents a set
 /// of declarations that should be "added" to a type.
-public final class TypeExtnDecl: Decl, DeclSpace {
+public final class ExtensionDecl: Decl, DeclSpace {
 
   public var range: SourceRange?
 

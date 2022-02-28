@@ -41,7 +41,7 @@ public final class ModuleDecl {
   }
 
   /// Returns the extensions of the given type declaration.
-  public func extensions(of decl: GenericTypeDecl) -> [TypeExtnDecl] {
+  public func extensions(of decl: GenericTypeDecl) -> [ExtensionDecl] {
     func delegate(_ d: GenericTypeDecl) -> GenericTypeDecl {
       if let alias = (d as? AliasTypeDecl)?.aliasedSign.type as? NominalType {
         return delegate(alias.decl)
@@ -54,8 +54,8 @@ public final class ModuleDecl {
     let decl = delegate(decl)
 
     // Loop through all extensions in the module, (partially) binding them if necessary.
-    var matches: [TypeExtnDecl] = []
-    stmt:for case let ext as TypeExtnDecl in decls where ext.state != .invalid {
+    var matches: [ExtensionDecl] = []
+    stmt:for case let ext as ExtensionDecl in decls where ext.state != .invalid {
       // Check if the extension is already bound to decl.
       if ext.state >= .realized {
         if let d = ext.extendedDecl, delegate(d) === decl {

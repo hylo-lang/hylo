@@ -60,7 +60,7 @@ public enum Emitter {
       _ = emit(function: decl, into: &module)
     case let decl as ProductTypeDecl:
       emit(productType: decl, into: &module)
-    case let decl as TypeExtnDecl:
+    case let decl as ExtensionDecl:
       emit(typeExtn: decl, into: &module)
     case let decl as NamespaceDecl:
       emit(namespace: decl, into: &module)
@@ -118,7 +118,7 @@ public enum Emitter {
     }
   }
 
-  public static func emit(typeExtn decl: TypeExtnDecl, into module: inout Module) {
+  public static func emit(typeExtn decl: ExtensionDecl, into module: inout Module) {
     for member in decl.members {
       emit(member: member, into: &module)
     }
