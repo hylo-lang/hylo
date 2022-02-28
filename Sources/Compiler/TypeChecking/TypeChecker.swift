@@ -385,7 +385,8 @@ public enum TypeChecker {
         guard let tupleType = type as? TupleType,
               tupleType.elems.count == tuplePattern.elems.count
         else {
-          type.context.report(.wrongTuplePatternLength(type: type, range: pattern.range))
+          DiagDispatcher.instance.report(
+            .wrongTuplePatternLength(type: type, range: pattern.range))
           return false
         }
 
@@ -412,10 +413,9 @@ public enum TypeChecker {
   private static func registerConformance(
     _ lhs: ValType, _ rhs: ValType, _ env: GenericEnv, _ req: TypeReq
   ) -> Bool {
-    let context = lhs.context
-
     guard let view = rhs as? ViewType else {
-      context.report(.nonViewTypeConformanceRequirement(type: rhs, range: req.rhs.range))
+      DiagDispatcher.instance.report(
+        .nonViewTypeConformanceRequirement(type: rhs, range: req.rhs.range))
       return false
     }
     let viewDecl = view.decl as! ViewTypeDecl
@@ -435,14 +435,16 @@ public enum TypeChecker {
     if let equivalenceClass = env.equivalences.equivalenceClass(containing: lhs) {
       for type in equivalenceClass {
         guard env.defines(type: type) else {
-          context.report(.illegalConformanceRequirement(type: lhs, range: req.lhs.range))
+          DiagDispatcher.instance.report(
+            .illegalConformanceRequirement(type: lhs, range: req.lhs.range))
           return false
         }
         env.insert(conformance: conformance, for: type)
       }
     } else {
       guard env.defines(type: lhs) else {
-        context.report(.illegalConformanceRequirement(type: lhs, range: req.lhs.range))
+        DiagDispatcher.instance.report(
+          .illegalConformanceRequirement(type: lhs, range: req.lhs.range))
         return false
       }
       env.insert(conformance: conformance, for: lhs)

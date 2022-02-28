@@ -11,14 +11,14 @@ public protocol DiagConsumer {
 /// An in-flight diagnostic about a compilation issue.
 public struct Diag {
 
-  /// Creates a new in-flight diagnostic.
+  /// Creates an in-flight diagnostic.
   ///
   /// - Parameters:
-  ///   - message: The message of the diagnostic.
   ///   - level: The severity of the diagnostic.
+  ///   - message: The message of the diagnostic.
   ///   - anchor: A source range related to the diagnostic. If assigned, the diagnostic is anchored
   ///     at the range's start location.
-  public init(_ message: String, level: Level = .error, anchor: SourceRange? = nil) {
+  public init(_ level: Level, _ message: String, anchor: SourceRange? = nil) {
     self.message = message
     self.level = level
 
@@ -26,6 +26,16 @@ public struct Diag {
       reportLocation = range.lowerBound
       ranges = [range]
     }
+  }
+
+  /// Creates an in-flight error diagnostic.
+  ///
+  /// - Parameters:
+  ///   - message: The message of the diagnostic.
+  ///   - anchor: A source range related to the diagnostic. If assigned, the diagnostic is anchored
+  ///     at the range's start location.
+  public init(_ message: String, anchor: SourceRange? = nil) {
+    self.init(.error, message, anchor: anchor)
   }
 
   /// The message of the diagnostic.

@@ -307,7 +307,7 @@ public enum Emitter {
     if !decl.isMutable {
       // Immutable bindings require an initializer.
       guard let initializer = decl.initializer else {
-        module.context.report(.immutableBindingRequiresInitializer(decl: decl))
+        DiagDispatcher.instance.report(.immutableBindingRequiresInitializer(decl: decl))
         state.locals[ObjectIdentifier(patterns[0].decl)] = Operand(PoisonValue(
           type: .lower(patterns[0].type)))
         state.hasError = true
@@ -427,8 +427,8 @@ public enum Emitter {
       case let stmt as RetStmt:
         emit(stmt: stmt, state: &state, into: &module)
         if i > brace.stmts.count - 1 {
-          let context = state.funDecl.type.context
-          context.report(.codeAfterReturnNeverExecuted(range: brace.stmts[i + 1].range))
+          DiagDispatcher.instance.report(
+            .codeAfterReturnNeverExecuted(range: brace.stmts[i + 1].range))
           return
         }
 
@@ -556,7 +556,7 @@ public enum Emitter {
       return val
 
     case .failure(let error):
-      module.context.report(error.diag())
+      DiagDispatcher.instance.report(error.diag())
       state.hasError = true
       return Operand(PoisonValue(type: .lower(module.context.errorType)))
     }
@@ -579,7 +579,7 @@ public enum Emitter {
       return loc
 
     case .failure(let error):
-      module.context.report(error.diag())
+      DiagDispatcher.instance.report(error.diag())
       state.hasError = true
       return Operand(PoisonValue(type: .lower(module.context.errorType).address))
     }
@@ -601,7 +601,7 @@ public enum Emitter {
 
     case .failure(let error) where mutably:
       // If it can't but the address is expected to be mutable, that's a failure.
-      module.context.report(error.diag())
+      DiagDispatcher.instance.report(error.diag())
       state.hasError = true
       return Operand(PoisonValue(type: .lower(expr.type).address))
 

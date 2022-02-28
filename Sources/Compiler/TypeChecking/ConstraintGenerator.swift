@@ -275,7 +275,7 @@ struct ConstraintGenerator: NodeWalker {
         kind: .subtyping, lhs: node.type, rhs: fixedType,
         at: ConstraintLocator(node)))
     } else if node.decl.retSign == nil {
-      node.type.context.report(.complexReturnTypeInference(range: node.range))
+      DiagDispatcher.instance.report(.complexReturnTypeInference(range: node.range))
       node.decl.type = node.type.context.errorType
       node.decl.setState(.invalid)
       node.type = node.type.context.errorType
@@ -311,7 +311,7 @@ struct ConstraintGenerator: NodeWalker {
         node.body.setState(.realized)
       } else {
         // Complain that we can't infer `T` over multiple statements.
-        context.report(.complexReturnTypeInference(range: node.range))
+        DiagDispatcher.instance.report(.complexReturnTypeInference(range: node.range))
         node.body.type = context.errorType
         node.body.setState(.invalid)
         node.type = context.errorType

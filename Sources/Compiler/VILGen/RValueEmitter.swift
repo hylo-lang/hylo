@@ -154,11 +154,11 @@ struct RValueEmitter: ExprVisitor {
 
     if sourceType == targetType {
       // Same type conversion always succeeds.
-      module.context.report(
+      DiagDispatcher.instance.report(
         .castAlwaysSucceeds(from: node.value.type, to: node.type, range: node.range))
     } else if targetType is FunType {
       // Runtime conversion of function types always fails.
-      module.context.report(.runtimeFunctionTypeConversion(range: node.range))
+      DiagDispatcher.instance.report(.runtimeFunctionTypeConversion(range: node.range))
       module.insertCondFail(
         cond: Operand(IntValue.makeTrue(context: module.context)), range: node.range, at: state.ip)
       converted = Operand(PoisonValue(type: .lower(targetType)))
@@ -499,7 +499,7 @@ struct RValueEmitter: ExprVisitor {
 
           if subjectType is FunType {
             // Runtime conversion of function types always fails.
-            module.context.report(.runtimeFunctionTypeConversion(range: pattern.range))
+            DiagDispatcher.instance.report(.runtimeFunctionTypeConversion(range: pattern.range))
             module.insertFail(range: pattern.range, at: state.ip)
             locals[ObjectIdentifier(decl)] = Operand(PoisonValue(type: loweredTargetType))
 

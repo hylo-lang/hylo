@@ -4,13 +4,16 @@ extension Diag {
 
   static func runtimeFunctionTypeConversion(range: SourceRange?) -> Diag {
     return Diag(
+      .warning,
       "runtime conversion of function types is not supported; cast will always fail",
-      level: .warning,
       anchor: range)
   }
 
   static func immutableBindingRequiresInitializer(decl: PatternBindingDecl) -> Diag {
-    return Diag("local immutable binding requires an initializer", anchor: decl.range)
+    return Diag(
+      .error,
+      "local immutable binding requires an initializer",
+      anchor: decl.range)
   }
 
   static func castAlwaysFails(
@@ -19,8 +22,8 @@ extension Diag {
     range: SourceRange?
   ) -> Diag {
     return Diag(
+      .warning,
       "conversion from '\(lhs)' to '\(rhs)' will always fail",
-      level: .warning,
       anchor: range)
   }
 
@@ -30,17 +33,23 @@ extension Diag {
     range: SourceRange?
   ) -> Diag {
     return Diag(
+      .warning,
       "conversion from '\(lhs)' to '\(rhs)' will always succeed",
-      level: .warning,
       anchor: range)
   }
 
   static func useOfRValueAsLValue(expr: Node) -> Diag {
-    return Diag("cannot use expression as an l-value", anchor: expr.range)
+    return Diag(
+      .error,
+      "cannot use expression as an l-value",
+      anchor: expr.range)
   }
 
   static func bindingWithNoUse(decl: ValueDecl) -> Diag {
-    return Diag("'\(decl.name)' is never used", level: .warning, anchor: decl.range)
+    return Diag(
+      .warning,
+      "'\(decl.name)' is never used",
+      anchor: decl.range)
   }
 
 }

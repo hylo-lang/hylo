@@ -27,7 +27,7 @@ struct ValCommand: ParsableCommand {
   func run() throws {
     // Create a new driver.
     let driver = Driver(home: home)
-    driver.compiler.diagConsumer = Terminal()
+    DiagDispatcher.instance.register(consumer: Terminal())
 
     // Load the standard library.
     if !noStdlib {

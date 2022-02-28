@@ -3,9 +3,7 @@ extension Diag {
   public static func multipleStatementInMatchExpression(
     range: SourceRange?
   ) -> Diag {
-    return Diag(
-      "case of match used as an expression must be a single expression",
-      anchor: range)
+    return Diag("case of match used as an expression must be a single expression", anchor: range)
   }
 
   public static func complexReturnTypeInference(
@@ -29,13 +27,13 @@ extension Diag {
   public static func cannotFind(
     symbol name: String, range: SourceRange?
   ) -> Diag {
-    return Diag("I can't find '\(name)' in scope", anchor: range)
+    return Diag("'\(name)' is not in scope", anchor: range)
   }
 
   public static func cannotFind(
     type name: String, range: SourceRange?
   ) -> Diag {
-    return Diag("I can't find a type named '\(name)' in scope", anchor: range)
+    return Diag("no type named '\(name)' in scope", anchor: range)
   }
 
   public static func cannotFind(
@@ -211,16 +209,13 @@ extension Diag {
   public static func superfluousTypeModifier(
     range: SourceRange?
   ) -> Diag {
-    return Diag("superfluous type qualified", level: .warning, anchor: range)
+    return Diag(.warning, "superfluous type qualified", anchor: range)
   }
 
   public static func codeAfterReturnNeverExecuted(
     range: SourceRange?
   ) -> Diag {
-    return Diag(
-      "code after return statement will never be executed",
-      level: .warning,
-      anchor: range)
+    return Diag(.warning, "code after return statement will never be executed", anchor: range)
   }
 
   // MARK: Assignments to immutable locations and invalid uses of in-out arguments.
@@ -253,8 +248,7 @@ extension Diag {
     binding bindingName: String, range: SourceRange?
   ) -> Diag {
     return Diag(
-      "cannot pass '\(bindingName)' as a mutable argument: binding is immutable",
-      anchor: range)
+      "cannot pass '\(bindingName)' as a mutable argument: binding is immutable", anchor: range)
   }
 
   public static func mutRefToImmutCapture(

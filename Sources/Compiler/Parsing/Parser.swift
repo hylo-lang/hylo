@@ -9,6 +9,9 @@ public struct Parser {
     /// A Boolean value that indicates whether the parser encountered an error.
     var hasError = false
 
+    /// The diagnostics of the the parse errors.
+    var diags: [Diag] = []
+
     /// The declaration space in which new declarations are being parsed.
     var declSpace: DeclSpace?
 
@@ -195,16 +198,21 @@ public struct Parser {
         }
         unit.decls.append(decl)
         if let decl = decl as? FunDecl, decl.ident == nil {
-          context.report(
-            "anonymous function can never be called", level: .warning, anchor: decl.introRange)
+          state.diags.append(Diag(
+            "anonymous function can never be called", anchor: decl.introRange))
         }
       } catch let error as ParseError {
-        context.report(error.diag)
+        state.diags.append(error.diag)
         state.hasError = true
         state.skip(while: { ($0.kind != .semi) && !$0.mayBeginDecl })
       } catch {
         fatalError("unreachable")
       }
+    }
+
+    // Report diagnostics.
+    for diag in state.diags {
+      DiagDispatcher.instance.report(diag)
     }
 
     return (unit, state.hasError)
@@ -235,7 +243,8 @@ public struct Parser {
       _ = state.take()
 
       guard kinds.insert(m.kind).inserted else {
-        context.report("ignoring duplicate modifier \(m.kind)", level: .warning, anchor: m.range)
+        state.diags.append(Diag(
+          .warning, "ignoring duplicate modifier \(m.kind)", anchor: m.range))
         continue
       }
 
@@ -243,8 +252,8 @@ public struct Parser {
       guard ((m.kind != .pub) || !kinds.contains(.mod)),
             ((m.kind != .mod) || !kinds.contains(.pub))
       else {
-        context.report(
-          "'pub' and 'mod' modifiers are mutually exclusive", anchor: token.range)
+          state.diags.append(Diag(
+            "'pub' and 'mod' modifiers are mutually exclusive", anchor: token.range))
         state.hasError = true
         continue
       }
@@ -254,8 +263,8 @@ public struct Parser {
             ((m.kind != .prefix)  || !kinds.contains(.infix)  && !kinds.contains(.postfix)),
             ((m.kind != .postfix) || !kinds.contains(.infix)  && !kinds.contains(.prefix))
       else {
-        context.report(
-          "'infix', 'prefix' and 'postfix' modifiers are mutually exclusive", anchor: token.range)
+        state.diags.append(Diag(
+          "'infix', 'prefix' and 'postfix' modifiers are mutually exclusive", anchor: token.range))
         state.hasError = true
         continue
       }
@@ -277,23 +286,25 @@ public struct Parser {
 
     case .view:
       if !(state.flags & .isParsingTopLevel) {
-        context.report("view declarations can only appear at top level", anchor: head?.range)
+        state.diags.append(Diag(
+          "view declarations can only appear at top level", anchor: head?.range))
         state.hasError = true
       }
       return parseTypeDecl(state: &state, parsedModifiers: modifiers)
 
     case .extension:
       if !(state.flags & .isParsingTopLevel) {
-        context.report("extension declarations can only appear at top level", anchor: head?.range)
+        state.diags.append(Diag(
+          "extension declarations can only appear at top level", anchor: head?.range))
         state.hasError = true
       }
       return parseTypeExtn(state: &state, parsedModifiers: modifiers)
 
     case .namespace:
       if !(state.flags & (.isParsingTopLevel + .isParsingNamespace)) {
-        context.report(
+        state.diags.append(Diag(
           "namespace declarations can only appear at top level or in another namespace",
-          anchor: head?.range)
+          anchor: head?.range))
         state.hasError = true
       }
       return parseNamespaceDecl(state: &state, parsedModifiers: modifiers)
@@ -326,8 +337,9 @@ public struct Parser {
       switch modifier.kind {
       case .pub, .mod:
         guard !(state.flags & .isParsingViewBody) else {
-          context.report(
-            "'\(modifier.kind)' cannot be applied to property requirement", anchor: modifier.range)
+          state.diags.append(Diag(
+            "'\(modifier.kind)' cannot be applied to property requirement",
+            anchor: modifier.range))
           state.hasError = true
           return false
         }
@@ -335,16 +347,16 @@ public struct Parser {
 
       case .static:
         guard state.flags & .isParsingTypeBody else {
-          context.report(
-            "'static' is only allowed inside of a type", anchor: modifier.range)
+          state.diags.append(Diag(
+            "'static' is only allowed inside of a type", anchor: modifier.range))
           state.hasError = true
           return false
         }
         return true
 
       default:
-        context.report(
-          "'\(modifier.kind)' cannot be applied to this declaration", anchor: modifier.range)
+        state.diags.append(Diag(
+          "'\(modifier.kind)' cannot be applied to this declaration", anchor: modifier.range))
         state.hasError = true
         return false
       }
@@ -371,7 +383,7 @@ public struct Parser {
         decl.varDecls.append(name.decl)
       }
     } else {
-      context.report("expected pattern", anchor: state.errorRange())
+      state.diags.append(Diag("expected pattern", anchor: state.errorRange()))
       state.hasError = true
     }
 
@@ -381,7 +393,7 @@ public struct Parser {
         decl.sign = sign
         upperLoc = sign.range!.upperBound
       } else {
-        context.report("expected type signature after ':'", anchor: state.errorRange())
+        state.diags.append(Diag("expected type signature after ':'", anchor: state.errorRange()))
         state.hasError = true
       }
     }
@@ -392,12 +404,13 @@ public struct Parser {
         decl.initializer = expr
         upperLoc = expr.range!.upperBound
       } else {
-        context.report("expected expression after '='", anchor: state.errorRange())
+        state.diags.append(Diag("expected expression after '='", anchor: state.errorRange()))
         state.hasError = true
       }
 
       if state.flags & .isParsingViewBody {
-        context.report("property requirement cannot have an initializer", anchor: assign.range)
+        state.diags.append(Diag(
+          "property requirement cannot have an initializer", anchor: assign.range))
         state.hasError = true
       }
     }
@@ -427,14 +440,15 @@ public struct Parser {
       switch modifier.kind {
       case .pub, .mod:
         guard introducer.kind != .del else {
-          context.report(
-            "'\(modifier.kind)' cannot be applied to destructor", anchor: modifier.range)
+          state.diags.append(Diag(
+            "'\(modifier.kind)' cannot be applied to destructor", anchor: modifier.range))
           state.hasError = true
           return false
         }
         guard !(state.flags & .isParsingViewBody) else {
-          context.report(
-            "'\(modifier.kind)' cannot be applied to function requirement", anchor: modifier.range)
+          state.diags.append(Diag(
+            "'\(modifier.kind)' cannot be applied to function requirement",
+            anchor: modifier.range))
           state.hasError = true
           return false
         }
@@ -445,16 +459,17 @@ public struct Parser {
               state.flags & .isParsingTypeBody,
               !parsedModifiers.contains(where: { $0.kind == .static })
         else {
-          context.report(
+          state.diags.append(Diag(
             "'\(modifier.kind) can only be applied to non-static member functions",
-            anchor: modifier.range)
+            anchor: modifier.range))
           state.hasError = true
           return false
         }
 
         if modifier.kind == .mut {
           guard !parsedModifiers.contains(where: { $0.kind == .consuming }) else {
-            context.report("consuming member function cannot be mutating", anchor: modifier.range)
+            state.diags.append(Diag(
+              "consuming member function cannot be mutating", anchor: modifier.range))
             state.hasError = true
             return false
           }
@@ -464,16 +479,16 @@ public struct Parser {
 
       case .static where introducer.kind == .fun:
         guard state.flags & .isParsingTypeBody else {
-          context.report(
-            "'static' is only allowed inside of a type", anchor: modifier.range)
+          state.diags.append(Diag(
+            "'static' is only allowed inside of a type", anchor: modifier.range))
           state.hasError = true
           return false
         }
         return true
 
       default:
-        context.report(
-          "'\(modifier.kind)' cannot be applied to this declaration", anchor: modifier.range)
+        state.diags.append(Diag(
+          "'\(modifier.kind)' cannot be applied to this declaration", anchor: modifier.range))
         state.hasError = true
         return false
       }
@@ -503,9 +518,9 @@ public struct Parser {
             || !(state.flags & .isParsingTypeBody)
             || modifiers.contains(where: { $0.kind == .static })
         {
-          context.report(
+          state.diags.append(Diag(
             "operator '\(oper.name)' must be declared as a non-static member function",
-            anchor: oper.range)
+            anchor: oper.range))
           state.hasError = true
         }
       } else {
@@ -518,11 +533,13 @@ public struct Parser {
       decl.introRange = introducer.range
 
       if !(state.flags & .isParsingTypeBody) {
-        context.report("constructors are only allowed inside of a type", anchor: introducer.range)
+        state.diags.append(Diag(
+          "constructors are only allowed inside of a type", anchor: introducer.range))
         state.hasError = true
       }
       if let name = state.take(.name) {
-        context.report("constructors cannot have a name", anchor: name.range)
+        state.diags.append(Diag(
+          "constructors cannot have a name", anchor: name.range))
         state.hasError = true
       }
 
@@ -544,7 +561,8 @@ public struct Parser {
     if let opener = state.peek(), opener.kind == .lBrack {
       decl.explicitCaptures = parseCaptureList(state: &state)!
       if state.flags & .isParsingTypeBody {
-        context.report("capture lists are only allowed on free functions", anchor: opener.range)
+        state.diags.append(Diag(
+          "capture lists are only allowed on free functions", anchor: opener.range))
         state.hasError = true
       }
     }
@@ -561,24 +579,25 @@ public struct Parser {
       if isOperator {
         switch params.count {
         case 0 where !modifiers.contains(where: { $0.kind == .prefix || $0.kind == .postfix }):
-          context.report(
+          state.diags.append(Diag(
             "unary operator declaration requires 'prefix' or 'postfix' modifier",
-            anchor: introducer.range)
+            anchor: introducer.range))
           state.hasError = true
 
         case 1:
           if let m = modifiers.first(where: { $0.kind == .prefix || $0.kind == .postfix }) {
-            context.report("unary operator must have 0 parameter", anchor: m.range)
+            state.diags.append(Diag("unary operator must have 0 parameter", anchor: m.range))
             state.hasError = true
           } else if let m = modifiers.first(where: { $0.kind == .infix }) {
-            context.report(
+            state.diags.append(Diag(
+              .warning,
               "extraneous modifier; binary operators are always infix",
-              level: .warning,
-              anchor: m.range)
+              anchor: m.range))
           }
 
         default:
-          context.report("operators must have 0 or 1 parameters", anchor: params[1].range)
+          state.diags.append(Diag(
+            "operators must have 0 or 1 parameters", anchor: params[1].range))
           state.hasError = true
         }
       }
@@ -586,7 +605,7 @@ public struct Parser {
       // We're missing the opening parenthesis of the parameter list. We'll pretend the user forgot
       // the parameters and try to recover before the arrow of the return type signature, or before
       // the opening brace of the function's body.
-      context.report("expected parameter list", anchor: state.errorRange())
+      state.diags.append(Diag("expected parameter list", anchor: state.errorRange()))
       state.hasError = true
       state.skip(while: {
         !$0.isOf(kind: [.semi, .lBrace]) && !$0.mayBeginDecl && !$0.mayBeginCtrlStmt
@@ -599,7 +618,8 @@ public struct Parser {
         decl.retSign = sign
         upperLoc = sign.range!.upperBound
       } else {
-        context.report("expected return type signature after '->'", anchor: state.errorRange())
+        state.diags.append(Diag(
+          "expected return type signature after '->'", anchor: state.errorRange()))
         state.hasError = true
         state.skip(while: {
           !$0.isOf(kind: [.semi, .rBrace]) && !$0.mayBeginDecl && !$0.mayBeginCtrlStmt
@@ -617,7 +637,7 @@ public struct Parser {
 
     // Function declarations must have a body, unless they are defined within a view.
     if decl.body == nil && !(state.flags & .isParsingViewBody) {
-      context.report("expected function body", anchor: state.errorRange())
+      state.diags.append(Diag("expected function body", anchor: state.errorRange()))
       state.hasError = true
     }
 
@@ -638,7 +658,7 @@ public struct Parser {
     }
 
     if state.take(.rBrack) == nil {
-      context.report("expected ']' delimiter", anchor: state.errorRange())
+      state.diags.append(Diag("expected ']' delimiter", anchor: state.errorRange()))
       state.hasError = true
     }
 
@@ -663,13 +683,13 @@ public struct Parser {
     if let name = state.take(.name) {
       ident = state.ident(name)
     } else {
-      context.report("expected identifier", anchor: state.errorRange())
+      state.diags.append(Diag("expected identifier", anchor: state.errorRange()))
       state.hasError = true
       ident = Ident(name: "", range: state.errorRange())
     }
 
     if state.take(.assign) == nil {
-      context.report("expected '=' after capture identifier", anchor: state.errorRange())
+      state.diags.append(Diag("expected '=' after capture identifier", anchor: state.errorRange()))
       state.hasError = true
     }
 
@@ -678,7 +698,7 @@ public struct Parser {
       value = expr
     } else {
       value = ErrorExpr(type: context.errorType, range: introducer.range)
-      context.report("expected expression after '='", anchor: state.errorRange())
+      state.diags.append(Diag("expected expression after '='", anchor: state.errorRange()))
       state.hasError = true
     }
 
@@ -720,7 +740,7 @@ public struct Parser {
 
       // Warn against identical extraneous parameter names.
       if decl.name == decl.label {
-        context.report("extraneous parameter name", level: .warning, anchor: name.range)
+        state.diags.append(Diag(.warning, "extraneous parameter name", anchor: name.range))
       }
     } else {
       // The next token is a colon: the label should be used as the name.
@@ -729,7 +749,8 @@ public struct Parser {
 
       // Require that the parameter name be a valid identifier.
       if label.kind != .name {
-        context.report("'\(decl.name)' is not a valid parameter name", anchor: label.range)
+        state.diags.append(Diag(
+          "'\(decl.name)' is not a valid parameter name", anchor: label.range))
         state.hasError = true
       }
     }
@@ -740,7 +761,7 @@ public struct Parser {
       decl.policy = sign.policy
       upperLoc = sign.range!.upperBound
     } else if requiringSign {
-      context.report("expected type signature", anchor: state.errorRange())
+      state.diags.append(Diag("expected type signature", anchor: state.errorRange()))
       state.hasError = true
     }
 
@@ -766,8 +787,8 @@ public struct Parser {
         continue
 
       default:
-        context.report(
-          "'\(modifier.kind)' cannot be applied to this declaration", anchor: modifier.range)
+        state.diags.append(Diag(
+          "'\(modifier.kind)' cannot be applied to this declaration", anchor: modifier.range))
         state.hasError = true
       }
     }
@@ -780,16 +801,16 @@ public struct Parser {
       decl.type = context.viewType(decl: decl).kind
 
       if let clause = head.genericClause {
-        context.report(
+        state.diags.append(Diag(
           "view type declaration cannot have a generic clause, "
             + "declare abstract type requirements instead",
-          anchor: clause.range)
+          anchor: clause.range))
         state.hasError = true
       }
 
       // Parse the members of the declaration.
       guard state.peek()?.kind == .lBrace else {
-        context.report("expected view body", anchor: state.errorRange())
+        state.diags.append(Diag("expected view body", anchor: state.errorRange()))
         state.hasError = true
         return decl
       }
@@ -806,8 +827,8 @@ public struct Parser {
       }
 
       for case let member as TypeDecl in decl.members where !(member is AbstractTypeDecl) {
-        context.report(
-          "type '\(member.name)' cannot be nested in view '\(decl.name)'", anchor: member.range)
+        state.diags.append(Diag(
+          "type '\(member.name)' cannot be nested in view '\(decl.name)'", anchor: member.range))
         state.hasError = true
       }
 
@@ -845,7 +866,8 @@ public struct Parser {
       }
 
       for case let member as AbstractTypeDecl in decl.members {
-        context.report("abstract types are only allowed inside of a view", anchor: member.range)
+        state.diags.append(Diag(
+          "abstract types are only allowed inside of a view", anchor: member.range))
         state.hasError = true
       }
 
@@ -857,7 +879,7 @@ public struct Parser {
       _ = state.take()
 
       let sign = parseSign(state: &state) ?? { () -> Sign in
-        context.report("expected type signature", anchor: state.errorRange())
+        state.diags.append(Diag("expected type signature", anchor: state.errorRange()))
         state.hasError = true
         return ErrorSign(type: context.errorType, range: state.errorRange())
       }()
@@ -887,9 +909,8 @@ public struct Parser {
       upperLoc = head.ident.range!.upperBound
 
       if let clause = head.genericClause {
-        context.report(
-          "abstract type declaration cannot have a generic clause",
-          anchor: clause.range)
+        state.diags.append(Diag(
+          "abstract type declaration cannot have a generic clause", anchor: clause.range))
         state.hasError = true
       }
 
@@ -909,7 +930,7 @@ public struct Parser {
         }
 
         if mustParse {
-          context.report("expected type requirement", anchor: state.errorRange())
+          state.diags.append(Diag("expected type requirement", anchor: state.errorRange()))
           state.hasError = true
           state.skip(while: { $0.kind == .comma })
         } else {
@@ -935,14 +956,15 @@ public struct Parser {
     if let name = state.take(.name) {
       ident = state.ident(name)
     } else {
-      context.report("expected type identifier", anchor: state.errorRange())
+      state.diags.append(Diag("expected type identifier", anchor: state.errorRange()))
       state.hasError = true
       ident = Ident(name: "", range: state.errorRange())
     }
 
     switch ident.name {
     case "Any", "Kind", "Nothing", "Unit":
-      context.report("'\(ident.name)' is a reserved type identifier", anchor: ident.range)
+      state.diags.append(Diag(
+        "'\(ident.name)' is a reserved type identifier", anchor: ident.range))
       state.hasError = true
     default:
       break
@@ -978,7 +1000,7 @@ public struct Parser {
       if let identSign = sign as? IdentSign {
         inheritances.append(identSign)
       } else {
-        context.report("expected type identifier", anchor: sign.range)
+        state.diags.append(Diag("expected type identifier", anchor: sign.range))
         state.hasError = true
       }
 
@@ -991,7 +1013,7 @@ public struct Parser {
     }
 
     if mustParse {
-      context.report("expected type identifier", anchor: state.errorRange())
+      state.diags.append(Diag("expected type identifier", anchor: state.errorRange()))
       state.hasError = true
       state.skip(while: { $0.kind == .comma })
     }
@@ -1023,11 +1045,11 @@ public struct Parser {
         }
         members.append(member)
         if let decl = member as? FunDecl, decl.ident == nil {
-          context.report(
-            "anonymous member function can never be called", level: .warning, anchor: decl.introRange)
+          state.diags.append(Diag(
+            .warning, "anonymous member function can never be called", anchor: decl.introRange))
         }
       } catch let error as ParseError {
-        context.report(error.diag)
+        state.diags.append(error.diag)
         state.hasError = true
         state.skip(while: { !$0.isOf(kind: [.semi, .rBrace]) && !$0.mayBeginDecl })
       } catch {
@@ -1049,8 +1071,8 @@ public struct Parser {
     var upperLoc = introducer.range.upperBound
 
     for modifier in parsedModifiers {
-      context.report(
-        "'\(modifier.kind)' cannot be applied to this declaration", anchor: modifier.range)
+      state.diags.append(Diag(
+        "'\(modifier.kind)' cannot be applied to this declaration", anchor: modifier.range))
       state.hasError = true
     }
 
@@ -1063,7 +1085,7 @@ public struct Parser {
       identSign = BareIdentSign(ident: Ident(name: "", range: sign.range), type: context.errorType)
 
     case nil:
-      context.report("expected type identifier", anchor: state.errorRange())
+      state.diags.append(Diag("expected type identifier", anchor: state.errorRange()))
       state.hasError = true
       identSign = BareIdentSign(
         ident: Ident(name: "", range: state.errorRange()),
@@ -1109,8 +1131,8 @@ public struct Parser {
     var upperLoc = introducer.range.upperBound
 
     for modifier in parsedModifiers {
-      context.report(
-        "'\(modifier.kind)' cannot be applied to this declaration", anchor: modifier.range)
+      state.diags.append(Diag(
+        "'\(modifier.kind)' cannot be applied to this declaration", anchor: modifier.range))
       state.hasError = true
     }
 
@@ -1119,14 +1141,15 @@ public struct Parser {
     if let name = state.take(.name) {
       ident = state.ident(name)
     } else {
-      context.report("expected namespace identifier", anchor: state.errorRange())
+      state.diags.append(Diag("expected namespace identifier", anchor: state.errorRange()))
       state.hasError = true
       ident = Ident(name: "", range: state.errorRange())
     }
 
     switch ident.name {
     case "Any", "Unit", "Nothing":
-      context.report("'\(ident.name)' is a reserved type identifier", anchor: ident.range)
+      state.diags.append(Diag(
+        "'\(ident.name)' is a reserved type identifier", anchor: ident.range))
       state.hasError = true
     default:
       break
@@ -1183,7 +1206,7 @@ public struct Parser {
 
     let closer = state.take(.rAngle)
     if closer == nil {
-      context.report("expected '>' delimiter", anchor: state.errorRange())
+      state.diags.append(Diag("expected '>' delimiter", anchor: state.errorRange()))
       state.hasError = true
     }
 
@@ -1222,15 +1245,15 @@ public struct Parser {
       kind = .conformance
 
     default:
-      context.report(
-        "expected '==' or ':' to specify a type requirement", anchor: state.errorRange())
+      state.diags.append(Diag(
+        "expected '==' or ':' to specify a type requirement", anchor: state.errorRange()))
       state.hasError = true
       kind = .equality
     }
 
     // Parse the right operand of the requirement.
     let rhs = parseSign(state: &state) ?? { () -> Sign in
-      context.report("expected type signature", anchor: state.errorRange())
+      state.diags.append(Diag("expected type signature", anchor: state.errorRange()))
       state.hasError = true
       return ErrorSign(type: context.errorType, range: state.errorRange())
     }()
@@ -1267,7 +1290,7 @@ public struct Parser {
     guard let opener = state.take(.break) else { return nil }
 
     if !(state.flags & .isParsingLoopBody) {
-      context.report("'break' is only allowed inside of a loop", anchor: opener.range)
+      state.diags.append(Diag("'break' is only allowed inside of a loop", anchor: opener.range))
       state.hasError = true
     }
 
@@ -1281,7 +1304,7 @@ public struct Parser {
     guard let opener = state.take(.continue) else { return nil }
 
     if !(state.flags & .isParsingLoopBody) {
-      context.report("'continue' is only allowed inside of a loop", anchor: opener.range)
+      state.diags.append(Diag("'continue' is only allowed inside of a loop", anchor: opener.range))
       state.hasError = true
     }
 
@@ -1298,7 +1321,7 @@ public struct Parser {
     if let c = parseExpr(state: &state) {
       condition = c
     } else {
-      context.report("expected expression", anchor: state.errorRange())
+      state.diags.append(Diag("expected expression", anchor: state.errorRange()))
       state.hasError = true
       condition = ErrorExpr(type: context.errorType, range: state.errorRange())
     }
@@ -1307,7 +1330,7 @@ public struct Parser {
     if let b = parseBraceStmt(state: &state) {
       thenBody = b
     } else {
-      context.report("expected '{' after condition", anchor: state.errorRange())
+      state.diags.append(Diag("expected '{' after condition", anchor: state.errorRange()))
       state.hasError = true
       thenBody = BraceStmt(statements: [], range: state.errorRange())
     }
@@ -1320,7 +1343,7 @@ public struct Parser {
       } else if let b = parseBraceStmt(state: &state) {
         elseBody = b
       } else {
-        context.report("expected '{' after 'else'", anchor: state.errorRange())
+        state.diags.append(Diag("expected '{' after 'else'", anchor: state.errorRange()))
         state.hasError = true
         elseBody = BraceStmt(statements: [], range: state.errorRange())
       }
@@ -1352,7 +1375,8 @@ public struct Parser {
     if state.flags & .isParsingFunBody {
       stmt.funDecl = state.declSpace?.spacesUpToRoot.first(as: BaseFunDecl.self)
     } else {
-      context.report("'return' is only allowed inside of a function", anchor: opener.range)
+      state.diags.append(Diag(
+        "'return' is only allowed inside of a function", anchor: opener.range))
       state.hasError = true
     }
 
@@ -1379,7 +1403,7 @@ public struct Parser {
       }
 
       guard let head = state.peek() else {
-        context.report("expected '}' delimiter", anchor: state.errorRange())
+        state.diags.append(Diag("expected '}' delimiter", anchor: state.errorRange()))
         state.hasError = true
         return scope
       }
@@ -1391,8 +1415,8 @@ public struct Parser {
           }
           scope.stmts.append(decl)
           if let decl = decl as? FunDecl, decl.ident == nil {
-            context.report(
-              "anonymous function can never be called", level: .warning, anchor: decl.introRange)
+            state.diags.append(Diag(
+              .warning, "anonymous function can never be called", anchor: decl.introRange))
           }
         } else if head.mayBeginCtrlStmt {
           guard let stmt = parseCtrlStmt(state: &state) else {
@@ -1412,7 +1436,7 @@ public struct Parser {
           }
         }
       } catch let error as ParseError {
-        context.report(error.diag)
+        state.diags.append(error.diag)
         state.hasError = true
         state.skip(while: {
           !$0.isOf(kind: [.semi, .rBrace]) && !$0.mayBeginDecl && !$0.mayBeginCtrlStmt
@@ -1441,7 +1465,7 @@ public struct Parser {
         // The operator is a standard non-cast infix operator,.
         oper = ident
         group = PrecedenceGroup(for: ident.name) ?? {
-          context.report("unknown infix operator '\(oper.name)'", anchor: oper.range)
+          state.diags.append(Diag("unknown infix operator '\(oper.name)'", anchor: oper.range))
           return nil
         }()
       } else if let name = state.peek(), name.kind == .name {
@@ -1457,7 +1481,7 @@ public struct Parser {
       } else if let token = state.take(.cast) {
         // The right operand of a cast operator is a type signature, not an expression.
         guard let rhs = parseSign(state: &state) else {
-          context.report("expected type signature", anchor: state.errorRange())
+          state.diags.append(Diag("expected type signature", anchor: state.errorRange()))
           state.hasError = true
           return ErrorExpr(type: context.errorType, range: head.range)
         }
@@ -1473,7 +1497,7 @@ public struct Parser {
 
       // Parse the right operand.
       guard let rhs = parsePrefixExpr(state: &state) else {
-        context.report("expected right operand", anchor: state.errorRange())
+        state.diags.append(Diag("expected right operand", anchor: state.errorRange()))
         state.hasError = true
         return ErrorExpr(type: context.errorType, range: head.range)
       }
@@ -1482,7 +1506,7 @@ public struct Parser {
       let lGap = upperLoc < oper.range!.lowerBound
       let rGap = upperLoc < oper.range!.lowerBound
       if lGap != rGap {
-        context.report("inconsistent spacing around infix operator", anchor: oper.range)
+        state.diags.append(Diag("inconsistent spacing around infix operator", anchor: oper.range))
         state.hasError = true
       }
 
@@ -1511,14 +1535,15 @@ public struct Parser {
 
     // Parse the operand.
     guard let value = parseCompoundExpr(state: &state) else {
-      context.report("expected operand expression", anchor: state.errorRange())
+      state.diags.append(Diag("expected operand expression", anchor: state.errorRange()))
       state.hasError = true
       return ErrorExpr(type: context.errorType, range: oper.range)
     }
 
     // Prefix operators cannot be separated from their operand.
     if oper.range!.upperBound != value.range!.lowerBound {
-      context.report("prefix operator cannot be separated from its operand", anchor: oper.range)
+      state.diags.append(Diag(
+        "prefix operator cannot be separated from its operand", anchor: oper.range))
       state.hasError = true
       return ErrorExpr(type: context.errorType, range: oper.range! ..< value.range!)
     }
@@ -1583,7 +1608,7 @@ public struct Parser {
           let value = state.lexer.source[index.range]
 
           guard !value.contains(where: { !$0.isDigit }), let i = Int(value) else {
-            context.report("'\(value)' is not a valid tuple index", anchor: index.range)
+            state.diags.append(Diag("'\(value)' is not a valid tuple index", anchor: index.range))
             state.hasError = true
             return ErrorExpr(type: context.errorType, range: lowerLoc ..< index.range.upperBound)
           }
@@ -1592,7 +1617,7 @@ public struct Parser {
           expr.range = lowerLoc ..< index.range.upperBound
           base = expr
         } else {
-          context.report("expected member identifier", anchor: state.errorRange())
+          state.diags.append(Diag("expected member identifier", anchor: state.errorRange()))
           state.hasError = true
           return ErrorExpr(type: context.errorType, range: lowerLoc ..< token.range.upperBound)
         }
@@ -1665,7 +1690,7 @@ public struct Parser {
         // We've parsed a parenthesized signature followed by '::'. we should commit to parsing a
         // qualified declaration reference.
         guard let ident = parseIdent(state: &state) else {
-          context.report("expected identifier", anchor: state.errorRange())
+          state.diags.append(Diag("expected identifier", anchor: state.errorRange()))
           state.hasError = true
           return .success(ErrorExpr(type: context.errorType, range: sign.range))
         }
@@ -1696,7 +1721,7 @@ public struct Parser {
 
     let literal = state.lexer.source[token.range]
     guard let value = Int(literal) else {
-      context.report("invalid integer literal '\(literal)'", anchor: token.range)
+      state.diags.append(Diag("invalid integer literal '\(literal)'", anchor: token.range))
       state.hasError = true
       return ErrorExpr(type: context.errorType, range: token.range)
     }
@@ -1710,7 +1735,7 @@ public struct Parser {
 
     let literal = state.lexer.source[token.range]
     guard let value = Double(literal) else {
-      context.report("invalid floating point literal '\(literal)'", anchor: token.range)
+      state.diags.append(Diag("invalid floating point literal '\(literal)'", anchor: token.range))
       state.hasError = true
       return ErrorExpr(type: context.errorType, range: token.range)
     }
@@ -1756,7 +1781,8 @@ public struct Parser {
             namespace: namespace, ident: last.ident, type: unresolved, range: sign.range)
 
         default:
-          context.report("expected '::' after type signature", anchor: state.errorRange())
+          state.diags.append(Diag(
+            "expected '::' after type signature", anchor: state.errorRange()))
           state.hasError = true
           return ErrorExpr(type: context.errorType, range: sign.range)
         }
@@ -1764,7 +1790,7 @@ public struct Parser {
 
       // We've just parse the qualifying namespace. We're expecting a name or an operator.
       guard let ident = parseIdent(state: &state) else {
-        context.report("expected identifier", anchor: state.errorRange())
+        state.diags.append(Diag("expected identifier", anchor: state.errorRange()))
         state.hasError = true
         return ErrorExpr(type: context.errorType, range: sign.range)
       }
@@ -1799,11 +1825,11 @@ public struct Parser {
 
     // Check that the parsed declaration is valid for a lambda.
     if let ident = decl.ident {
-      context.report("lambda functions must be anonymous", anchor: ident.range)
+      state.diags.append(Diag("lambda functions must be anonymous", anchor: ident.range))
       state.hasError = true
     }
     if let clause = decl.genericClause {
-      context.report("lambda functions cannot be generic", anchor: clause.range)
+      state.diags.append(Diag("lambda functions cannot be generic", anchor: clause.range))
       state.hasError = true
     }
 
@@ -1829,7 +1855,8 @@ public struct Parser {
     if let opener = state.peek(), opener.kind == .lBrack {
       decl.explicitCaptures = parseCaptureList(state: &state)!
       if state.flags & .isParsingTypeBody {
-        context.report("capture lists are only allowed on free functions", anchor: opener.range)
+        state.diags.append(Diag(
+          "capture lists are only allowed on free functions", anchor: opener.range))
         state.hasError = true
       }
     }
@@ -1839,7 +1866,7 @@ public struct Parser {
       if let sign = parseSign(state: &state) {
         decl.retSign = sign
       } else {
-        context.report("expected type signature after '->'", anchor: state.errorRange())
+        state.diags.append(Diag("expected type signature after '->'", anchor: state.errorRange()))
         state.hasError = true
       }
     }
@@ -1862,7 +1889,7 @@ public struct Parser {
     state.flags = oldFlags
 
     if decl.body == nil {
-      context.report("expected expression", anchor: state.errorRange())
+      state.diags.append(Diag("expected expression", anchor: state.errorRange()))
       state.hasError = true
       return ErrorExpr(type: context.errorType, range: introducer.range)
     }
@@ -1877,7 +1904,7 @@ public struct Parser {
     guard let introducer = state.take(.await) else { return nil }
 
     guard let value = parseExpr(state: &state) else {
-      context.report("expected expression", anchor: state.errorRange())
+      state.diags.append(Diag("expected expression", anchor: state.errorRange()))
       state.hasError = true
       return ErrorExpr(type: context.errorType, range: introducer.range)
     }
@@ -1892,7 +1919,7 @@ public struct Parser {
     guard let introducer = state.take(.match) else { return nil }
 
     let subject = parseExpr(state: &state) ?? { () -> Expr in
-      context.report("expected expression", anchor: state.errorRange())
+      state.diags.append(Diag("expected expression", anchor: state.errorRange()))
       state.hasError = true
       return ErrorExpr(type: context.errorType, range: state.errorRange())
     }()
@@ -1901,7 +1928,8 @@ public struct Parser {
       isSubexpr: true, subject: subject, cases: [], type: unresolved, range: introducer.range)
 
     guard state.take(.lBrace) != nil else {
-      context.report("expected '{' after match subject expression", anchor: state.errorRange())
+      state.diags.append(Diag(
+        "expected '{' after match subject expression", anchor: state.errorRange()))
       state.hasError = true
       return expr
     }
@@ -1913,7 +1941,7 @@ public struct Parser {
     if let closer = state.take(.rBrace) {
       expr.range = introducer.range.lowerBound ..< closer.range.upperBound
     } else {
-      context.report("expected '}' delimiter", anchor: state.errorRange())
+      state.diags.append(Diag("expected '}' delimiter", anchor: state.errorRange()))
       state.hasError = true
     }
 
@@ -1927,7 +1955,7 @@ public struct Parser {
     guard let introducer = state.take(.case) else { return nil }
 
     let pattern = parsePattern(state: &state) ?? { () -> Pattern in
-      context.report("expected pattern", anchor: state.errorRange())
+      state.diags.append(Diag("expected pattern", anchor: state.errorRange()))
       state.hasError = true
       return WildcardPattern(type: context.errorType, range: state.errorRange())
     }()
@@ -1935,7 +1963,7 @@ public struct Parser {
     let condition: Expr?
     if state.take(.where) != nil {
       condition = parseExpr(state: &state) ?? {
-        context.report("expected condition", anchor: state.errorRange())
+        state.diags.append(Diag("expected condition", anchor: state.errorRange()))
         state.hasError = true
         return nil
       }()
@@ -1944,7 +1972,7 @@ public struct Parser {
     }
 
     let body = parseBraceStmt(state: &state) ?? { () -> BraceStmt in
-      context.report("expected '{' after case pattern", anchor: state.errorRange())
+      state.diags.append(Diag("expected '{' after case pattern", anchor: state.errorRange()))
       state.hasError = true
       return BraceStmt(statements: [], range: state.errorRange())
     }()
@@ -1991,7 +2019,7 @@ public struct Parser {
     if let expr = parseExpr(state: &state) {
       value = expr
     } else if label != nil {
-      context.report("expected expression", anchor: state.errorRange())
+      state.diags.append(Diag("expected expression", anchor: state.errorRange()))
       state.hasError = true
       value = ErrorExpr(type: context.errorType, range: state.errorRange())
     } else {
@@ -2047,7 +2075,7 @@ public struct Parser {
 
     // Commit to parse a pattern.
     guard let subpattern = parsePattern(state: &state) else {
-      context.report("expected pattern", anchor: state.errorRange())
+      state.diags.append(Diag("expected pattern", anchor: state.errorRange()))
       state.hasError = true
       return WildcardPattern(type: unresolved, range: introducer.range)
     }
@@ -2066,7 +2094,7 @@ public struct Parser {
         pattern.sign = sign
       } else {
         // We must commit to a failure.
-        context.report("expected type signature", anchor: state.errorRange())
+        state.diags.append(Diag("expected type signature", anchor: state.errorRange()))
         state.hasError = true
       }
     }
@@ -2109,7 +2137,7 @@ public struct Parser {
     if let pat = parsePattern(state: &state) {
       subpattern = pat
     } else if label != nil {
-      context.report("expected expression", anchor: state.errorRange())
+      state.diags.append(Diag("expected expression", anchor: state.errorRange()))
       state.hasError = true
       subpattern = WildcardPattern(type: context.errorType, range: state.errorRange())
     } else {
@@ -2145,8 +2173,8 @@ public struct Parser {
     var modifiers: [Token.Kind: Token] = [:]
     while let token = state.take(if: { $0.isOf(kind: [.mut, .consuming, .volatile]) }) {
       guard modifiers[token.kind] == nil else {
-        context.report(
-          "ignoring duplicate modifier \(token.kind)", level: .warning, anchor: token.range)
+        state.diags.append(Diag(
+          .warning, "ignoring duplicate modifier \(token.kind)", anchor: token.range))
         continue
       }
 
@@ -2154,10 +2182,10 @@ public struct Parser {
       // domain is enclosed in parentheses.
       if token.kind == .volatile {
         if state.peek()?.kind != .lParen {
-          context.report(
+          state.diags.append(Diag(
+            .warning,
             "volatile function signature requires parentheses",
-            level: .warning,
-            anchor: state.errorRange())
+            anchor: state.errorRange()))
         }
         break
       }
@@ -2170,7 +2198,8 @@ public struct Parser {
     guard var base = parseAsyncSign(state: &state) else {
       // We must commit to a failure, unless we didn't parse any modifier.
       if let m = lastModifier {
-        context.report("expected type signature after \(m.kind)", anchor: state.errorRange())
+        state.diags.append(Diag(
+          "expected type signature after \(m.kind)", anchor: state.errorRange()))
         state.hasError = true
         return ErrorSign(type: context.errorType, range: opener.range ..< m.range)
       } else {
@@ -2181,7 +2210,7 @@ public struct Parser {
     // If the next token is an arrow, we're parsing a function signature.
     if let arrow = state.take(.arrow) {
       guard let retSign = parseSign(state: &state) else {
-        context.report("expected type signature after '->'", anchor: state.errorRange())
+        state.diags.append(Diag("expected type signature after '->'", anchor: state.errorRange()))
         state.hasError = true
         return ErrorSign(type : context.errorType, range: opener.range ..< arrow.range)
       }
@@ -2210,7 +2239,8 @@ public struct Parser {
       base = sign
     } else if let m = modifiers[.volatile] {
       // If we're not parsing a function signature, then 'volatile' is illegal.
-      context.report("'volatile' is only allowed on function signatures", anchor: m.range)
+      state.diags.append(Diag(
+        "'volatile' is only allowed on function signatures", anchor: m.range))
       state.hasError = true
       return ErrorSign(type: context.errorType, range: base.range)
     }
@@ -2223,7 +2253,8 @@ public struct Parser {
       } else if modifiers[.mut] == nil {
         policy = .consuming
       } else {
-        context.report("consuming parameter cannot be mutating", anchor: modifiers[.mut]!.range)
+        state.diags.append(Diag(
+          "consuming parameter cannot be mutating", anchor: modifiers[.mut]!.range))
         policy = .consuming
       }
       base = FunParamSign(policy: policy, rawSign: base, type: unresolved, range: base.range)
@@ -2252,7 +2283,8 @@ public struct Parser {
     if let modifier = state.take(.async) {
       // Commit to parse the base of the signature.
       guard let base = parseSign(state: &state) else {
-        context.report("expected type signature after 'async'", anchor: state.errorRange())
+        state.diags.append(Diag(
+          "expected type signature after 'async'", anchor: state.errorRange()))
         state.hasError = true
         return ErrorSign(type: context.errorType, range: modifier.range)
       }
@@ -2321,7 +2353,7 @@ public struct Parser {
       _ = state.take()
 
       guard let sign = element(&state) else {
-        context.report("expected type signature", anchor: state.errorRange())
+        state.diags.append(Diag("expected type signature", anchor: state.errorRange()))
         state.hasError = true
         items = [ErrorSign(type: context.errorType, range: items[0].range! ..< items.last!.range!)]
         continue
@@ -2357,7 +2389,7 @@ public struct Parser {
     while let sep = state.peek(), sep.kind == .twoColons {
       _ = state.take()
       guard let sign = parseIdentCompSign(state: &state) else {
-        context.report("expected type identifier", anchor: state.errorRange())
+        state.diags.append(Diag("expected type identifier", anchor: state.errorRange()))
         state.hasError = true
         return ErrorSign(type: context.errorType, range: comps[0].range! ..< comps.last!.range!)
       }
@@ -2426,7 +2458,7 @@ public struct Parser {
     } else {
       // We must commit to a failure, unless we didn't parse a label.
       if label != nil {
-        context.report("expected expression", anchor: state.errorRange())
+        state.diags.append(Diag("expected expression", anchor: state.errorRange()))
         state.hasError = true
         sign = ErrorSign(type: context.errorType, range: state.errorRange())
       } else {
@@ -2464,10 +2496,11 @@ public struct Parser {
     var closer = state.take(delimiters.right)
     if closer == nil {
       if let token = state.take(.comma) {
-        context.report("unexpected ',' separator", anchor: token.range)
+        state.diags.append(Diag("unexpected ',' separator", anchor: token.range))
         state.hasError = true
       } else {
-        context.report("expected '\(delimiters.right)' delimiter", anchor: state.errorRange())
+        state.diags.append(Diag(
+          "expected '\(delimiters.right)' delimiter", anchor: state.errorRange()))
         state.hasError = true
       }
 
@@ -2485,22 +2518,15 @@ public struct Parser {
   ///   - state: The parser's state.
   ///   - action: A closure that performs some action with the parser's state.
   private func attempt<T>(state: inout State, _ action: (inout State) -> AttemptResult<T>) -> T? {
-    // Save the current parser state and configure the context to store all diagnostics.
+    // Save the current parser state.
     let backup = state.save()
-    let oldConsumer = context.diagConsumer
-    let saver = DiagSaver()
-    context.diagConsumer = saver
 
     switch action(&state) {
     case .success(let result):
-      // If the action succeeds, report all saved diagnostics and forward the result.
-      context.diagConsumer = oldConsumer
-      saver.diags.forEach(context.report(_:))
       return result
 
     case .failure:
-      // Otherwise, ignore all saved diagnostics and restore the parser state.
-      context.diagConsumer = oldConsumer
+      // If the action failed, restore the saved state.
       state.restore(backup)
       return nil
     }
@@ -2624,17 +2650,6 @@ fileprivate struct ParseError: Error {
   }
 
   public let diag: Diag
-
-}
-
-/// A diagnostic consumer that saves all diagnostics.
-fileprivate final class DiagSaver: DiagConsumer {
-
-  var diags: [Diag] = []
-
-  func consume(_ diagnostic: Diag) {
-    diags.append(diagnostic)
-  }
 
 }
 

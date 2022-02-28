@@ -22,7 +22,7 @@ struct DeclChecker: DeclVisitor {
     // Check that the imported module belongs to the current module's dependencies.
     let module = node.parentDeclSpace!.rootDeclSpace
     if !module.dependencies.contains(where: { $0.name == node.name }) {
-      module.type.context.report(.cannotFind(module: node.name, range: node.range))
+      DiagDispatcher.instance.report(.cannotFind(module: node.name, range: node.range))
       return false
     }
 
@@ -33,10 +33,8 @@ struct DeclChecker: DeclVisitor {
     guard isTypeCheckRequired(node) else { return node.state == .typeChecked }
     node.setState(.typeCheckRequested)
 
-    let useSite = node.parentDeclSpace!
-    let context = useSite.rootDeclSpace.type.context
-
     // Create a new constraint system to infer the pattern's type.
+    let useSite = node.parentDeclSpace!
     var system = ConstraintSystem()
     var success = true
 
@@ -53,7 +51,7 @@ struct DeclChecker: DeclVisitor {
 
       // If the signature contains opened generic parameter, require an initializer to infer them.
       guard !signType[.hasVariables] || node.initializer != nil else {
-        context.report(
+        DiagDispatcher.instance.report(
           .referenceToGenericTypeRequiresArguments(type: signType, range: node.pattern.range))
         setInvalid(pbd: node)
         return false
@@ -79,7 +77,7 @@ struct DeclChecker: DeclVisitor {
       success = didSucceed
     } else {
       // Unannotated declarations require an initializer.
-      context.report(.missingPatternInitializer(range: node.pattern.range))
+      DiagDispatcher.instance.report(.missingPatternInitializer(range: node.pattern.range))
       setInvalid(pbd: node)
       return false
     }
@@ -222,7 +220,7 @@ struct DeclChecker: DeclVisitor {
       for case let req as AbstractTypeDecl in view.decl.typeMemberTable.values {
         // Look for a declaration in the type member table that shadows the abstract requirement.
         guard let member = node.typeMemberTable[req.name] else {
-          context.report(
+          DiagDispatcher.instance.report(
             .conformanceRequiresMatchingImplementation(
               view: view.decl.name,
               requirement: req.name,
@@ -295,7 +293,7 @@ struct DeclChecker: DeclVisitor {
           if candidates.count == 1 {
             node.conformanceTable[view]!.entries.append((req, candidates[0]))
           } else {
-            context.report(
+            DiagDispatcher.instance.report(
               .conformanceRequiresMatchingImplementation(
                 view: view.decl.name,
                 requirement: req.name,
@@ -455,8 +453,7 @@ struct DeclChecker: DeclVisitor {
 
     case .typeCheckRequested:
       // Type checking was requested on the same path.
-      let context = node.parentDeclSpace!.rootDeclSpace.type.context
-      context.report(Diag("circular dependency detected", anchor: node.range))
+      DiagDispatcher.instance.report(Diag("circular dependency detected", anchor: node.range))
       node.setState(.invalid)
       return false
 

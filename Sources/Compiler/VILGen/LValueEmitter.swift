@@ -73,11 +73,11 @@ struct LValueEmitter: ExprVisitor {
 
     if sourceType == targetType {
       // Same type conversion always succeeds.
-      module.context.report(
+      DiagDispatcher.instance.report(
         .castAlwaysSucceeds(from: node.value.type, to: node.type, range: node.range))
     } else if targetType is FunType {
       // Runtime conversion of function types always fails.
-      module.context.report(.runtimeFunctionTypeConversion(range: node.range))
+      DiagDispatcher.instance.report(.runtimeFunctionTypeConversion(range: node.range))
       module.insertFail(range: node.range, at: state.ip)
       converted = Operand(PoisonValue(type: .lower(targetType).address))
     } else if sourceType.isExistential && !targetType.isExistential {

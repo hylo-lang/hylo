@@ -171,9 +171,11 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
 
     guard !matches.isEmpty else {
       if forwardDecl != nil {
-        context.report(.useOfLocalBindingBeforeDeclaration(symbol: node.name, range: node.range))
+        DiagDispatcher.instance.report(
+          .useOfLocalBindingBeforeDeclaration(symbol: node.name, range: node.range))
       } else {
-        context.report(.cannotFind(symbol: node.name, range: node.range))
+        DiagDispatcher.instance.report(
+          .cannotFind(symbol: node.name, range: node.range))
       }
       return ErrorExpr(type: context.errorType, range: node.range)
     }
@@ -201,7 +203,7 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
     // Handle built-ins.
     if baseType === context.builtin.instanceType {
       guard let decl = context.getBuiltinDecl(for: node.name) else {
-        context.report(.cannotFind(builtin: node.name, range: node.ident.range))
+        DiagDispatcher.instance.report(.cannotFind(builtin: node.name, range: node.ident.range))
         return ErrorExpr(type: context.errorType, range: node.ident.range)
       }
 
@@ -212,7 +214,8 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
     // Run a qualified lookup if the namespace resolved to a nominal type.
     let matches = baseType.lookup(member: node.name)
     guard !matches.isEmpty else {
-      context.report(.cannotFind(member: node.name, in: baseType, range: node.ident.range))
+      DiagDispatcher.instance.report(
+        .cannotFind(member: node.name, in: baseType, range: node.ident.range))
       return ErrorExpr(type: context.errorType, range: node.ident.range)
     }
 
@@ -323,7 +326,7 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
       // If the match is a sub-expression, make sure that its cases are single expressions.
       guard !node.isSubexpr || (`case`.body.stmts.count == 1) && (`case`.body.stmts[0] is Expr)
       else {
-        context.report(.multipleStatementInMatchExpression(range: `case`.range))
+        DiagDispatcher.instance.report(.multipleStatementInMatchExpression(range: `case`.range))
         return ErrorExpr(type: context.errorType, range: node.range)
       }
       driver.walk(stmt: `case`.body)
@@ -358,7 +361,8 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
     // Search for a constructor declaration
     let matches = (call.fun as! TypeDeclRefExpr).decl.instanceType.lookup(member: "new")
     guard !matches.values.isEmpty else {
-      context.report(.cannotFind(member: "new", in: call.fun.type, range: call.fun.range))
+      DiagDispatcher.instance.report(
+        .cannotFind(member: "new", in: call.fun.type, range: call.fun.range))
       return newCall(newFunExpr: ErrorExpr(type: context.errorType, range: call.fun.range))
     }
 

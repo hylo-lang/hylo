@@ -17,7 +17,9 @@ final class ValTests: XCTestCase {
       let checker = DiagChecker(context: driver.compiler)
       checker.insert(annotations: parser.annotations)
 
-      driver.compiler.diagConsumer = checker
+      let handle = DiagDispatcher.instance.register(consumer: checker)
+      defer { DiagDispatcher.instance.unregister(consumer: handle) }
+
       let moduleName = url.deletingPathExtension().lastPathComponent
       let moduleDecl = try driver.parse(moduleName: moduleName, moduleFiles: [url])
       driver.typeCheck(moduleDecl: moduleDecl)
@@ -40,7 +42,9 @@ final class ValTests: XCTestCase {
       let checker = DiagChecker(context: driver.compiler)
       checker.insert(annotations: parser.annotations)
 
-      driver.compiler.diagConsumer = checker
+      let handle = DiagDispatcher.instance.register(consumer: checker)
+      defer { DiagDispatcher.instance.unregister(consumer: handle) }
+
       let moduleName = url.deletingPathExtension().lastPathComponent
       let moduleDecl = try driver.parse(moduleName: moduleName, moduleFiles: [url])
       driver.typeCheck(moduleDecl: moduleDecl)

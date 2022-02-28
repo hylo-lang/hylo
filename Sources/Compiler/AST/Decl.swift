@@ -959,7 +959,8 @@ public class GenericTypeDecl: BaseGenericDecl, TypeDecl {
       case let decl as TypeDecl:
         // Check for invalid redeclarations.
         guard _typeMemberTable[decl.name] == nil else {
-          type.context.report(.duplicateDeclaration(symbol: decl.name, range: decl.range))
+          DiagDispatcher.instance.report(
+            .duplicateDeclaration(symbol: decl.name, range: decl.range))
           decl.setState(.invalid)
           continue
         }
@@ -1321,7 +1322,8 @@ public final class AliasTypeDecl: GenericTypeDecl {
     // If the declaration denotes a synonym, complain if it declares additional conformances. These
     // should be expressed with an extension of the aliased type.
     if !inheritances.isEmpty && (aliasedType is NominalType) {
-      context.report(.newConformanceOnNominalTypeAlias(range: inheritances[0].range))
+      DiagDispatcher.instance.report(
+        .newConformanceOnNominalTypeAlias(range: inheritances[0].range))
     }
 
     return type as! KindType
@@ -1475,7 +1477,7 @@ public final class TypeExtnDecl: Decl, DeclSpace {
     }
 
     guard let decl = (type as? NominalType)?.decl else {
-      type.context.report(.nonNominalExtension(type, range: extendedIdent.range))
+      DiagDispatcher.instance.report(.nonNominalExtension(type, range: extendedIdent.range))
       state = .invalid
       return nil
     }

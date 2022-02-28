@@ -63,11 +63,11 @@ struct TRSolver {
         continue
 
       case .inequal:
-        lhs.context.report(.conflictingEqualityRequirement(range: req.range))
+        DiagDispatcher.instance.report(.conflictingEqualityRequirement(range: req.range))
         success = false
 
       case .recursive:
-        lhs.context.report(.recursiveEqualityRequirement(range: req.range))
+        DiagDispatcher.instance.report(.recursiveEqualityRequirement(range: req.range))
         success = false
       }
     }

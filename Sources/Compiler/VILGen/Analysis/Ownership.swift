@@ -1171,9 +1171,9 @@ public struct OwnershipAnalysis {
 
   private func report(error: Error, range: SourceRange?) {
     if let error = error as? OwnershipError {
-      module.context.report(error.diag(anchor: range))
+      DiagDispatcher.instance.report(error.diag(anchor: range))
     } else {
-      module.context.report(Diag(error.localizedDescription, anchor: range))
+      DiagDispatcher.instance.report(Diag(error.localizedDescription, anchor: range))
     }
   }
 

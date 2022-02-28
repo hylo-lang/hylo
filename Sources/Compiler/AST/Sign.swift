@@ -180,7 +180,7 @@ public final class AsyncSign: Sign {
   public func realize(unqualifiedFrom useSite: DeclSpace) -> ValType {
     let baseType = base.realize(unqualifiedFrom: useSite)
     if baseType is AsyncType {
-      baseType.context.report(.superfluousTypeModifier(range: modifierRange))
+      DiagDispatcher.instance.report(.superfluousTypeModifier(range: modifierRange))
     }
 
     type = baseType.context.asyncType(of: baseType)
@@ -253,7 +253,7 @@ public final class ViewCompSign: Sign {
         return context.errorType
 
       case let t:
-        context.report(.nonViewTypeInViewComposition(type: t, range: sign.range))
+        DiagDispatcher.instance.report(.nonViewTypeInViewComposition(type: t, range: sign.range))
         type = context.errorType
         return context.errorType
       }
@@ -438,7 +438,7 @@ extension IdentCompSign {
   }
 
   private func fail(_ diag: Diag) -> ValType {
-    type.context.report(diag)
+    DiagDispatcher.instance.report(diag)
     type = type.context.errorType
     return type
   }
@@ -500,14 +500,15 @@ public final class SpecializedIdentSign: IdentCompSign {
 
     // Make sure the type denoted by the base declaration is in fact generic.
     guard let clause = baseDecl.genericClause else {
-      context.report(.cannotSpecializeNonGenericType(type: baseDecl.instanceType, range: range))
+      DiagDispatcher.instance.report(
+        .cannotSpecializeNonGenericType(type: baseDecl.instanceType, range: range))
       type = context.errorType
       return
     }
 
     // Make sure we didn't get too many arguments.
     guard clause.params.count >= args.count else {
-      context.report(
+      DiagDispatcher.instance.report(
         .tooManyGenericArguments(
           type: baseDecl.instanceType,
           got: args.count,
@@ -574,14 +575,16 @@ public final class CompoundIdentSign: IdentSign {
     if baseType === context.builtin.instanceType {
       // Built-in symbols are not namespaces.
       guard components.count == 2 else {
-        context.report(.builtinTypesAreNotNamespaces(range: components[1].range))
+        DiagDispatcher.instance.report(
+          .builtinTypesAreNotNamespaces(range: components[1].range))
         components[2...].forEach({ $0.type = context.errorType })
         return context.errorType
       }
 
       // Search for the built-in symbol.
       guard let builtinType = context.getBuiltinType(named: components[1].name) else {
-        context.report(.cannotFind(builtin: components[1].name, range: components[1].range))
+        DiagDispatcher.instance.report(
+          .cannotFind(builtin: components[1].name, range: components[1].range))
         components[2...].forEach({ $0.type = context.errorType })
         return context.errorType
       }

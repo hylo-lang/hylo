@@ -153,29 +153,29 @@ struct Solution {
 
       // Report the diagnostic.
       let anchor = constraint.locator.resolve()
-      context.report(Diag(message, anchor: anchor.range))
+      DiagDispatcher.instance.report(Diag(message, anchor: anchor.range))
 
     case .nonConformingType(let constraint):
       let lhs = describe(reify(constraint.lhs, substPolicy: .keep))
       let rhs = describe(reify(constraint.rhs, substPolicy: .keep))
 
       let anchor = constraint.locator.resolve()
-      context.report(
+      DiagDispatcher.instance.report(
         Diag("type \(lhs) does not conform to view \(rhs)", anchor: anchor.range))
 
     case .noViableOverload(let constraint):
       let message = "no viable overload to resolve '\(constraint.declSet[0].name)'"
       let anchor = constraint.locator.resolve()
-      context.report(Diag(message, anchor: anchor.range))
+      DiagDispatcher.instance.report(Diag(message, anchor: anchor.range))
 
     case .multipleOverloads(let constraint, let decls):
       let message = "ambiguous use of '\(decls[0].name)'"
       let anchor = constraint.locator.resolve()
-      context.report(Diag(message, anchor: anchor.range))
+      DiagDispatcher.instance.report(Diag(message, anchor: anchor.range))
 
     default:
       let anchor = error.constraint.locator.resolve()
-      context.report(Diag(String(describing: error), anchor: anchor.range))
+      DiagDispatcher.instance.report(Diag(String(describing: error), anchor: anchor.range))
     }
   }
 
