@@ -1,5 +1,3 @@
-import Basic
-
 /// A thread managed by the virtual machine (a.k.a. a green thread).
 struct VirtualThread {
 

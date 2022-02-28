@@ -1,4 +1,4 @@
-import Basic
+import Compiler
 
 struct DiagPattern {
 

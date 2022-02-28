@@ -1,4 +1,4 @@
-import VIL
+import Compiler
 
 /// A "thick" function, pairing a (potentially thick) function with a pointer to its environment.
 struct ThickFunction {

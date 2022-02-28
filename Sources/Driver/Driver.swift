@@ -1,31 +1,25 @@
 import Foundation
-
-@_exported import AST
-@_exported import Basic
-import Parse
-import Sema
 import ValLibrary
-import VIL
+
+@_exported import Compiler
+@_exported import Utils
 
 /// A helper to manage the compilation of Val source files.
 public struct Driver {
 
-  /// The AST context.
-  ///
-  /// The context is the central repository for long-lived objects (e.g., types and declarations)
-  /// created throughout the compilation process.
-  public let context: AST.Context
+  /// The compiler instance.
+  public let compiler: Compiler
 
   /// The home path for Val's runtime and standard library.
   public var home: URL
 
-  /// Creates a new driver.
+  /// Creates a new driver with the specified compiler instance.
   ///
   /// - Parameters:
-  ///   - context: An AST context.
+  ///   - compiler: A compiler instance.
   ///   - home: The root URL of Val's runtime environment.
-  public init(context: Context = Context(), home: URL? = nil) {
-    self.context = context
+  public init(compiler: Compiler = Compiler(), home: URL? = nil) {
+    self.compiler = compiler
 
     // Set the home path.
     if let h = home {
@@ -54,27 +48,26 @@ public struct Driver {
   public func parse(
     moduleName: String, moduleFiles: [URL], isStdlib: Bool = false
   ) throws -> ModuleDecl {
-    guard context.modules[moduleName] == nil else {
+    guard compiler.modules[moduleName] == nil else {
       throw DriverError.moduleAlreadyLoaded(moduleName: moduleName)
     }
 
     // Create a module.
-    let module = ModuleDecl(name: moduleName, generation: context.generation, context: context)
-    context.modules[moduleName] = module
+    let module = ModuleDecl(name: moduleName, generation: compiler.generation, context: compiler)
+    compiler.modules[moduleName] = module
 
-    if let stdlib = context.stdlib {
+    if let stdlib = compiler.stdlib {
       // All modules but the standard library implicitly depend on the standard library.
       precondition(!isStdlib, "standard library is already loaded")
       module.dependencies = [stdlib]
     } else if isStdlib {
-      context.stdlib = module
+      compiler.stdlib = module
     }
 
     // Parse the module's files.
     for url in moduleFiles {
-      let source = try context.sourceManager.load(contentsOf: url)
-      let parser = Parser(context: context)
-      let (unit, hasError) = parser.parse(source: source)
+      let parser = Parser(context: compiler)
+      let (unit, hasError) = try parser.parse(contentsOf: url)
 
       module.units.append(unit)
       unit.parentDeclSpace = module
@@ -120,13 +113,12 @@ public struct Driver {
   ///   been loaded into the driver's context.
   @discardableResult
   public func typeCheck(moduleDecl: ModuleDecl) -> Bool {
-    assert(context.modules.values.contains(moduleDecl))
+    assert(compiler.modules.values.contains(moduleDecl))
 
-    context.isCompilingStdlib = (moduleDecl === context.stdlib)
-    TypeChecker.initialize(in: context)
+    compiler.isCompilingStdlib = (moduleDecl === compiler.stdlib)
     let result = TypeChecker.check(decl: moduleDecl)
 
-    context.generation += 1
+    compiler.generation += 1
     return result
   }
 
@@ -136,7 +128,7 @@ public struct Driver {
   ///   loaded into the driver's context.
   @discardableResult
   public func typeCheck(moduleName: String) throws -> Bool {
-    guard let moduleDecl = context.modules[moduleName] else {
+    guard let moduleDecl = compiler.modules[moduleName] else {
       throw DriverError.moduleNotFound(moduleName: moduleName)
     }
     return typeCheck(moduleDecl: moduleDecl)
@@ -147,7 +139,7 @@ public struct Driver {
   /// - Parameter moduleDecl: The declaration of the module to lower. `moduleDecl` must have been
   ///   loaded into the driver's context.
   public func lower(moduleDecl: ModuleDecl) throws -> Module {
-    assert(context.modules.values.contains(moduleDecl))
+    assert(compiler.modules.values.contains(moduleDecl))
     guard moduleDecl.state == .typeChecked else {
       throw DriverError.moduleNotTypeChecked(moduleName: moduleDecl.name)
     }
@@ -157,7 +149,7 @@ public struct Driver {
 
     // Run VIL analysis passes.
     var lifetime = LifetimeAnalyis()
-    var ownership = OwnershipAnalysis(context: context)
+    var ownership = OwnershipAnalysis(context: compiler)
     for funName in module.functions.keys {
       lifetime.run(on: funName, in: &module)
       guard ownership.run(on: funName, in: &module) else {

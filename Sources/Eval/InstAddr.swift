@@ -1,4 +1,4 @@
-import VIL
+import Compiler
 
 typealias InstAddr = (moduleID: String, block: BasicBlockIndex, offset: Int)?
 

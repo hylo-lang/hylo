@@ -1,5 +1,3 @@
-import VIL
-
 /// An existential container.
 struct ExistentialContainer {
 

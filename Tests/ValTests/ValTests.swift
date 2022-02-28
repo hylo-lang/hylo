@@ -1,5 +1,4 @@
 import XCTest
-
 import Driver
 import Eval
 
@@ -12,14 +11,15 @@ final class ValTests: XCTestCase {
 
     for url in urls {
       let driver = Driver()
-      let source = try driver.context.sourceManager.load(contentsOf: url)
-      var parser = TestAnnotationParser()
-      parser.scan(source)
+      var parser = TestSpecParser()
+      try parser.scan(contentsOf: url)
 
-      let checker = DiagChecker(context: driver.context)
+      let checker = DiagChecker(context: driver.compiler)
       checker.insert(annotations: parser.annotations)
 
-      driver.context.diagConsumer = checker
+      let handle = DiagDispatcher.instance.register(consumer: checker)
+      defer { DiagDispatcher.instance.unregister(consumer: handle) }
+
       let moduleName = url.deletingPathExtension().lastPathComponent
       let moduleDecl = try driver.parse(moduleName: moduleName, moduleFiles: [url])
       driver.typeCheck(moduleDecl: moduleDecl)
@@ -36,14 +36,15 @@ final class ValTests: XCTestCase {
     for url in urls {
       let driver = Driver()
       try driver.loadStdlib()
-      let source = try driver.context.sourceManager.load(contentsOf: url)
-      var parser = TestAnnotationParser()
-      parser.scan(source)
+      var parser = TestSpecParser()
+      try parser.scan(contentsOf: url)
 
-      let checker = DiagChecker(context: driver.context)
+      let checker = DiagChecker(context: driver.compiler)
       checker.insert(annotations: parser.annotations)
 
-      driver.context.diagConsumer = checker
+      let handle = DiagDispatcher.instance.register(consumer: checker)
+      defer { DiagDispatcher.instance.unregister(consumer: handle) }
+
       let moduleName = url.deletingPathExtension().lastPathComponent
       let moduleDecl = try driver.parse(moduleName: moduleName, moduleFiles: [url])
       driver.typeCheck(moduleDecl: moduleDecl)
@@ -64,16 +65,15 @@ final class ValTests: XCTestCase {
     for url in urls {
       let driver = Driver()
       try driver.loadStdlib()
-      let source = try driver.context.sourceManager.load(contentsOf: url)
-      var parser = TestAnnotationParser()
-      parser.scan(source)
+      var parser = TestSpecParser()
+      try parser.scan(contentsOf: url)
 
       let moduleName = url.deletingPathExtension().lastPathComponent
       let moduleDecl = try driver.parse(moduleName: moduleName, moduleFiles: [url])
       driver.typeCheck(moduleDecl: moduleDecl)
 
       var interpreter = Interpreter()
-      try interpreter.load(module: driver.lower(moduleDecl: driver.context.stdlib!))
+      try interpreter.load(module: driver.lower(moduleDecl: driver.compiler.stdlib!))
       try interpreter.load(module: driver.lower(moduleDecl: moduleDecl))
 
       XCTAssertEqual(interpreter.start(), 42)

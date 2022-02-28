@@ -1,5 +1,4 @@
-import AST
-import VIL
+import Compiler
 
 /// A data structure that supplies information about the layout of a type at runtime.
 struct DataLayout {
