@@ -226,13 +226,13 @@ public enum TypeChecker {
       for (varDecl, paramDecl) in zip(typeDecl.storedVars, ctorDecl.params) {
         // Type check the variable declaration.
         guard check(decl: varDecl) else {
-          ctorDecl.setState(.invalid)
+          ctorDecl.state = .invalid
           return decl.type.context.errorType
         }
 
         // Assign the type of the declaration to its corresponding parameter.
         paramDecl.type = decl.type.context.funParamType(policy: .consuming, rawType: varDecl.type)
-        paramDecl.setState(.typeChecked)
+        paramDecl.state = .typeChecked
       }
 
       // Once all parameters have been attributed a proper type, the constructor can be realized.

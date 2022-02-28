@@ -7,13 +7,7 @@ public protocol Decl: Node {
   var parentDeclSpace: DeclSpace? { get }
 
   /// The (semantic) state of the declaration.
-  var state: DeclState { get }
-
-  /// Sets the state of this declaration.
-  ///
-  /// - Parameter newState: The new state of the declaration. `newState` must be a valid successor
-  ///   of the declaration's current state.
-  func setState(_ newState: DeclState)
+  var state: DeclState { get set }
 
   /// Accepts the given visitor.
   ///
@@ -111,18 +105,15 @@ public final class ImportDecl: Decl {
 
   public weak var parentDeclSpace: DeclSpace?
 
-  public var state = DeclState.parsed
+  public var state = DeclState.parsed {
+    willSet { assert(newValue >= state) }
+  }
 
   /// The name of the module being imported.
   public var name: String
 
   public init(name: String) {
     self.name = name
-  }
-
-  public func setState(_ newState: DeclState) {
-    assert(newState >= state)
-    state = newState
   }
 
   public func accept<V>(_ visitor: inout V) -> V.DeclResult where V: DeclVisitor {
@@ -139,7 +130,9 @@ public final class PatternBindingDecl: Decl {
 
   public weak var parentDeclSpace: DeclSpace?
 
-  public var state = DeclState.parsed
+  public var state = DeclState.parsed {
+    willSet { assert(newValue >= state) }
+  }
 
   /// The declaration modifiers of the declaration.
   ///
@@ -186,11 +179,6 @@ public final class PatternBindingDecl: Decl {
     return (parentDeclSpace is NominalTypeDecl || parentDeclSpace is ExtensionDecl)
   }
 
-  public func setState(_ newState: DeclState) {
-    assert(newState >= state)
-    state = newState
-  }
-
   public func accept<V>(_ visitor: inout V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
@@ -209,7 +197,9 @@ public final class VarDecl: ValueDecl {
 
   public weak var parentDeclSpace: DeclSpace?
 
-  public var state = DeclState.parsed
+  public var state = DeclState.parsed {
+    willSet { assert(newValue >= state) }
+  }
 
   public var type: ValType
 
@@ -242,11 +232,6 @@ public final class VarDecl: ValueDecl {
 
   public var isMember: Bool { patternBindingDecl?.isMember ?? false }
 
-  public func setState(_ newState: DeclState) {
-    assert(newState >= state)
-    state = newState
-  }
-
   public func accept<V>(_ visitor: inout V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
@@ -271,7 +256,9 @@ public class BaseGenericDecl: GenericDeclSpace {
   public var genericEnv: GenericEnv?
 
   /// The (semantic) state of the declaration.
-  public private(set) var state: DeclState
+  public var state: DeclState {
+    willSet { assert(newValue >= state) }
+  }
 
   /// The semantic type of the declaration, outside of its generic context.
   public var type: ValType
@@ -296,7 +283,7 @@ public class BaseGenericDecl: GenericDeclSpace {
         typeReqs: clause.typeReqs,
         context: type.context)
       guard genericEnv != nil else {
-        setState(.invalid)
+        state = .invalid
         return nil
       }
     } else {
@@ -304,15 +291,6 @@ public class BaseGenericDecl: GenericDeclSpace {
     }
 
     return genericEnv
-  }
-
-  /// Sets the state of this declaration.
-  ///
-  /// - Parameter newState: The new state of the declaration. `newState` must be a valid successor
-  ///   of the declaration's current state.
-  public func setState(_ newState: DeclState) {
-    assert(newState >= state)
-    state = newState
   }
 
   public func lookup(qualified name: String) -> LookupResult {
@@ -488,7 +466,7 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
       // The function is declared in the body of a type extension.
       guard let typeDecl = extnDecl.extendedDecl else {
         let decl = FunParamDecl(name: "self", policy: .local, type: type.context.errorType)
-        decl.setState(.invalid)
+        state = .invalid
         return decl
       }
       selfType = typeDecl.receiverType
@@ -499,7 +477,7 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
 
     let decl = FunParamDecl(name: "self", policy: isMutating ? .inout : .local, type: selfType)
     decl.parentDeclSpace = self
-    decl.setState(.typeChecked)
+    decl.state = .typeChecked
     return decl
   }()
 
@@ -574,10 +552,14 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
 
   // MARK: Semantic properties
 
-  public override func setState(_ newState: DeclState) {
-    assert((newState != .typeCheckRequested) || (state >= .realized),
-           "type checking requested before the function signature was realized")
-    super.setState(newState)
+  public override var state: DeclState {
+    get { super.state }
+    set {
+      assert(
+        (newValue != .typeCheckRequested) || (state >= .realized),
+        "type checking requested before the function signature was realized")
+      super.state = newValue
+    }
   }
 
   /// The "unapplied" type of the function.
@@ -626,7 +608,7 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
     }
 
     type = type.context.funType(params: params, retType: retType)
-    setState(.realized)
+    state = .realized
     return type
   }
 
@@ -669,7 +651,7 @@ public final class CtorDecl: BaseFunDecl {
     }
 
     type = type.context.funType(params: params, retType: selfDecl!.type)
-    setState(.realized)
+    state = .realized
     return type
   }
 
@@ -686,7 +668,9 @@ public final class CaptureDecl: ValueDecl {
 
   public weak var parentDeclSpace: DeclSpace?
 
-  public var state = DeclState.parsed
+  public var state = DeclState.parsed {
+    willSet { assert(newValue >= state) }
+  }
 
   public var type: ValType
 
@@ -719,11 +703,6 @@ public final class CaptureDecl: ValueDecl {
 
   public var isOverloadable: Bool { false }
 
-  public func setState(_ newState: DeclState) {
-    assert(newState >= state)
-    state = newState
-  }
-
   public func accept<V>(_ visitor: inout V) -> V.DeclResult where V : DeclVisitor {
     return visitor.visit(self)
   }
@@ -737,7 +716,9 @@ public final class FunParamDecl: ValueDecl {
 
   public weak var parentDeclSpace: DeclSpace?
 
-  public var state = DeclState.parsed
+  public var state = DeclState.parsed {
+    willSet { assert(newValue >= state) }
+  }
 
   public var type: ValType
 
@@ -781,13 +762,8 @@ public final class FunParamDecl: ValueDecl {
       preconditionFailure("cannot realize parameter declaration without a parameter signature")
     }
 
-    setState(.realized)
+    state = .realized
     return type
-  }
-
-  public func setState(_ newState: DeclState) {
-    assert(newState >= state)
-    state = newState
   }
 
   public func accept<V>(_ visitor: inout V) -> V.DeclResult where V: DeclVisitor {
@@ -961,7 +937,7 @@ public class GenericTypeDecl: BaseGenericDecl, TypeDecl {
         guard _typeMemberTable[decl.name] == nil else {
           DiagDispatcher.instance.report(
             .duplicateDeclaration(symbol: decl.name, range: decl.range))
-          decl.setState(.invalid)
+          decl.state = .invalid
           continue
         }
         _typeMemberTable[decl.name] = decl
@@ -1192,7 +1168,7 @@ public final class ViewTypeDecl: NominalTypeDecl {
 
     selfTypeDecl.parentDeclSpace = self
     selfTypeDecl.type = type.context.genericParamType(decl: selfTypeDecl).kind
-    selfTypeDecl.setState(.typeChecked)
+    selfTypeDecl.state = .typeChecked
   }
 
   /// The uncontextualized type of a reference to `self` within the context of this type.
@@ -1303,16 +1279,16 @@ public final class AliasTypeDecl: GenericTypeDecl {
   /// Realizes the semantic type of the declaration.
   public func realize() -> KindType {
     guard state < .realized else { return type as! KindType }
-    setState(.realizationRequested)
+    state = .realizationRequested
 
     // Realize the aliased signature.
     let context = type.context
     let aliasedType = aliasedSign.realize(unqualifiedFrom: self)
-    setState(.realized)
+    state = .realized
     type = context.aliasType(decl: self).kind
 
     guard !aliasedType[.hasErrors] else {
-      setState(.invalid)
+      state = .invalid
       return type as! KindType
     }
 
@@ -1388,11 +1364,6 @@ public class GenericParamDecl: TypeDecl {
 
   public final var isOverloadable: Bool { false }
 
-  public final func setState(_ newState: DeclState) {
-    assert(newState >= state)
-    state = newState
-  }
-
   public func accept<V>(_ visitor: inout V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
@@ -1455,11 +1426,8 @@ public final class ExtensionDecl: Decl, DeclSpace {
 
   // MARK: Semantic properties
 
-  public private(set) var state = DeclState.parsed
-
-  public func setState(_ newState: DeclState) {
-    assert(newState >= state)
-    state = newState
+  public var state = DeclState.parsed {
+    willSet { assert(newValue >= state) }
   }
 
   /// The declaration of the extended type.
@@ -1483,7 +1451,6 @@ public final class ExtensionDecl: Decl, DeclSpace {
     }
 
     parentDeclSpace = decl
-    state = .realized
     return decl
   }
 
@@ -1523,11 +1490,8 @@ public final class NamespaceDecl: TypeDecl, IterableDeclSpace {
 
   // MARK: Semantic properties
 
-  public private(set) var state = DeclState.parsed
-
-  public func setState(_ newState: DeclState) {
-    assert(newState >= state)
-    state = newState
+  public var state = DeclState.parsed {
+    willSet { assert(newValue >= state) }
   }
 
   public func accept<V>(_ visitor: inout V) -> V.DeclResult where V : DeclVisitor {

@@ -280,7 +280,7 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
     if let sign = node.body.retSign {
       let retType = sign.realize(unqualifiedFrom: useSite!)
       node.body.type = node.type.context.funType(params: [], retType: retType)
-      node.body.setState(.realized)
+      node.body.state = .realized
     }
 
     return node

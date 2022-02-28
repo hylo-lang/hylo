@@ -55,7 +55,7 @@ struct TypeDispatcher: NodeWalker {
     if let decl = (pattern as? NamedPattern)?.decl {
       if decl.state < .typeChecked {
         decl.type = pattern.type.uncontextualized
-        decl.setState(.typeChecked)
+        decl.state = .typeChecked
       }
       assert(!decl.type.isUnresolved)
     }

@@ -231,7 +231,7 @@ public final class Compiler {
       // Create the declaration of the parameter.
       let decl = FunParamDecl(name: "_\(i)", policy: .consuming, type: funTypeParams.last!.type)
       decl.parentDeclSpace = funDecl
-      decl.setState(.typeChecked)
+      decl.state = .typeChecked
 
       funDecl.params.append(decl)
     }
@@ -240,7 +240,7 @@ public final class Compiler {
     funDecl.type = funType(
       params: funTypeParams,
       retType: ret.isEmpty ? unitType : parse(typeNamed: ret[ret.startIndex...]))
-    funDecl.setState(.typeChecked)
+    funDecl.state = .typeChecked
 
     return funDecl
   }

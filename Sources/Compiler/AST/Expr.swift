@@ -607,7 +607,7 @@ public final class LambdaExpr: Expr {
         rawType = sign.realize(unqualifiedFrom: decl)
       } else {
         rawType = TypeVar(context: type.context, node: param)
-        param.setState(.realized)
+        param.state = .realized
       }
 
       param.type = type.context.funParamType(policy: param.policy, rawType: rawType)
@@ -618,7 +618,7 @@ public final class LambdaExpr: Expr {
     let retType = decl.retSign?.realize(unqualifiedFrom: decl) ?? TypeVar(context: type.context)
 
     decl.type = type.context.funType(params: params, retType: retType)
-    decl.setState(.realized)
+    decl.state = .realized
     return decl.type
   }
 

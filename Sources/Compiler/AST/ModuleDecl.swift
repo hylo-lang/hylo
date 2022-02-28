@@ -8,7 +8,9 @@
 /// entities.
 public final class ModuleDecl {
 
-  public private(set) var state = DeclState.realized
+  public var state = DeclState.realized {
+    willSet { assert(newValue >= state) }
+  }
 
   public var name: String
 
@@ -33,11 +35,6 @@ public final class ModuleDecl {
   public var parentDeclSpace: DeclSpace? {
     get { nil }
     set { precondition(newValue == nil) }
-  }
-
-  public func setState(_ newState: DeclState) {
-    assert(newState.rawValue >= state.rawValue)
-    state = newState
   }
 
   /// Returns the extensions of the given type declaration.

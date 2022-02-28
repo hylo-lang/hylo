@@ -72,7 +72,7 @@ public struct Driver {
       module.units.append(unit)
       unit.parentDeclSpace = module
       if hasError {
-        module.setState(.invalid)
+        module.state = .invalid
       }
     }
 

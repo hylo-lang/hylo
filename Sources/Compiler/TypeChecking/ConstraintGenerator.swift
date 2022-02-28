@@ -277,7 +277,7 @@ struct ConstraintGenerator: NodeWalker {
     } else if node.decl.retSign == nil {
       DiagDispatcher.instance.report(.complexReturnTypeInference(range: node.range))
       node.decl.type = node.type.context.errorType
-      node.decl.setState(.invalid)
+      node.decl.state = .invalid
       node.type = node.type.context.errorType
       hasErrors = true
     }
@@ -297,7 +297,7 @@ struct ConstraintGenerator: NodeWalker {
       if let type = fixedBareType, !type[.hasVariables] {
         // We have a concrete fixed type, we can use it to select `T`.
         node.body.type = context.funType(params: [], retType: type)
-        node.body.setState(.realized)
+        node.body.state = .realized
       } else if var expr = node.body.singleExprBody {
         // The function is expression-bodied, so we can infer `T` as the type of a sub-expression.
         // FIXME: This is a little hacky.
@@ -308,12 +308,12 @@ struct ConstraintGenerator: NodeWalker {
           useSite: node.body.body!,
           freeTypeVarSubstPolicy: .bindToError)
         node.body.type = context.funType(params: [], retType: expr.type)
-        node.body.setState(.realized)
+        node.body.state = .realized
       } else {
         // Complain that we can't infer `T` over multiple statements.
         DiagDispatcher.instance.report(.complexReturnTypeInference(range: node.range))
         node.body.type = context.errorType
-        node.body.setState(.invalid)
+        node.body.state = .invalid
         node.type = context.errorType
         hasErrors = true
         return true
