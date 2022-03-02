@@ -1,7 +1,7 @@
 import XCTest
 import Compiler
 
-final class DiagChecker: DiagConsumer {
+struct DiagChecker: DiagConsumer {
 
   /// The AST context in which modules are being compiled.
   unowned let context: Compiler
@@ -17,15 +17,18 @@ final class DiagChecker: DiagConsumer {
 
   init(
     context: Compiler,
+    annotations: [TestSpec.Loc: [TestSpec]],
     xcFile: StaticString = #file,
     xcLine: UInt = #line
   ) {
     self.context = context
     self.xcFile = xcFile
     self.xcLine = xcLine
+
+    insert(annotations: annotations)
   }
 
-  func insert(annotations: [TestSpec.Loc: [TestSpec]]) {
+  mutating func insert(annotations: [TestSpec.Loc: [TestSpec]]) {
     for (loc, annotations) in annotations {
       diagnostics[loc, default: []].append(contentsOf: annotations.compactMap({ a in
         switch a {
@@ -36,7 +39,7 @@ final class DiagChecker: DiagConsumer {
     }
   }
 
-  func consume(_ diag: Diag) {
+  mutating func consume(_ diag: Diag) {
     guard let diagLoc = diag.reportLocation else {
       XCTFail("unexpected diagnostic: \(diag.message)", file: xcFile, line: xcLine)
       return
