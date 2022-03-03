@@ -1,27 +1,24 @@
-/// A small acceleration structure to search for equivalences in a set of equivalence classes.
-public struct EquivalenceClassSet {
+// Implementation notes
+// ====================
+//
+// `EquivalenceSet` uses two arrays. The first is a list of types. The second is a list of triples
+// `(Type, Index, Index)` encoding mapping `Type -> (Index, Index)` from types to the slice of the
+// first array representing their equivalence class.
+//
+// For example, let `S = [[A, B], [C, D, E]]` be a set of two equivalence classes:
+//
+//   entries: [A, B, C, D, E]
+//   mapping: [(A, 0, 2), (B, 0, 2), (C, 2, 5), (D, 2, 5), (E, 2, 5)]
+//
+// To look for an equivalence `T == U`, we run a linear search on the first array to find the
+// indices of `T`'s equivalence class. Then we run another linear search to check whether `U` is
+// part of the class.
+//
+// The complexity of a lookup is O(n^2) in the worst case. Because equivalence classes are usually
+// small, however, the overhead of hash tables will exceed that of the cost of a linear search.
 
-  // Implementation note:
-  // ====================
-  //
-  // The data structure is composed of two arrays. The first is a list of types. The second is a
-  // list of triples `(Type, Index, Index)` encoding a partial function `Type -> (Index, Index)`.
-  // This partial function maps a type `T` to a slice in the first array. The latter represents the
-  // set of types to which `T` is equivalent.
-  //
-  // For example, let `S = [[A, B], [C, D, E]]` be a set of two equivalence classes. `S` will be
-  // encoded as follows:
-  //
-  //   entries: [A, B, C, D, E]
-  //   mapping: [(A, 0, 2), (B, 0, 2), (C, 2, 5), (D, 2, 5), (E, 2, 5)]
-  //
-  // To look for an equivalence `T == U`, we perform a linear search on the first array to find the
-  // indices of `T`'s equivalence class. Then we perform a second linear search to check whether
-  // `U` is part of the class.
-  //
-  // The complexity of a lookup is O(n^2) in the worst case. However, because equivalence classes
-  // are typically small, the overhead of hash tables will generally exceed that of the cost of a
-  // simple linear search on tiny lists.
+/// An acceleration structure to search for equivalences in a set of equivalence classes.
+public struct EquivalenceSet {
 
   private var entries: [ValType]
 

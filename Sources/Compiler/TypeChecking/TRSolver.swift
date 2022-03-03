@@ -12,7 +12,7 @@ struct TRSolver {
   /// Compute the equivalence classes inferred after solving a set of type requirements.
   ///
   /// This method should be called only after `solve(typeReqs:from:)` returned successfully.
-  func computeEquivalenceClasses(env: GenericEnv) -> EquivalenceClassSet {
+  func computeEquivalenceClasses(env: GenericEnv) -> EquivalenceSet {
     var classes: [[ValType]] = []
     var count = 0
 
@@ -42,7 +42,7 @@ struct TRSolver {
       }
     }
 
-    return EquivalenceClassSet(classes: classes, numberOfEntries: count)
+    return EquivalenceSet(classes: classes, numberOfEntries: count)
   }
 
   /// Solves a collection of type requirements.

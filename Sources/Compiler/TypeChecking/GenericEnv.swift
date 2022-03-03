@@ -72,7 +72,7 @@ public final class GenericEnv {
   ///
   /// - Note: This property is initialized by the type checker.
   /// - SeeAlso: `Context.prepareGenericEnv`
-  public var equivalences = EquivalenceClassSet()
+  public var equivalences = EquivalenceSet()
 
   /// The known conformances of the environment's generic type parameters.
   ///
