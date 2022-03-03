@@ -20,8 +20,10 @@ public struct DiagDispatcher {
   }
 
   /// Unregister a diagnostic consumer.
-  public mutating func unregister(consumer id: Int) {
-    consumers[id] = nil
+  @discardableResult
+  public mutating func unregister(consumer id: Int) -> DiagConsumer? {
+    defer { consumers[id] = nil }
+    return consumers[id]
   }
 
   /// Dispatches an in-flight diagnostic to all registered consumers.

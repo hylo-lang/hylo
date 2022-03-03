@@ -6,7 +6,7 @@ final class ValTests: XCTestCase {
 
   private func withTestCases(
     in subdirectory: String,
-    _ action: (URL, inout Driver) throws -> ()
+    _ action: (URL, inout Driver) throws -> [Diag]
   ) throws {
     let urls = try XCTUnwrap(
       Bundle.module.urls(forResourcesWithExtension: "val", subdirectory: subdirectory),
@@ -22,15 +22,31 @@ final class ValTests: XCTestCase {
       var checker = DiagChecker(context: driver.compiler, annotations: specParser.annotations)
       let handle = DiagDispatcher.instance.register(consumer: checker)
 
-      defer {
-        // Compare the result of the test case with the specification.
-        checker = DiagDispatcher.instance.unregister(consumer: handle) as! DiagChecker
-        checker.finalize()
+      // Run the test case.
+      let diags: [Diag]
+      do {
+        diags = try action(url, &driver)
+      } catch {
+        diags = []
+        XCTFail(error.localizedDescription)
       }
 
-      // Run the test case.
-      try action(url, &driver)
+      // Compare the result of the test case with the specification.
+      checker = DiagDispatcher.instance.unregister(consumer: handle) as! DiagChecker
+      diags.forEach({ checker.consume($0) })
+      checker.finalize()
     }
+  }
+
+  func testNameBinding() throws {
+    try withTestCases(in: "TestCases/NameBinding", { (url, driver) in
+      let moduleName = url.deletingPathExtension().lastPathComponent
+      let moduleDecl = try driver.parse(moduleName: moduleName, moduleFiles: [url])
+
+      var nameBinder = NameBinder(modules: driver.compiler.modules, stdlib: driver.compiler.stdlib)
+      nameBinder.walk(decl: moduleDecl)
+      return nameBinder.diags
+    })
   }
 
   func testTypeChecker() throws {
@@ -38,6 +54,7 @@ final class ValTests: XCTestCase {
       let moduleName = url.deletingPathExtension().lastPathComponent
       let moduleDecl = try driver.parse(moduleName: moduleName, moduleFiles: [url])
       driver.typeCheck(moduleDecl: moduleDecl)
+      return []
     })
   }
 
@@ -47,10 +64,12 @@ final class ValTests: XCTestCase {
       let moduleName = url.deletingPathExtension().lastPathComponent
       let moduleDecl = try driver.parse(moduleName: moduleName, moduleFiles: [url])
       driver.typeCheck(moduleDecl: moduleDecl)
+
       do {
         _ = try driver.lower(moduleDecl: moduleDecl)
       } catch DriverError.loweringFailed {
       }
+      return []
     })
   }
 
@@ -65,6 +84,7 @@ final class ValTests: XCTestCase {
       try interpreter.load(module: driver.lower(moduleDecl: driver.compiler.stdlib!))
       try interpreter.load(module: driver.lower(moduleDecl: moduleDecl))
       XCTAssertEqual(interpreter.start(), 42)
+      return []
     })
   }
 
