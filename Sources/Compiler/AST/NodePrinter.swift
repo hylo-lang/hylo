@@ -273,7 +273,7 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(typeDeclHeader(node)),
-    "inheritances": "\(node.name)",
+    "inheritances": \(encode(nodes: node.inheritances)),
     "typeReqs": \(encode(typeReqs: node.typeReqs))
     }
     """
