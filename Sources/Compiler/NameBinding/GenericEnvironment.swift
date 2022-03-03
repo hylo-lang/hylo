@@ -2,14 +2,30 @@ import Utils
 
 struct GenericEnvironment {
 
+  typealias Equivalences = Set<Key>
+
+  struct Key: Hashable {
+
+    var components: [String]
+
+    init<S>(_ components: S) where S: Sequence, S.Element == String {
+      self.components = Array(components)
+    }
+
+    init(_ ident: IdentSign) {
+      self.components = ident.components.map({ $0.name })
+    }
+
+  }
+
   /// The generic clause type parameters introduced in this environment.
   let params: [GenericParamDecl]
 
-  /// A table from type parameter declaration to their entry.
-  var ledger: [ObjectIdentifier: Int]
+  /// A table from type identifiers to their entry.
+  var ledger: [Key: Int]
 
   /// The equivalence classes and their associated conformance sets.
-  var entries: [(equivalences: [IdentSign], conformances: Set<ViewTypeDecl>)]
+  var entries: [(equivalences: Equivalences, conformances: Set<ViewTypeDecl>)]
 
   /// Builds an environment from the generic generic clause of a declaration.
   init(decl: BaseGenericDecl, binder: inout NameBinder) {
@@ -33,68 +49,44 @@ struct GenericEnvironment {
     }
   }
 
-  func conformanceSet(of param: GenericParamDecl) -> Set<ViewTypeDecl>? {
-    guard let i = ledger[ObjectIdentifier(param)] else { return nil }
+  /// Returns the set of views defined for `key`.
+  func conformanceSet(of key: Key) -> Set<ViewTypeDecl>? {
+    guard let i = ledger[key] else { return nil }
     return entries[i].conformances
   }
 
   private mutating func insert(equivalenceBetween lhs: Sign, and rhs: Sign) {
-    if let lid = lhs as? BareIdentSign,
-       let rid = rhs as? IdentSign,
-       let lpar = params.first(where: { $0.name == lid.name }),
-       lpar.name != rid.components[0].name
-    {
-      // Check if RHS is a sibling.
-      let rpar = (rid as? BareIdentSign).flatMap({ ri in
-        params.first(where: { $0.name == ri.name })
-      })
+    // Nothing to do if the requirement isn't defined on identifiers.
+    guard let lid = lhs as? IdentSign,
+          let rid = rhs as? IdentSign
+    else { return }
 
-      // The LHS is a type parameter introduced by the clause and the RHS is a type identifier.
-      if let i = ledger[ObjectIdentifier(lpar)] {
-        // LHS is already part of a class.
-        if let rpar = rpar {
-          // RHS is a sibling.
-          if let j = ledger[ObjectIdentifier(rpar)] {
-            // RHS is already part of a class too. Merge the entries.
-            for ident in entries[j].equivalences
-            where !entries[i].equivalences.contains(where: { $0 === ident })
-            {
-              entries[i].equivalences.append(ident)
-            }
-            entries[i].conformances.formUnion(entries[j].conformances)
-            entries[j] = ([], [])
-          } else if !entries[i].equivalences.contains(where: { $0 === rid }) {
-            // RHS is a sibling, but isn't part of a class yet.
-            entries[i].equivalences.append(rid)
-          }
+    let lbox = Key(lid)
+    let rbox = Key(rid)
 
-          // Insert/update the entry for RHS.
-          ledger[ObjectIdentifier(rpar)] = i
-        } else if !entries[i].equivalences.contains(where: { $0 === rid }) {
-          // RHS is not a sibling.
-          entries[i].equivalences.append(rid)
-        }
-      } else if let rpar = rpar {
-        // LHS isn't part of a class, but RHS is a sibling.
-        if let j = ledger[ObjectIdentifier(rpar)] {
-          // RHS is already part of a class.
-          if !entries[j].equivalences.contains(where: { $0 === lid }) {
-            entries[j].equivalences.append(lid)
-            ledger[ObjectIdentifier(lpar)] = j
-          }
-        } else {
-          // Neither LHS or RHS are part of a class yet.
-          ledger[ObjectIdentifier(lpar)] = entries.count
-          ledger[ObjectIdentifier(rpar)] = entries.count
-          entries.append((equivalences: [lid, rid], conformances: []))
-        }
+    if let i = ledger[lbox] {
+      // LHS is part of a class.
+      if let j = ledger[rbox] {
+        // RHS is already part of a class too; merge the entries.
+        entries[i].equivalences.formUnion(entries[j].equivalences)
+        entries[i].conformances.formUnion(entries[j].conformances)
+        entries[j] = ([], [])
       } else {
-        // LHS isn't part of a class and RHS isn't a sibling.
-        ledger[ObjectIdentifier(lpar)] = entries.count
-        entries.append((equivalences: [lid, rid], conformances: []))
+        // RHS isn't part of a class.
+        entries[i].equivalences.insert(rbox)
       }
-    } else if rhs is BareIdentSign {
-      insert(equivalenceBetween: rhs, and: lhs)
+
+      // Update the ledger for RHS.
+      ledger[rbox] = i
+    } else if let j = ledger[rbox] {
+      // LHS isn't part of a class, but RHS is.
+      ledger[lbox] = j
+      entries[j].equivalences.insert(lbox)
+    } else {
+      // Neither LHS nor RHS are part of a class; create a new entry.
+      ledger[lbox] = entries.count
+      ledger[rbox] = entries.count
+      entries.append((equivalences: [lbox, rbox], conformances: []))
     }
   }
 
@@ -104,31 +96,28 @@ struct GenericEnvironment {
     space: DeclSpace,
     binder: inout NameBinder
   ) {
-    // LHS must be a type parameter and RHS must be a type identifier.
-    guard let lid = lhs as? BareIdentSign,
-          let rid = rhs as? IdentSign,
-          let lpar = params.first(where: { $0.name == lid.name })
+    // Nothing to do if the requirement isn't defined on identifiers.
+    guard let lid = lhs as? IdentSign,
+          let rid = rhs as? IdentSign
     else { return }
 
-    // Identifiers rooted at type parameters cannot resolve to a view. Bail out here to avoid
-    // infinite recursion through lookup into the environment.
-    guard !params.contains(where: { $0.name == rid.components[0].name }) else { return }
+    let lbox = Key(lid)
 
     // Resolve RHS as a view declaration.
     if let v = binder.resolve(rid, unqualifiedFrom: space) as? ViewTypeDecl {
-      if let i = ledger[ObjectIdentifier(lpar)] {
-        // LHS is already part of a class.
+      if let i = ledger[lbox] {
+        // LHS is part of a class.
         modify(value: &entries[i].conformances, with: { s in
           if s.insert(v).inserted {
             s.formUnion(binder.conformanceSet(of: v))
           }
         })
       } else {
-        // LHS isn't part of a class yet.
-        ledger[ObjectIdentifier(lpar)] = entries.count
+        // LHS isn't part of a class.
+        ledger[lbox] = entries.count
         var s = binder.conformanceSet(of: v)
         s.insert(v)
-        entries.append((equivalences: [lid], conformances: s))
+        entries.append((equivalences: [lbox], conformances: s))
       }
     }
   }

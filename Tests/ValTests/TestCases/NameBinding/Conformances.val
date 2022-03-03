@@ -2,8 +2,15 @@ view V {
   type X
 }
 
-type A<T where T: V> {
+type A<T where T: V, T::X: V> {
 
   let a: T::X
+  let b: T::X::X
+
+  // #!error@+1 type 'T' has no member type named 'Y'
+  let _a: T::Y
+
+  // #!error@+1 type 'X' has no member type named 'Y'
+  let _b: T::X::Y
 
 }

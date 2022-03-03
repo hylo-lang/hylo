@@ -227,8 +227,6 @@ public struct NameBinder: NodeWalker {
     qualifiedBy param: GenericParamDecl
   ) -> TypeOrValueDecl? {
     let parent = param.parentDeclSpace as! GenericTypeDecl
-    assert(parent.genericClause!.params.contains(where: { $0 === param }))
-
     let env: GenericEnvironment
     if let e = environments[parent] {
       env = e
@@ -237,7 +235,15 @@ public struct NameBinder: NodeWalker {
       environments[parent] = env
     }
 
-    guard let views = env.conformanceSet(of: param) else { return nil }
+    let key = GenericEnvironment.Key([param.name])
+    guard let views = env.conformanceSet(of: key) else { return nil }
+    return lookup(name, in: views)
+  }
+
+  private mutating func lookup(
+    _ name: String,
+    in views: Set<ViewTypeDecl>
+  ) -> TypeOrValueDecl? {
     for view in views {
       // Check for a direct members.
       for member in view.directMembers {
@@ -280,10 +286,7 @@ public struct NameBinder: NodeWalker {
   ///   - ident: The type identifier to resolve
   ///   - space: The declaration space from which the unqualified lookup of the identifier's first
   ///     component should start.
-mutating func resolve(
-    _ ident: IdentSign,
-    unqualifiedFrom space: DeclSpace
-  ) -> TypeDecl? {
+  mutating func resolve(_ ident: IdentSign, unqualifiedFrom space: DeclSpace) -> TypeDecl? {
     if let cache = types[ident] {
       return cache.value
     }
@@ -300,9 +303,9 @@ mutating func resolve(
     }
 
     func fail(_ diag: Diag) {
-      assert(types[ident] == nil)
-      diags.append(diag)
+      assert(types[ident]?.value == nil)
       types[ident] = .failure
+      diags.append(diag)
     }
 
     var parent: TypeDecl?
@@ -315,7 +318,7 @@ mutating func resolve(
       case let parent as TypeSpace:
         decl = desugar(lookupResult: lookup(component.name, qualifiedBy: parent))
       case let parent as GenericParamDecl:
-        decl = desugar(lookupResult: lookup(component.name, qualifiedBy: parent))
+        return resolve(ident, rootedAt: parent)
       default:
         fatalError("unreachable")
       }
@@ -335,6 +338,48 @@ mutating func resolve(
     }
 
     types[ident] = .success(parent!)
+    return parent
+  }
+
+  /// Resolves a type identifier rooted at a generic type parameter.
+  ///
+  /// - Parameters:
+  ///   - ident: The type identifier to resolve
+  ///   - root: The declaration to which the root of the identifier refers.
+  private mutating func resolve(_ ident: IdentSign, rootedAt root: GenericParamDecl) -> TypeDecl? {
+    let rootParent = root.parentDeclSpace as! GenericTypeDecl
+    let env: GenericEnvironment
+    if let e = environments[rootParent] {
+      env = e
+    } else {
+      env = GenericEnvironment(decl: rootParent, binder: &self)
+      environments[rootParent] = env
+    }
+
+    var parent = root
+    for i in 1 ..< ident.components.count {
+      let component = ident.components[i]
+
+      // Search in the context of the parent's generic environment.
+      if let decl = lookup(component.name, qualifiedBy: parent) as? GenericParamDecl {
+        parent = decl
+        continue
+      }
+
+      // Search in the context of the root's generic environment.
+      let key = GenericEnvironment.Key(ident.components[0 ..< i].map({ $0.name }))
+      guard let views = env.conformanceSet(of: key) else { return nil }
+      if let decl = lookup(component.name, in: views) as? GenericParamDecl {
+        parent = decl
+      } else {
+        types[component] = .failure
+        types[ident] = .failure
+        diags.append(.noType(named: component.name, in: parent, range: component.range))
+        return nil
+      }
+    }
+
+    types[ident] = .success(parent)
     return parent
   }
 
