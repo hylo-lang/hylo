@@ -905,7 +905,7 @@ public class GenericTypeDecl: BaseGenericDecl, TypeDecl {
       }
 
       // Populate the lookup table with direct members.
-      fill(members: directMembers())
+      fill(members: directMembers)
     }
 
     // Populate the lookup table with members declared in extensions.
@@ -925,10 +925,8 @@ public class GenericTypeDecl: BaseGenericDecl, TypeDecl {
     memberTablesGeneration = type.context.generation
   }
 
-  /// Returns the member declarations that resides directly within the type's declaration space.
-  fileprivate func directMembers() -> [Decl] {
-    return []
-  }
+  /// The member declarations that resides directly within the type's declaration space.
+  var directMembers: [Decl] { [] }
 
   /// Fills the member lookup table with the given declarations.
   private func fill<S>(members: S) where S: Sequence, S.Element == Decl {
@@ -1088,9 +1086,7 @@ public class NominalTypeDecl: GenericTypeDecl {
     super.init(name: name, type: type, state: .realized)
   }
 
-  fileprivate override func directMembers() -> [Decl] {
-    return members
-  }
+  override var directMembers: [Decl] { members }
 
   /// The list of properties that have storage in this type.
   public override var storedVars: [VarDecl] {
