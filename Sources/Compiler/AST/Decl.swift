@@ -299,6 +299,18 @@ public class BaseGenericDecl: GenericDeclSpace {
 
 }
 
+extension BaseGenericDecl: Hashable {
+
+  public func hash(into hasher: inout Hasher) {
+    hasher.combine(ObjectIdentifier(self))
+  }
+
+  public static func == (lhs: BaseGenericDecl, rhs: BaseGenericDecl) -> Bool {
+    return lhs === rhs
+  }
+
+}
+
 /// The base class for function declarations.
 public class BaseFunDecl: BaseGenericDecl, ValueDecl {
 
