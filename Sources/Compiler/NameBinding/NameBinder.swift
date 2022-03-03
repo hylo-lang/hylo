@@ -7,7 +7,7 @@ public struct NameBinder: NodeWalker {
 
   typealias TypeSpace = TypeDecl & DeclSpace
 
-  private enum CachedResult<T> {
+  public enum CachedResult<T> {
 
     case success(T)
 
@@ -27,14 +27,17 @@ public struct NameBinder: NodeWalker {
 
   public var innermostSpace: DeclSpace?
 
+  /// A table mapping type identifiers to their declarations.
+  public var types: PropertyMap<CachedResult<TypeDecl>> = [:]
+
   /// The diagnostics of the binding errors.
   public var diags: [Diag] = []
 
   /// The modules visible from the current context.
-  let modules: [String: ModuleDecl]
+  private let modules: [String: ModuleDecl]
 
   /// The module defining the standard library.
-  let stdlib: ModuleDecl?
+  private let stdlib: ModuleDecl?
 
   /// A table mapping type declarations to their member lookup tables.
   private var lookupTables: PropertyMap<[String: TypeOrValueDecl]> = [:]
@@ -42,10 +45,13 @@ public struct NameBinder: NodeWalker {
   /// A table mapping type declarations to their conformance set.
   private var conformanceSets: PropertyMap<Set<ViewTypeDecl>> = [:]
 
-  /// A table mapping type identifiers to their declarations.
-  private var types: PropertyMap<CachedResult<TypeDecl>> = [:]
+  /// The generic environments of the generic declarations.
+  private var environments: PropertyMap<GenericEnvironment> = [:]
 
   /// A set containing the extensions being currently bounded.
+  ///
+  /// This property is used during extension binding to avoid infinite recursion through qualified
+  /// lookups into the extended type.
   private var extensionsUnderBinding: Set<ObjectIdentifier> = []
 
   public init(modules: [String: ModuleDecl], stdlib: ModuleDecl?) {
@@ -108,15 +114,24 @@ public struct NameBinder: NodeWalker {
   }
 
   private func lookup(_ name: String, qualifiedBy space: ModuleDecl) -> TypeOrValueDecl? {
-    return space.decls.first(transformedBy: { some($0, whereNameIs: name) })
+    for member in space.decls {
+      if let decl = firstTypeOrValueDecl(in: member, named: name) { return decl }
+    }
+    return nil
   }
 
   private func lookup(_ name: String, qualifiedBy space: FileUnit) -> TypeOrValueDecl? {
-    return space.decls.first(transformedBy: { some($0, whereNameIs: name) })
+    for member in space.decls {
+      if let decl = firstTypeOrValueDecl(in: member, named: name) { return decl }
+    }
+    return nil
   }
 
   private func lookup(_ name: String, qualifiedBy space: NamespaceDecl) -> TypeOrValueDecl? {
-    return space.decls.first(transformedBy: { some($0, whereNameIs: name) })
+    for member in space.decls {
+      if let decl = firstTypeOrValueDecl(in: member, named: name) { return decl }
+    }
+    return nil
   }
 
   private mutating func lookup(
@@ -168,14 +183,14 @@ public struct NameBinder: NodeWalker {
       }
     }
 
-    // Populate the table with members declared in conformed views.
+    // Check for members declared in conformed views.
     for view in conformanceSet(of: space) {
-      // Insert direct members.
+      // Check for a direct members.
       for member in view.directMembers {
         if let decl = check(member) { return decl }
       }
 
-      // Insert members declared in extensions.
+      // Check for a member declared in extensions.
       for ext in extensions(of: view) {
         for member in ext.members {
           if let decl = check(member) { return decl }
@@ -201,20 +216,62 @@ public struct NameBinder: NodeWalker {
   }
 
   private func lookup(_ name: String, qualifiedBy space: BraceStmt) -> TypeOrValueDecl? {
-    return space.decls.first(transformedBy: { some($0, whereNameIs: name) })
+    for member in space.decls {
+      if let decl = firstTypeOrValueDecl(in: member, named: name) { return decl }
+    }
+    return nil
   }
 
-  private func some(_ decl: Decl, whereNameIs name: String) -> TypeOrValueDecl? {
-    switch decl {
-    case let decl as TypeDecl where decl.name == name:
-      return decl
-    case let decl as ValueDecl where decl.name == name:
-      return decl
-    case let decl as PatternBindingDecl:
-      return decl.pattern.namedPatterns.first(where: { $0.decl.name == name })?.decl
-    default:
-      return nil
+  private mutating func lookup(
+    _ name: String,
+    qualifiedBy param: GenericParamDecl
+  ) -> TypeOrValueDecl? {
+    let parent = param.parentDeclSpace as! GenericTypeDecl
+    assert(parent.genericClause!.params.contains(where: { $0 === param }))
+
+    let env: GenericEnvironment
+    if let e = environments[parent] {
+      env = e
+    } else {
+      env = GenericEnvironment(decl: parent, binder: &self)
+      environments[parent] = env
     }
+
+    guard let views = env.conformanceSet(of: param) else { return nil }
+    for view in views {
+      // Check for a direct members.
+      for member in view.directMembers {
+        if let decl = firstTypeOrValueDecl(in: member, named: name) { return decl }
+      }
+
+      // Check for a member declared in extensions.
+      for ext in extensions(of: view) {
+        for member in ext.members {
+          if let decl = firstTypeOrValueDecl(in: member, named: name) { return decl }
+        }
+      }
+    }
+
+    // Lookup failed.
+    return nil
+  }
+
+  /// Returns the first type or value declaration in `decl` with the specified name.
+  private func firstTypeOrValueDecl(in decl: Decl, named name: String) -> TypeOrValueDecl? {
+    switch decl {
+    case let decl as TypeOrValueDecl where decl.name == name:
+      return decl
+
+    case let decl as PatternBindingDecl:
+      for pattern in decl.pattern.namedPatterns where pattern.decl.name == name {
+        return pattern.decl
+      }
+
+    default:
+      break
+    }
+
+    return nil
   }
 
   /// Resolves a type identifier from the specified declaration space.
@@ -223,7 +280,7 @@ public struct NameBinder: NodeWalker {
   ///   - ident: The type identifier to resolve
   ///   - space: The declaration space from which the unqualified lookup of the identifier's first
   ///     component should start.
-  private mutating func resolve(
+mutating func resolve(
     _ ident: IdentSign,
     unqualifiedFrom space: DeclSpace
   ) -> TypeDecl? {
@@ -248,36 +305,31 @@ public struct NameBinder: NodeWalker {
       types[ident] = .failure
     }
 
-    var parent: TypeSpace?
+    var parent: TypeDecl?
     for i in 0 ..< ident.components.count {
       let component = ident.components[i]
       let decl: TypeOrValueDecl?
-      if let parent = parent {
-        decl = desugar(lookupResult: lookup(component.name, qualifiedBy: parent))
-      } else {
+      switch parent {
+      case nil:
         decl = desugar(lookupResult: lookup(component.name, unqualifiedFrom: space))
+      case let parent as TypeSpace:
+        decl = desugar(lookupResult: lookup(component.name, qualifiedBy: parent))
+      case let parent as GenericParamDecl:
+        decl = desugar(lookupResult: lookup(component.name, qualifiedBy: parent))
+      default:
+        fatalError("unreachable")
       }
 
-      switch decl {
-      case let decl as TypeSpace:
+      if let decl = decl as? TypeDecl {
+        types[component] = .success(decl)
         parent = decl
-
-      case let decl as TypeDecl:
-        guard i == ident.components.count - 1 else {
-          let next = ident.components[i + 1]
-          fail(.noType(named: next.name, in: decl, range: next.range))
-          return nil
-        }
-
-        types[ident] = .success(decl)
-        return decl
-
-      default:
-        if let parent = parent {
-          fail(.noType(named: component.name, in: parent, range: component.range))
-        } else {
-          fail(.noType(named: component.name, range: component.range))
-        }
+      } else if let parent = parent {
+        types[component] = .failure
+        fail(.noType(named: component.name, in: parent, range: component.range))
+        return nil
+      } else {
+        types[component] = .failure
+        fail(.noType(named: component.name, range: component.range))
         return nil
       }
     }
@@ -310,7 +362,7 @@ public struct NameBinder: NodeWalker {
   }
 
   /// Returns the set of views to which `decl` conforms.
-  private mutating func conformanceSet(of decl: GenericTypeDecl) -> Set<ViewTypeDecl> {
+  mutating func conformanceSet(of decl: GenericTypeDecl) -> Set<ViewTypeDecl> {
     // Check the cache.
     if let set = conformanceSets[decl] {
       return set
@@ -320,9 +372,7 @@ public struct NameBinder: NodeWalker {
     func insert(_ inheritance: IdentSign, unqualifiedFrom space: DeclSpace) {
       if let v = resolve(inheritance, unqualifiedFrom: space.parentDeclSpace!) as? ViewTypeDecl {
         if set.insert(v).inserted {
-          for case let i as IdentSign in v.inheritances {
-            insert(i, unqualifiedFrom: v)
-          }
+          set.formUnion(conformanceSet(of: v))
         }
       }
     }

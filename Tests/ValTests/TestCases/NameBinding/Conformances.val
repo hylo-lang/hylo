@@ -1,1 +1,9 @@
+view V {
+  type X
+}
 
+type A<T where T: V> {
+
+  let a: T::X
+
+}

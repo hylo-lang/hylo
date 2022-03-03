@@ -70,14 +70,6 @@ extension Sequence {
     return nil
   }
 
-  /// Returns the first element in the sequence successfully transformed by the specified closure.
-  public func first<T>(transformedBy transform: (Element) -> T?) -> T? {
-    for element in self {
-      if let transformed = transform(element) { return transformed }
-    }
-    return nil
-  }
-
 }
 
 /// Mutates a value with the specified closure.
