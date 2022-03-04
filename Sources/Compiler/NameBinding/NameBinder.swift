@@ -106,6 +106,8 @@ public struct NameBinder: NodeWalker {
       return lookup(name, qualifiedBy: space)
     case let space as ExtensionDecl:
       return lookup(name, qualifiedBy: space)
+    case let space as BaseFunDecl:
+      return lookup(name, qualifiedBy: space)
     case let space as BraceStmt:
       return lookup(name, qualifiedBy: space)
     default:
@@ -215,6 +217,36 @@ public struct NameBinder: NodeWalker {
     }
   }
 
+  private mutating func lookup(
+    _ name: String,
+    qualifiedBy space: BaseFunDecl
+  ) -> TypeOrValueDecl? {
+    // Check for a function parameter.
+    for param in space.params {
+      if param.name == name { return param }
+    }
+
+    // Check for `self` in member functions.
+    if name == "self" {
+      return space.selfDecl
+    }
+
+    // Check for a type parameters introduced by the declaration.
+    if let clause = space.genericClause {
+      for param in clause.params {
+        if param.name == name { return param }
+      }
+    }
+
+    // Check for a capture explicitly declared in the capture-list.
+    for capture in space.explicitCaptures {
+      if capture.name == name { return capture }
+    }
+
+    // Lookup failed.
+    return nil
+  }
+
   private func lookup(_ name: String, qualifiedBy space: BraceStmt) -> TypeOrValueDecl? {
     for member in space.decls {
       if let decl = firstTypeOrValueDecl(in: member, named: name) { return decl }
@@ -226,7 +258,7 @@ public struct NameBinder: NodeWalker {
     _ name: String,
     qualifiedBy param: GenericParamDecl
   ) -> TypeOrValueDecl? {
-    let parent = param.parentDeclSpace as! GenericTypeDecl
+    let parent = param.parentDeclSpace as! BaseGenericDecl & Node
     let env: GenericEnvironment
     if let e = environments[parent] {
       env = e
@@ -347,7 +379,7 @@ public struct NameBinder: NodeWalker {
   ///   - ident: The type identifier to resolve
   ///   - root: The declaration to which the root of the identifier refers.
   private mutating func resolve(_ ident: IdentSign, rootedAt root: GenericParamDecl) -> TypeDecl? {
-    let rootParent = root.parentDeclSpace as! GenericTypeDecl
+    let rootParent = root.parentDeclSpace as! BaseGenericDecl & Node
     let env: GenericEnvironment
     if let e = environments[rootParent] {
       env = e

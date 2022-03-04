@@ -18,3 +18,7 @@ type A<T where T: V, T::X: V> {
   let _c: T::X::Y::Z
 
 }
+
+fun f<T where T: V>(x: consuming T::X) -> T::X {
+  return x
+}
