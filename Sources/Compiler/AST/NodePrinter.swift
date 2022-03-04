@@ -529,7 +529,7 @@ public struct NodePrinter: NodeVisitor {
     {
     \(exprHeader(node)),
     "base": \(encode(node.base)),
-    "memberName": "\(node.memberName)"
+    "name": "\(node.name)"
     }
     """
   }

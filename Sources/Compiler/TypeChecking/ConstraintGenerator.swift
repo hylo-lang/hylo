@@ -188,10 +188,10 @@ struct ConstraintGenerator: NodeWalker {
 
     insert(ValueMemberConstraint(
       node.base.type,
-      hasValueMember: node.memberName,
+      hasValueMember: node.name.base,
       ofType: node.type,
       useSite: innermostSpace!,
-      at: ConstraintLocator(node, .valueMember(node.memberName))))
+      at: ConstraintLocator(node, .valueMember(node.name.base))))
 
     return true
   }

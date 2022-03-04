@@ -86,6 +86,13 @@ public enum InfixOperator: String, CustomStringConvertible {
 
 }
 
+/// The notation style of an operator (i.e., infix, prefix, or postfix).
+public enum OperatorNotation: String {
+
+  case infix, prefix, postfix
+
+}
+
 /// The precedence group of an operator.
 public enum PrecedenceGroup: String {
 

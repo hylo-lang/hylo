@@ -323,22 +323,20 @@ public typealias CallArg = TupleElem
 /// analysis, which should ultimately substitute this node with a `DeclRefExpr`.
 public final class UnresolvedDeclRefExpr: Expr {
 
+  public var range: SourceRange?
+
   public var type: ValType {
     didSet { assert(type.isUnresolved) }
   }
 
-  /// An identifier.
-  public var ident: Ident
+  /// The unqualified (possibly labeled) name of the referred declaration.
+  public var name: LabeledName
 
-  public init(ident: Ident, type: UnresolvedType) {
-    self.ident = ident
+  public init(name: LabeledName, type: UnresolvedType, range: SourceRange? = nil) {
+    self.name = name
     self.type = type
+    self.range = range
   }
-
-  /// The unqualified name of the referred declaration.
-  public var name: String { ident.name }
-
-  public var range: SourceRange? { ident.range }
 
   public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
@@ -362,23 +360,25 @@ public final class UnresolvedQualDeclRefExpr: Expr {
   /// A type signature describing the qualifying namespace.
   public var namespace: Sign
 
-  /// An identifier.
-  public var ident: Ident
+  /// The unqualified (possibly labeled) name of the referred declaration.
+  public var name: LabeledName
+
+  /// The range of the name.
+  public var nameRange: SourceRange?
 
   public init(
     namespace: Sign,
-    ident: Ident,
+    name: LabeledName,
+    nameRange: SourceRange? = nil,
     type: UnresolvedType,
     range: SourceRange? = nil
   ) {
     self.namespace = namespace
-    self.ident = ident
+    self.name = name
+    self.nameRange = range
     self.type = type
     self.range = range
   }
-
-  /// The unqualified name of the referred declaration.
-  public var name: String { ident.name }
 
   public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)
@@ -499,18 +499,25 @@ public final class UnresolvedMemberExpr: MemberExpr {
   /// The base expression.
   public var base: Expr
 
-  /// The member's identifier.
-  public var ident: Ident
+  /// The unqualified (possibly labeled) name of the referred member.
+  public var name: LabeledName
 
-  public init(base: Expr, ident: Ident, type: UnresolvedType, range: SourceRange? = nil) {
+  /// The range of the name.
+  public var nameRange: SourceRange?
+
+  public init(
+    base: Expr,
+    name: LabeledName,
+    nameRange: SourceRange? = nil,
+    type: UnresolvedType,
+    range: SourceRange? = nil
+  ) {
     self.base = base
-    self.ident = ident
+    self.name = name
+    self.nameRange = nameRange
     self.type = type
     self.range = range
   }
-
-  /// The unqualified name of the member.
-  public var memberName: String { ident.name }
 
   public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
     return visitor.visit(self)

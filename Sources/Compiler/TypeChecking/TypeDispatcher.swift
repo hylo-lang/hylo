@@ -83,7 +83,9 @@ struct TypeDispatcher: NodeWalker {
 
     // If the base has a tuple type, this refers to the first element labeled after the member.
     if let tupleType = expr.base.type as? TupleType {
-      if let index = tupleType.elems.firstIndex(where: { $0.label == expr.memberName }) {
+      if let index = tupleType.elems.firstIndex(where: {
+        ($0.label != nil) && (expr.name == $0.label!)
+      }) {
         return TupleMemberExpr(
           base: expr.base, memberIndex: index, type: expr.type, range: expr.range)
       }

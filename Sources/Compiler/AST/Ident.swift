@@ -11,3 +11,9 @@ public struct Ident {
   }
 
 }
+
+extension Ident: CustomStringConvertible {
+
+  public var description: String { name }
+
+}

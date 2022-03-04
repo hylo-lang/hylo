@@ -140,7 +140,7 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
 
     // If we're in a brace statement, look for local bindings first.
     if useSite is BraceStmt {
-      matches = useSite!.lookup(qualified: node.name)
+      matches = useSite!.lookup(qualified: node.name.base)
 
       if let decl = matches.values.first(where: { !$0.isOverloadable }) {
         // We found a local, non-overloadable value declaration. That should be either a parameter
@@ -163,19 +163,20 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
         return bind(ref: node, to: matches)
       }
 
-      let outer = useSite!.parentDeclSpace!.lookup(unqualified: node.name, in: node.type.context)
+      let outer = useSite!.parentDeclSpace!.lookup(
+        unqualified: node.name.base, in: node.type.context)
       matches.append(contentsOf: outer)
     } else {
-      matches = useSite!.lookup(unqualified: node.name, in: node.type.context)
+      matches = useSite!.lookup(unqualified: node.name.base, in: node.type.context)
     }
 
     guard !matches.isEmpty else {
       if forwardDecl != nil {
         DiagDispatcher.instance.report(
-          .useOfLocalBindingBeforeDeclaration(symbol: node.name, range: node.range))
+          .useOfLocalBindingBeforeDeclaration(symbol: node.name.base, range: node.range))
       } else {
         DiagDispatcher.instance.report(
-          .cannotFind(symbol: node.name, range: node.range))
+          .cannotFind(symbol: node.name.base, range: node.range))
       }
       return ErrorExpr(type: context.errorType, range: node.range)
     }
@@ -196,15 +197,16 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
     }
 
     // Handle `T::self`.
-    if node.name == "self" {
+    if node.name.base == "self" {
       return KindRefExpr(type: baseType.kind, range: node.range)
     }
 
     // Handle built-ins.
     if baseType === context.builtin.instanceType {
-      guard let decl = context.getBuiltinDecl(for: node.name) else {
-        DiagDispatcher.instance.report(.cannotFind(builtin: node.name, range: node.ident.range))
-        return ErrorExpr(type: context.errorType, range: node.ident.range)
+      guard let decl = context.getBuiltinDecl(for: node.name.base) else {
+        DiagDispatcher.instance.report(
+          .cannotFind(builtin: node.name.base, range: node.nameRange))
+        return ErrorExpr(type: context.errorType, range: node.range)
       }
 
       // There's no need to contextualize the type, built-ins are never generic.
@@ -212,11 +214,11 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
     }
 
     // Run a qualified lookup if the namespace resolved to a nominal type.
-    let matches = baseType.lookup(member: node.name)
+    let matches = baseType.lookup(member: node.name.base)
     guard !matches.isEmpty else {
       DiagDispatcher.instance.report(
-        .cannotFind(member: node.name, in: baseType, range: node.ident.range))
-      return ErrorExpr(type: context.errorType, range: node.ident.range)
+        .cannotFind(member: String(describing: node.name), in: baseType, range: node.nameRange))
+      return ErrorExpr(type: context.errorType, range: node.nameRange)
     }
 
     // Note that this will throw the type signature away.

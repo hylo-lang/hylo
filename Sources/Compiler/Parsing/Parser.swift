@@ -1551,7 +1551,11 @@ public struct Parser {
     if oper.name == "&" {
       return AddrOfExpr(value: value, type: unresolved, range: oper.range! ..< value.range!)
     } else {
-      let fun = UnresolvedMemberExpr(base: value, ident: oper, type: unresolved, range: oper.range)
+      let fun = UnresolvedMemberExpr(
+        base: value,
+        name: LabeledName(base: oper.name, notation: .prefix),
+        type: unresolved,
+        range: oper.range)
       return CallExpr.prefix(fun: fun, type: unresolved, range: oper.range! ..< value.range!)
     }
   }
@@ -1595,12 +1599,15 @@ public struct Parser {
         _ = state.take()
 
         // Parse the member identifier or index.
-        if let name = state.take(if: { $0.isLabel }) {
-          let expr = UnresolvedMemberExpr(base: base, ident: state.ident(name), type: unresolved)
-          expr.range = lowerLoc ..< expr.ident.range!.upperBound
+        if let token = state.take(if: { $0.isLabel }) {
+          let name = String(state.lexer.source[token.range])
+          let expr = UnresolvedMemberExpr(
+            base: base, name: LabeledName(base: name), nameRange: token.range, type: unresolved)
+          expr.range = lowerLoc ..< token.range.upperBound
           base = expr
         } else if let oper = state.takeOperator() {
-          let expr = UnresolvedMemberExpr(base: base, ident: oper, type: unresolved)
+          let expr = UnresolvedMemberExpr(
+            base: base, name: LabeledName(base: oper.name), nameRange: oper.range, type: unresolved)
           expr.range = lowerLoc ..< oper.range!.upperBound
           base = expr
         } else if let index = state.take(.int) {
@@ -1638,7 +1645,11 @@ public struct Parser {
         }
 
         let fun = UnresolvedMemberExpr(
-          base: base, ident: oper, type: unresolved, range: oper.range)
+          base: base,
+          name: LabeledName(base: oper.name),
+          nameRange: oper.range,
+          type: unresolved,
+          range: oper.range)
         base = CallExpr.postfix(
           fun: fun, type: unresolved, range: lowerLoc ..< oper.range!.upperBound)
 
@@ -1695,7 +1706,11 @@ public struct Parser {
         }
 
         return .success(UnresolvedQualDeclRefExpr(
-          namespace: sign, ident: ident, type: unresolved, range: opener.range ..< ident.range!))
+          namespace: sign,
+          name: LabeledName(base: ident.name),
+          nameRange: ident.range,
+          type: unresolved,
+          range: opener.range ..< ident.range!))
       }) {
         return expr
       } else {
@@ -1771,13 +1786,18 @@ public struct Parser {
       if state.take(.twoColons) == nil {
         switch sign {
         case let sign as BareIdentSign:
-          return UnresolvedDeclRefExpr(ident: sign.ident, type: unresolved)
+          return UnresolvedDeclRefExpr(
+            name: LabeledName(base: sign.ident.name), type: unresolved, range: sign.ident.range)
 
         case let sign as CompoundIdentSign where sign.lastComponent is BareIdentSign:
           let namespace = CompoundIdentSign.create(sign.components.dropLast())
           let last = sign.lastComponent as! BareIdentSign
           return UnresolvedQualDeclRefExpr(
-            namespace: namespace, ident: last.ident, type: unresolved, range: sign.range)
+            namespace: namespace,
+            name: LabeledName(base: last.ident.name),
+            nameRange: last.ident.range,
+            type: unresolved,
+            range: sign.range)
 
         default:
           state.diags.append(Diag(
@@ -1795,11 +1815,18 @@ public struct Parser {
       }
 
       return UnresolvedQualDeclRefExpr(
-        namespace: sign, ident: ident, type: unresolved, range: sign.range! ..< ident.range!)
+        namespace: sign,
+        name: LabeledName(base: ident.name),
+        nameRange: ident.range,
+        type: unresolved,
+        range: sign.range! ..< ident.range!)
     } else {
       // We didn't parse a type signature. We're expecting a name.
       guard let name = state.take(.name) else { return nil }
-      return UnresolvedDeclRefExpr(ident: state.ident(name), type: unresolved)
+      return UnresolvedDeclRefExpr(
+        name: LabeledName(base: String(state.lexer.source[name.range])),
+        type: unresolved,
+        range: name.range)
     }
   }
 
@@ -1810,6 +1837,74 @@ public struct Parser {
     } else {
       return state.takeOperator()
     }
+  }
+
+  /// Parses a labeled name.
+  private func parseLabeledName(state: inout State) -> (LabeledName, SourceRange)? {
+    let start = state.lexer.location
+
+    // Attempt to parse the operator notation.
+    let notation: OperatorNotation?
+    switch state.peek()?.kind {
+    case .infix:
+      _ = state.take()
+      notation = .infix
+
+    case .prefix:
+      _ = state.take()
+      notation = .prefix
+
+    case .postfix:
+      _ = state.take()
+      notation = .postfix
+
+    default:
+      notation = nil
+    }
+
+    // If we parsed an operator notation, the next token must be an operator.
+    if let notation = notation {
+      if let op = state.takeOperator() {
+        let range = start ..< op.range!.upperBound
+        return (LabeledName(base: op.name, labels: [], notation: notation), range)
+      } else {
+        state.diags.append(Diag("expected operator", anchor: state.errorRange()))
+        state.hasError = true
+        let range = start ..< state.errorRange().upperBound
+        return (LabeledName(base: "", labels: [], notation: notation), range)
+      }
+    }
+
+    // Attempt to parse a base name.
+    guard let base = state.take(.name) else { return nil }
+    var name = LabeledName(base: String(state.lexer.source[base.range]), labels: [])
+
+    // If the next token is not a left parenthesis, settle for the base.
+    guard state.peek()?.kind == .lParen else { return (name, base.range) }
+
+    // Attempt to read argument labels.
+    let backup = state.save()
+    _ = state.take(.lParen)
+
+    var labels: [String] = []
+    while true {
+      if let closer = state.take(.rParen) {
+        // The argument label list cannot be empty; backtrack.
+        guard !labels.isEmpty else { break }
+        name.labels = labels
+        return (name, base.range ..< closer.range)
+      }
+
+      // Parse `(name | '_') ':'`
+      guard let label = state.take(.name) ?? state.take(.under),
+            let _ = state.take(.colon)
+      else { break }
+      labels.append(String(state.lexer.source[label.range]))
+    }
+
+    // We failed to parse an argument list; backtrack.
+    state.restore(backup)
+    return (name, base.range)
   }
 
   /// Parses a lambda expression.
@@ -2628,7 +2723,12 @@ fileprivate enum InfixTree {
 
       default:
         let rhs = right.flattened()
-        let fun = UnresolvedMemberExpr(base: lhs, ident: oper, type: unresolved, range: oper.range)
+        let fun = UnresolvedMemberExpr(
+          base: lhs,
+          name: LabeledName(base: oper.name),
+          nameRange: oper.range,
+          type: unresolved,
+          range: oper.range)
         let expr = CallExpr.infix(fun: fun, operand: rhs, type: unresolved)
         expr.range = lhs.range!.lowerBound ..< rhs.range!.upperBound
         return expr
