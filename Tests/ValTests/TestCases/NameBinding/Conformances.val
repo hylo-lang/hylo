@@ -1,16 +1,20 @@
-view V {
-  type X
-}
+view V { type X: U }
+view U { type Y }
 
 type A<T where T: V, T::X: V> {
 
   let a: T::X
   let b: T::X::X
+  let c: T::X::Y
+  let d: T::X::X::Y
 
-  // #!error@+1 type 'T' has no member type named 'Y'
-  let _a: T::Y
+  // #!error@+1 type 'T' has no member type named 'Z'
+  let _a: T::Z
 
-  // #!error@+1 type 'X' has no member type named 'Y'
-  let _b: T::X::Y
+  // #!error@+1 type 'X' has no member type named 'Z'
+  let _b: T::X::Z
+
+  // #!error@+1 type 'Y' has no member type named 'Z'
+  let _c: T::X::Y::Z
 
 }

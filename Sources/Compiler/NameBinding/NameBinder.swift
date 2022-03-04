@@ -368,7 +368,13 @@ public struct NameBinder: NodeWalker {
 
       // Search in the context of the root's generic environment.
       let key = GenericEnvironment.Key(ident.components[0 ..< i].map({ $0.name }))
-      guard let views = env.conformanceSet(of: key) else { return nil }
+      guard let views = env.conformanceSet(of: key) else {
+        types[component] = .failure
+        types[ident] = .failure
+        diags.append(.noType(named: component.name, in: parent, range: component.range))
+        return nil
+      }
+
       if let decl = lookup(component.name, in: views) as? GenericParamDecl {
         parent = decl
       } else {

@@ -27,26 +27,41 @@ struct GenericEnvironment {
   /// The equivalence classes and their associated conformance sets.
   var entries: [(equivalences: Equivalences, conformances: Set<ViewTypeDecl>)]
 
-  /// Builds an environment from the generic generic clause of a declaration.
-  init(decl: BaseGenericDecl, binder: inout NameBinder) {
+  /// Builds an environment with the specified parameters and type requirements.
+  init(params: [GenericParamDecl], reqs: [TypeReq], space: DeclSpace, binder: inout NameBinder) {
+    self.params = params
     self.ledger = [:]
     self.entries = []
 
-    // Nothing to do if the `decl` has no generic clause.
-    guard let clause = decl.genericClause else {
-      self.params = []
-      return
-    }
-    self.params = clause.params
-
-    for req in clause.typeReqs {
+    for req in reqs {
       switch req.kind {
       case .equality:
         insert(equivalenceBetween: req.lhs, and: req.rhs)
       case .conformance:
-        insert(conformanceOf: req.lhs, to: req.rhs, space: decl.parentDeclSpace!, binder: &binder)
+        insert(conformanceOf: req.lhs, to: req.rhs, space: space, binder: &binder)
       }
     }
+  }
+
+  /// Builds an environment from the generic generic clause of a declaration.
+  init(decl: BaseGenericDecl, binder: inout NameBinder) {
+    let space = decl.parentDeclSpace!
+    let params: [GenericParamDecl]
+    let reqs: [TypeReq]
+
+    if let clause = decl.genericClause {
+      params = clause.params
+      reqs = clause.typeReqs
+    } else if let decl = decl as? ViewTypeDecl {
+      let clause = decl.synthesizedGenericClause
+      params = clause.params
+      reqs = clause.typeReqs
+    } else {
+      params = []
+      reqs = []
+    }
+
+    self.init(params: params, reqs: reqs, space: space, binder: &binder)
   }
 
   /// Returns the set of views defined for `key`.
@@ -120,6 +135,37 @@ struct GenericEnvironment {
         entries.append((equivalences: [lbox], conformances: s))
       }
     }
+  }
+
+}
+
+extension ViewTypeDecl {
+
+  fileprivate var synthesizedGenericClause: GenericClause {
+    // Synthesize the requirement `Self: V`.
+    let selfType = selfTypeDecl.instanceType as! GenericParamType
+    let selfReq = TypeReq(
+      kind: .conformance,
+      lhs: BareIdentSign(ident: Ident(name: "Self"), type: selfType),
+      rhs: BareIdentSign(ident: Ident(name: name), type: instanceType))
+
+    var params = [selfTypeDecl]
+    var reqs = [selfReq]
+
+    // Collect the abstract types of the view, and their requirements.
+    for case let decl as AbstractTypeDecl in directMembers {
+      params.append(decl)
+      reqs.append(contentsOf: decl.typeReqs)
+
+      // Desugar the inheritance clause as regular type requirements.
+      reqs.append(contentsOf: decl.inheritances.map({ rhs -> TypeReq in
+        let lhs = BareIdentSign(
+          ident: Ident(name: decl.name, range: decl.range), type: decl.instanceType)
+        return TypeReq(kind: .conformance, lhs: lhs, rhs: rhs, range: rhs.range)
+      }))
+    }
+
+    return GenericClause(params: params, typeReqs: reqs)
   }
 
 }
