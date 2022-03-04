@@ -1,5 +1,12 @@
 view V { type X: U }
-view U { type Y }
+
+view U {
+
+  type Y
+
+  fun f<T where T: V, T::X == Self::Y>(y: T)
+
+}
 
 type A<T where T: V, T::X: V> {
 
@@ -19,6 +26,8 @@ type A<T where T: V, T::X: V> {
 
 }
 
-fun f<T where T: V>(x: consuming T::X) -> T::X {
-  return x
+type B<T where T: V> {
+
+  fun f<U where U: V, U::X == T::X>(u: U) {}
+
 }

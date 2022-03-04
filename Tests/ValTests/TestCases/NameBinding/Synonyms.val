@@ -43,3 +43,10 @@ type D0 = D::DD0
 extension D0 {
   type DD1 {}
 }
+
+type E {
+  type EE = Self
+}
+
+type E0 = E::EE
+type E1 = E::EE::X    // #!error type 'E' has no member type named 'X'

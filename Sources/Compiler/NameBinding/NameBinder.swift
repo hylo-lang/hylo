@@ -175,8 +175,25 @@ public struct NameBinder: NodeWalker {
       }
     }
 
-    // Lookup failed if the declaration denotes a type synonym.
-    guard !((space as? AliasTypeDecl)?.aliasedSign is IdentSign) else { return nil }
+    switch space {
+    case let d as AliasTypeDecl where d.aliasedSign is IdentSign:
+      // No more members to check if the declaration denotes a type synonm.
+      return nil
+
+    case let d as ViewTypeDecl:
+      // In views, `Self` is a type parameter.
+      lookupTables[space, default: [:]]["Self"] = d.selfTypeDecl
+
+    case let d as ProductTypeDecl:
+      // In nominal product types, `Self` is an alias for the declaration.
+      lookupTables[space, default: [:]]["Self"] = d
+
+    default:
+      break
+    }
+
+    // Check for `Self`.
+    if name == "Self" { return space }
 
     // Check for a member declared in extensions.
     for ext in extensions(of: space) {
@@ -227,9 +244,7 @@ public struct NameBinder: NodeWalker {
     }
 
     // Check for `self` in member functions.
-    if name == "self" {
-      return space.selfDecl
-    }
+    if name == "self" { return space.selfDecl }
 
     // Check for a type parameters introduced by the declaration.
     if let clause = space.genericClause {
