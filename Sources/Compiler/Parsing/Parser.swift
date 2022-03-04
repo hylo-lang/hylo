@@ -9,7 +9,7 @@ public struct Parser {
     /// A Boolean value that indicates whether the parser encountered an error.
     var hasError = false
 
-    /// The diagnostics of the the parse errors.
+    /// The diagnostics of the parse errors.
     var diags: [Diag] = []
 
     /// The declaration space in which new declarations are being parsed.
@@ -1084,15 +1084,11 @@ public struct Parser {
     case let i as IdentSign:
       identSign = i
 
-    case .some(let sign):
-      identSign = BareIdentSign(ident: Ident(name: "", range: sign.range), type: context.errorType)
-
-    case nil:
-      state.diags.append(Diag("expected type identifier", anchor: state.errorRange()))
+    case let sign:
+      let range = sign?.range ?? state.errorRange()
+      state.diags.append(Diag("expected type identifier", anchor: range))
       state.hasError = true
-      identSign = BareIdentSign(
-        ident: Ident(name: "", range: state.errorRange()),
-        type: context.errorType)
+      identSign = BareIdentSign(ident: Ident(name: "", range: range), type: context.errorType)
     }
 
     let inheritances = state.peek()?.kind == .colon
