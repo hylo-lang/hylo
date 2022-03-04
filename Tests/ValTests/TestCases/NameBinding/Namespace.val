@@ -1,0 +1,19 @@
+namespace N {
+
+  namespace M {
+
+    type A {
+      type B {}
+      let a0: A
+    }
+
+  }
+
+  type A = M::A
+
+}
+
+type A = N::A
+type B = A::B
+type L = N::M
+type C = L::A::B
