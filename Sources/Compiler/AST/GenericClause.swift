@@ -37,7 +37,7 @@ public struct TypeReq {
   public var kind: Kind
 
   /// The left operand of the requirement.
-  public var lhs: IdentSign
+  public var lhs: NameSign
 
   /// The right operand of the requirement.
   public var rhs: Sign
@@ -45,7 +45,7 @@ public struct TypeReq {
   /// The source range of this requirement's textual representation.
   public var range: SourceRange?
 
-  public init(kind: Kind, lhs: IdentSign, rhs: Sign, range: SourceRange? = nil) {
+  public init(kind: Kind, lhs: NameSign, rhs: Sign, range: SourceRange? = nil) {
     self.kind = kind
     self.lhs = lhs
     self.rhs = rhs

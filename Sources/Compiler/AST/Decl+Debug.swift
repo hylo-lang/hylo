@@ -8,30 +8,30 @@ extension Decl {
     outer:while let node = next {
       switch node {
       case let delc as ModuleDecl:
-        components.append(delc.name)
+        components.append(delc.ident)
 
       case let decl as VarDecl:
-        components.append(decl.name)
+        components.append(decl.ident)
 
       case let decl as FunParamDecl:
-        components.append(decl.name)
+        components.append(decl.ident)
 
       case let decl as BaseFunDecl:
         let sign = decl.params.map({ ($0.label ?? "_") + ":" }).joined()
-        let name = decl.ident?.name ?? "$\(decl.discriminator)"
+        let name = decl.ident.isEmpty ? "$\(decl.discriminator)" : decl.ident
         components.append("\(name)(\(sign))")
 
       case let decl as NominalTypeDecl:
-        components.append(decl.name)
+        components.append(decl.ident)
 
       case let decl as AliasTypeDecl:
-        components.append(decl.name)
+        components.append(decl.ident)
 
       case is ExtensionDecl:
         break
 
       case let decl as NamespaceDecl:
-        components.append(decl.name)
+        components.append(decl.ident)
 
       default:
         let id = String(Int(bitPattern: ObjectIdentifier(node)), radix: 36)

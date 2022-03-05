@@ -38,26 +38,26 @@ public struct Mangler {
   public mutating func append(space: DeclSpace) {
     switch space {
     case let decl as ModuleDecl:
-      append(name: decl.name)
+      append(name: decl.ident)
 
     case let decl as ViewTypeDecl:
       append(space: decl.parentDeclSpace!)
-      append(name: decl.name)
+      append(name: decl.ident)
 
     case let decl as ProductTypeDecl:
       append(space: decl.parentDeclSpace!)
-      append(name: decl.name)
+      append(name: decl.ident)
 
     case let decl as AliasTypeDecl:
       append(space: decl.parentDeclSpace!)
-      append(name: decl.name)
+      append(name: decl.ident)
 
     case let decl as ExtensionDecl:
       append(space: decl.parentDeclSpace!)
 
     case let decl as NamespaceDecl:
       append(space: decl.parentDeclSpace!)
-      append(name: decl.name)
+      append(name: decl.ident)
 
     case let decl as BaseFunDecl:
       append(funDecl: decl)
@@ -72,10 +72,10 @@ public struct Mangler {
 
   public mutating func append(funDecl: BaseFunDecl) {
     append(space: funDecl.parentDeclSpace!)
-    if funDecl.name.isEmpty {
+    if funDecl.ident.isEmpty {
       append(index: funDecl.discriminator)
     } else {
-      append(name: funDecl.name)
+      append(name: funDecl.ident)
     }
     append(key: .ident)
     append(type: funDecl.type)
@@ -84,10 +84,10 @@ public struct Mangler {
 
   public mutating func append(witnessImpl impl: BaseFunDecl, for req: BaseFunDecl) {
     append(space: impl.parentDeclSpace!)
-    append(name: impl.name)
+    append(name: impl.ident)
     append(key: .ident)
     append(space: req.parentDeclSpace!)
-    append(name: req.name)
+    append(name: req.ident)
     append(key: .ident)
     append(type: req.type)
     append(key: .funDecl)
@@ -152,7 +152,7 @@ extension Mangler: TypeVisitor {
   }
 
   public mutating func visit(_ type: ModuleType) {
-    append(name: type.module.name)
+    append(name: type.module.ident)
     append(key: .moduleType)
   }
 
@@ -199,7 +199,7 @@ extension Mangler: TypeVisitor {
   }
 
   public mutating func visit(_ type: GenericParamType) {
-    append(name: type.decl.name)
+    append(name: type.decl.ident)
     append(key: .genericParamType)
   }
 

@@ -1076,7 +1076,7 @@ public struct OwnershipAnalysis {
     context: inout AbstractContext
   ) -> Bool {
     guard let parent = context[in: inst.record]?.asAddress else { illegalOperand() }
-    let part = AbstractAddress.part(parent: parent, property: inst.memberDecl.name)
+    let part = AbstractAddress.part(parent: parent, property: inst.memberDecl.ident)
     context[in: Operand(index)] = .address(part)
     return true
   }

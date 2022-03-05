@@ -70,18 +70,22 @@ public struct Parser {
     /// If the next token in the stream is an angle bracket, it is interpreter as an operator and
     /// merged with any attached operator.
     ///
-    /// - Parameter includingAssign: A flag that indicates whether `=` should be consumed.
-    mutating func takeOperator(includingAssign: Bool = true) -> Ident? {
+    /// - Parameter includingAssign: A flag indicating whether tokens starting with `=` should be
+    ///   interpreter as operators.
+    /// - Returns: A pair `(ident, range)` where `ident` is a string representing the consumed
+    ///   operator and `range` is its source range.
+    mutating func takeOperator(
+      includingAssign: Bool = true
+    ) -> (ident: String, range: SourceRange)? {
       guard let head = peek() else { return nil }
-
       switch head.kind {
       case .oper:
         _ = take()
-        return ident(head)
+        return (String(lexer.source[head.range]), head.range)
 
       case .assign where includingAssign:
         _ = take()
-        return ident(head)
+        return (String(lexer.source[head.range]), head.range)
 
       case .lAngle, .rAngle:
         _ = take()
@@ -93,7 +97,7 @@ public struct Parser {
         }
 
         let range = head.range.lowerBound ..< upper
-        return Ident(name: String(lexer.source[range]), range: range)
+        return (String(lexer.source[range]), range)
 
       default:
         return nil
@@ -113,12 +117,6 @@ public struct Parser {
     /// Restores the state to the specified backup.
     mutating func restore(_ backup: State) {
       self = backup
-    }
-
-    /// Creates an identifier from the specified token.
-    func ident(_ token: Token) -> Ident {
-      let name = lexer.source[token.range]
-      return Ident(name: String(name), range: token.range)
     }
 
     /// Returns a unique function discriminator.
@@ -197,7 +195,9 @@ public struct Parser {
           throw ParseError(Diag("expected declaration", anchor: state.errorRange()))
         }
         unit.decls.append(decl)
-        if let decl = decl as? FunDecl, decl.ident == nil {
+        if let decl = decl as? FunDecl,
+           decl.ident.isEmpty
+        {
           state.diags.append(Diag(
             "anonymous function can never be called", anchor: decl.introRange))
         }
@@ -322,7 +322,7 @@ public struct Parser {
 
   /// Parses a pattern binding declaration.
   ///
-  ///     binding-decl ::= ('let' | 'var') NAME (':' sign)? ('=' expr)
+  ///     binding-decl ::= ('let' | 'var') IDENT (':' sign)? ('=' expr)
   ///
   /// The next token is expected to be 'let' or 'var'.
   private func parseBindingDecl(
@@ -377,10 +377,10 @@ public struct Parser {
       upperLoc = pattern.range!.upperBound
 
       // Associate each introduced variable declaration to the new pattern binding declaration.
-      for name in decl.pattern.namedPatterns {
-        name.decl.isMutable = decl.isMutable
-        name.decl.patternBindingDecl = decl
-        decl.varDecls.append(name.decl)
+      for patttern in decl.pattern.namedPatterns {
+        patttern.decl.isMutable = decl.isMutable
+        patttern.decl.patternBindingDecl = decl
+        decl.varDecls.append(patttern.decl)
       }
     } else {
       state.diags.append(Diag("expected pattern", anchor: state.errorRange()))
@@ -422,7 +422,7 @@ public struct Parser {
   /// Parses a function declaration.
   ///
   ///     fun-decl ::= 'fun' fun-ident? generic-clause? capture-list? fun-interface brace-stmt?
-  ///     fun-ident ::= operator | NAME
+  ///     fun-ident ::= operator | IDENT
   ///     fun-interface ::= param-decl-list ('->' sign)?
   ///
   /// The next token is expected to be 'fun', 'new' or 'del'.
@@ -507,11 +507,13 @@ public struct Parser {
         decl.props.insert(.isMember)
       }
 
-      // The identifier of the function can be a name, or any non-cast operator.
-      if let name = state.take(.name) {
-        decl.ident = state.ident(name)
+      // The identifier of the function can be an unlabeled identifier, or any non-cast operator.
+      if let ident = state.take(.ident) {
+        decl.ident = String(state.lexer.source[ident.range])
+        decl.identRange = ident.range
       } else if let oper = state.takeOperator() {
-        decl.ident = oper
+        decl.ident = oper.ident
+        decl.identRange = oper.range
         isOperator = true
 
         if introducer.kind != .fun
@@ -519,7 +521,7 @@ public struct Parser {
             || modifiers.contains(where: { $0.kind == .static })
         {
           state.diags.append(Diag(
-            "operator '\(oper.name)' must be declared as a non-static member function",
+            "operator '\(oper.ident)' must be declared as a non-static member function",
             anchor: oper.range))
           state.hasError = true
         }
@@ -537,9 +539,8 @@ public struct Parser {
           "constructors are only allowed inside of a type", anchor: introducer.range))
         state.hasError = true
       }
-      if let name = state.take(.name) {
-        state.diags.append(Diag(
-          "constructors cannot have a name", anchor: name.range))
+      if let token = state.take(.ident) {
+        state.diags.append(Diag("constructors cannot be named", anchor: token.range))
         state.hasError = true
       }
 
@@ -667,7 +668,7 @@ public struct Parser {
 
   /// Parses a capture declaration.
   ///
-  ///     capture-decl ::= ('local' | 'mut' | 'consuming') NAME '=' expr
+  ///     capture-decl ::= ('local' | 'mut' | 'consuming') IDENT '=' expr
   private func parseCaptureDecl(state: inout State) -> CaptureDecl? {
     let policy: PassingPolicy
     switch state.peek()?.kind {
@@ -679,13 +680,16 @@ public struct Parser {
     }
     let introducer = state.take()!
 
-    let ident: Ident
-    if let name = state.take(.name) {
-      ident = state.ident(name)
+    let ident: String
+    let identRange: SourceRange
+    if let token = state.take(.ident) {
+      ident = String(state.lexer.source[token.range])
+      identRange = token.range
     } else {
       state.diags.append(Diag("expected identifier", anchor: state.errorRange()))
       state.hasError = true
-      ident = Ident(name: "", range: state.errorRange())
+      ident = ""
+      identRange = state.errorRange()
     }
 
     if state.take(.assign) == nil {
@@ -707,7 +711,7 @@ public struct Parser {
       ident: ident,
       value: value,
       type: unresolved,
-      range: introducer.range.lowerBound ..< ident.range!.upperBound)
+      range: introducer.range.lowerBound ..< identRange.upperBound)
     decl.parentDeclSpace = state.declSpace
 
     return decl
@@ -715,22 +719,22 @@ public struct Parser {
 
   /// Parses a parameter declaration.
   ///
-  ///     param-decl ::= (label | '_')? NAME ':' sign
+  ///     param-decl ::= (label | '_')? IDENT ':' sign
   private func parseParamDecl(state: inout State, requiringSign: Bool) -> FunParamDecl? {
     // We assume that the first token corresponds to the parameter label. If the following token is
-    // a name, then we can use it as the name. Owtherwise, we can use the first token for both the
-    // label and name.
+    // an identifier, then we can use it as the name. Owtherwise, we can use the first token for
+    // both the label and name.
     guard let label = state.take(if: { $0.kind == .under || $0.isLabel }) else { return nil }
     let lowerLoc = label.range.lowerBound
     var upperLoc = label.range.upperBound
 
     // Create the declaration.
-    let decl = FunParamDecl(name: "", policy: .local, type: unresolved)
+    let decl = FunParamDecl(ident: "", policy: .local, type: unresolved)
     decl.parentDeclSpace = state.declSpace
 
-    if let name = state.take(.name) {
+    if let name = state.take(.ident) {
       // We parsed a label *and* a name.
-      decl.name = String(state.lexer.source[name.range])
+      decl.ident = String(state.lexer.source[name.range])
       upperLoc = name.range.upperBound
 
       // Further, if the token for the label is '_', the parameter is anonymous.
@@ -739,18 +743,18 @@ public struct Parser {
       }
 
       // Warn against identical extraneous parameter names.
-      if decl.name == decl.label {
+      if decl.ident == decl.label {
         state.diags.append(Diag(.warning, "extraneous parameter name", anchor: name.range))
       }
     } else {
       // The next token is a colon: the label should be used as the name.
-      decl.name = String(state.lexer.source[label.range])
-      decl.label = decl.name
+      decl.ident = String(state.lexer.source[label.range])
+      decl.label = decl.ident
 
       // Require that the parameter name be a valid identifier.
-      if label.kind != .name {
+      if label.kind != .ident {
         state.diags.append(Diag(
-          "'\(decl.name)' is not a valid parameter name", anchor: label.range))
+          "'\(decl.ident)' is not a valid parameter name", anchor: label.range))
         state.hasError = true
       }
     }
@@ -795,7 +799,7 @@ public struct Parser {
 
     // If the introducer was 'view', then we know what we're parsing already.
     if head.introducer.kind == .view {
-      let decl = ViewTypeDecl(name: head.ident.name, type: unresolved)
+      let decl = ViewTypeDecl(ident: head.ident, type: unresolved)
       decl.parentDeclSpace = state.declSpace
       decl.inheritances = head.inheritances
       decl.type = context.viewType(decl: decl).kind
@@ -828,7 +832,7 @@ public struct Parser {
 
       for case let member as TypeDecl in decl.members where !(member is AbstractTypeDecl) {
         state.diags.append(Diag(
-          "type '\(member.name)' cannot be nested in view '\(decl.name)'", anchor: member.range))
+          "type '\(member.ident)' cannot be nested in view '\(decl.ident)'", anchor: member.range))
         state.hasError = true
       }
 
@@ -840,7 +844,7 @@ public struct Parser {
     switch state.peek()?.kind {
     case .lBrace:
       // We're parsing a product type declaration.
-      let decl = ProductTypeDecl(name: head.ident.name, type: unresolved)
+      let decl = ProductTypeDecl(ident: head.ident, type: unresolved)
       decl.parentDeclSpace = state.declSpace
       decl.inheritances = head.inheritances
       decl.type = context.productType(decl: decl).kind
@@ -885,7 +889,7 @@ public struct Parser {
       }()
       upperLoc = sign.range!.upperBound
 
-      let decl = AliasTypeDecl(name: head.ident.name, aliasedSign: sign, type: unresolved)
+      let decl = AliasTypeDecl(ident: head.ident, aliasedSign: sign, type: unresolved)
       decl.parentDeclSpace = state.declSpace
       decl.inheritances = head.inheritances
 
@@ -902,11 +906,11 @@ public struct Parser {
 
     default:
       // We're most likely parsing an asbtract type declaration.
-      let decl = AbstractTypeDecl(name: head.ident.name, type: unresolved)
+      let decl = AbstractTypeDecl(ident: head.ident, type: unresolved)
       decl.parentDeclSpace = state.declSpace
       decl.inheritances = head.inheritances
       decl.type = context.genericParamType(decl: decl).kind
-      upperLoc = head.ident.range!.upperBound
+      upperLoc = head.identRange.upperBound
 
       if let clause = head.genericClause {
         state.diags.append(Diag(
@@ -945,26 +949,28 @@ public struct Parser {
 
   /// Parses the head of a type or view declaration.
   ///
-  ///     type-decl-head ::= 'type' NAME generic-clause? inheritance-list?
-  ///     view-decl-head ::= 'view' NAME inheritance-list?
+  ///     type-decl-head ::= 'type' IDENT generic-clause? inheritance-list?
+  ///     view-decl-head ::= 'view' IDENT inheritance-list?
   ///
   /// The next token is expected to be 'type' or 'view'.
   private func parseTypeDeclHead(state: inout State) -> TypeDeclHead {
     let introducer = state.take(if: { $0.isOf(kind: [.type, .view]) })!
 
-    let ident: Ident
-    if let name = state.take(.name) {
-      ident = state.ident(name)
+    let ident: String
+    let identRange: SourceRange
+    if let token = state.take(.ident) {
+      ident = String(state.lexer.source[token.range])
+      identRange = token.range
     } else {
       state.diags.append(Diag("expected type identifier", anchor: state.errorRange()))
       state.hasError = true
-      ident = Ident(name: "", range: state.errorRange())
+      ident = ""
+      identRange = state.errorRange()
     }
 
-    switch ident.name {
+    switch ident {
     case "Any", "Kind", "Nothing", "Unit":
-      state.diags.append(Diag(
-        "'\(ident.name)' is a reserved type identifier", anchor: ident.range))
+      state.diags.append(Diag("'\(ident)' is a reserved type identifier", anchor: identRange))
       state.hasError = true
     default:
       break
@@ -978,18 +984,19 @@ public struct Parser {
     return TypeDeclHead(
       introducer: introducer,
       ident: ident,
+      identRange: identRange,
       genericClause: genericClause,
       inheritances: inheritances)
   }
 
   /// Parses an inheritance list.
   ///
-  ///     inheritance-list ::= ':' ident-sign (',' ident-sign)*
+  ///     inheritance-list ::= ':' name-sign (',' name-sign)*
   ///
   /// The next token is expected to be ':'.
-  private func parseInheritanceList(state: inout State) -> [IdentSign] {
+  private func parseInheritanceList(state: inout State) -> [NameSign] {
     _ = state.take(.colon)!
-    var inheritances: [IdentSign] = []
+    var inheritances: [NameSign] = []
 
     // We've consumed a colon, so we're committed to parse an inheritance list.
     var mustParse = true
@@ -997,8 +1004,8 @@ public struct Parser {
       mustParse = false
 
       // The signature must designate an identifier. We can't inherit from a structural type.
-      if let identSign = sign as? IdentSign {
-        inheritances.append(identSign)
+      if let identName = sign as? NameSign {
+        inheritances.append(identName)
       } else {
         state.diags.append(Diag("expected type identifier", anchor: sign.range))
         state.hasError = true
@@ -1044,7 +1051,9 @@ public struct Parser {
           throw ParseError(Diag("expected declaration", anchor: state.errorRange()))
         }
         members.append(member)
-        if let decl = member as? FunDecl, decl.ident == nil {
+        if let decl = member as? FunDecl,
+           decl.ident.isEmpty
+        {
           state.diags.append(Diag(
             .warning, "anonymous member function can never be called", anchor: decl.introRange))
         }
@@ -1062,7 +1071,7 @@ public struct Parser {
 
   /// Parses a type extension.
   ///
-  ///     extn-decl ::= 'extn' compound-ident-sign decl-body
+  ///     extn-decl ::= 'extn' compound-name-sign decl-body
   ///
   /// The next token is expected to be 'extension'.
   private func parseExtnDecl(
@@ -1079,16 +1088,16 @@ public struct Parser {
       state.hasError = true
     }
 
-    let identSign: IdentSign
+    let identName: NameSign
     switch parseSign(state: &state) {
-    case let i as IdentSign:
-      identSign = i
+    case let i as NameSign:
+      identName = i
 
     case let sign:
       let range = sign?.range ?? state.errorRange()
       state.diags.append(Diag("expected type identifier", anchor: range))
       state.hasError = true
-      identSign = BareIdentSign(ident: Ident(name: "", range: range), type: context.errorType)
+      identName = BareNameSign(ident: "", type: context.errorType, range: range)
     }
 
     let inheritances = state.peek()?.kind == .colon
@@ -1096,7 +1105,7 @@ public struct Parser {
       : []
 
     // Create the declaration.
-    let decl = ExtensionDecl(extendedIdent: identSign, members: [])
+    let decl = ExtensionDecl(extendedName: identName, members: [])
     decl.parentDeclSpace = state.declSpace
     decl.inheritances = inheritances
 
@@ -1135,27 +1144,29 @@ public struct Parser {
       state.hasError = true
     }
 
-    // Parse the name of the declaration.
-    let ident: Ident
-    if let name = state.take(.name) {
-      ident = state.ident(name)
+    // Parse the identifier of the declaration.
+    let ident: String
+    let identRange: SourceRange
+    if let token = state.take(.ident) {
+      ident = String(state.lexer.source[token.range])
+      identRange = token.range
     } else {
       state.diags.append(Diag("expected namespace identifier", anchor: state.errorRange()))
       state.hasError = true
-      ident = Ident(name: "", range: state.errorRange())
+      ident = ""
+      identRange = state.errorRange()
     }
 
-    switch ident.name {
+    switch ident {
     case "Any", "Unit", "Nothing":
-      state.diags.append(Diag(
-        "'\(ident.name)' is a reserved type identifier", anchor: ident.range))
+      state.diags.append(Diag("'\(ident)' is a reserved type identifier", anchor: identRange))
       state.hasError = true
     default:
       break
     }
 
     // Create the declaration.
-    let decl = NamespaceDecl(name: ident.name, decls: [], context: context)
+    let decl = NamespaceDecl(ident: ident, decls: [], context: context)
     decl.parentDeclSpace = state.declSpace
 
     // Parse the members of the declaration.
@@ -1177,16 +1188,16 @@ public struct Parser {
   /// Parses a generic clause.
   ///
   ///     generic-clause ::= '<' generic-param-list type-req-clause? '>'
-  ///     generic-param-list ::= NAME (',' NAME)* ','?
+  ///     generic-param-list ::= IDENT (',' IDENT)* ','?
   ///     type-req-clause ::= 'where' type-req (',' type-req)* ','?
   private func parseGenericClause(state: inout State) -> GenericClause? {
     guard let opener = state.take(.lAngle) else { return nil }
 
     let clause = GenericClause(params: [], typeReqs: [])
 
-    // Parse a list of generic parameter names.
-    while let token = state.take(.name) {
-      let decl = GenericParamDecl(name: String(state.lexer.source[token.range]), type: unresolved)
+    // Parse a list of generic parameter identifiers.
+    while let token = state.take(.ident) {
+      let decl = GenericParamDecl(ident: String(state.lexer.source[token.range]), type: unresolved)
       decl.range = token.range
       decl.parentDeclSpace = state.declSpace
       decl.type = context.genericParamType(decl: decl).kind
@@ -1220,15 +1231,16 @@ public struct Parser {
   /// Parses a type requirement.
   ///
   ///     type-req ::= same-req | conf-req
-  ///     same-req ::= compound-ident-sign '==' sign
-  ///     conf-req ::= compound-ident-sign ':' sign
+  ///     same-req ::= compound-name-sign '==' sign
+  ///     conf-req ::= compound-name-sign ':' sign
   private func parseTypeReq(state: inout State) -> TypeReq? {
-    guard let lhs = parseCompoundIdentSign(state: &state) else { return nil }
+    guard let lhs = parseCompoundNameSign(state: &state) else { return nil }
 
     // Handle failures to parse a type identifier.
-    let identSign = (lhs as? IdentSign) ?? BareIdentSign(
-      ident: Ident(name: "", range: lhs.range),
-      type: context.errorType)
+    let identName = (lhs as? NameSign) ?? BareNameSign(
+      ident: "",
+      type: context.errorType,
+      range: lhs.range)
 
     // Identify the type of requirement we're parsing.
     let kind: TypeReq.Kind
@@ -1257,7 +1269,7 @@ public struct Parser {
       return ErrorSign(type: context.errorType, range: state.errorRange())
     }()
 
-    return TypeReq(kind: kind, lhs: identSign, rhs: rhs, range: lhs.range! ..< rhs.range!)
+    return TypeReq(kind: kind, lhs: identName, rhs: rhs, range: lhs.range! ..< rhs.range!)
   }
 
   /// Parses a control statement.
@@ -1284,7 +1296,7 @@ public struct Parser {
 
   /// Parses a break statement.
   ///
-  ///     break-stmt ::= 'break' NAME?
+  ///     break-stmt ::= 'break' IDENT?
   private func parseBreakStmt(state: inout State) -> /*Break*/Stmt? {
     guard let opener = state.take(.break) else { return nil }
 
@@ -1298,7 +1310,7 @@ public struct Parser {
 
   /// Parses a continue statement.
   ///
-  ///     break-stmt ::= 'continue' NAME?
+  ///     break-stmt ::= 'continue' IDENT?
   private func parseContinueStmt(state: inout State) -> /*Continue*/Stmt? {
     guard let opener = state.take(.continue) else { return nil }
 
@@ -1413,7 +1425,9 @@ public struct Parser {
             throw ParseError(Diag("expected declaration", anchor: state.errorRange()))
           }
           scope.stmts.append(decl)
-          if let decl = decl as? FunDecl, decl.ident == nil {
+          if let decl = decl as? FunDecl,
+             decl.ident.isEmpty
+          {
             state.diags.append(Diag(
               .warning, "anonymous function can never be called", anchor: decl.introRange))
           }
@@ -1449,7 +1463,7 @@ public struct Parser {
   /// Parses an expression.
   ///
   ///     expr ::= prefix-expr binary*
-  ///     binary ::= (operator | NAME) prefix-expr
+  ///     binary ::= (operator | IDENT) prefix-expr
   private func parseExpr(state: inout State) -> Expr? {
     guard var head = parsePrefixExpr(state: &state) else { return nil }
     var tree = InfixTree.leaf(.expr(head))
@@ -1457,25 +1471,25 @@ public struct Parser {
     // Parse a sequence of binary suffixes.
     var upperLoc = head.range!.upperBound
     while true {
-      let oper: Ident
+      let oper: (ident: String, range: SourceRange)
       let group: PrecedenceGroup?
 
-      if let ident = state.takeOperator() {
+      if let o = state.takeOperator() {
         // The operator is a standard non-cast infix operator,.
-        oper = ident
-        group = PrecedenceGroup(for: ident.name) ?? {
-          state.diags.append(Diag("unknown infix operator '\(oper.name)'", anchor: oper.range))
+        oper = o
+        group = PrecedenceGroup(for: oper.ident) ?? {
+          state.diags.append(Diag("unknown infix operator '\(oper.ident)'", anchor: oper.range))
           return nil
         }()
-      } else if let name = state.peek(), name.kind == .name {
+      } else if let token = state.peek(), token.kind == .ident {
         // The next token might be an infix identifier. However, we require that it be on the same
-        // line as the left operand, to to avoid any ambiguity with statements that may begin with
-        // a name on the next line.
-        let gap = state.lexer.source[upperLoc ..< name.range.lowerBound]
+        // line as the left operand to avoid any ambiguity with statements that may begin with an
+        // identifier on the next line.
+        let gap = state.lexer.source[upperLoc ..< token.range.lowerBound]
         guard !gap.contains(where: { $0.isNewline }) else { break }
 
         _ = state.take()
-        oper = state.ident(name)
+        oper = (String(state.lexer.source[token.range]), range: token.range)
         group = .identifier
       } else if let token = state.take(.cast) {
         // The right operand of a cast operator is a type signature, not an expression.
@@ -1487,7 +1501,10 @@ public struct Parser {
 
         // Append the new operator/operand to the tree.
         upperLoc = rhs.range!.upperBound
-        tree.append(oper: state.ident(token), group: .casting, rhs: .sign(rhs))
+        tree.append(
+          oper: (String(state.lexer.source[token.range]), range: token.range),
+          group: .casting,
+          rhs: .sign(rhs))
         continue
       } else {
         // No binary suffix; we're done.
@@ -1502,8 +1519,8 @@ public struct Parser {
       }
 
       // Check that spacing around the operator is consistent.
-      let lGap = upperLoc < oper.range!.lowerBound
-      let rGap = upperLoc < oper.range!.lowerBound
+      let lGap = upperLoc < oper.range.lowerBound
+      let rGap = upperLoc < oper.range.lowerBound
       if lGap != rGap {
         state.diags.append(Diag("inconsistent spacing around infix operator", anchor: oper.range))
         state.hasError = true
@@ -1540,23 +1557,23 @@ public struct Parser {
     }
 
     // Prefix operators cannot be separated from their operand.
-    if oper.range!.upperBound != value.range!.lowerBound {
+    if oper.range.upperBound != value.range!.lowerBound {
       state.diags.append(Diag(
         "prefix operator cannot be separated from its operand", anchor: oper.range))
       state.hasError = true
-      return ErrorExpr(type: context.errorType, range: oper.range! ..< value.range!)
+      return ErrorExpr(type: context.errorType, range: oper.range ..< value.range!)
     }
 
     // If the operator is '&', then return an AddrOfExpr; otherwise, return a prefix call.
-    if oper.name == "&" {
-      return AddrOfExpr(value: value, type: unresolved, range: oper.range! ..< value.range!)
+    if oper.ident == "&" {
+      return AddrOfExpr(value: value, type: unresolved, range: oper.range ..< value.range!)
     } else {
       let fun = UnresolvedMemberExpr(
         base: value,
-        name: LabeledName(base: oper.name, notation: .prefix),
+        ident: LabeledIdent(base: oper.ident, notation: .prefix),
         type: unresolved,
         range: oper.range)
-      return CallExpr.prefix(fun: fun, type: unresolved, range: oper.range! ..< value.range!)
+      return CallExpr.prefix(fun: fun, type: unresolved, range: oper.range ..< value.range!)
     }
   }
 
@@ -1600,15 +1617,20 @@ public struct Parser {
 
         // Parse the member identifier or index.
         if let token = state.take(if: { $0.isLabel }) {
-          let name = String(state.lexer.source[token.range])
+          let ident = String(state.lexer.source[token.range])
           let expr = UnresolvedMemberExpr(
-            base: base, name: LabeledName(base: name), nameRange: token.range, type: unresolved)
+            base: base,
+            ident: LabeledIdent(base: ident),
+            identRange: token.range,
+            type: unresolved)
           expr.range = lowerLoc ..< token.range.upperBound
           base = expr
         } else if let oper = state.takeOperator() {
           let expr = UnresolvedMemberExpr(
-            base: base, name: LabeledName(base: oper.name), nameRange: oper.range, type: unresolved)
-          expr.range = lowerLoc ..< oper.range!.upperBound
+            base: base,
+            ident: LabeledIdent(base: oper.ident),
+            identRange: oper.range, type: unresolved)
+          expr.range = lowerLoc ..< oper.range.upperBound
           base = expr
         } else if let index = state.take(.int) {
           let value = state.lexer.source[index.range]
@@ -1636,9 +1658,9 @@ public struct Parser {
         }
 
         // Postfix operators must be attached to the expression, and followed by a whitespace.
-        let lGap = base.range!.upperBound != oper.range!.lowerBound
-        let rGap = (oper.range!.upperBound.index == state.lexer.source.endIndex)
-          || state.lexer.source[oper.range!.upperBound.index].isWhitespace
+        let lGap = base.range!.upperBound != oper.range.lowerBound
+        let rGap = (oper.range.upperBound.index == state.lexer.source.endIndex)
+          || state.lexer.source[oper.range.upperBound.index].isWhitespace
         guard !lGap && rGap else {
           state.restore(backup)
           return base
@@ -1646,12 +1668,12 @@ public struct Parser {
 
         let fun = UnresolvedMemberExpr(
           base: base,
-          name: LabeledName(base: oper.name),
-          nameRange: oper.range,
+          ident: LabeledIdent(base: oper.ident),
+          identRange: oper.range,
           type: unresolved,
           range: oper.range)
         base = CallExpr.postfix(
-          fun: fun, type: unresolved, range: lowerLoc ..< oper.range!.upperBound)
+          fun: fun, type: unresolved, range: lowerLoc ..< oper.range.upperBound)
 
       default:
         return base
@@ -1672,7 +1694,7 @@ public struct Parser {
       return parseFloatLiteral(state: &state)
     case .string:
       return parseStringLiteral(state: &state)
-    case .name:
+    case .ident:
       return parseDeclRefExpr(state: &state)
     case .dot:
       fatalError("not implemented")
@@ -1707,10 +1729,10 @@ public struct Parser {
 
         return .success(UnresolvedQualDeclRefExpr(
           namespace: sign,
-          name: LabeledName(base: ident.name),
-          nameRange: ident.range,
+          ident: LabeledIdent(base: ident.ident),
+          identRange: ident.range,
           type: unresolved,
-          range: opener.range ..< ident.range!))
+          range: opener.range ..< ident.range))
       }) {
         return expr
       } else {
@@ -1785,17 +1807,17 @@ public struct Parser {
       // might have been parsed with the signature.
       if state.take(.twoColons) == nil {
         switch sign {
-        case let sign as BareIdentSign:
+        case let sign as BareNameSign:
           return UnresolvedDeclRefExpr(
-            name: LabeledName(base: sign.ident.name), type: unresolved, range: sign.ident.range)
+            ident: LabeledIdent(base: sign.ident), type: unresolved, range: sign.range)
 
-        case let sign as CompoundIdentSign where sign.lastComponent is BareIdentSign:
-          let namespace = CompoundIdentSign.create(sign.components.dropLast())
-          let last = sign.lastComponent as! BareIdentSign
+        case let sign as CompoundNameSign where sign.lastComponent is BareNameSign:
+          let namespace = CompoundNameSign.create(sign.components.dropLast())
+          let last = sign.lastComponent as! BareNameSign
           return UnresolvedQualDeclRefExpr(
             namespace: namespace,
-            name: LabeledName(base: last.ident.name),
-            nameRange: last.ident.range,
+            ident: LabeledIdent(base: last.ident),
+            identRange: last.range,
             type: unresolved,
             range: sign.range)
 
@@ -1816,31 +1838,31 @@ public struct Parser {
 
       return UnresolvedQualDeclRefExpr(
         namespace: sign,
-        name: LabeledName(base: ident.name),
-        nameRange: ident.range,
+        ident: LabeledIdent(base: ident.ident),
+        identRange: ident.range,
         type: unresolved,
-        range: sign.range! ..< ident.range!)
+        range: sign.range! ..< ident.range)
     } else {
-      // We didn't parse a type signature. We're expecting a name.
-      guard let name = state.take(.name) else { return nil }
+      // We didn't parse a type signature. We're expecting an identifier.
+      guard let token = state.take(.ident) else { return nil }
       return UnresolvedDeclRefExpr(
-        name: LabeledName(base: String(state.lexer.source[name.range])),
+        ident: LabeledIdent(base: String(state.lexer.source[token.range])),
         type: unresolved,
-        range: name.range)
+        range: token.range)
     }
   }
 
   /// Parses an identifier.
-  private func parseIdent(state: inout State) -> Ident? {
-    if let name = state.take(.name) {
-      return state.ident(name)
+  private func parseIdent(state: inout State) -> (ident: String, range: SourceRange)? {
+    if let token = state.take(.ident) {
+      return (String(state.lexer.source[token.range]), token.range)
     } else {
       return state.takeOperator()
     }
   }
 
-  /// Parses a labeled name.
-  private func parseLabeledName(state: inout State) -> (LabeledName, SourceRange)? {
+  /// Parses a labeled identifier.
+  private func parseLabeledIdentifier(state: inout State) -> (LabeledIdent, SourceRange)? {
     let start = state.lexer.location
 
     // Attempt to parse the operator notation.
@@ -1865,22 +1887,22 @@ public struct Parser {
     // If we parsed an operator notation, the next token must be an operator.
     if let notation = notation {
       if let op = state.takeOperator() {
-        let range = start ..< op.range!.upperBound
-        return (LabeledName(base: op.name, labels: [], notation: notation), range)
+        let range = start ..< op.range.upperBound
+        return (LabeledIdent(base: op.ident, labels: [], notation: notation), range)
       } else {
         state.diags.append(Diag("expected operator", anchor: state.errorRange()))
         state.hasError = true
         let range = start ..< state.errorRange().upperBound
-        return (LabeledName(base: "", labels: [], notation: notation), range)
+        return (LabeledIdent(base: "", labels: [], notation: notation), range)
       }
     }
 
-    // Attempt to parse a base name.
-    guard let base = state.take(.name) else { return nil }
-    var name = LabeledName(base: String(state.lexer.source[base.range]), labels: [])
+    // Attempt to parse a base.
+    guard let base = state.take(.ident) else { return nil }
+    var ident = LabeledIdent(base: String(state.lexer.source[base.range]), labels: [])
 
     // If the next token is not a left parenthesis, settle for the base.
-    guard state.peek()?.kind == .lParen else { return (name, base.range) }
+    guard state.peek()?.kind == .lParen else { return (ident, base.range) }
 
     // Attempt to read argument labels.
     let backup = state.save()
@@ -1891,12 +1913,12 @@ public struct Parser {
       if let closer = state.take(.rParen) {
         // The argument label list cannot be empty; backtrack.
         guard !labels.isEmpty else { break }
-        name.labels = labels
-        return (name, base.range ..< closer.range)
+        ident.labels = labels
+        return (ident, base.range ..< closer.range)
       }
 
-      // Parse `(name | '_') ':'`
-      guard let label = state.take(.name) ?? state.take(.under),
+      // Parse `(IDENT | '_') ':'`
+      guard let label = state.take(.ident) ?? state.take(.under),
             let _ = state.take(.colon)
       else { break }
       labels.append(String(state.lexer.source[label.range]))
@@ -1904,7 +1926,7 @@ public struct Parser {
 
     // We failed to parse an argument list; backtrack.
     state.restore(backup)
-    return (name, base.range)
+    return (ident, base.range)
   }
 
   /// Parses a lambda expression.
@@ -1918,8 +1940,8 @@ public struct Parser {
       state: &state, parsedModifiers: [], requiringParamSign: false) as! FunDecl
 
     // Check that the parsed declaration is valid for a lambda.
-    if let ident = decl.ident {
-      state.diags.append(Diag("lambda functions must be anonymous", anchor: ident.range))
+    if !decl.ident.isEmpty {
+      state.diags.append(Diag("lambda functions must be anonymous", anchor: decl.identRange))
       state.hasError = true
     }
     if let clause = decl.genericClause {
@@ -2135,7 +2157,7 @@ public struct Parser {
   /// Parses a pattern.
   private func parsePattern(state: inout State) -> Pattern? {
     switch state.peek()?.kind {
-    case .name:
+    case .ident:
       return parseNamedPattern(state: &state)
     case .var, .let:
       return parseBindingPattern(state: &state)
@@ -2150,10 +2172,11 @@ public struct Parser {
 
   /// Parses a named pattern.
   private func parseNamedPattern(state: inout State) -> Pattern? {
-    guard let token = state.take(.name) else { return nil }
+    guard let token = state.take(.ident) else { return nil }
 
     // Create a variable declaration for the pattern.
-    let decl = VarDecl(ident: state.ident(token), type: unresolved)
+    let decl = VarDecl(
+      ident: String(state.lexer.source[token.range]), identRange: token.range, type: unresolved)
     decl.range = token.range
     decl.parentDeclSpace = state.declSpace
 
@@ -2461,11 +2484,11 @@ public struct Parser {
 
   /// Parses a primary signature.
   ///
-  ///     primary-sign ::= compound-ident-sign | tuple-sign
+  ///     primary-sign ::= compound-name-sign | tuple-sign
   private func parsePrimarySign(state: inout State) -> Sign? {
     switch state.peek()?.kind {
-    case .name:
-      return parseCompoundIdentSign(state: &state)
+    case .ident:
+      return parseCompoundNameSign(state: &state)
     case .lParen:
       return parseTupleSign(state: &state)
     default:
@@ -2475,14 +2498,14 @@ public struct Parser {
 
   /// Parses a compound type identifier.
   ///
-  ///     compound-ident-sign ::= ident-comp-sign ('::' ident-comp-sign)*
-  private func parseCompoundIdentSign(state: inout State) -> Sign? {
-    guard let first = parseIdentCompSign(state: &state) else { return nil }
+  ///     compound-name-sign ::= name-comp-sign ('::' ident-comp-sign)*
+  private func parseCompoundNameSign(state: inout State) -> Sign? {
+    guard let first = parseNameCompSign(state: &state) else { return nil }
     var comps = [first]
 
     while let sep = state.peek(), sep.kind == .twoColons {
       _ = state.take()
-      guard let sign = parseIdentCompSign(state: &state) else {
+      guard let sign = parseNameCompSign(state: &state) else {
         state.diags.append(Diag("expected type identifier", anchor: state.errorRange()))
         state.hasError = true
         return ErrorSign(type: context.errorType, range: comps[0].range! ..< comps.last!.range!)
@@ -2490,29 +2513,29 @@ public struct Parser {
       comps.append(sign)
     }
 
-    return CompoundIdentSign.create(comps)
+    return CompoundNameSign.create(comps)
   }
 
-  /// Parses an unqualified type identifier.
+  /// Parses an unqualified type name.
   ///
-  ///     ident-comp-sign ::= NAME generic-args?
+  ///     name-comp-sign ::= IDENT generic-args?
   ///     generic-args ::= list['<', sign, '>']
-  private func parseIdentCompSign(state: inout State) -> IdentCompSign? {
-    guard let token = state.take(.name) else { return nil }
-    let ident = state.ident(token)
+  private func parseNameCompSign(state: inout State) -> NameCompSign? {
+    guard let token = state.take(.ident) else { return nil }
+    let ident = String(state.lexer.source[token.range])
 
     // Attempt to parse a list of generic arguments.
     if let (opener, args, closer) = list(
         state: &state, delimiters: (.lAngle, .rAngle), parser: { parseSign(state: &$0) })
     {
       // Return a specialized identifier.
-      let sign = SpecializedIdentSign(ident: ident, args: args, type : unresolved)
+      let sign = SpecializedNameSign(ident: ident, args: args, type: unresolved)
       sign.range = opener.range ..< (closer?.range ?? args.last?.range ?? opener.range)
       return sign
     }
 
     // Return a bare identifier.
-    return BareIdentSign(ident: ident, type : unresolved)
+    return BareNameSign(ident: ident, type: unresolved, range: token.range)
   }
 
   /// Parses a tuple signature.
@@ -2635,7 +2658,10 @@ fileprivate struct TypeDeclHead {
   let introducer: Token
 
   /// The declaration's identifier.
-  let ident: Ident
+  let ident: String
+
+  /// The range of the declaration's identifier.
+  let identRange: SourceRange
 
   /// The generic clause of the declaration.
   let genericClause: GenericClause?
@@ -2662,10 +2688,18 @@ fileprivate enum InfixTree {
   case leaf(Operand)
 
   /// An infix call.
-  indirect case node(oper: Ident, group: PrecedenceGroup, left: InfixTree, right: InfixTree)
+  indirect case node(
+    oper: (ident: String, range: SourceRange),
+    group: PrecedenceGroup,
+    left: InfixTree,
+    right: InfixTree)
 
   /// Appends the specified operator and operand to the tree.
-  mutating func append(oper: Ident, group: PrecedenceGroup, rhs: Operand) {
+  mutating func append(
+    oper: (ident: String, range: SourceRange),
+    group: PrecedenceGroup,
+    rhs: Operand
+  ) {
     switch self {
     case .leaf:
       self = .node(oper: oper, group: group, left: self, right: .leaf(rhs))
@@ -2696,7 +2730,7 @@ fileprivate enum InfixTree {
       let lhs = left.flattened()
       let unresolved = lhs.type.context.unresolvedType
 
-      switch oper.name {
+      switch oper.ident {
       case "=":
         let rhs = right.flattened()
         let expr = AssignExpr(lvalue: lhs, rvalue: rhs)
@@ -2725,8 +2759,8 @@ fileprivate enum InfixTree {
         let rhs = right.flattened()
         let fun = UnresolvedMemberExpr(
           base: lhs,
-          name: LabeledName(base: oper.name),
-          nameRange: oper.range,
+          ident: LabeledIdent(base: oper.ident),
+          identRange: oper.range,
           type: unresolved,
           range: oper.range)
         let expr = CallExpr.infix(fun: fun, operand: rhs, type: unresolved)

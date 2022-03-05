@@ -1,13 +1,13 @@
-/// A labeled name (e.g., `foo(bar:_:)` or `infix+`).
-public struct LabeledName {
+/// A labeled identifier (e.g., `foo(bar:_:)` or `infix+`).
+public struct LabeledIdent {
 
-  /// The base of the name.
+  /// The base of the identifier.
   var base: String
 
-  // The argument labels of the name.
+  // The argument labels of the identifier.
   var labels: [String]
 
-  /// The operator notation of the name.
+  /// The operator notation of the identifier.
   var notation: OperatorNotation?
 
   public init(base: String, labels: [String] = [], notation: OperatorNotation? = nil) {
@@ -16,17 +16,17 @@ public struct LabeledName {
     self.notation = notation
   }
 
-  static let empty = LabeledName(base: "")
+  static let empty = LabeledIdent(base: "")
 
-  public static func == (lhs: LabeledName, rhs: String) -> Bool {
+  public static func == (lhs: LabeledIdent, rhs: String) -> Bool {
     return lhs.labels.isEmpty && (lhs.notation == nil) && (lhs.base == rhs)
   }
 
 }
 
-extension LabeledName: Hashable {}
+extension LabeledIdent: Hashable {}
 
-extension LabeledName: CustomStringConvertible {
+extension LabeledIdent: CustomStringConvertible {
 
   public var description: String {
     var result = ""

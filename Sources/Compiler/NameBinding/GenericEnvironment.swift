@@ -12,8 +12,8 @@ struct GenericEnvironment {
       self.components = Array(components)
     }
 
-    init(_ ident: IdentSign) {
-      self.components = ident.components.map({ $0.name })
+    init(_ ident: NameSign) {
+      self.components = ident.components.map({ $0.ident })
     }
 
   }
@@ -72,8 +72,8 @@ struct GenericEnvironment {
 
   private mutating func insert(equivalenceBetween lhs: Sign, and rhs: Sign) {
     // Nothing to do if the requirement isn't defined on identifiers.
-    guard let lid = lhs as? IdentSign,
-          let rid = rhs as? IdentSign
+    guard let lid = lhs as? NameSign,
+          let rid = rhs as? NameSign
     else { return }
 
     let lbox = Key(lid)
@@ -112,8 +112,8 @@ struct GenericEnvironment {
     binder: inout NameBinder
   ) {
     // Nothing to do if the requirement isn't defined on identifiers.
-    guard let lid = lhs as? IdentSign,
-          let rid = rhs as? IdentSign
+    guard let lid = lhs as? NameSign,
+          let rid = rhs as? NameSign
     else { return }
 
     let lbox = Key(lid)
@@ -146,8 +146,8 @@ extension ViewTypeDecl {
     let selfType = selfTypeDecl.instanceType as! GenericParamType
     let selfReq = TypeReq(
       kind: .conformance,
-      lhs: BareIdentSign(ident: Ident(name: "Self"), type: selfType),
-      rhs: BareIdentSign(ident: Ident(name: name), type: instanceType))
+      lhs: BareNameSign(ident: "Self", type: selfType),
+      rhs: BareNameSign(ident: ident, type: instanceType))
 
     var params = [selfTypeDecl]
     var reqs = [selfReq]
@@ -159,8 +159,7 @@ extension ViewTypeDecl {
 
       // Desugar the inheritance clause as regular type requirements.
       reqs.append(contentsOf: decl.inheritances.map({ rhs -> TypeReq in
-        let lhs = BareIdentSign(
-          ident: Ident(name: decl.name, range: decl.range), type: decl.instanceType)
+        let lhs = BareNameSign(ident: decl.ident, type: decl.instanceType, range: decl.range)
         return TypeReq(kind: .conformance, lhs: lhs, rhs: rhs, range: rhs.range)
       }))
     }

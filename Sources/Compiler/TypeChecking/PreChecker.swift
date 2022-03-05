@@ -130,7 +130,7 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
 
   /// Resolves an `UnresolvedDeclRefExpr`.
   ///
-  /// The name is resolved with an unqualified name lookup from the declaration space in which the
+  /// The name is resolved with an unqualified lookup from the declaration space in which the
   /// reference resides. Implicit member references are rewritten with an explicit `self`.
   func visit(_ node: UnresolvedDeclRefExpr) -> Expr {
     let context = node.type.context
@@ -140,7 +140,7 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
 
     // If we're in a brace statement, look for local bindings first.
     if useSite is BraceStmt {
-      matches = useSite!.lookup(qualified: node.name.base)
+      matches = useSite!.lookup(qualified: node.ident.base)
 
       if let decl = matches.values.first(where: { !$0.isOverloadable }) {
         // We found a local, non-overloadable value declaration. That should be either a parameter
@@ -164,19 +164,19 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
       }
 
       let outer = useSite!.parentDeclSpace!.lookup(
-        unqualified: node.name.base, in: node.type.context)
+        unqualified: node.ident.base, in: node.type.context)
       matches.append(contentsOf: outer)
     } else {
-      matches = useSite!.lookup(unqualified: node.name.base, in: node.type.context)
+      matches = useSite!.lookup(unqualified: node.ident.base, in: node.type.context)
     }
 
     guard !matches.isEmpty else {
       if forwardDecl != nil {
         DiagDispatcher.instance.report(
-          .useOfLocalBindingBeforeDeclaration(symbol: node.name.base, range: node.range))
+          .useOfLocalBindingBeforeDeclaration(symbol: node.ident.base, range: node.range))
       } else {
         DiagDispatcher.instance.report(
-          .cannotFind(symbol: node.name.base, range: node.range))
+          .cannotFind(symbol: node.ident.base, range: node.range))
       }
       return ErrorExpr(type: context.errorType, range: node.range)
     }
@@ -197,15 +197,15 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
     }
 
     // Handle `T::self`.
-    if node.name.base == "self" {
+    if node.ident.base == "self" {
       return KindRefExpr(type: baseType.kind, range: node.range)
     }
 
     // Handle built-ins.
     if baseType === context.builtin.instanceType {
-      guard let decl = context.getBuiltinDecl(for: node.name.base) else {
+      guard let decl = context.getBuiltinDecl(for: node.ident.base) else {
         DiagDispatcher.instance.report(
-          .cannotFind(builtin: node.name.base, range: node.nameRange))
+          .cannotFind(builtin: node.ident.base, range: node.identRange))
         return ErrorExpr(type: context.errorType, range: node.range)
       }
 
@@ -214,11 +214,11 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
     }
 
     // Run a qualified lookup if the namespace resolved to a nominal type.
-    let matches = baseType.lookup(member: node.name.base)
+    let matches = baseType.lookup(member: node.ident.base)
     guard !matches.isEmpty else {
       DiagDispatcher.instance.report(
-        .cannotFind(member: String(describing: node.name), in: baseType, range: node.nameRange))
-      return ErrorExpr(type: context.errorType, range: node.nameRange)
+        .cannotFind(member: String(describing: node.ident), in: baseType, range: node.identRange))
+      return ErrorExpr(type: context.errorType, range: node.identRange)
     }
 
     // Note that this will throw the type signature away.

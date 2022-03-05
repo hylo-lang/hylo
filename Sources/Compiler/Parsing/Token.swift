@@ -16,7 +16,7 @@ public struct Token {
     case string
 
     // Identifiers
-    case name     = 2000
+    case ident    = 2000
     case under
 
     // Keywords
@@ -84,7 +84,7 @@ public struct Token {
       case .float     : return "floating point literal"
       case .string    : return "string literal"
 
-      case .name      : return "name"
+      case .ident     : return "ident"
       case .under     : return "'_'"
 
       case .oper      : return "operator"
@@ -130,7 +130,7 @@ public struct Token {
 
   /// A Boolean value indicating whether the token may be used as a label.
   public var isLabel: Bool {
-    return (kind == .name) || isKeyword
+    return (kind == .ident) || isKeyword
   }
 
   /// A Boolean value indicating whether the token may be used as an operator.

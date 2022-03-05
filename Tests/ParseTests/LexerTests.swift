@@ -38,7 +38,7 @@ final class LexerTests: XCTestCase {
         TokenSpec(.int, "0xabcdef"),
         TokenSpec(.int, "0x__0_a_"),
         TokenSpec(.int, "0x"),
-        TokenSpec(.name, "g"),
+        TokenSpec(.ident, "g"),
         TokenSpec(.int, "0x"),
       ],
       in: input)
@@ -86,7 +86,7 @@ final class LexerTests: XCTestCase {
         TokenSpec(.int  , "1"),
         TokenSpec(.dot  , "."),
         TokenSpec(.int  , "1"),
-        TokenSpec(.name , "e"),
+        TokenSpec(.ident, "e"),
       ],
       in: input)
   }
@@ -168,10 +168,10 @@ final class LexerTests: XCTestCase {
     assert(
       that: tokenize(input),
       match: [
-        TokenSpec(.name     , "foo"),
-        TokenSpec(.name     , "éléphant"),
-        TokenSpec(.name     , "_bar"),
-        TokenSpec(.name     , "_1_2_3"),
+        TokenSpec(.ident    , "foo"),
+        TokenSpec(.ident    , "éléphant"),
+        TokenSpec(.ident    , "_bar"),
+        TokenSpec(.ident    , "_1_2_3"),
         TokenSpec(.under    , "_"),
       ],
       in: input)
@@ -182,13 +182,13 @@ final class LexerTests: XCTestCase {
     assert(
       that: tokenize(input),
       match: [
-        TokenSpec(.name     , "type"),
-        TokenSpec(.name     , "foo"),
-        TokenSpec(.name     , "a_b_"),
+        TokenSpec(.ident    , "type"),
+        TokenSpec(.ident    , "foo"),
+        TokenSpec(.ident    , "a_b_"),
         TokenSpec(.invalid  , "`"),
         TokenSpec(.int      , "12"),
         TokenSpec(.invalid  , "`"),
-        TokenSpec(.name     , "a"),
+        TokenSpec(.ident    , "a"),
       ],
       in: input)
   }
@@ -280,9 +280,9 @@ final class LexerTests: XCTestCase {
     assert(
       that: tokenize(input),
       match: [
-        TokenSpec(.name   , "a"),
-        TokenSpec(.assign , "="),
-        TokenSpec(.name   , "b"),
+        TokenSpec(.ident, "a"),
+        TokenSpec(.assign, "="),
+        TokenSpec(.ident, "b"),
         TokenSpec(.unterminatedBlockComment, "/**** /* Unterminated */"),
       ],
       in: input)

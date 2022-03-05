@@ -109,8 +109,8 @@ public struct Module {
     // Mangle the function's name.
     // FIXME: We have to implement an attribute like "@vilname(...)".
     let name: String
-    if decl.name == "main" {
-      name = decl.name
+    if decl.ident == "main" {
+      name = decl.ident
     } else {
       var mangler = Mangler()
       mangler.append(funDecl: decl)

@@ -147,7 +147,7 @@ public final class Compiler {
   // MARK: Built-ins
 
   /// The built-in module.
-  public private(set) lazy var builtin = ModuleDecl(name: "Builtin", generation: 0, context: self)
+  public private(set) lazy var builtin = ModuleDecl(ident: "Builtin", generation: 0, context: self)
 
   /// The built-in types that have been cached.
   private var builtinTypes: [String: BuiltinType] = [:]
@@ -206,20 +206,20 @@ public final class Compiler {
 
     for spec in config.functions {
       let decl = createBuiltinFunDecl(
-        name: spec[0], params: spec[1 ..< (spec.count - 1)], ret: spec[spec.count - 1])
+        ident: spec[0], params: spec[1 ..< (spec.count - 1)], ret: spec[spec.count - 1])
       decl.parentDeclSpace = unit
       unit.decls.append(decl)
-      builtinDecls[decl.name] = decl
+      builtinDecls[decl.ident] = decl
     }
   }
 
   private func createBuiltinFunDecl(
-    name: String,
+    ident: String,
     params: ArraySlice<String>,
     ret: String
   ) -> FunDecl {
     // Create the declaration of the function.
-    let funDecl = FunDecl(ident: Ident(name: name), type: unresolvedType)
+    let funDecl = FunDecl(ident: ident, type: unresolvedType)
     funDecl.props.insert(.isBuiltin)
 
     // Create the declaration(s) of the function's parameter.
@@ -229,7 +229,7 @@ public final class Compiler {
       funTypeParams.append(FunType.Param(type: parse(paramTypeNamed: param)))
 
       // Create the declaration of the parameter.
-      let decl = FunParamDecl(name: "_\(i)", policy: .consuming, type: funTypeParams.last!.type)
+      let decl = FunParamDecl(ident: "_\(i)", policy: .consuming, type: funTypeParams.last!.type)
       decl.parentDeclSpace = funDecl
       decl.state = .typeChecked
 

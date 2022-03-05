@@ -466,7 +466,7 @@ public final class ModuleType: ValType {
     visitor.visit(self)
   }
 
-  public override var description: String { module.name }
+  public override var description: String { module.ident }
 
 }
 
@@ -493,7 +493,7 @@ public final class NamespaceType: ValType {
     visitor.visit(self)
   }
 
-  public override var description: String { decl.name }
+  public override var description: String { decl.ident }
 
 }
 
@@ -527,7 +527,7 @@ public class NominalType: ValType {
     hasher.combine(ObjectIdentifier(decl))
   }
 
-  public override var description: String { decl.name }
+  public override var description: String { decl.ident }
 
 }
 
@@ -579,9 +579,9 @@ public final class ViewType: NominalType {
     guard lhs !== rhs else { return false }
 
     if lhs.decl.rootDeclSpace === rhs.decl.rootDeclSpace {
-      return lhs.decl.name.lexicographicallyPrecedes(rhs.decl.name)
+      return lhs.decl.ident.lexicographicallyPrecedes(rhs.decl.ident)
     } else {
-      return lhs.decl.rootDeclSpace.name.lexicographicallyPrecedes(rhs.decl.rootDeclSpace.name)
+      return lhs.decl.rootDeclSpace.ident.lexicographicallyPrecedes(rhs.decl.rootDeclSpace.ident)
     }
   }
 
@@ -935,7 +935,7 @@ public final class BoundGenericType: NominalType {
 
   public override var description: String {
     let args = self.args.map(String.init(describing:)).joined(separator: ", ")
-    return "\(decl.name)<\(args)>"
+    return "\(decl.ident)<\(args)>"
   }
 
 }
@@ -998,7 +998,7 @@ public final class GenericParamType: ValType, Hashable {
     visitor.visit(self)
   }
 
-  public override var description: String { decl.name }
+  public override var description: String { decl.ident }
 
 }
 

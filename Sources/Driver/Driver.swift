@@ -53,7 +53,7 @@ public struct Driver {
     }
 
     // Create a module.
-    let module = ModuleDecl(name: moduleName, generation: compiler.generation, context: compiler)
+    let module = ModuleDecl(ident: moduleName, generation: compiler.generation, context: compiler)
     compiler.modules[moduleName] = module
 
     if let stdlib = compiler.stdlib {
@@ -141,7 +141,7 @@ public struct Driver {
   public func lower(moduleDecl: ModuleDecl) throws -> Module {
     assert(compiler.modules.values.contains(moduleDecl))
     guard moduleDecl.state == .typeChecked else {
-      throw DriverError.moduleNotTypeChecked(moduleName: moduleDecl.name)
+      throw DriverError.moduleNotTypeChecked(moduleName: moduleDecl.ident)
     }
 
     // Emit the module declaration.

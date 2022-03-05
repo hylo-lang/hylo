@@ -61,7 +61,7 @@ struct BuiltinFunction {
   }
 
   init?(literal: BuiltinFunRef) {
-    guard let id = ID(rawValue: literal.decl.name) else { return nil }
+    guard let id = ID(rawValue: literal.decl.ident) else { return nil }
     self.init(id: id)
   }
 

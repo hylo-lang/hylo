@@ -12,7 +12,7 @@ public final class ModuleDecl {
     willSet { assert(newValue >= state) }
   }
 
-  public var name: String
+  public var ident: String
 
   public private(set) var type: ValType
 
@@ -25,8 +25,8 @@ public final class ModuleDecl {
   /// The file units in the module.
   public var units: [FileUnit] = []
 
-  public init(name: String, generation: Int, context: Compiler) {
-    self.name = name
+  public init(ident: String, generation: Int, context: Compiler) {
+    self.ident = ident
     self.generation = generation
     self.type = context.unresolvedType
     self.type = ModuleType(context: context, module: self).kind
@@ -62,7 +62,7 @@ public final class ModuleDecl {
       }
 
       // The extension isn't bound yet: we must resolve its identifier.
-      if ext.extendedIdent is BareIdentSign {
+      if ext.extendedName is BareNameSign {
         if let d = ext.extendedDecl, delegate(d) === decl {
           matches.append(ext)
         }
@@ -73,7 +73,7 @@ public final class ModuleDecl {
       // as we may risk to trigger infinite recursion of name lookups if the signature points
       // within `decl`. Instead, we must realize it lazily and abort if we detect that we're
       // about to start a lookup from `decl`.
-      let compound = ext.extendedIdent as! CompoundIdentSign
+      let compound = ext.extendedName as! CompoundNameSign
       var compType = compound.components[0].realize(unqualifiedFrom: self)
       var compDecl = (compType as? NominalType)?.decl
 
@@ -177,8 +177,6 @@ extension ModuleDecl: IterableDeclSpace {
 
 extension ModuleDecl: TypeDecl {
 
-  public var fullyQualName: [String] { [name] }
-
   public var range: SourceRange? { nil }
 
   public var isOverloadable: Bool { false }
@@ -192,7 +190,7 @@ extension ModuleDecl: TypeDecl {
 extension ModuleDecl: Hashable {
 
   public func hash(into hasher: inout Hasher) {
-    hasher.combine(name)
+    hasher.combine(ident)
   }
 
   public static func == (lhs: ModuleDecl, rhs: ModuleDecl) -> Bool {
@@ -204,7 +202,7 @@ extension ModuleDecl: Hashable {
 extension ModuleDecl: CustomStringConvertible {
 
   public var description: String {
-    return "Module(\(name))"
+    return "Module(\(ident))"
   }
 
 }

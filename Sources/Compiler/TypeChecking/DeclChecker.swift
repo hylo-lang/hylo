@@ -21,8 +21,8 @@ struct DeclChecker: DeclVisitor {
   func visit(_ node: ImportDecl) -> Bool {
     // Check that the imported module belongs to the current module's dependencies.
     let module = node.parentDeclSpace!.rootDeclSpace
-    if !module.dependencies.contains(where: { $0.name == node.name }) {
-      DiagDispatcher.instance.report(.cannotFind(module: node.name, range: node.range))
+    if !module.dependencies.contains(where: { $0.ident == node.ident }) {
+      DiagDispatcher.instance.report(.cannotFind(module: node.ident, range: node.range))
       return false
     }
 
@@ -219,11 +219,11 @@ struct DeclChecker: DeclVisitor {
       // Verify that abstract type requirements are satisfied.
       for case let req as AbstractTypeDecl in view.decl.typeMemberTable.values {
         // Look for a declaration in the type member table that shadows the abstract requirement.
-        guard let member = node.typeMemberTable[req.name] else {
+        guard let member = node.typeMemberTable[req.ident] else {
           DiagDispatcher.instance.report(
             .conformanceRequiresMatchingImplementation(
-              view: view.decl.name,
-              requirement: req.name,
+              view: view.decl.ident,
+              requirement: req.ident,
               range: conformance.range ?? node.introRange))
 
           // Mark the conformance as invalid.
@@ -256,7 +256,7 @@ struct DeclChecker: DeclVisitor {
       guard node.conformanceTable[view]!.state != .invalid else { continue }
 
       // Verify that value member requirements are satisfied.
-      for (name, reqs) in view.decl.valueMemberTable {
+      for (ident, reqs) in view.decl.valueMemberTable {
         for req in reqs {
           // FIXME: Skip requirements that have a default implementation.
 
@@ -264,7 +264,7 @@ struct DeclChecker: DeclVisitor {
           let reqParams = (req as? GenericDeclSpace)?.genericEnv?.params ?? []
 
           // Search for a valid candidate.
-          let candidates = node.lookup(qualified: name).values.filter({ (decl) -> Bool in
+          let candidates = node.lookup(qualified: ident).values.filter({ (decl) -> Bool in
             assert(req !== decl)
 
             // Discard the candidate if it's not the same kind of construct, preventing a method
@@ -295,8 +295,8 @@ struct DeclChecker: DeclVisitor {
           } else {
             DiagDispatcher.instance.report(
               .conformanceRequiresMatchingImplementation(
-                view: view.decl.name,
-                requirement: req.name,
+                view: view.decl.ident,
+                requirement: req.ident,
                 range: conformance.range ?? node.introRange))
 
             // Mark the conformance as invalid.

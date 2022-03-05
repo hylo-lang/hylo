@@ -169,7 +169,7 @@ public struct BuiltinFunRef: Constant {
   }
 
   public var description: String {
-    return "b\"\(decl.name)\""
+    return "b\"\(decl.ident)\""
   }
 
 }

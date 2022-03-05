@@ -1,6 +1,6 @@
 import Utils
 
-/// A pass that binds identifiers to their declaration.
+/// A pass that binds names to their declaration.
 public struct NameBinder: NodeWalker {
 
   public typealias Result = Bool
@@ -27,7 +27,7 @@ public struct NameBinder: NodeWalker {
 
   public var innermostSpace: DeclSpace?
 
-  /// A table mapping type identifiers to their declarations.
+  /// A table mapping type names to their declarations.
   public var types: PropertyMap<CachedResult<TypeDecl>> = [:]
 
   /// The diagnostics of the binding errors.
@@ -63,10 +63,10 @@ public struct NameBinder: NodeWalker {
     // FIXME we should resolve signatures from the nodes containing them, because the declaration
     // space from which they are resolved might depend on their position in the node.
 
-    if let ident = sign as? IdentSign {
-      let a = resolve(ident, unqualifiedFrom: innermostSpace!)
-      print(a?.name as Any)
-      return (shouldWalk: false, nodeBefore: ident)
+    if let name = sign as? NameSign {
+      let a = resolve(name, unqualifiedFrom: innermostSpace!)
+      print(a?.ident as Any)
+      return (shouldWalk: false, nodeBefore: name)
     }
 
     return (shouldWalk: true, nodeBefore: sign)
@@ -149,12 +149,12 @@ public struct NameBinder: NodeWalker {
     func check(_ member: Decl) -> TypeOrValueDecl? {
       switch member {
       case let decl as TypeOrValueDecl:
-        lookupTables[space, default: [:]][decl.name] = decl
-        if decl.name == name { return decl }
+        lookupTables[space, default: [:]][decl.ident] = decl
+        if decl.ident == name { return decl }
       case let decl as PatternBindingDecl:
         for pattern in decl.pattern.namedPatterns {
-          lookupTables[space, default: [:]][pattern.decl.name] = pattern.decl
-          if pattern.decl.name == name { return pattern.decl }
+          lookupTables[space, default: [:]][pattern.decl.ident] = pattern.decl
+          if pattern.decl.ident == name { return pattern.decl }
         }
       default:
         break
@@ -164,19 +164,19 @@ public struct NameBinder: NodeWalker {
 
     // Check for a direct members.
     for member in space.directMembers {
-      if let decl = check(member), decl.name == name { return decl }
+      if let decl = check(member), decl.ident == name { return decl }
     }
 
     // Check for a type parameters introduced by the declaration.
     if let clause = space.genericClause {
       for param in clause.params {
-        lookupTables[space, default: [:]][param.name] = param
-        if param.name == name { return param }
+        lookupTables[space, default: [:]][param.ident] = param
+        if param.ident == name { return param }
       }
     }
 
     switch space {
-    case let d as AliasTypeDecl where d.aliasedSign is IdentSign:
+    case let d as AliasTypeDecl where d.aliasedSign is NameSign:
       // No more members to check if the declaration denotes a type synonm.
       return nil
 
@@ -226,7 +226,7 @@ public struct NameBinder: NodeWalker {
     qualifiedBy space: ExtensionDecl
   ) -> TypeOrValueDecl? {
     if let d = resolve(
-      space.extendedIdent, unqualifiedFrom: space.parentDeclSpace!) as? GenericTypeDecl
+      space.extendedName, unqualifiedFrom: space.parentDeclSpace!) as? GenericTypeDecl
     {
       return lookup(name, qualifiedBy: d)
     } else {
@@ -240,7 +240,7 @@ public struct NameBinder: NodeWalker {
   ) -> TypeOrValueDecl? {
     // Check for a function parameter.
     for param in space.params {
-      if param.name == name { return param }
+      if param.ident == name { return param }
     }
 
     // Check for `self` in member functions.
@@ -249,13 +249,13 @@ public struct NameBinder: NodeWalker {
     // Check for a type parameters introduced by the declaration.
     if let clause = space.genericClause {
       for param in clause.params {
-        if param.name == name { return param }
+        if param.ident == name { return param }
       }
     }
 
     // Check for a capture explicitly declared in the capture-list.
     for capture in space.explicitCaptures {
-      if capture.name == name { return capture }
+      if capture.ident == name { return capture }
     }
 
     // Lookup failed.
@@ -282,7 +282,7 @@ public struct NameBinder: NodeWalker {
       environments[parent] = env
     }
 
-    let key = GenericEnvironment.Key([param.name])
+    let key = GenericEnvironment.Key([param.ident])
     guard let views = env.conformanceSet(of: key) else { return nil }
     return lookup(name, in: views)
   }
@@ -312,11 +312,11 @@ public struct NameBinder: NodeWalker {
   /// Returns the first type or value declaration in `decl` with the specified name.
   private func firstTypeOrValueDecl(in decl: Decl, named name: String) -> TypeOrValueDecl? {
     switch decl {
-    case let decl as TypeOrValueDecl where decl.name == name:
+    case let decl as TypeOrValueDecl where decl.ident == name:
       return decl
 
     case let decl as PatternBindingDecl:
-      for pattern in decl.pattern.namedPatterns where pattern.decl.name == name {
+      for pattern in decl.pattern.namedPatterns where pattern.decl.ident == name {
         return pattern.decl
       }
 
@@ -327,20 +327,20 @@ public struct NameBinder: NodeWalker {
     return nil
   }
 
-  /// Resolves a type identifier from the specified declaration space.
+  /// Resolves a type name from the specified declaration space.
   ///
   /// - Parameters:
-  ///   - ident: The type identifier to resolve
-  ///   - space: The declaration space from which the unqualified lookup of the identifier's first
+  ///   - name: The type name to resolve
+  ///   - space: The declaration space from which the unqualified lookup of the name's first
   ///     component should start.
-  mutating func resolve(_ ident: IdentSign, unqualifiedFrom space: DeclSpace) -> TypeDecl? {
-    if let cache = types[ident] {
+  mutating func resolve(_ name: NameSign, unqualifiedFrom space: DeclSpace) -> TypeDecl? {
+    if let cache = types[name] {
       return cache.value
     }
 
     func desugar(lookupResult decl: TypeOrValueDecl?) -> TypeOrValueDecl? {
       if let a = decl as? AliasTypeDecl,
-         let i = a.aliasedSign as? IdentSign
+         let i = a.aliasedSign as? NameSign
       {
         // If the component is a synonym, we should resolve it.
         return resolve(i, unqualifiedFrom: a)
@@ -350,22 +350,22 @@ public struct NameBinder: NodeWalker {
     }
 
     func fail(_ diag: Diag) {
-      assert(types[ident]?.value == nil)
-      types[ident] = .failure
+      assert(types[name]?.value == nil)
+      types[name] = .failure
       diags.append(diag)
     }
 
     var parent: TypeDecl?
-    for i in 0 ..< ident.components.count {
-      let component = ident.components[i]
+    for i in 0 ..< name.components.count {
+      let component = name.components[i]
       let decl: TypeOrValueDecl?
       switch parent {
       case nil:
-        decl = desugar(lookupResult: lookup(component.name, unqualifiedFrom: space))
+        decl = desugar(lookupResult: lookup(component.ident, unqualifiedFrom: space))
       case let parent as TypeSpace:
-        decl = desugar(lookupResult: lookup(component.name, qualifiedBy: parent))
+        decl = desugar(lookupResult: lookup(component.ident, qualifiedBy: parent))
       case let parent as GenericParamDecl:
-        return resolve(ident, rootedAt: parent)
+        return resolve(name, rootedAt: parent)
       default:
         fatalError("unreachable")
       }
@@ -375,25 +375,25 @@ public struct NameBinder: NodeWalker {
         parent = decl
       } else if let parent = parent {
         types[component] = .failure
-        fail(.noType(named: component.name, in: parent, range: component.range))
+        fail(.noType(named: component.ident, in: parent, range: component.range))
         return nil
       } else {
         types[component] = .failure
-        fail(.noType(named: component.name, range: component.range))
+        fail(.noType(named: component.ident, range: component.range))
         return nil
       }
     }
 
-    types[ident] = .success(parent!)
+    types[name] = .success(parent!)
     return parent
   }
 
-  /// Resolves a type identifier rooted at a generic type parameter.
+  /// Resolves a type name rooted at a generic type parameter.
   ///
   /// - Parameters:
-  ///   - ident: The type identifier to resolve
+  ///   - name: The type name to resolve
   ///   - root: The declaration to which the root of the identifier refers.
-  private mutating func resolve(_ ident: IdentSign, rootedAt root: GenericParamDecl) -> TypeDecl? {
+  private mutating func resolve(_ name: NameSign, rootedAt root: GenericParamDecl) -> TypeDecl? {
     let rootParent = root.parentDeclSpace as! BaseGenericDecl & Node
     let env: GenericEnvironment
     if let e = environments[rootParent] {
@@ -404,35 +404,35 @@ public struct NameBinder: NodeWalker {
     }
 
     var parent = root
-    for i in 1 ..< ident.components.count {
-      let component = ident.components[i]
+    for i in 1 ..< name.components.count {
+      let component = name.components[i]
 
       // Search in the context of the parent's generic environment.
-      if let decl = lookup(component.name, qualifiedBy: parent) as? GenericParamDecl {
+      if let decl = lookup(component.ident, qualifiedBy: parent) as? GenericParamDecl {
         parent = decl
         continue
       }
 
       // Search in the context of the root's generic environment.
-      let key = GenericEnvironment.Key(ident.components[0 ..< i].map({ $0.name }))
+      let key = GenericEnvironment.Key(name.components[0 ..< i].map({ $0.ident }))
       guard let views = env.conformanceSet(of: key) else {
         types[component] = .failure
-        types[ident] = .failure
-        diags.append(.noType(named: component.name, in: parent, range: component.range))
+        types[name] = .failure
+        diags.append(.noType(named: component.ident, in: parent, range: component.range))
         return nil
       }
 
-      if let decl = lookup(component.name, in: views) as? GenericParamDecl {
+      if let decl = lookup(component.ident, in: views) as? GenericParamDecl {
         parent = decl
       } else {
         types[component] = .failure
-        types[ident] = .failure
-        diags.append(.noType(named: component.name, in: parent, range: component.range))
+        types[name] = .failure
+        diags.append(.noType(named: component.ident, in: parent, range: component.range))
         return nil
       }
     }
 
-    types[ident] = .success(parent)
+    types[name] = .success(parent)
     return parent
   }
 
@@ -449,7 +449,7 @@ public struct NameBinder: NodeWalker {
 
         // Bind the extension's identifier. Since extensions are always declared at the top-level,
         // we can start unqualified lookups from the module.
-        let d = resolve(ext.extendedIdent, unqualifiedFrom: root)
+        let d = resolve(ext.extendedName, unqualifiedFrom: root)
         if d === decl {
           matches.append(ext)
         }
@@ -467,7 +467,7 @@ public struct NameBinder: NodeWalker {
     }
 
     var set: Set<ViewTypeDecl> = []
-    func insert(_ inheritance: IdentSign, unqualifiedFrom space: DeclSpace) {
+    func insert(_ inheritance: NameSign, unqualifiedFrom space: DeclSpace) {
       if let v = resolve(inheritance, unqualifiedFrom: space.parentDeclSpace!) as? ViewTypeDecl {
         if set.insert(v).inserted {
           set.formUnion(conformanceSet(of: v))
@@ -476,13 +476,13 @@ public struct NameBinder: NodeWalker {
     }
 
     // Populate the set with direct conformance declarations.
-    for case let i as IdentSign in decl.inheritances {
+    for case let i as NameSign in decl.inheritances {
       insert(i, unqualifiedFrom: decl)
     }
 
     // Populate the set with conformance declared in extensions.
     for ext in extensions(of: decl) {
-      for case let i as IdentSign in ext.inheritances {
+      for case let i as NameSign in ext.inheritances {
         insert(i, unqualifiedFrom: ext)
       }
     }

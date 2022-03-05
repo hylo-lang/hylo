@@ -177,11 +177,11 @@ public protocol SignVisitor {
 
   mutating func visit(_ node: ViewCompSign) -> SignResult
 
-  mutating func visit(_ node: BareIdentSign) -> SignResult
+  mutating func visit(_ node: BareNameSign) -> SignResult
 
-  mutating func visit(_ node: SpecializedIdentSign) -> SignResult
+  mutating func visit(_ node: SpecializedNameSign) -> SignResult
 
-  mutating func visit(_ node: CompoundIdentSign) -> SignResult
+  mutating func visit(_ node: CompoundNameSign) -> SignResult
 
   mutating func visit(_ node: ErrorSign) -> SignResult
 

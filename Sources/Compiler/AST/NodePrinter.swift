@@ -75,7 +75,7 @@ public struct NodePrinter: NodeVisitor {
     "range": \(encode(range: node.range)),
     "type": "\(node.type)",
     "parentDeclSpace": \(encode(refToSpace: node.parentDeclSpace)),
-    "name": "\(node.name)"
+    "ident": "\(node.ident)"
     """
   }
 
@@ -85,7 +85,7 @@ public struct NodePrinter: NodeVisitor {
     "range": \(encode(range: node.range)),
     "type": "\(node.type)",
     "parentDeclSpace": \(encode(refToSpace: node.parentDeclSpace)),
-    "name": "\(node.name)"
+    "ident": "\(node.ident)"
     """
   }
 
@@ -119,7 +119,7 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     "class": "\(type(of: node))",
-    "name": "\(node.name)",
+    "ident": "\(node.ident)",
     "units": \(units)
     }
     """
@@ -144,7 +144,7 @@ public struct NodePrinter: NodeVisitor {
     "class": "\(type(of: node))",
     "range": \(encode(range: node.range)),
     "parentDeclSpace": \(encode(refToSpace: node.parentDeclSpace)),
-    "name": "\(node.name)"
+    "ident": "\(node.ident)"
     }
     """
   }
@@ -204,7 +204,7 @@ public struct NodePrinter: NodeVisitor {
     "range": \(encode(range: node.range)),
     "parentDeclSpace": \(encode(refToSpace: node.parentDeclSpace)),
     "policy": "\(node.policy)",
-    "name": "\(node.ident.name)",
+    "ident": "\(node.ident)",
     "value": "\(encode(node.value))"
     }
     """
@@ -293,7 +293,7 @@ public struct NodePrinter: NodeVisitor {
     "class": "\(type(of: node))",
     "range": \(encode(range: node.range)),
     "parentDeclSpace": \(encode(refToSpace: node.parentDeclSpace)),
-    "extendedIdent": \(encode(node.extendedIdent)),
+    "extendedIdent": \(encode(node.extendedName)),
     "members": \(encode(nodes: node.members))
     }
     """
@@ -470,7 +470,7 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(exprHeader(node)),
-    "name": "\(node.name)"
+    "ident": "\(node.ident)"
     }
     """
   }
@@ -480,7 +480,7 @@ public struct NodePrinter: NodeVisitor {
     {
     \(exprHeader(node)),
     "namespace": \(encode(node.namespace)),
-    "name": "\(node.name)"
+    "ident": "\(node.ident)"
     }
     """
   }
@@ -529,7 +529,7 @@ public struct NodePrinter: NodeVisitor {
     {
     \(exprHeader(node)),
     "base": \(encode(node.base)),
-    "name": "\(node.name)"
+    "ident": "\(node.ident)"
     }
     """
   }
@@ -729,26 +729,26 @@ public struct NodePrinter: NodeVisitor {
     """
   }
 
-  public mutating func visit(_ node: BareIdentSign) -> String {
+  public mutating func visit(_ node: BareNameSign) -> String {
     return """
     {
     \(signHeader(node)),
-    "name": "\(node.name)"
+    "ident": "\(node.ident)"
     }
     """
   }
 
-  public mutating func visit(_ node: SpecializedIdentSign) -> String {
+  public mutating func visit(_ node: SpecializedNameSign) -> String {
     return """
     {
     \(signHeader(node)),
-    "name": "\(node.name)",
+    "ident": "\(node.ident)",
     "args": \(encode(nodes: node.args))
     }
     """
   }
 
-  public mutating func visit(_ node: CompoundIdentSign) -> String {
+  public mutating func visit(_ node: CompoundNameSign) -> String {
     return """
     {
     \(signHeader(node)),

@@ -40,7 +40,7 @@ public enum Emitter {
   /// - Parameter decl: A module declaration. `decl` must be type checked: all symbols must be
   ///   resolved or substituted by error nodes.
   public static func emit(module decl: ModuleDecl) -> Module {
-    var module = Module(id: decl.name, context: decl.type.context)
+    var module = Module(id: decl.ident, context: decl.type.context)
     for decl in decl {
       emit(topLevel: decl, into: &module)
     }
@@ -241,7 +241,7 @@ public enum Emitter {
       module.insertRet(value: Operand(value), at: state.ip)
 
     default:
-      preconditionFailure("unexpected synthesized declaration '\(decl.name)'")
+      preconditionFailure("unexpected synthesized declaration '\(decl.ident)'")
     }
   }
 

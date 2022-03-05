@@ -164,12 +164,12 @@ struct Solution {
         Diag("type \(lhs) does not conform to view \(rhs)", anchor: anchor.range))
 
     case .noViableOverload(let constraint):
-      let message = "no viable overload to resolve '\(constraint.declSet[0].name)'"
+      let message = "no viable overload to resolve '\(constraint.declSet[0].ident)'"
       let anchor = constraint.locator.resolve()
       DiagDispatcher.instance.report(Diag(message, anchor: anchor.range))
 
     case .multipleOverloads(let constraint, let decls):
-      let message = "ambiguous use of '\(decls[0].name)'"
+      let message = "ambiguous use of '\(decls[0].ident)'"
       let anchor = constraint.locator.resolve()
       DiagDispatcher.instance.report(Diag(message, anchor: anchor.range))
 

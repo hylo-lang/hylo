@@ -86,7 +86,7 @@ public struct Lexer: IteratorProtocol, Sequence {
     let head = source[index]
     var token = Token(kind: .invalid, range: location ..< location)
 
-    // Scan names and keywords.
+    // Scan identifiers and keywords.
     if head.isLetter || (head == "_") {
       let word = take(while: { $0.isLetter || $0.isDigit || ($0 == "_") })
       token.range = token.range.lowerBound ..< location
@@ -141,13 +141,13 @@ public struct Lexer: IteratorProtocol, Sequence {
         token.kind = .cast
 
       default:
-        token.kind = .name
+        token.kind = .ident
       }
 
       return token
     }
 
-    // Scan a back-quoted names.
+    // Scan a back-quoted identifiers.
     if head == "`" {
       index = source.index(after: index)
 
@@ -157,7 +157,7 @@ public struct Lexer: IteratorProtocol, Sequence {
 
         if peek() == "`" {
           let start = SourceLoc(url: url, index: source.index(after: token.range.lowerBound.index))
-          token.kind = .name
+          token.kind = .ident
           token.range = start ..< location
           index = source.index(after: index)
           return token

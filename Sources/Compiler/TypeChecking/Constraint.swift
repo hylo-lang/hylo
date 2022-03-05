@@ -185,8 +185,8 @@ struct ValueMemberConstraint: Constraint {
   /// A type.
   var lhs: ValType
 
-  /// A member name.
-  var memberName: String
+  /// A member identifier.
+  var memberIdent: String
 
   /// Another type.
   var rhs: ValType
@@ -196,7 +196,7 @@ struct ValueMemberConstraint: Constraint {
 
   init(
     _ lhs: ValType,
-    hasValueMember memberName: String,
+    hasValueMember memberIdent: String,
     ofType rhs: ValType,
     useSite: DeclSpace,
     at locator: ConstraintLocator
@@ -204,7 +204,7 @@ struct ValueMemberConstraint: Constraint {
     assert(!lhs.isUnresolved && !rhs.isUnresolved)
 
     self.lhs = lhs
-    self.memberName = memberName
+    self.memberIdent = memberIdent
     self.rhs = rhs
     self.useSite = useSite
     self.locator = locator
@@ -220,7 +220,7 @@ struct ValueMemberConstraint: Constraint {
 
 extension ValueMemberConstraint: CustomStringConvertible {
 
-  var description: String { "\(lhs)[.\(memberName)] == \(rhs)" }
+  var description: String { "\(lhs)[.\(memberIdent)] == \(rhs)" }
 
 }
 

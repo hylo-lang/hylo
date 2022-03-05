@@ -477,7 +477,7 @@ extension NodeWalker {
 
     for i in 0 ..< node.typeReqs.count {
       (shouldContinue, node.typeReqs[i].lhs) = walk(sign: node.typeReqs[i].lhs)
-        as! (Bool, IdentSign)
+        as! (Bool, NameSign)
       guard shouldContinue else { return false }
 
       (shouldContinue, node.typeReqs[i].rhs) = walk(sign: node.typeReqs[i].rhs)
@@ -505,7 +505,7 @@ extension NodeWalker {
     }
 
     var shouldContinue: Bool
-    (shouldContinue, node.extendedIdent) = walk(sign: node.extendedIdent) as! (Bool, IdentSign)
+    (shouldContinue, node.extendedName) = walk(sign: node.extendedName) as! (Bool, NameSign)
     guard shouldContinue else { return false }
 
     for i in 0 ..< node.members.count {
@@ -747,7 +747,7 @@ extension NodeWalker {
     defer { parent = prevParent }
 
     var shouldContinue: Bool
-    (shouldContinue, node.namespace) = walk(sign: node.namespace) as! (Bool, IdentSign)
+    (shouldContinue, node.namespace) = walk(sign: node.namespace) as! (Bool, NameSign)
     return shouldContinue
   }
 
@@ -1047,15 +1047,15 @@ extension NodeWalker {
     return true
   }
 
-  public mutating func visit(_ node: BareIdentSign) -> Bool {
+  public mutating func visit(_ node: BareNameSign) -> Bool {
     return true
   }
 
-  public mutating func visit(_ node: SpecializedIdentSign) -> Bool {
+  public mutating func visit(_ node: SpecializedNameSign) -> Bool {
     return traverse(node)
   }
 
-  public mutating func traverse(_ node: SpecializedIdentSign) -> Bool {
+  public mutating func traverse(_ node: SpecializedNameSign) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
@@ -1069,11 +1069,11 @@ extension NodeWalker {
     return true
   }
 
-  public mutating func visit(_ node: CompoundIdentSign) -> Bool {
+  public mutating func visit(_ node: CompoundNameSign) -> Bool {
     return traverse(node)
   }
 
-  public mutating func traverse(_ node: CompoundIdentSign) -> Bool {
+  public mutating func traverse(_ node: CompoundNameSign) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
@@ -1081,7 +1081,7 @@ extension NodeWalker {
     var shouldContinue: Bool
     for i in 0 ..< node.components.count {
       (shouldContinue, node.components[i]) = walk(sign: node.components[i])
-        as! (Bool, IdentCompSign)
+        as! (Bool, NameCompSign)
       guard shouldContinue else { return false }
     }
 
@@ -1104,7 +1104,7 @@ extension NodeWalker {
     var shouldContinue: Bool
     for i in 0 ..< clause.typeReqs.count {
       (shouldContinue, clause.typeReqs[i].lhs) = walk(sign: clause.typeReqs[i].lhs)
-        as! (Bool, IdentSign)
+        as! (Bool, NameSign)
       guard shouldContinue else { return false }
 
       (shouldContinue, clause.typeReqs[i].rhs) = walk(sign: clause.typeReqs[i].rhs)

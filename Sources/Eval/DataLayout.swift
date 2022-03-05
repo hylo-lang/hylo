@@ -116,7 +116,7 @@ struct DataLayout {
     case let ty as ProductType:
       var acc = 0
       for decl in ty.decl.storedVars {
-        if decl.name == memberName { return acc }
+        if decl.ident == memberName { return acc }
         let align = alignment(of: decl.type)
         acc += size(of: decl.type).roundedAwayFromZero(toNearestMultipleOf: align)
       }

@@ -472,9 +472,9 @@ struct CSSolver {
       baseType = paramType.rawType
     }
 
-    // If LHS is a tuple type, we try to match the specified member name with a label.
+    // If LHS is a tuple type, we try to match the specified member identifier with a label.
     if let tupleType = baseType as? TupleType {
-      guard let elem = tupleType.elems.first(where: { $0.label == constraint.memberName }) else {
+      guard let elem = tupleType.elems.first(where: { $0.label == constraint.memberIdent }) else {
         errors.append(.nonExistentProperty(constraint))
         return
       }
@@ -496,7 +496,7 @@ struct CSSolver {
     }
 
     // Retrieve the member's declaration(s).
-    let decls = baseType.lookup(member: constraint.memberName).values
+    let decls = baseType.lookup(member: constraint.memberIdent).values
     guard !decls.isEmpty else {
       errors.append(.nonExistentProperty(constraint))
       return

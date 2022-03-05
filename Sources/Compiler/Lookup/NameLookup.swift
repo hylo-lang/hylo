@@ -45,14 +45,14 @@ extension IterableDeclSpace {
 
     for node in decls where node.state != .invalid {
       switch node {
-      case let typeDecl as TypeDecl where typeDecl.name == name:
+      case let typeDecl as TypeDecl where typeDecl.ident == name:
         types.append(typeDecl)
 
-      case let valueDecl as ValueDecl where valueDecl.name == name:
+      case let valueDecl as ValueDecl where valueDecl.ident == name:
         values.append(valueDecl)
 
       case let pbDecl as PatternBindingDecl:
-        for pattern in pbDecl.pattern.namedPatterns where pattern.decl.name == name {
+        for pattern in pbDecl.pattern.namedPatterns where pattern.decl.ident == name {
           values.append(pattern.decl)
         }
 

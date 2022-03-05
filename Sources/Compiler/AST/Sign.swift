@@ -269,41 +269,41 @@ public final class ViewCompSign: Sign {
 
 }
 
-/// A type identifier composed of one or several components.
+/// A type name composed of one or several components.
 ///
-/// This protocol abstracts over unqualified and compound type identifiers.
-public protocol IdentSign: Sign {
+/// This protocol abstracts over unqualified and compound type names.
+public protocol NameSign: Sign {
 
-  /// The components of the identifier.
-  var components: [IdentCompSign] { get }
+  /// The components of the name.
+  var components: [NameCompSign] { get }
 
-  /// The last component of the identifier.
-  var lastComponent: IdentCompSign { get }
+  /// The last component of the name.
+  var lastComponent: NameCompSign { get }
 
 }
 
-/// A single component in a compound type identifier.
-public protocol IdentCompSign: IdentSign {
+/// A single component in a compound type name.
+public protocol NameCompSign: NameSign {
 
-  /// The name of the type.
-  var name: String { get }
+  /// The unqualified identifier of the referred type.
+  var ident: String { get }
 
   /// The semantic type realized from this signature.
   var type: ValType { get set }
 
 }
 
-extension IdentCompSign {
+extension NameCompSign {
 
-  public var components: [IdentCompSign] { [self] }
+  public var components: [NameCompSign] { [self] }
 
-  public var lastComponent: IdentCompSign { self }
+  public var lastComponent: NameCompSign { self }
 
   public func realize(unqualifiedFrom useSite: DeclSpace) -> ValType {
     let context = type.context
 
     // Bypass name lookup if the signature is `Any`, `Unit`, or `Nothing`.
-    switch name {
+    switch ident {
     case "Any":
       type = context.anyType
       return type
@@ -318,15 +318,15 @@ extension IdentCompSign {
     }
 
     // Search for a type declaration.
-    let matches = useSite.lookup(unqualified: name, in: context).types
+    let matches = useSite.lookup(unqualified: ident, in: context).types
     if matches.count != 1 {
       return matches.isEmpty
-        ? fail(.cannotFind(type: name, range: range))
-        : fail(.ambiguousReference(to: name, range: range))
+        ? fail(.cannotFind(type: ident, range: range))
+        : fail(.ambiguousReference(to: ident, range: range))
     }
 
     // If the signature is specialized, we must realize its arguments as well.
-    if let specialized = self as? SpecializedIdentSign {
+    if let specialized = self as? SpecializedNameSign {
       specialized.realize(from: useSite, baseDecl: matches[0] as! GenericTypeDecl)
       return type
     }
@@ -353,7 +353,7 @@ extension IdentCompSign {
 
   /// Realizes the semantic type denoted by this component, in the context of the specified type.
   ///
-  /// The purpose of this method is to realize a component as part of a compound identifier. Unlike
+  /// The purpose of this method is to realize a component as part of a compound name. Unlike
   /// `realize(unqualifiedFrom:)`, it looks for the referred type using a *qualified* name lookup
   /// in the context of the specified type.
   ///
@@ -369,14 +369,14 @@ extension IdentCompSign {
   func realize(in parentType: ValType, from useSite: DeclSpace) -> ValType {
     let context = type.context
 
-    if name == "Kind" {
+    if ident == "Kind" {
       return parentType.kind
     }
 
     switch parentType {
     case let parentType as NominalType:
-      guard let member = parentType.decl.typeMemberTable[name] else {
-        return fail(.cannotFind(type: name, in: parentType, range: range))
+      guard let member = parentType.decl.typeMemberTable[ident] else {
+        return fail(.cannotFind(type: ident, in: parentType, range: range))
       }
 
       if let member = member as? GenericParamDecl {
@@ -385,53 +385,53 @@ extension IdentCompSign {
         // FIXME: Accept the signature or provide a different error message.
         let param = member.instanceType as! GenericParamType
         guard let arg = (parentType as? BoundGenericType)?.bindings[param] else {
-          return fail(.cannotFind(type: name, in: parentType, range: range))
+          return fail(.cannotFind(type: ident, in: parentType, range: range))
         }
         return arg
       }
 
-      if let specialized = self as? SpecializedIdentSign {
+      if let specialized = self as? SpecializedNameSign {
         specialized.realize(from: useSite, baseDecl: member as! GenericTypeDecl)
       } else {
         type = member.instanceType
       }
 
     case is GenericParamType, is AssocType:
-      let candidates = parentType.lookup(typeMember: name)
+      let candidates = parentType.lookup(typeMember: ident)
       if candidates.isEmpty {
-        return fail(.cannotFind(type: name, in: parentType, range: range))
+        return fail(.cannotFind(type: ident, in: parentType, range: range))
       } else if candidates.count > 1 {
         // We're here because the parent type is bound existentially by multiple views defining an
-        // abstract type type with the same name.
+        // abstract type type with the same identifier.
         // FIXME: Pick one decl and unify all conformances.
-        return fail(.ambiguousReference(to: name, range: range))
+        return fail(.ambiguousReference(to: ident, range: range))
       }
 
       let interface = candidates[0].instanceType as! GenericParamType
       let memberType = context.assocType(interface: interface, base: parentType)
 
-      if self is SpecializedIdentSign {
+      if self is SpecializedNameSign {
         return fail(.cannotSpecializeNonGenericType(type: memberType, range: range))
       } else {
         type = memberType
       }
 
     case is NamespaceType:
-      let candidates = parentType.lookup(typeMember: name)
+      let candidates = parentType.lookup(typeMember: ident)
       if candidates.isEmpty {
-        return fail(.cannotFind(type: name, in: parentType, range: range))
+        return fail(.cannotFind(type: ident, in: parentType, range: range))
       } else if candidates.count > 1 {
-        return fail(.ambiguousReference(to: name, range: range))
+        return fail(.ambiguousReference(to: ident, range: range))
       }
 
-      if let specialized = self as? SpecializedIdentSign {
+      if let specialized = self as? SpecializedNameSign {
         specialized.realize(from: useSite, baseDecl: candidates[0] as! GenericTypeDecl)
       } else {
         type = candidates[0].instanceType
       }
 
     default:
-      return fail(.cannotFind(type: name, in: parentType, range: range))
+      return fail(.cannotFind(type: ident, in: parentType, range: range))
     }
 
     return type
@@ -445,22 +445,20 @@ extension IdentCompSign {
 
 }
 
-/// An bare, unqualified type identifier (e.g., `Int64`).
-public final class BareIdentSign: IdentCompSign {
+/// An bare, unqualified type name (e.g., `Int64`).
+public final class BareNameSign: NameCompSign {
 
   public var type: ValType
 
-  /// An identifier.
-  public var ident: Ident
+  public var range: SourceRange?
 
-  public init(ident: Ident, type: ValType) {
+  public var ident: String
+
+  public init(ident: String, type: ValType, range: SourceRange? = nil) {
     self.ident = ident
     self.type = type
+    self.range = range
   }
-
-  public var name: String { ident.name }
-
-  public var range: SourceRange? { ident.range }
 
   public func accept<V>(_ visitor: inout V) -> V.SignResult where V: SignVisitor {
     return visitor.visit(self)
@@ -468,27 +466,34 @@ public final class BareIdentSign: IdentCompSign {
 
 }
 
-/// An unqualified type identifier with generic arguments (e.g., `Array<Int64>`).
-public final class SpecializedIdentSign: IdentCompSign {
+/// An unqualified type name with type arguments (e.g., `Array<Int64>`).
+public final class SpecializedNameSign: NameCompSign {
 
   public var type: ValType
 
   public var range: SourceRange?
 
-  /// An identifier.
-  public var ident: Ident
+  public var ident: String
+
+  /// The range of the unqualified identifier.
+  public var identRange: SourceRange?
 
   /// The generic arguments of the type.
   public var args: [Sign]
 
-  public init(ident: Ident, args: [Sign], type: ValType, range: SourceRange? = nil) {
+  public init(
+    ident: String,
+    identRange: SourceRange? = nil,
+    args: [Sign],
+    type: ValType,
+    range: SourceRange? = nil
+  ) {
     self.ident = ident
+    self.identRange = identRange
     self.args = args
     self.type = type
     self.range = range
   }
-
-  public var name: String { ident.name }
 
   /// Realizes the specialized semantic type denoted by this component.
   ///
@@ -537,23 +542,23 @@ public final class SpecializedIdentSign: IdentCompSign {
 
 }
 
-/// A type compond identifier, composed of multiple components (e.g., `Builtin::i64`).
+/// A type compond name, composed of multiple components (e.g., `Builtin::i64`).
 ///
 /// This always refers to the type of the last component. The others serves as explicit qualifiers.
-public final class CompoundIdentSign: IdentSign {
+public final class CompoundNameSign: NameSign {
 
   public var range: SourceRange?
 
   /// The components of the compound.
-  public var components: [IdentCompSign]
+  public var components: [NameCompSign]
 
-  public init(components: [IdentCompSign], range: SourceRange? = nil) {
+  public init(components: [NameCompSign], range: SourceRange? = nil) {
     precondition(components.count > 1)
     self.components = components
     self.range = range
   }
 
-  public var lastComponent: IdentCompSign {
+  public var lastComponent: NameCompSign {
     return components[components.count - 1]
   }
 
@@ -582,9 +587,9 @@ public final class CompoundIdentSign: IdentSign {
       }
 
       // Search for the built-in symbol.
-      guard let builtinType = context.getBuiltinType(named: components[1].name) else {
+      guard let builtinType = context.getBuiltinType(named: components[1].ident) else {
         DiagDispatcher.instance.report(
-          .cannotFind(builtin: components[1].name, range: components[1].range))
+          .cannotFind(builtin: components[1].ident, range: components[1].range))
         components[2...].forEach({ $0.type = context.errorType })
         return context.errorType
       }
@@ -608,11 +613,11 @@ public final class CompoundIdentSign: IdentSign {
     return visitor.visit(self)
   }
 
-  /// Creates either a `CompoundIdentSign` with the given array, or returns its last element if it
+  /// Creates either a `CompoundNameSign` with the given array, or returns its last element if it
   /// contains just one entry.
   ///
-  /// - Parameter components: The components of the identifier.
-  public static func create(_ components: [IdentCompSign]) -> IdentSign {
+  /// - Parameter components: The components of the name.
+  public static func create(_ components: [NameCompSign]) -> NameSign {
     precondition(!components.isEmpty)
     if components.count == 1 {
       return components.first!
@@ -626,7 +631,7 @@ public final class CompoundIdentSign: IdentSign {
         range = nil
       }
 
-      return CompoundIdentSign(components: components, range: range)
+      return CompoundNameSign(components: components, range: range)
     }
   }
 

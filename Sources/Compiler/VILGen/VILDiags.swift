@@ -48,7 +48,7 @@ extension Diag {
   static func bindingWithNoUse(decl: ValueDecl) -> Diag {
     return Diag(
       .warning,
-      "'\(decl.name)' is never used",
+      "'\(decl.ident)' is never used",
       anchor: decl.range)
   }
 

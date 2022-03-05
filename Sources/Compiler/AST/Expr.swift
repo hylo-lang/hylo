@@ -329,11 +329,11 @@ public final class UnresolvedDeclRefExpr: Expr {
     didSet { assert(type.isUnresolved) }
   }
 
-  /// The unqualified (possibly labeled) name of the referred declaration.
-  public var name: LabeledName
+  /// The unqualified (possibly labeled) identifier of the referred declaration.
+  public var ident: LabeledIdent
 
-  public init(name: LabeledName, type: UnresolvedType, range: SourceRange? = nil) {
-    self.name = name
+  public init(ident: LabeledIdent, type: UnresolvedType, range: SourceRange? = nil) {
+    self.ident = ident
     self.type = type
     self.range = range
   }
@@ -344,8 +344,8 @@ public final class UnresolvedDeclRefExpr: Expr {
 
 }
 
-/// An identifier referring to an unresolved declaration, explicitly qualified by the namespace of
-/// a type (e.g., `Builtin::bitcast`).
+/// An identifier referring to an unresolved declaration, explicitly qualified by a namespace
+/// (e.g., `Builtin::bitcast`).
 ///
 /// Conceptually, this wraps an unresolved declaration reference, providing context for the space
 /// into which it points. The type prefix is resolved during name binding.
@@ -360,22 +360,22 @@ public final class UnresolvedQualDeclRefExpr: Expr {
   /// A type signature describing the qualifying namespace.
   public var namespace: Sign
 
-  /// The unqualified (possibly labeled) name of the referred declaration.
-  public var name: LabeledName
+  /// The unqualified (possibly labeled) identifier of the referred declaration.
+  public var ident: LabeledIdent
 
   /// The range of the name.
-  public var nameRange: SourceRange?
+  public var identRange: SourceRange?
 
   public init(
     namespace: Sign,
-    name: LabeledName,
-    nameRange: SourceRange? = nil,
+    ident: LabeledIdent,
+    identRange: SourceRange? = nil,
     type: UnresolvedType,
     range: SourceRange? = nil
   ) {
     self.namespace = namespace
-    self.name = name
-    self.nameRange = range
+    self.ident = ident
+    self.identRange = identRange
     self.type = type
     self.range = range
   }
@@ -499,22 +499,22 @@ public final class UnresolvedMemberExpr: MemberExpr {
   /// The base expression.
   public var base: Expr
 
-  /// The unqualified (possibly labeled) name of the referred member.
-  public var name: LabeledName
+  /// The unqualified (possibly labeled) identifier of the referred declaration.
+  public var ident: LabeledIdent
 
-  /// The range of the name.
-  public var nameRange: SourceRange?
+  /// The range of the identifier.
+  public var identRange: SourceRange?
 
   public init(
     base: Expr,
-    name: LabeledName,
-    nameRange: SourceRange? = nil,
+    ident: LabeledIdent,
+    identRange: SourceRange? = nil,
     type: UnresolvedType,
     range: SourceRange? = nil
   ) {
     self.base = base
-    self.name = name
-    self.nameRange = nameRange
+    self.ident = ident
+    self.identRange = identRange
     self.type = type
     self.range = range
   }
