@@ -38,7 +38,7 @@ extension LabeledIdent: CustomStringConvertible {
 
     if !labels.isEmpty {
       result.append("(")
-      result.append(labels.map(String.init(describing:)).joined(separator: ":"))
+      for label in labels { result.append("\(label):") }
       result.append(")")
     }
 
