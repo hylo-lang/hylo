@@ -204,7 +204,7 @@ public struct Parser {
       } catch let error as ParseError {
         state.diags.append(error.diag)
         state.hasError = true
-        state.skip(while: { ($0.kind != .semi) && !$0.mayBeginDecl })
+        state.skip(while: { ($0.kind != .semi) && !$0.canBeginDecl })
       } catch {
         fatalError("unreachable")
       }
@@ -507,13 +507,13 @@ public struct Parser {
         decl.props.insert(.isMember)
       }
 
-      // The identifier of the function can be an unlabeled identifier, or any non-cast operator.
+      // The identifier of the function can be any unlabeled identifier except operators.
       if let ident = state.take(.ident) {
         decl.ident = String(state.lexer.source[ident.range])
         decl.identRange = ident.range
-      } else if let oper = state.takeOperator() {
-        decl.ident = oper.ident
-        decl.identRange = oper.range
+      } else if let (ident, range) = state.takeOperator() {
+        decl.ident = ident
+        decl.identRange = range
         isOperator = true
 
         if introducer.kind != .fun
@@ -521,8 +521,7 @@ public struct Parser {
             || modifiers.contains(where: { $0.kind == .static })
         {
           state.diags.append(Diag(
-            "operator '\(oper.ident)' must be declared as a non-static member function",
-            anchor: oper.range))
+            "operator '\(ident)' must be declared as a non-static member function", anchor: range))
           state.hasError = true
         }
       } else {
@@ -579,11 +578,13 @@ public struct Parser {
 
       if isOperator {
         switch params.count {
-        case 0 where !modifiers.contains(where: { $0.kind == .prefix || $0.kind == .postfix }):
-          state.diags.append(Diag(
-            "unary operator declaration requires 'prefix' or 'postfix' modifier",
-            anchor: introducer.range))
-          state.hasError = true
+        case 0:
+          if !modifiers.contains(where: { $0.kind == .prefix || $0.kind == .postfix }) {
+            state.diags.append(Diag(
+              "unary operator declaration requires 'prefix' or 'postfix' modifier",
+              anchor: introducer.range))
+            state.hasError = true
+          }
 
         case 1:
           if let m = modifiers.first(where: { $0.kind == .prefix || $0.kind == .postfix }) {
@@ -609,7 +610,7 @@ public struct Parser {
       state.diags.append(Diag("expected parameter list", anchor: state.errorRange()))
       state.hasError = true
       state.skip(while: {
-        !$0.isOf(kind: [.semi, .lBrace]) && !$0.mayBeginDecl && !$0.mayBeginCtrlStmt
+        !$0.isOf(kind: [.semi, .lBrace]) && !$0.canBeginDecl && !$0.canBeginCtrlStmt
       })
     }
 
@@ -623,7 +624,7 @@ public struct Parser {
           "expected return type signature after '->'", anchor: state.errorRange()))
         state.hasError = true
         state.skip(while: {
-          !$0.isOf(kind: [.semi, .rBrace]) && !$0.mayBeginDecl && !$0.mayBeginCtrlStmt
+          !$0.isOf(kind: [.semi, .rBrace]) && !$0.canBeginDecl && !$0.canBeginCtrlStmt
         })
       }
     }
@@ -1060,7 +1061,7 @@ public struct Parser {
       } catch let error as ParseError {
         state.diags.append(error.diag)
         state.hasError = true
-        state.skip(while: { !$0.isOf(kind: [.semi, .rBrace]) && !$0.mayBeginDecl })
+        state.skip(while: { !$0.isOf(kind: [.semi, .rBrace]) && !$0.canBeginDecl })
       } catch {
         fatalError("unreachable")
       }
@@ -1405,7 +1406,7 @@ public struct Parser {
     state.declSpace = scope
     defer { state.declSpace = scope.parentDeclSpace }
 
-    loop:while true {
+    while true {
       // Skip leading semicolons and exit the loop once we've found a closing brace.
       state.skip(while: { $0.kind == .semi })
       if let closer = state.take(.rBrace) {
@@ -1431,7 +1432,7 @@ public struct Parser {
             state.diags.append(Diag(
               .warning, "anonymous function can never be called", anchor: decl.introRange))
           }
-        } else if head.mayBeginCtrlStmt {
+        } else if head.canBeginCtrlStmt {
           guard let stmt = parseCtrlStmt(state: &state) else {
             throw ParseError(Diag("expected statement", anchor: state.errorRange()))
           }
@@ -1452,7 +1453,7 @@ public struct Parser {
         state.diags.append(error.diag)
         state.hasError = true
         state.skip(while: {
-          !$0.isOf(kind: [.semi, .rBrace]) && !$0.mayBeginDecl && !$0.mayBeginCtrlStmt
+          !$0.isOf(kind: [.semi, .rBrace]) && !$0.canBeginDecl && !$0.canBeginCtrlStmt
         })
       } catch {
         fatalError("unreachable")
@@ -1474,9 +1475,9 @@ public struct Parser {
       let oper: (ident: String, range: SourceRange)
       let group: PrecedenceGroup?
 
-      if let o = state.takeOperator() {
+      if let _oper = state.takeOperator() {
         // The operator is a standard non-cast infix operator,.
-        oper = o
+        oper = _oper
         group = PrecedenceGroup(for: oper.ident) ?? {
           state.diags.append(Diag("unknown infix operator '\(oper.ident)'", anchor: oper.range))
           return nil
@@ -1616,21 +1617,10 @@ public struct Parser {
         _ = state.take()
 
         // Parse the member identifier or index.
-        if let token = state.take(if: { $0.isLabel }) {
-          let ident = String(state.lexer.source[token.range])
+        if let (ident, range) = parseLabeledIdent(state: &state) {
           let expr = UnresolvedMemberExpr(
-            base: base,
-            ident: LabeledIdent(base: ident),
-            identRange: token.range,
-            type: unresolved)
-          expr.range = lowerLoc ..< token.range.upperBound
-          base = expr
-        } else if let oper = state.takeOperator() {
-          let expr = UnresolvedMemberExpr(
-            base: base,
-            ident: LabeledIdent(base: oper.ident),
-            identRange: oper.range, type: unresolved)
-          expr.range = lowerLoc ..< oper.range.upperBound
+            base: base, ident: ident, identRange: range, type: unresolved)
+          expr.range = lowerLoc ..< range.upperBound
           base = expr
         } else if let index = state.take(.int) {
           let value = state.lexer.source[index.range]
@@ -1653,27 +1643,26 @@ public struct Parser {
       case _ where token.isOperator:
         // Attempt to consume a postfix.
         let backup = state.save()
-        guard let oper = state.takeOperator(includingAssign: false) else {
+        guard let (ident, range) = state.takeOperator(includingAssign: false) else {
           return base
         }
 
         // Postfix operators must be attached to the expression, and followed by a whitespace.
-        let lGap = base.range!.upperBound != oper.range.lowerBound
-        let rGap = (oper.range.upperBound.index == state.lexer.source.endIndex)
-          || state.lexer.source[oper.range.upperBound.index].isWhitespace
-        guard !lGap && rGap else {
+        let lgap = base.range!.upperBound != range.lowerBound
+        let rgap = (range.upperBound.index == state.lexer.source.endIndex)
+          || state.lexer.source[range.upperBound.index].isWhitespace
+        guard !lgap && rgap else {
           state.restore(backup)
           return base
         }
 
         let fun = UnresolvedMemberExpr(
           base: base,
-          ident: LabeledIdent(base: oper.ident),
-          identRange: oper.range,
+          ident: LabeledIdent(base: ident, notation: .postfix),
+          identRange: range,
           type: unresolved,
-          range: oper.range)
-        base = CallExpr.postfix(
-          fun: fun, type: unresolved, range: lowerLoc ..< oper.range.upperBound)
+          range: range)
+        base = CallExpr.postfix(fun: fun, type: unresolved, range: lowerLoc ..< range.upperBound)
 
       default:
         return base
@@ -1694,7 +1683,7 @@ public struct Parser {
       return parseFloatLiteral(state: &state)
     case .string:
       return parseStringLiteral(state: &state)
-    case .ident:
+    case .ident, .infix, .prefix, .postfix:
       return parseDeclRefExpr(state: &state)
     case .dot:
       fatalError("not implemented")
@@ -1830,7 +1819,7 @@ public struct Parser {
       }
 
       // We've just parse the qualifying namespace. We're expecting a name or an operator.
-      guard let ident = parseIdent(state: &state) else {
+      guard let (ident, range) = parseLabeledIdent(state: &state) else {
         state.diags.append(Diag("expected identifier", anchor: state.errorRange()))
         state.hasError = true
         return ErrorExpr(type: context.errorType, range: sign.range)
@@ -1838,21 +1827,19 @@ public struct Parser {
 
       return UnresolvedQualDeclRefExpr(
         namespace: sign,
-        ident: LabeledIdent(base: ident.ident),
-        identRange: ident.range,
+        ident: ident,
+        identRange: range,
         type: unresolved,
-        range: sign.range! ..< ident.range)
+        range: sign.range! ..< range)
     } else {
       // We didn't parse a type signature. We're expecting an identifier.
-      guard let token = state.take(.ident) else { return nil }
-      return UnresolvedDeclRefExpr(
-        ident: LabeledIdent(base: String(state.lexer.source[token.range])),
-        type: unresolved,
-        range: token.range)
+      guard !(state.peek()?.isOperator ?? false) else { return nil }
+      guard let (ident, range) = parseLabeledIdent(state: &state) else { return nil }
+      return UnresolvedDeclRefExpr(ident: ident, type: unresolved, range: range)
     }
   }
 
-  /// Parses an identifier.
+  /// Parses an unlabeled identifier.
   private func parseIdent(state: inout State) -> (ident: String, range: SourceRange)? {
     if let token = state.take(.ident) {
       return (String(state.lexer.source[token.range]), token.range)
@@ -1862,70 +1849,71 @@ public struct Parser {
   }
 
   /// Parses a labeled identifier.
-  private func parseLabeledIdentifier(state: inout State) -> (LabeledIdent, SourceRange)? {
+  private func parseLabeledIdent(state: inout State) -> (LabeledIdent, SourceRange)? {
     let start = state.lexer.location
+    var ident = LabeledIdent(base: "")
 
     // Attempt to parse the operator notation.
-    let notation: OperatorNotation?
     switch state.peek()?.kind {
     case .infix:
       _ = state.take()
-      notation = .infix
+      ident.notation = .infix
 
     case .prefix:
       _ = state.take()
-      notation = .prefix
+      ident.notation = .prefix
 
     case .postfix:
       _ = state.take()
-      notation = .postfix
+      ident.notation = .postfix
 
     default:
-      notation = nil
+      break
     }
 
-    // If we parsed an operator notation, the next token must be an operator.
-    if let notation = notation {
-      if let op = state.takeOperator() {
-        let range = start ..< op.range.upperBound
-        return (LabeledIdent(base: op.ident, labels: [], notation: notation), range)
-      } else {
-        state.diags.append(Diag("expected operator", anchor: state.errorRange()))
-        state.hasError = true
-        let range = start ..< state.errorRange().upperBound
-        return (LabeledIdent(base: "", labels: [], notation: notation), range)
-      }
+    // Try to parse an operator.
+    if let op = state.takeOperator() {
+      ident.base = op.ident
+      return (ident, start ..< op.range.upperBound)
+    }
+
+    // We failed to parse an operator. We can't have a notation.
+    if ident.notation != nil {
+      state.diags.append(Diag("expected operator", anchor: state.errorRange()))
+      state.hasError = true
+      return (ident, start ..< state.errorRange().upperBound)
     }
 
     // Attempt to parse a base.
     guard let base = state.take(.ident) else { return nil }
-    var ident = LabeledIdent(base: String(state.lexer.source[base.range]), labels: [])
+    ident.base = String(state.lexer.source[base.range])
 
-    // If the next token is not a left parenthesis, settle for the base.
+    // If the next token isn't a left parenthesis, we're done.
     guard state.peek()?.kind == .lParen else { return (ident, base.range) }
 
     // Attempt to read argument labels.
     let backup = state.save()
     _ = state.take(.lParen)
-
-    var labels: [String] = []
     while true {
       if let closer = state.take(.rParen) {
-        // The argument label list cannot be empty; backtrack.
-        guard !labels.isEmpty else { break }
-        ident.labels = labels
-        return (ident, base.range ..< closer.range)
+        // Give back the parentheses if we couldn't parse any label. Otherwise, we're done.
+        if ident.labels.isEmpty {
+          break
+        } else {
+          return (ident, base.range ..< closer.range)
+        }
       }
 
       // Parse `(IDENT | '_') ':'`
       guard let label = state.take(.ident) ?? state.take(.under),
             let _ = state.take(.colon)
       else { break }
-      labels.append(String(state.lexer.source[label.range]))
+      ident.labels.append(String(state.lexer.source[label.range]))
     }
 
     // We failed to parse an argument list; backtrack.
     state.restore(backup)
+    ident.labels = []
     return (ident, base.range)
   }
 
@@ -2757,9 +2745,10 @@ fileprivate enum InfixTree {
 
       default:
         let rhs = right.flattened()
+        let not: OperatorNotation? = (oper.ident.first?.isOperator ?? false) ? .infix : nil
         let fun = UnresolvedMemberExpr(
           base: lhs,
-          ident: LabeledIdent(base: oper.ident),
+          ident: LabeledIdent(base: oper.ident, notation: not),
           identRange: oper.range,
           type: unresolved,
           range: oper.range)
