@@ -1,11 +1,9 @@
 import Utils
 
-/// A pass that binds names to their declaration.
-public struct NameBinder: NodeWalker {
+/// A lookup table mapping names to their declaration.
+struct NameBinder {
 
-  public typealias Result = Bool
-
-  public enum CachedResult<T> {
+  private enum CachedResult<T> {
 
     case success(T)
 
@@ -21,24 +19,17 @@ public struct NameBinder: NodeWalker {
 
   }
 
-  public var parent: Node?
-
-  public var innermostSpace: DeclSpace?
-
-  /// A table mapping type names to their declarations.
-  public var types: PropertyMap<CachedResult<TypeDecl>> = [:]
-
   /// The diagnostics of the binding errors.
-  public var diags: [Diag] = []
+  var diags: [Diag] = []
 
   /// The modules visible from the current context.
-  public var modules: [String: ModuleDecl]
+  var modules: [String: ModuleDecl]
 
   /// The module defining the standard library.
   ///
   /// If this property is `nil`, the name binder will not search for unqualified symbols in the
   /// standard library.
-  public var stdlib: ModuleDecl?
+  var stdlib: ModuleDecl?
 
   /// A table mapping type declarations to their member lookup tables.
   private var lookupTables: [ObjectIdentifier: [String: LookupResult_]] = [:]
@@ -49,28 +40,18 @@ public struct NameBinder: NodeWalker {
   /// The generic environments of the generic declarations.
   private var environments: PropertyMap<GenericEnvironment> = [:]
 
+  /// A table mapping type names to their declarations.
+  private var types: PropertyMap<CachedResult<TypeDecl>> = [:]
+
   /// A set containing the extensions being currently bounded.
   ///
   /// This property is used during extension binding to avoid infinite recursion through qualified
   /// lookups into the extended type.
   private var extensionsUnderBinding: Set<ObjectIdentifier> = []
 
-  public init(modules: [String: ModuleDecl], stdlib: ModuleDecl?) {
+  init(modules: [String: ModuleDecl], stdlib: ModuleDecl?) {
     self.modules = modules
     self.stdlib = stdlib
-  }
-
-  public mutating func willVisit(_ sign: Sign) -> (shouldWalk: Bool, nodeBefore: Sign) {
-    // FIXME we should resolve signatures from the nodes containing them, because the declaration
-    // space from which they are resolved might depend on their position in the node.
-
-    if let name = sign as? NameSign {
-      let a = resolve(name, unqualifiedFrom: innermostSpace!)
-      print(a?.ident as Any)
-      return (shouldWalk: false, nodeBefore: name)
-    }
-
-    return (shouldWalk: true, nodeBefore: sign)
   }
 
   mutating func lookup(
