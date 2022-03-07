@@ -5,8 +5,6 @@ public struct NameBinder: NodeWalker {
 
   public typealias Result = Bool
 
-  typealias TypeSpace = TypeDecl & DeclSpace
-
   public enum CachedResult<T> {
 
     case success(T)
@@ -34,13 +32,16 @@ public struct NameBinder: NodeWalker {
   public var diags: [Diag] = []
 
   /// The modules visible from the current context.
-  private let modules: [String: ModuleDecl]
+  public var modules: [String: ModuleDecl]
 
   /// The module defining the standard library.
-  private let stdlib: ModuleDecl?
+  ///
+  /// If this property is `nil`, the name binder will not search for unqualified symbols in the
+  /// standard library.
+  public var stdlib: ModuleDecl?
 
   /// A table mapping type declarations to their member lookup tables.
-  private var lookupTables: PropertyMap<[String: TypeOrValueDecl]> = [:]
+  private var lookupTables: [ObjectIdentifier: [String: LookupResult_]] = [:]
 
   /// A table mapping type declarations to their conformance set.
   private var conformanceSets: PropertyMap<Set<ViewTypeDecl>> = [:]
@@ -72,16 +73,19 @@ public struct NameBinder: NodeWalker {
     return (shouldWalk: true, nodeBefore: sign)
   }
 
-  private mutating func lookup(
+  mutating func lookup(
     _ name: String,
     unqualifiedFrom space: DeclSpace
-  ) -> TypeOrValueDecl? {
+  ) -> LookupResult_ {
     var space = space
+    var result = LookupResult_()
+
     while true {
       // Search for the name in the current space.
-      if let local = lookup(name, qualifiedBy: space) {
-        return local
-      }
+      result.merge(lookup(name, qualifiedBy: space))
+
+      // We're done if we found a non-overloadable symbol.
+      guard result.allOverloadable else { return result }
 
       // Move to the parent.
       if let parent = space.parentDeclSpace {
@@ -89,190 +93,170 @@ public struct NameBinder: NodeWalker {
       } else if let stdlib = stdlib, space !== stdlib {
         space = stdlib
       } else {
-        return nil
+        break
       }
     }
+
+    // Search for the name in the set of visible modules.
+    if let module = modules[name] {
+      result.insert(module)
+    }
+
+    return result
   }
 
-  private mutating func lookup(_ name: String, qualifiedBy space: DeclSpace) -> TypeOrValueDecl? {
+  mutating func lookup(_ name: String, qualifiedBy space: DeclSpace) -> LookupResult_ {
     switch space {
     case let space as ModuleDecl:
-      return lookup(name, qualifiedBy: space)
+      return lookup(name, qualifiedByIterable: space)
     case let space as FileUnit:
-      return lookup(name, qualifiedBy: space)
+      return lookup(name, qualifiedByIterable: space)
     case let space as NamespaceDecl:
-      return lookup(name, qualifiedBy: space)
+      return lookup(name, qualifiedByIterable: space)
+    case let space as BraceStmt:
+      return lookup(name, qualifiedByIterable: space)
     case let space as GenericTypeDecl:
       return lookup(name, qualifiedBy: space)
     case let space as ExtensionDecl:
       return lookup(name, qualifiedBy: space)
     case let space as BaseFunDecl:
       return lookup(name, qualifiedBy: space)
-    case let space as BraceStmt:
-      return lookup(name, qualifiedBy: space)
     default:
       fatalError("unexpected declaration space '\(type(of: space))'")
     }
   }
 
-  private func lookup(_ name: String, qualifiedBy space: ModuleDecl) -> TypeOrValueDecl? {
-    for member in space.decls {
-      if let decl = firstTypeOrValueDecl(in: member, named: name) { return decl }
+  mutating func lookup<S>(_ name: String, qualifiedByIterable space: S) -> LookupResult_
+  where S: IterableDeclSpace
+  {
+    if let table = lookupTables[ObjectIdentifier(space)] {
+      return table[name, default: LookupResult_()]
     }
-    return nil
+
+    var table: [String: LookupResult_] = [:]
+    for member in space.decls {
+      NameBinder.register(member, into: &table)
+    }
+
+    lookupTables[ObjectIdentifier(space)] = table
+    return table[name, default: LookupResult_()]
   }
 
-  private func lookup(_ name: String, qualifiedBy space: FileUnit) -> TypeOrValueDecl? {
-    for member in space.decls {
-      if let decl = firstTypeOrValueDecl(in: member, named: name) { return decl }
-    }
-    return nil
-  }
+  mutating func lookup(_ name: String, qualifiedBy space: GenericTypeDecl) -> LookupResult_ {
+    if let t = lookupTables[ObjectIdentifier(space)] {
+      // We already initialized a lookup table. If it contains an entry for `name`, we're done.
+      if let r = t[name] { return r }
+    } else {
+      // Initialize the lookup table with members introduced by the declaration.
+      var table: [String: LookupResult_] = [:]
+      defer { lookupTables[ObjectIdentifier(space)] = table }
 
-  private func lookup(_ name: String, qualifiedBy space: NamespaceDecl) -> TypeOrValueDecl? {
-    for member in space.decls {
-      if let decl = firstTypeOrValueDecl(in: member, named: name) { return decl }
-    }
-    return nil
-  }
+      // Register direct members.
+      for member in space.directMembers {
+        NameBinder.register(member, into: &table)
+      }
 
-  private mutating func lookup(
-    _ name: String,
-    qualifiedBy space: GenericTypeDecl
-  ) -> TypeOrValueDecl? {
-    // Check the cache.
-    if let result = lookupTables[space, default: [:]][name] {
-      return result
-    }
-
-    /// Checks if `member` defines a value or type named `name`.
-    func check(_ member: Decl) -> TypeOrValueDecl? {
-      switch member {
-      case let decl as TypeOrValueDecl:
-        lookupTables[space, default: [:]][decl.ident] = decl
-        if decl.ident == name { return decl }
-      case let decl as PatternBindingDecl:
-        for pattern in decl.pattern.namedPatterns {
-          lookupTables[space, default: [:]][pattern.decl.ident] = pattern.decl
-          if pattern.decl.ident == name { return pattern.decl }
+      // Register type parameters introduced by the declaration.
+      if let clause = space.genericClause {
+        for param in clause.params {
+          NameBinder.register(param, into: &table)
         }
+      }
+
+      switch space {
+      case let d as AliasTypeDecl where d.aliasedSign is NameSign:
+        // No more members to check if the declaration denotes a type synonm.
+        return table[name, default: LookupResult_()]
+
+      case let d as ViewTypeDecl:
+        // In views, `Self` is a type parameter.
+        table["Self"] = LookupResult_(type: d.selfTypeDecl)
+
+      case let d as ProductTypeDecl:
+        // In nominal product types, `Self` is an alias for the declaration.
+        table["Self"] = LookupResult_(type: d)
+
       default:
         break
       }
-      return nil
     }
 
-    // Check for a direct members.
-    for member in space.directMembers {
-      if let decl = check(member), decl.ident == name { return decl }
-    }
-
-    // Check for a type parameters introduced by the declaration.
-    if let clause = space.genericClause {
-      for param in clause.params {
-        lookupTables[space, default: [:]][param.ident] = param
-        if param.ident == name { return param }
-      }
-    }
-
-    switch space {
-    case let d as AliasTypeDecl where d.aliasedSign is NameSign:
-      // No more members to check if the declaration denotes a type synonm.
-      return nil
-
-    case let d as ViewTypeDecl:
-      // In views, `Self` is a type parameter.
-      lookupTables[space, default: [:]]["Self"] = d.selfTypeDecl
-
-    case let d as ProductTypeDecl:
-      // In nominal product types, `Self` is an alias for the declaration.
-      lookupTables[space, default: [:]]["Self"] = d
-
-    default:
-      break
-    }
-
-    // Check for `Self`.
-    if name == "Self" { return space }
-
-    // Check for a member declared in extensions.
+    // Complete the table with with extensions and conformances. This must be done lazily in case
+    // we re-enter `lookup(_:qualifiedBy:)` to resolve the extended name of an extension.
     for ext in extensions(of: space) {
-      for member in ext.members {
-        if let decl = check(member) { return decl }
-      }
-    }
-
-    // Check for members declared in conformed views.
-    for view in conformanceSet(of: space) {
-      // Check for a direct members.
-      for member in view.directMembers {
-        if let decl = check(member) { return decl }
-      }
-
-      // Check for a member declared in extensions.
-      for ext in extensions(of: view) {
+      modify(value: &lookupTables[ObjectIdentifier(space)]!, with: { table in
         for member in ext.members {
-          if let decl = check(member) { return decl }
+          NameBinder.register(member, into: &table)
         }
+      })
+    }
+
+    // Register members declared in conformed views.
+    for view in conformanceSet(of: space) {
+      // Register direct members.
+      modify(value: &lookupTables[ObjectIdentifier(space)]!, with: { table in
+        for member in view.directMembers {
+          NameBinder.register(member, into: &table)
+        }
+      })
+
+      // Register members declared in extensions.
+      for ext in extensions(of: view) {
+        modify(value: &lookupTables[ObjectIdentifier(space)]!, with: { table in
+          for member in ext.members {
+            NameBinder.register(member, into: &table)
+          }
+        })
       }
     }
 
-    // Lookup failed.
-    return nil
+    return lookupTables[ObjectIdentifier(space)]![name, default: LookupResult_()]
   }
 
-  private mutating func lookup(
-    _ name: String,
-    qualifiedBy space: ExtensionDecl
-  ) -> TypeOrValueDecl? {
+  mutating func lookup(_ name: String, qualifiedBy space: ExtensionDecl) -> LookupResult_ {
     if let d = resolve(
       space.extendedName, unqualifiedFrom: space.parentDeclSpace!) as? GenericTypeDecl
     {
       return lookup(name, qualifiedBy: d)
     } else {
-      return nil
+      return LookupResult_()
     }
   }
 
-  private mutating func lookup(
-    _ name: String,
-    qualifiedBy space: BaseFunDecl
-  ) -> TypeOrValueDecl? {
-    // Check for a function parameter.
+  mutating func lookup(_ name: String, qualifiedBy space: BaseFunDecl) -> LookupResult_ {
+    // Check the cache.
+    if let t = lookupTables[ObjectIdentifier(space)] {
+      return t[name, default: LookupResult_()]
+    }
+    var table: [String: LookupResult_] = [:]
+    defer { lookupTables[ObjectIdentifier(space)] = table }
+
+    // Register function function parameters.
     for param in space.params {
-      if param.ident == name { return param }
+      NameBinder.register(param, into: &table)
     }
 
-    // Check for `self` in member functions.
-    if name == "self" { return space.selfDecl }
+    // Register `self` in member functions.
+    if let decl = space.selfDecl {
+      NameBinder.register(decl, into: &table)
+    }
 
-    // Check for a type parameters introduced by the declaration.
+    // Register type parameters introduced by the declaration.
     if let clause = space.genericClause {
       for param in clause.params {
-        if param.ident == name { return param }
+        NameBinder.register(param, into: &table)
       }
     }
 
-    // Check for a capture explicitly declared in the capture-list.
+    // Register captures explicitly declared in the capture-list.
     for capture in space.explicitCaptures {
-      if capture.ident == name { return capture }
+      NameBinder.register(capture, into: &table)
     }
 
-    // Lookup failed.
-    return nil
+    return table[name, default: LookupResult_()]
   }
 
-  private func lookup(_ name: String, qualifiedBy space: BraceStmt) -> TypeOrValueDecl? {
-    for member in space.decls {
-      if let decl = firstTypeOrValueDecl(in: member, named: name) { return decl }
-    }
-    return nil
-  }
-
-  private mutating func lookup(
-    _ name: String,
-    qualifiedBy param: GenericParamDecl
-  ) -> TypeOrValueDecl? {
+  mutating func lookup(_ name: String, qualifiedBy param: GenericParamDecl) -> LookupResult_ {
     let parent = param.parentDeclSpace as! BaseGenericDecl & Node
     let env: GenericEnvironment
     if let e = environments[parent] {
@@ -283,48 +267,50 @@ public struct NameBinder: NodeWalker {
     }
 
     let key = GenericEnvironment.Key([param.ident])
-    guard let views = env.conformanceSet(of: key) else { return nil }
+    guard let views = env.conformanceSet(of: key) else { return LookupResult_() }
     return lookup(name, in: views)
   }
 
-  private mutating func lookup(
-    _ name: String,
-    in views: Set<ViewTypeDecl>
-  ) -> TypeOrValueDecl? {
+  mutating func lookup(_ name: String, in views: Set<ViewTypeDecl>) -> LookupResult_ {
+    var result = LookupResult_()
+
     for view in views {
       // Check for a direct members.
       for member in view.directMembers {
-        if let decl = firstTypeOrValueDecl(in: member, named: name) { return decl }
+        mergeTypeOrValueDecl(of: member, named: name, into: &result)
+        guard result.allOverloadable else { return result }
       }
 
       // Check for a member declared in extensions.
       for ext in extensions(of: view) {
         for member in ext.members {
-          if let decl = firstTypeOrValueDecl(in: member, named: name) { return decl }
+          mergeTypeOrValueDecl(of: member, named: name, into: &result)
+          guard result.allOverloadable else { return result }
         }
       }
     }
 
-    // Lookup failed.
-    return nil
+    return result
   }
 
-  /// Returns the first type or value declaration in `decl` with the specified name.
-  private func firstTypeOrValueDecl(in decl: Decl, named name: String) -> TypeOrValueDecl? {
+  /// Merges the type and value declarations in `decl` with the specified name into `result`.
+  private func mergeTypeOrValueDecl(
+    of decl: Decl,
+    named name: String,
+    into result: inout LookupResult_
+  ) {
     switch decl {
     case let decl as TypeOrValueDecl where decl.ident == name:
-      return decl
+      result.insert(decl)
 
     case let decl as PatternBindingDecl:
       for pattern in decl.pattern.namedPatterns where pattern.decl.ident == name {
-        return pattern.decl
+        result.insert(pattern.decl)
       }
 
     default:
       break
     }
-
-    return nil
   }
 
   /// Resolves a type name from the specified declaration space.
@@ -361,9 +347,9 @@ public struct NameBinder: NodeWalker {
       let decl: TypeOrValueDecl?
       switch parent {
       case nil:
-        decl = desugar(lookupResult: lookup(component.ident, unqualifiedFrom: space))
-      case let parent as TypeSpace:
-        decl = desugar(lookupResult: lookup(component.ident, qualifiedBy: parent))
+        decl = desugar(lookupResult: lookup(component.ident, unqualifiedFrom: space).type)
+      case let parent as TypeDecl & DeclSpace:
+        decl = desugar(lookupResult: lookup(component.ident, qualifiedBy: parent).type)
       case let parent as GenericParamDecl:
         return resolve(name, rootedAt: parent)
       default:
@@ -408,7 +394,7 @@ public struct NameBinder: NodeWalker {
       let component = name.components[i]
 
       // Search in the context of the parent's generic environment.
-      if let decl = lookup(component.ident, qualifiedBy: parent) as? GenericParamDecl {
+      if let decl = lookup(component.ident, qualifiedBy: parent).type as? GenericParamDecl {
         parent = decl
         continue
       }
@@ -422,7 +408,7 @@ public struct NameBinder: NodeWalker {
         return nil
       }
 
-      if let decl = lookup(component.ident, in: views) as? GenericParamDecl {
+      if let decl = lookup(component.ident, in: views).type as? GenericParamDecl {
         parent = decl
       } else {
         types[component] = .failure
@@ -489,6 +475,26 @@ public struct NameBinder: NodeWalker {
 
     conformanceSets[decl] = set
     return set
+  }
+
+  /// Registers the declarations introduced by `member` into `table`.
+  private static func register(_ member: Decl, into table: inout [String: LookupResult_]) {
+    switch member {
+    case let decl as TypeOrValueDecl:
+      _ = modify(
+        value: &table[decl.ident, default: LookupResult_()],
+        with: { $0.insert(decl) })
+
+    case let decl as PatternBindingDecl:
+      for pat in decl.pattern.namedPatterns {
+        _ = modify(
+          value: &table[pat.decl.ident, default: LookupResult_()],
+          with: { $0.insert(pat.decl) })
+      }
+
+    default:
+      break
+    }
   }
 
 }

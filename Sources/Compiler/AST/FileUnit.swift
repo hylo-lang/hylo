@@ -7,7 +7,7 @@ import Foundation
 /// as other kinds of declaration spaces with respect to name lookup. Top-level entities declared
 /// in a unit are merged with those from all of its siblings and should be looked up from the
 /// enclosing module.
-public class FileUnit: DeclSpace {
+public class FileUnit: IterableDeclSpace {
 
   /// The module in which the unit resides.
   public var parentDeclSpace: DeclSpace?
