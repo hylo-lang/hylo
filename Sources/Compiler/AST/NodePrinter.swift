@@ -554,6 +554,16 @@ public struct NodePrinter: NodeVisitor {
     """
   }
 
+  public mutating func visit(_ node: SpecializedDeclRefExpr) -> String {
+    return """
+    {
+    \(exprHeader(node)),
+    "unspecialized": "\(node.unspecialized)",
+    "args": \(encode(nodes: node.args))
+    }
+    """
+  }
+
   public mutating func visit(_ node: LambdaExpr) -> String {
     return """
     {

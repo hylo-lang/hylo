@@ -4,30 +4,30 @@ view U {
 
   type Y
 
-  fun f<T where T: V, T::X == Self::Y>(y: T)
+  fun f<T where T: V, T.X == Self.Y>(y: T)
 
 }
 
-type A<T where T: V, T::X: V> {
+type A<T where T: V, T.X: V> {
 
-  let a: T::X
-  let b: T::X::X
-  let c: T::X::Y
-  let d: T::X::X::Y
+  let a: T.X
+  let b: T.X.X
+  let c: T.X.Y
+  let d: T.X.X.Y
 
   // #!error@+1 type 'T' has no member type named 'Z'
-  let _a: T::Z
+  let _a: T.Z
 
   // #!error@+1 type 'X' has no member type named 'Z'
-  let _b: T::X::Z
+  let _b: T.X.Z
 
   // #!error@+1 type 'Y' has no member type named 'Z'
-  let _c: T::X::Y::Z
+  let _c: T.X.Y.Z
 
 }
 
 type B<T where T: V> {
 
-  fun f<U where U: V, U::X == T::X>(u: U) {}
+  fun f<U where U: V, U.X == T.X>(u: U) {}
 
 }

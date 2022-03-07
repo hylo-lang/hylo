@@ -2,13 +2,13 @@
 public struct LabeledIdent {
 
   /// The base of the identifier.
-  var base: String
+  public var base: String
 
   // The argument labels of the identifier.
-  var labels: [String]
+  public var labels: [String]
 
   /// The operator notation of the identifier.
-  var notation: OperatorNotation?
+  public var notation: OperatorNotation?
 
   public init(base: String, labels: [String] = [], notation: OperatorNotation? = nil) {
     self.base = base

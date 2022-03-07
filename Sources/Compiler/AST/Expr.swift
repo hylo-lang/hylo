@@ -317,11 +317,14 @@ public final class CallExpr: Expr {
 
 public typealias CallArg = TupleElem
 
+/// An unspecialized reference to a declaration.
+public protocol BareDeclRefExpr: Expr {}
+
 /// An identifier referring to an unresolved declaration.
 ///
-/// This has always an unresolved type. The referred declaration must be resolved by the semantic
+/// This node always an unresolved type. The referred declaration must be resolved by the semantic
 /// analysis, which should ultimately substitute this node with a `DeclRefExpr`.
-public final class UnresolvedDeclRefExpr: Expr {
+public final class UnresolvedDeclRefExpr: BareDeclRefExpr {
 
   public var range: SourceRange?
 
@@ -347,9 +350,9 @@ public final class UnresolvedDeclRefExpr: Expr {
 /// An identifier referring to an unresolved declaration, explicitly qualified by a namespace
 /// (e.g., `Builtin::bitcast`).
 ///
-/// Conceptually, this wraps an unresolved declaration reference, providing context for the space
-/// into which it points. The type prefix is resolved during name binding.
-public final class UnresolvedQualDeclRefExpr: Expr {
+/// Conceptually, this node wraps an unresolved declaration reference, providing context for the
+/// wraps into which it points. The type prefix is resolved during name binding.
+public final class UnresolvedQualDeclRefExpr: BareDeclRefExpr {
 
   public var range: SourceRange?
 
@@ -363,7 +366,7 @@ public final class UnresolvedQualDeclRefExpr: Expr {
   /// The unqualified (possibly labeled) identifier of the referred declaration.
   public var ident: LabeledIdent
 
-  /// The range of the name.
+  /// The range of the identifier.
   public var identRange: SourceRange?
 
   public init(
@@ -388,10 +391,9 @@ public final class UnresolvedQualDeclRefExpr: Expr {
 
 /// An identifier referring to a set of overloaded value declarations.
 ///
-/// This is typically substituted for an `UnresolvedDeclRefExpr` after the name binding. Additional
-/// contextual information is required to disambiguate the referred declaration, at which point the
-/// expression can be finally substituted with a `DeclRefExpr`.
-public final class OverloadedDeclRefExpr: Expr {
+/// This node is substituted for an `DeclRefExpr` by the type checker if it can disambiguate the
+/// referred declaration.
+public final class OverloadedDeclRefExpr: BareDeclRefExpr {
 
   public var range: SourceRange?
 
@@ -413,7 +415,7 @@ public final class OverloadedDeclRefExpr: Expr {
 }
 
 /// An identifier referring to a resolved value declaration.
-public final class DeclRefExpr: Expr {
+public final class DeclRefExpr: BareDeclRefExpr {
 
   public var range: SourceRange?
 
@@ -479,7 +481,7 @@ public final class KindRefExpr: Expr {
 }
 
 /// A member expression (e.g., `foo.bar`).
-public protocol MemberExpr: Expr {
+public protocol MemberExpr: BareDeclRefExpr {
 
   /// The base expression.
   var base: Expr { get }
@@ -578,6 +580,37 @@ public final class TupleMemberExpr: MemberExpr {
   public var memberLabel: String? {
     guard let tType = type as? TupleType else { return nil }
     return tType.elems[memberIndex].label
+  }
+
+  public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
+    return visitor.visit(self)
+  }
+
+}
+
+/// A declaration reference with type arguments (e.g., `Array<Int64>`).
+public final class SpecializedDeclRefExpr: Expr {
+
+  public var range: SourceRange?
+
+  public var type: ValType
+
+  /// The reference to the unspecialized declaration.
+  public var unspecialized: BareDeclRefExpr
+
+  /// The type arguments.
+  public var args: [Sign]
+
+  public init(
+    unspecialized: BareDeclRefExpr,
+    args: [Sign],
+    type: UnresolvedType,
+    range: SourceRange? = nil
+  ) {
+    self.unspecialized = unspecialized
+    self.args = args
+    self.type = type
+    self.range = range
   }
 
   public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {

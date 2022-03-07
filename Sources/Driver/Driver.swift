@@ -66,7 +66,7 @@ public struct Driver {
 
     // Parse the module's files.
     for url in moduleFiles {
-      let parser = Parser(context: compiler)
+      let parser = Parser(compiler: compiler)
       let (unit, hasError) = try parser.parse(contentsOf: url)
 
       module.units.append(unit)

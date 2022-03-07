@@ -809,6 +809,27 @@ extension NodeWalker {
     return shouldContinue
   }
 
+  public mutating func visit(_ node: SpecializedDeclRefExpr) -> Bool {
+    return traverse(node)
+  }
+
+  public mutating func traverse(_ node: SpecializedDeclRefExpr) -> Bool {
+    let prevParent = parent
+    parent = node
+    defer { parent = prevParent }
+
+    var shouldContinue: Bool
+    (shouldContinue, node.unspecialized) = walk(expr: node.unspecialized)
+      as! (Bool, BareDeclRefExpr)
+
+    for i in 0 ..< node.args.count {
+      (shouldContinue, node.args[i]) = walk(sign: node.args[i])
+      guard shouldContinue else { return false }
+    }
+
+    return true
+  }
+
   public mutating func visit(_ node: LambdaExpr) -> Bool {
     return traverse(node)
   }

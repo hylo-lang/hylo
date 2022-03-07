@@ -274,6 +274,11 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
     return node
   }
 
+  /// Resolves a `SpecializedDeclRefExpr`.
+  func visit(_ node: SpecializedDeclRefExpr) -> ExprResult {
+    fatalError("not implemented")
+  }
+
   func visit(_ node: LambdaExpr) -> Expr {
     return node
   }

@@ -159,18 +159,18 @@ public struct Token {
     return kinds.contains(kind)
   }
 
-  /// A Boolean value indicating whether this token may begin a declaration.
-  public var mayBeginDecl: Bool {
+  /// Indicates whether this token may be at the beginning of a declaration.
+  public var canBeginDecl: Bool {
     switch kind {
-    case .extension, .del, .fun, .let, .namespace, .new, .type, .var, .view:
+    case .del, .extension, .fun, .let, .namespace, .new, .type, .var, .view:
       return true
     default:
       return isDeclModifier
     }
   }
 
-  /// A Boolean value indicating whether this token may begin a control statement.
-  public var mayBeginCtrlStmt: Bool {
+  /// /// Indicates whether this token may be at the beginning of a control statement.
+  public var canBeginCtrlStmt: Bool {
     switch kind {
     case .break, .continue, .for, .if, .lBrace, .return, .while:
       return true

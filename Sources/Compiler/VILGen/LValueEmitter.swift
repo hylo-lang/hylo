@@ -187,6 +187,10 @@ struct LValueEmitter: ExprVisitor {
     fatalError("not implemented")
   }
 
+  func visit(_ node: SpecializedDeclRefExpr) -> ExprResult {
+    fatalError("unreachable")
+  }
+
   func visit(_ node: LambdaExpr) -> ExprResult {
     return .failure(.useOfRValueAsLValue(node))
   }

@@ -9,11 +9,11 @@ namespace N {
 
   }
 
-  type A = M::A
+  type A = M.A
 
 }
 
-type A = N::A
-type B = A::B
-type L = N::M
-type C = L::A::B
+type A = N.A
+type B = A.B
+type L = N.M
+type C = L.A.B
