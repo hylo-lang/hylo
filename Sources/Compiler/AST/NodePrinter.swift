@@ -63,7 +63,7 @@ public struct NodePrinter: NodeVisitor {
   func encode(range: SourceRange?) -> String {
     guard let range = range else { return "null" }
 
-    let path = range.lowerBound.url.path
+    let path = range.lowerBound.source.url.path
     let start = range.lowerBound.lineColumnIndices
     let end = range.upperBound.lineColumnIndices
     return "\"\(path):\(start.line):\(start.column) - \(end.line):\(end.column)\""
@@ -126,7 +126,7 @@ public struct NodePrinter: NodeVisitor {
   }
 
   public mutating func visit(_ unit: FileUnit) -> String {
-    let path = (unit as? SourceUnit)?.url.path ?? ""
+    let path = (unit as? SourceUnit)?.source.url.path ?? ""
 
     return """
     {

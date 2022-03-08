@@ -34,11 +34,11 @@ public final class BuiltinUnit: FileUnit {
 /// A source file containing Val code.
 public final class SourceUnit: FileUnit {
 
-  /// The URL of the source file containing this unit's contents.
-  public let url: URL
+  /// The source file containing this unit's contents.
+  public let source: SourceFile
 
-  public init(url: URL) {
-    self.url = url
+  public init(source: SourceFile) {
+    self.source = source
   }
 
 }

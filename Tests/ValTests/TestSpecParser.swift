@@ -7,9 +7,8 @@ struct TestSpecParser {
   var annotations: [TestSpec.Loc: [TestSpec]] = [:]
 
   /// Scans the given source file for test annotations.
-  mutating func scan(contentsOf url: URL) throws {
-    let contents = try String(contentsOf: url)
-    let lines = contents.split(separator: "\n", omittingEmptySubsequences: false)
+  mutating func scan(_ source: SourceFile) {
+    let lines = source.contents.split(separator: "\n", omittingEmptySubsequences: false)
 
     for (i, line) in lines.enumerated() {
       // Check if the line contains a test annotation.
@@ -35,7 +34,7 @@ struct TestSpecParser {
         : String(suffix)
 
       // Determine the location of the annotation.
-      let specLoc = TestSpec.Loc(url: url, line: i + offset)
+      let specLoc = TestSpec.Loc(source: source, line: i + offset)
 
       // Register the annotation.
       let pattern: DiagPattern
@@ -59,8 +58,8 @@ enum TestSpec {
   /// The location of a test annotation.
   struct Loc: Hashable {
 
-    /// The URL of the source file from which the annotation comes.
-    let url: URL
+    /// The source file from which the annotation comes.
+    let source: SourceFile
 
     /// The line to which the annotation refers in its source file.
     let line: Int

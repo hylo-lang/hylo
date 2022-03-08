@@ -5,19 +5,19 @@ import Eval
 final class ValTests: XCTestCase {
 
   func testTypeChecker() throws {
-    try withTestCases(in: "TestCases/TypeChecker", { (url, driver) in
-      let moduleName = url.deletingPathExtension().lastPathComponent
-      let moduleDecl = try driver.parse(moduleName: moduleName, moduleFiles: [url])
+    try withTestCases(in: "TestCases/TypeChecker", { (source, driver) in
+      let moduleName = source.url.deletingPathExtension().lastPathComponent
+      let moduleDecl = try driver.parse(moduleName: moduleName, moduleFiles: [source.url])
       driver.typeCheck(moduleDecl: moduleDecl)
       return []
     })
   }
 
   func testVILGen() throws {
-    try withTestCases(in: "TestCases/VILGen", { (url, driver) in
+    try withTestCases(in: "TestCases/VILGen", { (source, driver) in
       try driver.loadStdlib()
-      let moduleName = url.deletingPathExtension().lastPathComponent
-      let moduleDecl = try driver.parse(moduleName: moduleName, moduleFiles: [url])
+      let moduleName = source.url.deletingPathExtension().lastPathComponent
+      let moduleDecl = try driver.parse(moduleName: moduleName, moduleFiles: [source.url])
       driver.typeCheck(moduleDecl: moduleDecl)
 
       do {
@@ -29,10 +29,10 @@ final class ValTests: XCTestCase {
   }
 
   func testEval() throws {
-    try withTestCases(in: "TestCases/Eval", { (url, driver) in
+    try withTestCases(in: "TestCases/Eval", { (source, driver) in
       try driver.loadStdlib()
-      let moduleName = url.deletingPathExtension().lastPathComponent
-      let moduleDecl = try driver.parse(moduleName: moduleName, moduleFiles: [url])
+      let moduleName = source.url.deletingPathExtension().lastPathComponent
+      let moduleDecl = try driver.parse(moduleName: moduleName, moduleFiles: [source.url])
       driver.typeCheck(moduleDecl: moduleDecl)
 
       var interpreter = Interpreter()

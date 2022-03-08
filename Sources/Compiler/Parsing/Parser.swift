@@ -81,11 +81,11 @@ public struct Parser {
       switch head.kind {
       case .oper:
         _ = take()
-        return (String(lexer.source[head.range]), head.range)
+        return (String(substring(at: head.range)), head.range)
 
       case .assign where includingAssign:
         _ = take()
-        return (String(lexer.source[head.range]), head.range)
+        return (String(substring(at: head.range)), head.range)
 
       case .lAngle, .rAngle:
         _ = take()
@@ -97,7 +97,7 @@ public struct Parser {
         }
 
         let range = head.range.lowerBound ..< upper
-        return (String(lexer.source[range]), range)
+        return (String(substring(at: range)), range)
 
       default:
         return nil
@@ -109,6 +109,11 @@ public struct Parser {
       while let token = peek(), predicate(token) {
         _ = take()
       }
+    }
+
+    /// Accesses the substring of the source file in the specified range.
+    func substring(at range: SourceRange) -> Substring {
+      lexer.source.contents[range]
     }
 
     /// Creates a save point to restore the state.
@@ -177,10 +182,10 @@ public struct Parser {
     self.compiler = compiler
   }
 
-  /// Parses the contents of the file at the specified URL.
-  public func parse(contentsOf url: URL) throws -> (unit: SourceUnit, hasError: Bool) {
-    let unit = SourceUnit(url: url)
-    var state = try State(declSpace: unit, lexer: Lexer(contentsOf: url))
+  /// Parses the specified source file.
+  public func parse(_ source: SourceFile) throws -> (unit: SourceUnit, hasError: Bool) {
+    let unit = SourceUnit(source: source)
+    var state = State(declSpace: unit, lexer: Lexer(source: source))
 
     while true {
       // Skip leading semicolons and exit the loop once we've reached the end of the stream
@@ -507,7 +512,7 @@ public struct Parser {
 
       // The identifier of the function can be any unlabeled identifier except operators.
       if let ident = state.take(.ident) {
-        decl.ident = String(state.lexer.source[ident.range])
+        decl.ident = String(state.substring(at: ident.range))
         decl.identRange = ident.range
       } else if let (ident, range) = state.takeOperator() {
         decl.ident = ident
@@ -682,7 +687,7 @@ public struct Parser {
     let ident: String
     let identRange: SourceRange
     if let token = state.take(.ident) {
-      ident = String(state.lexer.source[token.range])
+      ident = String(state.substring(at: token.range))
       identRange = token.range
     } else {
       state.diags.append(Diag("expected identifier", anchor: state.errorRange()))
@@ -733,12 +738,12 @@ public struct Parser {
 
     if let name = state.take(.ident) {
       // We parsed a label *and* a name.
-      decl.ident = String(state.lexer.source[name.range])
+      decl.ident = String(state.substring(at: name.range))
       upperLoc = name.range.upperBound
 
       // Further, if the token for the label is '_', the parameter is anonymous.
       if label.kind != .under {
-        decl.label = String(state.lexer.source[label.range])
+        decl.label = String(state.substring(at: label.range))
       }
 
       // Warn against identical extraneous parameter names.
@@ -747,7 +752,7 @@ public struct Parser {
       }
     } else {
       // The next token is a colon: the label should be used as the name.
-      decl.ident = String(state.lexer.source[label.range])
+      decl.ident = String(state.substring(at: label.range))
       decl.label = decl.ident
 
       // Require that the parameter name be a valid identifier.
@@ -958,7 +963,7 @@ public struct Parser {
     let ident: String
     let identRange: SourceRange
     if let token = state.take(.ident) {
-      ident = String(state.lexer.source[token.range])
+      ident = String(state.substring(at: token.range))
       identRange = token.range
     } else {
       state.diags.append(Diag("expected type identifier", anchor: state.errorRange()))
@@ -1147,7 +1152,7 @@ public struct Parser {
     let ident: String
     let identRange: SourceRange
     if let token = state.take(.ident) {
-      ident = String(state.lexer.source[token.range])
+      ident = String(state.substring(at: token.range))
       identRange = token.range
     } else {
       state.diags.append(Diag("expected namespace identifier", anchor: state.errorRange()))
@@ -1196,7 +1201,8 @@ public struct Parser {
 
     // Parse a list of generic parameter identifiers.
     while let token = state.take(.ident) {
-      let decl = GenericParamDecl(ident: String(state.lexer.source[token.range]), type: unresolved)
+      let decl = GenericParamDecl(
+        ident: String(state.substring(at: token.range)), type: unresolved)
       decl.range = token.range
       decl.parentDeclSpace = state.declSpace
       decl.type = compiler.genericParamType(decl: decl).kind
@@ -1246,7 +1252,7 @@ public struct Parser {
 
     let oper = state.peek()
     switch oper?.kind {
-    case .oper where state.lexer.source[oper!.range] == "==":
+    case .oper where state.substring(at: oper!.range) == "==":
       _ = state.take()
       kind = .equality
 
@@ -1484,11 +1490,11 @@ public struct Parser {
         // The next token might be an infix identifier. However, we require that it be on the same
         // line as the left operand to avoid any ambiguity with statements that may begin with an
         // identifier on the next line.
-        let gap = state.lexer.source[upperLoc ..< token.range.lowerBound]
+        let gap = state.substring(at: upperLoc ..< token.range.lowerBound)
         guard !gap.contains(where: { $0.isNewline }) else { break }
 
         _ = state.take()
-        oper = (String(state.lexer.source[token.range]), range: token.range)
+        oper = (String(state.substring(at: token.range)), range: token.range)
         group = .identifier
       } else if let token = state.take(.cast) {
         // The right operand of a cast operator is a type signature, not an expression.
@@ -1501,7 +1507,7 @@ public struct Parser {
         // Append the new operator/operand to the tree.
         upperLoc = rhs.range!.upperBound
         tree.append(
-          oper: (String(state.lexer.source[token.range]), range: token.range),
+          oper: (String(state.substring(at: token.range)), range: token.range),
           group: .casting,
           rhs: .sign(rhs))
         continue
@@ -1618,7 +1624,7 @@ public struct Parser {
           expr.range = lowerLoc ..< range.upperBound
           base = expr
         } else if let index = state.take(.int) {
-          let value = state.lexer.source[index.range]
+          let value = state.substring(at: index.range)
 
           guard !value.contains(where: { !$0.isDigit }), let i = Int(value) else {
             state.diags.append(Diag("'\(value)' is not a valid tuple index", anchor: index.range))
@@ -1715,7 +1721,7 @@ public struct Parser {
   /// Parses a Boolean literal.
   private func parseBoolLiteral(state: inout State) -> Expr? {
     guard let token = state.take(.bool) else { return nil }
-    let value = state.lexer.source[token.range] == "true"
+    let value = state.substring(at: token.range) == "true"
     return BoolLiteralExpr(value: value, type: unresolved, range: token.range)
   }
 
@@ -1723,7 +1729,7 @@ public struct Parser {
   private func parseIntLiteral(state: inout State) -> Expr? {
     guard let token = state.take(.int) else { return nil }
 
-    let literal = state.lexer.source[token.range]
+    let literal = state.substring(at: token.range)
     guard let value = Int(literal) else {
       state.diags.append(Diag("invalid integer literal '\(literal)'", anchor: token.range))
       state.hasError = true
@@ -1737,7 +1743,7 @@ public struct Parser {
   private func parseFloatLiteral(state: inout State) -> Expr? {
     guard let token = state.take(.float) else { return nil }
 
-    let literal = state.lexer.source[token.range]
+    let literal = state.substring(at: token.range)
     guard let value = Double(literal) else {
       state.diags.append(Diag("invalid floating point literal '\(literal)'", anchor: token.range))
       state.hasError = true
@@ -1759,8 +1765,8 @@ public struct Parser {
     }
 
     let value = tokens.isEmpty
-      ? String(state.lexer.source[tokens[0].range])
-      : tokens.reduce(into: "", { $0 += String(state.lexer.source[$1.range]) })
+      ? String(state.substring(at: tokens[0].range))
+      : tokens.reduce(into: "", { $0 += String(state.substring(at: $1.range)) })
     return StringLiteralExpr(
       value: value, type: unresolved, range: tokens.first!.range ..< tokens.last!.range)
   }
@@ -1776,7 +1782,7 @@ public struct Parser {
   /// Parses an unlabeled identifier.
   private func parseIdent(state: inout State) -> (ident: String, range: SourceRange)? {
     if let token = state.take(.ident) {
-      return (String(state.lexer.source[token.range]), token.range)
+      return (String(state.substring(at: token.range)), token.range)
     } else {
       return state.takeOperator()
     }
@@ -1820,7 +1826,7 @@ public struct Parser {
 
     // Attempt to parse a base.
     guard let base = state.take(.ident) else { return nil }
-    ident.base = String(state.lexer.source[base.range])
+    ident.base = String(state.substring(at: base.range))
 
     // If the next token isn't a left parenthesis, we're done.
     guard state.peek()?.kind == .lParen else { return (ident, base.range) }
@@ -1842,7 +1848,7 @@ public struct Parser {
       guard let label = state.take(.ident) ?? state.take(.under),
             let _ = state.take(.colon)
       else { break }
-      ident.labels.append(String(state.lexer.source[label.range]))
+      ident.labels.append(String(state.substring(at: label.range)))
     }
 
     // We failed to parse an argument list; backtrack.
@@ -2046,7 +2052,7 @@ public struct Parser {
     // Attempt to consume a label.
     if let labelToken = state.take(if: { $0.isLabel }), state.take(.colon) != nil {
       // We successfully parsed a label; we must parse an expression.
-      label = String(state.lexer.source[labelToken.range])
+      label = String(state.substring(at: labelToken.range))
     } else {
       // We failed to parse a label; backtrack.
       state.restore(backup)
@@ -2098,7 +2104,7 @@ public struct Parser {
 
     // Create a variable declaration for the pattern.
     let decl = VarDecl(
-      ident: String(state.lexer.source[token.range]), identRange: token.range, type: unresolved)
+      ident: String(state.substring(at: token.range)), identRange: token.range, type: unresolved)
     decl.range = token.range
     decl.parentDeclSpace = state.declSpace
 
@@ -2165,7 +2171,7 @@ public struct Parser {
     // Attempt to consume a label.
     if let labelToken = state.take(if: { $0.isLabel }), state.take(.colon) != nil {
       // We successfully parsed a label; we must parse a subpattern.
-      label = String(state.lexer.source[labelToken.range])
+      label = String(state.substring(at: labelToken.range))
     } else {
       // We failed to parse a label; backtrack.
       state.restore(backup)
@@ -2387,7 +2393,7 @@ public struct Parser {
 
     // Attempt to parse an operator and its operand.
     while let token = state.peek(),
-          (token.kind == .oper) && (state.lexer.source[token.range] == oper)
+          (token.kind == .oper) && (state.substring(at: token.range) == oper)
     {
       _ = state.take()
 
@@ -2443,7 +2449,7 @@ public struct Parser {
   ///     generic-args ::= list['<', sign, '>']
   private func parseNameCompSign(state: inout State) -> NameCompSign? {
     guard let token = state.take(.ident) else { return nil }
-    let ident = String(state.lexer.source[token.range])
+    let ident = String(state.substring(at: token.range))
 
     // Attempt to parse a list of generic arguments.
     if let (opener, args, closer) = list(
@@ -2483,7 +2489,7 @@ public struct Parser {
     // Attempt to consume a label.
     if let labelToken = state.take(if: { $0.isLabel }), state.take(.colon) != nil {
       // We successfully parsed a label; we must parse a signature.
-      label = String(state.lexer.source[labelToken.range])
+      label = String(state.substring(at: labelToken.range))
     } else {
       // We failed to parse a label; backtrack.
       state.restore(backup)

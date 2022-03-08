@@ -3,72 +3,61 @@ import Foundation
 /// The lexer for Val source code.
 public struct Lexer: IteratorProtocol, Sequence {
 
-  /// The URL of the souce file being tokenized.
-  public let url: URL
-
-  /// The contents of the source file being tokenized.
-  public let source: String
+  /// The source file being tokenized.
+  public let source: SourceFile
 
   /// The current index in the source file.
   private var index: String.Index
 
-  /// Creates a lexer generating tokens from the contents of the specified URL.
-  public init(contentsOf url: URL) throws {
-    self.url = url
-    self.source = try String(contentsOf: url)
-    self.index = source.startIndex
-  }
-
-  /// Creates a lexer generating tokens from the contents of the specified buffer.
-  public init(contents: String) {
-    self.url = URL(string: "memory://" + UUID().uuidString)!
-    self.source = contents
-    self.index = source.startIndex
+  /// Creates a lexer generating tokens from the specified source file.
+  public init(source: SourceFile) {
+    self.source = source
+    self.index = source.contents.startIndex
   }
 
   /// The current lexer location.
   public var location: SourceLoc {
-    SourceLoc(url: url, index: index)
+    SourceLoc(source: source, index: index)
   }
 
   public mutating func next() -> Token? {
     // Skip whitespaces and comments.
     while true {
-      guard index < source.endIndex else {
+      guard index < source.contents.endIndex else {
         return nil
       }
 
       // Skip whitespaces.
-      if source[index].isWhitespace {
-        index = source.index(after: index)
+      if source.contents[index].isWhitespace {
+        index = source.contents.index(after: index)
         continue
       }
 
       // Skip line comments.
-      if source[index...].starts(with: "//") {
-        while (index < source.endIndex) && !source[index].isNewline {
-          index = source.index(after: index)
+      if source.contents[index...].starts(with: "//") {
+        while (index < source.contents.endIndex) && !source.contents[index].isNewline {
+          index = source.contents.index(after: index)
         }
         continue
       }
 
       // Skip block comments.
-      if source[index...].starts(with: "/*") {
+      if source.contents[index...].starts(with: "/*") {
         // Consume the block opener.
         let start = location
-        index = source.index(index, offsetBy: 2)
+        index = source.contents.index(index, offsetBy: 2)
 
         // Search for the end of the block.
         var open = 1
         while open > 0 {
-          if source[index...].starts(with: "/*") {
-            index = source.index(index, offsetBy: 2)
+          if source.contents[index...].starts(with: "/*") {
+            index = source.contents.index(index, offsetBy: 2)
             open += 1
-          } else if source[index...].starts(with: "*/") {
-            index = source.index(index, offsetBy: 2)
+          } else if source.contents[index...].starts(with: "*/") {
+            index = source.contents.index(index, offsetBy: 2)
             open -= 1
-          } else if index < source.endIndex {
-            index = source.index(after: index)
+          } else if index < source.contents.endIndex {
+            index = source.contents.index(after: index)
           } else {
             return Token(kind: .unterminatedBlockComment, range: start ..< location)
           }
@@ -83,7 +72,7 @@ public struct Lexer: IteratorProtocol, Sequence {
     }
 
     // Scan a new token.
-    let head = source[index]
+    let head = source.contents[index]
     var token = Token(kind: .invalid, range: location ..< location)
 
     // Scan identifiers and keywords.
@@ -132,9 +121,9 @@ public struct Lexer: IteratorProtocol, Sequence {
 
       case "as":
         if let c = peek(), (c == "!") {
-          index = source.index(after: index)
+          index = source.contents.index(after: index)
           if let c = peek(), (c == "!") {
-            index = source.index(after: index)
+            index = source.contents.index(after: index)
           }
         }
         token.range = token.range.lowerBound ..< location
@@ -149,17 +138,18 @@ public struct Lexer: IteratorProtocol, Sequence {
 
     // Scan a back-quoted identifiers.
     if head == "`" {
-      index = source.index(after: index)
+      index = source.contents.index(after: index)
 
       if let c = peek(), c.isLetter {
         let i = index
         _ = take(while: { $0.isLetter || $0.isDigit || ($0 == "_") })
 
         if peek() == "`" {
-          let start = SourceLoc(url: url, index: source.index(after: token.range.lowerBound.index))
+          let start = SourceLoc(
+            source: source, index: source.contents.index(after: token.range.lowerBound.index))
           token.kind = .ident
           token.range = start ..< location
-          index = source.index(after: index)
+          index = source.contents.index(after: index)
           return token
         } else {
           index = i
@@ -176,22 +166,22 @@ public struct Lexer: IteratorProtocol, Sequence {
 
       // Check if the literal is non-decimal.
       if head == "0" {
-        index = source.index(after: index)
+        index = source.contents.index(after: index)
         switch peek() {
         case "x":
-          index = source.index(after: index)
+          index = source.contents.index(after: index)
           _ = take(while: { $0.isHexDigit || ($0 == "_") })
           token.range = token.range.lowerBound ..< location
           return token
 
         case "o":
-          index = source.index(after: index)
+          index = source.contents.index(after: index)
           _ = take(while: { $0.isOctDigit || ($0 == "_") })
           token.range = token.range.lowerBound ..< location
           return token
 
         case "b":
-          index = source.index(after: index)
+          index = source.contents.index(after: index)
           _ = take(while: { $0.isBinDigit || ( $0 == "_") })
           token.range = token.range.lowerBound ..< location
           return token
@@ -206,11 +196,11 @@ public struct Lexer: IteratorProtocol, Sequence {
 
       // Consume the floating-point part, if any.
       if peek() == "." {
-        index = source.index(after: index)
+        index = source.contents.index(after: index)
         if (peek() != "_") && !take(while: { $0.isDigit || ($0 == "_") }).isEmpty {
           token.kind = .float
         } else {
-          index = source.index(before: index)
+          index = source.contents.index(before: index)
         }
       }
 
@@ -218,9 +208,9 @@ public struct Lexer: IteratorProtocol, Sequence {
       if let c = peek(), (c == "e") || (c == "E") {
         let i = index
 
-        index = source.index(after: index)
+        index = source.contents.index(after: index)
         if (peek() == "+") || (peek() == "-") {
-          index = source.index(after: index)
+          index = source.contents.index(after: index)
         }
 
         if (peek() != "_") && !take(while: { $0.isDigit || ($0 == "_") }).isEmpty {
@@ -236,20 +226,20 @@ public struct Lexer: IteratorProtocol, Sequence {
 
     // Scan character strings.
     if head == "\"" {
-      index = source.index(after: index)
+      index = source.contents.index(after: index)
 
       var escape = false
-      while index < source.endIndex {
-        if (source[index] == "\"") && !escape {
-          index = source.index(after: index)
+      while index < source.contents.endIndex {
+        if (source.contents[index] == "\"") && !escape {
+          index = source.contents.index(after: index)
           token.kind = .string
           token.range = token.range.lowerBound ..< location
           return token
-        } else if source[index] == "\\" {
-          index = source.index(after: index)
+        } else if source.contents[index] == "\\" {
+          index = source.contents.index(after: index)
           escape = !escape
         } else {
-          index = source.index(after: index)
+          index = source.contents.index(after: index)
           escape = false
         }
       }
@@ -265,8 +255,8 @@ public struct Lexer: IteratorProtocol, Sequence {
       switch head {
       case "<", ">":
         // Leading angle brackets are tokenized individually, to parse generic clauses.
-        index = source.index(after: index)
-        oper = source[token.range.lowerBound.index ..< index]
+        index = source.contents.index(after: index)
+        oper = source.contents[token.range.lowerBound.index ..< index]
 
       default:
         oper = take(while: { $0.isOperator })
@@ -298,8 +288,8 @@ public struct Lexer: IteratorProtocol, Sequence {
 
     case ":":
       // Scan double colons.
-      if source[index...].starts(with: "::") {
-        index = source.index(index, offsetBy: 2)
+      if source.contents[index...].starts(with: "::") {
+        index = source.contents.index(index, offsetBy: 2)
         token.kind = .twoColons
         token.range = token.range.lowerBound ..< location
         return token
@@ -313,25 +303,25 @@ public struct Lexer: IteratorProtocol, Sequence {
     }
 
     // Scan an invalid token.
-    index = source.index(after: index)
+    index = source.contents.index(after: index)
     token.range = token.range.lowerBound ..< location
     return token
   }
 
   /// Returns the next character in the stream, without consuming it.
   private func peek() -> Character? {
-    guard index < source.endIndex else { return nil }
-    return source[index]
+    guard index < source.contents.endIndex else { return nil }
+    return source.contents[index]
   }
 
   /// Consumes the longest sequence of characters that satisfy the given predicate.
   private mutating func take(while predicate: (Character) -> Bool) -> Substring {
     let start = index
     while let ch = peek(), predicate(ch) {
-      index = source.index(after: index)
+      index = source.contents.index(after: index)
     }
 
-    return source[start ..< index]
+    return source.contents[start ..< index]
   }
 
 }

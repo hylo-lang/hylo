@@ -46,10 +46,10 @@ struct DiagChecker: DiagConsumer {
     }
 
     let (line, column) = diagLoc.lineColumnIndices
-    let specLoc = TestSpec.Loc(url: diagLoc.url, line: line)
+    let specLoc = TestSpec.Loc(source: diagLoc.source, line: line)
     guard let i = diagnostics[specLoc]?.firstIndex(where: { $0 ~= diag }) else {
       XCTFail(
-        "\(diagLoc.url.lastPathComponent):\(line):\(column): \(diag.message)",
+        "\(diagLoc.source.url.lastPathComponent):\(line):\(column): \(diag.message)",
         file: xcFile, line: xcLine)
       return
     }
@@ -60,11 +60,11 @@ struct DiagChecker: DiagConsumer {
   func finalize() {
     if diagnostics.isEmpty { return }
 
-    for (location, patterns) in diagnostics {
+    for (loc, patterns) in diagnostics {
       for pattern in patterns {
         let message = pattern.message ?? "_"
         XCTFail(
-          "\(location.url.lastPathComponent):\(location.line): missing diagnostic: \(message)",
+          "\(loc.source.url.lastPathComponent):\(loc.line): missing diagnostic: \(message)",
           file: xcFile, line: xcLine)
       }
     }

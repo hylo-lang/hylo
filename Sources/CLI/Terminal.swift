@@ -15,7 +15,7 @@ extension Terminal: DiagConsumer {
   func consume(_ diagnostic: Diag) {
     // Print the location at which the diagnostic occured.
     if let loc = diagnostic.reportLocation {
-      let filename = loc.url.path
+      let filename = loc.source.url.path
       let (line, column) = loc.lineColumnIndices
       error("\(filename):\(line):\(column): ")
     }
