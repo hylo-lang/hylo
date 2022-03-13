@@ -1,4 +1,4 @@
-// swift-tools-version:5.3
+// swift-tools-version:5.6
 import PackageDescription
 
 let OrderedCollections = Target.Dependency.product(
@@ -17,18 +17,17 @@ let package = Package(
 
   dependencies: [
     .package(
-      name: "swift-argument-parser",
       url: "https://github.com/apple/swift-argument-parser.git",
       from: "0.4.0"),
     .package(
       url: "https://github.com/apple/swift-collections",
       from: "0.0.1"),
-    .package(url: "https://github.com/roop/citron.git", .branch("master"))
+    .package(url: "https://github.com/roop/citron.git", branch: "master")
   ],
 
   targets: [
     // The compiler's executable target.
-    .target(
+    .executableTarget(
       name: "CLI",
       dependencies: [
         "Compiler", "Driver", "Eval",
@@ -55,4 +54,10 @@ let package = Package(
       name: "ValTests",
       dependencies: ["Compiler", "Driver", "Eval"],
       resources: [.copy("TestCases")]),
+
+    .plugin(
+      name: "CitronPlugin",
+      capability: .buildTool(),
+      dependencies: ["citron"]
+    ),
   ])
