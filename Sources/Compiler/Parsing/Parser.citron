@@ -1,0 +1,13 @@
+// -*- mode: lemon; tab-width: 2; c-basic-offset: 2; -*-
+
+%class_name ValParser
+
+%preface {
+  import CitronParserModule
+}
+
+%token_type Token
+
+%start_symbol input
+
+input ::= .

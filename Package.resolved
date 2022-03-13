@@ -2,6 +2,15 @@
   "object": {
     "pins": [
       {
+        "package": "citron",
+        "repositoryURL": "https://github.com/roop/citron.git",
+        "state": {
+          "branch": "master",
+          "revision": "4f120cf5c61f9ece05b485c275d484bf1cd39fd9",
+          "version": null
+        }
+      },
+      {
         "package": "swift-argument-parser",
         "repositoryURL": "https://github.com/apple/swift-argument-parser.git",
         "state": {

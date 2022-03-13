@@ -5,6 +5,8 @@ let OrderedCollections = Target.Dependency.product(
   name: "OrderedCollections", package: "swift-collections")
 let DequeModule = Target.Dependency.product(
   name: "DequeModule", package: "swift-collections")
+let CitronParser = Target.Dependency.product(
+  name: "CitronParserModule", package: "citron")
 
 let package = Package(
   name: "Val",
@@ -21,6 +23,7 @@ let package = Package(
     .package(
       url: "https://github.com/apple/swift-collections",
       from: "0.0.1"),
+    .package(url: "https://github.com/roop/citron.git", .branch("master"))
   ],
 
   targets: [
@@ -35,8 +38,10 @@ let package = Package(
     // Targets related to the compiler's internal library.
     .target(
       name: "Compiler",
-      dependencies: ["Utils", OrderedCollections],
-      resources: [.copy("Builtins.json")]),
+      dependencies: ["Utils", OrderedCollections, CitronParser],
+      exclude: ["Parsing/Parser.citron"],
+      resources: [.copy("Builtins.json")]
+    ),
     .target(name: "Utils"),
     .target(name: "Driver", dependencies: ["Compiler", "Utils", "ValLibrary"]),
     .target(name: "Eval", dependencies: ["Compiler", DequeModule]),
