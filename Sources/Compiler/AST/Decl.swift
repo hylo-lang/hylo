@@ -437,7 +437,7 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
   public var isNested: Bool {
     guard !isStatic && !isMember else { return false }
 
-    return !(parentDeclSpace is SourceUnit)
+    return !(parentDeclSpace is FileUnit)
       && !isStatic
       && !isMember
       && !(self is CtorDecl)

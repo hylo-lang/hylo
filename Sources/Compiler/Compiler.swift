@@ -201,7 +201,7 @@ public final class Compiler {
           let config = try? JSONDecoder().decode(BuiltinConfig.self, from: Data(contentsOf: url))
     else { preconditionFailure("I coudn't load builtin definitions") }
 
-    let unit = BuiltinUnit()
+    let unit = FileUnit(url: nil)
     builtin.units.append(unit)
 
     for spec in config.functions {
