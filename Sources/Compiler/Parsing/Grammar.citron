@@ -1,0 +1,87 @@
+// -*- mode: lemon; tab-width: 2; c-basic-offset: 2; -*-
+
+%class_name ValParser
+
+%preface {
+  import CitronParserModule
+}
+
+%token INVALID.
+%token UNTERMINATEDSTRING.
+%token UNTERMINATEDBLOCKCOMMENT.
+
+    // Scalar literals
+%token BOOL.
+%token INT.
+%token FLOAT.
+%token STRING.
+
+    // Identifiers
+%token NAME.
+%token UNDER.
+
+    // Keywords
+%token ASYNC.
+%token AWAIT.
+%token BREAK.
+%token CASE.
+%token CONSUMING.
+%token CONTINUE.
+%token DEL.
+%token ELSE.
+%token EXTENSION.
+%token FOR.
+%token FUN.
+%token IF.
+%token IN.
+%token INFIX.
+%token LET.
+%token LOCAL.
+%token MATCH.
+%token MOD.
+%token MUT.
+%token NAMESPACE.
+%token NEW.
+%token NIL.
+%token POSTFIX.
+%token PREFIX.
+%token PUB.
+%token RETURN.
+%token STATIC.
+%token TYPE.
+%token VAR.
+%token VIEW.
+%token VOLATILE.
+%token WHERE.
+%token WHILE.
+
+    // Operators
+%token OPER.
+%token CAST.
+%token ARROW.
+%token ASSIGN.
+
+    // Punctuation
+%token COMMA.
+%token SEMI.
+%token DOT.
+%token COLON.
+%token TWOCOLONS.
+
+    // Delimiters
+%token LPAREN.
+%token RPAREN.
+%token LBRACE.
+%token RBRACE.
+%token LBRACK.
+%token RBRACK.
+%token LANGLE.
+%token RANGLE.
+
+%token_type Token
+
+%nonterminal_type input Void
+%start_symbol input
+
+input ::= STAR.
+{}

@@ -1,6 +1,7 @@
 import PackagePlugin
 
 @main struct CitronPlugin: BuildToolPlugin {
+    
   /// Instantiates the plugin. This happens once per invocation of the
   /// plugin; there is no facility for keeping in-memory state from one
   /// invocation to the next. Most plugins do not need to implement the
@@ -13,9 +14,8 @@ import PackagePlugin
   ///
   /// This function should create and return build commands or prebuild
   /// commands, configured based on the information in the context.
-  func createBuildCommands(
-    context: PluginContext
-  ) async throws -> [Command] {
+  func createBuildCommands(context: PluginContext, target: Target) async throws -> [Command] {
     return []
+//        return [.buildCommand(displayName: "Citron", executable: .init(""), arguments: <#T##[CustomStringConvertible]#>)]
   }
 }
