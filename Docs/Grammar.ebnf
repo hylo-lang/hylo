@@ -1,0 +1,352 @@
+program ::= top-level-decl*
+
+top-level-decl ::= 
+    global-namespace-decl
+  | extension-decl
+
+global-namespace-decl ::= access-modifier* namespace-decl
+
+namespace-decl 'namespace' IDENT namespace-body
+
+namespace-body ::= '{' global-decl* '}'
+
+global-decl ::=
+    global-namespace-decl
+  | global-type-decl
+  | global-trait-decl
+  | global-fun-decl
+  | global-projection-decl
+  | global-binding-decl
+
+global-type-decl ::= access-modifier* type-decl
+
+type-decl ::=
+    product-type-decl
+  | alias-type-decl
+
+product-type-decl ::= product-head type-body
+
+product-head ::= 'type' IDENT generic-clause? inheritance-clause?
+
+generic-clause ::= '<' IDENT+ where-clause? '>'
+
+where-clause ::= 'where' type-constraint+
+
+type-constraint ::=
+    type-expr ':' type-expr
+  | type-expr '==' type-expr
+
+inheritance-clause ::= ':' type-name (',' type-name)*
+
+type-body ::= '{' member-decl* '}'
+
+member-decl ::=
+    member-type-decl
+  | member-fun-decl
+  | member-ctor-decl
+  | member-dtor-decl
+  | member-projection-decl
+  | member-property-decl
+  | member-binding-decl
+  | invariant-decl
+
+member-type-decl ::= access-modifier* type-decl
+
+member-fun-decl ::= member-fun-head fun-signature brace-stmt
+
+member-fun-head ::=
+  access-modifier* member-fun-modifier* operator-notation? 'fun' (IDENT | OPERATOR) generic-clause?
+
+member-fun-modifier ::=
+    member-modifier
+  | receiver-convention
+
+member-modifier ::= 'static'
+
+receiver-convention ::=
+    'mutating'
+  | 'consuming'
+  | 'out'
+
+operator-notation ::=
+    'infix'
+  | 'prefix'
+  | 'postfix'
+
+fun-signature ::= '(' fun-argument-list? ')' ('->' type-expr)?
+
+fun-argument-list ::= fun-argument (',' fun-argument)?
+
+fun-argument ::= (IDENT | '_') (IDENT | '_')? (':' type-expr)? ('=' expr)?
+
+member-ctor-decl ::= member-ctor-head fun-signature brace-stmt
+
+member-ctor-head ::= access-modifier* ('init' | 'init?')
+
+member-dtor-decl ::= 'delete' brace-stmt
+
+member-projection-decl ::= member-projection-head fun-signature projection-body
+
+member-projection-head ::=
+  access-modifier* member-fun-modifier* operator-notation? 'projection' (IDENT | OPERATOR) generic-clause?
+
+projection-body ::= '{' (accessor brace-stmt)+ '}'
+
+accessor ::=
+    'read'
+  | 'modify'
+  | 'write'
+  | 'sink'
+
+member-property-decl ::= member-property-head projection-body
+
+member-property-head ::= access-modifier* member-modifier* 'var' IDENT ':' type-expr
+
+member-binding-decl ::= access-modifier* member-modifier* ('let' | 'var') pattern ':' type-expr
+
+invariant-decl ::= 'invariant' ('(' STRING-LITERAL ')')? expr
+
+alias-type-decl ::= 'type' type-name '=' type-expr
+
+global-trait-decl ::= access-modifier* trait-decl
+
+trait-decl ::= trait-head trait-body
+
+trait-head :: 'trait' IDENT inheritance-clause? 
+
+trait-body ::= '{' trait-requirement* '}'
+
+trait-requirement ::=
+    type-requirement
+  | fun-requirement
+  | ctor-requirement
+  | property-requirement
+
+type-requirement ::= 'type' IDENT inheritance-clause? where-clause?
+
+fun-requirement ::= member-fun-head fun-signature brace-stmt?
+
+ctor-requirement ::= member-ctor-head fun-signature brace-stmt?
+
+property-requirement ::= member-projection-head fun-signature property-requirement-body
+
+property-body ::= '{' (accessor brace-stmt?)+ '}'
+
+global-fun-decl ::= global-fun-head fun-signature brace-stmt
+
+global-fun-head ::= access-modifier* 'fun' IDENT generic-clause?
+
+global-projection-decl ::= global-projection-head fun-signature projection-body
+
+global-projection-head ::= access-modifier* 'projection' IDENT generic-clause?
+
+global-binding-decl ::= access-modifier* 'let' pattern ':' type-expr '=' expr
+
+access-modifier ::=
+  'public'
+  | 'internal'
+  | 'internal' '(' 'write' ')'
+  | 'private'
+  | 'private' '(' 'write' ')'
+
+extension-decl ::= extension-head type-body
+
+extension-head ::= 'extension' type-name inheritance-clause? where-clause?
+
+local-decl ::=
+    type-decl
+  | local-fun-decl
+  | local-projection-decl
+  | local-property-decl
+  | local-binding-decl
+
+local-fun-decl ::= local-fun-head fun-signature brace-stmt
+
+local-fun-head ::= 'fun' IDENT generic-clause? capture-list?
+
+capture-list ::= '[' capture-decl (',' capture-decl)* ']'
+
+capture-decl ::= binding-introducer IDENT ('=' expr)?
+
+binding-introducer ::=
+    'let'
+  | 'sink let'
+  | 'inout'
+  | 'var'
+
+local-projection-decl ::= local-projection-head fun-signature projection-body
+
+local-projection-head ::= 'projection' IDENT generic-clause? capture-list?
+
+local-property-decl ::= local-property-head projection-body
+
+local-property-head ::= 'var' IDENT ':' type-expr
+
+local-binding-decl ::= binding-introducer pattern ':' type-expr ('=' expr)?
+
+stmt ::=
+  | local-decl
+  | brace-stmt
+  | while-stmt
+  | for-stmt
+  | 'break' IDENT?
+  | 'continue' IDENT?
+  | 'return' expr?
+  | 'yield' '&'? expr
+  | 'defer' brace-stmt
+
+brace-stmt ::= '{' stmt* '}'
+
+while-stmt ::= 'while' (':' IDENT)? expr ('where' expr)? brace-stmt
+
+for-stmt ::= 'for' (':' IDENT)? pattern 'in' expr ('where' expr)? brace-stmt
+
+type-expr ::=
+    type-name
+  | tuple-type-expr
+  | fun-type-expr
+  | param-type-expr
+  | union-type-expr
+  | composition-type-expr
+  | 'async' type-expr
+
+type-name ::=
+    type-name '.' IDENT
+  | associated-type
+  | IDENT
+
+associated-type ::= type-name '::' IDENT '.' IDENT
+
+tuple-type-expr ::= '(' tuple-type-elem-list? ')'
+
+tuple-type-elem-list ::= tuple-type-elem (',' tuple-type-elem)*
+
+tuple-type-elem ::= (IDENT ':')? type-expr
+
+fun-type-expr ::= 'mutating'? fun-type-env? tuple-type-expr '->' 'noescape'? type-expr
+
+fun-type-env ::=
+    ('[' type-expr ']')
+  | thin
+
+param-type-expr ::= param-convention? type-expr
+
+param-convention ::=
+    'inout'
+  | 'sink'
+  | 'out'
+
+union-type-expr ::= type-expr ('|' type-expr)+
+
+composition-type-expr ::= type-name ('&' type-name)+
+
+pattern ::=
+  | tuple-pattern
+  | binding-pattern
+  | expr
+  | '_'
+
+tuple-pattern ::= '(' tuple-pattern_elem (',' tuple-pattern_elem)* ')'
+
+tuple-pattern-elem ::= (IDENT ':')? tuple-pattern
+
+binding-pattern ::= binding-introducer pattern
+
+expr ::= suffix-expr binary-tail*
+
+suffix-expr ::= prefix-expr OPERATOR?
+
+prefix-expr ::= OPERATOR? compound-expr
+
+compound-expr ::= primary-expr compound-tail*
+
+primary-expr ::=
+    BOOL-LITERAL
+  | INT-LITERAL
+  | FLOAT-LITERAL
+  | STRING-LITERAL
+  | array-literal
+  | mapping-literal
+  | ident
+  | implicit-member-ref
+  | capture-expr
+  | lambda-expr
+  | async-expr
+  | await-expr
+  | if-expr
+  | match-expr
+  | tuple-expr
+  | 'nil'
+  | '_'
+
+array-literal ::= '[' array-argument-list? ']'
+
+array-argument-list ::= expr (',' expr) ','?
+
+mapping-literal ::= '[' (mapping-argument-list | ':') ']'
+
+mapping-argument-list ::= expr ':' expr (',' expr ':' expr) ','?
+
+ident ::= bare-ident type-arguments?
+
+bare-ident ::=
+    IDENT
+  | fun-name
+  | operator-notation OPERATOR
+
+fun-name ::=
+  IDENT '(' argument-label+ ')'
+
+argument-label ::= (IDENT | '_') ':'
+
+type-arguments ::= '<' type-expr (',' type-expr)? '>'
+
+implicit-member-ref ::= '.' bare-ident
+
+capture-expr ::= '[' ('let' | 'inout') expr ']'
+
+lambda-expr ::= 'fun' capture-list? fun-signature brace-stmt
+
+async-expr ::= 'async' capture-list? async-body
+
+async-body ::= expr | brace-stmt
+
+await-expr ::= 'await' expr (',' expr)*
+
+if-expr ::= 'if' expr brace-stmt if-tail?
+
+if-tail ::=
+    if-expr
+  | 'else' brace-stmt
+
+match-expr ::= 'match' expr '{' match-case* '}'
+
+match-case ::= pattern (':' type-expr)? ('where' expr)? brace-stmt
+
+tuple-expr ::= '(' tuple-elem-list? ')'
+
+tuple-elem-list ::= tuple-elem (',' tuple-elem)*
+
+tuple-elem ::= (IDENT ':')? expr
+
+compound-tail ::=
+    call-tail
+  | subscript-tail
+  | member-tail
+
+call-tail ::= '(' call-argument-list? ')'
+
+call-argument-list ::= call-argument (',' call-argument)*
+
+call-argument ::= (IDENT ':') expr
+
+subscript-tail ::= '[' call-argument-list? ']'
+
+member-tail ::= '.' member-ident
+
+member-ident ::=
+    ident
+  | OPERATOR
+  | NATURAL-LITERAL
+
+binary-tail ::= (OPERATOR | IDENT) suffix-expr
