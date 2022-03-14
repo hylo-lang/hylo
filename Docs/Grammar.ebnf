@@ -14,7 +14,7 @@ global-decl ::=
 
 global-namespace-decl ::= access-modifier* namespace-decl
 
-namespace-decl 'namespace' IDENT namespace-body
+namespace-decl ::= 'namespace' IDENT namespace-body
 
 namespace-body ::= '{' global-decl* '}'
 
