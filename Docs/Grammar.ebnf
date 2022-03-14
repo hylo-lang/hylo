@@ -1,14 +1,8 @@
 program ::= top-level-decl*
 
 top-level-decl ::= 
-    global-namespace-decl
+    global-decl
   | extension-decl
-
-global-namespace-decl ::= access-modifier* namespace-decl
-
-namespace-decl 'namespace' IDENT namespace-body
-
-namespace-body ::= '{' global-decl* '}'
 
 global-decl ::=
     global-namespace-decl
@@ -17,6 +11,12 @@ global-decl ::=
   | global-fun-decl
   | global-projection-decl
   | global-binding-decl
+
+global-namespace-decl ::= access-modifier* namespace-decl
+
+namespace-decl 'namespace' IDENT namespace-body
+
+namespace-body ::= '{' global-decl* '}'
 
 global-type-decl ::= access-modifier* type-decl
 
