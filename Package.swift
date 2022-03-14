@@ -38,7 +38,7 @@ let package = Package(
     .target(
       name: "Compiler",
       dependencies: ["Utils", OrderedCollections, CitronParser],
-      exclude: ["Parsing/Parser.citron"],
+      exclude: ["Parsing/Grammar.citron"],
       resources: [.copy("Builtins.json")]
     ),
     .target(name: "Utils"),

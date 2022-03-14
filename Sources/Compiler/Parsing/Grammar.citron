@@ -78,10 +78,28 @@
 %token LANGLE.
 %token RANGLE.
 
+%token_set decl_modifier PUB MOD CONSUMING MUT INFIX PREFIX POSTFIX STATIC.
+
 %token_type Token
 
-%nonterminal_type input Void
+%default_nonterminal_type Void
 %start_symbol input
 
-input ::= STAR.
-{}
+input ::= decl_list.
+  {}
+
+decl_list ::= .
+  {}
+
+semi_opt ::= SEMI. {}
+semi_opt ::= . {}
+
+decl_list ::= decl_list semi_opt declaration.
+  {}
+
+
+decl_modifier_list ::= . {}
+decl_modifier_list ::= decl_modifier_list decl_modifier. {}
+
+declaration ::= decl_modifier_list DOT.
+  {}
