@@ -112,7 +112,7 @@ global-trait-decl ::= access-modifier* trait-decl
 
 trait-decl ::= trait-head trait-body
 
-trait-head :: 'trait' IDENT inheritance-clause? 
+trait-head ::= 'trait' IDENT inheritance-clause? 
 
 trait-body ::= '{' trait-requirement* '}'
 
