@@ -185,7 +185,7 @@ local-property-head ::= 'var' IDENT ':' type-expr
 local-binding-decl ::= binding-introducer pattern ':' type-expr ('=' expr)?
 
 stmt ::=
-  | local-decl
+    local-decl
   | brace-stmt
   | while-stmt
   | for-stmt
@@ -248,7 +248,7 @@ union-type-expr ::= type-expr ('|' type-expr)+
 composition-type-expr ::= type-name ('&' type-name)+
 
 pattern ::=
-  | tuple-pattern
+    tuple-pattern
   | binding-pattern
   | expr
   | '_'
