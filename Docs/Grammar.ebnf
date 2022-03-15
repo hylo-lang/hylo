@@ -212,8 +212,15 @@ type-expr ::=
 
 type-name ::=
     type-name '.' IDENT
-  | associated-type
+  | type-ident
+
+type-ident ::= bare-type-ident type-arguments?
+
+bare-type-ident ::= 
+    associated-type
   | IDENT
+
+type-arguments ::= '<' type-expr (',' type-expr)? '>'
 
 associated-type ::= type-name '::' IDENT '.' IDENT
 
@@ -298,8 +305,6 @@ fun-name ::=
   IDENT '(' argument-label+ ')'
 
 argument-label ::= (IDENT | '_') ':'
-
-type-arguments ::= '<' type-expr (',' type-expr)? '>'
 
 implicit-member-ref ::= '.' bare-ident
 
