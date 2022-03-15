@@ -7,7 +7,7 @@ final class ValTests: XCTestCase {
   func testTypeChecker() throws {
     try withTestCases(in: "TestCases/TypeChecker", { (source, driver) in
       let moduleName = source.url.deletingPathExtension().lastPathComponent
-      let moduleDecl = try driver.parse(moduleName: moduleName, moduleFiles: [source.url])
+      let moduleDecl = try driver.parse(moduleName: moduleName, sources: [source])
       driver.typeCheck(moduleDecl: moduleDecl)
       return []
     })
@@ -17,7 +17,7 @@ final class ValTests: XCTestCase {
     try withTestCases(in: "TestCases/VILGen", { (source, driver) in
       try driver.loadStdlib()
       let moduleName = source.url.deletingPathExtension().lastPathComponent
-      let moduleDecl = try driver.parse(moduleName: moduleName, moduleFiles: [source.url])
+      let moduleDecl = try driver.parse(moduleName: moduleName, sources: [source])
       driver.typeCheck(moduleDecl: moduleDecl)
 
       do {
@@ -32,7 +32,7 @@ final class ValTests: XCTestCase {
     try withTestCases(in: "TestCases/Eval", { (source, driver) in
       try driver.loadStdlib()
       let moduleName = source.url.deletingPathExtension().lastPathComponent
-      let moduleDecl = try driver.parse(moduleName: moduleName, moduleFiles: [source.url])
+      let moduleDecl = try driver.parse(moduleName: moduleName, sources: [source])
       driver.typeCheck(moduleDecl: moduleDecl)
 
       var interpreter = Interpreter()

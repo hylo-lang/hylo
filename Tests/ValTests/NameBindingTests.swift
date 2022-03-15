@@ -7,7 +7,7 @@ final class NameBindingTests: XCTestCase {
   func testNameBinding() throws {
     try withTestCases(in: "TestCases/NameBinding", { (source, driver) in
       let moduleName = source.url.deletingPathExtension().lastPathComponent
-      let moduleDecl = try driver.parse(moduleName: moduleName, moduleFiles: [source.url])
+      let moduleDecl = try driver.parse(moduleName: moduleName, sources: [source])
 
       var walker = Walker(
         binder: NameBinder(modules: driver.compiler.modules, stdlib: driver.compiler.stdlib))

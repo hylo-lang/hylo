@@ -10,20 +10,20 @@ struct DiagChecker: DiagConsumer {
   var diagnostics: [TestSpec.Loc: [DiagPattern]] = [:]
 
   /// The file in which assertion failures are thrown.
-  let xcFile: StaticString
+  let file: StaticString
 
   /// The line number at which assertion failures are thrown.
-  let xcLine: UInt
+  let line: UInt
 
   init(
     context: Compiler,
     annotations: [TestSpec.Loc: [TestSpec]],
-    xcFile: StaticString = #file,
-    xcLine: UInt = #line
+    file: StaticString,
+    line: UInt
   ) {
     self.context = context
-    self.xcFile = xcFile
-    self.xcLine = xcLine
+    self.file = file
+    self.line = line
 
     insert(annotations: annotations)
   }
@@ -41,16 +41,18 @@ struct DiagChecker: DiagConsumer {
 
   mutating func consume(_ diag: Diag) {
     guard let diagLoc = diag.reportLocation else {
-      XCTFail("unexpected diagnostic: \(diag.message)", file: xcFile, line: xcLine)
+      XCTFail("unexpected diagnostic: \(diag.message)", file: file, line: line)
       return
     }
 
-    let (line, column) = diagLoc.lineColumnIndices
-    let specLoc = TestSpec.Loc(source: diagLoc.source, line: line)
+    let (l, c) = diagLoc.lineColumnIndices
+    let specLoc = TestSpec.Loc(source: diagLoc.source, line: l)
     guard let i = diagnostics[specLoc]?.firstIndex(where: { $0 ~= diag }) else {
-      XCTFail(
-        "\(diagLoc.source.url.lastPathComponent):\(line):\(column): \(diag.message)",
-        file: xcFile, line: xcLine)
+      let path: String = !diagLoc.source.url.lastPathComponent.isEmpty
+        ? "\(diagLoc.source.url.lastPathComponent):"
+        : ""
+
+      XCTFail("\(path)\(l):\(c): \(diag.message)", file: file, line: line)
       return
     }
 
@@ -65,7 +67,7 @@ struct DiagChecker: DiagConsumer {
         let message = pattern.message ?? "_"
         XCTFail(
           "\(loc.source.url.lastPathComponent):\(loc.line): missing diagnostic: \(message)",
-          file: xcFile, line: xcLine)
+          file: file, line: line)
       }
     }
   }

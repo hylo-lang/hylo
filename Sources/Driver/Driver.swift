@@ -46,7 +46,9 @@ public struct Driver {
   /// Parses the given source files as a module declaration.
   @discardableResult
   public func parse(
-    moduleName: String, moduleFiles: [URL], isStdlib: Bool = false
+    moduleName: String,
+    sources: [SourceFile],
+    isStdlib: Bool = false
   ) throws -> ModuleDecl {
     guard compiler.modules[moduleName] == nil else {
       throw DriverError.moduleAlreadyLoaded(moduleName: moduleName)
@@ -65,9 +67,9 @@ public struct Driver {
     }
 
     // Parse the module's files.
-    for url in moduleFiles {
+    for source in sources {
       let parser = Parser(compiler: compiler)
-      let (unit, hasError) = try parser.parse(SourceFile(url: url))
+      let (unit, hasError) = try parser.parse(source)
 
       module.units.append(unit)
       unit.parentDeclSpace = module
@@ -84,27 +86,27 @@ public struct Driver {
   public func parse(
     moduleName: String, moduleRoot: URL, isStdlib: Bool = false
   ) throws -> ModuleDecl {
-    var moduleFiles: [URL] = []
+    var sources: [SourceFile] = []
     if let enumerator = FileManager.default.enumerator(
       at: moduleRoot,
       includingPropertiesForKeys: [.isRegularFileKey],
       options: [.skipsHiddenFiles, .skipsPackageDescendants])
     {
-      moduleFiles = enumerator.compactMap({ (el: Any) -> URL? in
+      sources = try enumerator.compactMap({ (el: Any) -> SourceFile? in
         guard let url = el as? URL,
               let attributes = try? url.resourceValues(forKeys: [.isRegularFileKey]),
               attributes.isRegularFile!,
               url.pathExtension == "val"
         else { return nil }
-        return url
+        return try SourceFile(url: url)
       })
     }
 
-    guard !moduleFiles.isEmpty else {
+    guard !sources.isEmpty else {
       throw DriverError.moduleNotFound(moduleName: moduleName)
     }
 
-    return try parse(moduleName: moduleName, moduleFiles: moduleFiles, isStdlib: isStdlib)
+    return try parse(moduleName: moduleName, sources: sources, isStdlib: isStdlib)
   }
 
   /// Type checks the given module declaration.

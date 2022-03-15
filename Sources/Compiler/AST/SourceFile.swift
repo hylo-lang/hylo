@@ -23,7 +23,7 @@ public struct SourceFile {
   }
 
   public init(contents: String) {
-    let url = URL(fileURLWithPath: "memory://\(contents.hashValue)")
+    let url = URL(string: "buffer://\(UUID().uuidString)")!
     repr = Repr(url: url, contents: contents)
   }
 
@@ -44,5 +44,19 @@ extension SourceFile: Hashable {
   public static func == (lhs: SourceFile, rhs: SourceFile) -> Bool {
     return lhs.url == rhs.url
   }
+
+}
+
+extension SourceFile: ExpressibleByStringLiteral {
+
+  public init(stringLiteral value: String) {
+    self.init(contents: value)
+  }
+
+}
+
+extension SourceFile: CustomStringConvertible {
+
+  public var description: String { url.path }
 
 }

@@ -6,6 +6,10 @@ struct TestSpecParser {
   /// The test annotations that have been parsed.
   var annotations: [TestSpec.Loc: [TestSpec]] = [:]
 
+  let file: StaticString
+
+  let line: UInt
+
   /// Scans the given source file for test annotations.
   mutating func scan(_ source: SourceFile) {
     let lines = source.contents.split(separator: "\n", omittingEmptySubsequences: false)

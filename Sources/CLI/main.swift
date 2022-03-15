@@ -37,7 +37,8 @@ struct ValCommand: ParsableCommand {
     // Load the given input files as a module.
     if !input.isEmpty {
       // Parse the module.
-      let decl = try driver.parse(moduleName: "main", moduleFiles: input)
+      let sources = try input.map(SourceFile.init(url:))
+      let decl = try driver.parse(moduleName: "main", sources: sources)
 
       // Dump the module before semantic analysis, if requested.
       if dumpParse {

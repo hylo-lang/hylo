@@ -297,7 +297,7 @@ final class LexerTests: XCTestCase {
   }
 
   private func tokenize(_ input: String) -> [Token] {
-    let lexer = Lexer(contents: input)
+    let lexer = Lexer(source: SourceFile(contents: input))
     return Array(lexer)
   }
 

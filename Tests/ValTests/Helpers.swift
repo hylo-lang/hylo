@@ -17,6 +17,8 @@ func unwrap<T>(_ value: T?, _ message: @autoclosure () -> String) throws -> T {
 
 func withTestCases(
   in subdirectory: String,
+  file: StaticString = #filePath,
+  line: UInt = #line,
   _ action: (SourceFile, inout Driver) throws -> [Diag]
 ) throws {
   let urls = try unwrap(
@@ -26,21 +28,27 @@ func withTestCases(
   for url in urls {
     // Read the test case specification.
     let source = try SourceFile(url: url)
-    try withTestCase(source, action)
+    try withTestCase(source, file: file, line: line, action)
   }
 }
 
 func withTestCase(
   _ source: SourceFile,
+  file: StaticString = #filePath,
+  line: UInt = #line,
   _ action: (SourceFile, inout Driver) throws -> [Diag]
 ) rethrows {
   // Read the test case specification.
-  var specParser = TestSpecParser()
+  var specParser = TestSpecParser(file: file, line: line)
   specParser.scan(source)
 
   // Initialize the compiler driver.
   var driver = Driver()
-  var checker = DiagChecker(context: driver.compiler, annotations: specParser.annotations)
+  var checker = DiagChecker(
+    context: driver.compiler,
+    annotations: specParser.annotations,
+    file: file,
+    line: line)
   let handle = DiagDispatcher.instance.register(consumer: checker)
 
   // Run the test case.
