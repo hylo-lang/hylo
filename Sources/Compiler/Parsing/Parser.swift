@@ -182,8 +182,8 @@ public struct Parser {
   }
 
   /// Parses the contents of the file at the specified URL.
-  public func parse(contentsOf url: URL) throws -> (unit: SourceUnit, hasError: Bool) {
-    let unit = SourceUnit(url: url)
+  public func parse(contentsOf url: URL) throws -> (unit: FileUnit, hasError: Bool) {
+    let unit = FileUnit(url: url)
     var state = try State(declSpace: unit, lexer: Lexer(contentsOf: url))
 
     while true {

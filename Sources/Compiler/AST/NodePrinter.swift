@@ -126,7 +126,7 @@ public struct NodePrinter: NodeVisitor {
   }
 
   public mutating func visit(_ unit: FileUnit) -> String {
-    let path = (unit as? SourceUnit)?.url.path ?? ""
+    let path = unit.url?.path ?? ""
 
     return """
     {

@@ -15,30 +15,17 @@ public class FileUnit: DeclSpace {
   /// The top-level declarations of the unit.
   public var decls: [Decl] = []
 
-  fileprivate init() {}
+  /// The URL of the source file containing this unit's contents, or nil indicating this is the
+  /// builtin module.
+  public let url: URL?
 
+  public init(url: URL?) {
+    self.url = url
+  }
+  
   /// Overrides the default lookup mechanism.
   public func lookup(qualified name: String) -> LookupResult {
     return LookupResult()
-  }
-
-}
-
-/// A unit containing the compiler's built-in declarations.
-public final class BuiltinUnit: FileUnit {
-
-  public override init() {}
-
-}
-
-/// A source file containing Val code.
-public final class SourceUnit: FileUnit {
-
-  /// The URL of the source file containing this unit's contents.
-  public let url: URL
-
-  public init(url: URL) {
-    self.url = url
   }
 
 }
