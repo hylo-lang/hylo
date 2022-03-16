@@ -106,7 +106,13 @@ member-binding-decl ::= access-modifier* member-modifier* ('let' | 'var') patter
 
 invariant-decl ::= 'invariant' ('(' STRING-LITERAL ')')? expr
 
-alias-type-decl ::= 'type' type-name '=' type-expr
+alias-type-decl ::= 'type' type-name '=' alias-type-body
+
+alias-type-body ::=
+    type-expr
+  | inline-union-type-definition
+
+inline-union-type-definition ::= type-decl ('|' type-decl)+
 
 global-trait-decl ::= access-modifier* trait-decl
 
