@@ -234,7 +234,7 @@ fun-type-expr ::= 'mutating'? fun-type-env? tuple-type-expr '->' 'noescape'? typ
 
 fun-type-env ::=
     ('[' type-expr ']')
-  | thin
+  | 'thin'
 
 param-type-expr ::= param-convention? type-expr
 
