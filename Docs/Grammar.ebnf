@@ -208,6 +208,7 @@ type-expr ::=
   | param-type-expr
   | union-type-expr
   | composition-type-expr
+  | opaque-type-expr
   | 'async' type-expr
 
 type-name ::=
@@ -246,6 +247,8 @@ param-convention ::=
 union-type-expr ::= type-expr ('|' type-expr)+
 
 composition-type-expr ::= type-name ('&' type-name)+
+
+opaque-type-expr ::= 'some' type-name ('&' type-name)*
 
 pattern ::=
     tuple-pattern
