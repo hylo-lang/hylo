@@ -68,48 +68,42 @@ struct Solution {
 
     switch type {
     case let type as KindType:
-      return reify(type.type, substPolicy: substPolicy).kind
+      return reify(type.base, substPolicy: substPolicy).kind
 
     case let type as BoundGenericType:
-      return type.context
-        .boundGenericType(
-          decl: type.decl,
-          args: type.args.map({ reify($0, substPolicy: substPolicy) }))
+      return BoundGenericType(
+        decl: type.decl,
+        args: type.args.map({ reify($0, substPolicy: substPolicy) }))
 
     case let type as AssocType:
-      return type.context
-        .assocType(
-          interface: type.interface,
-          base: reify(type.base, substPolicy: substPolicy))
-        .canonical
+      return AssocType(
+        interface: type.interface,
+        base: reify(type.base, substPolicy: substPolicy))
+      .canonical
 
     case let type as TupleType:
-      return type.context
-        .tupleType(type.elems.map({ elem in
-          TupleType.Elem(
-            label: elem.label,
-            type: reify(elem.type, substPolicy: substPolicy))
-        }))
+      return TupleType(type.elems.map({ elem in
+        TupleType.Elem(
+          label: elem.label,
+          type: reify(elem.type, substPolicy: substPolicy))
+      }))
         .canonical
 
     case let type as FunType:
-      return type.context
-        .funType(
-          params: type.params.map({ param in
-            param.map({ reify($0, substPolicy: substPolicy) })
-          }),
-          retType: reify(type.retType, substPolicy: substPolicy))
-        .canonical
+      return FunType(
+        params: type.params.map({ param in
+          param.map({ reify($0, substPolicy: substPolicy) })
+        }),
+        retType: reify(type.retType, substPolicy: substPolicy))
+      .canonical
 
     case let type as FunParamType:
-      return type.context
-        .funParamType(
-          policy: type.policy,
-          rawType: reify(type.rawType, substPolicy: substPolicy))
+      return FunParamType(
+        policy: type.policy,
+        rawType: reify(type.rawType, substPolicy: substPolicy))
 
     case let type as AsyncType:
-      return type.context
-        .asyncType(of: reify(type.base, substPolicy: substPolicy))
+      return AsyncType(base: reify(type.base, substPolicy: substPolicy))
 
     case let type as TypeVar:
       if let binding = bindings[type] {
@@ -118,7 +112,7 @@ struct Solution {
 
       // The variable is free in this solution. Apply the specified policy.
       switch substPolicy {
-      case .bindToError: return type.context.errorType
+      case .bindToError: return .error
       case .keep: return type
       }
 

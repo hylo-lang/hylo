@@ -475,7 +475,7 @@ public final class IsCastableAddrInst: Value, Inst {
   init(source: Operand, type: VILType, parent: BasicBlockIndex, range: SourceRange?) {
     self.source = source
     self.targetType = type
-    self.type = .lower(type.valType.context.getBuiltinType(named: "i1")!)
+    self.type = .lower(BuiltinType.get(name: "i1")!)
     self.parent = parent
     self.range = range
   }
@@ -898,7 +898,7 @@ public final class PartialApplyInst: Value, Inst {
     self.ranges = ranges
 
     let totalType = delegator.type.valType as! FunType
-    let partialType = totalType.context.funType(
+    let partialType = FunType(
       params: totalType.params.dropLast(args.count),
       retType: totalType.retType)
     self.type = .lower(partialType)
@@ -979,8 +979,7 @@ public final class AsyncInst: Value, Inst {
 
   public var type: VILType {
     let valType = ref.type.valType as! FunType
-    let context = valType.context
-    return .lower(context.asyncType(of: valType.retType))
+    return .lower(AsyncType(base: valType.retType))
   }
 
   public var operands: [Operand] { [Operand(ref)] + captures }

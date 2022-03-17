@@ -72,6 +72,15 @@ extension Sequence {
 
 }
 
+extension Optional {
+
+  public mutating func release() -> Wrapped {
+    defer { self = nil }
+    return self!
+  }
+
+}
+
 /// Mutates a value with the specified closure.
 ///
 /// - Parameters:

@@ -171,20 +171,12 @@ public struct Parser {
 
   }
 
-  /// The compiler instance associated with the AST being parsed.
-  public let compiler: Compiler
-
-  /// An alias to the context's unresolved type.
-  private var unresolved: UnresolvedType { compiler.unresolvedType }
-
   /// Creates a parser.
-  public init(compiler: Compiler) {
-    self.compiler = compiler
-  }
+  public init() {}
 
   /// Parses the specified source file.
-  public func parse(_ source: SourceFile) throws -> (unit: SourceUnit, hasError: Bool) {
-    let unit = SourceUnit(source: source)
+  public func parse(_ source: SourceFile) throws -> (unit: FileUnit, hasError: Bool) {
+    let unit = FileUnit(source: source)
     var state = State(declSpace: unit, lexer: Lexer(source: source))
 
     while true {
@@ -219,6 +211,14 @@ public struct Parser {
     }
 
     return (unit, state.hasError)
+  }
+
+  /// Parses a single expression.
+  public func parseExpr(_ input: String) -> (expr: Expr?, diags: [Diag]) {
+    let lexer = Lexer(source: SourceFile(contents: input))
+    var state = State(declSpace: FileUnit(source: lexer.source), lexer: lexer)
+    let expr = parseExpr(state: &state)
+    return (expr, state.diags)
   }
 
   /// Parses a declaration.
@@ -369,7 +369,7 @@ public struct Parser {
     let decl = PatternBindingDecl(
       modifiers: modifiers,
       isMutable: introducer.kind == .var,
-      pattern: WildcardPattern(type: unresolved, range: state.errorRange()),
+      pattern: WildcardPattern(type: .unresolved, range: state.errorRange()),
       sign: nil,
       initializer: nil)
     decl.introRange = introducer.range
@@ -503,7 +503,7 @@ public struct Parser {
 
     switch introducer.kind {
     case .fun:
-      decl = FunDecl(modifiers: modifiers, type: unresolved)
+      decl = FunDecl(modifiers: modifiers, type: .unresolved)
       decl.introRange = introducer.range
 
       if state.flags & .isParsingTypeBody {
@@ -533,7 +533,7 @@ public struct Parser {
       }
 
     case .new:
-      decl = CtorDecl(modifiers: modifiers, type: unresolved)
+      decl = CtorDecl(modifiers: modifiers, type: .unresolved)
       decl.introRange = introducer.range
 
       if !(state.flags & .isParsingTypeBody) {
@@ -705,7 +705,7 @@ public struct Parser {
     if let expr = parseExpr(state: &state) {
       value = expr
     } else {
-      value = ErrorExpr(type: compiler.errorType, range: introducer.range)
+      value = ErrorExpr(range: introducer.range)
       state.diags.append(Diag("expected expression after '='", anchor: state.errorRange()))
       state.hasError = true
     }
@@ -714,7 +714,7 @@ public struct Parser {
       policy: policy,
       ident: ident,
       value: value,
-      type: unresolved,
+      type: .unresolved,
       range: introducer.range.lowerBound ..< identRange.upperBound)
     decl.parentDeclSpace = state.declSpace
 
@@ -733,7 +733,7 @@ public struct Parser {
     var upperLoc = label.range.upperBound
 
     // Create the declaration.
-    let decl = FunParamDecl(ident: "", policy: .local, type: unresolved)
+    let decl = FunParamDecl(ident: "", policy: .local, type: .unresolved)
     decl.parentDeclSpace = state.declSpace
 
     if let name = state.take(.ident) {
@@ -803,10 +803,10 @@ public struct Parser {
 
     // If the introducer was 'view', then we know what we're parsing already.
     if head.introducer.kind == .view {
-      let decl = ViewTypeDecl(ident: head.ident, type: unresolved)
+      let decl = ViewTypeDecl(ident: head.ident, type: .unresolved)
       decl.parentDeclSpace = state.declSpace
       decl.inheritances = head.inheritances
-      decl.type = compiler.viewType(decl: decl).kind
+      decl.type = ViewType(decl: decl).kind
 
       if let clause = head.genericClause {
         state.diags.append(Diag(
@@ -848,10 +848,10 @@ public struct Parser {
     switch state.peek()?.kind {
     case .lBrace:
       // We're parsing a product type declaration.
-      let decl = ProductTypeDecl(ident: head.ident, type: unresolved)
+      let decl = ProductTypeDecl(ident: head.ident, type: .unresolved)
       decl.parentDeclSpace = state.declSpace
       decl.inheritances = head.inheritances
-      decl.type = compiler.productType(decl: decl).kind
+      decl.type = ProductType(decl: decl).kind
 
       // Update the parent space of all type parameters of the generic clause.
       if let clause = head.genericClause {
@@ -889,11 +889,11 @@ public struct Parser {
       let sign = parseSign(state: &state) ?? { () -> Sign in
         state.diags.append(Diag("expected type signature", anchor: state.errorRange()))
         state.hasError = true
-        return ErrorSign(type: compiler.errorType, range: state.errorRange())
+        return ErrorSign(range: state.errorRange())
       }()
       upperLoc = sign.range!.upperBound
 
-      let decl = AliasTypeDecl(ident: head.ident, aliasedSign: sign, type: unresolved)
+      let decl = AliasTypeDecl(ident: head.ident, aliasedSign: sign, type: .unresolved)
       decl.parentDeclSpace = state.declSpace
       decl.inheritances = head.inheritances
 
@@ -910,10 +910,10 @@ public struct Parser {
 
     default:
       // We're most likely parsing an asbtract type declaration.
-      let decl = AbstractTypeDecl(ident: head.ident, type: unresolved)
+      let decl = AbstractTypeDecl(ident: head.ident, type: .unresolved)
       decl.parentDeclSpace = state.declSpace
       decl.inheritances = head.inheritances
-      decl.type = compiler.genericParamType(decl: decl).kind
+      decl.type = GenericParamType(decl: decl).kind
       upperLoc = head.identRange.upperBound
 
       if let clause = head.genericClause {
@@ -1101,7 +1101,7 @@ public struct Parser {
       let range = sign?.range ?? state.errorRange()
       state.diags.append(Diag("expected type identifier", anchor: range))
       state.hasError = true
-      identName = BareNameSign(ident: "", type: compiler.errorType, range: range)
+      identName = BareNameSign(ident: "", type: .error, range: range)
     }
 
     let inheritances = state.peek()?.kind == .colon
@@ -1109,7 +1109,7 @@ public struct Parser {
       : []
 
     // Create the declaration.
-    let decl = ExtensionDecl(extendedName: identName, members: [])
+    let decl = ExtensionDecl(extendedName: identName, directMembers: [])
     decl.parentDeclSpace = state.declSpace
     decl.inheritances = inheritances
 
@@ -1120,7 +1120,7 @@ public struct Parser {
     defer { (state.flags, state.declSpace) = before }
 
     let body = parseDeclBody(state: &state)
-    decl.members = body.members
+    decl.directMembers = body.members
     if let closer = body.closer {
       upperLoc = closer.range.upperBound
     }
@@ -1170,7 +1170,7 @@ public struct Parser {
     }
 
     // Create the declaration.
-    let decl = NamespaceDecl(ident: ident, decls: [], context: compiler)
+    let decl = NamespaceDecl(ident: ident, decls: [])
     decl.parentDeclSpace = state.declSpace
 
     // Parse the members of the declaration.
@@ -1202,10 +1202,10 @@ public struct Parser {
     // Parse a list of generic parameter identifiers.
     while let token = state.take(.ident) {
       let decl = GenericParamDecl(
-        ident: String(state.substring(at: token.range)), type: unresolved)
+        ident: String(state.substring(at: token.range)), type: .unresolved)
       decl.range = token.range
       decl.parentDeclSpace = state.declSpace
-      decl.type = compiler.genericParamType(decl: decl).kind
+      decl.type = GenericParamType(decl: decl).kind
       clause.params.append(decl)
 
       guard state.take(.comma) != nil else { break }
@@ -1244,7 +1244,7 @@ public struct Parser {
     // Handle failures to parse a type identifier.
     let identName = (lhs as? NameSign) ?? BareNameSign(
       ident: "",
-      type: compiler.errorType,
+      type: .error,
       range: lhs.range)
 
     // Identify the type of requirement we're parsing.
@@ -1271,7 +1271,7 @@ public struct Parser {
     let rhs = parseSign(state: &state) ?? { () -> Sign in
       state.diags.append(Diag("expected type signature", anchor: state.errorRange()))
       state.hasError = true
-      return ErrorSign(type: compiler.errorType, range: state.errorRange())
+      return ErrorSign(range: state.errorRange())
     }()
 
     return TypeReq(kind: kind, lhs: identName, rhs: rhs, range: lhs.range! ..< rhs.range!)
@@ -1339,7 +1339,7 @@ public struct Parser {
     } else {
       state.diags.append(Diag("expected expression", anchor: state.errorRange()))
       state.hasError = true
-      condition = ErrorExpr(type: compiler.errorType, range: state.errorRange())
+      condition = ErrorExpr(range: state.errorRange())
     }
 
     let thenBody: BraceStmt
@@ -1501,7 +1501,7 @@ public struct Parser {
         guard let rhs = parseSign(state: &state) else {
           state.diags.append(Diag("expected type signature", anchor: state.errorRange()))
           state.hasError = true
-          return ErrorExpr(type: compiler.errorType, range: head.range)
+          return ErrorExpr(range: head.range)
         }
 
         // Append the new operator/operand to the tree.
@@ -1520,7 +1520,7 @@ public struct Parser {
       guard let rhs = parsePrefixExpr(state: &state) else {
         state.diags.append(Diag("expected right operand", anchor: state.errorRange()))
         state.hasError = true
-        return ErrorExpr(type: compiler.errorType, range: head.range)
+        return ErrorExpr(range: head.range)
       }
 
       // Check that spacing around the operator is consistent.
@@ -1536,7 +1536,7 @@ public struct Parser {
         upperLoc = rhs.range!.upperBound
         tree.append(oper: oper, group: group, rhs: .expr(rhs))
       } else {
-        head = ErrorExpr(type: compiler.errorType, range: head.range! ..< rhs.range!)
+        head = ErrorExpr(range: head.range! ..< rhs.range!)
         tree = InfixTree.leaf(.expr(head))
       }
     }
@@ -1558,7 +1558,7 @@ public struct Parser {
     guard let value = parseCompoundExpr(state: &state) else {
       state.diags.append(Diag("expected operand expression", anchor: state.errorRange()))
       state.hasError = true
-      return ErrorExpr(type: compiler.errorType, range: oper.range)
+      return ErrorExpr(range: oper.range)
     }
 
     // Prefix operators cannot be separated from their operand.
@@ -1566,19 +1566,19 @@ public struct Parser {
       state.diags.append(Diag(
         "prefix operator cannot be separated from its operand", anchor: oper.range))
       state.hasError = true
-      return ErrorExpr(type: compiler.errorType, range: oper.range ..< value.range!)
+      return ErrorExpr(range: oper.range ..< value.range!)
     }
 
     // If the operator is '&', then return an AddrOfExpr; otherwise, return a prefix call.
     if oper.ident == "&" {
-      return AddrOfExpr(value: value, type: unresolved, range: oper.range ..< value.range!)
+      return AddrOfExpr(value: value, type: .unresolved, range: oper.range ..< value.range!)
     } else {
       let fun = UnresolvedMemberExpr(
         base: value,
         ident: LabeledIdent(base: oper.ident, notation: .prefix),
-        type: unresolved,
+        type: .unresolved,
         range: oper.range)
-      return CallExpr.prefix(fun: fun, type: unresolved, range: oper.range ..< value.range!)
+      return CallExpr.prefix(fun: fun, type: .unresolved, range: oper.range ..< value.range!)
     }
   }
 
@@ -1607,7 +1607,7 @@ public struct Parser {
           fun: base,
           args: elems,
           notation: .standard,
-          type: unresolved,
+          type: .unresolved,
           range: lowerLoc ..< (closer?.range ?? elems.last?.range ?? opener.range).upperBound)
 
       case .lBrack:
@@ -1620,7 +1620,7 @@ public struct Parser {
         // Parse the member identifier or index.
         if let (ident, range) = parseLabeledIdent(state: &state) {
           let expr = UnresolvedMemberExpr(
-            base: base, ident: ident, identRange: range, type: unresolved)
+            base: base, ident: ident, identRange: range, type: .unresolved)
           expr.range = lowerLoc ..< range.upperBound
           base = expr
         } else if let index = state.take(.int) {
@@ -1629,16 +1629,16 @@ public struct Parser {
           guard !value.contains(where: { !$0.isDigit }), let i = Int(value) else {
             state.diags.append(Diag("'\(value)' is not a valid tuple index", anchor: index.range))
             state.hasError = true
-            return ErrorExpr(type: compiler.errorType, range: lowerLoc ..< index.range.upperBound)
+            return ErrorExpr(range: lowerLoc ..< index.range.upperBound)
           }
 
-          let expr = TupleMemberExpr(base: base, memberIndex: i, type: unresolved)
+          let expr = TupleMemberExpr(base: base, memberIndex: i, type: .unresolved)
           expr.range = lowerLoc ..< index.range.upperBound
           base = expr
         } else {
           state.diags.append(Diag("expected member identifier", anchor: state.errorRange()))
           state.hasError = true
-          return ErrorExpr(type: compiler.errorType, range: lowerLoc ..< token.range.upperBound)
+          return ErrorExpr(range: lowerLoc ..< token.range.upperBound)
         }
 
       case _ where token.isOperator:
@@ -1659,21 +1659,21 @@ public struct Parser {
               state.hasError = true
             } else {
               base = SpecializedDeclRefExpr(
-                unspecialized: _base, args: args, type: unresolved, range: range)
+                unspecialized: _base, args: args, type: .unresolved, range: range)
             }
           } else {
             state.diags.append(Diag("unexpected type argument list", anchor: opener.range))
             state.hasError = true
-            base = ErrorExpr(type: compiler.errorType, range: range)
+            base = ErrorExpr(range: range)
           }
         } else if let (ident, range) = state.takeOperator(includingAssign: false) {
           let fun = UnresolvedMemberExpr(
             base: base,
             ident: LabeledIdent(base: ident, notation: .postfix),
             identRange: range,
-            type: unresolved,
+            type: .unresolved,
             range: range)
-          base = CallExpr.postfix(fun: fun, type: unresolved, range: lowerLoc ..< range.upperBound)
+          base = CallExpr.postfix(fun: fun, type: .unresolved, range: lowerLoc ..< range.upperBound)
         } else {
           return base
         }
@@ -1722,7 +1722,7 @@ public struct Parser {
   private func parseBoolLiteral(state: inout State) -> Expr? {
     guard let token = state.take(.bool) else { return nil }
     let value = state.substring(at: token.range) == "true"
-    return BoolLiteralExpr(value: value, type: unresolved, range: token.range)
+    return BoolLiteralExpr(value: value, type: .unresolved, range: token.range)
   }
 
   /// Parses an integer number literal.
@@ -1733,10 +1733,10 @@ public struct Parser {
     guard let value = Int(literal) else {
       state.diags.append(Diag("invalid integer literal '\(literal)'", anchor: token.range))
       state.hasError = true
-      return ErrorExpr(type: compiler.errorType, range: token.range)
+      return ErrorExpr(range: token.range)
     }
 
-    return IntLiteralExpr(value: value, type: unresolved, range: token.range)
+    return IntLiteralExpr(value: value, type: .unresolved, range: token.range)
   }
 
   /// Parses a floating-point number literal.
@@ -1747,10 +1747,10 @@ public struct Parser {
     guard let value = Double(literal) else {
       state.diags.append(Diag("invalid floating point literal '\(literal)'", anchor: token.range))
       state.hasError = true
-      return ErrorExpr(type: compiler.errorType, range: token.range)
+      return ErrorExpr(range: token.range)
     }
 
-    return FloatLiteralExpr(value: value, type: unresolved, range: token.range)
+    return FloatLiteralExpr(value: value, type: .unresolved, range: token.range)
   }
 
   /// Parses a string literal.
@@ -1768,7 +1768,7 @@ public struct Parser {
       ? String(state.substring(at: tokens[0].range))
       : tokens.reduce(into: "", { $0 += String(state.substring(at: $1.range)) })
     return StringLiteralExpr(
-      value: value, type: unresolved, range: tokens.first!.range ..< tokens.last!.range)
+      value: value, type: .unresolved, range: tokens.first!.range ..< tokens.last!.range)
   }
 
   /// Parses a declaration reference.
@@ -1776,7 +1776,7 @@ public struct Parser {
   ///     decl-ref ::= labeled-ident
   private func parseDeclRefExpr(state: inout State) -> Expr? {
     guard let (ident, range) = parseLabeledIdent(state: &state) else { return nil }
-    return UnresolvedDeclRefExpr(ident: ident, type: unresolved, range: range)
+    return UnresolvedDeclRefExpr(ident: ident, type: .unresolved, range: range)
   }
 
   /// Parses an unlabeled identifier.
@@ -1877,7 +1877,7 @@ public struct Parser {
       state.hasError = true
     }
 
-    return LambdaExpr(decl: decl, type: unresolved, range: decl.range)
+    return LambdaExpr(decl: decl, type: .unresolved, range: decl.range)
   }
 
   /// Parses an async expression.
@@ -1887,7 +1887,7 @@ public struct Parser {
     guard let introducer = state.take(.async) else { return nil }
 
     // Create the implicit function declaration representing the body of the async expression.
-    let decl = FunDecl(type: unresolved)
+    let decl = FunDecl(type: .unresolved)
     decl.introRange = introducer.range
     decl.discriminator = state.nextDiscriminator()
 
@@ -1935,10 +1935,10 @@ public struct Parser {
     if decl.body == nil {
       state.diags.append(Diag("expected expression", anchor: state.errorRange()))
       state.hasError = true
-      return ErrorExpr(type: compiler.errorType, range: introducer.range)
+      return ErrorExpr(range: introducer.range)
     }
 
-    return AsyncExpr(body: decl, type: unresolved, range: introducer.range ..< decl.range!)
+    return AsyncExpr(body: decl, type: .unresolved, range: introducer.range ..< decl.range!)
   }
 
   /// Parses an await expression.
@@ -1950,10 +1950,10 @@ public struct Parser {
     guard let value = parseExpr(state: &state) else {
       state.diags.append(Diag("expected expression", anchor: state.errorRange()))
       state.hasError = true
-      return ErrorExpr(type: compiler.errorType, range: introducer.range)
+      return ErrorExpr(range: introducer.range)
     }
 
-    return AwaitExpr(value: value, type: unresolved, range: introducer.range ..< value.range!)
+    return AwaitExpr(value: value, type: .unresolved, range: introducer.range ..< value.range!)
   }
 
   /// Parses a match expression.
@@ -1965,11 +1965,11 @@ public struct Parser {
     let subject = parseExpr(state: &state) ?? { () -> Expr in
       state.diags.append(Diag("expected expression", anchor: state.errorRange()))
       state.hasError = true
-      return ErrorExpr(type: compiler.errorType, range: state.errorRange())
+      return ErrorExpr(range: state.errorRange())
     }()
 
     let expr = MatchExpr(
-      isSubexpr: true, subject: subject, cases: [], type: unresolved, range: introducer.range)
+      isSubexpr: true, subject: subject, cases: [], type: .unresolved, range: introducer.range)
 
     guard state.take(.lBrace) != nil else {
       state.diags.append(Diag(
@@ -2001,7 +2001,7 @@ public struct Parser {
     let pattern = parsePattern(state: &state) ?? { () -> Pattern in
       state.diags.append(Diag("expected pattern", anchor: state.errorRange()))
       state.hasError = true
-      return WildcardPattern(type: compiler.errorType, range: state.errorRange())
+      return WildcardPattern(type: .error, range: state.errorRange())
     }()
 
     let condition: Expr?
@@ -2036,7 +2036,7 @@ public struct Parser {
             state: &state, delimiters: (.lParen, .rParen), parser: parseTupleExprElem(state:))
     else { return nil }
 
-    let expr = TupleExpr(elems: elems, type: unresolved)
+    let expr = TupleExpr(elems: elems, type: .unresolved)
     expr.range = opener.range ..< (closer?.range ?? elems.last?.range ?? opener.range)
     return expr
   }
@@ -2065,7 +2065,7 @@ public struct Parser {
     } else if label != nil {
       state.diags.append(Diag("expected expression", anchor: state.errorRange()))
       state.hasError = true
-      value = ErrorExpr(type: compiler.errorType, range: state.errorRange())
+      value = ErrorExpr(range: state.errorRange())
     } else {
       // We don't have to commit to a failure, since we didn't consume anything.
       return nil
@@ -2079,7 +2079,7 @@ public struct Parser {
   /// Parses a wildcard expression.
   private func parseWildcardExpr(state: inout State) -> Expr? {
     guard let token = state.take(.under) else { return nil }
-    return WildcardExpr(type: unresolved, range: token.range)
+    return WildcardExpr(type: .unresolved, range: token.range)
   }
 
   /// Parses a pattern.
@@ -2104,12 +2104,12 @@ public struct Parser {
 
     // Create a variable declaration for the pattern.
     let decl = VarDecl(
-      ident: String(state.substring(at: token.range)), identRange: token.range, type: unresolved)
+      ident: String(state.substring(at: token.range)), identRange: token.range, type: .unresolved)
     decl.range = token.range
     decl.parentDeclSpace = state.declSpace
 
     // Create the pattern.
-    return NamedPattern(decl: decl, type: unresolved, range: token.range)
+    return NamedPattern(decl: decl, type: .unresolved, range: token.range)
   }
 
   /// Parses a binding pattern.
@@ -2122,14 +2122,14 @@ public struct Parser {
     guard let subpattern = parsePattern(state: &state) else {
       state.diags.append(Diag("expected pattern", anchor: state.errorRange()))
       state.hasError = true
-      return WildcardPattern(type: unresolved, range: introducer.range)
+      return WildcardPattern(type: .unresolved, range: introducer.range)
     }
 
     let pattern = BindingPattern(
       isMutable: introducer.kind == .var,
       subpattern: subpattern,
       sign: nil,
-      type: unresolved)
+      type: .unresolved)
     pattern.range = introducer.range.lowerBound ..< subpattern.range!.upperBound
     pattern.introRange = introducer.range
 
@@ -2155,7 +2155,7 @@ public struct Parser {
             state: &state, delimiters: (.lParen, .rParen), parser: parseTuplePatternElem(state:))
     else { return nil }
 
-    let pattern = TuplePattern(elems: elems, type: unresolved)
+    let pattern = TuplePattern(elems: elems, type: .unresolved)
     pattern.range = opener.range ..< (closer?.range ?? elems.last?.range ?? opener.range)
     return pattern
   }
@@ -2184,7 +2184,7 @@ public struct Parser {
     } else if label != nil {
       state.diags.append(Diag("expected expression", anchor: state.errorRange()))
       state.hasError = true
-      subpattern = WildcardPattern(type: compiler.errorType, range: state.errorRange())
+      subpattern = WildcardPattern(type: .error, range: state.errorRange())
     } else {
       // We don't have to commit to a failure, since we didn't consume anything.
       return nil
@@ -2198,7 +2198,7 @@ public struct Parser {
   /// Parses a wildcard pattern.
   private func parseWildcardPattern(state: inout State) -> Pattern? {
     guard let token = state.take(.under) else { return nil }
-    return WildcardPattern(type: unresolved, range: token.range)
+    return WildcardPattern(type: .unresolved, range: token.range)
   }
 
   /// Parses a type signature.
@@ -2246,7 +2246,7 @@ public struct Parser {
         state.diags.append(Diag(
           "expected type signature after \(m.kind)", anchor: state.errorRange()))
         state.hasError = true
-        return ErrorSign(type: compiler.errorType, range: opener.range ..< m.range)
+        return ErrorSign(range: opener.range ..< m.range)
       } else {
         return nil
       }
@@ -2257,7 +2257,7 @@ public struct Parser {
       guard let retSign = parseSign(state: &state) else {
         state.diags.append(Diag("expected type signature after '->'", anchor: state.errorRange()))
         state.hasError = true
-        return ErrorSign(type : compiler.errorType, range: opener.range ..< arrow.range)
+        return ErrorSign(range: opener.range ..< arrow.range)
       }
 
       // If we parsed a tuple signature on the LHS of the arrow, we have to transform each element
@@ -2267,7 +2267,7 @@ public struct Parser {
       if let tuple = base as? TupleSign {
         params = tuple.elems.map({ (elem) -> FunParamSign in
           let sign = FunParamSign(
-            label: elem.label, rawSign: elem.sign, type: unresolved, range: elem.range)
+            label: elem.label, rawSign: elem.sign, type: .unresolved, range: elem.range)
           if let s = elem.sign as? FunParamSign {
             sign.policy = s.policy
             sign.rawSign = s.rawSign
@@ -2275,10 +2275,10 @@ public struct Parser {
           return sign
         })
       } else {
-        params = [FunParamSign(rawSign: base, type: unresolved, range: base.range)]
+        params = [FunParamSign(rawSign: base, type: .unresolved, range: base.range)]
       }
 
-      let sign = FunSign(params: params, retSign: retSign, type: unresolved)
+      let sign = FunSign(params: params, retSign: retSign, type: .unresolved)
       sign.isVolatile = modifiers[.volatile] != nil
       sign.range = opener.range ..< retSign.range!
       base = sign
@@ -2287,7 +2287,7 @@ public struct Parser {
       state.diags.append(Diag(
         "'volatile' is only allowed on function signatures", anchor: m.range))
       state.hasError = true
-      return ErrorSign(type: compiler.errorType, range: base.range)
+      return ErrorSign(range: base.range)
     }
 
     // If we parsed a 'mut' or 'consuming' modifier, the signature denotes a function parameter.
@@ -2302,7 +2302,7 @@ public struct Parser {
           "consuming parameter cannot be mutating", anchor: modifiers[.mut]!.range))
         policy = .consuming
       }
-      base = FunParamSign(policy: policy, rawSign: base, type: unresolved, range: base.range)
+      base = FunParamSign(policy: policy, rawSign: base, type: .unresolved, range: base.range)
     }
 
     return base
@@ -2331,10 +2331,10 @@ public struct Parser {
         state.diags.append(Diag(
           "expected type signature after 'async'", anchor: state.errorRange()))
         state.hasError = true
-        return ErrorSign(type: compiler.errorType, range: modifier.range)
+        return ErrorSign(range: modifier.range)
       }
 
-      let sign = AsyncSign( base: base, type: unresolved)
+      let sign = AsyncSign( base: base, type: .unresolved)
       sign.modifierRange = modifier.range
       sign.range = modifier.range.lowerBound ..< base.range!.upperBound
       return sign
@@ -2357,7 +2357,7 @@ public struct Parser {
       return items[0]
 
     default:
-      let sign = UnionSign(elems: items, type: unresolved)
+      let sign = UnionSign(elems: items, type: .unresolved)
       sign.range = items.first!.range!.lowerBound ..< items.last!.range!.upperBound
       return sign
     }
@@ -2376,7 +2376,7 @@ public struct Parser {
       return items[0]
 
     default:
-      let sign = ViewCompSign(views: items, type: unresolved)
+      let sign = ViewCompSign(views: items, type: .unresolved)
       sign.range = items.first!.range!.lowerBound ..< items.last!.range!.upperBound
       return sign
     }
@@ -2400,7 +2400,7 @@ public struct Parser {
       guard let sign = element(&state) else {
         state.diags.append(Diag("expected type signature", anchor: state.errorRange()))
         state.hasError = true
-        items = [ErrorSign(type: compiler.errorType, range: items[0].range! ..< items.last!.range!)]
+        items = [ErrorSign(range: items[0].range! ..< items.last!.range!)]
         continue
       }
 
@@ -2426,28 +2426,39 @@ public struct Parser {
 
   /// Parses a compound type identifier.
   ///
-  ///     compound-name-sign ::= name-comp-sign ('.' ident-comp-sign)*
+  ///     compound-name-sign ::= name-component-sign ('.' name-component-sign)*
   private func parseCompoundNameSign(state: inout State) -> Sign? {
-    guard let first = parseNameCompSign(state: &state) else { return nil }
-    var comps = [first]
+    guard var base: NameSign = parseNameComponentSign(state: &state) else { return nil }
 
     while state.take(.dot) != nil {
-      guard let sign = parseNameCompSign(state: &state) else {
+      switch parseNameComponentSign(state: &state) {
+      case let sign as BareNameSign:
+        base = MemberSign(
+          base: base, ident: sign.ident, identRange: sign.range, type: .unresolved)
+
+      case let sign as SpecializedNameSign:
+        base = SpecializedNameSign(
+          bare: MemberSign(
+            base: base, ident: sign.ident, identRange: sign.identRange, type: .unresolved),
+          args: sign.args,
+          type: .unresolved,
+          range: base.range! ..< sign.range!)
+
+      default:
         state.diags.append(Diag("expected type identifier", anchor: state.errorRange()))
         state.hasError = true
-        return ErrorSign(type: compiler.errorType, range: comps[0].range! ..< comps.last!.range!)
+        return ErrorSign(range: base.range)
       }
-      comps.append(sign)
     }
 
-    return CompoundNameSign.create(comps)
+    return base
   }
 
   /// Parses an unqualified type name.
   ///
-  ///     name-comp-sign ::= IDENT generic-args?
+  ///     name-component-sign ::= IDENT generic-args?
   ///     generic-args ::= list['<', sign, '>']
-  private func parseNameCompSign(state: inout State) -> NameCompSign? {
+  private func parseNameComponentSign(state: inout State) -> NameSign? {
     guard let token = state.take(.ident) else { return nil }
     let ident = String(state.substring(at: token.range))
 
@@ -2456,13 +2467,16 @@ public struct Parser {
         state: &state, delimiters: (.lAngle, .rAngle), parser: { parseSign(state: &$0) })
     {
       // Return a specialized identifier.
-      let sign = SpecializedNameSign(ident: ident, args: args, type: unresolved)
+      let sign = SpecializedNameSign(
+        bare: BareNameSign(ident: ident, type: .unresolved, range: token.range),
+        args: args,
+        type: .unresolved)
       sign.range = opener.range ..< (closer?.range ?? args.last?.range ?? opener.range)
       return sign
     }
 
     // Return a bare identifier.
-    return BareNameSign(ident: ident, type: unresolved, range: token.range)
+    return BareNameSign(ident: ident, type: .unresolved, range: token.range)
   }
 
   /// Parses a tuple signature.
@@ -2473,7 +2487,7 @@ public struct Parser {
       state: &state, delimiters: (.lParen, .rParen), parser: tupleSignElem(state:))
     else { return nil }
 
-    let sign = TupleSign(elems: elems, type: unresolved)
+    let sign = TupleSign(elems: elems, type: .unresolved)
     sign.range = opener.range ..< (closer?.range ?? elems.last?.range ?? opener.range)
     return sign
   }
@@ -2504,7 +2518,7 @@ public struct Parser {
       if label != nil {
         state.diags.append(Diag("expected expression", anchor: state.errorRange()))
         state.hasError = true
-        sign = ErrorSign(type: compiler.errorType, range: state.errorRange())
+        sign = ErrorSign(range: state.errorRange())
       } else {
         return nil
       }
@@ -2659,7 +2673,6 @@ fileprivate enum InfixTree {
 
     case .node(let oper, _, let left, let right):
       let lhs = left.flattened()
-      let unresolved = lhs.type.context.unresolvedType
 
       switch oper.ident {
       case "=":
@@ -2670,19 +2683,19 @@ fileprivate enum InfixTree {
 
       case "as":
         guard case .leaf(.sign(let rhs)) = right else { fatalError("unreachable") }
-        let expr = StaticCastExpr(value: lhs, sign: rhs, type: unresolved)
+        let expr = StaticCastExpr(value: lhs, sign: rhs, type: .unresolved)
         expr.range = lhs.range!.lowerBound ..< rhs.range!.upperBound
         return expr
 
       case "as!":
         guard case .leaf(.sign(let rhs)) = right else { fatalError("unreachable") }
-        let expr = RuntimeCastExpr(value: lhs, sign: rhs, type: unresolved)
+        let expr = RuntimeCastExpr(value: lhs, sign: rhs, type: .unresolved)
         expr.range = lhs.range!.lowerBound ..< rhs.range!.upperBound
         return expr
 
       case "as!!":
         guard case .leaf(.sign(let rhs)) = right else { fatalError("unreachable") }
-        let expr = PointerCastExpr(value: lhs, sign: rhs, type: unresolved)
+        let expr = PointerCastExpr(value: lhs, sign: rhs, type: .unresolved)
         expr.range = lhs.range!.lowerBound ..< rhs.range!.upperBound
         return expr
 
@@ -2693,9 +2706,9 @@ fileprivate enum InfixTree {
           base: lhs,
           ident: LabeledIdent(base: oper.ident, notation: not),
           identRange: oper.range,
-          type: unresolved,
+          type: .unresolved,
           range: oper.range)
-        let expr = CallExpr.infix(fun: fun, operand: rhs, type: unresolved)
+        let expr = CallExpr.infix(fun: fun, operand: rhs, type: .unresolved)
         expr.range = lhs.range!.lowerBound ..< rhs.range!.upperBound
         return expr
       }

@@ -40,7 +40,7 @@ public enum Emitter {
   /// - Parameter decl: A module declaration. `decl` must be type checked: all symbols must be
   ///   resolved or substituted by error nodes.
   public static func emit(module decl: ModuleDecl) -> Module {
-    var module = Module(id: decl.ident, context: decl.type.context)
+    var module = Module(id: decl.ident, context: _ctx)
     for decl in decl {
       emit(topLevel: decl, into: &module)
     }
@@ -119,7 +119,7 @@ public enum Emitter {
   }
 
   public static func emit(typeExtn decl: ExtensionDecl, into module: inout Module) {
-    for member in decl.members {
+    for member in decl.directMembers {
       emit(member: member, into: &module)
     }
   }
@@ -199,11 +199,11 @@ public enum Emitter {
       let funType = decl.type as! FunType
 
       switch funType.retType {
-      case funType.context.nothingType:
+      case .nothing:
         // If the function never returns, emit a halt statement.
         module.insertHalt(at: state.ip)
 
-      case funType.context.unitType:
+      case .unit:
         // The function returns "unit".
         let unit = UnitValue(context: module.context)
         module.insertRet(value: Operand(unit), at: state.ip)
@@ -469,11 +469,10 @@ public enum Emitter {
     state: inout State,
     into module: inout Module
   ) {
-    let context = module.context
-    let boolDecl = context.getTypeDecl(for: .Bool) as! ProductTypeDecl
+    let boolDecl = _ctx.getTypeDecl(for: .Bool) as! ProductTypeDecl
     let boolMemberDecl = boolDecl.lookup(qualified: "value").values.first as! VarDecl
-    let builtinBoolType = context.getBuiltinType(named: "i1")!
-    let builtinBoolCopyDecl = context.getBuiltinDecl(for: "i1_copy")!
+    let builtinBoolType = BuiltinType.get(name: "i1")!
+    let builtinBoolCopyDecl = ModuleDecl.builtin.lookup(qualified: "i1_copy").values[0]
 
     // Copy the built-in value representing the Boolean condition.
     let condRecord = emit(borrow: stmt.condition, mutably: false, state: &state, into: &module)
@@ -485,7 +484,7 @@ public enum Emitter {
       at: state.ip)
     cond = module.insertBorrowAddr(source: Operand(cond), at: state.ip)
     cond = module.insertApply(
-      callee: Operand(BuiltinFunRef(decl: builtinBoolCopyDecl)),
+      callee: Operand(BuiltinFunRef(decl: builtinBoolCopyDecl as! FunDecl)),
       args: [Operand(cond)],
       at: state.ip)
 
@@ -546,8 +545,8 @@ public enum Emitter {
     into module: inout Module
   ) -> Operand {
     // Emit a poison value for any expression that has an error type.
-    guard !expr.type.isError else {
-      return Operand(PoisonValue(type: .lower(module.context.errorType)))
+    guard expr.type !== ValType.error else {
+      return Operand(PoisonValue(type: .lower(.error)))
     }
 
     let result = withRValueEmitter(state: &state, into: &module, do: expr.accept)
@@ -558,7 +557,7 @@ public enum Emitter {
     case .failure(let error):
       DiagDispatcher.instance.report(error.diag())
       state.hasError = true
-      return Operand(PoisonValue(type: .lower(module.context.errorType)))
+      return Operand(PoisonValue(type: .lower(.error)))
     }
   }
 
@@ -569,8 +568,8 @@ public enum Emitter {
     into module: inout Module
   ) -> Operand {
     // Emit a poison value for any expression that has an error type.
-    guard !expr.type.isError else {
-      return Operand(PoisonValue(type: .lower(module.context.errorType).address))
+    guard expr.type !== ValType.error else {
+      return Operand(PoisonValue(type: .lower(.error).address))
     }
 
     let result = withLValueEmitter(state: &state, into: &module, do: expr.accept)
@@ -581,7 +580,7 @@ public enum Emitter {
     case .failure(let error):
       DiagDispatcher.instance.report(error.diag())
       state.hasError = true
-      return Operand(PoisonValue(type: .lower(module.context.errorType).address))
+      return Operand(PoisonValue(type: .lower(.error).address))
     }
   }
 

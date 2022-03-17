@@ -55,7 +55,7 @@ public struct Driver {
     }
 
     // Create a module.
-    let module = ModuleDecl(ident: moduleName, generation: compiler.generation, context: compiler)
+    let module = ModuleDecl(ident: moduleName, generation: compiler.generation)
     compiler.modules[moduleName] = module
 
     if let stdlib = compiler.stdlib {
@@ -68,7 +68,7 @@ public struct Driver {
 
     // Parse the module's files.
     for source in sources {
-      let parser = Parser(compiler: compiler)
+      let parser = Parser()
       let (unit, hasError) = try parser.parse(source)
 
       module.units.append(unit)

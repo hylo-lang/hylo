@@ -70,7 +70,7 @@ struct RelationalConstraint: Constraint {
   var rhs: ValType
 
   init(kind: Kind, lhs: ValType, rhs: ValType, at locator: ConstraintLocator) {
-    assert(!lhs.isUnresolved && !rhs.isUnresolved)
+    assert(lhs != .unresolved && rhs != .unresolved)
     assert(kind != .conformance || rhs is ViewType)
     assert(kind != .conversion || rhs is BuiltinLiteral)
 
@@ -201,7 +201,7 @@ struct ValueMemberConstraint: Constraint {
     useSite: DeclSpace,
     at locator: ConstraintLocator
   ) {
-    assert(!lhs.isUnresolved && !rhs.isUnresolved)
+    assert(lhs != .unresolved && rhs != .unresolved)
 
     self.lhs = lhs
     self.memberIdent = memberIdent
@@ -244,7 +244,7 @@ struct TupleMemberConstraint: Constraint {
     ofType rhs: ValType,
     at locator: ConstraintLocator
   ) {
-    assert(!lhs.isUnresolved && !rhs.isUnresolved)
+    assert(lhs != .unresolved && rhs != .unresolved)
 
     self.lhs = lhs
     self.memberIndex = memberIndex

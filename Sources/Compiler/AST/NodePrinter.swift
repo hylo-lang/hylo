@@ -126,7 +126,7 @@ public struct NodePrinter: NodeVisitor {
   }
 
   public mutating func visit(_ unit: FileUnit) -> String {
-    let path = (unit as? SourceUnit)?.source.url.path ?? ""
+    let path = unit.source?.url.path ?? ""
 
     return """
     {
@@ -294,7 +294,7 @@ public struct NodePrinter: NodeVisitor {
     "range": \(encode(range: node.range)),
     "parentDeclSpace": \(encode(refToSpace: node.parentDeclSpace)),
     "extendedIdent": \(encode(node.extendedName)),
-    "members": \(encode(nodes: node.members))
+    "members": \(encode(nodes: node.directMembers))
     }
     """
   }
@@ -752,17 +752,18 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(signHeader(node)),
-    "ident": "\(node.ident)",
+    "bare": "\(node.bare)",
     "args": \(encode(nodes: node.args))
     }
     """
   }
 
-  public mutating func visit(_ node: CompoundNameSign) -> String {
+  public mutating func visit(_ node: MemberSign) -> String {
     return """
     {
     \(signHeader(node)),
-    "components": \(encode(nodes: node.components))
+    "base": "\(node.base)",
+    "ident": "\(node.ident)"
     }
     """
   }

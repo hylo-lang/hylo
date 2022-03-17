@@ -29,7 +29,7 @@ extension DeclSpace {
 
     // Handle the implicit import of the built-in module in the standard library.
     if context.isCompilingStdlib && (name == "Builtin") {
-      result.types.append(context.builtin)
+      result.types.append(ModuleDecl.builtin)
     }
 
     return result

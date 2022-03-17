@@ -183,7 +183,7 @@ public protocol SignVisitor {
 
   mutating func visit(_ node: SpecializedNameSign) -> SignResult
 
-  mutating func visit(_ node: CompoundNameSign) -> SignResult
+  mutating func visit(_ node: MemberSign) -> SignResult
 
   mutating func visit(_ node: ErrorSign) -> SignResult
 

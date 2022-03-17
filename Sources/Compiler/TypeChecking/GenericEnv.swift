@@ -209,7 +209,7 @@ public final class GenericEnv {
   ///   within one of its parent.
   public func skolemize(_ param: GenericParamType) -> SkolemType {
     if params.contains(param) {
-      return param.context.skolemType(interface: param, genericEnv: self)
+      return SkolemType(interface: param, genericEnv: self)
     }
 
     let gds = space.parentDeclSpace!.innermostGenericSpace!
@@ -278,7 +278,7 @@ fileprivate final class Contextualizer: TypeWalker {
         return variable
       }
 
-      let variable = TypeVar(context: param.context)
+      let variable = TypeVar()
       substitutions[param] = variable
       return variable
     }

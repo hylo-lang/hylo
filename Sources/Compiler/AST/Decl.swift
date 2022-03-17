@@ -16,6 +16,16 @@ public protocol Decl: Node {
 
 }
 
+extension Decl {
+
+  /// A declaration unique identifier.
+  public typealias ID = ObjectIdentifier
+
+  /// The declaration's unique identifier.
+  public var id: ObjectIdentifier { ObjectIdentifier(self) }
+
+}
+
 /// The state of a declaration, as it goes through type checking.
 public enum DeclState: Int, Comparable {
 
@@ -81,8 +91,10 @@ public protocol TypeDecl: TypeOrValueDecl {
 
 extension TypeDecl {
 
+  public var isOverloadable: Bool { false }
+
   public var instanceType: ValType {
-    return (type as! KindType).type
+    return (type as! KindType).base
   }
 
 }
@@ -281,7 +293,7 @@ public class BaseGenericDecl: GenericDeclSpace {
         space: self,
         params: clause.params.map({ $0.instanceType as! GenericParamType }),
         typeReqs: clause.typeReqs,
-        context: type.context)
+        context: _ctx)
       guard genericEnv != nil else {
         state = .invalid
         return nil
@@ -403,12 +415,12 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
       case let expr as Expr:
         return expr
       case let stmt as RetStmt:
-        return stmt.value ?? TupleExpr(elems: [], type: type.context.unitType)
+        return stmt.value ?? TupleExpr(elems: [], type: .unit)
       default:
         return nil
       }
     } else if body.stmts.isEmpty {
-      return TupleExpr(elems: [], type: type.context.unitType)
+      return TupleExpr(elems: [], type: .unit)
     } else {
       return nil
     }
@@ -427,7 +439,7 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
   public var isNested: Bool {
     guard !isStatic && !isMember else { return false }
 
-    return !(parentDeclSpace is SourceUnit)
+    return !(parentDeclSpace is FileUnit)
       && !isStatic
       && !isMember
       && !(self is CtorDecl)
@@ -477,7 +489,7 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
     case let extnDecl as ExtensionDecl:
       // The function is declared in the body of a type extension.
       guard let typeDecl = extnDecl.extendedDecl else {
-        let decl = FunParamDecl(ident: "self", policy: .local, type: type.context.errorType)
+        let decl = FunParamDecl(ident: "self", policy: .local, type: .error)
         state = .invalid
         return decl
       }
@@ -596,7 +608,7 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
     let selfParam = FunType.Param(label: "self", policy: selfPolicy, rawType: selfDecl!.type)
 
     let funType = type as! FunType
-    return type.context.funType(params: [selfParam] + funType.params, retType: funType.retType)
+    return FunType(params: [selfParam] + funType.params, retType: funType.retType)
   }
 
   /// Realizes the "applied" type of the function from its signature.
@@ -616,10 +628,10 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
     if let sign = retSign {
       retType = sign.realize(unqualifiedFrom: self)
     } else {
-      retType = type.context.unitType
+      retType = .unit
     }
 
-    type = type.context.funType(params: params, retType: retType)
+    type = FunType(params: params, retType: retType)
     state = .realized
     return type
   }
@@ -658,7 +670,7 @@ public final class CtorDecl: BaseFunDecl {
       params.append(FunType.Param(label: decl.label, type: rawType))
     }
 
-    type = type.context.funType(params: params, retType: selfDecl!.type)
+    type = FunType(params: params, retType: selfDecl!.type)
     state = .realized
     return type
   }
@@ -869,8 +881,6 @@ public class GenericTypeDecl: BaseGenericDecl, TypeDecl {
 
   }
 
-  public var isOverloadable: Bool { false }
-
   /// A lookup table keeping track of value members.
   public var valueMemberTable: [String: [ValueDecl]] {
     updateMemberTables()
@@ -892,7 +902,7 @@ public class GenericTypeDecl: BaseGenericDecl, TypeDecl {
 
   // Updates or initializes the member lookup tables.
   public func updateMemberTables() {
-    guard memberTablesGeneration < type.context.generation else { return }
+    guard memberTablesGeneration < _ctx.generation else { return }
 
     // Initialize the lookup tables with the direct members of the type.
     if memberTablesGeneration < 0 {
@@ -906,9 +916,9 @@ public class GenericTypeDecl: BaseGenericDecl, TypeDecl {
     }
 
     // Populate the lookup table with members declared in extensions.
-    for module in type.context.modules.values where module.generation > memberTablesGeneration {
+    for module in _ctx.modules.values where module.generation > memberTablesGeneration {
       for extDecl in module.extensions(of: self) {
-        fill(members: extDecl.members)
+        fill(members: extDecl.directMembers)
       }
     }
 
@@ -919,7 +929,7 @@ public class GenericTypeDecl: BaseGenericDecl, TypeDecl {
     //   fill(members: conformance.viewDecl.members)
     // }
 
-    memberTablesGeneration = type.context.generation
+    memberTablesGeneration = _ctx.generation
   }
 
   /// The member declarations that resides directly within the type's declaration space.
@@ -983,8 +993,7 @@ public class GenericTypeDecl: BaseGenericDecl, TypeDecl {
   /// - Returns: The new conformances that have been created.
   @discardableResult
   public func updateConformanceTable() -> [ViewConformance] {
-    let context = type.context
-    guard conformanceTableGeneration < context.generation else { return [] }
+    guard conformanceTableGeneration < _ctx.generation else { return [] }
 
     // FIXME: Insert inherited conformance.
 
@@ -1006,7 +1015,7 @@ public class GenericTypeDecl: BaseGenericDecl, TypeDecl {
     }
 
     // Insert conformances declared in extensions.
-    for module in context.modules.values where module.generation > conformanceTableGeneration {
+    for module in _ctx.modules.values where module.generation > conformanceTableGeneration {
       for extDecl in module.extensions(of: self) {
         for sign in extDecl.inheritances {
           insertConformance(to: sign)
@@ -1014,7 +1023,7 @@ public class GenericTypeDecl: BaseGenericDecl, TypeDecl {
       }
     }
 
-    conformanceTableGeneration = context.generation
+    conformanceTableGeneration = _ctx.generation
     return newConfs
   }
 
@@ -1112,7 +1121,7 @@ public final class ProductTypeDecl: NominalTypeDecl {
   public override var receiverType: ValType {
     if let clause = genericClause {
       // The instance type is generic (e.g., `Foo<Bar>`).
-      return type.context.boundGenericType(
+      return BoundGenericType(
         decl: self,
         args: clause.params.map({ $0.instanceType }))
     } else {
@@ -1123,8 +1132,7 @@ public final class ProductTypeDecl: NominalTypeDecl {
   public override func updateMemberTables() {
     if _valueMemberTable.isEmpty {
       // Synthetize a default constructor declaration.
-      let context = type.context
-      let ctor = CtorDecl(type: context.unresolvedType)
+      let ctor = CtorDecl(type: .unresolved)
       ctor.range = introRange
       ctor.parentDeclSpace = self
       ctor.props.insert(.isSynthesized)
@@ -1135,7 +1143,7 @@ public final class ProductTypeDecl: NominalTypeDecl {
           ident: varDecl.ident,
           label: varDecl.ident,
           policy: .consuming,
-          type: context.unresolvedType)
+          type: .unresolved)
         param.parentDeclSpace = ctor
         return param
       })
@@ -1168,11 +1176,11 @@ public final class ViewTypeDecl: NominalTypeDecl {
   public let selfTypeDecl: GenericParamDecl
 
   public override init(ident: String, type: ValType) {
-    selfTypeDecl = GenericParamDecl(ident: "Self", type: type.context.unresolvedType)
+    selfTypeDecl = GenericParamDecl(ident: "Self", type: .unresolved)
     super.init(ident: ident, type: type)
 
     selfTypeDecl.parentDeclSpace = self
-    selfTypeDecl.type = type.context.genericParamType(decl: selfTypeDecl).kind
+    selfTypeDecl.type = GenericParamType(decl: selfTypeDecl).kind
     selfTypeDecl.state = .typeChecked
   }
 
@@ -1237,7 +1245,7 @@ public final class ViewTypeDecl: NominalTypeDecl {
       space: self,
       params: [selfType] + abstractTypes,
       typeReqs: [selfReq] + abstractReqs,
-      context: type.context)
+      context: _ctx)
     return genericEnv
   }
 
@@ -1273,7 +1281,7 @@ public final class AliasTypeDecl: GenericTypeDecl {
   public override var receiverType: ValType {
     if let clause = genericClause {
       // The instance type is generic (e.g., `Foo<Bar>`).
-      return type.context.boundGenericType(
+      return BoundGenericType(
         decl: self,
         args: clause.params.map({ $0.instanceType }))
     } else {
@@ -1287,10 +1295,9 @@ public final class AliasTypeDecl: GenericTypeDecl {
     state = .realizationRequested
 
     // Realize the aliased signature.
-    let context = type.context
     let aliasedType = aliasedSign.realize(unqualifiedFrom: self)
     state = .realized
-    type = context.aliasType(decl: self).kind
+    type = AliasType(decl: self).kind
 
     guard !aliasedType[.hasErrors] else {
       state = .invalid
@@ -1346,6 +1353,18 @@ public final class AliasTypeDecl: GenericTypeDecl {
   public override func accept<V>(_ visitor: inout V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
+
+  /// The declaration of `Any`.
+  public static let any = ModuleDecl.builtin.lookup(
+    qualified: "Any").types[0] as! AliasTypeDecl
+
+  /// The declaration of `Unit`.
+  public static let unit = ModuleDecl.builtin.lookup(
+    qualified: "Unit").types[0] as! AliasTypeDecl
+
+  /// The declaration of `Nothing`.
+  public static let nothing = ModuleDecl.builtin.lookup(
+    qualified: "Nothing").types[0] as! AliasTypeDecl
 
 }
 
@@ -1408,11 +1427,11 @@ public final class ExtensionDecl: Decl, DeclSpace {
   public var inheritances: [Sign] = []
 
   /// The member declarations of the type.
-  public var members: [Decl]
+  public var directMembers: [Decl]
 
-  public init(extendedName: NameSign, members: [Decl]) {
+  public init(extendedName: NameSign, directMembers: [Decl]) {
     self.extendedName = extendedName
-    self.members = members
+    self.directMembers = directMembers
   }
 
   // MARK: Name lookup
@@ -1443,7 +1462,7 @@ public final class ExtensionDecl: Decl, DeclSpace {
     guard state != .invalid else { return nil }
 
     let type = extendedName.realize(unqualifiedFrom: parentDeclSpace!)
-    guard !type.isError else {
+    guard type !== ValType.error else {
       // The diagnostic is emitted by the failed attempt to realize the base.
       state = .invalid
       return nil
@@ -1465,6 +1484,14 @@ public final class ExtensionDecl: Decl, DeclSpace {
 
 }
 
+extension ExtensionDecl: IterableDeclSpace {
+
+  typealias DeclSequence = [Decl]
+
+  public var decls: [Decl] { directMembers }
+
+}
+
 /// A namespace declaration.
 public final class NamespaceDecl: TypeDecl, IterableDeclSpace {
 
@@ -1479,14 +1506,12 @@ public final class NamespaceDecl: TypeDecl, IterableDeclSpace {
   /// The member declarations in this namespace.
   public var decls: [Decl]
 
-  public init(ident: String, decls: [Decl], context: Compiler) {
+  public init(ident: String, decls: [Decl]) {
     self.ident = ident
     self.decls = decls
-    self.type = context.unresolvedType
-    self.type = NamespaceType(context: context, decl: self).kind
+    self.type = .unresolved
+    self.type = NamespaceType(decl: self).kind
   }
-
-  public var isOverloadable: Bool { false }
 
   // MARK: Name lookup
 

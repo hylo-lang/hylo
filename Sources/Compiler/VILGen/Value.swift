@@ -55,7 +55,7 @@ public struct UnitValue: Constant, Hashable {
   public let type: VILType
 
   init(context: Compiler) {
-    self.type = .lower(context.unitType)
+    self.type = .lower(.unit)
   }
 
   public var description: String { "unit" }
@@ -91,7 +91,7 @@ public struct IntValue: Constant {
   init(bitPattern: Int64, bitWidth: Int, context: Compiler) {
     self.bitPattern = bitPattern
     self.bitWidth = bitWidth
-    self.type = .lower(context.getBuiltinType(named: "i\(bitWidth)")!)
+    self.type = .lower(BuiltinType.get(name: "i\(bitWidth)")!)
   }
 
   public var description: String {
@@ -133,7 +133,7 @@ public struct IntLiteralValue: Constant {
 
   init(value: Int, context: Compiler) {
     self.value = value
-    self.type = .lower(context.getBuiltinType(named: "IntLiteral")!)
+    self.type = .lower(BuiltinType.get(name: "IntLiteral")!)
   }
 
   public var description: String {

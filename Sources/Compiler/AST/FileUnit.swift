@@ -7,7 +7,7 @@ import Foundation
 /// as other kinds of declaration spaces with respect to name lookup. Top-level entities declared
 /// in a unit are merged with those from all of its siblings and should be looked up from the
 /// enclosing module.
-public class FileUnit: IterableDeclSpace {
+public final class FileUnit: IterableDeclSpace {
 
   /// The module in which the unit resides.
   public var parentDeclSpace: DeclSpace?
@@ -15,30 +15,16 @@ public class FileUnit: IterableDeclSpace {
   /// The top-level declarations of the unit.
   public var decls: [Decl] = []
 
-  fileprivate init() {}
+  /// The source file containing this unit's contents, or `nil` if this is the built-in module.
+  public let source: SourceFile?
+
+  public init(source: SourceFile?) {
+    self.source = source
+  }
 
   /// Overrides the default lookup mechanism.
   public func lookup(qualified name: String) -> LookupResult {
     return LookupResult()
-  }
-
-}
-
-/// A unit containing the compiler's built-in declarations.
-public final class BuiltinUnit: FileUnit {
-
-  public override init() {}
-
-}
-
-/// A source file containing Val code.
-public final class SourceUnit: FileUnit {
-
-  /// The source file containing this unit's contents.
-  public let source: SourceFile
-
-  public init(source: SourceFile) {
-    self.source = source
   }
 
 }

@@ -191,8 +191,7 @@ struct DeclChecker: DeclVisitor {
     }
 
     // Type check known extensions.
-    let context = node.type.context
-    for module in context.modules.values {
+    for module in _ctx.modules.values {
       for extDecl in module.extensions(of: node) {
         isWellFormed = extDecl.accept(&self) && isWellFormed
       }
@@ -241,7 +240,7 @@ struct DeclChecker: DeclVisitor {
 
         // Register the member as a witness.
         node.conformanceTable[view]!.entries.append((req, member))
-        let key = context.assocType(
+        let key = AssocType(
           interface: req.instanceType as! GenericParamType,
           base: viewReceiverType)
         substitutions[ReferenceBox(key)] = member.instanceType.canonical
@@ -330,13 +329,13 @@ struct DeclChecker: DeclVisitor {
       }
 
       // Type check the constraint system.
-      var solver = CSSolver(system: system, context: context)
+      var solver = CSSolver(system: system, context: _ctx)
       let result = solver.solve()
 
       if result.errors.isEmpty {
         node.conformanceTable[view]!.state = .checked
       } else {
-        result.reportAllErrors(in: context)
+        result.reportAllErrors(in: _ctx)
         node.conformanceTable[view]!.state = .invalid
         isWellFormed = false
       }
@@ -418,7 +417,7 @@ struct DeclChecker: DeclVisitor {
     // Type-check the extension's members.
     node.state = .typeCheckRequested
     var isWellFormed = true
-    for member in node.members {
+    for member in node.directMembers {
       isWellFormed = member.accept(&self) && isWellFormed
     }
 
@@ -475,7 +474,7 @@ struct DeclChecker: DeclVisitor {
     /// to prevent further use by the type checker.
     for decl in node.varDecls {
       if decl.type[.hasUnresolved] || decl.type[.hasVariables] {
-        decl.type = decl.type.context.errorType
+        decl.type = .error
         decl.state = .invalid
       } else {
         decl.state = .typeChecked

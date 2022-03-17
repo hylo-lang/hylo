@@ -12,8 +12,4 @@ extension Diag {
     return Diag("type '\(space.ident)' has no member type named '\(ident)'", anchor: range)
   }
 
-  static func cannotIntrospect(space: TypeDecl, range: SourceRange?) -> Diag {
-    return Diag("cannot introspect '\(space.ident)'", anchor: range)
-  }
-
 }

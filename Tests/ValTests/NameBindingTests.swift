@@ -4,16 +4,27 @@ import Driver
 
 final class NameBindingTests: XCTestCase {
 
-  func testNameBinding() throws {
-    try withTestCases(in: "TestCases/NameBinding", { (source, driver) in
-      let moduleName = source.url.deletingPathExtension().lastPathComponent
-      let moduleDecl = try driver.parse(moduleName: moduleName, sources: [source])
+  func testBuiltinAliases() throws {
+    let source: SourceFile = """
+    type A = Any
+    type B = Unit
+    type C = Nothing
+    """
+    try withTestCase(source, NameBindingTests.action)
+  }
 
-      var walker = Walker(
-        binder: NameBinder(modules: driver.compiler.modules, stdlib: driver.compiler.stdlib))
-      walker.walk(decl: moduleDecl)
-      return walker.binder.diags
-    })
+  func testNameBinding() throws {
+    try withTestCases(in: "TestCases/NameBinding", NameBindingTests.action)
+  }
+
+  private static func action(source: SourceFile, driver: inout Driver) throws -> [Diag] {
+    let moduleName = source.url.deletingPathExtension().lastPathComponent
+    let moduleDecl = try driver.parse(moduleName: moduleName, sources: [source])
+
+    var walker = Walker(
+      binder: NameBinder(modules: driver.compiler.modules, stdlib: driver.compiler.stdlib))
+    walker.walk(decl: moduleDecl)
+    return walker.binder.diags
   }
 
 }

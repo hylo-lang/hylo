@@ -25,11 +25,11 @@ public final class ModuleDecl {
   /// The file units in the module.
   public var units: [FileUnit] = []
 
-  public init(ident: String, generation: Int, context: Compiler) {
+  public init(ident: String, generation: Int) {
     self.ident = ident
     self.generation = generation
-    self.type = context.unresolvedType
-    self.type = ModuleType(context: context, module: self).kind
+    self.type = .unresolved
+    self.type = ModuleType(decl: self).kind
   }
 
   public var parentDeclSpace: DeclSpace? {
@@ -39,63 +39,64 @@ public final class ModuleDecl {
 
   /// Returns the extensions of the given type declaration.
   public func extensions(of decl: GenericTypeDecl) -> [ExtensionDecl] {
-    func delegate(_ d: GenericTypeDecl) -> GenericTypeDecl {
-      if let alias = (d as? AliasTypeDecl)?.aliasedSign.type as? NominalType {
-        return delegate(alias.decl)
-      } else {
-        return d
-      }
-    }
-
-    // Follow chain of aliases to identify the name being extended.
-    let decl = delegate(decl)
-
-    // Loop through all extensions in the module, (partially) binding them if necessary.
-    var matches: [ExtensionDecl] = []
-    stmt:for case let ext as ExtensionDecl in decls where ext.state != .invalid {
-      // Check if the extension is already bound to decl.
-      if ext.state >= .realized {
-        if let d = ext.extendedDecl, delegate(d) === decl {
-          matches.append(ext)
-        }
-        continue stmt
-      }
-
-      // The extension isn't bound yet: we must resolve its identifier.
-      if ext.extendedName is BareNameSign {
-        if let d = ext.extendedDecl, delegate(d) === decl {
-          matches.append(ext)
-        }
-        continue stmt
-      }
-
-      // If the identifier is a `CompoundIdentSign`, we can't realize the full signature at once,
-      // as we may risk to trigger infinite recursion of name lookups if the signature points
-      // within `decl`. Instead, we must realize it lazily and abort if we detect that we're
-      // about to start a lookup from `decl`.
-      let compound = ext.extendedName as! CompoundNameSign
-      var compType = compound.components[0].realize(unqualifiedFrom: self)
-      var compDecl = (compType as? NominalType)?.decl
-
-      for i in 1 ..< compound.components.count {
-        // We should give up if the signature doesn't denote a norminal type, or if it refers to a
-        // type nested inside of `decl`.
-        guard var d = compDecl else { continue stmt }
-        d = delegate(d)
-        guard d !== decl else { continue stmt }
-
-        // Realize the next component.
-        compType = compound.components[i].realize(in: d.instanceType, from: self)
-        compDecl = (compType as? NominalType)?.decl
-      }
-
-      // Check if the declaration to which the signature resolves is `decl`.
-      if compDecl === decl {
-        matches.append(ext)
-      }
-    }
-
-    return matches
+    return []
+//    func delegate(_ d: GenericTypeDecl) -> GenericTypeDecl {
+//      if let alias = (d as? AliasTypeDecl)?.aliasedSign.type as? NominalType {
+//        return delegate(alias.decl)
+//      } else {
+//        return d
+//      }
+//    }
+//
+//    // Follow chain of aliases to identify the name being extended.
+//    let decl = delegate(decl)
+//
+//    // Loop through all extensions in the module, (partially) binding them if necessary.
+//    var matches: [ExtensionDecl] = []
+//    stmt:for case let ext as ExtensionDecl in decls where ext.state != .invalid {
+//      // Check if the extension is already bound to decl.
+//      if ext.state >= .realized {
+//        if let d = ext.extendedDecl, delegate(d) === decl {
+//          matches.append(ext)
+//        }
+//        continue stmt
+//      }
+//
+//      // The extension isn't bound yet: we must resolve its identifier.
+//      if ext.extendedName is BareNameSign {
+//        if let d = ext.extendedDecl, delegate(d) === decl {
+//          matches.append(ext)
+//        }
+//        continue stmt
+//      }
+//
+//      // If the identifier is a `CompoundIdentSign`, we can't realize the full signature at once,
+//      // as we may risk to trigger infinite recursion of name lookups if the signature points
+//      // within `decl`. Instead, we must realize it lazily and abort if we detect that we're
+//      // about to start a lookup from `decl`.
+//      let compound = ext.extendedName as! CompoundNameSign
+//      var compType = compound.components[0].realize(unqualifiedFrom: self)
+//      var compDecl = (compType as? NominalType)?.decl
+//
+//      for i in 1 ..< compound.components.count {
+//        // We should give up if the signature doesn't denote a norminal type, or if it refers to a
+//        // type nested inside of `decl`.
+//        guard var d = compDecl else { continue stmt }
+//        d = delegate(d)
+//        guard d !== decl else { continue stmt }
+//
+//        // Realize the next component.
+//        compType = compound.components[i].realize(in: d.instanceType, from: self)
+//        compDecl = (compType as? NominalType)?.decl
+//      }
+//
+//      // Check if the declaration to which the signature resolves is `decl`.
+//      if compDecl === decl {
+//        matches.append(ext)
+//      }
+//    }
+//
+//    return matches
   }
 
 }

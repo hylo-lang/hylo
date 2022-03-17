@@ -508,8 +508,8 @@ extension NodeWalker {
     (shouldContinue, node.extendedName) = walk(sign: node.extendedName) as! (Bool, NameSign)
     guard shouldContinue else { return false }
 
-    for i in 0 ..< node.members.count {
-      guard walk(decl: node.members[i]) else { return false }
+    for i in 0 ..< node.directMembers.count {
+      guard walk(decl: node.directMembers[i]) else { return false }
     }
 
     return true
@@ -821,6 +821,7 @@ extension NodeWalker {
     var shouldContinue: Bool
     (shouldContinue, node.unspecialized) = walk(expr: node.unspecialized)
       as! (Bool, BareDeclRefExpr)
+    guard shouldContinue else { return false }
 
     for i in 0 ..< node.args.count {
       (shouldContinue, node.args[i]) = walk(sign: node.args[i])
@@ -1090,23 +1091,18 @@ extension NodeWalker {
     return true
   }
 
-  public mutating func visit(_ node: CompoundNameSign) -> Bool {
+  public mutating func visit(_ node: MemberSign) -> Bool {
     return traverse(node)
   }
 
-  public mutating func traverse(_ node: CompoundNameSign) -> Bool {
+  public mutating func traverse(_ node: MemberSign) -> Bool {
     let prevParent = parent
     parent = node
     defer { parent = prevParent }
 
     var shouldContinue: Bool
-    for i in 0 ..< node.components.count {
-      (shouldContinue, node.components[i]) = walk(sign: node.components[i])
-        as! (Bool, NameCompSign)
-      guard shouldContinue else { return false }
-    }
-
-    return true
+    (shouldContinue, node.base) = walk(sign: node.base) as! (Bool, NameSign)
+    return shouldContinue
   }
 
   public mutating func visit(_ node: ErrorSign) -> Bool {

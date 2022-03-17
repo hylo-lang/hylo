@@ -130,7 +130,7 @@ extension Mangler: TypeVisitor {
   public typealias Result = Void
 
   public mutating func visit(_ type: KindType) {
-    type.type.accept(&self)
+    type.base.accept(&self)
     append(key: .kindType)
   }
 
@@ -152,7 +152,7 @@ extension Mangler: TypeVisitor {
   }
 
   public mutating func visit(_ type: ModuleType) {
-    append(name: type.module.ident)
+    append(name: type.decl.ident)
     append(key: .moduleType)
   }
 
@@ -176,7 +176,7 @@ extension Mangler: TypeVisitor {
   }
 
   public mutating func visit(_ type: ViewCompositionType) {
-    for view in type.views {
+    for view in type.elems {
       append(type: view)
     }
     append(key: .viewCompType)

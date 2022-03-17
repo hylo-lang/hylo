@@ -61,7 +61,7 @@ extension TypeWalker {
   // MARK: Traversal
 
   public mutating func visit(_ type: KindType) -> ValType {
-    return walk(type.type).kind
+    return walk(type.base).kind
   }
 
   public mutating func visit(_ type: BuiltinType) -> ValType {
@@ -101,19 +101,19 @@ extension TypeWalker {
   }
 
   mutating func visit(_ type: ViewCompositionType) -> ValType {
-    return type.context.viewCompositionType(type.views.map({ view in
+    return ViewCompositionType(type.elems.map({ view in
       walk(view) as! ViewType
     }))
   }
 
   mutating func visit(_ type: UnionType) -> ValType {
-    return type.context.unionType(type.elems.map({ elem in
+    return UnionType(type.elems.map({ elem in
       walk(elem)
     }))
   }
 
   mutating func visit(_ type: BoundGenericType) -> ValType {
-    return type.context.boundGenericType(decl: type.decl, args: type.args.map({ self.walk($0) }))
+    return BoundGenericType(decl: type.decl, args: type.args.map({ self.walk($0) }))
   }
 
   mutating func visit(_ type: GenericParamType) -> ValType {
@@ -121,7 +121,7 @@ extension TypeWalker {
   }
 
   mutating func visit(_ type: AssocType) -> ValType {
-    return type.context.assocType(interface: type.interface, base: walk(type.base))
+    return AssocType(interface: type.interface, base: walk(type.base))
   }
 
   mutating func visit(_ type: SkolemType) -> ValType {
@@ -133,23 +133,23 @@ extension TypeWalker {
   }
 
   mutating func visit(_ type: TupleType) -> ValType {
-    return type.context.tupleType(type.elems.map({ elem in
+    return TupleType(type.elems.map({ elem in
       TupleType.Elem(label: elem.label, type: walk(elem.type))
     }))
   }
 
   mutating func visit(_ type: FunType) -> ValType {
-    return type.context.funType(
+    return FunType(
       params: type.params.map({ $0.map({ self.walk($0) }) }),
       retType: walk(type.retType))
   }
 
   mutating func visit(_ type: FunParamType) -> ValType {
-    return type.context.funParamType(policy: type.policy, rawType: walk(type.rawType))
+    return FunParamType(policy: type.policy, rawType: walk(type.rawType))
   }
 
   mutating func visit(_ type: AsyncType) -> ValType {
-    return type.context.asyncType(of: walk(type.base))
+    return AsyncType(base: walk(type.base))
   }
 
   mutating func visit(_ type: UnresolvedType) -> ValType {

@@ -97,7 +97,7 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
     guard let rhs = TypeChecker.contextualize(
       sign: node.sign, from: useSite!, system: &system.pointee)
     else {
-      return ErrorExpr(type: node.type.context.errorType, range: node.range)
+      return ErrorExpr(range: node.range)
     }
 
     // Cast expressions are always assumed to have the type denoted by the signature.
@@ -133,8 +133,6 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
   /// The name is resolved with an unqualified lookup from the declaration space in which the
   /// reference resides. Implicit member references are rewritten with an explicit `self`.
   func visit(_ node: UnresolvedDeclRefExpr) -> Expr {
-    let context = node.type.context
-
     var forwardDecl: TypeOrValueDecl?
     var matches: LookupResult
 
@@ -163,11 +161,10 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
         return bind(ref: node, to: matches)
       }
 
-      let outer = useSite!.parentDeclSpace!.lookup(
-        unqualified: node.ident.base, in: node.type.context)
+      let outer = useSite!.parentDeclSpace!.lookup(unqualified: node.ident.base, in: _ctx)
       matches.append(contentsOf: outer)
     } else {
-      matches = useSite!.lookup(unqualified: node.ident.base, in: node.type.context)
+      matches = useSite!.lookup(unqualified: node.ident.base, in: _ctx)
     }
 
     guard !matches.isEmpty else {
@@ -178,7 +175,7 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
         DiagDispatcher.instance.report(
           .cannotFind(symbol: node.ident.base, range: node.range))
       }
-      return ErrorExpr(type: context.errorType, range: node.range)
+      return ErrorExpr(range: node.range)
     }
 
     return bind(ref: node, to: matches)
@@ -188,12 +185,10 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
   ///
   /// The name is resolved with a qualified lookup from the base of the reference.
   func visit(_ node: UnresolvedQualDeclRefExpr) -> Expr {
-    let context = node.type.context
-
     let baseType = node.namespace.realize(unqualifiedFrom: useSite!)
-    guard !baseType.isError else {
+    guard baseType !== ValType.error else {
       // The diagnostic is emitted by the failed attempt to realize the base.
-      return ErrorExpr(type: context.errorType, range: node.range)
+      return ErrorExpr(range: node.range)
     }
 
     // Handle `T::self`.
@@ -202,15 +197,15 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
     }
 
     // Handle built-ins.
-    if baseType === context.builtin.instanceType {
-      guard let decl = context.getBuiltinDecl(for: node.ident.base) else {
+    if baseType === ModuleDecl.builtin.instanceType {
+      guard let decl = ModuleDecl.builtin.lookup(qualified: node.ident.base).values.first else {
         DiagDispatcher.instance.report(
           .cannotFind(builtin: node.ident.base, range: node.identRange))
-        return ErrorExpr(type: context.errorType, range: node.range)
+        return ErrorExpr(range: node.range)
       }
 
       // There's no need to contextualize the type, built-ins are never generic.
-      return DeclRefExpr(decl: decl, type: decl.realize(), range: node.range)
+      return DeclRefExpr(decl: decl, type: (decl as! FunDecl).realize(), range: node.range)
     }
 
     // Run a qualified lookup if the namespace resolved to a nominal type.
@@ -218,7 +213,7 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
     guard !matches.isEmpty else {
       DiagDispatcher.instance.report(
         .cannotFind(member: String(describing: node.ident), in: baseType, range: node.identRange))
-      return ErrorExpr(type: context.errorType, range: node.identRange)
+      return ErrorExpr(range: node.identRange)
     }
 
     // Note that this will throw the type signature away.
@@ -242,13 +237,11 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
   }
 
   func visit(_ node: UnresolvedMemberExpr) -> Expr {
-    let context = node.type.context
-
     // Propagate error expressions.
     if node.base is ErrorExpr {
       // We can assume a diagnostic has been emitted by a previous attempt to bind the base. We
       // need a superfluous "error type has no member ..." diagnostic.
-      return ErrorExpr(type: context.errorType, range: node.range)
+      return ErrorExpr(range: node.range)
     }
 
     // If the base is known to resolve to a concrete type, we could attempt to resolve the whole
@@ -263,12 +256,10 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
   }
 
   func visit(_ node: TupleMemberExpr) -> Expr {
-    let context = node.type.context
-
     // Propagate error expressions.
     if node.base is ErrorExpr {
       // We can assume a diagnostic has been emitted by a previous attempt to bind the base.
-      return ErrorExpr(type: context.errorType, range: node.range)
+      return ErrorExpr(range: node.range)
     }
 
     return node
@@ -286,7 +277,7 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
   func visit(_ node: AsyncExpr) -> Expr {
     if let sign = node.body.retSign {
       let retType = sign.realize(unqualifiedFrom: useSite!)
-      node.body.type = node.type.context.funType(params: [], retType: retType)
+      node.body.type = FunType(params: [], retType: retType)
       node.body.state = .realized
     }
 
@@ -310,9 +301,8 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
     let success = TypeChecker.check(expr: &node.subject, useSite: useSite!)
 
     // Bail out if the subjet doesn't have a valid type.
-    let context = node.type.context
     guard success else {
-      return ErrorExpr(type: context.errorType, range: node.range)
+      return ErrorExpr(range: node.range)
     }
 
     var driver = PreChecker(system: system, useSite: useSite!)
@@ -327,21 +317,21 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
         useSite: useSite!,
         system: &cs)
       guard result.errors.isEmpty else {
-        return ErrorExpr(type: context.errorType, range: node.range)
+        return ErrorExpr(range: node.range)
       }
 
       // If the match is a sub-expression, make sure that its cases are single expressions.
       guard !node.isSubexpr || (`case`.body.stmts.count == 1) && (`case`.body.stmts[0] is Expr)
       else {
         DiagDispatcher.instance.report(.multipleStatementInMatchExpression(range: `case`.range))
-        return ErrorExpr(type: context.errorType, range: node.range)
+        return ErrorExpr(range: node.range)
       }
       driver.walk(stmt: `case`.body)
     }
 
     // If the match is a not a sub-expression, just type it as `Unit`.
     if !node.isSubexpr {
-      node.type = context.unitType
+      node.type = .unit
     }
 
     return node
@@ -363,14 +353,12 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
       return CallExpr(fun: newFunExpr, args: call.args, type: call.type, range: call.range)
     }
 
-    let context = call.type.context
-
     // Search for a constructor declaration
     let matches = (call.fun as! TypeDeclRefExpr).decl.instanceType.lookup(member: "new")
     guard !matches.values.isEmpty else {
       DiagDispatcher.instance.report(
         .cannotFind(member: "new", in: call.fun.type, range: call.fun.range))
-      return newCall(newFunExpr: ErrorExpr(type: context.errorType, range: call.fun.range))
+      return newCall(newFunExpr: ErrorExpr(range: call.fun.range))
     }
 
     // Substitute the callee for an overload set.
@@ -386,9 +374,8 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
     // Favor values over types.
     if matches.values.count > 1 {
       assert(!ref.type[.hasVariables])
-      let unresolved = ref.type.context.unresolvedType
       return OverloadedDeclRefExpr(
-        subExpr: ref, declSet: matches.values, type: unresolved, range: ref.range)
+        subExpr: ref, declSet: matches.values, type: .unresolved, range: ref.range)
     }
 
     if let decl = matches.values.first {
@@ -399,7 +386,7 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
         newRef = MemberDeclRefExpr(base: expr.base, decl: decl, type: ref.type, range: expr.range)
       } else if decl.isMember {
         // Desugar an implicit reference to `self`.
-        let matches = useSite!.lookup(unqualified: "self", in: decl.type.context)
+        let matches = useSite!.lookup(unqualified: "self", in: _ctx)
         let selfDecl = matches.values[0]
         let selfExpr = DeclRefExpr(decl: selfDecl, type: selfDecl.type, range: ref.range)
         selfExpr.type = TypeChecker.contextualize(

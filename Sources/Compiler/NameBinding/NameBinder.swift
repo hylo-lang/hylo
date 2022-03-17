@@ -58,6 +58,15 @@ struct NameBinder {
     _ name: String,
     unqualifiedFrom space: DeclSpace
   ) -> LookupResult_ {
+    // Check if the name defines a built-in alias.
+    switch name {
+    case "Any"    : return LookupResult_(type: AliasTypeDecl.any)
+    case "Unit"   : return LookupResult_(type: AliasTypeDecl.unit)
+    case "Nothing": return LookupResult_(type: AliasTypeDecl.nothing)
+    default:
+      break
+    }
+
     var space = space
     var result = LookupResult_()
 
@@ -166,7 +175,7 @@ struct NameBinder {
     // we re-enter `lookup(_:qualifiedBy:)` to resolve the extended name of an extension.
     for ext in extensions(of: space) {
       modify(value: &lookupTables[ObjectIdentifier(space)]!, with: { table in
-        for member in ext.members {
+        for member in ext.directMembers {
           NameBinder.register(member, into: &table)
         }
       })
@@ -184,7 +193,7 @@ struct NameBinder {
       // Register members declared in extensions.
       for ext in extensions(of: view) {
         modify(value: &lookupTables[ObjectIdentifier(space)]!, with: { table in
-          for member in ext.members {
+          for member in ext.directMembers {
             NameBinder.register(member, into: &table)
           }
         })
@@ -264,7 +273,7 @@ struct NameBinder {
 
       // Check for a member declared in extensions.
       for ext in extensions(of: view) {
-        for member in ext.members {
+        for member in ext.directMembers {
           mergeTypeOrValueDecl(of: member, named: name, into: &result)
           guard result.allOverloadable else { return result }
         }
@@ -404,7 +413,7 @@ struct NameBinder {
   }
 
   /// Returns the extensions of `decl`.
-  private mutating func extensions(of decl: GenericTypeDecl) -> [ExtensionDecl] {
+  mutating func extensions(of decl: GenericTypeDecl) -> [ExtensionDecl] {
     // Loop through each module.
     let root = decl.rootDeclSpace
     var matches: [ExtensionDecl] = []

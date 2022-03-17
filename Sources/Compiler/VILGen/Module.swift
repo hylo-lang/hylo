@@ -123,13 +123,12 @@ public struct Module {
     // Extend the function's arguments with the type of each captured symbol.
     let captureTable = decl.computeAllCaptures()
     if !captureTable.isEmpty {
-      let context = unappliedType.context
       let extra = captureTable.map({ (_, value) -> FunType.Param in
         // Captures with mutable semantics are represented by in-out parameters.
         return FunType.Param(policy: value.policy, rawType: value.type)
       })
 
-      unappliedType = context.funType(
+      unappliedType = FunType(
         params: extra + unappliedType.params,
         retType: unappliedType.retType)
     }
@@ -515,7 +514,7 @@ public struct Module {
 
     let interfaceType = type(of: container).valType
     assert(interfaceType.isExistential)
-    let witness = interfaceType.context.witnessType(interface: interfaceType)
+    let witness = WitnessType(interface: interfaceType)
 
     let inst = OpenExistInst(
       container: container, type: witness, parent: block(containing: point), range: range)
@@ -531,7 +530,7 @@ public struct Module {
 
     let interfaceType = type(of: container).valType
     assert(interfaceType.isExistential)
-    let witness = interfaceType.context.witnessType(interface: interfaceType)
+    let witness = WitnessType(interface: interfaceType)
 
     let inst = OpenExistAddrInst(
       container: container, type: witness, parent: block(containing: point), range: range)

@@ -107,7 +107,7 @@ public final class AssignExpr: Expr {
   public var range: SourceRange?
 
   public var type: ValType {
-    didSet { assert(type.isUnit) }
+    didSet { assert(type == .unit) }
   }
 
   /// An expression representing the storage to which `rvalue` is assigned.
@@ -119,7 +119,7 @@ public final class AssignExpr: Expr {
   public init(lvalue: Expr, rvalue: Expr, range: SourceRange? = nil) {
     self.lvalue = lvalue
     self.rvalue = rvalue
-    self.type = lvalue.type.context.unitType
+    self.type = .unit
     self.range = range
   }
 
@@ -329,7 +329,7 @@ public final class UnresolvedDeclRefExpr: BareDeclRefExpr {
   public var range: SourceRange?
 
   public var type: ValType {
-    didSet { assert(type.isUnresolved) }
+    didSet { assert(type == .unresolved) }
   }
 
   /// The unqualified (possibly labeled) identifier of the referred declaration.
@@ -357,7 +357,7 @@ public final class UnresolvedQualDeclRefExpr: BareDeclRefExpr {
   public var range: SourceRange?
 
   public var type: ValType {
-    didSet { assert(type.isUnresolved) }
+    didSet { assert(type == .unresolved) }
   }
 
   /// A type signature describing the qualifying namespace.
@@ -646,18 +646,18 @@ public final class LambdaExpr: Expr {
       if let sign = param.sign {
         rawType = sign.realize(unqualifiedFrom: decl)
       } else {
-        rawType = TypeVar(context: type.context, node: param)
+        rawType = TypeVar(node: param)
         param.state = .realized
       }
 
-      param.type = type.context.funParamType(policy: param.policy, rawType: rawType)
+      param.type = FunParamType(policy: param.policy, rawType: rawType)
       params.append(FunType.Param(label: param.label, type: rawType))
     }
 
     // Realize the return type.
-    let retType = decl.retSign?.realize(unqualifiedFrom: decl) ?? TypeVar(context: type.context)
+    let retType = decl.retSign?.realize(unqualifiedFrom: decl) ?? TypeVar()
 
-    decl.type = type.context.funType(params: params, retType: retType)
+    decl.type = FunType(params: params, retType: retType)
     decl.state = .realized
     return decl.type
   }
@@ -807,16 +807,16 @@ public final class ErrorExpr: Expr {
   public var range: SourceRange?
 
   public var type: ValType  {
-    didSet { assert(type.isError) }
+    didSet { assert(type == .error) }
   }
 
-  public init(type: ErrorType, range: SourceRange? = nil) {
-    self.type = type
+  public init(range: SourceRange? = nil) {
+    self.type = .error
     self.range = range
   }
 
   public init(replacing expr: Expr) {
-    self.type = expr.type.context.errorType
+    self.type = .error
     self.range = expr.range
   }
 

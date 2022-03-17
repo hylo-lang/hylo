@@ -109,11 +109,11 @@ public enum TypeChecker {
     })
 
     // Solve the constraint system.
-    var solver = CSSolver(system: system, context: expr.type.context)
+    var solver = CSSolver(system: system, context: _ctx)
     let result = solver.solve()
 
     // Report type errors.
-    result.reportAllErrors(in: expr.type.context)
+    result.reportAllErrors(in: _ctx)
 
     // Apply the solution.
     var dispatcher = TypeDispatcher(solution: result, substPolicy: freeTypeVarSubstPolicy)
@@ -147,11 +147,11 @@ public enum TypeChecker {
     })
 
     // Solve the constraint system.
-    var solver = CSSolver(system: system, context: pattern.type.context)
+    var solver = CSSolver(system: system, context: _ctx)
     let result = solver.solve()
 
     // Report type errors.
-    result.reportAllErrors(in: pattern.type.context)
+    result.reportAllErrors(in: _ctx)
 
     // Apply the solution.
     var dispatcher = TypeDispatcher(solution: result, substPolicy: freeTypeVarSubstPolicy)
@@ -227,11 +227,11 @@ public enum TypeChecker {
         // Type check the variable declaration.
         guard check(decl: varDecl) else {
           ctorDecl.state = .invalid
-          return decl.type.context.errorType
+          return .error
         }
 
         // Assign the type of the declaration to its corresponding parameter.
-        paramDecl.type = decl.type.context.funParamType(policy: .consuming, rawType: varDecl.type)
+        paramDecl.type = FunParamType(policy: .consuming, rawType: varDecl.type)
         paramDecl.state = .typeChecked
       }
 
@@ -260,9 +260,7 @@ public enum TypeChecker {
     // externally, regardless of the use-site. That situation denotes a "fresh" reference to a
     // generic declaration within its own space (e.g., a recursive call to a generic function).
     if let space = decl as? GenericDeclSpace {
-      guard let env = space.prepareGenericEnv() else {
-        return decl.type.context.errorType
-      }
+      guard let env = space.prepareGenericEnv() else { return .error }
 
       // Constructors are contextualized from outside of their type declaration.
       var adjustedSite: DeclSpace = space is CtorDecl
@@ -282,7 +280,7 @@ public enum TypeChecker {
     // Find the innermost generic space, relative to this declaration. We can assume there's one,
     // otherwise `realize()` would have failed to resolve the decl.
     guard let env = decl.parentDeclSpace!.innermostGenericSpace!.prepareGenericEnv() else {
-      return decl.type.context.errorType
+      return .error
     }
 
     let (contextualType, _) = env.contextualize(
@@ -357,7 +355,7 @@ public enum TypeChecker {
       return nil
     }
 
-    let boundType = nominalType.context.boundGenericType(decl: nominalType.decl, args: args)
+    let boundType = BoundGenericType(decl: nominalType.decl, args: args)
     let (contextualType, _) = env.contextualize(
       boundType,
       from: nominalType.decl.rootDeclSpace,

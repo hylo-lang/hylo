@@ -376,10 +376,10 @@ struct CSSolver {
       }
 
       // All types trivially conform to any.
-      if rhs.views.isEmpty { return }
+      if rhs.elems.isEmpty { return }
 
       // Break the constraint into conformance relations for each of the views in the composition.
-      for view in rhs.views {
+      for view in rhs.elems {
         system.insert(RelationalConstraint(
           kind: .conformance, lhs: constraint.lhs, rhs: view, at: constraint.locator))
       }
@@ -417,7 +417,7 @@ struct CSSolver {
     case (let lhs as KindType, let rhs as KindType):
       // LHS and RHS are both kind types. Simplify with their respective instance type.
       let simplified = RelationalConstraint(
-        kind: constraint.kind, lhs: lhs.type, rhs: rhs.type, at: constraint.locator)
+        kind: constraint.kind, lhs: lhs.base, rhs: rhs.base, at: constraint.locator)
       solve(simplified)
 
     default:
@@ -793,7 +793,7 @@ struct CSSolver {
 
     case (let lhs as KindType, let rhs as KindType):
       system.insert(RelationalConstraint(
-        kind: constraint.kind, lhs: lhs.type, rhs: rhs.type,
+        kind: constraint.kind, lhs: lhs.base, rhs: rhs.base,
         at: constraint.locator))
       return true
 

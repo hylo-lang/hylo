@@ -49,7 +49,7 @@ struct StmtChecker: StmtVisitor {
       if let env = funDecl.prepareGenericEnv() {
         (fixedRetType, _) = env.contextualize(fixedRetType, from: useSite)
       } else {
-        fixedRetType = funType.context.errorType
+        fixedRetType = .error
       }
     }
 
@@ -65,10 +65,8 @@ struct StmtChecker: StmtVisitor {
   }
 
   mutating func visit(_ node: IfStmt) -> Bool {
-    let context = node.condition.type.context
-
     // The condition must have a Boolean type.
-    let bool = context.getTypeDecl(for: .Bool)!.instanceType
+    let bool = _ctx.getTypeDecl(for: .Bool)!.instanceType
     var success = TypeChecker.check(expr: &node.condition, fixedType: bool, useSite: useSite)
 
     success = node.thenBody.accept(&self) && success

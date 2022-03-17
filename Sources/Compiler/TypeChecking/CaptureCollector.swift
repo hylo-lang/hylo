@@ -47,7 +47,7 @@ public struct CaptureCollector: NodeWalker {
     // If the referred declaration is a function, make sure it is a identifying a local closure.
     if let decl = expr.decl as? BaseFunDecl {
       switch decl.parentDeclSpace {
-      case is TypeDecl, is ExtensionDecl, is SourceUnit:
+      case is TypeDecl, is ExtensionDecl, is FileUnit:
         return true
       default:
         break
