@@ -259,7 +259,7 @@ public enum TypeChecker {
     // If the declaration is a generic environment, we have to contextualize its own parameters
     // externally, regardless of the use-site. That situation denotes a "fresh" reference to a
     // generic declaration within its own space (e.g., a recursive call to a generic function).
-    if let space = decl as? GenericDeclSpace {
+    if let space = decl as? BaseGenericDecl {
       guard let env = space.prepareGenericEnv() else { return .error }
 
       // Constructors are contextualized from outside of their type declaration.

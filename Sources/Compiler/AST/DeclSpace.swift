@@ -77,11 +77,11 @@ extension DeclSpace {
   }
 
   /// The innermost space that has its own generic parameters, starting from this one.
-  public var innermostGenericSpace: GenericDeclSpace? {
+  public var innermostGenericSpace: BaseGenericDecl? {
     var current: DeclSpace? = self
     while let s = current {
-      if let gds = s as? GenericDeclSpace, gds.hasOwnGenericParams {
-        return gds
+      if let decl = s as? BaseGenericDecl, decl.hasOwnGenericParams {
+        return decl
       }
       current = s.parentDeclSpace
     }
@@ -100,19 +100,5 @@ protocol IterableDeclSpace: DeclSpace {
 
   /// All the declarations directly enclosed in this space.
   var decls: DeclSequence { get }
-
-}
-
-/// A declaration space that provides generic type parameters.
-public protocol GenericDeclSpace: DeclSpace {
-
-  /// A flag that indicates whether the space has generic parameters of its own.
-  var hasOwnGenericParams: Bool { get }
-
-  /// The generic enviroment of the declaration space.
-  var genericEnv: GenericEnv? { get set }
-
-  /// Prepares the generic environment.
-  func prepareGenericEnv() -> GenericEnv?
 
 }

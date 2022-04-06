@@ -4,10 +4,43 @@ import Driver
 
 final class TypeCheckingTests: XCTestCase {
 
-  func testSimple() throws {
+  func testSpecializedTypeExpr() throws {
     let source: SourceFile = """
-    type A {
-      let foo: Unit
+    view T {}
+    type A<X where X: T> {}
+    type B = A<Any> // #!error type 'Any' does not conform to view 'T'
+    """
+    try withTestCase(source, TypeCheckingTests.action)
+  }
+
+  func testSingleExprBody() throws {
+    let source: SourceFile = """
+    type A {}
+    type B {}
+    fun foo() -> Any { (a: A(), b: B()) }
+    """
+    try withTestCase(source, TypeCheckingTests.action)
+  }
+
+  func testMultipleStatementBody() throws {
+    let source: SourceFile = """
+    type A {}
+    type B { var a: A }
+    fun foo() -> A {
+      var b = B(a: A())
+      return b.a
+    }
+    """
+    try withTestCase(source, TypeCheckingTests.action)
+  }
+
+  func testBindings() throws {
+    let source: SourceFile = """
+    type A {}
+    type B { var a: A }
+    fun foo() -> A {
+      var b = B(a: A())
+      return b.a
     }
     """
     try withTestCase(source, TypeCheckingTests.action)

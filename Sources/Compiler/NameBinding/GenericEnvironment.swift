@@ -1,5 +1,6 @@
 import Utils
 
+/// An object that provides context to interpret generic type parameters.
 struct GenericEnvironment {
 
   typealias Equivalences = Set<Key>
@@ -50,10 +51,6 @@ struct GenericEnvironment {
     let reqs: [TypeReq]
 
     if let clause = decl.genericClause {
-      params = clause.params
-      reqs = clause.typeReqs
-    } else if let decl = decl as? ViewTypeDecl {
-      let clause = decl.synthesizedGenericClause
       params = clause.params
       reqs = clause.typeReqs
     } else {
@@ -135,36 +132,6 @@ struct GenericEnvironment {
         entries.append((equivalences: [lbox], conformances: s))
       }
     }
-  }
-
-}
-
-extension ViewTypeDecl {
-
-  fileprivate var synthesizedGenericClause: GenericClause {
-    // Synthesize the requirement `Self: V`.
-    let selfType = selfTypeDecl.instanceType as! GenericParamType
-    let selfReq = TypeReq(
-      kind: .conformance,
-      lhs: BareNameSign(ident: "Self", type: selfType),
-      rhs: BareNameSign(ident: ident, type: instanceType))
-
-    var params = [selfTypeDecl]
-    var reqs = [selfReq]
-
-    // Collect the abstract types of the view, and their requirements.
-    for case let decl as AbstractTypeDecl in directMembers {
-      params.append(decl)
-      reqs.append(contentsOf: decl.typeReqs)
-
-      // Desugar the inheritance clause as regular type requirements.
-      reqs.append(contentsOf: decl.inheritances.map({ rhs -> TypeReq in
-        let lhs = BareNameSign(ident: decl.ident, type: decl.instanceType, range: decl.range)
-        return TypeReq(kind: .conformance, lhs: lhs, rhs: rhs, range: rhs.range)
-      }))
-    }
-
-    return GenericClause(params: params, typeReqs: reqs)
   }
 
 }

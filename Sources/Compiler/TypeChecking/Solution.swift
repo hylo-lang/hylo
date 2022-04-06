@@ -121,12 +121,26 @@ struct Solution {
     }
   }
 
-  /// Reports a type error.
-  ///
-  /// - Parameters:
-  ///   - error: A type error.
-  ///   - context: The AST conext in which type checking occured.
-  func report(_ error: TypeError, in context: Compiler) {
+  /// Reports all of the solution's type errors into `diags`.
+  func reportErrors(into diags: inout [Diag]) {
+    // Sort the errors by source location.
+    for error in errors.sorted(by: <) {
+      diags.append(convert(error))
+    }
+  }
+
+  /// Reports all the type errors of this solution.
+  @available(*, deprecated)
+  func reportAllErrors(in context: Compiler) {
+    var diags: [Diag] = []
+    reportErrors(into: &diags)
+    for diag in diags {
+      DiagDispatcher.instance.report(diag)
+    }
+  }
+
+  /// Converty `error` into a diagnostic.
+  private func convert(_ error: TypeError) -> Diag {
     switch error {
     case .conflictingTypes(let constraint):
       let lhs = describe(reify(constraint.lhs, substPolicy: .keep))
@@ -147,39 +161,28 @@ struct Solution {
 
       // Report the diagnostic.
       let anchor = constraint.locator.resolve()
-      DiagDispatcher.instance.report(Diag(message, anchor: anchor.range))
+      return Diag(message, anchor: anchor.range)
 
     case .nonConformingType(let constraint):
       let lhs = describe(reify(constraint.lhs, substPolicy: .keep))
       let rhs = describe(reify(constraint.rhs, substPolicy: .keep))
 
       let anchor = constraint.locator.resolve()
-      DiagDispatcher.instance.report(
-        Diag("type \(lhs) does not conform to view \(rhs)", anchor: anchor.range))
+      return Diag("type \(lhs) does not conform to view \(rhs)", anchor: anchor.range)
 
     case .noViableOverload(let constraint):
       let message = "no viable overload to resolve '\(constraint.declSet[0].ident)'"
       let anchor = constraint.locator.resolve()
-      DiagDispatcher.instance.report(Diag(message, anchor: anchor.range))
+      return Diag(message, anchor: anchor.range)
 
     case .multipleOverloads(let constraint, let decls):
       let message = "ambiguous use of '\(decls[0].ident)'"
       let anchor = constraint.locator.resolve()
-      DiagDispatcher.instance.report(Diag(message, anchor: anchor.range))
+      return Diag(message, anchor: anchor.range)
 
     default:
       let anchor = error.constraint.locator.resolve()
-      DiagDispatcher.instance.report(Diag(String(describing: error), anchor: anchor.range))
-    }
-  }
-
-  /// Reports all the type errors of this solution.
-  ///
-  /// - Parameter context: The AST conext in which type checking occured.
-  func reportAllErrors(in context: Compiler) {
-    // Sort the errors by source location.
-    for error in errors.sorted(by: <) {
-      report(error, in: context)
+      return Diag(String(describing: error), anchor: anchor.range)
     }
   }
 

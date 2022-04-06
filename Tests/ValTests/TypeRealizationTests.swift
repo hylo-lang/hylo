@@ -10,9 +10,8 @@ final class TypeRealizationTests: XCTestCase {
 
     let x0: A
     let x1: Any
-    let x2: Unit
-    let x3: Nothing
-    let x4: x0 // #!error no type named 'x0' in scope
+    let x2: Nothing
+    let x3: x0 // #!error no type named 'x0' in scope
     """
     try withTestCase(source, TypeRealizationTests.action)
   }

@@ -18,11 +18,11 @@ public protocol Decl: Node {
 
 extension Decl {
 
-  /// A declaration unique identifier.
+  /// A unique identifier.
   public typealias ID = ObjectIdentifier
 
   /// The declaration's unique identifier.
-  public var id: ObjectIdentifier { ObjectIdentifier(self) }
+  public var id: ID { ObjectIdentifier(self) }
 
 }
 
@@ -80,7 +80,7 @@ public protocol TypeOrValueDecl: Decl {
 }
 
 /// A type declaration.
-public protocol TypeDecl: TypeOrValueDecl {
+public protocol TypeDecl: TypeOrValueDecl, DeclSpace {
 
   /// The (unbound) type of instances of the declared type.
   ///
@@ -261,11 +261,13 @@ public enum VarBackend {
 }
 
 /// The base class for generic type or value declarations.
-public class BaseGenericDecl: GenericDeclSpace {
+public class BaseGenericDecl: DeclSpace {
 
   public weak var parentDeclSpace: DeclSpace?
 
   public var genericEnv: GenericEnv?
+
+  public var id: Decl.ID { ObjectIdentifier(self) }
 
   /// The (semantic) state of the declaration.
   public var state: DeclState {
@@ -415,12 +417,12 @@ public class BaseFunDecl: BaseGenericDecl, ValueDecl {
       case let expr as Expr:
         return expr
       case let stmt as RetStmt:
-        return stmt.value ?? TupleExpr(elems: [], type: .unit)
+        return stmt.value ?? TupleExpr(elems: [], type: .unit, range: stmt.range)
       default:
         return nil
       }
     } else if body.stmts.isEmpty {
-      return TupleExpr(elems: [], type: .unit)
+      return TupleExpr(elems: [], type: .unit, range: body.range)
     } else {
       return nil
     }
@@ -1184,6 +1186,46 @@ public final class ViewTypeDecl: NominalTypeDecl {
     selfTypeDecl.state = .typeChecked
   }
 
+  public override var genericClause: GenericClause? {
+    get {
+      if let clause = super.genericClause {
+        return clause
+      } else {
+        let clause = synthesizedGenericClause()
+        super.genericClause = clause
+        return clause
+      }
+    }
+    set { fatalError("unreachable") }
+  }
+
+  /// Returns the synthesized generic clause of the view.
+  private func synthesizedGenericClause() -> GenericClause {
+    // Synthesize the requirement `Self: V`.
+    let selfType = selfTypeDecl.instanceType as! GenericParamType
+    let selfReq = TypeReq(
+      kind: .conformance,
+      lhs: BareNameSign(ident: "Self", type: selfType),
+      rhs: BareNameSign(ident: ident, type: instanceType))
+
+    var params = [selfTypeDecl]
+    var reqs = [selfReq]
+
+    // Collect the abstract types of the view, and their requirements.
+    for case let decl as AbstractTypeDecl in directMembers {
+      params.append(decl)
+      reqs.append(contentsOf: decl.typeReqs)
+
+      // Desugar the inheritance clause as regular type requirements.
+      reqs.append(contentsOf: decl.inheritances.map({ rhs -> TypeReq in
+        let lhs = BareNameSign(ident: decl.ident, type: decl.instanceType, range: decl.range)
+        return TypeReq(kind: .conformance, lhs: lhs, rhs: rhs, range: rhs.range)
+      }))
+    }
+
+    return GenericClause(params: params, typeReqs: reqs)
+  }
+
   /// The uncontextualized type of a reference to `self` within the context of this type.
   public override var receiverType: ValType { selfTypeDecl.instanceType }
 
@@ -1388,6 +1430,10 @@ public class GenericParamDecl: TypeDecl {
 
   public final var isOverloadable: Bool { false }
 
+  public func lookup(qualified name: String) -> LookupResult {
+      fatalError("unreachable")
+  }
+
   public func accept<V>(_ visitor: inout V) -> V.DeclResult where V: DeclVisitor {
     return visitor.visit(self)
   }
@@ -1462,7 +1508,7 @@ public final class ExtensionDecl: Decl, DeclSpace {
     guard state != .invalid else { return nil }
 
     let type = extendedName.realize(unqualifiedFrom: parentDeclSpace!)
-    guard type !== ValType.error else {
+    guard type != .error else {
       // The diagnostic is emitted by the failed attempt to realize the base.
       state = .invalid
       return nil

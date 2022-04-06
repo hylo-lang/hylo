@@ -1,20 +1,34 @@
 /// The type responsible for realizing the types from their AST representation.
 struct TypeRealizer_ {
 
+  private struct CacheKey: Hashable {
+
+    let sign: ObjectIdentifier
+
+    let useSite: ObjectIdentifier
+
+    init(sign: Sign, useSite: DeclSpace) {
+      self.sign = ObjectIdentifier(sign)
+      self.useSite = ObjectIdentifier(useSite)
+    }
+
+  }
+
   var diags: [Diag] = []
 
   private var useSite: DeclSpace?
 
   private var binder = NameBinder(modules: [:], stdlib: nil)
 
-  private var cache: [ObjectIdentifier: ValType] = [:]
+  private var cache: [CacheKey: ValType] = [:]
 
   init() {}
 
   /// Realizes the type denoted by `sign`.
   mutating func realize(_ sign: Sign, useSite: DeclSpace, binder: inout NameBinder) -> ValType {
     // Check the cache.
-    if let type = cache[ObjectIdentifier(sign)] {
+    let key = CacheKey(sign: sign, useSite: useSite)
+    if let type = cache[key] {
       return type
     }
 
@@ -25,19 +39,20 @@ struct TypeRealizer_ {
 
     // Realize the signature and memoize the result.
     let type = sign.accept(&self)
-    cache[ObjectIdentifier(sign)] = type
+    cache[key] = type
     return type
   }
 
   fileprivate mutating func realize(_ sign: Sign) -> ValType {
     // Check the cache.
-    if let type = cache[ObjectIdentifier(sign)] {
+    let key = CacheKey(sign: sign, useSite: useSite!)
+    if let type = cache[key] {
       return type
     }
 
     // Realize the signature and memoize the result.
     let type = sign.accept(&self)
-    cache[ObjectIdentifier(sign)] = type
+    cache[key] = type
     return type
   }
 
@@ -56,13 +71,6 @@ struct TypeRealizer_ {
       let viewSelf = viewDecl.selfTypeDecl.instanceType
       return AssocType(interface: decl.instanceType as! GenericParamType, base: viewSelf)
     }
-
-//    FIXME
-//    // If the signature refers to an alias, we must realize it as well.
-//    if let decl = matches[0] as? AliasTypeDecl {
-//      type = decl.realize().type
-//      return type
-//    }
 
     return decl.instanceType
   }

@@ -192,7 +192,7 @@ struct RValueEmitter: ExprVisitor {
     var argsRanges: [SourceRange?] = []
 
     // Emit the function's callee.
-    switch node.fun {
+    switch node.callee {
     case let expr as MemberDeclRefExpr where expr.decl.isMember:
       // The callee is a reference to a member declaration.
       if let decl = expr.decl as? BaseFunDecl {
@@ -213,7 +213,7 @@ struct RValueEmitter: ExprVisitor {
         }
       } else {
         // The callee is a functional property; emit a regular member access.
-        callee = emit(borrow: node.fun, mutably: false)
+        callee = emit(borrow: node.callee, mutably: false)
       }
 
     case let expr as DeclRefExpr:
@@ -229,16 +229,16 @@ struct RValueEmitter: ExprVisitor {
 
       default:
         /// The callee is a thick function.
-        callee = emit(borrow: node.fun, mutably: false)
+        callee = emit(borrow: node.callee, mutably: false)
       }
 
     default:
       // The calle is an expression producing a thick function.
-      callee = emit(borrow: node.fun, mutably: false)
+      callee = emit(borrow: node.callee, mutably: false)
     }
 
     // Emit the function's arguments.
-    let params = (node.fun.type as! FunType).params
+    let params = (node.callee.type as! FunType).params
     var temporaries: [InstIndex] = []
     for i in 0 ..< node.args.count {
       argsRanges.append(node.args[i].value.range)

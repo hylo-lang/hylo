@@ -6,7 +6,7 @@ public struct Parser {
   /// The internal state of a parser.
   fileprivate struct State {
 
-    /// A Boolean value that indicates whether the parser encountered an error.
+    /// A flag that indicates whether the parser encountered an error.
     var hasError = false
 
     /// The diagnostics of the parse errors.
@@ -1604,7 +1604,7 @@ public struct Parser {
         let (opener, elems, closer) = list(
           state: &state, delimiters: (.lParen, .rParen), parser: parseTupleExprElem(state:))!
         base = CallExpr(
-          fun: base,
+          callee: base,
           args: elems,
           notation: .standard,
           type: .unresolved,

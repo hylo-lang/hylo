@@ -133,12 +133,6 @@ extension Diag {
     return Diag("call to non-function type '\(type)'", anchor: range)
   }
 
-  public static func missingReturnValue(
-    range: SourceRange?
-  ) -> Diag {
-    return Diag("non-unit function should return a value", anchor: range)
-  }
-
   public static func conflictingEqualityRequirement(
     range: SourceRange?
   ) -> Diag {

@@ -38,7 +38,7 @@ struct NameBinder {
   private var conformanceSets: PropertyMap<Set<ViewTypeDecl>> = [:]
 
   /// The generic environments of the generic declarations.
-  private var environments: PropertyMap<GenericEnvironment> = [:]
+  private var environments: [ObjectIdentifier: GenericEnvironment] = [:]
 
   /// A table mapping type names to their declarations.
   private var types: PropertyMap<CachedResult<TypeDecl>> = [:]
@@ -56,26 +56,28 @@ struct NameBinder {
 
   mutating func lookup(
     _ name: String,
-    unqualifiedFrom space: DeclSpace
+    unqualifiedFrom space: DeclSpace,
+    initialMatches: LookupResult_ = LookupResult_()
   ) -> LookupResult_ {
     // Check if the name defines a built-in alias.
     switch name {
-    case "Any"    : return LookupResult_(type: AliasTypeDecl.any)
-    case "Unit"   : return LookupResult_(type: AliasTypeDecl.unit)
+    case "Any": return LookupResult_(type: AliasTypeDecl.any)
     case "Nothing": return LookupResult_(type: AliasTypeDecl.nothing)
     default:
       break
     }
 
     var space = space
-    var result = LookupResult_()
+    var matches = initialMatches
 
     while true {
       // Search for the name in the current space.
-      result.merge(lookup(name, qualifiedBy: space))
+      for decl in lookup(name, qualifiedBy: space) {
+        matches.insert(decl)
+      }
 
       // We're done if we found a non-overloadable symbol.
-      guard result.allOverloadable else { return result }
+      guard matches.allOverloadable else { return matches }
 
       // Move to the parent.
       if let parent = space.parentDeclSpace {
@@ -89,10 +91,10 @@ struct NameBinder {
 
     // Search for the name in the set of visible modules.
     if let module = modules[name] {
-      result.insert(module)
+      matches.insert(module)
     }
 
-    return result
+    return matches
   }
 
   mutating func lookup(_ name: String, qualifiedBy space: DeclSpace) -> LookupResult_ {
@@ -200,6 +202,13 @@ struct NameBinder {
       }
     }
 
+    // Nominal product types get a default constructor if none has been defined.
+    if let space = space as? NominalTypeDecl {
+      modify(value: &lookupTables[ObjectIdentifier(space)]!, with: { table in
+        NameBinder.register(space.synthesizeDefaultCtor(), into: &table)
+      })
+    }
+
     return lookupTables[ObjectIdentifier(space)]![name, default: LookupResult_()]
   }
 
@@ -247,14 +256,8 @@ struct NameBinder {
   }
 
   mutating func lookup(_ name: String, qualifiedBy param: GenericParamDecl) -> LookupResult_ {
-    let parent = param.parentDeclSpace as! BaseGenericDecl & Node
-    let env: GenericEnvironment
-    if let e = environments[parent] {
-      env = e
-    } else {
-      env = GenericEnvironment(decl: parent, binder: &self)
-      environments[parent] = env
-    }
+    let parent = param.parentDeclSpace as! BaseGenericDecl
+    let env = environment(of: parent)
 
     let key = GenericEnvironment.Key([param.ident])
     guard let views = env.conformanceSet(of: key) else { return LookupResult_() }
@@ -336,14 +339,12 @@ struct NameBinder {
       let component = name.components[i]
       let decl: TypeOrValueDecl?
       switch parent {
-      case nil:
-        decl = desugar(lookupResult: lookup(component.ident, unqualifiedFrom: space).type)
-      case let parent as TypeDecl & DeclSpace:
-        decl = desugar(lookupResult: lookup(component.ident, qualifiedBy: parent).type)
       case let parent as GenericParamDecl:
         return resolve(name, rootedAt: parent)
+      case let parent as DeclSpace:
+        decl = desugar(lookupResult: lookup(component.ident, qualifiedBy: parent).type)
       default:
-        fatalError("unreachable")
+        decl = desugar(lookupResult: lookup(component.ident, unqualifiedFrom: space).type)
       }
 
       if let decl = decl as? TypeDecl {
@@ -371,13 +372,7 @@ struct NameBinder {
   ///   - root: The declaration to which the root of the identifier refers.
   private mutating func resolve(_ name: NameSign, rootedAt root: GenericParamDecl) -> TypeDecl? {
     let rootParent = root.parentDeclSpace as! BaseGenericDecl & Node
-    let env: GenericEnvironment
-    if let e = environments[rootParent] {
-      env = e
-    } else {
-      env = GenericEnvironment(decl: rootParent, binder: &self)
-      environments[rootParent] = env
-    }
+    let env = environment(of: rootParent)
 
     var parent = root
     for i in 1 ..< name.components.count {
@@ -467,6 +462,31 @@ struct NameBinder {
     return set
   }
 
+  /// Returns the generic environment of `decl`.
+  mutating func environment(of decl: BaseGenericDecl) -> GenericEnvironment {
+    if let e = environments[ObjectIdentifier(decl)] {
+      return e
+    } else {
+      let e = GenericEnvironment(decl: decl, binder: &self)
+      environments[ObjectIdentifier(decl)] = e
+      return e
+    }
+  }
+
+  /// Returns the generic environment introducing `decl`.
+  mutating func environment(defining decl: GenericParamDecl) -> GenericEnvironment? {
+    var space = decl.parentDeclSpace?.innermostGenericSpace
+    while let s = space {
+      let e = environment(of: s)
+      if e.params.contains(where: { $0.id == decl.id }) {
+        return e
+      } else {
+        space = s.parentDeclSpace?.innermostGenericSpace
+      }
+    }
+    return nil
+  }
+
   /// Registers the declarations introduced by `member` into `table`.
   private static func register(_ member: Decl, into table: inout [String: LookupResult_]) {
     switch member {
@@ -485,6 +505,31 @@ struct NameBinder {
     default:
       break
     }
+  }
+
+}
+
+extension NominalTypeDecl {
+
+  /// Synthetizes a default constructor declaration.
+  fileprivate func synthesizeDefaultCtor() -> CtorDecl {
+    let ctor = CtorDecl(type: .unresolved)
+    ctor.range = introRange
+    ctor.parentDeclSpace = self
+    ctor.props.insert(.isSynthesized)
+
+    // Create a parameter for each stored property.
+    ctor.params = storedVars.map({ (varDecl: VarDecl) -> FunParamDecl in
+      let param = FunParamDecl(
+        ident: varDecl.ident,
+        label: varDecl.ident,
+        policy: .consuming,
+        type: .unresolved)
+      param.parentDeclSpace = ctor
+      return param
+    })
+
+    return ctor
   }
 
 }

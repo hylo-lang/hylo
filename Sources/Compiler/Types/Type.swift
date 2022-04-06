@@ -876,14 +876,17 @@ public final class BoundGenericType: NominalType {
   public let args: [ValType]
 
   public init(decl: GenericTypeDecl, args: [ValType]) {
+    assert(decl.genericClause?.params.count ?? 0 == args.count)
     self.args = args
     super.init(decl: decl, flags: Flags.merge(args.map({ $0.flags })))
   }
 
   /// A dictionary mapping the generic type parameters of the underlying type to their argument.
   public var bindings: [GenericParamType: ValType] {
-    let env = decl.genericEnv!
-    return Dictionary(zip(env.params, args), uniquingKeysWith: { lhs, _ in lhs })
+    let keysAndValues = zip(decl.genericClause!.params, args).map({ (decl, type) in
+      (key: GenericParamType(decl: decl), value: type)
+    })
+    return Dictionary(keysAndValues, uniquingKeysWith: { lhs, _ in lhs })
   }
 
   public override var canonical: ValType {
@@ -1125,11 +1128,11 @@ public final class SkolemType: ValType {
   public unowned let interface: GenericParamType
 
   /// The generic environment in which this skolem is existentially quantified.
-  public unowned let genericEnv: GenericEnv
+  @available(*, deprecated)
+  public var genericEnv: GenericEnv { interface.genericEnv! }
 
-  public init(interface: GenericParamType, genericEnv: GenericEnv) {
+  public init(interface: GenericParamType) {
     self.interface = interface
-    self.genericEnv = genericEnv
     super.init(flags: [.isCanonical, .hasSkolems])
   }
 
@@ -1267,6 +1270,9 @@ public final class TupleType: ValType {
   public convenience init<S>(types: S) where S: Sequence, S.Element == ValType {
     self.init(types.map({ type in TupleType.Elem(type: type) }))
   }
+
+  /// A collection containing just the labels of the tuple.
+  public var labels: [String?] { elems.map({ $0.label }) }
 
   /// The canonical form of the tuple.
   ///
@@ -1413,6 +1419,9 @@ public final class FunType: ValType {
     let flags = Flags.merge(params.map({ $0.type.flags }))
     super.init(flags: flags.merged(with: retType.flags))
   }
+
+  /// A collection containing just the argument labels of the function.
+  public var labels: [String?] { params.map({ $0.label }) }
 
   public override var canonical: ValType {
     return FunType(

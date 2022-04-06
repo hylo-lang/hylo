@@ -460,7 +460,7 @@ public struct NodePrinter: NodeVisitor {
     return """
     {
     \(exprHeader(node)),
-    "fun": \(node.fun.accept(&self)),
+    "callee": \(node.callee.accept(&self)),
     "args": [\(args)]
     }
     """

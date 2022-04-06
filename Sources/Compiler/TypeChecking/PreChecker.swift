@@ -122,7 +122,7 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
   }
 
   func visit(_ node: CallExpr) -> Expr {
-    if node.fun is TypeDeclRefExpr {
+    if node.callee is TypeDeclRefExpr {
       return desugar(constructorCall: node)
     }
     return node
@@ -186,7 +186,7 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
   /// The name is resolved with a qualified lookup from the base of the reference.
   func visit(_ node: UnresolvedQualDeclRefExpr) -> Expr {
     let baseType = node.namespace.realize(unqualifiedFrom: useSite!)
-    guard baseType !== ValType.error else {
+    guard baseType != .error else {
       // The diagnostic is emitted by the failed attempt to realize the base.
       return ErrorExpr(range: node.range)
     }
@@ -350,19 +350,19 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
   /// - Parameter call: A call expression whose `fun` is a `TypeDeclRefExpr`.
   func desugar(constructorCall call: CallExpr) -> CallExpr {
     func newCall(newFunExpr: Expr) -> CallExpr {
-      return CallExpr(fun: newFunExpr, args: call.args, type: call.type, range: call.range)
+      return CallExpr(callee: newFunExpr, args: call.args, type: call.type, range: call.range)
     }
 
     // Search for a constructor declaration
-    let matches = (call.fun as! TypeDeclRefExpr).decl.instanceType.lookup(member: "new")
+    let matches = (call.callee as! TypeDeclRefExpr).decl.instanceType.lookup(member: "new")
     guard !matches.values.isEmpty else {
       DiagDispatcher.instance.report(
-        .cannotFind(member: "new", in: call.fun.type, range: call.fun.range))
-      return newCall(newFunExpr: ErrorExpr(range: call.fun.range))
+        .cannotFind(member: "new", in: call.callee.type, range: call.callee.range))
+      return newCall(newFunExpr: ErrorExpr(range: call.callee.range))
     }
 
     // Substitute the callee for an overload set.
-    let newFunExpr = bind(ref: call.fun, to: matches)
+    let newFunExpr = bind(ref: call.callee, to: matches)
     assert(!(newFunExpr is TypeDeclRefExpr))
 
     // Desugar the constructor call.
@@ -374,8 +374,7 @@ fileprivate struct PreCheckerImpl: ExprVisitor {
     // Favor values over types.
     if matches.values.count > 1 {
       assert(!ref.type[.hasVariables])
-      return OverloadedDeclRefExpr(
-        subExpr: ref, declSet: matches.values, type: .unresolved, range: ref.range)
+      return OverloadedDeclRefExpr(declSet: matches.values, type: .unresolved, range: ref.range)
     }
 
     if let decl = matches.values.first {

@@ -16,51 +16,66 @@ public struct LookupResult_ {
   /// The first type declaration that was found.
   public private(set) var type: TypeDecl?
 
-  /// Indicates whether the set only contains overloadable declarations.
-  public private(set) var allOverloadable: Bool
-
   /// Creates an empty result set.
   public init() {
     self._values = []
     self.type = nil
-    self.allOverloadable = true
+  }
+
+  /// Indicates whether the set only contains overloadable declarations.
+  public var allOverloadable: Bool {
+    (type == nil) && (_values.isEmpty || _values.first!.decl.isOverloadable)
+  }
+
+  // Creates a set with the given value declarations.
+  public init<S>(values: S) where S: Sequence, S.Element == ValueDecl {
+    self._values = []
+    self.type = nil
+    values.forEach({ insert($0) })
   }
 
   /// Creates a singleton with the given type declaration.
   public init(type: TypeDecl) {
     self._values = []
     self.type = type
-    self.allOverloadable = false
   }
 
   /// The value declarations that were found.
   public var values: [ValueDecl] { _values.map({ $0.decl }) }
 
-  /// Inserts `decl` in the set if it it's not already present and if the set set does not already
-  /// contain a non-overloadable declaration.
+  /// Inserts `decl` in the set if it it's not already present and if `decl` does not shadow a
+  /// declaration already in the set.
+  ///
+  /// If the set is empty, then `decl` is always inserted. Otherwise, `decl` is inserted iff:
+  /// - it is not already in the set,
+  /// - all declarations in the set are overloadable, and
+  /// - `decl` is overloadable.
   @discardableResult
   public mutating func insert(_ decl: TypeOrValueDecl) -> Bool {
     guard allOverloadable else { return false }
+    assert(type == nil)
 
     if let decl = decl as? TypeDecl {
-      allOverloadable = false
       type = decl
       return true
-    } else {
-      allOverloadable = decl.isOverloadable
+    } else if _values.isEmpty || decl.isOverloadable {
       return _values.insert(ValueDeclBox(decl: decl as! ValueDecl)).inserted
+    } else {
+      return false
     }
   }
 
-  /// Merges the elements of `other` into this set.
-  public mutating func merge(_ other: LookupResult_) {
-    if isEmpty {
-      self = other
-    } else if allOverloadable {
-      allOverloadable = other.allOverloadable
-      type = other.type
-      _values.formUnion(other._values)
+  /// Returns a result set containing the elements that satisfy the given predicate.
+  public func filter(_ isIncluded: (TypeOrValueDecl) -> Bool) -> LookupResult_ {
+    var result = LookupResult_()
+    if let type = self.type, isIncluded(type) {
+      result.type = type
+    } else {
+      for value in values where isIncluded(value) {
+        result.insert(value)
+      }
     }
+    return result
   }
 
 }

@@ -76,4 +76,4 @@ public final class Compiler {
 }
 
 @available(*, deprecated)
-let _ctx: Compiler! = nil
+let _ctx: Compiler! = Compiler()

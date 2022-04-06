@@ -722,7 +722,7 @@ extension NodeWalker {
     defer { parent = prevParent }
 
     var shouldContinue: Bool
-    (shouldContinue, node.fun) = walk(expr: node.fun)
+    (shouldContinue, node.callee) = walk(expr: node.callee)
     guard shouldContinue else { return false }
 
     for i in 0 ..< node.args.count {

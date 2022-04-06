@@ -9,6 +9,23 @@ public protocol Expr: Node {
   /// - Parameter visitor: An expression visitor.
   func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor
 
+  /// Calls `action` on this expression and then on each sub-expression in pre-order. Visitation
+  /// stops if `action` returns false.
+  ///
+  /// - Returns: `true` unless one call to `action` returned `false`.
+  @discardableResult
+  func forEach(_ action: (Expr) throws -> Bool) rethrows -> Bool
+
+}
+
+extension Expr {
+
+  /// A unique identifier.
+  public typealias ID = ObjectIdentifier
+
+  /// The declaration's unique identifier.
+  public var id: ID { ObjectIdentifier(self) }
+
 }
 
 /// A Boolean literal.
@@ -28,7 +45,12 @@ public final class BoolLiteralExpr: Expr {
   }
 
   public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
-    return visitor.visit(self)
+    visitor.visit(self)
+  }
+
+  @discardableResult
+  public func forEach(_ action: (Expr) throws -> Bool) rethrows -> Bool {
+    try action(self)
   }
 
 }
@@ -50,7 +72,12 @@ public final class IntLiteralExpr: Expr {
   }
 
   public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
-    return visitor.visit(self)
+    visitor.visit(self)
+  }
+
+  @discardableResult
+  public func forEach(_ action: (Expr) throws -> Bool) rethrows -> Bool {
+    try action(self)
   }
 
 }
@@ -72,7 +99,12 @@ public final class FloatLiteralExpr: Expr {
   }
 
   public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
-    return visitor.visit(self)
+    visitor.visit(self)
+  }
+
+  @discardableResult
+  public func forEach(_ action: (Expr) throws -> Bool) rethrows -> Bool {
+    try action(self)
   }
 
 }
@@ -94,7 +126,12 @@ public final class StringLiteralExpr: Expr {
   }
 
   public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
-    return visitor.visit(self)
+    visitor.visit(self)
+  }
+
+  @discardableResult
+  public func forEach(_ action: (Expr) throws -> Bool) rethrows -> Bool {
+    try action(self)
   }
 
 }
@@ -124,7 +161,12 @@ public final class AssignExpr: Expr {
   }
 
   public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
-    return visitor.visit(self)
+    visitor.visit(self)
+  }
+
+  @discardableResult
+  public func forEach(_ action: (Expr) throws -> Bool) rethrows -> Bool {
+    try action(self) && action(lvalue) && action(rvalue)
   }
 
 }
@@ -150,7 +192,12 @@ public class BaseCastExpr: Expr {
   }
 
   public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
-    return visitor.visit(self)
+    visitor.visit(self)
+  }
+
+  @discardableResult
+  public func forEach(_ action: (Expr) throws -> Bool) rethrows -> Bool {
+    try action(self) && action(value)
   }
 
 }
@@ -159,7 +206,7 @@ public class BaseCastExpr: Expr {
 public final class StaticCastExpr: BaseCastExpr {
 
   public override func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
-    return visitor.visit(self)
+    visitor.visit(self)
   }
 
 }
@@ -168,7 +215,7 @@ public final class StaticCastExpr: BaseCastExpr {
 public final class RuntimeCastExpr: BaseCastExpr {
 
   public override func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
-    return visitor.visit(self)
+    visitor.visit(self)
   }
 
 }
@@ -180,7 +227,7 @@ public final class RuntimeCastExpr: BaseCastExpr {
 public final class PointerCastExpr: BaseCastExpr {
 
   public override func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
-    return visitor.visit(self)
+    visitor.visit(self)
   }
 
 }
@@ -201,8 +248,20 @@ public final class TupleExpr: Expr {
     self.range = range
   }
 
+  /// A collection containing just the labels of the tuple.
+  public var labels: [String?] { elems.map({ $0.label }) }
+
   public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
-    return visitor.visit(self)
+    visitor.visit(self)
+  }
+
+  @discardableResult
+  public func forEach(_ action: (Expr) throws -> Bool) rethrows -> Bool {
+    guard try action(self) else { return false }
+    for elem in elems {
+      guard try action(elem.value) else { return false }
+    }
+    return true
   }
 
 }
@@ -257,8 +316,8 @@ public final class CallExpr: Expr {
 
   public var type: ValType
 
-  /// The function being called.
-  public var fun: Expr
+  /// The callee.
+  public var callee: Expr
 
   /// The arguments of the call.
   public var args: [TupleElem]
@@ -267,21 +326,33 @@ public final class CallExpr: Expr {
   public var notation: Notation
 
   public init(
-    fun: Expr,
+    callee: Expr,
     args: [TupleElem],
     notation: Notation = .standard,
     type: ValType,
     range: SourceRange? = nil
   ) {
-    self.fun = fun
+    self.callee = callee
     self.args = args
     self.notation = notation
     self.type = type
     self.range = range
   }
 
+  /// A collection containing just the argument labels of the call.
+  public var labels: [String?] { args.map({ $0.label }) }
+
   public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
-    return visitor.visit(self)
+    visitor.visit(self)
+  }
+
+  @discardableResult
+  public func forEach(_ action: (Expr) throws -> Bool) rethrows -> Bool {
+    guard try action(self) && action(callee) else { return false }
+    for arg in args {
+      guard try action(arg.value) else { return false }
+    }
+    return true
   }
 
   /// Creates a prefix call.
@@ -290,7 +361,7 @@ public final class CallExpr: Expr {
     type: ValType,
     range: SourceRange? = nil
   ) -> CallExpr {
-    return CallExpr(fun: fun, args: [], notation: .prefix, type: type, range: range)
+    return CallExpr(callee: fun, args: [], notation: .prefix, type: type, range: range)
   }
 
   /// Creates a postfix call.
@@ -299,7 +370,7 @@ public final class CallExpr: Expr {
     type: ValType,
     range: SourceRange? = nil
   ) -> CallExpr {
-    return CallExpr(fun: fun, args: [], notation: .postfix, type: type, range: range)
+    return CallExpr(callee: fun, args: [], notation: .postfix, type: type, range: range)
   }
 
   /// Creates an infix call.
@@ -310,7 +381,7 @@ public final class CallExpr: Expr {
     range: SourceRange? = nil
   ) -> CallExpr {
     let arg = CallArg(value: operand, range: operand.range)
-    return CallExpr(fun: fun, args: [arg], notation: .prefix, type: type, range: range)
+    return CallExpr(callee: fun, args: [arg], notation: .prefix, type: type, range: range)
   }
 
 }
@@ -342,7 +413,12 @@ public final class UnresolvedDeclRefExpr: BareDeclRefExpr {
   }
 
   public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
-    return visitor.visit(self)
+    visitor.visit(self)
+  }
+
+  @discardableResult
+  public func forEach(_ action: (Expr) throws -> Bool) rethrows -> Bool {
+    try action(self)
   }
 
 }
@@ -384,7 +460,12 @@ public final class UnresolvedQualDeclRefExpr: BareDeclRefExpr {
   }
 
   public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
-    return visitor.visit(self)
+    visitor.visit(self)
+  }
+
+  @discardableResult
+  public func forEach(_ action: (Expr) throws -> Bool) rethrows -> Bool {
+    try action(self)
   }
 
 }
@@ -402,14 +483,25 @@ public final class OverloadedDeclRefExpr: BareDeclRefExpr {
   /// The set of candidate declarations for the expresssion.
   public var declSet: [ValueDecl] = []
 
-  public init(subExpr: Expr, declSet: [ValueDecl], type: ValType, range: SourceRange? = nil) {
+  public init(declSet: [ValueDecl], range: SourceRange? = nil) {
     self.declSet = declSet
-    self.type = type
+    self.type = .unresolved
     self.range = range
   }
 
+  @available(*, deprecated)
+  public convenience init(declSet: [ValueDecl], type: ValType, range: SourceRange? = nil) {
+    self.init(declSet: declSet, range: range)
+    self.type = type
+  }
+
   public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
-    return visitor.visit(self)
+    visitor.visit(self)
+  }
+
+  @discardableResult
+  public func forEach(_ action: (Expr) throws -> Bool) rethrows -> Bool {
+    try action(self)
   }
 
 }
@@ -431,7 +523,12 @@ public final class DeclRefExpr: BareDeclRefExpr {
   }
 
   public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
-    return visitor.visit(self)
+    visitor.visit(self)
+  }
+
+  @discardableResult
+  public func forEach(_ action: (Expr) throws -> Bool) rethrows -> Bool {
+    try action(self)
   }
 
 }
@@ -455,12 +552,18 @@ public final class TypeDeclRefExpr: Expr {
   }
 
   public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
-    return visitor.visit(self)
+    visitor.visit(self)
+  }
+
+  @discardableResult
+  public func forEach(_ action: (Expr) throws -> Bool) rethrows -> Bool {
+    try action(self)
   }
 
 }
 
-/// An identifier referring to a type kind (e.g., `Int::self`).
+/// An identifier referring to a type kind (e.g., `Int.self`).
+@available(*, deprecated)
 public final class KindRefExpr: Expr {
 
   public var range: SourceRange?
@@ -475,7 +578,12 @@ public final class KindRefExpr: Expr {
   }
 
   public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
-    return visitor.visit(self)
+    visitor.visit(self)
+  }
+
+  @discardableResult
+  public func forEach(_ action: (Expr) throws -> Bool) rethrows -> Bool {
+    try action(self)
   }
 
 }
@@ -522,7 +630,12 @@ public final class UnresolvedMemberExpr: MemberExpr {
   }
 
   public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
-    return visitor.visit(self)
+    visitor.visit(self)
+  }
+
+  @discardableResult
+  public func forEach(_ action: (Expr) throws -> Bool) rethrows -> Bool {
+    try action(self) && action(base)
   }
 
 }
@@ -543,15 +656,26 @@ public final class MemberDeclRefExpr: MemberExpr {
   /// The declaration referred by the expresssion.
   public var decl: ValueDecl
 
-  public init(base: Expr, decl: ValueDecl, type: ValType, range: SourceRange? = nil) {
+  public init(base: Expr, decl: ValueDecl, range: SourceRange? = nil) {
     self.base = base
     self.decl = decl
-    self.type = type
+    self.type = .unresolved
     self.range = range
   }
 
+  @available(*, deprecated)
+  public convenience init(base: Expr, decl: ValueDecl, type: ValType, range: SourceRange? = nil) {
+    self.init(base: base, decl: decl, range: range)
+    self.type = type
+  }
+
   public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
-    return visitor.visit(self)
+    visitor.visit(self)
+  }
+
+  @discardableResult
+  public func forEach(_ action: (Expr) throws -> Bool) rethrows -> Bool {
+    try action(self) && action(base)
   }
 
 }
@@ -583,7 +707,12 @@ public final class TupleMemberExpr: MemberExpr {
   }
 
   public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
-    return visitor.visit(self)
+    visitor.visit(self)
+  }
+
+  @discardableResult
+  public func forEach(_ action: (Expr) throws -> Bool) rethrows -> Bool {
+    try action(self) && action(base)
   }
 
 }
@@ -614,7 +743,12 @@ public final class SpecializedDeclRefExpr: Expr {
   }
 
   public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
-    return visitor.visit(self)
+    visitor.visit(self)
+  }
+
+  @discardableResult
+  public func forEach(_ action: (Expr) throws -> Bool) rethrows -> Bool {
+    try action(self)
   }
 
 }
@@ -663,7 +797,12 @@ public final class LambdaExpr: Expr {
   }
 
   public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
-    return visitor.visit(self)
+    visitor.visit(self)
+  }
+
+  @discardableResult
+  public func forEach(_ action: (Expr) throws -> Bool) rethrows -> Bool {
+    try action(self)
   }
 
 }
@@ -688,7 +827,12 @@ public final class AsyncExpr: Expr {
   }
 
   public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
-    return visitor.visit(self)
+    visitor.visit(self)
+  }
+
+  @discardableResult
+  public func forEach(_ action: (Expr) throws -> Bool) rethrows -> Bool {
+    try action(self)
   }
 
 }
@@ -710,7 +854,12 @@ public final class AwaitExpr: Expr {
   }
 
   public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
-    return visitor.visit(self)
+    visitor.visit(self)
+  }
+
+  @discardableResult
+  public func forEach(_ action: (Expr) throws -> Bool) rethrows -> Bool {
+    try action(self) && action(value)
   }
 
 }
@@ -732,7 +881,12 @@ public final class AddrOfExpr: Expr {
   }
 
   public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
-    return visitor.visit(self)
+    visitor.visit(self)
+  }
+
+  @discardableResult
+  public func forEach(_ action: (Expr) throws -> Bool) rethrows -> Bool {
+    try action(self) && action(value)
   }
 
 }
@@ -775,7 +929,12 @@ public final class MatchExpr: Expr {
   }
 
   public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
-    return visitor.visit(self)
+    visitor.visit(self)
+  }
+
+  @discardableResult
+  public func forEach(_ action: (Expr) throws -> Bool) rethrows -> Bool {
+    try action(self) && action(subject)
   }
 
 }
@@ -793,7 +952,12 @@ public final class WildcardExpr: Expr {
   }
 
   public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
-    return visitor.visit(self)
+    visitor.visit(self)
+  }
+
+  @discardableResult
+  public func forEach(_ action: (Expr) throws -> Bool) rethrows -> Bool {
+    try action(self)
   }
 
 }
@@ -822,6 +986,11 @@ public final class ErrorExpr: Expr {
 
   public func accept<V>(_ visitor: inout V) -> V.ExprResult where V: ExprVisitor {
     visitor.visit(self)
+  }
+
+  @discardableResult
+  public func forEach(_ action: (Expr) throws -> Bool) rethrows -> Bool {
+    try action(self)
   }
 
 }

@@ -260,7 +260,7 @@ struct DeclChecker: DeclVisitor {
           // FIXME: Skip requirements that have a default implementation.
 
           // Gather the generic parameters of the requirement.
-          let reqParams = (req as? GenericDeclSpace)?.genericEnv?.params ?? []
+          let reqParams = (req as? BaseGenericDecl)?.genericEnv?.params ?? []
 
           // Search for a valid candidate.
           let candidates = node.lookup(qualified: ident).values.filter({ (decl) -> Bool in
@@ -275,7 +275,7 @@ struct DeclChecker: DeclVisitor {
             // If the requirement has generic parameters, we need to match them with those of the
             // candidate by completing the substitution table.
             var subst = substitutions
-            let declParams = (decl as? GenericDeclSpace)?.genericEnv?.params ?? []
+            let declParams = (decl as? BaseGenericDecl)?.genericEnv?.params ?? []
             guard reqParams.count == declParams.count else { return false }
             for i in 0 ..< reqParams.count {
               subst[ReferenceBox(reqParams[i])] = declParams[i]

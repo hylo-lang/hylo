@@ -60,7 +60,7 @@ struct ConstraintGenerator: NodeWalker {
   }
 
   mutating func visit(_ node: AssignExpr) -> Bool {
-    if let fixedType = fixedType, fixedType !== ValType.unit {
+    if let fixedType = fixedType, fixedType != .unit {
       // Assign expressions always have the unit type, so this constraint will necessarily fail. We
       // add it so that the error will be diagnosed.
       insert(RelationalConstraint(
@@ -72,7 +72,7 @@ struct ConstraintGenerator: NodeWalker {
     fixedType = nil
     var (shouldContinue, _) = walk(expr: node.lvalue)
     guard shouldContinue else { return false }
-    guard shouldContinue && node.lvalue.type !== ValType.error else { return false }
+    guard shouldContinue && node.lvalue.type != .error else { return false }
 
     fixedType = node.lvalue.type
     (shouldContinue, _) = walk(expr: node.rvalue)
@@ -171,8 +171,8 @@ struct ConstraintGenerator: NodeWalker {
 
     let funType = FunType(params: params, retType: node.type)
     insert(RelationalConstraint(
-      kind: .equality, lhs: node.fun.type, rhs: funType,
-      at: ConstraintLocator(node.fun)))
+      kind: .equality, lhs: node.callee.type, rhs: funType,
+      at: ConstraintLocator(node.callee)))
 
     return true
   }
@@ -402,7 +402,7 @@ struct ConstraintGenerator: NodeWalker {
   }
 
   mutating func visit(_ node: NamedPattern) -> Bool {
-    assert((node.decl.state < .typeChecked) || node.type !== ValType.unresolved)
+    assert((node.decl.state < .typeChecked) || node.type != .unresolved)
     prepare(pattern: node, fixedType: fixedType, inferredType: nil)
     return true
   }
@@ -454,7 +454,7 @@ struct ConstraintGenerator: NodeWalker {
   }
 
   private mutating func prepare(expr: Expr, fixedType: ValType?, inferredType: ValType?) {
-    if expr.type === ValType.unresolved {
+    if expr.type == .unresolved {
       expr.type = inferredType ?? TypeVar(node: expr)
     } else if let inferredType = inferredType {
       insert(RelationalConstraint(
@@ -470,7 +470,7 @@ struct ConstraintGenerator: NodeWalker {
   }
 
   private mutating func prepare(pattern: Pattern, fixedType: ValType?, inferredType: ValType?) {
-    if pattern.type === ValType.unresolved {
+    if pattern.type == .unresolved {
       pattern.type = inferredType ?? TypeVar(node: pattern)
     } else if let inferredType = inferredType {
       insert(RelationalConstraint(

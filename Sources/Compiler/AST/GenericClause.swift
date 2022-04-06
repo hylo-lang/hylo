@@ -19,6 +19,16 @@ public class GenericClause: Node {
 
 }
 
+extension GenericClause {
+
+  /// A unique identifier.
+  public typealias ID = ObjectIdentifier
+
+  /// The clause's unique identifier.
+  public var id: ID { ObjectIdentifier(self) }
+
+}
+
 /// A type requirement in a generic clause.
 public struct TypeReq {
 

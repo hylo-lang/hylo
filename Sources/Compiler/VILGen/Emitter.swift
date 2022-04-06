@@ -545,7 +545,7 @@ public enum Emitter {
     into module: inout Module
   ) -> Operand {
     // Emit a poison value for any expression that has an error type.
-    guard expr.type !== ValType.error else {
+    guard expr.type != .error else {
       return Operand(PoisonValue(type: .lower(.error)))
     }
 
@@ -568,7 +568,7 @@ public enum Emitter {
     into module: inout Module
   ) -> Operand {
     // Emit a poison value for any expression that has an error type.
-    guard expr.type !== ValType.error else {
+    guard expr.type != .error else {
       return Operand(PoisonValue(type: .lower(.error).address))
     }
 

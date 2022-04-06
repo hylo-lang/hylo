@@ -18,6 +18,16 @@ public protocol Sign: Node {
 
 }
 
+extension Sign {
+
+  /// A unique identifier.
+  public typealias ID = ObjectIdentifier
+
+  /// The signature's unique identifier.
+  public var id: ID { ObjectIdentifier(self) }
+
+}
+
 /// The signature of a tuple type (e.g., `(foo: A, bar: B)`).
 public final class TupleSign: Sign {
 

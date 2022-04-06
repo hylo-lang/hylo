@@ -50,7 +50,7 @@ public final class GenericEnv {
   }
 
   /// The declaration space to which the environment is attached.
-  public unowned let space: GenericDeclSpace
+  public unowned let space: BaseGenericDecl
 
   /// The generic parameters of the environment.
   public let params: [GenericParamType]
@@ -80,14 +80,14 @@ public final class GenericEnv {
   /// - SeeAlso: `Context.prepareGenericEnv`
   private var conformanceTables: [ReferenceBox<ValType>: [ViewConformance]] = [:]
 
-  public init(space: GenericDeclSpace) {
+  public init(space: BaseGenericDecl) {
     self.space = space
     self.params = []
     self.typeReqs = []
   }
 
   public init?(
-    space: GenericDeclSpace,
+    space: BaseGenericDecl,
     params: [GenericParamType],
     typeReqs: [TypeReq],
     context: Compiler
@@ -209,7 +209,7 @@ public final class GenericEnv {
   ///   within one of its parent.
   public func skolemize(_ param: GenericParamType) -> SkolemType {
     if params.contains(param) {
-      return SkolemType(interface: param, genericEnv: self)
+      return SkolemType(interface: param)
     }
 
     let gds = space.parentDeclSpace!.innermostGenericSpace!

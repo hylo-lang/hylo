@@ -80,6 +80,18 @@ struct ConstraintSystem {
 
 }
 
+extension ConstraintSystem {
+
+  /// Dumps a textual representation of the constraint system.
+  func dump() {
+    print("Fresh:")
+    for constraint in freshConstraints { print("  ▶", constraint) }
+    print("Stale:")
+    for constraint in staleConstraints { print("  ▶", constraint) }
+  }
+
+}
+
 extension Array {
 
   /// Moves the elements at the specified indices to another array.

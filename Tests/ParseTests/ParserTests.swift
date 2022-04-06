@@ -13,7 +13,7 @@ final class ParserTests: XCTestCase {
 
     with(parser.parseExpr("a+ b +c"), { (expr, diags) in
       XCTAssert(diags.isEmpty)
-      XCTAssert(expr?[as: CallExpr.self]?.fun is UnresolvedMemberExpr)
+      XCTAssert(expr?[as: CallExpr.self]?.callee is UnresolvedMemberExpr)
     })
 
     with(parser.parseExpr("a+ b"), { (expr, diags) in

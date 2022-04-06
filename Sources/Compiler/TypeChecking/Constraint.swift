@@ -41,8 +41,8 @@ struct RelationalConstraint: Constraint {
     /// Variance additionally describes how structural types relate to one another.
     case subtyping
 
-    /// A constraint `T <: U` specifying that `T` is a subtype of `U` and that `U` is a the type of
-    /// a function parameter.
+    /// A constraint `T <:ᵖ U` specifying that `T` is a subtype of `U` and that `U` is a the type
+    /// of a function parameter.
     case paramSubtyping
 
     /// A constraint `T ⊏ U` specifying that `T` is expressible by `U`.
@@ -52,7 +52,7 @@ struct RelationalConstraint: Constraint {
     /// corresponding to a literal type `U`.
     case conversion
 
-    /// A constraint `T == U` that requires `U` to be (partially) determined before the constraint
+    /// A constraint `T =← U` that requires `U` to be (partially) determined before the constraint
     /// is solved like a standard equality constraint.
     case oneWayEquality
 
@@ -116,10 +116,14 @@ extension RelationalConstraint: CustomStringConvertible {
 
   var description: String {
     switch kind {
-    case .equality, .oneWayEquality:
+    case .equality:
       return "\(lhs) == \(rhs)"
-    case .subtyping, .paramSubtyping:
+    case .oneWayEquality:
+      return "\(lhs) =← \(rhs)"
+    case .subtyping:
       return "\(lhs) <: \(rhs)"
+    case .paramSubtyping:
+      return "\(lhs) <:ᵖ \(rhs)"
     case .conformance:
       return "\(lhs) : \(rhs)"
     case .conversion:

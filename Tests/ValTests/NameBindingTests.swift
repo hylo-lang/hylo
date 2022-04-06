@@ -6,9 +6,8 @@ final class NameBindingTests: XCTestCase {
 
   func testBuiltinAliases() throws {
     let source: SourceFile = """
-    type A = Any
-    type B = Unit
-    type C = Nothing
+    type Top = Any
+    type Bot = Nothing
     """
     try withTestCase(source, NameBindingTests.action)
   }
