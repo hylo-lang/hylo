@@ -1,11 +1,6 @@
 // swift-tools-version:5.3
 import PackageDescription
 
-let OrderedCollections = Target.Dependency.product(
-  name: "OrderedCollections", package: "swift-collections")
-let DequeModule = Target.Dependency.product(
-  name: "DequeModule", package: "swift-collections")
-
 let package = Package(
   name: "Val",
 
@@ -28,26 +23,23 @@ let package = Package(
     .target(
       name: "CLI",
       dependencies: [
-        "Compiler", "Driver", "Eval",
+        "Compiler",
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
       ]),
 
     // Targets related to the compiler's internal library.
     .target(
       name: "Compiler",
-      dependencies: ["Utils", OrderedCollections],
+      dependencies: ["Utils"],
       resources: [.copy("Builtins.json")]),
     .target(name: "Utils"),
-    .target(name: "Driver", dependencies: ["Compiler", "Utils", "ValLibrary"]),
-    .target(name: "Eval", dependencies: ["Compiler", DequeModule]),
 
     // Val sources.
     .target(name: "ValLibrary", path: "Library", resources: [.copy("Public")]),
 
     // Test targets.
-    .testTarget(name: "ParseTests", dependencies: ["Compiler", DequeModule]),
     .testTarget(
       name: "ValTests",
-      dependencies: ["Compiler", "Driver", "Eval"],
+      dependencies: ["Compiler"],
       resources: [.copy("TestCases")]),
   ])

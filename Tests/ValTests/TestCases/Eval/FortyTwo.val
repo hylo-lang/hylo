@@ -1,6 +1,0 @@
-fun main() {
-  var a = 8
-  a.negate()
-  let b = 58 + a * 2
-  exit(b)
-}

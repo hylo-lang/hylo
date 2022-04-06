@@ -1,5 +1,0 @@
-/// A type that represents a value that may or may not be present.
-type Maybe<T> = T | Nil
-
-/// A singleton type that represents the absence of a value in an optional type.
-type Nil {}

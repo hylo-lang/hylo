@@ -1,47 +1,32 @@
 import XCTest
-import Driver
-import Eval
+@testable import Compiler
 
-final class ValTests: XCTestCase {
+final class ASTTests: XCTestCase {
 
-  func testTypeChecker() throws {
-    try withTestCases(in: "TestCases/TypeChecker", { (source, driver) in
-      let moduleName = source.url.deletingPathExtension().lastPathComponent
-      let moduleDecl = try driver.parse(moduleName: moduleName, sources: [source])
-      driver.typeCheck(moduleDecl: moduleDecl)
-      return []
-    })
+  func testAppendModule() {
+    var ast = AST()
+    let i = ast.append(decl: ModuleDecl(name: "Val", members: []))
+    XCTAssert(ast.modules.contains(i))
   }
 
-  func testVILGen() throws {
-    try withTestCases(in: "TestCases/VILGen", { (source, driver) in
-      try driver.loadStdlib()
-      let moduleName = source.url.deletingPathExtension().lastPathComponent
-      let moduleDecl = try driver.parse(moduleName: moduleName, sources: [source])
-      driver.typeCheck(moduleDecl: moduleDecl)
+  func testDeclAccess() throws {
+    var ast = AST()
 
-      do {
-        _ = try driver.lower(moduleDecl: moduleDecl)
-      } catch DriverError.loweringFailed {
-      }
-      return []
-    })
-  }
+    // Create two declarations.
+    let i = ast.append(decl: ModuleDecl(name: "Val", members: []))
+    let j = ast.append(decl: TraitDecl(
+      range: nil,
+      access: nil,
+      identifier: Identifier(range: nil, value: "T"),
+      refinements: [],
+      members: []))
 
-  func testEval() throws {
-    try withTestCases(in: "TestCases/Eval", { (source, driver) in
-      try driver.loadStdlib()
-      let moduleName = source.url.deletingPathExtension().lastPathComponent
-      let moduleDecl = try driver.parse(moduleName: moduleName, sources: [source])
-      driver.typeCheck(moduleDecl: moduleDecl)
+    // Subscript the AST for writing with a typed index.
+    ast[i].members.append(j.erased())
 
-      var interpreter = Interpreter()
-      try interpreter.load(module: driver.lower(moduleDecl: driver.compiler.stdlib!))
-      try interpreter.load(module: driver.lower(moduleDecl: moduleDecl))
-      XCTAssertEqual(interpreter.start(), 42)
-      return []
-    })
+    // Subscript the AST for reading with a type-erased index.
+    let t = try XCTUnwrap(ast[ast[i].members.first!] as? TraitDecl)
+    XCTAssert(t.identifier.value == "T")
   }
 
 }
-

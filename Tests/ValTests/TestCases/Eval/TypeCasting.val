@@ -1,9 +1,0 @@
-type A {
-  let i: Int
-}
-
-fun main() {
-  let x: Any = A(i: 42)
-  let y: A | Int = (x as! A).i
-  exit(y as! Int)
-}

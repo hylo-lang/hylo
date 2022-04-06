@@ -1,7 +1,0 @@
-/// A Boolean value.
-type Bool {
-
-  /// the wrapped built-in Boolean value.
-  var value: Builtin::i1
-
-}
