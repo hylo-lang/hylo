@@ -6,6 +6,8 @@ public protocol PatternVisitor {
 
   mutating func visit(binding: BindingPattern) -> Result
 
+  mutating func visit(expr: ExprPattern) -> Result
+
   mutating func visit(name: NamePattern) -> Result
 
   mutating func visit(tuple: TuplePattern) -> Result
