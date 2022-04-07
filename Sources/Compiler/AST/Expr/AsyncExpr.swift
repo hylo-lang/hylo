@@ -6,4 +6,8 @@ public struct AsyncExpr: Expr {
   /// The declaration of the underlying anonymous function.
   public var decl: DeclIndex<FunDecl>
 
+  public func accept<V: ExprVisitor>(_ visitor: inout V) -> V.Result {
+    visitor.visit(async: self)
+  }
+
 }

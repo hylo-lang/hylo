@@ -24,4 +24,8 @@ public struct StoredProjectionExpr: Expr {
   /// The expression of the captured projection.
   public var operand: Expr
 
+  public func accept<V: ExprVisitor>(_ visitor: inout V) -> V.Result {
+    visitor.visit(storedProjection: self)
+  }
+
 }

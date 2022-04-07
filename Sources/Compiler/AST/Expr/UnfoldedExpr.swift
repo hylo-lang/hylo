@@ -8,4 +8,8 @@ public struct UnfoldedExpr: Expr {
 
   public var subexpressions: [Expr]
 
+  public func accept<V: ExprVisitor>(_ visitor: inout V) -> V.Result {
+    visitor.visit(unfoldedExpr: self)
+  }
+
 }

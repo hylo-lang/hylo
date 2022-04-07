@@ -24,4 +24,8 @@ public struct CondExpr: Expr, ScopeOutliner {
   /// The body of the expression that's executed if the condition does not hold.
   public var failure: Body?
 
+  public func accept<V: ExprVisitor>(_ visitor: inout V) -> V.Result {
+    visitor.visit(cond: self)
+  }
+
 }

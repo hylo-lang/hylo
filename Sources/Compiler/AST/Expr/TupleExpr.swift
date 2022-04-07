@@ -19,5 +19,8 @@ public struct TupleExpr: Expr {
   /// The elements of the tuple.
   public var elements: [Element]
 
-}
+  public func accept<V: ExprVisitor>(_ visitor: inout V) -> V.Result {
+    visitor.visit(tupleExpr: self)
+  }
 
+}

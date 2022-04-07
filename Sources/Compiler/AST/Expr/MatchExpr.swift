@@ -37,4 +37,8 @@ public struct MatchExpr: Expr, ScopeOutliner {
   /// The cases of the match.
   public var cases: [Case]
 
+  public func accept<V: ExprVisitor>(_ visitor: inout V) -> V.Result {
+    visitor.visit(match: self)
+  }
+
 }

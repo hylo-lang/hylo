@@ -28,4 +28,8 @@ public struct NameExpr: Expr {
   /// The type and size arguments of the referred entity.
   public var arguments: [GenericArgument]
 
+  public func accept<V: ExprVisitor>(_ visitor: inout V) -> V.Result {
+    visitor.visit(name: self)
+  }
+
 }
