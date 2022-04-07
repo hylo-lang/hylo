@@ -37,4 +37,8 @@ public struct BindingPattern: Pattern {
   /// The type annotation of the pattern, if any.
   public var annotation: TypeExpr?
 
+  public func accept<V: PatternVisitor>(_ visitor: inout V) -> V.Result {
+    visitor.visit(binding: self)
+  }
+
 }

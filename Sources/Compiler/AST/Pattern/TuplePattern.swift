@@ -19,4 +19,8 @@ public struct TuplePattern: Pattern {
   /// The elements of the tuple.
   public var elements: [Element]
 
+  public func accept<V: PatternVisitor>(_ visitor: inout V) -> V.Result {
+    visitor.visit(tuple: self)
+  }
+
 }
