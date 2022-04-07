@@ -1,5 +1,5 @@
 /// A location in a source file.
-public struct SouceLocation {
+public struct SourceLocation {
 
   /// The source file containing the location.
   public let source: SourceFile
