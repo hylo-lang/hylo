@@ -1,5 +1,7 @@
 /// A subscript declaration.
-public struct SubscriptDecl: Decl, SourceRepresentable {
+public struct SubscriptDecl: Decl, ScopeOutliner, SourceRepresentable {
+
+  var scopeID: ScopeID
 
   public var range: SourceRange?
 

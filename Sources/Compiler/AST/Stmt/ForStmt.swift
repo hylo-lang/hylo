@@ -1,5 +1,7 @@
 /// A for loop.
-public struct ForStmt: Stmt {
+public struct ForStmt: Stmt, ScopeOutliner {
+
+  var scopeID: ScopeID
 
   public var range: SourceRange?
 

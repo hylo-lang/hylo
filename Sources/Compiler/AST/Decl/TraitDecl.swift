@@ -1,5 +1,7 @@
 /// A trait declaration.
-public struct TraitDecl: Decl, SourceRepresentable {
+public struct TraitDecl: Decl, ScopeOutliner, SourceRepresentable {
+
+  var scopeID: ScopeID
 
   public var range: SourceRange?
 

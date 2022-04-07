@@ -1,5 +1,5 @@
 /// A conditional expression.
-public struct CondExpr: Stmt {
+public struct CondExpr: Expr, ScopeOutliner {
 
   public enum Body {
 
@@ -10,6 +10,8 @@ public struct CondExpr: Stmt {
     case block(BraceStmt)
 
   }
+
+  var scopeID: ScopeID
 
   public var range: SourceRange?
 

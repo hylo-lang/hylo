@@ -1,5 +1,5 @@
 /// A function declaration.
-public struct FunDecl: Decl, SourceRepresentable {
+public struct FunDecl: Decl, ScopeOutliner, SourceRepresentable {
 
   public struct Introducer: SourceRepresentable {
 
@@ -37,6 +37,8 @@ public struct FunDecl: Decl, SourceRepresentable {
     case bundle([DeclIndex<MethodImplDecl>])
 
   }
+
+  var scopeID: ScopeID
 
   public var range: SourceRange?
 

@@ -1,5 +1,7 @@
 /// A brace statement (a.k.a. a code block).
-public struct BraceStmt: Stmt {
+public struct BraceStmt: Stmt, ScopeOutliner {
+
+  var scopeID: ScopeID
 
   public var range: SourceRange?
 

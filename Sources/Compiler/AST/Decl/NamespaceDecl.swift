@@ -1,5 +1,7 @@
 /// A namespace declaration.
-public struct NamespaceDecl: Decl, SourceRepresentable {
+public struct NamespaceDecl: Decl, ScopeOutliner, SourceRepresentable {
+
+  var scopeID: ScopeID
 
   public var range: SourceRange?
 

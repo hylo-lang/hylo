@@ -1,5 +1,7 @@
 /// A while loop.
-public struct WhileStmt: Stmt {
+public struct WhileStmt: Stmt, ScopeOutliner {
+
+  var scopeID: ScopeID
 
   public var range: SourceRange?
 

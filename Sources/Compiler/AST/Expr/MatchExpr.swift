@@ -1,5 +1,5 @@
 /// A match expression.
-public struct MatchExpr: Stmt {
+public struct MatchExpr: Expr, ScopeOutliner {
 
   /// A case in a match expression.
   public struct Case: SourceRepresentable {
@@ -26,6 +26,8 @@ public struct MatchExpr: Stmt {
     public var Body: Body
 
   }
+
+  var scopeID: ScopeID
 
   public var range: SourceRange?
 

@@ -1,5 +1,7 @@
 /// The declaration of a conformance.
-public struct ConformanceDecl: Decl, SourceRepresentable {
+public struct ConformanceDecl: Decl, ScopeOutliner, SourceRepresentable {
+
+  var scopeID: ScopeID
 
   public var range: SourceRange?
 

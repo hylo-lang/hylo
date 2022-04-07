@@ -1,5 +1,7 @@
 /// The declaration of an extension.
-public struct ExtensionDecl: Decl, SourceRepresentable {
+public struct ExtensionDecl: Decl, ScopeOutliner, SourceRepresentable {
+
+  var scopeID: ScopeID
 
   public var range: SourceRange?
 

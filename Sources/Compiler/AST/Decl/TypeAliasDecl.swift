@@ -1,5 +1,5 @@
 /// A type alias declaration.
-public struct TypeAliasDecl: Decl, SourceRepresentable {
+public struct TypeAliasDecl: Decl, ScopeOutliner, SourceRepresentable {
 
   public enum Body {
 
@@ -10,6 +10,8 @@ public struct TypeAliasDecl: Decl, SourceRepresentable {
     case union(ProductTypeDecl)
 
   }
+
+  var scopeID: ScopeID
 
   public var range: SourceRange?
 

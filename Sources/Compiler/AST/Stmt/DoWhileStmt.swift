@@ -7,6 +7,8 @@ public struct DoWhileStmt: Stmt {
   public var body: BraceStmt
 
   /// The condition of the loop.
+  ///
+  /// - Note: The condition is evaluated in the lexical scope of the body.
   public var condition: Expr
 
 }

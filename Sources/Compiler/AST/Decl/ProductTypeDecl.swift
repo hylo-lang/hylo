@@ -1,5 +1,7 @@
 /// A (nominal) product type declaration.
-public struct ProductTypeDecl: Decl, SourceRepresentable {
+public struct ProductTypeDecl: Decl, ScopeOutliner, SourceRepresentable {
+
+  var scopeID: ScopeID
 
   public var range: SourceRange?
 

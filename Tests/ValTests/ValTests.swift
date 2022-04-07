@@ -12,16 +12,17 @@ final class ASTTests: XCTestCase {
   func testDeclAccess() throws {
     var ast = AST()
 
-    // Create two declarations.
+    // Create a module declarations.
     let i = ast.append(decl: ModuleDecl(name: "Val", members: []))
+
+    // Create a trait declaration, subscripting the AST for writing with a typed index.
     let j = ast.append(decl: TraitDecl(
+      scopeID: ast[i].makeScopeID(),
       range: nil,
       access: nil,
       identifier: Identifier(range: nil, value: "T"),
       refinements: [],
       members: []))
-
-    // Subscript the AST for writing with a typed index.
     ast[i].members.append(j.erased())
 
     // Subscript the AST for reading with a type-erased index.
