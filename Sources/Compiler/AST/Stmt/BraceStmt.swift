@@ -8,6 +8,10 @@ public struct BraceStmt: Stmt, ScopeOutliner {
   /// The statements in the block.
   public var stmts: [Stmt]
 
+  public func accept<V: StmtVisitor>(_ visitor: inout V) -> V.Result {
+    visitor.visit(brace: self)
+  }
+
 }
 
 extension BraceStmt: CustomStringConvertible {

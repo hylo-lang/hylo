@@ -6,4 +6,8 @@ public struct ExprStmt: Stmt {
   /// The expression.
   public var expr: Expr
 
+  public func accept<V: StmtVisitor>(_ visitor: inout V) -> V.Result {
+    visitor.visit(expr: self)
+  }
+
 }

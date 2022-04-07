@@ -6,6 +6,10 @@ public struct ReturnStmt: Stmt {
   /// The return value, if any.
   public var value: Expr?
 
+  public func accept<V: StmtVisitor>(_ visitor: inout V) -> V.Result {
+    visitor.visit(return: self)
+  }
+
 }
 
 extension ReturnStmt: CustomStringConvertible {

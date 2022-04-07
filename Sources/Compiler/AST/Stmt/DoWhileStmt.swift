@@ -11,6 +11,10 @@ public struct DoWhileStmt: Stmt {
   /// - Note: The condition is evaluated in the lexical scope of the body.
   public var condition: Expr
 
+  public func accept<V: StmtVisitor>(_ visitor: inout V) -> V.Result {
+    visitor.visit(doWhile: self)
+  }
+
 }
 
 extension DoWhileStmt: CustomStringConvertible {

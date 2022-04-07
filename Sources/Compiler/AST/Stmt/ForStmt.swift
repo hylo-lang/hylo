@@ -17,6 +17,10 @@ public struct ForStmt: Stmt, ScopeOutliner {
   /// The body of the loop.
   public var body: BraceStmt
 
+  public func accept<V: StmtVisitor>(_ visitor: inout V) -> V.Result {
+    visitor.visit(for: self)
+  }
+
 }
 
 extension ForStmt: CustomStringConvertible {

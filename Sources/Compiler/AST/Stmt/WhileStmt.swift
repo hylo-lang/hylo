@@ -11,6 +11,10 @@ public struct WhileStmt: Stmt, ScopeOutliner {
   /// The body of the loop.
   public var body: BraceStmt
 
+  public func accept<V: StmtVisitor>(_ visitor: inout V) -> V.Result {
+    visitor.visit(while: self)
+  }
+
 }
 
 extension WhileStmt: CustomStringConvertible {
