@@ -17,4 +17,8 @@ public struct ConformanceDecl: Decl, ScopeOutliner, SourceRepresentable {
   /// The member declarations in the lexical scope of the conformance.
   public var members: [AnyDeclIndex]
 
+  public func accept<V: DeclVisitor>(_ visitor: inout V) -> V.Result {
+    visitor.visit(conformance: self)
+  }
+
 }

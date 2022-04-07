@@ -15,4 +15,8 @@ public struct ParamDecl: Decl, SourceRepresentable {
   /// The default value of the declaration, if any.
   public var defaultValue: Expr?
 
+  public func accept<V: DeclVisitor>(_ visitor: inout V) -> V.Result {
+    visitor.visit(param: self)
+  }
+
 }

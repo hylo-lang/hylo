@@ -37,4 +37,8 @@ public struct MethodImplDecl: Decl, SourceRepresentable {
   /// The body of the method, if any.
   public var body: Body?
 
+  public func accept<V: DeclVisitor>(_ visitor: inout V) -> V.Result {
+    visitor.visit(methodImpl: self)
+  }
+
 }

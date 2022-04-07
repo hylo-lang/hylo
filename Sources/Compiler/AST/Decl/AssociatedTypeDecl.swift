@@ -15,4 +15,8 @@ public struct AssociatedTypeDecl: Decl, SourceRepresentable {
   /// The default value of the declaration, if any.
   public var defaultValue: TypeExpr?
 
+  public func accept<V: DeclVisitor>(_ visitor: inout V) -> V.Result {
+    visitor.visit(associatedType: self)
+  }
+
 }

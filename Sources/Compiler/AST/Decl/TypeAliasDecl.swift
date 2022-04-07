@@ -7,7 +7,7 @@ public struct TypeAliasDecl: Decl, ScopeOutliner, SourceRepresentable {
     case typeExpr(TypeExpr)
 
     /// A union of product type declarations.
-    case union(ProductTypeDecl)
+    case union([DeclIndex<ProductTypeDecl>])
 
   }
 
@@ -24,10 +24,11 @@ public struct TypeAliasDecl: Decl, ScopeOutliner, SourceRepresentable {
   /// The generic clause of the declaration, if any.
   public var genericClause: GenericClause?
 
-  /// The member declarations in the lexical scope of the trait.
-  public var members: [AnyDeclIndex]
-
   /// The body of the declaration.
   public var body: Body
+
+  public func accept<V: DeclVisitor>(_ visitor: inout V) -> V.Result {
+    visitor.visit(typeAlias: self)
+  }
 
 }

@@ -9,4 +9,8 @@ public struct GenericTypeParamDecl: Decl, SourceRepresentable {
   /// The conformances listed in the declaration.
   public var conformances: [NameTypeExpr]
 
+  public func accept<V: DeclVisitor>(_ visitor: inout V) -> V.Result {
+    visitor.visit(genericTypeParam: self)
+  }
+
 }

@@ -14,4 +14,8 @@ public struct ExtensionDecl: Decl, ScopeOutliner, SourceRepresentable {
   /// The member declarations in the lexical scope of the extension.
   public var members: [AnyDeclIndex]
 
+  public func accept<V: DeclVisitor>(_ visitor: inout V) -> V.Result {
+    visitor.visit(extension: self)
+  }
+
 }

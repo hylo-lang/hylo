@@ -20,4 +20,8 @@ public struct ProductTypeDecl: Decl, ScopeOutliner, SourceRepresentable {
   /// The member declarations in the lexical scope of the trait.
   public var members: [AnyDeclIndex]
 
+  public func accept<V: DeclVisitor>(_ visitor: inout V) -> V.Result {
+    visitor.visit(productType: self)
+  }
+
 }

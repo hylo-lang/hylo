@@ -29,4 +29,8 @@ public struct SubscriptImplDecl: Decl, SourceRepresentable {
   /// The body of the subscript, if any.
   public var body: BraceStmt?
 
+  public func accept<V: DeclVisitor>(_ visitor: inout V) -> V.Result {
+    visitor.visit(subscriptImpl: self)
+  }
+
 }

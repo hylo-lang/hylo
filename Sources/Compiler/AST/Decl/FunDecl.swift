@@ -72,4 +72,8 @@ public struct FunDecl: Decl, ScopeOutliner, SourceRepresentable {
   /// The body of the declaration, if any.
   public var body: Body?
 
+  public func accept<V: DeclVisitor>(_ visitor: inout V) -> V.Result {
+    visitor.visit(fun: self)
+  }
+
 }

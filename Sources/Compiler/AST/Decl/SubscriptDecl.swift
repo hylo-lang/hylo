@@ -27,6 +27,10 @@ public struct SubscriptDecl: Decl, ScopeOutliner, SourceRepresentable {
   public var output: TypeExpr?
 
   /// The implementations of the subscript.
-  public var implementations: [DeclIndex<SubscriptImplDecl>]
+  public var impls: [DeclIndex<SubscriptImplDecl>]
+
+  public func accept<V: DeclVisitor>(_ visitor: inout V) -> V.Result {
+    visitor.visit(subscript: self)
+  }
 
 }

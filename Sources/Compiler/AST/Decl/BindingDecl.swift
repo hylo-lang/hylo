@@ -15,4 +15,8 @@ public struct BindingDecl: Decl, SourceRepresentable {
   /// The initializer of the declaration, if any.
   public var initializer: Expr?
 
+  public func accept<V: DeclVisitor>(_ visitor: inout V) -> V.Result {
+    visitor.visit(binding: self)
+  }
+
 }
