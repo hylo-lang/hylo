@@ -6,4 +6,8 @@ public struct IndirectTypeExpr: TypeExpr {
   /// The operand.
   public var operand: TypeExpr
 
+  public func accept<V: TypeExprVisitor>(_ visitor: inout V) -> V.Result {
+    visitor.visit(indirect: self)
+  }
+
 }

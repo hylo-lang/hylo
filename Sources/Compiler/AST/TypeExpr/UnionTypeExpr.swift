@@ -6,4 +6,8 @@ public struct UnionTypeExpr: TypeExpr {
   /// The elements of the union.
   public var elements: [TypeExpr]
 
+  public func accept<V: TypeExprVisitor>(_ visitor: inout V) -> V.Result {
+    visitor.visit(union: self)
+  }
+
 }

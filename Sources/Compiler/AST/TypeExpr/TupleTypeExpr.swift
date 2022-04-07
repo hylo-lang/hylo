@@ -19,4 +19,8 @@ public struct TupleTypeExpr: TypeExpr {
   /// The elements of the tuple.
   public var elements: [Element]
 
+  public func accept<V: TypeExprVisitor>(_ visitor: inout V) -> V.Result {
+    visitor.visit(tuple: self)
+  }
+
 }

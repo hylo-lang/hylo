@@ -14,6 +14,10 @@ public struct NameTypeExpr: TypeExpr {
   /// The type and size arguments of the referred type.
   public var arguments: [GenericArgument]
 
+  public func accept<V: TypeExprVisitor>(_ visitor: inout V) -> V.Result {
+    visitor.visit(name: self)
+  }
+
 }
 
 extension NameTypeExpr: CustomStringConvertible {

@@ -24,4 +24,8 @@ public struct StoredProjectionTypeExpr: TypeExpr {
   /// The expression of the projected type.
   public var operand: TypeExpr
 
+  public func accept<V: TypeExprVisitor>(_ visitor: inout V) -> V.Result {
+    visitor.visit(storedProjection: self)
+  }
+
 }

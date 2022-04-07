@@ -9,4 +9,8 @@ public struct ExistentialTypeExpr: TypeExpr {
   /// The where clause of the expression, if any.
   public var whereClause: WhereClause?
 
+  public func accept<V: TypeExprVisitor>(_ visitor: inout V) -> V.Result {
+    visitor.visit(existential: self)
+  }
+
 }

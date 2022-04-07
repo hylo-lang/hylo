@@ -12,4 +12,8 @@ public struct ParamTypeExpr: TypeExpr {
   /// The expression of the parameter's bare type.
   public var bareType: TypeExpr
 
+  public func accept<V: TypeExprVisitor>(_ visitor: inout V) -> V.Result {
+    visitor.visit(param: self)
+  }
+
 }

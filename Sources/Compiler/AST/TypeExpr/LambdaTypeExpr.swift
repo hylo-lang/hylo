@@ -12,4 +12,8 @@ public struct LambdaTypeExpr: TypeExpr {
   /// The output type of the lambda.
   public var output: TypeExpr
 
+  public func accept<V: TypeExprVisitor>(_ visitor: inout V) -> V.Result {
+    visitor.visit(lambda: self)
+  }
+
 }
