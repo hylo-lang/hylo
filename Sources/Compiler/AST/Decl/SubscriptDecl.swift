@@ -24,7 +24,7 @@ public struct SubscriptDecl: Decl, ScopeOutliner, SourceRepresentable {
   public var parameters: [DeclIndex<ParamDecl>]
 
   /// The output type annotation of the subscript.
-  public var output: TypeExpr?
+  public var output: TypeExpr
 
   /// The implementations of the subscript.
   public var impls: [DeclIndex<SubscriptImplDecl>]

@@ -32,7 +32,7 @@ public struct BindingPattern: Pattern {
   public var introducer: Introducer
 
   /// The sub-pattern.
-  public var pattern: Pattern
+  public var subpattern: Pattern
 
   /// The type annotation of the pattern, if any.
   public var annotation: TypeExpr?

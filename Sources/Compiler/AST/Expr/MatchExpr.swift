@@ -1,8 +1,8 @@
 /// A match expression.
-public struct MatchExpr: Expr, ScopeOutliner {
+public struct MatchExpr: Expr {
 
   /// A case in a match expression.
-  public struct Case: SourceRepresentable {
+  public struct Case: SourceRepresentable, ScopeOutliner {
 
     public enum Body {
 
@@ -14,6 +14,8 @@ public struct MatchExpr: Expr, ScopeOutliner {
 
     }
 
+    var scopeID: ScopeID
+
     public var range: SourceRange?
 
     /// The pattern of the case.
@@ -23,11 +25,9 @@ public struct MatchExpr: Expr, ScopeOutliner {
     public var condition: Expr?
 
     /// The body of the case.
-    public var Body: Body
+    public var body: Body
 
   }
-
-  var scopeID: ScopeID
 
   public var range: SourceRange?
 
