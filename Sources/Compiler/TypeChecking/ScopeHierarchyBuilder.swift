@@ -1,6 +1,6 @@
 import Utils
 
-/// An AST visitor that creates the scope hierarchy of a module.
+/// An AST visitor that creates the scope hierarchy of an AST.
 struct ScopeHierarchyBuilder:
   DeclVisitor, ExprVisitor, PatternVisitor, StmtVisitor, TypeExprVisitor
 {
@@ -16,15 +16,12 @@ struct ScopeHierarchyBuilder:
   /// The index of the current innermost lexical scope.
   private var innermost: ScopeID?
 
-  /// Returns the scope hierarchy of `module`.
-  ///
-  /// - Requires: `module` is a valid index in `ast`.
-  mutating func build(hierarchyOf module: DeclIndex<ModuleDecl>, in ast: AST) -> ScopeHierarchy {
+  /// Returns the scope hierarchy of `ast`.
+  mutating func build(hierarchyOf ast: AST) -> ScopeHierarchy {
     self.ast = ast
     hierarchy = ScopeHierarchy()
-    innermost = ast[module].scopeID
-    for i in ast[module].members {
-      i.accept(&self)
+    for module in ast.modules {
+      visit(module: module)
     }
     return hierarchy.release()
   }
@@ -32,15 +29,18 @@ struct ScopeHierarchyBuilder:
   // MARK: Declarations
 
   mutating func visit(associatedType decl: DeclIndex<AssociatedTypeDecl>) {
+    hierarchy.container[decl.erased()] = innermost
     visit(whereClause: ast[decl].whereClause?.node)
   }
 
   mutating func visit(binding decl: DeclIndex<BindingDecl>) {
+    hierarchy.container[decl.erased()] = innermost
     visit(binding: ast[decl].pattern.node)
     ast[decl].initializer?.node.accept(&self)
   }
 
   mutating func visit(conformance decl: DeclIndex<ConformanceDecl>) {
+    hierarchy.container[decl.erased()] = innermost
     hierarchy.parent[ast[decl].scopeID] = innermost
     innermost = ast[decl].scopeID
     defer { innermost = hierarchy.parent[ast[decl].scopeID] }
@@ -53,6 +53,7 @@ struct ScopeHierarchyBuilder:
   }
 
   mutating func visit(extension decl: DeclIndex<ExtensionDecl>) {
+    hierarchy.container[decl.erased()] = innermost
     hierarchy.parent[ast[decl].scopeID] = innermost
     innermost = ast[decl].scopeID
     defer { innermost = hierarchy.parent[ast[decl].scopeID] }
@@ -65,6 +66,7 @@ struct ScopeHierarchyBuilder:
   }
 
   mutating func visit(fun decl: DeclIndex<FunDecl>) {
+    hierarchy.container[decl.erased()] = innermost
     hierarchy.parent[ast[decl].scopeID] = innermost
     innermost = ast[decl].scopeID
     defer { innermost = hierarchy.parent[ast[decl].scopeID] }
@@ -93,11 +95,16 @@ struct ScopeHierarchyBuilder:
     }
   }
 
-  mutating func visit(genericSizeParam decl: DeclIndex<GenericSizeParamDecl>) {}
+  mutating func visit(genericSizeParam decl: DeclIndex<GenericSizeParamDecl>) {
+    hierarchy.container[decl.erased()] = innermost
+  }
 
-  mutating func visit(genericTypeParam decl: DeclIndex<GenericTypeParamDecl>) {}
+  mutating func visit(genericTypeParam decl: DeclIndex<GenericTypeParamDecl>) {
+    hierarchy.container[decl.erased()] = innermost
+  }
 
   mutating func visit(methodImpl decl: DeclIndex<MethodImplDecl>) {
+    hierarchy.container[decl.erased()] = innermost
     switch ast[decl].body?.node {
     case let .expr(expr):
       expr.accept(&self)
@@ -108,9 +115,15 @@ struct ScopeHierarchyBuilder:
     }
   }
 
-  mutating func visit(module decl: DeclIndex<ModuleDecl>) { unreachable() }
+  mutating func visit(module decl: DeclIndex<ModuleDecl>) {
+    innermost = ast[decl].scopeID
+    for i in ast[decl].members {
+      i.accept(&self)
+    }
+  }
 
   mutating func visit(namespace decl: DeclIndex<NamespaceDecl>) {
+    hierarchy.container[decl.erased()] = innermost
     hierarchy.parent[ast[decl].scopeID] = innermost
     innermost = ast[decl].scopeID
     defer { innermost = hierarchy.parent[ast[decl].scopeID] }
@@ -121,11 +134,13 @@ struct ScopeHierarchyBuilder:
   }
 
   mutating func visit(param decl: DeclIndex<ParamDecl>) {
+    hierarchy.container[decl.erased()] = innermost
     ast[decl].annotation?.node.accept(&self)
     ast[decl].defaultValue?.node.accept(&self)
   }
 
   mutating func visit(productType decl: DeclIndex<ProductTypeDecl>) {
+    hierarchy.container[decl.erased()] = innermost
     hierarchy.parent[ast[decl].scopeID] = innermost
     innermost = ast[decl].scopeID
     defer { innermost = hierarchy.parent[ast[decl].scopeID] }
@@ -138,6 +153,7 @@ struct ScopeHierarchyBuilder:
   }
 
   mutating func visit(subscript decl: DeclIndex<SubscriptDecl>) {
+    hierarchy.container[decl.erased()] = innermost
     hierarchy.parent[ast[decl].scopeID] = innermost
     innermost = ast[decl].scopeID
     defer { innermost = hierarchy.parent[ast[decl].scopeID] }
@@ -158,10 +174,12 @@ struct ScopeHierarchyBuilder:
   }
 
   mutating func visit(subscriptImpl decl: DeclIndex<SubscriptImplDecl>) {
+    hierarchy.container[decl.erased()] = innermost
     ast[decl].body.map({ stmt in visit(brace: stmt.node) })
   }
 
   mutating func visit(trait decl: DeclIndex<TraitDecl>) {
+    hierarchy.container[decl.erased()] = innermost
     hierarchy.parent[ast[decl].scopeID] = innermost
     innermost = ast[decl].scopeID
     defer { innermost = hierarchy.parent[ast[decl].scopeID] }
@@ -172,6 +190,7 @@ struct ScopeHierarchyBuilder:
   }
 
   mutating func visit(typeAlias decl: DeclIndex<TypeAliasDecl>) {
+    hierarchy.container[decl.erased()] = innermost
     hierarchy.parent[ast[decl].scopeID] = innermost
     innermost = ast[decl].scopeID
     defer { innermost = hierarchy.parent[ast[decl].scopeID] }
@@ -189,7 +208,9 @@ struct ScopeHierarchyBuilder:
     }
   }
 
-  mutating func visit(`var` decl: DeclIndex<VarDecl>) {}
+  mutating func visit(`var` decl: DeclIndex<VarDecl>) {
+    hierarchy.container[decl.erased()] = innermost
+  }
 
   // MARK: Expressions
 

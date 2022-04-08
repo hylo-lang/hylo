@@ -16,6 +16,12 @@ public struct AST {
   /// The index of the module containing Val's standard library, if present in the AST.
   public var std: DeclIndex<ModuleDecl>?
 
+  /// Returns the scope hierarchy of the AST.
+  func scopeHierarchy() -> ScopeHierarchy {
+    var builder = ScopeHierarchyBuilder()
+    return builder.build(hierarchyOf: self)
+  }
+
   /// Appends a declaration to the AST.
   public mutating func append<T: Decl>(decl: T) -> DeclIndex<T> {
     let i = DeclIndex<T>(index: decls.count)

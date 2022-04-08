@@ -17,11 +17,10 @@ final class ScopeHierarchyTests: XCTestCase {
     ast[main].members.append(trait.erased())
 
     // Build the scope hierarchy of the AST.
-    var builder = ScopeHierarchyBuilder()
-    let scopes = builder.build(hierarchyOf: main, in: ast)
+    let hierarchy = ast.scopeHierarchy()
 
-    XCTAssert(scopes.isContained(ast[trait].scopeID, in: ast[trait].scopeID))
-    XCTAssert(scopes.isContained(ast[trait].scopeID, in: ast[main].scopeID))
+    XCTAssert(hierarchy.isContained(ast[trait].scopeID, in: ast[trait].scopeID))
+    XCTAssert(hierarchy.isContained(ast[trait].scopeID, in: ast[main].scopeID))
   }
 
 }

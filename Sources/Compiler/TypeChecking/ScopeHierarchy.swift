@@ -1,8 +1,11 @@
-/// A tree describing the scope hierarchy of a module.
+/// A tree describing the scope hierarchy of an AST.
 struct ScopeHierarchy {
 
   /// A table mapping a lexical scope to its parent.
   var parent: [ScopeID: ScopeID] = [:]
+
+  /// A table mapping a declaration to the innermost lexical scope that contains it.
+  var container: [AnyDeclIndex: ScopeID] = [:]
 
   /// Returns whether `child` is contained in `ancestor`.
   ///
