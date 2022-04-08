@@ -64,8 +64,4 @@ public struct FunDecl: GenericDecl, ScopeOutliner {
 
   public var range: SourceRange?
 
-  public func accept<V: DeclVisitor>(_ visitor: inout V) -> V.Result {
-    visitor.visit(fun: self)
-  }
-
 }

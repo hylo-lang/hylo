@@ -24,81 +24,81 @@ struct ScopeHierarchyBuilder:
     hierarchy = ScopeHierarchy()
     innermost = ast[module].scopeID
     for i in ast[module].members {
-      ast[i].accept(&self)
+      i.accept(&self)
     }
     return hierarchy.release()
   }
 
   // MARK: Declarations
 
-  mutating func visit(associatedType decl: AssociatedTypeDecl) {
-    visit(whereClause: decl.whereClause?.node)
+  mutating func visit(associatedType decl: DeclIndex<AssociatedTypeDecl>) {
+    visit(whereClause: ast[decl].whereClause?.node)
   }
 
-  mutating func visit(binding decl: BindingDecl) {
-    visit(binding: decl.pattern.node)
-    decl.initializer?.node.accept(&self)
+  mutating func visit(binding decl: DeclIndex<BindingDecl>) {
+    visit(binding: ast[decl].pattern.node)
+    ast[decl].initializer?.node.accept(&self)
   }
 
-  mutating func visit(conformance decl: ConformanceDecl) {
-    hierarchy.parent[decl.scopeID] = innermost
-    innermost = decl.scopeID
-    defer { innermost = hierarchy.parent[decl.scopeID] }
+  mutating func visit(conformance decl: DeclIndex<ConformanceDecl>) {
+    hierarchy.parent[ast[decl].scopeID] = innermost
+    innermost = ast[decl].scopeID
+    defer { innermost = hierarchy.parent[ast[decl].scopeID] }
 
-    decl.subject.node.accept(&self)
-    visit(whereClause: decl.whereClause?.node)
-    for i in decl.members {
-      ast[i].accept(&self)
+    ast[decl].subject.node.accept(&self)
+    visit(whereClause: ast[decl].whereClause?.node)
+    for i in ast[decl].members {
+      i.accept(&self)
     }
   }
 
-  mutating func visit(extension decl: ExtensionDecl) {
-    hierarchy.parent[decl.scopeID] = innermost
-    innermost = decl.scopeID
-    defer { innermost = hierarchy.parent[decl.scopeID] }
+  mutating func visit(extension decl: DeclIndex<ExtensionDecl>) {
+    hierarchy.parent[ast[decl].scopeID] = innermost
+    innermost = ast[decl].scopeID
+    defer { innermost = hierarchy.parent[ast[decl].scopeID] }
 
-    decl.subject.node.accept(&self)
-    visit(whereClause: decl.whereClause?.node)
-    for i in decl.members {
-      ast[i].accept(&self)
+    ast[decl].subject.node.accept(&self)
+    visit(whereClause: ast[decl].whereClause?.node)
+    for i in ast[decl].members {
+      i.accept(&self)
     }
   }
 
-  mutating func visit(fun decl: FunDecl) {
-    hierarchy.parent[decl.scopeID] = innermost
-    innermost = decl.scopeID
-    defer { innermost = hierarchy.parent[decl.scopeID] }
+  mutating func visit(fun decl: DeclIndex<FunDecl>) {
+    hierarchy.parent[ast[decl].scopeID] = innermost
+    innermost = ast[decl].scopeID
+    defer { innermost = hierarchy.parent[ast[decl].scopeID] }
 
-    for i in decl.captures {
-      visit(binding: ast[i])
+    for i in ast[decl].captures {
+      visit(binding: i)
     }
 
-    for i in decl.parameters {
-      visit(param: ast[i])
+    for i in ast[decl].parameters {
+      visit(param: i)
     }
 
-    decl.output?.node.accept(&self)
+    ast[decl].output?.node.accept(&self)
 
-    switch decl.body?.node {
+    switch ast[decl].body?.node {
     case let .expr(expr):
       expr.accept(&self)
     case let .block(stmt):
       visit(brace: stmt)
     case let .bundle(impls):
       for i in impls {
-        visit(methodImpl: ast[i])
+        visit(methodImpl: i)
       }
     case nil:
       break
     }
   }
 
-  mutating func visit(genericSizeParam decl: GenericSizeParamDecl) {}
+  mutating func visit(genericSizeParam decl: DeclIndex<GenericSizeParamDecl>) {}
 
-  mutating func visit(genericTypeParam decl: GenericTypeParamDecl) {}
+  mutating func visit(genericTypeParam decl: DeclIndex<GenericTypeParamDecl>) {}
 
-  mutating func visit(methodImpl decl: MethodImplDecl) {
-    switch decl.body?.node {
+  mutating func visit(methodImpl decl: DeclIndex<MethodImplDecl>) {
+    switch ast[decl].body?.node {
     case let .expr(expr):
       expr.accept(&self)
     case let .block(stmt):
@@ -108,80 +108,80 @@ struct ScopeHierarchyBuilder:
     }
   }
 
-  mutating func visit(module decl: ModuleDecl) { unreachable() }
+  mutating func visit(module decl: DeclIndex<ModuleDecl>) { unreachable() }
 
-  mutating func visit(namespace decl: NamespaceDecl) {
-    hierarchy.parent[decl.scopeID] = innermost
-    innermost = decl.scopeID
-    defer { innermost = hierarchy.parent[decl.scopeID] }
+  mutating func visit(namespace decl: DeclIndex<NamespaceDecl>) {
+    hierarchy.parent[ast[decl].scopeID] = innermost
+    innermost = ast[decl].scopeID
+    defer { innermost = hierarchy.parent[ast[decl].scopeID] }
 
-    for i in decl.members {
-      ast[i].accept(&self)
+    for i in ast[decl].members {
+      i.accept(&self)
     }
   }
 
-  mutating func visit(param decl: ParamDecl) {
-    decl.annotation?.node.accept(&self)
-    decl.defaultValue?.node.accept(&self)
+  mutating func visit(param decl: DeclIndex<ParamDecl>) {
+    ast[decl].annotation?.node.accept(&self)
+    ast[decl].defaultValue?.node.accept(&self)
   }
 
-  mutating func visit(productType decl: ProductTypeDecl) {
-    hierarchy.parent[decl.scopeID] = innermost
-    innermost = decl.scopeID
-    defer { innermost = hierarchy.parent[decl.scopeID] }
+  mutating func visit(productType decl: DeclIndex<ProductTypeDecl>) {
+    hierarchy.parent[ast[decl].scopeID] = innermost
+    innermost = ast[decl].scopeID
+    defer { innermost = hierarchy.parent[ast[decl].scopeID] }
 
-    visit(genericClause: decl.genericClause?.node)
+    visit(genericClause: ast[decl].genericClause?.node)
 
-    for i in decl.members {
-      ast[i].accept(&self)
+    for i in ast[decl].members {
+      i.accept(&self)
     }
   }
 
-  mutating func visit(subscript decl: SubscriptDecl) {
-    hierarchy.parent[decl.scopeID] = innermost
-    innermost = decl.scopeID
-    defer { innermost = hierarchy.parent[decl.scopeID] }
+  mutating func visit(subscript decl: DeclIndex<SubscriptDecl>) {
+    hierarchy.parent[ast[decl].scopeID] = innermost
+    innermost = ast[decl].scopeID
+    defer { innermost = hierarchy.parent[ast[decl].scopeID] }
 
-    for i in decl.captures {
-      visit(binding: ast[i])
+    for i in ast[decl].captures {
+      visit(binding: i)
     }
 
-    for i in decl.parameters {
-      visit(param: ast[i])
+    for i in ast[decl].parameters {
+      visit(param: i)
     }
 
-    decl.output.node.accept(&self)
+    ast[decl].output.node.accept(&self)
 
-    for i in decl.impls {
-      visit(subscriptImpl: ast[i])
-    }
-  }
-
-  mutating func visit(subscriptImpl decl: SubscriptImplDecl) {
-    decl.body.map({ stmt in visit(brace: stmt.node) })
-  }
-
-  mutating func visit(trait decl: TraitDecl) {
-    hierarchy.parent[decl.scopeID] = innermost
-    innermost = decl.scopeID
-    defer { innermost = hierarchy.parent[decl.scopeID] }
-
-    for i in decl.members {
-      ast[i].accept(&self)
+    for i in ast[decl].impls {
+      visit(subscriptImpl: i)
     }
   }
 
-  mutating func visit(typeAlias decl: TypeAliasDecl) {
-    hierarchy.parent[decl.scopeID] = innermost
-    innermost = decl.scopeID
-    defer { innermost = hierarchy.parent[decl.scopeID] }
+  mutating func visit(subscriptImpl decl: DeclIndex<SubscriptImplDecl>) {
+    ast[decl].body.map({ stmt in visit(brace: stmt.node) })
+  }
 
-    visit(genericClause: decl.genericClause?.node)
+  mutating func visit(trait decl: DeclIndex<TraitDecl>) {
+    hierarchy.parent[ast[decl].scopeID] = innermost
+    innermost = ast[decl].scopeID
+    defer { innermost = hierarchy.parent[ast[decl].scopeID] }
 
-    switch decl.body.node {
+    for i in ast[decl].members {
+      i.accept(&self)
+    }
+  }
+
+  mutating func visit(typeAlias decl: DeclIndex<TypeAliasDecl>) {
+    hierarchy.parent[ast[decl].scopeID] = innermost
+    innermost = ast[decl].scopeID
+    defer { innermost = hierarchy.parent[ast[decl].scopeID] }
+
+    visit(genericClause: ast[decl].genericClause?.node)
+
+    switch ast[decl].body.node {
     case let .union(members):
       for i in members {
-        visit(productType: ast[i])
+        visit(productType: i)
       }
 
     case let .typeExpr(type):
@@ -189,12 +189,12 @@ struct ScopeHierarchyBuilder:
     }
   }
 
-  mutating func visit(`var` decl: VarDecl) {}
+  mutating func visit(`var` decl: DeclIndex<VarDecl>) {}
 
   // MARK: Expressions
 
   mutating func visit(async expr: AsyncExpr) {
-    visit(fun: ast[expr.decl])
+    visit(fun: expr.decl)
   }
 
   mutating func visit(await expr: AwaitExpr) {
@@ -221,7 +221,7 @@ struct ScopeHierarchyBuilder:
       case let .expr(expr):
         expr.accept(&self)
       case let .decl(i):
-        visit(binding: ast[i])
+        visit(binding: i)
       }
     }
 
@@ -254,7 +254,7 @@ struct ScopeHierarchyBuilder:
   mutating func visit(intLiteral expr: IntLiteralExpr) {}
 
   mutating func visit(lambda expr: LambdaExpr) {
-    visit(fun: ast[expr.decl])
+    visit(fun: expr.decl)
   }
 
   mutating func visit(mapLiteral expr: MapLiteralExpr) {
@@ -363,7 +363,7 @@ struct ScopeHierarchyBuilder:
   mutating func visit(continue stmt: ContinueStmt) {}
 
   mutating func visit(decl stmt: DeclStmt) {
-    ast[stmt.decl].accept(&self)
+    stmt.decl.accept(&self)
   }
 
   mutating func visit(doWhile stmt: DoWhileStmt) {
@@ -383,7 +383,7 @@ struct ScopeHierarchyBuilder:
     innermost = stmt.scopeID
     defer { innermost = hierarchy.parent[stmt.scopeID] }
 
-    visit(binding: ast[stmt.binding])
+    visit(binding: stmt.binding)
     stmt.filter?.node.accept(&self)
     visit(brace: stmt.body.node)
   }
@@ -402,7 +402,7 @@ struct ScopeHierarchyBuilder:
       case let .expr(expr):
         expr.accept(&self)
       case let .decl(i):
-        visit(binding: ast[i])
+        visit(binding: i)
       }
     }
 

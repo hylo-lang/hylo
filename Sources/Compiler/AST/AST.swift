@@ -13,6 +13,9 @@ public struct AST {
     modules = []
   }
 
+  /// The index of the module containing Val's standard library, if present in the AST.
+  public var std: DeclIndex<ModuleDecl>?
+
   /// Appends a declaration to the AST.
   public mutating func append<T: Decl>(decl: T) -> DeclIndex<T> {
     let i = DeclIndex<T>(index: decls.count)
@@ -35,30 +38,5 @@ public struct AST {
   public subscript(position: AnyDeclIndex) -> Decl {
     _read { yield decls[position.index] }
   }
-
-}
-
-/// The index of a declaration in an AST.
-public struct DeclIndex<T: Decl>: Hashable {
-
-  fileprivate var index: Int
-
-  /// Returns a type-erased copy of this index.
-  public func erased() -> AnyDeclIndex { AnyDeclIndex(self) }
-
-}
-
-/// The type-erased index of a declaration in an AST.
-public struct AnyDeclIndex: Hashable {
-
-  fileprivate var index: Int
-
-  /// Creates a type-erased index from a typed index.
-  public init<T>(_ other: DeclIndex<T>) {
-    index = other.index
-  }
-
-  /// Returns a typed copy of this this index.
-  public func assumingBound<T: Decl>(to: T.Type) -> DeclIndex<T> { DeclIndex(index: index) }
 
 }

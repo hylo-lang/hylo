@@ -1,8 +1,8 @@
 /// An associated type declaration.
 public struct AssociatedTypeDecl: Decl {
 
-  /// The static modifier of the declaration, if any.
-  public var staticModifier: SourceRepresentable<StaticModifier>?
+  /// The identifier of the type.
+  public var identifier: SourceRepresentable<Identifier>
 
   /// The conformances listed in the declaration.
   public var conformances: [SourceRepresentable<NameTypeExpr>]
@@ -14,9 +14,5 @@ public struct AssociatedTypeDecl: Decl {
   public var defaultValue: SourceRepresentable<TypeExpr>?
 
   public var range: SourceRange?
-
-  public func accept<V: DeclVisitor>(_ visitor: inout V) -> V.Result {
-    visitor.visit(associatedType: self)
-  }
 
 }

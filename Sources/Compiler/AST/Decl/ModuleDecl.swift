@@ -25,8 +25,4 @@ public struct ModuleDecl: Decl, ScopeOutliner {
     return nextScopeID
   }
 
-  public func accept<V: DeclVisitor>(_ visitor: inout V) -> V.Result {
-    visitor.visit(module: self)
-  }
-
 }

@@ -6,8 +6,4 @@ public struct VarDecl: Decl {
 
   public var range: SourceRange?
 
-  public func accept<V: DeclVisitor>(_ visitor: inout V) -> V.Result {
-    visitor.visit(var: self)
-  }
-
 }

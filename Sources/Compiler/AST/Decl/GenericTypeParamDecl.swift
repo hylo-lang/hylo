@@ -9,8 +9,4 @@ public struct GenericTypeParamDecl: Decl {
 
   public var range: SourceRange?
 
-  public func accept<V: DeclVisitor>(_ visitor: inout V) -> V.Result {
-    visitor.visit(genericTypeParam: self)
-  }
-
 }

@@ -6,8 +6,4 @@ public struct GenericSizeParamDecl: Decl {
 
   public var range: SourceRange?
 
-  public func accept<V: DeclVisitor>(_ visitor: inout V) -> V.Result {
-    visitor.visit(genericSizeParam: self)
-  }
-
 }
