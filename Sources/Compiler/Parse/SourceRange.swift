@@ -20,4 +20,11 @@ public struct SourceRange {
     self.upperBound = upperBound
   }
 
+  /// Returns the first source location in this range.
+  public func first() -> SourceLocation? {
+    lowerBound < upperBound
+      ? SourceLocation(source: source, index: lowerBound)
+      : nil
+  }
+
 }

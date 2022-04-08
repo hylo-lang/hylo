@@ -1,31 +1,17 @@
 /// A stored projection expression.
-public struct StoredProjectionExpr: Expr {
+public struct StoredProjectionExpr: Hashable {
 
-  public struct Introducer: SourceRepresentable {
+  public enum Introducer: Hashable {
 
-    public enum Kind {
+    case `let`
 
-      case `let`
-
-      case `inout`
-
-    }
-
-    public var range: SourceRange?
-
-    public var kind: Kind
+    case `inout`
 
   }
 
-  public var range: SourceRange?
-
-  public var introducer: Introducer
+  public var introducer: SourceRepresentable<Introducer>
 
   /// The expression of the captured projection.
-  public var operand: Expr
-
-  public func accept<V: ExprVisitor>(_ visitor: inout V) -> V.Result {
-    visitor.visit(storedProjection: self)
-  }
+  public var operand: SourceRepresentable<Expr>
 
 }

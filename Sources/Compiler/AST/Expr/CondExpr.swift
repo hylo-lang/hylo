@@ -1,7 +1,7 @@
 /// A conditional expression.
-public struct CondExpr: Expr, ScopeOutliner {
+public struct CondExpr: Hashable, ScopeOutliner {
 
-  public enum Body {
+  public enum Body: Hashable {
 
     /// An expression body.
     case expr(Expr)
@@ -13,19 +13,13 @@ public struct CondExpr: Expr, ScopeOutliner {
 
   var scopeID: ScopeID
 
-  public var range: SourceRange?
-
   /// The condition of the expression.
-  public var condition: [ConditionItem]
+  public var condition: [SourceRepresentable<ConditionItem>]
 
   /// The body of the expression that's executed if the condition holds.
-  public var success: Body
+  public var success: SourceRepresentable<Body>
 
   /// The body of the expression that's executed if the condition does not hold.
-  public var failure: Body?
-
-  public func accept<V: ExprVisitor>(_ visitor: inout V) -> V.Result {
-    visitor.visit(cond: self)
-  }
+  public var failure: SourceRepresentable<Body>?
 
 }

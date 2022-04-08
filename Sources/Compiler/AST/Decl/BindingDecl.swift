@@ -1,19 +1,19 @@
 /// A binding declaration.
-public struct BindingDecl: Decl, SourceRepresentable {
-
-  public var range: SourceRange?
+public struct BindingDecl: Decl {
 
   /// The access modifier of the declaration, if any.
-  public var accessModifier: AccessModifier?
+  public var accessModifier: SourceRepresentable<AccessModifier>?
 
   /// The member modifiers of the declaration.
-  public var memberModifiers: [MemberModifier]
+  public var memberModifiers: [SourceRepresentable<MemberModifier>]
 
   /// The binding pattern of the declaration.
-  public var pattern: BindingPattern
+  public var pattern: SourceRepresentable<BindingPattern>
 
   /// The initializer of the declaration, if any.
-  public var initializer: Expr?
+  public var initializer: SourceRepresentable<Expr>?
+
+  public var range: SourceRange?
 
   public func accept<V: DeclVisitor>(_ visitor: inout V) -> V.Result {
     visitor.visit(binding: self)

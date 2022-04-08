@@ -11,3 +11,5 @@ public enum OperatorNotation {
   case suffix
 
 }
+
+extension OperatorNotation: Hashable {}

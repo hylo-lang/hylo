@@ -32,12 +32,12 @@ struct ScopeHierarchyBuilder:
   // MARK: Declarations
 
   mutating func visit(associatedType decl: AssociatedTypeDecl) {
-    visit(whereClause: decl.whereClause)
+    visit(whereClause: decl.whereClause?.node)
   }
 
   mutating func visit(binding decl: BindingDecl) {
-    visit(binding: decl.pattern)
-    decl.initializer?.accept(&self)
+    visit(binding: decl.pattern.node)
+    decl.initializer?.node.accept(&self)
   }
 
   mutating func visit(conformance decl: ConformanceDecl) {
@@ -45,8 +45,8 @@ struct ScopeHierarchyBuilder:
     innermost = decl.scopeID
     defer { innermost = hierarchy.parent[decl.scopeID] }
 
-    decl.subject.accept(&self)
-    visit(whereClause: decl.whereClause)
+    decl.subject.node.accept(&self)
+    visit(whereClause: decl.whereClause?.node)
     for i in decl.members {
       ast[i].accept(&self)
     }
@@ -57,8 +57,8 @@ struct ScopeHierarchyBuilder:
     innermost = decl.scopeID
     defer { innermost = hierarchy.parent[decl.scopeID] }
 
-    decl.subject.accept(&self)
-    visit(whereClause: decl.whereClause)
+    decl.subject.node.accept(&self)
+    visit(whereClause: decl.whereClause?.node)
     for i in decl.members {
       ast[i].accept(&self)
     }
@@ -77,9 +77,9 @@ struct ScopeHierarchyBuilder:
       visit(param: ast[i])
     }
 
-    decl.output?.accept(&self)
+    decl.output?.node.accept(&self)
 
-    switch decl.body {
+    switch decl.body?.node {
     case let .expr(expr):
       expr.accept(&self)
     case let .block(stmt):
@@ -98,7 +98,7 @@ struct ScopeHierarchyBuilder:
   mutating func visit(genericTypeParam decl: GenericTypeParamDecl) {}
 
   mutating func visit(methodImpl decl: MethodImplDecl) {
-    switch decl.body {
+    switch decl.body?.node {
     case let .expr(expr):
       expr.accept(&self)
     case let .block(stmt):
@@ -121,8 +121,8 @@ struct ScopeHierarchyBuilder:
   }
 
   mutating func visit(param decl: ParamDecl) {
-    decl.annotation?.accept(&self)
-    decl.defaultValue?.accept(&self)
+    decl.annotation?.node.accept(&self)
+    decl.defaultValue?.node.accept(&self)
   }
 
   mutating func visit(productType decl: ProductTypeDecl) {
@@ -130,7 +130,7 @@ struct ScopeHierarchyBuilder:
     innermost = decl.scopeID
     defer { innermost = hierarchy.parent[decl.scopeID] }
 
-    visit(genericClause: decl.genericClause)
+    visit(genericClause: decl.genericClause?.node)
 
     for i in decl.members {
       ast[i].accept(&self)
@@ -150,7 +150,7 @@ struct ScopeHierarchyBuilder:
       visit(param: ast[i])
     }
 
-    decl.output.accept(&self)
+    decl.output.node.accept(&self)
 
     for i in decl.impls {
       visit(subscriptImpl: ast[i])
@@ -158,7 +158,7 @@ struct ScopeHierarchyBuilder:
   }
 
   mutating func visit(subscriptImpl decl: SubscriptImplDecl) {
-    decl.body.map({ stmt in visit(brace: stmt) })
+    decl.body.map({ stmt in visit(brace: stmt.node) })
   }
 
   mutating func visit(trait decl: TraitDecl) {
@@ -176,9 +176,9 @@ struct ScopeHierarchyBuilder:
     innermost = decl.scopeID
     defer { innermost = hierarchy.parent[decl.scopeID] }
 
-    visit(genericClause: decl.genericClause)
+    visit(genericClause: decl.genericClause?.node)
 
-    switch decl.body {
+    switch decl.body.node {
     case let .union(members):
       for i in members {
         visit(productType: ast[i])
@@ -198,14 +198,14 @@ struct ScopeHierarchyBuilder:
   }
 
   mutating func visit(await expr: AwaitExpr) {
-    expr.operand.accept(&self)
+    expr.operand.node.accept(&self)
   }
 
   mutating func visit(boolLiteral expr: BoolLiteralExpr) {}
 
   mutating func visit(bufferLiteral expr: BufferLiteralExpr) {
     for e in expr.elements {
-      e.accept(&self)
+      e.node.accept(&self)
     }
   }
 
@@ -217,7 +217,7 @@ struct ScopeHierarchyBuilder:
     defer { innermost = hierarchy.parent[expr.scopeID] }
 
     for item in expr.condition {
-      switch item {
+      switch item.node {
       case let .expr(expr):
         expr.accept(&self)
       case let .decl(i):
@@ -225,14 +225,14 @@ struct ScopeHierarchyBuilder:
       }
     }
 
-    switch expr.success {
+    switch expr.success.node {
     case let .expr(expr):
       expr.accept(&self)
     case let .block(stmt):
       visit(brace: stmt)
     }
 
-    switch expr.failure {
+    switch expr.failure?.node {
     case let .expr(expr):
       expr.accept(&self)
     case let .block(stmt):
@@ -245,9 +245,9 @@ struct ScopeHierarchyBuilder:
   mutating func visit(floatLiteral expr: FloatLiteralExpr) {}
 
   mutating func visit(funCall expr: FunCallExpr) {
-    expr.callee.accept(&self)
+    expr.callee.node.accept(&self)
     for a in expr.arguments {
-      a.value.accept(&self)
+      a.node.value.node.accept(&self)
     }
   }
 
@@ -258,23 +258,23 @@ struct ScopeHierarchyBuilder:
   }
 
   mutating func visit(mapLiteral expr: MapLiteralExpr) {
-    for (k, v) in expr.elements {
-      k.accept(&self)
-      v.accept(&self)
+    for e in expr.elements {
+      e.node.key.node.accept(&self)
+      e.node.value.node.accept(&self)
     }
   }
 
   mutating func visit(match expr: MatchExpr) {
-    expr.subject.accept(&self)
+    expr.subject.node.accept(&self)
 
     for c in expr.cases {
-      hierarchy.parent[c.scopeID] = innermost
-      innermost = c.scopeID
-      defer { innermost = hierarchy.parent[c.scopeID] }
+      hierarchy.parent[c.node.scopeID] = innermost
+      innermost = c.node.scopeID
+      defer { innermost = hierarchy.parent[c.node.scopeID] }
 
-      c.pattern.accept(&self)
-      c.condition?.accept(&self)
-      switch c.body {
+      c.node.pattern.node.accept(&self)
+      c.node.condition?.node.accept(&self)
+      switch c.node.body.node {
       case let .expr(expr):
         expr.accept(&self)
       case let .block(stmt):
@@ -285,11 +285,11 @@ struct ScopeHierarchyBuilder:
 
   mutating func visit(name expr: NameExpr) {
     if case let .explicit(domain) = expr.domain {
-      domain.accept(&self)
+      domain.node.accept(&self)
     }
 
     for a in expr.arguments {
-      switch a {
+      switch a.node {
       case let .type(a):
         a.accept(&self)
       case let .size(a):
@@ -301,46 +301,46 @@ struct ScopeHierarchyBuilder:
   mutating func visit(nil expr: NilExpr) {}
 
   mutating func visit(storedProjection expr: StoredProjectionExpr) {
-    expr.operand.accept(&self)
+    expr.operand.node.accept(&self)
   }
 
   mutating func visit(stringLiteral expr: StringLiteralExpr) {}
 
   mutating func visit(subscriptCall expr: SubscriptCallExpr) {
-    expr.callee.accept(&self)
+    expr.callee.node.accept(&self)
     for a in expr.arguments {
-      a.value.accept(&self)
+      a.node.value.node.accept(&self)
     }
   }
 
-  mutating func visit(tupleExpr expr: TupleExpr) {
+  mutating func visit(tuple expr: TupleExpr) {
     for e in expr.elements {
-      e.value.accept(&self)
+      e.node.value.node.accept(&self)
     }
   }
 
-  mutating func visit(unfoldedExpr expr: UnfoldedExpr) {
+  mutating func visit(unfolded expr: UnfoldedExpr) {
     for e in expr.subexpressions {
-      e.accept(&self)
+      e.node.accept(&self)
     }
   }
 
   // MARK: Patterns
 
   mutating func visit(binding pattern: BindingPattern) {
-    pattern.subpattern.accept(&self)
-    pattern.annotation?.accept(&self)
+    pattern.subpattern.node.accept(&self)
+    pattern.annotation?.node.accept(&self)
   }
 
   mutating func visit(expr pattern: ExprPattern) {
-    pattern.expr.accept(&self)
+    pattern.expr.node.accept(&self)
   }
 
   mutating func visit(name pattern: NamePattern) {}
 
   mutating func visit(tuple pattern: TuplePattern) {
     for e in pattern.elements {
-      e.pattern.accept(&self)
+      e.node.pattern.node.accept(&self)
     }
   }
 
@@ -354,7 +354,7 @@ struct ScopeHierarchyBuilder:
     defer { innermost = hierarchy.parent[stmt.scopeID] }
 
     for s in stmt.stmts {
-      s.accept(&self)
+      s.node.accept(&self)
     }
   }
 
@@ -367,11 +367,11 @@ struct ScopeHierarchyBuilder:
   }
 
   mutating func visit(doWhile stmt: DoWhileStmt) {
-    visit(brace: stmt.body)
+    visit(brace: stmt.body.node)
 
     // Visit the condition of the loop in the same lexical scope as the body.
-    innermost = stmt.body.scopeID
-    stmt.condition.accept(&self)
+    innermost = stmt.body.node.scopeID
+    stmt.condition.node.accept(&self)
   }
 
   mutating func visit(expr stmt: ExprStmt) {
@@ -384,12 +384,12 @@ struct ScopeHierarchyBuilder:
     defer { innermost = hierarchy.parent[stmt.scopeID] }
 
     visit(binding: ast[stmt.binding])
-    stmt.filter?.accept(&self)
-    visit(brace: stmt.body)
+    stmt.filter?.node.accept(&self)
+    visit(brace: stmt.body.node)
   }
 
   mutating func visit(return stmt: ReturnStmt) {
-    stmt.value?.accept(&self)
+    stmt.value?.node.accept(&self)
   }
 
   mutating func visit(while stmt: WhileStmt) {
@@ -398,7 +398,7 @@ struct ScopeHierarchyBuilder:
     defer { innermost = hierarchy.parent[stmt.scopeID] }
 
     for item in stmt.condition {
-      switch item {
+      switch item.node {
       case let .expr(expr):
         expr.accept(&self)
       case let .decl(i):
@@ -406,44 +406,44 @@ struct ScopeHierarchyBuilder:
       }
     }
 
-    visit(brace: stmt.body)
+    visit(brace: stmt.body.node)
   }
 
   mutating func visit(yield stmt: YieldStmt) {
-    stmt.value.accept(&self)
+    stmt.value.node.accept(&self)
   }
 
   // MARK: Type expressions
 
   mutating func visit(async type: AsyncTypeExpr) {
-    type.operand.accept(&self)
+    type.operand.node.accept(&self)
   }
 
   mutating func visit(conformanceLens type: ConformanceLensTypeExpr) {
-    type.base.accept(&self)
+    type.base.node.accept(&self)
   }
 
   mutating func visit(existential type: ExistentialTypeExpr) {
-    visit(whereClause: type.whereClause)
+    visit(whereClause: type.whereClause?.node)
   }
 
   mutating func visit(indirect type: IndirectTypeExpr) {
-    type.operand.accept(&self)
+    type.operand.node.accept(&self)
   }
 
   mutating func visit(lambda type: LambdaTypeExpr) {
-    type.environment?.accept(&self)
+    type.environment?.node.accept(&self)
     for p in type.parameters {
-      visit(param: p)
+      visit(param: p.node)
     }
-    type.output.accept(&self)
+    type.output.node.accept(&self)
   }
 
   mutating func visit(name type: NameTypeExpr) {
-    type.domain?.accept(&self)
+    type.domain?.node.accept(&self)
 
     for a in type.arguments {
-      switch a {
+      switch a.node {
       case let .type(a):
         a.accept(&self)
       case let .size(a):
@@ -453,29 +453,29 @@ struct ScopeHierarchyBuilder:
   }
 
   mutating func visit(param type: ParamTypeExpr) {
-    type.bareType.accept(&self)
+    type.bareType.node.accept(&self)
   }
 
   mutating func visit(storedProjection type: StoredProjectionTypeExpr) {
-    type.operand.accept(&self)
+    type.operand.node.accept(&self)
   }
 
   mutating func visit(tuple type: TupleTypeExpr) {
     for e in type.elements {
-      e.type.accept(&self)
+      e.node.type.node.accept(&self)
     }
   }
 
   mutating func visit(union type: UnionTypeExpr) {
     for e in type.elements {
-      e.accept(&self)
+      e.node.accept(&self)
     }
   }
 
   // MARK: Other nodes
 
   mutating func visit(genericClause clause: GenericClause?) {
-    visit(whereClause: clause?.whereClause)
+    visit(whereClause: clause?.whereClause?.node)
   }
 
   mutating func visit(whereClause clause: WhereClause?) {
@@ -484,14 +484,14 @@ struct ScopeHierarchyBuilder:
     for constraint in clause.constraints {
       switch constraint {
       case let .equality(lhs, rhs):
-        lhs.accept(&self)
-        rhs.accept(&self)
+        lhs.node.accept(&self)
+        rhs.node.accept(&self)
 
       case let .conformance(lhs, _):
-        lhs.accept(&self)
+        visit(name: lhs.node)
 
       case let .size(expr):
-        expr.accept(&self)
+        expr.node.accept(&self)
       }
     }
   }

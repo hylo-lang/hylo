@@ -1,26 +1,12 @@
 /// A while loop.
-public struct WhileStmt: Stmt, ScopeOutliner {
+public struct WhileStmt: ScopeOutliner, Hashable {
 
   var scopeID: ScopeID
 
-  public var range: SourceRange?
-
   /// The condition of the loop.
-  public var condition: [ConditionItem]
+  public var condition: [SourceRepresentable<ConditionItem>]
 
   /// The body of the loop.
-  public var body: BraceStmt
-
-  public func accept<V: StmtVisitor>(_ visitor: inout V) -> V.Result {
-    visitor.visit(while: self)
-  }
-
-}
-
-extension WhileStmt: CustomStringConvertible {
-
-  public var description: String {
-    "while \(String.joining(condition, separator: ", ")) \(body)"
-  }
+  public var body: SourceRepresentable<BraceStmt>
 
 }

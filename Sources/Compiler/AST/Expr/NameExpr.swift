@@ -1,23 +1,21 @@
 /// A name denoting an object.
-public struct NameExpr: Expr {
+public struct NameExpr: Hashable {
 
-  public enum Domain {
+  public enum Domain: Hashable {
 
     case none
 
     case implicit
 
-    case explicit(Expr)
+    case explicit(SourceRepresentable<Expr>)
 
   }
-
-  public var range: SourceRange?
 
   /// The domain of the name, if it is qualified.
   public var domain: Domain
 
   /// The stem identifier of the referred entitiy.
-  public var stem: Identifier
+  public var stem: SourceRepresentable<Identifier>
 
   /// The argument labels of the referred entitiy.
   public var labels: [String]
@@ -26,10 +24,6 @@ public struct NameExpr: Expr {
   public var notation: OperatorNotation?
 
   /// The type and size arguments of the referred entity.
-  public var arguments: [GenericArgument]
-
-  public func accept<V: ExprVisitor>(_ visitor: inout V) -> V.Result {
-    visitor.visit(name: self)
-  }
+  public var arguments: [SourceRepresentable<GenericArgument>]
 
 }

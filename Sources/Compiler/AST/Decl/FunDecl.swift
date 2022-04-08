@@ -1,27 +1,19 @@
 /// A function declaration.
-public struct FunDecl: Decl, ScopeOutliner, SourceRepresentable {
+public struct FunDecl: GenericDecl, ScopeOutliner {
 
-  public struct Introducer: SourceRepresentable {
+  public enum Introducer {
 
-    public enum Kind {
+    /// The function and method introducer, `fun`.
+    case fun
 
-      /// The function and method introducer, `fun`.
-      case fun
+    /// The constructor introducer, `init`.
+    case `init`
 
-      /// The constructor introducer, `init`.
-      case `init`
+    /// The default constructor introducer, `default init`
+    case defaultInit
 
-      /// The default constructor introducer, `default init`
-      case defaultInit
-
-      /// The destructor introducer, `deinit`.
-      case `deinit`
-
-    }
-
-    public var range: SourceRange?
-
-    public var kind: Kind
+    /// The destructor introducer, `deinit`.
+    case `deinit`
 
   }
 
@@ -40,25 +32,23 @@ public struct FunDecl: Decl, ScopeOutliner, SourceRepresentable {
 
   var scopeID: ScopeID
 
-  public var range: SourceRange?
-
   /// The introducer of the declaration.
-  public var introducer: Introducer
+  public var introducer: SourceRepresentable<Introducer>
 
   /// The access modifier of the declaration, if any.
-  public var accessModifier: AccessModifier?
+  public var accessModifier: SourceRepresentable<AccessModifier>?
 
   /// The member modifiers of the declaration.
-  public var memberModifiers: [MemberModifier]
+  public var memberModifiers: [SourceRepresentable<MemberModifier>]
 
   /// The operator notation of the function.
-  public var notation: OperatorNotation
+  public var notation: SourceRepresentable<OperatorNotation>
 
   /// The identifier of the function, if any.
-  public var identifier: Identifier?
+  public var identifier: SourceRepresentable<Identifier>?
 
   /// The generic clause of the function, if any.
-  public var genericClause: GenericClause?
+  public var genericClause: SourceRepresentable<GenericClause>?
 
   /// The captures of the function.
   public var captures: [DeclIndex<BindingDecl>]
@@ -67,10 +57,12 @@ public struct FunDecl: Decl, ScopeOutliner, SourceRepresentable {
   public var parameters: [DeclIndex<ParamDecl>]
 
   /// The return type annotation of the function, if any.
-  public var output: TypeExpr?
+  public var output: SourceRepresentable<TypeExpr>?
 
   /// The body of the declaration, if any.
-  public var body: Body?
+  public var body: SourceRepresentable<Body>?
+
+  public var range: SourceRange?
 
   public func accept<V: DeclVisitor>(_ visitor: inout V) -> V.Result {
     visitor.visit(fun: self)

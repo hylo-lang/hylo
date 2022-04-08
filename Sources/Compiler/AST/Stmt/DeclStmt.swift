@@ -1,13 +1,7 @@
 /// A declaration statement.
-public struct DeclStmt: Stmt {
-
-  public var range: SourceRange?
+public struct DeclStmt: Hashable {
 
   /// The declaration.
   public var decl: AnyDeclIndex
-
-  public func accept<V: StmtVisitor>(_ visitor: inout V) -> V.Result {
-    visitor.visit(decl: self)
-  }
 
 }

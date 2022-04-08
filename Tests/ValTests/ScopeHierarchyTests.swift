@@ -9,11 +9,11 @@ final class ScopeHierarchyTests: XCTestCase {
     let main = ast.append(decl: ModuleDecl(name: "main", members: []))
     let trait = ast.append(decl: TraitDecl(
       scopeID: ast[main].makeScopeID(),
-      range: nil,
       access: nil,
-      identifier: Identifier(range: nil, value: "T"),
+      identifier: SourceRepresentable(node: "T"),
       refinements: [],
-      members: []))
+      members: [],
+      range: nil))
     ast[main].members.append(trait.erased())
 
     // Build the scope hierarchy of the AST.

@@ -1,13 +1,16 @@
 /// A map literal expression.
-public struct MapLiteralExpr: Expr {
+public struct MapLiteralExpr: Hashable {
 
-  public var range: SourceRange?
+  /// A key-value pair in a map literal.
+  public struct Element: Hashable {
+
+    var key: SourceRepresentable<Expr>
+
+    var value: SourceRepresentable<Expr>
+
+  }
 
   /// The key-value pairs of the literal.
-  public var elements: [(key: Expr, value: Expr)]
-
-  public func accept<V: ExprVisitor>(_ visitor: inout V) -> V.Result {
-    visitor.visit(mapLiteral: self)
-  }
+  public var elements: [SourceRepresentable<Element>]
 
 }

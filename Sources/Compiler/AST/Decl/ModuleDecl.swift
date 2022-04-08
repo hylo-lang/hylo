@@ -12,6 +12,8 @@ public struct ModuleDecl: Decl, ScopeOutliner {
   /// The member declarations in the lexical scope of the module.
   public var members: [AnyDeclIndex]
 
+  public let range: SourceRange? = nil
+
   public init(name: String, members: [AnyDeclIndex]) {
     self.name = name
     self.members = members

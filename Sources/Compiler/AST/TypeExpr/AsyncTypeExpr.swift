@@ -1,13 +1,7 @@
 /// An asynchronous type expression.
-public struct AsyncTypeExpr: TypeExpr {
-
-  public var range: SourceRange?
+public struct AsyncTypeExpr: Hashable {
 
   /// The operand.
-  public var operand: TypeExpr
-
-  public func accept<V: TypeExprVisitor>(_ visitor: inout V) -> V.Result {
-    visitor.visit(async: self)
-  }
+  public var operand: SourceRepresentable<TypeExpr>
 
 }

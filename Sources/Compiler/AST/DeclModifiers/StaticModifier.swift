@@ -1,9 +1,5 @@
 /// A static modifier.
-public struct StaticModifier: MemberModifier {
-
-  public var range: SourceRange?
-
-}
+public struct StaticModifier: MemberModifier {}
 
 extension StaticModifier: CustomStringConvertible {
 

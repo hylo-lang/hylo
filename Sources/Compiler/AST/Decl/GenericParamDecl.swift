@@ -1,5 +1,5 @@
 /// The index of a generic parameter declaration.
-public enum GenericParamDeclIndex {
+public enum GenericParamDeclIndex: Hashable {
 
   case type(DeclIndex<GenericTypeParamDecl>)
 

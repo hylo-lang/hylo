@@ -1,21 +1,13 @@
 /// The declaration of a method implementation.
-public struct MethodImplDecl: Decl, SourceRepresentable {
+public struct MethodImplDecl: Decl {
 
-  public struct Introducer: SourceRepresentable {
+  public enum Introducer {
 
-    public enum Kind {
+    case `let`
 
-      case `let`
+    case sink
 
-      case sink
-
-      case `inout`
-
-    }
-
-    public var range: SourceRange?
-
-    public var kind: Kind
+    case `inout`
 
   }
 
@@ -29,13 +21,13 @@ public struct MethodImplDecl: Decl, SourceRepresentable {
 
   }
 
-  public var range: SourceRange?
-
   /// The introducer of the method.
-  public var introducer: Introducer
+  public var introducer: SourceRepresentable<Introducer>
 
   /// The body of the method, if any.
-  public var body: Body?
+  public var body: SourceRepresentable<Body>?
+
+  public var range: SourceRange?
 
   public func accept<V: DeclVisitor>(_ visitor: inout V) -> V.Result {
     visitor.visit(methodImpl: self)

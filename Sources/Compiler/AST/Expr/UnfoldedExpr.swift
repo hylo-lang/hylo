@@ -2,14 +2,8 @@
 ///
 /// The operands all have even indices. The sub-expressions with odd indices are all (potentially
 /// unresolved) references to binary operators.
-public struct UnfoldedExpr: Expr {
+public struct UnfoldedExpr: Hashable {
 
-  public var range: SourceRange?
-
-  public var subexpressions: [Expr]
-
-  public func accept<V: ExprVisitor>(_ visitor: inout V) -> V.Result {
-    visitor.visit(unfoldedExpr: self)
-  }
+  public var subexpressions: [SourceRepresentable<Expr>]
 
 }

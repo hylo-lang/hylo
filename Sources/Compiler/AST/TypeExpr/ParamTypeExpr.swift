@@ -1,19 +1,13 @@
 /// A parameter in a lambda type expression.
-public struct ParamTypeExpr: TypeExpr {
-
-  public var range: SourceRange?
+public struct ParamTypeExpr: Hashable {
 
   /// The label of the parameter.
-  public var label: Identifier?
+  public var label: SourceRepresentable<Identifier>?
 
   /// The passing convention of the parameter.
-  public var convention: ParamConvention
+  public var convention: SourceRepresentable<ParamConvention>
 
   /// The expression of the parameter's bare type.
-  public var bareType: TypeExpr
-
-  public func accept<V: TypeExprVisitor>(_ visitor: inout V) -> V.Result {
-    visitor.visit(param: self)
-  }
+  public var bareType: SourceRepresentable<TypeExpr>
 
 }

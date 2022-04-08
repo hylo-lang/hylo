@@ -1,19 +1,13 @@
 /// A lambda type expression.
-public struct LambdaTypeExpr: TypeExpr {
-
-  public var range: SourceRange?
+public struct LambdaTypeExpr: Hashable {
 
   /// The environment of the lambda, or `nil` if it is thin.
-  public var environment: TypeExpr?
+  public var environment: SourceRepresentable<TypeExpr>?
 
   /// The parameters of the lambda.
-  public var parameters: [ParamTypeExpr]
+  public var parameters: [SourceRepresentable<ParamTypeExpr>]
 
   /// The output type of the lambda.
-  public var output: TypeExpr
-
-  public func accept<V: TypeExprVisitor>(_ visitor: inout V) -> V.Result {
-    visitor.visit(lambda: self)
-  }
+  public var output: SourceRepresentable<TypeExpr>
 
 }

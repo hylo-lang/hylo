@@ -38,8 +38,8 @@ public protocol ExprVisitor {
 
   mutating func visit(subscriptCall: SubscriptCallExpr) -> Result
 
-  mutating func visit(tupleExpr: TupleExpr) -> Result
+  mutating func visit(tuple: TupleExpr) -> Result
 
-  mutating func visit(unfoldedExpr: UnfoldedExpr) -> Result
+  mutating func visit(unfolded: UnfoldedExpr) -> Result
 
 }

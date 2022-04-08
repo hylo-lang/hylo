@@ -1,21 +1,19 @@
 /// A subscript declaration.
-public struct SubscriptDecl: Decl, ScopeOutliner, SourceRepresentable {
+public struct SubscriptDecl: Decl, ScopeOutliner {
 
   var scopeID: ScopeID
 
-  public var range: SourceRange?
-
   /// The access modifier of the declaration, if any.
-  public var accessModifier: AccessModifier?
+  public var accessModifier: SourceRepresentable<AccessModifier>?
 
   /// The member modifiers of the declaration.
-  public var memberModifiers: [MemberModifier]
+  public var memberModifiers: [SourceRepresentable<MemberModifier>]
 
   /// The identifier of the subscript, if any.
-  public var identifier: Identifier?
+  public var identifier: SourceRepresentable<Identifier>?
 
   /// The generic clause of the subscript, if any.
-  public var genericClause: GenericClause?
+  public var genericClause: SourceRepresentable<GenericClause>?
 
   /// The captures of the subscript.
   public var captures: [DeclIndex<BindingDecl>]
@@ -24,10 +22,12 @@ public struct SubscriptDecl: Decl, ScopeOutliner, SourceRepresentable {
   public var parameters: [DeclIndex<ParamDecl>]
 
   /// The output type annotation of the subscript.
-  public var output: TypeExpr
+  public var output: SourceRepresentable<TypeExpr>
 
   /// The implementations of the subscript.
   public var impls: [DeclIndex<SubscriptImplDecl>]
+
+  public var range: SourceRange?
 
   public func accept<V: DeclVisitor>(_ visitor: inout V) -> V.Result {
     visitor.visit(subscript: self)

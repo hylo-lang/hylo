@@ -1,52 +1,27 @@
 import Utils
 
 /// A where clause.
-public struct WhereClause: SourceRepresentable {
+public struct WhereClause: Hashable {
 
-  /// A constraint in a where clause.
-  public enum Constraint {
+  /// The expression of a type constraint defined in a generic clause.
+  public enum ConstraintExpr: Hashable {
 
     /// An equality constraint involving one or two skolems.
-    case equality(lhs: TypeExpr, rhs: TypeExpr)
+    case equality(
+      lhs: SourceRepresentable<TypeExpr>,
+      rhs: SourceRepresentable<TypeExpr>)
 
     /// A conformance constraint on a skolem.
-    case conformance(lhs: NameTypeExpr, rhs: TraitComposition)
+    case conformance(
+      lhs: SourceRepresentable<NameTypeExpr>,
+      rhs: SourceRepresentable<TraitComposition>)
 
     /// A size constraint on a value parameter.
-    case size(Expr)
+    case size(SourceRepresentable<Expr>)
 
   }
 
-  public var range: SourceRange?
-
-  /// The constraints in the clause.
-  public var constraints: [Constraint]
-
-}
-
-extension WhereClause: CustomStringConvertible {
-
-  public var description: String {
-    if constraints.isEmpty {
-      return "where _"
-    } else {
-      return "where " + String.joining(constraints, separator: ", ")
-    }
-  }
-
-}
-
-extension WhereClause.Constraint: CustomStringConvertible {
-
-  public var description: String {
-    switch self {
-    case let .equality(lhs: lhs, rhs: rhs):
-      return "\(lhs) == \(rhs)"
-    case let .conformance(lhs: lhs, rhs: rhs):
-      return "\(lhs) : \(rhs)"
-    case let .size(expr):
-      return "\(expr)"
-    }
-  }
+  /// The constraint expressions in the clause.
+  public var constraints: [ConstraintExpr]
 
 }

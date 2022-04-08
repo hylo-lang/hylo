@@ -1,36 +1,18 @@
 /// A for loop.
-public struct ForStmt: Stmt, ScopeOutliner {
+public struct ForStmt: ScopeOutliner, Hashable {
 
   var scopeID: ScopeID
-
-  public var range: SourceRange?
 
   /// The conditional binding of the loop.
   public var binding: DeclIndex<BindingDecl>
 
   /// The iteration domain of the loop.
-  public var domain: Expr
+  public var domain: SourceRepresentable<Expr>
 
   /// The filter of the loop, if any.
-  public var filter: Expr?
+  public var filter: SourceRepresentable<Expr>?
 
   /// The body of the loop.
-  public var body: BraceStmt
-
-  public func accept<V: StmtVisitor>(_ visitor: inout V) -> V.Result {
-    visitor.visit(for: self)
-  }
-
-}
-
-extension ForStmt: CustomStringConvertible {
-
-  public var description: String {
-    if let filter = filter {
-      return "for \(binding) in \(domain) where \(filter) \(body)"
-    } else {
-      return "for \(binding) in \(domain) \(body)"
-    }
-  }
+  public var body: SourceRepresentable<BraceStmt>
 
 }

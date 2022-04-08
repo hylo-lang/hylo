@@ -1,16 +1,10 @@
 /// A subscript call.
-public struct SubscriptCallExpr: Expr {
-
-  public var range: SourceRange?
+public struct SubscriptCallExpr: Hashable {
 
   /// The callee.
-  public var callee: Expr
+  public var callee: SourceRepresentable<Expr>
 
   /// The arguments of the call.
-  public var arguments: [Argument]
-
-  public func accept<V: ExprVisitor>(_ visitor: inout V) -> V.Result {
-    visitor.visit(subscriptCall: self)
-  }
+  public var arguments: [SourceRepresentable<Argument>]
 
 }

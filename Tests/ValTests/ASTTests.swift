@@ -18,16 +18,16 @@ final class ASTTests: XCTestCase {
     // Create a trait declaration, subscripting the AST for writing with a typed index.
     let j = ast.append(decl: TraitDecl(
       scopeID: ast[i].makeScopeID(),
-      range: nil,
       access: nil,
-      identifier: Identifier(range: nil, value: "T"),
+      identifier: SourceRepresentable(node: "T"),
       refinements: [],
-      members: []))
+      members: [],
+      range: nil))
     ast[i].members.append(j.erased())
 
     // Subscript the AST for reading with a type-erased index.
     let t = try XCTUnwrap(ast[ast[i].members.first!] as? TraitDecl)
-    XCTAssert(t.identifier.value == "T")
+    XCTAssert(t.identifier.node == "T")
   }
 
 }
