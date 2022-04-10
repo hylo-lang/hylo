@@ -5,8 +5,6 @@ public struct GenericTypeParamDecl: Decl {
   public var identifier: SourceRepresentable<Identifier>
 
   /// The conformances listed in the declaration.
-  public var conformances: [SourceRepresentable<NameTypeExpr>]
-
-  public var range: SourceRange?
+  public var conformances: [NodeIndex<NameTypeExpr>]
 
 }

@@ -8,11 +8,9 @@ public struct ParamDecl: Decl {
   public var identifier: SourceRepresentable<Identifier>
 
   /// The type annotation of the declaration, if any.
-  public var annotation: SourceRepresentable<TypeExpr>?
+  public var annotation: AnyTypeExprIndex?
 
   /// The default value of the declaration, if any.
-  public var defaultValue: SourceRepresentable<Expr>?
-
-  public var range: SourceRange?
+  public var defaultValue: AnyExprIndex?
 
 }

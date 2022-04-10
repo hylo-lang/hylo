@@ -1,5 +1,5 @@
 /// A name denoting an object.
-public struct NameExpr: Hashable {
+public struct NameExpr: Expr {
 
   public enum Domain: Hashable {
 
@@ -7,7 +7,7 @@ public struct NameExpr: Hashable {
 
     case implicit
 
-    case explicit(SourceRepresentable<Expr>)
+    case explicit(AnyExprIndex)
 
   }
 

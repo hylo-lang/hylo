@@ -1,13 +1,13 @@
 /// A lambda type expression.
-public struct LambdaTypeExpr: Hashable {
+public struct LambdaTypeExpr: TypeExpr {
 
   /// The environment of the lambda, or `nil` if it is thin.
-  public var environment: SourceRepresentable<TypeExpr>?
+  public var environment: AnyTypeExprIndex?
 
   /// The parameters of the lambda.
-  public var parameters: [SourceRepresentable<ParamTypeExpr>]
+  public var parameters: [NodeIndex<ParamTypeExpr>]
 
   /// The output type of the lambda.
-  public var output: SourceRepresentable<TypeExpr>
+  public var output: AnyTypeExprIndex
 
 }

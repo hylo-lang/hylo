@@ -1,5 +1,5 @@
 /// A tuple pattern.
-public struct TuplePattern: Hashable {
+public struct TuplePattern: Pattern {
 
   /// An element in a tuple pattern.
   public struct Element: Hashable {
@@ -8,7 +8,7 @@ public struct TuplePattern: Hashable {
     public var label: String?
 
     /// The pattern of the element.
-    public var pattern: SourceRepresentable<Pattern>
+    public var pattern: AnyPatternIndex
 
   }
 

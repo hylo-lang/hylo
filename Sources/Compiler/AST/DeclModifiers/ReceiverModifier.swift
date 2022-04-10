@@ -1,9 +1,21 @@
-/// A receiver modifier.
-public enum ReceiverModifier: MemberModifier {
+/// A member modifier.
+public enum MemberModifier: Hashable {
 
-  case sink
+  /// The kind of a receiver modifier.
+  public enum Receiver: Hashable {
 
-  case `inout`
+    case sink
 
-  case out
+    case `inout`
+
+    case out
+
+  }
+
+  /// A receiver modifier.
+  case receiver(Receiver)
+
+  /// The `static` member modifier.
+  case `static`
+
 }

@@ -1,7 +1,7 @@
 /// A buffer literal expression.
-public struct BufferLiteralExpr: Hashable {
+public struct BufferLiteralExpr: Expr {
 
   /// The elements of the literal.
-  public var elements: [SourceRepresentable<Expr>]
+  public var elements: [AnyExprIndex]
 
 }

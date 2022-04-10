@@ -1,17 +1,13 @@
 /// The declaration of an extension.
-public struct ExtensionDecl: Decl, ScopeOutliner {
-
-  var scopeID: ScopeID
+public struct ExtensionDecl: Decl, LexicalScope {
 
   /// The expression of the extended type.
-  public var subject: SourceRepresentable<TypeExpr>
+  public var subject: AnyTypeExprIndex
 
   /// The condition of the extension, if any.
   public var whereClause: SourceRepresentable<WhereClause>?
 
   /// The member declarations in the lexical scope of the extension.
   public var members: [AnyDeclIndex]
-
-  public var range: SourceRange?
 
 }

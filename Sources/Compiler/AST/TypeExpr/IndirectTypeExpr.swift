@@ -1,7 +1,7 @@
 /// An indirect type expression.
-public struct IndirectTypeExpr: Hashable {
+public struct IndirectTypeExpr: TypeExpr {
 
   /// The operand.
-  public var operand: SourceRepresentable<TypeExpr>
+  public var operand: AnyTypeExprIndex
 
 }

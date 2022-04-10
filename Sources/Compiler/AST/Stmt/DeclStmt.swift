@@ -1,5 +1,5 @@
 /// A declaration statement.
-public struct DeclStmt: Hashable {
+public struct DeclStmt: Stmt {
 
   /// The declaration.
   public var decl: AnyDeclIndex

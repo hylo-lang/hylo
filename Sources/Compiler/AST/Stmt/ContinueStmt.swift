@@ -1,2 +1,2 @@
 /// A continue statement.
-public struct ContinueStmt: Hashable {}
+public struct ContinueStmt: Stmt {}

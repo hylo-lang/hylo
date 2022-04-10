@@ -5,14 +5,12 @@ public struct AssociatedTypeDecl: Decl {
   public var identifier: SourceRepresentable<Identifier>
 
   /// The conformances listed in the declaration.
-  public var conformances: [SourceRepresentable<NameTypeExpr>]
+  public var conformances: [NodeIndex<NameTypeExpr>]
 
   /// The where clause of the declaration, if any.
   public var whereClause: SourceRepresentable<WhereClause>?
 
   /// The default value of the declaration, if any.
-  public var defaultValue: SourceRepresentable<TypeExpr>?
-
-  public var range: SourceRange?
+  public var defaultValue: AnyTypeExprIndex?
 
 }

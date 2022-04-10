@@ -1,20 +1,16 @@
 /// The declaration of a conformance.
-public struct ConformanceDecl: Decl, ScopeOutliner {
-
-  var scopeID: ScopeID
+public struct ConformanceDecl: Decl, LexicalScope {
 
   /// The expression of the conforming type.
-  public var subject: SourceRepresentable<TypeExpr>
+  public var subject: AnyTypeExprIndex
 
   /// The names of traits to which conformance is declared.
-  public var conformances: [SourceRepresentable<NameTypeExpr>]
+  public var conformances: [NodeIndex<NameTypeExpr>]
 
   /// The condition of the conformance, if any.
   public var whereClause: SourceRepresentable<WhereClause>?
 
   /// The member declarations in the lexical scope of the conformance.
   public var members: [AnyDeclIndex]
-
-  public var range: SourceRange?
 
 }

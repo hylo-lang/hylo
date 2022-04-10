@@ -1,5 +1,5 @@
 /// A stored projection expression.
-public struct StoredProjectionExpr: Hashable {
+public struct StoredProjectionExpr: Expr {
 
   public enum Introducer: Hashable {
 
@@ -12,6 +12,6 @@ public struct StoredProjectionExpr: Hashable {
   public var introducer: SourceRepresentable<Introducer>
 
   /// The expression of the captured projection.
-  public var operand: SourceRepresentable<Expr>
+  public var operand: AnyExprIndex
 
 }

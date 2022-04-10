@@ -1,7 +1,7 @@
 /// A function declaration.
-public struct FunDecl: GenericDecl, ScopeOutliner {
+public struct FunDecl: GenericDecl, LexicalScope {
 
-  public enum Introducer {
+  public enum Introducer: Hashable {
 
     /// The function and method introducer, `fun`.
     case fun
@@ -17,20 +17,18 @@ public struct FunDecl: GenericDecl, ScopeOutliner {
 
   }
 
-  public enum Body {
+  public enum Body: Hashable {
 
     /// An expression body.
-    case expr(Expr)
+    case expr(AnyExprIndex)
 
     /// A block body.
-    case block(BraceStmt)
+    case block(NodeIndex<BraceStmt>)
 
     /// A method bundle.
-    case bundle([DeclIndex<MethodImplDecl>])
+    case bundle([NodeIndex<MethodImplDecl>])
 
   }
-
-  var scopeID: ScopeID
 
   /// The introducer of the declaration.
   public var introducer: SourceRepresentable<Introducer>
@@ -51,17 +49,15 @@ public struct FunDecl: GenericDecl, ScopeOutliner {
   public var genericClause: SourceRepresentable<GenericClause>?
 
   /// The captures of the function.
-  public var captures: [DeclIndex<BindingDecl>]
+  public var captures: [NodeIndex<BindingDecl>]
 
   /// The parameters of the function.
-  public var parameters: [DeclIndex<ParamDecl>]
+  public var parameters: [NodeIndex<ParamDecl>]
 
   /// The return type annotation of the function, if any.
-  public var output: SourceRepresentable<TypeExpr>?
+  public var output: AnyTypeExprIndex?
 
   /// The body of the declaration, if any.
   public var body: SourceRepresentable<Body>?
-
-  public var range: SourceRange?
 
 }

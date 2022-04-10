@@ -1,8 +1,8 @@
 /// A subscript call.
-public struct SubscriptCallExpr: Hashable {
+public struct SubscriptCallExpr: Expr {
 
   /// The callee.
-  public var callee: SourceRepresentable<Expr>
+  public var callee: AnyExprIndex
 
   /// The arguments of the call.
   public var arguments: [SourceRepresentable<Argument>]

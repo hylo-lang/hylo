@@ -1,5 +1,5 @@
 /// A boolean literal expression.
-public struct BoolLiteralExpr: Hashable {
+public struct BoolLiteralExpr: Expr {
 
   /// The value of the literal.
   public var value: Bool

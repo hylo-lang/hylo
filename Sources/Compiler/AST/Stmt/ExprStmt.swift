@@ -1,7 +1,7 @@
 /// An expression statement.
-public struct ExprStmt: Hashable {
+public struct ExprStmt: Stmt {
 
   /// The expression.
-  public var expr: Expr
+  public var expr: AnyExprIndex
 
 }

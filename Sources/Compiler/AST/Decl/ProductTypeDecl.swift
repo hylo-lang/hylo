@@ -1,7 +1,5 @@
 /// A (nominal) product type declaration.
-public struct ProductTypeDecl: GenericDecl, ScopeOutliner {
-
-  var scopeID: ScopeID
+public struct ProductTypeDecl: GenericDecl, LexicalScope {
 
   /// The access modifier of the declaration, if any.
   public var access: SourceRepresentable<AccessModifier>?
@@ -13,11 +11,9 @@ public struct ProductTypeDecl: GenericDecl, ScopeOutliner {
   public var genericClause: SourceRepresentable<GenericClause>?
 
   /// The names of traits to which the type conforms.
-  public var conformances: [SourceRepresentable<NameTypeExpr>]
+  public var conformances: [NodeIndex<NameTypeExpr>]
 
   /// The member declarations in the lexical scope of the trait.
   public var members: [AnyDeclIndex]
-
-  public var range: SourceRange?
 
 }

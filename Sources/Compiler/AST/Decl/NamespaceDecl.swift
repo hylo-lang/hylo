@@ -1,7 +1,5 @@
 /// A namespace declaration.
-public struct NamespaceDecl: Decl, ScopeOutliner {
-
-  var scopeID: ScopeID
+public struct NamespaceDecl: Decl, LexicalScope {
 
   /// The access modifier of the declaration, if any.
   public var access: SourceRepresentable<AccessModifier>?
@@ -11,7 +9,5 @@ public struct NamespaceDecl: Decl, ScopeOutliner {
 
   /// The member declarations in the lexical scope of the namespace.
   public var members: [AnyDeclIndex]
-
-  public var range: SourceRange?
 
 }

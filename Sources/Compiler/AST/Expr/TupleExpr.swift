@@ -1,5 +1,5 @@
 /// A tuple expression.
-public struct TupleExpr: Hashable {
+public struct TupleExpr: Expr {
 
   /// An element in a tuple expression.
   public struct Element: Hashable {
@@ -8,7 +8,7 @@ public struct TupleExpr: Hashable {
     public var label: String?
 
     /// The value of the element.
-    public var value: SourceRepresentable<Expr>
+    public var value: AnyExprIndex
 
   }
 

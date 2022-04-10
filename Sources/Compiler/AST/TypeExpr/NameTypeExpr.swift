@@ -1,8 +1,8 @@
 /// A name denoting a nominal type.
-public struct NameTypeExpr: Hashable {
+public struct NameTypeExpr: TypeExpr {
 
   /// The domain of the name, if it is qualified.
-  public var domain: SourceRepresentable<TypeExpr>?
+  public var domain: AnyTypeExprIndex?
 
   /// The identifier of the referred type.
   public var identifier: SourceRepresentable<Identifier>

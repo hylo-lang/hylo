@@ -1,7 +1,7 @@
 /// The declaration of a subscript implementation.
 public struct SubscriptImplDecl: Decl {
 
-  public enum Introducer {
+  public enum Introducer: Hashable {
 
     case `let`
 
@@ -17,8 +17,6 @@ public struct SubscriptImplDecl: Decl {
   public var introducer: SourceRepresentable<Introducer>
 
   /// The body of the subscript, if any.
-  public var body: SourceRepresentable<BraceStmt>?
-
-  public var range: SourceRange?
+  public var body: NodeIndex<BraceStmt>?
 
 }

@@ -1,5 +1,5 @@
 /// A parameter in a lambda type expression.
-public struct ParamTypeExpr: Hashable {
+public struct ParamTypeExpr: TypeExpr {
 
   /// The label of the parameter.
   public var label: SourceRepresentable<Identifier>?
@@ -8,6 +8,6 @@ public struct ParamTypeExpr: Hashable {
   public var convention: SourceRepresentable<ParamConvention>
 
   /// The expression of the parameter's bare type.
-  public var bareType: SourceRepresentable<TypeExpr>
+  public var bareType: AnyTypeExprIndex
 
 }

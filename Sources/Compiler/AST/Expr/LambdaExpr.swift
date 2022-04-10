@@ -1,7 +1,7 @@
 /// A lambda.
-public struct LambdaExpr: Hashable {
+public struct LambdaExpr: Expr {
 
   /// The declaration of the underlying anonymous function.
-  public var decl: DeclIndex<FunDecl>
+  public var decl: NodeIndex<FunDecl>
 
 }

@@ -1,7 +1,7 @@
 /// A pattern that matches the value of an equatable expression.
-public struct ExprPattern: Hashable {
+public struct ExprPattern: Pattern {
 
   /// The expression of the pattern.
-  public var expr: SourceRepresentable<Expr>
+  public var expr: AnyExprIndex
 
 }

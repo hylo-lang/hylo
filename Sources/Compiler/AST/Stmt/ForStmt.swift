@@ -1,18 +1,16 @@
 /// A for loop.
-public struct ForStmt: ScopeOutliner, Hashable {
-
-  var scopeID: ScopeID
+public struct ForStmt: Stmt, LexicalScope {
 
   /// The conditional binding of the loop.
-  public var binding: DeclIndex<BindingDecl>
+  public var binding: NodeIndex<BindingDecl>
 
   /// The iteration domain of the loop.
-  public var domain: SourceRepresentable<Expr>
+  public var domain: AnyExprIndex
 
   /// The filter of the loop, if any.
-  public var filter: SourceRepresentable<Expr>?
+  public var filter: AnyExprIndex?
 
   /// The body of the loop.
-  public var body: SourceRepresentable<BraceStmt>
+  public var body: NodeIndex<BraceStmt>
 
 }

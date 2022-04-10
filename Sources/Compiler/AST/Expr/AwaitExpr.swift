@@ -1,7 +1,7 @@
 /// An await expression.
-public struct AwaitExpr: Hashable {
+public struct AwaitExpr: Expr {
 
   /// The expression of the awaited value.
-  public var operand: SourceRepresentable<Expr>
+  public var operand: AnyExprIndex
 
 }

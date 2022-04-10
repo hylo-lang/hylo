@@ -1,7 +1,7 @@
 /// An asynchronous type expression.
-public struct AsyncTypeExpr: Hashable {
+public struct AsyncTypeExpr: TypeExpr {
 
   /// The operand.
-  public var operand: SourceRepresentable<TypeExpr>
+  public var operand: AnyTypeExprIndex
 
 }

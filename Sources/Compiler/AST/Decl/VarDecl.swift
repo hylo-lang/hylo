@@ -4,6 +4,4 @@ public struct VarDecl: Decl {
   /// The identifier of the declared variable.
   public var identifier: SourceRepresentable<Identifier>
 
-  public var range: SourceRange?
-
 }

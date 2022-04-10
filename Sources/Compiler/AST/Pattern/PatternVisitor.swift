@@ -4,14 +4,14 @@ public protocol PatternVisitor {
   /// The return type of the visitation methods.
   associatedtype Result
 
-  mutating func visit(binding: BindingPattern) -> Result
+  mutating func visit(binding: NodeIndex<BindingPattern>) -> Result
 
-  mutating func visit(expr: ExprPattern) -> Result
+  mutating func visit(expr: NodeIndex<ExprPattern>) -> Result
 
-  mutating func visit(name: NamePattern) -> Result
+  mutating func visit(name: NodeIndex<NamePattern>) -> Result
 
-  mutating func visit(tuple: TuplePattern) -> Result
+  mutating func visit(tuple: NodeIndex<TuplePattern>) -> Result
 
-  mutating func visit(wildcard: WildcardPattern) -> Result
+  mutating func visit(wildcard: NodeIndex<WildcardPattern>) -> Result
 
 }

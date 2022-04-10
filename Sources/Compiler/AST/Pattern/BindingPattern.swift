@@ -2,7 +2,7 @@
 ///
 /// This pattern alters the semantics of its sub-pattern. Nested name patterns create new variable
 /// bindings, instead or referring to existing declarations.
-public struct BindingPattern: Hashable {
+public struct BindingPattern: Pattern {
 
   public enum Introducer: Hashable {
 
@@ -22,9 +22,9 @@ public struct BindingPattern: Hashable {
   public var introducer: SourceRepresentable<Introducer>
 
   /// The sub-pattern.
-  public var subpattern: SourceRepresentable<Pattern>
+  public var subpattern: AnyPatternIndex
 
   /// The type annotation of the pattern, if any.
-  public var annotation: SourceRepresentable<TypeExpr>?
+  public var annotation: AnyTypeExprIndex?
 
 }

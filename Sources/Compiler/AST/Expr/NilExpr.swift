@@ -1,2 +1,2 @@
 /// A nil expression.
-public struct NilExpr: Hashable {}
+public struct NilExpr: Expr {}

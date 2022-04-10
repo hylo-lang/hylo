@@ -2,21 +2,24 @@
 struct ScopeHierarchy {
 
   /// A table mapping a lexical scope to its parent.
-  var parent: [ScopeID: ScopeID] = [:]
+  var parent = NodeMap<AnyNodeIndex>()
 
   /// A table mapping a declaration to the innermost lexical scope that contains it.
-  var container: [AnyDeclIndex: ScopeID] = [:]
+  var container = DeclMap<AnyNodeIndex>()
 
   /// Returns whether `child` is contained in `ancestor`.
   ///
   /// - Requires: `child` is the identifier of a scope in this hierarchy.
-  func isContained(_ child: ScopeID, in ancestor: ScopeID) -> Bool {
-    var current = child
+  func isContained<T: NodeIndexProtocol, U: NodeIndexProtocol>(
+    _ child: T,
+    in ancestor: U
+  ) -> Bool {
+    var current = child.rawValue
     while true {
-      if child == current {
+      if ancestor.rawValue == current {
         return true
-      } else if let p = parent[current] {
-        current = p
+      } else if let p = parent[raw: current] {
+        current = p.rawValue
       } else {
         return false
       }

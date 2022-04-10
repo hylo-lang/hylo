@@ -1,7 +1,5 @@
 /// A subscript declaration.
-public struct SubscriptDecl: Decl, ScopeOutliner {
-
-  var scopeID: ScopeID
+public struct SubscriptDecl: Decl, LexicalScope {
 
   /// The access modifier of the declaration, if any.
   public var accessModifier: SourceRepresentable<AccessModifier>?
@@ -16,17 +14,15 @@ public struct SubscriptDecl: Decl, ScopeOutliner {
   public var genericClause: SourceRepresentable<GenericClause>?
 
   /// The captures of the subscript.
-  public var captures: [DeclIndex<BindingDecl>]
+  public var captures: [NodeIndex<BindingDecl>]
 
   /// The parameters of the subscript.
-  public var parameters: [DeclIndex<ParamDecl>]
+  public var parameters: [NodeIndex<ParamDecl>]
 
   /// The output type annotation of the subscript.
-  public var output: SourceRepresentable<TypeExpr>
+  public var output: AnyTypeExprIndex
 
   /// The implementations of the subscript.
-  public var impls: [DeclIndex<SubscriptImplDecl>]
-
-  public var range: SourceRange?
+  public var impls: [NodeIndex<SubscriptImplDecl>]
 
 }

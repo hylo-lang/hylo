@@ -2,8 +2,8 @@
 ///
 /// The operands all have even indices. The sub-expressions with odd indices are all (potentially
 /// unresolved) references to binary operators.
-public struct UnfoldedExpr: Hashable {
+public struct UnfoldedExpr: Expr {
 
-  public var subexpressions: [SourceRepresentable<Expr>]
+  public var subexpressions: [AnyExprIndex]
 
 }

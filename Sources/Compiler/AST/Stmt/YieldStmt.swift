@@ -1,7 +1,7 @@
 /// A yield statement.
-public struct YieldStmt: Hashable {
+public struct YieldStmt: Stmt {
 
   /// The yielded value.
-  public var value: SourceRepresentable<Expr>
+  public var value: AnyExprIndex
 
 }

@@ -1,12 +1,12 @@
 /// A map literal expression.
-public struct MapLiteralExpr: Hashable {
+public struct MapLiteralExpr: Expr {
 
   /// A key-value pair in a map literal.
   public struct Element: Hashable {
 
-    var key: SourceRepresentable<Expr>
+    var key: AnyExprIndex
 
-    var value: SourceRepresentable<Expr>
+    var value: AnyExprIndex
 
   }
 

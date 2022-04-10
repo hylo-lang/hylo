@@ -1,5 +1,5 @@
 /// The expression of an existential type.
-public struct ExistentialTypeExpr: Hashable {
+public struct ExistentialTypeExpr: TypeExpr {
 
   /// The traits to which the witness conforms.
   public var traits: SourceRepresentable<TraitComposition>

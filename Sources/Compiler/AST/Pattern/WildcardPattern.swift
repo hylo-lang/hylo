@@ -1,2 +1,2 @@
 /// A wildcard pattern.
-public struct WildcardPattern: Hashable {}
+public struct WildcardPattern: Pattern {}

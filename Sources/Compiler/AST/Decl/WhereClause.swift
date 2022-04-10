@@ -8,16 +8,16 @@ public struct WhereClause: Hashable {
 
     /// An equality constraint involving one or two skolems.
     case equality(
-      lhs: SourceRepresentable<TypeExpr>,
-      rhs: SourceRepresentable<TypeExpr>)
+      lhs: AnyTypeExprIndex,
+      rhs: AnyTypeExprIndex)
 
     /// A conformance constraint on a skolem.
     case conformance(
-      lhs: SourceRepresentable<NameTypeExpr>,
+      lhs: NodeIndex<NameTypeExpr>,
       rhs: SourceRepresentable<TraitComposition>)
 
     /// A size constraint on a value parameter.
-    case size(SourceRepresentable<Expr>)
+    case size(AnyExprIndex)
 
   }
 

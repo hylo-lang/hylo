@@ -1,2 +1,2 @@
 /// A break statement.
-public struct BreakStmt: Hashable {}
+public struct BreakStmt: Stmt {}

@@ -2,9 +2,9 @@
 public enum ConditionItem: Hashable {
 
   /// An Boolean expression.
-  case expr(Expr)
+  case expr(AnyExprIndex)
 
   /// A conditional binding declaration.
-  case decl(DeclIndex<BindingDecl>)
+  case decl(NodeIndex<BindingDecl>)
 
 }

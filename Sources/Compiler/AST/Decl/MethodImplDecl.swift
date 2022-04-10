@@ -1,7 +1,7 @@
 /// The declaration of a method implementation.
 public struct MethodImplDecl: Decl {
 
-  public enum Introducer {
+  public enum Introducer: Hashable {
 
     case `let`
 
@@ -11,13 +11,13 @@ public struct MethodImplDecl: Decl {
 
   }
 
-  public enum Body {
+  public enum Body: Hashable {
 
     /// An expression body.
-    case expr(Expr)
+    case expr(AnyExprIndex)
 
     /// A block body.
-    case block(BraceStmt)
+    case block(NodeIndex<BraceStmt>)
 
   }
 
@@ -26,7 +26,5 @@ public struct MethodImplDecl: Decl {
 
   /// The body of the method, if any.
   public var body: SourceRepresentable<Body>?
-
-  public var range: SourceRange?
 
 }

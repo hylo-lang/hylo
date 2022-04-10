@@ -5,7 +5,7 @@ final class ASTTests: XCTestCase {
 
   func testAppendModule() {
     var ast = AST()
-    let i = ast.append(decl: ModuleDecl(name: "Val", members: []))
+    let i = ast.insert(ModuleDecl(name: "Val", members: []))
     XCTAssert(ast.modules.contains(i))
   }
 
@@ -13,21 +13,19 @@ final class ASTTests: XCTestCase {
     var ast = AST()
 
     // Create a module declarations.
-    let i = ast.append(decl: ModuleDecl(name: "Val", members: []))
+    let i = ast.insert(ModuleDecl(name: "Val", members: []))
 
     // Create a trait declaration, subscripting the AST for writing with a typed index.
-    let j = ast.append(decl: TraitDecl(
-      scopeID: ast[i].makeScopeID(),
+    let j = ast.insert(TraitDecl(
       access: nil,
-      identifier: SourceRepresentable(node: "T"),
+      identifier: SourceRepresentable(value: "T"),
       refinements: [],
-      members: [],
-      range: nil))
-    ast[i].members.append(j.erased())
+      members: []))
+    ast[i].members.append(AnyDeclIndex(j))
 
     // Subscript the AST for reading with a type-erased index.
     let t = try XCTUnwrap(ast[ast[i].members.first!] as? TraitDecl)
-    XCTAssert(t.identifier.node == "T")
+    XCTAssert(t.identifier.value == "T")
   }
 
 }

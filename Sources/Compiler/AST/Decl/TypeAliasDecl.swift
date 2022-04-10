@@ -1,17 +1,15 @@
 /// A type alias declaration.
-public struct TypeAliasDecl: GenericDecl, ScopeOutliner {
+public struct TypeAliasDecl: GenericDecl, LexicalScope {
 
-  public enum Body {
+  public enum Body: Hashable {
 
     /// A single type expression.
-    case typeExpr(TypeExpr)
+    case typeExpr(AnyTypeExprIndex)
 
     /// A union of product type declarations.
-    case union([DeclIndex<ProductTypeDecl>])
+    case union([NodeIndex<ProductTypeDecl>])
 
   }
-
-  var scopeID: ScopeID
 
   /// The access modifier of the declaration, if any.
   public var access: SourceRepresentable<AccessModifier>?
@@ -24,7 +22,5 @@ public struct TypeAliasDecl: GenericDecl, ScopeOutliner {
 
   /// The body of the declaration.
   public var body: SourceRepresentable<Body>
-
-  public var range: SourceRange?
 
 }
