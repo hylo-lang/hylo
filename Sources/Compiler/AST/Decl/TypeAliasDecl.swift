@@ -1,5 +1,5 @@
 /// A type alias declaration.
-public struct TypeAliasDecl: GenericDecl, LexicalScope {
+public struct TypeAliasDecl: GenericDecl, SingleEntityDecl, LexicalScope {
 
   public enum Body: Hashable {
 
@@ -22,5 +22,7 @@ public struct TypeAliasDecl: GenericDecl, LexicalScope {
 
   /// The body of the declaration.
   public var body: SourceRepresentable<Body>
+
+  public var name: String { identifier.value }
 
 }

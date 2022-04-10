@@ -1,17 +1,24 @@
 import Utils
 
-/// A type-erased index of a pattern.
-public struct AnyPatternIndex: NodeIndexProtocol {
+/// The index of a pattern.
+public protocol PatternIndex: NodeIndexProtocol {}
+
+extension NodeIndex: PatternIndex where T: Pattern {}
+
+/// The type-erased index of a pattern.
+public struct AnyPatternIndex: PatternIndex {
 
   /// The underlying type-erased index.
   var base: AnyNodeIndex
 
-  /// Creates a type-erased index from a typed index.
-  public init<T: Pattern>(_ typedIndex: NodeIndex<T>) {
-    base = AnyNodeIndex(typedIndex)
+  /// Creates a type-erased index from a pattern index.
+  public init<T: PatternIndex>(_ other: T) {
+    base = AnyNodeIndex(other)
   }
 
   public var rawValue: Int { base.rawValue }
+
+  public var typeID: ObjectIdentifier { base.typeID }
 
   /// Returns a typed copy of this index, or `nil` if the type conversion failed.
   public func convert<T: Expr>(to: T.Type) -> NodeIndex<T>? {

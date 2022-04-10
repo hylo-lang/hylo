@@ -19,6 +19,10 @@ final class ScopeHierarchyTests: XCTestCase {
 
     XCTAssert(hierarchy.isContained(trait, in: trait))
     XCTAssert(hierarchy.isContained(trait, in: main))
+    XCTAssertFalse(hierarchy.isContained(main, in: trait))
+
+    XCTAssert(hierarchy.container[trait].map({ $0 == main }) ?? false)
+    XCTAssert(hierarchy.containees[main, default: []].contains(where: { $0 == trait }))
   }
 
 }

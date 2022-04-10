@@ -1,5 +1,5 @@
 /// A (nominal) product type declaration.
-public struct ProductTypeDecl: GenericDecl, LexicalScope {
+public struct ProductTypeDecl: GenericDecl, SingleEntityDecl, LexicalScope {
 
   /// The access modifier of the declaration, if any.
   public var access: SourceRepresentable<AccessModifier>?
@@ -15,5 +15,7 @@ public struct ProductTypeDecl: GenericDecl, LexicalScope {
 
   /// The member declarations in the lexical scope of the trait.
   public var members: [AnyDeclIndex]
+
+  public var name: String { identifier.value }
 
 }

@@ -39,60 +39,63 @@ struct ScopeHierarchyBuilder:
 
   // MARK: Declarations
 
-  mutating func visit(associatedType decl: NodeIndex<AssociatedTypeDecl>) {
-    hierarchy.container[decl] = innermost
-    visit(whereClause: ast[decl].whereClause?.value)
+  mutating func visit(associatedType i: NodeIndex<AssociatedTypeDecl>) {
+    hierarchy.insert(decl: i, into: innermost!)
+    visit(whereClause: ast[i].whereClause?.value)
   }
 
-  mutating func visit(binding decl: NodeIndex<BindingDecl>) {
-    hierarchy.container[decl] = innermost
-    visit(binding: ast[decl].pattern)
-    ast[decl].initializer?.accept(&self)
+  mutating func visit(binding i: NodeIndex<BindingDecl>) {
+    hierarchy.insert(decl: i, into: innermost!)
+    visit(binding: ast[i].pattern)
+    ast[i].initializer?.accept(&self)
   }
 
-  mutating func visit(conformance decl: NodeIndex<ConformanceDecl>) {
-    hierarchy.container[decl] = innermost
-    nesting(in: decl, { this in
-      this.ast[decl].subject.accept(&this)
-      this.visit(whereClause: this.ast[decl].whereClause?.value)
-      for i in this.ast[decl].members {
-        i.accept(&this)
+  mutating func visit(conformance i: NodeIndex<ConformanceDecl>) {
+    hierarchy.insert(decl: i, into: innermost!)
+    nesting(in: i, { this in
+      let decl = this.ast[i]
+      decl.subject.accept(&this)
+      this.visit(whereClause: decl.whereClause?.value)
+      for member in decl.members {
+        member.accept(&this)
       }
     })
   }
 
-  mutating func visit(extension decl: NodeIndex<ExtensionDecl>) {
-    hierarchy.container[decl] = innermost
-    nesting(in: decl, { this in
-      this.ast[decl].subject.accept(&this)
-      this.visit(whereClause: this.ast[decl].whereClause?.value)
-      for i in this.ast[decl].members {
-        i.accept(&this)
+  mutating func visit(extension i: NodeIndex<ExtensionDecl>) {
+    hierarchy.insert(decl: i, into: innermost!)
+    nesting(in: i, { this in
+      let decl = this.ast[i]
+      decl.subject.accept(&this)
+      this.visit(whereClause: decl.whereClause?.value)
+      for member in decl.members {
+        member.accept(&this)
       }
     })
   }
 
-  mutating func visit(fun decl: NodeIndex<FunDecl>) {
-    hierarchy.container[decl] = innermost
-    nesting(in: decl, { this in
-      for i in this.ast[decl].captures {
-        this.visit(binding: i)
+  mutating func visit(fun i: NodeIndex<FunDecl>) {
+    hierarchy.insert(decl: i, into: innermost!)
+    nesting(in: i, { this in
+      let decl = this.ast[i]
+      for capture in decl.captures {
+        this.visit(binding: capture)
       }
 
-      for i in this.ast[decl].parameters {
-        this.visit(param: i)
+      for param in decl.parameters {
+        this.visit(param: param)
       }
 
-      this.ast[decl].output?.accept(&this)
+      decl.output?.accept(&this)
 
-      switch this.ast[decl].body?.value {
+      switch decl.body?.value {
       case let .expr(expr):
         expr.accept(&this)
       case let .block(stmt):
         this.visit(brace: stmt)
       case let .bundle(impls):
-        for i in impls {
-          this.visit(methodImpl: i)
+        for impl in impls {
+          this.visit(methodImpl: impl)
         }
       case nil:
         break
@@ -100,17 +103,17 @@ struct ScopeHierarchyBuilder:
     })
   }
 
-  mutating func visit(genericSizeParam decl: NodeIndex<GenericSizeParamDecl>) {
-    hierarchy.container[decl] = innermost
+  mutating func visit(genericSizeParam i: NodeIndex<GenericSizeParamDecl>) {
+    hierarchy.insert(decl: i, into: innermost!)
   }
 
-  mutating func visit(genericTypeParam decl: NodeIndex<GenericTypeParamDecl>) {
-    hierarchy.container[decl] = innermost
+  mutating func visit(genericTypeParam i: NodeIndex<GenericTypeParamDecl>) {
+    hierarchy.insert(decl: i, into: innermost!)
   }
 
-  mutating func visit(methodImpl decl: NodeIndex<MethodImplDecl>) {
-    hierarchy.container[decl] = innermost
-    switch ast[decl].body?.value {
+  mutating func visit(methodImpl i: NodeIndex<MethodImplDecl>) {
+    hierarchy.insert(decl: i, into: innermost!)
+    switch ast[i].body?.value {
     case let .expr(expr):
       expr.accept(&self)
     case let .block(stmt):
@@ -120,81 +123,82 @@ struct ScopeHierarchyBuilder:
     }
   }
 
-  mutating func visit(module decl: NodeIndex<ModuleDecl>) {
-    innermost = AnyNodeIndex(decl)
-    for i in ast[decl].members {
-      i.accept(&self)
+  mutating func visit(module i: NodeIndex<ModuleDecl>) {
+    innermost = AnyNodeIndex(i)
+    for member in ast[i].members {
+      member.accept(&self)
     }
   }
 
-  mutating func visit(namespace decl: NodeIndex<NamespaceDecl>) {
-    hierarchy.container[decl] = innermost
-    nesting(in: decl, { this in
-      for i in this.ast[decl].members {
-        i.accept(&this)
+  mutating func visit(namespace i: NodeIndex<NamespaceDecl>) {
+    hierarchy.insert(decl: i, into: innermost!)
+    nesting(in: i, { this in
+      for member in this.ast[i].members {
+        member.accept(&this)
       }
     })
   }
 
-  mutating func visit(param decl: NodeIndex<ParamDecl>) {
-    hierarchy.container[decl] = innermost
-    ast[decl].annotation?.accept(&self)
-    ast[decl].defaultValue?.accept(&self)
+  mutating func visit(param i: NodeIndex<ParamDecl>) {
+    hierarchy.insert(decl: i, into: innermost!)
+    ast[i].annotation?.accept(&self)
+    ast[i].defaultValue?.accept(&self)
   }
 
-  mutating func visit(productType decl: NodeIndex<ProductTypeDecl>) {
-    hierarchy.container[decl] = innermost
-    nesting(in: decl, { this in
-      this.visit(genericClause: this.ast[decl].genericClause?.value)
-
-      for i in this.ast[decl].members {
-        i.accept(&this)
+  mutating func visit(productType i: NodeIndex<ProductTypeDecl>) {
+    hierarchy.insert(decl: i, into: innermost!)
+    nesting(in: i, { this in
+      this.visit(genericClause: this.ast[i].genericClause?.value)
+      for member in this.ast[i].members {
+        member.accept(&this)
       }
     })
   }
 
-  mutating func visit(subscript decl: NodeIndex<SubscriptDecl>) {
-    hierarchy.container[decl] = innermost
-    nesting(in: decl, { this in
-      for i in this.ast[decl].captures {
-        this.visit(binding: i)
+  mutating func visit(subscript i: NodeIndex<SubscriptDecl>) {
+    hierarchy.insert(decl: i, into: innermost!)
+    nesting(in: i, { this in
+      let decl = this.ast[i]
+      for capture in decl.captures {
+        this.visit(binding: capture)
       }
 
-      for i in this.ast[decl].parameters {
-        this.visit(param: i)
+      for param in decl.parameters {
+        this.visit(param: param)
       }
 
-      this.ast[decl].output.accept(&this)
+      decl.output.accept(&this)
 
-      for i in this.ast[decl].impls {
-        this.visit(subscriptImpl: i)
-      }
-    })
-  }
-
-  mutating func visit(subscriptImpl decl: NodeIndex<SubscriptImplDecl>) {
-    hierarchy.container[decl] = innermost
-    ast[decl].body.map({ stmt in visit(brace: stmt) })
-  }
-
-  mutating func visit(trait decl: NodeIndex<TraitDecl>) {
-    hierarchy.container[decl] = innermost
-    nesting(in: decl, { this in
-      for i in this.ast[decl].members {
-        i.accept(&this)
+      for impl in decl.impls {
+        this.visit(subscriptImpl: impl)
       }
     })
   }
 
-  mutating func visit(typeAlias decl: NodeIndex<TypeAliasDecl>) {
-    hierarchy.container[decl] = innermost
-    nesting(in: decl, { this in
-      this.visit(genericClause: this.ast[decl].genericClause?.value)
+  mutating func visit(subscriptImpl i: NodeIndex<SubscriptImplDecl>) {
+    hierarchy.insert(decl: i, into: innermost!)
+    ast[i].body.map({ stmt in visit(brace: stmt) })
+  }
 
-      switch this.ast[decl].body.value {
+  mutating func visit(trait i: NodeIndex<TraitDecl>) {
+    hierarchy.insert(decl: i, into: innermost!)
+    nesting(in: i, { this in
+      for member in this.ast[i].members {
+        member.accept(&this)
+      }
+    })
+  }
+
+  mutating func visit(typeAlias i: NodeIndex<TypeAliasDecl>) {
+    hierarchy.insert(decl: i, into: innermost!)
+    nesting(in: i, { this in
+      let decl = this.ast[i]
+      this.visit(genericClause: decl.genericClause?.value)
+
+      switch decl.body.value {
       case let .union(members):
-        for i in members {
-          this.visit(productType: i)
+        for member in members {
+          this.visit(productType: member)
         }
 
       case let .typeExpr(type):
@@ -203,49 +207,50 @@ struct ScopeHierarchyBuilder:
     })
   }
 
-  mutating func visit(`var` decl: NodeIndex<VarDecl>) {
-    hierarchy.container[decl] = innermost
+  mutating func visit(`var` i: NodeIndex<VarDecl>) {
+    hierarchy.insert(decl: i, into: innermost!)
   }
 
   // MARK: Expressions
 
-  mutating func visit(async expr: NodeIndex<AsyncExpr>) {
-    visit(fun: ast[expr].decl)
+  mutating func visit(async i: NodeIndex<AsyncExpr>) {
+    visit(fun: ast[i].decl)
   }
 
-  mutating func visit(await expr: NodeIndex<AwaitExpr>) {
-    ast[expr].operand.accept(&self)
+  mutating func visit(await i: NodeIndex<AwaitExpr>) {
+    ast[i].operand.accept(&self)
   }
 
-  mutating func visit(boolLiteral expr: NodeIndex<BoolLiteralExpr>) {}
+  mutating func visit(boolLiteral i: NodeIndex<BoolLiteralExpr>) {}
 
-  mutating func visit(bufferLiteral expr: NodeIndex<BufferLiteralExpr>) {
-    for e in ast[expr].elements {
-      e.accept(&self)
+  mutating func visit(bufferLiteral i: NodeIndex<BufferLiteralExpr>) {
+    for elem in ast[i].elements {
+      elem.accept(&self)
     }
   }
 
-  mutating func visit(charLiteral expr: NodeIndex<CharLiteralExpr>) {}
+  mutating func visit(charLiteral i: NodeIndex<CharLiteralExpr>) {}
 
-  mutating func visit(cond expr: NodeIndex<CondExpr>) {
-    nesting(in: expr, { this in
-      for item in this.ast[expr].condition {
+  mutating func visit(cond i: NodeIndex<CondExpr>) {
+    nesting(in: i, { this in
+      let expr = this.ast[i]
+      for item in expr.condition {
         switch item.value {
         case let .expr(expr):
           expr.accept(&this)
-        case let .decl(i):
-          this.visit(binding: i)
+        case let .decl(decl):
+          this.visit(binding: decl)
         }
       }
 
-      switch this.ast[expr].success {
+      switch expr.success {
       case let .expr(expr):
         expr.accept(&this)
       case let .block(stmt):
         this.visit(brace: stmt)
       }
 
-      switch this.ast[expr].failure {
+      switch expr.failure {
       case let .expr(expr):
         expr.accept(&this)
       case let .block(stmt):
@@ -256,41 +261,43 @@ struct ScopeHierarchyBuilder:
     })
   }
 
-  mutating func visit(floatLiteral expr: NodeIndex<FloatLiteralExpr>) {}
+  mutating func visit(floatLiteral i: NodeIndex<FloatLiteralExpr>) {}
 
-  mutating func visit(funCall expr: NodeIndex<FunCallExpr>) {
-    ast[expr].callee.accept(&self)
-    for a in ast[expr].arguments {
-      a.value.value.accept(&self)
+  mutating func visit(funCall i: NodeIndex<FunCallExpr>) {
+    ast[i].callee.accept(&self)
+    for arg in ast[i].arguments {
+      arg.value.value.accept(&self)
     }
   }
 
-  mutating func visit(intLiteral expr: NodeIndex<IntLiteralExpr>) {}
+  mutating func visit(intLiteral i: NodeIndex<IntLiteralExpr>) {}
 
-  mutating func visit(lambda expr: NodeIndex<LambdaExpr>) {
-    visit(fun: ast[expr].decl)
+  mutating func visit(lambda i: NodeIndex<LambdaExpr>) {
+    visit(fun: ast[i].decl)
   }
 
-  mutating func visit(mapLiteral expr: NodeIndex<MapLiteralExpr>) {
-    for e in ast[expr].elements {
-      e.value.key.accept(&self)
-      e.value.value.accept(&self)
+  mutating func visit(mapLiteral i: NodeIndex<MapLiteralExpr>) {
+    for elem in ast[i].elements {
+      elem.value.key.accept(&self)
+      elem.value.value.accept(&self)
     }
   }
 
-  mutating func visit(match expr: NodeIndex<MatchExpr>) {
-    ast[expr].subject.accept(&self)
+  mutating func visit(match i: NodeIndex<MatchExpr>) {
+    ast[i].subject.accept(&self)
 
-    for e in ast[expr].cases {
-      visit(matchCase: e)
+    for elem in ast[i].cases {
+      visit(matchCase: elem)
     }
   }
 
-  mutating func visit(matchCase expr: NodeIndex<MatchCaseExpr>) {
-    nesting(in: expr, { this in
-      this.ast[expr].pattern.accept(&this)
-      this.ast[expr].condition?.accept(&this)
-      switch this.ast[expr].body.value {
+  mutating func visit(matchCase i: NodeIndex<MatchCaseExpr>) {
+    nesting(in: i, { this in
+      let expr = this.ast[i]
+      expr.pattern.accept(&this)
+      expr.condition?.accept(&this)
+
+      switch expr.body.value {
       case let .expr(expr):
         expr.accept(&this)
       case let .block(stmt):
@@ -299,187 +306,187 @@ struct ScopeHierarchyBuilder:
     })
   }
 
-  mutating func visit(name expr: NodeIndex<NameExpr>) {
-    if case let .explicit(domain) = ast[expr].domain {
+  mutating func visit(name i: NodeIndex<NameExpr>) {
+    if case let .explicit(domain) = ast[i].domain {
       domain.accept(&self)
     }
 
-    for a in ast[expr].arguments {
-      switch a.value {
-      case let .type(a):
-        a.accept(&self)
-      case let .size(a):
-        a.accept(&self)
+    for arg in ast[i].arguments {
+      switch arg.value {
+      case let .type(arg):
+        arg.accept(&self)
+      case let .size(arg):
+        arg.accept(&self)
       }
     }
   }
 
-  mutating func visit(nil expr: NodeIndex<NilExpr>) {}
+  mutating func visit(nil i: NodeIndex<NilExpr>) {}
 
-  mutating func visit(storedProjection expr: NodeIndex<StoredProjectionExpr>) {
-    ast[expr].operand.accept(&self)
+  mutating func visit(storedProjection i: NodeIndex<StoredProjectionExpr>) {
+    ast[i].operand.accept(&self)
   }
 
-  mutating func visit(stringLiteral expr: NodeIndex<StringLiteralExpr>) {}
+  mutating func visit(stringLiteral i: NodeIndex<StringLiteralExpr>) {}
 
-  mutating func visit(subscriptCall expr: NodeIndex<SubscriptCallExpr>) {
-    ast[expr].callee.accept(&self)
-    for a in ast[expr].arguments {
-      a.value.value.accept(&self)
+  mutating func visit(subscriptCall i: NodeIndex<SubscriptCallExpr>) {
+    ast[i].callee.accept(&self)
+    for arg in ast[i].arguments {
+      arg.value.value.accept(&self)
     }
   }
 
-  mutating func visit(tuple expr: NodeIndex<TupleExpr>) {
-    for e in ast[expr].elements {
-      e.value.value.accept(&self)
+  mutating func visit(tuple i: NodeIndex<TupleExpr>) {
+    for elem in ast[i].elements {
+      elem.value.value.accept(&self)
     }
   }
 
-  mutating func visit(unfolded expr: NodeIndex<UnfoldedExpr>) {
-    for e in ast[expr].subexpressions {
-      e.accept(&self)
+  mutating func visit(unfolded i: NodeIndex<UnfoldedExpr>) {
+    for expr in ast[i].subexpressions {
+      expr.accept(&self)
     }
   }
 
   // MARK: Patterns
 
-  mutating func visit(binding pattern: NodeIndex<BindingPattern>) {
-    ast[pattern].subpattern.accept(&self)
-    ast[pattern].annotation?.accept(&self)
+  mutating func visit(binding i: NodeIndex<BindingPattern>) {
+    ast[i].subpattern.accept(&self)
+    ast[i].annotation?.accept(&self)
   }
 
-  mutating func visit(expr pattern: NodeIndex<ExprPattern>) {
-    ast[pattern].expr.accept(&self)
+  mutating func visit(expr i: NodeIndex<ExprPattern>) {
+    ast[i].expr.accept(&self)
   }
 
-  mutating func visit(name pattern: NodeIndex<NamePattern>) {}
+  mutating func visit(name i: NodeIndex<NamePattern>) {}
 
-  mutating func visit(tuple pattern: NodeIndex<TuplePattern>) {
-    for e in ast[pattern].elements {
-      e.value.pattern.accept(&self)
+  mutating func visit(tuple i: NodeIndex<TuplePattern>) {
+    for elem in ast[i].elements {
+      elem.value.pattern.accept(&self)
     }
   }
 
-  mutating func visit(wildcard pattern: NodeIndex<WildcardPattern>) {}
+  mutating func visit(wildcard i: NodeIndex<WildcardPattern>) {}
 
   // MARK: Statements
 
-  mutating func visit(brace stmt: NodeIndex<BraceStmt>) {
-    nesting(in: stmt, { this in
-      for s in this.ast[stmt].stmts {
-        s.accept(&this)
+  mutating func visit(brace i: NodeIndex<BraceStmt>) {
+    nesting(in: i, { this in
+      for stmt in this.ast[i].stmts {
+        stmt.accept(&this)
       }
     })
   }
 
-  mutating func visit(break stmt: NodeIndex<BreakStmt>) {}
+  mutating func visit(break i: NodeIndex<BreakStmt>) {}
 
-  mutating func visit(continue stmt: NodeIndex<ContinueStmt>) {}
+  mutating func visit(continue i: NodeIndex<ContinueStmt>) {}
 
-  mutating func visit(decl stmt: NodeIndex<DeclStmt>) {
-    ast[stmt].decl.accept(&self)
+  mutating func visit(decl i: NodeIndex<DeclStmt>) {
+    ast[i].decl.accept(&self)
   }
 
-  mutating func visit(doWhile stmt: NodeIndex<DoWhileStmt>) {
-    visit(brace: ast[stmt].body)
+  mutating func visit(doWhile i: NodeIndex<DoWhileStmt>) {
+    visit(brace: ast[i].body)
 
     // Visit the condition of the loop in the same lexical scope as the body.
-    innermost = AnyNodeIndex(ast[stmt].body)
-    ast[stmt].condition.accept(&self)
-    innermost = hierarchy.parent[ast[stmt].body]
+    innermost = AnyNodeIndex(ast[i].body)
+    ast[i].condition.accept(&self)
+    innermost = hierarchy.parent[ast[i].body]
   }
 
-  mutating func visit(expr stmt: NodeIndex<ExprStmt>) {
-    ast[stmt].expr.accept(&self)
+  mutating func visit(expr i: NodeIndex<ExprStmt>) {
+    ast[i].expr.accept(&self)
   }
 
-  mutating func visit(for stmt: NodeIndex<ForStmt>) {
-    nesting(in: stmt, { this in
-      this.visit(binding: this.ast[stmt].binding)
-      this.ast[stmt].filter?.accept(&this)
-      this.visit(brace: this.ast[stmt].body)
+  mutating func visit(for i: NodeIndex<ForStmt>) {
+    nesting(in: i, { this in
+      this.visit(binding: this.ast[i].binding)
+      this.ast[i].filter?.accept(&this)
+      this.visit(brace: this.ast[i].body)
     })
   }
 
-  mutating func visit(return stmt: NodeIndex<ReturnStmt>) {
-    ast[stmt].value?.accept(&self)
+  mutating func visit(return i: NodeIndex<ReturnStmt>) {
+    ast[i].value?.accept(&self)
   }
 
-  mutating func visit(while stmt: NodeIndex<WhileStmt>) {
-    nesting(in: stmt, { this in
-      for item in this.ast[stmt].condition {
+  mutating func visit(while i: NodeIndex<WhileStmt>) {
+    nesting(in: i, { this in
+      for item in this.ast[i].condition {
         switch item.value {
         case let .expr(expr):
           expr.accept(&this)
-        case let .decl(i):
-          this.visit(binding: i)
+        case let .decl(decl):
+          this.visit(binding: decl)
         }
       }
 
-      this.visit(brace: this.ast[stmt].body)
+      this.visit(brace: this.ast[i].body)
     })
   }
 
-  mutating func visit(yield stmt: NodeIndex<YieldStmt>) {
-    ast[stmt].value.accept(&self)
+  mutating func visit(yield i: NodeIndex<YieldStmt>) {
+    ast[i].value.accept(&self)
   }
 
   // MARK: Type expressions
 
-  mutating func visit(async type: NodeIndex<AsyncTypeExpr>) {
-    ast[type].operand.accept(&self)
+  mutating func visit(async i: NodeIndex<AsyncTypeExpr>) {
+    ast[i].operand.accept(&self)
   }
 
-  mutating func visit(conformanceLens type: NodeIndex<ConformanceLensTypeExpr>) {
-    ast[type].base.accept(&self)
+  mutating func visit(conformanceLens i: NodeIndex<ConformanceLensTypeExpr>) {
+    ast[i].base.accept(&self)
   }
 
-  mutating func visit(existential type: NodeIndex<ExistentialTypeExpr>) {
-    visit(whereClause: ast[type].whereClause?.value)
+  mutating func visit(existential i: NodeIndex<ExistentialTypeExpr>) {
+    visit(whereClause: ast[i].whereClause?.value)
   }
 
-  mutating func visit(indirect type: NodeIndex<IndirectTypeExpr>) {
-    ast[type].operand.accept(&self)
+  mutating func visit(indirect i: NodeIndex<IndirectTypeExpr>) {
+    ast[i].operand.accept(&self)
   }
 
-  mutating func visit(lambda type: NodeIndex<LambdaTypeExpr>) {
-    ast[type].environment?.accept(&self)
-    for p in ast[type].parameters {
-      visit(param: p)
+  mutating func visit(lambda i: NodeIndex<LambdaTypeExpr>) {
+    ast[i].environment?.accept(&self)
+    for param in ast[i].parameters {
+      visit(param: param)
     }
-    ast[type].output.accept(&self)
+    ast[i].output.accept(&self)
   }
 
-  mutating func visit(name type: NodeIndex<NameTypeExpr>) {
-    ast[type].domain?.accept(&self)
+  mutating func visit(name i: NodeIndex<NameTypeExpr>) {
+    ast[i].domain?.accept(&self)
 
-    for a in ast[type].arguments {
-      switch a.value {
-      case let .type(a):
-        a.accept(&self)
-      case let .size(a):
-        a.accept(&self)
+    for arg in ast[i].arguments {
+      switch arg.value {
+      case let .type(arg):
+        arg.accept(&self)
+      case let .size(arg):
+        arg.accept(&self)
       }
     }
   }
 
-  mutating func visit(param type: NodeIndex<ParamTypeExpr>) {
-    ast[type].bareType.accept(&self)
+  mutating func visit(param i: NodeIndex<ParamTypeExpr>) {
+    ast[i].bareType.accept(&self)
   }
 
-  mutating func visit(storedProjection type: NodeIndex<StoredProjectionTypeExpr>) {
-    ast[type].operand.accept(&self)
+  mutating func visit(storedProjection i: NodeIndex<StoredProjectionTypeExpr>) {
+    ast[i].operand.accept(&self)
   }
 
-  mutating func visit(tuple type: NodeIndex<TupleTypeExpr>) {
-    for e in ast[type].elements {
-      e.value.type.accept(&self)
+  mutating func visit(tuple i: NodeIndex<TupleTypeExpr>) {
+    for elem in ast[i].elements {
+      elem.value.type.accept(&self)
     }
   }
 
-  mutating func visit(union type: NodeIndex<UnionTypeExpr>) {
-    for e in ast[type].elements {
-      e.accept(&self)
+  mutating func visit(union i: NodeIndex<UnionTypeExpr>) {
+    for elem in ast[i].elements {
+      elem.accept(&self)
     }
   }
 

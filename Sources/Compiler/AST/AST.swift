@@ -4,20 +4,16 @@ public struct AST {
   /// The nodes in the AST.
   ///
   /// - Notes: Should be an array with tombstones once .
-  private var nodes: [Any]
+  private var nodes: [Any] = []
 
   /// A collection with the indices of the modules of the AST.
-  public private(set) var modules: [NodeIndex<ModuleDecl>]
+  public private(set) var modules: [NodeIndex<ModuleDecl>] = []
 
   /// The source range annotations of the nodes.
-  public var ranges: NodeMap<SourceRange>
+  public var ranges = NodeMap<SourceRange>()
 
   /// Creates an empty AST.
-  public init() {
-    nodes = []
-    modules = []
-    ranges = NodeMap()
-  }
+  public init() {}
 
   /// The index of the module containing Val's standard library, if present in the AST.
   public var std: NodeIndex<ModuleDecl>?

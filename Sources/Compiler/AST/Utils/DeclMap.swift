@@ -10,19 +10,24 @@ public struct DeclMap<Value> {
   }
 
   /// Accesses the property associated with the specified index.
-  subscript<T: Decl>(index: NodeIndex<T>) -> Value? {
+  subscript<T: DeclIndex>(index: T) -> Value? {
     _read   { yield storage[index.rawValue] }
     _modify { yield &storage[index.rawValue] }
   }
 
   /// Accesses the property associated with the specified index.
-  subscript(index: AnyDeclIndex) -> Value? {
-    _read   { yield storage[index.rawValue] }
-    _modify { yield &storage[index.rawValue] }
+  public subscript<T: DeclIndex>(
+    index: T,
+    default defaultValue: @autoclosure () -> Value
+  ) -> Value {
+    _read   { yield storage[index.rawValue, default: defaultValue()] }
+    _modify {
+      var value = storage[index.rawValue] ?? defaultValue()
+      defer { storage[index.rawValue] = value }
+      yield &value
+    }
   }
 
 }
 
 extension DeclMap: Equatable where Value: Equatable {}
-
-extension DeclMap: Hashable where Value: Hashable {}

@@ -1,17 +1,24 @@
 import Utils
 
-/// A type-erased index of a type expression.
-public struct AnyTypeExprIndex: NodeIndexProtocol {
+/// The index of a type expression.
+public protocol TypeExprIndex: NodeIndexProtocol {}
+
+extension NodeIndex: TypeExprIndex where T: TypeExpr {}
+
+/// The type-erased index of a type expression.
+public struct AnyTypeExprIndex: TypeExprIndex {
 
   /// The underlying type-erased index.
   public private(set) var base: AnyNodeIndex
 
-  /// Creates a type-erased index from a typed index.
-  public init<T: TypeExpr>(_ typedIndex: NodeIndex<T>) {
-    base = AnyNodeIndex(typedIndex)
+  /// Creates a type-erased index from a type expression index.
+  public init<T: TypeExprIndex>(_ other: T) {
+    base = AnyNodeIndex(other)
   }
 
   public var rawValue: Int { base.rawValue }
+
+  public var typeID: ObjectIdentifier { base.typeID }
 
   /// Returns a typed copy of this index, or `nil` if the type conversion failed.
   public func convert<T: TypeExpr>(to: T.Type) -> NodeIndex<T>? {

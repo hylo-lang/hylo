@@ -1,17 +1,24 @@
 import Utils
 
-/// A type-erased index of a statement.
-public struct AnyStmtIndex: NodeIndexProtocol {
+/// The index of a statement.
+public protocol StmtIndex: NodeIndexProtocol {}
+
+extension NodeIndex: StmtIndex where T: Stmt {}
+
+/// The type-erased index of a statement.
+public struct AnyStmtIndex: StmtIndex {
 
   /// The underlying type-erased index.
   var base: AnyNodeIndex
 
-  /// Creates a type-erased index from a typed index.
-  public init<T: Stmt>(_ typedIndex: NodeIndex<T>) {
-    base = AnyNodeIndex(typedIndex)
+  /// Creates a type-erased index from a statement index.
+  public init<T: StmtIndex>(_ other: T) {
+    base = AnyNodeIndex(other)
   }
 
   public var rawValue: Int { base.rawValue }
+
+  public var typeID: ObjectIdentifier { base.typeID }
 
   /// Returns a typed copy of this index, or `nil` if the type conversion failed.
   public func convert<T: Stmt>(to: T.Type) -> NodeIndex<T>? {

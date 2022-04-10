@@ -1,17 +1,24 @@
 import Utils
 
-/// A type-erased index of a declaration.
-public struct AnyDeclIndex: NodeIndexProtocol {
+/// The index of a declaration.
+public protocol DeclIndex: NodeIndexProtocol {}
+
+extension NodeIndex: DeclIndex where T: Decl {}
+
+/// The type-erased index of a declaration.
+public struct AnyDeclIndex: DeclIndex {
 
   /// The underlying type-erased index.
   var base: AnyNodeIndex
 
-  /// Creates a type-erased index from a typed index.
-  public init<T: Decl>(_ typedIndex: NodeIndex<T>) {
-    base = AnyNodeIndex(typedIndex)
+  /// Creates a type-erased index from a declaration index.
+  public init<T: DeclIndex>(_ other: T) {
+    base = AnyNodeIndex(other)
   }
 
   public var rawValue: Int { base.rawValue }
+
+  public var typeID: ObjectIdentifier { base.typeID }
 
   /// Returns a typed copy of this index, or `nil` if the type conversion failed.
   public func convert<T: Decl>(to: T.Type) -> NodeIndex<T>? {

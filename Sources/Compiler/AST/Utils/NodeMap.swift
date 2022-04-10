@@ -16,6 +16,19 @@ public struct NodeMap<Value> {
   }
 
   /// Accesses the property associated with the specified index.
+  public subscript<T: NodeIndexProtocol>(
+    index: T,
+    default defaultValue: @autoclosure () -> Value
+  ) -> Value {
+    _read   { yield storage[index.rawValue, default: defaultValue()] }
+    _modify {
+      var value = storage[index.rawValue] ?? defaultValue()
+      defer { storage[index.rawValue] = value }
+      yield &value
+    }
+  }
+
+  /// Accesses the property associated with the specified index.
   subscript(raw index: NodeIndex.RawValue) -> Value? {
     _read   { yield storage[index] }
     _modify { yield &storage[index] }

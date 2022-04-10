@@ -1,5 +1,5 @@
 /// A parameter declaration in a function or subscript declaration.
-public struct ParamDecl: Decl {
+public struct ParamDecl: SingleEntityDecl {
 
   /// The label of the parameter.
   public var label: SourceRepresentable<Identifier>
@@ -12,5 +12,7 @@ public struct ParamDecl: Decl {
 
   /// The default value of the declaration, if any.
   public var defaultValue: AnyExprIndex?
+
+  public var name: String { identifier.value }
 
 }

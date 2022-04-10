@@ -1,5 +1,5 @@
 /// An associated type declaration.
-public struct AssociatedTypeDecl: Decl {
+public struct AssociatedTypeDecl: SingleEntityDecl {
 
   /// The identifier of the type.
   public var identifier: SourceRepresentable<Identifier>
@@ -12,5 +12,7 @@ public struct AssociatedTypeDecl: Decl {
 
   /// The default value of the declaration, if any.
   public var defaultValue: AnyTypeExprIndex?
+
+  public var name: String { identifier.value }
 
 }
