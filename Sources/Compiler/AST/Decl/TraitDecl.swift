@@ -1,6 +1,8 @@
 /// A trait declaration.
 public struct TraitDecl: GenericDecl, SingleEntityDecl, LexicalScope {
 
+  public static let kind = NodeKind.traitDecl
+
   /// The access modifier of the declaration, if any.
   public var access: SourceRepresentable<AccessModifier>?
 

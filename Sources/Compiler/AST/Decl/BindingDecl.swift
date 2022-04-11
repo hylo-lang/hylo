@@ -1,6 +1,8 @@
 /// A binding declaration.
 public struct BindingDecl: Decl {
 
+  public static let kind = NodeKind.bindingDecl
+
   /// The access modifier of the declaration, if any.
   public var accessModifier: SourceRepresentable<AccessModifier>?
 

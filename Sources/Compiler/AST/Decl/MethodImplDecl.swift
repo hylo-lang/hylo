@@ -1,6 +1,8 @@
 /// The declaration of a method implementation.
 public struct MethodImplDecl: Decl {
 
+  public static let kind = NodeKind.methodImplDecl
+
   public enum Introducer: Hashable {
 
     case `let`

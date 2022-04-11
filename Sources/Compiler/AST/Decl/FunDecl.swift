@@ -1,6 +1,8 @@
 /// A function declaration.
 public struct FunDecl: GenericDecl, LexicalScope {
 
+  public static let kind = NodeKind.funDecl
+
   public enum Introducer: Hashable {
 
     /// The function and method introducer, `fun`.

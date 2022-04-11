@@ -1,6 +1,8 @@
 /// A parameter in a lambda type expression.
 public struct ParamTypeExpr: TypeExpr {
 
+  public static let kind = NodeKind.paramTypeExpr
+
   /// The label of the parameter.
   public var label: SourceRepresentable<Identifier>?
 

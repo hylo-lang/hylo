@@ -1,6 +1,8 @@
 /// A do-while loop.
 public struct DoWhileStmt: Stmt {
 
+  public static let kind = NodeKind.doWhileStmt
+
   /// The body of the loop.
   public var body: NodeIndex<BraceStmt>
 

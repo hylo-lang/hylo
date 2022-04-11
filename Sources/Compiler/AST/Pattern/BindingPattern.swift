@@ -4,6 +4,8 @@
 /// bindings, instead or referring to existing declarations.
 public struct BindingPattern: Pattern {
 
+  public static let kind = NodeKind.bindingPattern
+
   public enum Introducer: Hashable {
 
     case `let`

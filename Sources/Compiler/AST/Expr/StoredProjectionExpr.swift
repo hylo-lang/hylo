@@ -1,6 +1,8 @@
 /// A stored projection expression.
 public struct StoredProjectionExpr: Expr {
 
+  public static let kind = NodeKind.storedProjectionExpr
+
   public enum Introducer: Hashable {
 
     case `let`

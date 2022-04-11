@@ -1,6 +1,8 @@
 /// A parameter declaration in a function or subscript declaration.
 public struct ParamDecl: SingleEntityDecl {
 
+  public static let kind = NodeKind.paramDecl
+
   /// The label of the parameter.
   public var label: SourceRepresentable<Identifier>
 

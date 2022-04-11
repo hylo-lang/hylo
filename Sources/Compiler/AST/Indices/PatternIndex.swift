@@ -18,7 +18,7 @@ public struct AnyPatternIndex: PatternIndex {
 
   public var rawValue: Int { base.rawValue }
 
-  public var typeID: ObjectIdentifier { base.typeID }
+  public var kind: NodeKind { base.kind }
 
   /// Returns a typed copy of this index, or `nil` if the type conversion failed.
   public func convert<T: Expr>(to: T.Type) -> NodeIndex<T>? {
@@ -26,16 +26,16 @@ public struct AnyPatternIndex: PatternIndex {
   }
 
   public func accept<V: PatternVisitor>(_ visitor: inout V) -> V.Result {
-    switch base.typeID {
-    case BindingPattern.typeID:
+    switch base.kind {
+    case BindingPattern.kind:
       return visitor.visit(binding: NodeIndex(rawValue: base.rawValue))
-    case ExprPattern.typeID:
+    case ExprPattern.kind:
       return visitor.visit(expr: NodeIndex(rawValue: base.rawValue))
-    case NamePattern.typeID:
+    case NamePattern.kind:
       return visitor.visit(name: NodeIndex(rawValue: base.rawValue))
-    case TuplePattern.typeID:
+    case TuplePattern.kind:
       return visitor.visit(tuple: NodeIndex(rawValue: base.rawValue))
-    case WildcardPattern.typeID:
+    case WildcardPattern.kind:
       return visitor.visit(wildcard: NodeIndex(rawValue: base.rawValue))
     default:
       unreachable()

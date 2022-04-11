@@ -18,7 +18,7 @@ public struct AnyDeclIndex: DeclIndex {
 
   public var rawValue: Int { base.rawValue }
 
-  public var typeID: ObjectIdentifier { base.typeID }
+  public var kind: NodeKind { base.kind }
 
   /// Returns a typed copy of this index, or `nil` if the type conversion failed.
   public func convert<T: Decl>(to: T.Type) -> NodeIndex<T>? {
@@ -26,38 +26,40 @@ public struct AnyDeclIndex: DeclIndex {
   }
 
   public func accept<V: DeclVisitor>(_ visitor: inout V) -> V.Result {
-    switch base.typeID {
-    case AssociatedTypeDecl.typeID:
+    switch base.kind {
+    case AssociatedSizeDecl.kind:
+      return visitor.visit(associatedSize: NodeIndex(rawValue: base.rawValue))
+    case AssociatedTypeDecl.kind:
       return visitor.visit(associatedType: NodeIndex(rawValue: base.rawValue))
-    case BindingDecl.typeID:
+    case BindingDecl.kind:
       return visitor.visit(binding: NodeIndex(rawValue: base.rawValue))
-    case ExtensionDecl.typeID:
+    case ExtensionDecl.kind:
       return visitor.visit(extension: NodeIndex(rawValue: base.rawValue))
-    case FunDecl.typeID:
+    case FunDecl.kind:
       return visitor.visit(fun: NodeIndex(rawValue: base.rawValue))
-    case GenericTypeParamDecl.typeID:
+    case GenericTypeParamDecl.kind:
       return visitor.visit(genericTypeParam: NodeIndex(rawValue: base.rawValue))
-    case GenericSizeParamDecl.typeID:
+    case GenericSizeParamDecl.kind:
       return visitor.visit(genericSizeParam: NodeIndex(rawValue: base.rawValue))
-    case MethodImplDecl.typeID:
+    case MethodImplDecl.kind:
       return visitor.visit(methodImpl: NodeIndex(rawValue: base.rawValue))
-    case ModuleDecl.typeID:
+    case ModuleDecl.kind:
       return visitor.visit(module: NodeIndex(rawValue: base.rawValue))
-    case NamespaceDecl.typeID:
+    case NamespaceDecl.kind:
       return visitor.visit(namespace: NodeIndex(rawValue: base.rawValue))
-    case ParamDecl.typeID:
+    case ParamDecl.kind:
       return visitor.visit(param: NodeIndex(rawValue: base.rawValue))
-    case ProductTypeDecl.typeID:
+    case ProductTypeDecl.kind:
       return visitor.visit(productType: NodeIndex(rawValue: base.rawValue))
-    case SubscriptDecl.typeID:
+    case SubscriptDecl.kind:
       return visitor.visit(subscript: NodeIndex(rawValue: base.rawValue))
-    case SubscriptImplDecl.typeID:
+    case SubscriptImplDecl.kind:
       return visitor.visit(subscriptImpl: NodeIndex(rawValue: base.rawValue))
-    case TraitDecl.typeID:
+    case TraitDecl.kind:
       return visitor.visit(trait: NodeIndex(rawValue: base.rawValue))
-    case TypeAliasDecl.typeID:
+    case TypeAliasDecl.kind:
       return visitor.visit(typeAlias: NodeIndex(rawValue: base.rawValue))
-    case VarDecl.typeID:
+    case VarDecl.kind:
       return visitor.visit(var: NodeIndex(rawValue: base.rawValue))
     default:
       unreachable()

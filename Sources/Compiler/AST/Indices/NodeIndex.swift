@@ -5,7 +5,7 @@ public protocol NodeIndexProtocol: Hashable {
   var rawValue: NodeIndex.RawValue { get }
 
   /// The identifier of type of the referred node.
-  var typeID: ObjectIdentifier { get }
+  var kind: NodeKind { get }
 
 }
 
@@ -17,7 +17,7 @@ public struct NodeIndex<T: Node>: NodeIndexProtocol {
 
   public let rawValue: RawValue
 
-  public var typeID: ObjectIdentifier { ObjectIdentifier(T.self) }
+  public var kind: NodeKind { T.kind }
 
   internal init(rawValue: RawValue) {
     self.rawValue = rawValue
@@ -46,20 +46,22 @@ public struct AnyNodeIndex: NodeIndexProtocol {
 
   public let rawValue: NodeIndex.RawValue
 
-  public let typeID: ObjectIdentifier
+  public let kind: NodeKind
 
   /// Creates a type-erased index from a node index.
   public init<T: NodeIndexProtocol>(_ other: T) {
     rawValue = other.rawValue
-    typeID = other.typeID
+    kind = other.kind
   }
 
   /// Returns a typed copy of this index, or `nil` if the type conversion failed.
   public func convert<T: Node>(to: T.Type) -> NodeIndex<T>? {
-    typeID == ObjectIdentifier(T.self)
+    kind == T.kind
       ? NodeIndex(rawValue: rawValue)
       : nil
   }
+
+  /// Indicates whether this index denotes a declaration.
 
 }
 

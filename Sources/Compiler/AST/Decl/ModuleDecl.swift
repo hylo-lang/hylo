@@ -1,6 +1,8 @@
 /// A module declaration.
 public struct ModuleDecl: Decl, LexicalScope {
 
+  public static let kind = NodeKind.moduleDecl
+
   /// The name of the module.
   public var name: String
 

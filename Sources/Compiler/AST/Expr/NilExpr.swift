@@ -1,2 +1,6 @@
 /// A nil expression.
-public struct NilExpr: Expr {}
+public struct NilExpr: Expr {
+
+  public static let kind = NodeKind.nilExpr
+
+}

@@ -18,7 +18,7 @@ public struct AnyExprIndex: ExprIndex {
 
   public var rawValue: Int { base.rawValue }
 
-  public var typeID: ObjectIdentifier { base.typeID }
+  public var kind: NodeKind { base.kind }
 
   /// Returns a typed copy of this index, or `nil` if the type conversion failed.
   public func convert<T: Expr>(to: T.Type) -> NodeIndex<T>? {
@@ -26,42 +26,44 @@ public struct AnyExprIndex: ExprIndex {
   }
 
   public func accept<V: ExprVisitor>(_ visitor: inout V) -> V.Result {
-    switch base.typeID {
-    case AsyncExpr.typeID:
+    switch base.kind {
+    case AsyncExpr.kind:
       return visitor.visit(async: NodeIndex(rawValue: base.rawValue))
-    case AwaitExpr.typeID:
+    case AwaitExpr.kind:
       return visitor.visit(await: NodeIndex(rawValue: base.rawValue))
-    case BoolLiteralExpr.typeID:
+    case BoolLiteralExpr.kind:
       return visitor.visit(boolLiteral: NodeIndex(rawValue: base.rawValue))
-    case CharLiteralExpr.typeID:
+    case CharLiteralExpr.kind:
       return visitor.visit(charLiteral: NodeIndex(rawValue: base.rawValue))
-    case CondExpr.typeID:
+    case CondExpr.kind:
       return visitor.visit(cond: NodeIndex(rawValue: base.rawValue))
-    case FloatLiteralExpr.typeID:
+    case FloatLiteralExpr.kind:
       return visitor.visit(floatLiteral: NodeIndex(rawValue: base.rawValue))
-    case FunCallExpr.typeID:
+    case FunCallExpr.kind:
       return visitor.visit(funCall: NodeIndex(rawValue: base.rawValue))
-    case IntLiteralExpr.typeID:
+    case IntLiteralExpr.kind:
       return visitor.visit(intLiteral: NodeIndex(rawValue: base.rawValue))
-    case LambdaExpr.typeID:
+    case LambdaExpr.kind:
       return visitor.visit(lambda: NodeIndex(rawValue: base.rawValue))
-    case MapLiteralExpr.typeID:
+    case MapLiteralExpr.kind:
       return visitor.visit(mapLiteral: NodeIndex(rawValue: base.rawValue))
-    case MatchExpr.typeID:
+    case MatchExpr.kind:
       return visitor.visit(match: NodeIndex(rawValue: base.rawValue))
-    case NameExpr.typeID:
+    case MatchCaseExpr.kind:
+      return visitor.visit(match: NodeIndex(rawValue: base.rawValue))
+    case NameExpr.kind:
       return visitor.visit(name: NodeIndex(rawValue: base.rawValue))
-    case NilExpr.typeID:
+    case NilExpr.kind:
       return visitor.visit(nil: NodeIndex(rawValue: base.rawValue))
-    case StoredProjectionExpr.typeID:
+    case StoredProjectionExpr.kind:
       return visitor.visit(storedProjection: NodeIndex(rawValue: base.rawValue))
-    case StringLiteralExpr.typeID:
+    case StringLiteralExpr.kind:
       return visitor.visit(stringLiteral: NodeIndex(rawValue: base.rawValue))
-    case SubscriptCallExpr.typeID:
+    case SubscriptCallExpr.kind:
       return visitor.visit(subscriptCall: NodeIndex(rawValue: base.rawValue))
-    case TupleExpr.typeID:
+    case TupleExpr.kind:
       return visitor.visit(tuple: NodeIndex(rawValue: base.rawValue))
-    case UnfoldedExpr.typeID:
+    case UnfoldedExpr.kind:
       return visitor.visit(unfolded: NodeIndex(rawValue: base.rawValue))
     default:
       unreachable()

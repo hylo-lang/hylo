@@ -1,6 +1,8 @@
 /// A tuple type expression.
 public struct TupleTypeExpr: TypeExpr {
 
+  public static let kind = NodeKind.tupleTypeExpr
+
   /// An element in a tuple type expression.
   public struct Element: Hashable {
 

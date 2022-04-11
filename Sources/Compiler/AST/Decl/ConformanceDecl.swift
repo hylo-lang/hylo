@@ -1,6 +1,8 @@
 /// The declaration of a conformance.
 public struct ConformanceDecl: Decl, LexicalScope {
 
+  public static let kind = NodeKind.conformanceDecl
+
   /// The expression of the conforming type.
   public var subject: AnyTypeExprIndex
 

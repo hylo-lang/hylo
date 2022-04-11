@@ -1,6 +1,8 @@
 /// A function call.
 public struct FunCallExpr: Expr {
 
+  public static let kind = NodeKind.funCallExpr
+
   /// A flag indicating whether the call is self-assigning.
   public var isSelfAssigning: Bool
 

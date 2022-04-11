@@ -1,6 +1,8 @@
 /// The declaration of an extension.
 public struct ExtensionDecl: Decl, LexicalScope {
 
+  public static let kind = NodeKind.extensionDecl
+
   /// The expression of the extended type.
   public var subject: AnyTypeExprIndex
 

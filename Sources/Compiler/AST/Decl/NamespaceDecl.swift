@@ -1,6 +1,8 @@
 /// A namespace declaration.
 public struct NamespaceDecl: SingleEntityDecl, LexicalScope {
 
+  public static let kind = NodeKind.namespaceDecl
+
   /// The access modifier of the declaration, if any.
   public var access: SourceRepresentable<AccessModifier>?
 

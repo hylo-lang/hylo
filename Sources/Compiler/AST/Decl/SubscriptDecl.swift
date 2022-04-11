@@ -1,6 +1,8 @@
 /// A subscript declaration.
 public struct SubscriptDecl: Decl, LexicalScope {
 
+  public static let kind = NodeKind.subscriptDecl
+
   /// The access modifier of the declaration, if any.
   public var accessModifier: SourceRepresentable<AccessModifier>?
 

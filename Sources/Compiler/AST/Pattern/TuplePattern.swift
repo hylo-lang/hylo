@@ -1,6 +1,8 @@
 /// A tuple pattern.
 public struct TuplePattern: Pattern {
 
+  public static let kind = NodeKind.tuplePattern
+
   /// An element in a tuple pattern.
   public struct Element: Hashable {
 

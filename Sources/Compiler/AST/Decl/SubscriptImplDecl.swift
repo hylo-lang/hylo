@@ -1,6 +1,8 @@
 /// The declaration of a subscript implementation.
 public struct SubscriptImplDecl: Decl {
 
+  public static let kind = NodeKind.subscriptImplDecl
+
   public enum Introducer: Hashable {
 
     case `let`

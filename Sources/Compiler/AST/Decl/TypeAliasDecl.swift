@@ -1,6 +1,8 @@
 /// A type alias declaration.
 public struct TypeAliasDecl: GenericDecl, SingleEntityDecl, LexicalScope {
 
+  public static let kind = NodeKind.typeAliasDecl
+
   public enum Body: Hashable {
 
     /// A single type expression.

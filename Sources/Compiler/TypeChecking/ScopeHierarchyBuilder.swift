@@ -39,8 +39,16 @@ struct ScopeHierarchyBuilder:
 
   // MARK: Declarations
 
+  mutating func visit(associatedSize i: NodeIndex<AssociatedSizeDecl>) {
+    hierarchy.insert(decl: i, into: innermost!)
+    visit(whereClause: ast[i].whereClause?.value)
+  }
+
   mutating func visit(associatedType i: NodeIndex<AssociatedTypeDecl>) {
     hierarchy.insert(decl: i, into: innermost!)
+    for j in ast[i].conformances {
+      visit(name: j)
+    }
     visit(whereClause: ast[i].whereClause?.value)
   }
 
@@ -500,13 +508,16 @@ struct ScopeHierarchyBuilder:
     guard let clause = clause else { return }
 
     for constraint in clause.constraints {
-      switch constraint {
+      switch constraint.value {
       case let .equality(lhs, rhs):
         lhs.accept(&self)
         rhs.accept(&self)
 
-      case let .conformance(lhs, _):
+      case let .conformance(lhs, rhs):
         visit(name: lhs)
+        for i in rhs {
+          visit(name: i)
+        }
 
       case let .size(expr):
         expr.accept(&self)
