@@ -18,8 +18,14 @@ public struct Diag {
     /// The source range highlighted in the window.
     public var range: SourceRange
 
-    /// The text of the window.
-    public var text: String
+    /// The text of the window, if any.
+    public var text: String?
+
+    /// Creates a new diagnostic window.
+    public init(range: SourceRange, text: String? = nil) {
+      self.text = text
+      self.range = range
+    }
 
   }
 
@@ -39,5 +45,20 @@ public struct Diag {
 
   /// The sub-diagnostics.
   public var children: [Diag]
+
+  /// Creates a new diagnostic.
+  public init(
+    level: Level,
+    message: String,
+    location: SourceLocation? = nil,
+    window: Window? = nil,
+    children: [Diag] = []
+  ) {
+    self.level = level
+    self.message = message
+    self.location = location
+    self.window = window
+    self.children = children
+  }
 
 }
