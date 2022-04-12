@@ -7,9 +7,9 @@ public struct ModuleDecl: Decl, LexicalScope {
   public var name: String
 
   /// The member declarations in the lexical scope of the module.
-  public var members: [AnyDeclIndex]
+  public var members: [AnyDeclID]
 
-  public init(name: String, members: [AnyDeclIndex]) {
+  public init(name: String, members: [AnyDeclID]) {
     self.name = name
     self.members = members
   }

@@ -1,8 +1,8 @@
 /// The expression of an argument to a generic entity.
 public enum GenericArgument: Hashable {
 
-  case type(AnyTypeExprIndex)
+  case type(AnyTypeExprID)
 
-  case size(AnyExprIndex)
+  case size(AnyExprID)
 
 }

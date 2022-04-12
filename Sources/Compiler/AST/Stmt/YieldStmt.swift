@@ -4,6 +4,6 @@ public struct YieldStmt: Stmt {
   public static let kind = NodeKind.yieldStmt
 
   /// The yielded value.
-  public var value: AnyExprIndex
+  public var value: AnyExprID
 
 }

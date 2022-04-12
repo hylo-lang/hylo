@@ -7,7 +7,7 @@ public struct FunCallExpr: Expr {
   public var isSelfAssigning: Bool
 
   /// The callee.
-  public var callee: AnyExprIndex
+  public var callee: AnyExprID
 
   /// The arguments of the call.
   public var arguments: [SourceRepresentable<Argument>]

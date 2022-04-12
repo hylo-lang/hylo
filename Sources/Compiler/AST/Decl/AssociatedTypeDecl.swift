@@ -7,13 +7,13 @@ public struct AssociatedTypeDecl: SingleEntityDecl {
   public var identifier: SourceRepresentable<Identifier>
 
   /// The conformances listed in the declaration.
-  public var conformances: [NodeIndex<NameTypeExpr>]
+  public var conformances: [NodeID<NameTypeExpr>]
 
   /// The where clause of the declaration, if any.
   public var whereClause: SourceRepresentable<WhereClause>?
 
   /// The default value of the declaration, if any.
-  public var defaultValue: AnyTypeExprIndex?
+  public var defaultValue: AnyTypeExprID?
 
   public var name: String { identifier.value }
 

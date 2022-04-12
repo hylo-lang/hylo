@@ -4,6 +4,6 @@ public struct ExprPattern: Pattern {
   public static let kind = NodeKind.exprPattern
 
   /// The expression of the pattern.
-  public var expr: AnyExprIndex
+  public var expr: AnyExprID
 
 }

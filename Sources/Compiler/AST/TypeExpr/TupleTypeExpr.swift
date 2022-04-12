@@ -10,7 +10,7 @@ public struct TupleTypeExpr: TypeExpr {
     public var label: String?
 
     /// The type expression of the element.
-    public var type: AnyTypeExprIndex
+    public var type: AnyTypeExprID
 
   }
 

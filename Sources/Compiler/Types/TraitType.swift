@@ -2,7 +2,7 @@
 public struct TraitType: TypeProtocol, Hashable {
 
   /// The declaration that introduces the trait.
-  public let decl: NodeIndex<TraitDecl>
+  public let decl: NodeID<TraitDecl>
 
   public let flags: TypeFlags = .isCanonical
 

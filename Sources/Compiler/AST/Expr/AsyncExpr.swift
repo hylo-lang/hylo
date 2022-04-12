@@ -4,6 +4,6 @@ public struct AsyncExpr: Expr {
   public static let kind = NodeKind.asyncExpr
 
   /// The declaration of the underlying anonymous function.
-  public var decl: NodeIndex<FunDecl>
+  public var decl: NodeID<FunDecl>
 
 }

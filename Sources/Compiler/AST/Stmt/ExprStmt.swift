@@ -4,6 +4,6 @@ public struct ExprStmt: Stmt {
   public static let kind = NodeKind.exprStmt
 
   /// The expression.
-  public var expr: AnyExprIndex
+  public var expr: AnyExprID
 
 }

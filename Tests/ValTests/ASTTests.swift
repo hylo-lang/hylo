@@ -15,15 +15,15 @@ final class ASTTests: XCTestCase {
     // Create a module declarations.
     let i = ast.insert(ModuleDecl(name: "Val", members: []))
 
-    // Create a trait declaration, subscripting the AST for writing with a typed index.
+    // Create a trait declaration, subscripting the AST for writing with a typed ID.
     let j = ast.insert(TraitDecl(
       access: nil,
       identifier: SourceRepresentable(value: "T"),
       refinements: [],
       members: []))
-    ast[i].members.append(AnyDeclIndex(j))
+    ast[i].members.append(AnyDeclID(j))
 
-    // Subscript the AST for reading with a type-erased index.
+    // Subscript the AST for reading with a type-erased ID.
     let t = try XCTUnwrap(ast[ast[i].members.first!] as? TraitDecl)
     XCTAssert(t.identifier.value == "T")
   }

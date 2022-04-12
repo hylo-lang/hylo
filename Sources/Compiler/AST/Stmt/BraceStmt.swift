@@ -4,6 +4,6 @@ public struct BraceStmt: Stmt, LexicalScope {
   public static let kind = NodeKind.braceStmt
 
   /// The statements in the block.
-  public var stmts: [AnyStmtIndex]
+  public var stmts: [AnyStmtID]
 
 }

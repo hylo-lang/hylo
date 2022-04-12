@@ -64,10 +64,10 @@ public struct TypeChecker {
 
   /// Type checks the specified module and returns whether that succeeded.
   ///
-  /// - Requires: `module` is a valid index in the type checker's AST.
-  public mutating func check(module: NodeIndex<ModuleDecl>) -> Bool {
+  /// - Requires: `module` is a valid ID in the type checker's AST.
+  public mutating func check(module: NodeID<ModuleDecl>) -> Bool {
     // Build the type of the module.
-    declTypes[AnyDeclIndex(module)] = .module(ModuleType(decl: module))
+    declTypes[AnyDeclID(module)] = .module(ModuleType(decl: module))
 
     // Type check the declarations in the module.
     return ast[module].members.reduce(true, { (success, i) in
@@ -76,7 +76,7 @@ public struct TypeChecker {
   }
 
   /// Type checkes the specified declaration and returns whether that succeeded.
-  private mutating func check(decl: AnyDeclIndex) -> Bool {
+  private mutating func check(decl: AnyDeclID) -> Bool {
     // Check if a type checking request has already been received.
     while true {
       switch declRequests[decl] {
@@ -121,11 +121,11 @@ public struct TypeChecker {
     return success
   }
 
-  private mutating func check(associatedSize: NodeIndex<AssociatedSizeDecl>) -> Bool {
+  private mutating func check(associatedSize: NodeID<AssociatedSizeDecl>) -> Bool {
     return true
   }
 
-  private mutating func check(associatedType: NodeIndex<AssociatedTypeDecl>) -> Bool {
+  private mutating func check(associatedType: NodeID<AssociatedTypeDecl>) -> Bool {
     return true
   }
 
@@ -177,7 +177,7 @@ public struct TypeChecker {
     fatalError("not implemented")
   }
 
-  private mutating func check(trait i: NodeIndex<TraitDecl>) -> Bool {
+  private mutating func check(trait i: NodeID<TraitDecl>) -> Bool {
     // Type check the generic constraints of the declaration.
     var success = constraints(ofTrait: i) != nil
 
@@ -189,7 +189,7 @@ public struct TypeChecker {
     // Type check extensions.
     let type = Type.trait(TraitType(decl: i))
     for j in extensions(of: type, exposedTo: scopeHierarchy.container[i]!) {
-      success = check(decl: AnyDeclIndex(j)) && success
+      success = check(decl: AnyDeclID(j)) && success
     }
 
     // TODO: Check the type's conformance
@@ -210,14 +210,14 @@ public struct TypeChecker {
   ///
   /// - Note: Call `constraints(ofTrait)` instead of this method to collect the constraints of a
   ///   trait declaration.
-  private mutating func constraints<T: GenericDecl>(of decl: NodeIndex<T>) -> [TypeConstraint]? {
+  private mutating func constraints<T: GenericDecl>(of decl: NodeID<T>) -> [TypeConstraint]? {
     assert(T.self != TraitDecl.self)
-    if let constraints = clauseConstraints[AnyDeclIndex(decl)] {
+    if let constraints = clauseConstraints[AnyDeclID(decl)] {
       return constraints
     }
 
     guard ast[decl].genericClause != nil else {
-      clauseConstraints[AnyDeclIndex(decl)] = []
+      clauseConstraints[AnyDeclID(decl)] = []
       return []
     }
 
@@ -226,8 +226,8 @@ public struct TypeChecker {
 
   /// Returns the constraints on the types conforming to `decl` and its associated types, or `nil`
   /// if those constraints are ill-formed.
-  private mutating func constraints(ofTrait i: NodeIndex<TraitDecl>) -> [TypeConstraint]? {
-    if let constraints = clauseConstraints[AnyDeclIndex(i)] {
+  private mutating func constraints(ofTrait i: NodeID<TraitDecl>) -> [TypeConstraint]? {
+    if let constraints = clauseConstraints[AnyDeclID(i)] {
       return constraints
     }
 
@@ -256,28 +256,28 @@ public struct TypeChecker {
 
     // Bail out if we found ill-form constraints.
     if !success {
-      clauseConstraints[AnyDeclIndex(i)] = nil
+      clauseConstraints[AnyDeclID(i)] = nil
       return nil
     }
 
     // Synthesize `Self: T`.
     let trait = TraitType(decl: i)
-    let selfType = GenericTypeParamType(decl: AnyDeclIndex(i))
+    let selfType = GenericTypeParamType(decl: AnyDeclID(i))
     constraints.append(.conformance(l: .genericTypeParam(selfType), traits: [.trait(trait)]))
 
-    clauseConstraints[AnyDeclIndex(i)] = constraints
+    clauseConstraints[AnyDeclID(i)] = constraints
     return constraints
   }
 
   // Evaluates the constraints declared in `associatedSize`, stores them in `constraints` and
   // returns whether they are all well-formed.
   private mutating func associatedConstraints(
-    ofSize associatedSize: NodeIndex<AssociatedSizeDecl>,
-    ofTrait trait: NodeIndex<TraitDecl>,
+    ofSize associatedSize: NodeID<AssociatedSizeDecl>,
+    ofTrait trait: NodeID<TraitDecl>,
     into constraints: inout [TypeConstraint]
   ) -> Bool {
     // Realize the generic type parameter corresponding to the associated size.
-    guard let lhs = realize(typeOf: AnyDeclIndex(associatedSize)) else { return false }
+    guard let lhs = realize(typeOf: AnyDeclID(associatedSize)) else { return false }
     assert(lhs.base is GenericSizeParamType)
 
     var success = true
@@ -285,7 +285,7 @@ public struct TypeChecker {
     // Evaluate the constraint expressions of the associated type's where clause.
     if let clause = ast[associatedSize].whereClause?.value {
       for expr in clause.constraints {
-        if let constraint = eval(constraintExpr: expr, in: AnyNodeIndex(trait)) {
+        if let constraint = eval(constraintExpr: expr, in: AnyNodeID(trait)) {
           constraints.append(constraint)
         } else {
           success = false
@@ -299,12 +299,12 @@ public struct TypeChecker {
   // Evaluates the constraints declared in `associatedType`, stores them in `constraints` and
   // returns whether they are all well-formed.
   private mutating func associatedConstraints(
-    ofType associatedType: NodeIndex<AssociatedTypeDecl>,
-    ofTrait trait: NodeIndex<TraitDecl>,
+    ofType associatedType: NodeID<AssociatedTypeDecl>,
+    ofTrait trait: NodeID<TraitDecl>,
     into constraints: inout [TypeConstraint]
   ) -> Bool {
     // Realize the generic type parameter corresponding to the associated type.
-    guard let lhs = realize(typeOf: AnyDeclIndex(associatedType)) else { return false }
+    guard let lhs = realize(typeOf: AnyDeclID(associatedType)) else { return false }
     assert(lhs.base is GenericTypeParamType)
 
     var success = true
@@ -312,7 +312,7 @@ public struct TypeChecker {
     // Realize the traits in the conformance list.
     var traits: Set<Type> = []
     for expr in ast[associatedType].conformances {
-      guard let rhs = realize(name: expr, in: AnyNodeIndex(trait)) else {
+      guard let rhs = realize(name: expr, in: AnyNodeID(trait)) else {
         success = false
         continue
       }
@@ -334,7 +334,7 @@ public struct TypeChecker {
     // Evaluate the constraint expressions of the associated type's where clause.
     if let clause = ast[associatedType].whereClause?.value {
       for expr in clause.constraints {
-        if let constraint = eval(constraintExpr: expr, in: AnyNodeIndex(trait)) {
+        if let constraint = eval(constraintExpr: expr, in: AnyNodeID(trait)) {
           constraints.append(constraint)
         } else {
           success = false
@@ -350,7 +350,7 @@ public struct TypeChecker {
   /// - Note: Calling this method multiple times with the same arguments may duplicate diagnostics.
   private mutating func eval(
     constraintExpr expr: SourceRepresentable<WhereClause.ConstraintExpr>,
-    in scope: AnyNodeIndex
+    in scope: AnyNodeID
   ) -> TypeConstraint? {
     assert(ast[scope] is LexicalScope)
 
@@ -368,7 +368,7 @@ public struct TypeChecker {
       return .equality(l: a, r: b)
 
     case .conformance(let l, let traits):
-      guard let a = realize(AnyTypeExprIndex(l), in: scope) else { return nil }
+      guard let a = realize(AnyTypeExprID(l), in: scope) else { return nil }
       if !a.isTypeParam {
         diags.append(.noSkolemInConformance(a.describe(in: ast), range: expr.range))
         return nil
@@ -376,7 +376,7 @@ public struct TypeChecker {
 
       var b: Set<Type> = []
       for i in traits {
-        guard let type = realize(AnyTypeExprIndex(i), in: scope) else { return nil }
+        guard let type = realize(AnyTypeExprID(i), in: scope) else { return nil }
         if type.base is TraitType {
           b.insert(type)
         } else {
@@ -403,23 +403,23 @@ public struct TypeChecker {
   // MARK: Name binding
 
   /// The result of a name lookup.
-  private typealias DeclSet = Set<AnyDeclIndex>
+  private typealias DeclSet = Set<AnyDeclID>
 
   /// A set containing the extension declarations being currently bounded.
   ///
   /// This property is used during extension binding to avoid infinite recursion through qualified
   /// lookups into the extended type.
-  private var extensionsUnderBinding: Set<NodeIndex<ExtensionDecl>> = []
+  private var extensionsUnderBinding: Set<NodeID<ExtensionDecl>> = []
 
   /// Searches and returns the declarations that introduce `name`, unqualified from `scope`.
   private func lookup(
     _ name: String,
-    unqualifiedFrom scope: AnyNodeIndex
+    unqualifiedFrom scope: AnyNodeID
   ) -> DeclSet {
     assert(ast[scope] is LexicalScope)
 
     var scope = scope
-    var matches: Set<AnyDeclIndex> = []
+    var matches: Set<AnyDeclID> = []
 
     while true {
       // Search for the name in the current scope.
@@ -437,7 +437,7 @@ public struct TypeChecker {
       if let parent = scopeHierarchy.parent[scope] {
         scope = parent
       } else if let std = ast.std, scope != std {
-        scope = AnyNodeIndex(std)
+        scope = AnyNodeID(std)
       } else {
         break
       }
@@ -445,7 +445,7 @@ public struct TypeChecker {
 
     // Search for the name in the set of visible modules.
     if let i = ast.modules.first(where: { i in ast[i].name == name }) {
-      matches.insert(AnyDeclIndex(i))
+      matches.insert(AnyDeclID(i))
     }
 
     return matches
@@ -454,7 +454,7 @@ public struct TypeChecker {
   /// Returns the declarations that introduce `name`, qualified by `scope`.
   private func lookup(
     _ name: String,
-    qualifiedBy scope: AnyNodeIndex
+    qualifiedBy scope: AnyNodeID
   ) -> DeclSet {
     assert(ast[scope] is LexicalScope)
     guard let decls = scopeHierarchy.containees[scope] else { return [] }
@@ -472,7 +472,7 @@ public struct TypeChecker {
   }
 
   /// Returns the declaration of the names introdced by `decl`.
-  private func expand<T: DeclIndex>(_ decl: T, in ast: AST) -> [(String, AnyDeclIndex)] {
+  private func expand<T: DeclID>(_ decl: T, in ast: AST) -> [(String, AnyDeclID)] {
     switch decl.kind {
     case .associatedSizeDecl,
          .associatedTypeDecl,
@@ -484,7 +484,7 @@ public struct TypeChecker {
          .traitDecl,
          .typeAliasDecl:
       let name = (ast[decl] as! SingleEntityDecl).name
-      return [(name, AnyDeclIndex(decl))]
+      return [(name, AnyDeclID(decl))]
 
     default:
       unreachable("unexpected declaration")
@@ -494,12 +494,12 @@ public struct TypeChecker {
   /// Returns the extensions of `type` exposed to `scope`.
   private mutating func extensions(
     of type: Type,
-    exposedTo scope: AnyNodeIndex
-  ) -> [NodeIndex<ExtensionDecl>] {
+    exposedTo scope: AnyNodeID
+  ) -> [NodeID<ExtensionDecl>] {
     assert(ast[scope] is LexicalScope)
 
     var modules = ast.modules[1...]
-    var matches: [NodeIndex<ExtensionDecl>] = []
+    var matches: [NodeID<ExtensionDecl>] = []
     var scope = scope
     let type = type.canonical()
 
@@ -523,7 +523,7 @@ public struct TypeChecker {
       if let parent = scopeHierarchy.parent[scope], parent.kind != .moduleDecl {
         scope = parent
       } else if let module = modules.popFirst() {
-        scope = AnyNodeIndex(module)
+        scope = AnyNodeID(module)
       } else {
         break
       }
@@ -542,8 +542,8 @@ public struct TypeChecker {
 
   /// Realizes and returns the type denoted by `expr` evaluated in `scope`.
   private mutating func realize(
-    _ expr: AnyTypeExprIndex,
-    in scope: AnyNodeIndex
+    _ expr: AnyTypeExprID,
+    in scope: AnyNodeID
   ) -> Type? {
     assert(ast[scope] is LexicalScope)
     if let type = typeExprTypes[expr] {
@@ -563,8 +563,8 @@ public struct TypeChecker {
   }
 
   private mutating func realize(
-    name expr: NodeIndex<NameTypeExpr>,
-    in scope: AnyNodeIndex
+    name expr: NodeID<NameTypeExpr>,
+    in scope: AnyNodeID
   ) -> Type? {
     assert(ast[scope] is LexicalScope)
 
@@ -579,7 +579,7 @@ public struct TypeChecker {
       }
 
       // Search for the referred type declaration.
-      var matches = lookup(identifier.value, unqualifiedFrom: AnyNodeIndex(scope))
+      var matches = lookup(identifier.value, unqualifiedFrom: AnyNodeID(scope))
 
       // Filter out the value declarations.
       matches = matches.filter({ $0.kind <= .typeDecl  })
@@ -599,7 +599,7 @@ public struct TypeChecker {
   }
 
   /// Returns the overarching type of the specified declaration.
-  private mutating func realize(typeOf decl: AnyDeclIndex) -> Type? {
+  private mutating func realize(typeOf decl: AnyDeclID) -> Type? {
     // Check if a type realization request has already been received.
     switch declRequests[decl] {
     case nil:

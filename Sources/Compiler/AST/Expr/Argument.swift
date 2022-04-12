@@ -8,6 +8,6 @@ public struct Argument: Hashable {
   public var label: SourceRepresentable<Identifier>?
 
   /// The value of the argument.
-  public var value: AnyExprIndex
+  public var value: AnyExprID
 
 }

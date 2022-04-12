@@ -10,7 +10,7 @@ public struct NamespaceDecl: SingleEntityDecl, LexicalScope {
   public var identifier: SourceRepresentable<Identifier>
 
   /// The member declarations in the lexical scope of the namespace.
-  public var members: [AnyDeclIndex]
+  public var members: [AnyDeclID]
 
   public var name: String { identifier.value }
 

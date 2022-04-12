@@ -13,8 +13,8 @@ struct ScopeHierarchyBuilder:
   /// The scope hierarchy under construction.
   private var hierarchy: ScopeHierarchy!
 
-  /// The index of the current innermost lexical scope.
-  private var innermost: AnyNodeIndex?
+  /// The ID of the current innermost lexical scope.
+  private var innermost: AnyNodeID?
 
   /// Returns the scope hierarchy of `ast`.
   mutating func build(hierarchyOf ast: AST) -> ScopeHierarchy {
@@ -27,10 +27,10 @@ struct ScopeHierarchyBuilder:
   }
 
   private mutating func nesting<T: Node & LexicalScope>(
-    in scope: NodeIndex<T>,
+    in scope: NodeID<T>,
     _ action: (inout ScopeHierarchyBuilder) -> Void
   ) {
-    let i = AnyNodeIndex(scope)
+    let i = AnyNodeID(scope)
     hierarchy.parent[i] = innermost
     innermost = i
     action(&self)
@@ -39,12 +39,12 @@ struct ScopeHierarchyBuilder:
 
   // MARK: Declarations
 
-  mutating func visit(associatedSize i: NodeIndex<AssociatedSizeDecl>) {
+  mutating func visit(associatedSize i: NodeID<AssociatedSizeDecl>) {
     hierarchy.insert(decl: i, into: innermost!)
     visit(whereClause: ast[i].whereClause?.value)
   }
 
-  mutating func visit(associatedType i: NodeIndex<AssociatedTypeDecl>) {
+  mutating func visit(associatedType i: NodeID<AssociatedTypeDecl>) {
     hierarchy.insert(decl: i, into: innermost!)
     for j in ast[i].conformances {
       visit(name: j)
@@ -52,13 +52,13 @@ struct ScopeHierarchyBuilder:
     visit(whereClause: ast[i].whereClause?.value)
   }
 
-  mutating func visit(binding i: NodeIndex<BindingDecl>) {
+  mutating func visit(binding i: NodeID<BindingDecl>) {
     hierarchy.insert(decl: i, into: innermost!)
     visit(binding: ast[i].pattern)
     ast[i].initializer?.accept(&self)
   }
 
-  mutating func visit(conformance i: NodeIndex<ConformanceDecl>) {
+  mutating func visit(conformance i: NodeID<ConformanceDecl>) {
     hierarchy.insert(decl: i, into: innermost!)
     nesting(in: i, { this in
       let decl = this.ast[i]
@@ -70,7 +70,7 @@ struct ScopeHierarchyBuilder:
     })
   }
 
-  mutating func visit(extension i: NodeIndex<ExtensionDecl>) {
+  mutating func visit(extension i: NodeID<ExtensionDecl>) {
     hierarchy.insert(decl: i, into: innermost!)
     nesting(in: i, { this in
       let decl = this.ast[i]
@@ -82,7 +82,7 @@ struct ScopeHierarchyBuilder:
     })
   }
 
-  mutating func visit(fun i: NodeIndex<FunDecl>) {
+  mutating func visit(fun i: NodeID<FunDecl>) {
     hierarchy.insert(decl: i, into: innermost!)
     nesting(in: i, { this in
       let decl = this.ast[i]
@@ -111,15 +111,15 @@ struct ScopeHierarchyBuilder:
     })
   }
 
-  mutating func visit(genericSizeParam i: NodeIndex<GenericSizeParamDecl>) {
+  mutating func visit(genericSizeParam i: NodeID<GenericSizeParamDecl>) {
     hierarchy.insert(decl: i, into: innermost!)
   }
 
-  mutating func visit(genericTypeParam i: NodeIndex<GenericTypeParamDecl>) {
+  mutating func visit(genericTypeParam i: NodeID<GenericTypeParamDecl>) {
     hierarchy.insert(decl: i, into: innermost!)
   }
 
-  mutating func visit(methodImpl i: NodeIndex<MethodImplDecl>) {
+  mutating func visit(methodImpl i: NodeID<MethodImplDecl>) {
     hierarchy.insert(decl: i, into: innermost!)
     switch ast[i].body?.value {
     case let .expr(expr):
@@ -131,14 +131,14 @@ struct ScopeHierarchyBuilder:
     }
   }
 
-  mutating func visit(module i: NodeIndex<ModuleDecl>) {
-    innermost = AnyNodeIndex(i)
+  mutating func visit(module i: NodeID<ModuleDecl>) {
+    innermost = AnyNodeID(i)
     for member in ast[i].members {
       member.accept(&self)
     }
   }
 
-  mutating func visit(namespace i: NodeIndex<NamespaceDecl>) {
+  mutating func visit(namespace i: NodeID<NamespaceDecl>) {
     hierarchy.insert(decl: i, into: innermost!)
     nesting(in: i, { this in
       for member in this.ast[i].members {
@@ -147,13 +147,13 @@ struct ScopeHierarchyBuilder:
     })
   }
 
-  mutating func visit(param i: NodeIndex<ParamDecl>) {
+  mutating func visit(param i: NodeID<ParamDecl>) {
     hierarchy.insert(decl: i, into: innermost!)
     ast[i].annotation?.accept(&self)
     ast[i].defaultValue?.accept(&self)
   }
 
-  mutating func visit(productType i: NodeIndex<ProductTypeDecl>) {
+  mutating func visit(productType i: NodeID<ProductTypeDecl>) {
     hierarchy.insert(decl: i, into: innermost!)
     nesting(in: i, { this in
       this.visit(genericClause: this.ast[i].genericClause?.value)
@@ -163,7 +163,7 @@ struct ScopeHierarchyBuilder:
     })
   }
 
-  mutating func visit(subscript i: NodeIndex<SubscriptDecl>) {
+  mutating func visit(subscript i: NodeID<SubscriptDecl>) {
     hierarchy.insert(decl: i, into: innermost!)
     nesting(in: i, { this in
       let decl = this.ast[i]
@@ -183,12 +183,12 @@ struct ScopeHierarchyBuilder:
     })
   }
 
-  mutating func visit(subscriptImpl i: NodeIndex<SubscriptImplDecl>) {
+  mutating func visit(subscriptImpl i: NodeID<SubscriptImplDecl>) {
     hierarchy.insert(decl: i, into: innermost!)
     ast[i].body.map({ stmt in visit(brace: stmt) })
   }
 
-  mutating func visit(trait i: NodeIndex<TraitDecl>) {
+  mutating func visit(trait i: NodeID<TraitDecl>) {
     hierarchy.insert(decl: i, into: innermost!)
     nesting(in: i, { this in
       for member in this.ast[i].members {
@@ -197,7 +197,7 @@ struct ScopeHierarchyBuilder:
     })
   }
 
-  mutating func visit(typeAlias i: NodeIndex<TypeAliasDecl>) {
+  mutating func visit(typeAlias i: NodeID<TypeAliasDecl>) {
     hierarchy.insert(decl: i, into: innermost!)
     nesting(in: i, { this in
       let decl = this.ast[i]
@@ -215,31 +215,31 @@ struct ScopeHierarchyBuilder:
     })
   }
 
-  mutating func visit(`var` i: NodeIndex<VarDecl>) {
+  mutating func visit(`var` i: NodeID<VarDecl>) {
     hierarchy.insert(decl: i, into: innermost!)
   }
 
   // MARK: Expressions
 
-  mutating func visit(async i: NodeIndex<AsyncExpr>) {
+  mutating func visit(async i: NodeID<AsyncExpr>) {
     visit(fun: ast[i].decl)
   }
 
-  mutating func visit(await i: NodeIndex<AwaitExpr>) {
+  mutating func visit(await i: NodeID<AwaitExpr>) {
     ast[i].operand.accept(&self)
   }
 
-  mutating func visit(boolLiteral i: NodeIndex<BoolLiteralExpr>) {}
+  mutating func visit(boolLiteral i: NodeID<BoolLiteralExpr>) {}
 
-  mutating func visit(bufferLiteral i: NodeIndex<BufferLiteralExpr>) {
+  mutating func visit(bufferLiteral i: NodeID<BufferLiteralExpr>) {
     for elem in ast[i].elements {
       elem.accept(&self)
     }
   }
 
-  mutating func visit(charLiteral i: NodeIndex<CharLiteralExpr>) {}
+  mutating func visit(charLiteral i: NodeID<CharLiteralExpr>) {}
 
-  mutating func visit(cond i: NodeIndex<CondExpr>) {
+  mutating func visit(cond i: NodeID<CondExpr>) {
     nesting(in: i, { this in
       let expr = this.ast[i]
       for item in expr.condition {
@@ -269,29 +269,29 @@ struct ScopeHierarchyBuilder:
     })
   }
 
-  mutating func visit(floatLiteral i: NodeIndex<FloatLiteralExpr>) {}
+  mutating func visit(floatLiteral i: NodeID<FloatLiteralExpr>) {}
 
-  mutating func visit(funCall i: NodeIndex<FunCallExpr>) {
+  mutating func visit(funCall i: NodeID<FunCallExpr>) {
     ast[i].callee.accept(&self)
     for arg in ast[i].arguments {
       arg.value.value.accept(&self)
     }
   }
 
-  mutating func visit(intLiteral i: NodeIndex<IntLiteralExpr>) {}
+  mutating func visit(intLiteral i: NodeID<IntLiteralExpr>) {}
 
-  mutating func visit(lambda i: NodeIndex<LambdaExpr>) {
+  mutating func visit(lambda i: NodeID<LambdaExpr>) {
     visit(fun: ast[i].decl)
   }
 
-  mutating func visit(mapLiteral i: NodeIndex<MapLiteralExpr>) {
+  mutating func visit(mapLiteral i: NodeID<MapLiteralExpr>) {
     for elem in ast[i].elements {
       elem.value.key.accept(&self)
       elem.value.value.accept(&self)
     }
   }
 
-  mutating func visit(match i: NodeIndex<MatchExpr>) {
+  mutating func visit(match i: NodeID<MatchExpr>) {
     ast[i].subject.accept(&self)
 
     for elem in ast[i].cases {
@@ -299,7 +299,7 @@ struct ScopeHierarchyBuilder:
     }
   }
 
-  mutating func visit(matchCase i: NodeIndex<MatchCaseExpr>) {
+  mutating func visit(matchCase i: NodeID<MatchCaseExpr>) {
     nesting(in: i, { this in
       let expr = this.ast[i]
       expr.pattern.accept(&this)
@@ -314,7 +314,7 @@ struct ScopeHierarchyBuilder:
     })
   }
 
-  mutating func visit(name i: NodeIndex<NameExpr>) {
+  mutating func visit(name i: NodeID<NameExpr>) {
     if case let .explicit(domain) = ast[i].domain {
       domain.accept(&self)
     }
@@ -329,28 +329,28 @@ struct ScopeHierarchyBuilder:
     }
   }
 
-  mutating func visit(nil i: NodeIndex<NilExpr>) {}
+  mutating func visit(nil i: NodeID<NilExpr>) {}
 
-  mutating func visit(storedProjection i: NodeIndex<StoredProjectionExpr>) {
+  mutating func visit(storedProjection i: NodeID<StoredProjectionExpr>) {
     ast[i].operand.accept(&self)
   }
 
-  mutating func visit(stringLiteral i: NodeIndex<StringLiteralExpr>) {}
+  mutating func visit(stringLiteral i: NodeID<StringLiteralExpr>) {}
 
-  mutating func visit(subscriptCall i: NodeIndex<SubscriptCallExpr>) {
+  mutating func visit(subscriptCall i: NodeID<SubscriptCallExpr>) {
     ast[i].callee.accept(&self)
     for arg in ast[i].arguments {
       arg.value.value.accept(&self)
     }
   }
 
-  mutating func visit(tuple i: NodeIndex<TupleExpr>) {
+  mutating func visit(tuple i: NodeID<TupleExpr>) {
     for elem in ast[i].elements {
       elem.value.value.accept(&self)
     }
   }
 
-  mutating func visit(unfolded i: NodeIndex<UnfoldedExpr>) {
+  mutating func visit(unfolded i: NodeID<UnfoldedExpr>) {
     for expr in ast[i].subexpressions {
       expr.accept(&self)
     }
@@ -358,28 +358,28 @@ struct ScopeHierarchyBuilder:
 
   // MARK: Patterns
 
-  mutating func visit(binding i: NodeIndex<BindingPattern>) {
+  mutating func visit(binding i: NodeID<BindingPattern>) {
     ast[i].subpattern.accept(&self)
     ast[i].annotation?.accept(&self)
   }
 
-  mutating func visit(expr i: NodeIndex<ExprPattern>) {
+  mutating func visit(expr i: NodeID<ExprPattern>) {
     ast[i].expr.accept(&self)
   }
 
-  mutating func visit(name i: NodeIndex<NamePattern>) {}
+  mutating func visit(name i: NodeID<NamePattern>) {}
 
-  mutating func visit(tuple i: NodeIndex<TuplePattern>) {
+  mutating func visit(tuple i: NodeID<TuplePattern>) {
     for elem in ast[i].elements {
       elem.value.pattern.accept(&self)
     }
   }
 
-  mutating func visit(wildcard i: NodeIndex<WildcardPattern>) {}
+  mutating func visit(wildcard i: NodeID<WildcardPattern>) {}
 
   // MARK: Statements
 
-  mutating func visit(brace i: NodeIndex<BraceStmt>) {
+  mutating func visit(brace i: NodeID<BraceStmt>) {
     nesting(in: i, { this in
       for stmt in this.ast[i].stmts {
         stmt.accept(&this)
@@ -387,28 +387,28 @@ struct ScopeHierarchyBuilder:
     })
   }
 
-  mutating func visit(break i: NodeIndex<BreakStmt>) {}
+  mutating func visit(break i: NodeID<BreakStmt>) {}
 
-  mutating func visit(continue i: NodeIndex<ContinueStmt>) {}
+  mutating func visit(continue i: NodeID<ContinueStmt>) {}
 
-  mutating func visit(decl i: NodeIndex<DeclStmt>) {
+  mutating func visit(decl i: NodeID<DeclStmt>) {
     ast[i].decl.accept(&self)
   }
 
-  mutating func visit(doWhile i: NodeIndex<DoWhileStmt>) {
+  mutating func visit(doWhile i: NodeID<DoWhileStmt>) {
     visit(brace: ast[i].body)
 
     // Visit the condition of the loop in the same lexical scope as the body.
-    innermost = AnyNodeIndex(ast[i].body)
+    innermost = AnyNodeID(ast[i].body)
     ast[i].condition.accept(&self)
     innermost = hierarchy.parent[ast[i].body]
   }
 
-  mutating func visit(expr i: NodeIndex<ExprStmt>) {
+  mutating func visit(expr i: NodeID<ExprStmt>) {
     ast[i].expr.accept(&self)
   }
 
-  mutating func visit(for i: NodeIndex<ForStmt>) {
+  mutating func visit(for i: NodeID<ForStmt>) {
     nesting(in: i, { this in
       this.visit(binding: this.ast[i].binding)
       this.ast[i].filter?.accept(&this)
@@ -416,11 +416,11 @@ struct ScopeHierarchyBuilder:
     })
   }
 
-  mutating func visit(return i: NodeIndex<ReturnStmt>) {
+  mutating func visit(return i: NodeID<ReturnStmt>) {
     ast[i].value?.accept(&self)
   }
 
-  mutating func visit(while i: NodeIndex<WhileStmt>) {
+  mutating func visit(while i: NodeID<WhileStmt>) {
     nesting(in: i, { this in
       for item in this.ast[i].condition {
         switch item.value {
@@ -435,29 +435,29 @@ struct ScopeHierarchyBuilder:
     })
   }
 
-  mutating func visit(yield i: NodeIndex<YieldStmt>) {
+  mutating func visit(yield i: NodeID<YieldStmt>) {
     ast[i].value.accept(&self)
   }
 
   // MARK: Type expressions
 
-  mutating func visit(async i: NodeIndex<AsyncTypeExpr>) {
+  mutating func visit(async i: NodeID<AsyncTypeExpr>) {
     ast[i].operand.accept(&self)
   }
 
-  mutating func visit(conformanceLens i: NodeIndex<ConformanceLensTypeExpr>) {
+  mutating func visit(conformanceLens i: NodeID<ConformanceLensTypeExpr>) {
     ast[i].base.accept(&self)
   }
 
-  mutating func visit(existential i: NodeIndex<ExistentialTypeExpr>) {
+  mutating func visit(existential i: NodeID<ExistentialTypeExpr>) {
     visit(whereClause: ast[i].whereClause?.value)
   }
 
-  mutating func visit(indirect i: NodeIndex<IndirectTypeExpr>) {
+  mutating func visit(indirect i: NodeID<IndirectTypeExpr>) {
     ast[i].operand.accept(&self)
   }
 
-  mutating func visit(lambda i: NodeIndex<LambdaTypeExpr>) {
+  mutating func visit(lambda i: NodeID<LambdaTypeExpr>) {
     ast[i].environment?.accept(&self)
     for param in ast[i].parameters {
       visit(param: param)
@@ -465,7 +465,7 @@ struct ScopeHierarchyBuilder:
     ast[i].output.accept(&self)
   }
 
-  mutating func visit(name i: NodeIndex<NameTypeExpr>) {
+  mutating func visit(name i: NodeID<NameTypeExpr>) {
     ast[i].domain?.accept(&self)
 
     for arg in ast[i].arguments {
@@ -478,21 +478,21 @@ struct ScopeHierarchyBuilder:
     }
   }
 
-  mutating func visit(param i: NodeIndex<ParamTypeExpr>) {
+  mutating func visit(param i: NodeID<ParamTypeExpr>) {
     ast[i].bareType.accept(&self)
   }
 
-  mutating func visit(storedProjection i: NodeIndex<StoredProjectionTypeExpr>) {
+  mutating func visit(storedProjection i: NodeID<StoredProjectionTypeExpr>) {
     ast[i].operand.accept(&self)
   }
 
-  mutating func visit(tuple i: NodeIndex<TupleTypeExpr>) {
+  mutating func visit(tuple i: NodeID<TupleTypeExpr>) {
     for elem in ast[i].elements {
       elem.value.type.accept(&self)
     }
   }
 
-  mutating func visit(union i: NodeIndex<UnionTypeExpr>) {
+  mutating func visit(union i: NodeID<UnionTypeExpr>) {
     for elem in ast[i].elements {
       elem.accept(&self)
     }

@@ -19,6 +19,6 @@ public struct SubscriptImplDecl: Decl {
   public var introducer: SourceRepresentable<Introducer>
 
   /// The body of the subscript, if any.
-  public var body: NodeIndex<BraceStmt>?
+  public var body: NodeID<BraceStmt>?
 
 }

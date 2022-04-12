@@ -10,10 +10,10 @@ public struct ParamDecl: SingleEntityDecl {
   public var identifier: SourceRepresentable<Identifier>
 
   /// The type annotation of the declaration, if any.
-  public var annotation: AnyTypeExprIndex?
+  public var annotation: AnyTypeExprID?
 
   /// The default value of the declaration, if any.
-  public var defaultValue: AnyExprIndex?
+  public var defaultValue: AnyExprID?
 
   public var name: String { identifier.value }
 

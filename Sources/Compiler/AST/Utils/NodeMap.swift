@@ -9,29 +9,29 @@ public struct NodeMap<Value> {
     storage = [:]
   }
 
-  /// Accesses the property associated with the specified index.
-  public subscript<T: NodeIndexProtocol>(index: T) -> Value? {
-    _read   { yield storage[index.rawValue] }
-    _modify { yield &storage[index.rawValue] }
+  /// Accesses the property associated with the specified ID.
+  public subscript<T: NodeIDProtocol>(id: T) -> Value? {
+    _read   { yield storage[id.rawValue] }
+    _modify { yield &storage[id.rawValue] }
   }
 
-  /// Accesses the property associated with the specified index.
-  public subscript<T: NodeIndexProtocol>(
-    index: T,
+  /// Accesses the property associated with the specified ID.
+  public subscript<T: NodeIDProtocol>(
+    id: T,
     default defaultValue: @autoclosure () -> Value
   ) -> Value {
-    _read   { yield storage[index.rawValue, default: defaultValue()] }
+    _read   { yield storage[id.rawValue, default: defaultValue()] }
     _modify {
-      var value = storage[index.rawValue] ?? defaultValue()
-      defer { storage[index.rawValue] = value }
+      var value = storage[id.rawValue] ?? defaultValue()
+      defer { storage[id.rawValue] = value }
       yield &value
     }
   }
 
-  /// Accesses the property associated with the specified index.
-  subscript(raw index: NodeIndex.RawValue) -> Value? {
-    _read   { yield storage[index] }
-    _modify { yield &storage[index] }
+  /// Accesses the property associated with the specified ID.
+  subscript(raw id: NodeID.RawValue) -> Value? {
+    _read   { yield storage[id] }
+    _modify { yield &storage[id] }
   }
 
 }

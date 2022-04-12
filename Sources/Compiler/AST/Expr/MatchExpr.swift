@@ -4,9 +4,9 @@ public struct MatchExpr: Expr {
   public static let kind = NodeKind.matchExpr
 
   /// The subject of the match.
-  public var subject: AnyExprIndex
+  public var subject: AnyExprID
 
   /// The cases of the match.
-  public var cases: [NodeIndex<MatchCaseExpr>]
+  public var cases: [NodeID<MatchCaseExpr>]
 
 }

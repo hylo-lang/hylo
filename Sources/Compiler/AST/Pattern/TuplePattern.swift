@@ -10,7 +10,7 @@ public struct TuplePattern: Pattern {
     public var label: String?
 
     /// The pattern of the element.
-    public var pattern: AnyPatternIndex
+    public var pattern: AnyPatternID
 
   }
 

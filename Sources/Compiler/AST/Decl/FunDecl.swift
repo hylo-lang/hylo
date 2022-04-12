@@ -22,13 +22,13 @@ public struct FunDecl: GenericDecl, LexicalScope {
   public enum Body: Hashable {
 
     /// An expression body.
-    case expr(AnyExprIndex)
+    case expr(AnyExprID)
 
     /// A block body.
-    case block(NodeIndex<BraceStmt>)
+    case block(NodeID<BraceStmt>)
 
     /// A method bundle.
-    case bundle([NodeIndex<MethodImplDecl>])
+    case bundle([NodeID<MethodImplDecl>])
 
   }
 
@@ -51,13 +51,13 @@ public struct FunDecl: GenericDecl, LexicalScope {
   public var genericClause: SourceRepresentable<GenericClause>?
 
   /// The captures of the function.
-  public var captures: [NodeIndex<BindingDecl>]
+  public var captures: [NodeID<BindingDecl>]
 
   /// The parameters of the function.
-  public var parameters: [NodeIndex<ParamDecl>]
+  public var parameters: [NodeID<ParamDecl>]
 
   /// The return type annotation of the function, if any.
-  public var output: AnyTypeExprIndex?
+  public var output: AnyTypeExprID?
 
   /// The body of the declaration, if any.
   public var body: SourceRepresentable<Body>?

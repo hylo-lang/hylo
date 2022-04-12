@@ -10,7 +10,7 @@ public struct AssociatedSizeDecl: SingleEntityDecl {
   public var whereClause: SourceRepresentable<WhereClause>?
 
   /// The default value of the declaration, if any.
-  public var defaultValue: AnyExprIndex?
+  public var defaultValue: AnyExprID?
 
   public var name: String { identifier.value }
 

@@ -6,18 +6,18 @@ public struct MatchCaseExpr: Expr, LexicalScope {
   public enum Body: Hashable {
 
     /// An expression body.
-    case expr(AnyExprIndex)
+    case expr(AnyExprID)
 
     /// A block body.
-    case block(NodeIndex<BraceStmt>)
+    case block(NodeID<BraceStmt>)
 
   }
 
   /// The pattern of the case.
-  public var pattern: AnyPatternIndex
+  public var pattern: AnyPatternID
 
   /// The condition of the case, if any.
-  public var condition: AnyExprIndex?
+  public var condition: AnyExprID?
 
   /// The body of the case.
   public var body: SourceRepresentable<Body>

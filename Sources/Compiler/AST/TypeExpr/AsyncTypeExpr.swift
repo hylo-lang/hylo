@@ -4,6 +4,6 @@ public struct AsyncTypeExpr: TypeExpr {
   public static let kind = NodeKind.asyncTypeExpr
 
   /// The operand.
-  public var operand: AnyTypeExprIndex
+  public var operand: AnyTypeExprID
 
 }

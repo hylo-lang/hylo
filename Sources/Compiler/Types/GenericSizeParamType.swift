@@ -3,8 +3,8 @@ public struct GenericSizeParamType: TypeProtocol, Hashable {
 
   /// The declaration that introduces the parameter.
   ///
-  /// - Note: The index may denote the declaration of a generic type parameter or associated size.
-  public let decl: AnyDeclIndex
+  /// - Note: The ID may denote the declaration of a generic type parameter or associated size.
+  public let decl: AnyDeclID
 
   public let flags: TypeFlags = [.isCanonical, .hasGenericSizeParam]
 

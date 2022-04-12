@@ -10,7 +10,7 @@ public enum TypeConstraint: Hashable {
   case conformance(l: Type, traits: Set<Type>)
 
   /// A size constraint denoting a predicate over size parameters.
-  case size(AnyExprIndex)
+  case size(AnyExprID)
 
   /// Calls `visitor` with mutable projections of the types contained in this constraint.
   public mutating func visitTypes(_ visitor: (inout Type) -> Void) {

@@ -7,7 +7,7 @@ public struct GenericTypeParamDecl: SingleEntityDecl {
   public var identifier: SourceRepresentable<Identifier>
 
   /// The conformances listed in the declaration.
-  public var conformances: [NodeIndex<NameTypeExpr>]
+  public var conformances: [NodeID<NameTypeExpr>]
 
   public var name: String { identifier.value }
 

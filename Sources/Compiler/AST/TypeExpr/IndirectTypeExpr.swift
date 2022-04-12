@@ -4,6 +4,6 @@ public struct IndirectTypeExpr: TypeExpr {
   public static let kind = NodeKind.indirectTypeExpr
 
   /// The operand.
-  public var operand: AnyTypeExprIndex
+  public var operand: AnyTypeExprID
 
 }

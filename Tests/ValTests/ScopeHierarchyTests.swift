@@ -12,7 +12,7 @@ final class ScopeHierarchyTests: XCTestCase {
       identifier: SourceRepresentable(value: "T"),
       refinements: [],
       members: []))
-    ast[main].members.append(AnyDeclIndex(trait))
+    ast[main].members.append(AnyDeclID(trait))
 
     // Build the scope hierarchy of the AST.
     let hierarchy = ast.scopeHierarchy()

@@ -6,9 +6,9 @@ public struct MapLiteralExpr: Expr {
   /// A key-value pair in a map literal.
   public struct Element: Hashable {
 
-    var key: AnyExprIndex
+    var key: AnyExprID
 
-    var value: AnyExprIndex
+    var value: AnyExprID
 
   }
 

@@ -10,6 +10,6 @@ public struct ParamTypeExpr: TypeExpr {
   public var convention: SourceRepresentable<ParamConvention>
 
   /// The expression of the parameter's bare type.
-  public var bareType: AnyTypeExprIndex
+  public var bareType: AnyTypeExprID
 
 }

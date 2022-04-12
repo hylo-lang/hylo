@@ -9,7 +9,7 @@ public struct NameExpr: Expr {
 
     case implicit
 
-    case explicit(AnyExprIndex)
+    case explicit(AnyExprID)
 
   }
 

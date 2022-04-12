@@ -16,15 +16,15 @@ public struct SubscriptDecl: Decl, LexicalScope {
   public var genericClause: SourceRepresentable<GenericClause>?
 
   /// The captures of the subscript.
-  public var captures: [NodeIndex<BindingDecl>]
+  public var captures: [NodeID<BindingDecl>]
 
   /// The parameters of the subscript.
-  public var parameters: [NodeIndex<ParamDecl>]
+  public var parameters: [NodeID<ParamDecl>]
 
   /// The output type annotation of the subscript.
-  public var output: AnyTypeExprIndex
+  public var output: AnyTypeExprID
 
   /// The implementations of the subscript.
-  public var impls: [NodeIndex<SubscriptImplDecl>]
+  public var impls: [NodeID<SubscriptImplDecl>]
 
 }

@@ -2,17 +2,17 @@
 struct ScopeHierarchy {
 
   /// A table mapping a lexical scope to its parent.
-  var parent = NodeMap<AnyNodeIndex>()
+  var parent = NodeMap<AnyNodeID>()
 
   /// A table mapping a declaration to the innermost lexical scope that contains it.
-  private(set) var container = DeclMap<AnyNodeIndex>()
+  private(set) var container = DeclMap<AnyNodeID>()
 
   /// A table mapping lexical scopes to the declarations directly contained in them.
-  private(set) var containees = NodeMap<[AnyDeclIndex]>()
+  private(set) var containees = NodeMap<[AnyDeclID]>()
 
   /// Inserts `decl` into `scope`.
-  mutating func insert<T: DeclIndex>(decl: T, into scope: AnyNodeIndex) {
-    let child = AnyDeclIndex(decl)
+  mutating func insert<T: DeclID>(decl: T, into scope: AnyNodeID) {
+    let child = AnyDeclID(decl)
 
     if let parent = container[child] {
       if parent == scope {
@@ -32,7 +32,7 @@ struct ScopeHierarchy {
   /// Returns whether `child` is contained in `ancestor`.
   ///
   /// - Requires: `child` is the identifier of a scope in this hierarchy.
-  func isContained<T: NodeIndexProtocol, U: NodeIndexProtocol>(
+  func isContained<T: NodeIDProtocol, U: NodeIDProtocol>(
     _ child: T,
     in ancestor: U
   ) -> Bool {

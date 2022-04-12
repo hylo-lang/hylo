@@ -6,10 +6,10 @@ public struct CondExpr: Expr, LexicalScope {
   public enum Body: Hashable {
 
     /// An expression body.
-    case expr(AnyExprIndex)
+    case expr(AnyExprID)
 
     /// A block body.
-    case block(NodeIndex<BraceStmt>)
+    case block(NodeID<BraceStmt>)
 
   }
 

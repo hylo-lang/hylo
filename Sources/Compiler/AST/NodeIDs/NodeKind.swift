@@ -1,6 +1,6 @@
 import Utils
 
-/// An identifier uniquely identifying the type of a node referred by an index.
+/// An identifier uniquely identifying the type of a node referred by an ID.
 public struct NodeKind: Hashable {
 
   private var rawValue: Int32

@@ -20,7 +20,7 @@ final class TypeCheckerTests: XCTestCase {
       identifier: SourceRepresentable(value: "T"),
       refinements: [],
       members: []))
-    ast[main].members.append(AnyDeclIndex(trait))
+    ast[main].members.append(AnyDeclID(trait))
 
     let _Any = NameTypeExpr(
       domain: nil, identifier: SourceRepresentable(value: "Any"), arguments: [])
@@ -32,7 +32,7 @@ final class TypeCheckerTests: XCTestCase {
     let Y = NameTypeExpr(domain: nil, identifier: SourceRepresentable(value: "Y"), arguments: [])
 
     ast[trait].members.append(
-      AnyDeclIndex(ast.insert(AssociatedTypeDecl(
+      AnyDeclID(ast.insert(AssociatedTypeDecl(
         identifier: SourceRepresentable(value: "X"),
         conformances: [
           ast.insert(T)
@@ -49,41 +49,41 @@ final class TypeCheckerTests: XCTestCase {
               ast.insert(X)
             ]))),
           SourceRepresentable(value: .equality(
-            l: AnyTypeExprIndex(ast.insert(_Any)),
-            r: AnyTypeExprIndex(ast.insert(_Never))))
+            l: AnyTypeExprID(ast.insert(_Any)),
+            r: AnyTypeExprID(ast.insert(_Never))))
         ])),
         defaultValue: nil))))
 
     ast[trait].members.append(
-      AnyDeclIndex(ast.insert(AssociatedTypeDecl(
+      AnyDeclID(ast.insert(AssociatedTypeDecl(
         identifier: SourceRepresentable(value: "Y"),
         conformances: [],
         whereClause: SourceRepresentable(value: WhereClause(constraints: [
           SourceRepresentable(value: .equality(
-            l: AnyTypeExprIndex(ast.insert(X)),
-            r: AnyTypeExprIndex(ast.insert(Y))))
+            l: AnyTypeExprID(ast.insert(X)),
+            r: AnyTypeExprID(ast.insert(Y))))
         ])),
         defaultValue: nil))))
 
     ast[trait].members.append(
-      AnyDeclIndex(ast.insert(AssociatedSizeDecl(
+      AnyDeclID(ast.insert(AssociatedSizeDecl(
         identifier: SourceRepresentable(value: "n"),
         whereClause: SourceRepresentable(value: WhereClause(constraints: [
           SourceRepresentable(value: .size(
-            AnyExprIndex(ast.insert(UnfoldedExpr(subexpressions: [
-              AnyExprIndex(ast.insert(NameExpr(
+            AnyExprID(ast.insert(UnfoldedExpr(subexpressions: [
+              AnyExprID(ast.insert(NameExpr(
                 domain: .none,
                 stem: SourceRepresentable(value: "n"),
                 labels: [],
                 notation: nil,
                 arguments: []))),
-              AnyExprIndex(ast.insert(NameExpr(
+              AnyExprID(ast.insert(NameExpr(
                 domain: .none,
                 stem: SourceRepresentable(value: ">"),
                 labels: [],
                 notation: .infix,
                 arguments: []))),
-              AnyExprIndex(ast.insert(IntLiteralExpr(value: "10"))),
+              AnyExprID(ast.insert(IntLiteralExpr(value: "10"))),
             ])))
           ))
         ])),

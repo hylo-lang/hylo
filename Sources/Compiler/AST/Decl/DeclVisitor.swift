@@ -4,40 +4,40 @@ public protocol DeclVisitor {
   /// The return type of the visitation methods.
   associatedtype Result
 
-  mutating func visit(associatedSize: NodeIndex<AssociatedSizeDecl>) -> Result
+  mutating func visit(associatedSize: NodeID<AssociatedSizeDecl>) -> Result
 
-  mutating func visit(associatedType: NodeIndex<AssociatedTypeDecl>) -> Result
+  mutating func visit(associatedType: NodeID<AssociatedTypeDecl>) -> Result
 
-  mutating func visit(binding: NodeIndex<BindingDecl>) -> Result
+  mutating func visit(binding: NodeID<BindingDecl>) -> Result
 
-  mutating func visit(conformance: NodeIndex<ConformanceDecl>) -> Result
+  mutating func visit(conformance: NodeID<ConformanceDecl>) -> Result
 
-  mutating func visit(extension: NodeIndex<ExtensionDecl>) -> Result
+  mutating func visit(extension: NodeID<ExtensionDecl>) -> Result
 
-  mutating func visit(fun: NodeIndex<FunDecl>) -> Result
+  mutating func visit(fun: NodeID<FunDecl>) -> Result
 
-  mutating func visit(genericSizeParam: NodeIndex<GenericSizeParamDecl>) -> Result
+  mutating func visit(genericSizeParam: NodeID<GenericSizeParamDecl>) -> Result
 
-  mutating func visit(genericTypeParam: NodeIndex<GenericTypeParamDecl>) -> Result
+  mutating func visit(genericTypeParam: NodeID<GenericTypeParamDecl>) -> Result
 
-  mutating func visit(methodImpl: NodeIndex<MethodImplDecl>) -> Result
+  mutating func visit(methodImpl: NodeID<MethodImplDecl>) -> Result
 
-  mutating func visit(module: NodeIndex<ModuleDecl>) -> Result
+  mutating func visit(module: NodeID<ModuleDecl>) -> Result
 
-  mutating func visit(namespace: NodeIndex<NamespaceDecl>) -> Result
+  mutating func visit(namespace: NodeID<NamespaceDecl>) -> Result
 
-  mutating func visit(param: NodeIndex<ParamDecl>) -> Result
+  mutating func visit(param: NodeID<ParamDecl>) -> Result
 
-  mutating func visit(productType: NodeIndex<ProductTypeDecl>) -> Result
+  mutating func visit(productType: NodeID<ProductTypeDecl>) -> Result
 
-  mutating func visit(subscript: NodeIndex<SubscriptDecl>) -> Result
+  mutating func visit(subscript: NodeID<SubscriptDecl>) -> Result
 
-  mutating func visit(subscriptImpl: NodeIndex<SubscriptImplDecl>) -> Result
+  mutating func visit(subscriptImpl: NodeID<SubscriptImplDecl>) -> Result
 
-  mutating func visit(trait: NodeIndex<TraitDecl>) -> Result
+  mutating func visit(trait: NodeID<TraitDecl>) -> Result
 
-  mutating func visit(typeAlias: NodeIndex<TypeAliasDecl>) -> Result
+  mutating func visit(typeAlias: NodeID<TypeAliasDecl>) -> Result
 
-  mutating func visit(`var`: NodeIndex<VarDecl>) -> Result
+  mutating func visit(`var`: NodeID<VarDecl>) -> Result
 
 }

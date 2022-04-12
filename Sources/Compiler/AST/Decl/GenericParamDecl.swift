@@ -1,8 +1,8 @@
-/// The index of a generic parameter declaration.
-public enum GenericParamDeclIndex: Hashable {
+/// The ID of a generic parameter declaration.
+public enum GenericParamDeclID: Hashable {
 
-  case type(NodeIndex<GenericTypeParamDecl>)
+  case type(NodeID<GenericTypeParamDecl>)
 
-  case size(NodeIndex<GenericSizeParamDecl>)
+  case size(NodeID<GenericSizeParamDecl>)
 
 }

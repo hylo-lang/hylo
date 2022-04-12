@@ -7,6 +7,6 @@ public struct WhileStmt: Stmt, LexicalScope {
   public var condition: [SourceRepresentable<ConditionItem>]
 
   /// The body of the loop.
-  public var body: NodeIndex<BraceStmt>
+  public var body: NodeID<BraceStmt>
 
 }

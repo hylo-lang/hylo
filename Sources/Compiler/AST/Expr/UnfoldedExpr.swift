@@ -6,6 +6,6 @@ public struct UnfoldedExpr: Expr {
 
   public static let kind = NodeKind.unfoldedExpr
 
-  public var subexpressions: [AnyExprIndex]
+  public var subexpressions: [AnyExprID]
 
 }

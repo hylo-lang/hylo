@@ -10,7 +10,7 @@ public struct TupleExpr: Expr {
     public var label: String?
 
     /// The value of the element.
-    public var value: AnyExprIndex
+    public var value: AnyExprID
 
   }
 

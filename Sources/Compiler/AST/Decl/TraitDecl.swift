@@ -13,10 +13,10 @@ public struct TraitDecl: GenericDecl, SingleEntityDecl, LexicalScope {
   public var genericClause: SourceRepresentable<GenericClause>?
 
   /// The names of traits which the trait refines.
-  public var refinements: [NodeIndex<NameTypeExpr>]
+  public var refinements: [NodeID<NameTypeExpr>]
 
   /// The member declarations in the lexical scope of the trait.
-  public var members: [AnyDeclIndex]
+  public var members: [AnyDeclID]
 
   public var name: String { identifier.value }
 

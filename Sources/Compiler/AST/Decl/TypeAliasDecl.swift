@@ -6,10 +6,10 @@ public struct TypeAliasDecl: GenericDecl, SingleEntityDecl, LexicalScope {
   public enum Body: Hashable {
 
     /// A single type expression.
-    case typeExpr(AnyTypeExprIndex)
+    case typeExpr(AnyTypeExprID)
 
     /// A union of product type declarations.
-    case union([NodeIndex<ProductTypeDecl>])
+    case union([NodeID<ProductTypeDecl>])
 
   }
 
