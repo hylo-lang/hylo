@@ -1,33 +1,32 @@
-/// A collection of module declarations representing an abstract syntax tree.
+/// An abstract syntax tree.
 public struct AST {
 
-  /// The nodes in the AST.
-  ///
-  /// - Notes: Should be an array with tombstones once .
+  /// The nodes in `self`.
+  // FIXME: Should be an array with tombstones.
   private var nodes: [Any] = []
 
-  /// A collection with the indices of the modules of the AST.
+  /// The indices of the modules.
   public private(set) var modules: [NodeIndex<ModuleDecl>] = []
 
-  /// The source range annotations of the nodes.
+  /// The source range of each node.
   public var ranges = NodeMap<SourceRange>()
 
   /// Creates an empty AST.
   public init() {}
 
-  /// The index of the module containing Val's standard library, if present in the AST.
+  /// The index of the module containing Val's standard library, if any.
   public var std: NodeIndex<ModuleDecl>?
 
-  /// Returns the scope hierarchy of the AST.
+  /// Returns the scope hierarchy.
   func scopeHierarchy() -> ScopeHierarchy {
     var builder = ScopeHierarchyBuilder()
     return builder.build(hierarchyOf: self)
   }
 
-  /// Inserts a node in the AST.
-  public mutating func insert<T: Node>(_ node: T) -> NodeIndex<T> {
+  /// Inserts `n` into `self`.
+  public mutating func insert<T: Node>(_ n: T) -> NodeIndex<T> {
     let i = NodeIndex<T>(rawValue: nodes.count)
-    nodes.append(node)
+    nodes.append(n)
     if node is ModuleDecl { modules.append(i as! NodeIndex<ModuleDecl>) }
     return i
   }
