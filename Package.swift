@@ -12,10 +12,7 @@ let package = Package(
     .package(
       name: "swift-argument-parser",
       url: "https://github.com/apple/swift-argument-parser.git",
-      from: "0.4.0"),
-    .package(
-      url: "https://github.com/apple/swift-collections",
-      from: "0.0.1"),
+      from: "0.4.0")
   ],
 
   targets: [
@@ -30,16 +27,11 @@ let package = Package(
     // Targets related to the compiler's internal library.
     .target(
       name: "Compiler",
-      dependencies: ["Utils"],
-      resources: [.copy("Builtins.json")]),
+      dependencies: ["Utils"]),
     .target(name: "Utils"),
-
-    // Val sources.
-    .target(name: "ValLibrary", path: "Library", resources: [.copy("Public")]),
 
     // Test targets.
     .testTarget(
       name: "ValTests",
-      dependencies: ["Compiler"],
-      resources: [.copy("TestCases")]),
+      dependencies: ["Compiler"]),
   ])
