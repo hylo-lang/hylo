@@ -20,11 +20,6 @@ public struct AnyStmtID: StmtID {
 
   public var kind: NodeKind { base.kind }
 
-  /// Returns a typed copy of this ID, or `nil` if the type conversion failed.
-  public func convert<T: Stmt>(to: T.Type) -> NodeID<T>? {
-    base.convert(to: T.self)
-  }
-
   public func accept<V: StmtVisitor>(_ visitor: inout V) -> V.Result {
     switch base.kind {
     case BraceStmt.kind:

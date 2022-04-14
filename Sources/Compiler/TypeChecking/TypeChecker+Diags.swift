@@ -16,7 +16,7 @@ extension Diag {
       window: range.map({ r in Diag.Window(range: r) }))
   }
 
-  static func conformanceToNonTraitType(_ type: String, range: SourceRange?) -> Diag {
+  static func conformanceToNonTraitType(_ type: Type, range: SourceRange?) -> Diag {
     Diag(
       level: .error,
       message: "conformance to non-trait type '\(type)'",
@@ -24,7 +24,7 @@ extension Diag {
       window: range.map({ r in Diag.Window(range: r) }))
   }
 
-  static func noSkolemInConformance(_ type: String, range: SourceRange?) -> Diag {
+  static func noSkolemInConformance(_ type: Type, range: SourceRange?) -> Diag {
     Diag(
       level: .error,
       message: """
@@ -35,7 +35,7 @@ extension Diag {
       window: range.map({ r in Diag.Window(range: r) }))
   }
 
-  static func noSkolemInEquality(l: String, r: String, range: SourceRange?) -> Diag {
+  static func noSkolemInEquality(l: Type, r: Type, range: SourceRange?) -> Diag {
     Diag(
       level: .error,
       message: """
@@ -46,10 +46,17 @@ extension Diag {
       window: range.map({ r in Diag.Window(range: r) }))
   }
 
-  static func noType(named name: String, range: SourceRange?) -> Diag {
-    Diag(
+  static func noType(named name: String, in domain: Type? = nil, range: SourceRange?) -> Diag {
+    let message: String
+    if let domain = domain {
+      message = "type '\(domain)' has no type member '\(name)'"
+    } else {
+      message = "no type named '\(name)' in scope"
+    }
+
+    return Diag(
       level: .error,
-      message: "no type named '\(name)' in scope",
+      message: message,
       location: range?.first(),
       window: range.map({ r in Diag.Window(range: r) }))
   }

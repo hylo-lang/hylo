@@ -34,9 +34,20 @@ public struct ExistentialType: TypeProtocol, Hashable {
     self.flags = flags // FIXME
   }
 
-  public func canonical() -> Type {
-    .existential(ExistentialType(
-      traits: traits, constraints: Set(constraints.map({ $0.canonical() }))))
+}
+
+extension ExistentialType: CustomStringConvertible {
+
+  public var description: String {
+    if traits.isEmpty && constraints.isEmpty { return "Any" }
+
+    let t = traits.map({ "\($0)" }).joined(separator: " & ")
+    if constraints.isEmpty {
+      return "any \(t)"
+    } else {
+      let c = constraints.map({ "\($0)" }).joined(separator: ", ")
+      return "any \(t) where \(c)"
+    }
   }
 
 }

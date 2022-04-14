@@ -10,6 +10,6 @@ public struct NameTypeExpr: TypeExpr {
   public var identifier: SourceRepresentable<Identifier>
 
   /// The type and size arguments of the referred type.
-  public var arguments: [SourceRepresentable<GenericArgument>]
+  public var arguments: [GenericArgument]
 
 }

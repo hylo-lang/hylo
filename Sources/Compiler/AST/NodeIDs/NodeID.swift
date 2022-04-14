@@ -19,23 +19,32 @@ public struct NodeID<T: Node>: NodeIDProtocol {
 
   public var kind: NodeKind { T.kind }
 
+  /// Convert `n` to a node ID of type `T`; fails if `n` has a different type.
+  public init?<Other: NodeIDProtocol>(converting other: Other) {
+    if other.kind == T.kind {
+      self.init(rawValue: other.rawValue)
+    } else {
+      return nil
+    }
+  }
+
   internal init(rawValue: RawValue) {
     self.rawValue = rawValue
   }
 
-  public static func == <T: NodeIDProtocol>(l: Self, r: T) -> Bool {
+  public static func == <Other: NodeIDProtocol>(l: Self, r: Other) -> Bool {
     l.rawValue == r.rawValue
   }
 
-  public static func == <T: NodeIDProtocol>(l: T, r: Self) -> Bool {
+  public static func == <Other: NodeIDProtocol>(l: Other, r: Self) -> Bool {
     l.rawValue == r.rawValue
   }
 
-  public static func != <T: NodeIDProtocol>(l: Self, r: T) -> Bool {
+  public static func != <Other: NodeIDProtocol>(l: Self, r: Other) -> Bool {
     l.rawValue != r.rawValue
   }
 
-  public static func != <T: NodeIDProtocol>(l: T, r: Self) -> Bool {
+  public static func != <Other: NodeIDProtocol>(l: Other, r: Self) -> Bool {
     l.rawValue != r.rawValue
   }
 
@@ -52,13 +61,6 @@ public struct AnyNodeID: NodeIDProtocol {
   public init<T: NodeIDProtocol>(_ other: T) {
     rawValue = other.rawValue
     kind = other.kind
-  }
-
-  /// Returns a typed copy of this ID, or `nil` if the type conversion failed.
-  public func convert<T: Node>(to: T.Type) -> NodeID<T>? {
-    kind == T.kind
-      ? NodeID(rawValue: rawValue)
-      : nil
   }
 
 }

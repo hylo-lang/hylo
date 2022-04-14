@@ -1,5 +1,5 @@
 /// An argument of a function or subscript call.
-public struct Argument: Hashable {
+public struct CallArgument: Hashable {
 
   /// A flag indicating whether the argument is passed `inout`.
   public var isInout: Bool

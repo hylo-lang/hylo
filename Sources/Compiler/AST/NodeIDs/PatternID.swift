@@ -20,11 +20,6 @@ public struct AnyPatternID: PatternID {
 
   public var kind: NodeKind { base.kind }
 
-  /// Returns a typed copy of this ID, or `nil` if the type conversion failed.
-  public func convert<T: Expr>(to: T.Type) -> NodeID<T>? {
-    base.convert(to: T.self)
-  }
-
   public func accept<V: PatternVisitor>(_ visitor: inout V) -> V.Result {
     switch base.kind {
     case BindingPattern.kind:

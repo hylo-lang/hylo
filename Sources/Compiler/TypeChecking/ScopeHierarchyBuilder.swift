@@ -321,9 +321,9 @@ struct ScopeHierarchyBuilder:
 
     for arg in ast[i].arguments {
       switch arg.value {
-      case let .type(arg):
-        arg.accept(&self)
       case let .size(arg):
+        arg.accept(&self)
+      case let .type(arg):
         arg.accept(&self)
       }
     }
@@ -469,10 +469,10 @@ struct ScopeHierarchyBuilder:
     ast[i].domain?.accept(&self)
 
     for arg in ast[i].arguments {
-      switch arg.value {
-      case let .type(arg):
-        arg.accept(&self)
+      switch arg {
       case let .size(arg):
+        arg.accept(&self)
+      case let .type(arg):
         arg.accept(&self)
       }
     }
@@ -501,7 +501,18 @@ struct ScopeHierarchyBuilder:
   // MARK: Other nodes
 
   mutating func visit(genericClause clause: GenericClause?) {
-    visit(whereClause: clause?.whereClause?.value)
+    guard let clause = clause else { return }
+
+    for i in clause.params {
+      switch i {
+      case .size(let i):
+        visit(genericSizeParam: i)
+      case .type(let i):
+        visit(genericTypeParam: i)
+      }
+    }
+
+    visit(whereClause: clause.whereClause?.value)
   }
 
   mutating func visit(whereClause clause: WhereClause?) {

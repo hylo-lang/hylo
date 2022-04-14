@@ -20,11 +20,6 @@ public struct AnyDeclID: DeclID {
 
   public var kind: NodeKind { base.kind }
 
-  /// Returns a typed copy of this ID, or `nil` if the type conversion failed.
-  public func convert<T: Decl>(to: T.Type) -> NodeID<T>? {
-    base.convert(to: T.self)
-  }
-
   public func accept<V: DeclVisitor>(_ visitor: inout V) -> V.Result {
     switch base.kind {
     case AssociatedSizeDecl.kind:

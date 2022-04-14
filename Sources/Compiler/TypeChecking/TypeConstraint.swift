@@ -15,12 +15,12 @@ public enum TypeConstraint: Hashable {
   /// Calls `visitor` with mutable projections of the types contained in this constraint.
   public mutating func visitTypes(_ visitor: (inout Type) -> Void) {
     switch self {
-    case var .equality(l, r):
+    case .equality(var l, var r):
       visitor(&l)
       visitor(&r)
       self = .equality(l: l, r: r)
 
-    case var .conformance(l, traits):
+    case .conformance(var l, var traits):
       visitor(&l)
       traits = Set(traits.map({ var t = $0; visitor(&t); return t }))
       self = .conformance(l: l, traits: traits)
@@ -30,11 +30,19 @@ public enum TypeConstraint: Hashable {
     }
   }
 
-  /// Returns the canonical form of this constraint.
-  public func canonical() -> TypeConstraint {
-    var result = self
-    result.visitTypes({ $0 = $0.canonical() })
-    return result
+  /// Returns a textual description of that constraint.
+  public func describe(in ast: AST) -> String {
+    switch self {
+    case .equality(let l, let r):
+      return "\(l) == \(r)"
+
+    case .conformance(let l, let traits):
+      let t = traits.map({ "\($0)" }).joined(separator: ", ")
+      return "\(l): \(t)"
+
+    case .size(let e):
+      return "expr"
+    }
   }
 
 }

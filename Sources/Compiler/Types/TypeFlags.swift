@@ -53,7 +53,12 @@ public struct TypeFlags: Hashable {
 extension TypeFlags: ExpressibleByArrayLiteral {
 
   public init(arrayLiteral elements: TypeFlags...) {
-    self.init(merging: elements)
+    universal = 0
+    existential = 0
+    for e in elements {
+      universal |= e.universal
+      existential |= e.existential
+    }
   }
 
 }

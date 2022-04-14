@@ -7,6 +7,6 @@ public struct SubscriptCallExpr: Expr {
   public var callee: AnyExprID
 
   /// The arguments of the call.
-  public var arguments: [SourceRepresentable<Argument>]
+  public var arguments: [SourceRepresentable<CallArgument>]
 
 }

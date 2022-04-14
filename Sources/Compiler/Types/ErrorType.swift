@@ -3,6 +3,10 @@ public struct ErrorType: TypeProtocol, Hashable {
 
   public let flags: TypeFlags = [.isCanonical, .hasError]
 
-  public func canonical() -> Type { .error(self) }
+}
+
+extension ErrorType: CustomStringConvertible {
+
+  public var description: String { "%error%" }
 
 }

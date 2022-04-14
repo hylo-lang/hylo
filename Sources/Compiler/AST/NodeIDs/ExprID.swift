@@ -20,11 +20,6 @@ public struct AnyExprID: ExprID {
 
   public var kind: NodeKind { base.kind }
 
-  /// Returns a typed copy of this ID, or `nil` if the type conversion failed.
-  public func convert<T: Expr>(to: T.Type) -> NodeID<T>? {
-    base.convert(to: T.self)
-  }
-
   public func accept<V: ExprVisitor>(_ visitor: inout V) -> V.Result {
     switch base.kind {
     case AsyncExpr.kind:

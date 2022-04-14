@@ -12,8 +12,4 @@ public struct UnionType: TypeProtocol, Hashable {
     self.flags = TypeFlags(merging: self.elements.map({ $0.flags }))
   }
 
-  public func canonical() -> Type {
-    .union(UnionType(elements: Set(elements.map({ $0.canonical() }))))
-  }
-
 }
