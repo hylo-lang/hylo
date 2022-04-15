@@ -1,8 +1,8 @@
 /// An in-flight diagnostic about an error that occured at compile time.
-public struct Diag {
+public struct Diagnostic: Hashable {
 
   /// The severity of a diagnostic.
-  public enum Level {
+  public enum Level: Hashable {
 
     /// An error that does not prevent compilation.
     case warning
@@ -13,7 +13,7 @@ public struct Diag {
   }
 
   /// A diagnostic window, providing detailed explanation about an error.
-  public struct Window {
+  public struct Window: Hashable {
 
     /// The source range highlighted in the window.
     public var range: SourceRange
@@ -44,7 +44,7 @@ public struct Diag {
   public var window: Window?
 
   /// The sub-diagnostics.
-  public var children: [Diag]
+  public var children: [Diagnostic]
 
   /// Creates a new diagnostic.
   public init(
@@ -52,7 +52,7 @@ public struct Diag {
     message: String,
     location: SourceLocation? = nil,
     window: Window? = nil,
-    children: [Diag] = []
+    children: [Diagnostic] = []
   ) {
     self.level = level
     self.message = message

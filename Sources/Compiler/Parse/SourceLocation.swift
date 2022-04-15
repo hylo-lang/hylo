@@ -1,5 +1,5 @@
 /// A location in a source file.
-public struct SourceLocation {
+public struct SourceLocation: Hashable {
 
   /// The source file containing the location.
   public let source: SourceFile

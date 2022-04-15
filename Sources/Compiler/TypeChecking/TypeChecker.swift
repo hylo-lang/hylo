@@ -10,7 +10,7 @@ public struct TypeChecker {
   private let scopeHierarchy: ScopeHierarchy
 
   /// The diagnostics of the type errors.
-  public private(set) var diags: [Diag] = []
+  public private(set) var diagnostics: Set<Diagnostic> = []
 
   /// Creates a new type checker for the specified AST.
   ///
@@ -352,7 +352,7 @@ public struct TypeChecker {
         declRequests[i] = .typeCheckingStarted
 
       case .typeRealizationStarted, .typeCheckingStarted:
-        diags.append(.circularDependency(range: ast.ranges[i]))
+        diagnostics.insert(.circularDependency(range: ast.ranges[i]))
         return false
 
       case .success:
@@ -622,7 +622,7 @@ public struct TypeChecker {
       guard let b = realize(r, inScope: scope) else { return nil }
 
       if !a.isTypeParam && !b.isTypeParam {
-        diags.append(.noSkolemInEquality(l: a, r: b, range: expr.range))
+        diagnostics.insert(.noSkolemInEquality(l: a, r: b, range: expr.range))
         return nil
       }
 
@@ -631,7 +631,7 @@ public struct TypeChecker {
     case .conformance(let l, let traits):
       guard let a = realize(name: l, inScope: scope) else { return nil }
       if !a.isTypeParam {
-        diags.append(.noSkolemInConformance(a, range: expr.range))
+        diagnostics.insert(.noSkolemInConformance(a, range: expr.range))
         return nil
       }
 
@@ -641,7 +641,7 @@ public struct TypeChecker {
         if type.base is TraitType {
           b.insert(type)
         } else {
-          diags.append(.conformanceToNonTraitType(a, range: expr.range))
+          diagnostics.insert(.conformanceToNonTraitType(a, range: expr.range))
           return nil
         }
       }
@@ -901,7 +901,7 @@ public struct TypeChecker {
       }
     }
 
-    diags.append(.invalidSelfTypeExpr(range: range))
+    diagnostics.insert(.invalidSelfTypeExpr(range: range))
     return nil
   }
 
@@ -922,7 +922,8 @@ public struct TypeChecker {
       // Realize the referred type.
       for match in matches where match.kind <= .typeDecl {
         if base != nil {
-          diags.append(.ambiguousTypeReference(name: identifier.value, range: identifier.range))
+          diagnostics.insert(.ambiguousTypeReference(
+            name: identifier.value, range: identifier.range))
           return nil
         }
 
@@ -935,7 +936,7 @@ public struct TypeChecker {
       }
 
       if base == nil {
-        diags.append(.noType(named: identifier.value, in: domain, range: identifier.range))
+        diagnostics.insert(.noType(named: identifier.value, in: domain, range: identifier.range))
         return nil
       }
     } else {
@@ -955,7 +956,8 @@ public struct TypeChecker {
       // Realize the referred type.
       for match in matches where match.kind <= .typeDecl {
         if base != nil {
-          diags.append(.ambiguousTypeReference(name: identifier.value, range: identifier.range))
+          diagnostics.insert(
+            .ambiguousTypeReference(name: identifier.value, range: identifier.range))
           return nil
         }
 
@@ -964,7 +966,7 @@ public struct TypeChecker {
       }
 
       if base == nil {
-        diags.append(.noType(named: identifier.value, range: identifier.range))
+        diagnostics.insert(.noType(named: identifier.value, range: identifier.range))
         return nil
       }
     }
@@ -1020,7 +1022,7 @@ public struct TypeChecker {
       if rhs.base is TraitType {
         traits.insert(rhs)
       } else {
-        diags.append(.conformanceToNonTraitType(rhs, range: ast.ranges[expr]))
+        diagnostics.insert(.conformanceToNonTraitType(rhs, range: ast.ranges[expr]))
       }
     }
 
@@ -1112,7 +1114,7 @@ public struct TypeChecker {
       declRequests[i] = .typeRealizationStarted
 
     case .typeRealizationStarted:
-      diags.append(.circularDependency(range: ast.ranges[i]))
+      diagnostics.insert(.circularDependency(range: ast.ranges[i]))
       return nil
 
     case .typeRealizationCompleted, .typeCheckingStarted, .success, .failure:

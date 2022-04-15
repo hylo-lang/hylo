@@ -81,7 +81,7 @@ final class TypeCheckerTests: XCTestCase {
 
     var checker = TypeChecker(ast: ast)
     XCTAssertFalse(checker.check(module: main))
-    XCTAssertEqual(checker.diags.count, 2)
+    XCTAssertEqual(checker.diagnostics.count, 2)
   }
 
   func testMemberTypeLookup() {
