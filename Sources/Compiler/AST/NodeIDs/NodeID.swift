@@ -19,7 +19,7 @@ public struct NodeID<T: Node>: NodeIDProtocol {
 
   public var kind: NodeKind { T.kind }
 
-  /// Convert `n` to a node ID of type `T`; fails if `n` has a different type.
+  /// Converts `n` to a node ID of type `T`; fails if `n` has a different type.
   public init?<Other: NodeIDProtocol>(converting other: Other) {
     if other.kind == T.kind {
       self.init(rawValue: other.rawValue)

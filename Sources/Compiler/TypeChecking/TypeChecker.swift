@@ -97,7 +97,7 @@ public struct TypeChecker {
         break
       }
 
-      // Gather conformances defined in extensions.
+      // Gather conformances defined by conditional conformances/extensions.
       for scope in scopeHierarchy.scopesToRoot(from: scope) where scope.kind <= .genericScope {
         guard let e = environment(of: scope) else { continue }
         result.formUnion(e.conformedTraits(of: type))
@@ -120,7 +120,7 @@ public struct TypeChecker {
       return result
 
     case .typeAlias:
-      fatalError("not implemented")
+      break
 
     default:
       break
@@ -666,22 +666,21 @@ public struct TypeChecker {
   ///
   /// This property is used during conformance and extension binding to avoid infinite recursion
   /// through qualified lookups into the extended type.
-  private var extensionsUnderBinding: Set<AnyDeclID> = []
-
-  /// A table mapping a type to its lookup table.
-  private var memberLookupTables: [Type: LookupTable] = [:]
+  private var extensionsUnderBinding = DeclSet()
 
   /// Returns the declarations that expose `name` without qualification in `scope`.
-  private func lookup(unqualified name: String, inScope scope: AnyNodeID) -> DeclSet {
+  private mutating func lookup(unqualified name: String, inScope scope: AnyNodeID) -> DeclSet {
     assert(ast[scope] is LexicalScope)
 
+    let origin = scope
     var root = scope
-    var matches: Set<AnyDeclID> = []
+
+    var matches = DeclSet()
     for scope in scopeHierarchy.scopesToRoot(from: scope) {
       // Search for the name in the current scope.
-      let newMatches = lookup(name, inScope: scope)
+      let newMatches = lookup(name, inDeclSpaceOf: scope, exposedTo: origin)
 
-      // We can assume the matches are wither empty or all overloadable.
+      // We can assume the matches are either empty or all overloadable.
       matches.formUnion(newMatches)
 
       // We're done if we found at least one non-overloadable match.
@@ -702,15 +701,34 @@ public struct TypeChecker {
 
     // Search for the name in imported modules.
     for module in ast.modules where module != root {
-      matches.formUnion(lookup(name, inScope: AnyNodeID(module)))
+      matches.formUnion(names(introducedIn: module)[name, default: []])
     }
 
     return matches
   }
 
-  /// Returns the declarations that introduce `name` in `scope`.
-  private func lookup(_ name: String, inScope scope: AnyNodeID) -> DeclSet {
-    names(introducedIn: scope)[name, default: []]
+  /// Returns the declarations that introduce `name` in the declaration space of `scope`.
+  private mutating func lookup<T: NodeIDProtocol>(
+    _ name: String,
+    inDeclSpaceOf scope: T,
+    exposedTo origin: AnyNodeID
+  ) -> DeclSet {
+    switch scope.kind {
+    case .productTypeDecl:
+      let type = Type.product(ProductType(decl: NodeID(converting: scope)!, ast: ast))
+      return lookup(name, memberOf: type, inScope: origin)
+
+    case .traitDecl:
+      let type = Type.trait(TraitType(decl: NodeID(converting: scope)!, ast: ast))
+      return lookup(name, memberOf: type, inScope: origin)
+
+    case .typeAliasDecl:
+      let type = Type.typeAlias(TypeAliasType(decl: NodeID(converting: scope)!, ast: ast))
+      return lookup(name, memberOf: type, inScope: origin)
+
+    default:
+      return names(introducedIn: scope)[name, default: []]
+    }
   }
 
   /// Returns the declarations that introduce `name` as a member of `type` in `scope`.
@@ -719,51 +737,45 @@ public struct TypeChecker {
     memberOf type: Type,
     inScope scope: AnyNodeID
   ) -> DeclSet {
-    if let table = memberLookupTables[type],
-       let decls = table[name]
-    { return decls }
+    var matches: DeclSet
 
     switch type {
-    case .genericTypeParam:
-      var result = DeclSet()
-      for t in conformedTraits(of: type, inScope: scope) {
-        // TODO: Read source of conformance to disambiguate associated names
-        result.formUnion(lookup(name, inDeclSpaceOf: t.decl))
-      }
-      return result
-
+    case .product(let t):
+      matches = names(introducedIn: t.decl)[name, default: []]
     case .trait(let t):
-      return lookup(name, inDeclSpaceOf: t.decl)
-
+      matches = names(introducedIn: t.decl)[name, default: []]
+    case .typeAlias(let t):
+      matches = names(introducedIn: t.decl)[name, default: []]
     default:
-      unreachable("unexpected type")
+      matches = DeclSet()
     }
-  }
 
-  /// Returns the declarations that introduce `name` in the declaration space of `decl`.
-  private mutating func lookup<T: DeclID>(_ name: String, inDeclSpaceOf decl: T) -> DeclSet {
-    switch decl.kind {
-    case .traitDecl:
-      let decl = NodeID<TraitDecl>(converting: decl)!
-      let type = Type.trait(TraitType(decl: decl, ast: ast))
-
-      // Register direct members.
-      memberLookupTables[type, default: [:]].merge(
-        names(introducedIn: decl), uniquingKeysWith: { a, b in a.union(b) })
-
-      // Register members declared in extending declarations.
-      for i in extendingDecls(of: type, exposedTo: scopeHierarchy.container[decl]!) {
-        memberLookupTables[type, default: [:]].merge(
-          names(introducedIn: i), uniquingKeysWith: { a, b in a.union(b) })
-      }
-
-      // TODO: Register inherited members
-
-      return memberLookupTables[type, default: [:]][name, default: []]
-
-    default:
-      unreachable("unexpected declaration")
+    // We're done if we found at least one non-overloadable match.
+    if matches.contains(where: { i in !(ast[i] is FunDecl) }) {
+      return matches
     }
+
+    // Look for members declared in extensions.
+    for i in extendingDecls(of: type, exposedTo: scope) {
+      matches.formUnion(names(introducedIn: i)[name, default: []])
+    }
+
+    // We're done if we found at least one non-overloadable match.
+    if matches.contains(where: { i in !(ast[i] is FunDecl) }) {
+      return matches
+    }
+
+    // Look for members declared inherited by conformance/refinement.
+    for trait in conformedTraits(of: type, inScope: scope) {
+      // TODO: More robust cycle detection
+      if type == .trait(trait) { continue }
+
+      // TODO: Read source of conformance to disambiguate associated names
+      // TODO: Filter out requirements unless `type` is a trait
+      matches.formUnion(lookup(name, memberOf: .trait(trait), inScope: scope))
+    }
+
+    return matches
   }
 
   /// Returns the extending declarations of `type` exposed to `scope`.
@@ -831,13 +843,24 @@ public struct TypeChecker {
         table[name, default: []].insert(AnyDeclID(i))
 
       case .funDecl:
-        let decl = ast[NodeID<SubscriptDecl>(converting: i)!]
-        let name = decl.identifier?.value ?? unreachable("unexpected anonymous function")
-        modifying(&table[name, default: []], { entries in
-          for j in decl.impls {
-            entries.insert(AnyDeclID(j))
-          }
-        })
+        let decl = ast[NodeID<FunDecl>(converting: i)!]
+        guard let name = decl.identifier?.value else { continue }
+        switch decl.body?.value {
+        case .block, .expr, nil:
+          table[name, default: []].insert(AnyDeclID(i))
+
+        case .bundle(let impls):
+          modifying(&table[name, default: []], { entries in
+            for j in impls {
+              entries.insert(AnyDeclID(j))
+            }
+          })
+        }
+
+      case .methodImplDecl:
+        let decl = ast[NodeID<FunDecl>(converting: scope)!]
+        guard let name = decl.identifier?.value else { continue }
+        table[name, default: []].insert(AnyDeclID(i))
 
       case .subscriptDecl:
         let decl = ast[NodeID<SubscriptDecl>(converting: i)!]
@@ -847,6 +870,11 @@ public struct TypeChecker {
             entries.insert(AnyDeclID(j))
           }
         })
+
+      case .subscriptImplDecl:
+        let decl = ast[NodeID<SubscriptDecl>(converting: scope)!]
+        let name = decl.identifier?.value ?? "[]"
+        table[name, default: []].insert(AnyDeclID(i))
 
       default:
         unreachable("unexpected declaration")
@@ -880,10 +908,9 @@ public struct TypeChecker {
   }
 
   /// Realizes and returns the type of `Self` in `scope`.
-  public mutating func realizeSelfTypeExpr(
-    inScope scope: AnyNodeID,
-    range: SourceRange?
-  ) -> Type? {
+  ///
+  /// - Note: This method does not issue diagnostics.
+  public mutating func realizeSelfTypeExpr(inScope scope: AnyNodeID) -> Type? {
     assert(ast[scope] is LexicalScope)
 
     for scope in scopeHierarchy.scopesToRoot(from: scope) {
@@ -901,7 +928,6 @@ public struct TypeChecker {
       }
     }
 
-    diagnostics.insert(.invalidSelfTypeExpr(range: range))
     return nil
   }
 
@@ -945,7 +971,12 @@ public struct TypeChecker {
       case "Any":   return .any
       case "Never": return .never
       case "Self":
-        return realizeSelfTypeExpr(inScope: scope, range: identifier.range)
+        if let type = realizeSelfTypeExpr(inScope: scope) {
+          return type
+        } else {
+          diagnostics.insert(.invalidSelfTypeExpr(range: identifier.range))
+          return nil
+        }
       default:
         break
       }
@@ -1082,7 +1113,7 @@ public struct TypeChecker {
         case .productTypeDecl,
              .traitDecl,
              .typeAliasDecl:
-          let receiver = this.realizeSelfTypeExpr(inScope: parent, range: nil)!
+          let receiver = this.realizeSelfTypeExpr(inScope: parent)!
           inputs.insert(SubscriptType.Parameter(label: nil, type: receiver), at: 0)
 
         default:

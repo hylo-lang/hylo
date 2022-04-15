@@ -123,7 +123,8 @@ final class TypeCheckerTests: XCTestCase {
 
     // trait T { type X }
     // trait U: T {
-    //   subscript x0: Self.X { let }
+    //   subscript x0: X { let }         // OK
+    //   subscript x1: Self.X { let }    // OK
     // }
 
     ast[main].members.append(AnyDeclID(ast.insert(TraitDecl(
@@ -146,6 +147,14 @@ final class TypeCheckerTests: XCTestCase {
         AnyDeclID(ast.insert(SubscriptDecl(
           memberModifiers: [],
           identifier: SourceRepresentable(value: "x0"),
+          captures: [],
+          output: AnyTypeExprID(ast.insertTypeName("X")),
+          impls: [
+            ast.insert(SubscriptImplDecl(introducer: SourceRepresentable(value: .let)))
+          ]))),
+        AnyDeclID(ast.insert(SubscriptDecl(
+          memberModifiers: [],
+          identifier: SourceRepresentable(value: "x1"),
           captures: [],
           output: AnyTypeExprID(ast.insertTypeName("Self.X")),
           impls: [
