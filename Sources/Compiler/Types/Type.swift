@@ -15,6 +15,10 @@ public indirect enum Type: TypeProtocol, Hashable {
 
   case module(ModuleType)
 
+  case product(ProductType)
+
+  case `subscript`(SubscriptType)
+
   case trait(TraitType)
 
   case tuple(TupleType)
@@ -33,6 +37,8 @@ public indirect enum Type: TypeProtocol, Hashable {
     case let .genericSizeParam(t):  return t
     case let .genericTypeParam(t):  return t
     case let .module(t):            return t
+    case let .product(t):           return t
+    case let .subscript(t):         return t
     case let .trait(t):             return t
     case let .tuple(t):             return t
     case let .typeAlias(t):         return t
@@ -57,5 +63,11 @@ public indirect enum Type: TypeProtocol, Hashable {
 
   /// The `Never` type.
   public static var never: Type = .union(UnionType(elements: []))
+
+}
+
+extension Type: CustomStringConvertible {
+
+  public var description: String { "\(base)" }
 
 }

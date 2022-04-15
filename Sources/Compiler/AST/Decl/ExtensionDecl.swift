@@ -1,5 +1,5 @@
-/// The declaration of an extension.
-public struct ExtensionDecl: Decl, LexicalScope {
+/// A declaration that extends a type with new members.
+public struct ExtensionDecl: TypeExtendingDecl, GenericScope {
 
   public static let kind = NodeKind.extensionDecl
 

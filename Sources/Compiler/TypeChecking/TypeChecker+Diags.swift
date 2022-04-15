@@ -24,6 +24,14 @@ extension Diag {
       window: range.map({ r in Diag.Window(range: r) }))
   }
 
+  static func invalidSelfTypeExpr(range: SourceRange?) -> Diag {
+    Diag(
+      level: .error,
+      message: "reference to 'Self' outside of a type context",
+      location: range?.first(),
+      window: range.map({ r in Diag.Window(range: r) }))
+  }
+
   static func noSkolemInConformance(_ type: Type, range: SourceRange?) -> Diag {
     Diag(
       level: .error,

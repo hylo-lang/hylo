@@ -171,8 +171,10 @@ struct ScopeHierarchyBuilder:
         this.visit(binding: capture)
       }
 
-      for param in decl.parameters {
-        this.visit(param: param)
+      if let params = decl.parameters {
+        for param in params {
+          this.visit(param: param)
+        }
       }
 
       decl.output.accept(&this)

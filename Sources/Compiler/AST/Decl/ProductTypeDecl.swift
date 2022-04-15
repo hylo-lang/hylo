@@ -1,5 +1,5 @@
 /// A (nominal) product type declaration.
-public struct ProductTypeDecl: GenericDecl, SingleEntityDecl, LexicalScope {
+public struct ProductTypeDecl: GenericDecl, SingleEntityDecl, GenericScope {
 
   public static let kind = NodeKind.productTypeDecl
 

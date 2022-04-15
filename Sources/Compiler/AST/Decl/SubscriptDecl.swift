@@ -1,5 +1,5 @@
 /// A subscript declaration.
-public struct SubscriptDecl: Decl, LexicalScope {
+public struct SubscriptDecl: GenericDecl, GenericScope {
 
   public static let kind = NodeKind.subscriptDecl
 
@@ -18,8 +18,8 @@ public struct SubscriptDecl: Decl, LexicalScope {
   /// The captures of the subscript.
   public var captures: [NodeID<BindingDecl>]
 
-  /// The parameters of the subscript.
-  public var parameters: [NodeID<ParamDecl>]
+  /// The parameters of the subscript, unless the declaration denotes a computed property.
+  public var parameters: [NodeID<ParamDecl>]?
 
   /// The output type annotation of the subscript.
   public var output: AnyTypeExprID

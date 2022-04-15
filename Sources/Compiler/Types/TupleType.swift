@@ -20,11 +20,17 @@ public struct TupleType: TypeProtocol, Hashable {
   /// Creates a tuple type with a sequence of elements.
   public init<S: Sequence>(_ elements: S) where S.Element == Element {
     self.elements = Array(elements)
-    if self.elements.isEmpty {
-      flags = .isCanonical
-    } else {
-      flags = TypeFlags(merging: self.elements.map({ $0.type.flags }))
+
+    var fs = TypeFlags(merging: self.elements.map({ $0.type.flags }))
+    switch self.elements.count {
+    case 0:
+      fs.insert(.isCanonical)
+    case 1:
+      fs.remove(.isCanonical)
+    default:
+      break
     }
+    flags = fs
   }
 
   /// Creates a tuple of unlabeled elements with the types in the given sequence.
@@ -37,14 +43,20 @@ public struct TupleType: TypeProtocol, Hashable {
 extension TupleType: CustomStringConvertible {
 
   public var description: String {
-    let elements = elements.map({ (e) -> String in
-      if let label = e.label {
-        return "\(label): \(e.type)"
-      } else {
-        return "\(e.type)"
-      }
-    }).joined(separator: ", ")
+    let elements = elements.map({ "\($0)" }).joined(separator: ", ")
     return "(\(elements))"
+  }
+
+}
+
+extension TupleType.Element: CustomStringConvertible {
+
+  public var description: String {
+    if let label = label {
+      return "\(label): \(type)"
+    } else {
+      return "\(type)"
+    }
   }
 
 }

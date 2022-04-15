@@ -1,9 +1,9 @@
-/// The declaration of a conformance.
-public struct ConformanceDecl: Decl, LexicalScope {
+/// A declaration that extends a type with new conformances.
+public struct ConformanceDecl: TypeExtendingDecl, GenericScope {
 
   public static let kind = NodeKind.conformanceDecl
 
-  /// The expression of the conforming type.
+  /// The expression of the extended type.
   public var subject: AnyTypeExprID
 
   /// The names of traits to which conformance is declared.

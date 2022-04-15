@@ -13,3 +13,15 @@ public struct UnionType: TypeProtocol, Hashable {
   }
 
 }
+
+extension UnionType: CustomStringConvertible {
+
+  public var description: String {
+    if elements.isEmpty {
+      return "Never"
+    } else {
+      return elements.map({ "\($0)" }).joined(separator: " | ")
+    }
+  }
+
+}

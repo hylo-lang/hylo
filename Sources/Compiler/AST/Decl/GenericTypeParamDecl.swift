@@ -9,6 +9,9 @@ public struct GenericTypeParamDecl: SingleEntityDecl {
   /// The conformances listed in the declaration.
   public var conformances: [NodeID<NameTypeExpr>]
 
+  /// The default value of the declaration, if any.
+  public var defaultValue: AnyTypeExprID?
+
   public var name: String { identifier.value }
 
 }

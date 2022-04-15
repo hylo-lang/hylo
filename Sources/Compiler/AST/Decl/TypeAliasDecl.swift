@@ -1,5 +1,5 @@
 /// A type alias declaration.
-public struct TypeAliasDecl: GenericDecl, SingleEntityDecl, LexicalScope {
+public struct TypeAliasDecl: GenericDecl, SingleEntityDecl, GenericScope {
 
   public static let kind = NodeKind.typeAliasDecl
 

@@ -1,13 +1,5 @@
 @testable import Compiler
 
-func identifier(_ value: String) -> SourceRepresentable<Identifier> {
-  SourceRepresentable(value: value, range: nil)
-}
-
-func typeName(_ value: String) -> NameTypeExpr {
-  NameTypeExpr(domain: nil, identifier: identifier(value), arguments: [])
-}
-
 extension AST {
 
   mutating func insertTypeName(_ name: String) -> NodeID<NameTypeExpr> {

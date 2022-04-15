@@ -27,10 +27,22 @@ public struct TypeFlags: Hashable {
       && (existential & flags.existential == flags.existential)
   }
 
+  /// Inserts the specified flags.
+  public mutating func insert(_ flags: TypeFlags) {
+    universal = universal | flags.universal
+    existential = existential | flags.existential
+  }
+
+  /// Removes the specified flags.
+  public mutating func remove(_ flags: TypeFlags) {
+    universal = universal & ~flags.universal
+    existential = existential & ~flags.existential
+  }
+
   /// Merge this set of flags with another set.
-  public mutating func merge(_ other: TypeFlags) {
-    universal = universal & other.universal
-    existential = existential | other.existential
+  public mutating func merge(_ flags: TypeFlags) {
+    universal = universal & flags.universal
+    existential = existential | flags.existential
   }
 
   /// The type is canonical from.

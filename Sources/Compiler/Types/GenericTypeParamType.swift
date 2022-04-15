@@ -18,13 +18,10 @@ public struct GenericTypeParamType: TypeProtocol, Hashable {
     self.decl = AnyDeclID(decl)
 
     switch decl.kind {
-    case .genericTypeParamDecl,
-         .associatedTypeDecl:
+    case .associatedTypeDecl, .genericTypeParamDecl:
       name = Incidental((ast[decl] as! SingleEntityDecl).name)
-
     case .traitDecl:
       name = Incidental("Self")
-
     default:
       preconditionFailure("invalid declaration")
     }

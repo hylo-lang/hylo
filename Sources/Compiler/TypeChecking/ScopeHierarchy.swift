@@ -1,6 +1,23 @@
 /// A graph describing the scope hierarchy of an AST.
 struct ScopeHierarchy {
 
+  /// A sequence of scopes, from inner to outer.
+  struct ScopeSequence: IteratorProtocol, Sequence {
+
+    typealias Element = AnyNodeID
+
+    fileprivate let parent: NodeMap<AnyNodeID>
+
+    fileprivate var current: AnyNodeID?
+
+    mutating func next() -> AnyNodeID? {
+      guard let s = current else { return nil }
+      current = parent[s]
+      return s
+    }
+
+  }
+
   /// A table mapping a lexical scope to its parent.
   var parent = NodeMap<AnyNodeID>()
 
@@ -46,6 +63,11 @@ struct ScopeHierarchy {
         return false
       }
     }
+  }
+
+  /// Returns a sequence containing `scope` and all its ancestors, from inner to outer.
+  func scopesToRoot(from scope: AnyNodeID) -> ScopeSequence {
+    ScopeSequence(parent: parent, current: scope)
   }
 
 }

@@ -6,6 +6,8 @@ public struct AST {
   private var nodes: [Any] = []
 
   /// The indices of the modules.
+  ///
+  /// - Invariant: All referred modules have a different name.
   public private(set) var modules: [NodeID<ModuleDecl>] = []
 
   /// The source range of each node.

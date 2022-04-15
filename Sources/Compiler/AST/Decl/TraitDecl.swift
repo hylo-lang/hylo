@@ -1,5 +1,5 @@
 /// A trait declaration.
-public struct TraitDecl: GenericDecl, SingleEntityDecl, LexicalScope {
+public struct TraitDecl: SingleEntityDecl, GenericScope {
 
   public static let kind = NodeKind.traitDecl
 
@@ -8,9 +8,6 @@ public struct TraitDecl: GenericDecl, SingleEntityDecl, LexicalScope {
 
   /// The identifier of the trait.
   public var identifier: SourceRepresentable<Identifier>
-
-  /// The (synthetic) generic clause of the declaration.
-  public var genericClause: SourceRepresentable<GenericClause>?
 
   /// The names of traits which the trait refines.
   public var refinements: [NodeID<NameTypeExpr>]

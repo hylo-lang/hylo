@@ -6,6 +6,9 @@ public struct GenericSizeParamDecl: SingleEntityDecl {
   /// The identifier of the parameter.
   public var identifier: SourceRepresentable<Identifier>
 
+  /// The default value of the declaration, if any.
+  public var defaultValue: AnyExprID?
+
   public var name: String { identifier.value }
 
 }

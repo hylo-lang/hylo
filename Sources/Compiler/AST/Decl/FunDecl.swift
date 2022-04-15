@@ -1,5 +1,5 @@
 /// A function declaration.
-public struct FunDecl: GenericDecl, LexicalScope {
+public struct FunDecl: GenericDecl, GenericScope {
 
   public static let kind = NodeKind.funDecl
 
