@@ -6,7 +6,7 @@ import Foundation // For `URL` and `UUID`
 public struct SourceFile {
 
   /// A position in a source file.
-  public typealias Index = String.Index
+  public typealias Position = String.Index
 
   /// The contents of the source file.
   public let contents: String
@@ -36,6 +36,41 @@ extension SourceFile: Hashable {
 
   public static func == (lhs: SourceFile, rhs: SourceFile) -> Bool {
     return lhs.url == rhs.url
+  }
+
+}
+
+extension SourceFile: Collection {
+
+  public typealias Index = SourceLocation
+
+  public typealias Element = String.Element
+
+  public var startIndex: SourceLocation {
+    SourceLocation(source: self, index: contents.startIndex)
+  }
+
+  public var endIndex: SourceLocation {
+    SourceLocation(source: self, index: contents.endIndex)
+  }
+
+  public func index(after l: SourceLocation) -> SourceLocation {
+    precondition(l.source.url == url, "location in different file")
+    return SourceLocation(source: self, index: contents.index(after: l.index))
+  }
+
+  public subscript(l: SourceLocation) -> Element {
+    precondition(l.source.url == url, "location in different file")
+    return contents[l.index]
+  }
+
+  public subscript(bounds: Range<SourceLocation>) -> Substring {
+    self[bounds.lowerBound ..< bounds.upperBound]
+  }
+
+  public subscript(bounds: SourceRange) -> Substring {
+    precondition(bounds.source.url == url, "location in different file")
+    return contents[bounds.lowerBound ..< bounds.upperBound]
   }
 
 }

@@ -5,14 +5,23 @@ public struct SourceLocation: Hashable {
   public let source: SourceFile
 
   /// The index of the location in the source file.
-  public let index: SourceFile.Index
+  public let index: SourceFile.Position
 
-  /// Returns a source range from `lhs` to `rhs`.
+  /// Returns a source range from `l` to `r`.
   ///
-  /// - Requires: `lhs.source == rhs.source`
-  public static func ..< (lhs: Self, rhs: Self) -> SourceRange {
-    precondition(lhs.source == rhs.source)
-    return SourceRange(in: lhs.source, from: lhs.index, to: rhs.index)
+  /// - Requires: `l.source == r.source`
+  public static func ..< (l: Self, r: Self) -> SourceRange {
+    precondition(l.source == r.source, "incompatible locations")
+    return SourceRange(in: l.source, from: l.index, to: r.index)
+  }
+
+}
+
+extension SourceLocation: Comparable {
+
+  public static func < (l: Self, r: Self) -> Bool {
+    precondition(l.source == r.source, "incompatible locations")
+    return l.index < r.index
   }
 
 }

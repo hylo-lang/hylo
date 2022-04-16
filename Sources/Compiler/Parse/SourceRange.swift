@@ -5,10 +5,10 @@ public struct SourceRange: Hashable {
   public let source: SourceFile
 
   /// The start index of the range.
-  public let lowerBound: SourceFile.Index
+  public let lowerBound: SourceFile.Position
 
   /// The end index of the range.
-  public let upperBound: SourceFile.Index
+  public let upperBound: SourceFile.Position
 
   /// Creates a range in `source` from `lowerBound` to `upperBound`.
   ///
