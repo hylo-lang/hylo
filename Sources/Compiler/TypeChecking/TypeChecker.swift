@@ -771,8 +771,15 @@ public struct TypeChecker {
       if type == .trait(trait) { continue }
 
       // TODO: Read source of conformance to disambiguate associated names
-      // TODO: Filter out requirements unless `type` is a trait
-      matches.formUnion(lookup(name, memberOf: .trait(trait), inScope: scope))
+      let newMatches = lookup(name, memberOf: .trait(trait), inScope: scope)
+      if case .trait = type {
+        matches.formUnion(newMatches)
+      } else {
+        // Associated size and type declarations are not inherited by conformance.
+        matches.formUnion(newMatches.filter({
+          $0.kind != .associatedSizeDecl && $0.kind != .associatedTypeDecl
+        }))
+      }
     }
 
     return matches
@@ -954,8 +961,8 @@ public struct TypeChecker {
         }
 
         if match.kind <= .associatedTypeDecl {
-          base = .associated(AssociatedType(
-            decl: NodeID(converting: match)!, domain: domain, ast: ast))
+          let type = AssociatedType(decl: NodeID(converting: match)!, domain: domain, ast: ast)
+          base = .associated(type)
         } else {
           base = realize(decl: match)
         }
@@ -992,8 +999,13 @@ public struct TypeChecker {
           return nil
         }
 
-        // TODO: Filter out foreign references to associated type decls
-        base = realize(decl: match)
+        if match.kind <= .associatedTypeDecl {
+          let domain = realizeSelfTypeExpr(inScope: scope)!
+          let type = AssociatedType(decl: NodeID(converting: match)!, domain: domain, ast: ast)
+          base = .associated(type)
+        } else {
+          base = realize(decl: match)
+        }
       }
 
       if base == nil {
