@@ -5,6 +5,8 @@ public indirect enum Type: TypeProtocol, Hashable {
 
   case boundGeneric(BoundGenericType)
 
+  case conformanceLens(ConformanceLensType)
+
   case error(ErrorType)
 
   case existential(ExistentialType)
@@ -32,6 +34,7 @@ public indirect enum Type: TypeProtocol, Hashable {
     switch self {
     case let .associated(t):        return t
     case let .boundGeneric(t):      return t
+    case let .conformanceLens(t):   return t
     case let .error(t):             return t
     case let .existential(t):       return t
     case let .genericSizeParam(t):  return t

@@ -448,7 +448,7 @@ struct ScopeHierarchyBuilder:
   }
 
   mutating func visit(conformanceLens i: NodeID<ConformanceLensTypeExpr>) {
-    ast[i].base.accept(&self)
+    ast[i].wrapped.accept(&self)
   }
 
   mutating func visit(existential i: NodeID<ExistentialTypeExpr>) {

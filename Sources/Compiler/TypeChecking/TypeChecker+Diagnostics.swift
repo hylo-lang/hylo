@@ -37,7 +37,7 @@ extension Diagnostic {
       level: .error,
       message: """
         associated type '\(name)' can only be used referred to as a member of a generic type \
-        type parameter base
+        parameter, a conformance lens, or another associated type
         """,
       location: range?.first(),
       window: range.map({ r in Diagnostic.Window(range: r) }))
@@ -47,6 +47,26 @@ extension Diagnostic {
     Diagnostic(
       level: .error,
       message: "reference to 'Self' outside of a type context",
+      location: range?.first(),
+      window: range.map({ r in Diagnostic.Window(range: r) }))
+  }
+
+  static func nonTraitType(_ type: Type, range: SourceRange?) -> Diagnostic {
+    Diagnostic(
+      level: .error,
+      message: "type '\(type)' is not a trait",
+      location: range?.first(),
+      window: range.map({ r in Diagnostic.Window(range: r) }))
+  }
+
+  static func noConformance(
+    of type: Type,
+    to trait: TraitType,
+    range: SourceRange?
+  ) -> Diagnostic {
+    Diagnostic(
+      level: .error,
+      message: "type '\(type)' does not conform to trait '\(trait)'",
       location: range?.first(),
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }

@@ -766,6 +766,10 @@ public struct TypeChecker {
     memberOf type: Type,
     inScope scope: AnyNodeID
   ) -> DeclSet {
+    if case .conformanceLens(let t) = type {
+      return lookup(name, memberOf: .trait(t.focus), inScope: scope)
+    }
+
     let key = MemberLookupKey(type: type, scope: scope)
     if let m = memberLookupTables[key]?[name] {
       return m
@@ -944,6 +948,8 @@ public struct TypeChecker {
     assert(ast[scope] is LexicalScope)
 
     switch expr.kind {
+    case .conformanceLensTypeExpr:
+      return realize(conformanceLens: NodeID(converting: expr)!, inScope: scope)
     case .nameTypeExpr:
       return realize(name: NodeID(converting: expr)!, inScope: scope)
     case .tupleTypeExpr:
@@ -978,6 +984,29 @@ public struct TypeChecker {
   }
 
   private mutating func realize(
+    conformanceLens i: NodeID<ConformanceLensTypeExpr>,
+    inScope scope: AnyNodeID
+  ) -> Type? {
+    let decl = ast[i]
+    guard let wrapped = realize(decl.wrapped, inScope: scope) else { return nil }
+    guard let trait = realize(decl.focus, inScope: scope) else { return nil }
+
+    /// The focus must be a trait.
+    guard case .trait(let focus) = trait else {
+      diagnostics.insert(.nonTraitType(trait, range: ast.ranges[decl.focus]))
+      return nil
+    }
+
+    // The base must conform to the focus.
+    guard conformedTraits(of: wrapped, inScope: scope)?.contains(focus) ?? false else {
+      diagnostics.insert(.noConformance(of: wrapped, to: focus, range: ast.ranges[decl.focus]))
+      return nil
+    }
+
+    return .conformanceLens(ConformanceLensType(wrapped: wrapped, focus: focus))
+  }
+
+  private mutating func realize(
     name i: NodeID<NameTypeExpr>,
     inScope scope: AnyNodeID
   ) -> Type? {
@@ -1001,9 +1030,10 @@ public struct TypeChecker {
 
         if match.kind <= .associatedTypeDecl {
           let decl = NodeID<AssociatedTypeDecl>(converting: match)!
-          if domain.isTypeParam {
+          switch domain {
+          case .associated, .conformanceLens, .genericTypeParam:
             base = .associated(AssociatedType(decl: decl, domain: domain, ast: ast))
-          } else {
+          default:
             diagnostics.insert(.invalidAssociatedTypeExpr(ast[decl].name, range: identifier.range))
             return nil
           }
