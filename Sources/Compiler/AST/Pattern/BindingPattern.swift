@@ -1,7 +1,7 @@
 /// A pattern that introduces new variables.
 ///
 /// This pattern alters the semantics of its sub-pattern. Nested name patterns create new variable
-/// bindings, instead or referring to existing declarations.
+/// bindings, instead of referring to existing declarations.
 public struct BindingPattern: Pattern {
 
   public static let kind = NodeKind.bindingPattern

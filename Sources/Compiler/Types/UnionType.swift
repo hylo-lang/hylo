@@ -1,4 +1,4 @@
-/// A union a type.
+/// A union type.
 public struct UnionType: TypeProtocol, Hashable {
 
   /// The elements of the union.
