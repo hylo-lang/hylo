@@ -6,7 +6,7 @@ public struct ConformanceLensTypeExpr: TypeExpr {
   /// The expression of the lens' base.
   public var base: AnyTypeExprID
 
-  /// The name of the trait in which the lens focuses.
-  public var trait: SourceRepresentable<Identifier>
+  /// The expression of the trait in which the lens focuses.
+  public var trait: AnyTypeExprID
 
 }
