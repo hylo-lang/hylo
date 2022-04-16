@@ -352,10 +352,19 @@ public struct TypeChecker {
     while true {
       switch declRequests[i] {
       case nil:
+        /// The the overarching type of the declaration is available after type realization.
+        defer { assert(declRequests[i] != nil) }
+
         // Realize the type of the declaration before starting type checking.
-        _  = realize(decl: i)
-        assert(declRequests[i] != nil)
-        continue
+        if realize(decl: i) != nil {
+          // Note: Because type realization might perform type checking, we should re-check the
+          // status of the request.
+          continue
+        } else {
+          // Type checking fails if type realization did.
+          declRequests[i] = .failure
+          return false
+        }
 
       case .typeRealizationCompleted:
         declRequests[i] = .typeCheckingStarted
@@ -779,9 +788,13 @@ public struct TypeChecker {
 
       // TODO: Read source of conformance to disambiguate associated names
       let newMatches = lookup(name, memberOf: .trait(trait), inScope: scope)
-      if case .trait = type {
+      switch type {
+      case .associated,
+           .genericTypeParam,
+           .trait:
         matches.formUnion(newMatches)
-      } else {
+
+      default:
         // Associated size and type declarations are not inherited by conformance.
         matches.formUnion(newMatches.filter({
           $0.kind != .associatedSizeDecl && $0.kind != .associatedTypeDecl
@@ -968,8 +981,13 @@ public struct TypeChecker {
         }
 
         if match.kind <= .associatedTypeDecl {
-          let type = AssociatedType(decl: NodeID(converting: match)!, domain: domain, ast: ast)
-          base = .associated(type)
+          let decl = NodeID<AssociatedTypeDecl>(converting: match)!
+          if domain.isTypeParam {
+            base = .associated(AssociatedType(decl: decl, domain: domain, ast: ast))
+          } else {
+            diagnostics.insert(.invalidAssociatedTypeExpr(ast[decl].name, range: identifier.range))
+            return nil
+          }
         } else {
           base = realize(decl: match)
         }
@@ -1007,6 +1025,9 @@ public struct TypeChecker {
         }
 
         if match.kind <= .associatedTypeDecl {
+          // Assume `Self` denotes the implicit generic parameter of a trait declaration, since
+          // associated declarations cannot be looked up unqualified outside the scope of a trait
+          // and its extensions.
           let domain = realizeSelfTypeExpr(inScope: scope)!
           let type = AssociatedType(decl: NodeID(converting: match)!, domain: domain, ast: ast)
           base = .associated(type)

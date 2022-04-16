@@ -32,6 +32,17 @@ extension Diagnostic {
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }
 
+  static func invalidAssociatedTypeExpr(_ name: String, range: SourceRange?) -> Diagnostic {
+    Diagnostic(
+      level: .error,
+      message: """
+        associated type '\(name)' can only be used referred to as a member of a generic type \
+        type parameter base
+        """,
+      location: range?.first(),
+      window: range.map({ r in Diagnostic.Window(range: r) }))
+  }
+
   static func invalidSelfTypeExpr(range: SourceRange?) -> Diagnostic {
     Diagnostic(
       level: .error,

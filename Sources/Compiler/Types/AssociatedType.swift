@@ -17,15 +17,10 @@ public struct AssociatedType: TypeProtocol, Hashable {
   public let flags: TypeFlags = [.isCanonical]
 
   public init(decl: NodeID<AssociatedTypeDecl>, domain: Type, ast: AST) {
+    precondition(domain.isTypeParam, "invalid associated type domain")
+    self.domain = domain
     self.decl = decl
     self.name = Incidental(ast[decl].name)
-
-    switch domain {
-    case .associated, .genericTypeParam:
-      self.domain = domain
-    default:
-      preconditionFailure("invalid associated type domain")
-    }
   }
 
 }

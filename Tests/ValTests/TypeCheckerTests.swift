@@ -125,6 +125,7 @@ final class TypeCheckerTests: XCTestCase {
     // trait U: T {
     //   subscript x0: X { let }         // OK
     //   subscript x1: Self.X { let }    // OK
+    //   subscript x2: T.X               // error
     // }
 
     ast[main].members.append(AnyDeclID(ast.insert(TraitDecl(
@@ -159,11 +160,20 @@ final class TypeCheckerTests: XCTestCase {
           output: AnyTypeExprID(ast.insertTypeName("Self.X")),
           impls: [
             ast.insert(SubscriptImplDecl(introducer: SourceRepresentable(value: .let)))
+          ]))),
+        AnyDeclID(ast.insert(SubscriptDecl(
+          memberModifiers: [],
+          identifier: SourceRepresentable(value: "x2"),
+          captures: [],
+          output: AnyTypeExprID(ast.insertTypeName("T.X")),
+          impls: [
+            ast.insert(SubscriptImplDecl(introducer: SourceRepresentable(value: .let)))
           ])))
       ]))))
 
     var checker = TypeChecker(ast: ast)
-    XCTAssertTrue(checker.check(module: main))
+    XCTAssertFalse(checker.check(module: main))
+    XCTAssertEqual(checker.diagnostics.count, 1)
   }
 
   func testGenericTypeAlias() {
