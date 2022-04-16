@@ -51,7 +51,7 @@ public indirect enum Type: TypeProtocol, Hashable {
   /// Indicates whether this type is a generic type parameter or associated type.
   public var isTypeParam: Bool {
     switch self {
-    case .genericSizeParam, .genericTypeParam:
+    case .associated, .genericSizeParam, .genericTypeParam:
       return true
     default:
       return false
