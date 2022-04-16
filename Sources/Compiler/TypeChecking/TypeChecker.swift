@@ -678,6 +678,19 @@ public struct TypeChecker {
   /// A lookup table.
   private typealias LookupTable = [String: DeclSet]
 
+  private struct MemberLookupKey: Hashable {
+
+    var type: Type
+
+    var scope: AnyNodeID
+
+  }
+
+  /// The member lookup tables of the types.
+  ///
+  /// This property is used to memoize the results of `lookup(_:memberOf:inScope)`.
+  private var memberLookupTables: [MemberLookupKey: LookupTable] = [:]
+
   /// A set containing the type extending declarations being currently bounded.
   ///
   /// This property is used during conformance and extension binding to avoid infinite recursion
@@ -753,7 +766,13 @@ public struct TypeChecker {
     memberOf type: Type,
     inScope scope: AnyNodeID
   ) -> DeclSet {
+    let key = MemberLookupKey(type: type, scope: scope)
+    if let m = memberLookupTables[key]?[name] {
+      return m
+    }
+
     var matches: DeclSet
+    defer { memberLookupTables[key, default: [:]][name] = matches }
 
     switch type {
     case .product(let t):
