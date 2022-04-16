@@ -1,4 +1,4 @@
-/// The overarching txype of a subscript declaration.
+/// The overarching type of a subscript declaration.
 public struct SubscriptType: TypeProtocol, Hashable {
 
   /// A parameter in a subscript type.
@@ -12,7 +12,7 @@ public struct SubscriptType: TypeProtocol, Hashable {
 
   }
 
-  /// Indicates whether the subscript denotes a computed a property.
+  /// Indicates whether the subscript denotes a computed property.
   public let isProperty: Bool
 
   /// The capabilities of the subscript.

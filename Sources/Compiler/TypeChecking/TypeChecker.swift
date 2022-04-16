@@ -1082,6 +1082,7 @@ public struct TypeChecker {
   /// Realizes and returns the traits of the specified conformance list, or `nil` if at least one
   /// of them is ill-formed.
   ///
+  /// FIXME(kyouko-taiga): Finish `Note:` comment below.
   /// - Note: All return
   private mutating func realize(
     conformances: [NodeID<NameTypeExpr>],

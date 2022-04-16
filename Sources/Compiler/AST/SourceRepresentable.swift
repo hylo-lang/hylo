@@ -1,4 +1,4 @@
-/// A of an AST node that may have a textual representation in source code.
+/// A part of an AST node that may have a textual representation in source code.
 ///
 /// - Note: The source range is a non-salient annotation. It does not contribute to a node's value.
 public struct SourceRepresentable<Part> {
