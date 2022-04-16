@@ -208,4 +208,39 @@ final class TypeCheckerTests: XCTestCase {
     XCTAssertTrue(checker.check(module: main))
   }
 
+  func testCyclicRefinements() {
+    var ast = AST()
+    let main = ast.insert(ModuleDecl(name: "main", members: []))
+
+    // trait T: U {} // error: circular trait refinment
+    // trait U: V {} // error: circular trait refinment
+    // trait V: T {} // error: circular trait refinment
+
+    // Create a fake source ranges to get different diagnostic locations.
+    let file = SourceFile(contents: "tuv")
+    var i = file.startIndex
+    var j = file.index(after: i)
+
+    ast[main].members.append(AnyDeclID(ast.insert(TraitDecl(
+      identifier: SourceRepresentable(value: "T", range: i ..< j),
+      refinements: [ast.insertTypeName("U")],
+      members: []))))
+    (i, j) = (j, file.index(after: j))
+
+    ast[main].members.append(AnyDeclID(ast.insert(TraitDecl(
+      identifier: SourceRepresentable(value: "U", range: i ..< j),
+      refinements: [ast.insertTypeName("V")],
+      members: []))))
+    (i, j) = (j, file.index(after: j))
+
+    ast[main].members.append(AnyDeclID(ast.insert(TraitDecl(
+      identifier: SourceRepresentable(value: "V", range: i ..< j),
+      refinements: [ast.insertTypeName("T")],
+      members: []))))
+
+    var checker = TypeChecker(ast: ast)
+    XCTAssertFalse(checker.check(module: main))
+    XCTAssertEqual(checker.diagnostics.count, 3)
+  }
+
 }

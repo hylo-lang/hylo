@@ -11,8 +11,8 @@ struct GenericEnvironment {
   private var entries: [(equivalences: Set<Type>, conformances: Set<TraitType>)] = []
 
   /// Creates the generic environment of `decl` with the specified constraints, using `checker` to
-  /// evaluate them.
-  init<T: DeclID>(decl: T, constraints: [TypeConstraint], into checker: inout TypeChecker) {
+  /// evaluate them; fails if one of the constraints is ill-formed.
+  init?<T: DeclID>(decl: T, constraints: [TypeConstraint], into checker: inout TypeChecker) {
     self.constraints = constraints
 
     let scope = AnyNodeID(decl)
@@ -22,10 +22,12 @@ struct GenericEnvironment {
         registerEquivalence(l: l, r: r)
 
       case .conformance(let l, let traits):
-        let allTraits: Set<TraitType> = traits.reduce(into: [], { ts, t in
-          assert(t.base is TraitType)
-          ts.formUnion(checker.conformedTraits(of: t, inScope: scope))
-        })
+        var allTraits: Set<TraitType> = []
+        for type in traits {
+          assert(type.base is TraitType)
+          guard let bases = checker.conformedTraits(of: type, inScope: scope) else { return nil }
+          allTraits.formUnion(bases)
+        }
         registerConformance(l: l, traits: allTraits)
 
       case .size:

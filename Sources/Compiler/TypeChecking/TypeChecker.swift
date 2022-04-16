@@ -69,7 +69,8 @@ public struct TypeChecker {
   /// Returns the set of traits to which `type` conforms in `scope`.
   ///
   /// - Note: If `type` is a trait, it is always contained in the returned set.
-  mutating func conformedTraits(of type: Type, inScope scope: AnyNodeID) -> Set<TraitType> {
+  mutating func conformedTraits(of type: Type, inScope scope: AnyNodeID) -> Set<TraitType>? {
+    // TODO: Must be fallible!
     assert(ast[scope] is LexicalScope)
     var result: Set<TraitType> = []
 
@@ -78,20 +79,15 @@ public struct TypeChecker {
       // Gather the conformances defined at declaration.
       switch t.decl.kind {
       case .genericTypeParamDecl:
-        let ts = realize(
+        guard let traits = realize(
           conformances: ast[NodeID<GenericTypeParamDecl>(converting: t.decl)!].conformances,
           inScope: scopeHierarchy.parent[t.decl]!)
-        result.formUnion(ts.map({ $0.base as! TraitType }))
+        else { return nil }
+        result.formUnion(traits)
 
       case .traitDecl:
-        let decl = NodeID<TraitDecl>(converting: t.decl)!
-        let ts = realize(
-          conformances: ast[decl].refinements,
-          inScope: scopeHierarchy.parent[t.decl]!)
-        result.formUnion(ts.map({ $0.base as! TraitType }))
-
-        // Add the trait to its own conformance set.
-        result.insert(TraitType(decl: decl, ast: ast))
+        let trait = TraitType(decl: NodeID(converting: t.decl)!, ast: ast)
+        return conformedTraits(of: .trait(trait), inScope: scope)
 
       default:
         break
@@ -108,10 +104,23 @@ public struct TypeChecker {
 
     case .trait(let t):
       // Gather the conformances defined at declaration.
-      let ts = realize(
+      guard var work = realize(
         conformances: ast[t.decl].refinements,
         inScope: scopeHierarchy.parent[t.decl]!)
-      result.formUnion(ts.map({ $0.base as! TraitType }))
+      else { return nil }
+
+      while let base = work.popFirst() {
+        if base == t {
+          diagnostics.insert(.circularRefinement(range: ast[t.decl].identifier.range))
+          return nil
+        } else if result.insert(base).inserted {
+          guard let traits = realize(
+            conformances: ast[base.decl].refinements,
+            inScope: scopeHierarchy.parent[base.decl]!)
+          else { return nil }
+          work.formUnion(traits)
+        }
+      }
 
       // Add the trait to its own conformance set.
       result.insert(t)
@@ -130,13 +139,13 @@ public struct TypeChecker {
     for i in extendingDecls(of: type, exposedTo: scope) where i.kind == .conformanceDecl {
       let decl = ast[NodeID<ConformanceDecl>(converting: i)!]
       let scope = scopeHierarchy.container[i]!
+      guard let traits = realize(
+        conformances: decl.conformances, inScope: scope)
+      else { return nil }
 
-      for j in decl.conformances {
-        if case .trait(let trait) = realize(name: j, inScope: scope) {
-          if result.insert(trait).inserted {
-            result.formUnion(conformedTraits(of: .trait(trait), inScope: scope))
-          }
-        }
+      for trait in traits {
+        guard let bases = conformedTraits(of: .trait(trait), inScope: scope) else { return nil }
+        result.formUnion(bases)
       }
     }
 
@@ -428,9 +437,10 @@ public struct TypeChecker {
       assert(lhs.base is GenericTypeParamType)
 
       // Synthesize the sugared conformance constraint, if any.
-      let traits = realize(conformances: ast[j].conformances, inScope: parentScope)
+      let list = ast[j].conformances
+      guard let traits = realize(conformances: list, inScope: parentScope) else { return nil }
       if !traits.isEmpty {
-        constraints.append(.conformance(l: lhs, traits: traits))
+        constraints.append(.conformance(l: lhs, traits: Set(traits.map({ .trait($0) }))))
       }
     }
 
@@ -535,13 +545,9 @@ public struct TypeChecker {
       return nil
     }
 
-    // Synthesize the sugared conformance constraint on `Self`.
-    let parentScope = scopeHierarchy.parent[AnyNodeID(i)]!
-    var bases = realize(conformances: ast[i].refinements, inScope: parentScope)
-    bases.insert(declTypes[i]!!)
-
+    // Synthesize `Self: T`.
     let selfType = GenericTypeParamType(decl: i, ast: ast)
-    constraints.append(.conformance(l: .genericTypeParam(selfType), traits: bases))
+    constraints.append(.conformance(l: .genericTypeParam(selfType), traits: [declTypes[i]!!]))
 
     let e = GenericEnvironment(decl: i, constraints: constraints, into: &self)
     environments[i] = .done(e)
@@ -587,9 +593,10 @@ public struct TypeChecker {
     assert(lhs.base is GenericTypeParamType)
 
     // Synthesize the sugared conformance constraint, if any.
-    let traits = realize(conformances: ast[associatedType].conformances, inScope: AnyNodeID(trait))
+    let list = ast[associatedType].conformances
+    guard let traits = realize(conformances: list, inScope: AnyNodeID(trait)) else { return false }
     if !traits.isEmpty {
-      constraints.append(.conformance(l: lhs, traits: traits))
+      constraints.append(.conformance(l: lhs, traits: Set(traits.map({ .trait($0) }))))
     }
 
     // Evaluate the constraint expressions of the associated type's where clause.
@@ -766,8 +773,8 @@ public struct TypeChecker {
     }
 
     // Look for members declared inherited by conformance/refinement.
-    for trait in conformedTraits(of: type, inScope: scope) {
-      // TODO: More robust cycle detection
+    guard let traits = conformedTraits(of: type, inScope: scope) else { return matches }
+    for trait in traits {
       if type == .trait(trait) { continue }
 
       // TODO: Read source of conformance to disambiguate associated names
@@ -1051,21 +1058,23 @@ public struct TypeChecker {
     return .tuple(TupleType(elements))
   }
 
-  /// Realizes and returns the traits of the specified conformance list.
+  /// Realizes and returns the traits of the specified conformance list, or `nil` if at least one
+  /// of them is ill-formed.
   ///
   /// - Note: All return
   private mutating func realize(
     conformances: [NodeID<NameTypeExpr>],
     inScope scope: AnyNodeID
-  ) -> Set<Type> {
+  ) -> Set<TraitType>? {
     // Realize the traits in the conformance list.
-    var traits: Set<Type> = []
+    var traits: Set<TraitType> = []
     for expr in conformances {
-      guard let rhs = realize(name: expr, inScope: scope) else { continue }
-      if rhs.base is TraitType {
-        traits.insert(rhs)
+      guard let rhs = realize(name: expr, inScope: scope) else { return nil }
+      if case .trait(let trait) = rhs {
+        traits.insert(trait)
       } else {
         diagnostics.insert(.conformanceToNonTraitType(rhs, range: ast.ranges[expr]))
+        return nil
       }
     }
 

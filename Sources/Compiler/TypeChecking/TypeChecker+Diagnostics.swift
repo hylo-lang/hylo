@@ -8,6 +8,14 @@ extension Diagnostic {
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }
 
+  static func circularRefinement(range: SourceRange?) -> Diagnostic {
+    Diagnostic(
+      level: .error,
+      message: "circular trait refinment",
+      location: range?.first(),
+      window: range.map({ r in Diagnostic.Window(range: r) }))
+  }
+
   static func circularDependency(range: SourceRange?) -> Diagnostic {
     Diagnostic(
       level: .error,
