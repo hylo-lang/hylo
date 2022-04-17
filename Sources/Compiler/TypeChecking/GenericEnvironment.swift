@@ -1,3 +1,5 @@
+import Utils
+
 /// An object that provides context to interpret generic parameters.
 struct GenericEnvironment {
 
@@ -32,6 +34,9 @@ struct GenericEnvironment {
 
       case .size:
         break
+
+      case .subtyping:
+        unreachable()
       }
     }
   }

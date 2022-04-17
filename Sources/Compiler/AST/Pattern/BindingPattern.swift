@@ -24,6 +24,8 @@ public struct BindingPattern: Pattern {
   public var introducer: SourceRepresentable<Introducer>
 
   /// The sub-pattern.
+  ///
+  /// - Requires: `subpattern` may not contain other binding patterns.
   public var subpattern: AnyPatternID
 
   /// The type annotation of the pattern, if any.

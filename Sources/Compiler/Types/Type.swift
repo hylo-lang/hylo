@@ -29,6 +29,8 @@ public indirect enum Type: TypeProtocol, Hashable {
 
   case union(UnionType)
 
+  case variable(TypeVariable)
+
   /// The associated value of this type.
   public var base: TypeProtocol {
     switch self {
@@ -46,6 +48,7 @@ public indirect enum Type: TypeProtocol, Hashable {
     case let .tuple(t):             return t
     case let .typeAlias(t):         return t
     case let .union(t):             return t
+    case let .variable(t):          return t
     }
   }
 

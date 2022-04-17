@@ -9,8 +9,8 @@ public struct BindingDecl: Decl {
   /// The member modifiers of the declaration.
   public var memberModifiers: [SourceRepresentable<MemberModifier>]
 
-  /// The binding pattern of the declaration.
-  public var pattern: NodeID<BindingPattern>
+  /// The pattern of the declaration.
+  public var pattern: AnyPatternID
 
   /// The initializer of the declaration, if any.
   public var initializer: AnyExprID?

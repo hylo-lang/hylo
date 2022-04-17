@@ -14,7 +14,7 @@ public struct AssociatedType: TypeProtocol, Hashable {
   /// The name of the associated type.
   public let name: Incidental<String>
 
-  public let flags: TypeFlags = [.isCanonical]
+  public let flags: TypeFlags = .isCanonical
 
   public init(decl: NodeID<AssociatedTypeDecl>, domain: Type, ast: AST) {
     switch domain {

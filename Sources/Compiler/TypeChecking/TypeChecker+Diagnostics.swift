@@ -32,6 +32,21 @@ extension Diagnostic {
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }
 
+  static func incompatibleLabels(
+    _ ls: [String?],
+    _ rs: [String?],
+    range: SourceRange?
+  ) -> Diagnostic {
+    let ls = ls.map({ "\($0 ?? "_")" }).joined(separator: ":")
+    let rs = rs.map({ "\($0 ?? "_")" }).joined(separator: ":")
+
+    return Diagnostic(
+      level: .error,
+      message: "incompatible label: found '(\(ls))', expected '(\(rs))'",
+      location: range?.first(),
+      window: range.map({ r in Diagnostic.Window(range: r) }))
+  }
+
   static func invalidAssociatedTypeExpr(_ name: String, range: SourceRange?) -> Diagnostic {
     Diagnostic(
       level: .error,
@@ -43,10 +58,26 @@ extension Diagnostic {
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }
 
+  static func invalidDestructuring(ofType type: Type, range: SourceRange?) -> Diagnostic {
+    Diagnostic(
+      level: .error,
+      message: "invalid destructuring of type '\(type)'",
+      location: range?.first(),
+      window: range.map({ r in Diagnostic.Window(range: r) }))
+  }
+
   static func invalidSelfTypeExpr(range: SourceRange?) -> Diagnostic {
     Diagnostic(
       level: .error,
       message: "reference to 'Self' outside of a type context",
+      location: range?.first(),
+      window: range.map({ r in Diagnostic.Window(range: r) }))
+  }
+
+  static func missingTypeAnnotation(range: SourceRange?) -> Diagnostic {
+    Diagnostic(
+      level: .error,
+      message: "missing type annotation",
       location: range?.first(),
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }
@@ -89,6 +120,14 @@ extension Diagnostic {
         neither type in equality constraint ('\(l)' or '\(r)') refers to a generic parameter or \
         associated type
         """,
+      location: range?.first(),
+      window: range.map({ r in Diagnostic.Window(range: r) }))
+  }
+
+  static func notEnoughContextToInferArguments(range: SourceRange?) -> Diagnostic {
+    Diagnostic(
+      level: .error,
+      message: "not enough contextual information to infer the arguments to generic parameters",
       location: range?.first(),
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }

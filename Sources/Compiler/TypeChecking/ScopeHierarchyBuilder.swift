@@ -54,7 +54,7 @@ struct ScopeHierarchyBuilder:
 
   mutating func visit(binding i: NodeID<BindingDecl>) {
     hierarchy.insert(decl: i, into: innermost!)
-    visit(binding: ast[i].pattern)
+    ast[i].pattern.accept(&self)
     ast[i].initializer?.accept(&self)
   }
 

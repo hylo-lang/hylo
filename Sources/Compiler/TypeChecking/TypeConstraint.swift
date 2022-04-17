@@ -6,6 +6,9 @@ public enum TypeConstraint: Hashable {
   /// - Note: This constraint is commutative.
   case equality(l: Type, r: Type)
 
+  /// A constraint `L <: R` specifying that `L` is a subtype of `R`.
+  case subtyping(l: Type, r: Type)
+
   /// A constraint `L : T1 & ... & Tn` specifying that `L` conforms to the traits `T1, ..., Tn`.
   case conformance(l: Type, traits: Set<Type>)
 
@@ -19,6 +22,11 @@ public enum TypeConstraint: Hashable {
       visitor(&l)
       visitor(&r)
       self = .equality(l: l, r: r)
+
+    case .subtyping(var l, var r):
+      visitor(&l)
+      visitor(&r)
+      self = .subtyping(l: l, r: r)
 
     case .conformance(var l, var traits):
       visitor(&l)
@@ -35,6 +43,9 @@ public enum TypeConstraint: Hashable {
     switch self {
     case .equality(let l, let r):
       return "\(l) == \(r)"
+
+    case .subtyping(l: let l, r: let r):
+      return "\(l) <: \(r)"
 
     case .conformance(let l, let traits):
       let t = traits.map({ "\($0)" }).joined(separator: ", ")
