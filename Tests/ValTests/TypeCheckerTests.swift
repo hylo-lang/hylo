@@ -225,13 +225,15 @@ final class TypeCheckerTests: XCTestCase {
     XCTAssertEqual(checker.diagnostics.count, 1)
   }
 
-  func testProductTypeDecl() {
+  func testStoredPropertyDecl() {
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main", members: []))
 
     // type A {
     //   let x0: Any
     //   var x1: Any
+    //   let (a: y0, b: y1): (a: Any, b: Never)
+    //   let (a: z0, c: z1): (a: Any, b: Never) // error
     // }
 
     ast[main].members.append(AnyDeclID(ast.insert(ProductTypeDecl(
@@ -241,24 +243,77 @@ final class TypeCheckerTests: XCTestCase {
       members: [
         AnyDeclID(ast.insert(BindingDecl(
           memberModifiers: [],
-          pattern: AnyPatternID(ast.insert(BindingPattern(
+          pattern: ast.insert(BindingPattern(
             introducer: SourceRepresentable(value: .let),
             subpattern: AnyPatternID(ast.insert(NamePattern(
               decl: ast.insert(VarDecl(
                 identifier: SourceRepresentable(value: "x0")))))),
-            annotation: AnyTypeExprID(ast.insertTypeName("Any")))))))),
+            annotation: AnyTypeExprID(ast.insertTypeName("Any"))))))),
         AnyDeclID(ast.insert(BindingDecl(
           memberModifiers: [],
-          pattern: AnyPatternID(ast.insert(BindingPattern(
+          pattern: ast.insert(BindingPattern(
             introducer: SourceRepresentable(value: .var),
             subpattern: AnyPatternID(ast.insert(NamePattern(
               decl: ast.insert(VarDecl(
                 identifier: SourceRepresentable(value: "x1")))))),
-            annotation: AnyTypeExprID(ast.insertTypeName("Any")))))))),
+            annotation: AnyTypeExprID(ast.insertTypeName("Any"))))))),
+        AnyDeclID(ast.insert(BindingDecl(
+          memberModifiers: [],
+          pattern: ast.insert(BindingPattern(
+            introducer: SourceRepresentable(value: .var),
+            subpattern: AnyPatternID(ast.insert(TuplePattern(
+              elements: [
+                SourceRepresentable(value: TuplePattern.Element(
+                  label: "a",
+                  pattern: AnyPatternID(ast.insert(NamePattern(
+                    decl: ast.insert(VarDecl(
+                      identifier: SourceRepresentable(value: "y0")))))))),
+                SourceRepresentable(value: TuplePattern.Element(
+                  label: "b",
+                  pattern: AnyPatternID(ast.insert(NamePattern(
+                    decl: ast.insert(VarDecl(
+                      identifier: SourceRepresentable(value: "y1")))))))),
+              ]))),
+            annotation: AnyTypeExprID(ast.insert(TupleTypeExpr(
+              elements: [
+                SourceRepresentable(value: TupleTypeExpr.Element(
+                  label: "a",
+                  type: AnyTypeExprID(ast.insertTypeName("Any")))),
+                SourceRepresentable(value: TupleTypeExpr.Element(
+                  label: "b",
+                  type: AnyTypeExprID(ast.insertTypeName("Never")))),
+              ])))))))),
+        AnyDeclID(ast.insert(BindingDecl(
+          memberModifiers: [],
+          pattern: ast.insert(BindingPattern(
+            introducer: SourceRepresentable(value: .var),
+            subpattern: AnyPatternID(ast.insert(TuplePattern(
+              elements: [
+                SourceRepresentable(value: TuplePattern.Element(
+                  label: "a",
+                  pattern: AnyPatternID(ast.insert(NamePattern(
+                    decl: ast.insert(VarDecl(
+                      identifier: SourceRepresentable(value: "z0")))))))),
+                SourceRepresentable(value: TuplePattern.Element(
+                  label: "c",
+                  pattern: AnyPatternID(ast.insert(NamePattern(
+                    decl: ast.insert(VarDecl(
+                      identifier: SourceRepresentable(value: "z1")))))))),
+              ]))),
+            annotation: AnyTypeExprID(ast.insert(TupleTypeExpr(
+              elements: [
+                SourceRepresentable(value: TupleTypeExpr.Element(
+                  label: "a",
+                  type: AnyTypeExprID(ast.insertTypeName("Any")))),
+                SourceRepresentable(value: TupleTypeExpr.Element(
+                  label: "b",
+                  type: AnyTypeExprID(ast.insertTypeName("Never")))),
+              ])))))))),
       ]))))
 
     var checker = TypeChecker(ast: ast)
-    XCTAssertTrue(checker.check(module: main))
+    XCTAssertFalse(checker.check(module: main))
+    XCTAssertEqual(checker.diagnostics.count, 1)
   }
 
   func testGenericTypeAlias() {

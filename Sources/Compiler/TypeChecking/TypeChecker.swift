@@ -455,8 +455,8 @@ public struct TypeChecker {
   /// may contain.
   ///
   /// - Note: A `nil` return signals a failure to infer the type of the pattern.
-  private mutating func infer(
-    pattern: AnyPatternID,
+  private mutating func infer<T: PatternID>(
+    pattern: T,
     expectedType: Type?,
     inScope scope: AnyNodeID,
     constraints: inout [TypeConstraint]
