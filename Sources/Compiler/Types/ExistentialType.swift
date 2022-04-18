@@ -7,7 +7,7 @@ public struct ExistentialType: TypeProtocol, Hashable {
   /// The constraints on the associated types of the witness.
   ///
   /// - Note: This set shall only contain equality and conformance constraints.
-  public let constraints: Set<TypeConstraint>
+  public let constraints: Set<Constraint>
 
   public let flags: TypeFlags
 
@@ -15,10 +15,10 @@ public struct ExistentialType: TypeProtocol, Hashable {
   public init<S: Sequence>(
     traits: Set<TraitType>,
     constraints: S
-  ) where S.Element == TypeConstraint {
+  ) where S.Element == Constraint {
     self.traits = traits
 
-    var cs: Set<TypeConstraint> = []
+    var cs: Set<Constraint> = []
     cs.reserveCapacity(constraints.underestimatedCount)
     for c in constraints {
       switch c {

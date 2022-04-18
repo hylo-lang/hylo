@@ -1,5 +1,5 @@
-/// A type constraint.
-public enum TypeConstraint: Hashable {
+/// A constraint.
+public enum Constraint: Hashable {
 
   /// A constraint `L == R` specifying that `L` is exactly the same type as `R`.
   ///

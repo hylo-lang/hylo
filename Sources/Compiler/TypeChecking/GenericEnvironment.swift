@@ -4,7 +4,7 @@ import Utils
 struct GenericEnvironment {
 
   /// The uninstantiated type constraints.
-  public let constraints: [TypeConstraint]
+  public let constraints: [Constraint]
 
   /// A table from types to their entry.
   private var ledger: [Type: Int] = [:]
@@ -14,7 +14,7 @@ struct GenericEnvironment {
 
   /// Creates the generic environment of `decl` with the specified constraints, using `checker` to
   /// evaluate them; fails if one of the constraints is ill-formed.
-  init?<T: DeclID>(decl: T, constraints: [TypeConstraint], into checker: inout TypeChecker) {
+  init?<T: DeclID>(decl: T, constraints: [Constraint], into checker: inout TypeChecker) {
     self.constraints = constraints
 
     let scope = AnyNodeID(decl)

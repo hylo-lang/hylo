@@ -316,6 +316,46 @@ final class TypeCheckerTests: XCTestCase {
     XCTAssertEqual(checker.diagnostics.count, 1)
   }
 
+  func testBindingDecl() {
+    var ast = AST()
+    let main = ast.insert(ModuleDecl(name: "main", members: []))
+
+    // let x0: ((), ())) = ((), ())
+
+    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+      memberModifiers: [],
+      pattern: ast.insert(BindingPattern(
+        introducer: SourceRepresentable(value: .let),
+        subpattern: AnyPatternID(ast.insert(NamePattern(
+          decl: ast.insert(VarDecl(
+            identifier: SourceRepresentable(value: "x0")))))),
+        annotation: AnyTypeExprID(ast.insert(TupleTypeExpr(
+          elements: [
+            SourceRepresentable(value: TupleTypeExpr.Element(
+              label: nil,
+              type: AnyTypeExprID(ast.insert(TupleTypeExpr(
+                elements: []))))),
+            SourceRepresentable(value: TupleTypeExpr.Element(
+              label: nil,
+              type: AnyTypeExprID(ast.insert(TupleTypeExpr(
+                elements: []))))),
+          ]))))),
+      initializer: AnyExprID(ast.insert(TupleExpr(
+        elements: [
+          SourceRepresentable(value: TupleExpr.Element(
+            label: nil,
+            value: AnyExprID(ast.insert(TupleExpr(
+              elements: []))))),
+          SourceRepresentable(value: TupleExpr.Element(
+            label: nil,
+            value: AnyExprID(ast.insert(TupleExpr(
+              elements: []))))),
+        ])))))))
+
+    var checker = TypeChecker(ast: ast)
+    XCTAssertTrue(checker.check(module: main))
+  }
+
   func testGenericTypeAlias() {
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main", members: []))
