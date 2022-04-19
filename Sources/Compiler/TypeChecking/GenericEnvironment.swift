@@ -17,7 +17,7 @@ struct GenericEnvironment {
   init?<T: DeclID>(decl: T, constraints: [Constraint], into checker: inout TypeChecker) {
     self.constraints = constraints
 
-    let scope = AnyNodeID(decl)
+    let scope = AnyScopeID(converting: decl)!
     for c in constraints {
       switch c {
       case .equality(let l, let r):

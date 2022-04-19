@@ -1,5 +1,5 @@
 /// A declaration that extends a type.
-public protocol TypeExtendingDecl: Decl {
+public protocol TypeExtendingDecl: Decl, GenericScope {
 
   /// The expression of the extended type.
   var subject: AnyTypeExprID { get }

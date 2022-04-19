@@ -85,9 +85,7 @@ public struct TypeChecker {
   /// Returns the set of traits to which `type` conforms in `scope`.
   ///
   /// - Note: If `type` is a trait, it is always contained in the returned set.
-  mutating func conformedTraits(of type: Type, inScope scope: AnyNodeID) -> Set<TraitType>? {
-    // TODO: Must be fallible!
-    assert(scope.kind <= .lexicalScope)
+  mutating func conformedTraits(of type: Type, inScope scope: AnyScopeID) -> Set<TraitType>? {
     var result: Set<TraitType> = []
 
     switch type {
@@ -408,7 +406,7 @@ public struct TypeChecker {
       let subject: Type
       switch this.ast[i].body.value {
       case .typeExpr(let j):
-        if let s = this.realize(j, inScope: AnyNodeID(i)) {
+        if let s = this.realize(j, inScope: AnyScopeID(i)) {
           subject = s
         } else {
           return false
@@ -527,7 +525,7 @@ public struct TypeChecker {
       return e
     }
 
-    let declScope = AnyNodeID(i)
+    let declScope = AnyScopeID(converting: i)!
     let parentScope = scopeHierarchy.parent[declScope]!
     var success = true
     var constraints: [Constraint] = []
@@ -583,7 +581,7 @@ public struct TypeChecker {
       environments[i] = .inProgress
     }
 
-    let scope = AnyNodeID(i)
+    let scope = AnyScopeID(i)
     var success = true
     var constraints: [Constraint] = []
 
@@ -676,7 +674,7 @@ public struct TypeChecker {
     // Evaluate the constraint expressions of the associated size's where clause.
     if let whereClause = ast[associatedSize].whereClause?.value {
       for expr in whereClause.constraints {
-        if let constraint = eval(constraintExpr: expr, inScope: AnyNodeID(trait)) {
+        if let constraint = eval(constraintExpr: expr, inScope: AnyScopeID(trait)) {
           constraints.append(constraint)
         } else {
           success = false
@@ -700,7 +698,8 @@ public struct TypeChecker {
 
     // Synthesize the sugared conformance constraint, if any.
     let list = ast[associatedType].conformances
-    guard let traits = realize(conformances: list, inScope: AnyNodeID(trait)) else { return false }
+    guard let traits = realize(conformances: list, inScope: AnyScopeID(trait))
+      else { return false }
     if !traits.isEmpty {
       constraints.append(.conformance(l: lhs, traits: traits))
     }
@@ -709,7 +708,7 @@ public struct TypeChecker {
     var success = true
     if let whereClause = ast[associatedType].whereClause?.value {
       for expr in whereClause.constraints {
-        if let constraint = eval(constraintExpr: expr, inScope: AnyNodeID(trait)) {
+        if let constraint = eval(constraintExpr: expr, inScope: AnyScopeID(trait)) {
           constraints.append(constraint)
         } else {
           success = false
@@ -725,10 +724,8 @@ public struct TypeChecker {
   /// - Note: Calling this method multiple times with the same arguments may duplicate diagnostics.
   private mutating func eval(
     constraintExpr expr: SourceRepresentable<WhereClause.ConstraintExpr>,
-    inScope scope: AnyNodeID
+    inScope scope: AnyScopeID
   ) -> Constraint? {
-    assert(scope.kind <= .lexicalScope)
-
     switch expr.value {
     case .equality(let l, let r):
       guard let a = realize(l, inScope: scope) else { return nil }
@@ -773,11 +770,9 @@ public struct TypeChecker {
   mutating func infer(
     expr: inout AnyExprID,
     expectedType: Type?,
-    inScope scope: AnyNodeID,
+    inScope scope: AnyScopeID,
     constraints: inout [LocatableConstraint]
   ) -> (success: Bool, solution: Solution) {
-    assert(scope.kind <= .lexicalScope)
-
     exprTypes[expr] = expectedType
 
     // Temporarily projects `self`.
@@ -805,11 +800,9 @@ public struct TypeChecker {
   private mutating func infer<T: PatternID>(
     pattern: T,
     expectedType: Type?,
-    inScope scope: AnyNodeID,
+    inScope scope: AnyScopeID,
     constraints: inout [LocatableConstraint]
   ) -> Type? {
-    assert(scope.kind <= .lexicalScope)
-
     switch pattern.kind {
     case .bindingPattern:
       // A binding pattern introduces additional type information when it has a type annotation. In
@@ -915,7 +908,7 @@ public struct TypeChecker {
 
     var type: Type
 
-    var scope: AnyNodeID
+    var scope: AnyScopeID
 
   }
 
@@ -931,9 +924,7 @@ public struct TypeChecker {
   private var extensionsUnderBinding = DeclSet()
 
   /// Returns the declarations that expose `name` without qualification in `scope`.
-  private mutating func lookup(unqualified name: String, inScope scope: AnyNodeID) -> DeclSet {
-    assert(scope.kind <= .lexicalScope)
-
+  private mutating func lookup(unqualified name: String, inScope scope: AnyScopeID) -> DeclSet {
     let origin = scope
     var root = scope
 
@@ -973,7 +964,7 @@ public struct TypeChecker {
   private mutating func lookup<T: NodeIDProtocol>(
     _ name: String,
     inDeclSpaceOf scope: T,
-    exposedTo origin: AnyNodeID
+    exposedTo origin: AnyScopeID
   ) -> DeclSet {
     switch scope.kind {
     case .productTypeDecl:
@@ -997,7 +988,7 @@ public struct TypeChecker {
   private mutating func lookup(
     _ name: String,
     memberOf type: Type,
-    inScope scope: AnyNodeID
+    inScope scope: AnyScopeID
   ) -> DeclSet {
     if case .conformanceLens(let t) = type {
       return lookup(name, memberOf: .trait(t.focus), inScope: scope)
@@ -1066,15 +1057,13 @@ public struct TypeChecker {
   /// - Note: The declarations referred by the returned IDs conform to `TypeExtendingDecl`.
   private mutating func extendingDecls(
     of type: Type,
-    exposedTo scope: AnyNodeID
+    exposedTo scope: AnyScopeID
   ) -> [AnyDeclID] {
-    assert(scope.kind <= .lexicalScope)
-
     var root = scope
     var matches: [AnyDeclID] = []
     let canonicalType = canonicalize(type: type)
 
-    func search(this: inout TypeChecker, inScope scope: AnyNodeID) {
+    func search(this: inout TypeChecker, inScope scope: AnyScopeID) {
       let decls = this.scopeHierarchy.containees[scope, default: []]
       for i in decls where i.kind == .conformanceDecl || i.kind == .extensionDecl {
         // Skip extending declarations that are being bound.
@@ -1099,7 +1088,7 @@ public struct TypeChecker {
 
     // Look for extension declarations in imported modules.
     for module in ast.modules where module != root {
-      search(this: &self, inScope: AnyNodeID(module))
+      search(this: &self, inScope: AnyScopeID(module))
     }
 
     return matches
@@ -1107,7 +1096,6 @@ public struct TypeChecker {
 
   /// Returns the names and declarations introduced in `scope`.
   private func names<T: NodeIDProtocol>(introducedIn scope: T) -> LookupTable {
-    assert(scope.kind <= .lexicalScope)
     guard let decls = scopeHierarchy.containees[scope] else { return [:] }
 
     var table: LookupTable = [:]
@@ -1173,10 +1161,8 @@ public struct TypeChecker {
   /// Realizes and returns the type denoted by `expr` evaluated in `scope`.
   private mutating func realize(
     _ expr: AnyTypeExprID,
-    inScope scope: AnyNodeID
+    inScope scope: AnyScopeID
   ) -> Type? {
-    assert(scope.kind <= .lexicalScope)
-
     switch expr.kind {
     case .conformanceLensTypeExpr:
       return realize(conformanceLens: NodeID(converting: expr)!, inScope: scope)
@@ -1192,9 +1178,7 @@ public struct TypeChecker {
   /// Realizes and returns the type of `Self` in `scope`.
   ///
   /// - Note: This method does not issue diagnostics.
-  public mutating func realizeSelfTypeExpr(inScope scope: AnyNodeID) -> Type? {
-    assert(scope.kind <= .lexicalScope)
-
+  public mutating func realizeSelfTypeExpr(inScope scope: AnyScopeID) -> Type? {
     for scope in scopeHierarchy.scopesToRoot(from: scope) {
       switch scope.kind {
       case .traitDecl:
@@ -1215,7 +1199,7 @@ public struct TypeChecker {
 
   private mutating func realize(
     conformanceLens i: NodeID<ConformanceLensTypeExpr>,
-    inScope scope: AnyNodeID
+    inScope scope: AnyScopeID
   ) -> Type? {
     let decl = ast[i]
     guard let wrapped = realize(decl.wrapped, inScope: scope) else { return nil }
@@ -1238,10 +1222,8 @@ public struct TypeChecker {
 
   private mutating func realize(
     name i: NodeID<NameTypeExpr>,
-    inScope scope: AnyNodeID
+    inScope scope: AnyScopeID
   ) -> Type? {
-    assert(scope.kind <= .lexicalScope)
-
     let identifier = ast[i].identifier
     var base: Type?
 
@@ -1345,7 +1327,7 @@ public struct TypeChecker {
 
   private mutating func realize(
     tuple i: NodeID<TupleTypeExpr>,
-    inScope scope: AnyNodeID
+    inScope scope: AnyScopeID
   ) -> Type? {
     var elements: [TupleType.Element] = []
     elements.reserveCapacity(ast[i].elements.count)
@@ -1362,7 +1344,7 @@ public struct TypeChecker {
   /// of them is ill-formed.
   private mutating func realize(
     conformances: [NodeID<NameTypeExpr>],
-    inScope scope: AnyNodeID
+    inScope scope: AnyScopeID
   ) -> Set<TraitType>? {
     // Realize the traits in the conformance list.
     var traits: Set<TraitType> = []
@@ -1450,7 +1432,7 @@ public struct TypeChecker {
       }
 
       // Realize the ouput type an collect capabilities.
-      guard let output = this.realize(decl.output, inScope: AnyNodeID(i)) else { return nil }
+      guard let output = this.realize(decl.output, inScope: AnyScopeID(i)) else { return nil }
       let capabilities = Set(decl.impls.map({ this.ast[$0].introducer.value }))
 
       return .subscript(SubscriptType(

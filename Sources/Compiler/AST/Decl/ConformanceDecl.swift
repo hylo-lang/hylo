@@ -1,5 +1,5 @@
 /// A declaration that extends a type with new conformances.
-public struct ConformanceDecl: TypeExtendingDecl, GenericScope {
+public struct ConformanceDecl: TypeExtendingDecl {
 
   public static let kind = NodeKind.conformanceDecl
 

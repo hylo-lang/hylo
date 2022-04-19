@@ -358,7 +358,7 @@ final class TypeCheckerTests: XCTestCase {
     (success, _) = checker.infer(
       expr: &expr,
       expectedType: nil,
-      inScope: AnyNodeID(main),
+      inScope: AnyScopeID(main),
       constraints: &constraints)
     XCTAssertTrue(success)
     XCTAssertEqual(checker.exprTypes[expr], .int(in: ast))
@@ -367,7 +367,7 @@ final class TypeCheckerTests: XCTestCase {
     (success, _) = checker.infer(
       expr: &expr,
       expectedType: .double(in: ast),
-      inScope: AnyNodeID(main),
+      inScope: AnyScopeID(main),
       constraints: &constraints)
   }
 

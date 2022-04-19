@@ -14,7 +14,7 @@ struct ScopeHierarchyBuilder:
   private var hierarchy: ScopeHierarchy!
 
   /// The ID of the current innermost lexical scope.
-  private var innermost: AnyNodeID?
+  private var innermost: AnyScopeID?
 
   /// Returns the scope hierarchy of `ast`.
   mutating func build(hierarchyOf ast: AST) -> ScopeHierarchy {
@@ -26,11 +26,11 @@ struct ScopeHierarchyBuilder:
     return hierarchy.release()
   }
 
-  private mutating func nesting<T: Node & LexicalScope>(
-    in scope: NodeID<T>,
+  private mutating func nesting<T: ScopeID>(
+    in scope: T,
     _ action: (inout ScopeHierarchyBuilder) -> Void
   ) {
-    let i = AnyNodeID(scope)
+    let i = AnyScopeID(scope)
     hierarchy.parent[i] = innermost
     innermost = i
     action(&self)
@@ -132,7 +132,7 @@ struct ScopeHierarchyBuilder:
   }
 
   mutating func visit(module i: NodeID<ModuleDecl>) {
-    innermost = AnyNodeID(i)
+    innermost = AnyScopeID(i)
     for member in ast[i].members {
       member.accept(&self)
     }
@@ -401,7 +401,7 @@ struct ScopeHierarchyBuilder:
     visit(brace: ast[i].body)
 
     // Visit the condition of the loop in the same lexical scope as the body.
-    innermost = AnyNodeID(ast[i].body)
+    innermost = AnyScopeID(ast[i].body)
     ast[i].condition.accept(&self)
     innermost = hierarchy.parent[ast[i].body]
   }

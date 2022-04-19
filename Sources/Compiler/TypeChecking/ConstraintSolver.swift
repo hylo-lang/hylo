@@ -17,7 +17,7 @@ struct ConstraintSolver {
   var checker: TypeChecker!
 
   /// The scope in which the constraints are solved.
-  let scope: AnyNodeID
+  let scope: AnyScopeID
 
   /// The fresh constraints to solve.
   var fresh: [LocatableConstraint] = []

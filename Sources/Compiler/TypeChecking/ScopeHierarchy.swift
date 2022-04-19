@@ -4,13 +4,13 @@ struct ScopeHierarchy {
   /// A sequence of scopes, from inner to outer.
   struct ScopeSequence: IteratorProtocol, Sequence {
 
-    typealias Element = AnyNodeID
+    typealias Element = AnyScopeID
 
-    fileprivate let parent: NodeMap<AnyNodeID>
+    fileprivate let parent: NodeMap<AnyScopeID>
 
-    fileprivate var current: AnyNodeID?
+    fileprivate var current: AnyScopeID?
 
-    mutating func next() -> AnyNodeID? {
+    mutating func next() -> AnyScopeID? {
       guard let s = current else { return nil }
       current = parent[s]
       return s
@@ -19,16 +19,16 @@ struct ScopeHierarchy {
   }
 
   /// A table mapping a lexical scope to its parent.
-  var parent = NodeMap<AnyNodeID>()
+  var parent = NodeMap<AnyScopeID>()
 
   /// A table mapping a declaration to the innermost lexical scope that contains it.
-  private(set) var container = DeclMap<AnyNodeID>()
+  private(set) var container = DeclMap<AnyScopeID>()
 
   /// A table mapping lexical scopes to the declarations directly contained in them.
   private(set) var containees = NodeMap<[AnyDeclID]>()
 
   /// Inserts `decl` into `scope`.
-  mutating func insert<T: DeclID>(decl: T, into scope: AnyNodeID) {
+  mutating func insert<T: DeclID>(decl: T, into scope: AnyScopeID) {
     let child = AnyDeclID(decl)
 
     if let parent = container[child] {
@@ -49,7 +49,7 @@ struct ScopeHierarchy {
   /// Returns whether `child` is contained in `ancestor`.
   ///
   /// - Requires: `child` is the identifier of a scope in this hierarchy.
-  func isContained<T: NodeIDProtocol, U: NodeIDProtocol>(
+  func isContained<T: NodeIDProtocol, U: ScopeID>(
     _ child: T,
     in ancestor: U
   ) -> Bool {
@@ -66,7 +66,7 @@ struct ScopeHierarchy {
   }
 
   /// Returns a sequence containing `scope` and all its ancestors, from inner to outer.
-  func scopesToRoot(from scope: AnyNodeID) -> ScopeSequence {
+  func scopesToRoot(from scope: AnyScopeID) -> ScopeSequence {
     ScopeSequence(parent: parent, current: scope)
   }
 
