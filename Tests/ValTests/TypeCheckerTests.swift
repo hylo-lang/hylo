@@ -358,11 +358,19 @@ final class TypeCheckerTests: XCTestCase {
       XCTAssertEqual(type, .int(in: ast))
     }
 
-    // Infer the type of the literal assuming it's a `Double`.
+    // Infer the type of the literal assuming it's `Double` from the context.
     do {
       var checker = TypeChecker(ast: ast)
       let type = checker.infer(expr: &expr, expectedType: .double(in: ast), inScope: main)
       XCTAssertEqual(type, .double(in: ast))
+    }
+
+    // Infer the type of the literal assuming its `()` from the context.
+    do {
+      var checker = TypeChecker(ast: ast)
+      let type = checker.infer(expr: &expr, expectedType: .unit, inScope: main)
+      XCTAssertNil(type)
+      XCTAssert(checker.diagnostics.count == 1)
     }
   }
 

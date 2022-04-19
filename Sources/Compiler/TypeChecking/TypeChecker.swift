@@ -16,7 +16,7 @@ public struct TypeChecker {
   public private(set) var declTypes = DeclMap<Type?>()
 
   /// The type of each expression.
-  public internal(set) var exprTypes = ExprMap<Type>()
+  public private(set) var exprTypes = ExprMap<Type>()
 
   /// Creates a new type checker for the specified AST.
   ///
@@ -805,6 +805,11 @@ public struct TypeChecker {
       var solver = ConstraintSolver(
         checker: generator.checker.release(), scope: scope, fresh: constraints)
       let solution = solver.solve()
+
+      // Apply the solution.
+      for (id, type) in generator.inferredTypes.storage {
+        solver.checker.exprTypes[id] = solution.reify(type)
+      }
 
       return (solver.checker.release(), solution)
     })
