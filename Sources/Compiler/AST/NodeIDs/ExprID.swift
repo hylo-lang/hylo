@@ -37,7 +37,7 @@ public struct AnyExprID: ExprID {
     case FunCallExpr.kind:
       return visitor.visit(funCall: NodeID(rawValue: base.rawValue))
     case IntegerLiteralExpr.kind:
-      return visitor.visit(intLiteral: NodeID(rawValue: base.rawValue))
+      return visitor.visit(integerLiteral: NodeID(rawValue: base.rawValue))
     case LambdaExpr.kind:
       return visitor.visit(lambda: NodeID(rawValue: base.rawValue))
     case MapLiteralExpr.kind:

@@ -43,8 +43,18 @@ struct ConstraintGenerator: ExprVisitor {
     fatalError("not implemented")
   }
 
-  mutating func visit(intLiteral i: NodeID<IntLiteralExpr>) -> AnyExprID {
-    fatalError("not implemented")
+  mutating func visit(integerLiteral id: NodeID<IntegerLiteralExpr>) -> AnyExprID {
+    if let expectedType = checker.exprTypes[AnyExprID(id)] {
+      // The type of the expression must conform to `ExpressibleByIntegerLiteral`.
+      let trait = TraitType(named: "ExpressibleByIntegerLiteral", ast: checker.ast)
+        ?? unreachable()
+      constraints.append(LocatableConstraint(
+        .conformance(l: expectedType, traits: [trait]), node: AnyNodeID(id)))
+    } else {
+      // Without contextual information, infer the type of the literal as `Val.Int`.
+      checker.exprTypes[AnyExprID(id)] = .int(in: checker.ast)
+    }
+    return AnyExprID(id)
   }
 
   mutating func visit(lambda i: NodeID<LambdaExpr>) -> AnyExprID {

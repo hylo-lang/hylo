@@ -343,4 +343,32 @@ final class TypeCheckerTests: XCTestCase {
     XCTAssertTrue(checker.check(module: main))
   }
 
+  func testIntLiteral() {
+    var ast = AST()
+    insertStandardLibraryMockup(into: &ast)
+    let main = ast.insert(ModuleDecl(name: "main"))
+
+    // 42
+    var expr = AnyExprID(ast.insert(IntegerLiteralExpr(value: "42")))
+
+    var success = false
+    var checker = TypeChecker(ast: ast)
+    var constraints: [LocatableConstraint] = []
+
+    (success, _) = checker.infer(
+      expr: &expr,
+      expectedType: nil,
+      inScope: AnyNodeID(main),
+      constraints: &constraints)
+    XCTAssertTrue(success)
+    XCTAssertEqual(checker.exprTypes[expr], .int(in: ast))
+
+    constraints.removeAll()
+    (success, _) = checker.infer(
+      expr: &expr,
+      expectedType: .double(in: ast),
+      inScope: AnyNodeID(main),
+      constraints: &constraints)
+  }
+
 }

@@ -280,7 +280,7 @@ struct ScopeHierarchyBuilder:
     }
   }
 
-  mutating func visit(intLiteral i: NodeID<IntegerLiteralExpr>) {}
+  mutating func visit(integerLiteral i: NodeID<IntegerLiteralExpr>) {}
 
   mutating func visit(lambda i: NodeID<LambdaExpr>) {
     visit(fun: ast[i].decl)

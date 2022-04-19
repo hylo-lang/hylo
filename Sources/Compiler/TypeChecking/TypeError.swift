@@ -4,7 +4,10 @@ struct TypeError {
   /// The kind of a type error.
   enum Kind {
 
-    /// The associated constraint was stale.
+    /// The type does not conform to `traits` in `scope`.
+    case doesNotConform(Type, traits: Set<TraitType>, scope: AnyNodeID)
+
+    /// The associated constraint went stale.
     case staleConstaint
 
   }

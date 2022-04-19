@@ -115,14 +115,23 @@ public struct TypeChecker {
         result.formUnion(e.conformedTraits(of: type))
       }
 
-    case .product:
-      fatalError("not implemented")
+    case .product(let t):
+      let decl = ast[t.decl]
+      let declScope = scopeHierarchy.container[t.decl]!
+      guard let traits = realize(conformances: decl.conformances, inScope: declScope)
+        else { return nil }
+
+      for trait in traits {
+        guard let bases = conformedTraits(of: .trait(trait), inScope: declScope)
+          else { return nil }
+        result.formUnion(bases)
+      }
 
     case .trait(let t):
       // Gather the conformances defined at declaration.
       guard var work = realize(
         conformances: ast[t.decl].refinements,
-        inScope: scopeHierarchy.parent[t.decl]!)
+        inScope: scopeHierarchy.container[t.decl]!)
       else { return nil }
 
       while let base = work.popFirst() {
@@ -761,7 +770,7 @@ public struct TypeChecker {
   // MARK: Type inference
 
   /// Infers the type of `expr`.
-  private mutating func infer(
+  mutating func infer(
     expr: inout AnyExprID,
     expectedType: Type?,
     inScope scope: AnyNodeID,
@@ -769,19 +778,22 @@ public struct TypeChecker {
   ) -> (success: Bool, solution: Solution) {
     assert(scope.kind <= .lexicalScope)
 
-    exprTypes[expr] = expectedType ?? .variable(TypeVariable(node: AnyNodeID(expr)))
+    exprTypes[expr] = expectedType
 
-    // Temporarily projects `self` into a constraint generator.
-    expr = withBorrowedSelf({ (this) -> (TypeChecker, AnyExprID) in
+    // Temporarily projects `self`.
+    let solution = withBorrowedSelf({ (this) -> (TypeChecker, Solution) in
+      // Generate constraints.
       var visitor = ConstraintGenerator(checker: this)
-      let newExpr = expr.accept(&visitor)
+      expr = expr.accept(&visitor)
       constraints.append(contentsOf: visitor.constraints)
-      return (visitor.checker.release(), newExpr)
-    })
 
-    // Solve the constraints.
-    var solver = ConstraintSolver(fresh: constraints)
-    let solution = solver.solve()
+      // Solve constraints.
+      var solver = ConstraintSolver(
+        checker: visitor.checker.release(), scope: scope, fresh: constraints)
+      let solution = solver.solve()
+
+      return (solver.checker.release(), solution)
+    })
 
     return (success: solution.errors.isEmpty, solution: solution)
   }
