@@ -10,12 +10,14 @@ public enum Constraint: Hashable {
   case subtyping(l: Type, r: Type)
 
   /// A constraint `L : T1 & ... & Tn` specifying that `L` conforms to the traits `T1, ..., Tn`.
-  case conformance(l: Type, traits: Set<Type>)
+  case conformance(l: Type, traits: Set<TraitType>)
 
   /// A size constraint denoting a predicate over size parameters.
   case size(AnyExprID)
 
   /// Calls `visitor` with mutable projections of the types contained in this constraint.
+  ///
+  /// - Note: The traits on the right hand side of a conformance constraint are not visited.
   public mutating func visitTypes(_ visitor: (inout Type) -> Void) {
     switch self {
     case .equality(var l, var r):
@@ -28,9 +30,8 @@ public enum Constraint: Hashable {
       visitor(&r)
       self = .subtyping(l: l, r: r)
 
-    case .conformance(var l, var traits):
+    case .conformance(var l, let traits):
       visitor(&l)
-      traits = Set(traits.map({ var t = $0; visitor(&t); return t }))
       self = .conformance(l: l, traits: traits)
 
     case .size:

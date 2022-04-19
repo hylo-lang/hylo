@@ -154,13 +154,13 @@ public struct TypeChecker {
     // Collect traits declared in conformance declarations.
     for i in extendingDecls(of: type, exposedTo: scope) where i.kind == .conformanceDecl {
       let decl = ast[NodeID<ConformanceDecl>(converting: i)!]
-      let scope = scopeHierarchy.container[i]!
-      guard let traits = realize(
-        conformances: decl.conformances, inScope: scope)
-      else { return nil }
+      let declScope = scopeHierarchy.container[i]!
+      guard let traits = realize(conformances: decl.conformances, inScope: declScope)
+        else { return nil }
 
       for trait in traits {
-        guard let bases = conformedTraits(of: .trait(trait), inScope: scope) else { return nil }
+        guard let bases = conformedTraits(of: .trait(trait), inScope: declScope)
+          else { return nil }
         result.formUnion(bases)
       }
     }
@@ -536,7 +536,7 @@ public struct TypeChecker {
       let list = ast[j].conformances
       guard let traits = realize(conformances: list, inScope: parentScope) else { return nil }
       if !traits.isEmpty {
-        constraints.append(.conformance(l: lhs, traits: Set(traits.map({ .trait($0) }))))
+        constraints.append(.conformance(l: lhs, traits: traits))
       }
     }
 
@@ -643,7 +643,8 @@ public struct TypeChecker {
 
     // Synthesize `Self: T`.
     let selfType = GenericTypeParamType(decl: i, ast: ast)
-    constraints.append(.conformance(l: .genericTypeParam(selfType), traits: [declTypes[i]!!]))
+    guard case .trait(let trait) = declTypes[i]!! else { unreachable() }
+    constraints.append(.conformance(l: .genericTypeParam(selfType), traits: [trait]))
 
     let e = GenericEnvironment(decl: i, constraints: constraints, into: &self)
     environments[i] = .done(e)
@@ -692,7 +693,7 @@ public struct TypeChecker {
     let list = ast[associatedType].conformances
     guard let traits = realize(conformances: list, inScope: AnyNodeID(trait)) else { return false }
     if !traits.isEmpty {
-      constraints.append(.conformance(l: lhs, traits: Set(traits.map({ .trait($0) }))))
+      constraints.append(.conformance(l: lhs, traits: traits))
     }
 
     // Evaluate the constraint expressions of the associated type's where clause.
@@ -738,11 +739,11 @@ public struct TypeChecker {
         return nil
       }
 
-      var b: Set<Type> = []
+      var b: Set<TraitType> = []
       for i in traits {
         guard let type = realize(name: i, inScope: scope) else { return nil }
-        if type.base is TraitType {
-          b.insert(type)
+        if case .trait(let trait) = type {
+          b.insert(trait)
         } else {
           diagnostics.insert(.conformanceToNonTraitType(a, range: expr.range))
           return nil

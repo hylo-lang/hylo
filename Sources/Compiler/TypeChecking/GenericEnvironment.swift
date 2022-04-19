@@ -25,9 +25,9 @@ struct GenericEnvironment {
 
       case .conformance(let l, let traits):
         var allTraits: Set<TraitType> = []
-        for type in traits {
-          assert(type.base is TraitType)
-          guard let bases = checker.conformedTraits(of: type, inScope: scope) else { return nil }
+        for trait in traits {
+          guard let bases = checker.conformedTraits(of: .trait(trait), inScope: scope)
+          else { return nil }
           allTraits.formUnion(bases)
         }
         registerConformance(l: l, traits: allTraits)
