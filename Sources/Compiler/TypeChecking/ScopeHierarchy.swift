@@ -53,12 +53,12 @@ struct ScopeHierarchy {
     _ child: T,
     in ancestor: U
   ) -> Bool {
-    var current = child.rawValue
+    var current = AnyNodeID(child)
     while true {
-      if ancestor.rawValue == current {
+      if ancestor.rawValue == current.rawValue {
         return true
-      } else if let p = parent[raw: current] {
-        current = p.rawValue
+      } else if let p = parent[current] {
+        current = AnyNodeID(p)
       } else {
         return false
       }

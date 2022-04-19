@@ -2,7 +2,7 @@
 public struct NodeMap<Value> {
 
   /// The internal storage of the map.
-  private var storage: [Int: Value]
+  public var storage: [AnyNodeID: Value]
 
   /// Creates an empty node map.
   public init() {
@@ -11,8 +11,8 @@ public struct NodeMap<Value> {
 
   /// Accesses the property associated with the specified ID.
   public subscript<T: NodeIDProtocol>(id: T) -> Value? {
-    _read   { yield storage[id.rawValue] }
-    _modify { yield &storage[id.rawValue] }
+    _read { yield storage[AnyNodeID(id)] }
+    _modify { yield &storage[AnyNodeID(id)] }
   }
 
   /// Accesses the property associated with the specified ID.
@@ -20,18 +20,14 @@ public struct NodeMap<Value> {
     id: T,
     default defaultValue: @autoclosure () -> Value
   ) -> Value {
-    _read   { yield storage[id.rawValue, default: defaultValue()] }
+    _read {
+      yield storage[AnyNodeID(id), default: defaultValue()]
+    }
     _modify {
-      var value = storage[id.rawValue] ?? defaultValue()
-      defer { storage[id.rawValue] = value }
+      var value = storage[AnyNodeID(id)] ?? defaultValue()
+      defer { storage[AnyNodeID(id)] = value }
       yield &value
     }
-  }
-
-  /// Accesses the property associated with the specified ID.
-  subscript(raw id: NodeID.RawValue) -> Value? {
-    _read   { yield storage[id] }
-    _modify { yield &storage[id] }
   }
 
 }

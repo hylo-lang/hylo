@@ -2,7 +2,7 @@
 public struct ExprMap<Value> {
 
   /// The internal storage of the map.
-  private var storage: [Int: Value]
+  public var storage: [AnyExprID: Value]
 
   /// Creates an empty node map.
   public init() {
@@ -10,9 +10,9 @@ public struct ExprMap<Value> {
   }
 
   /// Accesses the property associated with the specified ID.
-  subscript<T: ExprID>(id: T) -> Value? {
-    _read   { yield storage[id.rawValue] }
-    _modify { yield &storage[id.rawValue] }
+  public subscript<T: ExprID>(id: T) -> Value? {
+    _read { yield storage[AnyExprID(id)] }
+    _modify { yield &storage[AnyExprID(id)] }
   }
 
   /// Accesses the property associated with the specified ID.
@@ -20,10 +20,12 @@ public struct ExprMap<Value> {
     id: T,
     default defaultValue: @autoclosure () -> Value
   ) -> Value {
-    _read   { yield storage[id.rawValue, default: defaultValue()] }
+    _read {
+      yield storage[AnyExprID(id), default: defaultValue()]
+    }
     _modify {
-      var value = storage[id.rawValue] ?? defaultValue()
-      defer { storage[id.rawValue] = value }
+      var value = storage[AnyExprID(id)] ?? defaultValue()
+      defer { storage[AnyExprID(id)] = value }
       yield &value
     }
   }
