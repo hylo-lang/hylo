@@ -89,7 +89,7 @@ public struct NodeKind: Hashable {
     1 << 16 | expr.rawValue)
   public static let funCallExpr = NodeKind(
     1 << 17 | expr.rawValue)
-  public static let intLiteralExpr = NodeKind(
+  public static let integerLiteralExpr = NodeKind(
     1 << 18 | expr.rawValue)
   public static let lambdaExpr = NodeKind(
     1 << 19 | expr.rawValue)
@@ -219,7 +219,7 @@ extension NodeKind: CustomStringConvertible {
     case .condExpr                  : return "CondExpr"
     case .floatLiteralExpr          : return "FloatLiteralExpr"
     case .funCallExpr               : return "FunCallExpr"
-    case .intLiteralExpr            : return "IntLiteralExpr"
+    case .integerLiteralExpr        : return "IntegerLiteralExpr"
     case .lambdaExpr                : return "LambdaExpr"
     case .mapLiteralExpr            : return "MapLiteralExpr"
     case .matchExpr                 : return "MatchExpr"

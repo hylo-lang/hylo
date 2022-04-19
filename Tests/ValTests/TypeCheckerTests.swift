@@ -73,7 +73,7 @@ final class TypeCheckerTests: XCTestCase {
                 labels: [],
                 notation: .infix,
                 arguments: []))),
-              AnyExprID(ast.insert(IntLiteralExpr(value: "10"))),
+              AnyExprID(ast.insert(IntegerLiteralExpr(value: "10"))),
             ])))
           ))
         ])),
