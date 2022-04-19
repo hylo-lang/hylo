@@ -796,13 +796,14 @@ public struct TypeChecker {
     // Temporarily projects `self`.
     let solution = withBorrowedSelf({ (this) -> (TypeChecker, Solution) in
       // Generate constraints.
-      var visitor = ConstraintGenerator(checker: this)
-      expr = expr.accept(&visitor)
-      constraints.append(contentsOf: visitor.constraints)
+      var generator = ConstraintGenerator(checker: this)
+      generator.inferredTypes[expr] = expectedType
+      expr = expr.accept(&generator)
+      constraints.append(contentsOf: generator.constraints)
 
-      // Solve constraints.
+      // Solve the constraints.
       var solver = ConstraintSolver(
-        checker: visitor.checker.release(), scope: scope, fresh: constraints)
+        checker: generator.checker.release(), scope: scope, fresh: constraints)
       let solution = solver.solve()
 
       return (solver.checker.release(), solution)
