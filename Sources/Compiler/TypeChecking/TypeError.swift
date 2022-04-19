@@ -18,4 +18,20 @@ struct TypeError {
   /// The constraint that cause the type error.
   var cause: LocatableConstraint
 
+  /// Returns the diagnostics of this error.
+  func diagnose(ast: AST) -> [Diagnostic] {
+    // Identify the source range of the error.
+    let range = cause.node.map({ ast.ranges[$0] }) ?? nil
+
+    switch kind {
+    case .doesNotConform(let type, let traits, _):
+      return traits.map({ trait in
+        Diagnostic.noConformance(of: type, to: trait, range: range)
+      })
+
+    case .staleConstaint:
+      return [.staleConstraint(constraint: cause.constraint, range: range)]
+    }
+  }
+
 }

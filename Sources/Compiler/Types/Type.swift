@@ -71,7 +71,10 @@ public indirect enum Type: TypeProtocol, Hashable {
   public static var any: Type = .existential(ExistentialType(traits: [], constraints: []))
 
   /// The `Never` type.
-  public static var never: Type = .union(UnionType(elements: []))
+  public static var never: Type = .union(UnionType([]))
+
+  /// The unit type (i.e., `()`).
+  public static var unit: Type = .tuple(TupleType([]))
 
   /// Returns `Val.Int`, declared in `ast.stdlib`.
   public static func int(in ast: AST) -> Type? {

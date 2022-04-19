@@ -151,4 +151,12 @@ extension Diagnostic {
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }
 
+  static func staleConstraint(constraint: Constraint, range: SourceRange?) -> Diagnostic {
+    Diagnostic(
+      level: .error,
+      message: "stale constraint '\(constraint)'",
+      location: range?.first(),
+      window: range.map({ r in Diagnostic.Window(range: r) }))
+  }
+
 }

@@ -7,7 +7,7 @@ public struct UnionType: TypeProtocol, Hashable {
   public let flags: TypeFlags
 
   /// Creates a new union type with the specified elements.
-  public init<S: Sequence>(elements: S) where S.Element == Type {
+  public init<S: Sequence>(_ elements: S) where S.Element == Type {
     self.elements = Set(elements)
     self.flags = TypeFlags(merging: self.elements.map({ $0.flags }))
   }

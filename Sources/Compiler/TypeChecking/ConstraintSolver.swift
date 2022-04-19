@@ -77,7 +77,7 @@ struct ConstraintSolver {
       // Postpone the constraint if `L` is still unknown.
       return .postpone
 
-    case .product:
+    case .product, .tuple:
       let conformedTraits = checker.conformedTraits(of: l, inScope: scope) ?? []
       let nonConforming = traits.subtracting(conformedTraits)
       if nonConforming.isEmpty {

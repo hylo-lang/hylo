@@ -68,7 +68,7 @@ public struct TypeChecker {
         })))
 
     case .union(let t):
-      return .union(UnionType(elements: Set(t.elements.map(canonicalize(type:)))))
+      return .union(UnionType(Set(t.elements.map(canonicalize(type:)))))
 
     default:
       unreachable()
@@ -808,6 +808,11 @@ public struct TypeChecker {
 
       return (solver.checker.release(), solution)
     })
+
+    // Report type errors.
+    for error in solution.errors {
+      diagnostics.formUnion(error.diagnose(ast: ast))
+    }
 
     return solution
   }
