@@ -30,6 +30,8 @@ let package = Package(
       dependencies: ["Utils"]),
     .target(name: "Utils"),
 
+    .target(name: "ParseGen", exclude: ["README.md"]),
+
     // Test targets.
     .testTarget(
       name: "ValTests",
