@@ -292,11 +292,12 @@ public struct TypeChecker {
     // Type check the initializer, if any, optionally completing partially realized parts.
     var success = true
     if var initializer = ast[i].initializer {
-      (success, _) = infer(
+      let solution = infer(
         expr: &initializer,
         expectedType: type,
         inScope: scope,
         constraints: &constraints)
+      success = solution.errors.isEmpty
       ast[i].initializer = initializer
     }
 
@@ -766,13 +767,30 @@ public struct TypeChecker {
 
   // MARK: Type inference
 
-  /// Infers the type of `expr`.
+  /// Infers and returns the type of `expr`, or `nil` if `expr` is ill-formed.
+  public mutating func infer(
+    expr: inout AnyExprID,
+    expectedType: Type? = nil,
+    inScope scope: AnyScopeID
+  ) -> Type? {
+    var constraints: [LocatableConstraint] = []
+    let solution = infer(
+      expr: &expr, expectedType: expectedType, inScope: scope, constraints: &constraints)
+
+    if solution.errors.isEmpty {
+      return exprTypes[expr]!
+    } else {
+      return nil
+    }
+  }
+
+  /// Infers the type of `expr` and returns the best solution found by the constraint solver.
   mutating func infer(
     expr: inout AnyExprID,
     expectedType: Type?,
     inScope scope: AnyScopeID,
     constraints: inout [LocatableConstraint]
-  ) -> (success: Bool, solution: Solution) {
+  ) -> Solution {
     exprTypes[expr] = expectedType
 
     // Temporarily projects `self`.
@@ -790,7 +808,7 @@ public struct TypeChecker {
       return (solver.checker.release(), solution)
     })
 
-    return (success: solution.errors.isEmpty, solution: solution)
+    return solution
   }
 
   /// Infers the type of `pattern`, generating the type constraints implied by the expressions it

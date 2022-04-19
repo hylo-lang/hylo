@@ -1,5 +1,5 @@
 import XCTest
-@testable import Compiler
+import Compiler
 
 final class TypeCheckerTests: XCTestCase {
 
@@ -346,29 +346,24 @@ final class TypeCheckerTests: XCTestCase {
   func testIntLiteral() {
     var ast = AST()
     insertStandardLibraryMockup(into: &ast)
-    let main = ast.insert(ModuleDecl(name: "main"))
+    let main = AnyScopeID(ast.insert(ModuleDecl(name: "main")))
 
     // 42
     var expr = AnyExprID(ast.insert(IntegerLiteralExpr(value: "42")))
 
-    var success = false
-    var checker = TypeChecker(ast: ast)
-    var constraints: [LocatableConstraint] = []
+    // Infer the type of the literal without any contextual information.
+    do {
+      var checker = TypeChecker(ast: ast)
+      let type = checker.infer(expr: &expr, inScope: main)
+      XCTAssertEqual(type, .int(in: ast))
+    }
 
-    (success, _) = checker.infer(
-      expr: &expr,
-      expectedType: nil,
-      inScope: AnyScopeID(main),
-      constraints: &constraints)
-    XCTAssertTrue(success)
-    XCTAssertEqual(checker.exprTypes[expr], .int(in: ast))
-
-    constraints.removeAll()
-    (success, _) = checker.infer(
-      expr: &expr,
-      expectedType: .double(in: ast),
-      inScope: AnyScopeID(main),
-      constraints: &constraints)
+    // Infer the type of the literal assuming it's a `Double`.
+    do {
+      var checker = TypeChecker(ast: ast)
+      let type = checker.infer(expr: &expr, expectedType: .double(in: ast), inScope: main)
+      XCTAssertEqual(type, .double(in: ast))
+    }
   }
 
 }
