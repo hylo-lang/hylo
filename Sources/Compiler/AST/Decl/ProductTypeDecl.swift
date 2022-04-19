@@ -20,4 +20,18 @@ public struct ProductTypeDecl: GenericDecl, SingleEntityDecl, GenericScope {
 
   public var name: String { identifier.value }
 
+  public init(
+    access: SourceRepresentable<AccessModifier>? = nil,
+    identifier: SourceRepresentable<Identifier>,
+    genericClause: SourceRepresentable<GenericClause>? = nil,
+    conformances: [NodeID<NameTypeExpr>] = [],
+    members: [AnyDeclID] = []
+  ) {
+    self.access = access
+    self.identifier = identifier
+    self.genericClause = genericClause
+    self.conformances = conformances
+    self.members = members
+  }
+
 }

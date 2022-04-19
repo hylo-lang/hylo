@@ -12,4 +12,14 @@ public struct ParamTypeExpr: TypeExpr {
   /// The expression of the parameter's bare type.
   public var bareType: AnyTypeExprID
 
+  public init(
+    label: SourceRepresentable<Identifier>? = nil,
+    convention: SourceRepresentable<ParamConvention>,
+    bareType: AnyTypeExprID
+  ) {
+    self.label = label
+    self.convention = convention
+    self.bareType = bareType
+  }
+
 }

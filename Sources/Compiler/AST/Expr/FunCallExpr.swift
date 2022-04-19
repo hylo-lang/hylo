@@ -12,4 +12,14 @@ public struct FunCallExpr: Expr {
   /// The arguments of the call.
   public var arguments: [SourceRepresentable<CallArgument>]
 
+  public init(
+    isSelfAssigning: Bool = false,
+    callee: AnyExprID,
+    arguments: [SourceRepresentable<CallArgument>] = []
+  ) {
+    self.isSelfAssigning = isSelfAssigning
+    self.callee = callee
+    self.arguments = arguments
+  }
+
 }

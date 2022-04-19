@@ -12,9 +12,18 @@ public struct TupleExpr: Expr {
     /// The value of the element.
     public var value: AnyExprID
 
+    public init(label: String? = nil, value: AnyExprID) {
+      self.label = label
+      self.value = value
+    }
+
   }
 
   /// The elements of the tuple.
   public var elements: [SourceRepresentable<Element>]
+
+  public init(elements: [SourceRepresentable<TupleExpr.Element>] = []) {
+    self.elements = elements
+  }
 
 }

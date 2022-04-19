@@ -9,4 +9,9 @@ public struct SubscriptCallExpr: Expr {
   /// The arguments of the call.
   public var arguments: [SourceRepresentable<CallArgument>]
 
+  public init(callee: AnyExprID, arguments: [SourceRepresentable<CallArgument>] = []) {
+    self.callee = callee
+    self.arguments = arguments
+  }
+
 }

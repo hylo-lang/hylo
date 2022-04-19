@@ -6,4 +6,8 @@ public struct IndirectTypeExpr: TypeExpr {
   /// The operand.
   public var operand: AnyTypeExprID
 
+  public init(operand: AnyTypeExprID) {
+    self.operand = operand
+  }
+
 }

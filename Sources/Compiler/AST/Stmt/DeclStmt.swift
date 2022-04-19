@@ -6,4 +6,8 @@ public struct DeclStmt: Stmt {
   /// The declaration.
   public var decl: AnyDeclID
 
+  public init(decl: AnyDeclID) {
+    self.decl = decl
+  }
+
 }

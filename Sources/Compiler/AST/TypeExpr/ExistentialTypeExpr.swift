@@ -9,4 +9,12 @@ public struct ExistentialTypeExpr: TypeExpr {
   /// The where clause of the expression, if any.
   public var whereClause: SourceRepresentable<WhereClause>?
 
+  public init(
+    traits: SourceRepresentable<TraitComposition>,
+    whereClause: SourceRepresentable<WhereClause>? = nil
+  ) {
+    self.traits = traits
+    self.whereClause = whereClause
+  }
+
 }

@@ -6,4 +6,8 @@ public struct BoolLiteralExpr: Expr {
   /// The value of the literal.
   public var value: Bool
 
+  public init(value: Bool) {
+    self.value = value
+  }
+
 }

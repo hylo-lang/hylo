@@ -10,4 +10,14 @@ public struct CallArgument: Hashable {
   /// The value of the argument.
   public var value: AnyExprID
 
+  public init(
+    isInout: Bool = false,
+    label: SourceRepresentable<Identifier>? = nil,
+    value: AnyExprID
+  ) {
+    self.isInout = isInout
+    self.label = label
+    self.value = value
+  }
+
 }

@@ -15,4 +15,16 @@ public struct ForStmt: Stmt, LexicalScope {
   /// The body of the loop.
   public var body: NodeID<BraceStmt>
 
+  internal init(
+    binding: NodeID<BindingDecl>,
+    domain: AnyExprID,
+    filter: AnyExprID? = nil,
+    body: NodeID<BraceStmt>
+  ) {
+    self.binding = binding
+    self.domain = domain
+    self.filter = filter
+    self.body = body
+  }
+
 }

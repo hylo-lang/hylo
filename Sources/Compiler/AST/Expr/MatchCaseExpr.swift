@@ -22,4 +22,14 @@ public struct MatchCaseExpr: Expr, LexicalScope {
   /// The body of the case.
   public var body: SourceRepresentable<Body>
 
+  public init(
+    pattern: AnyPatternID,
+    condition: AnyExprID? = nil,
+    body: SourceRepresentable<MatchCaseExpr.Body>
+  ) {
+    self.pattern = pattern
+    self.condition = condition
+    self.body = body
+  }
+
 }

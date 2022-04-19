@@ -29,4 +29,12 @@ public struct MethodImplDecl: Decl {
   /// The body of the method, if any.
   public var body: SourceRepresentable<Body>?
 
+  public init(
+    introducer: SourceRepresentable<Introducer>,
+    body: SourceRepresentable<Body>? = nil
+  ) {
+    self.introducer = introducer
+    self.body = body
+  }
+
 }

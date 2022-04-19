@@ -6,4 +6,8 @@ public struct NamePattern: Pattern {
   /// The variable declaration introducing the pattern's name.
   public var decl: NodeID<VarDecl>
 
+  public init(decl: NodeID<VarDecl>) {
+    self.decl = decl
+  }
+
 }

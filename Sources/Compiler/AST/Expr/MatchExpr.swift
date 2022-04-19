@@ -9,4 +9,9 @@ public struct MatchExpr: Expr {
   /// The cases of the match.
   public var cases: [NodeID<MatchCaseExpr>]
 
+  public init(subject: AnyExprID, cases: [NodeID<MatchCaseExpr>]) {
+    self.subject = subject
+    self.cases = cases
+  }
+
 }

@@ -15,4 +15,16 @@ public struct BindingDecl: Decl {
   /// The initializer of the declaration, if any.
   public var initializer: AnyExprID?
 
+  public init(
+    accessModifier: SourceRepresentable<AccessModifier>? = nil,
+    memberModifiers: [SourceRepresentable<MemberModifier>] = [],
+    pattern: NodeID<BindingPattern>,
+    initializer: AnyExprID? = nil
+  ) {
+    self.accessModifier = accessModifier
+    self.memberModifiers = memberModifiers
+    self.pattern = pattern
+    self.initializer = initializer
+  }
+
 }

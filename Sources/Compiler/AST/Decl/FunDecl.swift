@@ -42,7 +42,7 @@ public struct FunDecl: GenericDecl, GenericScope {
   public var memberModifiers: [SourceRepresentable<MemberModifier>]
 
   /// The operator notation of the function.
-  public var notation: SourceRepresentable<OperatorNotation>
+  public var notation: SourceRepresentable<OperatorNotation>?
 
   /// The identifier of the function, if any.
   public var identifier: SourceRepresentable<Identifier>?
@@ -61,5 +61,29 @@ public struct FunDecl: GenericDecl, GenericScope {
 
   /// The body of the declaration, if any.
   public var body: SourceRepresentable<Body>?
+
+  public init(
+    introducer: SourceRepresentable<Introducer>,
+    accessModifier: SourceRepresentable<AccessModifier>? = nil,
+    memberModifiers: [SourceRepresentable<MemberModifier>] = [],
+    notation: SourceRepresentable<OperatorNotation>? = nil,
+    identifier: SourceRepresentable<Identifier>? = nil,
+    genericClause: SourceRepresentable<GenericClause>? = nil,
+    captures: [NodeID<BindingDecl>] = [],
+    parameters: [NodeID<ParamDecl>] = [],
+    output: AnyTypeExprID? = nil,
+    body: SourceRepresentable<Body>? = nil
+  ) {
+    self.introducer = introducer
+    self.accessModifier = accessModifier
+    self.memberModifiers = memberModifiers
+    self.notation = notation
+    self.identifier = identifier
+    self.genericClause = genericClause
+    self.captures = captures
+    self.parameters = parameters
+    self.output = output
+    self.body = body
+  }
 
 }

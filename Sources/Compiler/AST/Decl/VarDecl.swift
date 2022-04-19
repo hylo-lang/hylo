@@ -8,4 +8,8 @@ public struct VarDecl: SingleEntityDecl {
 
   public var name: String { identifier.value }
 
+  public init(identifier: SourceRepresentable<Identifier>) {
+    self.identifier = identifier
+  }
+
 }

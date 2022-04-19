@@ -28,4 +28,32 @@ public struct NameExpr: Expr {
   /// The type and size arguments of the referred entity.
   public var arguments: [SourceRepresentable<GenericArgument>]
 
+  /// Creates a new name expression.
+  public init(
+    domain: Domain = .none,
+    stem: SourceRepresentable<Identifier>,
+    labels: [String] = [],
+    arguments: [SourceRepresentable<GenericArgument>] = []
+  ) {
+    self.domain = domain
+    self.stem = stem
+    self.labels = labels
+    self.notation = nil
+    self.arguments = arguments
+  }
+
+  /// Creates a new operator expression.
+  public init(
+    domain: Domain = .none,
+    stem: SourceRepresentable<Identifier>,
+    notation: OperatorNotation,
+    arguments: [SourceRepresentable<GenericArgument>] = []
+  ) {
+    self.domain = domain
+    self.stem = stem
+    self.labels = []
+    self.notation = notation
+    self.arguments = arguments
+  }
+
 }

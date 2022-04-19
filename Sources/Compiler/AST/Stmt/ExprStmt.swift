@@ -6,4 +6,8 @@ public struct ExprStmt: Stmt {
   /// The expression.
   public var expr: AnyExprID
 
+  public init(expr: AnyExprID) {
+    self.expr = expr
+  }
+
 }

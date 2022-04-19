@@ -14,4 +14,14 @@ public struct NamespaceDecl: SingleEntityDecl, LexicalScope {
 
   public var name: String { identifier.value }
 
+  public init(
+    access: SourceRepresentable<AccessModifier>? = nil,
+    identifier: SourceRepresentable<Identifier>,
+    members: [AnyDeclID] = []
+  ) {
+    self.access = access
+    self.identifier = identifier
+    self.members = members
+  }
+
 }

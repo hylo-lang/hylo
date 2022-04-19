@@ -31,4 +31,14 @@ public struct BindingPattern: Pattern {
   /// The type annotation of the pattern, if any.
   public var annotation: AnyTypeExprID?
 
+  public init(
+    introducer: SourceRepresentable<BindingPattern.Introducer>,
+    subpattern: AnyPatternID,
+    annotation: AnyTypeExprID? = nil
+  ) {
+    self.introducer = introducer
+    self.subpattern = subpattern
+    self.annotation = annotation
+  }
+
 }

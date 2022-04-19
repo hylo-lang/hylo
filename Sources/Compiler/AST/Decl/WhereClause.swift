@@ -24,4 +24,8 @@ public struct WhereClause: Hashable {
   /// The constraint expressions in the clause.
   public var constraints: [SourceRepresentable<ConstraintExpr>]
 
+  public init(constraints: [SourceRepresentable<WhereClause.ConstraintExpr>]) {
+    self.constraints = constraints
+  }
+
 }

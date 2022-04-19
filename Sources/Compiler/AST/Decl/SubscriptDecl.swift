@@ -27,4 +27,24 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
   /// The implementations of the subscript.
   public var impls: [NodeID<SubscriptImplDecl>]
 
+  public init(
+    accessModifier: SourceRepresentable<AccessModifier>? = nil,
+    memberModifiers: [SourceRepresentable<MemberModifier>] = [],
+    identifier: SourceRepresentable<Identifier>? = nil,
+    genericClause: SourceRepresentable<GenericClause>? = nil,
+    captures: [NodeID<BindingDecl>] = [],
+    parameters: [NodeID<ParamDecl>]? = nil,
+    output: AnyTypeExprID,
+    impls: [NodeID<SubscriptImplDecl>]
+  ) {
+    self.accessModifier = accessModifier
+    self.memberModifiers = memberModifiers
+    self.identifier = identifier
+    self.genericClause = genericClause
+    self.captures = captures
+    self.parameters = parameters
+    self.output = output
+    self.impls = impls
+  }
+
 }

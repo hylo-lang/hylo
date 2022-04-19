@@ -9,4 +9,9 @@ public struct ConformanceLensTypeExpr: TypeExpr {
   /// The expression of the trait in which the lens focuses.
   public var focus: AnyTypeExprID
 
+  public init(wrapped: AnyTypeExprID, focus: AnyTypeExprID) {
+    self.wrapped = wrapped
+    self.focus = focus
+  }
+
 }

@@ -27,4 +27,16 @@ public struct TypeAliasDecl: GenericDecl, SingleEntityDecl, GenericScope {
 
   public var name: String { identifier.value }
 
+  public init(
+    access: SourceRepresentable<AccessModifier>? = nil,
+    identifier: SourceRepresentable<Identifier>,
+    genericClause: SourceRepresentable<GenericClause>? = nil,
+    body: SourceRepresentable<TypeAliasDecl.Body>
+  ) {
+    self.access = access
+    self.identifier = identifier
+    self.genericClause = genericClause
+    self.body = body
+  }
+
 }

@@ -12,4 +12,14 @@ public struct ExtensionDecl: TypeExtendingDecl, GenericScope {
   /// The member declarations in the lexical scope of the extension.
   public var members: [AnyDeclID]
 
+  public init(
+    subject: AnyTypeExprID,
+    whereClause: SourceRepresentable<WhereClause>? = nil,
+    members: [AnyDeclID] = []
+  ) {
+    self.subject = subject
+    self.whereClause = whereClause
+    self.members = members
+  }
+
 }

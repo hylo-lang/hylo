@@ -6,4 +6,8 @@ public struct IntegerLiteralExpr: Expr {
   /// The value of the literal.
   public var value: String
 
+  public init(value: String) {
+    self.value = value
+  }
+
 }

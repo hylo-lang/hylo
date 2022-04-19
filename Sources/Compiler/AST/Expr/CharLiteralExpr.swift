@@ -6,4 +6,8 @@ public struct CharLiteralExpr: Expr {
   /// The value of the literal.
   public var value: Character
 
+  public init(value: Character) {
+    self.value = value
+  }
+
 }

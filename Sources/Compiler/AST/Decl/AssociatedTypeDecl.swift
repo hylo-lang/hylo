@@ -17,4 +17,16 @@ public struct AssociatedTypeDecl: SingleEntityDecl {
 
   public var name: String { identifier.value }
 
+  public init(
+    identifier: SourceRepresentable<Identifier>,
+    conformances: [NodeID<NameTypeExpr>] = [],
+    whereClause: SourceRepresentable<WhereClause>? = nil,
+    defaultValue: AnyTypeExprID? = nil
+  ) {
+    self.identifier = identifier
+    self.conformances = conformances
+    self.whereClause = whereClause
+    self.defaultValue = defaultValue
+  }
+
 }

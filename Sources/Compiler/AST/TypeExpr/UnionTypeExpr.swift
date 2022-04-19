@@ -6,4 +6,8 @@ public struct UnionTypeExpr: TypeExpr {
   /// The elements of the union.
   public var elements: [AnyTypeExprID]
 
+  public init(elements: [AnyTypeExprID] = []) {
+    self.elements = elements
+  }
+
 }

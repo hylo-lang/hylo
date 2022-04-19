@@ -16,4 +16,12 @@ public struct StoredProjectionTypeExpr: TypeExpr {
   /// The expression of the projected type.
   public var operand: AnyTypeExprID
 
+  public init(
+    introducer: SourceRepresentable<StoredProjectionTypeExpr.Introducer>,
+    operand: AnyTypeExprID
+  ) {
+    self.introducer = introducer
+    self.operand = operand
+  }
+
 }

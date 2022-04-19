@@ -14,4 +14,14 @@ public struct GenericTypeParamDecl: SingleEntityDecl {
 
   public var name: String { identifier.value }
 
+  public init(
+    identifier: SourceRepresentable<Identifier>,
+    conformances: [NodeID<NameTypeExpr>] = [],
+    defaultValue: AnyTypeExprID? = nil
+  ) {
+    self.identifier = identifier
+    self.conformances = conformances
+    self.defaultValue = defaultValue
+  }
+
 }

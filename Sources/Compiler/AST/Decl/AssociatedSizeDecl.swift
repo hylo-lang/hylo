@@ -14,4 +14,14 @@ public struct AssociatedSizeDecl: SingleEntityDecl {
 
   public var name: String { identifier.value }
 
+  public init(
+    identifier: SourceRepresentable<Identifier>,
+    whereClause: SourceRepresentable<WhereClause>? = nil,
+    defaultValue: AnyExprID? = nil
+  ) {
+    self.identifier = identifier
+    self.whereClause = whereClause
+    self.defaultValue = defaultValue
+  }
+
 }

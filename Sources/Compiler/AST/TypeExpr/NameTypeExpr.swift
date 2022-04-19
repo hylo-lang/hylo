@@ -12,4 +12,14 @@ public struct NameTypeExpr: TypeExpr {
   /// The type and size arguments of the referred type.
   public var arguments: [GenericArgument]
 
+  public init(
+    domain: AnyTypeExprID? = nil,
+    identifier: SourceRepresentable<Identifier>,
+    arguments: [GenericArgument] = []
+  ) {
+    self.domain = domain
+    self.identifier = identifier
+    self.arguments = arguments
+  }
+
 }

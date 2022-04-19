@@ -6,4 +6,8 @@ public struct BufferLiteralExpr: Expr {
   /// The elements of the literal.
   public var elements: [AnyExprID]
 
+  public init(elements: [AnyExprID]) {
+    self.elements = elements
+  }
+
 }

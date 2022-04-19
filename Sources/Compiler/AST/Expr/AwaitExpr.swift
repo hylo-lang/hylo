@@ -6,4 +6,8 @@ public struct AwaitExpr: Expr {
   /// The expression of the awaited value.
   public var operand: AnyExprID
 
+  public init(operand: AnyExprID) {
+    self.operand = operand
+  }
+
 }

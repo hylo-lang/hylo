@@ -12,4 +12,14 @@ public struct LambdaTypeExpr: TypeExpr {
   /// The output type of the lambda.
   public var output: AnyTypeExprID
 
+  public init(
+    environment: AnyTypeExprID? = nil,
+    parameters: [NodeID<ParamTypeExpr>] = [],
+    output: AnyTypeExprID
+  ) {
+    self.environment = environment
+    self.parameters = parameters
+    self.output = output
+  }
+
 }

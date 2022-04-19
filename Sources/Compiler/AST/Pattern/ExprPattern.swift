@@ -6,4 +6,8 @@ public struct ExprPattern: Pattern {
   /// The expression of the pattern.
   public var expr: AnyExprID
 
+  public init(expr: AnyExprID) {
+    self.expr = expr
+  }
+
 }

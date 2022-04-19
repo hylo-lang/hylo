@@ -11,4 +11,12 @@ public struct GenericSizeParamDecl: SingleEntityDecl {
 
   public var name: String { identifier.value }
 
+  public init(
+    identifier: SourceRepresentable<Identifier>,
+    defaultValue: AnyExprID? = nil
+  ) {
+    self.identifier = identifier
+    self.defaultValue = defaultValue
+  }
+
 }

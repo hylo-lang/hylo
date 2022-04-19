@@ -14,6 +14,8 @@ public struct CondExpr: Expr, LexicalScope {
   }
 
   /// The condition of the expression.
+  ///
+  /// - Requires: `condition.count > 0`
   public var condition: [SourceRepresentable<ConditionItem>]
 
   /// The body of the expression that's executed if the condition holds.
@@ -21,5 +23,16 @@ public struct CondExpr: Expr, LexicalScope {
 
   /// The body of the expression that's executed if the condition does not hold.
   public var failure: Body?
+
+  public init(
+    condition: [SourceRepresentable<ConditionItem>],
+    success: CondExpr.Body,
+    failure: CondExpr.Body? = nil
+  ) {
+    precondition(condition.count > 0)
+    self.condition = condition
+    self.success = success
+    self.failure = failure
+  }
 
 }

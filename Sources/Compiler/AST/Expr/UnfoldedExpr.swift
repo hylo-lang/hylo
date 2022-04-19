@@ -6,6 +6,14 @@ public struct UnfoldedExpr: Expr {
 
   public static let kind = NodeKind.unfoldedExpr
 
+  /// The sub-expressions.
+  ///
+  /// - Requires: `subexpressions.count > 0 && subexpressions.count % 2 == 1`
   public var subexpressions: [AnyExprID]
+
+  public init(subexpressions: [AnyExprID]) {
+    precondition(subexpressions.count > 0 && subexpressions.count % 2 == 1)
+    self.subexpressions = subexpressions
+  }
 
 }

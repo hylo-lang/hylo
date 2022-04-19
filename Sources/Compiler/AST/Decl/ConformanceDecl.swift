@@ -15,4 +15,16 @@ public struct ConformanceDecl: TypeExtendingDecl, GenericScope {
   /// The member declarations in the lexical scope of the conformance.
   public var members: [AnyDeclID]
 
+  public init(
+    subject: AnyTypeExprID,
+    conformances: [NodeID<NameTypeExpr>] = [],
+    whereClause: SourceRepresentable<WhereClause>? = nil,
+    members: [AnyDeclID] = []
+  ) {
+    self.subject = subject
+    self.conformances = conformances
+    self.whereClause = whereClause
+    self.members = members
+  }
+
 }

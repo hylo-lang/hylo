@@ -6,4 +6,8 @@ public struct YieldStmt: Stmt {
   /// The yielded value.
   public var value: AnyExprID
 
+  public init(value: AnyExprID) {
+    self.value = value
+  }
+
 }
