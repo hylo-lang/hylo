@@ -18,6 +18,23 @@ public struct ProductType: TypeProtocol, Hashable {
 
 }
 
+extension ProductType {
+
+  /// Returns the product type named `name`, declared in `ast.stdlib`.
+  public init?(named name: String, ast: AST) {
+    guard let stdlib = ast.stdlib else { return nil }
+    for id in ast[stdlib].members where id.kind == .productTypeDecl {
+      let id = NodeID<ProductTypeDecl>(converting: id)!
+      if ast[id].name == name {
+        self.init(decl: id, ast: ast)
+        return
+      }
+    }
+    return nil
+  }
+
+}
+
 extension ProductType: CustomStringConvertible {
 
   public var description: String { name.value }

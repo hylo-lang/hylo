@@ -73,6 +73,16 @@ public indirect enum Type: TypeProtocol, Hashable {
   /// The `Never` type.
   public static var never: Type = .union(UnionType(elements: []))
 
+  /// Returns `Val.Int`, declared in `ast.stdlib`.
+  public static func int(in ast: AST) -> Type? {
+    ProductType(named: "Int", ast: ast).map({ .product($0) })
+  }
+
+  /// Returns `Val.Double`, declared in `ast.stdlib`.
+  public static func double(in ast: AST) -> Type? {
+    ProductType(named: "Double", ast: ast).map({ .product($0) })
+  }
+
 }
 
 extension Type: CustomStringConvertible {

@@ -17,7 +17,7 @@ public struct AST {
   public init() {}
 
   /// The ID of the module containing Val's standard library, if any.
-  public var std: NodeID<ModuleDecl>?
+  public var stdlib: NodeID<ModuleDecl>?
 
   /// Returns the scope hierarchy.
   func scopeHierarchy() -> ScopeHierarchy {
@@ -28,8 +28,11 @@ public struct AST {
   /// Inserts `n` into `self`.
   public mutating func insert<T: Node>(_ n: T) -> NodeID<T> {
     let i = NodeID<T>(rawValue: nodes.count)
+    if let n = n as? ModuleDecl {
+      precondition(!modules.contains(where: { self[$0].name == n.name }), "duplicate module")
+      modules.append(i as! NodeID<ModuleDecl>)
+    }
     nodes.append(n)
-    if n is ModuleDecl { modules.append(i as! NodeID<ModuleDecl>) }
     return i
   }
 
