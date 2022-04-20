@@ -1,3 +1,5 @@
+import Utils
+
 /// The overarching type of a subscript declaration.
 public struct SubscriptType: TypeProtocol, Hashable {
 
@@ -50,8 +52,9 @@ extension SubscriptType: CustomStringConvertible {
     if isProperty {
       return "property \(output) { \(capabilities) }"
     } else {
-      let inputs = inputs.map({ "\($0)" }).joined(separator: ", ")
-      return "subscript (\(inputs)): \(output) { \(capabilities) }"
+      let i = String.joining(inputs, separator: ", ")
+      let o = "\(output)"
+      return "subscript (\(i)): \(o) { \(capabilities) }"
     }
   }
 

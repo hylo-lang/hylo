@@ -62,14 +62,24 @@ struct Solution {
         wrapped: reify(type.wrapped),
         focus: type.focus))
 
+    case .lambda(let type):
+      return .lambda(LambdaType(
+        environment: reify(type.environment),
+        inputs: type.inputs.map({ p in
+          LambdaType.Parameter(
+            label: p.label,
+            type: reify(p.type))
+        }),
+        output: reify(type.output)))
+
     case .subscript(let type):
       return .subscript(SubscriptType(
         isProperty: type.isProperty,
         capabilities: type.capabilities,
-        inputs: type.inputs.map({ parameter in
+        inputs: type.inputs.map({ p in
           SubscriptType.Parameter(
-            label: parameter.label,
-            type: reify(parameter.type))
+            label: p.label,
+            type: reify(p.type))
         }),
         output: reify(type.output)))
 

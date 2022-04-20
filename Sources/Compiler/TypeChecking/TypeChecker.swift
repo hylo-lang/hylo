@@ -241,6 +241,8 @@ public struct TypeChecker {
       return check(associatedType: NodeID(converting: i)!)
     case .bindingDecl:
       return check(binding: NodeID(converting: i)!)
+    case .funDecl:
+      return check(fun: NodeID(converting: i)!)
     case .productTypeDecl:
       return check(productType: NodeID(converting: i)!)
     case .subscriptDecl:
@@ -289,7 +291,7 @@ public struct TypeChecker {
       return false
     }
 
-    // Type check the initializer, if any, optionally completing partially realized parts.
+    // Type check the initializer, if any.
     var success = true
     if var initializer = ast[i].initializer {
       let solution = infer(
@@ -300,6 +302,8 @@ public struct TypeChecker {
       success = solution.errors.isEmpty
       ast[i].initializer = initializer
     }
+
+    // TODO: Complete underspecified generic signatures
 
     // TODO: assign variable declarations to their type
 
@@ -322,8 +326,11 @@ public struct TypeChecker {
     fatalError("not implemented")
   }
 
-  private mutating func check(fun: FunDecl) -> Bool {
-    fatalError("not implemented")
+  private mutating func check(fun id: NodeID<FunDecl>) -> Bool {
+    _check(decl: id, { (this, id) in
+      // TODO: Implement me
+      true
+    })
   }
 
   private mutating func check(genericSizeParam: GenericSizeParamDecl) -> Bool {
@@ -346,19 +353,19 @@ public struct TypeChecker {
     fatalError("not implemented")
   }
 
-  private mutating func check(productType i: NodeID<ProductTypeDecl>) -> Bool {
-    _check(decl: i, { (this, i) in
+  private mutating func check(productType id: NodeID<ProductTypeDecl>) -> Bool {
+    _check(decl: id, { (this, id) in
       // Type check the generic constraints of the declaration.
-      var success = this.environment(ofGenericDecl: i) != nil
+      var success = this.environment(ofGenericDecl: id) != nil
 
       // Type check the type's direct members.
-      for j in this.ast[i].members {
+      for j in this.ast[id].members {
         success = this.check(decl: j) && success
       }
 
       // Type check extending declarations.
-      let type = this.declTypes[i]!!
-      for j in this.extendingDecls(of: type, exposedTo: this.scopeHierarchy.container[i]!) {
+      let type = this.declTypes[id]!!
+      for j in this.extendingDecls(of: type, exposedTo: this.scopeHierarchy.container[id]!) {
         success = this.check(decl: j) && success
       }
 
@@ -368,8 +375,8 @@ public struct TypeChecker {
     })
   }
 
-  private mutating func check(subscript i: NodeID<SubscriptDecl>) -> Bool {
-    _check(decl: i, { (this, i) in
+  private mutating func check(subscript id: NodeID<SubscriptDecl>) -> Bool {
+    _check(decl: id, { (this, id) in
       // TODO: Implement me
       true
     })
@@ -379,19 +386,19 @@ public struct TypeChecker {
     fatalError("not implemented")
   }
 
-  private mutating func check(trait i: NodeID<TraitDecl>) -> Bool {
-    _check(decl: i, { (this, i) in
+  private mutating func check(trait id: NodeID<TraitDecl>) -> Bool {
+    _check(decl: id, { (this, id) in
       // Type check the generic constraints of the declaration.
-      var success = this.environment(ofTraitDecl: i) != nil
+      var success = this.environment(ofTraitDecl: id) != nil
 
       // Type check the type's direct members.
-      for j in this.ast[i].members {
+      for j in this.ast[id].members {
         success = this.check(decl: j) && success
       }
 
       // Type check extending declarations.
-      let type = this.declTypes[i]!!
-      for j in this.extendingDecls(of: type, exposedTo: this.scopeHierarchy.container[i]!) {
+      let type = this.declTypes[id]!!
+      for j in this.extendingDecls(of: type, exposedTo: this.scopeHierarchy.container[id]!) {
         success = this.check(decl: j) && success
       }
 
@@ -401,13 +408,13 @@ public struct TypeChecker {
     })
   }
 
-  private mutating func check(typeAlias i: NodeID<TypeAliasDecl>) -> Bool {
-    _check(decl: i, { (this, i) in
+  private mutating func check(typeAlias id: NodeID<TypeAliasDecl>) -> Bool {
+    _check(decl: id, { (this, id) in
       // Realize the subject of the declaration.
       let subject: Type
-      switch this.ast[i].body.value {
+      switch this.ast[id].body.value {
       case .typeExpr(let j):
-        if let s = this.realize(j, inScope: AnyScopeID(i)) {
+        if let s = this.realize(j, inScope: AnyScopeID(id)) {
           subject = s
         } else {
           return false
@@ -418,10 +425,10 @@ public struct TypeChecker {
       }
 
       // Type-check the generic clause of the declaration.
-      var success = this.environment(ofGenericDecl: i) != nil
+      var success = this.environment(ofGenericDecl: id) != nil
 
       // Type check extending declarations.
-      for j in this.extendingDecls(of: subject, exposedTo: this.scopeHierarchy.container[i]!) {
+      for j in this.extendingDecls(of: subject, exposedTo: this.scopeHierarchy.container[id]!) {
         success = this.check(decl: j) && success
       }
 
@@ -768,14 +775,17 @@ public struct TypeChecker {
   // MARK: Type inference
 
   /// Infers and returns the type of `expr`, or `nil` if `expr` is ill-formed.
-  public mutating func infer(
+  public mutating func infer<S: ScopeID>(
     expr: inout AnyExprID,
     expectedType: Type? = nil,
-    inScope scope: AnyScopeID
+    inScope scope: S
   ) -> Type? {
     var constraints: [LocatableConstraint] = []
     let solution = infer(
-      expr: &expr, expectedType: expectedType, inScope: scope, constraints: &constraints)
+      expr: &expr,
+      expectedType: expectedType,
+      inScope: AnyScopeID(scope),
+      constraints: &constraints)
 
     if solution.errors.isEmpty {
       return exprTypes[expr]!
@@ -1416,6 +1426,9 @@ public struct TypeChecker {
         return this.realize(decl.subject, inScope: this.scopeHierarchy.container[i]!)
       })
 
+    case .funDecl:
+      return realize(funDecl: NodeID(converting: i)!)
+
     case .productTypeDecl:
       return _realize(decl: i, { (this, i) in
         .product(ProductType(decl: NodeID(converting: i)!, ast: this.ast))
@@ -1439,29 +1452,96 @@ public struct TypeChecker {
     }
   }
 
-  private mutating func realize(subscriptDecl i: NodeID<SubscriptDecl>) -> Type? {
-    _realize(decl: i, { (this, i) in
-      let decl = this.ast[i]
+  private mutating func realize(funDecl id: NodeID<FunDecl>) -> Type? {
+    _realize(decl: id, { (this, id) in
+      let decl = this.ast[id]
+      let scope = AnyScopeID(id)
+
+      var inputs: [LambdaType.Parameter] = []
+      var success = true
 
       // Realize the input types.
-      var inputs: [SubscriptType.Parameter] = []
-      if decl.parameters != nil { fatalError("not implemented") }
+      for i in decl.parameters {
+        let parameter = this.ast[i]
 
-      if let parent = this.scopeHierarchy.container[i] {
-        switch parent.kind {
-        case .productTypeDecl,
-             .traitDecl,
-             .typeAliasDecl:
-          let receiver = this.realizeSelfTypeExpr(inScope: parent)!
-          inputs.insert(SubscriptType.Parameter(label: nil, type: receiver), at: 0)
+        if let annotation = parameter.annotation {
+          if let type = this.realize(annotation, inScope: scope) {
+            // The annotation may not omit generic arguments.
+            if type[.hasVariable] {
+              this.diagnostics.insert(
+                .notEnoughContextToInferArguments(range: this.ast.ranges[annotation]))
+              success = false
+            }
 
-        default:
-          break
+            this.declTypes[i] = type
+            this.declRequests[i] = .typeRealizationCompleted
+            inputs.append(LambdaType.Parameter(label: parameter.label?.value, type: type))
+          } else {
+            this.declTypes[i] = nil
+            this.declRequests[i] = .failure
+            success = false
+          }
+        } else {
+          fatalError("not implemented")
         }
       }
 
+      // Bail out if parameters could not be realized.
+      if !success { return nil }
+
+      // Synthesize the receiver parameter, if necessary.
+      let parent = this.scopeHierarchy.container[id] ?? unreachable()
+      switch parent.kind {
+      case .productTypeDecl,
+           .traitDecl,
+           .typeAliasDecl:
+        let receiver = this.realizeSelfTypeExpr(inScope: parent)!
+        inputs.insert(LambdaType.Parameter(label: nil, type: receiver), at: 0)
+        fatalError("not implemented")
+
+      default:
+        break
+      }
+
+      // Realize the output type.
+      let output: Type
+      if let o = decl.output {
+        guard let type = this.realize(o, inScope: scope) else { return nil }
+        output = type
+      } else {
+        output = .unit
+      }
+
+      // TODO: Handle captures
+
+      return .lambda(LambdaType(environment: .unit, inputs: inputs, output: output))
+    })
+  }
+
+  private mutating func realize(subscriptDecl id: NodeID<SubscriptDecl>) -> Type? {
+    _realize(decl: id, { (this, id) in
+      let decl = this.ast[id]
+
+      var inputs: [SubscriptType.Parameter] = []
+
+      // Realize the input types.
+      if decl.parameters != nil { fatalError("not implemented") }
+
+      // Synthesize the receiver parameter, if necessary.
+      let parent = this.scopeHierarchy.container[id] ?? unreachable()
+      switch parent.kind {
+      case .productTypeDecl,
+           .traitDecl,
+           .typeAliasDecl:
+        let receiver = this.realizeSelfTypeExpr(inScope: parent)!
+        inputs.insert(SubscriptType.Parameter(label: nil, type: receiver), at: 0)
+
+      default:
+        break
+      }
+
       // Realize the ouput type an collect capabilities.
-      guard let output = this.realize(decl.output, inScope: AnyScopeID(i)) else { return nil }
+      guard let output = this.realize(decl.output, inScope: AnyScopeID(id)) else { return nil }
       let capabilities = Set(decl.impls.map({ this.ast[$0].introducer.value }))
 
       return .subscript(SubscriptType(
