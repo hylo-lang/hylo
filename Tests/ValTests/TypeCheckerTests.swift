@@ -330,13 +330,37 @@ final class TypeCheckerTests: XCTestCase {
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
 
-    // fun f0() -> () {}
+    // fun f0() {}
+    // fun f1() -> () {}
+    // fun f2(_ a: (), _ b: () = ()) {}
 
     ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
       introducer: SourceRepresentable(value: .fun),
       identifier: SourceRepresentable(value: "f0"),
       parameters: [],
+      body: SourceRepresentable(
+        value: .block(ast.insert(BraceStmt())))))))
+
+    ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
+      introducer: SourceRepresentable(value: .fun),
+      identifier: SourceRepresentable(value: "f1"),
+      parameters: [],
       output: AnyTypeExprID(ast.insert(TupleTypeExpr())),
+      body: SourceRepresentable(
+        value: .block(ast.insert(BraceStmt())))))))
+
+    ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
+      introducer: SourceRepresentable(value: .fun),
+      identifier: SourceRepresentable(value: "f2"),
+      parameters: [
+        ast.insert(ParamDecl(
+          identifier: SourceRepresentable(value: "a"),
+          annotation: AnyTypeExprID(ast.insert(TupleTypeExpr())))),
+        ast.insert(ParamDecl(
+          identifier: SourceRepresentable(value: "b"),
+          annotation: AnyTypeExprID(ast.insert(TupleTypeExpr())),
+          defaultValue: AnyExprID(ast.insert(TupleExpr()))))
+      ],
       body: SourceRepresentable(
         value: .block(ast.insert(BraceStmt())))))))
 

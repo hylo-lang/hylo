@@ -328,8 +328,19 @@ public struct TypeChecker {
 
   private mutating func check(fun id: NodeID<FunDecl>) -> Bool {
     _check(decl: id, { (this, id) in
-      // TODO: Implement me
-      true
+      var success = this.environment(ofGenericDecl: id) != nil
+
+      // Type check the default values of the parameters.
+      for j in this.ast[id].parameters {
+        guard var defaultValue = this.ast[j].defaultValue else { continue }
+        let type = this.declTypes[j]!!
+        if this.infer(expr: &defaultValue, expectedType: type, inScope: AnyScopeID(id)) == nil {
+          success = false
+        }
+        this.ast[j].defaultValue = defaultValue
+      }
+
+      return success
     })
   }
 
