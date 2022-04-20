@@ -32,6 +32,14 @@ extension Diagnostic {
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }
 
+  static func duplicateParameterName(_ name: String, range: SourceRange?) -> Diagnostic {
+    Diagnostic(
+      level: .error,
+      message: "duplicate parameter name '\(name)'",
+      location: range?.first(),
+      window: range.map({ r in Diagnostic.Window(range: r) }))
+  }
+
   static func incompatibleLabels(
     _ ls: [String?],
     _ rs: [String?],

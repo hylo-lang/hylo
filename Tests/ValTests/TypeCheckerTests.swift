@@ -4,8 +4,6 @@ import Compiler
 final class TypeCheckerTests: XCTestCase {
 
   func testTraitDecl() {
-    var ast = AST()
-    let main = ast.insert(ModuleDecl(name: "main"))
 
     // trait T {
     //   type X: T where X: T,        // OK
@@ -15,67 +13,65 @@ final class TypeCheckerTests: XCTestCase {
     //   size n where n > 0           // OK
     // }
 
-    let trait = ast.insert(TraitDecl(
-      identifier: SourceRepresentable(value: "T")))
-    ast[main].members.append(AnyDeclID(trait))
+    var ast = AST()
+    let main = ast.insert(ModuleDecl(name: "main"))
 
-    ast[trait].members.append(
-      AnyDeclID(ast.insert(AssociatedTypeDecl(
-        identifier: SourceRepresentable(value: "X"),
-        conformances: [
-          ast.insertTypeName("T")
-        ],
-        whereClause: SourceRepresentable(
-          value: WhereClause(
-            constraints: [
-              SourceRepresentable(
-                value: .conformance(
-                  l: ast.insertTypeName("X"),
-                  traits: TraitComposition([
-                    ast.insertTypeName("T")
-                  ]))),
-              SourceRepresentable(
-                value: .conformance(
-                  l: ast.insertTypeName("X"),
-                  traits: TraitComposition([
-                    ast.insertTypeName("X")
-                  ]))),
-              SourceRepresentable(
-                value: .equality(
-                  l: AnyTypeExprID(ast.insertTypeName("Any")),
-                  r: AnyTypeExprID(ast.insertTypeName("Never"))))
-            ]))))))
-
-    ast[trait].members.append(
-      AnyDeclID(ast.insert(AssociatedTypeDecl(
-        identifier: SourceRepresentable(value: "Y"),
-        whereClause: SourceRepresentable(
-          value: WhereClause(
-            constraints: [
-              SourceRepresentable(
-                value: .equality(
-                  l: AnyTypeExprID(ast.insertTypeName("X")),
-                  r: AnyTypeExprID(ast.insertTypeName("Y"))))
-            ]))))))
-
-    ast[trait].members.append(
-      AnyDeclID(ast.insert(AssociatedSizeDecl(
-        identifier: SourceRepresentable(value: "n"),
-        whereClause: SourceRepresentable(
-          value: WhereClause(
-            constraints: [
-              SourceRepresentable(
-                value: .size(
-                  AnyExprID(ast.insert(UnfoldedExpr(
-                    subexpressions: [
-                      AnyExprID(ast.insert(NameExpr(
-                        stem: SourceRepresentable(value: "n")))),
-                      AnyExprID(ast.insert(NameExpr(
-                        stem: SourceRepresentable(value: ">"),
-                        notation: .infix))),
-                      AnyExprID(ast.insert(IntegerLiteralExpr(value: "10"))),
-                    ])))))
-            ]))))))
+    ast[main].members.append(AnyDeclID(ast.insert(TraitDecl(
+      identifier: SourceRepresentable(value: "T"),
+      members: [
+        AnyDeclID(ast.insert(AssociatedTypeDecl(
+          identifier: SourceRepresentable(value: "X"),
+          conformances: [
+            ast.insertTypeName("T")
+          ],
+          whereClause: SourceRepresentable(
+            value: WhereClause(
+              constraints: [
+                SourceRepresentable(
+                  value: .conformance(
+                    l: ast.insertTypeName("X"),
+                    traits: TraitComposition([
+                      ast.insertTypeName("T")
+                    ]))),
+                SourceRepresentable(
+                  value: .conformance(
+                    l: ast.insertTypeName("X"),
+                    traits: TraitComposition([
+                      ast.insertTypeName("X")
+                    ]))),
+                SourceRepresentable(
+                  value: .equality(
+                    l: AnyTypeExprID(ast.insertTypeName("Any")),
+                    r: AnyTypeExprID(ast.insertTypeName("Never"))))
+              ]))))),
+        AnyDeclID(ast.insert(AssociatedTypeDecl(
+          identifier: SourceRepresentable(value: "Y"),
+          whereClause: SourceRepresentable(
+            value: WhereClause(
+              constraints: [
+                SourceRepresentable(
+                  value: .equality(
+                    l: AnyTypeExprID(ast.insertTypeName("X")),
+                    r: AnyTypeExprID(ast.insertTypeName("Y"))))
+              ]))))),
+        AnyDeclID(ast.insert(AssociatedSizeDecl(
+          identifier: SourceRepresentable(value: "n"),
+          whereClause: SourceRepresentable(
+            value: WhereClause(
+              constraints: [
+                SourceRepresentable(
+                  value: .size(
+                    AnyExprID(ast.insert(UnfoldedExpr(
+                      subexpressions: [
+                        AnyExprID(ast.insert(NameExpr(
+                          stem: SourceRepresentable(value: "n")))),
+                        AnyExprID(ast.insert(NameExpr(
+                          stem: SourceRepresentable(value: ">"),
+                          notation: .infix))),
+                        AnyExprID(ast.insert(IntegerLiteralExpr(value: "10"))),
+                      ])))))
+              ])))))
+      ]))))
 
     var checker = TypeChecker(ast: ast)
     XCTAssertFalse(checker.check(module: main))
@@ -83,12 +79,13 @@ final class TypeCheckerTests: XCTestCase {
   }
 
   func testCyclicRefinements() {
-    var ast = AST()
-    let main = ast.insert(ModuleDecl(name: "main"))
 
     // trait T: U {} // error: circular trait refinment
     // trait U: V {} // error: circular trait refinment
     // trait V: T {} // error: circular trait refinment
+
+    var ast = AST()
+    let main = ast.insert(ModuleDecl(name: "main"))
 
     // Create a fake source ranges to get different diagnostic locations.
     let file = SourceFile(contents: "tuv")
@@ -115,21 +112,22 @@ final class TypeCheckerTests: XCTestCase {
   }
 
   func testMemberTypeLookup() {
-    var ast = AST()
-    let main = ast.insert(ModuleDecl(name: "main"))
 
     // trait T { public typealias A = Any }
     // typealias A = T.A
 
-    let trait = ast.insert(TraitDecl(
-      identifier: SourceRepresentable(value: "T")))
-    ast[main].members.append(AnyDeclID(trait))
+    var ast = AST()
+    let main = ast.insert(ModuleDecl(name: "main"))
 
-    ast[trait].members.append(AnyDeclID(ast.insert(TypeAliasDecl(
-      access: SourceRepresentable(value: .public),
-      identifier: SourceRepresentable(value: "A"),
-      body: SourceRepresentable(
-        value: .typeExpr(AnyTypeExprID(ast.insertTypeName("Any"))))))))
+    ast[main].members.append(AnyDeclID(ast.insert(TraitDecl(
+      identifier: SourceRepresentable(value: "T"),
+      members: [
+        AnyDeclID(ast.insert(TypeAliasDecl(
+          access: SourceRepresentable(value: .public),
+          identifier: SourceRepresentable(value: "A"),
+          body: SourceRepresentable(
+            value: .typeExpr(AnyTypeExprID(ast.insertTypeName("Any"))))))),
+      ]))))
 
     ast[main].members.append(AnyDeclID(ast.insert(TypeAliasDecl(
       identifier: SourceRepresentable(value: "A"),
@@ -141,8 +139,6 @@ final class TypeCheckerTests: XCTestCase {
   }
 
   func testAssociatedTypeLookup() {
-    var ast = AST()
-    let main = ast.insert(ModuleDecl(name: "main"))
 
     // trait T { type X }
     // trait U: T {
@@ -151,6 +147,9 @@ final class TypeCheckerTests: XCTestCase {
     //   subscript x2: T.X { let }       // error
     //   subscript x3: Self::T.X { let } // OK
     // }
+
+    var ast = AST()
+    let main = ast.insert(ModuleDecl(name: "main"))
 
     ast[main].members.append(AnyDeclID(ast.insert(TraitDecl(
       identifier: SourceRepresentable(value: "T"),
@@ -199,8 +198,6 @@ final class TypeCheckerTests: XCTestCase {
   }
 
   func testStoredPropertyDecl() {
-    var ast = AST()
-    let main = ast.insert(ModuleDecl(name: "main"))
 
     // type A {
     //   let x0: Any
@@ -208,6 +205,9 @@ final class TypeCheckerTests: XCTestCase {
     //   let (a: y0, b: y1): (a: Any, b: Never)
     //   let (a: z0, c: z1): (a: Any, b: Never) // error
     // }
+
+    var ast = AST()
+    let main = ast.insert(ModuleDecl(name: "main"))
 
     ast[main].members.append(AnyDeclID(ast.insert(ProductTypeDecl(
       identifier: SourceRepresentable(value: "A"),
@@ -292,10 +292,11 @@ final class TypeCheckerTests: XCTestCase {
   }
 
   func testBindingDecl() {
-    var ast = AST()
-    let main = ast.insert(ModuleDecl(name: "main"))
 
     // let x0: ((), ())) = ((), ())
+
+    var ast = AST()
+    let main = ast.insert(ModuleDecl(name: "main"))
 
     ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
       pattern: ast.insert(BindingPattern(
@@ -326,13 +327,13 @@ final class TypeCheckerTests: XCTestCase {
     XCTAssertTrue(checker.check(module: main))
   }
 
-  func testFreeFunDecl() {
-    var ast = AST()
-    let main = ast.insert(ModuleDecl(name: "main"))
+  func testTrivialFreeFunction() {
 
     // fun f0() {}
     // fun f1() -> () {}
-    // fun f2(_ a: (), _ b: () = ()) {}
+
+    var ast = AST()
+    let main = ast.insert(ModuleDecl(name: "main"))
 
     ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
       introducer: SourceRepresentable(value: .fun),
@@ -349,9 +350,20 @@ final class TypeCheckerTests: XCTestCase {
       body: SourceRepresentable(
         value: .block(ast.insert(BraceStmt())))))))
 
+    var checker = TypeChecker(ast: ast)
+    XCTAssertTrue(checker.check(module: main))
+  }
+
+  func testDefaultFunctionArgument() {
+
+    // fun f0(_ a: (), _ b: () = ()) {}
+
+    var ast = AST()
+    let main = ast.insert(ModuleDecl(name: "main"))
+
     ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
       introducer: SourceRepresentable(value: .fun),
-      identifier: SourceRepresentable(value: "f2"),
+      identifier: SourceRepresentable(value: "f0"),
       parameters: [
         ast.insert(ParamDecl(
           identifier: SourceRepresentable(value: "a"),
@@ -359,7 +371,7 @@ final class TypeCheckerTests: XCTestCase {
         ast.insert(ParamDecl(
           identifier: SourceRepresentable(value: "b"),
           annotation: AnyTypeExprID(ast.insert(TupleTypeExpr())),
-          defaultValue: AnyExprID(ast.insert(TupleExpr()))))
+          defaultValue: AnyExprID(ast.insert(TupleExpr())))),
       ],
       body: SourceRepresentable(
         value: .block(ast.insert(BraceStmt())))))))
@@ -368,12 +380,39 @@ final class TypeCheckerTests: XCTestCase {
     XCTAssertTrue(checker.check(module: main))
   }
 
-  func testGenericTypeAlias() {
+  func testDuplicateFunctionParameter() {
+
+    // fun f0(_ a: (), _ a: ()) {} // error: duplicate parameter name 'a'
+
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
 
+    ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
+      introducer: SourceRepresentable(value: .fun),
+      identifier: SourceRepresentable(value: "f0"),
+      parameters: [
+        ast.insert(ParamDecl(
+          identifier: SourceRepresentable(value: "a"),
+          annotation: AnyTypeExprID(ast.insert(TupleTypeExpr())))),
+        ast.insert(ParamDecl(
+          identifier: SourceRepresentable(value: "a"),
+          annotation: AnyTypeExprID(ast.insert(TupleTypeExpr())))),
+      ],
+      body: SourceRepresentable(
+        value: .block(ast.insert(BraceStmt())))))))
+
+    var checker = TypeChecker(ast: ast)
+    XCTAssertFalse(checker.check(module: main))
+    XCTAssertEqual(checker.diagnostics.count, 1)
+  }
+
+  func testGenericTypeAlias() {
+
     // typealias Pair<X, Y> = (first: X, second: Y)
     // typealias AnyPair = Pair<Any, Any>
+
+    var ast = AST()
+    let main = ast.insert(ModuleDecl(name: "main"))
 
     ast[main].members.append(AnyDeclID(ast.insert(TypeAliasDecl(
       identifier: SourceRepresentable(value: "Pair"),
