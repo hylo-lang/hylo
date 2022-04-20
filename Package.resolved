@@ -9,6 +9,15 @@
           "revision": "6b2aa2748a7881eebb9f84fb10c01293e15b52ca",
           "version": "0.5.0"
         }
+      },
+      {
+        "package": "LoftDataStructures_Zip2Collection",
+        "repositoryURL": "https://github.com/loftware/Zip2Collection.git",
+        "state": {
+          "branch": null,
+          "revision": "240416951ca7bb96920acbf335ba089479eeaa1f",
+          "version": "0.1.0"
+        }
       }
     ]
   },

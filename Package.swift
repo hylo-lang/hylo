@@ -1,4 +1,4 @@
-// swift-tools-version:5.3
+// swift-tools-version:5.5
 import PackageDescription
 
 let package = Package(
@@ -12,12 +12,17 @@ let package = Package(
     .package(
       name: "swift-argument-parser",
       url: "https://github.com/apple/swift-argument-parser.git",
-      from: "0.4.0")
+      from: "0.4.0"),
+
+    .package(
+      url: "https://github.com/loftware/Zip2Collection.git",
+      from: "0.1.0"
+    ),
   ],
 
   targets: [
     // The compiler's executable target.
-    .target(
+    .executableTarget(
       name: "CLI",
       dependencies: [
         "Compiler",
@@ -39,5 +44,7 @@ let package = Package(
 
     .testTarget(
       name: "ParseGenTests",
-      dependencies: ["ParseGen"]),
+      dependencies: [
+        "ParseGen",
+        .product(name: "LoftDataStructures_Zip2Collection", package: "Zip2Collection")]),
   ])

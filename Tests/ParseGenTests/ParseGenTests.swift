@@ -1,4 +1,5 @@
 import XCTest
+import LoftDataStructures_Zip2Collection
 @testable import ParseGen
 
 extension StringProtocol {
@@ -9,19 +10,30 @@ extension StringProtocol {
   }
 }
 
-extension Sequence {
-  func elementsBetween(
-    thoseSatisfying isOpenDelimiter: (Element)->Bool,
-    andThoseSatisfying isCloseDelimiter: (Element)->Bool
-  ) -> [Element] {
-    var r: [Element] = []
-    var betweenDelimiters = false
-    for x in self {
-      if (betweenDelimiters ? isCloseDelimiter : isOpenDelimiter)(x) {
-        betweenDelimiters.toggle()
+extension Swift.Collection {
+  /// Returns the `SubSequence`s between pairs of elements bounded by an element
+  /// satisfying `isOpenDelimiter` as an open deliminter and `isCloseDelimiter`
+  /// as a closing delimiter.
+  ///
+  /// - Precondition: elements satisfying the two predicates strictly alternate,
+  ///   starting with `isOpenDelimiter`.
+  func subSequencesBetween(
+    elementsSatisfying isOpenDelimiter: (Element)->Bool,
+    and isCloseDelimiter: (Element)->Bool
+  ) -> [SubSequence] {
+    var r: [SubSequence] = []
+    var openDelimiterPosition: Index? = nil
+    for i in self.indices {
+      if let o = openDelimiterPosition {
+        if isCloseDelimiter(self[i]) {
+          r.append(self[o..<i])
+          openDelimiterPosition = nil
+        }
       }
-      else if betweenDelimiters {
-        r.append(x)
+      else {
+        if isOpenDelimiter(self[i]) {
+          openDelimiterPosition = i
+        }
       }
     }
     return r
@@ -36,10 +48,15 @@ final class ParseGenTests: XCTestCase {
       = (#filePath.split(separator: "/").dropLast(3) + ["spec", "spec.md"]).joined(separator: "/")
     let specContents = try String(contentsOfFile: "/" + rootRelativeSpecPath, encoding: .utf8)
     let allLines = specContents.split { c in c.isNewline }.enumerated()
-    let ebnfLines = allLines.elementsBetween(
-      thoseSatisfying: { l in l.1.strippingWhitespace() == "```ebnf" },
-      andThoseSatisfying: { l in l.1.strippingWhitespace() == "```" }
+    let ebnfLines = allLines.subSequencesBetween(
+      elementsSatisfying: { l in l.1.strippingWhitespace() == "```ebnf" },
+      and: { l in l.1.strippingWhitespace() == "```" }
     )
+    #if false
+    for r in ebnfLines {
+      for l in r { print(l) }
+    }
+    #endif
   }
 
 }

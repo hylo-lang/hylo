@@ -5,4 +5,10 @@ extension String {
     items.map(String.init(describing:)).joined(separator: separator)
   }
 
+  /// Returns the slice of self that remains after dropping leading and trailing whitespace.
+  func strippingWhitespace() -> SubSequence {
+    return self.drop { c in c.isWhitespace }
+      .dropLast { c in c.isWhitespace }
+  }
+
 }
