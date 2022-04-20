@@ -115,12 +115,12 @@ public struct TypeChecker {
 
     case .product(let t):
       let decl = ast[t.decl]
-      let declScope = scopeHierarchy.container[t.decl]!
-      guard let traits = realize(conformances: decl.conformances, inScope: declScope)
+      let parentScope = scopeHierarchy.container[t.decl]!
+      guard let traits = realize(conformances: decl.conformances, inScope: parentScope)
         else { return nil }
 
       for trait in traits {
-        guard let bases = conformedTraits(of: .trait(trait), inScope: declScope)
+        guard let bases = conformedTraits(of: .trait(trait), inScope: parentScope)
           else { return nil }
         result.formUnion(bases)
       }
@@ -161,12 +161,12 @@ public struct TypeChecker {
     // Collect traits declared in conformance declarations.
     for i in extendingDecls(of: type, exposedTo: scope) where i.kind == .conformanceDecl {
       let decl = ast[NodeID<ConformanceDecl>(converting: i)!]
-      let declScope = scopeHierarchy.container[i]!
-      guard let traits = realize(conformances: decl.conformances, inScope: declScope)
+      let parentScope = scopeHierarchy.container[i]!
+      guard let traits = realize(conformances: decl.conformances, inScope: parentScope)
         else { return nil }
 
       for trait in traits {
-        guard let bases = conformedTraits(of: .trait(trait), inScope: declScope)
+        guard let bases = conformedTraits(of: .trait(trait), inScope: parentScope)
           else { return nil }
         result.formUnion(bases)
       }
@@ -473,34 +473,34 @@ public struct TypeChecker {
   /// Returns whether `decl` is well-typed from the cache, or calls `action` to type check it
   /// and caches the result before returning it.
   private mutating func _check<T: DeclID>(
-    decl i: T,
+    decl id: T,
     _ action: (inout Self, T) -> Bool
   ) -> Bool {
     // Check if a type checking request has already been received.
     while true {
-      switch declRequests[i] {
+      switch declRequests[id] {
       case nil:
         /// The the overarching type of the declaration is available after type realization.
-        defer { assert(declRequests[i] != nil) }
+        defer { assert(declRequests[id] != nil) }
 
         // Realize the type of the declaration before starting type checking.
-        if realize(decl: i) != nil {
-          // Note: Because type realization might perform type checking, we should re-check the
-          // status of the request.
+        if realize(decl: id) != nil {
+          // Note: Because the type realization of certain declarations may escalate to type
+          // checking perform type checking, we should re-check the status of the request.
           continue
         } else {
           // Type checking fails if type realization did.
-          declRequests[i] = .failure
+          declRequests[id] = .failure
           return false
         }
 
       case .typeRealizationCompleted:
-        declRequests[i] = .typeCheckingStarted
+        declRequests[id] = .typeCheckingStarted
 
       case .typeRealizationStarted, .typeCheckingStarted:
         // Note: The request status will be updated when the request that caused the circular
         // dependency handles the failure.
-        diagnostics.insert(.circularDependency(range: ast.ranges[i]))
+        diagnostics.insert(.circularDependency(range: ast.ranges[id]))
         return false
 
       case .success:
@@ -514,54 +514,54 @@ public struct TypeChecker {
     }
 
     // Process the request.
-    let success = action(&self, i)
+    let success = action(&self, id)
 
     // Update the request status.
-    declRequests[i] = success ? .success : .failure
+    declRequests[id] = success ? .success : .failure
     return success
   }
 
-  /// Returns the generic environment defined by `i`, or `nil` if it is ill-formed.
+  /// Returns the generic environment defined by `id`, or `nil` if it is ill-formed.
   ///
   /// - Requires: `i.kind <= .genericScope`
-  private mutating func environment<T: NodeIDProtocol>(of i: T) -> GenericEnvironment? {
-    switch i.kind {
+  private mutating func environment<T: NodeIDProtocol>(of id: T) -> GenericEnvironment? {
+    switch id.kind {
     case .funDecl:
-      return environment(ofGenericDecl: NodeID<FunDecl>(converting: i)!)
+      return environment(ofGenericDecl: NodeID<FunDecl>(converting: id)!)
     case .productTypeDecl:
-      return environment(ofGenericDecl: NodeID<ProductTypeDecl>(converting: i)!)
+      return environment(ofGenericDecl: NodeID<ProductTypeDecl>(converting: id)!)
     case .subscriptDecl:
-      return environment(ofGenericDecl: NodeID<SubscriptDecl>(converting: i)!)
+      return environment(ofGenericDecl: NodeID<SubscriptDecl>(converting: id)!)
     case .typeAliasDecl:
-      return environment(ofGenericDecl: NodeID<TypeAliasDecl>(converting: i)!)
+      return environment(ofGenericDecl: NodeID<TypeAliasDecl>(converting: id)!)
     case .traitDecl:
-      return environment(ofTraitDecl: NodeID(converting: i)!)
+      return environment(ofTraitDecl: NodeID(converting: id)!)
     default:
       unreachable("unexpected scope")
     }
   }
 
-  /// Returns the generic environment defined by `i`, or `nil` if it is ill-formed.
+  /// Returns the generic environment defined by `id`, or `nil` if it is ill-formed.
   private mutating func environment<T: GenericDecl>(
-    ofGenericDecl i: NodeID<T>
+    ofGenericDecl id: NodeID<T>
   ) -> GenericEnvironment? {
-    switch environments[i] {
+    switch environments[id] {
     case .done(let e):
       return e
     case .inProgress:
       fatalError("circular dependency")
     case nil:
-      environments[i] = .inProgress
+      environments[id] = .inProgress
     }
 
     // Nothing to do if the declaration has no generic clause.
-    guard let clause = ast[i].genericClause?.value else {
-      let e = GenericEnvironment(decl: i, constraints: [], into: &self)
-      environments[i] = .done(e)
+    guard let clause = ast[id].genericClause?.value else {
+      let e = GenericEnvironment(decl: id, constraints: [], into: &self)
+      environments[id] = .done(e)
       return e
     }
 
-    let declScope = AnyScopeID(converting: i)!
+    let declScope = AnyScopeID(converting: id)!
     let parentScope = scopeHierarchy.parent[declScope]!
     var success = true
     var constraints: [Constraint] = []
@@ -595,34 +595,34 @@ public struct TypeChecker {
     }
 
     if success {
-      let e = GenericEnvironment(decl: i, constraints: constraints, into: &self)
-      environments[i] = .done(e)
+      let e = GenericEnvironment(decl: id, constraints: constraints, into: &self)
+      environments[id] = .done(e)
       return e
     } else {
-      environments[i] = .done(nil)
+      environments[id] = .done(nil)
       return nil
     }
   }
 
   /// Returns the generic environment defined by `i`, or `nil` if it is ill-formed.
   private mutating func environment<T: TypeExtendingDecl>(
-    ofTypeExtendingDecl i: NodeID<T>
+    ofTypeExtendingDecl id: NodeID<T>
   ) -> GenericEnvironment? {
-    switch environments[i] {
+    switch environments[id] {
     case .done(let e):
       return e
     case .inProgress:
       fatalError("circular dependency")
     case nil:
-      environments[i] = .inProgress
+      environments[id] = .inProgress
     }
 
-    let scope = AnyScopeID(i)
+    let scope = AnyScopeID(id)
     var success = true
     var constraints: [Constraint] = []
 
     // Evaluate the constraint expressions of the associated type's where clause.
-    if let whereClause = ast[i].whereClause?.value {
+    if let whereClause = ast[id].whereClause?.value {
       for expr in whereClause.constraints {
         if let constraint = eval(constraintExpr: expr, inScope: scope) {
           constraints.append(constraint)
@@ -633,11 +633,11 @@ public struct TypeChecker {
     }
 
     if success {
-      let e = GenericEnvironment(decl: i, constraints: constraints, into: &self)
-      environments[i] = .done(e)
+      let e = GenericEnvironment(decl: id, constraints: constraints, into: &self)
+      environments[id] = .done(e)
       return e
     } else {
-      environments[i] = .done(nil)
+      environments[id] = .done(nil)
       return nil
     }
   }
@@ -1486,7 +1486,7 @@ public struct TypeChecker {
 
   private mutating func _realize(funDecl id: NodeID<FunDecl>) -> Type? {
     let decl = ast[id]
-    let scope = AnyScopeID(id)
+    let declScope = AnyScopeID(id)
 
     var inputs: [LambdaType.Parameter] = []
     var success = true
@@ -1496,7 +1496,7 @@ public struct TypeChecker {
       let parameter = ast[i]
 
       if let annotation = parameter.annotation {
-        if let type = realize(annotation, inScope: scope) {
+        if let type = realize(annotation, inScope: declScope) {
           // The annotation may not omit generic arguments.
           if type[.hasVariable] {
             diagnostics.insert(.notEnoughContextToInferArguments(range: ast.ranges[annotation]))
@@ -1535,10 +1535,17 @@ public struct TypeChecker {
 
     // Realize the output type.
     let output: Type
-    if let o = decl.output {
-      guard let type = realize(o, inScope: scope) else { return nil }
+    if case .expr(var body) = decl.body?.value {
+      // If the function is expression-bodied, its return type must be inferred.
+      assert(decl.output == nil, "unexpected return annotation on expression-bodied function")
+      guard let type = infer(expr: &body, inScope: declScope) else { return nil }
+      output = type
+    } else if let o = decl.output {
+      // Use explicit return annotations.
+      guard let type = realize(o, inScope: declScope) else { return nil }
       output = type
     } else {
+      // Default to `()`
       output = .unit
     }
 
@@ -1586,28 +1593,28 @@ public struct TypeChecker {
   /// Returns the type of `decl` from the cache, or calls `action` to compute it and caches the
   /// result before returning it.
   private mutating func _realize<T: DeclID>(
-    decl i: T,
+    decl id: T,
     _ action: (inout Self, T) -> Type?
   ) -> Type? {
     // Check if a type realization request has already been received.
-    switch declRequests[i] {
+    switch declRequests[id] {
     case nil:
-      declRequests[i] = .typeRealizationStarted
+      declRequests[id] = .typeRealizationStarted
 
     case .typeRealizationStarted:
-      diagnostics.insert(.circularDependency(range: ast.ranges[i]))
+      diagnostics.insert(.circularDependency(range: ast.ranges[id]))
       return nil
 
     case .typeRealizationCompleted, .typeCheckingStarted, .success, .failure:
-      return declTypes[i]!
+      return declTypes[id]!
     }
 
     // Process the request.
-    declTypes[i] = action(&self, i)
+    declTypes[id] = action(&self, id)
 
     // Update the request status.
-    declRequests[i] = .typeRealizationCompleted
-    return declTypes[i]!
+    declRequests[id] = .typeRealizationCompleted
+    return declTypes[id]!
   }
 
 }

@@ -406,6 +406,24 @@ final class TypeCheckerTests: XCTestCase {
     XCTAssertEqual(checker.diagnostics.count, 1)
   }
 
+  func testExpressionBodiedFunction() {
+
+    // fun f0() => 0
+
+    var ast = AST()
+    insertStandardLibraryMockup(into: &ast)
+    let main = ast.insert(ModuleDecl(name: "main"))
+
+    ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
+      introducer: SourceRepresentable(value: .fun),
+      identifier: SourceRepresentable(value: "f0"),
+      body: SourceRepresentable(
+        value: .expr(AnyExprID(ast.insert(IntegerLiteralExpr(value: "0")))))))))
+
+    var checker = TypeChecker(ast: ast)
+    XCTAssertTrue(checker.check(module: main))
+  }
+
   func testGenericTypeAlias() {
 
     // typealias Pair<X, Y> = (first: X, second: Y)
