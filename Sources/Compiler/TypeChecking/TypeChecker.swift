@@ -282,10 +282,7 @@ public struct TypeChecker {
 
     let scope = scopeHierarchy.container[AnyDeclID(i)]!
     let pattern = ast[i].pattern
-    var constraints: [LocatableConstraint] = []
-    guard let type = infer(
-      pattern: pattern, expectedType: nil, inScope: scope, constraints: &constraints)
-    else {
+    guard var shape = infer(pattern: pattern, expectedType: nil, inScope: scope) else {
       declTypes[i] = nil
       declRequests[i] = .failure
       return false
@@ -296,19 +293,25 @@ public struct TypeChecker {
     if var initializer = ast[i].initializer {
       let solution = infer(
         expr: &initializer,
-        expectedType: type,
+        expectedType: shape.type,
         inScope: scope,
-        constraints: &constraints)
-      success = solution.errors.isEmpty
+        constraints: &shape.constraints)
       ast[i].initializer = initializer
+
+      success = solution.errors.isEmpty
+      shape.type = solution.reify(shape.type)
+
+      // Assign the variable declarations in the pattern to their type
+      for decl in shape.decls {
+        declTypes[decl] = solution.reify(declTypes[decl]!!)
+        declRequests[decl] = success ? .success : .failure
+      }
     }
 
     // TODO: Complete underspecified generic signatures
 
-    // TODO: assign variable declarations to their type
-
     if success {
-      declTypes[i] = type
+      declTypes[i] = shape.type
       declRequests[i] = .success
       return true
     } else {
@@ -860,15 +863,36 @@ public struct TypeChecker {
     return solution
   }
 
-  /// Infers the type of `pattern`, generating the type constraints implied by the expressions it
-  /// may contain.
+  /// Infers the type of `pattern`, generates the type constraints implied by the expressions it
+  /// may contain, and returns the IDs of the variable declarations it contains.
   ///
   /// - Note: A `nil` return signals a failure to infer the type of the pattern.
   private mutating func infer<T: PatternID>(
     pattern: T,
     expectedType: Type?,
+    inScope scope: AnyScopeID
+  ) -> (type: Type, constraints: [LocatableConstraint], decls: [NodeID<VarDecl>])? {
+    var constraints: [LocatableConstraint] = []
+    var decls: [NodeID<VarDecl>] = []
+    if let type = _infer(
+      pattern: pattern,
+      expectedType: expectedType,
+      inScope: scope,
+      constraints: &constraints,
+      decls: &decls)
+    {
+      return (type: type, constraints: constraints, decls: decls)
+    } else {
+      return nil
+    }
+  }
+
+  private mutating func _infer<T: PatternID>(
+    pattern: T,
+    expectedType: Type?,
     inScope scope: AnyScopeID,
-    constraints: inout [LocatableConstraint]
+    constraints: inout [LocatableConstraint],
+    decls: inout [NodeID<VarDecl>]
   ) -> Type? {
     switch pattern.kind {
     case .bindingPattern:
@@ -889,17 +913,23 @@ public struct TypeChecker {
         }
       }
 
-      return infer(
+      return _infer(
         pattern: lhs.subpattern,
         expectedType: subpatternType,
         inScope: scope,
-        constraints: &constraints)
+        constraints: &constraints,
+        decls: &decls)
 
     case .expr:
       fatalError("not implemented")
 
-    case .namePattern, .wildcardPattern:
-      return expectedType ?? .variable(TypeVariable())
+    case .namePattern:
+      let lhs = ast[NodeID<NamePattern>(converting: pattern)!]
+      let type = expectedType ?? .variable(TypeVariable(node: AnyNodeID(lhs.decl)))
+      decls.append(lhs.decl)
+      declTypes[lhs.decl] = type
+      declRequests[lhs.decl] = .typeRealizationCompleted
+      return type
 
     case .tuplePattern:
       let lhs = ast[NodeID<TuplePattern>(converting: pattern)!]
@@ -912,11 +942,12 @@ public struct TypeChecker {
 
           // Visit the elements pairwise.
           for (a, b) in zip(lhs.elements, rhs.elements) {
-            if infer(
+            if _infer(
               pattern: a.value.pattern,
               expectedType: b.type,
               inScope: scope,
-              constraints: &constraints) == nil
+              constraints: &constraints,
+              decls: &decls) == nil
             { return nil }
 
             lLabels.append(a.value.label)
@@ -947,16 +978,20 @@ public struct TypeChecker {
         // Infer the shape of the expected type.
         var elements: [TupleType.Element] = []
         for element in lhs.elements {
-          guard let type = infer(
+          guard let type = _infer(
             pattern: element.value.pattern,
             expectedType: nil,
             inScope: scope,
-            constraints: &constraints)
+            constraints: &constraints,
+            decls: &decls)
           else { return nil }
           elements.append(TupleType.Element(label: element.value.label, type: type))
         }
         return .tuple(TupleType(elements))
       }
+
+    case .wildcardPattern:
+      return expectedType ?? .variable(TypeVariable())
 
     default:
       unreachable("unexpected pattern")
@@ -1516,9 +1551,6 @@ public struct TypeChecker {
       }
     }
 
-    // Bail out if parameters could not be realized.
-    if !success { return nil }
-
     // Synthesize the receiver parameter, if necessary.
     let parent = scopeHierarchy.container[id] ?? unreachable()
     switch parent.kind {
@@ -1533,11 +1565,29 @@ public struct TypeChecker {
       break
     }
 
+    // Realize the type of the explicit captures.
+    var captures: [(introducer: BindingPattern.Introducer, type: Type)] = []
+    for i in decl.captures {
+      if check(binding: i) {
+        captures.append((
+          introducer: ast[ast[i].pattern].introducer.value,
+          type: declTypes[i]!!))
+      } else {
+        success = false
+      }
+    }
+
+    // TODO: Handle implicit captures
+
+    // Bail out if parameters or captures could not be realized.
+    if !success { return nil }
+
     // Realize the output type.
     let output: Type
     if case .expr(var body) = decl.body?.value {
       // If the function is expression-bodied, its return type must be inferred.
       assert(decl.output == nil, "unexpected return annotation on expression-bodied function")
+      defer { ast[id].body?.value = .expr(body) }
       guard let type = infer(expr: &body, inScope: declScope) else { return nil }
       output = type
     } else if let o = decl.output {
@@ -1549,9 +1599,25 @@ public struct TypeChecker {
       output = .unit
     }
 
-    // TODO: Handle captures
+    let environment: Type
+    if captures.isEmpty {
+      environment = .unit
+    } else {
+      environment = .tuple(TupleType(captures.map({ c in
+        switch c.introducer {
+        case .let, .inout:
+          fatalError("not implemented")
+        case .var:
+          fatalError("not implemented")
+        case .sinklet, .sinkvar:
+          return TupleType.Element(label: nil, type: c.type)
+        }
+      })))
+    }
 
-    return .lambda(LambdaType(environment: .unit, inputs: inputs, output: output))
+    // TODO: Determine if the lambda is mutating
+
+    return .lambda(LambdaType(environment: environment, inputs: inputs, output: output))
   }
 
   private mutating func realize(subscriptDecl id: NodeID<SubscriptDecl>) -> Type? {

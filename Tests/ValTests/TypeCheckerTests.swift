@@ -327,7 +327,7 @@ final class TypeCheckerTests: XCTestCase {
     XCTAssertTrue(checker.check(module: main))
   }
 
-  func testTrivialFreeFunction() {
+  func testTrivialFunction() {
 
     // fun f0() {}
     // fun f1() -> () {}
@@ -408,7 +408,7 @@ final class TypeCheckerTests: XCTestCase {
 
   func testExpressionBodiedFunction() {
 
-    // fun f0() => 0
+    // fun forty_two() => 42
 
     var ast = AST()
     insertStandardLibraryMockup(into: &ast)
@@ -416,9 +416,35 @@ final class TypeCheckerTests: XCTestCase {
 
     ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
       introducer: SourceRepresentable(value: .fun),
-      identifier: SourceRepresentable(value: "f0"),
+      identifier: SourceRepresentable(value: "forty_two"),
       body: SourceRepresentable(
-        value: .expr(AnyExprID(ast.insert(IntegerLiteralExpr(value: "0")))))))))
+        value: .expr(AnyExprID(ast.insert(IntegerLiteralExpr(value: "42")))))))))
+
+    var checker = TypeChecker(ast: ast)
+    XCTAssertTrue(checker.check(module: main))
+  }
+
+  func testSinkCapturingFunction() {
+
+    // fun f0[sink let x = ()]() {}
+
+    var ast = AST()
+    let main = ast.insert(ModuleDecl(name: "main"))
+
+    ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
+      introducer: SourceRepresentable(value: .fun),
+      identifier: SourceRepresentable(value: "f0"),
+      captures: [
+        ast.insert(BindingDecl(
+          pattern: ast.insert(BindingPattern(
+            introducer: SourceRepresentable(value: .sinklet),
+            subpattern: AnyPatternID(ast.insert(NamePattern(
+              decl: ast.insert(VarDecl(
+                identifier: SourceRepresentable(value: "x")))))))),
+          initializer: AnyExprID(ast.insert(TupleExpr())))),
+      ],
+      body: SourceRepresentable(
+        value: .block(ast.insert(BraceStmt())))))))
 
     var checker = TypeChecker(ast: ast)
     XCTAssertTrue(checker.check(module: main))
