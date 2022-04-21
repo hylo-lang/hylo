@@ -28,25 +28,26 @@ struct ConstraintSolver {
   /// The assumptions of the type solver.
   var assumptions = SubstitutionMap()
 
-  /// The current penalities of the solver's solution.
-  var penalities: Int = 0
+  /// The current penalties of the solver's solution.
+  var penalties: Int = 0
 
   /// The current set of errors the solver encountered.
   var errors: [TypeError] = []
 
-  /// The best solution computed so far.
-  var best: Solution?
+  /// The score of the best solution computed so far.
+  var best = Solution.Score.worst
 
   /// The current score of the solver's solution.
   var score: Solution.Score {
-    Solution.Score(errorCount: errors.count, penalities: penalities)
+    Solution.Score(errorCount: errors.count, penalties: penalties)
   }
 
-  /// Solves the constraints.
-  mutating func solve() -> Solution {
+  /// Solves the constraints and returns the best solution, or `nil` if a better solution has
+  /// already been computed.
+  mutating func solve() -> Solution? {
     while let constraint = fresh.popLast() {
       // Make sure the current solution is still worth exploring.
-      if let best = best, score > best.score { return best }
+      if score > best { return nil }
 
       let result: SolverResult
       switch constraint.constraint {
@@ -54,6 +55,8 @@ struct ConstraintSolver {
         result = solve(l, conformsTo: traits)
       case .equality(let l, let r):
         result = solve(l, equalsTo: r)
+      case .disjunction:
+        return solve(disjunction: constraint)
       default:
         fatalError("not implemented")
       }
@@ -68,7 +71,7 @@ struct ConstraintSolver {
       }
     }
 
-    return solution()
+    return finalize()
   }
 
   private mutating func solve(_ l: Type, conformsTo traits: Set<TraitType>) -> SolverResult {
@@ -111,12 +114,46 @@ struct ConstraintSolver {
     }
   }
 
+  private mutating func solve(disjunction: LocatableConstraint) -> Solution {
+    guard case .disjunction(let minterms) = disjunction.constraint else { unreachable() }
+
+    var solutions: [Solution] = []
+    for minterm in minterms {
+      // Explore the result of this choice.
+      var subsolver = self
+      subsolver.penalties += minterm.penalties
+      for constraint in minterm.constraints {
+        subsolver.fresh.append(LocatableConstraint(
+          constraint, node: disjunction.node, cause: disjunction.cause))
+      }
+
+      guard let solution = subsolver.solve() else { continue }
+      if solution.score < best {
+        best = solution.score
+        solutions = [solution]
+      } else if solution.score == best {
+        // TODO: Avoid duplicates
+        solutions.append(solution)
+      }
+    }
+
+    assert(!solutions.isEmpty)
+    if solutions.count == 1 {
+      return solutions[0]
+    } else {
+      // TODO: Merge remaining solutions
+      var s = solutions[0]
+      s.errors.append(TypeError(kind: .ambiguousDisjunction, cause: disjunction))
+      return s
+    }
+  }
+
   /// Creates a solution from the current state.
-  private func solution() -> Solution {
+  private func finalize() -> Solution {
     assert(fresh.isEmpty)
     var s = Solution(
       assumptions: assumptions.flattened(),
-      penalities: penalities,
+      penalties: penalties,
       errors: errors)
     for constraint in stale {
       s.errors.append(TypeError(kind: .staleConstaint, cause: constraint))

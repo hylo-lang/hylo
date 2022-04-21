@@ -342,6 +342,7 @@ final class TypeCheckerTests: XCTestCase {
   func testBindingTypeInferenceWithHints() {
 
     // let x0: (Int, Double) = (2, 3)
+    // let x1: (_, Double) = (2, 3)
 
     var ast = AST()
     insertStandardLibraryMockup(into: &ast)
@@ -359,6 +360,32 @@ final class TypeCheckerTests: XCTestCase {
               value: TupleTypeExpr.Element(
                 type: AnyTypeExprID(ast.insert(NameTypeExpr(
                   identifier: SourceRepresentable(value: "Int")))))),
+            SourceRepresentable(
+              value: TupleTypeExpr.Element(
+                type: AnyTypeExprID(ast.insert(NameTypeExpr(
+                  identifier: SourceRepresentable(value: "Double")))))),
+          ]))))),
+      initializer: AnyExprID(ast.insert(TupleExpr(
+        elements: [
+          SourceRepresentable(
+            value: TupleExpr.Element(
+              value: AnyExprID(ast.insert(IntegerLiteralExpr(value: "2"))))),
+          SourceRepresentable(
+            value: TupleExpr.Element(
+              value: AnyExprID(ast.insert(IntegerLiteralExpr(value: "3"))))),
+        ])))))))
+
+    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+      pattern: ast.insert(BindingPattern(
+        introducer: SourceRepresentable(value: .let),
+        subpattern: AnyPatternID(ast.insert(NamePattern(
+          decl: ast.insert(VarDecl(
+            identifier: SourceRepresentable(value: "x0")))))),
+        annotation: AnyTypeExprID(ast.insert(TupleTypeExpr(
+          elements: [
+            SourceRepresentable(
+              value: TupleTypeExpr.Element(
+                type: AnyTypeExprID(ast.insert(WildcardTypeExpr())))),
             SourceRepresentable(
               value: TupleTypeExpr.Element(
                 type: AnyTypeExprID(ast.insert(NameTypeExpr(

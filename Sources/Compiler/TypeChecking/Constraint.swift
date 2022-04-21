@@ -1,5 +1,18 @@
+import Utils
+
 /// A constraint.
 public enum Constraint: Hashable {
+
+  /// A set of constraints in a disjunction.
+  public struct Minterm: Hashable {
+
+    /// The constraints.
+    public var constraints: [Constraint]
+
+    /// The penalties associated with this set.
+    public var penalties: Int
+
+  }
 
   /// A constraint `L == R` specifying that `L` is exactly the same type as `R`.
   ///
@@ -14,6 +27,11 @@ public enum Constraint: Hashable {
 
   /// A size constraint denoting a predicate over size parameters.
   case size(AnyExprID)
+
+  /// A disjunction of two or more constraint sets.
+  ///
+  /// Each set is associated with a penalty to represent the preferred alternatives.
+  case disjunction([Minterm])
 
   /// Calls `visitor` with mutable projections of the types contained in this constraint.
   ///
@@ -34,6 +52,13 @@ public enum Constraint: Hashable {
       visitor(&l)
       self = .conformance(l: l, traits: traits)
 
+    case .disjunction(var minterms):
+      for i in 0 ..< minterms.count {
+        for j in 0 ..< minterms[i].constraints.count {
+          minterms[i].constraints[j].visitTypes(visitor)
+        }
+      }
+
     case .size:
       return
     }
@@ -49,8 +74,16 @@ public enum Constraint: Hashable {
       return "\(l) <: \(r)"
 
     case .conformance(let l, let traits):
-      let t = traits.map({ "\($0)" }).joined(separator: ", ")
+      let t = String.joining(traits, separator: ", ")
       return "\(l): \(t)"
+
+    case .disjunction(let sets):
+      return String.joining(
+        sets.map({ (minterm) -> String in
+          let cs = String.joining("\((minterm))", separator: " ∧ ")
+          return "(\(cs)):\(minterm.penalties)"
+        }),
+        separator: " ∨ ")
 
     case .size(let e):
       return "expr"

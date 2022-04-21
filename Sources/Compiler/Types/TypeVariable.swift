@@ -9,7 +9,7 @@ public struct TypeVariable: TypeProtocol, Hashable {
   /// The AST node associated with this type variable, if any.
   public let node: Incidental<AnyNodeID?>
 
-  public let flags: TypeFlags = .isCanonical
+  public let flags: TypeFlags = [.isCanonical, .hasVariable]
 
   /// Creates a new type variable, optionally associated with the specified node.
   public init(node: AnyNodeID? = nil) {

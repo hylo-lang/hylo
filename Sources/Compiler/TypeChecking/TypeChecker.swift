@@ -309,6 +309,7 @@ public struct TypeChecker {
     }
 
     // TODO: Complete underspecified generic signatures
+    assert(!shape.type[.hasVariable])
 
     if success {
       declTypes[i] = shape.type
@@ -317,7 +318,7 @@ public struct TypeChecker {
     } else {
       declTypes[i] = nil
       declRequests[i] = .failure
-      return true
+      return false
     }
   }
 
@@ -845,7 +846,7 @@ public struct TypeChecker {
       // Solve the constraints.
       var solver = ConstraintSolver(
         checker: generator.checker.release(), scope: scope, fresh: constraints)
-      let solution = solver.solve()
+      let solution = solver.solve()!
 
       // Apply the solution.
       for (id, type) in generator.inferredTypes.storage {
@@ -1279,6 +1280,8 @@ public struct TypeChecker {
       return realize(name: NodeID(converting: expr)!, inScope: scope)
     case .tupleTypeExpr:
       return realize(tuple: NodeID(converting: expr)!, inScope: scope)
+    case .wildcardTypeExpr:
+      return .variable(TypeVariable(node: AnyNodeID(expr)))
     default:
       unreachable("unexpected type expression")
     }

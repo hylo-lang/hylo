@@ -47,16 +47,33 @@ struct ConstraintGenerator: ExprVisitor {
   }
 
   mutating func visit(integerLiteral id: NodeID<IntegerLiteralExpr>) -> AnyExprID {
-    if let expectedType = inferredTypes[AnyExprID(id)] {
-      // The type of the expression must conform to `ExpressibleByIntegerLiteral`.
-      let trait = TraitType(named: "ExpressibleByIntegerLiteral", ast: checker.ast)
-        ?? unreachable()
+    let trait = TraitType(named: "ExpressibleByIntegerLiteral", ast: checker.ast)
+      ?? unreachable()
+
+    switch inferredTypes[id] {
+    case .some(.variable(let tau)):
+      // The type is a variable, possibly constrained elsewhere; constrain it to either be `Int` or
+      // conform to `ExpressibleByIntegerLiteral`.
+      constraints.append(LocatableConstraint(
+        .disjunction([
+          Constraint.Minterm(
+            constraints: [.equality(l: .variable(tau), r: .int(in: checker.ast))],
+            penalties: 0),
+          Constraint.Minterm(
+            constraints: [.conformance(l: .variable(tau), traits: [trait])],
+            penalties: 1),
+        ])))
+
+    case .some(let expectedType):
+      // The type of has been fixed; constrain it to conform to `ExpressibleByIntegerLiteral`.
       constraints.append(LocatableConstraint(
         .conformance(l: expectedType, traits: [trait]), node: AnyNodeID(id)))
-    } else {
+
+    case nil:
       // Without contextual information, infer the type of the literal as `Val.Int`.
-      inferredTypes[AnyExprID(id)] = .int(in: checker.ast)
+      inferredTypes[id] = .int(in: checker.ast)
     }
+
     return AnyExprID(id)
   }
 
@@ -102,7 +119,7 @@ struct ConstraintGenerator: ExprVisitor {
     // If the expected type is a tuple compatible with the shape of the expression, propagate that
     // information down the expression tree. Otherwise, infer the type of the expression from the
     // leaves and use type constraints to detect potential mismatch.
-    if case .tuple(let type) = inferredTypes[AnyExprID(id)],
+    if case .tuple(let type) = inferredTypes[id],
        type.elements.elementsEqual(expr.elements, by: { (a, b) in a.label == b.value.label })
     {
       for i in 0 ..< expr.elements.count {
@@ -128,15 +145,15 @@ struct ConstraintGenerator: ExprVisitor {
 
       // If there was an expected type, constrain it to be equal to the inferred type. Otherwise,
       // assign the latter to the expression.
-      if let expectedType = inferredTypes[AnyExprID(id)] {
+      if let expectedType = inferredTypes[id] {
         constraints.append(LocatableConstraint(
           .equality(l: expectedType, r: inferredType), node: AnyNodeID(id)))
       } else {
-        inferredTypes[AnyExprID(id)] = inferredType
+        inferredTypes[id] = inferredType
       }
     }
 
-    assert(inferredTypes[AnyExprID(id)] != nil)
+    assert(inferredTypes[id] != nil)
     checker.ast[id] = expr
     return AnyExprID(id)
   }

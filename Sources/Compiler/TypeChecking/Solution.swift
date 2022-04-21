@@ -6,13 +6,13 @@ struct Solution {
 
     let errorCount: Int
 
-    let penalities: Int
+    let penalties: Int
 
-    static let worst = Score(errorCount: Int.max, penalities: Int.max)
+    static let worst = Score(errorCount: Int.max, penalties: Int.max)
 
     static func < (l: Self, r: Self) -> Bool {
       l.errorCount == r.errorCount
-        ? l.penalities < r.penalities
+        ? l.penalties < r.penalties
         : l.errorCount < r.errorCount
     }
 
@@ -21,14 +21,14 @@ struct Solution {
   /// The assumptions made by the constraint solver.
   var assumptions: [TypeVariable: Type]
 
-  /// The penalities of the solution.
-  var penalities: Int
+  /// The penalties of the solution.
+  var penalties: Int
 
   /// The errors associated with the solution.
   var errors: [TypeError]
 
   /// The score of the solution.
-  var score: Score { Score(errorCount: errors.count, penalities: penalities) }
+  var score: Score { Score(errorCount: errors.count, penalties: penalties) }
 
   /// Reifies the given type, substituting each free variable by its corresponding binding.
   func reify(_ type: Type) -> Type {
