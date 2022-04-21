@@ -3,6 +3,52 @@ import Utils
 /// The ID of a declaration.
 public protocol DeclID: NodeIDProtocol {}
 
+extension DeclID {
+
+  /// Calls the `visitor.visit` method corresponding to the type of this node.
+  public func accept<V: DeclVisitor>(_ visitor: inout V) -> V.Result {
+    switch kind {
+    case .associatedSizeDecl:
+      return visitor.visit(associatedSize: NodeID(unsafeRawValue: rawValue))
+    case .associatedTypeDecl:
+      return visitor.visit(associatedType: NodeID(unsafeRawValue: rawValue))
+    case .bindingDecl:
+      return visitor.visit(binding: NodeID(unsafeRawValue: rawValue))
+    case .extensionDecl:
+      return visitor.visit(extension: NodeID(unsafeRawValue: rawValue))
+    case .funDecl:
+      return visitor.visit(fun: NodeID(unsafeRawValue: rawValue))
+    case .genericTypeParamDecl:
+      return visitor.visit(genericTypeParam: NodeID(unsafeRawValue: rawValue))
+    case .genericSizeParamDecl:
+      return visitor.visit(genericSizeParam: NodeID(unsafeRawValue: rawValue))
+    case .methodImplDecl:
+      return visitor.visit(methodImpl: NodeID(unsafeRawValue: rawValue))
+    case .moduleDecl:
+      return visitor.visit(module: NodeID(unsafeRawValue: rawValue))
+    case .namespaceDecl:
+      return visitor.visit(namespace: NodeID(unsafeRawValue: rawValue))
+    case .paramDecl:
+      return visitor.visit(param: NodeID(unsafeRawValue: rawValue))
+    case .productTypeDecl:
+      return visitor.visit(productType: NodeID(unsafeRawValue: rawValue))
+    case .subscriptDecl:
+      return visitor.visit(subscript: NodeID(unsafeRawValue: rawValue))
+    case .subscriptImplDecl:
+      return visitor.visit(subscriptImpl: NodeID(unsafeRawValue: rawValue))
+    case .traitDecl:
+      return visitor.visit(trait: NodeID(unsafeRawValue: rawValue))
+    case .typeAliasDecl:
+      return visitor.visit(typeAlias: NodeID(unsafeRawValue: rawValue))
+    case .varDecl:
+      return visitor.visit(var: NodeID(unsafeRawValue: rawValue))
+    default:
+      unreachable()
+    }
+  }
+
+}
+
 extension NodeID: DeclID where T: Decl {}
 
 /// The type-erased ID of a declaration.
@@ -19,46 +65,5 @@ public struct AnyDeclID: DeclID {
   public var rawValue: Int { base.rawValue }
 
   public var kind: NodeKind { base.kind }
-
-  public func accept<V: DeclVisitor>(_ visitor: inout V) -> V.Result {
-    switch base.kind {
-    case AssociatedSizeDecl.kind:
-      return visitor.visit(associatedSize: NodeID(rawValue: base.rawValue))
-    case AssociatedTypeDecl.kind:
-      return visitor.visit(associatedType: NodeID(rawValue: base.rawValue))
-    case BindingDecl.kind:
-      return visitor.visit(binding: NodeID(rawValue: base.rawValue))
-    case ExtensionDecl.kind:
-      return visitor.visit(extension: NodeID(rawValue: base.rawValue))
-    case FunDecl.kind:
-      return visitor.visit(fun: NodeID(rawValue: base.rawValue))
-    case GenericTypeParamDecl.kind:
-      return visitor.visit(genericTypeParam: NodeID(rawValue: base.rawValue))
-    case GenericSizeParamDecl.kind:
-      return visitor.visit(genericSizeParam: NodeID(rawValue: base.rawValue))
-    case MethodImplDecl.kind:
-      return visitor.visit(methodImpl: NodeID(rawValue: base.rawValue))
-    case ModuleDecl.kind:
-      return visitor.visit(module: NodeID(rawValue: base.rawValue))
-    case NamespaceDecl.kind:
-      return visitor.visit(namespace: NodeID(rawValue: base.rawValue))
-    case ParamDecl.kind:
-      return visitor.visit(param: NodeID(rawValue: base.rawValue))
-    case ProductTypeDecl.kind:
-      return visitor.visit(productType: NodeID(rawValue: base.rawValue))
-    case SubscriptDecl.kind:
-      return visitor.visit(subscript: NodeID(rawValue: base.rawValue))
-    case SubscriptImplDecl.kind:
-      return visitor.visit(subscriptImpl: NodeID(rawValue: base.rawValue))
-    case TraitDecl.kind:
-      return visitor.visit(trait: NodeID(rawValue: base.rawValue))
-    case TypeAliasDecl.kind:
-      return visitor.visit(typeAlias: NodeID(rawValue: base.rawValue))
-    case VarDecl.kind:
-      return visitor.visit(var: NodeID(rawValue: base.rawValue))
-    default:
-      unreachable()
-    }
-  }
 
 }

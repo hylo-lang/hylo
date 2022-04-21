@@ -27,7 +27,7 @@ public struct AST {
 
   /// Inserts `n` into `self`.
   public mutating func insert<T: Node>(_ n: T) -> NodeID<T> {
-    let i = NodeID<T>(rawValue: nodes.count)
+    let i = NodeID<T>(unsafeRawValue: nodes.count)
     if let n = n as? ModuleDecl {
       precondition(!modules.contains(where: { self[$0].name == n.name }), "duplicate module")
       modules.append(i as! NodeID<ModuleDecl>)

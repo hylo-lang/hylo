@@ -34,7 +34,7 @@ extension PatternID {
   /// Returns the IDs of the named patterns contained within in the pattern denoted by this ID.
   public func names(ast: AST) -> [NodeID<NamePattern>] {
     var collector = NamePatternCollector(ast: ast)
-    AnyPatternID(self).accept(&collector)
+    accept(&collector)
     return collector.namePatterns
   }
 

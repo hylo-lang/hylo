@@ -3,6 +3,38 @@ import Utils
 /// The ID of a statement.
 public protocol StmtID: NodeIDProtocol {}
 
+extension StmtID {
+
+  /// Calls the `visitor.visit` method corresponding to the type of this node.
+  public func accept<V: StmtVisitor>(_ visitor: inout V) -> V.Result {
+    switch kind {
+    case .braceStmt:
+      return visitor.visit(brace: NodeID(unsafeRawValue: rawValue))
+    case .breakStmt:
+      return visitor.visit(break: NodeID(unsafeRawValue: rawValue))
+    case .continueStmt:
+      return visitor.visit(continue: NodeID(unsafeRawValue: rawValue))
+    case .declStmt:
+      return visitor.visit(decl: NodeID(unsafeRawValue: rawValue))
+    case .doWhileStmt:
+      return visitor.visit(doWhile: NodeID(unsafeRawValue: rawValue))
+    case .exprStmt:
+      return visitor.visit(expr: NodeID(unsafeRawValue: rawValue))
+    case .forStmt:
+      return visitor.visit(for: NodeID(unsafeRawValue: rawValue))
+    case .returnStmt:
+      return visitor.visit(return: NodeID(unsafeRawValue: rawValue))
+    case .whileStmt:
+      return visitor.visit(while: NodeID(unsafeRawValue: rawValue))
+    case .yieldStmt:
+      return visitor.visit(yield: NodeID(unsafeRawValue: rawValue))
+    default:
+      unreachable()
+    }
+  }
+
+}
+
 extension NodeID: StmtID where T: Stmt {}
 
 /// The type-erased ID of a statement.
@@ -19,32 +51,5 @@ public struct AnyStmtID: StmtID {
   public var rawValue: Int { base.rawValue }
 
   public var kind: NodeKind { base.kind }
-
-  public func accept<V: StmtVisitor>(_ visitor: inout V) -> V.Result {
-    switch base.kind {
-    case BraceStmt.kind:
-      return visitor.visit(brace: NodeID(rawValue: base.rawValue))
-    case BreakStmt.kind:
-      return visitor.visit(break: NodeID(rawValue: base.rawValue))
-    case ContinueStmt.kind:
-      return visitor.visit(continue: NodeID(rawValue: base.rawValue))
-    case DeclStmt.kind:
-      return visitor.visit(decl: NodeID(rawValue: base.rawValue))
-    case DoWhileStmt.kind:
-      return visitor.visit(doWhile: NodeID(rawValue: base.rawValue))
-    case ExprStmt.kind:
-      return visitor.visit(expr: NodeID(rawValue: base.rawValue))
-    case ForStmt.kind:
-      return visitor.visit(for: NodeID(rawValue: base.rawValue))
-    case ReturnStmt.kind:
-      return visitor.visit(return: NodeID(rawValue: base.rawValue))
-    case WhileStmt.kind:
-      return visitor.visit(while: NodeID(rawValue: base.rawValue))
-    case YieldStmt.kind:
-      return visitor.visit(yield: NodeID(rawValue: base.rawValue))
-    default:
-      unreachable()
-    }
-  }
 
 }
