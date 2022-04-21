@@ -52,6 +52,8 @@ struct ConstraintSolver {
       switch constraint.constraint {
       case .conformance(let l, let traits):
         result = solve(l, conformsTo: traits)
+      case .equality(let l, let r):
+        result = solve(l, equalsTo: r)
       default:
         fatalError("not implemented")
       }
@@ -85,6 +87,24 @@ struct ConstraintSolver {
       } else {
         return .failure(.doesNotConform(l, traits: traits, scope: scope))
       }
+
+    default:
+      fatalError("not implemented")
+    }
+  }
+
+  private mutating func solve(_ l: Type, equalsTo r: Type) -> SolverResult {
+    let l = assumptions[l]
+    let r = assumptions[r]
+
+    switch (l, r) {
+    case (.variable(let tau), _):
+      assumptions.assign(r, to: tau)
+      return .success
+
+    case (_, .variable(let tau)):
+      assumptions.assign(l, to: tau)
+      return .success
 
     default:
       fatalError("not implemented")
