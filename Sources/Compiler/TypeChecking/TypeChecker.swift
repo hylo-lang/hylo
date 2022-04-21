@@ -1591,15 +1591,14 @@ public struct TypeChecker {
 
     // Realize the output type.
     let output: Type
-    if case .expr(var body) = decl.body?.value {
-      // If the function is expression-bodied, its return type must be inferred.
-      assert(decl.output == nil, "unexpected return annotation on expression-bodied function")
-      defer { ast[id].body?.value = .expr(body) }
-      guard let type = infer(expr: &body, inScope: declScope) else { return nil }
-      output = type
-    } else if let o = decl.output {
+    if let o = decl.output {
       // Use explicit return annotations.
       guard let type = realize(o, inScope: declScope) else { return nil }
+      output = type
+    } else if case .expr(var body) = decl.body?.value {
+      // If the function is expression-bodied, its return type may be inferred.
+      defer { ast[id].body?.value = .expr(body) }
+      guard let type = infer(expr: &body, inScope: declScope) else { return nil }
       output = type
     } else {
       // Default to `()`

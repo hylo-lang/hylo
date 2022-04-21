@@ -459,7 +459,7 @@ final class TypeCheckerTests: XCTestCase {
 
   func testExpressionBodiedFunction() {
 
-    // fun forty_two() => 42
+    // fun forty_two() { 42 }
 
     var ast = AST()
     insertStandardLibraryMockup(into: &ast)
