@@ -182,6 +182,8 @@ public struct NodeKind: Hashable {
     1 << 18 | typeExpr.rawValue)
   public static let unionTypeExpr = NodeKind(
     1 << 19 | typeExpr.rawValue)
+  public static let wildcardTypeExpr = NodeKind(
+    1 << 20 | typeExpr.rawValue)
 
 }
 
@@ -261,6 +263,7 @@ extension NodeKind: CustomStringConvertible {
     case .storedProjectionTypeExpr  : return "StoredProjectionTypeExpr"
     case .tupleTypeExpr             : return "TupleTypeExpr"
     case .unionTypeExpr             : return "UnionTypeExpr"
+    case .wildcardTypeExpr          : return "WildcardTypeExpr"
 
     default                         : return("Unknown")
     }

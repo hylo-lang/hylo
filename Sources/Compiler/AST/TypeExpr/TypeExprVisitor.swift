@@ -24,5 +24,7 @@ public protocol TypeExprVisitor {
 
   mutating func visit(union: NodeID<UnionTypeExpr>) -> Result
 
+  mutating func visit(wildcard: NodeID<WildcardTypeExpr>) -> Result
+
 
 }

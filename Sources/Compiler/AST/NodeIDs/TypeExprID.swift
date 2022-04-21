@@ -28,6 +28,8 @@ extension TypeExprID {
       return visitor.visit(tuple: NodeID(unsafeRawValue: rawValue))
     case .unionTypeExpr:
       return visitor.visit(union: NodeID(unsafeRawValue: rawValue))
+    case .wildcardTypeExpr:
+      return visitor.visit(wildcard: NodeID(unsafeRawValue: rawValue))
     default:
       unreachable()
     }

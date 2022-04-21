@@ -500,6 +500,8 @@ struct ScopeHierarchyBuilder:
     }
   }
 
+  mutating func visit(wildcard i: NodeID<WildcardTypeExpr>) {}
+
   // MARK: Other nodes
 
   mutating func visit(genericClause clause: GenericClause?) {
