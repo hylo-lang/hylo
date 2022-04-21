@@ -291,11 +291,60 @@ final class TypeCheckerTests: XCTestCase {
     XCTAssertEqual(checker.diagnostics.count, 1)
   }
 
-  func testBindingDecl() {
+  func testBindingTypeInference() {
 
-    // let x0: ((), ())) = ((), ())
+    // let x0 = ()
+    // let (y0, y1) = ((), ())
 
     var ast = AST()
+    let main = ast.insert(ModuleDecl(name: "main"))
+
+    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+      pattern: ast.insert(BindingPattern(
+        introducer: SourceRepresentable(value: .let),
+        subpattern: AnyPatternID(ast.insert(NamePattern(
+          decl: ast.insert(VarDecl(
+            identifier: SourceRepresentable(value: "x0")))))))),
+      initializer: AnyExprID(ast.insert(TupleExpr()))))))
+
+    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+      pattern: ast.insert(BindingPattern(
+        introducer: SourceRepresentable(value: .let),
+        subpattern: AnyPatternID(ast.insert(TuplePattern(
+          elements: [
+            SourceRepresentable(
+              value: TuplePattern.Element(
+                pattern: AnyPatternID(ast.insert(NamePattern(
+                  decl: ast.insert(VarDecl(
+                    identifier: SourceRepresentable(value: "y0"))))
+                )))),
+            SourceRepresentable(
+              value: TuplePattern.Element(
+                pattern: AnyPatternID(ast.insert(NamePattern(
+                  decl: ast.insert(VarDecl(
+                    identifier: SourceRepresentable(value: "y1"))))
+                )))),
+          ]))))),
+      initializer: AnyExprID(ast.insert(TupleExpr(
+        elements: [
+          SourceRepresentable(
+            value: TupleExpr.Element(
+              value: AnyExprID(ast.insert(TupleExpr())))),
+          SourceRepresentable(
+            value: TupleExpr.Element(
+              value: AnyExprID(ast.insert(TupleExpr())))),
+        ])))))))
+
+    var checker = TypeChecker(ast: ast)
+    XCTAssertTrue(checker.check(module: main))
+  }
+
+  func testBindingTypeInferenceWithHints() {
+
+    // let x0: (Int, Double) = (2, 3)
+
+    var ast = AST()
+    insertStandardLibraryMockup(into: &ast)
     let main = ast.insert(ModuleDecl(name: "main"))
 
     ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
@@ -308,19 +357,21 @@ final class TypeCheckerTests: XCTestCase {
           elements: [
             SourceRepresentable(
               value: TupleTypeExpr.Element(
-                type: AnyTypeExprID(ast.insert(TupleTypeExpr())))),
+                type: AnyTypeExprID(ast.insert(NameTypeExpr(
+                  identifier: SourceRepresentable(value: "Int")))))),
             SourceRepresentable(
               value: TupleTypeExpr.Element(
-                type: AnyTypeExprID(ast.insert(TupleTypeExpr())))),
+                type: AnyTypeExprID(ast.insert(NameTypeExpr(
+                  identifier: SourceRepresentable(value: "Double")))))),
           ]))))),
       initializer: AnyExprID(ast.insert(TupleExpr(
         elements: [
           SourceRepresentable(
             value: TupleExpr.Element(
-              value: AnyExprID(ast.insert(TupleExpr())))),
+              value: AnyExprID(ast.insert(IntegerLiteralExpr(value: "2"))))),
           SourceRepresentable(
             value: TupleExpr.Element(
-              value: AnyExprID(ast.insert(TupleExpr())))),
+              value: AnyExprID(ast.insert(IntegerLiteralExpr(value: "3"))))),
         ])))))))
 
     var checker = TypeChecker(ast: ast)

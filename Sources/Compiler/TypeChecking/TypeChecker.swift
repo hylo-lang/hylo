@@ -1201,8 +1201,8 @@ public struct TypeChecker {
     guard let decls = scopeHierarchy.containees[scope] else { return [:] }
 
     var table: LookupTable = [:]
-    for i in decls {
-      switch i.kind {
+    for id in decls {
+      switch id.kind {
       case .associatedSizeDecl,
            .associatedTypeDecl,
            .genericSizeParamDecl,
@@ -1212,15 +1212,22 @@ public struct TypeChecker {
            .productTypeDecl,
            .traitDecl,
            .typeAliasDecl:
-        let name = (ast[i] as! SingleEntityDecl).name
-        table[name, default: []].insert(AnyDeclID(i))
+        let name = (ast[id] as! SingleEntityDecl).name
+        table[name, default: []].insert(AnyDeclID(id))
+
+      case .bindingDecl:
+        let decl = ast[NodeID<BindingDecl>(converting: id)!]
+        for subpattern in decl.pattern.names(ast: ast) {
+          let i = ast[subpattern].decl
+          table[ast[i].name, default: []].insert(AnyDeclID(i))
+        }
 
       case .funDecl:
-        let decl = ast[NodeID<FunDecl>(converting: i)!]
+        let decl = ast[NodeID<FunDecl>(converting: id)!]
         guard let name = decl.identifier?.value else { continue }
         switch decl.body?.value {
         case .block, .expr, nil:
-          table[name, default: []].insert(AnyDeclID(i))
+          table[name, default: []].insert(AnyDeclID(id))
 
         case .bundle(let impls):
           modifying(&table[name, default: []], { entries in
@@ -1233,10 +1240,10 @@ public struct TypeChecker {
       case .methodImplDecl:
         let decl = ast[NodeID<FunDecl>(converting: scope)!]
         guard let name = decl.identifier?.value else { continue }
-        table[name, default: []].insert(AnyDeclID(i))
+        table[name, default: []].insert(AnyDeclID(id))
 
       case .subscriptDecl:
-        let decl = ast[NodeID<SubscriptDecl>(converting: i)!]
+        let decl = ast[NodeID<SubscriptDecl>(converting: id)!]
         let name = decl.identifier?.value ?? "[]"
         modifying(&table[name, default: []], { entries in
           for j in decl.impls {
@@ -1247,7 +1254,7 @@ public struct TypeChecker {
       case .subscriptImplDecl:
         let decl = ast[NodeID<SubscriptDecl>(converting: scope)!]
         let name = decl.identifier?.value ?? "[]"
-        table[name, default: []].insert(AnyDeclID(i))
+        table[name, default: []].insert(AnyDeclID(id))
 
       default:
         unreachable("unexpected declaration")
