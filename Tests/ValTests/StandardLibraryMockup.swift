@@ -13,7 +13,7 @@ func insertStandardLibraryMockup(into ast: inout AST) -> NodeID<ModuleDecl> {
       AnyDeclID(ast.insert(FunDecl(
         introducer: SourceRepresentable(value: .`init`),
         parameters: [
-          ast.insert(ParamDecl(
+          ast.insert(ParameterDecl(
             identifier: SourceRepresentable(value: "integer_literal"),
             annotation: AnyTypeExprID(ast.insert(NameTypeExpr(
               domain: AnyTypeExprID(ast.insert(NameTypeExpr(
@@ -35,7 +35,7 @@ func insertStandardLibraryMockup(into ast: inout AST) -> NodeID<ModuleDecl> {
         introducer: SourceRepresentable(value: .`init`),
         accessModifier: SourceRepresentable(value: .public),
         parameters: [
-          ast.insert(ParamDecl(
+          ast.insert(ParameterDecl(
             identifier: SourceRepresentable(value: "integer_literal"),
             annotation: AnyTypeExprID(ast.insert(NameTypeExpr(
               domain: AnyTypeExprID(ast.insert(NameTypeExpr(
@@ -61,7 +61,7 @@ func insertStandardLibraryMockup(into ast: inout AST) -> NodeID<ModuleDecl> {
         introducer: SourceRepresentable(value: .`init`),
         accessModifier: SourceRepresentable(value: .public),
         parameters: [
-          ast.insert(ParamDecl(
+          ast.insert(ParameterDecl(
             identifier: SourceRepresentable(value: "integer_literal"),
             annotation: AnyTypeExprID(ast.insert(NameTypeExpr(
               domain: AnyTypeExprID(ast.insert(NameTypeExpr(

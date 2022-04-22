@@ -20,7 +20,7 @@ extension TypeExprID {
       return visitor.visit(lambda: NodeID(unsafeRawValue: rawValue))
     case .nameTypeExpr:
       return visitor.visit(name: NodeID(unsafeRawValue: rawValue))
-    case .paramTypeExpr:
+    case .parameterTypeExpr:
       return visitor.visit(param: NodeID(unsafeRawValue: rawValue))
     case .storedProjectionTypeExpr:
       return visitor.visit(storedProjection: NodeID(unsafeRawValue: rawValue))

@@ -147,7 +147,7 @@ struct ScopeHierarchyBuilder:
     })
   }
 
-  mutating func visit(param i: NodeID<ParamDecl>) {
+  mutating func visit(param i: NodeID<ParameterDecl>) {
     hierarchy.insert(decl: i, into: innermost!)
     ast[i].annotation?.accept(&self)
     ast[i].defaultValue?.accept(&self)
@@ -462,7 +462,7 @@ struct ScopeHierarchyBuilder:
   mutating func visit(lambda i: NodeID<LambdaTypeExpr>) {
     ast[i].environment?.accept(&self)
     for param in ast[i].parameters {
-      visit(param: param)
+      visit(param: param.type)
     }
     ast[i].output.accept(&self)
   }
@@ -480,7 +480,7 @@ struct ScopeHierarchyBuilder:
     }
   }
 
-  mutating func visit(param i: NodeID<ParamTypeExpr>) {
+  mutating func visit(param i: NodeID<ParameterTypeExpr>) {
     ast[i].bareType.accept(&self)
   }
 

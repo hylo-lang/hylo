@@ -16,7 +16,7 @@ public protocol TypeExprVisitor {
 
   mutating func visit(name: NodeID<NameTypeExpr>) -> Result
 
-  mutating func visit(param: NodeID<ParamTypeExpr>) -> Result
+  mutating func visit(param: NodeID<ParameterTypeExpr>) -> Result
 
   mutating func visit(storedProjection: NodeID<StoredProjectionTypeExpr>) -> Result
 

@@ -356,6 +356,8 @@ public struct TypeChecker {
       ast[j].defaultValue = defaultValue
     }
 
+    let output = (declTypes[id]!!.base as! CallableType).output
+
     return success
   }
 
@@ -375,7 +377,7 @@ public struct TypeChecker {
     fatalError("not implemented")
   }
 
-  private mutating func check(param: ParamDecl) -> Bool {
+  private mutating func check(parameter: ParameterDecl) -> Bool {
     fatalError("not implemented")
   }
 
@@ -1209,7 +1211,7 @@ public struct TypeChecker {
            .genericSizeParamDecl,
            .genericTypeParamDecl,
            .namespaceDecl,
-           .paramDecl,
+           .parameterDecl,
            .productTypeDecl,
            .traitDecl,
            .typeAliasDecl:
@@ -1533,7 +1535,7 @@ public struct TypeChecker {
     let decl = ast[id]
     let declScope = AnyScopeID(id)
 
-    var inputs: [LambdaType.Parameter] = []
+    var inputs: [CallableTypeParameter] = []
     var success = true
 
     // Realize the input types.
@@ -1550,7 +1552,7 @@ public struct TypeChecker {
 
           declTypes[i] = type
           declRequests[i] = .typeRealizationCompleted
-          inputs.append(LambdaType.Parameter(label: parameter.label?.value, type: type))
+          inputs.append(CallableTypeParameter(label: parameter.label?.value, type: type))
         } else {
           declTypes[i] = nil
           declRequests[i] = .failure
@@ -1568,7 +1570,7 @@ public struct TypeChecker {
          .traitDecl,
          .typeAliasDecl:
       let receiver = realizeSelfTypeExpr(inScope: parent)!
-      inputs.insert(LambdaType.Parameter(label: nil, type: receiver), at: 0)
+      inputs.insert(CallableTypeParameter(label: nil, type: receiver), at: 0)
       fatalError("not implemented")
 
     default:
@@ -1636,7 +1638,7 @@ public struct TypeChecker {
   private mutating func _realize(subscriptDecl id: NodeID<SubscriptDecl>) -> Type? {
     let decl = ast[id]
 
-    var inputs: [SubscriptType.Parameter] = []
+    var inputs: [CallableTypeParameter] = []
 
     // Realize the input types.
     if decl.parameters != nil { fatalError("not implemented") }
@@ -1648,7 +1650,7 @@ public struct TypeChecker {
          .traitDecl,
          .typeAliasDecl:
       let receiver = realizeSelfTypeExpr(inScope: parent)!
-      inputs.insert(SubscriptType.Parameter(label: nil, type: receiver), at: 0)
+      inputs.insert(CallableTypeParameter(label: nil, type: receiver), at: 0)
 
     default:
       break

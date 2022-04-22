@@ -19,7 +19,7 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
   public var captures: [NodeID<BindingDecl>]
 
   /// The parameters of the subscript, unless the declaration denotes a computed property.
-  public var parameters: [NodeID<ParamDecl>]?
+  public var parameters: [NodeID<ParameterDecl>]?
 
   /// The output type annotation of the subscript.
   public var output: AnyTypeExprID
@@ -33,7 +33,7 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
     identifier: SourceRepresentable<Identifier>? = nil,
     genericClause: SourceRepresentable<GenericClause>? = nil,
     captures: [NodeID<BindingDecl>] = [],
-    parameters: [NodeID<ParamDecl>]? = nil,
+    parameters: [NodeID<ParameterDecl>]? = nil,
     output: AnyTypeExprID,
     impls: [NodeID<SubscriptImplDecl>]
   ) {

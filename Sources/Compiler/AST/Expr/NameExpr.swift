@@ -42,7 +42,7 @@ public struct NameExpr: Expr {
     self.arguments = arguments
   }
 
-  /// Creates a new operator expression.
+  /// Creates a new operator name expression.
   public init(
     domain: Domain = .none,
     stem: SourceRepresentable<Identifier>,
@@ -54,6 +54,17 @@ public struct NameExpr: Expr {
     self.labels = []
     self.notation = notation
     self.arguments = arguments
+  }
+
+  /// A string representation of the base name denoted by this expression.
+  public var baseName: String {
+    if let notation = notation {
+      return "\(notation)\(stem.value)"
+    } else if labels.isEmpty {
+      return stem.value
+    } else {
+      return stem.value + "(" + labels.joined(separator: ":") + ")"
+    }
   }
 
 }

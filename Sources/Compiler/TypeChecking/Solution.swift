@@ -66,18 +66,23 @@ struct Solution {
       return .lambda(LambdaType(
         environment: reify(type.environment),
         inputs: type.inputs.map({ p in
-          LambdaType.Parameter(
+          CallableTypeParameter(
             label: p.label,
             type: reify(p.type))
         }),
         output: reify(type.output)))
+
+    case .parameter(let type):
+      return .parameter(ParameterType(
+        convention: type.convention,
+        bareType: reify(type.bareType)))
 
     case .subscript(let type):
       return .subscript(SubscriptType(
         isProperty: type.isProperty,
         capabilities: type.capabilities,
         inputs: type.inputs.map({ p in
-          SubscriptType.Parameter(
+          CallableTypeParameter(
             label: p.label,
             type: reify(p.type))
         }),

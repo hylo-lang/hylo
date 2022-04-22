@@ -54,7 +54,7 @@ public struct FunDecl: GenericDecl, GenericScope {
   public var captures: [NodeID<BindingDecl>]
 
   /// The parameters of the function.
-  public var parameters: [NodeID<ParamDecl>]
+  public var parameters: [NodeID<ParameterDecl>]
 
   /// The return type annotation of the function, if any.
   public var output: AnyTypeExprID?
@@ -70,7 +70,7 @@ public struct FunDecl: GenericDecl, GenericScope {
     identifier: SourceRepresentable<Identifier>? = nil,
     genericClause: SourceRepresentable<GenericClause>? = nil,
     captures: [NodeID<BindingDecl>] = [],
-    parameters: [NodeID<ParamDecl>] = [],
+    parameters: [NodeID<ParameterDecl>] = [],
     output: AnyTypeExprID? = nil,
     body: SourceRepresentable<Body>? = nil
   ) {
