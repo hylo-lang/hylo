@@ -86,6 +86,9 @@ struct ScopeHierarchyBuilder:
     hierarchy.insert(decl: i, into: innermost!)
     nesting(in: i, { this in
       let decl = this.ast[i]
+
+      this.visit(genericClause: decl.genericClause?.value)
+
       for capture in decl.captures {
         this.visit(binding: capture)
       }
@@ -167,6 +170,9 @@ struct ScopeHierarchyBuilder:
     hierarchy.insert(decl: i, into: innermost!)
     nesting(in: i, { this in
       let decl = this.ast[i]
+
+      this.visit(genericClause: decl.genericClause?.value)
+
       for capture in decl.captures {
         this.visit(binding: capture)
       }

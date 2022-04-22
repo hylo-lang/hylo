@@ -8,6 +8,9 @@ struct ConstraintGenerator: ExprVisitor {
   /// A borrowed projection of the type checker that uses this constraint generator.
   var checker: TypeChecker!
 
+  /// The scope in which the AST is visited.
+  var scope: AnyScopeID
+
   /// The set of type constraints being generated.
   var constraints: [LocatableConstraint] = []
 
@@ -93,8 +96,54 @@ struct ConstraintGenerator: ExprVisitor {
     fatalError("not implemented")
   }
 
-  mutating func visit(name i: NodeID<NameExpr>) -> AnyExprID {
-    fatalError("not implemented")
+  mutating func visit(name id: NodeID<NameExpr>) -> AnyExprID {
+    let stem = checker.ast[id].stem
+
+    switch checker.ast[id].domain {
+    case .none:
+      // Search for the referred declaration with an unqualified lookup.
+      let matches = checker.lookup(unqualified: stem.value, inScope: scope)
+
+      if matches.isEmpty {
+        checker.diagnostics.insert(.undefined(name: checker.ast[id].baseName, range: stem.range))
+        inferredTypes[id] = .error(ErrorType())
+        return AnyExprID(id)
+      }
+
+      /// Realizes the type of a match.
+      func realize(match: AnyDeclID) -> Type {
+        let type = checker.realize(decl: matches.first!) ?? .error(ErrorType())
+
+        if case .parameter(let type) = type {
+          // Erase parameter conventions.
+          return type.bareType
+        } else {
+          return type
+        }
+      }
+
+      // Realize the type of the matches.
+      var inferredType: Type
+      if matches.count == 1 {
+        // TODO: Check if notations/labels match
+        inferredType = realize(match: matches.first!)
+      } else {
+        // TODO: Create an overload constraint
+        fatalError("not implemented")
+      }
+
+      if let expectedType = inferredTypes[id] {
+        constraints.append(LocatableConstraint(
+          .equality(l: expectedType, r: inferredType), node: AnyNodeID(id)))
+      } else {
+        inferredTypes[id] = inferredType
+      }
+
+    case .implicit, .explicit:
+      fatalError("not implemented")
+    }
+
+    return AnyExprID(id)
   }
 
   mutating func visit(nil i: NodeID<NilExpr>) -> AnyExprID {

@@ -100,6 +100,8 @@ struct ConstraintSolver {
     let l = assumptions[l]
     let r = assumptions[r]
 
+    if l == r { return .success }
+
     switch (l, r) {
     case (.variable(let tau), _):
       assumptions.assign(r, to: tau)

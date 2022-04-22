@@ -178,4 +178,12 @@ extension Diagnostic {
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }
 
+  static func undefined(name name: String, range: SourceRange?) -> Diagnostic {
+    Diagnostic(
+      level: .error,
+      message: "undefined name '\(name)' in this scope",
+      location: range?.first(),
+      window: range.map({ r in Diagnostic.Window(range: r) }))
+  }
+
 }

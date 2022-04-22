@@ -443,10 +443,10 @@ final class TypeCheckerTests: XCTestCase {
       introducer: SourceRepresentable(value: .fun),
       identifier: SourceRepresentable(value: "f0"),
       parameters: [
-        ast.insert(ParamDecl(
+        ast.insert(ParameterDecl(
           identifier: SourceRepresentable(value: "a"),
           annotation: AnyTypeExprID(ast.insert(TupleTypeExpr())))),
-        ast.insert(ParamDecl(
+        ast.insert(ParameterDecl(
           identifier: SourceRepresentable(value: "b"),
           annotation: AnyTypeExprID(ast.insert(TupleTypeExpr())),
           defaultValue: AnyExprID(ast.insert(TupleExpr())))),
@@ -469,10 +469,10 @@ final class TypeCheckerTests: XCTestCase {
       introducer: SourceRepresentable(value: .fun),
       identifier: SourceRepresentable(value: "f0"),
       parameters: [
-        ast.insert(ParamDecl(
+        ast.insert(ParameterDecl(
           identifier: SourceRepresentable(value: "a"),
           annotation: AnyTypeExprID(ast.insert(TupleTypeExpr())))),
-        ast.insert(ParamDecl(
+        ast.insert(ParameterDecl(
           identifier: SourceRepresentable(value: "a"),
           annotation: AnyTypeExprID(ast.insert(TupleTypeExpr())))),
       ],
@@ -523,6 +523,39 @@ final class TypeCheckerTests: XCTestCase {
       ],
       body: SourceRepresentable(
         value: .block(ast.insert(BraceStmt())))))))
+
+    var checker = TypeChecker(ast: ast)
+    XCTAssertTrue(checker.check(module: main))
+  }
+
+  func testIdentityFunction() {
+
+    // fun identity<T>(_ x: sink T) -> T { x }
+
+    var ast = AST()
+    let main = ast.insert(ModuleDecl(name: "main"))
+
+    ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
+      introducer: SourceRepresentable(value: .fun),
+      identifier: SourceRepresentable(value: "identity"),
+      genericClause: SourceRepresentable(value: GenericClause(
+        params: [
+          .type(ast.insert(GenericTypeParamDecl(
+            identifier: SourceRepresentable(value: "T")))),
+        ])),
+      parameters: [
+        ast.insert(ParameterDecl(
+          identifier: SourceRepresentable(value: "x"),
+          annotation: AnyTypeExprID(ast.insert(ParameterTypeExpr(
+            convention: SourceRepresentable(value: .sink),
+            bareType: AnyTypeExprID(ast.insert(NameTypeExpr(
+              identifier: SourceRepresentable(value: "T")))))))))
+      ],
+      output: AnyTypeExprID(ast.insert(NameTypeExpr(
+        identifier: SourceRepresentable(value: "T")))),
+      body: SourceRepresentable(
+        value: .expr(AnyExprID(ast.insert(NameExpr(
+          stem: SourceRepresentable(value: "x"))))))))))
 
     var checker = TypeChecker(ast: ast)
     XCTAssertTrue(checker.check(module: main))

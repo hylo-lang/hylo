@@ -10,7 +10,7 @@ public struct TypeChecker {
   let scopeHierarchy: ScopeHierarchy
 
   /// The diagnostics of the type errors.
-  public private(set) var diagnostics: Set<Diagnostic> = []
+  public internal(set) var diagnostics: Set<Diagnostic> = []
 
   /// The overarching type of each declaration.
   public private(set) var declTypes = DeclMap<Type?>()
@@ -335,6 +335,7 @@ public struct TypeChecker {
   }
 
   private mutating func _check(fun id: NodeID<FunDecl>) -> Bool {
+    // Type check the generic constraints of the declaration.
     var success = environment(ofGenericDecl: id) != nil
 
     // Make sure parameters have different names and type check their default values.
@@ -357,6 +358,25 @@ public struct TypeChecker {
     }
 
     let output = (declTypes[id]!!.base as! CallableType).output
+
+    // Type chec the body of the function, if any.
+    switch ast[id].body?.value {
+    case .block(let stmt):
+      success = check(brace: stmt) && success
+
+    case .expr(var expr):
+      // If the function has no return annotation, it's body has been checed during realization.
+      if ast[id].output == nil { break }
+      success = (infer(expr: &expr, expectedType: output, inScope: id) != nil) && success
+      ast[id].body?.value = .expr(expr)
+
+    case .bundle:
+      fatalError("not implemented")
+
+    case nil:
+      // Function without a body must be a requirement.
+      assert(scopeHierarchy.container[id]?.kind == .traitDecl, "unexpected method requirement")
+    }
 
     return success
   }
@@ -525,6 +545,11 @@ public struct TypeChecker {
     // Update the request status.
     declRequests[id] = success ? .success : .failure
     return success
+  }
+
+  private mutating func check(brace id: NodeID<BraceStmt>) -> Bool {
+    // TODO: Implement me
+    return true
   }
 
   /// Returns the generic environment defined by `id`, or `nil` if it is ill-formed.
@@ -840,7 +865,7 @@ public struct TypeChecker {
     // Temporarily projects `self`.
     let solution = withBorrowedSelf({ (this) -> (TypeChecker, Solution) in
       // Generate constraints.
-      var generator = ConstraintGenerator(checker: this)
+      var generator = ConstraintGenerator(checker: this, scope: scope)
       generator.inferredTypes[expr] = expectedType
       expr = expr.accept(&generator)
       constraints.append(contentsOf: generator.constraints)
@@ -1004,7 +1029,7 @@ public struct TypeChecker {
   // MARK: Name binding
 
   /// The result of a name lookup.
-  private typealias DeclSet = Set<AnyDeclID>
+  typealias DeclSet = Set<AnyDeclID>
 
   /// A lookup table.
   private typealias LookupTable = [String: DeclSet]
@@ -1029,7 +1054,7 @@ public struct TypeChecker {
   private var extensionsUnderBinding = DeclSet()
 
   /// Returns the declarations that expose `name` without qualification in `scope`.
-  private mutating func lookup(unqualified name: String, inScope scope: AnyScopeID) -> DeclSet {
+  mutating func lookup(unqualified name: String, inScope scope: AnyScopeID) -> DeclSet {
     let origin = scope
     var root = scope
 
