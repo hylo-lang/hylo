@@ -40,6 +40,17 @@ extension Diagnostic {
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }
 
+  static func illegalParameterConvention(
+    _ convention: ParamConvention,
+    range: SourceRange?
+  ) -> Diagnostic {
+    Diagnostic(
+      level: .error,
+      message: "'\(convention)' may only be used on parameters",
+      location: range?.first(),
+      window: range.map({ r in Diagnostic.Window(range: r) }))
+  }
+
   static func incompatibleLabels(
     _ ls: [String?],
     _ rs: [String?],
@@ -149,7 +160,7 @@ extension Diagnostic {
     if let domain = domain {
       message = "type '\(domain)' has no type member '\(name)'"
     } else {
-      message = "no type named '\(name)' in scope"
+      message = "no type named '\(name)' in this scope"
     }
 
     return Diagnostic(

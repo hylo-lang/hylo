@@ -1273,17 +1273,32 @@ public struct TypeChecker {
   /// Realizes and returns the type denoted by `expr` evaluated in `scope`.
   private mutating func realize(
     _ expr: AnyTypeExprID,
-    inScope scope: AnyScopeID
+    inScope scope: AnyScopeID,
+    asParameter isParameterAnnotation: Bool = false
   ) -> Type? {
     switch expr.kind {
     case .conformanceLensTypeExpr:
       return realize(conformanceLens: NodeID(converting: expr)!, inScope: scope)
+
     case .nameTypeExpr:
       return realize(name: NodeID(converting: expr)!, inScope: scope)
+
+    case .parameterTypeExpr:
+      let id = NodeID<ParameterTypeExpr>(converting: expr)!
+      if isParameterAnnotation {
+        return realize(parameter: id, inScope: scope)
+      } else {
+        diagnostics.insert(.illegalParameterConvention(
+          ast[id].convention.value, range: ast[id].convention.range))
+        return nil
+      }
+
     case .tupleTypeExpr:
       return realize(tuple: NodeID(converting: expr)!, inScope: scope)
+
     case .wildcardTypeExpr:
       return .variable(TypeVariable(node: AnyNodeID(expr)))
+
     default:
       unreachable("unexpected type expression")
     }
@@ -1312,10 +1327,10 @@ public struct TypeChecker {
   }
 
   private mutating func realize(
-    conformanceLens i: NodeID<ConformanceLensTypeExpr>,
+    conformanceLens id: NodeID<ConformanceLensTypeExpr>,
     inScope scope: AnyScopeID
   ) -> Type? {
-    let decl = ast[i]
+    let decl = ast[id]
     guard let wrapped = realize(decl.wrapped, inScope: scope) else { return nil }
     guard let trait = realize(decl.focus, inScope: scope) else { return nil }
 
@@ -1335,13 +1350,13 @@ public struct TypeChecker {
   }
 
   private mutating func realize(
-    name i: NodeID<NameTypeExpr>,
+    name id: NodeID<NameTypeExpr>,
     inScope scope: AnyScopeID
   ) -> Type? {
-    let identifier = ast[i].identifier
+    let identifier = ast[id].identifier
     var base: Type?
 
-    if let j = ast[i].domain {
+    if let j = ast[id].domain {
       // Lookup for the name's identifier in the context of the domain.
       guard let domain = realize(j, inScope: scope) else { return nil }
       let matches = lookup(identifier.value, memberOf: domain, inScope: scope)
@@ -1388,7 +1403,7 @@ public struct TypeChecker {
         break
       }
 
-      // Search for the referred type declaration with unqualified lookup.
+      // Search for the referred type declaration with an unqualified lookup.
       let matches = lookup(unqualified: identifier.value, inScope: scope)
 
       // Realize the referred type.
@@ -1418,12 +1433,12 @@ public struct TypeChecker {
     }
 
     // Evaluate the arguments of the referred type, if any.
-    if ast[i].arguments.isEmpty {
+    if ast[id].arguments.isEmpty {
       return base!
     } else {
       var arguments: [BoundGenericType.Argument] = []
 
-      for a in ast[i].arguments {
+      for a in ast[id].arguments {
         switch a {
         case .size(let a):
           // TODO: Symbolic execution
@@ -1440,13 +1455,21 @@ public struct TypeChecker {
   }
 
   private mutating func realize(
-    tuple i: NodeID<TupleTypeExpr>,
+    parameter id: NodeID<ParameterTypeExpr>,
+    inScope scope: AnyScopeID
+  ) -> Type? {
+    guard let bareType = realize(ast[id].bareType, inScope: scope) else { return nil }
+    return .parameter(ParameterType(convention: ast[id].convention.value, bareType: bareType))
+  }
+
+  private mutating func realize(
+    tuple id: NodeID<TupleTypeExpr>,
     inScope scope: AnyScopeID
   ) -> Type? {
     var elements: [TupleType.Element] = []
-    elements.reserveCapacity(ast[i].elements.count)
+    elements.reserveCapacity(ast[id].elements.count)
 
-    for e in ast[i].elements {
+    for e in ast[id].elements {
       guard let type = realize(e.value.type, inScope: scope) else { return nil }
       elements.append(TupleType.Element(label: e.value.label, type: type))
     }
@@ -1476,50 +1499,53 @@ public struct TypeChecker {
   }
 
   /// Returns the overarching type of the specified declaration.
-  private mutating func realize<T: DeclID>(decl i: T) -> Type? {
-    switch i.kind {
+  mutating func realize<T: DeclID>(decl id: T) -> Type? {
+    switch id.kind {
     case .associatedSizeDecl,
          .genericSizeParamDecl:
-      return _realize(decl: i, { (this, i) in
-        .genericSizeParam(GenericSizeParamType(decl: i, ast: this.ast))
+      return _realize(decl: id, { (this, id) in
+        .genericSizeParam(GenericSizeParamType(decl: id, ast: this.ast))
       })
 
     case .associatedTypeDecl,
          .genericTypeParamDecl:
-      return _realize(decl: i, { (this, i) in
-        .genericTypeParam(GenericTypeParamType(decl: i, ast: this.ast))
+      return _realize(decl: id, { (this, id) in
+        .genericTypeParam(GenericTypeParamType(decl: id, ast: this.ast))
       })
 
     case .bindingDecl:
-      _ = check(binding: NodeID(converting: i)!)
-      return declTypes[i]!
+      _ = check(binding: NodeID(converting: id)!)
+      return declTypes[id]!
 
     case .conformanceDecl,
          .extensionDecl:
-      return _realize(decl: i, { (this, i) in
-        let decl = this.ast[i] as! TypeExtendingDecl
-        return this.realize(decl.subject, inScope: this.scopeHierarchy.container[i]!)
+      return _realize(decl: id, { (this, id) in
+        let decl = this.ast[id] as! TypeExtendingDecl
+        return this.realize(decl.subject, inScope: this.scopeHierarchy.container[id]!)
       })
 
     case .funDecl:
-      return realize(funDecl: NodeID(converting: i)!)
+      return realize(funDecl: NodeID(converting: id)!)
+
+    case .parameterDecl:
+      return realize(parameterDecl: NodeID(converting: id)!)
 
     case .productTypeDecl:
-      return _realize(decl: i, { (this, i) in
-        .product(ProductType(decl: NodeID(converting: i)!, ast: this.ast))
+      return _realize(decl: id, { (this, id) in
+        .product(ProductType(decl: NodeID(converting: id)!, ast: this.ast))
       })
 
     case .subscriptDecl:
-      return realize(subscriptDecl: NodeID(converting: i)!)
+      return realize(subscriptDecl: NodeID(converting: id)!)
 
     case .traitDecl:
-      return _realize(decl: i, { (this, i) in
-        .trait(TraitType(decl: NodeID(converting: i)!, ast: this.ast))
+      return _realize(decl: id, { (this, id) in
+        .trait(TraitType(decl: NodeID(converting: id)!, ast: this.ast))
       })
 
     case .typeAliasDecl:
-      return _realize(decl: i, { (this, i) in
-        .typeAlias(TypeAliasType(decl: NodeID(converting: i)!, ast: this.ast))
+      return _realize(decl: id, { (this, id) in
+        .typeAlias(TypeAliasType(decl: NodeID(converting: id)!, ast: this.ast))
       })
 
     default:
@@ -1540,10 +1566,11 @@ public struct TypeChecker {
 
     // Realize the input types.
     for i in decl.parameters {
+      declRequests[i] = .typeCheckingStarted
       let parameter = ast[i]
 
       if let annotation = parameter.annotation {
-        if let type = realize(annotation, inScope: declScope) {
+        if let type = realize(annotation, inScope: declScope, asParameter: true) {
           // The annotation may not omit generic arguments.
           if type[.hasVariable] {
             diagnostics.insert(.notEnoughContextToInferArguments(range: ast.ranges[annotation]))
@@ -1629,6 +1656,23 @@ public struct TypeChecker {
     // TODO: Determine if the lambda is mutating
 
     return .lambda(LambdaType(environment: environment, inputs: inputs, output: output))
+  }
+
+  /// Returns the overarching type of the specified parameter declaration.
+  ///
+  /// - Requires: The containing function or subscript declaration must have been realized.
+  private mutating func realize(parameterDecl id : NodeID<ParameterDecl>) -> Type? {
+    switch declRequests[id] {
+    case nil:
+      preconditionFailure()
+
+    case .typeRealizationStarted:
+      diagnostics.insert(.circularDependency(range: ast.ranges[id]))
+      return nil
+
+    case .typeRealizationCompleted, .typeCheckingStarted, .success, .failure:
+      return declTypes[id]!
+    }
   }
 
   private mutating func realize(subscriptDecl id: NodeID<SubscriptDecl>) -> Type? {

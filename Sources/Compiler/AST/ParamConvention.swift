@@ -10,4 +10,7 @@ public enum ParamConvention {
   /// Pass by consumption.
   case sink
 
+  /// Exposed.
+  case out
+
 }

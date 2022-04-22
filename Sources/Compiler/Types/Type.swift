@@ -23,6 +23,8 @@ public indirect enum Type: TypeProtocol, Hashable {
 
   case module(ModuleType)
 
+  case parameter(ParameterType)
+
   case product(ProductType)
 
   case `subscript`(SubscriptType)
@@ -50,6 +52,7 @@ public indirect enum Type: TypeProtocol, Hashable {
     case let .genericTypeParam(t):  return t
     case let .lambda(t):            return t
     case let .module(t):            return t
+    case let .parameter(t):         return t
     case let .product(t):           return t
     case let .subscript(t):         return t
     case let .trait(t):             return t
