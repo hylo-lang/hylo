@@ -357,7 +357,7 @@ public struct TypeChecker {
       ast[j].defaultValue = defaultValue
     }
 
-    let output = (declTypes[id]!!.base as! CallableType).output
+    let output = (declTypes[id]!!.base as! CallableType).output.skolemized
 
     // Type chec the body of the function, if any.
     switch ast[id].body?.value {
@@ -1761,6 +1761,86 @@ public struct TypeChecker {
     // Update the request status.
     declRequests[id] = .typeRealizationCompleted
     return declTypes[id]!
+  }
+
+  // MARK: Type role determination
+
+  /// Skolemizes `type`.
+  func skolemize(type: Type) -> Type {
+    return type.transform({ type in
+      switch type {
+      case .associated,
+           .genericTypeParam:
+        return .stepOver(.skolem(SkolemType(base: type)))
+
+      case .genericSizeParam:
+        fatalError("not implemented")
+
+      default:
+        // Nothing to do if `type` isn't parameterized.
+        if type[.hasGenericTypeParam] || type[.hasGenericSizeParam] {
+          return .stepInto(type)
+        } else {
+          return .stepOver(type)
+        }
+      }
+    })
+  }
+
+  /// Returns `type` contextualized in `scope` and the type constraints implied by that
+  /// contextualization.
+  ///
+  /// Contextualization consists of substituting the generic parameters of a type expression for
+  /// either skolems or open variables. Opened parameters carry the constraints defined by the
+  /// generic environment from which they originate.
+  func contextualize<S: ScopeID>(type: Type, inScope scope: S) -> (Type, [Constraint]) {
+    var constraints: [Constraint] = []
+    var openedParameters: [Type: Type] = [:]
+
+    let transformed = type.transform({ type in
+      switch type {
+      case .associated:
+        fatalError("not implemented")
+
+      case .genericTypeParam(let base):
+        // Identify the generic environment that introduces the parameter.
+        let origin: AnyScopeID
+        if base.decl.kind == .traitDecl {
+          origin = AnyScopeID(converting: base.decl)!
+        } else {
+          origin = scopeHierarchy.container[base.decl]!
+        }
+
+        if scopeHierarchy.isContained(scope, in: origin) {
+          // Skolemize.
+          return .stepOver(.skolem(SkolemType(base: type)))
+        } else if let opened = openedParameters[type] {
+          // The parameter was already opened.
+          return .stepOver(opened)
+        } else {
+          // Open the parameter.
+          let opened = Type.variable(TypeVariable())
+          openedParameters[type] = opened
+
+          // TODO: Collect constraints
+
+          return .stepOver(opened)
+        }
+
+      case .genericSizeParam:
+        fatalError("not implemented")
+
+      default:
+        // Nothing to do if `type` isn't parameterized.
+        if type[.hasGenericTypeParam] || type[.hasGenericSizeParam] {
+          return .stepInto(type)
+        } else {
+          return .stepOver(type)
+        }
+      }
+    })
+
+    return (transformed, constraints)
   }
 
 }

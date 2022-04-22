@@ -48,6 +48,11 @@ struct ScopeHierarchy {
 
   /// Returns whether `child` is contained in `ancestor`.
   ///
+  /// Scope containment is transitive and reflexive; this method returns `true` if:
+  /// - `child == ancestor`, or
+  /// - `parent[child] == ancestor`, or
+  /// - `isContained(parent[child], ancestor)`.
+  ///
   /// - Requires: `child` is the identifier of a scope in this hierarchy.
   func isContained<T: NodeIDProtocol, U: ScopeID>(
     _ child: T,

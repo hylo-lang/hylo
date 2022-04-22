@@ -25,6 +25,6 @@ public struct TypeVariable: TypeProtocol, Hashable {
 
 extension TypeVariable: CustomStringConvertible {
 
-  public var description: String { "$\(id)" }
+  public var description: String { "%\(id)" }
 
 }

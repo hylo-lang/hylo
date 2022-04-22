@@ -112,14 +112,20 @@ struct ConstraintGenerator: ExprVisitor {
 
       /// Realizes the type of a match.
       func realize(match: AnyDeclID) -> Type {
-        let type = checker.realize(decl: matches.first!) ?? .error(ErrorType())
+        // Realize the type of the declaration.
+        var type = checker.realize(decl: matches.first!) ?? .error(ErrorType())
 
-        if case .parameter(let type) = type {
-          // Erase parameter conventions.
-          return type.bareType
-        } else {
-          return type
+        // Erase parameter conventions.
+        if case .parameter(let t) = type {
+          type = t.bareType
         }
+
+        // Substitute generic parameters.
+        var openingConstraints: [Constraint]
+        let scope = checker.scopeHierarchy.container[match]!
+        (type, openingConstraints) = checker.contextualize(type: type, inScope: scope)
+
+        return type
       }
 
       // Realize the type of the matches.
