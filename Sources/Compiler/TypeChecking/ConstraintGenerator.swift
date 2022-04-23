@@ -44,6 +44,10 @@ struct ConstraintGenerator: ExprVisitor {
     fatalError("not implemented")
   }
 
+  mutating func visit(declReference i: NodeID<DeclReferenceExpr>) -> AnyExprID {
+    fatalError("not implemented")
+  }
+
   mutating func visit(floatLiteral i: NodeID<FloatLiteralExpr>) -> AnyExprID {
     fatalError("not implemented")
   }
