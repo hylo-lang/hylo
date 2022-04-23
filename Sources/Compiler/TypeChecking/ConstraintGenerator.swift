@@ -17,8 +17,8 @@ struct ConstraintGenerator: ExprVisitor {
   /// The set of type constraints being generated.
   var constraints: [LocatableConstraint] = []
 
-  /// Indicates that the generater encounted one or more errors.
-  var hasErrors = false
+  /// The diagnostics of the errors the generator encountered.
+  var diagnostics: [Diagnostic] = []
 
   mutating func visit(async i: NodeID<AsyncExpr>) -> AnyExprID {
     fatalError("not implemented")
@@ -66,7 +66,7 @@ struct ConstraintGenerator: ExprVisitor {
 
     // 1st case
     if case .error = inferredTypes[callee] {
-      inferredTypes[id] = .error(ErrorType())
+      assume(typeOf: id, is: .error(ErrorType()))
       return AnyExprID(id)
     }
 
@@ -81,10 +81,9 @@ struct ConstraintGenerator: ExprVisitor {
       // Check that the labels inferred from the callee are consistent with that of the call.
       let calleeLabels = calleeType.inputs.map({ $0.label })
       if calleeLabels != labels {
-        hasErrors = true
-        checker.diagnostics.insert(.incompatibleLabels(
+        diagnostics.append(.incompatibleLabels(
           found: calleeLabels, expected: labels, range: checker.ast.ranges[callee]))
-        inferredTypes[id] = .error(ErrorType())
+        assume(typeOf: id, is: .error(ErrorType()))
         return AnyExprID(id)
       }
 
@@ -104,13 +103,7 @@ struct ConstraintGenerator: ExprVisitor {
       }
 
       // Constrain the type of the call.
-      if let expectedType = inferredTypes[id] {
-        constraints.append(LocatableConstraint(
-          .equality(l: expectedType, r: calleeType.output), node: AnyNodeID(id)))
-      } else {
-        inferredTypes[id] = calleeType.output
-      }
-
+      assume(typeOf: id, is: calleeType.output)
       return AnyExprID(id)
     }
 
@@ -207,9 +200,8 @@ struct ConstraintGenerator: ExprVisitor {
         notation: checker.ast[id].notation)
 
       if results.isEmpty {
-        hasErrors = true
-        checker.diagnostics.insert(.undefined(name: checker.ast[id].baseName, range: stem.range))
-        inferredTypes[id] = .error(ErrorType())
+        diagnostics.append(.undefined(name: checker.ast[id].baseName, range: stem.range))
+        assume(typeOf: id, is: .error(ErrorType()))
         return AnyExprID(id)
       }
 
@@ -224,12 +216,7 @@ struct ConstraintGenerator: ExprVisitor {
         fatalError("not implemented")
       }
 
-      if let expectedType = inferredTypes[id] {
-        constraints.append(LocatableConstraint(
-          .equality(l: expectedType, r: inferredType), node: AnyNodeID(id)))
-      } else {
-        inferredTypes[id] = inferredType
-      }
+      assume(typeOf: id, is: inferredType)
 
     case .implicit, .explicit:
       fatalError("not implemented")
@@ -282,16 +269,7 @@ struct ConstraintGenerator: ExprVisitor {
             type: inferredTypes[element.value]!))
         })
       }
-      let inferredType = Type.tuple(TupleType(elements))
-
-      // If there was an expected type, constrain it to be equal to the inferred type. Otherwise,
-      // assign the latter to the expression.
-      if let expectedType = inferredTypes[id] {
-        constraints.append(LocatableConstraint(
-          .equality(l: expectedType, r: inferredType), node: AnyNodeID(id)))
-      } else {
-        inferredTypes[id] = inferredType
-      }
+      assume(typeOf: id, is: .tuple(TupleType(elements)))
     }
 
     assert(inferredTypes[id] != nil)
@@ -331,6 +309,15 @@ struct ConstraintGenerator: ExprVisitor {
 
       return (match, type, cs)
     })
+  }
+
+  private mutating func assume<T: ExprID>(typeOf id: T, is inferredType: Type) {
+    if let expectedType = inferredTypes[id] {
+      constraints.append(LocatableConstraint(
+        .equality(l: expectedType, r: inferredType), node: AnyNodeID(id)))
+    } else {
+      inferredTypes[id] = inferredType
+    }
   }
 
 }

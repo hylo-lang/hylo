@@ -301,17 +301,18 @@ public struct TypeChecker {
         constraints: &shape.constraints)
       ast[i].initializer = initializer
 
-      success = solution.errors.isEmpty
-      shape.type = solution.reify(shape.type)
+      // TODO: Complete underspecified generic signatures
+
+      success = solution.diagnostics.isEmpty
+      shape.type = solution.reify(shape.type, withVariables: .substituteByError)
 
       // Assign the variable declarations in the pattern to their type
       for decl in shape.decls {
-        declTypes[decl] = solution.reify(declTypes[decl]!!)
+        declTypes[decl] = solution.reify(declTypes[decl]!!, withVariables: .substituteByError)
         declRequests[decl] = success ? .success : .failure
       }
     }
 
-    // TODO: Complete underspecified generic signatures
     assert(!shape.type[.hasVariable])
 
     if success {
@@ -849,7 +850,7 @@ public struct TypeChecker {
       inScope: AnyScopeID(scope),
       constraints: &constraints)
 
-    if solution.errors.isEmpty {
+    if solution.diagnostics.isEmpty {
       return exprTypes[expr]!
     } else {
       return nil
@@ -876,20 +877,19 @@ public struct TypeChecker {
       // Solve the constraints.
       var solver = ConstraintSolver(
         checker: generator.checker.release(), scope: scope, fresh: constraints)
-      let solution = solver.solve()!
+      var solution = solver.solve()!
+      solution.diagnostics.append(contentsOf: generator.diagnostics)
 
       // Apply the solution.
       for (id, type) in generator.inferredTypes.storage {
-        solver.checker.exprTypes[id] = solution.reify(type)
+        solver.checker.exprTypes[id] = solution.reify(type, withVariables: .keep)
       }
 
       return (solver.checker.release(), solution)
     })
 
-    // Report type errors.
-    for error in solution.errors {
-      diagnostics.formUnion(error.diagnose(ast: ast))
-    }
+    // Consume the solution's errors.
+    diagnostics.formUnion(solution.diagnostics)
 
     return solution
   }

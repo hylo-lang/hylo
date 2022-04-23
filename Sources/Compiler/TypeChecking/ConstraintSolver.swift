@@ -11,7 +11,7 @@ struct ConstraintSolver {
 
     case transform(Constraint)
 
-    case failure(TypeError.Kind)
+    case failure(TypeError)
 
   }
 
@@ -33,15 +33,15 @@ struct ConstraintSolver {
   /// The current penalties of the solver's solution.
   var penalties: Int = 0
 
-  /// The current set of errors the solver encountered.
-  var errors: [TypeError] = []
+  /// The diagnostics of the errors the solver encountered.
+  var diagnostics: [Diagnostic] = []
 
   /// The score of the best solution computed so far.
   var best = Solution.Score.worst
 
   /// The current score of the solver's solution.
   var score: Solution.Score {
-    Solution.Score(errorCount: errors.count, penalties: penalties)
+    Solution.Score(errorCount: diagnostics.count, penalties: penalties)
   }
 
   /// Solves the constraints and returns the best solution, or `nil` if a better solution has
@@ -72,8 +72,8 @@ struct ConstraintSolver {
         stale.append(constraint)
       case .transform(let c):
         fresh.append(LocatableConstraint(c, node: constraint.node, cause: constraint.cause))
-      case .failure(let kind):
-        errors.append(TypeError(kind: kind, cause: constraint))
+      case .failure(let e):
+        diagnostics.append(contentsOf: e.diagnose(cause: constraint, ast: checker.ast))
       }
     }
 
@@ -154,7 +154,8 @@ struct ConstraintSolver {
     var solutions: [Solution] = []
     for minterm in minterms {
       // Don't bother if there's no chance to find a better solution.
-      let s = Solution.Score(errorCount: errors.count, penalties: penalties + minterm.penalties)
+      let s = Solution.Score(
+        errorCount: diagnostics.count, penalties: penalties + minterm.penalties)
       if s > best { continue }
 
       // Explore the result of this choice.
@@ -181,7 +182,8 @@ struct ConstraintSolver {
     } else {
       // TODO: Merge remaining solutions
       var s = solutions[0]
-      s.errors.append(TypeError(kind: .ambiguousDisjunction, cause: disjunction))
+      s.diagnostics.append(
+        contentsOf: TypeError.ambiguousDisjunction.diagnose(cause: disjunction, ast: checker.ast))
       return s
     }
   }
@@ -192,10 +194,13 @@ struct ConstraintSolver {
     var s = Solution(
       assumptions: assumptions.flattened(),
       penalties: penalties,
-      errors: errors)
+      diagnostics: diagnostics)
+
     for constraint in stale {
-      s.errors.append(TypeError(kind: .staleConstaint, cause: constraint))
+      s.diagnostics.append(contentsOf: TypeError.staleConstaint.diagnose(
+        cause: constraint, ast: checker.ast))
     }
+
     return s
   }
 
