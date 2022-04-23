@@ -20,7 +20,7 @@ public struct NameExpr: Expr {
   public var stem: SourceRepresentable<Identifier>
 
   /// The argument labels of the referred entitiy.
-  public var labels: [String]
+  public var labels: [String?]
 
   /// The operator notation of the referred entitiy.
   public var notation: OperatorNotation?
@@ -32,7 +32,7 @@ public struct NameExpr: Expr {
   public init(
     domain: Domain = .none,
     stem: SourceRepresentable<Identifier>,
-    labels: [String] = [],
+    labels: [String?] = [],
     arguments: [SourceRepresentable<GenericArgument>] = []
   ) {
     self.domain = domain
@@ -63,7 +63,8 @@ public struct NameExpr: Expr {
     } else if labels.isEmpty {
       return stem.value
     } else {
-      return stem.value + "(" + labels.joined(separator: ":") + ")"
+      let labels = labels.lazy.map({ $0 ?? "_" }).joined(separator: ":")
+      return "\(stem.value)(\(labels))"
     }
   }
 

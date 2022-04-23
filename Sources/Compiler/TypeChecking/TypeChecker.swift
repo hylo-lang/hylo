@@ -78,7 +78,10 @@ public struct TypeChecker {
   /// Returns the canonical form of `constraint`.
   public func canonicalize(constraint: Constraint) -> Constraint {
     var canonical = constraint
-    canonical.visitTypes({ $0 = canonicalize(type: $0) })
+    canonical.modifyTypes({ type in
+      type = canonicalize(type: type)
+      return true
+    })
     return canonical
   }
 
@@ -986,7 +989,8 @@ public struct TypeChecker {
           if lLabels == rLabels {
             return expectedType
           } else {
-            diagnostics.insert(.incompatibleLabels(lLabels, rLabels, range: ast.ranges[pattern]))
+            diagnostics.insert(.incompatibleLabels(
+              found: lLabels, expected: rLabels, range: ast.ranges[pattern]))
             return nil
           }
         } else {
@@ -1790,9 +1794,9 @@ public struct TypeChecker {
   /// Returns `type` contextualized in `scope` and the type constraints implied by that
   /// contextualization.
   ///
-  /// Contextualization consists of substituting the generic parameters of a type expression for
-  /// either skolems or open variables. Opened parameters carry the constraints defined by the
-  /// generic environment from which they originate.
+  /// Contextualization consists of substituting the generic parameters in a type by either skolems
+  /// or open variables. Opened parameters carry the constraints defined by the generic environment
+  /// in which they are opened.
   func contextualize<S: ScopeID>(type: Type, inScope scope: S) -> (Type, [Constraint]) {
     var constraints: [Constraint] = []
     var openedParameters: [Type: Type] = [:]

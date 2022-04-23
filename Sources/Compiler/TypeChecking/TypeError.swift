@@ -12,6 +12,9 @@ struct TypeError {
     /// The type does not conform to `traits` in `scope`.
     case doesNotConform(Type, traits: Set<TraitType>, scope: AnyScopeID)
 
+    /// The right hand side of a parameter constraint is not a parameter type.
+    case nonParameterType(Type)
+
     /// The associated constraint went stale.
     case staleConstaint
 
@@ -36,6 +39,9 @@ struct TypeError {
       return traits.map({ trait in
         Diagnostic.noConformance(of: type, to: trait, range: range)
       })
+
+    case .nonParameterType(_):
+      fatalError("not implemented")
 
     case .staleConstaint:
       return [.staleConstraint(constraint: cause.constraint, range: range)]

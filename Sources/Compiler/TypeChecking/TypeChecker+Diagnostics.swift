@@ -52,16 +52,16 @@ extension Diagnostic {
   }
 
   static func incompatibleLabels(
-    _ ls: [String?],
-    _ rs: [String?],
+    found: [String?],
+    expected: [String?],
     range: SourceRange?
   ) -> Diagnostic {
-    let ls = ls.map({ "\($0 ?? "_")" }).joined(separator: ":")
-    let rs = rs.map({ "\($0 ?? "_")" }).joined(separator: ":")
+    let ls = found.map({ "\($0 ?? "_")" }).joined(separator: ":")
+    let rs = expected.map({ "\($0 ?? "_")" }).joined(separator: ":")
 
     return Diagnostic(
       level: .error,
-      message: "incompatible label: found '(\(ls))', expected '(\(rs))'",
+      message: "incompatible labels: found '(\(ls))', expected '(\(rs))'",
       location: range?.first(),
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }

@@ -35,7 +35,7 @@ struct GenericEnvironment {
       case .size:
         break
 
-      case .disjunction, .subtyping:
+      case .disjunction, .parameter, .subtyping:
         unreachable()
       }
     }

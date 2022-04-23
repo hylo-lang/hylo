@@ -9,6 +9,8 @@ struct ConstraintSolver {
 
     case postpone
 
+    case transform(Constraint)
+
     case failure(TypeError.Kind)
 
   }
@@ -55,6 +57,8 @@ struct ConstraintSolver {
         result = solve(l, conformsTo: traits)
       case .equality(let l, let r):
         result = solve(l, equalsTo: r)
+      case .parameter(let l, let r):
+        result = solve(l, passableTo: r)
       case .disjunction:
         return solve(disjunction: constraint)
       default:
@@ -66,6 +70,8 @@ struct ConstraintSolver {
         continue
       case .postpone:
         stale.append(constraint)
+      case .transform(let c):
+        fresh.append(LocatableConstraint(c, node: constraint.node, cause: constraint.cause))
       case .failure(let kind):
         errors.append(TypeError(kind: kind, cause: constraint))
       }
@@ -79,7 +85,7 @@ struct ConstraintSolver {
 
     switch l {
     case .variable:
-      // Postpone the constraint if `L` is still unknown.
+      // Postpone the solving if `L` is still unknown.
       return .postpone
 
     case .product, .tuple:
@@ -105,14 +111,40 @@ struct ConstraintSolver {
     switch (l, r) {
     case (.variable(let tau), _):
       assumptions.assign(r, to: tau)
+      refresh(constraintsDependingOn: tau)
       return .success
 
     case (_, .variable(let tau)):
       assumptions.assign(l, to: tau)
+      refresh(constraintsDependingOn: tau)
       return .success
 
     default:
       fatalError("not implemented")
+    }
+  }
+
+  private mutating func solve(_ l: Type, passableTo r: Type) -> SolverResult {
+    let l = assumptions[l]
+    let r = assumptions[r]
+
+    if l == r { return .success }
+
+    switch r {
+    case .variable:
+      // Postpone the solving until we can infer the parameter passing convention of `R`.
+      return .postpone
+
+    case .parameter(let p):
+      // Either `L` is equal to the bare type of `R`, or it's a. Note: the equality requirement for
+      // arguments passed mutably is verified after type inference.
+      return .transform(.disjunction([
+        Constraint.Minterm(constraints: [.equality(l: l, r: p.bareType)], penalties: 0),
+        Constraint.Minterm(constraints: [.subtyping(l: l, r: p.bareType)], penalties: 1),
+      ]))
+
+    default:
+      return .failure(.nonParameterType(r))
     }
   }
 
@@ -121,6 +153,10 @@ struct ConstraintSolver {
 
     var solutions: [Solution] = []
     for minterm in minterms {
+      // Don't bother if there's no chance to find a better solution.
+      let s = Solution.Score(errorCount: errors.count, penalties: penalties + minterm.penalties)
+      if s > best { continue }
+
       // Explore the result of this choice.
       var subsolver = self
       subsolver.penalties += minterm.penalties
@@ -161,6 +197,15 @@ struct ConstraintSolver {
       s.errors.append(TypeError(kind: .staleConstaint, cause: constraint))
     }
     return s
+  }
+
+  /// Moves the stale constraints depending on the specified variables back to the fresh set.
+  private mutating func refresh(constraintsDependingOn variable: TypeVariable) {
+    for i in (0 ..< stale.count).reversed() {
+      if stale[i].constraint.depends(on: variable) {
+        fresh.append(stale.remove(at: i))
+      }
+    }
   }
 
 }

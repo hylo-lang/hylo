@@ -6,6 +6,8 @@ struct LocatableConstraint {
 
     case annotation
 
+    case callArgument
+
   }
 
   /// The constraint.
@@ -22,5 +24,11 @@ struct LocatableConstraint {
     self.node = node
     self.cause = cause
   }
+
+}
+
+extension LocatableConstraint: CustomStringConvertible {
+
+  var description: String { "\(constraint)" }
 
 }

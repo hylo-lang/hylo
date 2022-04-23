@@ -561,6 +561,44 @@ final class TypeCheckerTests: XCTestCase {
     XCTAssertTrue(checker.check(module: main))
   }
 
+  func testSimpleFunctionCall() {
+
+    // fun f(_ x: sink ()) -> () { x }
+    // let _ = f(())
+
+    var ast = AST()
+    let main = ast.insert(ModuleDecl(name: "main"))
+
+    ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
+      introducer: SourceRepresentable(value: .fun),
+      identifier: SourceRepresentable(value: "f"),
+      parameters: [
+        ast.insert(ParameterDecl(
+          identifier: SourceRepresentable(value: "x"),
+          annotation: AnyTypeExprID(ast.insert(ParameterTypeExpr(
+            convention: SourceRepresentable(value: .sink),
+            bareType: AnyTypeExprID(ast.insert(TupleTypeExpr())))))))
+      ],
+      output: AnyTypeExprID(ast.insert(TupleTypeExpr())),
+      body: SourceRepresentable(
+        value: .expr(AnyExprID(ast.insert(NameExpr(
+          stem: SourceRepresentable(value: "x"))))))))))
+
+    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+      pattern: ast.insert(BindingPattern(
+        introducer: SourceRepresentable(value: .let),
+        subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
+      initializer: AnyExprID(ast.insert(FunCallExpr(
+        callee: AnyExprID(ast.insert(NameExpr(stem: SourceRepresentable(value: "f")))),
+        arguments: [
+          SourceRepresentable(value: CallArgument(
+            value: AnyExprID(ast.insert(TupleExpr()))))
+        ])))))))
+
+    var checker = TypeChecker(ast: ast)
+    XCTAssertTrue(checker.check(module: main))
+  }
+
   func testGenericTypeAlias() {
 
     // typealias Pair<X, Y> = (first: X, second: Y)
