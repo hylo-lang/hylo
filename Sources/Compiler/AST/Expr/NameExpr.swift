@@ -63,7 +63,7 @@ public struct NameExpr: Expr {
     } else if labels.isEmpty {
       return stem.value
     } else {
-      let labels = labels.lazy.map({ $0 ?? "_" }).joined(separator: ":")
+      let labels = labels.reduce(into: "", { (s, l) in s += (l ?? "_") + ":" })
       return "\(stem.value)(\(labels))"
     }
   }

@@ -56,8 +56,8 @@ extension Diagnostic {
     expected: [String?],
     range: SourceRange?
   ) -> Diagnostic {
-    let ls = found.map({ "\($0 ?? "_")" }).joined(separator: ":")
-    let rs = expected.map({ "\($0 ?? "_")" }).joined(separator: ":")
+    let ls = found.reduce(into: "", { (string, label) in string += (label ?? "_") + ":" })
+    let rs = expected.reduce(into: "", { (string, label) in string += (label ?? "_") + ":" })
 
     return Diagnostic(
       level: .error,
