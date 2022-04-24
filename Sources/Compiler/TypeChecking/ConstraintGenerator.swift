@@ -340,7 +340,7 @@ struct ConstraintGenerator: ExprVisitor {
   private mutating func assume<T: ExprID>(typeOf id: T, is inferredType: Type) {
     if let expectedType = inferredTypes[id] {
       constraints.append(LocatableConstraint(
-        .equality(l: expectedType, r: inferredType), node: AnyNodeID(id)))
+        .equality(l: inferredType, r: expectedType), node: AnyNodeID(id)))
     } else {
       inferredTypes[id] = inferredType
     }

@@ -3,18 +3,6 @@ import Utils
 /// A constraint system solver.
 struct ConstraintSolver {
 
-  private enum SolverResult {
-
-    case success
-
-    case postpone
-
-    case transform(Constraint)
-
-    case failure(TypeError)
-
-  }
-
   /// A borrowed projection of the type checker that uses this constraint generator.
   var checker: TypeChecker!
 
@@ -51,50 +39,45 @@ struct ConstraintSolver {
       // Make sure the current solution is still worth exploring.
       if score > best { return nil }
 
-      let result: SolverResult
       switch constraint.constraint {
       case .conformance(let l, let traits):
-        result = solve(l, conformsTo: traits)
+        solve(l, conformsTo: traits, location: constraint.location)
       case .equality(let l, let r):
-        result = solve(l, equalsTo: r)
+        solve(l, equalsTo: r, location: constraint.location)
+      case .subtyping(let l, let r):
+        solve(l, isSubtypeOf: r, location: constraint.location)
       case .parameter(let l, let r):
-        result = solve(l, passableTo: r)
+        solve(l, passableTo: r, location: constraint.location)
       case .disjunction:
         return solve(disjunction: constraint)
       default:
         fatalError("not implemented")
-      }
-
-      switch result {
-      case .success:
-        continue
-      case .postpone:
-        stale.append(constraint)
-      case .transform(let c):
-        fresh.append(LocatableConstraint(c, node: constraint.node, cause: constraint.cause))
-      case .failure(let e):
-        diagnostics.append(contentsOf: e.diagnose(cause: constraint, ast: checker.ast))
       }
     }
 
     return finalize()
   }
 
-  private mutating func solve(_ l: Type, conformsTo traits: Set<TraitType>) -> SolverResult {
+  private mutating func solve(
+    _ l: Type,
+    conformsTo traits: Set<TraitType>,
+    location: LocatableConstraint.Location
+  ) {
     let l = assumptions[l]
 
     switch l {
     case .variable:
       // Postpone the solving if `L` is still unknown.
-      return .postpone
+      postpone(LocatableConstraint(.conformance(l: l, traits: traits), location: location))
 
     case .product, .tuple:
       let conformedTraits = checker.conformedTraits(of: l, inScope: scope) ?? []
       let nonConforming = traits.subtracting(conformedTraits)
-      if nonConforming.isEmpty {
-        return .success
-      } else {
-        return .failure(.doesNotConform(l, traits: traits, scope: scope))
+
+      if !nonConforming.isEmpty {
+        for trait in nonConforming {
+          diagnostics.append(.noConformance(of: l, to: trait, range: range(of: location)))
+        }
       }
 
     default:
@@ -102,49 +85,97 @@ struct ConstraintSolver {
     }
   }
 
-  private mutating func solve(_ l: Type, equalsTo r: Type) -> SolverResult {
+  private mutating func solve(
+    _ l: Type,
+    equalsTo r: Type,
+    location: LocatableConstraint.Location
+  ) {
     let l = assumptions[l]
     let r = assumptions[r]
 
-    if l == r { return .success }
+    if l == r { return }
 
     switch (l, r) {
     case (.variable(let tau), _):
       assumptions.assign(r, to: tau)
       refresh(constraintsDependingOn: tau)
-      return .success
 
     case (_, .variable(let tau)):
       assumptions.assign(l, to: tau)
       refresh(constraintsDependingOn: tau)
-      return .success
+
+    case (.tuple(let l), .tuple(let r)):
+      let lLabels = l.elements.map({ $0.label })
+      let rLabels = r.elements.map({ $0.label })
+
+      // Make sure both tuple types have a compatible shape.
+      if lLabels != rLabels {
+        let range = range(of: location)
+        if lLabels.count == rLabels.count {
+          diagnostics.append(.incompatibleLabels(found: lLabels, expected: rLabels, range: range))
+        } else {
+          diagnostics.append(.incompatibleTupleLengths(range: range))
+        }
+        return
+      }
+
+      // Break down the constraint.
+      for i in 0 ..< l.elements.count {
+        fresh.append(LocatableConstraint(
+          .equality(l: l.elements[i].type, r: r.elements[i].type), location: location))
+      }
 
     default:
       fatalError("not implemented")
     }
   }
 
-  private mutating func solve(_ l: Type, passableTo r: Type) -> SolverResult {
+  private mutating func solve(
+    _ l: Type,
+    isSubtypeOf r: Type,
+    location: LocatableConstraint.Location
+  ) {
     let l = assumptions[l]
     let r = assumptions[r]
 
-    if l == r { return .success }
+    if l == r { return }
+
+    switch (l, r) {
+    case (.tuple, .tuple):
+      diagnostics.append(.notSubtype(l, of: r, range: range(of: location)))
+
+    default:
+      fatalError("not implemented")
+    }
+  }
+
+  private mutating func solve(
+    _ l: Type,
+    passableTo r: Type,
+    location: LocatableConstraint.Location
+  ) {
+    let l = assumptions[l]
+    let r = assumptions[r]
+
+    if l == r { return }
 
     switch r {
     case .variable:
       // Postpone the solving until we can infer the parameter passing convention of `R`.
-      return .postpone
+      postpone(LocatableConstraint(.parameter(l: l, r: r), location: location))
 
     case .parameter(let p):
       // Either `L` is equal to the bare type of `R`, or it's a. Note: the equality requirement for
       // arguments passed mutably is verified after type inference.
-      return .transform(.disjunction([
-        Constraint.Minterm(constraints: [.equality(l: l, r: p.bareType)], penalties: 0),
-        Constraint.Minterm(constraints: [.subtyping(l: l, r: p.bareType)], penalties: 1),
-      ]))
+      fresh.append(LocatableConstraint(
+        .disjunction([
+          Constraint.Minterm(constraints: [.equality(l: l, r: p.bareType)], penalties: 0),
+          Constraint.Minterm(constraints: [.subtyping(l: l, r: p.bareType)], penalties: 1),
+        ]),
+        location: location))
 
     default:
-      return .failure(.nonParameterType(r))
+      diagnostics.append(.invalidParameterType(r, range: range(of: location)))
     }
   }
 
@@ -162,8 +193,7 @@ struct ConstraintSolver {
       var subsolver = self
       subsolver.penalties += minterm.penalties
       for constraint in minterm.constraints {
-        subsolver.fresh.append(LocatableConstraint(
-          constraint, node: disjunction.node, cause: disjunction.cause))
+        subsolver.fresh.append(LocatableConstraint(constraint, location: disjunction.location))
       }
 
       guard let solution = subsolver.solve() else { continue }
@@ -182,9 +212,26 @@ struct ConstraintSolver {
     } else {
       // TODO: Merge remaining solutions
       var s = solutions[0]
-      s.diagnostics.append(
-        contentsOf: TypeError.ambiguousDisjunction.diagnose(cause: disjunction, ast: checker.ast))
+      s.diagnostics.append(.ambiguousDisjunction(range: range(of: disjunction.location)))
       return s
+    }
+  }
+
+  private mutating func postpone(_ constraint: LocatableConstraint) {
+    stale.append(constraint)
+  }
+
+  /// Returns the source range corresponding to `location`, if any.
+  private func range(of location: LocatableConstraint.Location) -> SourceRange? {
+    location.node.map({ checker.ast.ranges[$0] }) ?? nil
+  }
+
+  /// Moves the stale constraints depending on the specified variables back to the fresh set.
+  private mutating func refresh(constraintsDependingOn variable: TypeVariable) {
+    for i in (0 ..< stale.count).reversed() {
+      if stale[i].constraint.depends(on: variable) {
+        fresh.append(stale.remove(at: i))
+      }
     }
   }
 
@@ -196,21 +243,11 @@ struct ConstraintSolver {
       penalties: penalties,
       diagnostics: diagnostics)
 
-    for constraint in stale {
-      s.diagnostics.append(contentsOf: TypeError.staleConstaint.diagnose(
-        cause: constraint, ast: checker.ast))
+    for c in stale {
+      s.diagnostics.append(.staleConstraint(constraint: c.constraint, range: range(of: c.location)))
     }
 
     return s
-  }
-
-  /// Moves the stale constraints depending on the specified variables back to the fresh set.
-  private mutating func refresh(constraintsDependingOn variable: TypeVariable) {
-    for i in (0 ..< stale.count).reversed() {
-      if stale[i].constraint.depends(on: variable) {
-        fresh.append(stale.remove(at: i))
-      }
-    }
   }
 
 }

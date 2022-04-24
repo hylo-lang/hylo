@@ -1,5 +1,13 @@
 extension Diagnostic {
 
+  static func ambiguousDisjunction(range: SourceRange?) -> Diagnostic {
+    Diagnostic(
+      level: .error,
+      message: "ambiguous disjunction",
+      location: range?.first(),
+      window: range.map({ r in Diagnostic.Window(range: r) }))
+  }
+
   static func ambiguousTypeReference(name: String, range: SourceRange?) -> Diagnostic {
     Diagnostic(
       level: .error,
@@ -89,6 +97,14 @@ extension Diagnostic {
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }
 
+  static func incompatibleTupleLengths(range: SourceRange?) -> Diagnostic {
+    Diagnostic(
+      level: .error,
+      message: "tuples have different lenghts",
+      location: range?.first(),
+      window: range.map({ r in Diagnostic.Window(range: r) }))
+  }
+
   static func invalidAssociatedTypeExpr(_ name: String, range: SourceRange?) -> Diagnostic {
     Diagnostic(
       level: .error,
@@ -112,6 +128,14 @@ extension Diagnostic {
     Diagnostic(
       level: .error,
       message: "reference to 'Self' outside of a type context",
+      location: range?.first(),
+      window: range.map({ r in Diagnostic.Window(range: r) }))
+  }
+
+  static func invalidParameterType(_ type: Type, range: SourceRange?) -> Diagnostic {
+    Diagnostic(
+      level: .error,
+      message: "invalid parameter type '\(type)'",
       location: range?.first(),
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }
@@ -170,6 +194,14 @@ extension Diagnostic {
     Diagnostic(
       level: .error,
       message: "not enough contextual information to infer the arguments to generic parameters",
+      location: range?.first(),
+      window: range.map({ r in Diagnostic.Window(range: r) }))
+  }
+
+  static func notSubtype(_ l: Type, of r: Type, range: SourceRange?) -> Diagnostic {
+    Diagnostic(
+      level: .error,
+      message: "'\(l)' is not subtype of '\(r)'",
       location: range?.first(),
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }
