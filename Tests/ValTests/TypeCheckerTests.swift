@@ -599,6 +599,95 @@ final class TypeCheckerTests: XCTestCase {
     XCTAssertTrue(checker.check(module: main))
   }
 
+  func testGenericFunctionCall() {
+
+    // fun f<X, Y>(_ x: sink X, _ y: sink Y) -> X { x }
+    // let _ = f((a0: ()), (b0: ()))
+    // let _ = f((a1: ()), (b1: ()))
+
+    var ast = AST()
+    let main = ast.insert(ModuleDecl(name: "main"))
+
+    ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
+      introducer: SourceRepresentable(value: .fun),
+      identifier: SourceRepresentable(value: "f"),
+      genericClause: SourceRepresentable(value: GenericClause(
+        params: [
+          .type(ast.insert(GenericTypeParamDecl(
+            identifier: SourceRepresentable(value: "X")))),
+          .type(ast.insert(GenericTypeParamDecl(
+            identifier: SourceRepresentable(value: "Y")))),
+        ])),
+      parameters: [
+        ast.insert(ParameterDecl(
+          identifier: SourceRepresentable(value: "x"),
+          annotation: AnyTypeExprID(ast.insert(ParameterTypeExpr(
+            convention: SourceRepresentable(value: .sink),
+            bareType: AnyTypeExprID(ast.insert(NameTypeExpr(
+              identifier: SourceRepresentable(value: "X"))))))))),
+        ast.insert(ParameterDecl(
+          identifier: SourceRepresentable(value: "y"),
+          annotation: AnyTypeExprID(ast.insert(ParameterTypeExpr(
+            convention: SourceRepresentable(value: .sink),
+            bareType: AnyTypeExprID(ast.insert(NameTypeExpr(
+              identifier: SourceRepresentable(value: "Y"))))))))),
+      ],
+      output: AnyTypeExprID(ast.insert(NameTypeExpr(
+        identifier: SourceRepresentable(value: "X")))),
+      body: SourceRepresentable(
+        value: .expr(AnyExprID(ast.insert(NameExpr(
+          stem: SourceRepresentable(value: "x"))))))))))
+
+    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+      pattern: ast.insert(BindingPattern(
+        introducer: SourceRepresentable(value: .let),
+        subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
+      initializer: AnyExprID(ast.insert(FunCallExpr(
+        callee: AnyExprID(ast.insert(NameExpr(stem: SourceRepresentable(value: "f")))),
+        arguments: [
+          SourceRepresentable(value: CallArgument(
+            value: AnyExprID(ast.insert(TupleExpr(
+              elements: [
+                SourceRepresentable(value: TupleExpr.Element(
+                  label: "a0",
+                  value: AnyExprID(ast.insert(TupleExpr())))),
+              ]))))),
+          SourceRepresentable(value: CallArgument(
+            value: AnyExprID(ast.insert(TupleExpr(
+              elements: [
+                SourceRepresentable(value: TupleExpr.Element(
+                  label: "b0",
+                  value: AnyExprID(ast.insert(TupleExpr())))),
+              ]))))),
+        ])))))))
+
+    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+      pattern: ast.insert(BindingPattern(
+        introducer: SourceRepresentable(value: .let),
+        subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
+      initializer: AnyExprID(ast.insert(FunCallExpr(
+        callee: AnyExprID(ast.insert(NameExpr(stem: SourceRepresentable(value: "f")))),
+        arguments: [
+          SourceRepresentable(value: CallArgument(
+            value: AnyExprID(ast.insert(TupleExpr(
+              elements: [
+                SourceRepresentable(value: TupleExpr.Element(
+                  label: "a1",
+                  value: AnyExprID(ast.insert(TupleExpr())))),
+              ]))))),
+          SourceRepresentable(value: CallArgument(
+            value: AnyExprID(ast.insert(TupleExpr(
+              elements: [
+                SourceRepresentable(value: TupleExpr.Element(
+                  label: "b1",
+                  value: AnyExprID(ast.insert(TupleExpr())))),
+              ]))))),
+        ])))))))
+
+    var checker = TypeChecker(ast: ast)
+    XCTAssertTrue(checker.check(module: main))
+  }
+
   func testWrongArityInFunctionCall() {
 
     // fun f(_ x: sink ()) -> () { x }
