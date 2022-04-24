@@ -690,6 +690,89 @@ final class TypeCheckerTests: XCTestCase {
     XCTAssertTrue(checker.check(module: main))
   }
 
+  func testGenericFunctionCallWithDependentParameters() {
+
+    // fun f<X>(_ x0: sink X, _ x1: sink (b: X)) {}
+    // let _ = f((), (b: ()))      // OK
+    // let _ = f((a: ()), (b: ())) // error
+
+    var ast = AST()
+    let main = ast.insert(ModuleDecl(name: "main"))
+
+    ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
+      introducer: SourceRepresentable(value: .fun),
+      identifier: SourceRepresentable(value: "f"),
+      genericClause: SourceRepresentable(value: GenericClause(
+        params: [
+          .type(ast.insert(GenericTypeParamDecl(
+            identifier: SourceRepresentable(value: "X")))),
+        ])),
+      parameters: [
+        ast.insert(ParameterDecl(
+          identifier: SourceRepresentable(value: "x0"),
+          annotation: AnyTypeExprID(ast.insert(ParameterTypeExpr(
+            convention: SourceRepresentable(value: .sink),
+            bareType: AnyTypeExprID(ast.insert(NameTypeExpr(
+              identifier: SourceRepresentable(value: "X"))))))))),
+        ast.insert(ParameterDecl(
+          identifier: SourceRepresentable(value: "x1"),
+          annotation: AnyTypeExprID(ast.insert(ParameterTypeExpr(
+            convention: SourceRepresentable(value: .sink),
+            bareType: AnyTypeExprID(ast.insert(TupleTypeExpr(elements: [
+              SourceRepresentable(value: TupleTypeExpr.Element(
+                label: "b",
+                type: AnyTypeExprID(ast.insert(NameTypeExpr(
+                  identifier: SourceRepresentable(value: "X"))))))
+            ])))))))),
+      ],
+      body: SourceRepresentable(value: .block(ast.insert(BraceStmt())))))))
+
+    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+      pattern: ast.insert(BindingPattern(
+        introducer: SourceRepresentable(value: .let),
+        subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
+      initializer: AnyExprID(ast.insert(FunCallExpr(
+        callee: AnyExprID(ast.insert(NameExpr(stem: SourceRepresentable(value: "f")))),
+        arguments: [
+          SourceRepresentable(value: CallArgument(
+            value: AnyExprID(ast.insert(TupleExpr())))),
+          SourceRepresentable(value: CallArgument(
+            value: AnyExprID(ast.insert(TupleExpr(
+              elements: [
+                SourceRepresentable(value: TupleExpr.Element(
+                  label: "b",
+                  value: AnyExprID(ast.insert(TupleExpr())))),
+              ]))))),
+        ])))))))
+
+    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+      pattern: ast.insert(BindingPattern(
+        introducer: SourceRepresentable(value: .let),
+        subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
+      initializer: AnyExprID(ast.insert(FunCallExpr(
+        callee: AnyExprID(ast.insert(NameExpr(stem: SourceRepresentable(value: "f")))),
+        arguments: [
+          SourceRepresentable(value: CallArgument(
+            value: AnyExprID(ast.insert(TupleExpr(
+              elements: [
+                SourceRepresentable(value: TupleExpr.Element(
+                  label: "a",
+                  value: AnyExprID(ast.insert(TupleExpr())))),
+              ]))))),
+          SourceRepresentable(value: CallArgument(
+            value: AnyExprID(ast.insert(TupleExpr(
+              elements: [
+                SourceRepresentable(value: TupleExpr.Element(
+                  label: "b",
+                  value: AnyExprID(ast.insert(TupleExpr())))),
+              ]))))),
+        ])))))))
+
+    var checker = TypeChecker(ast: ast)
+    XCTAssertFalse(checker.check(module: main))
+    XCTAssert(checker.diagnostics.count == 1)
+  }
+
   func testWrongArityInFunctionCall() {
 
     // fun f(_ x: sink ()) -> () { x }
