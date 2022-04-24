@@ -24,6 +24,14 @@ extension Diagnostic {
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }
 
+  static func cannotConstruct(trait: TraitType, range: SourceRange?) -> Diagnostic {
+    Diagnostic(
+      level: .error,
+      message: "cannot construct an instance of trait '\(trait)'",
+      location: range?.first(),
+      window: range.map({ r in Diagnostic.Window(range: r) }))
+  }
+
   static func conformanceToNonTraitType(_ type: Type, range: SourceRange?) -> Diagnostic {
     Diagnostic(
       level: .error,
@@ -36,6 +44,14 @@ extension Diagnostic {
     Diagnostic(
       level: .error,
       message: "duplicate parameter name '\(name)'",
+      location: range?.first(),
+      window: range.map({ r in Diagnostic.Window(range: r) }))
+  }
+
+  static func illegalMemberwiseCtor(range: SourceRange?) -> Diagnostic {
+    Diagnostic(
+      level: .error,
+      message: "memberwise constructor declaration may only appear in product type declaration",
       location: range?.first(),
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }

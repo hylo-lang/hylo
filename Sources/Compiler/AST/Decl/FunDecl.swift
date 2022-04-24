@@ -11,8 +11,8 @@ public struct FunDecl: GenericDecl, GenericScope {
     /// The constructor introducer, `init`.
     case `init`
 
-    /// The default constructor introducer, `default init`
-    case defaultInit
+    /// The memberwise constructor introducer, `memberwise init`
+    case memberwiseInit
 
     /// The destructor introducer, `deinit`.
     case `deinit`

@@ -71,8 +71,8 @@ struct ScopeHierarchy {
   }
 
   /// Returns a sequence containing `scope` and all its ancestors, from inner to outer.
-  func scopesToRoot(from scope: AnyScopeID) -> ScopeSequence {
-    ScopeSequence(parent: parent, current: scope)
+  func scopesToRoot<S: ScopeID>(from scope: S) -> ScopeSequence {
+    ScopeSequence(parent: parent, current: AnyScopeID(scope))
   }
 
 }

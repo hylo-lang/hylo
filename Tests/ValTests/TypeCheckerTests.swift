@@ -689,6 +689,75 @@ final class TypeCheckerTests: XCTestCase {
     XCTAssert(checker.diagnostics.count == 1)
   }
 
+  func testIllegalMemberwiseCtorDecl() {
+
+    // memberwise init
+
+    var ast = AST()
+    let main = ast.insert(ModuleDecl(name: "main"))
+
+    ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
+      introducer: SourceRepresentable(value: .memberwiseInit),
+      accessModifier: SourceRepresentable(value: .public)))))
+
+    var checker = TypeChecker(ast: ast)
+    XCTAssertFalse(checker.check(module: main))
+    XCTAssert(checker.diagnostics.count == 1)
+  }
+
+  func testMemberwiseCtorCall() {
+
+    // type A {
+    //   var foo: ()
+    //   var bar: ()
+    //   public memberwise init
+    // }
+    // let _ = A(foo: (), bar: ())
+
+    var ast = AST()
+    let main = ast.insert(ModuleDecl(name: "main"))
+
+    ast[main].members.append(AnyDeclID(ast.insert(ProductTypeDecl(
+      identifier: SourceRepresentable(value: "A"),
+      members: [
+        AnyDeclID(ast.insert(BindingDecl(
+          pattern: ast.insert(BindingPattern(
+            introducer: SourceRepresentable(value: .var),
+            subpattern: AnyPatternID(ast.insert(NamePattern(
+              decl: ast.insert(VarDecl(
+                identifier: SourceRepresentable(value: "foo")))))),
+            annotation: AnyTypeExprID(ast.insert(TupleTypeExpr()))))))),
+        AnyDeclID(ast.insert(BindingDecl(
+          pattern: ast.insert(BindingPattern(
+            introducer: SourceRepresentable(value: .var),
+            subpattern: AnyPatternID(ast.insert(NamePattern(
+              decl: ast.insert(VarDecl(
+                identifier: SourceRepresentable(value: "bar")))))),
+            annotation: AnyTypeExprID(ast.insert(TupleTypeExpr()))))))),
+        AnyDeclID(ast.insert(FunDecl(
+          introducer: SourceRepresentable(value: .memberwiseInit),
+          accessModifier: SourceRepresentable(value: .public)))),
+      ]))))
+
+    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+      pattern: ast.insert(BindingPattern(
+        introducer: SourceRepresentable(value: .let),
+        subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
+      initializer: AnyExprID(ast.insert(FunCallExpr(
+        callee: AnyExprID(ast.insert(NameExpr(stem: SourceRepresentable(value: "A")))),
+        arguments: [
+          SourceRepresentable(value: CallArgument(
+            label: SourceRepresentable(value: "foo"),
+            value: AnyExprID(ast.insert(TupleExpr())))),
+          SourceRepresentable(value: CallArgument(
+            label: SourceRepresentable(value: "bar"),
+            value: AnyExprID(ast.insert(TupleExpr())))),
+        ])))))))
+
+    var checker = TypeChecker(ast: ast)
+    XCTAssertTrue(checker.check(module: main))
+  }
+
   func testGenericTypeAlias() {
 
     // typealias Pair<X, Y> = (first: X, second: Y)
@@ -740,26 +809,26 @@ final class TypeCheckerTests: XCTestCase {
     let main = ast.insert(ModuleDecl(name: "main"))
 
     // 42
-    var expr = AnyExprID(ast.insert(IntegerLiteralExpr(value: "42")))
+    let expr = AnyExprID(ast.insert(IntegerLiteralExpr(value: "42")))
 
     // Infer the type of the literal without any contextual information.
     do {
       var checker = TypeChecker(ast: ast)
-      let type = checker.infer(expr: &expr, inScope: main)
+      let type = checker.infer(expr: expr, inScope: main)
       XCTAssertEqual(type, .int(in: ast))
     }
 
     // Infer the type of the literal assuming it's `Double` from the context.
     do {
       var checker = TypeChecker(ast: ast)
-      let type = checker.infer(expr: &expr, expectedType: .double(in: ast), inScope: main)
+      let type = checker.infer(expr: expr, expectedType: .double(in: ast), inScope: main)
       XCTAssertEqual(type, .double(in: ast))
     }
 
     // Infer the type of the literal assuming its `()` from the context.
     do {
       var checker = TypeChecker(ast: ast)
-      let type = checker.infer(expr: &expr, expectedType: .unit, inScope: main)
+      let type = checker.infer(expr: expr, expectedType: .unit, inScope: main)
       XCTAssertNil(type)
       XCTAssert(checker.diagnostics.count == 1)
     }

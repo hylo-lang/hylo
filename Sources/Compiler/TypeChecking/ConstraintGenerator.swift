@@ -3,7 +3,7 @@ import Utils
 /// A visitor that generates constraints based on the structure of the AST.
 struct ConstraintGenerator: ExprVisitor {
 
-  typealias Result = AnyExprID
+  typealias Result = Void
 
   /// A borrowed projection of the type checker that uses this constraint generator.
   var checker: TypeChecker!
@@ -14,50 +14,49 @@ struct ConstraintGenerator: ExprVisitor {
   /// A table mapping visited expressions to their inferred types.
   var inferredTypes = ExprMap<Type>()
 
+  /// A table mapping name expressions to referred declarations.
+  var referredDecls: [NodeID<NameExpr>: AnyDeclID] = [:]
+
   /// The set of type constraints being generated.
   var constraints: [LocatableConstraint] = []
 
   /// The diagnostics of the errors the generator encountered.
   var diagnostics: [Diagnostic] = []
 
-  mutating func visit(async i: NodeID<AsyncExpr>) -> AnyExprID {
+  mutating func visit(async i: NodeID<AsyncExpr>) {
     fatalError("not implemented")
   }
 
-  mutating func visit(await i: NodeID<AwaitExpr>) -> AnyExprID {
+  mutating func visit(await i: NodeID<AwaitExpr>) {
     fatalError("not implemented")
   }
 
-  mutating func visit(boolLiteral i: NodeID<BoolLiteralExpr>) -> AnyExprID {
+  mutating func visit(boolLiteral i: NodeID<BoolLiteralExpr>) {
     fatalError("not implemented")
   }
 
-  mutating func visit(bufferLiteral i : NodeID<BufferLiteralExpr>) -> AnyExprID {
+  mutating func visit(bufferLiteral i : NodeID<BufferLiteralExpr>) {
     fatalError("not implemented")
   }
 
-  mutating func visit(charLiteral i: NodeID<CharLiteralExpr>) -> AnyExprID {
+  mutating func visit(charLiteral i: NodeID<CharLiteralExpr>) {
     fatalError("not implemented")
   }
 
-  mutating func visit(cond i: NodeID<CondExpr>) -> AnyExprID {
+  mutating func visit(cond i: NodeID<CondExpr>) {
     fatalError("not implemented")
   }
 
-  mutating func visit(declReference i: NodeID<DeclReferenceExpr>) -> AnyExprID {
+  mutating func visit(floatLiteral i: NodeID<FloatLiteralExpr>) {
     fatalError("not implemented")
   }
 
-  mutating func visit(floatLiteral i: NodeID<FloatLiteralExpr>) -> AnyExprID {
-    fatalError("not implemented")
-  }
-
-  mutating func visit(funCall id: NodeID<FunCallExpr>) -> AnyExprID {
+  mutating func visit(funCall id: NodeID<FunCallExpr>) {
     defer { assert(inferredTypes[id] != nil) }
 
     // Infer the type of the callee.
-    let callee = checker.ast[id].callee.accept(&self)
-    checker.ast[id].callee = callee
+    checker.ast[id].callee.accept(&self)
+    let callee = checker.ast[id].callee
 
     // There are four cases to consider:
     // 1. We failed to infer the type of the callee. In that case there's nothing more we can do.
@@ -68,17 +67,7 @@ struct ConstraintGenerator: ExprVisitor {
     // 4. We determined that the callee is overloaded. In that case we must rely on argument labels
     //    and bottom-up inference to constrain to select the appropriate candidate.
 
-    // 1st case
-    if case .error = inferredTypes[callee] {
-      assume(typeOf: id, is: .error(ErrorType()))
-      return AnyExprID(id)
-    }
-
-    // 2nd case
-    // TODO
-
-    // 3rd case
-    if let calleeType = inferredTypes[callee]?.base as? CallableType {
+    func propagateDown(calleeType: CallableType) {
       // Collect the call labels.
       let labels = checker.ast[id].arguments.map({ $0.value.label?.value })
 
@@ -88,7 +77,7 @@ struct ConstraintGenerator: ExprVisitor {
         diagnostics.append(.incompatibleLabels(
           found: calleeLabels, expected: labels, range: checker.ast.ranges[callee]))
         assume(typeOf: id, is: .error(ErrorType()))
-        return AnyExprID(id)
+        return
       }
 
       // Propagate type information to the arguments.
@@ -103,12 +92,51 @@ struct ConstraintGenerator: ExprVisitor {
           node: AnyNodeID(argument.value),
           cause: .callArgument))
 
-        checker.ast[id].arguments[i].value.value = argument.value.accept(&self)
+        argument.value.accept(&self)
       }
 
       // Constrain the type of the call.
       assume(typeOf: id, is: calleeType.output)
-      return AnyExprID(id)
+    }
+
+    // 1st case
+    if case .error = inferredTypes[callee] {
+      assume(typeOf: id, is: .error(ErrorType()))
+      return
+    }
+
+    // 2nd case
+    if let c = NodeID<NameExpr>(converting: callee),
+       let d = referredDecls[c],
+       d.kind <= .typeDecl
+    {
+      switch d.kind {
+      case .productTypeDecl:
+        if let ctor = checker.memberwiseCtorType(of: NodeID(converting: d)!) {
+          propagateDown(calleeType: ctor)
+        } else {
+          assume(typeOf: id, is: .error(ErrorType()))
+        }
+
+      case .traitDecl:
+        let trait = TraitType(decl: NodeID(converting: d)!, ast: checker.ast)
+        diagnostics.append(.cannotConstruct(trait: trait, range: checker.ast.ranges[callee]))
+        assume(typeOf: id, is: .error(ErrorType()))
+
+      case .typeAliasDecl:
+        fatalError("not implemented")
+
+      default:
+        unreachable("unexpected declaration")
+      }
+
+      return
+    }
+
+    // 3rd case
+    if let calleeType = inferredTypes[callee]?.base as? CallableType {
+      propagateDown(calleeType: calleeType)
+      return
     }
 
     // 4th case
@@ -122,8 +150,8 @@ struct ConstraintGenerator: ExprVisitor {
 
     var inputs: [CallableTypeParameter] = []
     for i in 0 ..< checker.ast[id].arguments.count {
-      let argumentValue = checker.ast[id].arguments[i].value.value.accept(&self)
-      checker.ast[id].arguments[i].value.value = argumentValue
+      checker.ast[id].arguments[i].value.value.accept(&self)
+      let argumentValue = checker.ast[id].arguments[i].value.value
 
       let argumentLabel = checker.ast[id].arguments[i].value.label?.value
       let argumentType = inferredTypes[argumentValue]!
@@ -141,11 +169,9 @@ struct ConstraintGenerator: ExprVisitor {
       environment: .variable(TypeVariable()), inputs: inputs, output: output))
     constraints.append(LocatableConstraint(
       .equality(l: inferredTypes[callee]!, r: calleeType), node: AnyNodeID(callee)))
-
-    return AnyExprID(id)
   }
 
-  mutating func visit(integerLiteral id: NodeID<IntegerLiteralExpr>) -> AnyExprID {
+  mutating func visit(integerLiteral id: NodeID<IntegerLiteralExpr>) {
     let trait = TraitType(named: "ExpressibleByIntegerLiteral", ast: checker.ast)
       ?? unreachable()
 
@@ -172,27 +198,25 @@ struct ConstraintGenerator: ExprVisitor {
       // Without contextual information, infer the type of the literal as `Val.Int`.
       inferredTypes[id] = .int(in: checker.ast)
     }
-
-    return AnyExprID(id)
   }
 
-  mutating func visit(lambda i: NodeID<LambdaExpr>) -> AnyExprID {
+  mutating func visit(lambda i: NodeID<LambdaExpr>) {
     fatalError("not implemented")
   }
 
-  mutating func visit(mapLiteral i: NodeID<MapLiteralExpr>) -> AnyExprID {
+  mutating func visit(mapLiteral i: NodeID<MapLiteralExpr>) {
     fatalError("not implemented")
   }
 
-  mutating func visit(match i: NodeID<MatchExpr>) -> AnyExprID {
+  mutating func visit(match i: NodeID<MatchExpr>) {
     fatalError("not implemented")
   }
 
-  mutating func visit(matchCase i: NodeID<MatchCaseExpr>) -> AnyExprID {
+  mutating func visit(matchCase i: NodeID<MatchCaseExpr>) {
     fatalError("not implemented")
   }
 
-  mutating func visit(name id: NodeID<NameExpr>) -> AnyExprID {
+  mutating func visit(name id: NodeID<NameExpr>) {
     let stem = checker.ast[id].stem
 
     // Resolves the name.
@@ -206,7 +230,7 @@ struct ConstraintGenerator: ExprVisitor {
       if results.isEmpty {
         diagnostics.append(.undefined(name: checker.ast[id].baseName, range: stem.range))
         assume(typeOf: id, is: .error(ErrorType()))
-        return AnyExprID(id)
+        return
       }
 
       var inferredType: Type
@@ -215,6 +239,7 @@ struct ConstraintGenerator: ExprVisitor {
         constraints.append(contentsOf: results[0].constraints.map({ c in
           LocatableConstraint(c, node: AnyNodeID(id))
         }))
+        referredDecls[id] = results[0].decl
       } else {
         // TODO: Create an overload constraint
         fatalError("not implemented")
@@ -225,27 +250,25 @@ struct ConstraintGenerator: ExprVisitor {
     case .implicit, .explicit:
       fatalError("not implemented")
     }
-
-    return AnyExprID(id)
   }
 
-  mutating func visit(nil i: NodeID<NilExpr>) -> AnyExprID {
+  mutating func visit(nil i: NodeID<NilExpr>) {
     fatalError("not implemented")
   }
 
-  mutating func visit(storedProjection i: NodeID<StoredProjectionExpr>) -> AnyExprID {
+  mutating func visit(storedProjection i: NodeID<StoredProjectionExpr>) {
     fatalError("not implemented")
   }
 
-  mutating func visit(stringLiteral i: NodeID<StringLiteralExpr>) -> AnyExprID {
+  mutating func visit(stringLiteral i: NodeID<StringLiteralExpr>) {
     fatalError("not implemented")
   }
 
-  mutating func visit(subscriptCall i: NodeID<SubscriptCallExpr>) -> AnyExprID {
+  mutating func visit(subscriptCall i: NodeID<SubscriptCallExpr>) {
     fatalError("not implemented")
   }
 
-  mutating func visit(tuple id: NodeID<TupleExpr>) -> AnyExprID {
+  mutating func visit(tuple id: NodeID<TupleExpr>) {
     var expr = checker.ast[id]
 
     // If the expected type is a tuple compatible with the shape of the expression, propagate that
@@ -257,7 +280,7 @@ struct ConstraintGenerator: ExprVisitor {
       for i in 0 ..< expr.elements.count {
         modifying(&expr.elements[i].value, { element in
           inferredTypes[element.value] = type.elements[i].type
-          element.value = element.value.accept(&self)
+          element.value.accept(&self)
         })
       }
     } else {
@@ -266,7 +289,7 @@ struct ConstraintGenerator: ExprVisitor {
       for i in 0 ..< expr.elements.count {
         modifying(&expr.elements[i].value, { element in
           inferredTypes[element.value] = nil
-          element.value = element.value.accept(&self)
+          element.value.accept(&self)
 
           elements.append(TupleType.Element(
             label: element.label,
@@ -278,10 +301,9 @@ struct ConstraintGenerator: ExprVisitor {
 
     assert(inferredTypes[id] != nil)
     checker.ast[id] = expr
-    return AnyExprID(id)
   }
 
-  mutating func visit(unfolded i: NodeID<UnfoldedExpr>) -> AnyExprID {
+  mutating func visit(unfolded i: NodeID<UnfoldedExpr>) {
     fatalError("not implemented")
   }
 

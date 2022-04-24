@@ -277,8 +277,6 @@ struct ScopeHierarchyBuilder:
     })
   }
 
-  mutating func visit(declReference i: NodeID<DeclReferenceExpr>) {}
-
   mutating func visit(floatLiteral i: NodeID<FloatLiteralExpr>) {}
 
   mutating func visit(funCall i: NodeID<FunCallExpr>) {

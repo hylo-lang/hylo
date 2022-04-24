@@ -88,7 +88,7 @@ public struct TypeChecker {
   /// Returns the set of traits to which `type` conforms in `scope`.
   ///
   /// - Note: If `type` is a trait, it is always contained in the returned set.
-  mutating func conformedTraits(of type: Type, inScope scope: AnyScopeID) -> Set<TraitType>? {
+  mutating func conformedTraits<S: ScopeID>(of type: Type, inScope scope: S) -> Set<TraitType>? {
     var result: Set<TraitType> = []
 
     switch type {
@@ -293,13 +293,12 @@ public struct TypeChecker {
 
     // Type check the initializer, if any.
     var success = true
-    if var initializer = ast[i].initializer {
+    if let initializer = ast[i].initializer {
       let solution = infer(
-        expr: &initializer,
+        expr: initializer,
         expectedType: shape.type,
         inScope: scope,
         constraints: &shape.constraints)
-      ast[i].initializer = initializer
 
       // TODO: Complete underspecified generic signatures
 
@@ -339,6 +338,11 @@ public struct TypeChecker {
   }
 
   private mutating func _check(fun id: NodeID<FunDecl>) -> Bool {
+    // Memberwize constructors always type check.
+    if ast[id].introducer.value == .memberwiseInit {
+      return true
+    }
+
     // Type check the generic constraints of the declaration.
     var success = environment(ofGenericDecl: id) != nil
 
@@ -353,12 +357,11 @@ public struct TypeChecker {
         continue
       }
 
-      guard var defaultValue = parameter.defaultValue else { continue }
+      guard let defaultValue = parameter.defaultValue else { continue }
       let type = declTypes[j]!!
-      if infer(expr: &defaultValue, expectedType: type, inScope: AnyScopeID(id)) == nil {
+      if infer(expr: defaultValue, expectedType: type, inScope: AnyScopeID(id)) == nil {
         success = false
       }
-      ast[j].defaultValue = defaultValue
     }
 
     let output = (declTypes[id]!!.base as! CallableType).output.skolemized
@@ -368,11 +371,10 @@ public struct TypeChecker {
     case .block(let stmt):
       success = check(brace: stmt) && success
 
-    case .expr(var expr):
+    case .expr(let expr):
       // If the function has no return annotation, it's body has been checed during realization.
       if ast[id].output == nil { break }
-      success = (infer(expr: &expr, expectedType: output, inScope: id) != nil) && success
-      ast[id].body?.value = .expr(expr)
+      success = (infer(expr: expr, expectedType: output, inScope: id) != nil) && success
 
     case .bundle:
       fatalError("not implemented")
@@ -839,13 +841,13 @@ public struct TypeChecker {
 
   /// Infers and returns the type of `expr`, or `nil` if `expr` is ill-formed.
   public mutating func infer<S: ScopeID>(
-    expr: inout AnyExprID,
+    expr: AnyExprID,
     expectedType: Type? = nil,
     inScope scope: S
   ) -> Type? {
     var constraints: [LocatableConstraint] = []
     let solution = infer(
-      expr: &expr,
+      expr: expr,
       expectedType: expectedType,
       inScope: AnyScopeID(scope),
       constraints: &constraints)
@@ -859,7 +861,7 @@ public struct TypeChecker {
 
   /// Infers the type of `expr` and returns the best solution found by the constraint solver.
   mutating func infer(
-    expr: inout AnyExprID,
+    expr: AnyExprID,
     expectedType: Type?,
     inScope scope: AnyScopeID,
     constraints: inout [LocatableConstraint]
@@ -871,7 +873,7 @@ public struct TypeChecker {
       // Generate constraints.
       var generator = ConstraintGenerator(checker: this, scope: scope)
       generator.inferredTypes[expr] = expectedType
-      expr = expr.accept(&generator)
+      expr.accept(&generator)
       constraints.append(contentsOf: generator.constraints)
 
       // Solve the constraints.
@@ -1189,11 +1191,11 @@ public struct TypeChecker {
   /// Returns the extending declarations of `type` exposed to `scope`.
   ///
   /// - Note: The declarations referred by the returned IDs conform to `TypeExtendingDecl`.
-  private mutating func extendingDecls(
+  private mutating func extendingDecls<S: ScopeID>(
     of type: Type,
-    exposedTo scope: AnyScopeID
+    exposedTo scope: S
   ) -> [AnyDeclID] {
-    var root = scope
+    var root = AnyScopeID(scope)
     var matches: [AnyDeclID] = []
     let canonicalType = canonicalize(type: type)
 
@@ -1336,15 +1338,34 @@ public struct TypeChecker {
   /// Realizes and returns the type of `Self` in `scope`.
   ///
   /// - Note: This method does not issue diagnostics.
-  public mutating func realizeSelfTypeExpr(inScope scope: AnyScopeID) -> Type? {
+  public mutating func realizeSelfTypeExpr<T: ScopeID>(inScope scope: T) -> Type? {
     for scope in scopeHierarchy.scopesToRoot(from: scope) {
       switch scope.kind {
       case .traitDecl:
         let decl = NodeID<TraitDecl>(converting: scope)!
         return .genericTypeParam(GenericTypeParamType(decl: decl, ast: ast))
 
-      case .productTypeDecl,
-           .typeAliasDecl:
+      case .productTypeDecl:
+        // Synthesize unparametrized `Self`.
+        let decl = NodeID<ProductTypeDecl>(converting: scope)!
+        var type = Type.product(ProductType(decl: decl, ast: ast))
+
+        // Synthesize arguments to generic parameters if necessary.
+        if let parameters = ast[decl].genericClause?.value.params {
+          let arguments = parameters.map({ (p) -> BoundGenericType.Argument in
+            switch p {
+            case .type(let p):
+              return .type(.genericTypeParam(GenericTypeParamType(decl: p, ast: ast)))
+            case .size:
+              fatalError("not implemented")
+            }
+          })
+          type = .boundGeneric(BoundGenericType(type, arguments: arguments))
+        }
+
+        return type
+
+      case .typeAliasDecl:
         fatalError("not implemented")
 
       default:
@@ -1543,8 +1564,7 @@ public struct TypeChecker {
       })
 
     case .bindingDecl:
-      _ = check(binding: NodeID(converting: id)!)
-      return declTypes[id]!
+      return realize(bindingDecl: NodeID(converting: id)!)
 
     case .conformanceDecl,
          .extensionDecl:
@@ -1582,11 +1602,28 @@ public struct TypeChecker {
     }
   }
 
+  private mutating func realize(bindingDecl id: NodeID<BindingDecl>) -> Type? {
+    _ = check(binding: NodeID(converting: id)!)
+    return declTypes[id]!
+  }
+
   private mutating func realize(funDecl id: NodeID<FunDecl>) -> Type? {
     _realize(decl: id, { (this, id) in this._realize(funDecl: id) })
   }
 
   private mutating func _realize(funDecl id: NodeID<FunDecl>) -> Type? {
+    // Handle memberwize constructors.
+    if ast[id].introducer.value == .memberwiseInit {
+      guard let parent = scopeHierarchy.container[id],
+            parent.kind == .productTypeDecl
+      else {
+        diagnostics.insert(.illegalMemberwiseCtor(range: ast[id].introducer.range))
+        return nil
+      }
+
+      return .lambda(memberwiseCtorType(of: NodeID(converting: parent)!)!)
+    }
+
     let decl = ast[id]
     let declScope = AnyScopeID(id)
 
@@ -1656,10 +1693,9 @@ public struct TypeChecker {
       // Use explicit return annotations.
       guard let type = realize(o, inScope: declScope) else { return nil }
       output = type
-    } else if case .expr(var body) = decl.body?.value {
+    } else if case .expr(let body) = decl.body?.value {
       // If the function is expression-bodied, its return type may be inferred.
-      defer { ast[id].body?.value = .expr(body) }
-      guard let type = infer(expr: &body, inScope: declScope) else { return nil }
+      guard let type = infer(expr: body, inScope: declScope) else { return nil }
       output = type
     } else {
       // Default to `()`
@@ -1765,6 +1801,27 @@ public struct TypeChecker {
     // Update the request status.
     declRequests[id] = .typeRealizationCompleted
     return declTypes[id]!
+  }
+
+  /// Returns the type of `decl`'s memberwise constructor.
+  mutating func memberwiseCtorType(of decl: NodeID<ProductTypeDecl>) -> LambdaType? {
+    var inputs: [CallableTypeParameter] = []
+
+    // List and realize the type of all stored bindings.
+    for m in ast[decl].members {
+      guard let member = NodeID<BindingDecl>(converting: m) else { continue }
+      if realize(bindingDecl: member) == nil { return nil }
+
+      for name in ast[member].pattern.names(ast: ast) {
+        let d = ast[name].decl
+        inputs.append(CallableTypeParameter(label: ast[d].name, type: declTypes[d]!!))
+      }
+    }
+
+    // Synthesize the output type.
+    let output = realizeSelfTypeExpr(inScope: decl)!
+
+    return LambdaType(environment: .unit, inputs: inputs, output: output)
   }
 
   // MARK: Type role determination

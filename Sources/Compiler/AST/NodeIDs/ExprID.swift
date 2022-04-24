@@ -18,8 +18,6 @@ extension ExprID {
       return visitor.visit(charLiteral: NodeID(unsafeRawValue: rawValue))
     case .condExpr:
       return visitor.visit(cond: NodeID(unsafeRawValue: rawValue))
-    case .declReferenceExpr:
-      return visitor.visit(declReference: NodeID(unsafeRawValue: rawValue))
     case .floatLiteralExpr:
       return visitor.visit(floatLiteral: NodeID(unsafeRawValue: rawValue))
     case .funCallExpr:

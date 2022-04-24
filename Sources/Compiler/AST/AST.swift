@@ -2,7 +2,6 @@
 public struct AST {
 
   /// The nodes in `self`.
-  // FIXME: Should be an array with tombstones.
   private var nodes: [Any] = []
 
   /// The indices of the modules.
