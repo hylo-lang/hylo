@@ -32,6 +32,13 @@ extension Diagnostic {
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }
 
+  static func cannotInferComplexReturnType(location: SourceLocation?) -> Diagnostic {
+    return Diagnostic(
+      level: .error,
+      message: "cannot infer complex return type; add an explicit return type annotation",
+      location: location)
+  }
+
   static func conformanceToNonTraitType(_ type: Type, range: SourceRange?) -> Diagnostic {
     Diagnostic(
       level: .error,

@@ -62,6 +62,9 @@ public struct FunDecl: GenericDecl, GenericScope {
   /// The body of the declaration, if any.
   public var body: SourceRepresentable<Body>?
 
+  /// Indicates whether the declaration appears in an expression context.
+  public var isInExprContext: Bool
+
   public init(
     introducer: SourceRepresentable<Introducer>,
     accessModifier: SourceRepresentable<AccessModifier>? = nil,
@@ -72,7 +75,8 @@ public struct FunDecl: GenericDecl, GenericScope {
     captures: [NodeID<BindingDecl>] = [],
     parameters: [NodeID<ParameterDecl>] = [],
     output: AnyTypeExprID? = nil,
-    body: SourceRepresentable<Body>? = nil
+    body: SourceRepresentable<Body>? = nil,
+    isInExprContext: Bool = false
   ) {
     self.introducer = introducer
     self.accessModifier = accessModifier
@@ -84,6 +88,7 @@ public struct FunDecl: GenericDecl, GenericScope {
     self.parameters = parameters
     self.output = output
     self.body = body
+    self.isInExprContext = isInExprContext
   }
 
 }

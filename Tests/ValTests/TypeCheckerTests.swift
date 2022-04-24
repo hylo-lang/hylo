@@ -486,7 +486,7 @@ final class TypeCheckerTests: XCTestCase {
 
   func testExpressionBodiedFunction() {
 
-    // fun forty_two() { 42 }
+    // fun forty_two() -> Int { 42 }
 
     var ast = AST()
     insertStandardLibraryMockup(into: &ast)
@@ -495,6 +495,8 @@ final class TypeCheckerTests: XCTestCase {
     ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
       introducer: SourceRepresentable(value: .fun),
       identifier: SourceRepresentable(value: "forty_two"),
+      output: AnyTypeExprID(ast.insert(NameTypeExpr(
+        identifier: SourceRepresentable(value: "Int")))),
       body: SourceRepresentable(
         value: .expr(AnyExprID(ast.insert(IntegerLiteralExpr(value: "42")))))))))
 

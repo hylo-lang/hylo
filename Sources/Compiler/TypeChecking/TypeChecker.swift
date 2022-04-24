@@ -372,8 +372,8 @@ public struct TypeChecker {
       success = check(brace: stmt) && success
 
     case .expr(let expr):
-      // If the function has no return annotation, it's body has been checed during realization.
-      if ast[id].output == nil { break }
+      // No need to type check the functon's body if it's been used to infer the return type.
+      if (ast[id].output == nil) && ast[id].isInExprContext { break }
       success = (infer(expr: expr, expectedType: output, inScope: id) != nil) && success
 
     case .bundle:
@@ -1693,10 +1693,17 @@ public struct TypeChecker {
       // Use explicit return annotations.
       guard let type = realize(o, inScope: declScope) else { return nil }
       output = type
-    } else if case .expr(let body) = decl.body?.value {
-      // If the function is expression-bodied, its return type may be inferred.
-      guard let type = infer(expr: body, inScope: declScope) else { return nil }
-      output = type
+    } else if decl.isInExprContext {
+      // If the function appears in an expression context and is expression-bodied, its return
+      // type may be inferred.
+      if case .expr(let body) = decl.body?.value {
+        guard let type = infer(expr: body, inScope: declScope) else { return nil }
+        output = type
+      } else {
+        diagnostics.insert(.cannotInferComplexReturnType(
+          location: decl.body?.range?.last() ?? ast.ranges[id]?.first()))
+        return nil
+      }
     } else {
       // Default to `()`
       output = .unit
