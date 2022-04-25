@@ -67,7 +67,7 @@ struct ConstraintGenerator: ExprVisitor {
     // 4. We determined that the callee is overloaded. In that case we must rely on argument labels
     //    and bottom-up inference to constrain to select the appropriate candidate.
 
-    func propagateDown(calleeType: CallableType) {
+    func propagateDown(calleeType: CallableType, calleeConstraints: [Constraint] = []) {
       // Collect the call labels.
       let labels = checker.ast[id].arguments.map({ $0.value.label?.value })
 
@@ -79,6 +79,11 @@ struct ConstraintGenerator: ExprVisitor {
         assume(typeOf: id, is: .error(ErrorType()))
         return
       }
+
+      // Gather the callee's constraints.
+      constraints.append(contentsOf: calleeConstraints.map({ c in
+        LocatableConstraint(c, node: AnyNodeID(callee))
+      }))
 
       // Propagate type information to the arguments.
       for i in 0 ..< checker.ast[id].arguments.count {
@@ -112,8 +117,11 @@ struct ConstraintGenerator: ExprVisitor {
     {
       switch d.kind {
       case .productTypeDecl:
-        if let ctor = checker.memberwiseCtorType(of: NodeID(converting: d)!) {
-          propagateDown(calleeType: ctor)
+        // Reallize the type of the memberwise constructor.
+        if let lambda = checker.memberwiseCtorType(of: NodeID(converting: d)!) {
+          let (ty, cs) = checker.open(type: .lambda(lambda))
+          guard case .lambda(let calleeType) = ty else { unreachable() }
+          propagateDown(calleeType: calleeType, calleeConstraints: cs)
         } else {
           assume(typeOf: id, is: .error(ErrorType()))
         }

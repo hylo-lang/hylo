@@ -1821,7 +1821,9 @@ public struct TypeChecker {
 
       for name in ast[member].pattern.names(ast: ast) {
         let d = ast[name].decl
-        inputs.append(CallableTypeParameter(label: ast[d].name, type: declTypes[d]!!))
+        inputs.append(CallableTypeParameter(
+          label: ast[d].name,
+          type: .parameter(ParameterType(convention: .sink, bareType: declTypes[d]!!))))
       }
     }
 
@@ -1853,6 +1855,46 @@ public struct TypeChecker {
         }
       }
     })
+  }
+
+  /// Opens `type`.
+  func open(type: Type) -> (Type, [Constraint]) {
+    var constraints: [Constraint] = []
+    var openedParameters: [Type: Type] = [:]
+
+    let transformed = type.transform({ type in
+      switch type {
+      case .associated:
+        fatalError("not implemented")
+
+      case .genericTypeParam:
+        if let opened = openedParameters[type] {
+          // The parameter was already opened.
+          return .stepOver(opened)
+        } else {
+          // Open the parameter.
+          let opened = Type.variable(TypeVariable())
+          openedParameters[type] = opened
+
+          // TODO: Collect constraints
+
+          return .stepOver(opened)
+        }
+
+      case .genericSizeParam:
+        fatalError("not implemented")
+
+      default:
+        // Nothing to do if `type` isn't parameterized.
+        if type[.hasGenericTypeParam] || type[.hasGenericSizeParam] {
+          return .stepInto(type)
+        } else {
+          return .stepOver(type)
+        }
+      }
+    })
+
+    return (transformed, constraints)
   }
 
   /// Returns `type` contextualized in `scope` and the type constraints implied by that

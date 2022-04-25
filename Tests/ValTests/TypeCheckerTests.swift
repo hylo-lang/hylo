@@ -932,6 +932,68 @@ final class TypeCheckerTests: XCTestCase {
     XCTAssertTrue(checker.check(module: main))
   }
 
+  func testGenericMemberwiseCtorCall() {
+
+    // type A<X, Y> {
+    //   var foo: X
+    //   var bar: Y
+    //   public memberwise init
+    // }
+    // let _ = A(foo: (), bar: ())
+
+    var ast = AST()
+    let main = ast.insert(ModuleDecl(name: "main"))
+
+    ast[main].members.append(AnyDeclID(ast.insert(ProductTypeDecl(
+      identifier: SourceRepresentable(value: "A"),
+      genericClause: SourceRepresentable(value: GenericClause(
+        params: [
+          .type(ast.insert(GenericTypeParamDecl(
+            identifier: SourceRepresentable(value: "X")))),
+          .type(ast.insert(GenericTypeParamDecl(
+            identifier: SourceRepresentable(value: "Y")))),
+        ])),
+      members: [
+        AnyDeclID(ast.insert(BindingDecl(
+          pattern: ast.insert(BindingPattern(
+            introducer: SourceRepresentable(value: .var),
+            subpattern: AnyPatternID(ast.insert(NamePattern(
+              decl: ast.insert(VarDecl(
+                identifier: SourceRepresentable(value: "foo")))))),
+            annotation: AnyTypeExprID(ast.insert(NameTypeExpr(
+              identifier: SourceRepresentable(value: "X"))))))))),
+        AnyDeclID(ast.insert(BindingDecl(
+          pattern: ast.insert(BindingPattern(
+            introducer: SourceRepresentable(value: .var),
+            subpattern: AnyPatternID(ast.insert(NamePattern(
+              decl: ast.insert(VarDecl(
+                identifier: SourceRepresentable(value: "bar")))))),
+            annotation: AnyTypeExprID(ast.insert(NameTypeExpr(
+              identifier: SourceRepresentable(value: "Y"))))))))),
+        AnyDeclID(ast.insert(FunDecl(
+          introducer: SourceRepresentable(value: .memberwiseInit),
+          accessModifier: SourceRepresentable(value: .public)))),
+      ]))))
+
+    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+      pattern: ast.insert(BindingPattern(
+        introducer: SourceRepresentable(value: .let),
+        subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
+      initializer: AnyExprID(ast.insert(FunCallExpr(
+        callee: AnyExprID(ast.insert(NameExpr(stem: SourceRepresentable(value: "A")))),
+        arguments: [
+          SourceRepresentable(value: CallArgument(
+            label: SourceRepresentable(value: "foo"),
+            value: AnyExprID(ast.insert(TupleExpr())))),
+          SourceRepresentable(value: CallArgument(
+            label: SourceRepresentable(value: "bar"),
+            value: AnyExprID(ast.insert(TupleExpr())))),
+        ])))))))
+
+    var checker = TypeChecker(ast: ast)
+    XCTAssertTrue(checker.check(module: main))
+  }
+
   func testGenericTypeAlias() {
 
     // typealias Pair<X, Y> = (first: X, second: Y)
@@ -942,14 +1004,13 @@ final class TypeCheckerTests: XCTestCase {
 
     ast[main].members.append(AnyDeclID(ast.insert(TypeAliasDecl(
       identifier: SourceRepresentable(value: "Pair"),
-      genericClause: SourceRepresentable(
-        value: GenericClause(
-          params: [
-            .type(ast.insert(GenericTypeParamDecl(
-              identifier: SourceRepresentable(value: "X")))),
-            .type(ast.insert(GenericTypeParamDecl(
-              identifier: SourceRepresentable(value: "Y")))),
-          ])),
+      genericClause: SourceRepresentable(value: GenericClause(
+        params: [
+          .type(ast.insert(GenericTypeParamDecl(
+            identifier: SourceRepresentable(value: "X")))),
+          .type(ast.insert(GenericTypeParamDecl(
+            identifier: SourceRepresentable(value: "Y")))),
+        ])),
       body: SourceRepresentable(
         value: .typeExpr(
           AnyTypeExprID(ast.insert(TupleTypeExpr(
