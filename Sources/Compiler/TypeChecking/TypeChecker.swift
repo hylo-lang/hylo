@@ -7,7 +7,7 @@ public struct TypeChecker {
   var ast: AST
 
   /// The scope hierarchy of the AST.
-  let scopeHierarchy: ScopeHierarchy
+  var scopeHierarchy: ScopeHierarchy
 
   /// The diagnostics of the type errors.
   public internal(set) var diagnostics: Set<Diagnostic> = []
@@ -267,13 +267,15 @@ public struct TypeChecker {
     return true
   }
 
-  private mutating func check(binding i: NodeID<BindingDecl>) -> Bool {
+  private mutating func check(binding id: NodeID<BindingDecl>) -> Bool {
+    defer { assert(declTypes[id] != nil) }
+
     // Note: binding declarations do not undergo type realization.
-    switch declRequests[i] {
+    switch declRequests[id] {
     case nil:
-      declRequests[i] = .typeCheckingStarted
+      declRequests[id] = .typeCheckingStarted
     case .typeCheckingStarted:
-      diagnostics.insert(.circularDependency(range: ast.ranges[i]))
+      diagnostics.insert(.circularDependency(range: ast.ranges[id]))
       return false
     case .success:
       return true
@@ -283,17 +285,17 @@ public struct TypeChecker {
       unreachable()
     }
 
-    let scope = scopeHierarchy.container[AnyDeclID(i)]!
-    let pattern = ast[i].pattern
+    let scope = scopeHierarchy.container[AnyDeclID(id)]!
+    let pattern = ast[id].pattern
     guard var shape = infer(pattern: pattern, expectedType: nil, inScope: scope) else {
-      declTypes[i] = nil
-      declRequests[i] = .failure
+      declTypes[id] = .some(nil)
+      declRequests[id] = .failure
       return false
     }
 
     // Type check the initializer, if any.
     var success = true
-    if let initializer = ast[i].initializer {
+    if let initializer = ast[id].initializer {
       let solution = infer(
         expr: initializer,
         expectedType: shape.type,
@@ -315,12 +317,12 @@ public struct TypeChecker {
     assert(!shape.type[.hasVariable])
 
     if success {
-      declTypes[i] = shape.type
-      declRequests[i] = .success
+      declTypes[id] = shape.type
+      declRequests[id] = .success
       return true
     } else {
-      declTypes[i] = nil
-      declRequests[i] = .failure
+      declTypes[id] = .some(nil)
+      declRequests[id] = .failure
       return false
     }
   }
@@ -419,6 +421,9 @@ public struct TypeChecker {
     for j in ast[id].members {
       success = check(decl: j) && success
     }
+
+    // Synthesize the memberwise constructor if necessary.
+    success = check(fun: ast.memberwiseCtorDecl(of: id, updating: &scopeHierarchy)) && success
 
     // Type check extending declarations.
     let type = declTypes[id]!!
@@ -1097,7 +1102,7 @@ public struct TypeChecker {
   }
 
   /// Returns the declarations that introduce `name` in the declaration space of `scope`.
-  private mutating func lookup<T: NodeIDProtocol>(
+  mutating func lookup<T: ScopeID>(
     _ name: String,
     inDeclSpaceOf scope: T,
     exposedTo origin: AnyScopeID
@@ -1258,17 +1263,28 @@ public struct TypeChecker {
 
       case .funDecl:
         let decl = ast[NodeID<FunDecl>(converting: id)!]
-        guard let name = decl.identifier?.value else { continue }
-        switch decl.body?.value {
-        case .block, .expr, nil:
-          table[name, default: []].insert(AnyDeclID(id))
+        switch decl.introducer.value {
+        case .memberwiseInit,
+             .`init` where decl.body != nil:
+          table["init", default: []].insert(AnyDeclID(id))
 
-        case .bundle(let impls):
-          modifying(&table[name, default: []], { entries in
-            for j in impls {
-              entries.insert(AnyDeclID(j))
-            }
-          })
+        case .deinit:
+          assert(decl.body != nil)
+          table["deinit", default: []].insert(AnyDeclID(id))
+
+        default:
+          guard let name = decl.identifier?.value else { continue }
+          switch decl.body?.value {
+          case .block, .expr, nil:
+            table[name, default: []].insert(AnyDeclID(id))
+
+          case .bundle(let impls):
+            modifying(&table[name, default: []], { entries in
+              for j in impls {
+                entries.insert(AnyDeclID(j))
+              }
+            })
+          }
         }
 
       case .methodImplDecl:
@@ -1621,7 +1637,11 @@ public struct TypeChecker {
         return nil
       }
 
-      return .lambda(memberwiseCtorType(of: NodeID(converting: parent)!)!)
+      if let lambda = memberwiseCtorType(of: NodeID(converting: parent)!) {
+        return .lambda(lambda)
+      } else {
+        return nil
+      }
     }
 
     let decl = ast[id]
@@ -1811,7 +1831,7 @@ public struct TypeChecker {
   }
 
   /// Returns the type of `decl`'s memberwise constructor.
-  mutating func memberwiseCtorType(of decl: NodeID<ProductTypeDecl>) -> LambdaType? {
+  private mutating func memberwiseCtorType(of decl: NodeID<ProductTypeDecl>) -> LambdaType? {
     var inputs: [CallableTypeParameter] = []
 
     // List and realize the type of all stored bindings.

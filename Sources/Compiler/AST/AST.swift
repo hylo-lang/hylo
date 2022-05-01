@@ -65,4 +65,25 @@ public struct AST {
     _read { yield nodes[position] }
   }
 
+  // MARK: Synthesis
+
+  /// Returns the declaration of the memberwise constructor of `d`, synthesizing it if necessary.
+  mutating func memberwiseCtorDecl(
+    of d: NodeID<ProductTypeDecl>,
+    updating scopeHierarchy: inout ScopeHierarchy
+  ) -> NodeID<FunDecl> {
+    // Look for the declaration.
+    for member in self[d].members where member.kind == .funDecl {
+      let m = NodeID<FunDecl>(unsafeRawValue: member.rawValue)
+      if self[m].introducer.value == .memberwiseInit { return m }
+    }
+
+    // Synthesize the declaration.
+    let m = insert(FunDecl(introducer: SourceRepresentable(value: .memberwiseInit)))
+    self[d].members.insert(AnyDeclID(m), at: 0)
+    scopeHierarchy.insert(decl: m, into: AnyScopeID(d))
+
+    return m
+  }
+
 }

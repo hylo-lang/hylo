@@ -117,13 +117,32 @@ struct ConstraintGenerator: ExprVisitor {
     {
       switch d.kind {
       case .productTypeDecl:
-        // Reallize the type of the memberwise constructor.
-        if let lambda = checker.memberwiseCtorType(of: NodeID(converting: d)!) {
-          let (ty, cs) = checker.open(type: .lambda(lambda))
+        let results = resolve(
+          stem: "init",
+          labels: [],
+          notation: nil,
+          inDeclSpaceOf: AnyScopeID(converting: d)!)
+
+        if results.isEmpty {
+          diagnostics.append(.undefined(
+            name: checker.ast[c].baseName, range: checker.ast[c].stem.range))
+          assume(typeOf: id, is: .error(ErrorType()))
+          return
+        }
+
+        if results.count == 1 {
+          // Contextualize the match.
+          let (ty, cs) = checker.open(type: results[0].type)
           guard case .lambda(let calleeType) = ty else { unreachable() }
+
+          // Rebind the name expression to the referred declaration.
+          referredDecls[c] = results[0].decl
+
+          // Propagate the type of the constructor down.
           propagateDown(calleeType: calleeType, calleeConstraints: cs)
         } else {
-          assume(typeOf: id, is: .error(ErrorType()))
+          // TODO: Create an overload constraint
+          fatalError("not implemented")
         }
 
       case .traitDecl:
@@ -243,10 +262,17 @@ struct ConstraintGenerator: ExprVisitor {
 
       var inferredType: Type
       if results.count == 1 {
-        inferredType = results[0].type
-        constraints.append(contentsOf: results[0].constraints.map({ c in
+        // Contextualize the match.
+        let context = checker.scopeHierarchy.container[results[0].decl]!
+        let (ty, cs) = checker.contextualize(type: results[0].type, inScope: context)
+
+        // Register associated constraints.
+        inferredType = ty
+        constraints.append(contentsOf: cs.map({ c in
           LocatableConstraint(c, node: AnyNodeID(id))
         }))
+
+        // Bind the name expression to the referred declaration.
         referredDecls[id] = results[0].decl
       } else {
         // TODO: Create an overload constraint
@@ -315,19 +341,26 @@ struct ConstraintGenerator: ExprVisitor {
     fatalError("not implemented")
   }
 
-  /// Resolves the declaration to which the given name may refer.
+  /// Returns the declarations to which the specified name may refer along with their overarching
+  /// type before contextualization. Ill-formed declarations are ignored.
   private mutating func resolve(
     stem: Identifier,
     labels: [String?],
-    notation: OperatorNotation?
-  ) -> [(decl: AnyDeclID, type: Type, constraints: [Constraint])] {
-    // Search for the referred declaration with an unqualified lookup.
-    let matches = checker.lookup(unqualified: stem, inScope: scope)
+    notation: OperatorNotation?,
+    inDeclSpaceOf s: AnyScopeID? = nil
+  ) -> [(decl: AnyDeclID, type: Type)] {
+    // Search for the referred declaration.
+    let matches: TypeChecker.DeclSet
+    if let s = s {
+      matches = checker.lookup(stem, inDeclSpaceOf: s, exposedTo: scope)
+    } else {
+      matches = checker.lookup(unqualified: stem, inScope: scope)
+    }
 
     // TODO: Filter by labels and operator notation
 
     // Returns the matches along with their contextual type and associated constraints.
-    return matches.compactMap({ (match) -> (AnyDeclID, Type, [Constraint])? in
+    return matches.compactMap({ (match) -> (AnyDeclID, Type)? in
       // Realize the type of the declaration.
       guard var type = checker.realize(decl: match) else { return nil }
 
@@ -336,12 +369,7 @@ struct ConstraintGenerator: ExprVisitor {
         type = t.bareType
       }
 
-      // Substitute generic parameters.
-      var cs: [Constraint]
-      let scope = checker.scopeHierarchy.container[match]!
-      (type, cs) = checker.contextualize(type: type, inScope: scope)
-
-      return (match, type, cs)
+      return (match, type)
     })
   }
 
