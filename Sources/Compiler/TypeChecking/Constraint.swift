@@ -32,6 +32,9 @@ public enum Constraint: Hashable {
   ///   another constraint on `R` fixing its parameter passing convention.
   case parameter(l: Type, r: Type)
 
+  /// A constraint `L.m == R` specifying that `L` has a non-static member of type `R` named `m`.
+  case member(l: Type, m: Name, r: Type)
+
   /// A size constraint denoting a predicate over size parameters.
   case size(AnyExprID)
 
@@ -52,6 +55,8 @@ public enum Constraint: Hashable {
     case .conformance(let l, _):
       return (v == l)
     case .parameter(let l, let r):
+      return (v == l) || (v == r)
+    case .member(let l, _, let r):
       return (v == l) || (v == r)
     case .size:
       return false
@@ -88,6 +93,10 @@ public enum Constraint: Hashable {
       defer { self = .parameter(l: l, r: r) }
       return modify(&l) && modify(&r)
 
+    case .member(var l, let m, var r):
+      defer { self = .member(l: l, m: m, r: r) }
+      return modify(&l) && modify(&r)
+
     case .size:
       return true
 
@@ -121,6 +130,9 @@ extension Constraint: CustomStringConvertible {
 
     case .parameter(let l, let r):
       return "\(l) ⤷ \(r)"
+
+    case .member(let l, let m, let r):
+      return "\(l).\(m) == \(r)"
 
     case .size:
       return "expr"

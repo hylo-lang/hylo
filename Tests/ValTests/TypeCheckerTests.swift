@@ -291,6 +291,36 @@ final class TypeCheckerTests: XCTestCase {
     XCTAssertEqual(checker.diagnostics.count, 1)
   }
 
+  func testMethodLookup() {
+
+    // fun main() {
+    //   let _ = 0.copy()
+    // }
+
+    var ast = AST()
+    insertStandardLibraryMockup(into: &ast)
+    let main = ast.insert(ModuleDecl(name: "main"))
+
+    ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
+      introducer: SourceRepresentable(value: .fun),
+      identifier: SourceRepresentable(value: "main"),
+      body: SourceRepresentable(value: .block(ast.insert(BraceStmt(
+        stmts: [
+          AnyStmtID(ast.insert(DeclStmt(
+            decl: AnyDeclID(ast.insert(BindingDecl(
+              pattern: ast.insert(BindingPattern(
+                introducer: SourceRepresentable(value: .let),
+                subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
+              initializer: AnyExprID(ast.insert(FunCallExpr(
+                callee: AnyExprID(ast.insert(NameExpr(
+                  domain: .explicit(AnyExprID(ast.insert(IntegerLiteralExpr(value: "0")))),
+                  stem: SourceRepresentable(value: "copy")))))))))))))
+        ]))))))))
+
+    var checker = TypeChecker(ast: ast)
+    XCTAssertTrue(checker.check(module: main))
+  }
+
   func testBindingTypeInference() {
 
     // let x0 = ()

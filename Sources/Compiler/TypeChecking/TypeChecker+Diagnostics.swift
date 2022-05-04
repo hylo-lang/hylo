@@ -97,10 +97,18 @@ extension Diagnostic {
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }
 
+  static func incompatibleParameterCount(range: SourceRange?) -> Diagnostic {
+    Diagnostic(
+      level: .error,
+      message: "incompatible number of parameters",
+      location: range?.first(),
+      window: range.map({ r in Diagnostic.Window(range: r) }))
+  }
+
   static func incompatibleTupleLengths(range: SourceRange?) -> Diagnostic {
     Diagnostic(
       level: .error,
-      message: "tuples have different lenghts",
+      message: "tuples have different lengths",
       location: range?.first(),
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }
@@ -136,6 +144,14 @@ extension Diagnostic {
     Diagnostic(
       level: .error,
       message: "invalid parameter type '\(type)'",
+      location: range?.first(),
+      window: range.map({ r in Diagnostic.Window(range: r) }))
+  }
+
+  static func methodHasCaptures(range: SourceRange?) -> Diagnostic {
+    Diagnostic(
+      level: .error,
+      message: "method has captures",
       location: range?.first(),
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }

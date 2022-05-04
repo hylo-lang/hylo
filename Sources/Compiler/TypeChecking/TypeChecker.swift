@@ -558,9 +558,24 @@ public struct TypeChecker {
     return success
   }
 
+  /// Type checks the specified statement and returns whether that succeeded.
+  private mutating func check<T: StmtID>(stmt i: T) -> Bool {
+    switch i.kind {
+    case .braceStmt:
+      return check(brace: NodeID(converting: i)!)
+    case .declStmt:
+      return check(decl: ast[NodeID<DeclStmt>(converting: i)!].decl)
+    default:
+      unreachable("unexpected statement")
+    }
+  }
+
   private mutating func check(brace id: NodeID<BraceStmt>) -> Bool {
-    // TODO: Implement me
-    return true
+    var success = true
+    for stmt in ast[id].stmts {
+      success = check(stmt: stmt) && success
+    }
+    return success
   }
 
   /// Returns the generic environment defined by `id`, or `nil` if it is ill-formed.
@@ -1072,7 +1087,7 @@ public struct TypeChecker {
     var matches = DeclSet()
     for scope in scopeHierarchy.scopesToRoot(from: scope) {
       // Search for the name in the current scope.
-      let newMatches = lookup(name, inDeclSpaceOf: scope, exposedTo: origin)
+      let newMatches = lookup(name, introducedInDeclSpaceOf: scope, inScope: origin)
 
       // We can assume the matches are either empty or all overloadable.
       matches.formUnion(newMatches)
@@ -1104,8 +1119,8 @@ public struct TypeChecker {
   /// Returns the declarations that introduce `name` in the declaration space of `scope`.
   mutating func lookup<T: ScopeID>(
     _ name: String,
-    inDeclSpaceOf scope: T,
-    exposedTo origin: AnyScopeID
+    introducedInDeclSpaceOf scope: T,
+    inScope origin: AnyScopeID
   ) -> DeclSet {
     switch scope.kind {
     case .productTypeDecl:
@@ -1126,7 +1141,7 @@ public struct TypeChecker {
   }
 
   /// Returns the declarations that introduce `name` as a member of `type` in `scope`.
-  private mutating func lookup(
+  mutating func lookup(
     _ name: String,
     memberOf type: Type,
     inScope scope: AnyScopeID
@@ -1676,20 +1691,6 @@ public struct TypeChecker {
       }
     }
 
-    // Synthesize the receiver parameter, if necessary.
-    let parent = scopeHierarchy.container[id] ?? unreachable()
-    switch parent.kind {
-    case .productTypeDecl,
-         .traitDecl,
-         .typeAliasDecl:
-      let receiver = realizeSelfTypeExpr(inScope: parent)!
-      inputs.insert(CallableTypeParameter(label: nil, type: receiver), at: 0)
-      fatalError("not implemented")
-
-    default:
-      break
-    }
-
     // Realize the type of the explicit captures.
     var captures: [(introducer: BindingPattern.Introducer, type: Type)] = []
     for i in decl.captures {
@@ -1729,10 +1730,26 @@ public struct TypeChecker {
       output = .unit
     }
 
+    // Realize the environment.
     let environment: Type
-    if captures.isEmpty {
-      environment = .unit
-    } else {
+
+    let parent = scopeHierarchy.container[id] ?? unreachable()
+    switch parent.kind {
+    case .productTypeDecl,
+         .traitDecl,
+         .typeAliasDecl:
+
+      // Methods cannot capture anything.
+      if !captures.isEmpty {
+        diagnostics.insert(.methodHasCaptures(range: ast[id].introducer.range))
+        return nil
+      }
+
+      // The receiver is part of the environment.
+      let receiver = realizeSelfTypeExpr(inScope: parent)!
+      environment = .tuple(TupleType([TupleType.Element(label: nil, type: receiver)]))
+
+    default:
       environment = .tuple(TupleType(captures.map({ c in
         switch c.introducer {
         case .let, .inout:

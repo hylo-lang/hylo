@@ -56,15 +56,12 @@ public struct NameExpr: Expr {
     self.arguments = arguments
   }
 
-  /// A string representation of the base name denoted by this expression.
-  public var baseName: String {
+  /// Returns the base name denoted by this expression.
+  public var baseName: Name {
     if let notation = notation {
-      return "\(notation)\(stem.value)"
-    } else if labels.isEmpty {
-      return stem.value
+      return Name(stem: stem.value, notation: notation)
     } else {
-      let labels = labels.reduce(into: "", { (s, l) in s += (l ?? "_") + ":" })
-      return "\(stem.value)(\(labels))"
+      return Name(stem: stem.value, labels: labels)
     }
   }
 

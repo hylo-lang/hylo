@@ -48,6 +48,8 @@ struct ConstraintSolver {
         solve(l, isSubtypeOf: r, location: constraint.location)
       case .parameter(let l, let r):
         solve(l, passableTo: r, location: constraint.location)
+      case .member(let l, let m, let r):
+        solve(l, hasMember: m, ofType: r, location: constraint.location)
       case .disjunction:
         return solve(disjunction: constraint)
       default:
@@ -125,6 +127,31 @@ struct ConstraintSolver {
           .equality(l: l.elements[i].type, r: r.elements[i].type), location: location))
       }
 
+    case (.lambda(let l), .lambda(let r)):
+      let lLabels = l.inputs.map({ $0.label })
+      let rLabels = r.inputs.map({ $0.label })
+
+      // Make sure both function types have a compatible shape.
+      if lLabels != rLabels {
+        let range = range(of: location)
+        if lLabels.count == rLabels.count {
+          diagnostics.append(.incompatibleLabels(found: lLabels, expected: rLabels, range: range))
+        } else {
+          diagnostics.append(.incompatibleParameterCount(range: range))
+        }
+        return
+      }
+
+      // Break down the constraint.
+      for i in 0 ..< l.inputs.count {
+        fresh.append(LocatableConstraint(
+          .equality(l: l.inputs[i].type, r: r.inputs[i].type), location: location))
+      }
+      fresh.append(LocatableConstraint(
+        .equality(l: l.output, r: r.output), location: location))
+      fresh.append(LocatableConstraint(
+        .equality(l: l.environment, r: r.environment), location: location))
+
     default:
       fatalError("not implemented")
     }
@@ -176,6 +203,45 @@ struct ConstraintSolver {
 
     default:
       diagnostics.append(.invalidParameterType(r, range: range(of: location)))
+    }
+  }
+
+  private mutating func solve(
+    _ l: Type,
+    hasMember member: Name,
+    ofType r: Type,
+    location: LocatableConstraint.Location
+  ) {
+    let l = assumptions[l]
+
+    // Postpone the solving if `L` is still unknown.
+    if case .variable = l {
+      postpone(LocatableConstraint(.member(l: l, m: member, r: r), location: location))
+      return
+    }
+
+    // Search for candidates.
+    let matches = checker.lookup(member.stem, memberOf: l, inScope: scope)
+    let candidates = matches.compactMap({ (match) -> (decl: AnyDeclID, type: Type)? in
+      // Realize the type of the declaration.
+      guard let type = checker.realize(decl: match) else { return nil }
+
+      // TODO: Handle bound generic typess
+
+      return (decl: match, type: type)
+    })
+
+    // Rewrite the constraint.
+    switch candidates.count {
+    case 0:
+      diagnostics.append(.undefined(name: "\(member)", range: range(of: location)))
+
+    case 1:
+      solve(candidates[0].type, equalsTo: r, location: location)
+
+    default:
+      // TODO: Create an overload constraint
+      fatalError("not implemented")
     }
   }
 

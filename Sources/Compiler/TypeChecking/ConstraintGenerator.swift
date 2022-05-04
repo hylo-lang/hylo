@@ -54,18 +54,7 @@ struct ConstraintGenerator: ExprVisitor {
   mutating func visit(funCall id: NodeID<FunCallExpr>) {
     defer { assert(inferredTypes[id] != nil) }
 
-    // Infer the type of the callee.
-    checker.ast[id].callee.accept(&self)
     let callee = checker.ast[id].callee
-
-    // There are four cases to consider:
-    // 1. We failed to infer the type of the callee. In that case there's nothing more we can do.
-    // 2. We deternined that the callee refers to a nominal type declaration. In that case, we
-    //    desugar a constructor call.
-    // 3. We determined the exact type of the callee, and its a callable. In that case, we may
-    //    propagate that information top-down to refine the inference of the arguments' types.
-    // 4. We determined that the callee is overloaded. In that case we must rely on argument labels
-    //    and bottom-up inference to constrain to select the appropriate candidate.
 
     func propagateDown(calleeType: CallableType, calleeConstraints: [Constraint] = []) {
       // Collect the call labels.
@@ -104,6 +93,18 @@ struct ConstraintGenerator: ExprVisitor {
       assume(typeOf: id, is: calleeType.output)
     }
 
+    // Infer the type of the callee.
+    callee.accept(&self)
+
+    // There are four cases to consider:
+    // 1. We failed to infer the type of the callee. In that case there's nothing more we can do.
+    // 2. We determined that the callee refers to a nominal type declaration. In that case, we
+    //    desugar a constructor call.
+    // 3. We determined the exact type of the callee, and its a callable. In that case, we may
+    //    propagate that information top-down to refine the inference of the arguments' types.
+    // 4. We determined that the callee is overloaded. In that case we must rely on argument labels
+    //    and bottom-up inference to constrain to select the appropriate candidate.
+
     // 1st case
     if case .error = inferredTypes[callee] {
       assume(typeOf: id, is: .error(ErrorType()))
@@ -117,26 +118,26 @@ struct ConstraintGenerator: ExprVisitor {
     {
       switch d.kind {
       case .productTypeDecl:
-        let results = resolve(
+        let candidates = resolve(
           stem: "init",
           labels: [],
           notation: nil,
           inDeclSpaceOf: AnyScopeID(converting: d)!)
 
-        if results.isEmpty {
+        if candidates.isEmpty {
           diagnostics.append(.undefined(
-            name: checker.ast[c].baseName, range: checker.ast[c].stem.range))
+            name: "\(checker.ast[c].baseName)", range: checker.ast[c].stem.range))
           assume(typeOf: id, is: .error(ErrorType()))
           return
         }
 
-        if results.count == 1 {
+        if candidates.count == 1 {
           // Contextualize the match.
-          let (ty, cs) = checker.open(type: results[0].type)
+          let (ty, cs) = checker.open(type: candidates[0].type)
           guard case .lambda(let calleeType) = ty else { unreachable() }
 
           // Rebind the name expression to the referred declaration.
-          referredDecls[c] = results[0].decl
+          referredDecls[c] = candidates[0].decl
 
           // Propagate the type of the constructor down.
           propagateDown(calleeType: calleeType, calleeConstraints: cs)
@@ -249,22 +250,22 @@ struct ConstraintGenerator: ExprVisitor {
     // Resolves the name.
     switch checker.ast[id].domain {
     case .none:
-      let results = resolve(
+      let candidates = resolve(
         stem: checker.ast[id].stem.value,
         labels: checker.ast[id].labels,
         notation: checker.ast[id].notation)
 
-      if results.isEmpty {
-        diagnostics.append(.undefined(name: checker.ast[id].baseName, range: stem.range))
+      if candidates.isEmpty {
+        diagnostics.append(.undefined(name: "\(checker.ast[id].baseName)", range: stem.range))
         assume(typeOf: id, is: .error(ErrorType()))
         return
       }
 
-      var inferredType: Type
-      if results.count == 1 {
+      let inferredType: Type
+      if candidates.count == 1 {
         // Contextualize the match.
-        let context = checker.scopeHierarchy.container[results[0].decl]!
-        let (ty, cs) = checker.contextualize(type: results[0].type, inScope: context)
+        let context = checker.scopeHierarchy.container[candidates[0].decl]!
+        let (ty, cs) = checker.contextualize(type: candidates[0].type, inScope: context)
 
         // Register associated constraints.
         inferredType = ty
@@ -273,7 +274,7 @@ struct ConstraintGenerator: ExprVisitor {
         }))
 
         // Bind the name expression to the referred declaration.
-        referredDecls[id] = results[0].decl
+        referredDecls[id] = candidates[0].decl
       } else {
         // TODO: Create an overload constraint
         fatalError("not implemented")
@@ -281,7 +282,40 @@ struct ConstraintGenerator: ExprVisitor {
 
       assume(typeOf: id, is: inferredType)
 
-    case .implicit, .explicit:
+    case .explicit(let domain):
+      // Infer the type of the domain.
+      domain.accept(&self)
+
+      // If we failed to infer the type of the domain, there's nothing more we can do.
+      if case .error = inferredTypes[domain] {
+        assume(typeOf: id, is: .error(ErrorType()))
+        return
+      }
+
+      // Map the expression to a fresh variable unless we have top-down type information.
+      let inferredType: Type
+      if let expectedType = inferredTypes[id] {
+        inferredType = expectedType
+      } else {
+        inferredType = .variable(TypeVariable(node: AnyNodeID(id)))
+        inferredTypes[id] = inferredType
+      }
+
+      // If we determined that the domain refers to a nominal type declaration, create a static
+      // member constraint. Otherwise, create a non-static member constraint.
+      if let base = NodeID<NameExpr>(converting: domain),
+         let decl = referredDecls[base],
+         decl.kind <= .typeDecl
+      {
+        fatalError("not implemented")
+      } else {
+        constraints.append(LocatableConstraint(
+          .member(l: inferredTypes[domain]!, m: checker.ast[id].baseName, r: inferredType),
+          node: AnyNodeID(id),
+          cause: .member))
+      }
+
+    case .implicit:
       fatalError("not implemented")
     }
   }
@@ -352,7 +386,7 @@ struct ConstraintGenerator: ExprVisitor {
     // Search for the referred declaration.
     let matches: TypeChecker.DeclSet
     if let s = s {
-      matches = checker.lookup(stem, inDeclSpaceOf: s, exposedTo: scope)
+      matches = checker.lookup(stem, introducedInDeclSpaceOf: s, inScope: scope)
     } else {
       matches = checker.lookup(unqualified: stem, inScope: scope)
     }
