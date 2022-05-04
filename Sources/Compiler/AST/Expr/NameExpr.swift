@@ -16,13 +16,13 @@ public struct NameExpr: Expr {
   /// The domain of the name, if it is qualified.
   public var domain: Domain
 
-  /// The stem identifier of the referred entitiy.
+  /// The stem identifier of the referred entity.
   public var stem: SourceRepresentable<Identifier>
 
-  /// The argument labels of the referred entitiy.
+  /// The argument labels of the referred entity.
   public var labels: [String?]
 
-  /// The operator notation of the referred entitiy.
+  /// The operator notation of the referred entity.
   public var notation: OperatorNotation?
 
   /// The type and size arguments of the referred entity.
