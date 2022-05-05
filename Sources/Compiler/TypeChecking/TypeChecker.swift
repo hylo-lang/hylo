@@ -366,7 +366,15 @@ public struct TypeChecker {
       }
     }
 
-    let output = (declTypes[id]!!.base as! CallableType).output.skolemized
+    let output: Type
+    switch declTypes[id]!! {
+    case .lambda(let callable):
+      output = callable.output.skolemized
+    case .method(let callable):
+      output = callable.output.skolemized
+    default:
+      unreachable()
+    }
 
     // Type chec the body of the function, if any.
     switch ast[id].body?.value {

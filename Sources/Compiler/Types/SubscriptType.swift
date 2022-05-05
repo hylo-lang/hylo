@@ -1,7 +1,7 @@
 import Utils
 
 /// The overarching type of a subscript declaration.
-public struct SubscriptType: CallableType, Hashable {
+public struct SubscriptType: TypeProtocol, Hashable {
 
   /// Indicates whether the subscript denotes a computed property.
   public let isProperty: Bool
@@ -44,11 +44,11 @@ extension SubscriptType: CustomStringConvertible {
     let c = capabilities.map({ "\($0)" }).sorted().joined(separator: " ")
     let e = (environment == .unit) ? "thin" : "[\(environment)]"
     if isProperty {
-      return "\(e) property \(output) { \(c) }"
+      return "property \(e) \(output) { \(c) }"
     } else {
       let i = String.joining(inputs, separator: ", ")
       let o = "\(output)"
-      return "\(e) subscript (\(i)): \(o) { \(c) }"
+      return "subscript \(e) (\(i)): \(o) { \(c) }"
     }
   }
 

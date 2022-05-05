@@ -1,7 +1,7 @@
 import Utils
 
 /// The type of a lambda.
-public struct LambdaType: CallableType, Hashable {
+public struct LambdaType: TypeProtocol, Hashable {
 
   public let environment: Type
 

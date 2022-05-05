@@ -56,7 +56,7 @@ struct ConstraintGenerator: ExprVisitor {
 
     let callee = checker.ast[id].callee
 
-    func propagateDown(calleeType: CallableType, calleeConstraints: [Constraint] = []) {
+    func propagateDown(calleeType: LambdaType, calleeConstraints: [Constraint] = []) {
       // Collect the call labels.
       let labels = checker.ast[id].arguments.map({ $0.value.label?.value })
 
@@ -162,7 +162,7 @@ struct ConstraintGenerator: ExprVisitor {
     }
 
     // 3rd case
-    if let calleeType = inferredTypes[callee]?.base as? CallableType {
+    if case .lambda(let calleeType) = inferredTypes[callee] {
       propagateDown(calleeType: calleeType)
       return
     }
