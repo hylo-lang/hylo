@@ -33,16 +33,37 @@ public struct TypeFlags: Hashable {
     existential = existential | flags.existential
   }
 
+  /// Retuns a set of flags in which `flags` have been inserted.
+  public func inserting(_ flags: TypeFlags) -> TypeFlags {
+    var newFlags = self
+    newFlags.insert(flags)
+    return newFlags
+  }
+
   /// Removes the specified flags.
   public mutating func remove(_ flags: TypeFlags) {
     universal = universal & ~flags.universal
     existential = existential & ~flags.existential
   }
 
+  /// Retuns a set of flags in which `flags` have been removed.
+  public func removing(_ flags: TypeFlags) -> TypeFlags {
+    var newFlags = self
+    newFlags.remove(flags)
+    return newFlags
+  }
+
   /// Merge this set of flags with another set.
   public mutating func merge(_ flags: TypeFlags) {
     universal = universal & flags.universal
     existential = existential | flags.existential
+  }
+
+  /// Retuns a set of flags in which `flags` have been merged.
+  public func merging(_ flags: TypeFlags) -> TypeFlags {
+    var newFlags = self
+    newFlags.merge(flags)
+    return newFlags
   }
 
   /// The type is canonical from.
