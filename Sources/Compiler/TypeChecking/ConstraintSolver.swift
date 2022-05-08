@@ -107,18 +107,18 @@ struct ConstraintSolver {
       refresh(constraintsDependingOn: tau)
 
     case (.tuple(let l), .tuple(let r)):
-      let lLabels = l.elements.map({ $0.label })
-      let rLabels = r.elements.map({ $0.label })
-
-      // Make sure both tuple types have a compatible shape.
-      if lLabels != rLabels {
-        let range = range(of: location)
-        if lLabels.count == rLabels.count {
-          diagnostics.append(.incompatibleLabels(found: lLabels, expected: rLabels, range: range))
-        } else {
-          diagnostics.append(.incompatibleTupleLengths(range: range))
-        }
+      switch l.testLabelCompatibility(with: r) {
+      case .differentLengths:
+        diagnostics.append(.incompatibleTupleLengths(range: range(of: location)))
         return
+
+      case .differentLabels(let found, let expected):
+        diagnostics.append(.incompatibleLabels(
+          found: found, expected: expected, range: range(of: location)))
+        return
+
+      case .compatible:
+        break
       }
 
       // Break down the constraint.
@@ -128,18 +128,18 @@ struct ConstraintSolver {
       }
 
     case (.lambda(let l), .lambda(let r)):
-      let lLabels = l.inputs.map({ $0.label })
-      let rLabels = r.inputs.map({ $0.label })
-
-      // Make sure both function types have a compatible shape.
-      if lLabels != rLabels {
-        let range = range(of: location)
-        if lLabels.count == rLabels.count {
-          diagnostics.append(.incompatibleLabels(found: lLabels, expected: rLabels, range: range))
-        } else {
-          diagnostics.append(.incompatibleParameterCount(range: range))
-        }
+      switch l.testLabelCompatibility(with: r) {
+      case .differentLengths:
+        diagnostics.append(.incompatibleParameterCount(range: range(of: location)))
         return
+
+      case .differentLabels(let found, let expected):
+        diagnostics.append(.incompatibleLabels(
+          found: found, expected: expected, range: range(of: location)))
+        return
+
+      case .compatible:
+        break
       }
 
       // Break down the constraint.
@@ -151,6 +151,52 @@ struct ConstraintSolver {
         .equality(l: l.output, r: r.output), location: location))
       fresh.append(LocatableConstraint(
         .equality(l: l.environment, r: r.environment), location: location))
+
+    case (.method(let l), .method(let r)):
+      // Capabilities must match.
+      if l.capabilities != r.capabilities {
+        diagnostics.append(.incompatibleTypes(.method(l), .method(r), range: range(of: location)))
+        return
+      }
+
+      // Break down the constraint.
+      for i in 0 ..< l.inputs.count {
+        fresh.append(LocatableConstraint(
+          .equality(l: l.inputs[i].type, r: r.inputs[i].type), location: location))
+      }
+      fresh.append(LocatableConstraint(
+        .equality(l: l.output, r: r.output), location: location))
+      fresh.append(LocatableConstraint(
+        .equality(l: l.receiver, r: r.receiver), location: location))
+
+    case (.method(let l), .lambda):
+      // TODO: Use a kind of different constraint for call exprs
+      // We can't guess the operator property and environment of a callee from a call expression;
+      // that must be inferred. Thus we can't constrain the callee of a CallExpr to be equal to
+      // some synthesized lambda type. Instead we need a constraint that only describes its inputs
+      // and outputs, and uses the other type to infer additional information.
+
+      var minterms: [Constraint.Minterm] = []
+
+      if let lambda = LambdaType(letImplOf: l) {
+        minterms.append(Constraint.Minterm(
+          constraints: [.equality(l: .lambda(lambda), r: r)], penalties: 0))
+      }
+      if let lambda = LambdaType(inoutImplOf: l) {
+        minterms.append(Constraint.Minterm(
+          constraints: [.equality(l: .lambda(lambda), r: r)], penalties: 1))
+      }
+      if let lambda = LambdaType(sinkImplOf: l) {
+        minterms.append(Constraint.Minterm(
+          constraints: [.equality(l: .lambda(lambda), r: r)], penalties: 1))
+      }
+
+      if minterms.count == 1 {
+        fresh.append(LocatableConstraint(minterms[0].constraints[0], location: location))
+      } else {
+        assert(!minterms.isEmpty)
+        fresh.append(LocatableConstraint(Constraint.disjunction(minterms), location: location))
+      }
 
     default:
       fatalError("not implemented")
@@ -314,6 +360,58 @@ struct ConstraintSolver {
     }
 
     return s
+  }
+
+}
+
+/// The result of a label compatibility test.
+fileprivate enum LabelCompatibility {
+
+  case compatible
+
+  case differentLengths
+
+  case differentLabels(found: [String?], expected: [String?])
+
+}
+
+fileprivate protocol LabeledCollection {
+
+  associatedtype Labels: Collection where Labels.Element == String?
+
+  var labels: Labels { get }
+
+}
+
+extension LabeledCollection {
+
+  /// Tests whether `self` and `other` have compatible labels.
+  func testLabelCompatibility<T: LabeledCollection>(with other: T) -> LabelCompatibility {
+    let (ls, rs) = (self.labels, other.labels)
+
+    if ls.count != rs.count {
+      return .differentLengths
+    }
+    for (l, r) in zip(ls, rs) {
+      if l != r { return .differentLabels(found: Array(ls), expected: Array(rs)) }
+    }
+    return .compatible
+  }
+
+}
+
+extension LambdaType: LabeledCollection {
+
+  var labels: LazyMapSequence<LazySequence<Array<CallableTypeParameter>>.Elements, String?> {
+    inputs.lazy.map({ $0.label })
+  }
+
+}
+
+extension TupleType: LabeledCollection {
+
+  var labels: LazyMapSequence<LazySequence<Array<TupleType.Element>>.Elements, String?> {
+    elements.lazy.map({ $0.label })
   }
 
 }

@@ -25,12 +25,17 @@ public struct TupleType: TypeProtocol, Hashable {
     switch self.elements.count {
     case 0:
       fs.insert(.isCanonical)
-    case 1:
+    case 1 where self.elements[0].label == nil:
       fs.remove(.isCanonical)
     default:
       break
     }
     flags = fs
+  }
+
+  /// Creates a tuple type with a sequence of label-type pairs.
+  public init<S: Sequence>(labelsAndTypes: S) where S.Element == (String?, Type) {
+    self.init(labelsAndTypes.map({ Element(label: $0.0, type: $0.1) }))
   }
 
   /// Creates a tuple of unlabeled elements with the types in the given sequence.

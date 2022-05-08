@@ -11,6 +11,8 @@ public struct MethodImplDecl: Decl {
 
     case `inout`
 
+    case assign
+
   }
 
   public enum Body: Hashable {

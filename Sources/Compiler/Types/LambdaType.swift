@@ -3,15 +3,38 @@ import Utils
 /// The type of a lambda.
 public struct LambdaType: TypeProtocol, Hashable {
 
+  /// The property of a lambda's call operator.
+  public enum OperatorProperty: Hashable {
+
+    /// The call operator is mutating.
+    case mutating
+
+    /// The call operator is consuming.
+    case sink
+
+  }
+
+  /// The property of the lambda's call operator.
+  public let operatorProperty: OperatorProperty?
+
+  /// The environment of the lambda.
   public let environment: Type
 
+  /// The input labels and types of the lambda.
   public let inputs: [CallableTypeParameter]
 
+  /// The output type of the lambda.
   public let output: Type
 
   public let flags: TypeFlags
 
-  public init(environment: Type = .unit, inputs: [CallableTypeParameter], output: Type) {
+  public init(
+    operatorProperty: OperatorProperty? = nil,
+    environment: Type = .unit,
+    inputs: [CallableTypeParameter],
+    output: Type
+  ) {
+    self.operatorProperty = operatorProperty
     self.environment = environment
     self.inputs = inputs
     self.output = output
@@ -22,15 +45,52 @@ public struct LambdaType: TypeProtocol, Hashable {
     flags = fs
   }
 
+  /// Creates the type of the `let` implementation of `method`; fails if `method` doesn't have a
+  /// let capability.
+  public init?(letImplOf method: MethodType) {
+    if !method.capabilities.contains(.let) { return nil }
+
+    let projectedReceiver = Type.projection(ProjectionType(.let, method.receiver))
+    self.init(
+      environment: .tuple(TupleType(labelsAndTypes: [("self", projectedReceiver)])),
+      inputs: method.inputs,
+      output: method.output)
+  }
+
+  /// Creates the type of the `inout` implementation of `method`; fails if `method` doesn't have an
+  /// inout capability.
+  public init?(inoutImplOf method: MethodType) {
+    if !method.capabilities.contains(.inout) && !method.capabilities.contains(.sink) { return nil }
+
+    let projectedReceiver = Type.projection(ProjectionType(.inout, method.receiver))
+    self.init(
+      environment: .tuple(TupleType(labelsAndTypes: [("self", projectedReceiver)])),
+      inputs: method.inputs,
+      output: method.output)
+  }
+
+  /// Creates the type of the `sink` implementation of `method`; fails if `method` doesn't have a
+  /// sink capability.
+  public init?(sinkImplOf method: MethodType) {
+    if !method.capabilities.contains(.inout) && !method.capabilities.contains(.sink) { return nil }
+
+    self.init(
+      operatorProperty: .sink,
+      environment: .tuple(TupleType(labelsAndTypes: [("self", method.receiver)])),
+      inputs: method.inputs,
+      output: method.output)
+  }
+
 }
 
 extension LambdaType: CustomStringConvertible {
 
   public var description: String {
+    let p = operatorProperty.map({ "\($0) " }) ?? ""
     let e = (environment == .unit) ? "thin" : "[\(environment)]"
     let i = String.joining(inputs, separator: ", ")
     let o = "\(output)"
-    return "\(e) (\(i)) -> \(o)"
+    return "\(p)\(e) (\(i)) -> \(o)"
   }
 
 

@@ -21,7 +21,11 @@ public indirect enum Type: TypeProtocol, Hashable {
 
   case lambda(LambdaType)
 
+  case method(MethodType)
+
   case module(ModuleType)
+
+  case projection(ProjectionType)
 
   case parameter(ParameterType)
 
@@ -53,9 +57,11 @@ public indirect enum Type: TypeProtocol, Hashable {
     case let .genericSizeParam(t):  return t
     case let .genericTypeParam(t):  return t
     case let .lambda(t):            return t
+    case let .method(t):            return t
     case let .module(t):            return t
     case let .parameter(t):         return t
     case let .product(t):           return t
+    case let .projection(t):        return t
     case let .skolem(t):            return t
     case let .subscript(t):         return t
     case let .trait(t):             return t
@@ -181,7 +187,19 @@ extension Type {
 
       case .lambda(let type):
         return .lambda(LambdaType(
+          operatorProperty: type.operatorProperty,
           environment: type.environment.transform(transformer),
+          inputs: type.inputs.map({ p in
+            CallableTypeParameter(
+              label: p.label,
+              type: p.type.transform(transformer))
+          }),
+          output: type.output.transform(transformer)))
+
+      case .method(let type):
+        return .method(MethodType(
+          capabilities: type.capabilities,
+          receiver: type.receiver.transform(transformer),
           inputs: type.inputs.map({ p in
             CallableTypeParameter(
               label: p.label,
@@ -193,6 +211,11 @@ extension Type {
         return .parameter(ParameterType(
           convention: type.convention,
           bareType: type.bareType.transform(transformer)))
+
+      case .projection(let type):
+        return .projection(ProjectionType(
+          type.capability,
+          type.base.transform(transformer)))
 
       case .subscript(let type):
         return .subscript(SubscriptType(

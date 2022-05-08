@@ -81,6 +81,9 @@ public struct TypeFlags: Hashable {
   /// The type contains one or more generic type parameters.
   public static let hasGenericTypeParam = TypeFlags(universal: 0, existential: 1 << 3)
 
+  /// The type contains one or more projection types.
+  public static let hasProjections      = TypeFlags(universal: 0, existential: 1 << 4)
+
 }
 
 extension TypeFlags: ExpressibleByArrayLiteral {

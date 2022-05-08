@@ -1651,7 +1651,7 @@ public struct TypeChecker {
   }
 
   private mutating func _realize(funDecl id: NodeID<FunDecl>) -> Type? {
-    // Handle memberwize constructors.
+    // Handle memberwise constructors.
     if ast[id].introducer.value == .memberwiseInit {
       guard let parent = scopeHierarchy.container[id],
             parent.kind == .productTypeDecl
@@ -1716,63 +1716,98 @@ public struct TypeChecker {
     // Bail out if parameters or captures could not be realized.
     if !success { return nil }
 
-    // Realize the output type.
-    let output: Type
-    if let o = decl.output {
-      // Use explicit return annotations.
-      guard let type = realize(o, inScope: declScope) else { return nil }
-      output = type
-    } else if decl.isInExprContext {
-      // If the function appears in an expression context and is expression-bodied, its return
-      // type may be inferred.
-      if case .expr(let body) = decl.body?.value {
-        guard let type = infer(expr: body, inScope: declScope) else { return nil }
-        output = type
-      } else {
-        diagnostics.insert(.cannotInferComplexReturnType(
-          location: decl.body?.range?.last() ?? ast.ranges[id]?.first()))
-        return nil
-      }
-    } else {
-      // Default to `()`
-      output = .unit
-    }
-
-    // Realize the environment.
-    let environment: Type
-
+    // Determine if the declaration is a member.
+    let isMemberDecl: Bool
     let parent = scopeHierarchy.container[id] ?? unreachable()
     switch parent.kind {
-    case .productTypeDecl,
-         .traitDecl,
-         .typeAliasDecl:
-
-      // Methods cannot capture anything.
-      if !captures.isEmpty {
-        diagnostics.insert(.methodHasCaptures(range: ast[id].introducer.range))
-        return nil
-      }
-
-      // The receiver is part of the environment.
-      let receiver = realizeSelfTypeExpr(inScope: parent)!
-      environment = .tuple(TupleType([TupleType.Element(label: nil, type: receiver)]))
-
+    case .productTypeDecl, .traitDecl, .typeAliasDecl:
+      isMemberDecl = true
     default:
-      environment = .tuple(TupleType(captures.map({ c in
-        switch c.introducer {
-        case .let, .inout:
-          fatalError("not implemented")
-        case .var:
-          fatalError("not implemented")
-        case .sinklet, .sinkvar:
-          return TupleType.Element(label: nil, type: c.type)
-        }
-      })))
+      isMemberDecl = false
     }
 
-    // TODO: Determine if the lambda is mutating
+    // Member declarations may not have captures.
+    if isMemberDecl && !captures.isEmpty {
+      diagnostics.insert(.memberDeclHasCaptures(range: ast[id].introducer.range))
+      return nil
+    }
 
-    return .lambda(LambdaType(environment: environment, inputs: inputs, output: output))
+    // Handle constructors and destructors.
+    switch ast[id].introducer.value {
+    case .memberwiseInit:
+      unreachable()
+
+    case .`init`:
+      // Constructors are global functions.
+      let receiver = realizeSelfTypeExpr(inScope: parent)!
+      return .lambda(LambdaType(
+        environment: .unit,
+        inputs: inputs,
+        output: receiver))
+
+    case .deinit:
+      // Destructors are assign methods.
+      return .method(MethodType(
+        capabilities: [.assign],
+        receiver: realizeSelfTypeExpr(inScope: parent)!,
+        inputs: [],
+        output: .unit))
+
+    case .fun:
+      // Realize the output type.
+      let output: Type
+      if let o = decl.output {
+        // Use explicit return annotations.
+        guard let type = realize(o, inScope: declScope) else { return nil }
+        output = type
+      } else if decl.isInExprContext {
+        // If the function appears in an expression context and is expression-bodied, its return
+        // type may be inferred.
+        if case .expr(let body) = decl.body?.value {
+          guard let type = infer(expr: body, inScope: declScope) else { return nil }
+          output = type
+        } else {
+          diagnostics.insert(.cannotInferComplexReturnType(
+            location: decl.body?.range?.last() ?? ast.ranges[id]?.first()))
+          return nil
+        }
+      } else {
+        // Default to `()`
+        output = .unit
+      }
+
+      if isMemberDecl {
+        // Gather the capabilities of the method.
+        let capabilities: Set<MethodImplDecl.Introducer>
+        if case .bundle(let impls) = ast[id].body?.value {
+          capabilities = Set(impls.map({ ast[$0].introducer.value }))
+        } else {
+          capabilities = [.let]
+        }
+
+        // Creates a method bundle.
+        return .method(MethodType(
+          capabilities: capabilities,
+          receiver: realizeSelfTypeExpr(inScope: parent)!,
+          inputs: inputs,
+          output: output))
+      } else {
+        let environment = Type.tuple(TupleType(captures.map({ c in
+          switch c.introducer {
+          case .let, .inout:
+            fatalError("not implemented")
+          case .var:
+            fatalError("not implemented")
+          case .sinklet, .sinkvar:
+            return TupleType.Element(label: nil, type: c.type)
+          }
+        })))
+
+        // TODO: Determine if the lambda is mutating
+
+        return .lambda(LambdaType(environment: environment, inputs: inputs, output: output))
+      }
+    }
   }
 
   /// Returns the overarching type of the specified parameter declaration.
@@ -1805,6 +1840,7 @@ public struct TypeChecker {
     if decl.parameters != nil { fatalError("not implemented") }
 
     // Synthesize the receiver parameter, if necessary.
+    // FIXME: Receiver is not a parameter
     let parent = scopeHierarchy.container[id] ?? unreachable()
     switch parent.kind {
     case .productTypeDecl,

@@ -113,6 +113,14 @@ extension Diagnostic {
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }
 
+  static func incompatibleTypes(_ l: Type, _ r: Type, range: SourceRange?) -> Diagnostic {
+    Diagnostic(
+      level: .error,
+      message: "incompatible types '\(l)' and '\(r)'",
+      location: range?.first(),
+      window: range.map({ r in Diagnostic.Window(range: r) }))
+  }
+
   static func invalidAssociatedTypeExpr(_ name: String, range: SourceRange?) -> Diagnostic {
     Diagnostic(
       level: .error,
@@ -148,10 +156,10 @@ extension Diagnostic {
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }
 
-  static func methodHasCaptures(range: SourceRange?) -> Diagnostic {
+  static func memberDeclHasCaptures(range: SourceRange?) -> Diagnostic {
     Diagnostic(
       level: .error,
-      message: "method has captures",
+      message: "member declaration has captures",
       location: range?.first(),
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }
