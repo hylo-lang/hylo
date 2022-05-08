@@ -67,8 +67,8 @@ public struct AST {
 
   // MARK: Synthesis
 
-  /// Returns the declaration of the memberwise constructor of `d`, synthesizing it if necessary.
-  mutating func memberwiseCtorDecl(
+  /// Returns the declaration of the memberwise initializer of `d`, synthesizing it if necessary.
+  mutating func memberwiseInitDecl(
     of d: NodeID<ProductTypeDecl>,
     updating scopeHierarchy: inout ScopeHierarchy
   ) -> NodeID<FunDecl> {

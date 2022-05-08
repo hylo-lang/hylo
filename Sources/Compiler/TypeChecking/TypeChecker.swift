@@ -340,7 +340,7 @@ public struct TypeChecker {
   }
 
   private mutating func _check(fun id: NodeID<FunDecl>) -> Bool {
-    // Memberwize constructors always type check.
+    // Memberwize initializers always type check.
     if ast[id].introducer.value == .memberwiseInit {
       return true
     }
@@ -430,8 +430,8 @@ public struct TypeChecker {
       success = check(decl: j) && success
     }
 
-    // Synthesize the memberwise constructor if necessary.
-    success = check(fun: ast.memberwiseCtorDecl(of: id, updating: &scopeHierarchy)) && success
+    // Synthesize the memberwise initializer if necessary.
+    success = check(fun: ast.memberwiseInitDecl(of: id, updating: &scopeHierarchy)) && success
 
     // Type check extending declarations.
     let type = declTypes[id]!!
@@ -1651,16 +1651,16 @@ public struct TypeChecker {
   }
 
   private mutating func _realize(funDecl id: NodeID<FunDecl>) -> Type? {
-    // Handle memberwise constructors.
+    // Handle memberwise initializers.
     if ast[id].introducer.value == .memberwiseInit {
       guard let parent = scopeHierarchy.container[id],
             parent.kind == .productTypeDecl
       else {
-        diagnostics.insert(.illegalMemberwiseCtor(range: ast[id].introducer.range))
+        diagnostics.insert(.illegalMemberwiseInit(range: ast[id].introducer.range))
         return nil
       }
 
-      if let lambda = memberwiseCtorType(of: NodeID(converting: parent)!) {
+      if let lambda = memberwiseInitType(of: NodeID(converting: parent)!) {
         return .lambda(lambda)
       } else {
         return nil
@@ -1732,23 +1732,24 @@ public struct TypeChecker {
       return nil
     }
 
-    // Handle constructors and destructors.
+    // Handle initializers and deinitializers.
     switch ast[id].introducer.value {
     case .memberwiseInit:
       unreachable()
 
     case .`init`:
-      // Constructors are global functions.
+      // Initializers are global functions.
       let receiver = realizeSelfTypeExpr(inScope: parent)!
-      return .lambda(LambdaType(
-        environment: .unit,
-        inputs: inputs,
-        output: receiver))
+      let receiverParameter = CallableTypeParameter(
+        label: "self",
+        type: .projection(ProjectionType(.set, receiver)))
+      inputs.insert(receiverParameter, at: 0)
+      return .lambda(LambdaType(environment: .unit, inputs: inputs, output: .unit))
 
     case .deinit:
-      // Destructors are assign methods.
+      // Deinitializers are sink methods.
       return .method(MethodType(
-        capabilities: [.assign],
+        capabilities: [.sink],
         receiver: realizeSelfTypeExpr(inScope: parent)!,
         inputs: [],
         output: .unit))
@@ -1891,9 +1892,15 @@ public struct TypeChecker {
     return declTypes[id]!
   }
 
-  /// Returns the type of `decl`'s memberwise constructor.
-  private mutating func memberwiseCtorType(of decl: NodeID<ProductTypeDecl>) -> LambdaType? {
+  /// Returns the type of `decl`'s memberwise initializer.
+  private mutating func memberwiseInitType(of decl: NodeID<ProductTypeDecl>) -> LambdaType? {
     var inputs: [CallableTypeParameter] = []
+
+    // Synthesize the receiver type.
+    let receiver = realizeSelfTypeExpr(inScope: decl)!
+    inputs.append(CallableTypeParameter(
+      label: "self",
+      type: .projection(ProjectionType(.set, receiver))))
 
     // List and realize the type of all stored bindings.
     for m in ast[decl].members {
@@ -1908,10 +1915,7 @@ public struct TypeChecker {
       }
     }
 
-    // Synthesize the output type.
-    let output = realizeSelfTypeExpr(inScope: decl)!
-
-    return LambdaType(environment: .unit, inputs: inputs, output: output)
+    return LambdaType(environment: .unit, inputs: inputs, output: .unit)
   }
 
   // MARK: Type role determination

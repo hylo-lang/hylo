@@ -63,10 +63,10 @@ extension Diagnostic {
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }
 
-  static func illegalMemberwiseCtor(range: SourceRange?) -> Diagnostic {
+  static func illegalMemberwiseInit(range: SourceRange?) -> Diagnostic {
     Diagnostic(
       level: .error,
-      message: "memberwise constructor declaration may only appear in product type declaration",
+      message: "memberwise initializer declaration may only appear in product type declaration",
       location: range?.first(),
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }

@@ -8,13 +8,13 @@ public struct FunDecl: GenericDecl, GenericScope {
     /// The function and method introducer, `fun`.
     case fun
 
-    /// The constructor introducer, `init`.
+    /// The initializer introducer, `init`.
     case `init`
 
-    /// The memberwise constructor introducer, `memberwise init`
+    /// The memberwise initializer introducer, `memberwise init`
     case memberwiseInit
 
-    /// The destructor introducer, `deinit`.
+    /// The deinitializer introducer, `deinit`.
     case `deinit`
 
   }

@@ -118,7 +118,7 @@ struct ConstraintGenerator: ExprVisitor {
     {
       switch d.kind {
       case .productTypeDecl:
-        let candidates = resolve(
+        var candidates = resolve(
           stem: "init",
           labels: [],
           notation: nil,
@@ -132,8 +132,12 @@ struct ConstraintGenerator: ExprVisitor {
         }
 
         if candidates.count == 1 {
+          // Remove the receiver from the parameter list.
+          guard case .lambda(let initializer) = candidates[0].type else { unreachable() }
+          let ctor = initializer.ctor()!
+
           // Contextualize the match.
-          let (ty, cs) = checker.open(type: candidates[0].type)
+          let (ty, cs) = checker.open(type: .lambda(ctor))
           guard case .lambda(let calleeType) = ty else { unreachable() }
 
           // Rebind the name expression to the referred declaration.

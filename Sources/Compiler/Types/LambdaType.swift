@@ -81,6 +81,17 @@ public struct LambdaType: TypeProtocol, Hashable {
       output: method.output)
   }
 
+  /// Transforms `self` into a constructor type if `self` is an initializer type. Otherwise,
+  /// returns `nil`.
+  public func ctor() -> LambdaType? {
+    guard (operatorProperty == nil) && (environment == .unit) && (output == .unit),
+          let receiverParameter = inputs.first,
+          case .projection(let receiver) = receiverParameter.type,
+          receiver.capability == .set
+    else { return nil }
+    return LambdaType(inputs: Array(inputs[1...]), output: receiver.base)
+  }
+
 }
 
 extension LambdaType: CustomStringConvertible {

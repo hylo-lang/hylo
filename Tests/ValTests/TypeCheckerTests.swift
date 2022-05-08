@@ -893,7 +893,7 @@ final class TypeCheckerTests: XCTestCase {
     XCTAssert(checker.diagnostics.count == 1)
   }
 
-  func testIllegalMemberwiseCtorDecl() {
+  func testIllegalMemberwiseInitDecl() {
 
     // memberwise init
 
@@ -909,7 +909,7 @@ final class TypeCheckerTests: XCTestCase {
     XCTAssert(checker.diagnostics.count == 1)
   }
 
-  func testMemberwiseCtorCall() {
+  func testMemberwiseInitCall() {
 
     // type A {
     //   var foo: ()
@@ -962,7 +962,7 @@ final class TypeCheckerTests: XCTestCase {
     XCTAssertTrue(checker.check(module: main))
   }
 
-  func testGenericMemberwiseCtorCall() {
+  func testGenericMemberwiseInitCall() {
 
     // type A<X, Y> {
     //   var foo: X
