@@ -8,7 +8,7 @@ public enum MemberModifier: Hashable {
 
     case `inout`
 
-    case out
+    case yielded
 
   }
 

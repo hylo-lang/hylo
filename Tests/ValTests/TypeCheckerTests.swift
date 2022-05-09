@@ -291,7 +291,7 @@ final class TypeCheckerTests: XCTestCase {
     XCTAssertEqual(checker.diagnostics.count, 1)
   }
 
-  func testMethodLookup() {
+  func testMethodExternalLookup() {
 
     // fun main() {
     //   let _ = 0.copy()
@@ -316,6 +316,39 @@ final class TypeCheckerTests: XCTestCase {
                   domain: .explicit(AnyExprID(ast.insert(IntegerLiteralExpr(value: "0")))),
                   stem: SourceRepresentable(value: "copy")))))))))))))
         ]))))))))
+
+    var checker = TypeChecker(ast: ast)
+    XCTAssertTrue(checker.check(module: main))
+  }
+
+  func testMethodInternalLookup() {
+
+    // type A {
+    //   fun foo() { bar() }
+    //   fun bar() { self.foo() }
+    // }
+
+    var ast = AST()
+    let main = ast.insert(ModuleDecl(name: "main"))
+
+    ast[main].members.append(AnyDeclID(ast.insert(ProductTypeDecl(
+      identifier: SourceRepresentable(value: "A"),
+      members: [
+        AnyDeclID(ast.insert(FunDecl(
+          introducer: SourceRepresentable(value: .fun),
+          identifier: SourceRepresentable(value: "foo"),
+          body: SourceRepresentable(value: .expr(AnyExprID(ast.insert(FunCallExpr(
+            callee: AnyExprID(ast.insert(NameExpr(
+              stem: SourceRepresentable(value: "bar")))))))))))),
+        AnyDeclID(ast.insert(FunDecl(
+          introducer: SourceRepresentable(value: .fun),
+          identifier: SourceRepresentable(value: "bar"),
+          body: SourceRepresentable(value: .expr(AnyExprID(ast.insert(FunCallExpr(
+            callee: AnyExprID(ast.insert(NameExpr(
+              domain: .explicit(AnyExprID(ast.insert(NameExpr(
+                stem: SourceRepresentable(value: "self"))))),
+              stem: SourceRepresentable(value: "foo")))))))))))),
+      ]))))
 
     var checker = TypeChecker(ast: ast)
     XCTAssertTrue(checker.check(module: main))

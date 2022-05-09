@@ -59,6 +59,9 @@ public struct FunDecl: GenericDecl, GenericScope {
   /// The return type annotation of the function, if any.
   public var output: AnyTypeExprID?
 
+  /// The declaration of the implicit receiver parameter, if any.
+  public var receiver: NodeID<ParameterDecl>?
+
   /// The body of the declaration, if any.
   public var body: SourceRepresentable<Body>?
 
@@ -76,6 +79,7 @@ public struct FunDecl: GenericDecl, GenericScope {
     parameters: [NodeID<ParameterDecl>] = [],
     output: AnyTypeExprID? = nil,
     body: SourceRepresentable<Body>? = nil,
+    receiver: NodeID<ParameterDecl>? = nil,
     isInExprContext: Bool = false
   ) {
     self.introducer = introducer
@@ -88,7 +92,26 @@ public struct FunDecl: GenericDecl, GenericScope {
     self.parameters = parameters
     self.output = output
     self.body = body
+    self.receiver = receiver
     self.isInExprContext = isInExprContext
+  }
+
+  /// Returns whether the declaration denotes a static method.
+  public var isStatic: Bool { memberModifiers.contains(where: { $0.value == .static }) }
+
+  /// Returns whether the declaration denotes an `inout` method.
+  public var isInout: Bool { memberModifiers.contains(where: { $0.value == .receiver(.inout) }) }
+
+  /// Returns whether the declaration denotes a `sink` method.
+  public var isSink: Bool { memberModifiers.contains(where: { $0.value == .receiver(.sink) }) }
+
+  /// Returns whether the declaration denotes a method bundler.
+  public var isBundle: Bool {
+    if case .bundle = body?.value {
+      return true
+    } else {
+      return false
+    }
   }
 
 }

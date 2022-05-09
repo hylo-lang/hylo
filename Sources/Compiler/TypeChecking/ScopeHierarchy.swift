@@ -70,6 +70,17 @@ struct ScopeHierarchy {
     }
   }
 
+  /// Returns whether `decl` is known to be member of a type declaration.
+  func isMember<T: DeclID>(decl: T) -> Bool {
+    guard let parent = container[decl] else { return false }
+    switch parent.kind {
+    case .productTypeDecl, .traitDecl, .typeAliasDecl:
+      return true
+    default:
+      return false
+    }
+  }
+
   /// Returns a sequence containing `scope` and all its ancestors, from inner to outer.
   func scopesToRoot<S: ScopeID>(from scope: S) -> ScopeSequence {
     ScopeSequence(parent: parent, current: AnyScopeID(scope))

@@ -340,8 +340,10 @@ public struct TypeChecker {
   }
 
   private mutating func _check(fun id: NodeID<FunDecl>) -> Bool {
+    var decl = ast[id]
+
     // Memberwize initializers always type check.
-    if ast[id].introducer.value == .memberwiseInit {
+    if decl.introducer.value == .memberwiseInit {
       return true
     }
 
@@ -350,7 +352,7 @@ public struct TypeChecker {
 
     // Make sure parameters have different names and type check their default values.
     var names: Set<String> = []
-    for j in ast[id].parameters {
+    for j in decl.parameters {
       let parameter = ast[j]
 
       if !names.insert(parameter.name).inserted {
@@ -376,14 +378,49 @@ public struct TypeChecker {
       unreachable()
     }
 
-    // Type chec the body of the function, if any.
-    switch ast[id].body?.value {
+    // Synthesize the receiver parameter if necessary.
+    if !decl.isStatic && scopeHierarchy.isMember(decl: id) {
+      // Create the declaration.
+      assert(decl.receiver == nil)
+      let receiverDecl = ast.insert(ParameterDecl(
+        identifier: SourceRepresentable(value: "self")))
+      scopeHierarchy.insert(decl: receiverDecl, into: AnyScopeID(id))
+
+      // Realize the type of the declaration.
+      let receiverConvention: ParamConvention
+      if decl.introducer.value == .`init` {
+        receiverConvention = .set
+      } else if decl.isInout {
+        receiverConvention = .inout
+      } else if decl.isSink {
+        receiverConvention = .sink
+      } else {
+        receiverConvention = .let
+      }
+
+      let receiverType: Type
+      switch declTypes[id]! {
+      case .method(let ty): receiverType = ty.receiver
+      case .lambda(let ty): receiverType = ty.environment
+      default: unreachable()
+      }
+
+      declTypes[receiverDecl] = .parameter(ParameterType(
+        convention: receiverConvention, bareType: receiverType))
+      declRequests[receiverDecl] = .success
+
+      ast[id].receiver = receiverDecl
+      decl = ast[id]
+    }
+
+    // Type check the body of the function, if any.
+    switch decl.body?.value {
     case .block(let stmt):
       success = check(brace: stmt) && success
 
     case .expr(let expr):
       // No need to type check the functon's body if it's been used to infer the return type.
-      if (ast[id].output == nil) && ast[id].isInExprContext { break }
+      if (decl.output == nil) && decl.isInExprContext { break }
       success = (infer(expr: expr, expectedType: output, inScope: id) != nil) && success
 
     case .bundle:
@@ -1717,14 +1754,7 @@ public struct TypeChecker {
     if !success { return nil }
 
     // Determine if the declaration is a member.
-    let isMemberDecl: Bool
-    let parent = scopeHierarchy.container[id] ?? unreachable()
-    switch parent.kind {
-    case .productTypeDecl, .traitDecl, .typeAliasDecl:
-      isMemberDecl = true
-    default:
-      isMemberDecl = false
-    }
+    let isMemberDecl = scopeHierarchy.isMember(decl: id)
 
     // Member declarations may not have captures.
     if isMemberDecl && !captures.isEmpty {
@@ -1733,6 +1763,7 @@ public struct TypeChecker {
     }
 
     // Handle initializers and deinitializers.
+    let parent = scopeHierarchy.container[id] ?? unreachable()
     switch ast[id].introducer.value {
     case .memberwiseInit:
       unreachable()

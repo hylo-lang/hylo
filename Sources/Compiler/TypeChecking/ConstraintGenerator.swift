@@ -118,7 +118,7 @@ struct ConstraintGenerator: ExprVisitor {
     {
       switch d.kind {
       case .productTypeDecl:
-        var candidates = resolve(
+        let candidates = resolve(
           stem: "init",
           labels: [],
           notation: nil,

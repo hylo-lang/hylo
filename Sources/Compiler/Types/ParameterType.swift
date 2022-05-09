@@ -23,9 +23,9 @@ extension ParameterType: CustomStringConvertible {
 
   public var description: String {
     switch convention {
-    case .byval:
+    case .let:
       return "\(bareType)"
-    case .inout, .out, .sink:
+    case .inout, .set, .sink, .yielded:
       return "\(convention) \(bareType)"
     }
   }

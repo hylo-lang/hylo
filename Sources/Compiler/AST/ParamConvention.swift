@@ -2,7 +2,10 @@
 public enum ParamConvention {
 
   /// Pass by immutable projection.
-  case byval
+  case `let`
+
+  /// Pass by assignable projection.
+  case `set`
 
   /// Pass by mutable projection.
   case `inout`
@@ -10,7 +13,7 @@ public enum ParamConvention {
   /// Pass by consumption.
   case sink
 
-  /// Exposed.
-  case out
+  /// Yielded.
+  case yielded
 
 }
