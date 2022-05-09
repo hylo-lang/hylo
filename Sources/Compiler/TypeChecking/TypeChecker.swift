@@ -1206,10 +1206,16 @@ public struct TypeChecker {
     switch type {
     case .product(let t):
       matches = names(introducedIn: t.decl)[name, default: []]
+      if name == "init" {
+        matches.insert(AnyDeclID(ast.memberwiseInitDecl(of: t.decl, updating: &scopeHierarchy)))
+      }
+
     case .trait(let t):
       matches = names(introducedIn: t.decl)[name, default: []]
+
     case .typeAlias(let t):
       matches = names(introducedIn: t.decl)[name, default: []]
+
     default:
       matches = DeclSet()
     }

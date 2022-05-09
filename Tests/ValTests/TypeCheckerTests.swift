@@ -995,6 +995,32 @@ final class TypeCheckerTests: XCTestCase {
     XCTAssertTrue(checker.check(module: main))
   }
 
+  func testImplicitMemberwiseInitCall() {
+
+    // @implicitpublic
+    // let _ = A()
+    // type A {}
+    //
+    // Note: The call to `A`'s initializer appears before `A`'s declaration, thus requiring the
+    // initializer's declaration to be hoisted.
+
+    var ast = AST()
+    let main = ast.insert(ModuleDecl(name: "main"))
+
+    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+      pattern: ast.insert(BindingPattern(
+        introducer: SourceRepresentable(value: .let),
+        subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
+      initializer: AnyExprID(ast.insert(FunCallExpr(
+        callee: AnyExprID(ast.insert(NameExpr(stem: SourceRepresentable(value: "A")))))))))))
+
+    ast[main].members.append(AnyDeclID(ast.insert(ProductTypeDecl(
+      identifier: SourceRepresentable(value: "A")))))
+
+    var checker = TypeChecker(ast: ast)
+    XCTAssertTrue(checker.check(module: main))
+  }
+
   func testGenericMemberwiseInitCall() {
 
     // type A<X, Y> {
