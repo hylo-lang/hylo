@@ -26,7 +26,7 @@ extension Swift.Collection {
     for i in self.indices {
       if let o = openDelimiterPosition {
         if isCloseDelimiter(self[i]) {
-          r.append(self[o..<i])
+          r.append(self[index(after: o)..<i])
           openDelimiterPosition = nil
         }
       }
