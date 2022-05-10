@@ -1,10 +1,7 @@
 /// A parameter in a lambda type expression.
-public struct ParamTypeExpr: TypeExpr {
+public struct ParameterTypeExpr: TypeExpr {
 
-  public static let kind = NodeKind.paramTypeExpr
-
-  /// The label of the parameter.
-  public var label: SourceRepresentable<Identifier>?
+  public static let kind = NodeKind.parameterTypeExpr
 
   /// The passing convention of the parameter.
   public var convention: SourceRepresentable<ParamConvention>
@@ -13,11 +10,9 @@ public struct ParamTypeExpr: TypeExpr {
   public var bareType: AnyTypeExprID
 
   public init(
-    label: SourceRepresentable<Identifier>? = nil,
     convention: SourceRepresentable<ParamConvention>,
     bareType: AnyTypeExprID
   ) {
-    self.label = label
     self.convention = convention
     self.bareType = bareType
   }

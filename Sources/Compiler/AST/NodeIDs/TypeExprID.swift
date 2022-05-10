@@ -3,6 +3,40 @@ import Utils
 /// The ID of a type expression.
 public protocol TypeExprID: NodeIDProtocol {}
 
+extension TypeExprID {
+
+  /// Calls the `visitor.visit` method corresponding to the type of this node.
+  public func accept<V: TypeExprVisitor>(_ visitor: inout V) -> V.Result {
+    switch kind {
+    case .asyncTypeExpr:
+      return visitor.visit(async: NodeID(unsafeRawValue: rawValue))
+    case .conformanceLensTypeExpr:
+      return visitor.visit(conformanceLens: NodeID(unsafeRawValue: rawValue))
+    case .existentialTypeExpr:
+      return visitor.visit(existential: NodeID(unsafeRawValue: rawValue))
+    case .indirectTypeExpr:
+      return visitor.visit(indirect: NodeID(unsafeRawValue: rawValue))
+    case .lambdaTypeExpr:
+      return visitor.visit(lambda: NodeID(unsafeRawValue: rawValue))
+    case .nameTypeExpr:
+      return visitor.visit(name: NodeID(unsafeRawValue: rawValue))
+    case .parameterTypeExpr:
+      return visitor.visit(param: NodeID(unsafeRawValue: rawValue))
+    case .storedProjectionTypeExpr:
+      return visitor.visit(storedProjection: NodeID(unsafeRawValue: rawValue))
+    case .tupleTypeExpr:
+      return visitor.visit(tuple: NodeID(unsafeRawValue: rawValue))
+    case .unionTypeExpr:
+      return visitor.visit(union: NodeID(unsafeRawValue: rawValue))
+    case .wildcardTypeExpr:
+      return visitor.visit(wildcard: NodeID(unsafeRawValue: rawValue))
+    default:
+      unreachable()
+    }
+  }
+
+}
+
 extension NodeID: TypeExprID where T: TypeExpr {}
 
 /// The type-erased ID of a type expression.
@@ -19,32 +53,5 @@ public struct AnyTypeExprID: TypeExprID {
   public var rawValue: Int { base.rawValue }
 
   public var kind: NodeKind { base.kind }
-
-  public func accept<V: TypeExprVisitor>(_ visitor: inout V) -> V.Result {
-    switch base.kind {
-    case AsyncTypeExpr.kind:
-      return visitor.visit(async: NodeID(rawValue: base.rawValue))
-    case ConformanceLensTypeExpr.kind:
-      return visitor.visit(conformanceLens: NodeID(rawValue: base.rawValue))
-    case ExistentialTypeExpr.kind:
-      return visitor.visit(existential: NodeID(rawValue: base.rawValue))
-    case IndirectTypeExpr.kind:
-      return visitor.visit(indirect: NodeID(rawValue: base.rawValue))
-    case LambdaTypeExpr.kind:
-      return visitor.visit(lambda: NodeID(rawValue: base.rawValue))
-    case NameTypeExpr.kind:
-      return visitor.visit(name: NodeID(rawValue: base.rawValue))
-    case ParamTypeExpr.kind:
-      return visitor.visit(param: NodeID(rawValue: base.rawValue))
-    case StoredProjectionTypeExpr.kind:
-      return visitor.visit(storedProjection: NodeID(rawValue: base.rawValue))
-    case TupleTypeExpr.kind:
-      return visitor.visit(tuple: NodeID(rawValue: base.rawValue))
-    case UnionTypeExpr.kind:
-      return visitor.visit(union: NodeID(rawValue: base.rawValue))
-    default:
-      unreachable()
-    }
-  }
 
 }

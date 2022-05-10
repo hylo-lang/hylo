@@ -26,7 +26,7 @@ public protocol DeclVisitor {
 
   mutating func visit(namespace: NodeID<NamespaceDecl>) -> Result
 
-  mutating func visit(param: NodeID<ParamDecl>) -> Result
+  mutating func visit(param: NodeID<ParameterDecl>) -> Result
 
   mutating func visit(productType: NodeID<ProductTypeDecl>) -> Result
 

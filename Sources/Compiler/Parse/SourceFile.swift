@@ -59,6 +59,11 @@ extension SourceFile: Collection {
     return SourceLocation(source: self, index: contents.index(after: l.index))
   }
 
+  public func index(before l: SourceLocation) -> SourceLocation {
+    precondition(l.source.url == url, "location in different file")
+    return SourceLocation(source: self, index: contents.index(before: l.index))
+  }
+
   public subscript(l: SourceLocation) -> Element {
     precondition(l.source.url == url, "location in different file")
     return contents[l.index]

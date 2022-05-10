@@ -2,7 +2,6 @@
 public struct AST {
 
   /// The nodes in `self`.
-  // FIXME: Should be an array with tombstones.
   private var nodes: [Any] = []
 
   /// The indices of the modules.
@@ -27,7 +26,7 @@ public struct AST {
 
   /// Inserts `n` into `self`.
   public mutating func insert<T: Node>(_ n: T) -> NodeID<T> {
-    let i = NodeID<T>(rawValue: nodes.count)
+    let i = NodeID<T>(unsafeRawValue: nodes.count)
     if let n = n as? ModuleDecl {
       precondition(!modules.contains(where: { self[$0].name == n.name }), "duplicate module")
       modules.append(i as! NodeID<ModuleDecl>)
@@ -64,6 +63,27 @@ public struct AST {
   /// Accesses the node at `position` for reading.
   subscript(raw position: NodeID.RawValue) -> Any {
     _read { yield nodes[position] }
+  }
+
+  // MARK: Synthesis
+
+  /// Retrieves or synthesizes the declaration of the memberwise initializer of `d`.
+  mutating func memberwiseInitDecl(
+    of d: NodeID<ProductTypeDecl>,
+    updating scopeHierarchy: inout ScopeHierarchy
+  ) -> NodeID<FunDecl> {
+    // Look for the declaration.
+    for member in self[d].members where member.kind == .funDecl {
+      let m = NodeID<FunDecl>(unsafeRawValue: member.rawValue)
+      if self[m].introducer.value == .memberwiseInit { return m }
+    }
+
+    // Synthesize the declaration.
+    let m = insert(FunDecl(introducer: SourceRepresentable(value: .memberwiseInit)))
+    self[d].members.insert(AnyDeclID(m), at: 0)
+    scopeHierarchy.insert(decl: m, into: AnyScopeID(d))
+
+    return m
   }
 
 }

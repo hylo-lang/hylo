@@ -27,4 +27,11 @@ public struct SourceRange: Hashable {
       : nil
   }
 
+  /// Returns the last source location in this range.
+  public func last() -> SourceLocation? {
+    lowerBound < upperBound
+      ? source.index(before: SourceLocation(source: source, index: upperBound))
+      : nil
+  }
+
 }

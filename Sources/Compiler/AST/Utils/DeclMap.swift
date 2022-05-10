@@ -2,7 +2,7 @@
 public struct DeclMap<Value> {
 
   /// The internal storage of the map.
-  private var storage: [Int: Value]
+  public var storage: [AnyDeclID: Value]
 
   /// Creates an empty node map.
   public init() {
@@ -10,9 +10,9 @@ public struct DeclMap<Value> {
   }
 
   /// Accesses the property associated with the specified ID.
-  subscript<T: DeclID>(id: T) -> Value? {
-    _read   { yield storage[id.rawValue] }
-    _modify { yield &storage[id.rawValue] }
+  public subscript<T: DeclID>(id: T) -> Value? {
+    _read { yield storage[AnyDeclID(id)] }
+    _modify { yield &storage[AnyDeclID(id)] }
   }
 
   /// Accesses the property associated with the specified ID.
@@ -20,10 +20,12 @@ public struct DeclMap<Value> {
     id: T,
     default defaultValue: @autoclosure () -> Value
   ) -> Value {
-    _read   { yield storage[id.rawValue, default: defaultValue()] }
+    _read {
+      yield storage[AnyDeclID(id), default: defaultValue()]
+    }
     _modify {
-      var value = storage[id.rawValue] ?? defaultValue()
-      defer { storage[id.rawValue] = value }
+      var value = storage[AnyDeclID(id)] ?? defaultValue()
+      defer { storage[AnyDeclID(id)] = value }
       yield &value
     }
   }

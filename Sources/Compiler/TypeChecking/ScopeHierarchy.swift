@@ -48,26 +48,42 @@ struct ScopeHierarchy {
 
   /// Returns whether `child` is contained in `ancestor`.
   ///
+  /// Scope containment is transitive and reflexive; this method returns `true` if:
+  /// - `child == ancestor`, or
+  /// - `parent[child] == ancestor`, or
+  /// - `isContained(parent[child], ancestor)`.
+  ///
   /// - Requires: `child` is the identifier of a scope in this hierarchy.
   func isContained<T: NodeIDProtocol, U: ScopeID>(
     _ child: T,
     in ancestor: U
   ) -> Bool {
-    var current = child.rawValue
+    var current = AnyNodeID(child)
     while true {
-      if ancestor.rawValue == current {
+      if ancestor.rawValue == current.rawValue {
         return true
-      } else if let p = parent[raw: current] {
-        current = p.rawValue
+      } else if let p = parent[current] {
+        current = AnyNodeID(p)
       } else {
         return false
       }
     }
   }
 
+  /// Returns whether `decl` is known to be member of a type declaration.
+  func isMember<T: DeclID>(decl: T) -> Bool {
+    guard let parent = container[decl] else { return false }
+    switch parent.kind {
+    case .productTypeDecl, .traitDecl, .typeAliasDecl:
+      return true
+    default:
+      return false
+    }
+  }
+
   /// Returns a sequence containing `scope` and all its ancestors, from inner to outer.
-  func scopesToRoot(from scope: AnyScopeID) -> ScopeSequence {
-    ScopeSequence(parent: parent, current: scope)
+  func scopesToRoot<S: ScopeID>(from scope: S) -> ScopeSequence {
+    ScopeSequence(parent: parent, current: AnyScopeID(scope))
   }
 
 }

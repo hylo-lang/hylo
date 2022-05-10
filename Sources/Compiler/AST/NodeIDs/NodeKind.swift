@@ -53,7 +53,7 @@ public struct NodeKind: Hashable {
     1 << 19 | typeDecl.rawValue | lexicalScope.rawValue)
   public static let namespaceDecl = NodeKind(
     1 << 20 | typeDecl.rawValue | lexicalScope.rawValue)
-  public static let paramDecl = NodeKind(
+  public static let parameterDecl = NodeKind(
     1 << 21 | decl.rawValue)
   public static let productTypeDecl = NodeKind(
     1 << 22 | typeDecl.rawValue | genericScope.rawValue)
@@ -174,7 +174,7 @@ public struct NodeKind: Hashable {
     1 << 14 | typeExpr.rawValue)
   public static let nameTypeExpr = NodeKind(
     1 << 15 | typeExpr.rawValue)
-  public static let paramTypeExpr = NodeKind(
+  public static let parameterTypeExpr = NodeKind(
     1 << 16 | typeExpr.rawValue)
   public static let storedProjectionTypeExpr = NodeKind(
     1 << 17 | typeExpr.rawValue)
@@ -182,6 +182,8 @@ public struct NodeKind: Hashable {
     1 << 18 | typeExpr.rawValue)
   public static let unionTypeExpr = NodeKind(
     1 << 19 | typeExpr.rawValue)
+  public static let wildcardTypeExpr = NodeKind(
+    1 << 20 | typeExpr.rawValue)
 
 }
 
@@ -202,7 +204,7 @@ extension NodeKind: CustomStringConvertible {
     case .methodImplDecl            : return "MethodImplDecl"
     case .moduleDecl                : return "ModuleDecl"
     case .namespaceDecl             : return "NamespaceDecl"
-    case .paramDecl                 : return "ParamDecl"
+    case .parameterDecl             : return "ParameterDecl"
     case .productTypeDecl           : return "ProductTypeDecl"
     case .subscriptDecl             : return "SubscriptDecl"
     case .subscriptImplDecl         : return "SubscriptImplDecl"
@@ -257,10 +259,11 @@ extension NodeKind: CustomStringConvertible {
     case .indirectTypeExpr          : return "IndirectTypeExpr"
     case .lambdaTypeExpr            : return "LambdaTypeExpr"
     case .nameTypeExpr              : return "NameTypeExpr"
-    case .paramTypeExpr             : return "ParamTypeExpr"
+    case .parameterTypeExpr         : return "ParameterTypeExpr"
     case .storedProjectionTypeExpr  : return "StoredProjectionTypeExpr"
     case .tupleTypeExpr             : return "TupleTypeExpr"
     case .unionTypeExpr             : return "UnionTypeExpr"
+    case .wildcardTypeExpr          : return "WildcardTypeExpr"
 
     default                         : return("Unknown")
     }

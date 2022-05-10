@@ -16,13 +16,13 @@ public struct NameExpr: Expr {
   /// The domain of the name, if it is qualified.
   public var domain: Domain
 
-  /// The stem identifier of the referred entitiy.
+  /// The stem identifier of the referred entity.
   public var stem: SourceRepresentable<Identifier>
 
-  /// The argument labels of the referred entitiy.
-  public var labels: [String]
+  /// The argument labels of the referred entity.
+  public var labels: [String?]
 
-  /// The operator notation of the referred entitiy.
+  /// The operator notation of the referred entity.
   public var notation: OperatorNotation?
 
   /// The type and size arguments of the referred entity.
@@ -32,7 +32,7 @@ public struct NameExpr: Expr {
   public init(
     domain: Domain = .none,
     stem: SourceRepresentable<Identifier>,
-    labels: [String] = [],
+    labels: [String?] = [],
     arguments: [SourceRepresentable<GenericArgument>] = []
   ) {
     self.domain = domain
@@ -42,7 +42,7 @@ public struct NameExpr: Expr {
     self.arguments = arguments
   }
 
-  /// Creates a new operator expression.
+  /// Creates a new operator name expression.
   public init(
     domain: Domain = .none,
     stem: SourceRepresentable<Identifier>,
@@ -54,6 +54,15 @@ public struct NameExpr: Expr {
     self.labels = []
     self.notation = notation
     self.arguments = arguments
+  }
+
+  /// Returns the base name denoted by this expression.
+  public var baseName: Name {
+    if let notation = notation {
+      return Name(stem: stem.value, notation: notation)
+    } else {
+      return Name(stem: stem.value, labels: labels)
+    }
   }
 
 }

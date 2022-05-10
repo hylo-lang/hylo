@@ -86,6 +86,9 @@ struct ScopeHierarchyBuilder:
     hierarchy.insert(decl: i, into: innermost!)
     nesting(in: i, { this in
       let decl = this.ast[i]
+
+      this.visit(genericClause: decl.genericClause?.value)
+
       for capture in decl.captures {
         this.visit(binding: capture)
       }
@@ -121,14 +124,16 @@ struct ScopeHierarchyBuilder:
 
   mutating func visit(methodImpl i: NodeID<MethodImplDecl>) {
     hierarchy.insert(decl: i, into: innermost!)
-    switch ast[i].body?.value {
-    case let .expr(expr):
-      expr.accept(&self)
-    case let .block(stmt):
-      visit(brace: stmt)
-    case nil:
-      break
-    }
+    nesting(in: i, { this in
+      switch this.ast[i].body?.value {
+      case let .expr(expr):
+        expr.accept(&this)
+      case let .block(stmt):
+        this.visit(brace: stmt)
+      case nil:
+        break
+      }
+    })
   }
 
   mutating func visit(module i: NodeID<ModuleDecl>) {
@@ -147,7 +152,7 @@ struct ScopeHierarchyBuilder:
     })
   }
 
-  mutating func visit(param i: NodeID<ParamDecl>) {
+  mutating func visit(param i: NodeID<ParameterDecl>) {
     hierarchy.insert(decl: i, into: innermost!)
     ast[i].annotation?.accept(&self)
     ast[i].defaultValue?.accept(&self)
@@ -167,6 +172,9 @@ struct ScopeHierarchyBuilder:
     hierarchy.insert(decl: i, into: innermost!)
     nesting(in: i, { this in
       let decl = this.ast[i]
+
+      this.visit(genericClause: decl.genericClause?.value)
+
       for capture in decl.captures {
         this.visit(binding: capture)
       }
@@ -462,7 +470,7 @@ struct ScopeHierarchyBuilder:
   mutating func visit(lambda i: NodeID<LambdaTypeExpr>) {
     ast[i].environment?.accept(&self)
     for param in ast[i].parameters {
-      visit(param: param)
+      visit(param: param.type)
     }
     ast[i].output.accept(&self)
   }
@@ -480,7 +488,7 @@ struct ScopeHierarchyBuilder:
     }
   }
 
-  mutating func visit(param i: NodeID<ParamTypeExpr>) {
+  mutating func visit(param i: NodeID<ParameterTypeExpr>) {
     ast[i].bareType.accept(&self)
   }
 
@@ -499,6 +507,8 @@ struct ScopeHierarchyBuilder:
       elem.accept(&self)
     }
   }
+
+  mutating func visit(wildcard i: NodeID<WildcardTypeExpr>) {}
 
   // MARK: Other nodes
 

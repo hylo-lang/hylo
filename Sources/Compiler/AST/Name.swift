@@ -1,26 +1,41 @@
-/// The name of an entity.
+/// An unqualified name denoting an entity.
 public struct Name: Hashable {
 
-  /// The representation of a name.
-  private indirect enum Repr: Hashable {
+  /// The stem identifier of the referred entity.
+  public var stem: Identifier
 
-    /// An unqualified identifier.
-    case unqualified(stem: String)
+  /// The argument labels of the referred entity, .
+  public var labels: [String?]
 
-    /// An identifier qualified by a domain.
-    case qualified(domain: Repr, stem: String)
+  /// The operator notation of the referred entity.
+  public var notation: OperatorNotation?
 
+  /// Creates a new name.
+  public init(stem: Identifier, labels: [String?] = []) {
+    self.stem = stem
+    self.labels = labels
+    self.notation = nil
   }
 
-  /// The internal representation of the name.
-  private var repr: Repr
+  /// Creates a new operator name.
+  public init(stem: Identifier, notation: OperatorNotation) {
+    self.stem = stem
+    self.labels = []
+    self.notation = notation
+  }
 
-  /// Creates a new, optionally qualified, bare name.
-  public init(domain: Name? = nil, stem: String) {
-    if let domain = domain {
-      repr = .qualified(domain: domain.repr, stem: stem)
+}
+
+extension Name: CustomStringConvertible {
+
+  public var description: String {
+    if let notation = notation {
+      return "\(notation)\(stem)"
+    } else if labels.isEmpty {
+      return stem
     } else {
-      repr = .unqualified(stem: stem)
+      let labels = labels.reduce(into: "", { (s, l) in s += (l ?? "_") + ":" })
+      return "\(stem)(\(labels))"
     }
   }
 

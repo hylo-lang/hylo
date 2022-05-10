@@ -1,16 +1,7 @@
+import Utils
+
 /// The overarching type of a subscript declaration.
 public struct SubscriptType: TypeProtocol, Hashable {
-
-  /// A parameter in a subscript type.
-  public struct Parameter: Hashable {
-
-    /// The label of the parameter.
-    public let label: String?
-
-    /// The type of the parameter.
-    public let type: Type
-
-  }
 
   /// Indicates whether the subscript denotes a computed property.
   public let isProperty: Bool
@@ -18,10 +9,10 @@ public struct SubscriptType: TypeProtocol, Hashable {
   /// The capabilities of the subscript.
   public let capabilities: Set<SubscriptImplDecl.Introducer>
 
-  /// The input types of the subscript.
-  public let inputs: [Parameter]
+  public let environment: Type
 
-  /// The output type of the subscript.
+  public let inputs: [CallableTypeParameter]
+
   public let output: Type
 
   public let flags: TypeFlags
@@ -29,16 +20,20 @@ public struct SubscriptType: TypeProtocol, Hashable {
   public init(
     isProperty: Bool,
     capabilities: Set<SubscriptImplDecl.Introducer>,
-    inputs: [Parameter],
+    environment: Type = .unit,
+    inputs: [CallableTypeParameter],
     output: Type
   ) {
     self.isProperty = isProperty
     self.capabilities = capabilities
+    self.environment = environment
     self.inputs = inputs
     self.output = output
-    self.flags = inputs.reduce(into: output.flags, { (fs, p) in
-      fs.merge(p.type.flags)
-    })
+
+    var fs = environment.flags
+    inputs.forEach({ fs.merge($0.type.flags) })
+    fs.merge(output.flags)
+    flags = fs
   }
 
 }
@@ -46,24 +41,14 @@ public struct SubscriptType: TypeProtocol, Hashable {
 extension SubscriptType: CustomStringConvertible {
 
   public var description: String {
-    let capabilities = capabilities.map({ "\($0)" }).sorted().joined(separator: " ")
+    let c = capabilities.map({ "\($0)" }).sorted().joined(separator: " ")
+    let e = (environment == .unit) ? "thin" : "[\(environment)]"
     if isProperty {
-      return "property \(output) { \(capabilities) }"
+      return "property \(e) \(output) { \(c) }"
     } else {
-      let inputs = inputs.map({ "\($0)" }).joined(separator: ", ")
-      return "subscript (\(inputs)): \(output) { \(capabilities) }"
-    }
-  }
-
-}
-
-extension SubscriptType.Parameter: CustomStringConvertible {
-
-  public var description: String {
-    if let label = label {
-      return "\(label): \(type)"
-    } else {
-      return "\(type)"
+      let i = String.joining(inputs, separator: ", ")
+      let o = "\(output)"
+      return "subscript \(e) (\(i)): \(o) { \(c) }"
     }
   }
 
