@@ -124,14 +124,16 @@ struct ScopeHierarchyBuilder:
 
   mutating func visit(methodImpl i: NodeID<MethodImplDecl>) {
     hierarchy.insert(decl: i, into: innermost!)
-    switch ast[i].body?.value {
-    case let .expr(expr):
-      expr.accept(&self)
-    case let .block(stmt):
-      visit(brace: stmt)
-    case nil:
-      break
-    }
+    nesting(in: i, { this in
+      switch this.ast[i].body?.value {
+      case let .expr(expr):
+        expr.accept(&this)
+      case let .block(stmt):
+        this.visit(brace: stmt)
+      case nil:
+        break
+      }
+    })
   }
 
   mutating func visit(module i: NodeID<ModuleDecl>) {

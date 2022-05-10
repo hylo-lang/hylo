@@ -368,6 +368,56 @@ public struct TypeChecker {
       }
     }
 
+    // Synthesize the receiver parameter if necessary.
+    if case .bundle(let impls) = decl.body?.value {
+      guard case .method(let type) = declTypes[id]! else { unreachable() }
+      let bareType = type.receiver
+
+      for j in impls {
+        // Create the implicit parameter declaration.
+        assert(ast[j].receiver == nil)
+        let param = ast.insert(ParameterDecl(identifier: SourceRepresentable(value: "self")))
+        scopeHierarchy.insert(decl: param, into: AnyScopeID(j))
+        ast[j].receiver = param
+
+        // Set its type.
+        let convention: ParamConvention
+        switch ast[j].introducer.value {
+        case .let   : convention = .let
+        case .inout : convention = .inout
+        case .sink  : convention = .sink
+        }
+        declTypes[param] = .parameter(ParameterType(convention: convention, bareType: bareType))
+        declRequests[param] = .success
+      }
+    } else if !decl.isStatic && scopeHierarchy.isMember(decl: id) {
+      // Create the implicit parameter declaration.
+      assert(decl.receiver == nil)
+      let param = ast.insert(ParameterDecl(identifier: SourceRepresentable(value: "self")))
+      scopeHierarchy.insert(decl: param, into: AnyScopeID(id))
+      ast[id].receiver = param
+      decl = ast[id]
+
+      // Set its type.
+      guard case .lambda(let type) = declTypes[id]! else { unreachable() }
+      if case .projection(let type) = type.environment {
+        let convention: ParamConvention
+        switch type.capability {
+        case .let   : convention = .let
+        case .inout : convention = .inout
+        case .set   : convention = .set
+        case .yielded: unreachable()
+        }
+        declTypes[param] = .parameter(ParameterType(convention: convention, bareType: type.base))
+      } else {
+        assert(decl.isSink)
+        declTypes[param] = .parameter(ParameterType(convention: .sink, bareType: type.environment))
+      }
+
+      declRequests[param] = .success
+    }
+
+    // Retrieve the output type.
     let output: Type
     switch declTypes[id]!! {
     case .lambda(let callable):
@@ -376,41 +426,6 @@ public struct TypeChecker {
       output = callable.output.skolemized
     default:
       unreachable()
-    }
-
-    // Synthesize the receiver parameter if necessary.
-    if !decl.isStatic && scopeHierarchy.isMember(decl: id) {
-      // Create the declaration.
-      assert(decl.receiver == nil)
-      let receiverDecl = ast.insert(ParameterDecl(
-        identifier: SourceRepresentable(value: "self")))
-      scopeHierarchy.insert(decl: receiverDecl, into: AnyScopeID(id))
-
-      // Realize the type of the declaration.
-      let receiverConvention: ParamConvention
-      if decl.introducer.value == .`init` {
-        receiverConvention = .set
-      } else if decl.isInout {
-        receiverConvention = .inout
-      } else if decl.isSink {
-        receiverConvention = .sink
-      } else {
-        receiverConvention = .let
-      }
-
-      let receiverType: Type
-      switch declTypes[id]! {
-      case .method(let ty): receiverType = ty.receiver
-      case .lambda(let ty): receiverType = ty.environment
-      default: unreachable()
-      }
-
-      declTypes[receiverDecl] = .parameter(ParameterType(
-        convention: receiverConvention, bareType: receiverType))
-      declRequests[receiverDecl] = .success
-
-      ast[id].receiver = receiverDecl
-      decl = ast[id]
     }
 
     // Type check the body of the function, if any.
@@ -423,8 +438,23 @@ public struct TypeChecker {
       if (decl.output == nil) && decl.isInExprContext { break }
       success = (infer(expr: expr, expectedType: output, inScope: id) != nil) && success
 
-    case .bundle:
-      fatalError("not implemented")
+    case .bundle(let impls):
+      for j in impls {
+        switch ast[j].body?.value {
+        case .expr(let expr):
+          let expectedType: Type = ast[j].introducer.value == .inout
+            ? .unit
+            : output
+          success = (infer(expr: expr, expectedType: expectedType, inScope: j) != nil) && success
+
+        case .block(let stmt):
+          success = check(brace: stmt) && success
+
+        case nil:
+          // Function without a body must be a requirement.
+          assert(scopeHierarchy.container[id]?.kind == .traitDecl, "unexpected method requirement")
+        }
+      }
 
     case nil:
       // Function without a body must be a requirement.
@@ -1814,22 +1844,40 @@ public struct TypeChecker {
         output = .unit
       }
 
-      if isMemberDecl {
-        // Gather the capabilities of the method.
-        let capabilities: Set<MethodImplDecl.Introducer>
-        if case .bundle(let impls) = ast[id].body?.value {
-          capabilities = Set(impls.map({ ast[$0].introducer.value }))
-        } else {
-          capabilities = [.let]
+      if case .bundle(let impls) = ast[id].body?.value {
+        // Create a method bundle.
+        let receiver = realizeSelfTypeExpr(inScope: parent)!
+        let capabilities = Set(impls.map({ ast[$0].introducer.value }))
+
+        if capabilities.contains(.inout) && (output != receiver) {
+          let range = decl.output.map({ ast.ranges[$0] }) ?? decl.introducer.range
+          diagnostics.insert(.invalidInoutBundleReturnType(expected: receiver, range: range))
+          return nil
         }
 
-        // Creates a method bundle.
         return .method(MethodType(
-          capabilities: capabilities,
-          receiver: realizeSelfTypeExpr(inScope: parent)!,
+          capabilities: Set(impls.map({ ast[$0].introducer.value })),
+          receiver: receiver,
           inputs: inputs,
           output: output))
+      } else if isMemberDecl && !ast[id].isStatic {
+        // Create a lambda bound to a receiver.
+        var receiver = realizeSelfTypeExpr(inScope: parent)!
+        let property: LambdaType.OperatorProperty?
+        if ast[id].isInout {
+          receiver = .projection(ProjectionType(.inout, receiver))
+          property = .mutating
+        } else if decl.isSink  {
+          property = .sink
+        } else {
+          receiver = .projection(ProjectionType(.let, receiver))
+          property = nil
+        }
+
+        return .lambda(LambdaType(
+          operatorProperty: property, environment: receiver, inputs: inputs, output: output))
       } else {
+        // Create a regular lambda.
         let environment = Type.tuple(TupleType(captures.map({ c in
           switch c.introducer {
           case .let, .inout:

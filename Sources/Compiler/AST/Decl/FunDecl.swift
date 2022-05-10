@@ -60,6 +60,10 @@ public struct FunDecl: GenericDecl, GenericScope {
   public var output: AnyTypeExprID?
 
   /// The declaration of the implicit receiver parameter, if any.
+  ///
+  /// This property is set during type checking on declarations denoting non-static methods that
+  /// are not forming a bundle. The implicit receiver of a method bundle has a declaration in each
+  /// method implementation.
   public var receiver: NodeID<ParameterDecl>?
 
   /// The body of the declaration, if any.

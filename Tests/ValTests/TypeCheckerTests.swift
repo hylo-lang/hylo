@@ -1083,6 +1083,90 @@ final class TypeCheckerTests: XCTestCase {
     XCTAssertTrue(checker.check(module: main))
   }
 
+  func testMethodBundleDecl() {
+
+    // type A {
+    //   fun foo(_ x: A) -> A {
+    //     let   { A() }
+    //     inout { () }
+    //     sink  { A() }
+    //   }
+    // }
+
+    var ast = AST()
+    let main = ast.insert(ModuleDecl(name: "main"))
+
+    ast[main].members.append(AnyDeclID(ast.insert(ProductTypeDecl(
+      identifier: SourceRepresentable(value: "A"),
+      members: [
+        AnyDeclID(ast.insert(FunDecl(
+          introducer: SourceRepresentable(value: .fun),
+          identifier: SourceRepresentable(value: "foo"),
+          parameters: [
+            ast.insert(ParameterDecl(
+              identifier: SourceRepresentable(value: "x"),
+              annotation: AnyTypeExprID(ast.insert(NameTypeExpr(
+                identifier: SourceRepresentable(value: "A")))))),
+          ],
+          output: AnyTypeExprID(ast.insert(NameTypeExpr(
+            identifier: SourceRepresentable(value: "A")))),
+          body: SourceRepresentable(value: .bundle([
+            ast.insert(MethodImplDecl(
+              introducer: SourceRepresentable(value: .let),
+              body: SourceRepresentable(value: .expr(AnyExprID(ast.insert(FunCallExpr(
+                callee: AnyExprID(ast.insert(NameExpr(
+                  stem: SourceRepresentable(value: "A"))))))))))),
+            ast.insert(MethodImplDecl(
+              introducer: SourceRepresentable(value: .inout),
+              body: SourceRepresentable(value: .expr(AnyExprID(ast.insert(TupleExpr())))))),
+            ast.insert(MethodImplDecl(
+              introducer: SourceRepresentable(value: .sink),
+              body: SourceRepresentable(value: .expr(AnyExprID(ast.insert(FunCallExpr(
+                callee: AnyExprID(ast.insert(NameExpr(
+                  stem: SourceRepresentable(value: "A"))))))))))),
+          ])))))
+      ]))))
+
+    var checker = TypeChecker(ast: ast)
+    XCTAssertTrue(checker.check(module: main))
+  }
+
+  func testInvalidMethodBundleType() {
+
+    // type A {
+    //   fun foo(_ x: A) -> () {  // error: invalid return type for inout-capable method bundle
+    //     inout { () }
+    //   }
+    // }
+
+    var ast = AST()
+    let main = ast.insert(ModuleDecl(name: "main"))
+
+    ast[main].members.append(AnyDeclID(ast.insert(ProductTypeDecl(
+      identifier: SourceRepresentable(value: "A"),
+      members: [
+        AnyDeclID(ast.insert(FunDecl(
+          introducer: SourceRepresentable(value: .fun),
+          identifier: SourceRepresentable(value: "foo"),
+          parameters: [
+            ast.insert(ParameterDecl(
+              identifier: SourceRepresentable(value: "x"),
+              annotation: AnyTypeExprID(ast.insert(NameTypeExpr(
+                identifier: SourceRepresentable(value: "A")))))),
+          ],
+          output: AnyTypeExprID(ast.insert(TupleTypeExpr())),
+          body: SourceRepresentable(value: .bundle([
+            ast.insert(MethodImplDecl(
+              introducer: SourceRepresentable(value: .inout),
+              body: SourceRepresentable(value: .expr(AnyExprID(ast.insert(TupleExpr())))))),
+          ])))))
+      ]))))
+
+    var checker = TypeChecker(ast: ast)
+    XCTAssertFalse(checker.check(module: main))
+    XCTAssertEqual(checker.diagnostics.count, 1)
+  }
+
   func testGenericTypeAlias() {
 
     // typealias Pair<X, Y> = (first: X, second: Y)

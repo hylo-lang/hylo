@@ -132,6 +132,14 @@ extension Diagnostic {
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }
 
+  static func invalidInoutBundleReturnType(expected: Type, range: SourceRange?) -> Diagnostic {
+    Diagnostic(
+      level: .error,
+      message: "inout-capable method bundle must return '\(expected)'",
+      location: range?.first(),
+      window: range.map({ r in Diagnostic.Window(range: r) }))
+  }
+
   static func invalidDestructuring(ofType type: Type, range: SourceRange?) -> Diagnostic {
     Diagnostic(
       level: .error,

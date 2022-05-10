@@ -21,13 +21,6 @@ public struct ParameterType: TypeProtocol, Hashable {
 
 extension ParameterType: CustomStringConvertible {
 
-  public var description: String {
-    switch convention {
-    case .let:
-      return "\(bareType)"
-    case .inout, .set, .sink, .yielded:
-      return "\(convention) \(bareType)"
-    }
-  }
+  public var description: String { "\(convention) \(bareType)" }
 
 }
