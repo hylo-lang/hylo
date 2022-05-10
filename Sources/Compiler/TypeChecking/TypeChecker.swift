@@ -400,16 +400,21 @@ public struct TypeChecker {
 
       // Set its type.
       guard case .lambda(let type) = declTypes[id]! else { unreachable() }
-      if case .projection(let type) = type.environment {
+      if decl.introducer.value == .`init` {
+        // The receiver of an initializer is its first parameter.
+        declTypes[param] = type.inputs[0].type
+      } else if case .projection(let type) = type.environment {
+        // `let` and `inout` methods capture a projection of their receiver.
         let convention: ParamConvention
         switch type.capability {
         case .let   : convention = .let
         case .inout : convention = .inout
-        case .set   : convention = .set
-        case .yielded: unreachable()
+        case .set, .yielded:
+          unreachable()
         }
         declTypes[param] = .parameter(ParameterType(convention: convention, bareType: type.base))
       } else {
+        // `sink` methods capture their receiver.
         assert(decl.isSink)
         declTypes[param] = .parameter(ParameterType(convention: .sink, bareType: type.environment))
       }
@@ -1130,7 +1135,7 @@ public struct TypeChecker {
   // MARK: Name binding
 
   /// The result of a name lookup.
-  typealias DeclSet = Set<AnyDeclID>
+  public typealias DeclSet = Set<AnyDeclID>
 
   /// A lookup table.
   private typealias LookupTable = [String: DeclSet]
@@ -1809,7 +1814,7 @@ public struct TypeChecker {
       let receiver = realizeSelfTypeExpr(inScope: parent)!
       let receiverParameter = CallableTypeParameter(
         label: "self",
-        type: .projection(ProjectionType(.set, receiver)))
+        type: .parameter(ParameterType(convention: .set, bareType: receiver)))
       inputs.insert(receiverParameter, at: 0)
       return .lambda(LambdaType(environment: .unit, inputs: inputs, output: .unit))
 
@@ -1985,7 +1990,7 @@ public struct TypeChecker {
     let receiver = realizeSelfTypeExpr(inScope: decl)!
     inputs.append(CallableTypeParameter(
       label: "self",
-      type: .projection(ProjectionType(.set, receiver))))
+      type: .parameter(ParameterType(convention: .set, bareType: receiver))))
 
     // List and realize the type of all stored bindings.
     for m in ast[decl].members {

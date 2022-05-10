@@ -1083,6 +1083,56 @@ final class TypeCheckerTests: XCTestCase {
     XCTAssertTrue(checker.check(module: main))
   }
 
+  func testUserInitCall() {
+
+    // type A {
+    //   var x: ()
+    //   public init(value: sink ()) {}
+    // }
+    // let _ = A(value: ())
+
+    var ast = AST()
+    let main = ast.insert(ModuleDecl(name: "main"))
+
+    ast[main].members.append(AnyDeclID(ast.insert(ProductTypeDecl(
+      identifier: SourceRepresentable(value: "A"),
+      members: [
+        AnyDeclID(ast.insert(BindingDecl(
+          pattern: ast.insert(BindingPattern(
+            introducer: SourceRepresentable(value: .var),
+            subpattern: AnyPatternID(ast.insert(NamePattern(
+              decl: ast.insert(VarDecl(
+                identifier: SourceRepresentable(value: "x")))))),
+            annotation: AnyTypeExprID(ast.insert(TupleTypeExpr()))))))),
+        AnyDeclID(ast.insert(FunDecl(
+          introducer: SourceRepresentable(value: .`init`),
+          accessModifier: SourceRepresentable(value: .public),
+          parameters: [
+            ast.insert(ParameterDecl(
+              label: SourceRepresentable(value: "value"),
+              identifier: SourceRepresentable(value: "value"),
+              annotation: AnyTypeExprID(ast.insert(TupleTypeExpr())))),
+          ],
+          body: SourceRepresentable(value: .block(ast.insert(BraceStmt(
+            stmts: []))))))),
+      ]))))
+
+    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+      pattern: ast.insert(BindingPattern(
+        introducer: SourceRepresentable(value: .let),
+        subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
+      initializer: AnyExprID(ast.insert(FunCallExpr(
+        callee: AnyExprID(ast.insert(NameExpr(stem: SourceRepresentable(value: "A")))),
+        arguments: [
+          SourceRepresentable(value: CallArgument(
+            label: SourceRepresentable(value: "value"),
+            value: AnyExprID(ast.insert(TupleExpr())))),
+        ])))))))
+
+    var checker = TypeChecker(ast: ast)
+    XCTAssertTrue(checker.check(module: main))
+  }
+
   func testMethodBundleDecl() {
 
     // type A {

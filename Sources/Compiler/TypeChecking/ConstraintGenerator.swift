@@ -102,8 +102,8 @@ struct ConstraintGenerator: ExprVisitor {
     //    desugar a constructor call.
     // 3. We determined the exact type of the callee, and its a callable. In that case, we may
     //    propagate that information top-down to refine the inference of the arguments' types.
-    // 4. We determined that the callee is overloaded. In that case we must rely on argument labels
-    //    and bottom-up inference to constrain to select the appropriate candidate.
+    // 4. We couldn't infer the exact type of the callee and must rely on bottom-up inference to
+    //    further refine type inference.
 
     // 1st case
     if case .error = inferredTypes[callee] {
@@ -118,35 +118,48 @@ struct ConstraintGenerator: ExprVisitor {
     {
       switch d.kind {
       case .productTypeDecl:
-        let candidates = resolve(
+        let initializers = resolve(
           stem: "init",
           labels: [],
           notation: nil,
           inDeclSpaceOf: AnyScopeID(converting: d)!)
 
-        if candidates.isEmpty {
-          diagnostics.append(.undefined(
-            name: "\(checker.ast[c].baseName)", range: checker.ast[c].stem.range))
-          assume(typeOf: id, is: .error(ErrorType()))
-          return
+        // We should get at least one a memberwise initializer.
+        assert(!initializers.isEmpty)
+
+        // Select suitable candidates based on argument labels.
+        let labels = checker.ast[id].arguments.map({ $0.value.label?.value })
+        var candidates: [Constraint.OverloadCandidate] = []
+        for initializer in initializers {
+          // Remove the receiver from the parameter list.
+          guard case .lambda(let f) = initializer.type else { unreachable() }
+          let ctor = f.ctor()!
+
+          if labels.elementsEqual(ctor.labels) {
+            let (ty, cs) = checker.open(type: .lambda(ctor))
+            candidates.append(Constraint.OverloadCandidate(
+              decl: initializer.decl, type: ty, constraints: cs))
+          }
         }
 
-        if candidates.count == 1 {
-          // Remove the receiver from the parameter list.
-          guard case .lambda(let initializer) = candidates[0].type else { unreachable() }
-          let ctor = initializer.ctor()!
+        switch candidates.count {
+        case 0:
+          let name = Name(stem: "init", labels: labels)
+          diagnostics.append(.undefined(name: "\(name)", range: checker.ast[c].stem.range))
+          assume(typeOf: id, is: .error(ErrorType()))
+          return
 
-          // Contextualize the match.
-          let (ty, cs) = checker.open(type: .lambda(ctor))
-          guard case .lambda(let calleeType) = ty else { unreachable() }
-
-          // Rebind the name expression to the referred declaration.
+        case 1:
+          // Reassign the referred declaration and type of the name expression.
           referredDecls[c] = candidates[0].decl
+          inferredTypes[c] = candidates[0].type
 
           // Propagate the type of the constructor down.
-          propagateDown(calleeType: calleeType, calleeConstraints: cs)
-        } else {
-          // TODO: Create an overload constraint
+          guard case .lambda(let calleeType) = candidates[0].type else { unreachable() }
+          propagateDown(calleeType: calleeType, calleeConstraints: candidates[0].constraints)
+
+        default:
+          // TODO: Handle specializations
           fatalError("not implemented")
         }
 
