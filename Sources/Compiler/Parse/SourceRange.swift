@@ -35,3 +35,21 @@ public struct SourceRange: Hashable {
   }
 
 }
+
+public func ..< (l: SourceRange, r: SourceRange) -> SourceRange {
+  precondition(l.source == r.source, "incompatible locations")
+  return SourceRange(in: l.source, from: l.lowerBound, to: r.lowerBound)
+}
+
+public func ..< (l: SourceRange?, r: SourceRange?) -> SourceRange? {
+  switch (l, r) {
+  case (.some(let a), .some(let b)):
+    return a ..< b
+  case (.some(let a), _):
+    return a
+  case (_, .some(let b)):
+    return b
+  default:
+    return nil
+  }
+}

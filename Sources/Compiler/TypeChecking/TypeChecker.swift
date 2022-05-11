@@ -639,12 +639,27 @@ public struct TypeChecker {
   }
 
   /// Type checks the specified statement and returns whether that succeeded.
-  private mutating func check<T: StmtID>(stmt i: T) -> Bool {
-    switch i.kind {
+  private mutating func check<T: StmtID, S: ScopeID>(stmt id: T, inScope scope: S) -> Bool {
+    switch id.kind {
     case .braceStmt:
-      return check(brace: NodeID(converting: i)!)
+      return check(brace: NodeID(converting: id)!)
+
+    case .exprStmt:
+      let stmt = ast[NodeID<ExprStmt>(converting: id)!]
+      if let type = infer(expr: stmt.expr, inScope: scope) {
+        // Issue a warning if the type of the expression isn't unit.
+        if type != .unit {
+          diagnostics.insert(.unusedResult(ofType: type, range: ast.ranges[stmt.expr]))
+        }
+        return true
+      } else {
+        // Type inference/checking failed.
+        return false
+      }
+
     case .declStmt:
-      return check(decl: ast[NodeID<DeclStmt>(converting: i)!].decl)
+      return check(decl: ast[NodeID<DeclStmt>(converting: id)!].decl)
+
     default:
       unreachable("unexpected statement")
     }
@@ -653,7 +668,7 @@ public struct TypeChecker {
   private mutating func check(brace id: NodeID<BraceStmt>) -> Bool {
     var success = true
     for stmt in ast[id].stmts {
-      success = check(stmt: stmt) && success
+      success = check(stmt: stmt, inScope: id) && success
     }
     return success
   }

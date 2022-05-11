@@ -61,15 +61,14 @@ final class TypeCheckerTests: XCTestCase {
               constraints: [
                 SourceRepresentable(
                   value: .size(
-                    AnyExprID(ast.insert(UnfoldedExpr(
-                      subexpressions: [
-                        AnyExprID(ast.insert(NameExpr(
-                          stem: SourceRepresentable(value: "n")))),
-                        AnyExprID(ast.insert(NameExpr(
-                          stem: SourceRepresentable(value: ">"),
-                          notation: .infix))),
-                        AnyExprID(ast.insert(IntegerLiteralExpr(value: "10"))),
-                      ])))))
+                    AnyExprID(ast.insert(SequenceExpr.unfolded([
+                      AnyExprID(ast.insert(NameExpr(
+                        stem: SourceRepresentable(value: "n")))),
+                      AnyExprID(ast.insert(NameExpr(
+                        stem: SourceRepresentable(value: ">"),
+                        notation: .infix))),
+                      AnyExprID(ast.insert(IntegerLiteralExpr(value: "10"))),
+                    ])))))
               ])))))
       ]))))
 
@@ -1087,7 +1086,7 @@ final class TypeCheckerTests: XCTestCase {
 
     // type A {
     //   var x: ()
-    //   public init(value: sink ()) {}
+    //   public init(value: sink ()) { self = A(x: value) }
     // }
     // let _ = A(value: ())
 
@@ -1114,7 +1113,23 @@ final class TypeCheckerTests: XCTestCase {
               annotation: AnyTypeExprID(ast.insert(TupleTypeExpr())))),
           ],
           body: SourceRepresentable(value: .block(ast.insert(BraceStmt(
-            stmts: []))))))),
+            stmts: [
+              AnyStmtID(ast.insert(ExprStmt(
+                expr: AnyExprID(ast.insert(SequenceExpr.unfolded([
+                  AnyExprID(ast.insert(NameExpr(
+                    stem: SourceRepresentable(value: "self")))),
+                  AnyExprID(ast.insert(NameExpr(
+                    stem: SourceRepresentable(value: "=")))),
+                  AnyExprID(ast.insert(FunCallExpr(
+                    callee: AnyExprID(ast.insert(NameExpr(
+                      stem: SourceRepresentable(value: "A")))),
+                    arguments: [
+                      SourceRepresentable(value: CallArgument(
+                        label: SourceRepresentable(value: "x"),
+                        value: AnyExprID(ast.insert(TupleExpr())))),
+                    ]))),
+                ]))))))
+            ]))))))),
       ]))))
 
     ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(

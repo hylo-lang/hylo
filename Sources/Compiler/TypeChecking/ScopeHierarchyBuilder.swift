@@ -231,18 +231,23 @@ struct ScopeHierarchyBuilder:
 
   // MARK: Expressions
 
-  mutating func visit(async i: NodeID<AsyncExpr>) {
-    visit(fun: ast[i].decl)
+  mutating func visit(assign id: NodeID<AssignExpr>) {
+    ast[id].left.accept(&self)
+    ast[id].right.accept(&self)
   }
 
-  mutating func visit(await i: NodeID<AwaitExpr>) {
-    ast[i].operand.accept(&self)
+  mutating func visit(async id: NodeID<AsyncExpr>) {
+    visit(fun: ast[id].decl)
+  }
+
+  mutating func visit(await id: NodeID<AwaitExpr>) {
+    ast[id].operand.accept(&self)
   }
 
   mutating func visit(boolLiteral i: NodeID<BoolLiteralExpr>) {}
 
-  mutating func visit(bufferLiteral i: NodeID<BufferLiteralExpr>) {
-    for elem in ast[i].elements {
+  mutating func visit(bufferLiteral id: NodeID<BufferLiteralExpr>) {
+    for elem in ast[id].elements {
       elem.accept(&self)
     }
   }
@@ -341,6 +346,18 @@ struct ScopeHierarchyBuilder:
 
   mutating func visit(nil i: NodeID<NilExpr>) {}
 
+  mutating func visit(sequence i: NodeID<SequenceExpr>) {
+    switch ast[i] {
+    case .unfolded(let subexprs):
+      for expr in subexprs {
+        expr.accept(&self)
+      }
+
+    case .root(let root):
+      root.accept(&self)
+    }
+  }
+
   mutating func visit(storedProjection i: NodeID<StoredProjectionExpr>) {
     ast[i].operand.accept(&self)
   }
@@ -357,12 +374,6 @@ struct ScopeHierarchyBuilder:
   mutating func visit(tuple i: NodeID<TupleExpr>) {
     for elem in ast[i].elements {
       elem.value.value.accept(&self)
-    }
-  }
-
-  mutating func visit(unfolded i: NodeID<UnfoldedExpr>) {
-    for expr in ast[i].subexpressions {
-      expr.accept(&self)
     }
   }
 

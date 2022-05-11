@@ -1,2 +1,2 @@
 /// A value expression.
-public protocol Expr: Node, Hashable {}
+public protocol Expr: Node {}

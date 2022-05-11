@@ -8,6 +8,8 @@ extension ExprID {
   /// Calls the `visitor.visit` method corresponding to the type of this node.
   public func accept<V: ExprVisitor>(_ visitor: inout V) -> V.Result {
     switch kind {
+    case .assignExpr:
+      return visitor.visit(assign: NodeID(unsafeRawValue: rawValue))
     case .asyncExpr:
       return visitor.visit(async: NodeID(unsafeRawValue: rawValue))
     case .awaitExpr:
@@ -36,6 +38,8 @@ extension ExprID {
       return visitor.visit(name: NodeID(unsafeRawValue: rawValue))
     case .nilExpr:
       return visitor.visit(nil: NodeID(unsafeRawValue: rawValue))
+    case .sequenceExpr:
+      return visitor.visit(sequence: NodeID(unsafeRawValue: rawValue))
     case .storedProjectionExpr:
       return visitor.visit(storedProjection: NodeID(unsafeRawValue: rawValue))
     case .stringLiteralExpr:
@@ -44,8 +48,6 @@ extension ExprID {
       return visitor.visit(subscriptCall: NodeID(unsafeRawValue: rawValue))
     case .tupleExpr:
       return visitor.visit(tuple: NodeID(unsafeRawValue: rawValue))
-    case .unfoldedExpr:
-      return visitor.visit(unfolded: NodeID(unsafeRawValue: rawValue))
     default:
       unreachable()
     }

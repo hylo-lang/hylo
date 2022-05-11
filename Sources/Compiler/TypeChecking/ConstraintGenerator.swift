@@ -23,6 +23,20 @@ struct ConstraintGenerator: ExprVisitor {
   /// The diagnostics of the errors the generator encountered.
   var diagnostics: [Diagnostic] = []
 
+  mutating func visit(assign id: NodeID<AssignExpr>) {
+    let lhs = checker.ast[id].left
+    let rhs = checker.ast[id].right
+    lhs.accept(&self)
+    rhs.accept(&self)
+
+    constraints.append(LocatableConstraint(
+      .subtyping(l: inferredTypes[lhs]!, r: inferredTypes[rhs]!),
+      node: AnyNodeID(id),
+      cause: .assignment))
+
+    assume(typeOf: id, is: .unit)
+  }
+
   mutating func visit(async i: NodeID<AsyncExpr>) {
     fatalError("not implemented")
   }
@@ -341,6 +355,24 @@ struct ConstraintGenerator: ExprVisitor {
     fatalError("not implemented")
   }
 
+  mutating func visit(sequence id: NodeID<SequenceExpr>) {
+    let root: AnyExprID
+    switch checker.ast[id] {
+    case .unfolded(let exprs):
+      // Fold the sequence.
+      let tree = foldSequenceExpr(exprs)
+      root = tree.desugars(ast: &checker.ast)
+      checker.ast[id] = .root(root)
+
+    case .root(let r):
+      root = r
+    }
+
+    inferredTypes[root] = inferredTypes[id]
+    root.accept(&self)
+    inferredTypes[id] = inferredTypes[root]
+  }
+
   mutating func visit(storedProjection i: NodeID<StoredProjectionExpr>) {
     fatalError("not implemented")
   }
@@ -388,10 +420,6 @@ struct ConstraintGenerator: ExprVisitor {
     checker.ast[id] = expr
   }
 
-  mutating func visit(unfolded i: NodeID<UnfoldedExpr>) {
-    fatalError("not implemented")
-  }
-
   /// Returns the declarations to which the specified name may refer along with their overarching
   /// type before contextualization. Ill-formed declarations are ignored.
   private mutating func resolve(
@@ -431,6 +459,64 @@ struct ConstraintGenerator: ExprVisitor {
     } else {
       inferredTypes[id] = inferredType
     }
+  }
+
+}
+
+extension ConstraintGenerator {
+
+  /// A folded sequence of binary operations.
+  indirect enum Tree {
+
+    case node(operator: NodeID<NameExpr>, left: Tree, right: Tree)
+
+    case leaf(AnyExprID)
+
+    // Desugars the tree.
+    func desugars(ast: inout AST) -> AnyExprID {
+      switch self {
+      case .node(let op, let left, let right):
+        switch ast[op].stem.value {
+        case "=":
+          // `=` is right-associative and has the lowest precedence.
+          let lhs = left.desugars(ast: &ast)
+          let rhs = right.desugars(ast: &ast)
+          let id = AnyExprID(ast.insert(AssignExpr(left: lhs, right: rhs)))
+          ast.ranges[id] = ast.ranges[lhs] ..< ast.ranges[rhs]
+          return id
+
+        default:
+          fatalError("not implemented")
+        }
+
+      case .leaf(let id):
+        return id
+      }
+    }
+
+  }
+
+  /// Folds a sequence of binary expressions into a tree.
+  mutating func foldSequenceExpr(_ exprs: [AnyExprID]) -> Tree {
+    var tree = Tree.node(
+      operator: NodeID(converting: exprs[1])!, left: .leaf(exprs[0]), right: .leaf(exprs[2]))
+    foldSequenceExpr(exprs[3...], into: &tree)
+    return tree
+  }
+
+  /// Folds the remainder of a sequence of binary expressions into `accumulatedResult`.
+  mutating func foldSequenceExpr(
+    _ subexprs: ArraySlice<AnyExprID>,
+    into accumulatedResult: inout Tree
+  ) {
+    // End of iteration.
+    if subexprs.isEmpty { return }
+
+    // Read the operator.
+//    let i = subexprs.startIndex
+//    let op = NodeID<NameExpr>(converting: subexprs[i]) ?? unreachable("invalid sequence")
+
+    fatalError("not implemented")
   }
 
 }

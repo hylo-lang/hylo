@@ -273,4 +273,12 @@ extension Diagnostic {
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }
 
+  static func unusedResult(ofType type: Type, range: SourceRange?) -> Diagnostic {
+    Diagnostic(
+      level: .warning,
+      message: "unused result of type '\(type)'",
+      location: range?.first(),
+      window: range.map({ r in Diagnostic.Window(range: r) }))
+  }
+
 }
