@@ -8,7 +8,7 @@ public struct NodeKind: Hashable {
   /// - Bits 1 to 5 designate the node category.
   /// - Bits 6 to 7 designate the node sub-category.
   /// - Bits 8 to 9 designate the node's lexical scope category.
-  /// - Bits 10 to 32 designate the node type.
+  /// - Bits 16 to 32 designate the node type.
   private var rawValue: Int32
 
   private init(_ rawValue: Int32) {
@@ -20,170 +20,170 @@ public struct NodeKind: Hashable {
   }
 
   public static let lexicalScope = NodeKind(
-    1 <<  8)
+    1 << 8)
   public static let genericScope = NodeKind(
-    1 <<  9 | lexicalScope.rawValue)
+    1 << 9 | lexicalScope.rawValue)
 
   // MARK: Declarations
 
   public static let decl = NodeKind(
-    1 <<  0)
+    1 << 0)
   public static let typeDecl = NodeKind(
-    1 <<  6 | decl.rawValue)
+    1 << 6 | decl.rawValue)
 
   public static let associatedSizeDecl = NodeKind(
-    1 << 10 | decl.rawValue)
+     1 << 16 | decl.rawValue)
   public static let associatedTypeDecl = NodeKind(
-    1 << 11 | typeDecl.rawValue)
+     2 << 16 | typeDecl.rawValue)
   public static let bindingDecl = NodeKind(
-    1 << 12 | decl.rawValue)
+     3 << 16 | decl.rawValue)
   public static let conformanceDecl = NodeKind(
-    1 << 13 | decl.rawValue | genericScope.rawValue)
+     4 << 16 | decl.rawValue | genericScope.rawValue)
   public static let extensionDecl = NodeKind(
-    1 << 14 | decl.rawValue | genericScope.rawValue)
+     5 << 16 | decl.rawValue | genericScope.rawValue)
   public static let funDecl = NodeKind(
-    1 << 15 | decl.rawValue | genericScope.rawValue)
+     6 << 16 | decl.rawValue | genericScope.rawValue)
   public static let genericSizeParamDecl = NodeKind(
-    1 << 16 | typeDecl.rawValue)
+     7 << 16 | typeDecl.rawValue)
   public static let genericTypeParamDecl = NodeKind(
-    1 << 17 | typeDecl.rawValue)
+     8 << 16 | typeDecl.rawValue)
   public static let methodImplDecl = NodeKind(
-    1 << 18 | decl.rawValue)
+     9 << 16 | decl.rawValue)
   public static let moduleDecl = NodeKind(
-    1 << 19 | typeDecl.rawValue | lexicalScope.rawValue)
+    10 << 16 | typeDecl.rawValue | lexicalScope.rawValue)
   public static let namespaceDecl = NodeKind(
-    1 << 20 | typeDecl.rawValue | lexicalScope.rawValue)
+    11 << 16 | typeDecl.rawValue | lexicalScope.rawValue)
   public static let parameterDecl = NodeKind(
-    1 << 21 | decl.rawValue)
+    12 << 16 | decl.rawValue)
   public static let productTypeDecl = NodeKind(
-    1 << 22 | typeDecl.rawValue | genericScope.rawValue)
+    13 << 16 | typeDecl.rawValue | genericScope.rawValue)
   public static let subscriptDecl = NodeKind(
-    1 << 23 | decl.rawValue | genericScope.rawValue)
+    14 << 16 | decl.rawValue | genericScope.rawValue)
   public static let subscriptImplDecl = NodeKind(
-    1 << 24 | decl.rawValue)
+    15 << 16 | decl.rawValue)
   public static let traitDecl = NodeKind(
-    1 << 25 | typeDecl.rawValue | genericScope.rawValue)
+    16 << 16 | typeDecl.rawValue | genericScope.rawValue)
   public static let typeAliasDecl = NodeKind(
-    1 << 26 | typeDecl.rawValue | genericScope.rawValue)
+    17 << 16 | typeDecl.rawValue | genericScope.rawValue)
   public static let varDecl = NodeKind(
-    1 << 27 | decl.rawValue)
+    18 << 16 | decl.rawValue)
 
   // MARK: Value expressions
 
   public static let expr = NodeKind(
-    1 <<  1)
+    1 << 1)
 
   public static let asyncExpr = NodeKind(
-    1 << 10 | expr.rawValue)
+     1 << 16 | expr.rawValue)
   public static let awaitExpr = NodeKind(
-    1 << 11 | expr.rawValue)
+     2 << 16 | expr.rawValue)
   public static let boolLiteralExpr = NodeKind(
-    1 << 12 | expr.rawValue)
+     3 << 16 | expr.rawValue)
   public static let bufferLiteralExpr = NodeKind(
-    1 << 13 | expr.rawValue)
+     4 << 16 | expr.rawValue)
   public static let charLiteralExpr = NodeKind(
-    1 << 14 | expr.rawValue)
+     5 << 16 | expr.rawValue)
   public static let condExpr = NodeKind(
-    1 << 15 | expr.rawValue | lexicalScope.rawValue)
+     6 << 16 | expr.rawValue | lexicalScope.rawValue)
   public static let floatLiteralExpr = NodeKind(
-    1 << 16 | expr.rawValue)
+     7 << 16 | expr.rawValue)
   public static let funCallExpr = NodeKind(
-    1 << 17 | expr.rawValue)
+     8 << 16 | expr.rawValue)
   public static let integerLiteralExpr = NodeKind(
-    1 << 18 | expr.rawValue)
+     9 << 16 | expr.rawValue)
   public static let lambdaExpr = NodeKind(
-    1 << 19 | expr.rawValue)
+    10 << 16 | expr.rawValue)
   public static let mapLiteralExpr = NodeKind(
-    1 << 20 | expr.rawValue)
+    11 << 16 | expr.rawValue)
   public static let matchExpr = NodeKind(
-    1 << 21 | expr.rawValue | lexicalScope.rawValue)
+    12 << 16 | expr.rawValue | lexicalScope.rawValue)
   public static let matchCaseExpr = NodeKind(
-    1 << 22 | expr.rawValue)
+    13 << 16 | expr.rawValue)
   public static let nameExpr = NodeKind(
-    1 << 23 | expr.rawValue)
+    14 << 16 | expr.rawValue)
   public static let nilExpr = NodeKind(
-    1 << 24 | expr.rawValue)
+    15 << 16 | expr.rawValue)
   public static let storedProjectionExpr = NodeKind(
-    1 << 25 | expr.rawValue)
+    16 << 16 | expr.rawValue)
   public static let stringLiteralExpr = NodeKind(
-    1 << 26 | expr.rawValue)
+    17 << 26 | expr.rawValue)
   public static let subscriptCallExpr = NodeKind(
-    1 << 27 | expr.rawValue)
+    18 << 16 | expr.rawValue)
   public static let tupleExpr = NodeKind(
-    1 << 28 | expr.rawValue)
+    19 << 16 | expr.rawValue)
   public static let unfoldedExpr = NodeKind(
-    1 << 29 | expr.rawValue)
+    20 << 16 | expr.rawValue)
 
   // MARK: Patterns
 
   public static let pattern = NodeKind(
-    1 <<  2)
+    1 << 2)
 
   public static let bindingPattern = NodeKind(
-    1 << 10 | pattern.rawValue)
+    1 << 16 | pattern.rawValue)
   public static let exprPattern = NodeKind(
-    1 << 11 | pattern.rawValue)
+    2 << 16 | pattern.rawValue)
   public static let namePattern = NodeKind(
-    1 << 12 | pattern.rawValue)
+    3 << 16 | pattern.rawValue)
   public static let tuplePattern = NodeKind(
-    1 << 13 | pattern.rawValue)
+    4 << 16 | pattern.rawValue)
   public static let wildcardPattern = NodeKind(
-    1 << 14 | pattern.rawValue)
+    5 << 16 | pattern.rawValue)
 
   // MARK: Statements
 
   public static let stmt = NodeKind(
-    1 <<  3)
+    1 << 3)
 
   public static let braceStmt = NodeKind(
-    1 << 10 | stmt.rawValue | lexicalScope.rawValue)
+     1 << 16 | stmt.rawValue | lexicalScope.rawValue)
   public static let breakStmt = NodeKind(
-    1 << 11 | stmt.rawValue)
+     2 << 16 | stmt.rawValue)
   public static let continueStmt = NodeKind(
-    1 << 12 | stmt.rawValue)
+     3 << 16 | stmt.rawValue)
   public static let declStmt = NodeKind(
-    1 << 13 | stmt.rawValue)
+     4 << 16 | stmt.rawValue)
   public static let doWhileStmt = NodeKind(
-    1 << 14 | stmt.rawValue)
+     5 << 16 | stmt.rawValue)
   public static let exprStmt = NodeKind(
-    1 << 15 | stmt.rawValue)
+     6 << 16 | stmt.rawValue)
   public static let forStmt = NodeKind(
-    1 << 16 | stmt.rawValue | lexicalScope.rawValue)
+     7 << 16 | stmt.rawValue | lexicalScope.rawValue)
   public static let returnStmt = NodeKind(
-    1 << 17 | stmt.rawValue)
+     8 << 16 | stmt.rawValue)
   public static let whileStmt = NodeKind(
-    1 << 18 | stmt.rawValue | lexicalScope.rawValue)
+     9 << 16 | stmt.rawValue | lexicalScope.rawValue)
   public static let yieldStmt = NodeKind(
-    1 << 19 | stmt.rawValue)
+    10 << 16 | stmt.rawValue)
 
   // MARK: Type expressions
 
   /// The kind of type expression nodes.
   public static let typeExpr = NodeKind(
-    1 <<  4)
+    1 << 4)
 
   public static let asyncTypeExpr = NodeKind(
-    1 << 10 | typeExpr.rawValue)
+     1 << 16 | typeExpr.rawValue)
   public static let conformanceLensTypeExpr = NodeKind(
-    1 << 11 | typeExpr.rawValue)
+     2 << 16 | typeExpr.rawValue)
   public static let existentialTypeExpr = NodeKind(
-    1 << 12 | typeExpr.rawValue)
+     3 << 16 | typeExpr.rawValue)
   public static let indirectTypeExpr = NodeKind(
-    1 << 13 | typeExpr.rawValue)
+     4 << 16 | typeExpr.rawValue)
   public static let lambdaTypeExpr = NodeKind(
-    1 << 14 | typeExpr.rawValue)
+     5 << 16 | typeExpr.rawValue)
   public static let nameTypeExpr = NodeKind(
-    1 << 15 | typeExpr.rawValue)
+     6 << 16 | typeExpr.rawValue)
   public static let parameterTypeExpr = NodeKind(
-    1 << 16 | typeExpr.rawValue)
+     7 << 16 | typeExpr.rawValue)
   public static let storedProjectionTypeExpr = NodeKind(
-    1 << 17 | typeExpr.rawValue)
+     8 << 16 | typeExpr.rawValue)
   public static let tupleTypeExpr = NodeKind(
-    1 << 18 | typeExpr.rawValue)
+     9 << 16 | typeExpr.rawValue)
   public static let unionTypeExpr = NodeKind(
-    1 << 19 | typeExpr.rawValue)
+    10 << 16 | typeExpr.rawValue)
   public static let wildcardTypeExpr = NodeKind(
-    1 << 20 | typeExpr.rawValue)
+    11 << 16 | typeExpr.rawValue)
 
 }
 
