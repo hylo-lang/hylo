@@ -18,6 +18,8 @@ extension ExprID {
       return visitor.visit(boolLiteral: NodeID(unsafeRawValue: rawValue))
     case .charLiteralExpr:
       return visitor.visit(charLiteral: NodeID(unsafeRawValue: rawValue))
+    case .castExpr:
+      return visitor.visit(cast: NodeID(unsafeRawValue: rawValue))
     case .condExpr:
       return visitor.visit(cond: NodeID(unsafeRawValue: rawValue))
     case .floatLiteralExpr:

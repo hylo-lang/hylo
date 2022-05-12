@@ -287,7 +287,7 @@ public struct TypeChecker {
 
     let scope = scopeHierarchy.container[AnyDeclID(id)]!
     let pattern = ast[id].pattern
-    guard var shape = infer(pattern: pattern, expectedType: nil, inScope: scope) else {
+    guard var shape = infer(pattern: pattern, inScope: scope) else {
       declTypes[id] = .some(nil)
       declRequests[id] = .failure
       return false
@@ -296,9 +296,21 @@ public struct TypeChecker {
     // Type check the initializer, if any.
     var success = true
     if let initializer = ast[id].initializer {
+      // The type of the initializer may be a subtype of the pattern's.
+      let expectedType: Type
+      if shape.type.isLeaf {
+        expectedType = shape.type
+      } else {
+        expectedType = .variable(TypeVariable(node: initializer.base))
+        shape.constraints.append(LocatableConstraint(
+          .equalityOrSubtyping(l: expectedType, r: shape.type),
+          node: AnyNodeID(id),
+          cause: .initialization))
+      }
+
       let solution = infer(
         expr: initializer,
-        expectedType: shape.type,
+        expectedType: expectedType,
         inScope: scope,
         constraints: &shape.constraints)
 
@@ -1017,14 +1029,13 @@ public struct TypeChecker {
   /// - Note: A `nil` return signals a failure to infer the type of the pattern.
   private mutating func infer<T: PatternID>(
     pattern: T,
-    expectedType: Type?,
     inScope scope: AnyScopeID
   ) -> (type: Type, constraints: [LocatableConstraint], decls: [NodeID<VarDecl>])? {
     var constraints: [LocatableConstraint] = []
     var decls: [NodeID<VarDecl>] = []
     if let type = _infer(
       pattern: pattern,
-      expectedType: expectedType,
+      expectedType: nil,
       inScope: scope,
       constraints: &constraints,
       decls: &decls)
@@ -1366,16 +1377,13 @@ public struct TypeChecker {
            .parameterDecl,
            .productTypeDecl,
            .traitDecl,
-           .typeAliasDecl:
+           .typeAliasDecl,
+           .varDecl:
         let name = (ast[id] as! SingleEntityDecl).name
         table[name, default: []].insert(AnyDeclID(id))
 
       case .bindingDecl:
-        let decl = ast[NodeID<BindingDecl>(converting: id)!]
-        for subpattern in decl.pattern.names(ast: ast) {
-          let i = ast[subpattern].decl
-          table[ast[i].name, default: []].insert(AnyDeclID(i))
-        }
+        break
 
       case .funDecl:
         let decl = ast[NodeID<FunDecl>(converting: id)!]
@@ -1434,7 +1442,7 @@ public struct TypeChecker {
   // MARK: Type realization
 
   /// Realizes and returns the type denoted by `expr` evaluated in `scope`.
-  private mutating func realize(
+  mutating func realize(
     _ expr: AnyTypeExprID,
     inScope scope: AnyScopeID,
     asParameter isParameterAnnotation: Bool = false
@@ -1460,7 +1468,7 @@ public struct TypeChecker {
       return realize(tuple: NodeID(converting: expr)!, inScope: scope)
 
     case .wildcardTypeExpr:
-      return .variable(TypeVariable(node: AnyNodeID(expr)))
+      return .variable(TypeVariable(node: expr.base))
 
     default:
       unreachable("unexpected type expression")
@@ -1728,6 +1736,11 @@ public struct TypeChecker {
       return _realize(decl: id, { (this, id) in
         .typeAlias(TypeAliasType(decl: NodeID(converting: id)!, ast: this.ast))
       })
+
+    case .varDecl:
+      let bindingDecl = scopeHierarchy.varToBinding[NodeID(converting: id)!]!
+      if realize(bindingDecl: bindingDecl) == nil { return nil }
+      return declTypes[id]!
 
     default:
       unreachable("unexpected declaration")

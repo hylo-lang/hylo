@@ -21,6 +21,10 @@ struct LocatableConstraint {
 
     case callArgument
 
+    case cast
+
+    case initialization
+
     case member
 
   }

@@ -61,6 +61,14 @@ public enum Constraint: Hashable {
   /// depending on its type.
   case overload(n: NodeID<NameExpr>, l: Type, candidates: [OverloadCandidate])
 
+  /// Creates a subtyping or equality constraint.
+  public static func equalityOrSubtyping(l: Type, r: Type) -> Constraint {
+    .disjunction([
+      Constraint.Minterm(constraints: [.equality(l: l, r: r)], penalties: 0),
+      Constraint.Minterm(constraints: [.subtyping(l: l, r: r)], penalties: 1),
+    ])
+  }
+
   /// Returns whether the constraint depends on the specified variable.
   public func depends(on variable: TypeVariable) -> Bool {
     let v = Type.variable(variable)

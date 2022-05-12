@@ -1277,11 +1277,13 @@ final class TypeCheckerTests: XCTestCase {
   }
 
   func testIntegerLiteralExpr() {
+
+    // 42
+
     var ast = AST()
     insertStandardLibraryMockup(into: &ast)
     let main = ast.insert(ModuleDecl(name: "main"))
 
-    // 42
     let expr = AnyExprID(ast.insert(IntegerLiteralExpr(value: "42")))
 
     // Infer the type of the literal without any contextual information.
@@ -1305,6 +1307,59 @@ final class TypeCheckerTests: XCTestCase {
       XCTAssertNil(type)
       XCTAssert(checker.diagnostics.count == 1)
     }
+  }
+
+  func testDownCast() {
+
+    // let a: Any = ()
+    // let _ = a as! ()
+
+    var ast = AST()
+    let main = ast.insert(ModuleDecl(name: "main"))
+
+    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+      pattern: ast.insert(BindingPattern(
+        introducer: SourceRepresentable(value: .let),
+        subpattern: AnyPatternID(ast.insert(NamePattern(
+          decl: ast.insert(VarDecl(
+            identifier: SourceRepresentable(value: "a")))))),
+        annotation: AnyTypeExprID(ast.insert(NameTypeExpr(
+          identifier: SourceRepresentable(value: "Any")))))),
+      initializer: AnyExprID(ast.insert(TupleExpr()))))))
+
+    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+      pattern: ast.insert(BindingPattern(
+        introducer: SourceRepresentable(value: .let),
+        subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
+      initializer: AnyExprID(ast.insert(CastExpr(
+        left: AnyExprID(ast.insert(NameExpr(
+          stem: SourceRepresentable(value: "a")))),
+        right: AnyTypeExprID(ast.insert(TupleTypeExpr())),
+        direction: .down)))))))
+
+    var checker = TypeChecker(ast: ast)
+    XCTAssertTrue(checker.check(module: main))
+  }
+
+  func testUpcast() {
+
+    // let _ = () as Any
+
+    var ast = AST()
+    let main = ast.insert(ModuleDecl(name: "main"))
+
+    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+      pattern: ast.insert(BindingPattern(
+        introducer: SourceRepresentable(value: .let),
+        subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
+      initializer: AnyExprID(ast.insert(CastExpr(
+        left: AnyExprID(ast.insert(TupleExpr())),
+        right: AnyTypeExprID(ast.insert(NameTypeExpr(
+          identifier: SourceRepresentable(value: "Any")))),
+        direction: .up)))))))
+
+    var checker = TypeChecker(ast: ast)
+    XCTAssertTrue(checker.check(module: main))
   }
 
 }

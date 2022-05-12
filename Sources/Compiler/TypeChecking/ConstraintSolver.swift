@@ -199,7 +199,7 @@ struct ConstraintSolver {
       }
 
     default:
-      fatalError("not implemented")
+      diagnostics.append(.incompatibleTypes(l, r, range: range(of: location)))
     }
   }
 
@@ -214,11 +214,36 @@ struct ConstraintSolver {
     if l == r { return }
 
     switch (l, r) {
-    case (.tuple, .tuple):
-      diagnostics.append(.notSubtype(l, of: r, range: range(of: location)))
+    case (_, .variable):
+      // The type variable is above a more concrete type. We should compute the "join" of all types
+      // to which `L` is coercible and that are below `R`, but that set is unbounded. We have no
+      // choice to postpone the constraint.
+      postpone(LocatableConstraint(.subtyping(l: l, r: r), location: location))
+
+    case (.variable, _):
+      // The type variable is below a more concrete type. We should compute the "meet" of all types
+      // coercible to `R` and that are above `L`, but that set is unbounded unless `R` is a leaf.
+      // If it isn't, we have no choice but to postpone the constraint.
+      if r.isLeaf {
+        solve(l, equalsTo: r, location: location)
+      } else {
+        postpone(LocatableConstraint(.subtyping(l: l, r: r), location: location))
+      }
+
+    case (_, .existential):
+      // All types conform to any.
+      if r == .any { return }
+
+      fatalError("not implemented")
+
+    case (_, .lambda):
+      fatalError("not implemented")
+
+    case (_, .union):
+      fatalError("not implemented")
 
     default:
-      fatalError("not implemented")
+      diagnostics.append(.notSubtype(l, of: r, range: range(of: location)))
     }
   }
 

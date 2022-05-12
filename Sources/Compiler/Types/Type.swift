@@ -74,7 +74,19 @@ public indirect enum Type: TypeProtocol, Hashable {
 
   public var flags: TypeFlags { base.flags }
 
-  /// Indicates whether this type is a generic type parameter or associated type.
+  /// Indicates whether the type is a leaf.
+  ///
+  /// A leaf type is a type whose only subtypes are itself and `Never`.
+  public var isLeaf: Bool {
+    switch self {
+    case .existential, .lambda, .union, .variable:
+      return false
+    default:
+      return true
+    }
+  }
+
+  /// Indicates whether the type is a generic type parameter or associated type.
   public var isTypeParam: Bool {
     switch self {
     case .associated, .genericTypeParam:

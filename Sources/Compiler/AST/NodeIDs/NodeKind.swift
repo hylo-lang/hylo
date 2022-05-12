@@ -85,36 +85,38 @@ public struct NodeKind: Hashable {
      5 << 16 | expr.rawValue)
   public static let charLiteralExpr = NodeKind(
      6 << 16 | expr.rawValue)
+  public static let castExpr = NodeKind(
+     7 << 16 | expr.rawValue)
   public static let condExpr = NodeKind(
-     7 << 16 | expr.rawValue | lexicalScope.rawValue)
+     8 << 16 | expr.rawValue | lexicalScope.rawValue)
   public static let floatLiteralExpr = NodeKind(
-     8 << 16 | expr.rawValue)
-  public static let funCallExpr = NodeKind(
      9 << 16 | expr.rawValue)
-  public static let integerLiteralExpr = NodeKind(
+  public static let funCallExpr = NodeKind(
     10 << 16 | expr.rawValue)
-  public static let lambdaExpr = NodeKind(
+  public static let integerLiteralExpr = NodeKind(
     11 << 16 | expr.rawValue)
-  public static let mapLiteralExpr = NodeKind(
+  public static let lambdaExpr = NodeKind(
     12 << 16 | expr.rawValue)
+  public static let mapLiteralExpr = NodeKind(
+    13 << 16 | expr.rawValue)
   public static let matchExpr = NodeKind(
-    13 << 16 | expr.rawValue | lexicalScope.rawValue)
+    14 << 16 | expr.rawValue | lexicalScope.rawValue)
   public static let matchCaseExpr = NodeKind(
-    14 << 16 | expr.rawValue)
-  public static let nameExpr = NodeKind(
     15 << 16 | expr.rawValue)
-  public static let nilExpr = NodeKind(
+  public static let nameExpr = NodeKind(
     16 << 16 | expr.rawValue)
-  public static let sequenceExpr = NodeKind(
+  public static let nilExpr = NodeKind(
     17 << 16 | expr.rawValue)
-  public static let storedProjectionExpr = NodeKind(
+  public static let sequenceExpr = NodeKind(
     18 << 16 | expr.rawValue)
+  public static let storedProjectionExpr = NodeKind(
+    19 << 16 | expr.rawValue)
   public static let stringLiteralExpr = NodeKind(
-    19 << 26 | expr.rawValue)
+    20 << 26 | expr.rawValue)
   public static let subscriptCallExpr = NodeKind(
-    20 << 16 | expr.rawValue)
-  public static let tupleExpr = NodeKind(
     21 << 16 | expr.rawValue)
+  public static let tupleExpr = NodeKind(
+    22 << 16 | expr.rawValue)
 
   // MARK: Patterns
 

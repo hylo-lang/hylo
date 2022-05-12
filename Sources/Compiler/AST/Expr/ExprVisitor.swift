@@ -16,6 +16,8 @@ public protocol ExprVisitor {
 
   mutating func visit(charLiteral: NodeID<CharLiteralExpr>) -> Result
 
+  mutating func visit(cast: NodeID<CastExpr>) -> Result
+
   mutating func visit(cond: NodeID<CondExpr>) -> Result
 
   mutating func visit(floatLiteral: NodeID<FloatLiteralExpr>) -> Result

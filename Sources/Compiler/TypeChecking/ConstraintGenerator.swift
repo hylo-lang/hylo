@@ -30,38 +30,81 @@ struct ConstraintGenerator: ExprVisitor {
     rhs.accept(&self)
 
     constraints.append(LocatableConstraint(
-      .subtyping(l: inferredTypes[lhs]!, r: inferredTypes[rhs]!),
+      .disjunction([
+        Constraint.Minterm(
+          constraints: [.equality(l: inferredTypes[lhs]!, r: inferredTypes[rhs]!)],
+          penalties: 0),
+        Constraint.Minterm(
+          constraints: [.subtyping(l: inferredTypes[lhs]!, r: inferredTypes[rhs]!)],
+          penalties: 1),
+      ]),
       node: AnyNodeID(id),
       cause: .assignment))
 
     assume(typeOf: id, is: .unit)
   }
 
-  mutating func visit(async i: NodeID<AsyncExpr>) {
+  mutating func visit(async id: NodeID<AsyncExpr>) {
     fatalError("not implemented")
   }
 
-  mutating func visit(await i: NodeID<AwaitExpr>) {
+  mutating func visit(await id: NodeID<AwaitExpr>) {
     fatalError("not implemented")
   }
 
-  mutating func visit(boolLiteral i: NodeID<BoolLiteralExpr>) {
+  mutating func visit(boolLiteral id: NodeID<BoolLiteralExpr>) {
     fatalError("not implemented")
   }
 
-  mutating func visit(bufferLiteral i : NodeID<BufferLiteralExpr>) {
+  mutating func visit(bufferLiteral id : NodeID<BufferLiteralExpr>) {
     fatalError("not implemented")
   }
 
-  mutating func visit(charLiteral i: NodeID<CharLiteralExpr>) {
+  mutating func visit(charLiteral id: NodeID<CharLiteralExpr>) {
     fatalError("not implemented")
   }
 
-  mutating func visit(cond i: NodeID<CondExpr>) {
+  mutating func visit(cast id: NodeID<CastExpr>) {
+    // Visit the left operand.
+    let lhs = checker.ast[id].left
+    lhs.accept(&self)
+
+    // Realize the type to which the left operand should be converted.
+    guard let target = checker.realize(checker.ast[id].right, inScope: scope) else {
+      if inferredTypes[id] == nil { inferredTypes[id] = .error(ErrorType()) }
+      return
+    }
+
+    switch checker.ast[id].direction {
+    case .down:
+      // Note: constraining the type of the left operand to be above the right operand wouldn't
+      // contribute any useful information to the constraint system.
+      break
+
+    case .up:
+      // The type of the left operand must be statically known to subtype of the right operand.
+      constraints.append(LocatableConstraint(
+        .disjunction([
+          Constraint.Minterm(
+            constraints: [.equality(l: inferredTypes[lhs]!, r: target)],
+            penalties: 0),
+          Constraint.Minterm(
+            constraints: [.subtyping(l: inferredTypes[lhs]!, r: target)],
+            penalties: 1),
+        ]),
+        node: AnyNodeID(id),
+        cause: .cast))
+    }
+
+    // In any case, the expression is assumed to have the type denoted by the right operand.
+    assume(typeOf: id, is: target)
+  }
+
+  mutating func visit(cond id: NodeID<CondExpr>) {
     fatalError("not implemented")
   }
 
-  mutating func visit(floatLiteral i: NodeID<FloatLiteralExpr>) {
+  mutating func visit(floatLiteral id: NodeID<FloatLiteralExpr>) {
     fatalError("not implemented")
   }
 
@@ -85,19 +128,19 @@ struct ConstraintGenerator: ExprVisitor {
 
       // Gather the callee's constraints.
       constraints.append(contentsOf: calleeConstraints.map({ c in
-        LocatableConstraint(c, node: AnyNodeID(callee))
+        LocatableConstraint(c, node: callee.base)
       }))
 
       // Propagate type information to the arguments.
       for i in 0 ..< checker.ast[id].arguments.count {
         let argument = checker.ast[id].arguments[i].value
-        let argumentType = Type.variable(TypeVariable(node: AnyNodeID(argument.value)))
+        let argumentType = Type.variable(TypeVariable(node: argument.value.base))
         let parameterType = calleeType.inputs[i].type
 
         inferredTypes[argument.value] = argumentType
         constraints.append(LocatableConstraint(
           .parameter(l: argumentType, r: parameterType),
-          node: AnyNodeID(argument.value),
+          node: argument.value.base,
           cause: .callArgument))
 
         argument.value.accept(&self)
@@ -219,7 +262,7 @@ struct ConstraintGenerator: ExprVisitor {
       inputs.append(CallableTypeParameter(label: argumentLabel, type: parameterType))
       constraints.append(LocatableConstraint(
         .parameter(l: argumentType, r: parameterType),
-        node: AnyNodeID(argumentValue),
+        node: argumentValue.base,
         cause: .callArgument))
     }
 
@@ -227,7 +270,7 @@ struct ConstraintGenerator: ExprVisitor {
     let calleeType = Type.lambda(LambdaType(
       environment: .variable(TypeVariable()), inputs: inputs, output: output))
     constraints.append(LocatableConstraint(
-      .equality(l: inferredTypes[callee]!, r: calleeType), node: AnyNodeID(callee)))
+      .equality(l: inferredTypes[callee]!, r: calleeType), node: callee.base))
   }
 
   mutating func visit(integerLiteral id: NodeID<IntegerLiteralExpr>) {
