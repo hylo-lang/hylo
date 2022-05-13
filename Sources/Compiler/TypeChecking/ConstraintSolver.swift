@@ -266,11 +266,7 @@ struct ConstraintSolver {
       // Either `L` is equal to the bare type of `R`, or it's a. Note: the equality requirement for
       // arguments passed mutably is verified after type inference.
       fresh.append(LocatableConstraint(
-        .disjunction([
-          Constraint.Minterm(constraints: [.equality(l: l, r: p.bareType)], penalties: 0),
-          Constraint.Minterm(constraints: [.subtyping(l: l, r: p.bareType)], penalties: 1),
-        ]),
-        location: location))
+        .equalityOrSubtyping(l: l, r: p.bareType), location: location))
 
     default:
       diagnostics.append(.invalidParameterType(r, range: range(of: location)))
@@ -316,7 +312,7 @@ struct ConstraintSolver {
     }
   }
 
-  private mutating func solve(disjunction: LocatableConstraint) -> Solution {
+  private mutating func solve(disjunction: LocatableConstraint) -> Solution? {
     guard case .disjunction(let minterms) = disjunction.constraint else { unreachable() }
 
     var solutions: [Solution] = []
@@ -334,7 +330,7 @@ struct ConstraintSolver {
       }
 
       guard let solution = subsolver.solve() else { continue }
-      if solution.score < best {
+      if solutions.isEmpty || (solution.score < best) {
         best = solution.score
         solutions = [solution]
       } else if solution.score == best {
@@ -343,10 +339,14 @@ struct ConstraintSolver {
       }
     }
 
-    assert(!solutions.isEmpty)
-    if solutions.count == 1 {
+    switch solutions.count {
+    case 0:
+      return nil
+
+    case 1:
       return solutions[0]
-    } else {
+
+    default:
       // TODO: Merge remaining solutions
       var s = solutions[0]
       s.diagnostics.append(.ambiguousDisjunction(range: range(of: disjunction.location)))

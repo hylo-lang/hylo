@@ -74,13 +74,20 @@ public indirect enum Type: TypeProtocol, Hashable {
 
   public var flags: TypeFlags { base.flags }
 
+  /// Indicates whether the type is a variable.
+  public var isVariable: Bool {
+    if case .variable = self { return true } else { return false }
+  }
+
   /// Indicates whether the type is a leaf.
   ///
   /// A leaf type is a type whose only subtypes are itself and `Never`.
   public var isLeaf: Bool {
     switch self {
-    case .existential, .lambda, .union, .variable:
+    case .existential, .lambda, .variable:
       return false
+    case .union(let t):
+      return t.elements.isEmpty
     default:
       return true
     }

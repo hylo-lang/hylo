@@ -1362,4 +1362,26 @@ final class TypeCheckerTests: XCTestCase {
     XCTAssertTrue(checker.check(module: main))
   }
 
+  func testClosureTypeInference() {
+
+    // let _ = fun () { 42 }
+
+    var ast = AST()
+    insertStandardLibraryMockup(into: &ast)
+    let main = ast.insert(ModuleDecl(name: "main"))
+
+    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+      pattern: ast.insert(BindingPattern(
+        introducer: SourceRepresentable(value: .let),
+        subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
+      initializer: AnyExprID(ast.insert(LambdaExpr(decl: ast.insert(FunDecl(
+        introducer: SourceRepresentable(value: .fun),
+        body: SourceRepresentable(
+          value: .expr(AnyExprID(ast.insert(IntegerLiteralExpr(value: "42"))))),
+        isInExprContext: true)))))))))
+
+    var checker = TypeChecker(ast: ast)
+    XCTAssertTrue(checker.check(module: main))
+  }
+
 }

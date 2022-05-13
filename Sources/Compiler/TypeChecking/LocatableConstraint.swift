@@ -27,6 +27,8 @@ struct LocatableConstraint {
 
     case member
 
+    case `return`
+
   }
 
   /// The constraint.

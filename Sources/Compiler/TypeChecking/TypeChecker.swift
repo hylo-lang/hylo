@@ -297,20 +297,9 @@ public struct TypeChecker {
     var success = true
     if let initializer = ast[id].initializer {
       // The type of the initializer may be a subtype of the pattern's.
-      let expectedType: Type
-      if shape.type.isLeaf {
-        expectedType = shape.type
-      } else {
-        expectedType = .variable(TypeVariable(node: initializer.base))
-        shape.constraints.append(LocatableConstraint(
-          .equalityOrSubtyping(l: expectedType, r: shape.type),
-          node: AnyNodeID(id),
-          cause: .initialization))
-      }
-
       let solution = infer(
         expr: initializer,
-        expectedType: expectedType,
+        expectedType: shape.type,
         inScope: scope,
         constraints: &shape.constraints)
 
@@ -1752,7 +1741,8 @@ public struct TypeChecker {
     return declTypes[id]!
   }
 
-  private mutating func realize(funDecl id: NodeID<FunDecl>) -> Type? {
+  /// Returns the overarching type of the given function declaration.
+  mutating func realize(funDecl id: NodeID<FunDecl>) -> Type? {
     _realize(decl: id, { (this, id) in this._realize(funDecl: id) })
   }
 
@@ -1782,9 +1772,8 @@ public struct TypeChecker {
     // Realize the input types.
     for i in decl.parameters {
       declRequests[i] = .typeCheckingStarted
-      let parameter = ast[i]
 
-      if let annotation = parameter.annotation {
+      if let annotation = ast[i].annotation {
         if let type = realize(annotation, inScope: declScope, asParameter: true) {
           // The annotation may not omit generic arguments.
           if type[.hasVariable] {
@@ -1794,24 +1783,28 @@ public struct TypeChecker {
 
           declTypes[i] = type
           declRequests[i] = .typeRealizationCompleted
-          inputs.append(CallableTypeParameter(label: parameter.label?.value, type: type))
+          inputs.append(CallableTypeParameter(label: ast[i].label?.value, type: type))
         } else {
           declTypes[i] = nil
           declRequests[i] = .failure
           success = false
         }
+      } else if decl.isInExprContext {
+        declTypes[i] = .variable(TypeVariable(node: AnyNodeID(i)))
+        declRequests[i] = .typeRealizationCompleted
       } else {
-        fatalError("not implemented")
+        declTypes[i] = nil
+        declRequests[i] = .failure
+        diagnostics.insert(.missingTypeAnnotation(range: ast.ranges[i]))
+        success = false
       }
     }
 
     // Realize the type of the explicit captures.
     var captures: [(introducer: BindingPattern.Introducer, type: Type)] = []
     for i in decl.captures {
-      if check(binding: i) {
-        captures.append((
-          introducer: ast[ast[i].pattern].introducer.value,
-          type: declTypes[i]!!))
+      if let type = realize(bindingDecl: i) {
+        captures.append((introducer: ast[ast[i].pattern].introducer.value, type: type))
       } else {
         success = false
       }
@@ -1862,16 +1855,8 @@ public struct TypeChecker {
         guard let type = realize(o, inScope: declScope) else { return nil }
         output = type
       } else if decl.isInExprContext {
-        // If the function appears in an expression context and is expression-bodied, its return
-        // type may be inferred.
-        if case .expr(let body) = decl.body?.value {
-          guard let type = infer(expr: body, inScope: declScope) else { return nil }
-          output = type
-        } else {
-          diagnostics.insert(.cannotInferComplexReturnType(
-            location: decl.body?.range?.last() ?? ast.ranges[id]?.first()))
-          return nil
-        }
+        // Return types may be inferred in expression contexts.
+        output = .variable(TypeVariable())
       } else {
         // Default to `()`
         output = .unit

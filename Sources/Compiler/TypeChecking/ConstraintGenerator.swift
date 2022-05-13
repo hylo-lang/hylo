@@ -30,18 +30,11 @@ struct ConstraintGenerator: ExprVisitor {
     rhs.accept(&self)
 
     constraints.append(LocatableConstraint(
-      .disjunction([
-        Constraint.Minterm(
-          constraints: [.equality(l: inferredTypes[lhs]!, r: inferredTypes[rhs]!)],
-          penalties: 0),
-        Constraint.Minterm(
-          constraints: [.subtyping(l: inferredTypes[lhs]!, r: inferredTypes[rhs]!)],
-          penalties: 1),
-      ]),
+      .equalityOrSubtyping(l: inferredTypes[lhs]!, r: inferredTypes[rhs]!),
       node: AnyNodeID(id),
       cause: .assignment))
 
-    assume(typeOf: id, is: .unit)
+    assume(typeOf: id, equals: .unit)
   }
 
   mutating func visit(async id: NodeID<AsyncExpr>) {
@@ -65,13 +58,9 @@ struct ConstraintGenerator: ExprVisitor {
   }
 
   mutating func visit(cast id: NodeID<CastExpr>) {
-    // Visit the left operand.
-    let lhs = checker.ast[id].left
-    lhs.accept(&self)
-
     // Realize the type to which the left operand should be converted.
     guard let target = checker.realize(checker.ast[id].right, inScope: scope) else {
-      if inferredTypes[id] == nil { inferredTypes[id] = .error(ErrorType()) }
+      assignToError(id)
       return
     }
 
@@ -83,21 +72,14 @@ struct ConstraintGenerator: ExprVisitor {
 
     case .up:
       // The type of the left operand must be statically known to subtype of the right operand.
-      constraints.append(LocatableConstraint(
-        .disjunction([
-          Constraint.Minterm(
-            constraints: [.equality(l: inferredTypes[lhs]!, r: target)],
-            penalties: 0),
-          Constraint.Minterm(
-            constraints: [.subtyping(l: inferredTypes[lhs]!, r: target)],
-            penalties: 1),
-        ]),
-        node: AnyNodeID(id),
-        cause: .cast))
+      inferredTypes[checker.ast[id].left] = target
     }
 
+    // Visit the left operand.
+    checker.ast[id].left.accept(&self)
+
     // In any case, the expression is assumed to have the type denoted by the right operand.
-    assume(typeOf: id, is: target)
+    assume(typeOf: id, equals: target)
   }
 
   mutating func visit(cond id: NodeID<CondExpr>) {
@@ -122,7 +104,7 @@ struct ConstraintGenerator: ExprVisitor {
       if calleeLabels != labels {
         diagnostics.append(.incompatibleLabels(
           found: calleeLabels, expected: labels, range: checker.ast.ranges[callee]))
-        assume(typeOf: id, is: .error(ErrorType()))
+        assignToError(id)
         return
       }
 
@@ -147,7 +129,7 @@ struct ConstraintGenerator: ExprVisitor {
       }
 
       // Constrain the type of the call.
-      assume(typeOf: id, is: calleeType.output)
+      assume(typeOf: id, equals: calleeType.output)
     }
 
     // Infer the type of the callee.
@@ -164,7 +146,7 @@ struct ConstraintGenerator: ExprVisitor {
 
     // 1st case
     if case .error = inferredTypes[callee] {
-      assume(typeOf: id, is: .error(ErrorType()))
+      assignToError(id)
       return
     }
 
@@ -203,7 +185,7 @@ struct ConstraintGenerator: ExprVisitor {
         case 0:
           let name = Name(stem: "init", labels: labels)
           diagnostics.append(.undefined(name: "\(name)", range: checker.ast[c].stem.range))
-          assume(typeOf: id, is: .error(ErrorType()))
+          assignToError(id)
           return
 
         case 1:
@@ -223,7 +205,7 @@ struct ConstraintGenerator: ExprVisitor {
       case .traitDecl:
         let trait = TraitType(decl: NodeID(converting: d)!, ast: checker.ast)
         diagnostics.append(.cannotConstruct(trait: trait, range: checker.ast.ranges[callee]))
-        assume(typeOf: id, is: .error(ErrorType()))
+        assignToError(id)
 
       case .typeAliasDecl:
         fatalError("not implemented")
@@ -302,8 +284,54 @@ struct ConstraintGenerator: ExprVisitor {
     }
   }
 
-  mutating func visit(lambda i: NodeID<LambdaExpr>) {
-    fatalError("not implemented")
+  mutating func visit(lambda id: NodeID<LambdaExpr>) {
+    // Realize the type of the underlying declaration.
+    guard case .lambda(let declType) = checker.realize(funDecl: checker.ast[id].decl) else {
+      assignToError(id)
+      return
+    }
+
+    // TODO: Schedule the underlying declaration to be type-checked.
+
+    // Exploit top-down information to refine the realized type or try to infer missing information
+    // from the body of the lambda.
+    if case .lambda(let expectedType) = inferredTypes[id] {
+      // Check that the declaration defines the correct number of parameters.
+      if declType.inputs.count != expectedType.inputs.count {
+        diagnostics.append(.invalidClosureParameterCount(
+          expected: expectedType.inputs.count,
+          found: declType.inputs.count,
+          range: checker.ast.ranges[id]))
+        assignToError(id)
+        return
+      }
+
+      // Check that the declaration defines the correct argument labels.
+      if !declType.labels.elementsEqual(expectedType.labels) {
+        diagnostics.append(.incompatibleLabels(
+          found: Array(declType.labels),
+          expected: Array(expectedType.labels),
+          range: checker.ast.ranges[id]))
+        assignToError(id)
+        return
+      }
+
+      constraints.append(LocatableConstraint(
+        .equalityOrSubtyping(l: .lambda(declType), r: .lambda(expectedType)),
+        node: AnyNodeID(id)))
+    } else if case .variable = declType.output {
+      if case .expr(let body) = checker.ast[checker.ast[id].decl].body?.value {
+        inferredTypes[body] = declType.output
+        body.accept(&self)
+      } else {
+        diagnostics.append(.cannotInferComplexReturnType(
+          range: checker.ast[checker.ast[id].decl].body?.range))
+        assignToError(id)
+        return
+      }
+    }
+
+    assume(typeOf: id, equals: .lambda(declType))
   }
 
   mutating func visit(mapLiteral i: NodeID<MapLiteralExpr>) {
@@ -331,7 +359,7 @@ struct ConstraintGenerator: ExprVisitor {
 
       if candidates.isEmpty {
         diagnostics.append(.undefined(name: "\(checker.ast[id].baseName)", range: stem.range))
-        assume(typeOf: id, is: .error(ErrorType()))
+        assignToError(id)
         return
       }
 
@@ -354,7 +382,7 @@ struct ConstraintGenerator: ExprVisitor {
         fatalError("not implemented")
       }
 
-      assume(typeOf: id, is: inferredType)
+      assume(typeOf: id, equals: inferredType)
 
     case .explicit(let domain):
       // Infer the type of the domain.
@@ -362,7 +390,7 @@ struct ConstraintGenerator: ExprVisitor {
 
       // If we failed to infer the type of the domain, there's nothing more we can do.
       if case .error = inferredTypes[domain] {
-        assume(typeOf: id, is: .error(ErrorType()))
+        assignToError(id)
         return
       }
 
@@ -456,7 +484,7 @@ struct ConstraintGenerator: ExprVisitor {
             type: inferredTypes[element.value]!))
         })
       }
-      assume(typeOf: id, is: .tuple(TupleType(elements)))
+      assume(typeOf: id, equals: .tuple(TupleType(elements)))
     }
 
     assert(inferredTypes[id] != nil)
@@ -495,12 +523,28 @@ struct ConstraintGenerator: ExprVisitor {
     })
   }
 
-  private mutating func assume<T: ExprID>(typeOf id: T, is inferredType: Type) {
+  private mutating func assume<T: ExprID>(typeOf id: T, equals inferredType: Type) {
     if let expectedType = inferredTypes[id] {
-      constraints.append(LocatableConstraint(
-        .equality(l: inferredType, r: expectedType), node: AnyNodeID(id)))
+      // Create a subtying constraint if the expected type might be above the inferred type.
+      // Otherwise, create an equality constraint.
+      let constraint: Constraint
+      switch inferredType {
+      case .never,
+           .variable,
+           _ where !expectedType.isLeaf:
+        constraint = .equalityOrSubtyping(l: inferredType, r: expectedType)
+      default:
+        constraint = .equality(l: inferredType, r: expectedType)
+      }
+      constraints.append(LocatableConstraint(constraint, node: AnyNodeID(id)))
     } else {
       inferredTypes[id] = inferredType
+    }
+  }
+
+  private mutating func assignToError<T: ExprID>(_ id: T) {
+    if inferredTypes[id] == nil {
+      inferredTypes[id] = .error(ErrorType())
     }
   }
 
