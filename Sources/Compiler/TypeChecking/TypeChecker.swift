@@ -27,16 +27,6 @@ public struct TypeChecker {
     self.scopeHierarchy = ast.scopeHierarchy()
   }
 
-  /// Calls `action` with a mutable projection of `self`, which returns a pair `(a, b)`. `self` is
-  /// reassigned to `a` and `b` is returned.
-  private mutating func withBorrowedSelf<T>(_ action: (Self) -> (Self, T)) -> T {
-    withUnsafeMutablePointer(to: &self, { this in
-      let (a, b) = action(this.move())
-      this.initialize(to: a)
-      return b
-    })
-  }
-
   // MARK: Type system
 
   /// Returns the canonical form of `type`.
@@ -984,27 +974,24 @@ public struct TypeChecker {
   ) -> Solution {
     exprTypes[expr] = expectedType
 
-    // Temporarily projects `self`.
-    let solution = withBorrowedSelf({ (this) -> (TypeChecker, Solution) in
-      // Generate constraints.
-      var generator = ConstraintGenerator(checker: this, scope: scope)
-      generator.inferredTypes[expr] = expectedType
-      expr.accept(&generator)
-      constraints.append(contentsOf: generator.constraints)
+    // Generate constraints.
+    var generator = ConstraintGenerator(checker: self, scope: scope)
+    generator.inferredTypes[expr] = expectedType
+    expr.accept(&generator)
+    constraints.append(contentsOf: generator.constraints)
 
-      // Solve the constraints.
-      var solver = ConstraintSolver(
-        checker: generator.checker.release(), scope: scope, fresh: constraints)
-      var solution = solver.solve()!
-      solution.diagnostics.append(contentsOf: generator.diagnostics)
+    // Solve the constraints.
+    var solver = ConstraintSolver(
+      checker: generator.checker.release(), scope: scope, fresh: constraints)
+    var solution = solver.solve()!
+    solution.diagnostics.append(contentsOf: generator.diagnostics)
 
-      // Apply the solution.
-      for (id, type) in generator.inferredTypes.storage {
-        solver.checker.exprTypes[id] = solution.reify(type, withVariables: .keep)
-      }
+    // Apply the solution.
+    for (id, type) in generator.inferredTypes.storage {
+      solver.checker.exprTypes[id] = solution.reify(type, withVariables: .keep)
+    }
 
-      return (solver.checker.release(), solution)
-    })
+    self = solver.checker.release()
 
     // Consume the solution's errors.
     diagnostics.formUnion(solution.diagnostics)
