@@ -507,10 +507,14 @@ final class TypeCheckerTests: XCTestCase {
       parameters: [
         ast.insert(ParameterDecl(
           identifier: SourceRepresentable(value: "a"),
-          annotation: AnyTypeExprID(ast.insert(TupleTypeExpr())))),
+          annotation: ast.insert(ParameterTypeExpr(
+            convention: SourceRepresentable(value: .let),
+            bareType: AnyTypeExprID(ast.insert(TupleTypeExpr())))))),
         ast.insert(ParameterDecl(
           identifier: SourceRepresentable(value: "b"),
-          annotation: AnyTypeExprID(ast.insert(TupleTypeExpr())),
+          annotation: ast.insert(ParameterTypeExpr(
+            convention: SourceRepresentable(value: .let),
+            bareType: AnyTypeExprID(ast.insert(TupleTypeExpr())))),
           defaultValue: AnyExprID(ast.insert(TupleExpr())))),
       ],
       body: SourceRepresentable(
@@ -533,10 +537,14 @@ final class TypeCheckerTests: XCTestCase {
       parameters: [
         ast.insert(ParameterDecl(
           identifier: SourceRepresentable(value: "a"),
-          annotation: AnyTypeExprID(ast.insert(TupleTypeExpr())))),
+          annotation: ast.insert(ParameterTypeExpr(
+            convention: SourceRepresentable(value: .let),
+            bareType: AnyTypeExprID(ast.insert(TupleTypeExpr())))))),
         ast.insert(ParameterDecl(
           identifier: SourceRepresentable(value: "a"),
-          annotation: AnyTypeExprID(ast.insert(TupleTypeExpr())))),
+          annotation: ast.insert(ParameterTypeExpr(
+            convention: SourceRepresentable(value: .let),
+            bareType: AnyTypeExprID(ast.insert(TupleTypeExpr())))))),
       ],
       body: SourceRepresentable(
         value: .block(ast.insert(BraceStmt())))))))
@@ -610,10 +618,10 @@ final class TypeCheckerTests: XCTestCase {
       parameters: [
         ast.insert(ParameterDecl(
           identifier: SourceRepresentable(value: "x"),
-          annotation: AnyTypeExprID(ast.insert(ParameterTypeExpr(
+          annotation: ast.insert(ParameterTypeExpr(
             convention: SourceRepresentable(value: .sink),
             bareType: AnyTypeExprID(ast.insert(NameTypeExpr(
-              identifier: SourceRepresentable(value: "T")))))))))
+              identifier: SourceRepresentable(value: "T"))))))))
       ],
       output: AnyTypeExprID(ast.insert(NameTypeExpr(
         identifier: SourceRepresentable(value: "T")))),
@@ -639,9 +647,9 @@ final class TypeCheckerTests: XCTestCase {
       parameters: [
         ast.insert(ParameterDecl(
           identifier: SourceRepresentable(value: "x"),
-          annotation: AnyTypeExprID(ast.insert(ParameterTypeExpr(
+          annotation: ast.insert(ParameterTypeExpr(
             convention: SourceRepresentable(value: .sink),
-            bareType: AnyTypeExprID(ast.insert(TupleTypeExpr())))))))
+            bareType: AnyTypeExprID(ast.insert(TupleTypeExpr()))))))
       ],
       output: AnyTypeExprID(ast.insert(TupleTypeExpr())),
       body: SourceRepresentable(
@@ -685,16 +693,16 @@ final class TypeCheckerTests: XCTestCase {
       parameters: [
         ast.insert(ParameterDecl(
           identifier: SourceRepresentable(value: "x"),
-          annotation: AnyTypeExprID(ast.insert(ParameterTypeExpr(
+          annotation: ast.insert(ParameterTypeExpr(
             convention: SourceRepresentable(value: .sink),
             bareType: AnyTypeExprID(ast.insert(NameTypeExpr(
-              identifier: SourceRepresentable(value: "X"))))))))),
+              identifier: SourceRepresentable(value: "X")))))))),
         ast.insert(ParameterDecl(
           identifier: SourceRepresentable(value: "y"),
-          annotation: AnyTypeExprID(ast.insert(ParameterTypeExpr(
+          annotation: ast.insert(ParameterTypeExpr(
             convention: SourceRepresentable(value: .sink),
             bareType: AnyTypeExprID(ast.insert(NameTypeExpr(
-              identifier: SourceRepresentable(value: "Y"))))))))),
+              identifier: SourceRepresentable(value: "Y")))))))),
       ],
       output: AnyTypeExprID(ast.insert(NameTypeExpr(
         identifier: SourceRepresentable(value: "X")))),
@@ -772,20 +780,20 @@ final class TypeCheckerTests: XCTestCase {
       parameters: [
         ast.insert(ParameterDecl(
           identifier: SourceRepresentable(value: "x0"),
-          annotation: AnyTypeExprID(ast.insert(ParameterTypeExpr(
+          annotation: ast.insert(ParameterTypeExpr(
             convention: SourceRepresentable(value: .sink),
             bareType: AnyTypeExprID(ast.insert(NameTypeExpr(
-              identifier: SourceRepresentable(value: "X"))))))))),
+              identifier: SourceRepresentable(value: "X")))))))),
         ast.insert(ParameterDecl(
           identifier: SourceRepresentable(value: "x1"),
-          annotation: AnyTypeExprID(ast.insert(ParameterTypeExpr(
+          annotation: ast.insert(ParameterTypeExpr(
             convention: SourceRepresentable(value: .sink),
             bareType: AnyTypeExprID(ast.insert(TupleTypeExpr(elements: [
               SourceRepresentable(value: TupleTypeExpr.Element(
                 label: "b",
                 type: AnyTypeExprID(ast.insert(NameTypeExpr(
                   identifier: SourceRepresentable(value: "X"))))))
-            ])))))))),
+            ]))))))),
       ],
       body: SourceRepresentable(value: .block(ast.insert(BraceStmt())))))))
 
@@ -850,9 +858,9 @@ final class TypeCheckerTests: XCTestCase {
       parameters: [
         ast.insert(ParameterDecl(
           identifier: SourceRepresentable(value: "x"),
-          annotation: AnyTypeExprID(ast.insert(ParameterTypeExpr(
+          annotation: ast.insert(ParameterTypeExpr(
             convention: SourceRepresentable(value: .sink),
-            bareType: AnyTypeExprID(ast.insert(TupleTypeExpr())))))))
+            bareType: AnyTypeExprID(ast.insert(TupleTypeExpr()))))))
       ],
       output: AnyTypeExprID(ast.insert(TupleTypeExpr())),
       body: SourceRepresentable(
@@ -899,9 +907,9 @@ final class TypeCheckerTests: XCTestCase {
         ast.insert(ParameterDecl(
           label: SourceRepresentable(value: "x"),
           identifier: SourceRepresentable(value: "x"),
-          annotation: AnyTypeExprID(ast.insert(ParameterTypeExpr(
+          annotation: ast.insert(ParameterTypeExpr(
             convention: SourceRepresentable(value: .sink),
-            bareType: AnyTypeExprID(ast.insert(TupleTypeExpr())))))))
+            bareType: AnyTypeExprID(ast.insert(TupleTypeExpr()))))))
       ],
       output: AnyTypeExprID(ast.insert(TupleTypeExpr())),
       body: SourceRepresentable(
@@ -1110,7 +1118,9 @@ final class TypeCheckerTests: XCTestCase {
             ast.insert(ParameterDecl(
               label: SourceRepresentable(value: "value"),
               identifier: SourceRepresentable(value: "value"),
-              annotation: AnyTypeExprID(ast.insert(TupleTypeExpr())))),
+              annotation: ast.insert(ParameterTypeExpr(
+                convention: SourceRepresentable(value: .let),
+                bareType: AnyTypeExprID(ast.insert(TupleTypeExpr())))))),
           ],
           body: SourceRepresentable(value: .block(ast.insert(BraceStmt(
             stmts: [
@@ -1170,8 +1180,10 @@ final class TypeCheckerTests: XCTestCase {
           parameters: [
             ast.insert(ParameterDecl(
               identifier: SourceRepresentable(value: "x"),
-              annotation: AnyTypeExprID(ast.insert(NameTypeExpr(
-                identifier: SourceRepresentable(value: "A")))))),
+              annotation: ast.insert(ParameterTypeExpr(
+                convention: SourceRepresentable(value: .let),
+                bareType: AnyTypeExprID(ast.insert(NameTypeExpr(
+                  identifier: SourceRepresentable(value: "A")))))))),
           ],
           output: AnyTypeExprID(ast.insert(NameTypeExpr(
             identifier: SourceRepresentable(value: "A")))),
@@ -1216,8 +1228,10 @@ final class TypeCheckerTests: XCTestCase {
           parameters: [
             ast.insert(ParameterDecl(
               identifier: SourceRepresentable(value: "x"),
-              annotation: AnyTypeExprID(ast.insert(NameTypeExpr(
-                identifier: SourceRepresentable(value: "A")))))),
+              annotation: ast.insert(ParameterTypeExpr(
+                convention: SourceRepresentable(value: .let),
+                bareType: AnyTypeExprID(ast.insert(NameTypeExpr(
+                  identifier: SourceRepresentable(value: "A")))))))),
           ],
           output: AnyTypeExprID(ast.insert(TupleTypeExpr())),
           body: SourceRepresentable(value: .bundle([

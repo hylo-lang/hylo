@@ -1418,11 +1418,7 @@ public struct TypeChecker {
   // MARK: Type realization
 
   /// Realizes and returns the type denoted by `expr` evaluated in `scope`.
-  mutating func realize(
-    _ expr: AnyTypeExprID,
-    inScope scope: AnyScopeID,
-    asParameter isParameterAnnotation: Bool = false
-  ) -> Type? {
+  mutating func realize(_ expr: AnyTypeExprID, inScope scope: AnyScopeID) -> Type? {
     switch expr.kind {
     case .conformanceLensTypeExpr:
       return realize(conformanceLens: NodeID(converting: expr)!, inScope: scope)
@@ -1432,13 +1428,9 @@ public struct TypeChecker {
 
     case .parameterTypeExpr:
       let id = NodeID<ParameterTypeExpr>(converting: expr)!
-      if isParameterAnnotation {
-        return realize(parameter: id, inScope: scope)
-      } else {
-        diagnostics.insert(.illegalParameterConvention(
-          ast[id].convention.value, range: ast[id].convention.range))
-        return nil
-      }
+      diagnostics.insert(.illegalParameterConvention(
+        ast[id].convention.value, range: ast[id].convention.range))
+      return nil
 
     case .tupleTypeExpr:
       return realize(tuple: NodeID(converting: expr)!, inScope: scope)
@@ -1761,7 +1753,7 @@ public struct TypeChecker {
       declRequests[i] = .typeCheckingStarted
 
       if let annotation = ast[i].annotation {
-        if let type = realize(annotation, inScope: declScope, asParameter: true) {
+        if let type = realize(parameter: annotation, inScope: declScope) {
           // The annotation may not omit generic arguments.
           if type[.hasVariable] {
             diagnostics.insert(.notEnoughContextToInferArguments(range: ast.ranges[annotation]))
