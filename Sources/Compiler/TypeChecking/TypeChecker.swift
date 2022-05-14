@@ -3,12 +3,6 @@ import Utils
 /// Val's type checker.
 public struct TypeChecker {
 
-  /// The AST containing the modules being type checked.
-  var ast: AST
-
-  /// The scope hierarchy of the AST.
-  var scopeHierarchy: ScopeHierarchy
-
   /// The diagnostics of the type errors.
   public internal(set) var diagnostics: Set<Diagnostic> = []
 
@@ -17,6 +11,15 @@ public struct TypeChecker {
 
   /// The type of each expression.
   public private(set) var exprTypes = ExprMap<Type>()
+
+  /// The AST containing the modules being type checked.
+  var ast: AST
+
+  /// The scope hierarchy of the AST.
+  var scopeHierarchy: ScopeHierarchy
+
+  /// The set of lambda expressions whose declarations are pending type checking.
+  var pendingLambdas: [NodeID<LambdaExpr>] = []
 
   /// Creates a new type checker for the specified AST.
   ///
@@ -212,17 +215,39 @@ public struct TypeChecker {
   /// A cache mapping generic declarations to their environment.
   private var environments = DeclMap<MemoizationState<GenericEnvironment?>>()
 
+  /// Processed all pending type checking requests and returns whether that succeeded.
+  public mutating func checkPending() -> Bool {
+    var success = true
+
+    while let id = pendingLambdas.popLast() {
+      if case .lambda(let declType) = exprTypes[id],
+         !declType.flags.contains(.hasError)
+      {
+        declTypes[ast[id].decl] = .lambda(declType)
+        success = check(fun: ast[id].decl) && success
+      } else {
+        success = false
+      }
+    }
+
+    return success
+  }
+
   /// Type checks the specified module and returns whether that succeeded.
   ///
-  /// - Requires: `i` is a valid ID in the type checker's AST.
-  public mutating func check(module i: NodeID<ModuleDecl>) -> Bool {
+  /// - Requires: `id` is a valid ID in the type checker's AST.
+  public mutating func check(module id: NodeID<ModuleDecl>) -> Bool {
     // Build the type of the module.
-    declTypes[i] = .module(ModuleType(decl: i, ast: ast))
+    declTypes[id] = .module(ModuleType(decl: id, ast: ast))
 
     // Type check the declarations in the module.
-    return ast[i].members.reduce(true, { (success, j) in
-      check(decl: j) && success
-    })
+    var success = true
+    for decl in ast[id].members {
+      success = check(decl: decl) && success
+    }
+
+    // Process pending requests.
+    return checkPending() && success
   }
 
   /// Type checks the specified declaration and returns whether that succeeded.

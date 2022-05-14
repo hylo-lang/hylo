@@ -310,7 +310,8 @@ struct ConstraintGenerator: ExprVisitor {
       return
     }
 
-    // TODO: Schedule the underlying declaration to be type-checked.
+    // Schedule the underlying declaration to be type-checked.
+    checker.pendingLambdas.append(id)
 
     // Exploit top-down information to refine the realized type or try to infer missing information
     // from the body of the lambda.
