@@ -132,9 +132,9 @@ struct ConstraintGenerator: ExprVisitor {
       for i in 0 ..< checker.ast[id].arguments.count {
         let argument = checker.ast[id].arguments[i].value
         let argumentType = Type.variable(TypeVariable(node: argument.value.base))
-        inferredTypes[argument.value] = argumentType
-
         let parameterType = calleeType.inputs[i].type
+
+        inferredTypes[argument.value] = argumentType
         constraints.append(LocatableConstraint(
           .parameter(l: argumentType, r: parameterType),
           node: argument.value.base,
@@ -243,7 +243,7 @@ struct ConstraintGenerator: ExprVisitor {
 
     // 4th case
     let output = expectedTypes[id] ?? .variable(TypeVariable(node: AnyNodeID(id)))
-    inferredTypes[id] = output
+    assume(typeOf: id, equals: output)
 
     var inputs: [CallableTypeParameter] = []
     for i in 0 ..< checker.ast[id].arguments.count {
@@ -287,17 +287,17 @@ struct ConstraintGenerator: ExprVisitor {
             constraints: [.conformance(l: .variable(tau), traits: [trait])],
             penalties: 1),
         ])))
-      inferredTypes[id] = .variable(tau)
+      assume(typeOf: id, equals: .variable(tau))
 
     case .some(let expectedType):
       // The type of has been fixed; constrain it to conform to `ExpressibleByIntegerLiteral`.
       constraints.append(LocatableConstraint(
         .conformance(l: expectedType, traits: [trait]), node: AnyNodeID(id)))
-      inferredTypes[id] = expectedType
+      assume(typeOf: id, equals: expectedType)
 
     case nil:
       // Without contextual information, infer the type of the literal as `Val.Int`.
-      inferredTypes[id] = .int(in: checker.ast)
+      assume(typeOf: id, equals: .int(in: checker.ast))
     }
   }
 
@@ -313,10 +313,8 @@ struct ConstraintGenerator: ExprVisitor {
     // Schedule the underlying declaration to be type-checked.
     checker.pendingLambdas.append(id)
 
-    // Exploit top-down information to refine the realized type or try to infer missing information
-    // from the body of the lambda.
     if case .lambda(let expectedType) = expectedTypes[id] {
-      // Check that the declaration defines the correct number of parameters.
+      // Check that the declaration defines the expected number of parameters.
       if declType.inputs.count != expectedType.inputs.count {
         diagnostics.append(.invalidClosureParameterCount(
           expected: expectedType.inputs.count,
@@ -326,7 +324,7 @@ struct ConstraintGenerator: ExprVisitor {
         return
       }
 
-      // Check that the declaration defines the correct argument labels.
+      // Check that the declaration defines the expected argument labels.
       if !declType.labels.elementsEqual(expectedType.labels) {
         diagnostics.append(.incompatibleLabels(
           found: Array(declType.labels),
@@ -335,15 +333,18 @@ struct ConstraintGenerator: ExprVisitor {
         assignToError(id)
         return
       }
-
-      constraints.append(LocatableConstraint(
-        .equalityOrSubtyping(l: .lambda(declType), r: .lambda(expectedType)),
-        node: AnyNodeID(id)))
     } else if case .variable = declType.output {
       if case .expr(let body) = checker.ast[checker.ast[id].decl].body?.value {
+        // Infer the return type of the lambda from its body.
+        inferredTypes[body] = declType.output
         expectedTypes[body] = declType.output
+
+        let currentScope = scope
+        scope = AnyScopeID(checker.ast[id].decl)
         body.accept(&self)
+        scope = currentScope
       } else {
+        // The system is underspecified.
         diagnostics.append(.cannotInferComplexReturnType(
           range: checker.ast[checker.ast[id].decl].body?.range))
         assignToError(id)
@@ -416,7 +417,7 @@ struct ConstraintGenerator: ExprVisitor {
 
       // Map the expression to a fresh variable unless we have top-down type information.
       let inferredType = expectedTypes[id] ?? .variable(TypeVariable(node: AnyNodeID(id)))
-      inferredTypes[id] = inferredType
+      assume(typeOf: id, equals: inferredType)
 
       // If we determined that the domain refers to a nominal type declaration, create a static
       // member constraint. Otherwise, create a non-static member constraint.
@@ -456,7 +457,7 @@ struct ConstraintGenerator: ExprVisitor {
 
     expectedTypes[root] = expectedTypes[id]
     root.accept(&self)
-    inferredTypes[id] = inferredTypes[root]
+    assume(typeOf: id, equals: inferredTypes[root]!)
   }
 
   mutating func visit(storedProjection i: NodeID<StoredProjectionExpr>) {

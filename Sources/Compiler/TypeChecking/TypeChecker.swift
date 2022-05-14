@@ -223,7 +223,14 @@ public struct TypeChecker {
       if case .lambda(let declType) = exprTypes[id],
          !declType.flags.contains(.hasError)
       {
+        // Reify the type of the underlying declaration.
         declTypes[ast[id].decl] = .lambda(declType)
+        let parameters = ast[ast[id].decl].parameters
+        for i in 0 ..< parameters.count {
+          declTypes[parameters[i]] = declType.inputs[i].type
+        }
+
+        // Type check the declaration.
         success = check(fun: ast[id].decl) && success
       } else {
         success = false
@@ -359,6 +366,14 @@ public struct TypeChecker {
     fatalError("not implemented")
   }
 
+  /// Type checks the specified function declaration and returns whether that succeeded.
+  ///
+  /// The type of the declaration must be realizable from type annotations alone or the declaration
+  /// the declaration must be realized and its inferred type must be stored in `declTyes`. Hence,
+  /// the method must not be called on the underlying declaration of a lambda or async expression
+  /// before the type of that declaration has been fully inferred.
+  ///
+  /// - SeeAlso: `checkPending`
   private mutating func check(fun id: NodeID<FunDecl>) -> Bool {
     _check(decl: id, { (this, id) in this._check(fun: id) })
   }
@@ -374,41 +389,46 @@ public struct TypeChecker {
     // Type check the generic constraints of the declaration.
     var success = environment(ofGenericDecl: id) != nil
 
-    // Make sure parameters have different names and type check their default values.
+    // Type check the parameters.
     var names: Set<String> = []
-    for j in decl.parameters {
-      let parameter = ast[j]
+    for parameterID in decl.parameters {
+      guard case .parameter(let parameterType) = declTypes[parameterID]! else { unreachable() }
+      let parameter = ast[parameterID]
 
+      // Check for duplicate parameter names.
       if !names.insert(parameter.name).inserted {
-        diagnostics.insert(.duplicateParameterName(parameter.name, range: ast.ranges[j]))
+        diagnostics.insert(.duplicateParameterName(parameter.name, range: ast.ranges[parameterID]))
+        declRequests[parameterID] = .failure
         success = false
         continue
       }
 
-      guard case .parameter(let parameterType) = declTypes[j]! else {
-        success = false
-        continue
+      // Type check the default value, if any.
+      if let defaultValue = parameter.defaultValue {
+        let defaultValueType = Type.variable(TypeVariable(node: defaultValue.base))
+        let constraints = [
+          LocatableConstraint(
+            .parameter(l: defaultValueType, r: .parameter(parameterType)),
+            node: AnyNodeID(parameterID),
+            cause: .callArgument)
+        ]
+
+        let solution = infer(
+          expr: defaultValue,
+          inferredType: defaultValueType,
+          expectedType: parameterType.bareType,
+          inScope: AnyScopeID(id),
+          constraints: constraints)
+
+        if !solution.diagnostics.isEmpty {
+          declRequests[parameterID] = .failure
+          success = false
+          continue
+        }
       }
 
-      guard let defaultValue = parameter.defaultValue else { continue }
-      let defaultValueType = Type.variable(TypeVariable(node: defaultValue.base))
-      let constraints = [
-        LocatableConstraint(
-          .parameter(l: defaultValueType, r: .parameter(parameterType)),
-          node: AnyNodeID(j),
-          cause: .callArgument)
-      ]
-
-      let solution = infer(
-        expr: defaultValue,
-        inferredType: defaultValueType,
-        expectedType: parameterType.bareType,
-        inScope: AnyScopeID(id),
-        constraints: constraints)
-
-      if !solution.diagnostics.isEmpty {
-        success = false
-      }
+      // The parameter is checked.
+      declRequests[parameterID] = .success
     }
 
     // Synthesize the receiver parameter if necessary.
@@ -1477,6 +1497,9 @@ public struct TypeChecker {
     case .conformanceLensTypeExpr:
       return realize(conformanceLens: NodeID(converting: expr)!, inScope: scope)
 
+    case .lambdaTypeExpr:
+      return realize(lambda: NodeID(converting: expr)!, inScope: scope)
+
     case .nameTypeExpr:
       return realize(name: NodeID(converting: expr)!, inScope: scope)
 
@@ -1559,6 +1582,36 @@ public struct TypeChecker {
     }
 
     return .conformanceLens(ConformanceLensType(wrapped: wrapped, focus: focus))
+  }
+
+  private mutating func realize(
+    lambda id: NodeID<LambdaTypeExpr>,
+    inScope scope: AnyScopeID
+  ) -> Type? {
+    // Realize the lambda's environment.
+    let environment: Type
+    if let env = ast[id].environment {
+      guard let ty = realize(env, inScope: scope) else { return nil }
+      environment = ty
+    } else {
+      environment = .any
+    }
+
+    // Realize the lambda's parameters.
+    var inputs: [CallableTypeParameter] = []
+    for parameter in ast[id].parameters {
+      guard let ty = realize(parameter: parameter.type, inScope: scope) else { return nil }
+      inputs.append(CallableTypeParameter(label: parameter.label, type: ty))
+    }
+
+    // Realize the lambda's output.
+    guard let output = realize(ast[id].output, inScope: scope) else { return nil }
+
+    return .lambda(LambdaType(
+      operatorProperty: ast[id].operatorProperty?.value,
+      environment: environment,
+      inputs: inputs,
+      output: output))
   }
 
   private mutating func realize(
@@ -1823,8 +1876,10 @@ public struct TypeChecker {
           success = false
         }
       } else if decl.isInExprContext {
-        declTypes[i] = .variable(TypeVariable(node: AnyNodeID(i)))
+        let parameterType = Type.variable(TypeVariable(node: AnyNodeID(i)))
+        declTypes[i] = parameterType
         declRequests[i] = .typeRealizationCompleted
+        inputs.append(CallableTypeParameter(label: ast[i].label?.value, type: parameterType))
       } else {
         declTypes[i] = nil
         declRequests[i] = .failure
