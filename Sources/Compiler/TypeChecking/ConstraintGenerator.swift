@@ -11,6 +11,9 @@ struct ConstraintGenerator: ExprVisitor {
   /// The scope in which the AST is visited.
   var scope: AnyScopeID
 
+  /// A table mapping expressions to their expected types.
+  var expectedTypes = ExprMap<Type>()
+
   /// A table mapping visited expressions to their inferred types.
   var inferredTypes = ExprMap<Type>()
 
@@ -24,16 +27,23 @@ struct ConstraintGenerator: ExprVisitor {
   var diagnostics: [Diagnostic] = []
 
   mutating func visit(assign id: NodeID<AssignExpr>) {
+    // Infer the type on the left.
     let lhs = checker.ast[id].left
-    let rhs = checker.ast[id].right
     lhs.accept(&self)
-    rhs.accept(&self)
 
+    // Constrain the right to be subtype of the left.
+    let rhs = checker.ast[id].right
+    inferredTypes[rhs] = .variable(TypeVariable(node: rhs.base))
     constraints.append(LocatableConstraint(
-      .equalityOrSubtyping(l: inferredTypes[lhs]!, r: inferredTypes[rhs]!),
+      .equalityOrSubtyping(l: inferredTypes[rhs]!, r: inferredTypes[lhs]!),
       node: AnyNodeID(id),
       cause: .assignment))
 
+    // Infer the type on the right.
+    expectedTypes[rhs] = inferredTypes[lhs]
+    rhs.accept(&self)
+
+    // Assignments have the unit type.
     assume(typeOf: id, equals: .unit)
   }
 
@@ -72,7 +82,12 @@ struct ConstraintGenerator: ExprVisitor {
 
     case .up:
       // The type of the left operand must be statically known to subtype of the right operand.
-      inferredTypes[checker.ast[id].left] = target
+      let lhs = checker.ast[id].left
+      inferredTypes[lhs] = .variable(TypeVariable(node: lhs.base))
+      constraints.append(LocatableConstraint(
+        .equalityOrSubtyping(l: inferredTypes[lhs]!, r: target),
+        node: AnyNodeID(id),
+        cause: .assignment))
     }
 
     // Visit the left operand.
@@ -117,14 +132,17 @@ struct ConstraintGenerator: ExprVisitor {
       for i in 0 ..< checker.ast[id].arguments.count {
         let argument = checker.ast[id].arguments[i].value
         let argumentType = Type.variable(TypeVariable(node: argument.value.base))
-        let parameterType = calleeType.inputs[i].type
-
         inferredTypes[argument.value] = argumentType
+
+        let parameterType = calleeType.inputs[i].type
         constraints.append(LocatableConstraint(
           .parameter(l: argumentType, r: parameterType),
           node: argument.value.base,
           cause: .callArgument))
 
+        if case .parameter(let type) = parameterType {
+          expectedTypes[argument.value] = type.bareType
+        }
         argument.value.accept(&self)
       }
 
@@ -224,28 +242,23 @@ struct ConstraintGenerator: ExprVisitor {
     }
 
     // 4th case
-    let output: Type
-    if let expectedType = inferredTypes[id] {
-      output = expectedType
-    } else {
-      output = .variable(TypeVariable(node: AnyNodeID(id)))
-      inferredTypes[id] = output
-    }
+    let output = expectedTypes[id] ?? .variable(TypeVariable(node: AnyNodeID(id)))
+    inferredTypes[id] = output
 
     var inputs: [CallableTypeParameter] = []
     for i in 0 ..< checker.ast[id].arguments.count {
+      // Infer the type of the argument bottom-up.
       checker.ast[id].arguments[i].value.value.accept(&self)
-      let argumentValue = checker.ast[id].arguments[i].value.value
+
+      let argument = checker.ast[id].arguments[i].value
+      let parameterType = Type.variable(TypeVariable())
+      constraints.append(LocatableConstraint(
+        .parameter(l: inferredTypes[argument.value]!, r: parameterType),
+        node: argument.value.base,
+        cause: .callArgument))
 
       let argumentLabel = checker.ast[id].arguments[i].value.label?.value
-      let argumentType = inferredTypes[argumentValue]!
-      let parameterType = Type.variable(TypeVariable())
-
       inputs.append(CallableTypeParameter(label: argumentLabel, type: parameterType))
-      constraints.append(LocatableConstraint(
-        .parameter(l: argumentType, r: parameterType),
-        node: argumentValue.base,
-        cause: .callArgument))
     }
 
     // Constrain the type of the callee.
@@ -256,10 +269,12 @@ struct ConstraintGenerator: ExprVisitor {
   }
 
   mutating func visit(integerLiteral id: NodeID<IntegerLiteralExpr>) {
+    defer { assert(inferredTypes[id] != nil) }
+
     let trait = TraitType(named: "ExpressibleByIntegerLiteral", ast: checker.ast)
       ?? unreachable()
 
-    switch inferredTypes[id] {
+    switch expectedTypes[id] {
     case .some(.variable(let tau)):
       // The type of the expression is a variable, possibly constrained elsewhere; constrain it to
       // either be `Int` or conform to `ExpressibleByIntegerLiteral`.
@@ -272,11 +287,13 @@ struct ConstraintGenerator: ExprVisitor {
             constraints: [.conformance(l: .variable(tau), traits: [trait])],
             penalties: 1),
         ])))
+      inferredTypes[id] = .variable(tau)
 
     case .some(let expectedType):
       // The type of has been fixed; constrain it to conform to `ExpressibleByIntegerLiteral`.
       constraints.append(LocatableConstraint(
         .conformance(l: expectedType, traits: [trait]), node: AnyNodeID(id)))
+      inferredTypes[id] = expectedType
 
     case nil:
       // Without contextual information, infer the type of the literal as `Val.Int`.
@@ -285,6 +302,8 @@ struct ConstraintGenerator: ExprVisitor {
   }
 
   mutating func visit(lambda id: NodeID<LambdaExpr>) {
+    defer { assert(inferredTypes[id] != nil) }
+
     // Realize the type of the underlying declaration.
     guard case .lambda(let declType) = checker.realize(funDecl: checker.ast[id].decl) else {
       assignToError(id)
@@ -295,7 +314,7 @@ struct ConstraintGenerator: ExprVisitor {
 
     // Exploit top-down information to refine the realized type or try to infer missing information
     // from the body of the lambda.
-    if case .lambda(let expectedType) = inferredTypes[id] {
+    if case .lambda(let expectedType) = expectedTypes[id] {
       // Check that the declaration defines the correct number of parameters.
       if declType.inputs.count != expectedType.inputs.count {
         diagnostics.append(.invalidClosureParameterCount(
@@ -321,7 +340,7 @@ struct ConstraintGenerator: ExprVisitor {
         node: AnyNodeID(id)))
     } else if case .variable = declType.output {
       if case .expr(let body) = checker.ast[checker.ast[id].decl].body?.value {
-        inferredTypes[body] = declType.output
+        expectedTypes[body] = declType.output
         body.accept(&self)
       } else {
         diagnostics.append(.cannotInferComplexReturnType(
@@ -395,13 +414,8 @@ struct ConstraintGenerator: ExprVisitor {
       }
 
       // Map the expression to a fresh variable unless we have top-down type information.
-      let inferredType: Type
-      if let expectedType = inferredTypes[id] {
-        inferredType = expectedType
-      } else {
-        inferredType = .variable(TypeVariable(node: AnyNodeID(id)))
-        inferredTypes[id] = inferredType
-      }
+      let inferredType = expectedTypes[id] ?? .variable(TypeVariable(node: AnyNodeID(id)))
+      inferredTypes[id] = inferredType
 
       // If we determined that the domain refers to a nominal type declaration, create a static
       // member constraint. Otherwise, create a non-static member constraint.
@@ -439,7 +453,7 @@ struct ConstraintGenerator: ExprVisitor {
       root = r
     }
 
-    inferredTypes[root] = inferredTypes[id]
+    expectedTypes[root] = expectedTypes[id]
     root.accept(&self)
     inferredTypes[id] = inferredTypes[root]
   }
@@ -457,38 +471,37 @@ struct ConstraintGenerator: ExprVisitor {
   }
 
   mutating func visit(tuple id: NodeID<TupleExpr>) {
+    defer { assert(inferredTypes[id] != nil) }
+
     var expr = checker.ast[id]
 
     // If the expected type is a tuple compatible with the shape of the expression, propagate that
     // information down the expression tree. Otherwise, infer the type of the expression from the
     // leaves and use type constraints to detect potential mismatch.
-    if case .tuple(let type) = inferredTypes[id],
+    var elements: [TupleType.Element] = []
+    if case .tuple(let type) = expectedTypes[id],
        type.elements.elementsEqual(expr.elements, by: { (a, b) in a.label == b.value.label })
     {
       for i in 0 ..< expr.elements.count {
         modifying(&expr.elements[i].value, { element in
-          inferredTypes[element.value] = type.elements[i].type
+          expectedTypes[element.value] = type.elements[i].type
           element.value.accept(&self)
-        })
-      }
-    } else {
-      // Infer the type of the expression.
-      var elements: [TupleType.Element] = []
-      for i in 0 ..< expr.elements.count {
-        modifying(&expr.elements[i].value, { element in
-          inferredTypes[element.value] = nil
-          element.value.accept(&self)
-
           elements.append(TupleType.Element(
             label: element.label,
             type: inferredTypes[element.value]!))
         })
       }
-      assume(typeOf: id, equals: .tuple(TupleType(elements)))
+    } else {
+      for i in 0 ..< expr.elements.count {
+        modifying(&expr.elements[i].value, { element in
+          element.value.accept(&self)
+          elements.append(TupleType.Element(
+            label: element.label,
+            type: inferredTypes[element.value]!))
+        })
+      }
     }
-
-    assert(inferredTypes[id] != nil)
-    checker.ast[id] = expr
+    assume(typeOf: id, equals: .tuple(TupleType(elements)))
   }
 
   /// Returns the declarations to which the specified name may refer along with their overarching
@@ -524,28 +537,19 @@ struct ConstraintGenerator: ExprVisitor {
   }
 
   private mutating func assume<T: ExprID>(typeOf id: T, equals inferredType: Type) {
-    if let expectedType = inferredTypes[id] {
-      // Create a subtying constraint if the expected type might be above the inferred type.
-      // Otherwise, create an equality constraint.
-      let constraint: Constraint
-      switch inferredType {
-      case .never,
-           .variable,
-           _ where !expectedType.isLeaf:
-        constraint = .equalityOrSubtyping(l: inferredType, r: expectedType)
-      default:
-        constraint = .equality(l: inferredType, r: expectedType)
+    if let ty = inferredTypes[id] {
+      if ty != inferredType {
+        constraints.append(LocatableConstraint(
+          .equality(l: inferredType, r: ty),
+          node: AnyNodeID(id)))
       }
-      constraints.append(LocatableConstraint(constraint, node: AnyNodeID(id)))
     } else {
       inferredTypes[id] = inferredType
     }
   }
 
   private mutating func assignToError<T: ExprID>(_ id: T) {
-    if inferredTypes[id] == nil {
-      inferredTypes[id] = .error(ErrorType())
-    }
+    inferredTypes[id] = .error(ErrorType())
   }
 
 }

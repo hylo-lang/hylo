@@ -287,11 +287,19 @@ public struct TypeChecker {
     var success = true
     if let initializer = ast[id].initializer {
       // The type of the initializer may be a subtype of the pattern's.
+      let initializerType = Type.variable(TypeVariable(node: initializer.base))
+      shape.constraints.append(LocatableConstraint(
+        .equalityOrSubtyping(l: initializerType, r: shape.type),
+        node: AnyNodeID(id),
+        cause: .initialization))
+
+      // Infer the type of the initializer
       let solution = infer(
         expr: initializer,
+        inferredType: initializerType,
         expectedType: shape.type,
         inScope: scope,
-        constraints: &shape.constraints)
+        constraints: shape.constraints)
 
       // TODO: Complete underspecified generic signatures
 
@@ -352,9 +360,28 @@ public struct TypeChecker {
         continue
       }
 
+      guard case .parameter(let parameterType) = declTypes[j]! else {
+        success = false
+        continue
+      }
+
       guard let defaultValue = parameter.defaultValue else { continue }
-      let type = declTypes[j]!!
-      if infer(expr: defaultValue, expectedType: type, inScope: AnyScopeID(id)) == nil {
+      let defaultValueType = Type.variable(TypeVariable(node: defaultValue.base))
+      let constraints = [
+        LocatableConstraint(
+          .parameter(l: defaultValueType, r: .parameter(parameterType)),
+          node: AnyNodeID(j),
+          cause: .callArgument)
+      ]
+
+      let solution = infer(
+        expr: defaultValue,
+        inferredType: defaultValueType,
+        expectedType: parameterType.bareType,
+        inScope: AnyScopeID(id),
+        constraints: constraints)
+
+      if !solution.diagnostics.isEmpty {
         success = false
       }
     }
@@ -951,12 +978,12 @@ public struct TypeChecker {
     expectedType: Type? = nil,
     inScope scope: S
   ) -> Type? {
-    var constraints: [LocatableConstraint] = []
     let solution = infer(
       expr: expr,
+      inferredType: nil,
       expectedType: expectedType,
       inScope: AnyScopeID(scope),
-      constraints: &constraints)
+      constraints: [])
 
     if solution.diagnostics.isEmpty {
       return exprTypes[expr]!
@@ -968,15 +995,17 @@ public struct TypeChecker {
   /// Infers the type of `expr` and returns the best solution found by the constraint solver.
   mutating func infer(
     expr: AnyExprID,
+    inferredType: Type?,
     expectedType: Type?,
     inScope scope: AnyScopeID,
-    constraints: inout [LocatableConstraint]
+    constraints: [LocatableConstraint]
   ) -> Solution {
-    exprTypes[expr] = expectedType
+    var constraints = constraints
 
     // Generate constraints.
     var generator = ConstraintGenerator(checker: self, scope: scope)
-    generator.inferredTypes[expr] = expectedType
+    generator.inferredTypes[expr] = inferredType
+    generator.expectedTypes[expr] = expectedType
     expr.accept(&generator)
     constraints.append(contentsOf: generator.constraints)
 
