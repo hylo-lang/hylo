@@ -1577,4 +1577,41 @@ final class TypeCheckerTests: XCTestCase {
     XCTAssertEqual(checker.diagnostics.count, 1)
   }
 
+  func testReturnStmt() {
+
+    // fun forty_two() -> Int { return 42 } // OK
+    // fun forty_one() -> Int { return }    // error
+
+    var ast = AST()
+    insertStandardLibraryMockup(into: &ast)
+    let main = ast.insert(ModuleDecl(name: "main"))
+
+    ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
+      introducer: SourceRepresentable(value: .fun),
+      identifier: SourceRepresentable(value: "forty_two"),
+      output: AnyTypeExprID(ast.insert(NameTypeExpr(
+        identifier: SourceRepresentable(value: "Int")))),
+      body: SourceRepresentable(
+        value: .block(ast.insert(BraceStmt(
+          stmts: [
+            AnyStmtID(ast.insert(ReturnStmt(
+              value: AnyExprID(ast.insert(IntegerLiteralExpr(value: "42")))))),
+          ]))))))))
+
+    ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
+      introducer: SourceRepresentable(value: .fun),
+      identifier: SourceRepresentable(value: "forty_one"),
+      output: AnyTypeExprID(ast.insert(NameTypeExpr(
+        identifier: SourceRepresentable(value: "Int")))),
+      body: SourceRepresentable(
+        value: .block(ast.insert(BraceStmt(
+          stmts: [
+            AnyStmtID(ast.insert(ReturnStmt())),
+          ]))))))))
+
+    var checker = TypeChecker(ast: ast)
+    XCTAssertFalse(checker.check(module: main))
+    XCTAssertEqual(checker.diagnostics.count, 1)
+  }
+
 }
