@@ -467,6 +467,25 @@ final class TypeCheckerTests: XCTestCase {
     XCTAssertTrue(checker.check(module: main))
   }
 
+  func testMissingBindingAnnotation() {
+
+    // let x // error
+
+    var ast = AST()
+    let main = ast.insert(ModuleDecl(name: "main"))
+
+    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+      pattern: ast.insert(BindingPattern(
+        introducer: SourceRepresentable(value: .let),
+        subpattern: AnyPatternID(ast.insert(NamePattern(
+          decl: ast.insert(VarDecl(
+            identifier: SourceRepresentable(value: "x"))))))))))))
+
+    var checker = TypeChecker(ast: ast)
+    XCTAssertFalse(checker.check(module: main))
+    XCTAssertEqual(checker.diagnostics.count, 1)
+  }
+
   func testTrivialFunction() {
 
     // fun f0() {}
