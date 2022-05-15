@@ -199,7 +199,7 @@ struct ConstraintSolver {
       }
 
     default:
-      fatalError("not implemented")
+      diagnostics.append(.incompatibleTypes(l, r, range: range(of: location)))
     }
   }
 
@@ -214,11 +214,36 @@ struct ConstraintSolver {
     if l == r { return }
 
     switch (l, r) {
-    case (.tuple, .tuple):
-      diagnostics.append(.notSubtype(l, of: r, range: range(of: location)))
+    case (_, .variable):
+      // The type variable is above a more concrete type. We should compute the "join" of all types
+      // to which `L` is coercible and that are below `R`, but that set is unbounded. We have no
+      // choice to postpone the constraint.
+      postpone(LocatableConstraint(.subtyping(l: l, r: r), location: location))
+
+    case (.variable, _):
+      // The type variable is below a more concrete type. We should compute the "meet" of all types
+      // coercible to `R` and that are above `L`, but that set is unbounded unless `R` is a leaf.
+      // If it isn't, we have no choice but to postpone the constraint.
+      if r.isLeaf {
+        solve(l, equalsTo: r, location: location)
+      } else {
+        postpone(LocatableConstraint(.subtyping(l: l, r: r), location: location))
+      }
+
+    case (_, .existential):
+      // All types conform to any.
+      if r == .any { return }
+
+      fatalError("not implemented")
+
+    case (_, .lambda):
+      fatalError("not implemented")
+
+    case (_, .union):
+      fatalError("not implemented")
 
     default:
-      fatalError("not implemented")
+      diagnostics.append(.notSubtype(l, of: r, range: range(of: location)))
     }
   }
 
@@ -241,11 +266,7 @@ struct ConstraintSolver {
       // Either `L` is equal to the bare type of `R`, or it's a. Note: the equality requirement for
       // arguments passed mutably is verified after type inference.
       fresh.append(LocatableConstraint(
-        .disjunction([
-          Constraint.Minterm(constraints: [.equality(l: l, r: p.bareType)], penalties: 0),
-          Constraint.Minterm(constraints: [.subtyping(l: l, r: p.bareType)], penalties: 1),
-        ]),
-        location: location))
+        .equalityOrSubtyping(l: l, r: p.bareType), location: location))
 
     default:
       diagnostics.append(.invalidParameterType(r, range: range(of: location)))
@@ -291,7 +312,7 @@ struct ConstraintSolver {
     }
   }
 
-  private mutating func solve(disjunction: LocatableConstraint) -> Solution {
+  private mutating func solve(disjunction: LocatableConstraint) -> Solution? {
     guard case .disjunction(let minterms) = disjunction.constraint else { unreachable() }
 
     var solutions: [Solution] = []
@@ -309,7 +330,7 @@ struct ConstraintSolver {
       }
 
       guard let solution = subsolver.solve() else { continue }
-      if solution.score < best {
+      if solutions.isEmpty || (solution.score < best) {
         best = solution.score
         solutions = [solution]
       } else if solution.score == best {
@@ -318,10 +339,14 @@ struct ConstraintSolver {
       }
     }
 
-    assert(!solutions.isEmpty)
-    if solutions.count == 1 {
+    switch solutions.count {
+    case 0:
+      return nil
+
+    case 1:
       return solutions[0]
-    } else {
+
+    default:
       // TODO: Merge remaining solutions
       var s = solutions[0]
       s.diagnostics.append(.ambiguousDisjunction(range: range(of: disjunction.location)))

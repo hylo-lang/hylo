@@ -86,10 +86,10 @@ public struct LambdaType: TypeProtocol, Hashable {
   public func ctor() -> LambdaType? {
     guard (operatorProperty == nil) && (environment == .unit) && (output == .unit),
           let receiverParameter = inputs.first,
-          case .projection(let receiver) = receiverParameter.type,
-          receiver.capability == .set
+          case .parameter(let receiverType) = receiverParameter.type,
+          receiverType.convention == .set
     else { return nil }
-    return LambdaType(inputs: Array(inputs[1...]), output: receiver.base)
+    return LambdaType(inputs: Array(inputs[1...]), output: receiverType.bareType)
   }
 
 }

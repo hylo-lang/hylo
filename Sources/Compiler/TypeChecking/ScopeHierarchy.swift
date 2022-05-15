@@ -27,6 +27,9 @@ struct ScopeHierarchy {
   /// A table mapping lexical scopes to the declarations directly contained in them.
   private(set) var containees = NodeMap<[AnyDeclID]>()
 
+  /// A table mapping a variable declaration its containing binding declaration.
+  var varToBinding: [NodeID<VarDecl>: NodeID<BindingDecl>] = [:]
+
   /// Inserts `decl` into `scope`.
   mutating func insert<T: DeclID>(decl: T, into scope: AnyScopeID) {
     let child = AnyDeclID(decl)
@@ -63,7 +66,7 @@ struct ScopeHierarchy {
       if ancestor.rawValue == current.rawValue {
         return true
       } else if let p = parent[current] {
-        current = AnyNodeID(p)
+        current = p.base
       } else {
         return false
       }

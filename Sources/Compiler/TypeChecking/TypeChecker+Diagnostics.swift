@@ -40,11 +40,12 @@ extension Diagnostic {
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }
 
-  static func cannotInferComplexReturnType(location: SourceLocation?) -> Diagnostic {
+  static func cannotInferComplexReturnType(range: SourceRange?) -> Diagnostic {
     return Diagnostic(
       level: .error,
       message: "cannot infer complex return type; add an explicit return type annotation",
-      location: location)
+      location: range?.first(),
+      window: range.map({ r in Diagnostic.Window(range: r) }))
   }
 
   static func conformanceToNonTraitType(_ type: Type, range: SourceRange?) -> Diagnostic {
@@ -128,6 +129,18 @@ extension Diagnostic {
         associated type '\(name)' can only be used referred to as a member of a generic type \
         parameter, a conformance lens, or another associated type
         """,
+      location: range?.first(),
+      window: range.map({ r in Diagnostic.Window(range: r) }))
+  }
+
+  static func invalidClosureParameterCount(
+    expected: Int,
+    found: Int,
+    range: SourceRange?
+  ) -> Diagnostic {
+    Diagnostic(
+      level: .error,
+      message: "contextual closure type requires \(expected) argument(s), found \(found)",
       location: range?.first(),
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }
@@ -269,6 +282,14 @@ extension Diagnostic {
     Diagnostic(
       level: .error,
       message: "undefined name '\(name)' in this scope",
+      location: range?.first(),
+      window: range.map({ r in Diagnostic.Window(range: r) }))
+  }
+
+  static func unusedResult(ofType type: Type, range: SourceRange?) -> Diagnostic {
+    Diagnostic(
+      level: .warning,
+      message: "unused result of type '\(type)'",
       location: range?.first(),
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }

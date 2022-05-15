@@ -24,10 +24,12 @@ func insertStandardLibraryMockup(into ast: inout AST) -> NodeID<ModuleDecl> {
         parameters: [
           ast.insert(ParameterDecl(
             identifier: SourceRepresentable(value: "integer_literal"),
-            annotation: AnyTypeExprID(ast.insert(NameTypeExpr(
-              domain: AnyTypeExprID(ast.insert(NameTypeExpr(
-                identifier: SourceRepresentable(value: "Builtin")))),
-              identifier: SourceRepresentable(value: "IntegerLiteral")))))),
+            annotation: ast.insert(ParameterTypeExpr(
+              convention: SourceRepresentable(value: .let),
+              bareType: AnyTypeExprID(ast.insert(NameTypeExpr(
+                domain: AnyTypeExprID(ast.insert(NameTypeExpr(
+                  identifier: SourceRepresentable(value: "Builtin")))),
+                identifier: SourceRepresentable(value: "IntegerLiteral")))))))),
         ])))
     ]
   ))))
@@ -47,10 +49,12 @@ func insertStandardLibraryMockup(into ast: inout AST) -> NodeID<ModuleDecl> {
         parameters: [
           ast.insert(ParameterDecl(
             identifier: SourceRepresentable(value: "integer_literal"),
-            annotation: AnyTypeExprID(ast.insert(NameTypeExpr(
-              domain: AnyTypeExprID(ast.insert(NameTypeExpr(
-                identifier: SourceRepresentable(value: "Builtin")))),
-              identifier: SourceRepresentable(value: "IntegerLiteral")))))),
+            annotation: ast.insert(ParameterTypeExpr(
+              convention: SourceRepresentable(value: .let),
+              bareType: AnyTypeExprID(ast.insert(NameTypeExpr(
+                domain: AnyTypeExprID(ast.insert(NameTypeExpr(
+                  identifier: SourceRepresentable(value: "Builtin")))),
+                identifier: SourceRepresentable(value: "IntegerLiteral")))))))),
         ],
         body: SourceRepresentable(value: .expr(
           AnyExprID(ast.insert(FunCallExpr(
@@ -86,10 +90,12 @@ func insertStandardLibraryMockup(into ast: inout AST) -> NodeID<ModuleDecl> {
         parameters: [
           ast.insert(ParameterDecl(
             identifier: SourceRepresentable(value: "integer_literal"),
-            annotation: AnyTypeExprID(ast.insert(NameTypeExpr(
-              domain: AnyTypeExprID(ast.insert(NameTypeExpr(
-                identifier: SourceRepresentable(value: "Builtin")))),
-              identifier: SourceRepresentable(value: "IntegerLiteral")))))),
+            annotation: ast.insert(ParameterTypeExpr(
+              convention: SourceRepresentable(value: .let),
+              bareType: AnyTypeExprID(ast.insert(NameTypeExpr(
+                domain: AnyTypeExprID(ast.insert(NameTypeExpr(
+                  identifier: SourceRepresentable(value: "Builtin")))),
+                identifier: SourceRepresentable(value: "IntegerLiteral")))))))),
         ],
         body: SourceRepresentable(value: .expr(
           AnyExprID(ast.insert(FunCallExpr(

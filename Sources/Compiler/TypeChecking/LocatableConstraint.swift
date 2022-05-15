@@ -17,9 +17,17 @@ struct LocatableConstraint {
 
     case annotation
 
+    case assignment
+
     case callArgument
 
+    case cast
+
+    case initialization
+
     case member
+
+    case `return`
 
   }
 

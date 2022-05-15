@@ -14,6 +14,20 @@ public enum Constraint: Hashable {
 
   }
 
+  /// A candidate in an overload constraint.
+  public struct OverloadCandidate: Hashable {
+
+    /// The declaration of the candidate.
+    public var decl: AnyDeclID
+
+    /// The contextualized type of the declaration.
+    public var type: Type
+
+    /// The set of constraints associated with the candidate.
+    public var constraints: [Constraint]
+
+  }
+
   /// A constraint `L == R` specifying that `L` is exactly the same type as `R`.
   ///
   /// - Note: This constraint is commutative.
@@ -43,6 +57,18 @@ public enum Constraint: Hashable {
   /// Each set is associated with a penalty to represent the preferred alternatives.
   case disjunction([Minterm])
 
+  /// A constraint specifying that a name expression refers to one of several declarations,
+  /// depending on its type.
+  case overload(n: NodeID<NameExpr>, l: Type, candidates: [OverloadCandidate])
+
+  /// Creates a subtyping or equality constraint.
+  public static func equalityOrSubtyping(l: Type, r: Type) -> Constraint {
+    .disjunction([
+      Constraint.Minterm(constraints: [.equality(l: l, r: r)], penalties: 0),
+      Constraint.Minterm(constraints: [.subtyping(l: l, r: r)], penalties: 1),
+    ])
+  }
+
   /// Returns whether the constraint depends on the specified variable.
   public func depends(on variable: TypeVariable) -> Bool {
     let v = Type.variable(variable)
@@ -64,6 +90,8 @@ public enum Constraint: Hashable {
       return minterms.contains(where: { m in
         m.constraints.contains(where: { c in c.depends(on: variable) })
       })
+    case .overload(_, let l, _):
+      return v == l
     }
   }
 
@@ -101,9 +129,21 @@ public enum Constraint: Hashable {
       return true
 
     case .disjunction(var minterms):
+      defer { self = .disjunction(minterms) }
       for i in 0 ..< minterms.count {
         for j in 0 ..< minterms[i].constraints.count {
           if !minterms[i].constraints[j].modifyTypes(modify) { return false }
+        }
+      }
+      return true
+
+    case .overload(let n, var l, var candidates):
+      defer { self = .overload(n: n, l: l, candidates: candidates) }
+      if !modify(&l) { return false }
+      for i in 0 ..< candidates.count {
+        for j in 0 ..< candidates[i].constraints.count {
+          if !modify(&candidates[i].type) { return false }
+          if !candidates[i].constraints[j].modifyTypes(modify) { return false }
         }
       }
       return true
@@ -144,6 +184,16 @@ extension Constraint: CustomStringConvertible {
           return "{\(cs)}:\(minterm.penalties)"
         }),
         separator: " ∨ ")
+
+    case .overload(let n, let l, let candidates):
+      let candidates = String.joining(
+        candidates.map({ (c) -> String in
+          let cs = String.joining(c.constraints, separator: " ∧ ")
+          return "(\(c.decl.kind)[\(c.decl.rawValue)]+{\(cs)}"
+        }),
+        separator: ", ")
+
+      return "NameExpr[\(n.rawValue)]:\(l) ∈ {\(candidates)}"
     }
   }
 

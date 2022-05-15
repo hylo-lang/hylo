@@ -4,6 +4,8 @@ public protocol ExprVisitor {
   /// The return type of the visitation methods.
   associatedtype Result
 
+  mutating func visit(assign: NodeID<AssignExpr>) -> Result
+
   mutating func visit(async: NodeID<AsyncExpr>) -> Result
 
   mutating func visit(await: NodeID<AwaitExpr>) -> Result
@@ -13,6 +15,8 @@ public protocol ExprVisitor {
   mutating func visit(bufferLiteral: NodeID<BufferLiteralExpr>) -> Result
 
   mutating func visit(charLiteral: NodeID<CharLiteralExpr>) -> Result
+
+  mutating func visit(cast: NodeID<CastExpr>) -> Result
 
   mutating func visit(cond: NodeID<CondExpr>) -> Result
 
@@ -34,6 +38,8 @@ public protocol ExprVisitor {
 
   mutating func visit(nil: NodeID<NilExpr>) -> Result
 
+  mutating func visit(sequence: NodeID<SequenceExpr>) -> Result
+
   mutating func visit(storedProjection: NodeID<StoredProjectionExpr>) -> Result
 
   mutating func visit(stringLiteral: NodeID<StringLiteralExpr>) -> Result
@@ -41,7 +47,5 @@ public protocol ExprVisitor {
   mutating func visit(subscriptCall: NodeID<SubscriptCallExpr>) -> Result
 
   mutating func visit(tuple: NodeID<TupleExpr>) -> Result
-
-  mutating func visit(unfolded: NodeID<UnfoldedExpr>) -> Result
 
 }
