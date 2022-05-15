@@ -506,20 +506,23 @@ struct ConstraintGenerator: ExprVisitor {
     assume(typeOf: id, equals: .tuple(TupleType(elements)))
   }
 
-  /// Returns the declarations to which the specified name may refer along with their overarching
-  /// type before contextualization. Ill-formed declarations are ignored.
+  /// Returns the well-formed declarations to which the specified name may refer, along with their
+  /// overarching uncontextualized types. Ill-formed declarations are ignored.
   private mutating func resolve(
     stem: Identifier,
     labels: [String?],
     notation: OperatorNotation?,
-    inDeclSpaceOf s: AnyScopeID? = nil
+    inDeclSpaceOf lookupContext: AnyScopeID? = nil
   ) -> [(decl: AnyDeclID, type: Type)] {
     // Search for the referred declaration.
-    let matches: TypeChecker.DeclSet
-    if let s = s {
-      matches = checker.lookup(stem, introducedInDeclSpaceOf: s, inScope: scope)
+    var matches: TypeChecker.DeclSet
+    if let ctx = lookupContext {
+      matches = checker.lookup(stem, introducedInDeclSpaceOf: ctx, inScope: scope)
     } else {
       matches = checker.lookup(unqualified: stem, inScope: scope)
+      if !matches.isEmpty && matches.isSubset(of: checker.bindingsUnderChecking) {
+        matches = checker.lookup(unqualified: stem, inScope: checker.scopeHierarchy.parent[scope]!)
+      }
     }
 
     // TODO: Filter by labels and operator notation

@@ -215,6 +215,9 @@ public struct TypeChecker {
   /// A cache mapping generic declarations to their environment.
   private var environments = DeclMap<MemoizationState<GenericEnvironment?>>()
 
+  /// The bindings whose initializers are being currently visited.
+  private(set) var bindingsUnderChecking: DeclSet = []
+
   /// Processed all pending type checking requests and returns whether that succeeded.
   public mutating func checkPending() -> Bool {
     var success = true
@@ -326,12 +329,15 @@ public struct TypeChecker {
         cause: .initialization))
 
       // Infer the type of the initializer
+      let names = ast[id].pattern.names(ast: ast).map({ AnyDeclID(ast[$0].decl) })
+      bindingsUnderChecking.formUnion(names)
       let solution = infer(
         expr: initializer,
         inferredType: initializerType,
         expectedType: shape.type,
         inScope: scope,
         constraints: shape.constraints)
+      bindingsUnderChecking.subtract(names)
 
       // TODO: Complete underspecified generic signatures
 
@@ -340,14 +346,17 @@ public struct TypeChecker {
 
       // Assign the variable declarations in the pattern to their type
       for decl in shape.decls {
-        declTypes[decl] = solution.reify(declTypes[decl]!!, withVariables: .substituteByError)
+        declTypes[decl] = solution.reify(declTypes[decl]!, withVariables: .substituteByError)
         declRequests[decl] = success ? .success : .failure
       }
+    } else if ast[ast[id].pattern].annotation == nil {
+      let pattern = ast[ast[id].pattern]
+      diagnostics.insert(.missingTypeAnnotation(range: ast.ranges[pattern.subpattern]))
+      success = false
     }
 
-    assert(!shape.type[.hasVariable])
-
     if success {
+      assert(!shape.type[.hasVariable])
       declTypes[id] = shape.type
       declRequests[id] = .success
       return true
