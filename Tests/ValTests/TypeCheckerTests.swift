@@ -593,6 +593,27 @@ final class TypeCheckerTests: XCTestCase {
     XCTAssertTrue(checker.check(module: main))
   }
 
+  func testBraceBodyFunction() {
+
+    // fun no_op() { return }               // OK
+
+    var ast = AST()
+    insertStandardLibraryMockup(into: &ast)
+    let main = ast.insert(ModuleDecl(name: "main"))
+
+    ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
+      introducer: SourceRepresentable(value: .fun),
+      identifier: SourceRepresentable(value: "no_op"),
+      body: SourceRepresentable(
+        value: .block(ast.insert(BraceStmt(
+          stmts: [
+            AnyStmtID(ast.insert(ReturnStmt())),
+          ]))))))))
+
+    var checker = TypeChecker(ast: ast)
+    XCTAssertTrue(checker.check(module: main))
+  }
+
   func testSinkCapturingFunction() {
 
     // fun f0[sink let x = ()]() {}
