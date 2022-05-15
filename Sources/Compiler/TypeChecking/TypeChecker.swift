@@ -711,14 +711,17 @@ public struct TypeChecker {
   }
 
   /// Type checks the specified statement and returns whether that succeeded.
-  private mutating func check<T: StmtID, S: ScopeID>(stmt id: T, inScope scope: S) -> Bool {
+  private mutating func check<T: StmtID, S: ScopeID>(
+    stmt id: T,
+    inScope lexicalContext: S
+  ) -> Bool {
     switch id.kind {
     case .braceStmt:
       return check(brace: NodeID(converting: id)!)
 
     case .exprStmt:
       let stmt = ast[NodeID<ExprStmt>(converting: id)!]
-      if let type = infer(expr: stmt.expr, inScope: scope) {
+      if let type = infer(expr: stmt.expr, inScope: lexicalContext) {
         // Issue a warning if the type of the expression isn't unit.
         if type != .unit {
           diagnostics.insert(.unusedResult(ofType: type, range: ast.ranges[stmt.expr]))
@@ -732,6 +735,9 @@ public struct TypeChecker {
     case .declStmt:
       return check(decl: ast[NodeID<DeclStmt>(converting: id)!].decl)
 
+    case .returnStmt:
+      return check(return: NodeID(converting: id)!, inScope: lexicalContext)
+
     default:
       unreachable("unexpected statement")
     }
@@ -743,6 +749,49 @@ public struct TypeChecker {
       success = check(stmt: stmt, inScope: id) && success
     }
     return success
+  }
+
+  private mutating func check<S: ScopeID>(
+    return id: NodeID<ReturnStmt>,
+    inScope lexicalContext: S
+  ) -> Bool {
+    // Retrieve the function in which the return statement is contained to determine the expected
+    // type of the return value.
+    let funDecl = NodeID<FunDecl>(
+      unsafeRawValue: scopeHierarchy
+        .scopesToRoot(from: lexicalContext)
+        .first(where: { $0.kind <= .funDecl })!.rawValue)
+
+    let expectedReturnType: Type
+    switch declTypes[funDecl]! {
+    case .lambda(let callable):
+      expectedReturnType = callable.output.skolemized
+    case .method(let callable):
+      expectedReturnType = callable.output.skolemized
+    default:
+      unreachable()
+    }
+
+    if let returnValue = ast[id].value {
+      // The type of the return value must be subtype of the expected return type.
+      let inferredReturnType = Type.variable(TypeVariable(node: returnValue.base))
+      let c = LocatableConstraint(
+        .equalityOrSubtyping(l: inferredReturnType, r: expectedReturnType),
+        node: returnValue.base,
+        cause: .return)
+      let solution = infer(
+        expr: returnValue,
+        inferredType: inferredReturnType,
+        expectedType: expectedReturnType,
+        inScope: AnyScopeID(lexicalContext),
+        constraints: [c])
+      return solution.diagnostics.isEmpty
+    } else if expectedReturnType != .unit {
+      diagnostics.insert(.missingReturnValue(range: ast.ranges[id]))
+      return false
+    } else {
+      return true
+    }
   }
 
   /// Returns the generic environment defined by `id`, or `nil` if it is ill-formed.

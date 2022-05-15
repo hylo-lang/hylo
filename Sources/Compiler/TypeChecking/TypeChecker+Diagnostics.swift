@@ -185,6 +185,14 @@ extension Diagnostic {
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }
 
+  static func missingReturnValue(range: SourceRange?) -> Diagnostic {
+    Diagnostic(
+      level: .error,
+      message: "non-unit function should return a value",
+      location: range?.first(),
+      window: range.map({ r in Diagnostic.Window(range: r) }))
+  }
+
   static func missingTypeAnnotation(range: SourceRange?) -> Diagnostic {
     Diagnostic(
       level: .error,
