@@ -74,6 +74,16 @@ public indirect enum Type: TypeProtocol, Hashable {
 
   public var flags: TypeFlags { base.flags }
 
+  /// Returns `self` if it is not the error type. Otherwise, returns `nil`.
+  public var proper: Type? {
+    if case .error = self { return nil } else { return self }
+  }
+
+  /// Indicates whether the type is the error type.
+  public var isError: Bool {
+    proper == nil
+  }
+
   /// Indicates whether the type is a variable.
   public var isVariable: Bool {
     if case .variable = self { return true } else { return false }

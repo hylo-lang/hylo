@@ -7,7 +7,7 @@ public struct TypeChecker {
   public internal(set) var diagnostics: Set<Diagnostic> = []
 
   /// The overarching type of each declaration.
-  public private(set) var declTypes = DeclMap<Type?>()
+  public private(set) var declTypes = DeclMap<Type>()
 
   /// The type of each expression.
   public private(set) var exprTypes = ExprMap<Type>()
@@ -310,7 +310,7 @@ public struct TypeChecker {
     let scope = scopeHierarchy.container[AnyDeclID(id)]!
     let pattern = ast[id].pattern
     guard var shape = infer(pattern: pattern, inScope: scope) else {
-      declTypes[id] = .some(nil)
+      declTypes[id] = .error(ErrorType())
       declRequests[id] = .failure
       return false
     }
@@ -352,7 +352,7 @@ public struct TypeChecker {
       declRequests[id] = .success
       return true
     } else {
-      declTypes[id] = .some(nil)
+      declTypes[id] = .error(ErrorType())
       declRequests[id] = .failure
       return false
     }
@@ -487,7 +487,7 @@ public struct TypeChecker {
 
     // Retrieve the output type.
     let output: Type
-    switch declTypes[id]!! {
+    switch declTypes[id]! {
     case .lambda(let callable):
       output = callable.output.skolemized
     case .method(let callable):
@@ -569,7 +569,7 @@ public struct TypeChecker {
     success = check(fun: ast.memberwiseInitDecl(of: id, updating: &scopeHierarchy)) && success
 
     // Type check extending declarations.
-    let type = declTypes[id]!!
+    let type = declTypes[id]!
     for j in extendingDecls(of: type, exposedTo: scopeHierarchy.container[id]!) {
       success = check(decl: j) && success
     }
@@ -604,7 +604,7 @@ public struct TypeChecker {
     }
 
     // Type check extending declarations.
-    let type = declTypes[id]!!
+    let type = declTypes[id]!
     for j in extendingDecls(of: type, exposedTo: scopeHierarchy.container[id]!) {
       success = check(decl: j) && success
     }
@@ -664,14 +664,14 @@ public struct TypeChecker {
         defer { assert(declRequests[id] != nil) }
 
         // Realize the type of the declaration before starting type checking.
-        if realize(decl: id) != nil {
-          // Note: Because the type realization of certain declarations may escalate to type
-          // checking perform type checking, we should re-check the status of the request.
-          continue
-        } else {
+        if realize(decl: id).isError {
           // Type checking fails if type realization did.
           declRequests[id] = .failure
           return false
+        } else {
+          // Note: Because the type realization of certain declarations may escalate to type
+          // checking perform type checking, we should re-check the status of the request.
+          continue
         }
 
       case .typeRealizationCompleted:
@@ -784,7 +784,7 @@ public struct TypeChecker {
     // Realize the traits in the conformance lists of each generic parameter.
     for case .type(let j) in clause.params {
       // Realize the generic type parameter.
-      guard let lhs = realize(decl: j) else {
+      guard let lhs = realize(decl: j).proper else {
         success = false
         continue
       }
@@ -901,7 +901,7 @@ public struct TypeChecker {
 
     // Synthesize `Self: T`.
     let selfType = GenericTypeParamType(decl: i, ast: ast)
-    guard case .trait(let trait) = declTypes[i]!! else { unreachable() }
+    guard case .trait(let trait) = declTypes[i]! else { unreachable() }
     constraints.append(.conformance(l: .genericTypeParam(selfType), traits: [trait]))
 
     let e = GenericEnvironment(decl: i, constraints: constraints, into: &self)
@@ -917,7 +917,8 @@ public struct TypeChecker {
     into constraints: inout [Constraint]
   ) -> Bool {
     // Realize the generic type parameter corresponding to the associated size.
-    guard let lhs = realize(decl: associatedSize) else { return false }
+    let lhs = realize(decl: associatedSize)
+    if lhs.isError { return false }
     assert(lhs.base is GenericSizeParamType)
 
     var success = true
@@ -944,7 +945,8 @@ public struct TypeChecker {
     into constraints: inout [Constraint]
   ) -> Bool {
     // Realize the generic type parameter corresponding to the associated type.
-    guard let lhs = realize(decl: associatedType) else { return false }
+    let lhs = realize(decl: associatedType)
+    if lhs.isError { return false }
     assert(lhs.base is GenericTypeParamType)
 
     // Synthesize the sugared conformance constraint, if any.
@@ -1389,7 +1391,8 @@ public struct TypeChecker {
         defer { this.extensionsUnderBinding.remove(i) }
 
         // Bind the extension to the extended type.
-        guard let subject = this.realize(decl: i) else { continue }
+        let subject = this.realize(decl: i)
+        if subject.isError { continue }
 
         // Check for a match.
         if this.canonicalize(type: subject) == canonicalType {
@@ -1644,7 +1647,7 @@ public struct TypeChecker {
             return nil
           }
         } else {
-          base = realize(decl: match)
+          base = realize(decl: match).proper
         }
       }
 
@@ -1687,7 +1690,7 @@ public struct TypeChecker {
           let type = AssociatedType(decl: NodeID(converting: match)!, domain: domain, ast: ast)
           base = .associated(type)
         } else {
-          base = realize(decl: match)
+          base = realize(decl: match).proper
         }
       }
 
@@ -1764,7 +1767,7 @@ public struct TypeChecker {
   }
 
   /// Returns the overarching type of the specified declaration.
-  mutating func realize<T: DeclID>(decl id: T) -> Type? {
+  mutating func realize<T: DeclID>(decl id: T) -> Type {
     switch id.kind {
     case .associatedSizeDecl,
          .genericSizeParamDecl:
@@ -1814,38 +1817,40 @@ public struct TypeChecker {
 
     case .varDecl:
       let bindingDecl = scopeHierarchy.varToBinding[NodeID(converting: id)!]!
-      if realize(bindingDecl: bindingDecl) == nil { return nil }
-      return declTypes[id]!
+      let bindingType = realize(bindingDecl: bindingDecl)
+      return bindingType.isError
+        ? bindingType
+        : declTypes[id]!
 
     default:
       unreachable("unexpected declaration")
     }
   }
 
-  private mutating func realize(bindingDecl id: NodeID<BindingDecl>) -> Type? {
+  private mutating func realize(bindingDecl id: NodeID<BindingDecl>) -> Type {
     _ = check(binding: NodeID(converting: id)!)
     return declTypes[id]!
   }
 
   /// Returns the overarching type of the given function declaration.
-  mutating func realize(funDecl id: NodeID<FunDecl>) -> Type? {
+  mutating func realize(funDecl id: NodeID<FunDecl>) -> Type {
     _realize(decl: id, { (this, id) in this._realize(funDecl: id) })
   }
 
-  private mutating func _realize(funDecl id: NodeID<FunDecl>) -> Type? {
+  private mutating func _realize(funDecl id: NodeID<FunDecl>) -> Type {
     // Handle memberwise initializers.
     if ast[id].introducer.value == .memberwiseInit {
       guard let parent = scopeHierarchy.container[id],
             parent.kind == .productTypeDecl
       else {
         diagnostics.insert(.illegalMemberwiseInit(range: ast[id].introducer.range))
-        return nil
+        return .error(ErrorType())
       }
 
       if let lambda = memberwiseInitType(of: NodeID(converting: parent)!) {
         return .lambda(lambda)
       } else {
-        return nil
+        return .error(ErrorType())
       }
     }
 
@@ -1871,7 +1876,7 @@ public struct TypeChecker {
           declRequests[i] = .typeRealizationCompleted
           inputs.append(CallableTypeParameter(label: ast[i].label?.value, type: type))
         } else {
-          declTypes[i] = nil
+          declTypes[i] = .error(ErrorType())
           declRequests[i] = .failure
           success = false
         }
@@ -1881,7 +1886,7 @@ public struct TypeChecker {
         declRequests[i] = .typeRealizationCompleted
         inputs.append(CallableTypeParameter(label: ast[i].label?.value, type: parameterType))
       } else {
-        declTypes[i] = nil
+        declTypes[i] = .error(ErrorType())
         declRequests[i] = .failure
         diagnostics.insert(.missingTypeAnnotation(range: ast.ranges[i]))
         success = false
@@ -1891,7 +1896,7 @@ public struct TypeChecker {
     // Realize the type of the explicit captures.
     var captures: [(introducer: BindingPattern.Introducer, type: Type)] = []
     for i in decl.captures {
-      if let type = realize(bindingDecl: i) {
+      if let type = realize(bindingDecl: i).proper {
         captures.append((introducer: ast[ast[i].pattern].introducer.value, type: type))
       } else {
         success = false
@@ -1901,7 +1906,7 @@ public struct TypeChecker {
     // TODO: Handle implicit captures
 
     // Bail out if parameters or captures could not be realized.
-    if !success { return nil }
+    if !success { return .error(ErrorType()) }
 
     // Determine if the declaration is a member.
     let isMemberDecl = scopeHierarchy.isMember(decl: id)
@@ -1909,7 +1914,7 @@ public struct TypeChecker {
     // Member declarations may not have captures.
     if isMemberDecl && !captures.isEmpty {
       diagnostics.insert(.memberDeclHasCaptures(range: ast[id].introducer.range))
-      return nil
+      return .error(ErrorType())
     }
 
     // Handle initializers and deinitializers.
@@ -1940,7 +1945,7 @@ public struct TypeChecker {
       let output: Type
       if let o = decl.output {
         // Use explicit return annotations.
-        guard let type = realize(o, inScope: declScope) else { return nil }
+        guard let type = realize(o, inScope: declScope) else { return .error(ErrorType()) }
         output = type
       } else if decl.isInExprContext {
         // Return types may be inferred in expression contexts.
@@ -1958,7 +1963,7 @@ public struct TypeChecker {
         if capabilities.contains(.inout) && (output != receiver) {
           let range = decl.output.map({ ast.ranges[$0] }) ?? decl.introducer.range
           diagnostics.insert(.invalidInoutBundleReturnType(expected: receiver, range: range))
-          return nil
+          return .error(ErrorType())
         }
 
         return .method(MethodType(
@@ -2005,25 +2010,25 @@ public struct TypeChecker {
   /// Returns the overarching type of the specified parameter declaration.
   ///
   /// - Requires: The containing function or subscript declaration must have been realized.
-  private mutating func realize(parameterDecl id : NodeID<ParameterDecl>) -> Type? {
+  private mutating func realize(parameterDecl id : NodeID<ParameterDecl>) -> Type {
     switch declRequests[id] {
     case nil:
       preconditionFailure()
 
     case .typeRealizationStarted:
       diagnostics.insert(.circularDependency(range: ast.ranges[id]))
-      return nil
+      return .error(ErrorType())
 
     case .typeRealizationCompleted, .typeCheckingStarted, .success, .failure:
       return declTypes[id]!
     }
   }
 
-  private mutating func realize(subscriptDecl id: NodeID<SubscriptDecl>) -> Type? {
+  private mutating func realize(subscriptDecl id: NodeID<SubscriptDecl>) -> Type {
     _realize(decl: id, { (this, id) in this._realize(subscriptDecl: id) })
   }
 
-  private mutating func _realize(subscriptDecl id: NodeID<SubscriptDecl>) -> Type? {
+  private mutating func _realize(subscriptDecl id: NodeID<SubscriptDecl>) -> Type {
     let decl = ast[id]
 
     var inputs: [CallableTypeParameter] = []
@@ -2046,7 +2051,9 @@ public struct TypeChecker {
     }
 
     // Realize the ouput type an collect capabilities.
-    guard let output = realize(decl.output, inScope: AnyScopeID(id)) else { return nil }
+    guard let output = realize(decl.output, inScope: AnyScopeID(id)) else {
+      return .error(ErrorType())
+    }
     let capabilities = Set(decl.impls.map({ ast[$0].introducer.value }))
 
     return .subscript(SubscriptType(
@@ -2061,7 +2068,7 @@ public struct TypeChecker {
   private mutating func _realize<T: DeclID>(
     decl id: T,
     _ action: (inout Self, T) -> Type?
-  ) -> Type? {
+  ) -> Type {
     // Check if a type realization request has already been received.
     switch declRequests[id] {
     case nil:
@@ -2069,7 +2076,9 @@ public struct TypeChecker {
 
     case .typeRealizationStarted:
       diagnostics.insert(.circularDependency(range: ast.ranges[id]))
-      return nil
+      declRequests[id] = .failure
+      declTypes[id] = .error(ErrorType())
+      return declTypes[id]!
 
     case .typeRealizationCompleted, .typeCheckingStarted, .success, .failure:
       return declTypes[id]!
@@ -2096,13 +2105,13 @@ public struct TypeChecker {
     // List and realize the type of all stored bindings.
     for m in ast[decl].members {
       guard let member = NodeID<BindingDecl>(converting: m) else { continue }
-      if realize(bindingDecl: member) == nil { return nil }
+      if realize(bindingDecl: member).isError { return nil }
 
       for name in ast[member].pattern.names(ast: ast) {
         let d = ast[name].decl
         inputs.append(CallableTypeParameter(
           label: ast[d].name,
-          type: .parameter(ParameterType(convention: .sink, bareType: declTypes[d]!!))))
+          type: .parameter(ParameterType(convention: .sink, bareType: declTypes[d]!))))
       }
     }
 

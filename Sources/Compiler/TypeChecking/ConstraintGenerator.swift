@@ -527,14 +527,15 @@ struct ConstraintGenerator: ExprVisitor {
     // Returns the matches along with their contextual type and associated constraints.
     return matches.compactMap({ (match) -> (AnyDeclID, Type)? in
       // Realize the type of the declaration.
-      guard var type = checker.realize(decl: match) else { return nil }
+      var matchType = checker.realize(decl: match)
+      if matchType.isError { return nil }
 
       // Erase parameter conventions.
-      if case .parameter(let t) = type {
-        type = t.bareType
+      if case .parameter(let t) = matchType {
+        matchType = t.bareType
       }
 
-      return (match, type)
+      return (match, matchType)
     })
   }
 

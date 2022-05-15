@@ -291,11 +291,12 @@ struct ConstraintSolver {
     let matches = checker.lookup(member.stem, memberOf: l, inScope: scope)
     let candidates = matches.compactMap({ (match) -> (decl: AnyDeclID, type: Type)? in
       // Realize the type of the declaration.
-      guard let type = checker.realize(decl: match) else { return nil }
+      let matchType = checker.realize(decl: match)
+      if matchType.isError { return nil }
 
       // TODO: Handle bound generic typess
 
-      return (decl: match, type: type)
+      return (decl: match, type: matchType)
     })
 
     // Rewrite the constraint.
