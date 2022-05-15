@@ -1478,4 +1478,82 @@ final class TypeCheckerTests: XCTestCase {
     XCTAssertTrue(checker.check(module: main))
   }
 
+  func testComplexClosureType() {
+
+    // let _ = fun (x: sink ()) -> () {
+    //   let y = x
+    //   return y
+    // }
+
+    var ast = AST()
+    let main = ast.insert(ModuleDecl(name: "main"))
+
+    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+      pattern: ast.insert(BindingPattern(
+        introducer: SourceRepresentable(value: .let),
+        subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
+      initializer: AnyExprID(ast.insert(LambdaExpr(
+        decl: ast.insert(FunDecl(
+          introducer: SourceRepresentable(value: .fun),
+          parameters: [
+            ast.insert(ParameterDecl(
+              label: SourceRepresentable(value: "x"),
+              identifier: SourceRepresentable(value: "x"),
+              annotation: ast.insert(ParameterTypeExpr(
+                convention: SourceRepresentable(value: .sink),
+                bareType: AnyTypeExprID(ast.insert(TupleTypeExpr()))
+              )))),
+          ],
+          output: AnyTypeExprID(ast.insert(TupleTypeExpr())),
+          body: SourceRepresentable(value: .block(ast.insert(BraceStmt(
+            stmts: [
+              AnyStmtID(ast.insert(DeclStmt(decl: AnyDeclID(ast.insert(BindingDecl(
+                pattern: ast.insert(BindingPattern(
+                  introducer: SourceRepresentable(value: .let),
+                  subpattern: AnyPatternID(ast.insert(NamePattern(
+                    decl: ast.insert(VarDecl(
+                      identifier: SourceRepresentable(value: "y")))))))),
+                initializer: AnyExprID(ast.insert(NameExpr(
+                  stem: SourceRepresentable(value: "x")))))))))),
+              AnyStmtID(ast.insert(ReturnStmt(
+                value: AnyExprID(ast.insert(NameExpr(
+                  stem: SourceRepresentable(value: "y")))))))
+            ])))),
+          isInExprContext: true)))))))))
+
+    var checker = TypeChecker(ast: ast)
+    XCTAssertTrue(checker.check(module: main))
+  }
+
+  func testComplexClosureTypeInferenceFailure() {
+
+    // let _ = fun (x: sink ())) {} // error
+
+    var ast = AST()
+    let main = ast.insert(ModuleDecl(name: "main"))
+
+    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+      pattern: ast.insert(BindingPattern(
+        introducer: SourceRepresentable(value: .let),
+        subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
+      initializer: AnyExprID(ast.insert(LambdaExpr(
+        decl: ast.insert(FunDecl(
+          introducer: SourceRepresentable(value: .fun),
+          parameters: [
+            ast.insert(ParameterDecl(
+              label: SourceRepresentable(value: "x"),
+              identifier: SourceRepresentable(value: "x"),
+              annotation: ast.insert(ParameterTypeExpr(
+                convention: SourceRepresentable(value: .sink),
+                bareType: AnyTypeExprID(ast.insert(TupleTypeExpr()))
+              )))),
+          ],
+          body: SourceRepresentable(value: .block(ast.insert(BraceStmt()))),
+          isInExprContext: true)))))))))
+
+    var checker = TypeChecker(ast: ast)
+    XCTAssertFalse(checker.check(module: main))
+    XCTAssertEqual(checker.diagnostics.count, 1)
+  }
+
 }
