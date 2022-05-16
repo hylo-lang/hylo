@@ -1,6 +1,11 @@
 // swift-tools-version:5.6
 import PackageDescription
 
+let CitronParser
+  = Target.Dependency.product(name: "CitronParserModule", package: "citron")
+let CitronLexer
+  = Target.Dependency.product(  name: "CitronLexerModule", package: "citron")
+
 let package = Package(
   name: "Val",
 
@@ -17,6 +22,8 @@ let package = Package(
       url: "https://github.com/loftware/Zip2Collection.git",
       from: "0.1.0"
     ),
+
+    .package(url: "https://github.com/dabrahams/citron.git", branch: "main"),
   ],
 
   targets: [

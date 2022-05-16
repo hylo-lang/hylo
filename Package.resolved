@@ -1,25 +1,32 @@
 {
-  "object": {
-    "pins": [
-      {
-        "package": "swift-argument-parser",
-        "repositoryURL": "https://github.com/apple/swift-argument-parser.git",
-        "state": {
-          "branch": null,
-          "revision": "6b2aa2748a7881eebb9f84fb10c01293e15b52ca",
-          "version": "0.5.0"
-        }
-      },
-      {
-        "package": "LoftDataStructures_Zip2Collection",
-        "repositoryURL": "https://github.com/loftware/Zip2Collection.git",
-        "state": {
-          "branch": null,
-          "revision": "240416951ca7bb96920acbf335ba089479eeaa1f",
-          "version": "0.1.0"
-        }
+  "pins" : [
+    {
+      "identity" : "citron",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/dabrahams/citron.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "aefc7a9bfe4e7c8a7f536687abdcd39540c1cce5"
       }
-    ]
-  },
-  "version": 1
+    },
+    {
+      "identity" : "swift-argument-parser",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-argument-parser.git",
+      "state" : {
+        "revision" : "6b2aa2748a7881eebb9f84fb10c01293e15b52ca",
+        "version" : "0.5.0"
+      }
+    },
+    {
+      "identity" : "zip2collection",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/loftware/Zip2Collection.git",
+      "state" : {
+        "revision" : "240416951ca7bb96920acbf335ba089479eeaa1f",
+        "version" : "0.1.0"
+      }
+    }
+  ],
+  "version" : 2
 }
