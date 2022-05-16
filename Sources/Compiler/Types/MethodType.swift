@@ -40,9 +40,7 @@ extension MethodType: CustomStringConvertible {
 
   public var description: String {
     let c = capabilities.map({ "\($0)" }).sorted().joined(separator: " ")
-    let i = String.joining(inputs, separator: ", ")
-    let o = "\(output)"
-    return "method[\(receiver)] (\(i)) -> \(o) { \(c) }"
+    return "method[\(receiver)] (\(inputs.descriptions())) -> \(output) { \(c) }"
   }
 
 }

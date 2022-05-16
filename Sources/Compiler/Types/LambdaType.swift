@@ -99,9 +99,7 @@ extension LambdaType: CustomStringConvertible {
   public var description: String {
     let p = operatorProperty.map({ "\($0) " }) ?? ""
     let e = (environment == .unit) ? "thin" : "[\(environment)]"
-    let i = String.joining(inputs, separator: ", ")
-    let o = "\(output)"
-    return "\(p)\(e) (\(i)) -> \(o)"
+    return "\(p)\(e) (\(inputs.descriptions())) -> \(output)"
   }
 
 

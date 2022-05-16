@@ -46,7 +46,7 @@ extension SubscriptType: CustomStringConvertible {
     if isProperty {
       return "property \(e) \(output) { \(c) }"
     } else {
-      let i = String.joining(inputs, separator: ", ")
+      let i = inputs.descriptions(joinedBy: ", ")
       let o = "\(output)"
       return "subscript \(e) (\(i)): \(o) { \(c) }"
     }

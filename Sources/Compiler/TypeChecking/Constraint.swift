@@ -165,7 +165,7 @@ extension Constraint: CustomStringConvertible {
       return "\(l) <: \(r)"
 
     case .conformance(let l, let traits):
-      let t = String.joining(traits, separator: ", ")
+      let t = traits.descriptions(joinedBy: ", ")
       return "\(l) : \(t)"
 
     case .parameter(let l, let r):
@@ -178,22 +178,19 @@ extension Constraint: CustomStringConvertible {
       return "expr"
 
     case .disjunction(let sets):
-      return String.joining(
-        sets.map({ (minterm) -> String in
-          let cs = String.joining(minterm.constraints, separator: " ∧ ")
-          return "{\(cs)}:\(minterm.penalties)"
-        }),
-        separator: " ∨ ")
+      return (
+        sets.lazy.map { t in
+          "{\(t.constraints.descriptions(joinedBy: " ∧ "))}:\(t.penalties)"
+        }
+      ).descriptions(joinedBy: " ∨ ")
 
     case .overload(let n, let l, let candidates):
-      let candidates = String.joining(
-        candidates.map({ (c) -> String in
-          let cs = String.joining(c.constraints, separator: " ∧ ")
-          return "(\(c.decl.kind)[\(c.decl.rawValue)]+{\(cs)}"
-        }),
-        separator: ", ")
+      let d = candidates.lazy.map { c in
+        "(\(c.decl.kind)[\(c.decl.rawValue)]+"
+        + "{\(c.constraints.descriptions(joinedBy: " ∧ "  ))}"
+      }
 
-      return "NameExpr[\(n.rawValue)]:\(l) ∈ {\(candidates)}"
+      return "NameExpr[\(n.rawValue)]:\(l) ∈ {\(d.descriptions())}"
     }
   }
 
