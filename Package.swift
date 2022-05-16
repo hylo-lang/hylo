@@ -39,7 +39,12 @@ let package = Package(
     .target(
       name: "Compiler",
       dependencies: ["Utils"]),
-    .target(name: "Utils"),
+
+    .target(
+      name: "Utils",
+      dependencies: [
+        .product(name: "LoftDataStructures_Zip2Collection", package: "Zip2Collection")]
+    ),
 
     .target(name: "ParseGen", exclude: ["README.md"]),
 
