@@ -1,0 +1,65 @@
+%class_name EBNFParser
+
+%preface {
+  import CitronParserModule
+  import CitronLexerModule
+
+  extension _CitronParserUnexpectedTokenError
+    : CustomDebugStringConvertible
+  {
+    public var debugDescription: String {
+      "UnexpectedToken(token: \(token), tokenCode: \(tokenCode))"
+    }
+  }
+}
+
+%nonterminal_type grammar {EBNF.RuleList}
+%nonterminal_type rule_list {EBNF.RuleList}
+%nonterminal_type rule {EBNF.Rule}
+%nonterminal_type kind {EBNF.Rule.Kind}
+%nonterminal_type alt_list {EBNF.AltList}
+%nonterminal_type alt {EBNF.Alt}
+%nonterminal_type term_list {EBNF.TermList}
+%nonterminal_type term {EBNF.Term}
+
+%start_symbol grammar
+%token_type {EBNF.Token}
+
+%left_associative OR.
+%left_associative STAR PLUS QUESTION.
+%right_associative IS_DEFINED_AS.
+
+grammar ::= rule_list(l). {l}
+rule_list ::= . {[]}
+rule_list ::= rule_list(l) rule(r). {l + CollectionOfOne(r)}
+
+rule ::= LHS(l) IS_DEFINED_AS kind(k) alt_list(r). { .init(kind: k, lhs: l, rhs: r)}
+
+kind ::= . { .plain }
+kind ::= ONE_OF. { .oneOf }
+kind ::= TOKEN. { .token }
+kind ::= REGEXP. { .regexp }
+
+alt_list ::= alt(a). {[a]}
+alt_list ::= alt_list(l) OR alt(r). {l + CollectionOfOne(r)}
+
+alt ::= term_list(t). {t}
+alt ::= . {[]}
+term_list ::= term(t). {[t]}
+term_list ::= term_list(l) term(r). {l + CollectionOfOne(r)}
+term ::= LPAREN alt_list(g) RPAREN. {.group(g)}
+term ::= SYMBOL(s). {.symbol(s)}
+term ::= LITERAL(l). {
+  .literal(
+     l.text.dropFirst().dropLast().split(separator: "\\").joined(), 
+     position: l.position)
+}
+
+%token_set quantifier STAR PLUS QUESTION.
+term ::= term(t) quantifier(q). {
+  .quantified(t, q.text.first!, position: t.position...q.position)
+}
+
+/* Local Variables: */
+/* mode: lemon */
+/* End: */

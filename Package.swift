@@ -46,7 +46,12 @@ let package = Package(
         .product(name: "LoftDataStructures_Zip2Collection", package: "Zip2Collection")]
     ),
 
-    .target(name: "ParseGen", exclude: ["README.md"]),
+    .target(
+      name: "ParseGen",
+      dependencies: ["Utils", CitronParser, CitronLexer],
+      exclude: ["README.md"],
+      plugins: [ .plugin(name: "CitronParserGenerator", package: "citron") ]
+    ),
 
     // Test targets.
     .testTarget(
@@ -55,7 +60,5 @@ let package = Package(
 
     .testTarget(
       name: "ParseGenTests",
-      dependencies: [
-        "ParseGen",
-        .product(name: "LoftDataStructures_Zip2Collection", package: "Zip2Collection")]),
+      dependencies: ["ParseGen", "Utils"]),
   ])
