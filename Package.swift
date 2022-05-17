@@ -23,7 +23,7 @@ let package = Package(
       from: "0.1.0"
     ),
 
-    .package(url: "https://github.com/dabrahams/citron.git", branch: "main"),
+    .package(url: "https://github.com/dabrahams/citron.git", branch: "master"),
   ],
 
   targets: [

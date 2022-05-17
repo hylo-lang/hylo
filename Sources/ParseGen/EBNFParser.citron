@@ -29,6 +29,8 @@
 %left_associative STAR PLUS QUESTION.
 %right_associative IS_DEFINED_AS.
 
+%token ILLEGAL_CHARACTER ONE_OF_KIND TOKEN_KIND REGEXP_KIND QUOTED_LITERAL.
+
 grammar ::= rule_list(l). {l}
 rule_list ::= . {[]}
 rule_list ::= rule_list(l) rule(r). {l + CollectionOfOne(r)}
@@ -48,7 +50,7 @@ alt ::= . {[]}
 term_list ::= term(t). {[t]}
 term_list ::= term_list(l) term(r). {l + CollectionOfOne(r)}
 term ::= LPAREN alt_list(g) RPAREN. {.group(g)}
-term ::= SYMBOL(s). {.symbol(s)}
+term ::= SYMBOL_NAME(s). {.symbol(s)}
 term ::= LITERAL(l). {
   .literal(
      l.text.dropFirst().dropLast().split(separator: "\\").joined(), 
