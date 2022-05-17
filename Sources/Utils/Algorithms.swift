@@ -19,8 +19,8 @@ extension StringProtocol {
 
   /// Returns the lines from markdown fenced code blocks in `self` (having the
   /// given language if `language` is non-`nil`), paired with their line numbers.
-  public func markdownCodeLines(language: String? = nil)
-    -> [Slice<Zip2Collection<Range<Int>, [Self.SubSequence]>>]
+  public func markdownCodeBlocks(language: String? = nil)
+    -> [Zip2Collection<Range<Int>, [Self.SubSequence]>.SubSequence]
   {
     let allLines = self.split { c in c.isNewline }.enumerated()
     let fence = "```" + (language ?? "")
