@@ -58,15 +58,13 @@ struct Input {
   mutating func eat(_ target: String) -> Substring? {
     var t = target[...]
     var s = self
-    while t.first == s.tail.first {
-      if t.isEmpty {
-        defer { self = s }
-        return tail[..<s.tail.startIndex]
-      }
+    while !t.isEmpty && t.first == s.tail.first {
       t = t.dropFirst()
       s.popFirst()
     }
-    return nil
+    if !t.isEmpty { return nil }
+    defer { self = s }
+    return tail[..<s.tail.startIndex]
   }
 
   mutating func eatLine() -> Substring {
@@ -88,10 +86,12 @@ struct Input {
   var isEmpty: Bool { tail.isEmpty }
 
   var first: Character? { tail.first }
+
+  var atEOL: Bool { isEmpty || tail.first!.isNewline }
 }
 
 extension EBNF {
-  func tokens(
+  static func tokens(
     in sourceText: Substring, onLine startLine: Int, fromFile sourcePath: String
   ) -> [Token] {
     var output: [Token] = []
@@ -115,14 +115,14 @@ extension EBNF {
       input.popFirst()
     }
 
-    while true {
+    while !input.isEmpty {
       input.skipWhitespace()
 
       var currentRuleKind: Rule.Kind = .plain
 
-      while let c = input.first, !c.isNewline {
+      while !input.atEOL {
         if let s = input.eatSymbolName() {
-          token(.SYMBOL_NAME, s)
+          token(.LHS, s)
         }
         else if let t = input.eat("::=") {
           token(.IS_DEFINED_AS, t)
@@ -149,7 +149,7 @@ extension EBNF {
       }
       input.popFirst(); input.skipHorizontalSpace()
 
-      while let c = input.first, !c.isNewline {
+      while !input.atEOL {
         // Process one line with its trailing newline and any leading space on the next line
         switch currentRuleKind {
         case .oneOf:
@@ -159,7 +159,7 @@ extension EBNF {
           }
 
         case .plain, .token:
-          while true {
+          while !input.atEOL {
             if let t = input.eatQuotedLiteral() {
               token(.QUOTED_LITERAL, t)
             }
@@ -177,7 +177,7 @@ extension EBNF {
           let l = input.eatLine()
           token(.REGEXP, l.strippingWhitespace())
         }
-        input.popFirst(); input.skipHorizontalSpace()
+        characterToken(.EOL); input.skipHorizontalSpace()
       }
     }
 

@@ -34,7 +34,8 @@ enum EBNF {
     case group(AltList)
     case symbol(Symbol)
     case literal(String, position: SourceRegion)
-    indirect case quantified(Term, Character, position: SourceRegion)    
+    case regexp(Substring, position: SourceRegion)
+    indirect case quantified(Term, Character, position: SourceRegion)
   }
 }
 
@@ -91,6 +92,7 @@ extension EBNF.Term {
     switch self {
     case .group(let g): return g.position
     case .symbol(let s): return s.position
+    case .regexp(_, let p): return p
     case .literal(_, let p): return p
     case .quantified(_, _, let p): return p
     }
@@ -101,6 +103,7 @@ extension EBNF.Term {
     case .symbol(let s): return s.dump
     case .literal(let s, _):
       return "'\(s.replacingOccurrences(of: "'", with: "\\'"))'"
+    case .regexp(let s, _): return "/\(s)/"
     case .quantified(let t, let q, _): return t.dump + String(q)
     }
   }
