@@ -4,6 +4,7 @@ import CitronLexerModule
 let tokenID: [Character: EBNF.Token.ID] = [
   "*": .STAR,
   "+": .PLUS,
+  "|": .OR,
   "(": .LPAREN,
   ")": .RPAREN,
   "?": .QUESTION
