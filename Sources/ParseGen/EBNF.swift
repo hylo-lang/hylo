@@ -14,7 +14,7 @@ enum EBNF {
     let text: Substring
     let position: SourceRegion
 
-    var dump: String { String(text) }
+    func dumped(level: Int) -> String { String(text) }
   }
 
   typealias RuleList = [Rule]
@@ -52,20 +52,26 @@ protocol EBNFNode {
   var position: SourceRegion { get }
 
   /// A string representation in the original syntax.
-  var dump: String { get }
+  func dumped(level: Int)-> String
 }
 
+extension EBNFNode {
+  var dump: String { dumped(level: 0) }
+}
 
 extension Array: EBNFNode where Element: EBNFNode {
   var position: SourceRegion {
     first != nil ? first!.position...last!.position : .empty
   }
-  var dump: String {
-    self.lazy.map { $0.dump }.joined(separator: Self.dumpSeparator)
+
+  func dumped(level: Int) -> String {
+    self.lazy.map { $0.dumped(level: level + 1) }
+      .joined(separator: Self.dumpSeparator(level: level))
   }
-  static var dumpSeparator: String {
+
+  static func dumpSeparator(level: Int) -> String {
     return Element.self == EBNF.Rule.self ? "\n\n"
-      : Element.self == EBNF.Alt.self ? "\n  | "
+      : Element.self == EBNF.Alt.self ? (level == 0 ? "\n  " : " | ")
       : " "
   }
 }
@@ -74,15 +80,18 @@ extension Optional: EBNFNode where Wrapped: EBNFNode {
   var position: SourceRegion {
     self?.position ?? .empty
   }
-  var dump: String { self?.dump ?? "" }
+  func dumped(level: Int) -> String { self?.dumped(level: level + 1) ?? "" }
 }
 
 extension EBNF.Rule {
   var position: SourceRegion { lhs.position...rhs.position }
-  var dump: String {
-    """
+  func dumped(level: Int) -> String {
+    let k = [.oneOf: " (one of)", .token: " (token)", .regexp: " (regexp)"][kind]
+
+    return """
     \(position): note: rule
-    \(lhs.dump) ::=\(rhs.count > 1 ? "\n    " : " ")\(rhs.dump)
+    \(lhs.dump) ::=\(k ?? "")
+      \(rhs.dump)
     """
   }
 }
@@ -97,14 +106,14 @@ extension EBNF.Term {
     case .quantified(_, _, let p): return p
     }
   }
-  var dump: String {
+  func dumped(level: Int) -> String {
     switch self {
-    case .group(let g): return "( \(g.dump) )"
-    case .symbol(let s): return s.dump
+    case .group(let g): return "( \(g.dumped(level: level + 1) )"
+    case .symbol(let s): return s.dumped(level: level)
     case .literal(let s, _):
       return "'\(s.replacingOccurrences(of: "'", with: "\\'"))'"
     case .regexp(let s, _): return "/\(s)/"
-    case .quantified(let t, let q, _): return t.dump + String(q)
+    case .quantified(let t, let q, _): return t.dumped(level: level + 1) + String(q)
     }
   }
 }

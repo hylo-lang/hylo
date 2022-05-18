@@ -178,7 +178,10 @@ extension EBNF {
           let l = input.eatLine()
           token(.REGEXP, l.strippingWhitespace())
         }
-        characterToken(.EOL); input.skipHorizontalSpace()
+        if currentRuleKind == .oneOf { input.popFirst() }
+        else { characterToken(.EOL); }
+
+        input.skipHorizontalSpace()
       }
     }
 

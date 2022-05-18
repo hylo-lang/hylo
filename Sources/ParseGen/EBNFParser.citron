@@ -23,8 +23,8 @@
 %nonterminal_type alt {EBNF.Alt}
 %nonterminal_type term_list {EBNF.TermList}
 %nonterminal_type literal {EBNF.Term}
-%nonterminal_type literal_list {EBNF.TermList}
-%nonterminal_type one_of_list {EBNF.TermList}
+%nonterminal_type literal_list {EBNF.AltList}
+%nonterminal_type one_of_list {EBNF.AltList}
 %nonterminal_type term {EBNF.Term}
 
 %start_symbol grammar
@@ -41,22 +41,21 @@ rule_list ::= . {[]}
 rule_list ::= rule_list(l) rule(r). {l + CollectionOfOne(r)}
 
 rule ::= LHS(l) IS_DEFINED_AS kind(k) rhs_list(r). { .init(kind: k, lhs: l, rhs: r) }
+rule ::= LHS(l) IS_DEFINED_AS ONE_OF_KIND one_of_list(r). { .init(kind: .oneOf, lhs: l, rhs: r) }
 
 kind ::= . { .plain }
 kind ::= TOKEN_KIND. { .token }
 kind ::= REGEXP_KIND. { .regexp }
-kind ::= ONE_OF_KIND. { .oneOf }
 
 rhs_list ::= rhs_line(r). { [r] }
 rhs_list ::= rhs_list(l) rhs_line(r). { l +  [r] }
 
-rhs_line ::= alt_list(l) EOL. { [.group(l)] }
-rhs_line ::= literal_list(l) EOL. { l }
+rhs_line ::= alt(l) EOL. { l }
 rhs_line ::= REGEXP(r) EOL. { [.regexp(r.text, position: r.position)] }
 
 literal ::= LITERAL(r). { .literal(String(r.text), position: r.position) }
-literal_list ::= literal(r). { [r] }
-literal_list ::= literal_list(l) literal(r). { l + [r] }
+one_of_list ::= literal(r). { [[r]] }
+one_of_list ::= one_of_list(l) literal(r). { l + [[r]] }
 
 alt_list ::= alt(a). {[a]}
 alt_list ::= alt_list(l) OR alt(r). {l + CollectionOfOne(r)}
