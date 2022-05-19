@@ -2,16 +2,16 @@
 public struct GenericClause: Hashable {
 
   /// The parameters of the clause.
-  public var params: [GenericParamDeclID]
+  public var parameters: [GenericParamDeclID]
 
   /// The where clause of the generic clause, if any.
   public var whereClause: SourceRepresentable<WhereClause>?
 
   public init(
-    params: [GenericParamDeclID],
+    parameters: [GenericParamDeclID],
     whereClause: SourceRepresentable<WhereClause>? = nil
   ) {
-    self.params = params
+    self.parameters = parameters
     self.whereClause = whereClause
   }
 

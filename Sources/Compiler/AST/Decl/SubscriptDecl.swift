@@ -47,4 +47,7 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
     self.impls = impls
   }
 
+  /// Returns whether the declaration denotes a static method.
+  public var isStatic: Bool { memberModifiers.contains(where: { $0.value == .static }) }
+
 }

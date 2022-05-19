@@ -27,4 +27,7 @@ public struct BindingDecl: Decl {
     self.initializer = initializer
   }
 
+  /// Returns whether the declaration denotes a static method.
+  public var isStatic: Bool { memberModifiers.contains(where: { $0.value == .static }) }
+
 }

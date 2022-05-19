@@ -64,6 +64,14 @@ extension Diagnostic {
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }
 
+  static func genericDeclHasCaptures(range: SourceRange?) -> Diagnostic {
+    Diagnostic(
+      level: .error,
+      message: "generic declaration has captures",
+      location: range?.first(),
+      window: range.map({ r in Diagnostic.Window(range: r) }))
+  }
+
   static func illegalMemberwiseInit(range: SourceRange?) -> Diagnostic {
     Diagnostic(
       level: .error,
@@ -79,6 +87,14 @@ extension Diagnostic {
     Diagnostic(
       level: .error,
       message: "'\(convention)' may only be used on parameters",
+      location: range?.first(),
+      window: range.map({ r in Diagnostic.Window(range: r) }))
+  }
+
+  static func implicitReferenceToForeignReceiver(range: SourceRange?) -> Diagnostic {
+    Diagnostic(
+      level: .error,
+      message: "implicit reference to foreign receiver",
       location: range?.first(),
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }

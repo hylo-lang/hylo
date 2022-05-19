@@ -840,7 +840,7 @@ public struct TypeChecker {
     var constraints: [Constraint] = []
 
     // Realize the traits in the conformance lists of each generic parameter.
-    for case .type(let j) in clause.params {
+    for case .type(let j) in clause.parameters {
       // Realize the generic type parameter.
       guard let lhs = realize(decl: j).proper else {
         success = false
@@ -1597,7 +1597,7 @@ public struct TypeChecker {
         var type = Type.product(ProductType(decl: decl, ast: ast))
 
         // Synthesize arguments to generic parameters if necessary.
-        if let parameters = ast[decl].genericClause?.value.params {
+        if let parameters = ast[decl].genericClause?.value.parameters {
           let arguments = parameters.map({ (p) -> BoundGenericType.Argument in
             switch p {
             case .type(let p):
@@ -1896,16 +1896,16 @@ public struct TypeChecker {
   }
 
   private mutating func _realize(funDecl id: NodeID<FunDecl>) -> Type {
+    guard let parentScope = scopeHierarchy.container[id] else { unreachable() }
+
     // Handle memberwise initializers.
     if ast[id].introducer.value == .memberwiseInit {
-      guard let parent = scopeHierarchy.container[id],
-            parent.kind == .productTypeDecl
-      else {
+      guard let productTypeDecl = NodeID<ProductTypeDecl>(converting: parentScope) else {
         diagnostics.insert(.illegalMemberwiseInit(range: ast[id].introducer.range))
         return .error(ErrorType())
       }
 
-      if let lambda = memberwiseInitType(of: NodeID(converting: parent)!) {
+      if let lambda = memberwiseInitType(of: productTypeDecl) {
         return .lambda(lambda)
       } else {
         return .error(ErrorType())
@@ -1951,42 +1951,129 @@ public struct TypeChecker {
       }
     }
 
-    // Realize the type of the explicit captures.
-    var captures: [(introducer: BindingPattern.Introducer, type: Type)] = []
+    // Collect explicit captures.
+    var captures: [Type] = []
+    var explictNames: Set<Name> = []
     for i in decl.captures {
+      let pattern = ast[i].pattern
+
+      // Collect the names of the capture.
+      for name in pattern.names(ast: ast) {
+        explictNames.insert(Name(stem: ast[ast[name].decl].name))
+      }
+
+      // Realize the type of the capture.
       if let type = realize(bindingDecl: i).proper {
-        captures.append((introducer: ast[ast[i].pattern].introducer.value, type: type))
+        switch ast[ast[i].pattern].introducer.value {
+        case .let:
+          captures.append(.projection(ProjectionType(.let, type)))
+        case .inout:
+          captures.append(.projection(ProjectionType(.inout, type)))
+        case .sinklet, .sinkvar, .var:
+          captures.append(type)
+        }
       } else {
         success = false
       }
     }
 
-    // TODO: Handle implicit captures
-
     // Bail out if parameters or captures could not be realized.
     if !success { return .error(ErrorType()) }
 
-    // Determine if the declaration is a member.
-    let isMemberDecl = scopeHierarchy.isMember(decl: id)
+    // Collect implicit captures if the function's local.
+    if scopeHierarchy.isLocal(decl: id, ast: ast) {
+      var receiverCaptureIndex: Int? = nil
+      var collector = CaptureCollector(ast: ast)
+      let freeNames = collector.freeNames(in: id)
+
+      for (name, uses) in freeNames {
+        // Explicit captures are already accounted for.
+        if explictNames.contains(name) { continue }
+
+        // Resolve the name.
+        let matches = lookup(unqualified: name.stem, inScope: parentScope)
+
+        // If there is a single match, assume it's correct. Type checking will fail it it isn't.
+        // If there are multiple match, attempt to filter them using the name's argument labels or
+        // operator notation. If that fails, complain about an ambiguous implicit capture.
+        let decl: AnyDeclID
+        switch matches.count {
+        case 0: continue
+        case 1: decl = matches.first!
+        default:
+          fatalError("not implemented")
+        }
+
+        // Global declarations are not captured.
+        if scopeHierarchy.isGlobal(decl: decl, ast: ast) { continue }
+
+        // References to member declarations implicitly capture of their receiver.
+        if scopeHierarchy.isMember(decl: decl) {
+          // If the function refers to a member declaration, it must be nested in a type scope.
+          let innermostTypeScope = scopeHierarchy
+            .scopesToRoot(from: scopeHierarchy.parent[id]!)
+            .first(where: { $0.kind <= .typeDecl })!
+
+          // Ignore illegal implicit references to foreign receiver.
+          if scopeHierarchy.isContained(innermostTypeScope, in: scopeHierarchy.parent[decl]!) {
+            continue
+          }
+
+          if let i = receiverCaptureIndex {
+            // Update the mutability of the capture if necessary.
+            if uses.capability == .let { continue }
+            guard case let .projection(p) = captures[i] else { unreachable() }
+            captures[i] = .projection(ProjectionType(.inout, p.base))
+          } else {
+            // Capture the method's receiver.
+            let captureType = realizeSelfTypeExpr(inScope: id)!
+            receiverCaptureIndex = captures.count
+            captures.append(.projection(ProjectionType(uses.capability, captureType)))
+          }
+
+          continue
+        }
+
+        // Capture-less local functions are not captured.
+        if let funDecl = NodeID<FunDecl>(converting: decl) {
+          guard case .lambda(let lambda) = realize(funDecl: funDecl) else { continue }
+          if lambda.environment == .unit { continue }
+        }
+
+        // Other local declarations are captured.
+        guard let captureType = realize(decl: decl).proper?.skolemized else { continue }
+        captures.append(.projection(ProjectionType(uses.capability, captureType)))
+      }
+    }
 
     // Member declarations may not have captures.
-    if isMemberDecl && !captures.isEmpty {
+    if scopeHierarchy.isMember(decl: id) && !captures.isEmpty {
       diagnostics.insert(.memberDeclHasCaptures(range: ast[id].introducer.range))
       return .error(ErrorType())
     }
 
+    // Generic declarations may not have captures.
+    if ast[id].genericClause != nil && !captures.isEmpty {
+      diagnostics.insert(.genericDeclHasCaptures(range: ast[id].introducer.range))
+      return .error(ErrorType())
+    }
+
+    // Realize the function's receiver if necessary.
+    let isNonStaticMember = scopeHierarchy.isMember(decl: id) && !ast[id].isStatic
+    var receiver: Type? = isNonStaticMember
+      ? realizeSelfTypeExpr(inScope: scopeHierarchy.container[id]!)
+      : nil
+
     // Handle initializers and deinitializers.
-    let parent = scopeHierarchy.container[id] ?? unreachable()
     switch ast[id].introducer.value {
     case .memberwiseInit:
       unreachable()
 
     case .`init`:
       // Initializers are global functions.
-      let receiver = realizeSelfTypeExpr(inScope: parent)!
       let receiverParameter = CallableTypeParameter(
         label: "self",
-        type: .parameter(ParameterType(convention: .set, bareType: receiver)))
+        type: .parameter(ParameterType(convention: .set, bareType: receiver!)))
       inputs.insert(receiverParameter, at: 0)
       return .lambda(LambdaType(environment: .unit, inputs: inputs, output: .unit))
 
@@ -1994,7 +2081,7 @@ public struct TypeChecker {
       // Deinitializers are sink methods.
       return .method(MethodType(
         capabilities: [.sink],
-        receiver: realizeSelfTypeExpr(inScope: parent)!,
+        receiver: receiver!,
         inputs: [],
         output: .unit))
 
@@ -2015,48 +2102,37 @@ public struct TypeChecker {
 
       if case .bundle(let impls) = ast[id].body?.value {
         // Create a method bundle.
-        let receiver = realizeSelfTypeExpr(inScope: parent)!
         let capabilities = Set(impls.map({ ast[$0].introducer.value }))
 
         if capabilities.contains(.inout) && (output != receiver) {
           let range = decl.output.map({ ast.ranges[$0] }) ?? decl.introducer.range
-          diagnostics.insert(.invalidInoutBundleReturnType(expected: receiver, range: range))
+          diagnostics.insert(.invalidInoutBundleReturnType(expected: receiver!, range: range))
           return .error(ErrorType())
         }
 
         return .method(MethodType(
           capabilities: Set(impls.map({ ast[$0].introducer.value })),
-          receiver: receiver,
+          receiver: receiver!,
           inputs: inputs,
           output: output))
-      } else if isMemberDecl && !ast[id].isStatic {
+      } else if isNonStaticMember {
         // Create a lambda bound to a receiver.
-        var receiver = realizeSelfTypeExpr(inScope: parent)!
         let property: LambdaType.OperatorProperty?
         if ast[id].isInout {
-          receiver = .projection(ProjectionType(.inout, receiver))
+          receiver = .projection(ProjectionType(.inout, receiver!))
           property = .mutating
         } else if decl.isSink  {
           property = .sink
         } else {
-          receiver = .projection(ProjectionType(.let, receiver))
+          receiver = .projection(ProjectionType(.let, receiver!))
           property = nil
         }
 
         return .lambda(LambdaType(
-          operatorProperty: property, environment: receiver, inputs: inputs, output: output))
+          operatorProperty: property, environment: receiver!, inputs: inputs, output: output))
       } else {
         // Create a regular lambda.
-        let environment = Type.tuple(TupleType(captures.map({ c in
-          switch c.introducer {
-          case .let, .inout:
-            fatalError("not implemented")
-          case .var:
-            fatalError("not implemented")
-          case .sinklet, .sinkvar:
-            return TupleType.Element(label: nil, type: c.type)
-          }
-        })))
+        let environment = Type.tuple(TupleType(types: captures))
 
         // TODO: Determine if the lambda is mutating
 

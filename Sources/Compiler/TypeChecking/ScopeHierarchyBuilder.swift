@@ -348,12 +348,12 @@ struct ScopeHierarchyBuilder:
       domain.accept(&self)
     }
 
-    for arg in ast[i].arguments {
-      switch arg.value {
-      case let .size(arg):
-        arg.accept(&self)
-      case let .type(arg):
-        arg.accept(&self)
+    for argument in ast[i].arguments {
+      switch argument {
+      case let .size(expr):
+        expr.accept(&self)
+      case let .type(expr):
+        expr.accept(&self)
       }
     }
   }
@@ -542,7 +542,7 @@ struct ScopeHierarchyBuilder:
   mutating func visit(genericClause clause: GenericClause?) {
     guard let clause = clause else { return }
 
-    for i in clause.params {
+    for i in clause.parameters {
       switch i {
       case .size(let i):
         visit(genericSizeParam: i)

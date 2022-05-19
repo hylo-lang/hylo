@@ -73,7 +73,36 @@ struct ScopeHierarchy {
     }
   }
 
-  /// Returns whether `decl` is known to be member of a type declaration.
+  /// Returns whether `decl` is global in `ast`.
+  func isGlobal<T: DeclID>(decl: T, ast: AST) -> Bool {
+    // Type declarations are global.
+    if decl.kind <= .typeDecl {
+      return true
+    }
+
+    // Declarations at global scope are global.
+    guard let parent = container[decl] else { return true }
+    switch parent.kind {
+    case .namespaceDecl, .moduleDecl:
+      return true
+    default:
+      break
+    }
+
+    // Static member declarations are global.
+    switch decl.kind {
+    case .bindingDecl:
+      return ast[NodeID<BindingDecl>(unsafeRawValue: decl.rawValue)].isStatic
+    case .funDecl:
+      return ast[NodeID<FunDecl>(unsafeRawValue: decl.rawValue)].isStatic
+    case .subscriptDecl:
+      return ast[NodeID<SubscriptDecl>(unsafeRawValue: decl.rawValue)].isStatic
+    default:
+      return false
+    }
+  }
+
+  /// Returns whether `decl` is member of a type declaration.
   func isMember<T: DeclID>(decl: T) -> Bool {
     guard let parent = container[decl] else { return false }
     switch parent.kind {
@@ -82,6 +111,11 @@ struct ScopeHierarchy {
     default:
       return false
     }
+  }
+
+  /// Returns whether `decl` is local in `ast`.
+  func isLocal<T: DeclID>(decl: T, ast: AST) -> Bool {
+    !(isGlobal(decl: decl, ast: ast) || isMember(decl: decl))
   }
 
   /// Returns a sequence containing `scope` and all its ancestors, from inner to outer.

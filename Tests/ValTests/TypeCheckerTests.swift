@@ -595,7 +595,7 @@ final class TypeCheckerTests: XCTestCase {
 
   func testBraceBodyFunction() {
 
-    // fun no_op() { return }               // OK
+    // fun no_op() { return }
 
     var ast = AST()
     insertStandardLibraryMockup(into: &ast)
@@ -651,7 +651,7 @@ final class TypeCheckerTests: XCTestCase {
       introducer: SourceRepresentable(value: .fun),
       identifier: SourceRepresentable(value: "identity"),
       genericClause: SourceRepresentable(value: GenericClause(
-        params: [
+        parameters: [
           .type(ast.insert(GenericTypeParamDecl(
             identifier: SourceRepresentable(value: "T")))),
         ])),
@@ -724,7 +724,7 @@ final class TypeCheckerTests: XCTestCase {
       introducer: SourceRepresentable(value: .fun),
       identifier: SourceRepresentable(value: "f"),
       genericClause: SourceRepresentable(value: GenericClause(
-        params: [
+        parameters: [
           .type(ast.insert(GenericTypeParamDecl(
             identifier: SourceRepresentable(value: "X")))),
           .type(ast.insert(GenericTypeParamDecl(
@@ -813,7 +813,7 @@ final class TypeCheckerTests: XCTestCase {
       introducer: SourceRepresentable(value: .fun),
       identifier: SourceRepresentable(value: "f"),
       genericClause: SourceRepresentable(value: GenericClause(
-        params: [
+        parameters: [
           .type(ast.insert(GenericTypeParamDecl(
             identifier: SourceRepresentable(value: "X")))),
         ])),
@@ -1083,7 +1083,7 @@ final class TypeCheckerTests: XCTestCase {
     ast[main].members.append(AnyDeclID(ast.insert(ProductTypeDecl(
       identifier: SourceRepresentable(value: "A"),
       genericClause: SourceRepresentable(value: GenericClause(
-        params: [
+        parameters: [
           .type(ast.insert(GenericTypeParamDecl(
             identifier: SourceRepresentable(value: "X")))),
           .type(ast.insert(GenericTypeParamDecl(
@@ -1297,7 +1297,7 @@ final class TypeCheckerTests: XCTestCase {
     ast[main].members.append(AnyDeclID(ast.insert(TypeAliasDecl(
       identifier: SourceRepresentable(value: "Pair"),
       genericClause: SourceRepresentable(value: GenericClause(
-        params: [
+        parameters: [
           .type(ast.insert(GenericTypeParamDecl(
             identifier: SourceRepresentable(value: "X")))),
           .type(ast.insert(GenericTypeParamDecl(
@@ -1612,6 +1612,96 @@ final class TypeCheckerTests: XCTestCase {
     var checker = TypeChecker(ast: ast)
     XCTAssertFalse(checker.check(module: main))
     XCTAssertEqual(checker.diagnostics.count, 1)
+  }
+
+  func testImplicitImmutableCapture() {
+
+    // fun main() {
+    //   let foo = ()
+    //   fun local { let bar = foo }
+    // }
+
+    var ast = AST()
+    let main = ast.insert(ModuleDecl(name: "main"))
+
+    ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
+      introducer: SourceRepresentable(value: .fun),
+      identifier: SourceRepresentable(value: "main"),
+      body: SourceRepresentable(
+        value: .block(ast.insert(BraceStmt(
+          stmts: [
+            AnyStmtID(ast.insert(DeclStmt(
+              decl: AnyDeclID(ast.insert(BindingDecl(
+                pattern: ast.insert(BindingPattern(
+                  introducer: SourceRepresentable(value: .let),
+                  subpattern: AnyPatternID(ast.insert(NamePattern(
+                    decl: ast.insert(VarDecl(
+                      identifier: SourceRepresentable(value: "foo")))))))),
+                initializer: AnyExprID(ast.insert(TupleExpr())))))))),
+            AnyStmtID(ast.insert(DeclStmt(
+              decl: AnyDeclID(ast.insert(FunDecl(
+                introducer: SourceRepresentable(value: .fun),
+                identifier: SourceRepresentable(value: "local"),
+                body: SourceRepresentable(
+                  value: .block(ast.insert(BraceStmt(
+                  stmts: [
+                    AnyStmtID(ast.insert(DeclStmt(
+                      decl: AnyDeclID(ast.insert(BindingDecl(
+                        pattern: ast.insert(BindingPattern(
+                          introducer: SourceRepresentable(value: .let),
+                          subpattern: AnyPatternID(ast.insert(NamePattern(
+                            decl: ast.insert(VarDecl(
+                              identifier: SourceRepresentable(value: "bar")))))))),
+                        initializer: AnyExprID(ast.insert(NameExpr(
+                          stem: SourceRepresentable(value: "foo")))))))))),
+                  ])))))))))),
+          ]))))))))
+
+    var checker = TypeChecker(ast: ast)
+    XCTAssertTrue(checker.check(module: main))
+  }
+
+  func testImplicitMutableCapture() {
+
+    // fun main() {
+    //   var foo = ()
+    //   fun local { foo = () }
+    // }
+
+    var ast = AST()
+    let main = ast.insert(ModuleDecl(name: "main"))
+
+    ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
+      introducer: SourceRepresentable(value: .fun),
+      identifier: SourceRepresentable(value: "main"),
+      body: SourceRepresentable(
+        value: .block(ast.insert(BraceStmt(
+          stmts: [
+            AnyStmtID(ast.insert(DeclStmt(
+              decl: AnyDeclID(ast.insert(BindingDecl(
+                pattern: ast.insert(BindingPattern(
+                  introducer: SourceRepresentable(value: .var),
+                  subpattern: AnyPatternID(ast.insert(NamePattern(
+                    decl: ast.insert(VarDecl(
+                      identifier: SourceRepresentable(value: "foo")))))))),
+                initializer: AnyExprID(ast.insert(TupleExpr())))))))),
+            AnyStmtID(ast.insert(DeclStmt(
+              decl: AnyDeclID(ast.insert(FunDecl(
+                introducer: SourceRepresentable(value: .fun),
+                identifier: SourceRepresentable(value: "local"),
+                body: SourceRepresentable(
+                  value: .block(ast.insert(BraceStmt(
+                  stmts: [
+                    AnyStmtID(ast.insert(ExprStmt(
+                      expr: AnyExprID(ast.insert(AssignExpr(
+                        left: AnyExprID(ast.insert(NameExpr(
+                          stem: SourceRepresentable(value: "foo")))),
+                        right: AnyExprID(ast.insert(TupleExpr())))))))),
+                  ])))))))))),
+          ]))))))))
+
+    var checker = TypeChecker(ast: ast)
+    XCTAssertTrue(checker.check(module: main))
   }
 
 }
