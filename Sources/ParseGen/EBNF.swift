@@ -119,7 +119,7 @@ extension EBNF.Term {
   }
   func dumped(level: Int) -> String {
     switch self {
-    case .group(let g): return "( \(g.dumped(level: level + 1) )"
+    case .group(let g): return "( \(g.dumped(level: level + 1)) )"
     case .symbol(let s): return s.dumped(level: level)
     case .literal(let s, _):
       return "'\(s.replacingOccurrences(of: "'", with: "\\'"))'"
