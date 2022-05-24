@@ -21,21 +21,26 @@ enum EBNF {
   struct Rule: EBNFNode {
     enum Kind { case plain, token, oneOf, regexp }
     let kind: Kind
-    let lhs: Symbol
+    let lhs: Token
     let rhs: AltList
   }
 
   typealias AltList = [Alt]
   typealias Alt = TermList
   typealias TermList = [Term]
-  typealias Symbol = Token
-  
+
   enum Term: EBNFNode {
     case group(AltList)
-    case symbol(Symbol)
+    case symbol(Token)
     case literal(String, position: SourceRegion)
     case regexp(Substring, position: SourceRegion)
     indirect case quantified(Term, Character, position: SourceRegion)
+  }
+
+  struct Grammar {
+    typealias Symbol = Substring
+    let rules: [Symbol: AltList]
+    let start: Symbol
   }
 }
 
