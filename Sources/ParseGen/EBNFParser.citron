@@ -13,10 +13,10 @@
   }
 }
 
-%nonterminal_type grammar {EBNF.RuleList}
-%nonterminal_type rule_list {EBNF.RuleList}
-%nonterminal_type rule {EBNF.Rule}
-%nonterminal_type kind {EBNF.Rule.Kind}
+%nonterminal_type grammar {EBNF.DefinitionList}
+%nonterminal_type rule_list {EBNF.DefinitionList}
+%nonterminal_type rule {EBNF.Definition}
+%nonterminal_type kind {EBNF.Definition.Kind}
 %nonterminal_type rhs_line {EBNF.Alt}
 %nonterminal_type rhs_list {EBNF.AltList}
 %nonterminal_type alt_list {EBNF.AltList}

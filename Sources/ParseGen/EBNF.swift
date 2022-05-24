@@ -17,8 +17,8 @@ enum EBNF {
     func dumped(level: Int) -> String { String(text) }
   }
 
-  typealias RuleList = [Rule]
-  struct Rule: EBNFNode {
+  typealias DefinitionList = [Definition]
+  struct Definition: EBNFNode {
     enum Kind { case plain, token, oneOf, regexp }
     let kind: Kind
     let lhs: Token
@@ -39,7 +39,7 @@ enum EBNF {
 
   struct Grammar {
     typealias Symbol = Substring
-    let rules: [Symbol: AltList]
+    let definitions: [Symbol: AltList]
     let start: Symbol
   }
 }
@@ -75,7 +75,7 @@ extension Array: EBNFNode where Element: EBNFNode {
   }
 
   static func dumpSeparator(level: Int) -> String {
-    return Element.self == EBNF.Rule.self ? "\n\n"
+    return Element.self == EBNF.Definition.self ? "\n\n"
       : Element.self == EBNF.Alt.self ? (level == 0 ? "\n  " : " | ")
       : " "
   }
@@ -88,7 +88,7 @@ extension Optional: EBNFNode where Wrapped: EBNFNode {
   func dumped(level: Int) -> String { self?.dumped(level: level + 1) ?? "" }
 }
 
-extension EBNF.Rule {
+extension EBNF.Definition {
   var position: SourceRegion { lhs.position...rhs.position }
   func dumped(level: Int) -> String {
     let k = [.oneOf: " (one of)", .token: " (token)", .regexp: " (regexp)"][kind]

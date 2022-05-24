@@ -119,7 +119,7 @@ extension EBNF {
     while !input.isEmpty {
       input.skipWhitespace()
 
-      var currentRuleKind: Rule.Kind = .plain
+      var currentDefinitionKind: Definition.Kind = .plain
 
       while !input.atEOL {
         if let s = input.eatSymbolName() {
@@ -130,15 +130,15 @@ extension EBNF {
         }
         else if let t = input.eat("(one of)") {
           token(.ONE_OF_KIND, t)
-          currentRuleKind = .oneOf
+          currentDefinitionKind = .oneOf
         }
         else if let t = input.eat("(token)") {
           token(.TOKEN_KIND, t)
-          currentRuleKind = .token
+          currentDefinitionKind = .token
         }
         else if let t = input.eat("(regexp)") {
           token(.REGEXP_KIND, t)
-          currentRuleKind = .regexp
+          currentDefinitionKind = .regexp
         }
         else if input.isEmpty {
           return output
@@ -152,7 +152,7 @@ extension EBNF {
 
       while !input.atEOL {
         // Process one line with its trailing newline and any leading space on the next line
-        switch currentRuleKind {
+        switch currentDefinitionKind {
         case .oneOf:
           while let x = input.eatNonWhitespace() {
             token(.LITERAL, x)
@@ -178,7 +178,7 @@ extension EBNF {
           let l = input.eatLine()
           token(.REGEXP, l.strippingWhitespace())
         }
-        if currentRuleKind == .oneOf { input.popFirst() }
+        if currentDefinitionKind == .oneOf { input.popFirst() }
         else { characterToken(.EOL); }
 
         input.skipHorizontalSpace()
