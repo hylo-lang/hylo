@@ -18,7 +18,7 @@ extension EBNF.Grammar {
     ) { a, b in
       throw Error(
         "Duplicate symbol definition", at: b.position,
-        notes: [("First definition", a.position)])
+        notes: [.init(message: "First definition", site: a.position)])
     }
 
     guard let d = self.definitions[start] else {

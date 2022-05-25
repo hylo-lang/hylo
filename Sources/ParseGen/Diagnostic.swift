@@ -1,9 +1,12 @@
 import CitronLexerModule
 
 /// An error produced at compile-time.
-struct EBNFError: Error, Equatable {
+struct EBNFError: Error, Hashable {
   /// An additional informative note to go with the error message.
-  typealias Note = (message: String, site: SourceRegion)
+  struct Note: Hashable {
+    let message: String
+    let site: SourceRegion
+  }
 
   /// A human-readable description of the problem.
   let message: String
@@ -71,14 +74,14 @@ extension EBNFError {
   static func + (l: Self, r: SourcePosition.Offset) -> Self {
     Self(
       l.message, at: l.site + r,
-      notes: l.notes.map { ($0.message, $0.site + r) })
+      notes: l.notes.map { .init(message: $0.message, site: $0.site + r) })
   }
 
   /// Returns `r` offset by `l`.
   static func + (l: SourcePosition.Offset, r: Self) -> Self {
     Self(
       r.message, at: r.site + l,
-      notes: r.notes.map { ($0.message, $0.site + l) })
+      notes: r.notes.map { .init(message: $0.message, site: $0.site + l) })
   }
 }
 
