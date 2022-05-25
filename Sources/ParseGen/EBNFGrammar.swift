@@ -12,7 +12,7 @@ extension EBNF {
 }
 
 extension EBNF.Grammar {
-  init(_ definitions: [EBNF.Definition], start: Symbol) throws {
+  init(_ definitions: [EBNF.Definition], start: Symbol, allowUnreachable: Bool = false) throws {
     try self.definitions = Dictionary(
       definitions.lazy.map {(key: $0.lhs.text, value: $0)}
     ) { a, b in
@@ -28,10 +28,10 @@ extension EBNF.Grammar {
     }
     self.start = d.lhs
 
-    try validate()
+    try validate(allowUnreachable: allowUnreachable)
   }
 
-  func validate() throws {
+  func validate(allowUnreachable: Bool = false) throws {
     var errors: Set<Error> = []
     var reachable: Set<Symbol> = []
 
@@ -40,6 +40,8 @@ extension EBNF.Grammar {
     }
 
     reach(start)
+
+    if allowUnreachable { return }
 
     for d in definitions.values {
       if !reachable.contains(d.lhs.text) {

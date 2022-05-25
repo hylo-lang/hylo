@@ -43,8 +43,7 @@ final class ParseGenTests: XCTestCase {
         }
       }
       let definitions = try parser.endParsing()
-      let g = try EBNF.Grammar(definitions, start: "module-definition")
-      print(g)
+      let g = try EBNF.Grammar(definitions, start: "module-definition", allowUnreachable: true)
     }
     catch let e as EBNFErrorLog {
       XCTFail("Unexpected error\n\(e.lazy.map { "\($0)" }.joined(separator: "\n"))")
