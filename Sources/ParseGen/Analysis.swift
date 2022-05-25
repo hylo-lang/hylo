@@ -64,35 +64,84 @@ extension EBNF.Grammar {
     }
   }
 
-  /*
-  typealias Tokens = [Symbol: (String, isRegexp: Bool, position: SourceRegion)]
-  func tokens() -> Tokens {
-    var literals: Set<String> = []
-    var regexps: Set<String> = []
-    var visited: Set<Symbol> = []
+  func checkNoRecursiveTokens(into errors: inout EBNFErrorLog) {
+    var stack: [Token] = []
+    var visited: Set<String> = []
 
     func visit(_ x: Token) {
-      if !visited.insert(x.text).inserted { return }
-      visit(definitions[x.text]!.alternatives)
+      stack.append(x)
+      defer { stack.removeLast() }
+
+      if visited.contains(x.text) {
+        errors.insert(
+          Error(
+            "Recursive token definition '\(stack[0].text)'", at: stack[0].position,
+            notes: stack.dropFirst().map {
+              .init(message: "via: '\($0.text)'", site: $0.position)
+            }))
+      }
+      else {
+        visited.insert(x.text)
+        defer { visited.remove(x.text) }
+
+        visit(definitions[x.text]!.alternatives)
+      }
     }
 
-    func visit(_ x: AlternativeList) {
-      for rhs in x { visit(rhs) }
-    }
-
-    func visit(_ x: Alternative) {
-      for t in x { visit(t) }
+    func visit(_ x: EBNF.AlternativeList) {
+      for a in x {
+        for t in a { visit(t) }
+      }
     }
 
     func visit(_ x: Term) {
       switch x {
       case .group(let g): visit(g)
       case .symbol(let s): visit(s)
-      case .regexp(let r, _): regexps.insert(r)
-      case .literal(let l, _): literals.insert(l)
+      case .regexp(_, _): do {}
+      case .literal(_, _): do {}
       case .quantified(let t, _, _): visit(t)
       }
     }
+
+    for d in definitions.values where d.kind == .token {
+      visit(d.lhs)
+    }
   }
-   */
+
+  func literals() -> Set<String> {
+    var visited: Set<String> = []
+    var r: Set<String> = []
+
+    func visit(_ x: Token) {
+      if !visited.insert(x.text).inserted { return }
+      let d = definitions[x.text]!
+      if d.kind == .plain || d.kind == .oneOf {
+        visit(d.alternatives)
+      }
+    }
+
+    func visit(_ x: AlternativeList) {
+      for a in x {
+        for t in a { visit(t) }
+      }
+    }
+
+    func visit(_ x: Term) {
+      switch x {
+      case .group(let g): 
+        visit(g)
+      case .symbol(let s): 
+        visit(s)
+      case .regexp(_, _): do {}
+      case .literal(let l, _): 
+        r.insert(l)
+      case .quantified(let t, _, _):
+        visit(t)
+      }
+    }
+
+    visit(start)
+    return r
+  }
 }

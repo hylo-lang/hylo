@@ -34,6 +34,7 @@ extension EBNF.Grammar {
     if !allowUnreachable {
       checkAllSymbolsReachable(into: &errors)
     }
+    checkNoRecursiveTokens(into: &errors)
     if !errors.isEmpty { throw errors }
   }
 

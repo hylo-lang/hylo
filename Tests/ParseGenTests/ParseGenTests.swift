@@ -44,7 +44,7 @@ final class ParseGenTests: XCTestCase {
       }
       let definitions = try parser.endParsing()
       let g = try EBNF.Grammar(definitions, start: "module-definition", allowUnreachable: true)
-      _ = g
+      print(g.literals())
     }
     catch let e as EBNFErrorLog {
       XCTFail("Unexpected error\n\(e.report())")
