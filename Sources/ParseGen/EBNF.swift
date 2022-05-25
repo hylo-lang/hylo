@@ -1,6 +1,8 @@
 import CitronLexerModule
 
 enum EBNF {
+  typealias Error = EBNFError
+
   struct Token: EBNFNode, Hashable {
     typealias ID = EBNFParser.CitronTokenCode
 
@@ -35,18 +37,6 @@ enum EBNF {
     case literal(String, position: SourceRegion)
     case regexp(Substring, position: SourceRegion)
     indirect case quantified(Term, Character, position: SourceRegion)
-  }
-
-  struct Grammar {
-    typealias Symbol = Substring
-    let definitions: [Symbol: Definition]
-    let start: Symbol
-
-    init(definitions: [Definition], start: Symbol) {
-      self.start = start
-      self.definitions = Dictionary(
-        uniqueKeysWithValues: definitions.lazy.map {(key: $0.lhs.text, value: $0)})
-    }
   }
 }
 
@@ -128,3 +118,4 @@ extension EBNF.Term {
     }
   }
 }
+
