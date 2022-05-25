@@ -29,21 +29,28 @@ final class ParseGenTests: XCTestCase {
     }
   }
 
-  func testEBNFParser() throws {
-    let specContents = try String(contentsOfFile: specPath, encoding: .utf8)
+  func testEBNFParser() {
+    do {
+      let specContents = try String(contentsOfFile: specPath, encoding: .utf8)
 
-    let ebnfBlocks = specContents.markdownCodeBlocks(language: "ebnf")
-    let parser = EBNFParser()
-    for b in ebnfBlocks where !b.isEmpty {
-      let startLine = b.first!.0 + 1
-      let text = specContents[b.first!.1.startIndex..<b.last!.1.endIndex]
-      for t in EBNF.tokens(in: text, onLine: startLine, fromFile: specPath) {
-        try parser.consume(token: t, code: t.id)
+      let ebnfBlocks = specContents.markdownCodeBlocks(language: "ebnf")
+      let parser = EBNFParser()
+      for b in ebnfBlocks where !b.isEmpty {
+        let startLine = b.first!.0 + 1
+        let text = specContents[b.first!.1.startIndex..<b.last!.1.endIndex]
+        for t in EBNF.tokens(in: text, onLine: startLine, fromFile: specPath) {
+          try parser.consume(token: t, code: t.id)
+        }
       }
+      let definitions = try parser.endParsing()
+      let g = try EBNF.Grammar(definitions, start: "module-definition")
+      print(g)
     }
-    let definitions = try parser.endParsing()
-    print(definitions.dump)
-    let g = try EBNF.Grammar(definitions, start: "module-definition")
-    print(g)
+    catch let e as EBNFErrorLog {
+      XCTFail("Unexpected error\n\(e.lazy.map { "\($0)" }.joined(separator: "\n"))")
+    }
+    catch let e {
+      XCTFail("Unexpected error\n\(e)")
+    }
   }
 }
