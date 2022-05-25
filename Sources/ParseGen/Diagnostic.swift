@@ -85,5 +85,10 @@ extension EBNFError {
   }
 }
 
-typealias EBNFErrorLog = [EBNFError]
-extension EBNFErrorLog: Error {}
+typealias EBNFErrorLog = Set<EBNFError>
+extension EBNFErrorLog: Error {
+  func report() -> String {
+    self.sorted { $0.site.span.lowerBound < $1.site.span.lowerBound }
+      .lazy.map { "\($0)" }.joined(separator: "\n")
+  }
+}

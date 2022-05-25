@@ -6,33 +6,38 @@ extension EBNF {
     typealias AlternativeList = EBNF.AlternativeList
     typealias Term = EBNF.Term
     typealias Symbol = String
-    let definitions: [Symbol: Definition]
+    typealias Definitions = [Symbol: Definition]
+    let definitions: Definitions
     let start: Token
   }
 }
 
 extension EBNF.Grammar {
-  init(_ definitions: [EBNF.Definition], start: Symbol, allowUnreachable: Bool = false) throws {
-    try self.definitions = Dictionary(
-      definitions.lazy.map {(key: $0.lhs.text, value: $0)}
-    ) { a, b in
-      throw Error(
+  init(_ ast: [EBNF.Definition], start: Symbol, allowUnreachable: Bool = false) throws {
+    var errors: EBNFErrorLog = []
+
+    definitions = Dictionary(ast.lazy.map {(key: $0.lhs.text, value: $0)}) { a, b in
+      errors.insert(
+        Error(
         "Duplicate symbol definition", at: b.position,
-        notes: [.init(message: "First definition", site: a.position)])
+        notes: [.init(message: "First definition", site: a.position)]))
+      return a
     }
 
+    Self.checkAllSymbolsDefined(in: definitions, into: &errors)
     guard let d = self.definitions[start] else {
-      throw Error(
-        "Start symbol \(start) not defined\n\(self.definitions)",
-        at: definitions.position)
+      errors.insert(
+        Error("Start symbol \(start) not defined\n\(self.definitions)", at: ast.position))
+      throw errors
     }
     self.start = d.lhs
-
-    try validate(allowUnreachable: allowUnreachable)
+    if !allowUnreachable {
+      checkAllSymbolsReachable(into: &errors)
+    }
+    if !errors.isEmpty { throw errors }
   }
 
-  func validate(allowUnreachable: Bool = false) throws {
-    var errors: Set<Error> = []
+  func validate(allowUnreachable: Bool = false, into errors: inout EBNFErrorLog) {
     var reachable: Set<Symbol> = []
 
     for d in definitions.values {
@@ -94,6 +99,5 @@ extension EBNF.Grammar {
       case .quantified(let t, _, _): checkDefined(t)
       }
     }
-    if !errors.isEmpty { throw errors.sorted { $0.site.span.lowerBound < $1.site.span.lowerBound } }
   }
 }
