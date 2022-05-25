@@ -104,7 +104,7 @@ extension EBNF {
       let start = SourcePosition(line: input.currentLine, column: startColumn)
       let end = SourcePosition(line: input.currentLine, column: startColumn + text.count)
 
-      output.append(Token(kind, text, at: SourceRegion(fileName: sourcePath, start..<end)))
+      output.append(Token(kind, String(text), at: SourceRegion(fileName: sourcePath, start..<end)))
     }
 
     func illegalToken() {

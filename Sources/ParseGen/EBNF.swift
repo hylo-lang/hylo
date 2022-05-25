@@ -6,17 +6,17 @@ enum EBNF {
   struct Token: EBNFNode, Hashable {
     typealias ID = EBNFParser.CitronTokenCode
 
-    init(_ id: ID, _ content: Substring, at position: SourceRegion) {
+    init(_ id: ID, _ content: String, at position: SourceRegion) {
       self.id = id
       self.text = content
       self.position = position
     }
 
     let id: ID
-    let text: Substring
+    let text: String
     let position: SourceRegion
 
-    func dumped(level: Int) -> String { String(text) }
+    func dumped(level: Int) -> String { text }
   }
 
   typealias DefinitionList = [Definition]
@@ -35,7 +35,7 @@ enum EBNF {
     case group(AlternativeList)
     case symbol(Token)
     case literal(String, position: SourceRegion)
-    case regexp(Substring, position: SourceRegion)
+    case regexp(String, position: SourceRegion)
     indirect case quantified(Term, Character, position: SourceRegion)
   }
 }

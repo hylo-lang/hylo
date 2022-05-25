@@ -5,7 +5,7 @@ extension EBNF {
     typealias Alternative = EBNF.Alternative
     typealias AlternativeList = EBNF.AlternativeList
     typealias Term = EBNF.Term
-    typealias Symbol = Substring
+    typealias Symbol = String
     let definitions: [Symbol: Definition]
     let start: Token
   }
