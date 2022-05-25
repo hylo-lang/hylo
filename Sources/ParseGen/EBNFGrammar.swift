@@ -23,7 +23,10 @@ extension EBNF.Grammar {
 
     guard let d = self.definitions[start] else {
       let k = self.definitions.keys.first { k in k == start }
-      if let k = k { assert(k.hashValue == start.hashValue) }
+      if let k = k {
+        // an equal key was found via linear search!
+        assert(k.hashValue == start.hashValue) 
+      }
       
       throw Error(
         "Start symbol \(start) not defined\n\(self.definitions)",

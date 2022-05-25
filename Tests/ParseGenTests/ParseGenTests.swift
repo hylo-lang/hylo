@@ -33,9 +33,9 @@ final class ParseGenTests: XCTestCase {
   }
 
   func testEBNFParser() throws {
-    let specContents = try unbridge(String(contentsOfFile: specPath, encoding: .utf8))
-    // Horrible no good very bad workaround for https://github.com/apple/swift/issues/59066.
-//    let specContents = String(decoding: specContents_.utf8, as: UTF8.self)
+    let specContents0 = try String(contentsOfFile: specPath, encoding: .utf8)
+    // Attempted workaround for https://github.com/apple/swift/issues/59066.
+    let specContents = unbridge(specContents0)
 
     let ebnfBlocks = specContents.markdownCodeBlocks(language: "ebnf")
     let parser = EBNFParser()
