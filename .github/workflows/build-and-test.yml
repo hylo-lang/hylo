@@ -13,6 +13,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+      with:
+        submodules: recursive
     - uses: swift-actions/setup-swift@v1
     - name: Swift version
       run: swift --version
