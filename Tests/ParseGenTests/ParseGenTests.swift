@@ -44,7 +44,11 @@ final class ParseGenTests: XCTestCase {
       }
       let definitions = try parser.endParsing()
       let g = try EBNF.Grammar(definitions, start: "module-definition")
-      print(g.literals())
+      print("literals:", g.literals())
+      print("regexps:")
+      for (k, v) in g.regexps() {
+        print("  \(k) ::= /\(v)/")
+      }
     }
     catch let e as EBNFErrorLog {
       XCTFail("Unexpected error\n\(e.report())")

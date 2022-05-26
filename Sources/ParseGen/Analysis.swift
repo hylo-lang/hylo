@@ -1,4 +1,5 @@
 import CitronLexerModule
+import Foundation
 
 extension EBNF.Grammar {
   /// Adds errors to `errors` for any symbols that don't appear on the LHS of a definition.
@@ -146,8 +147,69 @@ extension EBNF.Grammar {
         visit(t)
       }
     }
+    return r
+  }
 
-    visit(start)
+  /// Returns a mapping from terminal symbols to the regular expressions that describe them.
+  func regexps() -> [Symbol: String] {
+    var visited: Set<Symbol> = []
+    var r: [Symbol: String] = [:]
+    visitSymbol(start)
+
+    func visitSymbol(_ x: Token) {
+      if !visited.insert(x.text).inserted { return }
+
+      let d = definitions[x.text]!
+      if d.kind == .token || d.kind == .regexp {
+        r[x.text] = regexp(d.alternatives)
+      }
+      else {
+        visitSymbols(in: d.alternatives)
+      }
+    }
+
+    func visitSymbols(in x: AlternativeList) {
+      for a in x {
+        for t in a { visitSymbols(in: t) }
+      }
+    }
+
+    func visitSymbols(in x: Term) {
+      switch x {
+      case .group(let g):
+        visitSymbols(in: g)
+      case .symbol(let s):
+        visitSymbol(s)
+      case .regexp(_, _): fatalError("unreachable")
+      case .literal(_, _): return
+      case .quantified(let t, _, _):
+        visitSymbols(in: t)
+      }
+    }
+
+    func regexp(_ x: Token) -> String {
+      let d = definitions[x.text]!
+      return regexp(d.alternatives)
+    }
+
+    func regexp(_ x: AlternativeList) -> String {
+      let inner = x.lazy.map { a in regexp(a) }.joined(separator: "|")
+      return x.count <= 1 ? inner : "(?:" + inner + ")"
+    }
+
+    func regexp(_ a: Alternative) -> String {
+      a.lazy.map { t in regexp(t) }.joined()
+    }
+
+    func regexp(_ x: Term) -> String {
+      switch x {
+      case .group(let g): return regexp(g)
+      case .symbol(let s): return regexp(s)
+      case .regexp(let r, _): return r
+      case .literal(let l, _): return NSRegularExpression.escapedPattern(for: l)
+      case .quantified(let t, let q, _): return regexp(t) + String(q)
+      }
+    }
     return r
   }
 }
