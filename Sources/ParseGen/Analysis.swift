@@ -1,6 +1,7 @@
 import CitronLexerModule
 
 extension EBNF.Grammar {
+  /// Adds errors to `errors` for any symbols that don't appear on the LHS of a definition.
   static func checkAllSymbolsDefined(in definitions: Definitions, into errors: inout EBNFErrorLog) {
     for d in definitions.values {
       checkDefined(d.alternatives)
@@ -29,6 +30,7 @@ extension EBNF.Grammar {
     }
   }
 
+  /// Adds errors to `errors` for any symbols that can't be produced by the start symbol.
   func checkAllSymbolsReachable(into errors: inout EBNFErrorLog) {
     var reachable: Set<Symbol> = []
     reach(start)
@@ -64,9 +66,14 @@ extension EBNF.Grammar {
     }
   }
 
+  /// Adds errors to `errors` for any `(token)` rules that are (directly or
+  /// indirectly) self-referential.
   func checkNoRecursiveTokens(into errors: inout EBNFErrorLog) {
     var stack: [Token] = []
     var visited: Set<String> = []
+    for d in definitions.values where d.kind == .token {
+      visit(d.lhs)
+    }
 
     func visit(_ x: Token) {
       stack.append(x)
@@ -103,15 +110,14 @@ extension EBNF.Grammar {
       case .quantified(let t, _, _): visit(t)
       }
     }
-
-    for d in definitions.values where d.kind == .token {
-      visit(d.lhs)
-    }
   }
 
+  /// Returns the set of literal strings recognized as terminals.
   func literals() -> Set<String> {
     var visited: Set<String> = []
     var r: Set<String> = []
+
+    visit(start)
 
     func visit(_ x: Token) {
       if !visited.insert(x.text).inserted { return }
