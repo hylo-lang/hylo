@@ -13,7 +13,7 @@ extension EBNF {
 }
 
 extension EBNF.Grammar {
-  init(_ ast: [EBNF.Definition], start: Symbol, allowUnreachable: Bool = false) throws {
+  init(_ ast: [EBNF.Definition], start: Symbol) throws {
     var errors: EBNFErrorLog = []
 
     definitions = Dictionary(ast.lazy.map {(key: $0.lhs.text, value: $0)}) { a, b in
@@ -31,9 +31,7 @@ extension EBNF.Grammar {
       throw errors
     }
     self.start = d.lhs
-    if !allowUnreachable {
-      checkAllSymbolsReachable(into: &errors)
-    }
+    checkAllSymbolsReachable(into: &errors)
     checkNoRecursiveTokens(into: &errors)
     if !errors.isEmpty { throw errors }
   }
