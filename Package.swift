@@ -24,7 +24,6 @@ let package = Package(
     ),
 
     .package(url: "https://github.com/dabrahams/citron.git", branch: "master"),
-    .package(url: "https://github.com/dabrahams/SwiftMarpa.git", from: "0.9.0"),
   ],
 
   targets: [
