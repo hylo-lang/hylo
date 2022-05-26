@@ -118,6 +118,7 @@ extension EBNF.Grammar {
     var r: Set<String> = []
 
     visit(start)
+    return r
 
     func visit(_ x: Token) {
       if !visited.insert(x.text).inserted { return }
@@ -146,7 +147,6 @@ extension EBNF.Grammar {
         visit(t)
       }
     }
-    return r
   }
 
   /*
