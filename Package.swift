@@ -49,7 +49,8 @@ let package = Package(
 
     .target(
       name: "ParseGen",
-      dependencies: ["Utils", CitronParser, CitronLexer],
+      dependencies: [
+        "Utils", CitronParser, CitronLexer, .product(name: "Marpa", package: "SwiftMarpa")],
       exclude: ["README.md"],
       plugins: [ .plugin(name: "CitronParserGenerator", package: "citron") ]
     ),

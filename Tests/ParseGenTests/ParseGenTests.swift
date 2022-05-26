@@ -44,11 +44,14 @@ final class ParseGenTests: XCTestCase {
       }
       let definitions = try parser.endParsing()
       let g = try EBNF.Grammar(definitions, start: "module-definition")
-      print("literals:", g.literals())
-      print("regexps:")
-      for (k, v) in g.regexps() {
-        print("  \(k) ::= /\(v)/")
-      }
+      // print("literals:", g.literals())
+      let r = g.regexps()
+      // print("regexps:")
+      // for (k, v) in r {
+      //   print("  \(k) ::= /\(v)/")
+      // }
+      let n = g.nonterminals()
+      XCTAssert(n.isDisjoint(with: r.keys))
     }
     catch let e as EBNFErrorLog {
       XCTFail("Unexpected error\n\(e.report())")

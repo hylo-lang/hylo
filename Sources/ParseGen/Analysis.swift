@@ -1,5 +1,6 @@
 import CitronLexerModule
 import Foundation
+import Marpa
 
 extension EBNF.Grammar {
   /// Adds errors to `errors` for any symbols that don't appear on the LHS of a definition.
@@ -212,4 +213,96 @@ extension EBNF.Grammar {
     }
     return r
   }
+
+  /// Returns the nonterminal symbols of the analyzed grammar.
+  func nonterminals() -> Set<Symbol> {
+    var visited: Set<Symbol> = []
+    var r: Set<Symbol> = []
+
+    visit(start)
+
+    func visit(_ x: Token) {
+      let d = definitions[x.text]!
+      if d.kind == .regexp || d.kind == .token { return }
+      if !r.insert(x.text).inserted { return }
+      visit(d.alternatives)
+    }
+
+    func visit(_ x: AlternativeList) {
+      for a in x {
+        for t in a { visit(t) }
+      }
+    }
+
+    func visit(_ x: Term) {
+      switch x {
+      case .group(let g): visit(g)
+      case .symbol(let s): visit(s)
+      case .regexp(_, _): do {}
+      case .literal(_, _): do {}
+      case .quantified(let t, _, _):
+        visit(t)
+      }
+    }
+    return r
+  }
+
+  /*
+  func finalized() -> (
+    scanner: CitronLexerModule.Scanner<Marpa.Symbol>,
+    grammar: Marpa.Grammar,
+    symbolNames: [Marpa.Symbol: String]
+  ) {
+    let g = Marpa.Grammar()
+
+    // Sort these sets for deterministic results run-to-run.
+    let literals = self.literals().sorted()
+    let regexps = self.regexps()
+    let nonterminals = Set(self.definitions.keys).subtracting(regexps.keys).sorted()
+    let symbols = definitions.keys.sorted()
+    var toMarpa: [Symbol: Marpa.Sybol] = [:]
+    for s in symbols {
+      if
+
+    var visited: Set<Symbol> = []
+
+    let marpaLiterals = Dictionary(
+      uniqueKeysWithValues: literals.lazy.map {
+        t in (key: t, value: g.makeTerminal())
+      })
+
+    var marpaSymbols: [Symbol: Marpa.Symbol] = []
+    for r in regexps.keys.sorted() {
+      marpaSymbols[r] = g.makeTerminal()
+    }
+    for s in definitions.keys.sorted() where !regexps.hasKey(s)
+      marpaSymbols[r] = g.makeNonterminal()
+    }
+
+    for lhs in nonterminals {
+      for rhs in definitions[lhs]!.alternatives {
+        g.makeRule(
+          lhs: marpaSymbols[lhs]!,
+          rhs: rhs.lazy.map { t in symbol(t) })
+      }
+    }
+
+    func symbol(_ x: Term) -> Marpa.Symbol {
+      fatalError()
+      /*
+      switch x {
+      case .group(let g):
+        visit(g)
+      case .symbol(let s):
+        visit(s)
+      case .regexp(_, _): do {}
+      case .literal(let l, _):
+        r.insert(l)
+      case .quantified(let t, _, _):
+        visit(t)
+      }
+       */
+    }
+  }
+   */
 }
