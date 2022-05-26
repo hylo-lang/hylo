@@ -20,8 +20,9 @@ jobs:
       run: swift --version
     - name: Dependencies
       run: |
-        brew update
-        brew install libmarpa
+        brew uninstall libmarpa || true
+        brew tap val-lang/homebrew-tap
+        brew install --HEAD libmarpa-val
     - name: Build
       run: swift build -v
     - name: Run tests
