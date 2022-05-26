@@ -1,6 +1,7 @@
 import CitronLexerModule
 
 extension EBNF.Grammar {
+  /// Adds errors to `errors` for any symbols that don't appear on the LHS of a definition.
   static func checkAllSymbolsDefined(in definitions: Definitions, into errors: inout EBNFErrorLog) {
     for d in definitions.values {
       checkDefined(d.alternatives)
@@ -29,6 +30,7 @@ extension EBNF.Grammar {
     }
   }
 
+  /// Adds errors to `errors` for any symbols that can't be produced by the start symbol.
   func checkAllSymbolsReachable(into errors: inout EBNFErrorLog) {
     var reachable: Set<Symbol> = []
     reach(start)
@@ -64,9 +66,14 @@ extension EBNF.Grammar {
     }
   }
 
+  /// Adds errors to `errors` for any `(token)` rules that are (directly or
+  /// indirectly) self-referential.
   func checkNoRecursiveTokens(into errors: inout EBNFErrorLog) {
     var stack: [Token] = []
     var visited: Set<String> = []
+    for d in definitions.values where d.kind == .token {
+      visit(d.lhs)
+    }
 
     func visit(_ x: Token) {
       stack.append(x)
@@ -103,15 +110,14 @@ extension EBNF.Grammar {
       case .quantified(let t, _, _): visit(t)
       }
     }
-
-    for d in definitions.values where d.kind == .token {
-      visit(d.lhs)
-    }
   }
 
+  /// Returns the set of literal strings recognized as terminals.
   func literals() -> Set<String> {
     var visited: Set<String> = []
     var r: Set<String> = []
+
+    visit(start)
 
     func visit(_ x: Token) {
       if !visited.insert(x.text).inserted { return }
@@ -140,8 +146,50 @@ extension EBNF.Grammar {
         visit(t)
       }
     }
+    return r
+  }
+
+  /*
+  /// Returns a mapping from terminal symbols to the regular expressions that describe them.
+  func regexps() -> [Symbol: String] {
+    var r: [Alternative: String] = [:]
+    var memo: [String: String] = []
+
+    func visit(_ x: Token, ) {
+      if memo[x.text] != nil { return }
+
+      let d = definitions[x.text]!
+      if d.kind == .token || d.kind == .regexp {
+        memo[x.text] = visitToken(d.alternatives)
+      }
+      else {
+        memo[x.text] = ""
+        visitNonterminal(d.alternatives)
+      }
+    }
+
+    func visit(_ x: AlternativeList) {
+      for a in x {
+        for t in a { visit(t) }
+      }
+    }
+
+    func visit(_ x: Term) {
+      switch x {
+      case .group(let g):
+        visit(g)
+      case .symbol(let s):
+        visit(s)
+      case .regexp(_, _): do {}
+      case .literal(let l, _):
+        r.insert(l)
+      case .quantified(let t, _, _):
+        visit(t)
+      }
+    }
 
     visit(start)
     return r
   }
+   */
 }
