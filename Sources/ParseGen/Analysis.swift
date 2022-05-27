@@ -216,7 +216,6 @@ extension EBNF.Grammar {
 
   /// Returns the nonterminal symbols of the analyzed grammar.
   func nonterminals() -> Set<Symbol> {
-    var visited: Set<Symbol> = []
     var r: Set<Symbol> = []
 
     visit(start)
@@ -247,7 +246,6 @@ extension EBNF.Grammar {
     return r
   }
 
-  /*
   func finalized() -> (
     scanner: CitronLexerModule.Scanner<Marpa.Symbol>,
     grammar: Marpa.Grammar,
@@ -256,53 +254,70 @@ extension EBNF.Grammar {
     let g = Marpa.Grammar()
 
     // Sort these sets for deterministic results run-to-run.
-    let literals = self.literals().sorted()
     let regexps = self.regexps()
-    let nonterminals = Set(self.definitions.keys).subtracting(regexps.keys).sorted()
-    let symbols = definitions.keys.sorted()
-    var toMarpa: [Symbol: Marpa.Sybol] = [:]
-    for s in symbols {
-      if
+    let nonterminals = self.nonterminals().sorted()
 
-    var visited: Set<Symbol> = []
+    var symbols: [Symbol: Marpa.Symbol] = [:]
+    var literals: [String: Marpa.Symbol] = [:]
 
-    let marpaLiterals = Dictionary(
-      uniqueKeysWithValues: literals.lazy.map {
-        t in (key: t, value: g.makeTerminal())
-      })
-
-    var marpaSymbols: [Symbol: Marpa.Symbol] = []
-    for r in regexps.keys.sorted() {
-      marpaSymbols[r] = g.makeTerminal()
+    for text in self.literals().sorted() {
+      literals[text] = g.makeTerminal()
     }
-    for s in definitions.keys.sorted() where !regexps.hasKey(s)
-      marpaSymbols[r] = g.makeNonterminal()
+    for r in regexps.keys.sorted() {
+      symbols[r] = g.makeTerminal()
+    }
+    for s in nonterminals {
+      symbols[s] = g.makeNonterminal()
     }
 
     for lhs in nonterminals {
       for rhs in definitions[lhs]!.alternatives {
-        g.makeRule(
-          lhs: marpaSymbols[lhs]!,
-          rhs: rhs.lazy.map { t in symbol(t) })
+        _ = g.makeRule(lhs: symbols[lhs]!, rhs: rhs.lazy.map { t in symbol(t) })
       }
     }
 
+    let symbolNames = Dictionary(
+      uniqueKeysWithValues: literals.map { kv in (kv.1, kv.0) }
+        + symbols.lazy.map { kv in (kv.1, kv.0) }
+    )
+
     func symbol(_ x: Term) -> Marpa.Symbol {
-      fatalError()
-      /*
       switch x {
-      case .group(let g):
-        visit(g)
-      case .symbol(let s):
-        visit(s)
-      case .regexp(_, _): do {}
-      case .literal(let l, _):
-        r.insert(l)
-      case .quantified(let t, _, _):
-        visit(t)
+      case .group(let alternatives):
+        let innerLHS = g.makeNonterminal()
+        for rhs in alternatives {
+          _ = g.makeRule(lhs: innerLHS, rhs: rhs.lazy.map { t in symbol(t) })
+        }
+        return innerLHS
+      case .symbol(let s): return symbols[s.text]!
+      case .regexp(_, _): fatalError("unreachable")
+      case .literal(let l, _): return literals[l]!
+      case .quantified(let t, "?", _):
+        let innerLHS = g.makeNonterminal()
+        _ = g.makeRule(lhs: innerLHS, rhs: EmptyCollection())
+        _ = g.makeRule(lhs: innerLHS, rhs: CollectionOfOne(symbol(t)))
+        return innerLHS
+
+      case .quantified(let t, let q, _):
+        // TODO use sequence rules.
+        let innerLHS = g.makeNonterminal()
+        let ts = symbol(t)
+        if q == "+" {
+          _ = g.makeRule(lhs: innerLHS, rhs: CollectionOfOne(ts))
+        }
+        else {
+          _ = g.makeRule(lhs: innerLHS, rhs: EmptyCollection())
+        }
+        return innerLHS
       }
-       */
     }
+    var patterns = Dictionary(
+      uniqueKeysWithValues: regexps.lazy.map {
+        name, pattern in (pattern, symbols[name]!)})
+    patterns[#"\s+"#] = nil // ignore whitespace
+    return (
+      Scanner(literalStrings: literals, patterns: patterns),
+      g,
+      symbolNames)
   }
-   */
 }

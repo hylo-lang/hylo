@@ -52,6 +52,7 @@ final class ParseGenTests: XCTestCase {
       // }
       let n = g.nonterminals()
       XCTAssert(n.isDisjoint(with: r.keys))
+      print(g.finalized())
     }
     catch let e as EBNFErrorLog {
       XCTFail("Unexpected error\n\(e.report())")
