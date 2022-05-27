@@ -248,6 +248,7 @@ extension EBNF.Grammar {
 
   func finalized() -> (
     scanner: CitronLexerModule.Scanner<Marpa.Symbol>,
+    unrecognizedToken: Marpa.Symbol,
     grammar: Marpa.Grammar,
     symbolNames: [Marpa.Symbol: String]
   ) {
@@ -257,7 +258,8 @@ extension EBNF.Grammar {
     let regexps = self.regexps()
     let nonterminals = self.nonterminals().sorted()
 
-    var symbols: [Symbol: Marpa.Symbol] = [:]
+    let unrecognizedToken = g.makeTerminal()
+    var symbols = ["<UNRECOGNIZED>": unrecognizedToken]
     var literals: [String: Marpa.Symbol] = [:]
 
     for text in self.literals().sorted() {
@@ -269,10 +271,23 @@ extension EBNF.Grammar {
     for s in nonterminals {
       symbols[s] = g.makeNonterminal()
     }
+    g.startSymbol = symbols[start.text]!
+
+    func newNonterminal(_ root: String) -> Marpa.Symbol {
+      for suffix in 0...20 {
+        let name = suffix == 0 ? root : "\(root)_\(suffix)"
+        if symbols[name] == nil {
+          let r = g.makeNonterminal()
+          symbols[name] = r
+          return r
+        }
+      }
+      fatalError("More than 20?!")
+    }
 
     for lhs in nonterminals {
       for rhs in definitions[lhs]!.alternatives {
-        _ = g.makeRule(lhs: symbols[lhs]!, rhs: rhs.lazy.map { t in symbol(t) })
+        _ = g.makeRule(lhs: symbols[lhs]!, rhs: rhs.lazy.map { t in symbol(t, lhsContext: lhs) })
       }
     }
 
@@ -281,27 +296,28 @@ extension EBNF.Grammar {
         + symbols.lazy.map { kv in (kv.1, kv.0) }
     )
 
-    func symbol(_ x: Term) -> Marpa.Symbol {
+    func symbol(_ x: Term, lhsContext: String) -> Marpa.Symbol {
       switch x {
       case .group(let alternatives):
-        let innerLHS = g.makeNonterminal()
+        let innerLHS = newNonterminal(lhsContext)
         for rhs in alternatives {
-          _ = g.makeRule(lhs: innerLHS, rhs: rhs.lazy.map { t in symbol(t) })
+          _ = g.makeRule(
+            lhs: innerLHS, rhs: rhs.lazy.map { t in symbol(t, lhsContext: lhsContext) })
         }
         return innerLHS
       case .symbol(let s): return symbols[s.text]!
       case .regexp(_, _): fatalError("unreachable")
       case .literal(let l, _): return literals[l]!
       case .quantified(let t, "?", _):
-        let innerLHS = g.makeNonterminal()
+        let innerLHS = newNonterminal(lhsContext)
         _ = g.makeRule(lhs: innerLHS, rhs: EmptyCollection())
-        _ = g.makeRule(lhs: innerLHS, rhs: CollectionOfOne(symbol(t)))
+        _ = g.makeRule(lhs: innerLHS, rhs: CollectionOfOne(symbol(t, lhsContext: lhsContext)))
         return innerLHS
 
       case .quantified(let t, let q, _):
         // TODO use sequence rules.
-        let innerLHS = g.makeNonterminal()
-        let ts = symbol(t)
+        let innerLHS = newNonterminal(lhsContext)
+        let ts = symbol(t, lhsContext: lhsContext)
         if q == "+" {
           _ = g.makeRule(lhs: innerLHS, rhs: CollectionOfOne(ts))
         }
@@ -315,8 +331,12 @@ extension EBNF.Grammar {
       uniqueKeysWithValues: regexps.lazy.map {
         name, pattern in (pattern, symbols[name]!)})
     patterns[#"\s+"#] = nil // ignore whitespace
+
+    g.precompute()
+
     return (
       Scanner(literalStrings: literals, patterns: patterns),
+      unrecognizedToken,
       g,
       symbolNames)
   }

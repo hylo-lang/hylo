@@ -1,5 +1,7 @@
 import XCTest
 import Utils
+import Marpa
+
 @testable import ParseGen
 
 
@@ -52,7 +54,27 @@ final class ParseGenTests: XCTestCase {
       // }
       let n = g.nonterminals()
       XCTAssert(n.isDisjoint(with: r.keys))
-      print(g.finalized())
+      let (scanner, unrecognizedToken, marpaGrammar, symbolNames) = g.finalized()
+      let valBlocks = specContents.markdownCodeBlocks(language: "val")
+      var errors: EBNFErrorLog = []
+
+      for b in valBlocks {
+        let startLine = b.first!.0
+        let text = specContents[b.first!.1.startIndex..<b.last!.1.endIndex]
+        let tokens = scanner.tokens(
+          in: String(text), fromFile: specPath, unrecognizedToken: unrecognizedToken)
+        let r = Marpa.Recognizer(marpaGrammar)
+        r.startInput()
+        for (t, _, position) in tokens {
+          if let err = r.read(t) {
+            errors.insert(
+              EBNFError(String(describing: Marpa.errorDescription[err]), at: position))
+            break
+          }
+          r.advanceEarleme()
+        }
+      }
+      if !errors.isEmpty { throw errors }
     }
     catch let e as EBNFErrorLog {
       XCTFail("Unexpected error\n\(e.report())")
