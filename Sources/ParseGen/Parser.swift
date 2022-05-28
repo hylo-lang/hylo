@@ -14,9 +14,13 @@ struct Parser {
     }
   }
 
-  func description(_ r: Marpa.Rule) -> String {
+  func description(_ r: Marpa.Rule, dotPosition: Int? = nil) -> String {
     let lhsName = symbolName[grammar.lhs(r)]!
-    let rhs = grammar.rhs(r).lazy.map { s in symbolName[s]! }.joined(separator: " ")
-    return "\(lhsName) -> \(rhs)"
+    let rhsNames = grammar.rhs(r).lazy.map { s in symbolName[s]! }
+    guard let n = dotPosition else {
+      return "\(lhsName) -> \(rhsNames.joined(separator: " "))"
+    }
+    let dottedRHS = rhsNames.prefix(n) + ["•"] + rhsNames.dropFirst(n)
+    return "\(lhsName) -> \(dottedRHS.joined(separator: " "))"
   }
 }

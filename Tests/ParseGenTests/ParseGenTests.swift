@@ -71,10 +71,10 @@ final class ParseGenTests: XCTestCase {
         for (t, s, position) in tokens {
           let specPosition = position + blockStart
           if let err = r.read(t) {
-            let progressReport = r.progress(at: r.latestEarleySet).map { (rule, origin, progress) in
+            let progressReport = r.progress(at: r.latestEarleySet).map { (rule, origin, n) in
               EBNFError.Note(
-                message: "Rule in progress: \(valParser.description(rule));"
-                  + "progress: \(progress); starting at \(origin)", site: specPosition)
+                message: "At token \(origin.id): \(valParser.description(rule, dotPosition: n < 0 ? nil : n))",
+                site: valParser.ruleLocation[rule]!)
             }
             switch err {
             case .unexpectedToken:
