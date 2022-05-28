@@ -68,13 +68,29 @@ final class ParseGenTests: XCTestCase {
           in: String(text), fromFile: specPath, unrecognizedToken: valParser.unrecognizedToken)
         let r = Marpa.Recognizer(valParser.grammar)
         r.startInput()
+        var earleySets: [EarleySet] = []
+
         for (t, s, position) in tokens {
+          earleySets.append(r.latestEarleySet)
           let specPosition = position + blockStart
           if let err = r.read(t) {
-            let progressReport = r.progress(at: r.latestEarleySet).map { (rule, origin, n) in
-              EBNFError.Note(
-                message: "At token \(origin.id): \(valParser.description(rule, dotPosition: n < 0 ? nil : n))",
-                site: valParser.ruleLocation[rule]!)
+            var progressReport: [EBNFError.Note] = []
+
+            for (e, (t, s, position)) in zip(earleySets, tokens) {
+
+              let xx = "-------------------"
+              progressReport.append(
+                EBNFError.Note(
+                  message: "\(xx) token \(e.id): '\(s)' (\(valParser.symbolName[t]!)) \(xx)",
+                  site: position + blockStart))
+
+              for (rule, origin, n) in r.progress(at: e) {
+                let ruleDescription = valParser.description(rule, dotPosition: n < 0 ? nil : n)
+                progressReport.append(
+                  EBNFError.Note(
+                    message: "\(ruleDescription) (\(origin.id))",
+                    site: valParser.ruleLocation[rule]!))
+              }
             }
             switch err {
             case .unexpectedToken:
