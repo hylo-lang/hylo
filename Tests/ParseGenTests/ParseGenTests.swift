@@ -69,11 +69,30 @@ final class ParseGenTests: XCTestCase {
         let r = Marpa.Recognizer(valParser.grammar)
         r.startInput()
         for (t, s, position) in tokens {
+          let specPosition = position + blockStart
           if let err = r.read(t) {
-            errors.insert(
-              EBNFError(
-                "\(err). token: \(valParser.symbolName[t]!): '\(s)'",
-                at: position + blockStart))
+            let progressReport = r.progress(at: r.latestEarleySet).map { (rule, origin, progress) in
+              EBNFError.Note(
+                message: "Rule in progress: \(valParser.description(rule));"
+                  + "progress: \(progress); starting at \(origin)", site: specPosition)
+            }
+            switch err {
+            case .unexpectedToken:
+              errors.insert(
+                EBNFError(
+                  "\(err) \(valParser.symbolName[t]!): '\(s)'",
+                  at: specPosition,
+                  notes: [
+                    EBNFError.Note(
+                      message: "expected one of: "
+                        + r.expectedTerminals.lazy.map { t in valParser.symbolName[t]! }
+                        .joined(separator: ", "),
+                      site: specPosition)] + progressReport
+                ))
+
+            default:
+              errors.insert(EBNFError("\(err)", at: specPosition, notes: progressReport))
+            }
             break
           }
           r.advanceEarleme()
