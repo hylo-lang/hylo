@@ -3,7 +3,7 @@ import CitronLexerModule
 enum EBNF {
   typealias Error = EBNFError
 
-  struct Token: EBNFNode, Hashable {
+  struct Token: EBNFNode {
     typealias ID = EBNFParser.CitronTokenCode
 
     init(_ id: ID, _ content: String, at position: SourceRegion) {
@@ -17,6 +17,15 @@ enum EBNF {
     let position: SourceRegion
 
     func dumped(level: Int) -> String { text }
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+      (lhs.id, lhs.text) == (rhs.id, rhs.text)
+    }
+
+    func hash(into h: inout Hasher) {
+      id.hash(into: &h)
+      text.hash(into: &h)
+    }
   }
 
   typealias DefinitionList = [Definition]
@@ -48,7 +57,7 @@ extension EBNF.Token: CustomStringConvertible {
 
 
 /// An EBNFNode node.
-protocol EBNFNode {
+protocol EBNFNode: Hashable {
   /// The region of source parsed as this node.
   var position: SourceRegion { get }
 
