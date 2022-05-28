@@ -54,21 +54,26 @@ final class ParseGenTests: XCTestCase {
       // }
       let n = g.nonterminals()
       XCTAssert(n.isDisjoint(with: r.keys))
-      let (scanner, unrecognizedToken, marpaGrammar, symbolNames) = try g.finalized()
-      _ = symbolNames
+      let valParser = try makeParser(g)
+      //print("-----------------------------")
+      //valParser.dumpGrammar()
+      //print("-----------------------------")
       let valBlocks = specContents.markdownCodeBlocks(language: "val")
       var errors: EBNFErrorLog = []
 
       for b in valBlocks {
         let blockStart = (line: b.first!.0, column: 0)
         let text = specContents[b.first!.1.startIndex..<b.last!.1.endIndex]
-        let tokens = scanner.tokens(
-          in: String(text), fromFile: specPath, unrecognizedToken: unrecognizedToken)
-        let r = Marpa.Recognizer(marpaGrammar)
+        let tokens = valParser.scanner.tokens(
+          in: String(text), fromFile: specPath, unrecognizedToken: valParser.unrecognizedToken)
+        let r = Marpa.Recognizer(valParser.grammar)
         r.startInput()
-        for (t, _, position) in tokens {
+        for (t, s, position) in tokens {
           if let err = r.read(t) {
-            errors.insert(EBNFError("\(err)", at: position + blockStart))
+            errors.insert(
+              EBNFError(
+                "\(err). token: \(valParser.symbolName[t]!): '\(s)'",
+                at: position + blockStart))
             break
           }
           r.advanceEarleme()
