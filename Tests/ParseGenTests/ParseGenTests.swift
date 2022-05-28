@@ -54,12 +54,13 @@ final class ParseGenTests: XCTestCase {
       // }
       let n = g.nonterminals()
       XCTAssert(n.isDisjoint(with: r.keys))
-      let (scanner, unrecognizedToken, marpaGrammar, symbolNames) = g.finalized()
+      let (scanner, unrecognizedToken, marpaGrammar, symbolNames) = try g.finalized()
+      _ = symbolNames
       let valBlocks = specContents.markdownCodeBlocks(language: "val")
       var errors: EBNFErrorLog = []
 
       for b in valBlocks {
-        let startLine = b.first!.0
+        let blockStart = (line: b.first!.0, column: 0)
         let text = specContents[b.first!.1.startIndex..<b.last!.1.endIndex]
         let tokens = scanner.tokens(
           in: String(text), fromFile: specPath, unrecognizedToken: unrecognizedToken)
@@ -67,8 +68,7 @@ final class ParseGenTests: XCTestCase {
         r.startInput()
         for (t, _, position) in tokens {
           if let err = r.read(t) {
-            errors.insert(
-              EBNFError(String(describing: Marpa.errorDescription[err]), at: position))
+            errors.insert(EBNFError("\(err)", at: position + blockStart))
             break
           }
           r.advanceEarleme()

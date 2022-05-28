@@ -246,12 +246,12 @@ extension EBNF.Grammar {
     return r
   }
 
-  func finalized() -> (
+  func finalized() throws -> (
     scanner: CitronLexerModule.Scanner<Marpa.Symbol>,
     unrecognizedToken: Marpa.Symbol,
     grammar: Marpa.Grammar,
     symbolNames: [Marpa.Symbol: String]
-  ) {
+  )  {
     let g = Marpa.Grammar()
 
     // Sort these sets for deterministic results run-to-run.
@@ -291,7 +291,7 @@ extension EBNF.Grammar {
       }
     }
 
-    let symbolNames = Dictionary(
+    var symbolNames = Dictionary(
       uniqueKeysWithValues: literals.map { kv in (kv.1, kv.0) }
         + symbols.lazy.map { kv in (kv.1, kv.0) }
     )
@@ -332,7 +332,23 @@ extension EBNF.Grammar {
         name, pattern in (pattern, symbols[name]!)})
     patterns[#"\s+"#] = nil // ignore whitespace
 
-    g.precompute()
+    if let err = g.precompute() {
+      var errors: EBNFErrorLog = []
+      switch err {
+      case .grammarHasCycle:
+        for r in g.rules {
+          if g.isLoop(r) {
+            let lhsName = symbolNames[g.lhs(r)]!
+            let position = (definitions[lhsName]?.lhs ?? start).position
+            let rhs = g.rhs(r).lazy.map { s in symbolNames[s]! }.joined(separator: " ")
+            errors.insert(EBNFError("Loop rule \(lhsName) -> \(rhs)", at: position))
+          }
+        }
+      default:
+        errors.insert(EBNFError("MARPA error: \(err)", at: start.position))
+      }
+      throw errors
+    }
 
     return (
       Scanner(literalStrings: literals, patterns: patterns),
