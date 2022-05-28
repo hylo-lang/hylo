@@ -26,7 +26,8 @@ func makeParser(_ sourceGrammar: EBNF.Grammar) throws -> Parser {
   let unrecognizedToken = g.makeTerminal()
   var tokenPatterns = Dictionary(
     uniqueKeysWithValues: regexps.lazy.map { name, pattern in (pattern, symbols[name])})
-  tokenPatterns[#"\s+"#, default: nil] = nil // ignore whitespace
+  // ignore whitespace and single-line comments
+  tokenPatterns[#"\s+|//.*\p{Zl}*"#, default: nil] = nil 
 
 
   // make MARPA symbols for nonterminals
