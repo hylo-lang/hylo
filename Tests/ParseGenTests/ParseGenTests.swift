@@ -50,67 +50,21 @@ final class ParseGenTests: XCTestCase {
       let r = g.regexps()
       // print("regexps:")
       // for (k, v) in r {
-      //   print("  \(k) ::= /\(v)/")
+      //    print("  \(k) ::= /\(v)/")
       // }
+      // print("-----------------------------")
+      // try makeParser(g).dumpGrammar()
+      // print("-----------------------------")
       let n = g.nonterminals()
       XCTAssert(n.isDisjoint(with: r.keys))
-      let valParser = try makeParser(g)
-      //print("-----------------------------")
-      //valParser.dumpGrammar()
-      //print("-----------------------------")
       let valBlocks = specContents.markdownCodeBlocks(language: "val")
       var errors: EBNFErrorLog = []
 
       for b in valBlocks {
+        let valParser = try makeParser(g)
         let blockStart = (line: b.first!.0, column: 0)
         let text = specContents[b.first!.1.startIndex..<b.last!.1.endIndex]
-        let tokens = valParser.scanner.tokens(
-          in: String(text), fromFile: specPath, unrecognizedToken: valParser.unrecognizedToken)
-        let r = Marpa.Recognizer(valParser.grammar)
-        r.startInput()
-
-        for (t, s, position) in tokens {
-          let specPosition = position + blockStart
-          if let err = r.read(t) {
-            var progressReport: [EBNFError.Note] = []
-
-            for (e, (t, s, position)) in tokens.enumerated() {
-
-              let xx = "-------------------"
-              progressReport.append(
-                EBNFError.Note(
-                  message: "\(xx) token \(e): '\(s)' (\(valParser.symbolName[t]!)) \(xx)",
-                  site: position + blockStart))
-
-              for (rule, origin, n) in r.progress(at: EarleySet(id: UInt32(e))) {
-                let ruleDescription = valParser.description(rule, dotPosition: n < 0 ? nil : n)
-                progressReport.append(
-                  EBNFError.Note(
-                    message: "\(ruleDescription) (\(origin.id))",
-                    site: valParser.ruleLocation[rule]!))
-              }
-            }
-            switch err {
-            case .unexpectedToken:
-              errors.insert(
-                EBNFError(
-                  "\(err) \(valParser.symbolName[t]!): '\(s)'",
-                  at: specPosition,
-                  notes: [
-                    EBNFError.Note(
-                      message: "expected one of: "
-                        + r.expectedTerminals.lazy.map { t in valParser.symbolName[t]! }
-                        .joined(separator: ", "),
-                      site: specPosition)] + progressReport
-                ))
-
-            default:
-              errors.insert(EBNFError("\(err)", at: specPosition, notes: progressReport))
-            }
-            break
-          }
-          r.advanceEarleme()
-        }
+        errors.formUnion(valParser.recognize(text, startingAt: blockStart, inFile: specPath))
       }
       if !errors.isEmpty { throw errors }
     }
