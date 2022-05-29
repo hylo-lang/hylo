@@ -23,8 +23,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/dabrahams/SwiftMarpa.git",
       "state" : {
-        "revision" : "9a9225f1fd1a02826d27e8e4db62a402425dd24b",
-        "version" : "0.9.4"
+        "revision" : "0616f37006d13a38c328f3be16a1f7c14017bdfe",
+        "version" : "0.9.5"
       }
     },
     {
