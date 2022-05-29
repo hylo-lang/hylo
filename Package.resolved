@@ -5,8 +5,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/dabrahams/citron.git",
       "state" : {
-        "branch" : "master",
-        "revision" : "ecfdaf5db81dcea8c7162f85e6defc5a7052b618"
+        "revision" : "ecfdaf5db81dcea8c7162f85e6defc5a7052b618",
+        "version" : "2.1.0"
       }
     },
     {

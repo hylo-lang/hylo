@@ -86,6 +86,28 @@ struct Parser {
     }
   }
 
+  func appendNotes(
+    showing t: Tree,
+    to notes: inout [EBNFError.Note],
+    esRegions: [SourceRegion],
+    depth: Int = 0
+  ) {
+    let s = t.step, l = s.sourceRange
+    let indent = repeatElement("  ", count: depth).joined()
+    let description = s.symbol != nil
+      ? symbolName[s.symbol!.0]! + (s.symbol!.tokenValue == nil ? " (null)" : "")
+      : "(" + description(s.rule!.0)
+    let start = Int(l.lowerBound.id)
+    let end = max(start, Int(l.upperBound.id) - 1)
+    let location = esRegions[start]...esRegions[end]
+    notes.append(.init(message: "\t\(indent)\(description)", site: location))
+
+    for child in t.children {
+      appendNotes(showing: child, to: &notes, esRegions: esRegions, depth: depth + 1)
+    }
+    if s.rule != nil { notes[notes.count - 1].message += ")" }
+  }
+
   func recognize(
     _ text: Substring,
     startingAt diagnosticOffset: SourcePosition.Offset = (line: 0, column: 0),
@@ -98,9 +120,9 @@ struct Parser {
 
     recognizer.startInput()
 
-    var lastPosition: SourceRegion = .empty
+    var esRegions: [SourceRegion] = []
     for (t, s, p) in tokens {
-      lastPosition = p + diagnosticOffset
+      esRegions.append(p + diagnosticOffset)
 
       guard let err = recognizer.read(t) else {
         recognizer.advanceEarleme()
@@ -114,52 +136,32 @@ struct Parser {
 
         errors.insert(
           EBNFError(
-            "\(err) \(symbolName[t]!): '\(s)'", at: lastPosition,
-            notes: [.init(message: "expected one of: " + expected, site: lastPosition)]))
+            "\(err) \(symbolName[t]!): '\(s)'", at: esRegions.last!,
+            notes: [.init(message: "expected one of: " + expected, site: esRegions.last!)]))
 
       default:
-        errors.insert(EBNFError("\(err)", at: lastPosition))
+        errors.insert(EBNFError("\(err)", at: esRegions.last!))
       }
       break
     }
     if !errors.isEmpty { return errors }
 
     guard let b = Bocage(recognizer) else {
-      errors.insert(EBNFError("No parse", at: lastPosition))
+      errors.insert(EBNFError("No parse", at: esRegions.last!))
       return errors
     }
 
     if b.isAmbiguous {
-      let tokenRegions = tokens.map { _, _, p in p + diagnosticOffset }
-
-      func error(_ s: Evaluation.Step) -> EBNF.Error {
-        EBNF.Error(
-          "Ambiguity: \(s.symbol != nil ? symbolName[s.symbol!.0]! : description(s.rule!.0))",
-          at: tokenRegions[Int(s.sourceRange.lowerBound.id)]
-            ... tokenRegions[Int(s.sourceRange.upperBound.id)])
+      // Hack to deal with the final earley set.
+      esRegions.append(esRegions.last!)
+      let inputRegion = esRegions.first!...esRegions.last!
+      var notes: [EBNFError.Note] = []
+      for (n, e) in Order(b, highRankOnly: false).enumerated() {
+        if n > 1 { break }
+        notes.append(.init(message: "Parse tree", site: inputRegion))
+        appendNotes(showing: Tree(e), to: &notes, esRegions: esRegions)
       }
-
-      var commonSteps = Set<Evaluation.Step>()
-      var ambiguousSteps = Set<Evaluation.Step>()
-      for e in Order(b, highRankOnly: false) {
-        if !ambiguousSteps.isEmpty { break }
-        if commonSteps.isEmpty && ambiguousSteps.isEmpty {
-          commonSteps = Set(e)
-          continue
-        }
-
-        let e1 = Array(e)
-        ambiguousSteps.formUnion(commonSteps.symmetricDifference(e1))
-        commonSteps.formIntersection(e1)
-      }
-      errors.formUnion(ambiguousSteps.lazy.map { s in error(s) })
-
-      if ambiguousSteps.isEmpty {
-        errors.insert(
-          .init(
-            "No parse (https://github.com/jeffreykegler/libmarpa/issues/115)",
-            at: tokenRegions.first!...tokenRegions.last!))
-      }
+      errors.insert(.init("Ambiguous parse", at: inputRegion, notes: notes))
     }
     return errors
   }

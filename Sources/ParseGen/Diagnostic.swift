@@ -4,7 +4,7 @@ import CitronLexerModule
 struct EBNFError: Error, Hashable {
   /// An additional informative note to go with the error message.
   struct Note: Hashable {
-    let message: String
+    var message: String
     let site: SourceRegion
   }
 
