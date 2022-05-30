@@ -1,4 +1,5 @@
 import CitronLexerModule
+import Utils
 
 enum EBNF {
   typealias Error = EBNFError
@@ -9,23 +10,16 @@ enum EBNF {
     init(_ id: ID, _ content: String, at position: SourceRegion) {
       self.id = id
       self.text = content
-      self.position = position
+      self.position_ = .init(position)
     }
 
     let id: ID
     let text: String
-    let position: SourceRegion
+    let position_: Incidental<SourceRegion>
+
+    var position: SourceRegion { position_.value }
 
     func dumped(level: Int) -> String { text }
-
-    static func == (lhs: Self, rhs: Self) -> Bool {
-      (lhs.id, lhs.text) == (rhs.id, rhs.text)
-    }
-
-    func hash(into h: inout Hasher) {
-      id.hash(into: &h)
-      text.hash(into: &h)
-    }
   }
 
   typealias DefinitionList = [Definition]
@@ -43,9 +37,9 @@ enum EBNF {
   enum Term: EBNFNode {
     case group(AlternativeList)
     case symbol(Token)
-    case literal(String, position: SourceRegion)
-    case regexp(String, position: SourceRegion)
-    indirect case quantified(Term, Character, position: SourceRegion)
+    case literal(String, position: Incidental<SourceRegion>)
+    case regexp(String, position: Incidental<SourceRegion>)
+    indirect case quantified(Term, Character, position: Incidental<SourceRegion>)
   }
 }
 
@@ -111,9 +105,9 @@ extension EBNF.Term {
     switch self {
     case .group(let g): return g.position
     case .symbol(let s): return s.position
-    case .regexp(_, let p): return p
-    case .literal(_, let p): return p
-    case .quantified(_, _, let p): return p
+    case .regexp(_, let p): return p.value
+    case .literal(_, let p): return p.value
+    case .quantified(_, _, let p): return p.value
     }
   }
   func dumped(level: Int) -> String {

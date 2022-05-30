@@ -54,9 +54,9 @@ rhs_list ::= rhs_line(r). { [r] }
 rhs_list ::= rhs_list(l) rhs_line(r). { l +  [r] }
 
 rhs_line ::= alt(l) EOL. { l }
-rhs_line ::= REGEXP(r) EOL. { [.regexp(r.text, position: r.position)] }
+rhs_line ::= REGEXP(r) EOL. { [.regexp(r.text, position: .init(r.position))] }
 
-literal ::= LITERAL(r). { .literal(String(r.text), position: r.position) }
+literal ::= LITERAL(r). { .literal(String(r.text), position: .init(r.position)) }
 one_of_list ::= literal(r). { [[r]] }
 one_of_list ::= one_of_list(l) literal(r). { l + [[r]] }
 
@@ -72,12 +72,12 @@ term ::= SYMBOL_NAME(s). {.symbol(s)}
 term ::= QUOTED_LITERAL(l). {
   .literal(
      l.text.dropFirst().dropLast().split(separator: "\\").joined(), 
-     position: l.position)
+     position: .init(l.position))
 }
 
 %token_set quantifier STAR PLUS QUESTION.
 term ::= term(t) quantifier(q). {
-  .quantified(t, q.text.first!, position: t.position...q.position)
+  .quantified(t, q.text.first!, position: .init(t.position...q.position))
 }
 
 /* Local Variables: */
