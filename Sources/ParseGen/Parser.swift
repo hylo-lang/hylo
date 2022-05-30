@@ -46,7 +46,7 @@ struct Parser {
       = (line: startPosition.line - 1, column: startPosition.column - 1)
 
     let tokens = scanner.tokens(
-      in: String(text), fromFile: specPath, unrecognizedToken: unrecognizedToken)
+      in: String(text), fromFile: sourceFile, unrecognizedToken: unrecognizedToken)
 
     var r: [EBNFError.Note] = []
 
@@ -86,28 +86,6 @@ struct Parser {
     }
   }
 
-  func appendNotes(
-    showing t: Tree,
-    to notes: inout [EBNFError.Note],
-    esRegions: [SourceRegion],
-    depth: Int = 0
-  ) {
-    let s = t.step, l = s.sourceRange
-    let indent = repeatElement("  ", count: depth).joined()
-    let description = s.symbol != nil
-      ? symbolName[s.symbol!.0]! + (s.symbol!.tokenValue == nil ? " (null)" : "")
-      : "(" + description(s.rule!.0)
-    let start = Int(l.lowerBound.id)
-    let end = max(start, Int(l.upperBound.id) - 1)
-    let location = esRegions[start]...esRegions[end]
-    notes.append(.init(message: "\t\(indent)\(description)", site: location))
-
-    for child in t.children {
-      appendNotes(showing: child, to: &notes, esRegions: esRegions, depth: depth + 1)
-    }
-    if s.rule != nil { notes[notes.count - 1].message += ")" }
-  }
-
   func recognize(
     _ text: Substring,
     startingAt diagnosticOffset: SourcePosition.Offset = (line: 0, column: 0),
@@ -116,7 +94,7 @@ struct Parser {
     var errors: EBNFErrorLog = []
 
     let tokens = scanner.tokens(
-      in: String(text), fromFile: specPath, unrecognizedToken: unrecognizedToken)
+      in: String(text), fromFile: sourceFile, unrecognizedToken: unrecognizedToken)
 
     recognizer.startInput()
 
@@ -151,18 +129,53 @@ struct Parser {
       return errors
     }
 
-    if b.isAmbiguous {
-      // Hack to deal with the final earley set.
-      esRegions.append(esRegions.last!)
-      let inputRegion = esRegions.first!...esRegions.last!
+    // Deal with the final earley set.
+    let l = esRegions.last!
+    esRegions.append(SourceRegion(fileName: l.fileName, l.span.upperBound..<l.span.upperBound))
+    let inputRegion = esRegions.first!...esRegions.last!
+    var trees: [Tree] = []
+    for (n, e) in Order(b, highRankOnly: false).enumerated() {
+      trees.append(Tree(e))
+      if n == 2 { break }
+    }
+
+    if trees.count > 1 {
       var notes: [EBNFError.Note] = []
-      for (n, e) in Order(b, highRankOnly: false).enumerated() {
-        if n > 1 { break }
-        notes.append(.init(message: "Parse tree", site: inputRegion))
-        appendNotes(showing: Tree(e), to: &notes, esRegions: esRegions)
-      }
+      appendNotes(showing: trees[0], to: &notes)
+      appendNotes(showing: trees[1], to: &notes)
       errors.insert(.init("Ambiguous parse", at: inputRegion, notes: notes))
     }
+    if trees.count == 0 {
+      errors.insert(.init("NO PARSE", at: inputRegion))
+    }
+
+    func appendNotes(
+      showing t: Tree,
+      to notes: inout [EBNFError.Note],
+      depth: Int = 0
+    ) {
+      let s = t.step, l = s.sourceRange
+      let indent = repeatElement("  ", count: depth).joined()
+      let description = s.symbol != nil
+        ? symbolName[s.symbol!.0]! + (s.symbol!.tokenValue == nil ? " (null)" : "")
+        : "(" + description(s.rule!.0)
+      let location: SourceRegion
+      let start = esRegions[Int(l.lowerBound.id)]
+      if l.isEmpty {
+        location = SourceRegion(fileName: sourceFile, start.span.lowerBound..<start.span.lowerBound)
+      }
+      else {
+        location = start...esRegions[Int(l.upperBound.id) - 1]
+      }
+      notes.append(.init(message: "\t\(indent)\(description)", site: location))
+
+      for child in t.children {
+        appendNotes(showing: child, to: &notes, depth: depth + 1)
+      }
+      if s.rule != nil { notes[notes.count - 1].message += ")" }
+    }
+
+
     return errors
   }
 }
