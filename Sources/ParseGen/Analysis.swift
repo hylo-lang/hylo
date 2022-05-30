@@ -124,7 +124,7 @@ extension EBNF.Grammar {
     func visit(_ x: Token) {
       if !visited.insert(x.text).inserted { return }
       let d = definitions[x.text]!
-      if d.kind == .plain || d.kind == .oneOf {
+      if d.kind != .token && d.kind != .regexp {
         visit(d.alternatives)
       }
     }

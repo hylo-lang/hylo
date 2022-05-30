@@ -34,7 +34,8 @@
 %left_associative STAR PLUS QUESTION.
 %right_associative IS_DEFINED_AS.
 
-%token ILLEGAL_CHARACTER ONE_OF_KIND TOKEN_KIND REGEXP_KIND QUOTED_LITERAL.
+%token ILLEGAL_CHARACTER ONE_OF_KIND TOKEN_KIND REGEXP_KIND NO_WHITESPACE_KIND NO_NEWLINE_KIND.
+%token QUOTED_LITERAL.
 
 grammar ::= rule_list(l). {l}
 rule_list ::= . {[]}
@@ -49,6 +50,8 @@ rule ::= LHS(l) IS_DEFINED_AS ONE_OF_KIND one_of_list(r).
 kind ::= . { .plain }
 kind ::= TOKEN_KIND. { .token }
 kind ::= REGEXP_KIND. { .regexp }
+kind ::= NO_WHITESPACE_KIND. { .noWhitespace }
+kind ::= NO_NEWLINE_KIND. { .noNewline }
 
 rhs_list ::= rhs_line(r). { [r] }
 rhs_list ::= rhs_list(l) rhs_line(r). { l +  [r] }
