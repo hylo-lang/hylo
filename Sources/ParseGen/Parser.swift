@@ -136,7 +136,7 @@ struct Parser {
     var trees: [Tree] = []
     for (n, e) in Order(b, highRankOnly: false).enumerated() {
       trees.append(Tree(e))
-      if n == 2 { break }
+      if n == 1 { break }
     }
     var notes: [EBNFError.Note] = []
     for t in trees {
