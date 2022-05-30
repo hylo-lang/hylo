@@ -53,7 +53,7 @@ final class ParseGenTests: XCTestCase {
       //    print("  \(k) ::= /\(v)/")
       // }
       // print("-----------------------------")
-      // try makeParser(g).dumpGrammar()
+      try makeParser(g).dumpGrammar()
       // print("-----------------------------")
       let n = g.nonterminals()
       XCTAssert(n.isDisjoint(with: r.keys))

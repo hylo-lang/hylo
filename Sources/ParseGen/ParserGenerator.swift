@@ -6,6 +6,7 @@ func makeParser(_ sourceGrammar: EBNF.Grammar) throws -> Parser {
 
   g = Marpa.Grammar()
   var symbols: [String: Marpa.Symbol] = [:]
+  var astSymbols: [AnyHashable: Marpa.Symbol] = [:]
 
   // Note: sorting input sets for deterministic results run-to-run.
 
@@ -27,7 +28,7 @@ func makeParser(_ sourceGrammar: EBNF.Grammar) throws -> Parser {
   var tokenPatterns = Dictionary(
     uniqueKeysWithValues: regexps.lazy.map { name, pattern in (pattern, symbols[name])})
   // ignore whitespace and single-line comments
-  tokenPatterns[#"\s+|//.*\p{Zl}*"#, default: nil] = nil 
+  tokenPatterns[#"\s+|//.*\p{Zl}*"#, default: nil] = nil
 
 
   // make MARPA symbols for nonterminals
@@ -92,14 +93,17 @@ func makeParser(_ sourceGrammar: EBNF.Grammar) throws -> Parser {
   }
 
   func symbol(_ x: EBNF.Grammar.Term, lhs: EBNF.Grammar.Symbol) -> Marpa.Symbol {
+    if let r = astSymbols[x] { return r }
     switch x {
     case .group(let alternatives):
       let innerLHS = synthesizedNonterminal(lhs)
+      astSymbols[x] = innerLHS
       for rhs in alternatives { makeRule(lhs: innerLHS, rhs: rhs) }
       return innerLHS
     case .symbol(let s): return symbols[s.text]!
     case .regexp(_, _): fatalError("unreachable")
     case .literal(let l, _): return literals[l]!
+
     case .quantified(let t, let q, _):
       let ts = symbol(t, lhs: lhs)
       let innerLHS = synthesizedNonterminal(symbolName[ts]! + (q == "?" ? "-opt" : "-list"))
