@@ -138,15 +138,14 @@ struct Parser {
       trees.append(Tree(e))
       if n == 2 { break }
     }
-
-    if trees.count > 1 {
-      var notes: [EBNFError.Note] = []
-      appendNotes(showing: trees[0], to: &notes)
-      appendNotes(showing: trees[1], to: &notes)
-      errors.insert(.init("Ambiguous parse", at: inputRegion, notes: notes))
+    var notes: [EBNFError.Note] = []
+    for t in trees {
+      appendNotes(showing: t, to: &notes)
     }
-    if trees.count == 0 {
-      errors.insert(.init("NO PARSE", at: inputRegion))
+
+    if trees.count != 1 {
+      errors.insert(
+        .init(trees.count > 1 ? "Ambiguous parse" : "No parse", at: inputRegion, notes: notes))
     }
 
     func appendNotes(
@@ -174,7 +173,6 @@ struct Parser {
       }
       if s.rule != nil { notes[notes.count - 1].message += ")" }
     }
-
 
     return errors
   }
