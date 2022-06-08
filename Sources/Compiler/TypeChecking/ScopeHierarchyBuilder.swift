@@ -432,6 +432,10 @@ struct ScopeHierarchyBuilder:
     ast[i].decl.accept(&self)
   }
 
+  mutating func visit(discard i: NodeID<DiscardStmt>) {
+    ast[i].expr.accept(&self)
+  }
+
   mutating func visit(doWhile i: NodeID<DoWhileStmt>) {
     visit(brace: ast[i].body)
 

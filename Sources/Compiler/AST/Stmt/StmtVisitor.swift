@@ -12,6 +12,8 @@ public protocol StmtVisitor {
 
   mutating func visit(decl: NodeID<DeclStmt>) -> Result
 
+  mutating func visit(discard: NodeID<DiscardStmt>) -> Result
+
   mutating func visit(doWhile: NodeID<DoWhileStmt>) -> Result
 
   mutating func visit(expr: NodeID<ExprStmt>) -> Result

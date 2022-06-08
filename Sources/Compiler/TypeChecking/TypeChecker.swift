@@ -735,6 +735,10 @@ public struct TypeChecker {
     case .declStmt:
       return check(decl: ast[NodeID<DeclStmt>(converting: id)!].decl)
 
+    case .discardStmt:
+      let stmt = ast[NodeID<DiscardStmt>(converting: id)!]
+      return infer(expr: stmt.expr, inScope: lexicalContext) != nil
+
     case .returnStmt:
       return check(return: NodeID(converting: id)!, inScope: lexicalContext)
 

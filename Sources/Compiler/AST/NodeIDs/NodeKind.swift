@@ -147,18 +147,20 @@ public struct NodeKind: Hashable {
      3 << 16 | stmt.rawValue)
   public static let declStmt = NodeKind(
      4 << 16 | stmt.rawValue)
-  public static let doWhileStmt = NodeKind(
+  public static let discardStmt = NodeKind(
      5 << 16 | stmt.rawValue)
-  public static let exprStmt = NodeKind(
+  public static let doWhileStmt = NodeKind(
      6 << 16 | stmt.rawValue)
+  public static let exprStmt = NodeKind(
+     7 << 16 | stmt.rawValue)
   public static let forStmt = NodeKind(
-     7 << 16 | stmt.rawValue | lexicalScope.rawValue)
+     8 << 16 | stmt.rawValue | lexicalScope.rawValue)
   public static let returnStmt = NodeKind(
-     8 << 16 | stmt.rawValue)
+     9 << 16 | stmt.rawValue)
   public static let whileStmt = NodeKind(
-     9 << 16 | stmt.rawValue | lexicalScope.rawValue)
+    10 << 16 | stmt.rawValue | lexicalScope.rawValue)
   public static let yieldStmt = NodeKind(
-    10 << 16 | stmt.rawValue)
+    11 << 16 | stmt.rawValue)
 
   // MARK: Type expressions
 

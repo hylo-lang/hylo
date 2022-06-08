@@ -16,6 +16,8 @@ extension StmtID {
       return visitor.visit(continue: NodeID(unsafeRawValue: rawValue))
     case .declStmt:
       return visitor.visit(decl: NodeID(unsafeRawValue: rawValue))
+    case .discardStmt:
+      return visitor.visit(discard: NodeID(unsafeRawValue: rawValue))
     case .doWhileStmt:
       return visitor.visit(doWhile: NodeID(unsafeRawValue: rawValue))
     case .exprStmt:
