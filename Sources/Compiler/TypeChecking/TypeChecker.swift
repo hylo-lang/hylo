@@ -1513,23 +1513,11 @@ public struct TypeChecker {
 
         default:
           guard let name = decl.identifier?.value else { continue }
-          switch decl.body?.value {
-          case .block, .expr, nil:
-            table[name, default: []].insert(AnyDeclID(id))
-
-          case .bundle(let impls):
-            modifying(&table[name, default: []], { entries in
-              for j in impls {
-                entries.insert(AnyDeclID(j))
-              }
-            })
-          }
+          table[name, default: []].insert(AnyDeclID(id))
         }
 
       case .methodImplDecl:
-        let decl = ast[NodeID<FunDecl>(converting: scope)!]
-        guard let name = decl.identifier?.value else { continue }
-        table[name, default: []].insert(AnyDeclID(id))
+        break
 
       case .subscriptDecl:
         let decl = ast[NodeID<SubscriptDecl>(converting: id)!]
