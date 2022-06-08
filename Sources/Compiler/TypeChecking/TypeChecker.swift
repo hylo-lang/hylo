@@ -261,24 +261,26 @@ public struct TypeChecker {
   }
 
   /// Type checks the specified declaration and returns whether that succeeded.
-  private mutating func check<T: DeclID>(decl i: T) -> Bool {
-    switch i.kind {
+  private mutating func check<T: DeclID>(decl id: T) -> Bool {
+    switch id.kind {
     case .associatedSizeDecl:
-      return check(associatedSize: NodeID(converting: i)!)
+      return check(associatedSize: NodeID(converting: id)!)
     case .associatedTypeDecl:
-      return check(associatedType: NodeID(converting: i)!)
+      return check(associatedType: NodeID(converting: id)!)
     case .bindingDecl:
-      return check(binding: NodeID(converting: i)!)
+      return check(binding: NodeID(converting: id)!)
     case .funDecl:
-      return check(fun: NodeID(converting: i)!)
+      return check(fun: NodeID(converting: id)!)
+    case .methodImplDecl:
+      return check(fun: NodeID(converting: scopeHierarchy.container[id]!)!)
     case .productTypeDecl:
-      return check(productType: NodeID(converting: i)!)
+      return check(productType: NodeID(converting: id)!)
     case .subscriptDecl:
-      return check(subscript: NodeID(converting: i)!)
+      return check(subscript: NodeID(converting: id)!)
     case .traitDecl:
-      return check(trait: NodeID(converting: i)!)
+      return check(trait: NodeID(converting: id)!)
     case .typeAliasDecl:
-      return check(typeAlias: NodeID(converting: i)!)
+      return check(typeAlias: NodeID(converting: id)!)
     default:
       unreachable("unexpected declaration")
     }
@@ -1840,6 +1842,9 @@ public struct TypeChecker {
         let decl = this.ast[id] as! TypeExtendingDecl
         return this.realize(decl.subject, inScope: this.scopeHierarchy.container[id]!)
       })
+
+    case .methodImplDecl:
+      return realize(funDecl: NodeID(converting: scopeHierarchy.container[id]!)!)
 
     case .funDecl:
       return realize(funDecl: NodeID(converting: id)!)

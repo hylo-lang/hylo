@@ -353,6 +353,70 @@ final class TypeCheckerTests: XCTestCase {
     XCTAssertTrue(checker.check(module: main))
   }
 
+  func testMethodImplLookup() {
+
+    // type A {
+    //   fun foo(_ x: A) -> A {
+    //     let { A() }
+    //     sink { A() }
+    //   }
+    //   fun bar() { _ = foo.let(self) }
+    // }
+
+    var ast = AST()
+    let main = ast.insert(ModuleDecl(name: "main"))
+
+    ast[main].members.append(AnyDeclID(ast.insert(ProductTypeDecl(
+      identifier: SourceRepresentable(value: "A"),
+      members: [
+        AnyDeclID(ast.insert(FunDecl(
+          introducer: SourceRepresentable(value: .fun),
+          identifier: SourceRepresentable(value: "foo"),
+          parameters: [
+            ast.insert(ParameterDecl(
+              identifier: SourceRepresentable(value: "x"),
+              annotation: ast.insert(ParameterTypeExpr(
+                convention: SourceRepresentable(value: .let),
+                bareType: AnyTypeExprID(ast.insert(NameTypeExpr(
+                  identifier: SourceRepresentable(value: "A")))))))),
+          ],
+          output: AnyTypeExprID(ast.insert(NameTypeExpr(
+            identifier: SourceRepresentable(value: "A")))),
+          body: SourceRepresentable(value: .bundle([
+            ast.insert(MethodImplDecl(
+              introducer: SourceRepresentable(value: .let),
+              body: SourceRepresentable(value: .expr(AnyExprID(ast.insert(FunCallExpr(
+                callee: AnyExprID(ast.insert(NameExpr(
+                  stem: SourceRepresentable(value: "A"))))))))))),
+            ast.insert(MethodImplDecl(
+              introducer: SourceRepresentable(value: .sink),
+              body: SourceRepresentable(value: .expr(AnyExprID(ast.insert(FunCallExpr(
+                callee: AnyExprID(ast.insert(NameExpr(
+                  stem: SourceRepresentable(value: "A"))))))))))),
+          ]))))),
+        AnyDeclID(ast.insert(FunDecl(
+          introducer: SourceRepresentable(value: .fun),
+          identifier: SourceRepresentable(value: "bar"),
+          body: SourceRepresentable(
+            value: .block(ast.insert(BraceStmt(
+            stmts: [
+              AnyStmtID(ast.insert(DiscardStmt(
+                expr: AnyExprID(ast.insert(FunCallExpr(
+                  callee: AnyExprID(ast.insert(NameExpr(
+                    stem: SourceRepresentable(value: "foo"),
+                    introducer: .let))),
+                  arguments: [
+                    SourceRepresentable(value: CallArgument(
+                      value: AnyExprID(ast.insert(NameExpr(
+                        stem: SourceRepresentable(value: "self")))))),
+                  ])))))),
+            ]))))))),
+      ]))))
+
+    var checker = TypeChecker(ast: ast)
+    XCTAssertTrue(checker.check(module: main))
+  }
+
   func testBindingTypeInference() {
 
     // let x0 = ()

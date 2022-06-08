@@ -179,6 +179,7 @@ struct ConstraintGenerator: ExprVisitor {
           stem: "init",
           labels: [],
           notation: nil,
+          introducer: nil,
           inDeclSpaceOf: AnyScopeID(converting: d)!)
 
         // We should get at least one a memberwise initializer.
@@ -376,7 +377,8 @@ struct ConstraintGenerator: ExprVisitor {
       let candidates = resolve(
         stem: checker.ast[id].stem.value,
         labels: checker.ast[id].labels,
-        notation: checker.ast[id].notation)
+        notation: checker.ast[id].notation,
+        introducer: checker.ast[id].introducer)
 
       if candidates.isEmpty {
         diagnostics.append(.undefined(name: "\(checker.ast[id].baseName)", range: stem.range))
@@ -512,8 +514,12 @@ struct ConstraintGenerator: ExprVisitor {
     stem: Identifier,
     labels: [String?],
     notation: OperatorNotation?,
+    introducer: MethodImplDecl.Introducer?,
     inDeclSpaceOf lookupContext: AnyScopeID? = nil
   ) -> [(decl: AnyDeclID, type: Type)] {
+    // Check preconditions.
+    precondition(notation == nil || labels.isEmpty, "invalid name")
+
     // Search for the referred declaration.
     var matches: TypeChecker.DeclSet
     if let ctx = lookupContext {
@@ -525,7 +531,27 @@ struct ConstraintGenerator: ExprVisitor {
       }
     }
 
+    // Bail out if there are no matches.
+    if matches.isEmpty { return [] }
+
     // TODO: Filter by labels and operator notation
+
+    // If the looked up name has a method introducer, it must refer to a method implementation.
+    if let introducer = introducer {
+      matches = Set(matches.compactMap({ match in
+        guard let method = NodeID<FunDecl>(converting: match),
+              let body = checker.ast[method].body?.value,
+              case .bundle(let impls) = body
+        else { return nil }
+
+        // TODO: Synthesize missing method implementations
+        if let impl = impls.first(where: { checker.ast[$0].introducer.value == introducer }) {
+          return AnyDeclID(impl)
+        } else {
+          return nil
+        }
+      }))
+    }
 
     // Returns the matches along with their contextual type and associated constraints.
     return matches.compactMap({ (match) -> (AnyDeclID, Type)? in

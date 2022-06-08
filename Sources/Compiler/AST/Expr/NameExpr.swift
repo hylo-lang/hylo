@@ -19,11 +19,14 @@ public struct NameExpr: Expr {
   /// The stem identifier of the referred entity.
   public var stem: SourceRepresentable<Identifier>
 
-  /// The argument labels of the referred entity.
+  /// The argument labels of the referred entity, given that it is a function.
   public var labels: [String?]
 
-  /// The operator notation of the referred entity.
+  /// The operator notation of the referred entity, given that it is an operator.
   public var notation: OperatorNotation?
+
+  /// The method introducer of the referred entity, given that it is a method implementation.
+  public var introducer: MethodImplDecl.Introducer?
 
   /// The type and size arguments of the referred entity.
   public var arguments: [GenericArgument]
@@ -33,12 +36,14 @@ public struct NameExpr: Expr {
     domain: Domain = .none,
     stem: SourceRepresentable<Identifier>,
     labels: [String?] = [],
+    introducer: MethodImplDecl.Introducer? = nil,
     arguments: [GenericArgument] = []
   ) {
     self.domain = domain
     self.stem = stem
     self.labels = labels
     self.notation = nil
+    self.introducer = introducer
     self.arguments = arguments
   }
 
@@ -47,21 +52,23 @@ public struct NameExpr: Expr {
     domain: Domain = .none,
     stem: SourceRepresentable<Identifier>,
     notation: OperatorNotation,
+    introducer: MethodImplDecl.Introducer? = nil,
     arguments: [GenericArgument] = []
   ) {
     self.domain = domain
     self.stem = stem
     self.labels = []
     self.notation = notation
+    self.introducer = introducer
     self.arguments = arguments
   }
 
   /// Returns the base name denoted by this expression.
   public var baseName: Name {
     if let notation = notation {
-      return Name(stem: stem.value, notation: notation)
+      return Name(stem: stem.value, notation: notation, introducer: introducer)
     } else {
-      return Name(stem: stem.value, labels: labels)
+      return Name(stem: stem.value, labels: labels, introducer: introducer)
     }
   }
 
