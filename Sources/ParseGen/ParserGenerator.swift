@@ -35,16 +35,16 @@ func makeParser(_ sourceGrammar: EBNF.Grammar) throws -> Parser {
 
   // make MARPA symbols for regexp patterns
   let regexps = sourceGrammar.regexps()
-  for r in regexps.keys.sorted() {
-    symbols[r] = g.makeTerminal()
+  for r in regexps.keys.sorted(by: { $0.text < $1.text }) {
+    symbols[r.text] = g.makeTerminal()
   }
 
   let unrecognizedToken = g.makeTerminal()
 
   // make MARPA symbols for nonterminals
-  let sortedNonterminals = sourceGrammar.nonterminals().sorted()
+  let sortedNonterminals = sourceGrammar.nonterminals().sorted(by: { $0.text < $1.text })
   for s in sortedNonterminals {
-    symbols[s] = g.makeNonterminal()
+    symbols[s.text] = g.makeNonterminal()
   }
   g.startSymbol = symbols[sourceGrammar.start.text]!
 
@@ -58,7 +58,7 @@ func makeParser(_ sourceGrammar: EBNF.Grammar) throws -> Parser {
   for lhs in sortedNonterminals {
     let d = sourceGrammar.definitionsByLHS[lhs]!
     for rhs in d.alternatives {
-      makeRule(lhs: symbols[lhs]!, rhs: rhs, kind: d.kind)
+      makeRule(lhs: symbols[lhs.text]!, rhs: rhs, kind: d.kind)
     }
   }
 
@@ -102,7 +102,7 @@ func makeParser(_ sourceGrammar: EBNF.Grammar) throws -> Parser {
   }
 
   /// Returns a new nonterminal symbol with a unique name based on `root`.
-  func makeSymbol(_ root: EBNF.Grammar.Symbol, terminal: Bool = false) -> Marpa.Symbol {
+  func makeSymbol(_ root: String, terminal: Bool = false) -> Marpa.Symbol {
     for suffix in 0...50 {
       let name = suffix == 0 ? root : "\(root)_\(suffix)"
       if symbols[name] == nil {
@@ -121,7 +121,7 @@ func makeParser(_ sourceGrammar: EBNF.Grammar) throws -> Parser {
     return "\(lhsName) -> \(rhs)"
   }
 
-  func symbol(_ x: EBNF.Grammar.Term, lhs: EBNF.Grammar.Symbol, kind: EBNF.Definition.Kind)
+  func symbol(_ x: EBNF.Grammar.Term, lhs: String, kind: EBNF.Definition.Kind)
     -> Marpa.Symbol
   {
     if let r = astSymbols[x] { return r }
@@ -152,7 +152,7 @@ func makeParser(_ sourceGrammar: EBNF.Grammar) throws -> Parser {
   }
 
   let tokenPatterns = Dictionary(
-    uniqueKeysWithValues: regexps.lazy.map { name, pattern in (pattern, symbols[name])})
+    uniqueKeysWithValues: regexps.lazy.map { s, pattern in (pattern, symbols[s.text])})
 
   return Parser(
     grammar: g, unrecognizedToken: unrecognizedToken,

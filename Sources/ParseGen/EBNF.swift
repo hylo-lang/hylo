@@ -22,11 +22,28 @@ enum EBNF {
     func dumped(level: Int) -> String { text }
   }
 
+  struct Symbol: EBNFNode {
+    init(_ t: Token) {
+      precondition(t.id == .SYMBOL_NAME || t.id == .LHS)
+      self.init(t.text, at: t.position)
+    }
+    init(_ content: String, at position: SourceRegion) {
+      self.text = content
+      self.position_ = .init(position)
+    }
+
+    let text: String
+    let position_: Incidental<SourceRegion>
+    var position: SourceRegion { position_.value }
+
+    func dumped(level: Int) -> String { text }
+  }
+
   typealias DefinitionList = [Definition]
   struct Definition: EBNFNode {
     enum Kind { case plain, token, oneOf, regexp, noNewline, noWhitespace }
     let kind: Kind
-    let lhs: Token
+    let lhs: Symbol
     let alternatives: AlternativeList
   }
 
@@ -36,7 +53,7 @@ enum EBNF {
 
   enum Term: EBNFNode {
     case group(AlternativeList)
-    case symbol(Token)
+    case symbol(Symbol)
     case literal(String, position: Incidental<SourceRegion>)
     case regexp(String, position: Incidental<SourceRegion>)
     indirect case quantified(Term, Character, position: Incidental<SourceRegion>)
@@ -46,6 +63,12 @@ enum EBNF {
 extension EBNF.Token: CustomStringConvertible {
   var description: String {
     "Token(.\(id), \(String(reflecting: text)), at: \(String(reflecting: position)))"
+  }
+}
+
+extension EBNF.Symbol: CustomStringConvertible {
+  var description: String {
+    "Symbol(\(String(reflecting: text)), at: \(String(reflecting: position)))"
   }
 }
 

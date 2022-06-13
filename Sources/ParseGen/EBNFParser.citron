@@ -42,10 +42,10 @@ rule_list ::= . {[]}
 rule_list ::= rule_list(l) rule(r). {l + CollectionOfOne(r)}
 
 rule ::= LHS(l) IS_DEFINED_AS kind(k) rhs_list(r).
-{ .init(kind: k, lhs: l, alternatives: r) }
+{ .init(kind: k, lhs: .init(l), alternatives: r) }
 
 rule ::= LHS(l) IS_DEFINED_AS ONE_OF_KIND one_of_list(r).
-{ .init(kind: .oneOf, lhs: l, alternatives: r) }
+{ .init(kind: .oneOf, lhs: .init(l), alternatives: r) }
 
 kind ::= . { .plain }
 kind ::= TOKEN_KIND. { .token }
@@ -71,7 +71,7 @@ alt ::= . {[]}
 term_list ::= term(t). {[t]}
 term_list ::= term_list(l) term(r). {l + CollectionOfOne(r)}
 term ::= LPAREN alt_list(g) RPAREN. {.group(g)}
-term ::= SYMBOL_NAME(s). {.symbol(s)}
+term ::= SYMBOL_NAME(s). {.symbol(.init(s))}
 term ::= QUOTED_LITERAL(l). {
   .literal(
      l.text.dropFirst().dropLast().split(separator: "\\").joined(), 

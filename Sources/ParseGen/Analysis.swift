@@ -4,16 +4,15 @@ import Marpa
 
 extension EBNF.Grammar {
   /// Adds errors to `errors` for any symbols that don't appear on the LHS of a definition.
-  static func checkAllSymbolsDefined(
-    in definitionsByLHS: DefinitionsByLHS,
+  func checkAllSymbolsDefined(
     into errors: inout EBNFErrorLog
   ) {
     for d in definitionsByLHS.values {
       checkDefined(d.alternatives)
     }
 
-    func checkDefined(_ x: EBNF.Token) {
-      if definitionsByLHS[x.text] == nil {
+    func checkDefined(_ x: EBNF.Symbol) {
+      if definitionsByLHS[x] == nil {
         errors.insert(Error("undefined symbol '\(x.text)'", at: x.position))
       }
     }
@@ -41,16 +40,16 @@ extension EBNF.Grammar {
     reach(start)
 
     for d in definitions {
-      if !reachable.contains(d.lhs.text) {
+      if !reachable.contains(d.lhs) {
         errors.insert(
           Error("Symbol '\(d.lhs.text)' is unreachable from start symbol '\(start.text)'",
                 at: d.lhs.position))
       }
     }
 
-    func reach(_ x: Token) {
-      if reachable.insert(x.text).inserted {
-        reach(definitionsByLHS[x.text]!.alternatives)
+    func reach(_ x: Symbol) {
+      if reachable.insert(x).inserted {
+        reach(definitionsByLHS[x]!.alternatives)
       }
     }
 
@@ -74,13 +73,13 @@ extension EBNF.Grammar {
   /// Adds errors to `errors` for any `(token)` rules that are (directly or
   /// indirectly) self-referential.
   func checkNoRecursiveTokens(into errors: inout EBNFErrorLog) {
-    var stack: [Token] = []
+    var stack: [EBNF.Symbol] = []
     var visited: Set<String> = []
     for d in definitions where d.kind == .token {
       visit(d.lhs)
     }
 
-    func visit(_ x: Token) {
+    func visit(_ x: EBNF.Symbol) {
       stack.append(x)
       defer { stack.removeLast() }
 
@@ -96,7 +95,7 @@ extension EBNF.Grammar {
         visited.insert(x.text)
         defer { visited.remove(x.text) }
 
-        visit(definitionsByLHS[x.text]!.alternatives)
+        visit(definitionsByLHS[x]!.alternatives)
       }
     }
 
@@ -124,9 +123,9 @@ extension EBNF.Grammar {
 
     visit(start)
 
-    func visit(_ x: Token) {
+    func visit(_ x: Symbol) {
       if !visited.insert(x.text).inserted { return }
-      let d = definitionsByLHS[x.text]!
+      let d = definitionsByLHS[x]!
       if d.kind != .token && d.kind != .regexp {
         visit(d.alternatives)
       }
@@ -160,12 +159,12 @@ extension EBNF.Grammar {
     var r: [Symbol: String] = [:]
     visitSymbol(start)
 
-    func visitSymbol(_ x: Token) {
-      if !visited.insert(x.text).inserted { return }
+    func visitSymbol(_ x: Symbol) {
+      if !visited.insert(x).inserted { return }
 
-      let d = definitionsByLHS[x.text]!
+      let d = definitionsByLHS[x]!
       if d.kind == .token || d.kind == .regexp {
-        r[x.text] = regexp(d.alternatives)
+        r[x] = regexp(d.alternatives)
       }
       else {
         visitSymbols(in: d.alternatives)
@@ -191,8 +190,8 @@ extension EBNF.Grammar {
       }
     }
 
-    func regexp(_ x: Token) -> String {
-      let d = definitionsByLHS[x.text]!
+    func regexp(_ x: Symbol) -> String {
+      let d = definitionsByLHS[x]!
       return regexp(d.alternatives)
     }
 
@@ -223,10 +222,10 @@ extension EBNF.Grammar {
 
     visit(start)
 
-    func visit(_ x: Token) {
-      let d = definitionsByLHS[x.text]!
+    func visit(_ x: Symbol) {
+      let d = definitionsByLHS[x]!
       if d.kind == .regexp || d.kind == .token { return }
-      if !r.insert(x.text).inserted { return }
+      if !r.insert(x).inserted { return }
       visit(d.alternatives)
     }
 
