@@ -269,6 +269,13 @@ struct ConstraintGenerator: ExprVisitor {
       .equality(l: inferredTypes[callee]!, r: calleeType), node: callee.base))
   }
 
+  mutating func visit(`inout` id: NodeID<InoutExpr>) {
+    let subexpr = checker.ast[id].subexpr
+    expectedTypes[subexpr] = expectedTypes[id]
+    subexpr.accept(&self)
+    assume(typeOf: id, equals: inferredTypes[subexpr]!)
+  }
+
   mutating func visit(integerLiteral id: NodeID<IntegerLiteralExpr>) {
     defer { assert(inferredTypes[id] != nil) }
 

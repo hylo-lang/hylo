@@ -1413,6 +1413,61 @@ final class TypeCheckerTests: XCTestCase {
     XCTAssertTrue(checker.check(module: main))
   }
 
+  func testInoutExpr() {
+
+    // type A {
+    //   inout fun foo() {}
+    // }
+    // fun main() {
+    //   var a = A()
+    //   &a.foo()
+    // }
+
+    var ast = AST()
+    let main = ast.insert(ModuleDecl(name: "main"))
+
+    ast[main].members.append(AnyDeclID(ast.insert(ProductTypeDecl(
+      identifier: SourceRepresentable(value: "A"),
+      members: [
+        AnyDeclID(ast.insert(FunDecl(
+          introducer: SourceRepresentable(value: .fun),
+          memberModifiers: [
+            SourceRepresentable(value: .receiver(.inout)),
+          ],
+          identifier: SourceRepresentable(value: "foo"),
+          body: SourceRepresentable(
+            value: .block(ast.insert(BraceStmt())))))),
+      ]))))
+
+    ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
+      introducer: SourceRepresentable(value: .fun),
+      identifier: SourceRepresentable(value: "main"),
+      body: SourceRepresentable(
+        value: .block(ast.insert(BraceStmt(
+          stmts: [
+            AnyStmtID(ast.insert(DeclStmt(
+              decl: AnyDeclID(ast.insert(BindingDecl(
+                pattern: ast.insert(BindingPattern(
+                  introducer: SourceRepresentable(value: .var),
+                  subpattern: AnyPatternID(ast.insert(
+                    NamePattern(decl: ast.insert(VarDecl(
+                      identifier: SourceRepresentable(value: "a")))))))),
+                initializer: AnyExprID(ast.insert(FunCallExpr(
+                  callee: AnyExprID(ast.insert(NameExpr(
+                    stem: SourceRepresentable(value: "A"))))))))))))),
+            AnyStmtID(ast.insert(ExprStmt(
+              expr: AnyExprID(ast.insert(InoutExpr(
+                subexpr: AnyExprID(ast.insert(FunCallExpr(
+                  callee: AnyExprID(ast.insert(NameExpr(
+                    domain: .explicit(AnyExprID(ast.insert(NameExpr(
+                      stem: SourceRepresentable(value: "a"))))),
+                    stem: SourceRepresentable(value: "foo"))))))))))))),
+          ]))))))))
+
+    var checker = TypeChecker(ast: ast)
+    XCTAssertTrue(checker.check(module: main))
+  }
+
   func testGenericTypeAlias() {
 
     // typealias Pair<X, Y> = (first: X, second: Y)

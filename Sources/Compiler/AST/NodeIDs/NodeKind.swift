@@ -93,30 +93,32 @@ public struct NodeKind: Hashable {
      9 << 16 | expr.rawValue)
   public static let funCallExpr = NodeKind(
     10 << 16 | expr.rawValue)
-  public static let integerLiteralExpr = NodeKind(
+  public static let inoutExpr = NodeKind(
     11 << 16 | expr.rawValue)
-  public static let lambdaExpr = NodeKind(
+  public static let integerLiteralExpr = NodeKind(
     12 << 16 | expr.rawValue)
-  public static let mapLiteralExpr = NodeKind(
+  public static let lambdaExpr = NodeKind(
     13 << 16 | expr.rawValue)
+  public static let mapLiteralExpr = NodeKind(
+    14 << 16 | expr.rawValue)
   public static let matchExpr = NodeKind(
-    14 << 16 | expr.rawValue | lexicalScope.rawValue)
+    15 << 16 | expr.rawValue | lexicalScope.rawValue)
   public static let matchCaseExpr = NodeKind(
-    15 << 16 | expr.rawValue)
-  public static let nameExpr = NodeKind(
     16 << 16 | expr.rawValue)
-  public static let nilExpr = NodeKind(
+  public static let nameExpr = NodeKind(
     17 << 16 | expr.rawValue)
-  public static let sequenceExpr = NodeKind(
+  public static let nilExpr = NodeKind(
     18 << 16 | expr.rawValue)
-  public static let storedProjectionExpr = NodeKind(
+  public static let sequenceExpr = NodeKind(
     19 << 16 | expr.rawValue)
+  public static let storedProjectionExpr = NodeKind(
+    20 << 16 | expr.rawValue)
   public static let stringLiteralExpr = NodeKind(
-    20 << 26 | expr.rawValue)
+    21 << 26 | expr.rawValue)
   public static let subscriptCallExpr = NodeKind(
-    21 << 16 | expr.rawValue)
-  public static let tupleExpr = NodeKind(
     22 << 16 | expr.rawValue)
+  public static let tupleExpr = NodeKind(
+    23 << 16 | expr.rawValue)
 
   // MARK: Patterns
 

@@ -24,6 +24,8 @@ public protocol ExprVisitor {
 
   mutating func visit(funCall: NodeID<FunCallExpr>) -> Result
 
+  mutating func visit(`inout`: NodeID<InoutExpr>) -> Result
+
   mutating func visit(integerLiteral: NodeID<IntegerLiteralExpr>) -> Result
 
   mutating func visit(lambda: NodeID<LambdaExpr>) -> Result

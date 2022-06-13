@@ -26,6 +26,8 @@ extension ExprID {
       return visitor.visit(floatLiteral: NodeID(unsafeRawValue: rawValue))
     case .funCallExpr:
       return visitor.visit(funCall: NodeID(unsafeRawValue: rawValue))
+    case .inoutExpr:
+      return visitor.visit(`inout`: NodeID(unsafeRawValue: rawValue))
     case .integerLiteralExpr:
       return visitor.visit(integerLiteral: NodeID(unsafeRawValue: rawValue))
     case .lambdaExpr:

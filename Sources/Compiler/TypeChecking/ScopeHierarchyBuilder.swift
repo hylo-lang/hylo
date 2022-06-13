@@ -307,10 +307,14 @@ struct ScopeHierarchyBuilder:
     }
   }
 
-  mutating func visit(integerLiteral i: NodeID<IntegerLiteralExpr>) {}
+  mutating func visit(`inout` id: NodeID<InoutExpr>) {
+    ast[id].subexpr.accept(&self)
+  }
 
-  mutating func visit(lambda i: NodeID<LambdaExpr>) {
-    visit(fun: ast[i].decl)
+  mutating func visit(integerLiteral id: NodeID<IntegerLiteralExpr>) {}
+
+  mutating func visit(lambda id: NodeID<LambdaExpr>) {
+    visit(fun: ast[id].decl)
   }
 
   mutating func visit(mapLiteral i: NodeID<MapLiteralExpr>) {
