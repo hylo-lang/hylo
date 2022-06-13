@@ -26,15 +26,15 @@ enum EBNF {
       self.init(t.text, at: t.position)
     }
     init(_ content: String, at position: SourceRegion) {
-      self.text = content
+      self.name = content
       self.position_ = .init(position)
     }
 
-    let text: String
+    let name: String
     let position_: Incidental<SourceRegion>
     var position: SourceRegion { position_.value }
 
-    func dumped(level: Int) -> String { text }
+    func dumped(level: Int) -> String { name }
   }
 
   typealias DefinitionList = [Definition]
@@ -66,7 +66,7 @@ extension EBNF.Token: CustomStringConvertible {
 
 extension EBNF.Symbol: CustomStringConvertible {
   var description: String {
-    "Symbol(\(String(reflecting: text)), at: \(String(reflecting: position)))"
+    "Symbol(\(String(reflecting: name)), at: \(String(reflecting: position)))"
   }
 }
 

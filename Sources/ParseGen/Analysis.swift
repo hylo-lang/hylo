@@ -13,7 +13,7 @@ extension EBNF.Grammar {
 
     func checkDefined(_ x: EBNF.Symbol) {
       if definitionsByLHS[x] == nil {
-        errors.insert(Error("undefined symbol '\(x.text)'", at: x.position))
+        errors.insert(Error("undefined symbol '\(x.name)'", at: x.position))
       }
     }
 
@@ -42,7 +42,7 @@ extension EBNF.Grammar {
     for d in definitions {
       if !reachable.contains(d.lhs) {
         errors.insert(
-          Error("Symbol '\(d.lhs.text)' is unreachable from start symbol '\(start.text)'",
+          Error("Symbol '\(d.lhs.name)' is unreachable from start symbol '\(start.name)'",
                 at: d.lhs.position))
       }
     }
@@ -74,7 +74,7 @@ extension EBNF.Grammar {
   /// indirectly) self-referential.
   func checkNoRecursiveTokens(into errors: inout EBNFErrorLog) {
     var stack: [EBNF.Symbol] = []
-    var visited: Set<String> = []
+    var visited: Set<EBNF.Symbol> = []
     for d in definitions where d.kind == .token {
       visit(d.lhs)
     }
@@ -83,17 +83,17 @@ extension EBNF.Grammar {
       stack.append(x)
       defer { stack.removeLast() }
 
-      if visited.contains(x.text) {
+      if visited.contains(x) {
         errors.insert(
           Error(
-            "Recursive token definition '\(stack[0].text)'", at: stack[0].position,
+            "Recursive token definition '\(stack[0].name)'", at: stack[0].position,
             notes: stack.dropFirst().map {
-              .init(message: "via: '\($0.text)'", site: $0.position)
+              .init(message: "via: '\($0.name)'", site: $0.position)
             }))
       }
       else {
-        visited.insert(x.text)
-        defer { visited.remove(x.text) }
+        visited.insert(x)
+        defer { visited.remove(x) }
 
         visit(definitionsByLHS[x]!.alternatives)
       }
@@ -124,7 +124,7 @@ extension EBNF.Grammar {
     visit(start)
 
     func visit(_ x: Symbol) {
-      if !visited.insert(x.text).inserted { return }
+      if !visited.insert(x.name).inserted { return }
       let d = definitionsByLHS[x]!
       if d.kind != .token && d.kind != .regexp {
         visit(d.alternatives)

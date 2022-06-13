@@ -35,18 +35,18 @@ func makeParser(_ sourceGrammar: EBNF.Grammar) throws -> Parser {
 
   // make MARPA symbols for regexp patterns
   let regexps = sourceGrammar.regexps()
-  for r in regexps.keys.sorted(by: { $0.text < $1.text }) {
-    symbols[r.text] = g.makeTerminal()
+  for r in regexps.keys.sorted(by: { $0.name < $1.name }) {
+    symbols[r.name] = g.makeTerminal()
   }
 
   let unrecognizedToken = g.makeTerminal()
 
   // make MARPA symbols for nonterminals
-  let sortedNonterminals = sourceGrammar.nonterminals().sorted(by: { $0.text < $1.text })
+  let sortedNonterminals = sourceGrammar.nonterminals().sorted(by: { $0.name < $1.name })
   for s in sortedNonterminals {
-    symbols[s.text] = g.makeNonterminal()
+    symbols[s.name] = g.makeNonterminal()
   }
-  g.startSymbol = symbols[sourceGrammar.start.text]!
+  g.startSymbol = symbols[sourceGrammar.start.name]!
 
   var symbolName = Dictionary(uniqueKeysWithValues: symbols.lazy.map { (k, v) in (v, k) })
   symbolName[unrecognizedToken] = "<UNRECOGNIZED>"
@@ -58,7 +58,7 @@ func makeParser(_ sourceGrammar: EBNF.Grammar) throws -> Parser {
   for lhs in sortedNonterminals {
     let d = sourceGrammar.definitionsByLHS[lhs]!
     for rhs in d.alternatives {
-      makeRule(lhs: symbols[lhs.text]!, rhs: rhs, kind: d.kind)
+      makeRule(lhs: symbols[lhs.name]!, rhs: rhs, kind: d.kind)
     }
   }
 
@@ -131,7 +131,7 @@ func makeParser(_ sourceGrammar: EBNF.Grammar) throws -> Parser {
       astSymbols[x] = innerLHS
       for rhs in alternatives { makeRule(lhs: innerLHS, rhs: rhs, kind: kind) }
       return innerLHS
-    case .symbol(let s): return symbols[s.text]!
+    case .symbol(let s): return symbols[s.name]!
     case .regexp(_, _): fatalError("unreachable")
     case .literal(let l, _): return literals[l]!
 
@@ -152,7 +152,7 @@ func makeParser(_ sourceGrammar: EBNF.Grammar) throws -> Parser {
   }
 
   let tokenPatterns = Dictionary(
-    uniqueKeysWithValues: regexps.lazy.map { s, pattern in (pattern, symbols[s.text])})
+    uniqueKeysWithValues: regexps.lazy.map { s, pattern in (pattern, symbols[s.name])})
 
   return Parser(
     grammar: g, unrecognizedToken: unrecognizedToken,

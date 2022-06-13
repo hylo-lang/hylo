@@ -23,7 +23,7 @@ extension EBNF.Grammar {
         notes: [.init(message: "First definition", site: a.position)]))
       return a
     }
-    guard let startDefinition = ast.first(where: { d in d.lhs.text == startName }) else {
+    guard let startDefinition = ast.first(where: { d in d.lhs.name == startName }) else {
       errors.insert(
         Error("Start symbol \(startName) not defined\n\(self.definitions)", at: ast.position))
       throw errors
