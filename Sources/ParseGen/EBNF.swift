@@ -4,7 +4,7 @@ import Utils
 enum EBNF {
   typealias Error = EBNFError
 
-  struct Token: EBNFNode {
+  struct Token: Equatable {
     typealias ID = EBNFParser.CitronTokenCode
 
     init(_ id: ID, _ content: String, at position: SourceRegion) {
@@ -18,8 +18,6 @@ enum EBNF {
     let position_: Incidental<SourceRegion>
 
     var position: SourceRegion { position_.value }
-
-    func dumped(level: Int) -> String { text }
   }
 
   struct Symbol: EBNFNode {
