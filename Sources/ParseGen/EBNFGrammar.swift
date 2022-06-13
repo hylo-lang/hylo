@@ -6,8 +6,9 @@ extension EBNF {
     typealias AlternativeList = EBNF.AlternativeList
     typealias Term = EBNF.Term
     typealias Symbol = String
-    typealias Definitions = [Symbol: Definition]
-    let definitions: Definitions
+    let definitions: [Definition]
+    typealias DefinitionsByLHS = [Symbol: Definition]
+    let definitionsByLHS: DefinitionsByLHS
     let start: Token
   }
 }
@@ -15,8 +16,8 @@ extension EBNF {
 extension EBNF.Grammar {
   init(_ ast: [EBNF.Definition], start: Symbol) throws {
     var errors: EBNFErrorLog = []
-
-    definitions = Dictionary(ast.lazy.map {(key: $0.lhs.text, value: $0)}) { a, b in
+    definitions = ast
+    definitionsByLHS = Dictionary(ast.lazy.map {(key: $0.lhs.text, value: $0)}) { a, b in
       errors.insert(
         Error(
         "Duplicate symbol definition", at: b.position,
@@ -24,8 +25,8 @@ extension EBNF.Grammar {
       return a
     }
 
-    Self.checkAllSymbolsDefined(in: definitions, into: &errors)
-    guard let d = self.definitions[start] else {
+    Self.checkAllSymbolsDefined(in: definitionsByLHS, into: &errors)
+    guard let d = self.definitionsByLHS[start] else {
       errors.insert(
         Error("Start symbol \(start) not defined\n\(self.definitions)", at: ast.position))
       throw errors

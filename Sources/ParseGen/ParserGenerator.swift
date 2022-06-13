@@ -56,7 +56,7 @@ func makeParser(_ sourceGrammar: EBNF.Grammar) throws -> Parser {
   // make MARPA rules
   var ruleLocation: [Marpa.Rule: SourceRegion] = [:]
   for lhs in sortedNonterminals {
-    let d = sourceGrammar.definitions[lhs]!
+    let d = sourceGrammar.definitionsByLHS[lhs]!
     for rhs in d.alternatives {
       makeRule(lhs: symbols[lhs]!, rhs: rhs, kind: d.kind)
     }
