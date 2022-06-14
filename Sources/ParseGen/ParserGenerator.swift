@@ -1,21 +1,6 @@
 import Marpa
 import CitronLexerModule
 
-extension Collection {
-  // TODO: Should return an efficient adapter
-  /// Returns the elements of `self` with `x` between each adjacent pair.
-  func interjecting(_ x: Element) -> [Element] {
-    var r: [Element] = []
-    var source = self[...]
-    if let first = source.popFirst() {
-      r.reserveCapacity(count * 2 - 1)
-      r.append(first)
-      r.append(contentsOf: source.lazy.flatMap { y in [x, y] })
-    }
-    return r
-  }
-}
-
 func makeParser(_ sourceGrammar: EBNF.Grammar) throws -> Parser {
   var bnfizer = EBNFToBNF(from: sourceGrammar, into: MarpaGrammarBuilder())
   bnfizer.build()
@@ -58,6 +43,9 @@ func makeParser(_ sourceGrammar: EBNF.Grammar) throws -> Parser {
     uniqueKeysWithValues: sourceGrammar.regexps().lazy.map { s, pattern in
       (pattern, bnfizer.asBNF(s))
     })
+
+  // ignore whitespace and single-line comments
+  tokenPatterns[#"\s+|//.*\p{Zl}*"#, default: nil] = nil
 
   return Parser(
     grammar: g, unrecognizedToken: unrecognizedToken,
