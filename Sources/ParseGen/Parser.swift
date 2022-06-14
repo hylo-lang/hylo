@@ -6,15 +6,15 @@ struct Parser {
   let recognizer: Marpa.Recognizer
   let unrecognizedToken: Marpa.Symbol
   let scanner: Scanner<Marpa.Symbol>
-  let symbolName: [Marpa.Symbol: String]
-  let ruleLocation: [Marpa.Rule: SourceRegion]
+  let symbolName: (Marpa.Symbol) -> String
+  let ruleLocation: (Marpa.Rule) -> SourceRegion
 
   init(
     grammar: Marpa.Grammar,
     unrecognizedToken: Marpa.Symbol,
     scanner: Scanner<Marpa.Symbol>,
-    symbolName: [Marpa.Symbol: String],
-    ruleLocation: [Marpa.Rule: SourceRegion]
+    symbolName: @escaping (Marpa.Symbol) -> String,
+    ruleLocation: @escaping (Marpa.Rule) -> SourceRegion
   ) {
     (self.grammar, self.unrecognizedToken, self.scanner, self.symbolName, self.ruleLocation)
       = (grammar, unrecognizedToken, scanner, symbolName, ruleLocation)
@@ -23,13 +23,13 @@ struct Parser {
 
   func dumpGrammar() {
     for r in grammar.rules {
-      print("\(ruleLocation[r]!): note:", description(r))
+      print("\(ruleLocation(r)): note:", description(r))
     }
   }
 
   func description(_ r: Marpa.Rule, dotPosition: Int? = nil) -> String {
-    let lhsName = symbolName[grammar.lhs(r)]!
-    let rhsNames = grammar.rhs(r).lazy.map { s in symbolName[s]! }
+    let lhsName = symbolName(grammar.lhs(r))
+    let rhsNames = grammar.rhs(r).lazy.map { s in symbolName(s) }
     guard let n = dotPosition else {
       return "\(lhsName) -> \(rhsNames.joined(separator: " "))"
     }
@@ -53,7 +53,7 @@ struct Parser {
     for (e, (t, s, position)) in tokens.enumerated() {
       r.append(
         EBNFError.Note(
-          message: "------------------- token \(e): '\(s)' (\(symbolName[t]!)) -------------------",
+          message: "------------------- token \(e): '\(s)' (\(symbolName(t))) -------------------",
           site: position + diagnosticOffset))
 
       r.append(
@@ -61,7 +61,7 @@ struct Parser {
           .lazy.map { rule, origin, n in
             EBNFError.Note(
               message: "\(description(rule, dotPosition: n)) (\(origin.id))",
-              site: ruleLocation[rule]!)
+              site: ruleLocation(rule))
           })
     }
     return r
@@ -109,12 +109,12 @@ struct Parser {
 
       switch err {
       case .unexpectedToken:
-        let expected = recognizer.expectedTerminals.lazy.map { t in symbolName[t]! }
+        let expected = recognizer.expectedTerminals.lazy.map { t in symbolName(t) }
           .joined(separator: ", ")
 
         errors.insert(
           EBNFError(
-            "\(err) \(symbolName[t]!): '\(s)'", at: esRegions.last!,
+            "\(err) \(symbolName(t)): '\(s)'", at: esRegions.last!,
             notes: [.init(message: "expected one of: " + expected, site: esRegions.last!)]))
 
       default:
@@ -156,7 +156,7 @@ struct Parser {
       let s = t.step, l = s.sourceRange
       let indent = repeatElement("  ", count: depth).joined()
       let description = s.symbol != nil
-        ? symbolName[s.symbol!.0]! + (s.symbol!.tokenValue == nil ? " (null)" : "")
+        ? symbolName(s.symbol!.0) + (s.symbol!.tokenValue == nil ? " (null)" : "")
         : "(" + description(s.rule!.0)
       let location: SourceRegion
       let start = esRegions[Int(l.lowerBound.id)]

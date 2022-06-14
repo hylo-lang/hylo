@@ -35,6 +35,8 @@ enum EBNF {
     var position: SourceRegion { position_.value }
 
     func dumped(level: Int) -> String { name }
+    /// A possible generated symbol name for this node in a BNF grammar
+    var bnfSymbolName: String { name }
   }
 
   typealias DefinitionList = [Definition]
@@ -43,6 +45,9 @@ enum EBNF {
     let kind: Kind
     let lhs: Symbol
     let alternatives: AlternativeList
+
+    /// A possible generated symbol name for this node in a BNF grammar
+    var bnfSymbolName: String { dump }
   }
 
   typealias AlternativeList = [Alternative]
@@ -71,17 +76,23 @@ extension EBNF.Symbol: CustomStringConvertible {
 }
 
 
+
 /// An EBNFNode node.
 protocol EBNFNode: Hashable {
   /// The region of source parsed as this node.
   var position: SourceRegion { get }
 
-  /// A string representation in the original syntax.
+  /// Returns a string representation in the original syntax, assuming this node appears at the
+  /// given `level` of the tree.
   func dumped(level: Int)-> String
+
+  /// A possible generated symbol name for this node in a BNF grammar
+  var bnfSymbolName: String { get }
 }
 
 extension EBNFNode {
-  var dump: String { dumped(level: 0) }
+  /// A string representation in the original syntax.
+  var dump: String { self.dumped(level: 0) }
 }
 
 extension Array: EBNFNode where Element: EBNFNode {
@@ -99,6 +110,9 @@ extension Array: EBNFNode where Element: EBNFNode {
       : Element.self == EBNF.Alternative.self ? (level == 0 ? "\n  " : " | ")
       : " "
   }
+
+  /// A possible generated symbol name for this node in a BNF grammar
+  var bnfSymbolName: String { dump }
 }
 
 extension Optional: EBNFNode where Wrapped: EBNFNode {
@@ -106,6 +120,9 @@ extension Optional: EBNFNode where Wrapped: EBNFNode {
     self?.position ?? .empty
   }
   func dumped(level: Int) -> String { self?.dumped(level: level + 1) ?? "" }
+
+  /// A possible generated symbol name for this node in a BNF grammar
+  var bnfSymbolName: String { "`\(dump)`" }
 }
 
 extension EBNF.Definition {
@@ -131,6 +148,7 @@ extension EBNF.Term {
     case .quantified(_, _, let p): return p.value
     }
   }
+
   func dumped(level: Int) -> String {
     switch self {
     case .group(let g): return "( \(g.dumped(level: level + 1)) )"
@@ -141,5 +159,12 @@ extension EBNF.Term {
     case .quantified(let t, let q, _): return t.dumped(level: level + 1) + String(q)
     }
   }
-}
 
+  var bnfSymbolName: String {
+    let s = self.dumped(level: 1)
+    switch self {
+    case .symbol, .literal, .regexp: return s
+    default: return "`\(s)`"
+    }
+  }
+}

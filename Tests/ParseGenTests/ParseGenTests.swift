@@ -1,9 +1,61 @@
 import XCTest
 import Utils
 import Marpa
+import CitronLexerModule
 
 @testable import ParseGen
 
+private extension String {
+  func asEBNFGrammar() throws -> EBNF.Grammar {
+    let ebnfBlocks = self.markdownCodeBlocks(language: "ebnf")
+    let parser = EBNFParser()
+    for b in ebnfBlocks where !b.isEmpty {
+      let startLine = b.first!.0 + 1
+      let text = self[b.first!.1.startIndex..<b.last!.1.endIndex]
+      for t in EBNF.tokens(in: text, onLine: startLine, fromFile: specPath) {
+        try parser.consume(token: t, code: t.id)
+      }
+    }
+    let definitions = try parser.endParsing()
+    return try EBNF.Grammar(definitions, start: "module-definition")
+  }
+}
+
+private struct TestBuilder: BNFBuilder {
+  typealias Symbol = Int
+  var symbolName: [String] = []
+  var symbolLocation: [SourceRegion] = []
+  var rules: [(lhs: Symbol, rhs: [Symbol])] = []
+  var ruleLocation: [SourceRegion] = []
+  var startSymbol: Symbol?
+
+  mutating func makeTerminal<N: EBNFNode>(_ n: N) -> Symbol {
+    makeSymbol(n)
+  }
+
+  mutating func makeNonterminal<N: EBNFNode>(_ n: N) -> Symbol {
+    makeSymbol(n)
+  }
+
+  private mutating func makeSymbol<N: EBNFNode>(_ n: N) -> Symbol {
+    symbolName.append(n.bnfSymbolName)
+    symbolLocation.append(n.position)
+    return symbolName.count - 1
+  }
+
+  mutating func setStartSymbol(_ s: Symbol) {
+    startSymbol = s
+  }
+
+  mutating func addRule<RHS: Collection, Source: EBNFNode>(
+    reducing rhs: RHS, to lhs: Symbol, source: Source
+  )
+  where RHS.Element == Symbol
+  {
+    rules.append((lhs: lhs, rhs: Array(rhs)))
+    ruleLocation.append(source.position)
+  }
+}
 
 final class ParseGenTests: XCTestCase {
   func testReadSpec() throws {
@@ -22,44 +74,33 @@ final class ParseGenTests: XCTestCase {
     for b in ebnfBlocks where !b.isEmpty {
       let startLine = b.first!.0 + 1
       let text = specContents[b.first!.1.startIndex..<b.last!.1.endIndex]
-//      print("at:", startLine)
-//      print(text)
       let tokens = EBNF.tokens(in: text, onLine: startLine, fromFile: specPath)
-//      print("------------------------------------")
-//      for t in tokens { print(t) }
       _ = tokens
     }
   }
 
-  func testEBNFParser() {
+  func testBNFConversion() {
     do {
       let specContents = try String(contentsOfFile: specPath, encoding: .utf8)
+      let g = try specContents.asEBNFGrammar()
+      var conversion = EBNFToBNF(from: g, into: TestBuilder())
+      conversion.build()
+    }
+    catch let e as EBNFErrorLog {
+      XCTFail("Unexpected error\n\(e.report())")
+    }
+    catch let e {
+      XCTFail("Unexpected error\n\(e)")
+    }
+  }
 
-      let ebnfBlocks = specContents.markdownCodeBlocks(language: "ebnf")
-      let parser = EBNFParser()
-      for b in ebnfBlocks where !b.isEmpty {
-        let startLine = b.first!.0 + 1
-        let text = specContents[b.first!.1.startIndex..<b.last!.1.endIndex]
-        for t in EBNF.tokens(in: text, onLine: startLine, fromFile: specPath) {
-          try parser.consume(token: t, code: t.id)
-        }
-      }
-      let definitions = try parser.endParsing()
-      let g = try EBNF.Grammar(definitions, start: "module-definition")
-      // print("literals:", g.literals())
-      let r = g.regexps()
-      // print("regexps:")
-      // for (k, v) in r {
-      //    print("  \(k) ::= /\(v)/")
-      // }
-      // print("-----------------------------")
-      try makeParser(g).dumpGrammar()
-      // print("-----------------------------")
-      let n = g.nonterminals()
-      XCTAssert(n.isDisjoint(with: r.keys))
+  func testMARPA() {
+    do {
+      let specContents = try String(contentsOfFile: specPath, encoding: .utf8)
+      let g = try specContents.asEBNFGrammar()
+
       let valBlocks = specContents.markdownCodeBlocks(language: "val")
       var errors: EBNFErrorLog = []
-
       for b in valBlocks {
         let valParser = try makeParser(g)
         let blockStart = (line: b.first!.0, column: 0)

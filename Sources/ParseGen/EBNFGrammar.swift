@@ -9,6 +9,8 @@ extension EBNF {
     typealias DefinitionsByLHS = [EBNF.Symbol: Definition]
     let definitionsByLHS: DefinitionsByLHS
     let start: Symbol
+    let whitespaceOpt: Symbol
+    let horizontalSpaceOpt: Symbol
   }
 }
 
@@ -23,12 +25,16 @@ extension EBNF.Grammar {
         notes: [.init(message: "First definition", site: a.position)]))
       return a
     }
-    guard let startDefinition = ast.first(where: { d in d.lhs.name == startName }) else {
+
+    let lhsSymbol: (_: String) throws -> Symbol = { [definitionsByLHS] name in
+      if let x = definitionsByLHS[.init(name, at: .empty)] { return x.lhs }
       errors.insert(
-        Error("Start symbol \(startName) not defined\n\(self.definitions)", at: ast.position))
+        Error("Symbol \(name) not defined\n\(ast)", at: ast.position))
       throw errors
     }
-    self.start = startDefinition.lhs
+    start = try lhsSymbol(startName)
+    whitespaceOpt = try lhsSymbol("whitespace-opt")
+    horizontalSpaceOpt = try lhsSymbol("horizontal-space-opt")
 
     checkAllSymbolsDefined(into: &errors)
     checkAllSymbolsReachable(into: &errors)
