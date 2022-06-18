@@ -7,6 +7,11 @@ public struct CallableTypeParameter: Hashable {
   /// The type of the parameter.
   public let type: Type
 
+  public init(label: String? = nil, type: Type) {
+    self.label = label
+    self.type = type
+  }
+
 }
 
 extension CallableTypeParameter: CustomStringConvertible {
