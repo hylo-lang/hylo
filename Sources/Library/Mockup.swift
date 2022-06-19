@@ -2,7 +2,7 @@ import Compiler
 
 /// Creates a mockup of the standard library into `ast` and returns its identifier.
 @discardableResult
-func insertStandardLibraryMockup(into ast: inout AST) -> NodeID<ModuleDecl> {
+public func insertStandardLibraryMockup(into ast: inout AST) -> NodeID<ModuleDecl> {
   precondition(ast.stdlib == nil)
   let stdlib = ast.insert(ModuleDecl(name: "Val"))
 

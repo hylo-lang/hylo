@@ -20,7 +20,7 @@ let package = Package(
     .target(
       name: "CLI",
       dependencies: [
-        "Compiler",
+        "Compiler", "Library",
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
       ]),
 
@@ -33,5 +33,9 @@ let package = Package(
     // Test targets.
     .testTarget(
       name: "ValTests",
-      dependencies: ["Compiler"]),
+      dependencies: ["Compiler", "Library"]),
+
+    .target(
+      name: "Library",
+      dependencies: ["Compiler"])
   ])
