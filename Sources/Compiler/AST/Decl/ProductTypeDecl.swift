@@ -4,7 +4,7 @@ public struct ProductTypeDecl: GenericDecl, SingleEntityDecl, GenericScope {
   public static let kind = NodeKind.productTypeDecl
 
   /// The access modifier of the declaration, if any.
-  public var access: SourceRepresentable<AccessModifier>?
+  public var accessModifier: SourceRepresentable<AccessModifier>?
 
   /// The identifier of the type.
   public var identifier: SourceRepresentable<Identifier>
@@ -21,17 +21,20 @@ public struct ProductTypeDecl: GenericDecl, SingleEntityDecl, GenericScope {
   public var name: String { identifier.value }
 
   public init(
-    access: SourceRepresentable<AccessModifier>? = nil,
+    accessModifier: SourceRepresentable<AccessModifier>? = nil,
     identifier: SourceRepresentable<Identifier>,
     genericClause: SourceRepresentable<GenericClause>? = nil,
     conformances: [NodeID<NameTypeExpr>] = [],
     members: [AnyDeclID] = []
   ) {
-    self.access = access
+    self.accessModifier = accessModifier
     self.identifier = identifier
     self.genericClause = genericClause
     self.conformances = conformances
     self.members = members
   }
+
+  /// Indicates whether the declaration is public.
+  public var isPublic: Bool { accessModifier?.value != nil }
 
 }

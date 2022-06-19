@@ -34,6 +34,9 @@ let package = Package(
     .testTarget(
       name: "ValTests",
       dependencies: ["Compiler", "Library"]),
+    .testTarget(
+      name: "CXXTests",
+      dependencies: ["Compiler", "Library"]),
 
     .target(
       name: "Library",

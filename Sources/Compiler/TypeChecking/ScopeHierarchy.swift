@@ -1,5 +1,5 @@
 /// A graph describing the scope hierarchy of an AST.
-struct ScopeHierarchy {
+public struct ScopeHierarchy {
 
   /// A sequence of scopes, from inner to outer.
   struct ScopeSequence: IteratorProtocol, Sequence {

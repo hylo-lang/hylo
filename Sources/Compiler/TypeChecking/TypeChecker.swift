@@ -3,6 +3,12 @@ import Utils
 /// Val's type checker.
 public struct TypeChecker {
 
+  /// The AST containing the modules being type checked.
+  public internal(set) var ast: AST
+
+  /// The scope hierarchy of the AST.
+  public internal(set) var scopeHierarchy: ScopeHierarchy
+
   /// The diagnostics of the type errors.
   public internal(set) var diagnostics: Set<Diagnostic> = []
 
@@ -11,12 +17,6 @@ public struct TypeChecker {
 
   /// The type of each expression.
   public private(set) var exprTypes = ExprMap<Type>()
-
-  /// The AST containing the modules being type checked.
-  var ast: AST
-
-  /// The scope hierarchy of the AST.
-  var scopeHierarchy: ScopeHierarchy
 
   /// The set of lambda expressions whose declarations are pending type checking.
   var pendingLambdas: [NodeID<LambdaExpr>] = []
@@ -219,7 +219,7 @@ public struct TypeChecker {
   private(set) var bindingsUnderChecking: DeclSet = []
 
   /// Processed all pending type checking requests and returns whether that succeeded.
-  public mutating func checkPending() -> Bool {
+  mutating func checkPending() -> Bool {
     var success = true
 
     while let id = pendingLambdas.popLast() {
