@@ -39,9 +39,9 @@ func makeParser(_ sourceGrammar: EBNF.Grammar) throws -> Parser {
       (l, bnfizer.asBNF(literal: l))
     })
 
-  let tokenPatterns = Dictionary(
+  var tokenPatterns = Dictionary(
     uniqueKeysWithValues: sourceGrammar.regexps().lazy.map { s, pattern in
-      (pattern, bnfizer.asBNF(s))
+      (pattern, Optional(bnfizer.asBNF(s)))
     })
 
   // ignore whitespace and single-line comments
