@@ -1,3 +1,5 @@
+import Utils
+
 /// A Val to C++ transpiler.
 public struct Transpiler {
 
@@ -10,6 +12,9 @@ public struct Transpiler {
   /// The overarching type of each declaration.
   public let declTypes: DeclMap<Type>
 
+  /// The printer used to write C++ text.
+  var printer = IndentPrinter()
+
   /// Creates a C++ transpiler with a well-typed AST.
   public init(ast: AST, scopeHierarchy: ScopeHierarchy, declTypes: DeclMap<Type>) {
     self.ast = ast
@@ -21,16 +26,21 @@ public struct Transpiler {
   ///
   /// - Parameters:
   ///   - moduleID: The ID of the module declaration whose header is generated.
-  public func emitHeader(of moduleID: NodeID<ModuleDecl>) -> String {
+  public mutating func emitHeader(of moduleID: NodeID<ModuleDecl>) -> String {
     let module = ast[moduleID]
 
     // Emit the header guard.
     var header = ""
-    print("#ifndef VAL_\(module.name.uppercased())", to: &header)
-    print("#define VAL_\(module.name.uppercased())", to: &header)
+    printer.write("#ifndef VAL_\(module.name.uppercased())", to: &header)
+    printer.write("#define VAL_\(module.name.uppercased())", to: &header)
+
+    // Emit include clauses.
+    printer.write("", to: &header)
+    printer.write("#include <utility>", to: &header)
 
     // Create a namespace for the entire module.
-    print("\nnamespace \(module.name) {", to: &header)
+    printer.write("", to: &header)
+    printer.write("namespace \(module.name) {", to: &header)
 
     // Collect public type declarations.
     var typeDeclIDs: [NodeID<ProductTypeDecl>] = []
@@ -47,26 +57,25 @@ public struct Transpiler {
     }
 
     // Emit type declarations.
-    print("", to: &header)
+    printer.write("", to: &header)
     for typeDeclID in typeDeclIDs {
-      print("class \(ast[typeDeclID].name);", to: &header)
+      printer.write("class \(ast[typeDeclID].name);", to: &header)
     }
 
     // Emit type definitions.
-    print("", to: &header)
+    printer.write("", to: &header)
     for typeDeclID in typeDeclIDs {
       header += emitTypeDefinition(of: typeDeclID)
     }
 
-    print("\n}", to: &header) // module namespace
-    print("\n#endif", to: &header) // header guard
+    printer.write("\n}", to: &header) // module namespace
+    printer.write("\n#endif", to: &header) // header guard
     return header
   }
 
   /// Emits the specified type definition.
-  private func emitTypeDefinition(of typeDeclID: NodeID<ProductTypeDecl>) -> String {
-    var publicSection: [String] = []
-    var privateSection: [String] = []
+  private mutating func emitTypeDefinition(of typeDeclID: NodeID<ProductTypeDecl>) -> String {
+    var cxxDecl = CXXTypeDecl(name: ast[typeDeclID].name)
 
     for memberID in ast[typeDeclID].members {
       switch memberID.kind {
@@ -88,9 +97,27 @@ public struct Transpiler {
         })
 
         if bindingDecl.isPublic {
-          publicSection.append(contentsOf: variables)
+          cxxDecl.publicFields.append(contentsOf: variables)
         } else {
-          privateSection.append(contentsOf: variables)
+          cxxDecl.privateFields.append(contentsOf: variables)
+        }
+
+      case .funDecl:
+        let methodDeclID = NodeID<FunDecl>(converting: memberID)!
+        let methodDecl = ast[methodDeclID]
+        assert(!methodDecl.isStatic, "not implemented")
+
+        switch methodDecl.introducer.value {
+        case .memberwiseInit:
+          let definition = emitMemberwiseInit(typeDeclID: typeDeclID, initDeclID: methodDeclID)
+          if methodDecl.isPublic {
+            cxxDecl.publicCtors.append(definition)
+          } else {
+            cxxDecl.privateCtors.append(definition)
+          }
+
+        default:
+          fatalError("not implemented")
         }
 
       default:
@@ -98,28 +125,56 @@ public struct Transpiler {
       }
     }
 
-    // Emit the definition.
     var output = ""
-    print("class \(ast[typeDeclID].name) {", to: &output)
-    if !publicSection.isEmpty {
-      print("public:", to: &output)
-      for member in publicSection {
-        print(member, to: &output)
-      }
-    }
-    if !privateSection.isEmpty {
-      print("private:", to: &output)
-      for member in publicSection {
-        print(member, to: &output)
-      }
-    }
-    print("};", to: &output)
+    cxxDecl.write(into: &output, using: &printer)
     return output
   }
 
+  /// Emits the specified memberwise initializer definition.
+  private func emitMemberwiseInit(
+    typeDeclID: NodeID<ProductTypeDecl>,
+    initDeclID: NodeID<FunDecl>
+  ) -> String {
+    // Note: the first parameter of the signature is the receiver.
+    guard case .lambda(let initDeclType) = declTypes[initDeclID] else { unreachable() }
+    var definition = "\(ast[typeDeclID].name)"
+
+    // Emit the parameters.
+    definition += "("
+    definition += initDeclType.inputs
+      .dropFirst()
+      .map({ (p) -> String in "\(emitTypeExpression(p.type)) \(p.label!)" })
+      .joined(separator: ", ")
+    definition += ")"
+
+    // Emit the memberwise initialization.
+    if !initDeclType.inputs.isEmpty {
+      definition += ": "
+      definition += initDeclType.inputs
+        .dropFirst()
+        .map({ (p) -> String in "\(p.label!)(std::move(\(p.label!)))" })
+        .joined(separator: ", ")
+    }
+
+    definition += " {}"
+    return definition
+  }
+
   /// Emits the expression of the given type.
-  public func emitTypeExpression(_ type: Type) -> String {
+  private func emitTypeExpression(_ type: Type) -> String {
     switch type {
+    case .parameter(let type):
+      switch type.convention {
+      case .let:
+        return emitTypeExpression(type.bareType) + "const&"
+      case .inout:
+        return emitTypeExpression(type.bareType) + "&"
+      case .sink:
+        return emitTypeExpression(type.bareType) + "&&"
+      default:
+        unreachable("unexpected parameter passing convention")
+      }
+
     case .product(let type):
       var nameComponents: [String] = []
       for scopeID in scopeHierarchy.scopesToRoot(from: type.decl) {
@@ -137,17 +192,7 @@ public struct Transpiler {
       return nameComponents.reversed().joined(separator: "::")
 
     default:
-      fatalError("unexpected type")
-    }
-  }
-
-  /// Given `type` is a nominal type, emits its fully qualified name.
-  public func emitQualifiedName(_ type: Type) -> String {
-    switch type {
-
-
-    default:
-      fatalError("unexpected type")
+      unreachable("unexpected type")
     }
   }
 

@@ -34,7 +34,7 @@ public struct ProductTypeDecl: GenericDecl, SingleEntityDecl, GenericScope {
     self.members = members
   }
 
-  /// Indicates whether the declaration is public.
+  /// Returns whether the declaration is public.
   public var isPublic: Bool { accessModifier?.value != nil }
 
 }

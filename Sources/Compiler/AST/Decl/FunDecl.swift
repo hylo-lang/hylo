@@ -100,6 +100,9 @@ public struct FunDecl: GenericDecl, GenericScope {
     self.isInExprContext = isInExprContext
   }
 
+  /// Returns whether the declaration is public.
+  public var isPublic: Bool { accessModifier?.value != nil }
+
   /// Returns whether the declaration denotes a static method.
   public var isStatic: Bool { memberModifiers.contains(where: { $0.value == .static }) }
 

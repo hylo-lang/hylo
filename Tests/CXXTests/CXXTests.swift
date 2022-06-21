@@ -9,6 +9,7 @@ final class CXXTests: XCTestCase {
     // public type Vector2 {
     //   public var x: Double
     //   public var y: Double
+    //   public memberwise init
     // }
 
     var ast = AST()
@@ -37,13 +38,16 @@ final class CXXTests: XCTestCase {
                 identifier: SourceRepresentable(value: "y")))))),
             annotation: AnyTypeExprID(ast.insert(NameTypeExpr(
               identifier: SourceRepresentable(value: "Double"))))))))),
+        AnyDeclID(ast.insert(FunDecl(
+          introducer: SourceRepresentable(value: .memberwiseInit),
+          accessModifier: SourceRepresentable(value: .public)))),
       ]))))
 
     var checker = TypeChecker(ast: ast)
     XCTAssertTrue(checker.check(module: main))
 
-    let transpiler = Transpiler(
-      ast: ast,
+    var transpiler = Transpiler(
+      ast: checker.ast,
       scopeHierarchy: checker.scopeHierarchy,
       declTypes: checker.declTypes)
     let header = transpiler.emitHeader(of: main)
@@ -52,14 +56,23 @@ final class CXXTests: XCTestCase {
     #ifndef VAL_SOMELIB
     #define VAL_SOMELIB
 
+    #include <utility>
+
     namespace SomeLib {
 
     class Vector2;
 
     class Vector2 {
     public:
-    Val::Double x;
-    Val::Double y;
+      Val::Double x;
+      Val::Double y;
+    public:
+      Vector2() = delete;
+      Vector2(Vector2&&) = delete;
+      Vector2& operator=(Vector2&&) = delete;
+      Vector2(Vector2 const&) = delete;
+      Vector2& operator=(Vector2 const&) = delete;
+      Vector2(Val::Double&& x, Val::Double&& y): x(std::move(x)), y(std::move(y)) {}
     };
 
     }
