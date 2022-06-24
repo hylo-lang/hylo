@@ -216,9 +216,9 @@ public struct Transpiler {
         case .let:
           return "\(output) \(methodName)(\(inputs)) const;"
         case .inout:
-          return "void \(methodName)_inout(\(inputs));"
+          return "void inplace_\(methodName)(\(inputs));"
         case .sink:
-          return "\(output) \(methodName)_sink(\(inputs)) &&;"
+          return "\(output) sink_\(methodName)(\(inputs)) &&;"
         }
       })
 

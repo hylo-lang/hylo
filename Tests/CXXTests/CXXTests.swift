@@ -4,12 +4,19 @@ import Library
 
 final class CXXTests: XCTestCase {
 
-  func testSimpleType() {
+  func testSimpleTypeHeader() {
 
     // public type Vector2 {
     //   public var x: Double
     //   public var y: Double
     //   public memberwise init
+    //
+    //   public fun dot(_ other: Self) -> Double { ... }
+    //   public fun offset(by delta: Self) -> Self {
+    //     let   { ... }
+    //     inout { ... }
+    //     sink  { ... }
+    //   }
     // }
 
     var ast = AST()
@@ -41,6 +48,52 @@ final class CXXTests: XCTestCase {
         AnyDeclID(ast.insert(FunDecl(
           introducer: SourceRepresentable(value: .memberwiseInit),
           accessModifier: SourceRepresentable(value: .public)))),
+        AnyDeclID(ast.insert(FunDecl(
+          introducer: SourceRepresentable(value: .fun),
+          accessModifier: SourceRepresentable(value: .public),
+          identifier: SourceRepresentable(value: "dot"),
+          parameters: [
+            ast.insert(ParameterDecl(
+              identifier: SourceRepresentable(value: "other"),
+              annotation: ast.insert(ParameterTypeExpr(
+                convention: SourceRepresentable(value: .let),
+                bareType: AnyTypeExprID(ast.insert(NameTypeExpr(
+                  identifier: SourceRepresentable(value: "Self")))))))),
+          ],
+          output: AnyTypeExprID(ast.insert(NameTypeExpr(
+            identifier: SourceRepresentable(value: "Double")))),
+          body: SourceRepresentable(
+            value: .expr(AnyExprID(ast.insert(IntegerLiteralExpr(value: "0")))))))),
+        AnyDeclID(ast.insert(FunDecl(
+          introducer: SourceRepresentable(value: .fun),
+          accessModifier: SourceRepresentable(value: .public),
+          identifier: SourceRepresentable(value: "offset"),
+          parameters: [
+            ast.insert(ParameterDecl(
+              label: SourceRepresentable(value: "by"),
+              identifier: SourceRepresentable(value: "other"),
+              annotation: ast.insert(ParameterTypeExpr(
+                convention: SourceRepresentable(value: .let),
+                bareType: AnyTypeExprID(ast.insert(NameTypeExpr(
+                  identifier: SourceRepresentable(value: "Self")))))))),
+          ],
+          output: AnyTypeExprID(ast.insert(NameTypeExpr(
+            identifier: SourceRepresentable(value: "Self")))),
+          body: SourceRepresentable(
+            value: .bundle([
+              ast.insert(MethodImplDecl(
+                introducer: SourceRepresentable(value: .let),
+                body: .expr(AnyExprID(ast.insert(NameExpr(
+                  stem: SourceRepresentable(value: "self"))))))),
+              ast.insert(MethodImplDecl(
+                introducer: SourceRepresentable(value: .inout),
+                body: .expr(AnyExprID(ast.insert(NameExpr(
+                  stem: SourceRepresentable(value: "self"))))))),
+              ast.insert(MethodImplDecl(
+                introducer: SourceRepresentable(value: .sink),
+                body: .expr(AnyExprID(ast.insert(NameExpr(
+                  stem: SourceRepresentable(value: "self"))))))),
+            ]))))),
       ]))))
 
     var checker = TypeChecker(ast: ast)
@@ -74,6 +127,10 @@ final class CXXTests: XCTestCase {
       Vector2(Vector2 const&) = delete;
       Vector2& operator=(Vector2 const&) = delete;
       explicit Vector2(Val::Double&& x, Val::Double&& y): x(std::move(x)), y(std::move(y)) {}
+      SomeLib::Vector2 offset(SomeLib::Vector2 const&) const;
+      SomeLib::Vector2 sink_offset(SomeLib::Vector2 const&) &&;
+      Val::Double dot(SomeLib::Vector2 const&) const;
+      void inplace_offset(SomeLib::Vector2 const&);
     };
 
     }
