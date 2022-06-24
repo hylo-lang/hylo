@@ -32,11 +32,11 @@ public struct MethodImplDecl: Decl, LexicalScope {
   public var receiver: NodeID<ParameterDecl>?
 
   /// The body of the method, if any.
-  public var body: SourceRepresentable<Body>?
+  public var body: Body?
 
   public init(
     introducer: SourceRepresentable<Introducer>,
-    body: SourceRepresentable<Body>? = nil
+    body: Body? = nil
   ) {
     self.introducer = introducer
     self.body = body

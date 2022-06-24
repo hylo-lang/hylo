@@ -57,6 +57,7 @@ final class CXXTests: XCTestCase {
     #define VAL_SOMELIB
 
     #include <utility>
+    #include <functional>
 
     namespace SomeLib {
 
@@ -72,7 +73,7 @@ final class CXXTests: XCTestCase {
       Vector2& operator=(Vector2&&) = delete;
       Vector2(Vector2 const&) = delete;
       Vector2& operator=(Vector2 const&) = delete;
-      Vector2(Val::Double&& x, Val::Double&& y): x(std::move(x)), y(std::move(y)) {}
+      explicit Vector2(Val::Double&& x, Val::Double&& y): x(std::move(x)), y(std::move(y)) {}
     };
 
     }

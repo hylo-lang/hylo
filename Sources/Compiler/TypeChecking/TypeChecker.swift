@@ -519,7 +519,7 @@ public struct TypeChecker {
 
     case .bundle(let impls):
       for j in impls {
-        switch ast[j].body?.value {
+        switch ast[j].body {
         case .expr(let expr):
           let expectedType: Type = ast[j].introducer.value == .inout
             ? .unit

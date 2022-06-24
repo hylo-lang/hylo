@@ -13,7 +13,10 @@ public struct Transpiler {
   public let declTypes: DeclMap<Type>
 
   /// The printer used to write C++ text.
-  var printer = IndentPrinter()
+  private var printer = IndentPrinter()
+
+  /// The type definitions explosed in the C++ API.
+  private var publicTypeDefinitions: [NodeID<ProductTypeDecl>: CXXTypeDecl] = [:]
 
   /// Creates a C++ transpiler with a well-typed AST.
   public init(ast: AST, scopeHierarchy: ScopeHierarchy, declTypes: DeclMap<Type>) {
@@ -29,6 +32,10 @@ public struct Transpiler {
   public mutating func emitHeader(of moduleID: NodeID<ModuleDecl>) -> String {
     let module = ast[moduleID]
 
+    // Reinitialize the state of the transpiler.
+    printer.indentationLevel = 0
+    publicTypeDefinitions.removeAll()
+
     // Emit the header guard.
     var header = ""
     printer.write("#ifndef VAL_\(module.name.uppercased())", to: &header)
@@ -37,19 +44,23 @@ public struct Transpiler {
     // Emit include clauses.
     printer.write("", to: &header)
     printer.write("#include <utility>", to: &header)
+    printer.write("#include <functional>", to: &header)
 
     // Create a namespace for the entire module.
     printer.write("", to: &header)
     printer.write("namespace \(module.name) {", to: &header)
 
-    // Collect public type declarations.
-    var typeDeclIDs: [NodeID<ProductTypeDecl>] = []
+    // Collect public declarations from Val.
     for memberID in module.members {
       switch memberID.kind {
       case .productTypeDecl:
         let typeDeclID = NodeID<ProductTypeDecl>(converting: memberID)!
-        if !ast[typeDeclID].isPublic { continue }
-        typeDeclIDs.append(typeDeclID)
+        if ast[typeDeclID].isPublic && (publicTypeDefinitions[typeDeclID] == nil) {
+          publicTypeDefinitions[typeDeclID] = CXXTypeDecl(name: ast[typeDeclID].name)
+        }
+
+      case .conformanceDecl, .extensionDecl, .funDecl, .namespaceDecl, .subscriptDecl:
+        fatalError("not implemented")
 
       default:
         continue
@@ -58,13 +69,13 @@ public struct Transpiler {
 
     // Emit type declarations.
     printer.write("", to: &header)
-    for typeDeclID in typeDeclIDs {
+    for typeDeclID in publicTypeDefinitions.keys {
       printer.write("class \(ast[typeDeclID].name);", to: &header)
     }
 
     // Emit type definitions.
     printer.write("", to: &header)
-    for typeDeclID in typeDeclIDs {
+    for typeDeclID in publicTypeDefinitions.keys {
       header += emitTypeDefinition(of: typeDeclID)
     }
 
@@ -73,7 +84,7 @@ public struct Transpiler {
     return header
   }
 
-  /// Emits the specified type definition.
+  /// Emits the definition of the specified type declaration.
   private mutating func emitTypeDefinition(of typeDeclID: NodeID<ProductTypeDecl>) -> String {
     var cxxDecl = CXXTypeDecl(name: ast[typeDeclID].name)
 
@@ -83,39 +94,48 @@ public struct Transpiler {
         let bindingDeclID = NodeID<BindingDecl>(converting: memberID)!
         let bindingDecl = ast[bindingDeclID]
 
-        let variables = bindingDecl.pattern.names(ast: ast).map({ (name) -> String in
-          var definition = ast[bindingDeclID].isStatic
-            ? "static "
-            : ""
+        // Stored properties are always emitted.
+        let access: CXXTypeDecl.SectionAccess = bindingDecl.isPublic
+          ? .public
+          : .private
+        cxxDecl.fields.append(contentsOf: bindingDecl.pattern.names(ast: ast)
+          .map({ (name) -> (String, CXXTypeDecl.SectionAccess) in
+            var definition = ast[bindingDeclID].isStatic
+              ? "static "
+              : ""
 
-          let varDeclID = ast[name].decl
-          definition += emitTypeExpression(declTypes[varDeclID]!)
-          definition += " "
-          definition += ast[varDeclID].name
-          definition += ";"
-          return definition
-        })
-
-        if bindingDecl.isPublic {
-          cxxDecl.publicFields.append(contentsOf: variables)
-        } else {
-          cxxDecl.privateFields.append(contentsOf: variables)
-        }
+            let varDeclID = ast[name].decl
+            definition += emitTypeExpression(declTypes[varDeclID]!)
+            definition += " "
+            definition += ast[varDeclID].name
+            definition += ";"
+            return (definition, access)
+          }))
 
       case .funDecl:
         let methodDeclID = NodeID<FunDecl>(converting: memberID)!
         let methodDecl = ast[methodDeclID]
-        assert(!methodDecl.isStatic, "not implemented")
 
-        switch methodDecl.introducer.value {
-        case .memberwiseInit:
+        // Memberwise constructors are always emitted.
+        if methodDecl.introducer.value == .memberwiseInit {
           let definition = emitMemberwiseInit(typeDeclID: typeDeclID, initDeclID: methodDeclID)
           if methodDecl.isPublic {
             cxxDecl.publicCtors.append(definition)
           } else {
             cxxDecl.privateCtors.append(definition)
           }
+          continue
+        }
 
+        // Other constructors and methods are not emitted unless they are public.
+        if !methodDecl.isPublic { continue }
+        assert(!methodDecl.isStatic, "not implemented")
+
+        switch methodDecl.introducer.value {
+        case .memberwiseInit:
+          unreachable()
+        case .fun:
+          cxxDecl.methods.append(contentsOf: emitMethod(methodDeclID))
         default:
           fatalError("not implemented")
         }
@@ -130,27 +150,27 @@ public struct Transpiler {
     return output
   }
 
-  /// Emits the specified memberwise initializer definition.
+  /// Emits the definition of the specified memberwise initializer.
   private func emitMemberwiseInit(
     typeDeclID: NodeID<ProductTypeDecl>,
     initDeclID: NodeID<FunDecl>
   ) -> String {
     // Note: the first parameter of the signature is the receiver.
-    guard case .lambda(let initDeclType) = declTypes[initDeclID] else { unreachable() }
-    var definition = "\(ast[typeDeclID].name)"
+    guard case .lambda(let initType) = declTypes[initDeclID] else { unreachable() }
+    var definition = "explicit \(ast[typeDeclID].name)"
 
     // Emit the parameters.
     definition += "("
-    definition += initDeclType.inputs
+    definition += initType.inputs
       .dropFirst()
       .map({ (p) -> String in "\(emitTypeExpression(p.type)) \(p.label!)" })
       .joined(separator: ", ")
     definition += ")"
 
     // Emit the memberwise initialization.
-    if !initDeclType.inputs.isEmpty {
+    if !initType.inputs.isEmpty {
       definition += ": "
-      definition += initDeclType.inputs
+      definition += initType.inputs
         .dropFirst()
         .map({ (p) -> String in "\(p.label!)(std::move(\(p.label!)))" })
         .joined(separator: ", ")
@@ -160,13 +180,60 @@ public struct Transpiler {
     return definition
   }
 
+  /// Emits the definition(s) of the specified method declaration.
+  ///
+  /// - Note: The method returns multiple definitions if `methodDeclID` denotes a method bundle.
+  private func emitMethod(_ methodDeclID: NodeID<FunDecl>) -> [String] {
+    let methodName = ast[methodDeclID].identifier!.value
+
+    switch declTypes[methodDeclID] {
+    case .lambda(let type):
+      var signature = emitTypeExpression(type.output)
+      signature += " \(methodName)("
+      signature += type.inputs
+        .map({ p in emitTypeExpression(p.type) })
+        .joined(separator: ", ")
+      signature += ")"
+
+      if ast[methodDeclID].isSink {
+        signature += " &&"
+      } else if !ast[methodDeclID].isSink {
+        signature += " const"
+      }
+
+      signature += ";"
+      return [signature]
+
+    case .method(let type):
+      // The input/output is the same for all variants.
+      let output = emitTypeExpression(type.output)
+      let inputs = type.inputs
+        .map({ p in emitTypeExpression(p.type) })
+        .joined(separator: ", ")
+
+      return type.capabilities.map({ (capability) -> String in
+        switch capability {
+        case .let:
+          return "\(output) \(methodName)(\(inputs)) const;"
+        case .inout:
+          return "void \(methodName)_inout(\(inputs));"
+        case .sink:
+          return "\(output) \(methodName)_sink(\(inputs)) &&;"
+        }
+      })
+
+    default:
+      unreachable()
+    }
+  }
+
   /// Emits the expression of the given type.
   private func emitTypeExpression(_ type: Type) -> String {
     switch type {
     case .parameter(let type):
       switch type.convention {
       case .let:
-        return emitTypeExpression(type.bareType) + "const&"
+        return emitTypeExpression(type.bareType) + " const&"
       case .inout:
         return emitTypeExpression(type.bareType) + "&"
       case .sink:

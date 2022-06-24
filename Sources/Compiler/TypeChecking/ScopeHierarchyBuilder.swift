@@ -133,7 +133,7 @@ struct ScopeHierarchyBuilder:
   mutating func visit(methodImpl i: NodeID<MethodImplDecl>) {
     hierarchy.insert(decl: i, into: innermost!)
     nesting(in: i, { this in
-      switch this.ast[i].body?.value {
+      switch this.ast[i].body {
       case let .expr(expr):
         expr.accept(&this)
       case let .block(stmt):

@@ -386,14 +386,14 @@ final class TypeCheckerTests: XCTestCase {
           body: SourceRepresentable(value: .bundle([
             ast.insert(MethodImplDecl(
               introducer: SourceRepresentable(value: .let),
-              body: SourceRepresentable(value: .expr(AnyExprID(ast.insert(FunCallExpr(
+              body: .expr(AnyExprID(ast.insert(FunCallExpr(
                 callee: AnyExprID(ast.insert(NameExpr(
-                  stem: SourceRepresentable(value: "A"))))))))))),
+                  stem: SourceRepresentable(value: "A")))))))))),
             ast.insert(MethodImplDecl(
               introducer: SourceRepresentable(value: .sink),
-              body: SourceRepresentable(value: .expr(AnyExprID(ast.insert(FunCallExpr(
+              body: .expr(AnyExprID(ast.insert(FunCallExpr(
                 callee: AnyExprID(ast.insert(NameExpr(
-                  stem: SourceRepresentable(value: "A"))))))))))),
+                  stem: SourceRepresentable(value: "A")))))))))),
           ]))))),
         AnyDeclID(ast.insert(FunDecl(
           introducer: SourceRepresentable(value: .fun),
@@ -1295,17 +1295,17 @@ final class TypeCheckerTests: XCTestCase {
           body: SourceRepresentable(value: .bundle([
             ast.insert(MethodImplDecl(
               introducer: SourceRepresentable(value: .let),
-              body: SourceRepresentable(value: .expr(AnyExprID(ast.insert(FunCallExpr(
+              body: .expr(AnyExprID(ast.insert(FunCallExpr(
                 callee: AnyExprID(ast.insert(NameExpr(
-                  stem: SourceRepresentable(value: "A"))))))))))),
+                  stem: SourceRepresentable(value: "A")))))))))),
             ast.insert(MethodImplDecl(
               introducer: SourceRepresentable(value: .inout),
-              body: SourceRepresentable(value: .expr(AnyExprID(ast.insert(TupleExpr())))))),
+              body: .expr(AnyExprID(ast.insert(TupleExpr()))))),
             ast.insert(MethodImplDecl(
               introducer: SourceRepresentable(value: .sink),
-              body: SourceRepresentable(value: .expr(AnyExprID(ast.insert(FunCallExpr(
+              body: .expr(AnyExprID(ast.insert(FunCallExpr(
                 callee: AnyExprID(ast.insert(NameExpr(
-                  stem: SourceRepresentable(value: "A"))))))))))),
+                  stem: SourceRepresentable(value: "A")))))))))),
           ])))))
       ]))))
 
@@ -1342,7 +1342,7 @@ final class TypeCheckerTests: XCTestCase {
           body: SourceRepresentable(value: .bundle([
             ast.insert(MethodImplDecl(
               introducer: SourceRepresentable(value: .inout),
-              body: SourceRepresentable(value: .expr(AnyExprID(ast.insert(TupleExpr())))))),
+              body: .expr(AnyExprID(ast.insert(TupleExpr()))))),
           ])))))
       ]))))
 
@@ -1383,14 +1383,14 @@ final class TypeCheckerTests: XCTestCase {
           body: SourceRepresentable(value: .bundle([
             ast.insert(MethodImplDecl(
               introducer: SourceRepresentable(value: .let),
-              body: SourceRepresentable(value: .expr(AnyExprID(ast.insert(FunCallExpr(
+              body: .expr(AnyExprID(ast.insert(FunCallExpr(
                 callee: AnyExprID(ast.insert(NameExpr(
-                  stem: SourceRepresentable(value: "A"))))))))))),
+                  stem: SourceRepresentable(value: "A")))))))))),
             ast.insert(MethodImplDecl(
               introducer: SourceRepresentable(value: .sink),
-              body: SourceRepresentable(value: .expr(AnyExprID(ast.insert(FunCallExpr(
+              body: .expr(AnyExprID(ast.insert(FunCallExpr(
                 callee: AnyExprID(ast.insert(NameExpr(
-                  stem: SourceRepresentable(value: "A"))))))))))),
+                  stem: SourceRepresentable(value: "A")))))))))),
           ]))))),
         AnyDeclID(ast.insert(FunDecl(
           introducer: SourceRepresentable(value: .fun),
