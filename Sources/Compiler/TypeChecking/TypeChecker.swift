@@ -769,7 +769,7 @@ public struct TypeChecker {
     let funDecl = NodeID<FunDecl>(
       unsafeRawValue: scopeHierarchy
         .scopesToRoot(from: lexicalContext)
-        .first(where: { $0.kind <= .funDecl })!.rawValue)
+        .first(where: { $0.kind == .funDecl })!.rawValue)
 
     let expectedReturnType: Type
     switch declTypes[funDecl]! {
@@ -1704,7 +1704,7 @@ public struct TypeChecker {
           return nil
         }
 
-        if match.kind <= .associatedTypeDecl {
+        if match.kind == .associatedTypeDecl {
           let decl = NodeID<AssociatedTypeDecl>(converting: match)!
           switch domain {
           case .associated, .conformanceLens, .genericTypeParam:
@@ -1753,7 +1753,7 @@ public struct TypeChecker {
           return nil
         }
 
-        if match.kind <= .associatedTypeDecl {
+        if match.kind == .associatedTypeDecl {
           // Assume `Self` denotes the implicit generic parameter of a trait declaration, since
           // associated declarations cannot be looked up unqualified outside the scope of a trait
           // and its extensions.

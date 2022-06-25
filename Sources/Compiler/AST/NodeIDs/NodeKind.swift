@@ -16,7 +16,8 @@ public struct NodeKind: Hashable {
   }
 
   public static func <= (l: Self, r: Self) -> Bool {
-    l.rawValue & r.rawValue == r.rawValue
+    precondition(r.rawValue >> 16 == 0, "RHS is not a node category")
+    return l.rawValue & r.rawValue == r.rawValue
   }
 
   public static let lexicalScope = NodeKind(
