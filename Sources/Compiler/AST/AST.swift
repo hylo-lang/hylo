@@ -2,7 +2,7 @@
 public struct AST {
 
   /// The nodes in `self`.
-  private var nodes: [Any] = []
+  private var nodes: [Any] = [BuiltinDecl()]
 
   /// The indices of the modules.
   ///
@@ -14,6 +14,9 @@ public struct AST {
 
   /// Creates an empty AST.
   public init() {}
+
+  /// The ID of the node representing all built-in declarations.
+  public var builtinDecl: NodeID<BuiltinDecl> { NodeID(unsafeRawValue: 0) }
 
   /// The ID of the module containing Val's standard library, if any.
   public var stdlib: NodeID<ModuleDecl>?

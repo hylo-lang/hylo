@@ -384,6 +384,7 @@ struct ConstraintGenerator: ExprVisitor {
       let expr = checker.ast[id]
       if checker.isProcessingStandardLibrary && (expr.stem.value == "Builtin") {
         assume(typeOf: id, equals: .builtin(.module))
+        referredDecls[id] = AnyDeclID(checker.ast.builtinDecl)
         return
       }
 
@@ -437,8 +438,10 @@ struct ConstraintGenerator: ExprVisitor {
 
         if let ty = BuiltinFunctionType[symbolName] {
           assume(typeOf: id, equals: .lambda(ty))
+          referredDecls[id] = AnyDeclID(checker.ast.builtinDecl)
         } else if let ty = BuiltinType(symbolName) {
           assume(typeOf: id, equals: .builtin(ty))
+          referredDecls[id] = AnyDeclID(checker.ast.builtinDecl)
         } else {
           diagnostics.append(.undefined(name: symbolName, range: checker.ast[id].stem.range))
           assignToError(id)
