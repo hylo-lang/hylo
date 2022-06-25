@@ -18,6 +18,9 @@ public struct TypeChecker {
   /// The type of each expression.
   public private(set) var exprTypes = ExprMap<Type>()
 
+  /// Indicates whether the type checker is processing the standard library.
+  public var isProcessingStandardLibrary = false
+
   /// The set of lambda expressions whose declarations are pending type checking.
   var pendingLambdas: [NodeID<LambdaExpr>] = []
 
@@ -1677,8 +1680,20 @@ public struct TypeChecker {
     var base: Type?
 
     if let j = ast[id].domain {
-      // Lookup for the name's identifier in the context of the domain.
+      // Resolve the domain.
       guard let domain = realize(j, inScope: scope) else { return nil }
+
+      // Handle references to built-in types.
+      if domain == .builtin(.module) {
+        if let type = BuiltinType(identifier.value) {
+          return .builtin(type)
+        } else {
+          diagnostics.insert(.noType(named: identifier.value, in: domain, range: identifier.range))
+          return nil
+        }
+      }
+
+      // Lookup for the name's identifier in the context of the domain.
       let matches = lookup(identifier.value, memberOf: domain, inScope: scope)
 
       // Realize the referred type.
@@ -1721,6 +1736,10 @@ public struct TypeChecker {
         }
       default:
         break
+      }
+
+      if isProcessingStandardLibrary && (identifier.value == "Builtin") {
+        return .builtin(.module)
       }
 
       // Search for the referred type declaration with an unqualified lookup.

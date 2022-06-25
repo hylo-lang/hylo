@@ -22,10 +22,4 @@ public struct BuiltinFunctionRef: ConstantProtocol {
     self.type = .owned(.lambda(lambda))
   }
 
-  /// 64-bit integer addition.
-  public static let i64_add = BuiltinFunctionRef(
-    name: "i64_add",
-    inputs: [(.sink, .i(64)), (.sink, .i(64))],
-    output: .i(64))
-
 }

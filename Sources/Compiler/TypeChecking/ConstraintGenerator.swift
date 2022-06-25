@@ -381,14 +381,20 @@ struct ConstraintGenerator: ExprVisitor {
     // Resolves the name.
     switch checker.ast[id].domain {
     case .none:
+      let expr = checker.ast[id]
+      if checker.isProcessingStandardLibrary && (expr.stem.value == "Builtin") {
+        assume(typeOf: id, equals: .builtin(.module))
+        return
+      }
+
       let candidates = resolve(
-        stem: checker.ast[id].stem.value,
-        labels: checker.ast[id].labels,
-        notation: checker.ast[id].notation,
-        introducer: checker.ast[id].introducer)
+        stem: expr.stem.value,
+        labels: expr.labels,
+        notation: expr.notation,
+        introducer: expr.introducer)
 
       if candidates.isEmpty {
-        diagnostics.append(.undefined(name: "\(checker.ast[id].baseName)", range: stem.range))
+        diagnostics.append(.undefined(name: "\(expr.baseName)", range: stem.range))
         assignToError(id)
         return
       }
@@ -417,10 +423,27 @@ struct ConstraintGenerator: ExprVisitor {
     case .explicit(let domain):
       // Infer the type of the domain.
       domain.accept(&self)
+      let domainType = inferredTypes[domain]!
 
       // If we failed to infer the type of the domain, there's nothing more we can do.
-      if case .error = inferredTypes[domain] {
+      if case .error = domainType {
         assignToError(id)
+        return
+      }
+
+      // Handle references to built-in symbols.
+      if domainType == .builtin(.module) {
+        let symbolName = checker.ast[id].stem.value
+
+        if let ty = BuiltinFunctionType[symbolName] {
+          assume(typeOf: id, equals: .lambda(ty))
+        } else if let ty = BuiltinType(symbolName) {
+          assume(typeOf: id, equals: .builtin(ty))
+        } else {
+          diagnostics.append(.undefined(name: symbolName, range: checker.ast[id].stem.range))
+          assignToError(id)
+        }
+
         return
       }
 
@@ -437,7 +460,7 @@ struct ConstraintGenerator: ExprVisitor {
         fatalError("not implemented")
       } else {
         constraints.append(LocatableConstraint(
-          .member(l: inferredTypes[domain]!, m: checker.ast[id].baseName, r: inferredType),
+          .member(l: domainType, m: checker.ast[id].baseName, r: inferredType),
           node: AnyNodeID(id),
           cause: .member))
       }
