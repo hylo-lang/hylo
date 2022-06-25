@@ -2,6 +2,7 @@ import XCTest
 import Utils
 import Marpa
 import CitronLexerModule
+import CitronParserModule
 
 @testable import ParseGen
 
@@ -85,12 +86,13 @@ final class ParseGenTests: XCTestCase {
       let g = try specContents.asEBNFGrammar()
       var conversion = EBNFToBNF(from: g, into: TestBuilder())
       conversion.build()
+      print(conversion.output.rules)
     }
     catch let e as EBNFErrorLog {
       XCTFail("Unexpected error\n\(e.report())")
     }
     catch let e {
-      XCTFail("Unexpected error\n\(e)")
+      XCTFail("Unexpected error: \(e)")
     }
   }
 
@@ -113,7 +115,7 @@ final class ParseGenTests: XCTestCase {
       XCTFail("Unexpected error\n\(e.report())")
     }
     catch let e {
-      XCTFail("Unexpected error\n\(e)")
+      XCTFail("Unexpected error: \(e)")
     }
   }
 }

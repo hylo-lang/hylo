@@ -24,8 +24,8 @@ internal struct EBNFToBNF<BNF: BNFBuilder> {
   /// The inputs's nonterminal symbols
   private let inputNonterminals: Set<EBNF.Grammar.Symbol>
 
-  /// Mapping from bits of EBNF AST to BNF symbol.
-  private var bnfSymbol_: [EBNF.Term: BNF.Symbol] = [:]
+  /// Mapping from pieces of EBNF AST to BNF symbol.
+  private var bnfSymbol: [EBNF.Term: BNF.Symbol] = [:]
 
   public init(from input: EBNF.Grammar, into output: BNF) {
     (self.input, self.output) = (input, output)
@@ -33,11 +33,11 @@ internal struct EBNFToBNF<BNF: BNFBuilder> {
   }
 
   public func asBNF(_ s: EBNF.Symbol) -> BNF.Symbol {
-    bnfSymbol_[.symbol(s)]!
+    bnfSymbol[.symbol(s)]!
   }
 
   public func asBNF(literal l: String) -> BNF.Symbol {
-    bnfSymbol_[.literal(l, position: .init(.empty))]!
+    bnfSymbol[.literal(l, position: .init(.empty))]!
   }
 
   private mutating func demandSymbol(_ s: EBNF.Symbol) -> BNF.Symbol {
@@ -68,11 +68,11 @@ internal struct EBNFToBNF<BNF: BNFBuilder> {
   }
 
   mutating func demandBNFSymbol(_ t: EBNF.Term) -> BNF.Symbol {
-    if let r = bnfSymbol_[t] {
+    if let r = bnfSymbol[t] {
       return r
     }
     let lhs: BNF.Symbol
-    defer { bnfSymbol_[t] = lhs }
+    defer { bnfSymbol[t] = lhs }
 
     switch t {
     case .group(let alternatives):

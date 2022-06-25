@@ -41,7 +41,7 @@ enum EBNF {
 
   typealias DefinitionList = [Definition]
   struct Definition: EBNFNode {
-    enum Kind { case plain, token, oneOf, regexp, noNewline, noWhitespace }
+    enum Kind { case plain, token, oneOf, regexp, noNewline, noImplicitWhitespace }
     let kind: Kind
     let lhs: Symbol
     let alternatives: AlternativeList

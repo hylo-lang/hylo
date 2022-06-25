@@ -9,8 +9,7 @@ extension EBNF {
     typealias DefinitionsByLHS = [EBNF.Symbol: Definition]
     let definitionsByLHS: DefinitionsByLHS
     let start: Symbol
-    let whitespaceOpt: Symbol
-    let horizontalSpaceOpt: Symbol
+    let whitespace: Symbol
   }
 }
 
@@ -33,8 +32,7 @@ extension EBNF.Grammar {
       throw errors
     }
     start = try lhsSymbol(startName)
-    whitespaceOpt = try lhsSymbol("whitespace-opt")
-    horizontalSpaceOpt = try lhsSymbol("horizontal-space-opt")
+    whitespace = try lhsSymbol("whitespace")
 
     checkAllSymbolsDefined(into: &errors)
     checkAllSymbolsReachable(into: &errors)
