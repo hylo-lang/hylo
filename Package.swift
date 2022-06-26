@@ -23,6 +23,11 @@ let package = Package(
       from: "0.1.0"
     ),
 
+    .package(
+      url: "https://github.com/loftware/BitVector.git",
+      from: "0.0.0"
+    ),
+
     .package(url: "https://github.com/dabrahams/citron.git", from: "2.1.0"),
     .package(url: "https://github.com/dabrahams/SwiftMarpa.git", from: "0.9.5"),
   ],
@@ -50,7 +55,10 @@ let package = Package(
     .target(
       name: "ParseGen",
       dependencies: [
-        "Utils", CitronParser, CitronLexer, .product(name: "Marpa", package: "SwiftMarpa")],
+        "Utils", CitronParser, CitronLexer, .product(name: "Marpa", package: "SwiftMarpa"),
+        .product(name: "LoftDataStructures_BitVector", package: "BitVector")
+      ],
+
       exclude: ["README.md"],
       plugins: [ .plugin(name: "CitronParserGenerator", package: "citron") ]
     ),
