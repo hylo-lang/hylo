@@ -44,9 +44,6 @@ func makeParser(_ sourceGrammar: EBNF.Grammar) throws -> Parser {
       (pattern, Optional(bnfizer.asBNF(s)))
     })
 
-  // ignore whitespace and single-line comments
-  tokenPatterns[#"\s+|//.*\p{Zl}*"#, default: nil] = nil
-
   return Parser(
     grammar: g, unrecognizedToken: unrecognizedToken,
     scanner: Scanner(literalStrings: literals, patterns: tokenPatterns),

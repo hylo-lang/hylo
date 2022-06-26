@@ -86,7 +86,9 @@ final class ParseGenTests: XCTestCase {
       let g = try specContents.asEBNFGrammar()
       var conversion = EBNFToBNF(from: g, into: TestBuilder())
       conversion.build()
+      #if false
       print(conversion.output.rules)
+      #endif
     }
     catch let e as EBNFErrorLog {
       XCTFail("Unexpected error\n\(e.report())")
