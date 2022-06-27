@@ -22,7 +22,7 @@ internal struct EBNFToBNF<BNF: BNFBuilder> {
   private let input: EBNF.Grammar
 
   /// The inputs's nonterminal symbols
-  private let inputNonterminals: Set<EBNF.Grammar.Symbol>
+  private let inputNonterminals: Set<EBNF.Symbol>
 
   /// Mapping from pieces of EBNF AST to BNF symbol.
   private var bnfSymbol: [EBNF.Term: BNF.Symbol] = [:]

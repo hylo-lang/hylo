@@ -3,6 +3,12 @@ import Foundation
 import Marpa
 
 extension EBNF.Grammar {
+  private typealias Symbol = EBNF.Symbol
+  private typealias Error = EBNF.Error
+  private typealias Alternative = EBNF.Alternative
+  private typealias AlternativeList = EBNF.AlternativeList
+  private typealias Term = EBNF.Term
+
   /// Adds errors to `errors` for any symbols that don't appear on the LHS of a definition.
   func checkAllSymbolsDefined(
     into errors: inout EBNFErrorLog
@@ -154,7 +160,7 @@ extension EBNF.Grammar {
   }
 
   /// Returns a mapping from terminal symbols to the regular expressions that describe them.
-  func regexps() -> [Symbol: String] {
+  func regexps() -> [EBNF.Symbol: String] {
     var visited: Set<Symbol> = []
     var r: [Symbol: String] = [:]
     visitSymbol(start)
@@ -217,7 +223,7 @@ extension EBNF.Grammar {
   }
 
   /// Returns the nonterminal symbols of the analyzed grammar.
-  func nonterminals() -> Set<Symbol> {
+  func nonterminals() -> Set<EBNF.Symbol> {
     var r: Set<Symbol> = []
 
     visit(start)
