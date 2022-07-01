@@ -28,6 +28,8 @@ extension DeclID {
       return visitor.visit(module: NodeID(unsafeRawValue: rawValue))
     case .namespaceDecl:
       return visitor.visit(namespace: NodeID(unsafeRawValue: rawValue))
+    case .operatorDecl:
+      return visitor.visit(operator: NodeID(unsafeRawValue: rawValue))
     case .parameterDecl:
       return visitor.visit(param: NodeID(unsafeRawValue: rawValue))
     case .productTypeDecl:

@@ -56,20 +56,22 @@ public struct NodeKind: Hashable {
     11 << 16 | typeDecl.rawValue | lexicalScope.rawValue)
   public static let namespaceDecl = NodeKind(
     12 << 16 | typeDecl.rawValue | lexicalScope.rawValue)
-  public static let parameterDecl = NodeKind(
+  public static let operatorDecl = NodeKind(
     13 << 16 | decl.rawValue)
+  public static let parameterDecl = NodeKind(
+    14 << 16 | decl.rawValue)
   public static let productTypeDecl = NodeKind(
-    14 << 16 | typeDecl.rawValue | genericScope.rawValue)
+    15 << 16 | typeDecl.rawValue | genericScope.rawValue)
   public static let subscriptDecl = NodeKind(
-    15 << 16 | decl.rawValue | genericScope.rawValue)
+    16 << 16 | decl.rawValue | genericScope.rawValue)
   public static let subscriptImplDecl = NodeKind(
-    16 << 16 | decl.rawValue)
+    17 << 16 | decl.rawValue)
   public static let traitDecl = NodeKind(
-    17 << 16 | typeDecl.rawValue | genericScope.rawValue)
-  public static let typeAliasDecl = NodeKind(
     18 << 16 | typeDecl.rawValue | genericScope.rawValue)
+  public static let typeAliasDecl = NodeKind(
+    19 << 16 | typeDecl.rawValue | genericScope.rawValue)
   public static let varDecl = NodeKind(
-    19 << 16 | decl.rawValue)
+    20 << 16 | decl.rawValue)
 
   // MARK: Value expressions
 
@@ -216,6 +218,7 @@ extension NodeKind: CustomStringConvertible {
     case .methodImplDecl            : return "MethodImplDecl"
     case .moduleDecl                : return "ModuleDecl"
     case .namespaceDecl             : return "NamespaceDecl"
+    case .operatorDecl              : return "OperatorDecl"
     case .parameterDecl             : return "ParameterDecl"
     case .productTypeDecl           : return "ProductTypeDecl"
     case .subscriptDecl             : return "SubscriptDecl"
