@@ -469,10 +469,10 @@ public struct TypeChecker {
       }
     } else if !decl.isStatic && scopeHierarchy.isMember(decl: id) {
       // Create the implicit parameter declaration.
-      assert(decl.receiver == nil)
+      assert(!decl.implicitParameterDecls.contains(where: { $0.0 == "self" }))
       let param = ast.insert(ParameterDecl(identifier: SourceRepresentable(value: "self")))
       scopeHierarchy.insert(decl: param, into: AnyScopeID(id))
-      ast[id].receiver = param
+      ast[id].implicitParameterDecls.append(("self", AnyDeclID(param)))
       decl = ast[id]
 
       // Set its type.
@@ -1970,7 +1970,7 @@ public struct TypeChecker {
     // Collect explicit captures.
     var captures: [Type] = []
     var explictNames: Set<Name> = []
-    for i in decl.captures {
+    for i in decl.explicitCaptures {
       let pattern = ast[i].pattern
 
       // Collect the names of the capture.

@@ -139,7 +139,7 @@ struct CaptureCollector {
     }
 
     // Visit the values of the captures and collect their names.
-    for capture in ast[id].captures {
+    for capture in ast[id].explicitCaptures {
       if let initializer = ast[capture].initializer {
         collectCaptures(ofExpr: initializer, into: &captures, inMutatingContext: false)
       }

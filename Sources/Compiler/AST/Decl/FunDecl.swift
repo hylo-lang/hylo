@@ -50,8 +50,8 @@ public struct FunDecl: GenericDecl, GenericScope {
   /// The generic clause of the function, if any.
   public var genericClause: SourceRepresentable<GenericClause>?
 
-  /// The captures of the function.
-  public var captures: [NodeID<BindingDecl>]
+  /// The explicit capture declarations of the function.
+  public var explicitCaptures: [NodeID<BindingDecl>]
 
   /// The parameters of the function.
   public var parameters: [NodeID<ParameterDecl>]
@@ -59,18 +59,29 @@ public struct FunDecl: GenericDecl, GenericScope {
   /// The return type annotation of the function, if any.
   public var output: AnyTypeExprID?
 
-  /// The declaration of the implicit receiver parameter, if any.
-  ///
-  /// This property is set during type checking on declarations denoting non-static methods that
-  /// are not forming a bundle. The implicit receiver of a method bundle has a declaration in each
-  /// method implementation.
-  public var receiver: NodeID<ParameterDecl>?
-
   /// The body of the declaration, if any.
   public var body: SourceRepresentable<Body>?
 
   /// Indicates whether the declaration appears in an expression context.
   public var isInExprContext: Bool
+
+  /// The declaration of the implicit parameters of the function, if any.
+  ///
+  /// This property is set during type checking. In a local function, it maps the names of the
+  /// implicit and explicit captures to their respective declaration.In a non-static method
+  /// declaration, it contains a reference to the declaration of the implicit receiver parameter
+  /// (i.e., `self`), unless the method forms a bundle. The implicit receiver of a method bundle
+  /// has a declaration in each method implementation.
+  public internal(set) var implicitParameterDecls: [(name: String, decl: AnyDeclID)] = []
+
+  /// The declaration of the implicit receiver parameter, if any.
+  public var implicitReceiverDecl: NodeID<ParameterDecl>? {
+    if let (name, decl) = implicitParameterDecls.first, name == "self" {
+      return NodeID(converting: decl)
+    } else {
+      return nil
+    }
+  }
 
   public init(
     introducer: SourceRepresentable<Introducer>,
@@ -92,11 +103,10 @@ public struct FunDecl: GenericDecl, GenericScope {
     self.notation = notation
     self.identifier = identifier
     self.genericClause = genericClause
-    self.captures = captures
+    self.explicitCaptures = captures
     self.parameters = parameters
     self.output = output
     self.body = body
-    self.receiver = receiver
     self.isInExprContext = isInExprContext
   }
 

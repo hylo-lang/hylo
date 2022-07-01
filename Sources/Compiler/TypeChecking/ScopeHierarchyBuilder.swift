@@ -97,7 +97,7 @@ struct ScopeHierarchyBuilder:
 
       this.visit(genericClause: decl.genericClause?.value)
 
-      for capture in decl.captures {
+      for capture in decl.explicitCaptures {
         this.visit(binding: capture)
       }
 
