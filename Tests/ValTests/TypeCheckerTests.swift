@@ -1884,4 +1884,50 @@ final class TypeCheckerTests: XCTestCase {
     XCTAssertTrue(checker.check(module: main))
   }
 
+  func testDuplicateOperatorDecl() {
+
+    // prefix operator -                  // OK
+    // infix operator - : Addition        // OK
+    // infix operator + : Addition        // error
+    // infix operator + : Multiplication  // error
+
+    // Create a fake source ranges to get different diagnostic locations.
+    let file = SourceFile(contents: "abcde")
+    let locations = Array(file.indices)
+
+    var ast = AST()
+    let main = ast.insert(ModuleDecl(name: "main"))
+
+    let d0 = ast.insert(OperatorDecl(
+      notation: SourceRepresentable(value: .prefix),
+      name: SourceRepresentable(value: "-")))
+    ast.ranges[d0] = locations[0] ..< locations[1]
+    ast[main].members.append(AnyDeclID(d0))
+
+    let d1 = ast.insert(OperatorDecl(
+      notation: SourceRepresentable(value: .infix),
+      name: SourceRepresentable(value: "-"),
+      precedenceGroup: SourceRepresentable(value: .addition)))
+    ast.ranges[d1] = locations[1] ..< locations[2]
+    ast[main].members.append(AnyDeclID(d1))
+
+    let d2 = ast.insert(OperatorDecl(
+      notation: SourceRepresentable(value: .infix),
+      name: SourceRepresentable(value: "+"),
+      precedenceGroup: SourceRepresentable(value: .addition)))
+    ast.ranges[d2] = locations[2] ..< locations[3]
+    ast[main].members.append(AnyDeclID(d2))
+
+    let d3 = ast.insert(OperatorDecl(
+      notation: SourceRepresentable(value: .infix),
+      name: SourceRepresentable(value: "+"),
+      precedenceGroup: SourceRepresentable(value: .multiplication)))
+    ast.ranges[d3] = locations[3] ..< locations[4]
+    ast[main].members.append(AnyDeclID(d3))
+
+    var checker = TypeChecker(ast: ast)
+    XCTAssertFalse(checker.check(module: main))
+    XCTAssertEqual(checker.diagnostics.count, 2)
+  }
+
 }

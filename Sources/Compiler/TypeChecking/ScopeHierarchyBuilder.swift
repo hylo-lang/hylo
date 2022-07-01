@@ -160,6 +160,10 @@ struct ScopeHierarchyBuilder:
     })
   }
 
+  mutating func visit(operator i: NodeID<OperatorDecl>) {
+    hierarchy.insert(decl: i, into: innermost!)
+  }
+
   mutating func visit(param i: NodeID<ParameterDecl>) {
     hierarchy.insert(decl: i, into: innermost!)
     ast[i].annotation?.accept(&self)

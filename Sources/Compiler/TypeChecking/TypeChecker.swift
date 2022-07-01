@@ -279,6 +279,8 @@ public struct TypeChecker {
       return check(fun: NodeID(converting: id)!)
     case .methodImplDecl:
       return check(fun: NodeID(converting: scopeHierarchy.container[id]!)!)
+    case .operatorDecl:
+      return check(operator: NodeID(converting: id)!)
     case .productTypeDecl:
       return check(productType: NodeID(converting: id)!)
     case .subscriptDecl:
@@ -567,6 +569,27 @@ public struct TypeChecker {
 
   private mutating func check(parameter: ParameterDecl) -> Bool {
     fatalError("not implemented")
+  }
+
+  private mutating func check(operator id: NodeID<OperatorDecl>) -> Bool {
+    guard let module = NodeID<ModuleDecl>(converting: scopeHierarchy.container[id]!) else {
+      diagnostics.insert(.nestedOperatorDeclaration(range: ast.ranges[id]))
+      return false
+    }
+
+    // Look for duplicate operator declaration.
+    for decl in ast[module].members where decl.kind == .operatorDecl {
+      let oper = NodeID<OperatorDecl>(unsafeRawValue: decl.rawValue)
+      if oper != id,
+         ast[oper].notation.value == ast[id].notation.value,
+         ast[oper].name.value == ast[id].name.value
+      {
+        diagnostics.insert(.duplicateOperatorDeclaration(ast[id].name.value, range: ast.ranges[id]))
+        return false
+      }
+    }
+
+    return true
   }
 
   private mutating func check(productType id: NodeID<ProductTypeDecl>) -> Bool {
@@ -1530,6 +1553,10 @@ public struct TypeChecker {
         }
 
       case .methodImplDecl:
+        break
+
+      case .operatorDecl:
+        // Operator declarations are not considered during standard name lookup.
         break
 
       case .subscriptDecl:

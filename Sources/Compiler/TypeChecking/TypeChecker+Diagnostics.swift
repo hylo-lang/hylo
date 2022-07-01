@@ -56,6 +56,14 @@ extension Diagnostic {
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }
 
+  static func duplicateOperatorDeclaration(_ name: String, range: SourceRange?) -> Diagnostic {
+    Diagnostic(
+      level: .error,
+      message: "duplicate operator declaration '\(name)'",
+      location: range?.first(),
+      window: range.map({ r in Diagnostic.Window(range: r) }))
+  }
+
   static func duplicateParameterName(_ name: String, range: SourceRange?) -> Diagnostic {
     Diagnostic(
       level: .error,
@@ -213,6 +221,14 @@ extension Diagnostic {
     Diagnostic(
       level: .error,
       message: "missing type annotation",
+      location: range?.first(),
+      window: range.map({ r in Diagnostic.Window(range: r) }))
+  }
+
+  static func nestedOperatorDeclaration(range: SourceRange?) -> Diagnostic {
+    Diagnostic(
+      level: .error,
+      message: "operator declaration can only appear at top-level",
       location: range?.first(),
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }
