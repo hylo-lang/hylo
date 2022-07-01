@@ -18,6 +18,10 @@ public struct LambdaType: TypeProtocol, Hashable {
   public let operatorProperty: OperatorProperty?
 
   /// The environment of the lambda.
+  ///
+  /// - Note: Environments are represented as tuples whose individual elements correspond to the
+  ///   lambda's captures. Thus, this property must be assigned to either a tuple type, a type
+  ///   variable or the error type.
   public let environment: Type
 
   /// The input labels and types of the lambda.
@@ -34,6 +38,13 @@ public struct LambdaType: TypeProtocol, Hashable {
     inputs: [CallableTypeParameter],
     output: Type
   ) {
+    switch environment {
+    case .tuple, .variable, .error:
+      break
+    default:
+      preconditionFailure("invalid environment type")
+    }
+
     self.operatorProperty = operatorProperty
     self.environment = environment
     self.inputs = inputs
@@ -81,8 +92,8 @@ public struct LambdaType: TypeProtocol, Hashable {
       output: method.output)
   }
 
-  /// Transforms `self` into a constructor type if `self` is an initializer type. Otherwise,
-  /// returns `nil`.
+  /// Transforms `self` into a constructor type if `self` has the shape of an initializer type.
+  /// Otherwise, returns `nil`.
   public func ctor() -> LambdaType? {
     guard (operatorProperty == nil) && (environment == .unit) && (output == .unit),
           let receiverParameter = inputs.first,
@@ -90,6 +101,15 @@ public struct LambdaType: TypeProtocol, Hashable {
           receiverType.convention == .set
     else { return nil }
     return LambdaType(inputs: Array(inputs[1...]), output: receiverType.bareType)
+  }
+
+  /// Accesses the individual elements of the lambda's environment, if available.
+  public var captures: [TupleType.Element]? {
+    if case .tuple(let type) = environment {
+      return type.elements
+    } else {
+      return nil
+    }
   }
 
 }
