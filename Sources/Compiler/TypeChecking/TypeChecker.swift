@@ -18,6 +18,9 @@ public struct TypeChecker {
   /// The type of each expression.
   public private(set) var exprTypes = ExprMap<Type>()
 
+  /// A table mapping name expressions to referred declarations.
+  public internal(set) var referredDecls: [NodeID<NameExpr>: DeclRef] = [:]
+
   /// Indicates whether the type checker is processing the standard library.
   public var isProcessingStandardLibrary = false
 
@@ -406,8 +409,8 @@ public struct TypeChecker {
     // Type check the parameters.
     var names: Set<String> = []
     for parameterID in decl.parameters {
-      guard case .parameter(let parameterType) = declTypes[parameterID]! else { unreachable() }
       let parameter = ast[parameterID]
+      let parameterType = ParameterType(converting: declTypes[parameterID]!) ?? unreachable()
 
       // Check for duplicate parameter names.
       if !names.insert(parameter.name).inserted {
@@ -480,7 +483,7 @@ public struct TypeChecker {
       if decl.introducer.value == .`init` {
         // The receiver of an initializer is its first parameter.
         declTypes[param] = type.inputs[0].type
-      } else if case .projection(let type) = type.environment {
+      } else if case .projection(let type) = type.captures?.first?.type {
         // `let` and `inout` methods capture a projection of their receiver.
         let convention: ParamConvention
         switch type.capability {
@@ -2135,12 +2138,17 @@ public struct TypeChecker {
         // Create a lambda bound to a receiver.
         let property: LambdaType.OperatorProperty?
         if ast[id].isInout {
-          receiver = .projection(ProjectionType(.inout, receiver!))
+          receiver = .tuple(TupleType(labelsAndTypes: [
+            ("self", .projection(ProjectionType(.inout, receiver!)))
+          ]))
           property = .mutating
         } else if decl.isSink  {
+          receiver = .tuple(TupleType(labelsAndTypes: [("self", receiver!)]))
           property = .sink
         } else {
-          receiver = .projection(ProjectionType(.let, receiver!))
+          receiver = .tuple(TupleType(labelsAndTypes: [
+            ("self", .projection(ProjectionType(.let, receiver!)))
+          ]))
           property = nil
         }
 

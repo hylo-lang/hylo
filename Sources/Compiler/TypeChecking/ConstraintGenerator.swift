@@ -17,9 +17,6 @@ struct ConstraintGenerator: ExprVisitor {
   /// A table mapping visited expressions to their inferred types.
   var inferredTypes = ExprMap<Type>()
 
-  /// A table mapping name expressions to referred declarations.
-  var referredDecls: [NodeID<NameExpr>: AnyDeclID] = [:]
-
   /// The set of type constraints being generated.
   var constraints: [LocatableConstraint] = []
 
@@ -170,7 +167,7 @@ struct ConstraintGenerator: ExprVisitor {
 
     // 2nd case
     if let c = NodeID<NameExpr>(converting: callee),
-       let d = referredDecls[c],
+       let d = checker.referredDecls[c]?.decl,
        d.kind <= .typeDecl
     {
       switch d.kind {
@@ -209,7 +206,7 @@ struct ConstraintGenerator: ExprVisitor {
 
         case 1:
           // Reassign the referred declaration and type of the name expression.
-          referredDecls[c] = candidates[0].decl
+          checker.referredDecls[c] = .direct(candidates[0].decl)
           inferredTypes[c] = candidates[0].type
 
           // Propagate the type of the constructor down.
@@ -384,7 +381,7 @@ struct ConstraintGenerator: ExprVisitor {
       let expr = checker.ast[id]
       if checker.isProcessingStandardLibrary && (expr.stem.value == "Builtin") {
         assume(typeOf: id, equals: .builtin(.module))
-        referredDecls[id] = AnyDeclID(checker.ast.builtinDecl)
+        checker.referredDecls[id] = .direct(AnyDeclID(checker.ast.builtinDecl))
         return
       }
 
@@ -413,7 +410,11 @@ struct ConstraintGenerator: ExprVisitor {
         }))
 
         // Bind the name expression to the referred declaration.
-        referredDecls[id] = candidates[0].decl
+        if checker.scopeHierarchy.isNonStaticMember(decl: candidates[0].decl, ast: checker.ast) {
+          checker.referredDecls[id] = .member(candidates[0].decl)
+        } else {
+          checker.referredDecls[id] = .direct(candidates[0].decl)
+        }
       } else {
         // TODO: Create an overload constraint
         fatalError("not implemented")
@@ -438,10 +439,10 @@ struct ConstraintGenerator: ExprVisitor {
 
         if let ty = BuiltinFunctionType[symbolName] {
           assume(typeOf: id, equals: .lambda(ty))
-          referredDecls[id] = AnyDeclID(checker.ast.builtinDecl)
+          checker.referredDecls[id] = .direct(AnyDeclID(checker.ast.builtinDecl))
         } else if let ty = BuiltinType(symbolName) {
           assume(typeOf: id, equals: .builtin(ty))
-          referredDecls[id] = AnyDeclID(checker.ast.builtinDecl)
+          checker.referredDecls[id] = .direct(AnyDeclID(checker.ast.builtinDecl))
         } else {
           diagnostics.append(.undefined(name: symbolName, range: checker.ast[id].stem.range))
           assignToError(id)
@@ -457,7 +458,7 @@ struct ConstraintGenerator: ExprVisitor {
       // If we determined that the domain refers to a nominal type declaration, create a static
       // member constraint. Otherwise, create a non-static member constraint.
       if let base = NodeID<NameExpr>(converting: domain),
-         let decl = referredDecls[base],
+         let decl = checker.referredDecls[base]?.decl,
          decl.kind <= .typeDecl
       {
         fatalError("not implemented")
