@@ -12,11 +12,14 @@ struct ConstraintSolver {
   /// The fresh constraints to solve.
   var fresh: [LocatableConstraint] = []
 
-  /// The constraints that are currently stale.
+  /// The constraints that are currently stale.ß
   var stale: [LocatableConstraint] = []
 
-  /// The assumptions of the type solver.
-  var assumptions = SubstitutionMap()
+  /// The type assumptions of the solver.
+  var typeAssumptions = SubstitutionMap()
+
+  /// The binding assumptions of the solver.
+  var bindingAssumptions: [NodeID<NameExpr>: DeclRef] = [:]
 
   /// The current penalties of the solver's solution.
   var penalties: Int = 0
@@ -65,7 +68,7 @@ struct ConstraintSolver {
     conformsTo traits: Set<TraitType>,
     location: LocatableConstraint.Location
   ) {
-    let l = assumptions[l]
+    let l = typeAssumptions[l]
 
     switch l {
     case .variable:
@@ -92,18 +95,18 @@ struct ConstraintSolver {
     equalsTo r: Type,
     location: LocatableConstraint.Location
   ) {
-    let l = assumptions[l]
-    let r = assumptions[r]
+    let l = typeAssumptions[l]
+    let r = typeAssumptions[r]
 
     if l == r { return }
 
     switch (l, r) {
     case (.variable(let tau), _):
-      assumptions.assign(r, to: tau)
+      typeAssumptions.assign(r, to: tau)
       refresh(constraintsDependingOn: tau)
 
     case (_, .variable(let tau)):
-      assumptions.assign(l, to: tau)
+      typeAssumptions.assign(l, to: tau)
       refresh(constraintsDependingOn: tau)
 
     case (.tuple(let l), .tuple(let r)):
@@ -208,8 +211,8 @@ struct ConstraintSolver {
     isSubtypeOf r: Type,
     location: LocatableConstraint.Location
   ) {
-    let l = assumptions[l]
-    let r = assumptions[r]
+    let l = typeAssumptions[l]
+    let r = typeAssumptions[r]
 
     if l == r { return }
 
@@ -252,8 +255,8 @@ struct ConstraintSolver {
     passableTo r: Type,
     location: LocatableConstraint.Location
   ) {
-    let l = assumptions[l]
-    let r = assumptions[r]
+    let l = typeAssumptions[l]
+    let r = typeAssumptions[r]
 
     if l == r { return }
 
@@ -279,7 +282,7 @@ struct ConstraintSolver {
     ofType r: Type,
     location: LocatableConstraint.Location
   ) {
-    let l = assumptions[l]
+    let l = typeAssumptions[l]
 
     // Postpone the solving if `L` is still unknown.
     if case .variable = l {
@@ -306,6 +309,11 @@ struct ConstraintSolver {
 
     case 1:
       solve(candidates[0].type, equalsTo: r, location: location)
+      if let node = location.node,
+         let name = NodeID<NameExpr>(converting: node)
+      {
+        bindingAssumptions[name] = .member(candidates[0].decl)
+      }
 
     default:
       // TODO: Create an overload constraint
@@ -377,7 +385,8 @@ struct ConstraintSolver {
   private func finalize() -> Solution {
     assert(fresh.isEmpty)
     var s = Solution(
-      assumptions: assumptions.flattened(),
+      typeAssumptions: typeAssumptions.flattened(),
+      bindingAssumptions: bindingAssumptions,
       penalties: penalties,
       diagnostics: diagnostics)
 

@@ -29,8 +29,11 @@ struct Solution {
 
   }
 
-  /// The assumptions made by the constraint solver.
-  var assumptions: [TypeVariable: Type]
+  /// The type assumptions made by the solver.
+  var typeAssumptions: [TypeVariable: Type]
+
+  /// The name binding assumptions made by the solver.
+  var bindingAssumptions: [NodeID<NameExpr>: DeclRef]
 
   /// The penalties of the solution.
   var penalties: Int
@@ -46,7 +49,7 @@ struct Solution {
     type.transform({ type in
       if case .variable(let v) = type {
         // Substitute variables.
-        if let t = assumptions[v] {
+        if let t = typeAssumptions[v] {
           return .stepInto(t)
         } else {
           switch substitutionPolicy {

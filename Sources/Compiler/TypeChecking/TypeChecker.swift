@@ -1120,6 +1120,7 @@ public struct TypeChecker {
     var constraints = constraints
 
     // Generate constraints.
+    // Note: The constraint generator captures the ownership of `self`.
     var generator = ConstraintGenerator(checker: self, scope: scope)
     generator.inferredTypes[expr] = inferredType
     generator.expectedTypes[expr] = expectedType
@@ -1136,7 +1137,11 @@ public struct TypeChecker {
     for (id, type) in generator.inferredTypes.storage {
       solver.checker.exprTypes[id] = solution.reify(type, withVariables: .keep)
     }
+    for (name, ref) in solution.bindingAssumptions {
+      solver.checker.referredDecls[name] = ref
+    }
 
+    // Puts `self` back in place.
     self = solver.checker.release()
 
     // Consume the solution's errors.
