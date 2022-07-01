@@ -4,6 +4,11 @@ public enum BuiltinFunctionType {
   /// Uncondtionally stops the program.
   public static let terminate = LambdaType(to: .never)
 
+  /// 64-bit integer copy.
+  public static let i64_copy = LambdaType(
+    from: (.let, .i(64)),
+    to: .builtin(.i(64)))
+
   /// 64-bit integer addition.
   public static let i64_add = LambdaType(
     from: (.sink, .i(64)),
@@ -13,6 +18,7 @@ public enum BuiltinFunctionType {
   public static subscript(_ name: String) -> LambdaType? {
     switch name {
     case "terminate": return Self.terminate
+    case "i64_copy" : return Self.i64_copy
     case "i64_add"  : return Self.i64_add
     default:
       return nil

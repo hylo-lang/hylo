@@ -17,6 +17,14 @@ public struct ParameterType: TypeProtocol, Hashable {
     self.flags = bareType.flags
   }
 
+  public init?(converting type: Type) {
+    if case .parameter(let t) = type {
+      self = t
+    } else {
+      return nil
+    }
+  }
+
 }
 
 extension ParameterType: CustomStringConvertible {

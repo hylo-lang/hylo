@@ -1,12 +1,12 @@
 import Utils
 
-/// An integer VIR constant.
-public struct IntegerConstant: ConstantProtocol {
+/// An integer Val IR constant.
+public struct IntegerConstant: ConstantProtocol, Hashable {
 
   /// The bit pattern of the integer.
   public var bitPattern: BitPattern
 
-  /// Creates a new integer VIR constant with the specified bit pattern.
+  /// Creates a new integer Val IR constant with the specified bit pattern.
   public init(bitPattern: BitPattern) {
     self.bitPattern = bitPattern
   }

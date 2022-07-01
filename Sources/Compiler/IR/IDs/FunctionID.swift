@@ -1,2 +1,2 @@
-/// The ID of a VIR function.
+/// The ID of a Val IR function.
 public typealias FunctionID = Int

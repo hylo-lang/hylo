@@ -207,6 +207,7 @@ extension NodeKind: CustomStringConvertible {
     case .associatedSizeDecl        : return "AssociatedSizeDecl"
     case .associatedTypeDecl        : return "AssociatedTypeDecl"
     case .bindingDecl               : return "BindingDecl"
+    case .builtinDecl               : return "BuiltinDecl"
     case .conformanceDecl           : return "ConformanceDecl"
     case .extensionDecl             : return "ExtensionDecl"
     case .funDecl                   : return "FunDecl"
