@@ -1230,20 +1230,17 @@ final class TypeCheckerTests: XCTestCase {
           body: SourceRepresentable(value: .block(ast.insert(BraceStmt(
             stmts: [
               AnyStmtID(ast.insert(ExprStmt(
-                expr: AnyExprID(ast.insert(SequenceExpr.unfolded([
-                  AnyExprID(ast.insert(NameExpr(
+                expr: AnyExprID(ast.insert(AssignExpr(
+                  left: AnyExprID(ast.insert(NameExpr(
                     stem: SourceRepresentable(value: "self")))),
-                  AnyExprID(ast.insert(NameExpr(
-                    stem: SourceRepresentable(value: "=")))),
-                  AnyExprID(ast.insert(FunCallExpr(
+                  right: AnyExprID(ast.insert(FunCallExpr(
                     callee: AnyExprID(ast.insert(NameExpr(
                       stem: SourceRepresentable(value: "A")))),
                     arguments: [
                       SourceRepresentable(value: CallArgument(
                         label: SourceRepresentable(value: "x"),
                         value: AnyExprID(ast.insert(TupleExpr())))),
-                    ]))),
-                ]))))))
+                    ])))))))))
             ]))))))),
       ]))))
 
