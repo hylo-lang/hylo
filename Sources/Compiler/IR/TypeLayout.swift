@@ -15,7 +15,7 @@ public struct TypeLayout {
       var result = 0
       for memberID in ast[type.decl].members {
         guard let binding = NodeID<BindingDecl>(converting: memberID) else { continue }
-        for name in ast[binding].pattern.names(ast: ast) {
+        for (_, name) in ast.names(in: ast[binding].pattern) {
           if ast[name].decl == property {
             return result
           } else {

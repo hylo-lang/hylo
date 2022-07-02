@@ -98,8 +98,8 @@ public struct Transpiler {
         let access: CXXTypeDecl.SectionAccess = bindingDecl.isPublic
           ? .public
           : .private
-        cxxDecl.fields.append(contentsOf: bindingDecl.pattern.names(ast: ast)
-          .map({ (name) -> (String, CXXTypeDecl.SectionAccess) in
+        cxxDecl.fields.append(contentsOf: ast.names(in: bindingDecl.pattern)
+          .map({ (_, name) -> (String, CXXTypeDecl.SectionAccess) in
             var definition = ast[bindingDeclID].isStatic
               ? "static "
               : ""

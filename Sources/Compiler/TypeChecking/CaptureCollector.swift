@@ -86,7 +86,7 @@ struct CaptureCollector {
     }
 
     // Add the names introduced by the declaration to the set of bound names.
-    for pattern in ast[id].pattern.names(ast: ast) {
+    for (_, pattern) in ast.names(in: ast[id].pattern) {
       boundNames[boundNames.count - 1].insert(Name(stem: ast[ast[pattern].decl].name))
     }
   }
@@ -144,7 +144,7 @@ struct CaptureCollector {
         collectCaptures(ofExpr: initializer, into: &captures, inMutatingContext: false)
       }
       if !areExplicitCapturesIncluded {
-        for pattern in ast[capture].pattern.names(ast: ast) {
+        for (_, pattern) in ast.names(in: ast[capture].pattern) {
           newNames.insert(Name(stem: ast[ast[pattern].decl].name))
         }
       }

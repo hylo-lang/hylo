@@ -1,3 +1,5 @@
+import Utils
+
 /// An abstract syntax tree.
 public struct AST {
 
@@ -66,6 +68,49 @@ public struct AST {
   /// Accesses the node at `position` for reading.
   subscript(raw position: NodeID.RawValue) -> Any {
     _read { yield nodes[position] }
+  }
+
+  // MARK: Helpers
+
+  /// Returns the IDs of the named patterns contained in `pattern`.
+  public func names<T: PatternID>(in pattern: T) -> [(path: [Int], pattern: NodeID<NamePattern>)] {
+    func visit(
+      pattern: AnyPatternID,
+      path: [Int],
+      result: inout [(path: [Int], pattern: NodeID<NamePattern>)]
+    ) {
+      switch pattern.kind {
+      case .bindingPattern:
+        let p = NodeID<BindingPattern>(unsafeRawValue: pattern.rawValue)
+        visit(pattern: self[p].subpattern, path: path, result: &result)
+
+      case .exprPattern:
+        break
+
+      case .namePattern:
+        let p = NodeID<NamePattern>(unsafeRawValue: pattern.rawValue)
+        result.append((path: path, pattern: p))
+
+      case .tuplePattern:
+        let p = NodeID<TuplePattern>(unsafeRawValue: pattern.rawValue)
+        for i in 0 ..< self[p].elements.count {
+          visit(
+            pattern: self[p].elements[i].value.pattern,
+            path: path + [i],
+            result: &result)
+        }
+
+      case .wildcardPattern:
+        break
+
+      default:
+        unreachable("unexpected pattern")
+      }
+    }
+
+    var result: [(path: [Int], pattern: NodeID<NamePattern>)] = []
+    visit(pattern: AnyPatternID(pattern), path: [], result: &result)
+    return result
   }
 
   // MARK: Synthesis

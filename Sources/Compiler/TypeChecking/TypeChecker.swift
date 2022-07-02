@@ -339,7 +339,7 @@ public struct TypeChecker {
         cause: .initialization))
 
       // Infer the type of the initializer
-      let names = ast[id].pattern.names(ast: ast).map({ AnyDeclID(ast[$0].decl) })
+      let names = ast.names(in: ast[id].pattern).map({ AnyDeclID(ast[$0.pattern].decl) })
       bindingsUnderChecking.formUnion(names)
       let solution = infer(
         expr: initializer,
@@ -2009,7 +2009,7 @@ public struct TypeChecker {
       let pattern = ast[i].pattern
 
       // Collect the names of the capture.
-      for name in pattern.names(ast: ast) {
+      for (_, name) in ast.names(in: pattern) {
         explictNames.insert(Name(stem: ast[ast[name].decl].name))
       }
 
@@ -2297,7 +2297,7 @@ public struct TypeChecker {
       guard let member = NodeID<BindingDecl>(converting: m) else { continue }
       if realize(bindingDecl: member).isError { return nil }
 
-      for name in ast[member].pattern.names(ast: ast) {
+      for (_, name) in ast.names(in: ast[member].pattern) {
         let d = ast[name].decl
         inputs.append(CallableTypeParameter(
           label: ast[d].name,
