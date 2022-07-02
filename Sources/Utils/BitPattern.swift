@@ -55,6 +55,7 @@ public struct BitPattern: Hashable {
       representation = .pair(lower: 0, upper: 0, width: 0)
     } else {
       let count = (width + UInt.bitWidth - 1) / UInt.bitWidth
+      assert(count > 0)
 
       func normalize(upper: inout UInt) {
         if 2 * UInt.bitWidth > width {
@@ -63,7 +64,12 @@ public struct BitPattern: Hashable {
         }
       }
 
-      if count == 2 {
+      if count == 1 {
+        representation = .pair(
+          lower: words[words.startIndex],
+          upper: 0,
+          width: UInt8(truncatingIfNeeded: width))
+      } else if count == 2 {
         var upper = words[words.index(after: words.startIndex)]
         normalize(upper: &upper)
         representation = .pair(
@@ -80,6 +86,88 @@ public struct BitPattern: Hashable {
         })
         representation = .list(buffer)
       }
+    }
+  }
+
+  /// Creates a bit pattern from a string describing a positive decimal number, with the minimal
+  /// width required to represent the number described by`string`.
+  ///
+  /// - Returns: A bit pattern representing the number described by `string`, unless it contains
+  ///   non-decimal characters. In that case, returns `nil`.
+  public init?(fromDecimal string: String) {
+    // Transform the string into an array of digits, ignoring leading zeroes.
+    var input: [UInt8] = []
+    input.reserveCapacity(input.count)
+
+    var isLeading = true
+    for character in string {
+      guard let ascii = character.asciiValue,
+            ascii >= 0x30 && ascii <= 0x39
+      else { return nil }
+
+      if !isLeading || ascii > 0x30 {
+        isLeading = false
+        input.append(ascii - 0x30)
+      }
+    }
+
+    // Convert the digits to binary.
+    var words: [UInt] = [0]
+    var width = 0
+
+    while let last = input.last {
+      // Determine the value of the next bit.
+      width += 1
+      if width / UInt.bitWidth > words.count {
+        words.append(0)
+      }
+
+      if (last % 2) != 0 {
+        let i = (width - 1) / UInt.bitWidth
+        words[i] = words[i] | (1 << ((width - 1) - i * UInt.bitWidth))
+      }
+
+      // Divide the input by 2.
+      var newInput: [UInt8] = []
+      var additive: UInt8 = 0
+      for digit in input {
+        newInput.append(digit / 2 + additive)
+        additive = (digit % 2) != 0 ? 5 : 0
+      }
+
+      input = newInput.first == 0
+        ? Array(newInput[1...])
+        : newInput
+    }
+
+    self = BitPattern(words: words, width: width)
+  }
+
+  /// Returns a bit pattern resized to `width`, truncating the most significant bits or adding
+  /// leading zeroes as necessary.
+  public func resized(to width: Int) -> BitPattern {
+    if width == self.width {
+      return self
+    } else {
+      let count = (width + UInt.bitWidth - 1) / UInt.bitWidth
+      let words = self.words
+      return BitPattern(
+        words: words + Array(repeating: 0, count: count - words.count),
+        width: width)
+    }
+  }
+
+  public var words: [UInt] {
+    switch representation {
+    case .pair(let lower, let upper, let width):
+      return width <= UInt.bitWidth
+        ? [lower]
+        : [lower, upper]
+
+    case .list(let buffer):
+      return buffer.storage.withUnsafeMutablePointers({ (header, elements) in
+        Array(UnsafeMutableBufferPointer(start: elements, count: header.pointee.count))
+      })
     }
   }
 
@@ -163,8 +251,13 @@ extension BitPattern: CustomStringConvertible {
     switch representation {
     case .pair(let lower, let upper, _):
       let lsw = String(lower, radix: 2)
-      let padding = String(repeating: "0", count: UInt.bitWidth - lsw.count)
-      return String(upper, radix: 2) + padding + lsw
+      if width <= UInt.bitWidth {
+        let padding = String(repeating: "0", count: width - lsw.count)
+        return padding + lsw
+      } else {
+        let padding = String(repeating: "0", count: UInt.bitWidth - lsw.count)
+        return String(upper, radix: 2) + padding + lsw
+      }
 
     case .list(let words):
       return words.storage.withUnsafeMutablePointers({ (header, elements) in
