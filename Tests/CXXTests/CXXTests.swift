@@ -108,33 +108,27 @@ final class CXXTests: XCTestCase {
     XCTAssertEqual(header, """
     #ifndef VAL_SOMELIB
     #define VAL_SOMELIB
-
     #include <utility>
     #include <functional>
-
     namespace SomeLib {
-
     class Vector2;
-
     class Vector2 {
     public:
-      Val::Double x;
-      Val::Double y;
+    Val::Double x;
+    Val::Double y;
     public:
-      Vector2() = delete;
-      Vector2(Vector2&&) = delete;
-      Vector2& operator=(Vector2&&) = delete;
-      Vector2(Vector2 const&) = delete;
-      Vector2& operator=(Vector2 const&) = delete;
-      explicit Vector2(Val::Double&& x, Val::Double&& y): x(std::move(x)), y(std::move(y)) {}
-      SomeLib::Vector2 offset(SomeLib::Vector2 const&) const;
-      SomeLib::Vector2 sink_offset(SomeLib::Vector2 const&) &&;
-      Val::Double dot(SomeLib::Vector2 const&) const;
-      void inplace_offset(SomeLib::Vector2 const&);
+    Vector2() = delete;
+    Vector2(Vector2&&) = delete;
+    Vector2& operator=(Vector2&&) = delete;
+    Vector2(Vector2 const&) = delete;
+    Vector2& operator=(Vector2 const&) = delete;
+    explicit Vector2(Val::Double&& x, Val::Double&& y): x(std::move(x)), y(std::move(y)) {}
+    SomeLib::Vector2 offset(SomeLib::Vector2 const&) const;
+    SomeLib::Vector2 sink_offset(SomeLib::Vector2 const&) &&;
+    Val::Double dot(SomeLib::Vector2 const&) const;
+    void inplace_offset(SomeLib::Vector2 const&);
     };
-
     }
-
     #endif
 
     """)

@@ -27,69 +27,63 @@ struct CXXTypeDecl {
   /// The public methods, properties, and subscripts.
   var methods: [String] = []
 
-  /// Writes the C++ textual representation of `self` using `printer` indentation level.
-  func write<Target: TextOutputStream>(
-    into output: inout Target,
-    using printer: inout IndentPrinter
-  ) {
+  /// Writes the C++ textual representation of `self`.
+  func write<Target: TextOutputStream>(into output: inout Target) {
     // Emit the definition.
-    printer.write("class \(name) {", to: &output)
+    output.write("class \(name) {\n")
 
     // Emit all stored properties.
-    printer.indentationLevel += 1
     var sectionAccess: SectionAccess? = nil
     for (definition, access) in fields {
       if access != sectionAccess {
-        printer.indentationLevel -= 1
-        printer.write("\(access):", to: &output)
-        printer.indentationLevel += 1
+        output.write("\(access):\n")
         sectionAccess = access
       }
-      printer.write(definition, to: &output)
+      output.write(definition)
+      output.write("\n")
     }
-    printer.indentationLevel -= 1
 
     // Emit the public API.
-    printer.write("public:", to: &output)
-    printer.indentationLevel += 1
+    output.write("public:\n")
 
     // Disable the default constructor.
-    printer.write("\(name)() = delete;", to: &output)
+    output.write("\(name)() = delete;\n")
 
     // Disable the move constructor, unless the type is publicly sinkable.
     // TODO: Determine if conformance to Sinkable is external.
-    printer.write("\(name)(\(name)&&) = delete;", to: &output)
-    printer.write("\(name)& operator=(\(name)&&) = delete;", to: &output)
+    output.write("\(name)(\(name)&&) = delete;\n")
+    output.write("\(name)& operator=(\(name)&&) = delete;\n")
 
     // Disable implicit copying.
-    printer.write("\(name)(\(name) const&) = delete;", to: &output)
-    printer.write("\(name)& operator=(\(name) const&) = delete;", to: &output)
+    output.write("\(name)(\(name) const&) = delete;\n")
+    output.write("\(name)& operator=(\(name) const&) = delete;\n")
 
     // Emit public constructors.
     for ctor in publicCtors.sorted() {
-      printer.write(ctor, to: &output)
+      output.write(ctor)
+      output.write("\n")
     }
 
     // Emit other public members.
     if let member = dtor {
-      printer.write(member, to: &output)
+      output.write(member)
+      output.write("\n")
     }
     for member in methods.sorted() {
-      printer.write(member, to: &output)
+      output.write(member)
+      output.write("\n")
     }
-    printer.indentationLevel -= 1
 
     // Emit private constructors.
     if !privateCtors.isEmpty {
-      printer.write("private:", to: &output)
-      printer.indentationLevel += 1
+      output.write("private:\n")
       for ctor in privateCtors.sorted() {
-        printer.write(ctor, to: &output)
+        output.write(ctor)
+        output.write("\n")
       }
-      printer.indentationLevel -= 1
     }
 
-    printer.write("};", to: &output)
+    output.write("};\n")
   }
 
 }

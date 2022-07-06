@@ -12,9 +12,6 @@ public struct Transpiler {
   /// The overarching type of each declaration.
   public let declTypes: DeclMap<Type>
 
-  /// The printer used to write C++ text.
-  private var printer = IndentPrinter()
-
   /// The type definitions explosed in the C++ API.
   private var publicTypeDefinitions: [NodeID<ProductTypeDecl>: CXXTypeDecl] = [:]
 
@@ -30,28 +27,25 @@ public struct Transpiler {
   /// - Parameters:
   ///   - moduleID: The ID of the module declaration whose header is generated.
   public mutating func emitHeader(of moduleID: NodeID<ModuleDecl>) -> String {
-    let module = ast[moduleID]
+    let moduleDecl = ast[moduleID]
 
     // Reinitialize the state of the transpiler.
-    printer.indentationLevel = 0
     publicTypeDefinitions.removeAll()
 
     // Emit the header guard.
     var header = ""
-    printer.write("#ifndef VAL_\(module.name.uppercased())", to: &header)
-    printer.write("#define VAL_\(module.name.uppercased())", to: &header)
+    header.write("#ifndef VAL_\(moduleDecl.name.uppercased())\n")
+    header.write("#define VAL_\(moduleDecl.name.uppercased())\n")
 
     // Emit include clauses.
-    printer.write("", to: &header)
-    printer.write("#include <utility>", to: &header)
-    printer.write("#include <functional>", to: &header)
+    header.write("#include <utility>\n")
+    header.write("#include <functional>\n")
 
     // Create a namespace for the entire module.
-    printer.write("", to: &header)
-    printer.write("namespace \(module.name) {", to: &header)
+    header.write("namespace \(moduleDecl.name) {\n")
 
     // Collect public declarations from Val.
-    for memberID in module.members {
+    for memberID in moduleDecl.members {
       switch memberID.kind {
       case .productTypeDecl:
         let typeDeclID = NodeID<ProductTypeDecl>(converting: memberID)!
@@ -68,19 +62,17 @@ public struct Transpiler {
     }
 
     // Emit type declarations.
-    printer.write("", to: &header)
     for typeDeclID in publicTypeDefinitions.keys {
-      printer.write("class \(ast[typeDeclID].name);", to: &header)
+      header.write("class \(ast[typeDeclID].name);\n")
     }
 
     // Emit type definitions.
-    printer.write("", to: &header)
     for typeDeclID in publicTypeDefinitions.keys {
       header += emitTypeDefinition(of: typeDeclID)
     }
 
-    printer.write("\n}", to: &header) // module namespace
-    printer.write("\n#endif", to: &header) // header guard
+    header.write("}\n") // module namespace
+    header.write("#endif\n") // header guard
     return header
   }
 
@@ -146,7 +138,7 @@ public struct Transpiler {
     }
 
     var output = ""
-    cxxDecl.write(into: &output, using: &printer)
+    cxxDecl.write(into: &output)
     return output
   }
 
