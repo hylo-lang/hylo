@@ -11,7 +11,7 @@ public enum BuiltinFunctionType {
 
   /// 64-bit integer addition.
   public static let i64_add = LambdaType(
-    from: (.sink, .i(64)),
+    from: (.let, .i(64)), (.let, .i(64)),
     to: .builtin(.i(64)))
 
   /// Returns the type of the built-in function with the given name.

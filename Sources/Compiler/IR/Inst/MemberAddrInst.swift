@@ -4,8 +4,10 @@ public struct MemberAddrInst: Inst {
   /// The value of the record whose member address is computed.
   public let value: Operand
 
-  /// The offset of the member.
-  public let offset: Int
+  /// The indices of the index member.
+  ///
+  /// - Requires: This array cannot be empty.
+  public let path: [Int]
 
   public let type: IRType
 
@@ -15,7 +17,7 @@ public struct MemberAddrInst: Inst {
   ) {
     output.write("member_addr ")
     value.dump(into: &output, with: &printer)
-    output.write(", \(offset)")
+    output.write(", \(path.descriptions())")
   }
 
 }

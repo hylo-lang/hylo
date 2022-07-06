@@ -128,4 +128,13 @@ public struct ScopeHierarchy {
     ScopeSequence(parent: parent, current: AnyScopeID(scope))
   }
 
+  /// Returns the module containing `scope`.
+  func module<S: ScopeID>(containing scope: S) -> NodeID<ModuleDecl>? {
+    var last = AnyScopeID(scope)
+    while let parent = parent[last] {
+      last = parent
+    }
+    return NodeID(converting: last)
+  }
+
 }

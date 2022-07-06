@@ -326,6 +326,14 @@ extension Diagnostic {
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }
 
+  static func undefinedOperator(_ name: String, range: SourceRange?) -> Diagnostic {
+    Diagnostic(
+      level: .error,
+      message: "undefined operator '\(name)'",
+      location: range?.first(),
+      window: range.map({ r in Diagnostic.Window(range: r) }))
+  }
+
   static func unusedResult(ofType type: Type, range: SourceRange?) -> Diagnostic {
     Diagnostic(
       level: .warning,

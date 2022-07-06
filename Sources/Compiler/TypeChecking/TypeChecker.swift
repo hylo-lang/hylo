@@ -1470,6 +1470,35 @@ public struct TypeChecker {
     return matches
   }
 
+  /// Returns the declaration(s) of the specified operator.
+  func lookup(
+    operator operatorName: Identifier,
+    notation: OperatorNotation,
+    inScope scope: AnyScopeID
+  ) -> [NodeID<OperatorDecl>] {
+    func lookup(in module: NodeID<ModuleDecl>) -> NodeID<OperatorDecl>? {
+      for decl in ast[module].members where decl.kind == .operatorDecl {
+        let oper = NodeID<OperatorDecl>(unsafeRawValue: decl.rawValue)
+        if (ast[oper].notation.value == notation) && (ast[oper].name.value == operatorName) {
+          return oper
+        }
+      }
+      return nil
+    }
+
+    let currentModule = scopeHierarchy.module(containing: scope)
+    if let module = currentModule,
+       let oper = lookup(in: module)
+    {
+      return [oper]
+    }
+
+    return ast.modules.compactMap({ (module) -> NodeID<OperatorDecl>? in
+      if module == currentModule { return nil }
+      return lookup(in: module)
+    })
+  }
+
   /// Returns the extending declarations of `type` exposed to `scope`.
   ///
   /// - Note: The declarations referred by the returned IDs conform to `TypeExtendingDecl`.
@@ -2020,7 +2049,7 @@ public struct TypeChecker {
           captures.append(.projection(ProjectionType(.let, type)))
         case .inout:
           captures.append(.projection(ProjectionType(.inout, type)))
-        case .sinklet, .sinkvar, .var:
+        case .sinklet, .var:
           captures.append(type)
         }
       } else {

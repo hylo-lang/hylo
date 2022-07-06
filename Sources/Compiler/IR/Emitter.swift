@@ -30,6 +30,9 @@ public struct Emitter {
   /// The declaration of the receiver of the function or subscript currently emitted, if any.
   private var receiverDecl: NodeID<ParameterDecl>?
 
+  /// The memory region where local variables should be allocated.
+  private var localMemorySpace = MemorySpace.stack
+
   public init(
     ast: AST,
     withScopeHierarchy scopeHierarchy: ScopeHierarchy,
@@ -69,8 +72,12 @@ public struct Emitter {
     switch decl.kind {
     case .funDecl:
       emit(fun: NodeID(unsafeRawValue: decl.rawValue), into: &module)
+    case .operatorDecl:
+      break
     case .productTypeDecl:
       emit(product: NodeID(unsafeRawValue: decl.rawValue), into: &module)
+    case .traitDecl:
+      break
     default:
       unreachable("unexpected declaration")
     }
@@ -176,7 +183,103 @@ public struct Emitter {
 
   /// Emits the given statement into `module` at the current insertion point.
   private mutating func emit<T: StmtID>(stmt: T, into module: inout Module) {
-    fatalError("not implemented")
+    switch stmt.kind {
+    case .braceStmt:
+      emit(brace: NodeID(unsafeRawValue: stmt.rawValue), into: &module)
+    case .declStmt:
+      emit(declStmt: NodeID(unsafeRawValue: stmt.rawValue), into: &module)
+    default:
+      unreachable("unexpected statement")
+    }
+  }
+
+  private mutating func emit(brace stmt: NodeID<BraceStmt>, into module: inout Module) {
+    let localsBeforeBrace = locals
+    for s in ast[stmt].stmts {
+      emit(stmt: s, into: &module)
+    }
+    locals = localsBeforeBrace
+  }
+
+  private mutating func emit(declStmt stmt: NodeID<DeclStmt>, into module: inout Module) {
+    switch ast[stmt].decl.kind {
+    case .bindingDecl:
+      emit(localBinding: NodeID(unsafeRawValue: ast[stmt].decl.rawValue), into: &module)
+    default:
+      unreachable("unexpected declaration")
+    }
+  }
+
+  private mutating func emit(localBinding decl: NodeID<BindingDecl>, into module: inout Module) {
+    let pattern = ast[decl].pattern
+    switch ast[pattern].introducer.value {
+    case .var, .sinklet:
+      // Emit the initializer, if any.
+      let initializer = ast[decl].initializer.map({ emitR(expr: $0, into: &module) })
+
+      // Allocate storage for each name introduced by the declaration.
+      for (path, name) in ast.names(in: ast[pattern].subpattern) {
+        let decl = ast[name].decl
+        let declType = declTypes[decl]!
+
+        let alloc = module.insert(
+          AllocInst(objectType: declType, space: localMemorySpace),
+          at: insertionPoint!)
+        locals[decl] = .inst(alloc)
+
+        if let source = initializer {
+          if path.isEmpty {
+            _ = module.insert(
+              StoreInst(object: source, target: .inst(alloc)),
+              at: insertionPoint!)
+          } else {
+            let member = module.insert(
+              MemberAddrInst(value: source, path: path, type: .address(declType)),
+              at: insertionPoint!)
+            let object = module.insert(
+              LoadInst(source: .inst(member), type: .owned(declType)),
+              at: insertionPoint!)
+            _ = module.insert(
+              StoreInst(object: .inst(object), target: .inst(alloc)),
+              at: insertionPoint!)
+          }
+        }
+      }
+
+    case .let, .inout:
+      // There's nothing to do if there's no initializer.
+      if let initializer = ast[decl].initializer {
+        // Emit the initializer as a l-value if possible. Otherwise, emit a r-value and store it
+        // into local storage.
+        let source: Operand
+        if (initializer.kind == .nameExpr) || (initializer.kind == .subscriptCallExpr) {
+          source = emitL(expr: initializer, into: &module)
+        } else {
+          let value = emitR(expr: initializer, into: &module)
+          let alloc = module.insert(
+            AllocInst(objectType: exprTypes[initializer]!, space: localMemorySpace),
+            at: insertionPoint!)
+          _ = module.insert(
+            StoreInst(object: value, target: .inst(alloc)),
+            at: insertionPoint!)
+          source = .inst(alloc)
+        }
+
+        for (path, name) in ast.names(in: ast[pattern].subpattern) {
+          let decl = ast[name].decl
+          let declType = declTypes[decl]!
+
+          if path.isEmpty {
+            locals[decl] = source
+          } else {
+            let member = module.insert(
+              MemberAddrInst(value: source, path: path, type: .address(declType)),
+              at: insertionPoint!)
+            locals[decl] = .inst(member)
+          }
+        }
+      }
+    }
   }
 
   // MARK: r-values
@@ -186,8 +289,12 @@ public struct Emitter {
     switch expr.kind {
     case .funCallExpr:
       return emitR(funCall: NodeID(unsafeRawValue: expr.rawValue), into: &module)
+    case .integerLiteralExpr:
+      return emitR(integerLiteral: NodeID(unsafeRawValue: expr.rawValue), into: &module)
     case .nameExpr:
       return emitR(name: NodeID(unsafeRawValue: expr.rawValue), into: &module)
+    case .sequenceExpr:
+      return emitR(sequence: NodeID(unsafeRawValue: expr.rawValue), into: &module)
     default:
       unreachable("unexpected expression")
     }
@@ -201,77 +308,115 @@ public struct Emitter {
       unreachable()
     }
 
-    // If `callee` denotes a name expression, attempts to emit a function reference.
+    // Emit the callee.
     let callee: Operand
-    if ast[expr].callee.kind == .nameExpr {
-      let nameExprID = NodeID<NameExpr>(unsafeRawValue: ast[expr].callee.rawValue)
+    var operands: [Operand] = []
 
-      switch referredDecls[nameExprID] {
-      case .direct(let declID):
-        switch declID.kind {
-        case .builtinDecl:
-          // Built-in functions never have closures.
-          assert(calleeType.environment == .unit)
-          callee = .constant(.builtin(BuiltinFunctionRef(
-            name: ast[nameExprID].stem.value,
+    if let calleeID = NodeID<NameExpr>(converting: ast[expr].callee) {
+      // Attempt to interpret the callee as a direct function reference.
+      switch referredDecls[calleeID] {
+      case .direct(let calleeDeclID) where calleeDeclID.kind == .builtinDecl:
+        // Callee refers to a built-in function.
+        assert(calleeType.environment == .unit)
+        callee = .constant(.builtin(BuiltinFunctionRef(
+          name: ast[calleeID].stem.value,
+          type: .address(.lambda(calleeType)))))
+
+      case .direct(let calleeDeclID) where calleeDeclID.kind == .funDecl:
+        // Callee is a direct reference to a function declaration.
+        if (ast[calleeDeclID] as! FunDecl).introducer.value == .memberwiseInit {
+          // Emit a record construction.
+          let operands = ast[expr].arguments.map({ argument in
+            emitR(expr: argument.value.value, into: &module)
+          })
+          let record = module.insert(
+            RecordInst(type: .owned(exprTypes[expr]!), operands: operands),
+            at: insertionPoint!)
+          return .inst(record)
+        } else {
+          // TODO: handle captures
+          let locator = DeclLocator(
+            identifying: calleeDeclID,
+            in: ast,
+            withScopeHierarchy: scopeHierarchy,
+            withDeclTypes: declTypes)
+          callee = .constant(.function(FunctionRef(
+            name: locator.mangled,
             type: .address(.lambda(calleeType)))))
-
-        case .funDecl:
-          switch (ast[declID] as! FunDecl).introducer.value {
-          case .memberwiseInit:
-            // Emit a record construction.
-            let operands = ast[expr].arguments.map({ argument in
-              emitR(expr: argument.value.value, into: &module)
-            })
-            let record = module.insert(
-              RecordInst(type: .owned(exprTypes[expr]!), operands: operands),
-              at: insertionPoint!)
-            return .inst(record)
-
-          default:
-            // TODO: handle captures
-            let locator = DeclLocator(
-              identifying: declID,
-              in: ast,
-              withScopeHierarchy: scopeHierarchy,
-              withDeclTypes: declTypes)
-            callee = .constant(.function(FunctionRef(
-              name: locator.mangled,
-              type: .address(.lambda(calleeType)))))
-          }
-
-        default:
-          unreachable("unexpected declaration")
         }
 
-      case .member:
-        fatalError("not implemented")
+      case .member(let calleeDeclID) where calleeDeclID.kind == .funDecl:
+        // We may assume the callee refers to a method.
+        guard let receiverType = calleeType.captures?[0].type else { unreachable() }
 
-      case nil:
-        fatalError("unbound name expression")
+        // Add the receiver to the arguments.
+        switch ast[calleeID].domain {
+        case .none:
+          operands.append(locals[receiverDecl!]!)
+        case .implicit:
+          fatalError("not implemented")
+        case .explicit(let receiverID):
+          if case .projection = receiverType {
+            operands.append(emitL(expr: receiverID, into: &module))
+          } else {
+            operands.append(emitR(expr: receiverID, into: &module))
+          }
+        }
+
+        // Emit the function reference.
+        let locator = DeclLocator(
+          identifying: calleeDeclID,
+          in: ast,
+          withScopeHierarchy: scopeHierarchy,
+          withDeclTypes: declTypes)
+        callee = .constant(.function(FunctionRef(
+          name: locator.mangled,
+          type: .address(.lambda(calleeType)))))
+
+      default:
+        callee = emitR(expr: ast[expr].callee, into: &module)
       }
     } else {
-      // The callee denotes the expression of a closure.
+      // Interpret the callee as a closure expression.
       callee = emitR(expr: ast[expr].callee, into: &module)
     }
 
-    var arguments: [Operand] = []
     for (parameter, argument) in zip(calleeType.inputs, ast[expr].arguments) {
       let parameterType = ParameterType(converting: parameter.type) ?? unreachable()
       switch parameterType.convention {
       case .let, .inout, .set:
-        arguments.append(emitL(expr: argument.value.value, into: &module))
+        operands.append(emitL(expr: argument.value.value, into: &module))
       case .sink:
-        arguments.append(emitR(expr: argument.value.value, into: &module))
+        operands.append(emitR(expr: argument.value.value, into: &module))
       case .yielded:
         unreachable()
       }
     }
 
     let i = module.insert(
-      CallInst(callee: callee, arguments: arguments, type: .owned(exprTypes[expr]!)),
+      CallInst(callee: callee, operands: operands, type: .owned(exprTypes[expr]!)),
       at: insertionPoint!)
     return .inst(i)
+  }
+
+  private mutating func emitR(
+    integerLiteral expr: NodeID<IntegerLiteralExpr>,
+    into module: inout Module
+  ) -> Operand {
+    guard case .product(let type) = exprTypes[expr]! else { unreachable() }
+
+    switch type.name.value {
+    case "Int":
+      let bits = BitPattern(fromDecimal: ast[expr].value)!.resized(to: 64)
+      let value = IntegerConstant(bitPattern: bits)
+      let result = module.insert(
+        RecordInst(type: .owned(.product(type)), operands: [.constant(.integer(value))]),
+        at: insertionPoint!)
+      return .inst(result)
+
+    default:
+      unreachable("unexpected numeric type")
+    }
   }
 
   private mutating func emitR(
@@ -285,6 +430,14 @@ public struct Emitter {
     return .inst(load)
   }
 
+  private mutating func emitR(
+    sequence expr: NodeID<SequenceExpr>,
+    into module: inout Module
+  ) -> Operand {
+    guard case .root(let root) = ast[expr] else { unreachable() }
+    return emitR(expr: root, into: &module)
+  }
+
   // MARK: l-values
 
   /// Emits `expr` as a l-value into `module` at the current insertion point.
@@ -292,8 +445,16 @@ public struct Emitter {
     switch expr.kind {
     case .nameExpr:
       return emitL(name: NodeID(unsafeRawValue: expr.rawValue), into: &module)
+
     default:
-      unreachable("unexpected expression")
+      let value = emitR(expr: expr, into: &module)
+      let alloc = module.insert(
+        AllocInst(objectType: exprTypes[expr]!, space: localMemorySpace),
+        at: insertionPoint!)
+      _ = module.insert(
+        StoreInst(object: value, target: .inst(alloc)),
+        at: insertionPoint!)
+      return .inst(alloc)
     }
   }
 
@@ -320,7 +481,7 @@ public struct Emitter {
         let member = module.insert(
           MemberAddrInst(
             value: receiver,
-            offset: layout.offset(of: NodeID(unsafeRawValue: declID.rawValue), ast: ast),
+            path: [layout.offset(of: NodeID(unsafeRawValue: declID.rawValue), ast: ast)],
             type: .address(exprType)),
           at: insertionPoint!)
         return .inst(member)

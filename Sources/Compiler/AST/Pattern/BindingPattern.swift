@@ -14,8 +14,6 @@ public struct BindingPattern: Pattern {
 
     case sinklet
 
-    case sinkvar
-
     case `inout`
 
   }

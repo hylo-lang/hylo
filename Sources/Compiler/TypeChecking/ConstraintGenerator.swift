@@ -633,18 +633,21 @@ extension ConstraintGenerator {
     func desugars(ast: inout AST) -> AnyExprID {
       switch self {
       case .node(let op, let left, let right):
-        switch ast[op].stem.value {
-        case "=":
-          // `=` is right-associative and has the lowest precedence.
-          let lhs = left.desugars(ast: &ast)
-          let rhs = right.desugars(ast: &ast)
-          let id = AnyExprID(ast.insert(AssignExpr(left: lhs, right: rhs)))
-          ast.ranges[id] = ast.ranges[lhs] ..< ast.ranges[rhs]
-          return id
+        let receiver = left.desugars(ast: &ast)
+        let argument = right.desugars(ast: &ast)
 
-        default:
-          fatalError("not implemented")
-        }
+        let id = ast.insert(FunCallExpr(
+          callee: AnyExprID(ast.insert(NameExpr(
+            domain: .explicit(receiver),
+            stem: ast[op].stem,
+            notation: .infix))),
+          arguments: [
+            SourceRepresentable(
+              value: CallArgument(value: argument),
+              range: ast.ranges[argument])
+          ]))
+        ast.ranges[id] = ast.ranges[receiver] ..< ast.ranges[argument]
+        return AnyExprID(id)
 
       case .leaf(let id):
         return id
