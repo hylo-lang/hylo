@@ -188,6 +188,8 @@ public struct Emitter {
       emit(brace: NodeID(unsafeRawValue: stmt.rawValue), into: &module)
     case .declStmt:
       emit(declStmt: NodeID(unsafeRawValue: stmt.rawValue), into: &module)
+    case .exprStmt:
+      emit(exprStmt: NodeID(unsafeRawValue: stmt.rawValue), into: &module)
     default:
       unreachable("unexpected statement")
     }
@@ -208,6 +210,10 @@ public struct Emitter {
     default:
       unreachable("unexpected declaration")
     }
+  }
+
+  private mutating func emit(exprStmt stmt: NodeID<ExprStmt>, into module: inout Module) {
+    _ = emitR(expr: ast[stmt].expr, into: &module)
   }
 
   private mutating func emit(localBinding decl: NodeID<BindingDecl>, into module: inout Module) {
@@ -468,13 +474,28 @@ public struct Emitter {
     }
 
     switch declRef {
-    case .direct:
+    case .direct(let declID):
+      // Lookup for a local symbol.
+      if let local = locals[declID] {
+        return local
+      }
+
       fatalError("not implemented")
 
     case .member(let declID):
-      // References to bound member declaration create an access to `self`.
-      let receiver = locals[receiverDecl!]!
+      // Emit the receiver.
+      let receiver: Operand
 
+      switch ast[expr].domain {
+      case .none:
+        receiver = locals[receiverDecl!]!
+      case .implicit:
+        fatalError("not implemented")
+      case .explicit(let receiverID):
+        receiver = emitL(expr: receiverID, into: &module)
+      }
+
+      // Emit the bound member.
       switch declID.kind {
       case .varDecl:
         let layout = TypeLayout(module.type(of: receiver).valType)
