@@ -14,12 +14,18 @@ public enum BuiltinFunctionType {
     from: (.let, .i(64)), (.let, .i(64)),
     to: .builtin(.i(64)))
 
+  // 64-bit print.
+  public static let i64_print = LambdaType(
+    from: (.let, .i(64)),
+    to: .unit)
+
   /// Returns the type of the built-in function with the given name.
   public static subscript(_ name: String) -> LambdaType? {
     switch name {
     case "terminate": return Self.terminate
     case "i64_copy" : return Self.i64_copy
     case "i64_add"  : return Self.i64_add
+    case "i64_print": return Self.i64_print
     default:
       return nil
     }
