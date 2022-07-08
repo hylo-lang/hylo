@@ -1886,6 +1886,55 @@ final class TypeCheckerTests: XCTestCase {
     XCTAssertTrue(checker.check(module: main))
   }
 
+  func testCondExpr() {
+
+    // fun one_or_two(_ test: Bool) -> Int {
+    //   let x = if test { 1 } else { 2 }
+    //   return x
+    // }
+
+    var ast = AST()
+    insertStandardLibraryMockup(into: &ast)
+    let main = ast.insert(ModuleDecl(name: "main"))
+
+    ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
+      introducer: SourceRepresentable(value: .fun),
+      identifier: SourceRepresentable(value: "one_or_two"),
+      parameters: [
+        ast.insert(ParameterDecl(
+          identifier: SourceRepresentable(value: "test"),
+          annotation: ast.insert(ParameterTypeExpr(
+            convention: SourceRepresentable(value: .let),
+            bareType: AnyTypeExprID(ast.insert(NameTypeExpr(
+              identifier: SourceRepresentable(value: "Bool")))))))),
+      ], output: AnyTypeExprID(ast.insert(NameTypeExpr(
+        identifier: SourceRepresentable(value: "Int")))),
+      body: SourceRepresentable(
+        value: .block(ast.insert(BraceStmt(
+          stmts: [
+            AnyStmtID(ast.insert(DeclStmt(
+              decl: AnyDeclID(ast.insert(BindingDecl(
+                pattern: ast.insert(BindingPattern(
+                  introducer: SourceRepresentable(value: .let),
+                  subpattern: AnyPatternID(ast.insert(NamePattern(
+                    decl: ast.insert(VarDecl(
+                      identifier: SourceRepresentable(value: "x")))))))),
+                initializer: AnyExprID(ast.insert(CondExpr(
+                  condition: [
+                    .expr(AnyExprID(ast.insert(BoolLiteralExpr(value: true))))
+                  ],
+                  success: .expr(AnyExprID(ast.insert(IntegerLiteralExpr(value: "1")))),
+                  failure: .expr(AnyExprID(ast.insert(IntegerLiteralExpr(value: "2")))))))
+              )))))),
+            AnyStmtID(ast.insert(ReturnStmt(
+              value: AnyExprID(ast.insert(NameExpr(
+                stem: SourceRepresentable(value: "x")))))))
+          ]))))))))
+
+    var checker = TypeChecker(ast: ast)
+    XCTAssertTrue(checker.check(module: main))
+  }
+
   func testDuplicateOperatorDecl() {
 
     // prefix operator -                  // OK

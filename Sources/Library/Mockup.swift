@@ -34,8 +34,57 @@ public func insertStandardLibraryMockup(into ast: inout AST) -> NodeID<ModuleDec
     ]
   ))))
 
-  // type Int { ... }
+  // public type Bool { ... }
   ast[stdlib].members.append(AnyDeclID(ast.insert(ProductTypeDecl(
+    accessModifier: SourceRepresentable(value: .public),
+    identifier: SourceRepresentable(value: "Bool"),
+    members: [
+      // var value: Builtin.i1
+      AnyDeclID(ast.insert(BindingDecl(
+        pattern: ast.insert(BindingPattern(
+          introducer: SourceRepresentable(value: .var),
+          subpattern: AnyPatternID(ast.insert(NamePattern(
+            decl: ast.insert(VarDecl(
+              identifier: SourceRepresentable(value: "value")))))),
+          annotation: AnyTypeExprID(ast.insert(NameTypeExpr(
+            domain: AnyTypeExprID(ast.insert(NameTypeExpr(
+              identifier: SourceRepresentable(value: "Builtin")))),
+            identifier: SourceRepresentable(value: "i1"))))))))),
+
+      // public fun copy() -> Self {
+      //   Bool(value: Builtin.i1_copy(value))
+      // }
+      AnyDeclID(ast.insert(FunDecl(
+        introducer: SourceRepresentable(value: .fun),
+        accessModifier: SourceRepresentable(value: .public),
+        identifier: SourceRepresentable(value: "copy"),
+        output: AnyTypeExprID(ast.insert(NameTypeExpr(
+          identifier: SourceRepresentable(value: "Self")))),
+        body: SourceRepresentable(value: .expr(
+          AnyExprID(ast.insert(FunCallExpr(
+            callee: AnyExprID(ast.insert(NameExpr(
+              stem: SourceRepresentable(value: "Bool")))),
+          arguments: [
+            SourceRepresentable(
+              value: CallArgument(
+                label: SourceRepresentable(value: "value"),
+                value: AnyExprID(ast.insert(FunCallExpr(
+                  callee: AnyExprID(ast.insert(NameExpr(
+                    domain: .explicit(AnyExprID(ast.insert(NameExpr(
+                      stem: SourceRepresentable(value: "Builtin"))))),
+                    stem: SourceRepresentable(value: "i1_copy")))),
+                arguments: [
+                  SourceRepresentable(
+                    value: CallArgument(
+                      value: AnyExprID(ast.insert(NameExpr(
+                        stem: SourceRepresentable(value: "value")))))),
+                ]))))),
+          ])))))))),
+    ]))))
+
+  // public type Int { ... }
+  ast[stdlib].members.append(AnyDeclID(ast.insert(ProductTypeDecl(
+    accessModifier: SourceRepresentable(value: .public),
     identifier: SourceRepresentable(value: "Int"),
     conformances: [
       ast.insert(NameTypeExpr(
@@ -75,8 +124,9 @@ public func insertStandardLibraryMockup(into ast: inout AST) -> NodeID<ModuleDec
     ]
   ))))
 
-  // type Double { ... }
+  // public type Double { ... }
   ast[stdlib].members.append(AnyDeclID(ast.insert(ProductTypeDecl(
+    accessModifier: SourceRepresentable(value: .public),
     identifier: SourceRepresentable(value: "Double"),
     conformances: [
       ast.insert(NameTypeExpr(

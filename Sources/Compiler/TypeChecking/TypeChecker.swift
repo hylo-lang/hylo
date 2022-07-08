@@ -317,7 +317,8 @@ public struct TypeChecker {
     return true
   }
 
-  private mutating func check(binding id: NodeID<BindingDecl>) -> Bool {
+  /// - Note: Method is internal because it may be called during constraint generation.
+  mutating func check(binding id: NodeID<BindingDecl>) -> Bool {
     defer { assert(declTypes[id] != nil) }
 
     // Note: binding declarations do not undergo type realization.
@@ -793,7 +794,8 @@ public struct TypeChecker {
     }
   }
 
-  private mutating func check(brace id: NodeID<BraceStmt>) -> Bool {
+  /// - Note: Method is internal because it may be called during constraint generation.
+  mutating func check(brace id: NodeID<BraceStmt>) -> Bool {
     var success = true
     for stmt in ast[id].stmts {
       success = check(stmt: stmt, inScope: id) && success

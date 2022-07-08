@@ -53,7 +53,8 @@ struct ConstraintGenerator: ExprVisitor {
   }
 
   mutating func visit(boolLiteral id: NodeID<BoolLiteralExpr>) {
-    fatalError("not implemented")
+    let boolType = ProductType(standardLibraryTypeNamed: "Bool", ast: checker.ast)!
+    assume(typeOf: id, equals: .product(boolType))
   }
 
   mutating func visit(bufferLiteral id : NodeID<BufferLiteralExpr>) {
@@ -95,7 +96,50 @@ struct ConstraintGenerator: ExprVisitor {
   }
 
   mutating func visit(cond id: NodeID<CondExpr>) {
-    fatalError("not implemented")
+    defer { assert(inferredTypes[id] != nil) }
+
+    // Visit the condition(s).
+    let boolType = ProductType(standardLibraryTypeNamed: "Bool", ast: checker.ast)!
+    for item in checker.ast[id].condition {
+      switch item {
+      case .expr(let condExpr):
+        // Condition must be Boolean.
+        expectedTypes[condExpr] = .product(boolType)
+        condExpr.accept(&self)
+      case .decl(let binding):
+        _ = checker.check(binding: binding)
+      }
+    }
+
+    // Assume the node represents an expression if both branches are single expressions.
+    let inferredType: Type?
+
+    // Visit the success branch.
+    switch checker.ast[id].success {
+    case .expr(let thenExpr):
+      expectedTypes[thenExpr] = expectedTypes[id]
+      thenExpr.accept(&self)
+      inferredType = inferredTypes[thenExpr]
+
+    case .block(let thenBlock):
+      _ = checker.check(brace: thenBlock)
+      inferredType = nil
+    }
+
+    // Visit the failure branch.
+    switch checker.ast[id].failure {
+    case .expr(let elseExpr):
+      assume(typeOf: id, equals: inferredType!)
+      expectedTypes[elseExpr] = inferredType
+      elseExpr.accept(&self)
+
+    case .block(let thenBlock):
+      assume(typeOf: id, equals: .unit)
+      _ = checker.check(brace: thenBlock)
+
+    case nil:
+      assume(typeOf: id, equals: .unit)
+    }
   }
 
   mutating func visit(floatLiteral id: NodeID<FloatLiteralExpr>) {
