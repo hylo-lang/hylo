@@ -2,16 +2,20 @@
 public struct ReturnInst: Inst {
 
   /// The returned value.
-  public let value: Operand
+  public let value: Operand?
 
   public func dump<Target: TextOutputStream>(
     into output: inout Target,
     with printer: inout IRPrinter
   ) {
-    output.write("return ")
-    value.dump(into: &output, with: &printer)
+    if let value = value {
+      output.write("return ")
+      value.dump(into: &output, with: &printer)
+    } else {
+      output.write("return")
+    }
   }
 
-  public var type: IRType { .owned(.unit) }
+  public var type: LoweredType { .object(.unit) }
 
 }

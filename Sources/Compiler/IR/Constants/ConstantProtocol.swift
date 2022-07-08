@@ -2,6 +2,6 @@
 public protocol ConstantProtocol {
 
   /// The type of the value.
-  var type: IRType { get }
+  var type: LoweredType { get }
 
 }

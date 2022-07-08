@@ -5,7 +5,7 @@ public struct BuiltinFunctionRef: ConstantProtocol, Hashable {
   public let name: String
 
   /// The type of the function.
-  public let type: IRType
+  public let type: LoweredType
 
 }
 

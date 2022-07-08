@@ -9,7 +9,7 @@ public struct MemberAddrInst: Inst {
   /// - Requires: This array cannot be empty.
   public let path: [Int]
 
-  public let type: IRType
+  public let type: LoweredType
 
   public func dump<Target: TextOutputStream>(
     into output: inout Target,

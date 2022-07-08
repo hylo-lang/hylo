@@ -5,7 +5,7 @@
 public struct RecordInst: Inst {
 
   /// The type of the created record.
-  public let type: IRType
+  public let type: LoweredType
 
   /// The operands consumed to initialize the record members.
   public let operands: [Operand]
@@ -14,7 +14,7 @@ public struct RecordInst: Inst {
     into output: inout Target,
     with printer: inout IRPrinter
   ) {
-    output.write("record \(type.valType)")
+    output.write("record \(type.astType)")
     for operand in operands {
       output.write(", ")
       operand.dump(into: &output, with: &printer)

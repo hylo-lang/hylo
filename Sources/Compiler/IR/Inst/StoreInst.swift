@@ -7,7 +7,7 @@ public struct StoreInst: Inst {
   /// The location at which the object is stored.
   public let target: Operand
 
-  public var type: IRType { .owned(.unit) }
+  public var type: LoweredType { .object(.unit) }
 
   public func dump<Target: TextOutputStream>(
     into output: inout Target,

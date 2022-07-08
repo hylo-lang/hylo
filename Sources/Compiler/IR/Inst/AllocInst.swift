@@ -7,7 +7,7 @@ public struct AllocInst: Inst {
   /// The space where memory should be allocated.
   public let space: MemorySpace
 
-  public var type: IRType { .address(objectType) }
+  public var type: LoweredType { .address(objectType) }
 
   public func dump<Target: TextOutputStream>(
     into output: inout Target,

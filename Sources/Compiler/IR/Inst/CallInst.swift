@@ -10,7 +10,7 @@ public struct CallInst: Inst {
   /// The arguments of the call.
   public let operands: [Operand]
 
-  public let type: IRType
+  public let type: LoweredType
 
   public func dump<Target: TextOutputStream>(
     into output: inout Target,
@@ -21,6 +21,15 @@ public struct CallInst: Inst {
     for operand in operands {
       output.write(", ")
       operand.dump(into: &output, with: &printer)
+    }
+  }
+
+  /// Returns whether the instruction is a call to a built-in function.
+  public var isBuiltinCall: Bool {
+    if case .constant(.builtin) = callee {
+      return true
+    } else {
+      return true
     }
   }
 

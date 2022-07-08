@@ -1,8 +1,13 @@
+import Utils
+
 /// A module lowered to Val IR.
 public struct Module {
 
-  /// The module's identifier.
-  public let id: String
+  /// The module's declaration.
+  public let decl: NodeID<ModuleDecl>
+
+  /// The module's name.
+  public let name: String
 
   /// The def-use chains of the values in this module.
   public private(set) var uses: [Any] = []
@@ -13,12 +18,13 @@ public struct Module {
   /// A table mapping function declarations to their ID in the module.
   private var loweredFunctions: [NodeID<FunDecl>: FunctionID] = [:]
 
-  public init(id: String) {
-    self.id = id
+  public init(decl: NodeID<ModuleDecl>, id: String) {
+    self.decl = decl
+    self.name = id
   }
 
   /// Returns the type of `operand`.
-  public func type(of operand: Operand) -> IRType {
+  public func type(of operand: Operand) -> LoweredType {
     switch operand {
     case .inst(let instID):
       return self[instID].type
@@ -57,6 +63,25 @@ public struct Module {
   ) -> FunctionID {
     if let id = loweredFunctions[declID] { return id }
 
+    // Determine the type of the function.
+    var inputs: [LoweredType] = []
+    let output: LoweredType
+
+    switch declTypes[declID] {
+    case .lambda(let declType):
+      inputs.reserveCapacity(declType.captures!.count + declType.inputs.count)
+      for capture in ast[declID].implicitParameterDecls {
+        inputs.append(LoweredType(lowering: declTypes[capture.decl]!))
+      }
+      for parameter in ast[declID].parameters {
+        inputs.append(LoweredType(lowering: declTypes[parameter]!))
+      }
+      output = LoweredType(lowering: declType.output)
+
+    default:
+      unreachable()
+    }
+
     // Declare a new function in the module.
     let id = functions.count
     let locator = DeclLocator(
@@ -67,6 +92,8 @@ public struct Module {
     let function = Function(
       name: locator.mangled,
       debugName: ast[declID].identifier?.value,
+      inputs: inputs,
+      output: output,
       blocks: [])
     functions.append(function)
 
@@ -94,7 +121,7 @@ public struct Module {
 extension Module: CustomStringConvertible {
 
   public var description: String {
-    var output = "// module \(id)"
+    var output = "// module \(name)"
 
     for functionID in 0 ..< functions.count {
       let function = functions[functionID]

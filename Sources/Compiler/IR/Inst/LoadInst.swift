@@ -4,7 +4,7 @@ public struct LoadInst: Inst {
   /// The address of the object to load.
   public let source: Operand
 
-  public let type: IRType
+  public let type: LoweredType
 
   public func dump<Target: TextOutputStream>(
     into output: inout Target,

@@ -60,7 +60,7 @@ public struct Emitter {
 
   /// Emits the Val IR of the module identified by `decl`.
   public mutating func emit(module decl: NodeID<ModuleDecl>) -> Module {
-    var module = Module(id: ast[decl].name)
+    var module = Module(decl: decl, id: ast[decl].name)
     for member in ast[decl].members {
       emit(topLevel: member, into: &module)
     }
@@ -85,83 +85,54 @@ public struct Emitter {
 
   /// Emits the given function declaration into `module`.
   public mutating func emit(fun declID: NodeID<FunDecl>, into module: inout Module) {
-    switch ast[declID].introducer.value {
-    case .memberwiseInit, .`init`, .deinit:
-      // TODO
-      return
+    // Declare the function in the module if necessary.
+    let functionID = module.getOrCreateFunction(
+      from: declID,
+      ast: ast,
+      withScopeHierarchy: scopeHierarchy,
+      withDeclTypes: declTypes)
 
-    case .fun:
-      break
+    // Create the function entry.
+    assert(module.functions[functionID].blocks.isEmpty)
+    let entryIndex = module.functions[functionID].blocks.append(Block(
+      inputs: module.functions[functionID].inputs,
+      instructions: []))
+    let entryID = BlockID(function: functionID, index: entryIndex)
+    insertionPoint = InsertionPoint(endOf: entryID)
+
+    // Configure the locals.
+    var locals = DeclMap<Operand>()
+
+    for (i, capture) in ast[declID].implicitParameterDecls.enumerated() {
+      locals[capture.decl] = .parameter(block: entryID, index: i)
     }
 
-    precondition(ast[declID].body != nil, "no function body")
+    let implicitParamCount = ast[declID].implicitParameterDecls.count
+    for (i, parameter) in ast[declID].parameters.enumerated() {
+      locals[parameter] = .parameter(block: entryID, index: i + implicitParamCount)
+    }
 
-    switch declTypes[declID] {
-    case .lambda(let type):
-      // Declare the function in the module if necessary.
-      let functionID = module.getOrCreateFunction(
-        from: declID,
-        ast: ast,
-        withScopeHierarchy: scopeHierarchy,
-        withDeclTypes: declTypes)
+    // Emit the function's body.
+    var receiverDecl = ast[declID].implicitReceiverDecl
+    swap(&receiverDecl, &self.receiverDecl)
+    swap(&locals, &self.locals)
 
-      // Create the function entry.
-      assert(module.functions[functionID].blocks.isEmpty)
-      var inputs: [IRType] = []
-      inputs.reserveCapacity(type.captures!.count + type.inputs.count)
+    switch ast[declID].body!.value {
+    case .block(let stmt):
+      emit(stmt: stmt, into: &module)
 
-      for capture in ast[declID].implicitParameterDecls {
-        inputs.append(IRType(declTypes[capture.decl]!))
-      }
-
-      for parameter in ast[declID].parameters {
-        inputs.append(IRType(declTypes[parameter]!))
-      }
-
-      let entryIndex = module.functions[functionID].blocks.append(Block(
-        inputs: inputs,
-        instructions: []))
-      let entryID = BlockID(function: functionID, index: entryIndex)
-      insertionPoint = InsertionPoint(endOf: entryID)
-
-      // Configure the locals.
-      var locals = DeclMap<Operand>()
-
-      for (i, capture) in ast[declID].implicitParameterDecls.enumerated() {
-        locals[capture.decl] = .parameter(block: entryID, index: i)
-      }
-
-      let implicitParamCount = ast[declID].implicitParameterDecls.count
-      for (i, parameter) in ast[declID].parameters.enumerated() {
-        locals[parameter] = .parameter(block: entryID, index: i + implicitParamCount)
-      }
-
-      // Emit the function's body.
-      var receiverDecl = ast[declID].implicitReceiverDecl
-      swap(&receiverDecl, &self.receiverDecl)
-      swap(&locals, &self.locals)
-
-      switch ast[declID].body!.value {
-      case .block(let stmt):
-        emit(stmt: stmt, into: &module)
-
-      case .expr(let expr):
-        let value = emitR(expr: expr, into: &module)
+    case .expr(let expr):
+      let value = emitR(expr: expr, into: &module)
+      if exprTypes[expr]! != .never {
         module.insert(ReturnInst(value: value), at: insertionPoint!)
-
-      case .bundle:
-        unreachable()
       }
 
-      swap(&locals, &self.locals)
-      swap(&receiverDecl, &self.receiverDecl)
-
-    case .method:
-      fatalError("not implemented")
-
-    default:
+    case .bundle:
       unreachable()
     }
+
+    swap(&locals, &self.locals)
+    swap(&receiverDecl, &self.receiverDecl)
   }
 
   /// Emits the product type declaration into `module`.
@@ -170,9 +141,19 @@ public struct Emitter {
       // Emit the method and subscript members of the type declaration.
       switch member.kind {
       case .funDecl:
-        emit(fun: NodeID(unsafeRawValue: member.rawValue), into: &module)
+        let funDeclID = NodeID<FunDecl>(unsafeRawValue: member.rawValue)
+        switch ast[funDeclID].introducer.value {
+        case .memberwiseInit:
+          continue
+        case .`init`, .deinit:
+          fatalError("not implemented")
+        case .fun:
+          emit(fun: funDeclID, into: &module)
+        }
+
       case .subscriptDecl:
         fatalError("not implemented")
+
       default:
         continue
       }
@@ -243,7 +224,7 @@ public struct Emitter {
               MemberAddrInst(value: source, path: path, type: .address(declType)),
               at: insertionPoint!)
             let object = module.insert(
-              LoadInst(source: .inst(member), type: .owned(declType)),
+              LoadInst(source: .inst(member), type: .object(declType)),
               at: insertionPoint!)
             _ = module.insert(
               StoreInst(object: .inst(object), target: .inst(alloc)),
@@ -336,7 +317,7 @@ public struct Emitter {
             emitR(expr: argument.value.value, into: &module)
           })
           let record = module.insert(
-            RecordInst(type: .owned(exprTypes[expr]!), operands: operands),
+            RecordInst(type: .object(exprTypes[expr]!), operands: operands),
             at: insertionPoint!)
           return .inst(record)
         } else {
@@ -400,7 +381,7 @@ public struct Emitter {
     }
 
     let i = module.insert(
-      CallInst(callee: callee, operands: operands, type: .owned(exprTypes[expr]!)),
+      CallInst(callee: callee, operands: operands, type: .object(exprTypes[expr]!)),
       at: insertionPoint!)
     return .inst(i)
   }
@@ -416,7 +397,7 @@ public struct Emitter {
       let bits = BitPattern(fromDecimal: ast[expr].value)!.resized(to: 64)
       let value = IntegerConstant(bitPattern: bits)
       let result = module.insert(
-        RecordInst(type: .owned(.product(type)), operands: [.constant(.integer(value))]),
+        RecordInst(type: .object(.product(type)), operands: [.constant(.integer(value))]),
         at: insertionPoint!)
       return .inst(result)
 
@@ -431,7 +412,7 @@ public struct Emitter {
   ) -> Operand {
     let source = emitL(expr: expr, into: &module)
     let load = module.insert(
-      LoadInst(source: source, type: .owned(exprTypes[expr]!)),
+      LoadInst(source: source, type: .object(exprTypes[expr]!)),
       at: insertionPoint!)
     return .inst(load)
   }
@@ -498,7 +479,7 @@ public struct Emitter {
       // Emit the bound member.
       switch declID.kind {
       case .varDecl:
-        let layout = TypeLayout(module.type(of: receiver).valType)
+        let layout = TypeLayout(module.type(of: receiver).astType)
         let member = module.insert(
           MemberAddrInst(
             value: receiver,

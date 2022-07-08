@@ -20,7 +20,7 @@ public enum Constant: Hashable {
   }
 
   /// The type of the constant.
-  public var type: IRType { base.type }
+  public var type: LoweredType { base.type }
 
 }
 

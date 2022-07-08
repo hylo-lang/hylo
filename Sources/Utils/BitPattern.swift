@@ -180,6 +180,46 @@ public struct BitPattern: Hashable {
     }
   }
 
+  /// Returns the hexadecimal string representation of the bit pattern.
+  ///
+  /// - Parameter uppercase: Pass `true` to use uppercase letters to represent numerals greater
+  ///   than 9, or `false` to use lowercase letters. The default is `false`.
+  public func hexadecimalString(uppercase: Bool = false) -> String {
+    var hex: [UInt8] = []
+    var sum: UInt8 = 0
+    var digit = 0
+
+    for bit in self {
+      switch digit {
+      case 0:
+        sum = bit ? 1 : 0
+        digit = 1
+      case 1:
+        if bit { sum += 2 }
+        digit = 2
+      case 2:
+        if bit { sum += 4 }
+        digit = 3
+      default:
+        if bit { sum += 8 }
+        digit = 0
+        hex.append(sum)
+      }
+    }
+
+    if digit != 0 { hex.append(sum) }
+
+    let letter: UInt8 = uppercase ? 65 : 97
+    return hex
+      .dropLast(while: { $0 == 0 })
+      .reversed()
+      .reduce(into: "", { (result, d) in
+        result.append(d < 10
+          ? Character(UnicodeScalar(48 + d))
+          : Character(UnicodeScalar(letter + d)))
+      })
+  }
+
 }
 
 extension BitPattern: MutableCollection, RandomAccessCollection {

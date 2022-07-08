@@ -2,7 +2,7 @@
 public protocol Inst {
 
   /// The type of the instruction.
-  var type: IRType { get }
+  var type: LoweredType { get }
 
   /// Writes the textual representation of the instruction into `output` using `printer` to
   /// pretty-print its operands.

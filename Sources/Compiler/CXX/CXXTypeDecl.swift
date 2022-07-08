@@ -1,4 +1,4 @@
-/// A C++ type declaration.
+/// A C++ public type declaration.
 struct CXXTypeDecl {
 
   public enum SectionAccess: Equatable {

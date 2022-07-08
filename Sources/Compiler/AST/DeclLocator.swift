@@ -129,14 +129,14 @@ extension DeclLocator.Component: CustomStringConvertible {
   public var description: String {
     switch self {
     case .conformance(let target, let trait):
-      return "C\(target)\(trait.prefixedByCount)"
+      return "C\(target)\(trait.mangled)"
 
     case .extension(let target):
       return "E\(target)"
 
     case .function(let name, let labels):
-      let ls = labels.map({ $0.prefixedByCount }).joined()
-      return "F\(name.prefixedByCount)\(labels.count)\(ls)a"
+      let ls = labels.map({ $0.mangled }).joined()
+      return "F\(name.mangled)\(labels.count)\(ls)a"
 
     case .methodImpl(let introducer):
       switch introducer {
@@ -146,20 +146,20 @@ extension DeclLocator.Component: CustomStringConvertible {
       }
 
     case .module(let name):
-      return "M\(name.prefixedByCount)"
+      return "M\(name.mangled)"
 
     case .namespace(let name):
-      return "N\(name.prefixedByCount)"
+      return "N\(name.mangled)"
 
     case .lambda(let discriminator):
       return "L\(discriminator.rawValue)"
 
     case .product(let name):
-      return "P\(name.prefixedByCount)"
+      return "P\(name.mangled)"
 
     case .subscript(let name, let labels):
-      let ls = labels.map({ $0.prefixedByCount }).joined()
-      return "S\(name.prefixedByCount)\(labels.count)\(ls)"
+      let ls = labels.map({ $0.mangled }).joined()
+      return "S\(name.mangled)\(labels.count)\(ls)"
 
     case .subscriptImpl(let introducer):
       switch introducer {
@@ -170,7 +170,7 @@ extension DeclLocator.Component: CustomStringConvertible {
       }
 
     case .trait(let name):
-      return "N\(name.prefixedByCount)"
+      return "N\(name.mangled)"
     }
   }
 
@@ -178,8 +178,35 @@ extension DeclLocator.Component: CustomStringConvertible {
 
 extension String {
 
-  var prefixedByCount: String {
-    "\(count)\(self)"
+  fileprivate var mangled: String {
+    // Substitute non alphanumeric character.
+    var result = ""
+    result.reserveCapacity(count)
+
+    for character in self {
+      if character.isMangledAllowed {
+        result.append(character)
+      } else {
+        result.append(character.utf16.reduce(into: "u", { (u, point) in
+          u += String(point, radix: 16)
+        }))
+      }
+    }
+
+    return String(describing: result.count) + result
+  }
+
+}
+
+extension Character {
+
+  /// Indicates whether the character is allowed to appear in a mangled identifier.
+  fileprivate var isMangledAllowed: Bool {
+    guard let code = asciiValue else { return false }
+    return (0x61 ... 0x7a).contains(code) // a ... z
+        || (0x41 ... 0x5a).contains(code) // A ... Z
+        || (0x30 ... 0x39).contains(code) // 0 ... 9
+        || (0x5f == code)                 // _
   }
 
 }

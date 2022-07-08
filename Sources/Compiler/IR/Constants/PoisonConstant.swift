@@ -2,7 +2,7 @@
 public struct PoisonConstant: ConstantProtocol, Hashable {
 
   /// The type of the poison.
-  public let type: IRType
+  public let type: LoweredType
 
 }
 

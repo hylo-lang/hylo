@@ -99,10 +99,12 @@ final class CXXTests: XCTestCase {
     var checker = TypeChecker(ast: ast)
     XCTAssertTrue(checker.check(module: main))
 
-    var transpiler = Transpiler(
+    let program = TypedProgram(
       ast: checker.ast,
       scopeHierarchy: checker.scopeHierarchy,
-      declTypes: checker.declTypes)
+      declTypes: checker.declTypes,
+      referredDecls: checker.referredDecls)
+    var transpiler = Transpiler(program: program)
     let header = transpiler.emitHeader(of: main)
 
     XCTAssertEqual(header, """

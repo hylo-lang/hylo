@@ -11,6 +11,12 @@ public struct Function {
   /// The debug name of the function, if any.
   public var debugName: String?
 
+  /// The types of the function's parameters.
+  public var inputs: [LoweredType]
+
+  /// The type of the function's output.
+  public var output: LoweredType
+
   /// The blocks in the function.
   ///
   /// The first block of the array is the function's entry.

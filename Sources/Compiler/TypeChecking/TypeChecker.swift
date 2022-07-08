@@ -36,6 +36,21 @@ public struct TypeChecker {
     self.scopeHierarchy = ast.scopeHierarchy()
   }
 
+  /// Type checks the AST.
+  ///
+  /// - Returns: A typed program if type checking succeeded. Otherwise, returns `nil`.
+  public mutating func run() -> TypedProgram? {
+    for module in ast.modules {
+      guard check(module: module) else { return nil }
+    }
+
+    return TypedProgram(
+      ast: ast,
+      scopeHierarchy: scopeHierarchy,
+      declTypes: declTypes,
+      referredDecls: referredDecls)
+  }
+
   // MARK: Type system
 
   /// Returns the canonical form of `type`.
