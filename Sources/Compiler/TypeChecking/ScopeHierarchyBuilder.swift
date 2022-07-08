@@ -276,7 +276,7 @@ struct ScopeHierarchyBuilder:
     nesting(in: id, { this in
       let expr = this.ast[id]
       for item in expr.condition {
-        switch item.value {
+        switch item {
         case let .expr(expr):
           expr.accept(&this)
         case let .decl(decl):
