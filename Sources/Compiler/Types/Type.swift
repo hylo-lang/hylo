@@ -122,20 +122,6 @@ public indirect enum Type: TypeProtocol, Hashable {
   /// The unit type (i.e., `()`).
   public static var unit: Type = .tuple(TupleType([]))
 
-  /// Returns `Val.Int`, declared in `ast.stdlib`.
-  ///
-  /// - Requires: The standard library is loaded in `ast`.
-  public static func int(in ast: AST) -> Type {
-    ProductType(named: "Int", ast: ast).map({ .product($0) }) ?? unreachable()
-  }
-
-  /// Returns `Val.Double`, declared in `ast.stdlib`.
-  ///
-  /// - Requires: The standard library is loaded in `ast`.
-  public static func double(in ast: AST) -> Type {
-    ProductType(named: "Double", ast: ast).map({ .product($0) }) ?? unreachable()
-  }
-
 }
 
 extension Type {

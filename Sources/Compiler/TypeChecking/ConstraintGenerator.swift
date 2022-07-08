@@ -283,10 +283,11 @@ struct ConstraintGenerator: ExprVisitor {
     case .some(.variable(let tau)):
       // The type of the expression is a variable, possibly constrained elsewhere; constrain it to
       // either be `Int` or conform to `ExpressibleByIntegerLiteral`.
+      let intType = ProductType(standardLibraryTypeNamed: "Int", ast: checker.ast)!
       constraints.append(LocatableConstraint(
         .disjunction([
           Constraint.Minterm(
-            constraints: [.equality(l: .variable(tau), r: .int(in: checker.ast))],
+            constraints: [.equality(l: .variable(tau), r: .product(intType))],
             penalties: 0),
           Constraint.Minterm(
             constraints: [.conformance(l: .variable(tau), traits: [trait])],
@@ -302,7 +303,8 @@ struct ConstraintGenerator: ExprVisitor {
 
     case nil:
       // Without contextual information, infer the type of the literal as `Val.Int`.
-      assume(typeOf: id, equals: .int(in: checker.ast))
+      let intType = ProductType(standardLibraryTypeNamed: "Int", ast: checker.ast)!
+      assume(typeOf: id, equals: .product(intType))
     }
   }
 

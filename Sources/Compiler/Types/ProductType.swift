@@ -20,9 +20,12 @@ public struct ProductType: TypeProtocol, Hashable {
 
 extension ProductType {
 
-  /// Returns the product type named `name`, declared in `ast.stdlib`.
-  public init?(named name: String, ast: AST) {
-    guard let stdlib = ast.stdlib else { return nil }
+  /// Returns the product type named `name` from the standard library `ast.stdlib`, or `nil` such a
+  /// type does not exists.
+  ///
+  /// - Requires: The standard library must be loaded and assigned to `ast.stlib`.
+  public init?(standardLibraryTypeNamed name: String, ast: AST) {
+    let stdlib = ast.stdlib ?? preconditionFailure("standard library is not loaded")
     for id in ast[stdlib].members where id.kind == .productTypeDecl {
       let id = NodeID<ProductTypeDecl>(converting: id)!
       if ast[id].name == name {

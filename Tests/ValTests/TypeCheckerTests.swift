@@ -1523,15 +1523,17 @@ final class TypeCheckerTests: XCTestCase {
     // Infer the type of the literal without any contextual information.
     do {
       var checker = TypeChecker(ast: ast)
+      let intType = ProductType(standardLibraryTypeNamed: "Int", ast: ast)!
       let type = checker.infer(expr: expr, inScope: main)
-      XCTAssertEqual(type, .int(in: ast))
+      XCTAssertEqual(type, .product(intType))
     }
 
     // Infer the type of the literal assuming it's `Double` from the context.
     do {
       var checker = TypeChecker(ast: ast)
-      let type = checker.infer(expr: expr, expectedType: .double(in: ast), inScope: main)
-      XCTAssertEqual(type, .double(in: ast))
+      let doubleType = ProductType(standardLibraryTypeNamed: "Double", ast: ast)!
+      let type = checker.infer(expr: expr, expectedType: .product(doubleType), inScope: main)
+      XCTAssertEqual(type, .product(doubleType))
     }
 
     // Infer the type of the literal assuming its `()` from the context.
