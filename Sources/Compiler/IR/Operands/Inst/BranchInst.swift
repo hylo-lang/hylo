@@ -16,4 +16,6 @@ public struct BranchInst: Inst {
 
   public var type: LoweredType { .object(.unit) }
 
+  public var operands: [Operand] { [] }
+
 }

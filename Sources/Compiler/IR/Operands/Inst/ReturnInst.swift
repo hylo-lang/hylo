@@ -2,20 +2,22 @@
 public struct ReturnInst: Inst {
 
   /// The returned value.
-  public let value: Operand?
+  public let value: Operand
+
+  init(value: Operand = .constant(.unit)) {
+    self.value = value
+  }
 
   public func dump<Target: TextOutputStream>(
     into output: inout Target,
     with printer: inout IRPrinter
   ) {
-    if let value = value {
-      output.write("return ")
-      value.dump(into: &output, with: &printer)
-    } else {
-      output.write("return")
-    }
+    output.write("return ")
+    value.dump(into: &output, with: &printer)
   }
 
   public var type: LoweredType { .object(.unit) }
+
+  public var operands: [Operand] { [value] }
 
 }

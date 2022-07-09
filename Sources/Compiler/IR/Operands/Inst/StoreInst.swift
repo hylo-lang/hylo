@@ -19,4 +19,6 @@ public struct StoreInst: Inst {
     target.dump(into: &output, with: &printer)
   }
 
+  public var operands: [Operand] { [target] }
+
 }

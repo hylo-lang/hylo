@@ -20,4 +20,6 @@ public struct MemberAddrInst: Inst {
     output.write(", \(path.descriptions())")
   }
 
+  public var operands: [Operand] { [value] }
+
 }

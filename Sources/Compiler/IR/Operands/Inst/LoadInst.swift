@@ -14,4 +14,6 @@ public struct LoadInst: Inst {
     source.dump(into: &output, with: &printer)
   }
 
+  public var operands: [Operand] { [source] }
+
 }

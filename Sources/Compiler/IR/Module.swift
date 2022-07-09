@@ -10,10 +10,10 @@ public struct Module {
   public let name: String
 
   /// The def-use chains of the values in this module.
-  public private(set) var uses: [Any] = []
+  public private(set) var uses: [Operand: [Use]] = [:]
 
   /// The functions in the module.
-  public internal(set) var functions: [Function] = []
+  public private(set) var functions: [Function] = []
 
   /// A table mapping function declarations to their ID in the module.
   private var loweredFunctions: [NodeID<FunDecl>: Function.ID] = [:]
@@ -98,6 +98,7 @@ public struct Module {
   /// Inserts `inst` at the specified insertion point.
   @discardableResult
   mutating func insert<I: Inst>(_ inst: I, at ip: InsertionPoint) -> InstID {
+    // Inserts the instruction.
     let index: Int
     switch ip.position {
     case .end:
@@ -105,7 +106,16 @@ public struct Module {
     case .after(let i):
       index = functions[ip.block.function][ip.block.index].instructions.insert(inst, after: i)
     }
-    return InstID(function: ip.block.function, block: ip.block.index, index: index)
+
+    // Generate an instruction identifier.
+    let userID = InstID(function: ip.block.function, block: ip.block.index, index: index)
+
+    // Update the use lists of the instruction's operands.
+    for i in 0 ..< inst.operands.count {
+      uses[inst.operands[i], default: []].append(Use(user: userID, index: i))
+    }
+
+    return userID
   }
 
 }

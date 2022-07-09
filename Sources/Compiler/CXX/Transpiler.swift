@@ -143,15 +143,9 @@ public struct Transpiler {
           instructions.write(";\n")
 
         case let inst as ReturnInst:
-          if let value = inst.value,
-             module.type(of: value).astType != .unit
-          {
-            instructions.write("return ")
-            instructions.write(emit(operand: value, names: operandNames))
-            instructions.write(";\n")
-          } else {
-            instructions.write("return;\n")
-          }
+          instructions.write("return ")
+          instructions.write(emit(operand: inst.value, names: operandNames))
+          instructions.write(";\n")
 
         case let inst as StoreInst:
           instructions.write("*")

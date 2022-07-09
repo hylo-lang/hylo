@@ -16,4 +16,6 @@ public struct AllocInst: Inst {
     output.write("alloc [\(space)] \(objectType)")
   }
 
+  public var operands: [Operand] { [] }
+
 }
