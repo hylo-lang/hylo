@@ -3,7 +3,7 @@ import Utils
 /// A Val to C++ transpiler.
 public struct Transpiler {
 
-  /// The program to transpile.
+  /// The program being transpiled.
   public let program: TypedProgram
 
   /// The type definitions explosed in the C++ API.

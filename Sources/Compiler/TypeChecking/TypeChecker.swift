@@ -48,6 +48,7 @@ public struct TypeChecker {
       ast: ast,
       scopeHierarchy: scopeHierarchy,
       declTypes: declTypes,
+      exprTypes: exprTypes,
       referredDecls: referredDecls)
   }
 

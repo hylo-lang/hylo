@@ -11,7 +11,7 @@ public struct TypedProgram {
   public let declTypes: DeclMap<Type>
 
   /// The type of each expression.
-  public let exprTypes = ExprMap<Type>()
+  public let exprTypes: ExprMap<Type>
 
   /// A table mapping name expressions to referred declarations.
   public let referredDecls: [NodeID<NameExpr>: DeclRef]
@@ -21,11 +21,13 @@ public struct TypedProgram {
     ast: AST,
     scopeHierarchy: ScopeHierarchy,
     declTypes: DeclMap<Type>,
+    exprTypes: ExprMap <Type>,
     referredDecls: [NodeID<NameExpr>: DeclRef]
   ) {
     self.ast = ast
     self.scopeHierarchy = scopeHierarchy
     self.declTypes = declTypes
+    self.exprTypes = exprTypes
     self.referredDecls = referredDecls
   }
 
