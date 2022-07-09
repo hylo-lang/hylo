@@ -69,11 +69,12 @@ public struct Transpiler {
 
     // Compile the instructions.
     unit.source.write("{\n")
+    var instructions = ""
 
     for blockIndex in function.blocks.indices {
       let blockID = BlockID(function: functionID, index: blockIndex)
-      unit.source.write(blockNames[blockID]!)
-      unit.source.write(":\n")
+      instructions.write(blockNames[blockID]!)
+      instructions.write(":\n")
 
       let block = function.blocks[blockIndex]
       for instIndex in block.instructions.indices {
@@ -83,13 +84,13 @@ public struct Transpiler {
         case let inst as AllocInst:
           let instName = operandNames[.inst(instID)]!
           let instType = compile(type: inst.objectType, into: &unit)
-          let instTypeDesc = unit.describe(cxxType: instType)
+          let instTypeName = unit.describe(cxxType: instType)
+          unit.source.write("\(instTypeName) _\(instName); ")
+          unit.source.write("\(instTypeName)* \(instName) = &_\(instName);\n")
 
-          unit.source.write("alignas(\(instTypeDesc)) char _\(instName)")
-          unit.source.write("[sizeof(\(instTypeDesc))];\n")
-
-          unit.source.write("\(instTypeDesc)* \(instName) = ")
-          unit.source.write("static_cast<\(instTypeDesc)*>(_\(instName));\n")
+        case let inst as BranchInst:
+          let targetLabel = blockNames[inst.target]!
+          instructions.write("goto \(targetLabel);\n")
 
         case let inst as CallInst:
           let instName = operandNames[.inst(instID)]!
@@ -98,66 +99,87 @@ public struct Transpiler {
           // Assign the return value of the function if there's one.
           if (instType != .never) && ((instType != .unit) || !inst.isBuiltinCall) {
             let instType = compile(loweredType: inst.type, into: &unit)
-            let instTypeDesc = unit.describe(cxxType: instType)
-            unit.source.write("\(instTypeDesc) \(instName) = ")
+            let instTypeName = unit.describe(cxxType: instType)
+            unit.source.write("\(instTypeName) \(instName);\n")
+            instructions.write("\(instName) = ")
           }
-          unit.source.write(emit(operand: inst.callee, names: operandNames))
-          unit.source.write("(")
+
+          instructions.write(emit(operand: inst.callee, names: operandNames))
+          instructions.write("(")
           for i in 0 ..< inst.operands.count {
-            if i > 0 { unit.source.write(", ") }
-            unit.source.write(emit(operand: inst.operands[i], names: operandNames))
+            if i > 0 { instructions.write(", ") }
+            instructions.write(emit(operand: inst.operands[i], names: operandNames))
           }
-          unit.source.write(");\n")
+          instructions.write(");\n")
+
+        case let inst as CondBranchInst:
+          let t = blockNames[inst.targetIfTrue]!
+          let f = blockNames[inst.targetIfFalse]!
+          instructions.write("if (")
+          instructions.write(emit(operand: inst.condition, names: operandNames))
+          instructions.write(") { goto \(t); } else { goto \(f); }\n")
+
+        case let inst as LoadInst:
+          let instName = operandNames[.inst(instID)]!
+          let instType = compile(loweredType: inst.type, into: &unit)
+          let instTypeName = unit.describe(cxxType: instType)
+          unit.source.write("\(instTypeName) \(instName);\n")
+
+          instructions.write("\(instName) = *")
+          instructions.write(emit(operand: inst.source, names: operandNames))
+          instructions.write(";\n")
 
         case let inst as MemberAddrInst:
           let instName = operandNames[.inst(instID)]!
           let instType = compile(loweredType: inst.type, into: &unit)
-          let instTypeDesc = unit.describe(cxxType: instType)
+          let instTypeName = unit.describe(cxxType: instType)
+          unit.source.write("\(instTypeName) \(instName);\n")
 
-          unit.source.write("\(instTypeDesc) \(instName) = &")
-          unit.source.write(emit(operand: inst.value, names: operandNames))
+          instructions.write("\(instName) = &")
+          instructions.write(emit(operand: inst.value, names: operandNames))
           for offset in inst.path {
-            unit.source.write("->_\(offset)")
+            instructions.write("->m\(offset)")
           }
-          unit.source.write(";\n")
+          instructions.write(";\n")
 
         case let inst as ReturnInst:
           if let value = inst.value,
              module.type(of: value).astType != .unit
           {
-            unit.source.write("return ")
-            unit.source.write(emit(operand: value, names: operandNames))
-            unit.source.write(";\n")
+            instructions.write("return ")
+            instructions.write(emit(operand: value, names: operandNames))
+            instructions.write(";\n")
           } else {
-            unit.source.write("return;\n")
+            instructions.write("return;\n")
           }
 
         case let inst as StoreInst:
-          unit.source.write("*")
-          unit.source.write(emit(operand: inst.target, names: operandNames))
-          unit.source.write(" = ")
-          unit.source.write(emit(operand: inst.object, names: operandNames))
-          unit.source.write(";\n")
+          instructions.write("*")
+          instructions.write(emit(operand: inst.target, names: operandNames))
+          instructions.write(" = ")
+          instructions.write(emit(operand: inst.object, names: operandNames))
+          instructions.write(";\n")
 
         case let inst as RecordInst:
           let instName = operandNames[.inst(instID)]!
           let instType = compile(loweredType: inst.type, into: &unit)
-          let instTypeDesc = unit.describe(cxxType: instType)
+          let instTypeName = unit.describe(cxxType: instType)
+          unit.source.write("\(instTypeName) \(instName);\n")
 
-          unit.source.write("\(instTypeDesc) \(instName){")
+          instructions.write("new(&\(instName)) \(instTypeName){")
           for i in 0 ..< inst.operands.count {
-            if i > 0 { unit.source.write(", ") }
-            unit.source.write(emit(operand: inst.operands[i], names: operandNames))
+            if i > 0 { instructions.write(", ") }
+            instructions.write(emit(operand: inst.operands[i], names: operandNames))
           }
-          unit.source.write("};\n")
+          instructions.write("};\n")
 
         default:
-          // unreachable("unexpected instruction")
-          break
+          unreachable("unexpected instruction")
         }
       }
     }
 
+    unit.source.write(instructions)
     unit.source.write("}\n")
   }
 
@@ -201,9 +223,15 @@ public struct Transpiler {
     case .builtin(let type):
       switch type {
       case .module:
-        fatalError("no C++ type representation")
+        preconditionFailure("no C++ type representation")
+
       case .i(let bitWidth):
-        return .fixedWidthInteger(bitWidth)
+        switch bitWidth {
+        case 1, 2, 3, 8, 16, 32, 64:
+          return .fixedWidthInteger(bitWidth)
+        default:
+          preconditionFailure("no C++ type representation")
+        }
       }
 
     case .product(let type):

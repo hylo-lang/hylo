@@ -1,4 +1,5 @@
 import Foundation
+import Utils
 
 /// A C++ compilation unit.
 struct CXXUnit {
@@ -43,7 +44,13 @@ struct CXXUnit {
   func describe(cxxType: CXXType) -> String {
     switch cxxType {
     case .fixedWidthInteger(let bitWidth):
-      return "int\(bitWidth)_t"
+      switch bitWidth {
+      case 1, 8 : return "int8_t"
+      case 16   : return "int16_t"
+      case 32   : return "int32_t"
+      case 64   : return "int64_t"
+      default   : unreachable()
+      }
 
     case .structure(let id):
       return structures[id].name.description

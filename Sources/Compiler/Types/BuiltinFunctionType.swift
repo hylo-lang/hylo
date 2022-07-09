@@ -14,10 +14,25 @@ public enum BuiltinFunctionType {
     from: (.let, .i(64)),
     to: .builtin(.i(64)))
 
+  /// 64-bit integer multiplication.
+  public static let i64_mul = LambdaType(
+    from: (.let, .i(64)), (.let, .i(64)),
+    to: .builtin(.i(64)))
+
   /// 64-bit integer addition.
   public static let i64_add = LambdaType(
     from: (.let, .i(64)), (.let, .i(64)),
     to: .builtin(.i(64)))
+
+  /// 64-bit integer subtraction.
+  public static let i64_sub = LambdaType(
+    from: (.let, .i(64)), (.let, .i(64)),
+    to: .builtin(.i(64)))
+
+  /// 64-bit integer "less than" comparison.
+  public static let i64_lt = LambdaType(
+    from: (.let, .i(64)), (.let, .i(64)),
+    to: .builtin(.i(1)))
 
   // 64-bit print.
   public static let i64_print = LambdaType(
@@ -32,7 +47,10 @@ public enum BuiltinFunctionType {
     case "i1_copy"  : return Self.i1_copy
 
     case "i64_copy" : return Self.i64_copy
+    case "i64_mul"  : return Self.i64_mul
     case "i64_add"  : return Self.i64_add
+    case "i64_sub"  : return Self.i64_sub
+    case "i64_lt"   : return Self.i64_lt
     case "i64_print": return Self.i64_print
 
     default:
