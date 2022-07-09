@@ -10,7 +10,7 @@ public protocol ExprVisitor {
 
   mutating func visit(await: NodeID<AwaitExpr>) -> Result
 
-  mutating func visit(boolLiteral: NodeID<BoolLiteralExpr>) -> Result
+  mutating func visit(booleanLiteral: NodeID<BooleanLiteralExpr>) -> Result
 
   mutating func visit(bufferLiteral: NodeID<BufferLiteralExpr>) -> Result
 

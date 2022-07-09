@@ -52,7 +52,7 @@ struct ConstraintGenerator: ExprVisitor {
     fatalError("not implemented")
   }
 
-  mutating func visit(boolLiteral id: NodeID<BoolLiteralExpr>) {
+  mutating func visit(booleanLiteral id: NodeID<BooleanLiteralExpr>) {
     let boolType = ProductType(standardLibraryTypeNamed: "Bool", ast: checker.ast)!
     assume(typeOf: id, equals: .product(boolType))
   }
@@ -102,10 +102,10 @@ struct ConstraintGenerator: ExprVisitor {
     let boolType = ProductType(standardLibraryTypeNamed: "Bool", ast: checker.ast)!
     for item in checker.ast[id].condition {
       switch item {
-      case .expr(let condExpr):
+      case .expr(let expr):
         // Condition must be Boolean.
-        expectedTypes[condExpr] = .product(boolType)
-        condExpr.accept(&self)
+        expectedTypes[expr] = .product(boolType)
+        expr.accept(&self)
       case .decl(let binding):
         _ = checker.check(binding: binding)
       }

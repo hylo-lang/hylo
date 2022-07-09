@@ -1926,7 +1926,7 @@ final class TypeCheckerTests: XCTestCase {
                       identifier: SourceRepresentable(value: "x")))))))),
                 initializer: AnyExprID(ast.insert(CondExpr(
                   condition: [
-                    .expr(AnyExprID(ast.insert(BoolLiteralExpr(value: true))))
+                    .expr(AnyExprID(ast.insert(BooleanLiteralExpr(value: true))))
                   ],
                   success: .expr(AnyExprID(ast.insert(IntegerLiteralExpr(value: "1")))),
                   failure: .expr(AnyExprID(ast.insert(IntegerLiteralExpr(value: "2")))))))

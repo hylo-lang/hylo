@@ -9,13 +9,16 @@ public enum Constant: Hashable {
 
   case poison(PoisonConstant)
 
+  case unit
+
   /// The associated value of this constant.
   public var base: ConstantProtocol {
     switch self {
-    case let .builtin(c):   return c
-    case let .integer(c):   return c
-    case let .function(c):  return c
-    case let .poison(c):    return c
+    case .builtin(let c):   return c
+    case .integer(let c):   return c
+    case .function(let c):  return c
+    case .poison(let c):    return c
+    case .unit:             return UnitConstant()
     }
   }
 

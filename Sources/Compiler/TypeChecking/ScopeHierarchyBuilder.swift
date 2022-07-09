@@ -257,7 +257,7 @@ struct ScopeHierarchyBuilder:
     ast[id].operand.accept(&self)
   }
 
-  mutating func visit(boolLiteral id: NodeID<BoolLiteralExpr>) {}
+  mutating func visit(booleanLiteral id: NodeID<BooleanLiteralExpr>) {}
 
   mutating func visit(bufferLiteral id: NodeID<BufferLiteralExpr>) {
     for elem in ast[id].elements {

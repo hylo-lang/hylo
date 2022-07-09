@@ -102,6 +102,16 @@ public struct Module {
     return id
   }
 
+  /// Creates a basic block at the end of the specified function and returns its identifier.
+  @discardableResult
+  mutating func createBasicBlock(
+    accepting inputs: [LoweredType] = [],
+    atEndOf functionID: FunctionID
+  ) -> BlockID {
+    let index = functions[functionID].blocks.append(Block(inputs: inputs))
+    return BlockID(function: functionID, index: index)
+  }
+
   /// Inserts `inst` at the specified insertion point.
   @discardableResult
   mutating func insert<I: Inst>(_ inst: I, at ip: InsertionPoint) -> InstID {

@@ -84,7 +84,7 @@ public struct NodeKind: Hashable {
      2 << 16 | expr.rawValue)
   public static let awaitExpr = NodeKind(
      3 << 16 | expr.rawValue)
-  public static let boolLiteralExpr = NodeKind(
+  public static let booleanLiteralExpr = NodeKind(
      4 << 16 | expr.rawValue)
   public static let bufferLiteralExpr = NodeKind(
      5 << 16 | expr.rawValue)
@@ -231,7 +231,7 @@ extension NodeKind: CustomStringConvertible {
     case .assignExpr                : return "AssignExpr"
     case .asyncExpr                 : return "AsyncExpr"
     case .awaitExpr                 : return "AwaitExpr"
-    case .boolLiteralExpr           : return "BoolLiteralExpr"
+    case .booleanLiteralExpr        : return "BooleanLiteralExpr"
     case .bufferLiteralExpr         : return "BufferLiteralExpr"
     case .charLiteralExpr           : return "CharLiteralExpr"
     case .condExpr                  : return "CondExpr"

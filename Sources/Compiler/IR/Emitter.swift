@@ -94,10 +94,9 @@ public struct Emitter {
 
     // Create the function entry.
     assert(module.functions[functionID].blocks.isEmpty)
-    let entryIndex = module.functions[functionID].blocks.append(Block(
-      inputs: module.functions[functionID].inputs,
-      instructions: []))
-    let entryID = BlockID(function: functionID, index: entryIndex)
+    let entryID = module.createBasicBlock(
+      accepting: module.functions[functionID].inputs,
+      atEndOf: functionID)
     insertionPoint = InsertionPoint(endOf: entryID)
 
     // Configure the locals.
@@ -274,6 +273,10 @@ public struct Emitter {
   /// Emits `expr` as a r-value into `module` at the current insertion point.
   private mutating func emitR<T: ExprID>(expr: T, into module: inout Module) -> Operand {
     switch expr.kind {
+    case .booleanLiteralExpr:
+      return emitR(booleanLiteral: NodeID(unsafeRawValue: expr.rawValue), into: &module)
+    case .condExpr:
+      return emitR(cond: NodeID(unsafeRawValue: expr.rawValue), into: &module)
     case .funCallExpr:
       return emitR(funCall: NodeID(unsafeRawValue: expr.rawValue), into: &module)
     case .integerLiteralExpr:
@@ -284,6 +287,111 @@ public struct Emitter {
       return emitR(sequence: NodeID(unsafeRawValue: expr.rawValue), into: &module)
     default:
       unreachable("unexpected expression")
+    }
+  }
+
+  private mutating func emitR(
+    booleanLiteral expr: NodeID<BooleanLiteralExpr>,
+    into module: inout Module
+  ) -> Operand {
+    let boolType = ProductType(standardLibraryTypeNamed: "Bool", ast: ast)!
+    let boolValue = IntegerConstant(
+      bitPattern: BitPattern(pattern: ast[expr].value ? 1 : 0, width: 1))
+
+    let result = module.insert(
+      RecordInst(type: .object(.product(boolType)), operands: [.constant(.integer(boolValue))]),
+      at: insertionPoint!)
+    return .inst(result)
+  }
+
+  private mutating func emitR(
+    cond expr: NodeID<CondExpr>,
+    into module: inout Module
+  ) -> Operand {
+    let functionID = insertionPoint!.block.function
+
+    // If the expression is supposed to return a value, allocate storage for it.
+    var resultStorage: InstID?
+    if let type = exprTypes[expr], type != .unit {
+      resultStorage = module.insert(
+        AllocInst(objectType: type, space: localMemorySpace),
+        at: insertionPoint!)
+    }
+
+    // Emit the condition(s).
+    var alt: BlockID?
+
+    for item in ast[expr].condition {
+      let success = module.createBasicBlock(atEndOf: functionID)
+      let failure = module.createBasicBlock(atEndOf: functionID)
+      alt = failure
+
+      switch item {
+      case .expr(let itemExpr):
+        // Evaluate the condition in the current block.
+        var condition = emitL(expr: itemExpr, into: &module)
+        condition = .inst(module.insert(
+          MemberAddrInst(value: condition, path: [0], type: .address(.builtin(.i(1)))),
+          at: insertionPoint!))
+        condition = .inst(module.insert(
+          LoadInst(source: condition, type: .object(.builtin(.i(1)))),
+          at: insertionPoint!))
+
+        module.insert(
+          CondBranchInst(
+            condition: condition,
+            targetIfTrue: success,
+            targetIfFalse: failure),
+          at: insertionPoint!)
+        insertionPoint = InsertionPoint(endOf: success)
+
+      case .decl:
+        fatalError("not implemented")
+      }
+    }
+
+    let continuation = module.createBasicBlock(atEndOf: functionID)
+
+    // Emit the success branch.
+    // Note: the insertion pointer is already set in the corresponding block.
+    switch ast[expr].success {
+    case .expr(let thenExpr):
+      let value = emitR(expr: thenExpr, into: &module)
+      if let target = resultStorage {
+        module.insert(StoreInst(object: value, target: .inst(target)), at: insertionPoint!)
+      }
+
+    case .block:
+      fatalError("not implemented")
+    }
+    module.insert(BranchInst(target: continuation), at: insertionPoint!)
+
+    // Emit the failure branch.
+    insertionPoint = InsertionPoint(endOf: alt!)
+    switch ast[expr].failure {
+    case .expr(let elseExpr):
+      let value = emitR(expr: elseExpr, into: &module)
+      if let target = resultStorage {
+        module.insert(StoreInst(object: value, target: .inst(target)), at: insertionPoint!)
+      }
+
+    case .block:
+      fatalError("not implemented")
+
+    case nil:
+      break
+    }
+    module.insert(BranchInst(target: continuation), at: insertionPoint!)
+
+    // Emit the value of the expression.
+    insertionPoint = InsertionPoint(endOf: continuation)
+    if let source = resultStorage {
+      let load = module.insert(
+        LoadInst(source: .inst(source), type: LoweredType(lowering: exprTypes[expr]!)),
+        at: insertionPoint!)
+      return .inst(load)
+    } else {
+      return .constant(.unit)
     }
   }
 

@@ -14,8 +14,8 @@ extension ExprID {
       return visitor.visit(async: NodeID(unsafeRawValue: rawValue))
     case .awaitExpr:
       return visitor.visit(await: NodeID(unsafeRawValue: rawValue))
-    case .boolLiteralExpr:
-      return visitor.visit(boolLiteral: NodeID(unsafeRawValue: rawValue))
+    case .booleanLiteralExpr:
+      return visitor.visit(booleanLiteral: NodeID(unsafeRawValue: rawValue))
     case .charLiteralExpr:
       return visitor.visit(charLiteral: NodeID(unsafeRawValue: rawValue))
     case .castExpr:

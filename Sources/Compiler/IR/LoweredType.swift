@@ -49,3 +49,15 @@ public struct LoweredType: Hashable {
   }
 
 }
+
+extension LoweredType: CustomStringConvertible {
+
+  public var description: String {
+    if isAddress {
+      return "&" + String(describing: astType)
+    } else {
+      return String(describing: astType)
+    }
+  }
+
+}

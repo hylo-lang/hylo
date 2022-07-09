@@ -1,7 +1,7 @@
 /// A boolean literal expression.
-public struct BoolLiteralExpr: Expr {
+public struct BooleanLiteralExpr: Expr {
 
-  public static let kind = NodeKind.boolLiteralExpr
+  public static let kind = NodeKind.booleanLiteralExpr
 
   /// The value of the literal.
   public var value: Bool

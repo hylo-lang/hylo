@@ -206,7 +206,7 @@ struct CaptureCollector {
         into: &captures,
         inMutatingContext: isContextMutating)
 
-    case .boolLiteralExpr,
+    case .booleanLiteralExpr,
          .charLiteralExpr,
          .floatLiteralExpr,
          .integerLiteralExpr,
