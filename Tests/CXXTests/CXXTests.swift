@@ -103,6 +103,7 @@ final class CXXTests: XCTestCase {
       ast: checker.ast,
       scopeHierarchy: checker.scopeHierarchy,
       declTypes: checker.declTypes,
+      exprTypes: checker.exprTypes,
       referredDecls: checker.referredDecls)
     var transpiler = Transpiler(program: program)
     let header = transpiler.emitHeader(of: main)

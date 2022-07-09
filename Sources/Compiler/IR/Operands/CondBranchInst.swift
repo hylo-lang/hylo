@@ -7,10 +7,10 @@ public struct CondBranchInst: Inst {
   public let condition: Operand
 
   /// The target of the branch if `condition` is true.
-  public let targetIfTrue: BlockID
+  public let targetIfTrue: Block.ID
 
   /// The target of the branch if `condition` is false.
-  public let targetIfFalse: BlockID
+  public let targetIfFalse: Block.ID
 
   public func dump<Target: TextOutputStream>(
     into output: inout Target,

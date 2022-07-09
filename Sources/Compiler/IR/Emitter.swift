@@ -289,7 +289,7 @@ public struct Emitter {
     }
 
     // Emit the condition(s).
-    var alt: BlockID?
+    var alt: Block.ID?
 
     for item in program.ast[expr].condition {
       let success = module.createBasicBlock(atEndOf: functionID)

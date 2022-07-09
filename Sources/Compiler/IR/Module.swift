@@ -16,7 +16,7 @@ public struct Module {
   public internal(set) var functions: [Function] = []
 
   /// A table mapping function declarations to their ID in the module.
-  private var loweredFunctions: [NodeID<FunDecl>: FunctionID] = [:]
+  private var loweredFunctions: [NodeID<FunDecl>: Function.ID] = [:]
 
   public init(decl: NodeID<ModuleDecl>, id: String) {
     self.decl = decl
@@ -26,31 +26,14 @@ public struct Module {
   /// Returns the type of `operand`.
   public func type(of operand: Operand) -> LoweredType {
     switch operand {
-    case .inst(let instID):
-      return self[instID].type
-    case .parameter(let blockID, let index):
-      return self[blockID].inputs[index]
+    case .inst(let id):
+      return functions[id.function][id.block][id.index].type
+
+    case .parameter(let block, let index):
+      return functions[block.function][block.index].inputs[index]
+
     case .constant(let constant):
       return constant.type
-    }
-  }
-
-  /// Accesses the basic block identified by `blockID`.
-  public subscript(blockID: BlockID) -> Block {
-    _read {
-      yield functions[blockID.function].blocks[blockID.index]
-    }
-    _modify {
-      yield &functions[blockID.function].blocks[blockID.index]
-    }
-  }
-
-  /// Accesses the instruction identified by `instID`.
-  public subscript(instID: InstID) -> Inst {
-    _read {
-      yield functions[instID.block.function]
-        .blocks[instID.block.index]
-        .instructions[instID.index]
     }
   }
 
@@ -60,7 +43,7 @@ public struct Module {
     ast: AST,
     withScopeHierarchy scopeHierarchy: ScopeHierarchy,
     withDeclTypes declTypes: DeclMap<Type>
-  ) -> FunctionID {
+  ) -> Function.ID {
     if let id = loweredFunctions[declID] { return id }
 
     // Determine the type of the function.
@@ -106,10 +89,10 @@ public struct Module {
   @discardableResult
   mutating func createBasicBlock(
     accepting inputs: [LoweredType] = [],
-    atEndOf functionID: FunctionID
-  ) -> BlockID {
-    let index = functions[functionID].blocks.append(Block(inputs: inputs))
-    return BlockID(function: functionID, index: index)
+    atEndOf function: Function.ID
+  ) -> Block.ID {
+    let index = functions[function].blocks.append(Block(inputs: inputs))
+    return Block.ID(function: function, index: index)
   }
 
   /// Inserts `inst` at the specified insertion point.
@@ -118,12 +101,22 @@ public struct Module {
     let index: Int
     switch ip.position {
     case .end:
-      index = self[ip.block].instructions.append(inst)
+      index = functions[ip.block.function][ip.block.index].instructions.append(inst)
     case .after(let i):
-      index = self[ip.block].instructions.insert(inst, after: i)
+      index = functions[ip.block.function][ip.block.index].instructions.insert(inst, after: i)
     }
+    return InstID(function: ip.block.function, block: ip.block.index, index: index)
+  }
 
-    return InstID(block: ip.block, index: index)
+}
+
+extension Module {
+
+  public typealias FunctionIndex = Int
+
+  public subscript(_ position: FunctionIndex) -> Function {
+    _read   { yield functions[position] }
+    _modify { yield &functions[position] }
   }
 
 }
@@ -144,7 +137,7 @@ extension Module: CustomStringConvertible {
 
       var printer = IRPrinter()
       for blockIndex in function.blocks.indices {
-        let blockID = BlockID(function: functionID, index: blockIndex)
+        let blockID = Block.ID(function: functionID, index: blockIndex)
         let block = function.blocks[blockIndex]
 
         output.write("\(printer.translate(block: blockID))(")
@@ -155,7 +148,7 @@ extension Module: CustomStringConvertible {
 
         printer.instNames.nextDiscriminator += block.inputs.count
         for instIndex in block.instructions.indices {
-          let instID = InstID(block: blockID, index: instIndex)
+          let instID = InstID(function: functionID, block: blockIndex, index: instIndex)
           let inst = block.instructions[instIndex]
           output.write("  \(printer.translate(inst: instID)) = ")
           inst.dump(into: &output, with: &printer)

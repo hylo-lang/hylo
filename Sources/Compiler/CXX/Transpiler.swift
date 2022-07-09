@@ -31,21 +31,21 @@ public struct Transpiler {
     return unit.source
   }
 
-  func compile(function functionID: FunctionID, in module: Module, into unit: inout CXXUnit) {
+  func compile(function functionID: Function.ID, in module: Module, into unit: inout CXXUnit) {
     let function = module.functions[functionID]
 
     // Generate unique names for the basic blocks and operands in the function.
-    var blockNames  : [BlockID: String] = [:]
+    var blockNames  : [Block.ID: String] = [:]
     var operandNames: [Operand: String] = [:]
     for blockIndex in function.blocks.indices {
-      let blockID = BlockID(function: functionID, index: blockIndex)
+      let blockID = Block.ID(function: functionID, index: blockIndex)
       blockNames[blockID] = "bb\(blockNames.count)"
 
       for i in 0 ..< function.blocks[blockIndex].inputs.count {
         operandNames[.parameter(block: blockID, index: i)] = "l\(operandNames.count)"
       }
       for instIndex in function.blocks[blockIndex].instructions.indices {
-        let instID = InstID(block: blockID, index: instIndex)
+        let instID = InstID(function: functionID, block: blockIndex, index: instIndex)
         operandNames[.inst(instID)] = "l\(operandNames.count)"
       }
     }
@@ -72,13 +72,13 @@ public struct Transpiler {
     var instructions = ""
 
     for blockIndex in function.blocks.indices {
-      let blockID = BlockID(function: functionID, index: blockIndex)
+      let blockID = Block.ID(function: functionID, index: blockIndex)
       instructions.write(blockNames[blockID]!)
       instructions.write(":\n")
 
       let block = function.blocks[blockIndex]
       for instIndex in block.instructions.indices {
-        let instID = InstID(block: blockID, index: instIndex)
+        let instID = InstID(function: functionID, block: blockIndex, index: instIndex)
 
         switch block.instructions[instIndex] {
         case let inst as AllocInst:

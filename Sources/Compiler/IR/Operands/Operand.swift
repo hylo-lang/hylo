@@ -3,7 +3,7 @@ public enum Operand: Hashable {
 
   case inst(InstID)
 
-  case parameter(block: BlockID, index: Int)
+  case parameter(block: Block.ID, index: Int)
 
   case constant(Constant)
 

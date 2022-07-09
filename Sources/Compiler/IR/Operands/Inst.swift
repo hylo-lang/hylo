@@ -9,3 +9,17 @@ public protocol Inst {
   func dump<Target: TextOutputStream>(into output: inout Target, with printer: inout IRPrinter)
 
 }
+
+/// The ID of a Val IR instruction.
+public struct InstID: Hashable {
+
+  /// The ID of the containing function.
+  public var function: Module.FunctionIndex
+
+  /// The ID of the containing block.
+  public var block: Function.BlockIndex
+
+  /// The index of the instruction in the containing block.
+  public var index: Block.InstIndex
+
+}

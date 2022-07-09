@@ -13,19 +13,19 @@ public struct InsertionPoint {
   }
 
   /// The ID of a basic block.
-  public var block: BlockID
+  public var block: Block.ID
 
   /// A position in the basic block denoted by `block`.
   public var position: Position
 
   /// Creates an insertion point positioned at the end of `block`.
-  public init(endOf block: BlockID) {
+  public init(endOf block: Block.ID) {
     self.block = block
     self.position = .end
   }
 
   /// Creates an insertion point position right after `inst` in `block`.
-  public init(after inst: Block.InstIndex, in block: BlockID) {
+  public init(after inst: Block.InstIndex, in block: Block.ID) {
     self.block = block
     self.position = .after(inst)
   }

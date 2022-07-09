@@ -3,7 +3,8 @@ import Utils
 /// A function lowered to Val IR.
 public struct Function {
 
-  public typealias BlockIndex = StableArray<Block>.Index
+  /// The ID of a basic block in a Val IR function.
+  public typealias ID = Module.FunctionIndex
 
   /// The mangled name of the function.
   public var name: String
@@ -24,6 +25,17 @@ public struct Function {
 
   /// The entry of the function.
   public var entry: Block { blocks[blocks.startIndex] }
+
+}
+
+extension Function {
+
+  public typealias BlockIndex = StableArray<Block>.Index
+
+  public subscript(_ position: BlockIndex) -> Block {
+    _read   { yield blocks[position] }
+    _modify { yield &blocks[position] }
+  }
 
 }
 

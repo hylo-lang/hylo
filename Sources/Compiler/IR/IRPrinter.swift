@@ -21,12 +21,12 @@ public struct IRPrinter {
   }
 
   /// A table mapping basic blocks to a unique name.
-  var blockNames = NameMap<BlockID>()
+  var blockNames = NameMap<Block.ID>()
 
   /// A table mapping instructions to a unique name.
   var instNames = NameMap<InstID>()
 
-  mutating func translate(block: BlockID) -> String {
+  mutating func translate(block: Block.ID) -> String {
     "bb" + blockNames.translate(block)
   }
 

@@ -4,7 +4,7 @@
 public struct BranchInst: Inst {
 
   /// The target of the branch.
-  public let target: BlockID
+  public let target: Block.ID
 
   public func dump<Target: TextOutputStream>(
     into output: inout Target,
