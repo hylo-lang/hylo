@@ -26,6 +26,25 @@ public struct Function {
   /// The entry of the function.
   public var entry: Block { blocks[blocks.startIndex] }
 
+  /// The control flow graph of the function.
+  var cfg: ControlFlowGraph {
+    var result = ControlFlowGraph()
+
+    for source in blocks.indices {
+      switch blocks[source].instructions.last {
+      case let inst as BranchInst:
+        result.define(source, predecessorOf: inst.target.index)
+      case let inst as CondBranchInst:
+        result.define(source, predecessorOf: inst.targetIfTrue.index)
+        result.define(source, predecessorOf: inst.targetIfFalse.index)
+      default:
+        break
+      }
+    }
+
+    return result
+  }
+
 }
 
 extension Function {

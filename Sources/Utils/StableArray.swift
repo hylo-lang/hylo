@@ -1,4 +1,8 @@
 /// An array which guarantees stable indices.
+///
+/// - Note: `StableArray` does not satisfy the requirements of `Collection`, as `StableArray.Index`
+///   does not conform to `Comparable`. However, you may use `StableArray.elements` to present the
+///   elements of a stable array in a collection.
 public struct StableArray<Element> {
 
   // The internal representation is a doubly linked list in which forward and backward pointers are
@@ -66,10 +70,10 @@ public struct StableArray<Element> {
 
   /// Inserts `newElement` at the end of the array and returns its index.
   @discardableResult
-  public mutating func append(_ newElement: Element) -> Int {
+  public mutating func append(_ newElement: Element) -> Index {
     if let tail = storage?.header.tailOffset {
       // Insert the new element after the tail element.
-      return insert(newElement, after: tail)
+      return insert(newElement, after: Index(tail))
     } else {
       // Allocate new storage if the `self` is empty.
       storage = List.create(
@@ -81,16 +85,16 @@ public struct StableArray<Element> {
         elements.initialize(to: Bucket(previousOffset: -1, nextOffset: -1, element: newElement))
       })
 
-      return 0
+      return Index(0)
     }
   }
 
   /// Inserts `newElement` at the start of the array and returns its index.
   @discardableResult
-  public mutating func prepend(_ newElement: Element) -> Int {
+  public mutating func prepend(_ newElement: Element) -> Index {
     if let head = storage?.header.headOffset {
       // Insert the new element before the head element.
-      return insert(newElement, before: head)
+      return insert(newElement, before: Index(head))
     } else {
       // Allocate new storage if the `self` is empty.
       storage = List.create(
@@ -102,7 +106,7 @@ public struct StableArray<Element> {
         elements.initialize(to: Bucket(previousOffset: -1, nextOffset: -1, element: newElement))
       })
 
-      return 0
+      return Index(0)
     }
   }
 
@@ -110,9 +114,9 @@ public struct StableArray<Element> {
   ///
   /// - Requires: `position` must be the index of an element in `self`.
   @discardableResult
-  public mutating func insert(_ newElement: Element, before position: Int) -> Int {
+  public mutating func insert(_ newElement: Element, before position: Index) -> Index {
     guard storage != nil,
-          (position >= 0) && (position < storage!.header.capacity)
+          (position.rawValue >= 0) && (position.rawValue < storage!.header.capacity)
     else { preconditionFailure("index out of bound") }
 
     // Allocate new storage if `self` is full. Otherwise, make sure mutation is not shared.
@@ -124,26 +128,26 @@ public struct StableArray<Element> {
 
     // Insert the new element.
     return storage!.withUnsafeMutablePointers({ (header, elements) in
-      precondition(elements[position].element != nil, "index out of bound")
+      precondition(elements[position.rawValue].element != nil, "index out of bound")
 
       let newPosition = header.pointee.freeOffset
       let next = elements[newPosition].nextOffset
 
       elements[newPosition].element = newElement
-      elements[newPosition].previousOffset = elements[position].previousOffset
-      elements[newPosition].nextOffset = position
+      elements[newPosition].previousOffset = elements[position.rawValue].previousOffset
+      elements[newPosition].nextOffset = position.rawValue
 
       header.pointee.count += 1
       header.pointee.freeOffset = next != -1 ? next : header.pointee.count
 
-      if position == header.pointee.headOffset {
+      if position.rawValue == header.pointee.headOffset {
         header.pointee.headOffset = newPosition
       } else {
-        elements[elements[position].previousOffset].nextOffset = newPosition
+        elements[elements[position.rawValue].previousOffset].nextOffset = newPosition
       }
-      elements[position].previousOffset = newPosition
+      elements[position.rawValue].previousOffset = newPosition
 
-      return newPosition
+      return Index(newPosition)
     })
   }
 
@@ -151,9 +155,9 @@ public struct StableArray<Element> {
   ///
   /// - Requires: `position` must be the index of an element in `self`.
   @discardableResult
-  public mutating func insert(_ newElement: Element, after position: Int) -> Int {
+  public mutating func insert(_ newElement: Element, after position: Index) -> Index {
     guard storage != nil,
-          (position >= 0) && (position < storage!.header.capacity)
+          (position.rawValue >= 0) && (position.rawValue < storage!.header.capacity)
     else { preconditionFailure("index out of bound") }
 
     // Allocate new storage if `self` is full. Otherwise, make sure mutation is not shared.
@@ -165,34 +169,34 @@ public struct StableArray<Element> {
 
     // Insert the new element.
     return storage!.withUnsafeMutablePointers({ (header, elements) in
-      precondition(elements[position].element != nil, "index out of bound")
+      precondition(elements[position.rawValue].element != nil, "index out of bound")
 
       let newPosition = header.pointee.freeOffset
       let next = elements[newPosition].nextOffset
 
       elements[newPosition].element = newElement
-      elements[newPosition].nextOffset = elements[position].nextOffset
-      elements[newPosition].previousOffset = position
+      elements[newPosition].nextOffset = elements[position.rawValue].nextOffset
+      elements[newPosition].previousOffset = position.rawValue
 
       header.pointee.count += 1
       header.pointee.freeOffset = next != -1 ? next : header.pointee.count
 
-      if position == header.pointee.tailOffset {
+      if position.rawValue == header.pointee.tailOffset {
         header.pointee.tailOffset = newPosition
       } else {
-        elements[elements[position].nextOffset].previousOffset = newPosition
+        elements[elements[position.rawValue].nextOffset].previousOffset = newPosition
       }
-      elements[position].nextOffset = newPosition
+      elements[position.rawValue].nextOffset = newPosition
 
-      return newPosition
+      return Index(newPosition)
     })
   }
 
   /// Removes the element at the specified index.
   @discardableResult
-  public mutating func remove(at position: Int) -> Element {
+  public mutating func remove(at position: Index) -> Element {
     guard storage != nil,
-          (position >= 0) && (position < storage!.header.capacity)
+          (position.rawValue >= 0) && (position.rawValue < storage!.header.capacity)
     else { preconditionFailure("index out of bound") }
 
     // Make sure mutation is not shared.
@@ -200,13 +204,14 @@ public struct StableArray<Element> {
 
     // Remove the element.
     let removed: Element = storage!.withUnsafeMutablePointers({ (header, elements) in
-      precondition(elements[position].element != nil, "index out of bound")
+      precondition(elements[position.rawValue].element != nil, "index out of bound")
 
-      elements[elements[position].previousOffset].nextOffset = elements[position].nextOffset
-      elements[position].nextOffset = header.pointee.freeOffset
+      elements[elements[position.rawValue].previousOffset].nextOffset =
+        elements[position.rawValue].nextOffset
+      elements[position.rawValue].nextOffset = header.pointee.freeOffset
       header.pointee.count -= 1
-      header.pointee.freeOffset = position
-      return elements[position].element.release()
+      header.pointee.freeOffset = position.rawValue
+      return elements[position.rawValue].element.release()
     })
 
     if storage!.header.count == 0 {
@@ -266,7 +271,16 @@ public struct StableArray<Element> {
 
 extension StableArray {
 
-  public typealias Index = Int
+  /// A position in a stable array.
+  public struct Index: Hashable {
+
+    fileprivate var rawValue: Int
+
+    fileprivate init(_ rawValue: Int) {
+      self.rawValue = rawValue
+    }
+
+  }
 
   /// Indicates whether the array is empty.
   public var isEmpty: Bool {
@@ -284,67 +298,115 @@ extension StableArray {
   }
 
   /// The indices of this array in order.
-  public var indices: [Int] {
+  public var indices: [Index] {
     guard let storage = storage else { return [] }
     return storage.withUnsafeMutablePointers({ (header, elements) in
-      var result = [header.pointee.headOffset]
-      while result.last! != header.pointee.tailOffset {
-        result.append(elements[result.last!].nextOffset)
+      var result = [Index(header.pointee.headOffset)]
+      while result.last!.rawValue != header.pointee.tailOffset {
+        result.append(Index(elements[result.last!.rawValue].nextOffset))
       }
       return result
     })
   }
 
   /// The position of the first element in a non-empty array.
-  public var startIndex: Int {
-    storage?.header.headOffset ?? 0
+  public var startIndex: Index {
+    Index(storage?.header.headOffset ?? 0)
   }
 
   /// The array's "past-the-end" position.
-  public var endIndex: Int {
-    guard let storage = storage else { return 0 }
+  public var endIndex: Index {
+    guard let storage = storage else { return Index(0) }
     let offset = storage.header.tailOffset
     return storage.withUnsafeMutablePointerToElements({ elements in
-      elements[offset].nextOffset
+      Index(elements[offset].nextOffset)
     })
   }
 
   /// The index that immediately follows `position`.
-  public func index(after position: Int) -> Int {
+  public func index(after position: Index) -> Index {
     guard let storage = storage,
-          (position >= 0) && (position < storage.header.capacity)
+          (position.rawValue >= 0) && (position.rawValue < storage.header.capacity)
     else { preconditionFailure("index out of bound") }
 
     return storage.withUnsafeMutablePointerToElements({ elements in
-      elements[position].nextOffset
+      Index(elements[position.rawValue].nextOffset)
+    })
+  }
+
+  /// The index that immediately precedes `position`.
+  ///
+  /// - Requires: `position` must be a valid index in the array and different than `startIndex`.
+  public func index(before position: Index) -> Index {
+    guard let storage = storage,
+          (position != startIndex),
+          (position.rawValue >= 0) && (position.rawValue < storage.header.capacity)
+    else { preconditionFailure("index out of bound") }
+
+    return storage.withUnsafeMutablePointerToElements({ elements in
+      Index(elements[position.rawValue].previousOffset)
     })
   }
 
   /// Accesses the element at `position`.
-  public subscript(position: Int) -> Element {
+  public subscript(position: Index) -> Element {
     get {
       guard let storage = storage,
-            (position >= 0) && (position < storage.header.capacity)
+            (position.rawValue >= 0) && (position.rawValue < storage.header.capacity)
       else { preconditionFailure("index out of bound") }
       return storage.withUnsafeMutablePointerToElements({ elements in
-        elements[position].element!
+        elements[position.rawValue].element!
       })
     }
     _modify {
       guard let storage = storage,
-            (position >= 0) && (position < storage.header.capacity)
+            (position.rawValue >= 0) && (position.rawValue < storage.header.capacity)
       else { preconditionFailure("index out of bound") }
 
       var value = storage.withUnsafeMutablePointerToElements({ elements in
-        elements[position].element.release()
+        elements[position.rawValue].element.release()
       })
       defer {
         storage.withUnsafeMutablePointerToElements({ elements in
-          elements[position].element = value
+          elements[position.rawValue].element = value
         })
       }
       yield &value
     }
+  }
+
+  /// The first element of the array.
+  public var first: Element? {
+    storage?.withUnsafeMutablePointers({ (header, elements) in
+      elements[header.pointee.headOffset].element!
+    })
+  }
+
+  /// The last element of the array.
+  public var last: Element? {
+    storage?.withUnsafeMutablePointers({ (header, elements) in
+      elements[header.pointee.tailOffset].element!
+    })
+  }
+
+  /// Returns the first position in which an element satisfies the given predicate.
+  public func firstIndex(where predicate: (Element) throws -> Bool) rethrows -> Index? {
+    var i = startIndex
+    while i != endIndex {
+      if try predicate(self[i]) { return i }
+      i = index(after: i)
+    }
+    return nil
+  }
+
+  /// Returns the last position in which an element satisfies the given predicate.
+  public func lastIndex(where predicate: (Element) throws -> Bool) rethrows -> Index? {
+    guard var i = (storage?.header.tailOffset).map(Index.init) else { return nil }
+    repeat {
+      if try predicate(self[i]) { return i }
+      i = index(before: i)
+    } while i != startIndex
+    return nil
   }
 
 }
@@ -419,5 +481,59 @@ extension StableArray: CustomReflectable {
   public var customMirror: Mirror {
     Mirror(self, unlabeledChildren: Array(self), displayStyle: .collection)
   }
+
+}
+
+extension StableArray {
+
+  /// A collection that presents the elements of a stable array.
+  public struct CollectionAdapter: BidirectionalCollection {
+
+    public struct Index: Comparable, Hashable {
+
+      /// The corresponding index of the underlying stable array.
+      public let base: StableArray.Index
+
+      fileprivate let offset: Int
+
+      public func hash(into hasher: inout Hasher) {
+        hasher.combine(offset)
+      }
+
+      public static func == (l: Self, r: Self) -> Bool { l.offset == r.offset }
+
+      public static func < (l: Self, r: Self) -> Bool { l.offset < r.offset }
+
+    }
+
+    public typealias Element = StableArray.Element
+
+    /// The underlying array.
+    public var base: StableArray
+
+    public var startIndex: Index {
+      Index(base: base.startIndex, offset: 0)
+    }
+
+    public var endIndex: Index {
+      Index(base: base.endIndex, offset: base.count)
+    }
+
+    public func index(after i: Index) -> Index {
+      Index(base: base.index(after: i.base), offset: i.offset + 1)
+    }
+
+    public func index(before i: Index) -> Index {
+      Index(base: base.index(before: i.base), offset: i.offset - 1)
+    }
+
+    public subscript(position: Index) -> StableArray<Element>.Element {
+      base[position.base]
+    }
+
+  }
+
+  /// A collection that presents the elements `self`.
+  public var elements: CollectionAdapter { CollectionAdapter(base: self) }
 
 }

@@ -99,7 +99,7 @@ public struct Module {
   @discardableResult
   mutating func insert<I: Inst>(_ inst: I, at ip: InsertionPoint) -> InstID {
     // Inserts the instruction.
-    let index: Int
+    let index: Block.InstIndex
     switch ip.position {
     case .end:
       index = functions[ip.block.function][ip.block.index].instructions.append(inst)

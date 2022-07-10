@@ -27,6 +27,11 @@ struct ControlFlowGraph {
   /// The relation encoded by the graph.
   fileprivate var relation: DirectedGraph<Vertex, Label>
 
+  /// Creates an empty control flow graph.
+  init() {
+    relation = DirectedGraph()
+  }
+
   /// Defines `source` as a predecessor of `target`.
   mutating func define(_ source: Vertex, predecessorOf target: Vertex) {
     let (inserted, label) = relation.insertEdge(from: source, to: target, labeledBy: .forward)
