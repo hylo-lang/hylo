@@ -75,9 +75,11 @@ extension Module: CustomStringConvertible {
           output.write(blockNames[inst.target]!)
 
         case let inst as CallInst:
-          output.write("call ")
+          output.write("call [")
+          output.write(inst.conventions.descriptions())
+          output.write("] ")
           output.write(describe(operand: inst.callee))
-          for operand in inst.operands {
+          for operand in inst.arguments {
             output.write(", ")
             output.write(describe(operand: operand))
           }

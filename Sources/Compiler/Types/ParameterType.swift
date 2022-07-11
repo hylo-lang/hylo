@@ -4,14 +4,14 @@ import Utils
 public struct ParameterType: TypeProtocol, Hashable {
 
   /// The passing convention of the parameter.
-  public var convention: ParamConvention
+  public var convention: PassingConvention
 
   /// The bare type.
   public var bareType: Type
 
   public let flags: TypeFlags
 
-  public init(convention: ParamConvention, bareType: Type) {
+  public init(convention: PassingConvention, bareType: Type) {
     self.convention = convention
     self.bareType = bareType
     self.flags = bareType.flags

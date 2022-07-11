@@ -480,7 +480,7 @@ public struct TypeChecker {
         ast[j].receiver = param
 
         // Set its type.
-        let convention: ParamConvention
+        let convention: PassingConvention
         switch ast[j].introducer.value {
         case .let   : convention = .let
         case .inout : convention = .inout
@@ -504,7 +504,7 @@ public struct TypeChecker {
         declTypes[param] = type.inputs[0].type
       } else if case .projection(let type) = type.captures?.first?.type {
         // `let` and `inout` methods capture a projection of their receiver.
-        let convention: ParamConvention
+        let convention: PassingConvention
         switch type.capability {
         case .let   : convention = .let
         case .inout : convention = .inout
@@ -2220,7 +2220,7 @@ public struct TypeChecker {
           receiver = .tuple(TupleType(labelsAndTypes: [
             ("self", .projection(ProjectionType(.inout, receiver!)))
           ]))
-          property = .mutating
+          property = .inout
         } else if decl.isSink  {
           receiver = .tuple(TupleType(labelsAndTypes: [("self", receiver!)]))
           property = .sink

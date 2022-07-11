@@ -366,12 +366,40 @@ public struct Emitter {
       unreachable()
     }
 
-    // Emit the callee.
+    // Determine the callee's convention.
+    var conventions: [PassingConvention]
+    switch calleeType.operatorProperty {
+    case .inout:
+      conventions = [.inout]
+    case .sink:
+      conventions = [.sink]
+    default:
+      conventions = [.let]
+    }
+
+    // Arguments are evaluated first, from left to right.
+    var arguments: [Operand] = []
+
+    for (parameter, argument) in zip(calleeType.inputs, program.ast[expr].arguments) {
+      let parameterType = ParameterType(converting: parameter.type)!
+      conventions.append(parameterType.convention)
+
+      switch parameterType.convention {
+      case .let, .inout, .set:
+        arguments.append(emitL(expr: argument.value.value, into: &module))
+      case .sink:
+        arguments.append(emitR(expr: argument.value.value, into: &module))
+      case .yielded:
+        fatalError("not implemented")
+      }
+    }
+
+    // If the callee is a name expression referring to the declaration of a function capture-less
+    // function, it is interpreted as a direct function reference. Otherwise, it is evaluated as a
+    // function object the arguments.
     let callee: Operand
-    var operands: [Operand] = []
 
     if let calleeID = NodeID<NameExpr>(converting: program.ast[expr].callee) {
-      // Attempt to interpret the callee as a direct function reference.
       switch program.referredDecls[calleeID] {
       case .direct(let calleeDeclID) where calleeDeclID.kind == .builtinDecl:
         // Callee refers to a built-in function.
@@ -382,16 +410,19 @@ public struct Emitter {
 
       case .direct(let calleeDeclID) where calleeDeclID.kind == .funDecl:
         // Callee is a direct reference to a function declaration.
-        if (program.ast[calleeDeclID] as! FunDecl).introducer.value == .memberwiseInit {
-          // Emit a record construction.
-          let operands = program.ast[expr].arguments.map({ argument in
-            emitR(expr: argument.value.value, into: &module)
-          })
-          let record = module.insert(
-            RecordInst(objectType: program.exprTypes[expr]!, operands: operands),
-            at: insertionPoint!)
-          return .inst(record)
-        } else {
+        switch (program.ast[calleeDeclID] as! FunDecl).introducer.value {
+        case .memberwiseInit:
+          // The function is a memberwise initializer. In that case, the whole call expression is
+          // lowered as a `record` instruction.
+          return .inst(module.insert(
+            RecordInst(objectType: program.exprTypes[expr]!, operands: arguments),
+            at: insertionPoint!))
+
+        case .`init`:
+          // The function is a custom initializer. TODO
+          fatalError("not implemented")
+
+        default:
           // TODO: handle captures
           let locator = program.locator(identifying: calleeDeclID)
           callee = .constant(.function(FunctionRef(
@@ -400,21 +431,43 @@ public struct Emitter {
         }
 
       case .member(let calleeDeclID) where calleeDeclID.kind == .funDecl:
-        // We may assume the callee refers to a method.
-        guard let receiverType = calleeType.captures?[0].type else { unreachable() }
+        // Callee is a member reference to a method.
+        let receiverType = calleeType.captures![0].type
+
+        // Determine the passing convention of the receiver.
+        if case .projection(let type) = receiverType {
+          conventions.insert(PassingConvention(matching: type.capability), at: 1)
+        } else {
+          conventions.insert(.sink, at: 1)
+        }
 
         // Add the receiver to the arguments.
-        switch program.ast[calleeID].domain {
-        case .none:
-          operands.append(locals[receiverDecl!]!)
-        case .implicit:
-          fatalError("not implemented")
-        case .explicit(let receiverID):
-          if case .projection = receiverType {
-            operands.append(emitL(expr: receiverID, into: &module))
-          } else {
-            operands.append(emitR(expr: receiverID, into: &module))
+        switch conventions[1] {
+        case .let, .inout, .set:
+          switch program.ast[calleeID].domain {
+          case .none:
+            let receiver = module.insert(
+              LoadInst(type: .object(receiverType), source: locals[receiverDecl!]!),
+              at: insertionPoint!)
+            arguments.insert(.inst(receiver), at: 0)
+          case .explicit(let receiverID):
+            arguments.insert(emitR(expr: receiverID, into: &module), at: 0)
+          case .implicit:
+            unreachable()
           }
+
+        case .sink:
+          switch program.ast[calleeID].domain {
+          case .none:
+            arguments.insert(locals[receiverDecl!]!, at: 0)
+          case .explicit(let receiverID):
+            arguments.insert(emitL(expr: receiverID, into: &module), at: 0)
+          case .implicit:
+            unreachable()
+          }
+
+        case .yielded:
+          fatalError("not implemented")
         }
 
         // Emit the function reference.
@@ -424,27 +477,20 @@ public struct Emitter {
           type: .address(.lambda(calleeType)))))
 
       default:
+        // Evaluate the callee as a function object.
         callee = emitR(expr: program.ast[expr].callee, into: &module)
       }
     } else {
-      // Interpret the callee as a closure expression.
+      // Evaluate the callee as a function object.
       callee = emitR(expr: program.ast[expr].callee, into: &module)
     }
 
-    for (parameter, argument) in zip(calleeType.inputs, program.ast[expr].arguments) {
-      let parameterType = ParameterType(converting: parameter.type) ?? unreachable()
-      switch parameterType.convention {
-      case .let, .inout, .set:
-        operands.append(emitL(expr: argument.value.value, into: &module))
-      case .sink:
-        operands.append(emitR(expr: argument.value.value, into: &module))
-      case .yielded:
-        unreachable()
-      }
-    }
-
     let i = module.insert(
-      CallInst(type: .object(program.exprTypes[expr]!), callee: callee, operands: operands),
+      CallInst(
+        type: .object(program.exprTypes[expr]!),
+        conventions: conventions,
+        callee: callee,
+        arguments: arguments),
       at: insertionPoint!)
     return .inst(i)
   }

@@ -6,11 +6,21 @@ public struct CallInst: Inst {
 
   public let type: LoweredType
 
-  /// The callee.
-  public let callee: Operand
+  /// The passing conventions of the instruction's operands.
+  public let conventions: [PassingConvention]
 
-  /// The arguments of the call.
   public let operands: [Operand]
+
+  public init(
+    type: LoweredType,
+    conventions: [PassingConvention],
+    callee: Operand,
+    arguments: [Operand]
+  ) {
+    self.type = type
+    self.conventions = conventions
+    self.operands = [callee] + arguments
+  }
 
   /// Returns whether the instruction is a call to a built-in function.
   public var isBuiltinCall: Bool {
@@ -19,6 +29,16 @@ public struct CallInst: Inst {
     } else {
       return true
     }
+  }
+
+  /// The callee.
+  public var callee: Operand { operands[0] }
+
+  /// The arguments of the call.
+  public var arguments: ArraySlice<Operand> { operands[1...] }
+
+  public func check() -> Bool {
+    return conventions.count == operands.count
   }
 
 }

@@ -7,7 +7,7 @@ public struct LambdaType: TypeProtocol, Hashable {
   public enum OperatorProperty: Hashable {
 
     /// The call operator is mutating.
-    case mutating
+    case `inout`
 
     /// The call operator is consuming.
     case sink

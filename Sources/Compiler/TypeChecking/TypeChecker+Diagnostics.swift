@@ -89,7 +89,7 @@ extension Diagnostic {
   }
 
   static func illegalParameterConvention(
-    _ convention: ParamConvention,
+    _ convention: PassingConvention,
     range: SourceRange?
   ) -> Diagnostic {
     Diagnostic(
