@@ -18,9 +18,6 @@ public struct Emitter {
   /// The declaration of the receiver of the function or subscript currently emitted, if any.
   private var receiverDecl: NodeID<ParameterDecl>?
 
-  /// The memory region where local variables should be allocated.
-  private var localMemorySpace = MemorySpace.stack
-
   /// Creates an emitter with a well-typed AST.
   public init(program: TypedProgram) {
     self.program = program
@@ -178,9 +175,7 @@ public struct Emitter {
         let decl = program.ast[name].decl
         let declType = program.declTypes[decl]!
 
-        let alloc = module.insert(
-          AllocInst(objectType: declType, space: localMemorySpace),
-          at: insertionPoint!)
+        let alloc = module.insert(AllocStackInst(objectType: declType), at: insertionPoint!)
         locals[decl] = .inst(alloc)
 
         if let source = initializer {
@@ -190,7 +185,7 @@ public struct Emitter {
               at: insertionPoint!)
           } else {
             let member = module.insert(
-              MemberAddrInst(value: source, path: path, type: .address(declType)),
+              BorrowMemberInst(value: source, path: path, type: .address(declType)),
               at: insertionPoint!)
             let object = module.insert(
               LoadInst(source: .inst(member), type: .object(declType)),
@@ -213,7 +208,7 @@ public struct Emitter {
         } else {
           let value = emitR(expr: initializer, into: &module)
           let alloc = module.insert(
-            AllocInst(objectType: program.exprTypes[initializer]!, space: localMemorySpace),
+            AllocStackInst(objectType: program.exprTypes[initializer]!),
             at: insertionPoint!)
           _ = module.insert(
             StoreInst(object: value, target: .inst(alloc)),
@@ -229,7 +224,7 @@ public struct Emitter {
             locals[decl] = source
           } else {
             let member = module.insert(
-              MemberAddrInst(value: source, path: path, type: .address(declType)),
+              BorrowMemberInst(value: source, path: path, type: .address(declType)),
               at: insertionPoint!)
             locals[decl] = .inst(member)
           }
@@ -284,7 +279,7 @@ public struct Emitter {
     var resultStorage: InstID?
     if let type = program.exprTypes[expr], type != .unit {
       resultStorage = module.insert(
-        AllocInst(objectType: type, space: localMemorySpace),
+        AllocStackInst(objectType: type),
         at: insertionPoint!)
     }
 
@@ -301,7 +296,7 @@ public struct Emitter {
         // Evaluate the condition in the current block.
         var condition = emitL(expr: itemExpr, into: &module)
         condition = .inst(module.insert(
-          MemberAddrInst(value: condition, path: [0], type: .address(.builtin(.i(1)))),
+          BorrowMemberInst(value: condition, path: [0], type: .address(.builtin(.i(1)))),
           at: insertionPoint!))
         condition = .inst(module.insert(
           LoadInst(source: condition, type: .object(.builtin(.i(1)))),
@@ -506,7 +501,7 @@ public struct Emitter {
     default:
       let value = emitR(expr: expr, into: &module)
       let alloc = module.insert(
-        AllocInst(objectType: program.exprTypes[expr]!, space: localMemorySpace),
+        AllocStackInst(objectType: program.exprTypes[expr]!),
         at: insertionPoint!)
       _ = module.insert(
         StoreInst(object: value, target: .inst(alloc)),
@@ -551,7 +546,7 @@ public struct Emitter {
       case .varDecl:
         let layout = TypeLayout(module.type(of: receiver).astType)
         let member = module.insert(
-          MemberAddrInst(
+          BorrowMemberInst(
             value: receiver,
             path: [layout.offset(of: NodeID(unsafeRawValue: declID.rawValue), ast: program.ast)],
             type: .address(exprType)),

@@ -1,5 +1,5 @@
-/// Computes the address of a stored member in a record.
-public struct MemberAddrInst: Inst {
+// Borrows an access on a record member.
+public struct BorrowMemberInst: Inst {
 
   /// The value of the record whose member address is computed.
   public let value: Operand
@@ -15,7 +15,7 @@ public struct MemberAddrInst: Inst {
     into output: inout Target,
     with printer: inout IRPrinter
   ) {
-    output.write("member_addr ")
+    output.write("borrow_member ")
     value.dump(into: &output, with: &printer)
     output.write(", \(path.descriptions())")
   }
