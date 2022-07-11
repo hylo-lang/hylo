@@ -27,10 +27,10 @@ public struct Module {
   public func type(of operand: Operand) -> LoweredType {
     switch operand {
     case .inst(let id):
-      return functions[id.function][id.block][id.index].type
+      return functions[id.function][id.block][id.address].type
 
     case .parameter(let block, let index):
-      return functions[block.function][block.index].inputs[index]
+      return functions[block.function][block.address].inputs[index]
 
     case .constant(let constant):
       return constant.type
@@ -91,24 +91,24 @@ public struct Module {
     accepting inputs: [LoweredType] = [],
     atEndOf function: Function.ID
   ) -> Block.ID {
-    let index = functions[function].blocks.append(Block(inputs: inputs))
-    return Block.ID(function: function, index: index)
+    let address = functions[function].blocks.append(Block(inputs: inputs))
+    return Block.ID(function: function, address: address)
   }
 
   /// Inserts `inst` at the specified insertion point.
   @discardableResult
   mutating func insert<I: Inst>(_ inst: I, at ip: InsertionPoint) -> InstID {
     // Inserts the instruction.
-    let index: Block.InstIndex
+    let address: Block.InstAddress
     switch ip.position {
     case .end:
-      index = functions[ip.block.function][ip.block.index].instructions.append(inst)
+      address = functions[ip.block.function][ip.block.address].instructions.append(inst)
     case .after(let i):
-      index = functions[ip.block.function][ip.block.index].instructions.insert(inst, after: i)
+      address = functions[ip.block.function][ip.block.address].instructions.insert(inst, after: i)
     }
 
     // Generate an instruction identifier.
-    let userID = InstID(function: ip.block.function, block: ip.block.index, index: index)
+    let userID = InstID(function: ip.block.function, block: ip.block.address, address: address)
 
     // Update the use lists of the instruction's operands.
     for i in 0 ..< inst.operands.count {

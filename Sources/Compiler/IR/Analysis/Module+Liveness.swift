@@ -1,6 +1,6 @@
 extension Module {
 
-  private typealias LiveRange = [Function.BlockIndex: (isLiveIn: Bool, isLiveOut: Bool)]
+  private typealias LiveRange = [Function.BlockAddress: (isLiveIn: Bool, isLiveOut: Bool)]
 
   /// Given `operand` is an instruction or block parameter, returns its last uses.
   func lastUses(of operand: Operand) -> [Use] {
@@ -11,7 +11,7 @@ extension Module {
     let origin: Block.ID
     switch operand {
     case .inst(let inst):
-      origin = Block.ID(function: inst.function, index: inst.block)
+      origin = Block.ID(function: inst.function, address: inst.block)
     case .parameter(let block, _):
       origin = block
     case .constant:
@@ -33,7 +33,7 @@ extension Module {
     // Find the last use in each block for which the operand is not live out.
     var result: [Use] = []
     for (blockIndex, range) in liveRange where !range.isLiveOut {
-      let block = Block.ID(function: origin.function, index: blockIndex)
+      let block = Block.ID(function: origin.function, address: blockIndex)
       if let use = lastUse(of: operand, in: block) {
         result.append(use)
       }
@@ -44,11 +44,11 @@ extension Module {
 
   /// Returns the last use of `operand` in `block`.
   private func lastUse(of operand: Operand, in block: Block.ID) -> Use? {
-    let instructions = functions[block.function][block.index].instructions.elements
+    let instructions = functions[block.function][block.address].instructions
     for i in instructions.indices.reversed() {
       if let operandIndex = instructions[i].operands.lastIndex(of: operand) {
         return Use(
-          user: InstID(function: block.function, block: block.index, index: i.base),
+          user: InstID(function: block.function, block: block.address, address: i.address),
           index: operandIndex)
       }
     }
@@ -61,7 +61,7 @@ extension Module {
   private func computeLiveRange(of operand: Operand, definedIn origin: Block.ID) -> LiveRange {
     // Find all blocks in which the operand is being used.
     var occurences = uses[operand, default: []].reduce(
-      into: Set<Function.BlockIndex>(),
+      into: Set<Function.BlockAddress>(),
       { (blocks, use) in blocks.insert(use.user.block) })
 
     // Propagate liveness starting from the blocks in which the operand is being used.
@@ -71,7 +71,7 @@ extension Module {
       guard let occurence = occurences.popFirst() else { break }
 
       // `occurence` is the defining block.
-      if origin.index == occurence { continue }
+      if origin.address == occurence { continue }
 
       // We already propagated liveness to the block's live-in set.
       if result[occurence]?.isLiveIn ?? false { continue }

@@ -21,22 +21,22 @@ public struct Function {
   /// The blocks in the function.
   ///
   /// The first block of the array is the function's entry.
-  public var blocks: StableArray<Block>
+  public var blocks: DoublyLinkedList<Block>
 
   /// The entry of the function.
-  public var entry: Block { blocks[blocks.startIndex] }
+  public var entry: Block? { blocks.first }
 
   /// The control flow graph of the function.
   var cfg: ControlFlowGraph {
     var result = ControlFlowGraph()
 
     for source in blocks.indices {
-      switch blocks[source].instructions.last {
+      switch blocks[source.address].instructions.last {
       case let inst as BranchInst:
-        result.define(source, predecessorOf: inst.target.index)
+        result.define(source.address, predecessorOf: inst.target.address)
       case let inst as CondBranchInst:
-        result.define(source, predecessorOf: inst.targetIfTrue.index)
-        result.define(source, predecessorOf: inst.targetIfFalse.index)
+        result.define(source.address, predecessorOf: inst.targetIfTrue.address)
+        result.define(source.address, predecessorOf: inst.targetIfFalse.address)
       default:
         break
       }
@@ -49,11 +49,11 @@ public struct Function {
 
 extension Function {
 
-  public typealias BlockIndex = StableArray<Block>.Index
+  public typealias BlockAddress = DoublyLinkedList<Block>.Address
 
-  public subscript(_ position: BlockIndex) -> Block {
-    _read   { yield blocks[position] }
-    _modify { yield &blocks[position] }
+  public subscript(_ address: BlockAddress) -> Block {
+    _read   { yield blocks[address] }
+    _modify { yield &blocks[address] }
   }
 
 }

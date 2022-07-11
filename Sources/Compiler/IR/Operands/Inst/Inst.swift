@@ -20,9 +20,9 @@ public struct InstID: Hashable {
   public var function: Module.FunctionIndex
 
   /// The ID of the containing block.
-  public var block: Function.BlockIndex
+  public var block: Function.BlockAddress
 
-  /// The index of the instruction in the containing block.
-  public var index: Block.InstIndex
+  /// The address of the instruction in the containing block.
+  public var address: Block.InstAddress
 
 }

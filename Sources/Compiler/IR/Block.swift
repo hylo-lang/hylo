@@ -9,8 +9,8 @@ public struct Block {
     /// The ID of the function containing the block.
     public var function: Module.FunctionIndex
 
-    /// The index of the block in the containing function.
-    public var index: Function.BlockIndex
+    /// The address of the block in the containing function.
+    public var address: Function.BlockAddress
 
   }
 
@@ -18,17 +18,17 @@ public struct Block {
   public var inputs: [LoweredType] = []
 
   /// The instructions in the block.
-  public var instructions: StableArray<Inst> = []
+  public var instructions: DoublyLinkedList<Inst> = []
 
 }
 
 extension Block {
 
-  public typealias InstIndex = StableArray<Inst>.Index
+  public typealias InstAddress = DoublyLinkedList<Inst>.Address
 
-  public subscript(_ position: InstIndex) -> Inst {
-    _read   { yield instructions[position] }
-    _modify { yield &instructions[position] }
+  public subscript(_ address: InstAddress) -> Inst {
+    _read   { yield instructions[address] }
+    _modify { yield &instructions[address] }
   }
 
 }
