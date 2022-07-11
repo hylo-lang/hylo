@@ -5,21 +5,12 @@
 public struct RecordInst: Inst {
 
   /// The type of the created record.
-  public let type: LoweredType
+  public let objectType: Type
 
   /// The operands consumed to initialize the record members.
   public let operands: [Operand]
 
-  public func dump<Target: TextOutputStream>(
-    into output: inout Target,
-    with printer: inout IRPrinter
-  ) {
-    output.write("record \(type.astType)")
-    for operand in operands {
-      output.write(", ")
-      operand.dump(into: &output, with: &printer)
-    }
-  }
+  public var type: LoweredType { .object(objectType) }
 
 }
 

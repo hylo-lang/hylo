@@ -1,6 +1,8 @@
 // Borrows an access on a record member.
 public struct BorrowMemberInst: Inst {
 
+  public let type: LoweredType
+
   /// The value of the record whose member address is computed.
   public let value: Operand
 
@@ -8,17 +10,6 @@ public struct BorrowMemberInst: Inst {
   ///
   /// - Requires: This array cannot be empty.
   public let path: [Int]
-
-  public let type: LoweredType
-
-  public func dump<Target: TextOutputStream>(
-    into output: inout Target,
-    with printer: inout IRPrinter
-  ) {
-    output.write("borrow_member ")
-    value.dump(into: &output, with: &printer)
-    output.write(", \(path.descriptions())")
-  }
 
   public var operands: [Operand] { [value] }
 

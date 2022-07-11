@@ -10,7 +10,7 @@ public struct DeclLocator: Hashable {
 
     case `extension`(target: DeclLocator)
 
-    case function(name: String, labels: [String])
+    case function(name: String, labels: [String], notation: OperatorNotation?)
 
     case methodImpl(MethodImplDecl.Introducer)
 
@@ -54,12 +54,12 @@ public struct DeclLocator: Hashable {
 
         switch ast[declID].introducer.value {
         case .memberwiseInit, .`init`:
-          self = .function(name: "init", labels: labels)
+          self = .function(name: "init", labels: labels, notation: nil)
         case .deinit:
-          self = .function(name: "deinit", labels: [])
+          self = .function(name: "deinit", labels: [], notation: nil)
         case .fun:
           if let name = ast[declID].identifier?.value {
-            self = .function(name: name, labels: labels)
+            self = .function(name: name, labels: labels, notation: ast[declID].notation?.value)
           } else {
             self = .lambda(declID)
           }
@@ -75,6 +75,59 @@ public struct DeclLocator: Hashable {
 
       default:
         return nil
+      }
+    }
+
+    /// A mangled description of this component.
+    public var mangled: String {
+      switch self {
+      case .conformance(let target, let trait):
+        return "C\(target)\(trait.mangled)"
+
+      case .extension(let target):
+        return "E\(target)"
+
+      case .function(let name, let labels, let notation):
+        let labels = labels.map({ $0.mangled }).joined()
+        if let n = notation {
+          return "O\(String(describing: n).mangled)\(name.mangled)\(labels.count)\(labels)a"
+        } else {
+          return "F\(name.mangled)\(labels.count)\(labels)a"
+        }
+
+      case .methodImpl(let introducer):
+        switch introducer {
+        case .let  : return "Il"
+        case .inout: return "Ii"
+        case .sink : return "Is"
+        }
+
+      case .module(let name):
+        return "M\(name.mangled)"
+
+      case .namespace(let name):
+        return "N\(name.mangled)"
+
+      case .lambda(let discriminator):
+        return "L\(discriminator.rawValue)"
+
+      case .product(let name):
+        return "P\(name.mangled)"
+
+      case .subscript(let name, let labels):
+        let ls = labels.map({ $0.mangled }).joined()
+        return "S\(name.mangled)\(labels.count)\(ls)"
+
+      case .subscriptImpl(let introducer):
+        switch introducer {
+        case .let   : return "Il"
+        case .inout : return "Ii"
+        case .sink  : return "Is"
+        case .assign: return "Ia"
+        }
+
+      case .trait(let name):
+        return "N\(name.mangled)"
       }
     }
 
@@ -114,13 +167,17 @@ public struct DeclLocator: Hashable {
   }
 
   /// The locator's value encoded as a string.
-  public var mangled: String { components.descriptions(joinedBy: "") }
+  public var mangled: String {
+    components.lazy.map({ $0.mangled }).joined()
+  }
 
 }
 
 extension DeclLocator: CustomStringConvertible {
 
-  public var description: String { mangled }
+  public var description: String {
+    components.descriptions(joinedBy: ".")
+  }
 
 }
 
@@ -129,48 +186,46 @@ extension DeclLocator.Component: CustomStringConvertible {
   public var description: String {
     switch self {
     case .conformance(let target, let trait):
-      return "C\(target)\(trait.mangled)"
+      return "(\(target)::\(trait)"
 
     case .extension(let target):
-      return "E\(target)"
+      return target.description
 
-    case .function(let name, let labels):
-      let ls = labels.map({ $0.mangled }).joined()
-      return "F\(name.mangled)\(labels.count)\(ls)a"
+    case .function(let name, let labels, let notation):
+      let n = notation.map(String.init(describing:)) ?? ""
+      if labels.isEmpty {
+        return n + name
+      } else {
+        return n + name + "(" + labels.lazy.map({ "\($0):" }).joined() + ")"
+      }
 
     case .methodImpl(let introducer):
-      switch introducer {
-      case .let  : return "Il"
-      case .inout: return "Ii"
-      case .sink : return "Is"
-      }
+      return String(describing: introducer)
 
     case .module(let name):
-      return "M\(name.mangled)"
+      return name
 
     case .namespace(let name):
-      return "N\(name.mangled)"
+      return name
 
     case .lambda(let discriminator):
-      return "L\(discriminator.rawValue)"
+      return String(describing: discriminator.rawValue)
 
     case .product(let name):
-      return "P\(name.mangled)"
+      return name.description
 
     case .subscript(let name, let labels):
-      let ls = labels.map({ $0.mangled }).joined()
-      return "S\(name.mangled)\(labels.count)\(ls)"
-
-    case .subscriptImpl(let introducer):
-      switch introducer {
-      case .let   : return "Il"
-      case .inout : return "Ii"
-      case .sink  : return "Is"
-      case .assign: return "Ia"
+      if labels.isEmpty {
+        return name
+      } else {
+        return name + "[" + labels.lazy.map({ "\($0):" }).joined() + "]"
       }
 
+    case .subscriptImpl(let introducer):
+      return String(describing: introducer)
+
     case .trait(let name):
-      return "N\(name.mangled)"
+      return name
     }
   }
 

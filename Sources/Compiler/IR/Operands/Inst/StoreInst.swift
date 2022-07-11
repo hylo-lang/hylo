@@ -9,16 +9,6 @@ public struct StoreInst: Inst {
 
   public var type: LoweredType { .object(.unit) }
 
-  public func dump<Target: TextOutputStream>(
-    into output: inout Target,
-    with printer: inout IRPrinter
-  ) {
-    output.write("store ")
-    object.dump(into: &output, with: &printer)
-    output.write(", ")
-    target.dump(into: &output, with: &printer)
-  }
-
   public var operands: [Operand] { [target] }
 
 }

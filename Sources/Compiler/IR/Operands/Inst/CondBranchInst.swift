@@ -12,18 +12,6 @@ public struct CondBranchInst: Inst {
   /// The target of the branch if `condition` is false.
   public let targetIfFalse: Block.ID
 
-  public func dump<Target: TextOutputStream>(
-    into output: inout Target,
-    with printer: inout IRPrinter
-  ) {
-    let t = printer.translate(block: targetIfTrue)
-    let f = printer.translate(block: targetIfFalse)
-
-    output.write("cond_branch ")
-    condition.dump(into: &output, with: &printer)
-    output.write(", \(t), \(f)")
-  }
-
   public var type: LoweredType { .object(.unit) }
 
   public var operands: [Operand] { [] }

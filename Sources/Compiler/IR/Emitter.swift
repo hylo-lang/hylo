@@ -175,7 +175,7 @@ public struct Emitter {
         let decl = program.ast[name].decl
         let declType = program.declTypes[decl]!
 
-        let alloc = module.insert(AllocStackInst(objectType: declType), at: insertionPoint!)
+        let alloc = module.insert(AllocStackInst(declType), at: insertionPoint!)
         locals[decl] = .inst(alloc)
 
         if let source = initializer {
@@ -185,10 +185,10 @@ public struct Emitter {
               at: insertionPoint!)
           } else {
             let member = module.insert(
-              BorrowMemberInst(value: source, path: path, type: .address(declType)),
+              BorrowMemberInst(type: .address(declType), value: source, path: path),
               at: insertionPoint!)
             let object = module.insert(
-              LoadInst(source: .inst(member), type: .object(declType)),
+              LoadInst(type: .object(declType), source: .inst(member)),
               at: insertionPoint!)
             _ = module.insert(
               StoreInst(object: .inst(object), target: .inst(alloc)),
@@ -208,7 +208,7 @@ public struct Emitter {
         } else {
           let value = emitR(expr: initializer, into: &module)
           let alloc = module.insert(
-            AllocStackInst(objectType: program.exprTypes[initializer]!),
+            AllocStackInst(program.exprTypes[initializer]!),
             at: insertionPoint!)
           _ = module.insert(
             StoreInst(object: value, target: .inst(alloc)),
@@ -224,7 +224,7 @@ public struct Emitter {
             locals[decl] = source
           } else {
             let member = module.insert(
-              BorrowMemberInst(value: source, path: path, type: .address(declType)),
+              BorrowMemberInst(type: .address(declType), value: source, path: path),
               at: insertionPoint!)
             locals[decl] = .inst(member)
           }
@@ -264,7 +264,7 @@ public struct Emitter {
       bitPattern: BitPattern(pattern: program.ast[expr].value ? 1 : 0, width: 1))
 
     let result = module.insert(
-      RecordInst(type: .object(.product(boolType)), operands: [.constant(.integer(boolValue))]),
+      RecordInst(objectType: .product(boolType), operands: [.constant(.integer(boolValue))]),
       at: insertionPoint!)
     return .inst(result)
   }
@@ -278,9 +278,7 @@ public struct Emitter {
     // If the expression is supposed to return a value, allocate storage for it.
     var resultStorage: InstID?
     if let type = program.exprTypes[expr], type != .unit {
-      resultStorage = module.insert(
-        AllocStackInst(objectType: type),
-        at: insertionPoint!)
+      resultStorage = module.insert(AllocStackInst(type), at: insertionPoint!)
     }
 
     // Emit the condition(s).
@@ -296,10 +294,10 @@ public struct Emitter {
         // Evaluate the condition in the current block.
         var condition = emitL(expr: itemExpr, into: &module)
         condition = .inst(module.insert(
-          BorrowMemberInst(value: condition, path: [0], type: .address(.builtin(.i(1)))),
+          BorrowMemberInst(type: .address(.builtin(.i(1))), value: condition, path: [0]),
           at: insertionPoint!))
         condition = .inst(module.insert(
-          LoadInst(source: condition, type: .object(.builtin(.i(1)))),
+          LoadInst(type: .object(.builtin(.i(1))), source: condition),
           at: insertionPoint!))
 
         module.insert(
@@ -352,7 +350,7 @@ public struct Emitter {
     insertionPoint = InsertionPoint(endOf: continuation)
     if let source = resultStorage {
       let load = module.insert(
-        LoadInst(source: .inst(source), type: LoweredType(lowering: program.exprTypes[expr]!)),
+        LoadInst(type: LoweredType(lowering: program.exprTypes[expr]!), source: .inst(source)),
         at: insertionPoint!)
       return .inst(load)
     } else {
@@ -390,7 +388,7 @@ public struct Emitter {
             emitR(expr: argument.value.value, into: &module)
           })
           let record = module.insert(
-            RecordInst(type: .object(program.exprTypes[expr]!), operands: operands),
+            RecordInst(objectType: program.exprTypes[expr]!, operands: operands),
             at: insertionPoint!)
           return .inst(record)
         } else {
@@ -446,7 +444,7 @@ public struct Emitter {
     }
 
     let i = module.insert(
-      CallInst(callee: callee, operands: operands, type: .object(program.exprTypes[expr]!)),
+      CallInst(type: .object(program.exprTypes[expr]!), callee: callee, operands: operands),
       at: insertionPoint!)
     return .inst(i)
   }
@@ -462,7 +460,7 @@ public struct Emitter {
       let bits = BitPattern(fromDecimal: program.ast[expr].value)!.resized(to: 64)
       let value = IntegerConstant(bitPattern: bits)
       let result = module.insert(
-        RecordInst(type: .object(.product(type)), operands: [.constant(.integer(value))]),
+        RecordInst(objectType: .product(type), operands: [.constant(.integer(value))]),
         at: insertionPoint!)
       return .inst(result)
 
@@ -477,7 +475,7 @@ public struct Emitter {
   ) -> Operand {
     let source = emitL(expr: expr, into: &module)
     let load = module.insert(
-      LoadInst(source: source, type: .object(program.exprTypes[expr]!)),
+      LoadInst(type: .object(program.exprTypes[expr]!), source: source),
       at: insertionPoint!)
     return .inst(load)
   }
@@ -500,12 +498,8 @@ public struct Emitter {
 
     default:
       let value = emitR(expr: expr, into: &module)
-      let alloc = module.insert(
-        AllocStackInst(objectType: program.exprTypes[expr]!),
-        at: insertionPoint!)
-      _ = module.insert(
-        StoreInst(object: value, target: .inst(alloc)),
-        at: insertionPoint!)
+      let alloc = module.insert(AllocStackInst(program.exprTypes[expr]!), at: insertionPoint!)
+      _ = module.insert(StoreInst(object: value, target: .inst(alloc)), at: insertionPoint!)
       return .inst(alloc)
     }
   }
@@ -547,9 +541,9 @@ public struct Emitter {
         let layout = TypeLayout(module.type(of: receiver).astType)
         let member = module.insert(
           BorrowMemberInst(
+            type: .address(exprType),
             value: receiver,
-            path: [layout.offset(of: NodeID(unsafeRawValue: declID.rawValue), ast: program.ast)],
-            type: .address(exprType)),
+            path: [layout.offset(of: NodeID(unsafeRawValue: declID.rawValue), ast: program.ast)]),
           at: insertionPoint!)
         return .inst(member)
 

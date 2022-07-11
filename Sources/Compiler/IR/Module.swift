@@ -74,7 +74,7 @@ public struct Module {
       withDeclTypes: declTypes)
     let function = Function(
       name: locator.mangled,
-      debugName: ast[declID].identifier?.value,
+      debugName: locator.description,
       inputs: inputs,
       output: output,
       blocks: [])
@@ -127,49 +127,6 @@ extension Module {
   public subscript(_ position: FunctionIndex) -> Function {
     _read   { yield functions[position] }
     _modify { yield &functions[position] }
-  }
-
-}
-
-extension Module: CustomStringConvertible {
-
-  public var description: String {
-    var output = "// module \(name)"
-
-    for functionID in 0 ..< functions.count {
-      let function = functions[functionID]
-
-      output.write("\n\n")
-      if let debugName = function.debugName {
-        output.write("// \(debugName)\n")
-      }
-      output.write("@lowered fun \(function.name) {\n")
-
-      var printer = IRPrinter()
-      for blockIndex in function.blocks.indices {
-        let blockID = Block.ID(function: functionID, index: blockIndex)
-        let block = function.blocks[blockIndex]
-
-        output.write("\(printer.translate(block: blockID))(")
-        output.write(block.inputs.enumerated()
-          .map({ (i, input) in "%\(i + printer.instNames.nextDiscriminator): \(input)" })
-          .joined(separator: ", "))
-        output.write("):\n")
-
-        printer.instNames.nextDiscriminator += block.inputs.count
-        for instIndex in block.instructions.indices {
-          let instID = InstID(function: functionID, block: blockIndex, index: instIndex)
-          let inst = block.instructions[instIndex]
-          output.write("  \(printer.translate(inst: instID)) = ")
-          inst.dump(into: &output, with: &printer)
-          output.write("\n")
-        }
-      }
-
-      output.write("}")
-    }
-
-    return output
   }
 
 }
