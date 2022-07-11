@@ -190,21 +190,21 @@ public struct Emitter {
       let decl = program.ast[name].decl
       let declType = program.declTypes[decl]!
 
-      let alloc = module.insert(AllocStackInst(declType), at: insertionPoint!)
-      locals[decl] = .inst(alloc)
+      let storage = module.insert(AllocStackInst(declType), at: insertionPoint!)
+      locals[decl] = storage
 
       if let source = initializer {
+        let target = module.insert(
+          BorrowInst(type: .address(declType), capability: .set, value: storage, path: [0]),
+          at: insertionPoint!)
+
         if path.isEmpty {
-          _ = module.insert(
-            StoreInst(object: source, target: .inst(alloc)),
-            at: insertionPoint!)
+          module.insert(StoreInst(object: source, target: target), at: insertionPoint!)
         } else {
           let member = module.insert(
             TakeMemberInst(type: .object(declType), value: source, path: path),
             at: insertionPoint!)
-          _ = module.insert(
-            StoreInst(object: .inst(member), target: .inst(alloc)),
-            at: insertionPoint!)
+          module.insert(StoreInst(object: member, target: target), at: insertionPoint!)
         }
       }
     }
@@ -220,35 +220,31 @@ public struct Emitter {
 
     // There's nothing to do if there's no initializer.
     if let initializer = program.ast[decl].initializer {
-      // Emit the initializer as a l-value if possible. Otherwise, emit a r-value and store it
-      // into local storage.
       let source: Operand
       if (initializer.kind == .nameExpr) || (initializer.kind == .subscriptCallExpr) {
+        // Emit the initializer as a l-value.
         source = emitL(expr: initializer, withCapability: capability, into: &module)
       } else {
+        // emit a r-value and store it into local storage.
         let value = emitR(expr: initializer, into: &module)
-        let alloc = module.insert(
-          AllocStackInst(program.exprTypes[initializer]!),
+
+        let exprType = program.exprTypes[initializer]!
+        let storage = module.insert(AllocStackInst(exprType), at: insertionPoint!)
+        source = storage
+
+        let target = module.insert(
+          BorrowInst(type: .address(exprType), capability: .set, value: storage, path: [0]),
           at: insertionPoint!)
-        _ = module.insert(
-          StoreInst(object: value, target: .inst(alloc)),
-          at: insertionPoint!)
-        source = .inst(alloc)
+        module.insert(StoreInst(object: value, target: target), at: insertionPoint!)
       }
 
       for (path, name) in program.ast.names(in: program.ast[pattern].subpattern) {
         let decl = program.ast[name].decl
         let declType = program.declTypes[decl]!
 
-        if path.isEmpty {
-          locals[decl] = source
-        } else {
-          let member = module.insert(
-            BorrowInst(
-              type: .address(declType), capability: capability, value: source, path: path),
-            at: insertionPoint!)
-          locals[decl] = .inst(member)
-        }
+        locals[decl] = module.insert(
+          BorrowInst(type: .address(declType), capability: capability, value: source, path: path),
+          at: insertionPoint!)
       }
     }
   }
@@ -279,14 +275,13 @@ public struct Emitter {
     booleanLiteral expr: NodeID<BooleanLiteralExpr>,
     into module: inout Module
   ) -> Operand {
-    let boolType = ProductType(standardLibraryTypeNamed: "Bool", ast: program.ast)!
-    let boolValue = IntegerConstant(
-      bitPattern: BitPattern(pattern: program.ast[expr].value ? 1 : 0, width: 1))
+    let value = Operand.constant(.integer(IntegerConstant(
+      bitPattern: BitPattern(pattern: program.ast[expr].value ? 1 : 0, width: 1))))
 
-    let result = module.insert(
-      RecordInst(objectType: .product(boolType), operands: [.constant(.integer(boolValue))]),
+    let boolType = ProductType(standardLibraryTypeNamed: "Bool", ast: program.ast)!
+    return module.insert(
+      RecordInst(objectType: .product(boolType), operands: [value]),
       at: insertionPoint!)
-    return .inst(result)
   }
 
   private mutating func emitR(
@@ -296,7 +291,7 @@ public struct Emitter {
     let functionID = insertionPoint!.block.function
 
     // If the expression is supposed to return a value, allocate storage for it.
-    var resultStorage: InstID?
+    var resultStorage: Operand?
     if let type = program.exprTypes[expr], type != .unit {
       resultStorage = module.insert(AllocStackInst(type), at: insertionPoint!)
     }
@@ -313,9 +308,9 @@ public struct Emitter {
       case .expr(let itemExpr):
         // Evaluate the condition in the current block.
         var condition = emitR(expr: itemExpr, into: &module)
-        condition = .inst(module.insert(
+        condition = module.insert(
           TakeMemberInst(type: .address(.builtin(.i(1))), value: condition, path: [0]),
-          at: insertionPoint!))
+          at: insertionPoint!)
 
         module.insert(
           CondBranchInst(
@@ -338,7 +333,11 @@ public struct Emitter {
     case .expr(let thenExpr):
       let value = emitR(expr: thenExpr, into: &module)
       if let target = resultStorage {
-        module.insert(StoreInst(object: value, target: .inst(target)), at: insertionPoint!)
+        let target = module.insert(
+          BorrowInst(
+            type: .address(program.exprTypes[expr]!), capability: .set, value: target, path: [0]),
+          at: insertionPoint!)
+        module.insert(StoreInst(object: value, target: target), at: insertionPoint!)
       }
 
     case .block:
@@ -352,7 +351,11 @@ public struct Emitter {
     case .expr(let elseExpr):
       let value = emitR(expr: elseExpr, into: &module)
       if let target = resultStorage {
-        module.insert(StoreInst(object: value, target: .inst(target)), at: insertionPoint!)
+        let target = module.insert(
+          BorrowInst(
+            type: .address(program.exprTypes[expr]!), capability: .set, value: target, path: [0]),
+          at: insertionPoint!)
+        module.insert(StoreInst(object: value, target: target), at: insertionPoint!)
       }
 
     case .block:
@@ -366,10 +369,9 @@ public struct Emitter {
     // Emit the value of the expression.
     insertionPoint = InsertionPoint(endOf: continuation)
     if let source = resultStorage {
-      let load = module.insert(
-        LoadInst(type: LoweredType(lowering: program.exprTypes[expr]!), source: .inst(source)),
+      return module.insert(
+        LoadInst(type: LoweredType(lowering: program.exprTypes[expr]!), source: source),
         at: insertionPoint!)
-      return .inst(load)
     } else {
       return .constant(.unit)
     }
@@ -435,9 +437,9 @@ public struct Emitter {
         case .memberwiseInit:
           // The function is a memberwise initializer. In that case, the whole call expression is
           // lowered as a `record` instruction.
-          return .inst(module.insert(
+          return module.insert(
             RecordInst(objectType: program.exprTypes[expr]!, operands: arguments),
-            at: insertionPoint!))
+            at: insertionPoint!)
 
         case .`init`:
           // The function is a custom initializer. TODO
@@ -462,13 +464,13 @@ public struct Emitter {
 
           switch program.ast[calleeID].domain {
           case .none:
-            let receiver = Operand.inst(module.insert(
+            let receiver = module.insert(
               BorrowInst(
                 type: .address(type.base),
                 capability: type.capability,
                 value: locals[receiverDecl!]!,
                 path: [0]),
-              at: insertionPoint!))
+              at: insertionPoint!)
             arguments.insert(receiver, at: 0)
 
           case .explicit(let receiverID):
@@ -487,7 +489,7 @@ public struct Emitter {
             let receiver = module.insert(
               LoadInst(type: .object(receiverType), source: locals[receiverDecl!]!),
               at: insertionPoint!)
-            arguments.insert(.inst(receiver), at: 0)
+            arguments.insert(receiver, at: 0)
 
           case .explicit(let receiverID):
             arguments.insert(emitR(expr: receiverID, into: &module), at: 0)
@@ -512,14 +514,13 @@ public struct Emitter {
       callee = emitR(expr: program.ast[expr].callee, into: &module)
     }
 
-    let i = module.insert(
+    return module.insert(
       CallInst(
         type: .object(program.exprTypes[expr]!),
         conventions: conventions,
         callee: callee,
         arguments: arguments),
       at: insertionPoint!)
-    return .inst(i)
   }
 
   private mutating func emitR(
@@ -532,10 +533,9 @@ public struct Emitter {
     case "Int":
       let bits = BitPattern(fromDecimal: program.ast[expr].value)!.resized(to: 64)
       let value = IntegerConstant(bitPattern: bits)
-      let result = module.insert(
+      return module.insert(
         RecordInst(objectType: .product(type), operands: [.constant(.integer(value))]),
         at: insertionPoint!)
-      return .inst(result)
 
     default:
       unreachable("unexpected numeric type")
@@ -550,9 +550,9 @@ public struct Emitter {
     case .direct(let declID):
       // Lookup for a local symbol.
       if let source = locals[declID] {
-        return .inst(module.insert(
+        return module.insert(
           LoadInst(type: .object(program.exprTypes[expr]!), source: source),
-          at: insertionPoint!))
+          at: insertionPoint!)
       }
 
       fatalError("not implemented")
@@ -584,11 +584,24 @@ public struct Emitter {
       return emitL(
         name: NodeID(unsafeRawValue: expr.rawValue), withCapability: capability, into: &module)
 
+    case .subscriptCallExpr:
+      fatalError("not implemented")
+
     default:
+      let exprType = program.exprTypes[expr]!
+
       let value = emitR(expr: expr, into: &module)
-      let alloc = module.insert(AllocStackInst(program.exprTypes[expr]!), at: insertionPoint!)
-      _ = module.insert(StoreInst(object: value, target: .inst(alloc)), at: insertionPoint!)
-      return .inst(alloc)
+      let storage = module.insert(AllocStackInst(exprType), at: insertionPoint!)
+
+      let target = module.insert(
+        BorrowInst(type: .address(exprType), capability: .set, value: storage, path: [0]),
+        at: insertionPoint!)
+      module.insert(StoreInst(object: value, target: target), at: insertionPoint!)
+
+      return module.insert(
+        BorrowInst(
+          type: .address(exprType), capability: capability, value: storage, path: [0]),
+        at: insertionPoint!)
     }
   }
 
@@ -600,8 +613,14 @@ public struct Emitter {
     switch program.referredDecls[expr]! {
     case .direct(let declID):
       // Lookup for a local symbol.
-      if let local = locals[declID] {
-        return local
+      if let source = locals[declID] {
+        return module.insert(
+          BorrowInst(
+            type: .address(program.exprTypes[expr]!),
+            capability: capability,
+            value: source,
+            path: [0]),
+          at: insertionPoint!)
       }
 
       fatalError("not implemented")
@@ -623,14 +642,15 @@ public struct Emitter {
       switch declID.kind {
       case .varDecl:
         let layout = TypeLayout(module.type(of: receiver).astType)
-        let member = module.insert(
+        let memberOffset = layout.offset(
+          of: NodeID(unsafeRawValue: declID.rawValue), ast: program.ast)
+        return module.insert(
           BorrowInst(
             type: .address(program.exprTypes[expr]!),
             capability: capability,
             value: receiver,
-            path: [layout.offset(of: NodeID(unsafeRawValue: declID.rawValue), ast: program.ast)]),
+            path: [0, memberOffset]),
           at: insertionPoint!)
-        return .inst(member)
 
       default:
         fatalError("not implemented")

@@ -97,7 +97,7 @@ public struct Module {
 
   /// Inserts `inst` at the specified insertion point.
   @discardableResult
-  mutating func insert<I: Inst>(_ inst: I, at ip: InsertionPoint) -> InstID {
+  mutating func insert<I: Inst>(_ inst: I, at ip: InsertionPoint) -> Operand {
     // Inserts the instruction.
     let address: Block.InstAddress
     switch ip.position {
@@ -115,7 +115,7 @@ public struct Module {
       uses[inst.operands[i], default: []].append(Use(user: userID, index: i))
     }
 
-    return userID
+    return .inst(userID)
   }
 
 }

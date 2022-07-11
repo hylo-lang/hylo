@@ -109,7 +109,7 @@ public struct AST {
     }
 
     var result: [(path: [Int], pattern: NodeID<NamePattern>)] = []
-    visit(pattern: AnyPatternID(pattern), path: [], result: &result)
+    visit(pattern: AnyPatternID(pattern), path: [0], result: &result)
     return result
   }
 
