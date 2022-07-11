@@ -431,10 +431,7 @@ func main() {
 
   var emitter = Emitter(program: typedProgram)
   let module = emitter.emit(module: main)
-
-  let transpiler = Transpiler(program: typedProgram)
-  print(transpiler.compile(module: module))
-  // print(module)
+  print(module)
 }
 
 main()
