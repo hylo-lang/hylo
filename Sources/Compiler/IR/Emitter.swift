@@ -165,69 +165,89 @@ public struct Emitter {
 
   private mutating func emit(localBinding decl: NodeID<BindingDecl>, into module: inout Module) {
     let pattern = program.ast[decl].pattern
+
     switch program.ast[pattern].introducer.value {
     case .var, .sinklet:
-      // Emit the initializer, if any.
-      let initializer = program.ast[decl].initializer.map({ emitR(expr: $0, into: &module) })
+      emit(storedLocalBinding: decl, into: &module)
+    case .let:
+      emit(borrowedLocalBinding: decl, withCapability: .let, into: &module)
+    case .inout:
+      emit(borrowedLocalBinding: decl, withCapability: .inout, into: &module)
+    }
+  }
 
-      // Allocate storage for each name introduced by the declaration.
+  private mutating func emit(
+    storedLocalBinding decl: NodeID<BindingDecl>,
+    into module: inout Module
+  ) {
+    let pattern = program.ast[decl].pattern
+
+    // Emit the initializer, if any.
+    let initializer = program.ast[decl].initializer.map({ emitR(expr: $0, into: &module) })
+
+    // Allocate storage for each name introduced by the declaration.
+    for (path, name) in program.ast.names(in: program.ast[pattern].subpattern) {
+      let decl = program.ast[name].decl
+      let declType = program.declTypes[decl]!
+
+      let alloc = module.insert(AllocStackInst(declType), at: insertionPoint!)
+      locals[decl] = .inst(alloc)
+
+      if let source = initializer {
+        if path.isEmpty {
+          _ = module.insert(
+            StoreInst(object: source, target: .inst(alloc)),
+            at: insertionPoint!)
+        } else {
+          let member = module.insert(
+            TakeMemberInst(type: .object(declType), value: source, path: path),
+            at: insertionPoint!)
+          _ = module.insert(
+            StoreInst(object: .inst(member), target: .inst(alloc)),
+            at: insertionPoint!)
+        }
+      }
+    }
+  }
+
+  /// Emits borrowed bindings.
+  private mutating func emit(
+    borrowedLocalBinding decl: NodeID<BindingDecl>,
+    withCapability capability: ProjectionType.Capability,
+    into module: inout Module
+  ) {
+    let pattern = program.ast[decl].pattern
+
+    // There's nothing to do if there's no initializer.
+    if let initializer = program.ast[decl].initializer {
+      // Emit the initializer as a l-value if possible. Otherwise, emit a r-value and store it
+      // into local storage.
+      let source: Operand
+      if (initializer.kind == .nameExpr) || (initializer.kind == .subscriptCallExpr) {
+        source = emitL(expr: initializer, withCapability: capability, into: &module)
+      } else {
+        let value = emitR(expr: initializer, into: &module)
+        let alloc = module.insert(
+          AllocStackInst(program.exprTypes[initializer]!),
+          at: insertionPoint!)
+        _ = module.insert(
+          StoreInst(object: value, target: .inst(alloc)),
+          at: insertionPoint!)
+        source = .inst(alloc)
+      }
+
       for (path, name) in program.ast.names(in: program.ast[pattern].subpattern) {
         let decl = program.ast[name].decl
         let declType = program.declTypes[decl]!
 
-        let alloc = module.insert(AllocStackInst(declType), at: insertionPoint!)
-        locals[decl] = .inst(alloc)
-
-        if let source = initializer {
-          if path.isEmpty {
-            _ = module.insert(
-              StoreInst(object: source, target: .inst(alloc)),
-              at: insertionPoint!)
-          } else {
-            let member = module.insert(
-              BorrowMemberInst(type: .address(declType), value: source, path: path),
-              at: insertionPoint!)
-            let object = module.insert(
-              LoadInst(type: .object(declType), source: .inst(member)),
-              at: insertionPoint!)
-            _ = module.insert(
-              StoreInst(object: .inst(object), target: .inst(alloc)),
-              at: insertionPoint!)
-          }
-        }
-      }
-
-    case .let, .inout:
-      // There's nothing to do if there's no initializer.
-      if let initializer = program.ast[decl].initializer {
-        // Emit the initializer as a l-value if possible. Otherwise, emit a r-value and store it
-        // into local storage.
-        let source: Operand
-        if (initializer.kind == .nameExpr) || (initializer.kind == .subscriptCallExpr) {
-          source = emitL(expr: initializer, into: &module)
+        if path.isEmpty {
+          locals[decl] = source
         } else {
-          let value = emitR(expr: initializer, into: &module)
-          let alloc = module.insert(
-            AllocStackInst(program.exprTypes[initializer]!),
+          let member = module.insert(
+            BorrowInst(
+              type: .address(declType), capability: capability, value: source, path: path),
             at: insertionPoint!)
-          _ = module.insert(
-            StoreInst(object: value, target: .inst(alloc)),
-            at: insertionPoint!)
-          source = .inst(alloc)
-        }
-
-        for (path, name) in program.ast.names(in: program.ast[pattern].subpattern) {
-          let decl = program.ast[name].decl
-          let declType = program.declTypes[decl]!
-
-          if path.isEmpty {
-            locals[decl] = source
-          } else {
-            let member = module.insert(
-              BorrowMemberInst(type: .address(declType), value: source, path: path),
-              at: insertionPoint!)
-            locals[decl] = .inst(member)
-          }
+          locals[decl] = .inst(member)
         }
       }
     }
@@ -292,12 +312,9 @@ public struct Emitter {
       switch item {
       case .expr(let itemExpr):
         // Evaluate the condition in the current block.
-        var condition = emitL(expr: itemExpr, into: &module)
+        var condition = emitR(expr: itemExpr, into: &module)
         condition = .inst(module.insert(
-          BorrowMemberInst(type: .address(.builtin(.i(1))), value: condition, path: [0]),
-          at: insertionPoint!))
-        condition = .inst(module.insert(
-          LoadInst(type: .object(.builtin(.i(1))), source: condition),
+          TakeMemberInst(type: .address(.builtin(.i(1))), value: condition, path: [0]),
           at: insertionPoint!))
 
         module.insert(
@@ -385,8 +402,12 @@ public struct Emitter {
       conventions.append(parameterType.convention)
 
       switch parameterType.convention {
-      case .let, .inout, .set:
-        arguments.append(emitL(expr: argument.value.value, into: &module))
+      case .let:
+        arguments.append(emitL(expr: argument.value.value, withCapability: .let, into: &module))
+      case .inout:
+        arguments.append(emitL(expr: argument.value.value, withCapability: .inout, into: &module))
+      case .set:
+        arguments.append(emitL(expr: argument.value.value, withCapability: .set, into: &module))
       case .sink:
         arguments.append(emitR(expr: argument.value.value, into: &module))
       case .yielded:
@@ -434,40 +455,46 @@ public struct Emitter {
         // Callee is a member reference to a method.
         let receiverType = calleeType.captures![0].type
 
-        // Determine the passing convention of the receiver.
-        if case .projection(let type) = receiverType {
-          conventions.insert(PassingConvention(matching: type.capability), at: 1)
-        } else {
-          conventions.insert(.sink, at: 1)
-        }
-
         // Add the receiver to the arguments.
-        switch conventions[1] {
-        case .let, .inout, .set:
+        if case .projection(let type) = receiverType {
+          // The receiver as a borrowing convention.
+          conventions.insert(PassingConvention(matching: type.capability), at: 1)
+
+          switch program.ast[calleeID].domain {
+          case .none:
+            let receiver = Operand.inst(module.insert(
+              BorrowInst(
+                type: .address(type.base),
+                capability: type.capability,
+                value: locals[receiverDecl!]!,
+                path: [0]),
+              at: insertionPoint!))
+            arguments.insert(receiver, at: 0)
+
+          case .explicit(let receiverID):
+            let receiver = emitL(expr: receiverID, withCapability: type.capability, into: &module)
+            arguments.insert(receiver, at: 0)
+
+          case .implicit:
+            unreachable()
+          }
+        } else {
+          // The receiver is consumed.
+          conventions.insert(.sink, at: 1)
+
           switch program.ast[calleeID].domain {
           case .none:
             let receiver = module.insert(
               LoadInst(type: .object(receiverType), source: locals[receiverDecl!]!),
               at: insertionPoint!)
             arguments.insert(.inst(receiver), at: 0)
+
           case .explicit(let receiverID):
             arguments.insert(emitR(expr: receiverID, into: &module), at: 0)
+
           case .implicit:
             unreachable()
           }
-
-        case .sink:
-          switch program.ast[calleeID].domain {
-          case .none:
-            arguments.insert(locals[receiverDecl!]!, at: 0)
-          case .explicit(let receiverID):
-            arguments.insert(emitL(expr: receiverID, into: &module), at: 0)
-          case .implicit:
-            unreachable()
-          }
-
-        case .yielded:
-          fatalError("not implemented")
         }
 
         // Emit the function reference.
@@ -519,11 +546,20 @@ public struct Emitter {
     name expr: NodeID<NameExpr>,
     into module: inout Module
   ) -> Operand {
-    let source = emitL(expr: expr, into: &module)
-    let load = module.insert(
-      LoadInst(type: .object(program.exprTypes[expr]!), source: source),
-      at: insertionPoint!)
-    return .inst(load)
+    switch program.referredDecls[expr]! {
+    case .direct(let declID):
+      // Lookup for a local symbol.
+      if let source = locals[declID] {
+        return .inst(module.insert(
+          LoadInst(type: .object(program.exprTypes[expr]!), source: source),
+          at: insertionPoint!))
+      }
+
+      fatalError("not implemented")
+
+    case .member:
+      fatalError("not implemented")
+    }
   }
 
   private mutating func emitR(
@@ -536,11 +572,17 @@ public struct Emitter {
 
   // MARK: l-values
 
-  /// Emits `expr` as a l-value into `module` at the current insertion point.
-  private mutating func emitL<T: ExprID>(expr: T, into module: inout Module) -> Operand {
+  /// Emits `expr` as a l-value with the specified capability into `module` at the current
+  /// insertion point.
+  private mutating func emitL<T: ExprID>(
+    expr: T,
+    withCapability capability: ProjectionType.Capability,
+    into module: inout Module
+  ) -> Operand {
     switch expr.kind {
     case .nameExpr:
-      return emitL(name: NodeID(unsafeRawValue: expr.rawValue), into: &module)
+      return emitL(
+        name: NodeID(unsafeRawValue: expr.rawValue), withCapability: capability, into: &module)
 
     default:
       let value = emitR(expr: expr, into: &module)
@@ -552,14 +594,10 @@ public struct Emitter {
 
   private mutating func emitL(
     name expr: NodeID<NameExpr>,
+    withCapability capability: ProjectionType.Capability,
     into module: inout Module
   ) -> Operand {
-    let exprType = program.exprTypes[expr]!
-    guard let declRef = program.referredDecls[expr] else {
-      return .constant(.poison(PoisonConstant(type: .address(exprType))))
-    }
-
-    switch declRef {
+    switch program.referredDecls[expr]! {
     case .direct(let declID):
       // Lookup for a local symbol.
       if let local = locals[declID] {
@@ -578,7 +616,7 @@ public struct Emitter {
       case .implicit:
         fatalError("not implemented")
       case .explicit(let receiverID):
-        receiver = emitL(expr: receiverID, into: &module)
+        receiver = emitL(expr: receiverID, withCapability: capability, into: &module)
       }
 
       // Emit the bound member.
@@ -586,8 +624,9 @@ public struct Emitter {
       case .varDecl:
         let layout = TypeLayout(module.type(of: receiver).astType)
         let member = module.insert(
-          BorrowMemberInst(
-            type: .address(exprType),
+          BorrowInst(
+            type: .address(program.exprTypes[expr]!),
+            capability: capability,
             value: receiver,
             path: [layout.offset(of: NodeID(unsafeRawValue: declID.rawValue), ast: program.ast)]),
           at: insertionPoint!)

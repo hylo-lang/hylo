@@ -65,8 +65,8 @@ extension Module: CustomStringConvertible {
         case let inst as AllocStackInst:
           output.write("alloc_stack \(inst.objectType)")
 
-        case let inst as BorrowMemberInst:
-          output.write("borrow_member ")
+        case let inst as BorrowInst:
+          output.write("borrow [\(inst.capability)] ")
           output.write(describe(operand: inst.value))
           output.write(", \(inst.path.descriptions())")
 
@@ -112,6 +112,11 @@ extension Module: CustomStringConvertible {
           output.write(describe(operand: inst.object))
           output.write(", ")
           output.write(describe(operand: inst.target))
+
+        case let inst as TakeMemberInst:
+          output.write("take_member ")
+          output.write(describe(operand: inst.value))
+          output.write(", \(inst.path.descriptions())")
 
         default:
           unreachable("unexpected instruction")
