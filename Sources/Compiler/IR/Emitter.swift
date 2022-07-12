@@ -641,15 +641,16 @@ public struct Emitter {
       // Emit the bound member.
       switch declID.kind {
       case .varDecl:
-        let layout = TypeLayout(module.type(of: receiver).astType)
-        let memberOffset = layout.offset(
-          of: NodeID(unsafeRawValue: declID.rawValue), ast: program.ast)
+        let declID = NodeID<VarDecl>(unsafeRawValue: declID.rawValue)
+        let layout = TypeLayout(module.type(of: receiver).astType, in: program)
+        let memberIndex = layout.storedPropertiesIndices[program.ast[declID].name]!
+
         return module.insert(
           BorrowInst(
             type: .address(program.exprTypes[expr]!),
             capability: capability,
             value: receiver,
-            path: [0, memberOffset]),
+            path: [0, memberIndex]),
           at: insertionPoint!)
 
       default:
