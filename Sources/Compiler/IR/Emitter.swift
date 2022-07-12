@@ -645,13 +645,25 @@ public struct Emitter {
         let layout = TypeLayout(module.type(of: receiver).astType, in: program)
         let memberIndex = layout.storedPropertiesIndices[program.ast[declID].name]!
 
-        return module.insert(
-          BorrowInst(
+        // If the lowered receiver is a borrow instruction, modify it in place so that it targets
+        // the requested stored member. Otherwise, emit a reborrow.
+        if let id = receiver.instID,
+           let receiverInst = module[id.function][id.block][id.address] as? BorrowInst
+        {
+          module[id.function][id.block][id.address] = BorrowInst(
+            type: .address(program.exprTypes[expr]!),
+            capability: capability,
+            value: receiverInst.value,
+            path: receiverInst.path + [memberIndex])
+          return receiver
+        } else {
+          let member = BorrowInst(
             type: .address(program.exprTypes[expr]!),
             capability: capability,
             value: receiver,
-            path: [0, memberIndex]),
-          at: insertionPoint!)
+            path: [0, memberIndex])
+          return module.insert(member, at: insertionPoint!)
+        }
 
       default:
         fatalError("not implemented")

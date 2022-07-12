@@ -27,7 +27,8 @@ extension Block {
   public typealias InstAddress = DoublyLinkedList<Inst>.Address
 
   public subscript(_ address: InstAddress) -> Inst {
-    instructions[address]
+    get { instructions[address] }
+    set { instructions[address] = newValue }
   }
 
 }

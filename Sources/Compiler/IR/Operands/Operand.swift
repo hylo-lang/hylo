@@ -7,4 +7,13 @@ public enum Operand: Hashable {
 
   case constant(Constant)
 
+  /// The payload of `.inst`, or `nil` if `self` is another case.
+  var instID: InstID? {
+    if case .inst(let id) = self {
+      return id
+    } else {
+      return nil
+    }
+  }
+
 }
