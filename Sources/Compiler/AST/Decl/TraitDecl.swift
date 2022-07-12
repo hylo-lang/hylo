@@ -15,8 +15,6 @@ public struct TraitDecl: SingleEntityDecl, GenericScope {
   /// The member declarations in the lexical scope of the trait.
   public var members: [AnyDeclID]
 
-  public var name: String { identifier.value }
-
   public init(
     access: SourceRepresentable<AccessModifier>? = nil,
     identifier: SourceRepresentable<Identifier>,
@@ -28,5 +26,7 @@ public struct TraitDecl: SingleEntityDecl, GenericScope {
     self.refinements = refinements
     self.members = members
   }
+
+  public var name: String { identifier.value }
 
 }

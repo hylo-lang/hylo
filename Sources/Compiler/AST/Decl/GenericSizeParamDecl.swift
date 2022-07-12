@@ -9,8 +9,6 @@ public struct GenericSizeParamDecl: SingleEntityDecl {
   /// The default value of the declaration, if any.
   public var defaultValue: AnyExprID?
 
-  public var name: String { identifier.value }
-
   public init(
     identifier: SourceRepresentable<Identifier>,
     defaultValue: AnyExprID? = nil
@@ -18,5 +16,7 @@ public struct GenericSizeParamDecl: SingleEntityDecl {
     self.identifier = identifier
     self.defaultValue = defaultValue
   }
+
+  public var name: String { identifier.value }
 
 }

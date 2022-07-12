@@ -15,8 +15,6 @@ public struct ParameterDecl: SingleEntityDecl {
   /// The default value of the declaration, if any.
   public var defaultValue: AnyExprID?
 
-  public var name: String { identifier.value }
-
   public init(
     label: SourceRepresentable<Identifier>? = nil,
     identifier: SourceRepresentable<Identifier>,
@@ -28,5 +26,7 @@ public struct ParameterDecl: SingleEntityDecl {
     self.annotation = annotation
     self.defaultValue = defaultValue
   }
+
+  public var name: String { identifier.value }
 
 }

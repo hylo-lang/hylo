@@ -25,8 +25,6 @@ public struct TypeAliasDecl: GenericDecl, SingleEntityDecl, GenericScope {
   /// The body of the declaration.
   public var body: SourceRepresentable<Body>
 
-  public var name: String { identifier.value }
-
   public init(
     access: SourceRepresentable<AccessModifier>? = nil,
     identifier: SourceRepresentable<Identifier>,
@@ -38,5 +36,7 @@ public struct TypeAliasDecl: GenericDecl, SingleEntityDecl, GenericScope {
     self.genericClause = genericClause
     self.body = body
   }
+
+  public var name: String { identifier.value }
 
 }

@@ -12,8 +12,6 @@ public struct AssociatedSizeDecl: SingleEntityDecl {
   /// The default value of the declaration, if any.
   public var defaultValue: AnyExprID?
 
-  public var name: String { identifier.value }
-
   public init(
     identifier: SourceRepresentable<Identifier>,
     whereClause: SourceRepresentable<WhereClause>? = nil,
@@ -23,5 +21,7 @@ public struct AssociatedSizeDecl: SingleEntityDecl {
     self.whereClause = whereClause
     self.defaultValue = defaultValue
   }
+
+  public var name: String { identifier.value }
 
 }

@@ -18,8 +18,6 @@ public struct ProductTypeDecl: GenericDecl, SingleEntityDecl, GenericScope {
   /// The member declarations in the lexical scope of the trait.
   public var members: [AnyDeclID]
 
-  public var name: String { identifier.value }
-
   public init(
     accessModifier: SourceRepresentable<AccessModifier>? = nil,
     identifier: SourceRepresentable<Identifier>,
@@ -33,6 +31,8 @@ public struct ProductTypeDecl: GenericDecl, SingleEntityDecl, GenericScope {
     self.conformances = conformances
     self.members = members
   }
+
+  public var name: String { identifier.value }
 
   /// Returns whether the declaration is public.
   public var isPublic: Bool { accessModifier?.value != nil }
