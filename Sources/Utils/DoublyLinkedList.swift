@@ -14,25 +14,17 @@ public struct DoublyLinkedList<Element> {
       self.rawValue = rawValue
     }
 
-  }
+    /// Returns whether the element stored at `self` precedes that stored at `other` in `list`.
+    public func precedes(_ other: Address, in list: DoublyLinkedList) -> Bool {
+      if self == other { return false }
 
-  /// The header of the internal storage of a doubly linked list.
-  fileprivate struct Header {
-
-    /// The number of elements in the list.
-    var count: Int
-
-    /// The capacity of the list buffer.
-    var capacity: Int
-
-    /// The offset of the list head.
-    var headOffset: Int
-
-    /// The offset of the list tail.
-    var tailOffset: Int
-
-    /// The position of the next free bucket in the list buffer.
-    var freeOffset: Int
+      var current = self
+      while let next = list.address(after: current) {
+        if next == other { return true }
+        current = next
+      }
+      return false
+    }
 
   }
 
@@ -55,31 +47,30 @@ public struct DoublyLinkedList<Element> {
 
   }
 
-  /// A buffer representing the storage of a doubly linked list.
-  fileprivate final class List: ManagedBuffer<Header, Bucket> {
+  /// The number of elements in the list.
+  public var count: Int = 0
 
-    deinit {
-      _ = withUnsafeMutablePointers({ (header, elements) in
-        elements.deinitialize(count: header.pointee.capacity)
-      })
-    }
+  /// The offset of the list head.
+  var headOffset: Int = -1
 
-  }
+  /// The offset of the list tail.
+  var tailOffset: Int = -1
 
-  /// The internal storage of the list.
-  fileprivate var storage: ManagedBuffer<Header, Bucket>?
+  /// The position of the next free bucket in the list buffer.
+  var freeOffset: Int = 0
+
+  /// The elements in list.
+  fileprivate var storage: [Bucket] = []
 
   /// Creates an empty list.
   public init() {}
 
   /// The number of elements that can be stored in the list without allocating new storage.
-  public var capacity: Int {
-    storage?.header.capacity ?? 0
-  }
+  public var capacity: Int { storage.capacity }
 
   /// The address of the first element.
   public var firstAddress: Address? {
-    (storage?.header.headOffset).map(Address.init(_:))
+    storage.isEmpty ? nil : Address(headOffset)
   }
 
   /// Returns the first address at which an element satisfies the given predicate.
@@ -94,7 +85,7 @@ public struct DoublyLinkedList<Element> {
 
   /// The address of the last element.
   public var lastAddress: Address? {
-    (storage?.header.tailOffset).map(Address.init(_:))
+    storage.isEmpty ? nil : Address(tailOffset)
   }
 
   /// Returns the last address at which an element satisfies the given predicate.
@@ -109,136 +100,74 @@ public struct DoublyLinkedList<Element> {
 
   /// The address of the element that immediately follows the element at `address`.
   public func address(after address: Address) -> Address? {
-    guard let storage = storage,
-          (address.rawValue >= 0) && (address.rawValue < storage.header.capacity)
-    else { preconditionFailure("address out of bound") }
-
+    precondition(isInBounds(address), "address out of bounds")
     guard address != lastAddress else { return nil }
-    return storage.withUnsafeMutablePointerToElements({ elements in
-      Address(elements[address.rawValue].nextOffset)
-    })
+    return Address(storage[address.rawValue].nextOffset)
   }
 
   /// The address of the element that immediately precedes the element at `address`.
   public func address(before address: Address) -> Address? {
-    guard let storage = storage,
-          (address.rawValue >= 0) && (address.rawValue < storage.header.capacity)
-    else { preconditionFailure("address out of bound") }
-
+    precondition(isInBounds(address), "address out of bounds")
     guard address != firstAddress else { return nil }
-    return storage.withUnsafeMutablePointerToElements({ elements in
-      Address(elements[address.rawValue].previousOffset)
-    })
+    return Address(storage[address.rawValue].previousOffset)
   }
 
   /// Accesses the element at `address`.
   public subscript(address: Address) -> Element {
     get {
-      guard let storage = storage,
-            (address.rawValue >= 0) && (address.rawValue < storage.header.capacity)
-      else { preconditionFailure("address out of bound") }
-      return storage.withUnsafeMutablePointerToElements({ elements in
-        elements[address.rawValue].element!
-      })
+      precondition(isInBounds(address), "address out of bounds")
+      return storage[address.rawValue].element!
     }
     _modify {
-      guard let storage = storage,
-            (address.rawValue >= 0) && (address.rawValue < storage.header.capacity)
-      else { preconditionFailure("address out of bound") }
-
-      var value = storage.withUnsafeMutablePointerToElements({ elements in
-        elements[address.rawValue].element.release()
-      })
-      defer {
-        storage.withUnsafeMutablePointerToElements({ elements in
-          elements[address.rawValue].element = value
-        })
-      }
-      yield &value
+      precondition(isInBounds(address), "address out of bounds")
+      yield &storage[address.rawValue].element!
     }
   }
 
   /// Inserts `newElement` at the end of the list and returns its address.
   @discardableResult
   public mutating func append(_ newElement: Element) -> Address {
-    if let tail = storage?.header.tailOffset {
-      // Insert the new element after the tail element.
-      return insert(newElement, after: Address(tail))
-    } else {
-      // Allocate new storage if the `self` is empty.
-      storage = List.create(
-        minimumCapacity: 1,
-        makingHeaderWith: { _ in
-          Header(count: 1, capacity: 1, headOffset: 0, tailOffset: 0, freeOffset: 1)
-        })
-      storage!.withUnsafeMutablePointerToElements({ elements in
-        elements.initialize(to: Bucket(previousOffset: -1, nextOffset: -1, element: newElement))
-      })
-
+    if storage.isEmpty {
+      count = 1
+      headOffset = 0
+      tailOffset = 0
+      freeOffset = 1
+      storage = [Bucket(previousOffset: -1, nextOffset: -1, element: newElement)]
       return Address(0)
+    } else if count == 0 {
+      let newAddress = Address(freeOffset)
+      count = 1
+      headOffset = freeOffset
+      tailOffset = freeOffset
+      freeOffset = storage[newAddress.rawValue].nextOffset
+      storage[newAddress.rawValue] = Bucket(
+        previousOffset: -1, nextOffset: -1, element: newElement)
+      return newAddress
+    } else {
+      return insert(newElement, after: Address(tailOffset))
     }
   }
 
   /// Inserts `newElement` at the start of the list and returns its address.
   @discardableResult
   public mutating func prepend(_ newElement: Element) -> Address {
-    if let head = storage?.header.headOffset {
-      // Insert the new element before the head element.
-      return insert(newElement, before: Address(head))
-    } else {
-      // Allocate new storage if the `self` is empty.
-      storage = List.create(
-        minimumCapacity: 1,
-        makingHeaderWith: { _ in
-          Header(count: 1, capacity: 1, headOffset: 0, tailOffset: 0, freeOffset: 1)
-        })
-      storage!.withUnsafeMutablePointerToElements({ elements in
-        elements.initialize(to: Bucket(previousOffset: -1, nextOffset: -1, element: newElement))
-      })
-
+    if storage.isEmpty {
+      count = 1
+      headOffset = 0
+      tailOffset = 0
+      freeOffset = 1
+      storage = [Bucket(previousOffset: -1, nextOffset: -1, element: newElement)]
       return Address(0)
-    }
-  }
-
-  /// Inserts `newElement` before the element at `address` and returns its address.
-  ///
-  /// - Requires: `address` must be the address of an element in `self`.
-  @discardableResult
-  public mutating func insert(_ newElement: Element, before address: Address) -> Address {
-    guard storage != nil,
-          (address.rawValue >= 0) && (address.rawValue < storage!.header.capacity)
-    else { preconditionFailure("address out of bound") }
-
-    // Allocate new storage if `self` is full. Otherwise, make sure mutation is not shared.
-    if storage!.header.count == storage!.header.capacity {
-      reserveCapacity(storage!.header.capacity * 2)
+    } else if count == 0 {
+      count = 1
+      headOffset = 0
+      tailOffset = 0
+      freeOffset = 1
+      storage = [Bucket(previousOffset: -1, nextOffset: -1, element: newElement)]
+      return Address(0)
     } else {
-      uniquify()
+      return insert(newElement, before: Address(tailOffset))
     }
-
-    // Insert the new element.
-    return storage!.withUnsafeMutablePointers({ (header, elements) in
-      precondition(elements[address.rawValue].element != nil, "address out of bound")
-
-      let newAddress = header.pointee.freeOffset
-      let next = elements[newAddress].nextOffset
-
-      elements[newAddress].element = newElement
-      elements[newAddress].previousOffset = elements[address.rawValue].previousOffset
-      elements[newAddress].nextOffset = address.rawValue
-
-      header.pointee.count += 1
-      header.pointee.freeOffset = next != -1 ? next : header.pointee.count
-
-      if address.rawValue == header.pointee.headOffset {
-        header.pointee.headOffset = newAddress
-      } else {
-        elements[elements[address.rawValue].previousOffset].nextOffset = newAddress
-      }
-      elements[address.rawValue].previousOffset = newAddress
-
-      return Address(newAddress)
-    })
   }
 
   /// Inserts `newElement` after the element at `address` and returns its address.
@@ -246,115 +175,97 @@ public struct DoublyLinkedList<Element> {
   /// - Requires: `address` must be a valid an address in `self`.
   @discardableResult
   public mutating func insert(_ newElement: Element, after address: Address) -> Address {
-    guard storage != nil,
-          (address.rawValue >= 0) && (address.rawValue < storage!.header.capacity)
-    else { preconditionFailure("address out of bound") }
+    precondition(isInBounds(address), "address out of bounds")
 
-    // Allocate new storage if `self` is full. Otherwise, make sure mutation is not shared.
-    if storage!.header.count == storage!.header.capacity {
-      reserveCapacity(storage!.header.capacity * 2)
+    let newAddress: Address
+    if freeOffset == storage.count {
+      newAddress = Address(storage.count)
+      freeOffset = storage.count + 1
+
+      storage.append(Bucket(
+        previousOffset: address.rawValue,
+        nextOffset: storage[address.rawValue].nextOffset,
+        element: newElement))
     } else {
-      uniquify()
+      newAddress = Address(freeOffset)
+      freeOffset = storage[freeOffset].nextOffset
+
+      storage[newAddress.rawValue] = Bucket(
+        previousOffset: address.rawValue,
+        nextOffset: storage[address.rawValue].nextOffset,
+        element: newElement)
     }
 
-    // Insert the new element.
-    return storage!.withUnsafeMutablePointers({ (header, elements) in
-      precondition(elements[address.rawValue].element != nil, "address out of bound")
+    storage[address.rawValue].nextOffset = newAddress.rawValue
+    if address.rawValue == tailOffset {
+      tailOffset = newAddress.rawValue
+    } else {
+      storage[storage[address.rawValue].nextOffset].previousOffset = newAddress.rawValue
+    }
 
-      let newAddress = header.pointee.freeOffset
-      let next = elements[newAddress].nextOffset
+    count += 1
+    return newAddress
+  }
 
-      elements[newAddress].element = newElement
-      elements[newAddress].nextOffset = elements[address.rawValue].nextOffset
-      elements[newAddress].previousOffset = address.rawValue
+  /// Inserts `newElement` before the element at `address` and returns its address.
+  ///
+  /// - Requires: `address` must be the address of an element in `self`.
+  @discardableResult
+  public mutating func insert(_ newElement: Element, before address: Address) -> Address {
+    precondition(isInBounds(address), "address out of bounds")
 
-      header.pointee.count += 1
-      header.pointee.freeOffset = next != -1 ? next : header.pointee.count
+    let newAddress: Address
+    if freeOffset == storage.count {
+      newAddress = Address(storage.count)
+      freeOffset = storage.count + 1
 
-      if address.rawValue == header.pointee.tailOffset {
-        header.pointee.tailOffset = newAddress
-      } else {
-        elements[elements[address.rawValue].nextOffset].previousOffset = newAddress
-      }
-      elements[address.rawValue].nextOffset = newAddress
+      storage.append(Bucket(
+        previousOffset: storage[address.rawValue].previousOffset,
+        nextOffset: address.rawValue,
+        element: newElement))
+    } else {
+      newAddress = Address(freeOffset)
+      freeOffset = storage[freeOffset].nextOffset
 
-      return Address(newAddress)
-    })
+      storage[newAddress.rawValue] = Bucket(
+        previousOffset: storage[address.rawValue].previousOffset,
+        nextOffset: address.rawValue,
+        element: newElement)
+    }
+
+    storage[address.rawValue].previousOffset = newAddress.rawValue
+    if address.rawValue == headOffset {
+      headOffset = newAddress.rawValue
+    } else {
+      storage[storage[address.rawValue].previousOffset].nextOffset = newAddress.rawValue
+    }
+
+    count += 1
+    return newAddress
   }
 
   /// Removes the element at `address`.
   @discardableResult
   public mutating func remove(at address: Address) -> Element {
-    guard storage != nil,
-          (address.rawValue >= 0) && (address.rawValue < storage!.header.capacity)
-    else { preconditionFailure("address out of bound") }
+    precondition(isInBounds(address), "address out of bounds")
 
-    // Make sure mutation is not shared.
-    uniquify()
+    storage[storage[address.rawValue].previousOffset].nextOffset =
+      storage[address.rawValue].nextOffset
+    storage[address.rawValue].nextOffset = freeOffset
 
-    // Remove the element.
-    let removed: Element = storage!.withUnsafeMutablePointers({ (header, elements) in
-      precondition(elements[address.rawValue].element != nil, "address out of bound")
-
-      elements[elements[address.rawValue].previousOffset].nextOffset =
-        elements[address.rawValue].nextOffset
-      elements[address.rawValue].nextOffset = header.pointee.freeOffset
-      header.pointee.count -= 1
-      header.pointee.freeOffset = address.rawValue
-      return elements[address.rawValue].element.release()
-    })
-
-    if storage!.header.count == 0 {
-      storage = nil
-    }
-
-    return removed
+    count -= 1
+    freeOffset = address.rawValue
+    return storage[address.rawValue].element.release()
   }
 
   /// Reserves enough space to store the `minimumCapacity` elements without allocating new storage.
   public mutating func reserveCapacity(_ minimumCapacity: Int) {
-    let oldCapacity = storage?.header.capacity ?? 0
-    let newCapacity = minimumCapacity.roundedUpToNextPowerOfTwo
-    if oldCapacity >= newCapacity { return }
-
-    let newStorage = List.create(
-      minimumCapacity: newCapacity,
-      makingHeaderWith: { _ in storage!.header })
-
-    newStorage.withUnsafeMutablePointers({ (newHeader, destination) in
-      newHeader.pointee.capacity = newCapacity
-      storage!.withUnsafeMutablePointerToElements({ source in
-        destination.moveInitialize(from: source, count: oldCapacity)
-        destination.advanced(by: oldCapacity)
-          .initialize(
-            repeating: Bucket(previousOffset: -1, nextOffset: -1, element: nil),
-            count: newCapacity - oldCapacity)
-      })
-    })
-
-    // Set capacity to 0 so that the destructor doesn't deinitialize moved elements.
-    storage!.header.capacity = 0
-    storage = newStorage
+    storage.reserveCapacity(minimumCapacity)
   }
 
-  /// Copy the internal storage of `self` if it is shared.
-  private mutating func uniquify() {
-    if storage == nil || isKnownUniquelyReferenced(&storage) { return }
-
-    // Storage is shared.
-    let newStorage = List.create(
-      minimumCapacity: storage!.capacity,
-      makingHeaderWith: { _ in storage!.header })
-
-    newStorage.withUnsafeMutablePointers({ (newHeader, destination) in
-      storage!.withUnsafeMutablePointerToElements({ source in
-        destination.moveInitialize(from: source, count: newHeader.pointee.capacity)
-      })
-    })
-
-    // Set capacity to 0 so that the destructor doesn't deinitialize moved elements.
-    storage!.header.capacity = 0
-    storage = newStorage
+  /// Returns whether `address` is in bounds.
+  private func isInBounds(_ address: Address) -> Bool {
+    !storage.isEmpty && (address.rawValue >= 0) && (address.rawValue < storage.count)
   }
 
 }
@@ -378,26 +289,16 @@ extension DoublyLinkedList: BidirectionalCollection, MutableCollection {
 
   }
 
-  public var isEmpty: Bool {
-    storage == nil
-  }
-
-  public var count: Int {
-    storage?.header.count ?? 0
-  }
+  public var isEmpty: Bool { count == 0 }
 
   /// The first element of the list.
   public var first: Element? {
-    storage?.withUnsafeMutablePointers({ (header, elements) in
-      elements[header.pointee.headOffset].element!
-    })
+    storage.isEmpty ? nil : storage[headOffset].element!
   }
 
   /// The last element of the list.
   public var last: Element? {
-    storage?.withUnsafeMutablePointers({ (header, elements) in
-      elements[header.pointee.tailOffset].element!
-    })
+    storage.isEmpty ? nil : storage[tailOffset].element!
   }
 
   public var startIndex: Index {
@@ -413,7 +314,9 @@ extension DoublyLinkedList: BidirectionalCollection, MutableCollection {
   }
 
   public func index(before i: Index) -> Index {
-    Index(address: address(before: i.address)!, offset: i.offset - 1)
+    i.offset == count
+      ? Index(address: lastAddress!, offset: i.offset - 1)
+      : Index(address: address(before: i.address)!, offset: i.offset - 1)
   }
 
   public subscript(position: Index) -> Element {
