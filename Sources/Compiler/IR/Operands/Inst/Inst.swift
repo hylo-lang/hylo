@@ -7,6 +7,9 @@ public protocol Inst {
   /// The operands of the instruction.
   var operands: [Operand] { get }
 
+  /// The source range of the code corresponding to that instruction, if any.
+  var range: SourceRange? { get }
+
 }
 
 /// The ID of a Val IR instruction.

@@ -4,7 +4,9 @@
 public struct BranchInst: Inst {
 
   /// The target of the branch.
-  public let target: Block.ID
+  public var target: Block.ID
+
+  public var range: SourceRange?
 
   public var type: LoweredType { .object(.unit) }
 

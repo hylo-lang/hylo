@@ -2,10 +2,13 @@
 public struct ReturnInst: Inst {
 
   /// The returned value.
-  public let value: Operand
+  public var value: Operand
 
-  init(value: Operand = .constant(.unit)) {
+  public var range: SourceRange?
+
+  init(value: Operand = .constant(.unit), range: SourceRange? = nil) {
     self.value = value
+    self.range = range
   }
 
   public var type: LoweredType { .object(.unit) }

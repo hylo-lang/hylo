@@ -6,7 +6,7 @@ import Utils
 /// analysis and code generation.
 public struct Emitter {
 
-  /// The program being lwered.
+  /// The program being lowered.
   public let program: TypedProgram
 
   /// The insertion point of the emitter.
@@ -126,43 +126,6 @@ public struct Emitter {
     }
   }
 
-  // MARK: Statements
-
-  /// Emits the given statement into `module` at the current insertion point.
-  private mutating func emit<T: StmtID>(stmt: T, into module: inout Module) {
-    switch stmt.kind {
-    case .braceStmt:
-      emit(brace: NodeID(unsafeRawValue: stmt.rawValue), into: &module)
-    case .declStmt:
-      emit(declStmt: NodeID(unsafeRawValue: stmt.rawValue), into: &module)
-    case .exprStmt:
-      emit(exprStmt: NodeID(unsafeRawValue: stmt.rawValue), into: &module)
-    default:
-      unreachable("unexpected statement")
-    }
-  }
-
-  private mutating func emit(brace stmt: NodeID<BraceStmt>, into module: inout Module) {
-    let localsBeforeBrace = locals
-    for s in program.ast[stmt].stmts {
-      emit(stmt: s, into: &module)
-    }
-    locals = localsBeforeBrace
-  }
-
-  private mutating func emit(declStmt stmt: NodeID<DeclStmt>, into module: inout Module) {
-    switch program.ast[stmt].decl.kind {
-    case .bindingDecl:
-      emit(localBinding: NodeID(unsafeRawValue: program.ast[stmt].decl.rawValue), into: &module)
-    default:
-      unreachable("unexpected declaration")
-    }
-  }
-
-  private mutating func emit(exprStmt stmt: NodeID<ExprStmt>, into module: inout Module) {
-    _ = emitR(expr: program.ast[stmt].expr, into: &module)
-  }
-
   private mutating func emit(localBinding decl: NodeID<BindingDecl>, into module: inout Module) {
     let pattern = program.ast[decl].pattern
 
@@ -247,6 +210,58 @@ public struct Emitter {
           at: insertionPoint!)
       }
     }
+  }
+
+  // MARK: Statements
+
+  /// Emits the given statement into `module` at the current insertion point.
+  private mutating func emit<T: StmtID>(stmt: T, into module: inout Module) {
+    switch stmt.kind {
+    case .braceStmt:
+      emit(brace: NodeID(unsafeRawValue: stmt.rawValue), into: &module)
+    case .declStmt:
+      emit(declStmt: NodeID(unsafeRawValue: stmt.rawValue), into: &module)
+    case .exprStmt:
+      emit(exprStmt: NodeID(unsafeRawValue: stmt.rawValue), into: &module)
+    case .returnStmt:
+      emit(returnStmt: NodeID(unsafeRawValue: stmt.rawValue), into: &module)
+    default:
+      unreachable("unexpected statement")
+    }
+  }
+
+  private mutating func emit(brace stmt: NodeID<BraceStmt>, into module: inout Module) {
+    let localsBeforeBrace = locals
+    for s in program.ast[stmt].stmts {
+      emit(stmt: s, into: &module)
+    }
+    locals = localsBeforeBrace
+  }
+
+  private mutating func emit(declStmt stmt: NodeID<DeclStmt>, into module: inout Module) {
+    switch program.ast[stmt].decl.kind {
+    case .bindingDecl:
+      emit(localBinding: NodeID(unsafeRawValue: program.ast[stmt].decl.rawValue), into: &module)
+    default:
+      unreachable("unexpected declaration")
+    }
+  }
+
+  private mutating func emit(exprStmt stmt: NodeID<ExprStmt>, into module: inout Module) {
+    _ = emitR(expr: program.ast[stmt].expr, into: &module)
+  }
+
+  private mutating func emit(returnStmt stmt: NodeID<ReturnStmt>, into module: inout Module) {
+    let value: Operand
+    if let expr = program.ast[stmt].value {
+      value = emitR(expr: expr, into: &module)
+    } else {
+      value = .constant(.unit)
+    }
+
+    module.insert(
+      ReturnInst(value: value, range: program.ast.ranges[stmt]),
+      at: insertionPoint!)
   }
 
   // MARK: r-values

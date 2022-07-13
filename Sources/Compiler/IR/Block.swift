@@ -12,6 +12,11 @@ public struct Block {
     /// The address of the block in the containing function.
     public var address: Function.BlockAddress
 
+    /// The ID of the instruction at `instAddress` in the block identified by `self`.
+    public func instID(at instAddress: Block.InstAddress) -> InstID {
+      InstID(function: function, block: address, address: instAddress)
+    }
+
   }
 
   /// The type input parameters of the block.

@@ -4,22 +4,26 @@
 /// of the callee. `operands` must contain as many operands as the callee's type.
 public struct CallInst: Inst {
 
-  public let type: LoweredType
+  public var type: LoweredType
 
   /// The passing conventions of the instruction's operands.
-  public let conventions: [PassingConvention]
+  public var conventions: [PassingConvention]
 
-  public let operands: [Operand]
+  public var operands: [Operand]
+
+  public var range: SourceRange?
 
   public init(
     type: LoweredType,
     conventions: [PassingConvention],
     callee: Operand,
-    arguments: [Operand]
+    arguments: [Operand],
+    range: SourceRange? = nil
   ) {
     self.type = type
     self.conventions = conventions
     self.operands = [callee] + arguments
+    self.range = range
   }
 
   /// Returns whether the instruction is a call to a built-in function.

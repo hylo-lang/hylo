@@ -1,10 +1,12 @@
 /// A load instruction.
 public struct LoadInst: Inst {
 
-  public let type: LoweredType
+  public var type: LoweredType
 
   /// The address of the object to load.
-  public let source: Operand
+  public var source: Operand
+
+  public var range: SourceRange?
 
   public var operands: [Operand] { [source] }
 

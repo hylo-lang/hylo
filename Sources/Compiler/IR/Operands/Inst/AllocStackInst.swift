@@ -2,7 +2,9 @@
 public struct AllocStackInst: Inst {
 
   /// The type of the object for which storage is allocated.
-  public let objectType: Type
+  public var objectType: Type
+
+  public var range: SourceRange?
 
   init(_ objectType: Type) {
     self.objectType = objectType

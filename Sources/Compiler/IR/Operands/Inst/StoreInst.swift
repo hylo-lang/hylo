@@ -2,10 +2,12 @@
 public struct StoreInst: Inst {
 
   /// The object to store.
-  public let object: Operand
+  public var object: Operand
 
   /// The location at which the object is stored.
-  public let target: Operand
+  public var target: Operand
+
+  public var range: SourceRange?
 
   public var type: LoweredType { .object(.unit) }
 

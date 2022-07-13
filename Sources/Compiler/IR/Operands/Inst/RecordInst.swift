@@ -5,10 +5,12 @@
 public struct RecordInst: Inst {
 
   /// The type of the created record.
-  public let objectType: Type
+  public var objectType: Type
 
   /// The operands consumed to initialize the record members.
-  public let operands: [Operand]
+  public var operands: [Operand]
+
+  public var range: SourceRange?
 
   public var type: LoweredType { .object(objectType) }
 

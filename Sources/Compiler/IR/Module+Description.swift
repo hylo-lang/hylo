@@ -92,6 +92,10 @@ extension Module: CustomStringConvertible {
           output.write(", ")
           output.write(blockNames[inst.targetIfFalse]!)
 
+        case let inst as EndBorrowInst:
+          output.write("end_borrow ")
+          output.write(describe(operand: inst.borrow))
+
         case let inst as LoadInst:
           output.write("load ")
           output.write(describe(operand: inst.source))
