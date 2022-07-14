@@ -56,6 +56,14 @@ extension Diagnostic {
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }
 
+  static func duplicateCaptureName(_ name: String, range: SourceRange?) -> Diagnostic {
+    Diagnostic(
+      level: .error,
+      message: "duplicate capture name '\(name)'",
+      location: range?.first(),
+      window: range.map({ r in Diagnostic.Window(range: r) }))
+  }
+
   static func duplicateOperatorDeclaration(_ name: String, range: SourceRange?) -> Diagnostic {
     Diagnostic(
       level: .error,

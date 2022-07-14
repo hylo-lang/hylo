@@ -2010,9 +2010,10 @@ public struct TypeChecker {
       }
     }
 
-    let decl = ast[id]
+    var decl = ast[id]
     let declScope = AnyScopeID(id)
 
+    var implicitParameterDecls: [(name: String, decl: AnyDeclID)] = []
     var inputs: [CallableTypeParameter] = []
     var success = true
 
@@ -2057,7 +2058,13 @@ public struct TypeChecker {
 
       // Collect the names of the capture.
       for (_, name) in ast.names(in: pattern) {
-        explictNames.insert(Name(stem: ast[ast[name].decl].name))
+        let stem = ast[ast[name].decl].name
+        if explictNames.insert(Name(stem: stem)).inserted {
+          implicitParameterDecls.append((name: stem, decl: AnyDeclID(ast[name].decl)))
+        } else {
+          diagnostics.insert(.duplicateCaptureName(stem, range: ast.ranges[ast[name].decl]))
+          success = false
+        }
       }
 
       // Realize the type of the capture.
@@ -2141,8 +2148,12 @@ public struct TypeChecker {
         // Other local declarations are captured.
         guard let captureType = realize(decl: decl).proper?.skolemized else { continue }
         captures.append(.projection(ProjectionType(uses.capability, captureType)))
+        implicitParameterDecls.append((name.stem, decl))
       }
     }
+
+    ast[id].implicitParameterDecls = implicitParameterDecls
+    decl = ast[id]
 
     // Member declarations may not have captures.
     if scopeHierarchy.isMember(decl: id) && !captures.isEmpty {
