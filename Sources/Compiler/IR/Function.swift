@@ -6,6 +6,9 @@ public struct Function {
   /// The ID of a basic block in a Val IR function.
   public typealias ID = Module.FunctionIndex
 
+  /// The profile of a IR function input.
+  public typealias Input = (convention: PassingConvention, type: LoweredType)
+
   /// The mangled name of the function.
   public var name: String
 
@@ -13,7 +16,7 @@ public struct Function {
   public var debugName: String?
 
   /// The types of the function's parameters.
-  public var inputs: [LoweredType]
+  public var inputs: [Input]
 
   /// The type of the function's output.
   public var output: LoweredType

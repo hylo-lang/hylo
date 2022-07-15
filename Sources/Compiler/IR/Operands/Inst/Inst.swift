@@ -10,6 +10,9 @@ public protocol Inst {
   /// The source range of the code corresponding to that instruction, if any.
   var range: SourceRange? { get }
 
+  /// Returns whether the instruction is well-formed.
+  func check(in module: Module) -> Bool
+
 }
 
 /// The ID of a Val IR instruction.

@@ -10,4 +10,17 @@ public struct LoadInst: Inst {
 
   public var operands: [Operand] { [source] }
 
+  public func check(in module: Module) -> Bool {
+    // Instruction has an object type.
+    if type.isAddress { return false }
+
+    // Source jas an address type.
+    if !module.type(of: source).isAddress { return false }
+
+    // Type of the instruction matches the type of the operand.
+    if module.type(of: source).astType != type.astType { return false }
+
+    return true
+  }
+
 }

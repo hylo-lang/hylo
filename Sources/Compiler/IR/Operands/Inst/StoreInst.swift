@@ -13,4 +13,8 @@ public struct StoreInst: Inst {
 
   public var operands: [Operand] { [target] }
 
+  public func check(in module: Module) -> Bool {
+    true
+  }
+
 }

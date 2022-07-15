@@ -502,7 +502,7 @@ public struct TypeChecker {
       if decl.introducer.value == .`init` {
         // The receiver of an initializer is its first parameter.
         declTypes[param] = type.inputs[0].type
-      } else if case .projection(let type) = type.captures?.first?.type {
+      } else if case .projection(let type) = type.captures.first?.type {
         // `let` and `inout` methods capture a projection of their receiver.
         let convention: PassingConvention
         switch type.capability {

@@ -13,4 +13,8 @@ public struct TakeMemberInst: Inst {
 
   public var operands: [Operand] { [value] }
 
+  public func check(in module: Module) -> Bool {
+    true
+  }
+
 }

@@ -103,12 +103,12 @@ public struct LambdaType: TypeProtocol, Hashable {
     return LambdaType(inputs: Array(inputs[1...]), output: receiverType.bareType)
   }
 
-  /// Accesses the individual elements of the lambda's environment, if available.
-  public var captures: [TupleType.Element]? {
+  /// Accesses the individual elements of the lambda's environment.
+  public var captures: [TupleType.Element] {
     if case .tuple(let type) = environment {
       return type.elements
     } else {
-      return nil
+      return []
     }
   }
 

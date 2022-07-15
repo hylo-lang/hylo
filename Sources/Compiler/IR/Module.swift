@@ -37,6 +37,24 @@ public struct Module {
     }
   }
 
+  /// Returns whether the module is well-formed.
+  public func check() -> Bool {
+    for i in 0 ..< functions.count {
+      if !check(function: i) { return false }
+    }
+    return true
+  }
+
+  /// Returns whether the specified function is well-formed.
+  public func check(function functionID: Function.ID) -> Bool {
+    for block in functions[functionID].blocks {
+      for inst in block.instructions {
+        if !inst.check(in: self) { return false }
+      }
+    }
+    return true
+  }
+
   /// Returns the identifier of the Val IR function corresponding to `declID`.
   mutating func getOrCreateFunction(
     from declID: NodeID<FunDecl>,
@@ -47,19 +65,46 @@ public struct Module {
     if let id = loweredFunctions[declID] { return id }
 
     // Determine the type of the function.
-    var inputs: [LoweredType] = []
+    var inputs: [Function.Input] = []
     let output: LoweredType
 
     switch declTypes[declID] {
     case .lambda(let declType):
-      inputs.reserveCapacity(declType.captures!.count + declType.inputs.count)
-      for capture in ast[declID].implicitParameterDecls {
-        inputs.append(LoweredType(lowering: declTypes[capture.decl]!))
-      }
-      for parameter in ast[declID].parameters {
-        inputs.append(LoweredType(lowering: declTypes[parameter]!))
-      }
       output = LoweredType(lowering: declType.output)
+      inputs.reserveCapacity(declType.captures.count + declType.inputs.count)
+
+      // Define inputs for the captures.
+      for capture in declType.captures {
+        switch capture.type {
+        case .projection(let type):
+          precondition(type.capability != .yielded, "cannot lower yielded parameter")
+          inputs.append((
+            convention: PassingConvention(matching: type.capability),
+            type: .address(type.base)))
+
+        case let type:
+          switch declType.operatorProperty {
+          case nil:
+            inputs.append((convention: .let, type: .address(type)))
+          case .inout:
+            inputs.append((convention: .inout, type: .address(type)))
+          case .sink:
+            inputs.append((convention: .sink, type: .object(type)))
+          }
+        }
+      }
+
+      // Define inputs for the parameters.
+      for parameter in declType.inputs {
+        switch parameter.type {
+        case .parameter(let type):
+          precondition(type.convention != .yielded, "cannot lower yielded parameter")
+          inputs.append((convention: type.convention, type: .address(type.bareType)))
+
+        default:
+          unreachable()
+        }
+      }
 
     default:
       unreachable()

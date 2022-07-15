@@ -15,4 +15,8 @@ public struct ReturnInst: Inst {
 
   public var operands: [Operand] { [value] }
 
+  public func check(in module: Module) -> Bool {
+    true
+  }
+
 }

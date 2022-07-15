@@ -4,6 +4,7 @@ public struct LifetimePass {
   /// The program being lowered.
   public let program: TypedProgram
 
+  /// The diagnostics collected during the pass.
   private var diagnostics: [Diagnostic] = []
 
   public init(program: TypedProgram) {
@@ -69,6 +70,18 @@ public struct LifetimePass {
     }
 
     return result
+  }
+
+}
+
+extension Diagnostic {
+
+  fileprivate static func unusedBinding(name: Identifier, range: SourceRange?) -> Diagnostic {
+    Diagnostic(
+      level: .warning,
+      message: "binding '\(name)' was never used",
+      location: range?.first(),
+      window: range.map({ r in Diagnostic.Window(range: r) }))
   }
 
 }

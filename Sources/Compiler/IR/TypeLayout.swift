@@ -10,6 +10,7 @@ public struct TypeLayout {
   /// Given `type` has a record layout, the type the member at the specified stored property index.
   public let storedPropertiesTypes: [Type]
 
+  /// Creates the layout of `type` defined in `program`.
   public init(_ type: Type, in program: TypedProgram) {
     self.type = type
 

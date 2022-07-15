@@ -42,7 +42,11 @@ extension Module: CustomStringConvertible {
     // Dumps the function in the module.
     var output = ""
     if let debugName = function.debugName { output.write("// \(debugName)\n") }
-    output.write("@lowered fun \(function.name) {\n")
+    output.write("@lowered fun \(function.name)(")
+    output.write(function.inputs.lazy
+      .map({ (c, t) in "\(c) \(t)" })
+      .joined(separator: ", "))
+    output.write(") -> \(function.output) {\n")
 
     for i in function.blocks.indices {
       let blockID = Block.ID(function: functionID, address: i.address)
@@ -68,7 +72,9 @@ extension Module: CustomStringConvertible {
         case let inst as BorrowInst:
           output.write("borrow [\(inst.capability)] ")
           output.write(describe(operand: inst.value))
-          output.write(", \(inst.path.descriptions())")
+          if !inst.path.isEmpty {
+            output.write(", \(inst.path.descriptions())")
+          }
 
         case let inst as BranchInst:
           output.write("branch ")

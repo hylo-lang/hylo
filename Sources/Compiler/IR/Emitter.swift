@@ -62,7 +62,7 @@ public struct Emitter {
     // Create the function entry.
     assert(module.functions[functionID].blocks.isEmpty)
     let entryID = module.createBasicBlock(
-      accepting: module.functions[functionID].inputs,
+      accepting: module.functions[functionID].inputs.map({ $0.type }),
       atEndOf: functionID)
     insertionPoint = InsertionPoint(endOf: entryID)
 
@@ -158,7 +158,7 @@ public struct Emitter {
 
       if let source = initializer {
         let target = module.insert(
-          BorrowInst(type: .address(declType), capability: .set, value: storage, path: [0]),
+          BorrowInst(type: .address(declType), capability: .set, value: storage, path: []),
           at: insertionPoint!)
 
         if path.isEmpty {
@@ -196,7 +196,7 @@ public struct Emitter {
         source = storage
 
         let target = module.insert(
-          BorrowInst(type: .address(exprType), capability: .set, value: storage, path: [0]),
+          BorrowInst(type: .address(exprType), capability: .set, value: storage, path: []),
           at: insertionPoint!)
         module.insert(StoreInst(object: value, target: target), at: insertionPoint!)
       }
@@ -206,7 +206,13 @@ public struct Emitter {
         let declType = program.declTypes[decl]!
 
         locals[decl] = module.insert(
-          BorrowInst(type: .address(declType), capability: capability, value: source, path: path),
+          BorrowInst(
+            type: .address(declType),
+            capability: capability,
+            value: source,
+            path: path,
+            binding: decl,
+            range: program.ast.ranges[decl]),
           at: insertionPoint!)
       }
     }
@@ -324,7 +330,7 @@ public struct Emitter {
         // Evaluate the condition in the current block.
         var condition = emitR(expr: itemExpr, into: &module)
         condition = module.insert(
-          TakeMemberInst(type: .address(.builtin(.i(1))), value: condition, path: [0]),
+          TakeMemberInst(type: .address(.builtin(.i(1))), value: condition, path: []),
           at: insertionPoint!)
 
         module.insert(
@@ -350,7 +356,7 @@ public struct Emitter {
       if let target = resultStorage {
         let target = module.insert(
           BorrowInst(
-            type: .address(program.exprTypes[expr]!), capability: .set, value: target, path: [0]),
+            type: .address(program.exprTypes[expr]!), capability: .set, value: target, path: []),
           at: insertionPoint!)
         module.insert(StoreInst(object: value, target: target), at: insertionPoint!)
       }
@@ -368,7 +374,7 @@ public struct Emitter {
       if let target = resultStorage {
         let target = module.insert(
           BorrowInst(
-            type: .address(program.exprTypes[expr]!), capability: .set, value: target, path: [0]),
+            type: .address(program.exprTypes[expr]!), capability: .set, value: target, path: []),
           at: insertionPoint!)
         module.insert(StoreInst(object: value, target: target), at: insertionPoint!)
       }
@@ -470,7 +476,7 @@ public struct Emitter {
 
       case .member(let calleeDeclID) where calleeDeclID.kind == .funDecl:
         // Callee is a member reference to a method.
-        let receiverType = calleeType.captures![0].type
+        let receiverType = calleeType.captures[0].type
 
         // Add the receiver to the arguments.
         if case .projection(let type) = receiverType {
@@ -484,7 +490,7 @@ public struct Emitter {
                 type: .address(type.base),
                 capability: type.capability,
                 value: locals[receiverDecl!]!,
-                path: [0]),
+                path: []),
               at: insertionPoint!)
             arguments.insert(receiver, at: 0)
 
@@ -609,13 +615,13 @@ public struct Emitter {
       let storage = module.insert(AllocStackInst(exprType), at: insertionPoint!)
 
       let target = module.insert(
-        BorrowInst(type: .address(exprType), capability: .set, value: storage, path: [0]),
+        BorrowInst(type: .address(exprType), capability: .set, value: storage, path: []),
         at: insertionPoint!)
       module.insert(StoreInst(object: value, target: target), at: insertionPoint!)
 
       return module.insert(
         BorrowInst(
-          type: .address(exprType), capability: capability, value: storage, path: [0]),
+          type: .address(exprType), capability: capability, value: storage, path: []),
         at: insertionPoint!)
     }
   }
@@ -634,7 +640,7 @@ public struct Emitter {
             type: .address(program.exprTypes[expr]!),
             capability: capability,
             value: source,
-            path: [0]),
+            path: []),
           at: insertionPoint!)
       }
 
@@ -676,7 +682,7 @@ public struct Emitter {
             type: .address(program.exprTypes[expr]!),
             capability: capability,
             value: receiver,
-            path: [0, memberIndex])
+            path: [memberIndex])
           return module.insert(member, at: insertionPoint!)
         }
 

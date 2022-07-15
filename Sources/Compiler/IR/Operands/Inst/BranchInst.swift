@@ -12,4 +12,8 @@ public struct BranchInst: Inst {
 
   public var operands: [Operand] { [] }
 
+  public func check(in module: Module) -> Bool {
+    true
+  }
+
 }

@@ -1,9 +1,8 @@
 // Borrows an access on an object or sub-object.
-public struct BorrowInst: Inst {
+public struct BorrowInst: Inst, BorrowInstProtocol {
 
   public var type: LoweredType
 
-  /// The capability being borrowed.
   public var capability: ProjectionType.Capability
 
   /// The value of the root object on which an access is borrowed.
@@ -18,5 +17,9 @@ public struct BorrowInst: Inst {
   public var range: SourceRange?
 
   public var operands: [Operand] { [value] }
+
+  public func check(in module: Module) -> Bool {
+    true
+  }
 
 }

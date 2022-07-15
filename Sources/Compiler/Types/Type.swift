@@ -113,6 +113,18 @@ public indirect enum Type: TypeProtocol, Hashable {
     }
   }
 
+  /// Indicates whether `type` has a record layout.
+  public var hasRecordLayout: Bool {
+    switch self {
+    case .product, .tuple:
+      return true
+    case .boundGeneric(let type):
+      return type.base.hasRecordLayout
+    default:
+      return false
+    }
+  }
+
   /// The `Any` type.
   public static var any: Type = .existential(ExistentialType(traits: [], constraints: []))
 

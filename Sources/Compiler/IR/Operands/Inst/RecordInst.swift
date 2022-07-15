@@ -14,5 +14,9 @@ public struct RecordInst: Inst {
 
   public var type: LoweredType { .object(objectType) }
 
+  public func check(in module: Module) -> Bool {
+    true
+  }
+
 }
 

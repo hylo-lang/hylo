@@ -68,7 +68,7 @@ public struct FunDecl: GenericDecl, GenericScope {
   /// The declaration of the implicit parameters of the function, if any.
   ///
   /// This property is set during type checking. In a local function, it maps the names of the
-  /// implicit and explicit captures to their respective declaration.In a non-static method
+  /// implicit and explicit captures to their respective declaration. In a non-static method
   /// declaration, it contains a reference to the declaration of the implicit receiver parameter
   /// (i.e., `self`), unless the method forms a bundle. The implicit receiver of a method bundle
   /// has a declaration in each method implementation.
