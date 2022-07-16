@@ -1,8 +1,8 @@
 /// A Val IR instruction.
 public protocol Inst {
 
-  /// The type of the instruction.
-  var type: LoweredType { get }
+  /// The types of the instruction's results (empty for instructions with no result).
+  var types: [LoweredType] { get }
 
   /// The operands of the instruction.
   var operands: [Operand] { get }

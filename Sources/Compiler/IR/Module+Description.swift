@@ -20,19 +20,21 @@ extension Module: CustomStringConvertible {
       let blockID = Block.ID(function: functionID, address: i.address)
       blockNames[blockID] = "bb\(blockNames.count)"
 
-      for j in 0 ..< function.blocks[i.address].inputs.count {
+      for j in 0 ..< function[i.address].inputs.count {
         operandNames[.parameter(block: blockID, index: j)] = "%\(operandNames.count)"
       }
-      for j in function.blocks[i.address].instructions.indices {
+      for j in function[i.address].instructions.indices {
         let instID = InstID(function: functionID, block: i.address, address: j.address)
-        operandNames[.inst(instID)] = "%\(operandNames.count)"
+        for k in 0 ..< function[i.address][j.address].types.count {
+          operandNames[.result(inst: instID, index: k)] = "%\(operandNames.count)"
+        }
       }
     }
 
     /// Returns a human-readable representation of `operand`.
     func describe(operand: Operand) -> String {
       switch operand {
-      case .inst, .parameter:
+      case .result, .parameter:
         return operandNames[operand]!
       case .constant(let value):
         return String(describing: value)
@@ -50,7 +52,7 @@ extension Module: CustomStringConvertible {
 
     for i in function.blocks.indices {
       let blockID = Block.ID(function: functionID, address: i.address)
-      let block = function.blocks[i]
+      let block = function[i.address]
 
       output.write(blockNames[blockID]!)
       output.write("(")
@@ -61,13 +63,18 @@ extension Module: CustomStringConvertible {
 
       for j in block.instructions.indices {
         let instID = InstID(function: functionID, block: i.address, address: j.address)
+
         output.write("  ")
-        output.write(operandNames[.inst(instID)]!)
-        output.write(" = ")
+        if !block[j.address].types.isEmpty {
+          output.write((0 ..< block[j.address].types.count)
+            .map({ k in operandNames[.result(inst: instID, index: k)]! })
+            .joined(separator: ", "))
+          output.write(" = ")
+        }
 
         switch block.instructions[j.address] {
         case let inst as AllocStackInst:
-          output.write("alloc_stack \(inst.objectType)")
+          output.write("alloc_stack \(inst.allocatedType)")
 
         case let inst as BorrowInst:
           output.write("borrow [\(inst.capability)] ")

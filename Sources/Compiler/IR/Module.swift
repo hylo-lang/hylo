@@ -26,8 +26,8 @@ public struct Module {
   /// Returns the type of `operand`.
   public func type(of operand: Operand) -> LoweredType {
     switch operand {
-    case .inst(let id):
-      return functions[id.function][id.block][id.address].type
+    case .result(let inst, let index):
+      return functions[inst.function][inst.block][inst.address].types[index]
 
     case .parameter(let block, let index):
       return functions[block.function][block.address].inputs[index]
@@ -142,7 +142,7 @@ public struct Module {
 
   /// Inserts `inst` at the specified insertion point.
   @discardableResult
-  mutating func insert<I: Inst>(_ inst: I, at ip: InsertionPoint) -> Operand {
+  mutating func insert<I: Inst>(_ inst: I, at ip: InsertionPoint) -> [Operand] {
     // Inserts the instruction.
     let address: Block.InstAddress
     switch ip.position {
@@ -160,7 +160,7 @@ public struct Module {
       uses[inst.operands[i], default: []].append(Use(user: userID, index: i))
     }
 
-    return .inst(userID)
+    return (0 ..< inst.types.count).map({ k in .result(inst: userID, index: k) })
   }
 
 }

@@ -9,7 +9,12 @@ public struct StoreInst: Inst {
 
   public var range: SourceRange?
 
-  public var type: LoweredType { .object(.unit) }
+  init(_ object: Operand, to target: Operand) {
+    self.object = object
+    self.target = target
+  }
+
+  public var types: [LoweredType] { [] }
 
   public var operands: [Operand] { [target] }
 

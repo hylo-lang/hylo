@@ -23,7 +23,7 @@ public struct LifetimePass {
         switch module[functionID][block.address][inst.address] {
         case let borrow as BorrowInst:
           // Compute the live-range of the instruction.
-          let borrowID = Operand.inst(block.instID(at: inst.address))
+          let borrowID = block.result(at: inst.address, index: 0)
           let borrowLifetime = lifetime(of: borrowID, in: module)
 
           // Delete the borrow if it's never used.
@@ -63,7 +63,8 @@ public struct LifetimePass {
     for use in uses {
       switch module[use.user.function][use.user.block][use.user.address] {
       case is BorrowInst:
-        result = module.extend(lifetime: result, with: lifetime(of: .inst(use.user), in: module))
+        result = module.extend(
+          lifetime: result, with: lifetime(of: .result(inst: use.user, index: 0), in: module))
       default:
         continue
       }

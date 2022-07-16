@@ -11,7 +11,7 @@ public struct ReturnInst: Inst {
     self.range = range
   }
 
-  public var type: LoweredType { .object(.unit) }
+  public var types: [LoweredType] { [] }
 
   public var operands: [Operand] { [value] }
 

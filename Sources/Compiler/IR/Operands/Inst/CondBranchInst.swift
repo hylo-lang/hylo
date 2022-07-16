@@ -14,7 +14,7 @@ public struct CondBranchInst: Inst {
 
   public var range: SourceRange?
 
-  public var type: LoweredType { .object(.unit) }
+  public var types: [LoweredType] { [] }
 
   public var operands: [Operand] { [] }
 

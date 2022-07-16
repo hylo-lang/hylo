@@ -5,17 +5,18 @@
 public struct RecordInst: Inst {
 
   /// The type of the created record.
-  public var objectType: Type
+  public var objectType: LoweredType
 
   /// The operands consumed to initialize the record members.
   public var operands: [Operand]
 
   public var range: SourceRange?
 
-  public var type: LoweredType { .object(objectType) }
+  public var types: [LoweredType] { [objectType] }
 
   public func check(in module: Module) -> Bool {
-    true
+    // Instruction has an object type.
+    return !objectType.isAddress
   }
 
 }

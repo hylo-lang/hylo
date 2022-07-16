@@ -272,8 +272,8 @@ public struct DefiniteInitializationPass {
   /// A key in the local store of an abstract interpretation context.
   private enum LocalKey: Hashable {
 
-    /// An instruction.
-    case inst(block: Function.BlockAddress, address: Block.InstAddress)
+    /// The result of an instruction.
+    case result(block: Function.BlockAddress, address: Block.InstAddress, index: Int)
 
     /// A block parameter.
     case param(block: Function.BlockAddress, index: Int)
@@ -282,8 +282,8 @@ public struct DefiniteInitializationPass {
     /// Otherwise, returns `nil`.
     init?(operand: Operand) {
       switch operand {
-      case .inst(let i):
-        self = .inst(block: i.block, address: i.address)
+      case .result(let inst, let index):
+        self = .result(block: inst.block, address: inst.address, index: index)
       case .parameter(let block, let index):
         self = .param(block: block.address, index: index)
       case .constant:
@@ -291,9 +291,9 @@ public struct DefiniteInitializationPass {
       }
     }
 
-    /// Creates an instruction key from an instruction ID.
-    init(_ instID: InstID) {
-      self = .inst(block: instID.block, address: instID.address)
+    /// Creates an instruction key from an instruction ID and a result index.
+    init(_ inst: InstID, _ index: Int) {
+      self = .result(block: inst.block, address: inst.address, index: index)
     }
 
   }
@@ -488,8 +488,8 @@ public struct DefiniteInitializationPass {
     }
 
     // Update the context.
-    context.memory[location] = Context.Cell(type: inst.objectType, object: .full(.uninitialized))
-    context.locals[LocalKey(id)] = .locations([location])
+    context.memory[location] = Context.Cell(type: inst.allocatedType, object: .full(.uninitialized))
+    context.locals[LocalKey(id, 0)] = .locations([location])
     return true
   }
 
@@ -547,7 +547,7 @@ public struct DefiniteInitializationPass {
       unreachable()
     }
 
-    context.locals[LocalKey(id)] = .locations(Set(locations))
+    context.locals[LocalKey(id, 0)] = .locations(Set(locations))
     return true
   }
 
@@ -577,7 +577,7 @@ public struct DefiniteInitializationPass {
     }
 
     // Result is initialized.
-    context.locals[LocalKey(id)] = .object(.full(.initialized))
+    context.locals[LocalKey(id, 0)] = .object(.full(.initialized))
     return true
   }
 
@@ -640,7 +640,7 @@ public struct DefiniteInitializationPass {
     }
 
     // Result is initialized.
-    context.locals[LocalKey(id)] = .object(.full(.initialized))
+    context.locals[LocalKey(id, 0)] = .object(.full(.initialized))
     return true
   }
 
