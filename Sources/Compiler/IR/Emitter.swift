@@ -298,6 +298,13 @@ public struct Emitter {
 
   /// Emits `expr` as a r-value into `module` at the current insertion point.
   private mutating func emitR<T: ExprID>(expr: T, into module: inout Module) -> Operand {
+    defer {
+      // Mark the execution path unreachable if the computed value has type `Never`.
+      if program.exprTypes[expr] == .never {
+        module.insert(UnrechableInst(), at: insertionPoint!)
+      }
+    }
+
     switch expr.kind {
     case .booleanLiteralExpr:
       return emitR(booleanLiteral: NodeID(unsafeRawValue: expr.rawValue), into: &module)

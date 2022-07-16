@@ -38,6 +38,8 @@ public struct BorrowInst: Inst, BorrowInstProtocol {
 
   public var operands: [Operand] { [value] }
 
+  public var isTerminator: Bool { false }
+
   public func check(in module: Module) -> Bool {
     // Instruction result has an address type.
     if !borrowedType.isAddress { return false }

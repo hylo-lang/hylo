@@ -17,6 +17,8 @@ public struct DestructureInst: Inst {
 
   public var operands: [Operand] { [object] }
 
+  public var isTerminator: Bool { false }
+
   public func check(in module: Module) -> Bool {
     // Instruction results have object types.
     for output in types {

@@ -101,14 +101,14 @@ public struct DoublyLinkedList<Element> {
   /// The address of the element that immediately follows the element at `address`.
   public func address(after address: Address) -> Address? {
     precondition(isInBounds(address), "address out of bounds")
-    guard address != lastAddress else { return nil }
+    if address == lastAddress { return nil }
     return Address(storage[address.rawValue].nextOffset)
   }
 
   /// The address of the element that immediately precedes the element at `address`.
   public func address(before address: Address) -> Address? {
     precondition(isInBounds(address), "address out of bounds")
-    guard address != firstAddress else { return nil }
+    if address == firstAddress { return nil }
     return Address(storage[address.rawValue].previousOffset)
   }
 

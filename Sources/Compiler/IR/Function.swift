@@ -50,9 +50,61 @@ public struct Function {
 
 }
 
-extension Function {
+extension Function: Sequence {
 
   public typealias BlockAddress = DoublyLinkedList<Block>.Address
+
+  public typealias Element = (block: BlockAddress, inst: Block.InstAddress)
+
+  /// An type supplying the addresses of the instruction in a function, in no particular order.
+  public struct Iterator: IteratorProtocol {
+
+    private let base: Function
+
+    private var outer: BlockAddress?
+
+    private var inner: Block.InstAddress?
+
+    fileprivate init(_ base: Function) {
+      self.base = base
+      self.outer = base.blocks.firstAddress
+      self.inner = base.blocks.first?.instructions.firstAddress
+    }
+
+    public mutating func next() -> Element? {
+      guard let b = outer, let i = inner else { return nil }
+      advance(b, i)
+      return (block: b, inst: i)
+    }
+
+    private mutating func advance(_ b: BlockAddress, _ i: Block.InstAddress) {
+      if let ni = base[b].instructions.address(after: i) {
+        inner = ni
+      } else {
+        var cb = b
+        while let nb = base.blocks.address(after: cb) {
+          if let ni = base[nb].instructions.firstAddress {
+            inner = ni
+            outer = nb
+            return
+          }
+          cb = nb
+        }
+        outer = nil
+        inner = nil
+      }
+    }
+
+  }
+
+  public func makeIterator() -> Iterator {
+    Iterator(self)
+  }
+
+  public subscript(_ addresses: Element) -> Inst {
+    get { blocks[addresses.block][addresses.inst] }
+    set { blocks[addresses.block][addresses.inst] = newValue }
+  }
 
   public subscript(_ address: BlockAddress) -> Block {
     _read   { yield blocks[address] }

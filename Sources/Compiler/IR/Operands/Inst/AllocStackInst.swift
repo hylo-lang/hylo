@@ -19,6 +19,8 @@ public struct AllocStackInst: Inst {
 
   public var operands: [Operand] { [] }
 
+  public var isTerminator: Bool { false }
+
   public func check(in module: Module) -> Bool {
     true
   }

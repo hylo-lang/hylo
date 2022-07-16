@@ -15,6 +15,8 @@ public struct ReturnInst: Inst {
 
   public var operands: [Operand] { [value] }
 
+  public var isTerminator: Bool { true }
+
   public func check(in module: Module) -> Bool {
     true
   }

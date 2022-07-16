@@ -1,10 +1,5 @@
-/// Branches unconditionally to the start of a basic block.
-///
-/// `target` must be in the same function.
-public struct BranchInst: Inst {
-
-  /// The target of the branch.
-  public var target: Block.ID
+/// Marks this execution path as unreachable, causing a fatal error otherwise.
+public struct UnrechableInst: Inst {
 
   public var range: SourceRange?
 

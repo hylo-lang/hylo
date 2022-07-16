@@ -44,6 +44,8 @@ public struct CallInst: Inst {
 
   public var types: [LoweredType] { [returnType] }
 
+  public var isTerminator: Bool { false }
+
   public func check(in module: Module) -> Bool {
     // Instruction result has an object type.
     if returnType.isAddress { return false }

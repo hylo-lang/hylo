@@ -18,6 +18,8 @@ public struct CondBranchInst: Inst {
 
   public var operands: [Operand] { [] }
 
+  public var isTerminator: Bool { true }
+
   public func check(in module: Module) -> Bool {
     true
   }

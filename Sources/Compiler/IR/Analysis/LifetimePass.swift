@@ -1,19 +1,19 @@
-/// The lifetime pass of IR analysis.
-public struct LifetimePass {
+/// The lifetime pass.
+public struct LifetimePass: TransformPass {
+
+  public static let name = "Lifetime"
 
   /// The program being lowered.
   public let program: TypedProgram
 
-  /// The diagnostics collected during the pass.
-  private var diagnostics: [Diagnostic] = []
+  public private(set) var diagnostics: [Diagnostic] = []
 
   public init(program: TypedProgram) {
     self.program = program
   }
 
-  /// Runs the pass and returns whether it succeeded without any error.
   public mutating func run(function functionID: Function.ID, module: inout Module) -> Bool {
-    // Reset the internal state of the pass.
+    // Reinitialize the internal state of the pass.
     diagnostics.removeAll()
 
     for blockIndex in module[functionID].blocks.indices {

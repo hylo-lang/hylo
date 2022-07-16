@@ -19,6 +19,8 @@ public struct LoadInst: Inst {
 
   public var operands: [Operand] { [source] }
 
+  public var isTerminator: Bool { false }
+
   public func check(in module: Module) -> Bool {
     // Instruction result has an object type.
     if objectType.isAddress { return false }

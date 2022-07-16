@@ -134,6 +134,9 @@ extension Module: CustomStringConvertible {
           output.write(", ")
           output.write(describe(operand: inst.target))
 
+        case is UnrechableInst:
+          output.write("unreachable")
+
         default:
           unreachable("unexpected instruction")
         }

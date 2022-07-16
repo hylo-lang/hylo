@@ -14,6 +14,8 @@ public struct RecordInst: Inst {
 
   public var types: [LoweredType] { [objectType] }
 
+  public var isTerminator: Bool { false }
+
   public func check(in module: Module) -> Bool {
     // Instruction result has an object type.
     return !objectType.isAddress

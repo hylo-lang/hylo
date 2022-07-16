@@ -10,6 +10,8 @@ public struct EndBorrowInst: Inst {
 
   public var operands: [Operand] { [borrow] }
 
+  public var isTerminator: Bool { false }
+
   public func check(in module: Module) -> Bool {
     true
   }

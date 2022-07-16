@@ -1,8 +1,13 @@
 import DequeModule
 import Utils
 
-/// The lifetime pass of IR analysis.
-public struct DefiniteInitializationPass {
+/// The definite initialization pass.
+///
+/// Definite initialization checks that objects are initialized before use and definitialized
+/// before their storage is reused or before they go and out scope.
+public struct DefiniteInitializationPass: TransformPass {
+
+  public static let name = "Definite initialization"
 
   /// The pass is implemented as an abstract interpreter keeping track of the initialization state
   /// of the objects in registers and memory.
@@ -333,14 +338,12 @@ public struct DefiniteInitializationPass {
   /// The current evaluation context.
   private var context = Context()
 
-  /// The diagnostics collected during the pass.
-  private var diagnostics: [Diagnostic] = []
+  public private(set) var diagnostics: [Diagnostic] = []
 
   public init(program: TypedProgram) {
     self.program = program
   }
 
-  /// Runs the pass and returns whether it succeeded without any error.
   public mutating func run(function functionID: Function.ID, module: inout Module) -> Bool {
     /// The control flow graph of the function to analyze.
     let cfg = module[functionID].cfg
@@ -353,7 +356,7 @@ public struct DefiniteInitializationPass {
     /// Indicates whether the pass succeeded.
     var success = true
 
-    // Reset the internal state of the pass.
+    // Reinitialize the internal state of the pass.
     self.functionID = functionID
     self.diagnostics.removeAll()
 
@@ -462,14 +465,14 @@ public struct DefiniteInitializationPass {
         if !eval(call: inst, id: id, module: &module) { return false }
       case let inst as DestructureInst:
         if !eval(destructure: inst, id: id, module: &module) { return false }
-      case let inst as EndBorrowInst:
-        if !eval(endBorrow: inst, id: id, module: &module) { return false }
       case let inst as LoadInst:
         if !eval(load: inst, id: id, module: &module) { return false }
       case let inst as RecordInst:
         if !eval(record: inst, id: id, module: &module) { return false }
       case let inst as StoreInst:
         if !eval(store: inst, id: id, module: &module) { return false }
+      case is EndBorrowInst, is UnrechableInst:
+        continue
       default:
         unreachable("unexpected instruction")
       }
@@ -584,14 +587,19 @@ public struct DefiniteInitializationPass {
   private mutating func eval(
     destructure inst: DestructureInst, id: InstID, module: inout Module
   ) -> Bool {
-    // TODO
-    return true
-  }
+    // Consume the object operand.
+    if let key = LocalKey(operand: inst.object) {
+      if !consume(localForKey: key, with: id, or: { (this, _) in
+        this.diagnostics.append(.illegalMove(range: inst.range))
+      }) {
+        return false
+      }
+    }
 
-  private mutating func eval(
-    endBorrow inst: EndBorrowInst, id: InstID, module: inout Module
-  ) -> Bool {
-    // Nothing to do.
+    // Result are initialized.
+    for i in 0 ..< inst.types.count {
+      context.locals[LocalKey(id, i)] = .object(.full(.initialized))
+    }
     return true
   }
 
@@ -629,6 +637,8 @@ public struct DefiniteInitializationPass {
       }
     }
 
+    // Result is initialized.
+    context.locals[LocalKey(id, 0)] = .object(.full(.initialized))
     return true
   }
 

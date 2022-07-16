@@ -18,6 +18,8 @@ public struct StoreInst: Inst {
 
   public var operands: [Operand] { [target] }
 
+  public var isTerminator: Bool { false }
+
   public func check(in module: Module) -> Bool {
     true
   }

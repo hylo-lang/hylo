@@ -10,6 +10,12 @@ public protocol Inst {
   /// The source range of the code corresponding to that instruction, if any.
   var range: SourceRange? { get }
 
+  /// Indicates whether the instruction is a terminator.
+  ///
+  /// A "terminator" is an instruction that indicates which block should be executed after the
+  /// current block is finished, returns a value, or yields control.
+  var isTerminator: Bool { get }
+
   /// Returns whether the instruction is well-formed.
   func check(in module: Module) -> Bool
 
