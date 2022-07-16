@@ -45,7 +45,7 @@ public struct CallInst: Inst {
   public var types: [LoweredType] { [returnType] }
 
   public func check(in module: Module) -> Bool {
-    // Instruction has an object type.
+    // Instruction result has an object type.
     if returnType.isAddress { return false }
 
     // Number of passing conventions must match the operand count.

@@ -460,6 +460,8 @@ public struct DefiniteInitializationPass {
         if !eval(borrow: inst, id: id, module: &module) { return false }
       case let inst as CallInst:
         if !eval(call: inst, id: id, module: &module) { return false }
+      case let inst as DestructureInst:
+        if !eval(destructure: inst, id: id, module: &module) { return false }
       case let inst as EndBorrowInst:
         if !eval(endBorrow: inst, id: id, module: &module) { return false }
       case let inst as LoadInst:
@@ -468,8 +470,6 @@ public struct DefiniteInitializationPass {
         if !eval(record: inst, id: id, module: &module) { return false }
       case let inst as StoreInst:
         if !eval(store: inst, id: id, module: &module) { return false }
-      case let inst as TakeMemberInst:
-        if !eval(takeMember: inst, id: id, module: &module) { return false }
       default:
         unreachable("unexpected instruction")
       }
@@ -582,6 +582,13 @@ public struct DefiniteInitializationPass {
   }
 
   private mutating func eval(
+    destructure inst: DestructureInst, id: InstID, module: inout Module
+  ) -> Bool {
+    // TODO
+    return true
+  }
+
+  private mutating func eval(
     endBorrow inst: EndBorrowInst, id: InstID, module: inout Module
   ) -> Bool {
     // Nothing to do.
@@ -669,13 +676,6 @@ public struct DefiniteInitializationPass {
     for location in locations {
       withObject(at: location, { object in object = .full(.initialized) })
     }
-    return true
-  }
-
-  private mutating func eval(
-    takeMember inst: TakeMemberInst, id: InstID, module: inout Module
-  ) -> Bool {
-    // TODO
     return true
   }
 

@@ -20,7 +20,7 @@ public struct LoadInst: Inst {
   public var operands: [Operand] { [source] }
 
   public func check(in module: Module) -> Bool {
-    // Instruction has an object type.
+    // Instruction result has an object type.
     if objectType.isAddress { return false }
 
     // Source jas an address type.

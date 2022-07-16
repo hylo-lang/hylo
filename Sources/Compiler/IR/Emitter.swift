@@ -143,10 +143,18 @@ public struct Emitter {
     storedLocalBinding decl: NodeID<BindingDecl>,
     into module: inout Module
   ) {
+    /// The pattern of the binding being emitted.
     let pattern = program.ast[decl].pattern
+    /// A table mapping an object path to its corresponding (sub-)object during destructing.
+    var objects: [[Int]: Operand] = [:]
+    /// The type of the initializer, if any.
+    var initializerType: Type?
 
     // Emit the initializer, if any.
-    let initializer = program.ast[decl].initializer.map({ emitR(expr: $0, into: &module) })
+    if let initializer = program.ast[decl].initializer {
+      objects[[]] = emitR(expr: initializer, into: &module)
+      initializerType = program.exprTypes[initializer]!
+    }
 
     // Allocate storage for each name introduced by the declaration.
     for (path, name) in program.ast.names(in: program.ast[pattern].subpattern) {
@@ -156,23 +164,34 @@ public struct Emitter {
       let storage = module.insert(AllocStackInst(declType), at: insertionPoint!)[0]
       locals[decl] = storage
 
-      if let source = initializer {
+      if var rhsType = initializerType {
+        // Determine the object corresponding to the current name.
+        for i in 0 ..< path.count {
+          // Make sure the initializer has been destructured deeply enough.
+          let subpath = Array(path[0 ..< i])
+          if objects[subpath] != nil { continue }
+
+          let layout = TypeLayout(rhsType, in: program)
+          rhsType = layout.storedPropertiesTypes[i]
+
+          let wholePath = Array(path[0 ..< (i - 1)])
+          let whole = objects[wholePath]!
+          let parts = module.insert(
+            DestructureInst(whole, as: layout.storedPropertiesTypes.map({ .object($0) })),
+            at: insertionPoint!)
+
+          for j in 0 ..< parts.count {
+            objects[wholePath + [j]] = parts[j]
+          }
+        }
+
+        // Borrow the storage for initialization corresponding to the current name.
         let target = module.insert(
-          BorrowInst(.let, .address(declType), from: storage),
+          BorrowInst(.set, .address(declType), from: storage),
           at: insertionPoint!)[0]
 
-        if path.isEmpty {
-          module.insert(StoreInst(source, to: target), at: insertionPoint!)
-        } else {
-          let member = module.insert(
-            TakeMemberInst(
-              memberType: module.type(of: source),
-              objectType: .object(declType),
-              value: source,
-              path: path),
-            at: insertionPoint!)[0]
-          module.insert(StoreInst(member, to: target), at: insertionPoint!)
-        }
+        // Store the corresponding (part of) the initializer.
+        module.insert(StoreInst(objects[path]!, to: target), at: insertionPoint!)
       }
     }
   }
@@ -183,6 +202,7 @@ public struct Emitter {
     withCapability capability: ProjectionType.Capability,
     into module: inout Module
   ) {
+    /// The pattern of the binding being emitted.
     let pattern = program.ast[decl].pattern
 
     // There's nothing to do if there's no initializer.
@@ -334,11 +354,7 @@ public struct Emitter {
         // Evaluate the condition in the current block.
         var condition = emitR(expr: itemExpr, into: &module)
         condition = module.insert(
-          TakeMemberInst(
-            memberType: .object(.builtin(.i(1))),
-            objectType: module.type(of: condition),
-            value: condition,
-            path: []),
+          DestructureInst(condition, as: [.object(.builtin(.i(1)))]),
           at: insertionPoint!)[0]
 
         module.insert(

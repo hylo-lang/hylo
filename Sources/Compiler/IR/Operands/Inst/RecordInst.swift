@@ -15,7 +15,7 @@ public struct RecordInst: Inst {
   public var types: [LoweredType] { [objectType] }
 
   public func check(in module: Module) -> Bool {
-    // Instruction has an object type.
+    // Instruction result has an object type.
     return !objectType.isAddress
   }
 

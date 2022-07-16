@@ -13,7 +13,7 @@ public struct BorrowInst: Inst, BorrowInstProtocol {
   /// A sequence of indices identifying a sub-object of `value`.
   public var path: [Int]
 
-  /// The binding in source program to which this instruction correspond, if any.
+  /// The binding in source program to which the instruction corresponds, if any.
   public var binding: NodeID<VarDecl>?
 
   public var range: SourceRange?
@@ -39,7 +39,13 @@ public struct BorrowInst: Inst, BorrowInstProtocol {
   public var operands: [Operand] { [value] }
 
   public func check(in module: Module) -> Bool {
-    true
+    // Instruction result has an address type.
+    if !borrowedType.isAddress { return false }
+
+    // Operand has an address type.
+    if !module.type(of: value).isAddress { return false }
+
+    return true
   }
 
 }

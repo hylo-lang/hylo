@@ -2392,7 +2392,6 @@ public struct TypeChecker {
 
   /// Opens `type`.
   func open(type: Type) -> (Type, [Constraint]) {
-    var constraints: [Constraint] = []
     var openedParameters: [Type: Type] = [:]
 
     let transformed = type.transform({ type in
@@ -2427,7 +2426,7 @@ public struct TypeChecker {
       }
     })
 
-    return (transformed, constraints)
+    return (transformed, [])
   }
 
   /// Returns `type` contextualized in `scope` and the type constraints implied by that
@@ -2437,7 +2436,6 @@ public struct TypeChecker {
   /// or open variables. Opened parameters carry the constraints defined by the generic environment
   /// in which they are opened.
   func contextualize<S: ScopeID>(type: Type, inScope scope: S) -> (Type, [Constraint]) {
-    var constraints: [Constraint] = []
     var openedParameters: [Type: Type] = [:]
 
     let transformed = type.transform({ type in
@@ -2483,7 +2481,7 @@ public struct TypeChecker {
       }
     })
 
-    return (transformed, constraints)
+    return (transformed, [])
   }
 
 }

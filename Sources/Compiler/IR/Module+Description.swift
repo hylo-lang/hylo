@@ -109,6 +109,10 @@ extension Module: CustomStringConvertible {
           output.write("end_borrow ")
           output.write(describe(operand: inst.borrow))
 
+        case let inst as DestructureInst:
+          output.write("destructure ")
+          output.write(describe(operand: inst.object))
+
         case let inst as LoadInst:
           output.write("load ")
           output.write(describe(operand: inst.source))
@@ -129,11 +133,6 @@ extension Module: CustomStringConvertible {
           output.write(describe(operand: inst.object))
           output.write(", ")
           output.write(describe(operand: inst.target))
-
-        case let inst as TakeMemberInst:
-          output.write("take_member ")
-          output.write(describe(operand: inst.value))
-          output.write(", \(inst.path.descriptions())")
 
         default:
           unreachable("unexpected instruction")
