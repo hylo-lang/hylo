@@ -78,7 +78,7 @@ extension Module: CustomStringConvertible {
 
         case let inst as BorrowInst:
           output.write("borrow [\(inst.capability)] ")
-          output.write(describe(operand: inst.value))
+          output.write(describe(operand: inst.location))
           if !inst.path.isEmpty {
             output.write(", \(inst.path.descriptions())")
           }
@@ -109,6 +109,14 @@ extension Module: CustomStringConvertible {
           output.write("end_borrow ")
           output.write(describe(operand: inst.borrow))
 
+        case let inst as DeallocStackInst:
+          output.write("dealloc_stack ")
+          output.write(describe(operand: inst.location))
+
+        case let inst as DeinitInst:
+          output.write("deinit ")
+          output.write(describe(operand: inst.object))
+
         case let inst as DestructureInst:
           output.write("destructure ")
           output.write(describe(operand: inst.object))
@@ -116,6 +124,9 @@ extension Module: CustomStringConvertible {
         case let inst as LoadInst:
           output.write("load ")
           output.write(describe(operand: inst.source))
+          if !inst.path.isEmpty {
+            output.write(", \(inst.path.descriptions())")
+          }
 
         case let inst as RecordInst:
           output.write("record \(inst.objectType)")

@@ -7,15 +7,657 @@ import Utils
 /// before their storage is reused or before they go and out scope.
 public struct DefiniteInitializationPass: TransformPass {
 
-  public static let name = "Definite initialization"
-
   /// The pass is implemented as an abstract interpreter keeping track of the initialization state
   /// of the objects in registers and memory.
   ///
   /// The interpreter relies on the IR being well-formed.
 
+  private typealias Contexts = [Function.BlockAddress: (before: Context, after: Context)]
+
+  public static let name = "Definite initialization"
+
+  /// The program being lowered.
+  public let program: TypedProgram
+
+  /// The ID of the function being interpreted.
+  private var functionID: Function.ID = -1
+
+  /// The current evaluation context.
+  private var currentContext = Context()
+
+  public private(set) var diagnostics: [Diagnostic] = []
+
+  public init(program: TypedProgram) {
+    self.program = program
+  }
+
+  public mutating func run(function functionID: Function.ID, module: inout Module) -> Bool {
+    /// The control flow graph of the function to analyze.
+    let cfg = module[functionID].cfg
+    /// A FILO list of blocks to visit.
+    var work: Deque<Function.BlockAddress>
+    /// The set of blocks that no longer need to be visited.
+    var done: Set<Function.BlockAddress> = []
+    /// The state of the abstract interpreter before and after the visited basic blocks.
+    var contexts: [Function.BlockAddress: (before: Context, after: Context)] = [:]
+    /// Indicates whether the pass succeeded.
+    var success = true
+
+    /// Returns the before-context that merges the after-contexts of `predecessors`, inserting
+    /// deinitialization at the end of these blocks if necessary.
+    func mergeAfterContexts(of predecessors: [ControlFlowGraph.Vertex]) -> Context {
+      var result = contexts[predecessors[0]]!.after
+      if predecessors.count > 1 {
+        for predecessor in predecessors[1...] {
+          let afterContext = contexts[predecessor]!.after
+
+          // Merge the locals.
+          for (key, lhs) in result.locals {
+            // Ignore definitions that don't dominate the block.
+            guard let rhs = afterContext.locals[key] else {
+              result.locals[key] = nil
+              continue
+            }
+
+            // Merge both values conservatively.
+            result.locals[key] = lhs && rhs
+          }
+
+          // Merge the state of the objects in memory.
+          result.memory.merge(afterContext.memory, uniquingKeysWith: { (lhs, rhs) in
+            assert(lhs.type == rhs.type)
+            return Context.Cell(type: lhs.type, object: lhs.object && rhs.object)
+          })
+        }
+
+        // Make sure the after-contexts are consistent with the computed before-context.
+        for predecessor in predecessors {
+          let afterContext = contexts[predecessor]!.after
+          var didChange = false
+
+          for key in result.locals.keys {
+            switch result.locals[key]! {
+            case .object(let lhs):
+              // Operands have consistent types.
+              let rhs = afterContext.locals[key]!.unwrapObject()!
+              assert(lhs.isFull && rhs.isFull, "bad object operand state")
+
+              // Find situations where an operand is initialized at the end of a predecessor but
+              // deinitialized in the before context. In these cases, the operand is deinitialized
+              // at the end of the predecessor.
+              if lhs != rhs {
+                // Deinitialize the object at the end of the predecessor.
+                let beforeTerminator = InsertionPoint(
+                  before: module[functionID][predecessor].instructions.lastAddress!,
+                  in: Block.ID(function: functionID, address: predecessor))
+                module.insert(DeinitInst(key.operand(in: functionID)), at: beforeTerminator)
+                didChange = true
+              }
+
+            case .locations(let lhs):
+              // Operands have consistent types.
+              let rhs = afterContext.locals[key]!.unwrapLocations()!
+
+              // Assume the objects at each location have the same state. That assertion holds
+              // for the locations referred to by the before-state locals, unless DI or LoW has
+              // been broken somewhere.
+              let stateAtEntry = withObject(at: lhs.first!, { $0 })
+              let stateAtExit = withObject(at: rhs.first!, { $0 })
+
+              // Find situations where the initialization state of an object in memory at the end
+              // of a predecessor is different in the before context. In those these, the object
+              // is deinitialized at the end of the predecessor.
+              let difference = stateAtExit.difference(stateAtEntry)
+              if !difference.isEmpty {
+                // Deinitialize the object at the end of the predecessor.
+                let beforeTerminator = InsertionPoint(
+                  before: module[functionID][predecessor].instructions.lastAddress!,
+                  in: Block.ID(function: functionID, address: predecessor))
+                let operand = key.operand(in: functionID)
+                let rootType = module.type(of: operand).astType
+
+                for path in difference {
+                  let objectType = program.abstractLayout(of: rootType, at: path).type
+                  let object = module.insert(
+                    LoadInst(.object(objectType), from: operand, at: path),
+                    at: beforeTerminator)[0]
+                  module.insert(DeinitInst(object), at: beforeTerminator)
+                }
+                didChange = true
+              }
+            }
+          }
+
+          // Reinsert the predecessor in the work list if necessary.
+          if didChange && (done.remove(predecessor) != nil) {
+            var blocksToRevisit = [predecessor]
+            while let b = blocksToRevisit.popLast() {
+              done.remove(b)
+              blocksToRevisit.append(contentsOf: cfg.successors(of: b).filter(done.contains(_:)))
+            }
+          }
+        }
+      }
+
+      return result
+    }
+
+    // Reinitialize the internal state of the pass.
+    self.functionID = functionID
+    self.diagnostics.removeAll()
+
+    // Establish the initial visitation order.
+    let dominatorTree = DominatorTree(function: functionID, cfg: cfg, in: module)
+    work = Deque(dominatorTree.bfs)
+
+    // Interpret the function until we reach a fixed point.
+    while let block = work.popFirst() {
+      // Make sure the block's predecessors have been visited, or pick another one.
+      let predecessors = cfg.predecessors(of: block)
+      if !predecessors.allSatisfy({ contexts[$0] != nil }) {
+        work.append(block)
+        continue
+      }
+
+      // Compute the before-context of the block.
+      var beforeContext: Context
+      if block == module[functionID].blocks.firstAddress {
+        // The block is the entry.
+        beforeContext = entryContext(in: module)
+      } else {
+        // Merge the after-contexts of the predecessors.
+        beforeContext = mergeAfterContexts(of: predecessors)
+      }
+
+      // If the before-context didn't change, we're done with the current block.
+      if contexts[block]?.before == beforeContext {
+        done.insert(block)
+        continue
+      }
+
+      currentContext = beforeContext
+      success = eval(block: block, in: &module) && success
+
+      // We're done with the current block if ...
+      let isBlockDone: Bool = {
+        // 1) we found an error.
+        if !success { return true }
+
+        // 2) we're done with all of the block's predecessors.
+        let pending = predecessors.filter({ !done.contains($0) })
+        if pending.isEmpty { return true }
+
+        // 3) the only predecessor left is the block itself, yet the after-context didn't change.
+        return (pending.count == 1)
+            && (pending[0] == block)
+            && (contexts[block]?.after == currentContext)
+      }()
+
+      // Update the before/after-context pair for the current block and move to the next one.
+      contexts[block] = (before: beforeContext, after: currentContext)
+      if isBlockDone {
+        done.insert(block)
+      } else {
+        work.append(block)
+      }
+    }
+
+    return success
+  }
+
+  /// Creates the before-context of the function's entry block.
+  private func entryContext(in module: Module) -> Context {
+    let function = module[functionID]
+    let entryAddress = function.blocks.firstAddress!
+    var entryContext = Context()
+
+    for i in 0 ..< function.inputs.count {
+      let key = LocalKey.param(block: entryAddress, index: i)
+      let (convention, type) = function.inputs[i]
+      switch convention {
+      case .let, .inout:
+        let location = MemoryLocation.arg(index: i)
+        entryContext.locals[key] = .locations([location])
+        entryContext.memory[location] = Context.Cell(
+          type: type.astType, object: .full(.initialized))
+
+      case .set:
+        let location = MemoryLocation.arg(index: i)
+        entryContext.locals[key] = .locations([location])
+        entryContext.memory[location] = Context.Cell(
+          type: type.astType, object: .full(.uninitialized))
+
+      case .sink:
+        entryContext.locals[key] = .object(.full(.initialized))
+
+      case .yielded:
+        preconditionFailure("cannot represent instance of yielded type")
+      }
+    }
+
+    return entryContext
+  }
+
+  private mutating func eval(block: Function.BlockAddress, in module: inout Module) -> Bool {
+    let instructions = module[functionID][block].instructions
+    for i in instructions.indices {
+      let id = InstID(function: functionID, block: block, address: i.address)
+      switch instructions[i.address] {
+      case let inst as AllocStackInst:
+        if !eval(allocStack: inst, id: id, module: &module) { return false }
+      case let inst as BorrowInst:
+        if !eval(borrow: inst, id: id, module: &module) { return false }
+      case let inst as CondBranchInst:
+        if !eval(condBranch: inst, id: id, module: &module) { return false }
+      case let inst as CallInst:
+        if !eval(call: inst, id: id, module: &module) { return false }
+      case let inst as DeallocStackInst:
+        if !eval(deallocStack: inst, id: id, module: &module) { return false }
+      case let inst as DeinitInst:
+        if !eval(deinit: inst, id: id, module: &module) { return false }
+      case let inst as DestructureInst:
+        if !eval(destructure: inst, id: id, module: &module) { return false }
+      case let inst as LoadInst:
+        if !eval(load: inst, id: id, module: &module) { return false }
+      case let inst as RecordInst:
+        if !eval(record: inst, id: id, module: &module) { return false }
+      case let inst as ReturnInst:
+        if !eval(return: inst, id: id, module: &module) { return false }
+      case let inst as StoreInst:
+        if !eval(store: inst, id: id, module: &module) { return false }
+      case is BranchInst, is EndBorrowInst, is UnrechableInst:
+        continue
+      default:
+        unreachable("unexpected instruction")
+      }
+    }
+    return true
+  }
+
+  private mutating func eval(
+    allocStack inst: AllocStackInst, id: InstID, module: inout Module
+  ) -> Bool {
+    // Create an abstract location denoting the newly allocated memory.
+    let location = MemoryLocation.inst(block: id.block, address: id.address)
+    if currentContext.memory[location] != nil {
+      diagnostics.append(.unboundedStackAllocation(range: inst.range))
+      return false
+    }
+
+    // Update the context.
+    currentContext.memory[location] = Context.Cell(
+      type: inst.allocatedType, object: .full(.uninitialized))
+    currentContext.locals[LocalKey(id, 0)] = .locations([location])
+    return true
+  }
+
+  private mutating func eval(
+    borrow inst: BorrowInst, id: InstID, module: inout Module
+  ) -> Bool {
+    // Operand must a location.
+    let locations: [MemoryLocation]
+    if let key = LocalKey(operand: inst.location) {
+      locations = currentContext.locals[key]!.unwrapLocations()!.map({ $0.appending(inst.path) })
+    } else {
+      // The operand is a constant.
+      fatalError("not implemented")
+    }
+
+    // Assume the objects at each location have the same summary. That assertion holds unless DI
+    // or LoE has been broken somewhere else.
+    let summary = withObject(at: locations[0], { $0.summary })
+
+    switch inst.capability {
+    case .let, .inout:
+      // `let` and `inout` require the borrowed object to be initialized.
+      switch summary {
+      case .fullyInitialized:
+        break
+
+      case .fullyUninitialized:
+        diagnostics.append(.useOfUninitializedObject(range: inst.range))
+        return false
+
+      case .fullyConsumed:
+        diagnostics.append(.useOfConsumedObject(range: inst.range))
+        return false
+
+      case .partiallyInitialized:
+        diagnostics.append(.useOfPartiallyInitializedObject(range: inst.range))
+        return false
+
+      case .partiallyConsumed:
+        diagnostics.append(.useOfPartiallyConsumedObject(range: inst.range))
+        return false
+      }
+
+    case .set:
+      // `set` requires the borrowed object to be uninitialized.
+      let initializedPaths: [[Int]]
+      switch summary {
+      case .fullyUninitialized, .fullyConsumed:
+        initializedPaths = []
+      case .fullyInitialized:
+        initializedPaths = [inst.path]
+      case .partiallyInitialized(let paths):
+        initializedPaths = paths.map({ inst.path + $0 })
+      case .partiallyConsumed(_, let paths):
+        initializedPaths = paths.map({ inst.path + $0 })
+      }
+
+      // Nothing to do if the location is already uninitialized.
+      if initializedPaths.isEmpty { break }
+
+      // Deinitialize the object(s) at the location.
+      let beforeBorrow = InsertionPoint(
+        before: id.address, in: Block.ID(function: id.function, address: id.block))
+      let rootType = module.type(of: inst.location).astType
+
+      for path in initializedPaths {
+        let objectType = program.abstractLayout(of: rootType, at: path).type
+        let object = module.insert(
+          LoadInst(.object(objectType), from: inst.location, at: path, range: inst.range),
+          at: beforeBorrow)[0]
+        module.insert(DeinitInst(object, range: inst.range), at: beforeBorrow)
+      }
+
+      // We can skip the visit of the instructions that were just inserted and update the context
+      // with their result directly.
+      for l in locations {
+        withObject(at: l, { object in object = .full(.uninitialized) })
+      }
+
+    case .yielded:
+      unreachable()
+    }
+
+    currentContext.locals[LocalKey(id, 0)] = .locations(Set(locations))
+    return true
+  }
+
+  private mutating func eval(
+    condBranch inst: CondBranchInst, id: InstID, module: inout Module
+  ) -> Bool {
+    // Consume the condition operand.
+    let key = LocalKey(operand: inst.condition)!
+    return consume(localForKey: key, with: id, or: { (this, _) in
+      this.diagnostics.append(.illegalMove(range: inst.range))
+    })
+  }
+
+  private mutating func eval(
+    call inst: CallInst, id: InstID, module: inout Module
+  ) -> Bool {
+    // Process the operands.
+    for i in 0 ..< inst.operands.count {
+      switch inst.conventions[i] {
+      case .let, .inout, .set:
+        // Nothing to do here.
+        continue
+
+      case .sink:
+        // Consumes the operand unless it's a constant.
+        if let key = LocalKey(operand: inst.operands[i]) {
+          if !consume(localForKey: key, with: id, or: { (this, _) in
+            this.diagnostics.append(.illegalMove(range: inst.range))
+          }) {
+            return false
+          }
+        }
+
+      case .yielded:
+        unreachable()
+      }
+    }
+
+    // Result is initialized.
+    currentContext.locals[LocalKey(id, 0)] = .object(.full(.initialized))
+    return true
+  }
+
+  private mutating func eval(
+    deallocStack inst: DeallocStackInst, id: InstID, module: inout Module
+  ) -> Bool {
+    // The location operand is the result an `alloc_stack` instruction.
+    let allocID = inst.location.inst!
+    let alloc = module[allocID.function][allocID.block][allocID.address] as! AllocStackInst
+
+    let key = LocalKey(allocID, 0)
+    let locations = currentContext.locals[key]!.unwrapLocations()!
+    assert(locations.count == 1)
+
+    // Make sure the memory at the deallocated location is consumed or uninitialized.
+    let initializedPaths: [[Int]] = withObject(at: locations.first!, { object in
+      switch object.summary {
+      case .fullyUninitialized, .fullyConsumed:
+        return []
+      case .fullyInitialized:
+        return [[]]
+      case .partiallyInitialized(let paths):
+        return paths
+      case .partiallyConsumed(_, let paths):
+        return paths
+      }
+    })
+
+    let beforeDealloc = InsertionPoint(
+      before: id.address, in: Block.ID(function: id.function, address: id.block))
+    for path in initializedPaths {
+      let object = module.insert(
+        LoadInst(
+          .object(program.abstractLayout(of: alloc.allocatedType, at: path).type),
+          from: inst.location,
+          at: path,
+          range: inst.range),
+        at: beforeDealloc)[0]
+      module.insert(DeinitInst(object, range: inst.range), at: beforeDealloc)
+
+      // Apply the effect of the inserted instructions on the context directly.
+      let consumer = InstID(
+        function: id.function,
+        block: id.block,
+        address: module[id.function][id.block].instructions.address(before: id.address)!)
+      currentContext.locals[LocalKey(id, 0)] = .object(.full(.consumed(by: [consumer])))
+    }
+
+    // Erase the deallocated memory from the context.
+    currentContext.memory[locations.first!] = nil
+    return true
+  }
+
+  private mutating func eval(
+    deinit inst: DeinitInst, id: InstID, module: inout Module
+  ) -> Bool {
+    // Consume the object operand.
+    let key = LocalKey(operand: inst.object)!
+    return consume(localForKey: key, with: id, or: { (this, _) in
+      this.diagnostics.append(.illegalMove(range: inst.range))
+    })
+  }
+
+  private mutating func eval(
+    destructure inst: DestructureInst, id: InstID, module: inout Module
+  ) -> Bool {
+    // Consume the object operand.
+    if let key = LocalKey(operand: inst.object) {
+      if !consume(localForKey: key, with: id, or: { (this, _) in
+        this.diagnostics.append(.illegalMove(range: inst.range))
+      }) {
+        return false
+      }
+    }
+
+    // Result are initialized.
+    for i in 0 ..< inst.types.count {
+      currentContext.locals[LocalKey(id, i)] = .object(.full(.initialized))
+    }
+    return true
+  }
+
+  private mutating func eval(
+    load inst: LoadInst, id: InstID, module: inout Module
+  ) -> Bool {
+    // Operand must be a location.
+    let locations: [MemoryLocation]
+    if let key = LocalKey(operand: inst.source) {
+      locations = currentContext.locals[key]!.unwrapLocations()!.map({ $0.appending(inst.path) })
+    } else {
+      // The operand is a constant.
+      fatalError("not implemented")
+    }
+
+    // Object at target location must be initialized.
+    for location in locations {
+      if let diagnostic = withObject(at: location, { (object) -> Diagnostic? in
+        switch object.summary {
+        case .fullyInitialized:
+          object = .full(.consumed(by: [id]))
+          return nil
+        case .fullyUninitialized:
+          return .useOfUninitializedObject(range: inst.range)
+        case .fullyConsumed:
+          return .useOfConsumedObject(range: inst.range)
+        case .partiallyInitialized:
+          return .useOfPartiallyInitializedObject(range: inst.range)
+        case .partiallyConsumed:
+          return .useOfPartiallyConsumedObject(range: inst.range)
+        }
+      }) {
+        diagnostics.append(diagnostic)
+        return false
+      }
+    }
+
+    // Result is initialized.
+    currentContext.locals[LocalKey(id, 0)] = .object(.full(.initialized))
+    return true
+  }
+
+  private mutating func eval(
+    record inst: RecordInst, id: InstID, module: inout Module
+  ) -> Bool {
+    // Consumes the non-constant operand.
+    for operand in inst.operands {
+      if let key = LocalKey(operand: operand) {
+        if !consume(localForKey: key, with: id, or: { (this, _) in
+          this.diagnostics.append(.illegalMove(range: inst.range))
+        }) {
+          return false
+        }
+      }
+    }
+
+    // Result is initialized.
+    currentContext.locals[LocalKey(id, 0)] = .object(.full(.initialized))
+    return true
+  }
+
+  private mutating func eval(
+    return inst: ReturnInst, id: InstID, module: inout Module
+  ) -> Bool {
+    // Consume the object operand.
+    if let key = LocalKey(operand: inst.value) {
+      if !consume(localForKey: key, with: id, or: { (this, _) in
+        this.diagnostics.append(.illegalMove(range: inst.range))
+      }) {
+        return false
+      }
+    }
+
+    return true
+  }
+
+  private mutating func eval(
+    store inst: StoreInst, id: InstID, module: inout Module
+  ) -> Bool {
+    // Consume the object operand.
+    if let key = LocalKey(operand: inst.object) {
+      if !consume(localForKey: key, with: id, or: { (this, _) in
+        this.diagnostics.append(.illegalMove(range: inst.range))
+      }) {
+        return false
+      }
+    }
+
+    // Target operand must be a location.
+    let locations: Set<MemoryLocation>
+    if let key = LocalKey(operand: inst.target) {
+      locations = currentContext.locals[key]!.unwrapLocations()!
+    } else {
+      // The operand is a constant.
+      fatalError("not implemented")
+    }
+
+    // Update the context.
+    for location in locations {
+      withObject(at: location, { object in object = .full(.initialized) })
+    }
+    return true
+  }
+
+  /// Returns the result of a call to `action` with a projection of the object at `location`.
+  private mutating func withObject<T>(
+    at location: MemoryLocation, _ action: (inout Object) -> T
+  ) -> T {
+    switch location {
+    case .null:
+      preconditionFailure("null location")
+
+    case .arg, .inst:
+      return action(&currentContext.memory[location]!.object)
+
+    case .sublocation(let rootLocation, let path):
+      if path.isEmpty {
+        return action(&currentContext.memory[location]!.object)
+      } else {
+        return modifying(&currentContext.memory[rootLocation]!, { root in
+          var derivedType = root.type
+          var derivedPath = \Context.Cell.object
+          for offset in path {
+            // TODO: Handle tail-allocated objects.
+            assert(offset >= 0, "not implemented")
+
+            // Disaggregate the object if necessary.
+            let layout = root[keyPath: derivedPath]
+              .disaggregate(type: derivedType, program: program)
+
+            // Create a path to the sub-object.
+            derivedType = layout.storedPropertiesTypes[offset]
+            derivedPath = derivedPath.appending(path: \Object.[offset])
+          }
+
+          // Project the sub-object.
+          return action(&root[keyPath: derivedPath])
+        })
+      }
+    }
+  }
+
+  /// Consumes the object in the specified local register.
+  ///
+  /// The method returns `true` if it succeeded. Otherwise, it or calls `handleFailure` with a
+  /// with a projection of `self` and the state summary of the object before returning `false`.
+  private mutating func consume(
+    localForKey key: LocalKey,
+    with consumer: InstID,
+    or handleFailure: (inout Self, Object.StateSummary) -> ()
+  ) -> Bool {
+    let summary = currentContext.locals[key]!.unwrapObject()!.summary
+    if summary == .fullyInitialized {
+      currentContext.locals[key]! = .object(.full(.consumed(by: [consumer])))
+      return true
+    } else {
+      handleFailure(&self, summary)
+      return false
+    }
+  }
+
+}
+
+fileprivate extension DefiniteInitializationPass {
+
   /// An abstract memory location.
-  private enum MemoryLocation: Hashable {
+  enum MemoryLocation: Hashable {
 
     /// The null location.
     case null
@@ -90,7 +732,7 @@ public struct DefiniteInitializationPass: TransformPass {
   }
 
   /// An abstract object.
-  private enum Object: Equatable {
+  enum Object: Equatable {
 
     /// The initialization state of an object or sub-object.
     enum State: Equatable {
@@ -99,7 +741,24 @@ public struct DefiniteInitializationPass: TransformPass {
 
       case uninitialized
 
-      case consumed(by: InstID)
+      case consumed(by: Set<InstID>)
+
+      /// Returns `lhs` merged with `rhs`.
+      static func && (lhs: State, rhs: State) -> State {
+        switch lhs {
+        case .initialized:
+          return rhs
+
+        case .uninitialized:
+          return rhs == .initialized ? lhs : rhs
+
+        case .consumed(var a):
+          if case .consumed(let b) = rhs {
+            a.formUnion(b)
+          }
+          return .consumed(by: a)
+        }
+      }
 
     }
 
@@ -139,6 +798,46 @@ public struct DefiniteInitializationPass: TransformPass {
     /// - Requires: The payload must be non-empty.
     case partial([Object])
 
+    /// Returns whether all parts have the same state.
+    var isFull: Bool {
+      if case .full = self { return true }
+      if case .full = canonical { return true }
+      return false
+    }
+
+    /// Given `self == .partial([obj_1, ..., obj_n])`, returns `obj_i`.
+    subscript(i: Int) -> Object {
+      get {
+        guard case .partial(let subobjects) = self else {
+          preconditionFailure("index out of range")
+        }
+        return subobjects[i]
+      }
+      _modify {
+        guard case .partial(var subobjects) = self else {
+          preconditionFailure("index out of range")
+        }
+        yield &subobjects[i]
+        self = .partial(subobjects)
+      }
+    }
+
+    /// Given `self == .full(s)`, assigns `self` to `.partial([obj_1, ..., obj_n])` where `obj_i`
+    /// is `.full(s)` and `n` is the number of stored parts in `type`. Otherwise, does nothing.
+    ///
+    /// - Returns: The layout of `type`.
+    ///
+    /// - Requires: `type` must have a record layout and at least one stored property.
+    mutating func disaggregate(type: Type, program: TypedProgram) -> AbstractTypeLayout {
+      let layout = program.abstractLayout(of: type)
+      guard case .full(let s) = self else { return layout }
+
+      let n = layout.storedPropertiesTypes.count
+      precondition(n != 0)
+      self = .partial(Array(repeating: .full(s), count: n))
+      return layout
+    }
+
     /// A summary of the initialization of the object and its parts.
     var summary: StateSummary {
       switch self {
@@ -148,8 +847,8 @@ public struct DefiniteInitializationPass: TransformPass {
       case .full(.uninitialized):
         return .fullyUninitialized
 
-      case .full(.consumed(let consumer)):
-        return .fullyConsumed(consumers: [consumer])
+      case .full(.consumed(let consumers)):
+        return .fullyConsumed(consumers: consumers)
 
       case .partial(let parts):
         var hasUninitializedPart = false
@@ -210,43 +909,78 @@ public struct DefiniteInitializationPass: TransformPass {
       }
     }
 
-    /// Given `self == .full(s)`, assigns `self` to `.partial([obj_1, ..., obj_n])` where `obj_i`
-    /// is `.full(s)` and `n` is the number of stored parts in `type`. Otherwise, does nothing.
-    ///
-    /// - Returns: The layout of `type`.
-    ///
-    /// - Requires: `type` must have a record layout and at least one stored property.
-    mutating func disaggregate(type: Type, program: TypedProgram) -> TypeLayout {
-      let layout = TypeLayout(type, in: program)
-      guard case .full(let s) = self else { return layout }
+    /// The paths of the parts in `self` that are fully initialized.
+    var initializedPaths: [[Int]] {
+      switch canonical {
+      case .full(let state):
+        return state == .initialized ? [[]] : []
 
-      let n = layout.storedPropertiesTypes.count
-      precondition(n != 0)
-      self = .partial(Array(repeating: .full(s), count: n))
-      return layout
+      case .partial(let subojects):
+        return (0 ..< subojects.count).reduce(into: [], { (result, i) in
+          result.append(contentsOf: subojects[i].initializedPaths.map({ [i] + $0 }))
+        })
+      }
     }
 
-    /// Given `self == .partial([obj_1, ..., obj_n])`, returns `obj_i`.
-    subscript(i: Int) -> Object {
-      get {
-        guard case .partial(let subobjects) = self else {
-          preconditionFailure("index out of range")
-        }
-        return subobjects[i]
+    /// The paths of the parts in `self` that are uninitialized or consumed.
+    var uninitializedOrConsumedPaths: [[Int]] {
+      switch canonical {
+      case .full(let state):
+        return state == .initialized ? [] : [[]]
+
+      case .partial(let subojects):
+        return (0 ..< subojects.count).reduce(into: [], { (result, i) in
+          result.append(contentsOf: subojects[i].uninitializedOrConsumedPaths.map({ [i] + $0 }))
+        })
       }
-      _modify {
-        guard case .partial(var subobjects) = self else {
-          preconditionFailure("index out of range")
-        }
-        yield &subobjects[i]
-        self = .partial(subobjects)
+    }
+
+    /// Returns the paths of the parts that are initialized in `self` and uninitialized or consumed
+    /// in `other`.
+    func difference(_ other: Object) -> [[Int]] {
+      switch (self.canonical, other.canonical) {
+      case (.full(.initialized), let rhs):
+        return rhs.uninitializedOrConsumedPaths
+
+      case (.full, _):
+        return []
+
+      case (_, .full(.initialized)):
+        return [[]]
+
+      case(let lhs, .full):
+        return lhs.initializedPaths
+
+      case (.partial(let lhs), .partial(let rhs)):
+        assert(lhs.count == rhs.count)
+        return (0 ..< lhs.count).reduce(into: [], { (result, i) in
+          result.append(contentsOf: lhs[i].difference(rhs[i]).map({ [i] + $0 }))
+        })
+      }
+    }
+
+    /// Returns `lhs` merged with `rhs`.
+    static func && (lhs: Object, rhs: Object) -> Object {
+      switch (lhs.canonical, rhs.canonical) {
+      case (.full(let lhs), .full(let rhs)):
+        return .full(lhs && rhs)
+
+      case (.partial(let lhs), .partial(let rhs)):
+        assert(lhs.count == rhs.count)
+        return .partial(zip(lhs, rhs).map(&&))
+
+      case (.partial(let lhs), _):
+        return .partial(lhs.map({ $0 && rhs }))
+
+      case (_, .partial(let rhs)):
+        return .partial(rhs.map({ lhs && $0 }))
       }
     }
 
   }
 
   /// An abstract value.
-  private enum Value: Equatable {
+  enum Value: Equatable {
 
     /// A non-empty set of locations.
     case locations(Set<MemoryLocation>)
@@ -272,10 +1006,22 @@ public struct DefiniteInitializationPass: TransformPass {
       }
     }
 
+    /// Returns `lhs` merged with `rhs`.
+    static func && (lhs: Value, rhs: Value) -> Value {
+      switch (lhs, rhs) {
+      case (.locations(let lhs), .locations(let rhs)):
+        return .locations(lhs.union(rhs))
+      case (.object(let lhs), .object(let rhs)):
+        return .object(lhs && rhs)
+      default:
+        unreachable()
+      }
+    }
+
   }
 
   /// A key in the local store of an abstract interpretation context.
-  private enum LocalKey: Hashable {
+  enum LocalKey: Hashable {
 
     /// The result of an instruction.
     case result(block: Function.BlockAddress, address: Block.InstAddress, index: Int)
@@ -301,10 +1047,20 @@ public struct DefiniteInitializationPass: TransformPass {
       self = .result(block: inst.block, address: inst.address, index: index)
     }
 
+    /// Returns an operand corresponding to that key.
+    func operand(in function: Function.ID) -> Operand {
+      switch self {
+      case .result(let b, let i, let k):
+        return .result(inst: InstID(function: function, block: b, address: i), index: k)
+      case .param(let b, let k):
+        return .parameter(block: Block.ID(function: function, address: b), index: k)
+      }
+    }
+
   }
 
   /// An abstract interpretation context.
-  private struct Context: Equatable {
+  struct Context: Equatable {
 
     /// A memory cell.
     struct Cell: Equatable {
@@ -323,434 +1079,13 @@ public struct DefiniteInitializationPass: TransformPass {
     /// The state of the memory.
     var memory: [MemoryLocation: Cell] = [:]
 
-    mutating func merge(_ other: Context) {
-
-    }
-
-  }
-
-  /// The program being lowered.
-  public let program: TypedProgram
-
-  /// The ID of the function being interpreted.
-  private var functionID: Function.ID = -1
-
-  /// The current evaluation context.
-  private var context = Context()
-
-  public private(set) var diagnostics: [Diagnostic] = []
-
-  public init(program: TypedProgram) {
-    self.program = program
-  }
-
-  public mutating func run(function functionID: Function.ID, module: inout Module) -> Bool {
-    /// The control flow graph of the function to analyze.
-    let cfg = module[functionID].cfg
-    /// A FILO list of blocks to visit.
-    var work: Deque<Function.BlockAddress>
-    /// The set of blocks that no longer need to be visited.
-    var done: Set<Function.BlockAddress> = []
-    /// The state of the abstract interpreter before and after the visited basic blocks.
-    var contexts: [Function.BlockAddress: (before: Context, after: Context)] = [:]
-    /// Indicates whether the pass succeeded.
-    var success = true
-
-    // Reinitialize the internal state of the pass.
-    self.functionID = functionID
-    self.diagnostics.removeAll()
-
-    // Establish the initial visitation order.
-    let dominatorTree = DominatorTree(function: functionID, cfg: cfg, in: module)
-    work = Deque(dominatorTree.bfs)
-
-    // Interpret the function until we reach a fixed point.
-    while let block = work.popFirst() {
-      // Make sure the block's predecessors have been visited, or pick another one.
-      let predecessors = cfg.predecessors(of: block)
-      if !predecessors.allSatisfy({ contexts[$0] != nil }) {
-        work.append(block)
-        continue
-      }
-
-      // Compute the before-context of the block.
-      var beforeContext: Context
-      if block == module[functionID].blocks.firstAddress {
-        // The block is the entry.
-        beforeContext = entryContext(in: module)
-      } else {
-        // Merge the after-contexts of the predecessors.
-        beforeContext = predecessors.reduce(into: Context(), { $0.merge(contexts[$1]!.after) })
-      }
-
-      // If the before-context didn't change, we're done with the current block.
-      if contexts[block]?.before == beforeContext {
-        done.insert(block)
-        continue
-      }
-
-      context = beforeContext
-      success = eval(block: block, in: &module) && success
-
-      // We're done with the current block if ...
-      let isBlockDone: Bool = {
-        // 1) we found an error.
-        if !success { return true }
-
-        // 2) we're done with all of the block's predecessors.
-        let pending = predecessors.filter({ !done.contains($0) })
-        if pending.isEmpty { return true }
-
-        // 3) the only predecessor left is the block itself, yet the after-context didn't change.
-        return (pending.count == 1)
-            && (pending[0] == block)
-            && (contexts[block]?.after == context)
-      }()
-
-      // Update the before/after-context pair for the current block and move to the next one.
-      contexts[block] = (before: beforeContext, after: context)
-      if isBlockDone {
-        done.insert(block)
-      } else {
-        work.append(block)
-      }
-    }
-
-    return success
-  }
-
-  /// Creates the before-context of the function's entry block.
-  private func entryContext(in module: Module) -> Context {
-    let function = module[functionID]
-    let entryAddress = function.blocks.firstAddress!
-    var entryContext = Context()
-
-    for i in 0 ..< function.inputs.count {
-      let key = LocalKey.param(block: entryAddress, index: i)
-      let (convention, type) = function.inputs[i]
-      switch convention {
-      case .let, .inout:
-        let location = MemoryLocation.arg(index: i)
-        entryContext.locals[key] = .locations([location])
-        entryContext.memory[location] = Context.Cell(
-          type: type.astType, object: .full(.initialized))
-
-      case .set:
-        let location = MemoryLocation.arg(index: i)
-        entryContext.locals[key] = .locations([location])
-        entryContext.memory[location] = Context.Cell(
-          type: type.astType, object: .full(.uninitialized))
-
-      case .sink:
-        entryContext.locals[key] = .object(.full(.initialized))
-
-      case .yielded:
-        preconditionFailure("cannot represent instance of yielded type")
-      }
-    }
-
-    return entryContext
-  }
-
-  private mutating func eval(block: Function.BlockAddress, in module: inout Module) -> Bool {
-    let instructions = module[functionID][block].instructions
-    for i in instructions.indices {
-      let id = InstID(function: functionID, block: block, address: i.address)
-      switch instructions[i] {
-      case let inst as AllocStackInst:
-        if !eval(allocStack: inst, id: id, module: &module) { return false }
-      case let inst as BorrowInst:
-        if !eval(borrow: inst, id: id, module: &module) { return false }
-      case let inst as CallInst:
-        if !eval(call: inst, id: id, module: &module) { return false }
-      case let inst as DestructureInst:
-        if !eval(destructure: inst, id: id, module: &module) { return false }
-      case let inst as LoadInst:
-        if !eval(load: inst, id: id, module: &module) { return false }
-      case let inst as RecordInst:
-        if !eval(record: inst, id: id, module: &module) { return false }
-      case let inst as StoreInst:
-        if !eval(store: inst, id: id, module: &module) { return false }
-      case is EndBorrowInst, is UnrechableInst:
-        continue
-      default:
-        unreachable("unexpected instruction")
-      }
-    }
-    return true
-  }
-
-  private mutating func eval(
-    allocStack inst: AllocStackInst, id: InstID, module: inout Module
-  ) -> Bool {
-    // Create an abstract location denoting the newly allocated memory.
-    let location = MemoryLocation.inst(block: id.block, address: id.address)
-    if context.memory[location] != nil {
-      diagnostics.append(.unboundedStackAllocation(range: inst.range))
-      return false
-    }
-
-    // Update the context.
-    context.memory[location] = Context.Cell(type: inst.allocatedType, object: .full(.uninitialized))
-    context.locals[LocalKey(id, 0)] = .locations([location])
-    return true
-  }
-
-  private mutating func eval(
-    borrow inst: BorrowInst, id: InstID, module: inout Module
-  ) -> Bool {
-    // Operand must a location.
-    let locations: [MemoryLocation]
-    if let key = LocalKey(operand: inst.value) {
-      locations = context.locals[key]!.unwrapLocations()!.map({ $0.appending(inst.path) })
-    } else {
-      // The operand is a constant.
-      fatalError("not implemented")
-    }
-
-    switch inst.capability {
-    case .let, .inout:
-      // `let` and `inout` borrows require the borrowed object to be initialized.
-      for location in locations {
-        if let diagnostic = withObject(at: location, { (object) -> Diagnostic? in
-          switch object.summary {
-          case .fullyInitialized:
-            return nil
-          case .fullyUninitialized:
-            return .useOfUninitializedObject(range: inst.range)
-          case .fullyConsumed:
-            return .useOfConsumedObject(range: inst.range)
-          case .partiallyInitialized:
-            return .useOfPartiallyInitializedObject(range: inst.range)
-          case .partiallyConsumed:
-            return .useOfPartiallyConsumedObject(range: inst.range)
-          }
-        }) {
-          diagnostics.append(diagnostic)
-          return false
-        }
-      }
-
-    case .set:
-      // `set` borrowes require the borrowed object to be uninitialized.
-      for location in locations {
-        if !withObject(at: location, { (object) -> Bool in
-          switch object.summary {
-          case .fullyUninitialized, .fullyConsumed:
-            return true
-          default:
-            return false
-          }
-        }) {
-          // TODO: Destroy initialized parts
-        }
-      }
-
-    case .yielded:
-      unreachable()
-    }
-
-    context.locals[LocalKey(id, 0)] = .locations(Set(locations))
-    return true
-  }
-
-  private mutating func eval(
-    call inst: CallInst, id: InstID, module: inout Module
-  ) -> Bool {
-    // Process the operands.
-    for i in 0 ..< inst.operands.count {
-      switch inst.conventions[i] {
-      case .let, .inout, .set:
-        // Nothing to do here.
-        continue
-
-      case .sink:
-        // Consumes the operand unless it's a constant.
-        if let key = LocalKey(operand: inst.operands[i]) {
-          if !consume(localForKey: key, with: id, or: { (this, _) in
-            this.diagnostics.append(.illegalMove(range: inst.range))
-          }) {
-            return false
-          }
-        }
-
-      case .yielded:
-        unreachable()
-      }
-    }
-
-    // Result is initialized.
-    context.locals[LocalKey(id, 0)] = .object(.full(.initialized))
-    return true
-  }
-
-  private mutating func eval(
-    destructure inst: DestructureInst, id: InstID, module: inout Module
-  ) -> Bool {
-    // Consume the object operand.
-    if let key = LocalKey(operand: inst.object) {
-      if !consume(localForKey: key, with: id, or: { (this, _) in
-        this.diagnostics.append(.illegalMove(range: inst.range))
-      }) {
-        return false
-      }
-    }
-
-    // Result are initialized.
-    for i in 0 ..< inst.types.count {
-      context.locals[LocalKey(id, i)] = .object(.full(.initialized))
-    }
-    return true
-  }
-
-  private mutating func eval(
-    load inst: LoadInst, id: InstID, module: inout Module
-  ) -> Bool {
-    // Operand must be a location.
-    let locations: Set<MemoryLocation>
-    if let key = LocalKey(operand: inst.source) {
-      locations = context.locals[key]!.unwrapLocations()!
-    } else {
-      // The operand is a constant.
-      fatalError("not implemented")
-    }
-
-    // Object at target location must be initialized.
-    for location in locations {
-      if let diagnostic = withObject(at: location, { (object) -> Diagnostic? in
-        switch object.summary {
-        case .fullyInitialized:
-          object = .full(.consumed(by: id))
-          return nil
-        case .fullyUninitialized:
-          return .useOfUninitializedObject(range: inst.range)
-        case .fullyConsumed:
-          return .useOfConsumedObject(range: inst.range)
-        case .partiallyInitialized:
-          return .useOfPartiallyInitializedObject(range: inst.range)
-        case .partiallyConsumed:
-          return .useOfPartiallyConsumedObject(range: inst.range)
-        }
-      }) {
-        diagnostics.append(diagnostic)
-        return false
-      }
-    }
-
-    // Result is initialized.
-    context.locals[LocalKey(id, 0)] = .object(.full(.initialized))
-    return true
-  }
-
-  private mutating func eval(
-    record inst: RecordInst, id: InstID, module: inout Module
-  ) -> Bool {
-    // Consumes the non-constant operand.
-    for operand in inst.operands {
-      if let key = LocalKey(operand: operand) {
-        if !consume(localForKey: key, with: id, or: { (this, _) in
-          this.diagnostics.append(.illegalMove(range: inst.range))
-        }) {
-          return false
-        }
-      }
-    }
-
-    // Result is initialized.
-    context.locals[LocalKey(id, 0)] = .object(.full(.initialized))
-    return true
-  }
-
-  private mutating func eval(
-    store inst: StoreInst, id: InstID, module: inout Module
-  ) -> Bool {
-    // Consume the object operand.
-    if let key = LocalKey(operand: inst.object) {
-      if !consume(localForKey: key, with: id, or: { (this, _) in
-        this.diagnostics.append(.illegalMove(range: inst.range))
-      }) {
-        return false
-      }
-    }
-
-    // Target operand must be a location.
-    let locations: Set<MemoryLocation>
-    if let key = LocalKey(operand: inst.target) {
-      locations = context.locals[key]!.unwrapLocations()!
-    } else {
-      // The operand is a constant.
-      fatalError("not implemented")
-    }
-
-    // Update the context.
-    for location in locations {
-      withObject(at: location, { object in object = .full(.initialized) })
-    }
-    return true
-  }
-
-  /// Returns the result of a call to `action` with a projection of the object at `location`.
-  private mutating func withObject<T>(
-    at location: MemoryLocation, _ action: (inout Object) -> T
-  ) -> T {
-    switch location {
-    case .null:
-      preconditionFailure("null location")
-
-    case .arg, .inst:
-      return action(&context.memory[location]!.object)
-
-    case .sublocation(let rootLocation, let path):
-      if path.isEmpty {
-        return action(&context.memory[location]!.object)
-      } else {
-        return modifying(&context.memory[rootLocation]!, { root in
-          var derivedType = root.type
-          var derivedPath = \Context.Cell.object
-          for offset in path {
-            // TODO: Handle tail-allocated objects.
-            assert(offset >= 0, "not implemented")
-
-            // Disaggregate the object if necessary.
-            let layout = root[keyPath: derivedPath]
-              .disaggregate(type: derivedType, program: program)
-
-            // Create a path to the sub-object.
-            derivedType = layout.storedPropertiesTypes[offset]
-            derivedPath = derivedPath.appending(path: \Object.[offset])
-          }
-
-          // Project the sub-object.
-          return action(&root[keyPath: derivedPath])
-        })
-      }
-    }
-  }
-
-  /// Consumes the object in the specified local register.
-  ///
-  /// The method returns `true` if it succeeded. Otherwise, it or calls `handleFailure` with a
-  /// with a projection of `self` and the state summary of the object before returning `false`.
-  private mutating func consume(
-    localForKey key: LocalKey,
-    with consumer: InstID,
-    or handleFailure: (inout Self, Object.StateSummary) -> ()
-  ) -> Bool {
-    let summary = context.locals[key]!.unwrapObject()!.summary
-    if summary == .fullyInitialized {
-      context.locals[key]! = .object(.full(.consumed(by: consumer)))
-      return true
-    } else {
-      handleFailure(&self, summary)
-      return false
-    }
   }
 
 }
 
-extension Diagnostic {
+fileprivate extension Diagnostic {
 
-  fileprivate static func illegalMove(range: SourceRange?) -> Diagnostic {
+  static func illegalMove(range: SourceRange?) -> Diagnostic {
     Diagnostic(
       level: .error,
       message: "illegal move",
@@ -758,7 +1093,7 @@ extension Diagnostic {
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }
 
-  fileprivate static func unboundedStackAllocation(range: SourceRange?) -> Diagnostic {
+  static func unboundedStackAllocation(range: SourceRange?) -> Diagnostic {
     Diagnostic(
       level: .error,
       message: "unbounded stack allocation",
@@ -766,7 +1101,7 @@ extension Diagnostic {
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }
 
-  fileprivate static func useOfConsumedObject(range: SourceRange?) -> Diagnostic {
+  static func useOfConsumedObject(range: SourceRange?) -> Diagnostic {
     Diagnostic(
       level: .error,
       message: "use of consumed object",
@@ -774,7 +1109,7 @@ extension Diagnostic {
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }
 
-  fileprivate static func useOfPartiallyConsumedObject(range: SourceRange?) -> Diagnostic {
+  static func useOfPartiallyConsumedObject(range: SourceRange?) -> Diagnostic {
     Diagnostic(
       level: .error,
       message: "use of partially consumed object",
@@ -782,7 +1117,7 @@ extension Diagnostic {
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }
 
-  fileprivate static func useOfPartiallyInitializedObject(range: SourceRange?) -> Diagnostic {
+  static func useOfPartiallyInitializedObject(range: SourceRange?) -> Diagnostic {
     Diagnostic(
       level: .error,
       message: "use of partially initialized object",
@@ -790,7 +1125,7 @@ extension Diagnostic {
       window: range.map({ r in Diagnostic.Window(range: r) }))
   }
 
-  fileprivate static func useOfUninitializedObject(range: SourceRange?) -> Diagnostic {
+  static func useOfUninitializedObject(range: SourceRange?) -> Diagnostic {
     Diagnostic(
       level: .error,
       message: "use of uninitialized object",

@@ -37,9 +37,9 @@ public struct ImplicitReturnInsertionPass: TransformPass {
 
 }
 
-extension Diagnostic {
+fileprivate extension Diagnostic {
 
-  fileprivate static func missingFunctionReturn(
+  static func missingFunctionReturn(
     expectedReturnType: Type,
     range: SourceRange?
   ) -> Diagnostic {

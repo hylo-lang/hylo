@@ -150,6 +150,8 @@ public struct Module {
       address = functions[ip.block.function][ip.block.address].instructions.append(inst)
     case .after(let i):
       address = functions[ip.block.function][ip.block.address].instructions.insert(inst, after: i)
+    case .before(let i):
+      address = functions[ip.block.function][ip.block.address].instructions.insert(inst, before: i)
     }
 
     // Generate an instruction identifier.

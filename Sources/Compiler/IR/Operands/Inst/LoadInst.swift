@@ -4,14 +4,24 @@ public struct LoadInst: Inst {
   /// The type of the object being loaded.
   public var objectType: LoweredType
 
-  /// The address of the object to load.
+  /// The location of the object is being loaded, or the root location of the object from which a
+  /// sub-object is being loaded.
   public var source: Operand
+
+  /// A sequence of indices identifying a sub-location of `location`.
+  public var path: [Int]
 
   public var range: SourceRange?
 
-  init(_ objectType: LoweredType, from source: Operand, range: SourceRange? = nil) {
+  init(
+    _ objectType: LoweredType,
+    from source: Operand,
+    at path: [Int] = [],
+    range: SourceRange? = nil
+  ) {
     self.objectType = objectType
     self.source = source
+    self.path = path
     self.range = range
   }
 

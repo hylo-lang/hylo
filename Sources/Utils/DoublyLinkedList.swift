@@ -196,12 +196,12 @@ public struct DoublyLinkedList<Element> {
         element: newElement)
     }
 
-    storage[address.rawValue].nextOffset = newAddress.rawValue
     if address.rawValue == tailOffset {
       tailOffset = newAddress.rawValue
     } else {
       storage[storage[address.rawValue].nextOffset].previousOffset = newAddress.rawValue
     }
+    storage[address.rawValue].nextOffset = newAddress.rawValue
 
     count += 1
     return newAddress
@@ -233,12 +233,12 @@ public struct DoublyLinkedList<Element> {
         element: newElement)
     }
 
-    storage[address.rawValue].previousOffset = newAddress.rawValue
     if address.rawValue == headOffset {
       headOffset = newAddress.rawValue
     } else {
       storage[storage[address.rawValue].previousOffset].nextOffset = newAddress.rawValue
     }
+    storage[address.rawValue].previousOffset = newAddress.rawValue
 
     count += 1
     return newAddress

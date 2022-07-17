@@ -2,10 +2,12 @@ import Utils
 
 /// A tree whose nodes are basic blocks and where a node immediately dominates its children.
 ///
-/// A basic block `b1` in a control-flow graph dominates a basic block `b2` if every path from the
-/// entry node to `b2` must go through `b1`. By definition, every node dominates itself. A basic
-/// block `b1` *immediately* dominates a basic block `b2` if `b1` dominates `b2` and `b2` is a
-/// child of `b1` in the source code.
+/// Definitions:
+/// - A block `b1` in a control-flow graph *dominates* a block `b2` if every path from the entry to
+///   `b2` must go through `b1`. By definition, every node dominates itself.
+/// - A block `b1` *strictly dominates* a block `b2` if `b1` dominates `b2` and `b1 != b2`.
+/// - A block `b1` is the *immediately dominates* a block `b2` if `b1` stricly dominates `b2` and
+///   there is no block `b3` that stricly dominates `b2`.
 ///
 /// A dominator tree encodes the dominance relation of a control graph as a tree where a node is
 /// a basic blocks and its children are those it immediately dominates.

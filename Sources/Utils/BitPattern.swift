@@ -208,10 +208,9 @@ public struct BitPattern: Hashable {
     }
 
     if digit != 0 { hex.append(sum) }
-    if (hex.count == 1) && (hex[0] == 0) { return "0" }
 
     let letter: UInt8 = uppercase ? 65 : 97
-    return hex
+    let result = hex
       .dropLast(while: { $0 == 0 })
       .reversed()
       .reduce(into: "", { (result, d) in
@@ -219,6 +218,7 @@ public struct BitPattern: Hashable {
           ? Character(UnicodeScalar(48 + d))
           : Character(UnicodeScalar(letter + d)))
       })
+    return result.isEmpty ? "0" : result
   }
 
 }

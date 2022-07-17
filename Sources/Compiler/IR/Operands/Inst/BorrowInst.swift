@@ -7,10 +7,10 @@ public struct BorrowInst: Inst, BorrowInstProtocol {
   /// The type of the borrowed access.
   public var borrowedType: LoweredType
 
-  /// The value of the root object on which an access is borrowed.
-  public var value: Operand
+  /// The location of the root object on which an access is borrowed.
+  public var location: Operand
 
-  /// A sequence of indices identifying a sub-object of `value`.
+  /// A sequence of indices identifying a sub-location of `location`.
   public var path: [Int]
 
   /// The binding in source program to which the instruction corresponds, if any.
@@ -21,14 +21,14 @@ public struct BorrowInst: Inst, BorrowInstProtocol {
   init(
     _ capability: ProjectionType.Capability,
     _ borrowedType: LoweredType,
-    from value: Operand,
+    from location: Operand,
     at path: [Int] = [],
     binding: NodeID<VarDecl>? = nil,
     range: SourceRange? = nil
   ) {
     self.borrowedType = borrowedType
     self.capability = capability
-    self.value = value
+    self.location = location
     self.path = path
     self.binding = binding
     self.range = range
@@ -36,7 +36,7 @@ public struct BorrowInst: Inst, BorrowInstProtocol {
 
   public var types: [LoweredType] { [borrowedType] }
 
-  public var operands: [Operand] { [value] }
+  public var operands: [Operand] { [location] }
 
   public var isTerminator: Bool { false }
 
@@ -45,7 +45,7 @@ public struct BorrowInst: Inst, BorrowInstProtocol {
     if !borrowedType.isAddress { return false }
 
     // Operand has an address type.
-    if !module.type(of: value).isAddress { return false }
+    if !module.type(of: location).isAddress { return false }
 
     return true
   }

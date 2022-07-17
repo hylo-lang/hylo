@@ -12,8 +12,8 @@ public struct Emitter {
   /// The insertion point of the emitter.
   public var insertionPoint: InsertionPoint?
 
-  /// The local variables in scope.
-  private var locals = DeclMap<Operand>()
+  /// The state of the call stack.
+  private var stack = Stack()
 
   /// The declaration of the receiver of the function or subscript currently emitted, if any.
   private var receiverDecl: NodeID<ParameterDecl>?
@@ -79,16 +79,23 @@ public struct Emitter {
     }
 
     // Emit the function's body.
+    stack.push(Frame(locals: locals))
     var receiverDecl = program.ast[declID].implicitReceiverDecl
     swap(&receiverDecl, &self.receiverDecl)
-    swap(&locals, &self.locals)
 
     switch program.ast[declID].body!.value {
     case .block(let stmt):
+      // Emit the statements of the function.
       emit(stmt: stmt, into: &module)
 
     case .expr(let expr):
+      // Emit the body of the function.
       let value = emitR(expr: expr, into: &module)
+
+      // Emit stack deallocation.
+      emitStackDeallocs(in: &module)
+
+      // Emit the implicit return statement.
       if program.exprTypes[expr]! != .never {
         module.insert(ReturnInst(value: value), at: insertionPoint!)
       }
@@ -97,8 +104,9 @@ public struct Emitter {
       unreachable()
     }
 
-    swap(&locals, &self.locals)
     swap(&receiverDecl, &self.receiverDecl)
+    stack.pop()
+    assert(stack.frames.isEmpty)
   }
 
   /// Emits the product type declaration into `module`.
@@ -162,7 +170,8 @@ public struct Emitter {
       let declType = program.declTypes[decl]!
 
       let storage = module.insert(AllocStackInst(declType), at: insertionPoint!)[0]
-      locals[decl] = storage
+      stack.top.allocs.append(storage)
+      stack[decl] = storage
 
       if var rhsType = initializerType {
         // Determine the object corresponding to the current name.
@@ -171,7 +180,7 @@ public struct Emitter {
           let subpath = Array(path[0 ..< i])
           if objects[subpath] != nil { continue }
 
-          let layout = TypeLayout(rhsType, in: program)
+          let layout = program.abstractLayout(of: rhsType)
           rhsType = layout.storedPropertiesTypes[i]
 
           let wholePath = Array(path[0 ..< (i - 1)])
@@ -217,6 +226,7 @@ public struct Emitter {
 
         let exprType = program.exprTypes[initializer]!
         let storage = module.insert(AllocStackInst(exprType), at: insertionPoint!)[0]
+        stack.top.allocs.append(storage)
         source = storage
 
         let target = module.insert(
@@ -229,7 +239,7 @@ public struct Emitter {
         let decl = program.ast[name].decl
         let declType = program.declTypes[decl]!
 
-        locals[decl] = module.insert(
+        stack[decl] = module.insert(
           BorrowInst(
             capability,
             .address(declType),
@@ -261,11 +271,12 @@ public struct Emitter {
   }
 
   private mutating func emit(brace stmt: NodeID<BraceStmt>, into module: inout Module) {
-    let localsBeforeBrace = locals
+    stack.push()
     for s in program.ast[stmt].stmts {
       emit(stmt: s, into: &module)
     }
-    locals = localsBeforeBrace
+    emitStackDeallocs(in: &module)
+    stack.pop()
   }
 
   private mutating func emit(declStmt stmt: NodeID<DeclStmt>, into module: inout Module) {
@@ -289,6 +300,7 @@ public struct Emitter {
       value = .constant(.unit)
     }
 
+    emitStackDeallocs(in: &module)
     module.insert(
       ReturnInst(value: value, range: program.ast.ranges[stmt]),
       at: insertionPoint!)
@@ -301,6 +313,7 @@ public struct Emitter {
     defer {
       // Mark the execution path unreachable if the computed value has type `Never`.
       if program.exprTypes[expr] == .never {
+        emitStackDeallocs(in: &module)
         module.insert(UnrechableInst(), at: insertionPoint!)
       }
     }
@@ -346,6 +359,7 @@ public struct Emitter {
     var resultStorage: Operand?
     if let type = program.exprTypes[expr], type != .unit {
       resultStorage = module.insert(AllocStackInst(type), at: insertionPoint!)[0]
+      stack.top.allocs.append(resultStorage!)
     }
 
     // Emit the condition(s).
@@ -383,13 +397,16 @@ public struct Emitter {
     // Note: the insertion pointer is already set in the corresponding block.
     switch program.ast[expr].success {
     case .expr(let thenExpr):
+      stack.push()
       let value = emitR(expr: thenExpr, into: &module)
       if let target = resultStorage {
         let target = module.insert(
-          BorrowInst(.let, .address(program.exprTypes[expr]!), from: target),
+          BorrowInst(.set, .address(program.exprTypes[expr]!), from: target),
           at: insertionPoint!)[0]
         module.insert(StoreInst(value, to: target), at: insertionPoint!)
       }
+      emitStackDeallocs(in: &module)
+      stack.pop()
 
     case .block:
       fatalError("not implemented")
@@ -400,6 +417,7 @@ public struct Emitter {
     insertionPoint = InsertionPoint(endOf: alt!)
     switch program.ast[expr].failure {
     case .expr(let elseExpr):
+      stack.push()
       let value = emitR(expr: elseExpr, into: &module)
       if let target = resultStorage {
         let target = module.insert(
@@ -407,6 +425,8 @@ public struct Emitter {
           at: insertionPoint!)[0]
         module.insert(StoreInst(value, to: target), at: insertionPoint!)
       }
+      emitStackDeallocs(in: &module)
+      stack.pop()
 
     case .block:
       fatalError("not implemented")
@@ -442,7 +462,7 @@ public struct Emitter {
       conventions = [.inout]
     case .sink:
       conventions = [.sink]
-    default:
+    case nil:
       conventions = [.let]
     }
 
@@ -515,7 +535,7 @@ public struct Emitter {
           switch program.ast[calleeID].domain {
           case .none:
             let receiver = module.insert(
-              BorrowInst(type.capability, .address(type.base), from: locals[receiverDecl!]!),
+              BorrowInst(type.capability, .address(type.base), from: stack[receiverDecl!]!),
               at: insertionPoint!)[0]
             arguments.insert(receiver, at: 0)
 
@@ -533,7 +553,7 @@ public struct Emitter {
           switch program.ast[calleeID].domain {
           case .none:
             let receiver = module.insert(
-              LoadInst(.object(receiverType), from: locals[receiverDecl!]!),
+              LoadInst(.object(receiverType), from: stack[receiverDecl!]!),
               at: insertionPoint!)[0]
             arguments.insert(receiver, at: 0)
 
@@ -595,7 +615,7 @@ public struct Emitter {
     switch program.referredDecls[expr]! {
     case .direct(let declID):
       // Lookup for a local symbol.
-      if let source = locals[declID] {
+      if let source = stack[declID] {
         return module.insert(
           LoadInst(.object(program.exprTypes[expr]!), from: source),
           at: insertionPoint!)[0]
@@ -638,6 +658,7 @@ public struct Emitter {
 
       let value = emitR(expr: expr, into: &module)
       let storage = module.insert(AllocStackInst(exprType), at: insertionPoint!)[0]
+      stack.top.allocs.append(storage)
 
       let target = module.insert(
         BorrowInst(.set, .address(exprType), from: storage),
@@ -658,7 +679,7 @@ public struct Emitter {
     switch program.referredDecls[expr]! {
     case .direct(let declID):
       // Lookup for a local symbol.
-      if let source = locals[declID] {
+      if let source = stack[declID] {
         return module.insert(
           BorrowInst(capability, .address(program.exprTypes[expr]!), from: source),
           at: insertionPoint!)[0]
@@ -672,7 +693,7 @@ public struct Emitter {
 
       switch program.ast[expr].domain {
       case .none:
-        receiver = locals[receiverDecl!]!
+        receiver = stack[receiverDecl!]!
       case .implicit:
         fatalError("not implemented")
       case .explicit(let receiverID):
@@ -683,7 +704,7 @@ public struct Emitter {
       switch declID.kind {
       case .varDecl:
         let declID = NodeID<VarDecl>(unsafeRawValue: declID.rawValue)
-        let layout = TypeLayout(module.type(of: receiver).astType, in: program)
+        let layout = program.abstractLayout(of: module.type(of: receiver).astType)
         let memberIndex = layout.storedPropertiesIndices[program.ast[declID].name]!
 
         // If the lowered receiver is a borrow instruction, modify it in place so that it targets
@@ -694,7 +715,7 @@ public struct Emitter {
           module[id.function][id.block][id.address] = BorrowInst(
             capability,
             .address(program.exprTypes[expr]!),
-            from: receiverInst.value,
+            from: receiverInst.location,
             at: receiverInst.path + [memberIndex])
           return receiver
         } else {
@@ -712,6 +733,71 @@ public struct Emitter {
     }
 
     fatalError()
+  }
+
+  // MARK: Helpers
+
+  private mutating func emitStackDeallocs(in module: inout Module) {
+    while let alloc = stack.top.allocs.popLast() {
+      module.insert(DeallocStackInst(alloc), at: insertionPoint!)
+    }
+  }
+
+}
+
+fileprivate extension Emitter {
+
+  /// A type describing the local variables and allocations of a stack frame.
+  struct Frame {
+
+    /// The local variables in scope.
+    var locals = DeclMap<Operand>()
+
+    /// The stack allocations, in FILO order.
+    var allocs: [Operand] = []
+
+  }
+
+  /// A type describing the state of the call stack during lowering.
+  struct Stack {
+
+    /// The frames in the stack, in FILO order.
+    var frames: [Frame] = []
+
+    /// Accesses the top frame, assuming the stack is not empty.
+    var top: Frame {
+      get {
+        frames[frames.count - 1]
+      }
+      _modify {
+        yield &frames[frames.count - 1]
+      }
+    }
+
+    /// Accesses the operand assigned `decl`, assuming the stack is not empty.
+    subscript<T: DeclID>(decl: T) -> Operand? {
+      get {
+        for frame in frames.reversed() {
+          if let operand = frame.locals[decl] { return operand }
+        }
+        return nil
+      }
+      set {
+        top.locals[decl] = newValue
+      }
+    }
+
+    /// Pushes a new frame.
+    mutating func push(_ newFrame: Frame = Frame()) {
+      frames.append(newFrame)
+    }
+
+    /// Pops a frame, assuming the stack is not empty.
+    mutating func pop() {
+      precondition(top.allocs.isEmpty, "stack leak")
+      frames.removeLast()
+    }
+
   }
 
 }
