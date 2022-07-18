@@ -15,6 +15,9 @@ public struct Function {
   /// The debug name of the function, if any.
   public var debugName: String?
 
+  /// The linkage of the function.
+  public var linkage: Linkage
+
   /// The types of the function's parameters.
   public var inputs: [Input]
 

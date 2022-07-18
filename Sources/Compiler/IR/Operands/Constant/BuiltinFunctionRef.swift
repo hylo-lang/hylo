@@ -7,6 +7,15 @@ public struct BuiltinFunctionRef: ConstantProtocol, Hashable {
   /// The type of the function.
   public let type: LoweredType
 
+  /// Returns a reference to the built-in function with the given name.
+  public static subscript(_ name: String) -> BuiltinFunctionRef? {
+    if let type = BuiltinFunctionType[name] {
+      return BuiltinFunctionRef(name: name, type: .address(.lambda(type)))
+    } else {
+      return nil
+    }
+  }
+
 }
 
 extension BuiltinFunctionRef: CustomStringConvertible {

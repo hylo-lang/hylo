@@ -120,6 +120,7 @@ public struct Module {
     let function = Function(
       name: locator.mangled,
       debugName: locator.description,
+      linkage: ast[declID].isPublic ? .external : .module,
       inputs: inputs,
       output: output,
       blocks: [])

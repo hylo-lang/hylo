@@ -27,7 +27,7 @@ public struct InstID: Hashable {
   /// The ID of the containing function.
   public var function: Module.FunctionIndex
 
-  /// The ID of the containing block.
+  /// The address of the containing block.
   public var block: Function.BlockAddress
 
   /// The address of the instruction in the containing block.

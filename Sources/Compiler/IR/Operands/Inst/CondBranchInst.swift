@@ -16,12 +16,13 @@ public struct CondBranchInst: Inst {
 
   public var types: [LoweredType] { [] }
 
-  public var operands: [Operand] { [] }
+  public var operands: [Operand] { [condition] }
 
   public var isTerminator: Bool { true }
 
   public func check(in module: Module) -> Bool {
-    true
+    /// The condition operand has an object type.
+    return !module.type(of: condition).isAddress
   }
 
 }

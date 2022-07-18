@@ -8,3 +8,7 @@ public enum MemoizationState<Result> {
   case done(Result)
 
 }
+
+extension MemoizationState: Equatable where Result: Equatable {}
+
+extension MemoizationState: Hashable where Result: Hashable {}

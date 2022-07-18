@@ -33,10 +33,24 @@ public struct InsertionPoint {
     self.position = .after(inst)
   }
 
+  /// Creates an insertion point positioned right after `inst`.
+  public init(after instID: InstID) {
+    self.init(
+      after: instID.address,
+      in: Block.ID(function: instID.function, address: instID.block))
+  }
+
   /// Creates an insertion point positioned right before `inst` in `block`.
   public init(before inst: Block.InstAddress, in block: Block.ID) {
     self.block = block
     self.position = .before(inst)
+  }
+
+  /// Creates an insertion point positioned right before `inst`.
+  public init(before instID: InstID) {
+    self.init(
+      before: instID.address,
+      in: Block.ID(function: instID.function, address: instID.block))
   }
 
 }

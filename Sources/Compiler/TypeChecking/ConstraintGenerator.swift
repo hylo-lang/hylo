@@ -231,8 +231,7 @@ struct ConstraintGenerator: ExprVisitor {
         var candidates: [Constraint.OverloadCandidate] = []
         for initializer in initializers {
           // Remove the receiver from the parameter list.
-          guard case .lambda(let f) = initializer.type else { unreachable() }
-          let ctor = f.ctor()!
+          let ctor = LambdaType(converting: initializer.type)!.ctor()!
 
           if labels.elementsEqual(ctor.labels) {
             let (ty, cs) = checker.open(type: .lambda(ctor))
@@ -254,7 +253,7 @@ struct ConstraintGenerator: ExprVisitor {
           inferredTypes[c] = candidates[0].type
 
           // Propagate the type of the constructor down.
-          guard case .lambda(let calleeType) = candidates[0].type else { unreachable() }
+          let calleeType = LambdaType(converting: candidates[0].type)!
           propagateDown(calleeType: calleeType, calleeConstraints: candidates[0].constraints)
 
         default:

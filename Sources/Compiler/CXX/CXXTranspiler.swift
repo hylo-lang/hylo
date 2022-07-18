@@ -1,7 +1,7 @@
 import Utils
 
 /// A Val to C++ transpiler.
-public struct Transpiler {
+public struct CXXTranspiler {
 
   /// The program being transpiled.
   public let program: TypedProgram
@@ -142,7 +142,7 @@ public struct Transpiler {
     initDeclID: NodeID<FunDecl>
   ) -> String {
     // Note: the first parameter of the signature is the receiver.
-    guard case .lambda(let initType) = program.declTypes[initDeclID] else { unreachable() }
+    let initType = LambdaType(converting: program.declTypes[initDeclID]!)!
     var definition = "explicit \(program.ast[typeDeclID].name)"
 
     // Emit the parameters.

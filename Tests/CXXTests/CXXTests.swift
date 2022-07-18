@@ -105,7 +105,7 @@ final class CXXTests: XCTestCase {
       declTypes: checker.declTypes,
       exprTypes: checker.exprTypes,
       referredDecls: checker.referredDecls)
-    var transpiler = Transpiler(program: program)
+    var transpiler = CXXTranspiler(program: program)
     let header = transpiler.emitHeader(of: main)
 
     XCTAssertEqual(header, """

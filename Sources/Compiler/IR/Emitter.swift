@@ -373,9 +373,16 @@ public struct Emitter {
       switch item {
       case .expr(let itemExpr):
         // Evaluate the condition in the current block.
-        var condition = emitR(expr: itemExpr, into: &module)
+        var condition = emitL(expr: itemExpr, withCapability: .let, into: &module)
         condition = module.insert(
-          DestructureInst(condition, as: [.object(.builtin(.i(1)))]),
+          BorrowInst(.let, .address(.builtin(.i(1))), from: condition, at: [0]),
+          at: insertionPoint!)[0]
+        condition = module.insert(
+          CallInst(
+            returnType: .object(.builtin(.i(1))),
+            conventions: [.let, .let],
+            callee: .constant(.builtin(BuiltinFunctionRef["i1_copy"]!)),
+            arguments: [condition]),
           at: insertionPoint!)[0]
 
         module.insert(
@@ -451,9 +458,7 @@ public struct Emitter {
     funCall expr: NodeID<FunCallExpr>,
     into module: inout Module
   ) -> Operand {
-    guard case .lambda(let calleeType) = program.exprTypes[program.ast[expr].callee] else {
-      unreachable()
-    }
+    let calleeType = LambdaType(converting: program.exprTypes[program.ast[expr].callee]!)!
 
     // Determine the callee's convention.
     var conventions: [PassingConvention]

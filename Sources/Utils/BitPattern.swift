@@ -24,7 +24,7 @@ public struct BitPattern: Hashable {
   }
 
   /// The representation of the pattern.
-  private var representation: Representation
+  fileprivate var representation: Representation
 
   /// Creates a bit pattern with the `width` least significant bits of `pattern`.
   ///
@@ -140,7 +140,7 @@ public struct BitPattern: Hashable {
         : newInput
     }
 
-    self = BitPattern(words: words, width: width)
+    self.init(words: words, width: width)
   }
 
   /// Returns a bit pattern resized to `width`, truncating the most significant bits or adding
@@ -349,6 +349,20 @@ extension BitPattern.WordBuffer: Hashable {
         hasher.combine(elements[i])
       }
     })
+  }
+
+}
+
+extension Int {
+
+  /// Creates a new instance from the given bit pattern, if it can be represented exactly.
+  public init?(bitPattern pattern: BitPattern) {
+    switch pattern.representation {
+    case .pair(let lower, _, let width) where width <= Self.bitWidth:
+      self.init(bitPattern: lower)
+    default:
+      return nil
+    }
   }
 
 }

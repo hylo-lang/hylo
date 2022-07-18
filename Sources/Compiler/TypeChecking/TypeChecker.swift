@@ -498,7 +498,7 @@ public struct TypeChecker {
       decl = ast[id]
 
       // Set its type.
-      guard case .lambda(let type) = declTypes[id]! else { unreachable() }
+      let type = LambdaType(converting: declTypes[id]!)!
       if decl.introducer.value == .`init` {
         // The receiver of an initializer is its first parameter.
         declTypes[param] = type.inputs[0].type
