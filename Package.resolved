@@ -2,6 +2,15 @@
   "object": {
     "pins": [
       {
+        "package": "LLVM",
+        "repositoryURL": "https://github.com/kyouko-taiga/LLVMSwift.git",
+        "state": {
+          "branch": "master",
+          "revision": "58d87e0def9be831da9f9d3ad96bdccfa59982fa",
+          "version": null
+        }
+      },
+      {
         "package": "swift-argument-parser",
         "repositoryURL": "https://github.com/apple/swift-argument-parser.git",
         "state": {

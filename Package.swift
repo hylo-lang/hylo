@@ -1,8 +1,12 @@
-// swift-tools-version:5.3
+// swift-tools-version:5.6
 import PackageDescription
 
 let package = Package(
   name: "Val",
+
+  platforms: [
+    .macOS(.v12),
+  ],
 
   products: [
     .executable(name: "val", targets: ["CLI"]),
@@ -10,12 +14,14 @@ let package = Package(
 
   dependencies: [
     .package(
-      name: "swift-argument-parser",
       url: "https://github.com/apple/swift-argument-parser.git",
       from: "0.4.0"),
     .package(
       url: "https://github.com/apple/swift-collections.git",
       from: "1.0.0"),
+    .package(
+      url: "https://github.com/kyouko-taiga/LLVMSwift.git",
+      branch: "master"),
   ],
 
   targets: [
@@ -33,6 +39,7 @@ let package = Package(
       dependencies: [
         "Utils",
         .product(name: "Collections", package: "swift-collections"),
+        .product(name: "LLVM", package: "LLVMSwift"),
       ]),
     .target(name: "Utils"),
 
