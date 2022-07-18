@@ -34,12 +34,12 @@ public struct DefiniteInitializationPass: TransformPass {
   public mutating func run(function functionID: Function.ID, module: inout Module) -> Bool {
     /// The control flow graph of the function to analyze.
     let cfg = module[functionID].cfg
+    /// The dominator tree of the function to analyize.
+    let dominatorTree = DominatorTree(function: functionID, cfg: cfg, in: module)
     /// A FILO list of blocks to visit.
     var work: Deque<Function.BlockAddress>
     /// The set of blocks that no longer need to be visited.
     var done: Set<Function.BlockAddress> = []
-    /// A cache containing the dominators of the blocks in the function.
-    var strictDominators = Cache<Function.BlockAddress, [Function.BlockAddress]>()
     /// The state of the abstract interpreter before and after the visited basic blocks.
     var contexts: [Function.BlockAddress: (before: Context, after: Context)] = [:]
     /// Indicates whether the pass succeeded.
@@ -47,10 +47,36 @@ public struct DefiniteInitializationPass: TransformPass {
 
     /// Returns the before-context that merges the after-contexts of `predecessors`, inserting
     /// deinitialization at the end of these blocks if necessary.
-    func mergeAfterContexts(of predecessors: [ControlFlowGraph.Vertex]) -> Context {
-      var result = contexts[predecessors[0]]!.after
-      if predecessors.count > 1 {
-        for predecessor in predecessors[1...] {
+    func mergeAfterContexts(of predecessors: [Function.BlockAddress]) -> Context {
+      /// The set of predecessors that have been visited already.
+      var visitedPredecessors: [Function.BlockAddress] = []
+      /// The sources of the after contexts used for this merge.
+      var afterContextSources: Set<Function.BlockAddress> = []
+
+      // Determine the after-context that will be used in the merge for each predecessor: if the
+      // predecessor has already been visited, use its after-context; otherwise, use the
+      // after-context of its immediate dominator.
+      for predecessor in predecessors {
+        if contexts[predecessor] != nil {
+          visitedPredecessors.append(predecessor)
+          afterContextSources.insert(predecessor)
+        } else {
+          afterContextSources.insert(dominatorTree.immediateDominator(of: predecessor)!)
+        }
+      }
+
+      switch afterContextSources.count {
+      case 0:
+        // Unreachable block.
+        return Context()
+
+      case 1:
+        // Trivial merge.
+        return contexts[afterContextSources.first!]!.after
+
+      default:
+        var result = contexts[afterContextSources.first!]!.after
+        for predecessor in afterContextSources.dropFirst() {
           let afterContext = contexts[predecessor]!.after
 
           // Merge the locals.
@@ -73,7 +99,7 @@ public struct DefiniteInitializationPass: TransformPass {
         }
 
         // Make sure the after-contexts are consistent with the computed before-context.
-        for predecessor in predecessors {
+        for predecessor in visitedPredecessors {
           let afterContext = contexts[predecessor]!.after
           var didChange = false
 
@@ -139,9 +165,9 @@ public struct DefiniteInitializationPass: TransformPass {
             }
           }
         }
-      }
 
-      return result
+        return result
+      }
     }
 
     // Reinitialize the internal state of the pass.
@@ -149,29 +175,36 @@ public struct DefiniteInitializationPass: TransformPass {
     self.diagnostics.removeAll()
 
     // Establish the initial visitation order.
-    let dominatorTree = DominatorTree(function: functionID, cfg: cfg, in: module)
     work = Deque(dominatorTree.bfs)
 
     // Interpret the function until we reach a fixed point.
     while let block = work.popFirst() {
-      // Make sure the block's dominators have been visited, or pick another one.
-      let dominators = strictDominators
-        .value(forKey: block, computedBy: { dominatorTree.strictDominators(of: block) })
-      if dominators.contains(where: { contexts[$0] == nil }) {
-        work.append(block)
+      // Handle the entry as a special case.
+      if block == module[functionID].blocks.firstAddress {
+        let beforeContext = entryContext(in: module)
+        currentContext = beforeContext
+        success = eval(block: block, in: &module) && success
+        contexts[block] = (before: beforeContext, after: currentContext)
+        done.insert(block)
         continue
       }
 
-      // Compute the before-context of the block.
+      // Make sure the block's immediate dominator and all non-dominated predecessors have been
+      // visited, or pick another node.
       let predecessors = cfg.predecessors(of: block)
-      var beforeContext: Context
-      if block == module[functionID].blocks.firstAddress {
-        // The block is the entry.
-        beforeContext = entryContext(in: module)
+      if let dominator = dominatorTree.immediateDominator(of: block) {
+        if contexts[dominator] == nil || predecessors.contains(where: { p in
+          contexts[p] == nil && !dominatorTree.dominates(block, p)
+        }) {
+          work.append(block)
+          continue
+        }
       } else {
-        // Merge the after-contexts of the predecessors.
-        beforeContext = mergeAfterContexts(of: predecessors.filter({ contexts[$0] != nil }))
+        preconditionFailure("function has unreachable block")
       }
+
+      // Merge the after-contexts of the predecessors.
+      let beforeContext = mergeAfterContexts(of: predecessors)
 
       // If the before-context didn't change, we're done with the current block.
       if contexts[block]?.before == beforeContext {
@@ -216,7 +249,7 @@ public struct DefiniteInitializationPass: TransformPass {
     var entryContext = Context()
 
     for i in 0 ..< function.inputs.count {
-      let key = LocalKey.param(block: entryAddress, index: i)
+      let key = FunctionLocal.param(block: entryAddress, index: i)
       let (convention, type) = function.inputs[i]
       switch convention {
       case .let, .inout:
@@ -291,7 +324,7 @@ public struct DefiniteInitializationPass: TransformPass {
     // Update the context.
     currentContext.memory[location] = Context.Cell(
       type: inst.allocatedType, object: .full(.uninitialized))
-    currentContext.locals[LocalKey(id, 0)] = .locations([location])
+    currentContext.locals[FunctionLocal(id, 0)] = .locations([location])
     return true
   }
 
@@ -300,7 +333,7 @@ public struct DefiniteInitializationPass: TransformPass {
   ) -> Bool {
     // Operand must a location.
     let locations: [MemoryLocation]
-    if let key = LocalKey(operand: inst.location) {
+    if let key = FunctionLocal(operand: inst.location) {
       locations = currentContext.locals[key]!.unwrapLocations()!.map({ $0.appending(inst.path) })
     } else {
       // The operand is a constant.
@@ -353,8 +386,7 @@ public struct DefiniteInitializationPass: TransformPass {
       if initializedPaths.isEmpty { break }
 
       // Deinitialize the object(s) at the location.
-      let beforeBorrow = InsertionPoint(
-        before: id.address, in: Block.ID(function: id.function, address: id.block))
+      let beforeBorrow = InsertionPoint(before: id)
       let rootType = module.type(of: inst.location).astType
 
       for path in initializedPaths {
@@ -375,7 +407,7 @@ public struct DefiniteInitializationPass: TransformPass {
       unreachable()
     }
 
-    currentContext.locals[LocalKey(id, 0)] = .locations(Set(locations))
+    currentContext.locals[FunctionLocal(id, 0)] = .locations(Set(locations))
     return true
   }
 
@@ -383,7 +415,7 @@ public struct DefiniteInitializationPass: TransformPass {
     condBranch inst: CondBranchInst, id: InstID, module: inout Module
   ) -> Bool {
     // Consume the condition operand.
-    let key = LocalKey(operand: inst.condition)!
+    let key = FunctionLocal(operand: inst.condition)!
     return consume(localForKey: key, with: id, or: { (this, _) in
       this.diagnostics.append(.illegalMove(range: inst.range))
     })
@@ -401,7 +433,7 @@ public struct DefiniteInitializationPass: TransformPass {
 
       case .sink:
         // Consumes the operand unless it's a constant.
-        if let key = LocalKey(operand: inst.operands[i]) {
+        if let key = FunctionLocal(operand: inst.operands[i]) {
           if !consume(localForKey: key, with: id, or: { (this, _) in
             this.diagnostics.append(.illegalMove(range: inst.range))
           }) {
@@ -415,7 +447,7 @@ public struct DefiniteInitializationPass: TransformPass {
     }
 
     // Result is initialized.
-    currentContext.locals[LocalKey(id, 0)] = .object(.full(.initialized))
+    currentContext.locals[FunctionLocal(id, 0)] = .object(.full(.initialized))
     return true
   }
 
@@ -426,7 +458,7 @@ public struct DefiniteInitializationPass: TransformPass {
     let allocID = inst.location.inst!
     let alloc = module[allocID.function][allocID.block][allocID.address] as! AllocStackInst
 
-    let key = LocalKey(allocID, 0)
+    let key = FunctionLocal(allocID, 0)
     let locations = currentContext.locals[key]!.unwrapLocations()!
     assert(locations.count == 1)
 
@@ -444,8 +476,7 @@ public struct DefiniteInitializationPass: TransformPass {
       }
     })
 
-    let beforeDealloc = InsertionPoint(
-      before: id.address, in: Block.ID(function: id.function, address: id.block))
+    let beforeDealloc = InsertionPoint(before: id)
     for path in initializedPaths {
       let object = module.insert(
         LoadInst(
@@ -461,7 +492,7 @@ public struct DefiniteInitializationPass: TransformPass {
         function: id.function,
         block: id.block,
         address: module[id.function][id.block].instructions.address(before: id.address)!)
-      currentContext.locals[LocalKey(id, 0)] = .object(.full(.consumed(by: [consumer])))
+      currentContext.locals[FunctionLocal(id, 0)] = .object(.full(.consumed(by: [consumer])))
     }
 
     // Erase the deallocated memory from the context.
@@ -473,7 +504,7 @@ public struct DefiniteInitializationPass: TransformPass {
     deinit inst: DeinitInst, id: InstID, module: inout Module
   ) -> Bool {
     // Consume the object operand.
-    let key = LocalKey(operand: inst.object)!
+    let key = FunctionLocal(operand: inst.object)!
     return consume(localForKey: key, with: id, or: { (this, _) in
       this.diagnostics.append(.illegalMove(range: inst.range))
     })
@@ -483,7 +514,7 @@ public struct DefiniteInitializationPass: TransformPass {
     destructure inst: DestructureInst, id: InstID, module: inout Module
   ) -> Bool {
     // Consume the object operand.
-    if let key = LocalKey(operand: inst.object) {
+    if let key = FunctionLocal(operand: inst.object) {
       if !consume(localForKey: key, with: id, or: { (this, _) in
         this.diagnostics.append(.illegalMove(range: inst.range))
       }) {
@@ -493,7 +524,7 @@ public struct DefiniteInitializationPass: TransformPass {
 
     // Result are initialized.
     for i in 0 ..< inst.types.count {
-      currentContext.locals[LocalKey(id, i)] = .object(.full(.initialized))
+      currentContext.locals[FunctionLocal(id, i)] = .object(.full(.initialized))
     }
     return true
   }
@@ -503,7 +534,7 @@ public struct DefiniteInitializationPass: TransformPass {
   ) -> Bool {
     // Operand must be a location.
     let locations: [MemoryLocation]
-    if let key = LocalKey(operand: inst.source) {
+    if let key = FunctionLocal(operand: inst.source) {
       locations = currentContext.locals[key]!.unwrapLocations()!.map({ $0.appending(inst.path) })
     } else {
       // The operand is a constant.
@@ -533,7 +564,7 @@ public struct DefiniteInitializationPass: TransformPass {
     }
 
     // Result is initialized.
-    currentContext.locals[LocalKey(id, 0)] = .object(.full(.initialized))
+    currentContext.locals[FunctionLocal(id, 0)] = .object(.full(.initialized))
     return true
   }
 
@@ -542,7 +573,7 @@ public struct DefiniteInitializationPass: TransformPass {
   ) -> Bool {
     // Consumes the non-constant operand.
     for operand in inst.operands {
-      if let key = LocalKey(operand: operand) {
+      if let key = FunctionLocal(operand: operand) {
         if !consume(localForKey: key, with: id, or: { (this, _) in
           this.diagnostics.append(.illegalMove(range: inst.range))
         }) {
@@ -552,7 +583,7 @@ public struct DefiniteInitializationPass: TransformPass {
     }
 
     // Result is initialized.
-    currentContext.locals[LocalKey(id, 0)] = .object(.full(.initialized))
+    currentContext.locals[FunctionLocal(id, 0)] = .object(.full(.initialized))
     return true
   }
 
@@ -560,7 +591,7 @@ public struct DefiniteInitializationPass: TransformPass {
     return inst: ReturnInst, id: InstID, module: inout Module
   ) -> Bool {
     // Consume the object operand.
-    if let key = LocalKey(operand: inst.value) {
+    if let key = FunctionLocal(operand: inst.value) {
       if !consume(localForKey: key, with: id, or: { (this, _) in
         this.diagnostics.append(.illegalMove(range: inst.range))
       }) {
@@ -575,7 +606,7 @@ public struct DefiniteInitializationPass: TransformPass {
     store inst: StoreInst, id: InstID, module: inout Module
   ) -> Bool {
     // Consume the object operand.
-    if let key = LocalKey(operand: inst.object) {
+    if let key = FunctionLocal(operand: inst.object) {
       if !consume(localForKey: key, with: id, or: { (this, _) in
         this.diagnostics.append(.illegalMove(range: inst.range))
       }) {
@@ -585,7 +616,7 @@ public struct DefiniteInitializationPass: TransformPass {
 
     // Target operand must be a location.
     let locations: Set<MemoryLocation>
-    if let key = LocalKey(operand: inst.target) {
+    if let key = FunctionLocal(operand: inst.target) {
       locations = currentContext.locals[key]!.unwrapLocations()!
     } else {
       // The operand is a constant.
@@ -642,7 +673,7 @@ public struct DefiniteInitializationPass: TransformPass {
   /// The method returns `true` if it succeeded. Otherwise, it or calls `handleFailure` with a
   /// with a projection of `self` and the state summary of the object before returning `false`.
   private mutating func consume(
-    localForKey key: LocalKey,
+    localForKey key: FunctionLocal,
     with consumer: InstID,
     or handleFailure: (inout Self, Object.StateSummary) -> ()
   ) -> Bool {
@@ -1024,45 +1055,6 @@ fileprivate extension DefiniteInitializationPass {
 
   }
 
-  /// A key in the local store of an abstract interpretation context.
-  enum LocalKey: Hashable {
-
-    /// The result of an instruction.
-    case result(block: Function.BlockAddress, address: Block.InstAddress, index: Int)
-
-    /// A block parameter.
-    case param(block: Function.BlockAddress, index: Int)
-
-    /// Given `operand` is an instruction ID or a parameter, creates the corresponding key.
-    /// Otherwise, returns `nil`.
-    init?(operand: Operand) {
-      switch operand {
-      case .result(let inst, let index):
-        self = .result(block: inst.block, address: inst.address, index: index)
-      case .parameter(let block, let index):
-        self = .param(block: block.address, index: index)
-      case .constant:
-        return nil
-      }
-    }
-
-    /// Creates an instruction key from an instruction ID and a result index.
-    init(_ inst: InstID, _ index: Int) {
-      self = .result(block: inst.block, address: inst.address, index: index)
-    }
-
-    /// Returns an operand corresponding to that key.
-    func operand(in function: Function.ID) -> Operand {
-      switch self {
-      case .result(let b, let i, let k):
-        return .result(inst: InstID(function: function, block: b, address: i), index: k)
-      case .param(let b, let k):
-        return .parameter(block: Block.ID(function: function, address: b), index: k)
-      }
-    }
-
-  }
-
   /// An abstract interpretation context.
   struct Context: Equatable {
 
@@ -1078,7 +1070,7 @@ fileprivate extension DefiniteInitializationPass {
     }
 
     /// The values of the locals.
-    var locals: [LocalKey: Value] = [:]
+    var locals: [FunctionLocal: Value] = [:]
 
     /// The state of the memory.
     var memory: [MemoryLocation: Cell] = [:]

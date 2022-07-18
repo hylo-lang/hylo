@@ -64,6 +64,15 @@ struct DominatorTree {
     return result
   }
 
+  /// Returns the immediate dominator of `block`, if any.
+  func immediateDominator(of block: Node) -> Node? {
+    if case .present(let b) = immediateDominators[block]! {
+      return b
+    } else {
+      return nil
+    }
+  }
+
   /// Returns a collection containing the strict dominators of `block`.
   func strictDominators(of block: Node) -> [Node] {
     var result: [Node] = []

@@ -62,7 +62,8 @@ The algorithm always starts by visiting the function's entry, which is never the
 The before-context of that basic block is determined from the function's parameters.
 Subsequent blocks are pulled from a work list, represented as a FILO queue, and initialized non-deterministically with all the reachable basic blocks of the function.
 
-A block can't be visited before all its [immediate dominators](https://en.wikipedia.org/wiki/Dominator_(graph_theory)) have been visited at least once.
+A block can't be visited before its [immediate dominator](https://en.wikipedia.org/wiki/Dominator_(graph_theory)) and the predecessors that it does not dominate have been visited at least once.
+That restriction guarantees that all locals and memory locations required for a block's evaluation exist in its before-context, and that the analysis does not detect false positive.
 Blocks that cannot be visited are put back at the end of the queue, guaranteeing that their dominators will eventually be visited before the next attempt.
 
 For example, consider the following function, which encodes a very simple loop:

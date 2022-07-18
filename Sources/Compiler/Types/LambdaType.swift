@@ -56,6 +56,14 @@ public struct LambdaType: TypeProtocol, Hashable {
     flags = fs
   }
 
+  public init?(converting type: Type) {
+    if case .lambda(let t) = type {
+      self = t
+    } else {
+      return nil
+    }
+  }
+
   /// Creates the type of the `let` implementation of `method`; fails if `method` doesn't have a
   /// let capability.
   public init?(letImplOf method: MethodType) {
@@ -102,6 +110,9 @@ public struct LambdaType: TypeProtocol, Hashable {
     else { return nil }
     return LambdaType(inputs: Array(inputs[1...]), output: receiverType.bareType)
   }
+
+  /// Indicates whether `self` has an empty environment.
+  public var isThin: Bool { environment == .unit }
 
   /// Accesses the individual elements of the lambda's environment.
   public var captures: [TupleType.Element] {
