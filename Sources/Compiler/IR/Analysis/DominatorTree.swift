@@ -41,6 +41,7 @@ struct DominatorTree {
 
     root = function.blocks.firstAddress!
     immediateDominators = [:]
+    immediateDominators.reserveCapacity(function.blocks.count)
     for i in function.blocks.indices {
       _ = findImmediateDominator(i.address, cfg: cfg, blocks: function.blocks)
     }
@@ -59,6 +60,17 @@ struct DominatorTree {
     while i < result.count {
       if let nodes = children[result[i]] { result.append(contentsOf: nodes) }
       i += 1
+    }
+    return result
+  }
+
+  /// Returns a collection containing the strict dominators of `block`.
+  func strictDominators(of block: Node) -> [Node] {
+    var result: [Node] = []
+    var a = block
+    while case .present(let b) = immediateDominators[a]! {
+      result.append(b)
+      a = b
     }
     return result
   }

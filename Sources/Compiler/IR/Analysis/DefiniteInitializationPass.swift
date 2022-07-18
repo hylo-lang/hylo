@@ -38,6 +38,8 @@ public struct DefiniteInitializationPass: TransformPass {
     var work: Deque<Function.BlockAddress>
     /// The set of blocks that no longer need to be visited.
     var done: Set<Function.BlockAddress> = []
+    /// A cache containing the dominators of the blocks in the function.
+    var strictDominators = Cache<Function.BlockAddress, [Function.BlockAddress]>()
     /// The state of the abstract interpreter before and after the visited basic blocks.
     var contexts: [Function.BlockAddress: (before: Context, after: Context)] = [:]
     /// Indicates whether the pass succeeded.
@@ -152,21 +154,23 @@ public struct DefiniteInitializationPass: TransformPass {
 
     // Interpret the function until we reach a fixed point.
     while let block = work.popFirst() {
-      // Make sure the block's predecessors have been visited, or pick another one.
-      let predecessors = cfg.predecessors(of: block)
-      if !predecessors.allSatisfy({ contexts[$0] != nil }) {
+      // Make sure the block's dominators have been visited, or pick another one.
+      let dominators = strictDominators
+        .value(forKey: block, computedBy: { dominatorTree.strictDominators(of: block) })
+      if dominators.contains(where: { contexts[$0] == nil }) {
         work.append(block)
         continue
       }
 
       // Compute the before-context of the block.
+      let predecessors = cfg.predecessors(of: block)
       var beforeContext: Context
       if block == module[functionID].blocks.firstAddress {
         // The block is the entry.
         beforeContext = entryContext(in: module)
       } else {
         // Merge the after-contexts of the predecessors.
-        beforeContext = mergeAfterContexts(of: predecessors)
+        beforeContext = mergeAfterContexts(of: predecessors.filter({ contexts[$0] != nil }))
       }
 
       // If the before-context didn't change, we're done with the current block.
