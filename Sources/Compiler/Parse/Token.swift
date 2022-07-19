@@ -35,6 +35,7 @@ public struct Token {
     case `import`
     case `in`
     case `indirect`
+    case `infix`
     case `init`
     case `inout`
     case `let`
@@ -42,6 +43,8 @@ public struct Token {
     case `namespace`
     case `nil`
     case `operator`
+    case `postfix`
+    case `prefix`
     case `property`
     case `public`
     case `return`
@@ -112,8 +115,7 @@ public struct Token {
   /// Indicates whether `self` is a declaration modifier.
   public var isDeclModifier: Bool {
     switch kind {
-    // case .infix, .postfix, .prefix: fallthrough
-    case .public, .static:
+    case .infix, .postfix, .prefix, .public, .static:
       return true
     default:
       return false

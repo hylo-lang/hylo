@@ -88,6 +88,7 @@ public struct Lexer: IteratorProtocol, Sequence {
       case "import"     : token.kind = .`import`
       case "in"         : token.kind = .`in`
       case "indirect"   : token.kind = .`indirect`
+      case "infix"      : token.kind = .`infix`
       case "init"       : token.kind = .`init`
       case "inout"      : token.kind = .`inout`
       case "let"        : token.kind = .`let`
@@ -95,6 +96,8 @@ public struct Lexer: IteratorProtocol, Sequence {
       case "namespace"  : token.kind = .`namespace`
       case "nil"        : token.kind = .`nil`
       case "operator"   : token.kind = .`operator`
+      case "postfix"    : token.kind = .`postfix`
+      case "prefix"     : token.kind = .`prefix`
       case "property"   : token.kind = .`property`
       case "public"     : token.kind = .`public`
       case "return"     : token.kind = .`return`

@@ -1,5 +1,5 @@
 /// An operator notation.
-public enum OperatorNotation {
+public enum OperatorNotation: String {
 
   /// The infix notation.
   case infix
@@ -7,8 +7,8 @@ public enum OperatorNotation {
   /// The prefix notation.
   case prefix
 
-  /// The suffix notation.
-  case suffix
+  /// The postfix notation.
+  case postfix
 
 }
 
