@@ -89,18 +89,18 @@ final class TypeCheckerTests: XCTestCase {
 
     // Create a fake source ranges to get different diagnostic locations.
     let file = SourceFile(contents: "tuv")
-    var i = file.startIndex
-    var j = file.index(after: i)
+    var i = SourceLocation(source: file, index: file.contents.startIndex)
+    var j = SourceLocation(source: file, index: file.contents.index(after: i.index))
 
     ast[main].members.append(AnyDeclID(ast.insert(TraitDecl(
       identifier: SourceRepresentable(value: "T", range: i ..< j),
       refinements: [ast.insertTypeName("U")]))))
-    (i, j) = (j, file.index(after: j))
+    (i, j) = (j, SourceLocation(source: file, index: file.contents.index(after: j.index)))
 
     ast[main].members.append(AnyDeclID(ast.insert(TraitDecl(
       identifier: SourceRepresentable(value: "U", range: i ..< j),
       refinements: [ast.insertTypeName("V")]))))
-    (i, j) = (j, file.index(after: j))
+    (i, j) = (j, SourceLocation(source: file, index: file.contents.index(after: j.index)))
 
     ast[main].members.append(AnyDeclID(ast.insert(TraitDecl(
       identifier: SourceRepresentable(value: "V", range: i ..< j),
@@ -1949,7 +1949,7 @@ final class TypeCheckerTests: XCTestCase {
 
     // Create a fake source ranges to get different diagnostic locations.
     let file = SourceFile(contents: "abcde")
-    let locations = Array(file.indices)
+    let locations = file.contents.indices.map({ SourceLocation(source: file, index: $0) })
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
