@@ -1,7 +1,7 @@
-/// An associated size declaration.
-public struct AssociatedSizeDecl: SingleEntityDecl {
+/// An associated value declaration.
+public struct AssociatedValueDecl: SingleEntityDecl {
 
-  public static let kind = NodeKind.associatedSizeDecl
+  public static let kind = NodeKind.associatedValueDecl
 
   /// The identifier of the type.
   public var identifier: SourceRepresentable<Identifier>

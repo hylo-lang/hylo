@@ -28,7 +28,7 @@ public struct NameExpr: Expr {
   /// The method introducer of the referred entity, given that it is a method implementation.
   public var introducer: MethodImplDecl.Introducer?
 
-  /// The type and size arguments of the referred entity.
+  /// The type and value arguments of the referred entity.
   public var arguments: [GenericArgument]
 
   /// Creates a new name expression.

@@ -1,7 +1,7 @@
-/// A generic size parameter declaration.
-public struct GenericSizeParamDecl: SingleEntityDecl {
+/// A generic value parameter declaration.
+public struct GenericValueParamDecl: SingleEntityDecl {
 
-  public static let kind = NodeKind.genericSizeParamDecl
+  public static let kind = NodeKind.genericValueParamDecl
 
   /// The identifier of the parameter.
   public var identifier: SourceRepresentable<Identifier>

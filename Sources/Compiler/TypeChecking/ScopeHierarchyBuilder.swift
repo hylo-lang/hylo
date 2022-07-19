@@ -42,16 +42,16 @@ struct ScopeHierarchyBuilder:
 
   // MARK: Declarations
 
-  mutating func visit(associatedSize i: NodeID<AssociatedSizeDecl>) {
-    hierarchy.insert(decl: i, into: innermost!)
-    visit(whereClause: ast[i].whereClause?.value)
-  }
-
   mutating func visit(associatedType i: NodeID<AssociatedTypeDecl>) {
     hierarchy.insert(decl: i, into: innermost!)
     for j in ast[i].conformances {
       visit(name: j)
     }
+    visit(whereClause: ast[i].whereClause?.value)
+  }
+
+  mutating func visit(associatedValue i: NodeID<AssociatedValueDecl>) {
+    hierarchy.insert(decl: i, into: innermost!)
     visit(whereClause: ast[i].whereClause?.value)
   }
 
@@ -122,11 +122,11 @@ struct ScopeHierarchyBuilder:
     })
   }
 
-  mutating func visit(genericSizeParam i: NodeID<GenericSizeParamDecl>) {
+  mutating func visit(genericTypeParam i: NodeID<GenericTypeParamDecl>) {
     hierarchy.insert(decl: i, into: innermost!)
   }
 
-  mutating func visit(genericTypeParam i: NodeID<GenericTypeParamDecl>) {
+  mutating func visit(genericValueParam i: NodeID<GenericValueParamDecl>) {
     hierarchy.insert(decl: i, into: innermost!)
   }
 
@@ -358,7 +358,7 @@ struct ScopeHierarchyBuilder:
 
     for argument in ast[i].arguments {
       switch argument {
-      case let .size(expr):
+      case let .value(expr):
         expr.accept(&self)
       case let .type(expr):
         expr.accept(&self)
@@ -519,9 +519,9 @@ struct ScopeHierarchyBuilder:
 
     for arg in ast[i].arguments {
       switch arg {
-      case let .size(arg):
-        arg.accept(&self)
       case let .type(arg):
+        arg.accept(&self)
+      case let .value(arg):
         arg.accept(&self)
       }
     }
@@ -556,10 +556,10 @@ struct ScopeHierarchyBuilder:
 
     for i in clause.parameters {
       switch i {
-      case .size(let i):
-        visit(genericSizeParam: i)
       case .type(let i):
         visit(genericTypeParam: i)
+      case .value(let i):
+        visit(genericValueParam: i)
       }
     }
 
@@ -581,7 +581,7 @@ struct ScopeHierarchyBuilder:
           visit(name: i)
         }
 
-      case let .size(expr):
+      case let .value(expr):
         expr.accept(&self)
       }
     }

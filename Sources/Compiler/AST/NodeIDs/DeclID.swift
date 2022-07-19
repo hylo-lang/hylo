@@ -8,10 +8,10 @@ extension DeclID {
   /// Calls the `visitor.visit` method corresponding to the type of this node.
   public func accept<V: DeclVisitor>(_ visitor: inout V) -> V.Result {
     switch kind {
-    case .associatedSizeDecl:
-      return visitor.visit(associatedSize: NodeID(unsafeRawValue: rawValue))
     case .associatedTypeDecl:
       return visitor.visit(associatedType: NodeID(unsafeRawValue: rawValue))
+    case .associatedValueDecl:
+      return visitor.visit(associatedValue: NodeID(unsafeRawValue: rawValue))
     case .bindingDecl:
       return visitor.visit(binding: NodeID(unsafeRawValue: rawValue))
     case .extensionDecl:
@@ -20,8 +20,8 @@ extension DeclID {
       return visitor.visit(fun: NodeID(unsafeRawValue: rawValue))
     case .genericTypeParamDecl:
       return visitor.visit(genericTypeParam: NodeID(unsafeRawValue: rawValue))
-    case .genericSizeParamDecl:
-      return visitor.visit(genericSizeParam: NodeID(unsafeRawValue: rawValue))
+    case .genericValueParamDecl:
+      return visitor.visit(genericValueParam: NodeID(unsafeRawValue: rawValue))
     case .methodImplDecl:
       return visitor.visit(methodImpl: NodeID(unsafeRawValue: rawValue))
     case .moduleDecl:

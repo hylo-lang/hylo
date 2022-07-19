@@ -9,7 +9,7 @@ public struct NameTypeExpr: TypeExpr {
   /// The identifier of the referred type.
   public var identifier: SourceRepresentable<Identifier>
 
-  /// The type and size arguments of the referred type.
+  /// The type and value arguments of the referred type.
   public var arguments: [GenericArgument]
 
   public init(

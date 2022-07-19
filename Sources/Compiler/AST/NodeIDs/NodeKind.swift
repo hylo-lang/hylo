@@ -32,10 +32,10 @@ public struct NodeKind: Hashable {
   public static let typeDecl = NodeKind(
     1 << 6 | decl.rawValue)
 
-  public static let associatedSizeDecl = NodeKind(
-     1 << 16 | decl.rawValue)
   public static let associatedTypeDecl = NodeKind(
-     2 << 16 | typeDecl.rawValue)
+     1 << 16 | typeDecl.rawValue)
+  public static let associatedValueDecl = NodeKind(
+     2 << 16 | decl.rawValue)
   public static let bindingDecl = NodeKind(
      3 << 16 | decl.rawValue)
   public static let builtinDecl = NodeKind(
@@ -46,9 +46,9 @@ public struct NodeKind: Hashable {
      6 << 16 | decl.rawValue | genericScope.rawValue)
   public static let funDecl = NodeKind(
      7 << 16 | decl.rawValue | genericScope.rawValue)
-  public static let genericSizeParamDecl = NodeKind(
-     8 << 16 | typeDecl.rawValue)
   public static let genericTypeParamDecl = NodeKind(
+     8 << 16 | typeDecl.rawValue)
+  public static let genericValueParamDecl = NodeKind(
      9 << 16 | typeDecl.rawValue)
   public static let methodImplDecl = NodeKind(
     10 << 16 | decl.rawValue)
@@ -206,15 +206,15 @@ extension NodeKind: CustomStringConvertible {
     switch self {
     case .decl                      : return "Decl"
     case .typeDecl                  : return "TypeDecl"
-    case .associatedSizeDecl        : return "AssociatedSizeDecl"
     case .associatedTypeDecl        : return "AssociatedTypeDecl"
+    case .associatedValueDecl       : return "AssociatedValueDecl"
     case .bindingDecl               : return "BindingDecl"
     case .builtinDecl               : return "BuiltinDecl"
     case .conformanceDecl           : return "ConformanceDecl"
     case .extensionDecl             : return "ExtensionDecl"
     case .funDecl                   : return "FunDecl"
-    case .genericSizeParamDecl      : return "GenericSizeParamDecl"
     case .genericTypeParamDecl      : return "GenericTypeParamDecl"
+    case .genericValueParamDecl     : return "GenericValueParamDecl"
     case .methodImplDecl            : return "MethodImplDecl"
     case .moduleDecl                : return "ModuleDecl"
     case .namespaceDecl             : return "NamespaceDecl"

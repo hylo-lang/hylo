@@ -49,8 +49,8 @@ public enum Constraint: Hashable {
   /// A constraint `L.m == R` specifying that `L` has a non-static member of type `R` named `m`.
   case member(l: Type, m: Name, r: Type)
 
-  /// A size constraint denoting a predicate over size parameters.
-  case size(AnyExprID)
+  /// A value constraint denoting a predicate over value parameters.
+  case value(AnyExprID)
 
   /// A disjunction of two or more constraint sets.
   ///
@@ -84,7 +84,7 @@ public enum Constraint: Hashable {
       return (v == l) || (v == r)
     case .member(let l, _, let r):
       return (v == l) || (v == r)
-    case .size:
+    case .value:
       return false
     case .disjunction(let minterms):
       return minterms.contains(where: { m in
@@ -125,7 +125,7 @@ public enum Constraint: Hashable {
       defer { self = .member(l: l, m: m, r: r) }
       return modify(&l) && modify(&r)
 
-    case .size:
+    case .value:
       return true
 
     case .disjunction(var minterms):
@@ -174,7 +174,7 @@ extension Constraint: CustomStringConvertible {
     case .member(let l, let m, let r):
       return "\(l).\(m) == \(r)"
 
-    case .size:
+    case .value:
       return "expr"
 
     case .disjunction(let sets):

@@ -16,8 +16,8 @@ public struct WhereClause: Hashable {
       l: NodeID<NameTypeExpr>,
       traits: TraitComposition)
 
-    /// A size constraint on a value parameter.
-    case size(AnyExprID)
+    /// A constraint on a value parameter.
+    case value(AnyExprID)
 
   }
 

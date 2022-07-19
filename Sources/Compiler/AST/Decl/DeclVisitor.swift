@@ -4,9 +4,9 @@ public protocol DeclVisitor {
   /// The return type of the visitation methods.
   associatedtype Result
 
-  mutating func visit(associatedSize: NodeID<AssociatedSizeDecl>) -> Result
-
   mutating func visit(associatedType: NodeID<AssociatedTypeDecl>) -> Result
+
+  mutating func visit(associatedValue: NodeID<AssociatedValueDecl>) -> Result
 
   mutating func visit(binding: NodeID<BindingDecl>) -> Result
 
@@ -16,9 +16,9 @@ public protocol DeclVisitor {
 
   mutating func visit(fun: NodeID<FunDecl>) -> Result
 
-  mutating func visit(genericSizeParam: NodeID<GenericSizeParamDecl>) -> Result
-
   mutating func visit(genericTypeParam: NodeID<GenericTypeParamDecl>) -> Result
+
+  mutating func visit(genericValueParam: NodeID<GenericValueParamDecl>) -> Result
 
   mutating func visit(methodImpl: NodeID<MethodImplDecl>) -> Result
 

@@ -4,16 +4,16 @@ public struct BoundGenericType: TypeProtocol, Hashable {
   /// An argument of a bound generic type.
   public enum Argument: Hashable {
 
-    case size(AnyExprID)
-
     case type(Type)
+
+    case value(AnyExprID)
 
   }
 
   /// The underlying generic type.
   public let base: Type
 
-  /// The type and size arguments of the base type.
+  /// The type and value arguments of the base type.
   public var arguments: [Argument]
 
   public let flags: TypeFlags
@@ -27,10 +27,10 @@ public struct BoundGenericType: TypeProtocol, Hashable {
     for a in arguments {
       args.append(a)
       switch a {
-      case .size:
-        fatalError("not implemented")
       case .type(let t):
         flags.merge(t.flags)
+      case .value:
+        fatalError("not implemented")
       }
     }
 
@@ -45,10 +45,10 @@ extension BoundGenericType: CustomStringConvertible {
   public var description: String {
     let arguments = arguments.map({ (a) -> String in
       switch a {
-      case .size:
-        fatalError("not implemented")
       case .type(let a):
         return "\(a)"
+      case .value:
+        fatalError("not implemented")
       }
     }).joined(separator: ", ")
     return "\(base)<\(arguments)>"

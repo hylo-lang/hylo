@@ -1,24 +1,24 @@
 import Utils
 
-/// A generic size parameter.
-public struct GenericSizeParamType: TypeProtocol, Hashable {
+/// A generic value parameter.
+public struct GenericValueParamType: TypeProtocol, Hashable {
 
   /// The declaration that introduces the parameter.
   ///
-  /// - Note: The ID may denote the declaration of a generic size parameter or associated size.
+  /// - Note: The ID may denote the declaration of a generic value parameter or associated value.
   public let decl: AnyDeclID
 
   /// The name of the parameter.
   public let name: Incidental<String>
 
-  public let flags: TypeFlags = [.isCanonical, .hasGenericSizeParam]
+  public let flags: TypeFlags = [.isCanonical, .hasGenericValueParam]
 
   public init<T: DeclID>(decl: T, ast: AST) {
     self.decl = AnyDeclID(decl)
 
     switch decl.kind {
-    case .genericSizeParamDecl,
-         .associatedSizeDecl:
+    case .genericValueParamDecl,
+         .associatedValueDecl:
       name = Incidental((ast[decl] as! SingleEntityDecl).name)
 
     default:
@@ -28,7 +28,7 @@ public struct GenericSizeParamType: TypeProtocol, Hashable {
 
 }
 
-extension GenericSizeParamType: CustomStringConvertible {
+extension GenericValueParamType: CustomStringConvertible {
 
   public var description: String { name.value }
 

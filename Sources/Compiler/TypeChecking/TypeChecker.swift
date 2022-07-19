@@ -63,10 +63,10 @@ public struct TypeChecker {
       let base = canonicalize(type: t.base)
       let arguments = t.arguments.map({ (a) -> BoundGenericType.Argument in
         switch a {
-        case .size:
-          fatalError("not implemented")
         case .type(let a):
           return .type(canonicalize(type: a))
+        case .value:
+          fatalError("not implemented")
         }
       })
       return .boundGeneric(BoundGenericType(base, arguments: arguments))
@@ -285,10 +285,10 @@ public struct TypeChecker {
   /// Type checks the specified declaration and returns whether that succeeded.
   private mutating func check<T: DeclID>(decl id: T) -> Bool {
     switch id.kind {
-    case .associatedSizeDecl:
-      return check(associatedSize: NodeID(converting: id)!)
     case .associatedTypeDecl:
       return check(associatedType: NodeID(converting: id)!)
+    case .associatedValueDecl:
+      return check(associatedValue: NodeID(converting: id)!)
     case .bindingDecl:
       return check(binding: NodeID(converting: id)!)
     case .funDecl:
@@ -310,11 +310,11 @@ public struct TypeChecker {
     }
   }
 
-  private mutating func check(associatedSize: NodeID<AssociatedSizeDecl>) -> Bool {
+  private mutating func check(associatedType: NodeID<AssociatedTypeDecl>) -> Bool {
     return true
   }
 
-  private mutating func check(associatedType: NodeID<AssociatedTypeDecl>) -> Bool {
+  private mutating func check(associatedValue: NodeID<AssociatedValueDecl>) -> Bool {
     return true
   }
 
@@ -568,11 +568,11 @@ public struct TypeChecker {
     return success
   }
 
-  private mutating func check(genericSizeParam: GenericSizeParamDecl) -> Bool {
+  private mutating func check(genericTypeParam: GenericTypeParamDecl) -> Bool {
     fatalError("not implemented")
   }
 
-  private mutating func check(genericTypeParam: GenericTypeParamDecl) -> Bool {
+  private mutating func check(genericValueParam: GenericValueParamDecl) -> Bool {
     fatalError("not implemented")
   }
 
@@ -984,18 +984,18 @@ public struct TypeChecker {
     var success = true
     var constraints: [Constraint] = []
 
-    // Collect and type check the constraints defined on associated types and sizes.
+    // Collect and type check the constraints defined on associated types and values.
     for member in ast[i].members {
       switch member.kind {
-      case .associatedSizeDecl:
-        success = associatedConstraints(
-          ofSize: NodeID(converting: member)!,
-          ofTrait: i,
-          into: &constraints) && success
-
       case .associatedTypeDecl:
         success = associatedConstraints(
           ofType: NodeID(converting: member)!,
+          ofTrait: i,
+          into: &constraints) && success
+
+      case .associatedValueDecl:
+        success = associatedConstraints(
+          ofValue: NodeID(converting: member)!,
           ofTrait: i,
           into: &constraints) && success
 
@@ -1018,34 +1018,6 @@ public struct TypeChecker {
     let e = GenericEnvironment(decl: i, constraints: constraints, into: &self)
     environments[i] = .done(e)
     return e
-  }
-
-  // Evaluates the constraints declared in `associatedSize`, stores them in `constraints` and
-  // returns whether they are all well-formed.
-  private mutating func associatedConstraints(
-    ofSize associatedSize: NodeID<AssociatedSizeDecl>,
-    ofTrait trait: NodeID<TraitDecl>,
-    into constraints: inout [Constraint]
-  ) -> Bool {
-    // Realize the generic type parameter corresponding to the associated size.
-    let lhs = realize(decl: associatedSize)
-    if lhs.isError { return false }
-    assert(lhs.base is GenericSizeParamType)
-
-    var success = true
-
-    // Evaluate the constraint expressions of the associated size's where clause.
-    if let whereClause = ast[associatedSize].whereClause?.value {
-      for expr in whereClause.constraints {
-        if let constraint = eval(constraintExpr: expr, inScope: AnyScopeID(trait)) {
-          constraints.append(constraint)
-        } else {
-          success = false
-        }
-      }
-    }
-
-    return success
   }
 
   // Evaluates the constraints declared in `associatedType`, stores them in `constraints` and
@@ -1071,6 +1043,34 @@ public struct TypeChecker {
     // Evaluate the constraint expressions of the associated type's where clause.
     var success = true
     if let whereClause = ast[associatedType].whereClause?.value {
+      for expr in whereClause.constraints {
+        if let constraint = eval(constraintExpr: expr, inScope: AnyScopeID(trait)) {
+          constraints.append(constraint)
+        } else {
+          success = false
+        }
+      }
+    }
+
+    return success
+  }
+
+  // Evaluates the constraints declared in `associatedValue`, stores them in `constraints` and
+  // returns whether they are all well-formed.
+  private mutating func associatedConstraints(
+    ofValue associatedValue: NodeID<AssociatedValueDecl>,
+    ofTrait trait: NodeID<TraitDecl>,
+    into constraints: inout [Constraint]
+  ) -> Bool {
+    // Realize the generic type parameter corresponding to the associated value.
+    let lhs = realize(decl: associatedValue)
+    if lhs.isError { return false }
+    assert(lhs.base is GenericValueParamType)
+
+    var success = true
+
+    // Evaluate the constraint expressions of the associated value's where clause.
+    if let whereClause = ast[associatedValue].whereClause?.value {
       for expr in whereClause.constraints {
         if let constraint = eval(constraintExpr: expr, inScope: AnyScopeID(trait)) {
           constraints.append(constraint)
@@ -1122,9 +1122,9 @@ public struct TypeChecker {
 
       return .conformance(l: a, traits: b)
 
-    case .size(let e):
+    case .value(let e):
       // TODO: Symbolic execution
-      return .size(e)
+      return .value(e)
     }
   }
 
@@ -1478,9 +1478,9 @@ public struct TypeChecker {
         matches.formUnion(newMatches)
 
       default:
-        // Associated size and type declarations are not inherited by conformance.
+        // Associated type and value declarations are not inherited by conformance.
         matches.formUnion(newMatches.filter({
-          $0.kind != .associatedSizeDecl && $0.kind != .associatedTypeDecl
+          $0.kind != .associatedTypeDecl && $0.kind != .associatedValueDecl
         }))
       }
     }
@@ -1567,9 +1567,9 @@ public struct TypeChecker {
     var table: LookupTable = [:]
     for id in decls {
       switch id.kind {
-      case .associatedSizeDecl,
+      case .associatedValueDecl,
            .associatedTypeDecl,
-           .genericSizeParamDecl,
+           .genericValueParamDecl,
            .genericTypeParamDecl,
            .namespaceDecl,
            .parameterDecl,
@@ -1681,7 +1681,7 @@ public struct TypeChecker {
             switch p {
             case .type(let p):
               return .type(.genericTypeParam(GenericTypeParamType(decl: p, ast: ast)))
-            case .size:
+            case .value:
               fatalError("not implemented")
             }
           })
@@ -1861,13 +1861,13 @@ public struct TypeChecker {
 
       for a in ast[id].arguments {
         switch a {
-        case .size(let a):
-          // TODO: Symbolic execution
-          arguments.append(.size(a))
-
         case .type(let a):
           guard let type = realize(a, inScope: scope) else { return nil }
           arguments.append(.type(type))
+
+        case .value(let a):
+          // TODO: Symbolic execution
+          arguments.append(.value(a))
         }
       }
 
@@ -1922,16 +1922,16 @@ public struct TypeChecker {
   /// Returns the overarching type of the specified declaration.
   mutating func realize<T: DeclID>(decl id: T) -> Type {
     switch id.kind {
-    case .associatedSizeDecl,
-         .genericSizeParamDecl:
-      return _realize(decl: id, { (this, id) in
-        .genericSizeParam(GenericSizeParamType(decl: id, ast: this.ast))
-      })
-
     case .associatedTypeDecl,
          .genericTypeParamDecl:
       return _realize(decl: id, { (this, id) in
         .genericTypeParam(GenericTypeParamType(decl: id, ast: this.ast))
+      })
+
+    case .associatedValueDecl,
+         .genericValueParamDecl:
+      return _realize(decl: id, { (this, id) in
+        .genericValueParam(GenericValueParamType(decl: id, ast: this.ast))
       })
 
     case .bindingDecl:
@@ -2376,12 +2376,12 @@ public struct TypeChecker {
            .genericTypeParam:
         return .stepOver(.skolem(SkolemType(base: type)))
 
-      case .genericSizeParam:
+      case .genericValueParam:
         fatalError("not implemented")
 
       default:
         // Nothing to do if `type` isn't parameterized.
-        if type[.hasGenericTypeParam] || type[.hasGenericSizeParam] {
+        if type[.hasGenericTypeParam] || type[.hasGenericValueParam] {
           return .stepInto(type)
         } else {
           return .stepOver(type)
@@ -2413,12 +2413,12 @@ public struct TypeChecker {
           return .stepOver(opened)
         }
 
-      case .genericSizeParam:
+      case .genericValueParam:
         fatalError("not implemented")
 
       default:
         // Nothing to do if `type` isn't parameterized.
-        if type[.hasGenericTypeParam] || type[.hasGenericSizeParam] {
+        if type[.hasGenericTypeParam] || type[.hasGenericValueParam] {
           return .stepInto(type)
         } else {
           return .stepOver(type)
@@ -2468,12 +2468,12 @@ public struct TypeChecker {
           return .stepOver(opened)
         }
 
-      case .genericSizeParam:
+      case .genericValueParam:
         fatalError("not implemented")
 
       default:
         // Nothing to do if `type` isn't parameterized.
-        if type[.hasGenericTypeParam] || type[.hasGenericSizeParam] {
+        if type[.hasGenericTypeParam] || type[.hasGenericValueParam] {
           return .stepInto(type)
         } else {
           return .stepOver(type)

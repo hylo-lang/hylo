@@ -129,7 +129,7 @@ struct CaptureCollector {
           }
           newNames.insert(Name(stem: ast[parameter].name))
 
-        case .size(let parameter):
+        case .value(let parameter):
           if let value = ast[parameter].defaultValue {
             collectCaptures(ofExpr: value, into: &captures, inMutatingContext: false)
           }
@@ -300,7 +300,7 @@ struct CaptureCollector {
       switch argument {
       case .type(let expr):
         collectCaptures(ofTypeExpr: expr, into: &captures)
-      case .size(let expr):
+      case .value(let expr):
         collectCaptures(ofExpr: expr, into: &captures, inMutatingContext: false)
       }
     }
@@ -496,7 +496,7 @@ struct CaptureCollector {
       switch argument {
       case .type(let expr):
         collectCaptures(ofTypeExpr: expr, into: &captures)
-      case .size(let expr):
+      case .value(let expr):
         collectCaptures(ofExpr: expr, into: &captures, inMutatingContext: false)
       }
     }
