@@ -111,8 +111,8 @@ final class LexerTests: XCTestCase {
   func testKeywords() {
     let input = SourceFile(contents: """
     async await break catch conformance continue deinit else extension for fun if import in
-    indirect init inout let match namespace nil operator property public return set sink some
-    static subscript trait try type typealias var where while yield yielded
+    indirect infix init inout let match namespace nil operator postfix prefix property public
+    return set sink some static subscript trait try type typealias var where while yield yielded
     """)
 
     assert(
@@ -133,6 +133,7 @@ final class LexerTests: XCTestCase {
         TokenSpecification(.`import`      , "import"),
         TokenSpecification(.`in`          , "in"),
         TokenSpecification(.`indirect`    , "indirect"),
+        TokenSpecification(.`infix`       , "infix"),
         TokenSpecification(.`init`        , "init"),
         TokenSpecification(.`inout`       , "inout"),
         TokenSpecification(.`let`         , "let"),
@@ -140,6 +141,8 @@ final class LexerTests: XCTestCase {
         TokenSpecification(.`namespace`   , "namespace"),
         TokenSpecification(.`nil`         , "nil"),
         TokenSpecification(.`operator`    , "operator"),
+        TokenSpecification(.`postfix`     , "postfix"),
+        TokenSpecification(.`prefix`      , "prefix"),
         TokenSpecification(.`property`    , "property"),
         TokenSpecification(.`public`      , "public"),
         TokenSpecification(.`return`      , "return"),
