@@ -514,7 +514,7 @@ struct CaptureCollector {
     into captures: inout FreeSet
   ) {
     for element in ast[id].elements {
-      collectCaptures(ofTypeExpr: element.value.type, into: &captures)
+      collectCaptures(ofTypeExpr: element.type, into: &captures)
     }
   }
 

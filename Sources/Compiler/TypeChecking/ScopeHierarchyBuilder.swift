@@ -537,7 +537,7 @@ struct ScopeHierarchyBuilder:
 
   mutating func visit(tuple i: NodeID<TupleTypeExpr>) {
     for elem in ast[i].elements {
-      elem.value.type.accept(&self)
+      elem.type.accept(&self)
     }
   }
 

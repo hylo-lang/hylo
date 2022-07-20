@@ -1891,8 +1891,8 @@ public struct TypeChecker {
     elements.reserveCapacity(ast[id].elements.count)
 
     for e in ast[id].elements {
-      guard let type = realize(e.value.type, inScope: scope) else { return nil }
-      elements.append(TupleType.Element(label: e.value.label, type: type))
+      guard let type = realize(e.type, inScope: scope) else { return nil }
+      elements.append(TupleType.Element(label: e.label?.value, type: type))
     }
 
     return .tuple(TupleType(elements))

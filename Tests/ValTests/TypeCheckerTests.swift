@@ -247,14 +247,12 @@ final class TypeCheckerTests: XCTestCase {
               ]))),
             annotation: AnyTypeExprID(ast.insert(TupleTypeExpr(
               elements: [
-                SourceRepresentable(
-                  value: TupleTypeExpr.Element(
-                    label: "a",
-                    type: AnyTypeExprID(ast.insertTypeName("Any")))),
-                SourceRepresentable(
-                  value: TupleTypeExpr.Element(
-                    label: "b",
-                    type: AnyTypeExprID(ast.insertTypeName("Never")))),
+                TupleTypeExpr.Element(
+                  label: SourceRepresentable(value: "a"),
+                  type: AnyTypeExprID(ast.insertTypeName("Any"))),
+                TupleTypeExpr.Element(
+                  label: SourceRepresentable(value: "b"),
+                  type: AnyTypeExprID(ast.insertTypeName("Never"))),
               ])))))))),
         AnyDeclID(ast.insert(BindingDecl(
           pattern: ast.insert(BindingPattern(
@@ -276,14 +274,12 @@ final class TypeCheckerTests: XCTestCase {
               ]))),
             annotation: AnyTypeExprID(ast.insert(TupleTypeExpr(
               elements: [
-                SourceRepresentable(
-                  value: TupleTypeExpr.Element(
-                    label: "a",
-                    type: AnyTypeExprID(ast.insertTypeName("Any")))),
-                SourceRepresentable(
-                  value: TupleTypeExpr.Element(
-                    label: "b",
-                    type: AnyTypeExprID(ast.insertTypeName("Never")))),
+                TupleTypeExpr.Element(
+                  label: SourceRepresentable(value: "a"),
+                  type: AnyTypeExprID(ast.insertTypeName("Any"))),
+                TupleTypeExpr.Element(
+                  label: SourceRepresentable(value: "b"),
+                  type: AnyTypeExprID(ast.insertTypeName("Never"))),
               ])))))))),
       ]))))
 
@@ -484,14 +480,12 @@ final class TypeCheckerTests: XCTestCase {
             identifier: SourceRepresentable(value: "x0")))))),
         annotation: AnyTypeExprID(ast.insert(TupleTypeExpr(
           elements: [
-            SourceRepresentable(
-              value: TupleTypeExpr.Element(
-                type: AnyTypeExprID(ast.insert(NameTypeExpr(
-                  identifier: SourceRepresentable(value: "Int")))))),
-            SourceRepresentable(
-              value: TupleTypeExpr.Element(
-                type: AnyTypeExprID(ast.insert(NameTypeExpr(
-                  identifier: SourceRepresentable(value: "Double")))))),
+            TupleTypeExpr.Element(
+              type: AnyTypeExprID(ast.insert(NameTypeExpr(
+                identifier: SourceRepresentable(value: "Int"))))),
+            TupleTypeExpr.Element(
+              type: AnyTypeExprID(ast.insert(NameTypeExpr(
+                identifier: SourceRepresentable(value: "Double"))))),
           ]))))),
       initializer: AnyExprID(ast.insert(TupleExpr(
         elements: [
@@ -509,13 +503,11 @@ final class TypeCheckerTests: XCTestCase {
             identifier: SourceRepresentable(value: "x0")))))),
         annotation: AnyTypeExprID(ast.insert(TupleTypeExpr(
           elements: [
-            SourceRepresentable(
-              value: TupleTypeExpr.Element(
-                type: AnyTypeExprID(ast.insert(WildcardTypeExpr())))),
-            SourceRepresentable(
-              value: TupleTypeExpr.Element(
-                type: AnyTypeExprID(ast.insert(NameTypeExpr(
-                  identifier: SourceRepresentable(value: "Double")))))),
+            TupleTypeExpr.Element(
+              type: AnyTypeExprID(ast.insert(WildcardTypeExpr()))),
+            TupleTypeExpr.Element(
+              type: AnyTypeExprID(ast.insert(NameTypeExpr(
+                identifier: SourceRepresentable(value: "Double"))))),
           ]))))),
       initializer: AnyExprID(ast.insert(TupleExpr(
         elements: [
@@ -893,10 +885,10 @@ final class TypeCheckerTests: XCTestCase {
           annotation: ast.insert(ParameterTypeExpr(
             convention: SourceRepresentable(value: .sink),
             bareType: AnyTypeExprID(ast.insert(TupleTypeExpr(elements: [
-              SourceRepresentable(value: TupleTypeExpr.Element(
-                label: "b",
+              TupleTypeExpr.Element(
+                label: SourceRepresentable(value: "b"),
                 type: AnyTypeExprID(ast.insert(NameTypeExpr(
-                  identifier: SourceRepresentable(value: "X"))))))
+                  identifier: SourceRepresentable(value: "X")))))
             ]))))))),
       ],
       body: SourceRepresentable(
@@ -1497,12 +1489,10 @@ final class TypeCheckerTests: XCTestCase {
         value: .typeExpr(
           AnyTypeExprID(ast.insert(TupleTypeExpr(
             elements: [
-              SourceRepresentable(
-                value: TupleTypeExpr.Element(
-                  type: AnyTypeExprID(ast.insertTypeName("X")))),
-              SourceRepresentable(
-                value: TupleTypeExpr.Element(
-                  type: AnyTypeExprID(ast.insertTypeName("Y")))),
+              TupleTypeExpr.Element(
+                type: AnyTypeExprID(ast.insertTypeName("X"))),
+              TupleTypeExpr.Element(
+                type: AnyTypeExprID(ast.insertTypeName("Y"))),
             ])))))))))
 
     ast[main].members.append(AnyDeclID(ast.insert(TypeAliasDecl(
