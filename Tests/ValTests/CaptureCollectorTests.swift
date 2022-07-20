@@ -5,7 +5,7 @@ final class CaptureCollectorTests: XCTestCase {
 
   func testFunctionBindings() {
 
-    // fun f<X, v: size>[let c = ()](_ p: Any) {
+    // fun f<X, value v>[let c = ()](_ p: Any) {
     //   let _ = free   // captured
     //   let _ = X      // bound
     //   let _ = v      // bound
@@ -21,7 +21,7 @@ final class CaptureCollectorTests: XCTestCase {
         parameters: [
           .type(ast.insert(GenericTypeParamDecl(
             identifier: SourceRepresentable(value: "X")))),
-          .size(ast.insert(GenericSizeParamDecl(
+          .value(ast.insert(GenericValueParamDecl(
             identifier: SourceRepresentable(value: "v")))),
         ])),
       captures: [

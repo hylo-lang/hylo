@@ -357,8 +357,8 @@ struct ScopeHierarchyBuilder:
     }
 
     for argument in ast[i].arguments {
-      switch argument {
-      case let .value(expr):
+      switch argument.value {
+      case let .expr(expr):
         expr.accept(&self)
       case let .type(expr):
         expr.accept(&self)
@@ -518,10 +518,10 @@ struct ScopeHierarchyBuilder:
     ast[i].domain?.accept(&self)
 
     for arg in ast[i].arguments {
-      switch arg {
-      case let .type(arg):
+      switch arg.value {
+      case let .expr(arg):
         arg.accept(&self)
-      case let .value(arg):
+      case let .type(arg):
         arg.accept(&self)
       }
     }

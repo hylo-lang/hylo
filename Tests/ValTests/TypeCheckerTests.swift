@@ -11,7 +11,7 @@ final class TypeCheckerTests: XCTestCase {
     //                   X: X,        // error: rhs is not a trait
     //                   Any == Never // error: neither type is a parameter
     //   type Y where X == Y          // OK
-    //   size n where n > 0           // OK
+    //   value n where n > 0          // OK
     // }
 
     var ast = AST()
@@ -1518,8 +1518,8 @@ final class TypeCheckerTests: XCTestCase {
           AnyTypeExprID(ast.insert(NameTypeExpr(
             identifier: SourceRepresentable(value: "Pair"),
             arguments: [
-              .type(AnyTypeExprID(ast.insertTypeName("Any"))),
-              .type(AnyTypeExprID(ast.insertTypeName("Any"))),
+              GenericArgument(value: .type(AnyTypeExprID(ast.insertTypeName("Any")))),
+              GenericArgument(value: .type(AnyTypeExprID(ast.insertTypeName("Any")))),
             ])))))))))
 
     var checker = TypeChecker(ast: ast)

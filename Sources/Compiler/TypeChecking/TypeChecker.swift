@@ -1860,14 +1860,14 @@ public struct TypeChecker {
       var arguments: [BoundGenericType.Argument] = []
 
       for a in ast[id].arguments {
-        switch a {
+        switch a.value {
+        case .expr(let a):
+          // TODO: Symbolic execution
+          arguments.append(.value(a))
+
         case .type(let a):
           guard let type = realize(a, inScope: scope) else { return nil }
           arguments.append(.type(type))
-
-        case .value(let a):
-          // TODO: Symbolic execution
-          arguments.append(.value(a))
         }
       }
 
