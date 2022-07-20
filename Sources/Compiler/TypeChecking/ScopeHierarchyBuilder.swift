@@ -352,7 +352,7 @@ struct ScopeHierarchyBuilder:
   }
 
   mutating func visit(name i: NodeID<NameExpr>) {
-    if case let .explicit(domain) = ast[i].domain {
+    if case let .expr(domain) = ast[i].domain {
       domain.accept(&self)
     }
 

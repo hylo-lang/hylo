@@ -465,7 +465,7 @@ struct ConstraintGenerator: ExprVisitor {
 
       assume(typeOf: id, equals: inferredType)
 
-    case .explicit(let domain):
+    case .expr(let domain):
       // Infer the type of the domain.
       domain.accept(&self)
       let domainType = inferredTypes[domain]!
@@ -511,6 +511,9 @@ struct ConstraintGenerator: ExprVisitor {
           node: AnyNodeID(id),
           cause: .member))
       }
+
+    case .type:
+      fatalError("not implemented")
 
     case .implicit:
       fatalError("not implemented")
@@ -681,7 +684,7 @@ extension ConstraintGenerator {
 
         let id = ast.insert(FunCallExpr(
           callee: AnyExprID(ast.insert(NameExpr(
-            domain: .explicit(receiver),
+            domain: .expr(receiver),
             name: ast[op].name))),
           arguments: [
             SourceRepresentable(

@@ -315,7 +315,7 @@ final class TypeCheckerTests: XCTestCase {
                   subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
                 initializer: AnyExprID(ast.insert(FunCallExpr(
                   callee: AnyExprID(ast.insert(NameExpr(
-                    domain: .explicit(AnyExprID(ast.insert(IntegerLiteralExpr(value: "0")))),
+                    domain: .expr(AnyExprID(ast.insert(IntegerLiteralExpr(value: "0")))),
                     name: SourceRepresentable(value: "copy")))))))))))))
           ]))))))))
 
@@ -347,7 +347,7 @@ final class TypeCheckerTests: XCTestCase {
           identifier: SourceRepresentable(value: "bar"),
           body: SourceRepresentable(value: .expr(AnyExprID(ast.insert(FunCallExpr(
             callee: AnyExprID(ast.insert(NameExpr(
-              domain: .explicit(AnyExprID(ast.insert(NameExpr(
+              domain: .expr(AnyExprID(ast.insert(NameExpr(
                 name: SourceRepresentable(value: "self"))))),
               name: SourceRepresentable(value: "foo")))))))))))),
       ]))))
@@ -1473,7 +1473,7 @@ final class TypeCheckerTests: XCTestCase {
               expr: AnyExprID(ast.insert(InoutExpr(
                 subexpr: AnyExprID(ast.insert(FunCallExpr(
                   callee: AnyExprID(ast.insert(NameExpr(
-                    domain: .explicit(AnyExprID(ast.insert(NameExpr(
+                    domain: .expr(AnyExprID(ast.insert(NameExpr(
                       name: SourceRepresentable(value: "a"))))),
                     name: SourceRepresentable(value: "foo"))))))))))))),
           ]))))))))

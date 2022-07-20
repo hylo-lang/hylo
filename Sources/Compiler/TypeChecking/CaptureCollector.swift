@@ -289,7 +289,7 @@ struct CaptureCollector {
         ifFree: ast[id].name.value,
         into: &captures)
 
-    case .explicit(let domain):
+    case .expr(let domain):
       collectCaptures(ofExpr: domain, into: &captures, inMutatingContext: isContextMutating)
 
     default:

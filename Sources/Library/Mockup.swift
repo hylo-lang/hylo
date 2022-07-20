@@ -70,7 +70,7 @@ public func insertStandardLibraryMockup(into ast: inout AST) -> NodeID<ModuleDec
                 label: SourceRepresentable(value: "value"),
                 value: AnyExprID(ast.insert(FunCallExpr(
                   callee: AnyExprID(ast.insert(NameExpr(
-                    domain: .explicit(AnyExprID(ast.insert(NameExpr(
+                    domain: .expr(AnyExprID(ast.insert(NameExpr(
                       name: SourceRepresentable(value: "Builtin"))))),
                     name: SourceRepresentable(value: "i1_copy")))),
                 arguments: [

@@ -544,9 +544,12 @@ public struct Emitter {
               at: insertionPoint!)[0]
             arguments.insert(receiver, at: 0)
 
-          case .explicit(let receiverID):
+          case .expr(let receiverID):
             let receiver = emitL(expr: receiverID, withCapability: type.capability, into: &module)
             arguments.insert(receiver, at: 0)
+
+          case .type:
+            fatalError("not implemented")
 
           case .implicit:
             unreachable()
@@ -562,8 +565,11 @@ public struct Emitter {
               at: insertionPoint!)[0]
             arguments.insert(receiver, at: 0)
 
-          case .explicit(let receiverID):
+          case .expr(let receiverID):
             arguments.insert(emitR(expr: receiverID, into: &module), at: 0)
+
+          case .type:
+            fatalError("not implemented")
 
           case .implicit:
             unreachable()
@@ -701,8 +707,10 @@ public struct Emitter {
         receiver = stack[receiverDecl!]!
       case .implicit:
         fatalError("not implemented")
-      case .explicit(let receiverID):
+      case .expr(let receiverID):
         receiver = emitL(expr: receiverID, withCapability: capability, into: &module)
+      case .type:
+        fatalError("not implemented")
       }
 
       // Emit the bound member.

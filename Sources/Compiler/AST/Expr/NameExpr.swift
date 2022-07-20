@@ -5,11 +5,17 @@ public struct NameExpr: Expr {
 
   public enum Domain: Hashable {
 
+    /// No domain.
     case none
 
+    /// Domain is implicit; the expression denotes a type member.
     case implicit
 
-    case explicit(AnyExprID)
+    /// Domain is a value expression or a type identifier.
+    case expr(AnyExprID)
+
+    /// Domain is a type typression.
+    case type(AnyTypeExprID)
 
   }
 
