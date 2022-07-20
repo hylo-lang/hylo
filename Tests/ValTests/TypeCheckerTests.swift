@@ -55,19 +55,20 @@ final class TypeCheckerTests: XCTestCase {
                     l: AnyTypeExprID(ast.insertTypeName("X")),
                     r: AnyTypeExprID(ast.insertTypeName("Y"))))
               ]))))),
-        AnyDeclID(ast.insert(AssociatedSizeDecl(
+        AnyDeclID(ast.insert(AssociatedValueDecl(
           identifier: SourceRepresentable(value: "n"),
           whereClause: SourceRepresentable(
             value: WhereClause(
               constraints: [
                 SourceRepresentable(
-                  value: .size(
+                  value: .value(
                     AnyExprID(ast.insert(SequenceExpr.unfolded([
                       AnyExprID(ast.insert(NameExpr(
-                        stem: SourceRepresentable(value: "n")))),
+                        name: SourceRepresentable(value: "n")))),
                       AnyExprID(ast.insert(NameExpr(
-                        stem: SourceRepresentable(value: ">"),
-                        notation: .infix))),
+                        name: SourceRepresentable(value: Name(
+                          stem: ">",
+                          notation: .infix))))),
                       AnyExprID(ast.insert(IntegerLiteralExpr(value: "10"))),
                     ])))))
               ])))))
@@ -315,7 +316,7 @@ final class TypeCheckerTests: XCTestCase {
                 initializer: AnyExprID(ast.insert(FunCallExpr(
                   callee: AnyExprID(ast.insert(NameExpr(
                     domain: .explicit(AnyExprID(ast.insert(IntegerLiteralExpr(value: "0")))),
-                    stem: SourceRepresentable(value: "copy")))))))))))))
+                    name: SourceRepresentable(value: "copy")))))))))))))
           ]))))))))
 
     var checker = TypeChecker(ast: ast)
@@ -340,15 +341,15 @@ final class TypeCheckerTests: XCTestCase {
           identifier: SourceRepresentable(value: "foo"),
           body: SourceRepresentable(value: .expr(AnyExprID(ast.insert(FunCallExpr(
             callee: AnyExprID(ast.insert(NameExpr(
-              stem: SourceRepresentable(value: "bar")))))))))))),
+              name: SourceRepresentable(value: "bar")))))))))))),
         AnyDeclID(ast.insert(FunDecl(
           introducer: SourceRepresentable(value: .fun),
           identifier: SourceRepresentable(value: "bar"),
           body: SourceRepresentable(value: .expr(AnyExprID(ast.insert(FunCallExpr(
             callee: AnyExprID(ast.insert(NameExpr(
               domain: .explicit(AnyExprID(ast.insert(NameExpr(
-                stem: SourceRepresentable(value: "self"))))),
-              stem: SourceRepresentable(value: "foo")))))))))))),
+                name: SourceRepresentable(value: "self"))))),
+              name: SourceRepresentable(value: "foo")))))))))))),
       ]))))
 
     var checker = TypeChecker(ast: ast)
@@ -389,12 +390,12 @@ final class TypeCheckerTests: XCTestCase {
               introducer: SourceRepresentable(value: .let),
               body: .expr(AnyExprID(ast.insert(FunCallExpr(
                 callee: AnyExprID(ast.insert(NameExpr(
-                  stem: SourceRepresentable(value: "A")))))))))),
+                  name: SourceRepresentable(value: "A")))))))))),
             ast.insert(MethodImplDecl(
               introducer: SourceRepresentable(value: .sink),
               body: .expr(AnyExprID(ast.insert(FunCallExpr(
                 callee: AnyExprID(ast.insert(NameExpr(
-                  stem: SourceRepresentable(value: "A")))))))))),
+                  name: SourceRepresentable(value: "A")))))))))),
           ]))))),
         AnyDeclID(ast.insert(FunDecl(
           introducer: SourceRepresentable(value: .fun),
@@ -405,12 +406,13 @@ final class TypeCheckerTests: XCTestCase {
                 AnyStmtID(ast.insert(DiscardStmt(
                   expr: AnyExprID(ast.insert(FunCallExpr(
                     callee: AnyExprID(ast.insert(NameExpr(
-                      stem: SourceRepresentable(value: "foo"),
-                      introducer: .let))),
+                      name: SourceRepresentable(value: Name(
+                        stem: "foo",
+                        introducer: .let))))),
                     arguments: [
                       SourceRepresentable(value: CallArgument(
                         value: AnyExprID(ast.insert(NameExpr(
-                          stem: SourceRepresentable(value: "self")))))),
+                          name: SourceRepresentable(value: "self")))))),
                     ])))))),
               ]))))))),
       ]))))
@@ -733,7 +735,7 @@ final class TypeCheckerTests: XCTestCase {
         identifier: SourceRepresentable(value: "T")))),
       body: SourceRepresentable(
         value: .expr(AnyExprID(ast.insert(NameExpr(
-          stem: SourceRepresentable(value: "x"))))))))))
+          name: SourceRepresentable(value: "x"))))))))))
 
     var checker = TypeChecker(ast: ast)
     XCTAssertTrue(checker.check(module: main))
@@ -760,14 +762,14 @@ final class TypeCheckerTests: XCTestCase {
       output: AnyTypeExprID(ast.insert(TupleTypeExpr())),
       body: SourceRepresentable(
         value: .expr(AnyExprID(ast.insert(NameExpr(
-          stem: SourceRepresentable(value: "x"))))))))))
+          name: SourceRepresentable(value: "x"))))))))))
 
     ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
       pattern: ast.insert(BindingPattern(
         introducer: SourceRepresentable(value: .let),
         subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
       initializer: AnyExprID(ast.insert(FunCallExpr(
-        callee: AnyExprID(ast.insert(NameExpr(stem: SourceRepresentable(value: "f")))),
+        callee: AnyExprID(ast.insert(NameExpr(name: SourceRepresentable(value: "f")))),
         arguments: [
           SourceRepresentable(value: CallArgument(
             value: AnyExprID(ast.insert(TupleExpr()))))
@@ -814,14 +816,15 @@ final class TypeCheckerTests: XCTestCase {
         identifier: SourceRepresentable(value: "X")))),
       body: SourceRepresentable(
         value: .expr(AnyExprID(ast.insert(NameExpr(
-          stem: SourceRepresentable(value: "x"))))))))))
+          name: SourceRepresentable(value: "x"))))))))))
 
     ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
       pattern: ast.insert(BindingPattern(
         introducer: SourceRepresentable(value: .let),
         subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
       initializer: AnyExprID(ast.insert(FunCallExpr(
-        callee: AnyExprID(ast.insert(NameExpr(stem: SourceRepresentable(value: "f")))),
+        callee: AnyExprID(ast.insert(NameExpr(
+          name: SourceRepresentable(value: "f")))),
         arguments: [
           SourceRepresentable(value: CallArgument(
             value: AnyExprID(ast.insert(TupleExpr(
@@ -844,7 +847,8 @@ final class TypeCheckerTests: XCTestCase {
         introducer: SourceRepresentable(value: .let),
         subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
       initializer: AnyExprID(ast.insert(FunCallExpr(
-        callee: AnyExprID(ast.insert(NameExpr(stem: SourceRepresentable(value: "f")))),
+        callee: AnyExprID(ast.insert(NameExpr(
+          name: SourceRepresentable(value: "f")))),
         arguments: [
           SourceRepresentable(value: CallArgument(
             value: AnyExprID(ast.insert(TupleExpr(
@@ -909,7 +913,8 @@ final class TypeCheckerTests: XCTestCase {
         introducer: SourceRepresentable(value: .let),
         subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
       initializer: AnyExprID(ast.insert(FunCallExpr(
-        callee: AnyExprID(ast.insert(NameExpr(stem: SourceRepresentable(value: "f")))),
+        callee: AnyExprID(ast.insert(NameExpr(
+          name: SourceRepresentable(value: "f")))),
         arguments: [
           SourceRepresentable(value: CallArgument(
             value: AnyExprID(ast.insert(TupleExpr())))),
@@ -927,7 +932,8 @@ final class TypeCheckerTests: XCTestCase {
         introducer: SourceRepresentable(value: .let),
         subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
       initializer: AnyExprID(ast.insert(FunCallExpr(
-        callee: AnyExprID(ast.insert(NameExpr(stem: SourceRepresentable(value: "f")))),
+        callee: AnyExprID(ast.insert(NameExpr(
+          name: SourceRepresentable(value: "f")))),
         arguments: [
           SourceRepresentable(value: CallArgument(
             value: AnyExprID(ast.insert(TupleExpr(
@@ -972,21 +978,23 @@ final class TypeCheckerTests: XCTestCase {
       output: AnyTypeExprID(ast.insert(TupleTypeExpr())),
       body: SourceRepresentable(
         value: .expr(AnyExprID(ast.insert(NameExpr(
-          stem: SourceRepresentable(value: "x"))))))))))
+          name: SourceRepresentable(value: "x"))))))))))
 
     ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
       pattern: ast.insert(BindingPattern(
         introducer: SourceRepresentable(value: .let),
         subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
       initializer: AnyExprID(ast.insert(FunCallExpr(
-        callee: AnyExprID(ast.insert(NameExpr(stem: SourceRepresentable(value: "f")))))))))))
+        callee: AnyExprID(ast.insert(NameExpr(
+          name: SourceRepresentable(value: "f")))))))))))
 
     ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
       pattern: ast.insert(BindingPattern(
         introducer: SourceRepresentable(value: .let),
         subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
       initializer: AnyExprID(ast.insert(FunCallExpr(
-        callee: AnyExprID(ast.insert(NameExpr(stem: SourceRepresentable(value: "f")))),
+        callee: AnyExprID(ast.insert(NameExpr(
+          name: SourceRepresentable(value: "f")))),
         arguments: [
           SourceRepresentable(value: CallArgument(
             value: AnyExprID(ast.insert(TupleExpr())))),
@@ -1021,14 +1029,15 @@ final class TypeCheckerTests: XCTestCase {
       output: AnyTypeExprID(ast.insert(TupleTypeExpr())),
       body: SourceRepresentable(
         value: .expr(AnyExprID(ast.insert(NameExpr(
-          stem: SourceRepresentable(value: "x"))))))))))
+          name: SourceRepresentable(value: "x"))))))))))
 
     ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
       pattern: ast.insert(BindingPattern(
         introducer: SourceRepresentable(value: .let),
         subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
       initializer: AnyExprID(ast.insert(FunCallExpr(
-        callee: AnyExprID(ast.insert(NameExpr(stem: SourceRepresentable(value: "f")))),
+        callee: AnyExprID(ast.insert(NameExpr(
+          name: SourceRepresentable(value: "f")))),
         arguments: [
           SourceRepresentable(value: CallArgument(
             label: SourceRepresentable(value: "y"),
@@ -1095,7 +1104,8 @@ final class TypeCheckerTests: XCTestCase {
         introducer: SourceRepresentable(value: .let),
         subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
       initializer: AnyExprID(ast.insert(FunCallExpr(
-        callee: AnyExprID(ast.insert(NameExpr(stem: SourceRepresentable(value: "A")))),
+        callee: AnyExprID(ast.insert(NameExpr(
+          name: SourceRepresentable(value: "A")))),
         arguments: [
           SourceRepresentable(value: CallArgument(
             label: SourceRepresentable(value: "foo"),
@@ -1126,7 +1136,8 @@ final class TypeCheckerTests: XCTestCase {
         introducer: SourceRepresentable(value: .let),
         subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
       initializer: AnyExprID(ast.insert(FunCallExpr(
-        callee: AnyExprID(ast.insert(NameExpr(stem: SourceRepresentable(value: "A")))))))))))
+        callee: AnyExprID(ast.insert(NameExpr(
+          name: SourceRepresentable(value: "A")))))))))))
 
     ast[main].members.append(AnyDeclID(ast.insert(ProductTypeDecl(
       identifier: SourceRepresentable(value: "A")))))
@@ -1183,7 +1194,8 @@ final class TypeCheckerTests: XCTestCase {
         introducer: SourceRepresentable(value: .let),
         subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
       initializer: AnyExprID(ast.insert(FunCallExpr(
-        callee: AnyExprID(ast.insert(NameExpr(stem: SourceRepresentable(value: "A")))),
+        callee: AnyExprID(ast.insert(NameExpr(
+          name: SourceRepresentable(value: "A")))),
         arguments: [
           SourceRepresentable(value: CallArgument(
             label: SourceRepresentable(value: "foo"),
@@ -1235,10 +1247,10 @@ final class TypeCheckerTests: XCTestCase {
                 AnyStmtID(ast.insert(ExprStmt(
                   expr: AnyExprID(ast.insert(AssignExpr(
                     left: AnyExprID(ast.insert(NameExpr(
-                      stem: SourceRepresentable(value: "self")))),
+                      name: SourceRepresentable(value: "self")))),
                     right: AnyExprID(ast.insert(FunCallExpr(
                       callee: AnyExprID(ast.insert(NameExpr(
-                        stem: SourceRepresentable(value: "A")))),
+                        name: SourceRepresentable(value: "A")))),
                       arguments: [
                         SourceRepresentable(value: CallArgument(
                           label: SourceRepresentable(value: "x"),
@@ -1252,7 +1264,8 @@ final class TypeCheckerTests: XCTestCase {
         introducer: SourceRepresentable(value: .let),
         subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
       initializer: AnyExprID(ast.insert(FunCallExpr(
-        callee: AnyExprID(ast.insert(NameExpr(stem: SourceRepresentable(value: "A")))),
+        callee: AnyExprID(ast.insert(NameExpr(
+          name: SourceRepresentable(value: "A")))),
         arguments: [
           SourceRepresentable(value: CallArgument(
             label: SourceRepresentable(value: "value"),
@@ -1297,7 +1310,7 @@ final class TypeCheckerTests: XCTestCase {
               introducer: SourceRepresentable(value: .let),
               body: .expr(AnyExprID(ast.insert(FunCallExpr(
                 callee: AnyExprID(ast.insert(NameExpr(
-                  stem: SourceRepresentable(value: "A")))))))))),
+                  name: SourceRepresentable(value: "A")))))))))),
             ast.insert(MethodImplDecl(
               introducer: SourceRepresentable(value: .inout),
               body: .expr(AnyExprID(ast.insert(TupleExpr()))))),
@@ -1305,7 +1318,7 @@ final class TypeCheckerTests: XCTestCase {
               introducer: SourceRepresentable(value: .sink),
               body: .expr(AnyExprID(ast.insert(FunCallExpr(
                 callee: AnyExprID(ast.insert(NameExpr(
-                  stem: SourceRepresentable(value: "A")))))))))),
+                  name: SourceRepresentable(value: "A")))))))))),
           ])))))
       ]))))
 
@@ -1385,12 +1398,12 @@ final class TypeCheckerTests: XCTestCase {
               introducer: SourceRepresentable(value: .let),
               body: .expr(AnyExprID(ast.insert(FunCallExpr(
                 callee: AnyExprID(ast.insert(NameExpr(
-                  stem: SourceRepresentable(value: "A")))))))))),
+                  name: SourceRepresentable(value: "A")))))))))),
             ast.insert(MethodImplDecl(
               introducer: SourceRepresentable(value: .sink),
               body: .expr(AnyExprID(ast.insert(FunCallExpr(
                 callee: AnyExprID(ast.insert(NameExpr(
-                  stem: SourceRepresentable(value: "A")))))))))),
+                  name: SourceRepresentable(value: "A")))))))))),
           ]))))),
         AnyDeclID(ast.insert(FunDecl(
           introducer: SourceRepresentable(value: .fun),
@@ -1401,11 +1414,11 @@ final class TypeCheckerTests: XCTestCase {
                 AnyStmtID(ast.insert(DiscardStmt(
                   expr: AnyExprID(ast.insert(FunCallExpr(
                     callee: AnyExprID(ast.insert(NameExpr(
-                      stem: SourceRepresentable(value: "foo")))),
+                      name: SourceRepresentable(value: "foo")))),
                     arguments: [
                       SourceRepresentable(value: CallArgument(
                         value: AnyExprID(ast.insert(NameExpr(
-                          stem: SourceRepresentable(value: "self")))))),
+                          name: SourceRepresentable(value: "self")))))),
                     ])))))),
               ]))))))),
       ]))))
@@ -1455,14 +1468,14 @@ final class TypeCheckerTests: XCTestCase {
                       identifier: SourceRepresentable(value: "a")))))))),
                 initializer: AnyExprID(ast.insert(FunCallExpr(
                   callee: AnyExprID(ast.insert(NameExpr(
-                    stem: SourceRepresentable(value: "A"))))))))))))),
+                    name: SourceRepresentable(value: "A"))))))))))))),
             AnyStmtID(ast.insert(ExprStmt(
               expr: AnyExprID(ast.insert(InoutExpr(
                 subexpr: AnyExprID(ast.insert(FunCallExpr(
                   callee: AnyExprID(ast.insert(NameExpr(
                     domain: .explicit(AnyExprID(ast.insert(NameExpr(
-                      stem: SourceRepresentable(value: "a"))))),
-                    stem: SourceRepresentable(value: "foo"))))))))))))),
+                      name: SourceRepresentable(value: "a"))))),
+                    name: SourceRepresentable(value: "foo"))))))))))))),
           ]))))))))
 
     var checker = TypeChecker(ast: ast)
@@ -1572,7 +1585,7 @@ final class TypeCheckerTests: XCTestCase {
         subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
       initializer: AnyExprID(ast.insert(CastExpr(
         left: AnyExprID(ast.insert(NameExpr(
-          stem: SourceRepresentable(value: "a")))),
+          name: SourceRepresentable(value: "a")))),
         right: AnyTypeExprID(ast.insert(TupleTypeExpr())),
         direction: .down)))))))
 
@@ -1649,7 +1662,7 @@ final class TypeCheckerTests: XCTestCase {
         ],
         body: SourceRepresentable(
           value: .expr(AnyExprID(ast.insert(NameExpr(
-            stem: SourceRepresentable(value: "x")))))),
+            name: SourceRepresentable(value: "x")))))),
         isInExprContext: true)))))))))
 
     ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
@@ -1677,7 +1690,7 @@ final class TypeCheckerTests: XCTestCase {
               identifier: SourceRepresentable(value: "x")))
           ],
           body: SourceRepresentable(value: .expr(AnyExprID(ast.insert(NameExpr(
-            stem: SourceRepresentable(value: "x")))))),
+            name: SourceRepresentable(value: "x")))))),
           isInExprContext: true)))))))))
 
     var checker = TypeChecker(ast: ast)
@@ -1721,10 +1734,10 @@ final class TypeCheckerTests: XCTestCase {
                       decl: ast.insert(VarDecl(
                         identifier: SourceRepresentable(value: "y")))))))),
                   initializer: AnyExprID(ast.insert(NameExpr(
-                    stem: SourceRepresentable(value: "x")))))))))),
+                    name: SourceRepresentable(value: "x")))))))))),
                 AnyStmtID(ast.insert(ReturnStmt(
                   value: AnyExprID(ast.insert(NameExpr(
-                    stem: SourceRepresentable(value: "y")))))))
+                    name: SourceRepresentable(value: "y")))))))
               ])))),
           isInExprContext: true)))))))))
 
@@ -1840,7 +1853,7 @@ final class TypeCheckerTests: XCTestCase {
                               decl: ast.insert(VarDecl(
                                 identifier: SourceRepresentable(value: "bar")))))))),
                           initializer: AnyExprID(ast.insert(NameExpr(
-                            stem: SourceRepresentable(value: "foo")))))))))),
+                            name: SourceRepresentable(value: "foo")))))))))),
                     ])))))))))),
           ]))))))))
 
@@ -1882,7 +1895,7 @@ final class TypeCheckerTests: XCTestCase {
                       AnyStmtID(ast.insert(ExprStmt(
                         expr: AnyExprID(ast.insert(AssignExpr(
                           left: AnyExprID(ast.insert(NameExpr(
-                            stem: SourceRepresentable(value: "foo")))),
+                            name: SourceRepresentable(value: "foo")))),
                           right: AnyExprID(ast.insert(TupleExpr())))))))),
                     ])))))))))),
           ]))))))))
@@ -1933,7 +1946,7 @@ final class TypeCheckerTests: XCTestCase {
               )))))),
             AnyStmtID(ast.insert(ReturnStmt(
               value: AnyExprID(ast.insert(NameExpr(
-                stem: SourceRepresentable(value: "x")))))))
+                name: SourceRepresentable(value: "x")))))))
           ]))))))))
 
     var checker = TypeChecker(ast: ast)

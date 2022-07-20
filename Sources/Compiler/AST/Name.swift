@@ -55,3 +55,11 @@ extension Name: CustomStringConvertible {
   }
 
 }
+
+extension Name: ExpressibleByStringLiteral {
+
+  public init(stringLiteral value: StringLiteralType) {
+    self.init(stem: value)
+  }
+
+}

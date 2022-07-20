@@ -503,7 +503,7 @@ public struct Emitter {
         // Callee refers to a built-in function.
         assert(calleeType.environment == .unit)
         callee = .constant(.builtin(BuiltinFunctionRef(
-          name: program.ast[calleeID].stem.value,
+          name: program.ast[calleeID].name.value.stem,
           type: .address(.lambda(calleeType)))))
 
       case .direct(let calleeDeclID) where calleeDeclID.kind == .funDecl:

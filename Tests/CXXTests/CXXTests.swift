@@ -84,15 +84,15 @@ final class CXXTests: XCTestCase {
               ast.insert(MethodImplDecl(
                 introducer: SourceRepresentable(value: .let),
                 body: .expr(AnyExprID(ast.insert(NameExpr(
-                  stem: SourceRepresentable(value: "self"))))))),
+                  name: SourceRepresentable(value: "self"))))))),
               ast.insert(MethodImplDecl(
                 introducer: SourceRepresentable(value: .inout),
                 body: .expr(AnyExprID(ast.insert(NameExpr(
-                  stem: SourceRepresentable(value: "self"))))))),
+                  name: SourceRepresentable(value: "self"))))))),
               ast.insert(MethodImplDecl(
                 introducer: SourceRepresentable(value: .sink),
                 body: .expr(AnyExprID(ast.insert(NameExpr(
-                  stem: SourceRepresentable(value: "self"))))))),
+                  name: SourceRepresentable(value: "self"))))))),
             ]))))),
       ]))))
 

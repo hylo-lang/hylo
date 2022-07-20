@@ -247,12 +247,12 @@ struct CaptureCollector {
       let callee = NodeID<NameExpr>(unsafeRawValue: ast[id].callee.rawValue)
       if ast[callee].domain == .none {
         let baseName: Name
-        if (ast[callee].notation == nil) && ast[callee].labels.isEmpty {
+        if (ast[callee].name.value.notation == nil) && ast[callee].name.value.labels.isEmpty {
           baseName = Name(
-            stem: ast[callee].stem.value,
+            stem: ast[callee].name.value.stem,
             labels: ast[id].arguments.map({ $0.value.label?.value }))
         } else {
-          baseName = ast[callee].baseName
+          baseName = ast[callee].name.value
         }
         record(occurrence: callee, withCapability: .let, ifFree: baseName, into: &captures)
       }
@@ -286,7 +286,7 @@ struct CaptureCollector {
       record(
         occurrence: id,
         withCapability: isContextMutating ? .inout : .let,
-        ifFree: ast[id].baseName,
+        ifFree: ast[id].name.value,
         into: &captures)
 
     case .explicit(let domain):

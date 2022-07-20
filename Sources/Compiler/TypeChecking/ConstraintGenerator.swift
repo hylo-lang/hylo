@@ -243,7 +243,7 @@ struct ConstraintGenerator: ExprVisitor {
         switch candidates.count {
         case 0:
           let name = Name(stem: "init", labels: labels)
-          diagnostics.append(.undefined(name: "\(name)", range: checker.ast[c].stem.range))
+          diagnostics.append(.undefined(name: "\(name)", range: checker.ast[c].name.range))
           assignToError(id)
           return
 
@@ -418,26 +418,24 @@ struct ConstraintGenerator: ExprVisitor {
   }
 
   mutating func visit(name id: NodeID<NameExpr>) {
-    let stem = checker.ast[id].stem
-
     // Resolves the name.
     switch checker.ast[id].domain {
     case .none:
       let expr = checker.ast[id]
-      if checker.isProcessingStandardLibrary && (expr.stem.value == "Builtin") {
+      if checker.isProcessingStandardLibrary && (expr.name.value.stem == "Builtin") {
         assume(typeOf: id, equals: .builtin(.module))
         checker.referredDecls[id] = .direct(AnyDeclID(checker.ast.builtinDecl))
         return
       }
 
       let candidates = resolve(
-        stem: expr.stem.value,
-        labels: expr.labels,
-        notation: expr.notation,
-        introducer: expr.introducer)
+        stem: expr.name.value.stem,
+        labels: expr.name.value.labels,
+        notation: expr.name.value.notation,
+        introducer: expr.name.value.introducer)
 
       if candidates.isEmpty {
-        diagnostics.append(.undefined(name: "\(expr.baseName)", range: stem.range))
+        diagnostics.append(.undefined(name: "\(expr.name)", range: expr.name.range))
         assignToError(id)
         return
       }
@@ -480,7 +478,7 @@ struct ConstraintGenerator: ExprVisitor {
 
       // Handle references to built-in symbols.
       if domainType == .builtin(.module) {
-        let symbolName = checker.ast[id].stem.value
+        let symbolName = checker.ast[id].name.value.stem
 
         if let ty = BuiltinFunctionType[symbolName] {
           assume(typeOf: id, equals: .lambda(ty))
@@ -489,7 +487,7 @@ struct ConstraintGenerator: ExprVisitor {
           assume(typeOf: id, equals: .builtin(ty))
           checker.referredDecls[id] = .direct(AnyDeclID(checker.ast.builtinDecl))
         } else {
-          diagnostics.append(.undefined(name: symbolName, range: checker.ast[id].stem.range))
+          diagnostics.append(.undefined(name: symbolName, range: checker.ast[id].name.range))
           assignToError(id)
         }
 
@@ -509,7 +507,7 @@ struct ConstraintGenerator: ExprVisitor {
         fatalError("not implemented")
       } else {
         constraints.append(LocatableConstraint(
-          .member(l: domainType, m: checker.ast[id].baseName, r: inferredType),
+          .member(l: domainType, m: checker.ast[id].name.value, r: inferredType),
           node: AnyNodeID(id),
           cause: .member))
       }
@@ -684,8 +682,7 @@ extension ConstraintGenerator {
         let id = ast.insert(FunCallExpr(
           callee: AnyExprID(ast.insert(NameExpr(
             domain: .explicit(receiver),
-            stem: ast[op].stem,
-            notation: .infix))),
+            name: ast[op].name))),
           arguments: [
             SourceRepresentable(
               value: CallArgument(value: argument),

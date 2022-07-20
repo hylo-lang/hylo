@@ -50,35 +50,35 @@ final class CaptureCollectorTests: XCTestCase {
                   introducer: SourceRepresentable(value: .let),
                   subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
                 initializer: AnyExprID(ast.insert(NameExpr(
-                  stem: SourceRepresentable(value: "free")))))))))),
+                  name: SourceRepresentable(value: "free")))))))))),
             AnyStmtID(ast.insert(DeclStmt(
               decl: AnyDeclID(ast.insert(BindingDecl(
                 pattern: ast.insert(BindingPattern(
                   introducer: SourceRepresentable(value: .let),
                   subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
                 initializer: AnyExprID(ast.insert(NameExpr(
-                  stem: SourceRepresentable(value: "X")))))))))),
+                  name: SourceRepresentable(value: "X")))))))))),
             AnyStmtID(ast.insert(DeclStmt(
               decl: AnyDeclID(ast.insert(BindingDecl(
                 pattern: ast.insert(BindingPattern(
                   introducer: SourceRepresentable(value: .let),
                   subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
                 initializer: AnyExprID(ast.insert(NameExpr(
-                  stem: SourceRepresentable(value: "v")))))))))),
+                  name: SourceRepresentable(value: "v")))))))))),
             AnyStmtID(ast.insert(DeclStmt(
               decl: AnyDeclID(ast.insert(BindingDecl(
                 pattern: ast.insert(BindingPattern(
                   introducer: SourceRepresentable(value: .let),
                   subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
                 initializer: AnyExprID(ast.insert(NameExpr(
-                  stem: SourceRepresentable(value: "c")))))))))),
+                  name: SourceRepresentable(value: "c")))))))))),
             AnyStmtID(ast.insert(DeclStmt(
               decl: AnyDeclID(ast.insert(BindingDecl(
                 pattern: ast.insert(BindingPattern(
                   introducer: SourceRepresentable(value: .let),
                   subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
                 initializer: AnyExprID(ast.insert(NameExpr(
-                  stem: SourceRepresentable(value: "p")))))))))),
+                  name: SourceRepresentable(value: "p")))))))))),
           ]))))))
 
     var collector = CaptureCollector(ast: ast)
