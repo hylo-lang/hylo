@@ -52,6 +52,8 @@ extension ExprID {
       return visitor.visit(subscriptCall: NodeID(unsafeRawValue: rawValue))
     case .tupleExpr:
       return visitor.visit(tuple: NodeID(unsafeRawValue: rawValue))
+    case .tupleMemberExpr:
+      return visitor.visit(tupleMember: NodeID(unsafeRawValue: rawValue))
     default:
       unreachable()
     }

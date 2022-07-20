@@ -399,6 +399,10 @@ struct ScopeHierarchyBuilder:
     }
   }
 
+  mutating func visit(tupleMember i: NodeID<TupleMemberExpr>) {
+    ast[i].tuple.accept(&self)
+  }
+
   // MARK: Patterns
 
   mutating func visit(binding i: NodeID<BindingPattern>) {

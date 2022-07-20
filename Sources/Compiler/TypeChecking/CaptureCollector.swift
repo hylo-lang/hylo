@@ -206,6 +206,12 @@ struct CaptureCollector {
         into: &captures,
         inMutatingContext: isContextMutating)
 
+    case .tupleMemberExpr:
+      collectCaptures(
+        ofTupleMember: NodeID(unsafeRawValue: id.rawValue),
+        into: &captures,
+        inMutatingContext: isContextMutating)
+
     case .booleanLiteralExpr,
          .charLiteralExpr,
          .floatLiteralExpr,
@@ -331,6 +337,24 @@ struct CaptureCollector {
     case .root(let expr):
       collectCaptures(ofExpr: expr, into: &captures, inMutatingContext: false)
     }
+  }
+
+  private mutating func collectCaptures(
+    ofTuple id: NodeID<TupleExpr>,
+    into captures: inout FreeSet,
+    inMutatingContext isContextMutating: Bool
+  ) {
+    for element in ast[id].elements {
+      collectCaptures(ofExpr: element.value, into: &captures, inMutatingContext: false)
+    }
+  }
+
+  private mutating func collectCaptures(
+  ofTupleMember id: NodeID<TupleMemberExpr>,
+    into captures: inout FreeSet,
+    inMutatingContext isContextMutating: Bool
+  ) {
+    collectCaptures(ofExpr: ast[id].tuple, into: &captures, inMutatingContext: false)
   }
 
   private mutating func collectCaptures<T: PatternID>(

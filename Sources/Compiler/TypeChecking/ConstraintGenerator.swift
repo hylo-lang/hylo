@@ -588,6 +588,10 @@ struct ConstraintGenerator: ExprVisitor {
     assume(typeOf: id, equals: .tuple(TupleType(elements)))
   }
 
+  mutating func visit(tupleMember id: NodeID<TupleMemberExpr>) {
+    fatalError("not implemented")
+  }
+
   /// Returns the well-formed declarations to which the specified name may refer, along with their
   /// overarching uncontextualized types. Ill-formed declarations are ignored.
   private mutating func resolve(

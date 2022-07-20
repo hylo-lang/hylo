@@ -124,6 +124,8 @@ public struct NodeKind: Hashable {
     22 << 16 | expr.rawValue)
   public static let tupleExpr = NodeKind(
     23 << 16 | expr.rawValue)
+  public static let tupleMemberExpr = NodeKind(
+    24 << 16 | expr.rawValue)
 
   // MARK: Patterns
 
@@ -248,6 +250,7 @@ extension NodeKind: CustomStringConvertible {
     case .stringLiteralExpr         : return "StringLiteralExpr"
     case .subscriptCallExpr         : return "SubscriptCallExpr"
     case .tupleExpr                 : return "TupleExpr"
+    case .tupleMemberExpr           : return "TupleMemberExpr"
 
     case .pattern                   : return "Pattern"
     case .bindingPattern            : return "BindingPattern"

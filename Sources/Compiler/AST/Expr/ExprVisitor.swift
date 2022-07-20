@@ -50,4 +50,6 @@ public protocol ExprVisitor {
 
   mutating func visit(tuple: NodeID<TupleExpr>) -> Result
 
+  mutating func visit(tupleMember: NodeID<TupleMemberExpr>) -> Result
+
 }
