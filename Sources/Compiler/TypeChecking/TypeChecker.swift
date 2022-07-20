@@ -1092,7 +1092,7 @@ public struct TypeChecker {
   ) -> Constraint? {
     switch expr.value {
     case .equality(let l, let r):
-      guard let a = realize(l, inScope: scope) else { return nil }
+      guard let a = realize(name: l, inScope: scope) else { return nil }
       guard let b = realize(r, inScope: scope) else { return nil }
 
       if !a.isTypeParam && !b.isTypeParam {

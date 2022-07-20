@@ -42,7 +42,7 @@ final class TypeCheckerTests: XCTestCase {
                     ]))),
                 SourceRepresentable(
                   value: .equality(
-                    l: AnyTypeExprID(ast.insertTypeName("Any")),
+                    l: ast.insertTypeName("Any"),
                     r: AnyTypeExprID(ast.insertTypeName("Never"))))
               ]))))),
         AnyDeclID(ast.insert(AssociatedTypeDecl(
@@ -52,7 +52,7 @@ final class TypeCheckerTests: XCTestCase {
               constraints: [
                 SourceRepresentable(
                   value: .equality(
-                    l: AnyTypeExprID(ast.insertTypeName("X")),
+                    l: ast.insertTypeName("X"),
                     r: AnyTypeExprID(ast.insertTypeName("Y"))))
               ]))))),
         AnyDeclID(ast.insert(AssociatedValueDecl(

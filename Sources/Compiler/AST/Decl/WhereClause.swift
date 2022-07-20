@@ -8,7 +8,7 @@ public struct WhereClause: Hashable {
 
     /// An equality constraint involving one or two skolems.
     case equality(
-      l: AnyTypeExprID,
+      l: NodeID<NameTypeExpr>,
       r: AnyTypeExprID)
 
     /// A conformance constraint on a skolem.
