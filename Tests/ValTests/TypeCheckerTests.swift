@@ -62,15 +62,15 @@ final class TypeCheckerTests: XCTestCase {
               constraints: [
                 SourceRepresentable(
                   value: .value(
-                    AnyExprID(ast.insert(SequenceExpr.unfolded([
-                      AnyExprID(ast.insert(NameExpr(
+                    AnyExprID(ast.insert(SequenceExpr.unfolded(
+                      head: AnyExprID(ast.insert(NameExpr(
                         name: SourceRepresentable(value: "n")))),
-                      AnyExprID(ast.insert(NameExpr(
-                        name: SourceRepresentable(value: Name(
-                          stem: ">",
-                          notation: .infix))))),
-                      AnyExprID(ast.insert(IntegerLiteralExpr(value: "10"))),
-                    ])))))
+                      tail: [
+                        (
+                          operator: SourceRepresentable(value: ">"),
+                          rhs: AnyExprID(ast.insert(IntegerLiteralExpr(value: "10")))
+                        ),
+                      ])))))
               ])))))
       ]))))
 

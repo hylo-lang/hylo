@@ -214,6 +214,7 @@ struct CaptureCollector {
 
     case .booleanLiteralExpr,
          .charLiteralExpr,
+         .errorExpr,
          .floatLiteralExpr,
          .integerLiteralExpr,
          .nilExpr,
@@ -313,25 +314,15 @@ struct CaptureCollector {
   }
 
   private mutating func collectCaptures(
-    ofTuple id: NodeID<TupleExpr>,
-    into captures: inout FreeSet,
-    inMutatingContext isContextMutating: Bool
-  ) {
-    for element in ast[id].elements {
-      collectCaptures(ofExpr: element.value, into: &captures, inMutatingContext: false)
-    }
-  }
-
-  private mutating func collectCaptures(
     ofSequence id: NodeID<SequenceExpr>,
     into captures: inout FreeSet,
     inMutatingContext isContextMutating: Bool
   ) {
     switch ast[id] {
-    case .unfolded(let exprs):
-      // Note: operators are not captured as they denote methods of their left operands.
-      for i in 0 ..< exprs.count where i % 2 == 0 {
-        collectCaptures(ofExpr: exprs[i], into: &captures, inMutatingContext: false)
+    case .unfolded(let head, let tail):
+      collectCaptures(ofExpr: head, into: &captures, inMutatingContext: false)
+      for (_, operand) in tail {
+        collectCaptures(ofExpr: operand, into: &captures, inMutatingContext: false)
       }
 
     case .root(let expr):

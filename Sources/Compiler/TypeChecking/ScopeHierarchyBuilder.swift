@@ -302,6 +302,8 @@ struct ScopeHierarchyBuilder:
     })
   }
 
+  mutating func visit(error id: NodeID<ErrorExpr>) {}
+
   mutating func visit(floatLiteral id: NodeID<FloatLiteralExpr>) {}
 
   mutating func visit(funCall i: NodeID<FunCallExpr>) {
@@ -370,9 +372,10 @@ struct ScopeHierarchyBuilder:
 
   mutating func visit(sequence i: NodeID<SequenceExpr>) {
     switch ast[i] {
-    case .unfolded(let subexprs):
-      for expr in subexprs {
-        expr.accept(&self)
+    case .unfolded(let head, let tail):
+      head.accept(&self)
+      for (_, operand) in tail {
+        operand.accept(&self)
       }
 
     case .root(let root):

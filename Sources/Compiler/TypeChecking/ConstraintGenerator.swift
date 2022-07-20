@@ -142,6 +142,10 @@ struct ConstraintGenerator: ExprVisitor {
     }
   }
 
+  mutating func visit(error id: NodeID<ErrorExpr>) {
+    // Nothing to do here.
+  }
+
   mutating func visit(floatLiteral id: NodeID<FloatLiteralExpr>) {
     fatalError("not implemented")
   }
@@ -526,10 +530,11 @@ struct ConstraintGenerator: ExprVisitor {
 
   mutating func visit(sequence id: NodeID<SequenceExpr>) {
     let root: AnyExprID
+
+    // Fold the sequence if necessary.
     switch checker.ast[id] {
-    case .unfolded(let exprs):
-      // Fold the sequence.
-      let tree = foldSequenceExpr(exprs)
+    case .unfolded(let head, let tail):
+      let tree = foldSequenceExpr(head: head, tail: tail)
       root = tree.desugars(ast: &checker.ast)
       checker.ast[id] = .root(root)
 
@@ -675,21 +680,25 @@ extension ConstraintGenerator {
   /// A folded sequence of binary operations.
   indirect enum Tree {
 
-    case node(operator: NodeID<NameExpr>, left: Tree, right: Tree)
+    typealias Operator = (name: SourceRepresentable<Identifier>, precedence: PrecedenceGroup?)
+
+    case node(operator: Operator, left: Tree, right: Tree)
 
     case leaf(AnyExprID)
 
     // Desugars the tree.
     func desugars(ast: inout AST) -> AnyExprID {
       switch self {
-      case .node(let op, let left, let right):
+      case .node(let operator_, let left, let right):
         let receiver = left.desugars(ast: &ast)
         let argument = right.desugars(ast: &ast)
 
         let id = ast.insert(FunCallExpr(
           callee: AnyExprID(ast.insert(NameExpr(
             domain: .expr(receiver),
-            name: ast[op].name))),
+            name: SourceRepresentable(
+              value: Name(stem: operator_.name.value),
+              range: operator_.name.range)))),
           arguments: [CallArgument(value: argument)]))
         ast.ranges[id] = ast.ranges[receiver] ..< ast.ranges[argument]
         return AnyExprID(id)
@@ -699,29 +708,77 @@ extension ConstraintGenerator {
       }
     }
 
+    mutating func append(operator operator_: Operator, rhs: AnyExprID) {
+      switch self {
+      case .node(let lhsOperator, let lhsLeft, var lhsRight):
+        if let l = lhsOperator.precedence {
+          if let r = operator_.precedence {
+            // Both operators are in groups.
+            if (l < r) || (l == r && l.associativity == .left) {
+              self = .node(operator: operator_, left: self, right: .leaf(rhs))
+              return
+            }
+
+            if (l > r) || (l == r && l.associativity == .right) {
+              lhsRight.append(operator: operator_, rhs: rhs)
+              self = .node(operator: lhsOperator, left: lhsLeft, right: lhsRight)
+              return
+            }
+          } else {
+            // Right operator is not in a group. Assume lowest precedence and left associativity.
+            self = .node(operator: operator_, left: self, right: .leaf(rhs))
+            return
+          }
+        } else if operator_.precedence != nil {
+          // Only right operator is in a group. Assume higher precedence.
+          lhsRight.append(operator: operator_, rhs: rhs)
+          self = .node(operator: lhsOperator, left: lhsLeft, right: lhsRight)
+        } else {
+          // Neither operator is in a group. Assume left associativity.
+          self = .node(operator: operator_, left: self, right: .leaf(rhs))
+        }
+
+      case .leaf:
+        self = .node(operator: operator_, left: self, right: .leaf(rhs))
+      }
+    }
+
   }
 
   /// Folds a sequence of binary expressions into a tree.
-  mutating func foldSequenceExpr(_ exprs: [AnyExprID]) -> Tree {
-    var tree = Tree.node(
-      operator: NodeID(converting: exprs[1])!, left: .leaf(exprs[0]), right: .leaf(exprs[2]))
-    foldSequenceExpr(exprs[3...], into: &tree)
-    return tree
+  mutating func foldSequenceExpr(head: AnyExprID, tail: SequenceExpr.UnfoldedTail) -> Tree {
+    return foldSequenceExpr(tail[0...], into: .leaf(head))
   }
 
   /// Folds the remainder of a sequence of binary expressions into `accumulatedResult`.
   mutating func foldSequenceExpr(
-    _ subexprs: ArraySlice<AnyExprID>,
-    into accumulatedResult: inout Tree
-  ) {
-    // End of iteration.
-    if subexprs.isEmpty { return }
+    _ tail: SequenceExpr.UnfoldedTail.SubSequence,
+    into initialResult: Tree
+  ) -> Tree {
+    var accumulator = initialResult
 
-    // Read the operator.
-//    let i = subexprs.startIndex
-//    let op = NodeID<NameExpr>(converting: subexprs[i]) ?? unreachable("invalid sequence")
+    for i in tail.indices {
+      // Search for the operator declaration.
+      let candidates = checker.lookup(
+        operator: tail[i].operator.value, notation: .infix, inScope: scope)
 
-    fatalError("not implemented")
+      switch candidates.count {
+      case 0:
+        checker.diagnostics.insert(.undefinedOperator(
+          tail[i].operator.value, range: tail[i].operator.range))
+        accumulator = .leaf(AnyExprID(checker.ast.insert(ErrorExpr())))
+
+      case 1:
+        let precedence = checker.ast[candidates[0]].precedenceGroup?.value
+        accumulator.append(
+          operator: (name: tail[i].operator, precedence: precedence), rhs: tail[i].rhs)
+
+      default:
+        fatalError("not implemented")
+      }
+    }
+
+    return accumulator
   }
 
 }
