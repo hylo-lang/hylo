@@ -480,13 +480,13 @@ public struct Emitter {
 
       switch parameterType.convention {
       case .let:
-        arguments.append(emitL(expr: argument.value.value, withCapability: .let, into: &module))
+        arguments.append(emitL(expr: argument.value, withCapability: .let, into: &module))
       case .inout:
-        arguments.append(emitL(expr: argument.value.value, withCapability: .inout, into: &module))
+        arguments.append(emitL(expr: argument.value, withCapability: .inout, into: &module))
       case .set:
-        arguments.append(emitL(expr: argument.value.value, withCapability: .set, into: &module))
+        arguments.append(emitL(expr: argument.value, withCapability: .set, into: &module))
       case .sink:
-        arguments.append(emitR(expr: argument.value.value, into: &module))
+        arguments.append(emitR(expr: argument.value, into: &module))
       case .yielded:
         fatalError("not implemented")
       }

@@ -306,8 +306,8 @@ struct ScopeHierarchyBuilder:
 
   mutating func visit(funCall i: NodeID<FunCallExpr>) {
     ast[i].callee.accept(&self)
-    for arg in ast[i].arguments {
-      arg.value.value.accept(&self)
+    for argument in ast[i].arguments {
+      argument.value.accept(&self)
     }
   }
 
@@ -388,8 +388,8 @@ struct ScopeHierarchyBuilder:
 
   mutating func visit(subscriptCall i: NodeID<SubscriptCallExpr>) {
     ast[i].callee.accept(&self)
-    for arg in ast[i].arguments {
-      arg.value.value.accept(&self)
+    for argument in ast[i].arguments {
+      argument.value.accept(&self)
     }
   }
 

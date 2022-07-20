@@ -65,20 +65,18 @@ public func insertStandardLibraryMockup(into ast: inout AST) -> NodeID<ModuleDec
             callee: AnyExprID(ast.insert(NameExpr(
               name: SourceRepresentable(value: "Bool")))),
           arguments: [
-            SourceRepresentable(
-              value: CallArgument(
-                label: SourceRepresentable(value: "value"),
-                value: AnyExprID(ast.insert(FunCallExpr(
-                  callee: AnyExprID(ast.insert(NameExpr(
-                    domain: .expr(AnyExprID(ast.insert(NameExpr(
-                      name: SourceRepresentable(value: "Builtin"))))),
-                    name: SourceRepresentable(value: "i1_copy")))),
-                arguments: [
-                  SourceRepresentable(
-                    value: CallArgument(
-                      value: AnyExprID(ast.insert(NameExpr(
-                        name: SourceRepresentable(value: "value")))))),
-                ]))))),
+            CallArgument(
+              label: SourceRepresentable(value: "value"),
+              value: AnyExprID(ast.insert(FunCallExpr(
+                callee: AnyExprID(ast.insert(NameExpr(
+                  domain: .expr(AnyExprID(ast.insert(NameExpr(
+                    name: SourceRepresentable(value: "Builtin"))))),
+                  name: SourceRepresentable(value: "i1_copy")))),
+              arguments: [
+                CallArgument(
+                  value: AnyExprID(ast.insert(NameExpr(
+                    name: SourceRepresentable(value: "value"))))),
+                ])))),
           ])))))))),
     ]))))
 

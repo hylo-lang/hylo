@@ -153,7 +153,7 @@ struct ConstraintGenerator: ExprVisitor {
 
     func propagateDown(calleeType: LambdaType, calleeConstraints: [Constraint] = []) {
       // Collect the call labels.
-      let labels = checker.ast[id].arguments.map({ $0.value.label?.value })
+      let labels = checker.ast[id].arguments.map({ $0.label?.value })
 
       // Check that the labels inferred from the callee are consistent with that of the call.
       let calleeLabels = calleeType.inputs.map({ $0.label })
@@ -172,19 +172,19 @@ struct ConstraintGenerator: ExprVisitor {
       // Propagate type information to the arguments.
       for i in 0 ..< checker.ast[id].arguments.count {
         let argument = checker.ast[id].arguments[i].value
-        let argumentType = Type.variable(TypeVariable(node: argument.value.base))
+        let argumentType = Type.variable(TypeVariable(node: argument.base))
         let parameterType = calleeType.inputs[i].type
 
-        inferredTypes[argument.value] = argumentType
+        inferredTypes[argument] = argumentType
         constraints.append(LocatableConstraint(
           .parameter(l: argumentType, r: parameterType),
-          node: argument.value.base,
+          node: argument.base,
           cause: .callArgument))
 
         if case .parameter(let type) = parameterType {
-          expectedTypes[argument.value] = type.bareType
+          expectedTypes[argument] = type.bareType
         }
-        argument.value.accept(&self)
+        argument.accept(&self)
       }
 
       // Constrain the type of the call.
@@ -227,7 +227,7 @@ struct ConstraintGenerator: ExprVisitor {
         assert(!initializers.isEmpty)
 
         // Select suitable candidates based on argument labels.
-        let labels = checker.ast[id].arguments.map({ $0.value.label?.value })
+        let labels = checker.ast[id].arguments.map({ $0.label?.value })
         var candidates: [Constraint.OverloadCandidate] = []
         for initializer in initializers {
           // Remove the receiver from the parameter list.
@@ -289,16 +289,16 @@ struct ConstraintGenerator: ExprVisitor {
     var inputs: [CallableTypeParameter] = []
     for i in 0 ..< checker.ast[id].arguments.count {
       // Infer the type of the argument bottom-up.
-      checker.ast[id].arguments[i].value.value.accept(&self)
+      checker.ast[id].arguments[i].value.accept(&self)
 
       let argument = checker.ast[id].arguments[i].value
       let parameterType = Type.variable(TypeVariable())
       constraints.append(LocatableConstraint(
-        .parameter(l: inferredTypes[argument.value]!, r: parameterType),
-        node: argument.value.base,
+        .parameter(l: inferredTypes[argument]!, r: parameterType),
+        node: argument.base,
         cause: .callArgument))
 
-      let argumentLabel = checker.ast[id].arguments[i].value.label?.value
+      let argumentLabel = checker.ast[id].arguments[i].label?.value
       inputs.append(CallableTypeParameter(label: argumentLabel, type: parameterType))
     }
 
@@ -686,11 +686,7 @@ extension ConstraintGenerator {
           callee: AnyExprID(ast.insert(NameExpr(
             domain: .expr(receiver),
             name: ast[op].name))),
-          arguments: [
-            SourceRepresentable(
-              value: CallArgument(value: argument),
-              range: ast.ranges[argument])
-          ]))
+          arguments: [CallArgument(value: argument)]))
         ast.ranges[id] = ast.ranges[receiver] ..< ast.ranges[argument]
         return AnyExprID(id)
 
