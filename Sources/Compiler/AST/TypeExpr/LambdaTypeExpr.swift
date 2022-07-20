@@ -23,7 +23,7 @@ public struct LambdaTypeExpr: TypeExpr {
   public var operatorProperty: SourceRepresentable<LambdaType.OperatorProperty>?
 
   /// The environment of the lambda, or `nil` if it is thin.
-  public var environment: AnyTypeExprID?
+  public var environment: SourceRepresentable<AnyTypeExprID>?
 
   /// The parameters of the lambda.
   public var parameters: [Parameter]
@@ -33,7 +33,7 @@ public struct LambdaTypeExpr: TypeExpr {
 
   public init(
     operatorProperty: SourceRepresentable<LambdaType.OperatorProperty>? = nil,
-    environment: AnyTypeExprID? = nil,
+    environment: SourceRepresentable<AnyTypeExprID>? = nil,
     parameters: [Parameter] = [],
     output: AnyTypeExprID
   ) {

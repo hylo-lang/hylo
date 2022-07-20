@@ -514,7 +514,7 @@ struct ScopeHierarchyBuilder:
   }
 
   mutating func visit(lambda i: NodeID<LambdaTypeExpr>) {
-    ast[i].environment?.accept(&self)
+    ast[i].environment?.value.accept(&self)
     for param in ast[i].parameters {
       visit(param: param.type)
     }

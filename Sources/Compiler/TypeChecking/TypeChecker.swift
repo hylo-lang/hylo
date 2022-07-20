@@ -1730,7 +1730,7 @@ public struct TypeChecker {
   ) -> Type? {
     // Realize the lambda's environment.
     let environment: Type
-    if let env = ast[id].environment {
+    if let env = ast[id].environment?.value {
       guard let ty = realize(env, inScope: scope) else { return nil }
       environment = ty
     } else {

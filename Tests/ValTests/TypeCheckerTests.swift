@@ -1654,7 +1654,8 @@ final class TypeCheckerTests: XCTestCase {
         introducer: SourceRepresentable(value: .let),
         subpattern: AnyPatternID(ast.insert(WildcardPattern())),
         annotation: AnyTypeExprID(ast.insert(LambdaTypeExpr(
-          environment: AnyTypeExprID(ast.insert(TupleTypeExpr())),
+          environment: SourceRepresentable(
+            value: AnyTypeExprID(ast.insert(TupleTypeExpr()))),
           parameters: [
             LambdaTypeExpr.Parameter(
               label: "x",
