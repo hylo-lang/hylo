@@ -457,12 +457,10 @@ final class TypeCheckerTests: XCTestCase {
           ]))))),
       initializer: AnyExprID(ast.insert(TupleExpr(
         elements: [
-          SourceRepresentable(
-            value: TupleExpr.Element(
-              value: AnyExprID(ast.insert(TupleExpr())))),
-          SourceRepresentable(
-            value: TupleExpr.Element(
-              value: AnyExprID(ast.insert(TupleExpr())))),
+          TupleExpr.Element(
+            value: AnyExprID(ast.insert(TupleExpr()))),
+          TupleExpr.Element(
+            value: AnyExprID(ast.insert(TupleExpr()))),
         ])))))))
 
     var checker = TypeChecker(ast: ast)
@@ -497,12 +495,10 @@ final class TypeCheckerTests: XCTestCase {
           ]))))),
       initializer: AnyExprID(ast.insert(TupleExpr(
         elements: [
-          SourceRepresentable(
-            value: TupleExpr.Element(
-              value: AnyExprID(ast.insert(IntegerLiteralExpr(value: "2"))))),
-          SourceRepresentable(
-            value: TupleExpr.Element(
-              value: AnyExprID(ast.insert(IntegerLiteralExpr(value: "3"))))),
+          TupleExpr.Element(
+            value: AnyExprID(ast.insert(IntegerLiteralExpr(value: "2")))),
+          TupleExpr.Element(
+            value: AnyExprID(ast.insert(IntegerLiteralExpr(value: "3")))),
         ])))))))
 
     ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
@@ -523,12 +519,10 @@ final class TypeCheckerTests: XCTestCase {
           ]))))),
       initializer: AnyExprID(ast.insert(TupleExpr(
         elements: [
-          SourceRepresentable(
-            value: TupleExpr.Element(
-              value: AnyExprID(ast.insert(IntegerLiteralExpr(value: "2"))))),
-          SourceRepresentable(
-            value: TupleExpr.Element(
-              value: AnyExprID(ast.insert(IntegerLiteralExpr(value: "3"))))),
+          TupleExpr.Element(
+            value: AnyExprID(ast.insert(IntegerLiteralExpr(value: "2")))),
+          TupleExpr.Element(
+            value: AnyExprID(ast.insert(IntegerLiteralExpr(value: "3")))),
         ])))))))
 
     var checker = TypeChecker(ast: ast)
@@ -829,16 +823,16 @@ final class TypeCheckerTests: XCTestCase {
           SourceRepresentable(value: CallArgument(
             value: AnyExprID(ast.insert(TupleExpr(
               elements: [
-                SourceRepresentable(value: TupleExpr.Element(
-                  label: "a0",
-                  value: AnyExprID(ast.insert(TupleExpr())))),
+                TupleExpr.Element(
+                  label: SourceRepresentable(value: "a0"),
+                  value: AnyExprID(ast.insert(TupleExpr()))),
               ]))))),
           SourceRepresentable(value: CallArgument(
             value: AnyExprID(ast.insert(TupleExpr(
               elements: [
-                SourceRepresentable(value: TupleExpr.Element(
-                  label: "b0",
-                  value: AnyExprID(ast.insert(TupleExpr())))),
+                TupleExpr.Element(
+                  label: SourceRepresentable(value: "b0"),
+                  value: AnyExprID(ast.insert(TupleExpr()))),
               ]))))),
         ])))))))
 
@@ -853,16 +847,16 @@ final class TypeCheckerTests: XCTestCase {
           SourceRepresentable(value: CallArgument(
             value: AnyExprID(ast.insert(TupleExpr(
               elements: [
-                SourceRepresentable(value: TupleExpr.Element(
-                  label: "a1",
-                  value: AnyExprID(ast.insert(TupleExpr())))),
+                TupleExpr.Element(
+                  label: SourceRepresentable(value: "a1"),
+                  value: AnyExprID(ast.insert(TupleExpr()))),
               ]))))),
           SourceRepresentable(value: CallArgument(
             value: AnyExprID(ast.insert(TupleExpr(
               elements: [
-                SourceRepresentable(value: TupleExpr.Element(
-                  label: "b1",
-                  value: AnyExprID(ast.insert(TupleExpr())))),
+                TupleExpr.Element(
+                  label: SourceRepresentable(value: "b1"),
+                  value: AnyExprID(ast.insert(TupleExpr()))),
               ]))))),
         ])))))))
 
@@ -921,9 +915,9 @@ final class TypeCheckerTests: XCTestCase {
           SourceRepresentable(value: CallArgument(
             value: AnyExprID(ast.insert(TupleExpr(
               elements: [
-                SourceRepresentable(value: TupleExpr.Element(
-                  label: "b",
-                  value: AnyExprID(ast.insert(TupleExpr())))),
+                TupleExpr.Element(
+                  label: SourceRepresentable(value: "b"),
+                  value: AnyExprID(ast.insert(TupleExpr()))),
               ]))))),
         ])))))))
 
@@ -938,16 +932,16 @@ final class TypeCheckerTests: XCTestCase {
           SourceRepresentable(value: CallArgument(
             value: AnyExprID(ast.insert(TupleExpr(
               elements: [
-                SourceRepresentable(value: TupleExpr.Element(
-                  label: "a",
-                  value: AnyExprID(ast.insert(TupleExpr())))),
+                TupleExpr.Element(
+                  label: SourceRepresentable(value: "a"),
+                  value: AnyExprID(ast.insert(TupleExpr()))),
               ]))))),
           SourceRepresentable(value: CallArgument(
             value: AnyExprID(ast.insert(TupleExpr(
               elements: [
-                SourceRepresentable(value: TupleExpr.Element(
-                  label: "b",
-                  value: AnyExprID(ast.insert(TupleExpr())))),
+                TupleExpr.Element(
+                  label: SourceRepresentable(value: "b"),
+                  value: AnyExprID(ast.insert(TupleExpr()))),
               ]))))),
         ])))))))
 

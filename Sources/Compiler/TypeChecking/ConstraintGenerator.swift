@@ -564,23 +564,23 @@ struct ConstraintGenerator: ExprVisitor {
     // leaves and use type constraints to detect potential mismatch.
     var elements: [TupleType.Element] = []
     if case .tuple(let type) = expectedTypes[id],
-       type.elements.elementsEqual(expr.elements, by: { (a, b) in a.label == b.value.label })
+       type.elements.elementsEqual(expr.elements, by: { (a, b) in a.label == b.label?.value })
     {
       for i in 0 ..< expr.elements.count {
-        modifying(&expr.elements[i].value, { element in
+        modifying(&expr.elements[i], { element in
           expectedTypes[element.value] = type.elements[i].type
           element.value.accept(&self)
           elements.append(TupleType.Element(
-            label: element.label,
+            label: element.label?.value,
             type: inferredTypes[element.value]!))
         })
       }
     } else {
       for i in 0 ..< expr.elements.count {
-        modifying(&expr.elements[i].value, { element in
+        modifying(&expr.elements[i], { element in
           element.value.accept(&self)
           elements.append(TupleType.Element(
-            label: element.label,
+            label: element.label?.value,
             type: inferredTypes[element.value]!))
         })
       }

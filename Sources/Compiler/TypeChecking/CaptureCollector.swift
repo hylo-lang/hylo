@@ -312,7 +312,7 @@ struct CaptureCollector {
     inMutatingContext isContextMutating: Bool
   ) {
     for element in ast[id].elements {
-      collectCaptures(ofExpr: element.value.value, into: &captures, inMutatingContext: false)
+      collectCaptures(ofExpr: element.value, into: &captures, inMutatingContext: false)
     }
   }
 
