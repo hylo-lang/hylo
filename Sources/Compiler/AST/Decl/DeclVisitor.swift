@@ -20,6 +20,8 @@ public protocol DeclVisitor {
 
   mutating func visit(genericValueParam: NodeID<GenericValueParamDecl>) -> Result
 
+  mutating func visit(import: NodeID<ImportDecl>) -> Result
+
   mutating func visit(methodImpl: NodeID<MethodImplDecl>) -> Result
 
   mutating func visit(module: NodeID<ModuleDecl>) -> Result

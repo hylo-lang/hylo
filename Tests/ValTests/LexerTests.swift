@@ -110,7 +110,7 @@ final class LexerTests: XCTestCase {
 
   func testKeywords() {
     let input = SourceFile(contents: """
-    async await break catch conformance continue deinit else extension for fun if import in
+    any async await break catch conformance continue deinit do else extension for fun if import in
     indirect infix init inout let match namespace nil operator postfix prefix property public
     return set sink some static subscript trait try type typealias var where while yield yielded
     """)
@@ -118,6 +118,7 @@ final class LexerTests: XCTestCase {
     assert(
       tokenize(input),
       matches: [
+        TokenSpecification(.`any`         , "any"),
         TokenSpecification(.`async`       , "async"),
         TokenSpecification(.`await`       , "await"),
         TokenSpecification(.`break`       , "break"),
@@ -125,6 +126,7 @@ final class LexerTests: XCTestCase {
         TokenSpecification(.`conformance` , "conformance"),
         TokenSpecification(.`continue`    , "continue"),
         TokenSpecification(.`deinit`      , "deinit"),
+        TokenSpecification(.`do`          , "do"),
         TokenSpecification(.`else`        , "else"),
         TokenSpecification(.`extension`   , "extension"),
         TokenSpecification(.`for`         , "for"),
@@ -193,8 +195,22 @@ final class LexerTests: XCTestCase {
       in: input)
   }
 
+  func testAttributes() {
+    let input = SourceFile(contents: "@implicitcopy @implicitpublic @type @value @foo")
+    assert(
+      tokenize(input),
+      matches: [
+        TokenSpecification(.implicitCopyAttribute, "@implicitcopy"),
+        TokenSpecification(.implicitPublicAttribute, "@implicitpublic"),
+        TokenSpecification(.typeAttribute, "@type"),
+        TokenSpecification(.valueAttribute, "@value"),
+        TokenSpecification(.unrecognizedAttribute, "@foo"),
+      ],
+      in: input)
+  }
+
   func testOperators() {
-    let input = SourceFile(contents: "= -> * / % +- == != ~> >! <? >> &|^")
+    let input = SourceFile(contents: "= -> * / % +- == != ~> >! <? >> &|^ | &")
     assert(
       tokenize(input),
       matches: [
@@ -204,7 +220,7 @@ final class LexerTests: XCTestCase {
         TokenSpecification(.oper  , "/"),
         TokenSpecification(.oper  , "%"),
         TokenSpecification(.oper  , "+-"),
-        TokenSpecification(.oper  , "=="),
+        TokenSpecification(.equal , "=="),
         TokenSpecification(.oper  , "!="),
         TokenSpecification(.oper  , "~>"),
         TokenSpecification(.rAngle, ">"),
@@ -214,6 +230,8 @@ final class LexerTests: XCTestCase {
         TokenSpecification(.rAngle, ">"),
         TokenSpecification(.rAngle, ">"),
         TokenSpecification(.oper  , "&|^"),
+        TokenSpecification(.pipe  , "|"),
+        TokenSpecification(.ampersand, "&"),
       ],
       in: input)
   }

@@ -14,7 +14,7 @@ public struct TypeAliasDecl: GenericDecl, SingleEntityDecl, GenericScope {
   }
 
   /// The access modifier of the declaration, if any.
-  public var access: SourceRepresentable<AccessModifier>?
+  public var accessModifier: SourceRepresentable<AccessModifier>?
 
   /// The identifier of the alias.
   public var identifier: SourceRepresentable<Identifier>
@@ -23,15 +23,15 @@ public struct TypeAliasDecl: GenericDecl, SingleEntityDecl, GenericScope {
   public var genericClause: SourceRepresentable<GenericClause>?
 
   /// The body of the declaration.
-  public var body: SourceRepresentable<Body>
+  public var body: Body
 
   public init(
-    access: SourceRepresentable<AccessModifier>? = nil,
+    accessModifier: SourceRepresentable<AccessModifier>? = nil,
     identifier: SourceRepresentable<Identifier>,
     genericClause: SourceRepresentable<GenericClause>? = nil,
-    body: SourceRepresentable<TypeAliasDecl.Body>
+    body: Body
   ) {
-    self.access = access
+    self.accessModifier = accessModifier
     self.identifier = identifier
     self.genericClause = genericClause
     self.body = body

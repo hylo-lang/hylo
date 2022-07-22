@@ -12,7 +12,7 @@ public func insertStandardLibraryMockup(into ast: inout AST) -> NodeID<ModuleDec
     identifier: SourceRepresentable(value: "fatal_error"),
     output: AnyTypeExprID(ast.insert(NameTypeExpr(
       identifier: SourceRepresentable(value: "Never")))),
-    body: SourceRepresentable(value: .block(ast.insert(BraceStmt())))))))
+    body: .block(ast.insert(BraceStmt()))))))
 
   // trait ExpressibleByIntegerLiteral { ... }
   ast[stdlib].members.append(AnyDeclID(ast.insert(TraitDecl(
@@ -60,7 +60,7 @@ public func insertStandardLibraryMockup(into ast: inout AST) -> NodeID<ModuleDec
         identifier: SourceRepresentable(value: "copy"),
         output: AnyTypeExprID(ast.insert(NameTypeExpr(
           identifier: SourceRepresentable(value: "Self")))),
-        body: SourceRepresentable(value: .expr(
+        body: .expr(
           AnyExprID(ast.insert(FunCallExpr(
             callee: AnyExprID(ast.insert(NameExpr(
               name: SourceRepresentable(value: "Bool")))),
@@ -77,7 +77,7 @@ public func insertStandardLibraryMockup(into ast: inout AST) -> NodeID<ModuleDec
                   value: AnyExprID(ast.insert(NameExpr(
                     name: SourceRepresentable(value: "value"))))),
                 ])))),
-          ])))))))),
+          ]))))))),
     ]))))
 
   // public type Int { ... }
@@ -103,10 +103,10 @@ public func insertStandardLibraryMockup(into ast: inout AST) -> NodeID<ModuleDec
                   identifier: SourceRepresentable(value: "Builtin")))),
                 identifier: SourceRepresentable(value: "IntegerLiteral")))))))),
         ],
-        body: SourceRepresentable(value: .expr(
+        body: .expr(
           AnyExprID(ast.insert(FunCallExpr(
             callee: AnyExprID(ast.insert(NameExpr(
-              name: SourceRepresentable(value: "fatal_error")))))))))))),
+              name: SourceRepresentable(value: "fatal_error"))))))))))),
 
       // public fun copy() -> Self { fatal_error() }
       AnyDeclID(ast.insert(FunDecl(
@@ -115,10 +115,10 @@ public func insertStandardLibraryMockup(into ast: inout AST) -> NodeID<ModuleDec
         identifier: SourceRepresentable(value: "copy"),
         output: AnyTypeExprID(ast.insert(NameTypeExpr(
           identifier: SourceRepresentable(value: "Self")))),
-        body: SourceRepresentable(value: .expr(
+        body: .expr(
           AnyExprID(ast.insert(FunCallExpr(
             callee: AnyExprID(ast.insert(NameExpr(
-              name: SourceRepresentable(value: "fatal_error")))))))))))),
+              name: SourceRepresentable(value: "fatal_error"))))))))))),
     ]
   ))))
 
@@ -145,10 +145,10 @@ public func insertStandardLibraryMockup(into ast: inout AST) -> NodeID<ModuleDec
                   identifier: SourceRepresentable(value: "Builtin")))),
                 identifier: SourceRepresentable(value: "IntegerLiteral")))))))),
         ],
-        body: SourceRepresentable(value: .expr(
+        body: .expr(
           AnyExprID(ast.insert(FunCallExpr(
             callee: AnyExprID(ast.insert(NameExpr(
-              name: SourceRepresentable(value: "fatal_error"))))))))))))
+              name: SourceRepresentable(value: "fatal_error")))))))))))
     ]
   ))))
 

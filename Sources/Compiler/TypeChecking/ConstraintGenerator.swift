@@ -388,7 +388,7 @@ struct ConstraintGenerator: ExprVisitor {
         return
       }
     } else if case .variable = declType.output {
-      if case .expr(let body) = checker.ast[checker.ast[id].decl].body?.value {
+      if case .expr(let body) = checker.ast[checker.ast[id].decl].body {
         // Infer the return type of the lambda from its body.
         inferredTypes[body] = declType.output
         expectedTypes[body] = declType.output
@@ -400,7 +400,7 @@ struct ConstraintGenerator: ExprVisitor {
       } else {
         // The system is underspecified.
         diagnostics.append(.cannotInferComplexReturnType(
-          range: checker.ast[checker.ast[id].decl].body?.range))
+          range: checker.ast[checker.ast[id].decl].introducer.range))
         assignToError(id)
         return
       }
@@ -414,10 +414,6 @@ struct ConstraintGenerator: ExprVisitor {
   }
 
   mutating func visit(match i: NodeID<MatchExpr>) {
-    fatalError("not implemented")
-  }
-
-  mutating func visit(matchCase i: NodeID<MatchCaseExpr>) {
     fatalError("not implemented")
   }
 
@@ -629,7 +625,7 @@ struct ConstraintGenerator: ExprVisitor {
     if let introducer = introducer {
       matches = Set(matches.compactMap({ match in
         guard let method = NodeID<FunDecl>(converting: match),
-              let body = checker.ast[method].body?.value,
+              let body = checker.ast[method].body,
               case .bundle(let impls) = body
         else { return nil }
 

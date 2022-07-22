@@ -83,7 +83,7 @@ public struct Emitter {
     var receiverDecl = program.ast[declID].implicitReceiverDecl
     swap(&receiverDecl, &self.receiverDecl)
 
-    switch program.ast[declID].body!.value {
+    switch program.ast[declID].body! {
     case .block(let stmt):
       // Emit the statements of the function.
       emit(stmt: stmt, into: &module)
@@ -462,13 +462,11 @@ public struct Emitter {
 
     // Determine the callee's convention.
     var conventions: [PassingConvention]
-    switch calleeType.operatorProperty {
-    case .inout:
-      conventions = [.inout]
-    case .sink:
-      conventions = [.sink]
-    case nil:
-      conventions = [.let]
+    switch calleeType.receiverEffect {
+    case .inout   : conventions = [.inout]
+    case .sink    : conventions = [.sink]
+    case .yielded : conventions = [.yielded]
+    case nil      : conventions = [.let]
     }
 
     // Arguments are evaluated first, from left to right.

@@ -214,7 +214,7 @@ extension Type {
 
       case .lambda(let type):
         return .lambda(LambdaType(
-          operatorProperty: type.operatorProperty,
+          receiverEffect: type.receiverEffect,
           environment: type.environment.transform(transformer),
           inputs: type.inputs.map({ p in
             CallableTypeParameter(

@@ -26,7 +26,7 @@ let package = Package(
 
   targets: [
     // The compiler's executable target.
-    .target(
+    .executableTarget(
       name: "CLI",
       dependencies: [
         "Compiler", "Library",
@@ -38,10 +38,14 @@ let package = Package(
       name: "Compiler",
       dependencies: [
         "Utils",
+        "ParserCombinators",
         .product(name: "Collections", package: "swift-collections"),
         .product(name: "LLVM", package: "LLVMSwift"),
       ]),
-    .target(name: "Utils"),
+
+      .target(name: "Utils"),
+
+      .target(name: "ParserCombinators"),
 
     // Test targets.
     .testTarget(

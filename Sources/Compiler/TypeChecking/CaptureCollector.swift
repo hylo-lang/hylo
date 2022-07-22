@@ -152,7 +152,7 @@ struct CaptureCollector {
 
     // Visit the function's body.
     boundNames.append(newNames)
-    switch ast[id].body?.value {
+    switch ast[id].body {
     case .expr(let expr):
       collectCaptures(ofExpr: expr, into: &captures, inMutatingContext: false)
     case .block(let stmt):
@@ -392,7 +392,7 @@ struct CaptureCollector {
     into captures: inout FreeSet
   ) {
     for element in ast[id].elements {
-      collectCaptures(ofPattern: element.value.pattern, into: &captures)
+      collectCaptures(ofPattern: element.pattern, into: &captures)
     }
   }
 
@@ -465,7 +465,7 @@ struct CaptureCollector {
 
     // Visit the condition.
     for item in ast[id].condition {
-      switch item.value {
+      switch item {
       case .expr(let expr):
         collectCaptures(ofExpr: expr, into: &captures, inMutatingContext: false)
       case .decl(let decl):

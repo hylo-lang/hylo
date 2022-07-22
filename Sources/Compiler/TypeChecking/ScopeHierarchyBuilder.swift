@@ -107,7 +107,7 @@ struct ScopeHierarchyBuilder:
 
       decl.output?.accept(&this)
 
-      switch decl.body?.value {
+      switch decl.body {
       case let .expr(expr):
         expr.accept(&this)
       case let .block(stmt):
@@ -124,9 +124,19 @@ struct ScopeHierarchyBuilder:
 
   mutating func visit(genericTypeParam i: NodeID<GenericTypeParamDecl>) {
     hierarchy.insert(decl: i, into: innermost!)
+    for j in ast[i].conformances {
+      j.accept(&self)
+    }
+    ast[i].defaultValue?.accept(&self)
   }
 
   mutating func visit(genericValueParam i: NodeID<GenericValueParamDecl>) {
+    hierarchy.insert(decl: i, into: innermost!)
+    ast[i].annotation.accept(&self)
+    ast[i].defaultValue?.accept(&self)
+  }
+
+  mutating func visit(import i: NodeID<ImportDecl>) -> Void {
     hierarchy.insert(decl: i, into: innermost!)
   }
 
@@ -187,7 +197,7 @@ struct ScopeHierarchyBuilder:
 
       this.visit(genericClause: decl.genericClause?.value)
 
-      for capture in decl.captures {
+      for capture in decl.explicitCaptures {
         this.visit(binding: capture)
       }
 
@@ -199,15 +209,33 @@ struct ScopeHierarchyBuilder:
 
       decl.output.accept(&this)
 
-      for impl in decl.impls {
-        this.visit(subscriptImpl: impl)
+      switch decl.body {
+      case let .expr(expr):
+        expr.accept(&this)
+      case let .block(stmt):
+        this.visit(brace: stmt)
+      case let .bundle(impls):
+        for impl in impls {
+          this.visit(subscriptImpl: impl)
+        }
+      case nil:
+        break
       }
     })
   }
 
   mutating func visit(subscriptImpl i: NodeID<SubscriptImplDecl>) {
     hierarchy.insert(decl: i, into: innermost!)
-    ast[i].body.map({ stmt in visit(brace: stmt) })
+    nesting(in: i, { this in
+      switch this.ast[i].body {
+      case let .expr(expr):
+        expr.accept(&this)
+      case let .block(stmt):
+        this.visit(brace: stmt)
+      case nil:
+        break
+      }
+    })
   }
 
   mutating func visit(trait i: NodeID<TraitDecl>) {
@@ -225,7 +253,7 @@ struct ScopeHierarchyBuilder:
       let decl = this.ast[i]
       this.visit(genericClause: decl.genericClause?.value)
 
-      switch decl.body.value {
+      switch decl.body {
       case let .union(members):
         for member in members {
           this.visit(productType: member)
@@ -325,8 +353,8 @@ struct ScopeHierarchyBuilder:
 
   mutating func visit(mapLiteral i: NodeID<MapLiteralExpr>) {
     for elem in ast[i].elements {
-      elem.value.key.accept(&self)
-      elem.value.value.accept(&self)
+      elem.key.accept(&self)
+      elem.value.accept(&self)
     }
   }
 
@@ -334,23 +362,19 @@ struct ScopeHierarchyBuilder:
     ast[i].subject.accept(&self)
 
     for elem in ast[i].cases {
-      visit(matchCase: elem)
+      nesting(in: elem, { this in
+        let expr = this.ast[elem]
+        expr.pattern.accept(&this)
+        expr.condition?.accept(&this)
+
+        switch expr.body {
+        case let .expr(expr):
+          expr.accept(&this)
+        case let .block(stmt):
+          this.visit(brace: stmt)
+        }
+      })
     }
-  }
-
-  mutating func visit(matchCase i: NodeID<MatchCaseExpr>) {
-    nesting(in: i, { this in
-      let expr = this.ast[i]
-      expr.pattern.accept(&this)
-      expr.condition?.accept(&this)
-
-      switch expr.body.value {
-      case let .expr(expr):
-        expr.accept(&this)
-      case let .block(stmt):
-        this.visit(brace: stmt)
-      }
-    })
   }
 
   mutating func visit(name i: NodeID<NameExpr>) {
@@ -423,7 +447,7 @@ struct ScopeHierarchyBuilder:
 
   mutating func visit(tuple i: NodeID<TuplePattern>) {
     for elem in ast[i].elements {
-      elem.value.pattern.accept(&self)
+      elem.pattern.accept(&self)
     }
   }
 
@@ -440,6 +464,16 @@ struct ScopeHierarchyBuilder:
   }
 
   mutating func visit(break i: NodeID<BreakStmt>) {}
+
+  mutating func visit(condBinding i: NodeID<CondBindingStmt>) {
+    ast[i].binding.accept(&self)
+    switch ast[i].fallback {
+    case .expr(let expr):
+      expr.accept(&self)
+    case .exit(let stmt):
+      stmt.accept(&self)
+    }
+  }
 
   mutating func visit(continue i: NodeID<ContinueStmt>) {}
 
@@ -479,7 +513,7 @@ struct ScopeHierarchyBuilder:
   mutating func visit(while i: NodeID<WhileStmt>) {
     nesting(in: i, { this in
       for item in this.ast[i].condition {
-        switch item.value {
+        switch item {
         case let .expr(expr):
           expr.accept(&this)
         case let .decl(decl):
@@ -502,7 +536,7 @@ struct ScopeHierarchyBuilder:
   }
 
   mutating func visit(conformanceLens i: NodeID<ConformanceLensTypeExpr>) {
-    ast[i].wrapped.accept(&self)
+    ast[i].subject.accept(&self)
   }
 
   mutating func visit(existential i: NodeID<ExistentialTypeExpr>) {

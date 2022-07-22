@@ -7,20 +7,20 @@ public struct LambdaTypeExpr: TypeExpr {
   public struct Parameter: Hashable {
 
     /// The label of the parameter.
-    public let label: String?
+    public var label: SourceRepresentable<Identifier>?
 
     /// The type of the parameter.
     public let type: NodeID<ParameterTypeExpr>
 
-    public init(label: String? = nil, type: NodeID<ParameterTypeExpr>) {
+    public init(label: SourceRepresentable<String>? = nil, type: NodeID<ParameterTypeExpr>) {
       self.label = label
       self.type = type
     }
 
   }
 
-  /// The property of the lambda's call operator.
-  public var operatorProperty: SourceRepresentable<LambdaType.OperatorProperty>?
+  /// The effect of the lambda's call operator.
+  public var receiverEffect: SourceRepresentable<ReceiverEffect>?
 
   /// The environment of the lambda, or `nil` if it is thin.
   public var environment: SourceRepresentable<AnyTypeExprID>?
@@ -32,12 +32,12 @@ public struct LambdaTypeExpr: TypeExpr {
   public var output: AnyTypeExprID
 
   public init(
-    operatorProperty: SourceRepresentable<LambdaType.OperatorProperty>? = nil,
+    receiverEffect: SourceRepresentable<ReceiverEffect>? = nil,
     environment: SourceRepresentable<AnyTypeExprID>? = nil,
     parameters: [Parameter] = [],
     output: AnyTypeExprID
   ) {
-    self.operatorProperty = operatorProperty
+    self.receiverEffect = receiverEffect
     self.environment = environment
     self.parameters = parameters
     self.output = output

@@ -83,13 +83,15 @@ public struct Module {
             type: .address(type.base)))
 
         case let type:
-          switch declType.operatorProperty {
+          switch declType.receiverEffect {
           case nil:
             inputs.append((convention: .let, type: .address(type)))
           case .inout:
             inputs.append((convention: .inout, type: .address(type)))
           case .sink:
             inputs.append((convention: .sink, type: .object(type)))
+          case .yielded:
+            unreachable()
           }
         }
       }

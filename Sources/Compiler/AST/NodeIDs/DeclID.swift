@@ -22,6 +22,8 @@ extension DeclID {
       return visitor.visit(genericTypeParam: NodeID(unsafeRawValue: rawValue))
     case .genericValueParamDecl:
       return visitor.visit(genericValueParam: NodeID(unsafeRawValue: rawValue))
+    case .importDecl:
+      return visitor.visit(import: NodeID(unsafeRawValue: rawValue))
     case .methodImplDecl:
       return visitor.visit(methodImpl: NodeID(unsafeRawValue: rawValue))
     case .moduleDecl:

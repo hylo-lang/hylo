@@ -62,8 +62,7 @@ final class CXXTests: XCTestCase {
           ],
           output: AnyTypeExprID(ast.insert(NameTypeExpr(
             identifier: SourceRepresentable(value: "Double")))),
-          body: SourceRepresentable(
-            value: .expr(AnyExprID(ast.insert(IntegerLiteralExpr(value: "0")))))))),
+          body: .expr(AnyExprID(ast.insert(IntegerLiteralExpr(value: "0"))))))),
         AnyDeclID(ast.insert(FunDecl(
           introducer: SourceRepresentable(value: .fun),
           accessModifier: SourceRepresentable(value: .public),
@@ -79,21 +78,20 @@ final class CXXTests: XCTestCase {
           ],
           output: AnyTypeExprID(ast.insert(NameTypeExpr(
             identifier: SourceRepresentable(value: "Self")))),
-          body: SourceRepresentable(
-            value: .bundle([
-              ast.insert(MethodImplDecl(
-                introducer: SourceRepresentable(value: .let),
-                body: .expr(AnyExprID(ast.insert(NameExpr(
-                  name: SourceRepresentable(value: "self"))))))),
-              ast.insert(MethodImplDecl(
-                introducer: SourceRepresentable(value: .inout),
-                body: .expr(AnyExprID(ast.insert(NameExpr(
-                  name: SourceRepresentable(value: "self"))))))),
-              ast.insert(MethodImplDecl(
-                introducer: SourceRepresentable(value: .sink),
-                body: .expr(AnyExprID(ast.insert(NameExpr(
-                  name: SourceRepresentable(value: "self"))))))),
-            ]))))),
+          body: .bundle([
+            ast.insert(MethodImplDecl(
+              introducer: SourceRepresentable(value: .let),
+              body: .expr(AnyExprID(ast.insert(NameExpr(
+                name: SourceRepresentable(value: "self"))))))),
+            ast.insert(MethodImplDecl(
+              introducer: SourceRepresentable(value: .inout),
+              body: .expr(AnyExprID(ast.insert(NameExpr(
+                name: SourceRepresentable(value: "self"))))))),
+            ast.insert(MethodImplDecl(
+              introducer: SourceRepresentable(value: .sink),
+              body: .expr(AnyExprID(ast.insert(NameExpr(
+                name: SourceRepresentable(value: "self"))))))),
+          ])))),
       ]))))
 
     var checker = TypeChecker(ast: ast)

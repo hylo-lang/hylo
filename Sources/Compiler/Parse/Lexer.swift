@@ -73,6 +73,7 @@ public struct Lexer: IteratorProtocol, Sequence {
 
       switch word {
       case "_"          : token.kind = .under
+      case "any"        : token.kind = .`any`
       case "async"      : token.kind = .`async`
       case "await"      : token.kind = .`await`
       case "break"      : token.kind = .`break`
@@ -80,6 +81,7 @@ public struct Lexer: IteratorProtocol, Sequence {
       case "conformance": token.kind = .`conformance`
       case "continue"   : token.kind = .`continue`
       case "deinit"     : token.kind = .`deinit`
+      case "do"         : token.kind = .`do`
       case "else"       : token.kind = .`else`
       case "extension"  : token.kind = .`extension`
       case "for"        : token.kind = .`for`
@@ -246,6 +248,23 @@ public struct Lexer: IteratorProtocol, Sequence {
       return token
     }
 
+    // Scan attributes.
+    if head == "@" {
+      discard()
+      let word = take(while: { $0.isLetter || ($0 == "_") })
+
+      switch word {
+      case "implicitcopy"   : token.kind = .implicitCopyAttribute
+      case "implicitpublic" : token.kind = .implicitPublicAttribute
+      case "type"           : token.kind = .typeAttribute
+      case "value"          : token.kind = .valueAttribute
+      default               : token.kind = .unrecognizedAttribute
+      }
+
+      token.range.upperBound = index
+      return token
+    }
+
     // Scan operators.
     if head.isOperator {
       let oper: Substring
@@ -263,7 +282,10 @@ public struct Lexer: IteratorProtocol, Sequence {
       case "<" : token.kind = .lAngle
       case ">" : token.kind = .rAngle
       case "->": token.kind = .arrow
+      case "&" : token.kind = .ampersand
+      case "|" : token.kind = .pipe
       case "=" : token.kind = .assign
+      case "==": token.kind = .equal
       default  : token.kind = .oper
       }
 

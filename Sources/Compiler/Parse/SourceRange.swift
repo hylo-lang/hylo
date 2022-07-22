@@ -36,6 +36,11 @@ public struct SourceRange: Hashable {
       : nil
   }
 
+  /// Returns a copy of `self` with the upper bound set to `newUpperBound`.
+  public func upperBounded(by newUpperBound: String.Index) -> SourceRange {
+    SourceRange(in: source, from: lowerBound, to: newUpperBound)
+  }
+
 }
 
 public func ..< (l: SourceRange, r: SourceRange) -> SourceRange {

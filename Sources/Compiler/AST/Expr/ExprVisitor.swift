@@ -36,8 +36,6 @@ public protocol ExprVisitor {
 
   mutating func visit(match: NodeID<MatchExpr>) -> Result
 
-  mutating func visit(matchCase: NodeID<MatchCaseExpr>) -> Result
-
   mutating func visit(name: NodeID<NameExpr>) -> Result
 
   mutating func visit(nil: NodeID<NilExpr>) -> Result

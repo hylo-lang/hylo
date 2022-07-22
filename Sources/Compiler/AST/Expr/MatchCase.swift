@@ -1,7 +1,7 @@
 /// A case in a match expression.
-public struct MatchCaseExpr: Expr, LexicalScope {
+public struct MatchCase: Node, LexicalScope {
 
-  public static let kind = NodeKind.matchCaseExpr
+  public static let kind = NodeKind.matchCase
 
   public enum Body: Hashable {
 
@@ -20,13 +20,9 @@ public struct MatchCaseExpr: Expr, LexicalScope {
   public var condition: AnyExprID?
 
   /// The body of the case.
-  public var body: SourceRepresentable<Body>
+  public var body: Body
 
-  public init(
-    pattern: AnyPatternID,
-    condition: AnyExprID? = nil,
-    body: SourceRepresentable<MatchCaseExpr.Body>
-  ) {
+  public init(pattern: AnyPatternID, condition: AnyExprID? = nil, body: MatchCase.Body) {
     self.pattern = pattern
     self.condition = condition
     self.body = body

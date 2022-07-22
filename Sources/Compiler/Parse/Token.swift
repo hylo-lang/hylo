@@ -5,28 +5,30 @@ public struct Token {
   public enum Kind: Int {
 
     // Errors
-    case invalid  = 0
+    case invalid = 0
     case unterminatedString
     case unterminatedBlockComment
 
     // Scalar literals
-    case bool     = 1000
+    case bool = 1000
     case int
     case float
     case string
 
     // Identifiers
-    case name     = 2000
+    case name = 2000
     case under
 
     // Keywords
-    case `async`  = 3000
+    case `any` = 3000
+    case `async`
     case `await`
     case `break`
     case `catch`
     case `conformance`
     case `continue`
     case `deinit`
+    case `do`
     case `else`
     case `extension`
     case `for`
@@ -63,21 +65,31 @@ public struct Token {
     case `yield`
     case `yielded`
 
+    // Attributes
+    case unrecognizedAttribute = 4000
+    case implicitCopyAttribute
+    case implicitPublicAttribute
+    case typeAttribute
+    case valueAttribute
+
     // Operators
-    case oper     = 4000
+    case oper = 5000
+    case ampersand
     case cast
     case arrow
     case assign
+    case equal
+    case pipe
 
     // Punctuation
-    case comma    = 5000
+    case comma = 6000
     case semi
     case dot
     case colon
     case twoColons
 
     // Delimiters
-    case lParen   = 6000
+    case lParen = 7000
     case rParen
     case lBrace
     case rBrace
@@ -104,12 +116,22 @@ public struct Token {
     (kind == .name) || isKeyword
   }
 
-  /// Indicates whether `self` is a suitable as an operator.
+  /// Indicates whether `self` may be in an operator
   ///
-  /// Use this property rather than testing `self.kind == .oper`. The assignment operator (i.e.,
-  /// `=`) and the angle brackets (i.e., `<` and `>`) do not have the kind `.oper`.
-  public var isOperator: Bool {
-    isOf(kind: [.oper, .assign, .lAngle, .rAngle])
+  /// Use this property rather than testing `self.kind == .oper` as some operators (e.g., `==`) do
+  /// not have the kind `.oper`.
+  public var isOperatorToken: Bool {
+    isOf(kind: [.oper, .ampersand, .assign, .equal, .pipe, .lAngle, .rAngle])
+  }
+
+  /// Indicates whether `self` is a suitable prefix operator head.
+  public var isPrefixOperatorHead: Bool {
+    isOf(kind: [.oper, .rAngle, .equal, .pipe])
+  }
+
+  /// Indicates whether `self` is a suitable postfix operator head.
+  public var isPostfixOperatorHead: Bool {
+    isOf(kind: [.oper, .lAngle, .equal, .pipe, .ampersand])
   }
 
   /// Indicates whether `self` is a declaration modifier.

@@ -123,7 +123,7 @@ public struct DeclLocator: Hashable {
         case .let   : return "Il"
         case .inout : return "Ii"
         case .sink  : return "Is"
-        case .assign: return "Ia"
+        case .set   : return "Ia"
         }
 
       case .trait(let name):

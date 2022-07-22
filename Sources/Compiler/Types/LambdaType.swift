@@ -3,19 +3,8 @@ import Utils
 /// The type of a lambda.
 public struct LambdaType: TypeProtocol, Hashable {
 
-  /// The property of a lambda's call operator.
-  public enum OperatorProperty: Hashable {
-
-    /// The call operator is mutating.
-    case `inout`
-
-    /// The call operator is consuming.
-    case sink
-
-  }
-
   /// The property of the lambda's call operator.
-  public let operatorProperty: OperatorProperty?
+  public let receiverEffect: ReceiverEffect?
 
   /// The environment of the lambda.
   ///
@@ -33,7 +22,7 @@ public struct LambdaType: TypeProtocol, Hashable {
   public let flags: TypeFlags
 
   public init(
-    operatorProperty: OperatorProperty? = nil,
+    receiverEffect: ReceiverEffect? = nil,
     environment: Type = .unit,
     inputs: [CallableTypeParameter],
     output: Type
@@ -45,7 +34,7 @@ public struct LambdaType: TypeProtocol, Hashable {
       preconditionFailure("invalid environment type")
     }
 
-    self.operatorProperty = operatorProperty
+    self.receiverEffect = receiverEffect
     self.environment = environment
     self.inputs = inputs
     self.output = output
@@ -94,7 +83,7 @@ public struct LambdaType: TypeProtocol, Hashable {
     if !method.capabilities.contains(.inout) && !method.capabilities.contains(.sink) { return nil }
 
     self.init(
-      operatorProperty: .sink,
+      receiverEffect: .sink,
       environment: .tuple(TupleType(labelsAndTypes: [("self", method.receiver)])),
       inputs: method.inputs,
       output: method.output)
@@ -103,7 +92,7 @@ public struct LambdaType: TypeProtocol, Hashable {
   /// Transforms `self` into a constructor type if `self` has the shape of an initializer type.
   /// Otherwise, returns `nil`.
   public func ctor() -> LambdaType? {
-    guard (operatorProperty == nil) && (environment == .unit) && (output == .unit),
+    guard (receiverEffect == nil) && (environment == .unit) && (output == .unit),
           let receiverParameter = inputs.first,
           case .parameter(let receiverType) = receiverParameter.type,
           receiverType.convention == .set
@@ -128,7 +117,7 @@ public struct LambdaType: TypeProtocol, Hashable {
 extension LambdaType: CustomStringConvertible {
 
   public var description: String {
-    let p = operatorProperty.map({ "\($0) " }) ?? ""
+    let p = receiverEffect.map({ "\($0) " }) ?? ""
     let e = (environment == .unit) ? "thin" : "[\(environment)]"
     return "\(p)\(e) (\(inputs.descriptions())) -> \(output)"
   }

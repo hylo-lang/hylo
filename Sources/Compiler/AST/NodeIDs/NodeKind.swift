@@ -50,28 +50,30 @@ public struct NodeKind: Hashable {
      8 << 16 | typeDecl.rawValue)
   public static let genericValueParamDecl = NodeKind(
      9 << 16 | typeDecl.rawValue)
+  public static let importDecl = NodeKind(
+    10 << 16 | typeDecl.rawValue)
   public static let methodImplDecl = NodeKind(
-    10 << 16 | decl.rawValue)
+    11 << 16 | decl.rawValue | lexicalScope.rawValue)
   public static let moduleDecl = NodeKind(
-    11 << 16 | typeDecl.rawValue | lexicalScope.rawValue)
-  public static let namespaceDecl = NodeKind(
     12 << 16 | typeDecl.rawValue | lexicalScope.rawValue)
+  public static let namespaceDecl = NodeKind(
+    13 << 16 | typeDecl.rawValue | lexicalScope.rawValue)
   public static let operatorDecl = NodeKind(
-    13 << 16 | decl.rawValue)
-  public static let parameterDecl = NodeKind(
     14 << 16 | decl.rawValue)
+  public static let parameterDecl = NodeKind(
+    15 << 16 | decl.rawValue)
   public static let productTypeDecl = NodeKind(
-    15 << 16 | typeDecl.rawValue | genericScope.rawValue)
+    16 << 16 | typeDecl.rawValue | genericScope.rawValue)
   public static let subscriptDecl = NodeKind(
-    16 << 16 | decl.rawValue | genericScope.rawValue)
+    17 << 16 | decl.rawValue | genericScope.rawValue)
   public static let subscriptImplDecl = NodeKind(
-    17 << 16 | decl.rawValue)
+    18 << 16 | decl.rawValue | lexicalScope.rawValue)
   public static let traitDecl = NodeKind(
-    18 << 16 | typeDecl.rawValue | genericScope.rawValue)
-  public static let typeAliasDecl = NodeKind(
     19 << 16 | typeDecl.rawValue | genericScope.rawValue)
+  public static let typeAliasDecl = NodeKind(
+    20 << 16 | typeDecl.rawValue | genericScope.rawValue)
   public static let varDecl = NodeKind(
-    20 << 16 | decl.rawValue)
+    21 << 16 | decl.rawValue)
 
   // MARK: Value expressions
 
@@ -110,24 +112,22 @@ public struct NodeKind: Hashable {
     15 << 16 | expr.rawValue)
   public static let matchExpr = NodeKind(
     16 << 16 | expr.rawValue | lexicalScope.rawValue)
-  public static let matchCaseExpr = NodeKind(
-    17 << 16 | expr.rawValue)
   public static let nameExpr = NodeKind(
-    18 << 16 | expr.rawValue)
+    17 << 16 | expr.rawValue)
   public static let nilExpr = NodeKind(
-    19 << 16 | expr.rawValue)
+    18 << 16 | expr.rawValue)
   public static let sequenceExpr = NodeKind(
-    20 << 16 | expr.rawValue)
+    19 << 16 | expr.rawValue)
   public static let storedProjectionExpr = NodeKind(
-    21 << 16 | expr.rawValue)
+    20 << 16 | expr.rawValue)
   public static let stringLiteralExpr = NodeKind(
-    22 << 26 | expr.rawValue)
+    21 << 26 | expr.rawValue)
   public static let subscriptCallExpr = NodeKind(
-    23 << 16 | expr.rawValue)
+    22 << 16 | expr.rawValue)
   public static let tupleExpr = NodeKind(
-    24 << 16 | expr.rawValue)
+    23 << 16 | expr.rawValue)
   public static let tupleMemberExpr = NodeKind(
-    25 << 16 | expr.rawValue)
+    24 << 16 | expr.rawValue)
 
   // MARK: Patterns
 
@@ -154,24 +154,26 @@ public struct NodeKind: Hashable {
      1 << 16 | stmt.rawValue | lexicalScope.rawValue)
   public static let breakStmt = NodeKind(
      2 << 16 | stmt.rawValue)
-  public static let continueStmt = NodeKind(
+  public static let condBindingStmt = NodeKind(
      3 << 16 | stmt.rawValue)
-  public static let declStmt = NodeKind(
+  public static let continueStmt = NodeKind(
      4 << 16 | stmt.rawValue)
-  public static let discardStmt = NodeKind(
+  public static let declStmt = NodeKind(
      5 << 16 | stmt.rawValue)
-  public static let doWhileStmt = NodeKind(
+  public static let discardStmt = NodeKind(
      6 << 16 | stmt.rawValue)
-  public static let exprStmt = NodeKind(
+  public static let doWhileStmt = NodeKind(
      7 << 16 | stmt.rawValue)
+  public static let exprStmt = NodeKind(
+     8 << 16 | stmt.rawValue)
   public static let forStmt = NodeKind(
-     8 << 16 | stmt.rawValue | lexicalScope.rawValue)
+     9 << 16 | stmt.rawValue | lexicalScope.rawValue)
   public static let returnStmt = NodeKind(
-     9 << 16 | stmt.rawValue)
+    10 << 16 | stmt.rawValue)
   public static let whileStmt = NodeKind(
-    10 << 16 | stmt.rawValue | lexicalScope.rawValue)
+    11 << 16 | stmt.rawValue | lexicalScope.rawValue)
   public static let yieldStmt = NodeKind(
-    11 << 16 | stmt.rawValue)
+    12 << 16 | stmt.rawValue)
 
   // MARK: Type expressions
 
@@ -202,6 +204,11 @@ public struct NodeKind: Hashable {
   public static let wildcardTypeExpr = NodeKind(
     11 << 16 | typeExpr.rawValue)
 
+  // MARK: Others
+
+  public static let matchCase = NodeKind(
+    1 << 16)
+
 }
 
 extension NodeKind: CustomStringConvertible {
@@ -219,6 +226,7 @@ extension NodeKind: CustomStringConvertible {
     case .funDecl                   : return "FunDecl"
     case .genericTypeParamDecl      : return "GenericTypeParamDecl"
     case .genericValueParamDecl     : return "GenericValueParamDecl"
+    case .importDecl                : return "ImportDecl"
     case .methodImplDecl            : return "MethodImplDecl"
     case .moduleDecl                : return "ModuleDecl"
     case .namespaceDecl             : return "NamespaceDecl"

@@ -468,7 +468,7 @@ public struct TypeChecker {
     }
 
     // Synthesize the receiver parameter if necessary.
-    if case .bundle(let impls) = decl.body?.value {
+    if case .bundle(let impls) = decl.body {
       guard case .method(let type) = declTypes[id]! else { unreachable() }
       let bareType = type.receiver
 
@@ -533,7 +533,7 @@ public struct TypeChecker {
     }
 
     // Type check the body of the function, if any.
-    switch decl.body?.value {
+    switch decl.body {
     case .block(let stmt):
       success = check(brace: stmt) && success
 
@@ -678,7 +678,7 @@ public struct TypeChecker {
   private mutating func _check(typeAlias id: NodeID<TypeAliasDecl>) -> Bool {
     // Realize the subject of the declaration.
     let subject: Type
-    switch ast[id].body.value {
+    switch ast[id].body {
     case .typeExpr(let j):
       if let s = realize(j, inScope: AnyScopeID(id)) {
         subject = s
@@ -1270,14 +1270,14 @@ public struct TypeChecker {
           // Visit the elements pairwise.
           for (a, b) in zip(lhs.elements, rhs.elements) {
             if _infer(
-              pattern: a.value.pattern,
+              pattern: a.pattern,
               expectedType: b.type,
               inScope: scope,
               constraints: &constraints,
               decls: &decls) == nil
             { return nil }
 
-            lLabels.append(a.value.label)
+            lLabels.append(a.label?.value)
             rLabels.append(b.label)
           }
 
@@ -1307,13 +1307,13 @@ public struct TypeChecker {
         var elements: [TupleType.Element] = []
         for element in lhs.elements {
           guard let type = _infer(
-            pattern: element.value.pattern,
+            pattern: element.pattern,
             expectedType: nil,
             inScope: scope,
             constraints: &constraints,
             decls: &decls)
           else { return nil }
-          elements.append(TupleType.Element(label: element.value.label, type: type))
+          elements.append(TupleType.Element(label: element.label?.value, type: type))
         }
         return .tuple(TupleType(elements))
       }
@@ -1609,16 +1609,10 @@ public struct TypeChecker {
       case .subscriptDecl:
         let decl = ast[NodeID<SubscriptDecl>(converting: id)!]
         let name = decl.identifier?.value ?? "[]"
-        modifying(&table[name, default: []], { entries in
-          for j in decl.impls {
-            entries.insert(AnyDeclID(j))
-          }
-        })
+        table[name, default: []].insert(AnyDeclID(id))
 
       case .subscriptImplDecl:
-        let decl = ast[NodeID<SubscriptDecl>(converting: scope)!]
-        let name = decl.identifier?.value ?? "[]"
-        table[name, default: []].insert(AnyDeclID(id))
+        break
 
       default:
         unreachable("unexpected declaration")
@@ -1706,18 +1700,18 @@ public struct TypeChecker {
     inScope scope: AnyScopeID
   ) -> Type? {
     let decl = ast[id]
-    guard let wrapped = realize(decl.wrapped, inScope: scope) else { return nil }
-    guard let trait = realize(decl.focus, inScope: scope) else { return nil }
+    guard let wrapped = realize(decl.subject, inScope: scope) else { return nil }
+    guard let trait = realize(decl.lens, inScope: scope) else { return nil }
 
     /// The focus must be a trait.
     guard case .trait(let focus) = trait else {
-      diagnostics.insert(.nonTraitType(trait, range: ast.ranges[decl.focus]))
+      diagnostics.insert(.nonTraitType(trait, range: ast.ranges[decl.lens]))
       return nil
     }
 
     // The base must conform to the focus.
     guard conformedTraits(of: wrapped, inScope: scope)?.contains(focus) ?? false else {
-      diagnostics.insert(.noConformance(of: wrapped, to: focus, range: ast.ranges[decl.focus]))
+      diagnostics.insert(.noConformance(of: wrapped, to: focus, range: ast.ranges[decl.lens]))
       return nil
     }
 
@@ -1741,14 +1735,14 @@ public struct TypeChecker {
     var inputs: [CallableTypeParameter] = []
     for parameter in ast[id].parameters {
       guard let ty = realize(parameter: parameter.type, inScope: scope) else { return nil }
-      inputs.append(CallableTypeParameter(label: parameter.label, type: ty))
+      inputs.append(CallableTypeParameter(label: parameter.label?.value, type: ty))
     }
 
     // Realize the lambda's output.
     guard let output = realize(ast[id].output, inScope: scope) else { return nil }
 
     return .lambda(LambdaType(
-      operatorProperty: ast[id].operatorProperty?.value,
+      receiverEffect: ast[id].receiverEffect?.value,
       environment: environment,
       inputs: inputs,
       output: output))
@@ -2209,7 +2203,7 @@ public struct TypeChecker {
         output = .unit
       }
 
-      if case .bundle(let impls) = ast[id].body?.value {
+      if case .bundle(let impls) = ast[id].body {
         // Create a method bundle.
         let capabilities = Set(impls.map({ ast[$0].introducer.value }))
 
@@ -2226,24 +2220,24 @@ public struct TypeChecker {
           output: output))
       } else if isNonStaticMember {
         // Create a lambda bound to a receiver.
-        let property: LambdaType.OperatorProperty?
+        let effect: ReceiverEffect?
         if ast[id].isInout {
           receiver = .tuple(TupleType(labelsAndTypes: [
             ("self", .projection(ProjectionType(.inout, receiver!)))
           ]))
-          property = .inout
+          effect = .inout
         } else if decl.isSink  {
           receiver = .tuple(TupleType(labelsAndTypes: [("self", receiver!)]))
-          property = .sink
+          effect = .sink
         } else {
           receiver = .tuple(TupleType(labelsAndTypes: [
             ("self", .projection(ProjectionType(.let, receiver!)))
           ]))
-          property = nil
+          effect = nil
         }
 
         return .lambda(LambdaType(
-          operatorProperty: property, environment: receiver!, inputs: inputs, output: output))
+          receiverEffect: effect, environment: receiver!, inputs: inputs, output: output))
       } else {
         // Create a regular lambda.
         let environment = Type.tuple(TupleType(types: captures))
@@ -2302,7 +2296,12 @@ public struct TypeChecker {
     guard let output = realize(decl.output, inScope: AnyScopeID(id)) else {
       return .error(ErrorType())
     }
-    let capabilities = Set(decl.impls.map({ ast[$0].introducer.value }))
+    let capabilities: Set<SubscriptImplDecl.Introducer>
+    if case .bundle(let impls) = decl.body {
+      capabilities = Set(impls.map({ ast[$0].introducer.value }))
+    } else {
+      capabilities = [.let]
+    }
 
     return .subscript(SubscriptType(
       isProperty: decl.parameters == nil,

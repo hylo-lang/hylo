@@ -5,7 +5,7 @@ final class CaptureCollectorTests: XCTestCase {
 
   func testFunctionBindings() {
 
-    // fun f<X, value v>[let c = ()](_ p: Any) {
+    // fun f<X, @value v: Unit>[let c = ()](_ p: Any) {
     //   let _ = free   // captured
     //   let _ = X      // bound
     //   let _ = v      // bound
@@ -22,7 +22,9 @@ final class CaptureCollectorTests: XCTestCase {
           .type(ast.insert(GenericTypeParamDecl(
             identifier: SourceRepresentable(value: "X")))),
           .value(ast.insert(GenericValueParamDecl(
-            identifier: SourceRepresentable(value: "v")))),
+            identifier: SourceRepresentable(value: "v"),
+            annotation: AnyTypeExprID(ast.insert(NameTypeExpr(
+              identifier: SourceRepresentable(value: "Unit"))))))),
         ])),
       captures: [
         ast.insert(BindingDecl(
@@ -41,45 +43,44 @@ final class CaptureCollectorTests: XCTestCase {
             bareType: AnyTypeExprID(ast.insert(NameTypeExpr(
               identifier: SourceRepresentable(value: "Any")))))))),
       ],
-      body: SourceRepresentable(
-        value: .block(ast.insert(BraceStmt(
-          stmts: [
-            AnyStmtID(ast.insert(DeclStmt(
-              decl: AnyDeclID(ast.insert(BindingDecl(
-                pattern: ast.insert(BindingPattern(
-                  introducer: SourceRepresentable(value: .let),
-                  subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
-                initializer: AnyExprID(ast.insert(NameExpr(
-                  name: SourceRepresentable(value: "free")))))))))),
-            AnyStmtID(ast.insert(DeclStmt(
-              decl: AnyDeclID(ast.insert(BindingDecl(
-                pattern: ast.insert(BindingPattern(
-                  introducer: SourceRepresentable(value: .let),
-                  subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
-                initializer: AnyExprID(ast.insert(NameExpr(
-                  name: SourceRepresentable(value: "X")))))))))),
-            AnyStmtID(ast.insert(DeclStmt(
-              decl: AnyDeclID(ast.insert(BindingDecl(
-                pattern: ast.insert(BindingPattern(
-                  introducer: SourceRepresentable(value: .let),
-                  subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
-                initializer: AnyExprID(ast.insert(NameExpr(
-                  name: SourceRepresentable(value: "v")))))))))),
-            AnyStmtID(ast.insert(DeclStmt(
-              decl: AnyDeclID(ast.insert(BindingDecl(
-                pattern: ast.insert(BindingPattern(
-                  introducer: SourceRepresentable(value: .let),
-                  subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
-                initializer: AnyExprID(ast.insert(NameExpr(
-                  name: SourceRepresentable(value: "c")))))))))),
-            AnyStmtID(ast.insert(DeclStmt(
-              decl: AnyDeclID(ast.insert(BindingDecl(
-                pattern: ast.insert(BindingPattern(
-                  introducer: SourceRepresentable(value: .let),
-                  subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
-                initializer: AnyExprID(ast.insert(NameExpr(
-                  name: SourceRepresentable(value: "p")))))))))),
-          ]))))))
+      body: .block(ast.insert(BraceStmt(
+        stmts: [
+          AnyStmtID(ast.insert(DeclStmt(
+            decl: AnyDeclID(ast.insert(BindingDecl(
+              pattern: ast.insert(BindingPattern(
+                introducer: SourceRepresentable(value: .let),
+                subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
+              initializer: AnyExprID(ast.insert(NameExpr(
+                name: SourceRepresentable(value: "free")))))))))),
+          AnyStmtID(ast.insert(DeclStmt(
+            decl: AnyDeclID(ast.insert(BindingDecl(
+              pattern: ast.insert(BindingPattern(
+                introducer: SourceRepresentable(value: .let),
+                subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
+              initializer: AnyExprID(ast.insert(NameExpr(
+                name: SourceRepresentable(value: "X")))))))))),
+          AnyStmtID(ast.insert(DeclStmt(
+            decl: AnyDeclID(ast.insert(BindingDecl(
+              pattern: ast.insert(BindingPattern(
+                introducer: SourceRepresentable(value: .let),
+                subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
+              initializer: AnyExprID(ast.insert(NameExpr(
+                name: SourceRepresentable(value: "v")))))))))),
+          AnyStmtID(ast.insert(DeclStmt(
+            decl: AnyDeclID(ast.insert(BindingDecl(
+              pattern: ast.insert(BindingPattern(
+                introducer: SourceRepresentable(value: .let),
+                subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
+              initializer: AnyExprID(ast.insert(NameExpr(
+                name: SourceRepresentable(value: "c")))))))))),
+          AnyStmtID(ast.insert(DeclStmt(
+            decl: AnyDeclID(ast.insert(BindingDecl(
+              pattern: ast.insert(BindingPattern(
+                introducer: SourceRepresentable(value: .let),
+                subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
+              initializer: AnyExprID(ast.insert(NameExpr(
+                name: SourceRepresentable(value: "p")))))))))),
+        ])))))
 
     var collector = CaptureCollector(ast: ast)
     let captures = collector.freeNames(in: fun)
