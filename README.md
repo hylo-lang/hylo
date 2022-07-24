@@ -8,14 +8,14 @@ Please visit our [website](https://val-lang.github.io) to get more information a
 Value semantics brings several advantages in terms of software correctness, performance, and maintainability.
 In particular, it upholds local reasoning, allowing programmers (and compilers) to safely focus on confined sections of the program, without worrying about unintended side effects in unrelated components.
 
-Val is heavily inspired by [Swift](https://swift.org) and [Rust](https://www.rust-lang.org), and it adopts many of their features, including higher-order functions, powerful support for generic programming (a.k.a. parametric polymorphism), and an ownership-aware typesystem.
+Val is heavily inspired by [Swift](https://swift.org) and [Rust](https://www.rust-lang.org), and it adopts many of their features, including higher-order functions, powerful support for generic programming (a.k.a. parametric polymorphism), and an ownership-aware type system.
 Qualitatively, Val aims to combine the systems programming power of Rust with the simplicity of Swift's programming model.
 
 ## Supported platforms
 
-The compiler is currently currently developed for Unix-like operating systems.
+The compiler is currently developed for Unix-like operating systems.
 Nonetheless, it should be compilable on Windows as well.
-Please, fill an issue if you are experiencing problems on Windows.
+Please, fill in an issue if you are experiencing problems on Windows.
  
 ## Installation
 
