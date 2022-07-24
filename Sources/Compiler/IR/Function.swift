@@ -110,7 +110,7 @@ extension Function: Sequence {
   }
 
   public subscript(_ address: BlockAddress) -> Block {
-    _read   { yield blocks[address] }
+    get { blocks[address] }
     _modify { yield &blocks[address] }
   }
 
