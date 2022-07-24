@@ -7,7 +7,7 @@ Let's get you started.
 There are several ways you may contribute to the Val project (see below) and we greatly appreciate all of them.
 We'd like to ask every contributor to read and follow our [Code of Conduct](CODE_OF_CONDUCT.md) and expect every member of our community to be welcoming, helpful, and respectful.
 
-Please fill an issue if you have any question.
+Please fill an issue if you have any questions.
 
 ## Suggesting feature requests
 
@@ -26,18 +26,18 @@ If it hasn't, you can create a new issue with the label `bug` with the following
 - the steps to reproduce it (typically in the form of a program);
 - the expected result;
 - the actual result; and
-- the version of your operator system and the version of the Val compiler you are using.
+- the version of your operating system and the version of the Val compiler you are using.
 
-We greatly appreciate if you can isolate the problem and provide a minimal reproducer.
+We greatly appreciate it if you can isolate the problem and provide a minimal reproducer.
 
 ## Contributing code
 
 We use the standard GitHub workflow to merge code contributions:
 
-1. Fork this reposity.
+1. Fork this repository.
 2. Create a new branch on your own repository that is named after your contribution.
 3. Commit your contribution to that branch.
-4. Push your changes to your own repository.
+4. Push your changes to your repository.
 5. Create a pull request from GitHub.
 
 Keep in mind that your fork will not automatically stay up to date with this repository.
@@ -50,4 +50,4 @@ Before issuing a pull request we ask that you squash all your commits into a sin
 We may ask you to commit additional changes while your pull request is under review.
 Once everything looks good, squash those additional commits before merging.
 
-Do not hesitate to reach out if your are lost in the process.
+Do not hesitate to reach out if you are lost in the process.
