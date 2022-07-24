@@ -1,5 +1,5 @@
 import XCTest
-@testable import Compiler
+import Compiler
 
 final class ASTTests: XCTestCase {
 

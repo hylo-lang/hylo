@@ -1,4 +1,4 @@
-@testable import Compiler
+import Compiler
 
 extension AST {
 
