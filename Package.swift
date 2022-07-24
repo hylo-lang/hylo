@@ -9,7 +9,7 @@ let package = Package(
   ],
 
   products: [
-    .executable(name: "val", targets: ["CLI"]),
+    .executable(name: "valc", targets: ["CLI"]),
   ],
 
   dependencies: [
