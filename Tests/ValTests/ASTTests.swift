@@ -17,7 +17,7 @@ final class ASTTests: XCTestCase {
 
     // Create a trait declaration, subscripting the AST for writing with a typed ID.
     let j = ast.insert(TraitDecl(
-      access: nil,
+      accessModifier: nil,
       identifier: SourceRepresentable(value: "T"),
       refinements: [],
       members: []))

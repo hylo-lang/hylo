@@ -27,7 +27,7 @@ public struct FunDecl: GenericDecl, GenericScope {
     /// A block body.
     case block(NodeID<BraceStmt>)
 
-    /// A method bundle.
+    /// A bundle.
     case bundle([NodeID<MethodImplDecl>])
 
   }
@@ -38,8 +38,11 @@ public struct FunDecl: GenericDecl, GenericScope {
   /// The access modifier of the declaration, if any.
   public var accessModifier: SourceRepresentable<AccessModifier>?
 
-  /// The member modifiers of the declaration.
-  public var memberModifiers: [SourceRepresentable<MemberModifier>]
+  /// The member modifier of the declaration.
+  public var memberModifier: SourceRepresentable<MemberModifier>?
+
+  /// The receiver effect of the function.
+  public var receiverEffect: SourceRepresentable<ReceiverEffect>?
 
   /// The operator notation of the function.
   public var notation: SourceRepresentable<OperatorNotation>?
@@ -60,7 +63,7 @@ public struct FunDecl: GenericDecl, GenericScope {
   public var output: AnyTypeExprID?
 
   /// The body of the declaration, if any.
-  public var body: SourceRepresentable<Body>?
+  public var body: Body?
 
   /// Indicates whether the declaration appears in an expression context.
   public var isInExprContext: Bool
@@ -68,7 +71,7 @@ public struct FunDecl: GenericDecl, GenericScope {
   /// The declaration of the implicit parameters of the function, if any.
   ///
   /// This property is set during type checking. In a local function, it maps the names of the
-  /// implicit and explicit captures to their respective declaration.In a non-static method
+  /// implicit and explicit captures to their respective declaration. In a non-static method
   /// declaration, it contains a reference to the declaration of the implicit receiver parameter
   /// (i.e., `self`), unless the method forms a bundle. The implicit receiver of a method bundle
   /// has a declaration in each method implementation.
@@ -86,20 +89,22 @@ public struct FunDecl: GenericDecl, GenericScope {
   public init(
     introducer: SourceRepresentable<Introducer>,
     accessModifier: SourceRepresentable<AccessModifier>? = nil,
-    memberModifiers: [SourceRepresentable<MemberModifier>] = [],
+    memberModifier: SourceRepresentable<MemberModifier>? = nil,
+    receiverEffect: SourceRepresentable<ReceiverEffect>? = nil,
     notation: SourceRepresentable<OperatorNotation>? = nil,
     identifier: SourceRepresentable<Identifier>? = nil,
     genericClause: SourceRepresentable<GenericClause>? = nil,
     captures: [NodeID<BindingDecl>] = [],
     parameters: [NodeID<ParameterDecl>] = [],
     output: AnyTypeExprID? = nil,
-    body: SourceRepresentable<Body>? = nil,
+    body: Body? = nil,
     receiver: NodeID<ParameterDecl>? = nil,
     isInExprContext: Bool = false
   ) {
     self.introducer = introducer
     self.accessModifier = accessModifier
-    self.memberModifiers = memberModifiers
+    self.memberModifier = memberModifier
+    self.receiverEffect = receiverEffect
     self.notation = notation
     self.identifier = identifier
     self.genericClause = genericClause
@@ -111,20 +116,20 @@ public struct FunDecl: GenericDecl, GenericScope {
   }
 
   /// Returns whether the declaration is public.
-  public var isPublic: Bool { accessModifier?.value != nil }
+  public var isPublic: Bool { accessModifier?.value == .public }
 
   /// Returns whether the declaration denotes a static method.
-  public var isStatic: Bool { memberModifiers.contains(where: { $0.value == .static }) }
+  public var isStatic: Bool { memberModifier?.value == .static }
 
   /// Returns whether the declaration denotes an `inout` method.
-  public var isInout: Bool { memberModifiers.contains(where: { $0.value == .receiver(.inout) }) }
+  public var isInout: Bool { receiverEffect?.value == .inout }
 
   /// Returns whether the declaration denotes a `sink` method.
-  public var isSink: Bool { memberModifiers.contains(where: { $0.value == .receiver(.sink) }) }
+  public var isSink: Bool { receiverEffect?.value == .sink }
 
-  /// Returns whether the declaration denotes a method bundler.
+  /// Returns whether the declaration denotes a method bundle.
   public var isBundle: Bool {
-    if case .bundle = body?.value {
+    if case .bundle = body {
       return true
     } else {
       return false

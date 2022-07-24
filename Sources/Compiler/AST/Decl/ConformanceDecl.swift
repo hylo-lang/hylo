@@ -3,6 +3,9 @@ public struct ConformanceDecl: TypeExtendingDecl {
 
   public static let kind = NodeKind.conformanceDecl
 
+  /// The access modifier of the declaration, if any.
+  public var accessModifier: SourceRepresentable<AccessModifier>?
+
   /// The expression of the extended type.
   public var subject: AnyTypeExprID
 
@@ -16,11 +19,13 @@ public struct ConformanceDecl: TypeExtendingDecl {
   public var members: [AnyDeclID]
 
   public init(
+    accessModifier: SourceRepresentable<AccessModifier>? = nil,
     subject: AnyTypeExprID,
     conformances: [NodeID<NameTypeExpr>] = [],
     whereClause: SourceRepresentable<WhereClause>? = nil,
     members: [AnyDeclID] = []
   ) {
+    self.accessModifier = accessModifier
     self.subject = subject
     self.conformances = conformances
     self.whereClause = whereClause

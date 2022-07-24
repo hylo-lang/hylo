@@ -7,12 +7,12 @@ public struct TuplePattern: Pattern {
   public struct Element: Hashable {
 
     /// The label of the element.
-    public var label: String?
+    public var label: SourceRepresentable<String>?
 
     /// The pattern of the element.
     public var pattern: AnyPatternID
 
-    public init(label: String? = nil, pattern: AnyPatternID) {
+    public init(label: SourceRepresentable<String>? = nil, pattern: AnyPatternID) {
       self.label = label
       self.pattern = pattern
     }
@@ -20,9 +20,9 @@ public struct TuplePattern: Pattern {
   }
 
   /// The elements of the tuple.
-  public var elements: [SourceRepresentable<Element>]
+  public var elements: [Element]
 
-  public init(elements: [SourceRepresentable<TuplePattern.Element>] = []) {
+  public init(elements: [Element] = []) {
     self.elements = elements
   }
 

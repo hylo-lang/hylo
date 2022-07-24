@@ -43,15 +43,13 @@ public enum PrecedenceGroup: String, Hashable {
     }
   }
 
-  /// The associativity of the operators in the group, if any.
-  public var associativity: Associativity? {
+  /// The associativity of the operators in the group.
+  public var associativity: Associativity {
     switch self {
     case .assignment, .fallback:
       return .right
-    case .disjunction, .conjunction, .comparison, .addition, .multiplication, .shift:
+    case .disjunction, .conjunction, .comparison, .addition, .multiplication, .range, .shift:
       return .left
-    case .range:
-      return nil
     }
 
   }

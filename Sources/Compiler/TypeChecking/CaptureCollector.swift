@@ -129,7 +129,7 @@ struct CaptureCollector {
           }
           newNames.insert(Name(stem: ast[parameter].name))
 
-        case .size(let parameter):
+        case .value(let parameter):
           if let value = ast[parameter].defaultValue {
             collectCaptures(ofExpr: value, into: &captures, inMutatingContext: false)
           }
@@ -152,7 +152,7 @@ struct CaptureCollector {
 
     // Visit the function's body.
     boundNames.append(newNames)
-    switch ast[id].body?.value {
+    switch ast[id].body {
     case .expr(let expr):
       collectCaptures(ofExpr: expr, into: &captures, inMutatingContext: false)
     case .block(let stmt):
@@ -206,8 +206,15 @@ struct CaptureCollector {
         into: &captures,
         inMutatingContext: isContextMutating)
 
+    case .tupleMemberExpr:
+      collectCaptures(
+        ofTupleMember: NodeID(unsafeRawValue: id.rawValue),
+        into: &captures,
+        inMutatingContext: isContextMutating)
+
     case .booleanLiteralExpr,
          .charLiteralExpr,
+         .errorExpr,
          .floatLiteralExpr,
          .integerLiteralExpr,
          .nilExpr,
@@ -247,12 +254,12 @@ struct CaptureCollector {
       let callee = NodeID<NameExpr>(unsafeRawValue: ast[id].callee.rawValue)
       if ast[callee].domain == .none {
         let baseName: Name
-        if (ast[callee].notation == nil) && ast[callee].labels.isEmpty {
+        if (ast[callee].name.value.notation == nil) && ast[callee].name.value.labels.isEmpty {
           baseName = Name(
-            stem: ast[callee].stem.value,
-            labels: ast[id].arguments.map({ $0.value.label?.value }))
+            stem: ast[callee].name.value.stem,
+            labels: ast[id].arguments.map({ $0.label?.value }))
         } else {
-          baseName = ast[callee].baseName
+          baseName = ast[callee].name.value
         }
         record(occurrence: callee, withCapability: .let, ifFree: baseName, into: &captures)
       }
@@ -267,7 +274,7 @@ struct CaptureCollector {
 
     // Visit the arguments.
     for argument in ast[id].arguments {
-      collectCaptures(ofExpr: argument.value.value, into: &captures, inMutatingContext: false)
+      collectCaptures(ofExpr: argument.value, into: &captures, inMutatingContext: false)
     }
   }
 
@@ -286,10 +293,10 @@ struct CaptureCollector {
       record(
         occurrence: id,
         withCapability: isContextMutating ? .inout : .let,
-        ifFree: ast[id].baseName,
+        ifFree: ast[id].name.value,
         into: &captures)
 
-    case .explicit(let domain):
+    case .expr(let domain):
       collectCaptures(ofExpr: domain, into: &captures, inMutatingContext: isContextMutating)
 
     default:
@@ -297,22 +304,12 @@ struct CaptureCollector {
     }
 
     for argument in ast[id].arguments {
-      switch argument {
+      switch argument.value {
+      case .expr(let expr):
+        collectCaptures(ofExpr: expr, into: &captures, inMutatingContext: false)
       case .type(let expr):
         collectCaptures(ofTypeExpr: expr, into: &captures)
-      case .size(let expr):
-        collectCaptures(ofExpr: expr, into: &captures, inMutatingContext: false)
       }
-    }
-  }
-
-  private mutating func collectCaptures(
-    ofTuple id: NodeID<TupleExpr>,
-    into captures: inout FreeSet,
-    inMutatingContext isContextMutating: Bool
-  ) {
-    for element in ast[id].elements {
-      collectCaptures(ofExpr: element.value.value, into: &captures, inMutatingContext: false)
     }
   }
 
@@ -322,15 +319,33 @@ struct CaptureCollector {
     inMutatingContext isContextMutating: Bool
   ) {
     switch ast[id] {
-    case .unfolded(let exprs):
-      // Note: operators are not captured as they denote methods of their left operands.
-      for i in 0 ..< exprs.count where i % 2 == 0 {
-        collectCaptures(ofExpr: exprs[i], into: &captures, inMutatingContext: false)
+    case .unfolded(let head, let tail):
+      collectCaptures(ofExpr: head, into: &captures, inMutatingContext: false)
+      for (_, operand) in tail {
+        collectCaptures(ofExpr: operand, into: &captures, inMutatingContext: false)
       }
 
     case .root(let expr):
       collectCaptures(ofExpr: expr, into: &captures, inMutatingContext: false)
     }
+  }
+
+  private mutating func collectCaptures(
+    ofTuple id: NodeID<TupleExpr>,
+    into captures: inout FreeSet,
+    inMutatingContext isContextMutating: Bool
+  ) {
+    for element in ast[id].elements {
+      collectCaptures(ofExpr: element.value, into: &captures, inMutatingContext: false)
+    }
+  }
+
+  private mutating func collectCaptures(
+  ofTupleMember id: NodeID<TupleMemberExpr>,
+    into captures: inout FreeSet,
+    inMutatingContext isContextMutating: Bool
+  ) {
+    collectCaptures(ofExpr: ast[id].tuple, into: &captures, inMutatingContext: false)
   }
 
   private mutating func collectCaptures<T: PatternID>(
@@ -377,7 +392,7 @@ struct CaptureCollector {
     into captures: inout FreeSet
   ) {
     for element in ast[id].elements {
-      collectCaptures(ofPattern: element.value.pattern, into: &captures)
+      collectCaptures(ofPattern: element.pattern, into: &captures)
     }
   }
 
@@ -450,7 +465,7 @@ struct CaptureCollector {
 
     // Visit the condition.
     for item in ast[id].condition {
-      switch item.value {
+      switch item {
       case .expr(let expr):
         collectCaptures(ofExpr: expr, into: &captures, inMutatingContext: false)
       case .decl(let decl):
@@ -493,11 +508,11 @@ struct CaptureCollector {
     }
 
     for argument in ast[id].arguments {
-      switch argument {
+      switch argument.value {
+      case .expr(let expr):
+        collectCaptures(ofExpr: expr, into: &captures, inMutatingContext: false)
       case .type(let expr):
         collectCaptures(ofTypeExpr: expr, into: &captures)
-      case .size(let expr):
-        collectCaptures(ofExpr: expr, into: &captures, inMutatingContext: false)
       }
     }
   }
@@ -514,7 +529,7 @@ struct CaptureCollector {
     into captures: inout FreeSet
   ) {
     for element in ast[id].elements {
-      collectCaptures(ofTypeExpr: element.value.type, into: &captures)
+      collectCaptures(ofTypeExpr: element.type, into: &captures)
     }
   }
 

@@ -18,7 +18,7 @@ public struct IntegerConstant: ConstantProtocol, Hashable {
 extension IntegerConstant: CustomStringConvertible {
 
   public var description: String {
-    "\(type.astType) 0x\(bitPattern.hexadecimalString())"
+    "\(type.astType)(0x\(bitPattern.hexadecimalString()))"
   }
 
 }

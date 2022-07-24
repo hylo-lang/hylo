@@ -7,12 +7,12 @@ public struct TupleTypeExpr: TypeExpr {
   public struct Element: Hashable {
 
     /// The label of the element.
-    public var label: String?
+    public var label: SourceRepresentable<Identifier>?
 
     /// The type expression of the element.
     public var type: AnyTypeExprID
 
-    public init(label: String? = nil, type: AnyTypeExprID) {
+    public init(label: SourceRepresentable<Identifier>? = nil, type: AnyTypeExprID) {
       self.label = label
       self.type = type
     }
@@ -20,9 +20,9 @@ public struct TupleTypeExpr: TypeExpr {
   }
 
   /// The elements of the tuple.
-  public var elements: [SourceRepresentable<Element>]
+  public var elements: [Element]
 
-  public init(elements: [SourceRepresentable<TupleTypeExpr.Element>] = []) {
+  public init(elements: [Element] = []) {
     self.elements = elements
   }
 

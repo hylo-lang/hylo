@@ -20,6 +20,8 @@ public protocol ExprVisitor {
 
   mutating func visit(cond: NodeID<CondExpr>) -> Result
 
+  mutating func visit(error: NodeID<ErrorExpr>) -> Result
+
   mutating func visit(floatLiteral: NodeID<FloatLiteralExpr>) -> Result
 
   mutating func visit(funCall: NodeID<FunCallExpr>) -> Result
@@ -34,8 +36,6 @@ public protocol ExprVisitor {
 
   mutating func visit(match: NodeID<MatchExpr>) -> Result
 
-  mutating func visit(matchCase: NodeID<MatchCaseExpr>) -> Result
-
   mutating func visit(name: NodeID<NameExpr>) -> Result
 
   mutating func visit(nil: NodeID<NilExpr>) -> Result
@@ -49,5 +49,7 @@ public protocol ExprVisitor {
   mutating func visit(subscriptCall: NodeID<SubscriptCallExpr>) -> Result
 
   mutating func visit(tuple: NodeID<TupleExpr>) -> Result
+
+  mutating func visit(tupleMember: NodeID<TupleMemberExpr>) -> Result
 
 }

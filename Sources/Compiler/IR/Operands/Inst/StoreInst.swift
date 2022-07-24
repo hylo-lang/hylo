@@ -2,23 +2,26 @@
 public struct StoreInst: Inst {
 
   /// The object to store.
-  public let object: Operand
+  public var object: Operand
 
   /// The location at which the object is stored.
-  public let target: Operand
+  public var target: Operand
 
-  public var type: LoweredType { .object(.unit) }
+  public var range: SourceRange?
 
-  public func dump<Target: TextOutputStream>(
-    into output: inout Target,
-    with printer: inout IRPrinter
-  ) {
-    output.write("store ")
-    object.dump(into: &output, with: &printer)
-    output.write(", ")
-    target.dump(into: &output, with: &printer)
+  init(_ object: Operand, to target: Operand) {
+    self.object = object
+    self.target = target
   }
 
+  public var types: [LoweredType] { [] }
+
   public var operands: [Operand] { [target] }
+
+  public var isTerminator: Bool { false }
+
+  public func check(in module: Module) -> Bool {
+    true
+  }
 
 }

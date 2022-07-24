@@ -5,20 +5,20 @@
 public struct RecordInst: Inst {
 
   /// The type of the created record.
-  public let type: LoweredType
+  public var objectType: LoweredType
 
   /// The operands consumed to initialize the record members.
-  public let operands: [Operand]
+  public var operands: [Operand]
 
-  public func dump<Target: TextOutputStream>(
-    into output: inout Target,
-    with printer: inout IRPrinter
-  ) {
-    output.write("record \(type.astType)")
-    for operand in operands {
-      output.write(", ")
-      operand.dump(into: &output, with: &printer)
-    }
+  public var range: SourceRange?
+
+  public var types: [LoweredType] { [objectType] }
+
+  public var isTerminator: Bool { false }
+
+  public func check(in module: Module) -> Bool {
+    // Instruction result has an object type.
+    return !objectType.isAddress
   }
 
 }

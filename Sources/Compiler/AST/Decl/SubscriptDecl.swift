@@ -3,11 +3,27 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
 
   public static let kind = NodeKind.subscriptDecl
 
+  public enum Body: Hashable {
+
+    /// An expression body.
+    case expr(AnyExprID)
+
+    /// A block body.
+    case block(NodeID<BraceStmt>)
+
+    /// A bundle.
+    case bundle([NodeID<SubscriptImplDecl>])
+
+  }
+
   /// The access modifier of the declaration, if any.
   public var accessModifier: SourceRepresentable<AccessModifier>?
 
-  /// The member modifiers of the declaration.
-  public var memberModifiers: [SourceRepresentable<MemberModifier>]
+  /// The member modifier of the declaration.
+  public var memberModifier: SourceRepresentable<MemberModifier>?
+
+  /// The receiver effect of the subscript.
+  public var receiverEffect: SourceRepresentable<ReceiverEffect>?
 
   /// The identifier of the subscript, if any.
   public var identifier: SourceRepresentable<Identifier>?
@@ -15,8 +31,8 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
   /// The generic clause of the subscript, if any.
   public var genericClause: SourceRepresentable<GenericClause>?
 
-  /// The captures of the subscript.
-  public var captures: [NodeID<BindingDecl>]
+  /// The explicit capture declarations of the subscript.
+  public var explicitCaptures: [NodeID<BindingDecl>]
 
   /// The parameters of the subscript, unless the declaration denotes a computed property.
   public var parameters: [NodeID<ParameterDecl>]?
@@ -24,30 +40,41 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
   /// The output type annotation of the subscript.
   public var output: AnyTypeExprID
 
-  /// The implementations of the subscript.
-  public var impls: [NodeID<SubscriptImplDecl>]
+  /// The body of the declaration, if any.
+  public var body: Body?
 
   public init(
     accessModifier: SourceRepresentable<AccessModifier>? = nil,
-    memberModifiers: [SourceRepresentable<MemberModifier>] = [],
+    memberModifier: SourceRepresentable<MemberModifier>? = nil,
+    receiverEffect: SourceRepresentable<ReceiverEffect>? = nil,
     identifier: SourceRepresentable<Identifier>? = nil,
     genericClause: SourceRepresentable<GenericClause>? = nil,
-    captures: [NodeID<BindingDecl>] = [],
+    explicitCaptures: [NodeID<BindingDecl>] = [],
     parameters: [NodeID<ParameterDecl>]? = nil,
     output: AnyTypeExprID,
-    impls: [NodeID<SubscriptImplDecl>]
+    body: Body? = nil
   ) {
     self.accessModifier = accessModifier
-    self.memberModifiers = memberModifiers
+    self.memberModifier = memberModifier
+    self.receiverEffect = receiverEffect
     self.identifier = identifier
     self.genericClause = genericClause
-    self.captures = captures
+    self.explicitCaptures = explicitCaptures
     self.parameters = parameters
     self.output = output
-    self.impls = impls
+    self.body = body
   }
 
-  /// Returns whether the declaration denotes a static method.
-  public var isStatic: Bool { memberModifiers.contains(where: { $0.value == .static }) }
+  /// Returns whether the declaration is public.
+  public var isPublic: Bool { accessModifier?.value == .public }
+
+  /// Returns whether the declaration denotes a static subscript.
+  public var isStatic: Bool { memberModifier?.value == .static }
+
+  /// Returns whether the declaration denotes an `inout` subscript.
+  public var isInout: Bool { receiverEffect?.value == .inout }
+
+  /// Returns whether the declaration denotes a `sink` subscript.
+  public var isSink: Bool { receiverEffect?.value == .sink }
 
 }

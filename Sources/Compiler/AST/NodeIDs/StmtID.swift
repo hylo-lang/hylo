@@ -12,6 +12,8 @@ extension StmtID {
       return visitor.visit(brace: NodeID(unsafeRawValue: rawValue))
     case .breakStmt:
       return visitor.visit(break: NodeID(unsafeRawValue: rawValue))
+    case .condBindingStmt:
+      return visitor.visit(condBinding: NodeID(unsafeRawValue: rawValue))
     case .continueStmt:
       return visitor.visit(continue: NodeID(unsafeRawValue: rawValue))
     case .declStmt:

@@ -5,71 +5,37 @@ public struct NameExpr: Expr {
 
   public enum Domain: Hashable {
 
+    /// No domain.
     case none
 
+    /// Domain is implicit; the expression denotes a type member.
     case implicit
 
-    case explicit(AnyExprID)
+    /// Domain is a value expression or a type identifier.
+    case expr(AnyExprID)
+
+    /// Domain is a type typression.
+    case type(AnyTypeExprID)
 
   }
 
   /// The domain of the name, if it is qualified.
   public var domain: Domain
 
-  /// The stem identifier of the referred entity.
-  public var stem: SourceRepresentable<Identifier>
+  /// The name of the referred entity.
+  public var name: SourceRepresentable<Name>
 
-  /// The argument labels of the referred entity, given that it is a function.
-  public var labels: [String?]
-
-  /// The operator notation of the referred entity, given that it is an operator.
-  public var notation: OperatorNotation?
-
-  /// The method introducer of the referred entity, given that it is a method implementation.
-  public var introducer: MethodImplDecl.Introducer?
-
-  /// The type and size arguments of the referred entity.
+  /// The type and value arguments of the referred entity.
   public var arguments: [GenericArgument]
 
-  /// Creates a new name expression.
   public init(
     domain: Domain = .none,
-    stem: SourceRepresentable<Identifier>,
-    labels: [String?] = [],
-    introducer: MethodImplDecl.Introducer? = nil,
+    name: SourceRepresentable<Name>,
     arguments: [GenericArgument] = []
   ) {
     self.domain = domain
-    self.stem = stem
-    self.labels = labels
-    self.notation = nil
-    self.introducer = introducer
+    self.name = name
     self.arguments = arguments
-  }
-
-  /// Creates a new operator name expression.
-  public init(
-    domain: Domain = .none,
-    stem: SourceRepresentable<Identifier>,
-    notation: OperatorNotation,
-    introducer: MethodImplDecl.Introducer? = nil,
-    arguments: [GenericArgument] = []
-  ) {
-    self.domain = domain
-    self.stem = stem
-    self.labels = []
-    self.notation = notation
-    self.introducer = introducer
-    self.arguments = arguments
-  }
-
-  /// Returns the base name denoted by this expression.
-  public var baseName: Name {
-    if let notation = notation {
-      return Name(stem: stem.value, notation: notation, introducer: introducer)
-    } else {
-      return Name(stem: stem.value, labels: labels, introducer: introducer)
-    }
   }
 
 }

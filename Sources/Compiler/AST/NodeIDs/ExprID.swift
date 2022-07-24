@@ -36,8 +36,6 @@ extension ExprID {
       return visitor.visit(mapLiteral: NodeID(unsafeRawValue: rawValue))
     case .matchExpr:
       return visitor.visit(match: NodeID(unsafeRawValue: rawValue))
-    case .matchCaseExpr:
-      return visitor.visit(match: NodeID(unsafeRawValue: rawValue))
     case .nameExpr:
       return visitor.visit(name: NodeID(unsafeRawValue: rawValue))
     case .nilExpr:
@@ -52,6 +50,8 @@ extension ExprID {
       return visitor.visit(subscriptCall: NodeID(unsafeRawValue: rawValue))
     case .tupleExpr:
       return visitor.visit(tuple: NodeID(unsafeRawValue: rawValue))
+    case .tupleMemberExpr:
+      return visitor.visit(tupleMember: NodeID(unsafeRawValue: rawValue))
     default:
       unreachable()
     }

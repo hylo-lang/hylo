@@ -6,8 +6,8 @@ public struct BindingDecl: Decl {
   /// The access modifier of the declaration, if any.
   public var accessModifier: SourceRepresentable<AccessModifier>?
 
-  /// The member modifiers of the declaration.
-  public var memberModifiers: [SourceRepresentable<MemberModifier>]
+  /// The member modifier of the declaration.
+  public var memberModifier: SourceRepresentable<MemberModifier>?
 
   /// The pattern of the declaration.
   public var pattern: NodeID<BindingPattern>
@@ -17,20 +17,20 @@ public struct BindingDecl: Decl {
 
   public init(
     accessModifier: SourceRepresentable<AccessModifier>? = nil,
-    memberModifiers: [SourceRepresentable<MemberModifier>] = [],
+    memberModifier: SourceRepresentable<MemberModifier>? = nil,
     pattern: NodeID<BindingPattern>,
     initializer: AnyExprID? = nil
   ) {
     self.accessModifier = accessModifier
-    self.memberModifiers = memberModifiers
+    self.memberModifier = memberModifier
     self.pattern = pattern
     self.initializer = initializer
   }
 
   /// Returns whether the declaration is public.
-  public var isPublic: Bool { accessModifier?.value != nil }
+  public var isPublic: Bool { accessModifier?.value == .public }
 
   /// Returns whether the declaration denotes a static method.
-  public var isStatic: Bool { memberModifiers.contains(where: { $0.value == .static }) }
+  public var isStatic: Bool { memberModifier?.value == .static }
 
 }

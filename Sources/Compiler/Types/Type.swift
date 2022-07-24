@@ -15,9 +15,9 @@ public indirect enum Type: TypeProtocol, Hashable {
 
   case existential(ExistentialType)
 
-  case genericSizeParam(GenericSizeParamType)
-
   case genericTypeParam(GenericTypeParamType)
+
+  case genericValueParam(GenericValueParamType)
 
   case lambda(LambdaType)
 
@@ -54,8 +54,8 @@ public indirect enum Type: TypeProtocol, Hashable {
     case let .conformanceLens(t):   return t
     case let .error(t):             return t
     case let .existential(t):       return t
-    case let .genericSizeParam(t):  return t
     case let .genericTypeParam(t):  return t
+    case let .genericValueParam(t): return t
     case let .lambda(t):            return t
     case let .method(t):            return t
     case let .module(t):            return t
@@ -113,6 +113,18 @@ public indirect enum Type: TypeProtocol, Hashable {
     }
   }
 
+  /// Indicates whether `type` has a record layout.
+  public var hasRecordLayout: Bool {
+    switch self {
+    case .product, .tuple:
+      return true
+    case .boundGeneric(let type):
+      return type.base.hasRecordLayout
+    default:
+      return false
+    }
+  }
+
   /// The `Any` type.
   public static var any: Type = .existential(ExistentialType(traits: [], constraints: []))
 
@@ -145,12 +157,12 @@ extension Type {
            .genericTypeParam:
         return .stepOver(.skolem(SkolemType(base: type)))
 
-      case .genericSizeParam:
+      case .genericValueParam:
         fatalError("not implemented")
 
       default:
         // Nothing to do if `type` isn't parameterized.
-        if type[.hasGenericTypeParam] || type[.hasGenericSizeParam] {
+        if type[.hasGenericTypeParam] || type[.hasGenericValueParam] {
           return .stepInto(type)
         } else {
           return .stepOver(type)
@@ -173,8 +185,8 @@ extension Type {
            .builtin,
            .error,
            .existential,
-           .genericSizeParam,
            .genericTypeParam,
+           .genericValueParam,
            .module,
            .product,
            .skolem,
@@ -190,7 +202,7 @@ extension Type {
             switch a {
             case .type(let type):
               return .type(type.transform(transformer))
-            case .size:
+            case .value:
               fatalError("not implemented")
             }
           })))
@@ -202,7 +214,7 @@ extension Type {
 
       case .lambda(let type):
         return .lambda(LambdaType(
-          operatorProperty: type.operatorProperty,
+          receiverEffect: type.receiverEffect,
           environment: type.environment.transform(transformer),
           inputs: type.inputs.map({ p in
             CallableTypeParameter(

@@ -6,10 +6,10 @@ public struct VarDecl: SingleEntityDecl {
   /// The identifier of the declared variable.
   public var identifier: SourceRepresentable<Identifier>
 
-  public var name: String { identifier.value }
-
   public init(identifier: SourceRepresentable<Identifier>) {
     self.identifier = identifier
   }
+
+  public var name: String { identifier.value }
 
 }

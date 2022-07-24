@@ -62,7 +62,7 @@ public enum BuiltinFunctionType {
 
 extension LambdaType {
 
-  fileprivate init(from inputs: (ParamConvention, BuiltinType)..., to output: Type) {
+  fileprivate init(from inputs: (PassingConvention, BuiltinType)..., to output: Type) {
     self.init(
       inputs: inputs.map({ (convention, type) in
         CallableTypeParameter(

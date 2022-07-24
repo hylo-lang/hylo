@@ -4,8 +4,14 @@ public struct SourceLocation: Hashable {
   /// The source file containing the location.
   public let source: SourceFile
 
-  /// The index of the location in the source file.
-  public let index: SourceFile.Position
+  /// The position of the location in the source file.
+  public let index: String.Index
+
+  /// Creates a new source location.
+  public init(source: SourceFile, index: String.Index) {
+    self.source = source
+    self.index = index
+  }
 
   /// Returns a source range from `l` to `r`.
   ///

@@ -8,6 +8,8 @@ public protocol StmtVisitor {
 
   mutating func visit(break: NodeID<BreakStmt>) -> Result
 
+  mutating func visit(condBinding: NodeID<CondBindingStmt>) -> Result
+
   mutating func visit(continue: NodeID<ContinueStmt>) -> Result
 
   mutating func visit(decl: NodeID<DeclStmt>) -> Result

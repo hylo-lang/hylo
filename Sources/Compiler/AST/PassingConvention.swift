@@ -1,5 +1,5 @@
 /// A parameter passing convention.
-public enum ParamConvention {
+public enum PassingConvention {
 
   /// Pass by immutable projection.
   case `let`
@@ -15,5 +15,14 @@ public enum ParamConvention {
 
   /// Yielded.
   case yielded
+
+  init(matching capability: ProjectionType.Capability) {
+    switch capability {
+    case .let     : self = .let
+    case .set     : self = .set
+    case .inout   : self = .inout
+    case .yielded : self = .yielded
+    }
+  }
 
 }

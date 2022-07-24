@@ -4,18 +4,18 @@
 public struct BranchInst: Inst {
 
   /// The target of the branch.
-  public let target: Block.ID
+  public var target: Block.ID
 
-  public func dump<Target: TextOutputStream>(
-    into output: inout Target,
-    with printer: inout IRPrinter
-  ) {
-    let t = printer.translate(block: target)
-    output.write("branch \(t)")
-  }
+  public var range: SourceRange?
 
-  public var type: LoweredType { .object(.unit) }
+  public var types: [LoweredType] { [] }
 
   public var operands: [Operand] { [] }
+
+  public var isTerminator: Bool { true }
+
+  public func check(in module: Module) -> Bool {
+    true
+  }
 
 }

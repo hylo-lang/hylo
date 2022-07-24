@@ -4,28 +4,25 @@
 public struct CondBranchInst: Inst {
 
   /// A Boolean condition.
-  public let condition: Operand
+  public var condition: Operand
 
   /// The target of the branch if `condition` is true.
-  public let targetIfTrue: Block.ID
+  public var targetIfTrue: Block.ID
 
   /// The target of the branch if `condition` is false.
-  public let targetIfFalse: Block.ID
+  public var targetIfFalse: Block.ID
 
-  public func dump<Target: TextOutputStream>(
-    into output: inout Target,
-    with printer: inout IRPrinter
-  ) {
-    let t = printer.translate(block: targetIfTrue)
-    let f = printer.translate(block: targetIfFalse)
+  public var range: SourceRange?
 
-    output.write("cond_branch ")
-    condition.dump(into: &output, with: &printer)
-    output.write(", \(t), \(f)")
+  public var types: [LoweredType] { [] }
+
+  public var operands: [Operand] { [condition] }
+
+  public var isTerminator: Bool { true }
+
+  public func check(in module: Module) -> Bool {
+    /// The condition operand has an object type.
+    return !module.type(of: condition).isAddress
   }
-
-  public var type: LoweredType { .object(.unit) }
-
-  public var operands: [Operand] { [] }
 
 }

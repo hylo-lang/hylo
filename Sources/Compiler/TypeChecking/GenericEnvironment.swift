@@ -32,7 +32,7 @@ struct GenericEnvironment {
         }
         registerConformance(l: l, traits: allTraits)
 
-      case .size:
+      case .value:
         break
 
       default:

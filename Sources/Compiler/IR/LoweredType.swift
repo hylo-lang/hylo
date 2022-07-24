@@ -8,7 +8,10 @@ public struct LoweredType: Hashable {
   public let isAddress: Bool
 
   /// Creates a lowered type.
+  ///
+  /// - Requires: `astType` must be canonical.
   private init(astType: Type, isAddress: Bool) {
+    precondition(astType[.isCanonical], "source type is not canonical")
     self.astType = astType
     self.isAddress = isAddress
   }

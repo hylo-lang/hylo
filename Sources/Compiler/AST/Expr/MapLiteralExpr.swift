@@ -13,9 +13,9 @@ public struct MapLiteralExpr: Expr {
   }
 
   /// The key-value pairs of the literal.
-  public var elements: [SourceRepresentable<Element>]
+  public var elements: [Element]
 
-  public init(elements: [SourceRepresentable<MapLiteralExpr.Element>]) {
+  public init(elements: [Element]) {
     self.elements = elements
   }
 

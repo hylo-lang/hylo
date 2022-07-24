@@ -42,7 +42,7 @@ public struct AST {
 
   /// Accesses the node at `position`.
   public subscript<T: Node>(position: NodeID<T>) -> T {
-    _read { yield nodes[position.rawValue] as! T }
+    get { nodes[position.rawValue] as! T }
     _modify {
       var n = nodes[position.rawValue] as! T
       defer { nodes[position.rawValue] = n }
@@ -52,22 +52,22 @@ public struct AST {
 
   /// Accesses the node at `position`.
   public subscript<T: Node>(position: NodeID<T>?) -> T? {
-    _read { yield position.map({ nodes[$0.rawValue] as! T }) }
+    position.map({ nodes[$0.rawValue] as! T })
   }
 
   /// Accesses the node at `position`.
   public subscript<T: NodeIDProtocol>(position: T) -> Node {
-    _read { yield nodes[position.rawValue] as! Node }
+    nodes[position.rawValue] as! Node
   }
 
   /// Accesses the node at `position`.
   public subscript<T: NodeIDProtocol>(position: T?) -> Node? {
-    _read { yield position.map({ nodes[$0.rawValue] as! Node }) }
+    position.map({ nodes[$0.rawValue] as! Node })
   }
 
-  /// Accesses the node at `position` for reading.
+  /// Accesses the node at `position`.
   subscript(raw position: NodeID.RawValue) -> Any {
-    _read { yield nodes[position] }
+    nodes[position]
   }
 
   // MARK: Helpers
@@ -95,7 +95,7 @@ public struct AST {
         let p = NodeID<TuplePattern>(unsafeRawValue: pattern.rawValue)
         for i in 0 ..< self[p].elements.count {
           visit(
-            pattern: self[p].elements[i].value.pattern,
+            pattern: self[p].elements[i].pattern,
             path: path + [i],
             result: &result)
         }

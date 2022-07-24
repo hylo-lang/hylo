@@ -2,22 +2,23 @@
 public struct ReturnInst: Inst {
 
   /// The returned value.
-  public let value: Operand
+  public var value: Operand
 
-  init(value: Operand = .constant(.unit)) {
+  public var range: SourceRange?
+
+  init(value: Operand = .constant(.unit), range: SourceRange? = nil) {
     self.value = value
+    self.range = range
   }
 
-  public func dump<Target: TextOutputStream>(
-    into output: inout Target,
-    with printer: inout IRPrinter
-  ) {
-    output.write("return ")
-    value.dump(into: &output, with: &printer)
-  }
-
-  public var type: LoweredType { .object(.unit) }
+  public var types: [LoweredType] { [] }
 
   public var operands: [Operand] { [value] }
+
+  public var isTerminator: Bool { true }
+
+  public func check(in module: Module) -> Bool {
+    true
+  }
 
 }

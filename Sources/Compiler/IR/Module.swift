@@ -26,15 +26,33 @@ public struct Module {
   /// Returns the type of `operand`.
   public func type(of operand: Operand) -> LoweredType {
     switch operand {
-    case .inst(let id):
-      return functions[id.function][id.block][id.index].type
+    case .result(let inst, let index):
+      return functions[inst.function][inst.block][inst.address].types[index]
 
     case .parameter(let block, let index):
-      return functions[block.function][block.index].inputs[index]
+      return functions[block.function][block.address].inputs[index]
 
     case .constant(let constant):
       return constant.type
     }
+  }
+
+  /// Returns whether the module is well-formed.
+  public func check() -> Bool {
+    for i in 0 ..< functions.count {
+      if !check(function: i) { return false }
+    }
+    return true
+  }
+
+  /// Returns whether the specified function is well-formed.
+  public func check(function functionID: Function.ID) -> Bool {
+    for block in functions[functionID].blocks {
+      for inst in block.instructions {
+        if !inst.check(in: self) { return false }
+      }
+    }
+    return true
   }
 
   /// Returns the identifier of the Val IR function corresponding to `declID`.
@@ -47,19 +65,48 @@ public struct Module {
     if let id = loweredFunctions[declID] { return id }
 
     // Determine the type of the function.
-    var inputs: [LoweredType] = []
+    var inputs: [Function.Input] = []
     let output: LoweredType
 
     switch declTypes[declID] {
     case .lambda(let declType):
-      inputs.reserveCapacity(declType.captures!.count + declType.inputs.count)
-      for capture in ast[declID].implicitParameterDecls {
-        inputs.append(LoweredType(lowering: declTypes[capture.decl]!))
-      }
-      for parameter in ast[declID].parameters {
-        inputs.append(LoweredType(lowering: declTypes[parameter]!))
-      }
       output = LoweredType(lowering: declType.output)
+      inputs.reserveCapacity(declType.captures.count + declType.inputs.count)
+
+      // Define inputs for the captures.
+      for capture in declType.captures {
+        switch capture.type {
+        case .projection(let type):
+          precondition(type.capability != .yielded, "cannot lower yielded parameter")
+          inputs.append((
+            convention: PassingConvention(matching: type.capability),
+            type: .address(type.base)))
+
+        case let type:
+          switch declType.receiverEffect {
+          case nil:
+            inputs.append((convention: .let, type: .address(type)))
+          case .inout:
+            inputs.append((convention: .inout, type: .address(type)))
+          case .sink:
+            inputs.append((convention: .sink, type: .object(type)))
+          case .yielded:
+            unreachable()
+          }
+        }
+      }
+
+      // Define inputs for the parameters.
+      for parameter in declType.inputs {
+        switch parameter.type {
+        case .parameter(let type):
+          precondition(type.convention != .yielded, "cannot lower yielded parameter")
+          inputs.append((convention: type.convention, type: .address(type.bareType)))
+
+        default:
+          unreachable()
+        }
+      }
 
     default:
       unreachable()
@@ -74,7 +121,8 @@ public struct Module {
       withDeclTypes: declTypes)
     let function = Function(
       name: locator.mangled,
-      debugName: ast[declID].identifier?.value,
+      debugName: locator.description,
+      linkage: ast[declID].isPublic ? .external : .module,
       inputs: inputs,
       output: output,
       blocks: [])
@@ -91,31 +139,33 @@ public struct Module {
     accepting inputs: [LoweredType] = [],
     atEndOf function: Function.ID
   ) -> Block.ID {
-    let index = functions[function].blocks.append(Block(inputs: inputs))
-    return Block.ID(function: function, index: index)
+    let address = functions[function].blocks.append(Block(inputs: inputs))
+    return Block.ID(function: function, address: address)
   }
 
   /// Inserts `inst` at the specified insertion point.
   @discardableResult
-  mutating func insert<I: Inst>(_ inst: I, at ip: InsertionPoint) -> InstID {
+  mutating func insert<I: Inst>(_ inst: I, at ip: InsertionPoint) -> [Operand] {
     // Inserts the instruction.
-    let index: Block.InstIndex
+    let address: Block.InstAddress
     switch ip.position {
     case .end:
-      index = functions[ip.block.function][ip.block.index].instructions.append(inst)
+      address = functions[ip.block.function][ip.block.address].instructions.append(inst)
     case .after(let i):
-      index = functions[ip.block.function][ip.block.index].instructions.insert(inst, after: i)
+      address = functions[ip.block.function][ip.block.address].instructions.insert(inst, after: i)
+    case .before(let i):
+      address = functions[ip.block.function][ip.block.address].instructions.insert(inst, before: i)
     }
 
     // Generate an instruction identifier.
-    let userID = InstID(function: ip.block.function, block: ip.block.index, index: index)
+    let userID = InstID(function: ip.block.function, block: ip.block.address, address: address)
 
     // Update the use lists of the instruction's operands.
     for i in 0 ..< inst.operands.count {
       uses[inst.operands[i], default: []].append(Use(user: userID, index: i))
     }
 
-    return userID
+    return (0 ..< inst.types.count).map({ k in .result(inst: userID, index: k) })
   }
 
 }
@@ -127,49 +177,6 @@ extension Module {
   public subscript(_ position: FunctionIndex) -> Function {
     _read   { yield functions[position] }
     _modify { yield &functions[position] }
-  }
-
-}
-
-extension Module: CustomStringConvertible {
-
-  public var description: String {
-    var output = "// module \(name)"
-
-    for functionID in 0 ..< functions.count {
-      let function = functions[functionID]
-
-      output.write("\n\n")
-      if let debugName = function.debugName {
-        output.write("// \(debugName)\n")
-      }
-      output.write("@lowered fun \(function.name) {\n")
-
-      var printer = IRPrinter()
-      for blockIndex in function.blocks.indices {
-        let blockID = Block.ID(function: functionID, index: blockIndex)
-        let block = function.blocks[blockIndex]
-
-        output.write("\(printer.translate(block: blockID))(")
-        output.write(block.inputs.enumerated()
-          .map({ (i, input) in "%\(i + printer.instNames.nextDiscriminator): \(input)" })
-          .joined(separator: ", "))
-        output.write("):\n")
-
-        printer.instNames.nextDiscriminator += block.inputs.count
-        for instIndex in block.instructions.indices {
-          let instID = InstID(function: functionID, block: blockIndex, index: instIndex)
-          let inst = block.instructions[instIndex]
-          output.write("  \(printer.translate(inst: instID)) = ")
-          inst.dump(into: &output, with: &printer)
-          output.write("\n")
-        }
-      }
-
-      output.write("}")
-    }
-
-    return output
   }
 
 }

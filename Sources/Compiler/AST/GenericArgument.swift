@@ -1,8 +1,24 @@
-/// The expression of an argument to a generic entity.
-public enum GenericArgument: Hashable {
+/// An argument of a function or subscript call.
+public struct GenericArgument: Hashable {
 
-  case size(AnyExprID)
+  /// The value of a generic argument.
+  public enum Value: Hashable {
 
-  case type(AnyTypeExprID)
+    case expr(AnyExprID)
+
+    case type(AnyTypeExprID)
+
+  }
+
+  /// The label of the argument, if any.
+  public var label: SourceRepresentable<Identifier>?
+
+  /// The value of the argument.
+  public var value: Value
+
+  public init(label: SourceRepresentable<Identifier>? = nil, value: Value) {
+    self.label = label
+    self.value = value
+  }
 
 }
