@@ -182,9 +182,21 @@ struct CaptureCollector {
         into: &captures,
         inMutatingContext: isContextMutating)
 
+    case .condExpr:
+      collectCaptures(
+        ofCond: NodeID(unsafeRawValue: id.rawValue),
+        into: &captures,
+        inMutatingContext: isContextMutating)
+
     case .funCallExpr:
       collectCaptures(
         ofFunCall: NodeID(unsafeRawValue: id.rawValue),
+        into: &captures,
+        inMutatingContext: isContextMutating)
+
+    case .inoutExpr:
+      collectCaptures(
+        ofInout: NodeID(unsafeRawValue: id.rawValue),
         into: &captures,
         inMutatingContext: isContextMutating)
 
@@ -236,6 +248,45 @@ struct CaptureCollector {
   }
 
   private mutating func collectCaptures(
+    ofCond id: NodeID<CondExpr>,
+    into captures: inout FreeSet,
+    inMutatingContext isContextMutating: Bool
+  ) {
+    boundNames.append([])
+
+    // Visit the condition.
+    for item in ast[id].condition {
+      switch item {
+      case .expr(let expr):
+        collectCaptures(ofExpr: expr, into: &captures, inMutatingContext: false)
+      case .decl(let decl):
+        collectCaptures(ofBinding: decl, into: &captures)
+      }
+    }
+
+    // Visit the then branch.
+    switch ast[id].success {
+    case .block(let stmt):
+      collectCaptures(ofBrace: stmt, into: &captures)
+    case .expr(let expr):
+      collectCaptures(ofExpr: expr, into: &captures, inMutatingContext: isContextMutating)
+    }
+
+    // Bindings declared in the condition are not in scope for the else branch.
+    boundNames.removeLast()
+
+    // Visit the else branch, if any.
+    switch ast[id].failure {
+    case .block(let stmt):
+      collectCaptures(ofBrace: stmt, into: &captures)
+    case .expr(let expr):
+      collectCaptures(ofExpr: expr, into: &captures, inMutatingContext: isContextMutating)
+    case nil:
+      break
+    }
+  }
+
+  private mutating func collectCaptures(
     ofCast id: NodeID<CastExpr>,
     into captures: inout FreeSet,
     inMutatingContext isContextMutating: Bool
@@ -276,6 +327,14 @@ struct CaptureCollector {
     for argument in ast[id].arguments {
       collectCaptures(ofExpr: argument.value, into: &captures, inMutatingContext: false)
     }
+  }
+
+  private mutating func collectCaptures(
+    ofInout id: NodeID<InoutExpr>,
+    into captures: inout FreeSet,
+    inMutatingContext isContextMutating: Bool
+  ) {
+    collectCaptures(ofExpr: ast[id].subexpr, into: &captures, inMutatingContext: true)
   }
 
   /// Collects the names occurring free in the specified expression.
@@ -472,6 +531,9 @@ struct CaptureCollector {
         collectCaptures(ofBinding: decl, into: &captures)
       }
     }
+
+    // Visit the body.
+    collectCaptures(ofBrace: ast[id].body, into: &captures)
 
     boundNames.removeLast()
   }
