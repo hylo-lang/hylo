@@ -29,6 +29,52 @@ public struct SourceFile {
     return contents[range.lowerBound ..< range.upperBound]
   }
 
+  /// The contents of the line in which `location` is defined.
+  public func lineContents(at location: SourceLocation) -> Substring {
+    precondition(location.source == self, "invalid location")
+
+    var lower = location.index
+    while lower > contents.startIndex {
+      let predecessor = contents.index(before: lower)
+      if contents[predecessor].isNewline {
+        break
+      } else {
+        lower = predecessor
+      }
+    }
+
+    var upper = location.index
+    while upper < contents.endIndex && !contents[upper].isNewline {
+      upper = contents.index(after: upper)
+    }
+
+    return contents[lower ..< upper]
+  }
+
+  /// The 1-based line and column indices if `location`.
+  public func lineAndColumnIndices(at location: SourceLocation) -> (line: Int, column: Int) {
+    precondition(location.source == self, "invalid location")
+
+    if location.index == contents.endIndex {
+      let lines = contents.split(whereSeparator: { $0.isNewline })
+      return (line: lines.count, column: (lines.last?.count ?? 0) + 1)
+    }
+
+    var lineIndex = 1
+    for c in contents[...location.index] where c.isNewline {
+      lineIndex += 1
+    }
+
+    let buffer = contents.prefix(through: location.index)
+    var columnIndex = 0
+    for c in buffer.reversed() {
+      guard !c.isNewline else { break }
+      columnIndex += 1
+    }
+
+    return (lineIndex, columnIndex)
+  }
+
 }
 
 extension SourceFile: Hashable {
