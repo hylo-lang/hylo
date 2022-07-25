@@ -16,8 +16,8 @@ import Utils
 ///
 ///     let p2 = attempt(foo.and(bar)).or(foo)
 
-/// A type that can parse Val source files.
-public struct Parser {
+/// A namespace for the routines of Val's parser.
+public enum Parser {
 
   /// A parse error.
   public struct ParseError: Error {
@@ -33,13 +33,33 @@ public struct Parser {
 
   }
 
-  /// Creates a parser.
-  public init() {}
+  /// Parses the declarations of `input`, inserts them into `ast[module]`.
+  ///
+  /// - Returns: `(decls, diagnostics)` where `diagnostics` are the diagnostics produced by the
+  ///   parser and `decls` is the ID of the set of parsed declarations, or `nil` if the parser
+  ///   failed to process `input`.
+  public static func parse(
+    _ input: SourceFile,
+    into module: NodeID<ModuleDecl>,
+    in ast: inout AST
+  ) -> (decls: NodeID<TopLevelDeclSet>?, diagnostics: [Diagnostic]) {
+    var context = ParserContext(ast: AST(), lexer: Lexer(tokenizing: input))
+    swap(&context.ast, &ast)
+    defer { swap(&context.ast, &ast) }
 
-  /// Parses the specified source file.
-  public func parse(_ input: SourceFile, into ast: AST? = nil) {
-    var context = ParserContext(ast: ast ?? AST(), lexer: Lexer(tokenizing: input))
-    _ = context.peek()
+    do {
+      let decls = try Self.sourceFile.parse(&context)
+      return (decls: decls, diagnostics: context.diagnostics)
+    } catch let error {
+      if let error = error as? ParseError {
+        context.diagnostics.append(Diagnostic(
+          level: .error, message: error.message, location: error.location))
+      } else {
+        context.diagnostics.append(Diagnostic(
+          level: .error, message: error.localizedDescription, location: context.currentLocation))
+      }
+      return (decls: nil, diagnostics: context.diagnostics)
+    }
   }
 
   // MARK: Declarations
@@ -54,13 +74,29 @@ public struct Parser {
     })
   }
 
+  static let sourceFile = (
+    zeroOrMany(take(.semi))
+      .and(zeroOrMany(moduleScopeDecl.and(zeroOrMany(take(.semi))).first))
+      .map({ (context, tree) -> NodeID<TopLevelDeclSet> in
+        context.ast.insert(TopLevelDeclSet(decls: tree.1))
+      })
+  )
+
   static let moduleScopeDecl = (
-    oneOf([
+    maybe(accessModifier).andCollapsingSoftFailures(oneOf([
+      anyDecl(importDecl),
       anyDecl(namespaceDecl),
+      anyDecl(typeAliasDecl),
+      anyDecl(productTypeDecl),
+      anyDecl(traitDecl),
+      anyDecl(extensionDecl),
+      anyDecl(conformanceDecl),
+      anyDecl(bindingDecl),
       anyDecl(functionDecl),
       anyDecl(subscriptDecl),
       anyDecl(operatorDecl),
-    ])
+    ]))
+    .map(assignAccessModifier)
   )
 
   static let importDecl = (

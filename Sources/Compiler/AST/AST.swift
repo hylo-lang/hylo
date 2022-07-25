@@ -76,7 +76,7 @@ public struct AST {
   public typealias TopLevelDecls = LazySequence<
     FlattenSequence<
       LazyMapSequence<
-        LazySequence<[NodeID<SourceDeclSet>]>.Elements,
+        LazySequence<[NodeID<TopLevelDeclSet>]>.Elements,
         [AnyDeclID]
       >.Elements>>
 

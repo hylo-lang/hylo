@@ -5,6 +5,34 @@ import ParserCombinators
 
 final class ParserTests: XCTestCase {
 
+  func testParse() {
+    let input = SourceFile(contents: """
+    public fun main() {
+      print("Hello, World!")
+    }
+    """)
+
+    var program = AST()
+    let module = program.insert(ModuleDecl(name: "Main"))
+
+    let (decls, diagnostics) = Parser.parse(input, into: module, in: &program)
+    XCTAssertNotNil(decls)
+    XCTAssertEqual(diagnostics.count, 0)
+  }
+
+  func testSourceFile() throws {
+    let input = SourceFile(contents: """
+      ;;
+      import Fool
+
+      let x = "Hello!"
+      public let y = 0;
+    """)
+    let (declSetID, ast) = try apply(Parser.sourceFile, on: input)
+    let declSet = try XCTUnwrap(ast[declSetID])
+    XCTAssertEqual(declSet.decls.count, 3)
+  }
+
   // MARK: Declarations
 
   func testImportDecl() throws {

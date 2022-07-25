@@ -82,7 +82,7 @@ public struct ScopeHierarchy {
 
     // Declarations at global scope are global.
     switch container[decl]!.kind {
-    case .sourceDeclSet, .namespaceDecl:
+    case .topLevelDeclSet, .namespaceDecl:
       return true
     default:
       break

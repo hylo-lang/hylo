@@ -589,7 +589,7 @@ public struct TypeChecker {
   }
 
   private mutating func check(operator id: NodeID<OperatorDecl>) -> Bool {
-    guard let source = NodeID<SourceDeclSet>(converting: scopeHierarchy.container[id]!) else {
+    guard let source = NodeID<TopLevelDeclSet>(converting: scopeHierarchy.container[id]!) else {
       diagnostics.insert(.nestedOperatorDeclaration(range: ast.ranges[id]))
       return false
     }

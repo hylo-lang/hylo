@@ -7,9 +7,9 @@ public struct ModuleDecl: Decl, LexicalScope {
   public var name: String
 
   /// The source files in the module.
-  public var sources: [NodeID<SourceDeclSet>]
+  public var sources: [NodeID<TopLevelDeclSet>]
 
-  public init(name: String, sources: [NodeID<SourceDeclSet>] = []) {
+  public init(name: String, sources: [NodeID<TopLevelDeclSet>] = []) {
     self.name = name
     self.sources = sources
   }

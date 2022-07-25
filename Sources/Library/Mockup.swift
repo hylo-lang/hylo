@@ -5,7 +5,7 @@ import Compiler
 public func insertStandardLibraryMockup(into ast: inout AST) -> NodeID<ModuleDecl> {
   precondition(ast.stdlib == nil)
   let stdlib = ast.insert(ModuleDecl(name: "Val"))
-  let source = ast.insert(SourceDeclSet())
+  let source = ast.insert(TopLevelDeclSet())
   ast[stdlib].sources.append(source)
 
   // fun fatal_error() -> Never {}

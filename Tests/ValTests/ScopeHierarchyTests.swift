@@ -8,7 +8,7 @@ final class ScopeHierarchyTests: XCTestCase {
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
 
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     let trait = ast.insert(TraitDecl(

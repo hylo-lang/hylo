@@ -16,7 +16,7 @@ final class ASTTests: XCTestCase {
     let module = ast.insert(ModuleDecl(name: "Val", sources: []))
 
     // Create a source declaration set.
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[module].sources.append(source)
 
     // Create a trait declaration.

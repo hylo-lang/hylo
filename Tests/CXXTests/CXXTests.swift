@@ -22,7 +22,7 @@ final class CXXTests: XCTestCase {
     var ast = AST()
     insertStandardLibraryMockup(into: &ast)
     let main = ast.insert(ModuleDecl(name: "SomeLib"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(ProductTypeDecl(

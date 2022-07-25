@@ -16,7 +16,7 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(TraitDecl(
@@ -94,7 +94,7 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet(file: file))
+    let source = ast.insert(TopLevelDeclSet(file: file))
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(TraitDecl(
@@ -123,7 +123,7 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(TraitDecl(
@@ -155,7 +155,7 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(TraitDecl(
@@ -215,7 +215,7 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(ProductTypeDecl(
@@ -301,7 +301,7 @@ final class TypeCheckerTests: XCTestCase {
     var ast = AST()
     insertStandardLibraryMockup(into: &ast)
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(FunDecl(
@@ -333,7 +333,7 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(ProductTypeDecl(
@@ -371,7 +371,7 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(ProductTypeDecl(
@@ -432,7 +432,7 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(BindingDecl(
@@ -477,7 +477,7 @@ final class TypeCheckerTests: XCTestCase {
     var ast = AST()
     insertStandardLibraryMockup(into: &ast)
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(BindingDecl(
@@ -535,7 +535,7 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(BindingDecl(
@@ -557,7 +557,7 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(FunDecl(
@@ -583,7 +583,7 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(FunDecl(
@@ -614,7 +614,7 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(FunDecl(
@@ -646,7 +646,7 @@ final class TypeCheckerTests: XCTestCase {
     var ast = AST()
     insertStandardLibraryMockup(into: &ast)
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(FunDecl(
@@ -667,7 +667,7 @@ final class TypeCheckerTests: XCTestCase {
     var ast = AST()
     insertStandardLibraryMockup(into: &ast)
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(FunDecl(
@@ -688,7 +688,7 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(FunDecl(
@@ -715,7 +715,7 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(FunDecl(
@@ -750,7 +750,7 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(FunDecl(
@@ -790,7 +790,7 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(FunDecl(
@@ -882,7 +882,7 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(FunDecl(
@@ -969,7 +969,7 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(FunDecl(
@@ -1020,7 +1020,7 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(FunDecl(
@@ -1062,7 +1062,7 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(FunDecl(
@@ -1085,7 +1085,7 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(ProductTypeDecl(
@@ -1141,7 +1141,7 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(BindingDecl(
@@ -1170,7 +1170,7 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(ProductTypeDecl(
@@ -1234,7 +1234,7 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(ProductTypeDecl(
@@ -1304,7 +1304,7 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(ProductTypeDecl(
@@ -1354,7 +1354,7 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(ProductTypeDecl(
@@ -1396,7 +1396,7 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(ProductTypeDecl(
@@ -1460,7 +1460,7 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(ProductTypeDecl(
@@ -1508,7 +1508,7 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(TypeAliasDecl(
@@ -1585,7 +1585,7 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(BindingDecl(
@@ -1618,7 +1618,7 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(BindingDecl(
@@ -1642,7 +1642,7 @@ final class TypeCheckerTests: XCTestCase {
     var ast = AST()
     insertStandardLibraryMockup(into: &ast)
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(BindingDecl(
@@ -1666,7 +1666,7 @@ final class TypeCheckerTests: XCTestCase {
     var ast = AST()
     insertStandardLibraryMockup(into: &ast)
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(BindingDecl(
@@ -1730,7 +1730,7 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(BindingDecl(
@@ -1776,7 +1776,7 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(BindingDecl(
@@ -1811,7 +1811,7 @@ final class TypeCheckerTests: XCTestCase {
     var ast = AST()
     insertStandardLibraryMockup(into: &ast)
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(FunDecl(
@@ -1849,7 +1849,7 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(FunDecl(
@@ -1896,7 +1896,7 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(FunDecl(
@@ -1940,7 +1940,7 @@ final class TypeCheckerTests: XCTestCase {
     var ast = AST()
     insertStandardLibraryMockup(into: &ast)
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet())
+    let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
 
     ast[source].decls.append(AnyDeclID(ast.insert(FunDecl(
@@ -1993,7 +1993,7 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
-    let source = ast.insert(SourceDeclSet(file: file))
+    let source = ast.insert(TopLevelDeclSet(file: file))
     ast[main].sources.append(source)
 
     let d0 = ast.insert(OperatorDecl(

@@ -208,7 +208,7 @@ public struct NodeKind: Hashable {
 
   public static let matchCase = NodeKind(
     1 << 16 | lexicalScope.rawValue)
-  public static let sourceDeclSet = NodeKind(
+  public static let topLevelDeclSet = NodeKind(
     2 << 16 | lexicalScope.rawValue)
 
 }
@@ -299,7 +299,7 @@ extension NodeKind: CustomStringConvertible {
     case .wildcardTypeExpr          : return "WildcardTypeExpr"
 
     case .matchCase                 : return "MatchCase"
-    case .sourceDeclSet             : return "SourceDeclSet"
+    case .topLevelDeclSet           : return "TopLevelDeclSet"
 
     default                         : return("Unknown")
     }

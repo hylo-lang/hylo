@@ -1,7 +1,7 @@
 /// A set of declarations at the top-level of a source file.
-public struct SourceDeclSet: Node, LexicalScope {
+public struct TopLevelDeclSet: Node, LexicalScope {
 
-  public static let kind = NodeKind.sourceDeclSet
+  public static let kind = NodeKind.topLevelDeclSet
 
   /// The source from which the declarations where parser.
   public var file: SourceFile?
