@@ -96,14 +96,10 @@ public struct Parser {
   static let namespaceBody = settingFlags(.parsingNamespace, apply: (
     take(.lBrace)
       .and(zeroOrMany(take(.semi)))
-      .and(maybe(namespaceMemberList))
+      .and(zeroOrMany(namespaceMember.and(zeroOrMany(take(.semi))).first))
       .and(zeroOrMany(take(.semi))).and(take(.rBrace))
-      .map({ (_, tree) -> [AnyDeclID] in tree.0.0.1 ?? [] })
+      .map({ (_, tree) -> [AnyDeclID] in tree.0.0.1 })
   ))
-
-  static let namespaceMemberList = (
-    oneOrMany(namespaceMember.and(zeroOrMany(take(.semi))).first)
-  )
 
   static let namespaceMember = (
     maybe(accessModifier).andCollapsingSoftFailures(oneOf([
@@ -168,14 +164,10 @@ public struct Parser {
   static let productTypeBody = settingFlags(.parsingProductBody, apply: (
     take(.lBrace)
       .and(zeroOrMany(take(.semi)))
-      .and(maybe(productTypeMemberList))
+      .and(zeroOrMany(productTypeMember.and(zeroOrMany(take(.semi))).first))
       .and(zeroOrMany(take(.semi))).and(take(.rBrace))
-      .map({ (_, tree) -> [AnyDeclID] in tree.0.0.1 ?? [] })
+      .map({ (_, tree) -> [AnyDeclID] in tree.0.0.1 })
   ))
-
-  static let productTypeMemberList = (
-    oneOrMany(productTypeMember.and(zeroOrMany(take(.semi))).first)
-  )
 
   static let productTypeMember = (
     maybe(accessModifier).andCollapsingSoftFailures(
@@ -222,14 +214,10 @@ public struct Parser {
   static let traitBody = settingFlags(.parsingBindingPattern, apply: (
     take(.lBrace)
       .and(zeroOrMany(take(.semi)))
-      .and(maybe(traitMemberList))
+      .and(zeroOrMany(traitMember.and(zeroOrMany(take(.semi))).first))
       .and(zeroOrMany(take(.semi))).and(take(.rBrace))
-      .map({ (_, tree) -> [AnyDeclID] in tree.0.0.1 ?? [] })
+      .map({ (_, tree) -> [AnyDeclID] in tree.0.0.1 })
   ))
-
-  static let traitMemberList = (
-    oneOrMany(traitMember.and(zeroOrMany(take(.semi))).first)
-  )
 
   static let traitMember = (
     oneOf([
@@ -310,14 +298,10 @@ public struct Parser {
   static let extensionBody = settingFlags(.parsingExtensionBody, apply: (
     take(.lBrace)
       .and(zeroOrMany(take(.semi)))
-      .and(maybe(extensionMemberList))
+      .and(zeroOrMany(extensionMember.and(zeroOrMany(take(.semi))).first))
       .and(zeroOrMany(take(.semi))).and(take(.rBrace))
-      .map({ (_, tree) -> [AnyDeclID] in tree.0.0.1 ?? [] })
+      .map({ (_, tree) -> [AnyDeclID] in tree.0.0.1 })
   ))
-
-  static let extensionMemberList = (
-    oneOrMany(extensionMember.and(zeroOrMany(take(.semi))).first)
-  )
 
   static let extensionMember = (
     maybe(accessModifier).andCollapsingSoftFailures(
@@ -1670,10 +1654,6 @@ public struct Parser {
         context.ast.ranges[id] = tree.0.0.0.range.upperBounded(by: context.currentIndex)
         return id
       })
-  )
-
-  static let stmtList = (
-    oneOrMany(stmt.and(zeroOrMany(take(.semi))).first)
   )
 
   static let discardStmt = (
