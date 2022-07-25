@@ -24,11 +24,11 @@ Here are examples of behavior that contributes to creating a positive environmen
 - Showing empathy towards other community members
 
 In contrast, here are examples of unacceptable behavior:
-- Using discriminatory language, even in the context of a joke.
-- Posting sexually explicit or violent material.
+- Using discriminatory language, even in the context of a joke
+- Posting sexually explicit or violent material
 - Publishing or threatening to publish others' private information without their explicit permission.
-- Insulting or putting down others.
-- Persisting in some behavior after having been asked to stop.
+- Insulting or putting down others
+- Persisting in some behavior after having been asked to stop
 
 ## Enforcement
 
