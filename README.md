@@ -3,7 +3,7 @@
 Val is a research programming language to explore the concepts of [mutable value semantics](http://www.jot.fm/issues/issue_2022_02/article2.pdf) and [generic programming](https://www.fm2gp.com) for high-level systems programming.
 
 This repository contains the sources of the reference implementation of Val.
-Please visit our [website](https://val-lang.github.io) to get more information about the language itself.
+Please visit our [website](https://val-lang.dev) to get more information about the language itself.
 
 ## Supported platforms
 
