@@ -207,7 +207,9 @@ public struct NodeKind: Hashable {
   // MARK: Others
 
   public static let matchCase = NodeKind(
-    1 << 16)
+    1 << 16 | lexicalScope.rawValue)
+  public static let sourceDeclSet = NodeKind(
+    2 << 16 | lexicalScope.rawValue)
 
 }
 
@@ -250,6 +252,7 @@ extension NodeKind: CustomStringConvertible {
     case .errorExpr                 : return "ErrorExpr"
     case .floatLiteralExpr          : return "FloatLiteralExpr"
     case .funCallExpr               : return "FunCallExpr"
+    case .inoutExpr                 : return "InoutExpr"
     case .integerLiteralExpr        : return "IntegerLiteralExpr"
     case .lambdaExpr                : return "LambdaExpr"
     case .mapLiteralExpr            : return "MapLiteralExpr"
@@ -294,6 +297,9 @@ extension NodeKind: CustomStringConvertible {
     case .tupleTypeExpr             : return "TupleTypeExpr"
     case .unionTypeExpr             : return "UnionTypeExpr"
     case .wildcardTypeExpr          : return "WildcardTypeExpr"
+
+    case .matchCase                 : return "MatchCase"
+    case .sourceDeclSet             : return "SourceDeclSet"
 
     default                         : return("Unknown")
     }

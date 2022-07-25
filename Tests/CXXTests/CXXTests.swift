@@ -22,8 +22,10 @@ final class CXXTests: XCTestCase {
     var ast = AST()
     insertStandardLibraryMockup(into: &ast)
     let main = ast.insert(ModuleDecl(name: "SomeLib"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(ProductTypeDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(ProductTypeDecl(
       accessModifier: SourceRepresentable(value: .public),
       identifier: SourceRepresentable(value: "Vector2"),
       members: [

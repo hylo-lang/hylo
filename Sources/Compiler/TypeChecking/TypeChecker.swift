@@ -274,7 +274,7 @@ public struct TypeChecker {
 
     // Type check the declarations in the module.
     var success = true
-    for decl in ast[id].members {
+    for decl in ast.topLevelDecls(id) {
       success = check(decl: decl) && success
     }
 
@@ -589,13 +589,13 @@ public struct TypeChecker {
   }
 
   private mutating func check(operator id: NodeID<OperatorDecl>) -> Bool {
-    guard let module = NodeID<ModuleDecl>(converting: scopeHierarchy.container[id]!) else {
+    guard let source = NodeID<SourceDeclSet>(converting: scopeHierarchy.container[id]!) else {
       diagnostics.insert(.nestedOperatorDeclaration(range: ast.ranges[id]))
       return false
     }
 
     // Look for duplicate operator declaration.
-    for decl in ast[module].members where decl.kind == .operatorDecl {
+    for decl in ast[source].decls where decl.kind == .operatorDecl {
       let oper = NodeID<OperatorDecl>(unsafeRawValue: decl.rawValue)
       if oper != id,
          ast[oper].notation.value == ast[id].notation.value,
@@ -1488,33 +1488,38 @@ public struct TypeChecker {
     return matches
   }
 
-  /// Returns the declaration(s) of the specified operator.
+  /// Returns the declaration(s) of the specified operator that are visible in `scope`.
   func lookup(
     operator operatorName: Identifier,
     notation: OperatorNotation,
     inScope scope: AnyScopeID
   ) -> [NodeID<OperatorDecl>] {
-    func lookup(in module: NodeID<ModuleDecl>) -> NodeID<OperatorDecl>? {
-      for decl in ast[module].members where decl.kind == .operatorDecl {
-        let oper = NodeID<OperatorDecl>(unsafeRawValue: decl.rawValue)
-        if (ast[oper].notation.value == notation) && (ast[oper].name.value == operatorName) {
-          return oper
-        }
-      }
-      return nil
-    }
-
     let currentModule = scopeHierarchy.module(containing: scope)
     if let module = currentModule,
-       let oper = lookup(in: module)
+       let oper = lookup(operator: operatorName, notation: notation, in: module)
     {
       return [oper]
     }
 
     return ast.modules.compactMap({ (module) -> NodeID<OperatorDecl>? in
       if module == currentModule { return nil }
-      return lookup(in: module)
+      return lookup(operator: operatorName, notation: notation, in: module)
     })
+  }
+
+  /// Returns the declaration of the specified operator in `module`, if any.
+  func lookup(
+    operator operatorName: Identifier,
+    notation: OperatorNotation,
+    in module: NodeID<ModuleDecl>
+  ) -> NodeID<OperatorDecl>? {
+    for decl in ast.topLevelDecls(module) where decl.kind == .operatorDecl {
+      let oper = NodeID<OperatorDecl>(unsafeRawValue: decl.rawValue)
+      if (ast[oper].notation.value == notation) && (ast[oper].name.value == operatorName) {
+        return oper
+      }
+    }
+    return nil
   }
 
   /// Returns the extending declarations of `type` exposed to `scope`.
@@ -1562,9 +1567,15 @@ public struct TypeChecker {
 
   /// Returns the names and declarations introduced in `scope`.
   private func names<T: NodeIDProtocol>(introducedIn scope: T) -> LookupTable {
-    guard let decls = scopeHierarchy.containees[scope] else { return [:] }
+    if let module = NodeID<ModuleDecl>(converting: scope) {
+      return ast[module].sources.reduce(into: [:], { (table, s) in
+        table.merge(names(introducedIn: s), uniquingKeysWith: { (l, _) in l })
+      })
+    }
 
+    guard let decls = scopeHierarchy.containees[scope] else { return [:] }
     var table: LookupTable = [:]
+
     for id in decls {
       switch id.kind {
       case .associatedValueDecl,

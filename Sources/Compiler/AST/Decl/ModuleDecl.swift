@@ -6,12 +6,12 @@ public struct ModuleDecl: Decl, LexicalScope {
   /// The name of the module.
   public var name: String
 
-  /// The member declarations in the lexical scope of the module.
-  public var members: [AnyDeclID]
+  /// The source files in the module.
+  public var sources: [NodeID<SourceDeclSet>]
 
-  public init(name: String, members: [AnyDeclID] = []) {
+  public init(name: String, sources: [NodeID<SourceDeclSet>] = []) {
     self.name = name
-    self.members = members
+    self.sources = sources
   }
 
 }

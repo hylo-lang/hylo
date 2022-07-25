@@ -156,8 +156,12 @@ struct ScopeHierarchyBuilder:
 
   mutating func visit(module i: NodeID<ModuleDecl>) {
     innermost = AnyScopeID(i)
-    for member in ast[i].members {
-      member.accept(&self)
+    for source in ast[i].sources {
+      nesting(in: source, { this in
+        for member in this.ast[source].decls {
+          member.accept(&this)
+        }
+      })
     }
   }
 

@@ -81,9 +81,8 @@ public struct ScopeHierarchy {
     }
 
     // Declarations at global scope are global.
-    guard let parent = container[decl] else { return true }
-    switch parent.kind {
-    case .namespaceDecl, .moduleDecl:
+    switch container[decl]!.kind {
+    case .sourceDeclSet, .namespaceDecl:
       return true
     default:
       break

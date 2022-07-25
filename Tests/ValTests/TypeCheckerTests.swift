@@ -16,8 +16,10 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(TraitDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(TraitDecl(
       identifier: SourceRepresentable(value: "T"),
       members: [
         AnyDeclID(ast.insert(AssociatedTypeDecl(
@@ -85,25 +87,27 @@ final class TypeCheckerTests: XCTestCase {
     // trait U: V {} // error: circular trait refinment
     // trait V: T {} // error: circular trait refinment
 
-    var ast = AST()
-    let main = ast.insert(ModuleDecl(name: "main"))
-
     // Create a fake source ranges to get different diagnostic locations.
     let file = SourceFile(contents: "tuv")
     var i = SourceLocation(source: file, index: file.contents.startIndex)
     var j = SourceLocation(source: file, index: file.contents.index(after: i.index))
 
-    ast[main].members.append(AnyDeclID(ast.insert(TraitDecl(
+    var ast = AST()
+    let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet(file: file))
+    ast[main].sources.append(source)
+
+    ast[source].decls.append(AnyDeclID(ast.insert(TraitDecl(
       identifier: SourceRepresentable(value: "T", range: i ..< j),
       refinements: [ast.insertTypeName("U")]))))
     (i, j) = (j, SourceLocation(source: file, index: file.contents.index(after: j.index)))
 
-    ast[main].members.append(AnyDeclID(ast.insert(TraitDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(TraitDecl(
       identifier: SourceRepresentable(value: "U", range: i ..< j),
       refinements: [ast.insertTypeName("V")]))))
     (i, j) = (j, SourceLocation(source: file, index: file.contents.index(after: j.index)))
 
-    ast[main].members.append(AnyDeclID(ast.insert(TraitDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(TraitDecl(
       identifier: SourceRepresentable(value: "V", range: i ..< j),
       refinements: [ast.insertTypeName("T")]))))
 
@@ -119,8 +123,10 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(TraitDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(TraitDecl(
       identifier: SourceRepresentable(value: "T"),
       members: [
         AnyDeclID(ast.insert(TypeAliasDecl(
@@ -129,7 +135,7 @@ final class TypeCheckerTests: XCTestCase {
           body: .typeExpr(AnyTypeExprID(ast.insertTypeName("Any")))))),
       ]))))
 
-    ast[main].members.append(AnyDeclID(ast.insert(TypeAliasDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(TypeAliasDecl(
       identifier: SourceRepresentable(value: "A"),
       body: .typeExpr(AnyTypeExprID(ast.insertTypeName("T.A")))))))
 
@@ -149,15 +155,17 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(TraitDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(TraitDecl(
       identifier: SourceRepresentable(value: "T"),
       members: [
         AnyDeclID(ast.insert(AssociatedTypeDecl(
           identifier: SourceRepresentable(value: "X"))))
       ]))))
 
-    ast[main].members.append(AnyDeclID(ast.insert(TraitDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(TraitDecl(
       identifier: SourceRepresentable(value: "U"),
       refinements: [ast.insertTypeName("T")],
       members: [
@@ -207,8 +215,10 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(ProductTypeDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(ProductTypeDecl(
       identifier: SourceRepresentable(value: "A"),
       members: [
         AnyDeclID(ast.insert(BindingDecl(
@@ -291,8 +301,10 @@ final class TypeCheckerTests: XCTestCase {
     var ast = AST()
     insertStandardLibraryMockup(into: &ast)
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(FunDecl(
       introducer: SourceRepresentable(value: .fun),
       identifier: SourceRepresentable(value: "main"),
       body: .block(ast.insert(BraceStmt(
@@ -321,8 +333,10 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(ProductTypeDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(ProductTypeDecl(
       identifier: SourceRepresentable(value: "A"),
       members: [
         AnyDeclID(ast.insert(FunDecl(
@@ -357,8 +371,10 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(ProductTypeDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(ProductTypeDecl(
       identifier: SourceRepresentable(value: "A"),
       members: [
         AnyDeclID(ast.insert(FunDecl(
@@ -416,8 +432,10 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(BindingDecl(
       pattern: ast.insert(BindingPattern(
         introducer: SourceRepresentable(value: .let),
         subpattern: AnyPatternID(ast.insert(NamePattern(
@@ -425,7 +443,7 @@ final class TypeCheckerTests: XCTestCase {
             identifier: SourceRepresentable(value: "x0")))))))),
       initializer: AnyExprID(ast.insert(TupleExpr()))))))
 
-    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(BindingDecl(
       pattern: ast.insert(BindingPattern(
         introducer: SourceRepresentable(value: .let),
         subpattern: AnyPatternID(ast.insert(TuplePattern(
@@ -459,8 +477,10 @@ final class TypeCheckerTests: XCTestCase {
     var ast = AST()
     insertStandardLibraryMockup(into: &ast)
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(BindingDecl(
       pattern: ast.insert(BindingPattern(
         introducer: SourceRepresentable(value: .let),
         subpattern: AnyPatternID(ast.insert(NamePattern(
@@ -483,7 +503,7 @@ final class TypeCheckerTests: XCTestCase {
             value: AnyExprID(ast.insert(IntegerLiteralExpr(value: "3")))),
         ])))))))
 
-    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(BindingDecl(
       pattern: ast.insert(BindingPattern(
         introducer: SourceRepresentable(value: .let),
         subpattern: AnyPatternID(ast.insert(NamePattern(
@@ -515,8 +535,10 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(BindingDecl(
       pattern: ast.insert(BindingPattern(
         introducer: SourceRepresentable(value: .let),
         subpattern: AnyPatternID(ast.insert(NamePattern(
@@ -535,14 +557,16 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(FunDecl(
       introducer: SourceRepresentable(value: .fun),
       identifier: SourceRepresentable(value: "f0"),
       parameters: [],
       body: .block(ast.insert(BraceStmt()))))))
 
-    ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(FunDecl(
       introducer: SourceRepresentable(value: .fun),
       identifier: SourceRepresentable(value: "f1"),
       parameters: [],
@@ -559,8 +583,10 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(FunDecl(
       introducer: SourceRepresentable(value: .fun),
       identifier: SourceRepresentable(value: "f0"),
       parameters: [
@@ -588,8 +614,10 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(FunDecl(
       introducer: SourceRepresentable(value: .fun),
       identifier: SourceRepresentable(value: "f0"),
       parameters: [
@@ -618,8 +646,10 @@ final class TypeCheckerTests: XCTestCase {
     var ast = AST()
     insertStandardLibraryMockup(into: &ast)
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(FunDecl(
       introducer: SourceRepresentable(value: .fun),
       identifier: SourceRepresentable(value: "forty_two"),
       output: AnyTypeExprID(ast.insert(NameTypeExpr(
@@ -637,8 +667,10 @@ final class TypeCheckerTests: XCTestCase {
     var ast = AST()
     insertStandardLibraryMockup(into: &ast)
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(FunDecl(
       introducer: SourceRepresentable(value: .fun),
       identifier: SourceRepresentable(value: "no_op"),
       body: .block(ast.insert(BraceStmt(
@@ -656,8 +688,10 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(FunDecl(
       introducer: SourceRepresentable(value: .fun),
       identifier: SourceRepresentable(value: "f0"),
       captures: [
@@ -681,8 +715,10 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(FunDecl(
       introducer: SourceRepresentable(value: .fun),
       identifier: SourceRepresentable(value: "identity"),
       genericClause: SourceRepresentable(value: GenericClause(
@@ -714,8 +750,10 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(FunDecl(
       introducer: SourceRepresentable(value: .fun),
       identifier: SourceRepresentable(value: "f"),
       parameters: [
@@ -729,7 +767,7 @@ final class TypeCheckerTests: XCTestCase {
       body: .expr(AnyExprID(ast.insert(NameExpr(
         name: SourceRepresentable(value: "x")))))))))
 
-    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(BindingDecl(
       pattern: ast.insert(BindingPattern(
         introducer: SourceRepresentable(value: .let),
         subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
@@ -752,8 +790,10 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(FunDecl(
       introducer: SourceRepresentable(value: .fun),
       identifier: SourceRepresentable(value: "f"),
       genericClause: SourceRepresentable(value: GenericClause(
@@ -782,7 +822,7 @@ final class TypeCheckerTests: XCTestCase {
       body: .expr(AnyExprID(ast.insert(NameExpr(
         name: SourceRepresentable(value: "x")))))))))
 
-    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(BindingDecl(
       pattern: ast.insert(BindingPattern(
         introducer: SourceRepresentable(value: .let),
         subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
@@ -806,7 +846,7 @@ final class TypeCheckerTests: XCTestCase {
               ])))),
         ])))))))
 
-    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(BindingDecl(
       pattern: ast.insert(BindingPattern(
         introducer: SourceRepresentable(value: .let),
         subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
@@ -842,8 +882,10 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(FunDecl(
       introducer: SourceRepresentable(value: .fun),
       identifier: SourceRepresentable(value: "f"),
       genericClause: SourceRepresentable(value: GenericClause(
@@ -871,7 +913,7 @@ final class TypeCheckerTests: XCTestCase {
       ],
       body: .block(ast.insert(BraceStmt()))))))
 
-    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(BindingDecl(
       pattern: ast.insert(BindingPattern(
         introducer: SourceRepresentable(value: .let),
         subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
@@ -890,7 +932,7 @@ final class TypeCheckerTests: XCTestCase {
               ])))),
         ])))))))
 
-    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(BindingDecl(
       pattern: ast.insert(BindingPattern(
         introducer: SourceRepresentable(value: .let),
         subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
@@ -927,8 +969,10 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(FunDecl(
       introducer: SourceRepresentable(value: .fun),
       identifier: SourceRepresentable(value: "f"),
       parameters: [
@@ -942,7 +986,7 @@ final class TypeCheckerTests: XCTestCase {
       body: .expr(AnyExprID(ast.insert(NameExpr(
         name: SourceRepresentable(value: "x")))))))))
 
-    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(BindingDecl(
       pattern: ast.insert(BindingPattern(
         introducer: SourceRepresentable(value: .let),
         subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
@@ -950,7 +994,7 @@ final class TypeCheckerTests: XCTestCase {
         callee: AnyExprID(ast.insert(NameExpr(
           name: SourceRepresentable(value: "f")))))))))))
 
-    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(BindingDecl(
       pattern: ast.insert(BindingPattern(
         introducer: SourceRepresentable(value: .let),
         subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
@@ -976,8 +1020,10 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(FunDecl(
       introducer: SourceRepresentable(value: .fun),
       identifier: SourceRepresentable(value: "f"),
       parameters: [
@@ -992,7 +1038,7 @@ final class TypeCheckerTests: XCTestCase {
       body: .expr(AnyExprID(ast.insert(NameExpr(
         name: SourceRepresentable(value: "x")))))))))
 
-    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(BindingDecl(
       pattern: ast.insert(BindingPattern(
         introducer: SourceRepresentable(value: .let),
         subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
@@ -1016,8 +1062,10 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(FunDecl(
       introducer: SourceRepresentable(value: .memberwiseInit),
       accessModifier: SourceRepresentable(value: .public)))))
 
@@ -1037,8 +1085,10 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(ProductTypeDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(ProductTypeDecl(
       identifier: SourceRepresentable(value: "A"),
       members: [
         AnyDeclID(ast.insert(BindingDecl(
@@ -1060,7 +1110,7 @@ final class TypeCheckerTests: XCTestCase {
           accessModifier: SourceRepresentable(value: .public)))),
       ]))))
 
-    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(BindingDecl(
       pattern: ast.insert(BindingPattern(
         introducer: SourceRepresentable(value: .let),
         subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
@@ -1091,8 +1141,10 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(BindingDecl(
       pattern: ast.insert(BindingPattern(
         introducer: SourceRepresentable(value: .let),
         subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
@@ -1100,7 +1152,7 @@ final class TypeCheckerTests: XCTestCase {
         callee: AnyExprID(ast.insert(NameExpr(
           name: SourceRepresentable(value: "A")))))))))))
 
-    ast[main].members.append(AnyDeclID(ast.insert(ProductTypeDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(ProductTypeDecl(
       identifier: SourceRepresentable(value: "A")))))
 
     var checker = TypeChecker(ast: ast)
@@ -1118,8 +1170,10 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(ProductTypeDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(ProductTypeDecl(
       identifier: SourceRepresentable(value: "A"),
       genericClause: SourceRepresentable(value: GenericClause(
         parameters: [
@@ -1150,7 +1204,7 @@ final class TypeCheckerTests: XCTestCase {
           accessModifier: SourceRepresentable(value: .public)))),
       ]))))
 
-    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(BindingDecl(
       pattern: ast.insert(BindingPattern(
         introducer: SourceRepresentable(value: .let),
         subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
@@ -1180,8 +1234,10 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(ProductTypeDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(ProductTypeDecl(
       identifier: SourceRepresentable(value: "A"),
       members: [
         AnyDeclID(ast.insert(BindingDecl(
@@ -1219,7 +1275,7 @@ final class TypeCheckerTests: XCTestCase {
             ])))))),
       ]))))
 
-    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(BindingDecl(
       pattern: ast.insert(BindingPattern(
         introducer: SourceRepresentable(value: .let),
         subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
@@ -1248,8 +1304,10 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(ProductTypeDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(ProductTypeDecl(
       identifier: SourceRepresentable(value: "A"),
       members: [
         AnyDeclID(ast.insert(FunDecl(
@@ -1296,8 +1354,10 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(ProductTypeDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(ProductTypeDecl(
       identifier: SourceRepresentable(value: "A"),
       members: [
         AnyDeclID(ast.insert(FunDecl(
@@ -1336,8 +1396,10 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(ProductTypeDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(ProductTypeDecl(
       identifier: SourceRepresentable(value: "A"),
       members: [
         AnyDeclID(ast.insert(FunDecl(
@@ -1398,8 +1460,10 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(ProductTypeDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(ProductTypeDecl(
       identifier: SourceRepresentable(value: "A"),
       members: [
         AnyDeclID(ast.insert(FunDecl(
@@ -1409,7 +1473,7 @@ final class TypeCheckerTests: XCTestCase {
           body: .block(ast.insert(BraceStmt()))))),
       ]))))
 
-    ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(FunDecl(
       introducer: SourceRepresentable(value: .fun),
       identifier: SourceRepresentable(value: "main"),
       body: .block(ast.insert(BraceStmt(
@@ -1444,8 +1508,10 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(TypeAliasDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(TypeAliasDecl(
       identifier: SourceRepresentable(value: "Pair"),
       genericClause: SourceRepresentable(value: GenericClause(
         parameters: [
@@ -1463,7 +1529,7 @@ final class TypeCheckerTests: XCTestCase {
               type: AnyTypeExprID(ast.insertTypeName("Y"))),
           ]))))))))
 
-    ast[main].members.append(AnyDeclID(ast.insert(TypeAliasDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(TypeAliasDecl(
       identifier: SourceRepresentable(value: "AnyPair"),
       body: .typeExpr(
         AnyTypeExprID(ast.insert(NameTypeExpr(
@@ -1519,8 +1585,10 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(BindingDecl(
       pattern: ast.insert(BindingPattern(
         introducer: SourceRepresentable(value: .let),
         subpattern: AnyPatternID(ast.insert(NamePattern(
@@ -1530,7 +1598,7 @@ final class TypeCheckerTests: XCTestCase {
           identifier: SourceRepresentable(value: "Any")))))),
       initializer: AnyExprID(ast.insert(TupleExpr()))))))
 
-    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(BindingDecl(
       pattern: ast.insert(BindingPattern(
         introducer: SourceRepresentable(value: .let),
         subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
@@ -1550,8 +1618,10 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(BindingDecl(
       pattern: ast.insert(BindingPattern(
         introducer: SourceRepresentable(value: .let),
         subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
@@ -1572,8 +1642,10 @@ final class TypeCheckerTests: XCTestCase {
     var ast = AST()
     insertStandardLibraryMockup(into: &ast)
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(BindingDecl(
       pattern: ast.insert(BindingPattern(
         introducer: SourceRepresentable(value: .let),
         subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
@@ -1594,8 +1666,10 @@ final class TypeCheckerTests: XCTestCase {
     var ast = AST()
     insertStandardLibraryMockup(into: &ast)
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(BindingDecl(
       pattern: ast.insert(BindingPattern(
         introducer: SourceRepresentable(value: .let),
         subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
@@ -1614,7 +1688,7 @@ final class TypeCheckerTests: XCTestCase {
             name: SourceRepresentable(value: "x"))))),
         isInExprContext: true)))))))))
 
-    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(BindingDecl(
       pattern: ast.insert(BindingPattern(
         introducer: SourceRepresentable(value: .let),
         subpattern: AnyPatternID(ast.insert(WildcardPattern())),
@@ -1656,8 +1730,10 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(BindingDecl(
       pattern: ast.insert(BindingPattern(
         introducer: SourceRepresentable(value: .let),
         subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
@@ -1700,8 +1776,10 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(BindingDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(BindingDecl(
       pattern: ast.insert(BindingPattern(
         introducer: SourceRepresentable(value: .let),
         subpattern: AnyPatternID(ast.insert(WildcardPattern())))),
@@ -1733,8 +1811,10 @@ final class TypeCheckerTests: XCTestCase {
     var ast = AST()
     insertStandardLibraryMockup(into: &ast)
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(FunDecl(
       introducer: SourceRepresentable(value: .fun),
       identifier: SourceRepresentable(value: "forty_two"),
       output: AnyTypeExprID(ast.insert(NameTypeExpr(
@@ -1745,7 +1825,7 @@ final class TypeCheckerTests: XCTestCase {
             value: AnyExprID(ast.insert(IntegerLiteralExpr(value: "42")))))),
         ])))))))
 
-    ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(FunDecl(
       introducer: SourceRepresentable(value: .fun),
       identifier: SourceRepresentable(value: "forty_one"),
       output: AnyTypeExprID(ast.insert(NameTypeExpr(
@@ -1769,8 +1849,10 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(FunDecl(
       introducer: SourceRepresentable(value: .fun),
       identifier: SourceRepresentable(value: "main"),
       body:  .block(ast.insert(BraceStmt(
@@ -1814,8 +1896,10 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(FunDecl(
       introducer: SourceRepresentable(value: .fun),
       identifier: SourceRepresentable(value: "main"),
       body: .block(ast.insert(BraceStmt(
@@ -1856,8 +1940,10 @@ final class TypeCheckerTests: XCTestCase {
     var ast = AST()
     insertStandardLibraryMockup(into: &ast)
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet())
+    ast[main].sources.append(source)
 
-    ast[main].members.append(AnyDeclID(ast.insert(FunDecl(
+    ast[source].decls.append(AnyDeclID(ast.insert(FunDecl(
       introducer: SourceRepresentable(value: .fun),
       identifier: SourceRepresentable(value: "one_or_two"),
       parameters: [
@@ -1907,33 +1993,35 @@ final class TypeCheckerTests: XCTestCase {
 
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
+    let source = ast.insert(SourceDeclSet(file: file))
+    ast[main].sources.append(source)
 
     let d0 = ast.insert(OperatorDecl(
       notation: SourceRepresentable(value: .prefix),
       name: SourceRepresentable(value: "-")))
     ast.ranges[d0] = locations[0] ..< locations[1]
-    ast[main].members.append(AnyDeclID(d0))
+    ast[source].decls.append(AnyDeclID(d0))
 
     let d1 = ast.insert(OperatorDecl(
       notation: SourceRepresentable(value: .infix),
       name: SourceRepresentable(value: "-"),
       precedenceGroup: SourceRepresentable(value: .addition)))
     ast.ranges[d1] = locations[1] ..< locations[2]
-    ast[main].members.append(AnyDeclID(d1))
+    ast[source].decls.append(AnyDeclID(d1))
 
     let d2 = ast.insert(OperatorDecl(
       notation: SourceRepresentable(value: .infix),
       name: SourceRepresentable(value: "+"),
       precedenceGroup: SourceRepresentable(value: .addition)))
     ast.ranges[d2] = locations[2] ..< locations[3]
-    ast[main].members.append(AnyDeclID(d2))
+    ast[source].decls.append(AnyDeclID(d2))
 
     let d3 = ast.insert(OperatorDecl(
       notation: SourceRepresentable(value: .infix),
       name: SourceRepresentable(value: "+"),
       precedenceGroup: SourceRepresentable(value: .multiplication)))
     ast.ranges[d3] = locations[3] ..< locations[4]
-    ast[main].members.append(AnyDeclID(d3))
+    ast[source].decls.append(AnyDeclID(d3))
 
     var checker = TypeChecker(ast: ast)
     XCTAssertFalse(checker.check(module: main))

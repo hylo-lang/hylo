@@ -39,7 +39,7 @@ public struct CXXTranspiler {
     header.write("namespace \(moduleDecl.name) {\n")
 
     // Collect public declarations from Val.
-    for memberID in moduleDecl.members {
+    for memberID in program.ast.topLevelDecls(moduleID) {
       switch memberID.kind {
       case .productTypeDecl:
         let typeDeclID = NodeID<ProductTypeDecl>(converting: memberID)!

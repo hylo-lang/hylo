@@ -5,9 +5,11 @@ import Compiler
 public func insertStandardLibraryMockup(into ast: inout AST) -> NodeID<ModuleDecl> {
   precondition(ast.stdlib == nil)
   let stdlib = ast.insert(ModuleDecl(name: "Val"))
+  let source = ast.insert(SourceDeclSet())
+  ast[stdlib].sources.append(source)
 
   // fun fatal_error() -> Never {}
-  ast[stdlib].members.append(AnyDeclID(ast.insert(FunDecl(
+  ast[source].decls.append(AnyDeclID(ast.insert(FunDecl(
     introducer: SourceRepresentable(value: .fun),
     identifier: SourceRepresentable(value: "fatal_error"),
     output: AnyTypeExprID(ast.insert(NameTypeExpr(
@@ -15,7 +17,7 @@ public func insertStandardLibraryMockup(into ast: inout AST) -> NodeID<ModuleDec
     body: .block(ast.insert(BraceStmt()))))))
 
   // trait ExpressibleByIntegerLiteral { ... }
-  ast[stdlib].members.append(AnyDeclID(ast.insert(TraitDecl(
+  ast[source].decls.append(AnyDeclID(ast.insert(TraitDecl(
     identifier: SourceRepresentable(value: "ExpressibleByIntegerLiteral"),
     members: [
       // init(integer_literal: Builtin.IntegerLiteral)
@@ -35,7 +37,7 @@ public func insertStandardLibraryMockup(into ast: inout AST) -> NodeID<ModuleDec
   ))))
 
   // public type Bool { ... }
-  ast[stdlib].members.append(AnyDeclID(ast.insert(ProductTypeDecl(
+  ast[source].decls.append(AnyDeclID(ast.insert(ProductTypeDecl(
     accessModifier: SourceRepresentable(value: .public),
     identifier: SourceRepresentable(value: "Bool"),
     members: [
@@ -81,7 +83,7 @@ public func insertStandardLibraryMockup(into ast: inout AST) -> NodeID<ModuleDec
     ]))))
 
   // public type Int { ... }
-  ast[stdlib].members.append(AnyDeclID(ast.insert(ProductTypeDecl(
+  ast[source].decls.append(AnyDeclID(ast.insert(ProductTypeDecl(
     accessModifier: SourceRepresentable(value: .public),
     identifier: SourceRepresentable(value: "Int"),
     conformances: [
@@ -123,7 +125,7 @@ public func insertStandardLibraryMockup(into ast: inout AST) -> NodeID<ModuleDec
   ))))
 
   // public type Double { ... }
-  ast[stdlib].members.append(AnyDeclID(ast.insert(ProductTypeDecl(
+  ast[source].decls.append(AnyDeclID(ast.insert(ProductTypeDecl(
     accessModifier: SourceRepresentable(value: .public),
     identifier: SourceRepresentable(value: "Double"),
     conformances: [
