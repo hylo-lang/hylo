@@ -1,5 +1,5 @@
 import XCTest
-import ParserCombinators
+import Durian
 
 @testable import Compiler
 
@@ -1671,11 +1671,11 @@ final class ParserTests: XCTestCase {
   }
 
   /// Applies `combinator` on `input`, optionally setting `flags` in the parser context.
-  func apply<Combinator: ParserCombinator>(
-    _ combinator: Combinator,
+  func apply<C: Combinator>(
+    _ combinator: C,
     on input: SourceFile,
     flags: ParserContext.Flags? = nil
-  ) throws -> (element: Combinator.Element?, ast: AST) where Combinator.Context == ParserContext {
+  ) throws -> (element: C.Element?, ast: AST) where C.Context == ParserContext {
     var context = ParserContext(ast: AST(), lexer: Lexer(tokenizing: input))
     if let f = flags {
       context.flags = context.flags | f

@@ -1,4 +1,4 @@
-import ParserCombinators
+import Durian
 import Utils
 
 /// # Notes:
@@ -64,12 +64,12 @@ public enum Parser {
 
   // MARK: Declarations
 
-  private static func anyDecl<Base: ParserCombinator>(
+  private static func anyDecl<Base: Combinator>(
     _ base: Base
-  ) -> AnyParserCombinator<ParserContext, AnyDeclID>
+  ) -> AnyCombinator<ParserContext, AnyDeclID>
   where Base.Context == ParserContext, Base.Element: DeclID
   {
-    AnyParserCombinator(parse: { (context) in
+    AnyCombinator(parse: { (context) in
       try base.parse(&context).map(AnyDeclID.init(_:))
     })
   }
@@ -109,8 +109,8 @@ public enum Parser {
       })
   )
 
-  static let namespaceDecl: RecursiveCombinator<ParserContext, NodeID<NamespaceDecl>> = (
-    RecursiveCombinator(_namespaceDecl.parse(_:))
+  static let namespaceDecl: Recursive<ParserContext, NodeID<NamespaceDecl>> = (
+    Recursive(_namespaceDecl.parse(_:))
   )
 
   private static let _namespaceDecl = (
@@ -175,8 +175,8 @@ public enum Parser {
       })
   )
 
-  static let productTypeDecl: RecursiveCombinator<ParserContext, NodeID<ProductTypeDecl>> = (
-    RecursiveCombinator(_productTypeDecl.parse(_:))
+  static let productTypeDecl: Recursive<ParserContext, NodeID<ProductTypeDecl>> = (
+    Recursive(_productTypeDecl.parse(_:))
   )
 
   private static let _productTypeDecl = (
@@ -812,7 +812,7 @@ public enum Parser {
 
   /// Applies `decl` after having parsed its modifiers. If `decl` fails without committing,
   /// returns a non-committing failure if no modifier was parsed.
-  private static func declModifiers<Decl: ParserCombinator>(
+  private static func declModifiers<Decl: Combinator>(
     and decl: Decl
   ) throws -> Apply<
     ParserContext, (
@@ -907,18 +907,18 @@ public enum Parser {
 
   // MARK: Value expressions
 
-  private static func anyExpr<Base: ParserCombinator>(
+  private static func anyExpr<Base: Combinator>(
     _ base: Base
-  ) -> AnyParserCombinator<ParserContext, AnyExprID>
+  ) -> AnyCombinator<ParserContext, AnyExprID>
   where Base.Context == ParserContext, Base.Element: ExprID
   {
-    AnyParserCombinator(parse: { (context) in
+    AnyCombinator(parse: { (context) in
       try base.parse(&context).map(AnyExprID.init(_:))
     })
   }
 
-  static let expr: RecursiveCombinator<ParserContext, AnyExprID> = (
-    RecursiveCombinator(infixExpr.parse(_:))
+  static let expr: Recursive<ParserContext, AnyExprID> = (
+    Recursive(infixExpr.parse(_:))
   )
 
   static let infixExpr = (
@@ -1410,8 +1410,8 @@ public enum Parser {
       .map({ (context, id) -> MatchCase.Body in .block(id) })
   )
 
-  static let conditionalExpr: RecursiveCombinator<ParserContext, NodeID<CondExpr>> = (
-    RecursiveCombinator(_conditionalExpr.parse(_:))
+  static let conditionalExpr: Recursive<ParserContext, NodeID<CondExpr>> = (
+    Recursive(_conditionalExpr.parse(_:))
   )
 
   private static let _conditionalExpr = (
@@ -1517,18 +1517,18 @@ public enum Parser {
 
   // MARK: Patterns
 
-  private static func anyPattern<Base: ParserCombinator>(
+  private static func anyPattern<Base: Combinator>(
     _ base: Base
-  ) -> AnyParserCombinator<ParserContext, AnyPatternID>
+  ) -> AnyCombinator<ParserContext, AnyPatternID>
   where Base.Context == ParserContext, Base.Element: PatternID
   {
-    AnyParserCombinator(parse: { (context) in
+    AnyCombinator(parse: { (context) in
       try base.parse(&context).map(AnyPatternID.init(_:))
     })
   }
 
-  static let pattern: RecursiveCombinator<ParserContext, AnyPatternID> = (
-    RecursiveCombinator(_pattern.parse(_:))
+  static let pattern: Recursive<ParserContext, AnyPatternID> = (
+    Recursive(_pattern.parse(_:))
   )
 
   private static let _pattern = (
@@ -1649,18 +1649,18 @@ public enum Parser {
 
   // MARK: Statements
 
-  private static func anyStmt<Base: ParserCombinator>(
+  private static func anyStmt<Base: Combinator>(
     _ base: Base
-  ) -> AnyParserCombinator<ParserContext, AnyStmtID>
+  ) -> AnyCombinator<ParserContext, AnyStmtID>
   where Base.Context == ParserContext, Base.Element: StmtID
   {
-    AnyParserCombinator(parse: { (context) in
+    AnyCombinator(parse: { (context) in
       try base.parse(&context).map(AnyStmtID.init(_:))
     })
   }
 
-  static let stmt: RecursiveCombinator<ParserContext, AnyStmtID> = (
-    RecursiveCombinator(_stmt.parse(_:))
+  static let stmt: Recursive<ParserContext, AnyStmtID> = (
+    Recursive(_stmt.parse(_:))
   )
 
   static let _stmt = (
@@ -1862,18 +1862,18 @@ public enum Parser {
 
   // MARK: Type expressions
 
-  private static func anyTypeExpr<Base: ParserCombinator>(
+  private static func anyTypeExpr<Base: Combinator>(
     _ base: Base
-  ) -> AnyParserCombinator<ParserContext, AnyTypeExprID>
+  ) -> AnyCombinator<ParserContext, AnyTypeExprID>
   where Base.Context == ParserContext, Base.Element: TypeExprID
   {
-    AnyParserCombinator(parse: { (context) in
+    AnyCombinator(parse: { (context) in
       try base.parse(&context).map(AnyTypeExprID.init(_:))
     })
   }
 
-  static let typeExpr: RecursiveCombinator<ParserContext, AnyTypeExprID> = (
-    RecursiveCombinator(unionTypeExpr.parse(_:))
+  static let typeExpr: Recursive<ParserContext, AnyTypeExprID> = (
+    Recursive(unionTypeExpr.parse(_:))
   )
 
   // static let storedProjectionTypeExpr = ?
@@ -2388,7 +2388,7 @@ public enum Parser {
 extension Parser {
 
   /// A combinator that parses tokens with a specific kind.
-  struct TakeKind: ParserCombinator {
+  struct TakeKind: Combinator {
 
     typealias Context = ParserContext
 
@@ -2404,7 +2404,7 @@ extension Parser {
   }
 
   /// A combinator that parses contextual keywords.
-  struct ContextualKeyword<T: RawRepresentable>: ParserCombinator where T.RawValue == String {
+  struct ContextualKeyword<T: RawRepresentable>: Combinator where T.RawValue == String {
 
     typealias Context = ParserContext
 
@@ -2449,7 +2449,7 @@ extension Parser {
 
   /// Creates a combinator that sets the specified flags before applying `base`, and restores them
   /// to their previous state afterward.
-  static func settingFlags<Base: ParserCombinator>(
+  static func settingFlags<Base: Combinator>(
     _ newFlags: ParserContext.Flags,
     apply base: Base
   ) -> Apply<ParserContext, Base.Element>
@@ -2464,7 +2464,7 @@ extension Parser {
   }
 
   /// Creates a combinator that applies `base` only if its input is not preceeded by whitespaces.
-  static func withoutLeadingWhitespace<Base: ParserCombinator>(
+  static func withoutLeadingWhitespace<Base: Combinator>(
     _ base: Base
   ) -> Apply<ParserContext, Base.Element>
   where Base.Context == ParserContext
@@ -2473,7 +2473,7 @@ extension Parser {
   }
 
   /// Creates a combinator that applies `base` only if its input is not preceeded by newlines.
-  static func onSameLine<Base: ParserCombinator>(
+  static func onSameLine<Base: Combinator>(
     _ base: Base
   ) -> Apply<ParserContext, Base.Element>
   where Base.Context == ParserContext

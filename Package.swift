@@ -22,6 +22,9 @@ let package = Package(
     .package(
       url: "https://github.com/kyouko-taiga/LLVMSwift.git",
       branch: "master"),
+    .package(
+      url: "https://github.com/val-lang/Durian.git",
+      from: "1.0.0"),
   ],
 
   targets: [
@@ -29,7 +32,8 @@ let package = Package(
     .executableTarget(
       name: "CLI",
       dependencies: [
-        "Compiler", "Library",
+        "Compiler",
+        "Library",
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
       ]),
 
@@ -38,14 +42,12 @@ let package = Package(
       name: "Compiler",
       dependencies: [
         "Utils",
-        "ParserCombinators",
         .product(name: "Collections", package: "swift-collections"),
         .product(name: "LLVM", package: "LLVMSwift"),
+        .product(name: "Durian", package: "Durian"),
       ]),
 
       .target(name: "Utils"),
-
-      .target(name: "ParserCombinators"),
 
     // Test targets.
     .testTarget(

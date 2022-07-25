@@ -1,5 +1,5 @@
 import DequeModule
-import ParserCombinators
+import Durian
 
 /// A type representing the context of the parser.
 struct ParserContext {
