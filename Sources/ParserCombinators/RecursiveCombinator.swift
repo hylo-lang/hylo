@@ -3,37 +3,29 @@ public struct RecursiveCombinator<Context, Element>: ParserCombinator {
 
   private final class Definition {
 
+    var make: () -> (inout Context) throws -> Element?
+
     var parse: ((inout Context) throws -> Element?)?
 
-    init() {}
+    init(make: @escaping () -> (inout Context) throws -> Element?) {
+      self.make = make
+    }
 
   }
 
   /// The definition of the combinator.
-  private let definition = Definition()
+  private let definition: Definition
 
-  /// Declares a recursive combinator whose `parse(_:)` method must be defined separately.
-  public init() {}
-
-  /// Indiates whether `self` has been defined.
-  public var isDefined: Bool { definition.parse != nil }
-
-  /// Defines the combinator if it wasn't already.
-  public func define<T: ParserCombinator>(_ combinator: T)
-  where T.Context == Context, T.Element == Element
-  {
-    precondition(definition.parse == nil)
-    definition.parse = combinator.parse(_:)
-  }
-
-  /// Defines the combinator.
-  public func define(_ parse: @escaping (inout Context) -> Element?) {
-    precondition(definition.parse == nil)
-    definition.parse = parse
+  /// Declares combinator that forwards operation to combinator returned by `makeParse`.
+  public init(_ makeParse: @autoclosure @escaping () -> (inout Context) throws -> Element?) {
+    self.definition = Definition(make: makeParse)
   }
 
   public func parse(_ context: inout Context) throws -> Element? {
-    try definition.parse!(&context)
+    if definition.parse == nil {
+      definition.parse = definition.make()
+    }
+    return try definition.parse!(&context)
   }
 
 }

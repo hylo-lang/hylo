@@ -34,27 +34,12 @@ public struct Parser {
   }
 
   /// Creates a parser.
-  public init() {
-    Self.defineRecursiveCombinators()
-  }
+  public init() {}
 
   /// Parses the specified source file.
   public func parse(_ input: SourceFile, into ast: AST? = nil) {
     var context = ParserContext(ast: ast ?? AST(), lexer: Lexer(tokenizing: input))
     _ = context.peek()
-  }
-
-  /// Defines the recursive combinators.
-  static func defineRecursiveCombinators() {
-    if namespaceDecl.isDefined { return }
-
-    namespaceDecl.define(_namespaceDecl)
-    productTypeDecl.define(_productTypeDecl)
-    expr.define(infixExpr)
-    conditionalExpr.define(_conditionalExpr)
-    pattern.define(_pattern)
-    stmt.define(_stmt)
-    typeExpr.define(unionTypeExpr)
   }
 
   // MARK: Declarations
@@ -88,7 +73,9 @@ public struct Parser {
       })
   )
 
-  static let namespaceDecl = RecursiveCombinator<ParserContext, NodeID<NamespaceDecl>>()
+  static let namespaceDecl: RecursiveCombinator<ParserContext, NodeID<NamespaceDecl>> = (
+    RecursiveCombinator(_namespaceDecl.parse(_:))
+  )
 
   private static let _namespaceDecl = (
     namespaceHead.and(namespaceBody)
@@ -156,7 +143,9 @@ public struct Parser {
       })
   )
 
-  static let productTypeDecl = RecursiveCombinator<ParserContext, NodeID<ProductTypeDecl>>()
+  static let productTypeDecl: RecursiveCombinator<ParserContext, NodeID<ProductTypeDecl>> = (
+    RecursiveCombinator(_productTypeDecl.parse(_:))
+  )
 
   private static let _productTypeDecl = (
     productTypeHead.and(productTypeBody)
@@ -908,7 +897,9 @@ public struct Parser {
     })
   }
 
-  static let expr = RecursiveCombinator<ParserContext, AnyExprID>()
+  static let expr: RecursiveCombinator<ParserContext, AnyExprID> = (
+    RecursiveCombinator(infixExpr.parse(_:))
+  )
 
   static let infixExpr = (
     Apply<ParserContext, AnyExprID>({ (context) in
@@ -1399,7 +1390,9 @@ public struct Parser {
       .map({ (context, id) -> MatchCase.Body in .block(id) })
   )
 
-  static let conditionalExpr = RecursiveCombinator<ParserContext, NodeID<CondExpr>>()
+  static let conditionalExpr: RecursiveCombinator<ParserContext, NodeID<CondExpr>> = (
+    RecursiveCombinator(_conditionalExpr.parse(_:))
+  )
 
   private static let _conditionalExpr = (
     take(.if).and(conditionalClause).and(conditionalExprBody).and(maybe(conditionalTail))
@@ -1514,7 +1507,9 @@ public struct Parser {
     })
   }
 
-  static let pattern = RecursiveCombinator<ParserContext, AnyPatternID>()
+  static let pattern: RecursiveCombinator<ParserContext, AnyPatternID> = (
+    RecursiveCombinator(_pattern.parse(_:))
+  )
 
   private static let _pattern = (
     oneOf([
@@ -1644,7 +1639,9 @@ public struct Parser {
     })
   }
 
-  static let stmt = RecursiveCombinator<ParserContext, AnyStmtID>()
+  static let stmt: RecursiveCombinator<ParserContext, AnyStmtID> = (
+    RecursiveCombinator(_stmt.parse(_:))
+  )
 
   static let _stmt = (
     oneOf([
@@ -1859,7 +1856,9 @@ public struct Parser {
     })
   }
 
-  static let typeExpr = RecursiveCombinator<ParserContext, AnyTypeExprID>()
+  static let typeExpr: RecursiveCombinator<ParserContext, AnyTypeExprID> = (
+    RecursiveCombinator(unionTypeExpr.parse(_:))
+  )
 
   // static let storedProjectionTypeExpr = ?
 

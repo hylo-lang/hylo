@@ -5,10 +5,6 @@ import ParserCombinators
 
 final class ParserTests: XCTestCase {
 
-  class override func setUp() {
-    Parser.defineRecursiveCombinators()
-  }
-
   // MARK: Declarations
 
   func testImportDecl() throws {
