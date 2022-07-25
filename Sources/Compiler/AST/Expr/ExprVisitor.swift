@@ -14,8 +14,6 @@ public protocol ExprVisitor {
 
   mutating func visit(bufferLiteral: NodeID<BufferLiteralExpr>) -> Result
 
-  mutating func visit(charLiteral: NodeID<CharLiteralExpr>) -> Result
-
   mutating func visit(cast: NodeID<CastExpr>) -> Result
 
   mutating func visit(cond: NodeID<CondExpr>) -> Result
@@ -51,5 +49,7 @@ public protocol ExprVisitor {
   mutating func visit(tuple: NodeID<TupleExpr>) -> Result
 
   mutating func visit(tupleMember: NodeID<TupleMemberExpr>) -> Result
+
+  mutating func visit(unicodeScalarLiteral: NodeID<UnicodeScalarLiteralExpr>) -> Result
 
 }

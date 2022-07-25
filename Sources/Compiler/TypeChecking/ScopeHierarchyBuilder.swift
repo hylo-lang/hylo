@@ -297,8 +297,6 @@ struct ScopeHierarchyBuilder:
     }
   }
 
-  mutating func visit(charLiteral id: NodeID<CharLiteralExpr>) {}
-
   mutating func visit(cast id: NodeID<CastExpr>) {
     ast[id].left.accept(&self)
     ast[id].right.accept(&self)
@@ -631,5 +629,7 @@ struct ScopeHierarchyBuilder:
       }
     }
   }
+
+  mutating func visit(unicodeScalarLiteral id: NodeID<UnicodeScalarLiteralExpr>) {}
 
 }

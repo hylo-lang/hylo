@@ -225,7 +225,7 @@ struct CaptureCollector {
         inMutatingContext: isContextMutating)
 
     case .booleanLiteralExpr,
-         .charLiteralExpr,
+         .unicodeScalarLiteralExpr,
          .errorExpr,
          .floatLiteralExpr,
          .integerLiteralExpr,

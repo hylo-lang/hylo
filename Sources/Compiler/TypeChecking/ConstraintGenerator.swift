@@ -61,10 +61,6 @@ struct ConstraintGenerator: ExprVisitor {
     fatalError("not implemented")
   }
 
-  mutating func visit(charLiteral id: NodeID<CharLiteralExpr>) {
-    fatalError("not implemented")
-  }
-
   mutating func visit(cast id: NodeID<CastExpr>) {
     // Realize the type to which the left operand should be converted.
     guard let target = checker.realize(checker.ast[id].right, inScope: scope) else {
@@ -775,6 +771,10 @@ extension ConstraintGenerator {
     }
 
     return accumulator
+  }
+
+  mutating func visit(unicodeScalarLiteral id: NodeID<UnicodeScalarLiteralExpr>) {
+    fatalError("not implemented")
   }
 
 }
