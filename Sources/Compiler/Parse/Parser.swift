@@ -47,20 +47,31 @@ public enum Parser {
 
     let decls: NodeID<TopLevelDeclSet>?
     do {
+      // Parse the file.
       if let d = try Self.sourceFile.parse(&context) {
+        // Make sure we consumed the entire file.
+        if let i = input.contents
+          .suffix(from: context.currentIndex).firstIndex(where: { !$0.isWhitespace })
+        {
+          throw ParseError("expected EOF", at: SourceLocation(source: input, index: i))
+        }
+
+        // Parser succeeded.
         context.ast[module].sources.append(d)
         decls = d
       } else {
         decls = nil
       }
     } catch let error {
+      var diagnostic = Diagnostic(level: .error, message: "")
       if let error = error as? ParseError {
-        context.diagnostics.append(Diagnostic(
-          level: .error, message: error.message, location: error.location))
+        diagnostic.message = error.message
+        diagnostic.location = error.location
+        diagnostic.window = Diagnostic.Window(range: error.location ..< error.location)
       } else {
-        context.diagnostics.append(Diagnostic(
-          level: .error, message: error.localizedDescription, location: context.currentLocation))
+        diagnostic.message = error.localizedDescription
       }
+      context.diagnostics.append(diagnostic)
       decls = nil
     }
 

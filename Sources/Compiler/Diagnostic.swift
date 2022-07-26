@@ -30,12 +30,12 @@ public struct Diagnostic: Hashable {
   }
 
   /// The level of the diagnostic.
-  public let level: Level
+  public var level: Level
 
   /// The main description of the diagnostic.
   ///
   /// The message should be general and able to stand on its own.
-  public let message: String
+  public var message: String
 
   /// The location at which the diagnostic should be reported.
   public var location: SourceLocation?
