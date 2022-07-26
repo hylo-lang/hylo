@@ -4,7 +4,7 @@ public struct CastExpr: Expr {
   public static let kind = NodeKind.castExpr
 
   /// The direction of a cast.
-  public enum Direction {
+  public enum Direction: Codable {
 
     case up
 

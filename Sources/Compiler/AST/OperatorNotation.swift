@@ -1,5 +1,5 @@
 /// An operator notation.
-public enum OperatorNotation: String {
+public enum OperatorNotation: String, Codable {
 
   /// The infix notation.
   case infix
@@ -11,5 +11,3 @@ public enum OperatorNotation: String {
   case postfix
 
 }
-
-extension OperatorNotation: Hashable {}

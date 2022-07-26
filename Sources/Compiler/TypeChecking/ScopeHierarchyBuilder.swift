@@ -400,8 +400,8 @@ struct ScopeHierarchyBuilder:
     switch ast[i] {
     case .unfolded(let head, let tail):
       head.accept(&self)
-      for (_, operand) in tail {
-        operand.accept(&self)
+      for element in tail {
+        element.operand.accept(&self)
       }
 
     case .root(let root):

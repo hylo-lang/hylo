@@ -3,7 +3,7 @@ public struct TypeAliasDecl: GenericDecl, SingleEntityDecl, GenericScope {
 
   public static let kind = NodeKind.typeAliasDecl
 
-  public enum Body: Hashable {
+  public enum Body: Codable {
 
     /// A single type expression.
     case typeExpr(AnyTypeExprID)

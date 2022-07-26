@@ -1,5 +1,5 @@
 /// A generic clause.
-public struct GenericClause: Hashable {
+public struct GenericClause: Codable {
 
   /// The parameters of the clause.
   public var parameters: [GenericParamDeclID]

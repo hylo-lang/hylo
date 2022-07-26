@@ -35,3 +35,5 @@ public struct NodeMap<Value> {
 extension NodeMap: Equatable where Value: Equatable {}
 
 extension NodeMap: Hashable where Value: Hashable {}
+
+extension NodeMap: Codable where Value: Codable {}

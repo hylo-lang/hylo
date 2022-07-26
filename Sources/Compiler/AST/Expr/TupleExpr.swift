@@ -4,7 +4,7 @@ public struct TupleExpr: Expr {
   public static let kind = NodeKind.tupleExpr
 
   /// An element in a tuple expression.
-  public struct Element: Hashable {
+  public struct Element: Codable {
 
     /// The label of the element.
     public var label: SourceRepresentable<Identifier>?

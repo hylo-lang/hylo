@@ -3,7 +3,7 @@ public struct MatchCase: Node, LexicalScope {
 
   public static let kind = NodeKind.matchCase
 
-  public enum Body: Hashable {
+  public enum Body: Codable {
 
     /// An expression body.
     case expr(AnyExprID)

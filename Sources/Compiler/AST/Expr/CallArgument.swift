@@ -1,5 +1,5 @@
 /// An argument of a function or subscript call.
-public struct CallArgument: Hashable {
+public struct CallArgument: Codable {
 
   /// The label of the argument, if any.
   public var label: SourceRepresentable<Identifier>?

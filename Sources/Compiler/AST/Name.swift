@@ -1,5 +1,5 @@
 /// An unqualified name denoting an entity.
-public struct Name: Hashable {
+public struct Name: Hashable, Codable {
 
   /// The stem identifier of the referred entity.
   public var stem: Identifier

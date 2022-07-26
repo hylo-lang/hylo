@@ -1,8 +1,8 @@
 /// An argument of a function or subscript call.
-public struct GenericArgument: Hashable {
+public struct GenericArgument: Codable {
 
   /// The value of a generic argument.
-  public enum Value: Hashable {
+  public enum Value: Codable {
 
     case expr(AnyExprID)
 

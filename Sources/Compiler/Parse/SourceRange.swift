@@ -41,22 +41,37 @@ public struct SourceRange: Hashable {
     SourceRange(in: source, from: lowerBound, to: newUpperBound)
   }
 
-}
-
-public func ..< (l: SourceRange, r: SourceRange) -> SourceRange {
-  precondition(l.source == r.source, "incompatible locations")
-  return SourceRange(in: l.source, from: l.lowerBound, to: r.lowerBound)
-}
-
-public func ..< (l: SourceRange?, r: SourceRange?) -> SourceRange? {
-  switch (l, r) {
-  case (.some(let a), .some(let b)):
-    return a ..< b
-  case (.some(let a), _):
-    return a
-  case (_, .some(let b)):
-    return b
-  default:
-    return nil
+  public static func ..< (l: SourceRange, r: SourceRange) -> SourceRange {
+    precondition(l.source == r.source, "incompatible locations")
+    return SourceRange(in: l.source, from: l.lowerBound, to: r.lowerBound)
   }
+
+}
+
+extension SourceRange: Codable {
+
+  fileprivate enum CodingKeys: String, CodingKey {
+
+    case source, lowerBound, upperBound
+
+  }
+
+  public init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    source = try container.decode(SourceFile.self, forKey: .source)
+    lowerBound = String.Index(
+      utf16Offset: try container.decode(Int.self, forKey: .lowerBound),
+      in: source.contents)
+    upperBound = String.Index(
+      utf16Offset: try container.decode(Int.self, forKey: .upperBound),
+      in: source.contents)
+  }
+
+  public func encode(to encoder: Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+    try container.encode(source, forKey: .source)
+    try container.encode(lowerBound.utf16Offset(in: source.contents), forKey: .lowerBound)
+    try container.encode(upperBound.utf16Offset(in: source.contents), forKey: .upperBound)
+  }
+
 }

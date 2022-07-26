@@ -1,7 +1,7 @@
 import Utils
 
 /// An identifier uniquely identifying the type of a node referred by an ID.
-public struct NodeKind: Hashable {
+public struct NodeKind: Hashable, Codable {
 
   /// The raw value of the identifier.
   ///

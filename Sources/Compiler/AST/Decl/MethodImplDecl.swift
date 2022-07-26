@@ -3,7 +3,7 @@ public struct MethodImplDecl: Decl, LexicalScope {
 
   public static let kind = NodeKind.methodImplDecl
 
-  public enum Introducer: Hashable {
+  public enum Introducer: Codable {
 
     case `let`
 
@@ -13,7 +13,7 @@ public struct MethodImplDecl: Decl, LexicalScope {
 
   }
 
-  public enum Body: Hashable {
+  public enum Body: Codable {
 
     /// An expression body.
     case expr(AnyExprID)

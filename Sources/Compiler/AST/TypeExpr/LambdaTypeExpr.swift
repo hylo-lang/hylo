@@ -4,7 +4,7 @@ public struct LambdaTypeExpr: TypeExpr {
   public static let kind = NodeKind.lambdaTypeExpr
 
   /// A parameter in a lambda type expression.
-  public struct Parameter: Hashable {
+  public struct Parameter: Codable {
 
     /// The label of the parameter.
     public var label: SourceRepresentable<Identifier>?

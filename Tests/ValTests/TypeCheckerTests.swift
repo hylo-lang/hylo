@@ -68,9 +68,9 @@ final class TypeCheckerTests: XCTestCase {
                       head: AnyExprID(ast.insert(NameExpr(
                         name: SourceRepresentable(value: "n")))),
                       tail: [
-                        (
-                          operator: SourceRepresentable(value: ">"),
-                          rhs: AnyExprID(ast.insert(IntegerLiteralExpr(value: "10")))
+                        SequenceExpr.TailElement(
+                          operatorName: SourceRepresentable(value: ">"),
+                          operand: AnyExprID(ast.insert(IntegerLiteralExpr(value: "10")))
                         ),
                       ])))))
               ])))))

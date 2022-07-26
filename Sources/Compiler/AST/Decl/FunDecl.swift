@@ -3,7 +3,7 @@ public struct FunDecl: GenericDecl, GenericScope {
 
   public static let kind = NodeKind.funDecl
 
-  public enum Introducer: Hashable {
+  public enum Introducer: Codable {
 
     /// The function and method introducer, `fun`.
     case fun
@@ -19,7 +19,7 @@ public struct FunDecl: GenericDecl, GenericScope {
 
   }
 
-  public enum Body: Hashable {
+  public enum Body: Codable {
 
     /// An expression body.
     case expr(AnyExprID)
@@ -29,6 +29,14 @@ public struct FunDecl: GenericDecl, GenericScope {
 
     /// A bundle.
     case bundle([NodeID<MethodImplDecl>])
+
+  }
+
+  public struct ImplicitParameter: Codable {
+
+    let name: String
+
+    var decl: AnyDeclID
 
   }
 
@@ -75,12 +83,12 @@ public struct FunDecl: GenericDecl, GenericScope {
   /// declaration, it contains a reference to the declaration of the implicit receiver parameter
   /// (i.e., `self`), unless the method forms a bundle. The implicit receiver of a method bundle
   /// has a declaration in each method implementation.
-  public internal(set) var implicitParameterDecls: [(name: String, decl: AnyDeclID)] = []
+  public internal(set) var implicitParameterDecls: [ImplicitParameter] = []
 
   /// The declaration of the implicit receiver parameter, if any.
   public var implicitReceiverDecl: NodeID<ParameterDecl>? {
-    if let (name, decl) = implicitParameterDecls.first, name == "self" {
-      return NodeID(converting: decl)
+    if let parameter = implicitParameterDecls.first, parameter.name == "self" {
+      return NodeID(converting: parameter.decl)
     } else {
       return nil
     }

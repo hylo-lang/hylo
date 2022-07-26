@@ -4,7 +4,7 @@ public struct MapLiteralExpr: Expr {
   public static let kind = NodeKind.mapLiteralExpr
 
   /// A key-value pair in a map literal.
-  public struct Element: Hashable {
+  public struct Element: Codable {
 
     var key: AnyExprID
 

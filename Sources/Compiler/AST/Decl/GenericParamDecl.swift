@@ -1,5 +1,5 @@
 /// The ID of a generic parameter declaration.
-public enum GenericParamDeclID: Hashable {
+public enum GenericParamDeclID: Codable {
 
   case type(NodeID<GenericTypeParamDecl>)
 

@@ -32,3 +32,29 @@ extension SourceRepresentable: Hashable where Part: Hashable {
   }
 
 }
+
+extension SourceRepresentable: Codable where Part: Codable {
+
+  fileprivate enum CodingKeys: String, CodingKey {
+
+    case value, range
+
+  }
+
+  public init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    value = try container.decode(Part.self, forKey: .value)
+    do {
+      range = try container.decode(SourceRange?.self, forKey: .range)
+    } catch {
+      range = nil
+    }
+  }
+
+  public func encode(to encoder: Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+    try container.encode(value, forKey: .value)
+    try container.encode(range, forKey: .range)
+  }
+
+}

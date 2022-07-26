@@ -33,3 +33,7 @@ public struct ExprMap<Value> {
 }
 
 extension ExprMap: Equatable where Value: Equatable {}
+
+extension ExprMap: Hashable where Value: Hashable {}
+
+extension ExprMap: Codable where Value: Codable {}

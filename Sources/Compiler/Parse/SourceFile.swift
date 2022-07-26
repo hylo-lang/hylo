@@ -96,3 +96,18 @@ extension SourceFile: ExpressibleByStringLiteral {
   }
 
 }
+
+extension SourceFile: Codable {
+
+  public init(from decoder: Decoder) throws {
+    let container = try decoder.singleValueContainer()
+    let url = try container.decode(URL.self)
+    try self.init(contentsOf: url)
+  }
+
+  public func encode(to encoder: Encoder) throws {
+    var container = encoder.singleValueContainer()
+    try container.encode(url)
+  }
+
+}

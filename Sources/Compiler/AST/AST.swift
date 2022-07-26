@@ -1,15 +1,18 @@
 import Utils
 
 /// An abstract syntax tree.
-public struct AST {
+public struct AST: Codable {
 
   /// The nodes in `self`.
-  private var nodes: [Any] = [BuiltinDecl()]
+  private var nodes: [AnyNode] = [AnyNode(BuiltinDecl())]
 
   /// The indices of the modules.
   ///
   /// - Invariant: All referred modules have a different name.
   public private(set) var modules: [NodeID<ModuleDecl>] = []
+
+  /// The ID of the module containing Val's standard library, if any.
+  public var stdlib: NodeID<ModuleDecl>?
 
   /// The source range of each node.
   public var ranges = NodeMap<SourceRange>()
@@ -19,9 +22,6 @@ public struct AST {
 
   /// The ID of the node representing all built-in declarations.
   public var builtinDecl: NodeID<BuiltinDecl> { NodeID(unsafeRawValue: 0) }
-
-  /// The ID of the module containing Val's standard library, if any.
-  public var stdlib: NodeID<ModuleDecl>?
 
   /// Returns the scope hierarchy.
   func scopeHierarchy() -> ScopeHierarchy {
@@ -36,38 +36,38 @@ public struct AST {
       precondition(!modules.contains(where: { self[$0].name == n.name }), "duplicate module")
       modules.append(i as! NodeID<ModuleDecl>)
     }
-    nodes.append(n)
+    nodes.append(AnyNode(n))
     return i
   }
 
   /// Accesses the node at `position`.
   public subscript<T: Node>(position: NodeID<T>) -> T {
-    get { nodes[position.rawValue] as! T }
+    get { nodes[position.rawValue].node as! T }
     _modify {
-      var n = nodes[position.rawValue] as! T
-      defer { nodes[position.rawValue] = n }
+      var n = nodes[position.rawValue].node as! T
+      defer { nodes[position.rawValue].node = n }
       yield &n
     }
   }
 
   /// Accesses the node at `position`.
   public subscript<T: Node>(position: NodeID<T>?) -> T? {
-    position.map({ nodes[$0.rawValue] as! T })
+    position.map({ nodes[$0.rawValue].node as! T })
   }
 
   /// Accesses the node at `position`.
   public subscript<T: NodeIDProtocol>(position: T) -> Node {
-    nodes[position.rawValue] as! Node
+    nodes[position.rawValue].node
   }
 
   /// Accesses the node at `position`.
   public subscript<T: NodeIDProtocol>(position: T?) -> Node? {
-    position.map({ nodes[$0.rawValue] as! Node })
+    position.map({ nodes[$0.rawValue].node })
   }
 
   /// Accesses the node at `position`.
-  subscript(raw position: NodeID.RawValue) -> Any {
-    nodes[position]
+  subscript(raw position: NodeID.RawValue) -> Node {
+    nodes[position].node
   }
 
   // MARK: Helpers
