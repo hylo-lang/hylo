@@ -1,2 +1,2 @@
 /// A type expression.
-public protocol TypeExpr: Node, Hashable {}
+public protocol TypeExpr: Node {}

@@ -1,5 +1,5 @@
 /// The effect of a call operator on the callee's receiver.
-public enum ReceiverEffect: Hashable {
+public enum ReceiverEffect: Codable {
 
   /// The receiver is modified.
   case `inout`

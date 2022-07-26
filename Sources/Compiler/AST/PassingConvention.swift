@@ -1,5 +1,5 @@
 /// A parameter passing convention.
-public enum PassingConvention {
+public enum PassingConvention: Codable {
 
   /// Pass by immutable projection.
   case `let`

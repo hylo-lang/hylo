@@ -61,10 +61,6 @@ struct ConstraintGenerator: ExprVisitor {
     fatalError("not implemented")
   }
 
-  mutating func visit(charLiteral id: NodeID<CharLiteralExpr>) {
-    fatalError("not implemented")
-  }
-
   mutating func visit(cast id: NodeID<CastExpr>) {
     // Realize the type to which the left operand should be converted.
     guard let target = checker.realize(checker.ast[id].right, inScope: scope) else {
@@ -696,7 +692,14 @@ extension ConstraintGenerator {
               value: Name(stem: operator_.name.value),
               range: operator_.name.range)))),
           arguments: [CallArgument(value: argument)]))
-        ast.ranges[id] = ast.ranges[receiver] ..< ast.ranges[argument]
+
+        if let argumentRange = ast.ranges[argument] {
+          ast.ranges[id] = (
+            ast.ranges[receiver]?.upperBounded(by: argumentRange.upperBound) ?? argumentRange)
+        } else {
+          ast.ranges[id] = ast.ranges[receiver]
+        }
+
         return AnyExprID(id)
 
       case .leaf(let id):
@@ -756,18 +759,18 @@ extension ConstraintGenerator {
     for i in tail.indices {
       // Search for the operator declaration.
       let candidates = checker.lookup(
-        operator: tail[i].operator.value, notation: .infix, inScope: scope)
+        operator: tail[i].operatorName.value, notation: .infix, inScope: scope)
 
       switch candidates.count {
       case 0:
         checker.diagnostics.insert(.undefinedOperator(
-          tail[i].operator.value, range: tail[i].operator.range))
+          tail[i].operatorName.value, range: tail[i].operatorName.range))
         accumulator = .leaf(AnyExprID(checker.ast.insert(ErrorExpr())))
 
       case 1:
         let precedence = checker.ast[candidates[0]].precedenceGroup?.value
         accumulator.append(
-          operator: (name: tail[i].operator, precedence: precedence), rhs: tail[i].rhs)
+          operator: (name: tail[i].operatorName, precedence: precedence), rhs: tail[i].operand)
 
       default:
         fatalError("not implemented")
@@ -775,6 +778,10 @@ extension ConstraintGenerator {
     }
 
     return accumulator
+  }
+
+  mutating func visit(unicodeScalarLiteral id: NodeID<UnicodeScalarLiteralExpr>) {
+    fatalError("not implemented")
   }
 
 }

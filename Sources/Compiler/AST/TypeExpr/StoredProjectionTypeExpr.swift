@@ -3,7 +3,7 @@ public struct StoredProjectionTypeExpr: TypeExpr {
 
   public static let kind = NodeKind.storedProjectionTypeExpr
 
-  public enum Introducer: Hashable {
+  public enum Introducer: Codable {
 
     case `let`
 

@@ -1,5 +1,5 @@
 /// A member modifier.
-public enum MemberModifier: Hashable {
+public enum MemberModifier: Codable {
 
   /// The `static` member modifier.
   case `static`

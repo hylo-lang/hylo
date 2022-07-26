@@ -3,7 +3,7 @@ public struct CondExpr: Expr, LexicalScope {
 
   public static let kind = NodeKind.condExpr
 
-  public enum Body: Hashable {
+  public enum Body: Codable {
 
     /// An expression body.
     case expr(AnyExprID)

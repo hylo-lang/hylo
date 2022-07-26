@@ -4,7 +4,7 @@ public struct TuplePattern: Pattern {
   public static let kind = NodeKind.tuplePattern
 
   /// An element in a tuple pattern.
-  public struct Element: Hashable {
+  public struct Element: Codable {
 
     /// The label of the element.
     public var label: SourceRepresentable<String>?

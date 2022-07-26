@@ -1,10 +1,10 @@
 import Utils
 
 /// A where clause.
-public struct WhereClause: Hashable {
+public struct WhereClause: Codable {
 
   /// The expression of a type constraint defined in a generic clause.
-  public enum ConstraintExpr: Hashable {
+  public enum ConstraintExpr: Codable {
 
     /// An equality constraint involving one or two skolems.
     case equality(

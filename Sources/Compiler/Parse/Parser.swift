@@ -43,13 +43,16 @@ public enum Parser {
     into module: NodeID<ModuleDecl>,
     in ast: inout AST
   ) -> (decls: NodeID<TopLevelDeclSet>?, diagnostics: [Diagnostic]) {
-    var context = ParserContext(ast: AST(), lexer: Lexer(tokenizing: input))
-    swap(&context.ast, &ast)
-    defer { swap(&context.ast, &ast) }
+    var context = ParserContext(ast: ast, lexer: Lexer(tokenizing: input))
 
+    let decls: NodeID<TopLevelDeclSet>?
     do {
-      let decls = try Self.sourceFile.parse(&context)
-      return (decls: decls, diagnostics: context.diagnostics)
+      if let d = try Self.sourceFile.parse(&context) {
+        context.ast[module].sources.append(d)
+        decls = d
+      } else {
+        decls = nil
+      }
     } catch let error {
       if let error = error as? ParseError {
         context.diagnostics.append(Diagnostic(
@@ -58,8 +61,11 @@ public enum Parser {
         context.diagnostics.append(Diagnostic(
           level: .error, message: error.localizedDescription, location: context.currentLocation))
       }
-      return (decls: nil, diagnostics: context.diagnostics)
+      decls = nil
     }
+
+    ast = context.ast
+    return (decls: decls, diagnostics: context.diagnostics)
   }
 
   // MARK: Declarations
@@ -964,16 +970,16 @@ public enum Parser {
 
       // infix-operator-tail
       var tail: SequenceExpr.UnfoldedTail = []
-      while let oper = context.takeOperator() {
+      while let operatorName = context.takeOperator() {
         if !context.hasLeadingWhitespace {
-          context.diagnostics.append(.infixOperatorRequiresWhitespaces(range: oper.range))
+          context.diagnostics.append(.infixOperatorRequiresWhitespaces(range: operatorName.range))
         }
 
-        guard let rhs = try prefixExpr.parse(&context) else {
+        guard let operand = try prefixExpr.parse(&context) else {
           throw ParseError("expected type expression", at: context.currentLocation)
         }
 
-        tail.append((operator: oper, rhs: rhs))
+        tail.append(SequenceExpr.TailElement(operatorName: operatorName, operand: operand))
       }
 
       if tail.isEmpty {

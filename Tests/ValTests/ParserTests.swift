@@ -819,8 +819,8 @@ final class ParserTests: XCTestCase {
       XCTAssertEqual(head.kind, .nameExpr)
       XCTAssertEqual(tail.count, 2)
       if tail.count == 2 {
-        XCTAssertEqual(tail[0].operator.value, "==")
-        XCTAssertEqual(tail[0].rhs.kind, .integerLiteralExpr)
+        XCTAssertEqual(tail[0].operatorName.value, "==")
+        XCTAssertEqual(tail[0].operand.kind, .integerLiteralExpr)
       }
     } else {
       XCTFail()

@@ -33,3 +33,7 @@ public struct DeclMap<Value> {
 }
 
 extension DeclMap: Equatable where Value: Equatable {}
+
+extension DeclMap: Hashable where Value: Hashable {}
+
+extension DeclMap: Codable where Value: Codable {}

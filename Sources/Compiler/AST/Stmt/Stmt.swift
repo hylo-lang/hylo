@@ -1,2 +1,2 @@
 /// A statement.
-public protocol Stmt: Node, Hashable {}
+public protocol Stmt: Node {}

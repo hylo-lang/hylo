@@ -1,2 +1,2 @@
 /// A pattern.
-public protocol Pattern: Node, Hashable {}
+public protocol Pattern: Node {}

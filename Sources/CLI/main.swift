@@ -7,6 +7,9 @@ struct CLI: ParsableCommand {
   /// The type of the output files to generate.
   enum OutputType: ExpressibleByArgument {
 
+    /// AST before type-checking.
+    case rawAST
+
     /// Val IR.
     case ir
 
@@ -18,10 +21,11 @@ struct CLI: ParsableCommand {
 
     init?(argument: String) {
       switch argument {
-      case "ir"     : self = .ir
-      case "llvm-ir": self = .llvmIR
-      case "binary" : self = .binary
-      default       : return nil
+      case "raw-ast"  : self = .rawAST
+      case "ir"       : self = .ir
+      case "llvm-ir"  : self = .llvmIR
+      case "binary"   : self = .binary
+      default         : return nil
       }
     }
 
@@ -44,8 +48,9 @@ struct CLI: ParsableCommand {
 
   @Option(
     name: [.customShort("o")],
-    help: "Write output to <o>.")
-  var outputName: String?
+    help: "Write output to <o>.",
+    transform: URL.init(fileURLWithPath:))
+  var outputPath: URL?
 
   @Argument(
     transform: URL.init(fileURLWithPath:))
@@ -71,7 +76,13 @@ struct CLI: ParsableCommand {
           }
         }
       }
+    }
 
+    if outputType == .rawAST {
+      let outputPath = outputPath ?? URL(fileURLWithPath: "ast.json")
+      let encoder = JSONEncoder()
+      try encoder.encode(program).write(to: outputPath)
+      CLI.exit()
     }
   }
 

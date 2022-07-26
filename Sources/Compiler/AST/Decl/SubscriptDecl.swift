@@ -3,7 +3,7 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
 
   public static let kind = NodeKind.subscriptDecl
 
-  public enum Body: Hashable {
+  public enum Body: Codable {
 
     /// An expression body.
     case expr(AnyExprID)

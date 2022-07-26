@@ -225,7 +225,7 @@ struct CaptureCollector {
         inMutatingContext: isContextMutating)
 
     case .booleanLiteralExpr,
-         .charLiteralExpr,
+         .unicodeScalarLiteralExpr,
          .errorExpr,
          .floatLiteralExpr,
          .integerLiteralExpr,
@@ -380,8 +380,8 @@ struct CaptureCollector {
     switch ast[id] {
     case .unfolded(let head, let tail):
       collectCaptures(ofExpr: head, into: &captures, inMutatingContext: false)
-      for (_, operand) in tail {
-        collectCaptures(ofExpr: operand, into: &captures, inMutatingContext: false)
+      for element in tail {
+        collectCaptures(ofExpr: element.operand, into: &captures, inMutatingContext: false)
       }
 
     case .root(let expr):

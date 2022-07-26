@@ -16,8 +16,6 @@ extension ExprID {
       return visitor.visit(await: NodeID(unsafeRawValue: rawValue))
     case .booleanLiteralExpr:
       return visitor.visit(booleanLiteral: NodeID(unsafeRawValue: rawValue))
-    case .charLiteralExpr:
-      return visitor.visit(charLiteral: NodeID(unsafeRawValue: rawValue))
     case .castExpr:
       return visitor.visit(cast: NodeID(unsafeRawValue: rawValue))
     case .condExpr:
@@ -52,6 +50,8 @@ extension ExprID {
       return visitor.visit(tuple: NodeID(unsafeRawValue: rawValue))
     case .tupleMemberExpr:
       return visitor.visit(tupleMember: NodeID(unsafeRawValue: rawValue))
+    case .unicodeScalarLiteralExpr:
+      return visitor.visit(unicodeScalarLiteral: NodeID(unsafeRawValue: rawValue))
     default:
       unreachable()
     }

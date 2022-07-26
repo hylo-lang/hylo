@@ -491,10 +491,11 @@ public struct TypeChecker {
       }
     } else if !decl.isStatic && scopeHierarchy.isMember(decl: id) {
       // Create the implicit parameter declaration.
-      assert(!decl.implicitParameterDecls.contains(where: { $0.0 == "self" }))
+      assert(!decl.implicitParameterDecls.contains(where: { $0.name == "self" }))
       let param = ast.insert(ParameterDecl(identifier: SourceRepresentable(value: "self")))
       scopeHierarchy.insert(decl: param, into: AnyScopeID(id))
-      ast[id].implicitParameterDecls.append(("self", AnyDeclID(param)))
+      ast[id].implicitParameterDecls.append(FunDecl.ImplicitParameter(
+        name: "self", decl: AnyDeclID(param)))
       decl = ast[id]
 
       // Set its type.
@@ -2018,7 +2019,7 @@ public struct TypeChecker {
     var decl = ast[id]
     let declScope = AnyScopeID(id)
 
-    var implicitParameterDecls: [(name: String, decl: AnyDeclID)] = []
+    var implicitParameterDecls: [FunDecl.ImplicitParameter] = []
     var inputs: [CallableTypeParameter] = []
     var success = true
 
@@ -2065,7 +2066,8 @@ public struct TypeChecker {
       for (_, name) in ast.names(in: pattern) {
         let stem = ast[ast[name].decl].name
         if explictNames.insert(Name(stem: stem)).inserted {
-          implicitParameterDecls.append((name: stem, decl: AnyDeclID(ast[name].decl)))
+          implicitParameterDecls.append(FunDecl.ImplicitParameter(
+            name: stem, decl: AnyDeclID(ast[name].decl)))
         } else {
           diagnostics.insert(.duplicateCaptureName(stem, range: ast.ranges[ast[name].decl]))
           success = false
@@ -2153,7 +2155,7 @@ public struct TypeChecker {
         // Other local declarations are captured.
         guard let captureType = realize(decl: decl).proper?.skolemized else { continue }
         captures.append(.projection(ProjectionType(uses.capability, captureType)))
-        implicitParameterDecls.append((name.stem, decl))
+        implicitParameterDecls.append(FunDecl.ImplicitParameter(name: name.stem, decl: decl))
       }
     }
 
