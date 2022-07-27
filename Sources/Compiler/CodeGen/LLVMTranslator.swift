@@ -51,9 +51,28 @@ public struct LLVMTranslator {
   ///
   /// Calling this method consumes the translator. It is illegal to perform operations on a
   /// consumed translator.
-  public mutating func translate() throws -> LLVM.Module {
+  ///
+  /// - Parameter isEntryModule: If `true`, a startup LLVM function that calls the translated
+  ///   module's entry (i.e., `main` in the Val program) is included in the LLVM module. The
+  ///   method fails if the translated module does not contain an entry function.
+  public mutating func translate(asEntry isEntryModule: Bool = false) throws -> LLVM.Module {
     for i in irModule.functions.indices {
       emit(function: i)
+    }
+
+    if isEntryModule {
+      guard let entryFunctionID = irModule.entryFunctionID,
+            let entryFunction = builder.module.function(named: irModule[entryFunctionID].name)
+      else { preconditionFailure() }
+
+      let startup = builder.module.addFunction(
+        "main",
+        type: FunctionType([IntType.int32, IntType.int8.star.star], IntType.int32))
+      startup.addAttribute(.norecurse, to: .function)
+
+      builder.positionAtEnd(of: startup.appendBasicBlock(named: "start"))
+      _ = builder.buildCall(entryFunction, args: [])
+      builder.buildRet(IntType.int32.constant(0))
     }
 
     return builder.module
@@ -427,18 +446,18 @@ public struct LLVMTranslator {
 
     // Return value comes first, if any.
     if !type.output.isVoid {
-      parameterTypes.append(PointerType(pointee: llvmType(translating: type.output)))
+      parameterTypes.append(llvmType(translating: type.output).star)
     }
 
     // Next come implicit parameters.
     for input in type.captures {
       switch input.type {
       case .projection(let t):
-        parameterTypes.append(PointerType(pointee: llvmType(translating: t.base)))
+        parameterTypes.append(llvmType(translating: t.base).star)
       case .parameter(let t):
-        parameterTypes.append(PointerType(pointee: llvmType(translating: t.bareType)))
+        parameterTypes.append(llvmType(translating: t.bareType).star)
       default:
-        parameterTypes.append(PointerType(pointee: llvmType(translating: input.type)))
+        parameterTypes.append(llvmType(translating: input.type).star)
       }
     }
 
@@ -446,9 +465,9 @@ public struct LLVMTranslator {
     for input in type.inputs {
       switch input.type {
       case .parameter(let t):
-        parameterTypes.append(PointerType(pointee: llvmType(translating: t.bareType)))
+        parameterTypes.append(llvmType(translating: t.bareType).star)
       default:
-        parameterTypes.append(PointerType(pointee: llvmType(translating: input.type)))
+        parameterTypes.append(llvmType(translating: input.type).star)
       }
     }
 
@@ -460,10 +479,10 @@ public struct LLVMTranslator {
 
     var parameterTypes: [IRType] = []
     if !irFunction.output.astType.isVoid {
-      parameterTypes.append(PointerType(pointee: llvmType(translating: irFunction.output.astType)))
+      parameterTypes.append(llvmType(translating: irFunction.output.astType).star)
     }
     for input in irFunction.inputs {
-      parameterTypes.append(PointerType(pointee: llvmType(translating: input.type.astType)))
+      parameterTypes.append(llvmType(translating: input.type.astType).star)
     }
 
     return FunctionType(parameterTypes, VoidType())
@@ -503,5 +522,12 @@ fileprivate extension LLVM.IntType {
       return IntType(width: pattern.width).constant(pattern.hexadecimalString(), radix: 16)
     }
   }
+
+}
+
+fileprivate extension LLVM.IRType {
+
+  /// Returns `PointerType(pointee: self)`.
+  var star: PointerType { PointerType(pointee: self) }
 
 }
