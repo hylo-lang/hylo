@@ -35,6 +35,14 @@ final class ParserTests: XCTestCase {
 
   // MARK: Declarations
 
+  func testModuleScopeDecl() throws {
+    let input = SourceFile(contents: "public operator infix| : disjunction")
+    let (declID, ast) = try apply(Parser.moduleScopeDecl, on: input)
+    let decl = try XCTUnwrap(ast[declID] as? OperatorDecl)
+    XCTAssertEqual(decl.name.value, "|")
+    XCTAssertEqual(decl.precedenceGroup?.value, .disjunction)
+  }
+
   func testImportDecl() throws {
     let input = SourceFile(contents: "import Foo")
     let (declID, ast) = try apply(Parser.importDecl, on: input)
@@ -1668,6 +1676,19 @@ final class ParserTests: XCTestCase {
     let name = try XCTUnwrap(try apply(Parser.entityIdentifier, on: input).element)
     XCTAssertEqual(name.value.stem, "+")
     XCTAssertEqual(name.value.notation, .infix)
+  }
+
+  func testTakeOperator() throws {
+    let input = SourceFile(contents: "+ & == | < <= > >=")
+    var context = ParserContext(ast: AST(), lexer: Lexer(tokenizing: input))
+    XCTAssertEqual(context.takeOperator()?.value, "+")
+    XCTAssertEqual(context.takeOperator()?.value, "&")
+    XCTAssertEqual(context.takeOperator()?.value, "==")
+    XCTAssertEqual(context.takeOperator()?.value, "|")
+    XCTAssertEqual(context.takeOperator()?.value, "<")
+    XCTAssertEqual(context.takeOperator()?.value, "<=")
+    XCTAssertEqual(context.takeOperator()?.value, ">")
+    XCTAssertEqual(context.takeOperator()?.value, ">=")
   }
 
   /// Applies `combinator` on `input`, optionally setting `flags` in the parser context.

@@ -50,10 +50,8 @@ public enum Parser {
       // Parse the file.
       if let d = try Self.sourceFile.parse(&context) {
         // Make sure we consumed the entire file.
-        if let i = input.contents
-          .suffix(from: context.currentIndex).firstIndex(where: { !$0.isWhitespace })
-        {
-          throw ParseError("expected EOF", at: SourceLocation(source: input, index: i))
+        if let head = context.peek() {
+          throw ParseError("expected EOF", at: head.range.first())
         }
 
         // Parser succeeded.

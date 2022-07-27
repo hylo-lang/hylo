@@ -159,7 +159,7 @@ struct ParserContext {
     guard let head = peek() else { return nil }
 
     switch head.kind {
-    case .oper, .ampersand, .equal:
+    case .oper, .ampersand, .equal, .pipe:
       _ = take()
       return SourceRepresentable(value: String(lexer.source[head.range]), range: head.range)
 
