@@ -47,7 +47,11 @@ let package = Package(
         .product(name: "Durian", package: "Durian"),
       ]),
 
-      .target(name: "Utils"),
+    .target(
+      name: "Library",
+      dependencies: ["Compiler"]),
+
+    .target(name: "Utils"),
 
     // Test targets.
     .testTarget(
@@ -56,8 +60,4 @@ let package = Package(
     .testTarget(
       name: "CXXTests",
       dependencies: ["Compiler", "Library"]),
-
-    .target(
-      name: "Library",
-      dependencies: ["Compiler"])
   ])
