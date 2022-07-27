@@ -1,16 +1,34 @@
 import Utils
 
-extension Module: CustomStringConvertible {
+extension Module: CustomStringConvertible, TextOutputStreamable {
 
   public var description: String {
-    (0 ..< functions.count).reduce(into: "", { (output, i) in
-      if i > 0 { output.write("\n\n") }
-      output.write(describe(function: i))
-    })
+    var output = ""
+    write(to: &output)
+    return output
   }
 
-  /// Returns a human-readable representation of the specified function.
+  /// Returns a textual representation of the specified function.
   public func describe(function functionID: Function.ID) -> String {
+    var output = ""
+    write(function: functionID, to: &output)
+    return output
+  }
+
+  public func write<Target: TextOutputStream>(to output: inout Target) {
+    for i in 0 ..< functions.count {
+      if i > 0 {
+        output.write("\n\n")
+      }
+      write(function: i, to: &output)
+    }
+  }
+
+  /// Writes a textual representation of the specified function into `output`.
+  public func write<Target: TextOutputStream>(
+    function functionID: Function.ID,
+    to output: inout Target
+  ) {
     let function = functions[functionID]
 
     // Generate unique names for all the basic blocks, parameters, and instructions.
@@ -42,7 +60,6 @@ extension Module: CustomStringConvertible {
     }
 
     // Dumps the function in the module.
-    var output = ""
     if let debugName = function.debugName { output.write("// \(debugName)\n") }
     output.write("@lowered fun \(function.name)(")
     output.write(function.inputs.lazy
@@ -157,8 +174,6 @@ extension Module: CustomStringConvertible {
     }
 
     output.write("}")
-
-    return output
   }
 
 }

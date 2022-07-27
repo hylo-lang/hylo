@@ -15,6 +15,9 @@ public struct Module {
   /// The functions in the module.
   public private(set) var functions: [Function] = []
 
+  /// The ID of the module's entry function, if any.
+  public var entryFunctionID: Function.ID?
+
   /// A table mapping function declarations to their ID in the module.
   private var loweredFunctions: [NodeID<FunDecl>: Function.ID] = [:]
 
@@ -127,6 +130,15 @@ public struct Module {
       output: output,
       blocks: [])
     functions.append(function)
+
+    // Determine if the new function is the module's entry.
+    if scopeHierarchy.container[declID]?.kind == .topLevelDeclSet,
+       ast[declID].isPublic,
+       ast[declID].identifier?.value == "main"
+    {
+      assert(entryFunctionID == nil)
+      entryFunctionID = id
+    }
 
     // Update the cache and return the ID of the newly created function.
     loweredFunctions[declID] = id

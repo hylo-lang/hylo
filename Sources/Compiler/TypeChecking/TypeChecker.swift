@@ -36,20 +36,28 @@ public struct TypeChecker {
     self.scopeHierarchy = ast.scopeHierarchy()
   }
 
-  /// Type checks the AST.
+  /// Type checks the AST and returns a typed program.
   ///
-  /// - Returns: A typed program if type checking succeeded. Otherwise, returns `nil`.
-  public mutating func run() -> TypedProgram? {
+  /// - Returns: `(program, diagnostics)` where `diagnostics` are the diagnostics produced by the
+  ///   type checker and `program` is a typed program, or `nil` if type checking failed.
+  public mutating func run() -> (program: TypedProgram?, diagnostics: [Diagnostic]) {
+    var success = true
     for module in ast.modules {
-      guard check(module: module) else { return nil }
+      success = check(module: module) && success
     }
 
-    return TypedProgram(
-      ast: ast,
-      scopeHierarchy: scopeHierarchy,
-      declTypes: declTypes,
-      exprTypes: exprTypes,
-      referredDecls: referredDecls)
+    if success {
+      return (
+        program: TypedProgram(
+          ast: ast,
+          scopeHierarchy: scopeHierarchy,
+          declTypes: declTypes,
+          exprTypes: exprTypes,
+          referredDecls: referredDecls),
+        diagnostics: Array(diagnostics))
+    } else {
+      return (program: nil, diagnostics: Array(diagnostics))
+    }
   }
 
   // MARK: Type system
