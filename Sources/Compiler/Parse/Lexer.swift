@@ -295,7 +295,6 @@ public struct Lexer: IteratorProtocol, Sequence {
 
     // Scan punctuation.
     switch head {
-    case ".": token.kind = .dot
     case ",": token.kind = .comma
     case ";": token.kind = .semi
     case "(": token.kind = .lParen
@@ -304,6 +303,17 @@ public struct Lexer: IteratorProtocol, Sequence {
     case "}": token.kind = .rBrace
     case "[": token.kind = .lBrack
     case "]": token.kind = .rBrack
+
+    case ".":
+      // Scan range operators.
+      if (take(prefix: "...") ?? take(prefix: "..<")) != nil {
+        token.kind = .oper
+        token.range.upperBound = index
+        return token
+      }
+
+      // Fall back to a simple dot.
+      token.kind = .dot
 
     case ":":
       // Scan double colons.

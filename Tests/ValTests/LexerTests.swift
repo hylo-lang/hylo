@@ -210,7 +210,7 @@ final class LexerTests: XCTestCase {
   }
 
   func testOperators() {
-    let input = SourceFile(contents: "= -> * / % +- == != ~> >! <? >> &|^ | &")
+    let input = SourceFile(contents: "= -> * / % +- == != ~> >! <? >> &|^ ... ..< | &")
     assert(
       tokenize(input),
       matches: [
@@ -230,6 +230,8 @@ final class LexerTests: XCTestCase {
         TokenSpecification(.rAngle, ">"),
         TokenSpecification(.rAngle, ">"),
         TokenSpecification(.oper  , "&|^"),
+        TokenSpecification(.oper  , "..."),
+        TokenSpecification(.oper  , "..<"),
         TokenSpecification(.pipe  , "|"),
         TokenSpecification(.ampersand, "&"),
       ],
