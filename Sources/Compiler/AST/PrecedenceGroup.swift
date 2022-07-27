@@ -28,6 +28,8 @@ public enum PrecedenceGroup: String, Codable {
 
   case shift
 
+  case exponentiation
+
   /// The binding power of the operators in the group.
   public var power: Int {
     switch self {
@@ -40,13 +42,14 @@ public enum PrecedenceGroup: String, Codable {
     case .addition        : return 7
     case .multiplication  : return 8
     case .shift           : return 9
+    case .exponentiation  : return 10
     }
   }
 
   /// The associativity of the operators in the group.
   public var associativity: Associativity {
     switch self {
-    case .assignment, .fallback:
+    case .assignment, .fallback, .exponentiation:
       return .right
     case .disjunction, .conjunction, .comparison, .addition, .multiplication, .range, .shift:
       return .left
