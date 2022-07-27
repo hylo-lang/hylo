@@ -1,0 +1,4 @@
+/// Unconditionally stops the execution of the program.
+public fun fatal_error() -> Never {
+  Builtin.terminate()
+}

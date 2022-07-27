@@ -1,0 +1,14 @@
+/// A value that can be either `true` or `false`.
+public type Bool {
+
+  var value: Builtin.i1
+
+}
+
+public conformance Bool: Copyable {
+
+  public fun copy() -> Self {
+    Bool(value: Builtin.i1_copy(value))
+  }
+
+}

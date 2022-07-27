@@ -1,0 +1,16 @@
+/// A double-precision, floating-point value.
+public type Double {
+
+  var value: Builtin.f64
+
+}
+
+public conformance Double: ExpressibleByIntegerLiteral {}
+
+public conformance Double: Copyable {
+
+  public fun copy() -> Self {
+    Double(value: Builtin.f64_copy(value))
+  }
+
+}

@@ -1,4 +1,5 @@
 import Utils
+import ValModule
 
 /// An abstract syntax tree.
 public struct AST: Codable {
@@ -27,6 +28,27 @@ public struct AST: Codable {
   func scopeHierarchy() -> ScopeHierarchy {
     var builder = ScopeHierarchyBuilder()
     return builder.build(hierarchyOf: self)
+  }
+
+  /// Imports the standard library into `self`.
+  ///
+  /// - Requires: The standard library must not have been already imported.
+  public mutating func importValModule() throws {
+    if stdlib != nil { throw CompilerError(description: "module already loaded") }
+    stdlib = insert(ModuleDecl(name: "Val"))
+
+    try withFiles(in: ValModule.core!, { (sourceURL) in
+      if sourceURL.pathExtension != "val" {
+        return true
+      }
+
+      let sourceFile = try SourceFile(contentsOf: sourceURL)
+      let (decls, diagnostics) = Parser.parse(sourceFile, into: stdlib!, in: &self)
+      if (decls == nil) || !diagnostics.isEmpty {
+        throw CompilerError(description: "parser failed", diagnostics: diagnostics)
+      }
+      return true
+    })
   }
 
   /// Inserts `n` into `self`.

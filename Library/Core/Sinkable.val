@@ -1,0 +1,2 @@
+/// A type whose values can be consumed.
+public trait Sinkable {}

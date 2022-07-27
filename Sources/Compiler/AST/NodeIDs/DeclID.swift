@@ -14,6 +14,8 @@ extension DeclID {
       return visitor.visit(associatedValue: NodeID(unsafeRawValue: rawValue))
     case .bindingDecl:
       return visitor.visit(binding: NodeID(unsafeRawValue: rawValue))
+    case .conformanceDecl:
+      return visitor.visit(conformance: NodeID(unsafeRawValue: rawValue))
     case .extensionDecl:
       return visitor.visit(extension: NodeID(unsafeRawValue: rawValue))
     case .funDecl:

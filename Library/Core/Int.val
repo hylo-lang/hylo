@@ -1,0 +1,23 @@
+/// A signed integer value.
+public type Int {
+
+  var value: Builtin.i64
+
+  /// Returns the sum of `self` and `other`.
+  ///
+  /// - Requires: The sum of the two arguments must be representable in the arguments' type.
+  public infix fun + (_ other: Self) -> Self {
+    Int(value: Builtin.i64_add(value, other.value))
+  }
+
+}
+
+public conformance Int: ExpressibleByIntegerLiteral {}
+
+public conformance Int: Copyable {
+
+  public fun copy() -> Self {
+    Int(value: Builtin.i64_copy(value))
+  }
+
+}

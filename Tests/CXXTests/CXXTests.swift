@@ -4,7 +4,7 @@ import Library
 
 final class CXXTests: XCTestCase {
 
-  func testSimpleTypeHeader() {
+  func testSimpleTypeHeader() throws {
 
     // public type Vector2 {
     //   public var x: Double
@@ -20,7 +20,7 @@ final class CXXTests: XCTestCase {
     // }
 
     var ast = AST()
-    insertStandardLibraryMockup(into: &ast)
+    try ast.importValModule()
     let main = ast.insert(ModuleDecl(name: "SomeLib"))
     let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)

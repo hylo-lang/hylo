@@ -39,6 +39,11 @@ public enum BuiltinFunctionType {
     from: (.let, .i(64)),
     to: .unit)
 
+  // Double-precision floating-point copy.
+  public static let f64_copy = LambdaType(
+    from: (.let, .f64),
+    to: .builtin(.f64))
+
   /// Returns the type of the built-in function with the given name.
   public static subscript(_ name: String) -> LambdaType? {
     switch name {

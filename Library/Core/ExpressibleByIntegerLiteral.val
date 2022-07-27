@@ -1,0 +1,2 @@
+/// A type that can be initialized with an integer literal.
+trait ExpressibleByIntegerLiteral {}
