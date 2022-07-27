@@ -191,6 +191,13 @@ struct ParserContext {
     }
   }
 
+  /// Consumes and returns an attribute token with the specified name.
+  mutating func take(attribute name: String) -> Token? {
+    take(if: { [source = lexer.source] in
+      ($0.kind == .attribute) && (source[$0.range] == name)
+    })
+  }
+
 }
 
 extension ParserContext: Restorable {

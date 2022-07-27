@@ -251,16 +251,9 @@ public struct Lexer: IteratorProtocol, Sequence {
     // Scan attributes.
     if head == "@" {
       discard()
-      let word = take(while: { $0.isLetter || ($0 == "_") })
-
-      switch word {
-      case "implicitcopy"   : token.kind = .implicitCopyAttribute
-      case "implicitpublic" : token.kind = .implicitPublicAttribute
-      case "type"           : token.kind = .typeAttribute
-      case "value"          : token.kind = .valueAttribute
-      default               : token.kind = .unrecognizedAttribute
-      }
-
+      token.kind = take(while: { $0.isLetter || ($0 == "_") }).isEmpty
+        ? .invalid
+        : .attribute
       token.range.upperBound = index
       return token
     }

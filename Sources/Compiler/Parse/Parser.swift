@@ -883,7 +883,7 @@ public enum Parser {
   )
 
   static let genericTypeParameter = (
-    maybe(take(.typeAttribute)).andCollapsingSoftFailures(take(.name))
+    maybe(typeAttribute).andCollapsingSoftFailures(take(.name))
       .and(maybe(take(.colon).and(traitComposition)))
       .and(maybe(take(.assign).and(typeExpr)))
       .map({ (context, tree) -> GenericParamDeclID in
@@ -901,7 +901,7 @@ public enum Parser {
   )
 
   static let genericValueParameter = (
-    take(.valueAttribute).and(take(.name))
+    valueAttribute.and(take(.name))
       .and(take(.colon).and(typeExpr))
       .and(maybe(take(.assign).and(expr)))
       .map({ (context, tree) -> GenericParamDeclID in
@@ -2288,7 +2288,7 @@ public enum Parser {
   )
 
   static let valueConstraint = (
-    take(.valueAttribute).and(expr)
+    valueAttribute.and(expr)
       .map({ (context, tree) -> SourceRepresentable<WhereClause.ConstraintExpr> in
         SourceRepresentable(
           value: .value(tree.1),
@@ -2398,6 +2398,12 @@ public enum Parser {
       })
   )
 
+  // MARK: Attributes
+
+  static let typeAttribute = attribute("@type")
+
+  static let valueAttribute = attribute("@value")
+
 }
 
 extension Parser {
@@ -2445,6 +2451,11 @@ extension Parser {
   /// Creates a combinator that parses name tokens with the specified value.
   static func take(nameTokenWithValue value: String) -> Apply<ParserContext, Token> {
     Apply({ (context) in context.take(nameTokenWithValue: value) })
+  }
+
+  /// Creates a combinator that parses attribute tokens with the specified name.
+  static func attribute(_ name: String) -> Apply<ParserContext, Token> {
+    Apply({ (context) in context.take(attribute: name) })
   }
 
   /// Creates a combinator that translates token kinds to instances of type.
