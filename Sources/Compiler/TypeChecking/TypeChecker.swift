@@ -1365,10 +1365,23 @@ public struct TypeChecker {
   /// Returns the declarations that expose `name` without qualification in `scope`.
   mutating func lookup(unqualified name: String, inScope scope: AnyScopeID) -> DeclSet {
     let origin = scope
-    var root = scope
 
     var matches = DeclSet()
+    var root: NodeID<ModuleDecl>? = nil
     for scope in scopeHierarchy.scopesToRoot(from: scope) {
+      switch scope.kind {
+      case .moduleDecl:
+        // We reached the module scope.
+        root = NodeID<ModuleDecl>(unsafeRawValue: scope.rawValue)
+
+      case .topLevelDeclSet:
+        // Skip file scopes so that we don't search the same file twice.
+        continue
+
+      default:
+        break
+      }
+
       // Search for the name in the current scope.
       let newMatches = lookup(name, introducedInDeclSpaceOf: scope, inScope: origin)
 
@@ -1379,16 +1392,14 @@ public struct TypeChecker {
       if newMatches.contains(where: { i in !(ast[i] is FunDecl) }) {
         return matches
       }
-
-      root = scope
     }
 
     // We're done if we found at least one match.
     if !matches.isEmpty { return matches }
 
     // Check if the name refers to the module containing `scope`.
-    if let module = NodeID<ModuleDecl>(converting: root), ast[module].name == name {
-      return [AnyDeclID(module)]
+    if ast[root]?.name == name {
+      return [AnyDeclID(root!)]
     }
 
     // Search for the name in imported modules.
@@ -1538,12 +1549,14 @@ public struct TypeChecker {
     of type: Type,
     exposedTo scope: S
   ) -> [AnyDeclID] {
-    var root = AnyScopeID(scope)
     var matches: [AnyDeclID] = []
     let canonicalType = canonicalize(type: type)
 
-    func search(this: inout TypeChecker, inScope scope: AnyScopeID) {
-      let decls = this.scopeHierarchy.containees[scope, default: []]
+    /// Inserts into `matches` the conformance and extension declarations contained in `decls`
+    /// that extend `canonicalType`.
+    func filter<S: Sequence>(this: inout TypeChecker, decls: S, inScope scope: AnyScopeID)
+    where S.Element == AnyDeclID
+    {
       for i in decls where i.kind == .conformanceDecl || i.kind == .extensionDecl {
         // Skip extending declarations that are being bound.
         guard this.extensionsUnderBinding.insert(i).inserted else { continue }
@@ -1561,14 +1574,26 @@ public struct TypeChecker {
     }
 
     // Look for extension declarations in all visible scopes.
+    var root: NodeID<ModuleDecl>? = nil
     for scope in scopeHierarchy.scopesToRoot(from: scope) {
-      search(this: &self, inScope: scope)
-      root = scope
+      switch scope.kind {
+      case .moduleDecl:
+        let module = NodeID<ModuleDecl>(unsafeRawValue: scope.rawValue)
+        filter(this: &self, decls: ast.topLevelDecls(module), inScope: scope)
+        root = module
+
+      case .topLevelDeclSet:
+        continue
+
+      default:
+        let decls = scopeHierarchy.containees[scope, default: []]
+        filter(this: &self, decls: decls, inScope: scope)
+      }
     }
 
     // Look for extension declarations in imported modules.
     for module in ast.modules where module != root {
-      search(this: &self, inScope: AnyScopeID(module))
+      filter(this: &self, decls: ast.topLevelDecls(module), inScope: AnyScopeID(module))
     }
 
     return matches
@@ -1600,7 +1625,12 @@ public struct TypeChecker {
         let name = (ast[id] as! SingleEntityDecl).name
         table[name, default: []].insert(AnyDeclID(id))
 
-      case .bindingDecl:
+      case .bindingDecl,
+           .conformanceDecl,
+           .methodImplDecl,
+           .operatorDecl,
+           .subscriptImplDecl:
+        // Note: operator declarations are not considered during standard name lookup.
         break
 
       case .funDecl:
@@ -1619,20 +1649,10 @@ public struct TypeChecker {
           table[name, default: []].insert(AnyDeclID(id))
         }
 
-      case .methodImplDecl:
-        break
-
-      case .operatorDecl:
-        // Operator declarations are not considered during standard name lookup.
-        break
-
       case .subscriptDecl:
         let decl = ast[NodeID<SubscriptDecl>(converting: id)!]
         let name = decl.identifier?.value ?? "[]"
         table[name, default: []].insert(AnyDeclID(id))
-
-      case .subscriptImplDecl:
-        break
 
       default:
         unreachable("unexpected declaration")
