@@ -1,32 +1,31 @@
 import Utils
 
-extension Module: CustomStringConvertible {
+extension Module: CustomStringConvertible, TextOutputStreamable {
 
   public var description: String {
     var output = ""
-    dump(to: &output)
+    write(to: &output)
     return output
   }
 
-  /// Returns a human-readable representation of the specified function.
+  /// Returns a textual representation of the specified function.
   public func describe(function functionID: Function.ID) -> String {
     var output = ""
-    dump(function: functionID, to: &output)
+    write(function: functionID, to: &output)
     return output
   }
 
-  /// Dumps a human-readable representation of the module to `output`.
-  public func dump<Target: TextOutputStream>(to output: inout Target) {
+  public func write<Target: TextOutputStream>(to output: inout Target) {
     for i in 0 ..< functions.count {
       if i > 0 {
         output.write("\n\n")
       }
-      dump(function: i, to: &output)
+      write(function: i, to: &output)
     }
   }
 
-  /// Dumps a human-readable representation of the specified function to `output`.
-  public func dump<Target: TextOutputStream>(
+  /// Writes a textual representation of the specified function into `output`.
+  public func write<Target: TextOutputStream>(
     function functionID: Function.ID,
     to output: inout Target
   ) {
