@@ -418,7 +418,7 @@ struct ConstraintGenerator: ExprVisitor {
     switch checker.ast[id].domain {
     case .none:
       let expr = checker.ast[id]
-      if checker.isProcessingStandardLibrary && (expr.name.value.stem == "Builtin") {
+      if checker.isBuiltinModuleVisible && (expr.name.value.stem == "Builtin") {
         assume(typeOf: id, equals: .builtin(.module))
         checker.referredDecls[id] = .direct(AnyDeclID(checker.ast.builtinDecl))
         return

@@ -21,8 +21,8 @@ public struct TypeChecker {
   /// A table mapping name expressions to referred declarations.
   public internal(set) var referredDecls: [NodeID<NameExpr>: DeclRef] = [:]
 
-  /// Indicates whether the type checker is processing the standard library.
-  public var isProcessingStandardLibrary = false
+  /// Indicates whether the built-in symbols are visible.
+  public var isBuiltinModuleVisible = false
 
   /// The set of lambda expressions whose declarations are pending type checking.
   var pendingLambdas: [NodeID<LambdaExpr>] = []
@@ -434,13 +434,13 @@ public struct TypeChecker {
     var success = environment(ofGenericDecl: id) != nil
 
     // Type check the parameters.
-    var names: Set<String> = []
+    var parameterNames: Set<String> = []
     for parameterID in decl.parameters {
       let parameter = ast[parameterID]
       let parameterType = ParameterType(converting: declTypes[parameterID]!) ?? unreachable()
 
       // Check for duplicate parameter names.
-      if !names.insert(parameter.name).inserted {
+      if !parameterNames.insert(parameter.name).inserted {
         diagnostics.insert(.duplicateParameterName(parameter.name, range: ast.ranges[parameterID]))
         declRequests[parameterID] = .failure
         success = false
@@ -1854,7 +1854,7 @@ public struct TypeChecker {
         break
       }
 
-      if isProcessingStandardLibrary && (identifier.value == "Builtin") {
+      if isBuiltinModuleVisible && (identifier.value == "Builtin") {
         return .builtin(.module)
       }
 

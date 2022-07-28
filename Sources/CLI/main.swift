@@ -2,6 +2,7 @@ import ArgumentParser
 import Compiler
 import Foundation
 import LLVM
+import Utils
 
 struct CLI: ParsableCommand {
 
@@ -36,20 +37,30 @@ struct CLI: ParsableCommand {
 
   }
 
-  @Option(
-    name: [.customLong("emit")],
-    help: "Emit the specified type output files.")
-  var outputType: OutputType = .binary
-
   @Flag(
     name: [.customLong("modules")],
     help: "Compile inputs as separate modules.")
   var compileInputAsModules: Bool = false
 
   @Flag(
+    name: [.customLong("import-builtin")],
+    help: "Import the built-in module.")
+  var importBuiltinModule: Bool = false
+
+  @Flag(
     name: [.customLong("nostdlib")],
     help: "Do not include the standard library.")
   var skipStandardLibrary: Bool = false
+
+  @Flag(
+    name: [.customLong("typecheck")],
+    help: "Type-check the input file(s).")
+  var typeCheckOnly: Bool = false
+
+  @Option(
+    name: [.customLong("emit")],
+    help: "Emit the specified type output files.")
+  var outputType: OutputType = .binary
 
   @Option(
     name: [.customShort("o")],
@@ -111,11 +122,16 @@ struct CLI: ParsableCommand {
     // Type-check the input.
     log(verbose: "Type-checking '\(productName)'".styled([.bold]))
     var checker = TypeChecker(ast: rawProgram)
+    checker.isBuiltinModuleVisible = importBuiltinModule
+
     let typeCheckingSucceeded = checker.check(module: moduleDecl)
     log(diagnostics: checker.diagnostics)
     if !typeCheckingSucceeded {
       CLI.exit(withError: ExitCode(-1))
     }
+
+    // Exit if `--typecheck` is set.
+    if typeCheckOnly { CLI.exit() }
 
     let typedProgram = TypedProgram(
       ast: checker.ast,
@@ -240,18 +256,6 @@ struct CLI: ParsableCommand {
   /// - Requires: `url` must denote a directly.
   func addModule(url: URL) {
     fatalError("not implemented")
-  }
-
-  /// Calls `action` with the URL of the files in `directory` and its subdirectories.
-  func withFiles(in directory: URL, _ action: (URL) throws -> Bool) rethrows -> Bool {
-    let enumerator = FileManager.default.enumerator(
-      at: directory,
-      includingPropertiesForKeys: [.isRegularFileKey],
-      options: [.skipsHiddenFiles, .skipsPackageDescendants])!
-    for case let url as URL in enumerator {
-      guard try action(url) else { return false }
-    }
-    return true
   }
 
   /// Logs the contents of `diagnostics` tot he standard error.
