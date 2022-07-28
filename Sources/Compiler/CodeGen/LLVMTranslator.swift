@@ -412,6 +412,8 @@ public struct LLVMTranslator {
         translation = IntType(width: width, in: builder.module.context)
       case .f64:
         translation = FloatType(kind: .double, in: builder.module.context)
+      case .pointer:
+        translation = VoidType().star
       case .module:
         fatalError("no LLVM type representation")
       }
