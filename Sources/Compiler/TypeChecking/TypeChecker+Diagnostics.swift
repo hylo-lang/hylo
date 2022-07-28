@@ -33,6 +33,10 @@ extension Diagnostic {
 
   }
 
+  static func declarationRequiresBody(range: SourceRange?) -> Diagnostic {
+    .error("declaration requires a body", range: range)
+  }
+
   static func duplicateCaptureName(_ name: String, range: SourceRange?) -> Diagnostic {
     .error("duplicate capture name '\(name)'", range: range)
   }
@@ -193,6 +197,16 @@ extension Diagnostic {
 
   static func staleConstraint(constraint: Constraint, range: SourceRange?) -> Diagnostic {
     .error("stale constraint '\(constraint)'", range: range)
+  }
+
+  static func staticMemberUsedOnInstance(
+    member: Name,
+    type: Type,
+    range: SourceRange?
+  ) -> Diagnostic {
+    .error(
+      "static member '\(member)' cannot be used on instance of type '\(type)'",
+      range: range)
   }
 
   static func undefined(name: String, range: SourceRange?) -> Diagnostic {

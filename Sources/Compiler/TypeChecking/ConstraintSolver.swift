@@ -51,8 +51,10 @@ struct ConstraintSolver {
         solve(l, isSubtypeOf: r, location: constraint.location)
       case .parameter(let l, let r):
         solve(l, passableTo: r, location: constraint.location)
-      case .member(let l, let m, let r):
-        solve(l, hasMember: m, ofType: r, location: constraint.location)
+      case .boundMember(let l, let m, let r):
+        solve(l, hasBoundMember: m, ofType: r, location: constraint.location)
+      case .unboundMember(let l, let m, let r):
+        solve(l, hasUnboundMember: m, ofType: r, location: constraint.location)
       case .disjunction:
         return solve(disjunction: constraint)
       default:
@@ -278,15 +280,14 @@ struct ConstraintSolver {
 
   private mutating func solve(
     _ l: Type,
-    hasMember member: Name,
+    hasBoundMember member: Name,
     ofType r: Type,
     location: LocatableConstraint.Location
   ) {
-    let l = typeAssumptions[l]
-
     // Postpone the solving if `L` is still unknown.
+    let l = typeAssumptions[l]
     if case .variable = l {
-      postpone(LocatableConstraint(.member(l: l, m: member, r: r), location: location))
+      postpone(LocatableConstraint(.boundMember(l: l, m: member, r: r), location: location))
       return
     }
 
@@ -295,6 +296,8 @@ struct ConstraintSolver {
     let candidates = matches.compactMap({ (match) -> (decl: AnyDeclID, type: Type)? in
       // Realize the type of the declaration.
       let matchType = checker.realize(decl: match)
+
+      // Skip the condidate if its type couldn't be realized.
       if matchType.isError { return nil }
 
       // TODO: Handle bound generic typess
@@ -302,22 +305,73 @@ struct ConstraintSolver {
       return (decl: match, type: matchType)
     })
 
-    // Rewrite the constraint.
-    switch candidates.count {
-    case 0:
+    if candidates.isEmpty {
       diagnostics.append(.undefined(name: "\(member)", range: range(of: location)))
-
-    case 1:
-      solve(candidates[0].type, equalsTo: r, location: location)
-      if let node = location.node,
-         let name = NodeID<NameExpr>(converting: node)
-      {
-        bindingAssumptions[name] = .member(candidates[0].decl)
-      }
-
-    default:
+      return
+    } else if candidates.count > 1 {
       // TODO: Create an overload constraint
       fatalError("not implemented")
+    }
+
+    // Make sure the referred declaration denotes a non-static member.
+    if !checker.scopeHierarchy.isNonStaticMember(decl: candidates[0].decl, ast: checker.ast) {
+      diagnostics.append(.staticMemberUsedOnInstance(
+        member: member, type: l, range: range(of: location)))
+      return
+    }
+
+    // Rewrite the constraint.
+    solve(candidates[0].type, equalsTo: r, location: location)
+    if let node = location.node,
+       let name = NodeID<NameExpr>(converting: node)
+    {
+      bindingAssumptions[name] = .member(candidates[0].decl)
+    }
+  }
+
+  private mutating func solve(
+    _ l: Type,
+    hasUnboundMember member: Name,
+    ofType r: Type,
+    location: LocatableConstraint.Location
+  ) {
+    // Postpone the solving if `L` is still unknown.
+    let l = typeAssumptions[l]
+    if case .variable = l {
+      postpone(LocatableConstraint(.unboundMember(l: l, m: member, r: r), location: location))
+      return
+    }
+
+    // Search for candidates.
+    let matches = checker.lookup(member.stem, memberOf: l, inScope: scope)
+    let candidates = matches.compactMap({ (match) -> (decl: AnyDeclID, type: Type)? in
+      // Realize the type of the declaration.
+      let matchType = checker.realize(decl: match)
+
+      // Skip the condidate if its type couldn't be realized.
+      if matchType.isError { return nil }
+
+      // TODO: Handle bound generic typess
+      // TODO: Handle static access to bound members
+      assert(checker.scopeHierarchy.isGlobal(decl: match, ast: checker.ast), "not implemented")
+
+      return (decl: match, type: matchType)
+    })
+
+    if candidates.isEmpty {
+      diagnostics.append(.undefined(name: "\(member)", range: range(of: location)))
+      return
+    } else if candidates.count > 1 {
+      // TODO: Create an overload constraint
+      fatalError("not implemented")
+    }
+
+    // Rewrite the constraint.
+    solve(candidates[0].type, equalsTo: r, location: location)
+    if let node = location.node,
+       let name = NodeID<NameExpr>(converting: node)
+    {
+      bindingAssumptions[name] = .direct(candidates[0].decl)
     }
   }
 

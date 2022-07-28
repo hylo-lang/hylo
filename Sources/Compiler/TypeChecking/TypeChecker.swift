@@ -497,7 +497,7 @@ public struct TypeChecker {
         declTypes[param] = .parameter(ParameterType(convention: convention, bareType: bareType))
         declRequests[param] = .success
       }
-    } else if !decl.isStatic && scopeHierarchy.isMember(decl: id) {
+    } else if scopeHierarchy.isNonStaticMember(decl: id, ast: ast) {
       // Create the implicit parameter declaration.
       assert(!decl.implicitParameterDecls.contains(where: { $0.name == "self" }))
       let param = ast.insert(ParameterDecl(identifier: SourceRepresentable(value: "self")))
@@ -570,8 +570,14 @@ public struct TypeChecker {
       }
 
     case nil:
+      // Declaration without a body must be a requirement or a foreign interface.
+      if scopeHierarchy.container[id]?.kind == .traitDecl
+          || ast[id].attributes.contains(where: { $0.value.name.value == "@_lowered_name" })
+      { return success }
+
       // Function without a body must be a requirement.
-      assert(scopeHierarchy.container[id]?.kind == .traitDecl, "unexpected method requirement")
+      diagnostics.insert(.declarationRequiresBody(range: ast[id].introducer.range))
+      return false
     }
 
     return success

@@ -496,17 +496,16 @@ struct ConstraintGenerator: ExprVisitor {
 
       // If we determined that the domain refers to a nominal type declaration, create a static
       // member constraint. Otherwise, create a non-static member constraint.
+      let constraint: Constraint
       if let base = NodeID<NameExpr>(converting: domain),
          let decl = checker.referredDecls[base]?.decl,
          decl.kind <= .typeDecl
       {
-        fatalError("not implemented")
+        constraint = .unboundMember(l: domainType, m: checker.ast[id].name.value, r: inferredType)
       } else {
-        constraints.append(LocatableConstraint(
-          .member(l: domainType, m: checker.ast[id].name.value, r: inferredType),
-          node: AnyNodeID(id),
-          cause: .member))
+        constraint = .boundMember(l: domainType, m: checker.ast[id].name.value, r: inferredType)
       }
+      constraints.append(LocatableConstraint(constraint, node: AnyNodeID(id), cause: .member))
 
     case .type:
       fatalError("not implemented")

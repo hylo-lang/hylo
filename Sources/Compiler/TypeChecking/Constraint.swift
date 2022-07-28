@@ -46,8 +46,13 @@ public enum Constraint: Hashable {
   ///   another constraint on `R` fixing its parameter passing convention.
   case parameter(l: Type, r: Type)
 
-  /// A constraint `L.m == R` specifying that `L` has a non-static member of type `R` named `m`.
-  case member(l: Type, m: Name, r: Type)
+  /// A constraint `bound(L.m) == R` specifying that `L` has a non-static member of type `R`
+  /// named `m` and referred to from a bound context.
+  case boundMember(l: Type, m: Name, r: Type)
+
+  /// A constraint `unbound(L.m) == R` specifying that `L` has a static or non-static member of
+  /// type `R` named `m` and  referred to from an unbound context.
+  case unboundMember(l: Type, m: Name, r: Type)
 
   /// A value constraint denoting a predicate over value parameters.
   case value(AnyExprID)
@@ -76,20 +81,30 @@ public enum Constraint: Hashable {
     switch self {
     case .equality(let l, let r):
       return (v == l) || (v == r)
+
     case .subtyping(let l, let r):
       return (v == l) || (v == r)
+
     case .conformance(let l, _):
       return (v == l)
+
     case .parameter(let l, let r):
       return (v == l) || (v == r)
-    case .member(let l, _, let r):
+
+    case .boundMember(let l, _, let r):
       return (v == l) || (v == r)
+
+    case .unboundMember(let l, _, let r):
+      return (v == l) || (v == r)
+
     case .value:
       return false
+
     case .disjunction(let minterms):
       return minterms.contains(where: { m in
         m.constraints.contains(where: { c in c.depends(on: variable) })
       })
+
     case .overload(_, let l, _):
       return v == l
     }
@@ -121,8 +136,12 @@ public enum Constraint: Hashable {
       defer { self = .parameter(l: l, r: r) }
       return modify(&l) && modify(&r)
 
-    case .member(var l, let m, var r):
-      defer { self = .member(l: l, m: m, r: r) }
+    case .boundMember(var l, let m, var r):
+      defer { self = .boundMember(l: l, m: m, r: r) }
+      return modify(&l) && modify(&r)
+
+    case .unboundMember(var l, let m, var r):
+      defer { self = .unboundMember(l: l, m: m, r: r) }
       return modify(&l) && modify(&r)
 
     case .value:
@@ -171,8 +190,11 @@ extension Constraint: CustomStringConvertible {
     case .parameter(let l, let r):
       return "\(l) ⤷ \(r)"
 
-    case .member(let l, let m, let r):
-      return "\(l).\(m) == \(r)"
+    case .boundMember(let l, let m, let r):
+      return "bound(\(l).\(m)) == \(r)"
+
+    case .unboundMember(let l, let m, let r):
+      return "unbound(\(l).\(m)) == \(r)"
 
     case .value:
       return "expr"
