@@ -16,6 +16,9 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
 
   }
 
+  /// The attributes of the declaration, if any.
+  public var attributes: [SourceRepresentable<Attribute>]
+
   /// The access modifier of the declaration, if any.
   public var accessModifier: SourceRepresentable<AccessModifier>?
 
@@ -44,6 +47,7 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
   public var body: Body?
 
   public init(
+    attributes: [SourceRepresentable<Attribute>] = [],
     accessModifier: SourceRepresentable<AccessModifier>? = nil,
     memberModifier: SourceRepresentable<MemberModifier>? = nil,
     receiverEffect: SourceRepresentable<ReceiverEffect>? = nil,
@@ -54,6 +58,7 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
     output: AnyTypeExprID,
     body: Body? = nil
   ) {
+    self.attributes = attributes
     self.accessModifier = accessModifier
     self.memberModifier = memberModifier
     self.receiverEffect = receiverEffect

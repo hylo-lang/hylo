@@ -17,6 +17,10 @@ struct ParserContext {
       Flags(rawValue: lhs.rawValue | rhs.rawValue)
     }
 
+    static func - (lhs: Flags, rhs: Flags) -> Flags {
+      Flags(rawValue: lhs.rawValue & ~rhs.rawValue)
+    }
+
     static let parsingTopLevel        = Flags(rawValue: 1 << 0)
     static let parsingNamespace       = Flags(rawValue: 1 << 1)
     static let parsingProductBody     = Flags(rawValue: 1 << 2)

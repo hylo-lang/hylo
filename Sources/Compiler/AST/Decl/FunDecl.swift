@@ -43,6 +43,9 @@ public struct FunDecl: GenericDecl, GenericScope {
   /// The introducer of the declaration.
   public var introducer: SourceRepresentable<Introducer>
 
+  /// The attributes of the declaration, if any.
+  public var attributes: [SourceRepresentable<Attribute>]
+
   /// The access modifier of the declaration, if any.
   public var accessModifier: SourceRepresentable<AccessModifier>?
 
@@ -96,6 +99,7 @@ public struct FunDecl: GenericDecl, GenericScope {
 
   public init(
     introducer: SourceRepresentable<Introducer>,
+    attributes: [SourceRepresentable<Attribute>] = [],
     accessModifier: SourceRepresentable<AccessModifier>? = nil,
     memberModifier: SourceRepresentable<MemberModifier>? = nil,
     receiverEffect: SourceRepresentable<ReceiverEffect>? = nil,
@@ -110,6 +114,7 @@ public struct FunDecl: GenericDecl, GenericScope {
     isInExprContext: Bool = false
   ) {
     self.introducer = introducer
+    self.attributes = attributes
     self.accessModifier = accessModifier
     self.memberModifier = memberModifier
     self.receiverEffect = receiverEffect

@@ -23,14 +23,17 @@ final class ParserTests: XCTestCase {
   func testSourceFile() throws {
     let input = SourceFile(contents: """
       ;;
-      import Fool
+      import Foo
+
+      @_lowered_name("_val_bar")
+      fun _bar(x: Builtin.i64) -> Builtin.i64
 
       let x = "Hello!"
       public let y = 0;
     """)
     let (declSetID, ast) = try apply(Parser.sourceFile, on: input)
     let declSet = try XCTUnwrap(ast[declSetID])
-    XCTAssertEqual(declSet.decls.count, 3)
+    XCTAssertEqual(declSet.decls.count, 4)
   }
 
   // MARK: Declarations
@@ -1689,6 +1692,41 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(context.takeOperator()?.value, "<=")
     XCTAssertEqual(context.takeOperator()?.value, ">")
     XCTAssertEqual(context.takeOperator()?.value, ">=")
+  }
+
+  // MARK: Attributes
+
+  func testDeclAttribute() throws {
+    let input = SourceFile(contents: "@alignment(8)")
+    let attribute = try XCTUnwrap(try apply(Parser.declAttribute, on: input).element)
+    XCTAssertEqual(attribute.value.name.value, "@alignment")
+    XCTAssertEqual(attribute.value.arguments.count, 1)
+  }
+
+  func testAttributeArgumentList() throws {
+    let input = SourceFile(contents: #"(8, "Val")"#)
+    let list = try XCTUnwrap(try apply(Parser.attributeArgumentList, on: input).element)
+    XCTAssertEqual(list.count, 2)
+  }
+
+  func testStringAttributeArgument() throws {
+    let input = SourceFile(contents: #""Val""#)
+    let argument = try XCTUnwrap(try apply(Parser.attributeArgument, on: input).element)
+    if case .string(let a) = argument {
+      XCTAssertEqual(a.value, "Val")
+    } else {
+      XCTFail()
+    }
+  }
+
+  func testIntegerAttributeArgument() throws {
+    let input = SourceFile(contents: "42")
+    let argument = try XCTUnwrap(try apply(Parser.attributeArgument, on: input).element)
+    if case .integer(let a) = argument {
+      XCTAssertEqual(a.value, 42)
+    } else {
+      XCTFail()
+    }
   }
 
   /// Applies `combinator` on `input`, optionally setting `flags` in the parser context.
