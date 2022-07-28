@@ -1,118 +1,69 @@
 extension Diagnostic {
 
   static func ambiguousDisjunction(range: SourceRange?) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: "ambiguous disjunction",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("ambiguous disjunction", range: range)
   }
 
   static func ambiguousTypeReference(name: String, range: SourceRange?) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: "ambiguous reference to type named \(name)",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("ambiguous reference to type named \(name)", range: range)
   }
 
   static func circularRefinement(range: SourceRange?) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: "circular trait refinment",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("circular trait refinement", range: range)
   }
 
   static func circularDependency(range: SourceRange?) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: "circular dependency",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("circular dependency", range: range)
   }
 
   static func cannotConstruct(trait: TraitType, range: SourceRange?) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: "cannot construct an instance of trait '\(trait)'",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error(
+      "cannot construct an instance of trait '\(trait)'; did you mean 'any \(trait)'?",
+      range: range)
   }
 
   static func cannotInferComplexReturnType(range: SourceRange?) -> Diagnostic {
-    return Diagnostic(
-      level: .error,
-      message: "cannot infer complex return type; add an explicit return type annotation",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error(
+      "cannot infer complex return type; add an explicit return type annotation",
+      range: range)
   }
 
   static func conformanceToNonTraitType(_ type: Type, range: SourceRange?) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: "conformance to non-trait type '\(type)'",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("conformance to non-trait type '\(type)'", range: range)
+
   }
 
   static func duplicateCaptureName(_ name: String, range: SourceRange?) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: "duplicate capture name '\(name)'",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("duplicate capture name '\(name)'", range: range)
   }
 
   static func duplicateOperatorDeclaration(_ name: String, range: SourceRange?) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: "duplicate operator declaration '\(name)'",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("duplicate operator declaration '\(name)'", range: range)
   }
 
   static func duplicateParameterName(_ name: String, range: SourceRange?) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: "duplicate parameter name '\(name)'",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("duplicate parameter name '\(name)'", range: range)
   }
 
   static func genericDeclHasCaptures(range: SourceRange?) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: "generic declaration has captures",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("generic declaration has captures", range: range)
   }
 
   static func illegalMemberwiseInit(range: SourceRange?) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: "memberwise initializer declaration may only appear in product type declaration",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error(
+      "memberwise initializer declaration may only appear in product type declaration",
+      range: range)
   }
 
   static func illegalParameterConvention(
     _ convention: PassingConvention,
     range: SourceRange?
   ) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: "'\(convention)' may only be used on parameters",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("'\(convention)' may only be used on parameters", range: range)
   }
 
   static func implicitReferenceToForeignReceiver(range: SourceRange?) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: "implicit reference to foreign receiver",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("implicit reference to foreign receiver", range: range)
   }
 
   static func incompatibleLabels(
@@ -122,47 +73,28 @@ extension Diagnostic {
   ) -> Diagnostic {
     let ls = found.reduce(into: "", { (string, label) in string += (label ?? "_") + ":" })
     let rs = expected.reduce(into: "", { (string, label) in string += (label ?? "_") + ":" })
-
-    return Diagnostic(
-      level: .error,
-      message: "incompatible labels: found '(\(ls))', expected '(\(rs))'",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    return .error("incompatible labels: found '(\(ls))', expected '(\(rs))'", range: range)
   }
 
   static func incompatibleParameterCount(range: SourceRange?) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: "incompatible number of parameters",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("incompatible number of parameters", range: range)
   }
 
   static func incompatibleTupleLengths(range: SourceRange?) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: "tuples have different lengths",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("tuples have different lengths", range: range)
   }
 
   static func incompatibleTypes(_ l: Type, _ r: Type, range: SourceRange?) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: "incompatible types '\(l)' and '\(r)'",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("incompatible types '\(l)' and '\(r)'", range: range)
   }
 
   static func invalidAssociatedTypeExpr(_ name: String, range: SourceRange?) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: """
-        associated type '\(name)' can only be used referred to as a member of a generic type \
-        parameter, a conformance lens, or another associated type
-        """,
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error(
+      """
+      associated type '\(name)' can only be used referred to as a member of a generic type \
+      parameter, a conformance lens, or another associated type
+      """,
+      range: range)
   }
 
   static func invalidClosureParameterCount(
@@ -170,83 +102,45 @@ extension Diagnostic {
     found: Int,
     range: SourceRange?
   ) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: "contextual closure type requires \(expected) argument(s), found \(found)",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error(
+      "contextual closure type requires \(expected) argument(s), found \(found)",
+      range: range)
   }
 
   static func invalidInoutBundleReturnType(expected: Type, range: SourceRange?) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: "inout-capable method bundle must return '\(expected)'",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("inout-capable method bundle must return '\(expected)'", range: range)
   }
 
   static func invalidDestructuring(ofType type: Type, range: SourceRange?) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: "invalid destructuring of type '\(type)'",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("invalid destructuring of type '\(type)'", range: range)
   }
 
   static func invalidSelfTypeExpr(range: SourceRange?) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: "reference to 'Self' outside of a type context",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("reference to 'Self' outside of a type context", range: range)
   }
 
   static func invalidParameterType(_ type: Type, range: SourceRange?) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: "invalid parameter type '\(type)'",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("invalid parameter type '\(type)'", range: range)
   }
 
   static func memberDeclHasCaptures(range: SourceRange?) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: "member declaration has captures",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("member declaration has captures", range: range)
   }
 
   static func missingReturnValue(range: SourceRange?) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: "non-unit function should return a value",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("non-unit function should return a value", range: range)
   }
 
   static func missingTypeAnnotation(range: SourceRange?) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: "missing type annotation",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("missing type annotation", range: range)
   }
 
   static func nestedOperatorDeclaration(range: SourceRange?) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: "operator declaration can only appear at top-level",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("operator declaration can only appear at top-level", range: range)
   }
 
   static func nonTraitType(_ type: Type, range: SourceRange?) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: "type '\(type)' is not a trait",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("type '\(type)' is not a trait", range: range)
   }
 
   static func noConformance(
@@ -254,49 +148,35 @@ extension Diagnostic {
     to trait: TraitType,
     range: SourceRange?
   ) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: "type '\(type)' does not conform to trait '\(trait)'",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("type '\(type)' does not conform to trait '\(trait)'", range: range)
   }
 
   static func noSkolemInConformance(_ type: Type, range: SourceRange?) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: """
-        type '\(type)' in conformance constraint does not refers to a generic parameter or \
-        associated type
-        """,
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error(
+      """
+      type '\(type)' in conformance constraint does not refers to a generic parameter or \
+      associated type
+      """,
+      range: range)
   }
 
   static func noSkolemInEquality(l: Type, r: Type, range: SourceRange?) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: """
-        neither type in equality constraint ('\(l)' or '\(r)') refers to a generic parameter or \
-        associated type
-        """,
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error(
+      """
+      neither type in equality constraint ('\(l)' or '\(r)') refers to a generic parameter or \
+      associated type
+      """,
+      range: range)
   }
 
   static func notEnoughContextToInferArguments(range: SourceRange?) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: "not enough contextual information to infer the arguments to generic parameters",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error(
+      "not enough contextual information to infer the arguments to generic parameters",
+      range: range)
   }
 
   static func notSubtype(_ l: Type, of r: Type, range: SourceRange?) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: "'\(l)' is not subtype of '\(r)'",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("'\(l)' is not subtype of '\(r)'", range: range)
   }
 
   static func noType(
@@ -304,50 +184,27 @@ extension Diagnostic {
     in domain: Type? = nil,
     range: SourceRange?
   ) -> Diagnostic {
-    let message: String
     if let domain = domain {
-      message = "type '\(domain)' has no type member '\(name)'"
+      return .error("type '\(domain)' has no type member '\(name)'", range: range)
     } else {
-      message = "no type named '\(name)' in this scope"
+      return .error("no type named '\(name)' in this scope", range: range)
     }
-
-    return Diagnostic(
-      level: .error,
-      message: message,
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
   }
 
   static func staleConstraint(constraint: Constraint, range: SourceRange?) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: "stale constraint '\(constraint)'",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("stale constraint '\(constraint)'", range: range)
   }
 
   static func undefined(name: String, range: SourceRange?) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: "undefined name '\(name)' in this scope",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("undefined name '\(name)' in this scope", range: range)
   }
 
   static func undefinedOperator(_ name: String, range: SourceRange?) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: "undefined operator '\(name)'",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("undefined operator '\(name)'", range: range)
   }
 
   static func unusedResult(ofType type: Type, range: SourceRange?) -> Diagnostic {
-    Diagnostic(
-      level: .warning,
-      message: "unused result of type '\(type)'",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .warning("unused result of type '\(type)'", range: range)
   }
 
 }

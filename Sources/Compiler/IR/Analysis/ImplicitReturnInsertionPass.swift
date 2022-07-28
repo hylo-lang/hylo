@@ -43,11 +43,7 @@ fileprivate extension Diagnostic {
     expectedReturnType: Type,
     range: SourceRange?
   ) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: "missing return in function expected to return '\(expectedReturnType)'",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("missing return in function expected to return '\(expectedReturnType)'", range: range)
   }
 
 }

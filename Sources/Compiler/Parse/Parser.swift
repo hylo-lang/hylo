@@ -2621,59 +2621,31 @@ fileprivate extension SourceRepresentable where Part == Identifier {
 fileprivate extension Diagnostic {
 
   static func accessModifierAtNonLocalScope(range: SourceRange?) -> Diagnostic {
-    return Diagnostic(
-      level: .error,
-      message: "access modifier cannot be used in a local scope",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("access modifier cannot be used in a local scope", range: range)
   }
 
   static func duplicateMethodIntroducer(range: SourceRange?) -> Diagnostic {
-    return Diagnostic(
-      level: .error,
-      message: "duplicate method introducer",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("duplicate method introducer", range: range)
   }
 
   static func duplicateSubscriptIntroducer(range: SourceRange?) -> Diagnostic {
-    return Diagnostic(
-      level: .error,
-      message: "duplicate subscript introducer",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("duplicate subscript introducer", range: range)
   }
 
   static func infixOperatorRequiresWhitespaces(range: SourceRange?) -> Diagnostic {
-    return Diagnostic(
-      level: .error,
-      message: "infix operator requires whitespaces on both sides",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("infix operator requires whitespaces on both sides", range: range)
   }
 
   static func memberModifierAtNonTypeScope(range: SourceRange?) -> Diagnostic {
-    return Diagnostic(
-      level: .error,
-      message: "member modifier can only be used on member declarations",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("member modifier can only be used on member declarations", range: range)
   }
 
   static func unexpectedDeclAttribute(range: SourceRange?) -> Diagnostic {
-    return Diagnostic(
-      level: .error,
-      message: "unexpected declaration attribute",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("unexpected declaration attribute", range: range)
   }
 
   static func unexpectedDeclModifier(range: SourceRange?) -> Diagnostic {
-    return Diagnostic(
-      level: .error,
-      message: "unexpected declaration modifier",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("unexpected declaration modifier", range: range)
   }
 
 }
