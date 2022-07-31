@@ -21,13 +21,24 @@ struct CaptureCollector {
     self.ast = ast
   }
 
-  /// Returns the names occurring free in the specified function declaration, together with the
-  /// list of their occurrences and a flag indicating whether the they are used mutably.
+  /// Returns the names occurring free in the specified function or subscript declaration, together
+  /// with the list of their occurrences and a flag indicating whether the they are used mutably.
   ///
-  /// - Requires: `id` must denote a local function.
-  mutating func freeNames(in id: NodeID<FunDecl>) -> FreeSet {
+  /// - Requires: `id` must denote a function or subscript declaration.
+  mutating func freeNames<T: Decl>(in id: NodeID<T>) -> FreeSet {
     var captures: FreeSet = [:]
-    collectCaptures(ofFun: id, includingExplicitCaptures: true, into: &captures)
+    switch id.kind {
+    case .funDecl:
+      let funDeclID = NodeID<FunDecl>(unsafeRawValue: id.rawValue)
+      collectCaptures(ofFun: funDeclID, includingExplicitCaptures: true, into: &captures)
+
+    case .subscriptDecl:
+      fatalError("not implemented")
+
+    default:
+      unreachable()
+    }
+
     return captures
   }
 

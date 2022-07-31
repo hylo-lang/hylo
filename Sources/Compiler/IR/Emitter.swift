@@ -59,6 +59,9 @@ public struct Emitter {
       withScopeHierarchy: program.scopeHierarchy,
       withDeclTypes: program.declTypes)
 
+    // Nothing else to do if the function has no body.
+    guard let body = program.ast[declID].body else { return }
+
     // Create the function entry.
     assert(module.functions[functionID].blocks.isEmpty)
     let entryID = module.createBasicBlock(
@@ -78,12 +81,12 @@ public struct Emitter {
       locals[parameter] = .parameter(block: entryID, index: i + implicitParamCount)
     }
 
-    // Emit the function's body.
+    // Emit the body.
     stack.push(Frame(locals: locals))
     var receiverDecl = program.ast[declID].implicitReceiverDecl
     swap(&receiverDecl, &self.receiverDecl)
 
-    switch program.ast[declID].body! {
+    switch body {
     case .block(let stmt):
       // Emit the statements of the function.
       emit(stmt: stmt, into: &module)

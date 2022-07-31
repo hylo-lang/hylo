@@ -32,14 +32,6 @@ public struct FunDecl: GenericDecl, GenericScope {
 
   }
 
-  public struct ImplicitParameter: Codable {
-
-    let name: String
-
-    var decl: AnyDeclID
-
-  }
-
   /// The introducer of the declaration.
   public var introducer: SourceRepresentable<Introducer>
 

@@ -502,7 +502,7 @@ public struct TypeChecker {
       assert(!decl.implicitParameterDecls.contains(where: { $0.name == "self" }))
       let param = ast.insert(ParameterDecl(identifier: SourceRepresentable(value: "self")))
       scopeHierarchy.insert(decl: param, into: AnyScopeID(id))
-      ast[id].implicitParameterDecls.append(FunDecl.ImplicitParameter(
+      ast[id].implicitParameterDecls.append(ImplicitParameter(
         name: "self", decl: AnyDeclID(param)))
       decl = ast[id]
 
@@ -1707,12 +1707,12 @@ public struct TypeChecker {
     for scope in scopeHierarchy.scopesToRoot(from: scope) {
       switch scope.kind {
       case .traitDecl:
-        let decl = NodeID<TraitDecl>(converting: scope)!
+        let decl = NodeID<TraitDecl>(unsafeRawValue: scope.rawValue)
         return .genericTypeParam(GenericTypeParamType(decl: decl, ast: ast))
 
       case .productTypeDecl:
-        // Synthesize unparametrized `Self`.
-        let decl = NodeID<ProductTypeDecl>(converting: scope)!
+        // Synthesize unparameterized `Self`.
+        let decl = NodeID<ProductTypeDecl>(unsafeRawValue: scope.rawValue)
         var type = Type.product(ProductType(decl: decl, ast: ast))
 
         // Synthesize arguments to generic parameters if necessary.
@@ -1729,6 +1729,14 @@ public struct TypeChecker {
         }
 
         return type
+
+      case .conformanceDecl:
+        let decl = NodeID<ConformanceDecl>(unsafeRawValue: scope.rawValue)
+        return realize(ast[decl].subject, inScope: scope)
+
+      case .extensionDecl:
+        let decl = NodeID<ConformanceDecl>(unsafeRawValue: scope.rawValue)
+        return realize(ast[decl].subject, inScope: scope)
 
       case .typeAliasDecl:
         fatalError("not implemented")
@@ -1847,8 +1855,10 @@ public struct TypeChecker {
     } else {
       // Bypass unqualified lookup for reserved type names.
       switch identifier.value {
-      case "Any":   return .any
-      case "Never": return .never
+      case "Any":
+        return .any
+      case "Never":
+        return .never
       case "Self":
         if let type = realizeSelfTypeExpr(inScope: scope) {
           return type
@@ -2053,7 +2063,7 @@ public struct TypeChecker {
     var decl = ast[id]
     let declScope = AnyScopeID(id)
 
-    var implicitParameterDecls: [FunDecl.ImplicitParameter] = []
+    var implicitParameterDecls: [ImplicitParameter] = []
     var inputs: [CallableTypeParameter] = []
     var success = true
 
@@ -2100,7 +2110,7 @@ public struct TypeChecker {
       for (_, name) in ast.names(in: pattern) {
         let stem = ast[ast[name].decl].name
         if explictNames.insert(Name(stem: stem)).inserted {
-          implicitParameterDecls.append(FunDecl.ImplicitParameter(
+          implicitParameterDecls.append(ImplicitParameter(
             name: stem, decl: AnyDeclID(ast[name].decl)))
         } else {
           diagnostics.insert(.duplicateCaptureName(stem, range: ast.ranges[ast[name].decl]))
@@ -2189,7 +2199,7 @@ public struct TypeChecker {
         // Other local declarations are captured.
         guard let captureType = realize(decl: decl).proper?.skolemized else { continue }
         captures.append(.projection(ProjectionType(uses.capability, captureType)))
-        implicitParameterDecls.append(FunDecl.ImplicitParameter(name: name.stem, decl: decl))
+        implicitParameterDecls.append(ImplicitParameter(name: name.stem, decl: decl))
       }
     }
 
