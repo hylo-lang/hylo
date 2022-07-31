@@ -15,10 +15,13 @@ struct Solution {
   /// The score of a solution.
   struct Score: Comparable {
 
-    let errorCount: Int
+    /// The number of errors encountered by the solver.
+    var errorCount: Int
 
-    let penalties: Int
+    /// The penalties of the choices made by the solver.
+    var penalties: Int
 
+    /// The worst representable solution score.
     static let worst = Score(errorCount: Int.max, penalties: Int.max)
 
     static func < (l: Self, r: Self) -> Bool {

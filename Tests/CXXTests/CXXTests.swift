@@ -1,6 +1,5 @@
 import XCTest
 import Compiler
-import Library
 
 final class CXXTests: XCTestCase {
 

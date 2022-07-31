@@ -105,7 +105,7 @@ public struct ScopeHierarchy {
   func isMember<T: DeclID>(decl: T) -> Bool {
     guard let parent = container[decl] else { return false }
     switch parent.kind {
-    case .productTypeDecl, .traitDecl, .typeAliasDecl:
+    case .productTypeDecl, .traitDecl, .conformanceDecl, .extensionDecl, .typeAliasDecl:
       return true
     default:
       return false
@@ -114,7 +114,7 @@ public struct ScopeHierarchy {
 
   /// Returns whether `decl` is a non-static member of a type declaration in `ast`.
   func isNonStaticMember<T: DeclID>(decl: T, ast: AST) -> Bool {
-    isGlobal(decl: decl, ast: ast) && isMember(decl: decl)
+    !isGlobal(decl: decl, ast: ast) && isMember(decl: decl)
   }
 
   func isNonStaticMember(decl: NodeID<FunDecl>, ast: AST) -> Bool {

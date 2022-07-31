@@ -9,7 +9,7 @@ public enum Constraint: Hashable {
     /// The constraints.
     public var constraints: [Constraint]
 
-    /// The penalties associated with this set.
+    /// The penalties associated with the set.
     public var penalties: Int
 
   }
@@ -17,14 +17,17 @@ public enum Constraint: Hashable {
   /// A candidate in an overload constraint.
   public struct OverloadCandidate: Hashable {
 
-    /// The declaration of the candidate.
-    public var decl: AnyDeclID
+    /// The candidate reference.
+    public var reference: DeclRef
 
-    /// The contextualized type of the declaration.
+    /// The contextualized type the referred declaration.
     public var type: Type
 
-    /// The set of constraints associated with the candidate.
+    /// The set of constraints associated with the reference.
     public var constraints: [Constraint]
+
+    /// The penalties associated with the candidate.
+    public var penalties: Int
 
   }
 
@@ -64,7 +67,7 @@ public enum Constraint: Hashable {
 
   /// A constraint specifying that a name expression refers to one of several declarations,
   /// depending on its type.
-  case overload(n: NodeID<NameExpr>, l: Type, candidates: [OverloadCandidate])
+  case overload(name: NodeID<NameExpr>, type: Type, candidates: [OverloadCandidate])
 
   /// Creates a subtyping or equality constraint.
   public static func equalityOrSubtyping(l: Type, r: Type) -> Constraint {
@@ -105,8 +108,8 @@ public enum Constraint: Hashable {
         m.constraints.contains(where: { c in c.depends(on: variable) })
       })
 
-    case .overload(_, let l, _):
-      return v == l
+    case .overload(_, let type, _):
+      return v == type
     }
   }
 
@@ -156,9 +159,9 @@ public enum Constraint: Hashable {
       }
       return true
 
-    case .overload(let n, var l, var candidates):
-      defer { self = .overload(n: n, l: l, candidates: candidates) }
-      if !modify(&l) { return false }
+    case .overload(let name, var type, var candidates):
+      defer { self = .overload(name: name, type: type, candidates: candidates) }
+      if !modify(&type) { return false }
       for i in 0 ..< candidates.count {
         for j in 0 ..< candidates[i].constraints.count {
           if !modify(&candidates[i].type) { return false }
@@ -208,7 +211,7 @@ extension Constraint: CustomStringConvertible {
 
     case .overload(let n, let l, let candidates):
       let d = candidates.lazy.map { c in
-        "(\(c.decl.kind)[\(c.decl.rawValue)]+"
+        "(\(c.reference.decl.kind)[\(c.reference.decl.rawValue)]+"
         + "{\(c.constraints.descriptions(joinedBy: " ∧ "  ))}"
       }
 

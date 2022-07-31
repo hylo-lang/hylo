@@ -236,7 +236,10 @@ struct ConstraintGenerator: ExprVisitor {
           if labels.elementsEqual(ctor.labels) {
             let (ty, cs) = checker.open(type: .lambda(ctor))
             candidates.append(Constraint.OverloadCandidate(
-              decl: initializer.decl, type: ty, constraints: cs))
+              reference: .direct(initializer.decl),
+              type: ty,
+              constraints: cs,
+              penalties: 0))
           }
         }
 
@@ -249,7 +252,7 @@ struct ConstraintGenerator: ExprVisitor {
 
         case 1:
           // Reassign the referred declaration and type of the name expression.
-          checker.referredDecls[c] = .direct(candidates[0].decl)
+          checker.referredDecls[c] = candidates[0].reference
           inferredTypes[c] = candidates[0].type
 
           // Propagate the type of the constructor down.

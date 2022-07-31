@@ -57,6 +57,8 @@ struct ConstraintSolver {
         solve(l, hasUnboundMember: m, ofType: r, location: constraint.location)
       case .disjunction:
         return solve(disjunction: constraint)
+      case .overload:
+        return solve(overload: constraint)
       default:
         fatalError("not implemented")
       }
@@ -291,42 +293,59 @@ struct ConstraintSolver {
       return
     }
 
-    // Search for candidates.
-    let matches = checker.lookup(member.stem, memberOf: l, inScope: scope)
-    let candidates = matches.compactMap({ (match) -> (decl: AnyDeclID, type: Type)? in
-      // Realize the type of the declaration.
-      let matchType = checker.realize(decl: match)
+    // Search for non-static members with the specified name.
+    let allMatches = checker.lookup(member.stem, memberOf: l, inScope: scope)
+    let nonStaticMatches = allMatches.filter({ decl in
+      checker.scopeHierarchy.isNonStaticMember(decl: decl, ast: checker.ast)
+    })
 
-      // Skip the condidate if its type couldn't be realized.
+    // Catch uses of static members on instances.
+    if nonStaticMatches.isEmpty && !allMatches.isEmpty {
+      diagnostics.append(.staticMemberUsedOnInstance(
+        member: member, type: l, range: range(of: location)))
+    }
+
+    // Generate the list of candidates.
+    let candidates = nonStaticMatches.compactMap({ (match) -> Constraint.OverloadCandidate? in
+      // Realize the type of the declaration and skip it if that fails.
+      let matchType = checker.realize(decl: match)
       if matchType.isError { return nil }
 
       // TODO: Handle bound generic typess
 
-      return (decl: match, type: matchType)
+      return Constraint.OverloadCandidate(
+        reference: .member(match),
+        type: matchType,
+        constraints: [],
+        penalties: isRequirement(decl: match) ? 1 : 0)
     })
 
+    // Fail if we couldn't find any candidate.
     if candidates.isEmpty {
       diagnostics.append(.undefined(name: "\(member)", range: range(of: location)))
       return
-    } else if candidates.count > 1 {
-      // TODO: Create an overload constraint
-      fatalError("not implemented")
     }
 
-    // Make sure the referred declaration denotes a non-static member.
-    if !checker.scopeHierarchy.isNonStaticMember(decl: candidates[0].decl, ast: checker.ast) {
-      diagnostics.append(.staticMemberUsedOnInstance(
-        member: member, type: l, range: range(of: location)))
-      return
+    // Get the name expression associated with the constraint, if any.
+    let nameBoundByCurrentConstraint = location.node.flatMap(NodeID<NameExpr>.init(converting:))
+
+    // Fast path when there's only one candidate.
+    if candidates.count == 1 {
+      solve(candidates[0].type, equalsTo: r, location: location)
+      if let name = nameBoundByCurrentConstraint {
+        bindingAssumptions[name] = candidates[0].reference
+      }
     }
 
-    // Rewrite the constraint.
-    solve(candidates[0].type, equalsTo: r, location: location)
-    if let node = location.node,
-       let name = NodeID<NameExpr>(converting: node)
-    {
-      bindingAssumptions[name] = .member(candidates[0].decl)
+    let newConstraint: Constraint
+    if let name = nameBoundByCurrentConstraint {
+      newConstraint = .overload(name: name, type: r, candidates: candidates)
+    } else {
+      newConstraint = .disjunction(candidates.map({ (c) -> Constraint.Minterm in
+        Constraint.Minterm(constraints: [.equality(l: r, r: c.type)], penalties: c.penalties)
+      }))
     }
+    fresh.append(LocatableConstraint(newConstraint, location: location))
   }
 
   private mutating func solve(
@@ -342,83 +361,180 @@ struct ConstraintSolver {
       return
     }
 
-    // Search for candidates.
+    // Search for non-static members with the specified name.
     let matches = checker.lookup(member.stem, memberOf: l, inScope: scope)
-    let candidates = matches.compactMap({ (match) -> (decl: AnyDeclID, type: Type)? in
-      // Realize the type of the declaration.
-      let matchType = checker.realize(decl: match)
 
-      // Skip the condidate if its type couldn't be realized.
+    // Generate the list of candidates.
+    typealias Candidate = (decl: AnyDeclID, type: Type, penalty: Int)
+    let candidates = matches.compactMap({ (match) -> Candidate? in
+      // Realize the type of the declaration and skip it if that fails.
+      let matchType = checker.realize(decl: match)
       if matchType.isError { return nil }
 
       // TODO: Handle bound generic typess
       // TODO: Handle static access to bound members
       assert(checker.scopeHierarchy.isGlobal(decl: match, ast: checker.ast), "not implemented")
 
-      return (decl: match, type: matchType)
+      return (
+        decl: match,
+        type: matchType,
+        penalty: isRequirement(decl: match) ? 1 : 0)
     })
 
+    // Fail if we couldn't find any candidate.
     if candidates.isEmpty {
       diagnostics.append(.undefined(name: "\(member)", range: range(of: location)))
       return
-    } else if candidates.count > 1 {
-      // TODO: Create an overload constraint
-      fatalError("not implemented")
     }
 
-    // Rewrite the constraint.
-    solve(candidates[0].type, equalsTo: r, location: location)
-    if let node = location.node,
-       let name = NodeID<NameExpr>(converting: node)
-    {
-      bindingAssumptions[name] = .direct(candidates[0].decl)
+    // Fast path when there's only one candidate.
+    if candidates.count == 1 {
+      solve(candidates[0].type, equalsTo: r, location: location)
+      if let node = location.node,
+         let name = NodeID<NameExpr>(converting: node)
+      {
+        bindingAssumptions[name] = .direct(candidates[0].decl)
+      }
     }
+
+    // TODO: Create an overload constraint
+    fatalError("not implemented")
   }
 
   private mutating func solve(disjunction: LocatableConstraint) -> Solution? {
     guard case .disjunction(let minterms) = disjunction.constraint else { unreachable() }
 
-    var solutions: [Solution] = []
-    for minterm in minterms {
-      // Don't bother if there's no chance to find a better solution.
-      let s = Solution.Score(
-        errorCount: diagnostics.count, penalties: penalties + minterm.penalties)
-      if s > best { continue }
+    return explore(
+      minterms,
+      location: disjunction.location,
+      insertingConstraintsWith: { (subsolver, branch) -> Void in
+        for constraint in branch.constraints {
+          subsolver.fresh.append(LocatableConstraint(constraint, location: disjunction.location))
+        }
+      })?.solution
+  }
 
-      // Explore the result of this choice.
-      var subsolver = self
-      subsolver.penalties += minterm.penalties
-      for constraint in minterm.constraints {
-        subsolver.fresh.append(LocatableConstraint(constraint, location: disjunction.location))
+  private mutating func solve(overload: LocatableConstraint) -> Solution? {
+    guard case .overload(let name, let type, let candidates) = overload.constraint else {
+      unreachable()
+    }
+
+    let bestBranch = explore(
+      candidates,
+      location: overload.location,
+      insertingConstraintsWith: { (subsolver, branch) -> Void in
+        subsolver.fresh.append(LocatableConstraint(
+          .equality(l: type, r: branch.type), location: overload.location))
+        for constraint in branch.constraints {
+          subsolver.fresh.append(LocatableConstraint(constraint, location: overload.location))
+        }
+      })
+
+    if let (choice, solution) = bestBranch {
+      bindingAssumptions[name] = choice.reference
+      return solution
+    } else {
+      return nil
+    }
+  }
+
+  private mutating func explore<C: Collection>(
+    _ branches: C,
+    location: LocatableConstraint.Location,
+    insertingConstraintsWith insertConstraints: (inout ConstraintSolver, C.Element) -> Void
+  ) -> (branch: C.Element, solution: Solution)?
+  where C.Element: Branch
+  {
+    /// The results of the exploration.
+    var results: [(branch: C.Element, solution: Solution)] = []
+
+    for branch in branches {
+      // Don't bother if there's no chance to find a better solution.
+      var underestimatedBranchScore = score
+      underestimatedBranchScore.penalties += branch.penalties
+      if underestimatedBranchScore > best {
+        continue
       }
 
+      // Explore the result of this branch.
+      var subsolver = self
+      subsolver.penalties += branch.penalties
+      insertConstraints(&subsolver, branch)
+
       guard let solution = subsolver.solve() else { continue }
-      if solutions.isEmpty || (solution.score < best) {
+      if results.isEmpty || (solution.score < best) {
         best = solution.score
-        solutions = [solution]
+        results = [(branch, solution)]
       } else if solution.score == best {
         // TODO: Avoid duplicates
-        solutions.append(solution)
+        results.append((branch, solution))
       }
     }
 
-    switch solutions.count {
+    switch results.count {
     case 0:
       return nil
 
     case 1:
-      return solutions[0]
+      return results[0]
 
     default:
       // TODO: Merge remaining solutions
-      var s = solutions[0]
-      s.diagnostics.append(.ambiguousDisjunction(range: range(of: disjunction.location)))
-      return s
+      results[0].solution.diagnostics.append(.ambiguousDisjunction(range: range(of: location)))
+      return results[0]
     }
   }
 
   private mutating func postpone(_ constraint: LocatableConstraint) {
     stale.append(constraint)
+  }
+
+  /// Returns whether `decl` is a requirement.
+  private func isRequirement<T: DeclID>(decl: T) -> Bool {
+    if checker.scopeHierarchy.container[decl]?.kind != .traitDecl {
+      return false
+    }
+
+    switch decl.kind {
+    case .funDecl:
+      switch checker.ast[NodeID<FunDecl>(unsafeRawValue: decl.rawValue)].body {
+      case .bundle(let impls):
+        return impls.contains(where: { isRequirement(decl: $0) })
+      case .none:
+        return true
+      case .some:
+        return false
+      }
+
+    case .methodImplDecl:
+      switch checker.ast[NodeID<MethodImplDecl>(unsafeRawValue: decl.rawValue)].body {
+      case .none:
+        return true
+      case .some:
+        return false
+      }
+
+    case .subscriptDecl:
+      switch checker.ast[NodeID<SubscriptDecl>(unsafeRawValue: decl.rawValue)].body {
+      case .bundle(let impls):
+        return impls.contains(where: { isRequirement(decl: $0) })
+      case .none:
+        return true
+      case .some:
+        return false
+      }
+
+    case .subscriptImplDecl:
+      switch checker.ast[NodeID<SubscriptImplDecl>(unsafeRawValue: decl.rawValue)].body {
+      case .none:
+        return true
+      case .some:
+        return false
+      }
+
+    default:
+      return false
+    }
   }
 
   /// Returns the source range corresponding to `location`, if any.
@@ -464,10 +580,12 @@ fileprivate enum LabelCompatibility {
 
 }
 
+/// A collection of labeled elements.
 fileprivate protocol LabeledCollection {
 
   associatedtype Labels: Collection where Labels.Element == String?
 
+  /// A collection with the labels corresponding to each element in `self`.
   var labels: Labels { get }
 
 }
@@ -504,3 +622,14 @@ extension TupleType: LabeledCollection {
   }
 
 }
+
+fileprivate protocol Branch {
+
+  /// The penalties associated with the choice.
+  var penalties: Int { get }
+
+}
+
+extension Constraint.Minterm: Branch {}
+
+extension Constraint.OverloadCandidate: Branch {}
