@@ -13,34 +13,66 @@ Please, fill in an issue if you are experiencing problems on Windows.
  
 ## Installation
 
+| Dependency | Version |
+|------------|---------|
+| Swift      | >5.6    |
+| LLVM       | =11.0   |
+
+
 This project is written in [Swift](https://www.swift.org) and distributed in the form of a package, built with [Swift Package Manager](https://swift.org/package-manager/).
-You will need Swift 5.6 or higher to build the compiler from sources.
 
-Our implementation depends on LLVM 11.0
-Use your favorite package manager (e.g., `port` on macOS or `apt` on Ubuntu), make sure `llvm-config` is in your `PATH`, and create a `pkgconfig` file for your specific installation.
-The maintainers of [LLVMSwift](https://github.com/llvm-swift/LLVMSwift) were kind enough to provide a script:
+You will need Swift 5.6 or higher to build the compiler from source.
 
+Our implementation depends on LLVM 11.0, via [LLVMSwift](https://github.com/llvm-swift/LLVMSwift).
+### macOS
+
+We recommend using [Homebrew](https://brew.sh/) to install LLVM.
 
 ```bash
-swift package resolve
+$ brew install llvm@11
+$ PATH="$PATH:`brew --prefix llvm@11`/bin"
+# Or, set PATH in your ~/.zshrc, ~/.bashrc, etc.
+```
+
+Then, install Val's dependencies:
+
+```bash
+$ swift package resolve
+```
+
+Next, you need to create a `pkgconfig` file for your specific installation. Fortunately, the maintainers of [LLVMSwift](https://github.com/llvm-swift/LLVMSwift) were kind enough to provide a script:
+
+```
 swift .build/checkouts/LLVMSwift/utils/make-pkgconfig.swift
 ```
 
-> Note: on Ubuntu, you will also need [libc++](https://libcxx.llvm.org) to link your code with LLVM:
->
-> ```bash
-> apt-get install libc++-dev
-> apt-get install libc++abi-dev
-> ```
+### Ubuntu
 
-Once LLVM is installed and configured, you may compile Val's compiler with the following commands:
+Installation on Ubuntu requires manually installing Swift and its dependencies. See [our Github Actions Workflow](.github/workflows/build-and-test.yml) for the most up-to-date list of packages, as verified by our Continuous Integration.
+
+Note: the packages listed in the Ubuntu installation may be redundant, as packages like `git` are installed on Github Actions virtual environments by default. These have been left in place for consistency with [swift's installation instructions](https://www.swift.org/download/).
+### Windows
+
+Windows is not officially supported yet.
+## Building
+
+Once LLVM is installed and configured, you may compile Val's compiler with the following command:
 
 ```bash
 swift build -c release
 ```
 
 That command will create an executable named `valc` in `.build/release`.
-That's Val compiler!
+That's the Val compiler!
+
+## Testing
+
+To test Val, we recommend building a debug configuration. Executing the tests is as simple as invoking `swift test`:
+
+```
+$ swift build -c debug
+$ swift test -c debug
+```
 
 ## Contributing
 
