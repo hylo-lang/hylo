@@ -18,7 +18,7 @@ jobs:
       - name: Generate job matrix
         id: set-matrix
         # Note: The json in this variable must be a single line for parsing to succeed.
-        run: echo "::set-output name=matrix::$(cat .github/matrix.json | ./github/scripts/flatten_json.py)"
+        run: echo "::set-output name=matrix::$(cat .github/matrix.json | .github/scripts/flatten_json.py)"
 
   builds:
     needs: generate-matrix
