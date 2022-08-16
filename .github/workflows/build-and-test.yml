@@ -62,7 +62,10 @@ jobs:
             uuid-dev \
             zlib1g-dev
 
-          wget https://download.swift.org/swift-5.6.1-release/ubuntu2004/swift-5.6.1-RELEASE/swift-5.6.1-RELEASE-ubuntu20.04.tar.gz && \
+          # make-pkgconfig.swift expects `llvm-config`.
+          mv /usr/bin/llvm-config-11 /usr/bin/llvm-config
+
+          wget -q https://download.swift.org/swift-5.6.1-release/ubuntu2004/swift-5.6.1-RELEASE/swift-5.6.1-RELEASE-ubuntu20.04.tar.gz && \
           tar xzf swift-5.6.1-RELEASE-ubuntu20.04.tar.gz && \
           rm -f swift-5.6.1-RELEASE-ubuntu20.04.tar.gz && \
           mv swift-5.6.1-RELEASE-ubuntu20.04 /usr/share/swift
