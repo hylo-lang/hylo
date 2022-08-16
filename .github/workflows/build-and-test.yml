@@ -25,7 +25,7 @@ jobs:
     runs-on: ${{ matrix.config.os }}
     strategy:
       fail-fast: false
-      matrix: ${{fromJson(needs.generate-matrix.outputs.matrix)}}
+      matrix: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
     name: ${{ matrix.config.name }}
 
     steps:
