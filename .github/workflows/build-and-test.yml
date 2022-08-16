@@ -7,28 +7,80 @@ on:
     branches: [ main, rewrite ]
 
 jobs:
-  build:
-    runs-on: macos-12
+  generate-matrix:
+    name: Generate job matrix
+    runs-on: ubuntu-22.04
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-    - name: Swift version 
-      run: swift --version
+      - name: Generate job matrix
+        id: set-matrix
+        # Note: The json in this variable must be a single line for parsing to succeed.
+        run: echo "::set-output name=matrix::$(cat .github/matrix.json | ./github/scripts/flatten_json.py)"
 
-    - name: Resolve
-      run: swift package resolve
+  builds:
+    needs: generate-matrix
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      fail-fast: false
+      matrix: ${{fromJson(needs.generate-matrix.outputs.matrix)}}
+    name: ${{ matrix.config.name }}
 
-    - name: Install LLVM
-      run: |
-        brew install llvm@11
+    steps:
+      - uses: actions/checkout@v3
 
-    - name: Configure pkg-config
-      run: |
-        export PATH=$(brew --prefix llvm@11)/bin:${PATH}
-        swift .build/checkouts/LLVMSwift/utils/make-pkgconfig.swift
+      - name: Install dependencies // macOS
+        if: ${{ startsWith(matrix.config.os, 'macos') }}
+        run: |
+          brew install llvm@11
 
-    - name: Build (Debug)
-      run: swift build -v -c debug
+      - name: Install dependencies // ubuntu
+        if: ${{ startsWith(matrix.config.os, 'ubuntu') }}
+        run: |
+          apt update && \
+          apt install -y llvm-11 && \
+          apt-get update && \
+          apt-get install -y \
+            libc++-dev \
+            libc++abi-dev \
+            binutils \
+            git \
+            gnupg2 \
+            libc6-dev \
+            libcurl4 \
+            libedit2 \
+            libgcc-9-dev \
+            libpython2.7 \
+            libsqlite3-0 \
+            libstdc++-9-dev \
+            libxml2 \
+            libz3-dev \
+            pkg-config \
+            tzdata \
+            uuid-dev \
+            zlib1g-dev
 
-    - name: Test (Debug)
-      run: swift test -v -c debug
+          wget https://download.swift.org/swift-5.6.1-release/ubuntu2004/swift-5.6.1-RELEASE/swift-5.6.1-RELEASE-ubuntu20.04.tar.gz && \
+          tar xzf swift-5.6.1-RELEASE-ubuntu20.04.tar.gz && \
+          rm -f swift-5.6.1-RELEASE-ubuntu20.04.tar.gz && \
+          mv swift-5.6.1-RELEASE-ubuntu20.04 /usr/share/swift
+          echo "/usr/share/swift/usr/bin" >> $GITHUB_PATH
+
+      - name: Swift Version
+        run: swift --version
+
+      - name: Resolve Packages
+        run: swift package resolve
+
+      - name: Configure pkg-config
+        run: |
+          export PATH=$(brew --prefix llvm@11)/bin:${PATH}
+          swift .build/checkouts/LLVMSwift/utils/make-pkgconfig.swift
+
+      - name: Build (Debug)
+        run: swift build -v -c debug
+
+      - name: Test (Debug)
+        run: swift test -v -c debug

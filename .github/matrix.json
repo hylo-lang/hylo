@@ -1,0 +1,16 @@
+{
+    "config": [
+        {
+            "name": "Linux Clang 14",
+            "compiler": "clang",
+            "version": "14",
+            "os": "ubuntu-20.04"
+        },
+        {
+            "name": "macOS apple-clang 13.0.0",
+            "compiler": "apple-clang",
+            "version": "13.0.0",
+            "os": "macos-12"
+        }
+    ]
+}
