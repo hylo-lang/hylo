@@ -2353,12 +2353,7 @@ public struct TypeChecker {
     guard let output = realize(decl.output, inScope: AnyScopeID(id)) else {
       return .error(ErrorType())
     }
-    let capabilities: Set<SubscriptImplDecl.Introducer>
-    if case .bundle(let impls) = decl.body {
-      capabilities = Set(impls.map({ ast[$0].introducer.value }))
-    } else {
-      capabilities = [.let]
-    }
+    let capabilities = Set(decl.impls.map({ ast[$0].introducer.value }))
 
     return .subscript(SubscriptType(
       isProperty: decl.parameters == nil,

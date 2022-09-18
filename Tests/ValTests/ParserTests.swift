@@ -215,11 +215,7 @@ final class ParserTests: XCTestCase {
     """)
     let (declID, ast) = try apply(Parser.traitMember, on: input, flags: .parsingTraitBody)
     let decl = try XCTUnwrap(ast[declID] as? SubscriptDecl)
-    if case .bundle(let impls) = decl.body {
-      XCTAssertEqual(impls.count, 2)
-    } else {
-      XCTFail()
-    }
+    XCTAssertEqual(decl.impls.count, 2)
   }
 
   func testPropertyRequirement() throws {
@@ -524,45 +520,53 @@ final class ParserTests: XCTestCase {
   }
 
   func testPropertyDecl() throws {
-    let input = SourceFile(contents: "property foo: T {}")
+    let input = SourceFile(contents: "property foo: T { T() }")
     let (declID, ast) = try apply(Parser.propertyDecl, on: input)
     let decl = try XCTUnwrap(ast[declID])
     XCTAssertEqual(decl.identifier?.value, "foo")
     XCTAssertNil(decl.parameters)
-    XCTAssertNotNil(decl.body)
+    XCTAssertEqual(decl.impls.count, 1)
   }
 
   func testSubscriptDecl() throws {
-    let input = SourceFile(contents: "subscript foo(): T {}")
+    let input = SourceFile(contents: "subscript foo(): T { T() }")
     let (declID, ast) = try apply(Parser.subscriptDecl, on: input)
     let decl = try XCTUnwrap(ast[declID])
     XCTAssertEqual(decl.identifier?.value, "foo")
     XCTAssertNotNil(decl.parameters)
-    XCTAssertNotNil(decl.body)
+    XCTAssertEqual(decl.impls.count, 1)
   }
 
   func testSubscriptDeclAnonymous() throws {
-    let input = SourceFile(contents: "subscript (): T {}")
+    let input = SourceFile(contents: "subscript (): T { T() }")
     let (declID, ast) = try apply(Parser.subscriptDecl, on: input)
     let decl = try XCTUnwrap(ast[declID])
     XCTAssertNil(decl.identifier)
+    XCTAssertNotNil(decl.parameters)
+    XCTAssertEqual(decl.impls.count, 1)
   }
 
   func testSubscriptDeclWithCaptureList() throws {
-    let input = SourceFile(contents: "subscript foo[let x = 42](): T {}")
+    let input = SourceFile(contents: "subscript foo[let x = 42](): T { T() }")
     let (declID, ast) = try apply(Parser.subscriptDecl, on: input)
     let decl = try XCTUnwrap(ast[declID])
     XCTAssertEqual(decl.explicitCaptures.count, 1)
+    XCTAssertNotNil(decl.parameters)
+    XCTAssertEqual(decl.impls.count, 1)
+  }
+
+  func testSubscriptDeclWithBlockBody() throws {
+    let input = SourceFile(contents: "subscript foo<T: Foo>(_ x: T): T { yield x }")
+    let (declID, ast) = try apply(Parser.subscriptDecl, on: input)
+    let decl = try XCTUnwrap(ast[declID])
+    XCTAssertEqual(decl.impls.count, 1)
   }
 
   func testSubscriptDeclWithExprBody() throws {
     let input = SourceFile(contents: "subscript foo<T: Foo>(_ x: T): T { x }")
     let (declID, ast) = try apply(Parser.subscriptDecl, on: input)
     let decl = try XCTUnwrap(ast[declID])
-    if case .expr = decl.body {
-    } else {
-      XCTFail()
-    }
+    XCTAssertEqual(decl.impls.count, 1)
   }
 
   func testSubscriptBundle() throws {
@@ -574,10 +578,7 @@ final class ParserTests: XCTestCase {
     """)
     let (declID, ast) = try apply(Parser.subscriptDecl, on: input)
     let decl = try XCTUnwrap(ast[declID])
-    if case .bundle = decl.body {
-    } else {
-      XCTFail()
-    }
+    XCTAssertEqual(decl.impls.count, 2)
   }
 
   func testSubscriptSignature() throws {
@@ -601,21 +602,37 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(signature.receiverEffect?.value, .yielded)
   }
 
-  func testSubscriptBodyBlock() throws {
+  func testSubscriptBodyEmpty() throws {
     let input = SourceFile(contents: "{}")
-    let (body, _) = try apply(Parser.subscriptBody, on: input)
-    if case .block = body {
-    } else {
-      XCTFail()
+    XCTAssertThrowsError(try apply(Parser.subscriptBody, on: input))
+  }
+
+  func testSubscriptBodyBlock() throws {
+    let input = SourceFile(contents: "{ yield x }")
+    let (body, ast) = try apply(Parser.subscriptBody, on: input)
+
+    XCTAssertEqual(body?.count, 1)
+    if let impl = ast[body?.first] {
+      XCTAssertEqual(impl.introducer.value, .let)
+      if case .block = impl.body {
+      } else {
+        XCTFail()
+      }
     }
   }
 
   func testSubscriptBodyExpr() throws {
     let input = SourceFile(contents: "{ 0x2a }")
-    let (body, _) = try apply(Parser.subscriptBody, on: input)
-    if case .expr = body {
-    } else {
-      XCTFail()
+    let (body, ast) = try apply(Parser.subscriptBody, on: input)
+    XCTAssertEqual(body?.count, 1)
+
+    XCTAssertEqual(body?.count, 1)
+    if let impl = ast[body?.first] {
+      XCTAssertEqual(impl.introducer.value, .let)
+      if case .expr = impl.body {
+      } else {
+        XCTFail()
+      }
     }
   }
 
@@ -627,11 +644,7 @@ final class ParserTests: XCTestCase {
     }
     """)
     let (body, _) = try apply(Parser.subscriptBody, on: input)
-    if case .bundle(let impls) = body {
-      XCTAssertEqual(impls.count, 2)
-    } else {
-      XCTFail()
-    }
+    XCTAssertEqual(body?.count, 2)
   }
 
   func testSubscriptImplBlock() throws {

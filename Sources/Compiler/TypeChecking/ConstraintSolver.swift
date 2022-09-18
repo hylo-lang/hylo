@@ -515,14 +515,8 @@ struct ConstraintSolver {
       }
 
     case .subscriptDecl:
-      switch checker.ast[NodeID<SubscriptDecl>(unsafeRawValue: decl.rawValue)].body {
-      case .bundle(let impls):
-        return impls.contains(where: { isRequirement(decl: $0) })
-      case .none:
-        return true
-      case .some:
-        return false
-      }
+      return checker.ast[NodeID<SubscriptDecl>(unsafeRawValue: decl.rawValue)].impls
+        .contains(where: { isRequirement(decl: $0) })
 
     case .subscriptImplDecl:
       switch checker.ast[NodeID<SubscriptImplDecl>(unsafeRawValue: decl.rawValue)].body {

@@ -213,17 +213,8 @@ struct ScopeHierarchyBuilder:
 
       decl.output.accept(&this)
 
-      switch decl.body {
-      case let .expr(expr):
-        expr.accept(&this)
-      case let .block(stmt):
-        this.visit(brace: stmt)
-      case let .bundle(impls):
-        for impl in impls {
-          this.visit(subscriptImpl: impl)
-        }
-      case nil:
-        break
+      for impl in decl.impls {
+        this.visit(subscriptImpl: impl)
       }
     })
   }

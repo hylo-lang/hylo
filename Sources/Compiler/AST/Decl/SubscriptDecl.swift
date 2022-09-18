@@ -3,18 +3,18 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
 
   public static let kind = NodeKind.subscriptDecl
 
-  public enum Body: Codable {
+  public enum Introducer: Codable {
 
-    /// An expression body.
-    case expr(AnyExprID)
+    /// The standard subscript introducer.
+    case `subscript`
 
-    /// A block body.
-    case block(NodeID<BraceStmt>)
-
-    /// A bundle.
-    case bundle([NodeID<SubscriptImplDecl>])
+    /// The property introducer.
+    case property
 
   }
+
+  /// The introducer of the declaration.
+  public var introducer: SourceRepresentable<Introducer>
 
   /// The attributes of the declaration, if any.
   public var attributes: [SourceRepresentable<Attribute>]
@@ -38,15 +38,18 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
   public var explicitCaptures: [NodeID<BindingDecl>]
 
   /// The parameters of the subscript, unless the declaration denotes a computed property.
+  ///
+  /// These declarations must have a type annotation.
   public var parameters: [NodeID<ParameterDecl>]?
 
   /// The output type annotation of the subscript.
   public var output: AnyTypeExprID
 
-  /// The body of the declaration, if any.
-  public var body: Body?
+  /// The implementations of the subscript.
+  public var impls: [NodeID<SubscriptImplDecl>]
 
   public init(
+    introducer: SourceRepresentable<Introducer>,
     attributes: [SourceRepresentable<Attribute>] = [],
     accessModifier: SourceRepresentable<AccessModifier>? = nil,
     memberModifier: SourceRepresentable<MemberModifier>? = nil,
@@ -56,8 +59,9 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
     explicitCaptures: [NodeID<BindingDecl>] = [],
     parameters: [NodeID<ParameterDecl>]? = nil,
     output: AnyTypeExprID,
-    body: Body? = nil
+    impls: [NodeID<SubscriptImplDecl>] = []
   ) {
+    self.introducer = introducer
     self.attributes = attributes
     self.accessModifier = accessModifier
     self.memberModifier = memberModifier
@@ -67,7 +71,7 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
     self.explicitCaptures = explicitCaptures
     self.parameters = parameters
     self.output = output
-    self.body = body
+    self.impls = impls
   }
 
   /// Returns whether the declaration is public.

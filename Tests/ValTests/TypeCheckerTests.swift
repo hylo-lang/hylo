@@ -146,10 +146,10 @@ final class TypeCheckerTests: XCTestCase {
 
     // trait T { type X }
     // trait U: T {
-    //   subscript x0: X { let }         // OK
-    //   subscript x1: Self.X { let }    // OK
-    //   subscript x2: T.X { let }       // error
-    //   subscript x3: Self::T.X { let } // OK
+    //   property x0: X { let }         // OK
+    //   property x1: Self.X { let }    // OK
+    //   property x2: T.X { let }       // error
+    //   property x3: Self::T.X { let } // OK
     // }
 
     var ast = AST()
@@ -169,33 +169,37 @@ final class TypeCheckerTests: XCTestCase {
       refinements: [ast.insertTypeName("T")],
       members: [
         AnyDeclID(ast.insert(SubscriptDecl(
+          introducer: SourceRepresentable(value: .property),
           identifier: SourceRepresentable(value: "x0"),
           output: AnyTypeExprID(ast.insertTypeName("X")),
-          body: .bundle([
+          impls: [
             ast.insert(SubscriptImplDecl(introducer: SourceRepresentable(value: .let)))
-          ])))),
+          ]))),
         AnyDeclID(ast.insert(SubscriptDecl(
+          introducer: SourceRepresentable(value: .property),
           identifier: SourceRepresentable(value: "x1"),
           output: AnyTypeExprID(ast.insertTypeName("Self.X")),
-          body: .bundle([
+          impls: [
             ast.insert(SubscriptImplDecl(introducer: SourceRepresentable(value: .let)))
-          ])))),
+          ]))),
         AnyDeclID(ast.insert(SubscriptDecl(
+          introducer: SourceRepresentable(value: .property),
           identifier: SourceRepresentable(value: "x2"),
           output: AnyTypeExprID(ast.insertTypeName("T.X")),
-          body: .bundle([
+          impls: [
             ast.insert(SubscriptImplDecl(introducer: SourceRepresentable(value: .let)))
-          ])))),
+          ]))),
         AnyDeclID(ast.insert(SubscriptDecl(
+          introducer: SourceRepresentable(value: .property),
           identifier: SourceRepresentable(value: "x2"),
           output: AnyTypeExprID(ast.insert(NameTypeExpr(
             domain: AnyTypeExprID(ast.insert(ConformanceLensTypeExpr(
               subject: AnyTypeExprID(ast.insertTypeName("Self")),
               lens: AnyTypeExprID(ast.insertTypeName("T"))))),
             identifier: SourceRepresentable(value: "X")))),
-          body: .bundle([
+          impls: [
             ast.insert(SubscriptImplDecl(introducer: SourceRepresentable(value: .let)))
-          ]))))
+          ])))
       ]))))
 
     var checker = TypeChecker(ast: ast)

@@ -546,10 +546,11 @@ public enum Parser {
       .map({ (context, tree) -> NodeID<SubscriptDecl> in
         let identifier = SourceRepresentable(token: tree.0.0.0.1, in: context.lexer.source)
         let id = context.ast.insert(SubscriptDecl(
+          introducer: SourceRepresentable(value: .property, range: tree.0.0.0.0.range),
           receiverEffect: tree.0.0.1,
           identifier: identifier,
           output: tree.0.1.1,
-          body: tree.1))
+          impls: tree.1 ?? []))
 
         context.ast.ranges[id] = tree.0.0.0.0.range.upperBounded(by: context.currentIndex)
         return id
@@ -565,13 +566,14 @@ public enum Parser {
         })
 
         let id = context.ast.insert(SubscriptDecl(
+          introducer: SourceRepresentable(value: .subscript, range: head.0.0.0.range),
           receiverEffect: signature.receiverEffect,
           identifier: identifier,
           genericClause: head.0.1,
           explicitCaptures: head.1 ?? [],
           parameters: signature.parameters,
           output: signature.output,
-          body: body))
+          impls: body ?? []))
 
         context.ast.ranges[id] = head.0.0.0.range.upperBounded(by: context.currentIndex)
         return id
@@ -598,13 +600,26 @@ public enum Parser {
   )
 
   static let subscriptBody = settingFlags(.parsingSubscriptBody, apply: TryCatch(
-    trying: subscriptBundleBody
-      .map({ (context, impls) -> SubscriptDecl.Body in .bundle(impls) }),
+    trying: subscriptBundleBody,
     orCatchingAndApplying: TryCatch(
       trying: take(.lBrace).and(expr).and(take(.rBrace))
-        .map({ (context, tree) -> SubscriptDecl.Body in .expr(tree.0.1) }),
+        .map({ (context, tree) -> [NodeID<SubscriptImplDecl>] in
+          [context.ast.insert(SubscriptImplDecl(
+            introducer: SourceRepresentable(value: .let),
+            body: .expr(tree.0.1)))]
+        }),
       orCatchingAndApplying: braceStmt
-        .map({ (context, id) -> SubscriptDecl.Body in .block(id) })
+        .map({ (context, id) -> [NodeID<SubscriptImplDecl>] in
+          if context.ast[id].stmts.isEmpty {
+            throw ParseError(
+              "expected subscript implementation",
+              at: context.ast.ranges[id]!.last()!)
+          }
+
+          return [context.ast.insert(SubscriptImplDecl(
+            introducer: SourceRepresentable(value: .let),
+            body: .block(id)))]
+        })
     )
   ))
 
