@@ -117,7 +117,13 @@ public struct ScopeHierarchy {
     !isGlobal(decl: decl, ast: ast) && isMember(decl: decl)
   }
 
-  func isNonStaticMember(decl: NodeID<FunDecl>, ast: AST) -> Bool {
+  /// Returns whether `decl` is a non-static member of a type declaration in `ast`.
+  func isNonStaticMember(fun decl: NodeID<FunDecl>, ast: AST) -> Bool {
+    !ast[decl].isStatic && isMember(decl: decl)
+  }
+
+  /// Returns whether `decl` is a non-static member of a type declaration in `ast`.
+  func isNonStaticMember(subscript decl: NodeID<SubscriptDecl>, ast: AST) -> Bool {
     !ast[decl].isStatic && isMember(decl: decl)
   }
 

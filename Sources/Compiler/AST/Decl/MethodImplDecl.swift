@@ -11,6 +11,15 @@ public struct MethodImplDecl: Decl, LexicalScope {
 
     case `inout`
 
+    /// The parameter passing convention corresponding to this introducer.
+    public var convention: PassingConvention {
+      switch self {
+      case .let   : return .let
+      case .inout : return .inout
+      case .sink  : return .sink
+      }
+    }
+
   }
 
   public enum Body: Codable {

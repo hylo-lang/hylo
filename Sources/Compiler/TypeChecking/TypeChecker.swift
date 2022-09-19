@@ -435,69 +435,29 @@ public struct TypeChecker {
 
     // Type check the parameters.
     var parameterNames: Set<String> = []
-    for parameterID in decl.parameters {
-      let parameter = ast[parameterID]
-      let parameterType = ParameterType(converting: declTypes[parameterID]!) ?? unreachable()
-
-      // Check for duplicate parameter names.
-      if !parameterNames.insert(parameter.name).inserted {
-        diagnostics.insert(.duplicateParameterName(parameter.name, range: ast.ranges[parameterID]))
-        declRequests[parameterID] = .failure
-        success = false
-        continue
-      }
-
-      // Type check the default value, if any.
-      if let defaultValue = parameter.defaultValue {
-        let defaultValueType = Type.variable(TypeVariable(node: defaultValue.base))
-        let constraints = [
-          LocatableConstraint(
-            .parameter(l: defaultValueType, r: .parameter(parameterType)),
-            node: AnyNodeID(parameterID),
-            cause: .callArgument)
-        ]
-
-        let solution = infer(
-          expr: defaultValue,
-          inferredType: defaultValueType,
-          expectedType: parameterType.bareType,
-          inScope: AnyScopeID(id),
-          constraints: constraints)
-
-        if !solution.diagnostics.isEmpty {
-          declRequests[parameterID] = .failure
-          success = false
-          continue
-        }
-      }
-
-      // The parameter is checked.
-      declRequests[parameterID] = .success
+    for parameter in decl.parameters {
+      success = check(parameter: parameter, siblingNames: &parameterNames) && success
     }
 
     // Synthesize the receiver parameter if necessary.
     if case .bundle(let impls) = decl.body {
       guard case .method(let type) = declTypes[id]! else { unreachable() }
-      let bareType = type.receiver
+      let receiverType = type.receiver
 
-      for j in impls {
+      for impl in impls {
         // Create the implicit parameter declaration.
-        assert(ast[j].receiver == nil)
-        let param = ast.insert(ParameterDecl(identifier: SourceRepresentable(value: "self")))
-        scopeHierarchy.insert(decl: param, into: AnyScopeID(j))
-        ast[j].receiver = param
+        assert(ast[impl].receiver == nil)
+        let receiverDecl = ast.insert(ParameterDecl(
+          identifier: SourceRepresentable(value: "self")))
+        scopeHierarchy.insert(decl: receiverDecl, into: AnyScopeID(impl))
+        ast[impl].receiver = receiverDecl
 
         // Set its type.
-        let convention: PassingConvention
-        switch ast[j].introducer.value {
-        case .let   : convention = .let
-        case .inout : convention = .inout
-        case .sink  : convention = .sink
-        }
-        declTypes[param] = .parameter(ParameterType(convention: convention, bareType: bareType))
-        declRequests[param] = .success
+        declTypes[receiverDecl] = .parameter(ParameterType(
+          convention: ast[impl].introducer.value.convention, bareType: receiverType))
+        declRequests[receiverDecl] = .success
       }
-    } else if scopeHierarchy.isNonStaticMember(decl: id, ast: ast) {
+    } else if scopeHierarchy.isNonStaticMember(fun: id, ast: ast) {
       // Create the implicit parameter declaration.
       assert(!decl.implicitParameterDecls.contains(where: { $0.name == "self" }))
       let param = ast.insert(ParameterDecl(identifier: SourceRepresentable(value: "self")))
@@ -599,8 +559,46 @@ public struct TypeChecker {
     fatalError("not implemented")
   }
 
-  private mutating func check(parameter: ParameterDecl) -> Bool {
-    fatalError("not implemented")
+  /// Inserts in `siblingNames` the name of the parameter declaration identified by `id` and
+  /// returns whether that declaration type checks.
+  private mutating func check(
+    parameter id: NodeID<ParameterDecl>,
+    siblingNames: inout Set<String>
+  ) -> Bool {
+    // Check for duplicate parameter names.
+    if !siblingNames.insert(ast[id].name).inserted {
+      diagnostics.insert(.duplicateParameterName(ast[id].name, range: ast.ranges[id]))
+      declRequests[id] = .failure
+      return false
+    }
+
+    // Type check the default value, if any.
+    if let defaultValue = ast[id].defaultValue {
+      let parameterType = ParameterType(converting: declTypes[id]!)!
+      let defaultValueType = Type.variable(TypeVariable(node: defaultValue.base))
+
+      let constraints = [
+        LocatableConstraint(
+          .parameter(l: defaultValueType, r: .parameter(parameterType)),
+          node: AnyNodeID(id),
+          cause: .callArgument)
+      ]
+
+      let solution = infer(
+        expr: defaultValue,
+        inferredType: defaultValueType,
+        expectedType: parameterType.bareType,
+        inScope: scopeHierarchy.container[id]!,
+        constraints: constraints)
+
+      if !solution.diagnostics.isEmpty {
+        declRequests[id] = .failure
+        return false
+      }
+    }
+
+    declRequests[id] = .success
+    return true
   }
 
   private mutating func check(operator id: NodeID<OperatorDecl>) -> Bool {
@@ -652,10 +650,66 @@ public struct TypeChecker {
   }
 
   private mutating func check(subscript id: NodeID<SubscriptDecl>) -> Bool {
-    _check(decl: id, { (this, id) in
-      // TODO: Implement me
-      true
-    })
+    _check(decl: id, { (this, id) in this._check(subscript: id) })
+  }
+
+  private mutating func _check(subscript id: NodeID<SubscriptDecl>) -> Bool {
+    // The type of the declaration must have been realized.
+    guard case .subscript(let declType) = declTypes[id]! else { unreachable() }
+    let outputType = declType.output.skolemized
+
+    // Type check the generic constraints of the declaration.
+    var success = environment(ofGenericDecl: id) != nil
+
+    // Type check the parameters, if any.
+    if let parameters = ast[id].parameters {
+      var parameterNames: Set<String> = []
+      for parameter in parameters {
+        success = check(parameter: parameter, siblingNames: &parameterNames) && success
+      }
+    }
+
+    // Type checks the subscript's implementations.
+    for impl in ast[id].impls {
+      // Synthesize the receiver parameter if necessary.
+      if scopeHierarchy.isNonStaticMember(decl: id, ast: ast) {
+        // Create the implicit parameter declaration.
+        let receiverDecl = ast.insert(ParameterDecl(
+          identifier: SourceRepresentable(value: "self")))
+        scopeHierarchy.insert(decl: receiverDecl, into: AnyScopeID(impl))
+        ast[impl].receiver = receiverDecl
+
+        // Set its type.
+        guard case .projection(let type) = declType.captures.first!.type else { unreachable() }
+        declTypes[receiverDecl] = .parameter(ParameterType(
+          convention: ast[impl].introducer.value.convention, bareType: type.base))
+        declRequests[receiverDecl] = .success
+      }
+
+      // Type checks the body of the implementation.
+      switch ast[impl].body {
+      case .expr(let expr):
+        let expectedType: Type
+        switch ast[impl].introducer.value {
+        case .let   : expectedType = .projection(ProjectionType(.let, outputType))
+        case .inout : expectedType = .projection(ProjectionType(.inout, outputType))
+        case .set   : expectedType = .projection(ProjectionType(.set, outputType))
+        case .sink  : expectedType = outputType
+        }
+        success = (infer(expr: expr, expectedType: expectedType, inScope: impl) != nil) && success
+
+      case .block(let stmt):
+        success = check(brace: stmt) && success
+
+      case nil:
+        // Subscript implementation without a body must be a requirement.
+        assert(
+          scopeHierarchy.container[id]?.kind == .traitDecl,
+          "unexpected subscript requirement")
+      }
+    }
+
+    return success
   }
 
   private mutating func check(subscriptImpl: SubscriptImplDecl) -> Bool {
@@ -2063,11 +2117,10 @@ public struct TypeChecker {
     var decl = ast[id]
     let declScope = AnyScopeID(id)
 
-    var implicitParameterDecls: [ImplicitParameter] = []
+    // Realize the input types.
     var inputs: [CallableTypeParameter] = []
     var success = true
 
-    // Realize the input types.
     for i in decl.parameters {
       declRequests[i] = .typeCheckingStarted
 
@@ -2100,126 +2153,32 @@ public struct TypeChecker {
       }
     }
 
-    // Collect explicit captures.
-    var captures: [Type] = []
-    var explictNames: Set<Name> = []
-    for i in decl.explicitCaptures {
-      let pattern = ast[i].pattern
-
-      // Collect the names of the capture.
-      for (_, name) in ast.names(in: pattern) {
-        let stem = ast[ast[name].decl].name
-        if explictNames.insert(Name(stem: stem)).inserted {
-          implicitParameterDecls.append(ImplicitParameter(
-            name: stem, decl: AnyDeclID(ast[name].decl)))
-        } else {
-          diagnostics.insert(.duplicateCaptureName(stem, range: ast.ranges[ast[name].decl]))
-          success = false
-        }
-      }
-
-      // Realize the type of the capture.
-      if let type = realize(bindingDecl: i).proper {
-        switch ast[ast[i].pattern].introducer.value {
-        case .let:
-          captures.append(.projection(ProjectionType(.let, type)))
-        case .inout:
-          captures.append(.projection(ProjectionType(.inout, type)))
-        case .sinklet, .var:
-          captures.append(type)
-        }
-      } else {
-        success = false
-      }
-    }
-
-    // Bail out if parameters or captures could not be realized.
+    // Bail out if the parameters could not be realized.
     if !success { return .error(ErrorType()) }
 
-    // Collect implicit captures if the function's local.
-    if scopeHierarchy.isLocal(decl: id, ast: ast) {
-      var receiverCaptureIndex: Int? = nil
-      var collector = CaptureCollector(ast: ast)
-      let freeNames = collector.freeNames(in: id)
-
-      for (name, uses) in freeNames {
-        // Explicit captures are already accounted for.
-        if explictNames.contains(name) { continue }
-
-        // Resolve the name.
-        let matches = lookup(unqualified: name.stem, inScope: parentScope)
-
-        // If there is a single match, assume it's correct. Type checking will fail it it isn't.
-        // If there are multiple match, attempt to filter them using the name's argument labels or
-        // operator notation. If that fails, complain about an ambiguous implicit capture.
-        let decl: AnyDeclID
-        switch matches.count {
-        case 0: continue
-        case 1: decl = matches.first!
-        default:
-          fatalError("not implemented")
-        }
-
-        // Global declarations are not captured.
-        if scopeHierarchy.isGlobal(decl: decl, ast: ast) { continue }
-
-        // References to member declarations implicitly capture of their receiver.
-        if scopeHierarchy.isMember(decl: decl) {
-          // If the function refers to a member declaration, it must be nested in a type scope.
-          let innermostTypeScope = scopeHierarchy
-            .scopesToRoot(from: scopeHierarchy.parent[id]!)
-            .first(where: { $0.kind <= .typeDecl })!
-
-          // Ignore illegal implicit references to foreign receiver.
-          if scopeHierarchy.isContained(innermostTypeScope, in: scopeHierarchy.parent[decl]!) {
-            continue
-          }
-
-          if let i = receiverCaptureIndex {
-            // Update the mutability of the capture if necessary.
-            if uses.capability == .let { continue }
-            guard case let .projection(p) = captures[i] else { unreachable() }
-            captures[i] = .projection(ProjectionType(.inout, p.base))
-          } else {
-            // Capture the method's receiver.
-            let captureType = realizeSelfTypeExpr(inScope: id)!
-            receiverCaptureIndex = captures.count
-            captures.append(.projection(ProjectionType(uses.capability, captureType)))
-          }
-
-          continue
-        }
-
-        // Capture-less local functions are not captured.
-        if let funDecl = NodeID<FunDecl>(converting: decl) {
-          guard case .lambda(let lambda) = realize(funDecl: funDecl) else { continue }
-          if lambda.environment == .unit { continue }
-        }
-
-        // Other local declarations are captured.
-        guard let captureType = realize(decl: decl).proper?.skolemized else { continue }
-        captures.append(.projection(ProjectionType(uses.capability, captureType)))
-        implicitParameterDecls.append(ImplicitParameter(name: name.stem, decl: decl))
-      }
-    }
+    // Collect captures.
+    guard let (captures, implicitParameterDecls) = realizeCaptures(
+      explicitIn: decl.explicitCaptures,
+      andImplicitInBodyOf: id)
+    else { return .error(ErrorType()) }
 
     ast[id].implicitParameterDecls = implicitParameterDecls
     decl = ast[id]
 
-    // Member declarations may not have captures.
+    // Member declarations shall not have captures.
     if scopeHierarchy.isMember(decl: id) && !captures.isEmpty {
       diagnostics.insert(.memberDeclHasCaptures(range: ast[id].introducer.range))
       return .error(ErrorType())
     }
 
-    // Generic declarations may not have captures.
+    // Generic declarations shall not have captures.
     if ast[id].genericClause != nil && !captures.isEmpty {
       diagnostics.insert(.genericDeclHasCaptures(range: ast[id].introducer.range))
       return .error(ErrorType())
     }
 
     // Realize the function's receiver if necessary.
-    let isNonStaticMember = scopeHierarchy.isMember(decl: id) && !ast[id].isStatic
+    let isNonStaticMember = scopeHierarchy.isNonStaticMember(fun: id, ast: ast)
     var receiver: Type? = isNonStaticMember
       ? realizeSelfTypeExpr(inScope: scopeHierarchy.container[id]!)
       : nil
@@ -2299,7 +2258,7 @@ public struct TypeChecker {
         // Create a regular lambda.
         let environment = Type.tuple(TupleType(types: captures))
 
-        // TODO: Determine if the lambda is mutating
+        // TODO: Determine if the lambda is mutating.
 
         return .lambda(LambdaType(environment: environment, inputs: inputs, output: output))
       }
@@ -2328,38 +2287,209 @@ public struct TypeChecker {
   }
 
   private mutating func _realize(subscriptDecl id: NodeID<SubscriptDecl>) -> Type {
-    let decl = ast[id]
-
-    var inputs: [CallableTypeParameter] = []
+    var decl = ast[id]
+    let declScope = AnyScopeID(id)
 
     // Realize the input types.
-    if decl.parameters != nil { fatalError("not implemented") }
+    var inputs: [CallableTypeParameter] = []
+    var success = true
 
-    // Synthesize the receiver parameter, if necessary.
-    // FIXME: Receiver is not a parameter
-    let parent = scopeHierarchy.container[id] ?? unreachable()
-    switch parent.kind {
-    case .productTypeDecl,
-         .traitDecl,
-         .typeAliasDecl:
-      let receiver = realizeSelfTypeExpr(inScope: parent)!
-      inputs.insert(CallableTypeParameter(label: nil, type: receiver), at: 0)
+    if let parameters = decl.parameters {
+      for i in parameters {
+        declRequests[i] = .typeCheckingStarted
 
-    default:
-      break
+        // Note: subscript parameters must have a type annotation.
+        let annotation = ast[i].annotation!
+        if let type = realize(parameter: annotation, inScope: declScope) {
+          // The annotation may not omit generic arguments.
+          if type[.hasVariable] {
+            diagnostics.insert(.notEnoughContextToInferArguments(range: ast.ranges[annotation]))
+            success = false
+          }
+
+          declTypes[i] = type
+          declRequests[i] = .typeRealizationCompleted
+          inputs.append(CallableTypeParameter(label: ast[i].label?.value, type: type))
+        } else {
+          declTypes[i] = .error(ErrorType())
+          declRequests[i] = .failure
+          success = false
+        }
+      }
     }
 
-    // Realize the ouput type an collect capabilities.
+    // Bail out if the parameters could not be realized.
+    if !success { return .error(ErrorType()) }
+
+    // Collect captures.
+    guard let (captures, implicitParameterDecls) = realizeCaptures(
+      explicitIn: decl.explicitCaptures,
+      andImplicitInBodyOf: id)
+    else { return .error(ErrorType()) }
+
+    ast[id].implicitParameterDecls = implicitParameterDecls
+    decl = ast[id]
+
+    // Member declarations shall not have captures.
+    if scopeHierarchy.isMember(decl: id) && !captures.isEmpty {
+      diagnostics.insert(.memberDeclHasCaptures(range: ast[id].introducer.range))
+      return .error(ErrorType())
+    }
+
+    // Generic declarations shall not have captures.
+    if ast[id].genericClause != nil && !captures.isEmpty {
+      diagnostics.insert(.genericDeclHasCaptures(range: ast[id].introducer.range))
+      return .error(ErrorType())
+    }
+
+    // Build the subscript's environment.
+    let environment: TupleType
+    if scopeHierarchy.isNonStaticMember(subscript: id, ast: ast) {
+      let receiver = realizeSelfTypeExpr(inScope: scopeHierarchy.container[id]!)
+      environment = TupleType(labelsAndTypes: [
+        ("self", .projection(ProjectionType(.yielded, receiver!)))
+      ])
+    } else {
+      environment = TupleType(types: captures)
+    }
+
+    // Realize the ouput type.
     guard let output = realize(decl.output, inScope: AnyScopeID(id)) else {
       return .error(ErrorType())
     }
+
+    // Collect the subscript's capabilities.
     let capabilities = Set(decl.impls.map({ ast[$0].introducer.value }))
 
     return .subscript(SubscriptType(
       isProperty: decl.parameters == nil,
       capabilities: capabilities,
+      environment: .tuple(environment),
       inputs: inputs,
       output: output))
+  }
+
+  /// Returns the types of the captures explicitly declared in `list` and implicitly found in the
+  /// body of `decl`, along with their corresponding implicit parameter declaration, or `nil` if
+  /// the captures are ill-formed.
+  ///
+  /// - Parameters:
+  ///   - list: An array of binding declarations representing explicit captures.
+  ///   - decl: The ID of a function or subscript declaration.
+  /// - Returns: `true` if no error occured.
+  private mutating func realizeCaptures<T: Decl & LexicalScope>(
+    explicitIn list: [NodeID<BindingDecl>],
+    andImplicitInBodyOf decl: NodeID<T>
+  ) -> ([Type], [ImplicitParameter])? {
+    let parentScope = scopeHierarchy.container[decl]!
+
+    var implicitParameterDecls: [ImplicitParameter] = []
+    var explictNames: Set<Name> = []
+    var captures: [Type] = []
+    var success = true
+
+    // Process explicit captures.
+    for i in list {
+      let pattern = ast[i].pattern
+
+      // Collect the names of the capture.
+      for (_, namePattern) in ast.names(in: pattern) {
+        let varDecl = ast[namePattern].decl
+        if explictNames.insert(Name(stem: ast[varDecl].name)).inserted {
+          implicitParameterDecls.append(ImplicitParameter(
+            name: ast[varDecl].name, decl: AnyDeclID(varDecl)))
+        } else {
+          diagnostics.insert(.duplicateCaptureName(ast[varDecl].name, range: ast.ranges[varDecl]))
+          success = false
+        }
+      }
+
+      // Realize the type of the capture.
+      if let type = realize(bindingDecl: i).proper {
+        switch ast[ast[i].pattern].introducer.value {
+        case .let:
+          captures.append(.projection(ProjectionType(.let, type)))
+        case .inout:
+          captures.append(.projection(ProjectionType(.inout, type)))
+        case .sinklet, .var:
+          captures.append(type)
+        }
+      } else {
+        success = false
+      }
+    }
+
+    // Bail out if the explicit captures could not be realized.
+    if !success { return nil }
+
+    // Process implicit captures.
+    if scopeHierarchy.isLocal(decl: decl, ast: ast) {
+      var receiverCaptureIndex: Int? = nil
+      var collector = CaptureCollector(ast: ast)
+      let freeNames = collector.freeNames(in: decl)
+
+      for (name, uses) in freeNames {
+        // Explicit captures are already accounted for.
+        if explictNames.contains(name) { continue }
+
+        // Resolve the name.
+        let matches = lookup(unqualified: name.stem, inScope: parentScope)
+
+        // If there is a single match, assume it's correct. Type checking will fail it it isn't.
+        // If there are multiple match, attempt to filter them using the name's argument labels or
+        // operator notation. If that fails, complain about an ambiguous implicit capture.
+        let captureDecl: AnyDeclID
+        switch matches.count {
+        case 0: continue
+        case 1: captureDecl = matches.first!
+        default:
+          fatalError("not implemented")
+        }
+
+        // Global declarations are not captured.
+        if scopeHierarchy.isGlobal(decl: captureDecl, ast: ast) { continue }
+
+        // References to member declarations implicitly capture of their receiver.
+        if scopeHierarchy.isMember(decl: captureDecl) {
+          // If the function refers to a member declaration, it must be nested in a type scope.
+          let innermostTypeScope = scopeHierarchy
+            .scopesToRoot(from: scopeHierarchy.parent[decl]!)
+            .first(where: { $0.kind <= .typeDecl })!
+
+          // Ignore illegal implicit references to foreign receiver.
+          if scopeHierarchy.isContained(innermostTypeScope, in: scopeHierarchy.parent[captureDecl]!) {
+            continue
+          }
+
+          if let i = receiverCaptureIndex {
+            // Update the mutability of the capture if necessary.
+            if uses.capability == .let { continue }
+            guard case let .projection(p) = captures[i] else { unreachable() }
+            captures[i] = .projection(ProjectionType(.inout, p.base))
+          } else {
+            // Capture the method's receiver.
+            let captureType = realizeSelfTypeExpr(inScope: decl)!
+            receiverCaptureIndex = captures.count
+            captures.append(.projection(ProjectionType(uses.capability, captureType)))
+          }
+
+          continue
+        }
+
+        // Capture-less local functions are not captured.
+        if let funDecl = NodeID<FunDecl>(converting: captureDecl) {
+          guard case .lambda(let lambda) = realize(funDecl: funDecl) else { continue }
+          if lambda.environment == .unit { continue }
+        }
+
+        // Other local declarations are captured.
+        guard let captureType = realize(decl: captureDecl).proper?.skolemized else { continue }
+        captures.append(.projection(ProjectionType(uses.capability, captureType)))
+        implicitParameterDecls.append(ImplicitParameter(name: name.stem, decl: captureDecl))
+      }
+    }
+
+    return (captures, implicitParameterDecls)
   }
 
   /// Returns the type of `decl` from the cache, or calls `action` to compute it and caches the

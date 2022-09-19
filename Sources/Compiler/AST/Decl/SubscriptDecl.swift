@@ -48,6 +48,15 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
   /// The implementations of the subscript.
   public var impls: [NodeID<SubscriptImplDecl>]
 
+  /// The declaration of the implicit parameters of the subscript, if any.
+  ///
+  /// This property is set during type checking. It maps the names of the implicit and explicit
+  /// captures to their respective declaration.
+  ///
+  /// Note that the implicit receiver parameter (i.e., `self`) of a subscipt is never stored in
+  /// this property. Each subscript implementation declaration has its own declaration.
+  public internal(set) var implicitParameterDecls: [ImplicitParameter] = []
+
   public init(
     introducer: SourceRepresentable<Introducer>,
     attributes: [SourceRepresentable<Attribute>] = [],
