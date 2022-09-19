@@ -233,7 +233,7 @@ public struct CXXTranspiler {
       for scopeID in program.scopeHierarchy.scopesToRoot(from: type.decl) {
         switch scopeID.kind {
         case .moduleDecl:
-          nameComponents.append(program.ast[NodeID<ModuleDecl>(unsafeRawValue: scopeID.rawValue)].name)
+          nameComponents.append(program.ast[NodeID<ModuleDecl>(rawValue: scopeID.rawValue)].name)
 
         default:
           if let decl = program.ast[scopeID] as? SingleEntityDecl {

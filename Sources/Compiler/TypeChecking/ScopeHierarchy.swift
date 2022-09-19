@@ -91,11 +91,11 @@ public struct ScopeHierarchy {
     // Static member declarations are global.
     switch decl.kind {
     case .bindingDecl:
-      return ast[NodeID<BindingDecl>(unsafeRawValue: decl.rawValue)].isStatic
+      return ast[NodeID<BindingDecl>(rawValue: decl.rawValue)].isStatic
     case .funDecl:
-      return ast[NodeID<FunDecl>(unsafeRawValue: decl.rawValue)].isStatic
+      return ast[NodeID<FunDecl>(rawValue: decl.rawValue)].isStatic
     case .subscriptDecl:
-      return ast[NodeID<SubscriptDecl>(unsafeRawValue: decl.rawValue)].isStatic
+      return ast[NodeID<SubscriptDecl>(rawValue: decl.rawValue)].isStatic
     default:
       return false
     }

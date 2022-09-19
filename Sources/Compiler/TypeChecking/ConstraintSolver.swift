@@ -497,7 +497,7 @@ struct ConstraintSolver {
 
     switch decl.kind {
     case .funDecl:
-      switch checker.ast[NodeID<FunDecl>(unsafeRawValue: decl.rawValue)].body {
+      switch checker.ast[NodeID<FunDecl>(rawValue: decl.rawValue)].body {
       case .bundle(let impls):
         return impls.contains(where: { isRequirement(decl: $0) })
       case .none:
@@ -507,7 +507,7 @@ struct ConstraintSolver {
       }
 
     case .methodImplDecl:
-      switch checker.ast[NodeID<MethodImplDecl>(unsafeRawValue: decl.rawValue)].body {
+      switch checker.ast[NodeID<MethodImplDecl>(rawValue: decl.rawValue)].body {
       case .none:
         return true
       case .some:
@@ -515,11 +515,11 @@ struct ConstraintSolver {
       }
 
     case .subscriptDecl:
-      return checker.ast[NodeID<SubscriptDecl>(unsafeRawValue: decl.rawValue)].impls
+      return checker.ast[NodeID<SubscriptDecl>(rawValue: decl.rawValue)].impls
         .contains(where: { isRequirement(decl: $0) })
 
     case .subscriptImplDecl:
-      switch checker.ast[NodeID<SubscriptImplDecl>(unsafeRawValue: decl.rawValue)].body {
+      switch checker.ast[NodeID<SubscriptImplDecl>(rawValue: decl.rawValue)].body {
       case .none:
         return true
       case .some:

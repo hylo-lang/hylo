@@ -29,7 +29,7 @@ struct CaptureCollector {
     var captures: FreeSet = [:]
     switch id.kind {
     case .funDecl:
-      let funDeclID = NodeID<FunDecl>(unsafeRawValue: id.rawValue)
+      let funDeclID = NodeID<FunDecl>(rawValue: id.rawValue)
       collectCaptures(ofFun: funDeclID, includingExplicitCaptures: true, into: &captures)
 
     case .subscriptDecl:
@@ -71,10 +71,10 @@ struct CaptureCollector {
   ) {
     switch id.kind {
     case .bindingDecl:
-      collectCaptures(ofBinding: NodeID(unsafeRawValue: id.rawValue), into: &captures)
+      collectCaptures(ofBinding: NodeID(rawValue: id.rawValue), into: &captures)
     case .funDecl:
       collectCaptures(
-        ofFun: NodeID(unsafeRawValue: id.rawValue),
+        ofFun: NodeID(rawValue: id.rawValue),
         includingExplicitCaptures: false,
         into: &captures)
     default:
@@ -183,55 +183,55 @@ struct CaptureCollector {
     switch id.kind {
     case .assignExpr:
       collectCaptures(
-        ofAssign: NodeID(unsafeRawValue: id.rawValue),
+        ofAssign: NodeID(rawValue: id.rawValue),
         into: &captures,
         inMutatingContext: isContextMutating)
 
     case .castExpr:
       collectCaptures(
-        ofCast: NodeID(unsafeRawValue: id.rawValue),
+        ofCast: NodeID(rawValue: id.rawValue),
         into: &captures,
         inMutatingContext: isContextMutating)
 
     case .condExpr:
       collectCaptures(
-        ofCond: NodeID(unsafeRawValue: id.rawValue),
+        ofCond: NodeID(rawValue: id.rawValue),
         into: &captures,
         inMutatingContext: isContextMutating)
 
     case .funCallExpr:
       collectCaptures(
-        ofFunCall: NodeID(unsafeRawValue: id.rawValue),
+        ofFunCall: NodeID(rawValue: id.rawValue),
         into: &captures,
         inMutatingContext: isContextMutating)
 
     case .inoutExpr:
       collectCaptures(
-        ofInout: NodeID(unsafeRawValue: id.rawValue),
+        ofInout: NodeID(rawValue: id.rawValue),
         into: &captures,
         inMutatingContext: isContextMutating)
 
     case .nameExpr:
       collectCaptures(
-        ofName: NodeID(unsafeRawValue: id.rawValue),
+        ofName: NodeID(rawValue: id.rawValue),
         into: &captures,
         inMutatingContext: isContextMutating)
 
     case .sequenceExpr:
       collectCaptures(
-        ofSequence: NodeID(unsafeRawValue: id.rawValue),
+        ofSequence: NodeID(rawValue: id.rawValue),
         into: &captures,
         inMutatingContext: isContextMutating)
 
     case .tupleExpr:
       collectCaptures(
-        ofTuple: NodeID(unsafeRawValue: id.rawValue),
+        ofTuple: NodeID(rawValue: id.rawValue),
         into: &captures,
         inMutatingContext: isContextMutating)
 
     case .tupleMemberExpr:
       collectCaptures(
-        ofTupleMember: NodeID(unsafeRawValue: id.rawValue),
+        ofTupleMember: NodeID(rawValue: id.rawValue),
         into: &captures,
         inMutatingContext: isContextMutating)
 
@@ -313,7 +313,7 @@ struct CaptureCollector {
   ) {
     if ast[id].callee.kind == .nameExpr {
       // If the callee is a bare name expression, use the label arguments.
-      let callee = NodeID<NameExpr>(unsafeRawValue: ast[id].callee.rawValue)
+      let callee = NodeID<NameExpr>(rawValue: ast[id].callee.rawValue)
       if ast[callee].domain == .none {
         let baseName: Name
         if (ast[callee].name.value.notation == nil) && ast[callee].name.value.labels.isEmpty {
@@ -424,13 +424,13 @@ struct CaptureCollector {
   ) {
     switch id.kind {
     case .bindingPattern:
-      collectCaptures(ofBindingPattern: NodeID(unsafeRawValue: id.rawValue), into: &captures)
+      collectCaptures(ofBindingPattern: NodeID(rawValue: id.rawValue), into: &captures)
     case .namePattern:
-      collectCaptures(ofNamePattern: NodeID(unsafeRawValue: id.rawValue), into: &captures)
+      collectCaptures(ofNamePattern: NodeID(rawValue: id.rawValue), into: &captures)
     case .tuplePattern:
-      collectCaptures(ofTuplePattern: NodeID(unsafeRawValue: id.rawValue), into: &captures)
+      collectCaptures(ofTuplePattern: NodeID(rawValue: id.rawValue), into: &captures)
     case .exprPattern:
-      let expr = ast[NodeID<ExprPattern>(unsafeRawValue: id.rawValue)].expr
+      let expr = ast[NodeID<ExprPattern>(rawValue: id.rawValue)].expr
       collectCaptures(ofExpr: expr, into: &captures, inMutatingContext: false)
     case .wildcardPattern:
       break
@@ -473,20 +473,20 @@ struct CaptureCollector {
   ) {
     switch id.kind {
     case .braceStmt:
-      collectCaptures(ofBrace: NodeID(unsafeRawValue: id.rawValue), into: &captures)
+      collectCaptures(ofBrace: NodeID(rawValue: id.rawValue), into: &captures)
     case .doWhileStmt:
-      collectCaptures(ofDoWhile: NodeID(unsafeRawValue: id.rawValue), into: &captures)
+      collectCaptures(ofDoWhile: NodeID(rawValue: id.rawValue), into: &captures)
     case .returnStmt:
-      collectCaptures(ofReturn: NodeID(unsafeRawValue: id.rawValue), into: &captures)
+      collectCaptures(ofReturn: NodeID(rawValue: id.rawValue), into: &captures)
     case .whileStmt:
-      collectCaptures(ofWhile: NodeID(unsafeRawValue: id.rawValue), into: &captures)
+      collectCaptures(ofWhile: NodeID(rawValue: id.rawValue), into: &captures)
     case .yieldStmt:
-      collectCaptures(ofYield: NodeID(unsafeRawValue: id.rawValue), into: &captures)
+      collectCaptures(ofYield: NodeID(rawValue: id.rawValue), into: &captures)
     case .declStmt:
-      let decl = ast[NodeID<DeclStmt>(unsafeRawValue: id.rawValue)].decl
+      let decl = ast[NodeID<DeclStmt>(rawValue: id.rawValue)].decl
       collectCaptures(ofDecl: decl, into: &captures)
     case .exprStmt:
-      let expr = ast[NodeID<ExprStmt>(unsafeRawValue: id.rawValue)].expr
+      let expr = ast[NodeID<ExprStmt>(rawValue: id.rawValue)].expr
       collectCaptures(ofExpr: expr, into: &captures, inMutatingContext: false)
     case .breakStmt, .continueStmt:
       break
@@ -562,11 +562,11 @@ struct CaptureCollector {
   ) {
     switch id.kind {
     case .nameTypeExpr:
-      collectCaptures(ofNameType: NodeID(unsafeRawValue: id.rawValue), into: &captures)
+      collectCaptures(ofNameType: NodeID(rawValue: id.rawValue), into: &captures)
     case .parameterTypeExpr:
-      collectCaptures(ofParameter: NodeID(unsafeRawValue: id.rawValue), into: &captures)
+      collectCaptures(ofParameter: NodeID(rawValue: id.rawValue), into: &captures)
     case .tupleTypeExpr:
-      collectCaptures(ofTupleType: NodeID(unsafeRawValue: id.rawValue), into: &captures)
+      collectCaptures(ofTupleType: NodeID(rawValue: id.rawValue), into: &captures)
     default:
       unreachable("unexpected type expression")
     }

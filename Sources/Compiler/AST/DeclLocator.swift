@@ -40,7 +40,7 @@ public struct DeclLocator: Hashable {
         fatalError("not implemented")
 
       case .funDecl:
-        let declID = NodeID<FunDecl>(unsafeRawValue: declID.rawValue)
+        let declID = NodeID<FunDecl>(rawValue: declID.rawValue)
 
         let labels: [String]
         switch declTypes[declID]! {
@@ -66,11 +66,11 @@ public struct DeclLocator: Hashable {
         }
 
       case .methodImplDecl:
-        let declID = NodeID<MethodImplDecl>(unsafeRawValue: declID.rawValue)
+        let declID = NodeID<MethodImplDecl>(rawValue: declID.rawValue)
         self = .methodImpl(ast[declID].introducer.value)
 
       case .productTypeDecl:
-        let declID = NodeID<ProductTypeDecl>(unsafeRawValue: declID.rawValue)
+        let declID = NodeID<ProductTypeDecl>(rawValue: declID.rawValue)
         self = .product(ast[declID].name)
 
       default:

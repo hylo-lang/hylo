@@ -9,49 +9,49 @@ extension ExprID {
   public func accept<V: ExprVisitor>(_ visitor: inout V) -> V.Result {
     switch kind {
     case .assignExpr:
-      return visitor.visit(assign: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(assign: NodeID(rawValue: rawValue))
     case .asyncExpr:
-      return visitor.visit(async: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(async: NodeID(rawValue: rawValue))
     case .awaitExpr:
-      return visitor.visit(await: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(await: NodeID(rawValue: rawValue))
     case .booleanLiteralExpr:
-      return visitor.visit(booleanLiteral: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(booleanLiteral: NodeID(rawValue: rawValue))
     case .castExpr:
-      return visitor.visit(cast: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(cast: NodeID(rawValue: rawValue))
     case .condExpr:
-      return visitor.visit(cond: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(cond: NodeID(rawValue: rawValue))
     case .floatLiteralExpr:
-      return visitor.visit(floatLiteral: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(floatLiteral: NodeID(rawValue: rawValue))
     case .funCallExpr:
-      return visitor.visit(funCall: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(funCall: NodeID(rawValue: rawValue))
     case .inoutExpr:
-      return visitor.visit(`inout`: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(`inout`: NodeID(rawValue: rawValue))
     case .integerLiteralExpr:
-      return visitor.visit(integerLiteral: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(integerLiteral: NodeID(rawValue: rawValue))
     case .lambdaExpr:
-      return visitor.visit(lambda: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(lambda: NodeID(rawValue: rawValue))
     case .mapLiteralExpr:
-      return visitor.visit(mapLiteral: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(mapLiteral: NodeID(rawValue: rawValue))
     case .matchExpr:
-      return visitor.visit(match: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(match: NodeID(rawValue: rawValue))
     case .nameExpr:
-      return visitor.visit(name: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(name: NodeID(rawValue: rawValue))
     case .nilExpr:
-      return visitor.visit(nil: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(nil: NodeID(rawValue: rawValue))
     case .sequenceExpr:
-      return visitor.visit(sequence: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(sequence: NodeID(rawValue: rawValue))
     case .storedProjectionExpr:
-      return visitor.visit(storedProjection: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(storedProjection: NodeID(rawValue: rawValue))
     case .stringLiteralExpr:
-      return visitor.visit(stringLiteral: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(stringLiteral: NodeID(rawValue: rawValue))
     case .subscriptCallExpr:
-      return visitor.visit(subscriptCall: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(subscriptCall: NodeID(rawValue: rawValue))
     case .tupleExpr:
-      return visitor.visit(tuple: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(tuple: NodeID(rawValue: rawValue))
     case .tupleMemberExpr:
-      return visitor.visit(tupleMember: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(tupleMember: NodeID(rawValue: rawValue))
     case .unicodeScalarLiteralExpr:
-      return visitor.visit(unicodeScalarLiteral: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(unicodeScalarLiteral: NodeID(rawValue: rawValue))
     default:
       unreachable()
     }

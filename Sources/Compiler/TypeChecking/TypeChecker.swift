@@ -609,7 +609,7 @@ public struct TypeChecker {
 
     // Look for duplicate operator declaration.
     for decl in ast[source].decls where decl.kind == .operatorDecl {
-      let oper = NodeID<OperatorDecl>(unsafeRawValue: decl.rawValue)
+      let oper = NodeID<OperatorDecl>(rawValue: decl.rawValue)
       if oper != id,
          ast[oper].notation.value == ast[id].notation.value,
          ast[oper].name.value == ast[id].name.value
@@ -834,7 +834,7 @@ public struct TypeChecker {
   ) -> Bool {
     switch id.kind {
     case .braceStmt:
-      return check(brace: NodeID(converting: id)!)
+      return check(brace: NodeID(rawValue: id.rawValue))
 
     case .exprStmt:
       let stmt = ast[NodeID<ExprStmt>(converting: id)!]
@@ -850,14 +850,14 @@ public struct TypeChecker {
       }
 
     case .declStmt:
-      return check(decl: ast[NodeID<DeclStmt>(converting: id)!].decl)
+      return check(decl: ast[NodeID<DeclStmt>(rawValue: id.rawValue)].decl)
 
     case .discardStmt:
-      let stmt = ast[NodeID<DiscardStmt>(converting: id)!]
+      let stmt = ast[NodeID<DiscardStmt>(rawValue: id.rawValue)]
       return infer(expr: stmt.expr, inScope: lexicalContext) != nil
 
     case .returnStmt:
-      return check(return: NodeID(converting: id)!, inScope: lexicalContext)
+      return check(return: NodeID(rawValue: id.rawValue), inScope: lexicalContext)
 
     default:
       unreachable("unexpected statement")
@@ -880,7 +880,7 @@ public struct TypeChecker {
     // Retrieve the function in which the return statement is contained to determine the expected
     // type of the return value.
     let funDecl = NodeID<FunDecl>(
-      unsafeRawValue: scopeHierarchy
+      rawValue: scopeHierarchy
         .scopesToRoot(from: lexicalContext)
         .first(where: { $0.kind == .funDecl })!.rawValue)
 
@@ -1432,7 +1432,7 @@ public struct TypeChecker {
       switch scope.kind {
       case .moduleDecl:
         // We reached the module scope.
-        root = NodeID<ModuleDecl>(unsafeRawValue: scope.rawValue)
+        root = NodeID<ModuleDecl>(rawValue: scope.rawValue)
 
       case .topLevelDeclSet:
         // Skip file scopes so that we don't search the same file twice.
@@ -1594,7 +1594,7 @@ public struct TypeChecker {
     in module: NodeID<ModuleDecl>
   ) -> NodeID<OperatorDecl>? {
     for decl in ast.topLevelDecls(module) where decl.kind == .operatorDecl {
-      let oper = NodeID<OperatorDecl>(unsafeRawValue: decl.rawValue)
+      let oper = NodeID<OperatorDecl>(rawValue: decl.rawValue)
       if (ast[oper].notation.value == notation) && (ast[oper].name.value == operatorName) {
         return oper
       }
@@ -1638,7 +1638,7 @@ public struct TypeChecker {
     for scope in scopeHierarchy.scopesToRoot(from: scope) {
       switch scope.kind {
       case .moduleDecl:
-        let module = NodeID<ModuleDecl>(unsafeRawValue: scope.rawValue)
+        let module = NodeID<ModuleDecl>(rawValue: scope.rawValue)
         filter(this: &self, decls: ast.topLevelDecls(module), inScope: scope)
         root = module
 
@@ -1761,12 +1761,12 @@ public struct TypeChecker {
     for scope in scopeHierarchy.scopesToRoot(from: scope) {
       switch scope.kind {
       case .traitDecl:
-        let decl = NodeID<TraitDecl>(unsafeRawValue: scope.rawValue)
+        let decl = NodeID<TraitDecl>(rawValue: scope.rawValue)
         return .genericTypeParam(GenericTypeParamType(decl: decl, ast: ast))
 
       case .productTypeDecl:
         // Synthesize unparameterized `Self`.
-        let decl = NodeID<ProductTypeDecl>(unsafeRawValue: scope.rawValue)
+        let decl = NodeID<ProductTypeDecl>(rawValue: scope.rawValue)
         var type = Type.product(ProductType(decl: decl, ast: ast))
 
         // Synthesize arguments to generic parameters if necessary.
@@ -1785,11 +1785,11 @@ public struct TypeChecker {
         return type
 
       case .conformanceDecl:
-        let decl = NodeID<ConformanceDecl>(unsafeRawValue: scope.rawValue)
+        let decl = NodeID<ConformanceDecl>(rawValue: scope.rawValue)
         return realize(ast[decl].subject, inScope: scope)
 
       case .extensionDecl:
-        let decl = NodeID<ConformanceDecl>(unsafeRawValue: scope.rawValue)
+        let decl = NodeID<ConformanceDecl>(rawValue: scope.rawValue)
         return realize(ast[decl].subject, inScope: scope)
 
       case .typeAliasDecl:

@@ -793,13 +793,13 @@ public enum Parser {
 
       switch declID.kind {
       case .bindingDecl:
-        let id = NodeID<BindingDecl>(unsafeRawValue: declID.rawValue)
+        let id = NodeID<BindingDecl>(rawValue: declID.rawValue)
         context.ast[id].attributes = attributes
         context.ast[id].accessModifier = access
         context.ast[id].memberModifier = member
 
       case .conformanceDecl:
-        let id = NodeID<ConformanceDecl>(unsafeRawValue: declID.rawValue)
+        let id = NodeID<ConformanceDecl>(rawValue: declID.rawValue)
         context.ast[id].accessModifier = access
 
         if let a = attributes.first {
@@ -821,7 +821,7 @@ public enum Parser {
         }
 
       case .extensionDecl:
-        let id = NodeID<ExtensionDecl>(unsafeRawValue: declID.rawValue)
+        let id = NodeID<ExtensionDecl>(rawValue: declID.rawValue)
         context.ast[id].accessModifier = access
 
         if let a = attributes.first {
@@ -832,13 +832,13 @@ public enum Parser {
         }
 
       case .funDecl:
-        let id = NodeID<FunDecl>(unsafeRawValue: declID.rawValue)
+        let id = NodeID<FunDecl>(rawValue: declID.rawValue)
         context.ast[id].attributes = attributes
         context.ast[id].accessModifier = access
         context.ast[id].memberModifier = member
 
       case .operatorDecl:
-        let id = NodeID<OperatorDecl>(unsafeRawValue: declID.rawValue)
+        let id = NodeID<OperatorDecl>(rawValue: declID.rawValue)
         context.ast[id].accessModifier = access
 
         if let a = attributes.first {
@@ -849,7 +849,7 @@ public enum Parser {
         }
 
       case .namespaceDecl:
-        let id = NodeID<NamespaceDecl>(unsafeRawValue: declID.rawValue)
+        let id = NodeID<NamespaceDecl>(rawValue: declID.rawValue)
         context.ast[id].accessModifier = access
 
         if let a = attributes.first {
@@ -860,7 +860,7 @@ public enum Parser {
         }
 
       case .productTypeDecl:
-        let id = NodeID<ProductTypeDecl>(unsafeRawValue: declID.rawValue)
+        let id = NodeID<ProductTypeDecl>(rawValue: declID.rawValue)
         context.ast[id].accessModifier = access
 
         if let a = attributes.first {
@@ -871,13 +871,13 @@ public enum Parser {
         }
 
       case .subscriptDecl:
-        let id = NodeID<SubscriptDecl>(unsafeRawValue: declID.rawValue)
+        let id = NodeID<SubscriptDecl>(rawValue: declID.rawValue)
         context.ast[id].attributes = attributes
         context.ast[id].accessModifier = access
         context.ast[id].memberModifier = member
 
       case .traitDecl:
-        let id = NodeID<TraitDecl>(unsafeRawValue: declID.rawValue)
+        let id = NodeID<TraitDecl>(rawValue: declID.rawValue)
         context.ast[id].accessModifier = access
 
         if let a = attributes.first {
@@ -888,7 +888,7 @@ public enum Parser {
         }
 
       case .typeAliasDecl:
-        let id = NodeID<TypeAliasDecl>(unsafeRawValue: declID.rawValue)
+        let id = NodeID<TypeAliasDecl>(rawValue: declID.rawValue)
         context.ast[id].accessModifier = access
 
         if let a = attributes.first {

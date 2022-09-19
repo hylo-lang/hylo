@@ -38,11 +38,11 @@ public struct Emitter {
   public mutating func emit(topLevel decl: AnyDeclID, into module: inout Module) {
     switch decl.kind {
     case .funDecl:
-      emit(fun: NodeID(unsafeRawValue: decl.rawValue), into: &module)
+      emit(fun: NodeID(rawValue: decl.rawValue), into: &module)
     case .operatorDecl:
       break
     case .productTypeDecl:
-      emit(product: NodeID(unsafeRawValue: decl.rawValue), into: &module)
+      emit(product: NodeID(rawValue: decl.rawValue), into: &module)
     case .traitDecl:
       break
     default:
@@ -118,7 +118,7 @@ public struct Emitter {
       // Emit the method and subscript members of the type declaration.
       switch member.kind {
       case .funDecl:
-        let funDeclID = NodeID<FunDecl>(unsafeRawValue: member.rawValue)
+        let funDeclID = NodeID<FunDecl>(rawValue: member.rawValue)
         switch program.ast[funDeclID].introducer.value {
         case .memberwiseInit:
           continue
@@ -261,13 +261,13 @@ public struct Emitter {
   private mutating func emit<T: StmtID>(stmt: T, into module: inout Module) {
     switch stmt.kind {
     case .braceStmt:
-      emit(brace: NodeID(unsafeRawValue: stmt.rawValue), into: &module)
+      emit(brace: NodeID(rawValue: stmt.rawValue), into: &module)
     case .declStmt:
-      emit(declStmt: NodeID(unsafeRawValue: stmt.rawValue), into: &module)
+      emit(declStmt: NodeID(rawValue: stmt.rawValue), into: &module)
     case .exprStmt:
-      emit(exprStmt: NodeID(unsafeRawValue: stmt.rawValue), into: &module)
+      emit(exprStmt: NodeID(rawValue: stmt.rawValue), into: &module)
     case .returnStmt:
-      emit(returnStmt: NodeID(unsafeRawValue: stmt.rawValue), into: &module)
+      emit(returnStmt: NodeID(rawValue: stmt.rawValue), into: &module)
     default:
       unreachable("unexpected statement")
     }
@@ -285,7 +285,7 @@ public struct Emitter {
   private mutating func emit(declStmt stmt: NodeID<DeclStmt>, into module: inout Module) {
     switch program.ast[stmt].decl.kind {
     case .bindingDecl:
-      emit(localBinding: NodeID(unsafeRawValue: program.ast[stmt].decl.rawValue), into: &module)
+      emit(localBinding: NodeID(rawValue: program.ast[stmt].decl.rawValue), into: &module)
     default:
       unreachable("unexpected declaration")
     }
@@ -323,17 +323,17 @@ public struct Emitter {
 
     switch expr.kind {
     case .booleanLiteralExpr:
-      return emitR(booleanLiteral: NodeID(unsafeRawValue: expr.rawValue), into: &module)
+      return emitR(booleanLiteral: NodeID(rawValue: expr.rawValue), into: &module)
     case .condExpr:
-      return emitR(cond: NodeID(unsafeRawValue: expr.rawValue), into: &module)
+      return emitR(cond: NodeID(rawValue: expr.rawValue), into: &module)
     case .funCallExpr:
-      return emitR(funCall: NodeID(unsafeRawValue: expr.rawValue), into: &module)
+      return emitR(funCall: NodeID(rawValue: expr.rawValue), into: &module)
     case .integerLiteralExpr:
-      return emitR(integerLiteral: NodeID(unsafeRawValue: expr.rawValue), into: &module)
+      return emitR(integerLiteral: NodeID(rawValue: expr.rawValue), into: &module)
     case .nameExpr:
-      return emitR(name: NodeID(unsafeRawValue: expr.rawValue), into: &module)
+      return emitR(name: NodeID(rawValue: expr.rawValue), into: &module)
     case .sequenceExpr:
-      return emitR(sequence: NodeID(unsafeRawValue: expr.rawValue), into: &module)
+      return emitR(sequence: NodeID(rawValue: expr.rawValue), into: &module)
     default:
       unreachable("unexpected expression")
     }
@@ -660,7 +660,7 @@ public struct Emitter {
     switch expr.kind {
     case .nameExpr:
       return emitL(
-        name: NodeID(unsafeRawValue: expr.rawValue), withCapability: capability, into: &module)
+        name: NodeID(rawValue: expr.rawValue), withCapability: capability, into: &module)
 
     case .subscriptCallExpr:
       fatalError("not implemented")
@@ -717,7 +717,7 @@ public struct Emitter {
       // Emit the bound member.
       switch declID.kind {
       case .varDecl:
-        let declID = NodeID<VarDecl>(unsafeRawValue: declID.rawValue)
+        let declID = NodeID<VarDecl>(rawValue: declID.rawValue)
         let layout = program.abstractLayout(of: module.type(of: receiver).astType)
         let memberIndex = layout.storedPropertiesIndices[program.ast[declID].name]!
 

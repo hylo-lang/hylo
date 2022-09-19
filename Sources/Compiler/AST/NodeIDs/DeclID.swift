@@ -9,45 +9,45 @@ extension DeclID {
   public func accept<V: DeclVisitor>(_ visitor: inout V) -> V.Result {
     switch kind {
     case .associatedTypeDecl:
-      return visitor.visit(associatedType: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(associatedType: NodeID(rawValue: rawValue))
     case .associatedValueDecl:
-      return visitor.visit(associatedValue: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(associatedValue: NodeID(rawValue: rawValue))
     case .bindingDecl:
-      return visitor.visit(binding: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(binding: NodeID(rawValue: rawValue))
     case .conformanceDecl:
-      return visitor.visit(conformance: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(conformance: NodeID(rawValue: rawValue))
     case .extensionDecl:
-      return visitor.visit(extension: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(extension: NodeID(rawValue: rawValue))
     case .funDecl:
-      return visitor.visit(fun: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(fun: NodeID(rawValue: rawValue))
     case .genericTypeParamDecl:
-      return visitor.visit(genericTypeParam: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(genericTypeParam: NodeID(rawValue: rawValue))
     case .genericValueParamDecl:
-      return visitor.visit(genericValueParam: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(genericValueParam: NodeID(rawValue: rawValue))
     case .importDecl:
-      return visitor.visit(import: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(import: NodeID(rawValue: rawValue))
     case .methodImplDecl:
-      return visitor.visit(methodImpl: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(methodImpl: NodeID(rawValue: rawValue))
     case .moduleDecl:
-      return visitor.visit(module: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(module: NodeID(rawValue: rawValue))
     case .namespaceDecl:
-      return visitor.visit(namespace: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(namespace: NodeID(rawValue: rawValue))
     case .operatorDecl:
-      return visitor.visit(operator: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(operator: NodeID(rawValue: rawValue))
     case .parameterDecl:
-      return visitor.visit(param: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(param: NodeID(rawValue: rawValue))
     case .productTypeDecl:
-      return visitor.visit(productType: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(productType: NodeID(rawValue: rawValue))
     case .subscriptDecl:
-      return visitor.visit(subscript: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(subscript: NodeID(rawValue: rawValue))
     case .subscriptImplDecl:
-      return visitor.visit(subscriptImpl: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(subscriptImpl: NodeID(rawValue: rawValue))
     case .traitDecl:
-      return visitor.visit(trait: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(trait: NodeID(rawValue: rawValue))
     case .typeAliasDecl:
-      return visitor.visit(typeAlias: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(typeAlias: NodeID(rawValue: rawValue))
     case .varDecl:
-      return visitor.visit(var: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(var: NodeID(rawValue: rawValue))
     default:
       unreachable()
     }
