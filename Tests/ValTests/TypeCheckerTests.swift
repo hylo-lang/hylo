@@ -1608,7 +1608,7 @@ final class TypeCheckerTests: XCTestCase {
         left: AnyExprID(ast.insert(NameExpr(
           name: SourceRepresentable(value: "a")))),
         right: AnyTypeExprID(ast.insert(TupleTypeExpr())),
-        direction: .down)))))))
+        kind: .down)))))))
 
     var checker = TypeChecker(ast: ast)
     XCTAssertTrue(checker.check(module: main))
@@ -1631,7 +1631,7 @@ final class TypeCheckerTests: XCTestCase {
         left: AnyExprID(ast.insert(TupleExpr())),
         right: AnyTypeExprID(ast.insert(NameTypeExpr(
           identifier: SourceRepresentable(value: "Any")))),
-        direction: .up)))))))
+        kind: .up)))))))
 
     var checker = TypeChecker(ast: ast)
     XCTAssertTrue(checker.check(module: main))
