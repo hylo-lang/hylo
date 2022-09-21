@@ -24,7 +24,7 @@ extension TraitType {
   public init?(named name: String, ast: AST) {
     guard let stdlib = ast.stdlib else { return nil }
     for id in ast.topLevelDecls(stdlib) where id.kind == .traitDecl {
-      let id = NodeID<TraitDecl>(converting: id)!
+      let id = NodeID<TraitDecl>(rawValue: id.rawValue)
       if ast[id].name == name {
         self.init(decl: id, ast: ast)
         return

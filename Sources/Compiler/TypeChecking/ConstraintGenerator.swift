@@ -331,8 +331,7 @@ struct ConstraintGenerator: ExprVisitor {
   mutating func visit(integerLiteral id: NodeID<IntegerLiteralExpr>) {
     defer { assert(inferredTypes[id] != nil) }
 
-    let trait = TraitType(named: "ExpressibleByIntegerLiteral", ast: checker.ast)
-      ?? unreachable()
+    let trait = TraitType(named: "ExpressibleByIntegerLiteral", ast: checker.ast)!
 
     switch expectedTypes[id] {
     case .some(.variable(let tau)):

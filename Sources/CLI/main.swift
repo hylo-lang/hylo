@@ -3,6 +3,7 @@ import Compiler
 import Foundation
 import LLVM
 import Utils
+import ValModule
 
 struct CLI: ParsableCommand {
 
@@ -48,9 +49,9 @@ struct CLI: ParsableCommand {
   var importBuiltinModule: Bool = false
 
   @Flag(
-    name: [.customLong("nostdlib")],
+    name: [.customLong("no-std")],
     help: "Do not include the standard library.")
-  var skipStandardLibrary: Bool = false
+  var noStandardLibrary: Bool = false
 
   @Flag(
     name: [.customLong("typecheck")],
@@ -119,12 +120,25 @@ struct CLI: ParsableCommand {
       CLI.exit()
     }
 
+    // Import the core library.
+    rawProgram.stdlib = rawProgram.insert(ModuleDecl(name: "Val"))
+    if !withFiles(in: ValModule.core!, {
+      insert(contentsOf: $0, into: rawProgram.stdlib!, in: &rawProgram)
+    }) {
+      CLI.exit(withError: ExitCode(-1))
+    }
+
     // Type-check the input.
     log(verbose: "Type-checking '\(productName)'".styled([.bold]))
     var checker = TypeChecker(ast: rawProgram)
     checker.isBuiltinModuleVisible = importBuiltinModule
 
-    let typeCheckingSucceeded = checker.check(module: moduleDecl)
+    var typeCheckingSucceeded = checker.check(module: moduleDecl)
+
+    // Type-check the standard library.
+    checker.isBuiltinModuleVisible = true
+    typeCheckingSucceeded = checker.check(module: rawProgram.stdlib!) && typeCheckingSucceeded
+
     log(diagnostics: checker.diagnostics)
     if !typeCheckingSucceeded {
       CLI.exit(withError: ExitCode(-1))
@@ -208,12 +222,12 @@ struct CLI: ParsableCommand {
     // Link the file objects.
     log(verbose: "Linking \(productName)".styled([.bold]))
     let xcrun = find("xcrun")
-    let sdk = try exec(xcrun, ["--sdk", "macosx", "--show-sdk-path"]) ?? ""
+    let sdk = try runCommandLine(xcrun, ["--sdk", "macosx", "--show-sdk-path"]) ?? ""
     log(verbose: sdk)
     let lib = sdk + "/usr/lib"
 
     let binaryURL = outputURL ?? URL(fileURLWithPath: productName)
-    try exec(
+    try runCommandLine(
       xcrun, ["-r", "ld", "-o", binaryURL.path,objectURL.path, "-L", "\(lib)", "-lSystem"])
 
     CLI.exit()
@@ -362,7 +376,7 @@ struct CLI: ParsableCommand {
 
   /// Executes the program at `path` with the specified arguments in a subprocess.
   @discardableResult
-  func exec(_ programPath: String, _ arguments: [String] = []) throws -> String? {
+  func runCommandLine(_ programPath: String, _ arguments: [String] = []) throws -> String? {
     log(verbose: ([programPath] + arguments).joined(separator: " "))
 
     let pipe = Pipe()

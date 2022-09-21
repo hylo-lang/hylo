@@ -112,6 +112,14 @@ public struct Emitter {
     assert(stack.frames.isEmpty)
   }
 
+  /// Emits the given subscript declaration into `module`.
+  public mutating func emit(
+    subscript declID: NodeID<SubscriptDecl>,
+    into module: inout Module
+  ) {
+    fatalError("not implemented")
+  }
+
   /// Emits the product type declaration into `module`.
   private mutating func emit(product decl: NodeID<ProductTypeDecl>, into module: inout Module) {
     for member in program.ast[decl].members {

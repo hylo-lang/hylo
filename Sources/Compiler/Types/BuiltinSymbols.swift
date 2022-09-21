@@ -1,7 +1,7 @@
 /// A namespace containing the types of the built-in functions and subscripts.
 public enum BuiltinSymbols {
 
-  /// Uncondtionally stops the program.
+  /// Terminates the program abnormally.
   public static let terminate = LambdaType(
     to: .never)
 
