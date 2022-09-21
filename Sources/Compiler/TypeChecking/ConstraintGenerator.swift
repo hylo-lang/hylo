@@ -63,12 +63,17 @@ struct ConstraintGenerator: ExprVisitor {
 
   mutating func visit(cast id: NodeID<CastExpr>) {
     // Realize the type to which the left operand should be converted.
-    guard let target = checker.realize(checker.ast[id].right, inScope: scope) else {
+    guard var target = checker.realize(checker.ast[id].right, inScope: scope) else {
       assignToError(id)
       return
     }
 
-    switch checker.ast[id].direction {
+    let (ty, cs) = checker.contextualize(type: target, inScope: scope)
+    target = ty
+    constraints.append(contentsOf: cs.map({ LocatableConstraint($0, node: AnyNodeID(id)) }))
+
+    let lhs = checker.ast[id].left
+    switch checker.ast[id].kind {
     case .down:
       // Note: constraining the type of the left operand to be above the right operand wouldn't
       // contribute any useful information to the constraint system.
@@ -76,16 +81,19 @@ struct ConstraintGenerator: ExprVisitor {
 
     case .up:
       // The type of the left operand must be statically known to subtype of the right operand.
-      let lhs = checker.ast[id].left
       inferredTypes[lhs] = .variable(TypeVariable(node: lhs.base))
       constraints.append(LocatableConstraint(
         .equalityOrSubtyping(l: inferredTypes[lhs]!, r: target),
         node: AnyNodeID(id),
         cause: .assignment))
+
+    case .builtinPointerConversion:
+      // The type of the left operand must be `Builtin.Pointer`.
+      inferredTypes[lhs] = .builtin(.pointer)
     }
 
     // Visit the left operand.
-    checker.ast[id].left.accept(&self)
+    lhs.accept(&self)
 
     // In any case, the expression is assumed to have the type denoted by the right operand.
     assume(typeOf: id, equals: target)

@@ -1004,10 +1004,19 @@ public enum Parser {
           throw ParseError("expected type expression", at: context.currentLocation)
         }
 
-        let direction: CastExpr.Direction = context.lexer.source[oper.range] == "as!"
-          ? .down
-          : .up
-        let cast = context.ast.insert(CastExpr(left: lhs, right: rhs, direction: direction))
+        let castKind: CastExpr.Kind
+        switch context.lexer.source[oper.range] {
+        case "as":
+          castKind = .up
+        case "as!":
+          castKind = .down
+        case "as!!":
+          castKind = .builtinPointerConversion
+        default:
+          unreachable()
+        }
+
+        let cast = context.ast.insert(CastExpr(left: lhs, right: rhs, kind: castKind))
         context.ast.ranges[cast] = leftRange.upperBounded(by: context.currentIndex)
         return AnyExprID(cast)
       }
