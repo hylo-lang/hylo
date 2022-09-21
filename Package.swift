@@ -45,7 +45,9 @@ let package = Package(
         .product(name: "Collections", package: "swift-collections"),
         .product(name: "LLVM", package: "LLVMSwift"),
         .product(name: "Durian", package: "Durian"),
-      ]),
+      ],
+      resources: [.copy("CXX/README.md")]
+      ),
 
     .target(
       name: "Library",
