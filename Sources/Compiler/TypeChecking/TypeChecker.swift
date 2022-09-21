@@ -299,6 +299,8 @@ public struct TypeChecker {
       return check(associatedValue: NodeID(rawValue: id.rawValue))
     case .bindingDecl:
       return check(binding: NodeID(rawValue: id.rawValue))
+    case .conformanceDecl:
+      return check(conformance: NodeID(rawValue: id.rawValue))
     case .funDecl:
       return check(fun: NodeID(rawValue: id.rawValue))
     case .methodImplDecl:
@@ -323,6 +325,11 @@ public struct TypeChecker {
   }
 
   private mutating func check(associatedValue: NodeID<AssociatedValueDecl>) -> Bool {
+    return true
+  }
+
+  private mutating func check(conformance: NodeID<ConformanceDecl>) -> Bool {
+    // FIXME: implement me.
     return true
   }
 
@@ -627,16 +634,16 @@ public struct TypeChecker {
   }
 
   private mutating func _check(productType id: NodeID<ProductTypeDecl>) -> Bool {
+    // Synthesize the memberwise initializer if necessary.
+    var success = check(fun: ast.memberwiseInitDecl(of: id, updating: &scopeHierarchy))
+
     // Type check the generic constraints of the declaration.
-    var success = environment(ofGenericDecl: id) != nil
+    success = (environment(ofGenericDecl: id) != nil) && success
 
     // Type check the type's direct members.
     for j in ast[id].members {
       success = check(decl: j) && success
     }
-
-    // Synthesize the memberwise initializer if necessary.
-    success = check(fun: ast.memberwiseInitDecl(of: id, updating: &scopeHierarchy)) && success
 
     // Type check extending declarations.
     let type = declTypes[id]!

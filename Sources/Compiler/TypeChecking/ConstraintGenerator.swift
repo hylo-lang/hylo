@@ -232,9 +232,6 @@ struct ConstraintGenerator: ExprVisitor {
           introducer: nil,
           inDeclSpaceOf: AnyScopeID(converting: d)!)
 
-        // We should get at least one a memberwise initializer.
-        assert(!initializers.isEmpty)
-
         // Select suitable candidates based on argument labels.
         let labels = checker.ast[id].arguments.map({ $0.label?.value })
         var candidates: [Constraint.OverloadCandidate] = []
