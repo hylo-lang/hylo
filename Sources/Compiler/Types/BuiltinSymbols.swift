@@ -1,8 +1,9 @@
-/// A namespace containing the types of the built-in functions.
-public enum BuiltinFunctionType {
+/// A namespace containing the types of the built-in functions and subscripts.
+public enum BuiltinSymbols {
 
   /// Uncondtionally stops the program.
-  public static let terminate = LambdaType(to: .never)
+  public static let terminate = LambdaType(
+    to: .never)
 
   /// 1-bit integer copy.
   public static let i1_copy = LambdaType(

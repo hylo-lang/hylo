@@ -108,8 +108,9 @@ struct ConstraintGenerator: ExprVisitor {
       switch item {
       case .expr(let expr):
         // Condition must be Boolean.
-        expectedTypes[expr] = .product(boolType)
+        inferredTypes[expr] = .product(boolType)
         expr.accept(&self)
+
       case .decl(let binding):
         _ = checker.check(binding: binding)
       }
@@ -452,12 +453,10 @@ struct ConstraintGenerator: ExprVisitor {
         // Contextualize the match.
         let context = checker.scopeHierarchy.container[candidates[0].decl]!
         let (ty, cs) = checker.contextualize(type: candidates[0].type, inScope: context)
+        inferredType = ty
 
         // Register associated constraints.
-        inferredType = ty
-        constraints.append(contentsOf: cs.map({ c in
-          LocatableConstraint(c, node: AnyNodeID(id))
-        }))
+        constraints.append(contentsOf: cs.map({ LocatableConstraint($0, node: AnyNodeID(id)) }))
 
         // Bind the name expression to the referred declaration.
         if checker.scopeHierarchy.isNonStaticMember(decl: candidates[0].decl, ast: checker.ast) {
@@ -487,11 +486,11 @@ struct ConstraintGenerator: ExprVisitor {
       if domainType == .builtin(.module) {
         let symbolName = checker.ast[id].name.value.stem
 
-        if let ty = BuiltinFunctionType[symbolName] {
-          assume(typeOf: id, equals: .lambda(ty))
+        if let type = BuiltinSymbols[symbolName] {
+          assume(typeOf: id, equals: .lambda(type))
           checker.referredDecls[id] = .direct(AnyDeclID(checker.ast.builtinDecl))
-        } else if let ty = BuiltinType(symbolName) {
-          assume(typeOf: id, equals: .builtin(ty))
+        } else if let type = BuiltinType(symbolName) {
+          assume(typeOf: id, equals: .builtin(type))
           checker.referredDecls[id] = .direct(AnyDeclID(checker.ast.builtinDecl))
         } else {
           diagnostics.append(.undefined(name: symbolName, range: checker.ast[id].name.range))

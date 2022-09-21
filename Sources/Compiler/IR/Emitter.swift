@@ -113,23 +113,23 @@ public struct Emitter {
   }
 
   /// Emits the product type declaration into `module`.
-  private mutating func emit(product declID: NodeID<ProductTypeDecl>, into module: inout Module) {
-    for member in program.ast[declID].members {
+  private mutating func emit(product decl: NodeID<ProductTypeDecl>, into module: inout Module) {
+    for member in program.ast[decl].members {
       // Emit the method and subscript members of the type declaration.
       switch member.kind {
       case .funDecl:
-        let funDeclID = NodeID<FunDecl>(rawValue: member.rawValue)
-        switch program.ast[funDeclID].introducer.value {
+        let funDecl = NodeID<FunDecl>(rawValue: member.rawValue)
+        switch program.ast[funDecl].introducer.value {
         case .memberwiseInit:
           continue
         case .`init`, .deinit:
           fatalError("not implemented")
         case .fun:
-          emit(fun: funDeclID, into: &module)
+          emit(fun: funDecl, into: &module)
         }
 
       case .subscriptDecl:
-        fatalError("not implemented")
+        emit(subscript: NodeID(rawValue: member.rawValue), into: &module)
 
       default:
         continue

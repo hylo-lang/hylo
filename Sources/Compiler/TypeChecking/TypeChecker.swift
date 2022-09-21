@@ -120,13 +120,13 @@ public struct TypeChecker {
       switch t.decl.kind {
       case .genericTypeParamDecl:
         guard let traits = realize(
-          conformances: ast[NodeID<GenericTypeParamDecl>(converting: t.decl)!].conformances,
+          conformances: ast[NodeID<GenericTypeParamDecl>(rawValue: t.decl.rawValue)].conformances,
           inScope: scopeHierarchy.parent[t.decl]!)
         else { return nil }
         result.formUnion(traits)
 
       case .traitDecl:
-        let trait = TraitType(decl: NodeID(converting: t.decl)!, ast: ast)
+        let trait = TraitType(decl: NodeID(rawValue: t.decl.rawValue), ast: ast)
         return conformedTraits(of: .trait(trait), inScope: scope)
 
       default:
@@ -186,7 +186,7 @@ public struct TypeChecker {
 
     // Collect traits declared in conformance declarations.
     for i in extendingDecls(of: type, exposedTo: scope) where i.kind == .conformanceDecl {
-      let decl = ast[NodeID<ConformanceDecl>(converting: i)!]
+      let decl = ast[NodeID<ConformanceDecl>(rawValue: i.rawValue)]
       let parentScope = scopeHierarchy.container[i]!
       guard let traits = realize(conformances: decl.conformances, inScope: parentScope)
         else { return nil }
@@ -294,25 +294,25 @@ public struct TypeChecker {
   private mutating func check<T: DeclID>(decl id: T) -> Bool {
     switch id.kind {
     case .associatedTypeDecl:
-      return check(associatedType: NodeID(converting: id)!)
+      return check(associatedType: NodeID(rawValue: id.rawValue))
     case .associatedValueDecl:
-      return check(associatedValue: NodeID(converting: id)!)
+      return check(associatedValue: NodeID(rawValue: id.rawValue))
     case .bindingDecl:
-      return check(binding: NodeID(converting: id)!)
+      return check(binding: NodeID(rawValue: id.rawValue))
     case .funDecl:
-      return check(fun: NodeID(converting: id)!)
+      return check(fun: NodeID(rawValue: id.rawValue))
     case .methodImplDecl:
-      return check(fun: NodeID(converting: scopeHierarchy.container[id]!)!)
+      return check(fun: NodeID(rawValue: scopeHierarchy.container[id]!.rawValue))
     case .operatorDecl:
-      return check(operator: NodeID(converting: id)!)
+      return check(operator: NodeID(rawValue: id.rawValue))
     case .productTypeDecl:
-      return check(productType: NodeID(converting: id)!)
+      return check(productType: NodeID(rawValue: id.rawValue))
     case .subscriptDecl:
-      return check(subscript: NodeID(converting: id)!)
+      return check(subscript: NodeID(rawValue: id.rawValue))
     case .traitDecl:
-      return check(trait: NodeID(converting: id)!)
+      return check(trait: NodeID(rawValue: id.rawValue))
     case .typeAliasDecl:
-      return check(typeAlias: NodeID(converting: id)!)
+      return check(typeAlias: NodeID(rawValue: id.rawValue))
     default:
       unreachable("unexpected declaration")
     }
@@ -689,14 +689,7 @@ public struct TypeChecker {
       // Type checks the body of the implementation.
       switch ast[impl].body {
       case .expr(let expr):
-        let expectedType: Type
-        switch ast[impl].introducer.value {
-        case .let   : expectedType = .projection(ProjectionType(.let, outputType))
-        case .inout : expectedType = .projection(ProjectionType(.inout, outputType))
-        case .set   : expectedType = .projection(ProjectionType(.set, outputType))
-        case .sink  : expectedType = outputType
-        }
-        success = (infer(expr: expr, expectedType: expectedType, inScope: impl) != nil) && success
+        success = (infer(expr: expr, expectedType: outputType, inScope: impl) != nil) && success
 
       case .block(let stmt):
         success = check(brace: stmt) && success
@@ -837,7 +830,7 @@ public struct TypeChecker {
       return check(brace: NodeID(rawValue: id.rawValue))
 
     case .exprStmt:
-      let stmt = ast[NodeID<ExprStmt>(converting: id)!]
+      let stmt = ast[NodeID<ExprStmt>(rawValue: id.rawValue)]
       if let type = infer(expr: stmt.expr, inScope: lexicalContext) {
         // Issue a warning if the type of the expression isn't unit.
         if type != .unit {
@@ -859,6 +852,9 @@ public struct TypeChecker {
     case .returnStmt:
       return check(return: NodeID(rawValue: id.rawValue), inScope: lexicalContext)
 
+    case .yieldStmt:
+      return check(yield: NodeID(rawValue: id.rawValue), inScope: lexicalContext)
+
     default:
       unreachable("unexpected statement")
     }
@@ -877,43 +873,87 @@ public struct TypeChecker {
     return id: NodeID<ReturnStmt>,
     inScope lexicalContext: S
   ) -> Bool {
-    // Retrieve the function in which the return statement is contained to determine the expected
-    // type of the return value.
-    let funDecl = NodeID<FunDecl>(
-      rawValue: scopeHierarchy
-        .scopesToRoot(from: lexicalContext)
-        .first(where: { $0.kind == .funDecl })!.rawValue)
-
-    let expectedReturnType: Type
-    switch declTypes[funDecl]! {
-    case .lambda(let callable):
-      expectedReturnType = callable.output.skolemized
-    case .method(let callable):
-      expectedReturnType = callable.output.skolemized
-    default:
-      unreachable()
-    }
+    // Retreive the expected output type.
+    let expectedType = expectedOutputType(in: lexicalContext)!
 
     if let returnValue = ast[id].value {
       // The type of the return value must be subtype of the expected return type.
       let inferredReturnType = Type.variable(TypeVariable(node: returnValue.base))
       let c = LocatableConstraint(
-        .equalityOrSubtyping(l: inferredReturnType, r: expectedReturnType),
+        .equalityOrSubtyping(l: inferredReturnType, r: expectedType),
         node: returnValue.base,
         cause: .return)
       let solution = infer(
         expr: returnValue,
         inferredType: inferredReturnType,
-        expectedType: expectedReturnType,
+        expectedType: expectedType,
         inScope: AnyScopeID(lexicalContext),
         constraints: [c])
       return solution.diagnostics.isEmpty
-    } else if expectedReturnType != .unit {
+    } else if expectedType != .unit {
       diagnostics.insert(.missingReturnValue(range: ast.ranges[id]))
       return false
     } else {
       return true
     }
+  }
+
+  private mutating func check<S: ScopeID>(
+    yield id: NodeID<YieldStmt>,
+    inScope lexicalContext: S
+  ) -> Bool {
+    // Retreive the expected output type.
+    let expectedType = expectedOutputType(in: lexicalContext)!
+
+    // The type of the return value must be subtype of the expected return type.
+    let inferredReturnType = Type.variable(TypeVariable(node: ast[id].value.base))
+    let c = LocatableConstraint(
+      .equalityOrSubtyping(l: inferredReturnType, r: expectedType),
+      node: ast[id].value.base,
+      cause: .yield)
+    let solution = infer(
+      expr: ast[id].value,
+      inferredType: inferredReturnType,
+      expectedType: expectedType,
+      inScope: AnyScopeID(lexicalContext),
+      constraints: [c])
+    return solution.diagnostics.isEmpty
+  }
+
+  /// Returns the expected output type in `lexicalContext`, or `nil` if `lexicalContext` is not
+  /// nested in a function or subscript declaration.
+  private func expectedOutputType<S: ScopeID>(in lexicalContext: S) -> Type? {
+    for parent in scopeHierarchy.scopesToRoot(from: lexicalContext) {
+      switch parent.kind {
+      case .methodImplDecl:
+        // `lexicalContext` is nested in a method implementation.
+        let decl = NodeID<MethodImplDecl>(rawValue: parent.rawValue)
+        if ast[decl].introducer.value == .inout {
+          return .unit
+        } else {
+          let methodDecl = NodeID<FunDecl>(rawValue: scopeHierarchy.parent[decl]!.rawValue)
+          guard case .method(let methodType) = declTypes[methodDecl] else { unreachable() }
+          return methodType.output.skolemized
+        }
+
+      case .funDecl:
+        // `lexicalContext` is nested in a function.
+        let decl = NodeID<FunDecl>(rawValue: parent.rawValue)
+        guard case .lambda(let funType) = declTypes[decl] else { unreachable() }
+        return funType.output.skolemized
+
+      case .subscriptDecl:
+        // `lexicalContext` is nested in a subscript implementation.
+        let decl = NodeID<SubscriptDecl>(rawValue: parent.rawValue)
+        guard case .subscript(let subscriptType) = declTypes[decl] else { unreachable() }
+        return subscriptType.output.skolemized
+
+      default:
+        continue
+      }
+    }
+
+    return nil
   }
 
   /// Returns the generic environment defined by `id`, or `nil` if it is ill-formed.
@@ -922,15 +962,15 @@ public struct TypeChecker {
   private mutating func environment<T: NodeIDProtocol>(of id: T) -> GenericEnvironment? {
     switch id.kind {
     case .funDecl:
-      return environment(ofGenericDecl: NodeID<FunDecl>(converting: id)!)
+      return environment(ofGenericDecl: NodeID<FunDecl>(rawValue: id.rawValue))
     case .productTypeDecl:
-      return environment(ofGenericDecl: NodeID<ProductTypeDecl>(converting: id)!)
+      return environment(ofGenericDecl: NodeID<ProductTypeDecl>(rawValue: id.rawValue))
     case .subscriptDecl:
-      return environment(ofGenericDecl: NodeID<SubscriptDecl>(converting: id)!)
+      return environment(ofGenericDecl: NodeID<SubscriptDecl>(rawValue: id.rawValue))
     case .typeAliasDecl:
-      return environment(ofGenericDecl: NodeID<TypeAliasDecl>(converting: id)!)
+      return environment(ofGenericDecl: NodeID<TypeAliasDecl>(rawValue: id.rawValue))
     case .traitDecl:
-      return environment(ofTraitDecl: NodeID(converting: id)!)
+      return environment(ofTraitDecl: NodeID(rawValue: id.rawValue))
     default:
       unreachable("unexpected scope")
     }
@@ -1058,13 +1098,13 @@ public struct TypeChecker {
       switch member.kind {
       case .associatedTypeDecl:
         success = associatedConstraints(
-          ofType: NodeID(converting: member)!,
+          ofType: NodeID(rawValue: member.rawValue),
           ofTrait: i,
           into: &constraints) && success
 
       case .associatedValueDecl:
         success = associatedConstraints(
-          ofValue: NodeID(converting: member)!,
+          ofValue: NodeID(rawValue: member.rawValue),
           ofTrait: i,
           into: &constraints) && success
 
@@ -1295,7 +1335,7 @@ public struct TypeChecker {
       // A binding pattern introduces additional type information when it has a type annotation. In
       // that case, the type denoted by the annotation is used to infer the type of the sub-pattern
       // and constrained to be a subtype of the expected type, if any.
-      let lhs = ast[NodeID<BindingPattern>(converting: pattern)!]
+      let lhs = ast[NodeID<BindingPattern>(rawValue: pattern.rawValue)]
       var subpatternType = expectedType
       if let annotation = lhs.annotation {
         if let type = realize(annotation, inScope: scope) {
@@ -1320,7 +1360,7 @@ public struct TypeChecker {
       fatalError("not implemented")
 
     case .namePattern:
-      let lhs = ast[NodeID<NamePattern>(converting: pattern)!]
+      let lhs = ast[NodeID<NamePattern>(rawValue: pattern.rawValue)]
       let type = expectedType ?? .variable(TypeVariable(node: AnyNodeID(lhs.decl)))
       decls.append(lhs.decl)
       declTypes[lhs.decl] = type
@@ -1328,7 +1368,7 @@ public struct TypeChecker {
       return type
 
     case .tuplePattern:
-      let lhs = ast[NodeID<TuplePattern>(converting: pattern)!]
+      let lhs = ast[NodeID<TuplePattern>(rawValue: pattern.rawValue)]
       switch expectedType {
       case .tuple(let rhs):
         // The pattern and the expected have a tuple shape.
@@ -1478,15 +1518,15 @@ public struct TypeChecker {
   ) -> DeclSet {
     switch scope.kind {
     case .productTypeDecl:
-      let type = Type.product(ProductType(decl: NodeID(converting: scope)!, ast: ast))
+      let type = Type.product(ProductType(decl: NodeID(rawValue: scope.rawValue), ast: ast))
       return lookup(name, memberOf: type, inScope: origin)
 
     case .traitDecl:
-      let type = Type.trait(TraitType(decl: NodeID(converting: scope)!, ast: ast))
+      let type = Type.trait(TraitType(decl: NodeID(rawValue: scope.rawValue), ast: ast))
       return lookup(name, memberOf: type, inScope: origin)
 
     case .typeAliasDecl:
-      let type = Type.typeAlias(TypeAliasType(decl: NodeID(converting: scope)!, ast: ast))
+      let type = Type.typeAlias(TypeAliasType(decl: NodeID(rawValue: scope.rawValue), ast: ast))
       return lookup(name, memberOf: type, inScope: origin)
 
     default:
@@ -1694,7 +1734,7 @@ public struct TypeChecker {
         break
 
       case .funDecl:
-        let decl = ast[NodeID<FunDecl>(converting: id)!]
+        let decl = ast[NodeID<FunDecl>(rawValue: id.rawValue)]
         switch decl.introducer.value {
         case .memberwiseInit,
              .`init` where decl.body != nil:
@@ -1710,7 +1750,7 @@ public struct TypeChecker {
         }
 
       case .subscriptDecl:
-        let decl = ast[NodeID<SubscriptDecl>(converting: id)!]
+        let decl = ast[NodeID<SubscriptDecl>(rawValue: id.rawValue)]
         let name = decl.identifier?.value ?? "[]"
         table[name, default: []].insert(AnyDeclID(id))
 
@@ -1729,22 +1769,22 @@ public struct TypeChecker {
   mutating func realize(_ expr: AnyTypeExprID, inScope scope: AnyScopeID) -> Type? {
     switch expr.kind {
     case .conformanceLensTypeExpr:
-      return realize(conformanceLens: NodeID(converting: expr)!, inScope: scope)
+      return realize(conformanceLens: NodeID(rawValue: expr.rawValue), inScope: scope)
 
     case .lambdaTypeExpr:
-      return realize(lambda: NodeID(converting: expr)!, inScope: scope)
+      return realize(lambda: NodeID(rawValue: expr.rawValue), inScope: scope)
 
     case .nameTypeExpr:
-      return realize(name: NodeID(converting: expr)!, inScope: scope)
+      return realize(name: NodeID(rawValue: expr.rawValue), inScope: scope)
 
     case .parameterTypeExpr:
-      let id = NodeID<ParameterTypeExpr>(converting: expr)!
+      let id = NodeID<ParameterTypeExpr>(rawValue: expr.rawValue)
       diagnostics.insert(.illegalParameterConvention(
         ast[id].convention.value, range: ast[id].convention.range))
       return nil
 
     case .tupleTypeExpr:
-      return realize(tuple: NodeID(converting: expr)!, inScope: scope)
+      return realize(tuple: NodeID(rawValue: expr.rawValue), inScope: scope)
 
     case .wildcardTypeExpr:
       return .variable(TypeVariable(node: expr.base))
@@ -1889,7 +1929,7 @@ public struct TypeChecker {
         }
 
         if match.kind == .associatedTypeDecl {
-          let decl = NodeID<AssociatedTypeDecl>(converting: match)!
+          let decl = NodeID<AssociatedTypeDecl>(rawValue: match.rawValue)
           switch domain {
           case .associated, .conformanceLens, .genericTypeParam:
             base = .associated(AssociatedType(decl: decl, domain: domain, ast: ast))
@@ -1944,7 +1984,8 @@ public struct TypeChecker {
           // associated declarations cannot be looked up unqualified outside the scope of a trait
           // and its extensions.
           let domain = realizeSelfTypeExpr(inScope: scope)!
-          let type = AssociatedType(decl: NodeID(converting: match)!, domain: domain, ast: ast)
+          let type = AssociatedType(
+            decl: NodeID(rawValue: match.rawValue), domain: domain, ast: ast)
           base = .associated(type)
         } else {
           base = realize(decl: match).proper
@@ -2039,7 +2080,7 @@ public struct TypeChecker {
       })
 
     case .bindingDecl:
-      return realize(bindingDecl: NodeID(converting: id)!)
+      return realize(bindingDecl: NodeID(rawValue: id.rawValue))
 
     case .conformanceDecl,
          .extensionDecl:
@@ -2049,34 +2090,34 @@ public struct TypeChecker {
       })
 
     case .methodImplDecl:
-      return realize(funDecl: NodeID(converting: scopeHierarchy.container[id]!)!)
+      return realize(funDecl: NodeID(rawValue: scopeHierarchy.container[id]!.rawValue))
 
     case .funDecl:
-      return realize(funDecl: NodeID(converting: id)!)
+      return realize(funDecl: NodeID(rawValue: id.rawValue))
 
     case .parameterDecl:
-      return realize(parameterDecl: NodeID(converting: id)!)
+      return realize(parameterDecl: NodeID(rawValue: id.rawValue))
 
     case .productTypeDecl:
       return _realize(decl: id, { (this, id) in
-        .product(ProductType(decl: NodeID(converting: id)!, ast: this.ast))
+        .product(ProductType(decl: NodeID(rawValue: id.rawValue), ast: this.ast))
       })
 
     case .subscriptDecl:
-      return realize(subscriptDecl: NodeID(converting: id)!)
+      return realize(subscriptDecl: NodeID(rawValue: id.rawValue))
 
     case .traitDecl:
       return _realize(decl: id, { (this, id) in
-        .trait(TraitType(decl: NodeID(converting: id)!, ast: this.ast))
+          .trait(TraitType(decl: NodeID(rawValue: id.rawValue), ast: this.ast))
       })
 
     case .typeAliasDecl:
       return _realize(decl: id, { (this, id) in
-        .typeAlias(TypeAliasType(decl: NodeID(converting: id)!, ast: this.ast))
+        .typeAlias(TypeAliasType(decl: NodeID(rawValue: id.rawValue), ast: this.ast))
       })
 
     case .varDecl:
-      let bindingDecl = scopeHierarchy.varToBinding[NodeID(converting: id)!]!
+      let bindingDecl = scopeHierarchy.varToBinding[NodeID(rawValue: id.rawValue)]!
       let bindingType = realize(bindingDecl: bindingDecl)
       return bindingType.isError
         ? bindingType
@@ -2088,7 +2129,7 @@ public struct TypeChecker {
   }
 
   private mutating func realize(bindingDecl id: NodeID<BindingDecl>) -> Type {
-    _ = check(binding: NodeID(converting: id)!)
+    _ = check(binding: NodeID(rawValue: id.rawValue))
     return declTypes[id]!
   }
 
