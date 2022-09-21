@@ -1,4 +1,5 @@
 import Utils
+import ValModule
 
 /// An abstract syntax tree.
 public struct AST: Codable {
@@ -21,7 +22,7 @@ public struct AST: Codable {
   public init() {}
 
   /// The ID of the node representing all built-in declarations.
-  public var builtinDecl: NodeID<BuiltinDecl> { NodeID(unsafeRawValue: 0) }
+  public var builtinDecl: NodeID<BuiltinDecl> { NodeID(rawValue: 0) }
 
   /// Returns the scope hierarchy.
   func scopeHierarchy() -> ScopeHierarchy {
@@ -29,9 +30,30 @@ public struct AST: Codable {
     return builder.build(hierarchyOf: self)
   }
 
+  /// Imports the standard library into `self`.
+  ///
+  /// - Requires: The standard library must not have been already imported.
+  public mutating func importValModule() throws {
+    if stdlib != nil { throw CompilerError(description: "module already loaded") }
+    stdlib = insert(ModuleDecl(name: "Val"))
+
+    try withFiles(in: ValModule.core!, { (sourceURL) in
+      if sourceURL.pathExtension != "val" {
+        return true
+      }
+
+      let sourceFile = try SourceFile(contentsOf: sourceURL)
+      let (decls, diagnostics) = Parser.parse(sourceFile, into: stdlib!, in: &self)
+      if (decls == nil) || !diagnostics.isEmpty {
+        throw CompilerError(description: "parser failed", diagnostics: diagnostics)
+      }
+      return true
+    })
+  }
+
   /// Inserts `n` into `self`.
   public mutating func insert<T: Node>(_ n: T) -> NodeID<T> {
-    let i = NodeID<T>(unsafeRawValue: nodes.count)
+    let i = NodeID<T>(rawValue: nodes.count)
     if let n = n as? ModuleDecl {
       precondition(!modules.contains(where: { self[$0].name == n.name }), "duplicate module")
       modules.append(i as! NodeID<ModuleDecl>)
@@ -97,18 +119,18 @@ public struct AST: Codable {
     ) {
       switch pattern.kind {
       case .bindingPattern:
-        let p = NodeID<BindingPattern>(unsafeRawValue: pattern.rawValue)
+        let p = NodeID<BindingPattern>(rawValue: pattern.rawValue)
         visit(pattern: self[p].subpattern, path: path, result: &result)
 
       case .exprPattern:
         break
 
       case .namePattern:
-        let p = NodeID<NamePattern>(unsafeRawValue: pattern.rawValue)
+        let p = NodeID<NamePattern>(rawValue: pattern.rawValue)
         result.append((path: path, pattern: p))
 
       case .tuplePattern:
-        let p = NodeID<TuplePattern>(unsafeRawValue: pattern.rawValue)
+        let p = NodeID<TuplePattern>(rawValue: pattern.rawValue)
         for i in 0 ..< self[p].elements.count {
           visit(
             pattern: self[p].elements[i].pattern,
@@ -138,7 +160,7 @@ public struct AST: Codable {
   ) -> NodeID<FunDecl> {
     // Look for the declaration.
     for member in self[d].members where member.kind == .funDecl {
-      let m = NodeID<FunDecl>(unsafeRawValue: member.rawValue)
+      let m = NodeID<FunDecl>(rawValue: member.rawValue)
       if self[m].introducer.value == .memberwiseInit { return m }
     }
 

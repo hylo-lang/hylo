@@ -1,6 +1,5 @@
 import XCTest
 import Compiler
-import Library
 
 final class TypeCheckerTests: XCTestCase {
 
@@ -147,10 +146,10 @@ final class TypeCheckerTests: XCTestCase {
 
     // trait T { type X }
     // trait U: T {
-    //   subscript x0: X { let }         // OK
-    //   subscript x1: Self.X { let }    // OK
-    //   subscript x2: T.X { let }       // error
-    //   subscript x3: Self::T.X { let } // OK
+    //   property x0: X { let }         // OK
+    //   property x1: Self.X { let }    // OK
+    //   property x2: T.X { let }       // error
+    //   property x3: Self::T.X { let } // OK
     // }
 
     var ast = AST()
@@ -170,33 +169,37 @@ final class TypeCheckerTests: XCTestCase {
       refinements: [ast.insertTypeName("T")],
       members: [
         AnyDeclID(ast.insert(SubscriptDecl(
+          introducer: SourceRepresentable(value: .property),
           identifier: SourceRepresentable(value: "x0"),
           output: AnyTypeExprID(ast.insertTypeName("X")),
-          body: .bundle([
+          impls: [
             ast.insert(SubscriptImplDecl(introducer: SourceRepresentable(value: .let)))
-          ])))),
+          ]))),
         AnyDeclID(ast.insert(SubscriptDecl(
+          introducer: SourceRepresentable(value: .property),
           identifier: SourceRepresentable(value: "x1"),
           output: AnyTypeExprID(ast.insertTypeName("Self.X")),
-          body: .bundle([
+          impls: [
             ast.insert(SubscriptImplDecl(introducer: SourceRepresentable(value: .let)))
-          ])))),
+          ]))),
         AnyDeclID(ast.insert(SubscriptDecl(
+          introducer: SourceRepresentable(value: .property),
           identifier: SourceRepresentable(value: "x2"),
           output: AnyTypeExprID(ast.insertTypeName("T.X")),
-          body: .bundle([
+          impls: [
             ast.insert(SubscriptImplDecl(introducer: SourceRepresentable(value: .let)))
-          ])))),
+          ]))),
         AnyDeclID(ast.insert(SubscriptDecl(
+          introducer: SourceRepresentable(value: .property),
           identifier: SourceRepresentable(value: "x2"),
           output: AnyTypeExprID(ast.insert(NameTypeExpr(
             domain: AnyTypeExprID(ast.insert(ConformanceLensTypeExpr(
               subject: AnyTypeExprID(ast.insertTypeName("Self")),
               lens: AnyTypeExprID(ast.insertTypeName("T"))))),
             identifier: SourceRepresentable(value: "X")))),
-          body: .bundle([
+          impls: [
             ast.insert(SubscriptImplDecl(introducer: SourceRepresentable(value: .let)))
-          ]))))
+          ])))
       ]))))
 
     var checker = TypeChecker(ast: ast)
@@ -292,14 +295,14 @@ final class TypeCheckerTests: XCTestCase {
     XCTAssertEqual(checker.diagnostics.count, 1)
   }
 
-  func testMethodExternalLookup() {
+  func testMethodExternalLookup() throws {
 
     // fun main() {
     //   let _ = 0.copy()
     // }
 
     var ast = AST()
-    insertStandardLibraryMockup(into: &ast)
+    try ast.importValModule()
     let main = ast.insert(ModuleDecl(name: "main"))
     let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
@@ -469,13 +472,13 @@ final class TypeCheckerTests: XCTestCase {
     XCTAssertTrue(checker.check(module: main))
   }
 
-  func testBindingTypeInferenceWithHints() {
+  func testBindingTypeInferenceWithHints() throws {
 
     // let x0: (Int, Double) = (2, 3)
     // let x1: (_, Double) = (2, 3)
 
     var ast = AST()
-    insertStandardLibraryMockup(into: &ast)
+    try ast.importValModule()
     let main = ast.insert(ModuleDecl(name: "main"))
     let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
@@ -639,12 +642,12 @@ final class TypeCheckerTests: XCTestCase {
     XCTAssertEqual(checker.diagnostics.count, 1)
   }
 
-  func testExpressionBodiedFunction() {
+  func testExpressionBodiedFunction() throws {
 
     // fun forty_two() -> Int { 42 }
 
     var ast = AST()
-    insertStandardLibraryMockup(into: &ast)
+    try ast.importValModule()
     let main = ast.insert(ModuleDecl(name: "main"))
     let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
@@ -665,7 +668,6 @@ final class TypeCheckerTests: XCTestCase {
     // fun no_op() { return }
 
     var ast = AST()
-    insertStandardLibraryMockup(into: &ast)
     let main = ast.insert(ModuleDecl(name: "main"))
     let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
@@ -1543,12 +1545,12 @@ final class TypeCheckerTests: XCTestCase {
     XCTAssertTrue(checker.check(module: main))
   }
 
-  func testIntegerLiteralExpr() {
+  func testIntegerLiteralExpr() throws {
 
     // 42
 
     var ast = AST()
-    insertStandardLibraryMockup(into: &ast)
+    try ast.importValModule()
     let main = ast.insert(ModuleDecl(name: "main"))
 
     let expr = AnyExprID(ast.insert(IntegerLiteralExpr(value: "42")))
@@ -1606,7 +1608,7 @@ final class TypeCheckerTests: XCTestCase {
         left: AnyExprID(ast.insert(NameExpr(
           name: SourceRepresentable(value: "a")))),
         right: AnyTypeExprID(ast.insert(TupleTypeExpr())),
-        direction: .down)))))))
+        kind: .down)))))))
 
     var checker = TypeChecker(ast: ast)
     XCTAssertTrue(checker.check(module: main))
@@ -1629,18 +1631,18 @@ final class TypeCheckerTests: XCTestCase {
         left: AnyExprID(ast.insert(TupleExpr())),
         right: AnyTypeExprID(ast.insert(NameTypeExpr(
           identifier: SourceRepresentable(value: "Any")))),
-        direction: .up)))))))
+        kind: .up)))))))
 
     var checker = TypeChecker(ast: ast)
     XCTAssertTrue(checker.check(module: main))
   }
 
-  func testClosureTypeInference() {
+  func testClosureTypeInference() throws {
 
     // let _ = fun () { 42 }
 
     var ast = AST()
-    insertStandardLibraryMockup(into: &ast)
+    try ast.importValModule()
     let main = ast.insert(ModuleDecl(name: "main"))
     let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
@@ -1658,13 +1660,13 @@ final class TypeCheckerTests: XCTestCase {
     XCTAssertTrue(checker.check(module: main))
   }
 
-  func testClosureTypeInferenceWithHints() {
+  func testClosureTypeInferenceWithHints() throws {
 
     // let _ = fun (x: sink Int) { x }
     // let _: thin (x: sink Int) -> Int = fun (x) { x }
 
     var ast = AST()
-    insertStandardLibraryMockup(into: &ast)
+    try ast.importValModule()
     let main = ast.insert(ModuleDecl(name: "main"))
     let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
@@ -1803,13 +1805,13 @@ final class TypeCheckerTests: XCTestCase {
     XCTAssertEqual(checker.diagnostics.count, 1)
   }
 
-  func testReturnStmt() {
+  func testReturnStmt() throws {
 
     // fun forty_two() -> Int { return 42 } // OK
     // fun forty_one() -> Int { return }    // error
 
     var ast = AST()
-    insertStandardLibraryMockup(into: &ast)
+    try ast.importValModule()
     let main = ast.insert(ModuleDecl(name: "main"))
     let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)
@@ -1930,7 +1932,7 @@ final class TypeCheckerTests: XCTestCase {
     XCTAssertTrue(checker.check(module: main))
   }
 
-  func testCondExpr() {
+  func testCondExpr() throws {
 
     // fun one_or_two(_ test: Bool) -> Int {
     //   let x = if test { 1 } else { 2 }
@@ -1938,7 +1940,7 @@ final class TypeCheckerTests: XCTestCase {
     // }
 
     var ast = AST()
-    insertStandardLibraryMockup(into: &ast)
+    try ast.importValModule()
     let main = ast.insert(ModuleDecl(name: "main"))
     let source = ast.insert(TopLevelDeclSet())
     ast[main].sources.append(source)

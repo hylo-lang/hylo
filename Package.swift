@@ -33,7 +33,6 @@ let package = Package(
       name: "CLI",
       dependencies: [
         "Compiler",
-        "Library",
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
       ]),
 
@@ -42,24 +41,25 @@ let package = Package(
       name: "Compiler",
       dependencies: [
         "Utils",
+        "ValModule",
         .product(name: "Collections", package: "swift-collections"),
         .product(name: "LLVM", package: "LLVMSwift"),
         .product(name: "Durian", package: "Durian"),
       ],
-      resources: [.copy("CXX/README.md")]
-      ),
+      exclude: ["CXX/README.md"]),
 
     .target(
-      name: "Library",
-      dependencies: ["Compiler"]),
+      name: "ValModule",
+      path: "Library",
+      resources: [.copy("Core")]),
 
     .target(name: "Utils"),
 
     // Test targets.
     .testTarget(
       name: "ValTests",
-      dependencies: ["Compiler", "Library"]),
+      dependencies: ["Compiler"]),
     .testTarget(
       name: "CXXTests",
-      dependencies: ["Compiler", "Library"]),
+      dependencies: ["Compiler"]),
   ])

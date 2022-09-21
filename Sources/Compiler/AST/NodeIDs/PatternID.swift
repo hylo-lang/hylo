@@ -9,15 +9,15 @@ extension PatternID {
   public func accept<V: PatternVisitor>(_ visitor: inout V) -> V.Result {
     switch kind {
     case .bindingPattern:
-      return visitor.visit(binding: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(binding: NodeID(rawValue: rawValue))
     case .exprPattern:
-      return visitor.visit(expr: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(expr: NodeID(rawValue: rawValue))
     case .namePattern:
-      return visitor.visit(name: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(name: NodeID(rawValue: rawValue))
     case .tuplePattern:
-      return visitor.visit(tuple: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(tuple: NodeID(rawValue: rawValue))
     case .wildcardPattern:
-      return visitor.visit(wildcard: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(wildcard: NodeID(rawValue: rawValue))
     default:
       unreachable()
     }

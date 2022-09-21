@@ -13,6 +13,16 @@ public struct SubscriptImplDecl: Decl, LexicalScope {
 
     case sink
 
+    /// The parameter passing convention corresponding to this introducer.
+    public var convention: PassingConvention {
+      switch self {
+      case .let   : return .let
+      case .inout : return .inout
+      case .set   : return .set
+      case .sink  : return .sink
+      }
+    }
+
   }
 
   public enum Body: Codable {
@@ -30,6 +40,11 @@ public struct SubscriptImplDecl: Decl, LexicalScope {
 
   /// The body of the subscript, if any.
   public var body: Body?
+
+  /// The declaration of the implicit receiver parameter, if any.
+  ///
+  /// This property is set during type checking.
+  public var receiver: NodeID<ParameterDecl>?
 
   public init(introducer: SourceRepresentable<Introducer>, body: Body? = nil) {
     self.introducer = introducer

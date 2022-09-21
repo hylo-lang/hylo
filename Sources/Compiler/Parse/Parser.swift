@@ -50,10 +50,8 @@ public enum Parser {
       // Parse the file.
       if let d = try Self.sourceFile.parse(&context) {
         // Make sure we consumed the entire file.
-        if let i = input.contents
-          .suffix(from: context.currentIndex).firstIndex(where: { !$0.isWhitespace })
-        {
-          throw ParseError("expected EOF", at: SourceLocation(source: input, index: i))
+        if let head = context.peek() {
+          throw ParseError("expected EOF", at: head.range.first())
         }
 
         // Parser succeeded.
@@ -100,7 +98,7 @@ public enum Parser {
   )
 
   static let moduleScopeDecl = (
-    maybe(accessModifier).andCollapsingSoftFailures(oneOf([
+    decorated(decl: oneOf([
       anyDecl(importDecl),
       anyDecl(namespaceDecl),
       anyDecl(typeAliasDecl),
@@ -113,7 +111,6 @@ public enum Parser {
       anyDecl(subscriptDecl),
       anyDecl(operatorDecl),
     ]))
-    .map(assignAccessModifier)
   )
 
   static let importDecl = (
@@ -155,7 +152,7 @@ public enum Parser {
   ))
 
   static let namespaceMember = (
-    maybe(accessModifier).andCollapsingSoftFailures(oneOf([
+    decorated(decl: oneOf([
       anyDecl(namespaceDecl),
       anyDecl(typeAliasDecl),
       anyDecl(productTypeDecl),
@@ -166,7 +163,6 @@ public enum Parser {
       anyDecl(functionDecl),
       anyDecl(subscriptDecl),
     ]))
-    .map(assignAccessModifier)
   )
 
   static let typeAliasDecl = (
@@ -223,18 +219,15 @@ public enum Parser {
   ))
 
   static let productTypeMember = (
-    maybe(accessModifier).andCollapsingSoftFailures(
-      maybe(memberModifier).andCollapsingSoftFailures(
-        oneOf([
-          anyDecl(typeAliasOrProductTypeDecl),
-          anyDecl(initDecl),
-          anyDecl(deinitDecl),
-          anyDecl(functionDecl),
-          anyDecl(bindingDecl),
-          anyDecl(subscriptDecl),
-          anyDecl(propertyDecl),
-        ])))
-    .map(assignModifiers)
+    decorated(decl: oneOf([
+      anyDecl(typeAliasOrProductTypeDecl),
+      anyDecl(initDecl),
+      anyDecl(deinitDecl),
+      anyDecl(functionDecl),
+      anyDecl(bindingDecl),
+      anyDecl(subscriptDecl),
+      anyDecl(propertyDecl),
+    ]))
   )
 
   static let typeAliasOrProductTypeDecl = (
@@ -357,16 +350,13 @@ public enum Parser {
   ))
 
   static let extensionMember = (
-    maybe(accessModifier).andCollapsingSoftFailures(
-      maybe(memberModifier).andCollapsingSoftFailures(
-        oneOf([
-          anyDecl(typeAliasOrProductTypeDecl),
-          anyDecl(initDecl),
-          anyDecl(functionDecl),
-          anyDecl(subscriptDecl),
-          anyDecl(propertyDecl),
-        ])))
-    .map(assignModifiers)
+    decorated(decl: oneOf([
+      anyDecl(typeAliasOrProductTypeDecl),
+      anyDecl(initDecl),
+      anyDecl(functionDecl),
+      anyDecl(subscriptDecl),
+      anyDecl(propertyDecl),
+    ]))
   )
 
   static let bindingDecl = (
@@ -529,10 +519,6 @@ public enum Parser {
   static let methodImpl = (
     methodIntroducer.and(maybe(methodImplBody))
       .map({ (context, tree) -> NodeID<MethodImplDecl> in
-        if !context.flags[.parsingTraitBody] && (tree.1 == nil) {
-          throw ParseError("expected method body", at: context.currentLocation)
-        }
-
         let id = context.ast.insert(MethodImplDecl(introducer: tree.0, body: tree.1))
         context.ast.ranges[id] = tree.0.range!.upperBounded(by: context.currentIndex)
         return id
@@ -560,10 +546,11 @@ public enum Parser {
       .map({ (context, tree) -> NodeID<SubscriptDecl> in
         let identifier = SourceRepresentable(token: tree.0.0.0.1, in: context.lexer.source)
         let id = context.ast.insert(SubscriptDecl(
+          introducer: SourceRepresentable(value: .property, range: tree.0.0.0.0.range),
           receiverEffect: tree.0.0.1,
           identifier: identifier,
           output: tree.0.1.1,
-          body: tree.1))
+          impls: tree.1 ?? []))
 
         context.ast.ranges[id] = tree.0.0.0.0.range.upperBounded(by: context.currentIndex)
         return id
@@ -579,13 +566,14 @@ public enum Parser {
         })
 
         let id = context.ast.insert(SubscriptDecl(
+          introducer: SourceRepresentable(value: .subscript, range: head.0.0.0.range),
           receiverEffect: signature.receiverEffect,
           identifier: identifier,
           genericClause: head.0.1,
           explicitCaptures: head.1 ?? [],
           parameters: signature.parameters,
           output: signature.output,
-          body: body))
+          impls: body ?? []))
 
         context.ast.ranges[id] = head.0.0.0.range.upperBounded(by: context.currentIndex)
         return id
@@ -612,13 +600,26 @@ public enum Parser {
   )
 
   static let subscriptBody = settingFlags(.parsingSubscriptBody, apply: TryCatch(
-    trying: subscriptBundleBody
-      .map({ (context, impls) -> SubscriptDecl.Body in .bundle(impls) }),
+    trying: subscriptBundleBody,
     orCatchingAndApplying: TryCatch(
       trying: take(.lBrace).and(expr).and(take(.rBrace))
-        .map({ (context, tree) -> SubscriptDecl.Body in .expr(tree.0.1) }),
+        .map({ (context, tree) -> [NodeID<SubscriptImplDecl>] in
+          [context.ast.insert(SubscriptImplDecl(
+            introducer: SourceRepresentable(value: .let),
+            body: .expr(tree.0.1)))]
+        }),
       orCatchingAndApplying: braceStmt
-        .map({ (context, id) -> SubscriptDecl.Body in .block(id) })
+        .map({ (context, id) -> [NodeID<SubscriptImplDecl>] in
+          if context.ast[id].stmts.isEmpty {
+            throw ParseError(
+              "expected subscript implementation",
+              at: context.ast.ranges[id]!.last()!)
+          }
+
+          return [context.ast.insert(SubscriptImplDecl(
+            introducer: SourceRepresentable(value: .let),
+            body: .block(id)))]
+        })
     )
   ))
 
@@ -640,10 +641,6 @@ public enum Parser {
   static let subscriptImpl = (
     subscriptIntroducer.and(maybe(subscriptImplBody))
       .map({ (context, tree) -> NodeID<SubscriptImplDecl> in
-        if !context.flags[.parsingTraitBody] && (tree.1 == nil) {
-          throw ParseError("expected subscript body", at: context.currentLocation)
-        }
-
         let id = context.ast.insert(SubscriptImplDecl(introducer: tree.0, body: tree.1))
         context.ast.ranges[id] = tree.0.range!.upperBounded(by: context.currentIndex)
         return id
@@ -768,94 +765,145 @@ public enum Parser {
       })
   )
 
-  /// Assigns the access modifier `tree.1` to `tree.0` if the latter is not `nil`.
-  private static func assignAccessModifier(
-    context: inout ParserContext,
-    tree: (SourceRepresentable<AccessModifier>?, AnyDeclID)
-  ) -> AnyDeclID {
-    let (access, decl) = tree
-    if tree.0 == nil { return tree.1 }
-
-    switch decl.kind {
-    case .bindingDecl:
-      context.ast[NodeID<BindingDecl>(unsafeRawValue: decl.rawValue)].accessModifier = access
-    case .conformanceDecl:
-      context.ast[NodeID<ConformanceDecl>(unsafeRawValue: decl.rawValue)].accessModifier = access
-    case .extensionDecl:
-      context.ast[NodeID<ExtensionDecl>(unsafeRawValue: decl.rawValue)].accessModifier = access
-    case .funDecl:
-      context.ast[NodeID<FunDecl>(unsafeRawValue: decl.rawValue)].accessModifier = access
-    case .operatorDecl:
-      context.ast[NodeID<OperatorDecl>(unsafeRawValue: decl.rawValue)].accessModifier = access
-    case .namespaceDecl:
-      context.ast[NodeID<NamespaceDecl>(unsafeRawValue: decl.rawValue)].accessModifier = access
-    case .productTypeDecl:
-      context.ast[NodeID<ProductTypeDecl>(unsafeRawValue: decl.rawValue)].accessModifier = access
-    case .subscriptDecl:
-      context.ast[NodeID<SubscriptDecl>(unsafeRawValue: decl.rawValue)].accessModifier = access
-    case .traitDecl:
-      context.ast[NodeID<TraitDecl>(unsafeRawValue: decl.rawValue)].accessModifier = access
-    case .typeAliasDecl:
-      context.ast[NodeID<TypeAliasDecl>(unsafeRawValue: decl.rawValue)].accessModifier = access
-    default:
-      unreachable("unexpected declaration")
-    }
-
-    return decl
-  }
-
-  /// Assigns the access and member modifiers represented by `tree.0` and `tree.1.0` to `tree.1.1`
-  /// if the latter is not `nil`.
-  private static func assignModifiers(
-    context: inout ParserContext,
-    tree: (SourceRepresentable<AccessModifier>?, (SourceRepresentable<MemberModifier>?, AnyDeclID))
-  ) -> AnyDeclID {
-    let (access, (member, decl)) = tree
-    if (access == nil) && (member == nil) { return tree.1.1 }
-
-    switch decl.kind {
-    case .bindingDecl:
-      context.ast[NodeID<BindingDecl>(unsafeRawValue: decl.rawValue)].memberModifier = member
-    case .funDecl:
-      context.ast[NodeID<FunDecl>(unsafeRawValue: decl.rawValue)].memberModifier = member
-    case .subscriptDecl:
-      context.ast[NodeID<SubscriptDecl>(unsafeRawValue: decl.rawValue)].memberModifier = member
-    default:
-      unreachable("unexpected declaration")
-    }
-
-    return assignAccessModifier(context: &context, tree: (access, decl))
-  }
-
-  /// Applies `decl` after having parsed its modifiers. If `decl` fails without committing,
-  /// returns a non-committing failure if no modifier was parsed.
-  private static func declModifiers<Decl: Combinator>(
-    and decl: Decl
-  ) throws -> Apply<
-    ParserContext, (
-      SourceRepresentable<AccessModifier>?,
-      SourceRepresentable<MemberModifier>?,
-      AnyDeclID
-    )> where Decl.Context == ParserContext, Decl.Element == AnyDeclID
+  /// Applies `decl` after having parsed its attributes and modifiers, and tries to apply those
+  /// to the parsed declaration, producing hard failures only if `decl` did or if at least one
+  /// attribute or modifier has been parsed.
+  private static func decorated<Decl: Combinator>(decl: Decl) -> Apply<ParserContext, AnyDeclID>
+  where Decl.Context == ParserContext, Decl.Element == AnyDeclID
   {
     Apply({ (context) in
-      // Parse an access modifier if appropriate.
-      let access: _? = context.flags[.parsingFunctionBody]
-        ? try accessModifier.parse(&context)
-        : nil
+      guard let startIndex = context.peek()?.range.lowerBound else { return nil }
 
-      // Parse a member modifier if appropriate.
-      let member: _? = context.flags[.parsingTypeBody]
-        ? try memberModifier.parse(&context)
-        : nil
-
-      if let id = try decl.parse(&context) {
-        return (access, member, id)
-      } else if (access == nil) && (member == nil) {
-        return nil
-      } else {
-        throw ParseError("expected declaration", at: context.currentLocation)
+      // Parse attributes and modifiers.
+      var attributes: [SourceRepresentable<Attribute>] = []
+      while let a = try declAttribute.parse(&context) {
+        attributes.append(a)
       }
+      let access = try accessModifier.parse(&context)
+      let member = try memberModifier.parse(&context)
+
+      // Parse the declaration.
+      guard let declID = try decl.parse(&context) else {
+        if attributes.isEmpty && (access == nil) && (member == nil) {
+          return nil
+        } else {
+          throw ParseError("expected declaration", at: context.currentLocation)
+        }
+      }
+
+      switch declID.kind {
+      case .bindingDecl:
+        let id = NodeID<BindingDecl>(rawValue: declID.rawValue)
+        context.ast[id].attributes = attributes
+        context.ast[id].accessModifier = access
+        context.ast[id].memberModifier = member
+
+      case .conformanceDecl:
+        let id = NodeID<ConformanceDecl>(rawValue: declID.rawValue)
+        context.ast[id].accessModifier = access
+
+        if let a = attributes.first {
+          context.diagnostics.append(.unexpectedDeclAttribute(range: a.range))
+        }
+        if let m = member {
+          context.diagnostics.append(.unexpectedDeclModifier(range: m.range))
+        }
+
+      case .importDecl:
+        if let a = attributes.first {
+          context.diagnostics.append(.unexpectedDeclAttribute(range: a.range))
+        }
+        if let a = access {
+          context.diagnostics.append(.unexpectedDeclModifier(range: a.range))
+        }
+        if let m = member {
+          context.diagnostics.append(.unexpectedDeclModifier(range: m.range))
+        }
+
+      case .extensionDecl:
+        let id = NodeID<ExtensionDecl>(rawValue: declID.rawValue)
+        context.ast[id].accessModifier = access
+
+        if let a = attributes.first {
+          context.diagnostics.append(.unexpectedDeclAttribute(range: a.range))
+        }
+        if let m = member {
+          context.diagnostics.append(.unexpectedDeclModifier(range: m.range))
+        }
+
+      case .funDecl:
+        let id = NodeID<FunDecl>(rawValue: declID.rawValue)
+        context.ast[id].attributes = attributes
+        context.ast[id].accessModifier = access
+        context.ast[id].memberModifier = member
+
+      case .operatorDecl:
+        let id = NodeID<OperatorDecl>(rawValue: declID.rawValue)
+        context.ast[id].accessModifier = access
+
+        if let a = attributes.first {
+          context.diagnostics.append(.unexpectedDeclAttribute(range: a.range))
+        }
+        if let m = member {
+          context.diagnostics.append(.unexpectedDeclModifier(range: m.range))
+        }
+
+      case .namespaceDecl:
+        let id = NodeID<NamespaceDecl>(rawValue: declID.rawValue)
+        context.ast[id].accessModifier = access
+
+        if let a = attributes.first {
+          context.diagnostics.append(.unexpectedDeclAttribute(range: a.range))
+        }
+        if let m = member {
+          context.diagnostics.append(.unexpectedDeclModifier(range: m.range))
+        }
+
+      case .productTypeDecl:
+        let id = NodeID<ProductTypeDecl>(rawValue: declID.rawValue)
+        context.ast[id].accessModifier = access
+
+        if let a = attributes.first {
+          context.diagnostics.append(.unexpectedDeclAttribute(range: a.range))
+        }
+        if let m = member {
+          context.diagnostics.append(.unexpectedDeclModifier(range: m.range))
+        }
+
+      case .subscriptDecl:
+        let id = NodeID<SubscriptDecl>(rawValue: declID.rawValue)
+        context.ast[id].attributes = attributes
+        context.ast[id].accessModifier = access
+        context.ast[id].memberModifier = member
+
+      case .traitDecl:
+        let id = NodeID<TraitDecl>(rawValue: declID.rawValue)
+        context.ast[id].accessModifier = access
+
+        if let a = attributes.first {
+          context.diagnostics.append(.unexpectedDeclAttribute(range: a.range))
+        }
+        if let m = member {
+          context.diagnostics.append(.unexpectedDeclModifier(range: m.range))
+        }
+
+      case .typeAliasDecl:
+        let id = NodeID<TypeAliasDecl>(rawValue: declID.rawValue)
+        context.ast[id].accessModifier = access
+
+        if let a = attributes.first {
+          context.diagnostics.append(.unexpectedDeclAttribute(range: a.range))
+        }
+        if let m = member {
+          context.diagnostics.append(.unexpectedDeclModifier(range: m.range))
+        }
+
+      default:
+        unreachable("unexpected declaration")
+      }
+
+      context.ast.ranges[declID]?.lowerBound = startIndex
+      return declID
     })
   }
 
@@ -885,7 +933,7 @@ public enum Parser {
   )
 
   static let genericTypeParameter = (
-    maybe(take(.typeAttribute)).andCollapsingSoftFailures(take(.name))
+    maybe(typeAttribute).andCollapsingSoftFailures(take(.name))
       .and(maybe(take(.colon).and(traitComposition)))
       .and(maybe(take(.assign).and(typeExpr)))
       .map({ (context, tree) -> GenericParamDeclID in
@@ -903,7 +951,7 @@ public enum Parser {
   )
 
   static let genericValueParameter = (
-    take(.valueAttribute).and(take(.name))
+    valueAttribute.and(take(.name))
       .and(take(.colon).and(typeExpr))
       .and(maybe(take(.assign).and(expr)))
       .map({ (context, tree) -> GenericParamDeclID in
@@ -956,10 +1004,19 @@ public enum Parser {
           throw ParseError("expected type expression", at: context.currentLocation)
         }
 
-        let direction: CastExpr.Direction = context.lexer.source[oper.range] == "as!"
-          ? .down
-          : .up
-        let cast = context.ast.insert(CastExpr(left: lhs, right: rhs, direction: direction))
+        let castKind: CastExpr.Kind
+        switch context.lexer.source[oper.range] {
+        case "as":
+          castKind = .up
+        case "as!":
+          castKind = .down
+        case "as!!":
+          castKind = .builtinPointerConversion
+        default:
+          unreachable()
+        }
+
+        let cast = context.ast.insert(CastExpr(left: lhs, right: rhs, kind: castKind))
         context.ast.ranges[cast] = leftRange.upperBounded(by: context.currentIndex)
         return AnyExprID(cast)
       }
@@ -2290,7 +2347,7 @@ public enum Parser {
   )
 
   static let valueConstraint = (
-    take(.valueAttribute).and(expr)
+    valueAttribute.and(expr)
       .map({ (context, tree) -> SourceRepresentable<WhereClause.ConstraintExpr> in
         SourceRepresentable(
           value: .value(tree.1),
@@ -2400,6 +2457,53 @@ public enum Parser {
       })
   )
 
+  // MARK: Attributes
+
+  static let declAttribute = (
+    take(.attribute).and(maybe(attributeArgumentList))
+      .map({ (context, tree) -> SourceRepresentable<Attribute> in
+        SourceRepresentable(
+          value: Attribute(
+            name: SourceRepresentable(token: tree.0, in: context.lexer.source),
+            arguments: tree.1 ?? []),
+          range: tree.0.range.upperBounded(by: context.currentIndex))
+      })
+  )
+
+  static let attributeArgumentList = (
+    take(.lParen)
+      .and(attributeArgument).and(zeroOrMany(take(.comma).and(attributeArgument).second))
+      .and(take(.rParen))
+      .map({ (context, tree) -> [Attribute.Argument] in [tree.0.0.1] + tree.0.1 })
+  )
+
+  static let attributeArgument = (
+    stringAttributeArgument.or(integerAttributeArgument)
+  )
+
+  static let stringAttributeArgument = (
+    take(.string)
+      .map({ (context, token) -> Attribute.Argument in
+        let value = String(context.lexer.source[token.range].dropFirst().dropLast())
+        return .string(SourceRepresentable(value: value, range: token.range))
+      })
+  )
+
+  static let integerAttributeArgument = (
+    take(.int)
+      .map({ (context, token) -> Attribute.Argument in
+        if let value = Int(context.lexer.source[token.range]) {
+          return .integer(SourceRepresentable(value: value, range: token.range))
+        } else {
+          throw ParseError("invalid integer literal", at: token.range.first())
+        }
+      })
+  )
+
+  static let typeAttribute = attribute("@type")
+
+  static let valueAttribute = attribute("@value")
+
 }
 
 extension Parser {
@@ -2449,6 +2553,11 @@ extension Parser {
     Apply({ (context) in context.take(nameTokenWithValue: value) })
   }
 
+  /// Creates a combinator that parses attribute tokens with the specified name.
+  static func attribute(_ name: String) -> Apply<ParserContext, Token> {
+    Apply({ (context) in context.take(attribute: name) })
+  }
+
   /// Creates a combinator that translates token kinds to instances of type.
   static func translate<T>(
     _ table: [Token.Kind: T]
@@ -2464,10 +2573,10 @@ extension Parser {
     })
   }
 
-  /// Creates a combinator that sets the specified flags before applying `base`, and restores them
-  /// to their previous state afterward.
+  /// Creates a combinator that sets `flags` before applying `base` and restores them to their
+  /// previous state afterward.
   static func settingFlags<Base: Combinator>(
-    _ newFlags: ParserContext.Flags,
+    _ flags: ParserContext.Flags,
     apply base: Base
   ) -> Apply<ParserContext, Base.Element>
   where Base.Context == ParserContext
@@ -2475,7 +2584,23 @@ extension Parser {
     Apply({ (context) in
       let oldFlags = context.flags
       defer { context.flags = oldFlags }
-      context.flags = context.flags | newFlags
+      context.flags = context.flags | flags
+      return try base.parse(&context)
+    })
+  }
+
+  /// Creates a combinator that unsets `flags` before applying `base` and restores them to their
+  /// previous state afterward.
+  static func unsettingFlags<Base: Combinator>(
+    _ flags: ParserContext.Flags,
+    apply base: Base
+  ) -> Apply<ParserContext, Base.Element>
+  where Base.Context == ParserContext
+  {
+    Apply({ (context) in
+      let oldFlags = context.flags
+      defer { context.flags = oldFlags }
+      context.flags = context.flags - flags
       return try base.parse(&context)
     })
   }
@@ -2519,28 +2644,32 @@ fileprivate extension SourceRepresentable where Part == Identifier {
 
 fileprivate extension Diagnostic {
 
+  static func accessModifierAtNonLocalScope(range: SourceRange?) -> Diagnostic {
+    .error("access modifier cannot be used in a local scope", range: range)
+  }
+
   static func duplicateMethodIntroducer(range: SourceRange?) -> Diagnostic {
-    return Diagnostic(
-      level: .error,
-      message: "duplicate method introducer",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("duplicate method introducer", range: range)
   }
 
   static func duplicateSubscriptIntroducer(range: SourceRange?) -> Diagnostic {
-    return Diagnostic(
-      level: .error,
-      message: "duplicate subscript introducer",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("duplicate subscript introducer", range: range)
   }
 
   static func infixOperatorRequiresWhitespaces(range: SourceRange?) -> Diagnostic {
-    return Diagnostic(
-      level: .error,
-      message: "infix operator requires whitespaces on both sides",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("infix operator requires whitespaces on both sides", range: range)
+  }
+
+  static func memberModifierAtNonTypeScope(range: SourceRange?) -> Diagnostic {
+    .error("member modifier can only be used on member declarations", range: range)
+  }
+
+  static func unexpectedDeclAttribute(range: SourceRange?) -> Diagnostic {
+    .error("unexpected declaration attribute", range: range)
+  }
+
+  static func unexpectedDeclModifier(range: SourceRange?) -> Diagnostic {
+    .error("unexpected declaration modifier", range: range)
   }
 
 }

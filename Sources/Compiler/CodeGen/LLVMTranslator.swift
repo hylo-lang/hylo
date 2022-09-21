@@ -408,10 +408,14 @@ public struct LLVMTranslator {
     switch type {
     case .builtin(let builtinType):
       switch builtinType {
-      case .module:
-        fatalError("no LLVM type representation")
       case .i(let width):
         translation = IntType(width: width, in: builder.module.context)
+      case .f64:
+        translation = FloatType(kind: .double, in: builder.module.context)
+      case .pointer:
+        translation = VoidType().star
+      case .module:
+        fatalError("no LLVM type representation")
       }
 
     case .product(let productType):

@@ -22,15 +22,15 @@ public struct NodeID<T: Node>: NodeIDProtocol {
   /// Converts `n` to a node ID of type `T`; fails if `n` has a different type.
   public init?<Other: NodeIDProtocol>(converting other: Other) {
     if other.kind == T.kind {
-      self.init(unsafeRawValue: other.rawValue)
+      self.init(rawValue: other.rawValue)
     } else {
       return nil
     }
   }
 
-  /// Creates a node ID from a raw value, unsafely assuming it has type `T`.
-  internal init(unsafeRawValue: RawValue) {
-    self.rawValue = unsafeRawValue
+  /// Creates a node ID from a raw value, assuming it has type `T`.
+  internal init(rawValue: RawValue) {
+    self.rawValue = rawValue
   }
 
   public static func == <Other: NodeIDProtocol>(l: Self, r: Other) -> Bool {

@@ -9,27 +9,27 @@ extension TypeExprID {
   public func accept<V: TypeExprVisitor>(_ visitor: inout V) -> V.Result {
     switch kind {
     case .asyncTypeExpr:
-      return visitor.visit(async: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(async: NodeID(rawValue: rawValue))
     case .conformanceLensTypeExpr:
-      return visitor.visit(conformanceLens: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(conformanceLens: NodeID(rawValue: rawValue))
     case .existentialTypeExpr:
-      return visitor.visit(existential: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(existential: NodeID(rawValue: rawValue))
     case .indirectTypeExpr:
-      return visitor.visit(indirect: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(indirect: NodeID(rawValue: rawValue))
     case .lambdaTypeExpr:
-      return visitor.visit(lambda: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(lambda: NodeID(rawValue: rawValue))
     case .nameTypeExpr:
-      return visitor.visit(name: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(name: NodeID(rawValue: rawValue))
     case .parameterTypeExpr:
-      return visitor.visit(param: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(param: NodeID(rawValue: rawValue))
     case .storedProjectionTypeExpr:
-      return visitor.visit(storedProjection: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(storedProjection: NodeID(rawValue: rawValue))
     case .tupleTypeExpr:
-      return visitor.visit(tuple: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(tuple: NodeID(rawValue: rawValue))
     case .unionTypeExpr:
-      return visitor.visit(union: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(union: NodeID(rawValue: rawValue))
     case .wildcardTypeExpr:
-      return visitor.visit(wildcard: NodeID(unsafeRawValue: rawValue))
+      return visitor.visit(wildcard: NodeID(rawValue: rawValue))
     default:
       unreachable()
     }

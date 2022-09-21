@@ -251,16 +251,9 @@ public struct Lexer: IteratorProtocol, Sequence {
     // Scan attributes.
     if head == "@" {
       discard()
-      let word = take(while: { $0.isLetter || ($0 == "_") })
-
-      switch word {
-      case "implicitcopy"   : token.kind = .implicitCopyAttribute
-      case "implicitpublic" : token.kind = .implicitPublicAttribute
-      case "type"           : token.kind = .typeAttribute
-      case "value"          : token.kind = .valueAttribute
-      default               : token.kind = .unrecognizedAttribute
-      }
-
+      token.kind = take(while: { $0.isLetter || ($0 == "_") }).isEmpty
+        ? .invalid
+        : .attribute
       token.range.upperBound = index
       return token
     }
@@ -295,7 +288,6 @@ public struct Lexer: IteratorProtocol, Sequence {
 
     // Scan punctuation.
     switch head {
-    case ".": token.kind = .dot
     case ",": token.kind = .comma
     case ";": token.kind = .semi
     case "(": token.kind = .lParen
@@ -304,6 +296,17 @@ public struct Lexer: IteratorProtocol, Sequence {
     case "}": token.kind = .rBrace
     case "[": token.kind = .lBrack
     case "]": token.kind = .rBrack
+
+    case ".":
+      // Scan range operators.
+      if (take(prefix: "...") ?? take(prefix: "..<")) != nil {
+        token.kind = .oper
+        token.range.upperBound = index
+        return token
+      }
+
+      // Fall back to a simple dot.
+      token.kind = .dot
 
     case ":":
       // Scan double colons.

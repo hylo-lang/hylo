@@ -17,6 +17,10 @@ struct ParserContext {
       Flags(rawValue: lhs.rawValue | rhs.rawValue)
     }
 
+    static func - (lhs: Flags, rhs: Flags) -> Flags {
+      Flags(rawValue: lhs.rawValue & ~rhs.rawValue)
+    }
+
     static let parsingTopLevel        = Flags(rawValue: 1 << 0)
     static let parsingNamespace       = Flags(rawValue: 1 << 1)
     static let parsingProductBody     = Flags(rawValue: 1 << 2)
@@ -159,7 +163,7 @@ struct ParserContext {
     guard let head = peek() else { return nil }
 
     switch head.kind {
-    case .oper, .ampersand, .equal:
+    case .oper, .ampersand, .equal, .pipe:
       _ = take()
       return SourceRepresentable(value: String(lexer.source[head.range]), range: head.range)
 
@@ -189,6 +193,13 @@ struct ParserContext {
     } else {
       return nil
     }
+  }
+
+  /// Consumes and returns an attribute token with the specified name.
+  mutating func take(attribute name: String) -> Token? {
+    take(if: { [source = lexer.source] in
+      ($0.kind == .attribute) && (source[$0.range] == name)
+    })
   }
 
 }

@@ -1082,51 +1082,27 @@ fileprivate extension DefiniteInitializationPass {
 fileprivate extension Diagnostic {
 
   static func illegalMove(range: SourceRange?) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: "illegal move",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("illegal move", range: range)
   }
 
   static func unboundedStackAllocation(range: SourceRange?) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: "unbounded stack allocation",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("unbounded stack allocation", range: range)
   }
 
   static func useOfConsumedObject(range: SourceRange?) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: "use of consumed object",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("use of consumed object", range: range)
   }
 
   static func useOfPartiallyConsumedObject(range: SourceRange?) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: "use of partially consumed object",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("use of partially consumed object", range: range)
   }
 
   static func useOfPartiallyInitializedObject(range: SourceRange?) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: "use of partially initialized object",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("use of partially initialized object", range: range)
   }
 
   static func useOfUninitializedObject(range: SourceRange?) -> Diagnostic {
-    Diagnostic(
-      level: .error,
-      message: "use of uninitialized object",
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+    .error("use of uninitialized object", range: range)
   }
 
 }

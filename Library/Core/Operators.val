@@ -1,0 +1,51 @@
+public operator infix<<   : shift
+public operator infix>>   : shift
+
+public operator infix*    : multiplication
+public operator infix*!   : multiplication
+public operator infix/    : multiplication
+public operator infix%    : multiplication
+
+public operator infix+    : addition
+public operator infix+!   : addition
+public operator infix-    : addition
+public operator infix-!   : addition
+
+public operator infix..<  : range
+public operator infix...  : range
+
+public operator infix??   : fallback
+
+public operator infix==   : comparison
+public operator infix!=   : comparison
+public operator infix<    : comparison
+public operator infix<=   : comparison
+public operator infix>=   : comparison
+public operator infix>    : comparison
+
+public operator infix^    : conjunction
+public operator infix&    : conjunction
+public operator infix&&   : conjunction
+
+public operator infix|    : disjunction
+public operator infix||   : disjunction
+
+public operator infix<<=  : assignment
+public operator infix>>=  : assignment
+public operator infix*=   : assignment
+public operator infix/=   : assignment
+public operator infix%=   : assignment
+public operator infix+=   : assignment
+public operator infix-=   : assignment
+public operator infix&=   : assignment
+public operator infix&&=  : assignment
+
+public operator infix**   : exponentiation
+
+public operator prefix+
+public operator prefix-
+public operator prefix~
+public operator prefix!
+
+public operator postfix!
+public operator postfix...

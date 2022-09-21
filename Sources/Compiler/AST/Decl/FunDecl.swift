@@ -32,16 +32,11 @@ public struct FunDecl: GenericDecl, GenericScope {
 
   }
 
-  public struct ImplicitParameter: Codable {
-
-    let name: String
-
-    var decl: AnyDeclID
-
-  }
-
   /// The introducer of the declaration.
   public var introducer: SourceRepresentable<Introducer>
+
+  /// The attributes of the declaration, if any.
+  public var attributes: [SourceRepresentable<Attribute>]
 
   /// The access modifier of the declaration, if any.
   public var accessModifier: SourceRepresentable<AccessModifier>?
@@ -65,6 +60,8 @@ public struct FunDecl: GenericDecl, GenericScope {
   public var explicitCaptures: [NodeID<BindingDecl>]
 
   /// The parameters of the function.
+  ///
+  /// These declarations must have a type annotation unless `self.isInExprContext` is `true`.
   public var parameters: [NodeID<ParameterDecl>]
 
   /// The return type annotation of the function, if any.
@@ -81,8 +78,8 @@ public struct FunDecl: GenericDecl, GenericScope {
   /// This property is set during type checking. In a local function, it maps the names of the
   /// implicit and explicit captures to their respective declaration. In a non-static method
   /// declaration, it contains a reference to the declaration of the implicit receiver parameter
-  /// (i.e., `self`), unless the method forms a bundle. The implicit receiver of a method bundle
-  /// has a declaration in each method implementation.
+  /// (i.e., `self`), unless the method forms a bundle. The implicit receiver of a bundle has a
+  /// declaration in each method implementation.
   public internal(set) var implicitParameterDecls: [ImplicitParameter] = []
 
   /// The declaration of the implicit receiver parameter, if any.
@@ -96,6 +93,7 @@ public struct FunDecl: GenericDecl, GenericScope {
 
   public init(
     introducer: SourceRepresentable<Introducer>,
+    attributes: [SourceRepresentable<Attribute>] = [],
     accessModifier: SourceRepresentable<AccessModifier>? = nil,
     memberModifier: SourceRepresentable<MemberModifier>? = nil,
     receiverEffect: SourceRepresentable<ReceiverEffect>? = nil,
@@ -110,6 +108,7 @@ public struct FunDecl: GenericDecl, GenericScope {
     isInExprContext: Bool = false
   ) {
     self.introducer = introducer
+    self.attributes = attributes
     self.accessModifier = accessModifier
     self.memberModifier = memberModifier
     self.receiverEffect = receiverEffect

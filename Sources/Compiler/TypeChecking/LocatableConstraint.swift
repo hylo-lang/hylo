@@ -29,6 +29,8 @@ struct LocatableConstraint {
 
     case `return`
 
+    case `yield`
+
   }
 
   /// The constraint.

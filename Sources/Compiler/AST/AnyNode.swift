@@ -137,6 +137,7 @@ struct AnyNode: Codable {
     case .assignExpr                : try container.encode(node as! AssignExpr)
     case .asyncExpr                 : try container.encode(node as! AsyncExpr)
     case .awaitExpr                 : try container.encode(node as! AwaitExpr)
+    case .castExpr                  : try container.encode(node as! CastExpr)
     case .booleanLiteralExpr        : try container.encode(node as! BooleanLiteralExpr)
     case .bufferLiteralExpr         : try container.encode(node as! BufferLiteralExpr)
     case .condExpr                  : try container.encode(node as! CondExpr)

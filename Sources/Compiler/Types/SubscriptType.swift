@@ -36,6 +36,15 @@ public struct SubscriptType: TypeProtocol, Hashable {
     flags = fs
   }
 
+  /// Accesses the individual elements of the subscript's environment.
+  public var captures: [TupleType.Element] {
+    if case .tuple(let type) = environment {
+      return type.elements
+    } else {
+      return []
+    }
+  }
+
 }
 
 extension SubscriptType: CustomStringConvertible {

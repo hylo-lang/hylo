@@ -91,11 +91,11 @@ public struct ScopeHierarchy {
     // Static member declarations are global.
     switch decl.kind {
     case .bindingDecl:
-      return ast[NodeID<BindingDecl>(unsafeRawValue: decl.rawValue)].isStatic
+      return ast[NodeID<BindingDecl>(rawValue: decl.rawValue)].isStatic
     case .funDecl:
-      return ast[NodeID<FunDecl>(unsafeRawValue: decl.rawValue)].isStatic
+      return ast[NodeID<FunDecl>(rawValue: decl.rawValue)].isStatic
     case .subscriptDecl:
-      return ast[NodeID<SubscriptDecl>(unsafeRawValue: decl.rawValue)].isStatic
+      return ast[NodeID<SubscriptDecl>(rawValue: decl.rawValue)].isStatic
     default:
       return false
     }
@@ -105,7 +105,7 @@ public struct ScopeHierarchy {
   func isMember<T: DeclID>(decl: T) -> Bool {
     guard let parent = container[decl] else { return false }
     switch parent.kind {
-    case .productTypeDecl, .traitDecl, .typeAliasDecl:
+    case .productTypeDecl, .traitDecl, .conformanceDecl, .extensionDecl, .typeAliasDecl:
       return true
     default:
       return false
@@ -114,7 +114,17 @@ public struct ScopeHierarchy {
 
   /// Returns whether `decl` is a non-static member of a type declaration in `ast`.
   func isNonStaticMember<T: DeclID>(decl: T, ast: AST) -> Bool {
-    isMember(decl: decl) && !isGlobal(decl: decl, ast: ast)
+    !isGlobal(decl: decl, ast: ast) && isMember(decl: decl)
+  }
+
+  /// Returns whether `decl` is a non-static member of a type declaration in `ast`.
+  func isNonStaticMember(fun decl: NodeID<FunDecl>, ast: AST) -> Bool {
+    !ast[decl].isStatic && isMember(decl: decl)
+  }
+
+  /// Returns whether `decl` is a non-static member of a type declaration in `ast`.
+  func isNonStaticMember(subscript decl: NodeID<SubscriptDecl>, ast: AST) -> Bool {
+    !ast[decl].isStatic && isMember(decl: decl)
   }
 
   /// Returns whether `decl` is local in `ast`.

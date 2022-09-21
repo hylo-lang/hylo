@@ -66,11 +66,7 @@ public struct Token {
     case `yielded`
 
     // Attributes
-    case unrecognizedAttribute = 4000
-    case implicitCopyAttribute
-    case implicitPublicAttribute
-    case typeAttribute
-    case valueAttribute
+    case attribute = 4000
 
     // Operators
     case oper = 5000

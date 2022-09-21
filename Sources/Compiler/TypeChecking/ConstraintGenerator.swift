@@ -63,12 +63,17 @@ struct ConstraintGenerator: ExprVisitor {
 
   mutating func visit(cast id: NodeID<CastExpr>) {
     // Realize the type to which the left operand should be converted.
-    guard let target = checker.realize(checker.ast[id].right, inScope: scope) else {
+    guard var target = checker.realize(checker.ast[id].right, inScope: scope) else {
       assignToError(id)
       return
     }
 
-    switch checker.ast[id].direction {
+    let (ty, cs) = checker.contextualize(type: target, inScope: scope)
+    target = ty
+    constraints.append(contentsOf: cs.map({ LocatableConstraint($0, node: AnyNodeID(id)) }))
+
+    let lhs = checker.ast[id].left
+    switch checker.ast[id].kind {
     case .down:
       // Note: constraining the type of the left operand to be above the right operand wouldn't
       // contribute any useful information to the constraint system.
@@ -76,16 +81,19 @@ struct ConstraintGenerator: ExprVisitor {
 
     case .up:
       // The type of the left operand must be statically known to subtype of the right operand.
-      let lhs = checker.ast[id].left
       inferredTypes[lhs] = .variable(TypeVariable(node: lhs.base))
       constraints.append(LocatableConstraint(
         .equalityOrSubtyping(l: inferredTypes[lhs]!, r: target),
         node: AnyNodeID(id),
         cause: .assignment))
+
+    case .builtinPointerConversion:
+      // The type of the left operand must be `Builtin.Pointer`.
+      inferredTypes[lhs] = .builtin(.pointer)
     }
 
     // Visit the left operand.
-    checker.ast[id].left.accept(&self)
+    lhs.accept(&self)
 
     // In any case, the expression is assumed to have the type denoted by the right operand.
     assume(typeOf: id, equals: target)
@@ -100,8 +108,9 @@ struct ConstraintGenerator: ExprVisitor {
       switch item {
       case .expr(let expr):
         // Condition must be Boolean.
-        expectedTypes[expr] = .product(boolType)
+        inferredTypes[expr] = .product(boolType)
         expr.accept(&self)
+
       case .decl(let binding):
         _ = checker.check(binding: binding)
       }
@@ -223,9 +232,6 @@ struct ConstraintGenerator: ExprVisitor {
           introducer: nil,
           inDeclSpaceOf: AnyScopeID(converting: d)!)
 
-        // We should get at least one a memberwise initializer.
-        assert(!initializers.isEmpty)
-
         // Select suitable candidates based on argument labels.
         let labels = checker.ast[id].arguments.map({ $0.label?.value })
         var candidates: [Constraint.OverloadCandidate] = []
@@ -236,7 +242,10 @@ struct ConstraintGenerator: ExprVisitor {
           if labels.elementsEqual(ctor.labels) {
             let (ty, cs) = checker.open(type: .lambda(ctor))
             candidates.append(Constraint.OverloadCandidate(
-              decl: initializer.decl, type: ty, constraints: cs))
+              reference: .direct(initializer.decl),
+              type: ty,
+              constraints: cs,
+              penalties: 0))
           }
         }
 
@@ -249,7 +258,7 @@ struct ConstraintGenerator: ExprVisitor {
 
         case 1:
           // Reassign the referred declaration and type of the name expression.
-          checker.referredDecls[c] = .direct(candidates[0].decl)
+          checker.referredDecls[c] = candidates[0].reference
           inferredTypes[c] = candidates[0].type
 
           // Propagate the type of the constructor down.
@@ -319,8 +328,7 @@ struct ConstraintGenerator: ExprVisitor {
   mutating func visit(integerLiteral id: NodeID<IntegerLiteralExpr>) {
     defer { assert(inferredTypes[id] != nil) }
 
-    let trait = TraitType(named: "ExpressibleByIntegerLiteral", ast: checker.ast)
-      ?? unreachable()
+    let trait = TraitType(named: "ExpressibleByIntegerLiteral", ast: checker.ast)!
 
     switch expectedTypes[id] {
     case .some(.variable(let tau)):
@@ -418,7 +426,7 @@ struct ConstraintGenerator: ExprVisitor {
     switch checker.ast[id].domain {
     case .none:
       let expr = checker.ast[id]
-      if checker.isProcessingStandardLibrary && (expr.name.value.stem == "Builtin") {
+      if checker.isBuiltinModuleVisible && (expr.name.value.stem == "Builtin") {
         assume(typeOf: id, equals: .builtin(.module))
         checker.referredDecls[id] = .direct(AnyDeclID(checker.ast.builtinDecl))
         return
@@ -441,12 +449,10 @@ struct ConstraintGenerator: ExprVisitor {
         // Contextualize the match.
         let context = checker.scopeHierarchy.container[candidates[0].decl]!
         let (ty, cs) = checker.contextualize(type: candidates[0].type, inScope: context)
+        inferredType = ty
 
         // Register associated constraints.
-        inferredType = ty
-        constraints.append(contentsOf: cs.map({ c in
-          LocatableConstraint(c, node: AnyNodeID(id))
-        }))
+        constraints.append(contentsOf: cs.map({ LocatableConstraint($0, node: AnyNodeID(id)) }))
 
         // Bind the name expression to the referred declaration.
         if checker.scopeHierarchy.isNonStaticMember(decl: candidates[0].decl, ast: checker.ast) {
@@ -476,11 +482,11 @@ struct ConstraintGenerator: ExprVisitor {
       if domainType == .builtin(.module) {
         let symbolName = checker.ast[id].name.value.stem
 
-        if let ty = BuiltinFunctionType[symbolName] {
-          assume(typeOf: id, equals: .lambda(ty))
+        if let type = BuiltinSymbols[symbolName] {
+          assume(typeOf: id, equals: .lambda(type))
           checker.referredDecls[id] = .direct(AnyDeclID(checker.ast.builtinDecl))
-        } else if let ty = BuiltinType(symbolName) {
-          assume(typeOf: id, equals: .builtin(ty))
+        } else if let type = BuiltinType(symbolName) {
+          assume(typeOf: id, equals: .builtin(type))
           checker.referredDecls[id] = .direct(AnyDeclID(checker.ast.builtinDecl))
         } else {
           diagnostics.append(.undefined(name: symbolName, range: checker.ast[id].name.range))
@@ -496,17 +502,16 @@ struct ConstraintGenerator: ExprVisitor {
 
       // If we determined that the domain refers to a nominal type declaration, create a static
       // member constraint. Otherwise, create a non-static member constraint.
+      let constraint: Constraint
       if let base = NodeID<NameExpr>(converting: domain),
          let decl = checker.referredDecls[base]?.decl,
          decl.kind <= .typeDecl
       {
-        fatalError("not implemented")
+        constraint = .unboundMember(l: domainType, m: checker.ast[id].name.value, r: inferredType)
       } else {
-        constraints.append(LocatableConstraint(
-          .member(l: domainType, m: checker.ast[id].name.value, r: inferredType),
-          node: AnyNodeID(id),
-          cause: .member))
+        constraint = .boundMember(l: domainType, m: checker.ast[id].name.value, r: inferredType)
       }
+      constraints.append(LocatableConstraint(constraint, node: AnyNodeID(id), cause: .member))
 
     case .type:
       fatalError("not implemented")

@@ -61,4 +61,22 @@ public struct Diagnostic: Hashable {
     self.children = children
   }
 
+  /// Creates an error diagnostic with `message` highlighting `range`.
+  public static func error(_ message: String, range: SourceRange? = nil) -> Diagnostic {
+    Diagnostic(
+      level: .error,
+      message: message,
+      location: range?.first(),
+      window: range.map({ r in Diagnostic.Window(range: r) }))
+  }
+
+  /// Creates a warning diagnostic with `message` highlighting `range`.
+  public static func warning(_ message: String, range: SourceRange? = nil) -> Diagnostic {
+    Diagnostic(
+      level: .warning,
+      message: message,
+      location: range?.first(),
+      window: range.map({ r in Diagnostic.Window(range: r) }))
+  }
+
 }

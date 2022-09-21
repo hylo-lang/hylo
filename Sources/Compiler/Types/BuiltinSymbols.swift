@@ -1,8 +1,9 @@
-/// A namespace containing the types of the built-in functions.
-public enum BuiltinFunctionType {
+/// A namespace containing the types of the built-in functions and subscripts.
+public enum BuiltinSymbols {
 
-  /// Uncondtionally stops the program.
-  public static let terminate = LambdaType(to: .never)
+  /// Terminates the program abnormally.
+  public static let terminate = LambdaType(
+    to: .never)
 
   /// 1-bit integer copy.
   public static let i1_copy = LambdaType(
@@ -38,6 +39,11 @@ public enum BuiltinFunctionType {
   public static let i64_print = LambdaType(
     from: (.let, .i(64)),
     to: .unit)
+
+  // Double-precision floating-point copy.
+  public static let f64_copy = LambdaType(
+    from: (.let, .f64),
+    to: .builtin(.f64))
 
   /// Returns the type of the built-in function with the given name.
   public static subscript(_ name: String) -> LambdaType? {

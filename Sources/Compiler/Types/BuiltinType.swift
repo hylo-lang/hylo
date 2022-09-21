@@ -1,11 +1,17 @@
 /// A built-in type.
 public enum BuiltinType: TypeProtocol, Hashable {
 
-  /// A built-in integer.
+  /// A built-in integer type.
   ///
   /// This type represents the target's integer types. A built-in integer may be of any bit width
   /// and does not specify signedness.
   case i(Int)
+
+  /// A built-in 64-bit floating-point type (specifically, "binary64" in IEEE 754).
+  case f64
+
+  /// A built-in raw pointer pointer.
+  case pointer
 
   /// The type of the built-in module.
   case module
@@ -20,6 +26,10 @@ extension BuiltinType: CustomStringConvertible {
     switch self {
     case .i(let bitWidth):
       return "i\(bitWidth)"
+    case .f64:
+      return "f64"
+    case .pointer:
+      return "Pointer"
     case .module:
       return "Builtin"
     }
@@ -33,18 +43,21 @@ extension BuiltinType: LosslessStringConvertible {
     switch description {
     case "Builtin":
       self = .module
+    case "f64":
+      self = .f64
+    case "Pointer":
+      self = .pointer
 
-    default:
-      if description.starts(with: "i") {
-        if let bitWidth = Int(description.dropFirst()) {
-          precondition(bitWidth > 0, "invalid bit width")
-          self = .i(bitWidth)
-        } else {
-          return nil
-        }
+    case _ where description.starts(with: "i"):
+      if let bitWidth = Int(description.dropFirst()) {
+        precondition(bitWidth > 0, "invalid bit width")
+        self = .i(bitWidth)
       } else {
         return nil
       }
+
+    default:
+      return nil
     }
   }
 

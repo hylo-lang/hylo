@@ -196,21 +196,20 @@ final class LexerTests: XCTestCase {
   }
 
   func testAttributes() {
-    let input = SourceFile(contents: "@implicitcopy @implicitpublic @type @value @foo")
+    let input = SourceFile(contents: "@implicitcopy @_foo @2")
     assert(
       tokenize(input),
       matches: [
-        TokenSpecification(.implicitCopyAttribute, "@implicitcopy"),
-        TokenSpecification(.implicitPublicAttribute, "@implicitpublic"),
-        TokenSpecification(.typeAttribute, "@type"),
-        TokenSpecification(.valueAttribute, "@value"),
-        TokenSpecification(.unrecognizedAttribute, "@foo"),
+        TokenSpecification(.attribute, "@implicitcopy"),
+        TokenSpecification(.attribute, "@_foo"),
+        TokenSpecification(.invalid  , "@"),
+        TokenSpecification(.int      , "2"),
       ],
       in: input)
   }
 
   func testOperators() {
-    let input = SourceFile(contents: "= -> * / % +- == != ~> >! <? >> &|^ | &")
+    let input = SourceFile(contents: "= -> * / % +- == != ~> >! <? >> &|^ ... ..< | &")
     assert(
       tokenize(input),
       matches: [
@@ -230,6 +229,8 @@ final class LexerTests: XCTestCase {
         TokenSpecification(.rAngle, ">"),
         TokenSpecification(.rAngle, ">"),
         TokenSpecification(.oper  , "&|^"),
+        TokenSpecification(.oper  , "..."),
+        TokenSpecification(.oper  , "..<"),
         TokenSpecification(.pipe  , "|"),
         TokenSpecification(.ampersand, "&"),
       ],

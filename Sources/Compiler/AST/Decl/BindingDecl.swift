@@ -3,6 +3,9 @@ public struct BindingDecl: Decl {
 
   public static let kind = NodeKind.bindingDecl
 
+  /// The attributes of the declaration, if any.
+  public var attributes: [SourceRepresentable<Attribute>]
+
   /// The access modifier of the declaration, if any.
   public var accessModifier: SourceRepresentable<AccessModifier>?
 
@@ -16,11 +19,13 @@ public struct BindingDecl: Decl {
   public var initializer: AnyExprID?
 
   public init(
+    attributes: [SourceRepresentable<Attribute>] = [],
     accessModifier: SourceRepresentable<AccessModifier>? = nil,
     memberModifier: SourceRepresentable<MemberModifier>? = nil,
     pattern: NodeID<BindingPattern>,
     initializer: AnyExprID? = nil
   ) {
+    self.attributes = attributes
     self.accessModifier = accessModifier
     self.memberModifier = memberModifier
     self.pattern = pattern
