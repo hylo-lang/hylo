@@ -40,7 +40,7 @@ public operator infix-=   : assignment
 public operator infix&=   : assignment
 public operator infix&&=  : assignment
 
-public operator infix^    : exponentiation
+public operator infix**   : exponentiation
 
 public operator prefix+
 public operator prefix-
