@@ -11,10 +11,13 @@ Please fill an issue if you have any questions.
 
 ## Suggesting feature requests
 
-First, please search existing issues on this repository to make sure your feature has not already been requested.
+Features ideas from the community should be pitched [here](https://github.com/val-lang/val-lang.github.io/discussions/categories/feature-pitches) before being formally proposed as a pull request.
 
-You may then suggest a new feature by filling out an issue with the label `enhancement`.
+First, please search existing pitches to make sure your feature has not already been requested.
+You may then create a new discussion to present your idea.
 At this time, we only request that you provide a description of the requested feature and motivate it with a small example.
+
+If the pitch gathers momentum, the new feature should be formally proposed as a pull request on that repository, tagged with the label `enhancement`.
 
 ## Reporting a bug
 
