@@ -245,6 +245,7 @@ extension NodeKind: CustomStringConvertible {
     case .assignExpr                : return "AssignExpr"
     case .asyncExpr                 : return "AsyncExpr"
     case .awaitExpr                 : return "AwaitExpr"
+    case .castExpr                  : return "CastExpr"
     case .booleanLiteralExpr        : return "BooleanLiteralExpr"
     case .bufferLiteralExpr         : return "BufferLiteralExpr"
     case .condExpr                  : return "CondExpr"
