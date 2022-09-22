@@ -25,11 +25,11 @@ public indirect enum Type: TypeProtocol, Hashable {
 
   case module(ModuleType)
 
-  case projection(ProjectionType)
-
   case parameter(ParameterType)
 
   case product(ProductType)
+
+  case remote(RemoteType)
 
   case skolem(SkolemType)
 
@@ -61,7 +61,7 @@ public indirect enum Type: TypeProtocol, Hashable {
     case let .module(t):            return t
     case let .parameter(t):         return t
     case let .product(t):           return t
-    case let .projection(t):        return t
+    case let .remote(t):            return t
     case let .skolem(t):            return t
     case let .subscript(t):         return t
     case let .trait(t):             return t
@@ -239,8 +239,8 @@ extension Type {
           convention: type.convention,
           bareType: type.bareType.transform(transformer)))
 
-      case .projection(let type):
-        return .projection(ProjectionType(
+      case .remote(let type):
+        return .remote(RemoteType(
           type.capability,
           type.base.transform(transformer)))
 

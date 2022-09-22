@@ -2,7 +2,7 @@
 public struct BorrowInst: Inst, BorrowInstProtocol {
 
   /// The capability being borrowed.
-  public var capability: ProjectionType.Capability
+  public var capability: RemoteType.Capability
 
   /// The type of the borrowed access.
   public var borrowedType: LoweredType
@@ -19,7 +19,7 @@ public struct BorrowInst: Inst, BorrowInstProtocol {
   public var range: SourceRange?
 
   init(
-    _ capability: ProjectionType.Capability,
+    _ capability: RemoteType.Capability,
     _ borrowedType: LoweredType,
     from location: Operand,
     at path: [Int] = [],

@@ -5,7 +5,7 @@ struct CaptureCollector {
 
   /// A dictionary mapping free names to their occurrences and the kind of use.
   typealias FreeSet = [
-    Name: (occurences: [NodeID<NameExpr>], capability: ProjectionType.Capability)
+    Name: (occurences: [NodeID<NameExpr>], capability: RemoteType.Capability)
   ]
 
   /// The AST containing the nodes being visited.
@@ -49,7 +49,7 @@ struct CaptureCollector {
   ///   - capability: The capability of the use; must be either `let` or `inout`.
   private mutating func record(
     occurrence: NodeID<NameExpr>,
-    withCapability capability: ProjectionType.Capability,
+    withCapability capability: RemoteType.Capability,
     ifFree name: Name,
     into captures: inout FreeSet
   ) {
