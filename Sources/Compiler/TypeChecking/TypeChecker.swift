@@ -160,7 +160,7 @@ public struct TypeChecker {
 
       while let base = work.popFirst() {
         if base == t {
-          diagnostics.insert(.circularRefinement(range: ast[t.decl].identifier.range))
+          diagnostics.insert(.circularRefinement(at: ast[t.decl].identifier.range))
           return nil
         } else if result.insert(base).inserted {
           guard let traits = realize(
@@ -342,7 +342,7 @@ public struct TypeChecker {
     case nil:
       declRequests[id] = .typeCheckingStarted
     case .typeCheckingStarted:
-      diagnostics.insert(.circularDependency(range: ast.ranges[id]))
+      diagnostics.insert(.circularDependency(at: ast.ranges[id]))
       return false
     case .success:
       return true
@@ -393,7 +393,7 @@ public struct TypeChecker {
       }
     } else if ast[ast[id].pattern].annotation == nil {
       let pattern = ast[ast[id].pattern]
-      diagnostics.insert(.missingTypeAnnotation(range: ast.ranges[pattern.subpattern]))
+      diagnostics.insert(.missingTypeAnnotation(at: ast.ranges[pattern.subpattern]))
       success = false
     }
 
@@ -543,7 +543,7 @@ public struct TypeChecker {
       { return success }
 
       // Function without a body must be a requirement.
-      diagnostics.insert(.declarationRequiresBody(range: ast[id].introducer.range))
+      diagnostics.insert(.declarationRequiresBody(at: ast[id].introducer.range))
       return false
     }
 
@@ -574,7 +574,7 @@ public struct TypeChecker {
   ) -> Bool {
     // Check for duplicate parameter names.
     if !siblingNames.insert(ast[id].name).inserted {
-      diagnostics.insert(.duplicateParameterName(ast[id].name, range: ast.ranges[id]))
+      diagnostics.insert(.duplicateParameterName(ast[id].name, at: ast.ranges[id]))
       declRequests[id] = .failure
       return false
     }
@@ -610,7 +610,7 @@ public struct TypeChecker {
 
   private mutating func check(operator id: NodeID<OperatorDecl>) -> Bool {
     guard let source = NodeID<TopLevelDeclSet>(converting: scopeHierarchy.container[id]!) else {
-      diagnostics.insert(.nestedOperatorDeclaration(range: ast.ranges[id]))
+      diagnostics.insert(.nestedOperatorDeclaration(at: ast.ranges[id]))
       return false
     }
 
@@ -621,7 +621,7 @@ public struct TypeChecker {
          ast[oper].notation.value == ast[id].notation.value,
          ast[oper].name.value == ast[id].name.value
       {
-        diagnostics.insert(.duplicateOperatorDeclaration(ast[id].name.value, range: ast.ranges[id]))
+        diagnostics.insert(.duplicateOperatorDeclaration(ast[id].name.value, at: ast.ranges[id]))
         return false
       }
     }
@@ -806,7 +806,7 @@ public struct TypeChecker {
       case .typeRealizationStarted, .typeCheckingStarted:
         // Note: The request status will be updated when the request that caused the circular
         // dependency handles the failure.
-        diagnostics.insert(.circularDependency(range: ast.ranges[id]))
+        diagnostics.insert(.circularDependency(at: ast.ranges[id]))
         return false
 
       case .success:
@@ -841,7 +841,7 @@ public struct TypeChecker {
       if let type = infer(expr: stmt.expr, inScope: lexicalContext) {
         // Issue a warning if the type of the expression isn't unit.
         if type != .unit {
-          diagnostics.insert(.unusedResult(ofType: type, range: ast.ranges[stmt.expr]))
+          diagnostics.insert(.unusedResult(ofType: type, at: ast.ranges[stmt.expr]))
         }
         return true
       } else {
@@ -898,7 +898,7 @@ public struct TypeChecker {
         constraints: [c])
       return solution.diagnostics.isEmpty
     } else if expectedType != .unit {
-      diagnostics.insert(.missingReturnValue(range: ast.ranges[id]))
+      diagnostics.insert(.missingReturnValue(at: ast.ranges[id]))
       return false
     } else {
       return true
@@ -1212,7 +1212,7 @@ public struct TypeChecker {
       guard let b = realize(r, inScope: scope) else { return nil }
 
       if !a.isTypeParam && !b.isTypeParam {
-        diagnostics.insert(.noSkolemInEquality(l: a, r: b, range: expr.range))
+        diagnostics.insert(.noSkolemInEquality(l: a, r: b, at: expr.range))
         return nil
       }
 
@@ -1221,7 +1221,7 @@ public struct TypeChecker {
     case .conformance(let l, let traits):
       guard let a = realize(name: l, inScope: scope) else { return nil }
       if !a.isTypeParam {
-        diagnostics.insert(.noSkolemInConformance(a, range: expr.range))
+        diagnostics.insert(.noSkolemInConformance(a, at: expr.range))
         return nil
       }
 
@@ -1231,7 +1231,7 @@ public struct TypeChecker {
         if case .trait(let trait) = type {
           b.insert(trait)
         } else {
-          diagnostics.insert(.conformanceToNonTraitType(a, range: expr.range))
+          diagnostics.insert(.conformanceToNonTraitType(a, at: expr.range))
           return nil
         }
       }
@@ -1402,20 +1402,20 @@ public struct TypeChecker {
             return expectedType
           } else {
             diagnostics.insert(.incompatibleLabels(
-              found: lLabels, expected: rLabels, range: ast.ranges[pattern]))
+              found: lLabels, expected: rLabels, at: ast.ranges[pattern]))
             return nil
           }
         } else {
           // Invalid destructuring.
           diagnostics.insert(.invalidDestructuring(
-            ofType: expectedType!, range: ast.ranges[pattern]))
+            ofType: expectedType!, at: ast.ranges[pattern]))
           return nil
         }
 
       case .some:
         // The pattern has a tuple shape, the expected type hasn't.
         diagnostics.insert(.invalidDestructuring(
-          ofType: expectedType!, range: ast.ranges[pattern]))
+          ofType: expectedType!, at: ast.ranges[pattern]))
         return nil
 
       case nil:
@@ -1787,7 +1787,7 @@ public struct TypeChecker {
     case .parameterTypeExpr:
       let id = NodeID<ParameterTypeExpr>(rawValue: expr.rawValue)
       diagnostics.insert(.illegalParameterConvention(
-        ast[id].convention.value, range: ast[id].convention.range))
+        ast[id].convention.value, at: ast[id].convention.range))
       return nil
 
     case .tupleTypeExpr:
@@ -1860,13 +1860,13 @@ public struct TypeChecker {
 
     /// The focus must be a trait.
     guard case .trait(let focus) = trait else {
-      diagnostics.insert(.nonTraitType(trait, range: ast.ranges[decl.lens]))
+      diagnostics.insert(.nonTraitType(trait, at: ast.ranges[decl.lens]))
       return nil
     }
 
     // The base must conform to the focus.
     guard conformedTraits(of: wrapped, inScope: scope)?.contains(focus) ?? false else {
-      diagnostics.insert(.noConformance(of: wrapped, to: focus, range: ast.ranges[decl.lens]))
+      diagnostics.insert(.noConformance(of: wrapped, to: focus, at: ast.ranges[decl.lens]))
       return nil
     }
 
@@ -1931,7 +1931,7 @@ public struct TypeChecker {
       for match in matches where match.kind <= .typeDecl {
         if base != nil {
           diagnostics.insert(.ambiguousTypeReference(
-            name: identifier.value, range: identifier.range))
+            name: identifier.value, at: identifier.range))
           return nil
         }
 
@@ -1941,7 +1941,7 @@ public struct TypeChecker {
           case .associated, .conformanceLens, .genericTypeParam:
             base = .associated(AssociatedType(decl: decl, domain: domain, ast: ast))
           default:
-            diagnostics.insert(.invalidAssociatedTypeExpr(ast[decl].name, range: identifier.range))
+            diagnostics.insert(.invalidAssociatedTypeExpr(ast[decl].name, at: identifier.range))
             return nil
           }
         } else {
@@ -1964,7 +1964,7 @@ public struct TypeChecker {
         if let type = realizeSelfTypeExpr(inScope: scope) {
           return type
         } else {
-          diagnostics.insert(.invalidSelfTypeExpr(range: identifier.range))
+          diagnostics.insert(.invalidSelfTypeExpr(at: identifier.range))
           return nil
         }
       default:
@@ -1982,7 +1982,7 @@ public struct TypeChecker {
       for match in matches where match.kind <= .typeDecl {
         if base != nil {
           diagnostics.insert(
-            .ambiguousTypeReference(name: identifier.value, range: identifier.range))
+            .ambiguousTypeReference(name: identifier.value, at: identifier.range))
           return nil
         }
 
@@ -2063,7 +2063,7 @@ public struct TypeChecker {
       if case .trait(let trait) = rhs {
         traits.insert(trait)
       } else {
-        diagnostics.insert(.conformanceToNonTraitType(rhs, range: ast.ranges[expr]))
+        diagnostics.insert(.conformanceToNonTraitType(rhs, at: ast.ranges[expr]))
         return nil
       }
     }
@@ -2151,7 +2151,7 @@ public struct TypeChecker {
     // Handle memberwise initializers.
     if ast[id].introducer.value == .memberwiseInit {
       guard let productTypeDecl = NodeID<ProductTypeDecl>(converting: parentScope) else {
-        diagnostics.insert(.illegalMemberwiseInit(range: ast[id].introducer.range))
+        diagnostics.insert(.illegalMemberwiseInit(at: ast[id].introducer.range))
         return .error(ErrorType())
       }
 
@@ -2176,7 +2176,7 @@ public struct TypeChecker {
         if let type = realize(parameter: annotation, inScope: declScope) {
           // The annotation may not omit generic arguments.
           if type[.hasVariable] {
-            diagnostics.insert(.notEnoughContextToInferArguments(range: ast.ranges[annotation]))
+            diagnostics.insert(.notEnoughContextToInferArguments(at: ast.ranges[annotation]))
             success = false
           }
 
@@ -2196,7 +2196,7 @@ public struct TypeChecker {
       } else {
         declTypes[i] = .error(ErrorType())
         declRequests[i] = .failure
-        diagnostics.insert(.missingTypeAnnotation(range: ast.ranges[i]))
+        diagnostics.insert(.missingTypeAnnotation(at: ast.ranges[i]))
         success = false
       }
     }
@@ -2215,13 +2215,13 @@ public struct TypeChecker {
 
     // Member declarations shall not have captures.
     if scopeHierarchy.isMember(decl: id) && !captures.isEmpty {
-      diagnostics.insert(.memberDeclHasCaptures(range: ast[id].introducer.range))
+      diagnostics.insert(.memberDeclHasCaptures(at: ast[id].introducer.range))
       return .error(ErrorType())
     }
 
     // Generic declarations shall not have captures.
     if ast[id].genericClause != nil && !captures.isEmpty {
-      diagnostics.insert(.genericDeclHasCaptures(range: ast[id].introducer.range))
+      diagnostics.insert(.genericDeclHasCaptures(at: ast[id].introducer.range))
       return .error(ErrorType())
     }
 
@@ -2273,7 +2273,7 @@ public struct TypeChecker {
 
         if capabilities.contains(.inout) && (output != receiver) {
           let range = decl.output.map({ ast.ranges[$0] }) ?? decl.introducer.range
-          diagnostics.insert(.invalidInoutBundleReturnType(expected: receiver!, range: range))
+          diagnostics.insert(.invalidInoutBundleReturnType(expected: receiver!, at: range))
           return .error(ErrorType())
         }
 
@@ -2322,7 +2322,7 @@ public struct TypeChecker {
       preconditionFailure()
 
     case .typeRealizationStarted:
-      diagnostics.insert(.circularDependency(range: ast.ranges[id]))
+      diagnostics.insert(.circularDependency(at: ast.ranges[id]))
       return .error(ErrorType())
 
     case .typeRealizationCompleted, .typeCheckingStarted, .success, .failure:
@@ -2351,7 +2351,7 @@ public struct TypeChecker {
         if let type = realize(parameter: annotation, inScope: declScope) {
           // The annotation may not omit generic arguments.
           if type[.hasVariable] {
-            diagnostics.insert(.notEnoughContextToInferArguments(range: ast.ranges[annotation]))
+            diagnostics.insert(.notEnoughContextToInferArguments(at: ast.ranges[annotation]))
             success = false
           }
 
@@ -2380,13 +2380,13 @@ public struct TypeChecker {
 
     // Member declarations shall not have captures.
     if scopeHierarchy.isMember(decl: id) && !captures.isEmpty {
-      diagnostics.insert(.memberDeclHasCaptures(range: ast[id].introducer.range))
+      diagnostics.insert(.memberDeclHasCaptures(at: ast[id].introducer.range))
       return .error(ErrorType())
     }
 
     // Generic declarations shall not have captures.
     if ast[id].genericClause != nil && !captures.isEmpty {
-      diagnostics.insert(.genericDeclHasCaptures(range: ast[id].introducer.range))
+      diagnostics.insert(.genericDeclHasCaptures(at: ast[id].introducer.range))
       return .error(ErrorType())
     }
 
@@ -2447,7 +2447,7 @@ public struct TypeChecker {
           implicitParameterDecls.append(ImplicitParameter(
             name: ast[varDecl].name, decl: AnyDeclID(varDecl)))
         } else {
-          diagnostics.insert(.duplicateCaptureName(ast[varDecl].name, range: ast.ranges[varDecl]))
+          diagnostics.insert(.duplicateCaptureName(ast[varDecl].name, at: ast.ranges[varDecl]))
           success = false
         }
       }
@@ -2552,7 +2552,7 @@ public struct TypeChecker {
       declRequests[id] = .typeRealizationStarted
 
     case .typeRealizationStarted:
-      diagnostics.insert(.circularDependency(range: ast.ranges[id]))
+      diagnostics.insert(.circularDependency(at: ast.ranges[id]))
       declRequests[id] = .failure
       declTypes[id] = .error(ErrorType())
       return declTypes[id]!

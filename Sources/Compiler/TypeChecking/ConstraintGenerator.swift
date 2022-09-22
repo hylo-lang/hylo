@@ -168,7 +168,7 @@ struct ConstraintGenerator: ExprVisitor {
       let calleeLabels = calleeType.inputs.map({ $0.label })
       if calleeLabels != labels {
         diagnostics.append(.incompatibleLabels(
-          found: calleeLabels, expected: labels, range: checker.ast.ranges[callee]))
+          found: calleeLabels, expected: labels, at: checker.ast.ranges[callee]))
         assignToError(id)
         return
       }
@@ -252,7 +252,7 @@ struct ConstraintGenerator: ExprVisitor {
         switch candidates.count {
         case 0:
           let name = Name(stem: "init", labels: labels)
-          diagnostics.append(.undefined(name: "\(name)", range: checker.ast[c].name.range))
+          diagnostics.append(.undefined(name: "\(name)", at: checker.ast[c].name.range))
           assignToError(id)
           return
 
@@ -272,7 +272,7 @@ struct ConstraintGenerator: ExprVisitor {
 
       case .traitDecl:
         let trait = TraitType(decl: NodeID(converting: d)!, ast: checker.ast)
-        diagnostics.append(.cannotConstruct(trait: trait, range: checker.ast.ranges[callee]))
+        diagnostics.append(.cannotConstruct(trait: trait, at: checker.ast.ranges[callee]))
         assignToError(id)
 
       case .typeAliasDecl:
@@ -377,7 +377,7 @@ struct ConstraintGenerator: ExprVisitor {
         diagnostics.append(.invalidClosureParameterCount(
           expected: expectedType.inputs.count,
           found: declType.inputs.count,
-          range: checker.ast.ranges[id]))
+          at: checker.ast.ranges[id]))
         assignToError(id)
         return
       }
@@ -387,7 +387,7 @@ struct ConstraintGenerator: ExprVisitor {
         diagnostics.append(.incompatibleLabels(
           found: Array(declType.labels),
           expected: Array(expectedType.labels),
-          range: checker.ast.ranges[id]))
+          at: checker.ast.ranges[id]))
         assignToError(id)
         return
       }
@@ -404,7 +404,7 @@ struct ConstraintGenerator: ExprVisitor {
       } else {
         // The system is underspecified.
         diagnostics.append(.cannotInferComplexReturnType(
-          range: checker.ast[checker.ast[id].decl].introducer.range))
+          at: checker.ast[checker.ast[id].decl].introducer.range))
         assignToError(id)
         return
       }
@@ -439,7 +439,7 @@ struct ConstraintGenerator: ExprVisitor {
         introducer: expr.name.value.introducer)
 
       if candidates.isEmpty {
-        diagnostics.append(.undefined(name: "\(expr.name)", range: expr.name.range))
+        diagnostics.append(.undefined(name: "\(expr.name)", at: expr.name.range))
         assignToError(id)
         return
       }
@@ -489,7 +489,7 @@ struct ConstraintGenerator: ExprVisitor {
           assume(typeOf: id, equals: .builtin(type))
           checker.referredDecls[id] = .direct(AnyDeclID(checker.ast.builtinDecl))
         } else {
-          diagnostics.append(.undefined(name: symbolName, range: checker.ast[id].name.range))
+          diagnostics.append(.undefined(name: symbolName, at: checker.ast[id].name.range))
           assignToError(id)
         }
 
@@ -769,7 +769,7 @@ extension ConstraintGenerator {
       switch candidates.count {
       case 0:
         checker.diagnostics.insert(.undefinedOperator(
-          tail[i].operatorName.value, range: tail[i].operatorName.range))
+          tail[i].operatorName.value, at: tail[i].operatorName.range))
         accumulator = .leaf(AnyExprID(checker.ast.insert(ErrorExpr())))
 
       case 1:

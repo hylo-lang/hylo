@@ -29,7 +29,7 @@ public struct LifetimePass: TransformPass {
           // Delete the borrow if it's never used.
           if borrowLifetime.isEmpty {
             if let decl = borrow.binding {
-              diagnostics.append(.unusedBinding(name: program.ast[decl].name, range: borrow.range))
+              diagnostics.append(.unusedBinding(name: program.ast[decl].name, at: borrow.range))
             }
             module[functionID][block.address].instructions.remove(at: inst.address)
             continue
@@ -77,7 +77,7 @@ public struct LifetimePass: TransformPass {
 
 extension Diagnostic {
 
-  fileprivate static func unusedBinding(name: Identifier, range: SourceRange?) -> Diagnostic {
+  fileprivate static func unusedBinding(name: Identifier, at range: SourceRange?) -> Diagnostic {
     .warning("binding '\(name)' was never used", range: range)
   }
 
