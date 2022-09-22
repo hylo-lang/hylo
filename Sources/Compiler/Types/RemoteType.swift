@@ -1,7 +1,7 @@
-/// The type of a stored projection.
-public struct ProjectionType: TypeProtocol, Hashable {
+/// The type of a remote part.
+public struct RemoteType: TypeProtocol, Hashable {
 
-  /// The capability of a projection.
+  /// The capability of a remote part.
   public enum Capability: Hashable {
 
     case `let`
@@ -30,10 +30,10 @@ public struct ProjectionType: TypeProtocol, Hashable {
 
 }
 
-extension ProjectionType: CustomStringConvertible {
+extension RemoteType: CustomStringConvertible {
 
   public var description: String {
-    return "\(capability) \(base)"
+    return "remote \(capability) \(base)"
   }
 
 

@@ -19,7 +19,7 @@ public struct LoweredType: Hashable {
   /// Creates a lowered type from a high-level type.
   public init(lowering type: Type) {
     switch type {
-    case .projection(let ty):
+    case .remote(let ty):
       precondition(ty.capability != .yielded, "cannot lower yielded type")
       self.astType = ty.base
       self.isAddress = true

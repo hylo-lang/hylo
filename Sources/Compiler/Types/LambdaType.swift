@@ -58,7 +58,7 @@ public struct LambdaType: TypeProtocol, Hashable {
   public init?(letImplOf method: MethodType) {
     if !method.capabilities.contains(.let) { return nil }
 
-    let projectedReceiver = Type.projection(ProjectionType(.let, method.receiver))
+    let projectedReceiver = Type.remote(RemoteType(.let, method.receiver))
     self.init(
       environment: .tuple(TupleType(labelsAndTypes: [("self", projectedReceiver)])),
       inputs: method.inputs,
@@ -70,7 +70,7 @@ public struct LambdaType: TypeProtocol, Hashable {
   public init?(inoutImplOf method: MethodType) {
     if !method.capabilities.contains(.inout) && !method.capabilities.contains(.sink) { return nil }
 
-    let projectedReceiver = Type.projection(ProjectionType(.inout, method.receiver))
+    let projectedReceiver = Type.remote(RemoteType(.inout, method.receiver))
     self.init(
       environment: .tuple(TupleType(labelsAndTypes: [("self", projectedReceiver)])),
       inputs: method.inputs,

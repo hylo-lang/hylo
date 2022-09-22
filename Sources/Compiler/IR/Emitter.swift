@@ -219,7 +219,7 @@ public struct Emitter {
   /// Emits borrowed bindings.
   private mutating func emit(
     borrowedLocalBinding decl: NodeID<BindingDecl>,
-    withCapability capability: ProjectionType.Capability,
+    withCapability capability: RemoteType.Capability,
     into module: inout Module
   ) {
     /// The pattern of the binding being emitted.
@@ -542,7 +542,7 @@ public struct Emitter {
         let receiverType = calleeType.captures[0].type
 
         // Add the receiver to the arguments.
-        if case .projection(let type) = receiverType {
+        if case .remote(let type) = receiverType {
           // The receiver as a borrowing convention.
           conventions.insert(PassingConvention(matching: type.capability), at: 1)
 
@@ -674,7 +674,7 @@ public struct Emitter {
   /// insertion point.
   private mutating func emitL<T: ExprID>(
     expr: T,
-    withCapability capability: ProjectionType.Capability,
+    withCapability capability: RemoteType.Capability,
     into module: inout Module
   ) -> Operand {
     switch expr.kind {
@@ -705,7 +705,7 @@ public struct Emitter {
 
   private mutating func emitL(
     name expr: NodeID<NameExpr>,
-    withCapability capability: ProjectionType.Capability,
+    withCapability capability: RemoteType.Capability,
     into module: inout Module
   ) -> Operand {
     switch program.referredDecls[expr]! {

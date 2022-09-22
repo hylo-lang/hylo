@@ -478,7 +478,7 @@ public struct TypeChecker {
       if decl.introducer.value == .`init` {
         // The receiver of an initializer is its first parameter.
         declTypes[param] = type.inputs[0].type
-      } else if case .projection(let type) = type.captures.first?.type {
+      } else if case .remote(let type) = type.captures.first?.type {
         // `let` and `inout` methods capture a projection of their receiver.
         let convention: PassingConvention
         switch type.capability {
@@ -687,7 +687,7 @@ public struct TypeChecker {
         ast[impl].receiver = receiverDecl
 
         // Set its type.
-        guard case .projection(let type) = declType.captures.first!.type else { unreachable() }
+        guard case .remote(let type) = declType.captures.first!.type else { unreachable() }
         declTypes[receiverDecl] = .parameter(ParameterType(
           convention: ast[impl].introducer.value.convention, bareType: type.base))
         declRequests[receiverDecl] = .success
@@ -2287,7 +2287,7 @@ public struct TypeChecker {
         let effect: ReceiverEffect?
         if ast[id].isInout {
           receiver = .tuple(TupleType(labelsAndTypes: [
-            ("self", .projection(ProjectionType(.inout, receiver!)))
+            ("self", .remote(RemoteType(.inout, receiver!)))
           ]))
           effect = .inout
         } else if decl.isSink  {
@@ -2295,7 +2295,7 @@ public struct TypeChecker {
           effect = .sink
         } else {
           receiver = .tuple(TupleType(labelsAndTypes: [
-            ("self", .projection(ProjectionType(.let, receiver!)))
+            ("self", .remote(RemoteType(.let, receiver!)))
           ]))
           effect = nil
         }
@@ -2395,7 +2395,7 @@ public struct TypeChecker {
     if scopeHierarchy.isNonStaticMember(subscript: id, ast: ast) {
       let receiver = realizeSelfTypeExpr(inScope: scopeHierarchy.container[id]!)
       environment = TupleType(labelsAndTypes: [
-        ("self", .projection(ProjectionType(.yielded, receiver!)))
+        ("self", .remote(RemoteType(.yielded, receiver!)))
       ])
     } else {
       environment = TupleType(types: captures)
@@ -2456,9 +2456,9 @@ public struct TypeChecker {
       if let type = realize(bindingDecl: i).proper {
         switch ast[ast[i].pattern].introducer.value {
         case .let:
-          captures.append(.projection(ProjectionType(.let, type)))
+          captures.append(.remote(RemoteType(.let, type)))
         case .inout:
-          captures.append(.projection(ProjectionType(.inout, type)))
+          captures.append(.remote(RemoteType(.inout, type)))
         case .sinklet, .var:
           captures.append(type)
         }
@@ -2512,13 +2512,13 @@ public struct TypeChecker {
           if let i = receiverCaptureIndex {
             // Update the mutability of the capture if necessary.
             if uses.capability == .let { continue }
-            guard case let .projection(p) = captures[i] else { unreachable() }
-            captures[i] = .projection(ProjectionType(.inout, p.base))
+            guard case let .remote(p) = captures[i] else { unreachable() }
+            captures[i] = .remote(RemoteType(.inout, p.base))
           } else {
             // Capture the method's receiver.
             let captureType = realizeSelfTypeExpr(inScope: decl)!
             receiverCaptureIndex = captures.count
-            captures.append(.projection(ProjectionType(uses.capability, captureType)))
+            captures.append(.remote(RemoteType(uses.capability, captureType)))
           }
 
           continue
@@ -2532,7 +2532,7 @@ public struct TypeChecker {
 
         // Other local declarations are captured.
         guard let captureType = realize(decl: captureDecl).proper?.skolemized else { continue }
-        captures.append(.projection(ProjectionType(uses.capability, captureType)))
+        captures.append(.remote(RemoteType(uses.capability, captureType)))
         implicitParameterDecls.append(ImplicitParameter(name: name.stem, decl: captureDecl))
       }
     }

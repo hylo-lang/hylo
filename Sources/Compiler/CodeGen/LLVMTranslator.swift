@@ -464,7 +464,7 @@ public struct LLVMTranslator {
     // Next come implicit parameters.
     for input in type.captures {
       switch input.type {
-      case .projection(let t):
+      case .remote(let t):
         parameterTypes.append(llvmType(translating: t.base).star)
       case .parameter(let t):
         parameterTypes.append(llvmType(translating: t.bareType).star)

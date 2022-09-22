@@ -79,11 +79,10 @@ public struct Module {
       // Define inputs for the captures.
       for capture in declType.captures {
         switch capture.type {
-        case .projection(let type):
+        case .remote(let type):
           precondition(type.capability != .yielded, "cannot lower yielded parameter")
           inputs.append((
-            convention: PassingConvention(matching: type.capability),
-            type: .address(type.base)))
+            convention: PassingConvention(matching: type.capability), type: .address(type.base)))
 
         case let type:
           switch declType.receiverEffect {
