@@ -7,10 +7,8 @@ Please visit our [website](https://val-lang.dev) to get more information about t
 
 ## Supported platforms
 
-The compiler is currently developed for Unix-like operating systems.
-Nonetheless, it should be compilable on Windows as well.
-Please, fill in an issue if you are experiencing problems on Windows.
- 
+The compiler is currently developed on Unix-like operating systems. While Windows is currently not supported, we would enthusiastically receive any contributions along these lines. See #45 if you'd like to pitch in.
+
 ## Installation
 
 This project is written in [Swift](https://www.swift.org) and distributed in the form of a package, built with [Swift Package Manager](https://swift.org/package-manager/).
