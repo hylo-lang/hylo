@@ -2246,9 +2246,9 @@ public struct TypeChecker {
 
     case .deinit:
       // Deinitializers are sink methods.
-      return .method(MethodType(
-        capabilities: [.sink],
-        receiver: receiver!,
+      return .lambda(LambdaType(
+        receiverEffect: .sink,
+        environment: .tuple(TupleType(labelsAndTypes: [("self", receiver!)])),
         inputs: [],
         output: .unit))
 
