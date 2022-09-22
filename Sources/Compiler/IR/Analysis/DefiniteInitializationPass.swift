@@ -317,7 +317,7 @@ public struct DefiniteInitializationPass: TransformPass {
     // Create an abstract location denoting the newly allocated memory.
     let location = MemoryLocation.inst(block: id.block, address: id.address)
     if currentContext.memory[location] != nil {
-      diagnostics.append(.unboundedStackAllocation(range: inst.range))
+      diagnostics.append(.unboundedStackAllocation(at: inst.range))
       return false
     }
 
@@ -352,19 +352,19 @@ public struct DefiniteInitializationPass: TransformPass {
         break
 
       case .fullyUninitialized:
-        diagnostics.append(.useOfUninitializedObject(range: inst.range))
+        diagnostics.append(.useOfUninitializedObject(at: inst.range))
         return false
 
       case .fullyConsumed:
-        diagnostics.append(.useOfConsumedObject(range: inst.range))
+        diagnostics.append(.useOfConsumedObject(at: inst.range))
         return false
 
       case .partiallyInitialized:
-        diagnostics.append(.useOfPartiallyInitializedObject(range: inst.range))
+        diagnostics.append(.useOfPartiallyInitializedObject(at: inst.range))
         return false
 
       case .partiallyConsumed:
-        diagnostics.append(.useOfPartiallyConsumedObject(range: inst.range))
+        diagnostics.append(.useOfPartiallyConsumedObject(at: inst.range))
         return false
       }
 
@@ -417,7 +417,7 @@ public struct DefiniteInitializationPass: TransformPass {
     // Consume the condition operand.
     let key = FunctionLocal(operand: inst.condition)!
     return consume(localForKey: key, with: id, or: { (this, _) in
-      this.diagnostics.append(.illegalMove(range: inst.range))
+      this.diagnostics.append(.illegalMove(at: inst.range))
     })
   }
 
@@ -435,7 +435,7 @@ public struct DefiniteInitializationPass: TransformPass {
         // Consumes the operand unless it's a constant.
         if let key = FunctionLocal(operand: inst.operands[i]) {
           if !consume(localForKey: key, with: id, or: { (this, _) in
-            this.diagnostics.append(.illegalMove(range: inst.range))
+            this.diagnostics.append(.illegalMove(at: inst.range))
           }) {
             return false
           }
@@ -506,7 +506,7 @@ public struct DefiniteInitializationPass: TransformPass {
     // Consume the object operand.
     let key = FunctionLocal(operand: inst.object)!
     return consume(localForKey: key, with: id, or: { (this, _) in
-      this.diagnostics.append(.illegalMove(range: inst.range))
+      this.diagnostics.append(.illegalMove(at: inst.range))
     })
   }
 
@@ -516,7 +516,7 @@ public struct DefiniteInitializationPass: TransformPass {
     // Consume the object operand.
     if let key = FunctionLocal(operand: inst.object) {
       if !consume(localForKey: key, with: id, or: { (this, _) in
-        this.diagnostics.append(.illegalMove(range: inst.range))
+        this.diagnostics.append(.illegalMove(at: inst.range))
       }) {
         return false
       }
@@ -549,13 +549,13 @@ public struct DefiniteInitializationPass: TransformPass {
           object = .full(.consumed(by: [id]))
           return nil
         case .fullyUninitialized:
-          return .useOfUninitializedObject(range: inst.range)
+          return .useOfUninitializedObject(at: inst.range)
         case .fullyConsumed:
-          return .useOfConsumedObject(range: inst.range)
+          return .useOfConsumedObject(at: inst.range)
         case .partiallyInitialized:
-          return .useOfPartiallyInitializedObject(range: inst.range)
+          return .useOfPartiallyInitializedObject(at: inst.range)
         case .partiallyConsumed:
-          return .useOfPartiallyConsumedObject(range: inst.range)
+          return .useOfPartiallyConsumedObject(at: inst.range)
         }
       }) {
         diagnostics.append(diagnostic)
@@ -575,7 +575,7 @@ public struct DefiniteInitializationPass: TransformPass {
     for operand in inst.operands {
       if let key = FunctionLocal(operand: operand) {
         if !consume(localForKey: key, with: id, or: { (this, _) in
-          this.diagnostics.append(.illegalMove(range: inst.range))
+          this.diagnostics.append(.illegalMove(at: inst.range))
         }) {
           return false
         }
@@ -593,7 +593,7 @@ public struct DefiniteInitializationPass: TransformPass {
     // Consume the object operand.
     if let key = FunctionLocal(operand: inst.value) {
       if !consume(localForKey: key, with: id, or: { (this, _) in
-        this.diagnostics.append(.illegalMove(range: inst.range))
+        this.diagnostics.append(.illegalMove(at: inst.range))
       }) {
         return false
       }
@@ -608,7 +608,7 @@ public struct DefiniteInitializationPass: TransformPass {
     // Consume the object operand.
     if let key = FunctionLocal(operand: inst.object) {
       if !consume(localForKey: key, with: id, or: { (this, _) in
-        this.diagnostics.append(.illegalMove(range: inst.range))
+        this.diagnostics.append(.illegalMove(at: inst.range))
       }) {
         return false
       }
@@ -1081,27 +1081,27 @@ fileprivate extension DefiniteInitializationPass {
 
 fileprivate extension Diagnostic {
 
-  static func illegalMove(range: SourceRange?) -> Diagnostic {
+  static func illegalMove(at range: SourceRange?) -> Diagnostic {
     .error("illegal move", range: range)
   }
 
-  static func unboundedStackAllocation(range: SourceRange?) -> Diagnostic {
+  static func unboundedStackAllocation(at range: SourceRange?) -> Diagnostic {
     .error("unbounded stack allocation", range: range)
   }
 
-  static func useOfConsumedObject(range: SourceRange?) -> Diagnostic {
+  static func useOfConsumedObject(at range: SourceRange?) -> Diagnostic {
     .error("use of consumed object", range: range)
   }
 
-  static func useOfPartiallyConsumedObject(range: SourceRange?) -> Diagnostic {
+  static func useOfPartiallyConsumedObject(at range: SourceRange?) -> Diagnostic {
     .error("use of partially consumed object", range: range)
   }
 
-  static func useOfPartiallyInitializedObject(range: SourceRange?) -> Diagnostic {
+  static func useOfPartiallyInitializedObject(at range: SourceRange?) -> Diagnostic {
     .error("use of partially initialized object", range: range)
   }
 
-  static func useOfUninitializedObject(range: SourceRange?) -> Diagnostic {
+  static func useOfUninitializedObject(at range: SourceRange?) -> Diagnostic {
     .error("use of uninitialized object", range: range)
   }
 
