@@ -89,12 +89,13 @@ public struct BitPattern: Hashable {
     }
   }
 
-  /// Creates a bit pattern from a string describing a positive decimal number, with the minimal
-  /// width required to represent the number described by`string`.
+  /// Creates a bit pattern from a string describing a positive decimal number, using the minimal
+  /// width required to represent it.
   ///
-  /// - Returns: A bit pattern representing the number described by `string`, unless it contains
-  ///   non-decimal characters. In that case, returns `nil`.
-  public init?(fromDecimal string: String) {
+  /// - Returns: A bit pattern or `nil` if `string` contains non-decimal characters.
+  public init?<T: Collection>(fromDecimal string: T)
+    where T.Element == Character, T.SubSequence == Substring
+  {
     // Transform the string into an array of digits, ignoring leading zeroes.
     var input: [UInt8] = []
     input.reserveCapacity(input.count)
@@ -141,6 +142,70 @@ public struct BitPattern: Hashable {
     }
 
     self.init(words: words, width: width)
+  }
+
+  /// Creates a bit pattern from a string describing a positive hexadecimal number, using the
+  /// minimal width required to represent it.
+  ///
+  /// - Returns: A bit pattern or `nil` if `string` contains non-hexadecimal characters.
+  public init?<T: Collection>(fromHexadecimal string: T)
+    where T.Element == Character, T.SubSequence == Substring
+  {
+    // Ignore leading zeros.
+    var input = string.drop(while: { $0 == "0" })
+
+    // Convert heac hexadecimal digit.
+    var words: [UInt] = []
+    words.reserveCapacity((input.count + 1) / 2)
+
+    var isLower = true
+    while let last = input.popLast() {
+      let halfWord: UInt
+      switch last {
+      case "0"      : halfWord = 0
+      case "1"      : halfWord = 1
+      case "2"      : halfWord = 2
+      case "3"      : halfWord = 3
+      case "4"      : halfWord = 4
+      case "5"      : halfWord = 5
+      case "6"      : halfWord = 6
+      case "7"      : halfWord = 7
+      case "8"      : halfWord = 8
+      case "9"      : halfWord = 9
+      case "a", "A" : halfWord = 10
+      case "b", "B" : halfWord = 11
+      case "c", "C" : halfWord = 12
+      case "d", "D" : halfWord = 13
+      case "e", "E" : halfWord = 14
+      case "f", "F" : halfWord = 15
+      default:
+        return nil
+      }
+
+      if isLower {
+        words.append(halfWord)
+      } else {
+        words[words.count - 1] |= (halfWord << 4)
+      }
+
+      isLower = !isLower
+    }
+
+    if let first = words.first {
+      var width = words.count * 8
+      if first < 16 {
+        width -= 4
+      } else if first < 32 {
+        width -= 3
+      } else if first < 64 {
+        width -= 2
+      } else if first < 128 {
+        width -= 1
+      }
+      self.init(words: words, width: width)
+    } else {
+      self.init(pattern: 0, width: 0)
+    }
   }
 
   /// Returns a bit pattern resized to `width`, truncating the most significant bits or adding
@@ -209,7 +274,7 @@ public struct BitPattern: Hashable {
 
     if digit != 0 { hex.append(sum) }
 
-    let letter: UInt8 = uppercase ? 65 : 97
+    let letter: UInt8 = uppercase ? 55 : 87
     let result = hex
       .dropLast(while: { $0 == 0 })
       .reversed()
