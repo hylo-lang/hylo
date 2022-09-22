@@ -127,14 +127,8 @@ public struct Emitter {
       switch member.kind {
       case .funDecl:
         let funDecl = NodeID<FunDecl>(rawValue: member.rawValue)
-        switch program.ast[funDecl].introducer.value {
-        case .memberwiseInit:
-          continue
-        case .`init`, .deinit:
-          fatalError("not implemented")
-        case .fun:
-          emit(fun: funDecl, into: &module)
-        }
+        if program.ast[funDecl].introducer.value == .memberwiseInit { continue }
+        emit(fun: funDecl, into: &module)
 
       case .subscriptDecl:
         emit(subscript: NodeID(rawValue: member.rawValue), into: &module)
