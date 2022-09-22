@@ -131,13 +131,12 @@ struct CLI: ParsableCommand {
     // Type-check the input.
     log(verbose: "Type-checking '\(productName)'".styled([.bold]))
     var checker = TypeChecker(ast: rawProgram)
-    checker.isBuiltinModuleVisible = importBuiltinModule
 
-    var typeCheckingSucceeded = checker.check(module: moduleDecl)
-
-    // Type-check the standard library.
     checker.isBuiltinModuleVisible = true
-    typeCheckingSucceeded = checker.check(module: rawProgram.stdlib!) && typeCheckingSucceeded
+    var typeCheckingSucceeded = checker.check(module: rawProgram.stdlib!)
+
+    checker.isBuiltinModuleVisible = importBuiltinModule
+    typeCheckingSucceeded = checker.check(module: moduleDecl) && typeCheckingSucceeded
 
     log(diagnostics: checker.diagnostics)
     if !typeCheckingSucceeded {
