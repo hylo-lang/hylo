@@ -615,17 +615,29 @@ public struct Emitter {
   ) -> Operand {
     guard case .product(let type) = program.exprTypes[expr]! else { unreachable() }
 
+    // Determine the bit width of the value.
+    let bitWidth: Int
     switch type.name.value {
-    case "Int":
-      let bits = BitPattern(fromDecimal: program.ast[expr].value)!.resized(to: 64)
-      let value = IntegerConstant(bitPattern: bits)
-      return module.insert(
-        RecordInst(objectType: .object(.product(type)), operands: [.constant(.integer(value))]),
-        at: insertionPoint!)[0]
-
+    case "Int"    : bitWidth = 64
+    case "Int32"  : bitWidth = 32
     default:
       unreachable("unexpected numeric type")
     }
+
+    // Convert the literal into a bit pattern.
+    let bits: BitPattern
+    let s = program.ast[expr].value
+    if s.starts(with: "0x") {
+      bits = BitPattern(fromHexadecimal: s.dropFirst(2))!.resized(to: bitWidth)
+    } else {
+      bits = BitPattern(fromDecimal: s)!.resized(to: bitWidth)
+    }
+
+    // Emit the constant integer.
+    let value = IntegerConstant(bitPattern: bits)
+    return module.insert(
+      RecordInst(objectType: .object(.product(type)), operands: [.constant(.integer(value))]),
+      at: insertionPoint!)[0]
   }
 
   private mutating func emitR(
