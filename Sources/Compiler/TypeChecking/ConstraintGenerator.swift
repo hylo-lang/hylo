@@ -600,7 +600,7 @@ struct ConstraintGenerator: ExprVisitor {
     stem: Identifier,
     labels: [String?],
     notation: OperatorNotation?,
-    introducer: MethodImplDecl.Introducer?,
+    introducer: ImplIntroducer?,
     inDeclSpaceOf lookupContext: AnyScopeID? = nil
   ) -> [(decl: AnyDeclID, type: Type)] {
     // Check preconditions.

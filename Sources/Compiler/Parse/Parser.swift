@@ -504,7 +504,7 @@ public enum Parser {
   static let methodBundleBody = (
     take(.lBrace).and(methodImpl+).and(take(.rBrace))
       .map({ (context, tree) -> [NodeID<MethodImplDecl>] in
-        var introducers: Set<MethodImplDecl.Introducer> = []
+        var introducers: Set<ImplIntroducer> = []
         for implID in tree.0.1 {
           let introducer = context.ast[implID].introducer
           if !introducers.insert(introducer.value).inserted {
@@ -533,9 +533,10 @@ public enum Parser {
   )
 
   static let methodIntroducer = translate([
-    .let  : MethodImplDecl.Introducer.let,
-    .inout: MethodImplDecl.Introducer.inout,
-    .sink : MethodImplDecl.Introducer.sink,
+    .let  : ImplIntroducer.let,
+    .inout: ImplIntroducer.inout,
+    .set  : ImplIntroducer.set,
+    .sink : ImplIntroducer.sink,
   ])
 
   static let propertyDecl = (
@@ -626,7 +627,7 @@ public enum Parser {
   static let subscriptBundleBody = (
     take(.lBrace).and(subscriptImpl+).and(take(.rBrace))
       .map({ (context, tree) -> [NodeID<SubscriptImplDecl>] in
-        var introducers: Set<SubscriptImplDecl.Introducer> = []
+        var introducers: Set<ImplIntroducer> = []
         for implID in tree.0.1 {
           let introducer = context.ast[implID].introducer
           if !introducers.insert(introducer.value).inserted {
@@ -655,10 +656,10 @@ public enum Parser {
   )
 
   static let subscriptIntroducer = translate([
-    .let  : SubscriptImplDecl.Introducer.let,
-    .inout: SubscriptImplDecl.Introducer.inout,
-    .set  : SubscriptImplDecl.Introducer.set,
-    .sink : SubscriptImplDecl.Introducer.sink,
+    .let  : ImplIntroducer.let,
+    .inout: ImplIntroducer.inout,
+    .set  : ImplIntroducer.set,
+    .sink : ImplIntroducer.sink,
   ])
 
   static let parameterList = (

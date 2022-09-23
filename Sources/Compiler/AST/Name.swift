@@ -11,13 +11,13 @@ public struct Name: Hashable, Codable {
   public var notation: OperatorNotation?
 
   /// The method introducer of the referred entity, given that it is a method implementation.
-  public var introducer: MethodImplDecl.Introducer?
+  public var introducer: ImplIntroducer?
 
   /// Creates a new name.
   public init(
     stem: Identifier,
     labels: [String?] = [],
-    introducer: MethodImplDecl.Introducer? = nil
+    introducer: ImplIntroducer? = nil
   ) {
     self.stem = stem
     self.labels = labels
@@ -29,7 +29,7 @@ public struct Name: Hashable, Codable {
   public init(
     stem: Identifier,
     notation: OperatorNotation,
-    introducer: MethodImplDecl.Introducer? = nil
+    introducer: ImplIntroducer? = nil
   ) {
     self.stem = stem
     self.labels = []

@@ -203,6 +203,8 @@ public struct CXXTranspiler {
           return "\(output) \(methodName)(\(inputs)) const;"
         case .inout:
           return "void inplace_\(methodName)(\(inputs));"
+        case .set:
+          return "void set_\(methodName)(\(inputs));"
         case .sink:
           return "\(output) sink_\(methodName)(\(inputs)) &&;"
         }
