@@ -645,9 +645,19 @@ public struct TypeChecker {
       success = check(decl: j) && success
     }
 
+    // Type check conformances.
+    let container = scopeHierarchy.parent[id]!
+    let traits: Set<TraitType>
+    if let ts = realize(conformances: ast[id].conformances, inScope: container) {
+      traits = ts
+    } else {
+      traits = []
+      success = false
+    }
+
     // Type check extending declarations.
     let type = declTypes[id]!
-    for j in extendingDecls(of: type, exposedTo: scopeHierarchy.container[id]!) {
+    for j in extendingDecls(of: type, exposedTo: container) {
       success = check(decl: j) && success
     }
 
@@ -825,6 +835,18 @@ public struct TypeChecker {
     // Update the request status.
     declRequests[id] = success ? .success : .failure
     return success
+  }
+
+  /// Type checks the conformance of the product type declared by `decl` to the trait `trait` and
+  /// returns whether that succeeded.
+  ///
+  /// - Parameter isSynthesizable: Indicates whether trait requirements can be synthesized.
+  private mutating func check(
+    conformanceOfProductDecl decl: NodeID<ProductTypeDecl>,
+    to trait: TraitType,
+    synthesizingRequirements isSynthesizable: Bool
+  ) -> Bool {
+    return true
   }
 
   /// Type checks the specified statement and returns whether that succeeded.
