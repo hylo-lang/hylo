@@ -7,7 +7,7 @@ public struct SubscriptType: TypeProtocol, Hashable {
   public let isProperty: Bool
 
   /// The capabilities of the subscript.
-  public let capabilities: Set<SubscriptImplDecl.Introducer>
+  public let capabilities: Set<ImplIntroducer>
 
   public let environment: Type
 
@@ -19,7 +19,7 @@ public struct SubscriptType: TypeProtocol, Hashable {
 
   public init(
     isProperty: Bool,
-    capabilities: Set<SubscriptImplDecl.Introducer>,
+    capabilities: Set<ImplIntroducer>,
     environment: Type = .unit,
     inputs: [CallableTypeParameter],
     output: Type
