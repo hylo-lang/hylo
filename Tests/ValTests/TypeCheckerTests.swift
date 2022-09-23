@@ -2030,4 +2030,35 @@ final class TypeCheckerTests: XCTestCase {
     XCTAssertEqual(checker.diagnostics.count, 2)
   }
 
+  func testIllegalConformanceDecl() throws {
+    let ast = try XCTUnwrap("""
+    type Foo {}
+    type Bar: Foo {} // error
+    """.parse())
+
+    var checker = TypeChecker(ast: ast)
+    XCTAssertFalse(checker.check(module: ast.modules[0]))
+    XCTAssertEqual(checker.diagnostics.count, 1)
+  }
+
+}
+
+extension String {
+
+  /// Returns the AST obtained by calling `Parser.parse` whose contents is `self`, or `nil` if a
+  /// parse error occured.
+  ///
+  /// The contents of the file is parsed into a single module named "main".
+  func parse(file: StaticString = #filePath, line: UInt = #line) -> AST? {
+    var ast = AST()
+    let moduleDecl = ast.insert(ModuleDecl(name: "main"))
+    let sourceFile = SourceFile(contents: self)
+    if Parser.parse(sourceFile, into: moduleDecl, in: &ast).decls != nil {
+      return ast
+    } else {
+      XCTFail("parsing failed", file: file, line: line)
+      return nil
+    }
+  }
+
 }
