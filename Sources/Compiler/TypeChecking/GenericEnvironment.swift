@@ -12,8 +12,13 @@ struct GenericEnvironment {
   /// The equivalence classes and their associated conformance sets.
   private var entries: [(equivalences: Set<Type>, conformances: Set<TraitType>)] = []
 
-  /// Creates the generic environment of `decl` with the specified constraints, using `checker` to
-  /// evaluate them; fails if one of the constraints is ill-formed.
+  /// Creates and returns the generic environment of `decl`, or returns `nil` if one of the
+  /// specified constraints are ill-formed.
+  ///
+  /// - Parameters:
+  ///   - decl: The declaration for which `self` is being initialized.
+  ///   - constraints: The constraints defined on the environment to build.
+  ///   - checker: The type checker used to check the constraints.
   init?<T: DeclID>(decl: T, constraints: [Constraint], into checker: inout TypeChecker) {
     self.constraints = constraints
 
