@@ -1165,10 +1165,8 @@ public struct TypeChecker {
     ofTrait trait: NodeID<TraitDecl>,
     into constraints: inout [Constraint]
   ) -> Bool {
-    // Realize the generic type parameter corresponding to the associated type.
-    let lhs = realize(decl: associatedType)
-    if lhs.isError { return false }
-    assert(lhs.base is GenericTypeParamType)
+    // Realize the LHS of the constraint.
+    guard let lhs = realize(decl: associatedType).proper else { return false }
 
     // Synthesize the sugared conformance constraint, if any.
     let list = ast[associatedType].conformances
@@ -1200,14 +1198,11 @@ public struct TypeChecker {
     ofTrait trait: NodeID<TraitDecl>,
     into constraints: inout [Constraint]
   ) -> Bool {
-    // Realize the generic type parameter corresponding to the associated value.
-    let lhs = realize(decl: associatedValue)
-    if lhs.isError { return false }
-    assert(lhs.base is GenericValueParamType)
-
-    var success = true
+    // Realize the LHS of the constraint.
+    guard !realize(decl: associatedValue).isError else { return false }
 
     // Evaluate the constraint expressions of the associated value's where clause.
+    var success = true
     if let whereClause = ast[associatedValue].whereClause?.value {
       for expr in whereClause.constraints {
         if let constraint = eval(constraintExpr: expr, inScope: AnyScopeID(trait)) {
@@ -1621,7 +1616,7 @@ public struct TypeChecker {
       // TODO: Read source of conformance to disambiguate associated names
       let newMatches = lookup(name, memberOf: .trait(trait), inScope: scope)
       switch type {
-      case .associated,
+      case .associatedType,
            .genericTypeParam,
            .trait:
         matches.formUnion(newMatches)
@@ -1960,8 +1955,8 @@ public struct TypeChecker {
         if match.kind == .associatedTypeDecl {
           let decl = NodeID<AssociatedTypeDecl>(rawValue: match.rawValue)
           switch domain {
-          case .associated, .conformanceLens, .genericTypeParam:
-            base = .associated(AssociatedType(decl: decl, domain: domain, ast: ast))
+          case .associatedType, .conformanceLens, .genericTypeParam:
+            base = .associatedType(AssociatedType(decl: decl, domain: domain, ast: ast))
           default:
             diagnostics.insert(.invalidAssociatedTypeExpr(ast[decl].name, at: identifier.range))
             return nil
@@ -2015,7 +2010,7 @@ public struct TypeChecker {
           let domain = realizeSelfTypeExpr(inScope: scope)!
           let type = AssociatedType(
             decl: NodeID(rawValue: match.rawValue), domain: domain, ast: ast)
-          base = .associated(type)
+          base = .associatedType(type)
         } else {
           base = realize(decl: match).proper
         }
@@ -2096,14 +2091,30 @@ public struct TypeChecker {
   /// Returns the overarching type of the specified declaration.
   mutating func realize<T: DeclID>(decl id: T) -> Type {
     switch id.kind {
-    case .associatedTypeDecl,
-         .genericTypeParamDecl:
+    case .associatedTypeDecl:
+      return _realize(decl: id, { (this, id) in
+        let traitDecl = NodeID<TraitDecl>(rawValue: this.scopeHierarchy.container[id]!.rawValue)
+        return .associatedType(AssociatedType(
+          decl: NodeID(rawValue: id.rawValue),
+          domain: .genericTypeParam(GenericTypeParamType(decl: traitDecl, ast: this.ast)),
+          ast: this.ast))
+      })
+
+    case .associatedValueDecl:
+      return _realize(decl: id, { (this, id) in
+        let traitDecl = NodeID<TraitDecl>(rawValue: this.scopeHierarchy.container[id]!.rawValue)
+        return .associatedValue(AssociatedValue(
+          decl: NodeID(rawValue: id.rawValue),
+          domain: .genericTypeParam(GenericTypeParamType(decl: traitDecl, ast: this.ast)),
+          ast: this.ast))
+      })
+
+    case .genericTypeParamDecl:
       return _realize(decl: id, { (this, id) in
         .genericTypeParam(GenericTypeParamType(decl: id, ast: this.ast))
       })
 
-    case .associatedValueDecl,
-         .genericValueParamDecl:
+    case .genericValueParamDecl:
       return _realize(decl: id, { (this, id) in
         .genericValueParam(GenericValueParamType(decl: id, ast: this.ast))
       })
@@ -2137,7 +2148,7 @@ public struct TypeChecker {
 
     case .traitDecl:
       return _realize(decl: id, { (this, id) in
-          .trait(TraitType(decl: NodeID(rawValue: id.rawValue), ast: this.ast))
+        .trait(TraitType(decl: NodeID(rawValue: id.rawValue), ast: this.ast))
       })
 
     case .typeAliasDecl:
@@ -2623,7 +2634,7 @@ public struct TypeChecker {
   func skolemize(type: Type) -> Type {
     return type.transform({ type in
       switch type {
-      case .associated,
+      case .associatedType,
            .genericTypeParam:
         return .stepOver(.skolem(SkolemType(base: type)))
 
@@ -2647,7 +2658,7 @@ public struct TypeChecker {
 
     let transformed = type.transform({ type in
       switch type {
-      case .associated:
+      case .associatedType:
         fatalError("not implemented")
 
       case .genericTypeParam:
@@ -2691,7 +2702,7 @@ public struct TypeChecker {
 
     let transformed = type.transform({ type in
       switch type {
-      case .associated:
+      case .associatedType:
         fatalError("not implemented")
 
       case .genericTypeParam(let base):

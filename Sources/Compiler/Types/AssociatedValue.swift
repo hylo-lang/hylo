@@ -1,12 +1,12 @@
 import Utils
 
-/// An associated type of a generic type parameter, or associated type thereof.
-public struct AssociatedType: TypeProtocol, Hashable {
+/// The type of an associated value of a generic type parameter, or associated type thereof.
+public struct AssociatedValue: TypeProtocol, Hashable {
 
-  /// The declaration that introduces the associated type in the parent trait.
-  public let decl: NodeID<AssociatedTypeDecl>
+  /// The declaration that introduces the associated value in the parent trait.
+  public let decl: NodeID<AssociatedValueDecl>
 
-  /// The domain of an associated type.
+  /// The domain of an associated value.
   ///
   /// The domain is either an associated type, a conformance lens, or a generic type parameter.
   public let domain: Type
@@ -16,7 +16,7 @@ public struct AssociatedType: TypeProtocol, Hashable {
 
   public let flags: TypeFlags = .isCanonical
 
-  public init(decl: NodeID<AssociatedTypeDecl>, domain: Type, ast: AST) {
+  public init(decl: NodeID<AssociatedValueDecl>, domain: Type, ast: AST) {
     switch domain {
     case .associatedType, .conformanceLens, .genericTypeParam:
       self.domain = domain
@@ -30,7 +30,7 @@ public struct AssociatedType: TypeProtocol, Hashable {
 
 }
 
-extension AssociatedType: CustomStringConvertible {
+extension AssociatedValue: CustomStringConvertible {
 
   public var description: String { "\(domain).\(name.value)" }
 
