@@ -324,6 +324,8 @@ public struct Emitter {
     }
 
     switch expr.kind {
+    case .assignExpr:
+      return emitR(assign: NodeID(rawValue: expr.rawValue), into: &module)
     case .booleanLiteralExpr:
       return emitR(booleanLiteral: NodeID(rawValue: expr.rawValue), into: &module)
     case .condExpr:
@@ -339,6 +341,17 @@ public struct Emitter {
     default:
       unreachable("unexpected expression")
     }
+  }
+
+  private mutating func emitR(
+    assign expr: NodeID<AssignExpr>,
+    into module: inout Module
+  ) -> Operand {
+    let rhs = emitR(expr: program.ast[expr].right, into: &module)
+    // FIXME: Should request the capability 'set or inout'.
+    let lhs = emitL(expr: program.ast[expr].left, withCapability: .set, into: &module)
+    _ = module.insert(StoreInst(rhs, to: lhs), at: insertionPoint!)
+    return .constant(.unit)
   }
 
   private mutating func emitR(
@@ -520,7 +533,7 @@ public struct Emitter {
             at: insertionPoint!)[0]
 
         case .`init`:
-          // The function is a custom initializer. TODO
+          // TODO: The function is a custom initializer.
           fatalError("not implemented")
 
         default:
