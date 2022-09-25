@@ -2041,6 +2041,31 @@ final class TypeCheckerTests: XCTestCase {
     XCTAssertEqual(checker.diagnostics.count, 1)
   }
 
+  func testTrivialConformance() throws {
+    let ast = try XCTUnwrap("""
+    trait Foo {}
+    type Bar: Foo {}
+    """.parse())
+
+    var checker = TypeChecker(ast: ast)
+    XCTAssertTrue(checker.check(module: ast.modules[0]))
+  }
+
+  func testConformance() throws {
+    let ast = try XCTUnwrap("""
+    trait Foo {
+      fun f()
+    }
+
+    type Bar: Foo {
+      fun f() {}
+    }
+    """.parse())
+
+    var checker = TypeChecker(ast: ast)
+    XCTAssertTrue(checker.check(module: ast.modules[0]))
+  }
+
 }
 
 extension String {

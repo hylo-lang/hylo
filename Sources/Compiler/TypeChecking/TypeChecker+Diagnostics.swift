@@ -195,6 +195,10 @@ extension Diagnostic {
     }
   }
 
+  static func requires(method name: Name, withType type: Type) -> Diagnostic {
+    .error("trait requires method '\(name)' with type '\(type)'")
+  }
+
   static func staleConstraint(constraint: Constraint, at range: SourceRange?) -> Diagnostic {
     .error("stale constraint '\(constraint)'", range: range)
   }
