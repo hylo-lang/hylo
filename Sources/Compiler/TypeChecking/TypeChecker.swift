@@ -655,6 +655,10 @@ public struct TypeChecker {
       success = false
     }
 
+    for trait in traits {
+      success = check(conformanceOfProductDecl: id, to: trait) && success
+    }
+
     // Type check extending declarations.
     let type = declTypes[id]!
     for j in extendingDecls(of: type, exposedTo: container) {
@@ -839,14 +843,77 @@ public struct TypeChecker {
 
   /// Type checks the conformance of the product type declared by `decl` to the trait `trait` and
   /// returns whether that succeeded.
-  ///
-  /// - Parameter isSynthesizable: Indicates whether trait requirements can be synthesized.
   private mutating func check(
     conformanceOfProductDecl decl: NodeID<ProductTypeDecl>,
-    to trait: TraitType,
-    synthesizingRequirements isSynthesizable: Bool
+    to trait: TraitType
   ) -> Bool {
-    return true
+    let conformingType = Type.product(ProductType(decl: decl, ast: ast))
+    let selfType = Type.genericTypeParam(GenericTypeParamType(decl: trait.decl, ast: ast))
+    var success = true
+
+    // Get the set of generic parameters defined by `trait`.
+    for j in ast[trait.decl].members {
+      switch j.kind {
+      case .associatedTypeDecl:
+        // TODO: Implement me.
+        continue
+
+      case .funDecl:
+        // Make sure the requirement is well-formed.
+        let requirement = NodeID<FunDecl>(rawValue: j.rawValue)
+        var requirementType = canonicalize(type: realize(funDecl: requirement))
+
+        // Substitute `Self` by the conforming type in the requirement type.
+        requirementType = requirementType.transform({ type in
+          if type == selfType {
+            return .stepOver(conformingType)
+          } else {
+            return .stepInto(type)
+          }
+        })
+
+        if requirementType.isError { continue }
+
+        // Search for candidate implementations.
+        let stem = ast[requirement].identifier!.value
+        var candidates = lookup(stem, memberOf: conformingType, inScope: AnyScopeID(decl))
+        candidates.remove(AnyDeclID(requirement))
+
+        // Filter out the candidates with incompatible types.
+        candidates = candidates.filter({ (candidate) -> Bool in
+          let candidateType = realize(decl: candidate)
+          return canonicalize(type: candidateType) == requirementType
+        })
+
+        // TODO: Filter out the candidates with incompatible constraints.
+        //
+        // trait A {}
+        // type Foo<T> {}
+        // extension Foo where T: U { fun foo() }
+        // conformance Foo: A {} // <- should not consider `foo` in the extension
+
+        // If there are several candidates, we have an ambiguous conformance.
+        if candidates.count > 1 {
+          fatalError("not implemented")
+        }
+
+        // If there's no candidate and the requirement doesn't have a default implementation, the
+        // conformance is not satisfied.
+        if candidates.isEmpty && (ast[requirement].body == nil) {
+          var d = Diagnostic.noConformance(
+            of: conformingType, to: trait, at: ast[decl].identifier.range)
+          d.children.append(.requires(
+            method: Name(ofFunction: requirement, in: ast)!, withType: declTypes[requirement]!))
+          diagnostics.insert(d)
+          success = false
+        }
+
+      default:
+        unreachable()
+      }
+    }
+
+    return success
   }
 
   /// Type checks the specified statement and returns whether that succeeded.
@@ -1108,33 +1175,33 @@ public struct TypeChecker {
 
   /// Returns the generic environment defined by `i`, or `nil` if it is ill-formed.
   private mutating func environment(
-    ofTraitDecl i: NodeID<TraitDecl>
+    ofTraitDecl id: NodeID<TraitDecl>
   ) -> GenericEnvironment? {
-    switch environments[i] {
+    switch environments[id] {
     case .done(let e):
       return e
     case .inProgress:
       fatalError("circular dependency")
     case nil:
-      environments[i] = .inProgress
+      environments[id] = .inProgress
     }
 
     var success = true
     var constraints: [Constraint] = []
 
     // Collect and type check the constraints defined on associated types and values.
-    for member in ast[i].members {
+    for member in ast[id].members {
       switch member.kind {
       case .associatedTypeDecl:
         success = associatedConstraints(
           ofType: NodeID(rawValue: member.rawValue),
-          ofTrait: i,
+          ofTrait: id,
           into: &constraints) && success
 
       case .associatedValueDecl:
         success = associatedConstraints(
           ofValue: NodeID(rawValue: member.rawValue),
-          ofTrait: i,
+          ofTrait: id,
           into: &constraints) && success
 
       default:
@@ -1144,17 +1211,17 @@ public struct TypeChecker {
 
     // Bail out if we found ill-form constraints.
     if !success {
-      environments[i] = .done(nil)
+      environments[id] = .done(nil)
       return nil
     }
 
     // Synthesize `Self: T`.
-    let selfType = GenericTypeParamType(decl: i, ast: ast)
-    guard case .trait(let trait) = declTypes[i]! else { unreachable() }
+    let selfType = GenericTypeParamType(decl: id, ast: ast)
+    guard case .trait(let trait) = declTypes[id]! else { unreachable() }
     constraints.append(.conformance(l: .genericTypeParam(selfType), traits: [trait]))
 
-    let e = GenericEnvironment(decl: i, constraints: constraints, into: &self)
-    environments[i] = .done(e)
+    let e = GenericEnvironment(decl: id, constraints: constraints, into: &self)
+    environments[id] = .done(e)
     return e
   }
 
