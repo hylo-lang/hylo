@@ -42,6 +42,31 @@ swift build -c release
 That command will create an executable named `valc` in `.build/release`.
 That's Val compiler!
 
+## Implementation status
+
+This project is under active development; expect things to break and APIs to change.
+
+The compiler pipeline is organized as below.
+Incidentally, early stages of this pipeline are more stable than later ones.
+*(Note: completion percentages are very rough estimations.)*
+1. Parsing (100%)
+2. Type checking (50%)
+3. IR lowering (30%)
+4. IR analysis and transformations (30%)
+5. Machine code generation (20%)
+
+You can select how deep the compiler should go through the pipeline with the following options:
+- `--emit raw-ast`: Only parse the input files and output an untyped AST as a JSON file.
+- `--typecheck`: Run the type checker on the input.
+- `--emit raw-ir`: Lower the typed AST into Val IR and output the result in a file.
+- `--emit ir`: Run mandatory IR passes and output the result in a file.
+- `--emit llvm-ir`: Translate Val IR to LLVM IR and output the result in a file.
+- `--emit binary` (default): Produce an executable.
+
+For example, `valc --emit raw-ast -o main.json main.val` will parse `main.val`, write the untyped AST in `main.json`, and exit the pipeline.
+
+A more detailed description of the current implementation status is available on our [roadmap page](https://www.val-lang.dev/pages/implementation-status.html).
+
 ## Contributing
 
 We welcome contributions to Val.
