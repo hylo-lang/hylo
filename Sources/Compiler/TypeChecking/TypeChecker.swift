@@ -847,7 +847,7 @@ public struct TypeChecker {
     conformanceOfProductDecl decl: NodeID<ProductTypeDecl>,
     to trait: TraitType
   ) -> Bool {
-    let conformingType = Type.product(ProductType(decl: decl, ast: ast))
+    let conformingType = realizeSelfTypeExpr(inScope: decl)!
     let selfType = Type.genericTypeParam(GenericTypeParamType(decl: trait.decl, ast: ast))
     var success = true
 
@@ -858,6 +858,9 @@ public struct TypeChecker {
         // TODO: Implement me.
         continue
 
+      case .associatedValueDecl:
+        fatalError("not implemented")
+
       case .funDecl:
         // Make sure the requirement is well-formed.
         let requirement = NodeID<FunDecl>(rawValue: j.rawValue)
@@ -865,9 +868,38 @@ public struct TypeChecker {
 
         // Substitute `Self` by the conforming type in the requirement type.
         requirementType = requirementType.transform({ type in
-          if type == selfType {
+          switch type {
+          case selfType:
+            // The type is `Self`.
             return .stepOver(conformingType)
-          } else {
+
+          case .associatedType(let t):
+            // If the type is `Self.T`, find the corresponding type in the conforming type.
+            // Otherwise, we can assume the associated type must be rooted at a generic parameter
+            // declared by the requirement.
+            let components = t.components
+            if components.last != selfType { return .stepOver(type) }
+
+            let scope = AnyScopeID(decl)
+            let replacement = components.dropLast(1).reversed()
+              .reduce(into: conformingType, { (r, c) in
+                if r.isError { return }
+
+                switch c {
+                case .associatedType(let c):
+                  r = lookupType(named: c.name.value, memberOf: r, inScope: scope)
+                    ?? .error(ErrorType())
+
+                case .conformanceLens:
+                  fatalError("not implemented")
+
+                default:
+                  unreachable()
+                }
+              })
+            return .stepOver(replacement)
+
+          default:
             return .stepInto(type)
           }
         })
@@ -907,6 +939,9 @@ public struct TypeChecker {
           diagnostics.insert(d)
           success = false
         }
+
+      case .subscriptDecl:
+        fatalError("not implemented")
 
       default:
         unreachable()
@@ -1644,6 +1679,10 @@ public struct TypeChecker {
     defer { memberLookupTables[key, default: [:]][name] = matches }
 
     switch type {
+    case .boundGeneric(let t):
+      matches = lookup(name, memberOf: t.base, inScope: scope)
+      return matches
+
     case .product(let t):
       matches = names(introducedIn: t.decl)[name, default: []]
       if name == "init" {
@@ -1852,6 +1891,22 @@ public struct TypeChecker {
 
     // Note: Results should be memoized.
     return table
+  }
+
+  /// Returns the type named `name` that visible as a member of `type` from `scope`.
+  mutating func lookupType(
+    named name: String,
+    memberOf type: Type,
+    inScope scope: AnyScopeID
+  ) -> Type? {
+    let candidates = lookup(name, memberOf: type, inScope: scope)
+    if candidates.count != 1 { return nil }
+
+    let decl = candidates.first!
+    if !(decl.kind <= .typeDecl) { return nil }
+
+    // FIXME: If `type` is a bound generic type, substitute generic type parameters.
+    return realize(decl: decl)
   }
 
   // MARK: Type realization
@@ -2170,7 +2225,7 @@ public struct TypeChecker {
     case .associatedValueDecl:
       return _realize(decl: id, { (this, id) in
         let traitDecl = NodeID<TraitDecl>(rawValue: this.scopeHierarchy.container[id]!.rawValue)
-        return .associatedValue(AssociatedValue(
+        return .associatedValue(AssociatedValueType(
           decl: NodeID(rawValue: id.rawValue),
           domain: .genericTypeParam(GenericTypeParamType(decl: traitDecl, ast: this.ast)),
           ast: this.ast))
