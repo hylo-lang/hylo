@@ -28,6 +28,30 @@ public struct AssociatedType: TypeProtocol, Hashable {
     self.name = Incidental(ast[decl].name)
   }
 
+  /// An array whose `i+1`-th element is the parent type of the `i`-th element. `components[0]` is
+  /// always `self`.
+  public var components: [Type] {
+    var current = Type.associatedType(self)
+    var result = [current]
+
+    while true {
+      switch current {
+      case .genericTypeParam:
+        return result
+
+      case .associatedType(let type):
+        current = type.domain
+        result.append(type.domain)
+
+      case .conformanceLens(let type):
+        current = type.wrapped
+
+      default:
+        unreachable()
+      }
+    }
+  }
+
 }
 
 extension AssociatedType: CustomStringConvertible {

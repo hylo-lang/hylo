@@ -1,7 +1,7 @@
 import Utils
 
 /// The type of an associated value of a generic type parameter, or associated type thereof.
-public struct AssociatedValue: TypeProtocol, Hashable {
+public struct AssociatedValueType: TypeProtocol, Hashable {
 
   /// The declaration that introduces the associated value in the parent trait.
   public let decl: NodeID<AssociatedValueDecl>
@@ -30,7 +30,7 @@ public struct AssociatedValue: TypeProtocol, Hashable {
 
 }
 
-extension AssociatedValue: CustomStringConvertible {
+extension AssociatedValueType: CustomStringConvertible {
 
   public var description: String { "\(domain).\(name.value)" }
 

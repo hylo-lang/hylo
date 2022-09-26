@@ -5,7 +5,7 @@ public indirect enum Type: TypeProtocol, Hashable {
 
   case associatedType(AssociatedType)
 
-  case associatedValue(AssociatedValue)
+  case associatedValue(AssociatedValueType)
 
   case boundGeneric(BoundGenericType)
 

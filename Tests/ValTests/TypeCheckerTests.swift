@@ -2053,12 +2053,33 @@ final class TypeCheckerTests: XCTestCase {
 
   func testConformance() throws {
     let ast = try XCTUnwrap("""
-    trait Foo {
+    trait P {
       fun f()
     }
 
-    type Bar: Foo {
+    type A: P {} // error: type 'A' does not conform to trait 'P'
+    type B: P {  // error: type 'B' does not conform to trait 'P'
+      fun f() -> Self { B() }
+    }
+    type C: P {  // OK
       fun f() {}
+    }
+    """.parse())
+
+    var checker = TypeChecker(ast: ast)
+    XCTAssertFalse(checker.check(module: ast.modules[0]))
+    XCTAssertEqual(checker.diagnostics.count, 2)
+  }
+
+  func testConformanceWithAssociatedType() throws {
+    let ast = try XCTUnwrap("""
+    trait P {
+      type X
+      fun f(_ x: X)
+    }
+
+    type B<X>: P {
+      fun f(_ x: X) {}
     }
     """.parse())
 
