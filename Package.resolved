@@ -1,15 +1,6 @@
 {
   "pins" : [
     {
-      "identity" : "bitvector",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/loftware/BitVector.git",
-      "state" : {
-        "revision" : "faf6b1a8bbeb629fd9487d5103811abeffcaeda4",
-        "version" : "0.1.0"
-      }
-    },
-    {
       "identity" : "citron",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/dabrahams/citron.git",

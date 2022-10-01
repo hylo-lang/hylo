@@ -7,11 +7,23 @@ extension Collection {
   }
 }
 
+/// Types that can be used to construct a BNF grammar from EBNF.
 protocol BNFBuilder {
+  /// A symbol in the constructed BNF.
   associatedtype Symbol: Hashable
+
+  /// Returns a new BNF terminal symbol corresponding to `n`.
+  ///
+  /// It would typically be a mistake to call this function twice for the same `n`.
   mutating func makeTerminal<N: EBNFNode>(_ n: N) -> Symbol
+
+  /// Returns a new BNF nonterminal symbol corresponding to `n`.
   mutating func makeNonterminal<N: EBNFNode>(_ n: N) -> Symbol
+
+  /// Sets the BNF grammar's start symbol.
   mutating func setStartSymbol(_: Symbol)
+
+  /// Adds a BNF rule corresponding to `source`, reducing the elements of `rhs` to `lhs`.
   mutating func addRule<RHS: Collection, Source: EBNFNode>(
     reducing rhs: RHS, to lhs: Symbol, source: Source) where RHS.Element == Symbol
 }
