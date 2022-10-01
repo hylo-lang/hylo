@@ -18,7 +18,7 @@ private extension String {
       }
     }
     let definitions = try parser.endParsing()
-    return try EBNF.Grammar(definitions, start: "module-definition")
+    return try EBNF.Grammar(definitions, start: "source-file")
   }
 }
 
