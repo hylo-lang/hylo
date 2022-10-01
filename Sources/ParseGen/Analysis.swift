@@ -14,28 +14,28 @@ extension EBNF.Grammar {
     into errors: inout EBNFErrorLog
   ) {
     for d in definitionsByLHS.values {
-      checkDefined(d.alternatives)
+      checkDefined(d.alternatives, into: &errors)
     }
 
-    func checkDefined(_ x: EBNF.Symbol) {
+    func checkDefined(_ x: EBNF.Symbol, into errors: inout EBNFErrorLog) {
       if definitionsByLHS[x] == nil {
         errors.insert(Error("undefined symbol '\(x.name)'", at: x.position))
       }
     }
 
-    func checkDefined(_ x: EBNF.AlternativeList) {
+    func checkDefined(_ x: EBNF.AlternativeList, into errors: inout EBNFErrorLog) {
       for a in x {
-        for t in a { checkDefined(t) }
+        for t in a { checkDefined(t, into: &errors) }
       }
     }
 
-    func checkDefined(_ x: Term) {
+    func checkDefined(_ x: Term, into errors: inout EBNFErrorLog) {
       switch x {
-      case .group(let g): checkDefined(g)
-      case .symbol(let s): checkDefined(s)
+      case .group(let g): checkDefined(g, into: &errors)
+      case .symbol(let s): checkDefined(s, into: &errors)
       case .regexp(_, _): do {}
       case .literal(_, _): do {}
-      case .quantified(let t, _, _): checkDefined(t)
+      case .quantified(let t, _, _): checkDefined(t, into: &errors)
       }
     }
   }
@@ -55,7 +55,9 @@ extension EBNF.Grammar {
 
     func reach(_ x: Symbol) {
       if reachable.insert(x).inserted {
-        reach(definitionsByLHS[x]!.alternatives)
+        if let d = definitionsByLHS[x] {
+          reach(d.alternatives);
+        }
       }
     }
 
@@ -100,8 +102,10 @@ extension EBNF.Grammar {
       else {
         visited.insert(x)
         defer { visited.remove(x) }
-
-        visit(definitionsByLHS[x]!.alternatives)
+        
+        if let d = definitionsByLHS[x] {
+          visit(d.alternatives)
+        }
       }
     }
 
