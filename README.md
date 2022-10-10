@@ -14,7 +14,7 @@ The compiler is currently developed on Unix-like operating systems. While Window
 This project is written in [Swift](https://www.swift.org) and distributed in the form of a package, built with [Swift Package Manager](https://swift.org/package-manager/).
 You will need Swift 5.6 or higher to build the compiler from sources.
 
-Our implementation depends on LLVM 11.0
+Our implementation depends on LLVM 11.0.
 Use your favorite package manager (e.g., `port` on macOS or `apt` on Ubuntu), make sure `llvm-config` is in your `PATH`, and create a `pkgconfig` file for your specific installation.
 The maintainers of [LLVMSwift](https://github.com/llvm-swift/LLVMSwift) were kind enough to provide a script:
 
@@ -23,6 +23,16 @@ The maintainers of [LLVMSwift](https://github.com/llvm-swift/LLVMSwift) were kin
 swift package resolve
 swift .build/checkouts/LLVMSwift/utils/make-pkgconfig.swift
 ```
+
+> Note: make sure you are building the `pkgconfig` file for LLVM 11.
+> The script will search for either `llvm-config-11` or `llvm-config` (in this order) to configure the search paths.
+> You can confirm the version on your system by running these commands yourself.
+> 
+> ```bash
+> llvm-config --version
+> ```
+>
+> __Building Val with a newer version of LLVM will fail.__
 
 > Note: on Ubuntu, you will also need [libc++](https://libcxx.llvm.org) to link your code with LLVM:
 >
