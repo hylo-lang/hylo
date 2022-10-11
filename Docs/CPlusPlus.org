@@ -1,0 +1,58 @@
+#+TITLE: C++ Interoperability and Transpilation
+* Intro/Context
+C++ interop and transpilation are closely related (I cannot define the exact relationship yet). This
+document will probably express most examples in terms of translations between Val and C++.
+** Goals
+
+*** High priority
+- No public C++ APIs (except preprocessor macros) are inaccessible from Val
+- No public Val APIs are inaccessible from C++
+
+*** Stretch
+- “Modern” C++ APIs are represented in Val as idiomatic Val APIs
+- Val APIs are represented to C++ as idiomatic C++ APIs
+
+* Known Hurdles
+** C++ has class inheritance and Val has no direct analogue
+Trait conformance is close, but traits do not come with any storage.
+
+We've discussed some kind of [[https://val-qs97696.slack.com/archives/C035NEV54LE/p1657591189742969][storage inheritance/mixins for Val]], but that is not currently part of
+the language. We'd want to represent a base class as a composition of a mixin and an (existential)
+trait.
+* Function calls
+** Val signatures
+*** parameters
+- =let T=: Presented to C++ as =T const&=
+- =inout=: Presented to C++ as =T&=
+- =sink=: Presented to C++ as =T=.  Why not =T&&=, which is idiomatic for consuming functions in C++
+  these days?  The problem is that the callee is going to destroy the argument, which is appropriate
+  for =T=, whereas with =T&&=, the /caller/ needs to destroy the argument.  If we /want/ to present
+  =T&&= in the C++ API, it requires a wrapper that (nondestructively) moves out of its argument and
+  passes the result by value.
+- =set=: the best translation is unclear.  A safe API passes an empty =optional<T>&=.  However, if
+  someone is wants to initialize a =T= in place, there may be no =optional= wrapper available.
+*** function return
+Return values from Val are fully owned by C++ code, just as in Val.
+*** projections
+Projections will be translated into functions that accept a C++ lambda parameter.
+** C++ signatures
+*** parameters
+- =T= (non-reference): Presented to Val as =sink=.
+- =T&=: (non-=const=) Presented to Val as =inout=.
+- =T const&=
+- =T&&=
+- =T const&&=: Not sure what this one should mean but we need an answer.
+*** function return
+* Projections
+- =let=:
+- =inout=:
+- =sink=: Because the result is independent, a sink projection should be seen as producing a new
+  value just as with the return value of a function.
+* Upholding Val's expectations when called from C++
+The programmer will need to ensure the independence of parameters to Val calls.  The choice of
+whether to inject dynamic independence checks can be made by the programmer at whatever granularity
+we choose to support.
+* Consuming truly non-independent data structures and “referency” types
+A complete interop story requires a strategy that lets Val code interact with C++ that's built on
+=shared_ptr= or that otherwise exposes reference semantics.  In addition to describing the strategy,
+this section should contain a survey of important cases and rationales for our treatment of them.
