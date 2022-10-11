@@ -9,8 +9,11 @@ document will probably express most examples in terms of translations between Va
 - No public Val APIs are inaccessible from C++
 
 *** Stretch
-- “Modern” C++ APIs are represented in Val as idiomatic Val APIs
-- Val APIs are represented to C++ as idiomatic C++ APIs
+With only reasonable effort expended by the programmer:
+- “Modern” C++ APIs are represented in Val as idiomatic Val APIs (e.g. a C++ =range= can easily
+  conform to =Collection= and in Val appears as a thing with Collection APIs rather than iterators).
+- Val APIs are represented to C++ as idiomatic C++ APIs (important, e.g., if you want to use a C++
+  algorithm on a Val =Collection=).
 
 * Known Hurdles
 ** C++ has class inheritance and Val has no direct analogue
@@ -19,6 +22,9 @@ Trait conformance is close, but traits do not come with any storage.
 We've discussed some kind of [[https://val-qs97696.slack.com/archives/C035NEV54LE/p1657591189742969][storage inheritance/mixins for Val]], but that is not currently part of
 the language. We'd want to represent a base class as a composition of a mixin and an (existential)
 trait.
+** Move semantics are different
+Val moves are destructive.  To present a Val =Sinkable= type as C++ movable, we could add conformance to
+an =Emptyable= protocol.
 * Function calls
 ** Val signatures
 *** parameters
