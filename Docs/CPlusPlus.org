@@ -7,7 +7,9 @@ document will probably express most examples in terms of translations between Va
 *** High priority
 - No public C++ APIs (except preprocessor macros) are inaccessible from Val
 - No public Val APIs are inaccessible from C++
-
+- Interop with C++ adds no new language rules to Val code.
+  - A Val module can be constructed from a C++ module.
+  - All language rules related to C++ interop are part of the specification of that construction.
 *** Stretch
 With only reasonable effort expended by the programmer:
 - “Modern” C++ APIs are represented in Val as idiomatic Val APIs (e.g. a C++ =range= can easily
