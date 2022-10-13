@@ -47,9 +47,13 @@ Projections will be translated into functions that accept a C++ lambda parameter
 *** parameters
 - =T= (non-reference): Presented to Val as =sink=.
 - =T&=: (non-=const=) Presented to Val as =inout=.
-- =T const&=
-- =T&&=
-- =T const&&=: Not sure what this one should mean but we need an answer.
+- =T const&= Presented to Val as =let=.
+- =T const&&= Presented to Val as =let=.
+- =T&&=: Undecided. Likely to use Val's effects system to model universal references.
+
+  =T const&&= is a rarely-used C++ construct. The operations permitted on a =T const&&= appear to
+  be identical to the operations permitted on a =T const&=: they are both immutable and non-movable.
+  Presenting both of these value categories as =let= in Val seems to be consistent with C++'s semantics.
 *** function return
 * Projections
 - =let=:
