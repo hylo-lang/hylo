@@ -9,9 +9,11 @@ document will probably express most examples in terms of translations between Va
   - A Val module can be constructed from a C++ module.
   - All language rules related to C++ interop captured in that construction. Val code using that
     module is just interoperating with other Val code.
-2. No public C++ APIs (except preprocessor macros) are inaccessible from Val.  Why the exception for
-   preprocessor macros? Most of them have no first-class representation in Val.
+2. No public C++ APIs (except preprocessor macros and those using =volatile=) are inaccessible from
+   Val.  Why the exception for preprocessor macros? Most of them have no first-class representation
+   in Val.
 3. No public Val APIs are inaccessible from C++
+4. The way C++ APIs are presented to Val is tunable with =[[attributes]]=
 *** Stretch
 With only reasonable effort expended by the programmer:
 - “Modern” C++ APIs are represented in Val as idiomatic Val APIs (e.g. a C++ =range= can easily
@@ -49,7 +51,9 @@ template.  If you want to use such a thing with a constrained Val generic, there
 conformance declaration somewhere.
 ** C++ has no argument labels
 Will need to encode labels into names when exporting Val to C++.
-
+** No “universal references” in Val
+We are not sure how much of a problem this is.  Our effects system may be able to model them, but we
+are unsure.
 * Transpiling Val Types
 Val will deinit storage at different places than C++ would.  The implication is that if we want
 =var= bindings to appear as regular stack variables in C++, all Val types must have a no-op
@@ -69,6 +73,7 @@ running a Val =deinit= twice is harmless.  That would provide a better interop e
 =deinit=.  The latter looks like a good bet.
 
 * Function call interop
+These are intended to describe defaults. =[[attributes]]= can be used to override.
 ** Val signatures
 *** parameters
 - =let T=: Presented to C++ as =T const&=
@@ -114,16 +119,25 @@ would also be ugly.
 
 ** C++ signatures
 *** parameters
-- =T= (non-reference): Presented to Val as =sink=.
-- =T&=: (non-=const=) Presented to Val as =inout=.
-- =T const&= Presented to Val as =let=.
-- =T const&&= Presented to Val as =let=.
-- =T&&=: Undecided. Likely to use Val's effects system to model universal references.
-
-  =T const&&= is a rarely-used C++ construct. The operations permitted on a =T const&&= appear to
-  be identical to the operations permitted on a =T const&=: they are both immutable and non-movable.
-  Presenting both of these value categories as =let= in Val seems to be consistent with C++'s semantics.
+- =T const= (non-reference): Presented to Val as =let=.  In a non-transpilation world, we can pass a
+  pointer to the =T= into the raw C++ function for this parameter, as C++ ABIs appear to implement
+  pass-by-value by passing a pointer.
+- =T= (non-reference): Presented to Val as =sink=.  This is in keeping with the idea that copies
+  should be visible in Val code.  The Val code will move into the parameter.
+- =T&= (non-=const=): Presented to Val as =inout=.  Val's LoE will prevent certain rare valid
+  usages if the C++ happens to have been written to be resilient to LoE violations.  tant pis.
+- =T const&=: Presented to Val as =let=.
+- =T const&&=: Presented to Val as =let=.
+- =T&&=: Presented to Val as =sink=.  The thin wrapper generated for consumption by Val will destroy
+  the argument after the call.
 *** function return
+- =T const= (non-reference): Presented to Val as =T=.
+- =T= (non-reference): Presented to Val as =T=
+- =T&= (non-=const=): Present the function as an =inout= projection
+- =T const&=: Present the function as a =let= projection
+- =T const&&=: Present the function as a =let= projection
+- =T&&=: Presented to Val as a =T= return value.  The thin wrapper generated for consumption by Val
+  will C++-move out of the returned rvalue reference into the result.
 * Projections
 - =let=:
 - =inout=:
