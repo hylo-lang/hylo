@@ -22,6 +22,9 @@ struct CLI: ParsableCommand {
     /// LLVM IR.
     case llvmIR
 
+    /// C++ code
+    case cpp
+
     /// Executable binary.
     case binary
 
@@ -31,6 +34,7 @@ struct CLI: ParsableCommand {
       case "raw-ir"   : self = .rawIR
       case "ir"       : self = .ir
       case "llvm-ir"  : self = .llvmIR
+      case "cpp"      : self = .cpp
       case "binary"   : self = .binary
       default         : return nil
       }
@@ -189,6 +193,12 @@ struct CLI: ParsableCommand {
     if outputType == .ir {
       let url = outputURL ?? URL(fileURLWithPath: productName + ".vir")
       try irModule.description.write(to: url, atomically: true, encoding: .utf8)
+      CLI.exit()
+    }
+
+    // Handle `--emit cpp`
+    if outputType == .cpp {
+      log("Translating \(productName) to C++. Not yet implemented; stay tuned...".styled([.bold]))
       CLI.exit()
     }
 
