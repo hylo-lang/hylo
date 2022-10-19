@@ -198,7 +198,13 @@ struct CLI: ParsableCommand {
 
     // Handle `--emit cpp`
     if outputType == .cpp {
-      log("Translating \(productName) to C++. Not yet implemented; stay tuned...".styled([.bold]))
+      log(verbose: "Traspiling to C++ '\(productName)'".styled([.bold]))
+      // Translate to C++
+      var transpiler = CXXTranspiler(program: typedProgram)
+      let cppModuleContent = transpiler.emitHeader(of: moduleDecl)
+      // Write the output
+      let url = outputURL ?? URL(fileURLWithPath: productName + ".cpp")
+      try cppModuleContent.write(to: url, atomically: true, encoding: .utf8)
       CLI.exit()
     }
 

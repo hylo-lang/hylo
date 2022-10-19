@@ -48,7 +48,9 @@ public struct CXXTranspiler {
         }
 
       case .conformanceDecl, .extensionDecl, .funDecl, .namespaceDecl, .subscriptDecl:
-        fatalError("not implemented")
+        // just ignore them for now
+        continue
+        // fatalError("not implemented")
 
       default:
         continue
