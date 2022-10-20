@@ -16,6 +16,15 @@ public struct CXXTranspiler {
 
   // MARK: API
 
+  /// Emits that C++ module correspondng to the Val module
+  ///
+  /// - Parameters:
+  ///   - moduleID: The ID of the module declaration whose header is generated.
+  public mutating func emitModule(of moduleID: NodeID<ModuleDecl>) -> CXXModuleDecl {
+    let moduleDecl = program.ast[moduleID]
+    return CXXModuleDecl(original: moduleDecl)
+  }
+
   /// Emits a C++ header file of the specified module.
   ///
   /// - Parameters:

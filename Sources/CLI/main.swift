@@ -201,10 +201,14 @@ struct CLI: ParsableCommand {
       log(verbose: "Traspiling to C++ '\(productName)'".styled([.bold]))
       // Translate to C++
       var transpiler = CXXTranspiler(program: typedProgram)
-      let cppModuleContent = transpiler.emitHeader(of: moduleDecl)
+      let cxxModule = transpiler.emitModule(of: moduleDecl)
+      let hppContent = cxxModule.emitHeader()
+      let cppContent = cxxModule.emitImplementation()
       // Write the output
-      let url = outputURL ?? URL(fileURLWithPath: productName + ".cpp")
-      try cppModuleContent.write(to: url, atomically: true, encoding: .utf8)
+      let urlHpp = outputURL ?? URL(fileURLWithPath: productName + ".hpp")
+      let urlCpp = outputURL ?? URL(fileURLWithPath: productName + ".cpp")
+      try hppContent.write(to: urlHpp, atomically: true, encoding: .utf8)
+      try cppContent.write(to: urlCpp, atomically: true, encoding: .utf8)
       CLI.exit()
     }
 
