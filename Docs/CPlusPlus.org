@@ -1,0 +1,153 @@
+#+TITLE: C++ Interoperability and Transpilation
+* Intro/Context
+C++ interop and transpilation are closely related (I cannot define the exact relationship yet). This
+document will probably express most examples in terms of translations between Val and C++.
+** Interop Goals
+
+*** High priority
+1. Interop with C++ adds no new language rules to Val code.
+  - A Val module can be constructed from a C++ module.
+  - All language rules related to C++ interop captured in that construction. Val code using that
+    module is just interoperating with other Val code.
+2. No public C++ APIs (except preprocessor macros and those using =volatile=) are inaccessible from
+   Val.  Why the exception for preprocessor macros? Most of them have no first-class representation
+   in Val.
+3. No public Val APIs are inaccessible from C++
+4. The way C++ APIs are presented to Val is tunable with =[[attributes]]=
+*** Stretch
+With only reasonable effort expended by the programmer:
+- “Modern” C++ APIs are represented in Val as idiomatic Val APIs (e.g. a C++ =range= can easily
+  conform to =Collection= and in Val appears as a thing with Collection APIs rather than iterators).
+- Val APIs are represented to C++ as idiomatic C++ APIs (important, e.g., if you want to use a C++
+  algorithm on a Val =Collection=).
+
+** Transpilation Goals
+*** Val abstractions are recognizable in C++ code
+- A Val type compiles down to a similarly named C++ type
+- A Val function, subscript, or computed property compiles down to a similarly-named C++ function
+  or, in the case of bundles, into a (notional) overload set.  I say notional because it may make
+  sense to use distinct names for the “overloads”
+- A Val binding compiles down to a similarly-named C++ variable
+- A Val module compiles down to a  similarly-named C++ module
+*** Debuggable
+Mostly just means generating #line directives(?)
+* Known Hurdles
+** C++ has class inheritance and Val has no direct analogue
+Trait conformance is close, but traits do not come with any storage.
+
+We've discussed some kind of [[https://val-qs97696.slack.com/archives/C035NEV54LE/p1657591189742969][storage inheritance/mixins for Val]], but that is not currently part of
+the language. We'd want to represent a base class as a composition of a mixin and an (existential)
+trait.
+** Move semantics are different
+Val moves are destructive.  To present a Val =Sinkable= type as C++ movable, we could add conformance to
+an =Emptyable= protocol.  See also rvalue references in the [[Function call interop]] section.
+** Overload sets
+Val doesn't have type-based overloading, but C++ does.  We would like to capture C++ overload sets
+as some kind of single entity in Val.  This may imply the creation of customization points and
+conformances.
+** class templates vs. checked generics
+In general, a class template may have specializations and may even not have a defined primary
+template.  If you want to use such a thing with a constrained Val generic, there needs to be a
+conformance declaration somewhere.
+** C++ has no argument labels
+Will need to encode labels into names when exporting Val to C++.
+** No “universal references” in Val
+We are not sure how much of a problem this is.  Our effects system may be able to model them, but we
+are unsure.
+* Transpiling Val Types
+Val will deinit storage at different places than C++ would.  The implication is that if we want
+=var= bindings to appear as regular stack variables in C++, all Val types must have a no-op
+destructor and provide a different =deinit= method that is called when Val does destruction.  This
+goal is in tension with the interop goal that a Val type should be directly usable in C++, because a
+Val type declared on the C++ stack wouldn't get destroyed.  We'd need to use a wrapper like this one
+on the C++ side
+#+BEGIN_SRC
+template <class ValType> struct InCpp {
+  ValType stored;
+  ~InCpp() { this->stored.deinit(); }
+}
+#+END_SRC
+An alternative is to generate a C++ destructor for each Val =deinit= with the requirement that
+running a Val =deinit= twice is harmless.  That would provide a better interop experience at the
+(small) cost of needlessly nulling out deallocated pointers when non-interop'ing Val code invokes
+=deinit=.  The latter looks like a good bet.
+
+* Function call interop
+These are intended to describe defaults. =[[attributes]]= can be used to override.
+** Val signatures
+*** parameters
+- =let T=: Presented to C++ as =T const&=
+- =inout=: Presented to C++ as =T&=.
+  We could leave it up to the C++ code to ensure `inout` parameters don't overlap any others.
+  Is there a way to add dynamic checking?
+  We could create a C++ wrapper that moves-in/moves-out, which would ensure the LoE is upheld at
+  some efficiencly code.
+- =sink=: Presented to C++ as =T&&=.  Val will destroy the referent so we need to reconstitute it
+  after the call or move out of it before the call.  The former is more efficient.  If =T= is a C++
+  type, either one could be illegal, so a smart wrapper will detect which one is needed and choose.
+
+  A possible interop scheme:
+  #+BEGIN_SRC: val
+  // Pure Val function
+  fun g(_ x: sink T) { ... }
+  #+END_SRC
+
+  #+BEGIN_SRC: c++
+  // C++ declaration corresponding to the symbol represented by `g` in Val.
+  extern void g_val(val_sink<T> x);
+
+  // Wrapper function used by C++ code
+  inline void g(_ x: T&&) {
+    g_(&x);           // Callee destroys x
+    new ((void*)&x)(T)() // Construct a replacement
+  }
+  #+END_SRC
+- =set=: the best translation is unclear.  A safe API passes an empty =optional<T>&=.  However, if
+  someone is wants to initialize a =T= in place, there may be no =optional= wrapper available.
+*** function return
+Return values from Val are fully owned by C++ code, just as in Val.
+*** projections
+For interop purposes, projections could be translated into functions that accept a C++ lambda
+parameter.  That would make interop somewhat ugly but what else can we do?
+
+We may be able to translate stored part projections as corresponding stored parts, i.e. public Val
+stored properties could be translated into public data members in C++.
+
+Well, we could alternatively present projections as functions returning proxy objects.  The C++
+caller would have to obey certain disciplines to use the proxy correctly, and use of the proxies
+would also be ugly.
+
+** C++ signatures
+*** parameters
+- =T const= (non-reference): Presented to Val as =let=.  In a non-transpilation world, we can pass a
+  pointer to the =T= into the raw C++ function for this parameter, as C++ ABIs appear to implement
+  pass-by-value by passing a pointer.
+- =T= (non-reference): Presented to Val as =sink=.  This is in keeping with the idea that copies
+  should be visible in Val code.  The Val code will move into the parameter.
+- =T&= (non-=const=): Presented to Val as =inout=.  Val's LoE will prevent certain rare valid
+  usages if the C++ happens to have been written to be resilient to LoE violations.  tant pis.
+- =T const&=: Presented to Val as =let=.
+- =T const&&=: Presented to Val as =let=.
+- =T&&=: Presented to Val as =sink=.  The thin wrapper generated for consumption by Val will destroy
+  the argument after the call.
+*** function return
+- =T const= (non-reference): Presented to Val as =T=.
+- =T= (non-reference): Presented to Val as =T=
+- =T&= (non-=const=): Present the function as an =inout= projection
+- =T const&=: Present the function as a =let= projection
+- =T const&&=: Present the function as a =let= projection
+- =T&&=: Presented to Val as a =T= return value.  The thin wrapper generated for consumption by Val
+  will C++-move out of the returned rvalue reference into the result.
+* Projections
+- =let=:
+- =inout=:
+- =sink=: Because the result is independent, a sink projection should be seen as producing a new
+  value just as with the return value of a function.
+* Upholding Val's expectations when called from C++
+The programmer will need to ensure the independence of parameters to Val calls.  The choice of
+whether to inject dynamic independence checks can be made by the programmer at whatever granularity
+we choose to support.
+* Consuming truly non-independent data structures and “referency” types
+A complete interop story requires a strategy that lets Val code interact with C++ that's built on
+=shared_ptr= or that otherwise exposes reference semantics.  In addition to describing the strategy,
+this section should contain a survey of important cases and rationales for our treatment of them.
