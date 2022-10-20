@@ -40,7 +40,7 @@ the language. We'd want to represent a base class as a composition of a mixin an
 trait.
 ** Move semantics are different
 Val moves are destructive.  To present a Val =Sinkable= type as C++ movable, we could add conformance to
-an =Emptyable= protocol.
+an =Emptyable= protocol.  See also rvalue references in the [[Function call interop]] section.
 ** Overload sets
 Val doesn't have type-based overloading, but C++ does.  We would like to capture C++ overload sets
 as some kind of single entity in Val.  This may imply the creation of customization points and
