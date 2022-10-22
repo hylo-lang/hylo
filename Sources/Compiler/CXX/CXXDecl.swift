@@ -1,2 +1,2 @@
 /// A CXX declaration.
-public protocol CXXDecl: CXXNode {}
+public protocol CXXDecl {}
