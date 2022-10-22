@@ -5,7 +5,7 @@ public struct CXXModuleDecl : CXXDecl {
   let original: ModuleDecl
 
   /// The top-level declarations in the module
-  var topLevelDecsls: [CXXDecl] = []
+  var topLevelDecls: [CXXDecl] = []
 
   /// Emits the C++ header file content representing our module.
   public func emitHeader() -> String {
