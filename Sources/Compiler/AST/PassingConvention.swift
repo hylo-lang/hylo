@@ -16,7 +16,7 @@ public enum PassingConvention: Codable {
   /// Yielded.
   case yielded
 
-  init(matching capability: ProjectionType.Capability) {
+  init(matching capability: RemoteType.Capability) {
     switch capability {
     case .let     : self = .let
     case .set     : self = .set

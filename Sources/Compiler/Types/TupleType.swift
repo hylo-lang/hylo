@@ -49,7 +49,7 @@ extension TupleType: CustomStringConvertible {
 
   public var description: String {
     let elements = elements.map({ "\($0)" }).joined(separator: ", ")
-    return "(\(elements))"
+    return "{\(elements)}"
   }
 
 }

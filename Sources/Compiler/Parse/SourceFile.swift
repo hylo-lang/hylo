@@ -111,3 +111,9 @@ extension SourceFile: Codable {
   }
 
 }
+
+extension SourceFile: CustomStringConvertible {
+
+  public var description: String { "SourceFile(\(url)" }
+
+}

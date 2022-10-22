@@ -4,7 +4,7 @@ import Utils
 public struct MethodType: TypeProtocol, Hashable {
 
   /// The capabilities of the subscript.
-  public let capabilities: Set<MethodImplDecl.Introducer>
+  public let capabilities: Set<ImplIntroducer>
 
   /// The type of the receiver.
   public let receiver: Type
@@ -18,7 +18,7 @@ public struct MethodType: TypeProtocol, Hashable {
   public let flags: TypeFlags
 
   public init(
-    capabilities: Set<MethodImplDecl.Introducer>,
+    capabilities: Set<ImplIntroducer>,
     receiver: Type,
     inputs: [CallableTypeParameter],
     output: Type

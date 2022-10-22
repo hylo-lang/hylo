@@ -11,13 +11,13 @@ public struct Name: Hashable, Codable {
   public var notation: OperatorNotation?
 
   /// The method introducer of the referred entity, given that it is a method implementation.
-  public var introducer: MethodImplDecl.Introducer?
+  public var introducer: ImplIntroducer?
 
   /// Creates a new name.
   public init(
     stem: Identifier,
     labels: [String?] = [],
-    introducer: MethodImplDecl.Introducer? = nil
+    introducer: ImplIntroducer? = nil
   ) {
     self.stem = stem
     self.labels = labels
@@ -29,12 +29,22 @@ public struct Name: Hashable, Codable {
   public init(
     stem: Identifier,
     notation: OperatorNotation,
-    introducer: MethodImplDecl.Introducer? = nil
+    introducer: ImplIntroducer? = nil
   ) {
     self.stem = stem
     self.labels = []
     self.notation = notation
     self.introducer = introducer
+  }
+
+  /// Creates the name introduced by `decl` in `ast`.
+  public init?(ofFunction decl: NodeID<FunDecl>, in ast: AST) {
+    guard let stem = ast[decl].identifier?.value else { return nil }
+    if let notation = ast[decl].notation?.value {
+      self.init(stem: stem, notation: notation)
+    } else {
+      self.init(stem: stem, labels: ast[decl].parameters.map({ ast[$0].label?.value }))
+    }
   }
 
 }

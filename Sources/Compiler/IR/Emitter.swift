@@ -127,14 +127,8 @@ public struct Emitter {
       switch member.kind {
       case .funDecl:
         let funDecl = NodeID<FunDecl>(rawValue: member.rawValue)
-        switch program.ast[funDecl].introducer.value {
-        case .memberwiseInit:
-          continue
-        case .`init`, .deinit:
-          fatalError("not implemented")
-        case .fun:
-          emit(fun: funDecl, into: &module)
-        }
+        if program.ast[funDecl].introducer.value == .memberwiseInit { continue }
+        emit(fun: funDecl, into: &module)
 
       case .subscriptDecl:
         emit(subscript: NodeID(rawValue: member.rawValue), into: &module)
@@ -219,7 +213,7 @@ public struct Emitter {
   /// Emits borrowed bindings.
   private mutating func emit(
     borrowedLocalBinding decl: NodeID<BindingDecl>,
-    withCapability capability: ProjectionType.Capability,
+    withCapability capability: RemoteType.Capability,
     into module: inout Module
   ) {
     /// The pattern of the binding being emitted.
@@ -330,6 +324,8 @@ public struct Emitter {
     }
 
     switch expr.kind {
+    case .assignExpr:
+      return emitR(assign: NodeID(rawValue: expr.rawValue), into: &module)
     case .booleanLiteralExpr:
       return emitR(booleanLiteral: NodeID(rawValue: expr.rawValue), into: &module)
     case .condExpr:
@@ -345,6 +341,17 @@ public struct Emitter {
     default:
       unreachable("unexpected expression")
     }
+  }
+
+  private mutating func emitR(
+    assign expr: NodeID<AssignExpr>,
+    into module: inout Module
+  ) -> Operand {
+    let rhs = emitR(expr: program.ast[expr].right, into: &module)
+    // FIXME: Should request the capability 'set or inout'.
+    let lhs = emitL(expr: program.ast[expr].left, withCapability: .set, into: &module)
+    _ = module.insert(StoreInst(rhs, to: lhs), at: insertionPoint!)
+    return .constant(.unit)
   }
 
   private mutating func emitR(
@@ -526,7 +533,7 @@ public struct Emitter {
             at: insertionPoint!)[0]
 
         case .`init`:
-          // The function is a custom initializer. TODO
+          // TODO: The function is a custom initializer.
           fatalError("not implemented")
 
         default:
@@ -542,7 +549,7 @@ public struct Emitter {
         let receiverType = calleeType.captures[0].type
 
         // Add the receiver to the arguments.
-        if case .projection(let type) = receiverType {
+        if case .remote(let type) = receiverType {
           // The receiver as a borrowing convention.
           conventions.insert(PassingConvention(matching: type.capability), at: 1)
 
@@ -615,17 +622,29 @@ public struct Emitter {
   ) -> Operand {
     guard case .product(let type) = program.exprTypes[expr]! else { unreachable() }
 
+    // Determine the bit width of the value.
+    let bitWidth: Int
     switch type.name.value {
-    case "Int":
-      let bits = BitPattern(fromDecimal: program.ast[expr].value)!.resized(to: 64)
-      let value = IntegerConstant(bitPattern: bits)
-      return module.insert(
-        RecordInst(objectType: .object(.product(type)), operands: [.constant(.integer(value))]),
-        at: insertionPoint!)[0]
-
+    case "Int"    : bitWidth = 64
+    case "Int32"  : bitWidth = 32
     default:
       unreachable("unexpected numeric type")
     }
+
+    // Convert the literal into a bit pattern.
+    let bits: BitPattern
+    let s = program.ast[expr].value
+    if s.starts(with: "0x") {
+      bits = BitPattern(fromHexadecimal: s.dropFirst(2))!.resized(to: bitWidth)
+    } else {
+      bits = BitPattern(fromDecimal: s)!.resized(to: bitWidth)
+    }
+
+    // Emit the constant integer.
+    let value = IntegerConstant(bitPattern: bits)
+    return module.insert(
+      RecordInst(objectType: .object(.product(type)), operands: [.constant(.integer(value))]),
+      at: insertionPoint!)[0]
   }
 
   private mutating func emitR(
@@ -662,7 +681,7 @@ public struct Emitter {
   /// insertion point.
   private mutating func emitL<T: ExprID>(
     expr: T,
-    withCapability capability: ProjectionType.Capability,
+    withCapability capability: RemoteType.Capability,
     into module: inout Module
   ) -> Operand {
     switch expr.kind {
@@ -693,7 +712,7 @@ public struct Emitter {
 
   private mutating func emitL(
     name expr: NodeID<NameExpr>,
-    withCapability capability: ProjectionType.Capability,
+    withCapability capability: RemoteType.Capability,
     into module: inout Module
   ) -> Operand {
     switch program.referredDecls[expr]! {

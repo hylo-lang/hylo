@@ -504,11 +504,11 @@ public enum Parser {
   static let methodBundleBody = (
     take(.lBrace).and(methodImpl+).and(take(.rBrace))
       .map({ (context, tree) -> [NodeID<MethodImplDecl>] in
-        var introducers: Set<MethodImplDecl.Introducer> = []
+        var introducers: Set<ImplIntroducer> = []
         for implID in tree.0.1 {
           let introducer = context.ast[implID].introducer
           if !introducers.insert(introducer.value).inserted {
-            context.diagnostics.append(.duplicateMethodIntroducer(range: introducer.range))
+            context.diagnostics.append(.duplicateMethodIntroducer(at: introducer.range))
           }
         }
 
@@ -533,9 +533,10 @@ public enum Parser {
   )
 
   static let methodIntroducer = translate([
-    .let  : MethodImplDecl.Introducer.let,
-    .inout: MethodImplDecl.Introducer.inout,
-    .sink : MethodImplDecl.Introducer.sink,
+    .let  : ImplIntroducer.let,
+    .inout: ImplIntroducer.inout,
+    .set  : ImplIntroducer.set,
+    .sink : ImplIntroducer.sink,
   ])
 
   static let propertyDecl = (
@@ -626,11 +627,11 @@ public enum Parser {
   static let subscriptBundleBody = (
     take(.lBrace).and(subscriptImpl+).and(take(.rBrace))
       .map({ (context, tree) -> [NodeID<SubscriptImplDecl>] in
-        var introducers: Set<SubscriptImplDecl.Introducer> = []
+        var introducers: Set<ImplIntroducer> = []
         for implID in tree.0.1 {
           let introducer = context.ast[implID].introducer
           if !introducers.insert(introducer.value).inserted {
-            context.diagnostics.append(.duplicateSubscriptIntroducer(range: introducer.range))
+            context.diagnostics.append(.duplicateSubscriptIntroducer(at: introducer.range))
           }
         }
 
@@ -655,10 +656,10 @@ public enum Parser {
   )
 
   static let subscriptIntroducer = translate([
-    .let  : SubscriptImplDecl.Introducer.let,
-    .inout: SubscriptImplDecl.Introducer.inout,
-    .set  : SubscriptImplDecl.Introducer.set,
-    .sink : SubscriptImplDecl.Introducer.sink,
+    .let  : ImplIntroducer.let,
+    .inout: ImplIntroducer.inout,
+    .set  : ImplIntroducer.set,
+    .sink : ImplIntroducer.sink,
   ])
 
   static let parameterList = (
@@ -803,21 +804,21 @@ public enum Parser {
         context.ast[id].accessModifier = access
 
         if let a = attributes.first {
-          context.diagnostics.append(.unexpectedDeclAttribute(range: a.range))
+          context.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
         }
         if let m = member {
-          context.diagnostics.append(.unexpectedDeclModifier(range: m.range))
+          context.diagnostics.append(.unexpectedDeclModifier(at: m.range))
         }
 
       case .importDecl:
         if let a = attributes.first {
-          context.diagnostics.append(.unexpectedDeclAttribute(range: a.range))
+          context.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
         }
         if let a = access {
-          context.diagnostics.append(.unexpectedDeclModifier(range: a.range))
+          context.diagnostics.append(.unexpectedDeclModifier(at: a.range))
         }
         if let m = member {
-          context.diagnostics.append(.unexpectedDeclModifier(range: m.range))
+          context.diagnostics.append(.unexpectedDeclModifier(at: m.range))
         }
 
       case .extensionDecl:
@@ -825,10 +826,10 @@ public enum Parser {
         context.ast[id].accessModifier = access
 
         if let a = attributes.first {
-          context.diagnostics.append(.unexpectedDeclAttribute(range: a.range))
+          context.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
         }
         if let m = member {
-          context.diagnostics.append(.unexpectedDeclModifier(range: m.range))
+          context.diagnostics.append(.unexpectedDeclModifier(at: m.range))
         }
 
       case .funDecl:
@@ -842,10 +843,10 @@ public enum Parser {
         context.ast[id].accessModifier = access
 
         if let a = attributes.first {
-          context.diagnostics.append(.unexpectedDeclAttribute(range: a.range))
+          context.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
         }
         if let m = member {
-          context.diagnostics.append(.unexpectedDeclModifier(range: m.range))
+          context.diagnostics.append(.unexpectedDeclModifier(at: m.range))
         }
 
       case .namespaceDecl:
@@ -853,10 +854,10 @@ public enum Parser {
         context.ast[id].accessModifier = access
 
         if let a = attributes.first {
-          context.diagnostics.append(.unexpectedDeclAttribute(range: a.range))
+          context.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
         }
         if let m = member {
-          context.diagnostics.append(.unexpectedDeclModifier(range: m.range))
+          context.diagnostics.append(.unexpectedDeclModifier(at: m.range))
         }
 
       case .productTypeDecl:
@@ -864,10 +865,10 @@ public enum Parser {
         context.ast[id].accessModifier = access
 
         if let a = attributes.first {
-          context.diagnostics.append(.unexpectedDeclAttribute(range: a.range))
+          context.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
         }
         if let m = member {
-          context.diagnostics.append(.unexpectedDeclModifier(range: m.range))
+          context.diagnostics.append(.unexpectedDeclModifier(at: m.range))
         }
 
       case .subscriptDecl:
@@ -881,10 +882,10 @@ public enum Parser {
         context.ast[id].accessModifier = access
 
         if let a = attributes.first {
-          context.diagnostics.append(.unexpectedDeclAttribute(range: a.range))
+          context.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
         }
         if let m = member {
-          context.diagnostics.append(.unexpectedDeclModifier(range: m.range))
+          context.diagnostics.append(.unexpectedDeclModifier(at: m.range))
         }
 
       case .typeAliasDecl:
@@ -892,10 +893,10 @@ public enum Parser {
         context.ast[id].accessModifier = access
 
         if let a = attributes.first {
-          context.diagnostics.append(.unexpectedDeclAttribute(range: a.range))
+          context.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
         }
         if let m = member {
-          context.diagnostics.append(.unexpectedDeclModifier(range: m.range))
+          context.diagnostics.append(.unexpectedDeclModifier(at: m.range))
         }
 
       default:
@@ -997,7 +998,7 @@ public enum Parser {
       // type-casting-tail
       if let oper = context.take(.cast) {
         if !context.hasLeadingWhitespace {
-          context.diagnostics.append(.infixOperatorRequiresWhitespaces(range: oper.range))
+          context.diagnostics.append(.infixOperatorRequiresWhitespaces(at: oper.range))
         }
 
         guard let rhs = try typeExpr.parse(&context) else {
@@ -1024,7 +1025,7 @@ public enum Parser {
       // infix-operator-tail (with assign)
       if let oper = context.take(.assign) {
         if !context.hasLeadingWhitespace {
-          context.diagnostics.append(.infixOperatorRequiresWhitespaces(range: oper.range))
+          context.diagnostics.append(.infixOperatorRequiresWhitespaces(at: oper.range))
         }
 
         guard let rhs = try prefixExpr.parse(&context) else {
@@ -1040,7 +1041,7 @@ public enum Parser {
       var tail: SequenceExpr.UnfoldedTail = []
       while let operatorName = context.takeOperator() {
         if !context.hasLeadingWhitespace {
-          context.diagnostics.append(.infixOperatorRequiresWhitespaces(range: operatorName.range))
+          context.diagnostics.append(.infixOperatorRequiresWhitespaces(at: operatorName.range))
         }
 
         guard let operand = try prefixExpr.parse(&context) else {
@@ -2644,31 +2645,31 @@ fileprivate extension SourceRepresentable where Part == Identifier {
 
 fileprivate extension Diagnostic {
 
-  static func accessModifierAtNonLocalScope(range: SourceRange?) -> Diagnostic {
+  static func accessModifierAtNonLocalScope(at range: SourceRange?) -> Diagnostic {
     .error("access modifier cannot be used in a local scope", range: range)
   }
 
-  static func duplicateMethodIntroducer(range: SourceRange?) -> Diagnostic {
+  static func duplicateMethodIntroducer(at range: SourceRange?) -> Diagnostic {
     .error("duplicate method introducer", range: range)
   }
 
-  static func duplicateSubscriptIntroducer(range: SourceRange?) -> Diagnostic {
+  static func duplicateSubscriptIntroducer(at range: SourceRange?) -> Diagnostic {
     .error("duplicate subscript introducer", range: range)
   }
 
-  static func infixOperatorRequiresWhitespaces(range: SourceRange?) -> Diagnostic {
+  static func infixOperatorRequiresWhitespaces(at range: SourceRange?) -> Diagnostic {
     .error("infix operator requires whitespaces on both sides", range: range)
   }
 
-  static func memberModifierAtNonTypeScope(range: SourceRange?) -> Diagnostic {
+  static func memberModifierAtNonTypeScope(at range: SourceRange?) -> Diagnostic {
     .error("member modifier can only be used on member declarations", range: range)
   }
 
-  static func unexpectedDeclAttribute(range: SourceRange?) -> Diagnostic {
+  static func unexpectedDeclAttribute(at range: SourceRange?) -> Diagnostic {
     .error("unexpected declaration attribute", range: range)
   }
 
-  static func unexpectedDeclModifier(range: SourceRange?) -> Diagnostic {
+  static func unexpectedDeclModifier(at range: SourceRange?) -> Diagnostic {
     .error("unexpected declaration modifier", range: range)
   }
 

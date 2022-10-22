@@ -79,11 +79,10 @@ public struct Module {
       // Define inputs for the captures.
       for capture in declType.captures {
         switch capture.type {
-        case .projection(let type):
+        case .remote(let type):
           precondition(type.capability != .yielded, "cannot lower yielded parameter")
           inputs.append((
-            convention: PassingConvention(matching: type.capability),
-            type: .address(type.base)))
+            convention: PassingConvention(matching: type.capability), type: .address(type.base)))
 
         case let type:
           switch declType.receiverEffect {
@@ -94,29 +93,26 @@ public struct Module {
           case .sink:
             inputs.append((convention: .sink, type: .object(type)))
           case .yielded:
-            unreachable()
+            preconditionFailure("cannot lower yielded parameter")
           }
         }
       }
 
       // Define inputs for the parameters.
       for parameter in declType.inputs {
-        switch parameter.type {
-        case .parameter(let type):
-          precondition(type.convention != .yielded, "cannot lower yielded parameter")
-          inputs.append((convention: type.convention, type: .address(type.bareType)))
-
-        default:
-          unreachable()
-        }
+        guard case .parameter(let parameterType) = parameter.type else { unreachable() }
+        inputs.append(parameterType.asIRFunctionInput())
       }
+
+    case .method:
+      fatalError("not implemented")
 
     default:
       unreachable()
     }
 
     // Declare a new function in the module.
-    let id = functions.count
+    let loweredID = functions.count
     let locator = DeclLocator(
       identifying: declID,
       in: ast,
@@ -137,12 +133,12 @@ public struct Module {
        ast[declID].identifier?.value == "main"
     {
       assert(entryFunctionID == nil)
-      entryFunctionID = id
+      entryFunctionID = loweredID
     }
 
     // Update the cache and return the ID of the newly created function.
-    loweredFunctions[declID] = id
-    return id
+    loweredFunctions[declID] = loweredID
+    return loweredID
   }
 
   /// Creates a basic block at the end of the specified function and returns its identifier.
@@ -189,6 +185,22 @@ extension Module {
   public subscript(_ position: FunctionIndex) -> Function {
     _read   { yield functions[position] }
     _modify { yield &functions[position] }
+  }
+
+}
+
+extension ParameterType {
+
+  /// Returns `self` as an input to an IR function.
+  func asIRFunctionInput() -> Function.Input {
+    switch convention {
+    case .let, .inout, .set:
+      return (convention: convention, type: .address(bareType))
+    case .sink:
+      return (convention: convention, type: .object(bareType))
+    case .yielded:
+      preconditionFailure("cannot lower yielded parameter")
+    }
   }
 
 }

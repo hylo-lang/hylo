@@ -85,7 +85,7 @@ struct ConstraintSolver {
 
       if !nonConforming.isEmpty {
         for trait in nonConforming {
-          diagnostics.append(.noConformance(of: l, to: trait, range: range(of: location)))
+          diagnostics.append(.noConformance(of: l, to: trait, at: range(of: location)))
         }
       }
 
@@ -116,12 +116,12 @@ struct ConstraintSolver {
     case (.tuple(let l), .tuple(let r)):
       switch l.testLabelCompatibility(with: r) {
       case .differentLengths:
-        diagnostics.append(.incompatibleTupleLengths(range: range(of: location)))
+        diagnostics.append(.incompatibleTupleLengths(at: range(of: location)))
         return
 
       case .differentLabels(let found, let expected):
         diagnostics.append(.incompatibleLabels(
-          found: found, expected: expected, range: range(of: location)))
+          found: found, expected: expected, at: range(of: location)))
         return
 
       case .compatible:
@@ -137,12 +137,12 @@ struct ConstraintSolver {
     case (.lambda(let l), .lambda(let r)):
       switch l.testLabelCompatibility(with: r) {
       case .differentLengths:
-        diagnostics.append(.incompatibleParameterCount(range: range(of: location)))
+        diagnostics.append(.incompatibleParameterCount(at: range(of: location)))
         return
 
       case .differentLabels(let found, let expected):
         diagnostics.append(.incompatibleLabels(
-          found: found, expected: expected, range: range(of: location)))
+          found: found, expected: expected, at: range(of: location)))
         return
 
       case .compatible:
@@ -162,7 +162,7 @@ struct ConstraintSolver {
     case (.method(let l), .method(let r)):
       // Capabilities must match.
       if l.capabilities != r.capabilities {
-        diagnostics.append(.incompatibleTypes(.method(l), .method(r), range: range(of: location)))
+        diagnostics.append(.incompatibleTypes(.method(l), .method(r), at: range(of: location)))
         return
       }
 
@@ -206,7 +206,7 @@ struct ConstraintSolver {
       }
 
     default:
-      diagnostics.append(.incompatibleTypes(l, r, range: range(of: location)))
+      diagnostics.append(.incompatibleTypes(l, r, at: range(of: location)))
     }
   }
 
@@ -250,7 +250,7 @@ struct ConstraintSolver {
       fatalError("not implemented")
 
     default:
-      diagnostics.append(.notSubtype(l, of: r, range: range(of: location)))
+      diagnostics.append(.notSubtype(l, of: r, at: range(of: location)))
     }
   }
 
@@ -276,7 +276,7 @@ struct ConstraintSolver {
         .equalityOrSubtyping(l: l, r: p.bareType), location: location))
 
     default:
-      diagnostics.append(.invalidParameterType(r, range: range(of: location)))
+      diagnostics.append(.invalidParameterType(r, at: range(of: location)))
     }
   }
 
@@ -322,7 +322,7 @@ struct ConstraintSolver {
 
     // Fail if we couldn't find any candidate.
     if candidates.isEmpty {
-      diagnostics.append(.undefined(name: "\(member)", range: range(of: location)))
+      diagnostics.append(.undefined(name: "\(member)", at: range(of: location)))
       return
     }
 
@@ -383,7 +383,7 @@ struct ConstraintSolver {
 
     // Fail if we couldn't find any candidate.
     if candidates.isEmpty {
-      diagnostics.append(.undefined(name: "\(member)", range: range(of: location)))
+      diagnostics.append(.undefined(name: "\(member)", at: range(of: location)))
       return
     }
 
@@ -480,7 +480,7 @@ struct ConstraintSolver {
 
     default:
       // TODO: Merge remaining solutions
-      results[0].solution.diagnostics.append(.ambiguousDisjunction(range: range(of: location)))
+      results[0].solution.diagnostics.append(.ambiguousDisjunction(at: range(of: location)))
       return results[0]
     }
   }
@@ -555,7 +555,7 @@ struct ConstraintSolver {
       diagnostics: diagnostics)
 
     for c in stale {
-      s.diagnostics.append(.staleConstraint(constraint: c.constraint, range: range(of: c.location)))
+      s.diagnostics.append(.staleConstraint(constraint: c.constraint, at: range(of: c.location)))
     }
 
     return s

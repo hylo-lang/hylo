@@ -3,7 +3,9 @@ import Utils
 /// The (static) type of an entity.
 public indirect enum Type: TypeProtocol, Hashable {
 
-  case associated(AssociatedType)
+  case associatedType(AssociatedType)
+
+  case associatedValue(AssociatedValueType)
 
   case boundGeneric(BoundGenericType)
 
@@ -25,11 +27,11 @@ public indirect enum Type: TypeProtocol, Hashable {
 
   case module(ModuleType)
 
-  case projection(ProjectionType)
-
   case parameter(ParameterType)
 
   case product(ProductType)
+
+  case remote(RemoteType)
 
   case skolem(SkolemType)
 
@@ -48,7 +50,8 @@ public indirect enum Type: TypeProtocol, Hashable {
   /// The associated value of this type.
   public var base: TypeProtocol {
     switch self {
-    case let .associated(t):        return t
+    case let .associatedType(t):    return t
+    case let .associatedValue(t):   return t
     case let .boundGeneric(t):      return t
     case let .builtin(t):           return t
     case let .conformanceLens(t):   return t
@@ -61,7 +64,7 @@ public indirect enum Type: TypeProtocol, Hashable {
     case let .module(t):            return t
     case let .parameter(t):         return t
     case let .product(t):           return t
-    case let .projection(t):        return t
+    case let .remote(t):            return t
     case let .skolem(t):            return t
     case let .subscript(t):         return t
     case let .trait(t):             return t
@@ -106,7 +109,7 @@ public indirect enum Type: TypeProtocol, Hashable {
   /// Indicates whether the type is a generic type parameter or associated type.
   public var isTypeParam: Bool {
     switch self {
-    case .associated, .genericTypeParam:
+    case .associatedType, .genericTypeParam:
       return true
     default:
       return false
@@ -153,11 +156,12 @@ extension Type {
   public var skolemized: Type {
     transform({ type in
       switch type {
-      case .associated,
+      case .associatedType,
            .genericTypeParam:
         return .stepOver(.skolem(SkolemType(base: type)))
 
-      case .genericValueParam:
+      case .associatedValue,
+           .genericValueParam:
         fatalError("not implemented")
 
       default:
@@ -181,7 +185,8 @@ extension Type {
     switch transformer(self) {
     case .stepInto(let type):
       switch type {
-      case .associated,
+      case .associatedType,
+           .associatedValue,
            .builtin,
            .error,
            .existential,
@@ -239,8 +244,8 @@ extension Type {
           convention: type.convention,
           bareType: type.bareType.transform(transformer)))
 
-      case .projection(let type):
-        return .projection(ProjectionType(
+      case .remote(let type):
+        return .remote(RemoteType(
           type.capability,
           type.base.transform(transformer)))
 

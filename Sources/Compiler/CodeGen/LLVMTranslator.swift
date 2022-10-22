@@ -61,9 +61,9 @@ public struct LLVMTranslator {
     }
 
     if isEntryModule {
-      guard let entryFunctionID = irModule.entryFunctionID,
-            let entryFunction = builder.module.function(named: irModule[entryFunctionID].name)
-      else { preconditionFailure() }
+      // Retreive the module's entry.
+      let entryID = irModule.entryFunctionID ?? preconditionFailure("no entry function")
+      let entryFunction = builder.module.function(named: irModule[entryID].name)!
 
       let startup = builder.module.addFunction(
         "main",
@@ -71,8 +71,16 @@ public struct LLVMTranslator {
       startup.addAttribute(.norecurse, to: .function)
 
       builder.positionAtEnd(of: startup.appendBasicBlock(named: "start"))
-      _ = builder.buildCall(entryFunction, args: [])
-      builder.buildRet(IntType.int32.constant(0))
+      if irModule[entryID].output.astType == .unit {
+        _ = builder.buildCall(entryFunction, args: [])
+        builder.buildRet(IntType.int32.constant(0))
+      } else {
+        let i32 = llvmType(translating: irModule[entryID].output.astType)
+        let status = builder.buildAlloca(type: i32)
+        _ = builder.buildCall(entryFunction, args: [status])
+        builder.buildRet(
+          builder.buildExtractValue(builder.buildLoad(status, type: i32), index: 0))
+      }
     }
 
     return builder.module
@@ -456,7 +464,7 @@ public struct LLVMTranslator {
     // Next come implicit parameters.
     for input in type.captures {
       switch input.type {
-      case .projection(let t):
+      case .remote(let t):
         parameterTypes.append(llvmType(translating: t.base).star)
       case .parameter(let t):
         parameterTypes.append(llvmType(translating: t.bareType).star)

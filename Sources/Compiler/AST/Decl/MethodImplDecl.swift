@@ -3,25 +3,6 @@ public struct MethodImplDecl: Decl, LexicalScope {
 
   public static let kind = NodeKind.methodImplDecl
 
-  public enum Introducer: Codable {
-
-    case `let`
-
-    case sink
-
-    case `inout`
-
-    /// The parameter passing convention corresponding to this introducer.
-    public var convention: PassingConvention {
-      switch self {
-      case .let   : return .let
-      case .inout : return .inout
-      case .sink  : return .sink
-      }
-    }
-
-  }
-
   public enum Body: Codable {
 
     /// An expression body.
@@ -33,7 +14,7 @@ public struct MethodImplDecl: Decl, LexicalScope {
   }
 
   /// The introducer of the method.
-  public var introducer: SourceRepresentable<Introducer>
+  public var introducer: SourceRepresentable<ImplIntroducer>
 
   /// The declaration of the implicit receiver parameter, if any.
   ///
@@ -44,7 +25,7 @@ public struct MethodImplDecl: Decl, LexicalScope {
   public var body: Body?
 
   public init(
-    introducer: SourceRepresentable<Introducer>,
+    introducer: SourceRepresentable<ImplIntroducer>,
     body: Body? = nil
   ) {
     self.introducer = introducer
