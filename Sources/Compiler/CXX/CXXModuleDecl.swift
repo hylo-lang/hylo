@@ -35,7 +35,7 @@ public struct CXXModuleDecl : CXXDecl {
     var output: String = ""
 
     // Emit include clauses.
-    output.write("#include \"\(original.name).hpp\"\n")
+    output.write("#include \"\(original.name).h\"\n")
     output.write("\n")
 
     // Create a namespace for the entire module.

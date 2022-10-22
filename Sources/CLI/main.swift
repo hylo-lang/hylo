@@ -1,7 +1,6 @@
 import ArgumentParser
 import Compiler
 import Foundation
-import LLVM
 import Utils
 import ValModule
 
@@ -19,9 +18,6 @@ struct CLI: ParsableCommand {
     /// Val IR.
     case ir
 
-    /// LLVM IR.
-    case llvmIR
-
     /// C++ code
     case cpp
 
@@ -33,7 +29,6 @@ struct CLI: ParsableCommand {
       case "raw-ast"  : self = .rawAST
       case "raw-ir"   : self = .rawIR
       case "ir"       : self = .ir
-      case "llvm-ir"  : self = .llvmIR
       case "cpp"      : self = .cpp
       case "binary"   : self = .binary
       default         : return nil
@@ -92,6 +87,8 @@ struct CLI: ParsableCommand {
   }
 
   mutating func run() throws {
+    /// The name of the product being built.
+    let productName = "main"
     /// The AST of the program being compiled.
     var rawProgram = AST()
 
@@ -99,10 +96,11 @@ struct CLI: ParsableCommand {
       fatalError("not implemented")
     }
 
-    let productName = "main"
+    // *** Parsing ***
+
+    log(verbose: "Parsing '\(productName)'".styled([.bold]))
 
     // Merge all inputs into the same same module.
-    log(verbose: "Parsing '\(productName)'".styled([.bold]))
     let moduleDecl = rawProgram.insert(ModuleDecl(name: productName))
     for input in inputs {
       if input.hasDirectoryPath {
@@ -124,6 +122,10 @@ struct CLI: ParsableCommand {
       CLI.exit()
     }
 
+    // *** Type checking ***
+
+    log(verbose: "Type-checking '\(productName)'".styled([.bold]))
+
     // Import the core library.
     rawProgram.stdlib = rawProgram.insert(ModuleDecl(name: "Val"))
     if !withFiles(in: ValModule.core!, {
@@ -132,16 +134,19 @@ struct CLI: ParsableCommand {
       CLI.exit(withError: ExitCode(-1))
     }
 
-    // Type-check the input.
-    log(verbose: "Type-checking '\(productName)'".styled([.bold]))
+    // Initialize the type checker.
     var checker = TypeChecker(ast: rawProgram)
+    var typeCheckingSucceeded = true
 
+    // Type check the code library.
     checker.isBuiltinModuleVisible = true
-    var typeCheckingSucceeded = checker.check(module: rawProgram.stdlib!)
+    typeCheckingSucceeded = checker.check(module: rawProgram.stdlib!)
 
+    // Type-check the input.
     checker.isBuiltinModuleVisible = importBuiltinModule
     typeCheckingSucceeded = checker.check(module: moduleDecl) && typeCheckingSucceeded
 
+    // Report type-checking errors.
     log(diagnostics: checker.diagnostics)
     if !typeCheckingSucceeded {
       CLI.exit(withError: ExitCode(-1))
@@ -157,8 +162,11 @@ struct CLI: ParsableCommand {
       exprTypes: checker.exprTypes,
       referredDecls: checker.referredDecls)
 
-    // Lower the module to Val IR.
+    // *** IR Lowering ***
+
     log(verbose: "Lowering '\(productName)'".styled([.bold]))
+
+    // Initialize the IR emitter.
     var emitter = Emitter(program: typedProgram)
     var irModule = emitter.emit(module: moduleDecl)
 
@@ -195,61 +203,53 @@ struct CLI: ParsableCommand {
       CLI.exit()
     }
 
-    // Handle `--emit cpp`
+    // *** C++ Transpiling ***
+
+    log(verbose: "Transpiling to C++ '\(productName)'".styled([.bold]))
+
+    // Initialize the transpiler.
+    var transpiler = CXXTranspiler(program: typedProgram)
+
+    // Translate the module to C++.
+    let cxxModule = transpiler.emitModule(of: moduleDecl)
+    let cxxHeader = cxxModule.emitHeader()
+    let cxxSource = cxxModule.emitImplementation()
+
+    // Handle `--emit cpp`.
     if outputType == .cpp {
-      log(verbose: "Traspiling to C++ '\(productName)'".styled([.bold]))
-      // Translate to C++
-      var transpiler = CXXTranspiler(program: typedProgram)
-      let cxxModule = transpiler.emitModule(of: moduleDecl)
-      let hppContent = cxxModule.emitHeader()
-      let cppContent = cxxModule.emitImplementation()
-      // Write the output
-      let urlHpp = outputURL ?? URL(fileURLWithPath: productName + ".hpp")
-      let urlCpp = outputURL ?? URL(fileURLWithPath: productName + ".cpp")
-      try hppContent.write(to: urlHpp, atomically: true, encoding: .utf8)
-      try cppContent.write(to: urlCpp, atomically: true, encoding: .utf8)
+      let baseURL = outputURL?.deletingPathExtension() ?? URL(fileURLWithPath: productName)
+      try cxxHeader.write(
+        to: baseURL.appendingPathExtension("h"), atomically: true, encoding: .utf8)
+      try cxxSource.write(
+        to: baseURL.appendingPathExtension("cpp"), atomically: true, encoding: .utf8)
       CLI.exit()
     }
 
-    // Lower the module to LLVM.
-    log(verbose: "Translating \(productName) to LLVM".styled([.bold]))
-    let machine = try TargetMachine()
-    var codegen = try LLVMTranslator(translating: irModule, from: typedProgram, target: machine)
-    let llvmModule = try codegen.translate(asEntry: outputType == .binary)
+    // *** Machine code generation ***
 
-    // Handle `--emit llvm-ir`.
-    if outputType == .llvmIR {
-      let url = outputURL ?? URL(fileURLWithPath: productName + ".ll")
-      try llvmModule.description.write(to: url, atomically: true, encoding: .utf8)
-      CLI.exit()
-    }
-
-    // Handle `--emit binary`.
     assert(outputType == .binary)
 
-    let temporaryDirectoryURL = try FileManager.default.url(
+    let buildDirectoryURL = try FileManager.default.url(
       for: .itemReplacementDirectory,
       in: .userDomainMask,
       appropriateFor: currentDirectory,
       create: true)
 
-    // Compile the module.
-    log(verbose: "Compiling \(productName)".styled([.bold]))
-    let objectURL = temporaryDirectoryURL.appendingPathComponent(productName + ".o")
-    try machine.emitToFile(module: llvmModule, type: .object, path: objectURL.path)
+    // Compile the transpiled module.
+    let cxxHeaderURL = buildDirectoryURL.appendingPathComponent(productName + ".h")
+    try cxxHeader.write(to: cxxHeaderURL, atomically: true, encoding: .utf8)
 
-    // Link the file objects.
-    log(verbose: "Linking \(productName)".styled([.bold]))
-    let xcrun = find("xcrun")
-    let sdk = try runCommandLine(xcrun, ["--sdk", "macosx", "--show-sdk-path"]) ?? ""
-    log(verbose: sdk)
-    let lib = sdk + "/usr/lib"
+    let cxxSourceURL = buildDirectoryURL.appendingPathComponent(productName + ".cpp")
+    try cxxSource.write(to: cxxSourceURL, atomically: true, encoding: .utf8)
 
+    let clang = find("clang++")
     let binaryURL = outputURL ?? URL(fileURLWithPath: productName)
     try runCommandLine(
-      xcrun, ["-r", "ld", "-o", binaryURL.path,objectURL.path, "-L", "\(lib)", "-lSystem"])
-
-    CLI.exit()
+      clang, [
+        "-o", binaryURL.path,
+        "-I", buildDirectoryURL.path,
+        cxxSourceURL.path
+      ])
   }
 
   /// Parses the contents of the file at `fileURL` and insert them into `ast[module]`.

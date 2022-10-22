@@ -20,9 +20,6 @@ let package = Package(
       url: "https://github.com/apple/swift-collections.git",
       from: "1.0.0"),
     .package(
-      url: "https://github.com/kyouko-taiga/LLVMSwift.git",
-      branch: "master"),
-    .package(
       url: "https://github.com/val-lang/Durian.git",
       from: "1.0.0"),
   ],
@@ -43,7 +40,6 @@ let package = Package(
         "Utils",
         "ValModule",
         .product(name: "Collections", package: "swift-collections"),
-        .product(name: "LLVM", package: "LLVMSwift"),
         .product(name: "Durian", package: "Durian"),
       ],
       exclude: ["CXX/README.md"]),
