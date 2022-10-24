@@ -1506,20 +1506,31 @@ final class ParserTests: XCTestCase {
 
   func testConformanceLensTypeExpr() throws {
     let input = SourceFile(contents: "{ T, U }::Baz")
-    let (exprID, ast) = try apply(Parser.conformanceLensTypeExpr, on: input)
+    let (exprID, ast) = try apply(Parser.compoundTypeExpr, on: input)
     let expr = try XCTUnwrap(ast[exprID] as? ConformanceLensTypeExpr)
     XCTAssertEqual(expr.subject.kind, .tupleTypeExpr)
     XCTAssertEqual(expr.lens.kind, .nameTypeExpr)
   }
 
+  func testConformanceLensExprWithMember() throws {
+    let input = SourceFile(contents: "T::P.A")
+    let (exprID, ast) = try apply(Parser.compoundTypeExpr, on: input)
+    let expr = try XCTUnwrap(ast[exprID] as? NameTypeExpr)
+    XCTAssertEqual(expr.identifier.value, "A")
+
+    let domain = try XCTUnwrap(ast[expr.domain] as? ConformanceLensTypeExpr)
+    XCTAssertEqual(domain.subject.kind, .nameTypeExpr)
+    XCTAssertEqual(domain.lens.kind, .nameTypeExpr)
+  }
+
   func testTypeMemberExpr() throws {
     let input = SourceFile(contents: "A.B.C")
-    let (exprID, ast) = try apply(Parser.typeMemberTypeExpr, on: input)
-    var expr = try XCTUnwrap(ast[exprID] as? NameTypeExpr)
+    let (exprID, ast) = try apply(Parser.compoundTypeExpr, on: input)
+    let expr = try XCTUnwrap(ast[exprID] as? NameTypeExpr)
     XCTAssertEqual(expr.identifier.value, "C")
 
-    expr = try XCTUnwrap(ast[expr.domain] as? NameTypeExpr)
-    XCTAssertEqual(expr.identifier.value, "B")
+    let domain = try XCTUnwrap(ast[expr.domain] as? NameTypeExpr)
+    XCTAssertEqual(domain.identifier.value, "B")
   }
 
   func testInoutExpr() throws {

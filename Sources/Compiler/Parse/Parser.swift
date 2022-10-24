@@ -231,7 +231,7 @@ public enum Parser {
   )
 
   static let typeAliasOrProductTypeDecl = (
-    Apply<ParserContext, AnyDeclID>({ (context) in
+    Apply<ParserContext, AnyDeclID>({ (context) -> AnyDeclID? in
       let backup = context.backup()
       do {
         if let element = try typeAliasDecl.parse(&context) { return AnyDeclID(element) }
@@ -988,7 +988,7 @@ public enum Parser {
   )
 
   static let infixExpr = (
-    Apply<ParserContext, AnyExprID>({ (context) in
+    Apply<ParserContext, AnyExprID>({ (context) -> AnyExprID? in
       guard let lhs = try infixExprHead.parse(&context) else { return nil }
       let leftRange = context.ast.ranges[lhs]!
 
@@ -1179,7 +1179,7 @@ public enum Parser {
   )
 
   static let compoundExpr = (
-    Apply<ParserContext, AnyExprID>({ (context) in
+    Apply<ParserContext, AnyExprID>({ (context) -> AnyExprID? in
       var backup = context.backup()
       let base: AnyExprID?
 
@@ -1640,7 +1640,7 @@ public enum Parser {
   ])
 
   static let exprPattern = (
-    Apply<ParserContext, AnyPatternID>({ (context) in
+    Apply<ParserContext, AnyPatternID>({ (context) -> AnyPatternID? in
       // Attempt to parse tuples as patterns as deeply as possible.
       if let patternID = try tuplePattern.parse(&context) {
         return AnyPatternID(patternID)
@@ -1854,7 +1854,7 @@ public enum Parser {
   )
 
   static let bindingStmt = (
-    Apply<ParserContext, AnyStmtID>({ (context) in
+    Apply<ParserContext, AnyStmtID>({ (context) -> AnyStmtID? in
       let backup = context.backup()
       do {
         if let element = try conditionalBindingStmt.parse(&context) { return AnyStmtID(element) }
@@ -1969,7 +1969,7 @@ public enum Parser {
   )
 
   static let modifiedTypeExpr = (
-    Apply<ParserContext, AnyTypeExprID>({ (context) in
+    Apply<ParserContext, AnyTypeExprID>({ (context) -> AnyTypeExprID? in
       guard let head = context.peek() else { return nil }
 
       switch head.kind {
@@ -2009,27 +2009,13 @@ public enum Parser {
         return AnyTypeExprID(id)
 
       default:
-        return try conformanceLensTypeExpr.parse(&context)
+        return try compoundTypeExpr.parse(&context)
       }
     })
   )
 
-  static let conformanceLensTypeExpr = (
-    typeMemberTypeExpr.and(maybe(take(.twoColons).and(typeExpr)))
-      .map({ (context, tree) -> AnyTypeExprID in
-        if let lens = tree.1?.1 {
-          let id = context.ast.insert(ConformanceLensTypeExpr(subject: tree.0, lens: lens))
-          context.ast.ranges[id] = context.ast.ranges[tree.0]!.upperBounded(
-            by: context.currentIndex)
-          return AnyTypeExprID(id)
-        } else {
-          return tree.0
-        }
-      })
-  )
-
   static let nameTypeExpr = (
-    typeMemberTypeExpr
+    compoundTypeExpr
       .map({ (context, id) -> NodeID<NameTypeExpr> in
         if let converted = NodeID<NameTypeExpr>(converting: id) {
           return converted
@@ -2039,19 +2025,35 @@ public enum Parser {
       })
   )
 
-  static let typeMemberTypeExpr = (
-    Apply<ParserContext, AnyTypeExprID>({ (context) in
+  static let compoundTypeExpr = (
+    Apply<ParserContext, AnyTypeExprID>({ (context) -> AnyTypeExprID? in
       guard var head = try primaryTypeExpr.parse(&context) else { return nil }
       let headRange = context.ast.ranges[head]!
 
-      while context.take(.dot) != nil {
-        guard let member = try primaryTypeDeclRef.parse(&context) else {
-          throw ParseError("expected type member name", at: context.currentLocation)
+      while true {
+        if context.take(.dot) != nil {
+          guard let member = try primaryTypeDeclRef.parse(&context) else {
+            throw ParseError("expected type member name", at: context.currentLocation)
+          }
+
+          context.ast[member].domain = head
+          context.ast.ranges[member] = headRange.upperBounded(by: context.currentIndex)
+          head = AnyTypeExprID(member)
+          continue
         }
 
-        context.ast[member].domain = head
-        context.ast.ranges[member] = headRange.upperBounded(by: context.currentIndex)
-        head = AnyTypeExprID(member)
+        if context.take(.twoColons) != nil {
+          guard let lens = try primaryTypeExpr.parse(&context) else {
+            throw ParseError("expected focus", at: context.currentLocation)
+          }
+
+          let id = context.ast.insert(ConformanceLensTypeExpr(subject: head, lens: lens))
+          context.ast.ranges[id] = headRange.upperBounded(by: context.currentIndex)
+          head = AnyTypeExprID(id)
+          continue
+        }
+
+        break
       }
 
       return head
@@ -2116,7 +2118,7 @@ public enum Parser {
   )
 
   static let lambdaOrParenthesizedTypeExpr = (
-    Apply<ParserContext, AnyTypeExprID>({ (context) in
+    Apply<ParserContext, AnyTypeExprID>({ (context) -> AnyTypeExprID? in
       if context.peek()?.kind != .lParen { return nil }
 
       let backup = context.backup()
@@ -2194,7 +2196,7 @@ public enum Parser {
   )
 
   static let lambdaThinEnvironment = (
-    Apply<ParserContext, SourceRepresentable<AnyTypeExprID>>({ context in
+    Apply<ParserContext, SourceRepresentable<AnyTypeExprID>>({ (context) in
       if let keyword = context.take(nameTokenWithValue: "thin") {
         let id = context.ast.insert(TupleTypeExpr())
         context.ast.ranges[id] = keyword.range
