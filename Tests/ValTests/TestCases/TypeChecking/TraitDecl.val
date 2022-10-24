@@ -1,0 +1,12 @@
+//! expect-failure
+
+trait T {
+
+  type X: T where
+    X: T,
+    X: X,        //! diagnostic conformance to non-trait type 'Self.X'
+    Any == Never //! diagnostic neither type in equality constraint ('Any' or 'Never') refers to a generic parameter or associated type
+
+  type Y where X == Y
+
+}

@@ -54,7 +54,8 @@ let package = Package(
     // Test targets.
     .testTarget(
       name: "ValTests",
-      dependencies: ["Compiler"]),
+      dependencies: ["Compiler"],
+      resources: [.copy("TestCases")]),
     .testTarget(
       name: "CXXTests",
       dependencies: ["Compiler"]),
