@@ -1,6 +1,6 @@
 import Compiler
 
-/// A test annotation.
+/// A test annotation in a source file.
 ///
 /// Test annotations are parsed from single-line comments in the source. They are composed of a
 /// command with, optionally, an argument and/or line offset.
@@ -38,16 +38,8 @@ import Compiler
 /// indentation on the first and last line.
 struct TestAnnotation {
 
-  /// An error that occured while parsing a test annotation.
-  struct ParseError: Error {
-
-    /// The description of the error.
-    var message: String
-
-  }
-
-  /// The line at which start this annotation.
-  var line: Int
+  /// The line location of this annotation.
+  var location: LineLocation
 
   /// The command.
   var command: String
@@ -55,16 +47,23 @@ struct TestAnnotation {
   /// The argument, if any.
   var argument: String?
 
-  /// Parses new annotation from `source`.
-  init<S: Collection>(at line: Int, parsing source: S) throws where S.Element == Character {
-    var s = source.drop(while: { $0.isWhitespace })
+  /// Parses a new annotation from `body`.
+  ///
+  /// - Parameters:
+  ///   - location: The line location of the annotation.
+  ///   - body: A collection of characters representing an annotation body.
+  init<S: Collection>(at location: LineLocation, parsing body: S)
+    where S.Element == Character
+  {
+    self.location = location
+
+    var s = body.drop(while: { $0.isWhitespace })
 
     // Parse the line offset, if any.
-    self.line = line
     if s.starts(with: "@") {
       let offset = s.prefix(while: { !$0.isWhitespace })
       s = s.dropFirst(offset.count)
-      self.line += Int(String(offset))!
+      self.location.line += Int(String(offset))!
     }
 
     // Parse the command.
@@ -89,9 +88,6 @@ struct TestAnnotation {
       var argument = ""
       for i in 0 ..< lines.count {
         if i != 0 { argument.append("\n") }
-        if !lines[i].starts(with: indentation) {
-          throw ParseError(message: "inconsistent indentation")
-        }
         argument.append(contentsOf: lines[i].dropFirst(indentation.count))
       }
 
@@ -99,23 +95,60 @@ struct TestAnnotation {
     }
   }
 
-  /// Parses and returns the test annotations in `input`.
-  static func parseAll(from input: SourceFile) throws -> [TestAnnotation] {
+  /// Parses and returns the test annotations in `source`.
+  static func parseAll(from source: SourceFile) -> [TestAnnotation] {
+    /// The annotations parsed from the input.
     var annotations: [TestAnnotation] = []
-    var stream = input.contents.suffix(from: input.contents.startIndex)
+    /// The input stream.
+    let stream = source.contents
+    /// The current position in the stream.
+    var index = stream.startIndex
+    /// The line at the current position.
     var line = 1
+    /// The number of opened block comments at the current position.
+    var openedBlockComments = 0
 
-    while let head = stream.first {
+    while index < stream.endIndex {
       // Count new lines.
-      if head.isNewline {
-        _ = stream.popFirst()
+      if stream[index].isNewline {
+        index = stream.index(after: index)
         line += 1
         continue
       }
 
-      // Look for the start of the next annotation.
-      if !stream.starts(with: "//!") {
-        _ = stream.popFirst()
+      // Skip block comments.
+      if stream[index...].starts(with: "/*") {
+        openedBlockComments += 1
+        index = stream.index(index, offsetBy: 2)
+        continue
+      }
+
+      if stream[index...].starts(with: "*/") {
+        openedBlockComments = max(0, openedBlockComments - 1)
+        index = stream.index(index, offsetBy: 2)
+        continue
+      }
+
+      if openedBlockComments > 0 {
+        index = stream.index(after: index)
+        continue
+      }
+
+      // Look for the start of the next annotation, ignoring comment blocks.
+      if stream[index...].starts(with: "//") {
+        // We recognized '//'; now check if the next character is '!' or skip the line.
+        // If we're parsing a single-line comment, skip the entire line.
+        var i = stream.index(index, offsetBy: 2)
+        if i == stream.endIndex || stream[i] != "!" {
+          while (i < stream.endIndex) && !stream[i].isNewline {
+            i = stream.index(after: i)
+          }
+          index = i
+          continue
+        }
+      } else {
+        // Advance to the next character.
+        index = stream.index(after: index)
         continue
       }
 
@@ -125,24 +158,22 @@ struct TestAnnotation {
       var fragments: [Substring] = []
       repeat {
         // Add the new fragment.
-        let fragmentStart = stream.index(stream.startIndex, offsetBy: 3)
-        if let j = stream.firstIndex(where: { $0.isNewline }) {
-          fragments.append(stream[fragmentStart ... j])
+        let fragmentStart = stream.index(index, offsetBy: 3)
+        if let fragmentEnd = stream[fragmentStart...].firstIndex(where: { $0.isNewline }) {
+          fragments.append(stream[fragmentStart ... fragmentEnd])
+          index = stream.index(after: fragmentEnd)
           line += 1
-
-          let k = stream.suffix(from: stream.index(after: j))
-            .firstIndex(where: { $0.isNewline || !$0.isWhitespace })
-          stream = stream.suffix(from: k ?? stream.endIndex)
         } else {
           // We're done if we reached the end of the file.
           fragments.append(stream[fragmentStart ..< stream.endIndex])
           break
         }
-      } while stream.starts(with: "//!")
+      } while stream[index...].starts(with: "//!")
 
       // Parse the annotation if we could identify its text.
       if !fragments.isEmpty {
-        try annotations.append(TestAnnotation(at: annotationLine, parsing: fragments.joined()))
+        let location = LineLocation(url: source.url, line: annotationLine)
+        annotations.append(TestAnnotation(at: location, parsing: fragments.joined()))
       }
     }
 
