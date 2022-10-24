@@ -18,15 +18,6 @@ jobs:
     - name: Resolve
       run: swift package resolve
 
-    - name: Install LLVM
-      run: |
-        brew install llvm@11
-
-    - name: Configure pkg-config
-      run: |
-        export PATH=$(brew --prefix llvm@11)/bin:${PATH}
-        swift .build/checkouts/LLVMSwift/utils/make-pkgconfig.swift
-
     - name: Build (Debug)
       run: swift build -v -c debug
 
