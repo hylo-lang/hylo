@@ -2454,7 +2454,7 @@ public enum Parser {
   )
 
   static let typeIdentifier = (
-    take(.name).or(take(.under))
+    take(.name)
       .map({ (context, token) -> SourceRepresentable<Identifier> in
         SourceRepresentable(value: String(context.lexer.source[token.range]), range: token.range)
       })
