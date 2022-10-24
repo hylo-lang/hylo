@@ -15,8 +15,8 @@ final class TypeCheckerNewTests: XCTestCase {
       subdirectory: "TestCases/TypeChecking") ?? []
 
     for url in urls {
-      let tc = TestCase(url: url)
-      try tc.execute({ (input, annotations) in
+      let tc = try TestCase(source: SourceFile(contentsOf: url))
+      try tc.execute({ (source, annotations) in
         // Create an AST for the test case.
         var program = baseAST
 
@@ -24,7 +24,7 @@ final class TypeCheckerNewTests: XCTestCase {
         let module = program.insert(ModuleDecl(name: tc.name))
 
         // Parse the input.
-        if Parser.parse(input, into: module, in: &program).decls == nil {
+        if Parser.parse(source, into: module, in: &program).decls == nil {
           XCTFail("\(tc.name): parsing failed")
           return
         }
@@ -33,43 +33,25 @@ final class TypeCheckerNewTests: XCTestCase {
         var checker = TypeChecker(ast: program)
         let success = checker.check(module: module)
 
-        // Rearrange the diagnostics for faster lookup.
-        var diagnostics: [Int?: [Diagnostic]] = checker.diagnostics.reduce(into: [:], { (ds, d) in
-          if let l = d.location, l.source == input {
-            let (line, _) = l.source.lineAndColumnIndices(at: l)
-            ds[line, default: []].append(d)
-          } else {
-            ds[nil, default: []].append(d)
-          }
-        })
+        // Create a diagnostic checker.
+        var diagnosticChecker = DiagnosticChecker(
+          testCaseName: tc.name, diagnostics: checker.diagnostics)
 
         // Process the test annotations.
         for annotation in annotations {
           switch annotation.command {
           case "expect-failure":
-            XCTAssertFalse(success, "\(tc.name): type checking succeeded, but expected failure")
-
+            XCTAssert(!success, "\(tc.name): type checking succeeded, but expected failure")
           case "expect-success":
-            XCTAssertTrue(success, "\(tc.name): type checking failed, but expected success")
-
+            XCTAssert(success, "\(tc.name): type checking failed, but expected success")
           case "diagnostic":
-            var ds = diagnostics[annotation.line, default: []]
-            guard let i = ds.firstIndex(where: { $0.message == annotation.argument }) else {
-              XCTFail("\(tc.name): missing expected diagnostic at line \(annotation.line)")
-              continue
-            }
-
-            // Remove the diagnostic from the set.
-            ds.remove(at: i)
-            diagnostics[annotation.line] = ds.isEmpty ? nil : ds
-
+            diagnosticChecker.handle(annotation)
           default:
             print("\(tc.name): unexpected test command: '\(annotation.command)'")
           }
         }
 
-        // Fail the test for any unexpected diagnostic.
-        XCTAssert(diagnostics.isEmpty, "\(tc.name): \(diagnostics.count) unexpected diagnostic(s)")
+        diagnosticChecker.finalize()
       })
     }
   }
