@@ -168,7 +168,7 @@ struct ConstraintGenerator: ExprVisitor {
       let calleeLabels = calleeType.inputs.map({ $0.label })
       if calleeLabels != labels {
         diagnostics.append(.incompatibleLabels(
-          found: calleeLabels, expected: labels, at: checker.ast.ranges[callee]))
+          found: labels, expected: calleeLabels, at: checker.ast.ranges[callee]))
         assignToError(id)
         return
       }
