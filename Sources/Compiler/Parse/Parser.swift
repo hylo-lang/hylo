@@ -1497,10 +1497,10 @@ public enum Parser {
   )
 
   static let lambdaBody = settingFlags(.parsingFunctionBody, apply: TryCatch(
-    trying: methodBundleBody
-      .map({ (context, impls) -> FunDecl.Body in .bundle(impls) }),
-    orCatchingAndApplying: take(.lBrace).and(expr).and(take(.rBrace))
-      .map({ (context, tree) -> FunDecl.Body in .expr(tree.0.1) })
+    trying: take(.lBrace).and(expr).and(take(.rBrace))
+      .map({ (context, tree) -> FunDecl.Body in .expr(tree.0.1) }),
+    orCatchingAndApplying: braceStmt
+      .map({ (context, id) -> FunDecl.Body in .block(id) })
   ))
 
   static let matchExpr = (
