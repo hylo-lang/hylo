@@ -157,7 +157,7 @@ struct ParserContext {
 
   /// Consumes and returns an operator (excluding `=`) from the token stream.
   ///
-  /// If the next token in the stream is an angle bracket, it is interpreter as an operator and
+  /// If the next token in the stream is an angle bracket, it is interpreted as an operator and
   /// merged with any attached operator.
   mutating func takeOperator() -> SourceRepresentable<Identifier>? {
     guard let head = peek() else { return nil }

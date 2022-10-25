@@ -989,77 +989,122 @@ public enum Parser {
 
   static let infixExpr = (
     Apply<ParserContext, AnyExprID>({ (context) -> AnyExprID? in
-      guard let lhs = try infixExprHead.parse(&context) else { return nil }
-      let leftRange = context.ast.ranges[lhs]!
+      guard var lhs = try infixExprHead.parse(&context) else { return nil }
 
-      // Nothing more to parse if there isn't any whitespace before the next token.
-      if !context.hasLeadingWhitespace { return lhs }
-
-      // type-casting-tail
-      if let oper = context.take(.cast) {
-        if !context.hasLeadingWhitespace {
-          context.diagnostics.append(.infixOperatorRequiresWhitespaces(at: oper.range))
+      while context.hasLeadingWhitespace {
+        // type-casting-tail
+        if let infixOperator = context.take(.cast) {
+          try appendInfixTail(to: &lhs, forCastOperator: infixOperator, in: &context)
+          continue
         }
 
-        guard let rhs = try typeExpr.parse(&context) else {
-          throw ParseError("expected type expression", at: context.currentLocation)
+        // infix-operator-tail (with assign)
+        if let infixOperator = context.take(.assign) {
+          try appendInfixTail(to: &lhs, forAssignOperator: infixOperator, in: &context)
+          continue
         }
 
-        let castKind: CastExpr.Kind
-        switch context.lexer.source[oper.range] {
-        case "as":
-          castKind = .up
-        case "as!":
-          castKind = .down
-        case "as!!":
-          castKind = .builtinPointerConversion
-        default:
-          unreachable()
-        }
-
-        let cast = context.ast.insert(CastExpr(left: lhs, right: rhs, kind: castKind))
-        context.ast.ranges[cast] = leftRange.upperBounded(by: context.currentIndex)
-        return AnyExprID(cast)
+        // infix-operator-tail
+        if try !appendInfixTail(to: &lhs, in: &context) { break }
       }
 
-      // infix-operator-tail (with assign)
-      if let oper = context.take(.assign) {
-        if !context.hasLeadingWhitespace {
-          context.diagnostics.append(.infixOperatorRequiresWhitespaces(at: oper.range))
-        }
-
-        guard let rhs = try prefixExpr.parse(&context) else {
-          throw ParseError("expected expression", at: context.currentLocation)
-        }
-
-        let assign = context.ast.insert(AssignExpr(left: lhs, right: rhs))
-        context.ast.ranges[assign] = leftRange.upperBounded(by: context.currentIndex)
-        return AnyExprID(assign)
-      }
-
-      // infix-operator-tail
-      var tail: SequenceExpr.UnfoldedTail = []
-      while let operatorName = context.takeOperator() {
-        if !context.hasLeadingWhitespace {
-          context.diagnostics.append(.infixOperatorRequiresWhitespaces(at: operatorName.range))
-        }
-
-        guard let operand = try prefixExpr.parse(&context) else {
-          throw ParseError("expected type expression", at: context.currentLocation)
-        }
-
-        tail.append(SequenceExpr.TailElement(operatorName: operatorName, operand: operand))
-      }
-
-      if tail.isEmpty {
-        return lhs
-      } else {
-        let sequence = context.ast.insert(SequenceExpr.unfolded(head: lhs, tail: tail))
-        context.ast.ranges[sequence] = leftRange.upperBounded(by: context.currentIndex)
-        return AnyExprID(sequence)
-      }
+      return lhs
     })
   )
+
+  /// Parses a type expression from the stream, then transforms `lhs` into a `CastExpr`, using
+  /// `infixOperator` to determine the cast kind.
+  private static func appendInfixTail(
+    to lhs: inout AnyExprID,
+    forCastOperator infixOperator: Token,
+    in context: inout ParserContext
+  ) throws {
+    if !context.hasLeadingWhitespace {
+      context.diagnostics.append(.infixOperatorRequiresWhitespaces(at: infixOperator.range))
+    }
+
+    guard let rhs = try typeExpr.parse(&context) else {
+      throw ParseError("expected type expression", at: context.currentLocation)
+    }
+
+    let castKind: CastExpr.Kind
+    switch context.lexer.source[infixOperator.range] {
+    case "as":
+      castKind = .up
+    case "as!":
+      castKind = .down
+    case "as!!":
+      castKind = .builtinPointerConversion
+    default:
+      unreachable()
+    }
+
+    let expr = context.ast.insert(CastExpr(left: lhs, right: rhs, kind: castKind))
+    context.ast.ranges[expr] = context.ast.ranges[lhs]!.upperBounded(by: context.currentIndex)
+    lhs = AnyExprID(expr)
+  }
+
+  /// Parses a prefix expression from the stream, then transforms `lhs` into an `AssignExpr`.
+  private static func appendInfixTail(
+    to lhs: inout AnyExprID,
+    forAssignOperator infixOperator: Token,
+    in context: inout ParserContext
+  ) throws {
+    if !context.hasLeadingWhitespace {
+      context.diagnostics.append(.infixOperatorRequiresWhitespaces(at: infixOperator.range))
+    }
+
+    guard let rhs = try prefixExpr.parse(&context) else {
+      throw ParseError("expected expression", at: context.currentLocation)
+    }
+
+    let expr = context.ast.insert(AssignExpr(left: lhs, right: rhs))
+    context.ast.ranges[expr] = context.ast.ranges[lhs]!.upperBounded(by: context.currentIndex)
+    lhs = AnyExprID(expr)
+  }
+
+  /// Parses a sequence of pairs of infix operators and prefix expressions from the stream. If the
+  /// sequence isn't empty, transforms `lhs` into a `SequenceExpr` and returns `true`. Otherwise,
+  /// returns `false.
+  private static func appendInfixTail(
+    to lhs: inout AnyExprID,
+    in context: inout ParserContext
+  ) throws -> Bool {
+    var tail: SequenceExpr.UnfoldedTail = []
+
+    while true {
+      let backup = context.backup()
+
+      // Look for the next operator.
+      guard let operatorName = context.takeOperator() else { break }
+
+      // If there isn't any leading whitespace before the next expression but the operator is on a
+      // different line, we may be looking at the start of a prefix expression.
+      if !context.hasLeadingWhitespace {
+        let rangeBefore = context.ast.ranges[lhs]!.upperBound ..< operatorName.range!.lowerBound
+        if context.lexer.source.contents[rangeBefore].contains(where: { $0.isNewline }) {
+          context.restore(from: backup)
+          break
+        }
+
+        context.diagnostics.append(.infixOperatorRequiresWhitespaces(at: operatorName.range))
+      }
+
+      // Now we can commit to parse an operand.
+      guard let operand = try prefixExpr.parse(&context) else {
+        throw ParseError("expected type expression", at: context.currentLocation)
+      }
+      tail.append(SequenceExpr.TailElement(operatorName: operatorName, operand: operand))
+    }
+
+    // Nothing to transform if the tail is empty.
+    if tail.isEmpty { return false }
+
+    let expr = context.ast.insert(SequenceExpr.unfolded(head: lhs, tail: tail))
+    context.ast.ranges[expr] = context.ast.ranges[lhs]!.upperBounded(by: context.currentIndex)
+    lhs = AnyExprID(expr)
+    return true
+  }
 
   static let infixExprHead = (
     anyExpr(asyncExpr).or(anyExpr(awaitExpr)).or(prefixExpr)
