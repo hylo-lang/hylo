@@ -2193,14 +2193,24 @@ public enum Parser {
 
   static let lambdaOrParenthesizedTypeExpr = (
     Apply<ParserContext, AnyTypeExprID>({ (context) -> AnyTypeExprID? in
-      if context.peek()?.kind != .lParen { return nil }
-
-      let backup = context.backup()
-      do {
+      switch context.peek()?.kind {
+      case .lBrack:
+        // The expression starts with a left bracket; assume it's a lambda.
         return try lambdaTypeExpr.parse(&context).map(AnyTypeExprID.init(_:))
-      } catch {
-        context.restore(from: backup)
-        return try parenthesizedTypeExpr.parse(&context)
+
+      case .lParen:
+        // The expression starts with a left parenthesis; assume it's a lambda and fall back to
+        // a parenthesized expression if that fails.
+        let backup = context.backup()
+        do {
+          return try lambdaTypeExpr.parse(&context).map(AnyTypeExprID.init(_:))
+        } catch {
+          context.restore(from: backup)
+          return try parenthesizedTypeExpr.parse(&context)
+        }
+
+      default:
+        return nil
       }
     })
   )
@@ -2266,27 +2276,19 @@ public enum Parser {
   )
 
   static let lambdaEnvironment = (
-    lambdaThinEnvironment.or(lambdaCustomEnvironment)
-  )
-
-  static let lambdaThinEnvironment = (
-    Apply<ParserContext, SourceRepresentable<AnyTypeExprID>>({ (context) in
-      if let keyword = context.take(nameTokenWithValue: "thin") {
-        let id = context.ast.insert(TupleTypeExpr())
-        context.ast.ranges[id] = keyword.range
-        return SourceRepresentable(value: AnyTypeExprID(id), range: keyword.range)
-      } else {
-        return nil
-      }
-    })
-  )
-
-  static let lambdaCustomEnvironment = (
-    take(.lBrack).and(typeExpr).and(take(.rBrack))
+    take(.lBrack).and(maybe(typeExpr)).and(take(.rBrack))
       .map({ (context, tree) -> SourceRepresentable<AnyTypeExprID> in
-        SourceRepresentable(
-          value: tree.0.1,
-          range: tree.0.0.range.upperBounded(by: tree.1.range.upperBound))
+        let range = tree.0.0.range.upperBounded(by: tree.1.range.upperBound)
+        if let expr = tree.0.1 {
+          return SourceRepresentable(value: expr, range: range)
+        } else {
+          let expr = context.ast.insert(TupleTypeExpr())
+          context.ast.ranges[expr] = SourceRange(
+            in: context.lexer.source,
+            from: tree.0.0.range.upperBound,
+            to: tree.1.range.lowerBound)
+          return SourceRepresentable(value: AnyTypeExprID(expr), range: range)
+        }
       })
   )
 
