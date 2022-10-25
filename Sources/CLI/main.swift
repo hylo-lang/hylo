@@ -37,6 +37,8 @@ struct CLI: ParsableCommand {
 
   }
 
+  static let configuration = CommandConfiguration(commandName: "valc")
+
   @Flag(
     name: [.customLong("modules")],
     help: "Compile inputs as separate modules.")
