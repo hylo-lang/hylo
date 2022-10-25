@@ -205,16 +205,23 @@ struct CLI: ParsableCommand {
 
     // *** C++ Transpiling ***
 
-    log(verbose: "Traspiling to C++ '\(productName)'".styled([.bold]))
+    log(verbose: "Transpiling to C++ '\(productName)'".styled([.bold]))
 
     // Initialize the transpiler.
     var transpiler = CXXTranspiler(program: typedProgram)
-    let cppModuleContent = transpiler.emitHeader(of: moduleDecl)
+
+    // Translate the module to C++.
+    let cxxModule = transpiler.emitModule(of: moduleDecl)
+    let cxxHeader = cxxModule.emitHeader()
+    let cxxSource = cxxModule.emitImplementation()
 
     // Handle `--emit cpp`.
     if outputType == .cpp {
-      let url = outputURL ?? URL(fileURLWithPath: productName + ".cpp")
-      try cppModuleContent.write(to: url, atomically: true, encoding: .utf8)
+      let baseURL = outputURL?.deletingPathExtension() ?? URL(fileURLWithPath: productName)
+      try cxxHeader.write(
+        to: baseURL.appendingPathExtension("h"), atomically: true, encoding: .utf8)
+      try cxxSource.write(
+        to: baseURL.appendingPathExtension("cpp"), atomically: true, encoding: .utf8)
       CLI.exit()
     }
 
@@ -222,19 +229,27 @@ struct CLI: ParsableCommand {
 
     assert(outputType == .binary)
 
-    let temporaryDirectoryURL = try FileManager.default.url(
+    let buildDirectoryURL = try FileManager.default.url(
       for: .itemReplacementDirectory,
       in: .userDomainMask,
       appropriateFor: currentDirectory,
       create: true)
 
     // Compile the transpiled module.
-    let cppSourceURL = temporaryDirectoryURL.appendingPathComponent(productName + ".cpp")
-    try cppModuleContent.write(to: cppSourceURL, atomically: true, encoding: .utf8)
+    let cxxHeaderURL = buildDirectoryURL.appendingPathComponent(productName + ".h")
+    try cxxHeader.write(to: cxxHeaderURL, atomically: true, encoding: .utf8)
+
+    let cxxSourceURL = buildDirectoryURL.appendingPathComponent(productName + ".cpp")
+    try cxxSource.write(to: cxxSourceURL, atomically: true, encoding: .utf8)
 
     let clang = find("clang++")
     let binaryURL = outputURL ?? URL(fileURLWithPath: productName)
-    try runCommandLine(clang, ["-o", binaryURL.path, cppSourceURL.path])
+    try runCommandLine(
+      clang, [
+        "-o", binaryURL.path,
+        "-I", buildDirectoryURL.path,
+        cxxSourceURL.path
+      ])
   }
 
   /// Parses the contents of the file at `fileURL` and insert them into `ast[module]`.
