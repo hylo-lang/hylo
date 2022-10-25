@@ -1,0 +1,16 @@
+//! expect-failure
+
+trait T { type X }
+
+trait U: T {
+
+  property x0: X { let }
+
+  property x1: Self.X { let }
+
+  //! @+1 diagnostic associated type 'X' can only be used referred to as a member of a generic type parameter, a conformance lens, or another associated type
+  property x2: T.X { let }
+
+  property x3: Self::T.X { let }
+
+}

@@ -1,0 +1,16 @@
+//! expect-failure
+
+type A {
+
+  fun foo(_ x: Int) -> A {
+    let   { A() }
+    inout {}
+    sink  { A() }
+  }
+
+  //! @+1 diagnostic inout-capable method bundle must return 'A'
+  fun bar(_ x: A) -> {} {
+    inout { () }
+  }
+
+}

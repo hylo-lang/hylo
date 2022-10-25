@@ -1,0 +1,5 @@
+//! expect-success
+
+fun one_or_two(_ test: Bool) -> Int {
+  if test { 1 } else { 2 }
+}

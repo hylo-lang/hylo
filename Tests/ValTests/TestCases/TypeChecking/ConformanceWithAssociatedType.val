@@ -1,0 +1,10 @@
+//! expect-success
+
+trait P {
+  type X
+  fun f(_ x: X)
+}
+
+type B<X>: P {
+  fun f(_ x: X) {}
+}

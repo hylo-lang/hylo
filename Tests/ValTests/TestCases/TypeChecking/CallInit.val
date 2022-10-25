@@ -1,0 +1,15 @@
+//! expect-success
+
+type A {
+
+  var x: Int
+
+  public init(value: sink Int) {
+    self = A(x: value)
+  }
+
+}
+
+public fun main() {
+  let _ = A(value: 42)
+}

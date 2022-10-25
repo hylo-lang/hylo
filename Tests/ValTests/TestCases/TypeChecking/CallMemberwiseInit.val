@@ -1,0 +1,15 @@
+//! expect-failure
+
+type A {
+
+  var foo: Int
+  var bar: Int
+
+  public memberwise init
+
+}
+
+public fun main() {
+  let _ = A(foo: 42, bar: 0)
+  let _ = A(foo: (), bar: 2) //! diagnostic incompatible types '{}' and 'Int'
+}

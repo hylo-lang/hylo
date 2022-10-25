@@ -1,0 +1,17 @@
+//! expect-failure
+
+trait P {
+  fun f()
+}
+
+//! @+1 diagnostic type 'A' does not conform to trait 'P'
+type A: P {}
+
+//! @+1 diagnostic type 'B' does not conform to trait 'P'
+type B: P {
+  fun f() -> Self { B() }
+}
+
+type C: P {
+  fun f() {}
+}

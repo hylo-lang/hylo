@@ -1,0 +1,19 @@
+//! expect-failure
+
+public fun main() {
+  let f = fun () { 42 }
+  let _: []() -> Int = f
+
+  let g = fun (x: sink Int) { x }
+  let _: [](x: sink Int) -> Int = g
+
+  let _: [](x: sink Int) -> Int = fun (x) { x }
+
+  let _ = fun (x: sink Int) -> Int {
+    let y = x
+    return y
+  }
+
+  //! @+1 diagnostic cannot infer complex return type; add an explicit return type annotation
+  let _ = fun (x: sink Int) {}
+}

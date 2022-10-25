@@ -1,0 +1,6 @@
+//! expect-success
+
+fun main() {
+  var foo = ()
+  fun local { foo = () }
+}

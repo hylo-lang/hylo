@@ -1,0 +1,7 @@
+//! expect-success
+
+type A {
+  public typealias B = Any
+}
+
+typealias B = A.B

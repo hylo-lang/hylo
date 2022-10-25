@@ -1,0 +1,6 @@
+//! expect-success
+
+fun main() {
+  let foo = ()
+  fun local { let bar = foo }
+}

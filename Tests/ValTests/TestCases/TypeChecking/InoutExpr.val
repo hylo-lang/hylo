@@ -1,0 +1,10 @@
+//! expect-success
+
+type A {
+  fun foo() inout {}
+}
+
+public fun main() {
+  var a = A()
+  &a.foo()
+}

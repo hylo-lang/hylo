@@ -1,0 +1,13 @@
+//! expect-failure
+
+fun f<X>(_ x0: sink X, _ x1: sink { b: X }) {}
+
+fun g<X, Y>(_ x: sink X, _ y: sink Y) -> X { x }
+
+public fun main() {
+  f((), (b: ()))
+  f((a: ()), (b: ())) //! diagnostic tuples have different lengths
+
+  g(true, 42)         //! diagnostic unused result of type 'Bool'
+  g(42, true)         //! diagnostic unused result of type 'Int'
+}
