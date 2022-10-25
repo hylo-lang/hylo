@@ -2343,7 +2343,7 @@ public enum Parser {
       // Parse a labeled value argument.
       if let label = context.take(if: { $0.isLabel }) {
         if context.take(.colon) != nil {
-          if let value = try staticArgumentValue.parse(&context) {
+          if let value = try staticUnlabaledArgument.parse(&context) {
             return GenericArgument(
               label: SourceRepresentable(token: label, in: context.lexer.source),
               value: value)
@@ -2353,7 +2353,7 @@ public enum Parser {
 
       // Backtrack and parse an unlabeled value argument.
       context.restore(from: backup)
-      if let value = try staticArgumentValue.parse(&context) {
+      if let value = try staticUnlabaledArgument.parse(&context) {
         return GenericArgument(value: value)
       }
 
@@ -2361,18 +2361,22 @@ public enum Parser {
     })
   )
 
-  static let staticArgumentValue = (
-    Apply<ParserContext, GenericArgument.Value>({ (context) in
-      if let value = try expr.parse(&context) {
-        return .expr(value)
-      }
+  static let staticUnlabaledArgument = (
+    staticValueArgument.or(staticTypeArgument)
+  )
 
-      if let value = try typeExpr.parse(&context) {
-        return .type(value)
-      }
+  static let staticTypeArgument = (
+    maybe(typeAttribute).and(typeExpr)
+      .map({ (context, tree) -> GenericArgument.Value in
+        .type(tree.1)
+      })
+  )
 
-      return nil
-    })
+  static let staticValueArgument = (
+    valueAttribute.and(expr)
+      .map({ (context, tree) -> GenericArgument.Value in
+        .expr(tree.1)
+      })
   )
 
   static let whereClause = (
