@@ -61,8 +61,8 @@ struct TestAnnotation {
 
     // Parse the line offset, if any.
     if s.starts(with: "@") {
-      let offset = s.prefix(while: { !$0.isWhitespace })
-      s = s.dropFirst(offset.count)
+      let offset = s.dropFirst().prefix(while: { !$0.isWhitespace })
+      s = s.dropFirst(offset.count + 1)
       self.location.line += Int(String(offset))!
     }
 
