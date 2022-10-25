@@ -1,0 +1,8 @@
+//! expect-success
+
+type A {
+
+  fun foo() { bar() }
+  fun bar() { self.foo() }
+
+}

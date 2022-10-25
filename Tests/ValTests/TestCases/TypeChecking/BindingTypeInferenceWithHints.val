@@ -1,0 +1,4 @@
+//! expect-success
+
+let x0: { Int, Double } = (2, 3)
+let x1: { _, Double } = (2, 3)

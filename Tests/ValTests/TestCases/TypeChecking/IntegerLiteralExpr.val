@@ -1,0 +1,16 @@
+//! expect-failure
+
+fun use<T>(_ x: T) {}
+
+public fun main() {
+  let x = 42
+  let _: Int = x
+
+  let y: Double = 42
+  let _: Double = y
+
+  let z: Int32 = 42
+  let _: Double = z //! diagnostic incompatible types 'Int32' and 'Double'
+
+  let _: Bool = 42  //! diagnostic type 'Bool' does not conform to trait 'ExpressibleByIntegerLiteral'
+}

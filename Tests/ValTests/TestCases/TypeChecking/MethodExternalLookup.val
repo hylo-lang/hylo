@@ -1,0 +1,5 @@
+//! expect-success
+
+public fun main() {
+  let _ = 0.copy()
+}

@@ -1,0 +1,3 @@
+//! expect-success
+
+fun f0(_ a: {}, _ b: {} = ()) {}

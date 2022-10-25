@@ -1,0 +1,6 @@
+//! expect-failure
+
+operator prefix-*
+operator infix-* : addition
+operator infix+* : addition       //! diagnostic duplicate operator declaration '+*'
+operator infix+* : multiplication //! diagnostic duplicate operator declaration '+*'

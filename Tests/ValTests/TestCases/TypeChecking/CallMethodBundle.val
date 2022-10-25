@@ -1,0 +1,14 @@
+//! expect-success
+
+type A {
+
+  fun foo(_ x: Self) -> Self {
+    let  { A() }
+    sink { A() }
+  }
+
+  fun bar() {
+    let _: A = foo(self)
+  }
+
+}

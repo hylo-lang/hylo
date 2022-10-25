@@ -1,0 +1,4 @@
+//! expect-success
+
+let x0 = ()
+let (y0, y1) = ((), ())
