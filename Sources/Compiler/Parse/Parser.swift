@@ -1633,11 +1633,40 @@ public enum Parser {
       })
   )
 
-  static let bindingIntroducer = translate([
-    .let  : BindingPattern.Introducer.let,
-    .var  : BindingPattern.Introducer.var,
-    .inout: BindingPattern.Introducer.inout,
-  ])
+  static let bindingIntroducer = (
+    Apply<ParserContext, SourceRepresentable<BindingPattern.Introducer>>({ (context) in
+      guard let head = context.peek() else { return nil }
+
+      let introducer: BindingPattern.Introducer
+      switch head.kind {
+      case .let:
+        _ = context.take()
+        introducer = .let
+
+      case .var:
+        _ = context.take()
+        introducer = .var
+
+      case .inout:
+        _ = context.take()
+        introducer = .inout
+
+      case .sink:
+        _ = context.take()
+        guard context.take(.let) != nil else {
+          throw ParseError("expected 'let'", at: context.currentLocation)
+        }
+        introducer = .sinklet
+
+      default:
+        return nil
+      }
+
+      return SourceRepresentable(
+        value: introducer,
+        range: head.range.upperBounded(by: context.currentIndex))
+    })
+  )
 
   static let exprPattern = (
     Apply<ParserContext, AnyPatternID>({ (context) -> AnyPatternID? in
