@@ -1596,10 +1596,14 @@ final class ParserTests: XCTestCase {
     XCTAssertNil(expr.environment)
   }
 
-  func testThinLambdaEnvironment() throws {
-    let input = SourceFile(contents: "thin")
-    let environment = try XCTUnwrap(try apply(Parser.lambdaEnvironment, on: input).element)
-    XCTAssertEqual(environment.value.kind, .tupleTypeExpr)
+  func testThinLambdaTypeExpr() throws {
+    let input = SourceFile(contents: "[] () -> Int")
+    let (exprID, ast) = try apply(Parser.lambdaTypeExpr, on: input)
+    let expr = try XCTUnwrap(ast[exprID])
+    XCTAssertNil(expr.receiverEffect)
+    XCTAssertEqual(expr.environment?.value.kind, .tupleTypeExpr)
+    XCTAssert(expr.parameters.isEmpty)
+    XCTAssertEqual(expr.output.kind, .nameTypeExpr)
   }
 
   func testCustomLambdaEnvironement() throws {
