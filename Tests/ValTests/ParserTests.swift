@@ -1103,7 +1103,7 @@ final class ParserTests: XCTestCase {
   }
 
   func testPrimaryDeclRef() throws {
-    let input = SourceFile(contents: "foo<T, size: 42>")
+    let input = SourceFile(contents: "foo<T, size: @value 42>")
     let (exprID, ast) = try apply(Parser.primaryDeclRef, on: input)
     let expr = try XCTUnwrap(ast[exprID])
     XCTAssertEqual(expr.name.value.stem, "foo")
@@ -1628,7 +1628,7 @@ final class ParserTests: XCTestCase {
   }
 
   func testStaticArgumentList() throws {
-    let input = SourceFile(contents: "<T, size: 42>")
+    let input = SourceFile(contents: "<T, size: @value 42>")
     let list = try XCTUnwrap(try apply(Parser.staticArgumentList, on: input).element)
     XCTAssertEqual(list.count, 2)
   }
