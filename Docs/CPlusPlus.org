@@ -97,7 +97,7 @@ These are intended to describe defaults. =[[attributes]]= can be used to overrid
   extern void g_val(val_sink<T> x);
 
   // Wrapper function used by C++ code
-  inline void g(_ x: T&&) {
+  inline void g(T&& x) {
     g_(&x);           // Callee destroys x
     new ((void*)&x)(T)() // Construct a replacement
   }
