@@ -39,7 +39,7 @@ extension StmtID {
 
 }
 
-extension NodeID: StmtID where T: Stmt {}
+extension NodeID: StmtID where Subject: Stmt {}
 
 /// The type-erased ID of a statement.
 public struct AnyStmtID: StmtID {

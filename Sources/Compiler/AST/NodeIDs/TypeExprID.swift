@@ -37,7 +37,7 @@ extension TypeExprID {
 
 }
 
-extension NodeID: TypeExprID where T: TypeExpr {}
+extension NodeID: TypeExprID where Subject: TypeExpr {}
 
 /// The type-erased ID of a type expression.
 public struct AnyTypeExprID: TypeExprID {

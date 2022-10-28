@@ -25,7 +25,7 @@ extension PatternID {
 
 }
 
-extension NodeID: PatternID where T: Pattern {}
+extension NodeID: PatternID where Subject: Pattern {}
 
 /// The type-erased ID of a pattern.
 public struct AnyPatternID: PatternID {

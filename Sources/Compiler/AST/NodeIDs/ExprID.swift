@@ -59,7 +59,7 @@ extension ExprID {
 
 }
 
-extension NodeID: ExprID where T: Expr {}
+extension NodeID: ExprID where Subject: Expr {}
 
 /// The type-erased ID of a value expression.
 public struct AnyExprID: ExprID {
