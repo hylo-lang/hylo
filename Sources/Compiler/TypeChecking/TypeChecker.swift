@@ -474,7 +474,7 @@ public struct TypeChecker {
       decl = ast[id]
 
       // Set its type.
-      let type = LambdaType(converting: declTypes[id]!)!
+      let type = LambdaType(declTypes[id]!)!
       if decl.introducer.value == .`init` {
         // The receiver of an initializer is its first parameter.
         declTypes[param] = type.inputs[0].type
@@ -581,7 +581,7 @@ public struct TypeChecker {
 
     // Type check the default value, if any.
     if let defaultValue = ast[id].defaultValue {
-      let parameterType = ParameterType(converting: declTypes[id]!)!
+      let parameterType = ParameterType(declTypes[id]!)!
       let defaultValueType = Type.variable(TypeVariable(node: defaultValue.base))
 
       let constraints = [
@@ -609,7 +609,7 @@ public struct TypeChecker {
   }
 
   private mutating func check(operator id: NodeID<OperatorDecl>) -> Bool {
-    guard let source = NodeID<TopLevelDeclSet>(converting: scopeHierarchy.container[id]!) else {
+    guard let source = NodeID<TopLevelDeclSet>(scopeHierarchy.container[id]!) else {
       diagnostics.insert(.nestedOperatorDeclaration(at: ast.ranges[id]))
       return false
     }
@@ -1127,7 +1127,7 @@ public struct TypeChecker {
       return e
     }
 
-    let declScope = AnyScopeID(converting: id)!
+    let declScope = AnyScopeID(id)!
     let parentScope = scopeHierarchy.parent[declScope]!
     var success = true
     var constraints: [Constraint] = []
@@ -1831,7 +1831,7 @@ public struct TypeChecker {
 
   /// Returns the names and declarations introduced in `scope`.
   private func names<T: NodeIDProtocol>(introducedIn scope: T) -> LookupTable {
-    if let module = NodeID<ModuleDecl>(converting: scope) {
+    if let module = NodeID<ModuleDecl>(scope) {
       return ast[module].sources.reduce(into: [:], { (table, s) in
         table.merge(names(introducedIn: s), uniquingKeysWith: { (l, _) in l })
       })
@@ -2305,7 +2305,7 @@ public struct TypeChecker {
 
     // Handle memberwise initializers.
     if ast[id].introducer.value == .memberwiseInit {
-      guard let productTypeDecl = NodeID<ProductTypeDecl>(converting: parentScope) else {
+      guard let productTypeDecl = NodeID<ProductTypeDecl>(parentScope) else {
         diagnostics.insert(.illegalMemberwiseInit(at: ast[id].introducer.range))
         return .error(ErrorType())
       }
@@ -2680,7 +2680,7 @@ public struct TypeChecker {
         }
 
         // Capture-less local functions are not captured.
-        if let funDecl = NodeID<FunDecl>(converting: captureDecl) {
+        if let funDecl = NodeID<FunDecl>(captureDecl) {
           guard case .lambda(let lambda) = realize(funDecl: funDecl) else { continue }
           if lambda.environment == .unit { continue }
         }
@@ -2736,7 +2736,7 @@ public struct TypeChecker {
 
     // List and realize the type of all stored bindings.
     for m in ast[decl].members {
-      guard let member = NodeID<BindingDecl>(converting: m) else { continue }
+      guard let member = NodeID<BindingDecl>(m) else { continue }
       if realize(bindingDecl: member).isError { return nil }
 
       for (_, name) in ast.names(in: ast[member].pattern) {
@@ -2831,7 +2831,7 @@ public struct TypeChecker {
         // Identify the generic environment that introduces the parameter.
         let origin: AnyScopeID
         if base.decl.kind == .traitDecl {
-          origin = AnyScopeID(converting: base.decl)!
+          origin = AnyScopeID(base.decl)!
         } else {
           origin = scopeHierarchy.container[base.decl]!
         }

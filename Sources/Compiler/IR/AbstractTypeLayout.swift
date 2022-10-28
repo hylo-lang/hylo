@@ -51,7 +51,7 @@ extension TypedProgram {
     switch type {
     case .product(let type):
       for m in ast[type.decl].members {
-        guard let binding = NodeID<BindingDecl>(converting: m) else { continue }
+        guard let binding = NodeID<BindingDecl>(m) else { continue }
         for (_, name) in ast.names(in: ast[binding].pattern) {
           let decl = ast[name].decl
           indices[ast[decl].name] = types.count

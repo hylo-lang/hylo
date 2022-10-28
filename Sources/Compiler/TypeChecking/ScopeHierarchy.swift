@@ -143,7 +143,7 @@ public struct ScopeHierarchy {
     while let parent = parent[last] {
       last = parent
     }
-    return NodeID(converting: last)
+    return NodeID(last)
   }
 
 }

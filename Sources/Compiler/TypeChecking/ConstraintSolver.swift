@@ -327,7 +327,7 @@ struct ConstraintSolver {
     }
 
     // Get the name expression associated with the constraint, if any.
-    let nameBoundByCurrentConstraint = location.node.flatMap(NodeID<NameExpr>.init(converting:))
+    let nameBoundByCurrentConstraint = location.node.flatMap(NodeID<NameExpr>.init)
 
     // Fast path when there's only one candidate.
     if candidates.count == 1 {
@@ -391,7 +391,7 @@ struct ConstraintSolver {
     if candidates.count == 1 {
       solve(candidates[0].type, equalsTo: r, location: location)
       if let node = location.node,
-         let name = NodeID<NameExpr>(converting: node)
+         let name = NodeID<NameExpr>(node)
       {
         bindingAssumptions[name] = .direct(candidates[0].decl)
       }

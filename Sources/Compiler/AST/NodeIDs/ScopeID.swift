@@ -16,10 +16,11 @@ public struct AnyScopeID: ScopeID {
     base = AnyNodeID(other)
   }
 
-  /// Converts `n` to a scope ID; fails if `n` denotes a node that is not a lexical scope.
-  public init?<Other: NodeIDProtocol>(converting other: Other) {
-    if other.kind <= .lexicalScope {
-      base = AnyNodeID(other)
+  /// Creates an instance referring to the same node as `x`, failing if `x` does not identify a
+  /// lexical scope.
+  public init?<Other: NodeIDProtocol>(_ x: Other) {
+    if x.kind <= .lexicalScope {
+      base = AnyNodeID(x)
     } else {
       return nil
     }

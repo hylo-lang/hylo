@@ -2091,7 +2091,7 @@ public enum Parser {
   static let nameTypeExpr = (
     compoundTypeExpr
       .map({ (context, id) -> NodeID<NameTypeExpr> in
-        if let converted = NodeID<NameTypeExpr>(converting: id) {
+        if let converted = NodeID<NameTypeExpr>(id) {
           return converted
         } else {
           throw ParseError("expected type name", at: context.ast.ranges[id]!.first())
