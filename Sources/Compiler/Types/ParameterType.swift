@@ -17,8 +17,9 @@ public struct ParameterType: TypeProtocol, Hashable {
     self.flags = bareType.flags
   }
 
-  public init?(converting type: Type) {
-    if case .parameter(let t) = type {
+  /// Creates an instance identifying `x`, failing if `x` is not a parameter type.
+  public init?(_ x: Type) {
+    if case .parameter(let t) = x {
       self = t
     } else {
       return nil

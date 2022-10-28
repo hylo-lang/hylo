@@ -85,7 +85,7 @@ public struct FunDecl: GenericDecl, GenericScope {
   /// The declaration of the implicit receiver parameter, if any.
   public var implicitReceiverDecl: NodeID<ParameterDecl>? {
     if let parameter = implicitParameterDecls.first, parameter.name == "self" {
-      return NodeID(converting: parameter.decl)
+      return NodeID(parameter.decl)
     } else {
       return nil
     }

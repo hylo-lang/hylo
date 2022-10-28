@@ -27,7 +27,7 @@ extension ProductType {
   public init?(standardLibraryTypeNamed name: String, ast: AST) {
     let stdlib = ast.stdlib ?? preconditionFailure("standard library is not loaded")
     for id in ast.topLevelDecls(stdlib) where id.kind == .productTypeDecl {
-      let id = NodeID<ProductTypeDecl>(converting: id)!
+      let id = NodeID<ProductTypeDecl>(id)!
       if ast[id].name == name {
         self.init(decl: id, ast: ast)
         return

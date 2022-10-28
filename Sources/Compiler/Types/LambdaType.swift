@@ -45,8 +45,9 @@ public struct LambdaType: TypeProtocol, Hashable {
     flags = fs
   }
 
-  public init?(converting type: Type) {
-    if case .lambda(let t) = type {
+  /// Creates an instance identifying `x`, failing if `x` is not a lambda type.
+  public init?(_ x: Type) {
+    if case .lambda(let t) = x {
       self = t
     } else {
       return nil

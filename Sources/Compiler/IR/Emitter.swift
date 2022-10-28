@@ -476,7 +476,7 @@ public struct Emitter {
     funCall expr: NodeID<FunCallExpr>,
     into module: inout Module
   ) -> Operand {
-    let calleeType = LambdaType(converting: program.exprTypes[program.ast[expr].callee]!)!
+    let calleeType = LambdaType(program.exprTypes[program.ast[expr].callee]!)!
 
     // Determine the callee's convention.
     var conventions: [PassingConvention]
@@ -491,7 +491,7 @@ public struct Emitter {
     var arguments: [Operand] = []
 
     for (parameter, argument) in zip(calleeType.inputs, program.ast[expr].arguments) {
-      let parameterType = ParameterType(converting: parameter.type)!
+      let parameterType = ParameterType(parameter.type)!
       conventions.append(parameterType.convention)
 
       switch parameterType.convention {
@@ -513,7 +513,7 @@ public struct Emitter {
     // function object the arguments.
     let callee: Operand
 
-    if let calleeID = NodeID<NameExpr>(converting: program.ast[expr].callee) {
+    if let calleeID = NodeID<NameExpr>(program.ast[expr].callee) {
       switch program.referredDecls[calleeID] {
       case .direct(let calleeDeclID) where calleeDeclID.kind == .builtinDecl:
         // Callee refers to a built-in function.

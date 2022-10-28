@@ -219,7 +219,7 @@ struct ConstraintGenerator: ExprVisitor {
     }
 
     // 2nd case
-    if let c = NodeID<NameExpr>(converting: callee),
+    if let c = NodeID<NameExpr>(callee),
        let d = checker.referredDecls[c]?.decl,
        d.kind <= .typeDecl
     {
@@ -230,14 +230,14 @@ struct ConstraintGenerator: ExprVisitor {
           labels: [],
           notation: nil,
           introducer: nil,
-          inDeclSpaceOf: AnyScopeID(converting: d)!)
+          inDeclSpaceOf: AnyScopeID(d)!)
 
         // Select suitable candidates based on argument labels.
         let labels = checker.ast[id].arguments.map({ $0.label?.value })
         var candidates: [Constraint.OverloadCandidate] = []
         for initializer in initializers {
           // Remove the receiver from the parameter list.
-          let ctor = LambdaType(converting: initializer.type)!.ctor()!
+          let ctor = LambdaType(initializer.type)!.ctor()!
 
           if labels.elementsEqual(ctor.labels) {
             let (ty, cs) = checker.open(type: .lambda(ctor))
@@ -262,7 +262,7 @@ struct ConstraintGenerator: ExprVisitor {
           inferredTypes[c] = candidates[0].type
 
           // Propagate the type of the constructor down.
-          let calleeType = LambdaType(converting: candidates[0].type)!
+          let calleeType = LambdaType(candidates[0].type)!
           propagateDown(calleeType: calleeType, calleeConstraints: candidates[0].constraints)
 
         default:
@@ -271,7 +271,7 @@ struct ConstraintGenerator: ExprVisitor {
         }
 
       case .traitDecl:
-        let trait = TraitType(decl: NodeID(converting: d)!, ast: checker.ast)
+        let trait = TraitType(decl: NodeID(d)!, ast: checker.ast)
         diagnostics.append(.cannotConstruct(trait: trait, at: checker.ast.ranges[callee]))
         assignToError(id)
 
@@ -503,7 +503,7 @@ struct ConstraintGenerator: ExprVisitor {
       // If we determined that the domain refers to a nominal type declaration, create a static
       // member constraint. Otherwise, create a non-static member constraint.
       let constraint: Constraint
-      if let base = NodeID<NameExpr>(converting: domain),
+      if let base = NodeID<NameExpr>(domain),
          let decl = checker.referredDecls[base]?.decl,
          decl.kind <= .typeDecl
       {
@@ -625,7 +625,7 @@ struct ConstraintGenerator: ExprVisitor {
     // If the looked up name has a method introducer, it must refer to a method implementation.
     if let introducer = introducer {
       matches = Set(matches.compactMap({ match in
-        guard let method = NodeID<FunDecl>(converting: match),
+        guard let method = NodeID<FunDecl>(match),
               let body = checker.ast[method].body,
               case .bundle(let impls) = body
         else { return nil }
