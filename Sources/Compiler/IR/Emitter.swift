@@ -27,7 +27,7 @@ public struct Emitter {
 
   /// Emits the Val IR of the module identified by `decl`.
   public mutating func emit(module decl: NodeID<ModuleDecl>) -> Module {
-    var module = Module(decl: decl, id: program.ast[decl].name)
+    var module = Module(decl: decl, name: program.ast[decl].name)
     for member in program.ast.topLevelDecls(decl) {
       emit(topLevel: member, into: &module)
     }

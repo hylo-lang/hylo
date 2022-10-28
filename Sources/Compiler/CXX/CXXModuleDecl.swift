@@ -1,11 +1,19 @@
 /// A C++ module.
 public struct CXXModuleDecl : CXXDecl {
 
-  /// The corresponding Val AST node
-  let original: ModuleDecl
+  /// The module's declaration.
+  public let decl: NodeID<ModuleDecl>
+
+  /// The module's name.
+  public let name: String
 
   /// The top-level declarations in the module
   var topLevelDecls: [CXXDecl] = []
+
+  public init(decl: NodeID<ModuleDecl>, name: String) {
+    self.decl = decl
+    self.name = name
+  }
 
   /// Emits the C++ header file content representing our module.
   public func emitHeader() -> String {
@@ -21,7 +29,7 @@ public struct CXXModuleDecl : CXXDecl {
     output.write("\n")
 
     // Create a namespace for the entire module.
-    output.write("namespace \(original.name) {\n")
+    output.write("namespace \(name) {\n")
 
     // TODO: translate top-level declarationsd
 
@@ -35,11 +43,11 @@ public struct CXXModuleDecl : CXXDecl {
     var output: String = ""
 
     // Emit include clauses.
-    output.write("#include \"\(original.name).h\"\n")
+    output.write("#include \"\(name).h\"\n")
     output.write("\n")
 
     // Create a namespace for the entire module.
-    output.write("namespace \(original.name) {\n")
+    output.write("namespace \(name) {\n")
 
     // TODO: translate top-level declaration implementations
 

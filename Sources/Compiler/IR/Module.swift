@@ -21,9 +21,9 @@ public struct Module {
   /// A table mapping function declarations to their ID in the module.
   private var loweredFunctions: [NodeID<FunDecl>: Function.ID] = [:]
 
-  public init(decl: NodeID<ModuleDecl>, id: String) {
+  public init(decl: NodeID<ModuleDecl>, name: String) {
     self.decl = decl
-    self.name = id
+    self.name = name
   }
 
   /// Returns the type of `operand`.
