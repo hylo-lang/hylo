@@ -55,7 +55,7 @@ extension DeclID {
 
 }
 
-extension NodeID: DeclID where T: Decl {}
+extension NodeID: DeclID where Subject: Decl {}
 
 /// The type-erased ID of a declaration.
 public struct AnyDeclID: DeclID {

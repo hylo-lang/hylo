@@ -3,7 +3,7 @@ import Utils
 /// The ID of a node outlining a lexical scope.
 public protocol ScopeID: NodeIDProtocol {}
 
-extension NodeID: ScopeID where T: LexicalScope {}
+extension NodeID: ScopeID where Subject: LexicalScope {}
 
 /// The type-erased ID of a node outlining a lexical scope.
 public struct AnyScopeID: ScopeID {

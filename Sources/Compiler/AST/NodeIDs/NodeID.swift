@@ -10,25 +10,27 @@ public protocol NodeIDProtocol: Hashable, Codable {
 }
 
 /// The ID of a node in an AST.
-public struct NodeID<T: Node>: NodeIDProtocol {
+public struct NodeID<Subject: Node>: NodeIDProtocol {
 
   /// The type of a node ID's raw value.
   public typealias RawValue = Int
 
   public let rawValue: RawValue
 
-  public var kind: NodeKind { T.kind }
+  public var kind: NodeKind { Subject.kind }
 
-  /// Converts `n` to a node ID of type `T`; fails if `n` has a different type.
-  public init?<Other: NodeIDProtocol>(converting other: Other) {
-    if other.kind == T.kind {
-      self.init(rawValue: other.rawValue)
+  /// Creates an instance with the same raw value as `x` failing iff `x.kind != Subject.kind`.
+  public init?<Other: NodeIDProtocol>(converting x: Other) {
+    if x.kind == Subject.kind {
+      self.init(rawValue: x.rawValue)
     } else {
       return nil
     }
   }
 
-  /// Creates a node ID from a raw value, assuming it has type `T`.
+  /// Creates an instance with the given raw value.
+  ///
+  /// The result can only be used correctly in an AST where the identified node has type `Subject`.
   internal init(rawValue: RawValue) {
     self.rawValue = rawValue
   }
