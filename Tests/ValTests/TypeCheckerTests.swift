@@ -15,9 +15,12 @@ final class TypeCheckerTests: XCTestCase {
       subdirectory: "TestCases/TypeChecking") ?? []
 
     for url in urls {
-      if url.lastPathComponent != "LambdaTypeInference.val" { continue }
-
+      #if os(Linux)
+      let tc = try TestCase(source: SourceFile(contentsOf: URL(fileURLWithPath: url.path!)))
+      #else
       let tc = try TestCase(source: SourceFile(contentsOf: url))
+      #endif
+
       try tc.execute({ (source, annotations) in
         // Create an AST for the test case.
         var program = baseAST
