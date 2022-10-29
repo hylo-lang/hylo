@@ -2,5 +2,5 @@
 
 fun main() {
   let foo = ()
-  fun local { let bar = foo }
+  fun local() { let bar = foo }
 }
