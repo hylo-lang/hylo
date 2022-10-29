@@ -870,13 +870,12 @@ public struct TypeChecker {
         requirementType = requirementType.transform({ type in
           switch type {
           case selfType:
-            // The type is `Self`.
+            // `type` is `Self`.
             return .stepOver(conformingType)
 
           case .associatedType(let t):
-            // If the type is `Self.T`, find the corresponding type in the conforming type.
-            // Otherwise, we can assume the associated type must be rooted at a generic parameter
-            // declared by the requirement.
+            // We only care about associated types rooted at `Self`. Others can be assumed to be
+            // rooted at some generic type parameter declared by the requirement.
             let components = t.components
             if components.last != selfType { return .stepOver(type) }
 
