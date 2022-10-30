@@ -5,6 +5,6 @@ public struct ImplicitParameter: Codable {
   let name: String
 
   /// The declaration of the parameter.
-  var decl: AnyDeclID
+  private(set) var decl: AnyDeclID
 
 }

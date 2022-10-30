@@ -67,7 +67,7 @@ public struct AST: Codable {
     get { nodes[position.rawValue].node as! T }
     _modify {
       var n = nodes[position.rawValue].node as! T
-      defer { nodes[position.rawValue].node = n }
+      defer { nodes[position.rawValue] = AnyNode(n) }
       yield &n
     }
   }

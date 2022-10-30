@@ -8,24 +8,24 @@ struct CXXTypeDecl {
   }
 
   /// The name of the type.
-  var name: String
+  private var name: String
 
   /// The stored properties.
   ///
   /// The order of this array is preserved in the C++ textual output.
-  var fields: [(definition: String, access: SectionAccess)] = []
+  private var fields: [(definition: String, access: SectionAccess)] = []
 
   /// The public constructors.
-  var publicCtors: [String] = []
+  private var publicCtors: [String] = []
 
   /// The private constructors.
-  var privateCtors: [String] = []
+  private var privateCtors: [String] = []
 
   /// The public destructor, if any.
-  var dtor: String?
+  private var dtor: String?
 
   /// The public methods, properties, and subscripts.
-  var methods: [String] = []
+  private var methods: [String] = []
 
   /// Writes the C++ textual representation of `self`.
   func write<Target: TextOutputStream>(into output: inout Target) {

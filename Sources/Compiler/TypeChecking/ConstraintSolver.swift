@@ -3,6 +3,12 @@ import Utils
 /// A constraint system solver.
 struct ConstraintSolver {
 
+  init(checker: TypeChecker, scope: AnyScopeID, fresh: [LocatableConstraint]) {
+    self.checker = checker
+    self.scope = scope
+    self.fresh = fresh
+  }
+
   /// A borrowed projection of the type checker that uses this constraint generator.
   var checker: TypeChecker!
 
@@ -10,25 +16,25 @@ struct ConstraintSolver {
   let scope: AnyScopeID
 
   /// The fresh constraints to solve.
-  var fresh: [LocatableConstraint] = []
+  private var fresh: [LocatableConstraint] = []
 
   /// The constraints that are currently stale.ß
-  var stale: [LocatableConstraint] = []
+  private var stale: [LocatableConstraint] = []
 
   /// The type assumptions of the solver.
-  var typeAssumptions = SubstitutionMap()
+  private var typeAssumptions = SubstitutionMap()
 
   /// The binding assumptions of the solver.
-  var bindingAssumptions: [NodeID<NameExpr>: DeclRef] = [:]
+  private var bindingAssumptions: [NodeID<NameExpr>: DeclRef] = [:]
 
   /// The current penalties of the solver's solution.
-  var penalties: Int = 0
+  private var penalties: Int = 0
 
   /// The diagnostics of the errors the solver encountered.
-  var diagnostics: [Diagnostic] = []
+  private var diagnostics: [Diagnostic] = []
 
   /// The score of the best solution computed so far.
-  var best = Solution.Score.worst
+  private var best = Solution.Score.worst
 
   /// The current score of the solver's solution.
   var score: Solution.Score {

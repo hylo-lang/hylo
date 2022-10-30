@@ -51,13 +51,13 @@ public struct DoublyLinkedList<Element> {
   public var count: Int = 0
 
   /// The offset of the list head.
-  var headOffset: Int = -1
+  private var headOffset: Int = -1
 
   /// The offset of the list tail.
-  var tailOffset: Int = -1
+  private var tailOffset: Int = -1
 
   /// The position of the next free bucket in the list buffer.
-  var freeOffset: Int = 0
+  private var freeOffset: Int = 0
 
   /// The elements in list.
   fileprivate var storage: [Bucket] = []

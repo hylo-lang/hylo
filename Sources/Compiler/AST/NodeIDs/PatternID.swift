@@ -31,7 +31,7 @@ extension NodeID: PatternID where Subject: Pattern {}
 public struct AnyPatternID: PatternID {
 
   /// The underlying type-erased ID.
-  var base: AnyNodeID
+  private var base: AnyNodeID
 
   /// Creates a type-erased ID from a pattern ID.
   public init<T: PatternID>(_ other: T) {

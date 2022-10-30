@@ -5,11 +5,17 @@ struct ConstraintGenerator: ExprVisitor {
 
   typealias Result = Void
 
+  /// Creates an instance for generating constraints in `scope`.
+  init(checker: TypeChecker, scope: AnyScopeID) {
+    self.checker = checker
+    self.scope = scope
+  }
+
   /// A borrowed projection of the type checker that uses this constraint generator.
   var checker: TypeChecker!
 
   /// The scope in which the AST is visited.
-  var scope: AnyScopeID
+  private var scope: AnyScopeID
 
   /// A map from expression to its expected type.
   var expectedTypes = ExprMap<Type>()
@@ -18,7 +24,7 @@ struct ConstraintGenerator: ExprVisitor {
   var inferredTypes = ExprMap<Type>()
 
   /// The set of type constraints being generated.
-  var constraints: [LocatableConstraint] = []
+  private(set) var constraints: [LocatableConstraint] = []
 
   /// The diagnostics of the errors the generator encountered.
   var diagnostics: [Diagnostic] = []

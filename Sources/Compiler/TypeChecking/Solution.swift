@@ -1,6 +1,17 @@
 /// A solution returned by a constraint solver.
 struct Solution {
 
+  init(
+    typeAssumptions: [TypeVariable: Type],
+    bindingAssumptions: [NodeID<NameExpr>: DeclRef],
+    penalties: Int,
+    diagnostics: [Diagnostic]) {
+    self.typeAssumptions = typeAssumptions
+    self.bindingAssumptions = bindingAssumptions
+    self.penalties = penalties
+    self.diagnostics = diagnostics
+  }
+
   /// A policy for substituting type variales during reification.
   enum SubstitutionPolicy {
 
@@ -33,13 +44,13 @@ struct Solution {
   }
 
   /// The type assumptions made by the solver.
-  var typeAssumptions: [TypeVariable: Type]
+  private var typeAssumptions: [TypeVariable: Type]
 
   /// The name binding assumptions made by the solver.
-  var bindingAssumptions: [NodeID<NameExpr>: DeclRef]
+  private(set) var bindingAssumptions: [NodeID<NameExpr>: DeclRef]
 
   /// The penalties of the solution.
-  var penalties: Int
+  private var penalties: Int
 
   /// The diagnostics of the errors associated with the solution.
   var diagnostics: [Diagnostic]
