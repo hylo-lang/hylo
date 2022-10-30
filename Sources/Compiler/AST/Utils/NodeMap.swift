@@ -1,30 +1,31 @@
-/// A mapping from indices of AST nodes to properties of a given type.
-public struct NodeMap<Value> {
+/// A mapping from AST node to `Property` value.
+public struct NodeMap<Property> {
 
   /// The internal storage of the map.
-  public var storage: [AnyNodeID: Value]
+  private var storage: [AnyNodeID: Property]
 
-  /// Creates an empty node map.
+  /// Creates an empty instance.
   public init() {
     storage = [:]
   }
 
-  /// Accesses the property associated with the specified ID.
-  public subscript<T: NodeIDProtocol>(id: T) -> Value? {
+  /// Accesses the `Property` this map associates with `id`.
+  public subscript<T: NodeIDProtocol>(id: T) -> Property? {
     _read { yield storage[AnyNodeID(id)] }
     _modify { yield &storage[AnyNodeID(id)] }
   }
 
-  /// Accesses the property associated with the specified ID.
+  /// Accesses the property this map associates with `id`, or `defaultProperty` if this map makes
+  /// no such association.
   public subscript<T: NodeIDProtocol>(
     id: T,
-    default defaultValue: @autoclosure () -> Value
-  ) -> Value {
+    default defaultProperty: @autoclosure () -> Property
+  ) -> Property {
     _read {
-      yield storage[AnyNodeID(id), default: defaultValue()]
+      yield storage[AnyNodeID(id), default: defaultProperty()]
     }
     _modify {
-      var value = storage[AnyNodeID(id)] ?? defaultValue()
+      var value = storage[AnyNodeID(id)] ?? defaultProperty()
       defer { storage[AnyNodeID(id)] = value }
       yield &value
     }
@@ -32,8 +33,8 @@ public struct NodeMap<Value> {
 
 }
 
-extension NodeMap: Equatable where Value: Equatable {}
+extension NodeMap: Equatable where Property: Equatable {}
 
-extension NodeMap: Hashable where Value: Hashable {}
+extension NodeMap: Hashable where Property: Hashable {}
 
-extension NodeMap: Codable where Value: Codable {}
+extension NodeMap: Codable where Property: Codable {}
