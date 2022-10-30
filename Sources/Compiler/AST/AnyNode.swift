@@ -10,7 +10,7 @@ struct AnyNode: Codable {
   }
 
   /// The wrapped node.
-  private(set) var node: Node
+  let node: Node
 
   /// Creates a type-erased container that wraps `node`.
   init(_ node: Node) {

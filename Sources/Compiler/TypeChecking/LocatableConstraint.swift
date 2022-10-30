@@ -34,10 +34,10 @@ struct LocatableConstraint {
   }
 
   /// The constraint.
-  private(set) var constraint: Constraint
+  let constraint: Constraint
 
   /// The location of the constraint.
-  private(set) var location: Location
+  let location: Location
 
   init(_ constraint: Constraint, location: Location) {
     self.constraint = constraint
