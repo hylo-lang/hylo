@@ -1,4 +1,5 @@
-/// A graph describing the scope hierarchy of an AST.
+/// A memo of the scope relationships of AST nodes, including those of nodes that are themselves
+/// scopes.
 public struct ScopeHierarchy {
 
   /// A sequence of scopes, from inner to outer.
