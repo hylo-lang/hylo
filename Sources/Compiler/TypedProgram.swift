@@ -13,7 +13,7 @@ public struct TypedProgram {
   /// The type of each expression.
   public let exprTypes: ExprMap<Type>
 
-  /// A table mapping name expressions to referred declarations.
+  /// A map from name expression to its referred declaration.
   public let referredDecls: [NodeID<NameExpr>: DeclRef]
 
   /// Creates a typed program from an AST and property maps describing its type annotations.

@@ -11,10 +11,10 @@ struct ConstraintGenerator: ExprVisitor {
   /// The scope in which the AST is visited.
   var scope: AnyScopeID
 
-  /// A table mapping expressions to their expected types.
+  /// A map from expression to its expected type.
   var expectedTypes = ExprMap<Type>()
 
-  /// A table mapping visited expressions to their inferred types.
+  /// A map from visited expression to its inferred type.
   var inferredTypes = ExprMap<Type>()
 
   /// The set of type constraints being generated.
