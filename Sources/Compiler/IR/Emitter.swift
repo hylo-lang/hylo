@@ -158,7 +158,7 @@ public struct Emitter {
   ) {
     /// The pattern of the binding being emitted.
     let pattern = program.ast[decl].pattern
-    /// A table mapping an object path to its corresponding (sub-)object during destructing.
+    /// A map from object path to its corresponding (sub-)object during destruction.
     var objects: [[Int]: Operand] = [:]
     /// The type of the initializer, if any.
     var initializerType: Type?

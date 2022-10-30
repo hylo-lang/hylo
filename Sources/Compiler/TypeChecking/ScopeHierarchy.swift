@@ -18,16 +18,16 @@ public struct ScopeHierarchy {
 
   }
 
-  /// A table mapping a lexical scope to its parent.
+  /// A map from scope to its parent scope.
   var parent = NodeMap<AnyScopeID>()
 
-  /// A table mapping a declaration to the innermost lexical scope that contains it.
+  /// A map from declaration to its scope.
   private(set) var container = DeclMap<AnyScopeID>()
 
-  /// A table mapping lexical scopes to the declarations directly contained in them.
+  /// A map from scope to the declarations directly contained in them.
   private(set) var containees = NodeMap<[AnyDeclID]>()
 
-  /// A table mapping a variable declaration its containing binding declaration.
+  /// A map from variable declaration its containing binding declaration.
   var varToBinding: [NodeID<VarDecl>: NodeID<BindingDecl>] = [:]
 
   /// Inserts `decl` into `scope`.

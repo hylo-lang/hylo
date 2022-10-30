@@ -18,7 +18,7 @@ public struct Module {
   /// The ID of the module's entry function, if any.
   public var entryFunctionID: Function.ID?
 
-  /// A table mapping function declarations to their ID in the module.
+  /// A map from function declaration its ID in the module.
   private var loweredFunctions: [NodeID<FunDecl>: Function.ID] = [:]
 
   public init(decl: NodeID<ModuleDecl>, name: String) {

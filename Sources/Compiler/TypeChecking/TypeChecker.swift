@@ -18,7 +18,7 @@ public struct TypeChecker {
   /// The type of each expression.
   public private(set) var exprTypes = ExprMap<Type>()
 
-  /// A table mapping name expressions to referred declarations.
+  /// A map from name expression to its referred declaration.
   public internal(set) var referredDecls: [NodeID<NameExpr>: DeclRef] = [:]
 
   /// Indicates whether the built-in symbols are visible.

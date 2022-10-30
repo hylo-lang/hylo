@@ -415,7 +415,7 @@ struct CLI: ParsableCommand {
     })
   }
 
-  /// A table mapping executable names to their path.
+  /// A map from executable name to path of the named binary.
   private static var executableLocationCache: [String: String] = [:]
 
 }
