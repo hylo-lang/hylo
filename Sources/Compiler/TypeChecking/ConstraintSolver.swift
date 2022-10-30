@@ -10,7 +10,7 @@ struct ConstraintSolver {
   }
 
   /// A borrowed projection of the type checker that uses this constraint generator.
-  var checker: TypeChecker!
+  var checker: TypeChecker
 
   /// The scope in which the constraints are solved.
   let scope: AnyScopeID
