@@ -1,5 +1,5 @@
 /// A mapping from AST node to `Property` value.
-public struct NodeMap<Property> {
+public struct ASTProperty<Property> {
 
   /// The internal storage of the map.
   private var storage: [AnyNodeID: Property]
@@ -33,8 +33,8 @@ public struct NodeMap<Property> {
 
 }
 
-extension NodeMap: Equatable where Property: Equatable {}
+extension ASTProperty: Equatable where Property: Equatable {}
 
-extension NodeMap: Hashable where Property: Hashable {}
+extension ASTProperty: Hashable where Property: Hashable {}
 
-extension NodeMap: Codable where Property: Codable {}
+extension ASTProperty: Codable where Property: Codable {}

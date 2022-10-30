@@ -16,7 +16,7 @@ public struct AST: Codable {
   public var stdlib: NodeID<ModuleDecl>?
 
   /// The source range of each node.
-  public var ranges = NodeMap<SourceRange>()
+  public var ranges = ASTProperty<SourceRange>()
 
   /// Creates an empty AST.
   public init() {}

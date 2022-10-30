@@ -6,7 +6,7 @@ public struct ScopeHierarchy {
 
     typealias Element = AnyScopeID
 
-    fileprivate let parent: NodeMap<AnyScopeID>
+    fileprivate let parent: ASTProperty<AnyScopeID>
 
     fileprivate var current: AnyScopeID?
 
@@ -19,13 +19,13 @@ public struct ScopeHierarchy {
   }
 
   /// A map from scope to its parent scope.
-  var parent = NodeMap<AnyScopeID>()
+  var parent = ASTProperty<AnyScopeID>()
 
   /// A map from declaration to its scope.
   private(set) var container = DeclMap<AnyScopeID>()
 
   /// A map from scope to the declarations directly contained in them.
-  private(set) var containees = NodeMap<[AnyDeclID]>()
+  private(set) var containees = ASTProperty<[AnyDeclID]>()
 
   /// A map from variable declaration its containing binding declaration.
   var varToBinding: [NodeID<VarDecl>: NodeID<BindingDecl>] = [:]
