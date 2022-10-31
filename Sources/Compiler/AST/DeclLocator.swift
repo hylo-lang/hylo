@@ -135,7 +135,7 @@ public struct DeclLocator: Hashable {
   }
 
   /// The constituents of the locator.
-  public var components: [Component]
+  public let components: [Component]
 
   /// Creates a locator identifying `declID` given an AST and its scope hierarchy.
   public init<T: DeclID>(
@@ -149,7 +149,7 @@ public struct DeclLocator: Hashable {
       in: ast,
       withScopeHierarchy: scopeHierarchy,
       withDeclTypes: declTypes)!
-    components = [last]
+    var components = [last]
 
     if let parent = scopeHierarchy.container[declID] {
       for scopeID in scopeHierarchy.scopesToRoot(from: parent) {
@@ -165,6 +165,7 @@ public struct DeclLocator: Hashable {
     }
 
     components.reverse()
+    self.components = components
   }
 
   /// The locator's value encoded as a string.
