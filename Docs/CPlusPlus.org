@@ -38,6 +38,7 @@ Trait conformance is close, but traits do not come with any storage.
 We've discussed some kind of [[https://val-qs97696.slack.com/archives/C035NEV54LE/p1657591189742969][storage inheritance/mixins for Val]], but that is not currently part of
 the language. We'd want to represent a base class as a composition of a mixin and an (existential)
 trait.
+
 ** Move semantics are different
 Val moves are destructive.  To present a Val =Sinkable= type as C++ movable, we could add conformance to
 an =Emptyable= protocol.  See also rvalue references in the [[Function call interop]] section.
@@ -45,15 +46,27 @@ an =Emptyable= protocol.  See also rvalue references in the [[Function call inte
 Val doesn't have type-based overloading, but C++ does.  We would like to capture C++ overload sets
 as some kind of single entity in Val.  This may imply the creation of customization points and
 conformances.
+
 ** class templates vs. checked generics
 In general, a class template may have specializations and may even not have a defined primary
 template.  If you want to use such a thing with a constrained Val generic, there needs to be a
 conformance declaration somewhere.
+
 ** C++ has no argument labels
 Will need to encode labels into names when exporting Val to C++.
+
 ** No “universal references” in Val
 We are not sure how much of a problem this is.  Our effects system may be able to model them, but we
 are unsure.
+
+** Val has extensions
+Methods in Val may be defined outside of the primary type declaration, in a type or conformance declaration.
+Those cannot be retroactively added to a C++ type declaration.
+
+** Operators are different
+Val suppots the definition of custom operators.
+Further, even implementation-provided opetators do not necessarily have the same precedence and associativity as in C++.
+
 * Transpiling Val Types
 Val will deinit storage at different places than C++ would.  The implication is that if we want
 =var= bindings to appear as regular stack variables in C++, all Val types must have a no-op
