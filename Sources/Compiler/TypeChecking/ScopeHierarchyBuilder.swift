@@ -5,13 +5,18 @@ struct ScopeHierarchyBuilder:
   DeclVisitor, ExprVisitor, PatternVisitor, StmtVisitor, TypeExprVisitor
 {
 
+  init(ast: AST) {
+    self.ast = ast
+    self.hierarchy = .init()
+  }
+
   typealias Result = Void
 
   /// The AST of the module for which the scope hierarchy is built.
-  private var ast: AST!
+  private var ast: AST
 
   /// The scope hierarchy under construction.
-  private var hierarchy: ScopeHierarchy!
+  private var hierarchy: ScopeHierarchy
 
   /// The ID of the innermost lexical scope currently visited.
   private var innermost: AnyScopeID?
@@ -20,8 +25,7 @@ struct ScopeHierarchyBuilder:
   private var bindingDecl: NodeID<BindingDecl>?
 
   /// Returns the scope hierarchy of `ast`.
-  mutating func build(hierarchyOf ast: AST) -> ScopeHierarchy {
-    self.ast = ast
+  mutating func build() -> ScopeHierarchy {
     hierarchy = ScopeHierarchy()
     for module in ast.modules {
       visit(module: module)

@@ -2868,4 +2868,10 @@ public struct TypeChecker {
     return (transformed, [])
   }
 
+  /// Resets `self` to an empty state, returning `self`'s old value.
+  mutating func release() -> Self {
+    var r: Self = .init(ast: ast)
+    swap(&r, &self)
+    return r
+  }
 }

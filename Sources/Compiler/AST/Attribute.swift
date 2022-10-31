@@ -11,10 +11,10 @@ public struct Attribute: Codable {
   }
 
   /// The name of the attribute.
-  var name: SourceRepresentable<String>
+  let name: SourceRepresentable<String>
 
   /// The parameters of the attribute, if any.
-  var arguments: [Argument]
+  let arguments: [Argument]
 
   public init(name: SourceRepresentable<String>, arguments: [Argument] = []) {
     self.name = name

@@ -39,13 +39,13 @@ struct ParserContext {
   var ast: AST
 
   /// The lexer generating the tokens to parse.
-  var lexer: Lexer
+  private(set) var lexer: Lexer
 
   /// The current index of the parser in the character stream.
-  var currentIndex: String.Index
+  private(set) var currentIndex: String.Index
 
   /// The lookahead buffer.
-  var lookahead = Deque<Token>()
+  private var lookahead = Deque<Token>()
 
   /// The diagnostics of the parse errors and warnings.
   var diagnostics: [Diagnostic] = []
@@ -54,7 +54,7 @@ struct ParserContext {
   var flags = Flags.parsingTopLevel
 
   /// Indicates that the parser encounted an irrecoverable error.
-  var didIrrecoverableErrorOccur = false
+  private var didIrrecoverableErrorOccur = false
 
   /// Creates a new context, using `lexer` to generate tokens.
   init(ast: AST, lexer: Lexer) {
