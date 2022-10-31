@@ -9,13 +9,13 @@ public struct TraitDecl: SingleEntityDecl, GenericScope {
   public var accessModifier: SourceRepresentable<AccessModifier>?
 
   /// The identifier of the trait.
-  public var identifier: SourceRepresentable<Identifier>
+  public let identifier: SourceRepresentable<Identifier>
 
   /// The names of traits which the trait refines.
-  public var refinements: [NodeID<NameTypeExpr>]
+  public let refinements: [NodeID<NameTypeExpr>]
 
   /// The member declarations in the lexical scope of the trait.
-  public var members: [AnyDeclID]
+  public let members: [AnyDeclID]
 
   public init(
     accessModifier: SourceRepresentable<AccessModifier>? = nil,

@@ -4,7 +4,7 @@ public struct VarDecl: SingleEntityDecl {
   public static let kind = NodeKind.varDecl
 
   /// The identifier of the declared variable.
-  public var identifier: SourceRepresentable<Identifier>
+  public let identifier: SourceRepresentable<Identifier>
 
   public init(identifier: SourceRepresentable<Identifier>) {
     self.identifier = identifier

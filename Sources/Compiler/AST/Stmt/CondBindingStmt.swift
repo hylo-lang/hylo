@@ -12,10 +12,10 @@ public struct CondBindingStmt: Stmt {
   }
 
   /// The conditional binding.
-  public var binding: NodeID<BindingDecl>
+  public let binding: NodeID<BindingDecl>
 
   /// The fallback expression or statement.
-  public var fallback: Fallback
+  public let fallback: Fallback
 
   public init(binding: NodeID<BindingDecl>, fallback: Fallback) {
     self.binding = binding

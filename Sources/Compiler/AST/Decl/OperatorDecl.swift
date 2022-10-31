@@ -7,13 +7,13 @@ public struct OperatorDecl: Decl {
   public var accessModifier: SourceRepresentable<AccessModifier>?
 
   /// The notation of the operator.
-  public var notation: SourceRepresentable<OperatorNotation>
+  public let notation: SourceRepresentable<OperatorNotation>
 
   /// The name of the operator.
-  public var name: SourceRepresentable<Identifier>
+  public let name: SourceRepresentable<Identifier>
 
   /// The precedence group of the operator, if any.
-  public var precedenceGroup: SourceRepresentable<PrecedenceGroup>?
+  public let precedenceGroup: SourceRepresentable<PrecedenceGroup>?
 
   public init(
     accessModifier: SourceRepresentable<AccessModifier>? = nil,

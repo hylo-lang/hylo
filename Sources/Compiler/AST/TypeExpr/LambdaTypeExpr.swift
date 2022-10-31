@@ -20,16 +20,16 @@ public struct LambdaTypeExpr: TypeExpr {
   }
 
   /// The effect of the lambda's call operator.
-  public var receiverEffect: SourceRepresentable<ReceiverEffect>?
+  public let receiverEffect: SourceRepresentable<ReceiverEffect>?
 
   /// The environment of the lambda, or `nil` if it is thin.
   public var environment: SourceRepresentable<AnyTypeExprID>?
 
   /// The parameters of the lambda.
-  public var parameters: [Parameter]
+  public let parameters: [Parameter]
 
   /// The output type of the lambda.
-  public var output: AnyTypeExprID
+  public let output: AnyTypeExprID
 
   public init(
     receiverEffect: SourceRepresentable<ReceiverEffect>? = nil,

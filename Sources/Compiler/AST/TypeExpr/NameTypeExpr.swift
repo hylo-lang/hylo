@@ -7,10 +7,10 @@ public struct NameTypeExpr: TypeExpr {
   public var domain: AnyTypeExprID?
 
   /// The identifier of the referred type.
-  public var identifier: SourceRepresentable<Identifier>
+  public let identifier: SourceRepresentable<Identifier>
 
   /// The type and value arguments of the referred type.
-  public var arguments: [GenericArgument]
+  public let arguments: [GenericArgument]
 
   public init(
     domain: AnyTypeExprID? = nil,

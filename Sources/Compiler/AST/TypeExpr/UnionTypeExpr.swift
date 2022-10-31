@@ -4,7 +4,7 @@ public struct UnionTypeExpr: TypeExpr {
   public static let kind = NodeKind.unionTypeExpr
 
   /// The elements of the union.
-  public var elements: [AnyTypeExprID]
+  public let elements: [AnyTypeExprID]
 
   public init(elements: [AnyTypeExprID] = []) {
     self.elements = elements

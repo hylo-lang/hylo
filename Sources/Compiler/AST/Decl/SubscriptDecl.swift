@@ -14,7 +14,7 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
   }
 
   /// The introducer of the declaration.
-  public var introducer: SourceRepresentable<Introducer>
+  public let introducer: SourceRepresentable<Introducer>
 
   /// The attributes of the declaration, if any.
   public var attributes: [SourceRepresentable<Attribute>]
@@ -26,27 +26,27 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
   public var memberModifier: SourceRepresentable<MemberModifier>?
 
   /// The receiver effect of the subscript.
-  public var receiverEffect: SourceRepresentable<ReceiverEffect>?
+  public let receiverEffect: SourceRepresentable<ReceiverEffect>?
 
   /// The identifier of the subscript, if any.
-  public var identifier: SourceRepresentable<Identifier>?
+  public let identifier: SourceRepresentable<Identifier>?
 
   /// The generic clause of the subscript, if any.
-  public var genericClause: SourceRepresentable<GenericClause>?
+  public let genericClause: SourceRepresentable<GenericClause>?
 
   /// The explicit capture declarations of the subscript.
-  public var explicitCaptures: [NodeID<BindingDecl>]
+  public let explicitCaptures: [NodeID<BindingDecl>]
 
   /// The parameters of the subscript, unless the declaration denotes a computed property.
   ///
   /// These declarations must have a type annotation.
-  public var parameters: [NodeID<ParameterDecl>]?
+  public let parameters: [NodeID<ParameterDecl>]?
 
   /// The output type annotation of the subscript.
-  public var output: AnyTypeExprID
+  public let output: AnyTypeExprID
 
   /// The implementations of the subscript.
-  public var impls: [NodeID<SubscriptImplDecl>]
+  public let impls: [NodeID<SubscriptImplDecl>]
 
   /// The declaration of the implicit parameters of the subscript, if any.
   ///

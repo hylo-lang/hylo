@@ -4,7 +4,7 @@ public struct IntegerLiteralExpr: Expr {
   public static let kind = NodeKind.integerLiteralExpr
 
   /// The value of the literal.
-  public var value: String
+  public let value: String
 
   public init(value: String) {
     self.value = value

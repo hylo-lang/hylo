@@ -23,10 +23,10 @@ public struct NameExpr: Expr {
   public var domain: Domain
 
   /// The name of the referred entity.
-  public var name: SourceRepresentable<Name>
+  public let name: SourceRepresentable<Name>
 
   /// The type and value arguments of the referred entity.
-  public var arguments: [GenericArgument]
+  public let arguments: [GenericArgument]
 
   public init(
     domain: Domain = .none,

@@ -4,10 +4,10 @@ public struct InoutExpr: Expr {
   public static let kind = NodeKind.inoutExpr
 
   /// The source range of the `&` operator.
-  public var operatorRange: SourceRange?
+  public let operatorRange: SourceRange?
 
   /// The underlying expression.
-  public var subexpr: AnyExprID
+  public let subexpr: AnyExprID
 
   public init(operatorRange: SourceRange? = nil, subexpr: AnyExprID) {
     self.operatorRange = operatorRange

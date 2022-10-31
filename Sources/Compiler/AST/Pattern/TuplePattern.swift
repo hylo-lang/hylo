@@ -20,7 +20,7 @@ public struct TuplePattern: Pattern {
   }
 
   /// The elements of the tuple.
-  public var elements: [Element]
+  public let elements: [Element]
 
   public init(elements: [Element] = []) {
     self.elements = elements
