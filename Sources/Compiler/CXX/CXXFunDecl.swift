@@ -17,8 +17,13 @@ public struct CXXFunDecl {
   public let parameters: [Parameter]
 
   /// Emits the forward declaration of the function.
-  public func emitHeader() -> String {
+  public func emitForwardDeclaration() -> String {
     signature + ";"
+  }
+
+  /// Emits the deginition of the function.
+  public func emitDefinition() -> String {
+    signature + " {}"
   }
 
   /// The signature of the function.

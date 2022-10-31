@@ -81,7 +81,7 @@ public struct CXXModule {
 
     // Emit top-level functions.
     for decl in cxxFunctions {
-      output.write(decl.emitHeader())
+      output.write(decl.emitForwardDeclaration())
       output.write("\n")
     }
 
@@ -92,7 +92,7 @@ public struct CXXModule {
   }
 
   /// Emits the C++ implementation of the module.
-  public func emitImplementation() -> String {
+  public func emitSource() -> String {
     var output: String = ""
 
     // Emit include clauses.
@@ -100,11 +100,15 @@ public struct CXXModule {
     output.write("\n")
 
     // Create a namespace for the entire module.
-    output.write("namespace \(name) {\n")
+    output.write("namespace \(name) {\n\n")
 
-    // TODO: translate top-level declaration implementations
+    // Emit top-level functions.
+    for decl in cxxFunctions {
+      output.write(decl.emitDefinition())
+      output.write("\n")
+    }
 
-    output.write("}\n") // module namespace
+    output.write("\n}\n") // module namespace
 
     return output
   }

@@ -215,7 +215,7 @@ struct CLI: ParsableCommand {
     // Translate the module to C++.
     let cxxModule = transpiler.emit(module: moduleDecl)
     let cxxHeader = cxxModule.emitHeader()
-    let cxxSource = cxxModule.emitImplementation()
+    let cxxSource = cxxModule.emitSource()
 
     // Handle `--emit cpp`.
     if outputType == .cpp {
