@@ -61,7 +61,7 @@ extension NodeID: DeclID where Subject: Decl {}
 public struct AnyDeclID: DeclID {
 
   /// The underlying type-erased ID.
-  private var base: AnyNodeID
+  let base: AnyNodeID
 
   /// Creates a type-erased ID from a declaration ID.
   public init<T: DeclID>(_ other: T) {
