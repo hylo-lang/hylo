@@ -19,15 +19,15 @@ public struct BindingPattern: Pattern {
   }
 
   /// The introducer of the pattern.
-  public var introducer: SourceRepresentable<Introducer>
+  public let introducer: SourceRepresentable<Introducer>
 
   /// The sub-pattern.
   ///
   /// - Requires: `subpattern` may not contain other binding patterns.
-  public var subpattern: AnyPatternID
+  public let subpattern: AnyPatternID
 
   /// The type annotation of the pattern, if any.
-  public var annotation: AnyTypeExprID?
+  public let annotation: AnyTypeExprID?
 
   public init(
     introducer: SourceRepresentable<BindingPattern.Introducer>,

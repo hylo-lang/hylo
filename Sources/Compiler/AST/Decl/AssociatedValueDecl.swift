@@ -4,13 +4,13 @@ public struct AssociatedValueDecl: SingleEntityDecl {
   public static let kind = NodeKind.associatedValueDecl
 
   /// The identifier of the type.
-  public var identifier: SourceRepresentable<Identifier>
+  public let identifier: SourceRepresentable<Identifier>
 
   /// The where clause of the declaration, if any.
-  public var whereClause: SourceRepresentable<WhereClause>?
+  public let whereClause: SourceRepresentable<WhereClause>?
 
   /// The default value of the declaration, if any.
-  public var defaultValue: AnyExprID?
+  public let defaultValue: AnyExprID?
 
   public init(
     identifier: SourceRepresentable<Identifier>,

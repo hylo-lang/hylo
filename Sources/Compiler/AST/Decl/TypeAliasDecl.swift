@@ -17,13 +17,13 @@ public struct TypeAliasDecl: GenericDecl, SingleEntityDecl, GenericScope {
   public var accessModifier: SourceRepresentable<AccessModifier>?
 
   /// The identifier of the alias.
-  public var identifier: SourceRepresentable<Identifier>
+  public let identifier: SourceRepresentable<Identifier>
 
   /// The generic clause of the declaration, if any.
-  public var genericClause: SourceRepresentable<GenericClause>?
+  public let genericClause: SourceRepresentable<GenericClause>?
 
   /// The body of the declaration.
-  public var body: Body
+  public let body: Body
 
   public init(
     accessModifier: SourceRepresentable<AccessModifier>? = nil,

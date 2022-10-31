@@ -21,13 +21,13 @@ public struct CastExpr: Expr {
   }
 
   /// The left operand.
-  public var left: AnyExprID
+  public let left: AnyExprID
 
   /// The type to which the left operand is being converted.
-  public var right: AnyTypeExprID
+  public let right: AnyTypeExprID
 
   /// The kind of the cast.
-  public var kind: Kind
+  public let kind: Kind
 
   public init(left: AnyExprID, right: AnyTypeExprID, kind: Kind) {
     self.left = left

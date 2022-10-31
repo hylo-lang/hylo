@@ -2,13 +2,13 @@
 public struct Name: Hashable, Codable {
 
   /// The stem identifier of the referred entity.
-  public var stem: Identifier
+  public let stem: Identifier
 
   /// The argument labels of the referred entity, given that it is a function.
   public var labels: [String?]
 
   /// The operator notation of the referred entity, given that it is an operator.
-  public var notation: OperatorNotation?
+  public let notation: OperatorNotation?
 
   /// The method introducer of the referred entity, given that it is a method implementation.
   public var introducer: ImplIntroducer?

@@ -13,10 +13,10 @@ public struct BindingDecl: Decl {
   public var memberModifier: SourceRepresentable<MemberModifier>?
 
   /// The pattern of the declaration.
-  public var pattern: NodeID<BindingPattern>
+  public let pattern: NodeID<BindingPattern>
 
   /// The initializer of the declaration, if any.
-  public var initializer: AnyExprID?
+  public let initializer: AnyExprID?
 
   public init(
     attributes: [SourceRepresentable<Attribute>] = [],

@@ -14,13 +14,13 @@ public struct MatchCase: Node, LexicalScope {
   }
 
   /// The pattern of the case.
-  public var pattern: AnyPatternID
+  public let pattern: AnyPatternID
 
   /// The condition of the case, if any.
-  public var condition: AnyExprID?
+  public let condition: AnyExprID?
 
   /// The body of the case.
-  public var body: Body
+  public let body: Body
 
   public init(pattern: AnyPatternID, condition: AnyExprID? = nil, body: MatchCase.Body) {
     self.pattern = pattern

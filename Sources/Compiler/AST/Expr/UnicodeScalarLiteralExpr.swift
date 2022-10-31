@@ -4,7 +4,7 @@ public struct UnicodeScalarLiteralExpr: Expr {
   public static let kind = NodeKind.unicodeScalarLiteralExpr
 
   /// The value of the literal.
-  public var value: Unicode.Scalar
+  public let value: Unicode.Scalar
 
   public init(value: Unicode.Scalar) {
     self.value = value

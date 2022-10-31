@@ -2,10 +2,10 @@
 public struct GenericClause: Codable {
 
   /// The parameters of the clause.
-  public var parameters: [GenericParamDeclID]
+  public let parameters: [GenericParamDeclID]
 
   /// The where clause of the generic clause, if any.
-  public var whereClause: SourceRepresentable<WhereClause>?
+  public let whereClause: SourceRepresentable<WhereClause>?
 
   public init(
     parameters: [GenericParamDeclID],

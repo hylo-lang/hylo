@@ -6,10 +6,10 @@ public struct WhileStmt: Stmt, LexicalScope {
   /// The condition of the loop.
   ///
   /// - Requires `condition.count > 0`
-  public var condition: [ConditionItem]
+  public let condition: [ConditionItem]
 
   /// The body of the loop.
-  public var body: NodeID<BraceStmt>
+  public let body: NodeID<BraceStmt>
 
   internal init(condition: [ConditionItem], body: NodeID<BraceStmt>) {
     precondition(condition.count > 0)

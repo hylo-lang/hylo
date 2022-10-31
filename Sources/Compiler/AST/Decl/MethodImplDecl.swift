@@ -14,7 +14,7 @@ public struct MethodImplDecl: Decl, LexicalScope {
   }
 
   /// The introducer of the method.
-  public var introducer: SourceRepresentable<ImplIntroducer>
+  public let introducer: SourceRepresentable<ImplIntroducer>
 
   /// The declaration of the implicit receiver parameter, if any.
   ///
@@ -22,7 +22,7 @@ public struct MethodImplDecl: Decl, LexicalScope {
   public var receiver: NodeID<ParameterDecl>?
 
   /// The body of the method, if any.
-  public var body: Body?
+  public let body: Body?
 
   public init(
     introducer: SourceRepresentable<ImplIntroducer>,

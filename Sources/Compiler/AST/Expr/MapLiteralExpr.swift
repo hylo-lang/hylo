@@ -13,7 +13,7 @@ public struct MapLiteralExpr: Expr {
   }
 
   /// The key-value pairs of the literal.
-  public var elements: [Element]
+  public let elements: [Element]
 
   public init(elements: [Element]) {
     self.elements = elements

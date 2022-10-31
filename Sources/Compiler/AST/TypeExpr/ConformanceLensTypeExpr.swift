@@ -4,10 +4,10 @@ public struct ConformanceLensTypeExpr: TypeExpr {
   public static let kind = NodeKind.conformanceLensTypeExpr
 
   /// The expression of the subject type.
-  public var subject: AnyTypeExprID
+  public let subject: AnyTypeExprID
 
   /// The expression of the trait in which the lens focuses.
-  public var lens: AnyTypeExprID
+  public let lens: AnyTypeExprID
 
   public init(subject: AnyTypeExprID, lens: AnyTypeExprID) {
     self.subject = subject

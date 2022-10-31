@@ -4,13 +4,13 @@ public struct GenericValueParamDecl: SingleEntityDecl {
   public static let kind = NodeKind.genericValueParamDecl
 
   /// The identifier of the parameter.
-  public var identifier: SourceRepresentable<Identifier>
+  public let identifier: SourceRepresentable<Identifier>
 
   /// The type annotation of the pattern.
-  public var annotation: AnyTypeExprID
+  public let annotation: AnyTypeExprID
 
   /// The default value of the declaration, if any.
-  public var defaultValue: AnyExprID?
+  public let defaultValue: AnyExprID?
 
   public init(
     identifier: SourceRepresentable<Identifier>,

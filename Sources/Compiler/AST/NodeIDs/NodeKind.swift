@@ -9,7 +9,7 @@ public struct NodeKind: Hashable, Codable {
   /// - Bits 6 to 7 designate the node sub-category.
   /// - Bits 8 to 9 designate the node's lexical scope category.
   /// - Bits 16 to 32 designate the node type.
-  private var rawValue: Int32
+  private let rawValue: Int32
 
   private init(_ rawValue: Int32) {
     self.rawValue = rawValue

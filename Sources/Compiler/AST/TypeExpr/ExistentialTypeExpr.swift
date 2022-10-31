@@ -4,10 +4,10 @@ public struct ExistentialTypeExpr: TypeExpr {
   public static let kind = NodeKind.existentialTypeExpr
 
   /// The traits to which the witness conforms.
-  public var traits: TraitComposition
+  public let traits: TraitComposition
 
   /// The where clause of the expression, if any.
-  public var whereClause: SourceRepresentable<WhereClause>?
+  public let whereClause: SourceRepresentable<WhereClause>?
 
   public init(traits: TraitComposition, whereClause: SourceRepresentable<WhereClause>? = nil) {
     self.traits = traits

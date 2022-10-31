@@ -16,13 +16,13 @@ public struct CondExpr: Expr, LexicalScope {
   /// The condition of the expression.
   ///
   /// - Requires: `condition.count > 0`
-  public var condition: [ConditionItem]
+  public let condition: [ConditionItem]
 
   /// The body of the expression that's executed if the condition holds.
-  public var success: Body
+  public let success: Body
 
   /// The body of the expression that's executed if the condition does not hold.
-  public var failure: Body?
+  public let failure: Body?
 
   public init(
     condition: [ConditionItem],

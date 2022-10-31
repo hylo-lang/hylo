@@ -4,16 +4,16 @@ public struct ParameterDecl: SingleEntityDecl {
   public static let kind = NodeKind.parameterDecl
 
   /// The label of the parameter.
-  public var label: SourceRepresentable<Identifier>?
+  public let label: SourceRepresentable<Identifier>?
 
   /// The identifier of the parameter.
-  public var identifier: SourceRepresentable<Identifier>
+  public let identifier: SourceRepresentable<Identifier>
 
   /// The type annotation of the declaration, if any.
-  public var annotation: NodeID<ParameterTypeExpr>?
+  public let annotation: NodeID<ParameterTypeExpr>?
 
   /// The default value of the declaration, if any.
-  public var defaultValue: AnyExprID?
+  public let defaultValue: AnyExprID?
 
   public init(
     label: SourceRepresentable<Identifier>? = nil,
