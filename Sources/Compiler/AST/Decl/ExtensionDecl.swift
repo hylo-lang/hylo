@@ -7,13 +7,13 @@ public struct ExtensionDecl: TypeExtendingDecl {
   public var accessModifier: SourceRepresentable<AccessModifier>?
 
   /// The expression of the extended type.
-  public var subject: AnyTypeExprID
+  public let subject: AnyTypeExprID
 
   /// The condition of the extension, if any.
-  public var whereClause: SourceRepresentable<WhereClause>?
+  public let whereClause: SourceRepresentable<WhereClause>?
 
   /// The member declarations in the lexical scope of the extension.
-  public var members: [AnyDeclID]
+  public let members: [AnyDeclID]
 
   public init(
     accessModifier: SourceRepresentable<AccessModifier>? = nil,

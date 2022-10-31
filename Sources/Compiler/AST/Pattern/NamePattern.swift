@@ -4,7 +4,7 @@ public struct NamePattern: Pattern {
   public static let kind = NodeKind.namePattern
 
   /// The variable declaration introducing the pattern's name.
-  public var decl: NodeID<VarDecl>
+  public let decl: NodeID<VarDecl>
 
   public init(decl: NodeID<VarDecl>) {
     self.decl = decl

@@ -33,45 +33,45 @@ public struct FunDecl: GenericDecl, GenericScope {
   }
 
   /// The introducer of the declaration.
-  public var introducer: SourceRepresentable<Introducer>
+  public let introducer: SourceRepresentable<Introducer>
 
   /// The attributes of the declaration, if any.
   public var attributes: [SourceRepresentable<Attribute>]
 
   /// The access modifier of the declaration, if any.
-  public var accessModifier: SourceRepresentable<AccessModifier>?
+  public  var accessModifier: SourceRepresentable<AccessModifier>?
 
   /// The member modifier of the declaration.
   public var memberModifier: SourceRepresentable<MemberModifier>?
 
   /// The receiver effect of the function.
-  public var receiverEffect: SourceRepresentable<ReceiverEffect>?
+  public let receiverEffect: SourceRepresentable<ReceiverEffect>?
 
   /// The operator notation of the function.
-  public var notation: SourceRepresentable<OperatorNotation>?
+  public let notation: SourceRepresentable<OperatorNotation>?
 
   /// The identifier of the function, if any.
-  public var identifier: SourceRepresentable<Identifier>?
+  public let identifier: SourceRepresentable<Identifier>?
 
   /// The generic clause of the function, if any.
-  public var genericClause: SourceRepresentable<GenericClause>?
+  public let genericClause: SourceRepresentable<GenericClause>?
 
   /// The explicit capture declarations of the function.
-  public var explicitCaptures: [NodeID<BindingDecl>]
+  public let explicitCaptures: [NodeID<BindingDecl>]
 
   /// The parameters of the function.
   ///
   /// These declarations must have a type annotation unless `self.isInExprContext` is `true`.
-  public var parameters: [NodeID<ParameterDecl>]
+  public let parameters: [NodeID<ParameterDecl>]
 
   /// The return type annotation of the function, if any.
-  public var output: AnyTypeExprID?
+  public let output: AnyTypeExprID?
 
   /// The body of the declaration, if any.
-  public var body: Body?
+  public let body: Body?
 
   /// Indicates whether the declaration appears in an expression context.
-  public var isInExprContext: Bool
+  public let isInExprContext: Bool
 
   /// The declaration of the implicit parameters of the function, if any.
   ///

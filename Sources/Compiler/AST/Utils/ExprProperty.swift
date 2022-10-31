@@ -1,5 +1,5 @@
 /// A mapping from indices of expressions to properties of a given type.
-public struct ExprMap<Value> {
+public struct ExprProperty<Value> {
 
   /// The internal storage of the map.
   public var storage: [AnyExprID: Value]
@@ -32,8 +32,8 @@ public struct ExprMap<Value> {
 
 }
 
-extension ExprMap: Equatable where Value: Equatable {}
+extension ExprProperty: Equatable where Value: Equatable {}
 
-extension ExprMap: Hashable where Value: Hashable {}
+extension ExprProperty: Hashable where Value: Hashable {}
 
-extension ExprMap: Codable where Value: Codable {}
+extension ExprProperty: Codable where Value: Codable {}

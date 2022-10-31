@@ -5,7 +5,7 @@ public struct Lexer: IteratorProtocol, Sequence {
   public let source: SourceFile
 
   /// The current position in the source file.
-  public private(set) var index: String.Index
+  private(set) var index: String.Index
 
   /// Creates a lexer generating tokens from the contents of `source`.
   public init(tokenizing source: SourceFile) {

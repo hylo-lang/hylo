@@ -66,7 +66,7 @@ public struct Emitter {
     insertionPoint = InsertionPoint(endOf: entryID)
 
     // Configure the locals.
-    var locals = DeclMap<Operand>()
+    var locals = DeclProperty<Operand>()
 
     for (i, capture) in program.ast[declID].implicitParameterDecls.enumerated() {
       locals[capture.decl] = .parameter(block: entryID, index: i)
@@ -786,7 +786,7 @@ fileprivate extension Emitter {
   struct Frame {
 
     /// The local variables in scope.
-    var locals = DeclMap<Operand>()
+    var locals = DeclProperty<Operand>()
 
     /// The stack allocations, in FILO order.
     var allocs: [Operand] = []

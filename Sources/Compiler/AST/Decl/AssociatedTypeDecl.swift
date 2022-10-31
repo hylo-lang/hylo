@@ -4,16 +4,16 @@ public struct AssociatedTypeDecl: SingleEntityDecl {
   public static let kind = NodeKind.associatedTypeDecl
 
   /// The identifier of the type.
-  public var identifier: SourceRepresentable<Identifier>
+  public let identifier: SourceRepresentable<Identifier>
 
   /// The conformances listed in the declaration.
-  public var conformances: [NodeID<NameTypeExpr>]
+  public let conformances: [NodeID<NameTypeExpr>]
 
   /// The where clause of the declaration, if any.
-  public var whereClause: SourceRepresentable<WhereClause>?
+  public let whereClause: SourceRepresentable<WhereClause>?
 
   /// The default value of the declaration, if any.
-  public var defaultValue: AnyTypeExprID?
+  public let defaultValue: AnyTypeExprID?
 
   public init(
     identifier: SourceRepresentable<Identifier>,

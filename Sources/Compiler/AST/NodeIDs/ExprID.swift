@@ -65,7 +65,7 @@ extension NodeID: ExprID where Subject: Expr {}
 public struct AnyExprID: ExprID {
 
   /// The underlying type-erased ID.
-  var base: AnyNodeID
+  let base: AnyNodeID
 
   /// Creates a type-erased ID from a value expression ID.
   public init<T: ExprID>(_ other: T) {

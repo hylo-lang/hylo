@@ -4,7 +4,7 @@ public struct TopLevelDeclSet: Node, LexicalScope {
   public static let kind = NodeKind.topLevelDeclSet
 
   /// The source from which the declarations where parser.
-  public var file: SourceFile?
+  public let file: SourceFile?
 
   /// The declarations in the set.
   public var decls: [AnyDeclID]

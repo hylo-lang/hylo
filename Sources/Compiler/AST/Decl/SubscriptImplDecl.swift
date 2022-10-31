@@ -14,10 +14,10 @@ public struct SubscriptImplDecl: Decl, LexicalScope {
   }
 
   /// The introducer of the method.
-  public var introducer: SourceRepresentable<ImplIntroducer>
+  public let introducer: SourceRepresentable<ImplIntroducer>
 
   /// The body of the subscript, if any.
-  public var body: Body?
+  public let body: Body?
 
   /// The declaration of the implicit receiver parameter, if any.
   ///

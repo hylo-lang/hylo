@@ -4,10 +4,10 @@ public struct TupleMemberExpr: Expr {
   public static let kind = NodeKind.tupleMemberExpr
 
   /// The parent tuple.
-  public var tuple: AnyExprID
+  public let tuple: AnyExprID
 
   /// The member's index.
-  public var index: Int
+  public let index: Int
 
 
   public init(tuple: AnyExprID, index: Int) {

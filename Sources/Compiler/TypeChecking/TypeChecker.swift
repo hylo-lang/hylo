@@ -13,10 +13,10 @@ public struct TypeChecker {
   public internal(set) var diagnostics: Set<Diagnostic> = []
 
   /// The overarching type of each declaration.
-  public private(set) var declTypes = DeclMap<Type>()
+  public private(set) var declTypes = DeclProperty<Type>()
 
   /// The type of each expression.
-  public private(set) var exprTypes = ExprMap<Type>()
+  public private(set) var exprTypes = ExprProperty<Type>()
 
   /// A map from name expression to its referred declaration.
   public internal(set) var referredDecls: [NodeID<NameExpr>: DeclRef] = [:]
@@ -240,10 +240,10 @@ public struct TypeChecker {
   }
 
   /// A cache for type checking requests on declarations.
-  private var declRequests = DeclMap<RequestStatus>()
+  private var declRequests = DeclProperty<RequestStatus>()
 
   /// A cache mapping generic declarations to their environment.
-  private var environments = DeclMap<MemoizationState<GenericEnvironment?>>()
+  private var environments = DeclProperty<MemoizationState<GenericEnvironment?>>()
 
   /// The bindings whose initializers are being currently visited.
   private(set) var bindingsUnderChecking: DeclSet = []
@@ -2867,4 +2867,10 @@ public struct TypeChecker {
     return (transformed, [])
   }
 
+  /// Resets `self` to an empty state, returning `self`'s old value.
+  mutating func release() -> Self {
+    var r: Self = .init(ast: ast)
+    swap(&r, &self)
+    return r
+  }
 }

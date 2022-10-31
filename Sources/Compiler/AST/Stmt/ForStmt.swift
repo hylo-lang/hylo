@@ -4,16 +4,16 @@ public struct ForStmt: Stmt, LexicalScope {
   public static let kind = NodeKind.forStmt
 
   /// The conditional binding of the loop.
-  public var binding: NodeID<BindingDecl>
+  public let binding: NodeID<BindingDecl>
 
   /// The iteration domain of the loop.
-  public var domain: AnyExprID
+  public let domain: AnyExprID
 
   /// The filter of the loop, if any.
-  public var filter: AnyExprID?
+  public let filter: AnyExprID?
 
   /// The body of the loop.
-  public var body: NodeID<BraceStmt>
+  public let body: NodeID<BraceStmt>
 
   internal init(
     binding: NodeID<BindingDecl>,

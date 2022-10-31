@@ -16,7 +16,7 @@ public struct AST: Codable {
   public var stdlib: NodeID<ModuleDecl>?
 
   /// The source range of each node.
-  public var ranges = NodeMap<SourceRange>()
+  public var ranges = ASTProperty<SourceRange>()
 
   /// Creates an empty AST.
   public init() {}
@@ -26,8 +26,8 @@ public struct AST: Codable {
 
   /// Returns the scope hierarchy.
   func scopeHierarchy() -> ScopeHierarchy {
-    var builder = ScopeHierarchyBuilder()
-    return builder.build(hierarchyOf: self)
+    var builder = ScopeHierarchyBuilder(ast: self)
+    return builder.build()
   }
 
   /// Imports the standard library into `self`.
@@ -67,7 +67,7 @@ public struct AST: Codable {
     get { nodes[position.rawValue].node as! T }
     _modify {
       var n = nodes[position.rawValue].node as! T
-      defer { nodes[position.rawValue].node = n }
+      defer { nodes[position.rawValue] = AnyNode(n) }
       yield &n
     }
   }

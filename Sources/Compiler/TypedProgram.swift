@@ -8,10 +8,10 @@ public struct TypedProgram {
   public let scopeHierarchy: ScopeHierarchy
 
   /// The overarching type of each declaration.
-  public let declTypes: DeclMap<Type>
+  public let declTypes: DeclProperty<Type>
 
   /// The type of each expression.
-  public let exprTypes: ExprMap<Type>
+  public let exprTypes: ExprProperty<Type>
 
   /// A map from name expression to its referred declaration.
   public let referredDecls: [NodeID<NameExpr>: DeclRef]
@@ -20,8 +20,8 @@ public struct TypedProgram {
   public init(
     ast: AST,
     scopeHierarchy: ScopeHierarchy,
-    declTypes: DeclMap<Type>,
-    exprTypes: ExprMap <Type>,
+    declTypes: DeclProperty<Type>,
+    exprTypes: ExprProperty <Type>,
     referredDecls: [NodeID<NameExpr>: DeclRef]
   ) {
     self.ast = ast

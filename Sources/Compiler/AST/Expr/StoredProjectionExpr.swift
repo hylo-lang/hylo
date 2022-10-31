@@ -14,7 +14,7 @@ public struct StoredProjectionExpr: Expr {
   public var introducer: SourceRepresentable<Introducer>
 
   /// The expression of the captured projection.
-  public var operand: AnyExprID
+  public let operand: AnyExprID
 
   public init(
     introducer: SourceRepresentable<Introducer>,

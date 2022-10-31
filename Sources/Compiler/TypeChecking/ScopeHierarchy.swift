@@ -1,4 +1,5 @@
-/// A graph describing the scope hierarchy of an AST.
+/// A memo of the scope relationships of AST nodes, including those of nodes that are themselves
+/// scopes.
 public struct ScopeHierarchy {
 
   /// A sequence of scopes, from inner to outer.
@@ -6,7 +7,7 @@ public struct ScopeHierarchy {
 
     typealias Element = AnyScopeID
 
-    fileprivate let parent: NodeMap<AnyScopeID>
+    fileprivate let parent: ASTProperty<AnyScopeID>
 
     fileprivate var current: AnyScopeID?
 
@@ -19,13 +20,13 @@ public struct ScopeHierarchy {
   }
 
   /// A map from scope to its parent scope.
-  var parent = NodeMap<AnyScopeID>()
+  var parent = ASTProperty<AnyScopeID>()
 
   /// A map from declaration to its scope.
-  private(set) var container = DeclMap<AnyScopeID>()
+  private(set) var container = DeclProperty<AnyScopeID>()
 
   /// A map from scope to the declarations directly contained in them.
-  private(set) var containees = NodeMap<[AnyDeclID]>()
+  private(set) var containees = ASTProperty<[AnyDeclID]>()
 
   /// A map from variable declaration its containing binding declaration.
   var varToBinding: [NodeID<VarDecl>: NodeID<BindingDecl>] = [:]
@@ -146,4 +147,10 @@ public struct ScopeHierarchy {
     return NodeID(last)
   }
 
+  /// Resets `self` to an empty state, returning `self`'s old value.
+  mutating func release() -> Self {
+    var r: Self = .init()
+    swap(&r, &self)
+    return r
+  }
 }

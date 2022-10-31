@@ -4,7 +4,7 @@ public struct ImportDecl: SingleEntityDecl {
   public static let kind = NodeKind.importDecl
 
   /// The identifier of the imported module.
-  public var identifier: SourceRepresentable<Identifier>
+  public let identifier: SourceRepresentable<Identifier>
 
   public init(identifier: SourceRepresentable<Identifier>) {
     self.identifier = identifier
