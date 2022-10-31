@@ -81,7 +81,7 @@ public struct CXXModule {
 
     // Emit top-level functions.
     for decl in cxxFunctions {
-      output.write(decl.emitForwardDeclaration())
+      decl.writeForwardDeclaration(into: &output)
       output.write("\n")
     }
 
@@ -104,7 +104,7 @@ public struct CXXModule {
 
     // Emit top-level functions.
     for decl in cxxFunctions {
-      output.write(decl.emitDefinition())
+      decl.writeDefinition(into: &output)
       output.write("\n")
     }
 

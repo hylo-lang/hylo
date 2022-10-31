@@ -5,7 +5,7 @@ public struct CXXFunDecl {
   public typealias ID = Int
 
   /// A parameter in a C++ function declaration.
-  public typealias Parameter = (name: String, type: CXXTypeExpr)
+  public typealias Parameter = (name: CXXIdentifier, type: CXXTypeExpr)
 
   /// The identifier of the function.
   public let identifier: CXXIdentifier
@@ -16,20 +16,26 @@ public struct CXXFunDecl {
   /// The parameters of the function.
   public let parameters: [Parameter]
 
-  /// Emits the forward declaration of the function.
-  public func emitForwardDeclaration() -> String {
-    signature + ";"
+  /// Writes the forward declaration of the function into `target`.
+  public func writeForwardDeclaration<Target: TextOutputStream>(into target: inout Target) {
+    writeSignature(into: &target)
+    target.write(";")
   }
 
-  /// Emits the deginition of the function.
-  public func emitDefinition() -> String {
-    signature + " {}"
+  /// Writes the definition of the function into `target`.
+  public func writeDefinition<Target: TextOutputStream>(into target: inout Target) {
+    writeSignature(into: &target)
+    target.write(" {}")
   }
 
-  /// The signature of the function.
-  private var signature: String {
-    let ps = parameters.lazy.map({ (p) in p.type.description }).joined(separator: ", ")
-    return "\(output) \(identifier)(\(ps))"
+  /// Writes the signature of the function into `target`.
+  private func writeSignature<Target: TextOutputStream>(into target: inout Target) {
+    target.write("\(output) \(identifier)(")
+    for i in 0 ..< parameters.count {
+      if i != 0 { target.write(", ") }
+      target.write("\(parameters[i].type) \(parameters[i].name)")
+    }
+    target.write(")")
   }
 
 }
