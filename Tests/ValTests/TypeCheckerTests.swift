@@ -46,7 +46,7 @@ final class TypeCheckerTests: XCTestCase {
         case "diagnostic":
           diagnosticChecker.handle(annotation)
         default:
-          print("\(tc.name): unexpected test command: '\(annotation.command)'")
+          XCTFail("\(tc.name): unexpected test command: '\(annotation.command)'")
         }
       }
 

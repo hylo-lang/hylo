@@ -2,20 +2,25 @@ import Compiler
 
 /// A test annotation in a source file.
 ///
-/// Test annotations are parsed from single-line comments in the source. They are composed of a
-/// command with, optionally, an argument and/or line offset.
+/// Test annotations are parsed from comments in the source. They are composed of a command with,
+/// optionally, an argument and/or line offset.
 ///
 ///     //! <offset> <command> <argument>
 ///
-/// The first occurrence of the character sequence `//!` is recognized as an annotation opener,
-/// unless it is already part of a comment. The characters following an opener form an annotation
-/// fragment. Two fragments are joined if they are extracted from consecutive lines in the source
-/// and the opener of the second line is not prefixed by any non-space character. Joined fragments
-/// form annotation bodies. For example:
+/// The character sequence `//!` is recognized as an annotation line opener, unless it is already
+/// part of a comment. The characters between `//!` and the next new line form an annotation body.
+/// For example:
 ///
-///     //! @+2 one-annotation
-///     //! and its argument on a different line
-///     foo() //! another-anotation
+///     //! @+1 line-annotation a b c
+///     foo()
+///
+/// The line offset of the annotation is `+1`, its command is `line-annotation` and its argument is
+/// the string "`a b c`" (without quotes).
+///
+/// The character sequence `/*!` is recognized as an annotation block opener, unless it is already
+/// part of a comment. The block terminates immediately after a matching multiline comment closing
+/// delimiter (i.e., `*/`). The sequence of characters that starts immediately after an annotation
+/// block opener and the corresponding comment closing delimiter form an annotation body.
 ///
 /// An annotation body corresponds to a single annotation. When present, the line offset is parsed
 /// as a natural number prefixed by either `@+` or `@-`. The next sequence of non-whitespace
@@ -23,19 +28,19 @@ import Compiler
 /// are ignored only if they are on the same line as the command. The remainder of the annotation
 /// body is parsed as the argument.
 ///
-/// If the argument starts on a different line than the command, the number of spaces after the
-/// corresponding annotation opener and before the first non-space character on the same line
-/// define the indentation pattern of the argument and are not part of the argument's value. Each
-/// line of an argument must be prefixed by the its indentation pattern. This prefix is not part
-/// of the argument's value. For exmaple:
+/// If the argument starts on a different line than the command, the spaces before the first
+/// non-space first non-space character of the argument defines the indentation pattern of the
+/// argument and are not part of its value. Each line of an argument must be prefixed by the its
+/// indentation pattern.
 ///
-///     //! cpp
-///     //! struct Foo {
-///     //!   int bar;
-///     //! };
+///     /*! cpp
+///     struct Foo {
+///       int bar;
+///     };
+///     */
 ///
 /// The command of the annotation is `cpp` and the argument is a C++ struct declaration with no
-/// indentation on the first and last line.
+/// indentation on the first and last line, and two spaces before the field declaration..
 struct TestAnnotation {
 
   /// The line location of this annotation.
@@ -107,6 +112,8 @@ struct TestAnnotation {
     var line = 1
     /// The number of opened block comments at the current position.
     var openedBlockComments = 0
+    /// The index after the annotation block being parsed, if any.
+    var indexAfterAnnotationBlockOpener: String.Index? = nil
 
     while index < stream.endIndex {
       // Count new lines.
@@ -116,65 +123,75 @@ struct TestAnnotation {
         continue
       }
 
-      // Skip block comments.
+      // Look for the opening delimiter of a multiline comment.
       if stream[index...].starts(with: "/*") {
         openedBlockComments += 1
         index = stream.index(index, offsetBy: 2)
+
+        // We recognized '/*'; ignore if we're already parsing a block comment.
+        if openedBlockComments > 1 {
+          continue
+        }
+
+        // Otherwise, check if the next character is `!` or interpret as a regular block comment.
+        assert(indexAfterAnnotationBlockOpener == nil)
+        if (index != stream.endIndex) && (stream[index] == "!") {
+          indexAfterAnnotationBlockOpener = stream.index(after: index)
+        }
         continue
       }
 
+      // Look for the closing delimiter of a multiline comment.
       if stream[index...].starts(with: "*/") {
-        openedBlockComments = max(0, openedBlockComments - 1)
+        switch openedBlockComments {
+        case 0:
+          break
+
+        case 1:
+          openedBlockComments = 0
+          if let start = indexAfterAnnotationBlockOpener {
+            annotations.append(TestAnnotation(
+              at: LineLocation(url: source.url, line: line),
+              parsing: stream[start ..< index]))
+            indexAfterAnnotationBlockOpener = nil
+          }
+
+        default:
+          openedBlockComments -= 1
+        }
+
         index = stream.index(index, offsetBy: 2)
         continue
       }
 
+      // Skip the characters in block comments.
       if openedBlockComments > 0 {
         index = stream.index(after: index)
         continue
       }
 
-      // Look for the start of the next annotation, ignoring comment blocks.
+      // Look for single line comments.
       if stream[index...].starts(with: "//") {
-        // We recognized '//'; now check if the next character is '!' or skip the line.
-        // If we're parsing a single-line comment, skip the entire line.
-        var i = stream.index(index, offsetBy: 2)
-        if i == stream.endIndex || stream[i] != "!" {
-          while (i < stream.endIndex) && !stream[i].isNewline {
-            i = stream.index(after: i)
-          }
-          index = i
-          continue
+        index = stream.index(index, offsetBy: 2)
+        let start: String.Index? = (index != stream.endIndex) && (stream[index] == "!")
+          ? stream.index(after: index)
+          : nil
+
+        while (index < stream.endIndex) && !stream[index].isNewline {
+          index = stream.index(after: index)
         }
-      } else {
-        // Advance to the next character.
-        index = stream.index(after: index)
+
+        if let start = start {
+          annotations.append(TestAnnotation(
+            at: LineLocation(url: source.url, line: line),
+            parsing: stream[start ..< index]))
+        }
+
         continue
       }
 
-      let annotationLine = line
-
-      // Identify the fragments of the source that relate a the text of an annotation.
-      var fragments: [Substring] = []
-      repeat {
-        // Add the new fragment.
-        let fragmentStart = stream.index(index, offsetBy: 3)
-        if let fragmentEnd = stream[fragmentStart...].firstIndex(where: { $0.isNewline }) {
-          fragments.append(stream[fragmentStart ... fragmentEnd])
-          index = stream.index(after: fragmentEnd)
-          line += 1
-        } else {
-          // We're done if we reached the end of the file.
-          fragments.append(stream[fragmentStart ..< stream.endIndex])
-          break
-        }
-      } while stream[index...].starts(with: "//!")
-
-      // Parse the annotation if we could identify its text.
-      if !fragments.isEmpty {
-        let location = LineLocation(url: source.url, line: annotationLine)
-        annotations.append(TestAnnotation(at: location, parsing: fragments.joined()))
-      }
+      // Advance to the next character.
+      index = stream.index(after: index)
     }
 
     return annotations
