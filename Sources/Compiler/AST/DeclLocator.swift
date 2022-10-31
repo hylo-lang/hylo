@@ -33,7 +33,7 @@ public struct DeclLocator: Hashable {
       identifying declID: T,
       in ast: AST,
       withScopeHierarchy scopeHierarchy: ScopeHierarchy,
-      withDeclTypes declTypes: DeclMap<Type>
+      withDeclTypes declTypes: DeclProperty<Type>
     ) {
       switch declID.kind {
       case .conformanceDecl, .extensionDecl:
@@ -142,7 +142,7 @@ public struct DeclLocator: Hashable {
     identifying declID: T,
     in ast: AST,
     withScopeHierarchy scopeHierarchy: ScopeHierarchy,
-    withDeclTypes declTypes: DeclMap<Type>
+    withDeclTypes declTypes: DeclProperty<Type>
   ) {
     let last = Component(
       identifying: declID,

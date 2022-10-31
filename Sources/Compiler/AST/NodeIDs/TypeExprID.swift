@@ -43,7 +43,7 @@ extension NodeID: TypeExprID where Subject: TypeExpr {}
 public struct AnyTypeExprID: TypeExprID {
 
   /// The underlying type-erased ID.
-  public private(set) var base: AnyNodeID
+  public let base: AnyNodeID
 
   /// Creates a type-erased ID from a type expression ID.
   public init<T: TypeExprID>(_ other: T) {

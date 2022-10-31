@@ -45,7 +45,7 @@ extension NodeID: StmtID where Subject: Stmt {}
 public struct AnyStmtID: StmtID {
 
   /// The underlying type-erased ID.
-  var base: AnyNodeID
+  let base: AnyNodeID
 
   /// Creates a type-erased ID from a statement ID.
   public init<T: StmtID>(_ other: T) {

@@ -63,7 +63,7 @@ public struct Module {
     from declID: NodeID<FunDecl>,
     ast: AST,
     withScopeHierarchy scopeHierarchy: ScopeHierarchy,
-    withDeclTypes declTypes: DeclMap<Type>
+    withDeclTypes declTypes: DeclProperty<Type>
   ) -> Function.ID {
     if let id = loweredFunctions[declID] { return id }
 

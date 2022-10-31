@@ -8,7 +8,7 @@ public struct CXXModuleDecl : CXXDecl {
   public let name: String
 
   /// The top-level declarations in the module
-  var topLevelDecls: [CXXDecl] = []
+  private var topLevelDecls: [CXXDecl] = []
 
   public init(decl: NodeID<ModuleDecl>, name: String) {
     self.decl = decl

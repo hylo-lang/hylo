@@ -9,7 +9,7 @@ extension NodeID: ScopeID where Subject: LexicalScope {}
 public struct AnyScopeID: ScopeID {
 
   /// The underlying type-erased ID.
-  var base: AnyNodeID
+  let base: AnyNodeID
 
   /// Creates a type-erased ID from the ID of a node outlining a lexical scope.
   public init<T: ScopeID>(_ other: T) {
