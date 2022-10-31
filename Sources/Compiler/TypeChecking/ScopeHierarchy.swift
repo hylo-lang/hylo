@@ -23,7 +23,7 @@ public struct ScopeHierarchy {
   var parent = ASTProperty<AnyScopeID>()
 
   /// A map from declaration to its scope.
-  private(set) var container = DeclMap<AnyScopeID>()
+  private(set) var container = DeclProperty<AnyScopeID>()
 
   /// A map from scope to the declarations directly contained in them.
   private(set) var containees = ASTProperty<[AnyDeclID]>()

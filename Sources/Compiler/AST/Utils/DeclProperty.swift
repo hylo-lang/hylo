@@ -1,5 +1,5 @@
 /// A mapping from indices of declarations to properties of a given type.
-public struct DeclMap<Value> {
+public struct DeclProperty<Value> {
 
   /// The internal storage of the map.
   public var storage: [AnyDeclID: Value]
@@ -32,8 +32,8 @@ public struct DeclMap<Value> {
 
 }
 
-extension DeclMap: Equatable where Value: Equatable {}
+extension DeclProperty: Equatable where Value: Equatable {}
 
-extension DeclMap: Hashable where Value: Hashable {}
+extension DeclProperty: Hashable where Value: Hashable {}
 
-extension DeclMap: Codable where Value: Codable {}
+extension DeclProperty: Codable where Value: Codable {}

@@ -18,10 +18,10 @@ struct ConstraintGenerator: ExprVisitor {
   private var scope: AnyScopeID
 
   /// A map from expression to its expected type.
-  var expectedTypes = ExprMap<Type>()
+  var expectedTypes = ExprProperty<Type>()
 
   /// A map from visited expression to its inferred type.
-  var inferredTypes = ExprMap<Type>()
+  var inferredTypes = ExprProperty<Type>()
 
   /// The set of type constraints being generated.
   private(set) var constraints: [LocatableConstraint] = []
