@@ -26,8 +26,8 @@ public struct AST: Codable {
 
   /// Returns the scope hierarchy.
   func scopeHierarchy() -> ScopeHierarchy {
-    var builder = ScopeHierarchyBuilder()
-    return builder.build(hierarchyOf: self)
+    var builder = ScopeHierarchyBuilder(ast: self)
+    return builder.build()
   }
 
   /// Imports the standard library into `self`.

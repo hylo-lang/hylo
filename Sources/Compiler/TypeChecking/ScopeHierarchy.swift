@@ -147,4 +147,10 @@ public struct ScopeHierarchy {
     return NodeID(converting: last)
   }
 
+  /// Resets `self` to an empty state, returning `self`'s old value.
+  mutating func release() -> Self {
+    var r: Self = .init()
+    swap(&r, &self)
+    return r
+  }
 }
