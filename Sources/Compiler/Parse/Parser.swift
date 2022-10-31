@@ -2470,8 +2470,9 @@ public enum Parser {
         if context.currentCharacter == "(" {
           let backup = context.backup()
           _ = context.take()
-          var restoreContext = true
-          defer { if restoreContext { context.restore(from: backup) }
+          var closeParenFound = false
+          defer {
+            if !closeParenFound || labels.isEmpty { context.restore(from: backup) }
           }
 
           while !context.hasLeadingWhitespace {
@@ -2488,11 +2489,12 @@ public enum Parser {
             }
 
             if let end = context.takeWithoutSkippingWhitespace(.rParen) {
-              if !labels.isEmpty { restoreContext = false }
+              closeParenFound = true
               break
             }
           }
         }
+
         return SourceRepresentable(
           value: Name(stem: String(context.lexer.source[head.range]), labels: labels),
           range: head.range)
