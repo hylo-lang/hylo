@@ -5,7 +5,7 @@ public struct Name: Hashable, Codable {
   public let stem: Identifier
 
   /// The argument labels of the referred entity, given that it is a function.
-  public var labels: [String?]
+  public let labels: [String?]
 
   /// The operator notation of the referred entity, given that it is an operator.
   public let notation: OperatorNotation?

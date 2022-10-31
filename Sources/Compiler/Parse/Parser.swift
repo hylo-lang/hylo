@@ -2465,14 +2465,14 @@ public enum Parser {
       case .name, .under:
         // function-entity-identifier
         let head = context.take()!
-        var result = SourceRepresentable(
-          value: Name(stem: String(context.lexer.source[head.range])),
-          range: head.range)
+        var labels: [String?] = []
 
         if context.currentCharacter == "(" {
-          var labels: [String?] = []
           let backup = context.backup()
           _ = context.take()
+          var restoreContext = true
+          defer { if restoreContext { context.restore(from: backup) }
+          }
 
           while !context.hasLeadingWhitespace {
             if context.take(.under) != nil {
@@ -2488,19 +2488,15 @@ public enum Parser {
             }
 
             if let end = context.takeWithoutSkippingWhitespace(.rParen) {
-              if !labels.isEmpty {
-                let range = head.range.upperBounded(by: end.range.upperBound)
-                result.value.labels = labels
-                return result
-              }
+              if !labels.isEmpty { restoreContext = false }
               break
             }
           }
-
-          context.restore(from: backup)
         }
+        return SourceRepresentable(
+          value: Name(stem: String(context.lexer.source[head.range]), labels: labels),
+          range: head.range)
 
-        return result
 
       case .infix, .prefix, .postfix:
         // operator-entity-identifier
