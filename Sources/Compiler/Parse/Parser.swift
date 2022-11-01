@@ -2449,10 +2449,7 @@ public enum Parser {
     entityIdentifier.and(maybe(take(.dot).and(methodIntroducer)))
       .map({ (context, tree) -> SourceRepresentable<Name> in
         if let (_, introducer) = tree.1 {
-          var name = tree.0
-          name.value.introducer = introducer.value
-          name.range = name.range!.upperBounded(by: introducer.range!.upperBound)
-          return name
+          return tree.0.introduced(by: introducer)
         } else {
           return tree.0
         }

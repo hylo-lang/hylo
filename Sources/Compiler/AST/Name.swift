@@ -11,30 +11,28 @@ public struct Name: Hashable, Codable {
   public let notation: OperatorNotation?
 
   /// The method introducer of the referred entity, given that it is a method implementation.
-  public var introducer: ImplIntroducer?
+  ///
+  /// The introducer is incorporated during parsing, after the instance is created.
+  public private(set) var introducer: ImplIntroducer? = nil
 
   /// Creates a new name.
   public init(
     stem: Identifier,
-    labels: [String?] = [],
-    introducer: ImplIntroducer? = nil
+    labels: [String?] = []
   ) {
     self.stem = stem
     self.labels = labels
     self.notation = nil
-    self.introducer = introducer
   }
 
   /// Creates a new operator name.
   public init(
     stem: Identifier,
-    notation: OperatorNotation,
-    introducer: ImplIntroducer? = nil
+    notation: OperatorNotation
   ) {
     self.stem = stem
     self.labels = []
     self.notation = notation
-    self.introducer = introducer
   }
 
   /// Creates the name introduced by `decl` in `ast`.
@@ -72,4 +70,29 @@ extension Name: ExpressibleByStringLiteral {
     self.init(stem: value)
   }
 
+}
+
+// MARK: Incorporation of introducers
+
+extension Name {
+  /// Returns `self` with `introducer` incorporated into its value.
+  ///
+  /// - Precondition: `self` has no introducer.`
+  internal func introduced(by newIntroducer: ImplIntroducer) -> Self {
+    precondition(self.introducer == nil)
+    var r = self
+    r.introducer = newIntroducer
+    return r
+  }
+}
+
+extension SourceRepresentable where Part == Name {
+  /// Returns `self` with `introducer` incorporated into its value.
+  ///
+  /// - Precondition: `self` has no introducer.`
+  internal func introduced(by introducer: SourceRepresentable<ImplIntroducer>) -> Self {
+    return .init(
+      value: self.value.introduced(by: introducer.value),
+      range: self.range!.upperBounded(by: introducer.range!.upperBound))
+  }
 }
