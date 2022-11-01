@@ -17,13 +17,13 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
   public let introducer: SourceRepresentable<Introducer>
 
   /// The attributes of the declaration, if any.
-  public var attributes: [SourceRepresentable<Attribute>]
+  public private(set) var attributes: [SourceRepresentable<Attribute>] = []
 
   /// The access modifier of the declaration, if any.
-  public var accessModifier: SourceRepresentable<AccessModifier>?
+  public private(set) var accessModifier: SourceRepresentable<AccessModifier>?
 
   /// The member modifier of the declaration.
-  public var memberModifier: SourceRepresentable<MemberModifier>?
+  public private(set) var memberModifier: SourceRepresentable<MemberModifier>?
 
   /// The receiver effect of the subscript.
   public let receiverEffect: SourceRepresentable<ReceiverEffect>?
@@ -59,21 +59,15 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
 
   public init(
     introducer: SourceRepresentable<Introducer>,
-    attributes: [SourceRepresentable<Attribute>] = [],
-    accessModifier: SourceRepresentable<AccessModifier>? = nil,
-    memberModifier: SourceRepresentable<MemberModifier>? = nil,
-    receiverEffect: SourceRepresentable<ReceiverEffect>? = nil,
-    identifier: SourceRepresentable<Identifier>? = nil,
+    receiverEffect: SourceRepresentable<ReceiverEffect>?,
+    identifier: SourceRepresentable<Identifier>?,
     genericClause: SourceRepresentable<GenericClause>? = nil,
     explicitCaptures: [NodeID<BindingDecl>] = [],
     parameters: [NodeID<ParameterDecl>]? = nil,
     output: AnyTypeExprID,
-    impls: [NodeID<SubscriptImplDecl>] = []
+    impls: [NodeID<SubscriptImplDecl>]
   ) {
     self.introducer = introducer
-    self.attributes = attributes
-    self.accessModifier = accessModifier
-    self.memberModifier = memberModifier
     self.receiverEffect = receiverEffect
     self.identifier = identifier
     self.genericClause = genericClause
@@ -94,5 +88,21 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
 
   /// Returns whether the declaration denotes a `sink` subscript.
   public var isSink: Bool { receiverEffect?.value == .sink }
+
+  /// Incorporates the given decorations into `self`.
+  ///
+  /// - Precondition: `self` is undecorated.
+  internal mutating func incorporate(
+    attributes: [SourceRepresentable<Attribute>],
+    accessModifier: SourceRepresentable<AccessModifier>?,
+    memberModifier: SourceRepresentable<MemberModifier>?
+  ) {
+    precondition(self.accessModifier == nil)
+    precondition(self.memberModifier == nil)
+    precondition(self.attributes.isEmpty)
+    self.attributes = attributes
+    self.accessModifier = accessModifier
+    self.memberModifier = memberModifier
+  }
 
 }
