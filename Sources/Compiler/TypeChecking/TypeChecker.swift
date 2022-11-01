@@ -1396,9 +1396,10 @@ public struct TypeChecker {
 
     // Generate constraints.
     // Note: The constraint generator captures the ownership of `self`.
-    var generator = ConstraintGenerator(checker: self, scope: scope)
-    generator.inferredTypes[expr] = inferredType
-    generator.expectedTypes[expr] = expectedType
+    var generator = ConstraintGenerator(
+      checker: self, scope: scope, expr: expr,
+      inferredType: inferredType, expectedType: expectedType)
+
     expr.accept(&generator)
     constraints.append(contentsOf: generator.constraints)
 

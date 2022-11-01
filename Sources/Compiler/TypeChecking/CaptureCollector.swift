@@ -12,7 +12,7 @@ struct CaptureCollector {
   let ast: AST
 
   /// A flag that indicates whether yield statements are supposed to project mutable objects.
-  private var isYieldMutating = false
+  private let isYieldMutating = false
 
   /// The set of names that are bound in the lexical scopes containing the node being visited.
   private var boundNames: [Set<Name>] = []
