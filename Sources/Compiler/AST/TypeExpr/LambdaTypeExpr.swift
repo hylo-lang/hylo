@@ -23,7 +23,7 @@ public struct LambdaTypeExpr: TypeExpr {
   public let receiverEffect: SourceRepresentable<ReceiverEffect>?
 
   /// The environment of the lambda, or `nil` if it is thin.
-  public var environment: SourceRepresentable<AnyTypeExprID>?
+  public private(set) var environment: SourceRepresentable<AnyTypeExprID>?
 
   /// The parameters of the lambda.
   public let parameters: [Parameter]
@@ -33,14 +33,19 @@ public struct LambdaTypeExpr: TypeExpr {
 
   public init(
     receiverEffect: SourceRepresentable<ReceiverEffect>? = nil,
-    environment: SourceRepresentable<AnyTypeExprID>? = nil,
     parameters: [Parameter] = [],
     output: AnyTypeExprID
   ) {
     self.receiverEffect = receiverEffect
-    self.environment = environment
     self.parameters = parameters
     self.output = output
   }
 
+  /// Incorporates `accessModifier` into `self`.
+  ///
+  /// - Precondition: `self.environment == nil`
+  internal mutating func incorporate(environment: SourceRepresentable<AnyTypeExprID>?) {
+    precondition(self.environment == nil)
+    self.environment = environment
+  }
 }

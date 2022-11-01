@@ -15,11 +15,18 @@ public struct NameTypeExpr: TypeExpr {
   public init(
     domain: AnyTypeExprID? = nil,
     identifier: SourceRepresentable<Identifier>,
-    arguments: [GenericArgument] = []
+    arguments: [GenericArgument]
   ) {
     self.domain = domain
     self.identifier = identifier
     self.arguments = arguments
   }
 
+  /// Incorporates `domain` into `self`.
+  ///
+  /// - Precondition: `self.domain == nil`
+  internal mutating func incorporate(domain: AnyTypeExprID) {
+    precondition(self.domain == nil)
+    self.domain = domain
+  }
 }

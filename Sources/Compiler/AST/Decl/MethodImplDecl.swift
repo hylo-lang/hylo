@@ -19,11 +19,12 @@ public struct MethodImplDecl: Decl, LexicalScope {
   /// The declaration of the implicit receiver parameter, if any.
   ///
   /// This property is set during type checking.
-  public var receiver: NodeID<ParameterDecl>?
+  public private(set) var receiver: NodeID<ParameterDecl>?
 
   /// The body of the method, if any.
   public let body: Body?
 
+  /// Creates an instance with the given properties and no `receiver`.
   public init(
     introducer: SourceRepresentable<ImplIntroducer>,
     body: Body? = nil
@@ -32,4 +33,11 @@ public struct MethodImplDecl: Decl, LexicalScope {
     self.body = body
   }
 
+  /// Incorporates the given receiver into `self`.
+  ///
+  /// - Requires: `self.receiver == nil`
+  internal mutating func incorporate(_ receiver: NodeID<ParameterDecl>) {
+    precondition(self.receiver == nil)
+    self.receiver = receiver
+  }
 }

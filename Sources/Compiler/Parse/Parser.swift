@@ -55,7 +55,7 @@ public enum Parser {
         }
 
         // Parser succeeded.
-        context.ast[module].sources.append(d)
+        context.ast[module].addSourceFile(d)
         decls = d
       } else {
         decls = nil
@@ -795,13 +795,12 @@ public enum Parser {
       switch declID.kind {
       case .bindingDecl:
         let id = NodeID<BindingDecl>(rawValue: declID.rawValue)
-        context.ast[id].attributes = attributes
-        context.ast[id].accessModifier = access
-        context.ast[id].memberModifier = member
+        context.ast[id].incorporate(
+          attributes: attributes, accessModifier: access, memberModifier: member)
 
       case .conformanceDecl:
         let id = NodeID<ConformanceDecl>(rawValue: declID.rawValue)
-        context.ast[id].accessModifier = access
+        context.ast[id].incorporate(access)
 
         if let a = attributes.first {
           context.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
@@ -823,7 +822,7 @@ public enum Parser {
 
       case .extensionDecl:
         let id = NodeID<ExtensionDecl>(rawValue: declID.rawValue)
-        context.ast[id].accessModifier = access
+        context.ast[id].incorporate(access)
 
         if let a = attributes.first {
           context.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
@@ -834,13 +833,13 @@ public enum Parser {
 
       case .funDecl:
         let id = NodeID<FunDecl>(rawValue: declID.rawValue)
-        context.ast[id].attributes = attributes
-        context.ast[id].accessModifier = access
-        context.ast[id].memberModifier = member
+        context.ast[id].incorporate(
+          attributes: attributes, accessModifier: access, memberModifier: member)
 
       case .operatorDecl:
-        let id = NodeID<OperatorDecl>(rawValue: declID.rawValue)
-        context.ast[id].accessModifier = access
+        if let a = access {
+          context.ast[NodeID<OperatorDecl>(rawValue: declID.rawValue)].incorporate(a)
+        }
 
         if let a = attributes.first {
           context.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
@@ -850,8 +849,9 @@ public enum Parser {
         }
 
       case .namespaceDecl:
-        let id = NodeID<NamespaceDecl>(rawValue: declID.rawValue)
-        context.ast[id].accessModifier = access
+        if let a = access {
+          context.ast[NodeID<NamespaceDecl>(rawValue: declID.rawValue)].incorporate(a)
+        }
 
         if let a = attributes.first {
           context.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
@@ -861,9 +861,9 @@ public enum Parser {
         }
 
       case .productTypeDecl:
-        let id = NodeID<ProductTypeDecl>(rawValue: declID.rawValue)
-        context.ast[id].accessModifier = access
-
+        if let a = access {
+          context.ast[NodeID<ProductTypeDecl>(rawValue: declID.rawValue)].incorporate(a)
+        }
         if let a = attributes.first {
           context.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
         }
@@ -873,13 +873,14 @@ public enum Parser {
 
       case .subscriptDecl:
         let id = NodeID<SubscriptDecl>(rawValue: declID.rawValue)
-        context.ast[id].attributes = attributes
-        context.ast[id].accessModifier = access
-        context.ast[id].memberModifier = member
+        context.ast[id].incorporate(
+          attributes: attributes, accessModifier: access, memberModifier: member)
 
       case .traitDecl:
-        let id = NodeID<TraitDecl>(rawValue: declID.rawValue)
-        context.ast[id].accessModifier = access
+        if let a = access {
+          let id = NodeID<TraitDecl>(rawValue: declID.rawValue)
+          context.ast[id].incorporate(a)
+        }
 
         if let a = attributes.first {
           context.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
@@ -889,9 +890,10 @@ public enum Parser {
         }
 
       case .typeAliasDecl:
-        let id = NodeID<TypeAliasDecl>(rawValue: declID.rawValue)
-        context.ast[id].accessModifier = access
-
+        if let a = access {
+          let id = NodeID<TypeAliasDecl>(rawValue: declID.rawValue)
+          context.ast[id].incorporate(a)
+        }
         if let a = attributes.first {
           context.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
         }
@@ -1258,7 +1260,7 @@ public enum Parser {
         if context.take(.dot) != nil {
           // labeled-member-expr
           if let member = try primaryDeclRef.parse(&context) {
-            context.ast[member].domain = .expr(head)
+            context.ast[member].incorporate(domain: .expr(head))
             context.ast.ranges[member] = headRange.upperBounded(by: context.currentIndex)
             head = AnyExprID(member)
             continue
@@ -1345,7 +1347,7 @@ public enum Parser {
   static let staticValueMemberExpr = (
     primaryTypeExpr.and(take(.dot)).and(primaryDeclRef)
       .map({ (context, tree) -> NodeID<NameExpr> in
-        context.ast[tree.1].domain = .type(tree.0.0)
+        context.ast[tree.1].incorporate(domain: .type(tree.0.0))
         context.ast.ranges[tree.1] = context.ast.ranges[tree.0.0]!.upperBounded(
           by: context.ast.ranges[tree.1]!.upperBound)
         return tree.1
@@ -1468,7 +1470,7 @@ public enum Parser {
   static let implicitMemberRef = (
     take(.dot).and(primaryDeclRef)
       .map({ (context, tree) -> NodeID<NameExpr> in
-        context.ast[tree.1].domain = .implicit
+        context.ast[tree.1].incorporate(domain: .implicit)
         context.ast.ranges[tree.1] = tree.0.range.upperBounded(
           by: context.ast.ranges[tree.1]!.upperBound)
         return tree.1
@@ -2224,7 +2226,7 @@ public enum Parser {
     typeErasedLambdaTypeExpr,
     or: lambdaEnvironment.and(typeErasedLambdaTypeExpr)
       .map({ (context, tree) in
-        context.ast[tree.1].environment = tree.0
+        context.ast[tree.1].incorporate(environment: tree.0)
         context.ast.ranges[tree.1]!.lowerBound = tree.0.range!.lowerBound
         return tree.1
       })
@@ -2449,10 +2451,7 @@ public enum Parser {
     entityIdentifier.and(maybe(take(.dot).and(methodIntroducer)))
       .map({ (context, tree) -> SourceRepresentable<Name> in
         if let (_, introducer) = tree.1 {
-          var name = tree.0
-          name.value.introducer = introducer.value
-          name.range = name.range!.upperBounded(by: introducer.range!.upperBound)
-          return name
+          return tree.0.introduced(by: introducer)
         } else {
           return tree.0
         }
@@ -2465,14 +2464,20 @@ public enum Parser {
       case .name, .under:
         // function-entity-identifier
         let head = context.take()!
-        var result = SourceRepresentable(
-          value: Name(stem: String(context.lexer.source[head.range])),
-          range: head.range)
+        var labels: [String?] = []
 
         if context.currentCharacter == "(" {
-          var labels: [String?] = []
           let backup = context.backup()
           _ = context.take()
+          var closeParenFound = false
+          defer {
+            // Backtrack if we didn't find a closing parenthesis or if there are no labels. That
+            // will let the argument-list parser pickup after the identifier to either catch a
+            // parse error in the former case (no closing parenthesis) or parse an empty argument
+            // list in the latter (no labels).
+            // Note: `foo()` is *not* a valid name, it's a function call.
+            if !closeParenFound || labels.isEmpty { context.restore(from: backup) }
+          }
 
           while !context.hasLeadingWhitespace {
             if context.take(.under) != nil {
@@ -2488,19 +2493,16 @@ public enum Parser {
             }
 
             if let end = context.takeWithoutSkippingWhitespace(.rParen) {
-              if !labels.isEmpty {
-                let range = head.range.upperBounded(by: end.range.upperBound)
-                result.value.labels = labels
-                return result
-              }
+              closeParenFound = true
               break
             }
           }
-
-          context.restore(from: backup)
         }
 
-        return result
+        return SourceRepresentable(
+          value: Name(stem: String(context.lexer.source[head.range]), labels: labels),
+          range: head.range)
+
 
       case .infix, .prefix, .postfix:
         // operator-entity-identifier

@@ -5,36 +5,36 @@ public struct Name: Hashable, Codable {
   public let stem: Identifier
 
   /// The argument labels of the referred entity, given that it is a function.
-  public var labels: [String?]
+  public let labels: [String?]
 
   /// The operator notation of the referred entity, given that it is an operator.
   public let notation: OperatorNotation?
 
   /// The method introducer of the referred entity, given that it is a method implementation.
-  public var introducer: ImplIntroducer?
+  ///
+  /// The introducer, if any, is incorporated during parsing, after the original `Name` is created.
+  public let introducer: ImplIntroducer?
 
   /// Creates a new name.
   public init(
     stem: Identifier,
-    labels: [String?] = [],
-    introducer: ImplIntroducer? = nil
+    labels: [String?] = []
   ) {
     self.stem = stem
     self.labels = labels
     self.notation = nil
-    self.introducer = introducer
+    self.introducer = nil
   }
 
   /// Creates a new operator name.
   public init(
     stem: Identifier,
-    notation: OperatorNotation,
-    introducer: ImplIntroducer? = nil
+    notation: OperatorNotation
   ) {
     self.stem = stem
     self.labels = []
     self.notation = notation
-    self.introducer = introducer
+    self.introducer = nil
   }
 
   /// Creates the name introduced by `decl` in `ast`.
@@ -47,6 +47,16 @@ public struct Name: Hashable, Codable {
     }
   }
 
+  internal init(
+    stem: Identifier, labels: [String?], 
+    notation: OperatorNotation? = nil, introducer: ImplIntroducer? = nil
+  ) {
+    self.stem = stem
+    self.labels = labels
+    self.notation = notation
+    self.introducer = introducer
+  }
+  
 }
 
 extension Name: CustomStringConvertible {
@@ -72,4 +82,27 @@ extension Name: ExpressibleByStringLiteral {
     self.init(stem: value)
   }
 
+}
+
+// MARK: Incorporation of introducers
+
+extension Name {
+  /// Returns `self` with `newIntroducer` incorporated into its value.
+  ///
+  /// - Precondition: `self` has no introducer.`
+  internal func introduced(by newIntroducer: ImplIntroducer) -> Self {
+    precondition(self.introducer == nil)
+    return Name(stem: stem, labels: labels, notation: notation, introducer: newIntroducer)
+  }
+}
+
+extension SourceRepresentable where Part == Name {
+  /// Returns `self` with `introducer` incorporated into its value.
+  ///
+  /// - Precondition: `self` has no introducer.`
+  internal func introduced(by introducer: SourceRepresentable<ImplIntroducer>) -> Self {
+    return .init(
+      value: self.value.introduced(by: introducer.value),
+      range: self.range!.upperBounded(by: introducer.range!.upperBound))
+  }
 }

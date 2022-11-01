@@ -131,7 +131,7 @@ public struct DeclLocator: Hashable {
   }
 
   /// The constituents of the locator.
-  public var components: [Component]
+  public let components: [Component]
 
   /// Creates a locator identifying `decl` in `program`.
   public init<T: DeclID>(identifying decl: T, in program: TypedProgram) {
@@ -146,6 +146,7 @@ public struct DeclLocator: Hashable {
     }
 
     components.reverse()
+    self.components = components
   }
 
   /// The locator's value encoded as a string.

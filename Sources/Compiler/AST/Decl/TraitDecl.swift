@@ -6,7 +6,7 @@ public struct TraitDecl: SingleEntityDecl, GenericScope {
   public static let kind = NodeKind.traitDecl
 
   /// The access modifier of the declaration, if any.
-  public var accessModifier: SourceRepresentable<AccessModifier>?
+  public private(set) var accessModifier: SourceRepresentable<AccessModifier>?
 
   /// The identifier of the trait.
   public let identifier: SourceRepresentable<Identifier>
@@ -18,12 +18,10 @@ public struct TraitDecl: SingleEntityDecl, GenericScope {
   public let members: [AnyDeclID]
 
   public init(
-    accessModifier: SourceRepresentable<AccessModifier>? = nil,
     identifier: SourceRepresentable<Identifier>,
     refinements: [NodeID<NameTypeExpr>] = [],
     members: [AnyDeclID] = []
   ) {
-    self.accessModifier = accessModifier
     self.identifier = identifier
     self.refinements = refinements
     self.members = members
@@ -31,4 +29,11 @@ public struct TraitDecl: SingleEntityDecl, GenericScope {
 
   public var name: String { identifier.value }
 
+  /// Incorporates `accessModifier` into `self`.
+  ///
+  /// - Precondition: `self.accessModifier == nil`
+  internal mutating func incorporate(_ accessModifier: SourceRepresentable<AccessModifier>) {
+    precondition(self.accessModifier == nil)
+    self.accessModifier = accessModifier
+  }
 }

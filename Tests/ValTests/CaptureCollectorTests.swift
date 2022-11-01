@@ -24,7 +24,7 @@ final class CaptureCollectorTests: XCTestCase {
           .value(ast.insert(GenericValueParamDecl(
             identifier: SourceRepresentable(value: "v"),
             annotation: AnyTypeExprID(ast.insert(NameTypeExpr(
-              identifier: SourceRepresentable(value: "Void"))))))),
+              identifier: SourceRepresentable(value: "Void"), arguments: [])))))),
         ])),
       captures: [
         ast.insert(BindingDecl(
@@ -33,7 +33,7 @@ final class CaptureCollectorTests: XCTestCase {
             subpattern: AnyPatternID(ast.insert(NamePattern(
               decl: ast.insert(VarDecl(
                 identifier: SourceRepresentable(value: "c")))))))),
-          initializer: AnyExprID(ast.insert(TupleExpr())))),
+          initializer: AnyExprID(ast.insert(TupleExpr(elements: []))))),
       ],
       parameters: [
         ast.insert(ParameterDecl(
@@ -41,7 +41,7 @@ final class CaptureCollectorTests: XCTestCase {
           annotation: ast.insert(ParameterTypeExpr(
             convention: SourceRepresentable(value: .let),
             bareType: AnyTypeExprID(ast.insert(NameTypeExpr(
-              identifier: SourceRepresentable(value: "Any")))))))),
+              identifier: SourceRepresentable(value: "Any"), arguments: []))))))),
       ],
       body: .block(ast.insert(BraceStmt(
         stmts: [

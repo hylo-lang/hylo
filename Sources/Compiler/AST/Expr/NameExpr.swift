@@ -20,7 +20,7 @@ public struct NameExpr: Expr {
   }
 
   /// The domain of the name, if it is qualified.
-  public var domain: Domain
+  public private(set) var domain: Domain
 
   /// The name of the referred entity.
   public let name: SourceRepresentable<Name>
@@ -38,4 +38,11 @@ public struct NameExpr: Expr {
     self.arguments = arguments
   }
 
+  /// Incorporates `domain` into `self`.
+  ///
+  /// - Precondition: `self.domain == .none`
+  internal mutating func incorporate(domain: Domain) {
+    precondition(self.domain == .none)
+    self.domain = domain
+  }
 }
