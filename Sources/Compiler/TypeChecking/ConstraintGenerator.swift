@@ -565,17 +565,17 @@ struct ConstraintGenerator: ExprVisitor {
   mutating func visit(tuple id: NodeID<TupleExpr>) {
     defer { assert(inferredTypes[id] != nil) }
 
-    var expr = checker.ast[id]
+    var xxxx = checker.ast[id].elements
 
     // If the expected type is a tuple compatible with the shape of the expression, propagate that
     // information down the expression tree. Otherwise, infer the type of the expression from the
     // leaves and use type constraints to detect potential mismatch.
     var elements: [TupleType.Element] = []
     if case .tuple(let type) = expectedTypes[id],
-       type.elements.elementsEqual(expr.elements, by: { (a, b) in a.label == b.label?.value })
+       type.elements.elementsEqual(xxxx, by: { (a, b) in a.label == b.label?.value })
     {
-      for i in 0 ..< expr.elements.count {
-        modifying(&expr.elements[i], { element in
+      for i in 0 ..< xxxx.count {
+        modifying(&xxxx[i], { element in
           expectedTypes[element.value] = type.elements[i].type
           element.value.accept(&self)
           elements.append(TupleType.Element(
@@ -584,8 +584,8 @@ struct ConstraintGenerator: ExprVisitor {
         })
       }
     } else {
-      for i in 0 ..< expr.elements.count {
-        modifying(&expr.elements[i], { element in
+      for i in 0 ..< xxxx.count {
+        modifying(&xxxx[i], { element in
           element.value.accept(&self)
           elements.append(TupleType.Element(
             label: element.label?.value,

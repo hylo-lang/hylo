@@ -33,7 +33,7 @@ final class CaptureCollectorTests: XCTestCase {
             subpattern: AnyPatternID(ast.insert(NamePattern(
               decl: ast.insert(VarDecl(
                 identifier: SourceRepresentable(value: "c")))))))),
-          initializer: AnyExprID(ast.insert(TupleExpr())))),
+          initializer: AnyExprID(ast.insert(TupleExpr(elements: []))))),
       ],
       parameters: [
         ast.insert(ParameterDecl(
