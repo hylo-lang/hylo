@@ -837,8 +837,9 @@ public enum Parser {
           attributes: attributes, accessModifier: access, memberModifier: member)
 
       case .operatorDecl:
-        let id = NodeID<OperatorDecl>(rawValue: declID.rawValue)
-        context.ast[id].accessModifier = access
+        if let a = access {
+          context.ast[NodeID<OperatorDecl>(rawValue: declID.rawValue)].incorporate(a)
+        }
 
         if let a = attributes.first {
           context.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
