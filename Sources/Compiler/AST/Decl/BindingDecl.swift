@@ -34,7 +34,7 @@ public struct BindingDecl: Decl {
   /// Incorporates the given decorations into `self`.
   ///
   /// - Precondition: `self` is undecorated.
-  public mutating func decorate(
+  internal mutating func incorporate(
     attributes: [SourceRepresentable<Attribute>],
     accessModifier: SourceRepresentable<AccessModifier>?,
     memberModifier: SourceRepresentable<MemberModifier>?

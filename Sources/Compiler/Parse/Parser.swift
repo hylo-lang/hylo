@@ -795,7 +795,7 @@ public enum Parser {
       switch declID.kind {
       case .bindingDecl:
         let id = NodeID<BindingDecl>(rawValue: declID.rawValue)
-        context.ast[id].decorate(
+        context.ast[id].incorporate(
           attributes: attributes, accessModifier: access, memberModifier: member)
 
       case .conformanceDecl:
