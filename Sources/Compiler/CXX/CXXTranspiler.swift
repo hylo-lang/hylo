@@ -14,8 +14,8 @@ public struct CXXTranspiler {
   // MARK: API
 
   /// Emits the C++ module corresponding to the Val module identified by `decl`.
-  public mutating func emit(module decl: NodeID<ModuleDecl>) -> CXXModuleDecl {
-    var module = CXXModuleDecl(decl: decl, name: program.ast[decl].name)
+  public mutating func emit(module decl: NodeID<ModuleDecl>) -> CXXModule {
+    var module = CXXModule(valDecl: decl, name: program.ast[decl].name)
     for member in program.ast.topLevelDecls(decl) {
       emit(topLevel: member, into: &module)
     }
@@ -23,7 +23,7 @@ public struct CXXTranspiler {
   }
 
   /// Emits the given top-level declaration into `module`.
-  public mutating func emit(topLevel decl: AnyDeclID, into module: inout CXXModuleDecl) {
+  public mutating func emit(topLevel decl: AnyDeclID, into module: inout CXXModule) {
     switch decl.kind {
     case .funDecl:
       emit(fun: NodeID(rawValue: decl.rawValue), into: &module)
@@ -33,8 +33,9 @@ public struct CXXTranspiler {
   }
 
   /// Emits the given function declaration into `module`.
-  public mutating func emit(fun decl: NodeID<FunDecl>, into module: inout CXXModuleDecl) {
-
+  public mutating func emit(fun decl: NodeID<FunDecl>, into module: inout CXXModule) {
+    // Declare the function in the module if necessary.
+    _ = module.getOrCreateFunction(correspondingTo: decl, program: program)
   }
 
 }

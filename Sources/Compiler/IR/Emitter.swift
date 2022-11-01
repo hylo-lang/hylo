@@ -53,11 +53,7 @@ public struct Emitter {
   /// Emits the given function declaration into `module`.
   public mutating func emit(fun declID: NodeID<FunDecl>, into module: inout Module) {
     // Declare the function in the module if necessary.
-    let functionID = module.getOrCreateFunction(
-      from: declID,
-      ast: program.ast,
-      withScopeHierarchy: program.scopeHierarchy,
-      withDeclTypes: program.declTypes)
+    let functionID = module.getOrCreateFunction(correspondingTo: declID, program: program)
 
     // Nothing else to do if the function has no body.
     guard let body = program.ast[declID].body else { return }
@@ -538,9 +534,8 @@ public struct Emitter {
 
         default:
           // TODO: handle captures
-          let locator = program.locator(identifying: calleeDeclID)
           callee = .constant(.function(FunctionRef(
-            name: locator.mangled,
+            name: DeclLocator(identifying: calleeDeclID, in: program).mangled,
             type: .address(.lambda(calleeType)))))
         }
 
@@ -593,9 +588,8 @@ public struct Emitter {
         }
 
         // Emit the function reference.
-        let locator = program.locator(identifying: calleeDeclID)
         callee = .constant(.function(FunctionRef(
-          name: locator.mangled,
+          name: DeclLocator(identifying: calleeDeclID, in: program).mangled,
           type: .address(.lambda(calleeType)))))
 
       default:

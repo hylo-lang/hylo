@@ -3,7 +3,7 @@ import Utils
 /// A function lowered to Val IR.
 public struct Function {
 
-  /// The ID of a basic block in a Val IR function.
+  /// The ID of a Val IR function.
   public typealias ID = Module.FunctionIndex
 
   /// The profile of a IR function input.

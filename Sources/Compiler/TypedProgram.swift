@@ -31,13 +31,4 @@ public struct TypedProgram {
     self.referredDecls = referredDecls
   }
 
-  /// Returns a locator for the specified declaration.
-  public func locator<T: DeclID>(identifying decl: T) -> DeclLocator {
-    DeclLocator(
-      identifying: decl,
-      in: ast,
-      withScopeHierarchy: scopeHierarchy,
-      withDeclTypes: declTypes)
-  }
-
 }

@@ -28,22 +28,17 @@ public struct DeclLocator: Hashable {
 
     case trait(String)
 
-    /// Creates a component identifying `declID` given an AST and its scope hierarchy.
-    init?<T: NodeIDProtocol>(
-      identifying declID: T,
-      in ast: AST,
-      withScopeHierarchy scopeHierarchy: ScopeHierarchy,
-      withDeclTypes declTypes: DeclProperty<Type>
-    ) {
-      switch declID.kind {
+    /// Creates a component identifying `decl` in `program`.
+    init?<T: NodeIDProtocol>(identifying decl: T, in program: TypedProgram) {
+      switch decl.kind {
       case .conformanceDecl, .extensionDecl:
         fatalError("not implemented")
 
       case .funDecl:
-        let declID = NodeID<FunDecl>(rawValue: declID.rawValue)
+        let decl = NodeID<FunDecl>(rawValue: decl.rawValue)
 
         let labels: [String]
-        switch declTypes[declID]! {
+        switch program.declTypes[decl]! {
         case .lambda(let type):
           labels = Array(type.labels.map({ $0 ?? "_" }))
         case .method(let type):
@@ -52,26 +47,27 @@ public struct DeclLocator: Hashable {
           labels = []
         }
 
-        switch ast[declID].introducer.value {
+        switch program.ast[decl].introducer.value {
         case .memberwiseInit, .`init`:
           self = .function(name: "init", labels: labels, notation: nil)
         case .deinit:
           self = .function(name: "deinit", labels: [], notation: nil)
         case .fun:
-          if let name = ast[declID].identifier?.value {
-            self = .function(name: name, labels: labels, notation: ast[declID].notation?.value)
+          if let name = program.ast[decl].identifier?.value {
+            self = .function(
+              name: name, labels: labels, notation: program.ast[decl].notation?.value)
           } else {
-            self = .lambda(declID)
+            self = .lambda(decl)
           }
         }
 
       case .methodImplDecl:
-        let declID = NodeID<MethodImplDecl>(rawValue: declID.rawValue)
-        self = .methodImpl(ast[declID].introducer.value)
+        let decl = NodeID<MethodImplDecl>(rawValue: decl.rawValue)
+        self = .methodImpl(program.ast[decl].introducer.value)
 
       case .productTypeDecl:
-        let declID = NodeID<ProductTypeDecl>(rawValue: declID.rawValue)
-        self = .product(ast[declID].name)
+        let decl = NodeID<ProductTypeDecl>(rawValue: decl.rawValue)
+        self = .product(program.ast[decl].name)
 
       default:
         return nil
@@ -137,28 +133,13 @@ public struct DeclLocator: Hashable {
   /// The constituents of the locator.
   public var components: [Component]
 
-  /// Creates a locator identifying `declID` given an AST and its scope hierarchy.
-  public init<T: DeclID>(
-    identifying declID: T,
-    in ast: AST,
-    withScopeHierarchy scopeHierarchy: ScopeHierarchy,
-    withDeclTypes declTypes: DeclProperty<Type>
-  ) {
-    let last = Component(
-      identifying: declID,
-      in: ast,
-      withScopeHierarchy: scopeHierarchy,
-      withDeclTypes: declTypes)!
-    components = [last]
+  /// Creates a locator identifying `decl` in `program`.
+  public init<T: DeclID>(identifying decl: T, in program: TypedProgram) {
+    components = [Component(identifying: decl, in: program)!]
 
-    if let parent = scopeHierarchy.container[declID] {
-      for scopeID in scopeHierarchy.scopesToRoot(from: parent) {
-        if let component = Component(
-          identifying: scopeID,
-          in: ast,
-          withScopeHierarchy: scopeHierarchy,
-          withDeclTypes: declTypes)
-        {
+    if let parent = program.scopeHierarchy.container[decl] {
+      for scopeID in program.scopeHierarchy.scopesToRoot(from: parent) {
+        if let component = Component(identifying: scopeID, in: program) {
           components.append(component)
         }
       }

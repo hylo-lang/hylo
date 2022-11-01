@@ -60,10 +60,8 @@ public struct Module {
 
   /// Returns the identifier of the Val IR function corresponding to `declID`.
   mutating func getOrCreateFunction(
-    from declID: NodeID<FunDecl>,
-    ast: AST,
-    withScopeHierarchy scopeHierarchy: ScopeHierarchy,
-    withDeclTypes declTypes: DeclProperty<Type>
+    correspondingTo declID: NodeID<FunDecl>,
+    program: TypedProgram
   ) -> Function.ID {
     if let id = loweredFunctions[declID] { return id }
 
@@ -71,7 +69,7 @@ public struct Module {
     var inputs: [Function.Input] = []
     let output: LoweredType
 
-    switch declTypes[declID] {
+    switch program.declTypes[declID] {
     case .lambda(let declType):
       output = LoweredType(lowering: declType.output)
       inputs.reserveCapacity(declType.captures.count + declType.inputs.count)
@@ -113,24 +111,20 @@ public struct Module {
 
     // Declare a new function in the module.
     let loweredID = functions.count
-    let locator = DeclLocator(
-      identifying: declID,
-      in: ast,
-      withScopeHierarchy: scopeHierarchy,
-      withDeclTypes: declTypes)
+    let locator = DeclLocator(identifying: declID, in: program)
     let function = Function(
       name: locator.mangled,
       debugName: locator.description,
-      linkage: ast[declID].isPublic ? .external : .module,
+      linkage: program.ast[declID].isPublic ? .external : .module,
       inputs: inputs,
       output: output,
       blocks: [])
     functions.append(function)
 
     // Determine if the new function is the module's entry.
-    if scopeHierarchy.container[declID]?.kind == .topLevelDeclSet,
-       ast[declID].isPublic,
-       ast[declID].identifier?.value == "main"
+    if program.scopeHierarchy.container[declID]?.kind == .topLevelDeclSet,
+       program.ast[declID].isPublic,
+       program.ast[declID].identifier?.value == "main"
     {
       assert(entryFunctionID == nil)
       entryFunctionID = loweredID
