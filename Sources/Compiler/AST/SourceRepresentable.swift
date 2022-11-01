@@ -4,10 +4,10 @@
 public struct SourceRepresentable<Part> {
 
   /// The part.
-  public var value: Part
+  public let value: Part
 
   /// The source range of the node's textual representation.
-  public var range: SourceRange?
+  public let range: SourceRange?
 
   /// Creates a source representable container, annotating a value with an optional source range.
   public init(value: Part, range: SourceRange? = nil) {
