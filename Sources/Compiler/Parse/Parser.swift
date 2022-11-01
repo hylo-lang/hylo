@@ -2468,9 +2468,11 @@ public enum Parser {
           _ = context.take()
           var closeParenFound = false
           defer {
-            // Backtrack if we didn't find a closing parenthesis. That will let the argument-list
-            // parser process the stream after the identifier to either catch a parse error if the
-            // former case or parse an empty argument list in the latter.
+            // Backtrack if we didn't find a closing parenthesis or if there are no labels. That
+            // will let the argument-list parser pickup after the identifier to either catch a
+            // parse error in the former case (no closing parenthesis) or parse an empty argument
+            // list in the latter (no labels).
+            // Note: `foo()` is *not* a valid name, it's a function call.
             if !closeParenFound || labels.isEmpty { context.restore(from: backup) }
           }
 
