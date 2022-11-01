@@ -12,8 +12,8 @@ public struct Name: Hashable, Codable {
 
   /// The method introducer of the referred entity, given that it is a method implementation.
   ///
-  /// The introducer is incorporated during parsing, after the instance is created.
-  public private(set) var introducer: ImplIntroducer? = nil
+  /// The introducer, if any, is incorporated during parsing, after the original `Name` is created.
+  public let introducer: ImplIntroducer?
 
   /// Creates a new name.
   public init(
@@ -23,6 +23,7 @@ public struct Name: Hashable, Codable {
     self.stem = stem
     self.labels = labels
     self.notation = nil
+    self.introducer = nil
   }
 
   /// Creates a new operator name.
@@ -33,6 +34,7 @@ public struct Name: Hashable, Codable {
     self.stem = stem
     self.labels = []
     self.notation = notation
+    self.introducer = nil
   }
 
   /// Creates the name introduced by `decl` in `ast`.
@@ -45,6 +47,16 @@ public struct Name: Hashable, Codable {
     }
   }
 
+  internal init(
+    stem: Identifier, labels: [String?], 
+    notation: OperatorNotation? = nil, introducer: ImplIntroducer? = nil
+  ) {
+    self.stem = stem
+    self.labels = labels
+    self.notation = notation
+    self.introducer = introducer
+  }
+  
 }
 
 extension Name: CustomStringConvertible {
@@ -75,14 +87,12 @@ extension Name: ExpressibleByStringLiteral {
 // MARK: Incorporation of introducers
 
 extension Name {
-  /// Returns `self` with `introducer` incorporated into its value.
+  /// Returns `self` with `newIntroducer` incorporated into its value.
   ///
   /// - Precondition: `self` has no introducer.`
   internal func introduced(by newIntroducer: ImplIntroducer) -> Self {
     precondition(self.introducer == nil)
-    var r = self
-    r.introducer = newIntroducer
-    return r
+    return Name(stem: stem, labels: labels, notation: notation, introducer: newIntroducer)
   }
 }
 
