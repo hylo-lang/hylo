@@ -10,7 +10,7 @@ public struct Emitter {
   public let program: TypedProgram
 
   /// The insertion point of the emitter.
-  public var insertionPoint: InsertionPoint?
+  private var insertionPoint: InsertionPoint?
 
   /// The state of the call stack.
   private var stack = Stack()

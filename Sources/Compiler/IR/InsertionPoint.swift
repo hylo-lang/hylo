@@ -16,10 +16,10 @@ public struct InsertionPoint {
   }
 
   /// The ID of a basic block.
-  public var block: Block.ID
+  public let block: Block.ID
 
   /// A position in the basic block denoted by `block`.
-  public var position: Position
+  public let position: Position
 
   /// Creates an insertion point positioned at the end of `block`.
   public init(endOf block: Block.ID) {
