@@ -8,15 +8,13 @@ final class ScopeHierarchyTests: XCTestCase {
     var ast = AST()
     let main = ast.insert(ModuleDecl(name: "main"))
 
-    let source = ast.insert(TopLevelDeclSet())
-    ast[main].addSourceFile(source)
-
     let trait = ast.insert(TraitDecl(
       accessModifier: nil,
       identifier: SourceRepresentable(value: "T"),
       refinements: [],
       members: []))
-    ast[source].decls.append(AnyDeclID(trait))
+    let source = ast.insert(TopLevelDeclSet(decls: [AnyDeclID(trait)]))
+    ast[main].addSourceFile(source)
 
     // Build the scope hierarchy of the AST.
     let hierarchy = ast.scopeHierarchy()

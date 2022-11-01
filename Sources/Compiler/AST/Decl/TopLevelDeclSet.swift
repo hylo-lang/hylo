@@ -3,15 +3,15 @@ public struct TopLevelDeclSet: Node, LexicalScope {
 
   public static let kind = NodeKind.topLevelDeclSet
 
-  /// The source from which the declarations where parser.
-  public let file: SourceFile?
-
   /// The declarations in the set.
-  public var decls: [AnyDeclID]
+  public private(set) var decls: [AnyDeclID]
 
-  public init(file: SourceFile? = nil, decls: [AnyDeclID] = []) {
-    self.file = file
+  public init(decls: [AnyDeclID] = []) {
     self.decls = decls
   }
 
+  /// Adds `d` to `self`.
+  internal mutating func add(_ d: AnyDeclID) {
+    decls.append(d)
+  }
 }
