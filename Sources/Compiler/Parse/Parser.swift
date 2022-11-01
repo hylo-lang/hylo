@@ -2226,7 +2226,7 @@ public enum Parser {
     typeErasedLambdaTypeExpr,
     or: lambdaEnvironment.and(typeErasedLambdaTypeExpr)
       .map({ (context, tree) in
-        context.ast[tree.1].environment = tree.0
+        context.ast[tree.1].incorporate(environment: tree.0)
         context.ast.ranges[tree.1]!.lowerBound = tree.0.range!.lowerBound
         return tree.1
       })
