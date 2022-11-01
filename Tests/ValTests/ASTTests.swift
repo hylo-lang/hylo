@@ -17,7 +17,6 @@ final class ASTTests: XCTestCase {
 
     // Create a trait declaration.
     let trait = ast.insert(TraitDecl(
-      accessModifier: nil,
       identifier: SourceRepresentable(value: "T"),
       refinements: [],
       members: []))

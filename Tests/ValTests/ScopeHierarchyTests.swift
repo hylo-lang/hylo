@@ -9,7 +9,6 @@ final class ScopeHierarchyTests: XCTestCase {
     let main = ast.insert(ModuleDecl(name: "main"))
 
     let trait = ast.insert(TraitDecl(
-      accessModifier: nil,
       identifier: SourceRepresentable(value: "T"),
       refinements: [],
       members: []))
