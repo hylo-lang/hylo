@@ -822,7 +822,7 @@ public enum Parser {
 
       case .extensionDecl:
         let id = NodeID<ExtensionDecl>(rawValue: declID.rawValue)
-        context.ast[id].accessModifier = access
+        context.ast[id].incorporate(access)
 
         if let a = attributes.first {
           context.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
