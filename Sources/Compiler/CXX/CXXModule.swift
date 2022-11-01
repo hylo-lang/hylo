@@ -68,8 +68,8 @@ public struct CXXModule {
     var output: String = ""
 
     // Emit the header guard.
-    output.write("#ifndef __VAL_\(name.uppercased())__\n")
-    output.write("#define __VAL_\(name.uppercased())__\n")
+    output.write("#ifndef VAL_\(name.uppercased())_\n")
+    output.write("#define VAL_\(name.uppercased())_\n")
     output.write("\n")
 
     // Emit include clauses.
