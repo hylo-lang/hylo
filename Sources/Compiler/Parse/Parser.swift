@@ -848,8 +848,9 @@ public enum Parser {
         }
 
       case .namespaceDecl:
-        let id = NodeID<NamespaceDecl>(rawValue: declID.rawValue)
-        context.ast[id].accessModifier = access
+        if let a = access {
+          context.ast[NodeID<NamespaceDecl>(rawValue: declID.rawValue)].incorporate(a)
+        }
 
         if let a = attributes.first {
           context.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
