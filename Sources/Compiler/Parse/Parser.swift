@@ -55,7 +55,7 @@ public enum Parser {
         }
 
         // Parser succeeded.
-        context.ast[module].sources.append(d)
+        context.ast[module].addSourceFile(d)
         decls = d
       } else {
         decls = nil

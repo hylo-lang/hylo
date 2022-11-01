@@ -5,7 +5,7 @@ final class ASTTests: XCTestCase {
 
   func testAppendModule() {
     var ast = AST()
-    let i = ast.insert(ModuleDecl(name: "Val", sources: []))
+    let i = ast.insert(ModuleDecl(name: "Val"))
     XCTAssert(ast.modules.contains(i))
   }
 
@@ -13,11 +13,11 @@ final class ASTTests: XCTestCase {
     var ast = AST()
 
     // Create a module declarations.
-    let module = ast.insert(ModuleDecl(name: "Val", sources: []))
+    let module = ast.insert(ModuleDecl(name: "Val"))
 
     // Create a source declaration set.
     let source = ast.insert(TopLevelDeclSet())
-    ast[module].sources.append(source)
+    ast[module].addSourceFile(source)
 
     // Create a trait declaration.
     let trait = ast.insert(TraitDecl(
