@@ -890,9 +890,10 @@ public enum Parser {
         }
 
       case .typeAliasDecl:
-        let id = NodeID<TypeAliasDecl>(rawValue: declID.rawValue)
-        context.ast[id].accessModifier = access
-
+        if let a = access {
+          let id = NodeID<TypeAliasDecl>(rawValue: declID.rawValue)
+          context.ast[id].incorporate(a)
+        }
         if let a = attributes.first {
           context.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
         }

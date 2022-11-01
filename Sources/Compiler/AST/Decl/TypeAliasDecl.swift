@@ -14,7 +14,7 @@ public struct TypeAliasDecl: GenericDecl, SingleEntityDecl, GenericScope {
   }
 
   /// The access modifier of the declaration, if any.
-  public var accessModifier: SourceRepresentable<AccessModifier>?
+  public private(set) var accessModifier: SourceRepresentable<AccessModifier>?
 
   /// The identifier of the alias.
   public let identifier: SourceRepresentable<Identifier>
@@ -38,5 +38,13 @@ public struct TypeAliasDecl: GenericDecl, SingleEntityDecl, GenericScope {
   }
 
   public var name: String { identifier.value }
+
+  /// Incorporates `accessModifier` into `self`.
+  ///
+  /// - Precondition: `self.accessModifier == nil`
+  internal mutating func incorporate(_ accessModifier: SourceRepresentable<AccessModifier>) {
+    precondition(self.accessModifier == nil)
+    self.accessModifier = accessModifier
+  }
 
 }
