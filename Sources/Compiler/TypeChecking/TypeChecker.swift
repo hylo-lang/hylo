@@ -457,7 +457,7 @@ public struct TypeChecker {
         let receiverDecl = ast.insert(ParameterDecl(
           identifier: SourceRepresentable(value: "self")))
         scopeHierarchy.insert(decl: receiverDecl, into: AnyScopeID(impl))
-        ast[impl].receiver = receiverDecl
+        ast[impl].incorporate(receiverDecl)
 
         // Set its type.
         declTypes[receiverDecl] = .parameter(ParameterType(
