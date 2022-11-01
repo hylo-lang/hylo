@@ -861,9 +861,9 @@ public enum Parser {
         }
 
       case .productTypeDecl:
-        let id = NodeID<ProductTypeDecl>(rawValue: declID.rawValue)
-        context.ast[id].accessModifier = access
-
+        if let a = access {
+          context.ast[NodeID<ProductTypeDecl>(rawValue: declID.rawValue)].incorporate(a)
+        }
         if let a = attributes.first {
           context.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
         }
