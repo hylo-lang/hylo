@@ -565,35 +565,32 @@ struct ConstraintGenerator: ExprVisitor {
   mutating func visit(tuple id: NodeID<TupleExpr>) {
     defer { assert(inferredTypes[id] != nil) }
 
-    var xxxx = checker.ast[id].elements
+    let tupleExpr = checker.ast[id].elements
+    var tupleTypeElements: [TupleType.Element] = []
 
     // If the expected type is a tuple compatible with the shape of the expression, propagate that
     // information down the expression tree. Otherwise, infer the type of the expression from the
     // leaves and use type constraints to detect potential mismatch.
-    var elements: [TupleType.Element] = []
     if case .tuple(let type) = expectedTypes[id],
-       type.elements.elementsEqual(xxxx, by: { (a, b) in a.label == b.label?.value })
+       type.elements.elementsEqual(tupleExpr, by: { (a, b) in a.label == b.label?.value })
     {
-      for i in 0 ..< xxxx.count {
-        modifying(&xxxx[i], { element in
-          expectedTypes[element.value] = type.elements[i].type
-          element.value.accept(&self)
-          elements.append(TupleType.Element(
-            label: element.label?.value,
-            type: inferredTypes[element.value]!))
-        })
+      for i in 0 ..< tupleExpr.count {
+        expectedTypes[tupleExpr[i].value] = type.elements[i].type
+        tupleExpr[i].value.accept(&self)
+        tupleTypeElements.append(TupleType.Element(
+          label: tupleExpr[i].label?.value,
+          type: inferredTypes[tupleExpr[i].value]!))
       }
     } else {
-      for i in 0 ..< xxxx.count {
-        modifying(&xxxx[i], { element in
-          element.value.accept(&self)
-          elements.append(TupleType.Element(
-            label: element.label?.value,
-            type: inferredTypes[element.value]!))
-        })
+      for i in 0 ..< tupleExpr.count {
+        tupleExpr[i].value.accept(&self)
+        tupleTypeElements.append(TupleType.Element(
+          label: tupleExpr[i].label?.value,
+          type: inferredTypes[tupleExpr[i].value]!))
       }
     }
-    assume(typeOf: id, equals: .tuple(TupleType(elements)))
+
+    assume(typeOf: id, equals: .tuple(TupleType(tupleTypeElements)))
   }
 
   mutating func visit(tupleMember id: NodeID<TupleMemberExpr>) {
