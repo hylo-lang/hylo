@@ -1260,7 +1260,7 @@ public enum Parser {
         if context.take(.dot) != nil {
           // labeled-member-expr
           if let member = try primaryDeclRef.parse(&context) {
-            context.ast[member].domain = .expr(head)
+            context.ast[member].incorporate(domain: .expr(head))
             context.ast.ranges[member] = headRange.upperBounded(by: context.currentIndex)
             head = AnyExprID(member)
             continue
@@ -1347,7 +1347,7 @@ public enum Parser {
   static let staticValueMemberExpr = (
     primaryTypeExpr.and(take(.dot)).and(primaryDeclRef)
       .map({ (context, tree) -> NodeID<NameExpr> in
-        context.ast[tree.1].domain = .type(tree.0.0)
+        context.ast[tree.1].incorporate(domain: .type(tree.0.0))
         context.ast.ranges[tree.1] = context.ast.ranges[tree.0.0]!.upperBounded(
           by: context.ast.ranges[tree.1]!.upperBound)
         return tree.1
@@ -1470,7 +1470,7 @@ public enum Parser {
   static let implicitMemberRef = (
     take(.dot).and(primaryDeclRef)
       .map({ (context, tree) -> NodeID<NameExpr> in
-        context.ast[tree.1].domain = .implicit
+        context.ast[tree.1].incorporate(domain: .implicit)
         context.ast.ranges[tree.1] = tree.0.range.upperBounded(
           by: context.ast.ranges[tree.1]!.upperBound)
         return tree.1
