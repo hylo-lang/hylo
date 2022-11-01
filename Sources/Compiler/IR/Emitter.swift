@@ -357,7 +357,7 @@ public struct Emitter {
     let value = Operand.constant(.integer(IntegerConstant(
       bitPattern: BitPattern(pattern: program.ast[expr].value ? 1 : 0, width: 1))))
 
-    let boolType = ProductType(standardLibraryTypeNamed: "Bool", ast: program.ast)!
+    let boolType = program.ast.coreType(named: "Bool")!
     return module.insert(
       RecordInst(objectType: .object(.product(boolType)), operands: [value]),
       at: insertionPoint!)[0]

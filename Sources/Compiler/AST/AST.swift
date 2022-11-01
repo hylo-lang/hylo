@@ -12,8 +12,8 @@ public struct AST: Codable {
   /// - Invariant: All referred modules have a different name.
   public private(set) var modules: [NodeID<ModuleDecl>] = []
 
-  /// The ID of the module containing Val's standard library, if any.
-  public var stdlib: NodeID<ModuleDecl>?
+  /// The ID of the module containing Val's core library, if any.
+  public var corelib: NodeID<ModuleDecl>?
 
   /// The source range of each node.
   public var ranges = ASTProperty<SourceRange>()
@@ -28,27 +28,6 @@ public struct AST: Codable {
   func scopeHierarchy() -> ScopeHierarchy {
     var builder = ScopeHierarchyBuilder(ast: self)
     return builder.build()
-  }
-
-  /// Imports the standard library into `self`.
-  ///
-  /// - Requires: The standard library must not have been already imported.
-  public mutating func importValModule() throws {
-    if stdlib != nil { throw CompilerError(description: "module already loaded") }
-    stdlib = insert(ModuleDecl(name: "Val"))
-
-    try withFiles(in: ValModule.core!, { (sourceURL) in
-      if sourceURL.pathExtension != "val" {
-        return true
-      }
-
-      let sourceFile = try SourceFile(contentsOf: sourceURL)
-      let (decls, diagnostics) = Parser.parse(sourceFile, into: stdlib!, in: &self)
-      if (decls == nil) || !diagnostics.isEmpty {
-        throw CompilerError(description: "parser failed", diagnostics: diagnostics)
-      }
-      return true
-    })
   }
 
   /// Inserts `n` into `self`.
@@ -90,6 +69,59 @@ public struct AST: Codable {
   /// Accesses the node at `position`.
   subscript(raw position: NodeID.RawValue) -> Node {
     nodes[position].node
+  }
+
+  // MARK: Core library
+
+  /// Imports the core library into `self`.
+  ///
+  /// - Requires: The core library must not have been already imported.
+  public mutating func importCoreModule() throws {
+    if corelib != nil { throw CompilerError(description: "module already loaded") }
+    corelib = insert(ModuleDecl(name: "Val"))
+
+    try withFiles(in: ValModule.core!, { (sourceURL) in
+      if sourceURL.pathExtension != "val" { return true }
+
+      let sourceFile = try SourceFile(contentsOf: sourceURL)
+      let (decls, diagnostics) = Parser.parse(sourceFile, into: corelib!, in: &self)
+      if (decls == nil) || !diagnostics.isEmpty {
+        throw CompilerError(description: "parser failed", diagnostics: diagnostics)
+      }
+      return true
+    })
+  }
+
+  /// Returns the type named `name` defined in the core library or `nil` it does not exist.
+  ///
+  /// - Requires: The core library must be loaded and assigned to `self.corelib`.
+  public func coreType(named name: String) -> ProductType? {
+    let corelib = corelib ?? preconditionFailure("core library is not loaded")
+
+    for id in topLevelDecls(corelib) where id.kind == .productTypeDecl {
+      let id = NodeID<ProductTypeDecl>(id)!
+      if self[id].name == name {
+        return ProductType(decl: id, ast: self)
+      }
+    }
+
+    return nil
+  }
+
+  /// Returns the trait named `name` defined in the core library or `nil` if it doesn not exist.
+  ///
+  /// - Requires: The core library must be loaded and assigned to `self.corelib`.
+  public func coreTrait(named name: String) -> TraitType? {
+    let corelib = corelib ?? preconditionFailure("core library is not loaded")
+
+    for id in topLevelDecls(corelib) where id.kind == .traitDecl {
+      let id = NodeID<TraitDecl>(rawValue: id.rawValue)
+      if self[id].name == name {
+        return TraitType(decl: id, ast: self)
+      }
+    }
+
+    return nil
   }
 
   // MARK: Helpers

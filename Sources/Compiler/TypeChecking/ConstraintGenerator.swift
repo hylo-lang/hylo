@@ -59,7 +59,7 @@ struct ConstraintGenerator: ExprVisitor {
   }
 
   mutating func visit(booleanLiteral id: NodeID<BooleanLiteralExpr>) {
-    let boolType = ProductType(standardLibraryTypeNamed: "Bool", ast: checker.ast)!
+    let boolType = checker.ast.coreType(named: "Bool")!
     assume(typeOf: id, equals: .product(boolType))
   }
 
@@ -109,7 +109,7 @@ struct ConstraintGenerator: ExprVisitor {
     defer { assert(inferredTypes[id] != nil) }
 
     // Visit the condition(s).
-    let boolType = ProductType(standardLibraryTypeNamed: "Bool", ast: checker.ast)!
+    let boolType = checker.ast.coreType(named: "Bool")!
     for item in checker.ast[id].condition {
       switch item {
       case .expr(let expr):
@@ -334,13 +334,13 @@ struct ConstraintGenerator: ExprVisitor {
   mutating func visit(integerLiteral id: NodeID<IntegerLiteralExpr>) {
     defer { assert(inferredTypes[id] != nil) }
 
-    let trait = TraitType(named: "ExpressibleByIntegerLiteral", ast: checker.ast)!
+    let trait = checker.ast.coreTrait(named: "ExpressibleByIntegerLiteral")!
 
     switch expectedTypes[id] {
     case .some(.variable(let tau)):
       // The type of the expression is a variable, possibly constrained elsewhere; constrain it to
       // either be `Int` or conform to `ExpressibleByIntegerLiteral`.
-      let intType = ProductType(standardLibraryTypeNamed: "Int", ast: checker.ast)!
+      let intType = checker.ast.coreType(named: "Int")!
       constraints.append(LocatableConstraint(
         .disjunction([
           Constraint.Minterm(
@@ -360,7 +360,7 @@ struct ConstraintGenerator: ExprVisitor {
 
     case nil:
       // Without contextual information, infer the type of the literal as `Val.Int`.
-      let intType = ProductType(standardLibraryTypeNamed: "Int", ast: checker.ast)!
+      let intType = checker.ast.coreType(named: "Int")!
       assume(typeOf: id, equals: .product(intType))
     }
   }

@@ -129,9 +129,9 @@ struct CLI: ParsableCommand {
     log(verbose: "Type-checking '\(productName)'".styled([.bold]))
 
     // Import the core library.
-    rawProgram.stdlib = rawProgram.insert(ModuleDecl(name: "Val"))
+    rawProgram.corelib = rawProgram.insert(ModuleDecl(name: "Val"))
     if !withFiles(in: ValModule.core!, {
-      insert(contentsOf: $0, into: rawProgram.stdlib!, in: &rawProgram)
+      insert(contentsOf: $0, into: rawProgram.corelib!, in: &rawProgram)
     }) {
       CLI.exit(withError: ExitCode(-1))
     }
@@ -142,7 +142,7 @@ struct CLI: ParsableCommand {
 
     // Type check the code library.
     checker.isBuiltinModuleVisible = true
-    typeCheckingSucceeded = checker.check(module: rawProgram.stdlib!)
+    typeCheckingSucceeded = checker.check(module: rawProgram.corelib!)
 
     // Type-check the input.
     checker.isBuiltinModuleVisible = importBuiltinModule

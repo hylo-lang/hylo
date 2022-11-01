@@ -12,7 +12,7 @@ final class TypeCheckerTests: XCTestCase {
 
     // Prepare an AST with the core module loaded.
     var baseAST = AST()
-    try baseAST.importValModule()
+    try baseAST.importCoreModule()
 
     // Execute the test cases.
     try TestCase.executeAll(in: testCaseDirectory, { (tc) in
