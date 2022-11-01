@@ -5,6 +5,7 @@ struct ScopeHierarchyBuilder:
   DeclVisitor, ExprVisitor, PatternVisitor, StmtVisitor, TypeExprVisitor
 {
 
+  /// Creates an instance to build the scope hierarchy for `ast`.
   init(ast: AST) {
     self.ast = ast
     self.hierarchy = .init()
@@ -13,7 +14,7 @@ struct ScopeHierarchyBuilder:
   typealias Result = Void
 
   /// The AST of the module for which the scope hierarchy is built.
-  private var ast: AST
+  private let ast: AST
 
   /// The scope hierarchy under construction.
   private var hierarchy: ScopeHierarchy
