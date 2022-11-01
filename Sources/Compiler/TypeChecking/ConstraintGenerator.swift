@@ -46,8 +46,8 @@ struct ConstraintGenerator: ExprVisitor {
     expectedTypes[rhs] = inferredTypes[lhs]
     rhs.accept(&self)
 
-    // Assignments have the unit type.
-    assume(typeOf: id, equals: .unit)
+    // Assignments have the void type.
+    assume(typeOf: id, equals: .void)
   }
 
   mutating func visit(async id: NodeID<AsyncExpr>) {
@@ -145,11 +145,11 @@ struct ConstraintGenerator: ExprVisitor {
       elseExpr.accept(&self)
 
     case .block(let thenBlock):
-      assume(typeOf: id, equals: .unit)
+      assume(typeOf: id, equals: .void)
       _ = checker.check(brace: thenBlock)
 
     case nil:
-      assume(typeOf: id, equals: .unit)
+      assume(typeOf: id, equals: .void)
     }
   }
 

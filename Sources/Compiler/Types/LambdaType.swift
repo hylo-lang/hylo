@@ -23,7 +23,7 @@ public struct LambdaType: TypeProtocol, Hashable {
 
   public init(
     receiverEffect: ReceiverEffect? = nil,
-    environment: Type = .unit,
+    environment: Type = .void,
     inputs: [CallableTypeParameter],
     output: Type
   ) {
@@ -93,7 +93,7 @@ public struct LambdaType: TypeProtocol, Hashable {
   /// Transforms `self` into a constructor type if `self` has the shape of an initializer type.
   /// Otherwise, returns `nil`.
   public func ctor() -> LambdaType? {
-    guard (receiverEffect == nil) && (environment == .unit) && (output == .unit),
+    guard (receiverEffect == nil) && (environment == .void) && (output == .void),
           let receiverParameter = inputs.first,
           case .parameter(let receiverType) = receiverParameter.type,
           receiverType.convention == .set
@@ -102,7 +102,7 @@ public struct LambdaType: TypeProtocol, Hashable {
   }
 
   /// Indicates whether `self` has an empty environment.
-  public var isThin: Bool { environment == .unit }
+  public var isThin: Bool { environment == .void }
 
   /// Accesses the individual elements of the lambda's environment.
   public var captures: [TupleType.Element] {
@@ -119,7 +119,7 @@ extension LambdaType: CustomStringConvertible {
 
   public var description: String {
     let p = receiverEffect.map({ "\($0) " }) ?? ""
-    let e = (environment == .unit) ? "thin" : "[\(environment)]"
+    let e = (environment == .void) ? "thin" : "[\(environment)]"
     return "\(p)\(e) (\(inputs.descriptions())) -> \(output)"
   }
 

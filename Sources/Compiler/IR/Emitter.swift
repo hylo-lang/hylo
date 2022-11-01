@@ -298,7 +298,7 @@ public struct Emitter {
     if let expr = program.ast[stmt].value {
       value = emitR(expr: expr, into: &module)
     } else {
-      value = .constant(.unit)
+      value = .constant(.void)
     }
 
     emitStackDeallocs(in: &module)
@@ -347,7 +347,7 @@ public struct Emitter {
     // FIXME: Should request the capability 'set or inout'.
     let lhs = emitL(expr: program.ast[expr].left, withCapability: .set, into: &module)
     _ = module.insert(StoreInst(rhs, to: lhs), at: insertionPoint!)
-    return .constant(.unit)
+    return .constant(.void)
   }
 
   private mutating func emitR(
@@ -371,7 +371,7 @@ public struct Emitter {
 
     // If the expression is supposed to return a value, allocate storage for it.
     var resultStorage: Operand?
-    if let type = program.exprTypes[expr], type != .unit {
+    if let type = program.exprTypes[expr], type != .void {
       resultStorage = module.insert(AllocStackInst(type), at: insertionPoint!)[0]
       stack.top.allocs.append(resultStorage!)
     }
@@ -464,7 +464,7 @@ public struct Emitter {
         LoadInst(LoweredType(lowering: program.exprTypes[expr]!), from: source),
         at: insertionPoint!)[0]
     } else {
-      return .constant(.unit)
+      return .constant(.void)
     }
   }
 
@@ -513,7 +513,7 @@ public struct Emitter {
       switch program.referredDecls[calleeID] {
       case .direct(let calleeDeclID) where calleeDeclID.kind == .builtinDecl:
         // Callee refers to a built-in function.
-        assert(calleeType.environment == .unit)
+        assert(calleeType.environment == .void)
         callee = .constant(.builtin(BuiltinFunctionRef(
           name: program.ast[calleeID].name.value.stem,
           type: .address(.lambda(calleeType)))))

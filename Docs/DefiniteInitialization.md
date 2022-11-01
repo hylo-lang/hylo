@@ -69,7 +69,7 @@ Blocks that cannot be visited are put back at the end of the queue, guaranteeing
 For example, consider the following function, which encodes a very simple loop:
 
 ```
-@lowered fun foo(let &Bool) -> Unit {
+@lowered fun foo(let &Bool) -> Void {
 bb0(%0 : &Bool):
  %1 = alloc_stack Bool, binding="y"
  %2 = borrow [let] %0
@@ -87,7 +87,7 @@ bb2():
  branch bb1
 bb3():
  dealloc_stack %1
- return unit
+ return void
 }
 ```
 

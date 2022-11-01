@@ -134,8 +134,8 @@ public indirect enum Type: TypeProtocol, Hashable {
   /// The `Never` type.
   public static var never: Type = .union(UnionType([]))
 
-  /// The unit type (i.e., `()`).
-  public static var unit: Type = .tuple(TupleType([]))
+  /// The void type (i.e., `{}`).
+  public static var void: Type = .tuple(TupleType([]))
 
 }
 

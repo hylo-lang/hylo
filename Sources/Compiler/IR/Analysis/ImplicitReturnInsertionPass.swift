@@ -19,12 +19,12 @@ public struct ImplicitReturnInsertionPass: TransformPass {
       if module[functionID][i.address].instructions.last?.isTerminator ?? false  {
         // There's a terminator instruction. Move to the next block.
         continue
-      } else if expectedReturnType == .unit {
+      } else if expectedReturnType == .void {
         // Insert missing return instruction.
         let ip = InsertionPoint(endOf: Block.ID(function: functionID, address: i.address))
         module.insert(ReturnInst(), at: ip)
       } else {
-        // No return instruction, yet the function must return a non-unit value.
+        // No return instruction, yet the function must return a non-void value.
         let range = module[functionID][i.address].instructions
           .last(where: { $0.range != nil })?.range
         diagnostics.append(.missingFunctionReturn(

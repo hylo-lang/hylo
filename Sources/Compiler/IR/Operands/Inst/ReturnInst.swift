@@ -6,7 +6,7 @@ public struct ReturnInst: Inst {
 
   public var range: SourceRange?
 
-  init(value: Operand = .constant(.unit), range: SourceRange? = nil) {
+  init(value: Operand = .constant(.void), range: SourceRange? = nil) {
     self.value = value
     self.range = range
   }

@@ -132,7 +132,7 @@ extension Diagnostic {
   }
 
   static func missingReturnValue(at range: SourceRange?) -> Diagnostic {
-    .error("non-unit function should return a value", range: range)
+    .error("non-void function should return a value", range: range)
   }
 
   static func missingTypeAnnotation(at range: SourceRange?) -> Diagnostic {

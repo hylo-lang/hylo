@@ -9,7 +9,7 @@ public enum Constant: Hashable {
 
   case poison(PoisonConstant)
 
-  case unit
+  case void
 
   /// The associated value of this constant.
   public var base: ConstantProtocol {
@@ -18,7 +18,7 @@ public enum Constant: Hashable {
     case .integer(let c):   return c
     case .function(let c):  return c
     case .poison(let c):    return c
-    case .unit:             return UnitConstant()
+    case .void:             return VoidConstant()
     }
   }
 

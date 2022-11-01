@@ -13,7 +13,7 @@ public struct CXXTypeExpr: CustomStringConvertible {
   ///     variable type annotation.
   public init?(_ type: Type, ast: AST, asReturnType isReturnType: Bool = false) {
     switch type {
-    case .unit:
+    case .void:
       description = isReturnType ? "void" : "std::monostate"
 
     default:

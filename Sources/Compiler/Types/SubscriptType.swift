@@ -20,7 +20,7 @@ public struct SubscriptType: TypeProtocol, Hashable {
   public init(
     isProperty: Bool,
     capabilities: Set<ImplIntroducer>,
-    environment: Type = .unit,
+    environment: Type = .void,
     inputs: [CallableTypeParameter],
     output: Type
   ) {
@@ -51,7 +51,7 @@ extension SubscriptType: CustomStringConvertible {
 
   public var description: String {
     let c = capabilities.map({ "\($0)" }).sorted().joined(separator: " ")
-    let e = (environment == .unit) ? "thin" : "[\(environment)]"
+    let e = (environment == .void) ? "thin" : "[\(environment)]"
     if isProperty {
       return "property \(e) \(output) { \(c) }"
     } else {

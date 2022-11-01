@@ -523,7 +523,7 @@ public struct TypeChecker {
         switch ast[j].body {
         case .expr(let expr):
           let expectedType: Type = ast[j].introducer.value == .inout
-            ? .unit
+            ? .void
             : output
           success = (infer(expr: expr, expectedType: expectedType, inScope: j) != nil) && success
 
@@ -962,8 +962,8 @@ public struct TypeChecker {
     case .exprStmt:
       let stmt = ast[NodeID<ExprStmt>(rawValue: id.rawValue)]
       if let type = infer(expr: stmt.expr, inScope: lexicalContext) {
-        // Issue a warning if the type of the expression isn't unit.
-        if type != .unit {
+        // Issue a warning if the type of the expression isn't void.
+        if type != .void {
           diagnostics.insert(.unusedResult(ofType: type, at: ast.ranges[stmt.expr]))
         }
         return true
@@ -1020,7 +1020,7 @@ public struct TypeChecker {
         inScope: AnyScopeID(lexicalContext),
         constraints: [c])
       return solution.diagnostics.isEmpty
-    } else if expectedType != .unit {
+    } else if expectedType != .void {
       diagnostics.insert(.missingReturnValue(at: ast.ranges[id]))
       return false
     } else {
@@ -1059,7 +1059,7 @@ public struct TypeChecker {
         // `lexicalContext` is nested in a method implementation.
         let decl = NodeID<MethodImplDecl>(rawValue: parent.rawValue)
         if ast[decl].introducer.value == .inout {
-          return .unit
+          return .void
         } else {
           let methodDecl = NodeID<FunDecl>(rawValue: scopeHierarchy.parent[decl]!.rawValue)
           guard case .method(let methodType) = declTypes[methodDecl] else { unreachable() }
@@ -2396,7 +2396,7 @@ public struct TypeChecker {
         label: "self",
         type: .parameter(ParameterType(convention: .set, bareType: receiver!)))
       inputs.insert(receiverParameter, at: 0)
-      return .lambda(LambdaType(environment: .unit, inputs: inputs, output: .unit))
+      return .lambda(LambdaType(environment: .void, inputs: inputs, output: .void))
 
     case .deinit:
       // Deinitializers are sink methods.
@@ -2404,7 +2404,7 @@ public struct TypeChecker {
         receiverEffect: .sink,
         environment: .tuple(TupleType(labelsAndTypes: [("self", receiver!)])),
         inputs: [],
-        output: .unit))
+        output: .void))
 
     case .fun:
       // Realize the output type.
@@ -2418,7 +2418,7 @@ public struct TypeChecker {
         output = .variable(TypeVariable())
       } else {
         // Default to `()`
-        output = .unit
+        output = .void
       }
 
       if case .bundle(let impls) = ast[id].body {
@@ -2681,7 +2681,7 @@ public struct TypeChecker {
         // Capture-less local functions are not captured.
         if let funDecl = NodeID<FunDecl>(captureDecl) {
           guard case .lambda(let lambda) = realize(funDecl: funDecl) else { continue }
-          if lambda.environment == .unit { continue }
+          if lambda.environment == .void { continue }
         }
 
         // Other local declarations are captured.
@@ -2746,7 +2746,7 @@ public struct TypeChecker {
       }
     }
 
-    return LambdaType(environment: .unit, inputs: inputs, output: .unit)
+    return LambdaType(environment: .void, inputs: inputs, output: .void)
   }
 
   // MARK: Type role determination

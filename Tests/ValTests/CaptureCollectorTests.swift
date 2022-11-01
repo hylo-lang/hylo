@@ -5,7 +5,7 @@ final class CaptureCollectorTests: XCTestCase {
 
   func testFunctionBindings() {
 
-    // fun f<X, @value v: Unit>[let c = ()](_ p: Any) {
+    // fun f<X, @value v: Void>[let c = ()](_ p: Any) {
     //   let _ = free   // captured
     //   let _ = X      // bound
     //   let _ = v      // bound
@@ -24,7 +24,7 @@ final class CaptureCollectorTests: XCTestCase {
           .value(ast.insert(GenericValueParamDecl(
             identifier: SourceRepresentable(value: "v"),
             annotation: AnyTypeExprID(ast.insert(NameTypeExpr(
-              identifier: SourceRepresentable(value: "Unit"))))))),
+              identifier: SourceRepresentable(value: "Void"))))))),
         ])),
       captures: [
         ast.insert(BindingDecl(

@@ -48,7 +48,7 @@ public enum BuiltinSymbols {
   // 64-bit print.
   public static let i64_print = LambdaType(
     from: (.let, .i(64)),
-    to: .unit)
+    to: .void)
 
   // Double-precision floating-point copy.
   public static let f64_copy = LambdaType(

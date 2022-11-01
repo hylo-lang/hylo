@@ -2,5 +2,5 @@
 
 fun forty_two() -> Int { return 42 }
 
-//! @+1 diagnostic non-unit function should return a value
+//! @+1 diagnostic non-void function should return a value
 fun forty_one() -> Int { return }
