@@ -7,7 +7,6 @@ extension AST {
     precondition(names.count > 0)
 
     let base = NameTypeExpr(
-      domain: nil,
       identifier: SourceRepresentable(value: String(names[0])),
       arguments: [])
     return names[1...].reduce(insert(base), { domain, next in

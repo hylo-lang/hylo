@@ -24,7 +24,7 @@ final class CaptureCollectorTests: XCTestCase {
           .value(ast.insert(GenericValueParamDecl(
             identifier: SourceRepresentable(value: "v"),
             annotation: AnyTypeExprID(ast.insert(NameTypeExpr(
-              identifier: SourceRepresentable(value: "Unit"))))))),
+              identifier: SourceRepresentable(value: "Unit"), arguments: [])))))),
         ])),
       captures: [
         ast.insert(BindingDecl(
@@ -41,7 +41,7 @@ final class CaptureCollectorTests: XCTestCase {
           annotation: ast.insert(ParameterTypeExpr(
             convention: SourceRepresentable(value: .let),
             bareType: AnyTypeExprID(ast.insert(NameTypeExpr(
-              identifier: SourceRepresentable(value: "Any")))))))),
+              identifier: SourceRepresentable(value: "Any"), arguments: []))))))),
       ],
       body: .block(ast.insert(BraceStmt(
         stmts: [
