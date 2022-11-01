@@ -833,9 +833,8 @@ public enum Parser {
 
       case .funDecl:
         let id = NodeID<FunDecl>(rawValue: declID.rawValue)
-        context.ast[id].attributes = attributes
-        context.ast[id].accessModifier = access
-        context.ast[id].memberModifier = member
+        context.ast[id].incorporate(
+          attributes: attributes, accessModifier: access, memberModifier: member)
 
       case .operatorDecl:
         let id = NodeID<OperatorDecl>(rawValue: declID.rawValue)

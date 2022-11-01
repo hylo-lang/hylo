@@ -36,13 +36,13 @@ public struct FunDecl: GenericDecl, GenericScope {
   public let introducer: SourceRepresentable<Introducer>
 
   /// The attributes of the declaration, if any.
-  public var attributes: [SourceRepresentable<Attribute>]
+  public private(set) var attributes: [SourceRepresentable<Attribute>]
 
   /// The access modifier of the declaration, if any.
-  public  var accessModifier: SourceRepresentable<AccessModifier>?
+  public private(set) var accessModifier: SourceRepresentable<AccessModifier>?
 
   /// The member modifier of the declaration.
-  public var memberModifier: SourceRepresentable<MemberModifier>?
+  public private(set) var memberModifier: SourceRepresentable<MemberModifier>?
 
   /// The receiver effect of the function.
   public let receiverEffect: SourceRepresentable<ReceiverEffect>?
@@ -143,4 +143,19 @@ public struct FunDecl: GenericDecl, GenericScope {
     }
   }
 
+  /// Incorporates the given decorations into `self`.
+  ///
+  /// - Requires: `self` is undecorated.
+  internal mutating func incorporate(
+    attributes: [SourceRepresentable<Attribute>],
+    accessModifier: SourceRepresentable<AccessModifier>?,
+    memberModifier: SourceRepresentable<MemberModifier>?
+  ) {
+    precondition(self.attributes.isEmpty)
+    precondition(self.accessModifier == nil)
+    precondition(self.memberModifier == nil)
+    self.attributes = attributes
+    self.accessModifier = accessModifier
+    self.memberModifier = memberModifier
+  }
 }
