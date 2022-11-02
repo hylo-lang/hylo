@@ -44,16 +44,16 @@ struct Solution {
   }
 
   /// The type assumptions made by the solver.
-  private var typeAssumptions: [TypeVariable: Type]
+  private let typeAssumptions: [TypeVariable: Type]
 
   /// The name binding assumptions made by the solver.
-  private(set) var bindingAssumptions: [NodeID<NameExpr>: DeclRef]
+  let bindingAssumptions: [NodeID<NameExpr>: DeclRef]
 
   /// The penalties of the solution.
   private var penalties: Int
 
   /// The diagnostics of the errors associated with the solution.
-  var diagnostics: [Diagnostic]
+  private(set) var diagnostics: [Diagnostic]
 
   /// The score of the solution.
   var score: Score { Score(errorCount: diagnostics.count, penalties: penalties) }
@@ -78,5 +78,10 @@ struct Solution {
         return .stepInto(type)
       }
     })
+  }
+
+  /// Adds `d` to the list of diagnostics associated with this solution.
+  internal mutating func diagnose(_ d: Diagnostic) {
+    diagnostics.append(d)
   }
 }

@@ -31,10 +31,10 @@ public struct Block {
   }
 
   /// The type input parameters of the block.
-  public var inputs: [LoweredType] = []
+  public let inputs: [LoweredType]
 
   /// The instructions in the block.
-  public var instructions: DoublyLinkedList<Inst> = []
+  public internal(set) var instructions: DoublyLinkedList<Inst> = []
 
 }
 

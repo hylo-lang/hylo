@@ -132,11 +132,10 @@ struct CLI: ParsableCommand {
     try rawProgram.importCoreModule()
 
     // Initialize the type checker.
-    var checker = TypeChecker(ast: rawProgram)
+    var checker = TypeChecker(ast: rawProgram, isBuiltinModuleVisible: true)
     var typeCheckingSucceeded = true
 
     // Type check the code library.
-    checker.isBuiltinModuleVisible = true
     typeCheckingSucceeded = checker.check(module: rawProgram.corelib!)
 
     // Type-check the input.

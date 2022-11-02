@@ -129,13 +129,13 @@ public indirect enum Type: TypeProtocol, Hashable {
   }
 
   /// The `Any` type.
-  public static var any: Type = .existential(ExistentialType(traits: [], constraints: []))
+  public static let any: Type = .existential(ExistentialType(traits: [], constraints: []))
 
   /// The `Never` type.
-  public static var never: Type = .union(UnionType([]))
+  public static let never: Type = .union(UnionType([]))
 
   /// The void type (i.e., `{}`).
-  public static var void: Type = .tuple(TupleType([]))
+  public static let void: Type = .tuple(TupleType([]))
 
 }
 

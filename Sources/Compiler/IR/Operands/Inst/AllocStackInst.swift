@@ -2,12 +2,12 @@
 public struct AllocStackInst: Inst {
 
   /// The type for which storage is allocated.
-  public var allocatedType: Type
+  public let allocatedType: Type
 
   /// The binding in source program to which the instruction corresponds, if any.
-  public var binding: NodeID<VarDecl>?
+  public let binding: NodeID<VarDecl>?
 
-  public var range: SourceRange?
+  public let range: SourceRange?
 
   init(_ allocatedType: Type, binding: NodeID<VarDecl>? = nil, range: SourceRange? = nil) {
     self.allocatedType = allocatedType

@@ -2,16 +2,17 @@
 public struct StoreInst: Inst {
 
   /// The object to store.
-  public var object: Operand
+  public let object: Operand
 
   /// The location at which the object is stored.
-  public var target: Operand
+  public let target: Operand
 
-  public var range: SourceRange?
+  public let range: SourceRange?
 
-  init(_ object: Operand, to target: Operand) {
+  init(_ object: Operand, to target: Operand, range: SourceRange? = nil) {
     self.object = object
     self.target = target
+    self.range = range
   }
 
   public var types: [LoweredType] { [] }

@@ -4,10 +4,10 @@ import Utils
 public struct ParameterType: TypeProtocol, Hashable {
 
   /// The passing convention of the parameter.
-  public var convention: PassingConvention
+  public let convention: PassingConvention
 
   /// The bare type.
-  public var bareType: Type
+  public let bareType: Type
 
   public let flags: TypeFlags
 

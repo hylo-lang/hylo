@@ -14,7 +14,7 @@ public struct BoundGenericType: TypeProtocol, Hashable {
   public let base: Type
 
   /// The type and value arguments of the base type.
-  public var arguments: [Argument]
+  public let arguments: [Argument]
 
   public let flags: TypeFlags
 

@@ -10,24 +10,24 @@ public struct Function {
   public typealias Input = (convention: PassingConvention, type: LoweredType)
 
   /// The mangled name of the function.
-  public var name: String
+  public let name: String
 
   /// The debug name of the function, if any.
-  public var debugName: String?
+  public let debugName: String?
 
   /// The linkage of the function.
-  public var linkage: Linkage
+  public let linkage: Linkage
 
   /// The types of the function's parameters.
-  public var inputs: [Input]
+  public let inputs: [Input]
 
   /// The type of the function's output.
-  public var output: LoweredType
+  public let output: LoweredType
 
   /// The blocks in the function.
   ///
   /// The first block of the array is the function's entry.
-  public var blocks: DoublyLinkedList<Block>
+  public internal(set) var blocks: DoublyLinkedList<Block>
 
   /// The entry of the function.
   public var entry: Block? { blocks.first }

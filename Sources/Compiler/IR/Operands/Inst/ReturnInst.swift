@@ -2,9 +2,9 @@
 public struct ReturnInst: Inst {
 
   /// The returned value.
-  public var value: Operand
+  public let value: Operand
 
-  public var range: SourceRange?
+  public let range: SourceRange?
 
   init(value: Operand = .constant(.void), range: SourceRange? = nil) {
     self.value = value

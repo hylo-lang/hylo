@@ -2,16 +2,16 @@
 public struct LoadInst: Inst {
 
   /// The type of the object being loaded.
-  public var objectType: LoweredType
+  public let objectType: LoweredType
 
   /// The location of the object is being loaded, or the root location of the object from which a
   /// sub-object is being loaded.
-  public var source: Operand
+  public let source: Operand
 
   /// A sequence of indices identifying a sub-location of `location`.
-  public var path: [Int]
+  public let path: [Int]
 
-  public var range: SourceRange?
+  public let range: SourceRange?
 
   init(
     _ objectType: LoweredType,

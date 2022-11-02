@@ -48,7 +48,7 @@ public struct DoublyLinkedList<Element> {
   }
 
   /// The number of elements in the list.
-  public var count: Int = 0
+  public private(set) var count: Int = 0
 
   /// The offset of the list head.
   private var headOffset: Int = -1
