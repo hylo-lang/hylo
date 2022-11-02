@@ -129,12 +129,7 @@ struct CLI: ParsableCommand {
     log(verbose: "Type-checking '\(productName)'".styled([.bold]))
 
     // Import the core library.
-    rawProgram.corelib = rawProgram.insert(ModuleDecl(name: "Val"))
-    if !withFiles(in: ValModule.core!, {
-      insert(contentsOf: $0, into: rawProgram.corelib!, in: &rawProgram)
-    }) {
-      CLI.exit(withError: ExitCode(-1))
-    }
+    try rawProgram.importCoreModule()
 
     // Initialize the type checker.
     var checker = TypeChecker(ast: rawProgram)
