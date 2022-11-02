@@ -137,11 +137,10 @@ struct CLI: ParsableCommand {
     }
 
     // Initialize the type checker.
-    var checker = TypeChecker(ast: rawProgram)
+    var checker = TypeChecker(ast: rawProgram, isBuiltinModuleVisible: true)
     var typeCheckingSucceeded = true
 
     // Type check the code library.
-    checker.isBuiltinModuleVisible = true
     typeCheckingSucceeded = checker.check(module: rawProgram.stdlib!)
 
     // Type-check the input.

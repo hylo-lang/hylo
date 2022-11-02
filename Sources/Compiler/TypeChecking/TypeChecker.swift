@@ -22,7 +22,7 @@ public struct TypeChecker {
   public internal(set) var referredDecls: [NodeID<NameExpr>: DeclRef] = [:]
 
   /// Indicates whether the built-in symbols are visible.
-  public var isBuiltinModuleVisible = false
+  public var isBuiltinModuleVisible: Bool
 
   /// The set of lambda expressions whose declarations are pending type checking.
   var pendingLambdas: [NodeID<LambdaExpr>] = []
@@ -31,9 +31,10 @@ public struct TypeChecker {
   ///
   /// - Note: `ast` is stored in the type checker and mutated throughout type checking (e.g., to
   ///   insert synthesized declarations).
-  public init(ast: AST) {
+  public init(ast: AST, isBuiltinModuleVisible: Bool = false) {
     self.ast = ast
     self.scopeHierarchy = ast.scopeHierarchy()
+    self.isBuiltinModuleVisible = isBuiltinModuleVisible
   }
 
   /// Type checks the AST and returns a typed program.
