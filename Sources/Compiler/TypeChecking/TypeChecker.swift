@@ -1405,9 +1405,10 @@ public struct TypeChecker {
 
     // Solve the constraints.
     var solver = ConstraintSolver(
-      checker: generator.checker.release(), scope: scope, fresh: constraints)
-    var solution = solver.solve()!
-    solution.diagnostics.append(contentsOf: generator.diagnostics)
+      checker: generator.checker.release(), scope: scope, fresh: constraints,
+      initialDiagnostics: generator.diagnostics
+    )
+    let solution = solver.solve()!
 
     // Apply the solution.
     for (id, type) in generator.inferredTypes.storage {
