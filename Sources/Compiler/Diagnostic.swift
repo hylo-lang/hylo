@@ -30,21 +30,21 @@ public struct Diagnostic: Hashable {
   }
 
   /// The level of the diagnostic.
-  public var level: Level
+  public let level: Level
 
   /// The main description of the diagnostic.
   ///
   /// The message should be general and able to stand on its own.
-  public var message: String
+  public let message: String
 
   /// The location at which the diagnostic should be reported.
-  public var location: SourceLocation?
+  public let location: SourceLocation?
 
   /// The window of the diagnostic, if any.
-  public var window: Window?
+  public let window: Window?
 
   /// The sub-diagnostics.
-  public var children: [Diagnostic]
+  public let children: [Diagnostic]
 
   /// Creates a new diagnostic.
   public init(
@@ -62,21 +62,27 @@ public struct Diagnostic: Hashable {
   }
 
   /// Creates an error diagnostic with `message` highlighting `range`.
-  public static func error(_ message: String, range: SourceRange? = nil) -> Diagnostic {
+  public static func error(
+    _ message: String, range: SourceRange? = nil,
+    children: [Diagnostic] = []
+  ) -> Diagnostic {
     Diagnostic(
       level: .error,
       message: message,
       location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+      window: range.map({ r in Diagnostic.Window(range: r) }), children: children)
   }
 
   /// Creates a warning diagnostic with `message` highlighting `range`.
-  public static func warning(_ message: String, range: SourceRange? = nil) -> Diagnostic {
+  public static func warning(
+    _ message: String, range: SourceRange? = nil,
+    children: [Diagnostic] = []
+  ) -> Diagnostic {
     Diagnostic(
       level: .warning,
       message: message,
       location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }))
+      window: range.map({ r in Diagnostic.Window(range: r) }), children: children)
   }
 
 }

@@ -3,10 +3,14 @@ import Utils
 /// A constraint system solver.
 struct ConstraintSolver {
 
-  init(checker: TypeChecker, scope: AnyScopeID, fresh: [LocatableConstraint]) {
+  init(
+    checker: TypeChecker, scope: AnyScopeID, fresh: [LocatableConstraint],
+    initialDiagnostics: [Diagnostic]
+  ) {
     self.checker = checker
     self.scope = scope
     self.fresh = fresh
+    self.diagnostics = initialDiagnostics
   }
 
   /// A borrowed projection of the type checker that uses this constraint generator.
@@ -31,7 +35,7 @@ struct ConstraintSolver {
   private var penalties: Int = 0
 
   /// The diagnostics of the errors the solver encountered.
-  private var diagnostics: [Diagnostic] = []
+  private var diagnostics: [Diagnostic]
 
   /// The score of the best solution computed so far.
   private var best = Solution.Score.worst
@@ -486,7 +490,7 @@ struct ConstraintSolver {
 
     default:
       // TODO: Merge remaining solutions
-      results[0].solution.diagnostics.append(.ambiguousDisjunction(at: range(of: location)))
+      results[0].solution.diagnose(.ambiguousDisjunction(at: range(of: location)))
       return results[0]
     }
   }
@@ -561,7 +565,7 @@ struct ConstraintSolver {
       diagnostics: diagnostics)
 
     for c in stale {
-      s.diagnostics.append(.staleConstraint(constraint: c.constraint, at: range(of: c.location)))
+      s.diagnose(.staleConstraint(constraint: c.constraint, at: range(of: c.location)))
     }
 
     return s

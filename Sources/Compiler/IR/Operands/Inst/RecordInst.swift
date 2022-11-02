@@ -5,12 +5,12 @@
 public struct RecordInst: Inst {
 
   /// The type of the created record.
-  public var objectType: LoweredType
+  public let objectType: LoweredType
 
   /// The operands consumed to initialize the record members.
-  public var operands: [Operand]
+  public let operands: [Operand]
 
-  public var range: SourceRange?
+  public let range: SourceRange?
 
   public var types: [LoweredType] { [objectType] }
 
@@ -21,5 +21,10 @@ public struct RecordInst: Inst {
     return !objectType.isAddress
   }
 
+  init(objectType: LoweredType, operands: [Operand], range: SourceRange? = nil) {
+    self.objectType = objectType
+    self.operands = operands
+    self.range = range
+  }
 }
 

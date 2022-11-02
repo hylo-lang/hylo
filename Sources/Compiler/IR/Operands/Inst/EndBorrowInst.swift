@@ -2,9 +2,9 @@
 public struct EndBorrowInst: Inst {
 
   /// The borrow whose lifetime is ended.
-  public var borrow: Operand
+  public let borrow: Operand
 
-  public var range: SourceRange?
+  public let range: SourceRange?
 
   public var types: [LoweredType] { [] }
 

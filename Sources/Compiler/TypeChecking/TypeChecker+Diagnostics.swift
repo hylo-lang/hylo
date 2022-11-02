@@ -150,9 +150,10 @@ extension Diagnostic {
   static func noConformance(
     of type: Type,
     to trait: TraitType,
-    at range: SourceRange?
+    at range: SourceRange?,
+    children: [Diagnostic] = []
   ) -> Diagnostic {
-    .error("type '\(type)' does not conform to trait '\(trait)'", range: range)
+    .error("type '\(type)' does not conform to trait '\(trait)'", range: range, children: children)
   }
 
   static func noSkolemInConformance(_ type: Type, at range: SourceRange?) -> Diagnostic {

@@ -25,12 +25,12 @@ public protocol Inst {
 public struct InstID: Hashable {
 
   /// The ID of the containing function.
-  public var function: Module.FunctionIndex
+  public let function: Module.FunctionIndex
 
   /// The address of the containing block.
-  public var block: Function.BlockAddress
+  public let block: Function.BlockAddress
 
   /// The address of the instruction in the containing block.
-  public var address: Block.InstAddress
+  public let address: Block.InstAddress
 
 }
