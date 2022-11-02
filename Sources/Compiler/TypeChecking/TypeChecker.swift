@@ -932,11 +932,14 @@ public struct TypeChecker {
         // If there's no candidate and the requirement doesn't have a default implementation, the
         // conformance is not satisfied.
         if candidates.isEmpty && (ast[requirement].body == nil) {
-          var d = Diagnostic.noConformance(
-            of: conformingType, to: trait, at: ast[decl].identifier.range)
-          d.children.append(.requires(
-            method: Name(ofFunction: requirement, in: ast)!, withType: declTypes[requirement]!))
-          diagnostics.insert(d)
+          diagnostics.insert(
+            .noConformance(
+              of: conformingType, to: trait, at: ast[decl].identifier.range,
+              children: [
+                .requires(
+                  method: Name(ofFunction: requirement, in: ast)!,
+                  withType: declTypes[requirement]!)
+              ]))
           success = false
         }
 

@@ -61,15 +61,14 @@ public enum Parser {
         decls = nil
       }
     } catch let error {
-      var diagnostic = Diagnostic(level: .error, message: "")
       if let error = error as? ParseError {
-        diagnostic.message = error.message
-        diagnostic.location = error.location
-        diagnostic.window = Diagnostic.Window(range: error.location ..< error.location)
+        context.diagnostics.append(
+          Diagnostic(
+            level: .error, message: error.message, location: error.location,
+            window: Diagnostic.Window(range: error.location ..< error.location)))
       } else {
-        diagnostic.message = error.localizedDescription
+        context.diagnostics.append(Diagnostic(level: .error, message: error.localizedDescription))
       }
-      context.diagnostics.append(diagnostic)
       decls = nil
     }
 

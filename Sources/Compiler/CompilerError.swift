@@ -5,6 +5,10 @@ public struct CompilerError: Error, CustomStringConvertible {
   public let description: String
 
   /// The diagnostics attached to the error, if any.
-  public internal(set) var diagnostics: [Diagnostic] = []
+  public let diagnostics: [Diagnostic]
 
+  public init(description: String, diagnostics: [Diagnostic] = []) {
+    self.description = description
+    self.diagnostics = diagnostics
+  }
 }
