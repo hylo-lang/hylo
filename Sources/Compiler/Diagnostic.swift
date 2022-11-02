@@ -71,7 +71,8 @@ public struct Diagnostic: Hashable {
       level: .error,
       message: message,
       location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }), children: children)
+      window: range.map({ r in Diagnostic.Window(range: r) }),
+      children: children)
   }
 
   /// Creates a warning diagnostic with `message` highlighting `range`.
