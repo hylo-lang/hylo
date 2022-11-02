@@ -4,7 +4,9 @@ import Utils
 struct ConstraintSolver {
 
   init(
-    checker: TypeChecker, scope: AnyScopeID, fresh: [LocatableConstraint],
+    checker: TypeChecker,
+    scope: AnyScopeID,
+    fresh: [LocatableConstraint],
     initialDiagnostics: [Diagnostic]
   ) {
     self.checker = checker
