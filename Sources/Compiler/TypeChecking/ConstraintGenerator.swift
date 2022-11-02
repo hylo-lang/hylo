@@ -8,8 +8,11 @@ struct ConstraintGenerator: ExprVisitor {
   /// Creates an instance, for use with `checker`, that generates constraints for `expr` in `scope`
   /// with the given inferred and expected types.
   init(
-    checker: TypeChecker, scope: AnyScopeID,
-    expr: AnyExprID, inferredType: Type?,  expectedType: Type?
+    checker: TypeChecker,
+    scope: AnyScopeID,
+    expr: AnyExprID,
+    inferredType: Type?, 
+    expectedType: Type?
 ) {
     self.checker = checker
     self.scope = scope
