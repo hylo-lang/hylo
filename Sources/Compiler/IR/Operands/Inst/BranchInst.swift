@@ -4,9 +4,14 @@
 public struct BranchInst: Inst {
 
   /// The target of the branch.
-  public var target: Block.ID
+  public let target: Block.ID
 
-  public var range: SourceRange?
+  public let range: SourceRange?
+
+  init(target: Block.ID, range: SourceRange? = nil) {
+    self.target = target
+    self.range = range
+  }
 
   public var types: [LoweredType] { [] }
 

@@ -4,7 +4,7 @@ import Utils
 public struct IntegerConstant: ConstantProtocol, Hashable {
 
   /// The bit pattern of the integer.
-  public var bitPattern: BitPattern
+  public let bitPattern: BitPattern
 
   /// Creates a new integer Val IR constant with the specified bit pattern.
   public init(bitPattern: BitPattern) {

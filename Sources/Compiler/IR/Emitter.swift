@@ -403,7 +403,8 @@ public struct Emitter {
           CondBranchInst(
             condition: condition,
             targetIfTrue: success,
-            targetIfFalse: failure),
+            targetIfFalse: failure,
+            range: nil),
           at: insertionPoint!)
         insertionPoint = InsertionPoint(endOf: success)
 

@@ -2111,7 +2111,7 @@ public enum Parser {
             throw ParseError("expected type member name", at: context.currentLocation)
           }
 
-          context.ast[member].domain = head
+          context.ast[member].incorporate(domain: head)
           context.ast.ranges[member] = headRange.upperBounded(by: context.currentIndex)
           head = AnyTypeExprID(member)
           continue

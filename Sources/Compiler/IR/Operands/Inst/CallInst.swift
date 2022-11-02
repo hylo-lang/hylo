@@ -5,14 +5,14 @@
 public struct CallInst: Inst {
 
   /// The type if the return value.
-  public var returnType: LoweredType
+  public let returnType: LoweredType
 
   /// The passing conventions of the instruction's operands.
-  public var conventions: [PassingConvention]
+  public let conventions: [PassingConvention]
 
-  public var operands: [Operand]
+  public let operands: [Operand]
 
-  public var range: SourceRange?
+  public let range: SourceRange?
 
   public init(
     returnType: LoweredType,

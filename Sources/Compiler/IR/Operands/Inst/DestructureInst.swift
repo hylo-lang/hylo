@@ -2,12 +2,12 @@
 public struct DestructureInst: Inst {
 
   /// The types of the destructured members.
-  public var types: [LoweredType]
+  public let types: [LoweredType]
 
   /// The object being destructured.
-  public var object: Operand
+  public let object: Operand
 
-  public var range: SourceRange?
+  public let range: SourceRange?
 
   init(_ object: Operand, as types: [LoweredType], range: SourceRange? = nil) {
     self.types = types
