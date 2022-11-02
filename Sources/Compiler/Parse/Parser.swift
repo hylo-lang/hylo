@@ -195,11 +195,29 @@ public enum Parser {
   private static let _productTypeDecl = (
     productTypeHead.and(productTypeBody)
       .map({ (context, tree) -> NodeID<ProductTypeDecl> in
+        /// Returns the the first memberwise initializer declaration in `members` or synthesizes
+        /// an implicit one, appends it into `members`, and returns it.
+        func memberwiseInitDecl(_ members: inout [AnyDeclID]) -> NodeID<FunDecl> {
+          for member in members where member.kind == .funDecl {
+            let m = NodeID<FunDecl>(rawValue: member.rawValue)
+            if context.ast[m].introducer.value == .memberwiseInit { return m }
+          }
+
+          let m = context.ast.insert(FunDecl(
+            introducer: SourceRepresentable(value: .memberwiseInit)))
+          members.append(AnyDeclID(m))
+          return m
+        }
+
+        var members = tree.1
+        let memberwiseInit = memberwiseInitDecl(&members)
         let id = context.ast.insert(ProductTypeDecl(
           identifier: SourceRepresentable(token: tree.0.0.0.1, in: context.lexer.source),
           genericClause: tree.0.0.1,
           conformances: tree.0.1 ?? [],
-          members: tree.1))
+          members: members,
+          memberwiseInit: memberwiseInit
+        ))
 
         context.ast.ranges[id] = tree.0.0.0.0.range.upperBounded(by: context.currentIndex)
         return id

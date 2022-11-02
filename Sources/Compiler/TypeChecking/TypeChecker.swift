@@ -635,7 +635,7 @@ public struct TypeChecker {
 
   private mutating func _check(productType id: NodeID<ProductTypeDecl>) -> Bool {
     // Synthesize the memberwise initializer if necessary.
-    var success = check(fun: ast.memberwiseInitDecl(of: id, updating: &scopeHierarchy))
+    var success = check(fun: ast[id].memberwiseInit)
 
     // Type check the generic constraints of the declaration.
     success = (environment(ofGenericDecl: id) != nil) && success
@@ -1685,7 +1685,7 @@ public struct TypeChecker {
     case .product(let t):
       matches = names(introducedIn: t.decl)[name, default: []]
       if name == "init" {
-        matches.insert(AnyDeclID(ast.memberwiseInitDecl(of: t.decl, updating: &scopeHierarchy)))
+        matches.insert(AnyDeclID(ast[t.decl].memberwiseInit))
       }
 
     case .trait(let t):

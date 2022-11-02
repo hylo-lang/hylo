@@ -99,7 +99,7 @@ final class ParserTests: XCTestCase {
     """)
     let (declID, ast) = try apply(Parser.productTypeDecl, on: input)
     let decl = try XCTUnwrap(ast[declID])
-    XCTAssertEqual(decl.members.count, 3)
+    XCTAssertEqual(decl.members.count, 4) // 3 explicit decls + 1 implicit memberwise init
   }
 
   func testProductTypeDeclWithGenericClause() throws {
