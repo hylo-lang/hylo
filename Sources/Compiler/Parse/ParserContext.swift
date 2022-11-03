@@ -53,9 +53,6 @@ struct ParserContext {
   /// The flags of the parser's state.
   var flags = Flags.parsingTopLevel
 
-  /// Indicates that the parser encounted an irrecoverable error.
-  private var didIrrecoverableErrorOccur = false
-
   /// Creates a new context, using `lexer` to generate tokens.
   init(ast: AST, lexer: Lexer) {
     self.ast = ast
