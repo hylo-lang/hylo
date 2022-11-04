@@ -220,7 +220,7 @@ public struct TypeChecker {
   private var environments = DeclProperty<MemoizationState<GenericEnvironment?>>()
 
   /// The bindings whose initializers are being currently visited.
-  private(set) var bindingsUnderChecking: DeclSet = []
+  private var bindingsUnderChecking: DeclSet = []
 
   /// Processed all pending type checking requests and returns whether that succeeded.
   mutating func checkPending() -> Bool {
@@ -1361,27 +1361,25 @@ public struct TypeChecker {
     var constraints = constraints
 
     // Generate constraints.
-    // Note: The constraint generator captures the ownership of `self`.
     var generator = ConstraintGenerator(
-      checker: self,
       scope: scope,
       expr: expr,
       inferredType: inferredType,
       expectedType: expectedType)
 
-    expr.accept(&generator)
-    constraints.append(contentsOf: generator.constraints)
+    let constraintGeneration = generator.apply(using: &self)
+    constraints.append(contentsOf: constraintGeneration.constraints)
 
     // Solve the constraints.
     var solver = ConstraintSolver(
-      checker: generator.checker.release(),
+      checker: self,
       scope: scope,
       fresh: constraints,
-      initialDiagnostics: generator.diagnostics)
+      initialDiagnostics: constraintGeneration.diagnostics)
     let solution = solver.solve()!
 
     // Apply the solution.
-    for (id, type) in generator.inferredTypes.storage {
+    for (id, type) in constraintGeneration.inferredTypes.storage {
       solver.checker.exprTypes[id] = solution.reify(type, withVariables: .keep)
     }
     for (name, ref) in solution.bindingAssumptions {
@@ -1563,6 +1561,69 @@ public struct TypeChecker {
   /// through qualified lookups into the extended type.
   private var extensionsUnderBinding = DeclSet()
 
+  /// Returns the well-formed declarations to which the specified name may refer, along with their
+  /// overarching uncontextualized types. Ill-formed declarations are ignored.
+  mutating func resolve(
+    stem: Identifier,
+    labels: [String?],
+    notation: OperatorNotation?,
+    introducer: ImplIntroducer?,
+    introducedInDeclSpaceOf lookupContext: AnyScopeID? = nil,
+    inScope origin: AnyScopeID
+  ) -> [(decl: AnyDeclID, type: Type)] {
+    // Check preconditions.
+    precondition(notation == nil || labels.isEmpty, "invalid name")
+
+    // Search for the referred declaration.
+    var matches: TypeChecker.DeclSet
+    if let ctx = lookupContext {
+      matches = lookup(stem, introducedInDeclSpaceOf: ctx, inScope: origin)
+    } else {
+      matches = lookup(unqualified: stem, inScope: origin)
+      if !matches.isEmpty && matches.isSubset(of: bindingsUnderChecking) {
+        matches = lookup(unqualified: stem, inScope: program.scopeToParent[origin]!)
+      }
+    }
+
+    // Bail out if there are no matches.
+    if matches.isEmpty { return [] }
+
+    // TODO: Filter by labels and operator notation
+
+    // If the looked up name has a method introducer, it must refer to a method implementation.
+    if let introducer = introducer {
+      matches = Set(matches.compactMap({ (match) -> AnyDeclID? in
+        guard let method = NodeID<FunDecl>(match),
+              let body = program.ast[method].body,
+              case .bundle(let impls) = body
+        else { return nil }
+
+        // TODO: Synthesize missing method implementations
+        if let impl = impls.first(where: { (i) in
+          program.ast[i].introducer.value == introducer
+        }) {
+          return AnyDeclID(impl)
+        } else {
+          return nil
+        }
+      }))
+    }
+
+    // Returns the matches along with their contextual type and associated constraints.
+    return matches.compactMap({ (match) -> (AnyDeclID, Type)? in
+      // Realize the type of the declaration.
+      var matchType = realize(decl: match)
+      if matchType.isError { return nil }
+
+      // Erase parameter conventions.
+      if case .parameter(let t) = matchType {
+        matchType = t.bareType
+      }
+
+      return (match, matchType)
+    })
+  }
+
   /// Returns the declarations that expose `name` without qualification in `scope`.
   mutating func lookup(unqualified name: String, inScope scope: AnyScopeID) -> DeclSet {
     let origin = scope
@@ -1611,33 +1672,33 @@ public struct TypeChecker {
     return matches
   }
 
-  /// Returns the declarations that introduce `name` in the declaration space of `scope`.
+  /// Returns the declarations that introduce `name` in the declaration space of `lookupContext`.
   mutating func lookup<T: ScopeID>(
     _ name: String,
-    introducedInDeclSpaceOf scope: T,
+    introducedInDeclSpaceOf lookupContext: T,
     inScope origin: AnyScopeID
   ) -> DeclSet {
-    switch scope.kind {
+    switch lookupContext.kind {
     case .productTypeDecl:
       let type = Type.product(ProductType(
-        decl: NodeID(rawValue: scope.rawValue),
+        decl: NodeID(rawValue: lookupContext.rawValue),
         ast: program.ast))
       return lookup(name, memberOf: type, inScope: origin)
 
     case .traitDecl:
       let type = Type.trait(TraitType(
-        decl: NodeID(rawValue: scope.rawValue),
+        decl: NodeID(rawValue: lookupContext.rawValue),
         ast: program.ast))
       return lookup(name, memberOf: type, inScope: origin)
 
     case .typeAliasDecl:
       let type = Type.typeAlias(TypeAliasType(
-        decl: NodeID(rawValue: scope.rawValue),
+        decl: NodeID(rawValue: lookupContext.rawValue),
         ast: program.ast))
       return lookup(name, memberOf: type, inScope: origin)
 
     default:
-      return names(introducedIn: scope)[name, default: []]
+      return names(introducedIn: lookupContext)[name, default: []]
     }
   }
 

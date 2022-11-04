@@ -50,7 +50,7 @@ public struct ScopedProgram: Program {
   ///   described by `self.ast[a]`.
   mutating func desugar(
     _ a: NodeID<SequenceExpr>,
-    using ordering: SequenceExpr.Tree
+    withOrdering ordering: SequenceExpr.Tree
   ) -> AnyExprID {
     switch ast[a] {
     case .root:
