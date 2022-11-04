@@ -214,7 +214,7 @@ extension Diagnostic {
   static func staticMemberUsedOnInstance(
     member: Name,
     type: Type,
-    range: SourceRange?
+    at range: SourceRange?
   ) -> Diagnostic {
     .error(
       "static member '\(member)' cannot be used on instance of type '\(type)'",

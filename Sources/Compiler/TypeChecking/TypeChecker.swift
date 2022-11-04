@@ -342,6 +342,7 @@ public struct TypeChecker {
       shape.constraints.append(LocatableConstraint(
         .equalityOrSubtyping(l: initializerType, r: shape.type),
         node: AnyNodeID(id),
+        range: program.ast.ranges[id],
         cause: .initialization))
 
       // Infer the type of the initializer
@@ -555,6 +556,7 @@ public struct TypeChecker {
         LocatableConstraint(
           .parameter(l: defaultValueType, r: .parameter(parameterType)),
           node: AnyNodeID(id),
+          range: program.ast.ranges[id],
           cause: .callArgument)
       ]
 
@@ -978,6 +980,7 @@ public struct TypeChecker {
       let c = LocatableConstraint(
         .equalityOrSubtyping(l: inferredReturnType, r: expectedType),
         node: returnValue.base,
+        range: program.ast.ranges[returnValue],
         cause: .return)
       let solution = infer(
         expr: returnValue,
@@ -1006,6 +1009,7 @@ public struct TypeChecker {
     let c = LocatableConstraint(
       .equalityOrSubtyping(l: inferredReturnType, r: expectedType),
       node: program.ast[id].value.base,
+      range: program.ast.ranges[program.ast[id].value],
       cause: .yield)
     let solution = infer(
       expr: program.ast[id].value,
@@ -1358,36 +1362,28 @@ public struct TypeChecker {
     inScope scope: AnyScopeID,
     constraints: [LocatableConstraint]
   ) -> Solution {
-    var constraints = constraints
-
     // Generate constraints.
     var generator = ConstraintGenerator(
       scope: scope,
       expr: expr,
       inferredType: inferredType,
       expectedType: expectedType)
-
     let constraintGeneration = generator.apply(using: &self)
-    constraints.append(contentsOf: constraintGeneration.constraints)
 
     // Solve the constraints.
     var solver = ConstraintSolver(
-      checker: self,
       scope: scope,
-      fresh: constraints,
+      fresh: constraints + constraintGeneration.constraints,
       initialDiagnostics: constraintGeneration.diagnostics)
-    let solution = solver.solve()!
+    let solution = solver.apply(using: &self)
 
     // Apply the solution.
     for (id, type) in constraintGeneration.inferredTypes.storage {
-      solver.checker.exprTypes[id] = solution.reify(type, withVariables: .keep)
+      exprTypes[id] = solution.reify(type, withVariables: .keep)
     }
     for (name, ref) in solution.bindingAssumptions {
-      solver.checker.referredDecls[name] = ref
+      referredDecls[name] = ref
     }
-
-    // Puts `self` back in place.
-    self = solver.checker.release()
 
     // Consume the solution's errors.
     diagnostics.formUnion(solution.diagnostics)
@@ -1436,7 +1432,10 @@ public struct TypeChecker {
         if let type = realize(annotation, inScope: scope) {
           if let r = expectedType {
             constraints.append(LocatableConstraint(
-              .subtyping(l: type, r: r), node: AnyNodeID(pattern), cause: .annotation))
+              .subtyping(l: type, r: r),
+              node: AnyNodeID(pattern),
+              range: program.ast.ranges[pattern],
+              cause: .annotation))
           }
           subpatternType = type
         } else {

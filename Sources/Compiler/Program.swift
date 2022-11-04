@@ -121,6 +121,46 @@ extension Program {
     !isGlobal(decl) && !isMember(decl)
   }
 
+  /// Returns whether `decl` is a requirement.
+  public func isRequirement<T: DeclID>(_ decl: T) -> Bool {
+    if declToScope[decl]?.kind != .traitDecl { return false }
+
+    switch decl.kind {
+    case .funDecl:
+      switch ast[NodeID<FunDecl>(rawValue: decl.rawValue)].body {
+      case .some(.bundle(let impls)):
+        return impls.contains(where: isRequirement)
+      case .some:
+        return false
+      case .none:
+        return true
+      }
+
+    case .methodImplDecl:
+      switch ast[NodeID<MethodImplDecl>(rawValue: decl.rawValue)].body {
+      case .some:
+        return false
+      case .none:
+        return true
+      }
+
+    case .subscriptDecl:
+      return ast[NodeID<SubscriptDecl>(rawValue: decl.rawValue)].impls
+        .contains(where: isRequirement)
+
+    case .subscriptImplDecl:
+      switch ast[NodeID<SubscriptImplDecl>(rawValue: decl.rawValue)].body {
+      case .some:
+        return false
+      case .none:
+        return true
+      }
+
+    default:
+      return false
+    }
+  }
+
   /// Returns a sequence containing `scope` and all its ancestors, from inner to outer.
   public func scopes<S: ScopeID>(from scope: S) -> LexicalScopeSequence {
     LexicalScopeSequence(scopeToParent: scopeToParent, current: AnyScopeID(scope))
