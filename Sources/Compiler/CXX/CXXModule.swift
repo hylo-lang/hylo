@@ -29,7 +29,7 @@ public struct CXXModule {
   ) -> CXXFunDecl.ID {
     if let cxxFunDecl = valToCXXFunction[valFunDecl] { return cxxFunDecl }
 
-    assert(program.scopeHierarchy.isGlobal(decl: valFunDecl, ast: program.ast))
+    assert(program.isGlobal(valFunDecl))
 
     /// The identifier of the function.
     let identifier = CXXIdentifier(program.ast[valFunDecl].identifier?.value ?? "")

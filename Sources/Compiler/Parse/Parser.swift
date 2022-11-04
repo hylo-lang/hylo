@@ -43,19 +43,19 @@ public enum Parser {
     into module: NodeID<ModuleDecl>,
     in ast: inout AST
   ) -> (decls: NodeID<TopLevelDeclSet>?, diagnostics: [Diagnostic]) {
-    var context = ParserContext(ast: ast, lexer: Lexer(tokenizing: input))
+    var state = ParserState(ast: ast, lexer: Lexer(tokenizing: input))
 
     let decls: NodeID<TopLevelDeclSet>?
     do {
       // Parse the file.
-      if let d = try Self.sourceFile.parse(&context) {
+      if let d = try Self.sourceFile.parse(&state) {
         // Make sure we consumed the entire file.
-        if let head = context.peek() {
+        if let head = state.peek() {
           throw ParseError("expected EOF", at: head.range.first())
         }
 
         // Parser succeeded.
-        context.ast[module].addSourceFile(d)
+        state.ast[module].addSourceFile(d)
         decls = d
       } else {
         decls = nil
@@ -69,31 +69,31 @@ public enum Parser {
       } else {
         diagnostic.message = error.localizedDescription
       }
-      context.diagnostics.append(diagnostic)
+      state.diagnostics.append(diagnostic)
       decls = nil
     }
 
-    ast = context.ast
-    return (decls: decls, diagnostics: context.diagnostics)
+    ast = state.ast
+    return (decls: decls, diagnostics: state.diagnostics)
   }
 
   // MARK: Declarations
 
   private static func anyDecl<Base: Combinator>(
     _ base: Base
-  ) -> AnyCombinator<ParserContext, AnyDeclID>
-  where Base.Context == ParserContext, Base.Element: DeclID
+  ) -> AnyCombinator<ParserState, AnyDeclID>
+  where Base.Context == ParserState, Base.Element: DeclID
   {
-    AnyCombinator(parse: { (context) in
-      try base.parse(&context).map(AnyDeclID.init(_:))
+    AnyCombinator(parse: { (state) in
+      try base.parse(&state).map(AnyDeclID.init(_:))
     })
   }
 
   static let sourceFile = (
     zeroOrMany(take(.semi))
       .and(zeroOrMany(moduleScopeDecl.and(zeroOrMany(take(.semi))).first))
-      .map({ (context, tree) -> NodeID<TopLevelDeclSet> in
-        context.ast.insert(TopLevelDeclSet(decls: tree.1))
+      .map({ (state, tree) -> NodeID<TopLevelDeclSet> in
+        state.ast.insert(TopLevelDeclSet(decls: tree.1))
       })
   )
 
@@ -115,26 +115,26 @@ public enum Parser {
 
   static let importDecl = (
     take(.import).and(take(.name))
-      .map({ (context, tree) -> NodeID<ImportDecl> in
-        let id = context.ast.insert(ImportDecl(
-          identifier: SourceRepresentable(token: tree.1, in: context.lexer.source)))
-        context.ast.ranges[id] = tree.0.range.upperBounded(by: context.currentIndex)
+      .map({ (state, tree) -> NodeID<ImportDecl> in
+        let id = state.ast.insert(ImportDecl(
+          identifier: SourceRepresentable(token: tree.1, in: state.lexer.source)))
+        state.ast.ranges[id] = tree.0.range.upperBounded(by: state.currentIndex)
         return id
       })
   )
 
-  static let namespaceDecl: Recursive<ParserContext, NodeID<NamespaceDecl>> = (
+  static let namespaceDecl: Recursive<ParserState, NodeID<NamespaceDecl>> = (
     Recursive(_namespaceDecl.parse(_:))
   )
 
   private static let _namespaceDecl = (
     namespaceHead.and(namespaceBody)
-      .map({ (context, tree) -> NodeID<NamespaceDecl> in
-        let id = context.ast.insert(NamespaceDecl(
-          identifier: SourceRepresentable(token: tree.0.1, in: context.lexer.source),
+      .map({ (state, tree) -> NodeID<NamespaceDecl> in
+        let id = state.ast.insert(NamespaceDecl(
+          identifier: SourceRepresentable(token: tree.0.1, in: state.lexer.source),
           members: tree.1))
 
-        context.ast.ranges[id] = tree.0.0.range.upperBounded(by: context.currentIndex)
+        state.ast.ranges[id] = tree.0.0.range.upperBounded(by: state.currentIndex)
         return id
       })
   )
@@ -143,7 +143,7 @@ public enum Parser {
     take(.namespace).and(take(.name))
   )
 
-  static let namespaceBody = settingFlags(.parsingNamespace, apply: (
+  static let namespaceBody = inContext(.namespaceBody, apply: (
     take(.lBrace)
       .and(zeroOrMany(take(.semi)))
       .and(zeroOrMany(namespaceMember.and(zeroOrMany(take(.semi))).first))
@@ -167,12 +167,12 @@ public enum Parser {
 
   static let typeAliasDecl = (
     typeAliasHead.and(typeAliasBody)
-      .map({ (context, tree) -> NodeID<TypeAliasDecl> in
-        let id = context.ast.insert(TypeAliasDecl(
-          identifier: SourceRepresentable(token: tree.0.0.1, in: context.lexer.source),
+      .map({ (state, tree) -> NodeID<TypeAliasDecl> in
+        let id = state.ast.insert(TypeAliasDecl(
+          identifier: SourceRepresentable(token: tree.0.0.1, in: state.lexer.source),
           genericClause: tree.0.1,
           body: tree.1))
-        context.ast.ranges[id] = tree.0.0.0.range.upperBounded(by: context.currentIndex)
+        state.ast.ranges[id] = tree.0.0.0.range.upperBounded(by: state.currentIndex)
         return id
       })
   )
@@ -188,38 +188,41 @@ public enum Parser {
       })
   )
 
-  static let productTypeDecl: Recursive<ParserContext, NodeID<ProductTypeDecl>> = (
+  static let productTypeDecl: Recursive<ParserState, NodeID<ProductTypeDecl>> = (
     Recursive(_productTypeDecl.parse(_:))
   )
 
   private static let _productTypeDecl = (
     productTypeHead.and(productTypeBody)
-      .map({ (context, tree) -> NodeID<ProductTypeDecl> in
+      .map({ (state, tree) -> NodeID<ProductTypeDecl> in
         /// Returns the the first memberwise initializer declaration in `members` or synthesizes
         /// an implicit one, appends it into `members`, and returns it.
         func memberwiseInitDecl(_ members: inout [AnyDeclID]) -> NodeID<FunDecl> {
           for member in members where member.kind == .funDecl {
             let m = NodeID<FunDecl>(rawValue: member.rawValue)
-            if context.ast[m].introducer.value == .memberwiseInit { return m }
+            if state.ast[m].introducer.value == .memberwiseInit { return m }
           }
 
-          let m = context.ast.insert(FunDecl(
-            introducer: SourceRepresentable(value: .memberwiseInit)))
+          let receiver = state.ast.insert(ParameterDecl(
+            identifier: SourceRepresentable(value: "self")))
+          let m = state.ast.insert(FunDecl(
+            introducer: SourceRepresentable(value: .memberwiseInit),
+            receiver: receiver))
           members.append(AnyDeclID(m))
           return m
         }
 
         var members = tree.1
         let memberwiseInit = memberwiseInitDecl(&members)
-        let id = context.ast.insert(ProductTypeDecl(
-          identifier: SourceRepresentable(token: tree.0.0.0.1, in: context.lexer.source),
+        let id = state.ast.insert(ProductTypeDecl(
+          identifier: SourceRepresentable(token: tree.0.0.0.1, in: state.lexer.source),
           genericClause: tree.0.0.1,
           conformances: tree.0.1 ?? [],
           members: members,
           memberwiseInit: memberwiseInit
         ))
 
-        context.ast.ranges[id] = tree.0.0.0.0.range.upperBounded(by: context.currentIndex)
+        state.ast.ranges[id] = tree.0.0.0.0.range.upperBounded(by: state.currentIndex)
         return id
       })
   )
@@ -228,7 +231,7 @@ public enum Parser {
     take(.type).and(take(.name)).and(maybe(genericClause)).and(maybe(conformanceList))
   )
 
-  static let productTypeBody = settingFlags(.parsingProductBody, apply: (
+  static let productTypeBody = inContext(.productBody, apply: (
     take(.lBrace)
       .and(zeroOrMany(take(.semi)))
       .and(zeroOrMany(productTypeMember.and(zeroOrMany(take(.semi))).first))
@@ -249,24 +252,24 @@ public enum Parser {
   )
 
   static let typeAliasOrProductTypeDecl = (
-    Apply<ParserContext, AnyDeclID>({ (context) -> AnyDeclID? in
-      let backup = context.backup()
+    Apply<ParserState, AnyDeclID>({ (state) -> AnyDeclID? in
+      let backup = state.backup()
       do {
-        if let element = try typeAliasDecl.parse(&context) { return AnyDeclID(element) }
+        if let element = try typeAliasDecl.parse(&state) { return AnyDeclID(element) }
       } catch {}
-      context.restore(from: backup)
-      return try productTypeDecl.parse(&context).map(AnyDeclID.init(_:))
+      state.restore(from: backup)
+      return try productTypeDecl.parse(&state).map(AnyDeclID.init(_:))
     })
   )
 
   static let traitDecl = (
     traitHead.and(traitBody)
-      .map({ (context, tree) -> NodeID<TraitDecl> in
-        let id = context.ast.insert(TraitDecl(
-          identifier: SourceRepresentable(token: tree.0.0.1, in: context.lexer.source),
+      .map({ (state, tree) -> NodeID<TraitDecl> in
+        let id = state.ast.insert(TraitDecl(
+          identifier: SourceRepresentable(token: tree.0.0.1, in: state.lexer.source),
           refinements: tree.0.1 ?? [],
           members: tree.1))
-        context.ast.ranges[id] = tree.0.0.0.range.upperBounded(by: context.currentIndex)
+        state.ast.ranges[id] = tree.0.0.0.range.upperBounded(by: state.currentIndex)
         return id
       })
   )
@@ -275,7 +278,7 @@ public enum Parser {
     take(.trait).and(take(.name)).and(maybe(conformanceList))
   )
 
-  static let traitBody = settingFlags(.parsingBindingPattern, apply: (
+  static let traitBody = inContext(.traitBody, apply: (
     take(.lBrace)
       .and(zeroOrMany(take(.semi)))
       .and(zeroOrMany(traitMember.and(zeroOrMany(take(.semi))).first))
@@ -299,13 +302,13 @@ public enum Parser {
       .and(maybe(conformanceList))
       .and(maybe(whereClause))
       .and(maybe(take(.assign).and(typeExpr).second))
-      .map({ (context, tree) -> NodeID<AssociatedTypeDecl> in
-        let id = context.ast.insert(AssociatedTypeDecl(
-          identifier: SourceRepresentable(token: tree.0.0.0.1, in: context.lexer.source),
+      .map({ (state, tree) -> NodeID<AssociatedTypeDecl> in
+        let id = state.ast.insert(AssociatedTypeDecl(
+          identifier: SourceRepresentable(token: tree.0.0.0.1, in: state.lexer.source),
           conformances: tree.0.0.1 ?? [],
           whereClause: tree.0.1,
           defaultValue: tree.1))
-        context.ast.ranges[id] = tree.0.0.0.0.range.upperBounded(by: context.currentIndex)
+        state.ast.ranges[id] = tree.0.0.0.0.range.upperBounded(by: state.currentIndex)
         return id
       })
   )
@@ -314,25 +317,25 @@ public enum Parser {
     take(nameTokenWithValue: "value").and(take(.name))
       .and(maybe(whereClause))
       .and(maybe(take(.assign).and(expr).second))
-      .map({ (context, tree) -> NodeID<AssociatedValueDecl> in
-        let id = context.ast.insert(AssociatedValueDecl(
-          identifier: SourceRepresentable(token: tree.0.0.1, in: context.lexer.source),
+      .map({ (state, tree) -> NodeID<AssociatedValueDecl> in
+        let id = state.ast.insert(AssociatedValueDecl(
+          identifier: SourceRepresentable(token: tree.0.0.1, in: state.lexer.source),
           whereClause: tree.0.1,
           defaultValue: tree.1))
-        context.ast.ranges[id] = tree.0.0.0.range.upperBounded(by: context.currentIndex)
+        state.ast.ranges[id] = tree.0.0.0.range.upperBounded(by: state.currentIndex)
         return id
       })
   )
 
   static let conformanceDecl = (
     conformancHead.and(conformanceBody)
-      .map({ (context, tree) -> NodeID<ConformanceDecl> in
-        let id = context.ast.insert(ConformanceDecl(
+      .map({ (state, tree) -> NodeID<ConformanceDecl> in
+        let id = state.ast.insert(ConformanceDecl(
           subject: tree.0.0.0.1,
           conformances: tree.0.0.1,
           whereClause: tree.0.1,
           members: tree.1))
-        context.ast.ranges[id] = tree.0.0.0.0.range.upperBounded(by: context.currentIndex)
+        state.ast.ranges[id] = tree.0.0.0.0.range.upperBounded(by: state.currentIndex)
         return id
       })
   )
@@ -345,12 +348,12 @@ public enum Parser {
 
   static let extensionDecl = (
     extensionHead.and(extensionBody)
-      .map({ (context, tree) -> NodeID<ExtensionDecl> in
-        let id = context.ast.insert(ExtensionDecl(
+      .map({ (state, tree) -> NodeID<ExtensionDecl> in
+        let id = state.ast.insert(ExtensionDecl(
           subject: tree.0.0.1,
           whereClause: tree.0.1,
           members: tree.1))
-        context.ast.ranges[id] = tree.0.0.0.range.upperBounded(by: context.currentIndex)
+        state.ast.ranges[id] = tree.0.0.0.range.upperBounded(by: state.currentIndex)
         return id
       })
   )
@@ -359,7 +362,7 @@ public enum Parser {
     take(.extension).and(typeExpr).and(maybe(whereClause))
   )
 
-  static let extensionBody = settingFlags(.parsingExtensionBody, apply: (
+  static let extensionBody = inContext(.extensionBody, apply: (
     take(.lBrace)
       .and(zeroOrMany(take(.semi)))
       .and(zeroOrMany(extensionMember.and(zeroOrMany(take(.semi))).first))
@@ -379,41 +382,47 @@ public enum Parser {
 
   static let bindingDecl = (
     bindingPattern.and(maybe(take(.assign).and(expr)))
-      .map({ (context, tree) -> NodeID<BindingDecl> in
-        let id = context.ast.insert(BindingDecl(pattern: tree.0, initializer: tree.1?.1))
-        context.ast.ranges[id] = context.ast.ranges[tree.0]!.upperBounded(by: context.currentIndex)
+      .map({ (state, tree) -> NodeID<BindingDecl> in
+        let id = state.ast.insert(BindingDecl(pattern: tree.0, initializer: tree.1?.1))
+        state.ast.ranges[id] = state.ast.ranges[tree.0]!.upperBounded(by: state.currentIndex)
         return id
       })
   )
 
   static let deinitDecl = (
     take(.deinit).and(deinitBody)
-      .map({ (context, tree) -> NodeID<FunDecl> in
-        let id = context.ast.insert(FunDecl(
+      .map({ (state, tree) -> NodeID<FunDecl> in
+        let receiver = state.ast.insert(ParameterDecl(
+          identifier: SourceRepresentable(value: "self")))
+        let id = state.ast.insert(FunDecl(
           introducer: SourceRepresentable(value: .deinit, range: tree.0.range),
+          receiver: receiver,
           body: .block(tree.1)))
-        context.ast.ranges[id] = tree.0.range.upperBounded(by: context.currentIndex)
+        state.ast.ranges[id] = tree.0.range.upperBounded(by: state.currentIndex)
         return id
       })
   )
 
-  static let deinitBody = settingFlags(.parsingFunctionBody, apply: braceStmt)
+  static let deinitBody = inContext(.functionBody, apply: braceStmt)
 
   static let initDecl = Choose(
     memberwiseInitDecl,
     or: initHead
       .and(take(.lParen).and(maybe(parameterList)).and(take(.rParen)))
       .and(initBody)
-      .map({ (context, tree) -> NodeID<FunDecl> in
+      .map({ (state, tree) -> NodeID<FunDecl> in
         let (head, signature, body) = (tree.0.0, tree.0.1, tree.1)
 
-        let id = context.ast.insert(FunDecl(
+        let receiver = state.ast.insert(ParameterDecl(
+          identifier: SourceRepresentable(value: "self")))
+        let id = state.ast.insert(FunDecl(
           introducer: SourceRepresentable(value: .`init`, range: head.0.range),
           genericClause: head.1,
           parameters: signature.0.1 ?? [],
+          receiver: receiver,
           body: .block(body)))
 
-        context.ast.ranges[id] = head.0.range.upperBounded(by: context.currentIndex)
+        state.ast.ranges[id] = head.0.range.upperBounded(by: state.currentIndex)
         return id
       })
   )
@@ -422,15 +431,25 @@ public enum Parser {
     take(.`init`).and(maybe(genericClause))
   )
 
-  static let initBody = settingFlags(.parsingFunctionBody, apply: braceStmt)
+  static let initBody = inContext(.functionBody, apply: braceStmt)
 
   static let functionDecl = (
     functionHead.and(functionSignature).and(maybe(functionBody))
-      .map({ (context, tree) -> NodeID<FunDecl> in
+      .map({ (state, tree) -> NodeID<FunDecl> in
         let (head, signature, body) = (tree.0.0, tree.0.1, tree.1)
         let identifier: FunctionDeclIdentifier = head.0.0
 
-        let id = context.ast.insert(FunDecl(
+        let receiver: NodeID<ParameterDecl>?
+        if case .bundle = body {
+          receiver = nil
+        } else if !state.isParsingTypeBody {
+          receiver = nil
+        } else {
+          receiver = state.ast.insert(ParameterDecl(
+            identifier: SourceRepresentable(value: "self")))
+        }
+
+        let id = state.ast.insert(FunDecl(
           introducer: identifier.introducer,
           receiverEffect: signature.receiverEffect,
           notation: identifier.notation,
@@ -438,21 +457,25 @@ public enum Parser {
           genericClause: head.0.1,
           captures: head.1 ?? [],
           parameters: signature.parameters,
+          receiver: receiver,
           output: signature.output,
           body: body))
 
         let startRange = identifier.notation?.range ?? identifier.introducer.range!
-        context.ast.ranges[id] = startRange.upperBounded(by: context.currentIndex)
+        state.ast.ranges[id] = startRange.upperBounded(by: state.currentIndex)
         return id
       })
   )
 
   static let memberwiseInitDecl = (
     take(nameTokenWithValue: "memberwise").and(take(.`init`))
-      .map({ (context, tree) -> NodeID<FunDecl> in
-        let id = context.ast.insert(FunDecl(
-          introducer: SourceRepresentable(value: .memberwiseInit, range: tree.0.range)))
-        context.ast.ranges[id] = tree.0.range.upperBounded(by: context.currentIndex)
+      .map({ (state, tree) -> NodeID<FunDecl> in
+        let receiver = state.ast.insert(ParameterDecl(
+          identifier: SourceRepresentable(value: "self")))
+        let id = state.ast.insert(FunDecl(
+          introducer: SourceRepresentable(value: .memberwiseInit, range: tree.0.range),
+          receiver: receiver))
+        state.ast.ranges[id] = tree.0.range.upperBounded(by: state.currentIndex)
         return id
       })
   )
@@ -471,7 +494,7 @@ public enum Parser {
     take(.lParen).and(maybe(parameterList)).and(take(.rParen))
       .and(maybe(receiverEffect))
       .and(maybe(take(.arrow).and(typeExpr)))
-      .map({ (context, tree) -> FunctionSignature in
+      .map({ (state, tree) -> FunctionSignature in
         (parameters: tree.0.0.0.1 ?? [], receiverEffect: tree.0.1, output: tree.1?.1)
       })
   )
@@ -488,10 +511,10 @@ public enum Parser {
 
   static let namedFunctionDeclIdentifier = (
     take(.fun).and(take(.name))
-      .map({ (context, tree) -> FunctionDeclIdentifier in
+      .map({ (state, tree) -> FunctionDeclIdentifier in
         (
           introducer: SourceRepresentable(value: .`fun`, range: tree.0.range),
-          stem: SourceRepresentable(token: tree.1, in: context.lexer.source),
+          stem: SourceRepresentable(token: tree.1, in: state.lexer.source),
           notation: nil
         )
       })
@@ -499,7 +522,7 @@ public enum Parser {
 
   static let operatorFunctionDeclIdentifier = (
     operatorNotation.and(take(.fun)).and(operator_)
-      .map({ (context, tree) -> FunctionDeclIdentifier in
+      .map({ (state, tree) -> FunctionDeclIdentifier in
         (
           introducer: SourceRepresentable(value: .`fun`, range: tree.0.1.range),
           stem: tree.1,
@@ -508,25 +531,25 @@ public enum Parser {
       })
   )
 
-  static let functionBody = settingFlags(.parsingFunctionBody, apply: TryCatch(
+  static let functionBody = inContext(.functionBody, apply: TryCatch(
     trying: methodBundleBody
-      .map({ (context, impls) -> FunDecl.Body in .bundle(impls) }),
+      .map({ (state, impls) -> FunDecl.Body in .bundle(impls) }),
     orCatchingAndApplying: TryCatch(
       trying: take(.lBrace).and(expr).and(take(.rBrace))
-        .map({ (context, tree) -> FunDecl.Body in .expr(tree.0.1) }),
+        .map({ (state, tree) -> FunDecl.Body in .expr(tree.0.1) }),
       orCatchingAndApplying: braceStmt
-        .map({ (context, id) -> FunDecl.Body in .block(id) })
+        .map({ (state, id) -> FunDecl.Body in .block(id) })
     )
   ))
 
   static let methodBundleBody = (
     take(.lBrace).and(methodImpl+).and(take(.rBrace))
-      .map({ (context, tree) -> [NodeID<MethodImplDecl>] in
+      .map({ (state, tree) -> [NodeID<MethodImplDecl>] in
         var introducers: Set<ImplIntroducer> = []
         for implID in tree.0.1 {
-          let introducer = context.ast[implID].introducer
+          let introducer = state.ast[implID].introducer
           if !introducers.insert(introducer.value).inserted {
-            context.diagnostics.append(.duplicateMethodIntroducer(at: introducer.range))
+            state.diagnostics.append(.duplicateMethodIntroducer(at: introducer.range))
           }
         }
 
@@ -536,18 +559,23 @@ public enum Parser {
 
   static let methodImpl = (
     methodIntroducer.and(maybe(methodImplBody))
-      .map({ (context, tree) -> NodeID<MethodImplDecl> in
-        let id = context.ast.insert(MethodImplDecl(introducer: tree.0, body: tree.1))
-        context.ast.ranges[id] = tree.0.range!.upperBounded(by: context.currentIndex)
+      .map({ (state, tree) -> NodeID<MethodImplDecl> in
+        let receiver = state.ast.insert(ParameterDecl(
+          identifier: SourceRepresentable(value: "self")))
+        let id = state.ast.insert(MethodImplDecl(
+          introducer: tree.0,
+          receiver: receiver,
+          body: tree.1))
+        state.ast.ranges[id] = tree.0.range!.upperBounded(by: state.currentIndex)
         return id
       })
   )
 
   static let methodImplBody = TryCatch(
     trying: take(.lBrace).and(expr).and(take(.rBrace))
-      .map({ (context, tree) -> MethodImplDecl.Body in .expr(tree.0.1) }),
+      .map({ (state, tree) -> MethodImplDecl.Body in .expr(tree.0.1) }),
     orCatchingAndApplying: braceStmt
-      .map({ (context, id) -> MethodImplDecl.Body in .block(id) })
+      .map({ (state, id) -> MethodImplDecl.Body in .block(id) })
   )
 
   static let methodIntroducer = translate([
@@ -562,29 +590,29 @@ public enum Parser {
       .and(maybe(receiverEffect))
       .and(take(.colon).and(typeExpr))
       .and(maybe(subscriptBody))
-      .map({ (context, tree) -> NodeID<SubscriptDecl> in
-        let identifier = SourceRepresentable(token: tree.0.0.0.1, in: context.lexer.source)
-        let id = context.ast.insert(SubscriptDecl(
+      .map({ (state, tree) -> NodeID<SubscriptDecl> in
+        let identifier = SourceRepresentable(token: tree.0.0.0.1, in: state.lexer.source)
+        let id = state.ast.insert(SubscriptDecl(
           introducer: SourceRepresentable(value: .property, range: tree.0.0.0.0.range),
           receiverEffect: tree.0.0.1,
           identifier: identifier,
           output: tree.0.1.1,
           impls: tree.1 ?? []))
 
-        context.ast.ranges[id] = tree.0.0.0.0.range.upperBounded(by: context.currentIndex)
+        state.ast.ranges[id] = tree.0.0.0.0.range.upperBounded(by: state.currentIndex)
         return id
       })
   )
 
   static let subscriptDecl = (
     subscriptHead.and(subscriptSignature).and(maybe(subscriptBody))
-      .map({ (context, tree) -> NodeID<SubscriptDecl> in
+      .map({ (state, tree) -> NodeID<SubscriptDecl> in
         let (head, signature, body) = (tree.0.0, tree.0.1, tree.1)
         let identifier = head.0.0.1.map({
-          SourceRepresentable(token: $0, in: context.lexer.source)
+          SourceRepresentable(token: $0, in: state.lexer.source)
         })
 
-        let id = context.ast.insert(SubscriptDecl(
+        let id = state.ast.insert(SubscriptDecl(
           introducer: SourceRepresentable(value: .subscript, range: head.0.0.0.range),
           receiverEffect: signature.receiverEffect,
           identifier: identifier,
@@ -594,7 +622,7 @@ public enum Parser {
           output: signature.output,
           impls: body ?? []))
 
-        context.ast.ranges[id] = head.0.0.0.range.upperBounded(by: context.currentIndex)
+        state.ast.ranges[id] = head.0.0.0.range.upperBounded(by: state.currentIndex)
         return id
       })
   )
@@ -613,43 +641,50 @@ public enum Parser {
     take(.lParen).and(maybe(parameterList)).and(take(.rParen))
       .and(maybe(receiverEffect))
       .and(take(.colon).and(typeExpr))
-      .map({ (context, tree) -> SubscriptSignature in
+      .map({ (state, tree) -> SubscriptSignature in
         (parameters: tree.0.0.0.1 ?? [], receiverEffect: tree.0.1, output: tree.1.1)
       })
   )
 
-  static let subscriptBody = settingFlags(.parsingSubscriptBody, apply: TryCatch(
+  static let subscriptBody = inContext(.subscriptBody, apply: TryCatch(
     trying: subscriptBundleBody,
     orCatchingAndApplying: TryCatch(
       trying: take(.lBrace).and(expr).and(take(.rBrace))
-        .map({ (context, tree) -> [NodeID<SubscriptImplDecl>] in
-          [context.ast.insert(SubscriptImplDecl(
+        .map({ (state, tree) -> [NodeID<SubscriptImplDecl>] in
+          let receiver = state.ast.insert(ParameterDecl(
+            identifier: SourceRepresentable(value: "self")))
+          let id = state.ast.insert(SubscriptImplDecl(
             introducer: SourceRepresentable(value: .let),
-            body: .expr(tree.0.1)))]
+            receiver: receiver,
+            body: .expr(tree.0.1)))
+          return [id]
         }),
       orCatchingAndApplying: braceStmt
-        .map({ (context, id) -> [NodeID<SubscriptImplDecl>] in
-          if context.ast[id].stmts.isEmpty {
+        .map({ (state, brace) -> [NodeID<SubscriptImplDecl>] in
+          if state.ast[brace].stmts.isEmpty {
             throw ParseError(
               "expected subscript implementation",
-              at: context.ast.ranges[id]!.last()!)
+              at: state.ast.ranges[brace]!.last()!)
           }
-
-          return [context.ast.insert(SubscriptImplDecl(
+          let receiver = state.ast.insert(ParameterDecl(
+            identifier: SourceRepresentable(value: "self")))
+          let id = state.ast.insert(SubscriptImplDecl(
             introducer: SourceRepresentable(value: .let),
-            body: .block(id)))]
+            receiver: receiver,
+            body: .block(brace)))
+          return [id]
         })
     )
   ))
 
   static let subscriptBundleBody = (
     take(.lBrace).and(subscriptImpl+).and(take(.rBrace))
-      .map({ (context, tree) -> [NodeID<SubscriptImplDecl>] in
+      .map({ (state, tree) -> [NodeID<SubscriptImplDecl>] in
         var introducers: Set<ImplIntroducer> = []
         for implID in tree.0.1 {
-          let introducer = context.ast[implID].introducer
+          let introducer = state.ast[implID].introducer
           if !introducers.insert(introducer.value).inserted {
-            context.diagnostics.append(.duplicateSubscriptIntroducer(at: introducer.range))
+            state.diagnostics.append(.duplicateSubscriptIntroducer(at: introducer.range))
           }
         }
 
@@ -659,18 +694,23 @@ public enum Parser {
 
   static let subscriptImpl = (
     subscriptIntroducer.and(maybe(subscriptImplBody))
-      .map({ (context, tree) -> NodeID<SubscriptImplDecl> in
-        let id = context.ast.insert(SubscriptImplDecl(introducer: tree.0, body: tree.1))
-        context.ast.ranges[id] = tree.0.range!.upperBounded(by: context.currentIndex)
+      .map({ (state, tree) -> NodeID<SubscriptImplDecl> in
+        let receiver = state.ast.insert(ParameterDecl(
+          identifier: SourceRepresentable(value: "self")))
+        let id = state.ast.insert(SubscriptImplDecl(
+          introducer: tree.0,
+          receiver: receiver,
+          body: tree.1))
+        state.ast.ranges[id] = tree.0.range!.upperBounded(by: state.currentIndex)
         return id
       })
   )
 
   static let subscriptImplBody = TryCatch(
     trying: take(.lBrace).and(expr).and(take(.rBrace))
-      .map({ (context, tree) -> SubscriptImplDecl.Body in .expr(tree.0.1) }),
+      .map({ (state, tree) -> SubscriptImplDecl.Body in .expr(tree.0.1) }),
     orCatchingAndApplying: braceStmt
-      .map({ (context, id) -> SubscriptImplDecl.Body in .block(id) })
+      .map({ (state, id) -> SubscriptImplDecl.Body in .block(id) })
   )
 
   static let subscriptIntroducer = translate([
@@ -689,17 +729,17 @@ public enum Parser {
     parameterInterface
       .and(maybe(take(.colon).and(parameterTypeExpr)))
       .and(maybe(take(.assign).and(expr)))
-      .map({ (context, tree) -> NodeID<ParameterDecl> in
-        let id = context.ast.insert(ParameterDecl(
+      .map({ (state, tree) -> NodeID<ParameterDecl> in
+        let id = state.ast.insert(ParameterDecl(
           label: tree.0.0.label,
           identifier: tree.0.0.name,
           annotation: tree.0.1?.1,
           defaultValue: tree.1?.1))
 
-        context.ast.ranges[id] = SourceRange(
-          in: context.lexer.source,
+        state.ast.ranges[id] = SourceRange(
+          in: state.lexer.source,
           from: tree.0.0.label?.range!.lowerBound ?? tree.0.0.name.range!.lowerBound,
-          to: context.currentIndex)
+          to: state.currentIndex)
         return id
       })
   )
@@ -710,31 +750,31 @@ public enum Parser {
   )
 
   static let parameterInterface = (
-    Apply<ParserContext, ParameterInterface>({ (context) in
+    Apply<ParserState, ParameterInterface>({ (state) in
       // Parse a label or bail out.
-      guard let labelCandidate = context.take(if: { $0.isLabel || $0.kind == .under }) else {
+      guard let labelCandidate = state.take(if: { $0.isLabel || $0.kind == .under }) else {
         return nil
       }
 
       // Assume the first token is a label and attempt to parse a name.
-      if let nameCandidate = context.take(.name) {
+      if let nameCandidate = state.take(.name) {
         if labelCandidate.kind == .under {
           // case `_ name`
           return (
             label: nil,
-            name: SourceRepresentable(token: nameCandidate, in: context.lexer.source))
+            name: SourceRepresentable(token: nameCandidate, in: state.lexer.source))
         } else {
           // case `label name`
           return (
-            label: SourceRepresentable(token: labelCandidate, in: context.lexer.source),
-            name: SourceRepresentable(token: nameCandidate, in: context.lexer.source))
+            label: SourceRepresentable(token: labelCandidate, in: state.lexer.source),
+            name: SourceRepresentable(token: nameCandidate, in: state.lexer.source))
         }
       }
 
       // Assume the first token is the name.
       if labelCandidate.kind == .name {
         // case `<no-label> name`
-        let name = SourceRepresentable(token: labelCandidate, in: context.lexer.source)
+        let name = SourceRepresentable(token: labelCandidate, in: state.lexer.source)
         return (label: name, name: name)
       }
 
@@ -745,20 +785,20 @@ public enum Parser {
   static let operatorDecl = (
     take(.operator).and(operatorNotation).and(operator_)
       .and(maybe(take(.colon).and(precedenceGroup)))
-      .map({ (context, tree) -> NodeID<OperatorDecl> in
-        let id = context.ast.insert(OperatorDecl(
+      .map({ (state, tree) -> NodeID<OperatorDecl> in
+        let id = state.ast.insert(OperatorDecl(
           notation: tree.0.0.1,
           name: tree.0.1,
           precedenceGroup: tree.1?.1))
-        context.ast.ranges[id] = tree.0.0.0.range.upperBounded(
+        state.ast.ranges[id] = tree.0.0.0.range.upperBounded(
           by: tree.1?.1.range?.upperBound ?? tree.0.1.range!.upperBound)
         return id
       })
   )
 
   static let operator_ = (
-    Apply<ParserContext, SourceRepresentable<Identifier>>({ (context) in
-      context.takeOperator()
+    Apply<ParserState, SourceRepresentable<Identifier>>({ (state) in
+      state.takeOperator()
     })
   )
 
@@ -787,143 +827,143 @@ public enum Parser {
   /// Applies `decl` after having parsed its attributes and modifiers, and tries to apply those
   /// to the parsed declaration, producing hard failures only if `decl` did or if at least one
   /// attribute or modifier has been parsed.
-  private static func decorated<Decl: Combinator>(decl: Decl) -> Apply<ParserContext, AnyDeclID>
-  where Decl.Context == ParserContext, Decl.Element == AnyDeclID
+  private static func decorated<Decl: Combinator>(decl: Decl) -> Apply<ParserState, AnyDeclID>
+  where Decl.Context == ParserState, Decl.Element == AnyDeclID
   {
-    Apply({ (context) in
-      guard let startIndex = context.peek()?.range.lowerBound else { return nil }
+    Apply({ (state) in
+      guard let startIndex = state.peek()?.range.lowerBound else { return nil }
 
       // Parse attributes and modifiers.
       var attributes: [SourceRepresentable<Attribute>] = []
-      while let a = try declAttribute.parse(&context) {
+      while let a = try declAttribute.parse(&state) {
         attributes.append(a)
       }
-      let access = try accessModifier.parse(&context)
-      let member = try memberModifier.parse(&context)
+      let access = try accessModifier.parse(&state)
+      let member = try memberModifier.parse(&state)
 
       // Parse the declaration.
-      guard let declID = try decl.parse(&context) else {
+      guard let declID = try decl.parse(&state) else {
         if attributes.isEmpty && (access == nil) && (member == nil) {
           return nil
         } else {
-          throw ParseError("expected declaration", at: context.currentLocation)
+          throw ParseError("expected declaration", at: state.currentLocation)
         }
       }
 
       switch declID.kind {
       case .bindingDecl:
         let id = NodeID<BindingDecl>(rawValue: declID.rawValue)
-        context.ast[id].incorporate(
+        state.ast[id].incorporate(
           attributes: attributes, accessModifier: access, memberModifier: member)
 
       case .conformanceDecl:
         let id = NodeID<ConformanceDecl>(rawValue: declID.rawValue)
-        context.ast[id].incorporate(access)
+        state.ast[id].incorporate(access)
 
         if let a = attributes.first {
-          context.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
+          state.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
         }
         if let m = member {
-          context.diagnostics.append(.unexpectedDeclModifier(at: m.range))
+          state.diagnostics.append(.unexpectedDeclModifier(at: m.range))
         }
 
       case .importDecl:
         if let a = attributes.first {
-          context.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
+          state.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
         }
         if let a = access {
-          context.diagnostics.append(.unexpectedDeclModifier(at: a.range))
+          state.diagnostics.append(.unexpectedDeclModifier(at: a.range))
         }
         if let m = member {
-          context.diagnostics.append(.unexpectedDeclModifier(at: m.range))
+          state.diagnostics.append(.unexpectedDeclModifier(at: m.range))
         }
 
       case .extensionDecl:
         let id = NodeID<ExtensionDecl>(rawValue: declID.rawValue)
-        context.ast[id].incorporate(access)
+        state.ast[id].incorporate(access)
 
         if let a = attributes.first {
-          context.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
+          state.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
         }
         if let m = member {
-          context.diagnostics.append(.unexpectedDeclModifier(at: m.range))
+          state.diagnostics.append(.unexpectedDeclModifier(at: m.range))
         }
 
       case .funDecl:
         let id = NodeID<FunDecl>(rawValue: declID.rawValue)
-        context.ast[id].incorporate(
+        state.ast[id].incorporate(
           attributes: attributes, accessModifier: access, memberModifier: member)
 
       case .operatorDecl:
         if let a = access {
-          context.ast[NodeID<OperatorDecl>(rawValue: declID.rawValue)].incorporate(a)
+          state.ast[NodeID<OperatorDecl>(rawValue: declID.rawValue)].incorporate(a)
         }
 
         if let a = attributes.first {
-          context.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
+          state.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
         }
         if let m = member {
-          context.diagnostics.append(.unexpectedDeclModifier(at: m.range))
+          state.diagnostics.append(.unexpectedDeclModifier(at: m.range))
         }
 
       case .namespaceDecl:
         if let a = access {
-          context.ast[NodeID<NamespaceDecl>(rawValue: declID.rawValue)].incorporate(a)
+          state.ast[NodeID<NamespaceDecl>(rawValue: declID.rawValue)].incorporate(a)
         }
 
         if let a = attributes.first {
-          context.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
+          state.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
         }
         if let m = member {
-          context.diagnostics.append(.unexpectedDeclModifier(at: m.range))
+          state.diagnostics.append(.unexpectedDeclModifier(at: m.range))
         }
 
       case .productTypeDecl:
         if let a = access {
-          context.ast[NodeID<ProductTypeDecl>(rawValue: declID.rawValue)].incorporate(a)
+          state.ast[NodeID<ProductTypeDecl>(rawValue: declID.rawValue)].incorporate(a)
         }
         if let a = attributes.first {
-          context.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
+          state.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
         }
         if let m = member {
-          context.diagnostics.append(.unexpectedDeclModifier(at: m.range))
+          state.diagnostics.append(.unexpectedDeclModifier(at: m.range))
         }
 
       case .subscriptDecl:
         let id = NodeID<SubscriptDecl>(rawValue: declID.rawValue)
-        context.ast[id].incorporate(
+        state.ast[id].incorporate(
           attributes: attributes, accessModifier: access, memberModifier: member)
 
       case .traitDecl:
         if let a = access {
           let id = NodeID<TraitDecl>(rawValue: declID.rawValue)
-          context.ast[id].incorporate(a)
+          state.ast[id].incorporate(a)
         }
 
         if let a = attributes.first {
-          context.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
+          state.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
         }
         if let m = member {
-          context.diagnostics.append(.unexpectedDeclModifier(at: m.range))
+          state.diagnostics.append(.unexpectedDeclModifier(at: m.range))
         }
 
       case .typeAliasDecl:
         if let a = access {
           let id = NodeID<TypeAliasDecl>(rawValue: declID.rawValue)
-          context.ast[id].incorporate(a)
+          state.ast[id].incorporate(a)
         }
         if let a = attributes.first {
-          context.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
+          state.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
         }
         if let m = member {
-          context.diagnostics.append(.unexpectedDeclModifier(at: m.range))
+          state.diagnostics.append(.unexpectedDeclModifier(at: m.range))
         }
 
       default:
         unreachable("unexpected declaration")
       }
 
-      context.ast.ranges[declID]?.lowerBound = startIndex
+      state.ast.ranges[declID]?.lowerBound = startIndex
       return declID
     })
   }
@@ -937,10 +977,10 @@ public enum Parser {
 
   static let genericClause = (
     take(.lAngle).and(genericParameterList).and(maybe(whereClause)).and(take(.rAngle))
-      .map({ (context, tree) -> SourceRepresentable<GenericClause> in
+      .map({ (state, tree) -> SourceRepresentable<GenericClause> in
         return SourceRepresentable(
           value: GenericClause(parameters: tree.0.0.1, whereClause: tree.0.1),
-          range: tree.0.0.0.range.upperBounded(by: context.currentIndex))
+          range: tree.0.0.0.range.upperBounded(by: state.currentIndex))
       })
   )
 
@@ -957,16 +997,16 @@ public enum Parser {
     maybe(typeAttribute).andCollapsingSoftFailures(take(.name))
       .and(maybe(take(.colon).and(traitComposition)))
       .and(maybe(take(.assign).and(typeExpr)))
-      .map({ (context, tree) -> GenericParamDeclID in
-        let id = context.ast.insert(GenericTypeParamDecl(
-          identifier: SourceRepresentable(token: tree.0.0.1, in: context.lexer.source),
+      .map({ (state, tree) -> GenericParamDeclID in
+        let id = state.ast.insert(GenericTypeParamDecl(
+          identifier: SourceRepresentable(token: tree.0.0.1, in: state.lexer.source),
           conformances: tree.0.1?.1 ?? [],
           defaultValue: tree.1?.1))
 
-        context.ast.ranges[id] = SourceRange(
-          in: context.lexer.source,
+        state.ast.ranges[id] = SourceRange(
+          in: state.lexer.source,
           from: tree.0.0.0?.range.lowerBound ?? tree.0.0.1.range.lowerBound,
-          to: context.currentIndex)
+          to: state.currentIndex)
         return .type(id)
       })
   )
@@ -975,57 +1015,57 @@ public enum Parser {
     valueAttribute.and(take(.name))
       .and(take(.colon).and(typeExpr))
       .and(maybe(take(.assign).and(expr)))
-      .map({ (context, tree) -> GenericParamDeclID in
-        let id = context.ast.insert(GenericValueParamDecl(
-          identifier: SourceRepresentable(token: tree.0.0.1, in: context.lexer.source),
+      .map({ (state, tree) -> GenericParamDeclID in
+        let id = state.ast.insert(GenericValueParamDecl(
+          identifier: SourceRepresentable(token: tree.0.0.1, in: state.lexer.source),
           annotation: tree.0.1.1,
           defaultValue: tree.1?.1))
 
-        context.ast.ranges[id] = tree.0.0.0.range.upperBounded(by: context.currentIndex)
+        state.ast.ranges[id] = tree.0.0.0.range.upperBounded(by: state.currentIndex)
         return .value(id)
       })
   )
 
   static let conformanceList = (
     take(.colon).and(nameTypeExpr).and(zeroOrMany(take(.comma).and(nameTypeExpr).second))
-      .map({ (context, tree) -> [NodeID<NameTypeExpr>] in [tree.0.1] + tree.1 })
+      .map({ (state, tree) -> [NodeID<NameTypeExpr>] in [tree.0.1] + tree.1 })
   )
 
   // MARK: Value expressions
 
   private static func anyExpr<Base: Combinator>(
     _ base: Base
-  ) -> AnyCombinator<ParserContext, AnyExprID>
-  where Base.Context == ParserContext, Base.Element: ExprID
+  ) -> AnyCombinator<ParserState, AnyExprID>
+  where Base.Context == ParserState, Base.Element: ExprID
   {
-    AnyCombinator(parse: { (context) in
-      try base.parse(&context).map(AnyExprID.init(_:))
+    AnyCombinator(parse: { (state) in
+      try base.parse(&state).map(AnyExprID.init(_:))
     })
   }
 
-  static let expr: Recursive<ParserContext, AnyExprID> = (
+  static let expr: Recursive<ParserState, AnyExprID> = (
     Recursive(infixExpr.parse(_:))
   )
 
   static let infixExpr = (
-    Apply<ParserContext, AnyExprID>({ (context) -> AnyExprID? in
-      guard var lhs = try infixExprHead.parse(&context) else { return nil }
+    Apply<ParserState, AnyExprID>({ (state) -> AnyExprID? in
+      guard var lhs = try infixExprHead.parse(&state) else { return nil }
 
-      while context.hasLeadingWhitespace {
+      while state.hasLeadingWhitespace {
         // type-casting-tail
-        if let infixOperator = context.take(.cast) {
-          try appendInfixTail(to: &lhs, forCastOperator: infixOperator, in: &context)
+        if let infixOperator = state.take(.cast) {
+          try appendInfixTail(to: &lhs, forCastOperator: infixOperator, in: &state)
           continue
         }
 
         // infix-operator-tail (with assign)
-        if let infixOperator = context.take(.assign) {
-          try appendInfixTail(to: &lhs, forAssignOperator: infixOperator, in: &context)
+        if let infixOperator = state.take(.assign) {
+          try appendInfixTail(to: &lhs, forAssignOperator: infixOperator, in: &state)
           continue
         }
 
         // infix-operator-tail
-        if try !appendInfixTail(to: &lhs, in: &context) { break }
+        if try !appendInfixTail(to: &lhs, in: &state) { break }
       }
 
       return lhs
@@ -1037,18 +1077,18 @@ public enum Parser {
   private static func appendInfixTail(
     to lhs: inout AnyExprID,
     forCastOperator infixOperator: Token,
-    in context: inout ParserContext
+    in state: inout ParserState
   ) throws {
-    if !context.hasLeadingWhitespace {
-      context.diagnostics.append(.infixOperatorRequiresWhitespaces(at: infixOperator.range))
+    if !state.hasLeadingWhitespace {
+      state.diagnostics.append(.infixOperatorRequiresWhitespaces(at: infixOperator.range))
     }
 
-    guard let rhs = try typeExpr.parse(&context) else {
-      throw ParseError("expected type expression", at: context.currentLocation)
+    guard let rhs = try typeExpr.parse(&state) else {
+      throw ParseError("expected type expression", at: state.currentLocation)
     }
 
     let castKind: CastExpr.Kind
-    switch context.lexer.source[infixOperator.range] {
+    switch state.lexer.source[infixOperator.range] {
     case "as":
       castKind = .up
     case "as!":
@@ -1059,8 +1099,8 @@ public enum Parser {
       unreachable()
     }
 
-    let expr = context.ast.insert(CastExpr(left: lhs, right: rhs, kind: castKind))
-    context.ast.ranges[expr] = context.ast.ranges[lhs]!.upperBounded(by: context.currentIndex)
+    let expr = state.ast.insert(CastExpr(left: lhs, right: rhs, kind: castKind))
+    state.ast.ranges[expr] = state.ast.ranges[lhs]!.upperBounded(by: state.currentIndex)
     lhs = AnyExprID(expr)
   }
 
@@ -1068,18 +1108,18 @@ public enum Parser {
   private static func appendInfixTail(
     to lhs: inout AnyExprID,
     forAssignOperator infixOperator: Token,
-    in context: inout ParserContext
+    in state: inout ParserState
   ) throws {
-    if !context.hasLeadingWhitespace {
-      context.diagnostics.append(.infixOperatorRequiresWhitespaces(at: infixOperator.range))
+    if !state.hasLeadingWhitespace {
+      state.diagnostics.append(.infixOperatorRequiresWhitespaces(at: infixOperator.range))
     }
 
-    guard let rhs = try prefixExpr.parse(&context) else {
-      throw ParseError("expected expression", at: context.currentLocation)
+    guard let rhs = try prefixExpr.parse(&state) else {
+      throw ParseError("expected expression", at: state.currentLocation)
     }
 
-    let expr = context.ast.insert(AssignExpr(left: lhs, right: rhs))
-    context.ast.ranges[expr] = context.ast.ranges[lhs]!.upperBounded(by: context.currentIndex)
+    let expr = state.ast.insert(AssignExpr(left: lhs, right: rhs))
+    state.ast.ranges[expr] = state.ast.ranges[lhs]!.upperBounded(by: state.currentIndex)
     lhs = AnyExprID(expr)
   }
 
@@ -1088,31 +1128,31 @@ public enum Parser {
   /// returns `false.
   private static func appendInfixTail(
     to lhs: inout AnyExprID,
-    in context: inout ParserContext
+    in state: inout ParserState
   ) throws -> Bool {
     var tail: SequenceExpr.UnfoldedTail = []
 
     while true {
-      let backup = context.backup()
+      let backup = state.backup()
 
       // Look for the next operator.
-      guard let operatorName = context.takeOperator() else { break }
+      guard let operatorName = state.takeOperator() else { break }
 
       // If there isn't any leading whitespace before the next expression but the operator is on a
       // different line, we may be looking at the start of a prefix expression.
-      if !context.hasLeadingWhitespace {
-        let rangeBefore = context.ast.ranges[lhs]!.upperBound ..< operatorName.range!.lowerBound
-        if context.lexer.source.contents[rangeBefore].contains(where: { $0.isNewline }) {
-          context.restore(from: backup)
+      if !state.hasLeadingWhitespace {
+        let rangeBefore = state.ast.ranges[lhs]!.upperBound ..< operatorName.range!.lowerBound
+        if state.lexer.source.contents[rangeBefore].contains(where: { $0.isNewline }) {
+          state.restore(from: backup)
           break
         }
 
-        context.diagnostics.append(.infixOperatorRequiresWhitespaces(at: operatorName.range))
+        state.diagnostics.append(.infixOperatorRequiresWhitespaces(at: operatorName.range))
       }
 
       // Now we can commit to parse an operand.
-      guard let operand = try prefixExpr.parse(&context) else {
-        throw ParseError("expected type expression", at: context.currentLocation)
+      guard let operand = try prefixExpr.parse(&state) else {
+        throw ParseError("expected type expression", at: state.currentLocation)
       }
       tail.append(SequenceExpr.TailElement(operatorName: operatorName, operand: operand))
     }
@@ -1120,8 +1160,8 @@ public enum Parser {
     // Nothing to transform if the tail is empty.
     if tail.isEmpty { return false }
 
-    let expr = context.ast.insert(SequenceExpr.unfolded(head: lhs, tail: tail))
-    context.ast.ranges[expr] = context.ast.ranges[lhs]!.upperBounded(by: context.currentIndex)
+    let expr = state.ast.insert(SequenceExpr.unfolded(head: lhs, tail: tail))
+    state.ast.ranges[expr] = state.ast.ranges[lhs]!.upperBounded(by: state.currentIndex)
     lhs = AnyExprID(expr)
     return true
   }
@@ -1137,36 +1177,36 @@ public enum Parser {
 
   static let asyncExprBlock = (
     asyncExprHead.and(take(.arrow)).and(typeExpr).and(asyncExprBody)
-      .map({ (context, tree) -> NodeID<AsyncExpr> in
-        let decl = context.ast.insert(FunDecl(
+      .map({ (state, tree) -> NodeID<AsyncExpr> in
+        let decl = state.ast.insert(FunDecl(
           introducer: SourceRepresentable(value: .fun, range: tree.0.0.0.0.0.range),
           receiverEffect: tree.0.0.0.1,
           output: tree.0.1,
           body: .block(tree.1),
           isInExprContext: true))
-        context.ast.ranges[decl] = tree.0.0.0.0.0.range.upperBounded(by: context.currentIndex)
+        state.ast.ranges[decl] = tree.0.0.0.0.0.range.upperBounded(by: state.currentIndex)
 
-        let id = context.ast.insert(AsyncExpr(decl: decl))
-        context.ast.ranges[id] = context.ast.ranges[decl]
+        let id = state.ast.insert(AsyncExpr(decl: decl))
+        state.ast.ranges[id] = state.ast.ranges[decl]
         return id
       })
   )
 
-  static let asyncExprBody = settingFlags(.parsingFunctionBody, apply: braceStmt)
+  static let asyncExprBody = inContext(.functionBody, apply: braceStmt)
 
   static let asyncExprInline = (
     asyncExprHead.and(expr)
-      .map({ (context, tree) -> NodeID<AsyncExpr> in
-        let decl = context.ast.insert(FunDecl(
+      .map({ (state, tree) -> NodeID<AsyncExpr> in
+        let decl = state.ast.insert(FunDecl(
           introducer: SourceRepresentable(value: .fun, range: tree.0.0.0.range),
           receiverEffect: tree.0.1,
           captures: tree.0.0.1 ?? [],
           body: .expr(tree.1),
           isInExprContext: true))
-        context.ast.ranges[decl] = tree.0.0.0.range.upperBounded(by: context.currentIndex)
+        state.ast.ranges[decl] = tree.0.0.0.range.upperBounded(by: state.currentIndex)
 
-        let id = context.ast.insert(AsyncExpr(decl: decl))
-        context.ast.ranges[id] = context.ast.ranges[decl]
+        let id = state.ast.insert(AsyncExpr(decl: decl))
+        state.ast.ranges[id] = state.ast.ranges[decl]
         return id
       })
   )
@@ -1177,10 +1217,10 @@ public enum Parser {
 
   static let awaitExpr = (
     take(.await).and(expr)
-      .map({ (context, tree) -> NodeID<AwaitExpr> in
-        let id = context.ast.insert(AwaitExpr(operand: tree.1))
-        context.ast.ranges[id] = tree.0.range.upperBounded(
-          by: context.ast.ranges[tree.1]!.upperBound)
+      .map({ (state, tree) -> NodeID<AwaitExpr> in
+        let id = state.ast.insert(AwaitExpr(operand: tree.1))
+        state.ast.ranges[id] = tree.0.range.upperBounded(
+          by: state.ast.ranges[tree.1]!.upperBound)
         return id
       })
   )
@@ -1188,25 +1228,25 @@ public enum Parser {
   static let prefixExpr = Choose(
     postfixExpr,
     or: prefixOperator.and(withoutLeadingWhitespace(postfixExpr))
-      .map({ (context, tree) -> AnyExprID in
-        let callee = context.ast.insert(NameExpr(
+      .map({ (state, tree) -> AnyExprID in
+        let callee = state.ast.insert(NameExpr(
           domain: .expr(tree.1),
           name: SourceRepresentable(
             value: Name(stem: tree.0.value, notation: .prefix),
             range: tree.0.range)))
-        context.ast.ranges[callee] = tree.0.range!.upperBounded(
-          by: context.ast.ranges[tree.1]!.upperBound)
+        state.ast.ranges[callee] = tree.0.range!.upperBounded(
+          by: state.ast.ranges[tree.1]!.upperBound)
 
-        let call = context.ast.insert(FunCallExpr(callee: AnyExprID(callee)))
-        context.ast.ranges[call] = context.ast.ranges[callee]
+        let call = state.ast.insert(FunCallExpr(callee: AnyExprID(callee)))
+        state.ast.ranges[call] = state.ast.ranges[callee]
         return AnyExprID(call)
       })
   )
 
   static let prefixOperator = (
-    Apply<ParserContext, SourceRepresentable<Identifier>>({ (context) in
-      if let t = context.peek(), t.isPrefixOperatorHead {
-        return context.takeOperator()
+    Apply<ParserState, SourceRepresentable<Identifier>>({ (state) in
+      if let t = state.peek(), t.isPrefixOperatorHead {
+        return state.takeOperator()
       } else {
         return nil
       }
@@ -1215,17 +1255,17 @@ public enum Parser {
 
   static let postfixExpr = (
     compoundExpr.and(maybe(withoutLeadingWhitespace(postfixOperator)))
-      .map({ (context, tree) -> AnyExprID in
+      .map({ (state, tree) -> AnyExprID in
         if let oper = tree.1 {
-          let callee = context.ast.insert(NameExpr(
+          let callee = state.ast.insert(NameExpr(
             domain: .expr(tree.0),
             name: SourceRepresentable(
               value: Name(stem: oper.value, notation: .postfix), range: oper.range)))
-          context.ast.ranges[callee] = context.ast.ranges[tree.0]!.upperBounded(
+          state.ast.ranges[callee] = state.ast.ranges[tree.0]!.upperBounded(
             by: oper.range!.upperBound)
 
-          let call = context.ast.insert(FunCallExpr(callee: AnyExprID(callee)))
-          context.ast.ranges[call] = context.ast.ranges[callee]
+          let call = state.ast.insert(FunCallExpr(callee: AnyExprID(callee)))
+          state.ast.ranges[call] = state.ast.ranges[callee]
           return AnyExprID(call)
         } else {
           return tree.0
@@ -1234,9 +1274,9 @@ public enum Parser {
   )
 
   static let postfixOperator = (
-    Apply<ParserContext, SourceRepresentable<Identifier>>({ (context) in
-      if let t = context.peek(), t.isPostfixOperatorHead {
-        return context.takeOperator()
+    Apply<ParserState, SourceRepresentable<Identifier>>({ (state) in
+      if let t = state.peek(), t.isPostfixOperatorHead {
+        return state.takeOperator()
       } else {
         return nil
       }
@@ -1244,84 +1284,84 @@ public enum Parser {
   )
 
   static let compoundExpr = (
-    Apply<ParserContext, AnyExprID>({ (context) -> AnyExprID? in
-      var backup = context.backup()
+    Apply<ParserState, AnyExprID>({ (state) -> AnyExprID? in
+      var backup = state.backup()
       let base: AnyExprID?
 
       do {
         // Parse a primary expression first.
-        base = try primaryExpr.parse(&context)
+        base = try primaryExpr.parse(&state)
       } catch let primaryExprParseError {
         // Parsing a primary expression returned a hard failure.
-        swap(&context, &backup)
+        swap(&state, &backup)
         do {
           // Parse a static value member.
-          base = try staticValueMemberExpr.parse(&context).map(AnyExprID.init(_:))
+          base = try staticValueMemberExpr.parse(&state).map(AnyExprID.init(_:))
         } catch {
           // Parsing a static value member failed too; return the first error.
-          swap(&context, &backup)
+          swap(&state, &backup)
           throw primaryExprParseError
         }
       }
 
       // Base is `nil` if and only if `primaryExpr` returned a soft error.
       var head: AnyExprID
-      if let b = try base ?? staticValueMemberExpr.parse(&context).map(AnyExprID.init(_:)) {
+      if let b = try base ?? staticValueMemberExpr.parse(&state).map(AnyExprID.init(_:)) {
         head = b
       } else {
         return nil
       }
-      let headRange = context.ast.ranges[head]!
+      let headRange = state.ast.ranges[head]!
 
       while true {
         // value-member-expr
-        if context.take(.dot) != nil {
+        if state.take(.dot) != nil {
           // labeled-member-expr
-          if let member = try primaryDeclRef.parse(&context) {
-            context.ast[member].incorporate(domain: .expr(head))
-            context.ast.ranges[member] = headRange.upperBounded(by: context.currentIndex)
+          if let member = try primaryDeclRef.parse(&state) {
+            state.ast[member].incorporate(domain: .expr(head))
+            state.ast.ranges[member] = headRange.upperBounded(by: state.currentIndex)
             head = AnyExprID(member)
             continue
           }
 
           // indexed-member-expr
-          if let index = context.takeMemberIndex() {
-            head = AnyExprID(context.ast.insert(TupleMemberExpr(tuple: head, index: index)))
-            context.ast.ranges[head] = headRange.upperBounded(by: context.currentIndex)
+          if let index = state.takeMemberIndex() {
+            head = AnyExprID(state.ast.insert(TupleMemberExpr(tuple: head, index: index)))
+            state.ast.ranges[head] = headRange.upperBounded(by: state.currentIndex)
             continue
           }
 
-          throw ParseError("expected member name", at: context.currentLocation)
+          throw ParseError("expected member name", at: state.currentLocation)
         }
 
         // Exit if there's a new line before the next token.
-        guard let next = context.peek(),
-              !context.hasNewline(inCharacterStreamUpTo: next.range.lowerBound)
+        guard let next = state.peek(),
+              !state.hasNewline(inCharacterStreamUpTo: next.range.lowerBound)
         else { break }
 
         // function-call-expr
-        if context.take(.lParen) != nil {
-          let arguments = try argumentList.parse(&context) ?? []
-          guard context.take(.rParen) != nil else {
-            throw ParseError("expected ')'", at: context.currentLocation)
+        if state.take(.lParen) != nil {
+          let arguments = try argumentList.parse(&state) ?? []
+          guard state.take(.rParen) != nil else {
+            throw ParseError("expected ')'", at: state.currentLocation)
           }
 
-          head = AnyExprID(context.ast.insert(FunCallExpr(
+          head = AnyExprID(state.ast.insert(FunCallExpr(
             callee: head, arguments: arguments)))
-          context.ast.ranges[head] = headRange.upperBounded(by: context.currentIndex)
+          state.ast.ranges[head] = headRange.upperBounded(by: state.currentIndex)
           continue
         }
 
         // subscript-call-expr
-        if context.take(.lBrack) != nil {
-          let arguments = try argumentList.parse(&context) ?? []
-          guard context.take(.rBrack) != nil else {
-            throw ParseError("expected ']'", at: context.currentLocation)
+        if state.take(.lBrack) != nil {
+          let arguments = try argumentList.parse(&state) ?? []
+          guard state.take(.rBrack) != nil else {
+            throw ParseError("expected ']'", at: state.currentLocation)
           }
 
-          head = AnyExprID(context.ast.insert(SubscriptCallExpr(
+          head = AnyExprID(state.ast.insert(SubscriptCallExpr(
             callee: head, arguments: arguments)))
-          context.ast.ranges[head] = headRange.upperBounded(by: context.currentIndex)
+          state.ast.ranges[head] = headRange.upperBounded(by: state.currentIndex)
           continue
         }
 
@@ -1338,23 +1378,23 @@ public enum Parser {
   )
 
   static let callArgument = (
-    Apply<ParserContext, CallArgument>({ (context) in
-      let backup = context.backup()
+    Apply<ParserState, CallArgument>({ (state) in
+      let backup = state.backup()
 
       // Parse a labeled arrgument.
-      if let label = context.take(if: { $0.isLabel }) {
-        if context.take(.colon) != nil {
-          if let value = try expr.parse(&context) {
+      if let label = state.take(if: { $0.isLabel }) {
+        if state.take(.colon) != nil {
+          if let value = try expr.parse(&state) {
             return CallArgument(
-              label: SourceRepresentable(token: label, in: context.lexer.source),
+              label: SourceRepresentable(token: label, in: state.lexer.source),
               value: value)
           }
         }
       }
 
       // Backtrack and parse an unlabeled argument.
-      context.restore(from: backup)
-      if let value = try expr.parse(&context) {
+      state.restore(from: backup)
+      if let value = try expr.parse(&state) {
         return CallArgument(value:value)
       }
 
@@ -1364,10 +1404,10 @@ public enum Parser {
 
   static let staticValueMemberExpr = (
     primaryTypeExpr.and(take(.dot)).and(primaryDeclRef)
-      .map({ (context, tree) -> NodeID<NameExpr> in
-        context.ast[tree.1].incorporate(domain: .type(tree.0.0))
-        context.ast.ranges[tree.1] = context.ast.ranges[tree.0.0]!.upperBounded(
-          by: context.ast.ranges[tree.1]!.upperBound)
+      .map({ (state, tree) -> NodeID<NameExpr> in
+        state.ast[tree.1].incorporate(domain: .type(tree.0.0))
+        state.ast.ranges[tree.1] = state.ast.ranges[tree.0.0]!.upperBounded(
+          by: state.ast.ranges[tree.1]!.upperBound)
         return tree.1
       })
   )
@@ -1392,40 +1432,40 @@ public enum Parser {
 
   static let booleanLiteral = (
     take(.bool)
-      .map({ (context, token) -> NodeID<BooleanLiteralExpr> in
-        let id = context.ast.insert(BooleanLiteralExpr(
-          value: context.lexer.source[token.range] == "true"))
-        context.ast.ranges[id] = token.range
+      .map({ (state, token) -> NodeID<BooleanLiteralExpr> in
+        let id = state.ast.insert(BooleanLiteralExpr(
+          value: state.lexer.source[token.range] == "true"))
+        state.ast.ranges[id] = token.range
         return id
       })
   )
 
   static let integerLiteral = (
     take(.int)
-      .map({ (context, token) -> NodeID<IntegerLiteralExpr> in
-        let id = context.ast.insert(IntegerLiteralExpr(
-          value: context.lexer.source[token.range].filter({ $0 != "_" })))
-        context.ast.ranges[id] = token.range
+      .map({ (state, token) -> NodeID<IntegerLiteralExpr> in
+        let id = state.ast.insert(IntegerLiteralExpr(
+          value: state.lexer.source[token.range].filter({ $0 != "_" })))
+        state.ast.ranges[id] = token.range
         return id
       })
   )
 
   static let floatingPointLiteral = (
     take(.float)
-      .map({ (context, token) -> NodeID<FloatLiteralExpr> in
-        let id = context.ast.insert(FloatLiteralExpr(
-          value: context.lexer.source[token.range].filter({ $0 != "_" })))
-        context.ast.ranges[id] = token.range
+      .map({ (state, token) -> NodeID<FloatLiteralExpr> in
+        let id = state.ast.insert(FloatLiteralExpr(
+          value: state.lexer.source[token.range].filter({ $0 != "_" })))
+        state.ast.ranges[id] = token.range
         return id
       })
   )
 
   static let stringLiteral = (
     take(.string)
-      .map({ (context, token) -> NodeID<StringLiteralExpr> in
-        let id = context.ast.insert(StringLiteralExpr(
-          value: String(context.lexer.source[token.range].dropFirst().dropLast())))
-        context.ast.ranges[id] = token.range
+      .map({ (state, token) -> NodeID<StringLiteralExpr> in
+        let id = state.ast.insert(StringLiteralExpr(
+          value: String(state.lexer.source[token.range].dropFirst().dropLast())))
+        state.ast.ranges[id] = token.range
         return id
       })
   )
@@ -1438,23 +1478,23 @@ public enum Parser {
 
   static let bufferLiteral = (
     take(.lBrack).and(maybe(bufferComponentList)).and(take(.rBrack))
-      .map({ (context, tree) -> NodeID<BufferLiteralExpr> in
-        let id = context.ast.insert(BufferLiteralExpr(elements: tree.0.1 ?? []))
-        context.ast.ranges[id] = tree.0.0.range.upperBounded(by: context.currentIndex)
+      .map({ (state, tree) -> NodeID<BufferLiteralExpr> in
+        let id = state.ast.insert(BufferLiteralExpr(elements: tree.0.1 ?? []))
+        state.ast.ranges[id] = tree.0.0.range.upperBounded(by: state.currentIndex)
         return id
       })
   )
 
   static let bufferComponentList = (
     expr.and(zeroOrMany(take(.comma).and(expr).second))
-      .map({ (context, tree) -> [AnyExprID] in [tree.0] + tree.1 })
+      .map({ (state, tree) -> [AnyExprID] in [tree.0] + tree.1 })
   )
 
   static let mapLiteral = (
     take(.lBrack).and(mapComponentList.or(mapComponentEmptyList)).and(take(.rBrack))
-      .map({ (context, tree) -> NodeID<MapLiteralExpr> in
-        let id = context.ast.insert(MapLiteralExpr(elements: tree.0.1))
-        context.ast.ranges[id] = tree.0.0.range.upperBounded(by: context.currentIndex)
+      .map({ (state, tree) -> NodeID<MapLiteralExpr> in
+        let id = state.ast.insert(MapLiteralExpr(elements: tree.0.1))
+        state.ast.ranges[id] = tree.0.0.range.upperBounded(by: state.currentIndex)
         return id
       })
   )
@@ -1466,7 +1506,7 @@ public enum Parser {
 
   static let mapComponentList = (
     mapComponent.and(zeroOrMany(take(.comma).and(mapComponent).second))
-      .map({ (context, tree) -> [MapLiteralExpr.Element] in [tree.0] + tree.1 })
+      .map({ (state, tree) -> [MapLiteralExpr.Element] in [tree.0] + tree.1 })
   )
 
   static let mapComponent = (
@@ -1478,29 +1518,29 @@ public enum Parser {
 
   static let primaryDeclRef = (
     identifierExpr.and(maybe(staticArgumentList))
-      .map({ (context, tree) -> NodeID<NameExpr> in
-        let id = context.ast.insert(NameExpr(name: tree.0, arguments: tree.1 ?? []))
-        context.ast.ranges[id] = tree.0.range!.upperBounded(by: context.currentIndex)
+      .map({ (state, tree) -> NodeID<NameExpr> in
+        let id = state.ast.insert(NameExpr(name: tree.0, arguments: tree.1 ?? []))
+        state.ast.ranges[id] = tree.0.range!.upperBounded(by: state.currentIndex)
         return id
       })
   )
 
   static let implicitMemberRef = (
     take(.dot).and(primaryDeclRef)
-      .map({ (context, tree) -> NodeID<NameExpr> in
-        context.ast[tree.1].incorporate(domain: .implicit)
-        context.ast.ranges[tree.1] = tree.0.range.upperBounded(
-          by: context.ast.ranges[tree.1]!.upperBound)
+      .map({ (state, tree) -> NodeID<NameExpr> in
+        state.ast[tree.1].incorporate(domain: .implicit)
+        state.ast.ranges[tree.1] = tree.0.range.upperBounded(
+          by: state.ast.ranges[tree.1]!.upperBound)
         return tree.1
       })
   )
 
   static let lambdaExpr = (
     take(.fun).and(maybe(captureList)).and(functionSignature).and(lambdaBody)
-      .map({ (context, tree) -> NodeID<LambdaExpr> in
+      .map({ (state, tree) -> NodeID<LambdaExpr> in
         let signature = tree.0.1
 
-        let decl = context.ast.insert(FunDecl(
+        let decl = state.ast.insert(FunDecl(
           introducer: SourceRepresentable(value: .fun, range: tree.0.0.0.range),
           receiverEffect: signature.receiverEffect,
           captures: tree.0.0.1 ?? [],
@@ -1508,58 +1548,58 @@ public enum Parser {
           output: signature.output,
           body: tree.1,
           isInExprContext: true))
-        context.ast.ranges[decl] = tree.0.0.0.range.upperBounded(by: context.currentIndex)
+        state.ast.ranges[decl] = tree.0.0.0.range.upperBounded(by: state.currentIndex)
 
-        let id = context.ast.insert(LambdaExpr(decl: decl))
-        context.ast.ranges[id] = context.ast.ranges[decl]
+        let id = state.ast.insert(LambdaExpr(decl: decl))
+        state.ast.ranges[id] = state.ast.ranges[decl]
         return id
       })
   )
 
-  static let lambdaBody = settingFlags(.parsingFunctionBody, apply: TryCatch(
+  static let lambdaBody = inContext(.functionBody, apply: TryCatch(
     trying: take(.lBrace).and(expr).and(take(.rBrace))
-      .map({ (context, tree) -> FunDecl.Body in .expr(tree.0.1) }),
+      .map({ (state, tree) -> FunDecl.Body in .expr(tree.0.1) }),
     orCatchingAndApplying: braceStmt
-      .map({ (context, id) -> FunDecl.Body in .block(id) })
+      .map({ (state, id) -> FunDecl.Body in .block(id) })
   ))
 
   static let matchExpr = (
     take(.match).and(expr).and(take(.lBrace)).and(zeroOrMany(matchCase)).and(take(.rBrace))
-      .map({ (context, tree) -> NodeID<MatchExpr> in
-        let id = context.ast.insert(MatchExpr(subject: tree.0.0.0.1, cases: tree.0.1))
-        context.ast.ranges[id] = tree.0.0.0.0.range.upperBounded(by: context.currentIndex)
+      .map({ (state, tree) -> NodeID<MatchExpr> in
+        let id = state.ast.insert(MatchExpr(subject: tree.0.0.0.1, cases: tree.0.1))
+        state.ast.ranges[id] = tree.0.0.0.0.range.upperBounded(by: state.currentIndex)
         return id
       })
   )
 
   static let matchCase = (
     pattern.and(maybe(take(.where).and(expr))).and(matchCaseBody)
-      .map({ (context, tree) -> NodeID<MatchCase> in
-        let id = context.ast.insert(MatchCase(
+      .map({ (state, tree) -> NodeID<MatchCase> in
+        let id = state.ast.insert(MatchCase(
           pattern: tree.0.0, condition: tree.0.1?.1, body: tree.1))
-        context.ast.ranges[id] = context.ast.ranges[tree.0.0]!.upperBounded(
-          by: context.currentIndex)
+        state.ast.ranges[id] = state.ast.ranges[tree.0.0]!.upperBounded(
+          by: state.currentIndex)
         return id
       })
   )
 
   static let matchCaseBody = TryCatch(
     trying: take(.lBrace).and(expr).and(take(.rBrace))
-      .map({ (context, tree) -> MatchCase.Body in .expr(tree.0.1) }),
+      .map({ (state, tree) -> MatchCase.Body in .expr(tree.0.1) }),
     orCatchingAndApplying: braceStmt
-      .map({ (context, id) -> MatchCase.Body in .block(id) })
+      .map({ (state, id) -> MatchCase.Body in .block(id) })
   )
 
-  static let conditionalExpr: Recursive<ParserContext, NodeID<CondExpr>> = (
+  static let conditionalExpr: Recursive<ParserState, NodeID<CondExpr>> = (
     Recursive(_conditionalExpr.parse(_:))
   )
 
   private static let _conditionalExpr = (
     take(.if).and(conditionalClause).and(conditionalExprBody).and(maybe(conditionalTail))
-      .map({ (context, tree) -> NodeID<CondExpr> in
-        let id = context.ast.insert(CondExpr(
+      .map({ (state, tree) -> NodeID<CondExpr> in
+        let id = state.ast.insert(CondExpr(
           condition: tree.0.0.1, success: tree.0.1, failure: tree.1))
-        context.ast.ranges[id] = tree.0.0.0.range.upperBounded(by: context.currentIndex)
+        state.ast.ranges[id] = tree.0.0.0.range.upperBounded(by: state.currentIndex)
         return id
       })
   )
@@ -1571,10 +1611,10 @@ public enum Parser {
 
   static let conditionalClauseItem = Choose(
     bindingPattern.and(take(.assign)).and(expr)
-      .map({ (context, tree) -> ConditionItem in
-        let id = context.ast.insert(BindingDecl(pattern: tree.0.0, initializer: tree.1))
-        context.ast.ranges[id] = context.ast.ranges[tree.0.0]!.upperBounded(
-          by: context.currentIndex)
+      .map({ (state, tree) -> ConditionItem in
+        let id = state.ast.insert(BindingDecl(pattern: tree.0.0, initializer: tree.1))
+        state.ast.ranges[id] = state.ast.ranges[tree.0.0]!.upperBounded(
+          by: state.currentIndex)
         return .decl(id)
       }),
     or: expr
@@ -1583,9 +1623,9 @@ public enum Parser {
 
   static let conditionalExprBody = TryCatch(
     trying: take(.lBrace).and(expr).and(take(.rBrace))
-      .map({ (context, tree) -> CondExpr.Body in .expr(tree.0.1) }),
+      .map({ (state, tree) -> CondExpr.Body in .expr(tree.0.1) }),
     orCatchingAndApplying: braceStmt
-      .map({ (context, id) -> CondExpr.Body in .block(id) })
+      .map({ (state, id) -> CondExpr.Body in .block(id) })
   )
 
   static let conditionalTail = (
@@ -1599,19 +1639,19 @@ public enum Parser {
 
   static let inoutExpr = (
     take(.ampersand).and(withoutLeadingWhitespace(expr))
-      .map({ (context, tree) -> NodeID<InoutExpr> in
-        let id = context.ast.insert(InoutExpr(
-          operatorRange: tree.0.range, subexpr: tree.1))
-        context.ast.ranges[id] = tree.0.range.upperBounded(by: context.currentIndex)
+      .map({ (state, tree) -> NodeID<InoutExpr> in
+        let id = state.ast.insert(InoutExpr(
+          operatorRange: tree.0.range, subject: tree.1))
+        state.ast.ranges[id] = tree.0.range.upperBounded(by: state.currentIndex)
         return id
       })
   )
 
   static let tupleExpr = (
     take(.lParen).and(maybe(tupleExprElementList)).and(take(.rParen))
-      .map({ (context, tree) -> NodeID<TupleExpr> in
-        let id = context.ast.insert(TupleExpr(elements: tree.0.1 ?? []))
-        context.ast.ranges[id] = tree.0.0.range.upperBounded(by: context.currentIndex)
+      .map({ (state, tree) -> NodeID<TupleExpr> in
+        let id = state.ast.insert(TupleExpr(elements: tree.0.1 ?? []))
+        state.ast.ranges[id] = tree.0.0.range.upperBounded(by: state.currentIndex)
         return id
       })
   )
@@ -1622,23 +1662,23 @@ public enum Parser {
   )
 
   static let tupleExprElement = (
-    Apply<ParserContext, TupleExpr.Element>({ (context) in
-      let backup = context.backup()
+    Apply<ParserState, TupleExpr.Element>({ (state) in
+      let backup = state.backup()
 
       // Parse a labeled element.
-      if let label = context.take(if: { $0.isLabel }) {
-        if context.take(.colon) != nil {
-          if let value = try expr.parse(&context) {
+      if let label = state.take(if: { $0.isLabel }) {
+        if state.take(.colon) != nil {
+          if let value = try expr.parse(&state) {
             return TupleExpr.Element(
-              label: SourceRepresentable(token: label, in: context.lexer.source),
+              label: SourceRepresentable(token: label, in: state.lexer.source),
               value: value)
           }
         }
       }
 
       // Backtrack and parse an unlabeled element.
-      context.restore(from: backup)
-      if let value = try expr.parse(&context) {
+      state.restore(from: backup)
+      if let value = try expr.parse(&state) {
         return TupleExpr.Element(value: value)
       }
 
@@ -1648,9 +1688,9 @@ public enum Parser {
 
   static let nilExpr = (
     take(.nil)
-      .map({ (context, token) -> NodeID<NilExpr> in
-        let id = context.ast.insert(NilExpr())
-        context.ast.ranges[id] = token.range
+      .map({ (state, token) -> NodeID<NilExpr> in
+        let id = state.ast.insert(NilExpr())
+        state.ast.ranges[id] = token.range
         return id
       })
   )
@@ -1659,15 +1699,15 @@ public enum Parser {
 
   private static func anyPattern<Base: Combinator>(
     _ base: Base
-  ) -> AnyCombinator<ParserContext, AnyPatternID>
-  where Base.Context == ParserContext, Base.Element: PatternID
+  ) -> AnyCombinator<ParserState, AnyPatternID>
+  where Base.Context == ParserState, Base.Element: PatternID
   {
-    AnyCombinator(parse: { (context) in
-      try base.parse(&context).map(AnyPatternID.init(_:))
+    AnyCombinator(parse: { (state) in
+      try base.parse(&state).map(AnyPatternID.init(_:))
     })
   }
 
-  static let pattern: Recursive<ParserContext, AnyPatternID> = (
+  static let pattern: Recursive<ParserState, AnyPatternID> = (
     Recursive(_pattern.parse(_:))
   )
 
@@ -1682,44 +1722,44 @@ public enum Parser {
 
   static let bindingPattern = (
     bindingIntroducer
-      .and(settingFlags(.parsingBindingPattern, apply: oneOf([
+      .and(inContext(.bindingPattern, apply: oneOf([
         anyPattern(namePattern),
         anyPattern(tuplePattern),
         anyPattern(wildcardPattern),
       ])))
       .and(maybe(take(.colon).and(typeExpr)))
-      .map({ (context, tree) -> NodeID<BindingPattern> in
-        let id = context.ast.insert(BindingPattern(
+      .map({ (state, tree) -> NodeID<BindingPattern> in
+        let id = state.ast.insert(BindingPattern(
           introducer: tree.0.0,
           subpattern: tree.0.1,
           annotation: tree.1?.1))
-        context.ast.ranges[id] = tree.0.0.range!.upperBounded(by: context.currentIndex)
+        state.ast.ranges[id] = tree.0.0.range!.upperBounded(by: state.currentIndex)
         return id
       })
   )
 
   static let bindingIntroducer = (
-    Apply<ParserContext, SourceRepresentable<BindingPattern.Introducer>>({ (context) in
-      guard let head = context.peek() else { return nil }
+    Apply<ParserState, SourceRepresentable<BindingPattern.Introducer>>({ (state) in
+      guard let head = state.peek() else { return nil }
 
       let introducer: BindingPattern.Introducer
       switch head.kind {
       case .let:
-        _ = context.take()
+        _ = state.take()
         introducer = .let
 
       case .var:
-        _ = context.take()
+        _ = state.take()
         introducer = .var
 
       case .inout:
-        _ = context.take()
+        _ = state.take()
         introducer = .inout
 
       case .sink:
-        _ = context.take()
-        guard context.take(.let) != nil else {
-          throw ParseError("expected 'let'", at: context.currentLocation)
+        _ = state.take()
+        guard state.take(.let) != nil else {
+          throw ParseError("expected 'let'", at: state.currentLocation)
         }
         introducer = .sinklet
 
@@ -1729,50 +1769,50 @@ public enum Parser {
 
       return SourceRepresentable(
         value: introducer,
-        range: head.range.upperBounded(by: context.currentIndex))
+        range: head.range.upperBounded(by: state.currentIndex))
     })
   )
 
   static let exprPattern = (
-    Apply<ParserContext, AnyPatternID>({ (context) -> AnyPatternID? in
+    Apply<ParserState, AnyPatternID>({ (state) -> AnyPatternID? in
       // Attempt to parse tuples as patterns as deeply as possible.
-      if let patternID = try tuplePattern.parse(&context) {
+      if let patternID = try tuplePattern.parse(&state) {
         return AnyPatternID(patternID)
       }
 
-      // Attempt to parse a name pattern if `parsingBindingPattern` is set.
-      if context.flags[.parsingBindingPattern] {
-        if let patternID = try namePattern.parse(&context) {
+      // Attempt to parse a name pattern if we're in the context of a binding pattern.
+      if state.contexts.last == .bindingPattern {
+        if let patternID = try namePattern.parse(&state) {
           return AnyPatternID(patternID)
         }
       }
 
       // Default to an expression.
-      guard let exprID = try expr.parse(&context) else { return nil }
-      let id = context.ast.insert(ExprPattern(expr: exprID))
-      context.ast.ranges[id] = context.ast.ranges[exprID]
+      guard let exprID = try expr.parse(&state) else { return nil }
+      let id = state.ast.insert(ExprPattern(expr: exprID))
+      state.ast.ranges[id] = state.ast.ranges[exprID]
       return AnyPatternID(id)
     })
   )
 
   static let namePattern = (
     take(.name)
-      .map({ (context, token) -> NodeID<NamePattern> in
-        let declID = context.ast.insert(VarDecl(
-          identifier: SourceRepresentable(token: token, in: context.lexer.source)))
-        context.ast.ranges[declID] = token.range
+      .map({ (state, token) -> NodeID<NamePattern> in
+        let declID = state.ast.insert(VarDecl(
+          identifier: SourceRepresentable(token: token, in: state.lexer.source)))
+        state.ast.ranges[declID] = token.range
 
-        let id = context.ast.insert(NamePattern(decl: declID))
-        context.ast.ranges[id] = token.range
+        let id = state.ast.insert(NamePattern(decl: declID))
+        state.ast.ranges[id] = token.range
         return id
       })
   )
 
   static let tuplePattern = (
     take(.lParen).and(maybe(tuplePatternElementList)).and(take(.rParen))
-      .map({ (context, tree) -> NodeID<TuplePattern> in
-        let id = context.ast.insert(TuplePattern(elements: tree.0.1 ?? []))
-        context.ast.ranges[id] = tree.0.0.range.upperBounded(by: tree.1.range.upperBound)
+      .map({ (state, tree) -> NodeID<TuplePattern> in
+        let id = state.ast.insert(TuplePattern(elements: tree.0.1 ?? []))
+        state.ast.ranges[id] = tree.0.0.range.upperBounded(by: tree.1.range.upperBound)
         return id
       })
   )
@@ -1783,23 +1823,23 @@ public enum Parser {
   )
 
   static let tuplePatternElement = (
-    Apply<ParserContext, TuplePattern.Element>({ (context) in
-      let backup = context.backup()
+    Apply<ParserState, TuplePattern.Element>({ (state) in
+      let backup = state.backup()
 
       // Parse a labeled element.
-      if let label = context.take(if: { $0.isLabel }) {
-        if context.take(.colon) != nil {
-          if let value = try pattern.parse(&context) {
+      if let label = state.take(if: { $0.isLabel }) {
+        if state.take(.colon) != nil {
+          if let value = try pattern.parse(&state) {
             return TuplePattern.Element(
-              label: SourceRepresentable(token: label, in: context.lexer.source),
+              label: SourceRepresentable(token: label, in: state.lexer.source),
               pattern: value)
           }
         }
       }
 
       // Backtrack and parse an unlabeled element.
-      context.restore(from: backup)
-      if let value = try pattern.parse(&context) {
+      state.restore(from: backup)
+      if let value = try pattern.parse(&state) {
         return TuplePattern.Element(pattern: value)
       }
 
@@ -1809,9 +1849,9 @@ public enum Parser {
 
   static let wildcardPattern = (
     take(.under)
-      .map({ (context, token) -> NodeID<WildcardPattern> in
-        let id = context.ast.insert(WildcardPattern())
-        context.ast.ranges[id] = token.range
+      .map({ (state, token) -> NodeID<WildcardPattern> in
+        let id = state.ast.insert(WildcardPattern())
+        state.ast.ranges[id] = token.range
         return id
       })
   )
@@ -1820,15 +1860,15 @@ public enum Parser {
 
   private static func anyStmt<Base: Combinator>(
     _ base: Base
-  ) -> AnyCombinator<ParserContext, AnyStmtID>
-  where Base.Context == ParserContext, Base.Element: StmtID
+  ) -> AnyCombinator<ParserState, AnyStmtID>
+  where Base.Context == ParserState, Base.Element: StmtID
   {
-    AnyCombinator(parse: { (context) in
-      try base.parse(&context).map(AnyStmtID.init(_:))
+    AnyCombinator(parse: { (state) in
+      try base.parse(&state).map(AnyStmtID.init(_:))
     })
   }
 
-  static let stmt: Recursive<ParserContext, AnyStmtID> = (
+  static let stmt: Recursive<ParserState, AnyStmtID> = (
     Recursive(_stmt.parse(_:))
   )
 
@@ -1854,49 +1894,49 @@ public enum Parser {
       .and(zeroOrMany(take(.semi)))
       .and(zeroOrMany(stmt.and(zeroOrMany(take(.semi))).first))
       .and(take(.rBrace))
-      .map({ (context, tree) -> NodeID<BraceStmt> in
-        let id = context.ast.insert(BraceStmt(stmts: tree.0.1))
-        context.ast.ranges[id] = tree.0.0.0.range.upperBounded(by: context.currentIndex)
+      .map({ (state, tree) -> NodeID<BraceStmt> in
+        let id = state.ast.insert(BraceStmt(stmts: tree.0.1))
+        state.ast.ranges[id] = tree.0.0.0.range.upperBounded(by: state.currentIndex)
         return id
       })
   )
 
   static let discardStmt = (
     take(.under).and(take(.assign)).and(expr)
-      .map({ (context, tree) -> NodeID<DiscardStmt> in
-        let id = context.ast.insert(DiscardStmt(expr: tree.1))
-        context.ast.ranges[id] = tree.0.0.range.upperBounded(by: context.currentIndex)
+      .map({ (state, tree) -> NodeID<DiscardStmt> in
+        let id = state.ast.insert(DiscardStmt(expr: tree.1))
+        state.ast.ranges[id] = tree.0.0.range.upperBounded(by: state.currentIndex)
         return id
       })
   )
 
   static let doWhileStmt = (
     take(.do).and(loopBody).and(take(.while)).and(expr)
-      .map({ (context, tree) -> NodeID<DoWhileStmt> in
-        let id = context.ast.insert(DoWhileStmt(body: tree.0.0.1, condition: tree.1))
-        context.ast.ranges[id] = tree.0.0.0.range.upperBounded(by: context.currentIndex)
+      .map({ (state, tree) -> NodeID<DoWhileStmt> in
+        let id = state.ast.insert(DoWhileStmt(body: tree.0.0.1, condition: tree.1))
+        state.ast.ranges[id] = tree.0.0.0.range.upperBounded(by: state.currentIndex)
         return id
       })
   )
 
   static let whileStmt = (
     take(.while).and(conditionalClause).and(loopBody)
-      .map({ (context, tree) -> NodeID<WhileStmt> in
-        let id = context.ast.insert(WhileStmt(condition: tree.0.1, body: tree.1))
-        context.ast.ranges[id] = tree.0.0.range.upperBounded(by: context.currentIndex)
+      .map({ (state, tree) -> NodeID<WhileStmt> in
+        let id = state.ast.insert(WhileStmt(condition: tree.0.1, body: tree.1))
+        state.ast.ranges[id] = tree.0.0.range.upperBounded(by: state.currentIndex)
         return id
       })
   )
 
   static let forStmt = (
     take(.for).and(bindingPattern).and(forRange).and(maybe(forFilter)).and(loopBody)
-      .map({ (context, tree) -> NodeID<ForStmt> in
-        let decl = context.ast.insert(BindingDecl(pattern: tree.0.0.0.1))
-        context.ast.ranges[decl] = context.ast.ranges[tree.0.0.0.1]
+      .map({ (state, tree) -> NodeID<ForStmt> in
+        let decl = state.ast.insert(BindingDecl(pattern: tree.0.0.0.1))
+        state.ast.ranges[decl] = state.ast.ranges[tree.0.0.0.1]
 
-        let id = context.ast.insert(ForStmt(
+        let id = state.ast.insert(ForStmt(
           binding: decl, domain: tree.0.0.1, filter: tree.0.1, body: tree.1))
-        context.ast.ranges[id] = tree.0.0.0.0.range.upperBounded(by: context.currentIndex)
+        state.ast.ranges[id] = tree.0.0.0.0.range.upperBounded(by: state.currentIndex)
         return id
       })
   )
@@ -1909,55 +1949,55 @@ public enum Parser {
     take(.where).and(expr).second
   )
 
-  static let loopBody = settingFlags(.parsingLoopBody, apply: braceStmt)
+  static let loopBody = inContext(.loopBody, apply: braceStmt)
 
   static let returnStmt = (
     take(.return).and(maybe(onSameLine(expr)))
-      .map({ (context, tree) -> NodeID<ReturnStmt> in
-        let id = context.ast.insert(ReturnStmt(value: tree.1))
-        context.ast.ranges[id] = tree.0.range.upperBounded(by: context.currentIndex)
+      .map({ (state, tree) -> NodeID<ReturnStmt> in
+        let id = state.ast.insert(ReturnStmt(value: tree.1))
+        state.ast.ranges[id] = tree.0.range.upperBounded(by: state.currentIndex)
         return id
       })
   )
 
   static let yieldStmt = (
     take(.yield).and(onSameLine(expr))
-      .map({ (context, tree) -> NodeID<YieldStmt> in
-        let id = context.ast.insert(YieldStmt(value: tree.1))
-        context.ast.ranges[id] = tree.0.range.upperBounded(by: context.currentIndex)
+      .map({ (state, tree) -> NodeID<YieldStmt> in
+        let id = state.ast.insert(YieldStmt(value: tree.1))
+        state.ast.ranges[id] = tree.0.range.upperBounded(by: state.currentIndex)
         return id
       })
   )
 
   static let breakStmt = (
     take(.break)
-      .map({ (context, token) -> NodeID<BreakStmt> in
-        let id = context.ast.insert(BreakStmt())
-        context.ast.ranges[id] = token.range
+      .map({ (state, token) -> NodeID<BreakStmt> in
+        let id = state.ast.insert(BreakStmt())
+        state.ast.ranges[id] = token.range
         return id
       })
   )
 
   static let continueStmt = (
     take(.break)
-      .map({ (context, token) -> NodeID<ContinueStmt> in
-        let id = context.ast.insert(ContinueStmt())
-        context.ast.ranges[id] = token.range
+      .map({ (state, token) -> NodeID<ContinueStmt> in
+        let id = state.ast.insert(ContinueStmt())
+        state.ast.ranges[id] = token.range
         return id
       })
   )
 
   static let bindingStmt = (
-    Apply<ParserContext, AnyStmtID>({ (context) -> AnyStmtID? in
-      let backup = context.backup()
+    Apply<ParserState, AnyStmtID>({ (state) -> AnyStmtID? in
+      let backup = state.backup()
       do {
-        if let element = try conditionalBindingStmt.parse(&context) { return AnyStmtID(element) }
+        if let element = try conditionalBindingStmt.parse(&state) { return AnyStmtID(element) }
       } catch {}
-      context.restore(from: backup)
+      state.restore(from: backup)
 
-      if let decl = try bindingDecl.parse(&context) {
-        let id = context.ast.insert(DeclStmt(decl: AnyDeclID(decl)))
-        context.ast.ranges[id] = context.ast.ranges[decl]
+      if let decl = try bindingDecl.parse(&state) {
+        let id = state.ast.insert(DeclStmt(decl: AnyDeclID(decl)))
+        state.ast.ranges[id] = state.ast.ranges[decl]
         return AnyStmtID(id)
       } else {
         return nil
@@ -1967,17 +2007,17 @@ public enum Parser {
 
   static let conditionalBindingStmt = (
     bindingDecl.and(take(.else)).and(conditionalBindingFallback)
-      .map({ (context, tree) -> NodeID<CondBindingStmt> in
-        let bindingRange = context.ast.ranges[tree.0.0]!
+      .map({ (state, tree) -> NodeID<CondBindingStmt> in
+        let bindingRange = state.ast.ranges[tree.0.0]!
 
-        if context.ast[tree.0.0].initializer == nil {
+        if state.ast[tree.0.0].initializer == nil {
           throw ParseError(
             "conditional binding requires an initializer", at: bindingRange.first())
         }
 
-        let id = context.ast.insert(CondBindingStmt(
+        let id = state.ast.insert(CondBindingStmt(
           binding: tree.0.0, fallback: tree.1))
-        context.ast.ranges[id] = bindingRange.upperBounded(by: context.currentIndex)
+        state.ast.ranges[id] = bindingRange.upperBounded(by: state.currentIndex)
         return id
       })
   )
@@ -2002,9 +2042,9 @@ public enum Parser {
 
   static let declStmt = (
     localDecl
-      .map({ (context, decl) -> NodeID<DeclStmt> in
-        let id = context.ast.insert(DeclStmt(decl: decl))
-        context.ast.ranges[id] = context.ast.ranges[decl]
+      .map({ (state, decl) -> NodeID<DeclStmt> in
+        let id = state.ast.insert(DeclStmt(decl: decl))
+        state.ast.ranges[id] = state.ast.ranges[decl]
         return id
       })
   )
@@ -2022,9 +2062,9 @@ public enum Parser {
 
   static let exprStmt = (
     expr
-      .map({ (context, expr) -> NodeID<ExprStmt> in
-        let id = context.ast.insert(ExprStmt(expr: expr))
-        context.ast.ranges[id] = context.ast.ranges[expr]
+      .map({ (state, expr) -> NodeID<ExprStmt> in
+        let id = state.ast.insert(ExprStmt(expr: expr))
+        state.ast.ranges[id] = state.ast.ranges[expr]
         return id
       })
   )
@@ -2033,15 +2073,15 @@ public enum Parser {
 
   private static func anyTypeExpr<Base: Combinator>(
     _ base: Base
-  ) -> AnyCombinator<ParserContext, AnyTypeExprID>
-  where Base.Context == ParserContext, Base.Element: TypeExprID
+  ) -> AnyCombinator<ParserState, AnyTypeExprID>
+  where Base.Context == ParserState, Base.Element: TypeExprID
   {
-    AnyCombinator(parse: { (context) in
-      try base.parse(&context).map(AnyTypeExprID.init(_:))
+    AnyCombinator(parse: { (state) in
+      try base.parse(&state).map(AnyTypeExprID.init(_:))
     })
   }
 
-  static let typeExpr: Recursive<ParserContext, AnyTypeExprID> = (
+  static let typeExpr: Recursive<ParserState, AnyTypeExprID> = (
     Recursive(unionTypeExpr.parse(_:))
   )
 
@@ -2049,100 +2089,100 @@ public enum Parser {
 
   static let unionTypeExpr = (
     modifiedTypeExpr.and(zeroOrMany(take(.pipe).and(modifiedTypeExpr).second))
-      .map({ (context, tree) -> AnyTypeExprID in
+      .map({ (state, tree) -> AnyTypeExprID in
         if tree.1.isEmpty {
           return tree.0
         } else {
           let elements = [tree.0] + tree.1
-          let id = context.ast.insert(UnionTypeExpr(elements: elements))
-          context.ast.ranges[id] = context.ast.ranges[tree.0]!.upperBounded(
-            by: context.currentIndex)
+          let id = state.ast.insert(UnionTypeExpr(elements: elements))
+          state.ast.ranges[id] = state.ast.ranges[tree.0]!.upperBounded(
+            by: state.currentIndex)
           return AnyTypeExprID(id)
         }
       })
   )
 
   static let modifiedTypeExpr = (
-    Apply<ParserContext, AnyTypeExprID>({ (context) -> AnyTypeExprID? in
-      guard let head = context.peek() else { return nil }
+    Apply<ParserState, AnyTypeExprID>({ (state) -> AnyTypeExprID? in
+      guard let head = state.peek() else { return nil }
 
       switch head.kind {
       case .async:
         // async-type-expr
-        _ = context.take()
-        guard let operand = try typeExpr.parse(&context) else {
-          throw ParseError("expected type expression", at: context.currentLocation)
+        _ = state.take()
+        guard let operand = try typeExpr.parse(&state) else {
+          throw ParseError("expected type expression", at: state.currentLocation)
         }
 
-        let id = context.ast.insert(AsyncTypeExpr(operand: operand))
-        context.ast.ranges[id] = head.range.upperBounded(by: context.currentIndex)
+        let id = state.ast.insert(AsyncTypeExpr(operand: operand))
+        state.ast.ranges[id] = head.range.upperBounded(by: state.currentIndex)
         return AnyTypeExprID(id)
 
       case .indirect:
         // indirect-type-expr
-        _ = context.take()
-        guard let operand = try typeExpr.parse(&context) else {
-          throw ParseError("expected type expression", at: context.currentLocation)
+        _ = state.take()
+        guard let operand = try typeExpr.parse(&state) else {
+          throw ParseError("expected type expression", at: state.currentLocation)
         }
 
-        let id = context.ast.insert(IndirectTypeExpr(operand: operand))
-        context.ast.ranges[id] = head.range.upperBounded(by: context.currentIndex)
+        let id = state.ast.insert(IndirectTypeExpr(operand: operand))
+        state.ast.ranges[id] = head.range.upperBounded(by: state.currentIndex)
         return AnyTypeExprID(id)
 
       case .any:
         // existential-type-expr
-        _ = context.take()
-        guard let traits = try traitComposition.parse(&context) else {
-          throw ParseError("expected trait composition", at: context.currentLocation)
+        _ = state.take()
+        guard let traits = try traitComposition.parse(&state) else {
+          throw ParseError("expected trait composition", at: state.currentLocation)
         }
-        let clause = try whereClause.parse(&context)
+        let clause = try whereClause.parse(&state)
 
-        let id = context.ast.insert(ExistentialTypeExpr(traits: traits, whereClause: clause))
-        context.ast.ranges[id] = head.range.upperBounded(
-          by: clause?.range?.upperBound ?? context.ast.ranges[traits.last!]!.upperBound)
+        let id = state.ast.insert(ExistentialTypeExpr(traits: traits, whereClause: clause))
+        state.ast.ranges[id] = head.range.upperBounded(
+          by: clause?.range?.upperBound ?? state.ast.ranges[traits.last!]!.upperBound)
         return AnyTypeExprID(id)
 
       default:
-        return try compoundTypeExpr.parse(&context)
+        return try compoundTypeExpr.parse(&state)
       }
     })
   )
 
   static let nameTypeExpr = (
     compoundTypeExpr
-      .map({ (context, id) -> NodeID<NameTypeExpr> in
+      .map({ (state, id) -> NodeID<NameTypeExpr> in
         if let converted = NodeID<NameTypeExpr>(id) {
           return converted
         } else {
-          throw ParseError("expected type name", at: context.ast.ranges[id]!.first())
+          throw ParseError("expected type name", at: state.ast.ranges[id]!.first())
         }
       })
   )
 
   static let compoundTypeExpr = (
-    Apply<ParserContext, AnyTypeExprID>({ (context) -> AnyTypeExprID? in
-      guard var head = try primaryTypeExpr.parse(&context) else { return nil }
-      let headRange = context.ast.ranges[head]!
+    Apply<ParserState, AnyTypeExprID>({ (state) -> AnyTypeExprID? in
+      guard var head = try primaryTypeExpr.parse(&state) else { return nil }
+      let headRange = state.ast.ranges[head]!
 
       while true {
-        if context.take(.dot) != nil {
-          guard let member = try primaryTypeDeclRef.parse(&context) else {
-            throw ParseError("expected type member name", at: context.currentLocation)
+        if state.take(.dot) != nil {
+          guard let member = try primaryTypeDeclRef.parse(&state) else {
+            throw ParseError("expected type member name", at: state.currentLocation)
           }
 
-          context.ast[member].domain = head
-          context.ast.ranges[member] = headRange.upperBounded(by: context.currentIndex)
+          state.ast[member].domain = head
+          state.ast.ranges[member] = headRange.upperBounded(by: state.currentIndex)
           head = AnyTypeExprID(member)
           continue
         }
 
-        if context.take(.twoColons) != nil {
-          guard let lens = try primaryTypeExpr.parse(&context) else {
-            throw ParseError("expected focus", at: context.currentLocation)
+        if state.take(.twoColons) != nil {
+          guard let lens = try primaryTypeExpr.parse(&state) else {
+            throw ParseError("expected focus", at: state.currentLocation)
           }
 
-          let id = context.ast.insert(ConformanceLensTypeExpr(subject: head, lens: lens))
-          context.ast.ranges[id] = headRange.upperBounded(by: context.currentIndex)
+          let id = state.ast.insert(ConformanceLensTypeExpr(subject: head, lens: lens))
+          state.ast.ranges[id] = headRange.upperBounded(by: state.currentIndex)
           head = AnyTypeExprID(id)
           continue
         }
@@ -2165,18 +2205,18 @@ public enum Parser {
 
   static let primaryTypeDeclRef = (
     typeIdentifier.and(maybe(staticArgumentList))
-      .map({ (context, tree) -> NodeID<NameTypeExpr> in
-        let id = context.ast.insert(NameTypeExpr(identifier: tree.0, arguments: tree.1 ?? []))
-        context.ast.ranges[id] = tree.0.range!.upperBounded(by: context.currentIndex)
+      .map({ (state, tree) -> NodeID<NameTypeExpr> in
+        let id = state.ast.insert(NameTypeExpr(identifier: tree.0, arguments: tree.1 ?? []))
+        state.ast.ranges[id] = tree.0.range!.upperBounded(by: state.currentIndex)
         return id
       })
   )
 
   static let tupleTypeExpr = (
     take(.lBrace).and(maybe(tupleTypeExprElementList)).and(take(.rBrace))
-      .map({ (context, tree) -> NodeID<TupleTypeExpr> in
-        let id = context.ast.insert(TupleTypeExpr(elements: tree.0.1 ?? []))
-        context.ast.ranges[id] = tree.0.0.range.upperBounded(by: tree.1.range.upperBound)
+      .map({ (state, tree) -> NodeID<TupleTypeExpr> in
+        let id = state.ast.insert(TupleTypeExpr(elements: tree.0.1 ?? []))
+        state.ast.ranges[id] = tree.0.0.range.upperBounded(by: tree.1.range.upperBound)
         return id
       })
   )
@@ -2187,23 +2227,23 @@ public enum Parser {
   )
 
   static let tupleTypeExprElement = (
-    Apply<ParserContext, TupleTypeExpr.Element>({ (context) in
-      let backup = context.backup()
+    Apply<ParserState, TupleTypeExpr.Element>({ (state) in
+      let backup = state.backup()
 
       // Parse a labeled element.
-      if let label = context.take(if: { $0.isLabel }) {
-        if context.take(.colon) != nil {
-          if let type = try typeExpr.parse(&context) {
+      if let label = state.take(if: { $0.isLabel }) {
+        if state.take(.colon) != nil {
+          if let type = try typeExpr.parse(&state) {
             return TupleTypeExpr.Element(
-              label: SourceRepresentable(token: label, in: context.lexer.source),
+              label: SourceRepresentable(token: label, in: state.lexer.source),
               type: type)
           }
         }
       }
 
       // Backtrack and parse an unlabeled element.
-      context.restore(from: backup)
-      if let type = try typeExpr.parse(&context) {
+      state.restore(from: backup)
+      if let type = try typeExpr.parse(&state) {
         return TupleTypeExpr.Element(type: type)
       }
 
@@ -2212,21 +2252,21 @@ public enum Parser {
   )
 
   static let lambdaOrParenthesizedTypeExpr = (
-    Apply<ParserContext, AnyTypeExprID>({ (context) -> AnyTypeExprID? in
-      switch context.peek()?.kind {
+    Apply<ParserState, AnyTypeExprID>({ (state) -> AnyTypeExprID? in
+      switch state.peek()?.kind {
       case .lBrack:
         // The expression starts with a left bracket; assume it's a lambda.
-        return try lambdaTypeExpr.parse(&context).map(AnyTypeExprID.init(_:))
+        return try lambdaTypeExpr.parse(&state).map(AnyTypeExprID.init(_:))
 
       case .lParen:
         // The expression starts with a left parenthesis; assume it's a lambda and fall back to
         // a parenthesized expression if that fails.
-        let backup = context.backup()
+        let backup = state.backup()
         do {
-          return try lambdaTypeExpr.parse(&context).map(AnyTypeExprID.init(_:))
+          return try lambdaTypeExpr.parse(&state).map(AnyTypeExprID.init(_:))
         } catch {
-          context.restore(from: backup)
-          return try parenthesizedTypeExpr.parse(&context)
+          state.restore(from: backup)
+          return try parenthesizedTypeExpr.parse(&state)
         }
 
       default:
@@ -2237,15 +2277,15 @@ public enum Parser {
 
   static let parenthesizedTypeExpr = (
     take(.lParen).and(typeExpr).and(take(.rParen))
-      .map({ (context, tree) -> AnyTypeExprID in tree.0.1 })
+      .map({ (state, tree) -> AnyTypeExprID in tree.0.1 })
   )
 
   static let lambdaTypeExpr = Choose(
     typeErasedLambdaTypeExpr,
     or: lambdaEnvironment.and(typeErasedLambdaTypeExpr)
-      .map({ (context, tree) in
-        context.ast[tree.1].incorporate(environment: tree.0)
-        context.ast.ranges[tree.1]!.lowerBound = tree.0.range!.lowerBound
+      .map({ (state, tree) in
+        state.ast[tree.1].incorporate(environment: tree.0)
+        state.ast.ranges[tree.1]!.lowerBound = tree.0.range!.lowerBound
         return tree.1
       })
   )
@@ -2255,12 +2295,12 @@ public enum Parser {
       .and(maybe(receiverEffect))
       .and(take(.arrow))
       .and(typeExpr)
-      .map({ (context, tree) -> NodeID<LambdaTypeExpr> in
-        let id = context.ast.insert(LambdaTypeExpr(
+      .map({ (state, tree) -> NodeID<LambdaTypeExpr> in
+        let id = state.ast.insert(LambdaTypeExpr(
           receiverEffect: tree.0.0.1,
           parameters: tree.0.0.0.0.1 ?? [],
           output: tree.1))
-        context.ast.ranges[id] = tree.0.0.0.0.0.range.upperBounded(by: context.currentIndex)
+        state.ast.ranges[id] = tree.0.0.0.0.0.range.upperBounded(by: state.currentIndex)
         return id
       })
   )
@@ -2271,23 +2311,23 @@ public enum Parser {
   )
 
   static let lambdaParameter = (
-    Apply<ParserContext, LambdaTypeExpr.Parameter>({ (context) in
-      let backup = context.backup()
+    Apply<ParserState, LambdaTypeExpr.Parameter>({ (state) in
+      let backup = state.backup()
 
       // Parse a labeled parameter.
-      if let label = context.take(if: { $0.isLabel }) {
-        if context.take(.colon) != nil {
-          if let type = try parameterTypeExpr.parse(&context) {
+      if let label = state.take(if: { $0.isLabel }) {
+        if state.take(.colon) != nil {
+          if let type = try parameterTypeExpr.parse(&state) {
             return LambdaTypeExpr.Parameter(
-              label: SourceRepresentable(token: label, in: context.lexer.source),
+              label: SourceRepresentable(token: label, in: state.lexer.source),
               type: type)
           }
         }
       }
 
       // Backtrack and parse an unlabeled parameter.
-      context.restore(from: backup)
-      if let type = try parameterTypeExpr.parse(&context) {
+      state.restore(from: backup)
+      if let type = try parameterTypeExpr.parse(&state) {
         return LambdaTypeExpr.Parameter(type: type)
       }
 
@@ -2297,14 +2337,14 @@ public enum Parser {
 
   static let lambdaEnvironment = (
     take(.lBrack).and(maybe(typeExpr)).and(take(.rBrack))
-      .map({ (context, tree) -> SourceRepresentable<AnyTypeExprID> in
+      .map({ (state, tree) -> SourceRepresentable<AnyTypeExprID> in
         let range = tree.0.0.range.upperBounded(by: tree.1.range.upperBound)
         if let expr = tree.0.1 {
           return SourceRepresentable(value: expr, range: range)
         } else {
-          let expr = context.ast.insert(TupleTypeExpr())
-          context.ast.ranges[expr] = SourceRange(
-            in: context.lexer.source,
+          let expr = state.ast.insert(TupleTypeExpr())
+          state.ast.ranges[expr] = SourceRange(
+            in: state.lexer.source,
             from: tree.0.0.range.upperBound,
             to: tree.1.range.lowerBound)
           return SourceRepresentable(value: AnyTypeExprID(expr), range: range)
@@ -2314,9 +2354,9 @@ public enum Parser {
 
   static let wildcardTypeExpr = (
     take(.under)
-      .map({ (context, token) -> NodeID<WildcardTypeExpr> in
-        let id = context.ast.insert(WildcardTypeExpr())
-        context.ast.ranges[id] = token.range
+      .map({ (state, token) -> NodeID<WildcardTypeExpr> in
+        let id = state.ast.insert(WildcardTypeExpr())
+        state.ast.ranges[id] = token.range
         return id
       })
   )
@@ -2330,14 +2370,14 @@ public enum Parser {
   static let parameterTypeExpr = (
     maybe(passingConvention)
       .andCollapsingSoftFailures(typeExpr)
-      .map({ (context, tree) -> NodeID<ParameterTypeExpr> in
-        let id = context.ast.insert(ParameterTypeExpr(
+      .map({ (state, tree) -> NodeID<ParameterTypeExpr> in
+        let id = state.ast.insert(ParameterTypeExpr(
           convention: tree.0 ?? SourceRepresentable(value: .let),
           bareType: tree.1))
 
-        context.ast.ranges[id] = (
-          tree.0?.range.map({ $0.upperBounded(by: context.currentIndex) })
-          ?? context.ast.ranges[tree.1])
+        state.ast.ranges[id] = (
+          tree.0?.range.map({ $0.upperBounded(by: state.currentIndex) })
+          ?? state.ast.ranges[tree.1])
 
         return id
       })
@@ -2359,23 +2399,23 @@ public enum Parser {
   )
 
   static let staticArgument = (
-    Apply<ParserContext, GenericArgument>({ (context) in
-      let backup = context.backup()
+    Apply<ParserState, GenericArgument>({ (state) in
+      let backup = state.backup()
 
       // Parse a labeled value argument.
-      if let label = context.take(if: { $0.isLabel }) {
-        if context.take(.colon) != nil {
-          if let value = try staticUnlabaledArgument.parse(&context) {
+      if let label = state.take(if: { $0.isLabel }) {
+        if state.take(.colon) != nil {
+          if let value = try staticUnlabaledArgument.parse(&state) {
             return GenericArgument(
-              label: SourceRepresentable(token: label, in: context.lexer.source),
+              label: SourceRepresentable(token: label, in: state.lexer.source),
               value: value)
           }
         }
       }
 
       // Backtrack and parse an unlabeled value argument.
-      context.restore(from: backup)
-      if let value = try staticUnlabaledArgument.parse(&context) {
+      state.restore(from: backup)
+      if let value = try staticUnlabaledArgument.parse(&state) {
         return GenericArgument(value: value)
       }
 
@@ -2389,30 +2429,30 @@ public enum Parser {
 
   static let staticTypeArgument = (
     maybe(typeAttribute).and(typeExpr)
-      .map({ (context, tree) -> GenericArgument.Value in
+      .map({ (state, tree) -> GenericArgument.Value in
         .type(tree.1)
       })
   )
 
   static let staticValueArgument = (
     valueAttribute.and(expr)
-      .map({ (context, tree) -> GenericArgument.Value in
+      .map({ (state, tree) -> GenericArgument.Value in
         .expr(tree.1)
       })
   )
 
   static let whereClause = (
     take(.where).and(whereClauseConstraintList)
-      .map({ (context, tree) -> SourceRepresentable<WhereClause> in
+      .map({ (state, tree) -> SourceRepresentable<WhereClause> in
         SourceRepresentable(
           value: WhereClause(constraints: tree.1),
-          range: tree.0.range.upperBounded(by: context.currentIndex))
+          range: tree.0.range.upperBounded(by: state.currentIndex))
       })
   )
 
   static let whereClauseConstraintList = (
     whereClauseConstraint.and(zeroOrMany(take(.comma).and(whereClauseConstraint).second))
-      .map({ (context, tree) -> [SourceRepresentable<WhereClause.ConstraintExpr>] in
+      .map({ (state, tree) -> [SourceRepresentable<WhereClause.ConstraintExpr>] in
         [tree.0] + tree.1
       })
   )
@@ -2422,52 +2462,52 @@ public enum Parser {
   )
 
   static let typeConstraint = (
-    Apply<ParserContext, SourceRepresentable<WhereClause.ConstraintExpr>>({ (context) in
-      guard let lhs = try nameTypeExpr.parse(&context) else { return nil }
+    Apply<ParserState, SourceRepresentable<WhereClause.ConstraintExpr>>({ (state) in
+      guard let lhs = try nameTypeExpr.parse(&state) else { return nil }
 
       // equality-constraint
-      if context.take(.equal) != nil {
-        guard let rhs = try typeExpr.parse(&context) else {
-          throw ParseError("expected type expression", at: context.currentLocation)
+      if state.take(.equal) != nil {
+        guard let rhs = try typeExpr.parse(&state) else {
+          throw ParseError("expected type expression", at: state.currentLocation)
         }
         return SourceRepresentable(
           value: .equality(l: lhs, r: rhs),
-          range: context.ast.ranges[lhs]!.upperBounded(by: context.currentIndex))
+          range: state.ast.ranges[lhs]!.upperBounded(by: state.currentIndex))
       }
 
       // conformance-constraint
-      if context.take(.colon) != nil {
-        guard let traits = try traitComposition.parse(&context) else {
-          throw ParseError("expected trait composition", at: context.currentLocation)
+      if state.take(.colon) != nil {
+        guard let traits = try traitComposition.parse(&state) else {
+          throw ParseError("expected trait composition", at: state.currentLocation)
         }
         return SourceRepresentable(
           value: .conformance(l: lhs, traits: traits),
-          range: context.ast.ranges[lhs]!.upperBounded(by: context.currentIndex))
+          range: state.ast.ranges[lhs]!.upperBounded(by: state.currentIndex))
       }
 
-      throw ParseError("expected constraint operator", at: context.currentLocation)
+      throw ParseError("expected constraint operator", at: state.currentLocation)
     })
   )
 
   static let valueConstraint = (
     valueAttribute.and(expr)
-      .map({ (context, tree) -> SourceRepresentable<WhereClause.ConstraintExpr> in
+      .map({ (state, tree) -> SourceRepresentable<WhereClause.ConstraintExpr> in
         SourceRepresentable(
           value: .value(tree.1),
-          range: tree.0.range.upperBounded(by: context.currentIndex))
+          range: tree.0.range.upperBounded(by: state.currentIndex))
       })
   )
 
   static let traitComposition = (
     nameTypeExpr.and(zeroOrMany(take(.ampersand).and(nameTypeExpr).second))
-      .map({ (context, tree) -> TraitComposition in [tree.0] + tree.1 })
+      .map({ (state, tree) -> TraitComposition in [tree.0] + tree.1 })
   )
 
   // MARK: Identifiers
 
   static let identifierExpr = (
     entityIdentifier.and(maybe(take(.dot).and(methodIntroducer)))
-      .map({ (context, tree) -> SourceRepresentable<Name> in
+      .map({ (state, tree) -> SourceRepresentable<Name> in
         if let (_, introducer) = tree.1 {
           return tree.0.introduced(by: introducer)
         } else {
@@ -2477,16 +2517,16 @@ public enum Parser {
   )
 
   static let entityIdentifier = (
-    Apply<ParserContext, SourceRepresentable<Name>>({ (context) in
-      switch context.peek()?.kind {
+    Apply<ParserState, SourceRepresentable<Name>>({ (state) in
+      switch state.peek()?.kind {
       case .name, .under:
         // function-entity-identifier
-        let head = context.take()!
+        let head = state.take()!
         var labels: [String?] = []
 
-        if context.currentCharacter == "(" {
-          let backup = context.backup()
-          _ = context.take()
+        if state.currentCharacter == "(" {
+          let backup = state.backup()
+          _ = state.take()
           var closeParenFound = false
           defer {
             // Backtrack if we didn't find a closing parenthesis or if there are no labels. That
@@ -2494,23 +2534,23 @@ public enum Parser {
             // parse error in the former case (no closing parenthesis) or parse an empty argument
             // list in the latter (no labels).
             // Note: `foo()` is *not* a valid name, it's a function call.
-            if !closeParenFound || labels.isEmpty { context.restore(from: backup) }
+            if !closeParenFound || labels.isEmpty { state.restore(from: backup) }
           }
 
-          while !context.hasLeadingWhitespace {
-            if context.take(.under) != nil {
+          while !state.hasLeadingWhitespace {
+            if state.take(.under) != nil {
               labels.append(nil)
-            } else if let label = context.take(if: { $0.isLabel }) {
-              labels.append(String(context.lexer.source[label.range]))
+            } else if let label = state.take(if: { $0.isLabel }) {
+              labels.append(String(state.lexer.source[label.range]))
             } else {
               break
             }
 
-            if context.takeWithoutSkippingWhitespace(.colon) == nil {
+            if state.takeWithoutSkippingWhitespace(.colon) == nil {
               break
             }
 
-            if let end = context.takeWithoutSkippingWhitespace(.rParen) {
+            if let end = state.takeWithoutSkippingWhitespace(.rParen) {
               closeParenFound = true
               break
             }
@@ -2518,22 +2558,22 @@ public enum Parser {
         }
 
         return SourceRepresentable(
-          value: Name(stem: String(context.lexer.source[head.range]), labels: labels),
+          value: Name(stem: String(state.lexer.source[head.range]), labels: labels),
           range: head.range)
 
 
       case .infix, .prefix, .postfix:
         // operator-entity-identifier
-        let head = context.take()!
+        let head = state.take()!
 
-        if context.hasLeadingWhitespace {
-          throw ParseError("expected operator", at: context.currentLocation)
+        if state.hasLeadingWhitespace {
+          throw ParseError("expected operator", at: state.currentLocation)
         }
-        guard let oper = context.takeOperator() else {
-          throw ParseError("expected operator", at: context.currentLocation)
+        guard let oper = state.takeOperator() else {
+          throw ParseError("expected operator", at: state.currentLocation)
         }
 
-        let stem = String(context.lexer.source[oper.range!])
+        let stem = String(state.lexer.source[oper.range!])
         let range = head.range.upperBounded(by: oper.range!.upperBound)
 
         switch head.kind {
@@ -2555,8 +2595,8 @@ public enum Parser {
 
   static let typeIdentifier = (
     take(.name)
-      .map({ (context, token) -> SourceRepresentable<Identifier> in
-        SourceRepresentable(value: String(context.lexer.source[token.range]), range: token.range)
+      .map({ (state, token) -> SourceRepresentable<Identifier> in
+        SourceRepresentable(value: String(state.lexer.source[token.range]), range: token.range)
       })
   )
 
@@ -2564,12 +2604,12 @@ public enum Parser {
 
   static let declAttribute = (
     take(.attribute).and(maybe(attributeArgumentList))
-      .map({ (context, tree) -> SourceRepresentable<Attribute> in
+      .map({ (state, tree) -> SourceRepresentable<Attribute> in
         SourceRepresentable(
           value: Attribute(
-            name: SourceRepresentable(token: tree.0, in: context.lexer.source),
+            name: SourceRepresentable(token: tree.0, in: state.lexer.source),
             arguments: tree.1 ?? []),
-          range: tree.0.range.upperBounded(by: context.currentIndex))
+          range: tree.0.range.upperBounded(by: state.currentIndex))
       })
   )
 
@@ -2577,7 +2617,7 @@ public enum Parser {
     take(.lParen)
       .and(attributeArgument).and(zeroOrMany(take(.comma).and(attributeArgument).second))
       .and(take(.rParen))
-      .map({ (context, tree) -> [Attribute.Argument] in [tree.0.0.1] + tree.0.1 })
+      .map({ (state, tree) -> [Attribute.Argument] in [tree.0.0.1] + tree.0.1 })
   )
 
   static let attributeArgument = (
@@ -2586,16 +2626,16 @@ public enum Parser {
 
   static let stringAttributeArgument = (
     take(.string)
-      .map({ (context, token) -> Attribute.Argument in
-        let value = String(context.lexer.source[token.range].dropFirst().dropLast())
+      .map({ (state, token) -> Attribute.Argument in
+        let value = String(state.lexer.source[token.range].dropFirst().dropLast())
         return .string(SourceRepresentable(value: value, range: token.range))
       })
   )
 
   static let integerAttributeArgument = (
     take(.int)
-      .map({ (context, token) -> Attribute.Argument in
-        if let value = Int(context.lexer.source[token.range]) {
+      .map({ (state, token) -> Attribute.Argument in
+        if let value = Int(state.lexer.source[token.range]) {
           return .integer(SourceRepresentable(value: value, range: token.range))
         } else {
           throw ParseError("invalid integer literal", at: token.range.first())
@@ -2614,15 +2654,15 @@ extension Parser {
   /// A combinator that parses tokens with a specific kind.
   struct TakeKind: Combinator {
 
-    typealias Context = ParserContext
+    typealias Context = ParserState
 
     typealias Element = Token
 
     /// The kind of the token to consume.
     let kind: Token.Kind
 
-    func parse(_ context: inout ParserContext) throws -> Token? {
-      context.take(kind)
+    func parse(_ state: inout ParserState) throws -> Token? {
+      state.take(kind)
     }
 
   }
@@ -2630,18 +2670,39 @@ extension Parser {
   /// A combinator that parses contextual keywords.
   struct ContextualKeyword<T: RawRepresentable>: Combinator where T.RawValue == String {
 
-    typealias Context = ParserContext
+    typealias Context = ParserState
 
     typealias Element = SourceRepresentable<T>
 
-    func parse(_ context: inout ParserContext) throws -> Element? {
-      if let next = context.peek(), next.kind == .name {
-        if let value = T(rawValue: String(context.lexer.source[next.range])) {
-          _ = context.take()
+    func parse(_ state: inout ParserState) throws -> Element? {
+      if let next = state.peek(), next.kind == .name {
+        if let value = T(rawValue: String(state.lexer.source[next.range])) {
+          _ = state.take()
           return SourceRepresentable(value: value, range: next.range)
         }
       }
       return nil
+    }
+
+  }
+
+  /// A combinator that updates the parsing contexts.
+  struct WrapInContext<Base: Combinator>: Combinator where Base.Context == ParserState {
+
+    typealias Context = ParserState
+
+    typealias Element = Base.Element
+
+    /// The context in which `base` should be applied.
+    let context: ParserState.Context
+
+    /// The underlying combinator.
+    public let base: Base
+
+    func parse(_ state: inout ParserState) throws -> Element? {
+      state.contexts.append(context)
+      defer { state.contexts.removeLast() }
+      return try base.parse(&state)
     }
 
   }
@@ -2652,23 +2713,23 @@ extension Parser {
   }
 
   /// Creates a combinator that parses name tokens with the specified value.
-  static func take(nameTokenWithValue value: String) -> Apply<ParserContext, Token> {
-    Apply({ (context) in context.take(nameTokenWithValue: value) })
+  static func take(nameTokenWithValue value: String) -> Apply<ParserState, Token> {
+    Apply({ (state) in state.take(nameTokenWithValue: value) })
   }
 
   /// Creates a combinator that parses attribute tokens with the specified name.
-  static func attribute(_ name: String) -> Apply<ParserContext, Token> {
-    Apply({ (context) in context.take(attribute: name) })
+  static func attribute(_ name: String) -> Apply<ParserState, Token> {
+    Apply({ (state) in state.take(attribute: name) })
   }
 
   /// Creates a combinator that translates token kinds to instances of type.
   static func translate<T>(
     _ table: [Token.Kind: T]
-  ) -> Apply<ParserContext, SourceRepresentable<T>> {
-    Apply({ (context) in
-      guard let head = context.peek() else { return nil }
+  ) -> Apply<ParserState, SourceRepresentable<T>> {
+    Apply({ (state) in
+      guard let head = state.peek() else { return nil }
       if let translation = table[head.kind] {
-        _ = context.take()
+        _ = state.take()
         return SourceRepresentable(value: translation, range: head.range)
       } else {
         return nil
@@ -2676,61 +2737,38 @@ extension Parser {
     })
   }
 
-  /// Creates a combinator that sets `flags` before applying `base` and restores them to their
-  /// previous state afterward.
-  static func settingFlags<Base: Combinator>(
-    _ flags: ParserContext.Flags,
+  /// Creates a combinator that pushes `context` to the parser state before applying, and pops
+  /// that context afterward.
+  static func inContext<Base: Combinator>(
+    _ context: ParserState.Context,
     apply base: Base
-  ) -> Apply<ParserContext, Base.Element>
-  where Base.Context == ParserContext
-  {
-    Apply({ (context) in
-      let oldFlags = context.flags
-      defer { context.flags = oldFlags }
-      context.flags = context.flags | flags
-      return try base.parse(&context)
-    })
-  }
-
-  /// Creates a combinator that unsets `flags` before applying `base` and restores them to their
-  /// previous state afterward.
-  static func unsettingFlags<Base: Combinator>(
-    _ flags: ParserContext.Flags,
-    apply base: Base
-  ) -> Apply<ParserContext, Base.Element>
-  where Base.Context == ParserContext
-  {
-    Apply({ (context) in
-      let oldFlags = context.flags
-      defer { context.flags = oldFlags }
-      context.flags = context.flags - flags
-      return try base.parse(&context)
-    })
+  ) -> WrapInContext<Base> {
+    WrapInContext(context: context, base: base)
   }
 
   /// Creates a combinator that applies `base` only if its input is not preceeded by whitespaces.
   static func withoutLeadingWhitespace<Base: Combinator>(
     _ base: Base
-  ) -> Apply<ParserContext, Base.Element>
-  where Base.Context == ParserContext
+  ) -> Apply<ParserState, Base.Element>
+  where Base.Context == ParserState
   {
-    Apply({ (context) in try context.hasLeadingWhitespace ? nil : base.parse(&context) })
+    Apply({ (state) in try state.hasLeadingWhitespace ? nil : base.parse(&state) })
   }
 
   /// Creates a combinator that applies `base` only if its input is not preceeded by newlines.
   static func onSameLine<Base: Combinator>(
     _ base: Base
-  ) -> Apply<ParserContext, Base.Element>
-  where Base.Context == ParserContext
+  ) -> Apply<ParserState, Base.Element>
+  where Base.Context == ParserState
   {
-    Apply({ (context) in
-      if let t = context.peek() {
-        return try context.hasNewline(inCharacterStreamUpTo: t.range.lowerBound)
+    Apply({ (state) in
+      if let t = state.peek() {
+        return try state.hasNewline(inCharacterStreamUpTo: t.range.lowerBound)
           ? nil
-          : base.parse(&context)
+          : base.parse(&state)
       } else {
         // Let `base` handle end of stream.
-        return try base.parse(&context)
+        return try base.parse(&state)
       }
     })
   }

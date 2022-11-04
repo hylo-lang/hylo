@@ -16,27 +16,26 @@ final class CXXTests: XCTestCase {
     // Execute the test cases.
     try TestCase.executeAll(in: testCaseDirectory, { (tc) in
       // Create an AST for the test case.
-      var program = baseAST
+      var ast = baseAST
 
       // Create a module for the input.
-      let module = program.insert(ModuleDecl(name: tc.name))
+      let module = ast.insert(ModuleDecl(name: tc.name))
 
       // Parse the input.
-      if Parser.parse(tc.source, into: module, in: &program).decls == nil {
+      if Parser.parse(tc.source, into: module, in: &ast).decls == nil {
         XCTFail("\(tc.name): parsing failed")
         return
       }
 
       // Run the type checker.
-      var checker = TypeChecker(ast: program)
+      var checker = TypeChecker(program: ScopedProgram(ast: ast))
       if !checker.check(module: module) {
         XCTFail("\(tc.name): type checking failed")
         return
       }
 
       let typedProgram = TypedProgram(
-        ast: checker.ast,
-        scopeHierarchy: checker.scopeHierarchy,
+        annotating: checker.program,
         declTypes: checker.declTypes,
         exprTypes: checker.exprTypes,
         referredDecls: checker.referredDecls)

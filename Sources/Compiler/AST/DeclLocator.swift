@@ -137,8 +137,8 @@ public struct DeclLocator: Hashable {
   public init<T: DeclID>(identifying decl: T, in program: TypedProgram) {
     var components = [Component(identifying: decl, in: program)!]
 
-    if let parent = program.scopeHierarchy.container[decl] {
-      for scopeID in program.scopeHierarchy.scopesToRoot(from: parent) {
+    if let parent = program.declToScope[decl] {
+      for scopeID in program.scopes(from: parent) {
         if let component = Component(identifying: scopeID, in: program) {
           components.append(component)
         }

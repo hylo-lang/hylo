@@ -24,12 +24,6 @@ public struct AST: Codable {
   /// The ID of the node representing all built-in declarations.
   public var builtinDecl: NodeID<BuiltinDecl> { NodeID(rawValue: 0) }
 
-  /// Returns the scope hierarchy.
-  func scopeHierarchy() -> ScopeHierarchy {
-    var builder = ScopeHierarchyBuilder(ast: self)
-    return builder.build()
-  }
-
   /// Inserts `n` into `self`.
   public mutating func insert<T: Node>(_ n: T) -> NodeID<T> {
     let i = NodeID<T>(rawValue: nodes.count)

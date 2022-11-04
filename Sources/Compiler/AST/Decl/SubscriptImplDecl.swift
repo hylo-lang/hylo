@@ -16,24 +16,20 @@ public struct SubscriptImplDecl: Decl, LexicalScope {
   /// The introducer of the method.
   public let introducer: SourceRepresentable<ImplIntroducer>
 
+  /// The declaration of the implicit receiver parameter, if any.
+  public let receiver: NodeID<ParameterDecl>
+
   /// The body of the subscript, if any.
   public let body: Body?
 
-  /// The declaration of the implicit receiver parameter, if any.
-  ///
-  /// This property is set during type checking.
-  public private(set) var receiver: NodeID<ParameterDecl>?
-
-  public init(introducer: SourceRepresentable<ImplIntroducer>, body: Body?) {
+  public init(
+    introducer: SourceRepresentable<ImplIntroducer>,
+    receiver: NodeID<ParameterDecl>,
+    body: Body?
+  ) {
     self.introducer = introducer
+    self.receiver = receiver
     self.body = body
   }
 
-  /// Incorporates `receiver` into `self`.
-  ///
-  /// - Precondition: `self.receiver == nil`.
-  mutating func incorporate(receiver: NodeID<ParameterDecl>) {
-    precondition(self.receiver == nil)
-    self.receiver = receiver
-  }
 }

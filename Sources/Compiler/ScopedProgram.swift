@@ -1,0 +1,1155 @@
+import Utils
+
+/// A data structure representing a scoped Val program ready to be type checked.
+public struct ScopedProgram: Program {
+
+  public private(set) var ast: AST
+
+  public private(set) var scopeToParent = ASTProperty<AnyScopeID>()
+
+  public private(set) var scopeToDecls = ASTProperty<[AnyDeclID]>()
+
+  public private(set) var declToScope = DeclProperty<AnyScopeID>()
+
+  public private(set) var varToBinding: [NodeID<VarDecl>: NodeID<BindingDecl>] = [:]
+
+  /// Creates a scoped program from an AST.
+  public init(ast: AST) {
+    self.ast = ast
+
+    // Establish the scope relationships.
+    for module in ast.modules {
+      var state = VisitorState(module: module)
+      visit(moduleDecl: module, withState: &state)
+    }
+  }
+
+  /// Incorporates the given implicit parameter declarations into `decl`.
+  ///
+  /// - Requires: `ast[decl].implicitParameterDecls` is empty.
+  mutating func incorporate(
+    implicitParameterDecls: [ImplicitParameter],
+    into decl: NodeID<FunDecl>
+  ) {
+    ast[decl].incorporate(implicitParameterDecls: implicitParameterDecls)
+  }
+
+  /// Incorporates the given implicit parameter declarations into `decl`.
+  ///
+  /// - Requires: `ast[decl].implicitParameterDecls` is empty.
+  mutating func incorporate(
+    implicitParameterDecls: [ImplicitParameter],
+    into decl: NodeID<SubscriptDecl>
+  ) {
+    ast[decl].incorporate(implicitParameterDecls: implicitParameterDecls)
+  }
+
+  /// Desugars an unfolded sequence expression using the given sub-expression ordering.
+  ///
+  /// - Requires `self.ast[a]` must be unfolded and `ordering` must correspond to the sequence
+  ///   described by `self.ast[a]`.
+  mutating func desugar(
+    _ a: NodeID<SequenceExpr>,
+    using ordering: SequenceExpr.Tree
+  ) -> AnyExprID {
+    switch ast[a] {
+    case .root:
+      preconditionFailure()
+
+    case .unfolded:
+      let root = desugar(ordering)
+      ast[a] = .root(root)
+      return root
+    }
+  }
+
+  /// Converts a sequence expression ordering into an expression.
+  private mutating func desugar(_ ordering: SequenceExpr.Tree) -> AnyExprID {
+    switch ordering {
+    case .node(let operator_, let left, let right):
+      let receiver = desugar(left)
+      let argument = desugar(right)
+
+      let id = ast.insert(FunCallExpr(
+        callee: AnyExprID(ast.insert(NameExpr(
+          domain: .expr(receiver),
+          name: SourceRepresentable(
+            value: Name(stem: operator_.name.value),
+            range: operator_.name.range)))),
+        arguments: [CallArgument(value: argument)]))
+
+      if let argumentRange = ast.ranges[argument] {
+        ast.ranges[id] = (
+          ast.ranges[receiver]?.upperBounded(by: argumentRange.upperBound) ?? argumentRange)
+      } else {
+        ast.ranges[id] = ast.ranges[receiver]
+      }
+
+      return AnyExprID(id)
+
+    case .leaf(let id):
+      return id
+    }
+  }
+
+}
+
+// MARK: Construction of scope relationships
+
+extension ScopedProgram {
+
+  /// A data structure representing the state of the visitor building scope relationships.
+  private struct VisitorState {
+
+    /// The ID of the innermost lexical scope currently visited.
+    var innermost: AnyScopeID
+
+    /// The ID of the binding declaration currently visited, if any.
+    var bindingDeclBeingVisited: NodeID<BindingDecl>?
+
+    init(module: NodeID<ModuleDecl>) {
+      self.innermost = AnyScopeID(module)
+      self.bindingDeclBeingVisited = nil
+    }
+
+  }
+
+  /// Inserts `decl` into `scope`.
+  private mutating func insert<T: DeclID>(decl: T, into scope: AnyScopeID) {
+    let child = AnyDeclID(decl)
+
+    if let parent = declToScope[child] {
+      if parent == scope {
+        // The relation is already established, we're done.
+        return
+      } else {
+        // Remove the existing edge scope container to containee.
+        scopeToDecls[scope]?.removeAll(where: { $0 == child })
+      }
+    }
+
+    // Create the edges.
+    declToScope[child] = scope
+    scopeToDecls[scope, default: []].append(child)
+  }
+
+  /// Sets `scope` as the parent of the current innermost lexical scope and calls `action` with a
+  /// a mutable projection of `self` and `state` where `scope` is the innermost lexical scope.
+  private mutating func nesting<T: ScopeID>(
+    in scope: T,
+    withState state: inout VisitorState,
+    _ action: (inout ScopedProgram, inout VisitorState) -> Void
+  ) {
+    let currentInnermost = state.innermost
+    let newInnermost = AnyScopeID(scope)
+    scopeToParent[newInnermost] = currentInnermost
+    state.innermost = newInnermost
+
+    action(&self, &state)
+
+    state.innermost = currentInnermost
+  }
+
+  // MARK: Declarations
+
+  private mutating func visit(decl: AnyDeclID, withState state: inout VisitorState) {
+    switch decl.kind {
+    case .associatedTypeDecl:
+      visit(associatedTypeDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+    case .associatedValueDecl:
+      visit(associatedValueDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+    case .bindingDecl:
+      visit(bindingDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+    case .builtinDecl:
+      break
+    case .conformanceDecl:
+      visit(conformanceDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+    case .extensionDecl:
+      visit(extensionDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+    case .funDecl:
+      visit(funDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+    case .genericTypeParamDecl:
+      visit(genericTypeParamDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+    case .genericValueParamDecl:
+      visit(genericValueParamDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+    case .importDecl:
+      visit(importDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+    case .methodImplDecl:
+      visit(methodImplDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+    case .moduleDecl:
+      visit(moduleDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+    case .namespaceDecl:
+      visit(namespaceDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+    case .operatorDecl:
+      visit(operatorDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+    case .parameterDecl:
+      visit(parameterDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+    case .productTypeDecl:
+      visit(productTypeDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+    case .subscriptDecl:
+      visit(subscriptDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+    case .subscriptImplDecl:
+      visit(subscriptImplDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+    case .traitDecl:
+      visit(traitDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+    case .typeAliasDecl:
+      visit(typeAliasDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+    case .varDecl:
+      visit(varDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+    default:
+      unreachable("unexpected declaration")
+    }
+  }
+
+  private mutating func visit(
+    associatedTypeDecl decl: NodeID<AssociatedTypeDecl>,
+    withState state: inout VisitorState
+  ) {
+    insert(decl: decl, into: state.innermost)
+
+    for conformance in ast[decl].conformances {
+      visit(nameTypeExpr: conformance, withState: &state)
+    }
+    if let defaultValue = ast[decl].defaultValue {
+      visit(typeExpr: defaultValue, withState: &state)
+    }
+    if let clause = ast[decl].whereClause?.value {
+      visit(whereClause: clause, withState: &state)
+    }
+  }
+
+  private mutating func visit(
+    associatedValueDecl decl: NodeID<AssociatedValueDecl>,
+    withState state: inout VisitorState
+  ) {
+    insert(decl: decl, into: state.innermost)
+
+    if let defaultValue = ast[decl].defaultValue {
+      visit(expr: defaultValue, withState: &state)
+    }
+    if let clause = ast[decl].whereClause?.value {
+      visit(whereClause: clause, withState: &state)
+    }
+  }
+
+  private mutating func visit(
+    bindingDecl decl: NodeID<BindingDecl>,
+    withState state: inout VisitorState
+  ) {
+    insert(decl: decl, into: state.innermost)
+
+    let currentBindingDeclBeingVisited = state.bindingDeclBeingVisited
+    state.bindingDeclBeingVisited = decl
+
+    visit(bindingPattern: ast[decl].pattern, withState: &state)
+    if let initializer = ast[decl].initializer {
+      visit(expr: initializer, withState: &state)
+    }
+
+    state.bindingDeclBeingVisited = currentBindingDeclBeingVisited
+  }
+
+  private mutating func visit(
+    conformanceDecl decl: NodeID<ConformanceDecl>,
+    withState state: inout VisitorState
+  ) {
+    insert(decl: decl, into: state.innermost)
+
+    nesting(in: decl, withState: &state, { (this, state) in
+      this.visit(typeExpr: this.ast[decl].subject, withState: &state)
+      if let clause = this.ast[decl].whereClause?.value {
+        this.visit(whereClause: clause, withState: &state)
+      }
+      for member in this.ast[decl].members {
+        this.visit(decl: member, withState: &state)
+      }
+    })
+  }
+
+  private mutating func visit(
+    extensionDecl decl: NodeID<ExtensionDecl>,
+    withState state: inout VisitorState
+  ) {
+    insert(decl: decl, into: state.innermost)
+
+    nesting(in: decl, withState: &state, { (this, state) in
+      this.visit(typeExpr: this.ast[decl].subject, withState: &state)
+      if let clause = this.ast[decl].whereClause?.value {
+        this.visit(whereClause: clause, withState: &state)
+      }
+      for member in this.ast[decl].members {
+        this.visit(decl: member, withState: &state)
+      }
+    })
+  }
+
+  private mutating func visit(
+    funDecl decl: NodeID<FunDecl>,
+    withState state: inout VisitorState
+  ) {
+    insert(decl: decl, into: state.innermost)
+
+    nesting(in: decl, withState: &state, { (this, state) in
+      if let clause = this.ast[decl].genericClause?.value {
+        this.visit(genericClause: clause, withState: &state)
+      }
+      for capture in this.ast[decl].explicitCaptures {
+        this.visit(bindingDecl: capture, withState: &state)
+      }
+      for parameter in this.ast[decl].parameters {
+        this.visit(parameterDecl: parameter, withState: &state)
+      }
+      if let receiver = this.ast[decl].implicitReceiverDecl {
+        this.visit(parameterDecl: receiver, withState: &state)
+      }
+      if let output = this.ast[decl].output {
+        this.visit(typeExpr: output, withState: &state)
+      }
+
+      switch this.ast[decl].body {
+      case let .expr(expr):
+        this.visit(expr: expr, withState: &state)
+
+      case let .block(stmt):
+        this.visit(braceStmt: stmt, withState: &state)
+
+      case let .bundle(impls):
+        for impl in impls {
+          this.visit(methodImplDecl: impl, withState: &state)
+        }
+
+      case nil:
+        break
+      }
+    })
+  }
+
+  private mutating func visit(
+    genericTypeParamDecl decl: NodeID<GenericTypeParamDecl>,
+    withState state: inout VisitorState
+  ) {
+    insert(decl: decl, into: state.innermost)
+
+    for conformance in ast[decl].conformances {
+      visit(nameTypeExpr: conformance, withState: &state)
+    }
+    if let defaultValue = ast[decl].defaultValue {
+      visit(typeExpr: defaultValue, withState: &state)
+    }
+  }
+
+  private mutating func visit(
+    genericValueParamDecl decl: NodeID<GenericValueParamDecl>,
+    withState state: inout VisitorState
+  ) {
+    insert(decl: decl, into: state.innermost)
+
+    visit(typeExpr: ast[decl].annotation, withState: &state)
+    if let defaultValue = ast[decl].defaultValue {
+      visit(expr: defaultValue, withState: &state)
+    }
+  }
+
+  private mutating func visit(
+    importDecl decl: NodeID<ImportDecl>,
+    withState state: inout VisitorState
+  ) {
+    insert(decl: decl, into: state.innermost)
+  }
+
+  private mutating func visit(
+    methodImplDecl decl: NodeID<MethodImplDecl>,
+    withState state: inout VisitorState
+  ) {
+    insert(decl: decl, into: state.innermost)
+
+    nesting(in: decl, withState: &state, { (this, state) in
+      this.visit(parameterDecl: this.ast[decl].receiver, withState: &state)
+
+      switch this.ast[decl].body {
+      case let .expr(expr):
+        this.visit(expr: expr, withState: &state)
+
+      case let .block(stmt):
+        this.visit(braceStmt: stmt, withState: &state)
+
+      case nil:
+        break
+      }
+    })
+  }
+
+  private mutating func visit(
+    moduleDecl decl: NodeID<ModuleDecl>,
+    withState state: inout VisitorState
+  ) {
+    precondition(state.innermost == decl)
+    for source in ast[decl].sources {
+      visit(topLevelDeclSet: source, withState: &state)
+    }
+  }
+
+  private mutating func visit(
+    namespaceDecl decl: NodeID<NamespaceDecl>,
+    withState state: inout VisitorState
+  ) {
+    insert(decl: decl, into: state.innermost)
+
+    nesting(in: decl, withState: &state, { (this, state) in
+      for member in this.ast[decl].members {
+        this.visit(decl: member, withState: &state)
+      }
+    })
+  }
+
+  private mutating func visit(
+    operatorDecl decl: NodeID<OperatorDecl>,
+    withState state: inout VisitorState
+  ) {
+    insert(decl: decl, into: state.innermost)
+  }
+
+  private mutating func visit(
+    parameterDecl decl: NodeID<ParameterDecl>,
+    withState state: inout VisitorState
+  ) {
+    insert(decl: decl, into: state.innermost)
+
+    if let annotation = ast[decl].annotation {
+      visit(parameterTypeExpr: annotation, withState: &state)
+    }
+    if let defaultValue = ast[decl].defaultValue {
+      visit(expr: defaultValue, withState: &state)
+    }
+  }
+
+  private mutating func visit(
+    productTypeDecl decl: NodeID<ProductTypeDecl>,
+    withState state: inout VisitorState
+  ) {
+    insert(decl: decl, into: state.innermost)
+
+    nesting(in: decl, withState: &state, { (this, state) in
+      if let clause = this.ast[decl].genericClause?.value {
+        this.visit(genericClause: clause, withState: &state)
+      }
+      for conformance in this.ast[decl].conformances {
+        this.visit(nameTypeExpr: conformance, withState: &state)
+      }
+      for member in this.ast[decl].members {
+        this.visit(decl: member, withState: &state)
+      }
+    })
+  }
+
+  private mutating func visit(
+    subscriptDecl decl: NodeID<SubscriptDecl>,
+    withState state: inout VisitorState
+  ) {
+    insert(decl: decl, into: state.innermost)
+
+    nesting(in: decl, withState: &state, { (this, state) in
+      if let clause = this.ast[decl].genericClause?.value {
+        this.visit(genericClause: clause, withState: &state)
+      }
+      for capture in this.ast[decl].explicitCaptures {
+        this.visit(bindingDecl: capture, withState: &state)
+      }
+      for parameter in this.ast[decl].parameters ?? [] {
+        this.visit(parameterDecl: parameter, withState: &state)
+      }
+      this.visit(typeExpr: this.ast[decl].output, withState: &state)
+      for impl in this.ast[decl].impls {
+        this.visit(subscriptImplDecl: impl, withState: &state)
+      }
+    })
+  }
+
+  private mutating func visit(
+    subscriptImplDecl decl: NodeID<SubscriptImplDecl>,
+    withState state: inout VisitorState
+  ) {
+    insert(decl: decl, into: state.innermost)
+
+    nesting(in: decl, withState: &state, { (this, state) in
+      this.visit(parameterDecl: this.ast[decl].receiver, withState: &state)
+
+      switch this.ast[decl].body {
+      case let .expr(expr):
+        this.visit(expr: expr, withState: &state)
+
+      case let .block(stmt):
+        this.visit(braceStmt: stmt, withState: &state)
+
+      case nil:
+        break
+      }
+    })
+  }
+
+  private mutating func visit(
+    traitDecl decl: NodeID<TraitDecl>,
+    withState state: inout VisitorState
+  ) {
+    insert(decl: decl, into: state.innermost)
+
+    nesting(in: decl, withState: &state, { (this, state) in
+      for refinement in this.ast[decl].refinements {
+        this.visit(nameTypeExpr: refinement, withState: &state)
+      }
+      for member in this.ast[decl].members {
+        this.visit(decl: member, withState: &state)
+      }
+    })
+  }
+
+  private mutating func visit(
+    typeAliasDecl decl: NodeID<TypeAliasDecl>,
+    withState state: inout VisitorState
+  ) {
+    insert(decl: decl, into: state.innermost)
+
+    nesting(in: decl, withState: &state, { (this, state) in
+      if let clause = this.ast[decl].genericClause?.value {
+        this.visit(genericClause: clause, withState: &state)
+      }
+      switch this.ast[decl].body {
+      case .typeExpr(let expr):
+        this.visit(typeExpr: expr, withState: &state)
+
+      case .union(let union):
+        for element in union {
+          this.visit(productTypeDecl: element, withState: &state)
+        }
+      }
+    })
+  }
+
+  private mutating func visit(
+    varDecl decl: NodeID<VarDecl>,
+    withState state: inout VisitorState
+  ) {
+    insert(decl: decl, into: state.innermost)
+    varToBinding[decl] = state.bindingDeclBeingVisited
+  }
+
+  private mutating func visit(
+    topLevelDeclSet: NodeID<TopLevelDeclSet>,
+    withState state: inout VisitorState
+  ) {
+    nesting(in: topLevelDeclSet, withState: &state, { (this, state) in
+      for member in this.ast[topLevelDeclSet].decls {
+        this.visit(decl: member, withState: &state)
+      }
+    })
+  }
+
+  // MARK: Expressions
+
+  private mutating func visit(expr: AnyExprID, withState state: inout VisitorState) {
+    switch expr.kind {
+    case .assignExpr:
+      visit(assignExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+    case .asyncExpr:
+      visit(asyncExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+    case .awaitExpr:
+      visit(awaitExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+    case .booleanLiteralExpr:
+      break
+    case .bufferLiteralExpr:
+      visit(bufferLiteralExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+    case .castExpr:
+      visit(castExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+    case .condExpr:
+      visit(condExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+    case .errorExpr:
+      break
+    case .floatLiteralExpr:
+      break
+    case .funCallExpr:
+      visit(funCallExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+    case .inoutExpr:
+      visit(inoutExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+    case .integerLiteralExpr:
+      break
+    case .lambdaExpr:
+      visit(lambdaExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+    case .mapLiteralExpr:
+      visit(mapLiteralExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+    case .matchExpr:
+      visit(matchExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+    case .nameExpr:
+      visit(nameExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+    case .nilExpr:
+      break
+    case .sequenceExpr:
+      visit(sequenceExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+    case .storedProjectionExpr:
+      visit(storedProjectionExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+    case .stringLiteralExpr:
+      break
+    case .subscriptCallExpr:
+      visit(subscriptCallExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+    case .tupleExpr:
+      visit(tupleExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+    case .tupleMemberExpr:
+      visit(tupleMemberExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+    case .unicodeScalarLiteralExpr:
+      break
+    default:
+      unreachable("unexpected expression")
+    }
+  }
+
+  private mutating func visit(
+    assignExpr expr: NodeID<AssignExpr>,
+    withState state: inout VisitorState
+  ) {
+    visit(expr: ast[expr].left, withState: &state)
+    visit(expr: ast[expr].right, withState: &state)
+  }
+
+  private mutating func visit(
+    asyncExpr expr: NodeID<AsyncExpr>,
+    withState state: inout VisitorState
+  ) {
+    visit(funDecl: ast[expr].decl, withState: &state)
+  }
+
+  private mutating func visit(
+    awaitExpr expr: NodeID<AwaitExpr>,
+    withState state: inout VisitorState
+  ) {
+    visit(expr: ast[expr].operand, withState: &state)
+  }
+
+  private mutating func visit(
+    bufferLiteralExpr expr: NodeID<BufferLiteralExpr>,
+    withState state: inout VisitorState
+  ) {
+    for element in ast[expr].elements {
+      visit(expr: element, withState: &state)
+    }
+  }
+
+  private mutating func visit(
+    castExpr expr: NodeID<CastExpr>,
+    withState state: inout VisitorState
+  ) {
+    visit(expr: ast[expr].left, withState: &state)
+    visit(typeExpr: ast[expr].right, withState: &state)
+  }
+
+  private mutating func visit(
+    condExpr expr: NodeID<CondExpr>,
+    withState state: inout VisitorState
+  ) {
+    nesting(in: expr, withState: &state, { (this, state) in
+      for item in this.ast[expr].condition {
+        switch item {
+        case let .expr(i):
+          this.visit(expr: i, withState: &state)
+        case let .decl(i):
+          this.visit(bindingDecl: i, withState: &state)
+        }
+      }
+
+      switch this.ast[expr].success {
+      case let .expr(i):
+        this.visit(expr: i, withState: &state)
+      case let .block(i):
+        this.visit(braceStmt: i, withState: &state)
+      }
+
+      switch this.ast[expr].failure {
+      case let .expr(i):
+        this.visit(expr: i, withState: &state)
+      case let .block(i):
+        this.visit(braceStmt: i, withState: &state)
+      case nil:
+        break
+      }
+    })
+  }
+
+  private mutating func visit(
+    funCallExpr expr: NodeID<FunCallExpr>,
+    withState state: inout VisitorState
+  ) {
+    visit(expr: ast[expr].callee, withState: &state)
+    for argument in ast[expr].arguments {
+      visit(expr: argument.value, withState: &state)
+    }
+  }
+
+  private mutating func visit(
+    inoutExpr expr: NodeID<InoutExpr>,
+    withState state: inout VisitorState
+  ) {
+    visit(expr: ast[expr].subject, withState: &state)
+  }
+
+  private mutating func visit(
+    lambdaExpr expr: NodeID<LambdaExpr>,
+    withState state: inout VisitorState
+  ) {
+    visit(funDecl: ast[expr].decl, withState: &state)
+  }
+
+  private mutating func visit(
+    mapLiteralExpr expr: NodeID<MapLiteralExpr>,
+    withState state: inout VisitorState
+  ) {
+    for element in ast[expr].elements {
+      visit(expr: element.key, withState: &state)
+      visit(expr: element.value, withState: &state)
+    }
+  }
+
+  private mutating func visit(
+    matchExpr expr: NodeID<MatchExpr>,
+    withState state: inout VisitorState
+  ) {
+    visit(expr: ast[expr].subject, withState: &state)
+    for case_ in ast[expr].cases {
+      nesting(in: case_, withState: &state, { (this, state) in
+        this.visit(pattern: this.ast[case_].pattern, withState: &state)
+        if let condition = this.ast[case_].condition {
+          this.visit(expr: condition, withState: &state)
+        }
+
+        switch this.ast[case_].body {
+        case let .expr(i):
+          this.visit(expr: i, withState: &state)
+        case let .block(i):
+          this.visit(braceStmt: i, withState: &state)
+        }
+      })
+    }
+  }
+
+  private mutating func visit(
+    nameExpr expr: NodeID<NameExpr>,
+    withState state: inout VisitorState
+  ) {
+    if case let .expr(domain) = ast[expr].domain {
+      visit(expr: domain, withState: &state)
+    }
+    for argument in ast[expr].arguments {
+      switch argument.value {
+      case let .expr(i):
+        visit(expr: i, withState: &state)
+      case let .type(i):
+        visit(typeExpr: i, withState: &state)
+      }
+    }
+  }
+
+  private mutating func visit(
+    sequenceExpr expr: NodeID<SequenceExpr>,
+    withState state: inout VisitorState
+  ) {
+    switch ast[expr] {
+    case .root(let i):
+      visit(expr: i, withState: &state)
+
+    case .unfolded(let head, let tail):
+      visit(expr: head, withState: &state)
+      for element in tail {
+        visit(expr: element.operand, withState: &state)
+      }
+    }
+  }
+
+  private mutating func visit(
+    storedProjectionExpr expr: NodeID<StoredProjectionExpr>,
+    withState state: inout VisitorState
+  ) {
+    visit(expr: ast[expr].operand, withState: &state)
+  }
+
+  private mutating func visit(
+    subscriptCallExpr expr: NodeID<SubscriptCallExpr>,
+    withState state: inout VisitorState
+  ) {
+    visit(expr: ast[expr].callee, withState: &state)
+    for argument in ast[expr].arguments {
+      visit(expr: argument.value, withState: &state)
+    }
+  }
+
+  private mutating func visit(
+    tupleExpr expr: NodeID<TupleExpr>,
+    withState state: inout VisitorState
+  ) {
+    for element in ast[expr].elements {
+      visit(expr: element.value, withState: &state)
+    }
+  }
+
+  private mutating func visit(
+    tupleMemberExpr expr: NodeID<TupleMemberExpr>,
+    withState state: inout VisitorState
+  ) {
+    visit(expr: ast[expr].tuple, withState: &state)
+  }
+
+  // MARK: Patterns
+
+  private mutating func visit(pattern: AnyPatternID, withState state: inout VisitorState) {
+    switch pattern.kind {
+    case .bindingPattern:
+      visit(bindingPattern: NodeID(rawValue: pattern.rawValue), withState: &state)
+    case .exprPattern:
+      visit(exprPattern: NodeID(rawValue: pattern.rawValue), withState: &state)
+    case .namePattern:
+      visit(namePattern: NodeID(rawValue: pattern.rawValue), withState: &state)
+    case .tuplePattern:
+      visit(tuplePattern: NodeID(rawValue: pattern.rawValue), withState: &state)
+    case .wildcardPattern:
+      break
+    default:
+      unreachable("unexpected pattern")
+    }
+  }
+
+  private mutating func visit(
+    bindingPattern pattern: NodeID<BindingPattern>,
+    withState state: inout VisitorState
+  ) {
+    visit(pattern: ast[pattern].subpattern, withState: &state)
+    if let annotation = ast[pattern].annotation {
+      visit(typeExpr: annotation, withState: &state)
+    }
+  }
+
+  private mutating func visit(
+    exprPattern pattern: NodeID<ExprPattern>,
+    withState state: inout VisitorState
+  ) {
+    visit(expr: ast[pattern].expr, withState: &state)
+  }
+
+  private mutating func visit(
+    namePattern pattern: NodeID<NamePattern>,
+    withState state: inout VisitorState
+  ) {
+    visit(varDecl: ast[pattern].decl, withState: &state)
+  }
+
+  private mutating func visit(
+    tuplePattern pattern: NodeID<TuplePattern>,
+    withState state: inout VisitorState
+  ) {
+    for element in ast[pattern].elements {
+      visit(pattern: element.pattern, withState: &state)
+    }
+  }
+
+  // MARK: Statements
+
+  private mutating func visit(stmt: AnyStmtID, withState state: inout VisitorState) {
+    switch stmt.kind {
+    case .braceStmt:
+      visit(braceStmt: NodeID(rawValue: stmt.rawValue), withState: &state)
+    case .braceStmt:
+      break
+    case .condBindingStmt:
+      visit(condBindingStmt: NodeID(rawValue: stmt.rawValue), withState: &state)
+    case .continueStmt:
+      break
+    case .declStmt:
+      visit(declStmt: NodeID(rawValue: stmt.rawValue), withState: &state)
+    case .discardStmt:
+      visit(discardStmt: NodeID(rawValue: stmt.rawValue), withState: &state)
+    case .doWhileStmt:
+      visit(doWhileStmt: NodeID(rawValue: stmt.rawValue), withState: &state)
+    case .exprStmt:
+      visit(exprStmt: NodeID(rawValue: stmt.rawValue), withState: &state)
+    case .forStmt:
+      visit(forStmt: NodeID(rawValue: stmt.rawValue), withState: &state)
+    case .returnStmt:
+      visit(returnStmt: NodeID(rawValue: stmt.rawValue), withState: &state)
+    case .whileStmt:
+      visit(whileStmt: NodeID(rawValue: stmt.rawValue), withState: &state)
+    case .yieldStmt:
+      visit(yieldStmt: NodeID(rawValue: stmt.rawValue), withState: &state)
+    default:
+      unreachable("unexpected statement")
+    }
+  }
+
+  private mutating func visit(
+    braceStmt stmt: NodeID<BraceStmt>,
+    withState state: inout VisitorState
+  ) {
+    nesting(in: stmt, withState: &state, { (this, state) in
+      for i in this.ast[stmt].stmts {
+        this.visit(stmt: i, withState: &state)
+      }
+    })
+  }
+
+  private mutating func visit(
+    condBindingStmt stmt: NodeID<CondBindingStmt>,
+    withState state: inout VisitorState
+  ) {
+    visit(bindingDecl: ast[stmt].binding, withState: &state)
+    switch ast[stmt].fallback {
+    case .expr(let i):
+      visit(expr: i, withState: &state)
+    case .exit(let i):
+      visit(stmt: i, withState: &state)
+    }
+  }
+
+  private mutating func visit(
+    declStmt stmt: NodeID<DeclStmt>,
+    withState state: inout VisitorState
+  ) {
+    visit(decl: ast[stmt].decl, withState: &state)
+  }
+
+  private mutating func visit(
+    discardStmt stmt: NodeID<DiscardStmt>,
+    withState state: inout VisitorState
+  ) {
+    visit(expr: ast[stmt].expr, withState: &state)
+  }
+
+  private mutating func visit(
+    doWhileStmt stmt: NodeID<DoWhileStmt>,
+    withState state: inout VisitorState
+  ) {
+    visit(braceStmt: ast[stmt].body, withState: &state)
+
+    // Visit the condition of the loop in the same lexical scope as the body.
+    let currentInnermost = state.innermost
+    state.innermost = AnyScopeID(ast[stmt].body)
+    visit(expr: ast[stmt].condition, withState: &state)
+    state.innermost = currentInnermost
+  }
+
+  private mutating func visit(
+    exprStmt stmt: NodeID<ExprStmt>,
+    withState state: inout VisitorState
+  ) {
+    visit(expr: ast[stmt].expr, withState: &state)
+  }
+
+  private mutating func visit(
+    forStmt stmt: NodeID<ForStmt>,
+    withState state: inout VisitorState
+  ) {
+    nesting(in: stmt, withState: &state, { (this, state) in
+      this.visit(bindingDecl: this.ast[stmt].binding, withState: &state)
+      if let filter = this.ast[stmt].filter {
+        this.visit(expr: filter, withState: &state)
+      }
+      this.visit(braceStmt: this.ast[stmt].body, withState: &state)
+    })
+  }
+
+  private mutating func visit(
+    returnStmt stmt: NodeID<ReturnStmt>,
+    withState state: inout VisitorState
+  ) {
+    if let value = ast[stmt].value {
+      visit(expr: value, withState: &state)
+    }
+  }
+
+  private mutating func visit(
+    whileStmt stmt: NodeID<WhileStmt>,
+    withState state: inout VisitorState
+  ) {
+    nesting(in: stmt, withState: &state, { (this, state) in
+      for item in this.ast[stmt].condition {
+        switch item {
+        case let .expr(i):
+          this.visit(expr: i, withState: &state)
+        case let .decl(i):
+          this.visit(bindingDecl: i, withState: &state)
+        }
+      }
+
+      this.visit(braceStmt: this.ast[stmt].body, withState: &state)
+    })
+  }
+
+  private mutating func visit(
+    yieldStmt stmt: NodeID<YieldStmt>,
+    withState state: inout VisitorState
+  ) {
+    visit(expr: ast[stmt].value, withState: &state)
+  }
+
+  // MARK: Type expressions
+
+  private mutating func visit(typeExpr expr: AnyTypeExprID, withState state: inout VisitorState) {
+    switch expr.kind {
+    case .asyncTypeExpr:
+      visit(asyncTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+    case .conformanceLensTypeExpr:
+      visit(conformanceLensTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+    case .existentialTypeExpr:
+      visit(existentialTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+    case .indirectTypeExpr:
+      visit(indirectTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+    case .lambdaTypeExpr:
+      visit(lambdaTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+    case .nameTypeExpr:
+      visit(nameTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+    case .parameterTypeExpr:
+      visit(parameterTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+    case .storedProjectionTypeExpr:
+      visit(storedProjectionTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+    case .tupleTypeExpr:
+      visit(tupleTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+    case .unionTypeExpr:
+      visit(unionTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+    case .wildcardTypeExpr:
+      break
+    default:
+      unreachable("unexpected type expression")
+    }
+  }
+
+  private mutating func visit(
+    asyncTypeExpr expr: NodeID<AsyncTypeExpr>,
+    withState state: inout VisitorState
+  ) {
+    visit(typeExpr: ast[expr].operand, withState: &state)
+  }
+
+  private mutating func visit(
+    conformanceLensTypeExpr expr: NodeID<ConformanceLensTypeExpr>,
+    withState state: inout VisitorState
+  ) {
+    visit(typeExpr: ast[expr].subject, withState: &state)
+    visit(typeExpr: ast[expr].lens, withState: &state)
+  }
+
+  private mutating func visit(
+    existentialTypeExpr expr: NodeID<ExistentialTypeExpr>,
+    withState state: inout VisitorState
+  ) {
+    for trait in ast[expr].traits {
+      visit(nameTypeExpr: trait, withState: &state)
+    }
+    if let clause = ast[expr].whereClause?.value {
+      visit(whereClause: clause, withState: &state)
+    }
+  }
+
+  private mutating func visit(
+    indirectTypeExpr expr: NodeID<IndirectTypeExpr>,
+    withState state: inout VisitorState
+  ) {
+    visit(typeExpr: ast[expr].operand, withState: &state)
+  }
+
+  private mutating func visit(
+    lambdaTypeExpr expr: NodeID<LambdaTypeExpr>,
+    withState state: inout VisitorState
+  ) {
+    if let environment = ast[expr].environment?.value {
+      visit(typeExpr: environment, withState: &state)
+    }
+    for parameter in ast[expr].parameters {
+      visit(parameterTypeExpr: parameter.type, withState: &state)
+    }
+    visit(typeExpr: ast[expr].output, withState: &state)
+  }
+
+  private mutating func visit(
+    nameTypeExpr expr: NodeID<NameTypeExpr>,
+    withState state: inout VisitorState
+  ) {
+    if let domain = ast[expr].domain {
+      visit(typeExpr: domain, withState: &state)
+    }
+    for argument in ast[expr].arguments {
+      switch argument.value {
+      case let .expr(i):
+        visit(expr: i, withState: &state)
+      case let .type(i):
+        visit(typeExpr: i, withState: &state)
+      }
+    }
+  }
+
+  private mutating func visit(
+    parameterTypeExpr expr: NodeID<ParameterTypeExpr>,
+    withState state: inout VisitorState
+  ) {
+    visit(typeExpr: ast[expr].bareType, withState: &state)
+  }
+
+  private mutating func visit(
+    storedProjectionTypeExpr expr: NodeID<StoredProjectionTypeExpr>,
+    withState state: inout VisitorState
+  ) {
+    visit(typeExpr: ast[expr].operand, withState: &state)
+  }
+
+  private mutating func visit(
+    tupleTypeExpr expr: NodeID<TupleTypeExpr>,
+    withState state: inout VisitorState
+  ) {
+    for element in ast[expr].elements {
+      visit(typeExpr: element.type, withState: &state)
+    }
+  }
+
+  private mutating func visit(
+    unionTypeExpr expr: NodeID<UnionTypeExpr>,
+    withState state: inout VisitorState
+  ) {
+    for element in ast[expr].elements {
+      visit(typeExpr: element, withState: &state)
+    }
+  }
+
+  // MARK: Others
+
+  private mutating func visit(
+    genericClause clause: GenericClause,
+    withState state: inout VisitorState
+  ) {
+    for parameter in clause.parameters {
+      switch parameter {
+      case .type(let i):
+        visit(genericTypeParamDecl: i, withState: &state)
+      case .value(let i):
+        visit(genericValueParamDecl: i, withState: &state)
+      }
+    }
+    if let whereClause = clause.whereClause?.value {
+      visit(whereClause: whereClause, withState: &state)
+    }
+  }
+
+  private mutating func visit(
+    whereClause clause: WhereClause,
+    withState state: inout VisitorState
+  ) {
+    for constraint in clause.constraints {
+      switch constraint.value {
+      case .conformance(let lhs, let traits):
+        visit(nameTypeExpr: lhs, withState: &state)
+        for trait in traits {
+          visit(nameTypeExpr: trait, withState: &state)
+        }
+
+      case .equality(let lhs, let rhs):
+        visit(nameTypeExpr: lhs, withState: &state)
+        visit(typeExpr: rhs, withState: &state)
+
+      case .value(let expr):
+        visit(expr: expr, withState: &state)
+      }
+    }
+  }
+
+}

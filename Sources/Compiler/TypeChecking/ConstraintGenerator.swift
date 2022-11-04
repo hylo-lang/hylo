@@ -31,11 +31,11 @@ struct ConstraintGenerator: ExprVisitor {
 
   mutating func visit(assign id: NodeID<AssignExpr>) {
     // Infer the type on the left.
-    let lhs = checker.ast[id].left
+    let lhs = checker.program.ast[id].left
     lhs.accept(&self)
 
     // Constrain the right to be subtype of the left.
-    let rhs = checker.ast[id].right
+    let rhs = checker.program.ast[id].right
     inferredTypes[rhs] = .variable(TypeVariable(node: rhs.base))
     constraints.append(LocatableConstraint(
       .equalityOrSubtyping(l: inferredTypes[rhs]!, r: inferredTypes[lhs]!),
@@ -59,7 +59,7 @@ struct ConstraintGenerator: ExprVisitor {
   }
 
   mutating func visit(booleanLiteral id: NodeID<BooleanLiteralExpr>) {
-    let boolType = checker.ast.coreType(named: "Bool")!
+    let boolType = checker.program.ast.coreType(named: "Bool")!
     assume(typeOf: id, equals: .product(boolType))
   }
 
@@ -69,7 +69,7 @@ struct ConstraintGenerator: ExprVisitor {
 
   mutating func visit(cast id: NodeID<CastExpr>) {
     // Realize the type to which the left operand should be converted.
-    guard var target = checker.realize(checker.ast[id].right, inScope: scope) else {
+    guard var target = checker.realize(checker.program.ast[id].right, inScope: scope) else {
       assignToError(id)
       return
     }
@@ -78,8 +78,8 @@ struct ConstraintGenerator: ExprVisitor {
     target = ty
     constraints.append(contentsOf: cs.map({ LocatableConstraint($0, node: AnyNodeID(id)) }))
 
-    let lhs = checker.ast[id].left
-    switch checker.ast[id].kind {
+    let lhs = checker.program.ast[id].left
+    switch checker.program.ast[id].kind {
     case .down:
       // Note: constraining the type of the left operand to be above the right operand wouldn't
       // contribute any useful information to the constraint system.
@@ -109,8 +109,8 @@ struct ConstraintGenerator: ExprVisitor {
     defer { assert(inferredTypes[id] != nil) }
 
     // Visit the condition(s).
-    let boolType = checker.ast.coreType(named: "Bool")!
-    for item in checker.ast[id].condition {
+    let boolType = checker.program.ast.coreType(named: "Bool")!
+    for item in checker.program.ast[id].condition {
       switch item {
       case .expr(let expr):
         // Condition must be Boolean.
@@ -126,7 +126,7 @@ struct ConstraintGenerator: ExprVisitor {
     let inferredType: Type?
 
     // Visit the success branch.
-    switch checker.ast[id].success {
+    switch checker.program.ast[id].success {
     case .expr(let thenExpr):
       expectedTypes[thenExpr] = expectedTypes[id]
       thenExpr.accept(&self)
@@ -138,7 +138,7 @@ struct ConstraintGenerator: ExprVisitor {
     }
 
     // Visit the failure branch.
-    switch checker.ast[id].failure {
+    switch checker.program.ast[id].failure {
     case .expr(let elseExpr):
       assume(typeOf: id, equals: inferredType!)
       expectedTypes[elseExpr] = inferredType
@@ -164,17 +164,17 @@ struct ConstraintGenerator: ExprVisitor {
   mutating func visit(funCall id: NodeID<FunCallExpr>) {
     defer { assert(inferredTypes[id] != nil) }
 
-    let callee = checker.ast[id].callee
+    let callee = checker.program.ast[id].callee
 
     func propagateDown(calleeType: LambdaType, calleeConstraints: [Constraint] = []) {
       // Collect the call labels.
-      let labels = checker.ast[id].arguments.map({ $0.label?.value })
+      let labels = checker.program.ast[id].arguments.map({ $0.label?.value })
 
       // Check that the labels inferred from the callee are consistent with that of the call.
       let calleeLabels = calleeType.inputs.map({ $0.label })
       if calleeLabels != labels {
         diagnostics.append(.incompatibleLabels(
-          found: labels, expected: calleeLabels, at: checker.ast.ranges[callee]))
+          found: labels, expected: calleeLabels, at: checker.program.ast.ranges[callee]))
         assignToError(id)
         return
       }
@@ -185,8 +185,8 @@ struct ConstraintGenerator: ExprVisitor {
       }))
 
       // Propagate type information to the arguments.
-      for i in 0 ..< checker.ast[id].arguments.count {
-        let argument = checker.ast[id].arguments[i].value
+      for i in 0 ..< checker.program.ast[id].arguments.count {
+        let argument = checker.program.ast[id].arguments[i].value
         let argumentType = Type.variable(TypeVariable(node: argument.base))
         let parameterType = calleeType.inputs[i].type
 
@@ -239,7 +239,7 @@ struct ConstraintGenerator: ExprVisitor {
           inDeclSpaceOf: AnyScopeID(d)!)
 
         // Select suitable candidates based on argument labels.
-        let labels = checker.ast[id].arguments.map({ $0.label?.value })
+        let labels = checker.program.ast[id].arguments.map({ $0.label?.value })
         var candidates: [Constraint.OverloadCandidate] = []
         for initializer in initializers {
           // Remove the receiver from the parameter list.
@@ -258,7 +258,7 @@ struct ConstraintGenerator: ExprVisitor {
         switch candidates.count {
         case 0:
           let name = Name(stem: "init", labels: labels)
-          diagnostics.append(.undefined(name: "\(name)", at: checker.ast[c].name.range))
+          diagnostics.append(.undefined(name: "\(name)", at: checker.program.ast[c].name.range))
           assignToError(id)
           return
 
@@ -277,8 +277,8 @@ struct ConstraintGenerator: ExprVisitor {
         }
 
       case .traitDecl:
-        let trait = TraitType(decl: NodeID(d)!, ast: checker.ast)
-        diagnostics.append(.cannotConstruct(trait: trait, at: checker.ast.ranges[callee]))
+        let trait = TraitType(decl: NodeID(d)!, ast: checker.program.ast)
+        diagnostics.append(.cannotConstruct(trait: trait, at: checker.program.ast.ranges[callee]))
         assignToError(id)
 
       case .typeAliasDecl:
@@ -302,18 +302,18 @@ struct ConstraintGenerator: ExprVisitor {
     assume(typeOf: id, equals: output)
 
     var inputs: [CallableTypeParameter] = []
-    for i in 0 ..< checker.ast[id].arguments.count {
+    for i in 0 ..< checker.program.ast[id].arguments.count {
       // Infer the type of the argument bottom-up.
-      checker.ast[id].arguments[i].value.accept(&self)
+      checker.program.ast[id].arguments[i].value.accept(&self)
 
-      let argument = checker.ast[id].arguments[i].value
+      let argument = checker.program.ast[id].arguments[i].value
       let parameterType = Type.variable(TypeVariable())
       constraints.append(LocatableConstraint(
         .parameter(l: inferredTypes[argument]!, r: parameterType),
         node: argument.base,
         cause: .callArgument))
 
-      let argumentLabel = checker.ast[id].arguments[i].label?.value
+      let argumentLabel = checker.program.ast[id].arguments[i].label?.value
       inputs.append(CallableTypeParameter(label: argumentLabel, type: parameterType))
     }
 
@@ -325,7 +325,7 @@ struct ConstraintGenerator: ExprVisitor {
   }
 
   mutating func visit(`inout` id: NodeID<InoutExpr>) {
-    let subexpr = checker.ast[id].subexpr
+    let subexpr = checker.program.ast[id].subject
     expectedTypes[subexpr] = expectedTypes[id]
     subexpr.accept(&self)
     assume(typeOf: id, equals: inferredTypes[subexpr]!)
@@ -334,13 +334,13 @@ struct ConstraintGenerator: ExprVisitor {
   mutating func visit(integerLiteral id: NodeID<IntegerLiteralExpr>) {
     defer { assert(inferredTypes[id] != nil) }
 
-    let trait = checker.ast.coreTrait(named: "ExpressibleByIntegerLiteral")!
+    let trait = checker.program.ast.coreTrait(named: "ExpressibleByIntegerLiteral")!
 
     switch expectedTypes[id] {
     case .some(.variable(let tau)):
       // The type of the expression is a variable, possibly constrained elsewhere; constrain it to
       // either be `Int` or conform to `ExpressibleByIntegerLiteral`.
-      let intType = checker.ast.coreType(named: "Int")!
+      let intType = checker.program.ast.coreType(named: "Int")!
       constraints.append(LocatableConstraint(
         .disjunction([
           Constraint.Minterm(
@@ -360,7 +360,7 @@ struct ConstraintGenerator: ExprVisitor {
 
     case nil:
       // Without contextual information, infer the type of the literal as `Val.Int`.
-      let intType = checker.ast.coreType(named: "Int")!
+      let intType = checker.program.ast.coreType(named: "Int")!
       assume(typeOf: id, equals: .product(intType))
     }
   }
@@ -369,7 +369,7 @@ struct ConstraintGenerator: ExprVisitor {
     defer { assert(inferredTypes[id] != nil) }
 
     // Realize the type of the underlying declaration.
-    guard case .lambda(let declType) = checker.realize(funDecl: checker.ast[id].decl) else {
+    guard case .lambda(let declType) = checker.realize(funDecl: checker.program.ast[id].decl) else {
       assignToError(id)
       return
     }
@@ -383,7 +383,7 @@ struct ConstraintGenerator: ExprVisitor {
         diagnostics.append(.invalidClosureParameterCount(
           expected: expectedType.inputs.count,
           found: declType.inputs.count,
-          at: checker.ast.ranges[id]))
+          at: checker.program.ast.ranges[id]))
         assignToError(id)
         return
       }
@@ -393,24 +393,24 @@ struct ConstraintGenerator: ExprVisitor {
         diagnostics.append(.incompatibleLabels(
           found: Array(declType.labels),
           expected: Array(expectedType.labels),
-          at: checker.ast.ranges[id]))
+          at: checker.program.ast.ranges[id]))
         assignToError(id)
         return
       }
     } else if case .variable = declType.output {
-      if case .expr(let body) = checker.ast[checker.ast[id].decl].body {
+      if case .expr(let body) = checker.program.ast[checker.program.ast[id].decl].body {
         // Infer the return type of the lambda from its body.
         inferredTypes[body] = declType.output
         expectedTypes[body] = declType.output
 
         let currentScope = scope
-        scope = AnyScopeID(checker.ast[id].decl)
+        scope = AnyScopeID(checker.program.ast[id].decl)
         body.accept(&self)
         scope = currentScope
       } else {
         // The system is underspecified.
         diagnostics.append(.cannotInferComplexReturnType(
-          at: checker.ast[checker.ast[id].decl].introducer.range))
+          at: checker.program.ast[checker.program.ast[id].decl].introducer.range))
         assignToError(id)
         return
       }
@@ -429,12 +429,12 @@ struct ConstraintGenerator: ExprVisitor {
 
   mutating func visit(name id: NodeID<NameExpr>) {
     // Resolves the name.
-    switch checker.ast[id].domain {
+    switch checker.program.ast[id].domain {
     case .none:
-      let expr = checker.ast[id]
+      let expr = checker.program.ast[id]
       if checker.isBuiltinModuleVisible && (expr.name.value.stem == "Builtin") {
         assume(typeOf: id, equals: .builtin(.module))
-        checker.referredDecls[id] = .direct(AnyDeclID(checker.ast.builtinDecl))
+        checker.referredDecls[id] = .direct(AnyDeclID(checker.program.ast.builtinDecl))
         return
       }
 
@@ -445,7 +445,7 @@ struct ConstraintGenerator: ExprVisitor {
         introducer: expr.name.value.introducer)
 
       if candidates.isEmpty {
-        diagnostics.append(.undefined(name: "\(expr.name)", at: expr.name.range))
+        diagnostics.append(.undefined(name: expr.name.value.description, at: expr.name.range))
         assignToError(id)
         return
       }
@@ -453,7 +453,7 @@ struct ConstraintGenerator: ExprVisitor {
       let inferredType: Type
       if candidates.count == 1 {
         // Contextualize the match.
-        let context = checker.scopeHierarchy.container[candidates[0].decl]!
+        let context = checker.program.declToScope[candidates[0].decl]!
         let (ty, cs) = checker.contextualize(type: candidates[0].type, inScope: context)
         inferredType = ty
 
@@ -461,7 +461,7 @@ struct ConstraintGenerator: ExprVisitor {
         constraints.append(contentsOf: cs.map({ LocatableConstraint($0, node: AnyNodeID(id)) }))
 
         // Bind the name expression to the referred declaration.
-        if checker.scopeHierarchy.isNonStaticMember(decl: candidates[0].decl, ast: checker.ast) {
+        if checker.program.isNonStaticMember(candidates[0].decl) {
           checker.referredDecls[id] = .member(candidates[0].decl)
         } else {
           checker.referredDecls[id] = .direct(candidates[0].decl)
@@ -486,16 +486,16 @@ struct ConstraintGenerator: ExprVisitor {
 
       // Handle references to built-in symbols.
       if domainType == .builtin(.module) {
-        let symbolName = checker.ast[id].name.value.stem
+        let symbolName = checker.program.ast[id].name.value.stem
 
         if let type = BuiltinSymbols[symbolName] {
           assume(typeOf: id, equals: .lambda(type))
-          checker.referredDecls[id] = .direct(AnyDeclID(checker.ast.builtinDecl))
+          checker.referredDecls[id] = .direct(AnyDeclID(checker.program.ast.builtinDecl))
         } else if let type = BuiltinType(symbolName) {
           assume(typeOf: id, equals: .builtin(type))
-          checker.referredDecls[id] = .direct(AnyDeclID(checker.ast.builtinDecl))
+          checker.referredDecls[id] = .direct(AnyDeclID(checker.program.ast.builtinDecl))
         } else {
-          diagnostics.append(.undefined(name: symbolName, at: checker.ast[id].name.range))
+          diagnostics.append(.undefined(name: symbolName, at: checker.program.ast[id].name.range))
           assignToError(id)
         }
 
@@ -513,9 +513,15 @@ struct ConstraintGenerator: ExprVisitor {
          let decl = checker.referredDecls[base]?.decl,
          decl.kind <= .typeDecl
       {
-        constraint = .unboundMember(l: domainType, m: checker.ast[id].name.value, r: inferredType)
+        constraint = .unboundMember(
+          l: domainType,
+          m: checker.program.ast[id].name.value,
+          r: inferredType)
       } else {
-        constraint = .boundMember(l: domainType, m: checker.ast[id].name.value, r: inferredType)
+        constraint = .boundMember(
+          l: domainType,
+          m: checker.program.ast[id].name.value,
+          r: inferredType)
       }
       constraints.append(LocatableConstraint(constraint, node: AnyNodeID(id), cause: .member))
 
@@ -535,12 +541,9 @@ struct ConstraintGenerator: ExprVisitor {
     let root: AnyExprID
 
     // Fold the sequence if necessary.
-    switch checker.ast[id] {
+    switch checker.program.ast[id] {
     case .unfolded(let head, let tail):
-      let tree = foldSequenceExpr(head: head, tail: tail)
-      root = tree.desugars(ast: &checker.ast)
-      checker.ast[id] = .root(root)
-
+      root = checker.program.desugar(id, using: foldSequenceExpr(head: head, tail: tail))
     case .root(let r):
       root = r
     }
@@ -565,7 +568,7 @@ struct ConstraintGenerator: ExprVisitor {
   mutating func visit(tuple id: NodeID<TupleExpr>) {
     defer { assert(inferredTypes[id] != nil) }
 
-    let tupleExpr = checker.ast[id].elements
+    let tupleExpr = checker.program.ast[id].elements
     var tupleTypeElements: [TupleType.Element] = []
 
     // If the expected type is a tuple compatible with the shape of the expression, propagate that
@@ -597,6 +600,10 @@ struct ConstraintGenerator: ExprVisitor {
     fatalError("not implemented")
   }
 
+  mutating func visit(unicodeScalarLiteral id: NodeID<UnicodeScalarLiteralExpr>) {
+    fatalError("not implemented")
+  }
+
   /// Returns the well-formed declarations to which the specified name may refer, along with their
   /// overarching uncontextualized types. Ill-formed declarations are ignored.
   private mutating func resolve(
@@ -616,7 +623,7 @@ struct ConstraintGenerator: ExprVisitor {
     } else {
       matches = checker.lookup(unqualified: stem, inScope: scope)
       if !matches.isEmpty && matches.isSubset(of: checker.bindingsUnderChecking) {
-        matches = checker.lookup(unqualified: stem, inScope: checker.scopeHierarchy.parent[scope]!)
+        matches = checker.lookup(unqualified: stem, inScope: checker.program.scopeToParent[scope]!)
       }
     }
 
@@ -627,14 +634,16 @@ struct ConstraintGenerator: ExprVisitor {
 
     // If the looked up name has a method introducer, it must refer to a method implementation.
     if let introducer = introducer {
-      matches = Set(matches.compactMap({ match in
+      matches = Set(matches.compactMap({ (match) -> AnyDeclID? in
         guard let method = NodeID<FunDecl>(match),
-              let body = checker.ast[method].body,
+              let body = checker.program.ast[method].body,
               case .bundle(let impls) = body
         else { return nil }
 
         // TODO: Synthesize missing method implementations
-        if let impl = impls.first(where: { checker.ast[$0].introducer.value == introducer }) {
+        if let impl = impls.first(where: { (i) in
+          checker.program.ast[i].introducer.value == introducer
+        }) {
           return AnyDeclID(impl)
         } else {
           return nil
@@ -657,6 +666,48 @@ struct ConstraintGenerator: ExprVisitor {
     })
   }
 
+  /// Folds a sequence of binary expressions into a tree.
+  private mutating func foldSequenceExpr(
+    head: AnyExprID,
+    tail: SequenceExpr.UnfoldedTail
+  ) -> SequenceExpr.Tree {
+    return foldSequenceExpr(tail[0...], into: .leaf(head))
+  }
+
+  /// Folds the remainder of a sequence of binary expressions into `accumulatedResult`.
+  private mutating func foldSequenceExpr(
+    _ tail: SequenceExpr.UnfoldedTail.SubSequence,
+    into initialResult: SequenceExpr.Tree
+  ) -> SequenceExpr.Tree {
+    var accumulator = initialResult
+
+    for i in tail.indices {
+      // Search for the operator declaration.
+      let candidates = checker.lookup(
+        operator: tail[i].operatorName.value, notation: .infix, inScope: scope)
+
+      switch candidates.count {
+      case 0:
+        checker.diagnostics.insert(.undefinedOperator(
+          tail[i].operatorName.value, at: tail[i].operatorName.range))
+        accumulator.append(
+          operator: (name: tail[i].operatorName, precedence: nil),
+          rhs: tail[i].operand)
+
+      case 1:
+        let precedence = checker.program.ast[candidates[0]].precedenceGroup?.value
+        accumulator.append(
+          operator: (name: tail[i].operatorName, precedence: precedence),
+          rhs: tail[i].operand)
+
+      default:
+        fatalError("not implemented")
+      }
+    }
+
+    return accumulator
+  }
+
   private mutating func assume<T: ExprID>(typeOf id: T, equals inferredType: Type) {
     if let ty = inferredTypes[id] {
       if ty != inferredType {
@@ -671,125 +722,6 @@ struct ConstraintGenerator: ExprVisitor {
 
   private mutating func assignToError<T: ExprID>(_ id: T) {
     inferredTypes[id] = .error(ErrorType())
-  }
-
-}
-
-extension ConstraintGenerator {
-
-  /// A folded sequence of binary operations.
-  indirect enum Tree {
-
-    typealias Operator = (name: SourceRepresentable<Identifier>, precedence: PrecedenceGroup?)
-
-    case node(operator: Operator, left: Tree, right: Tree)
-
-    case leaf(AnyExprID)
-
-    // Desugars the tree.
-    func desugars(ast: inout AST) -> AnyExprID {
-      switch self {
-      case .node(let operator_, let left, let right):
-        let receiver = left.desugars(ast: &ast)
-        let argument = right.desugars(ast: &ast)
-
-        let id = ast.insert(FunCallExpr(
-          callee: AnyExprID(ast.insert(NameExpr(
-            domain: .expr(receiver),
-            name: SourceRepresentable(
-              value: Name(stem: operator_.name.value),
-              range: operator_.name.range)))),
-          arguments: [CallArgument(value: argument)]))
-
-        if let argumentRange = ast.ranges[argument] {
-          ast.ranges[id] = (
-            ast.ranges[receiver]?.upperBounded(by: argumentRange.upperBound) ?? argumentRange)
-        } else {
-          ast.ranges[id] = ast.ranges[receiver]
-        }
-
-        return AnyExprID(id)
-
-      case .leaf(let id):
-        return id
-      }
-    }
-
-    mutating func append(operator operator_: Operator, rhs: AnyExprID) {
-      switch self {
-      case .node(let lhsOperator, let lhsLeft, var lhsRight):
-        if let l = lhsOperator.precedence {
-          if let r = operator_.precedence {
-            // Both operators are in groups.
-            if (l < r) || (l == r && l.associativity == .left) {
-              self = .node(operator: operator_, left: self, right: .leaf(rhs))
-              return
-            }
-
-            if (l > r) || (l == r && l.associativity == .right) {
-              lhsRight.append(operator: operator_, rhs: rhs)
-              self = .node(operator: lhsOperator, left: lhsLeft, right: lhsRight)
-              return
-            }
-          } else {
-            // Right operator is not in a group. Assume lowest precedence and left associativity.
-            self = .node(operator: operator_, left: self, right: .leaf(rhs))
-            return
-          }
-        } else if operator_.precedence != nil {
-          // Only right operator is in a group. Assume higher precedence.
-          lhsRight.append(operator: operator_, rhs: rhs)
-          self = .node(operator: lhsOperator, left: lhsLeft, right: lhsRight)
-        } else {
-          // Neither operator is in a group. Assume left associativity.
-          self = .node(operator: operator_, left: self, right: .leaf(rhs))
-        }
-
-      case .leaf:
-        self = .node(operator: operator_, left: self, right: .leaf(rhs))
-      }
-    }
-
-  }
-
-  /// Folds a sequence of binary expressions into a tree.
-  mutating func foldSequenceExpr(head: AnyExprID, tail: SequenceExpr.UnfoldedTail) -> Tree {
-    return foldSequenceExpr(tail[0...], into: .leaf(head))
-  }
-
-  /// Folds the remainder of a sequence of binary expressions into `accumulatedResult`.
-  mutating func foldSequenceExpr(
-    _ tail: SequenceExpr.UnfoldedTail.SubSequence,
-    into initialResult: Tree
-  ) -> Tree {
-    var accumulator = initialResult
-
-    for i in tail.indices {
-      // Search for the operator declaration.
-      let candidates = checker.lookup(
-        operator: tail[i].operatorName.value, notation: .infix, inScope: scope)
-
-      switch candidates.count {
-      case 0:
-        checker.diagnostics.insert(.undefinedOperator(
-          tail[i].operatorName.value, at: tail[i].operatorName.range))
-        accumulator = .leaf(AnyExprID(checker.ast.insert(ErrorExpr())))
-
-      case 1:
-        let precedence = checker.ast[candidates[0]].precedenceGroup?.value
-        accumulator.append(
-          operator: (name: tail[i].operatorName, precedence: precedence), rhs: tail[i].operand)
-
-      default:
-        fatalError("not implemented")
-      }
-    }
-
-    return accumulator
-  }
-
-  mutating func visit(unicodeScalarLiteral id: NodeID<UnicodeScalarLiteralExpr>) {
-    fatalError("not implemented")
   }
 
 }

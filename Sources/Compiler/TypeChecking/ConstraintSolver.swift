@@ -302,7 +302,7 @@ struct ConstraintSolver {
     // Search for non-static members with the specified name.
     let allMatches = checker.lookup(member.stem, memberOf: l, inScope: scope)
     let nonStaticMatches = allMatches.filter({ decl in
-      checker.scopeHierarchy.isNonStaticMember(decl: decl, ast: checker.ast)
+      checker.program.isNonStaticMember(decl)
     })
 
     // Catch uses of static members on instances.
@@ -379,7 +379,7 @@ struct ConstraintSolver {
 
       // TODO: Handle bound generic typess
       // TODO: Handle static access to bound members
-      assert(checker.scopeHierarchy.isGlobal(decl: match, ast: checker.ast), "not implemented")
+      assert(checker.program.isGlobal(match), "not implemented")
 
       return (
         decl: match,
@@ -497,13 +497,13 @@ struct ConstraintSolver {
 
   /// Returns whether `decl` is a requirement.
   private func isRequirement<T: DeclID>(decl: T) -> Bool {
-    if checker.scopeHierarchy.container[decl]?.kind != .traitDecl {
+    if checker.program.declToScope[decl]?.kind != .traitDecl {
       return false
     }
 
     switch decl.kind {
     case .funDecl:
-      switch checker.ast[NodeID<FunDecl>(rawValue: decl.rawValue)].body {
+      switch checker.program.ast[NodeID<FunDecl>(rawValue: decl.rawValue)].body {
       case .bundle(let impls):
         return impls.contains(where: { isRequirement(decl: $0) })
       case .none:
@@ -513,7 +513,7 @@ struct ConstraintSolver {
       }
 
     case .methodImplDecl:
-      switch checker.ast[NodeID<MethodImplDecl>(rawValue: decl.rawValue)].body {
+      switch checker.program.ast[NodeID<MethodImplDecl>(rawValue: decl.rawValue)].body {
       case .none:
         return true
       case .some:
@@ -521,11 +521,11 @@ struct ConstraintSolver {
       }
 
     case .subscriptDecl:
-      return checker.ast[NodeID<SubscriptDecl>(rawValue: decl.rawValue)].impls
+      return checker.program.ast[NodeID<SubscriptDecl>(rawValue: decl.rawValue)].impls
         .contains(where: { isRequirement(decl: $0) })
 
     case .subscriptImplDecl:
-      switch checker.ast[NodeID<SubscriptImplDecl>(rawValue: decl.rawValue)].body {
+      switch checker.program.ast[NodeID<SubscriptImplDecl>(rawValue: decl.rawValue)].body {
       case .none:
         return true
       case .some:
@@ -539,7 +539,7 @@ struct ConstraintSolver {
 
   /// Returns the source range corresponding to `location`, if any.
   private func range(of location: LocatableConstraint.Location) -> SourceRange? {
-    location.node.map({ checker.ast.ranges[$0] }) ?? nil
+    location.node.map({ (n) in checker.program.ast.ranges[n] }) ?? nil
   }
 
   /// Moves the stale constraints depending on the specified variables back to the fresh set.
