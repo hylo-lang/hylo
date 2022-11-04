@@ -8,7 +8,7 @@ struct LocatableConstraint {
     var node: AnyNodeID?
 
     /// The source range from which the constraint originates, if any.
-    var range: SourceRange?
+    var origin: SourceRange?
 
     /// The cause of the constraint, if specified.
     var cause: Cause?
@@ -54,7 +54,7 @@ struct LocatableConstraint {
     cause: Cause? = nil
   ) {
     self.constraint = constraint
-    self.location = Location(node: node, range: range, cause: cause)
+    self.location = Location(node: node, origin: range, cause: cause)
   }
 
 }
