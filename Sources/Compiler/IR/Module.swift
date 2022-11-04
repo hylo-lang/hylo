@@ -16,7 +16,7 @@ public struct Module {
   public private(set) var functions: [Function] = []
 
   /// The ID of the module's entry function, if any.
-  public var entryFunctionID: Function.ID?
+  public private(set) var entryFunctionID: Function.ID?
 
   /// A map from function declaration its ID in the module.
   private var loweredFunctions: [NodeID<FunDecl>: Function.ID] = [:]

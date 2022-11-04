@@ -2,21 +2,21 @@
 public struct BorrowInst: Inst, BorrowInstProtocol {
 
   /// The capability being borrowed.
-  public var capability: RemoteType.Capability
+  public let capability: RemoteType.Capability
 
   /// The type of the borrowed access.
-  public var borrowedType: LoweredType
+  public let borrowedType: LoweredType
 
   /// The location of the root object on which an access is borrowed.
-  public var location: Operand
+  public let location: Operand
 
   /// A sequence of indices identifying a sub-location of `location`.
-  public var path: [Int]
+  public let path: [Int]
 
   /// The binding in source program to which the instruction corresponds, if any.
-  public var binding: NodeID<VarDecl>?
+  public let binding: NodeID<VarDecl>?
 
-  public var range: SourceRange?
+  public let range: SourceRange?
 
   init(
     _ capability: RemoteType.Capability,

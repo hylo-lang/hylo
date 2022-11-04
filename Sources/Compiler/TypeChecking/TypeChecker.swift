@@ -19,7 +19,7 @@ public struct TypeChecker {
   public internal(set) var referredDecls: [NodeID<NameExpr>: DeclRef] = [:]
 
   /// Indicates whether the built-in symbols are visible.
-  public var isBuiltinModuleVisible = false
+  public var isBuiltinModuleVisible: Bool
 
   /// The set of lambda expressions whose declarations are pending type checking.
   var pendingLambdas: [NodeID<LambdaExpr>] = []
@@ -28,8 +28,9 @@ public struct TypeChecker {
   ///
   /// - Note: `program` is stored in the type checker and mutated throughout type checking (e.g.,
   ///   to insert synthesized declarations).
-  public init(program: ScopedProgram) {
+  public init(program: ScopedProgram, isBuiltinModuleVisible: Bool = false) {
     self.program = program
+    self.isBuiltinModuleVisible = isBuiltinModuleVisible
   }
 
   // MARK: Type system
@@ -893,12 +894,14 @@ public struct TypeChecker {
         // If there's no candidate and the requirement doesn't have a default implementation, the
         // conformance is not satisfied.
         if candidates.isEmpty && (program.ast[requirement].body == nil) {
-          var d = Diagnostic.noConformance(
-            of: conformingType, to: trait, at: program.ast[decl].identifier.range)
-          d.children.append(.requires(
-            method: Name(ofFunction: requirement, in: program.ast)!,
-            withType: declTypes[requirement]!))
-          diagnostics.insert(d)
+          diagnostics.insert(
+            .noConformance(
+              of: conformingType, to: trait, at: program.ast[decl].identifier.range,
+              children: [
+                .requires(
+                  method: Name(ofFunction: requirement, in: program.ast)!,
+                  withType: declTypes[requirement]!)
+              ]))
           success = false
         }
 
@@ -1359,17 +1362,23 @@ public struct TypeChecker {
 
     // Generate constraints.
     // Note: The constraint generator captures the ownership of `self`.
-    var generator = ConstraintGenerator(checker: self, scope: scope)
-    generator.inferredTypes[expr] = inferredType
-    generator.expectedTypes[expr] = expectedType
+    var generator = ConstraintGenerator(
+      checker: self,
+      scope: scope,
+      expr: expr,
+      inferredType: inferredType,
+      expectedType: expectedType)
+
     expr.accept(&generator)
     constraints.append(contentsOf: generator.constraints)
 
     // Solve the constraints.
     var solver = ConstraintSolver(
-      checker: generator.checker.release(), scope: scope, fresh: constraints)
-    var solution = solver.solve()!
-    solution.diagnostics.append(contentsOf: generator.diagnostics)
+      checker: generator.checker.release(),
+      scope: scope,
+      fresh: constraints,
+      initialDiagnostics: generator.diagnostics)
+    let solution = solver.solve()!
 
     // Apply the solution.
     for (id, type) in generator.inferredTypes.storage {

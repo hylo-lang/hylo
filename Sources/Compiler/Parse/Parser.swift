@@ -61,15 +61,16 @@ public enum Parser {
         decls = nil
       }
     } catch let error {
-      var diagnostic = Diagnostic(level: .error, message: "")
       if let error = error as? ParseError {
-        diagnostic.message = error.message
-        diagnostic.location = error.location
-        diagnostic.window = Diagnostic.Window(range: error.location ..< error.location)
+        state.diagnostics.append(
+          Diagnostic(
+            level: .error,
+            message: error.message,
+            location: error.location,
+            window: Diagnostic.Window(range: error.location ..< error.location)))
       } else {
-        diagnostic.message = error.localizedDescription
+        state.diagnostics.append(Diagnostic(level: .error, message: error.localizedDescription))
       }
-      state.diagnostics.append(diagnostic)
       decls = nil
     }
 
@@ -2170,7 +2171,7 @@ public enum Parser {
             throw ParseError("expected type member name", at: state.currentLocation)
           }
 
-          state.ast[member].domain = head
+          state.ast[member].incorporate(domain: head)
           state.ast.ranges[member] = headRange.upperBounded(by: state.currentIndex)
           head = AnyTypeExprID(member)
           continue

@@ -2,12 +2,13 @@
 public struct DeinitInst: Inst {
 
   /// The object being deinitialized.
-  public var object: Operand
+  public let object: Operand
 
-  public var range: SourceRange?
+  public let range: SourceRange?
 
   init(_ object: Operand, range: SourceRange? = nil) {
     self.object = object
+    self.range = range
   }
 
   public var types: [LoweredType] { [] }

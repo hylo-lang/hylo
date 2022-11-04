@@ -4,15 +4,15 @@
 public struct CondBranchInst: Inst {
 
   /// A Boolean condition.
-  public var condition: Operand
+  public let condition: Operand
 
   /// The target of the branch if `condition` is true.
-  public var targetIfTrue: Block.ID
+  public let targetIfTrue: Block.ID
 
   /// The target of the branch if `condition` is false.
-  public var targetIfFalse: Block.ID
+  public let targetIfFalse: Block.ID
 
-  public var range: SourceRange?
+  public let range: SourceRange?
 
   public var types: [LoweredType] { [] }
 

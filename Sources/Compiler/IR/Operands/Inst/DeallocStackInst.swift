@@ -2,9 +2,9 @@
 public struct DeallocStackInst: Inst {
 
   /// The location of the memory being deallocated.
-  public var location: Operand
+  public let location: Operand
 
-  public var range: SourceRange?
+  public let range: SourceRange?
 
   init(_ location: Operand, range: SourceRange? = nil) {
     self.location = location
