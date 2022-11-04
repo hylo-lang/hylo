@@ -27,6 +27,8 @@ struct ConstraintSolver {
   /// The score of the best solution computed so far.
   private var best = Solution.Score.worst
 
+  /// Creates an instance that solves the constraints in `fresh` in `scope`, returning a solution
+  /// populated with `initialDiagnostics`.
   init(
     scope: AnyScopeID,
     fresh: [LocatableConstraint],
