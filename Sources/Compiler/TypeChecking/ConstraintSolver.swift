@@ -81,6 +81,8 @@ struct ConstraintSolver {
     return finalize(using: &checker)
   }
 
+  /// Eliminates `L : T1 & ... & Tn` if the solver has enough information to check whether or not
+  /// `L` conforms to each trait `Ti`. Otherwise, postpones the constraint.
   private mutating func solve(
     _ l: Type,
     conformsTo traits: Set<TraitType>,
@@ -109,6 +111,7 @@ struct ConstraintSolver {
     }
   }
 
+  /// Eliminates `L == R` by unifying `L` with `R`.
   private mutating func solve(
     _ l: Type,
     equalsTo r: Type,
@@ -226,6 +229,8 @@ struct ConstraintSolver {
     }
   }
 
+  /// Eliminates `L <: R` if the solver has enough information to check that `L` is subtype of `R`
+  /// or must be unified with `R`. Otherwise, postpones the constraint.
   private mutating func solve(
     _ l: Type,
     isSubtypeOf r: Type,
@@ -257,7 +262,6 @@ struct ConstraintSolver {
     case (_, .existential):
       // All types conform to any.
       if r == .any { return }
-
       fatalError("not implemented")
 
     case (_, .lambda):
@@ -271,6 +275,8 @@ struct ConstraintSolver {
     }
   }
 
+  /// Eliminates `L ⤷ R` if the solver has enough information to choose whether the constraint can
+  /// be simplified as equality or subtyping. Otherwise, postpones the constraint.
   private mutating func solve(
     _ l: Type,
     passableTo r: Type,
@@ -298,6 +304,9 @@ struct ConstraintSolver {
     }
   }
 
+  /// Simplifies `bound(L.m) == R` as an overload or equality constraint unifying `R` with the
+  /// bound type of `L.m` if the solver has enough information to resolve `m` as a bound member.
+  /// Otherwise, postones the constraint.
   private mutating func solve(
     _ l: Type,
     hasBoundMember member: Name,
@@ -366,6 +375,9 @@ struct ConstraintSolver {
     fresh.append(LocatableConstraint(newConstraint, location: location))
   }
 
+  /// Simplifies `bound(L.m) == R` as an overload or equality constraint unifying `R` with the
+  /// unbound type of `L.m` if the solver has enough information to resolve `m` as a bound member.
+  /// Otherwise, postones the constraint.
   private mutating func solve(
     _ l: Type,
     hasUnboundMember member: Name,
@@ -420,6 +432,8 @@ struct ConstraintSolver {
     fatalError("not implemented")
   }
 
+  /// Attempts to solve the remaining constraints for each individual choice in `disjunction` and
+  /// returns the best solution.
   private mutating func solve(
     disjunction: LocatableConstraint,
     using checker: inout TypeChecker
@@ -430,13 +444,15 @@ struct ConstraintSolver {
       minterms,
       location: disjunction.location,
       using: &checker,
-      insertingConstraintsWith: { (subsolver, branch) -> Void in
-        for constraint in branch.constraints {
+      insertingConstraintsWith: { (subsolver, choice) -> Void in
+        for constraint in choice.constraints {
           subsolver.fresh.append(LocatableConstraint(constraint, location: disjunction.location))
         }
       })?.solution
   }
 
+  /// Attempts to solve the remaining constraints with each individual choice in `overload` and
+  /// returns the best solution.
   private mutating func solve(
     overload: LocatableConstraint,
     using checker: inout TypeChecker
@@ -445,19 +461,19 @@ struct ConstraintSolver {
       unreachable()
     }
 
-    let bestBranch = explore(
+    let bestChoice = explore(
       candidates,
       location: overload.location,
       using: &checker,
-      insertingConstraintsWith: { (subsolver, branch) -> Void in
+      insertingConstraintsWith: { (subsolver, choice) -> Void in
         subsolver.fresh.append(LocatableConstraint(
-          .equality(l: type, r: branch.type), location: overload.location))
-        for constraint in branch.constraints {
+          .equality(l: type, r: choice.type), location: overload.location))
+        for constraint in choice.constraints {
           subsolver.fresh.append(LocatableConstraint(constraint, location: overload.location))
         }
       })
 
-    if let (choice, solution) = bestBranch {
+    if let (choice, solution) = bestChoice {
       bindingAssumptions[name] = choice.reference
       return solution
     } else {
@@ -465,37 +481,39 @@ struct ConstraintSolver {
     }
   }
 
+  /// Solves the remaining constraint with each given choice and returns the best solution along
+  /// with the choice that produced it.
   private mutating func explore<C: Collection>(
-    _ branches: C,
+    _ choices: C,
     location: LocatableConstraint.Location,
     using checker: inout TypeChecker,
     insertingConstraintsWith insertConstraints: (inout ConstraintSolver, C.Element) -> Void
-  ) -> (branch: C.Element, solution: Solution)?
-  where C.Element: Branch
+  ) -> (choice: C.Element, solution: Solution)?
+  where C.Element: Choice
   {
     /// The results of the exploration.
-    var results: [(branch: C.Element, solution: Solution)] = []
+    var results: [(choice: C.Element, solution: Solution)] = []
 
-    for branch in branches {
+    for choice in choices {
       // Don't bother if there's no chance to find a better solution.
-      var underestimatedBranchScore = score
-      underestimatedBranchScore.penalties += branch.penalties
-      if underestimatedBranchScore > best {
+      var underestimatedChoiceScore = score
+      underestimatedChoiceScore.penalties += choice.penalties
+      if underestimatedChoiceScore > best {
         continue
       }
 
-      // Explore the result of this branch.
+      // Explore the result of this choice.
       var subsolver = self
-      subsolver.penalties += branch.penalties
-      insertConstraints(&subsolver, branch)
+      subsolver.penalties += choice.penalties
+      insertConstraints(&subsolver, choice)
 
       guard let solution = subsolver.solve(using: &checker) else { continue }
       if results.isEmpty || (solution.score < best) {
         best = solution.score
-        results = [(branch, solution)]
+        results = [(choice, solution)]
       } else if solution.score == best {
         // TODO: Avoid duplicates
-        results.append((branch, solution))
+        results.append((choice, solution))
       }
     }
 
@@ -513,6 +531,7 @@ struct ConstraintSolver {
     }
   }
 
+  /// Schedules `constraint` to be solved later.
   private mutating func postpone(_ constraint: LocatableConstraint) {
     stale.append(constraint)
   }
@@ -598,13 +617,14 @@ extension TupleType: LabeledCollection {
 
 }
 
-fileprivate protocol Branch {
+/// A type representing a choice during constraint solving.
+fileprivate protocol Choice {
 
   /// The penalties associated with the choice.
   var penalties: Int { get }
 
 }
 
-extension Constraint.Minterm: Branch {}
+extension Constraint.Minterm: Choice {}
 
-extension Constraint.OverloadCandidate: Branch {}
+extension Constraint.OverloadCandidate: Choice {}
