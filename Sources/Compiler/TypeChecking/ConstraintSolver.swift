@@ -60,11 +60,11 @@ struct ConstraintSolver {
       case .conformance(let l, let traits):
         solve(l, conformsTo: traits, location: constraint.location, using: &checker)
       case .equality(let l, let r):
-        solve(l, equalsTo: r, location: constraint.location, using: &checker)
+        solve(l, equalsTo: r, location: constraint.location)
       case .subtyping(let l, let r):
-        solve(l, isSubtypeOf: r, location: constraint.location, using: &checker)
+        solve(l, isSubtypeOf: r, location: constraint.location)
       case .parameter(let l, let r):
-        solve(l, passableTo: r, location: constraint.location, using: &checker)
+        solve(l, passableTo: r, location: constraint.location)
       case .boundMember(let l, let m, let r):
         solve(l, hasBoundMember: m, ofType: r, location: constraint.location, using: &checker)
       case .unboundMember(let l, let m, let r):
@@ -115,8 +115,7 @@ struct ConstraintSolver {
   private mutating func solve(
     _ l: Type,
     equalsTo r: Type,
-    location: LocatableConstraint.Location,
-    using checker: inout TypeChecker
+    location: LocatableConstraint.Location
   ) {
     let l = typeAssumptions[l]
     let r = typeAssumptions[r]
@@ -234,8 +233,7 @@ struct ConstraintSolver {
   private mutating func solve(
     _ l: Type,
     isSubtypeOf r: Type,
-    location: LocatableConstraint.Location,
-    using checker: inout TypeChecker
+    location: LocatableConstraint.Location
   ) {
     let l = typeAssumptions[l]
     let r = typeAssumptions[r]
@@ -254,7 +252,7 @@ struct ConstraintSolver {
       // coercible to `R` and that are above `L`, but that set is unbounded unless `R` is a leaf.
       // If it isn't, we have no choice but to postpone the constraint.
       if r.isLeaf {
-        solve(l, equalsTo: r, location: location, using: &checker)
+        solve(l, equalsTo: r, location: location)
       } else {
         postpone(LocatableConstraint(.subtyping(l: l, r: r), location: location))
       }
@@ -280,8 +278,7 @@ struct ConstraintSolver {
   private mutating func solve(
     _ l: Type,
     passableTo r: Type,
-    location: LocatableConstraint.Location,
-    using checker: inout TypeChecker
+    location: LocatableConstraint.Location
   ) {
     let l = typeAssumptions[l]
     let r = typeAssumptions[r]
@@ -358,7 +355,7 @@ struct ConstraintSolver {
 
     // Fast path when there's only one candidate.
     if candidates.count == 1 {
-      solve(candidates[0].type, equalsTo: r, location: location, using: &checker)
+      solve(candidates[0].type, equalsTo: r, location: location)
       if let name = nameBoundByCurrentConstraint {
         bindingAssumptions[name] = candidates[0].reference
       }
@@ -420,7 +417,7 @@ struct ConstraintSolver {
 
     // Fast path when there's only one candidate.
     if candidates.count == 1 {
-      solve(candidates[0].type, equalsTo: r, location: location, using: &checker)
+      solve(candidates[0].type, equalsTo: r, location: location)
       if let node = location.node,
          let name = NodeID<NameExpr>(node)
       {
