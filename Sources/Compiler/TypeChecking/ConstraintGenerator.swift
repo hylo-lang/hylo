@@ -3,7 +3,8 @@ import Utils
 /// A visitor that generates constraints based on the structure of the AST.
 struct ConstraintGenerator {
 
-  /// A data structure aggregating the results of constraint generation.
+  /// The types inferred by constraint generation for the visited expressions, along with the
+  /// constraints between these types and the diagnostics of the error encountered.
   struct Result {
 
     /// A map from visited expression to its inferred type.
