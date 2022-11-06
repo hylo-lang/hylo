@@ -1,0 +1,10 @@
+/*! cpp
+    int myFun();
+    int main() {}
+ */
+public fun myFun() -> Int {
+    return 0;
+}
+
+public fun main() {
+}
