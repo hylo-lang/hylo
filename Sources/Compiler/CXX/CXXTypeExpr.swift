@@ -16,6 +16,14 @@ public struct CXXTypeExpr: CustomStringConvertible {
     case .void:
       description = isReturnType ? "void" : "std::monostate"
 
+    case .product(let productType):
+      switch productType.name.value {
+      case "Int":
+        description = "int"
+      default:
+        description = productType.name.value
+      }
+
     default:
       return nil
     }
