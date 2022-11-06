@@ -21,7 +21,7 @@ final class CaptureCollectorTests: XCTestCase {
       return
     }
 
-    let fun = NodeID<FunDecl>(rawValue: ast.topLevelDecls(module).first!.rawValue)
+    let fun = NodeID<FunctionDecl>(rawValue: ast.topLevelDecls(module).first!.rawValue)
     var collector = CaptureCollector(ast: ast)
     let captures = collector.freeNames(in: fun)
 

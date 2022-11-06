@@ -10,29 +10,29 @@ public struct CXXModule {
   public let name: String
 
   /// The C++ functions declared in `self`.
-  public private(set) var cxxFunctions: [CXXFunDecl] = []
+  public private(set) var cxxFunctions: [CXXFunctionDecl] = []
 
   /// A table mapping val function declarations to the ID of the corresponding C++ declaration.
-  private var valToCXXFunction: [NodeID<FunDecl>: Int] = [:]
+  private var valToCXXFunction: [NodeID<FunctionDecl>: Int] = [:]
 
   public init(valDecl: NodeID<ModuleDecl>, name: String) {
     self.valDecl = valDecl
     self.name = name
   }
 
-  /// Returns the ID of the C++ function declaration corresponding to `valFunDecl`.
+  /// Returns the ID of the C++ function declaration corresponding to `valFunctionDecl`.
   ///
-  /// - Requires: `valFunDecl` must be declared in `self.decl`.
+  /// - Requires: `valFunctionDecl` must be declared in `self.decl`.
   public mutating func getOrCreateFunction(
-    correspondingTo valFunDecl: NodeID<FunDecl>,
+    correspondingTo valFunctionDecl: NodeID<FunctionDecl>,
     program: TypedProgram
-  ) -> CXXFunDecl.ID {
-    if let cxxFunDecl = valToCXXFunction[valFunDecl] { return cxxFunDecl }
+  ) -> CXXFunctionDecl.ID {
+    if let cxxFunctionDecl = valToCXXFunction[valFunctionDecl] { return cxxFunctionDecl }
 
-    assert(program.isGlobal(valFunDecl))
+    assert(program.isGlobal(valFunctionDecl))
 
     /// The identifier of the function.
-    let identifier = CXXIdentifier(program.ast[valFunDecl].identifier?.value ?? "")
+    let identifier = CXXIdentifier(program.ast[valFunctionDecl].identifier?.value ?? "")
 
     // Determine the type of the function.
     let output: CXXTypeExpr
@@ -40,7 +40,7 @@ public struct CXXModule {
       // The output type of `main` must be `int`.
       output = CXXTypeExpr("int")
     } else {
-      switch program.declTypes[valFunDecl]! {
+      switch program.declTypes[valFunctionDecl]! {
       case .lambda(let valDeclType):
         output = CXXTypeExpr(valDeclType.output, ast: program.ast)!
 
@@ -53,12 +53,12 @@ public struct CXXModule {
     }
 
     // Create the C++ function.
-    let cxxFunDecl = cxxFunctions.count
-    cxxFunctions.append(CXXFunDecl(identifier: identifier, output: output, parameters: []))
+    let cxxFunctionDecl = cxxFunctions.count
+    cxxFunctions.append(CXXFunctionDecl(identifier: identifier, output: output, parameters: []))
 
     // Update the cache and return the ID of the newly created function.
-    valToCXXFunction[valFunDecl] = cxxFunDecl
-    return cxxFunDecl
+    valToCXXFunction[valFunctionDecl] = cxxFunctionDecl
+    return cxxFunctionDecl
   }
 
   // MARK: Serialization

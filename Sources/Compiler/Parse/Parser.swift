@@ -477,7 +477,7 @@ public enum Parser {
     }
   }
 
-  /// Parses an instance of `FunDecl` or `MethodDecl`.
+  /// Parses an instance of `FunctionDecl` or `MethodDecl`.
   ///
   /// - Requires: The next token must be of kind `.fun`, `.infix`, `.postfix`, or `.prefix`.
   static func parseFunctionOrMethodDecl(
@@ -519,14 +519,14 @@ public enum Parser {
     }
   }
 
-  /// Builds a new instance of `FunDecl` from its parsed parts.
+  /// Builds a new instance of `FunctionDecl` from its parsed parts.
   private static func buildFunctionDecl(
     prologue: DeclPrologue,
     head: FunctionDeclHead,
     signature: FunctionDeclSignature,
-    body: FunDecl.Body?,
+    body: FunctionDecl.Body?,
     in state: inout ParserState
-  ) -> NodeID<FunDecl> {
+  ) -> NodeID<FunctionDecl> {
     // TODO: Check for illegal attributes.
 
     // Non-static member function declarations require an implicit receiver parameter.
@@ -537,10 +537,10 @@ public enum Parser {
       receiver = nil
     }
 
-    // Create a new `FunDecl`.
+    // Create a new `FunctionDecl`.
     assert(prologue.accessModifiers.count <= 1)
     assert(prologue.memberModifiers.count <= 1)
-    let decl = state.ast.insert(FunDecl(
+    let decl = state.ast.insert(FunctionDecl(
       introducer: head.identifier.introducer,
       attributes: prologue.attributes,
       accessModifier: prologue.accessModifiers.first,
@@ -640,13 +640,13 @@ public enum Parser {
     return decl
   }
 
-  /// Parses an instance of `FunDecl` representing an initializer declaration.
+  /// Parses an instance of `FunctionDecl` representing an initializer declaration.
   ///
   /// - Requires: The next token must be of kind `.init`.
   static func parseInitDecl(
     withPrologue prologue: DeclPrologue,
     in state: inout ParserState
-  ) throws -> NodeID<FunDecl> {
+  ) throws -> NodeID<FunctionDecl> {
     precondition(state.peek()?.kind == .`init`)
 
     // Parse the parts of the declaration.
@@ -671,9 +671,9 @@ public enum Parser {
     // Init declarations require an implicit receiver parameter.
     let receiver = state.ast.insert(ParameterDecl(identifier: SourceRepresentable(value: "self")))
 
-    // Create a new `FunDecl`.
+    // Create a new `FunctionDecl`.
     assert(prologue.accessModifiers.count <= 1)
-    let decl = state.ast.insert(FunDecl(
+    let decl = state.ast.insert(FunctionDecl(
       introducer: head.introducer,
       accessModifier: prologue.accessModifiers.first,
       genericClause: head.genericClause,
@@ -684,13 +684,13 @@ public enum Parser {
     return decl
   }
 
-  /// Parses an instance of `FunDecl` representing a memberwise initializer declaration.
+  /// Parses an instance of `FunctionDecl` representing a memberwise initializer declaration.
   ///
   /// - Requires: The next token must be of kind `.name` and have the value "memberwise".
   static func parseMemberwiseInitDecl(
     withPrologue prologue: DeclPrologue,
     in state: inout ParserState
-  ) throws -> NodeID<FunDecl> {
+  ) throws -> NodeID<FunctionDecl> {
     precondition(state.peek()?.kind == .name)
 
     // Parse the parts of the declaration.
@@ -713,9 +713,9 @@ public enum Parser {
     // Init declarations require an implicit receiver parameter.
     let receiver = state.ast.insert(ParameterDecl(identifier: SourceRepresentable(value: "self")))
 
-    // Create a new `FunDecl`.
+    // Create a new `FunctionDecl`.
     assert(prologue.accessModifiers.count <= 1)
-    let decl = state.ast.insert(FunDecl(
+    let decl = state.ast.insert(FunctionDecl(
       introducer: SourceRepresentable(value: .memberwiseInit, range: parts.0.range),
       accessModifier: prologue.accessModifiers.first,
       receiver: receiver))
@@ -1099,15 +1099,15 @@ public enum Parser {
   private static func findOrSynthesizeMemberwiseInitDecl(
     in members: inout [AnyDeclID],
     updating state: inout ParserState
-  ) -> NodeID<FunDecl> {
-    for member in members where member.kind == .funDecl {
-      let m = NodeID<FunDecl>(rawValue: member.rawValue)
+  ) -> NodeID<FunctionDecl> {
+    for member in members where member.kind == .functionDecl {
+      let m = NodeID<FunctionDecl>(rawValue: member.rawValue)
       if state.ast[m].introducer.value == .memberwiseInit { return m }
     }
 
     let receiver = state.ast.insert(ParameterDecl(
       identifier: SourceRepresentable(value: "self")))
-    let m = state.ast.insert(FunDecl(
+    let m = state.ast.insert(FunctionDecl(
       introducer: SourceRepresentable(value: .memberwiseInit),
       receiver: receiver))
     members.append(AnyDeclID(m))
@@ -1154,7 +1154,7 @@ public enum Parser {
   }
 
   static let functionDecl = (
-    Apply<ParserState, NodeID<FunDecl>>({ (state) -> NodeID<FunDecl>? in
+    Apply<ParserState, NodeID<FunctionDecl>>({ (state) -> NodeID<FunctionDecl>? in
       switch state.peek()?.kind {
       case .fun:
         // Parse a function or method declaration.
@@ -1163,7 +1163,7 @@ public enum Parser {
         }
 
         // Catch illegal method declarations.
-        guard let functionDecl = NodeID<FunDecl>(decl) else {
+        guard let functionDecl = NodeID<FunctionDecl>(decl) else {
           throw ParseError(
             "cannot use method bundle declaration here",
             at: state.ast.ranges[decl]!.first())
@@ -1235,9 +1235,9 @@ public enum Parser {
 
   static let functionDeclBody = inContext(.functionBody, apply: TryCatch(
     trying: take(.lBrace).and(expr).and(take(.rBrace))
-      .map({ (state, tree) -> FunDecl.Body in .expr(tree.0.1) }),
+      .map({ (state, tree) -> FunctionDecl.Body in .expr(tree.0.1) }),
     orCatchingAndApplying: braceStmt
-      .map({ (state, id) -> FunDecl.Body in .block(id) })
+      .map({ (state, id) -> FunctionDecl.Body in .block(id) })
   ))
 
   static let methodDeclBody = (
@@ -1718,7 +1718,7 @@ public enum Parser {
   static let asyncExprBlock = (
     asyncExprHead.and(take(.arrow)).and(typeExpr).and(asyncExprBody)
       .map({ (state, tree) -> NodeID<AsyncExpr> in
-        let decl = state.ast.insert(FunDecl(
+        let decl = state.ast.insert(FunctionDecl(
           introducer: SourceRepresentable(value: .fun, range: tree.0.0.0.0.0.range),
           receiverEffect: tree.0.0.0.1,
           output: tree.0.1,
@@ -1737,7 +1737,7 @@ public enum Parser {
   static let asyncExprInline = (
     asyncExprHead.and(expr)
       .map({ (state, tree) -> NodeID<AsyncExpr> in
-        let decl = state.ast.insert(FunDecl(
+        let decl = state.ast.insert(FunctionDecl(
           introducer: SourceRepresentable(value: .fun, range: tree.0.0.0.range),
           receiverEffect: tree.0.1,
           explicitCaptures: tree.0.0.1 ?? [],
@@ -2080,7 +2080,7 @@ public enum Parser {
       .map({ (state, tree) -> NodeID<LambdaExpr> in
         let signature = tree.0.1
 
-        let decl = state.ast.insert(FunDecl(
+        let decl = state.ast.insert(FunctionDecl(
           introducer: SourceRepresentable(value: .fun, range: tree.0.0.0.range),
           receiverEffect: signature.receiverEffect,
           explicitCaptures: tree.0.0.1 ?? [],
@@ -2098,9 +2098,9 @@ public enum Parser {
 
   static let lambdaBody = inContext(.functionBody, apply: TryCatch(
     trying: take(.lBrace).and(expr).and(take(.rBrace))
-      .map({ (state, tree) -> FunDecl.Body in .expr(tree.0.1) }),
+      .map({ (state, tree) -> FunctionDecl.Body in .expr(tree.0.1) }),
     orCatchingAndApplying: braceStmt
-      .map({ (state, id) -> FunDecl.Body in .block(id) })
+      .map({ (state, id) -> FunctionDecl.Body in .block(id) })
   ))
 
   static let matchExpr = (
@@ -3241,7 +3241,7 @@ struct DeclPrologue {
 struct FunctionDeclIdentifier {
 
   /// The introducer of the declaration.
-  let introducer: SourceRepresentable<FunDecl.Introducer>
+  let introducer: SourceRepresentable<FunctionDecl.Introducer>
 
   /// The stem of the declared identifier, if any.
   let stem: SourceRepresentable<String>?
@@ -3282,7 +3282,7 @@ struct FunctionDeclSignature {
 /// The body of a function or method declaration.
 enum FunctionOrMethodDeclBody {
 
-  case function(FunDecl.Body)
+  case function(FunctionDecl.Body)
 
   case method([NodeID<MethodImplDecl>])
 
@@ -3292,7 +3292,7 @@ enum FunctionOrMethodDeclBody {
 struct InitDeclHead {
 
   /// The introducer of the declaration.
-  let introducer: SourceRepresentable<FunDecl.Introducer>
+  let introducer: SourceRepresentable<FunctionDecl.Introducer>
 
   /// The generic clause of the declaration, if any.
   let genericClause: SourceRepresentable<GenericClause>?

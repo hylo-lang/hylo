@@ -1,7 +1,7 @@
 /// A function declaration.
-public struct FunDecl: GenericDecl, GenericScope {
+public struct FunctionDecl: GenericDecl, GenericScope {
 
-  public static let kind = NodeKind.funDecl
+  public static let kind = NodeKind.functionDecl
 
   public enum Introducer: Codable {
 

@@ -18,7 +18,7 @@ public struct DeclLocator: Hashable {
 
     case namespace(String)
 
-    case lambda(NodeID<FunDecl>)
+    case lambda(NodeID<FunctionDecl>)
 
     case product(String)
 
@@ -34,8 +34,8 @@ public struct DeclLocator: Hashable {
       case .conformanceDecl, .extensionDecl:
         fatalError("not implemented")
 
-      case .funDecl:
-        let decl = NodeID<FunDecl>(rawValue: decl.rawValue)
+      case .functionDecl:
+        let decl = NodeID<FunctionDecl>(rawValue: decl.rawValue)
 
         let labels: [String]
         switch program.declTypes[decl]! {

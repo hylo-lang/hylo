@@ -38,7 +38,7 @@ public struct Name: Hashable, Codable {
   }
 
   /// Creates the name introduced by `decl` in `ast`.
-  public init?(ofFunction decl: NodeID<FunDecl>, in ast: AST) {
+  public init?(ofFunction decl: NodeID<FunctionDecl>, in ast: AST) {
     guard let stem = ast[decl].identifier?.value else { return nil }
     if let notation = ast[decl].notation?.value {
       self.init(stem: stem, notation: notation)

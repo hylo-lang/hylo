@@ -19,7 +19,7 @@ public struct Module {
   public private(set) var entryFunctionID: Function.ID?
 
   /// A map from function declaration its ID in the module.
-  private var loweredFunctions: [NodeID<FunDecl>: Function.ID] = [:]
+  private var loweredFunctions: [NodeID<FunctionDecl>: Function.ID] = [:]
 
   public init(decl: NodeID<ModuleDecl>, name: String) {
     self.decl = decl
@@ -60,7 +60,7 @@ public struct Module {
 
   /// Returns the identifier of the Val IR function corresponding to `declID`.
   mutating func getOrCreateFunction(
-    correspondingTo declID: NodeID<FunDecl>,
+    correspondingTo declID: NodeID<FunctionDecl>,
     program: TypedProgram
   ) -> Function.ID {
     if let id = loweredFunctions[declID] { return id }

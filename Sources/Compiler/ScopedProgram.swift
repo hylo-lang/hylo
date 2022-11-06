@@ -29,7 +29,7 @@ public struct ScopedProgram: Program {
   /// - Requires: `ast[decl].implicitParameterDecls` is empty.
   mutating func incorporate(
     implicitParameterDecls: [ImplicitParameter],
-    into decl: NodeID<FunDecl>
+    into decl: NodeID<FunctionDecl>
   ) {
     ast[decl].incorporate(implicitParameterDecls: implicitParameterDecls)
   }
@@ -166,8 +166,8 @@ extension ScopedProgram {
       visit(conformanceDecl: NodeID(rawValue: decl.rawValue), withState: &state)
     case .extensionDecl:
       visit(extensionDecl: NodeID(rawValue: decl.rawValue), withState: &state)
-    case .funDecl:
-      visit(funDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+    case .functionDecl:
+      visit(functionDecl: NodeID(rawValue: decl.rawValue), withState: &state)
     case .genericTypeParamDecl:
       visit(genericTypeParamDecl: NodeID(rawValue: decl.rawValue), withState: &state)
     case .genericValueParamDecl:
@@ -286,7 +286,7 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    funDecl decl: NodeID<FunDecl>,
+    functionDecl decl: NodeID<FunctionDecl>,
     withState state: inout VisitorState
   ) {
     insert(decl: decl, into: state.innermost)
@@ -632,7 +632,7 @@ extension ScopedProgram {
     asyncExpr expr: NodeID<AsyncExpr>,
     withState state: inout VisitorState
   ) {
-    visit(funDecl: ast[expr].decl, withState: &state)
+    visit(functionDecl: ast[expr].decl, withState: &state)
   }
 
   private mutating func visit(
@@ -712,7 +712,7 @@ extension ScopedProgram {
     lambdaExpr expr: NodeID<LambdaExpr>,
     withState state: inout VisitorState
   ) {
-    visit(funDecl: ast[expr].decl, withState: &state)
+    visit(functionDecl: ast[expr].decl, withState: &state)
   }
 
   private mutating func visit(

@@ -1,5 +1,5 @@
 /// A C++ function declaration.
-public struct CXXFunDecl {
+public struct CXXFunctionDecl {
 
   /// The ID of a C++ function in its module.
   public typealias ID = Int

@@ -238,7 +238,7 @@ public struct TypeChecker {
         }
 
         // Type check the declaration.
-        success = check(fun: program.ast[id].decl) && success
+        success = check(function: program.ast[id].decl) && success
       } else {
         success = false
       }
@@ -275,8 +275,8 @@ public struct TypeChecker {
       return check(binding: NodeID(rawValue: id.rawValue))
     case .conformanceDecl:
       return check(conformance: NodeID(rawValue: id.rawValue))
-    case .funDecl:
-      return check(fun: NodeID(rawValue: id.rawValue))
+    case .functionDecl:
+      return check(function: NodeID(rawValue: id.rawValue))
     case .methodDecl:
       return check(method: NodeID(rawValue: id.rawValue))
     case .methodImplDecl:
@@ -405,11 +405,11 @@ public struct TypeChecker {
   /// before the type of that declaration has been fully inferred.
   ///
   /// - SeeAlso: `checkPending`
-  private mutating func check(fun id: NodeID<FunDecl>) -> Bool {
-    _check(decl: id, { (this, id) in this._check(fun: id) })
+  private mutating func check(function id: NodeID<FunctionDecl>) -> Bool {
+    _check(decl: id, { (this, id) in this._check(function: id) })
   }
 
-  private mutating func _check(fun id: NodeID<FunDecl>) -> Bool {
+  private mutating func _check(function id: NodeID<FunctionDecl>) -> Bool {
     // Memberwize initializers always type check.
     if program.ast[id].introducer.value == .memberwiseInit {
       return true
@@ -619,7 +619,7 @@ public struct TypeChecker {
 
   private mutating func _check(productType id: NodeID<ProductTypeDecl>) -> Bool {
     // Synthesize the memberwise initializer if necessary.
-    var success = check(fun: program.ast[id].memberwiseInit)
+    var success = check(function: program.ast[id].memberwiseInit)
 
     // Type check the generic constraints of the declaration.
     success = (environment(ofGenericDecl: id) != nil) && success
@@ -839,10 +839,10 @@ public struct TypeChecker {
       case .associatedValueDecl:
         fatalError("not implemented")
 
-      case .funDecl:
+      case .functionDecl:
         // Make sure the requirement is well-formed.
-        let requirement = NodeID<FunDecl>(rawValue: j.rawValue)
-        var requirementType = canonicalize(type: realize(funDecl: requirement))
+        let requirement = NodeID<FunctionDecl>(rawValue: j.rawValue)
+        var requirementType = canonicalize(type: realize(functionDecl: requirement))
 
         // Substitute `Self` by the conforming type in the requirement type.
         requirementType = requirementType.transform({ type in
@@ -1044,14 +1044,14 @@ public struct TypeChecker {
         if program.ast[decl].introducer.value == .inout {
           return .void
         } else {
-          let methodDecl = NodeID<FunDecl>(rawValue: program.scopeToParent[decl]!.rawValue)
+          let methodDecl = NodeID<FunctionDecl>(rawValue: program.scopeToParent[decl]!.rawValue)
           guard case .method(let methodType) = declTypes[methodDecl] else { unreachable() }
           return methodType.output.skolemized
         }
 
-      case .funDecl:
+      case .functionDecl:
         // `lexicalContext` is nested in a function.
-        let decl = NodeID<FunDecl>(rawValue: parent.rawValue)
+        let decl = NodeID<FunctionDecl>(rawValue: parent.rawValue)
         guard case .lambda(let funType) = declTypes[decl] else { unreachable() }
         return funType.output.skolemized
 
@@ -1074,8 +1074,8 @@ public struct TypeChecker {
   /// - Requires: `i.kind <= .genericScope`
   private mutating func environment<T: NodeIDProtocol>(of id: T) -> GenericEnvironment? {
     switch id.kind {
-    case .funDecl:
-      return environment(ofGenericDecl: NodeID<FunDecl>(rawValue: id.rawValue))
+    case .functionDecl:
+      return environment(ofGenericDecl: NodeID<FunctionDecl>(rawValue: id.rawValue))
     case .productTypeDecl:
       return environment(ofGenericDecl: NodeID<ProductTypeDecl>(rawValue: id.rawValue))
     case .subscriptDecl:
@@ -1660,7 +1660,7 @@ public struct TypeChecker {
       matches.formUnion(newMatches)
 
       // We're done if we found at least one non-overloadable match.
-      if newMatches.contains(where: { (i) in !(program.ast[i] is FunDecl) }) {
+      if newMatches.contains(where: { (i) in !(program.ast[i] is FunctionDecl) }) {
         return matches
       }
     }
@@ -1751,7 +1751,7 @@ public struct TypeChecker {
     }
 
     // We're done if we found at least one non-overloadable match.
-    if matches.contains(where: { i in !(program.ast[i] is FunDecl) }) {
+    if matches.contains(where: { i in !(program.ast[i] is FunctionDecl) }) {
       return matches
     }
 
@@ -1761,7 +1761,7 @@ public struct TypeChecker {
     }
 
     // We're done if we found at least one non-overloadable match.
-    if matches.contains(where: { i in !(program.ast[i] is FunDecl) }) {
+    if matches.contains(where: { i in !(program.ast[i] is FunctionDecl) }) {
       return matches
     }
 
@@ -1917,8 +1917,8 @@ public struct TypeChecker {
         // Note: operator declarations are not considered during standard name lookup.
         break
 
-      case .funDecl:
-        let node = program.ast[NodeID<FunDecl>(rawValue: id.rawValue)]
+      case .functionDecl:
+        let node = program.ast[NodeID<FunctionDecl>(rawValue: id.rawValue)]
         switch node.introducer.value {
         case .memberwiseInit,
              .`init` where node.body != nil:
@@ -2002,7 +2002,7 @@ public struct TypeChecker {
 
   /// Returns the type `expr`'s the underlying function declaration.
   mutating func realize(underlyingDeclOf expr: NodeID<LambdaExpr>) -> Type? {
-    realize(funDecl: program.ast[expr].decl)
+    realize(functionDecl: program.ast[expr].decl)
   }
 
   /// Realizes and returns the type of `Self` in `scope`.
@@ -2324,8 +2324,8 @@ public struct TypeChecker {
         return this.realize(decl.subject, inScope: this.program.declToScope[id]!)
       })
 
-    case .funDecl:
-      return realize(funDecl: NodeID(rawValue: id.rawValue))
+    case .functionDecl:
+      return realize(functionDecl: NodeID(rawValue: id.rawValue))
 
     case .methodDecl:
       return realize(methodDecl: NodeID(rawValue: id.rawValue))
@@ -2371,11 +2371,11 @@ public struct TypeChecker {
     return declTypes[id]!
   }
 
-  private mutating func realize(funDecl id: NodeID<FunDecl>) -> Type {
-    _realize(decl: id, { (this, id) in this._realize(funDecl: id) })
+  private mutating func realize(functionDecl id: NodeID<FunctionDecl>) -> Type {
+    _realize(decl: id, { (this, id) in this._realize(functionDecl: id) })
   }
 
-  private mutating func _realize(funDecl id: NodeID<FunDecl>) -> Type {
+  private mutating func _realize(functionDecl id: NodeID<FunctionDecl>) -> Type {
     guard let parentScope = program.declToScope[id] else { unreachable() }
 
     // Handle memberwise initializers.
@@ -2814,8 +2814,8 @@ public struct TypeChecker {
         }
 
         // Capture-less local functions are not captured.
-        if let funDecl = NodeID<FunDecl>(captureDecl) {
-          guard case .lambda(let lambda) = realize(funDecl: funDecl) else { continue }
+        if let d = NodeID<FunctionDecl>(captureDecl) {
+          guard case .lambda(let lambda) = realize(functionDecl: d) else { continue }
           if lambda.environment == .void { continue }
         }
 

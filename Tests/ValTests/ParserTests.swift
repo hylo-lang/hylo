@@ -79,7 +79,7 @@ final class ParserTests: XCTestCase {
     let (declID, ast) = try input.parse(
       inContext: .namespaceBody,
       with: Parser.parseNamespaceMember)
-    let decl = try XCTUnwrap(ast[declID] as? FunDecl)
+    let decl = try XCTUnwrap(ast[declID] as? FunctionDecl)
     XCTAssertEqual(decl.accessModifier?.value, .public)
   }
 
@@ -344,7 +344,7 @@ final class ParserTests: XCTestCase {
     let (declID, ast) = try input.parse(
       inContext: .extensionBody,
       with: Parser.parseExtensionMember)
-    let decl = try XCTUnwrap(ast[declID] as? FunDecl)
+    let decl = try XCTUnwrap(ast[declID] as? FunctionDecl)
     XCTAssertEqual(decl.accessModifier?.value, .public)
     XCTAssertEqual(decl.memberModifier?.value, .static)
   }
@@ -387,26 +387,26 @@ final class ParserTests: XCTestCase {
     XCTAssertNotNil(decl.body)
   }
 
-  func testFunDecl() throws {
+  func testFunctionDecl() throws {
     let input = SourceFile(contents: "fun foo() {}")
     let (declID, ast) = try input.parseWithDeclPrologue(with: Parser.parseFunctionOrMethodDecl)
-    let decl = try XCTUnwrap(ast[declID] as? FunDecl)
+    let decl = try XCTUnwrap(ast[declID] as? FunctionDecl)
     XCTAssertEqual(decl.introducer.value, .fun)
     XCTAssertNotNil(decl.body)
   }
 
-  func testFunDeclWithCaptureList() throws {
+  func testFunctionDeclWithCaptureList() throws {
     let input = SourceFile(contents: "fun foo[let x = 42]() {}")
     let (declID, ast) = try input.parseWithDeclPrologue(with: Parser.parseFunctionOrMethodDecl)
-    let decl = try XCTUnwrap(ast[declID] as? FunDecl)
+    let decl = try XCTUnwrap(ast[declID] as? FunctionDecl)
     XCTAssertEqual(decl.explicitCaptures.count, 1)
     XCTAssertNotNil(decl.body)
   }
 
-  func testFunDeclWithExprBody() throws {
+  func testFunctionDeclWithExprBody() throws {
     let input = SourceFile(contents: "fun id<T: Sinkable>(_ x: T) -> T { x }")
     let (declID, ast) = try input.parseWithDeclPrologue(with: Parser.parseFunctionOrMethodDecl)
-    let decl = try XCTUnwrap(ast[declID] as? FunDecl)
+    let decl = try XCTUnwrap(ast[declID] as? FunctionDecl)
     if case .expr = decl.body {
     } else {
       XCTFail()
@@ -416,7 +416,7 @@ final class ParserTests: XCTestCase {
   func testPostifxFunctionDecl() throws {
     let input = SourceFile(contents: "postfix fun +() -> T { x }")
     let (declID, ast) = try input.parseWithDeclPrologue(with: Parser.parseFunctionOrMethodDecl)
-    let decl = try XCTUnwrap(ast[declID] as? FunDecl)
+    let decl = try XCTUnwrap(ast[declID] as? FunctionDecl)
     XCTAssertEqual(decl.notation?.value, .postfix)
     XCTAssertNotNil(decl.body)
   }

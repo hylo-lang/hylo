@@ -19,7 +19,7 @@ public struct ProductTypeDecl: GenericDecl, SingleEntityDecl, GenericScope {
   public let members: [AnyDeclID]
 
   /// The memberwise initializer of the type.
-  public let memberwiseInit: NodeID<FunDecl>
+  public let memberwiseInit: NodeID<FunctionDecl>
 
   /// Creates an instance with the given properties.
   public init(
@@ -28,7 +28,7 @@ public struct ProductTypeDecl: GenericDecl, SingleEntityDecl, GenericScope {
     genericClause: SourceRepresentable<GenericClause>?,
     conformances: [NodeID<NameTypeExpr>],
     members: [AnyDeclID],
-    memberwiseInit: NodeID<FunDecl>
+    memberwiseInit: NodeID<FunctionDecl>
   ) {
     precondition(members.contains(AnyDeclID(memberwiseInit)))
     self.accessModifier = accessModifier

@@ -74,8 +74,8 @@ extension Program {
     case .bindingDecl:
       return ast[NodeID<BindingDecl>(rawValue: decl.rawValue)].isStatic
 
-    case .funDecl:
-      let i = NodeID<FunDecl>(rawValue: decl.rawValue)
+    case .functionDecl:
+      let i = NodeID<FunctionDecl>(rawValue: decl.rawValue)
       return (
         ast[i].isStatic
         || ast[i].introducer.value == .`init`
@@ -107,7 +107,7 @@ extension Program {
   }
 
   /// Returns whether `decl` is a non-static member of a type declaration.
-  public func isNonStaticMember(_ decl: NodeID<FunDecl>) -> Bool {
+  public func isNonStaticMember(_ decl: NodeID<FunctionDecl>) -> Bool {
     !ast[decl].isStatic && isMember(decl)
   }
 
@@ -126,8 +126,8 @@ extension Program {
     if declToScope[decl]?.kind != .traitDecl { return false }
 
     switch decl.kind {
-    case .funDecl:
-      return ast[NodeID<FunDecl>(rawValue: decl.rawValue)].body == nil
+    case .functionDecl:
+      return ast[NodeID<FunctionDecl>(rawValue: decl.rawValue)].body == nil
 
     case .methodDecl:
       return ast[NodeID<MethodDecl>(rawValue: decl.rawValue)].impls

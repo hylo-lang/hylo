@@ -44,7 +44,7 @@ public struct NodeKind: Hashable, Codable {
      5 << 16 | decl.rawValue | genericScope.rawValue)
   public static let extensionDecl = NodeKind(
      6 << 16 | decl.rawValue | genericScope.rawValue)
-  public static let funDecl = NodeKind(
+  public static let functionDecl = NodeKind(
      7 << 16 | decl.rawValue | genericScope.rawValue)
   public static let genericTypeParamDecl = NodeKind(
      8 << 16 | typeDecl.rawValue)
@@ -227,7 +227,7 @@ extension NodeKind: CustomStringConvertible {
     case .builtinDecl               : return "BuiltinDecl"
     case .conformanceDecl           : return "ConformanceDecl"
     case .extensionDecl             : return "ExtensionDecl"
-    case .funDecl                   : return "FunDecl"
+    case .functionDecl              : return "FunctionDecl"
     case .genericTypeParamDecl      : return "GenericTypeParamDecl"
     case .genericValueParamDecl     : return "GenericValueParamDecl"
     case .importDecl                : return "ImportDecl"

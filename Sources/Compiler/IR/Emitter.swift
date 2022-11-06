@@ -37,8 +37,8 @@ public struct Emitter {
   /// Emits the given top-level declaration into `module`.
   public mutating func emit(topLevel decl: AnyDeclID, into module: inout Module) {
     switch decl.kind {
-    case .funDecl:
-      emit(fun: NodeID(rawValue: decl.rawValue), into: &module)
+    case .functionDecl:
+      emit(function: NodeID(rawValue: decl.rawValue), into: &module)
     case .operatorDecl:
       break
     case .productTypeDecl:
@@ -51,7 +51,7 @@ public struct Emitter {
   }
 
   /// Emits the given function declaration into `module`.
-  public mutating func emit(fun declID: NodeID<FunDecl>, into module: inout Module) {
+  public mutating func emit(function declID: NodeID<FunctionDecl>, into module: inout Module) {
     // Declare the function in the module if necessary.
     let functionID = module.getOrCreateFunction(correspondingTo: declID, program: program)
 
@@ -118,10 +118,10 @@ public struct Emitter {
     for member in program.ast[decl].members {
       // Emit the member functions and subscripts of the type declaration.
       switch member.kind {
-      case .funDecl:
-        let funDecl = NodeID<FunDecl>(rawValue: member.rawValue)
-        if program.ast[funDecl].introducer.value == .memberwiseInit { continue }
-        emit(fun: funDecl, into: &module)
+      case .functionDecl:
+        let d = NodeID<FunctionDecl>(rawValue: member.rawValue)
+        if program.ast[d].introducer.value == .memberwiseInit { continue }
+        emit(function: d, into: &module)
 
       case .subscriptDecl:
         emit(subscript: NodeID(rawValue: member.rawValue), into: &module)
@@ -516,9 +516,9 @@ public struct Emitter {
           name: program.ast[calleeID].name.value.stem,
           type: .address(.lambda(calleeType)))))
 
-      case .direct(let calleeDeclID) where calleeDeclID.kind == .funDecl:
+      case .direct(let calleeDeclID) where calleeDeclID.kind == .functionDecl:
         // Callee is a direct reference to a function declaration.
-        switch (program.ast[calleeDeclID] as! FunDecl).introducer.value {
+        switch (program.ast[calleeDeclID] as! FunctionDecl).introducer.value {
         case .memberwiseInit:
           // The function is a memberwise initializer. In that case, the whole call expression is
           // lowered as a `record` instruction.
@@ -537,7 +537,7 @@ public struct Emitter {
             type: .address(.lambda(calleeType)))))
         }
 
-      case .member(let calleeDeclID) where calleeDeclID.kind == .funDecl:
+      case .member(let calleeDeclID) where calleeDeclID.kind == .functionDecl:
         // Callee is a member reference to a function or method.
         let receiverType = calleeType.captures[0].type
 
