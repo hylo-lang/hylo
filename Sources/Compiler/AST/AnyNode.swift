@@ -122,6 +122,7 @@ struct AnyNode: Codable {
     case .genericTypeParamDecl      : try container.encode(node as! GenericTypeParamDecl)
     case .genericValueParamDecl     : try container.encode(node as! GenericValueParamDecl)
     case .importDecl                : try container.encode(node as! ImportDecl)
+    case .methodDecl                : try container.encode(node as! MethodDecl)
     case .methodImplDecl            : try container.encode(node as! MethodImplDecl)
     case .moduleDecl                : try container.encode(node as! ModuleDecl)
     case .namespaceDecl             : try container.encode(node as! NamespaceDecl)
