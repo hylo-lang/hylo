@@ -542,6 +542,7 @@ public enum Parser {
     assert(prologue.memberModifiers.count <= 1)
     let decl = state.ast.insert(FunDecl(
       introducer: head.identifier.introducer,
+      attributes: prologue.attributes,
       accessModifier: prologue.accessModifiers.first,
       memberModifier: prologue.memberModifiers.first,
       receiverEffect: signature.receiverEffect,
@@ -591,6 +592,7 @@ public enum Parser {
     assert(prologue.accessModifiers.count <= 1)
     let decl = state.ast.insert(MethodDecl(
       introducerRange: head.identifier.introducer.range,
+      attributes: prologue.attributes,
       accessModifier: prologue.accessModifiers.first,
       notation: head.identifier.notation,
       identifier: head.identifier.stem,
@@ -865,18 +867,19 @@ public enum Parser {
 
     // TODO: Check for illegal attributes.
 
-    // Property declarations cannot be static.
-    if let modifier = prologue.memberModifiers.first(where: { (m) in m.value == .static }) {
-      state.diagnostics.append(.illegalModifier(named: "\(modifier.value)", at: modifier.range))
-    }
-
     // Create a new `SubscriptDecl`.
     assert(prologue.accessModifiers.count <= 1)
+    assert(prologue.memberModifiers.count <= 1)
     let decl = state.ast.insert(SubscriptDecl(
       introducer: head.introducer,
+      attributes: prologue.attributes,
       accessModifier: prologue.accessModifiers.first,
+      memberModifier: prologue.memberModifiers.first,
       receiverEffect: nil,
       identifier: head.stem,
+      genericClause: nil,
+      explicitCaptures: [],
+      parameters: nil,
       output: output,
       impls: impls))
     state.ast.ranges[decl] = state.range(from: prologue.startIndex)
@@ -905,6 +908,7 @@ public enum Parser {
     assert(prologue.memberModifiers.count <= 1)
     let decl = state.ast.insert(SubscriptDecl(
       introducer: head.introducer,
+      attributes: prologue.attributes,
       accessModifier: prologue.accessModifiers.first,
       memberModifier: prologue.memberModifiers.first,
       receiverEffect: signature.receiverEffect,
@@ -2467,7 +2471,7 @@ public enum Parser {
   static let forStmt = (
     take(.for).and(bindingPattern).and(forRange).and(maybe(forFilter)).and(loopBody)
       .map({ (state, tree) -> NodeID<ForStmt> in
-        let decl = state.ast.insert(BindingDecl(pattern: tree.0.0.0.1))
+        let decl = state.ast.insert(BindingDecl(pattern: tree.0.0.0.1, initializer: nil))
         state.ast.ranges[decl] = state.ast.ranges[tree.0.0.0.1]
 
         let id = state.ast.insert(ForStmt(

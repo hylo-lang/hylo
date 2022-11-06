@@ -17,13 +17,13 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
   public let introducer: SourceRepresentable<Introducer>
 
   /// The attributes of the declaration, if any.
-  public private(set) var attributes: [SourceRepresentable<Attribute>] = []
+  public let attributes: [SourceRepresentable<Attribute>]
 
   /// The access modifier of the declaration, if any.
-  public private(set) var accessModifier: SourceRepresentable<AccessModifier>?
+  public let accessModifier: SourceRepresentable<AccessModifier>?
 
   /// The member modifier of the declaration.
-  public private(set) var memberModifier: SourceRepresentable<MemberModifier>?
+  public let memberModifier: SourceRepresentable<MemberModifier>?
 
   /// The receiver effect of the subscript.
   public let receiverEffect: SourceRepresentable<ReceiverEffect>?
@@ -57,19 +57,22 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
   /// this property. Each subscript implementation declaration has its own declaration.
   public private(set) var implicitParameterDecls: [ImplicitParameter] = []
 
+  /// Creates an instance with the given properties.
   public init(
     introducer: SourceRepresentable<Introducer>,
-    accessModifier: SourceRepresentable<AccessModifier>? = nil,
-    memberModifier: SourceRepresentable<MemberModifier>? = nil,
+    attributes: [SourceRepresentable<Attribute>],
+    accessModifier: SourceRepresentable<AccessModifier>?,
+    memberModifier: SourceRepresentable<MemberModifier>?,
     receiverEffect: SourceRepresentable<ReceiverEffect>?,
     identifier: SourceRepresentable<Identifier>?,
-    genericClause: SourceRepresentable<GenericClause>? = nil,
-    explicitCaptures: [NodeID<BindingDecl>] = [],
-    parameters: [NodeID<ParameterDecl>]? = nil,
+    genericClause: SourceRepresentable<GenericClause>?,
+    explicitCaptures: [NodeID<BindingDecl>],
+    parameters: [NodeID<ParameterDecl>]?,
     output: AnyTypeExprID,
     impls: [NodeID<SubscriptImplDecl>]
   ) {
     self.introducer = introducer
+    self.attributes = attributes
     self.accessModifier = accessModifier
     self.memberModifier = memberModifier
     self.receiverEffect = receiverEffect
@@ -92,22 +95,6 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
 
   /// Returns whether the declaration denotes a `sink` subscript.
   public var isSink: Bool { receiverEffect?.value == .sink }
-
-  /// Incorporates the given decorations into `self`.
-  ///
-  /// - Precondition: `self` is undecorated.
-  internal mutating func incorporate(
-    attributes: [SourceRepresentable<Attribute>],
-    accessModifier: SourceRepresentable<AccessModifier>?,
-    memberModifier: SourceRepresentable<MemberModifier>?
-  ) {
-    precondition(self.accessModifier == nil)
-    precondition(self.memberModifier == nil)
-    precondition(self.attributes.isEmpty)
-    self.attributes = attributes
-    self.accessModifier = accessModifier
-    self.memberModifier = memberModifier
-  }
 
   /// Incorporates the given implicit parameter declarations into `self`.
   ///

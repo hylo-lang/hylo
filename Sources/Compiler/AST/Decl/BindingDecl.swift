@@ -4,13 +4,13 @@ public struct BindingDecl: Decl {
   public static let kind = NodeKind.bindingDecl
 
   /// The attributes of the declaration, if any.
-  public private(set) var attributes: [SourceRepresentable<Attribute>]
+  public let attributes: [SourceRepresentable<Attribute>]
 
   /// The access modifier of the declaration, if any.
-  public private(set) var accessModifier: SourceRepresentable<AccessModifier>?
+  public let accessModifier: SourceRepresentable<AccessModifier>?
 
   /// The member modifier of the declaration.
-  public private(set) var memberModifier: SourceRepresentable<MemberModifier>?
+  public let memberModifier: SourceRepresentable<MemberModifier>?
 
   /// The pattern of the declaration.
   public let pattern: NodeID<BindingPattern>
@@ -24,29 +24,13 @@ public struct BindingDecl: Decl {
     accessModifier: SourceRepresentable<AccessModifier>? = nil,
     memberModifier: SourceRepresentable<MemberModifier>? = nil,
     pattern: NodeID<BindingPattern>,
-    initializer: AnyExprID? = nil
+    initializer: AnyExprID?
   ) {
     self.attributes = attributes
     self.accessModifier = accessModifier
     self.memberModifier = memberModifier
     self.pattern = pattern
     self.initializer = initializer
-  }
-
-  /// Incorporates the given decorations into `self`.
-  ///
-  /// - Precondition: `self` is undecorated.
-  internal mutating func incorporate(
-    attributes: [SourceRepresentable<Attribute>],
-    accessModifier: SourceRepresentable<AccessModifier>?,
-    memberModifier: SourceRepresentable<MemberModifier>?
-  ) {
-    precondition(self.accessModifier == nil)
-    precondition(self.memberModifier == nil)
-    precondition(self.attributes.isEmpty)
-    self.attributes = attributes
-    self.accessModifier = accessModifier
-    self.memberModifier = memberModifier
   }
 
   /// Returns whether the declaration is public.

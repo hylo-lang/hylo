@@ -7,10 +7,10 @@ public struct MethodDecl: GenericDecl, GenericScope {
   public let introducerRange: SourceRange?
 
   /// The attributes of the declaration, if any.
-  public private(set) var attributes: [SourceRepresentable<Attribute>]
+  public let attributes: [SourceRepresentable<Attribute>]
 
   /// The access modifier of the declaration, if any.
-  public private(set) var accessModifier: SourceRepresentable<AccessModifier>?
+  public let accessModifier: SourceRepresentable<AccessModifier>?
 
   /// The operator notation of the method.
   public let notation: SourceRepresentable<OperatorNotation>?
@@ -30,16 +30,17 @@ public struct MethodDecl: GenericDecl, GenericScope {
   /// The implementations of the method.
   public let impls: [NodeID<MethodImplDecl>]
 
+  /// Creates an instance with the given properties.
   public init(
     introducerRange: SourceRange?,
-    attributes: [SourceRepresentable<Attribute>] = [],
-    accessModifier: SourceRepresentable<AccessModifier>? = nil,
-    notation: SourceRepresentable<OperatorNotation>? = nil,
-    identifier: SourceRepresentable<Identifier>? = nil,
-    genericClause: SourceRepresentable<GenericClause>? = nil,
-    parameters: [NodeID<ParameterDecl>] = [],
-    output: AnyTypeExprID? = nil,
-    impls: [NodeID<MethodImplDecl>] = []
+    attributes: [SourceRepresentable<Attribute>],
+    accessModifier: SourceRepresentable<AccessModifier>?,
+    notation: SourceRepresentable<OperatorNotation>?,
+    identifier: SourceRepresentable<Identifier>?,
+    genericClause: SourceRepresentable<GenericClause>?,
+    parameters: [NodeID<ParameterDecl>],
+    output: AnyTypeExprID?,
+    impls: [NodeID<MethodImplDecl>]
   ) {
     self.introducerRange = introducerRange
     self.attributes = attributes
@@ -54,19 +55,5 @@ public struct MethodDecl: GenericDecl, GenericScope {
 
   /// Returns whether the declaration is public.
   public var isPublic: Bool { accessModifier?.value == .public }
-
-  /// Incorporates the given decorations into `self`.
-  ///
-  /// - Requires: `self` is undecorated.
-  internal mutating func incorporate(
-    attributes: [SourceRepresentable<Attribute>],
-    accessModifier: SourceRepresentable<AccessModifier>?,
-    memberModifier: SourceRepresentable<MemberModifier>?
-  ) {
-    precondition(self.attributes.isEmpty)
-    precondition(self.accessModifier == nil)
-    self.attributes = attributes
-    self.accessModifier = accessModifier
-  }
 
 }

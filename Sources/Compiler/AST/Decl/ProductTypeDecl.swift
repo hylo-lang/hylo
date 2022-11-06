@@ -4,7 +4,7 @@ public struct ProductTypeDecl: GenericDecl, SingleEntityDecl, GenericScope {
   public static let kind = NodeKind.productTypeDecl
 
   /// The access modifier of the declaration, if any.
-  public private(set) var accessModifier: SourceRepresentable<AccessModifier>?
+  public let accessModifier: SourceRepresentable<AccessModifier>?
 
   /// The identifier of the type.
   public let identifier: SourceRepresentable<Identifier>
@@ -21,8 +21,9 @@ public struct ProductTypeDecl: GenericDecl, SingleEntityDecl, GenericScope {
   /// The memberwise initializer of the type.
   public let memberwiseInit: NodeID<FunDecl>
 
+  /// Creates an instance with the given properties.
   public init(
-    accessModifier: SourceRepresentable<AccessModifier>? = nil,
+    accessModifier: SourceRepresentable<AccessModifier>?,
     identifier: SourceRepresentable<Identifier>,
     genericClause: SourceRepresentable<GenericClause>?,
     conformances: [NodeID<NameTypeExpr>],
@@ -42,13 +43,5 @@ public struct ProductTypeDecl: GenericDecl, SingleEntityDecl, GenericScope {
 
   /// Returns whether the declaration is public.
   public var isPublic: Bool { accessModifier?.value != nil }
-
-  /// Incorporates `accessModifier` into `self`.
-  ///
-  /// - Precondition: `self.accessModifier == nil`
-  internal mutating func incorporate(_ accessModifier: SourceRepresentable<AccessModifier>) {
-    precondition(self.accessModifier == nil)
-    self.accessModifier = accessModifier
-  }
 
 }

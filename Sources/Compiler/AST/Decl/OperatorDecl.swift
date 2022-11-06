@@ -4,7 +4,7 @@ public struct OperatorDecl: Decl {
   public static let kind = NodeKind.operatorDecl
 
   /// The access modifier of the declaration, if any.
-  public private(set) var accessModifier: SourceRepresentable<AccessModifier>?
+  public let accessModifier: SourceRepresentable<AccessModifier>?
 
   /// The notation of the operator.
   public let notation: SourceRepresentable<OperatorNotation>
@@ -17,7 +17,7 @@ public struct OperatorDecl: Decl {
 
   /// Creates an instance with the given properties.
   public init(
-    accessModifier: SourceRepresentable<AccessModifier>? = nil,
+    accessModifier: SourceRepresentable<AccessModifier>?,
     notation: SourceRepresentable<OperatorNotation>,
     name: SourceRepresentable<Identifier>,
     precedenceGroup: SourceRepresentable<PrecedenceGroup>?
@@ -26,14 +26,6 @@ public struct OperatorDecl: Decl {
     self.notation = notation
     self.name = name
     self.precedenceGroup = precedenceGroup
-  }
-
-  /// Incorporates `accessModifier` into `self`.
-  ///
-  /// - Precondition: `self.accessModifier == nil`
-  internal mutating func incorporate(_ accessModifier: SourceRepresentable<AccessModifier>) {
-    precondition(self.accessModifier == nil)
-    self.accessModifier = accessModifier
   }
 
 }
