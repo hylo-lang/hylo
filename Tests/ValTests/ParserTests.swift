@@ -413,6 +413,14 @@ final class ParserTests: XCTestCase {
     }
   }
 
+  func testPostifxFunctionDecl() throws {
+    let input = SourceFile(contents: "postfix fun +() -> T { x }")
+    let (declID, ast) = try input.parseWithDeclPrologue(with: Parser.parseFunctionOrMethodDecl)
+    let decl = try XCTUnwrap(ast[declID] as? FunDecl)
+    XCTAssertEqual(decl.notation?.value, .postfix)
+    XCTAssertNotNil(decl.body)
+  }
+
   func testMethodBundle() throws {
     let input = SourceFile(contents: """
     fun foo() {

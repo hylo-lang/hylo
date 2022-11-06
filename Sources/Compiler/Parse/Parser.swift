@@ -210,7 +210,7 @@ public enum Parser {
         return try AnyDeclID(parseConformanceDecl(withPrologue: prologue, in: &state))
       case .extension:
         return try AnyDeclID(parseExtensionDecl(withPrologue: prologue, in: &state))
-      case .fun:
+      case .fun, .infix, .postfix, .prefix:
         return try AnyDeclID(parseFunctionOrMethodDecl(withPrologue: prologue, in: &state))
       case .import:
         return try AnyDeclID(parseImportDecl(withPrologue: prologue, in: &state))
@@ -450,7 +450,7 @@ public enum Parser {
     ) throws -> AnyDeclID? {
       // Look ahead to select the appropriate declaration parser.
       switch state.peek()?.kind {
-      case .fun:
+      case .fun, .infix, .postfix, .prefix:
         return try AnyDeclID(parseFunctionOrMethodDecl(withPrologue: prologue, in: &state))
       case .namespace:
         return try AnyDeclID(parseNamespaceDecl(withPrologue: prologue, in: &state))
@@ -479,12 +479,13 @@ public enum Parser {
 
   /// Parses an instance of `FunDecl` or `MethodDecl`.
   ///
-  /// - Requires: The next token must be of kind `.fun`.
+  /// - Requires: The next token must be of kind `.fun`, `.infix`, `.postfix`, or `.prefix`.
   static func parseFunctionOrMethodDecl(
     withPrologue prologue: DeclPrologue,
     in state: inout ParserState
   ) throws -> AnyDeclID {
-    precondition(state.peek()?.kind == .fun)
+    precondition(state.peek() != nil)
+    precondition(state.peek()!.isOf(kind: [.fun, .infix, .postfix, .prefix]))
 
     // Parse the parts of the declaration.
     let ((head, signature), functionOrMethodBody) = try(
@@ -777,7 +778,7 @@ public enum Parser {
         return try AnyDeclID(parseConformanceDecl(withPrologue: prologue, in: &state))
       case .extension:
         return try AnyDeclID(parseExtensionDecl(withPrologue: prologue, in: &state))
-      case .fun:
+      case .fun, .infix, .postfix, .prefix:
         return try AnyDeclID(parseFunctionOrMethodDecl(withPrologue: prologue, in: &state))
       case .namespace:
         return try AnyDeclID(parseNamespaceDecl(withPrologue: prologue, in: &state))
@@ -972,7 +973,7 @@ public enum Parser {
     ) throws -> AnyDeclID? {
       // Look ahead to select the appropriate declaration parser.
       switch state.peek()?.kind {
-      case .fun:
+      case .fun, .infix, .postfix, .prefix:
         return try AnyDeclID(parseFunctionOrMethodDecl(withPrologue: prologue, in: &state))
       case .`init`:
         return try AnyDeclID(parseInitDecl(withPrologue: prologue, in: &state))
@@ -1062,7 +1063,7 @@ public enum Parser {
     ) throws -> AnyDeclID? {
       // Look ahead to select the appropriate declaration parser.
       switch state.peek()?.kind {
-      case .fun:
+      case .fun, .infix, .postfix, .prefix:
         return try AnyDeclID(parseFunctionOrMethodDecl(withPrologue: prologue, in: &state))
       case .`init`:
         return try AnyDeclID(parseInitDecl(withPrologue: prologue, in: &state))
@@ -2597,7 +2598,7 @@ public enum Parser {
         return try AnyDeclID(parseConformanceDecl(withPrologue: prologue, in: &state))
       case .extension:
         return try AnyDeclID(parseExtensionDecl(withPrologue: prologue, in: &state))
-      case .fun:
+      case .fun, .infix, .postfix, .prefix:
         return try AnyDeclID(parseFunctionOrMethodDecl(withPrologue: prologue, in: &state))
       case .subscript:
         return try AnyDeclID(parseSubscriptDecl(withPrologue: prologue, in: &state))
