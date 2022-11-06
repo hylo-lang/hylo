@@ -174,6 +174,8 @@ extension ScopedProgram {
       visit(genericValueParamDecl: NodeID(rawValue: decl.rawValue), withState: &state)
     case .importDecl:
       visit(importDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+    case .methodDecl:
+      visit(methodDecl: NodeID(rawValue: decl.rawValue), withState: &state)
     case .methodImplDecl:
       visit(methodImplDecl: NodeID(rawValue: decl.rawValue), withState: &state)
     case .moduleDecl:

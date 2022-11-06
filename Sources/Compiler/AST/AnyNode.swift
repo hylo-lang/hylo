@@ -32,6 +32,7 @@ struct AnyNode: Codable {
     case .genericTypeParamDecl      : node = try container.decode(GenericTypeParamDecl.self)
     case .genericValueParamDecl     : node = try container.decode(GenericValueParamDecl.self)
     case .importDecl                : node = try container.decode(ImportDecl.self)
+    case .methodDecl                : node = try container.decode(MethodDecl.self)
     case .methodImplDecl            : node = try container.decode(MethodImplDecl.self)
     case .moduleDecl                : node = try container.decode(ModuleDecl.self)
     case .namespaceDecl             : node = try container.decode(NamespaceDecl.self)

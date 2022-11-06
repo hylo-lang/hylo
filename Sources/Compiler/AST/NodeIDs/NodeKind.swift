@@ -231,6 +231,7 @@ extension NodeKind: CustomStringConvertible {
     case .genericTypeParamDecl      : return "GenericTypeParamDecl"
     case .genericValueParamDecl     : return "GenericValueParamDecl"
     case .importDecl                : return "ImportDecl"
+    case .methodDecl                : return "MethodDecl"
     case .methodImplDecl            : return "MethodImplDecl"
     case .moduleDecl                : return "ModuleDecl"
     case .namespaceDecl             : return "NamespaceDecl"

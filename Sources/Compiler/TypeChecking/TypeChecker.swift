@@ -1918,24 +1918,29 @@ public struct TypeChecker {
         break
 
       case .funDecl:
-        let decl = program.ast[NodeID<FunDecl>(rawValue: id.rawValue)]
-        switch decl.introducer.value {
+        let node = program.ast[NodeID<FunDecl>(rawValue: id.rawValue)]
+        switch node.introducer.value {
         case .memberwiseInit,
-             .`init` where decl.body != nil:
+             .`init` where node.body != nil:
           table["init", default: []].insert(AnyDeclID(id))
 
         case .deinit:
-          assert(decl.body != nil)
+          assert(node.body != nil)
           table["deinit", default: []].insert(AnyDeclID(id))
 
         default:
-          guard let name = decl.identifier?.value else { continue }
+          guard let name = node.identifier?.value else { continue }
           table[name, default: []].insert(AnyDeclID(id))
         }
 
+      case .methodDecl:
+        let node = program.ast[NodeID<MethodDecl>(rawValue: id.rawValue)]
+        guard let name = node.identifier?.value else { continue }
+        table[name, default: []].insert(AnyDeclID(id))
+
       case .subscriptDecl:
-        let decl = program.ast[NodeID<SubscriptDecl>(rawValue: id.rawValue)]
-        let name = decl.identifier?.value ?? "[]"
+        let node = program.ast[NodeID<SubscriptDecl>(rawValue: id.rawValue)]
+        let name = node.identifier?.value ?? "[]"
         table[name, default: []].insert(AnyDeclID(id))
 
       default:
