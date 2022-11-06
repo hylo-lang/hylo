@@ -98,9 +98,6 @@ public struct Emitter {
       if program.exprTypes[expr]! != .never {
         module.insert(ReturnInst(value: value), at: insertionPoint!)
       }
-
-    case .bundle:
-      unreachable()
     }
 
     swap(&receiverDecl, &self.receiverDecl)
@@ -119,7 +116,7 @@ public struct Emitter {
   /// Emits the product type declaration into `module`.
   private mutating func emit(product decl: NodeID<ProductTypeDecl>, into module: inout Module) {
     for member in program.ast[decl].members {
-      // Emit the method and subscript members of the type declaration.
+      // Emit the member functions and subscripts of the type declaration.
       switch member.kind {
       case .funDecl:
         let funDecl = NodeID<FunDecl>(rawValue: member.rawValue)
@@ -541,7 +538,7 @@ public struct Emitter {
         }
 
       case .member(let calleeDeclID) where calleeDeclID.kind == .funDecl:
-        // Callee is a member reference to a method.
+        // Callee is a member reference to a function or method.
         let receiverType = calleeType.captures[0].type
 
         // Add the receiver to the arguments.

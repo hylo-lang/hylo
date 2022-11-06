@@ -13,7 +13,7 @@ public struct SubscriptImplDecl: Decl, LexicalScope {
 
   }
 
-  /// The introducer of the method.
+  /// The introducer of the subscript.
   public let introducer: SourceRepresentable<ImplIntroducer>
 
   /// The declaration of the implicit receiver parameter, if any.

@@ -506,7 +506,7 @@ struct ConstraintGenerator {
     defer { assert(inferredTypes[id] != nil) }
 
     // Realize the type of the underlying declaration.
-    guard case .lambda(let declType) = checker.realize(funDecl: checker.program.ast[id].decl) else {
+    guard case .lambda(let declType) = checker.realize(underlyingDeclOf: id) else {
       assignToError(id)
       return
     }

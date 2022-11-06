@@ -15,12 +15,14 @@ public struct OperatorDecl: Decl {
   /// The precedence group of the operator, if any.
   public let precedenceGroup: SourceRepresentable<PrecedenceGroup>?
 
-  /// Creates an instance with the given properties and no `accessModifier`.
+  /// Creates an instance with the given properties.
   public init(
+    accessModifier: SourceRepresentable<AccessModifier>? = nil,
     notation: SourceRepresentable<OperatorNotation>,
     name: SourceRepresentable<Identifier>,
     precedenceGroup: SourceRepresentable<PrecedenceGroup>?
   ) {
+    self.accessModifier = accessModifier
     self.notation = notation
     self.name = name
     self.precedenceGroup = precedenceGroup

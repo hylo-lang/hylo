@@ -18,10 +18,12 @@ public struct TraitDecl: SingleEntityDecl, GenericScope {
   public let members: [AnyDeclID]
 
   public init(
+    accessModifier: SourceRepresentable<AccessModifier>? = nil,
     identifier: SourceRepresentable<Identifier>,
     refinements: [NodeID<NameTypeExpr>] = [],
     members: [AnyDeclID] = []
   ) {
+    self.accessModifier = accessModifier
     self.identifier = identifier
     self.refinements = refinements
     self.members = members

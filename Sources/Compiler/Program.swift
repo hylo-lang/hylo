@@ -127,34 +127,21 @@ extension Program {
 
     switch decl.kind {
     case .funDecl:
-      switch ast[NodeID<FunDecl>(rawValue: decl.rawValue)].body {
-      case .some(.bundle(let impls)):
-        return impls.contains(where: isRequirement)
-      case .some:
-        return false
-      case .none:
-        return true
-      }
+      return ast[NodeID<FunDecl>(rawValue: decl.rawValue)].body == nil
+
+    case .methodDecl:
+      return ast[NodeID<MethodDecl>(rawValue: decl.rawValue)].impls
+        .contains(where: isRequirement)
 
     case .methodImplDecl:
-      switch ast[NodeID<MethodImplDecl>(rawValue: decl.rawValue)].body {
-      case .some:
-        return false
-      case .none:
-        return true
-      }
+      return ast[NodeID<MethodImplDecl>(rawValue: decl.rawValue)].body == nil
 
     case .subscriptDecl:
       return ast[NodeID<SubscriptDecl>(rawValue: decl.rawValue)].impls
         .contains(where: isRequirement)
 
     case .subscriptImplDecl:
-      switch ast[NodeID<SubscriptImplDecl>(rawValue: decl.rawValue)].body {
-      case .some:
-        return false
-      case .none:
-        return true
-      }
+      return ast[NodeID<SubscriptImplDecl>(rawValue: decl.rawValue)].body == nil
 
     default:
       return false

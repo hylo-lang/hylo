@@ -7,23 +7,25 @@ struct ParserState {
   /// A tag representing the context of the parser.
   enum Context {
 
-    case topLevel
+    case bindingPattern
 
-    case namespaceBody
-
-    case productBody
-
-    case traitBody
+    case captureList
 
     case extensionBody
 
     case functionBody
 
+    case loopBody
+
+    case namespaceBody
+
+    case productBody
+
     case subscriptBody
 
-    case bindingPattern
+    case topLevel
 
-    case loopBody
+    case traitBody
 
   }
 
@@ -51,6 +53,12 @@ struct ParserState {
     self.lexer = lexer
     self.currentIndex = lexer.source.contents.startIndex
   }
+
+  /// Indicates whether the parser is expecting to parse a capture declaration.
+  var isParsingCaptureList: Bool { contexts.last == .captureList }
+
+  /// Indicates whether the parser is expecting to parse trait member declarations.
+  var isParsingTraitBody: Bool { contexts.last == .traitBody }
 
   /// Indicates whether the parser is expecting to parse member declarations.
   var isParsingTypeBody: Bool {
@@ -80,6 +88,11 @@ struct ParserState {
   /// up to but not including the specified index.
   func hasNewline(inCharacterStreamUpTo bound: String.Index) -> Bool {
     lexer.source.contents[currentIndex ..< bound].contains(where: { $0.isNewline })
+  }
+
+  /// Returns a source range from `startIndex` to `self.currentIndex`.
+  func range(from startIndex: String.Index) -> SourceRange {
+    SourceRange(in: lexer.source, from: startIndex, to: currentIndex)
   }
 
   /// Returns whether `token` is a member index.

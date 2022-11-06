@@ -52,28 +52,30 @@ public struct NodeKind: Hashable, Codable {
      9 << 16 | typeDecl.rawValue)
   public static let importDecl = NodeKind(
     10 << 16 | typeDecl.rawValue)
+  public static let methodDecl = NodeKind(
+    11 << 16 | decl.rawValue | genericScope.rawValue)
   public static let methodImplDecl = NodeKind(
-    11 << 16 | decl.rawValue | lexicalScope.rawValue)
+    12 << 16 | decl.rawValue | lexicalScope.rawValue)
   public static let moduleDecl = NodeKind(
-    12 << 16 | typeDecl.rawValue | lexicalScope.rawValue)
-  public static let namespaceDecl = NodeKind(
     13 << 16 | typeDecl.rawValue | lexicalScope.rawValue)
+  public static let namespaceDecl = NodeKind(
+    14 << 16 | typeDecl.rawValue | lexicalScope.rawValue)
   public static let operatorDecl = NodeKind(
-    14 << 16 | decl.rawValue)
-  public static let parameterDecl = NodeKind(
     15 << 16 | decl.rawValue)
+  public static let parameterDecl = NodeKind(
+    16 << 16 | decl.rawValue)
   public static let productTypeDecl = NodeKind(
-    16 << 16 | typeDecl.rawValue | genericScope.rawValue)
+    17 << 16 | typeDecl.rawValue | genericScope.rawValue)
   public static let subscriptDecl = NodeKind(
-    17 << 16 | decl.rawValue | genericScope.rawValue)
+    18 << 16 | decl.rawValue | genericScope.rawValue)
   public static let subscriptImplDecl = NodeKind(
-    18 << 16 | decl.rawValue | lexicalScope.rawValue)
+    19 << 16 | decl.rawValue | lexicalScope.rawValue)
   public static let traitDecl = NodeKind(
-    19 << 16 | typeDecl.rawValue | genericScope.rawValue)
-  public static let typeAliasDecl = NodeKind(
     20 << 16 | typeDecl.rawValue | genericScope.rawValue)
+  public static let typeAliasDecl = NodeKind(
+    21 << 16 | typeDecl.rawValue | genericScope.rawValue)
   public static let varDecl = NodeKind(
-    21 << 16 | decl.rawValue)
+    22 << 16 | decl.rawValue)
 
   // MARK: Value expressions
 

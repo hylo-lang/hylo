@@ -5,7 +5,7 @@ public struct FunDecl: GenericDecl, GenericScope {
 
   public enum Introducer: Codable {
 
-    /// The function and method introducer, `fun`.
+    /// The function introducer, `fun`.
     case fun
 
     /// The initializer introducer, `init`.
@@ -26,9 +26,6 @@ public struct FunDecl: GenericDecl, GenericScope {
 
     /// A block body.
     case block(NodeID<BraceStmt>)
-
-    /// A bundle.
-    case bundle([NodeID<MethodImplDecl>])
 
   }
 
@@ -76,10 +73,9 @@ public struct FunDecl: GenericDecl, GenericScope {
   /// The declaration of the implicit parameters of the function, if any.
   ///
   /// This property is set during type checking. In a local function, it maps the names of the
-  /// implicit and explicit captures to their respective declaration. In a non-static method
-  /// declaration, it contains a reference to the declaration of the implicit receiver parameter
-  /// (i.e., `self`), unless the method forms a bundle. The implicit receiver of a bundle has a
-  /// declaration in each method implementation.
+  /// implicit and explicit captures to their respective declaration. In a non-static member
+  /// function declaration, it contains a reference to the declaration of the implicit receiver
+  /// parameter (i.e., `self`).
   public private(set) var implicitParameterDecls: [ImplicitParameter]
 
   /// The declaration of the implicit receiver parameter, if any.
@@ -100,7 +96,7 @@ public struct FunDecl: GenericDecl, GenericScope {
     notation: SourceRepresentable<OperatorNotation>? = nil,
     identifier: SourceRepresentable<Identifier>? = nil,
     genericClause: SourceRepresentable<GenericClause>? = nil,
-    captures: [NodeID<BindingDecl>] = [],
+    explicitCaptures: [NodeID<BindingDecl>] = [],
     parameters: [NodeID<ParameterDecl>] = [],
     receiver: NodeID<ParameterDecl>? = nil,
     output: AnyTypeExprID? = nil,
@@ -115,7 +111,7 @@ public struct FunDecl: GenericDecl, GenericScope {
     self.notation = notation
     self.identifier = identifier
     self.genericClause = genericClause
-    self.explicitCaptures = captures
+    self.explicitCaptures = explicitCaptures
     self.parameters = parameters
     self.output = output
     self.body = body
@@ -134,23 +130,14 @@ public struct FunDecl: GenericDecl, GenericScope {
   /// Returns whether the declaration is public.
   public var isPublic: Bool { accessModifier?.value == .public }
 
-  /// Returns whether the declaration denotes a static method.
+  /// Returns whether the declaration denotes a static member function.
   public var isStatic: Bool { memberModifier?.value == .static }
 
-  /// Returns whether the declaration denotes an `inout` method.
+  /// Returns whether the declaration denotes an `inout` member function.
   public var isInout: Bool { receiverEffect?.value == .inout }
 
-  /// Returns whether the declaration denotes a `sink` method.
+  /// Returns whether the declaration denotes a `sink` member function.
   public var isSink: Bool { receiverEffect?.value == .sink }
-
-  /// Returns whether the declaration denotes a method bundle.
-  public var isBundle: Bool {
-    if case .bundle = body {
-      return true
-    } else {
-      return false
-    }
-  }
 
   /// Incorporates the given decorations into `self`.
   ///

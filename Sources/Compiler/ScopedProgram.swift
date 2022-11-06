@@ -313,11 +313,6 @@ extension ScopedProgram {
       case let .block(stmt):
         this.visit(braceStmt: stmt, withState: &state)
 
-      case let .bundle(impls):
-        for impl in impls {
-          this.visit(methodImplDecl: impl, withState: &state)
-        }
-
       case nil:
         break
       }
@@ -355,6 +350,28 @@ extension ScopedProgram {
     withState state: inout VisitorState
   ) {
     insert(decl: decl, into: state.innermost)
+  }
+
+  private mutating func visit(
+    methodDecl decl: NodeID<MethodDecl>,
+    withState state: inout VisitorState
+  ) {
+    insert(decl: decl, into: state.innermost)
+
+    nesting(in: decl, withState: &state, { (this, state) in
+      if let clause = this.ast[decl].genericClause?.value {
+        this.visit(genericClause: clause, withState: &state)
+      }
+      for parameter in this.ast[decl].parameters {
+        this.visit(parameterDecl: parameter, withState: &state)
+      }
+      if let output = this.ast[decl].output {
+        this.visit(typeExpr: output, withState: &state)
+      }
+      for impl in this.ast[decl].impls {
+        this.visit(methodImplDecl: impl, withState: &state)
+      }
+    })
   }
 
   private mutating func visit(

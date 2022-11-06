@@ -18,15 +18,17 @@ public struct BindingDecl: Decl {
   /// The initializer of the declaration, if any.
   public let initializer: AnyExprID?
 
-  /// Creates an undecorated instance with the given `attributes`, `pattern`, and `initializer`.
-  ///
-  /// Decorations may be added later via a call to `decorate`.
+  /// Creates an instance with the given properties.
   public init(
     attributes: [SourceRepresentable<Attribute>] = [],
+    accessModifier: SourceRepresentable<AccessModifier>? = nil,
+    memberModifier: SourceRepresentable<MemberModifier>? = nil,
     pattern: NodeID<BindingPattern>,
     initializer: AnyExprID? = nil
   ) {
     self.attributes = attributes
+    self.accessModifier = accessModifier
+    self.memberModifier = memberModifier
     self.pattern = pattern
     self.initializer = initializer
   }
@@ -50,7 +52,7 @@ public struct BindingDecl: Decl {
   /// Returns whether the declaration is public.
   public var isPublic: Bool { accessModifier?.value == .public }
 
-  /// Returns whether the declaration denotes a static method.
+  /// Returns whether the declaration denotes a static member.
   public var isStatic: Bool { memberModifier?.value == .static }
 
 }

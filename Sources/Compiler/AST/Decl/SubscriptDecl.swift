@@ -59,6 +59,8 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
 
   public init(
     introducer: SourceRepresentable<Introducer>,
+    accessModifier: SourceRepresentable<AccessModifier>? = nil,
+    memberModifier: SourceRepresentable<MemberModifier>? = nil,
     receiverEffect: SourceRepresentable<ReceiverEffect>?,
     identifier: SourceRepresentable<Identifier>?,
     genericClause: SourceRepresentable<GenericClause>? = nil,
@@ -68,6 +70,8 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
     impls: [NodeID<SubscriptImplDecl>]
   ) {
     self.introducer = introducer
+    self.accessModifier = accessModifier
+    self.memberModifier = memberModifier
     self.receiverEffect = receiverEffect
     self.identifier = identifier
     self.genericClause = genericClause

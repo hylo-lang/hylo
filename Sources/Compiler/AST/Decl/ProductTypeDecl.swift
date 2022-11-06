@@ -22,6 +22,7 @@ public struct ProductTypeDecl: GenericDecl, SingleEntityDecl, GenericScope {
   public let memberwiseInit: NodeID<FunDecl>
 
   public init(
+    accessModifier: SourceRepresentable<AccessModifier>? = nil,
     identifier: SourceRepresentable<Identifier>,
     genericClause: SourceRepresentable<GenericClause>?,
     conformances: [NodeID<NameTypeExpr>],
@@ -29,6 +30,7 @@ public struct ProductTypeDecl: GenericDecl, SingleEntityDecl, GenericScope {
     memberwiseInit: NodeID<FunDecl>
   ) {
     precondition(members.contains(AnyDeclID(memberwiseInit)))
+    self.accessModifier = accessModifier
     self.identifier = identifier
     self.genericClause = genericClause
     self.conformances = conformances

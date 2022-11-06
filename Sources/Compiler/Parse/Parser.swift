@@ -48,18 +48,16 @@ public enum Parser {
     let decls: NodeID<TopLevelDeclSet>?
     do {
       // Parse the file.
-      if let d = try Self.sourceFile.parse(&state) {
-        // Make sure we consumed the entire file.
-        if let head = state.peek() {
-          throw ParseError("expected EOF", at: head.range.first())
-        }
+      let d = try Self.parseSourceFile(in: &state)
 
-        // Parser succeeded.
-        state.ast[module].addSourceFile(d)
-        decls = d
-      } else {
-        decls = nil
+      // Make sure we consumed the entire file.
+      if let head = state.peek() {
+        throw ParseError("expected EOF", at: head.range.first())
       }
+
+      // Parser succeeded.
+      state.ast[module].addSourceFile(d)
+      decls = d
     } catch let error {
       if let error = error as? ParseError {
         state.diagnostics.append(
@@ -78,432 +76,1111 @@ public enum Parser {
     return (decls: decls, diagnostics: state.diagnostics)
   }
 
-  // MARK: Declarations
+  /// Parses an instance of `TopLevelDeclSet`.
+  static func parseSourceFile(in state: inout ParserState) throws -> NodeID<TopLevelDeclSet> {
+    var members: [AnyDeclID] = []
 
-  private static func anyDecl<Base: Combinator>(
-    _ base: Base
-  ) -> AnyCombinator<ParserState, AnyDeclID>
-  where Base.Context == ParserState, Base.Element: DeclID
-  {
-    AnyCombinator(parse: { (state) in
-      try base.parse(&state).map(AnyDeclID.init(_:))
-    })
+    while let head = state.peek() {
+      // Ignore semicolons.
+      if state.take(.semi) != nil { continue }
+
+      // Parse a member or complain about an unexpected token.
+      if let member = try parseModuleMember(in: &state) {
+        members.append(member)
+      } else {
+        state.diagnostics.append(.unexpectedToken(head))
+        break
+      }
+    }
+
+    return state.ast.insert(TopLevelDeclSet(decls: members))
   }
 
-  static let sourceFile = (
-    zeroOrMany(take(.semi))
-      .and(zeroOrMany(moduleScopeDecl.and(zeroOrMany(take(.semi))).first))
-      .map({ (state, tree) -> NodeID<TopLevelDeclSet> in
-        state.ast.insert(TopLevelDeclSet(decls: tree.1))
-      })
-  )
+  // MARK: Declarations
 
-  static let moduleScopeDecl = (
-    decorated(decl: oneOf([
-      anyDecl(importDecl),
-      anyDecl(namespaceDecl),
-      anyDecl(typeAliasDecl),
-      anyDecl(productTypeDecl),
-      anyDecl(traitDecl),
-      anyDecl(extensionDecl),
-      anyDecl(conformanceDecl),
-      anyDecl(bindingDecl),
-      anyDecl(functionDecl),
-      anyDecl(subscriptDecl),
-      anyDecl(operatorDecl),
-    ]))
-  )
+  /// Parses a declaration prologue in `state` and then calls `continuation`.
+  static func parseDeclPrologue<R>(
+    in state: inout ParserState,
+    then continuation: (_ prologue: DeclPrologue, _ state: inout ParserState) throws -> R?
+  ) throws -> R? {
+    guard let startIndex = state.peek()?.range.lowerBound else { return nil }
+    var isPrologueEmpty = true
 
-  static let importDecl = (
-    take(.import).and(take(.name))
-      .map({ (state, tree) -> NodeID<ImportDecl> in
-        let id = state.ast.insert(ImportDecl(
-          identifier: SourceRepresentable(token: tree.1, in: state.lexer.source)))
-        state.ast.ranges[id] = tree.0.range.upperBounded(by: state.currentIndex)
-        return id
-      })
-  )
+    // Parse attributes.
+    var attributes: [SourceRepresentable<Attribute>] = []
+    while let a = try Parser.declAttribute.parse(&state) {
+      attributes.append(a)
+      isPrologueEmpty = false
+    }
 
-  static let namespaceDecl: Recursive<ParserState, NodeID<NamespaceDecl>> = (
-    Recursive(_namespaceDecl.parse(_:))
-  )
+    // Parse modifiers.
+    var accessModifiers: Set<SourceRepresentable<AccessModifier>> = []
+    var memberModifiers: Set<SourceRepresentable<MemberModifier>> = []
+    while true {
+      if let m = try Parser.accessModifier.parse(&state) {
+        isPrologueEmpty = false
 
-  private static let _namespaceDecl = (
-    namespaceHead.and(namespaceBody)
-      .map({ (state, tree) -> NodeID<NamespaceDecl> in
-        let id = state.ast.insert(NamespaceDecl(
-          identifier: SourceRepresentable(token: tree.0.1, in: state.lexer.source),
-          members: tree.1))
-
-        state.ast.ranges[id] = tree.0.0.range.upperBounded(by: state.currentIndex)
-        return id
-      })
-  )
-
-  static let namespaceHead = (
-    take(.namespace).and(take(.name))
-  )
-
-  static let namespaceBody = inContext(.namespaceBody, apply: (
-    take(.lBrace)
-      .and(zeroOrMany(take(.semi)))
-      .and(zeroOrMany(namespaceMember.and(zeroOrMany(take(.semi))).first))
-      .and(zeroOrMany(take(.semi))).and(take(.rBrace))
-      .map({ (_, tree) -> [AnyDeclID] in tree.0.0.1 })
-  ))
-
-  static let namespaceMember = (
-    decorated(decl: oneOf([
-      anyDecl(namespaceDecl),
-      anyDecl(typeAliasDecl),
-      anyDecl(productTypeDecl),
-      anyDecl(traitDecl),
-      anyDecl(extensionDecl),
-      anyDecl(conformanceDecl),
-      anyDecl(bindingDecl),
-      anyDecl(functionDecl),
-      anyDecl(subscriptDecl),
-    ]))
-  )
-
-  static let typeAliasDecl = (
-    typeAliasHead.and(typeAliasBody)
-      .map({ (state, tree) -> NodeID<TypeAliasDecl> in
-        let id = state.ast.insert(TypeAliasDecl(
-          identifier: SourceRepresentable(token: tree.0.0.1, in: state.lexer.source),
-          genericClause: tree.0.1,
-          body: tree.1))
-        state.ast.ranges[id] = tree.0.0.0.range.upperBounded(by: state.currentIndex)
-        return id
-      })
-  )
-
-  static let typeAliasHead = (
-    take(.typealias).and(take(.name)).and(maybe(genericClause))
-  )
-
-  static let typeAliasBody = (
-    take(.assign).and(typeExpr)
-      .map({ (_, tree) -> TypeAliasDecl.Body in
-          .typeExpr(tree.1)
-      })
-  )
-
-  static let productTypeDecl: Recursive<ParserState, NodeID<ProductTypeDecl>> = (
-    Recursive(_productTypeDecl.parse(_:))
-  )
-
-  private static let _productTypeDecl = (
-    productTypeHead.and(productTypeBody)
-      .map({ (state, tree) -> NodeID<ProductTypeDecl> in
-        /// Returns the the first memberwise initializer declaration in `members` or synthesizes
-        /// an implicit one, appends it into `members`, and returns it.
-        func memberwiseInitDecl(_ members: inout [AnyDeclID]) -> NodeID<FunDecl> {
-          for member in members where member.kind == .funDecl {
-            let m = NodeID<FunDecl>(rawValue: member.rawValue)
-            if state.ast[m].introducer.value == .memberwiseInit { return m }
-          }
-
-          let receiver = state.ast.insert(ParameterDecl(
-            identifier: SourceRepresentable(value: "self")))
-          let m = state.ast.insert(FunDecl(
-            introducer: SourceRepresentable(value: .memberwiseInit),
-            receiver: receiver))
-          members.append(AnyDeclID(m))
-          return m
+        // Catch access modifiers declared after member modifiers.
+        if !memberModifiers.isEmpty {
+          state.diagnostics.append(.memberModifierBeforeAccess(at: m.range))
         }
 
-        var members = tree.1
-        let memberwiseInit = memberwiseInitDecl(&members)
-        let id = state.ast.insert(ProductTypeDecl(
-          identifier: SourceRepresentable(token: tree.0.0.0.1, in: state.lexer.source),
-          genericClause: tree.0.0.1,
-          conformances: tree.0.1 ?? [],
-          members: members,
-          memberwiseInit: memberwiseInit
-        ))
+        // Catch duplicate access modifiers.
+        else if !accessModifiers.insert(m).inserted {
+          state.diagnostics.append(.duplicateModifier(at: m.range))
+        }
 
-        state.ast.ranges[id] = tree.0.0.0.0.range.upperBounded(by: state.currentIndex)
-        return id
-      })
-  )
+        // Look for the next modifier.
+        continue
+      }
 
-  static let productTypeHead = (
-    take(.type).and(take(.name)).and(maybe(genericClause)).and(maybe(conformanceList))
-  )
+      if let m = try Parser.memberModifier.parse(&state) {
+        isPrologueEmpty = false
 
-  static let productTypeBody = inContext(.productBody, apply: (
-    take(.lBrace)
-      .and(zeroOrMany(take(.semi)))
-      .and(zeroOrMany(productTypeMember.and(zeroOrMany(take(.semi))).first))
-      .and(zeroOrMany(take(.semi))).and(take(.rBrace))
-      .map({ (_, tree) -> [AnyDeclID] in tree.0.0.1 })
-  ))
+        // Catch member modifiers declared at non-type scope.
+        if !state.isParsingTypeBody {
+          state.diagnostics.append(.memberModifierAtNonTypeScope(at: m.range))
+        }
 
-  static let productTypeMember = (
-    decorated(decl: oneOf([
-      anyDecl(typeAliasOrProductTypeDecl),
-      anyDecl(initDecl),
-      anyDecl(deinitDecl),
-      anyDecl(functionDecl),
-      anyDecl(bindingDecl),
-      anyDecl(subscriptDecl),
-      anyDecl(propertyDecl),
-    ]))
-  )
+        // Catch duplicate member modifiers.
+        else if !memberModifiers.insert(m).inserted {
+          state.diagnostics.append(.duplicateModifier(at: m.range))
+        }
 
-  static let typeAliasOrProductTypeDecl = (
-    Apply<ParserState, AnyDeclID>({ (state) -> AnyDeclID? in
-      let backup = state.backup()
-      do {
-        if let element = try typeAliasDecl.parse(&state) { return AnyDeclID(element) }
-      } catch {}
-      state.restore(from: backup)
-      return try productTypeDecl.parse(&state).map(AnyDeclID.init(_:))
+        // Look for the next modifier.
+        continue
+      }
+
+      break
+    }
+
+    // Apply the continuation.
+    let prologue = DeclPrologue(
+      isEmpty: isPrologueEmpty,
+      startIndex: startIndex,
+      attributes: attributes,
+      accessModifiers: accessModifiers,
+      memberModifiers: memberModifiers)
+    return try continuation(prologue, &state)
+  }
+
+  /// Parses the body of a type declaration, adding `context` to `state.contexts` while applying
+  /// `parseMember` to parse each member declaration.
+  private static func parseTypeDeclBody(
+    in state: inout ParserState,
+    wrappedIn context: ParserState.Context,
+    parsingMembersWith parseMember: (inout ParserState) throws -> AnyDeclID?
+  ) throws -> [AnyDeclID]? {
+    // Parse the left delimiter.
+    if state.take(.lBrace) == nil { return nil }
+
+    // Push the context.
+    state.contexts.append(context)
+    defer { state.contexts.removeLast() }
+
+    // Parse the members.
+    var members: [AnyDeclID] = []
+    while true {
+      // Ignore semicolons.
+      if state.take(.semi) != nil { continue }
+
+      // Exit if we found the right delimiter.
+      if state.take(.rBrace) != nil { return members }
+
+      // Parse a member or complain about a missing right delimiter.
+      if let member = try parseMember(&state) {
+        members.append(member)
+      } else {
+        state.diagnostics.append(.expected(kind: .rBrace, at: state.currentLocation))
+        return members
+      }
+    }
+  }
+
+  static func parseModuleMember(in state: inout ParserState) throws -> AnyDeclID? {
+    return try parseDeclPrologue(in: &state, then: continuation)
+
+    func continuation(
+      prologue: DeclPrologue,
+      state: inout ParserState
+    ) throws -> AnyDeclID? {
+      // Look ahead to select the appropriate declaration parser.
+      switch state.peek()?.kind {
+      case .conformance:
+        return try AnyDeclID(parseConformanceDecl(withPrologue: prologue, in: &state))
+      case .extension:
+        return try AnyDeclID(parseExtensionDecl(withPrologue: prologue, in: &state))
+      case .fun:
+        return try AnyDeclID(parseFunctionOrMethodDecl(withPrologue: prologue, in: &state))
+      case .import:
+        return try AnyDeclID(parseImportDecl(withPrologue: prologue, in: &state))
+      case .namespace:
+        return try AnyDeclID(parseNamespaceDecl(withPrologue: prologue, in: &state))
+      case .operator:
+        return try AnyDeclID(parseOperatorDecl(withPrologue: prologue, in: &state))
+      case .subscript:
+        return try AnyDeclID(parseSubscriptDecl(withPrologue: prologue, in: &state))
+      case .trait:
+        return try AnyDeclID(parseTraitDecl(withPrologue: prologue, in: &state))
+      case .type:
+        return try AnyDeclID(parseProductTypeDecl(withPrologue: prologue, in: &state))
+      case .typealias:
+        return try AnyDeclID(parseTypeAliasDecl(withPrologue: prologue, in: &state))
+      case .let, .inout, .var, .sink:
+        return try AnyDeclID(parseBindingDecl(withPrologue: prologue, in: &state))
+
+      default:
+        if prologue.isEmpty {
+          return nil
+        } else {
+          throw ParseError("expected declaration introducer", at: state.currentLocation)
+        }
+      }
+    }
+  }
+
+  /// Parses an instance of `AssociatedTypeDecl`.
+  ///
+  /// - Requires: The next token must be of kind `.type`.
+  static func parseAssociatedTypeDecl(
+    withPrologue prologue: DeclPrologue,
+    in state: inout ParserState
+  ) throws -> NodeID<AssociatedTypeDecl> {
+    precondition(state.peek()?.kind == .type)
+
+    // Parse the parts of the declaration.
+    let parts = try (
+      take(.type).and(take(.name))
+        .and(maybe(conformanceList))
+        .and(maybe(whereClause))
+        .and(maybe(take(.assign).and(typeExpr).second))
+    ).parse(&state)!
+
+    // Associated type declarations shall not have attributes.
+    for attribute in prologue.attributes {
+      state.diagnostics.append(.illegalAttribute(
+        named: attribute.value.name.value,
+        at: attribute.range))
+    }
+
+    // Associated type declarations shall not have modifiers.
+    for modifier in prologue.accessModifiers {
+      state.diagnostics.append(.illegalModifier(named: "\(modifier.value)", at: modifier.range))
+    }
+    for modifier in prologue.memberModifiers {
+      state.diagnostics.append(.illegalModifier(named: "\(modifier.value)", at: modifier.range))
+    }
+
+    // Create a new `AssociatedTypeDecl`.
+    let decl = state.ast.insert(AssociatedTypeDecl(
+      identifier: SourceRepresentable(token: parts.0.0.0.1, in: state.lexer.source),
+      conformances: parts.0.0.1 ?? [],
+      whereClause: parts.0.1,
+      defaultValue: parts.1))
+    state.ast.ranges[decl] = state.range(from: prologue.startIndex)
+    return decl
+  }
+
+  /// Parses an instance of `AssociatedValueDecl`.
+  ///
+  /// - Requires: The next token must be of kind `.name` and have the value "value".
+  static func parseAssociatedValueDecl(
+    withPrologue prologue: DeclPrologue,
+    in state: inout ParserState
+  ) throws -> NodeID<AssociatedValueDecl> {
+    precondition(state.peek()?.kind == .name)
+
+    // Parse the parts of the declaration.
+    let parts = try (
+      take(nameTokenWithValue: "value").and(take(.name))
+        .and(maybe(whereClause))
+        .and(maybe(take(.assign).and(expr).second))
+    ).parse(&state)!
+
+    // Associated value declarations shall not have attributes.
+    for attribute in prologue.attributes {
+      state.diagnostics.append(.illegalAttribute(
+        named: attribute.value.name.value,
+        at: attribute.range))
+    }
+
+    // Associated value declarations shall not have modifiers.
+    for modifier in prologue.accessModifiers {
+      state.diagnostics.append(.illegalModifier(named: "\(modifier.value)", at: modifier.range))
+    }
+    for modifier in prologue.memberModifiers {
+      state.diagnostics.append(.illegalModifier(named: "\(modifier.value)", at: modifier.range))
+    }
+
+    // Create a new `AssociatedValueDecl`.
+    let decl = state.ast.insert(AssociatedValueDecl(
+      identifier: SourceRepresentable(token: parts.0.0.1, in: state.lexer.source),
+      whereClause: parts.0.1,
+      defaultValue: parts.1))
+    state.ast.ranges[decl] = state.range(from: prologue.startIndex)
+    return decl
+  }
+
+  /// Parses an instance of `BindingDecl`.
+  ///
+  /// - Requires: The next token must be of kind `.let`, `.inout`, `.var`, or `.sink`.
+  static func parseBindingDecl(
+    withPrologue prologue: DeclPrologue,
+    in state: inout ParserState
+  ) throws -> NodeID<BindingDecl> {
+    precondition(state.peek() != nil)
+    precondition(state.peek()!.isOf(kind: [.let, .inout, .var, .sink]))
+
+    // Parse the parts of the declaration.
+    let parts = try (
+      bindingPattern.and(maybe(take(.assign).and(expr).second))
+    ).parse(&state)!
+
+    // TODO: Check for illegal attributes.
+
+    // Create a new `BindingDecl`.
+    assert(prologue.accessModifiers.count <= 1)
+    assert(prologue.memberModifiers.count <= 1)
+    let decl = state.ast.insert(BindingDecl(
+      attributes: prologue.attributes,
+      accessModifier: prologue.accessModifiers.first,
+      memberModifier: prologue.memberModifiers.first,
+      pattern: parts.0,
+      initializer: parts.1))
+    state.ast.ranges[decl] = state.range(from: prologue.startIndex)
+    return decl
+  }
+
+  /// Parses an instance of `ConformanceDecl`.
+  ///
+  /// - Requires: The next token must be of kind `.extension`.
+  static func parseConformanceDecl(
+    withPrologue prologue: DeclPrologue,
+    in state: inout ParserState
+  ) throws -> NodeID<ConformanceDecl> {
+    precondition(state.peek()?.kind == .conformance)
+
+    // Parse the parts of the declaration.
+    let parts = try (
+      take(.conformance).and(typeExpr)
+        .and(conformanceList)
+        .and(maybe(whereClause))
+        .and(Apply(parseExtensionBody(in:)))
+    ).parse(&state)!
+
+    // Conformance declarations shall not have attributes.
+    for attribute in prologue.attributes {
+      state.diagnostics.append(.illegalAttribute(
+        named: attribute.value.name.value,
+        at: attribute.range))
+    }
+
+    // Conformance declarations shall not have member modifiers.
+    for modifier in prologue.memberModifiers {
+      state.diagnostics.append(.illegalModifier(named: "\(modifier.value)", at: modifier.range))
+    }
+
+    // Create a new `ConformanceDecl`.
+    assert(prologue.accessModifiers.count <= 1)
+    let decl = state.ast.insert(ConformanceDecl(
+      accessModifier: prologue.accessModifiers.first,
+      subject: parts.0.0.0.1,
+      conformances: parts.0.0.1,
+      whereClause: parts.0.1,
+      members: parts.1))
+    state.ast.ranges[decl] = state.range(from: prologue.startIndex)
+    return decl
+  }
+
+  /// Parses an instance of `ExtensionDecl`.
+  ///
+  /// - Requires: The next token must be of kind `.extension`.
+  static func parseExtensionDecl(
+    withPrologue prologue: DeclPrologue,
+    in state: inout ParserState
+  ) throws -> NodeID<ExtensionDecl> {
+    precondition(state.peek()?.kind == .extension)
+
+    // Parse the parts of the declaration.
+    let parts = try (
+      take(.extension).and(typeExpr)
+        .and(maybe(whereClause))
+        .and(Apply(parseExtensionBody(in:)))
+    ).parse(&state)!
+
+    // Extension declarations shall not have attributes.
+    for attribute in prologue.attributes {
+      state.diagnostics.append(.illegalAttribute(
+        named: attribute.value.name.value,
+        at: attribute.range))
+    }
+
+    // Extension declarations shall not have modifiers.
+    for modifier in prologue.accessModifiers {
+      state.diagnostics.append(.illegalModifier(named: "\(modifier.value)", at: modifier.range))
+    }
+    for modifier in prologue.memberModifiers {
+      state.diagnostics.append(.illegalModifier(named: "\(modifier.value)", at: modifier.range))
+    }
+
+    // Create a new `ExtensionDecl`.
+    assert(prologue.accessModifiers.count <= 1)
+    let decl = state.ast.insert(ExtensionDecl(
+      accessModifier: prologue.accessModifiers.first,
+      subject: parts.0.0.1,
+      whereClause: parts.0.1,
+      members: parts.1))
+    state.ast.ranges[decl] = state.range(from: prologue.startIndex)
+    return decl
+  }
+
+  static func parseExtensionBody(in state: inout ParserState) throws -> [AnyDeclID]? {
+    try parseTypeDeclBody(
+      in: &state,
+      wrappedIn: .extensionBody,
+      parsingMembersWith: parseExtensionMember(in:))
+  }
+
+  static func parseExtensionMember(in state: inout ParserState) throws -> AnyDeclID? {
+    return try parseDeclPrologue(in: &state, then: continuation)
+
+    func continuation(
+      prologue: DeclPrologue,
+      state: inout ParserState
+    ) throws -> AnyDeclID? {
+      // Look ahead to select the appropriate declaration parser.
+      switch state.peek()?.kind {
+      case .fun:
+        return try AnyDeclID(parseFunctionOrMethodDecl(withPrologue: prologue, in: &state))
+      case .namespace:
+        return try AnyDeclID(parseNamespaceDecl(withPrologue: prologue, in: &state))
+      case .`init`:
+        return try AnyDeclID(parseInitDecl(withPrologue: prologue, in: &state))
+      case .name where state.lexer.source[state.peek()!.range] == "memberwise":
+        return try AnyDeclID(parseMemberwiseInitDecl(withPrologue: prologue, in: &state))
+      case .property:
+        return try AnyDeclID(parsePropertyDecl(withPrologue: prologue, in: &state))
+      case .subscript:
+        return try AnyDeclID(parseSubscriptDecl(withPrologue: prologue, in: &state))
+      case .type:
+        return try AnyDeclID(parseProductTypeDecl(withPrologue: prologue, in: &state))
+      case .typealias:
+        return try AnyDeclID(parseTypeAliasDecl(withPrologue: prologue, in: &state))
+
+      default:
+        if prologue.isEmpty {
+          return nil
+        } else {
+          throw ParseError("expected declaration introducer", at: state.currentLocation)
+        }
+      }
+    }
+  }
+
+  /// Parses an instance of `FunDecl` or `MethodDecl`.
+  ///
+  /// - Requires: The next token must be of kind `.fun`.
+  static func parseFunctionOrMethodDecl(
+    withPrologue prologue: DeclPrologue,
+    in state: inout ParserState
+  ) throws -> AnyDeclID {
+    precondition(state.peek()?.kind == .fun)
+
+    // Parse the parts of the declaration.
+    let ((head, signature), functionOrMethodBody) = try(
+      functionDeclHead.and(functionDeclSignature).and(maybe(functionOrMethodDeclBody))
+    ).parse(&state)!
+
+    switch functionOrMethodBody {
+    case .method(let impls):
+      return AnyDeclID(buildMethodDecl(
+        prologue: prologue,
+        head: head,
+        signature: signature,
+        impls: impls,
+        in: &state))
+
+    case .function(let body):
+      return AnyDeclID(buildFunctionDecl(
+        prologue: prologue,
+        head: head,
+        signature: signature,
+        body: body,
+        in: &state))
+
+    case nil:
+      return AnyDeclID(buildFunctionDecl(
+        prologue: prologue,
+        head: head,
+        signature: signature,
+        body: nil,
+        in: &state))
+    }
+  }
+
+  /// Builds a new instance of `FunDecl` from its parsed parts.
+  private static func buildFunctionDecl(
+    prologue: DeclPrologue,
+    head: FunctionDeclHead,
+    signature: FunctionDeclSignature,
+    body: FunDecl.Body?,
+    in state: inout ParserState
+  ) -> NodeID<FunDecl> {
+    // TODO: Check for illegal attributes.
+
+    // Non-static member function declarations require an implicit receiver parameter.
+    let receiver: NodeID<ParameterDecl>?
+    if state.isParsingTypeBody && !prologue.isStatic {
+      receiver = state.ast.insert(ParameterDecl(identifier: SourceRepresentable(value: "self")))
+    } else {
+      receiver = nil
+    }
+
+    // Create a new `FunDecl`.
+    assert(prologue.accessModifiers.count <= 1)
+    assert(prologue.memberModifiers.count <= 1)
+    let decl = state.ast.insert(FunDecl(
+      introducer: head.identifier.introducer,
+      accessModifier: prologue.accessModifiers.first,
+      memberModifier: prologue.memberModifiers.first,
+      receiverEffect: signature.receiverEffect,
+      notation: head.identifier.notation,
+      identifier: head.identifier.stem,
+      genericClause: head.genericClause,
+      explicitCaptures: head.captures,
+      parameters: signature.parameters,
+      receiver: receiver,
+      output: signature.output,
+      body: body))
+    state.ast.ranges[decl] = state.range(from: prologue.startIndex)
+    return decl
+  }
+
+  /// Builds a new instance of `Method` from its parsed parts.
+  private static func buildMethodDecl(
+    prologue: DeclPrologue,
+    head: FunctionDeclHead,
+    signature: FunctionDeclSignature,
+    impls: [NodeID<MethodImplDecl>],
+    in state: inout ParserState
+  ) -> NodeID<MethodDecl> {
+    // Method declarations can only appear at type scope.
+    if !state.isParsingTypeBody {
+      state.diagnostics.append(.methodDeclAtNonTypeScope(at: head.identifier.introducer.range))
+    }
+
+    // TODO: Check for illegal attributes.
+
+    // Method declarations cannot be static.
+    if let modifier = prologue.memberModifiers.first(where: { (m) in m.value == .static }) {
+      state.diagnostics.append(.illegalModifier(named: "\(modifier.value)", at: modifier.range))
+    }
+
+    // Method declarations cannot have a receiver effect.
+    if let effect = signature.receiverEffect {
+      state.diagnostics.append(.illegalReceiverEffect(at: effect.range))
+    }
+
+    // Method declarations cannot have captures.
+    if let capture = head.captures.first {
+      state.diagnostics.append(.memberDeclHasCaptures(at: state.ast.ranges[capture]))
+    }
+
+    // Create a new `MethodDecl`.
+    assert(prologue.accessModifiers.count <= 1)
+    let decl = state.ast.insert(MethodDecl(
+      introducerRange: head.identifier.introducer.range,
+      accessModifier: prologue.accessModifiers.first,
+      notation: head.identifier.notation,
+      identifier: head.identifier.stem,
+      genericClause: head.genericClause,
+      parameters: signature.parameters,
+      output: signature.output,
+      impls: impls))
+    state.ast.ranges[decl] = state.range(from: prologue.startIndex)
+    return decl
+  }
+
+  /// Parses an instance of `ImportDecl`.
+  ///
+  /// - Requires: The next token must be of kind `.import`.
+  static func parseImportDecl(
+    withPrologue prologue: DeclPrologue,
+    in state: inout ParserState
+  ) throws -> NodeID<ImportDecl> {
+    precondition(state.peek()?.kind == .import)
+
+    // Parse the parts of the declaration.
+    let parts = try (
+      take(.import).and(take(.name))
+    ).parse(&state)!
+
+    // Import declarations shall not have attributes.
+    for attribute in prologue.attributes {
+      state.diagnostics.append(.illegalAttribute(
+        named: attribute.value.name.value,
+        at: attribute.range))
+    }
+
+    // Import declarations shall not have modifiers.
+    for modifier in prologue.accessModifiers {
+      state.diagnostics.append(.illegalModifier(named: "\(modifier.value)", at: modifier.range))
+    }
+    for modifier in prologue.memberModifiers {
+      state.diagnostics.append(.illegalModifier(named: "\(modifier.value)", at: modifier.range))
+    }
+
+    // Create a new `ImportDecl`.
+    let decl = state.ast.insert(ImportDecl(
+      identifier: SourceRepresentable(token: parts.1, in: state.lexer.source)))
+    state.ast.ranges[decl] = state.range(from: prologue.startIndex)
+    return decl
+  }
+
+  /// Parses an instance of `FunDecl` representing an initializer declaration.
+  ///
+  /// - Requires: The next token must be of kind `.init`.
+  static func parseInitDecl(
+    withPrologue prologue: DeclPrologue,
+    in state: inout ParserState
+  ) throws -> NodeID<FunDecl> {
+    precondition(state.peek()?.kind == .`init`)
+
+    // Parse the parts of the declaration.
+    let ((head, signature), body) = try (
+      initDeclHead
+        .and(initDeclSignature)
+        .and(initDeclBody)
+    ).parse(&state)!
+
+    // Init declarations can only appear at type scope.
+    if !state.isParsingTypeBody {
+      state.diagnostics.append(.initDeclAtNonTypeScope(at: head.introducer.range))
+    }
+
+    // TODO: Check for illegal attributes.
+
+    // Init declarations cannot be static.
+    if let modifier = prologue.memberModifiers.first(where: { (m) in m.value == .static }) {
+      state.diagnostics.append(.illegalModifier(named: "\(modifier.value)", at: modifier.range))
+    }
+
+    // Init declarations require an implicit receiver parameter.
+    let receiver = state.ast.insert(ParameterDecl(identifier: SourceRepresentable(value: "self")))
+
+    // Create a new `FunDecl`.
+    assert(prologue.accessModifiers.count <= 1)
+    let decl = state.ast.insert(FunDecl(
+      introducer: head.introducer,
+      accessModifier: prologue.accessModifiers.first,
+      genericClause: head.genericClause,
+      parameters: signature,
+      receiver: receiver,
+      body: .block(body)))
+    state.ast.ranges[decl] = state.range(from: prologue.startIndex)
+    return decl
+  }
+
+  /// Parses an instance of `FunDecl` representing a memberwise initializer declaration.
+  ///
+  /// - Requires: The next token must be of kind `.name` and have the value "memberwise".
+  static func parseMemberwiseInitDecl(
+    withPrologue prologue: DeclPrologue,
+    in state: inout ParserState
+  ) throws -> NodeID<FunDecl> {
+    precondition(state.peek()?.kind == .name)
+
+    // Parse the parts of the declaration.
+    let parts = try (
+      take(nameTokenWithValue: "memberwise").and(take(.`init`))
+    ).parse(&state)!
+
+    // Init declarations can only appear at type scope.
+    if !state.isParsingTypeBody {
+      state.diagnostics.append(.initDeclAtNonTypeScope(at: parts.0.range))
+    }
+
+    // TODO: Check for illegal attributes.
+
+    // Init declarations cannot be static.
+    if let modifier = prologue.memberModifiers.first(where: { (m) in m.value == .static }) {
+      state.diagnostics.append(.illegalModifier(named: "\(modifier.value)", at: modifier.range))
+    }
+
+    // Init declarations require an implicit receiver parameter.
+    let receiver = state.ast.insert(ParameterDecl(identifier: SourceRepresentable(value: "self")))
+
+    // Create a new `FunDecl`.
+    assert(prologue.accessModifiers.count <= 1)
+    let decl = state.ast.insert(FunDecl(
+      introducer: SourceRepresentable(value: .memberwiseInit, range: parts.0.range),
+      accessModifier: prologue.accessModifiers.first,
+      receiver: receiver))
+    state.ast.ranges[decl] = state.range(from: prologue.startIndex)
+    return decl
+  }
+
+  /// Parses an instance of `NamespaceDecl`.
+  ///
+  /// - Requires: The next token must be of kind `.namespace`.
+  static func parseNamespaceDecl(
+    withPrologue prologue: DeclPrologue,
+    in state: inout ParserState
+  ) throws -> NodeID<NamespaceDecl> {
+    precondition(state.peek()?.kind == .namespace)
+
+    // Parse the parts of the declaration.
+    let parts = try (
+      take(.namespace).and(take(.name))
+        .and(Apply(parseNamespaceBody(in:)))
+    ).parse(&state)!
+
+    // Namespace declarations shall not have attributes.
+    for attribute in prologue.attributes {
+      state.diagnostics.append(.illegalAttribute(
+        named: attribute.value.name.value,
+        at: attribute.range))
+    }
+
+    // Namespace declarations shall not have member modifiers.
+    for modifier in prologue.memberModifiers {
+      state.diagnostics.append(.illegalModifier(named: "\(modifier.value)", at: modifier.range))
+    }
+
+    // Create a new `NamespaceDecl`.
+    assert(prologue.accessModifiers.count <= 1)
+    let decl = state.ast.insert(NamespaceDecl(
+      accessModifier: prologue.accessModifiers.first,
+      identifier: SourceRepresentable(token: parts.0.1, in: state.lexer.source),
+      members: parts.1))
+    state.ast.ranges[decl] = state.range(from: prologue.startIndex)
+    return decl
+  }
+
+  static func parseNamespaceBody(in state: inout ParserState) throws -> [AnyDeclID]? {
+    try parseTypeDeclBody(
+      in: &state,
+      wrappedIn: .namespaceBody,
+      parsingMembersWith: parseNamespaceMember(in:))
+  }
+
+  static func parseNamespaceMember(in state: inout ParserState) throws -> AnyDeclID? {
+    return try parseDeclPrologue(in: &state, then: continuation)
+
+    func continuation(
+      prologue: DeclPrologue,
+      state: inout ParserState
+    ) throws -> AnyDeclID? {
+      // Look ahead to select the appropriate declaration parser.
+      switch state.peek()?.kind {
+      case .conformance:
+        return try AnyDeclID(parseConformanceDecl(withPrologue: prologue, in: &state))
+      case .extension:
+        return try AnyDeclID(parseExtensionDecl(withPrologue: prologue, in: &state))
+      case .fun:
+        return try AnyDeclID(parseFunctionOrMethodDecl(withPrologue: prologue, in: &state))
+      case .namespace:
+        return try AnyDeclID(parseNamespaceDecl(withPrologue: prologue, in: &state))
+      case .subscript:
+        return try AnyDeclID(parseSubscriptDecl(withPrologue: prologue, in: &state))
+      case .trait:
+        return try AnyDeclID(parseTraitDecl(withPrologue: prologue, in: &state))
+      case .type:
+        return try AnyDeclID(parseProductTypeDecl(withPrologue: prologue, in: &state))
+      case .typealias:
+        return try AnyDeclID(parseTypeAliasDecl(withPrologue: prologue, in: &state))
+      case .let, .inout, .var, .sink:
+        return try AnyDeclID(parseBindingDecl(withPrologue: prologue, in: &state))
+
+      default:
+        if prologue.isEmpty {
+          return nil
+        } else {
+          throw ParseError("expected declaration introducer", at: state.currentLocation)
+        }
+      }
+    }
+  }
+
+  /// Parses an instance of `OperatorDecl`.
+  ///
+  /// - Requires: The next token must be of kind `.operator`.
+  static func parseOperatorDecl(
+    withPrologue prologue: DeclPrologue,
+    in state: inout ParserState
+  ) throws -> NodeID<OperatorDecl> {
+    precondition(state.peek()?.kind == .operator)
+
+    // Parse the parts of the declaration.
+    let parts = try (
+      take(.operator).and(operatorNotation)
+        .and(operator_)
+        .and(maybe(take(.colon).and(precedenceGroup).second))
+    ).parse(&state)!
+
+    // Operator declarations shall not have attributes.
+    for attribute in prologue.attributes {
+      state.diagnostics.append(.illegalAttribute(
+        named: attribute.value.name.value,
+        at: attribute.range))
+    }
+
+    // Operator declarations shall not have member modifiers.
+    for modifier in prologue.accessModifiers {
+      state.diagnostics.append(.illegalModifier(named: "\(modifier.value)", at: modifier.range))
+    }
+
+    // Create a new `OperatorDecl`.
+    assert(prologue.accessModifiers.count <= 1)
+    let decl = state.ast.insert(OperatorDecl(
+      accessModifier: prologue.accessModifiers.first,
+      notation: parts.0.0.1,
+      name: parts.0.1,
+      precedenceGroup: parts.1))
+    state.ast.ranges[decl] = state.range(from: prologue.startIndex)
+    return decl
+  }
+
+  /// Parses an instance of `SubscriptDecl` representing a property declaration.
+  ///
+  /// - Requires: The next token must be of kind `.property`.
+  static func parsePropertyDecl(
+    withPrologue prologue: DeclPrologue,
+    in state: inout ParserState
+  ) throws -> NodeID<SubscriptDecl> {
+    precondition(state.peek()?.kind == .property)
+
+    // Parse the parts of the declaration.
+    let ((head, output), impls) = try (
+      propertyDeclHead
+        .and(take(.colon).and(typeExpr).second)
+        .and(subscriptDeclBody)
+    ).parse(&state)!
+
+    // Property declarations can only appear at type scope.
+    if !state.isParsingTypeBody {
+      state.diagnostics.append(.propertyDeclAtNonTypeScope(at: head.introducer.range))
+    }
+
+    // TODO: Check for illegal attributes.
+
+    // Property declarations cannot be static.
+    if let modifier = prologue.memberModifiers.first(where: { (m) in m.value == .static }) {
+      state.diagnostics.append(.illegalModifier(named: "\(modifier.value)", at: modifier.range))
+    }
+
+    // Create a new `SubscriptDecl`.
+    assert(prologue.accessModifiers.count <= 1)
+    let decl = state.ast.insert(SubscriptDecl(
+      introducer: head.introducer,
+      accessModifier: prologue.accessModifiers.first,
+      receiverEffect: nil,
+      identifier: head.stem,
+      output: output,
+      impls: impls))
+    state.ast.ranges[decl] = state.range(from: prologue.startIndex)
+    return decl
+  }
+
+
+  /// Parses an instance of `SubscriptDecl`.
+  ///
+  /// - Requires: The next token must be of kind `.subscript`.
+  static func parseSubscriptDecl(
+    withPrologue prologue: DeclPrologue,
+    in state: inout ParserState
+  ) throws -> NodeID<SubscriptDecl> {
+    precondition(state.peek()?.kind == .subscript)
+
+    // Parse the parts of the declaration.
+    let ((head, signature), impls) = try(
+      subscriptDeclHead.and(subscriptDeclSignature).and(subscriptDeclBody)
+    ).parse(&state)!
+
+    // TODO: Check for illegal attributes.
+
+    // Create a new `SubscriptDecl`.
+    assert(prologue.accessModifiers.count <= 1)
+    assert(prologue.memberModifiers.count <= 1)
+    let decl = state.ast.insert(SubscriptDecl(
+      introducer: head.introducer,
+      accessModifier: prologue.accessModifiers.first,
+      memberModifier: prologue.memberModifiers.first,
+      receiverEffect: signature.receiverEffect,
+      identifier: head.stem,
+      genericClause: head.genericClause,
+      explicitCaptures: head.captures,
+      parameters: signature.parameters,
+      output: signature.output,
+      impls: impls))
+    state.ast.ranges[decl] = state.range(from: prologue.startIndex)
+    return decl
+  }
+
+  /// Parses an instance of `TraitDecl`.
+  ///
+  /// - Requires: The next token must be of kind `.trait`.
+  static func parseTraitDecl(
+    withPrologue prologue: DeclPrologue,
+    in state: inout ParserState
+  ) throws -> NodeID<TraitDecl> {
+    precondition(state.peek()?.kind == .trait)
+
+    // Parse the parts of the declaration.
+    let parts = try (
+      take(.trait).and(take(.name))
+        .and(maybe(conformanceList))
+        .and(Apply(parseTraitBody(in:)))
+    ).parse(&state)!
+
+    // Product type declarations shall not have attributes.
+    for attribute in prologue.attributes {
+      state.diagnostics.append(.illegalAttribute(
+        named: attribute.value.name.value,
+        at: attribute.range))
+    }
+
+    // Product type declarations shall not have member modifiers.
+    for modifier in prologue.memberModifiers {
+      state.diagnostics.append(.illegalModifier(named: "\(modifier.value)", at: modifier.range))
+    }
+
+    // Create a new `TraitDecl`.
+    assert(prologue.accessModifiers.count <= 1)
+    let decl = state.ast.insert(TraitDecl(
+      accessModifier: prologue.accessModifiers.first,
+      identifier: SourceRepresentable(token: parts.0.0.1, in: state.lexer.source),
+      refinements: parts.0.1 ?? [],
+      members: parts.1))
+    state.ast.ranges[decl] = state.range(from: prologue.startIndex)
+    return decl
+  }
+
+  static func parseTraitBody(in state: inout ParserState) throws -> [AnyDeclID]? {
+    try parseTypeDeclBody(
+      in: &state,
+      wrappedIn: .traitBody,
+      parsingMembersWith: parseTraitMember(in:))
+  }
+
+  static func parseTraitMember(in state: inout ParserState) throws -> AnyDeclID? {
+    return try parseDeclPrologue(in: &state, then: continuation)
+
+    func continuation(
+      prologue: DeclPrologue,
+      state: inout ParserState
+    ) throws -> AnyDeclID? {
+      // Look ahead to select the appropriate declaration parser.
+      switch state.peek()?.kind {
+      case .fun:
+        return try AnyDeclID(parseFunctionOrMethodDecl(withPrologue: prologue, in: &state))
+      case .`init`:
+        return try AnyDeclID(parseInitDecl(withPrologue: prologue, in: &state))
+      case .name where state.lexer.source[state.peek()!.range] == "memberwise":
+        return try AnyDeclID(parseMemberwiseInitDecl(withPrologue: prologue, in: &state))
+      case .type:
+        return try AnyDeclID(parseAssociatedTypeDecl(withPrologue: prologue, in: &state))
+      case .name where state.lexer.source[state.peek()!.range] == "value":
+        return try AnyDeclID(parseAssociatedValueDecl(withPrologue: prologue, in: &state))
+      case .property:
+        return try AnyDeclID(parsePropertyDecl(withPrologue: prologue, in: &state))
+      case .subscript:
+        return try AnyDeclID(parseSubscriptDecl(withPrologue: prologue, in: &state))
+
+      default:
+        if prologue.isEmpty {
+          return nil
+        } else {
+          throw ParseError("expected declaration introducer", at: state.currentLocation)
+        }
+      }
+    }
+  }
+
+  /// Parses an instance of `ProductTypeDecl`.
+  ///
+  /// - Requires: The next token must be of kind `.type`.
+  static func parseProductTypeDecl(
+    withPrologue prologue: DeclPrologue,
+    in state: inout ParserState
+  ) throws -> NodeID<ProductTypeDecl> {
+    precondition(state.peek()?.kind == .type)
+
+    // Parse the parts of the declaration.
+    let parts = try (
+      take(.type).and(take(.name))
+        .and(maybe(genericClause))
+        .and(maybe(conformanceList))
+        .and(Apply(parseProductTypeBody(in:)))
+    ).parse(&state)!
+
+    // Product type declarations shall not have attributes.
+    for attribute in prologue.attributes {
+      state.diagnostics.append(.illegalAttribute(
+        named: attribute.value.name.value,
+        at: attribute.range))
+    }
+
+    // Product type declarations shall not have member modifiers.
+    for modifier in prologue.memberModifiers {
+      state.diagnostics.append(.illegalModifier(named: "\(modifier.value)", at: modifier.range))
+    }
+
+    // Retrieve or synthesize the type's memberwise initializer.
+    var members = parts.1
+    let memberwiseInit = findOrSynthesizeMemberwiseInitDecl(in: &members, updating: &state)
+
+    // Create a new `ProductTypeDecl`.
+    assert(prologue.accessModifiers.count <= 1)
+    let decl = state.ast.insert(ProductTypeDecl(
+      accessModifier: prologue.accessModifiers.first,
+      identifier: SourceRepresentable(token: parts.0.0.0.1, in: state.lexer.source),
+      genericClause: parts.0.0.1,
+      conformances: parts.0.1 ?? [],
+      members: members,
+      memberwiseInit: memberwiseInit
+    ))
+    state.ast.ranges[decl] = state.range(from: prologue.startIndex)
+    return decl
+  }
+
+  static func parseProductTypeBody(in state: inout ParserState) throws -> [AnyDeclID]? {
+    try parseTypeDeclBody(
+      in: &state,
+      wrappedIn: .productBody,
+      parsingMembersWith: parseProductTypeMember(in:))
+  }
+
+  static func parseProductTypeMember(
+    in state: inout ParserState
+  ) throws -> AnyDeclID? {
+    return try parseDeclPrologue(in: &state, then: continuation)
+
+    func continuation(
+      prologue: DeclPrologue,
+      state: inout ParserState
+    ) throws -> AnyDeclID? {
+      // Look ahead to select the appropriate declaration parser.
+      switch state.peek()?.kind {
+      case .fun:
+        return try AnyDeclID(parseFunctionOrMethodDecl(withPrologue: prologue, in: &state))
+      case .`init`:
+        return try AnyDeclID(parseInitDecl(withPrologue: prologue, in: &state))
+      case .name where state.lexer.source[state.peek()!.range] == "memberwise":
+        return try AnyDeclID(parseMemberwiseInitDecl(withPrologue: prologue, in: &state))
+      case .property:
+        return try AnyDeclID(parsePropertyDecl(withPrologue: prologue, in: &state))
+      case .subscript:
+        return try AnyDeclID(parseSubscriptDecl(withPrologue: prologue, in: &state))
+      case .type:
+        return try AnyDeclID(parseProductTypeDecl(withPrologue: prologue, in: &state))
+      case .typealias:
+        return try AnyDeclID(parseTypeAliasDecl(withPrologue: prologue, in: &state))
+      case .let, .inout, .var, .sink:
+        return try AnyDeclID(parseBindingDecl(withPrologue: prologue, in: &state))
+
+      default:
+        if prologue.isEmpty {
+          return nil
+        } else {
+          throw ParseError("expected declaration introducer", at: state.currentLocation)
+        }
+      }
+    }
+  }
+
+  /// Returns the first memberwise initializer declaration in `members` or synthesizes an implicit
+  /// one, appends it into `members`, and returns it.
+  private static func findOrSynthesizeMemberwiseInitDecl(
+    in members: inout [AnyDeclID],
+    updating state: inout ParserState
+  ) -> NodeID<FunDecl> {
+    for member in members where member.kind == .funDecl {
+      let m = NodeID<FunDecl>(rawValue: member.rawValue)
+      if state.ast[m].introducer.value == .memberwiseInit { return m }
+    }
+
+    let receiver = state.ast.insert(ParameterDecl(
+      identifier: SourceRepresentable(value: "self")))
+    let m = state.ast.insert(FunDecl(
+      introducer: SourceRepresentable(value: .memberwiseInit),
+      receiver: receiver))
+    members.append(AnyDeclID(m))
+    return m
+  }
+
+  /// Parses an instance of `TypeAliasDecl`.
+  ///
+  /// - Requires: The next token must be of kind `.typealias`.
+  static func parseTypeAliasDecl(
+    withPrologue prologue: DeclPrologue,
+    in state: inout ParserState
+  ) throws -> NodeID<TypeAliasDecl> {
+    precondition(state.peek()?.kind == .typealias)
+
+    // Parse the parts of the declaration.
+    let parts = try (
+      take(.typealias).and(take(.name))
+        .and(maybe(genericClause))
+        .and(take(.assign)).and(typeExpr)
+    ).parse(&state)!
+
+    // Type alias declarations shall not have attributes.
+    for attribute in prologue.attributes {
+      state.diagnostics.append(.illegalAttribute(
+        named: attribute.value.name.value,
+        at: attribute.range))
+    }
+
+    // Type alias declarations shall not have member modifiers.
+    for modifier in prologue.memberModifiers {
+      state.diagnostics.append(.illegalModifier(named: "\(modifier.value)", at: modifier.range))
+    }
+
+    // Create a new `TypeAliasDecl`.
+    assert(prologue.accessModifiers.count <= 1)
+    let decl = state.ast.insert(TypeAliasDecl(
+      accessModifier: prologue.accessModifiers.first,
+      identifier: SourceRepresentable(token: parts.0.0.0.1, in: state.lexer.source),
+      genericClause: parts.0.0.1,
+      body: .typeExpr(parts.1)))
+    state.ast.ranges[decl] = state.range(from: prologue.startIndex)
+    return decl
+  }
+
+  static let functionDecl = (
+    Apply<ParserState, NodeID<FunDecl>>({ (state) -> NodeID<FunDecl>? in
+      switch state.peek()?.kind {
+      case .fun:
+        // Parse a function or method declaration.
+        guard let decl = try parseDeclPrologue(in: &state, then: parseFunctionOrMethodDecl) else {
+          return nil
+        }
+
+        // Catch illegal method declarations.
+        guard let functionDecl = NodeID<FunDecl>(decl) else {
+          throw ParseError(
+            "cannot use method bundle declaration here",
+            at: state.ast.ranges[decl]!.first())
+        }
+
+        // Return the parsed declaration.
+        return functionDecl
+
+      default:
+        return nil
+      }
     })
   )
 
-  static let traitDecl = (
-    traitHead.and(traitBody)
-      .map({ (state, tree) -> NodeID<TraitDecl> in
-        let id = state.ast.insert(TraitDecl(
-          identifier: SourceRepresentable(token: tree.0.0.1, in: state.lexer.source),
-          refinements: tree.0.1 ?? [],
-          members: tree.1))
-        state.ast.ranges[id] = tree.0.0.0.range.upperBounded(by: state.currentIndex)
-        return id
-      })
-  )
-
-  static let traitHead = (
-    take(.trait).and(take(.name)).and(maybe(conformanceList))
-  )
-
-  static let traitBody = inContext(.traitBody, apply: (
-    take(.lBrace)
-      .and(zeroOrMany(take(.semi)))
-      .and(zeroOrMany(traitMember.and(zeroOrMany(take(.semi))).first))
-      .and(zeroOrMany(take(.semi))).and(take(.rBrace))
-      .map({ (_, tree) -> [AnyDeclID] in tree.0.0.1 })
-  ))
-
-  static let traitMember = (
-    oneOf([
-      anyDecl(associatedTypeDecl),
-      anyDecl(associatedValueDecl),
-      anyDecl(initDecl),
-      anyDecl(functionDecl),
-      anyDecl(subscriptDecl),
-      anyDecl(propertyDecl),
-    ])
-  )
-
-  static let associatedTypeDecl = (
-    take(.type).and(take(.name))
-      .and(maybe(conformanceList))
-      .and(maybe(whereClause))
-      .and(maybe(take(.assign).and(typeExpr).second))
-      .map({ (state, tree) -> NodeID<AssociatedTypeDecl> in
-        let id = state.ast.insert(AssociatedTypeDecl(
-          identifier: SourceRepresentable(token: tree.0.0.0.1, in: state.lexer.source),
-          conformances: tree.0.0.1 ?? [],
-          whereClause: tree.0.1,
-          defaultValue: tree.1))
-        state.ast.ranges[id] = tree.0.0.0.0.range.upperBounded(by: state.currentIndex)
-        return id
-      })
-  )
-
-  static let associatedValueDecl = (
-    take(nameTokenWithValue: "value").and(take(.name))
-      .and(maybe(whereClause))
-      .and(maybe(take(.assign).and(expr).second))
-      .map({ (state, tree) -> NodeID<AssociatedValueDecl> in
-        let id = state.ast.insert(AssociatedValueDecl(
-          identifier: SourceRepresentable(token: tree.0.0.1, in: state.lexer.source),
-          whereClause: tree.0.1,
-          defaultValue: tree.1))
-        state.ast.ranges[id] = tree.0.0.0.range.upperBounded(by: state.currentIndex)
-        return id
-      })
-  )
-
-  static let conformanceDecl = (
-    conformancHead.and(conformanceBody)
-      .map({ (state, tree) -> NodeID<ConformanceDecl> in
-        let id = state.ast.insert(ConformanceDecl(
-          subject: tree.0.0.0.1,
-          conformances: tree.0.0.1,
-          whereClause: tree.0.1,
-          members: tree.1))
-        state.ast.ranges[id] = tree.0.0.0.0.range.upperBounded(by: state.currentIndex)
-        return id
-      })
-  )
-
-  static let conformancHead = (
-    take(.conformance).and(typeExpr).and(conformanceList).and(maybe(whereClause))
-  )
-
-  static let conformanceBody = extensionBody
-
-  static let extensionDecl = (
-    extensionHead.and(extensionBody)
-      .map({ (state, tree) -> NodeID<ExtensionDecl> in
-        let id = state.ast.insert(ExtensionDecl(
-          subject: tree.0.0.1,
-          whereClause: tree.0.1,
-          members: tree.1))
-        state.ast.ranges[id] = tree.0.0.0.range.upperBounded(by: state.currentIndex)
-        return id
-      })
-  )
-
-  static let extensionHead = (
-    take(.extension).and(typeExpr).and(maybe(whereClause))
-  )
-
-  static let extensionBody = inContext(.extensionBody, apply: (
-    take(.lBrace)
-      .and(zeroOrMany(take(.semi)))
-      .and(zeroOrMany(extensionMember.and(zeroOrMany(take(.semi))).first))
-      .and(zeroOrMany(take(.semi))).and(take(.rBrace))
-      .map({ (_, tree) -> [AnyDeclID] in tree.0.0.1 })
-  ))
-
-  static let extensionMember = (
-    decorated(decl: oneOf([
-      anyDecl(typeAliasOrProductTypeDecl),
-      anyDecl(initDecl),
-      anyDecl(functionDecl),
-      anyDecl(subscriptDecl),
-      anyDecl(propertyDecl),
-    ]))
-  )
-
-  static let bindingDecl = (
-    bindingPattern.and(maybe(take(.assign).and(expr)))
-      .map({ (state, tree) -> NodeID<BindingDecl> in
-        let id = state.ast.insert(BindingDecl(pattern: tree.0, initializer: tree.1?.1))
-        state.ast.ranges[id] = state.ast.ranges[tree.0]!.upperBounded(by: state.currentIndex)
-        return id
-      })
-  )
-
-  static let deinitDecl = (
-    take(.deinit).and(deinitBody)
-      .map({ (state, tree) -> NodeID<FunDecl> in
-        let receiver = state.ast.insert(ParameterDecl(
-          identifier: SourceRepresentable(value: "self")))
-        let id = state.ast.insert(FunDecl(
-          introducer: SourceRepresentable(value: .deinit, range: tree.0.range),
-          receiver: receiver,
-          body: .block(tree.1)))
-        state.ast.ranges[id] = tree.0.range.upperBounded(by: state.currentIndex)
-        return id
-      })
-  )
-
-  static let deinitBody = inContext(.functionBody, apply: braceStmt)
-
-  static let initDecl = Choose(
-    memberwiseInitDecl,
-    or: initHead
-      .and(take(.lParen).and(maybe(parameterList)).and(take(.rParen)))
-      .and(initBody)
-      .map({ (state, tree) -> NodeID<FunDecl> in
-        let (head, signature, body) = (tree.0.0, tree.0.1, tree.1)
-
-        let receiver = state.ast.insert(ParameterDecl(
-          identifier: SourceRepresentable(value: "self")))
-        let id = state.ast.insert(FunDecl(
-          introducer: SourceRepresentable(value: .`init`, range: head.0.range),
-          genericClause: head.1,
-          parameters: signature.0.1 ?? [],
-          receiver: receiver,
-          body: .block(body)))
-
-        state.ast.ranges[id] = head.0.range.upperBounded(by: state.currentIndex)
-        return id
-      })
-  )
-
-  static let initHead = (
-    take(.`init`).and(maybe(genericClause))
-  )
-
-  static let initBody = inContext(.functionBody, apply: braceStmt)
-
-  static let functionDecl = (
-    functionHead.and(functionSignature).and(maybe(functionBody))
-      .map({ (state, tree) -> NodeID<FunDecl> in
-        let (head, signature, body) = (tree.0.0, tree.0.1, tree.1)
-        let identifier: FunctionDeclIdentifier = head.0.0
-
-        let receiver: NodeID<ParameterDecl>?
-        if case .bundle = body {
-          receiver = nil
-        } else if !state.isParsingTypeBody {
-          receiver = nil
-        } else {
-          receiver = state.ast.insert(ParameterDecl(
-            identifier: SourceRepresentable(value: "self")))
-        }
-
-        let id = state.ast.insert(FunDecl(
-          introducer: identifier.introducer,
-          receiverEffect: signature.receiverEffect,
-          notation: identifier.notation,
-          identifier: identifier.stem,
-          genericClause: head.0.1,
-          captures: head.1 ?? [],
-          parameters: signature.parameters,
-          receiver: receiver,
-          output: signature.output,
-          body: body))
-
-        let startRange = identifier.notation?.range ?? identifier.introducer.range!
-        state.ast.ranges[id] = startRange.upperBounded(by: state.currentIndex)
-        return id
-      })
-  )
-
-  static let memberwiseInitDecl = (
-    take(nameTokenWithValue: "memberwise").and(take(.`init`))
-      .map({ (state, tree) -> NodeID<FunDecl> in
-        let receiver = state.ast.insert(ParameterDecl(
-          identifier: SourceRepresentable(value: "self")))
-        let id = state.ast.insert(FunDecl(
-          introducer: SourceRepresentable(value: .memberwiseInit, range: tree.0.range),
-          receiver: receiver))
-        state.ast.ranges[id] = tree.0.range.upperBounded(by: state.currentIndex)
-        return id
-      })
-  )
-
-  static let functionHead = (
+  static let functionDeclHead = (
     functionDeclIdentifier.and(maybe(genericClause)).and(maybe(captureList))
-  )
-
-  typealias FunctionSignature = (
-    parameters: [NodeID<ParameterDecl>],
-    receiverEffect: SourceRepresentable<ReceiverEffect>?,
-    output: AnyTypeExprID?
-  )
-
-  static let functionSignature = (
-    take(.lParen).and(maybe(parameterList)).and(take(.rParen))
-      .and(maybe(receiverEffect))
-      .and(maybe(take(.arrow).and(typeExpr)))
-      .map({ (state, tree) -> FunctionSignature in
-        (parameters: tree.0.0.0.1 ?? [], receiverEffect: tree.0.1, output: tree.1?.1)
+      .map({ (state, tree) -> FunctionDeclHead in
+        FunctionDeclHead(
+          identifier: tree.0.0,
+          genericClause: tree.0.1,
+          captures: tree.1 ?? [])
       })
-  )
-
-  typealias FunctionDeclIdentifier = (
-    introducer: SourceRepresentable<FunDecl.Introducer>,
-    stem: SourceRepresentable<String>?,
-    notation: SourceRepresentable<OperatorNotation>?
   )
 
   static let functionDeclIdentifier = (
@@ -513,7 +1190,7 @@ public enum Parser {
   static let namedFunctionDeclIdentifier = (
     take(.fun).and(take(.name))
       .map({ (state, tree) -> FunctionDeclIdentifier in
-        (
+        FunctionDeclIdentifier(
           introducer: SourceRepresentable(value: .`fun`, range: tree.0.range),
           stem: SourceRepresentable(token: tree.1, in: state.lexer.source),
           notation: nil
@@ -524,7 +1201,7 @@ public enum Parser {
   static let operatorFunctionDeclIdentifier = (
     operatorNotation.and(take(.fun)).and(operator_)
       .map({ (state, tree) -> FunctionDeclIdentifier in
-        (
+        FunctionDeclIdentifier(
           introducer: SourceRepresentable(value: .`fun`, range: tree.0.1.range),
           stem: tree.1,
           notation: tree.0.0
@@ -532,18 +1209,33 @@ public enum Parser {
       })
   )
 
-  static let functionBody = inContext(.functionBody, apply: TryCatch(
-    trying: methodBundleBody
-      .map({ (state, impls) -> FunDecl.Body in .bundle(impls) }),
-    orCatchingAndApplying: TryCatch(
-      trying: take(.lBrace).and(expr).and(take(.rBrace))
-        .map({ (state, tree) -> FunDecl.Body in .expr(tree.0.1) }),
-      orCatchingAndApplying: braceStmt
-        .map({ (state, id) -> FunDecl.Body in .block(id) })
-    )
+  static let functionDeclSignature = (
+    take(.lParen).and(maybe(parameterList)).and(take(.rParen))
+      .and(maybe(receiverEffect))
+      .and(maybe(take(.arrow).and(typeExpr)))
+      .map({ (state, tree) -> FunctionDeclSignature in
+        FunctionDeclSignature(
+          parameters: tree.0.0.0.1 ?? [],
+          receiverEffect: tree.0.1,
+          output: tree.1?.1)
+      })
+  )
+
+  static let functionOrMethodDeclBody = TryCatch(
+    trying: methodDeclBody
+      .map({ (state, body) -> FunctionOrMethodDeclBody in .method(body) }),
+    orCatchingAndApplying: functionDeclBody
+      .map({ (state, body) -> FunctionOrMethodDeclBody in .function(body) })
+  )
+
+  static let functionDeclBody = inContext(.functionBody, apply: TryCatch(
+    trying: take(.lBrace).and(expr).and(take(.rBrace))
+      .map({ (state, tree) -> FunDecl.Body in .expr(tree.0.1) }),
+    orCatchingAndApplying: braceStmt
+      .map({ (state, id) -> FunDecl.Body in .block(id) })
   ))
 
-  static let methodBundleBody = (
+  static let methodDeclBody = (
     take(.lBrace).and(methodImpl+).and(take(.rBrace))
       .map({ (state, tree) -> [NodeID<MethodImplDecl>] in
         var introducers: Set<ImplIntroducer> = []
@@ -586,68 +1278,71 @@ public enum Parser {
     .sink : ImplIntroducer.sink,
   ])
 
-  static let propertyDecl = (
+  static let initDeclHead = (
+    take(.`init`).and(maybe(genericClause))
+      .map({ (state, tree) -> InitDeclHead in
+        InitDeclHead(
+          introducer: SourceRepresentable(value: .`init`, range: tree.0.range),
+          genericClause: tree.1)
+      })
+  )
+
+  static let initDeclSignature = (
+    take(.lParen).and(maybe(parameterList)).and(take(.rParen))
+      .map({ (state, tree) -> [NodeID<ParameterDecl>] in
+        tree.0.1 ?? []
+      })
+  )
+
+  static let initDeclBody = inContext(.functionBody, apply: braceStmt)
+
+  static let operator_ = (
+    Apply<ParserState, SourceRepresentable<Identifier>>({ (state) in
+      state.takeOperator()
+    })
+  )
+
+  static let operatorNotation = translate([
+    .infix  : OperatorNotation.infix,
+    .prefix : OperatorNotation.prefix,
+    .postfix: OperatorNotation.postfix,
+  ])
+
+  static let precedenceGroup = ContextualKeyword<PrecedenceGroup>()
+
+  static let propertyDeclHead = (
     take(.property).and(take(.name))
-      .and(maybe(receiverEffect))
-      .and(take(.colon).and(typeExpr))
-      .and(maybe(subscriptBody))
-      .map({ (state, tree) -> NodeID<SubscriptDecl> in
-        let identifier = SourceRepresentable(token: tree.0.0.0.1, in: state.lexer.source)
-        let id = state.ast.insert(SubscriptDecl(
-          introducer: SourceRepresentable(value: .property, range: tree.0.0.0.0.range),
-          receiverEffect: tree.0.0.1,
-          identifier: identifier,
-          output: tree.0.1.1,
-          impls: tree.1 ?? []))
-
-        state.ast.ranges[id] = tree.0.0.0.0.range.upperBounded(by: state.currentIndex)
-        return id
+      .map({ (state, tree) -> PropertyDeclHead in
+        PropertyDeclHead(
+          introducer: SourceRepresentable(value: .property, range: tree.0.range),
+          stem: SourceRepresentable(token: tree.1, in: state.lexer.source))
       })
   )
 
-  static let subscriptDecl = (
-    subscriptHead.and(subscriptSignature).and(maybe(subscriptBody))
-      .map({ (state, tree) -> NodeID<SubscriptDecl> in
-        let (head, signature, body) = (tree.0.0, tree.0.1, tree.1)
-        let identifier = head.0.0.1.map({
-          SourceRepresentable(token: $0, in: state.lexer.source)
-        })
-
-        let id = state.ast.insert(SubscriptDecl(
-          introducer: SourceRepresentable(value: .subscript, range: head.0.0.0.range),
-          receiverEffect: signature.receiverEffect,
-          identifier: identifier,
-          genericClause: head.0.1,
-          explicitCaptures: head.1 ?? [],
-          parameters: signature.parameters,
-          output: signature.output,
-          impls: body ?? []))
-
-        state.ast.ranges[id] = head.0.0.0.range.upperBounded(by: state.currentIndex)
-        return id
-      })
-  )
-
-  static let subscriptHead = (
+  static let subscriptDeclHead = (
     take(.subscript).and(maybe(take(.name))).and(maybe(genericClause)).and(maybe(captureList))
+      .map({ (state, tree) -> SubscriptDeclHead in
+        SubscriptDeclHead(
+          introducer: SourceRepresentable(value: .subscript, range: tree.0.0.0.range),
+          stem: tree.0.0.1.map({ SourceRepresentable(token: $0, in: state.lexer.source) }),
+          genericClause: tree.0.1,
+          captures: tree.1 ?? [])
+      })
   )
 
-  typealias SubscriptSignature = (
-    parameters: [NodeID<ParameterDecl>],
-    receiverEffect: SourceRepresentable<ReceiverEffect>?,
-    output: AnyTypeExprID
-  )
-
-  static let subscriptSignature = (
+  static let subscriptDeclSignature = (
     take(.lParen).and(maybe(parameterList)).and(take(.rParen))
       .and(maybe(receiverEffect))
       .and(take(.colon).and(typeExpr))
-      .map({ (state, tree) -> SubscriptSignature in
-        (parameters: tree.0.0.0.1 ?? [], receiverEffect: tree.0.1, output: tree.1.1)
+      .map({ (state, tree) -> SubscriptDeclSignature in
+        SubscriptDeclSignature(
+          parameters: tree.0.0.0.1 ?? [],
+          receiverEffect: tree.0.1,
+          output: tree.1.1)
       })
   )
 
-  static let subscriptBody = inContext(.subscriptBody, apply: TryCatch(
+  static let subscriptDeclBody = inContext(.subscriptBody, apply: TryCatch(
     trying: subscriptBundleBody,
     orCatchingAndApplying: TryCatch(
       trying: take(.lBrace).and(expr).and(take(.rBrace))
@@ -721,6 +1416,17 @@ public enum Parser {
     .sink : ImplIntroducer.sink,
   ])
 
+  static let bindingDecl = (
+    Apply<ParserState, NodeID<BindingDecl>>({ (state) -> NodeID<BindingDecl>? in
+      switch state.peek()?.kind {
+      case .let, .inout, .var, .sink:
+        return try parseDeclPrologue(in: &state, then: parseBindingDecl(withPrologue:in:))
+      default:
+        return nil
+      }
+    })
+  )
+
   static let parameterList = (
     parameterDecl.and(zeroOrMany(take(.comma).and(parameterDecl).second))
       .map({ (_, tree) -> [NodeID<ParameterDecl>] in [tree.0] + tree.1 })
@@ -783,34 +1489,6 @@ public enum Parser {
     })
   )
 
-  static let operatorDecl = (
-    take(.operator).and(operatorNotation).and(operator_)
-      .and(maybe(take(.colon).and(precedenceGroup)))
-      .map({ (state, tree) -> NodeID<OperatorDecl> in
-        let id = state.ast.insert(OperatorDecl(
-          notation: tree.0.0.1,
-          name: tree.0.1,
-          precedenceGroup: tree.1?.1))
-        state.ast.ranges[id] = tree.0.0.0.range.upperBounded(
-          by: tree.1?.1.range?.upperBound ?? tree.0.1.range!.upperBound)
-        return id
-      })
-  )
-
-  static let operator_ = (
-    Apply<ParserState, SourceRepresentable<Identifier>>({ (state) in
-      state.takeOperator()
-    })
-  )
-
-  static let operatorNotation = translate([
-    .infix  : OperatorNotation.infix,
-    .prefix : OperatorNotation.prefix,
-    .postfix: OperatorNotation.postfix,
-  ])
-
-  static let precedenceGroup = ContextualKeyword<PrecedenceGroup>()
-
   static let memberModifier = (
     take(.static)
       .map({ (_, token) -> SourceRepresentable<MemberModifier> in
@@ -825,156 +1503,12 @@ public enum Parser {
       })
   )
 
-  /// Applies `decl` after having parsed its attributes and modifiers, and tries to apply those
-  /// to the parsed declaration, producing hard failures only if `decl` did or if at least one
-  /// attribute or modifier has been parsed.
-  private static func decorated<Decl: Combinator>(decl: Decl) -> Apply<ParserState, AnyDeclID>
-  where Decl.Context == ParserState, Decl.Element == AnyDeclID
-  {
-    Apply({ (state) in
-      guard let startIndex = state.peek()?.range.lowerBound else { return nil }
-
-      // Parse attributes and modifiers.
-      var attributes: [SourceRepresentable<Attribute>] = []
-      while let a = try declAttribute.parse(&state) {
-        attributes.append(a)
-      }
-      let access = try accessModifier.parse(&state)
-      let member = try memberModifier.parse(&state)
-
-      // Parse the declaration.
-      guard let declID = try decl.parse(&state) else {
-        if attributes.isEmpty && (access == nil) && (member == nil) {
-          return nil
-        } else {
-          throw ParseError("expected declaration", at: state.currentLocation)
-        }
-      }
-
-      switch declID.kind {
-      case .bindingDecl:
-        let id = NodeID<BindingDecl>(rawValue: declID.rawValue)
-        state.ast[id].incorporate(
-          attributes: attributes, accessModifier: access, memberModifier: member)
-
-      case .conformanceDecl:
-        let id = NodeID<ConformanceDecl>(rawValue: declID.rawValue)
-        state.ast[id].incorporate(access)
-
-        if let a = attributes.first {
-          state.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
-        }
-        if let m = member {
-          state.diagnostics.append(.unexpectedDeclModifier(at: m.range))
-        }
-
-      case .importDecl:
-        if let a = attributes.first {
-          state.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
-        }
-        if let a = access {
-          state.diagnostics.append(.unexpectedDeclModifier(at: a.range))
-        }
-        if let m = member {
-          state.diagnostics.append(.unexpectedDeclModifier(at: m.range))
-        }
-
-      case .extensionDecl:
-        let id = NodeID<ExtensionDecl>(rawValue: declID.rawValue)
-        state.ast[id].incorporate(access)
-
-        if let a = attributes.first {
-          state.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
-        }
-        if let m = member {
-          state.diagnostics.append(.unexpectedDeclModifier(at: m.range))
-        }
-
-      case .funDecl:
-        let id = NodeID<FunDecl>(rawValue: declID.rawValue)
-        state.ast[id].incorporate(
-          attributes: attributes, accessModifier: access, memberModifier: member)
-
-      case .operatorDecl:
-        if let a = access {
-          state.ast[NodeID<OperatorDecl>(rawValue: declID.rawValue)].incorporate(a)
-        }
-
-        if let a = attributes.first {
-          state.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
-        }
-        if let m = member {
-          state.diagnostics.append(.unexpectedDeclModifier(at: m.range))
-        }
-
-      case .namespaceDecl:
-        if let a = access {
-          state.ast[NodeID<NamespaceDecl>(rawValue: declID.rawValue)].incorporate(a)
-        }
-
-        if let a = attributes.first {
-          state.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
-        }
-        if let m = member {
-          state.diagnostics.append(.unexpectedDeclModifier(at: m.range))
-        }
-
-      case .productTypeDecl:
-        if let a = access {
-          state.ast[NodeID<ProductTypeDecl>(rawValue: declID.rawValue)].incorporate(a)
-        }
-        if let a = attributes.first {
-          state.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
-        }
-        if let m = member {
-          state.diagnostics.append(.unexpectedDeclModifier(at: m.range))
-        }
-
-      case .subscriptDecl:
-        let id = NodeID<SubscriptDecl>(rawValue: declID.rawValue)
-        state.ast[id].incorporate(
-          attributes: attributes, accessModifier: access, memberModifier: member)
-
-      case .traitDecl:
-        if let a = access {
-          let id = NodeID<TraitDecl>(rawValue: declID.rawValue)
-          state.ast[id].incorporate(a)
-        }
-
-        if let a = attributes.first {
-          state.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
-        }
-        if let m = member {
-          state.diagnostics.append(.unexpectedDeclModifier(at: m.range))
-        }
-
-      case .typeAliasDecl:
-        if let a = access {
-          let id = NodeID<TypeAliasDecl>(rawValue: declID.rawValue)
-          state.ast[id].incorporate(a)
-        }
-        if let a = attributes.first {
-          state.diagnostics.append(.unexpectedDeclAttribute(at: a.range))
-        }
-        if let m = member {
-          state.diagnostics.append(.unexpectedDeclModifier(at: m.range))
-        }
-
-      default:
-        unreachable("unexpected declaration")
-      }
-
-      state.ast.ranges[declID]?.lowerBound = startIndex
-      return declID
-    })
-  }
-
-  static let captureList = (
+  static let captureList = inContext(.captureList, apply: (
     take(.lBrack)
       .and(bindingDecl.and(zeroOrMany(take(.comma).and(bindingDecl).second)))
       .and(take(.rBrack))
       .map({ (_, tree) -> [NodeID<BindingDecl>] in [tree.0.1.0] + tree.0.1.1 })
-  )
+  ))
 
   static let genericClause = (
     take(.lAngle).and(genericParameterList).and(maybe(whereClause)).and(take(.rAngle))
@@ -1201,7 +1735,7 @@ public enum Parser {
         let decl = state.ast.insert(FunDecl(
           introducer: SourceRepresentable(value: .fun, range: tree.0.0.0.range),
           receiverEffect: tree.0.1,
-          captures: tree.0.0.1 ?? [],
+          explicitCaptures: tree.0.0.1 ?? [],
           body: .expr(tree.1),
           isInExprContext: true))
         state.ast.ranges[decl] = tree.0.0.0.range.upperBounded(by: state.currentIndex)
@@ -1537,14 +2071,14 @@ public enum Parser {
   )
 
   static let lambdaExpr = (
-    take(.fun).and(maybe(captureList)).and(functionSignature).and(lambdaBody)
+    take(.fun).and(maybe(captureList)).and(functionDeclSignature).and(lambdaBody)
       .map({ (state, tree) -> NodeID<LambdaExpr> in
         let signature = tree.0.1
 
         let decl = state.ast.insert(FunDecl(
           introducer: SourceRepresentable(value: .fun, range: tree.0.0.0.range),
           receiverEffect: signature.receiverEffect,
-          captures: tree.0.0.1 ?? [],
+          explicitCaptures: tree.0.0.1 ?? [],
           parameters: signature.parameters,
           output: signature.output,
           body: tree.1,
@@ -2042,7 +2576,7 @@ public enum Parser {
   )
 
   static let declStmt = (
-    localDecl
+    Apply(parseLocalDecl)
       .map({ (state, decl) -> NodeID<DeclStmt> in
         let id = state.ast.insert(DeclStmt(decl: decl))
         state.ast.ranges[id] = state.ast.ranges[decl]
@@ -2050,16 +2584,39 @@ public enum Parser {
       })
   )
 
-  static let localDecl = (
-    oneOf([
-      anyDecl(typeAliasDecl),
-      anyDecl(productTypeDecl),
-      anyDecl(extensionDecl),
-      anyDecl(conformanceDecl),
-      anyDecl(functionDecl),
-      anyDecl(subscriptDecl),
-    ])
-  )
+  static func parseLocalDecl(in state: inout ParserState) throws -> AnyDeclID? {
+    return try parseDeclPrologue(in: &state, then: continuation)
+
+    func continuation(
+      prologue: DeclPrologue,
+      state: inout ParserState
+    ) throws -> AnyDeclID? {
+      // Look ahead to select the appropriate declaration parser.
+      switch state.peek()?.kind {
+      case .conformance:
+        return try AnyDeclID(parseConformanceDecl(withPrologue: prologue, in: &state))
+      case .extension:
+        return try AnyDeclID(parseExtensionDecl(withPrologue: prologue, in: &state))
+      case .fun:
+        return try AnyDeclID(parseFunctionOrMethodDecl(withPrologue: prologue, in: &state))
+      case .subscript:
+        return try AnyDeclID(parseSubscriptDecl(withPrologue: prologue, in: &state))
+      case .type:
+        return try AnyDeclID(parseProductTypeDecl(withPrologue: prologue, in: &state))
+      case .typealias:
+        return try AnyDeclID(parseTypeAliasDecl(withPrologue: prologue, in: &state))
+      case .let, .inout, .var, .sink:
+        return try AnyDeclID(parseBindingDecl(withPrologue: prologue, in: &state))
+
+      default:
+        if prologue.isEmpty {
+          return nil
+        } else {
+          throw ParseError("expected declaration introducer", at: state.currentLocation)
+        }
+      }
+    }
+  }
 
   static let exprStmt = (
     expr
@@ -2650,130 +3207,255 @@ public enum Parser {
 
 }
 
-extension Parser {
+/// The attributes and modifiers preceeding a declaration.
+struct DeclPrologue {
 
-  /// A combinator that parses tokens with a specific kind.
-  struct TakeKind: Combinator {
+  /// Indicates whether the prologue is empty.
+  let isEmpty: Bool
 
-    typealias Context = ParserState
+  /// The index of the first character in the prologue.
+  let startIndex: String.Index
 
-    typealias Element = Token
+  /// The attributes in the prologue.
+  let attributes: [SourceRepresentable<Attribute>]
 
-    /// The kind of the token to consume.
-    let kind: Token.Kind
+  /// The access modifiers in the prologue.
+  let accessModifiers: Set<SourceRepresentable<AccessModifier>>
 
-    func parse(_ state: inout ParserState) throws -> Token? {
-      state.take(kind)
-    }
+  /// The member modifiers in the prologue.
+  let memberModifiers: Set<SourceRepresentable<MemberModifier>>
 
+  /// Indicates whether the prologue contains the `static` member modifier.
+  var isStatic: Bool {
+    memberModifiers.contains(where: { (m) in m.value == .static })
   }
 
-  /// A combinator that parses contextual keywords.
-  struct ContextualKeyword<T: RawRepresentable>: Combinator where T.RawValue == String {
+}
 
-    typealias Context = ParserState
+/// The parsed identifier of a function declaration.
+struct FunctionDeclIdentifier {
 
-    typealias Element = SourceRepresentable<T>
+  /// The introducer of the declaration.
+  let introducer: SourceRepresentable<FunDecl.Introducer>
 
-    func parse(_ state: inout ParserState) throws -> Element? {
-      if let next = state.peek(), next.kind == .name {
-        if let value = T(rawValue: String(state.lexer.source[next.range])) {
-          _ = state.take()
-          return SourceRepresentable(value: value, range: next.range)
-        }
+  /// The stem of the declared identifier, if any.
+  let stem: SourceRepresentable<String>?
+
+  /// The notation of the declared function, if any.
+  let notation: SourceRepresentable<OperatorNotation>?
+
+}
+
+/// The parsed head of a function declaration.
+struct FunctionDeclHead {
+
+  /// The identifier of the declaration.
+  let identifier: FunctionDeclIdentifier
+
+  /// The generic clause of the declaration, if any.
+  let genericClause: SourceRepresentable<GenericClause>?
+
+  /// The capture list of the declaration.
+  let captures: [NodeID<BindingDecl>]
+
+}
+
+/// The parsed signature of a function declaration.
+struct FunctionDeclSignature {
+
+  /// The parameters of the declaration.
+  let parameters: [NodeID<ParameterDecl>]
+
+  /// The receiver effect of the declaration, if any.
+  let receiverEffect: SourceRepresentable<ReceiverEffect>?
+
+  /// The return type annotation of the declaration, if any.
+  let output: AnyTypeExprID?
+
+}
+
+/// The body of a function or method declaration.
+enum FunctionOrMethodDeclBody {
+
+  case function(FunDecl.Body)
+
+  case method([NodeID<MethodImplDecl>])
+
+}
+
+/// The parsed head of an initializer declaration.
+struct InitDeclHead {
+
+  /// The introducer of the declaration.
+  let introducer: SourceRepresentable<FunDecl.Introducer>
+
+  /// The generic clause of the declaration, if any.
+  let genericClause: SourceRepresentable<GenericClause>?
+
+}
+
+/// The parsed head of a subscript declaration.
+struct SubscriptDeclHead {
+
+  /// The introducer of the declaration.
+  let introducer: SourceRepresentable<SubscriptDecl.Introducer>
+
+  /// The stem of the declared identifier, if any.
+  let stem: SourceRepresentable<String>?
+
+  /// The generic clause of the declaration, if any.
+  let genericClause: SourceRepresentable<GenericClause>?
+
+  /// The capture list of the declaration.
+  let captures: [NodeID<BindingDecl>]
+
+}
+
+/// The parsed head of a property declaration.
+struct PropertyDeclHead {
+
+  /// The introducer of the declaration.
+  let introducer: SourceRepresentable<SubscriptDecl.Introducer>
+
+  /// The stem of the declared identifier.
+  let stem: SourceRepresentable<String>
+
+}
+
+/// The parsed signature of a subscript declaration.
+struct SubscriptDeclSignature {
+
+  /// The parameters of the declaration.
+  let parameters: [NodeID<ParameterDecl>]
+
+  /// The receiver effect of the declaration, if any.
+  let receiverEffect: SourceRepresentable<ReceiverEffect>?
+
+  /// The return type annotation of the declaration.
+  let output: AnyTypeExprID
+
+}
+
+/// A combinator that parses tokens with a specific kind.
+struct TakeKind: Combinator {
+
+  typealias Context = ParserState
+
+  typealias Element = Token
+
+  /// The kind of the token to consume.
+  let kind: Token.Kind
+
+  func parse(_ state: inout ParserState) throws -> Token? {
+    state.take(kind)
+  }
+
+}
+
+/// A combinator that parses contextual keywords.
+struct ContextualKeyword<T: RawRepresentable>: Combinator where T.RawValue == String {
+
+  typealias Context = ParserState
+
+  typealias Element = SourceRepresentable<T>
+
+  func parse(_ state: inout ParserState) throws -> Element? {
+    if let next = state.peek(), next.kind == .name {
+      if let value = T(rawValue: String(state.lexer.source[next.range])) {
+        _ = state.take()
+        return SourceRepresentable(value: value, range: next.range)
       }
+    }
+    return nil
+  }
+
+}
+
+/// A combinator that updates the parsing contexts.
+struct WrapInContext<Base: Combinator>: Combinator where Base.Context == ParserState {
+
+  typealias Context = ParserState
+
+  typealias Element = Base.Element
+
+  /// The context in which `base` should be applied.
+  let context: ParserState.Context
+
+  /// The underlying combinator.
+  public let base: Base
+
+  func parse(_ state: inout ParserState) throws -> Element? {
+    state.contexts.append(context)
+    defer { state.contexts.removeLast() }
+    return try base.parse(&state)
+  }
+
+}
+
+/// Creates a combinator that parses tokens with the specified kind.
+fileprivate func take(_ kind: Token.Kind) -> TakeKind {
+  TakeKind(kind: kind)
+}
+
+/// Creates a combinator that parses name tokens with the specified value.
+fileprivate func take(nameTokenWithValue value: String) -> Apply<ParserState, Token> {
+  Apply({ (state) in state.take(nameTokenWithValue: value) })
+}
+
+/// Creates a combinator that parses attribute tokens with the specified name.
+fileprivate func attribute(_ name: String) -> Apply<ParserState, Token> {
+  Apply({ (state) in state.take(attribute: name) })
+}
+
+/// Creates a combinator that translates token kinds to instances of type.
+fileprivate func translate<T>(
+  _ table: [Token.Kind: T]
+) -> Apply<ParserState, SourceRepresentable<T>> {
+  Apply({ (state) in
+    guard let head = state.peek() else { return nil }
+    if let translation = table[head.kind] {
+      _ = state.take()
+      return SourceRepresentable(value: translation, range: head.range)
+    } else {
       return nil
     }
+  })
+}
 
-  }
+/// Creates a combinator that pushes `context` to the parser state before applying, and pops
+/// that context afterward.
+fileprivate func inContext<Base: Combinator>(
+  _ context: ParserState.Context,
+  apply base: Base
+) -> WrapInContext<Base> {
+  WrapInContext(context: context, base: base)
+}
 
-  /// A combinator that updates the parsing contexts.
-  struct WrapInContext<Base: Combinator>: Combinator where Base.Context == ParserState {
+/// Creates a combinator that applies `base` only if its input is not preceeded by whitespaces.
+fileprivate func withoutLeadingWhitespace<Base: Combinator>(
+  _ base: Base
+) -> Apply<ParserState, Base.Element>
+where Base.Context == ParserState
+{
+  Apply({ (state) in try state.hasLeadingWhitespace ? nil : base.parse(&state) })
+}
 
-    typealias Context = ParserState
-
-    typealias Element = Base.Element
-
-    /// The context in which `base` should be applied.
-    let context: ParserState.Context
-
-    /// The underlying combinator.
-    public let base: Base
-
-    func parse(_ state: inout ParserState) throws -> Element? {
-      state.contexts.append(context)
-      defer { state.contexts.removeLast() }
+/// Creates a combinator that applies `base` only if its input is not preceeded by newlines.
+fileprivate func onSameLine<Base: Combinator>(
+  _ base: Base
+) -> Apply<ParserState, Base.Element>
+where Base.Context == ParserState
+{
+  Apply({ (state) in
+    if let t = state.peek() {
+      return try state.hasNewline(inCharacterStreamUpTo: t.range.lowerBound)
+        ? nil
+        : base.parse(&state)
+    } else {
+      // Let `base` handle end of stream.
       return try base.parse(&state)
     }
-
-  }
-
-  /// Creates a combinator that parses tokens with the specified kind.
-  static func take(_ kind: Token.Kind) -> TakeKind {
-    TakeKind(kind: kind)
-  }
-
-  /// Creates a combinator that parses name tokens with the specified value.
-  static func take(nameTokenWithValue value: String) -> Apply<ParserState, Token> {
-    Apply({ (state) in state.take(nameTokenWithValue: value) })
-  }
-
-  /// Creates a combinator that parses attribute tokens with the specified name.
-  static func attribute(_ name: String) -> Apply<ParserState, Token> {
-    Apply({ (state) in state.take(attribute: name) })
-  }
-
-  /// Creates a combinator that translates token kinds to instances of type.
-  static func translate<T>(
-    _ table: [Token.Kind: T]
-  ) -> Apply<ParserState, SourceRepresentable<T>> {
-    Apply({ (state) in
-      guard let head = state.peek() else { return nil }
-      if let translation = table[head.kind] {
-        _ = state.take()
-        return SourceRepresentable(value: translation, range: head.range)
-      } else {
-        return nil
-      }
-    })
-  }
-
-  /// Creates a combinator that pushes `context` to the parser state before applying, and pops
-  /// that context afterward.
-  static func inContext<Base: Combinator>(
-    _ context: ParserState.Context,
-    apply base: Base
-  ) -> WrapInContext<Base> {
-    WrapInContext(context: context, base: base)
-  }
-
-  /// Creates a combinator that applies `base` only if its input is not preceeded by whitespaces.
-  static func withoutLeadingWhitespace<Base: Combinator>(
-    _ base: Base
-  ) -> Apply<ParserState, Base.Element>
-  where Base.Context == ParserState
-  {
-    Apply({ (state) in try state.hasLeadingWhitespace ? nil : base.parse(&state) })
-  }
-
-  /// Creates a combinator that applies `base` only if its input is not preceeded by newlines.
-  static func onSameLine<Base: Combinator>(
-    _ base: Base
-  ) -> Apply<ParserState, Base.Element>
-  where Base.Context == ParserState
-  {
-    Apply({ (state) in
-      if let t = state.peek() {
-        return try state.hasNewline(inCharacterStreamUpTo: t.range.lowerBound)
-          ? nil
-          : base.parse(&state)
-      } else {
-        // Let `base` handle end of stream.
-        return try base.parse(&state)
-      }
-    })
-  }
-
+  })
 }
 
 fileprivate extension SourceRepresentable where Part == Identifier {
@@ -2786,24 +3468,60 @@ fileprivate extension SourceRepresentable where Part == Identifier {
 
 fileprivate extension Diagnostic {
 
-  static func accessModifierAtNonLocalScope(at range: SourceRange?) -> Diagnostic {
-    .error("access modifier cannot be used in a local scope", range: range)
-  }
-
   static func duplicateMethodIntroducer(at range: SourceRange?) -> Diagnostic {
     .error("duplicate method introducer", range: range)
+  }
+
+  static func duplicateModifier(at range: SourceRange?) -> Diagnostic {
+    .error("duplicate modifier", range: range)
   }
 
   static func duplicateSubscriptIntroducer(at range: SourceRange?) -> Diagnostic {
     .error("duplicate subscript introducer", range: range)
   }
 
+  static func expected(kind: Token.Kind, at location: SourceLocation) -> Diagnostic {
+    .error("expected '\(kind)'", range: location ..< location)
+  }
+
+  static func illegalAttribute(named name: String, at range: SourceRange?) -> Diagnostic {
+    .error("attribute '\(name)' cannot be used on this declaration", range: range)
+  }
+
+  static func illegalReceiverEffect(at range: SourceRange?) -> Diagnostic {
+    .error("receiver effect cannot be used on this declaration")
+  }
+
+  static func illegalModifier(named name: String, at range: SourceRange?) -> Diagnostic {
+    .error("modifier '\(name)' cannot be used on this declaration", range: range)
+  }
+
   static func infixOperatorRequiresWhitespaces(at range: SourceRange?) -> Diagnostic {
     .error("infix operator requires whitespaces on both sides", range: range)
   }
 
+  static func initDeclAtNonTypeScope(at range: SourceRange?) -> Diagnostic {
+    .error("initializer declarations are only allowed at type scope", range: range)
+  }
+
+  static func memberModifierAtTraitScope(at range: SourceRange?) -> Diagnostic {
+    .error("member modifier cannot be used on trait member declarations", range: range)
+  }
+
   static func memberModifierAtNonTypeScope(at range: SourceRange?) -> Diagnostic {
     .error("member modifier can only be used on member declarations", range: range)
+  }
+
+  static func memberModifierBeforeAccess(at range: SourceRange?) -> Diagnostic {
+    .error("member modifier must appear after access modifiers", range: range)
+  }
+
+  static func methodDeclAtNonTypeScope(at range: SourceRange?) -> Diagnostic {
+    .error("method bundle declarations are only allowed at type scope", range: range)
+  }
+
+  static func propertyDeclAtNonTypeScope(at range: SourceRange?) -> Diagnostic {
+    .error("property declarations are only allowed at type scope", range: range)
   }
 
   static func unexpectedDeclAttribute(at range: SourceRange?) -> Diagnostic {
@@ -2812,6 +3530,10 @@ fileprivate extension Diagnostic {
 
   static func unexpectedDeclModifier(at range: SourceRange?) -> Diagnostic {
     .error("unexpected declaration modifier", range: range)
+  }
+
+  static func unexpectedToken(_ token: Token) -> Diagnostic {
+    .error("unexpected token '\(token.kind)'", range: token.range)
   }
 
 }

@@ -17,10 +17,12 @@ public struct ExtensionDecl: TypeExtendingDecl {
 
   /// Creates an instance with the given properties and no `accessModifier`.
   public init(
+    accessModifier: SourceRepresentable<AccessModifier>? = nil,
     subject: AnyTypeExprID,
     whereClause: SourceRepresentable<WhereClause>?,
     members: [AnyDeclID]
   ) {
+    self.accessModifier = accessModifier
     self.subject = subject
     self.whereClause = whereClause
     self.members = members

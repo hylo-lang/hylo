@@ -14,9 +14,11 @@ public struct NamespaceDecl: SingleEntityDecl, LexicalScope {
 
   /// Creates an instance with the given properties and no `accessModifier`.
   public init(
+    accessModifier: SourceRepresentable<AccessModifier>? = nil,
     identifier: SourceRepresentable<Identifier>,
     members: [AnyDeclID]
   ) {
+    self.accessModifier = accessModifier
     self.identifier = identifier
     self.members = members
   }

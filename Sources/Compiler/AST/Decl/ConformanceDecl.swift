@@ -20,11 +20,13 @@ public struct ConformanceDecl: TypeExtendingDecl {
 
   /// Creates an instance with the given properties and no `accessModifier`.
   public init(
+    accessModifier: SourceRepresentable<AccessModifier>? = nil,
     subject: AnyTypeExprID,
     conformances: [NodeID<NameTypeExpr>],
     whereClause: SourceRepresentable<WhereClause>?,
     members: [AnyDeclID]
   ) {
+    self.accessModifier = accessModifier
     self.subject = subject
     self.conformances = conformances
     self.whereClause = whereClause
