@@ -827,7 +827,7 @@ public enum Parser {
     }
 
     // Operator declarations shall not have member modifiers.
-    for modifier in prologue.accessModifiers {
+    for modifier in prologue.memberModifiers {
       state.diagnostics.append(.illegalModifier(named: "\(modifier.value)", at: modifier.range))
     }
 
