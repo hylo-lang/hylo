@@ -512,7 +512,7 @@ struct ConstraintGenerator {
     }
 
     // Schedule the underlying declaration to be type-checked.
-    checker.pendingLambdas.append(id)
+    checker.deferTypeChecking(id)
 
     if case .lambda(let expectedType) = expectedTypes[id] {
       // Check that the declaration defines the expected number of parameters.
@@ -547,7 +547,7 @@ struct ConstraintGenerator {
       } else {
         // The system is underspecified.
         diagnostics.append(.cannotInferComplexReturnType(
-          at: checker.program.ast[checker.program.ast[id].decl].introducer.range))
+          at: checker.program.ast[checker.program.ast[id].decl].introducerRange))
         assignToError(id)
         return
       }

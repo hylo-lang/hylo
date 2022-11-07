@@ -119,9 +119,12 @@ public struct Emitter {
       // Emit the member functions and subscripts of the type declaration.
       switch member.kind {
       case .functionDecl:
-        let d = NodeID<FunctionDecl>(rawValue: member.rawValue)
+        emit(function: NodeID(rawValue: member.rawValue), into: &module)
+
+      case .initializerDecl:
+        let d = NodeID<InitializerDecl>(rawValue: member.rawValue)
         if program.ast[d].introducer.value == .memberwiseInit { continue }
-        emit(function: d, into: &module)
+        fatalError("not implemented")
 
       case .subscriptDecl:
         emit(subscript: NodeID(rawValue: member.rawValue), into: &module)
@@ -517,24 +520,25 @@ public struct Emitter {
           type: .address(.lambda(calleeType)))))
 
       case .direct(let calleeDeclID) where calleeDeclID.kind == .functionDecl:
-        // Callee is a direct reference to a function declaration.
-        switch (program.ast[calleeDeclID] as! FunctionDecl).introducer.value {
+        // Callee is a direct reference to a function or initializer declaration.
+        // TODO: handle captures
+        callee = .constant(.function(FunctionRef(
+          name: DeclLocator(identifying: calleeDeclID, in: program).mangled,
+          type: .address(.lambda(calleeType)))))
+
+      case .direct(let calleeDeclID) where calleeDeclID.kind == .initializerDecl:
+        let d = NodeID<InitializerDecl>(rawValue: calleeID.rawValue)
+        switch program.ast[d].introducer.value {
+        case .`init`:
+          // TODO: The function is a custom initializer.
+          fatalError("not implemented")
+
         case .memberwiseInit:
           // The function is a memberwise initializer. In that case, the whole call expression is
           // lowered as a `record` instruction.
           return module.insert(
             RecordInst(objectType: .object(program.exprTypes[expr]!), operands: arguments),
             at: insertionPoint!)[0]
-
-        case .`init`:
-          // TODO: The function is a custom initializer.
-          fatalError("not implemented")
-
-        default:
-          // TODO: handle captures
-          callee = .constant(.function(FunctionRef(
-            name: DeclLocator(identifying: calleeDeclID, in: program).mangled,
-            type: .address(.lambda(calleeType)))))
         }
 
       case .member(let calleeDeclID) where calleeDeclID.kind == .functionDecl:

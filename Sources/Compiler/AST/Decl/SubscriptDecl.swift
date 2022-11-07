@@ -31,7 +31,7 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
   /// The identifier of the subscript, if any.
   public let identifier: SourceRepresentable<Identifier>?
 
-  /// The generic clause of the subscript, if any.
+  /// The generic clause of the declaration, if any.
   public let genericClause: SourceRepresentable<GenericClause>?
 
   /// The explicit capture declarations of the subscript.

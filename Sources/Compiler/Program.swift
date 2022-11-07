@@ -6,15 +6,12 @@ public protocol Program {
 
   /// A map from scope to its parent scope.
   var scopeToParent: ASTProperty<AnyScopeID> { get }
-  // parent
 
   /// A map from scope to the declarations directly contained in them.
   var scopeToDecls: ASTProperty<[AnyDeclID]> { get }
-  // containees
 
   /// A map from declaration to its scope.
   var declToScope: DeclProperty<AnyScopeID> { get }
-  // container
 
   /// A map from variable declaration its containing binding declaration.
   var varToBinding: [NodeID<VarDecl>: NodeID<BindingDecl>] { get }
@@ -76,10 +73,10 @@ extension Program {
 
     case .functionDecl:
       let i = NodeID<FunctionDecl>(rawValue: decl.rawValue)
-      return (
-        ast[i].isStatic
-        || ast[i].introducer.value == .`init`
-        || ast[i].introducer.value == .memberwiseInit)
+      return ast[i].isStatic
+
+    case .initializerDecl:
+      return true
 
     case .subscriptDecl:
       return ast[NodeID<SubscriptDecl>(rawValue: decl.rawValue)].isStatic
@@ -123,26 +120,13 @@ extension Program {
 
   /// Returns whether `decl` is a requirement.
   public func isRequirement<T: DeclID>(_ decl: T) -> Bool {
-    if declToScope[decl]?.kind != .traitDecl { return false }
-
     switch decl.kind {
-    case .functionDecl:
-      return ast[NodeID<FunctionDecl>(rawValue: decl.rawValue)].body == nil
-
-    case .methodDecl:
-      return ast[NodeID<MethodDecl>(rawValue: decl.rawValue)].impls
-        .contains(where: isRequirement)
-
+    case .functionDecl, .initializerDecl, .methodDecl, .subscriptDecl:
+      return declToScope[decl]!.kind == .traitDecl
     case .methodImplDecl:
-      return ast[NodeID<MethodImplDecl>(rawValue: decl.rawValue)].body == nil
-
-    case .subscriptDecl:
-      return ast[NodeID<SubscriptDecl>(rawValue: decl.rawValue)].impls
-        .contains(where: isRequirement)
-
+      return isRequirement(NodeID<MethodDecl>(rawValue: declToScope[decl]!.rawValue))
     case .subscriptImplDecl:
-      return ast[NodeID<SubscriptImplDecl>(rawValue: decl.rawValue)].body == nil
-
+      return isRequirement(NodeID<SubscriptDecl>(rawValue: declToScope[decl]!.rawValue))
     default:
       return false
     }

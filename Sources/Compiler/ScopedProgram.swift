@@ -174,6 +174,8 @@ extension ScopedProgram {
       visit(genericValueParamDecl: NodeID(rawValue: decl.rawValue), withState: &state)
     case .importDecl:
       visit(importDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+    case .initializerDecl:
+      visit(initializerDecl: NodeID(rawValue: decl.rawValue), withState: &state)
     case .methodDecl:
       visit(methodDecl: NodeID(rawValue: decl.rawValue), withState: &state)
     case .methodImplDecl:
@@ -355,6 +357,26 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
+    initializerDecl decl: NodeID<InitializerDecl>,
+    withState state: inout VisitorState
+  ) {
+    insert(decl: decl, into: state.innermost)
+
+    nesting(in: decl, withState: &state, { (this, state) in
+      if let clause = this.ast[decl].genericClause?.value {
+        this.visit(genericClause: clause, withState: &state)
+      }
+      for parameter in this.ast[decl].parameters {
+        this.visit(parameterDecl: parameter, withState: &state)
+      }
+      this.visit(parameterDecl: this.ast[decl].receiver, withState: &state)
+      if let body = this.ast[decl].body {
+        this.visit(braceStmt: body, withState: &state)
+      }
+    })
+  }
+
+  private mutating func visit(
     methodDecl decl: NodeID<MethodDecl>,
     withState state: inout VisitorState
   ) {
@@ -491,7 +513,9 @@ extension ScopedProgram {
     insert(decl: decl, into: state.innermost)
 
     nesting(in: decl, withState: &state, { (this, state) in
-      this.visit(parameterDecl: this.ast[decl].receiver, withState: &state)
+      if let receiver = this.ast[decl].receiver {
+        this.visit(parameterDecl: receiver, withState: &state)
+      }
 
       switch this.ast[decl].body {
       case let .expr(expr):

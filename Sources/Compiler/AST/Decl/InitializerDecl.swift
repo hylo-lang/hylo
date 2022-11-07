@@ -1,10 +1,21 @@
-/// A method declaration.
-public struct MethodDecl: GenericDecl, GenericScope {
+/// An initializer declaration.
+public struct InitializerDecl: GenericDecl, GenericScope {
 
-  public static let kind = NodeKind.methodDecl
+  public static let kind = NodeKind.initializerDecl
 
-  /// The source range of the `fun` introducer, if any.
-  public let introducerRange: SourceRange?
+  /// The introducer of an initializer declaration.
+  public enum Introducer: Codable {
+
+    /// The initializer introducer, `init`.
+    case `init`
+
+    /// The memberwise initializer introducer, `memberwise init`
+    case memberwiseInit
+
+  }
+
+  /// The introducer of the declaration.
+  public let introducer: SourceRepresentable<Introducer>
 
   /// The attributes of the declaration, if any.
   public let attributes: [SourceRepresentable<Attribute>]
@@ -12,47 +23,39 @@ public struct MethodDecl: GenericDecl, GenericScope {
   /// The access modifier of the declaration, if any.
   public let accessModifier: SourceRepresentable<AccessModifier>?
 
-  /// The operator notation of the method.
-  public let notation: SourceRepresentable<OperatorNotation>?
-
-  /// The identifier of the method.
-  public let identifier: SourceRepresentable<Identifier>
-
   /// The generic clause of the declaration, if any.
   public let genericClause: SourceRepresentable<GenericClause>?
 
-  /// The parameters of the method.
+  /// The parameters of the initializer.
   ///
   /// These declarations must have a type annotation.
   public let parameters: [NodeID<ParameterDecl>]
 
-  /// The return type annotation of the method, if any.
-  public let output: AnyTypeExprID?
+  /// The declaration of the implicit receiver parameter.
+  public let receiver: NodeID<ParameterDecl>
 
-  /// The implementations of the method.
-  public let impls: [NodeID<MethodImplDecl>]
+  /// The body of the declaration, if any.
+  public let body: NodeID<BraceStmt>?
 
   /// Creates an instance with the given properties.
   public init(
-    introducerRange: SourceRange?,
+    introducer: SourceRepresentable<Introducer>,
     attributes: [SourceRepresentable<Attribute>],
     accessModifier: SourceRepresentable<AccessModifier>?,
-    notation: SourceRepresentable<OperatorNotation>?,
-    identifier: SourceRepresentable<Identifier>,
     genericClause: SourceRepresentable<GenericClause>?,
     parameters: [NodeID<ParameterDecl>],
-    output: AnyTypeExprID?,
-    impls: [NodeID<MethodImplDecl>]
+    receiver: NodeID<ParameterDecl>,
+    body: NodeID<BraceStmt>?
   ) {
-    self.introducerRange = introducerRange
+    precondition((introducer.value == .`init`) || (body == nil))
+
+    self.introducer = introducer
     self.attributes = attributes
     self.accessModifier = accessModifier
-    self.notation = notation
-    self.identifier = identifier
     self.genericClause = genericClause
     self.parameters = parameters
-    self.output = output
-    self.impls = impls
+    self.receiver = receiver
+    self.body = body
   }
 
   /// Returns whether the declaration is public.

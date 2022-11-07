@@ -52,30 +52,32 @@ public struct NodeKind: Hashable, Codable {
      9 << 16 | typeDecl.rawValue)
   public static let importDecl = NodeKind(
     10 << 16 | typeDecl.rawValue)
-  public static let methodDecl = NodeKind(
+  public static let initializerDecl = NodeKind(
     11 << 16 | decl.rawValue | genericScope.rawValue)
+  public static let methodDecl = NodeKind(
+    12 << 16 | decl.rawValue | genericScope.rawValue)
   public static let methodImplDecl = NodeKind(
-    12 << 16 | decl.rawValue | lexicalScope.rawValue)
+    13 << 16 | decl.rawValue | lexicalScope.rawValue)
   public static let moduleDecl = NodeKind(
-    13 << 16 | typeDecl.rawValue | lexicalScope.rawValue)
-  public static let namespaceDecl = NodeKind(
     14 << 16 | typeDecl.rawValue | lexicalScope.rawValue)
+  public static let namespaceDecl = NodeKind(
+    15 << 16 | typeDecl.rawValue | lexicalScope.rawValue)
   public static let operatorDecl = NodeKind(
-    15 << 16 | decl.rawValue)
-  public static let parameterDecl = NodeKind(
     16 << 16 | decl.rawValue)
+  public static let parameterDecl = NodeKind(
+    17 << 16 | decl.rawValue)
   public static let productTypeDecl = NodeKind(
-    17 << 16 | typeDecl.rawValue | genericScope.rawValue)
+    18 << 16 | typeDecl.rawValue | genericScope.rawValue)
   public static let subscriptDecl = NodeKind(
-    18 << 16 | decl.rawValue | genericScope.rawValue)
+    19 << 16 | decl.rawValue | genericScope.rawValue)
   public static let subscriptImplDecl = NodeKind(
-    19 << 16 | decl.rawValue | lexicalScope.rawValue)
+    20 << 16 | decl.rawValue | lexicalScope.rawValue)
   public static let traitDecl = NodeKind(
-    20 << 16 | typeDecl.rawValue | genericScope.rawValue)
-  public static let typeAliasDecl = NodeKind(
     21 << 16 | typeDecl.rawValue | genericScope.rawValue)
+  public static let typeAliasDecl = NodeKind(
+    22 << 16 | typeDecl.rawValue | genericScope.rawValue)
   public static let varDecl = NodeKind(
-    22 << 16 | decl.rawValue)
+    23 << 16 | decl.rawValue)
 
   // MARK: Value expressions
 
@@ -231,6 +233,7 @@ extension NodeKind: CustomStringConvertible {
     case .genericTypeParamDecl      : return "GenericTypeParamDecl"
     case .genericValueParamDecl     : return "GenericValueParamDecl"
     case .importDecl                : return "ImportDecl"
+    case .initializerDecl           : return "InitializerDecl"
     case .methodDecl                : return "MethodDecl"
     case .methodImplDecl            : return "MethodImplDecl"
     case .moduleDecl                : return "ModuleDecl"

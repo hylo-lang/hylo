@@ -529,6 +529,18 @@ public enum Parser {
   ) -> NodeID<FunctionDecl> {
     // TODO: Check for illegal attributes.
 
+    if let capture = head.captures.first {
+      // Member functions cannot have captures.
+      if state.isParsingTypeBody {
+        state.diagnostics.append(.memberDeclHasCaptures(at: state.ast.ranges[capture]))
+      }
+
+      // Generic functions cannot have captures.
+      if head.genericClause != nil {
+        state.diagnostics.append(.genericDeclHasCaptures(at: state.ast.ranges[capture]))
+      }
+    }
+
     // Non-static member function declarations require an implicit receiver parameter.
     let receiver: NodeID<ParameterDecl>?
     if state.isParsingTypeBody && !prologue.isStatic {
@@ -541,7 +553,7 @@ public enum Parser {
     assert(prologue.accessModifiers.count <= 1)
     assert(prologue.memberModifiers.count <= 1)
     let decl = state.ast.insert(FunctionDecl(
-      introducer: head.identifier.introducer,
+      introducerRange: head.identifier.introducerRange,
       attributes: prologue.attributes,
       accessModifier: prologue.accessModifiers.first,
       memberModifier: prologue.memberModifiers.first,
@@ -568,7 +580,7 @@ public enum Parser {
   ) -> NodeID<MethodDecl> {
     // Method declarations can only appear at type scope.
     if !state.isParsingTypeBody {
-      state.diagnostics.append(.methodDeclAtNonTypeScope(at: head.identifier.introducer.range))
+      state.diagnostics.append(.methodDeclAtNonTypeScope(at: head.identifier.introducerRange))
     }
 
     // TODO: Check for illegal attributes.
@@ -588,14 +600,19 @@ public enum Parser {
       state.diagnostics.append(.memberDeclHasCaptures(at: state.ast.ranges[capture]))
     }
 
+    // Method declarations must have a name.
+    if head.identifier.stem == nil {
+      state.diagnostics.append(.methodDeclWithoutIdentifier(at: head.identifier.introducerRange))
+    }
+
     // Create a new `MethodDecl`.
     assert(prologue.accessModifiers.count <= 1)
     let decl = state.ast.insert(MethodDecl(
-      introducerRange: head.identifier.introducer.range,
+      introducerRange: head.identifier.introducerRange,
       attributes: prologue.attributes,
       accessModifier: prologue.accessModifiers.first,
       notation: head.identifier.notation,
-      identifier: head.identifier.stem,
+      identifier: head.identifier.stem!, // FIXME
       genericClause: head.genericClause,
       parameters: signature.parameters,
       output: signature.output,
@@ -640,13 +657,13 @@ public enum Parser {
     return decl
   }
 
-  /// Parses an instance of `FunctionDecl` representing an initializer declaration.
+  /// Parses an instance of `InitializerDecl`.
   ///
   /// - Requires: The next token must be of kind `.init`.
   static func parseInitDecl(
     withPrologue prologue: DeclPrologue,
     in state: inout ParserState
-  ) throws -> NodeID<FunctionDecl> {
+  ) throws -> NodeID<InitializerDecl> {
     precondition(state.peek()?.kind == .`init`)
 
     // Parse the parts of the declaration.
@@ -671,26 +688,27 @@ public enum Parser {
     // Init declarations require an implicit receiver parameter.
     let receiver = state.ast.insert(ParameterDecl(identifier: SourceRepresentable(value: "self")))
 
-    // Create a new `FunctionDecl`.
+    // Create a new `InitializerDecl`.
     assert(prologue.accessModifiers.count <= 1)
-    let decl = state.ast.insert(FunctionDecl(
+    let decl = state.ast.insert(InitializerDecl(
       introducer: head.introducer,
+      attributes: prologue.attributes,
       accessModifier: prologue.accessModifiers.first,
       genericClause: head.genericClause,
       parameters: signature,
       receiver: receiver,
-      body: .block(body)))
+      body: body))
     state.ast.ranges[decl] = state.range(from: prologue.startIndex)
     return decl
   }
 
-  /// Parses an instance of `FunctionDecl` representing a memberwise initializer declaration.
+  /// Parses an instance of `InitializerDecl`.
   ///
   /// - Requires: The next token must be of kind `.name` and have the value "memberwise".
   static func parseMemberwiseInitDecl(
     withPrologue prologue: DeclPrologue,
     in state: inout ParserState
-  ) throws -> NodeID<FunctionDecl> {
+  ) throws -> NodeID<InitializerDecl> {
     precondition(state.peek()?.kind == .name)
 
     // Parse the parts of the declaration.
@@ -713,12 +731,16 @@ public enum Parser {
     // Init declarations require an implicit receiver parameter.
     let receiver = state.ast.insert(ParameterDecl(identifier: SourceRepresentable(value: "self")))
 
-    // Create a new `FunctionDecl`.
+    // Create a new `InitializerDecl`.
     assert(prologue.accessModifiers.count <= 1)
-    let decl = state.ast.insert(FunctionDecl(
+    let decl = state.ast.insert(InitializerDecl(
       introducer: SourceRepresentable(value: .memberwiseInit, range: parts.0.range),
+      attributes: prologue.attributes,
       accessModifier: prologue.accessModifiers.first,
-      receiver: receiver))
+      genericClause: nil,
+      parameters: [],
+      receiver: receiver,
+      body: nil))
     state.ast.ranges[decl] = state.range(from: prologue.startIndex)
     return decl
   }
@@ -854,10 +876,15 @@ public enum Parser {
     precondition(state.peek()?.kind == .property)
 
     // Parse the parts of the declaration.
+    let isNonStaticMember = state.isParsingTypeBody && !prologue.isStatic
+    let body = Apply({ (state) in
+      try parseSubscriptDeclBody(in: &state, asNonStaticMember: isNonStaticMember)
+    })
+
     let ((head, output), impls) = try (
       propertyDeclHead
         .and(take(.colon).and(typeExpr).second)
-        .and(subscriptDeclBody)
+        .and(body)
     ).parse(&state)!
 
     // Property declarations can only appear at type scope.
@@ -886,7 +913,6 @@ public enum Parser {
     return decl
   }
 
-
   /// Parses an instance of `SubscriptDecl`.
   ///
   /// - Requires: The next token must be of kind `.subscript`.
@@ -897,11 +923,28 @@ public enum Parser {
     precondition(state.peek()?.kind == .subscript)
 
     // Parse the parts of the declaration.
+    let isNonStaticMember = state.isParsingTypeBody && !prologue.isStatic
+    let body = Apply({ (state) in
+      try parseSubscriptDeclBody(in: &state, asNonStaticMember: isNonStaticMember)
+    })
+
     let ((head, signature), impls) = try(
-      subscriptDeclHead.and(subscriptDeclSignature).and(subscriptDeclBody)
+      subscriptDeclHead.and(subscriptDeclSignature).and(body)
     ).parse(&state)!
 
     // TODO: Check for illegal attributes.
+
+    if let capture = head.captures.first {
+      // Member subscripts cannot have captures.
+      if state.isParsingTypeBody {
+        state.diagnostics.append(.memberDeclHasCaptures(at: state.ast.ranges[capture]))
+      }
+
+      // Generic subscripts cannot have captures.
+      if head.genericClause != nil {
+        state.diagnostics.append(.genericDeclHasCaptures(at: state.ast.ranges[capture]))
+      }
+    }
 
     // Create a new `SubscriptDecl`.
     assert(prologue.accessModifiers.count <= 1)
@@ -919,6 +962,87 @@ public enum Parser {
       output: signature.output,
       impls: impls))
     state.ast.ranges[decl] = state.range(from: prologue.startIndex)
+    return decl
+  }
+
+  static func parseSubscriptDeclBody(
+    in state: inout ParserState,
+    asNonStaticMember isNonStaticMember: Bool
+  ) throws -> [NodeID<SubscriptImplDecl>]? {
+    // Push the context.
+    state.contexts.append(.subscriptBody)
+    defer { state.contexts.removeLast() }
+
+    // Attempt to parse a subscript implementation body and fall back to a bundle.
+    let backup = state.backup()
+    do {
+      if let body = try subscriptImplDeclBody.parse(&state) {
+        let impl = buildSubscriptImplDecl(
+          in: &state,
+          withIntroducer: SourceRepresentable(value: .let),
+          body: body,
+          asNonStaticMember: isNonStaticMember)
+        return [impl]
+      }
+    } catch {
+      state.restore(from: backup)
+    }
+
+    // Parse the left delimiter.
+    if state.take(.lBrace) == nil { return nil }
+
+    // Parse the subscript implementations.
+    var impls: [NodeID<SubscriptImplDecl>] = []
+    while true {
+      // Exit if we found the right delimiter.
+      if state.take(.rBrace) != nil { return impls }
+
+      // Parse an implementation.
+      if let (introducer, body) = try subscriptImplDecl.parse(&state) {
+        let impl = buildSubscriptImplDecl(
+          in: &state,
+          withIntroducer: introducer,
+          body: body,
+          asNonStaticMember: isNonStaticMember)
+        impls.append(impl)
+      } else{
+        state.diagnostics.append(.expected(kind: .rBrace, at: state.currentLocation))
+        return impls
+      }
+    }
+  }
+
+  private static func buildSubscriptImplDecl(
+    in state: inout ParserState,
+    withIntroducer introducer: SourceRepresentable<ImplIntroducer>,
+    body: SubscriptImplDecl.Body?,
+    asNonStaticMember isNonStaticMember: Bool
+  ) -> NodeID<SubscriptImplDecl> {
+    // Non-static member subscript declarations require an implicit receiver parameter.
+    let receiver: NodeID<ParameterDecl>?
+    if isNonStaticMember {
+      receiver = state.ast.insert(ParameterDecl(identifier: SourceRepresentable(value: "self")))
+    } else {
+      receiver = nil
+    }
+
+    // Create a new `SubscriptImplDecl`.
+    let decl = state.ast.insert(SubscriptImplDecl(
+      introducer: introducer,
+      receiver: receiver,
+      body: body))
+
+    if let startIndex = introducer.range?.lowerBound {
+      state.ast.ranges[decl] = state.range(from: startIndex)
+    } else {
+      switch body! {
+      case .expr(let id):
+        state.ast.ranges[decl] = state.ast.ranges[id]
+      case .block(let id):
+        state.ast.ranges[decl] = state.ast.ranges[id]
+      }
+    }
+
     return decl
   }
 
@@ -1099,17 +1223,22 @@ public enum Parser {
   private static func findOrSynthesizeMemberwiseInitDecl(
     in members: inout [AnyDeclID],
     updating state: inout ParserState
-  ) -> NodeID<FunctionDecl> {
-    for member in members where member.kind == .functionDecl {
-      let m = NodeID<FunctionDecl>(rawValue: member.rawValue)
+  ) -> NodeID<InitializerDecl> {
+    for member in members where member.kind == .initializerDecl {
+      let m = NodeID<InitializerDecl>(rawValue: member.rawValue)
       if state.ast[m].introducer.value == .memberwiseInit { return m }
     }
 
     let receiver = state.ast.insert(ParameterDecl(
       identifier: SourceRepresentable(value: "self")))
-    let m = state.ast.insert(FunctionDecl(
+    let m = state.ast.insert(InitializerDecl(
       introducer: SourceRepresentable(value: .memberwiseInit),
-      receiver: receiver))
+      attributes: [],
+      accessModifier: nil,
+      genericClause: nil,
+      parameters: [],
+      receiver: receiver,
+      body: nil))
     members.append(AnyDeclID(m))
     return m
   }
@@ -1196,7 +1325,7 @@ public enum Parser {
     take(.fun).and(take(.name))
       .map({ (state, tree) -> FunctionDeclIdentifier in
         FunctionDeclIdentifier(
-          introducer: SourceRepresentable(value: .`fun`, range: tree.0.range),
+          introducerRange: tree.0.range,
           stem: SourceRepresentable(token: tree.1, in: state.lexer.source),
           notation: nil
         )
@@ -1207,7 +1336,7 @@ public enum Parser {
     operatorNotation.and(take(.fun)).and(operator_)
       .map({ (state, tree) -> FunctionDeclIdentifier in
         FunctionDeclIdentifier(
-          introducer: SourceRepresentable(value: .`fun`, range: tree.0.1.range),
+          introducerRange: tree.0.1.range,
           stem: tree.1,
           notation: tree.0.0
         )
@@ -1347,67 +1476,11 @@ public enum Parser {
       })
   )
 
-  static let subscriptDeclBody = inContext(.subscriptBody, apply: TryCatch(
-    trying: subscriptBundleBody,
-    orCatchingAndApplying: TryCatch(
-      trying: take(.lBrace).and(expr).and(take(.rBrace))
-        .map({ (state, tree) -> [NodeID<SubscriptImplDecl>] in
-          let receiver = state.ast.insert(ParameterDecl(
-            identifier: SourceRepresentable(value: "self")))
-          let id = state.ast.insert(SubscriptImplDecl(
-            introducer: SourceRepresentable(value: .let),
-            receiver: receiver,
-            body: .expr(tree.0.1)))
-          return [id]
-        }),
-      orCatchingAndApplying: braceStmt
-        .map({ (state, brace) -> [NodeID<SubscriptImplDecl>] in
-          if state.ast[brace].stmts.isEmpty {
-            throw ParseError(
-              "expected subscript implementation",
-              at: state.ast.ranges[brace]!.last()!)
-          }
-          let receiver = state.ast.insert(ParameterDecl(
-            identifier: SourceRepresentable(value: "self")))
-          let id = state.ast.insert(SubscriptImplDecl(
-            introducer: SourceRepresentable(value: .let),
-            receiver: receiver,
-            body: .block(brace)))
-          return [id]
-        })
-    )
-  ))
-
-  static let subscriptBundleBody = (
-    take(.lBrace).and(subscriptImpl+).and(take(.rBrace))
-      .map({ (state, tree) -> [NodeID<SubscriptImplDecl>] in
-        var introducers: Set<ImplIntroducer> = []
-        for implID in tree.0.1 {
-          let introducer = state.ast[implID].introducer
-          if !introducers.insert(introducer.value).inserted {
-            state.diagnostics.append(.duplicateSubscriptIntroducer(at: introducer.range))
-          }
-        }
-
-        return tree.0.1
-      })
+  static let subscriptImplDecl = (
+    subscriptIntroducer.and(maybe(subscriptImplDeclBody))
   )
 
-  static let subscriptImpl = (
-    subscriptIntroducer.and(maybe(subscriptImplBody))
-      .map({ (state, tree) -> NodeID<SubscriptImplDecl> in
-        let receiver = state.ast.insert(ParameterDecl(
-          identifier: SourceRepresentable(value: "self")))
-        let id = state.ast.insert(SubscriptImplDecl(
-          introducer: tree.0,
-          receiver: receiver,
-          body: tree.1))
-        state.ast.ranges[id] = tree.0.range!.upperBounded(by: state.currentIndex)
-        return id
-      })
-  )
-
-  static let subscriptImplBody = TryCatch(
+  static let subscriptImplDeclBody = TryCatch(
     trying: take(.lBrace).and(expr).and(take(.rBrace))
       .map({ (state, tree) -> SubscriptImplDecl.Body in .expr(tree.0.1) }),
     orCatchingAndApplying: braceStmt
@@ -1719,7 +1792,7 @@ public enum Parser {
     asyncExprHead.and(take(.arrow)).and(typeExpr).and(asyncExprBody)
       .map({ (state, tree) -> NodeID<AsyncExpr> in
         let decl = state.ast.insert(FunctionDecl(
-          introducer: SourceRepresentable(value: .fun, range: tree.0.0.0.0.0.range),
+          introducerRange: tree.0.0.0.0.0.range,
           receiverEffect: tree.0.0.0.1,
           output: tree.0.1,
           body: .block(tree.1),
@@ -1738,7 +1811,7 @@ public enum Parser {
     asyncExprHead.and(expr)
       .map({ (state, tree) -> NodeID<AsyncExpr> in
         let decl = state.ast.insert(FunctionDecl(
-          introducer: SourceRepresentable(value: .fun, range: tree.0.0.0.range),
+          introducerRange: tree.0.0.0.range,
           receiverEffect: tree.0.1,
           explicitCaptures: tree.0.0.1 ?? [],
           body: .expr(tree.1),
@@ -2081,7 +2154,7 @@ public enum Parser {
         let signature = tree.0.1
 
         let decl = state.ast.insert(FunctionDecl(
-          introducer: SourceRepresentable(value: .fun, range: tree.0.0.0.range),
+          introducerRange: tree.0.0.0.range,
           receiverEffect: signature.receiverEffect,
           explicitCaptures: tree.0.0.1 ?? [],
           parameters: signature.parameters,
@@ -3240,8 +3313,8 @@ struct DeclPrologue {
 /// The parsed identifier of a function declaration.
 struct FunctionDeclIdentifier {
 
-  /// The introducer of the declaration.
-  let introducer: SourceRepresentable<FunctionDecl.Introducer>
+  /// The source range of the `fun` introducer.
+  let introducerRange: SourceRange
 
   /// The stem of the declared identifier, if any.
   let stem: SourceRepresentable<String>?
@@ -3292,7 +3365,7 @@ enum FunctionOrMethodDeclBody {
 struct InitDeclHead {
 
   /// The introducer of the declaration.
-  let introducer: SourceRepresentable<FunctionDecl.Introducer>
+  let introducer: SourceRepresentable<InitializerDecl.Introducer>
 
   /// The generic clause of the declaration, if any.
   let genericClause: SourceRepresentable<GenericClause>?
@@ -3523,6 +3596,10 @@ fileprivate extension Diagnostic {
 
   static func methodDeclAtNonTypeScope(at range: SourceRange?) -> Diagnostic {
     .error("method bundle declarations are only allowed at type scope", range: range)
+  }
+
+  static func methodDeclWithoutIdentifier(at range: SourceRange?) -> Diagnostic {
+    .error("method bundle declarations must have a name", range: range)
   }
 
   static func propertyDeclAtNonTypeScope(at range: SourceRange?) -> Diagnostic {

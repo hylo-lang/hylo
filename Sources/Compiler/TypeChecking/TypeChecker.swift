@@ -22,7 +22,7 @@ public struct TypeChecker {
   public var isBuiltinModuleVisible: Bool
 
   /// The set of lambda expressions whose declarations are pending type checking.
-  var pendingLambdas: [NodeID<LambdaExpr>] = []
+  public private(set) var pendingLambdas: [NodeID<LambdaExpr>] = []
 
   /// Creates a new type checker for the specified program.
   ///
@@ -222,6 +222,11 @@ public struct TypeChecker {
   /// The bindings whose initializers are being currently visited.
   private var bindingsUnderChecking: DeclSet = []
 
+  /// Inserts `expr` in the set of pending lambdas.
+  mutating func deferTypeChecking(_ expr: NodeID<LambdaExpr>) {
+    pendingLambdas.append(expr)
+  }
+
   /// Processed all pending type checking requests and returns whether that succeeded.
   mutating func checkPending() -> Bool {
     var success = true
@@ -277,6 +282,8 @@ public struct TypeChecker {
       return check(conformance: NodeID(rawValue: id.rawValue))
     case .functionDecl:
       return check(function: NodeID(rawValue: id.rawValue))
+    case .initializerDecl:
+      return check(initializer: NodeID(rawValue: id.rawValue))
     case .methodDecl:
       return check(method: NodeID(rawValue: id.rawValue))
     case .methodImplDecl:
@@ -410,12 +417,7 @@ public struct TypeChecker {
   }
 
   private mutating func _check(function id: NodeID<FunctionDecl>) -> Bool {
-    // Memberwize initializers always type check.
-    if program.ast[id].introducer.value == .memberwiseInit {
-      return true
-    }
-
-    // Type check the generic constraints of the declaration.
+    // Type check the generic constraints.
     var success = environment(ofGenericDecl: id) != nil
 
     // Type check the parameters.
@@ -429,10 +431,7 @@ public struct TypeChecker {
       let functionType = LambdaType(declTypes[id]!)!
       let receiverDecl = program.ast[id].implicitReceiverDecl!
 
-      if program.ast[id].introducer.value == .`init` {
-        // The receiver of an initializer is its first parameter.
-        declTypes[receiverDecl] = functionType.inputs[0].type
-      } else if case .remote(let type) = functionType.captures.first?.type {
+      if case .remote(let type) = functionType.captures.first?.type {
         // `let` and `inout` methods capture a projection of their receiver.
         let convention: PassingConvention
         switch type.capability {
@@ -456,33 +455,28 @@ public struct TypeChecker {
       declRequests[receiverDecl] = .success
     }
 
-    // Type check the body of the function, if any.
+    // Type check the body, if any.
     switch program.ast[id].body {
     case .block(let stmt):
-      success = check(brace: stmt) && success
+      return check(brace: stmt) && success
 
     case .expr(let expr):
       // If `expr` has been used to infer the return type, there's no need to visit it again.
-      if (program.ast[id].output == nil) && program.ast[id].isInExprContext { break }
+      if (program.ast[id].output == nil) && program.ast[id].isInExprContext { return success }
 
       // Otherwise, it's expected to have the realized return type.
       guard case .lambda(let type) = declTypes[id]! else { unreachable() }
       let inferredType = infer(expr: expr, expectedType: type.output.skolemized, inScope: id)
-      success = (inferredType != nil) && success
+      return (inferredType != nil) && success
 
     case nil:
-      // Declaration without a body must be a requirement or a foreign interface.
-      if (
-        program.declToScope[id]?.kind == .traitDecl
-        || program.ast[id].attributes.contains(where: { $0.value.name.value == "@_lowered_name" })
-      ) { return success }
+      // Requirements and FFIs can be without a body.
+      if program.isRequirement(id) || program.ast[id].isFFI { return success }
 
-      // Function without a body must be a requirement.
-      diagnostics.insert(.declarationRequiresBody(at: program.ast[id].introducer.range))
+      // Declaration requires a body.
+      diagnostics.insert(.declarationRequiresBody(at: program.ast[id].introducerRange))
       return false
     }
-
-    return success
   }
 
   private mutating func check(genericTypeParam: GenericTypeParamDecl) -> Bool {
@@ -491,6 +485,44 @@ public struct TypeChecker {
 
   private mutating func check(genericValueParam: GenericValueParamDecl) -> Bool {
     fatalError("not implemented")
+  }
+
+  private mutating func check(initializer id: NodeID<InitializerDecl>) -> Bool {
+    _check(decl: id, { (this, id) in this._check(initializer: id) })
+  }
+
+  private mutating func _check(initializer id: NodeID<InitializerDecl>) -> Bool {
+    // Memberwize initializers always type check.
+    if program.ast[id].introducer.value == .memberwiseInit {
+      return true
+    }
+
+    // The type of the declaration must have been realized.
+    guard case .lambda(let type) = declTypes[id]! else { unreachable() }
+
+    // Type check the generic constraints.
+    var success = environment(ofGenericDecl: id) != nil
+
+    // Type check the parameters.
+    var parameterNames: Set<String> = []
+    for parameter in program.ast[id].parameters {
+      success = check(parameter: parameter, siblingNames: &parameterNames) && success
+    }
+
+    // Set the type of the implicit receiver declaration.
+    // Note: the receiver of an initializer is its first parameter.
+    declTypes[program.ast[id].receiver] = type.inputs[0].type
+    declRequests[program.ast[id].receiver] = .success
+
+    // Type check the body, if any.
+    if let body = program.ast[id].body {
+      return check(brace: body) && success
+    } else if program.isRequirement(id) {
+      return success
+    } else {
+      diagnostics.insert(.declarationRequiresBody(at: program.ast[id].introducer.range))
+      return false
+    }
   }
 
   private mutating func check(method id: NodeID<MethodDecl>) -> Bool {
@@ -502,7 +534,7 @@ public struct TypeChecker {
     guard case .method(let type) = declTypes[id]! else { unreachable() }
     let outputType = type.output.skolemized
 
-    // Type check the generic constraints of the declaration.
+    // Type check the generic constraints.
     var success = environment(ofGenericDecl: id) != nil
 
     // Type check the parameters.
@@ -531,8 +563,12 @@ public struct TypeChecker {
         success = check(brace: stmt) && success
 
       case nil:
-        // Function without a body must be a requirement.
-        assert(program.declToScope[id]?.kind == .traitDecl, "unexpected method requirement")
+        // Requirements can be without a body.
+        if program.isRequirement(id) { continue }
+
+        // Declaration requires a body.
+        diagnostics.insert(.declarationRequiresBody(at: program.ast[id].introducerRange))
+        success = false
       }
     }
 
@@ -618,10 +654,10 @@ public struct TypeChecker {
   }
 
   private mutating func _check(productType id: NodeID<ProductTypeDecl>) -> Bool {
-    // Synthesize the memberwise initializer if necessary.
-    var success = check(function: program.ast[id].memberwiseInit)
+    // Type check the memberwise initializer.
+    var success = check(initializer: program.ast[id].memberwiseInit)
 
-    // Type check the generic constraints of the declaration.
+    // Type check the generic constraints.
     success = (environment(ofGenericDecl: id) != nil) && success
 
     // Type check the type's direct members.
@@ -663,7 +699,7 @@ public struct TypeChecker {
     guard case .subscript(let declType) = declTypes[id]! else { unreachable() }
     let outputType = declType.output.skolemized
 
-    // Type check the generic constraints of the declaration.
+    // Type check the generic constraints.
     var success = environment(ofGenericDecl: id) != nil
 
     // Type check the parameters, if any.
@@ -678,11 +714,13 @@ public struct TypeChecker {
     for impl in program.ast[id].impls {
       // Set the type of the implicit receiver declaration if necessary.
       if program.isNonStaticMember(id) {
-        guard case .remote(let type) = declType.captures.first!.type else { unreachable() }
-        declTypes[program.ast[impl].receiver] = .parameter(ParameterType(
+        guard case .remote(let receiverType) = declType.captures.first!.type else { unreachable() }
+        let receiverDecl = program.ast[impl].receiver!
+
+        declTypes[receiverDecl] = .parameter(ParameterType(
           convention: program.ast[impl].introducer.value.convention,
-          bareType: type.base))
-        declRequests[program.ast[impl].receiver] = .success
+          bareType: receiverType.base))
+        declRequests[receiverDecl] = .success
       }
 
       // Type checks the body of the implementation.
@@ -694,10 +732,12 @@ public struct TypeChecker {
         success = check(brace: stmt) && success
 
       case nil:
-        // Subscript implementation without a body must be a requirement.
-        assert(
-          program.declToScope[id]?.kind == .traitDecl,
-          "unexpected subscript requirement")
+        // Requirements can be without a body.
+        if program.isRequirement(id) { continue }
+
+        // Declaration requires a body.
+        diagnostics.insert(.declarationRequiresBody(at: program.ast[id].introducer.range))
+        success = false
       }
     }
 
@@ -713,7 +753,7 @@ public struct TypeChecker {
   }
 
   private mutating func _check(trait id: NodeID<TraitDecl>) -> Bool {
-    // Type check the generic constraints of the declaration.
+    // Type check the generic constraints.
     var success = environment(ofTraitDecl: id) != nil
 
     // Type check the type's direct members.
@@ -737,7 +777,7 @@ public struct TypeChecker {
   }
 
   private mutating func _check(typeAlias id: NodeID<TypeAliasDecl>) -> Bool {
-    // Realize the subject of the declaration.
+    // Realize the subject.
     let subject: Type
     switch program.ast[id].body {
     case .typeExpr(let j):
@@ -751,7 +791,7 @@ public struct TypeChecker {
       fatalError("not implemented")
     }
 
-    // Type-check the generic clause of the declaration.
+    // Type-check the generic clause.
     var success = environment(ofGenericDecl: id) != nil
 
     // Type check extending declarations.
@@ -1907,7 +1947,7 @@ public struct TypeChecker {
            .typeAliasDecl,
            .varDecl:
         let name = (program.ast[id] as! SingleEntityDecl).name
-        table[name, default: []].insert(AnyDeclID(id))
+        table[name, default: []].insert(id)
 
       case .bindingDecl,
            .conformanceDecl,
@@ -1919,29 +1959,20 @@ public struct TypeChecker {
 
       case .functionDecl:
         let node = program.ast[NodeID<FunctionDecl>(rawValue: id.rawValue)]
-        switch node.introducer.value {
-        case .memberwiseInit,
-             .`init` where node.body != nil:
-          table["init", default: []].insert(AnyDeclID(id))
+        guard let name = node.identifier?.value else { continue }
+        table[name, default: []].insert(id)
 
-        case .deinit:
-          assert(node.body != nil)
-          table["deinit", default: []].insert(AnyDeclID(id))
-
-        default:
-          guard let name = node.identifier?.value else { continue }
-          table[name, default: []].insert(AnyDeclID(id))
-        }
+      case .initializerDecl:
+        table["init", default: []].insert(id)
 
       case .methodDecl:
         let node = program.ast[NodeID<MethodDecl>(rawValue: id.rawValue)]
-        guard let name = node.identifier?.value else { continue }
-        table[name, default: []].insert(AnyDeclID(id))
+        table[node.identifier.value, default: []].insert(id)
 
       case .subscriptDecl:
         let node = program.ast[NodeID<SubscriptDecl>(rawValue: id.rawValue)]
         let name = node.identifier?.value ?? "[]"
-        table[name, default: []].insert(AnyDeclID(id))
+        table[name, default: []].insert(id)
 
       default:
         unreachable("unexpected declaration")
@@ -2327,6 +2358,9 @@ public struct TypeChecker {
     case .functionDecl:
       return realize(functionDecl: NodeID(rawValue: id.rawValue))
 
+    case .initializerDecl:
+      return realize(initializerDecl: NodeID(rawValue: id.rawValue))
+
     case .methodDecl:
       return realize(methodDecl: NodeID(rawValue: id.rawValue))
 
@@ -2376,166 +2410,6 @@ public struct TypeChecker {
   }
 
   private mutating func _realize(functionDecl id: NodeID<FunctionDecl>) -> Type {
-    guard let parentScope = program.declToScope[id] else { unreachable() }
-
-    // Handle memberwise initializers.
-    if program.ast[id].introducer.value == .memberwiseInit {
-      guard let productTypeDecl = NodeID<ProductTypeDecl>(parentScope) else {
-        diagnostics.insert(.illegalMemberwiseInit(at: program.ast[id].introducer.range))
-        return .error(ErrorType())
-      }
-
-      if let lambda = memberwiseInitType(of: productTypeDecl) {
-        return .lambda(lambda)
-      } else {
-        return .error(ErrorType())
-      }
-    }
-
-    let declScope = AnyScopeID(id)
-
-    // Realize the input types.
-    var inputs: [CallableTypeParameter] = []
-    var success = true
-
-    for i in program.ast[id].parameters {
-      declRequests[i] = .typeCheckingStarted
-
-      if let annotation = program.ast[i].annotation {
-        if let type = realize(parameter: annotation, inScope: declScope) {
-          // The annotation may not omit generic arguments.
-          if type[.hasVariable] {
-            diagnostics.insert(.notEnoughContextToInferArguments(
-              at: program.ast.ranges[annotation]))
-            success = false
-          }
-
-          declTypes[i] = type
-          declRequests[i] = .typeRealizationCompleted
-          inputs.append(CallableTypeParameter(label: program.ast[i].label?.value, type: type))
-        } else {
-          declTypes[i] = .error(ErrorType())
-          declRequests[i] = .failure
-          success = false
-        }
-      } else if program.ast[id].isInExprContext {
-        let parameterType = Type.variable(TypeVariable(node: AnyNodeID(i)))
-        declTypes[i] = parameterType
-        declRequests[i] = .typeRealizationCompleted
-        inputs.append(CallableTypeParameter(
-          label: program.ast[i].label?.value,
-          type: parameterType))
-      } else {
-        declTypes[i] = .error(ErrorType())
-        declRequests[i] = .failure
-        diagnostics.insert(.missingTypeAnnotation(at: program.ast.ranges[i]))
-        success = false
-      }
-    }
-
-    // Bail out if the parameters could not be realized.
-    if !success { return .error(ErrorType()) }
-
-    // Collect captures.
-    guard let (captures, implicitParameterDecls) = realizeCaptures(
-      explicitIn: program.ast[id].explicitCaptures,
-      andImplicitInBodyOf: id)
-    else { return .error(ErrorType()) }
-
-    if !captures.isEmpty {
-      // Member declarations shall not have captures.
-      if program.isMember(id) {
-        diagnostics.insert(.memberDeclHasCaptures(at: program.ast[id].introducer.range))
-        return .error(ErrorType())
-      }
-
-      // Generic declarations shall not have captures.
-      if program.ast[id].genericClause != nil {
-        diagnostics.insert(.genericDeclHasCaptures(at: program.ast[id].introducer.range))
-        return .error(ErrorType())
-      }
-
-      program.incorporate(implicitParameterDecls: implicitParameterDecls, into: id)
-    }
-
-    // Realize the function's receiver if necessary.
-    let isNonStaticMember = program.isNonStaticMember(id)
-    var receiver: Type? = isNonStaticMember
-      ? realizeSelfTypeExpr(inScope: program.declToScope[id]!)
-      : nil
-
-    // Handle initializers and deinitializers.
-    switch program.ast[id].introducer.value {
-    case .memberwiseInit:
-      unreachable()
-
-    case .`init`:
-      // Initializers are global functions.
-      let receiverParameter = CallableTypeParameter(
-        label: "self",
-        type: .parameter(ParameterType(convention: .set, bareType: receiver!)))
-      inputs.insert(receiverParameter, at: 0)
-      return .lambda(LambdaType(environment: .void, inputs: inputs, output: .void))
-
-    case .deinit:
-      // Deinitializers are sink methods.
-      return .lambda(LambdaType(
-        receiverEffect: .sink,
-        environment: .tuple(TupleType(labelsAndTypes: [("self", receiver!)])),
-        inputs: [],
-        output: .void))
-
-    case .fun:
-      // Realize the output type.
-      let output: Type
-      if let o = program.ast[id].output {
-        // Use explicit return annotations.
-        guard let type = realize(o, inScope: declScope) else { return .error(ErrorType()) }
-        output = type
-      } else if program.ast[id].isInExprContext {
-        // Return types may be inferred in expression contexts.
-        output = .variable(TypeVariable())
-      } else {
-        // Default to `Void`.
-        output = .void
-      }
-
-      if isNonStaticMember {
-        // Create a lambda bound to a receiver.
-        let effect: ReceiverEffect?
-        if program.ast[id].isInout {
-          receiver = .tuple(TupleType(labelsAndTypes: [
-            ("self", .remote(RemoteType(.inout, receiver!)))
-          ]))
-          effect = .inout
-        } else if program.ast[id].isSink  {
-          receiver = .tuple(TupleType(labelsAndTypes: [("self", receiver!)]))
-          effect = .sink
-        } else {
-          receiver = .tuple(TupleType(labelsAndTypes: [
-            ("self", .remote(RemoteType(.let, receiver!)))
-          ]))
-          effect = nil
-        }
-
-        return .lambda(LambdaType(
-          receiverEffect: effect, environment: receiver!, inputs: inputs, output: output))
-      } else {
-        // Create a regular lambda.
-        let environment = Type.tuple(TupleType(types: captures))
-
-        // TODO: Determine if the lambda is mutating.
-
-        return .lambda(LambdaType(environment: environment, inputs: inputs, output: output))
-      }
-    }
-  }
-
-  private mutating func realize(methodDecl id: NodeID<MethodDecl>) -> Type {
-    _realize(decl: id, { (this, id) in this._realize(methodDecl: id) })
-  }
-
-  private mutating func _realize(methodDecl id: NodeID<MethodDecl>) -> Type {
     var success = true
 
     // Realize the input types.
@@ -2561,9 +2435,192 @@ public struct TypeChecker {
           success = false
         }
       } else {
+        // Note: parameter type annotations may be elided if the declaration represents a lambda
+        // expression. In that case, the unannotated parameters are associated with a fresh type
+        // so inference can proceed. The actual type of the parameter will be reified during type
+        // checking, when `checkPending` is called.
+        if program.ast[id].isInExprContext {
+          let parameterType = Type.variable(TypeVariable(node: AnyNodeID(i)))
+          declTypes[i] = parameterType
+          declRequests[i] = .typeRealizationCompleted
+          inputs.append(CallableTypeParameter(
+            label: program.ast[i].label?.value,
+            type: parameterType))
+        } else {
+          declTypes[i] = .error(ErrorType())
+          declRequests[i] = .failure
+          diagnostics.insert(.missingTypeAnnotation(at: program.ast.ranges[i]))
+          success = false
+        }
+      }
+    }
+
+    // Bail out if the parameters could not be realized.
+    if !success { return .error(ErrorType()) }
+
+    // Collect captures.
+    guard let (captures, implicitParameterDecls) = realizeCaptures(
+      explicitIn: program.ast[id].explicitCaptures,
+      andImplicitInBodyOf: id)
+    else { return .error(ErrorType()) }
+
+    // FIXME: Remove this
+    if !captures.isEmpty {
+      program.incorporate(implicitParameterDecls: implicitParameterDecls, into: id)
+    }
+
+    // Realize the function's receiver if necessary.
+    let isNonStaticMember = program.isNonStaticMember(id)
+    var receiver: Type? = isNonStaticMember
+      ? realizeSelfTypeExpr(inScope: program.declToScope[id]!)
+      : nil
+
+    // Realize the output type.
+    let outputType: Type
+    if let o = program.ast[id].output {
+      // Use the explicit return annotation.
+      guard let type = realize(o, inScope: AnyScopeID(id)) else { return .error(ErrorType()) }
+      outputType = type
+    } else if program.ast[id].isInExprContext {
+      // Infer the return type from the body in expression contexts.
+      outputType = .variable(TypeVariable())
+    } else {
+      // Default to `Void`.
+      outputType = .void
+    }
+
+    if isNonStaticMember {
+      // Create a lambda bound to a receiver.
+      let effect: ReceiverEffect?
+      if program.ast[id].isInout {
+        receiver = .tuple(TupleType(labelsAndTypes: [
+          ("self", .remote(RemoteType(.inout, receiver!)))
+        ]))
+        effect = .inout
+      } else if program.ast[id].isSink  {
+        receiver = .tuple(TupleType(labelsAndTypes: [
+          ("self", receiver!)
+        ]))
+        effect = .sink
+      } else {
+        receiver = .tuple(TupleType(labelsAndTypes: [
+          ("self", .remote(RemoteType(.let, receiver!)))
+        ]))
+        effect = nil
+      }
+
+      return .lambda(LambdaType(
+        receiverEffect: effect,
+        environment: receiver!,
+        inputs: inputs,
+        output: outputType))
+    } else {
+      // Create a regular lambda.
+      let environment = Type.tuple(TupleType(types: captures))
+
+      // TODO: Determine if the lambda is mutating.
+
+      return .lambda(LambdaType(
+        environment: environment,
+        inputs: inputs,
+        output: outputType))
+    }
+  }
+
+  private mutating func realize(initializerDecl id: NodeID<InitializerDecl>) -> Type {
+    _realize(decl: id, { (this, id) in this._realize(initializerDecl: id) })
+  }
+
+  private mutating func _realize(initializerDecl id: NodeID<InitializerDecl>) -> Type {
+    // Handle memberwise initializers.
+    if program.ast[id].introducer.value == .memberwiseInit {
+      let productTypeDecl = NodeID<ProductTypeDecl>(program.declToScope[id]!)!
+      if let lambda = memberwiseInitType(of: productTypeDecl) {
+        return .lambda(lambda)
+      } else {
+        return .error(ErrorType())
+      }
+    }
+
+    var success = true
+
+    // Realize the input types.
+    var inputs: [CallableTypeParameter] = []
+    for i in program.ast[id].parameters {
+      declRequests[i] = .typeCheckingStarted
+
+      // Parameters of initializers must have a type annotation.
+      guard let annotation = program.ast[i].annotation else {
         declTypes[i] = .error(ErrorType())
         declRequests[i] = .failure
         diagnostics.insert(.missingTypeAnnotation(at: program.ast.ranges[i]))
+        success = false
+        continue
+      }
+
+      if let type = realize(parameter: annotation, inScope: AnyScopeID(id)) {
+        // The annotation may not omit generic arguments.
+        if type[.hasVariable] {
+          diagnostics.insert(.notEnoughContextToInferArguments(at: program.ast.ranges[annotation]))
+          success = false
+        }
+
+        declTypes[i] = type
+        declRequests[i] = .typeRealizationCompleted
+        inputs.append(CallableTypeParameter(label: program.ast[i].label?.value, type: type))
+      } else {
+        declTypes[i] = .error(ErrorType())
+        declRequests[i] = .failure
+        success = false
+      }
+    }
+
+    // Bail out if the parameters could not be realized.
+    if !success { return .error(ErrorType()) }
+
+    // Initializers are global functions.
+    let receiverType = realizeSelfTypeExpr(inScope: program.declToScope[id]!)
+    let receiverParameterType = CallableTypeParameter(
+      label: "self",
+      type: .parameter(ParameterType(convention: .set, bareType: receiverType!)))
+    inputs.insert(receiverParameterType, at: 0)
+    return .lambda(LambdaType(environment: .void, inputs: inputs, output: .void))
+  }
+
+  private mutating func realize(methodDecl id: NodeID<MethodDecl>) -> Type {
+    _realize(decl: id, { (this, id) in this._realize(methodDecl: id) })
+  }
+
+  private mutating func _realize(methodDecl id: NodeID<MethodDecl>) -> Type {
+    var success = true
+
+    // Realize the input types.
+    var inputs: [CallableTypeParameter] = []
+    for i in program.ast[id].parameters {
+      declRequests[i] = .typeCheckingStarted
+
+      // Parameters of methods must have a type annotation.
+      guard let annotation = program.ast[i].annotation else {
+        declTypes[i] = .error(ErrorType())
+        declRequests[i] = .failure
+        diagnostics.insert(.missingTypeAnnotation(at: program.ast.ranges[i]))
+        success = false
+        continue
+      }
+
+      if let type = realize(parameter: annotation, inScope: AnyScopeID(id)) {
+        // The annotation may not omit generic arguments.
+        if type[.hasVariable] {
+          diagnostics.insert(.notEnoughContextToInferArguments(at: program.ast.ranges[annotation]))
+          success = false
+        }
+
+        declTypes[i] = type
+        declRequests[i] = .typeRealizationCompleted
+        inputs.append(CallableTypeParameter(label: program.ast[i].label?.value, type: type))
+      } else {
+        declTypes[i] = .error(ErrorType())
+        declRequests[i] = .failure
         success = false
       }
     }
@@ -2576,13 +2633,10 @@ public struct TypeChecker {
 
     // Realize the output type.
     let outputType: Type
-    if let output = program.ast[id].output {
-      // Use explicit return annotations.
-      if let type = realize(output, inScope: AnyScopeID(id)) {
-        outputType = type
-      } else {
-        return .error(ErrorType())
-      }
+    if let o = program.ast[id].output {
+      // Use the explicit return annotation.
+      guard let type = realize(o, inScope: AnyScopeID(id)) else { return .error(ErrorType()) }
+      outputType = type
     } else {
       // Default to `Void`.
       outputType = .void
@@ -2627,32 +2681,36 @@ public struct TypeChecker {
   }
 
   private mutating func _realize(subscriptDecl id: NodeID<SubscriptDecl>) -> Type {
-    // Realize the input types.
-    var inputs: [CallableTypeParameter] = []
     var success = true
 
-    if let parameters = program.ast[id].parameters {
-      for i in parameters {
-        declRequests[i] = .typeCheckingStarted
+    // Realize the input types.
+    var inputs: [CallableTypeParameter] = []
+    for i in program.ast[id].parameters ?? [] {
+      declRequests[i] = .typeCheckingStarted
 
-        // Note: subscript parameters must have a type annotation.
-        let annotation = program.ast[i].annotation!
-        if let type = realize(parameter: annotation, inScope: AnyScopeID(id)) {
-          // The annotation may not omit generic arguments.
-          if type[.hasVariable] {
-            diagnostics.insert(.notEnoughContextToInferArguments(
-              at: program.ast.ranges[annotation]))
-            success = false
-          }
+      // Parameters of subscripts must have a type annotation.
+      guard let annotation = program.ast[i].annotation else {
+        declTypes[i] = .error(ErrorType())
+        declRequests[i] = .failure
+        diagnostics.insert(.missingTypeAnnotation(at: program.ast.ranges[i]))
+        success = false
+        continue
+      }
 
-          declTypes[i] = type
-          declRequests[i] = .typeRealizationCompleted
-          inputs.append(CallableTypeParameter(label: program.ast[i].label?.value, type: type))
-        } else {
-          declTypes[i] = .error(ErrorType())
-          declRequests[i] = .failure
+      if let type = realize(parameter: annotation, inScope: AnyScopeID(id)) {
+        // The annotation may not omit generic arguments.
+        if type[.hasVariable] {
+          diagnostics.insert(.notEnoughContextToInferArguments(at: program.ast.ranges[annotation]))
           success = false
         }
+
+        declTypes[i] = type
+        declRequests[i] = .typeRealizationCompleted
+        inputs.append(CallableTypeParameter(label: program.ast[i].label?.value, type: type))
+      } else {
+        declTypes[i] = .error(ErrorType())
+        declRequests[i] = .failure
+        success = false
       }
     }
 
@@ -2665,18 +2723,9 @@ public struct TypeChecker {
       andImplicitInBodyOf: id)
     else { return .error(ErrorType()) }
 
-    program.incorporate(implicitParameterDecls: implicitParameterDecls, into: id)
-
-    // Member declarations shall not have captures.
-    if program.isMember(id) && !captures.isEmpty {
-      diagnostics.insert(.memberDeclHasCaptures(at: program.ast[id].introducer.range))
-      return .error(ErrorType())
-    }
-
-    // Generic declarations shall not have captures.
-    if program.ast[id].genericClause != nil && !captures.isEmpty {
-      diagnostics.insert(.genericDeclHasCaptures(at: program.ast[id].introducer.range))
-      return .error(ErrorType())
+    // FIXME: Remove this
+    if !captures.isEmpty {
+      program.incorporate(implicitParameterDecls: implicitParameterDecls, into: id)
     }
 
     // Build the subscript's environment.
@@ -2695,9 +2744,8 @@ public struct TypeChecker {
       return .error(ErrorType())
     }
 
-    // Collect the subscript's capabilities.
+    // Create a subscript type.
     let capabilities = Set(program.ast[id].impls.map({ program.ast[$0].introducer.value }))
-
     return .subscript(SubscriptType(
       isProperty: program.ast[id].parameters == nil,
       capabilities: capabilities,

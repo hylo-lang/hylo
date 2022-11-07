@@ -3,22 +3,6 @@ public struct FunctionDecl: GenericDecl, GenericScope {
 
   public static let kind = NodeKind.functionDecl
 
-  public enum Introducer: Codable {
-
-    /// The function introducer, `fun`.
-    case fun
-
-    /// The initializer introducer, `init`.
-    case `init`
-
-    /// The memberwise initializer introducer, `memberwise init`
-    case memberwiseInit
-
-    /// The deinitializer introducer, `deinit`.
-    case `deinit`
-
-  }
-
   public enum Body: Codable {
 
     /// An expression body.
@@ -29,8 +13,8 @@ public struct FunctionDecl: GenericDecl, GenericScope {
 
   }
 
-  /// The introducer of the declaration.
-  public let introducer: SourceRepresentable<Introducer>
+  /// The source range of the `fun` introducer, if any.
+  public let introducerRange: SourceRange?
 
   /// The attributes of the declaration, if any.
   public let attributes: [SourceRepresentable<Attribute>]
@@ -50,7 +34,7 @@ public struct FunctionDecl: GenericDecl, GenericScope {
   /// The identifier of the function, if any.
   public let identifier: SourceRepresentable<Identifier>?
 
-  /// The generic clause of the function, if any.
+  /// The generic clause of the declaration, if any.
   public let genericClause: SourceRepresentable<GenericClause>?
 
   /// The explicit capture declarations of the function.
@@ -89,7 +73,7 @@ public struct FunctionDecl: GenericDecl, GenericScope {
 
   /// Creates an instance with the given properties.
   public init(
-    introducer: SourceRepresentable<Introducer>,
+    introducerRange: SourceRange?,
     attributes: [SourceRepresentable<Attribute>] = [],
     accessModifier: SourceRepresentable<AccessModifier>? = nil,
     memberModifier: SourceRepresentable<MemberModifier>? = nil,
@@ -104,7 +88,7 @@ public struct FunctionDecl: GenericDecl, GenericScope {
     body: Body? = nil,
     isInExprContext: Bool = false
   ) {
-    self.introducer = introducer
+    self.introducerRange = introducerRange
     self.attributes = attributes
     self.accessModifier = accessModifier
     self.memberModifier = memberModifier
@@ -121,9 +105,6 @@ public struct FunctionDecl: GenericDecl, GenericScope {
     if let r = receiver {
       implicitParameterDecls = [ImplicitParameter(name: "self", decl: AnyDeclID(r))]
     } else {
-      precondition(introducer.value != .`init`)
-      precondition(introducer.value != .memberwiseInit)
-      precondition(introducer.value != .deinit)
       implicitParameterDecls = []
     }
   }
@@ -139,6 +120,11 @@ public struct FunctionDecl: GenericDecl, GenericScope {
 
   /// Returns whether the declaration denotes a `sink` member function.
   public var isSink: Bool { receiverEffect?.value == .sink }
+
+  /// Returns whether `self` is a foreign function interface.
+  public var isFFI: Bool {
+    attributes.contains(where: { $0.value.name.value == "@_lowered_name" })
+  }
 
   /// Incorporates the given implicit parameter declarations into `self`.
   ///
