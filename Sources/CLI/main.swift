@@ -349,8 +349,6 @@ struct CLI: ParsableCommand {
 
   /// Logs `message` to the standard error file.
   func log(_ message: String, terminator: String = "\n") {
-    write("warning".styled([.bold, .yellow]))
-    write(": ")
     write(message)
     write(terminator)
   }
