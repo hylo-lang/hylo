@@ -84,7 +84,7 @@ public enum Parser {
       // Ignore semicolons.
       if state.take(.semi) != nil { continue }
 
-      // Attempt to parse a member or complain about an unexpected token.
+      // Attempt to parse a member.
       if let member = try parseModuleMember(in: &state) {
         members.append(member)
         continue
@@ -108,7 +108,7 @@ public enum Parser {
       default:
         state.diagnostics.append(.unexpectedToken(head))
 
-        // Consume at least one token and then recover at the next new line.
+        // Attempt to recover at the next new line.
         while let skip = state.peek() {
           if state.hasNewline(before: skip) { break }
           _ = state.take()
@@ -195,7 +195,7 @@ public enum Parser {
     parsingMembersWith parseMember: (inout ParserState) throws -> AnyDeclID?
   ) throws -> [AnyDeclID]? {
     // Parse the left delimiter.
-    if state.take(.lBrace) == nil { return nil }
+    guard let opener = state.take(.lBrace) else { return nil }
 
     // Push the context.
     state.contexts.append(context)
@@ -208,16 +208,38 @@ public enum Parser {
       if state.take(.semi) != nil { continue }
 
       // Exit if we found the right delimiter.
-      if state.take(.rBrace) != nil { return members }
+      if state.take(.rBrace) != nil { break }
 
-      // Parse a member or complain about a missing right delimiter.
+      // Attempt to parse a member.
       if let member = try parseMember(&state) {
         members.append(member)
-      } else {
-        state.diagnostics.append(.expected(kind: .rBrace, at: state.currentLocation))
-        return members
+        continue
+      }
+
+      // If we reached the end of the stream, diagnose a missing right delimiter and exit.
+      guard let head = state.peek() else {
+        let errorRange = state.currentLocation ..< state.currentLocation
+        state.diagnostics.append(.error(
+          "expected '}'",
+          range: errorRange,
+          children: [.error("to match this '{'", range: opener.range)]
+        ))
+        break
+      }
+
+      // Diagnose the error.
+      let errorRange = head.range.upperBounded(by: head.range.lowerBound)
+      state.diagnostics.append(.error("expected declaration", range: errorRange))
+
+      // Attempt to recover: skip one token and then skip tokens until we find a right delimiter or
+      // the start of another declaration.
+      while let skip = state.peek() {
+        if skip.mayBeginDecl || (skip.kind == .rBrace) { break }
+        _ = state.take()
       }
     }
+
+    return members
   }
 
   static func parseModuleMember(in state: inout ParserState) throws -> AnyDeclID? {
