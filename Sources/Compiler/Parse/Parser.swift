@@ -84,12 +84,35 @@ public enum Parser {
       // Ignore semicolons.
       if state.take(.semi) != nil { continue }
 
-      // Parse a member or complain about an unexpected token.
+      // Attempt to parse a member or complain about an unexpected token.
       if let member = try parseModuleMember(in: &state) {
         members.append(member)
-      } else {
-        state.diagnostics.append(.unexpectedToken(head))
+        continue
+      }
+
+      // Attempt to recover.
+      _ = state.take()
+      switch head.kind {
+      case .unterminatedBlockComment:
+        // Nothing to parse after an unterminated block comment.
+        state.diagnostics.append(.unterminatedBlockComment(
+          endingAt: head.range.last() ?? head.range.first()))
         break
+
+      case .unterminatedString:
+        // Nothing to parse after an unterminated string.
+        state.diagnostics.append(.unterminatedString(
+          endingAt: head.range.last() ?? head.range.first()))
+        break
+
+      default:
+        state.diagnostics.append(.unexpectedToken(head))
+
+        // Consume at least one token and then recover at the next new line.
+        while let skip = state.peek() {
+          if state.hasNewline(before: skip) { break }
+          _ = state.take()
+        }
       }
     }
 
@@ -1948,9 +1971,7 @@ public enum Parser {
         }
 
         // Exit if there's a new line before the next token.
-        guard let next = state.peek(),
-              !state.hasNewline(inCharacterStreamUpTo: next.range.lowerBound)
-        else { break }
+        guard let next = state.peek(), !state.hasNewline(before: next) else { break }
 
         // function-call-expr
         if state.take(.lParen) != nil {
@@ -3526,7 +3547,7 @@ where Base.Context == ParserState
 {
   Apply({ (state) in
     if let t = state.peek() {
-      return try state.hasNewline(inCharacterStreamUpTo: t.range.lowerBound)
+      return try state.hasNewline(before: t)
         ? nil
         : base.parse(&state)
     } else {
@@ -3616,6 +3637,14 @@ fileprivate extension Diagnostic {
 
   static func unexpectedToken(_ token: Token) -> Diagnostic {
     .error("unexpected token '\(token.kind)'", range: token.range)
+  }
+
+  static func unterminatedBlockComment(endingAt endLocation: SourceLocation) -> Diagnostic {
+    .error("unterminated block comment", range: endLocation ..< endLocation)
+  }
+
+  static func unterminatedString(endingAt endLocation: SourceLocation) -> Diagnostic {
+    .error("unterminated string", range: endLocation ..< endLocation)
   }
 
 }

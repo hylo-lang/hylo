@@ -72,7 +72,7 @@ struct ParserState {
   /// The current location of the parser in the character stream.
   var currentLocation: SourceLocation { SourceLocation(source: lexer.source, index: currentIndex) }
 
-  /// The next character in the charachter stream, unless the parser reached its end.
+  /// The next character in the character stream, unless the parser reached its end.
   var currentCharacter: Character? { isAtEOF ? nil : lexer.source.contents[currentIndex] }
 
   /// Returns whether the parser is at the end of the character stream.
@@ -84,10 +84,10 @@ struct ParserState {
       && lexer.source.contents[currentIndex].isWhitespace
   }
 
-  /// Returns whether there is a new line character in the character stream from the current index
-  /// up to but not including the specified index.
-  func hasNewline(inCharacterStreamUpTo bound: String.Index) -> Bool {
-    lexer.source.contents[currentIndex ..< bound].contains(where: { $0.isNewline })
+  /// Returns whether there is a new line in the character stream before `bound`.
+  mutating func hasNewline(before bound: Token) -> Bool {
+    lexer.source.contents[currentIndex ..< bound.range.lowerBound]
+      .contains(where: { $0.isNewline })
   }
 
   /// Returns a source range from `startIndex` to `self.currentIndex`.
