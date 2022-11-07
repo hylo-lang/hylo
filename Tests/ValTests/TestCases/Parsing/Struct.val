@@ -28,6 +28,19 @@ type A5 {
 
   sink let x5: Int  //! diagnostic stored property must be introduced by 'let' or 'var'
 
+  42                //! diagnostic expected declaration
+
+  // Parser should recover before this declaration.
+  fun f0() {}
+
+  import M          //! diagnostic import declaration is not allowed in this scope
+
+  trait T {}        //! diagnostic trait declaration is not allowed in this scope
+
+  operator infix+   //! diagnostic operator declaration is not allowed in this scope
+
+  value v           //! diagnostic associated value declaration is not allowed in this scope
+
 }
 
 // Unterminated struct.

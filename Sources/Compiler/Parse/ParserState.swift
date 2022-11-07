@@ -54,14 +54,17 @@ struct ParserState {
     self.currentIndex = lexer.source.contents.startIndex
   }
 
-  /// Indicates whether the parser is expecting to parse a capture declaration.
-  var isParsingCaptureList: Bool { contexts.last == .captureList }
+  /// Indicates whether the parser is at global scope.
+  var atGlobalScope: Bool { atModuleScope || atNamespaceScope }
 
-  /// Indicates whether the parser is expecting to parse trait member declarations.
-  var isParsingTraitBody: Bool { contexts.last == .traitBody }
+  /// Indicates whether the parser is at module scope.
+  var atModuleScope: Bool { contexts.isEmpty }
+
+  /// Indicates whether the parser is at namespace scope.
+  var atNamespaceScope: Bool { contexts.last == .namespaceBody }
 
   /// Indicates whether the parser is expecting to parse member declarations.
-  var isParsingTypeBody: Bool {
+  var atTypeScope: Bool {
     if let c = contexts.last {
       return (c == .extensionBody) || (c == .productBody) || (c == .traitBody)
     } else {
@@ -69,14 +72,20 @@ struct ParserState {
     }
   }
 
+  /// Indicates whether the parser is at trait scope.
+  var atTraitScope: Bool { contexts.last == .traitBody }
+
+  /// Indicates whether the parser is expecting to parse a capture declaration.
+  var isParsingCaptureList: Bool { contexts.last == .captureList }
+
   /// The current location of the parser in the character stream.
   var currentLocation: SourceLocation { SourceLocation(source: lexer.source, index: currentIndex) }
 
   /// The next character in the character stream, unless the parser reached its end.
-  var currentCharacter: Character? { isAtEOF ? nil : lexer.source.contents[currentIndex] }
+  var currentCharacter: Character? { atEOF ? nil : lexer.source.contents[currentIndex] }
 
   /// Returns whether the parser is at the end of the character stream.
-  var isAtEOF: Bool { currentIndex == lexer.source.contents.endIndex }
+  var atEOF: Bool { currentIndex == lexer.source.contents.endIndex }
 
   /// Returns whether there is a whitespace at the current index.
   var hasLeadingWhitespace: Bool {
