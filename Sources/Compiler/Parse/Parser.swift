@@ -594,11 +594,6 @@ public enum Parser {
       if state.atTypeScope {
         state.diagnostics.append(.memberDeclHasCaptures(at: state.ast.ranges[capture]))
       }
-
-      // Generic functions cannot have captures.
-      if head.genericClause != nil {
-        state.diagnostics.append(.genericDeclHasCaptures(at: state.ast.ranges[capture]))
-      }
     }
 
     // Non-static member function declarations require an implicit receiver parameter.
