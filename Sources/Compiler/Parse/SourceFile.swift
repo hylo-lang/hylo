@@ -61,12 +61,12 @@ public struct SourceFile {
     }
 
     var lineIndex = 1
-    for c in contents[...location.index] where c.isNewline {
+    for c in contents.prefix(upTo: location.index) where c.isNewline {
       lineIndex += 1
     }
 
-    let buffer = contents.prefix(through: location.index)
-    var columnIndex = 0
+    let buffer = contents.prefix(upTo: location.index)
+    var columnIndex = 1
     for c in buffer.reversed() {
       guard !c.isNewline else { break }
       columnIndex += 1

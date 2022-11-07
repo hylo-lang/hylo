@@ -295,6 +295,13 @@ struct CLI: ParsableCommand {
 
   /// Logs `diagnostic` to the standard error.
   func log(diagnostic: Diagnostic) {
+    // Log the location, if available.
+    if let location = diagnostic.location {
+      let path = location.source.url.relativePath
+      let (line, column) = location.source.lineAndColumnIndices(at: location)
+      write("\(path):\(line):\(column): ")
+    }
+
     // Log the level.
     switch diagnostic.level {
     case .warning:
@@ -303,13 +310,6 @@ struct CLI: ParsableCommand {
       write("error".styled([.bold, .red]))
     }
     write(": ")
-
-    // Log the location, if available.
-    if let location = diagnostic.location {
-      let path = location.source.url.relativePath
-      let (line, column) = location.source.lineAndColumnIndices(at: location)
-      write("\(path):\(line):\(column): ")
-    }
 
     // Log the message.
     write(diagnostic.message)
