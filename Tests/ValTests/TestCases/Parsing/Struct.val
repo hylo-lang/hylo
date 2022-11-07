@@ -1,0 +1,36 @@
+// Empty struct.
+type A0 {}
+
+// Struct with a single conformance.
+type A1: Copyable {}
+
+// Struct with multiple conformances.
+type A2: Copyable, Comparable {}
+
+// Struct with a generic signature.
+type A3<T, size: Int> {}
+
+// Struct with a generic signature and conformances.
+type A4<T, size: Int>: Copyable, Comparable {}
+
+// Struct with members.
+type A5 {
+
+  let x0: Int
+
+  let x1 = 42
+
+  let x2: Int = 42
+
+  var x3            //! diagnostic missing type annotation
+
+  inout x4: Int     //! diagnostic stored property must be introduced by 'let' or 'var'
+
+  sink let x5: Int  //! diagnostic stored property must be introduced by 'let' or 'var'
+
+}
+
+// Unterminated struct.
+type A6 {
+
+  let x0: Int       //! diagnostic expected '}'

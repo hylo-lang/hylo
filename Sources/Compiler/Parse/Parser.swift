@@ -33,6 +33,14 @@ public enum Parser {
 
   }
 
+  /// A diagnosed parse error.
+  public struct DiagnosedError: Error {
+
+    /// The diagnostic of the error.
+    public let diagnostic: Diagnostic
+
+  }
+
   /// Parses the declarations of `input`, inserts them into `ast[module]`.
   ///
   /// - Returns: `(decls, diagnostics)` where `diagnostics` are the diagnostics produced by the
@@ -45,7 +53,7 @@ public enum Parser {
   ) -> (decls: NodeID<TopLevelDeclSet>?, diagnostics: [Diagnostic]) {
     var state = ParserState(ast: ast, lexer: Lexer(tokenizing: input))
 
-    let decls: NodeID<TopLevelDeclSet>?
+    var decls: NodeID<TopLevelDeclSet>? = nil
     do {
       // Parse the file.
       let d = try Self.parseSourceFile(in: &state)
@@ -58,18 +66,17 @@ public enum Parser {
       // Parser succeeded.
       state.ast[module].addSourceFile(d)
       decls = d
+    } catch let error as ParseError {
+      state.diagnostics.append(
+        Diagnostic(
+          level: .error,
+          message: error.message,
+          location: error.location,
+          window: Diagnostic.Window(range: error.location ..< error.location)))
+    } catch let error as DiagnosedError {
+      state.diagnostics.append(error.diagnostic)
     } catch let error {
-      if let error = error as? ParseError {
-        state.diagnostics.append(
-          Diagnostic(
-            level: .error,
-            message: error.message,
-            location: error.location,
-            window: Diagnostic.Window(range: error.location ..< error.location)))
-      } else {
-        state.diagnostics.append(Diagnostic(level: .error, message: error.localizedDescription))
-      }
-      decls = nil
+      state.diagnostics.append(Diagnostic(level: .error, message: error.localizedDescription))
     }
 
     ast = state.ast
@@ -109,8 +116,8 @@ public enum Parser {
         state.diagnostics.append(.unexpectedToken(head))
 
         // Attempt to recover at the next new line.
-        while let skip = state.peek() {
-          if state.hasNewline(before: skip) { break }
+        while let next = state.peek() {
+          if state.hasNewline(before: next) { break }
           _ = state.take()
         }
       }
@@ -189,6 +196,13 @@ public enum Parser {
 
   /// Parses the body of a type declaration, adding `context` to `state.contexts` while applying
   /// `parseMember` to parse each member declaration.
+  ///
+  /// - Parameters:
+  ///   - state: A mutable projection of the parser's state.
+  ///   - context: The parser context in which `parseMember` should be applied.
+  ///   - parseMember: A closure that accepts a mutabke projection of the state and returns the ID
+  ///     of a parsed member declaration. `parseMember` may return `nil` if it failed without
+  ///     consuming any token from the stream.
   private static func parseTypeDeclBody(
     in state: inout ParserState,
     wrappedIn context: ParserState.Context,
@@ -211,13 +225,20 @@ public enum Parser {
       if state.take(.rBrace) != nil { break }
 
       // Attempt to parse a member.
-      if let member = try parseMember(&state) {
-        members.append(member)
+      do {
+        if let member = try parseMember(&state) {
+          members.append(member)
+          continue
+        }
+      } catch let error as DiagnosedError {
+        state.diagnostics.append(error.diagnostic)
+        state.skip(while: { (next) in !next.mayBeginDecl && (next.kind != .rBrace) })
         continue
       }
 
-      // If we reached the end of the stream, diagnose a missing right delimiter and exit.
-      guard let head = state.peek() else {
+      // Nothing was consumed. Skip the next token or, if we reached EOF, diagnose a missing right
+      // delimiter and exit.
+      guard let head = state.take() else {
         let errorRange = state.currentLocation ..< state.currentLocation
         state.diagnostics.append(.error(
           "expected '}'",
@@ -231,12 +252,8 @@ public enum Parser {
       let errorRange = head.range.upperBounded(by: head.range.lowerBound)
       state.diagnostics.append(.error("expected declaration", range: errorRange))
 
-      // Attempt to recover: skip one token and then skip tokens until we find a right delimiter or
-      // the start of another declaration.
-      while let skip = state.peek() {
-        if skip.mayBeginDecl || (skip.kind == .rBrace) { break }
-        _ = state.take()
-      }
+      // Skip tokens until we find a right delimiter or the start of another declaration.
+      state.skip(while: { (next) in !next.mayBeginDecl && (next.kind != .rBrace) })
     }
 
     return members
@@ -377,11 +394,27 @@ public enum Parser {
     precondition(state.peek()!.isOf(kind: [.let, .inout, .var, .sink]))
 
     // Parse the parts of the declaration.
-    let parts = try (
+    let (pattern, initializer) = try (
       bindingPattern.and(maybe(take(.assign).and(expr).second))
     ).parse(&state)!
 
     // TODO: Check for illegal attributes.
+
+    if state.isParsingTypeBody {
+      // Member binding declarations must have a type annotation or an initializer.
+      if (state.ast[pattern].annotation == nil) && (initializer == nil) {
+        throw DiagnosedError(diagnostic: .missingTypeAnnotation(
+          at: state.ast.ranges[state.ast[pattern].subpattern]))
+      }
+
+      // Member binding declaration must be introduced by `let` or `var`.
+      let introducer = state.ast[pattern].introducer
+      if (introducer.value != .let) && (introducer.value != .var) {
+        throw DiagnosedError(diagnostic: .error(
+          "stored property must be introduced by 'let' or 'var'",
+          range: introducer.range))
+      }
+    }
 
     // Create a new `BindingDecl`.
     assert(prologue.accessModifiers.count <= 1)
@@ -390,8 +423,8 @@ public enum Parser {
       attributes: prologue.attributes,
       accessModifier: prologue.accessModifiers.first,
       memberModifier: prologue.memberModifiers.first,
-      pattern: parts.0,
-      initializer: parts.1))
+      pattern: pattern,
+      initializer: initializer))
     state.ast.ranges[decl] = state.range(from: prologue.startIndex)
     return decl
   }

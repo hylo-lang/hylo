@@ -213,6 +213,11 @@ struct ParserState {
     })
   }
 
+  /// Consumes tokens as long as they satisfy `predicate`.
+  mutating func skip(while predicate: (Token) -> Bool) {
+    while take(if: predicate) != nil {}
+  }
+
 }
 
 extension ParserState: Restorable {
