@@ -333,6 +333,11 @@ struct CLI: ParsableCommand {
       }
       write("\n")
     }
+
+    // Log the children.
+    for child in diagnostic.children {
+      log(diagnostic: child)
+    }
   }
 
   /// Logs `message` to the standard error file if `--verbose` is set.
