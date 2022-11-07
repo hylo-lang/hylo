@@ -1,0 +1,9 @@
+/*! cpp
+    std::monostate myFun(int x);
+    int main() {}
+ */
+public fun myFun(_ x: Int) {
+}
+
+public fun main() {
+}
