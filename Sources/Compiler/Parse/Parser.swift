@@ -44,13 +44,12 @@ public enum Parser {
   /// Parses the declarations of `input`, inserts them into `ast[module]`.
   ///
   /// - Returns: `(decls, diagnostics)` where `diagnostics` are the diagnostics produced by the
-  ///   parser and `decls` is the ID of the set of parsed declarations, or `nil` if the parser
-  ///   failed to process `input`.
+  ///   parser and `decls` is the ID of the set of parsed declarations.
   public static func parse(
     _ input: SourceFile,
     into module: NodeID<ModuleDecl>,
     in ast: inout AST
-  ) -> (decls: NodeID<TopLevelDeclSet>?, diagnostics: [Diagnostic]) {
+  ) -> (decls: NodeID<TopLevelDeclSet>, diagnostics: [Diagnostic]) {
     var state = ParserState(ast: ast, lexer: Lexer(tokenizing: input))
 
     // Parse the source file.

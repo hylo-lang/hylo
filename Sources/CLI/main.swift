@@ -267,11 +267,11 @@ struct CLI: ParsableCommand {
       }
 
       // Parse the file.
-      let (decls, parserDiagnostics) = Parser.parse(sourceFile, into: module, in: &ast)
-      log(diagnostics: parserDiagnostics)
+      let (_, parseDiagnostics) = Parser.parse(sourceFile, into: module, in: &ast)
+      log(diagnostics: parseDiagnostics)
 
       // Bail out if the parser failed.
-      return decls != nil
+      return parseDiagnostics.contains(where: { $0.level == .error })
 
     default:
       log("ignoring file with unsupported extension: \(fileURL.relativePath)")

@@ -78,8 +78,8 @@ public struct AST: Codable {
       if sourceURL.pathExtension != "val" { return true }
 
       let sourceFile = try SourceFile(contentsOf: sourceURL)
-      let (decls, diagnostics) = Parser.parse(sourceFile, into: corelib!, in: &self)
-      if (decls == nil) || !diagnostics.isEmpty {
+      let (_, diagnostics) = Parser.parse(sourceFile, into: corelib!, in: &self)
+      if diagnostics.contains(where: { $0.level == .error }) {
         throw CompilerError(description: "parser failed", diagnostics: diagnostics)
       }
       return true

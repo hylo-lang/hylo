@@ -23,7 +23,8 @@ final class TypeCheckerTests: XCTestCase {
       let module = ast.insert(ModuleDecl(name: tc.name))
 
       // Parse the input.
-      if Parser.parse(tc.source, into: module, in: &ast).decls == nil {
+      let (_, parseDiagnostics) = Parser.parse(tc.source, into: module, in: &ast)
+      if parseDiagnostics.contains(where: { $0.level == .error }) {
         XCTFail("\(tc.name): parsing failed")
         return
       }

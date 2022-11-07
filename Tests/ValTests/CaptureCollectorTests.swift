@@ -16,10 +16,8 @@ final class CaptureCollectorTests: XCTestCase {
       }
       """)
 
-    if Parser.parse(source, into: module, in: &ast).decls == nil {
-      XCTFail("parsing failed")
-      return
-    }
+    let (_, parseDiagnostics) = Parser.parse(source, into: module, in: &ast)
+    XCTAssert(parseDiagnostics.isEmpty, "parsing failed")
 
     let fun = NodeID<FunctionDecl>(rawValue: ast.topLevelDecls(module).first!.rawValue)
     var collector = CaptureCollector(ast: ast)
