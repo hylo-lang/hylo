@@ -1,0 +1,2 @@
+//! @+1 diagnostic unterminated block comment
+/* This block never ends

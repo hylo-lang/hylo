@@ -5,6 +5,36 @@ import Durian
 
 final class ParserTests: XCTestCase {
 
+  func testParser() throws {
+    // Locate the test cases.
+    let testCaseDirectory = try XCTUnwrap(
+      Bundle.module.url(forResource: "TestCases/Parsing", withExtension: nil),
+      "No test cases")
+
+    // Execute the test cases.
+    try TestCase.executeAll(in: testCaseDirectory, { (tc) in
+      // Parse the input.
+      var ast = AST()
+      let module = ast.insert(ModuleDecl(name: tc.name))
+      let (_, diagnostics) = Parser.parse(tc.source, into: module, in: &ast)
+
+      // Process the test annotations.
+      var diagnosticChecker = DiagnosticChecker(testCaseName: tc.name, diagnostics: diagnostics)
+      for annotation in tc.annotations {
+        switch annotation.command {
+        case "diagnostic":
+          diagnosticChecker.handle(annotation)
+        default:
+          XCTFail("\(tc.name): unexpected test command: '\(annotation.command)'")
+        }
+      }
+
+      diagnosticChecker.finalize()
+    })
+  }
+
+  // MARK: Unit tests
+
   func testParse() {
     let input = SourceFile(contents: """
     public fun main() {
