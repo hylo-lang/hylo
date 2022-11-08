@@ -39,6 +39,11 @@ public enum Parser {
     /// The diagnostic of the error.
     public let diagnostic: Diagnostic
 
+    /// Creates a new instance with the givne diagnostic.
+    public init(_ d: Diagnostic) {
+      self.diagnostic = d
+    }
+
   }
 
   /// Parses the declarations of `input`, inserts them into `ast[module]`.
@@ -252,9 +257,7 @@ public enum Parser {
       if prologue.isEmpty {
         return nil
       } else {
-        throw DiagnosedError(diagnostic: .error(
-          "expected declaration",
-          range: state.currentLocation ..< state.currentLocation))
+        throw DiagnosedError(expected("declaration", at: state.currentLocation))
       }
     }
   }
@@ -262,15 +265,20 @@ public enum Parser {
   /// Parses the body of a type declaration, adding `context` to `state.contexts` while parsing
   /// each member declaration.
   ///
+  /// - Note: The function never returns a soft failure. It will throw if it can't parse the left
+  ///   brace of the body, even if it didn't consume any token from the stream.
+  ///
   /// - Parameters:
   ///   - state: A mutable projection of the parser's state.
   ///   - context: The parser context in which members should be parsed.
   private static func parseTypeDeclBody(
     in state: inout ParserState,
     wrappedIn context: ParserState.Context
-  ) throws -> [AnyDeclID]? {
+  ) throws -> [AnyDeclID] {
     // Parse the left delimiter.
-    guard let opener = state.take(.lBrace) else { return nil }
+    guard let opener = state.take(.lBrace) else {
+      throw DiagnosedError(expected("'{'", at: state.currentLocation))
+    }
 
     // Push the context.
     state.contexts.append(context)
@@ -299,18 +307,16 @@ public enum Parser {
       // Nothing was consumed. Skip the next token or, if we reached EOF, diagnose a missing right
       // delimiter and exit.
       guard let head = state.take() else {
-        let errorRange = state.currentLocation ..< state.currentLocation
-        state.diagnostics.append(.error(
-          "expected '}'",
-          range: errorRange,
+        state.diagnostics.append(expected(
+          "'}'",
+          at: state.currentLocation,
           children: [.error("to match this '{'", range: opener.range)]
         ))
         break
       }
 
       // Diagnose the error.
-      let errorRange = head.range.upperBounded(by: head.range.lowerBound)
-      state.diagnostics.append(.error("expected declaration", range: errorRange))
+      state.diagnostics.append(expected("declaration", at: head.range.first()))
 
       // Skip tokens until we find a right delimiter or the start of another declaration.
       state.skip(while: { (next) in !next.mayBeginDecl && (next.kind != .rBrace) })
@@ -379,7 +385,7 @@ public enum Parser {
 
     // Associated value declarations can only appear at trait scope.
     if !state.atTraitScope {
-      throw DiagnosedError(diagnostic: .error(
+      throw DiagnosedError(.error(
         "associated value declaration is not allowed in this scope",
         range: parts.0.0.0.range))
     }
@@ -428,14 +434,14 @@ public enum Parser {
     if state.atTypeScope {
       // Member binding declarations must have a type annotation or an initializer.
       if (state.ast[pattern].annotation == nil) && (initializer == nil) {
-        throw DiagnosedError(diagnostic: .missingTypeAnnotation(
+        throw DiagnosedError(.missingTypeAnnotation(
           at: state.ast.ranges[state.ast[pattern].subpattern]))
       }
 
       // Member binding declaration must be introduced by `let` or `var`.
       let introducer = state.ast[pattern].introducer
       if (introducer.value != .let) && (introducer.value != .var) {
-        throw DiagnosedError(diagnostic: .error(
+        throw DiagnosedError(.error(
           "stored property must be introduced by 'let' or 'var'",
           range: introducer.range))
       }
@@ -692,7 +698,7 @@ public enum Parser {
 
     // Import declarations can only appear at module scope.
     if !state.atModuleScope {
-      throw DiagnosedError(diagnostic: .error(
+      throw DiagnosedError(.error(
         "import declaration is not allowed in this scope",
         range: parts.0.range))
     }
@@ -862,7 +868,7 @@ public enum Parser {
 
     // Operator declarations can only appear at global scope.
     if !state.atGlobalScope {
-      throw DiagnosedError(diagnostic: .error(
+      throw DiagnosedError(.error(
         "operator declaration is not allowed in this scope",
         range: parts.0.0.0.range))
     }
@@ -1088,7 +1094,7 @@ public enum Parser {
 
     // Trait declarations can only appear at global scope.
     if !state.atGlobalScope {
-      throw DiagnosedError(diagnostic: .error(
+      throw DiagnosedError(.error(
         "trait declaration is not allowed in this scope",
         range: parts.0.0.0.range))
     }
@@ -3225,6 +3231,17 @@ public enum Parser {
   static let typeAttribute = attribute("@type")
 
   static let valueAttribute = attribute("@value")
+
+  // MARK: Helpers
+
+  /// Creates a parse error describing failure to parse `subject` at `location`.
+  private static func expected(
+    _ subject: String,
+    at location: SourceLocation,
+    children: [Diagnostic] = []
+  ) -> Diagnostic {
+    .error("expected \(subject)", range: location ..< location, children: children)
+  }
 
 }
 

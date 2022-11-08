@@ -41,6 +41,8 @@ type A5 {
 
   value v           //! diagnostic associated value declaration is not allowed in this scope
 
+  type B            //! diagnostic expected '{'
+
 }
 
 // Unterminated struct.
