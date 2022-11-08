@@ -17,10 +17,11 @@ public struct CXXTypeExpr: CustomStringConvertible {
       description = isReturnType ? "void" : "std::monostate"
 
     case .product(let productType):
-      switch productType.name.value {
-      case "Int":
+      // TODO: we should translate this to an "int" struct
+      let intType = ast.coreType(named: "Int")
+      if productType == intType {
         description = "int"
-      default:
+      } else {
         description = productType.name.value
       }
 
