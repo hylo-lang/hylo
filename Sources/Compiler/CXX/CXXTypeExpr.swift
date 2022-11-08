@@ -16,6 +16,14 @@ public struct CXXTypeExpr: CustomStringConvertible {
     case .void:
       description = isReturnType ? "void" : "std::monostate"
 
+    case .product(let productType):
+      // TODO: we should translate this to an "int" struct
+      if productType == ast.coreType(named: "Int") {
+        description = "int"
+      } else {
+        description = productType.name.value
+      }
+
     default:
       return nil
     }
