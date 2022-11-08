@@ -42,7 +42,7 @@ public struct CXXModule {
     } else {
       switch program.declTypes[valFunDecl]! {
       case .lambda(let valDeclType):
-        output = CXXTypeExpr(valDeclType.output, ast: program.ast)!
+        output = CXXTypeExpr(valDeclType.output, ast: program.ast, asReturnType: true)!
 
       case .method:
         fatalError("not implemented")
