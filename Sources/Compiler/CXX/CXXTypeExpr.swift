@@ -18,8 +18,7 @@ public struct CXXTypeExpr: CustomStringConvertible {
 
     case .product(let productType):
       // TODO: we should translate this to an "int" struct
-      let intType = ast.coreType(named: "Int")
-      if productType == intType {
+      if productType == ast.coreType(named: "Int") {
         description = "int"
       } else {
         description = productType.name.value
