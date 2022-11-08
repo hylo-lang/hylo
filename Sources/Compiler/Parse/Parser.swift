@@ -19,22 +19,8 @@ import Utils
 /// A namespace for the routines of Val's parser.
 public enum Parser {
 
-  /// A parse error.
-  public struct ParseError: Error {
-
-    let message: String
-
-    let location: SourceLocation
-
-    init(_ message: String, at location: SourceLocation) {
-      self.message = message
-      self.location = location
-    }
-
-  }
-
   /// A diagnosed parse error.
-  public struct DiagnosedError: Error {
+  public struct ParseError: Error {
 
     /// The diagnostic of the error.
     public let diagnostic: Diagnostic
@@ -83,7 +69,7 @@ public enum Parser {
           members.append(member)
           continue
         }
-      } catch let error as DiagnosedError {
+      } catch let error as ParseError {
         state.diagnostics.append(error.diagnostic)
         continue
       } catch let error {
@@ -199,55 +185,73 @@ public enum Parser {
       // Look ahead to select the appropriate declaration parser.
       switch state.peek()?.kind {
       case .let, .inout, .var, .sink:
-        return try AnyDeclID(parseBindingDecl(withPrologue: prologue, in: &state))
+        return try parseBindingDecl(withPrologue: prologue, in: &state)
+          .map(AnyDeclID.init)
 
       case .fun, .infix, .postfix, .prefix:
-        return try AnyDeclID(parseFunctionOrMethodDecl(withPrologue: prologue, in: &state))
+        return try parseFunctionOrMethodDecl(withPrologue: prologue, in: &state)
+          .map(AnyDeclID.init)
 
       case .`init`:
-        return try AnyDeclID(parseInitDecl(withPrologue: prologue, in: &state))
+        return try parseInitDecl(withPrologue: prologue, in: &state)
+          .map(AnyDeclID.init)
 
       case .subscript:
-        return try AnyDeclID(parseSubscriptDecl(withPrologue: prologue, in: &state))
+        return try parseSubscriptDecl(withPrologue: prologue, in: &state)
+          .map(AnyDeclID.init)
 
       case .property:
-        return try AnyDeclID(parsePropertyDecl(withPrologue: prologue, in: &state))
+        return try parsePropertyDecl(withPrologue: prologue, in: &state)
+          .map(AnyDeclID.init)
 
       case .namespace:
-        return try AnyDeclID(parseNamespaceDecl(withPrologue: prologue, in: &state))
+        return try parseNamespaceDecl(withPrologue: prologue, in: &state)
+          .map(AnyDeclID.init)
 
       case .trait:
-        return try AnyDeclID(parseTraitDecl(withPrologue: prologue, in: &state))
+        return try parseTraitDecl(withPrologue: prologue, in: &state)
+          .map(AnyDeclID.init)
 
       case .type:
-        return try state.atTraitScope
-          ? AnyDeclID(parseAssociatedTypeDecl(withPrologue: prologue, in: &state))
-          : AnyDeclID(parseProductTypeDecl(withPrologue: prologue, in: &state))
+        if state.atTraitScope {
+          return try parseAssociatedTypeDecl(withPrologue: prologue, in: &state)
+            .map(AnyDeclID.init)
+        } else {
+          return try parseProductTypeDecl(withPrologue: prologue, in: &state)
+            .map(AnyDeclID.init)
+        }
 
       case .typealias:
-        return try AnyDeclID(parseTypeAliasDecl(withPrologue: prologue, in: &state))
+        return try parseTypeAliasDecl(withPrologue: prologue, in: &state)
+          .map(AnyDeclID.init)
 
       case .conformance:
-        return try AnyDeclID(parseConformanceDecl(withPrologue: prologue, in: &state))
+        return try parseConformanceDecl(withPrologue: prologue, in: &state)
+          .map(AnyDeclID.init)
 
       case .extension:
-        return try AnyDeclID(parseExtensionDecl(withPrologue: prologue, in: &state))
+        return try parseExtensionDecl(withPrologue: prologue, in: &state)
+          .map(AnyDeclID.init)
 
       case .import:
-        return try AnyDeclID(parseImportDecl(withPrologue: prologue, in: &state))
+        return try parseImportDecl(withPrologue: prologue, in: &state)
+          .map(AnyDeclID.init)
 
       case .operator:
-        return try AnyDeclID(parseOperatorDecl(withPrologue: prologue, in: &state))
+        return try parseOperatorDecl(withPrologue: prologue, in: &state)
+          .map(AnyDeclID.init)
 
       case .name:
         let introducer = state.lexer.source[state.peek()!.range]
         if introducer == "value" && state.atTypeScope {
           // Note: associated values are parsed at any type scope to produce better diagnostics
           // when they are not at trait scope.
-          return try AnyDeclID(parseAssociatedValueDecl(withPrologue: prologue, in: &state))
+          return try parseAssociatedValueDecl(withPrologue: prologue, in: &state)
+            .map(AnyDeclID.init)
         }
         if introducer == "memberwise" && state.atTypeScope {
-          return try AnyDeclID(parseMemberwiseInitDecl(withPrologue: prologue, in: &state))
+          return try parseMemberwiseInitDecl(withPrologue: prologue, in: &state)
+            .map(AnyDeclID.init)
         }
 
       default:
@@ -257,7 +261,7 @@ public enum Parser {
       if prologue.isEmpty {
         return nil
       } else {
-        throw DiagnosedError(expected("declaration", at: state.currentLocation))
+        throw ParseError(expected("declaration", at: state.currentLocation))
       }
     }
   }
@@ -277,7 +281,7 @@ public enum Parser {
   ) throws -> [AnyDeclID] {
     // Parse the left delimiter.
     guard let opener = state.take(.lBrace) else {
-      throw DiagnosedError(expected("'{'", at: state.currentLocation))
+      throw ParseError(expected("'{'", at: state.currentLocation))
     }
 
     // Push the context.
@@ -299,7 +303,7 @@ public enum Parser {
           members.append(member)
           continue
         }
-      } catch let error as DiagnosedError {
+      } catch let error as ParseError {
         state.diagnostics.append(error.diagnostic)
         continue
       }
@@ -326,21 +330,18 @@ public enum Parser {
   }
 
   /// Parses an instance of `AssociatedTypeDecl`.
-  ///
-  /// - Requires: The next token must be of kind `.type`.
   static func parseAssociatedTypeDecl(
     withPrologue prologue: DeclPrologue,
     in state: inout ParserState
-  ) throws -> NodeID<AssociatedTypeDecl> {
-    precondition(state.peek()?.kind == .type)
-
+  ) throws -> NodeID<AssociatedTypeDecl>? {
     // Parse the parts of the declaration.
-    let parts = try (
+    let parser = (
       take(.type).and(take(.name))
         .and(maybe(conformanceList))
         .and(maybe(whereClause))
         .and(maybe(take(.assign).and(typeExpr).second))
-    ).parse(&state)!
+    )
+    guard let parts = try parser.parse(&state) else { return nil }
 
     // Associated type declarations shall not have attributes.
     for attribute in prologue.attributes {
@@ -368,24 +369,21 @@ public enum Parser {
   }
 
   /// Parses an instance of `AssociatedValueDecl`.
-  ///
-  /// - Requires: The next token must be of kind `.name` and have the value "value".
   static func parseAssociatedValueDecl(
     withPrologue prologue: DeclPrologue,
     in state: inout ParserState
-  ) throws -> NodeID<AssociatedValueDecl> {
-    precondition(state.peek()?.kind == .name)
-
+  ) throws -> NodeID<AssociatedValueDecl>? {
     // Parse the parts of the declaration.
-    let parts = try (
+    let parser = (
       take(nameTokenWithValue: "value").and(take(.name))
         .and(maybe(whereClause))
         .and(maybe(take(.assign).and(expr).second))
-    ).parse(&state)!
+    )
+    guard let parts = try parser.parse(&state) else { return nil }
 
     // Associated value declarations can only appear at trait scope.
     if !state.atTraitScope {
-      throw DiagnosedError(.error(
+      throw ParseError(.error(
         "associated value declaration is not allowed in this scope",
         range: parts.0.0.0.range))
     }
@@ -415,33 +413,30 @@ public enum Parser {
   }
 
   /// Parses an instance of `BindingDecl`.
-  ///
-  /// - Requires: The next token must be of kind `.let`, `.inout`, `.var`, or `.sink`.
   static func parseBindingDecl(
     withPrologue prologue: DeclPrologue,
     in state: inout ParserState
-  ) throws -> NodeID<BindingDecl> {
-    precondition(state.peek() != nil)
-    precondition(state.peek()!.isOf(kind: [.let, .inout, .var, .sink]))
-
+  ) throws -> NodeID<BindingDecl>? {
     // Parse the parts of the declaration.
-    let (pattern, initializer) = try (
-      bindingPattern.and(maybe(take(.assign).and(expr).second))
-    ).parse(&state)!
+    let parser = (
+      bindingPattern
+        .and(maybe(take(.assign).and(expr).second))
+    )
+    guard let (pattern, initializer) = try parser.parse(&state) else { return nil }
 
     // TODO: Check for illegal attributes.
 
     if state.atTypeScope {
       // Member binding declarations must have a type annotation or an initializer.
       if (state.ast[pattern].annotation == nil) && (initializer == nil) {
-        throw DiagnosedError(.missingTypeAnnotation(
+        throw ParseError(.missingTypeAnnotation(
           at: state.ast.ranges[state.ast[pattern].subpattern]))
       }
 
       // Member binding declaration must be introduced by `let` or `var`.
       let introducer = state.ast[pattern].introducer
       if (introducer.value != .let) && (introducer.value != .var) {
-        throw DiagnosedError(.error(
+        throw ParseError(.error(
           "stored property must be introduced by 'let' or 'var'",
           range: introducer.range))
       }
@@ -461,21 +456,18 @@ public enum Parser {
   }
 
   /// Parses an instance of `ConformanceDecl`.
-  ///
-  /// - Requires: The next token must be of kind `.extension`.
   static func parseConformanceDecl(
     withPrologue prologue: DeclPrologue,
     in state: inout ParserState
-  ) throws -> NodeID<ConformanceDecl> {
-    precondition(state.peek()?.kind == .conformance)
-
+  ) throws -> NodeID<ConformanceDecl>? {
     // Parse the parts of the declaration.
-    let parts = try (
+    let parser = (
       take(.conformance).and(typeExpr)
         .and(conformanceList)
         .and(maybe(whereClause))
         .and(Apply({ (s) in try parseTypeDeclBody(in: &s, wrappedIn: .extensionBody) }))
-    ).parse(&state)!
+    )
+    guard let parts = try parser.parse(&state) else { return nil }
 
     // Conformance declarations shall not have attributes.
     for attribute in prologue.attributes {
@@ -502,20 +494,17 @@ public enum Parser {
   }
 
   /// Parses an instance of `ExtensionDecl`.
-  ///
-  /// - Requires: The next token must be of kind `.extension`.
   static func parseExtensionDecl(
     withPrologue prologue: DeclPrologue,
     in state: inout ParserState
-  ) throws -> NodeID<ExtensionDecl> {
-    precondition(state.peek()?.kind == .extension)
-
+  ) throws -> NodeID<ExtensionDecl>? {
     // Parse the parts of the declaration.
-    let parts = try (
+    let parser = (
       take(.extension).and(typeExpr)
         .and(maybe(whereClause))
         .and(Apply({ (s) in try parseTypeDeclBody(in: &s, wrappedIn: .extensionBody) }))
-    ).parse(&state)!
+    )
+    guard let parts = try parser.parse(&state) else { return nil }
 
     // Extension declarations shall not have attributes.
     for attribute in prologue.attributes {
@@ -544,21 +533,19 @@ public enum Parser {
   }
 
   /// Parses an instance of `FunctionDecl` or `MethodDecl`.
-  ///
-  /// - Requires: The next token must be of kind `.fun`, `.infix`, `.postfix`, or `.prefix`.
   static func parseFunctionOrMethodDecl(
     withPrologue prologue: DeclPrologue,
     in state: inout ParserState
-  ) throws -> AnyDeclID {
-    precondition(state.peek() != nil)
-    precondition(state.peek()!.isOf(kind: [.fun, .infix, .postfix, .prefix]))
-
+  ) throws -> AnyDeclID? {
     // Parse the parts of the declaration.
-    let ((head, signature), functionOrMethodBody) = try(
-      functionDeclHead.and(functionDeclSignature).and(maybe(functionOrMethodDeclBody))
-    ).parse(&state)!
+    let parser = (
+      functionDeclHead
+        .and(functionDeclSignature)
+        .and(maybe(functionOrMethodDeclBody))
+    )
+    guard let ((head, signature), body) = try parser.parse(&state) else { return nil }
 
-    switch functionOrMethodBody {
+    switch body {
     case .method(let impls):
       return AnyDeclID(buildMethodDecl(
         prologue: prologue,
@@ -683,22 +670,19 @@ public enum Parser {
   }
 
   /// Parses an instance of `ImportDecl`.
-  ///
-  /// - Requires: The next token must be of kind `.import`.
   static func parseImportDecl(
     withPrologue prologue: DeclPrologue,
     in state: inout ParserState
-  ) throws -> NodeID<ImportDecl> {
-    precondition(state.peek()?.kind == .import)
-
+  ) throws -> NodeID<ImportDecl>? {
     // Parse the parts of the declaration.
-    let parts = try (
+    let parser = (
       take(.import).and(take(.name))
-    ).parse(&state)!
+    )
+    guard let parts = try parser.parse(&state) else { return nil }
 
     // Import declarations can only appear at module scope.
     if !state.atModuleScope {
-      throw DiagnosedError(.error(
+      throw ParseError(.error(
         "import declaration is not allowed in this scope",
         range: parts.0.range))
     }
@@ -726,20 +710,17 @@ public enum Parser {
   }
 
   /// Parses an instance of `InitializerDecl`.
-  ///
-  /// - Requires: The next token must be of kind `.init`.
   static func parseInitDecl(
     withPrologue prologue: DeclPrologue,
     in state: inout ParserState
-  ) throws -> NodeID<InitializerDecl> {
-    precondition(state.peek()?.kind == .`init`)
-
+  ) throws -> NodeID<InitializerDecl>? {
     // Parse the parts of the declaration.
-    let ((head, signature), body) = try (
+    let parser = (
       initDeclHead
         .and(initDeclSignature)
         .and(initDeclBody)
-    ).parse(&state)!
+    )
+    guard let ((head, signature), body) = try parser.parse(&state) else { return nil }
 
     // Init declarations can only appear at type scope.
     if !state.atTypeScope {
@@ -771,18 +752,15 @@ public enum Parser {
   }
 
   /// Parses an instance of `InitializerDecl`.
-  ///
-  /// - Requires: The next token must be of kind `.name` and have the value "memberwise".
   static func parseMemberwiseInitDecl(
     withPrologue prologue: DeclPrologue,
     in state: inout ParserState
-  ) throws -> NodeID<InitializerDecl> {
-    precondition(state.peek()?.kind == .name)
-
+  ) throws -> NodeID<InitializerDecl>? {
     // Parse the parts of the declaration.
-    let parts = try (
+    let parser = (
       take(nameTokenWithValue: "memberwise").and(take(.`init`))
-    ).parse(&state)!
+    )
+    guard let parts = try parser.parse(&state) else { return nil }
 
     // Init declarations can only appear at type scope.
     if !state.atTypeScope {
@@ -814,19 +792,16 @@ public enum Parser {
   }
 
   /// Parses an instance of `NamespaceDecl`.
-  ///
-  /// - Requires: The next token must be of kind `.namespace`.
   static func parseNamespaceDecl(
     withPrologue prologue: DeclPrologue,
     in state: inout ParserState
-  ) throws -> NodeID<NamespaceDecl> {
-    precondition(state.peek()?.kind == .namespace)
-
+  ) throws -> NodeID<NamespaceDecl>? {
     // Parse the parts of the declaration.
-    let parts = try (
+    let parser = (
       take(.namespace).and(take(.name))
         .and(Apply({ (s) in try parseTypeDeclBody(in: &s, wrappedIn: .namespaceBody) }))
-    ).parse(&state)!
+    )
+    guard let parts = try parser.parse(&state) else { return nil }
 
     // Namespace declarations shall not have attributes.
     for attribute in prologue.attributes {
@@ -851,24 +826,21 @@ public enum Parser {
   }
 
   /// Parses an instance of `OperatorDecl`.
-  ///
-  /// - Requires: The next token must be of kind `.operator`.
   static func parseOperatorDecl(
     withPrologue prologue: DeclPrologue,
     in state: inout ParserState
-  ) throws -> NodeID<OperatorDecl> {
-    precondition(state.peek()?.kind == .operator)
-
+  ) throws -> NodeID<OperatorDecl>? {
     // Parse the parts of the declaration.
-    let parts = try (
+    let parser = (
       take(.operator).and(operatorNotation)
         .and(operator_)
         .and(maybe(take(.colon).and(precedenceGroup).second))
-    ).parse(&state)!
+    )
+    guard let parts = try parser.parse(&state) else { return nil }
 
     // Operator declarations can only appear at global scope.
     if !state.atGlobalScope {
-      throw DiagnosedError(.error(
+      throw ParseError(.error(
         "operator declaration is not allowed in this scope",
         range: parts.0.0.0.range))
     }
@@ -897,25 +869,20 @@ public enum Parser {
   }
 
   /// Parses an instance of `SubscriptDecl` representing a property declaration.
-  ///
-  /// - Requires: The next token must be of kind `.property`.
   static func parsePropertyDecl(
     withPrologue prologue: DeclPrologue,
     in state: inout ParserState
-  ) throws -> NodeID<SubscriptDecl> {
-    precondition(state.peek()?.kind == .property)
-
+  ) throws -> NodeID<SubscriptDecl>? {
     // Parse the parts of the declaration.
     let isNonStaticMember = state.atTypeScope && !prologue.isStatic
-    let body = Apply({ (state) in
-      try parseSubscriptDeclBody(in: &state, asNonStaticMember: isNonStaticMember)
-    })
-
-    let ((head, output), impls) = try (
+    let parser = (
       propertyDeclHead
         .and(take(.colon).and(typeExpr).second)
-        .and(body)
-    ).parse(&state)!
+        .and(Apply({ (state) in
+          try parseSubscriptDeclBody(in: &state, asNonStaticMember: isNonStaticMember)
+        }))
+    )
+    guard let ((head, output), impls) = try parser.parse(&state) else { return nil }
 
     // Property declarations can only appear at type scope.
     if !state.atTypeScope {
@@ -944,23 +911,20 @@ public enum Parser {
   }
 
   /// Parses an instance of `SubscriptDecl`.
-  ///
-  /// - Requires: The next token must be of kind `.subscript`.
   static func parseSubscriptDecl(
     withPrologue prologue: DeclPrologue,
     in state: inout ParserState
-  ) throws -> NodeID<SubscriptDecl> {
-    precondition(state.peek()?.kind == .subscript)
-
+  ) throws -> NodeID<SubscriptDecl>? {
     // Parse the parts of the declaration.
     let isNonStaticMember = state.atTypeScope && !prologue.isStatic
-    let body = Apply({ (state) in
-      try parseSubscriptDeclBody(in: &state, asNonStaticMember: isNonStaticMember)
-    })
-
-    let ((head, signature), impls) = try(
-      subscriptDeclHead.and(subscriptDeclSignature).and(body)
-    ).parse(&state)!
+    let parser = (
+      subscriptDeclHead
+        .and(subscriptDeclSignature)
+        .and(Apply({ (state) in
+          try parseSubscriptDeclBody(in: &state, asNonStaticMember: isNonStaticMember)
+        }))
+    )
+    guard let ((head, signature), impls) = try parser.parse(&state) else { return nil }
 
     // TODO: Check for illegal attributes.
 
@@ -1077,24 +1041,21 @@ public enum Parser {
   }
 
   /// Parses an instance of `TraitDecl`.
-  ///
-  /// - Requires: The next token must be of kind `.trait`.
   static func parseTraitDecl(
     withPrologue prologue: DeclPrologue,
     in state: inout ParserState
-  ) throws -> NodeID<TraitDecl> {
-    precondition(state.peek()?.kind == .trait)
-
+  ) throws -> NodeID<TraitDecl>? {
     // Parse the parts of the declaration.
-    let parts = try (
+    let parser = (
       take(.trait).and(take(.name))
         .and(maybe(conformanceList))
         .and(Apply({ (s) in try parseTypeDeclBody(in: &s, wrappedIn: .traitBody) }))
-    ).parse(&state)!
+    )
+    guard let parts = try parser.parse(&state) else { return nil }
 
     // Trait declarations can only appear at global scope.
     if !state.atGlobalScope {
-      throw DiagnosedError(.error(
+      throw ParseError(.error(
         "trait declaration is not allowed in this scope",
         range: parts.0.0.0.range))
     }
@@ -1123,21 +1084,18 @@ public enum Parser {
   }
 
   /// Parses an instance of `ProductTypeDecl`.
-  ///
-  /// - Requires: The next token must be of kind `.type`.
   static func parseProductTypeDecl(
     withPrologue prologue: DeclPrologue,
     in state: inout ParserState
-  ) throws -> NodeID<ProductTypeDecl> {
-    precondition(state.peek()?.kind == .type)
-
+  ) throws -> NodeID<ProductTypeDecl>? {
     // Parse the parts of the declaration.
-    let parts = try (
+    let parser = (
       take(.type).and(take(.name))
         .and(maybe(genericClause))
         .and(maybe(conformanceList))
         .and(Apply({ (s) in try parseTypeDeclBody(in: &s, wrappedIn: .productBody) }))
-    ).parse(&state)!
+    )
+    guard let parts = try parser.parse(&state) else { return nil }
 
     // Product type declarations shall not have attributes.
     for attribute in prologue.attributes {
@@ -1195,20 +1153,18 @@ public enum Parser {
   }
 
   /// Parses an instance of `TypeAliasDecl`.
-  ///
-  /// - Requires: The next token must be of kind `.typealias`.
   static func parseTypeAliasDecl(
     withPrologue prologue: DeclPrologue,
     in state: inout ParserState
-  ) throws -> NodeID<TypeAliasDecl> {
-    precondition(state.peek()?.kind == .typealias)
-
+  ) throws -> NodeID<TypeAliasDecl>? {
     // Parse the parts of the declaration.
-    let parts = try (
+    let parser = (
       take(.typealias).and(take(.name))
         .and(maybe(genericClause))
-        .and(take(.assign)).and(typeExpr)
-    ).parse(&state)!
+        .and(take(.assign))
+        .and(typeExpr)
+    )
+    guard let parts = try parser.parse(&state) else { return nil }
 
     // Type alias declarations shall not have attributes.
     for attribute in prologue.attributes {
@@ -1235,25 +1191,24 @@ public enum Parser {
 
   static let functionDecl = (
     Apply<ParserState, NodeID<FunctionDecl>>({ (state) -> NodeID<FunctionDecl>? in
-      switch state.peek()?.kind {
-      case .fun:
-        // Parse a function or method declaration.
-        guard let decl = try parseDeclPrologue(in: &state, then: parseFunctionOrMethodDecl) else {
-          return nil
-        }
+      // Parse a function or method declaration.
+      guard let decl = try parseDeclPrologue(in: &state, then: parseFunctionOrMethodDecl) else {
+        return nil
+      }
 
-        // Catch illegal method declarations.
-        guard let functionDecl = NodeID<FunctionDecl>(decl) else {
-          throw ParseError(
-            "cannot use method bundle declaration here",
-            at: state.ast.ranges[decl]!.first())
-        }
+      // Catch illegal method declarations.
+      switch decl.kind {
+      case .functionDecl:
+        return NodeID<FunctionDecl>(rawValue: decl.rawValue)
 
-        // Return the parsed declaration.
-        return functionDecl
+      case .methodDecl:
+        let d = NodeID<MethodDecl>(rawValue: decl.rawValue)
+        throw ParseError(.error(
+          "method bundle declaration is not allowed here",
+          range: state.ast[d].introducerRange))
 
       default:
-        return nil
+        unreachable()
       }
     })
   )
@@ -1514,7 +1469,7 @@ public enum Parser {
         return (label: name, name: name)
       }
 
-      throw ParseError("expected parameter name", at: labelCandidate.range.first())
+      throw ParseError(expected("parameter name", at: labelCandidate.range.first()))
     })
   )
 
@@ -1648,7 +1603,7 @@ public enum Parser {
     }
 
     guard let rhs = try typeExpr.parse(&state) else {
-      throw ParseError("expected type expression", at: state.currentLocation)
+      throw ParseError(expected("type expression", at: state.currentLocation))
     }
 
     let castKind: CastExpr.Kind
@@ -1679,7 +1634,7 @@ public enum Parser {
     }
 
     guard let rhs = try prefixExpr.parse(&state) else {
-      throw ParseError("expected expression", at: state.currentLocation)
+      throw ParseError(expected("expression", at: state.currentLocation))
     }
 
     let expr = state.ast.insert(AssignExpr(left: lhs, right: rhs))
@@ -1716,7 +1671,7 @@ public enum Parser {
 
       // Now we can commit to parse an operand.
       guard let operand = try prefixExpr.parse(&state) else {
-        throw ParseError("expected type expression", at: state.currentLocation)
+        throw ParseError(expected("type expression", at: state.currentLocation))
       }
       tail.append(SequenceExpr.TailElement(operatorName: operatorName, operand: operand))
     }
@@ -1895,7 +1850,7 @@ public enum Parser {
             continue
           }
 
-          throw ParseError("expected member name", at: state.currentLocation)
+          throw ParseError(expected("member name", at: state.currentLocation))
         }
 
         // Exit if there's a new line before the next token.
@@ -1905,7 +1860,7 @@ public enum Parser {
         if state.take(.lParen) != nil {
           let arguments = try argumentList.parse(&state) ?? []
           guard state.take(.rParen) != nil else {
-            throw ParseError("expected ')'", at: state.currentLocation)
+            throw ParseError(expected("')'", at: state.currentLocation))
           }
 
           head = AnyExprID(state.ast.insert(FunCallExpr(
@@ -1918,7 +1873,7 @@ public enum Parser {
         if state.take(.lBrack) != nil {
           let arguments = try argumentList.parse(&state) ?? []
           guard state.take(.rBrack) != nil else {
-            throw ParseError("expected ']'", at: state.currentLocation)
+            throw ParseError(expected("']'", at: state.currentLocation))
           }
 
           head = AnyExprID(state.ast.insert(SubscriptCallExpr(
@@ -2321,7 +2276,7 @@ public enum Parser {
       case .sink:
         _ = state.take()
         guard state.take(.let) != nil else {
-          throw ParseError("expected 'let'", at: state.currentLocation)
+          throw ParseError(expected("'let'", at: state.currentLocation))
         }
         introducer = .sinklet
 
@@ -2573,8 +2528,9 @@ public enum Parser {
         let bindingRange = state.ast.ranges[tree.0.0]!
 
         if state.ast[tree.0.0].initializer == nil {
-          throw ParseError(
-            "conditional binding requires an initializer", at: bindingRange.first())
+          throw ParseError(.error(
+            "conditional binding requires an initializer",
+            range: bindingRange.upperBounded(by: bindingRange.lowerBound)))
         }
 
         let id = state.ast.insert(CondBindingStmt(
@@ -2603,47 +2559,13 @@ public enum Parser {
   )
 
   static let declStmt = (
-    Apply(parseLocalDecl)
+    Apply(parseDecl)
       .map({ (state, decl) -> NodeID<DeclStmt> in
         let id = state.ast.insert(DeclStmt(decl: decl))
         state.ast.ranges[id] = state.ast.ranges[decl]
         return id
       })
   )
-
-  static func parseLocalDecl(in state: inout ParserState) throws -> AnyDeclID? {
-    return try parseDeclPrologue(in: &state, then: continuation)
-
-    func continuation(
-      prologue: DeclPrologue,
-      state: inout ParserState
-    ) throws -> AnyDeclID? {
-      // Look ahead to select the appropriate declaration parser.
-      switch state.peek()?.kind {
-      case .conformance:
-        return try AnyDeclID(parseConformanceDecl(withPrologue: prologue, in: &state))
-      case .extension:
-        return try AnyDeclID(parseExtensionDecl(withPrologue: prologue, in: &state))
-      case .fun, .infix, .postfix, .prefix:
-        return try AnyDeclID(parseFunctionOrMethodDecl(withPrologue: prologue, in: &state))
-      case .subscript:
-        return try AnyDeclID(parseSubscriptDecl(withPrologue: prologue, in: &state))
-      case .type:
-        return try AnyDeclID(parseProductTypeDecl(withPrologue: prologue, in: &state))
-      case .typealias:
-        return try AnyDeclID(parseTypeAliasDecl(withPrologue: prologue, in: &state))
-      case .let, .inout, .var, .sink:
-        return try AnyDeclID(parseBindingDecl(withPrologue: prologue, in: &state))
-
-      default:
-        if prologue.isEmpty {
-          return nil
-        } else {
-          throw ParseError("expected declaration introducer", at: state.currentLocation)
-        }
-      }
-    }
-  }
 
   static let exprStmt = (
     expr
@@ -2696,7 +2618,7 @@ public enum Parser {
         // async-type-expr
         _ = state.take()
         guard let operand = try typeExpr.parse(&state) else {
-          throw ParseError("expected type expression", at: state.currentLocation)
+          throw ParseError(expected("type expression", at: state.currentLocation))
         }
 
         let id = state.ast.insert(AsyncTypeExpr(operand: operand))
@@ -2707,7 +2629,7 @@ public enum Parser {
         // indirect-type-expr
         _ = state.take()
         guard let operand = try typeExpr.parse(&state) else {
-          throw ParseError("expected type expression", at: state.currentLocation)
+          throw ParseError(expected("type expression", at: state.currentLocation))
         }
 
         let id = state.ast.insert(IndirectTypeExpr(operand: operand))
@@ -2718,7 +2640,7 @@ public enum Parser {
         // existential-type-expr
         _ = state.take()
         guard let traits = try traitComposition.parse(&state) else {
-          throw ParseError("expected trait composition", at: state.currentLocation)
+          throw ParseError(expected("trait composition", at: state.currentLocation))
         }
         let clause = try whereClause.parse(&state)
 
@@ -2739,7 +2661,7 @@ public enum Parser {
         if let converted = NodeID<NameTypeExpr>(id) {
           return converted
         } else {
-          throw ParseError("expected type name", at: state.ast.ranges[id]!.first())
+          throw ParseError(expected("type name", at: state.ast.ranges[id]!.first()))
         }
       })
   )
@@ -2752,7 +2674,7 @@ public enum Parser {
       while true {
         if state.take(.dot) != nil {
           guard let member = try primaryTypeDeclRef.parse(&state) else {
-            throw ParseError("expected type member name", at: state.currentLocation)
+            throw ParseError(expected("type member name", at: state.currentLocation))
           }
 
           state.ast[member].incorporate(domain: head)
@@ -2763,7 +2685,7 @@ public enum Parser {
 
         if state.take(.twoColons) != nil {
           guard let lens = try primaryTypeExpr.parse(&state) else {
-            throw ParseError("expected focus", at: state.currentLocation)
+            throw ParseError(expected("focus", at: state.currentLocation))
           }
 
           let id = state.ast.insert(ConformanceLensTypeExpr(subject: head, lens: lens))
@@ -3053,7 +2975,7 @@ public enum Parser {
       // equality-constraint
       if state.take(.equal) != nil {
         guard let rhs = try typeExpr.parse(&state) else {
-          throw ParseError("expected type expression", at: state.currentLocation)
+          throw ParseError(expected("type expression", at: state.currentLocation))
         }
         return SourceRepresentable(
           value: .equality(l: lhs, r: rhs),
@@ -3063,14 +2985,14 @@ public enum Parser {
       // conformance-constraint
       if state.take(.colon) != nil {
         guard let traits = try traitComposition.parse(&state) else {
-          throw ParseError("expected trait composition", at: state.currentLocation)
+          throw ParseError(expected("trait composition", at: state.currentLocation))
         }
         return SourceRepresentable(
           value: .conformance(l: lhs, traits: traits),
           range: state.ast.ranges[lhs]!.upperBounded(by: state.currentIndex))
       }
 
-      throw ParseError("expected constraint operator", at: state.currentLocation)
+      throw ParseError(expected("constraint operator", at: state.currentLocation))
     })
   )
 
@@ -3152,10 +3074,10 @@ public enum Parser {
         let head = state.take()!
 
         if state.hasLeadingWhitespace {
-          throw ParseError("expected operator", at: state.currentLocation)
+          throw ParseError(expected("operator", at: state.currentLocation))
         }
         guard let oper = state.takeOperator() else {
-          throw ParseError("expected operator", at: state.currentLocation)
+          throw ParseError(expected("operator", at: state.currentLocation))
         }
 
         let stem = String(state.lexer.source[oper.range!])
@@ -3223,7 +3145,7 @@ public enum Parser {
         if let value = Int(state.lexer.source[token.range]) {
           return .integer(SourceRepresentable(value: value, range: token.range))
         } else {
-          throw ParseError("invalid integer literal", at: token.range.first())
+          throw ParseError(.error("invalid integer literal", range: token.range))
         }
       })
   )

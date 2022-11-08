@@ -1817,7 +1817,7 @@ private extension SourceFile {
   /// Parses `self` with `parser`, optionally setting `context` in the parser state.
   func parseWithDeclPrologue<Element>(
     inContext context: ParserState.Context? = nil,
-    with parser: (DeclPrologue, inout ParserState) throws -> Element
+    with parser: (DeclPrologue, inout ParserState) throws -> Element?
   ) rethrows -> (element: Element?, ast: AST) {
     try parse(inContext: context, with: { (state) in
       try Parser.parseDeclPrologue(in: &state, then: parser)
