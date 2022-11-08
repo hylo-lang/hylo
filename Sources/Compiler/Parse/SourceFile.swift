@@ -1,6 +1,6 @@
 import Foundation // For `URL` and `UUID`
 
-/// A source file.
+/// A Val source file.
 ///
 /// - Note: two source files are equal if and only if they have the same path in the filesystem.
 public struct SourceFile {
