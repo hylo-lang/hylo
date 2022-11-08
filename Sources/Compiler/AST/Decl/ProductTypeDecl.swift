@@ -16,18 +16,24 @@ public struct ProductTypeDecl: GenericDecl, SingleEntityDecl, GenericScope {
   public let conformances: [NodeID<NameTypeExpr>]
 
   /// The member declarations in the lexical scope of the trait.
-  public var members: [AnyDeclID]
+  public let members: [AnyDeclID]
+
+  /// The memberwise initializer of the type.
+  public let memberwiseInit: NodeID<FunDecl>
 
   public init(
     identifier: SourceRepresentable<Identifier>,
     genericClause: SourceRepresentable<GenericClause>?,
     conformances: [NodeID<NameTypeExpr>],
-    members: [AnyDeclID]
+    members: [AnyDeclID],
+    memberwiseInit: NodeID<FunDecl>
   ) {
+    precondition(members.contains(AnyDeclID(memberwiseInit)))
     self.identifier = identifier
     self.genericClause = genericClause
     self.conformances = conformances
     self.members = members
+    self.memberwiseInit = memberwiseInit
   }
 
   public var name: String { identifier.value }

@@ -1,11 +1,15 @@
 /// A data structure representing a typed Val program ready to be lowered.
-public struct TypedProgram {
+public struct TypedProgram: Program {
 
-  /// The AST of the program.
   public let ast: AST
 
-  /// The scope hierarchy of the AST.
-  public let scopeHierarchy: ScopeHierarchy
+  public let scopeToParent: ASTProperty<AnyScopeID>
+
+  public let scopeToDecls: ASTProperty<[AnyDeclID]>
+
+  public let declToScope: DeclProperty<AnyScopeID>
+
+  public let varToBinding: [NodeID<VarDecl>: NodeID<BindingDecl>]
 
   /// The overarching type of each declaration.
   public let declTypes: DeclProperty<Type>
@@ -16,16 +20,18 @@ public struct TypedProgram {
   /// A map from name expression to its referred declaration.
   public let referredDecls: [NodeID<NameExpr>: DeclRef]
 
-  /// Creates a typed program from an AST and property maps describing its type annotations.
+  /// Creates a typed program from a scoped program and property maps describing type annotations.
   public init(
-    ast: AST,
-    scopeHierarchy: ScopeHierarchy,
+    annotating program: ScopedProgram,
     declTypes: DeclProperty<Type>,
     exprTypes: ExprProperty <Type>,
     referredDecls: [NodeID<NameExpr>: DeclRef]
   ) {
-    self.ast = ast
-    self.scopeHierarchy = scopeHierarchy
+    self.ast = program.ast
+    self.scopeToParent = program.scopeToParent
+    self.scopeToDecls = program.scopeToDecls
+    self.declToScope = program.declToScope
+    self.varToBinding = program.varToBinding
     self.declTypes = declTypes
     self.exprTypes = exprTypes
     self.referredDecls = referredDecls

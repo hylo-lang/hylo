@@ -7,11 +7,11 @@ public struct InoutExpr: Expr {
   public let operatorRange: SourceRange?
 
   /// The underlying expression.
-  public let subexpr: AnyExprID
+  public let subject: AnyExprID
 
-  public init(operatorRange: SourceRange? = nil, subexpr: AnyExprID) {
+  public init(operatorRange: SourceRange? = nil, subject: AnyExprID) {
     self.operatorRange = operatorRange
-    self.subexpr = subexpr
+    self.subject = subject
   }
 
 }

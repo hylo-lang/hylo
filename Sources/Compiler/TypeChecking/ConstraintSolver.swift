@@ -3,23 +3,8 @@ import Utils
 /// A constraint system solver.
 struct ConstraintSolver {
 
-  init(
-    checker: TypeChecker,
-    scope: AnyScopeID,
-    fresh: [LocatableConstraint],
-    initialDiagnostics: [Diagnostic]
-  ) {
-    self.checker = checker
-    self.scope = scope
-    self.fresh = fresh
-    self.diagnostics = initialDiagnostics
-  }
-
-  /// A borrowed projection of the type checker that uses this constraint generator.
-  var checker: TypeChecker
-
   /// The scope in which the constraints are solved.
-  let scope: AnyScopeID
+  private let scope: AnyScopeID
 
   /// The fresh constraints to solve.
   private var fresh: [LocatableConstraint] = []
@@ -42,21 +27,38 @@ struct ConstraintSolver {
   /// The score of the best solution computed so far.
   private var best = Solution.Score.worst
 
+  /// Creates an instance that solves the constraints in `fresh` in `scope`, returning a solution
+  /// populated with `initialDiagnostics`.
+  init(
+    scope: AnyScopeID,
+    fresh: [LocatableConstraint],
+    initialDiagnostics: [Diagnostic] = []
+  ) {
+    self.scope = scope
+    self.fresh = fresh
+    self.diagnostics = initialDiagnostics
+  }
+
   /// The current score of the solver's solution.
-  var score: Solution.Score {
+  private var score: Solution.Score {
     Solution.Score(errorCount: diagnostics.count, penalties: penalties)
+  }
+
+  /// Applies `self` to solve its constraints using `checker` to resolve names and realize types.
+  mutating func apply(using checker: inout TypeChecker) -> Solution {
+    solve(using: &checker)!
   }
 
   /// Solves the constraints and returns the best solution, or `nil` if a better solution has
   /// already been computed.
-  mutating func solve() -> Solution? {
+  private mutating func solve(using checker: inout TypeChecker) -> Solution? {
     while let constraint = fresh.popLast() {
       // Make sure the current solution is still worth exploring.
       if score > best { return nil }
 
       switch constraint.constraint {
       case .conformance(let l, let traits):
-        solve(l, conformsTo: traits, location: constraint.location)
+        solve(l, conformsTo: traits, location: constraint.location, using: &checker)
       case .equality(let l, let r):
         solve(l, equalsTo: r, location: constraint.location)
       case .subtyping(let l, let r):
@@ -64,25 +66,28 @@ struct ConstraintSolver {
       case .parameter(let l, let r):
         solve(l, passableTo: r, location: constraint.location)
       case .boundMember(let l, let m, let r):
-        solve(l, hasBoundMember: m, ofType: r, location: constraint.location)
+        solve(l, hasBoundMember: m, ofType: r, location: constraint.location, using: &checker)
       case .unboundMember(let l, let m, let r):
-        solve(l, hasUnboundMember: m, ofType: r, location: constraint.location)
+        solve(l, hasUnboundMember: m, ofType: r, location: constraint.location, using: &checker)
       case .disjunction:
-        return solve(disjunction: constraint)
+        return solve(disjunction: constraint, using: &checker)
       case .overload:
-        return solve(overload: constraint)
+        return solve(overload: constraint, using: &checker)
       default:
         fatalError("not implemented")
       }
     }
 
-    return finalize()
+    return finalize(using: &checker)
   }
 
+  /// Eliminates `L : T1 & ... & Tn` if the solver has enough information to check whether or not
+  /// `L` conforms to each trait `Ti`. Otherwise, postpones the constraint.
   private mutating func solve(
     _ l: Type,
     conformsTo traits: Set<TraitType>,
-    location: LocatableConstraint.Location
+    location: LocatableConstraint.Location,
+    using checker: inout TypeChecker
   ) {
     let l = typeAssumptions[l]
 
@@ -97,7 +102,7 @@ struct ConstraintSolver {
 
       if !nonConforming.isEmpty {
         for trait in nonConforming {
-          diagnostics.append(.noConformance(of: l, to: trait, at: range(of: location)))
+          diagnostics.append(.noConformance(of: l, to: trait, at: location.origin))
         }
       }
 
@@ -106,6 +111,7 @@ struct ConstraintSolver {
     }
   }
 
+  /// Eliminates `L == R` by unifying `L` with `R`.
   private mutating func solve(
     _ l: Type,
     equalsTo r: Type,
@@ -128,12 +134,12 @@ struct ConstraintSolver {
     case (.tuple(let l), .tuple(let r)):
       switch l.testLabelCompatibility(with: r) {
       case .differentLengths:
-        diagnostics.append(.incompatibleTupleLengths(at: range(of: location)))
+        diagnostics.append(.incompatibleTupleLengths(at: location.origin))
         return
 
       case .differentLabels(let found, let expected):
         diagnostics.append(.incompatibleLabels(
-          found: found, expected: expected, at: range(of: location)))
+          found: found, expected: expected, at: location.origin))
         return
 
       case .compatible:
@@ -149,12 +155,12 @@ struct ConstraintSolver {
     case (.lambda(let l), .lambda(let r)):
       switch l.testLabelCompatibility(with: r) {
       case .differentLengths:
-        diagnostics.append(.incompatibleParameterCount(at: range(of: location)))
+        diagnostics.append(.incompatibleParameterCount(at: location.origin))
         return
 
       case .differentLabels(let found, let expected):
         diagnostics.append(.incompatibleLabels(
-          found: found, expected: expected, at: range(of: location)))
+          found: found, expected: expected, at: location.origin))
         return
 
       case .compatible:
@@ -174,7 +180,7 @@ struct ConstraintSolver {
     case (.method(let l), .method(let r)):
       // Capabilities must match.
       if l.capabilities != r.capabilities {
-        diagnostics.append(.incompatibleTypes(.method(l), .method(r), at: range(of: location)))
+        diagnostics.append(.incompatibleTypes(.method(l), .method(r), at: location.origin))
         return
       }
 
@@ -218,10 +224,12 @@ struct ConstraintSolver {
       }
 
     default:
-      diagnostics.append(.incompatibleTypes(l, r, at: range(of: location)))
+      diagnostics.append(.incompatibleTypes(l, r, at: location.origin))
     }
   }
 
+  /// Eliminates `L <: R` if the solver has enough information to check that `L` is subtype of `R`
+  /// or must be unified with `R`. Otherwise, postpones the constraint.
   private mutating func solve(
     _ l: Type,
     isSubtypeOf r: Type,
@@ -252,7 +260,6 @@ struct ConstraintSolver {
     case (_, .existential):
       // All types conform to any.
       if r == .any { return }
-
       fatalError("not implemented")
 
     case (_, .lambda):
@@ -262,10 +269,12 @@ struct ConstraintSolver {
       fatalError("not implemented")
 
     default:
-      diagnostics.append(.notSubtype(l, of: r, at: range(of: location)))
+      diagnostics.append(.notSubtype(l, of: r, at: location.origin))
     }
   }
 
+  /// Eliminates `L ⤷ R` if the solver has enough information to choose whether the constraint can
+  /// be simplified as equality or subtyping. Otherwise, postpones the constraint.
   private mutating func solve(
     _ l: Type,
     passableTo r: Type,
@@ -288,15 +297,19 @@ struct ConstraintSolver {
         .equalityOrSubtyping(l: l, r: p.bareType), location: location))
 
     default:
-      diagnostics.append(.invalidParameterType(r, at: range(of: location)))
+      diagnostics.append(.invalidParameterType(r, at: location.origin))
     }
   }
 
+  /// Simplifies `bound(L.m) == R` as an overload or equality constraint unifying `R` with the
+  /// bound type of `L.m` if the solver has enough information to resolve `m` as a bound member.
+  /// Otherwise, postones the constraint.
   private mutating func solve(
     _ l: Type,
     hasBoundMember member: Name,
     ofType r: Type,
-    location: LocatableConstraint.Location
+    location: LocatableConstraint.Location,
+    using checker: inout TypeChecker
   ) {
     // Postpone the solving if `L` is still unknown.
     let l = typeAssumptions[l]
@@ -308,13 +321,12 @@ struct ConstraintSolver {
     // Search for non-static members with the specified name.
     let allMatches = checker.lookup(member.stem, memberOf: l, inScope: scope)
     let nonStaticMatches = allMatches.filter({ decl in
-      checker.scopeHierarchy.isNonStaticMember(decl: decl, ast: checker.ast)
+      checker.program.isNonStaticMember(decl)
     })
 
     // Catch uses of static members on instances.
     if nonStaticMatches.isEmpty && !allMatches.isEmpty {
-      diagnostics.append(.staticMemberUsedOnInstance(
-        member: member, type: l, range: range(of: location)))
+      diagnostics.append(.staticMemberUsedOnInstance(member: member, type: l, at: location.origin))
     }
 
     // Generate the list of candidates.
@@ -329,12 +341,12 @@ struct ConstraintSolver {
         reference: .member(match),
         type: matchType,
         constraints: [],
-        penalties: isRequirement(decl: match) ? 1 : 0)
+        penalties: checker.program.isRequirement(match) ? 1 : 0)
     })
 
     // Fail if we couldn't find any candidate.
     if candidates.isEmpty {
-      diagnostics.append(.undefined(name: "\(member)", at: range(of: location)))
+      diagnostics.append(.undefined(name: "\(member)", at: location.origin))
       return
     }
 
@@ -360,11 +372,15 @@ struct ConstraintSolver {
     fresh.append(LocatableConstraint(newConstraint, location: location))
   }
 
+  /// Simplifies `bound(L.m) == R` as an overload or equality constraint unifying `R` with the
+  /// unbound type of `L.m` if the solver has enough information to resolve `m` as a bound member.
+  /// Otherwise, postones the constraint.
   private mutating func solve(
     _ l: Type,
     hasUnboundMember member: Name,
     ofType r: Type,
-    location: LocatableConstraint.Location
+    location: LocatableConstraint.Location,
+    using checker: inout TypeChecker
   ) {
     // Postpone the solving if `L` is still unknown.
     let l = typeAssumptions[l]
@@ -385,17 +401,17 @@ struct ConstraintSolver {
 
       // TODO: Handle bound generic typess
       // TODO: Handle static access to bound members
-      assert(checker.scopeHierarchy.isGlobal(decl: match, ast: checker.ast), "not implemented")
+      assert(checker.program.isGlobal(match), "not implemented")
 
       return (
         decl: match,
         type: matchType,
-        penalty: isRequirement(decl: match) ? 1 : 0)
+        penalty: checker.program.isRequirement(match) ? 1 : 0)
     })
 
     // Fail if we couldn't find any candidate.
     if candidates.isEmpty {
-      diagnostics.append(.undefined(name: "\(member)", at: range(of: location)))
+      diagnostics.append(.undefined(name: "\(member)", at: location.origin))
       return
     }
 
@@ -413,36 +429,48 @@ struct ConstraintSolver {
     fatalError("not implemented")
   }
 
-  private mutating func solve(disjunction: LocatableConstraint) -> Solution? {
+  /// Attempts to solve the remaining constraints for each individual choice in `disjunction` and
+  /// returns the best solution.
+  private mutating func solve(
+    disjunction: LocatableConstraint,
+    using checker: inout TypeChecker
+  ) -> Solution? {
     guard case .disjunction(let minterms) = disjunction.constraint else { unreachable() }
 
     return explore(
       minterms,
       location: disjunction.location,
-      insertingConstraintsWith: { (subsolver, branch) -> Void in
-        for constraint in branch.constraints {
+      using: &checker,
+      insertingConstraintsWith: { (subsolver, choice) -> Void in
+        for constraint in choice.constraints {
           subsolver.fresh.append(LocatableConstraint(constraint, location: disjunction.location))
         }
       })?.solution
   }
 
-  private mutating func solve(overload: LocatableConstraint) -> Solution? {
+  /// Attempts to solve the remaining constraints with each individual choice in `overload` and
+  /// returns the best solution.
+  private mutating func solve(
+    overload: LocatableConstraint,
+    using checker: inout TypeChecker
+  ) -> Solution? {
     guard case .overload(let name, let type, let candidates) = overload.constraint else {
       unreachable()
     }
 
-    let bestBranch = explore(
+    let bestChoice = explore(
       candidates,
       location: overload.location,
-      insertingConstraintsWith: { (subsolver, branch) -> Void in
+      using: &checker,
+      insertingConstraintsWith: { (subsolver, choice) -> Void in
         subsolver.fresh.append(LocatableConstraint(
-          .equality(l: type, r: branch.type), location: overload.location))
-        for constraint in branch.constraints {
+          .equality(l: type, r: choice.type), location: overload.location))
+        for constraint in choice.constraints {
           subsolver.fresh.append(LocatableConstraint(constraint, location: overload.location))
         }
       })
 
-    if let (choice, solution) = bestBranch {
+    if let (choice, solution) = bestChoice {
       bindingAssumptions[name] = choice.reference
       return solution
     } else {
@@ -450,36 +478,39 @@ struct ConstraintSolver {
     }
   }
 
+  /// Solves the remaining constraint with each given choice and returns the best solution along
+  /// with the choice that produced it.
   private mutating func explore<C: Collection>(
-    _ branches: C,
+    _ choices: C,
     location: LocatableConstraint.Location,
+    using checker: inout TypeChecker,
     insertingConstraintsWith insertConstraints: (inout ConstraintSolver, C.Element) -> Void
-  ) -> (branch: C.Element, solution: Solution)?
-  where C.Element: Branch
+  ) -> (choice: C.Element, solution: Solution)?
+  where C.Element: Choice
   {
     /// The results of the exploration.
-    var results: [(branch: C.Element, solution: Solution)] = []
+    var results: [(choice: C.Element, solution: Solution)] = []
 
-    for branch in branches {
+    for choice in choices {
       // Don't bother if there's no chance to find a better solution.
-      var underestimatedBranchScore = score
-      underestimatedBranchScore.penalties += branch.penalties
-      if underestimatedBranchScore > best {
+      var underestimatedChoiceScore = score
+      underestimatedChoiceScore.penalties += choice.penalties
+      if underestimatedChoiceScore > best {
         continue
       }
 
-      // Explore the result of this branch.
+      // Explore the result of this choice.
       var subsolver = self
-      subsolver.penalties += branch.penalties
-      insertConstraints(&subsolver, branch)
+      subsolver.penalties += choice.penalties
+      insertConstraints(&subsolver, choice)
 
-      guard let solution = subsolver.solve() else { continue }
+      guard let solution = subsolver.solve(using: &checker) else { continue }
       if results.isEmpty || (solution.score < best) {
         best = solution.score
-        results = [(branch, solution)]
+        results = [(choice, solution)]
       } else if solution.score == best {
         // TODO: Avoid duplicates
-        results.append((branch, solution))
+        results.append((choice, solution))
       }
     }
 
@@ -492,60 +523,14 @@ struct ConstraintSolver {
 
     default:
       // TODO: Merge remaining solutions
-      results[0].solution.diagnose(.ambiguousDisjunction(at: range(of: location)))
+      results[0].solution.diagnose(.ambiguousDisjunction(at: location.origin))
       return results[0]
     }
   }
 
+  /// Schedules `constraint` to be solved later.
   private mutating func postpone(_ constraint: LocatableConstraint) {
     stale.append(constraint)
-  }
-
-  /// Returns whether `decl` is a requirement.
-  private func isRequirement<T: DeclID>(decl: T) -> Bool {
-    if checker.scopeHierarchy.container[decl]?.kind != .traitDecl {
-      return false
-    }
-
-    switch decl.kind {
-    case .funDecl:
-      switch checker.ast[NodeID<FunDecl>(rawValue: decl.rawValue)].body {
-      case .bundle(let impls):
-        return impls.contains(where: { isRequirement(decl: $0) })
-      case .none:
-        return true
-      case .some:
-        return false
-      }
-
-    case .methodImplDecl:
-      switch checker.ast[NodeID<MethodImplDecl>(rawValue: decl.rawValue)].body {
-      case .none:
-        return true
-      case .some:
-        return false
-      }
-
-    case .subscriptDecl:
-      return checker.ast[NodeID<SubscriptDecl>(rawValue: decl.rawValue)].impls
-        .contains(where: { isRequirement(decl: $0) })
-
-    case .subscriptImplDecl:
-      switch checker.ast[NodeID<SubscriptImplDecl>(rawValue: decl.rawValue)].body {
-      case .none:
-        return true
-      case .some:
-        return false
-      }
-
-    default:
-      return false
-    }
-  }
-
-  /// Returns the source range corresponding to `location`, if any.
-  private func range(of location: LocatableConstraint.Location) -> SourceRange? {
-    location.node.map({ checker.ast.ranges[$0] }) ?? nil
   }
 
   /// Moves the stale constraints depending on the specified variables back to the fresh set.
@@ -558,7 +543,7 @@ struct ConstraintSolver {
   }
 
   /// Creates a solution from the current state.
-  private func finalize() -> Solution {
+  private func finalize(using checker: inout TypeChecker) -> Solution {
     assert(fresh.isEmpty)
     var s = Solution(
       typeAssumptions: typeAssumptions.flattened(),
@@ -567,7 +552,7 @@ struct ConstraintSolver {
       diagnostics: diagnostics)
 
     for c in stale {
-      s.diagnose(.staleConstraint(constraint: c.constraint, at: range(of: c.location)))
+      s.diagnose(.staleConstraint(constraint: c.constraint, at: c.location.origin))
     }
 
     return s
@@ -629,13 +614,14 @@ extension TupleType: LabeledCollection {
 
 }
 
-fileprivate protocol Branch {
+/// A type representing a choice during constraint solving.
+fileprivate protocol Choice {
 
   /// The penalties associated with the choice.
   var penalties: Int { get }
 
 }
 
-extension Constraint.Minterm: Branch {}
+extension Constraint.Minterm: Choice {}
 
-extension Constraint.OverloadCandidate: Branch {}
+extension Constraint.OverloadCandidate: Choice {}

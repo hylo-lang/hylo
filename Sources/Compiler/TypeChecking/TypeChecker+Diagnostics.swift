@@ -8,6 +8,13 @@ extension Diagnostic {
     .error("ambiguous reference to type named \(name)", range: range)
   }
 
+  static func captureOfNonStaticMemberInNestedType(
+    name: Name,
+    at range: SourceRange?
+  ) -> Diagnostic {
+    .error("cannot capture non-static member '\(name)' in nested type", range: range)
+  }
+
   static func circularRefinement(at range: SourceRange?) -> Diagnostic {
     .error("circular trait refinement", range: range)
   }
@@ -207,7 +214,7 @@ extension Diagnostic {
   static func staticMemberUsedOnInstance(
     member: Name,
     type: Type,
-    range: SourceRange?
+    at range: SourceRange?
   ) -> Diagnostic {
     .error(
       "static member '\(member)' cannot be used on instance of type '\(type)'",

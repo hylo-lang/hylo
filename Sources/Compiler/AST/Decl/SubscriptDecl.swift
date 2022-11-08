@@ -55,7 +55,7 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
   ///
   /// Note that the implicit receiver parameter (i.e., `self`) of a subscipt is never stored in
   /// this property. Each subscript implementation declaration has its own declaration.
-  public internal(set) var implicitParameterDecls: [ImplicitParameter] = []
+  public private(set) var implicitParameterDecls: [ImplicitParameter] = []
 
   public init(
     introducer: SourceRepresentable<Introducer>,
@@ -103,6 +103,14 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
     self.attributes = attributes
     self.accessModifier = accessModifier
     self.memberModifier = memberModifier
+  }
+
+  /// Incorporates the given implicit parameter declarations into `self`.
+  ///
+  /// - Requires: `self.implicitParameterDecls` is empty.
+  internal mutating func incorporate(implicitParameterDecls: [ImplicitParameter]) {
+    precondition(self.implicitParameterDecls.isEmpty)
+    self.implicitParameterDecls = implicitParameterDecls
   }
 
 }

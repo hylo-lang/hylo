@@ -15,10 +15,11 @@ struct CaptureCollector {
   private let isYieldMutating = false
 
   /// The set of names that are bound in the lexical scopes containing the node being visited.
-  private var boundNames: [Set<Name>] = []
+  private var boundNames: [Set<Name>]
 
-  init(ast: AST) {
+  init(ast: AST, ignoring names: Set<Name> = []) {
     self.ast = ast
+    self.boundNames = [names]
   }
 
   /// Returns the names occurring free in the specified function or subscript declaration, together
@@ -345,7 +346,7 @@ struct CaptureCollector {
     into captures: inout FreeSet,
     inMutatingContext isContextMutating: Bool
   ) {
-    collectCaptures(ofExpr: ast[id].subexpr, into: &captures, inMutatingContext: true)
+    collectCaptures(ofExpr: ast[id].subject, into: &captures, inMutatingContext: true)
   }
 
   /// Collects the names occurring free in the specified expression.

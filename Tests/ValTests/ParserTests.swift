@@ -99,7 +99,7 @@ final class ParserTests: XCTestCase {
     """)
     let (declID, ast) = try apply(Parser.productTypeDecl, on: input)
     let decl = try XCTUnwrap(ast[declID])
-    XCTAssertEqual(decl.members.count, 3)
+    XCTAssertEqual(decl.members.count, 4) // 3 explicit decls + 1 implicit memberwise init
   }
 
   func testProductTypeDeclWithGenericClause() throws {
@@ -141,26 +141,26 @@ final class ParserTests: XCTestCase {
 
   func testProductTypeMember() throws {
     let input = SourceFile(contents: "var x: Int")
-    XCTAssertNotNil(try apply(Parser.productTypeMember, on: input, flags: .parsingProductBody))
+    XCTAssertNotNil(try apply(Parser.productTypeMember, on: input, context: .productBody))
   }
 
   func testProductTypeMemberPublic() throws {
     let input = SourceFile(contents: "public var x: Int")
-    let (declID, ast) = try apply(Parser.productTypeMember, on: input, flags: .parsingProductBody)
+    let (declID, ast) = try apply(Parser.productTypeMember, on: input, context: .productBody)
     let decl = try XCTUnwrap(ast[declID] as? BindingDecl)
     XCTAssertEqual(decl.accessModifier?.value, .public)
   }
 
   func testProductTypeMemberStatic() throws {
     let input = SourceFile(contents: "static var x: Int")
-    let (declID, ast) = try apply(Parser.productTypeMember, on: input, flags: .parsingProductBody)
+    let (declID, ast) = try apply(Parser.productTypeMember, on: input, context: .productBody)
     let decl = try XCTUnwrap(ast[declID] as? BindingDecl)
     XCTAssertEqual(decl.memberModifier?.value, .static)
   }
 
   func testProductTypeMemberPublicStatic() throws {
     let input = SourceFile(contents: "public static var x: Int")
-    let (declID, ast) = try apply(Parser.productTypeMember, on: input, flags: .parsingProductBody)
+    let (declID, ast) = try apply(Parser.productTypeMember, on: input, context: .productBody)
     let decl = try XCTUnwrap(ast[declID] as? BindingDecl)
     XCTAssertEqual(decl.accessModifier?.value, .public)
     XCTAssertEqual(decl.memberModifier?.value, .static)
@@ -197,7 +197,7 @@ final class ParserTests: XCTestCase {
       inout
     }
     """)
-    let (declID, ast) = try apply(Parser.traitMember, on: input, flags: .parsingTraitBody)
+    let (declID, ast) = try apply(Parser.traitMember, on: input, context: .traitBody)
     let decl = try XCTUnwrap(ast[declID] as? FunDecl)
     if case .bundle(let impls) = decl.body {
       XCTAssertEqual(impls.count, 2)
@@ -213,14 +213,14 @@ final class ParserTests: XCTestCase {
       inout
     }
     """)
-    let (declID, ast) = try apply(Parser.traitMember, on: input, flags: .parsingTraitBody)
+    let (declID, ast) = try apply(Parser.traitMember, on: input, context: .traitBody)
     let decl = try XCTUnwrap(ast[declID] as? SubscriptDecl)
     XCTAssertEqual(decl.impls.count, 2)
   }
 
   func testPropertyRequirement() throws {
     let input = SourceFile(contents: "property foo: T")
-    XCTAssertNotNil(try apply(Parser.traitMember, on: input, flags: .parsingTraitBody))
+    XCTAssertNotNil(try apply(Parser.traitMember, on: input, context: .traitBody))
   }
 
   func testAssociatedTypeDecl() throws {
@@ -322,7 +322,7 @@ final class ParserTests: XCTestCase {
 
   func testExtensionMember() throws {
     let input = SourceFile(contents: "public static fun forty_two() -> Int { 42 }")
-    let (declID, ast) = try apply(Parser.extensionMember, on: input, flags: .parsingExtensionBody)
+    let (declID, ast) = try apply(Parser.extensionMember, on: input, context: .extensionBody)
     let decl = try XCTUnwrap(ast[declID] as? FunDecl)
     XCTAssertEqual(decl.accessModifier?.value, .public)
     XCTAssertEqual(decl.memberModifier?.value, .static)
@@ -1400,35 +1400,35 @@ final class ParserTests: XCTestCase {
 
   func testReturnStmt() throws {
     let input = SourceFile(contents: "return")
-    XCTAssertNotNil(try apply(Parser.returnStmt, on: input, flags: .parsingFunctionBody))
+    XCTAssertNotNil(try apply(Parser.returnStmt, on: input, context: .functionBody))
   }
 
   func testReturnStmtWithValue() throws {
     let input = SourceFile(contents: "return 42")
-    let (stmtID, ast) = try apply(Parser.returnStmt, on: input, flags: .parsingFunctionBody)
+    let (stmtID, ast) = try apply(Parser.returnStmt, on: input, context: .functionBody)
     let stmt = try XCTUnwrap(ast[stmtID])
     XCTAssertNotNil(stmt.value)
   }
 
   func testYieldStmt() throws {
     let input = SourceFile(contents: "yield &foo.bar")
-    XCTAssertNotNil(try apply(Parser.yieldStmt, on: input, flags: .parsingSubscriptBody))
+    XCTAssertNotNil(try apply(Parser.yieldStmt, on: input, context: .subscriptBody))
   }
 
   func testBreak() throws {
     let input = SourceFile(contents: "break")
-    XCTAssertNotNil(try apply(Parser.breakStmt, on: input, flags: .parsingLoopBody))
+    XCTAssertNotNil(try apply(Parser.breakStmt, on: input, context: .loopBody))
   }
 
   func testContinue() throws {
     let input = SourceFile(contents: "continue")
-    XCTAssertNotNil(try apply(Parser.continueStmt, on: input, flags: .parsingLoopBody))
+    XCTAssertNotNil(try apply(Parser.continueStmt, on: input, context: .loopBody))
   }
 
   func testConditionalBinding() throws {
     let input = SourceFile(contents: "var x = foo() else return")
     let (stmtID, ast) = try apply(
-      Parser.conditionalBindingStmt, on: input, flags: .parsingFunctionBody)
+      Parser.conditionalBindingStmt, on: input, context: .functionBody)
     let stmt = try XCTUnwrap(ast[stmtID])
     if case .exit = stmt.fallback {
     } else {
@@ -1439,7 +1439,7 @@ final class ParserTests: XCTestCase {
   func testConditionalBindingBlock() throws {
     let input = SourceFile(contents: "var x = foo() else { bar(); return }")
     let (stmtID, ast) = try apply(
-      Parser.conditionalBindingStmt, on: input, flags: .parsingFunctionBody)
+      Parser.conditionalBindingStmt, on: input, context: .functionBody)
     let stmt = try XCTUnwrap(ast[stmtID])
     if case .exit = stmt.fallback {
     } else {
@@ -1460,7 +1460,7 @@ final class ParserTests: XCTestCase {
   func testConditionalBindingFallback() throws {
     let input = SourceFile(contents: "return")
     XCTAssertNotNil(try apply(
-      Parser.conditionalBindingStmt, on: input, flags: .parsingFunctionBody))
+      Parser.conditionalBindingStmt, on: input, context: .functionBody))
   }
 
   func testDeclStmt() throws {
@@ -1718,7 +1718,7 @@ final class ParserTests: XCTestCase {
 
   func testTakeOperator() throws {
     let input = SourceFile(contents: "+ & == | < <= > >=")
-    var context = ParserContext(ast: AST(), lexer: Lexer(tokenizing: input))
+    var context = ParserState(ast: AST(), lexer: Lexer(tokenizing: input))
     XCTAssertEqual(context.takeOperator()?.value, "+")
     XCTAssertEqual(context.takeOperator()?.value, "&")
     XCTAssertEqual(context.takeOperator()?.value, "==")
@@ -1764,19 +1764,19 @@ final class ParserTests: XCTestCase {
     }
   }
 
-  /// Applies `combinator` on `input`, optionally setting `flags` in the parser context.
+  /// Applies `combinator` on `input`, optionally setting `context` in the parser state.
   func apply<C: Combinator>(
     _ combinator: C,
     on input: SourceFile,
-    flags: ParserContext.Flags? = nil
-  ) throws -> (element: C.Element?, ast: AST) where C.Context == ParserContext {
-    var context = ParserContext(ast: AST(), lexer: Lexer(tokenizing: input))
-    if let f = flags {
-      context.flags = context.flags | f
+    context: ParserState.Context? = nil
+  ) throws -> (element: C.Element?, ast: AST) where C.Context == ParserState {
+    var state = ParserState(ast: AST(), lexer: Lexer(tokenizing: input))
+    if let c = context {
+      state.contexts.append(c)
     }
 
-    let element = try combinator.parse(&context)
-    return (element, context.ast)
+    let element = try combinator.parse(&state)
+    return (element, state.ast)
   }
 
 }

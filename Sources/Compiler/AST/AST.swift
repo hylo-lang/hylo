@@ -24,12 +24,6 @@ public struct AST: Codable {
   /// The ID of the node representing all built-in declarations.
   public var builtinDecl: NodeID<BuiltinDecl> { NodeID(rawValue: 0) }
 
-  /// Returns the scope hierarchy.
-  func scopeHierarchy() -> ScopeHierarchy {
-    var builder = ScopeHierarchyBuilder(ast: self)
-    return builder.build()
-  }
-
   /// Inserts `n` into `self`.
   public mutating func insert<T: Node>(_ n: T) -> NodeID<T> {
     let i = NodeID<T>(rawValue: nodes.count)
@@ -181,27 +175,6 @@ public struct AST: Codable {
     var result: [(path: [Int], pattern: NodeID<NamePattern>)] = []
     visit(pattern: AnyPatternID(pattern), path: [], result: &result)
     return result
-  }
-
-  // MARK: Synthesis
-
-  /// Retrieves or synthesizes the declaration of the memberwise initializer of `d`.
-  mutating func memberwiseInitDecl(
-    of d: NodeID<ProductTypeDecl>,
-    updating scopeHierarchy: inout ScopeHierarchy
-  ) -> NodeID<FunDecl> {
-    // Look for the declaration.
-    for member in self[d].members where member.kind == .funDecl {
-      let m = NodeID<FunDecl>(rawValue: member.rawValue)
-      if self[m].introducer.value == .memberwiseInit { return m }
-    }
-
-    // Synthesize the declaration.
-    let m = insert(FunDecl(introducer: SourceRepresentable(value: .memberwiseInit)))
-    self[d].members.insert(AnyDeclID(m), at: 0)
-    scopeHierarchy.insert(decl: m, into: AnyScopeID(d))
-
-    return m
   }
 
 }

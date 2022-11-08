@@ -92,7 +92,7 @@ struct CLI: ParsableCommand {
     /// The name of the product being built.
     let productName = "main"
     /// The AST of the program being compiled.
-    var rawProgram = AST()
+    var ast = AST()
 
     if compileInputAsModules {
       fatalError("not implemented")
@@ -103,14 +103,14 @@ struct CLI: ParsableCommand {
     log(verbose: "Parsing '\(productName)'".styled([.bold]))
 
     // Merge all inputs into the same same module.
-    let moduleDecl = rawProgram.insert(ModuleDecl(name: productName))
+    let moduleDecl = ast.insert(ModuleDecl(name: productName))
     for input in inputs {
       if input.hasDirectoryPath {
-        if !withFiles(in: input, { insert(contentsOf: $0, into: moduleDecl, in: &rawProgram) }) {
+        if !withFiles(in: input, { insert(contentsOf: $0, into: moduleDecl, in: &ast) }) {
           CLI.exit(withError: ExitCode(-1))
         }
       } else {
-        if !insert(contentsOf: input, into: moduleDecl, in: &rawProgram) {
+        if !insert(contentsOf: input, into: moduleDecl, in: &ast) {
           CLI.exit(withError: ExitCode(-1))
         }
       }
@@ -120,7 +120,7 @@ struct CLI: ParsableCommand {
     if outputType == .rawAST {
       let url = outputURL ?? URL(fileURLWithPath: "ast.json")
       let encoder = JSONEncoder()
-      try encoder.encode(rawProgram).write(to: url, options: .atomic)
+      try encoder.encode(ast).write(to: url, options: .atomic)
       CLI.exit()
     }
 
@@ -129,14 +129,14 @@ struct CLI: ParsableCommand {
     log(verbose: "Type-checking '\(productName)'".styled([.bold]))
 
     // Import the core library.
-    try rawProgram.importCoreModule()
+    try ast.importCoreModule()
 
     // Initialize the type checker.
-    var checker = TypeChecker(ast: rawProgram, isBuiltinModuleVisible: true)
+    var checker = TypeChecker(program: ScopedProgram(ast: ast), isBuiltinModuleVisible: true)
     var typeCheckingSucceeded = true
 
     // Type check the code library.
-    typeCheckingSucceeded = checker.check(module: rawProgram.corelib!)
+    typeCheckingSucceeded = checker.check(module: checker.program.ast.corelib!)
 
     // Type-check the input.
     checker.isBuiltinModuleVisible = importBuiltinModule
@@ -152,8 +152,7 @@ struct CLI: ParsableCommand {
     if typeCheckOnly { CLI.exit() }
 
     let typedProgram = TypedProgram(
-      ast: checker.ast,
-      scopeHierarchy: checker.scopeHierarchy,
+      annotating: checker.program,
       declTypes: checker.declTypes,
       exprTypes: checker.exprTypes,
       referredDecls: checker.referredDecls)
@@ -275,7 +274,7 @@ struct CLI: ParsableCommand {
       return decls != nil
 
     default:
-      log(warningLabel + "ignoring file with unsupported extension: \(fileURL.relativePath)")
+      log("ignoring file with unsupported extension: \(fileURL.relativePath)")
       return true
     }
   }

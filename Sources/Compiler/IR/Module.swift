@@ -122,7 +122,7 @@ public struct Module {
     functions.append(function)
 
     // Determine if the new function is the module's entry.
-    if program.scopeHierarchy.container[declID]?.kind == .topLevelDeclSet,
+    if program.declToScope[declID]?.kind == .topLevelDeclSet,
        program.ast[declID].isPublic,
        program.ast[declID].identifier?.value == "main"
     {

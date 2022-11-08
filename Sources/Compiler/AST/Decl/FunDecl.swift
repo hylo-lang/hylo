@@ -80,7 +80,7 @@ public struct FunDecl: GenericDecl, GenericScope {
   /// declaration, it contains a reference to the declaration of the implicit receiver parameter
   /// (i.e., `self`), unless the method forms a bundle. The implicit receiver of a bundle has a
   /// declaration in each method implementation.
-  public internal(set) var implicitParameterDecls: [ImplicitParameter] = []
+  public private(set) var implicitParameterDecls: [ImplicitParameter]
 
   /// The declaration of the implicit receiver parameter, if any.
   public var implicitReceiverDecl: NodeID<ParameterDecl>? {
@@ -102,9 +102,9 @@ public struct FunDecl: GenericDecl, GenericScope {
     genericClause: SourceRepresentable<GenericClause>? = nil,
     captures: [NodeID<BindingDecl>] = [],
     parameters: [NodeID<ParameterDecl>] = [],
+    receiver: NodeID<ParameterDecl>? = nil,
     output: AnyTypeExprID? = nil,
     body: Body? = nil,
-    receiver: NodeID<ParameterDecl>? = nil,
     isInExprContext: Bool = false
   ) {
     self.introducer = introducer
@@ -120,6 +120,15 @@ public struct FunDecl: GenericDecl, GenericScope {
     self.output = output
     self.body = body
     self.isInExprContext = isInExprContext
+
+    if let r = receiver {
+      implicitParameterDecls = [ImplicitParameter(name: "self", decl: AnyDeclID(r))]
+    } else {
+      precondition(introducer.value != .`init`)
+      precondition(introducer.value != .memberwiseInit)
+      precondition(introducer.value != .deinit)
+      implicitParameterDecls = []
+    }
   }
 
   /// Returns whether the declaration is public.
@@ -158,4 +167,13 @@ public struct FunDecl: GenericDecl, GenericScope {
     self.accessModifier = accessModifier
     self.memberModifier = memberModifier
   }
+
+  /// Incorporates the given implicit parameter declarations into `self`.
+  ///
+  /// - Requires: `self.implicitParameterDecls` is empty.
+  internal mutating func incorporate(implicitParameterDecls: [ImplicitParameter]) {
+    precondition(self.implicitParameterDecls.isEmpty)
+    self.implicitParameterDecls = implicitParameterDecls
+  }
+
 }

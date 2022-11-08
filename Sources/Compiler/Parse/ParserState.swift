@@ -1,37 +1,29 @@
 import DequeModule
 import Durian
 
-/// A type representing the context of the parser.
-struct ParserContext {
+/// A type representing the state of the parser.
+struct ParserState {
 
-  /// The flags of a parser's state.
-  struct Flags {
+  /// A tag representing the context of the parser.
+  enum Context {
 
-    private var rawValue: UInt16
+    case topLevel
 
-    subscript(flags: Flags) -> Bool {
-      (rawValue & flags.rawValue) != 0
-    }
+    case namespaceBody
 
-    static func | (lhs: Flags, rhs: Flags) -> Flags {
-      Flags(rawValue: lhs.rawValue | rhs.rawValue)
-    }
+    case productBody
 
-    static func - (lhs: Flags, rhs: Flags) -> Flags {
-      Flags(rawValue: lhs.rawValue & ~rhs.rawValue)
-    }
+    case traitBody
 
-    static let parsingTopLevel        = Flags(rawValue: 1 << 0)
-    static let parsingNamespace       = Flags(rawValue: 1 << 1)
-    static let parsingProductBody     = Flags(rawValue: 1 << 2)
-    static let parsingTraitBody       = Flags(rawValue: 1 << 3)
-    static let parsingExtensionBody   = Flags(rawValue: 1 << 4)
-    static let parsingFunctionBody    = Flags(rawValue: 1 << 5)
-    static let parsingSubscriptBody   = Flags(rawValue: 1 << 6)
-    static let parsingBindingPattern  = Flags(rawValue: 1 << 7)
-    static let parsingLoopBody        = Flags(rawValue: 1 << 8)
+    case extensionBody
 
-    static let parsingTypeBody = parsingProductBody | parsingTraitBody | parsingExtensionBody
+    case functionBody
+
+    case subscriptBody
+
+    case bindingPattern
+
+    case loopBody
 
   }
 
@@ -50,17 +42,23 @@ struct ParserContext {
   /// The diagnostics of the parse errors and warnings.
   var diagnostics: [Diagnostic] = []
 
-  /// The flags of the parser's state.
-  var flags = Flags.parsingTopLevel
-
-  /// Indicates that the parser encounted an irrecoverable error.
-  private var didIrrecoverableErrorOccur = false
+  /// A stack describing the parsing context.
+  var contexts: [Context] = []
 
   /// Creates a new context, using `lexer` to generate tokens.
   init(ast: AST, lexer: Lexer) {
     self.ast = ast
     self.lexer = lexer
     self.currentIndex = lexer.source.contents.startIndex
+  }
+
+  /// Indicates whether the parser is expecting to parse member declarations.
+  var isParsingTypeBody: Bool {
+    if let c = contexts.last {
+      return (c == .extensionBody) || (c == .productBody) || (c == .traitBody)
+    } else {
+      return false
+    }
   }
 
   /// The current location of the parser in the character stream.
@@ -204,7 +202,7 @@ struct ParserContext {
 
 }
 
-extension ParserContext: Restorable {
+extension ParserState: Restorable {
 
   typealias Backup = Self
 

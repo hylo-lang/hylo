@@ -7,6 +7,9 @@ struct LocatableConstraint {
     /// The AST node to which the constraint is attached, if any.
     var node: AnyNodeID?
 
+    /// The source range from which the constraint originates, if any.
+    var origin: SourceRange?
+
     /// The cause of the constraint, if specified.
     var cause: Cause?
 
@@ -44,9 +47,14 @@ struct LocatableConstraint {
     self.location = location
   }
 
-  init(_ constraint: Constraint, node: AnyNodeID? = nil, cause: Cause? = nil) {
+  init(
+    _ constraint: Constraint,
+    node: AnyNodeID? = nil,
+    range: SourceRange? = nil,
+    cause: Cause? = nil
+  ) {
     self.constraint = constraint
-    self.location = Location(node: node, cause: cause)
+    self.location = Location(node: node, origin: range, cause: cause)
   }
 
 }
