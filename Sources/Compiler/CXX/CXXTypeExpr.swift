@@ -24,6 +24,11 @@ public struct CXXTypeExpr: CustomStringConvertible {
         description = productType.name.value
       }
 
+    case .parameter(let parameterType):
+      // TODO: convention
+      let bareDescription = CXXTypeExpr(parameterType.bareType, ast: ast)!.description
+      description = bareDescription
+
     default:
       return nil
     }
