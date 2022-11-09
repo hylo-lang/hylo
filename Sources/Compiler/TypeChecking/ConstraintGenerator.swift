@@ -291,8 +291,8 @@ struct ConstraintGenerator {
       // Check that the labels inferred from the callee are consistent with that of the call.
       let calleeLabels = calleeType.inputs.map({ $0.label })
       if calleeLabels != labels {
-        diagnostics.append(.incompatibleLabels(
-          found: labels, expected: calleeLabels, at: checker.program.ast.ranges[callee]))
+        diagnostics.append(.diagnose(
+          labels: labels, incompatibleWith: calleeLabels, at: checker.program.ast.ranges[callee]))
         assignToError(id)
         return
       }
@@ -381,7 +381,7 @@ struct ConstraintGenerator {
         switch candidates.count {
         case 0:
           let name = Name(stem: "init", labels: labels)
-          diagnostics.append(.undefined(name: "\(name)", at: checker.program.ast[c].name.range))
+          diagnostics.append(.diagnose(undefinedName: "\(name)", at: checker.program.ast[c].name.range))
           assignToError(id)
           return
 
@@ -401,7 +401,7 @@ struct ConstraintGenerator {
 
       case .traitDecl:
         let trait = TraitType(decl: NodeID(d)!, ast: checker.program.ast)
-        diagnostics.append(.cannotConstruct(trait: trait, at: checker.program.ast.ranges[callee]))
+        diagnostics.append(.diagnose(cannotConstructTrait: trait, at: checker.program.ast.ranges[callee]))
         assignToError(id)
 
       case .typeAliasDecl:
@@ -517,8 +517,8 @@ struct ConstraintGenerator {
     if case .lambda(let expectedType) = expectedTypes[id] {
       // Check that the declaration defines the expected number of parameters.
       if declType.inputs.count != expectedType.inputs.count {
-        diagnostics.append(.invalidClosureParameterCount(
-          expected: expectedType.inputs.count,
+        diagnostics.append(.diagnose(
+          expectedLambdaParameterCount: expectedType.inputs.count,
           found: declType.inputs.count,
           at: checker.program.ast.ranges[id]))
         assignToError(id)
@@ -527,9 +527,9 @@ struct ConstraintGenerator {
 
       // Check that the declaration defines the expected argument labels.
       if !declType.labels.elementsEqual(expectedType.labels) {
-        diagnostics.append(.incompatibleLabels(
-          found: Array(declType.labels),
-          expected: Array(expectedType.labels),
+        diagnostics.append(.diagnose(
+          labels: Array(declType.labels),
+          incompatibleWith: Array(expectedType.labels),
           at: checker.program.ast.ranges[id]))
         assignToError(id)
         return
@@ -546,8 +546,8 @@ struct ConstraintGenerator {
         scope = currentScope
       } else {
         // The system is underspecified.
-        diagnostics.append(.cannotInferComplexReturnType(
-          at: checker.program.ast[checker.program.ast[id].decl].introducerRange))
+        diagnostics.append(.diagnose(
+          cannotInferComplexReturnTypeAt: checker.program.ast[checker.program.ast[id].decl].introducerRange))
         assignToError(id)
         return
       }
@@ -592,7 +592,7 @@ struct ConstraintGenerator {
         inScope: scope)
 
       if candidates.isEmpty {
-        diagnostics.append(.undefined(name: expr.name.value.description, at: expr.name.range))
+        diagnostics.append(.diagnose(undefinedName: expr.name.value.description, at: expr.name.range))
         assignToError(id)
         return
       }
@@ -647,7 +647,7 @@ struct ConstraintGenerator {
           assume(typeOf: id, equals: .builtin(type), at: checker.program.ast.ranges[id])
           checker.referredDecls[id] = .direct(AnyDeclID(checker.program.ast.builtinDecl))
         } else {
-          diagnostics.append(.undefined(name: symbolName, at: checker.program.ast[id].name.range))
+          diagnostics.append(.diagnose(undefinedName: symbolName, at: checker.program.ast[id].name.range))
           assignToError(id)
         }
 
@@ -812,8 +812,8 @@ struct ConstraintGenerator {
 
       switch candidates.count {
       case 0:
-        checker.diagnostics.insert(.undefinedOperator(
-          tail[i].operatorName.value, at: tail[i].operatorName.range))
+        checker.diagnostics.insert(.diagnose(
+          undefinedOperator: tail[i].operatorName.value, at: tail[i].operatorName.range))
         accumulator.append(
           operator: (name: tail[i].operatorName, precedence: nil),
           rhs: tail[i].operand)

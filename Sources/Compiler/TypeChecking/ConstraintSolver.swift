@@ -102,7 +102,7 @@ struct ConstraintSolver {
 
       if !nonConforming.isEmpty {
         for trait in nonConforming {
-          diagnostics.append(.noConformance(of: l, to: trait, at: location.origin))
+          diagnostics.append(.diagnose(type: l, doesNotConformTo: trait, at: location.origin))
         }
       }
 
@@ -134,12 +134,12 @@ struct ConstraintSolver {
     case (.tuple(let l), .tuple(let r)):
       switch l.testLabelCompatibility(with: r) {
       case .differentLengths:
-        diagnostics.append(.incompatibleTupleLengths(at: location.origin))
+        diagnostics.append(.diagnose(incompatibleTupleLengthsAt: location.origin))
         return
 
       case .differentLabels(let found, let expected):
-        diagnostics.append(.incompatibleLabels(
-          found: found, expected: expected, at: location.origin))
+        diagnostics.append(.diagnose(
+          labels: found, incompatibleWith: expected, at: location.origin))
         return
 
       case .compatible:
@@ -155,12 +155,12 @@ struct ConstraintSolver {
     case (.lambda(let l), .lambda(let r)):
       switch l.testLabelCompatibility(with: r) {
       case .differentLengths:
-        diagnostics.append(.incompatibleParameterCount(at: location.origin))
+        diagnostics.append(.diagnose(incompatibleParameterCountAt: location.origin))
         return
 
       case .differentLabels(let found, let expected):
-        diagnostics.append(.incompatibleLabels(
-          found: found, expected: expected, at: location.origin))
+        diagnostics.append(.diagnose(
+          labels: found, incompatibleWith: expected, at: location.origin))
         return
 
       case .compatible:
@@ -180,7 +180,7 @@ struct ConstraintSolver {
     case (.method(let l), .method(let r)):
       // Capabilities must match.
       if l.capabilities != r.capabilities {
-        diagnostics.append(.incompatibleTypes(.method(l), .method(r), at: location.origin))
+        diagnostics.append(.diagnose(type: .method(l), incompatibleWith: .method(r), at: location.origin))
         return
       }
 
@@ -224,7 +224,7 @@ struct ConstraintSolver {
       }
 
     default:
-      diagnostics.append(.incompatibleTypes(l, r, at: location.origin))
+      diagnostics.append(.diagnose(type: l, incompatibleWith: r, at: location.origin))
     }
   }
 
@@ -269,7 +269,7 @@ struct ConstraintSolver {
       fatalError("not implemented")
 
     default:
-      diagnostics.append(.notSubtype(l, of: r, at: location.origin))
+      diagnostics.append(.diagnose(type: l, isNotSubtypeOf: r, at: location.origin))
     }
   }
 
@@ -297,7 +297,7 @@ struct ConstraintSolver {
         .equalityOrSubtyping(l: l, r: p.bareType), location: location))
 
     default:
-      diagnostics.append(.invalidParameterType(r, at: location.origin))
+      diagnostics.append(.diagnose(invalidParameterType: r, at: location.origin))
     }
   }
 
@@ -326,7 +326,7 @@ struct ConstraintSolver {
 
     // Catch uses of static members on instances.
     if nonStaticMatches.isEmpty && !allMatches.isEmpty {
-      diagnostics.append(.staticMemberUsedOnInstance(member: member, type: l, at: location.origin))
+      diagnostics.append(.diagnose(illegalUseOfStaticMember: member, onInstanceOf: l, at: location.origin))
     }
 
     // Generate the list of candidates.
@@ -346,7 +346,7 @@ struct ConstraintSolver {
 
     // Fail if we couldn't find any candidate.
     if candidates.isEmpty {
-      diagnostics.append(.undefined(name: "\(member)", at: location.origin))
+      diagnostics.append(.diagnose(undefinedName: "\(member)", at: location.origin))
       return
     }
 
@@ -411,7 +411,7 @@ struct ConstraintSolver {
 
     // Fail if we couldn't find any candidate.
     if candidates.isEmpty {
-      diagnostics.append(.undefined(name: "\(member)", at: location.origin))
+      diagnostics.append(.diagnose(undefinedName: "\(member)", at: location.origin))
       return
     }
 
@@ -523,7 +523,7 @@ struct ConstraintSolver {
 
     default:
       // TODO: Merge remaining solutions
-      results[0].solution.diagnose(.ambiguousDisjunction(at: location.origin))
+      results[0].solution.addDiagnostic(.diagnose(ambiguousDisjunctionAt: location.origin))
       return results[0]
     }
   }
@@ -552,7 +552,7 @@ struct ConstraintSolver {
       diagnostics: diagnostics)
 
     for c in stale {
-      s.diagnose(.staleConstraint(constraint: c.constraint, at: c.location.origin))
+      s.addDiagnostic(.diagnose(staleConstraint: c))
     }
 
     return s

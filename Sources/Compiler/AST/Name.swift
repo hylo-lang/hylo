@@ -38,7 +38,7 @@ public struct Name: Hashable, Codable {
   }
 
   /// Creates the name introduced by `decl` in `ast`.
-  public init?(ofFunction decl: NodeID<FunctionDecl>, in ast: AST) {
+  public init?(of decl: NodeID<FunctionDecl>, in ast: AST) {
     guard let stem = ast[decl].identifier?.value else { return nil }
     if let notation = ast[decl].notation?.value {
       self.init(stem: stem, notation: notation)
@@ -47,9 +47,12 @@ public struct Name: Hashable, Codable {
     }
   }
 
-  internal init(
-    stem: Identifier, labels: [String?], 
-    notation: OperatorNotation? = nil, introducer: ImplIntroducer? = nil
+  /// Creates an instance with the given properties.
+  init(
+    stem: Identifier,
+    labels: [String?],
+    notation: OperatorNotation? = nil,
+    introducer: ImplIntroducer? = nil
   ) {
     self.stem = stem
     self.labels = labels
@@ -87,22 +90,26 @@ extension Name: ExpressibleByStringLiteral {
 // MARK: Incorporation of introducers
 
 extension Name {
+
   /// Returns `self` with `newIntroducer` incorporated into its value.
   ///
   /// - Precondition: `self` has no introducer.`
-  internal func introduced(by newIntroducer: ImplIntroducer) -> Self {
+  func introduced(by newIntroducer: ImplIntroducer) -> Self {
     precondition(self.introducer == nil)
     return Name(stem: stem, labels: labels, notation: notation, introducer: newIntroducer)
   }
+
 }
 
 extension SourceRepresentable where Part == Name {
+
   /// Returns `self` with `introducer` incorporated into its value.
   ///
   /// - Precondition: `self` has no introducer.`
-  internal func introduced(by introducer: SourceRepresentable<ImplIntroducer>) -> Self {
+  func introduced(by introducer: SourceRepresentable<ImplIntroducer>) -> Self {
     return .init(
       value: self.value.introduced(by: introducer.value),
       range: self.range!.upperBounded(by: introducer.range!.upperBound))
   }
+
 }
