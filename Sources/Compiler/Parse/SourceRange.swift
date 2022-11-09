@@ -46,6 +46,11 @@ public struct SourceRange: Hashable {
     return SourceRange(in: l.source, from: l.lowerBound, to: r.lowerBound)
   }
 
+  /// Returns the textual description of the source range -- useful for debugging
+  public var text: Substring {
+    return source[self]
+  }
+
 }
 
 extension SourceRange: Codable {
@@ -53,6 +58,7 @@ extension SourceRange: Codable {
   fileprivate enum CodingKeys: String, CodingKey {
 
     case source, lowerBound, upperBound
+    case text
 
   }
 
@@ -72,6 +78,7 @@ extension SourceRange: Codable {
     try container.encode(source, forKey: .source)
     try container.encode(lowerBound.utf16Offset(in: source.contents), forKey: .lowerBound)
     try container.encode(upperBound.utf16Offset(in: source.contents), forKey: .upperBound)
+    try container.encode(String(text), forKey: .text)
   }
 
 }
