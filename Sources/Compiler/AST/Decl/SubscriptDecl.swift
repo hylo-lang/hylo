@@ -93,4 +93,17 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
     self.implicitParameterDecls = implicitParameterDecls
   }
 
+  public func checkInvariants(in ast: AST) -> FallibleWithDiagnostic<Void> {
+    var ds: [Diagnostic] = []
+
+    // Parameter declarations must have a type annotation.
+    for p in parameters ?? [] {
+      if ast[p].annotation == nil {
+        ds.append(.diagnose(missingTypeAnnotation: ast[p], in: ast))
+      }
+    }
+
+    return ds.isEmpty ? .success(()) : .failure(DiagnosedError(ds))
+  }
+
 }

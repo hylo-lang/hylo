@@ -91,6 +91,15 @@ extension Diagnostic {
   }
 
   static func diagnose(
+    missingTypeAnnotation p: ParameterDecl,
+    in ast: AST
+  ) -> Diagnostic {
+    .error(
+      "missing type annotation",
+      range: p.identifier.range)
+  }
+
+  static func diagnose(
     unexpectedAccessModifier m: SourceRepresentable<AccessModifier>
   ) -> Diagnostic {
     .error(
