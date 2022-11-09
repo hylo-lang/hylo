@@ -805,16 +805,15 @@ public enum Parser {
     withPrologue prologue: DeclPrologue,
     in state: inout ParserState
   ) throws -> NodeID<SubscriptDecl>? {
-    // Parse the parts of the declaration.
-    let isNonStaticMember = state.atTypeScope && !prologue.isStatic
-    let parser = (
-      propertyDeclHead
-        .and(take(.colon).and(typeExpr).second)
-        .and(Apply({ (state) in
-          try parseSubscriptDeclBody(in: &state, asNonStaticMember: isNonStaticMember)
-        }))
-    )
-    guard let ((head, output), impls) = try parser.parse(&state) else { return nil }
+    guard let (head, signature) = try propertyDeclHead.and(propertyDeclSignature).parse(&state)
+    else { return nil }
+
+    guard let impls = try parseSubscriptDeclBody(
+      in: &state,
+      asNonStaticMember: state.atTypeScope && !prologue.isStatic)
+    else {
+      throw DiagnosedError(expected("'{'", at: state.currentLocation))
+    }
 
     // Create a new `SubscriptDecl`.
     assert(prologue.accessModifiers.count <= 1)
@@ -824,12 +823,11 @@ public enum Parser {
       attributes: prologue.attributes,
       accessModifier: prologue.accessModifiers.first,
       memberModifier: prologue.memberModifiers.first,
-      receiverEffect: nil,
       identifier: head.stem,
       genericClause: nil,
       explicitCaptures: [],
       parameters: nil,
-      output: output,
+      output: signature,
       impls: impls))
     state.ast.ranges[decl] = state.range(from: prologue.startIndex)
     return decl
@@ -840,16 +838,15 @@ public enum Parser {
     withPrologue prologue: DeclPrologue,
     in state: inout ParserState
   ) throws -> NodeID<SubscriptDecl>? {
-    // Parse the parts of the declaration.
-    let isNonStaticMember = state.atTypeScope && !prologue.isStatic
-    let parser = (
-      subscriptDeclHead
-        .and(subscriptDeclSignature)
-        .and(Apply({ (state) in
-          try parseSubscriptDeclBody(in: &state, asNonStaticMember: isNonStaticMember)
-        }))
-    )
-    guard let ((head, signature), impls) = try parser.parse(&state) else { return nil }
+    guard let (head, signature) = try subscriptDeclHead.and(subscriptDeclSignature).parse(&state)
+    else { return nil }
+
+    guard let impls = try parseSubscriptDeclBody(
+      in: &state,
+      asNonStaticMember: state.atTypeScope && !prologue.isStatic)
+    else {
+      throw DiagnosedError(expected("'{'", at: state.currentLocation))
+    }
 
     // Create a new `SubscriptDecl`.
     assert(prologue.accessModifiers.count <= 1)
@@ -859,7 +856,6 @@ public enum Parser {
       attributes: prologue.attributes,
       accessModifier: prologue.accessModifiers.first,
       memberModifier: prologue.memberModifiers.first,
-      receiverEffect: signature.receiverEffect,
       identifier: head.stem,
       genericClause: head.genericClause,
       explicitCaptures: head.captures,
@@ -1269,6 +1265,10 @@ public enum Parser {
       })
   )
 
+  static let propertyDeclSignature = (
+    take(.colon).and(typeExpr).second
+  )
+
   static let subscriptDeclHead = (
     take(.subscript).and(maybe(take(.name))).and(maybe(genericClause)).and(maybe(captureList))
       .map({ (state, tree) -> SubscriptDeclHead in
@@ -1282,13 +1282,9 @@ public enum Parser {
 
   static let subscriptDeclSignature = (
     take(.lParen).and(maybe(parameterList)).and(take(.rParen))
-      .and(maybe(receiverEffect))
       .and(take(.colon).and(typeExpr))
       .map({ (state, tree) -> SubscriptDeclSignature in
-        SubscriptDeclSignature(
-          parameters: tree.0.0.0.1 ?? [],
-          receiverEffect: tree.0.1,
-          output: tree.1.1)
+        SubscriptDeclSignature(parameters: tree.0.0.1 ?? [], output: tree.1.1)
       })
   )
 
@@ -3202,9 +3198,6 @@ struct SubscriptDeclSignature {
 
   /// The parameters of the declaration.
   let parameters: [NodeID<ParameterDecl>]
-
-  /// The receiver effect of the declaration, if any.
-  let receiverEffect: SourceRepresentable<ReceiverEffect>?
 
   /// The return type annotation of the declaration.
   let output: AnyTypeExprID

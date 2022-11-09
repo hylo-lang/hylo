@@ -25,9 +25,6 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
   /// The member modifier of the declaration.
   public let memberModifier: SourceRepresentable<MemberModifier>?
 
-  /// The receiver effect of the subscript.
-  public let receiverEffect: SourceRepresentable<ReceiverEffect>?
-
   /// The identifier of the subscript, if any.
   public let identifier: SourceRepresentable<Identifier>?
 
@@ -63,7 +60,6 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
     attributes: [SourceRepresentable<Attribute>],
     accessModifier: SourceRepresentable<AccessModifier>?,
     memberModifier: SourceRepresentable<MemberModifier>?,
-    receiverEffect: SourceRepresentable<ReceiverEffect>?,
     identifier: SourceRepresentable<Identifier>?,
     genericClause: SourceRepresentable<GenericClause>?,
     explicitCaptures: [NodeID<BindingDecl>],
@@ -75,7 +71,6 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
     self.attributes = attributes
     self.accessModifier = accessModifier
     self.memberModifier = memberModifier
-    self.receiverEffect = receiverEffect
     self.identifier = identifier
     self.genericClause = genericClause
     self.explicitCaptures = explicitCaptures
@@ -89,12 +84,6 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
 
   /// Returns whether the declaration denotes a static subscript.
   public var isStatic: Bool { memberModifier?.value == .static }
-
-  /// Returns whether the declaration denotes an `inout` subscript.
-  public var isInout: Bool { receiverEffect?.value == .inout }
-
-  /// Returns whether the declaration denotes a `sink` subscript.
-  public var isSink: Bool { receiverEffect?.value == .sink }
 
   /// Incorporates the given implicit parameter declarations into `self`.
   ///
