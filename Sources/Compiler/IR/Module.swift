@@ -90,8 +90,6 @@ public struct Module {
             inputs.append((convention: .inout, type: .address(type)))
           case .sink:
             inputs.append((convention: .sink, type: .object(type)))
-          case .yielded:
-            preconditionFailure("cannot lower yielded parameter")
           }
         }
       }

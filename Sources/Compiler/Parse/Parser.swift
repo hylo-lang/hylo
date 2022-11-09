@@ -2779,9 +2779,8 @@ public enum Parser {
   )
 
   static let receiverEffect = translate([
-    .inout  : ReceiverEffect.inout,
-    .sink   : ReceiverEffect.sink,
-    .yielded: ReceiverEffect.yielded,
+    .inout: ReceiverEffect.inout,
+    .sink : ReceiverEffect.sink,
   ])
 
   static let parameterTypeExpr = (

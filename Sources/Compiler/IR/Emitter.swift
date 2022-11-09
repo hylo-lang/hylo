@@ -480,7 +480,6 @@ public struct Emitter {
     switch calleeType.receiverEffect {
     case .inout   : conventions = [.inout]
     case .sink    : conventions = [.sink]
-    case .yielded : conventions = [.yielded]
     case nil      : conventions = [.let]
     }
 

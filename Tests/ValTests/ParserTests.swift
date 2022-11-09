@@ -633,21 +633,12 @@ final class ParserTests: XCTestCase {
     let input = SourceFile(contents: "(): T")
     let signature = try XCTUnwrap(try apply(Parser.subscriptDeclSignature, on: input).element)
     XCTAssertEqual(signature.parameters.count, 0)
-    XCTAssertNil(signature.receiverEffect)
   }
 
   func testSubscriptDeclSignatureWithParameters() throws {
     let input = SourceFile(contents: "(_ foo: Foo, bar: Bar = .default): T")
     let signature = try XCTUnwrap(try apply(Parser.subscriptDeclSignature, on: input).element)
     XCTAssertEqual(signature.parameters.count, 2)
-    XCTAssertNil(signature.receiverEffect)
-  }
-
-  func testSubscriptDeclSignatureWithEffect() throws {
-    let input = SourceFile(contents: "(_ foo: Foo) yielded : T")
-    let signature = try XCTUnwrap(try apply(Parser.subscriptDeclSignature, on: input).element)
-    XCTAssertEqual(signature.parameters.count, 1)
-    XCTAssertEqual(signature.receiverEffect?.value, .yielded)
   }
 
   func testSubscriptDeclBodyBlock() throws {
