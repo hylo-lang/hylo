@@ -70,7 +70,7 @@ public struct ScopedProgram: Program {
       let receiver = desugar(left)
       let argument = desugar(right)
 
-      let id = ast.insert(FunCallExpr(
+      let id = try! ast.insert(FunCallExpr(
         callee: AnyExprID(ast.insert(NameExpr(
           domain: .expr(receiver),
           name: SourceRepresentable(

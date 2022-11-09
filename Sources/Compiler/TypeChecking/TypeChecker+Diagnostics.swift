@@ -37,7 +37,6 @@ extension Diagnostic {
 
   static func conformanceToNonTraitType(_ type: Type, at range: SourceRange?) -> Diagnostic {
     .error("conformance to non-trait type '\(type)'", range: range)
-
   }
 
   static func declarationRequiresBody(at range: SourceRange?) -> Diagnostic {

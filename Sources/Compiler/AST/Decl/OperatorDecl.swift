@@ -3,6 +3,9 @@ public struct OperatorDecl: Decl {
 
   public static let kind = NodeKind.operatorDecl
 
+  /// The source range of the declaration's introducer, if any.
+  public let introducerRange: SourceRange?
+
   /// The access modifier of the declaration, if any.
   public let accessModifier: SourceRepresentable<AccessModifier>?
 
@@ -17,11 +20,13 @@ public struct OperatorDecl: Decl {
 
   /// Creates an instance with the given properties.
   public init(
+    introducerRange: SourceRange?,
     accessModifier: SourceRepresentable<AccessModifier>?,
     notation: SourceRepresentable<OperatorNotation>,
     name: SourceRepresentable<Identifier>,
     precedenceGroup: SourceRepresentable<PrecedenceGroup>?
   ) {
+    self.introducerRange = introducerRange
     self.accessModifier = accessModifier
     self.notation = notation
     self.name = name

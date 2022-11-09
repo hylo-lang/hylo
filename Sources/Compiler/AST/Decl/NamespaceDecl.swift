@@ -3,6 +3,9 @@ public struct NamespaceDecl: SingleEntityDecl, LexicalScope {
 
   public static let kind = NodeKind.namespaceDecl
 
+  /// The source range of the declaration's introducer, if any.
+  public let introducerRange: SourceRange?
+
   /// The access modifier of the declaration, if any.
   public let accessModifier: SourceRepresentable<AccessModifier>?
 
@@ -14,15 +17,24 @@ public struct NamespaceDecl: SingleEntityDecl, LexicalScope {
 
   /// Creates an instance with the given properties.
   public init(
+    introducerRange: SourceRange?,
     accessModifier: SourceRepresentable<AccessModifier>?,
     identifier: SourceRepresentable<Identifier>,
     members: [AnyDeclID]
   ) {
+    self.introducerRange = introducerRange
     self.accessModifier = accessModifier
     self.identifier = identifier
     self.members = members
   }
 
   public var name: String { identifier.value }
+
+  public func checkInvariants(in ast: AST) -> FallibleWithDiagnostic<Void> {
+    let ds: [Diagnostic] = members.reduce(into: [], { (ds, member) in
+      ds.append(contentsOf: ast.checkValidGlobalScopeMember(member, atTopLevel: false).diagnostics)
+    })
+    return ds.isEmpty ? .success(()) : .failure(DiagnosedError(ds))
+  }
 
 }

@@ -17,4 +17,5 @@ public struct ModuleDecl: Decl, LexicalScope {
   public mutating func addSourceFile(_ s: NodeID<TopLevelDeclSet>) {
     sources.append(s)
   }
+
 }

@@ -1,3 +1,3 @@
-//! @+2 diagnostic unterminated block comment
+//! @+2 diagnostic unterminated comment
 /* This block never ends
   /* even if it contains a nested block */

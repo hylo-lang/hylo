@@ -15,8 +15,14 @@ final class ParserTests: XCTestCase {
     try TestCase.executeAll(in: testCaseDirectory, { (tc) in
       // Parse the input.
       var ast = AST()
-      let module = ast.insert(ModuleDecl(name: tc.name))
-      let (_, diagnostics) = Parser.parse(tc.source, into: module, in: &ast)
+      let module = try ast.insert(ModuleDecl(name: tc.name))
+
+      let diagnostics: [Diagnostic]
+      do {
+        diagnostics = try Parser.parse(tc.source, into: module, in: &ast).diagnostics
+      } catch let error as DiagnosedError {
+        diagnostics = error.diagnostics
+      }
 
       // Process the test annotations.
       var diagnosticChecker = DiagnosticChecker(testCaseName: tc.name, diagnostics: diagnostics)
@@ -35,7 +41,7 @@ final class ParserTests: XCTestCase {
 
   // MARK: Unit tests
 
-  func testParse() {
+  func testParse() throws {
     let input = SourceFile(contents: """
     public fun main() {
       print("Hello, World!")
@@ -43,14 +49,14 @@ final class ParserTests: XCTestCase {
     """)
 
     var program = AST()
-    let module = program.insert(ModuleDecl(name: "Main"))
+    let module = try program.insert(ModuleDecl(name: "Main"))
 
-    let (decls, diagnostics) = Parser.parse(input, into: module, in: &program)
+    let (decls, diagnostics) = try Parser.parse(input, into: module, in: &program)
     XCTAssertNotNil(decls)
     XCTAssertEqual(diagnostics.count, 0)
   }
 
-  func testSourceFile() {
+  func testSourceFile() throws {
     let input = SourceFile(contents: """
       ;;
       import Foo
@@ -62,7 +68,7 @@ final class ParserTests: XCTestCase {
       public let y = 0;
     """)
 
-    let (id, ast) = input.parse(with: Parser.parseSourceFile)
+    let (id, ast) = try input.parse(with: Parser.parseSourceFile)
     XCTAssertEqual(ast[id].decls.count, 4)
   }
 
@@ -497,17 +503,17 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(signature.output?.kind, .nameTypeExpr)
   }
 
-  func testNamedFunctionDeclIdentifier() throws {
+  func testFunctionDeclIdentifier() throws {
     let input = SourceFile(contents: "fun foo")
-    let identifier = try XCTUnwrap(try apply(Parser.functionDeclIdentifier, on: input).element)
-    XCTAssertEqual(identifier.stem?.value, "foo")
+    let identifier = try XCTUnwrap(try apply(Parser.functionDeclName, on: input).element)
+    XCTAssertEqual(identifier.stem.value, "foo")
     XCTAssertNil(identifier.notation)
   }
 
-  func testOperatorFunctionDeclIdentifier() throws {
+  func testFunctionDeclOperator() throws {
     let input = SourceFile(contents: "postfix fun ++")
-    let identifier = try XCTUnwrap(try apply(Parser.functionDeclIdentifier, on: input).element)
-    XCTAssertEqual(identifier.stem?.value, "++")
+    let identifier = try XCTUnwrap(try apply(Parser.functionDeclName, on: input).element)
+    XCTAssertEqual(identifier.stem.value, "++")
     XCTAssertEqual(identifier.notation?.value, .postfix)
   }
 
@@ -543,7 +549,7 @@ final class ParserTests: XCTestCase {
 
   func testMethodImplBlock() throws {
     let input = SourceFile(contents: "let { }")
-    let (declID, ast) = try apply(Parser.methodImpl, on: input)
+    let (declID, ast) = try apply(Parser.methodImplDecl, on: input)
     let decl = try XCTUnwrap(ast[declID])
     if case .block = decl.body {
     } else {
@@ -553,7 +559,7 @@ final class ParserTests: XCTestCase {
 
   func testMethodImplExpr() throws {
     let input = SourceFile(contents: "let { foo }")
-    let (declID, ast) = try apply(Parser.methodImpl, on: input)
+    let (declID, ast) = try apply(Parser.methodImplDecl, on: input)
     let decl = try XCTUnwrap(ast[declID])
     if case .expr = decl.body {
     } else {

@@ -19,44 +19,42 @@ import Utils
 /// A namespace for the routines of Val's parser.
 public enum Parser {
 
-  /// A diagnosed parse error.
-  public struct ParseError: Error {
-
-    /// The diagnostic of the error.
-    public let diagnostic: Diagnostic
-
-    /// Creates a new instance with the givne diagnostic.
-    public init(_ d: Diagnostic) {
-      self.diagnostic = d
-    }
-
-  }
-
   /// Parses the declarations of `input`, inserts them into `ast[module]`.
   ///
-  /// - Returns: `(decls, diagnostics)` where `diagnostics` are the diagnostics produced by the
-  ///   parser and `decls` is the ID of the set of parsed declarations.
+  /// - Returns: `(translation, diagnostics)` where `diagnostics` are the diagnostics produced by
+  ///   the parser and `translation` is the ID of parsed translation unit.
   public static func parse(
     _ input: SourceFile,
     into module: NodeID<ModuleDecl>,
     in ast: inout AST
-  ) -> (decls: NodeID<TopLevelDeclSet>, diagnostics: [Diagnostic]) {
+  ) throws -> (translation: NodeID<TopLevelDeclSet>, diagnostics: [Diagnostic]) {
+    // Initialize the parser's state.
     var state = ParserState(ast: ast, lexer: Lexer(tokenizing: input))
 
     // Parse the source file.
-    let decls = Self.parseSourceFile(in: &state)
-    state.ast[module].addSourceFile(decls)
+    let translation: NodeID<TopLevelDeclSet>
+    do {
+      translation = try Self.parseSourceFile(in: &state)
+      state.ast[module].addSourceFile(translation)
+    } catch let error as DiagnosedError {
+      // Rethrow the error adding the diagnostics generated so far.
+      throw DiagnosedError(state.diagnostics + error.diagnostics)
+    }
 
-    // Make sure we consumed the entire file.
+    // Make sure the entire input was consumed.
     assert(state.peek() == nil, "expected EOF")
 
-    // Put the AST back in place and return.
-    ast = state.ast
-    return (decls: decls, diagnostics: state.diagnostics)
+    // Return if no error was encountered; otherwise, throw.
+    if state.diagnostics.contains(where: { $0.level == .error }) {
+      throw DiagnosedError(state.diagnostics)
+    } else {
+      ast = state.ast
+      return (translation: translation, diagnostics: state.diagnostics)
+    }
   }
 
   /// Parses an instance of `TopLevelDeclSet`.
-  static func parseSourceFile(in state: inout ParserState) -> NodeID<TopLevelDeclSet> {
+  static func parseSourceFile(in state: inout ParserState) throws -> NodeID<TopLevelDeclSet> {
     var members: [AnyDeclID] = []
 
     while let head = state.peek() {
@@ -69,8 +67,8 @@ public enum Parser {
           members.append(member)
           continue
         }
-      } catch let error as ParseError {
-        state.diagnostics.append(error.diagnostic)
+      } catch let error as DiagnosedError {
+        state.diagnostics.append(contentsOf: error.diagnostics)
         continue
       } catch let error {
         state.diagnostics.append(Diagnostic(level: .error, message: error.localizedDescription))
@@ -82,18 +80,18 @@ public enum Parser {
       switch head.kind {
       case .unterminatedBlockComment:
         // Nothing to parse after an unterminated block comment.
-        state.diagnostics.append(.unterminatedBlockComment(
-          endingAt: head.range.last() ?? head.range.first()))
+        state.diagnostics.append(.diagnose(
+          unterminatedCommentEndingAt: head.range.last() ?? head.range.first()))
         break
 
       case .unterminatedString:
         // Nothing to parse after an unterminated string.
-        state.diagnostics.append(.unterminatedString(
-          endingAt: head.range.last() ?? head.range.first()))
+        state.diagnostics.append(.diagnose(
+          unterminatedStringEndingAt: head.range.last() ?? head.range.first()))
         break
 
       default:
-        state.diagnostics.append(.unexpectedToken(head))
+        state.diagnostics.append(.diagnose(unexpectedToken: head))
 
         // Attempt to recover at the next new line.
         while let next = state.peek() {
@@ -103,7 +101,7 @@ public enum Parser {
       }
     }
 
-    return state.ast.insert(TopLevelDeclSet(decls: members))
+    return try state.ast.insert(TopLevelDeclSet(decls: members))
   }
 
   // MARK: Declarations
@@ -127,34 +125,36 @@ public enum Parser {
     var accessModifiers: Set<SourceRepresentable<AccessModifier>> = []
     var memberModifiers: Set<SourceRepresentable<MemberModifier>> = []
     while true {
-      if let m = try Parser.accessModifier.parse(&state) {
+      if let access = try Parser.accessModifier.parse(&state) {
         isPrologueEmpty = false
 
         // Catch access modifiers declared after member modifiers.
-        if !memberModifiers.isEmpty {
-          state.diagnostics.append(.memberModifierBeforeAccess(at: m.range))
+        if let member = memberModifiers.first {
+          state.diagnostics.append(.diagnose(
+            memberModifier: member,
+            appearsBeforeAccessModifier: access))
         }
 
         // Catch duplicate access modifiers.
-        else if !accessModifiers.insert(m).inserted {
-          state.diagnostics.append(.duplicateModifier(at: m.range))
+        else if !accessModifiers.insert(access).inserted {
+          state.diagnostics.append(.diagnose(duplicateAccessModifier: access))
         }
 
         // Look for the next modifier.
         continue
       }
 
-      if let m = try Parser.memberModifier.parse(&state) {
+      if let member = try Parser.memberModifier.parse(&state) {
         isPrologueEmpty = false
 
         // Catch member modifiers declared at non-type scope.
         if !state.atTypeScope {
-          state.diagnostics.append(.memberModifierAtNonTypeScope(at: m.range))
+          state.diagnostics.append(.diagnose(unexpectedMemberModifier: member))
         }
 
         // Catch duplicate member modifiers.
-        else if !memberModifiers.insert(m).inserted {
-          state.diagnostics.append(.duplicateModifier(at: m.range))
+        else if !memberModifiers.insert(member).inserted {
+          state.diagnostics.append(.diagnose(duplicateMemberModifier: member))
         }
 
         // Look for the next modifier.
@@ -261,7 +261,7 @@ public enum Parser {
       if prologue.isEmpty {
         return nil
       } else {
-        throw ParseError(expected("declaration", at: state.currentLocation))
+        throw DiagnosedError(expected("declaration", at: state.currentLocation))
       }
     }
   }
@@ -281,7 +281,7 @@ public enum Parser {
   ) throws -> [AnyDeclID] {
     // Parse the left delimiter.
     guard let opener = state.take(.lBrace) else {
-      throw ParseError(expected("'{'", at: state.currentLocation))
+      throw DiagnosedError(expected("'{'", at: state.currentLocation))
     }
 
     // Push the context.
@@ -303,8 +303,8 @@ public enum Parser {
           members.append(member)
           continue
         }
-      } catch let error as ParseError {
-        state.diagnostics.append(error.diagnostic)
+      } catch let error as DiagnosedError {
+        state.diagnostics.append(contentsOf: error.diagnostics)
         continue
       }
 
@@ -344,22 +344,23 @@ public enum Parser {
     guard let parts = try parser.parse(&state) else { return nil }
 
     // Associated type declarations shall not have attributes.
-    for attribute in prologue.attributes {
-      state.diagnostics.append(.illegalAttribute(
-        named: attribute.value.name.value,
-        at: attribute.range))
+    if !prologue.attributes.isEmpty {
+      throw DiagnosedError(prologue.attributes.map(Diagnostic.diagnose(unexpectedAttribute:)))
     }
 
     // Associated type declarations shall not have modifiers.
-    for modifier in prologue.accessModifiers {
-      state.diagnostics.append(.illegalModifier(named: "\(modifier.value)", at: modifier.range))
+    if !prologue.accessModifiers.isEmpty {
+      throw DiagnosedError(prologue.accessModifiers.map(
+        Diagnostic.diagnose(unexpectedAccessModifier:)))
     }
-    for modifier in prologue.memberModifiers {
-      state.diagnostics.append(.illegalModifier(named: "\(modifier.value)", at: modifier.range))
+    if !prologue.memberModifiers.isEmpty {
+      throw DiagnosedError(prologue.memberModifiers.map(
+        Diagnostic.diagnose(unexpectedMemberModifier:)))
     }
 
     // Create a new `AssociatedTypeDecl`.
-    let decl = state.ast.insert(AssociatedTypeDecl(
+    let decl = try state.ast.insert(AssociatedTypeDecl(
+      introducerRange: parts.0.0.0.0.range,
       identifier: SourceRepresentable(token: parts.0.0.0.1, in: state.lexer.source),
       conformances: parts.0.0.1 ?? [],
       whereClause: parts.0.1,
@@ -381,30 +382,24 @@ public enum Parser {
     )
     guard let parts = try parser.parse(&state) else { return nil }
 
-    // Associated value declarations can only appear at trait scope.
-    if !state.atTraitScope {
-      throw ParseError(.error(
-        "associated value declaration is not allowed in this scope",
-        range: parts.0.0.0.range))
-    }
-
     // Associated value declarations shall not have attributes.
-    for attribute in prologue.attributes {
-      state.diagnostics.append(.illegalAttribute(
-        named: attribute.value.name.value,
-        at: attribute.range))
+    if !prologue.attributes.isEmpty {
+      throw DiagnosedError(prologue.attributes.map(Diagnostic.diagnose(unexpectedAttribute:)))
     }
 
     // Associated value declarations shall not have modifiers.
-    for modifier in prologue.accessModifiers {
-      state.diagnostics.append(.illegalModifier(named: "\(modifier.value)", at: modifier.range))
+    if !prologue.accessModifiers.isEmpty {
+      throw DiagnosedError(prologue.accessModifiers.map(
+        Diagnostic.diagnose(unexpectedAccessModifier:)))
     }
-    for modifier in prologue.memberModifiers {
-      state.diagnostics.append(.illegalModifier(named: "\(modifier.value)", at: modifier.range))
+    if !prologue.memberModifiers.isEmpty {
+      throw DiagnosedError(prologue.memberModifiers.map(
+        Diagnostic.diagnose(unexpectedMemberModifier:)))
     }
 
     // Create a new `AssociatedValueDecl`.
-    let decl = state.ast.insert(AssociatedValueDecl(
+    let decl = try state.ast.insert(AssociatedValueDecl(
+      introducerRange: parts.0.0.0.range,
       identifier: SourceRepresentable(token: parts.0.0.1, in: state.lexer.source),
       whereClause: parts.0.1,
       defaultValue: parts.1))
@@ -424,28 +419,10 @@ public enum Parser {
     )
     guard let (pattern, initializer) = try parser.parse(&state) else { return nil }
 
-    // TODO: Check for illegal attributes.
-
-    if state.atTypeScope {
-      // Member binding declarations must have a type annotation or an initializer.
-      if (state.ast[pattern].annotation == nil) && (initializer == nil) {
-        throw ParseError(.missingTypeAnnotation(
-          at: state.ast.ranges[state.ast[pattern].subpattern]))
-      }
-
-      // Member binding declaration must be introduced by `let` or `var`.
-      let introducer = state.ast[pattern].introducer
-      if (introducer.value != .let) && (introducer.value != .var) {
-        throw ParseError(.error(
-          "stored property must be introduced by 'let' or 'var'",
-          range: introducer.range))
-      }
-    }
-
     // Create a new `BindingDecl`.
     assert(prologue.accessModifiers.count <= 1)
     assert(prologue.memberModifiers.count <= 1)
-    let decl = state.ast.insert(BindingDecl(
+    let decl = try state.ast.insert(BindingDecl(
       attributes: prologue.attributes,
       accessModifier: prologue.accessModifiers.first,
       memberModifier: prologue.memberModifiers.first,
@@ -470,20 +447,19 @@ public enum Parser {
     guard let parts = try parser.parse(&state) else { return nil }
 
     // Conformance declarations shall not have attributes.
-    for attribute in prologue.attributes {
-      state.diagnostics.append(.illegalAttribute(
-        named: attribute.value.name.value,
-        at: attribute.range))
+    if !prologue.attributes.isEmpty {
+      throw DiagnosedError(prologue.attributes.map(Diagnostic.diagnose(unexpectedAttribute:)))
     }
 
     // Conformance declarations shall not have member modifiers.
-    for modifier in prologue.memberModifiers {
-      state.diagnostics.append(.illegalModifier(named: "\(modifier.value)", at: modifier.range))
+    if !prologue.memberModifiers.isEmpty {
+      throw DiagnosedError(prologue.memberModifiers.map(
+        Diagnostic.diagnose(unexpectedMemberModifier:)))
     }
 
     // Create a new `ConformanceDecl`.
     assert(prologue.accessModifiers.count <= 1)
-    let decl = state.ast.insert(ConformanceDecl(
+    let decl = try state.ast.insert(ConformanceDecl(
       accessModifier: prologue.accessModifiers.first,
       subject: parts.0.0.0.1,
       conformances: parts.0.0.1,
@@ -507,23 +483,23 @@ public enum Parser {
     guard let parts = try parser.parse(&state) else { return nil }
 
     // Extension declarations shall not have attributes.
-    for attribute in prologue.attributes {
-      state.diagnostics.append(.illegalAttribute(
-        named: attribute.value.name.value,
-        at: attribute.range))
+    if !prologue.attributes.isEmpty {
+      throw DiagnosedError(prologue.attributes.map(Diagnostic.diagnose(unexpectedAttribute:)))
     }
 
     // Extension declarations shall not have modifiers.
-    for modifier in prologue.accessModifiers {
-      state.diagnostics.append(.illegalModifier(named: "\(modifier.value)", at: modifier.range))
+    if !prologue.accessModifiers.isEmpty {
+      throw DiagnosedError(prologue.accessModifiers.map(
+        Diagnostic.diagnose(unexpectedAccessModifier:)))
     }
-    for modifier in prologue.memberModifiers {
-      state.diagnostics.append(.illegalModifier(named: "\(modifier.value)", at: modifier.range))
+    if !prologue.memberModifiers.isEmpty {
+      throw DiagnosedError(prologue.memberModifiers.map(
+        Diagnostic.diagnose(unexpectedMemberModifier:)))
     }
 
     // Create a new `ExtensionDecl`.
     assert(prologue.accessModifiers.count <= 1)
-    let decl = state.ast.insert(ExtensionDecl(
+    let decl = try state.ast.insert(ExtensionDecl(
       accessModifier: prologue.accessModifiers.first,
       subject: parts.0.0.1,
       whereClause: parts.0.1,
@@ -547,7 +523,7 @@ public enum Parser {
 
     switch body {
     case .method(let impls):
-      return AnyDeclID(buildMethodDecl(
+      return try AnyDeclID(buildMethodDecl(
         prologue: prologue,
         head: head,
         signature: signature,
@@ -555,7 +531,7 @@ public enum Parser {
         in: &state))
 
     case .function(let body):
-      return AnyDeclID(buildFunctionDecl(
+      return try AnyDeclID(buildFunctionDecl(
         prologue: prologue,
         head: head,
         signature: signature,
@@ -563,7 +539,7 @@ public enum Parser {
         in: &state))
 
     case nil:
-      return AnyDeclID(buildFunctionDecl(
+      return try AnyDeclID(buildFunctionDecl(
         prologue: prologue,
         head: head,
         signature: signature,
@@ -579,20 +555,12 @@ public enum Parser {
     signature: FunctionDeclSignature,
     body: FunctionDecl.Body?,
     in state: inout ParserState
-  ) -> NodeID<FunctionDecl> {
-    // TODO: Check for illegal attributes.
-
-    if let capture = head.captures.first {
-      // Member functions cannot have captures.
-      if state.atTypeScope {
-        state.diagnostics.append(.memberDeclHasCaptures(at: state.ast.ranges[capture]))
-      }
-    }
-
+  ) throws -> NodeID<FunctionDecl> {
     // Non-static member function declarations require an implicit receiver parameter.
     let receiver: NodeID<ParameterDecl>?
     if state.atTypeScope && !prologue.isStatic {
-      receiver = state.ast.insert(ParameterDecl(identifier: SourceRepresentable(value: "self")))
+      receiver = try state.ast.insert(ParameterDecl(
+        identifier: SourceRepresentable(value: "self")))
     } else {
       receiver = nil
     }
@@ -600,14 +568,14 @@ public enum Parser {
     // Create a new `FunctionDecl`.
     assert(prologue.accessModifiers.count <= 1)
     assert(prologue.memberModifiers.count <= 1)
-    let decl = state.ast.insert(FunctionDecl(
-      introducerRange: head.identifier.introducerRange,
+    let decl = try state.ast.insert(FunctionDecl(
+      introducerRange: head.name.introducerRange,
       attributes: prologue.attributes,
       accessModifier: prologue.accessModifiers.first,
       memberModifier: prologue.memberModifiers.first,
       receiverEffect: signature.receiverEffect,
-      notation: head.identifier.notation,
-      identifier: head.identifier.stem,
+      notation: head.name.notation,
+      identifier: head.name.stem,
       genericClause: head.genericClause,
       explicitCaptures: head.captures,
       parameters: signature.parameters,
@@ -625,42 +593,30 @@ public enum Parser {
     signature: FunctionDeclSignature,
     impls: [NodeID<MethodImplDecl>],
     in state: inout ParserState
-  ) -> NodeID<MethodDecl> {
-    // Method declarations can only appear at type scope.
-    if !state.atTypeScope {
-      state.diagnostics.append(.methodDeclAtNonTypeScope(at: head.identifier.introducerRange))
-    }
-
-    // TODO: Check for illegal attributes.
-
+  ) throws -> NodeID<MethodDecl> {
     // Method declarations cannot be static.
     if let modifier = prologue.memberModifiers.first(where: { (m) in m.value == .static }) {
-      state.diagnostics.append(.illegalModifier(named: "\(modifier.value)", at: modifier.range))
+      throw DiagnosedError(.diagnose(unexpectedMemberModifier: modifier))
     }
 
     // Method declarations cannot have a receiver effect.
     if let effect = signature.receiverEffect {
-      state.diagnostics.append(.illegalReceiverEffect(at: effect.range))
+      throw DiagnosedError(.diagnose(unexpectedEffect: effect))
     }
 
     // Method declarations cannot have captures.
     if let capture = head.captures.first {
-      state.diagnostics.append(.memberDeclHasCaptures(at: state.ast.ranges[capture]))
-    }
-
-    // Method declarations must have a name.
-    if head.identifier.stem == nil {
-      state.diagnostics.append(.methodDeclWithoutIdentifier(at: head.identifier.introducerRange))
+      throw DiagnosedError(.diagnose(unexpectedCapture: state.ast[state.ast[capture].pattern]))
     }
 
     // Create a new `MethodDecl`.
     assert(prologue.accessModifiers.count <= 1)
-    let decl = state.ast.insert(MethodDecl(
-      introducerRange: head.identifier.introducerRange,
+    let decl = try state.ast.insert(MethodDecl(
+      introducerRange: head.name.introducerRange,
       attributes: prologue.attributes,
       accessModifier: prologue.accessModifiers.first,
-      notation: head.identifier.notation,
-      identifier: head.identifier.stem!, // FIXME
+      notation: head.name.notation,
+      identifier: head.name.stem,
       genericClause: head.genericClause,
       parameters: signature.parameters,
       output: signature.output,
@@ -680,30 +636,24 @@ public enum Parser {
     )
     guard let parts = try parser.parse(&state) else { return nil }
 
-    // Import declarations can only appear at module scope.
-    if !state.atModuleScope {
-      throw ParseError(.error(
-        "import declaration is not allowed in this scope",
-        range: parts.0.range))
-    }
-
     // Import declarations shall not have attributes.
-    for attribute in prologue.attributes {
-      state.diagnostics.append(.illegalAttribute(
-        named: attribute.value.name.value,
-        at: attribute.range))
+    if !prologue.attributes.isEmpty {
+      throw DiagnosedError(prologue.attributes.map(Diagnostic.diagnose(unexpectedAttribute:)))
     }
 
     // Import declarations shall not have modifiers.
-    for modifier in prologue.accessModifiers {
-      state.diagnostics.append(.illegalModifier(named: "\(modifier.value)", at: modifier.range))
+    if !prologue.accessModifiers.isEmpty {
+      throw DiagnosedError(prologue.accessModifiers.map(
+        Diagnostic.diagnose(unexpectedAccessModifier:)))
     }
-    for modifier in prologue.memberModifiers {
-      state.diagnostics.append(.illegalModifier(named: "\(modifier.value)", at: modifier.range))
+    if !prologue.memberModifiers.isEmpty {
+      throw DiagnosedError(prologue.memberModifiers.map(
+        Diagnostic.diagnose(unexpectedMemberModifier:)))
     }
 
     // Create a new `ImportDecl`.
-    let decl = state.ast.insert(ImportDecl(
+    let decl = try state.ast.insert(ImportDecl(
+      introducerRange: parts.0.range,
       identifier: SourceRepresentable(token: parts.1, in: state.lexer.source)))
     state.ast.ranges[decl] = state.range(from: prologue.startIndex)
     return decl
@@ -722,24 +672,19 @@ public enum Parser {
     )
     guard let ((head, signature), body) = try parser.parse(&state) else { return nil }
 
-    // Init declarations can only appear at type scope.
-    if !state.atTypeScope {
-      state.diagnostics.append(.initDeclAtNonTypeScope(at: head.introducer.range))
-    }
-
-    // TODO: Check for illegal attributes.
-
     // Init declarations cannot be static.
     if let modifier = prologue.memberModifiers.first(where: { (m) in m.value == .static }) {
-      state.diagnostics.append(.illegalModifier(named: "\(modifier.value)", at: modifier.range))
+      throw DiagnosedError(.diagnose(unexpectedMemberModifier: modifier))
     }
 
     // Init declarations require an implicit receiver parameter.
-    let receiver = state.ast.insert(ParameterDecl(identifier: SourceRepresentable(value: "self")))
+    let receiver = try state.ast.insert(ParameterDecl(
+      identifier: SourceRepresentable(value: "self")))
 
     // Create a new `InitializerDecl`.
     assert(prologue.accessModifiers.count <= 1)
-    let decl = state.ast.insert(InitializerDecl(
+    assert(prologue.memberModifiers.isEmpty)
+    let decl = try! state.ast.insert(InitializerDecl(
       introducer: head.introducer,
       attributes: prologue.attributes,
       accessModifier: prologue.accessModifiers.first,
@@ -762,24 +707,18 @@ public enum Parser {
     )
     guard let parts = try parser.parse(&state) else { return nil }
 
-    // Init declarations can only appear at type scope.
-    if !state.atTypeScope {
-      state.diagnostics.append(.initDeclAtNonTypeScope(at: parts.0.range))
-    }
-
-    // TODO: Check for illegal attributes.
-
     // Init declarations cannot be static.
     if let modifier = prologue.memberModifiers.first(where: { (m) in m.value == .static }) {
-      state.diagnostics.append(.illegalModifier(named: "\(modifier.value)", at: modifier.range))
+      throw DiagnosedError(.diagnose(unexpectedMemberModifier: modifier))
     }
 
     // Init declarations require an implicit receiver parameter.
-    let receiver = state.ast.insert(ParameterDecl(identifier: SourceRepresentable(value: "self")))
+    let receiver = try state.ast.insert(ParameterDecl(
+      identifier: SourceRepresentable(value: "self")))
 
     // Create a new `InitializerDecl`.
     assert(prologue.accessModifiers.count <= 1)
-    let decl = state.ast.insert(InitializerDecl(
+    let decl = try state.ast.insert(InitializerDecl(
       introducer: SourceRepresentable(value: .memberwiseInit, range: parts.0.range),
       attributes: prologue.attributes,
       accessModifier: prologue.accessModifiers.first,
@@ -804,20 +743,20 @@ public enum Parser {
     guard let parts = try parser.parse(&state) else { return nil }
 
     // Namespace declarations shall not have attributes.
-    for attribute in prologue.attributes {
-      state.diagnostics.append(.illegalAttribute(
-        named: attribute.value.name.value,
-        at: attribute.range))
+    if !prologue.attributes.isEmpty {
+      throw DiagnosedError(prologue.attributes.map(Diagnostic.diagnose(unexpectedAttribute:)))
     }
 
     // Namespace declarations shall not have member modifiers.
-    for modifier in prologue.memberModifiers {
-      state.diagnostics.append(.illegalModifier(named: "\(modifier.value)", at: modifier.range))
+    if !prologue.memberModifiers.isEmpty {
+      throw DiagnosedError(prologue.memberModifiers.map(
+        Diagnostic.diagnose(unexpectedMemberModifier:)))
     }
 
     // Create a new `NamespaceDecl`.
     assert(prologue.accessModifiers.count <= 1)
-    let decl = state.ast.insert(NamespaceDecl(
+    let decl = try state.ast.insert(NamespaceDecl(
+      introducerRange: parts.0.0.range,
       accessModifier: prologue.accessModifiers.first,
       identifier: SourceRepresentable(token: parts.0.1, in: state.lexer.source),
       members: parts.1))
@@ -838,28 +777,21 @@ public enum Parser {
     )
     guard let parts = try parser.parse(&state) else { return nil }
 
-    // Operator declarations can only appear at global scope.
-    if !state.atGlobalScope {
-      throw ParseError(.error(
-        "operator declaration is not allowed in this scope",
-        range: parts.0.0.0.range))
-    }
-
     // Operator declarations shall not have attributes.
-    for attribute in prologue.attributes {
-      state.diagnostics.append(.illegalAttribute(
-        named: attribute.value.name.value,
-        at: attribute.range))
+    if !prologue.attributes.isEmpty {
+      throw DiagnosedError(prologue.attributes.map(Diagnostic.diagnose(unexpectedAttribute:)))
     }
 
     // Operator declarations shall not have member modifiers.
-    for modifier in prologue.memberModifiers {
-      state.diagnostics.append(.illegalModifier(named: "\(modifier.value)", at: modifier.range))
+    if !prologue.memberModifiers.isEmpty {
+      throw DiagnosedError(prologue.memberModifiers.map(
+        Diagnostic.diagnose(unexpectedMemberModifier:)))
     }
 
     // Create a new `OperatorDecl`.
     assert(prologue.accessModifiers.count <= 1)
-    let decl = state.ast.insert(OperatorDecl(
+    let decl = try state.ast.insert(OperatorDecl(
+      introducerRange: parts.0.0.0.range,
       accessModifier: prologue.accessModifiers.first,
       notation: parts.0.0.1,
       name: parts.0.1,
@@ -884,17 +816,10 @@ public enum Parser {
     )
     guard let ((head, output), impls) = try parser.parse(&state) else { return nil }
 
-    // Property declarations can only appear at type scope.
-    if !state.atTypeScope {
-      state.diagnostics.append(.propertyDeclAtNonTypeScope(at: head.introducer.range))
-    }
-
-    // TODO: Check for illegal attributes.
-
     // Create a new `SubscriptDecl`.
     assert(prologue.accessModifiers.count <= 1)
     assert(prologue.memberModifiers.count <= 1)
-    let decl = state.ast.insert(SubscriptDecl(
+    let decl = try state.ast.insert(SubscriptDecl(
       introducer: head.introducer,
       attributes: prologue.attributes,
       accessModifier: prologue.accessModifiers.first,
@@ -926,24 +851,10 @@ public enum Parser {
     )
     guard let ((head, signature), impls) = try parser.parse(&state) else { return nil }
 
-    // TODO: Check for illegal attributes.
-
-    if let capture = head.captures.first {
-      // Member subscripts cannot have captures.
-      if state.atTypeScope {
-        state.diagnostics.append(.memberDeclHasCaptures(at: state.ast.ranges[capture]))
-      }
-
-      // Generic subscripts cannot have captures.
-      if head.genericClause != nil {
-        state.diagnostics.append(.genericDeclHasCaptures(at: state.ast.ranges[capture]))
-      }
-    }
-
     // Create a new `SubscriptDecl`.
     assert(prologue.accessModifiers.count <= 1)
     assert(prologue.memberModifiers.count <= 1)
-    let decl = state.ast.insert(SubscriptDecl(
+    let decl = try state.ast.insert(SubscriptDecl(
       introducer: head.introducer,
       attributes: prologue.attributes,
       accessModifier: prologue.accessModifiers.first,
@@ -971,7 +882,7 @@ public enum Parser {
     let backup = state.backup()
     do {
       if let body = try subscriptImplDeclBody.parse(&state) {
-        let impl = buildSubscriptImplDecl(
+        let impl = try buildSubscriptImplDecl(
           in: &state,
           withIntroducer: SourceRepresentable(value: .let),
           body: body,
@@ -987,22 +898,33 @@ public enum Parser {
 
     // Parse the subscript implementations.
     var impls: [NodeID<SubscriptImplDecl>] = []
+    var introducers: Set<ImplIntroducer> = []
+    var duplicateIntroducer: SourceRepresentable<ImplIntroducer>? = nil
+
     while true {
       // Exit if we found the right delimiter.
-      if state.take(.rBrace) != nil { return impls }
+      if state.take(.rBrace) != nil { break }
 
       // Parse an implementation.
       if let (introducer, body) = try subscriptImplDecl.parse(&state) {
-        let impl = buildSubscriptImplDecl(
+        let impl = try buildSubscriptImplDecl(
           in: &state,
           withIntroducer: introducer,
           body: body,
           asNonStaticMember: isNonStaticMember)
         impls.append(impl)
+
+        if !introducers.insert(introducer.value).inserted { duplicateIntroducer = introducer }
       } else{
-        state.diagnostics.append(.expected(kind: .rBrace, at: state.currentLocation))
-        return impls
+        state.diagnostics.append(.diagnose(expected: .rBrace, at: state.currentLocation))
+        break
       }
+    }
+
+    if let introducer = duplicateIntroducer {
+      throw DiagnosedError(.diagnose(duplicateImplementationIntroducer: introducer))
+    } else {
+      return impls
     }
   }
 
@@ -1011,17 +933,18 @@ public enum Parser {
     withIntroducer introducer: SourceRepresentable<ImplIntroducer>,
     body: SubscriptImplDecl.Body?,
     asNonStaticMember isNonStaticMember: Bool
-  ) -> NodeID<SubscriptImplDecl> {
+  ) throws -> NodeID<SubscriptImplDecl> {
     // Non-static member subscript declarations require an implicit receiver parameter.
     let receiver: NodeID<ParameterDecl>?
     if isNonStaticMember {
-      receiver = state.ast.insert(ParameterDecl(identifier: SourceRepresentable(value: "self")))
+      receiver = try state.ast.insert(ParameterDecl(
+        identifier: SourceRepresentable(value: "self")))
     } else {
       receiver = nil
     }
 
     // Create a new `SubscriptImplDecl`.
-    let decl = state.ast.insert(SubscriptImplDecl(
+    let decl = try state.ast.insert(SubscriptImplDecl(
       introducer: introducer,
       receiver: receiver,
       body: body))
@@ -1053,28 +976,14 @@ public enum Parser {
     )
     guard let parts = try parser.parse(&state) else { return nil }
 
-    // Trait declarations can only appear at global scope.
-    if !state.atGlobalScope {
-      throw ParseError(.error(
-        "trait declaration is not allowed in this scope",
-        range: parts.0.0.0.range))
-    }
-
     // Trait declarations shall not have attributes.
-    for attribute in prologue.attributes {
-      state.diagnostics.append(.illegalAttribute(
-        named: attribute.value.name.value,
-        at: attribute.range))
-    }
-
-    // Trait declarations shall not have member modifiers.
-    for modifier in prologue.memberModifiers {
-      state.diagnostics.append(.illegalModifier(named: "\(modifier.value)", at: modifier.range))
+    if !prologue.attributes.isEmpty {
+      throw DiagnosedError(prologue.attributes.map(Diagnostic.diagnose(unexpectedAttribute:)))
     }
 
     // Create a new `TraitDecl`.
     assert(prologue.accessModifiers.count <= 1)
-    let decl = state.ast.insert(TraitDecl(
+    let decl = try state.ast.insert(TraitDecl(
       accessModifier: prologue.accessModifiers.first,
       identifier: SourceRepresentable(token: parts.0.0.1, in: state.lexer.source),
       refinements: parts.0.1 ?? [],
@@ -1098,15 +1007,14 @@ public enum Parser {
     guard let parts = try parser.parse(&state) else { return nil }
 
     // Product type declarations shall not have attributes.
-    for attribute in prologue.attributes {
-      state.diagnostics.append(.illegalAttribute(
-        named: attribute.value.name.value,
-        at: attribute.range))
+    if !prologue.attributes.isEmpty {
+      throw DiagnosedError(prologue.attributes.map(Diagnostic.diagnose(unexpectedAttribute:)))
     }
 
     // Product type declarations shall not have member modifiers.
-    for modifier in prologue.memberModifiers {
-      state.diagnostics.append(.illegalModifier(named: "\(modifier.value)", at: modifier.range))
+    if !prologue.memberModifiers.isEmpty {
+      throw DiagnosedError(prologue.memberModifiers.map(
+        Diagnostic.diagnose(unexpectedMemberModifier:)))
     }
 
     // Retrieve or synthesize the type's memberwise initializer.
@@ -1115,7 +1023,7 @@ public enum Parser {
 
     // Create a new `ProductTypeDecl`.
     assert(prologue.accessModifiers.count <= 1)
-    let decl = state.ast.insert(ProductTypeDecl(
+    let decl = try state.ast.insert(ProductTypeDecl(
       accessModifier: prologue.accessModifiers.first,
       identifier: SourceRepresentable(token: parts.0.0.0.1, in: state.lexer.source),
       genericClause: parts.0.0.1,
@@ -1138,9 +1046,9 @@ public enum Parser {
       if state.ast[m].introducer.value == .memberwiseInit { return m }
     }
 
-    let receiver = state.ast.insert(ParameterDecl(
+    let receiver = try! state.ast.insert(ParameterDecl(
       identifier: SourceRepresentable(value: "self")))
-    let m = state.ast.insert(InitializerDecl(
+    let m = try! state.ast.insert(InitializerDecl(
       introducer: SourceRepresentable(value: .memberwiseInit),
       attributes: [],
       accessModifier: nil,
@@ -1167,20 +1075,19 @@ public enum Parser {
     guard let parts = try parser.parse(&state) else { return nil }
 
     // Type alias declarations shall not have attributes.
-    for attribute in prologue.attributes {
-      state.diagnostics.append(.illegalAttribute(
-        named: attribute.value.name.value,
-        at: attribute.range))
+    if !prologue.attributes.isEmpty {
+      throw DiagnosedError(prologue.attributes.map(Diagnostic.diagnose(unexpectedAttribute:)))
     }
 
     // Type alias declarations shall not have member modifiers.
-    for modifier in prologue.memberModifiers {
-      state.diagnostics.append(.illegalModifier(named: "\(modifier.value)", at: modifier.range))
+    if !prologue.memberModifiers.isEmpty {
+      throw DiagnosedError(prologue.memberModifiers.map(
+        Diagnostic.diagnose(unexpectedMemberModifier:)))
     }
 
     // Create a new `TypeAliasDecl`.
     assert(prologue.accessModifiers.count <= 1)
-    let decl = state.ast.insert(TypeAliasDecl(
+    let decl = try state.ast.insert(TypeAliasDecl(
       accessModifier: prologue.accessModifiers.first,
       identifier: SourceRepresentable(token: parts.0.0.0.1, in: state.lexer.source),
       genericClause: parts.0.0.1,
@@ -1203,7 +1110,7 @@ public enum Parser {
 
       case .methodDecl:
         let d = NodeID<MethodDecl>(rawValue: decl.rawValue)
-        throw ParseError(.error(
+        throw DiagnosedError(.error(
           "method bundle declaration is not allowed here",
           range: state.ast[d].introducerRange))
 
@@ -1214,23 +1121,23 @@ public enum Parser {
   )
 
   static let functionDeclHead = (
-    functionDeclIdentifier.and(maybe(genericClause)).and(maybe(captureList))
+    functionDeclName.and(maybe(genericClause)).and(maybe(captureList))
       .map({ (state, tree) -> FunctionDeclHead in
         FunctionDeclHead(
-          identifier: tree.0.0,
+          name: tree.0.0,
           genericClause: tree.0.1,
           captures: tree.1 ?? [])
       })
   )
 
-  static let functionDeclIdentifier = (
-    namedFunctionDeclIdentifier.or(operatorFunctionDeclIdentifier)
+  static let functionDeclName = (
+    functionDeclIdentifier.or(functionDeclOperator)
   )
 
-  static let namedFunctionDeclIdentifier = (
+  static let functionDeclIdentifier = (
     take(.fun).and(take(.name))
-      .map({ (state, tree) -> FunctionDeclIdentifier in
-        FunctionDeclIdentifier(
+      .map({ (state, tree) -> FunctionDeclName in
+        FunctionDeclName(
           introducerRange: tree.0.range,
           stem: SourceRepresentable(token: tree.1, in: state.lexer.source),
           notation: nil
@@ -1238,10 +1145,10 @@ public enum Parser {
       })
   )
 
-  static let operatorFunctionDeclIdentifier = (
+  static let functionDeclOperator = (
     operatorNotation.and(take(.fun)).and(operator_)
-      .map({ (state, tree) -> FunctionDeclIdentifier in
-        FunctionDeclIdentifier(
+      .map({ (state, tree) -> FunctionDeclName in
+        FunctionDeclName(
           introducerRange: tree.0.1.range,
           stem: tree.1,
           notation: tree.0.0
@@ -1276,26 +1183,29 @@ public enum Parser {
   ))
 
   static let methodDeclBody = (
-    take(.lBrace).and(methodImpl+).and(take(.rBrace))
+    take(.lBrace).and(methodImplDecl+).and(take(.rBrace))
       .map({ (state, tree) -> [NodeID<MethodImplDecl>] in
         var introducers: Set<ImplIntroducer> = []
+        var duplicateIntroducer: SourceRepresentable<ImplIntroducer>? = nil
         for implID in tree.0.1 {
           let introducer = state.ast[implID].introducer
-          if !introducers.insert(introducer.value).inserted {
-            state.diagnostics.append(.duplicateMethodIntroducer(at: introducer.range))
-          }
+          if !introducers.insert(introducer.value).inserted { duplicateIntroducer = introducer }
         }
 
-        return tree.0.1
+        if let introducer = duplicateIntroducer {
+          throw DiagnosedError(.diagnose(duplicateImplementationIntroducer: introducer))
+        } else {
+          return tree.0.1
+        }
       })
   )
 
-  static let methodImpl = (
+  static let methodImplDecl = (
     methodIntroducer.and(maybe(methodImplBody))
       .map({ (state, tree) -> NodeID<MethodImplDecl> in
-        let receiver = state.ast.insert(ParameterDecl(
+        let receiver = try state.ast.insert(ParameterDecl(
           identifier: SourceRepresentable(value: "self")))
-        let id = state.ast.insert(MethodImplDecl(
+        let id = try state.ast.insert(MethodImplDecl(
           introducer: tree.0,
           receiver: receiver,
           body: tree.1))
@@ -1421,7 +1331,7 @@ public enum Parser {
       .and(maybe(take(.colon).and(parameterTypeExpr)))
       .and(maybe(take(.assign).and(expr)))
       .map({ (state, tree) -> NodeID<ParameterDecl> in
-        let id = state.ast.insert(ParameterDecl(
+        let id = try state.ast.insert(ParameterDecl(
           label: tree.0.0.label,
           identifier: tree.0.0.name,
           annotation: tree.0.1?.1,
@@ -1469,7 +1379,7 @@ public enum Parser {
         return (label: name, name: name)
       }
 
-      throw ParseError(expected("parameter name", at: labelCandidate.range.first()))
+      throw DiagnosedError(expected("parameter name", at: labelCandidate.range.first()))
     })
   )
 
@@ -1517,7 +1427,7 @@ public enum Parser {
       .and(maybe(take(.colon).and(traitComposition)))
       .and(maybe(take(.assign).and(typeExpr)))
       .map({ (state, tree) -> GenericParamDeclID in
-        let id = state.ast.insert(GenericTypeParamDecl(
+        let id = try state.ast.insert(GenericTypeParamDecl(
           identifier: SourceRepresentable(token: tree.0.0.1, in: state.lexer.source),
           conformances: tree.0.1?.1 ?? [],
           defaultValue: tree.1?.1))
@@ -1535,7 +1445,7 @@ public enum Parser {
       .and(take(.colon).and(typeExpr))
       .and(maybe(take(.assign).and(expr)))
       .map({ (state, tree) -> GenericParamDeclID in
-        let id = state.ast.insert(GenericValueParamDecl(
+        let id = try state.ast.insert(GenericValueParamDecl(
           identifier: SourceRepresentable(token: tree.0.0.1, in: state.lexer.source),
           annotation: tree.0.1.1,
           defaultValue: tree.1?.1))
@@ -1599,11 +1509,11 @@ public enum Parser {
     in state: inout ParserState
   ) throws {
     if !state.hasLeadingWhitespace {
-      state.diagnostics.append(.infixOperatorRequiresWhitespaces(at: infixOperator.range))
+      state.diagnostics.append(.diagnose(infixOperatorRequiresWhitespacesAt: infixOperator.range))
     }
 
     guard let rhs = try typeExpr.parse(&state) else {
-      throw ParseError(expected("type expression", at: state.currentLocation))
+      throw DiagnosedError(expected("type expression", at: state.currentLocation))
     }
 
     let castKind: CastExpr.Kind
@@ -1618,7 +1528,7 @@ public enum Parser {
       unreachable()
     }
 
-    let expr = state.ast.insert(CastExpr(left: lhs, right: rhs, kind: castKind))
+    let expr = try state.ast.insert(CastExpr(left: lhs, right: rhs, kind: castKind))
     state.ast.ranges[expr] = state.ast.ranges[lhs]!.upperBounded(by: state.currentIndex)
     lhs = AnyExprID(expr)
   }
@@ -1630,14 +1540,14 @@ public enum Parser {
     in state: inout ParserState
   ) throws {
     if !state.hasLeadingWhitespace {
-      state.diagnostics.append(.infixOperatorRequiresWhitespaces(at: infixOperator.range))
+      state.diagnostics.append(.diagnose(infixOperatorRequiresWhitespacesAt: infixOperator.range))
     }
 
     guard let rhs = try prefixExpr.parse(&state) else {
-      throw ParseError(expected("expression", at: state.currentLocation))
+      throw DiagnosedError(expected("expression", at: state.currentLocation))
     }
 
-    let expr = state.ast.insert(AssignExpr(left: lhs, right: rhs))
+    let expr = try state.ast.insert(AssignExpr(left: lhs, right: rhs))
     state.ast.ranges[expr] = state.ast.ranges[lhs]!.upperBounded(by: state.currentIndex)
     lhs = AnyExprID(expr)
   }
@@ -1666,12 +1576,12 @@ public enum Parser {
           break
         }
 
-        state.diagnostics.append(.infixOperatorRequiresWhitespaces(at: operatorName.range))
+        state.diagnostics.append(.diagnose(infixOperatorRequiresWhitespacesAt: operatorName.range))
       }
 
       // Now we can commit to parse an operand.
       guard let operand = try prefixExpr.parse(&state) else {
-        throw ParseError(expected("type expression", at: state.currentLocation))
+        throw DiagnosedError(expected("type expression", at: state.currentLocation))
       }
       tail.append(SequenceExpr.TailElement(operatorName: operatorName, operand: operand))
     }
@@ -1679,7 +1589,7 @@ public enum Parser {
     // Nothing to transform if the tail is empty.
     if tail.isEmpty { return false }
 
-    let expr = state.ast.insert(SequenceExpr.unfolded(head: lhs, tail: tail))
+    let expr = try state.ast.insert(SequenceExpr.unfolded(head: lhs, tail: tail))
     state.ast.ranges[expr] = state.ast.ranges[lhs]!.upperBounded(by: state.currentIndex)
     lhs = AnyExprID(expr)
     return true
@@ -1697,7 +1607,7 @@ public enum Parser {
   static let asyncExprBlock = (
     asyncExprHead.and(take(.arrow)).and(typeExpr).and(asyncExprBody)
       .map({ (state, tree) -> NodeID<AsyncExpr> in
-        let decl = state.ast.insert(FunctionDecl(
+        let decl = try state.ast.insert(FunctionDecl(
           introducerRange: tree.0.0.0.0.0.range,
           receiverEffect: tree.0.0.0.1,
           output: tree.0.1,
@@ -1705,7 +1615,7 @@ public enum Parser {
           isInExprContext: true))
         state.ast.ranges[decl] = tree.0.0.0.0.0.range.upperBounded(by: state.currentIndex)
 
-        let id = state.ast.insert(AsyncExpr(decl: decl))
+        let id = try state.ast.insert(AsyncExpr(decl: decl))
         state.ast.ranges[id] = state.ast.ranges[decl]
         return id
       })
@@ -1716,7 +1626,7 @@ public enum Parser {
   static let asyncExprInline = (
     asyncExprHead.and(expr)
       .map({ (state, tree) -> NodeID<AsyncExpr> in
-        let decl = state.ast.insert(FunctionDecl(
+        let decl = try state.ast.insert(FunctionDecl(
           introducerRange: tree.0.0.0.range,
           receiverEffect: tree.0.1,
           explicitCaptures: tree.0.0.1 ?? [],
@@ -1724,7 +1634,7 @@ public enum Parser {
           isInExprContext: true))
         state.ast.ranges[decl] = tree.0.0.0.range.upperBounded(by: state.currentIndex)
 
-        let id = state.ast.insert(AsyncExpr(decl: decl))
+        let id = try state.ast.insert(AsyncExpr(decl: decl))
         state.ast.ranges[id] = state.ast.ranges[decl]
         return id
       })
@@ -1737,7 +1647,7 @@ public enum Parser {
   static let awaitExpr = (
     take(.await).and(expr)
       .map({ (state, tree) -> NodeID<AwaitExpr> in
-        let id = state.ast.insert(AwaitExpr(operand: tree.1))
+        let id = try state.ast.insert(AwaitExpr(operand: tree.1))
         state.ast.ranges[id] = tree.0.range.upperBounded(
           by: state.ast.ranges[tree.1]!.upperBound)
         return id
@@ -1748,7 +1658,7 @@ public enum Parser {
     postfixExpr,
     or: prefixOperator.and(withoutLeadingWhitespace(postfixExpr))
       .map({ (state, tree) -> AnyExprID in
-        let callee = state.ast.insert(NameExpr(
+        let callee = try state.ast.insert(NameExpr(
           domain: .expr(tree.1),
           name: SourceRepresentable(
             value: Name(stem: tree.0.value, notation: .prefix),
@@ -1756,7 +1666,7 @@ public enum Parser {
         state.ast.ranges[callee] = tree.0.range!.upperBounded(
           by: state.ast.ranges[tree.1]!.upperBound)
 
-        let call = state.ast.insert(FunCallExpr(callee: AnyExprID(callee)))
+        let call = try state.ast.insert(FunCallExpr(callee: AnyExprID(callee)))
         state.ast.ranges[call] = state.ast.ranges[callee]
         return AnyExprID(call)
       })
@@ -1776,14 +1686,14 @@ public enum Parser {
     compoundExpr.and(maybe(withoutLeadingWhitespace(postfixOperator)))
       .map({ (state, tree) -> AnyExprID in
         if let oper = tree.1 {
-          let callee = state.ast.insert(NameExpr(
+          let callee = try state.ast.insert(NameExpr(
             domain: .expr(tree.0),
             name: SourceRepresentable(
               value: Name(stem: oper.value, notation: .postfix), range: oper.range)))
           state.ast.ranges[callee] = state.ast.ranges[tree.0]!.upperBounded(
             by: oper.range!.upperBound)
 
-          let call = state.ast.insert(FunCallExpr(callee: AnyExprID(callee)))
+          let call = try state.ast.insert(FunCallExpr(callee: AnyExprID(callee)))
           state.ast.ranges[call] = state.ast.ranges[callee]
           return AnyExprID(call)
         } else {
@@ -1845,12 +1755,12 @@ public enum Parser {
 
           // indexed-member-expr
           if let index = state.takeMemberIndex() {
-            head = AnyExprID(state.ast.insert(TupleMemberExpr(tuple: head, index: index)))
+            head = try AnyExprID(state.ast.insert(TupleMemberExpr(tuple: head, index: index)))
             state.ast.ranges[head] = headRange.upperBounded(by: state.currentIndex)
             continue
           }
 
-          throw ParseError(expected("member name", at: state.currentLocation))
+          throw DiagnosedError(expected("member name", at: state.currentLocation))
         }
 
         // Exit if there's a new line before the next token.
@@ -1860,10 +1770,10 @@ public enum Parser {
         if state.take(.lParen) != nil {
           let arguments = try argumentList.parse(&state) ?? []
           guard state.take(.rParen) != nil else {
-            throw ParseError(expected("')'", at: state.currentLocation))
+            throw DiagnosedError(expected("')'", at: state.currentLocation))
           }
 
-          head = AnyExprID(state.ast.insert(FunCallExpr(
+          head = try AnyExprID(state.ast.insert(FunCallExpr(
             callee: head, arguments: arguments)))
           state.ast.ranges[head] = headRange.upperBounded(by: state.currentIndex)
           continue
@@ -1873,10 +1783,10 @@ public enum Parser {
         if state.take(.lBrack) != nil {
           let arguments = try argumentList.parse(&state) ?? []
           guard state.take(.rBrack) != nil else {
-            throw ParseError(expected("']'", at: state.currentLocation))
+            throw DiagnosedError(expected("']'", at: state.currentLocation))
           }
 
-          head = AnyExprID(state.ast.insert(SubscriptCallExpr(
+          head = try AnyExprID(state.ast.insert(SubscriptCallExpr(
             callee: head, arguments: arguments)))
           state.ast.ranges[head] = headRange.upperBounded(by: state.currentIndex)
           continue
@@ -1950,7 +1860,7 @@ public enum Parser {
   static let booleanLiteral = (
     take(.bool)
       .map({ (state, token) -> NodeID<BooleanLiteralExpr> in
-        let id = state.ast.insert(BooleanLiteralExpr(
+        let id = try state.ast.insert(BooleanLiteralExpr(
           value: state.lexer.source[token.range] == "true"))
         state.ast.ranges[id] = token.range
         return id
@@ -1960,7 +1870,7 @@ public enum Parser {
   static let integerLiteral = (
     take(.int)
       .map({ (state, token) -> NodeID<IntegerLiteralExpr> in
-        let id = state.ast.insert(IntegerLiteralExpr(
+        let id = try state.ast.insert(IntegerLiteralExpr(
           value: state.lexer.source[token.range].filter({ $0 != "_" })))
         state.ast.ranges[id] = token.range
         return id
@@ -1970,7 +1880,7 @@ public enum Parser {
   static let floatingPointLiteral = (
     take(.float)
       .map({ (state, token) -> NodeID<FloatLiteralExpr> in
-        let id = state.ast.insert(FloatLiteralExpr(
+        let id = try state.ast.insert(FloatLiteralExpr(
           value: state.lexer.source[token.range].filter({ $0 != "_" })))
         state.ast.ranges[id] = token.range
         return id
@@ -1980,7 +1890,7 @@ public enum Parser {
   static let stringLiteral = (
     take(.string)
       .map({ (state, token) -> NodeID<StringLiteralExpr> in
-        let id = state.ast.insert(StringLiteralExpr(
+        let id = try state.ast.insert(StringLiteralExpr(
           value: String(state.lexer.source[token.range].dropFirst().dropLast())))
         state.ast.ranges[id] = token.range
         return id
@@ -1996,7 +1906,7 @@ public enum Parser {
   static let bufferLiteral = (
     take(.lBrack).and(maybe(bufferComponentList)).and(take(.rBrack))
       .map({ (state, tree) -> NodeID<BufferLiteralExpr> in
-        let id = state.ast.insert(BufferLiteralExpr(elements: tree.0.1 ?? []))
+        let id = try state.ast.insert(BufferLiteralExpr(elements: tree.0.1 ?? []))
         state.ast.ranges[id] = tree.0.0.range.upperBounded(by: state.currentIndex)
         return id
       })
@@ -2010,7 +1920,7 @@ public enum Parser {
   static let mapLiteral = (
     take(.lBrack).and(mapComponentList.or(mapComponentEmptyList)).and(take(.rBrack))
       .map({ (state, tree) -> NodeID<MapLiteralExpr> in
-        let id = state.ast.insert(MapLiteralExpr(elements: tree.0.1))
+        let id = try state.ast.insert(MapLiteralExpr(elements: tree.0.1))
         state.ast.ranges[id] = tree.0.0.range.upperBounded(by: state.currentIndex)
         return id
       })
@@ -2036,7 +1946,7 @@ public enum Parser {
   static let primaryDeclRef = (
     identifierExpr.and(maybe(staticArgumentList))
       .map({ (state, tree) -> NodeID<NameExpr> in
-        let id = state.ast.insert(NameExpr(name: tree.0, arguments: tree.1 ?? []))
+        let id = try state.ast.insert(NameExpr(name: tree.0, arguments: tree.1 ?? []))
         state.ast.ranges[id] = tree.0.range!.upperBounded(by: state.currentIndex)
         return id
       })
@@ -2057,7 +1967,7 @@ public enum Parser {
       .map({ (state, tree) -> NodeID<LambdaExpr> in
         let signature = tree.0.1
 
-        let decl = state.ast.insert(FunctionDecl(
+        let decl = try state.ast.insert(FunctionDecl(
           introducerRange: tree.0.0.0.range,
           receiverEffect: signature.receiverEffect,
           explicitCaptures: tree.0.0.1 ?? [],
@@ -2067,7 +1977,7 @@ public enum Parser {
           isInExprContext: true))
         state.ast.ranges[decl] = tree.0.0.0.range.upperBounded(by: state.currentIndex)
 
-        let id = state.ast.insert(LambdaExpr(decl: decl))
+        let id = try state.ast.insert(LambdaExpr(decl: decl))
         state.ast.ranges[id] = state.ast.ranges[decl]
         return id
       })
@@ -2083,7 +1993,7 @@ public enum Parser {
   static let matchExpr = (
     take(.match).and(expr).and(take(.lBrace)).and(zeroOrMany(matchCase)).and(take(.rBrace))
       .map({ (state, tree) -> NodeID<MatchExpr> in
-        let id = state.ast.insert(MatchExpr(subject: tree.0.0.0.1, cases: tree.0.1))
+        let id = try state.ast.insert(MatchExpr(subject: tree.0.0.0.1, cases: tree.0.1))
         state.ast.ranges[id] = tree.0.0.0.0.range.upperBounded(by: state.currentIndex)
         return id
       })
@@ -2092,7 +2002,7 @@ public enum Parser {
   static let matchCase = (
     pattern.and(maybe(take(.where).and(expr))).and(matchCaseBody)
       .map({ (state, tree) -> NodeID<MatchCase> in
-        let id = state.ast.insert(MatchCase(
+        let id = try state.ast.insert(MatchCase(
           pattern: tree.0.0, condition: tree.0.1?.1, body: tree.1))
         state.ast.ranges[id] = state.ast.ranges[tree.0.0]!.upperBounded(
           by: state.currentIndex)
@@ -2114,7 +2024,7 @@ public enum Parser {
   private static let _conditionalExpr = (
     take(.if).and(conditionalClause).and(conditionalExprBody).and(maybe(conditionalTail))
       .map({ (state, tree) -> NodeID<CondExpr> in
-        let id = state.ast.insert(CondExpr(
+        let id = try state.ast.insert(CondExpr(
           condition: tree.0.0.1, success: tree.0.1, failure: tree.1))
         state.ast.ranges[id] = tree.0.0.0.range.upperBounded(by: state.currentIndex)
         return id
@@ -2129,7 +2039,7 @@ public enum Parser {
   static let conditionalClauseItem = Choose(
     bindingPattern.and(take(.assign)).and(expr)
       .map({ (state, tree) -> ConditionItem in
-        let id = state.ast.insert(BindingDecl(pattern: tree.0.0, initializer: tree.1))
+        let id = try state.ast.insert(BindingDecl(pattern: tree.0.0, initializer: tree.1))
         state.ast.ranges[id] = state.ast.ranges[tree.0.0]!.upperBounded(
           by: state.currentIndex)
         return .decl(id)
@@ -2157,7 +2067,7 @@ public enum Parser {
   static let inoutExpr = (
     take(.ampersand).and(withoutLeadingWhitespace(expr))
       .map({ (state, tree) -> NodeID<InoutExpr> in
-        let id = state.ast.insert(InoutExpr(
+        let id = try state.ast.insert(InoutExpr(
           operatorRange: tree.0.range, subject: tree.1))
         state.ast.ranges[id] = tree.0.range.upperBounded(by: state.currentIndex)
         return id
@@ -2167,7 +2077,7 @@ public enum Parser {
   static let tupleExpr = (
     take(.lParen).and(maybe(tupleExprElementList)).and(take(.rParen))
       .map({ (state, tree) -> NodeID<TupleExpr> in
-        let id = state.ast.insert(TupleExpr(elements: tree.0.1 ?? []))
+        let id = try state.ast.insert(TupleExpr(elements: tree.0.1 ?? []))
         state.ast.ranges[id] = tree.0.0.range.upperBounded(by: state.currentIndex)
         return id
       })
@@ -2206,7 +2116,7 @@ public enum Parser {
   static let nilExpr = (
     take(.nil)
       .map({ (state, token) -> NodeID<NilExpr> in
-        let id = state.ast.insert(NilExpr())
+        let id = try state.ast.insert(NilExpr())
         state.ast.ranges[id] = token.range
         return id
       })
@@ -2246,7 +2156,7 @@ public enum Parser {
       ])))
       .and(maybe(take(.colon).and(typeExpr)))
       .map({ (state, tree) -> NodeID<BindingPattern> in
-        let id = state.ast.insert(BindingPattern(
+        let id = try state.ast.insert(BindingPattern(
           introducer: tree.0.0,
           subpattern: tree.0.1,
           annotation: tree.1?.1))
@@ -2276,7 +2186,7 @@ public enum Parser {
       case .sink:
         _ = state.take()
         guard state.take(.let) != nil else {
-          throw ParseError(expected("'let'", at: state.currentLocation))
+          throw DiagnosedError(expected("'let'", at: state.currentLocation))
         }
         introducer = .sinklet
 
@@ -2306,7 +2216,7 @@ public enum Parser {
 
       // Default to an expression.
       guard let exprID = try expr.parse(&state) else { return nil }
-      let id = state.ast.insert(ExprPattern(expr: exprID))
+      let id = try state.ast.insert(ExprPattern(expr: exprID))
       state.ast.ranges[id] = state.ast.ranges[exprID]
       return AnyPatternID(id)
     })
@@ -2315,11 +2225,11 @@ public enum Parser {
   static let namePattern = (
     take(.name)
       .map({ (state, token) -> NodeID<NamePattern> in
-        let declID = state.ast.insert(VarDecl(
+        let declID = try state.ast.insert(VarDecl(
           identifier: SourceRepresentable(token: token, in: state.lexer.source)))
         state.ast.ranges[declID] = token.range
 
-        let id = state.ast.insert(NamePattern(decl: declID))
+        let id = try state.ast.insert(NamePattern(decl: declID))
         state.ast.ranges[id] = token.range
         return id
       })
@@ -2328,7 +2238,7 @@ public enum Parser {
   static let tuplePattern = (
     take(.lParen).and(maybe(tuplePatternElementList)).and(take(.rParen))
       .map({ (state, tree) -> NodeID<TuplePattern> in
-        let id = state.ast.insert(TuplePattern(elements: tree.0.1 ?? []))
+        let id = try state.ast.insert(TuplePattern(elements: tree.0.1 ?? []))
         state.ast.ranges[id] = tree.0.0.range.upperBounded(by: tree.1.range.upperBound)
         return id
       })
@@ -2367,7 +2277,7 @@ public enum Parser {
   static let wildcardPattern = (
     take(.under)
       .map({ (state, token) -> NodeID<WildcardPattern> in
-        let id = state.ast.insert(WildcardPattern())
+        let id = try state.ast.insert(WildcardPattern())
         state.ast.ranges[id] = token.range
         return id
       })
@@ -2412,7 +2322,7 @@ public enum Parser {
       .and(zeroOrMany(stmt.and(zeroOrMany(take(.semi))).first))
       .and(take(.rBrace))
       .map({ (state, tree) -> NodeID<BraceStmt> in
-        let id = state.ast.insert(BraceStmt(stmts: tree.0.1))
+        let id = try state.ast.insert(BraceStmt(stmts: tree.0.1))
         state.ast.ranges[id] = tree.0.0.0.range.upperBounded(by: state.currentIndex)
         return id
       })
@@ -2421,7 +2331,7 @@ public enum Parser {
   static let discardStmt = (
     take(.under).and(take(.assign)).and(expr)
       .map({ (state, tree) -> NodeID<DiscardStmt> in
-        let id = state.ast.insert(DiscardStmt(expr: tree.1))
+        let id = try state.ast.insert(DiscardStmt(expr: tree.1))
         state.ast.ranges[id] = tree.0.0.range.upperBounded(by: state.currentIndex)
         return id
       })
@@ -2430,7 +2340,7 @@ public enum Parser {
   static let doWhileStmt = (
     take(.do).and(loopBody).and(take(.while)).and(expr)
       .map({ (state, tree) -> NodeID<DoWhileStmt> in
-        let id = state.ast.insert(DoWhileStmt(body: tree.0.0.1, condition: tree.1))
+        let id = try state.ast.insert(DoWhileStmt(body: tree.0.0.1, condition: tree.1))
         state.ast.ranges[id] = tree.0.0.0.range.upperBounded(by: state.currentIndex)
         return id
       })
@@ -2439,7 +2349,7 @@ public enum Parser {
   static let whileStmt = (
     take(.while).and(conditionalClause).and(loopBody)
       .map({ (state, tree) -> NodeID<WhileStmt> in
-        let id = state.ast.insert(WhileStmt(condition: tree.0.1, body: tree.1))
+        let id = try state.ast.insert(WhileStmt(condition: tree.0.1, body: tree.1))
         state.ast.ranges[id] = tree.0.0.range.upperBounded(by: state.currentIndex)
         return id
       })
@@ -2448,10 +2358,10 @@ public enum Parser {
   static let forStmt = (
     take(.for).and(bindingPattern).and(forRange).and(maybe(forFilter)).and(loopBody)
       .map({ (state, tree) -> NodeID<ForStmt> in
-        let decl = state.ast.insert(BindingDecl(pattern: tree.0.0.0.1, initializer: nil))
+        let decl = try state.ast.insert(BindingDecl(pattern: tree.0.0.0.1, initializer: nil))
         state.ast.ranges[decl] = state.ast.ranges[tree.0.0.0.1]
 
-        let id = state.ast.insert(ForStmt(
+        let id = try state.ast.insert(ForStmt(
           binding: decl, domain: tree.0.0.1, filter: tree.0.1, body: tree.1))
         state.ast.ranges[id] = tree.0.0.0.0.range.upperBounded(by: state.currentIndex)
         return id
@@ -2471,7 +2381,7 @@ public enum Parser {
   static let returnStmt = (
     take(.return).and(maybe(onSameLine(expr)))
       .map({ (state, tree) -> NodeID<ReturnStmt> in
-        let id = state.ast.insert(ReturnStmt(value: tree.1))
+        let id = try state.ast.insert(ReturnStmt(value: tree.1))
         state.ast.ranges[id] = tree.0.range.upperBounded(by: state.currentIndex)
         return id
       })
@@ -2480,7 +2390,7 @@ public enum Parser {
   static let yieldStmt = (
     take(.yield).and(onSameLine(expr))
       .map({ (state, tree) -> NodeID<YieldStmt> in
-        let id = state.ast.insert(YieldStmt(value: tree.1))
+        let id = try state.ast.insert(YieldStmt(value: tree.1))
         state.ast.ranges[id] = tree.0.range.upperBounded(by: state.currentIndex)
         return id
       })
@@ -2489,7 +2399,7 @@ public enum Parser {
   static let breakStmt = (
     take(.break)
       .map({ (state, token) -> NodeID<BreakStmt> in
-        let id = state.ast.insert(BreakStmt())
+        let id = try state.ast.insert(BreakStmt())
         state.ast.ranges[id] = token.range
         return id
       })
@@ -2498,7 +2408,7 @@ public enum Parser {
   static let continueStmt = (
     take(.break)
       .map({ (state, token) -> NodeID<ContinueStmt> in
-        let id = state.ast.insert(ContinueStmt())
+        let id = try state.ast.insert(ContinueStmt())
         state.ast.ranges[id] = token.range
         return id
       })
@@ -2513,7 +2423,7 @@ public enum Parser {
       state.restore(from: backup)
 
       if let decl = try bindingDecl.parse(&state) {
-        let id = state.ast.insert(DeclStmt(decl: AnyDeclID(decl)))
+        let id = try state.ast.insert(DeclStmt(decl: AnyDeclID(decl)))
         state.ast.ranges[id] = state.ast.ranges[decl]
         return AnyStmtID(id)
       } else {
@@ -2528,12 +2438,12 @@ public enum Parser {
         let bindingRange = state.ast.ranges[tree.0.0]!
 
         if state.ast[tree.0.0].initializer == nil {
-          throw ParseError(.error(
+          throw DiagnosedError(.error(
             "conditional binding requires an initializer",
             range: bindingRange.upperBounded(by: bindingRange.lowerBound)))
         }
 
-        let id = state.ast.insert(CondBindingStmt(
+        let id = try state.ast.insert(CondBindingStmt(
           binding: tree.0.0, fallback: tree.1))
         state.ast.ranges[id] = bindingRange.upperBounded(by: state.currentIndex)
         return id
@@ -2561,7 +2471,7 @@ public enum Parser {
   static let declStmt = (
     Apply(parseDecl)
       .map({ (state, decl) -> NodeID<DeclStmt> in
-        let id = state.ast.insert(DeclStmt(decl: decl))
+        let id = try state.ast.insert(DeclStmt(decl: decl))
         state.ast.ranges[id] = state.ast.ranges[decl]
         return id
       })
@@ -2570,7 +2480,7 @@ public enum Parser {
   static let exprStmt = (
     expr
       .map({ (state, expr) -> NodeID<ExprStmt> in
-        let id = state.ast.insert(ExprStmt(expr: expr))
+        let id = try state.ast.insert(ExprStmt(expr: expr))
         state.ast.ranges[id] = state.ast.ranges[expr]
         return id
       })
@@ -2601,7 +2511,7 @@ public enum Parser {
           return tree.0
         } else {
           let elements = [tree.0] + tree.1
-          let id = state.ast.insert(UnionTypeExpr(elements: elements))
+          let id = try state.ast.insert(UnionTypeExpr(elements: elements))
           state.ast.ranges[id] = state.ast.ranges[tree.0]!.upperBounded(
             by: state.currentIndex)
           return AnyTypeExprID(id)
@@ -2618,10 +2528,10 @@ public enum Parser {
         // async-type-expr
         _ = state.take()
         guard let operand = try typeExpr.parse(&state) else {
-          throw ParseError(expected("type expression", at: state.currentLocation))
+          throw DiagnosedError(expected("type expression", at: state.currentLocation))
         }
 
-        let id = state.ast.insert(AsyncTypeExpr(operand: operand))
+        let id = try state.ast.insert(AsyncTypeExpr(operand: operand))
         state.ast.ranges[id] = head.range.upperBounded(by: state.currentIndex)
         return AnyTypeExprID(id)
 
@@ -2629,10 +2539,10 @@ public enum Parser {
         // indirect-type-expr
         _ = state.take()
         guard let operand = try typeExpr.parse(&state) else {
-          throw ParseError(expected("type expression", at: state.currentLocation))
+          throw DiagnosedError(expected("type expression", at: state.currentLocation))
         }
 
-        let id = state.ast.insert(IndirectTypeExpr(operand: operand))
+        let id = try state.ast.insert(IndirectTypeExpr(operand: operand))
         state.ast.ranges[id] = head.range.upperBounded(by: state.currentIndex)
         return AnyTypeExprID(id)
 
@@ -2640,11 +2550,11 @@ public enum Parser {
         // existential-type-expr
         _ = state.take()
         guard let traits = try traitComposition.parse(&state) else {
-          throw ParseError(expected("trait composition", at: state.currentLocation))
+          throw DiagnosedError(expected("trait composition", at: state.currentLocation))
         }
         let clause = try whereClause.parse(&state)
 
-        let id = state.ast.insert(ExistentialTypeExpr(traits: traits, whereClause: clause))
+        let id = try state.ast.insert(ExistentialTypeExpr(traits: traits, whereClause: clause))
         state.ast.ranges[id] = head.range.upperBounded(
           by: clause?.range?.upperBound ?? state.ast.ranges[traits.last!]!.upperBound)
         return AnyTypeExprID(id)
@@ -2661,7 +2571,7 @@ public enum Parser {
         if let converted = NodeID<NameTypeExpr>(id) {
           return converted
         } else {
-          throw ParseError(expected("type name", at: state.ast.ranges[id]!.first()))
+          throw DiagnosedError(expected("type name", at: state.ast.ranges[id]!.first()))
         }
       })
   )
@@ -2674,7 +2584,7 @@ public enum Parser {
       while true {
         if state.take(.dot) != nil {
           guard let member = try primaryTypeDeclRef.parse(&state) else {
-            throw ParseError(expected("type member name", at: state.currentLocation))
+            throw DiagnosedError(expected("type member name", at: state.currentLocation))
           }
 
           state.ast[member].incorporate(domain: head)
@@ -2685,10 +2595,10 @@ public enum Parser {
 
         if state.take(.twoColons) != nil {
           guard let lens = try primaryTypeExpr.parse(&state) else {
-            throw ParseError(expected("focus", at: state.currentLocation))
+            throw DiagnosedError(expected("focus", at: state.currentLocation))
           }
 
-          let id = state.ast.insert(ConformanceLensTypeExpr(subject: head, lens: lens))
+          let id = try state.ast.insert(ConformanceLensTypeExpr(subject: head, lens: lens))
           state.ast.ranges[id] = headRange.upperBounded(by: state.currentIndex)
           head = AnyTypeExprID(id)
           continue
@@ -2713,7 +2623,7 @@ public enum Parser {
   static let primaryTypeDeclRef = (
     typeIdentifier.and(maybe(staticArgumentList))
       .map({ (state, tree) -> NodeID<NameTypeExpr> in
-        let id = state.ast.insert(NameTypeExpr(identifier: tree.0, arguments: tree.1 ?? []))
+        let id = try state.ast.insert(NameTypeExpr(identifier: tree.0, arguments: tree.1 ?? []))
         state.ast.ranges[id] = tree.0.range!.upperBounded(by: state.currentIndex)
         return id
       })
@@ -2722,7 +2632,7 @@ public enum Parser {
   static let tupleTypeExpr = (
     take(.lBrace).and(maybe(tupleTypeExprElementList)).and(take(.rBrace))
       .map({ (state, tree) -> NodeID<TupleTypeExpr> in
-        let id = state.ast.insert(TupleTypeExpr(elements: tree.0.1 ?? []))
+        let id = try state.ast.insert(TupleTypeExpr(elements: tree.0.1 ?? []))
         state.ast.ranges[id] = tree.0.0.range.upperBounded(by: tree.1.range.upperBound)
         return id
       })
@@ -2803,7 +2713,7 @@ public enum Parser {
       .and(take(.arrow))
       .and(typeExpr)
       .map({ (state, tree) -> NodeID<LambdaTypeExpr> in
-        let id = state.ast.insert(LambdaTypeExpr(
+        let id = try state.ast.insert(LambdaTypeExpr(
           receiverEffect: tree.0.0.1,
           parameters: tree.0.0.0.0.1 ?? [],
           output: tree.1))
@@ -2849,7 +2759,7 @@ public enum Parser {
         if let expr = tree.0.1 {
           return SourceRepresentable(value: expr, range: range)
         } else {
-          let expr = state.ast.insert(TupleTypeExpr())
+          let expr = try state.ast.insert(TupleTypeExpr())
           state.ast.ranges[expr] = SourceRange(
             in: state.lexer.source,
             from: tree.0.0.range.upperBound,
@@ -2862,7 +2772,7 @@ public enum Parser {
   static let wildcardTypeExpr = (
     take(.under)
       .map({ (state, token) -> NodeID<WildcardTypeExpr> in
-        let id = state.ast.insert(WildcardTypeExpr())
+        let id = try state.ast.insert(WildcardTypeExpr())
         state.ast.ranges[id] = token.range
         return id
       })
@@ -2878,7 +2788,7 @@ public enum Parser {
     maybe(passingConvention)
       .andCollapsingSoftFailures(typeExpr)
       .map({ (state, tree) -> NodeID<ParameterTypeExpr> in
-        let id = state.ast.insert(ParameterTypeExpr(
+        let id = try state.ast.insert(ParameterTypeExpr(
           convention: tree.0 ?? SourceRepresentable(value: .let),
           bareType: tree.1))
 
@@ -2975,7 +2885,7 @@ public enum Parser {
       // equality-constraint
       if state.take(.equal) != nil {
         guard let rhs = try typeExpr.parse(&state) else {
-          throw ParseError(expected("type expression", at: state.currentLocation))
+          throw DiagnosedError(expected("type expression", at: state.currentLocation))
         }
         return SourceRepresentable(
           value: .equality(l: lhs, r: rhs),
@@ -2985,14 +2895,14 @@ public enum Parser {
       // conformance-constraint
       if state.take(.colon) != nil {
         guard let traits = try traitComposition.parse(&state) else {
-          throw ParseError(expected("trait composition", at: state.currentLocation))
+          throw DiagnosedError(expected("trait composition", at: state.currentLocation))
         }
         return SourceRepresentable(
           value: .conformance(l: lhs, traits: traits),
           range: state.ast.ranges[lhs]!.upperBounded(by: state.currentIndex))
       }
 
-      throw ParseError(expected("constraint operator", at: state.currentLocation))
+      throw DiagnosedError(expected("constraint operator", at: state.currentLocation))
     })
   )
 
@@ -3074,10 +2984,10 @@ public enum Parser {
         let head = state.take()!
 
         if state.hasLeadingWhitespace {
-          throw ParseError(expected("operator", at: state.currentLocation))
+          throw DiagnosedError(expected("operator", at: state.currentLocation))
         }
         guard let oper = state.takeOperator() else {
-          throw ParseError(expected("operator", at: state.currentLocation))
+          throw DiagnosedError(expected("operator", at: state.currentLocation))
         }
 
         let stem = String(state.lexer.source[oper.range!])
@@ -3145,7 +3055,7 @@ public enum Parser {
         if let value = Int(state.lexer.source[token.range]) {
           return .integer(SourceRepresentable(value: value, range: token.range))
         } else {
-          throw ParseError(.error("invalid integer literal", range: token.range))
+          throw DiagnosedError(.error("invalid integer literal", range: token.range))
         }
       })
   )
@@ -3163,6 +3073,12 @@ public enum Parser {
     children: [Diagnostic] = []
   ) -> Diagnostic {
     .error("expected \(subject)", range: location ..< location, children: children)
+  }
+
+  private static func diagnose(
+    _ makeDiagnostic: @escaping (inout ParserState) -> Diagnostic
+  ) -> (inout ParserState) -> Error {
+    { (s) in DiagnosedError(makeDiagnostic(&s)) }
   }
 
 }
@@ -3192,14 +3108,14 @@ struct DeclPrologue {
 
 }
 
-/// The parsed identifier of a function declaration.
-struct FunctionDeclIdentifier {
+/// The parsed name of a function declaration.
+struct FunctionDeclName {
 
   /// The source range of the `fun` introducer.
   let introducerRange: SourceRange
 
-  /// The stem of the declared identifier, if any.
-  let stem: SourceRepresentable<String>?
+  /// The stem of the declared identifier.
+  let stem: SourceRepresentable<String>
 
   /// The notation of the declared function, if any.
   let notation: SourceRepresentable<OperatorNotation>?
@@ -3209,8 +3125,8 @@ struct FunctionDeclIdentifier {
 /// The parsed head of a function declaration.
 struct FunctionDeclHead {
 
-  /// The identifier of the declaration.
-  let identifier: FunctionDeclIdentifier
+  /// The name of the declaration.
+  let name: FunctionDeclName
 
   /// The generic clause of the declaration, if any.
   let genericClause: SourceRepresentable<GenericClause>?
@@ -3428,83 +3344,23 @@ fileprivate extension SourceRepresentable where Part == Identifier {
 
 fileprivate extension Diagnostic {
 
-  static func duplicateMethodIntroducer(at range: SourceRange?) -> Diagnostic {
-    .error("duplicate method introducer", range: range)
-  }
-
-  static func duplicateModifier(at range: SourceRange?) -> Diagnostic {
-    .error("duplicate modifier", range: range)
-  }
-
-  static func duplicateSubscriptIntroducer(at range: SourceRange?) -> Diagnostic {
-    .error("duplicate subscript introducer", range: range)
-  }
-
-  static func expected(kind: Token.Kind, at location: SourceLocation) -> Diagnostic {
+  static func diagnose(expected kind: Token.Kind, at location: SourceLocation) -> Diagnostic {
     .error("expected '\(kind)'", range: location ..< location)
   }
 
-  static func illegalAttribute(named name: String, at range: SourceRange?) -> Diagnostic {
-    .error("attribute '\(name)' cannot be used on this declaration", range: range)
-  }
-
-  static func illegalReceiverEffect(at range: SourceRange?) -> Diagnostic {
-    .error("receiver effect cannot be used on this declaration")
-  }
-
-  static func illegalModifier(named name: String, at range: SourceRange?) -> Diagnostic {
-    .error("modifier '\(name)' cannot be used on this declaration", range: range)
-  }
-
-  static func infixOperatorRequiresWhitespaces(at range: SourceRange?) -> Diagnostic {
+  static func diagnose(infixOperatorRequiresWhitespacesAt range: SourceRange?) -> Diagnostic {
     .error("infix operator requires whitespaces on both sides", range: range)
   }
 
-  static func initDeclAtNonTypeScope(at range: SourceRange?) -> Diagnostic {
-    .error("initializer declarations are only allowed at type scope", range: range)
-  }
-
-  static func memberModifierAtTraitScope(at range: SourceRange?) -> Diagnostic {
-    .error("member modifier cannot be used on trait member declarations", range: range)
-  }
-
-  static func memberModifierAtNonTypeScope(at range: SourceRange?) -> Diagnostic {
-    .error("member modifier can only be used on member declarations", range: range)
-  }
-
-  static func memberModifierBeforeAccess(at range: SourceRange?) -> Diagnostic {
-    .error("member modifier must appear after access modifiers", range: range)
-  }
-
-  static func methodDeclAtNonTypeScope(at range: SourceRange?) -> Diagnostic {
-    .error("method bundle declaration is not allowed in this scope", range: range)
-  }
-
-  static func methodDeclWithoutIdentifier(at range: SourceRange?) -> Diagnostic {
-    .error("method bundle declaration must have a name", range: range)
-  }
-
-  static func propertyDeclAtNonTypeScope(at range: SourceRange?) -> Diagnostic {
-    .error("property declarations are only allowed at type scope", range: range)
-  }
-
-  static func unexpectedDeclAttribute(at range: SourceRange?) -> Diagnostic {
-    .error("unexpected declaration attribute", range: range)
-  }
-
-  static func unexpectedDeclModifier(at range: SourceRange?) -> Diagnostic {
-    .error("unexpected declaration modifier", range: range)
-  }
-
-  static func unexpectedToken(_ token: Token) -> Diagnostic {
+  static func diagnose(unexpectedToken token: Token) -> Diagnostic {
     .error("unexpected token '\(token.kind)'", range: token.range)
   }
 
-  static func unterminatedBlockComment(endingAt endLocation: SourceLocation) -> Diagnostic {
-    .error("unterminated block comment", range: endLocation ..< endLocation)
+  static func diagnose(unterminatedCommentEndingAt endLocation: SourceLocation) -> Diagnostic {
+    .error("unterminated comment", range: endLocation ..< endLocation)
   }
 
-  static func unterminatedString(endingAt endLocation: SourceLocation) -> Diagnostic {
+  static func diagnose(unterminatedStringEndingAt endLocation: SourceLocation) -> Diagnostic {
     .error("unterminated string", range: endLocation ..< endLocation)
   }
 

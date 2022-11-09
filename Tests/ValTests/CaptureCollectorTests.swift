@@ -3,9 +3,9 @@ import XCTest
 
 final class CaptureCollectorTests: XCTestCase {
 
-  func testFunctionBindings() {
+  func testFunctionBindings() throws {
     var ast = AST()
-    let module = ast.insert(ModuleDecl(name: "main"))
+    let module = try ast.insert(ModuleDecl(name: "main"))
     let source = SourceFile(contents: """
       fun f<X, @value v: Void>[let c = ()](_ p: Any) {
         let _ = free   // captured
@@ -16,7 +16,7 @@ final class CaptureCollectorTests: XCTestCase {
       }
       """)
 
-    let (_, parseDiagnostics) = Parser.parse(source, into: module, in: &ast)
+    let (_, parseDiagnostics) = try Parser.parse(source, into: module, in: &ast)
     XCTAssert(parseDiagnostics.isEmpty, "parsing failed")
 
     let fun = NodeID<FunctionDecl>(rawValue: ast.topLevelDecls(module).first!.rawValue)
