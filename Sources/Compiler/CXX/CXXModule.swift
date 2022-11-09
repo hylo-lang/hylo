@@ -31,11 +31,8 @@ public struct CXXModule {
 
     assert(program.isGlobal(valFunDecl))
 
-    // The actual fun decl
-    let funDeclAst = program.ast[valFunDecl]
-
     /// The identifier of the function.
-    let identifier = CXXIdentifier(funDeclAst.identifier?.value ?? "")
+    let identifier = CXXIdentifier(program.ast[valFunDecl].identifier?.value ?? "")
 
     // Determine the output type of the function.
     let output: CXXTypeExpr
@@ -69,9 +66,9 @@ public struct CXXModule {
     }
 
     // Determine the parameters of the function.
-    assert(paramTypes.count == funDeclAst.parameters.count)
+    assert(paramTypes.count == program.ast[valFunDecl].parameters.count)
     var cxxParams: [CXXFunDecl.Parameter] = []
-    for (i, paramID) in funDeclAst.parameters.enumerated() {
+    for (i, paramID) in program.ast[valFunDecl].parameters.enumerated() {
       let name = CXXIdentifier(program.ast[paramID].name)
       let type = CXXTypeExpr(paramTypes[i].type, ast: program.ast)
       cxxParams.append(CXXFunDecl.Parameter(name, type!))
