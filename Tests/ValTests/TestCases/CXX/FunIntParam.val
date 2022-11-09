@@ -1,5 +1,5 @@
 /*! cpp
-    std::monostate myFun(int x);
+    void myFun(int x);
     int main() {}
  */
 public fun myFun(_ x: Int) {
