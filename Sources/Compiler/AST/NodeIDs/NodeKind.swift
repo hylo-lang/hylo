@@ -15,6 +15,17 @@ public struct NodeKind: Hashable, Codable {
     self.rawValue = rawValue
   }
 
+  enum MyCodingKeys: String, CodingKey {
+      case rawValue
+      case description
+  }
+  public func encode(to encoder: Encoder) throws {
+    var container = encoder.container(keyedBy: MyCodingKeys.self)
+    try? container.encode(rawValue, forKey: .rawValue)
+    // Also write the description in the generated output, to be easily read
+    try? container.encode(description, forKey: .description)
+  }
+
   public static func <= (l: Self, r: Self) -> Bool {
     precondition(r.rawValue >> 16 == 0, "RHS is not a node category")
     return l.rawValue & r.rawValue == r.rawValue
