@@ -163,3 +163,8 @@ func crazyTest1(x: TypedProgram.Node<FunDecl>) -> TypedProgram.Node<ParameterDec
 func crazyTest2(x: TypedProgram.AnyDecl) -> TypedProgram.AnyScope? {
   return x.scope.parent
 }
+
+func crazyTest3(x: TypedProgram.Node<FunDecl>) -> TypedProgram.Node<ConformanceLensTypeExpr>? {
+  guard let o = x.output else { return nil }
+  return .init(o)
+}
