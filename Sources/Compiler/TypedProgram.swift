@@ -53,9 +53,15 @@ extension AST {
   public typealias Node = ValNode
 }
 
+protocol TypedProgramNode {
+  associatedtype ID: NodeIDProtocol
+  var program: TypedProgram { get }
+  var id: ID { get }
+}
+
 extension TypedProgram {
   @dynamicMemberLookup
-  struct Node<ASTPart: AST.Node> {
+  struct Node<ASTPart: AST.Node>: TypedProgramNode {
     let program: TypedProgram
     let id: NodeID<ASTPart>
 
@@ -79,19 +85,37 @@ extension TypedProgram {
       astPart[keyPath: m].map { .init(program: program, id: $0) }
     }
   }
+
+  struct AnyScope: TypedProgramNode {
+    let program: TypedProgram
+    let id: AnyScopeID
+  }
+
+  struct AnyDecl: TypedProgramNode {
+    let program: TypedProgram
+    let id: AnyDeclID
+  }
 }
 
-extension TypedProgram.Node where ASTPart: LexicalScope {
-  var parent: AnyScopeID? {
+extension TypedProgramNode where ID: ScopeID {
+  var parentID: AnyScopeID? {
     program.scopeToParent[id]
   }
 
-  var decls: [AnyDeclID] {
+  var parent: TypedProgram.AnyScope? {
+    parentID.map { .init(program: program, id: $0) }
+  }
+
+  var declIDs: [AnyDeclID] {
     program.scopeToDecls[id, default: []]
+  }
+
+  var decls: LazyMapCollection<[AnyDeclID], TypedProgram.AnyDecl> {
+    declIDs.lazy.map { .init(program: program, id: $0) }
   }
 }
 
-extension TypedProgram.Node where ASTPart: Decl {
+extension TypedProgramNode where ID: DeclID {
   var scope: AnyScopeID {
     program.declToScope[id]!
   }
@@ -101,13 +125,13 @@ extension TypedProgram.Node where ASTPart: Decl {
   }
 }
 
-extension TypedProgram.Node where ASTPart == VarDecl {
+extension TypedProgramNode where ID == NodeID<VarDecl> {
   var binding: TypedProgram.Node<BindingDecl> {
     .init(program: program, id: program.varToBinding[id]!)
   }
 }
 
-extension TypedProgram.Node where ASTPart: Expr {
+extension TypedProgramNode where ID: ExprID {
   var type: Type {
     program.exprTypes[id]!
   }
