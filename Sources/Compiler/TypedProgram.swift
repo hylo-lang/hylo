@@ -85,6 +85,15 @@ extension TypedProgram.SomeNode where ID: ConcreteNodeID {
     astPart[keyPath: m]
   }
 
+  /// Accesses the given member of the corresponding AST node as a corresponding
+  /// `TypedProgram.SomeNode`
+  subscript<TargetID: NodeIDProtocol>(
+    dynamicMember m: KeyPath<ID.Subject, TargetID>
+  ) -> TypedProgram.SomeNode<TargetID>
+  {
+    .init(program: program, id: astPart[keyPath: m])
+  }
+
   /// Accesses the given member of the corresponding AST node as a corresponding lazy collection
   /// of `TypedProgram.SomeNode`s.
   subscript<TargetID: NodeIDProtocol>(
@@ -159,22 +168,26 @@ extension TypedProgram.Node where ID == NodeID<NameExpr> {
   }
 }
 
-func crazyTest0(x: TypedProgram.Node<FunDecl>) -> [TypedProgram.Node<ParameterDecl>] {
+func funnyTest0(x: TypedProgram.Node<FunDecl>) -> [TypedProgram.Node<ParameterDecl>] {
   print(x.type)
   let p = x.parameters
   return Array(p)
 }
 
-func crazyTest1(x: TypedProgram.Node<FunDecl>) -> TypedProgram.Node<ParameterDecl>? {
+func funnyTest1(x: TypedProgram.Node<FunDecl>) -> TypedProgram.Node<ParameterDecl>? {
   let p = x.implicitReceiverDecl
   return p
 }
 
-func crazyTest2(x: TypedProgram.AnyDecl) -> TypedProgram.AnyScope? {
+func funnyTest2(x: TypedProgram.AnyDecl) -> TypedProgram.AnyScope? {
   return x.scope.parent
 }
 
-func crazyTest3(x: TypedProgram.Node<FunDecl>) -> TypedProgram.Node<ConformanceLensTypeExpr>? {
+func funnyTest3(x: TypedProgram.Node<FunDecl>) -> TypedProgram.Node<ConformanceLensTypeExpr>? {
   guard let o = x.output else { return nil }
   return .init(o)
+}
+
+func funnyTest4(x: TypedProgram.Node<ExtensionDecl>) -> TypedProgram.SomeNode<AnyTypeExprID> {
+  x.subject
 }
