@@ -56,13 +56,14 @@ extension AST {
 }
 
 extension TypedProgram {
-  /// An AST node packaged with all the node-specific information provided by `TypedProgram`.
+  /// A projection from a `TypedProgram` of an AST node along with all the non-syntax information
+  /// related to that node.
   @dynamicMemberLookup
   struct SomeNode<ID: NodeIDProtocol> {
-    /// The program of which this node is a notional part.
-    let program: TypedProgram
+    /// The whole program of which this node is a notional part.
+    let whole: TypedProgram
 
-    /// The node's identity in `program.ast`.
+    /// The node's identity in `whole.ast`.
     let id: ID
   }
 
@@ -75,14 +76,14 @@ extension TypedProgram {
 extension TypedProgram.SomeNode where ID: ConcreteNodeID {
 
   /// The corresponding AST node.
-  private var astPart: ID.Subject {
-    program.ast[NodeID(id)!]
+  private var syntax: ID.Subject {
+    whole.ast[NodeID(id)!]
   }
 
   /// Accesses the given member of the corresponding AST node.
   subscript<Target>(dynamicMember m: KeyPath<ID.Subject, Target>) -> Target
   {
-    astPart[keyPath: m]
+    syntax[keyPath: m]
   }
 
   /// Accesses the given member of the corresponding AST node as a corresponding
@@ -91,7 +92,7 @@ extension TypedProgram.SomeNode where ID: ConcreteNodeID {
     dynamicMember m: KeyPath<ID.Subject, TargetID>
   ) -> TypedProgram.SomeNode<TargetID>
   {
-    .init(program: program, id: astPart[keyPath: m])
+    .init(whole: whole, id: syntax[keyPath: m])
   }
 
   /// Accesses the given member of the corresponding AST node as a corresponding lazy collection
@@ -100,7 +101,7 @@ extension TypedProgram.SomeNode where ID: ConcreteNodeID {
     dynamicMember m: KeyPath<ID.Subject, [TargetID]>
   ) -> LazyMapCollection<[TargetID], TypedProgram.SomeNode<TargetID>>
   {
-    astPart[keyPath: m].lazy.map { .init(program: program, id: $0) }
+    syntax[keyPath: m].lazy.map { .init(whole: whole, id: $0) }
   }
 
   /// Accesses the given member of the corresponding AST node as a corresponding
@@ -109,62 +110,62 @@ extension TypedProgram.SomeNode where ID: ConcreteNodeID {
     dynamicMember m: KeyPath<ID.Subject, TargetID?>
   ) -> TypedProgram.SomeNode<TargetID>?
   {
-    astPart[keyPath: m].map { .init(program: program, id: $0) }
+    syntax[keyPath: m].map { .init(whole: whole, id: $0) }
   }
 
   /// Creates an instance denoting the same node as `s`, or fails if `s` does not refer to a
   /// `Target` node.
-  init?<SourceID, Target>(_ s: TypedProgram.SomeNode<SourceID>)
-    where ID == NodeID<Target>
+  init?<SourceID/*, Target*/>(_ s: TypedProgram.SomeNode<SourceID>)
+//    where ID == NodeID<Target>
   {
-    guard let myID = ID(s.id) else { return nil }
-    program = s.program
-    id = myID
+    guard let myID = NodeID<ID.Subject>(s.id) else { return nil }
+    whole = s.whole
+    id = .init(myID)
   }
 }
 
 extension TypedProgram.SomeNode where ID: ScopeID {
   /// The parent scope, if any
   var parent: TypedProgram.AnyScope? {
-    program.scopeToParent[id].map { .init(program: program, id: $0) }
+    whole.scopeToParent[id].map { .init(whole: whole, id: $0) }
   }
 
   /// The declarations in this immediate scope.
   var decls: LazyMapCollection<[AnyDeclID], TypedProgram.AnyDecl> {
-    program.scopeToDecls[id, default: []].lazy.map { .init(program: program, id: $0) }
+    whole.scopeToDecls[id, default: []].lazy.map { .init(whole: whole, id: $0) }
   }
 }
 
 extension TypedProgram.Node where ID: DeclID {
   /// The scope in which this declaration resides.
   var scope: TypedProgram.AnyScope {
-    .init(program: program, id: program.declToScope[id]!)
+    .init(whole: whole, id: whole.declToScope[id]!)
   }
 
   /// The type of the declared entity.
   var type: Type {
-    program.declTypes[id]!
+    whole.declTypes[id]!
   }
 }
 
 extension TypedProgram.Node where ID == NodeID<VarDecl> {
   /// The binding decl containing this var.
   var binding: TypedProgram.Node<BindingDecl> {
-    .init(program: program, id: program.varToBinding[id]!)
+    .init(whole: whole, id: whole.varToBinding[id]!)
   }
 }
 
 extension TypedProgram.Node where ID: ExprID {
   /// The type of this expression
   var type: Type {
-    program.exprTypes[id]!
+    whole.exprTypes[id]!
   }
 }
 
 extension TypedProgram.Node where ID == NodeID<NameExpr> {
   /// The declaration of this name.
   var decl: DeclRef {
-    program.referredDecls[id]!
+    whole.referredDecls[id]!
   }
 }
 
@@ -189,5 +190,5 @@ func funnyTest3(x: TypedProgram.Node<FunDecl>) -> TypedProgram.Node<ConformanceL
 }
 
 func funnyTest4(x: TypedProgram.Node<ExtensionDecl>) -> TypedProgram.SomeNode<AnyTypeExprID> {
-  x.subject
+  return x.subject
 }
