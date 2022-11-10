@@ -11,6 +11,7 @@ public protocol NodeIDProtocol: Hashable, Codable {
 
 public protocol ConcreteNodeID: NodeIDProtocol {
   associatedtype Subject: Node
+  init(_ x: NodeID<Subject>)
 }
 
 /// The ID of a node in an AST.
@@ -22,6 +23,8 @@ public struct NodeID<Subject: Node>: ConcreteNodeID {
   public let rawValue: RawValue
 
   public var kind: NodeKind { Subject.kind }
+
+  public init(_ source: Self) { self = source }
 
   /// Creates an instance with the same raw value as `x` failing iff `x.kind != Subject.kind`.
   public init?<Other: NodeIDProtocol>(_ x: Other) {
