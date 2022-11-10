@@ -2550,11 +2550,7 @@ public struct TypeChecker {
 
       // Parameters of initializers must have a type annotation.
       guard let annotation = program.ast[i].annotation else {
-        declTypes[i] = .error(ErrorType())
-        declRequests[i] = .failure
-        diagnostics.insert(.missingTypeAnnotation(at: program.ast.ranges[i]))
-        success = false
-        continue
+        unreachable("unexpected type expression")
       }
 
       if let type = realize(parameter: annotation, inScope: AnyScopeID(id)) {
@@ -2600,11 +2596,7 @@ public struct TypeChecker {
 
       // Parameters of methods must have a type annotation.
       guard let annotation = program.ast[i].annotation else {
-        declTypes[i] = .error(ErrorType())
-        declRequests[i] = .failure
-        diagnostics.insert(.missingTypeAnnotation(at: program.ast.ranges[i]))
-        success = false
-        continue
+        unreachable("unexpected type expression")
       }
 
       if let type = realize(parameter: annotation, inScope: AnyScopeID(id)) {
@@ -2689,11 +2681,7 @@ public struct TypeChecker {
 
       // Parameters of subscripts must have a type annotation.
       guard let annotation = program.ast[i].annotation else {
-        declTypes[i] = .error(ErrorType())
-        declRequests[i] = .failure
-        diagnostics.insert(.missingTypeAnnotation(at: program.ast.ranges[i]))
-        success = false
-        continue
+        unreachable("unexpected type expression")
       }
 
       if let type = realize(parameter: annotation, inScope: AnyScopeID(id)) {

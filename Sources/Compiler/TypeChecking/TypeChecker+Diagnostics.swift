@@ -1,9 +1,5 @@
 extension Diagnostic {
 
-  static func missingTypeAnnotation(at range: SourceRange?) -> Diagnostic {
-    .error("missing type annotation", range: range)
-  }
-
   static func diagnose(
     ambiguousDisjunctionAt range: SourceRange?
   ) -> Diagnostic {

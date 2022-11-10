@@ -1,0 +1,11 @@
+fun f1(x) -> U {}       //! diagnostic missing type annotation
+
+subscript s1(x): U {}   //! diagnostic missing type annotation
+
+type A0 {
+
+  fun f0(x) -> U {      //! diagnostic missing type annotation
+    let {}
+  }
+
+}
