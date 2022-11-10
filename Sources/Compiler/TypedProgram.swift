@@ -55,80 +55,67 @@ extension AST {
   public typealias Node = ValNode
 }
 
-/// AST nodes packaged with all the node-specific information provided by `TypedProgram`.
-protocol TypedProgramNode {
-  /// A type that can be used to identify a corresponding part of the AST.
-  associatedtype ID: NodeIDProtocol
-
-  /// The whole program of which this node is a part.
-  var program: TypedProgram { get }
-
-  /// The id of this node in the AST.
-  var id: ID { get }
-}
-
 extension TypedProgram {
   /// A node whose corresponding `AST.Node` type is statically known.
   @dynamicMemberLookup
-  struct Node<ASTPart: AST.Node>: TypedProgramNode {
+  struct SomeNode<ID: NodeIDProtocol> {
     /// The program in which this node resides.
     let program: TypedProgram
 
     /// The node's identity in the AST.
-    let id: NodeID<ASTPart>
-
-    /// The value of the node in the AST.
-    var astPart: ASTPart {
-      program.ast[id]
-    }
-
-    /// Accesses the given member of the corresponding AST node.
-    subscript<T>(dynamicMember m: KeyPath<ASTPart,T>) -> T {
-      astPart[keyPath: m]
-    }
-
-    /// Accesses the given member of the corresponding AST node as a corresponding lazy collection
-    /// of `TypedProgram.Node`s.
-    subscript<T: AST.Node>(
-      dynamicMember m: KeyPath<ASTPart, [NodeID<T>]>
-    ) -> LazyMapCollection<[NodeID<T>], TypedProgram.Node<T>> {
-      astPart[keyPath: m].lazy.map { .init(program: program, id: $0) }
-    }
-
-    /// Accesses the given member of the corresponding AST node as a corresponding
-    /// `TypedProgram.Node?`.
-    subscript<T: AST.Node>(
-      dynamicMember m: KeyPath<ASTPart, NodeID<T>?>
-    ) -> TypedProgram.Node<T>? {
-      astPart[keyPath: m].map { .init(program: program, id: $0) }
-    }
-
-    /// Accesses the given member of the corresponding AST node as a corresponding
-    /// `AnyTypeExpr?`.
-    subscript(
-      dynamicMember m: KeyPath<ASTPart, AnyTypeExprID?>
-    ) -> AnyTypeExpr? {
-      astPart[keyPath: m].map { .init(program: program, id: $0) }
-    }
+    let id: ID
   }
 
-  struct AnyScope: TypedProgramNode {
-    let program: TypedProgram
-    let id: AnyScopeID
+  typealias AnyScope = SomeNode<AnyScopeID>
+  typealias AnyDecl = SomeNode<AnyDeclID>
+  typealias AnyTypeExpr = SomeNode<AnyTypeExprID>
+
+  typealias Node<T: AST.Node> = SomeNode<NodeID<T>>
+}
+
+extension TypedProgram.SomeNode {
+  /// The value of the node in the AST.
+  func astPart<T>() -> T where ID == NodeID<T> {
+    program.ast[id]
   }
 
-  struct AnyDecl: TypedProgramNode {
-    let program: TypedProgram
-    let id: AnyDeclID
+  /// Accesses the given member of the corresponding AST node.
+  subscript<T, U>(dynamicMember m: KeyPath<T, U>) -> U where ID == NodeID<T> {
+    astPart()[keyPath: m]
   }
 
-  struct AnyTypeExpr: TypedProgramNode {
-    let program: TypedProgram
-    let id: AnyTypeExprID
+  /// Accesses the given member of the corresponding AST node as a corresponding lazy collection
+  /// of `TypedProgram.Node`s.
+  subscript<T, U: AST.Node>(
+    dynamicMember m: KeyPath<T, [NodeID<U>]>
+  ) -> LazyMapCollection<[NodeID<U>], TypedProgram.Node<U>>
+    where ID == NodeID<T>
+  {
+    astPart()[keyPath: m].lazy.map { .init(program: program, id: $0) }
+  }
+
+  /// Accesses the given member of the corresponding AST node as a corresponding
+  /// `TypedProgram.Node?`.
+  subscript<T, U: AST.Node>(
+    dynamicMember m: KeyPath<T, NodeID<U>?>
+  ) -> TypedProgram.Node<U>?
+    where ID == NodeID<T>
+  {
+    astPart()[keyPath: m].map { .init(program: program, id: $0) }
+  }
+
+  /// Accesses the given member of the corresponding AST node as a corresponding
+  /// `AnyTypeExpr?`.
+  subscript<T>(
+    dynamicMember m: KeyPath<T, AnyTypeExprID?>
+  ) -> TypedProgram.AnyTypeExpr?
+    where ID == NodeID<T>
+  {
+    astPart()[keyPath: m].map { .init(program: program, id: $0) }
   }
 }
 
-extension TypedProgramNode where ID: ScopeID {
+extension TypedProgram.SomeNode where ID: ScopeID {
   var parentID: AnyScopeID? {
     program.scopeToParent[id]
   }
@@ -146,7 +133,7 @@ extension TypedProgramNode where ID: ScopeID {
   }
 }
 
-extension TypedProgramNode where ID: DeclID {
+extension TypedProgram.Node where ID: DeclID {
   var scope: TypedProgram.AnyScope {
     .init(program: program, id: program.declToScope[id]!)
   }
@@ -156,19 +143,19 @@ extension TypedProgramNode where ID: DeclID {
   }
 }
 
-extension TypedProgramNode where ID == NodeID<VarDecl> {
+extension TypedProgram.Node where ID == NodeID<VarDecl> {
   var binding: TypedProgram.Node<BindingDecl> {
     .init(program: program, id: program.varToBinding[id]!)
   }
 }
 
-extension TypedProgramNode where ID: ExprID {
+extension TypedProgram.Node where ID: ExprID {
   var type: Type {
     program.exprTypes[id]!
   }
 }
 
-extension TypedProgramNode where ID == NodeID<NameExpr> {
+extension TypedProgram.Node where ID == NodeID<NameExpr> {
   /// The declaration of this name.
   var decl: DeclRef {
     program.referredDecls[id]!
