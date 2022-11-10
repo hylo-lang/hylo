@@ -34,7 +34,7 @@ public struct CXXModule {
     /// The identifier of the function.
     let identifier = CXXIdentifier(program.ast[valFunDecl].identifier?.value ?? "")
 
-    // Determine the type of the function.
+    // Determine the output type of the function.
     let output: CXXTypeExpr
     if identifier.description == "main" {
       // The output type of `main` must be `int`.
@@ -52,9 +52,31 @@ public struct CXXModule {
       }
     }
 
+    // Determine the parameter types of the function.
+    let paramTypes: [CallableTypeParameter]
+    switch program.declTypes[valFunDecl]! {
+    case .lambda(let valDeclType):
+      paramTypes = valDeclType.inputs
+
+    case .method:
+      fatalError("not implemented")
+
+    default:
+      unreachable()
+    }
+
+    // Determine the parameters of the function.
+    assert(paramTypes.count == program.ast[valFunDecl].parameters.count)
+    var cxxParams: [CXXFunDecl.Parameter] = []
+    for (i, paramID) in program.ast[valFunDecl].parameters.enumerated() {
+      let name = CXXIdentifier(program.ast[paramID].name)
+      let type = CXXTypeExpr(paramTypes[i].type, ast: program.ast)
+      cxxParams.append(CXXFunDecl.Parameter(name, type!))
+    }
+
     // Create the C++ function.
     let cxxFunDecl = cxxFunctions.count
-    cxxFunctions.append(CXXFunDecl(identifier: identifier, output: output, parameters: []))
+    cxxFunctions.append(CXXFunDecl(identifier: identifier, output: output, parameters: cxxParams))
 
     // Update the cache and return the ID of the newly created function.
     valToCXXFunction[valFunDecl] = cxxFunDecl
