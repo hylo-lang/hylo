@@ -46,13 +46,13 @@ extension AST {
 }
 
 extension TypedProgram {
-  /// A node whose corresponding `AST.Node` type is statically known.
+  /// An AST node packaged with all the node-specific information provided by `TypedProgram`.
   @dynamicMemberLookup
   struct SomeNode<ID: NodeIDProtocol> {
-    /// The program in which this node resides.
+    /// The program of which this node is a notional part.
     let program: TypedProgram
 
-    /// The node's identity in the AST.
+    /// The node's identity in `program.ast`.
     let id: ID
   }
 
