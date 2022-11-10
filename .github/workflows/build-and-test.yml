@@ -8,18 +8,26 @@ on:
 
 jobs:
   build:
-    runs-on: macos-12
+    name: Swift ${{ matrix.swift }} on ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-12, ubuntu-22.04]
+        swift: ["5.7"]
+    runs-on: ${{ matrix.os }}
     steps:
+    - uses: swift-actions/setup-swift@v1
+      with:
+        swift-version: ${{ matrix.swift }}
     - uses: actions/checkout@v3
-
     - name: Swift version 
       run: swift --version
-
     - name: Resolve
       run: swift package resolve
-
     - name: Build (Debug)
       run: swift build -v -c debug
-
+    - name: Build (Release)
+      run: swift build -v -c release
     - name: Test (Debug)
       run: swift test -v -c debug
+    - name: Test (Release)
+      run: swift test -v -c release -Xswiftc -enable-testing

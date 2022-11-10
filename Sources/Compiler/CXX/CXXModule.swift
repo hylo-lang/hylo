@@ -34,7 +34,7 @@ public struct CXXModule {
     /// The identifier of the function.
     let identifier = CXXIdentifier(program.ast[valFunctionDecl].identifier?.value ?? "")
 
-    // Determine the type of the function.
+    // Determine the output type of the function.
     let output: CXXTypeExpr
     if identifier.description == "main" {
       // The output type of `main` must be `int`.
@@ -42,7 +42,7 @@ public struct CXXModule {
     } else {
       switch program.declTypes[valFunctionDecl]! {
       case .lambda(let valDeclType):
-        output = CXXTypeExpr(valDeclType.output, ast: program.ast)!
+        output = CXXTypeExpr(valDeclType.output, ast: program.ast, asReturnType: true)!
 
       case .method:
         fatalError("not implemented")
@@ -52,9 +52,34 @@ public struct CXXModule {
       }
     }
 
+    // Determine the parameter types of the function.
+    let paramTypes: [CallableTypeParameter]
+    switch program.declTypes[valFunctionDecl]! {
+    case .lambda(let valDeclType):
+      paramTypes = valDeclType.inputs
+
+    case .method:
+      fatalError("not implemented")
+
+    default:
+      unreachable()
+    }
+
+    // Determine the parameters of the function.
+    assert(paramTypes.count == program.ast[valFunctionDecl].parameters.count)
+    var cxxParams: [CXXFunctionDecl.Parameter] = []
+    for (i, paramID) in program.ast[valFunctionDecl].parameters.enumerated() {
+      let name = CXXIdentifier(program.ast[paramID].name)
+      let type = CXXTypeExpr(paramTypes[i].type, ast: program.ast)
+      cxxParams.append(CXXFunctionDecl.Parameter(name, type!))
+    }
+
     // Create the C++ function.
     let cxxFunctionDecl = cxxFunctions.count
-    cxxFunctions.append(CXXFunctionDecl(identifier: identifier, output: output, parameters: []))
+    cxxFunctions.append(CXXFunctionDecl(
+      identifier: identifier,
+      output: output,
+      parameters: cxxParams))
 
     // Update the cache and return the ID of the newly created function.
     valToCXXFunction[valFunctionDecl] = cxxFunctionDecl
