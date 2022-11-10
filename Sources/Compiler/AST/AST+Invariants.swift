@@ -4,10 +4,10 @@ extension AST {
 
   /// Returns `.success` if `decl` is a well-formed top-level or namespace member declaration.
   /// Otherwise, returns `.failure` with the diagnostics of the broken invariants.
-  func checkValidGlobalScopeMember(
+  func isValidGlobalScopeMember(
     _ decl: AnyDeclID,
     atTopLevel: Bool
-  ) -> FallibleWithDiagnostic<Void> {
+  ) -> SuccessOrDiagnostics {
     var ds: [Diagnostic] = []
 
     switch decl.kind {
@@ -106,12 +106,12 @@ extension AST {
       unreachable("unexpected declaration")
     }
 
-    return ds.isEmpty ? .success(()) : .failure(DiagnosedError(ds))
+    return ds.isEmpty ? .success : .failure(ds)
   }
 
   /// Returns `.success` if `decl` is a well-formed type member declaration. Otherwise, returns
   /// `.failure` with the diagnostics of the broken invariants.
-  func checkValidTypeMember(_ decl: AnyDeclID) -> FallibleWithDiagnostic<Void> {
+  func isValidTypeMember(_ decl: AnyDeclID) -> SuccessOrDiagnostics {
     var ds: [Diagnostic] = []
 
     switch decl.kind {
@@ -203,7 +203,7 @@ extension AST {
       unreachable("unexpected declaration")
     }
 
-    return ds.isEmpty ? .success(()) : .failure(DiagnosedError(ds))
+    return ds.isEmpty ? .success : .failure(ds)
   }
 
 }

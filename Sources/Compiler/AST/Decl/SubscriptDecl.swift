@@ -93,7 +93,7 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
     self.implicitParameterDecls = implicitParameterDecls
   }
 
-  public func checkInvariants(in ast: AST) -> FallibleWithDiagnostic<Void> {
+  public func isWellFormed(in ast: AST) -> SuccessOrDiagnostics {
     var ds: [Diagnostic] = []
 
     // Parameter declarations must have a type annotation.
@@ -103,7 +103,7 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
       }
     }
 
-    return ds.isEmpty ? .success(()) : .failure(DiagnosedError(ds))
+    return ds.isEmpty ? .success : .failure(ds)
   }
 
 }

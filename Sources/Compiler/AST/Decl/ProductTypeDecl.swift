@@ -44,11 +44,11 @@ public struct ProductTypeDecl: GenericDecl, SingleEntityDecl, GenericScope {
   /// Returns whether the declaration is public.
   public var isPublic: Bool { accessModifier?.value != nil }
 
-  public func checkInvariants(in ast: AST) -> FallibleWithDiagnostic<Void> {
+  public func isWellFormed(in ast: AST) -> SuccessOrDiagnostics {
     let ds: [Diagnostic] = members.reduce(into: [], { (ds, member) in
-      ds.append(contentsOf: ast.checkValidTypeMember(member).diagnostics)
+      ds.append(contentsOf: ast.isValidTypeMember(member).diagnostics)
     })
-    return ds.isEmpty ? .success(()) : .failure(DiagnosedError(ds))
+    return ds.isEmpty ? .success : .failure(ds)
   }
 
 }

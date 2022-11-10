@@ -26,8 +26,8 @@ public struct AST: Codable {
 
   /// Inserts `n` into `self`.
   public mutating func insert<T: Node>(_ n: T) throws -> NodeID<T> {
-    if case .failure(let error) = n.checkInvariants(in: self) {
-      throw error
+    if case .failure(let error) = n.isWellFormed(in: self) {
+      throw DiagnosedError(error)
     }
 
     let i = NodeID<T>(rawValue: nodes.count)

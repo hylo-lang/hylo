@@ -30,11 +30,11 @@ public struct NamespaceDecl: SingleEntityDecl, LexicalScope {
 
   public var name: String { identifier.value }
 
-  public func checkInvariants(in ast: AST) -> FallibleWithDiagnostic<Void> {
+  public func isWellFormed(in ast: AST) -> SuccessOrDiagnostics {
     let ds: [Diagnostic] = members.reduce(into: [], { (ds, member) in
-      ds.append(contentsOf: ast.checkValidGlobalScopeMember(member, atTopLevel: false).diagnostics)
+      ds.append(contentsOf: ast.isValidGlobalScopeMember(member, atTopLevel: false).diagnostics)
     })
-    return ds.isEmpty ? .success(()) : .failure(DiagnosedError(ds))
+    return ds.isEmpty ? .success : .failure(ds)
   }
 
 }

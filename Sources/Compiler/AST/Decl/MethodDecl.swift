@@ -58,7 +58,7 @@ public struct MethodDecl: GenericDecl, GenericScope {
   /// Returns whether the declaration is public.
   public var isPublic: Bool { accessModifier?.value == .public }
 
-  public func checkInvariants(in ast: AST) -> FallibleWithDiagnostic<Void> {
+  public func isWellFormed(in ast: AST) -> SuccessOrDiagnostics {
     var ds: [Diagnostic] = []
 
     // Parameter declarations must have a type annotation.
@@ -68,7 +68,7 @@ public struct MethodDecl: GenericDecl, GenericScope {
       }
     }
 
-    return ds.isEmpty ? .success(()) : .failure(DiagnosedError(ds))
+    return ds.isEmpty ? .success : .failure(ds)
   }
 
 }

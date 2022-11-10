@@ -1,12 +1,16 @@
 /// A value that represents either a success or a failure with its diagnostics.
-public typealias FallibleWithDiagnostic<T> = Result<T, DiagnosedError>
+public enum SuccessOrDiagnostics {
 
-extension Result where Failure == DiagnosedError {
+  /// A success.
+  case success
+
+  /// A failure with its diagnostics.
+  case failure([Diagnostic])
 
   /// The diagnostics in the payload of `.failure`. Otherwise, an empty array.
   public var diagnostics: [Diagnostic] {
-    if case .failure(let error) = self {
-      return error.diagnostics
+    if case .failure(let ds) = self {
+      return ds
     } else {
       return []
     }
