@@ -64,14 +64,10 @@ extension TypedProgram {
 }
 
 extension TypedProgram.SomeNode {
-  /// The value of the node in the AST.
-  func astPart<T>() -> T where ID == NodeID<T> {
-    program.ast[id]
-  }
 
   /// Accesses the given member of the corresponding AST node.
   subscript<T, U>(dynamicMember m: KeyPath<T, U>) -> U where ID == NodeID<T> {
-    astPart()[keyPath: m]
+    program.ast[id][keyPath: m]
   }
 
   /// Accesses the given member of the corresponding AST node as a corresponding lazy collection
@@ -81,7 +77,7 @@ extension TypedProgram.SomeNode {
   ) -> LazyMapCollection<[NodeID<U>], TypedProgram.Node<U>>
     where ID == NodeID<T>
   {
-    astPart()[keyPath: m].lazy.map { .init(program: program, id: $0) }
+    program.ast[id][keyPath: m].lazy.map { .init(program: program, id: $0) }
   }
 
   /// Accesses the given member of the corresponding AST node as a corresponding
@@ -91,7 +87,7 @@ extension TypedProgram.SomeNode {
   ) -> TypedProgram.Node<U>?
     where ID == NodeID<T>
   {
-    astPart()[keyPath: m].map { .init(program: program, id: $0) }
+    program.ast[id][keyPath: m].map { .init(program: program, id: $0) }
   }
 
   /// Accesses the given member of the corresponding AST node as a corresponding
@@ -101,45 +97,43 @@ extension TypedProgram.SomeNode {
   ) -> TypedProgram.AnyTypeExpr?
     where ID == NodeID<T>
   {
-    astPart()[keyPath: m].map { .init(program: program, id: $0) }
+    program.ast[id][keyPath: m].map { .init(program: program, id: $0) }
   }
 }
 
 extension TypedProgram.SomeNode where ID: ScopeID {
-  var parentID: AnyScopeID? {
-    program.scopeToParent[id]
-  }
-
+  /// The parent scope, if any
   var parent: TypedProgram.AnyScope? {
-    parentID.map { .init(program: program, id: $0) }
+    program.scopeToParent[id].map { .init(program: program, id: $0) }
   }
 
-  var declIDs: [AnyDeclID] {
-    program.scopeToDecls[id, default: []]
-  }
-
+  /// The declarations in this immediate scope.
   var decls: LazyMapCollection<[AnyDeclID], TypedProgram.AnyDecl> {
-    declIDs.lazy.map { .init(program: program, id: $0) }
+    program.scopeToDecls[id, default: []].lazy.map { .init(program: program, id: $0) }
   }
 }
 
 extension TypedProgram.Node where ID: DeclID {
+  /// The scope in which this declaration resides.
   var scope: TypedProgram.AnyScope {
     .init(program: program, id: program.declToScope[id]!)
   }
 
+  /// The type of the declared entity.
   var type: Type {
     program.declTypes[id]!
   }
 }
 
 extension TypedProgram.Node where ID == NodeID<VarDecl> {
+  /// The binding decl containing this var.
   var binding: TypedProgram.Node<BindingDecl> {
     .init(program: program, id: program.varToBinding[id]!)
   }
 }
 
 extension TypedProgram.Node where ID: ExprID {
+  /// The type of this expression
   var type: Type {
     program.exprTypes[id]!
   }
