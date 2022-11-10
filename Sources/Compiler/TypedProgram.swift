@@ -85,7 +85,7 @@ extension TypedProgram.SomeNode where ID: ConcreteNodeID {
   }
 
   /// Accesses the given member of the corresponding AST node as a corresponding
-  /// ``TypedProgram.SomeNode?`
+  /// `TypedProgram.SomeNode?`
   subscript<TargetID: NodeIDProtocol>(
     dynamicMember m: KeyPath<ID.Subject, TargetID?>
   ) -> TypedProgram.SomeNode<TargetID>?
