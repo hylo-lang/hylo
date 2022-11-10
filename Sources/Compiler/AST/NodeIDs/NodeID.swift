@@ -9,8 +9,12 @@ public protocol NodeIDProtocol: Hashable, Codable {
 
 }
 
+public protocol ConcreteNodeID: NodeIDProtocol {
+  associatedtype Subject: Node
+}
+
 /// The ID of a node in an AST.
-public struct NodeID<Subject: Node>: NodeIDProtocol {
+public struct NodeID<Subject: Node>: ConcreteNodeID {
 
   /// The type of a node ID's raw value.
   public typealias RawValue = Int

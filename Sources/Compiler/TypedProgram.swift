@@ -68,46 +68,49 @@ extension TypedProgram {
 
   typealias AnyScope = SomeNode<AnyScopeID>
   typealias AnyDecl = SomeNode<AnyDeclID>
-  typealias AnyTypeExpr = SomeNode<AnyTypeExprID>
 
   typealias Node<T: AST.Node> = SomeNode<NodeID<T>>
 }
 
-extension TypedProgram.SomeNode {
+extension TypedProgram.SomeNode where ID: ConcreteNodeID {
+
+  /// The corresponding AST node.
+  private var astPart: ID.Subject {
+    program.ast[NodeID(id)!]
+  }
 
   /// Accesses the given member of the corresponding AST node.
-  subscript<T, U>(dynamicMember m: KeyPath<T, U>) -> U where ID == NodeID<T> {
-    program.ast[id][keyPath: m]
+  subscript<Target>(dynamicMember m: KeyPath<ID.Subject, Target>) -> Target
+  {
+    astPart[keyPath: m]
   }
 
   /// Accesses the given member of the corresponding AST node as a corresponding lazy collection
-  /// of `TypedProgram.Node`s.
-  subscript<T, U: AST.Node>(
-    dynamicMember m: KeyPath<T, [NodeID<U>]>
-  ) -> LazyMapCollection<[NodeID<U>], TypedProgram.Node<U>>
-    where ID == NodeID<T>
+  /// of `TypedProgram.SomeNode`s.
+  subscript<TargetID: NodeIDProtocol>(
+    dynamicMember m: KeyPath<ID.Subject, [TargetID]>
+  ) -> LazyMapCollection<[TargetID], TypedProgram.SomeNode<TargetID>>
   {
-    program.ast[id][keyPath: m].lazy.map { .init(program: program, id: $0) }
+    astPart[keyPath: m].lazy.map { .init(program: program, id: $0) }
   }
 
   /// Accesses the given member of the corresponding AST node as a corresponding
-  /// `TypedProgram.Node?`.
-  subscript<T, U: AST.Node>(
-    dynamicMember m: KeyPath<T, NodeID<U>?>
-  ) -> TypedProgram.Node<U>?
-    where ID == NodeID<T>
+  /// ``TypedProgram.SomeNode?`
+  subscript<TargetID: NodeIDProtocol>(
+    dynamicMember m: KeyPath<ID.Subject, TargetID?>
+  ) -> TypedProgram.SomeNode<TargetID>?
   {
-    program.ast[id][keyPath: m].map { .init(program: program, id: $0) }
+    astPart[keyPath: m].map { .init(program: program, id: $0) }
   }
 
-  /// Accesses the given member of the corresponding AST node as a corresponding
-  /// `AnyTypeExpr?`.
-  subscript<T>(
-    dynamicMember m: KeyPath<T, AnyTypeExprID?>
-  ) -> TypedProgram.AnyTypeExpr?
-    where ID == NodeID<T>
+  /// Creates an instance denoting the same node as `s`, or fails if `s` does not refer to a
+  /// `Target` node.
+  init?<SourceID, Target>(_ s: TypedProgram.SomeNode<SourceID>)
+    where ID == NodeID<Target>
   {
-    program.ast[id][keyPath: m].map { .init(program: program, id: $0) }
+    guard let myID = ID(s.id) else { return nil }
+    program = s.program
+    id = myID
   }
 }
 
