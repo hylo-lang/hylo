@@ -68,18 +68,29 @@ public struct Emitter {
     // Configure the locals.
     var locals = DeclProperty<Operand>()
 
-    for (i, capture) in program.ast[declID].implicitParameterDecls.enumerated() {
-      locals[capture.decl] = .parameter(block: entryID, index: i)
+    let explicitCaptures = program.ast[declID].explicitCaptures
+    for (i, capture) in explicitCaptures.enumerated() {
+      locals[capture] = .parameter(block: entryID, index: i)
     }
 
-    let implicitParamCount = program.ast[declID].implicitParameterDecls.count
+    let implicitCaptures = program.implicitCaptures[declID]!
+    for (i, capture) in implicitCaptures.enumerated() {
+      locals[capture.decl] = .parameter(block: entryID, index: i + explicitCaptures.count)
+    }
+
+    var implicitParameterCount = explicitCaptures.count + implicitCaptures.count
+    if let receiver = program.ast[declID].receiver {
+      locals[receiver] = .parameter(block: entryID, index: implicitParameterCount)
+      implicitParameterCount += 1
+    }
+
     for (i, parameter) in program.ast[declID].parameters.enumerated() {
-      locals[parameter] = .parameter(block: entryID, index: i + implicitParamCount)
+      locals[parameter] = .parameter(block: entryID, index: i + implicitParameterCount)
     }
 
     // Emit the body.
     stack.push(Frame(locals: locals))
-    var receiverDecl = program.ast[declID].implicitReceiverDecl
+    var receiverDecl = program.ast[declID].receiver
     swap(&receiverDecl, &self.receiverDecl)
 
     switch body {

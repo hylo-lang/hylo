@@ -17,6 +17,9 @@ public struct TypedProgram: Program {
   /// The type of each expression.
   public let exprTypes: ExprProperty<Type>
 
+  /// A map from function and subscript declarations to their implicit captures.
+  public let implicitCaptures: DeclProperty<[ImplicitCapture]>
+
   /// A map from name expression to its referred declaration.
   public let referredDecls: [NodeID<NameExpr>: DeclRef]
 
@@ -28,6 +31,7 @@ public struct TypedProgram: Program {
     annotating program: ScopedProgram,
     declTypes: DeclProperty<Type>,
     exprTypes: ExprProperty <Type>,
+    implicitCaptures: DeclProperty<[ImplicitCapture]>,
     referredDecls: [NodeID<NameExpr>: DeclRef],
     foldedSequenceExprs: [NodeID<SequenceExpr>: FoldedSequenceExpr]
   ) {
@@ -38,6 +42,7 @@ public struct TypedProgram: Program {
     self.varToBinding = program.varToBinding
     self.declTypes = declTypes
     self.exprTypes = exprTypes
+    self.implicitCaptures = implicitCaptures
     self.referredDecls = referredDecls
     self.foldedSequenceExprs = foldedSequenceExprs
   }

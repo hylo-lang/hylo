@@ -3,7 +3,7 @@ import Utils
 /// A data structure representing a scoped Val program ready to be type checked.
 public struct ScopedProgram: Program {
 
-  public private(set) var ast: AST
+  public let ast: AST
 
   public private(set) var scopeToParent = ASTProperty<AnyScopeID>()
 
@@ -22,26 +22,6 @@ public struct ScopedProgram: Program {
       var state = VisitorState(module: module)
       visit(moduleDecl: module, withState: &state)
     }
-  }
-
-  /// Incorporates the given implicit parameter declarations into `decl`.
-  ///
-  /// - Requires: `ast[decl].implicitParameterDecls` is empty.
-  mutating func incorporate(
-    implicitParameterDecls: [ImplicitParameter],
-    into decl: NodeID<FunctionDecl>
-  ) {
-    ast[decl].incorporate(implicitParameterDecls: implicitParameterDecls)
-  }
-
-  /// Incorporates the given implicit parameter declarations into `decl`.
-  ///
-  /// - Requires: `ast[decl].implicitParameterDecls` is empty.
-  mutating func incorporate(
-    implicitParameterDecls: [ImplicitParameter],
-    into decl: NodeID<SubscriptDecl>
-  ) {
-    ast[decl].incorporate(implicitParameterDecls: implicitParameterDecls)
   }
 
 }
@@ -255,7 +235,7 @@ extension ScopedProgram {
       for parameter in this.ast[decl].parameters {
         this.visit(parameterDecl: parameter, withState: &state)
       }
-      if let receiver = this.ast[decl].implicitReceiverDecl {
+      if let receiver = this.ast[decl].receiver {
         this.visit(parameterDecl: receiver, withState: &state)
       }
       if let output = this.ast[decl].output {
