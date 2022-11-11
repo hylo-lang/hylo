@@ -59,6 +59,11 @@ public struct Name: Hashable, Codable {
     self.notation = notation
     self.introducer = introducer
   }
+
+  /// Returns a textual descriptions of `labels`.
+  public static func describe(labels: [String?]) -> String {
+    labels.reduce(into: "", { (s, l) in s += (l ?? "_") + ":" })
+  }
   
 }
 

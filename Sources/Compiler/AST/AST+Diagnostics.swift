@@ -43,6 +43,29 @@ extension Diagnostic {
   }
 
   static func diagnose(
+    invalidOperatorLabels found: [String?],
+    expected: [String?],
+    at range: SourceRange?
+  ) -> Diagnostic {
+    .error(
+      """
+      invalid operator labels '\(Name.describe(labels: found))', \
+      expected '\(Name.describe(labels: found))'
+      """,
+      range: range)
+  }
+
+  static func diagnose(
+    invalidOperatorNotation found: OperatorNotation,
+    expected: OperatorNotation,
+    at range: SourceRange?
+  ) -> Diagnostic {
+    .error(
+      "invalid operator notation '\(found)', expected '\(expected)'",
+      range: range)
+  }
+
+  static func diagnose(
     memberModifier member: SourceRepresentable<MemberModifier>,
     appearsBeforeAccessModifier access: SourceRepresentable<AccessModifier>
   ) -> Diagnostic {

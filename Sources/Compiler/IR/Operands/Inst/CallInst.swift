@@ -16,13 +16,14 @@ public struct CallInst: Inst {
 
   public init(
     returnType: LoweredType,
-    conventions: [PassingConvention],
+    calleeConvention: PassingConvention,
     callee: Operand,
+    argumentConventions: [PassingConvention],
     arguments: [Operand],
     range: SourceRange? = nil
   ) {
     self.returnType = returnType
-    self.conventions = conventions
+    self.conventions = [calleeConvention] + argumentConventions
     self.operands = [callee] + arguments
     self.range = range
   }

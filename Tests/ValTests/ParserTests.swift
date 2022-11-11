@@ -859,15 +859,12 @@ final class ParserTests: XCTestCase {
     let input = SourceFile(contents: "foo == 2 & true")
     let (exprID, ast) = try apply(Parser.infixExpr, on: input)
     let sequence = try XCTUnwrap(ast[exprID] as? SequenceExpr)
-    if case .unfolded(let head, let tail) = sequence {
-      XCTAssertEqual(head.kind, .nameExpr)
-      XCTAssertEqual(tail.count, 2)
-      if tail.count == 2 {
-        XCTAssertEqual(tail[0].operatorName.value, "==")
-        XCTAssertEqual(tail[0].operand.kind, .integerLiteralExpr)
-      }
-    } else {
-      XCTFail()
+    XCTAssertEqual(sequence.head.kind, .nameExpr)
+    XCTAssertEqual(sequence.tail.count, 2)
+    if sequence.tail.count == 2 {
+      XCTAssertEqual(ast[sequence.tail[0].operator].name.value.stem, "==")
+      XCTAssertEqual(ast[sequence.tail[0].operator].name.value.notation, .infix)
+      XCTAssertEqual(sequence.tail[0].operand.kind, .integerLiteralExpr)
     }
   }
 

@@ -18,6 +18,9 @@ public struct TypeChecker {
   /// A map from name expression to its referred declaration.
   public internal(set) var referredDecls: [NodeID<NameExpr>: DeclRef] = [:]
 
+  /// A map from sequence expressions to their evaluation order.
+  public internal(set) var foldedSequenceExprs: [NodeID<SequenceExpr>: FoldedSequenceExpr] = [:]
+
   /// Indicates whether the built-in symbols are visible.
   public var isBuiltinModuleVisible: Bool
 
@@ -1619,9 +1622,6 @@ public struct TypeChecker {
     introducedInDeclSpaceOf lookupContext: AnyScopeID? = nil,
     inScope origin: AnyScopeID
   ) -> [(decl: AnyDeclID, type: Type)] {
-    // Check preconditions.
-    precondition(notation == nil || labels.isEmpty, "invalid name")
-
     // Search for the referred declaration.
     var matches: TypeChecker.DeclSet
     if let ctx = lookupContext {

@@ -326,7 +326,10 @@ struct ConstraintSolver {
 
     // Catch uses of static members on instances.
     if nonStaticMatches.isEmpty && !allMatches.isEmpty {
-      diagnostics.append(.diagnose(illegalUseOfStaticMember: member, onInstanceOf: l, at: location.origin))
+      diagnostics.append(.diagnose(
+        illegalUseOfStaticMember: member,
+        onInstanceOf: l,
+        at: location.origin))
     }
 
     // Generate the list of candidates.
@@ -353,14 +356,16 @@ struct ConstraintSolver {
     // Get the name expression associated with the constraint, if any.
     let nameBoundByCurrentConstraint = location.node.flatMap(NodeID<NameExpr>.init)
 
-    // Fast path when there's only one candidate.
+    // If there's only one candidate, solve an equality constraint direcly.
     if candidates.count == 1 {
       solve(candidates[0].type, equalsTo: r, location: location)
       if let name = nameBoundByCurrentConstraint {
         bindingAssumptions[name] = candidates[0].reference
       }
+      return
     }
 
+    // If there are several candidates, create a disjunction constraint.
     let newConstraint: Constraint
     if let name = nameBoundByCurrentConstraint {
       newConstraint = .overload(name: name, type: r, candidates: candidates)

@@ -44,54 +44,6 @@ public struct ScopedProgram: Program {
     ast[decl].incorporate(implicitParameterDecls: implicitParameterDecls)
   }
 
-  /// Desugars an unfolded sequence expression using the given sub-expression ordering.
-  ///
-  /// - Requires `self.ast[a]` must be unfolded and `ordering` must correspond to the sequence
-  ///   described by `self.ast[a]`.
-  mutating func desugar(
-    _ a: NodeID<SequenceExpr>,
-    withOrdering ordering: SequenceExpr.Tree
-  ) -> AnyExprID {
-    switch ast[a] {
-    case .root:
-      preconditionFailure()
-
-    case .unfolded:
-      let root = desugar(ordering)
-      ast[a] = .root(root)
-      return root
-    }
-  }
-
-  /// Converts a sequence expression ordering into an expression.
-  private mutating func desugar(_ ordering: SequenceExpr.Tree) -> AnyExprID {
-    switch ordering {
-    case .node(let operator_, let left, let right):
-      let receiver = desugar(left)
-      let argument = desugar(right)
-
-      let id = try! ast.insert(FunCallExpr(
-        callee: AnyExprID(ast.insert(NameExpr(
-          domain: .expr(receiver),
-          name: SourceRepresentable(
-            value: Name(stem: operator_.name.value),
-            range: operator_.name.range)))),
-        arguments: [CallArgument(value: argument)]))
-
-      if let argumentRange = ast.ranges[argument] {
-        ast.ranges[id] = (
-          ast.ranges[receiver]?.upperBounded(by: argumentRange.upperBound) ?? argumentRange)
-      } else {
-        ast.ranges[id] = ast.ranges[receiver]
-      }
-
-      return AnyExprID(id)
-
-    case .leaf(let id):
-      return id
-    }
-  }
-
 }
 
 // MARK: Construction of scope relationships
@@ -792,15 +744,10 @@ extension ScopedProgram {
     sequenceExpr expr: NodeID<SequenceExpr>,
     withState state: inout VisitorState
   ) {
-    switch ast[expr] {
-    case .root(let i):
-      visit(expr: i, withState: &state)
-
-    case .unfolded(let head, let tail):
-      visit(expr: head, withState: &state)
-      for element in tail {
-        visit(expr: element.operand, withState: &state)
-      }
+    visit(expr: ast[expr].head, withState: &state)
+    for element in ast[expr].tail {
+      visit(nameExpr: element.operator, withState: &state)
+      visit(expr: element.operand, withState: &state)
     }
   }
 
