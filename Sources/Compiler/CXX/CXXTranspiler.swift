@@ -35,7 +35,27 @@ public struct CXXTranspiler {
   /// Emits the given function declaration into `module`.
   public mutating func emit(fun decl: NodeID<FunDecl>, into module: inout CXXModule) {
     // Declare the function in the module if necessary.
-    _ = module.getOrCreateFunction(correspondingTo: decl, program: program)
+    let id = module.getOrCreateFunction(correspondingTo: decl, program: program)
+
+    // If we have a body for our function, emit it.
+    if let body = program.ast[decl].body {
+      module.setFunctionBody(emit(funBody: body), forID: id)
+    }
   }
+
+  /// Translate the function body into a CXX entity.
+  private mutating func emit(funBody body: FunDecl.Body) -> CXXRepresentable {
+    switch body {
+    case .block:
+      return CXXComment(comment: "block")
+
+    case .expr:
+      return CXXComment(comment: "expr")
+
+    case .bundle:
+      unreachable()
+    }
+  }
+
 
 }
