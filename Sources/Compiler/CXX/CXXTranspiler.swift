@@ -55,6 +55,33 @@ public struct CXXTranspiler {
     }
   }
 
+  // MARK: Declarations
+
+  private mutating func emit(localBinding decl: NodeID<BindingDecl>) -> CXXRepresentable {
+    let pattern = program.ast[decl].pattern
+
+    switch program.ast[pattern].introducer.value {
+    case .var, .sinklet:
+      return emit(storedLocalBinding: decl)
+    case .let:
+      return emit(borrowedLocalBinding: decl, withCapability: .let)
+    case .inout:
+      return emit(borrowedLocalBinding: decl, withCapability: .inout)
+    }
+  }
+
+  private mutating func emit(storedLocalBinding decl: NodeID<BindingDecl>) -> CXXRepresentable {
+    return CXXComment(comment: "local binding")
+  }
+
+  /// Emits borrowed bindings.
+  private mutating func emit(
+    borrowedLocalBinding decl: NodeID<BindingDecl>,
+    withCapability capability: RemoteType.Capability
+  ) -> CXXRepresentable {
+    return CXXComment(comment: "borrowed local binding (\(capability))")
+  }
+
   // MARK: Statements
 
   /// Emits the given statement into `module` at the current insertion point.
@@ -82,7 +109,12 @@ public struct CXXTranspiler {
   }
 
   private mutating func emit(declStmt stmt: NodeID<DeclStmt>) -> CXXRepresentable {
-    return CXXComment(comment: "decl stmt")
+    switch program.ast[stmt].decl.kind {
+    case BindingDecl.self:
+      return emit(localBinding: NodeID(rawValue: program.ast[stmt].decl.rawValue))
+    default:
+      unreachable("unexpected declaration")
+    }
   }
 
   private mutating func emit(exprStmt stmt: NodeID<ExprStmt>) -> CXXRepresentable {

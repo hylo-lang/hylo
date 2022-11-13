@@ -7,7 +7,7 @@
     // expr
     }
     int main() {
-    // decl stmt
+    // borrowed local binding (let)
     }
  */
 fun factorial(_ n: Int) -> Int {
