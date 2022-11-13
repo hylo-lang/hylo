@@ -11,9 +11,9 @@ public struct TopLevelDeclSet: Node, LexicalScope {
     self.decls = decls
   }
 
-  public func isWellFormed(in ast: AST) -> SuccessOrDiagnostics {
+  public func validateForm(in ast: AST) -> SuccessOrDiagnostics {
     let ds: [Diagnostic] = decls.reduce(into: [], { (ds, member) in
-      ds.append(contentsOf: ast.isValidGlobalScopeMember(member, atTopLevel: true).diagnostics)
+      ds.append(contentsOf: ast.validateGlobalScopeMember(member, atTopLevel: true).diagnostics)
     })
     return ds.isEmpty ? .success : .failure(ds)
   }

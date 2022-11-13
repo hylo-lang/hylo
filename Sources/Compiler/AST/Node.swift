@@ -6,12 +6,12 @@ public protocol Node: Codable {
 
   /// Returns `.success` if `self` is well-formed given the containing `ast`. Otherwise, returns
   /// `.failure` with the diagnostics of the broken invariants.
-  func isWellFormed(in ast: AST) -> SuccessOrDiagnostics
+  func validateForm(in ast: AST) -> SuccessOrDiagnostics
 
 }
 
 extension Node {
 
-  public func isWellFormed(in ast: AST) -> SuccessOrDiagnostics { .success }
+  public func validateForm(in ast: AST) -> SuccessOrDiagnostics { .success }
 
 }

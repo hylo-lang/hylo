@@ -134,7 +134,7 @@ public struct FunctionDecl: GenericDecl, GenericScope {
     self.implicitParameterDecls = implicitParameterDecls
   }
 
-  public func isWellFormed(in ast: AST) -> SuccessOrDiagnostics {
+  public func validateForm(in ast: AST) -> SuccessOrDiagnostics {
     var ds: [Diagnostic] = []
 
     if !isInExprContext {

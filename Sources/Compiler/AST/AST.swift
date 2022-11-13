@@ -26,7 +26,7 @@ public struct AST: Codable {
 
   /// Inserts `n` into `self`.
   public mutating func insert<T: Node>(wellFormed n: T) throws -> NodeID<T> {
-    if case .failure(let error) = n.isWellFormed(in: self) {
+    if case .failure(let error) = n.validateForm(in: self) {
       throw DiagnosedError(error)
     }
 
