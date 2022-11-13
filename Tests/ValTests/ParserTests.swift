@@ -15,7 +15,7 @@ final class ParserTests: XCTestCase {
     try TestCase.executeAll(in: testCaseDirectory, { (tc) in
       // Parse the input.
       var ast = AST()
-      let module = try ast.insert(ModuleDecl(name: tc.name))
+      let module = try ast.insert(wellFormed: ModuleDecl(name: tc.name))
 
       let diagnostics: [Diagnostic]
       do {
@@ -49,7 +49,7 @@ final class ParserTests: XCTestCase {
     """)
 
     var program = AST()
-    let module = try program.insert(ModuleDecl(name: "Main"))
+    let module = try program.insert(wellFormed: ModuleDecl(name: "Main"))
 
     let (decls, diagnostics) = try Parser.parse(input, into: module, in: &program)
     XCTAssertNotNil(decls)

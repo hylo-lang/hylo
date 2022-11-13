@@ -105,7 +105,7 @@ struct CLI: ParsableCommand {
     log(verbose: "Parsing '\(productName)'".styled([.bold]))
 
     // Merge all inputs into the same same module.
-    let moduleDecl = try! ast.insert(ModuleDecl(name: productName))
+    let moduleDecl = try! ast.insert(wellFormed: ModuleDecl(name: productName))
     for input in inputs {
       if input.hasDirectoryPath {
         if !withFiles(in: input, { insert(contentsOf: $0, into: moduleDecl, in: &ast) }) {

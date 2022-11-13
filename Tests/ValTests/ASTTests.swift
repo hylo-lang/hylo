@@ -5,7 +5,7 @@ final class ASTTests: XCTestCase {
 
   func testAppendModule() throws {
     var ast = AST()
-    let i = try ast.insert(ModuleDecl(name: "Val"))
+    let i = try ast.insert(wellFormed: ModuleDecl(name: "Val"))
     XCTAssert(ast.modules.contains(i))
   }
 
@@ -13,17 +13,17 @@ final class ASTTests: XCTestCase {
     var ast = AST()
 
     // Create a module declarations.
-    let module = try ast.insert(ModuleDecl(name: "Val"))
+    let module = try ast.insert(wellFormed: ModuleDecl(name: "Val"))
 
     // Create a trait declaration.
-    let trait = try ast.insert(TraitDecl(
+    let trait = try ast.insert(wellFormed: TraitDecl(
       accessModifier: nil,
       identifier: SourceRepresentable(value: "T"),
       refinements: [],
       members: []))
 
     // Create a source declaration set.
-    let source = try ast.insert(TopLevelDeclSet(decls: [AnyDeclID(trait)]))
+    let source = try ast.insert(wellFormed: TopLevelDeclSet(decls: [AnyDeclID(trait)]))
     ast[module].addSourceFile(source)
 
     // Subscript the AST for reading with a type-erased ID.
