@@ -83,7 +83,7 @@ struct CLI: ParsableCommand {
 
   private var warningLabel: String { "warning: ".styled([.bold, .yellow]) }
 
-  private var errorLabel  : String { "error: ".styled([.bold, .red]) }
+  private var errorLabel: String { "error: ".styled([.bold, .red]) }
 
   /// The URL of the current working directory.
   private var currentDirectory: URL {
