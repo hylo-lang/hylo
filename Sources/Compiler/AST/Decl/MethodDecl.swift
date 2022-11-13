@@ -6,7 +6,7 @@ public struct MethodDecl: GenericDecl, GenericScope {
   /// The source range of the `fun` introducer, if any.
   public let introducerRange: SourceRange?
 
-  /// The attributes of the declaration, if any.
+  /// The attributes of the declaration.
   public let attributes: [SourceRepresentable<Attribute>]
 
   /// The access modifier of the declaration, if any.
