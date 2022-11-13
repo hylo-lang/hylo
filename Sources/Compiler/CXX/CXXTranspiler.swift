@@ -46,13 +46,53 @@ public struct CXXTranspiler {
   /// Translate the function body into a CXX entity.
   private mutating func emit(funBody body: FunctionDecl.Body) -> CXXRepresentable {
     switch body {
-    case .block:
-      return CXXComment(comment: "block")
+    case .block(let stmt):
+      return emit(brace: stmt)
 
     case .expr:
-      return CXXComment(comment: "expr")
+      let exprStmt = CXXComment(comment: "expr")
+      return CXXScopedBlock(stmts: [exprStmt])
     }
   }
+
+  // MARK: Statements
+
+  /// Emits the given statement into `module` at the current insertion point.
+  private mutating func emit<T: StmtID>(stmt: T) -> CXXRepresentable {
+    switch stmt.kind {
+    case BraceStmt.self:
+      return emit(brace: NodeID(rawValue: stmt.rawValue))
+    case DeclStmt.self:
+      return emit(declStmt: NodeID(rawValue: stmt.rawValue))
+    case ExprStmt.self:
+      return emit(exprStmt: NodeID(rawValue: stmt.rawValue))
+    case ReturnStmt.self:
+      return emit(returnStmt: NodeID(rawValue: stmt.rawValue))
+    default:
+      unreachable("unexpected statement")
+    }
+  }
+
+  private mutating func emit(brace stmt: NodeID<BraceStmt>) -> CXXRepresentable {
+    var stmts: [CXXRepresentable] = []
+    for s in program.ast[stmt].stmts {
+      stmts.append(emit(stmt: s))
+    }
+    return CXXScopedBlock(stmts: stmts)
+  }
+
+  private mutating func emit(declStmt stmt: NodeID<DeclStmt>) -> CXXRepresentable {
+    return CXXComment(comment: "decl stmt")
+  }
+
+  private mutating func emit(exprStmt stmt: NodeID<ExprStmt>) -> CXXRepresentable {
+    return CXXComment(comment: "expr stmt")
+  }
+
+  private mutating func emit(returnStmt stmt: NodeID<ReturnStmt>) -> CXXRepresentable {
+    return CXXComment(comment: "return stmt")
+  }
+
 
 
 }
