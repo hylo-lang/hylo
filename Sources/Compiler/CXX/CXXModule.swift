@@ -145,9 +145,8 @@ public struct CXXModule {
     for (i, decl) in cxxFunctions.enumerated() {
       if let body = cxxFunctionBodies[i] {
         decl.writeSignature(into: &output)
-        output.write(" {\n")
+        output.write(" ")
         body.writeCode(into: &output)
-        output.write("}\n")
       }
     }
 

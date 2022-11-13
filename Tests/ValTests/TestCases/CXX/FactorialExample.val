@@ -7,7 +7,7 @@
     // expr
     }
     int main() {
-    // block
+    // decl stmt
     }
  */
 fun factorial(_ n: Int) -> Int {
