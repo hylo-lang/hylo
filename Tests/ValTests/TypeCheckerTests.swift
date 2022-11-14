@@ -20,7 +20,7 @@ final class TypeCheckerTests: XCTestCase {
       var ast = baseAST
 
       // Create a module for the input.
-      let module = try ast.insert(ModuleDecl(name: tc.name))
+      let module = try ast.insert(wellFormed: ModuleDecl(name: tc.name))
 
       // Parse the input.
       let (_, parseDiagnostics) = try Parser.parse(tc.source, into: module, in: &ast)

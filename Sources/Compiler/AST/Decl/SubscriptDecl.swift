@@ -76,7 +76,7 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
   /// Returns whether the declaration denotes a static subscript.
   public var isStatic: Bool { memberModifier?.value == .static }
 
-  public func isWellFormed(in ast: AST) -> SuccessOrDiagnostics {
+  public func validateForm(in ast: AST) -> SuccessOrDiagnostics {
     var ds: [Diagnostic] = []
 
     // Parameter declarations must have a type annotation.

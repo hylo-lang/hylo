@@ -6,7 +6,7 @@ public struct MethodDecl: GenericDecl, GenericScope {
   /// The source range of the `fun` introducer, if any.
   public let introducerRange: SourceRange?
 
-  /// The attributes of the declaration, if any.
+  /// The attributes of the declaration.
   public let attributes: [SourceRepresentable<Attribute>]
 
   /// The access modifier of the declaration, if any.
@@ -58,7 +58,7 @@ public struct MethodDecl: GenericDecl, GenericScope {
   /// Returns whether the declaration is public.
   public var isPublic: Bool { accessModifier?.value == .public }
 
-  public func isWellFormed(in ast: AST) -> SuccessOrDiagnostics {
+  public func validateForm(in ast: AST) -> SuccessOrDiagnostics {
     var ds: [Diagnostic] = []
 
     // Parameter declarations must have a type annotation.

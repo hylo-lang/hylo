@@ -107,7 +107,7 @@ public struct FunctionDecl: GenericDecl, GenericScope {
     attributes.contains(where: { $0.value.name.value == "@_lowered_name" })
   }
 
-  public func isWellFormed(in ast: AST) -> SuccessOrDiagnostics {
+  public func validateForm(in ast: AST) -> SuccessOrDiagnostics {
     var ds: [Diagnostic] = []
 
     if !isInExprContext {

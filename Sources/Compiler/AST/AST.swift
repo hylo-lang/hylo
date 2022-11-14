@@ -25,8 +25,8 @@ public struct AST: Codable {
   public var builtinDecl: NodeID<BuiltinDecl> { NodeID(rawValue: 0) }
 
   /// Inserts `n` into `self`.
-  public mutating func insert<T: Node>(_ n: T) throws -> NodeID<T> {
-    if case .failure(let error) = n.isWellFormed(in: self) {
+  public mutating func insert<T: Node>(wellFormed n: T) throws -> NodeID<T> {
+    if case .failure(let error) = n.validateForm(in: self) {
       throw DiagnosedError(error)
     }
 
@@ -81,7 +81,7 @@ public struct AST: Codable {
   /// - Requires: The Core library must not have been already imported.
   public mutating func importCoreModule() {
     precondition(!isCoreModuleLoaded, "Core library is already loaded")
-    corelib = try! insert(ModuleDecl(name: "Val"))
+    corelib = try! insert(wellFormed: ModuleDecl(name: "Val"))
 
     withFiles(in: ValModule.core!, { (sourceURL) in
       if sourceURL.pathExtension != "val" { return true }

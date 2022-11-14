@@ -61,7 +61,7 @@ public struct InitializerDecl: GenericDecl, GenericScope {
   /// Returns whether the declaration is public.
   public var isPublic: Bool { accessModifier?.value == .public }
 
-  public func isWellFormed(in ast: AST) -> SuccessOrDiagnostics {
+  public func validateForm(in ast: AST) -> SuccessOrDiagnostics {
     var ds: [Diagnostic] = []
 
     // Parameter declarations must have a type annotation.
