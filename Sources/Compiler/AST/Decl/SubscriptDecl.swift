@@ -17,21 +17,18 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
   public let introducer: SourceRepresentable<Introducer>
 
   /// The attributes of the declaration, if any.
-  public private(set) var attributes: [SourceRepresentable<Attribute>] = []
+  public let attributes: [SourceRepresentable<Attribute>]
 
   /// The access modifier of the declaration, if any.
-  public private(set) var accessModifier: SourceRepresentable<AccessModifier>?
+  public let accessModifier: SourceRepresentable<AccessModifier>?
 
   /// The member modifier of the declaration.
-  public private(set) var memberModifier: SourceRepresentable<MemberModifier>?
-
-  /// The receiver effect of the subscript.
-  public let receiverEffect: SourceRepresentable<ReceiverEffect>?
+  public let memberModifier: SourceRepresentable<MemberModifier>?
 
   /// The identifier of the subscript, if any.
   public let identifier: SourceRepresentable<Identifier>?
 
-  /// The generic clause of the subscript, if any.
+  /// The generic clause of the declaration, if any.
   public let genericClause: SourceRepresentable<GenericClause>?
 
   /// The explicit capture declarations of the subscript.
@@ -57,18 +54,23 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
   /// this property. Each subscript implementation declaration has its own declaration.
   public private(set) var implicitParameterDecls: [ImplicitParameter] = []
 
+  /// Creates an instance with the given properties.
   public init(
     introducer: SourceRepresentable<Introducer>,
-    receiverEffect: SourceRepresentable<ReceiverEffect>?,
+    attributes: [SourceRepresentable<Attribute>],
+    accessModifier: SourceRepresentable<AccessModifier>?,
+    memberModifier: SourceRepresentable<MemberModifier>?,
     identifier: SourceRepresentable<Identifier>?,
-    genericClause: SourceRepresentable<GenericClause>? = nil,
-    explicitCaptures: [NodeID<BindingDecl>] = [],
-    parameters: [NodeID<ParameterDecl>]? = nil,
+    genericClause: SourceRepresentable<GenericClause>?,
+    explicitCaptures: [NodeID<BindingDecl>],
+    parameters: [NodeID<ParameterDecl>]?,
     output: AnyTypeExprID,
     impls: [NodeID<SubscriptImplDecl>]
   ) {
     self.introducer = introducer
-    self.receiverEffect = receiverEffect
+    self.attributes = attributes
+    self.accessModifier = accessModifier
+    self.memberModifier = memberModifier
     self.identifier = identifier
     self.genericClause = genericClause
     self.explicitCaptures = explicitCaptures
@@ -83,34 +85,25 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
   /// Returns whether the declaration denotes a static subscript.
   public var isStatic: Bool { memberModifier?.value == .static }
 
-  /// Returns whether the declaration denotes an `inout` subscript.
-  public var isInout: Bool { receiverEffect?.value == .inout }
-
-  /// Returns whether the declaration denotes a `sink` subscript.
-  public var isSink: Bool { receiverEffect?.value == .sink }
-
-  /// Incorporates the given decorations into `self`.
-  ///
-  /// - Precondition: `self` is undecorated.
-  internal mutating func incorporate(
-    attributes: [SourceRepresentable<Attribute>],
-    accessModifier: SourceRepresentable<AccessModifier>?,
-    memberModifier: SourceRepresentable<MemberModifier>?
-  ) {
-    precondition(self.accessModifier == nil)
-    precondition(self.memberModifier == nil)
-    precondition(self.attributes.isEmpty)
-    self.attributes = attributes
-    self.accessModifier = accessModifier
-    self.memberModifier = memberModifier
-  }
-
   /// Incorporates the given implicit parameter declarations into `self`.
   ///
   /// - Requires: `self.implicitParameterDecls` is empty.
   internal mutating func incorporate(implicitParameterDecls: [ImplicitParameter]) {
     precondition(self.implicitParameterDecls.isEmpty)
     self.implicitParameterDecls = implicitParameterDecls
+  }
+
+  public func validateForm(in ast: AST) -> SuccessOrDiagnostics {
+    var ds: [Diagnostic] = []
+
+    // Parameter declarations must have a type annotation.
+    for p in parameters ?? [] {
+      if ast[p].annotation == nil {
+        ds.append(.diagnose(missingTypeAnnotation: ast[p], in: ast))
+      }
+    }
+
+    return ds.isEmpty ? .success : .failure(ds)
   }
 
 }

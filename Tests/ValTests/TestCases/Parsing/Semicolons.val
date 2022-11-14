@@ -1,0 +1,20 @@
+;;
+import Foo;
+
+namespace N {
+  ;
+  ; fun f() {};
+  ; fun g() {};
+};;
+
+type A {
+  ;
+  var n: Int;
+  fun f() -> Int {
+    ;; print(n);
+    ;
+    let x = n.copy(); return x;;
+  };
+};
+
+;;

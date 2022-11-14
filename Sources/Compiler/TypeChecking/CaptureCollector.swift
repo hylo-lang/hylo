@@ -29,9 +29,9 @@ struct CaptureCollector {
   mutating func freeNames<T: Decl>(in id: NodeID<T>) -> FreeSet {
     var captures: FreeSet = [:]
     switch id.kind {
-    case .funDecl:
-      let funDeclID = NodeID<FunDecl>(rawValue: id.rawValue)
-      collectCaptures(ofFun: funDeclID, includingExplicitCaptures: true, into: &captures)
+    case .functionDecl:
+      let d = NodeID<FunctionDecl>(rawValue: id.rawValue)
+      collectCaptures(ofFunction: d, includingExplicitCaptures: true, into: &captures)
 
     case .subscriptDecl:
       fatalError("not implemented")
@@ -73,9 +73,9 @@ struct CaptureCollector {
     switch id.kind {
     case .bindingDecl:
       collectCaptures(ofBinding: NodeID(rawValue: id.rawValue), into: &captures)
-    case .funDecl:
+    case .functionDecl:
       collectCaptures(
-        ofFun: NodeID(rawValue: id.rawValue),
+        ofFunction: NodeID(rawValue: id.rawValue),
         includingExplicitCaptures: false,
         into: &captures)
     default:
@@ -104,7 +104,7 @@ struct CaptureCollector {
   }
 
   private mutating func collectCaptures(
-    ofFun id: NodeID<FunDecl>,
+    ofFunction id: NodeID<FunctionDecl>,
     includingExplicitCaptures areExplicitCapturesIncluded: Bool,
     into captures: inout FreeSet
   ) {

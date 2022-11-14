@@ -3,6 +3,9 @@ public struct AssociatedTypeDecl: SingleEntityDecl {
 
   public static let kind = NodeKind.associatedTypeDecl
 
+  /// The source range of the declaration's introducer, if any.
+  public let introducerRange: SourceRange?
+
   /// The identifier of the type.
   public let identifier: SourceRepresentable<Identifier>
 
@@ -15,12 +18,15 @@ public struct AssociatedTypeDecl: SingleEntityDecl {
   /// The default value of the declaration, if any.
   public let defaultValue: AnyTypeExprID?
 
+  /// Creates an instance with the given properties.
   public init(
+    introducerRange: SourceRange?,
     identifier: SourceRepresentable<Identifier>,
-    conformances: [NodeID<NameTypeExpr>] = [],
-    whereClause: SourceRepresentable<WhereClause>? = nil,
-    defaultValue: AnyTypeExprID? = nil
+    conformances: [NodeID<NameTypeExpr>],
+    whereClause: SourceRepresentable<WhereClause>?,
+    defaultValue: AnyTypeExprID?
   ) {
+    self.introducerRange = introducerRange
     self.identifier = identifier
     self.conformances = conformances
     self.whereClause = whereClause

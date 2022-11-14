@@ -133,7 +133,7 @@ public struct Token {
   /// Indicates whether `self` is a declaration modifier.
   public var isDeclModifier: Bool {
     switch kind {
-    case .infix, .postfix, .prefix, .public, .static:
+    case .public, .static:
       return true
     default:
       return false
@@ -143,8 +143,27 @@ public struct Token {
   /// Indicates whether `self` may be at the begining of a declaration.
   public var mayBeginDecl: Bool {
     switch kind {
-    case .extension, .deinit, .fun, .`init`, .inout, .let, .namespace, .type, .trait, .var:
+    case .`conformance`,
+         .`extension`,
+         .`fun`,
+         .`import`,
+         .`infix`,
+         .`init`,
+         .`inout`,
+         .`let`,
+         .`namespace`,
+         .`operator`,
+         .`postfix`,
+         .`prefix`,
+         .`property`,
+         .`sink`,
+         .`subscript`,
+         .`trait`,
+         .`type`,
+         .`typealias`,
+         .`var`:
       return true
+
     default:
       return isDeclModifier
     }

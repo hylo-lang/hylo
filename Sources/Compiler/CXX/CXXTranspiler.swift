@@ -25,15 +25,15 @@ public struct CXXTranspiler {
   /// Emits the given top-level declaration into `module`.
   public mutating func emit(topLevel decl: AnyDeclID, into module: inout CXXModule) {
     switch decl.kind {
-    case .funDecl:
-      emit(fun: NodeID(rawValue: decl.rawValue), into: &module)
+    case .functionDecl:
+      emit(function: NodeID(rawValue: decl.rawValue), into: &module)
     default:
       unreachable("unexpected declaration")
     }
   }
 
   /// Emits the given function declaration into `module`.
-  public mutating func emit(fun decl: NodeID<FunDecl>, into module: inout CXXModule) {
+  public mutating func emit(function decl: NodeID<FunctionDecl>, into module: inout CXXModule) {
     // Declare the function in the module if necessary.
     let id = module.getOrCreateFunction(correspondingTo: decl, program: program)
 
@@ -44,16 +44,13 @@ public struct CXXTranspiler {
   }
 
   /// Translate the function body into a CXX entity.
-  private mutating func emit(funBody body: FunDecl.Body) -> CXXRepresentable {
+  private mutating func emit(funBody body: FunctionDecl.Body) -> CXXRepresentable {
     switch body {
     case .block:
       return CXXComment(comment: "block")
 
     case .expr:
       return CXXComment(comment: "expr")
-
-    case .bundle:
-      unreachable()
     }
   }
 

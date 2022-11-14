@@ -7,23 +7,25 @@ struct ParserState {
   /// A tag representing the context of the parser.
   enum Context {
 
-    case topLevel
+    case bindingPattern
 
-    case namespaceBody
-
-    case productBody
-
-    case traitBody
+    case captureList
 
     case extensionBody
 
     case functionBody
 
+    case loopBody
+
+    case namespaceBody
+
+    case productBody
+
     case subscriptBody
 
-    case bindingPattern
+    case topLevel
 
-    case loopBody
+    case traitBody
 
   }
 
@@ -52,8 +54,17 @@ struct ParserState {
     self.currentIndex = lexer.source.contents.startIndex
   }
 
+  /// Indicates whether the parser is at global scope.
+  var atGlobalScope: Bool { atModuleScope || atNamespaceScope }
+
+  /// Indicates whether the parser is at module scope.
+  var atModuleScope: Bool { contexts.isEmpty }
+
+  /// Indicates whether the parser is at namespace scope.
+  var atNamespaceScope: Bool { contexts.last == .namespaceBody }
+
   /// Indicates whether the parser is expecting to parse member declarations.
-  var isParsingTypeBody: Bool {
+  var atTypeScope: Bool {
     if let c = contexts.last {
       return (c == .extensionBody) || (c == .productBody) || (c == .traitBody)
     } else {
@@ -61,14 +72,20 @@ struct ParserState {
     }
   }
 
+  /// Indicates whether the parser is at trait scope.
+  var atTraitScope: Bool { contexts.last == .traitBody }
+
+  /// Indicates whether the parser is expecting to parse a capture declaration.
+  var isParsingCaptureList: Bool { contexts.last == .captureList }
+
   /// The current location of the parser in the character stream.
   var currentLocation: SourceLocation { SourceLocation(source: lexer.source, index: currentIndex) }
 
-  /// The next character in the charachter stream, unless the parser reached its end.
-  var currentCharacter: Character? { isAtEOF ? nil : lexer.source.contents[currentIndex] }
+  /// The next character in the character stream, unless the parser reached its end.
+  var currentCharacter: Character? { atEOF ? nil : lexer.source.contents[currentIndex] }
 
   /// Returns whether the parser is at the end of the character stream.
-  var isAtEOF: Bool { currentIndex == lexer.source.contents.endIndex }
+  var atEOF: Bool { currentIndex == lexer.source.contents.endIndex }
 
   /// Returns whether there is a whitespace at the current index.
   var hasLeadingWhitespace: Bool {
@@ -76,10 +93,15 @@ struct ParserState {
       && lexer.source.contents[currentIndex].isWhitespace
   }
 
-  /// Returns whether there is a new line character in the character stream from the current index
-  /// up to but not including the specified index.
-  func hasNewline(inCharacterStreamUpTo bound: String.Index) -> Bool {
-    lexer.source.contents[currentIndex ..< bound].contains(where: { $0.isNewline })
+  /// Returns whether there is a new line in the character stream before `bound`.
+  mutating func hasNewline(before bound: Token) -> Bool {
+    lexer.source.contents[currentIndex ..< bound.range.lowerBound]
+      .contains(where: { $0.isNewline })
+  }
+
+  /// Returns a source range from `startIndex` to `self.currentIndex`.
+  func range(from startIndex: String.Index) -> SourceRange {
+    SourceRange(in: lexer.source, from: startIndex, to: currentIndex)
   }
 
   /// Returns whether `token` is a member index.
@@ -198,6 +220,11 @@ struct ParserState {
     take(if: { [source = lexer.source] in
       ($0.kind == .attribute) && (source[$0.range] == name)
     })
+  }
+
+  /// Consumes tokens as long as they satisfy `predicate`.
+  mutating func skip(while predicate: (Token) -> Bool) {
+    while take(if: predicate) != nil {}
   }
 
 }

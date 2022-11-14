@@ -24,7 +24,7 @@ final class CXXTests: XCTestCase {
 
     // Prepare an AST with the core module loaded.
     var baseAST = AST()
-    try baseAST.importCoreModule()
+    baseAST.importCoreModule()
 
     // Execute the test cases.
     try TestCase.executeAll(in: testCaseDirectory, { (tc) in
@@ -32,10 +32,11 @@ final class CXXTests: XCTestCase {
       var ast = baseAST
 
       // Create a module for the input.
-      let module = ast.insert(ModuleDecl(name: tc.name))
+      let module = try ast.insert(wellFormed: ModuleDecl(name: tc.name))
 
       // Parse the input.
-      if Parser.parse(tc.source, into: module, in: &ast).decls == nil {
+      let (_, parseDiagnostics) = try Parser.parse(tc.source, into: module, in: &ast)
+      if parseDiagnostics.contains(where: { $0.level == .error }) {
         XCTFail("\(tc.name): parsing failed")
         return
       }
