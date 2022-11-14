@@ -5,8 +5,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/val-lang/Durian.git",
       "state" : {
-        "revision" : "63da2be9ba8b92e6a1608ad1a9a609241b1f55cb",
-        "version" : "1.0.0"
+        "revision" : "3d802c00e9063b8bba8ba3fff5691e82df7949e1",
+        "version" : "1.2.0"
       }
     },
     {
@@ -23,8 +23,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-collections.git",
       "state" : {
-        "revision" : "48254824bb4248676bf7ce56014ff57b142b77eb",
-        "version" : "1.0.2"
+        "revision" : "f504716c27d2e5d4144fa4794b12129301d17729",
+        "version" : "1.0.3"
       }
     }
   ],

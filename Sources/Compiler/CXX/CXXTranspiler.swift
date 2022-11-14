@@ -25,15 +25,15 @@ public struct CXXTranspiler {
   /// Emits the given top-level declaration into `module`.
   public mutating func emit(topLevel decl: AnyDeclID, into module: inout CXXModule) {
     switch decl.kind {
-    case .funDecl:
-      emit(fun: NodeID(rawValue: decl.rawValue), into: &module)
+    case .functionDecl:
+      emit(function: NodeID(rawValue: decl.rawValue), into: &module)
     default:
       unreachable("unexpected declaration")
     }
   }
 
   /// Emits the given function declaration into `module`.
-  public mutating func emit(fun decl: NodeID<FunDecl>, into module: inout CXXModule) {
+  public mutating func emit(function decl: NodeID<FunctionDecl>, into module: inout CXXModule) {
     // Declare the function in the module if necessary.
     _ = module.getOrCreateFunction(correspondingTo: decl, program: program)
   }

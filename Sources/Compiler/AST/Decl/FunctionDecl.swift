@@ -1,23 +1,7 @@
 /// A function declaration.
-public struct FunDecl: GenericDecl, GenericScope {
+public struct FunctionDecl: GenericDecl, GenericScope {
 
-  public static let kind = NodeKind.funDecl
-
-  public enum Introducer: Codable {
-
-    /// The function and method introducer, `fun`.
-    case fun
-
-    /// The initializer introducer, `init`.
-    case `init`
-
-    /// The memberwise initializer introducer, `memberwise init`
-    case memberwiseInit
-
-    /// The deinitializer introducer, `deinit`.
-    case `deinit`
-
-  }
+  public static let kind = NodeKind.functionDecl
 
   public enum Body: Codable {
 
@@ -27,22 +11,19 @@ public struct FunDecl: GenericDecl, GenericScope {
     /// A block body.
     case block(NodeID<BraceStmt>)
 
-    /// A bundle.
-    case bundle([NodeID<MethodImplDecl>])
-
   }
 
-  /// The introducer of the declaration.
-  public let introducer: SourceRepresentable<Introducer>
+  /// The source range of the `fun` introducer, if any.
+  public let introducerRange: SourceRange?
 
   /// The attributes of the declaration, if any.
-  public private(set) var attributes: [SourceRepresentable<Attribute>]
+  public let attributes: [SourceRepresentable<Attribute>]
 
   /// The access modifier of the declaration, if any.
-  public private(set) var accessModifier: SourceRepresentable<AccessModifier>?
+  public let accessModifier: SourceRepresentable<AccessModifier>?
 
   /// The member modifier of the declaration.
-  public private(set) var memberModifier: SourceRepresentable<MemberModifier>?
+  public let memberModifier: SourceRepresentable<MemberModifier>?
 
   /// The receiver effect of the function.
   public let receiverEffect: SourceRepresentable<ReceiverEffect>?
@@ -53,7 +34,7 @@ public struct FunDecl: GenericDecl, GenericScope {
   /// The identifier of the function, if any.
   public let identifier: SourceRepresentable<Identifier>?
 
-  /// The generic clause of the function, if any.
+  /// The generic clause of the declaration, if any.
   public let genericClause: SourceRepresentable<GenericClause>?
 
   /// The explicit capture declarations of the function.
@@ -76,10 +57,9 @@ public struct FunDecl: GenericDecl, GenericScope {
   /// The declaration of the implicit parameters of the function, if any.
   ///
   /// This property is set during type checking. In a local function, it maps the names of the
-  /// implicit and explicit captures to their respective declaration. In a non-static method
-  /// declaration, it contains a reference to the declaration of the implicit receiver parameter
-  /// (i.e., `self`), unless the method forms a bundle. The implicit receiver of a bundle has a
-  /// declaration in each method implementation.
+  /// implicit and explicit captures to their respective declaration. In a non-static member
+  /// function declaration, it contains a reference to the declaration of the implicit receiver
+  /// parameter (i.e., `self`).
   public private(set) var implicitParameterDecls: [ImplicitParameter]
 
   /// The declaration of the implicit receiver parameter, if any.
@@ -91,8 +71,9 @@ public struct FunDecl: GenericDecl, GenericScope {
     }
   }
 
+  /// Creates an instance with the given properties.
   public init(
-    introducer: SourceRepresentable<Introducer>,
+    introducerRange: SourceRange?,
     attributes: [SourceRepresentable<Attribute>] = [],
     accessModifier: SourceRepresentable<AccessModifier>? = nil,
     memberModifier: SourceRepresentable<MemberModifier>? = nil,
@@ -100,14 +81,14 @@ public struct FunDecl: GenericDecl, GenericScope {
     notation: SourceRepresentable<OperatorNotation>? = nil,
     identifier: SourceRepresentable<Identifier>? = nil,
     genericClause: SourceRepresentable<GenericClause>? = nil,
-    captures: [NodeID<BindingDecl>] = [],
+    explicitCaptures: [NodeID<BindingDecl>] = [],
     parameters: [NodeID<ParameterDecl>] = [],
     receiver: NodeID<ParameterDecl>? = nil,
     output: AnyTypeExprID? = nil,
     body: Body? = nil,
     isInExprContext: Bool = false
   ) {
-    self.introducer = introducer
+    self.introducerRange = introducerRange
     self.attributes = attributes
     self.accessModifier = accessModifier
     self.memberModifier = memberModifier
@@ -115,7 +96,7 @@ public struct FunDecl: GenericDecl, GenericScope {
     self.notation = notation
     self.identifier = identifier
     self.genericClause = genericClause
-    self.explicitCaptures = captures
+    self.explicitCaptures = explicitCaptures
     self.parameters = parameters
     self.output = output
     self.body = body
@@ -124,9 +105,6 @@ public struct FunDecl: GenericDecl, GenericScope {
     if let r = receiver {
       implicitParameterDecls = [ImplicitParameter(name: "self", decl: AnyDeclID(r))]
     } else {
-      precondition(introducer.value != .`init`)
-      precondition(introducer.value != .memberwiseInit)
-      precondition(introducer.value != .deinit)
       implicitParameterDecls = []
     }
   }
@@ -134,38 +112,18 @@ public struct FunDecl: GenericDecl, GenericScope {
   /// Returns whether the declaration is public.
   public var isPublic: Bool { accessModifier?.value == .public }
 
-  /// Returns whether the declaration denotes a static method.
+  /// Returns whether the declaration denotes a static member function.
   public var isStatic: Bool { memberModifier?.value == .static }
 
-  /// Returns whether the declaration denotes an `inout` method.
+  /// Returns whether the declaration denotes an `inout` member function.
   public var isInout: Bool { receiverEffect?.value == .inout }
 
-  /// Returns whether the declaration denotes a `sink` method.
+  /// Returns whether the declaration denotes a `sink` member function.
   public var isSink: Bool { receiverEffect?.value == .sink }
 
-  /// Returns whether the declaration denotes a method bundle.
-  public var isBundle: Bool {
-    if case .bundle = body {
-      return true
-    } else {
-      return false
-    }
-  }
-
-  /// Incorporates the given decorations into `self`.
-  ///
-  /// - Requires: `self` is undecorated.
-  internal mutating func incorporate(
-    attributes: [SourceRepresentable<Attribute>],
-    accessModifier: SourceRepresentable<AccessModifier>?,
-    memberModifier: SourceRepresentable<MemberModifier>?
-  ) {
-    precondition(self.attributes.isEmpty)
-    precondition(self.accessModifier == nil)
-    precondition(self.memberModifier == nil)
-    self.attributes = attributes
-    self.accessModifier = accessModifier
-    self.memberModifier = memberModifier
+  /// Returns whether `self` is a foreign function interface.
+  public var isFFI: Bool {
+    attributes.contains(where: { $0.value.name.value == "@_lowered_name" })
   }
 
   /// Incorporates the given implicit parameter declarations into `self`.
@@ -174,6 +132,21 @@ public struct FunDecl: GenericDecl, GenericScope {
   internal mutating func incorporate(implicitParameterDecls: [ImplicitParameter]) {
     precondition(self.implicitParameterDecls.isEmpty)
     self.implicitParameterDecls = implicitParameterDecls
+  }
+
+  public func validateForm(in ast: AST) -> SuccessOrDiagnostics {
+    var ds: [Diagnostic] = []
+
+    if !isInExprContext {
+      // Parameter declarations must have a type annotation.
+      for p in parameters {
+        if ast[p].annotation == nil {
+          ds.append(.diagnose(missingTypeAnnotation: ast[p], in: ast))
+        }
+      }
+    }
+
+    return ds.isEmpty ? .success : .failure(ds)
   }
 
 }

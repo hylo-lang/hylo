@@ -29,7 +29,7 @@ public struct ScopedProgram: Program {
   /// - Requires: `ast[decl].implicitParameterDecls` is empty.
   mutating func incorporate(
     implicitParameterDecls: [ImplicitParameter],
-    into decl: NodeID<FunDecl>
+    into decl: NodeID<FunctionDecl>
   ) {
     ast[decl].incorporate(implicitParameterDecls: implicitParameterDecls)
   }
@@ -70,8 +70,8 @@ public struct ScopedProgram: Program {
       let receiver = desugar(left)
       let argument = desugar(right)
 
-      let id = ast.insert(FunCallExpr(
-        callee: AnyExprID(ast.insert(NameExpr(
+      let id = try! ast.insert(wellFormed: FunCallExpr(
+        callee: AnyExprID(ast.insert(wellFormed: NameExpr(
           domain: .expr(receiver),
           name: SourceRepresentable(
             value: Name(stem: operator_.name.value),
@@ -166,14 +166,18 @@ extension ScopedProgram {
       visit(conformanceDecl: NodeID(rawValue: decl.rawValue), withState: &state)
     case .extensionDecl:
       visit(extensionDecl: NodeID(rawValue: decl.rawValue), withState: &state)
-    case .funDecl:
-      visit(funDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+    case .functionDecl:
+      visit(functionDecl: NodeID(rawValue: decl.rawValue), withState: &state)
     case .genericTypeParamDecl:
       visit(genericTypeParamDecl: NodeID(rawValue: decl.rawValue), withState: &state)
     case .genericValueParamDecl:
       visit(genericValueParamDecl: NodeID(rawValue: decl.rawValue), withState: &state)
     case .importDecl:
       visit(importDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+    case .initializerDecl:
+      visit(initializerDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+    case .methodDecl:
+      visit(methodDecl: NodeID(rawValue: decl.rawValue), withState: &state)
     case .methodImplDecl:
       visit(methodImplDecl: NodeID(rawValue: decl.rawValue), withState: &state)
     case .moduleDecl:
@@ -284,7 +288,7 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    funDecl decl: NodeID<FunDecl>,
+    functionDecl decl: NodeID<FunctionDecl>,
     withState state: inout VisitorState
   ) {
     insert(decl: decl, into: state.innermost)
@@ -312,11 +316,6 @@ extension ScopedProgram {
 
       case let .block(stmt):
         this.visit(braceStmt: stmt, withState: &state)
-
-      case let .bundle(impls):
-        for impl in impls {
-          this.visit(methodImplDecl: impl, withState: &state)
-        }
 
       case nil:
         break
@@ -355,6 +354,48 @@ extension ScopedProgram {
     withState state: inout VisitorState
   ) {
     insert(decl: decl, into: state.innermost)
+  }
+
+  private mutating func visit(
+    initializerDecl decl: NodeID<InitializerDecl>,
+    withState state: inout VisitorState
+  ) {
+    insert(decl: decl, into: state.innermost)
+
+    nesting(in: decl, withState: &state, { (this, state) in
+      if let clause = this.ast[decl].genericClause?.value {
+        this.visit(genericClause: clause, withState: &state)
+      }
+      for parameter in this.ast[decl].parameters {
+        this.visit(parameterDecl: parameter, withState: &state)
+      }
+      this.visit(parameterDecl: this.ast[decl].receiver, withState: &state)
+      if let body = this.ast[decl].body {
+        this.visit(braceStmt: body, withState: &state)
+      }
+    })
+  }
+
+  private mutating func visit(
+    methodDecl decl: NodeID<MethodDecl>,
+    withState state: inout VisitorState
+  ) {
+    insert(decl: decl, into: state.innermost)
+
+    nesting(in: decl, withState: &state, { (this, state) in
+      if let clause = this.ast[decl].genericClause?.value {
+        this.visit(genericClause: clause, withState: &state)
+      }
+      for parameter in this.ast[decl].parameters {
+        this.visit(parameterDecl: parameter, withState: &state)
+      }
+      if let output = this.ast[decl].output {
+        this.visit(typeExpr: output, withState: &state)
+      }
+      for impl in this.ast[decl].impls {
+        this.visit(methodImplDecl: impl, withState: &state)
+      }
+    })
   }
 
   private mutating func visit(
@@ -472,7 +513,9 @@ extension ScopedProgram {
     insert(decl: decl, into: state.innermost)
 
     nesting(in: decl, withState: &state, { (this, state) in
-      this.visit(parameterDecl: this.ast[decl].receiver, withState: &state)
+      if let receiver = this.ast[decl].receiver {
+        this.visit(parameterDecl: receiver, withState: &state)
+      }
 
       switch this.ast[decl].body {
       case let .expr(expr):
@@ -613,7 +656,7 @@ extension ScopedProgram {
     asyncExpr expr: NodeID<AsyncExpr>,
     withState state: inout VisitorState
   ) {
-    visit(funDecl: ast[expr].decl, withState: &state)
+    visit(functionDecl: ast[expr].decl, withState: &state)
   }
 
   private mutating func visit(
@@ -693,7 +736,7 @@ extension ScopedProgram {
     lambdaExpr expr: NodeID<LambdaExpr>,
     withState state: inout VisitorState
   ) {
-    visit(funDecl: ast[expr].decl, withState: &state)
+    visit(functionDecl: ast[expr].decl, withState: &state)
   }
 
   private mutating func visit(

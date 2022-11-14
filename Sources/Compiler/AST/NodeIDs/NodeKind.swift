@@ -44,7 +44,7 @@ public struct NodeKind: Hashable, Codable {
      5 << 16 | decl.rawValue | genericScope.rawValue)
   public static let extensionDecl = NodeKind(
      6 << 16 | decl.rawValue | genericScope.rawValue)
-  public static let funDecl = NodeKind(
+  public static let functionDecl = NodeKind(
      7 << 16 | decl.rawValue | genericScope.rawValue)
   public static let genericTypeParamDecl = NodeKind(
      8 << 16 | typeDecl.rawValue)
@@ -52,28 +52,32 @@ public struct NodeKind: Hashable, Codable {
      9 << 16 | typeDecl.rawValue)
   public static let importDecl = NodeKind(
     10 << 16 | typeDecl.rawValue)
+  public static let initializerDecl = NodeKind(
+    11 << 16 | decl.rawValue | genericScope.rawValue)
+  public static let methodDecl = NodeKind(
+    12 << 16 | decl.rawValue | genericScope.rawValue)
   public static let methodImplDecl = NodeKind(
-    11 << 16 | decl.rawValue | lexicalScope.rawValue)
+    13 << 16 | decl.rawValue | lexicalScope.rawValue)
   public static let moduleDecl = NodeKind(
-    12 << 16 | typeDecl.rawValue | lexicalScope.rawValue)
+    14 << 16 | typeDecl.rawValue | lexicalScope.rawValue)
   public static let namespaceDecl = NodeKind(
-    13 << 16 | typeDecl.rawValue | lexicalScope.rawValue)
+    15 << 16 | typeDecl.rawValue | lexicalScope.rawValue)
   public static let operatorDecl = NodeKind(
-    14 << 16 | decl.rawValue)
+    16 << 16 | decl.rawValue)
   public static let parameterDecl = NodeKind(
-    15 << 16 | decl.rawValue)
+    17 << 16 | decl.rawValue)
   public static let productTypeDecl = NodeKind(
-    16 << 16 | typeDecl.rawValue | genericScope.rawValue)
+    18 << 16 | typeDecl.rawValue | genericScope.rawValue)
   public static let subscriptDecl = NodeKind(
-    17 << 16 | decl.rawValue | genericScope.rawValue)
+    19 << 16 | decl.rawValue | genericScope.rawValue)
   public static let subscriptImplDecl = NodeKind(
-    18 << 16 | decl.rawValue | lexicalScope.rawValue)
+    20 << 16 | decl.rawValue | lexicalScope.rawValue)
   public static let traitDecl = NodeKind(
-    19 << 16 | typeDecl.rawValue | genericScope.rawValue)
+    21 << 16 | typeDecl.rawValue | genericScope.rawValue)
   public static let typeAliasDecl = NodeKind(
-    20 << 16 | typeDecl.rawValue | genericScope.rawValue)
+    22 << 16 | typeDecl.rawValue | genericScope.rawValue)
   public static let varDecl = NodeKind(
-    21 << 16 | decl.rawValue)
+    23 << 16 | decl.rawValue)
 
   // MARK: Value expressions
 
@@ -225,10 +229,12 @@ extension NodeKind: CustomStringConvertible {
     case .builtinDecl               : return "BuiltinDecl"
     case .conformanceDecl           : return "ConformanceDecl"
     case .extensionDecl             : return "ExtensionDecl"
-    case .funDecl                   : return "FunDecl"
+    case .functionDecl              : return "FunctionDecl"
     case .genericTypeParamDecl      : return "GenericTypeParamDecl"
     case .genericValueParamDecl     : return "GenericValueParamDecl"
     case .importDecl                : return "ImportDecl"
+    case .initializerDecl           : return "InitializerDecl"
+    case .methodDecl                : return "MethodDecl"
     case .methodImplDecl            : return "MethodImplDecl"
     case .moduleDecl                : return "ModuleDecl"
     case .namespaceDecl             : return "NamespaceDecl"
