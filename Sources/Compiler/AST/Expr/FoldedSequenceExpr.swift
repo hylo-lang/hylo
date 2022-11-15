@@ -9,8 +9,8 @@ public indirect enum FoldedSequenceExpr {
   /// The expression of an operator in the AST together with its precedence.
   public typealias Operator = (expr: NodeID<NameExpr>, precedence: PrecedenceGroup?)
 
-  /// The application of an operator to its `left` and `right` operands.
-  case operator(Operator, left: FoldedSequenceExpr, right: FoldedSequenceExpr)
+  /// The application of an infix operator to its `left` and `right` operands.
+  case infix(Operator, left: FoldedSequenceExpr, right: FoldedSequenceExpr)
 
   /// A leaf node representing some expression.
   case leaf(AnyExprID)
@@ -27,39 +27,39 @@ public indirect enum FoldedSequenceExpr {
   /// - `self.append(*, c)` results in a tree representing `a + (b * c)`
   mutating func append(operator: Operator, right: AnyExprID) {
     switch self {
-    case .parent(let lhsOperator, let lhsLeft, var lhsRight):
+    case .infix(let lhsOperator, let lhsLeft, var lhsRight):
       // `self` represents a tree `(lhsLeft lhsOperator lhsRight)`: determine whether it should
       // become `self operator right` or `lhsLeft lhsOperator lhsRight.append(operator, right)`.
       if let l = lhsOperator.precedence {
         if let r = `operator`.precedence {
           // Both operators are in groups.
           if (l < r) || (l == r && l.associativity == .left) {
-            self = .parent(operator: `operator`, left: self, right: .leaf(right))
+            self = .infix(`operator`, left: self, right: .leaf(right))
             return
           }
 
           if (l > r) || (l == r && l.associativity == .right) {
             lhsRight.append(operator: `operator`, right: right)
-            self = .parent(operator: lhsOperator, left: lhsLeft, right: lhsRight)
+            self = .infix(lhsOperator, left: lhsLeft, right: lhsRight)
             return
           }
         } else {
           // Right operator is not in a group. Assume lowest precedence and left associativity.
-          self = .parent(operator: `operator`, left: self, right: .leaf(right))
+          self = .infix(`operator`, left: self, right: .leaf(right))
           return
         }
       } else if `operator`.precedence != nil {
         // Only right operator is in a group. Assume higher precedence.
         lhsRight.append(operator: `operator`, right: right)
-        self = .parent(operator: lhsOperator, left: lhsLeft, right: lhsRight)
+        self = .infix(lhsOperator, left: lhsLeft, right: lhsRight)
       } else {
         // Neither operator is in a group. Assume left associativity.
-        self = .parent(operator: `operator`, left: self, right: .leaf(right))
+        self = .infix(`operator`, left: self, right: .leaf(right))
       }
 
     case .leaf:
       // `self` represents a leaf `left`: it should become `left operator right`.
-      self = .parent(operator: `operator`, left: self, right: .leaf(right))
+      self = .infix(`operator`, left: self, right: .leaf(right))
     }
   }
 

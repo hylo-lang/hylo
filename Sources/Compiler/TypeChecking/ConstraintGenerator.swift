@@ -687,7 +687,7 @@ struct ConstraintGenerator {
     using checker: inout TypeChecker
   ) -> Type {
     switch root {
-    case .parent(let callee, let lhs, let rhs):
+    case .infix(let callee, let lhs, let rhs):
       // Infer the types of the operands.
       let lhsType = visit(foldedSequence: lhs, expectingRootType: nil, using: &checker)
       if lhsType.isError {
