@@ -1,8 +1,6 @@
 /// The expression of a tuple member, referred by its index.
 public struct TupleMemberExpr: Expr {
 
-  public static let kind = NodeKind.tupleMemberExpr
-
   /// The parent tuple.
   public let tuple: AnyExprID
 

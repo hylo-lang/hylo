@@ -1,7 +1,5 @@
 /// A generic type parameter declaration.
-public struct GenericTypeParamDecl: SingleEntityDecl {
-
-  public static let kind = NodeKind.genericTypeParamDecl
+public struct GenericTypeParamDecl: TypeDecl {
 
   /// The identifier of the parameter.
   public let identifier: SourceRepresentable<Identifier>

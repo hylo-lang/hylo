@@ -1,7 +1,5 @@
 /// A namespace declaration.
-public struct NamespaceDecl: SingleEntityDecl, LexicalScope {
-
-  public static let kind = NodeKind.namespaceDecl
+public struct NamespaceDecl: TypeDecl, LexicalScope {
 
   /// The source range of the declaration's introducer, if any.
   public let introducerRange: SourceRange?

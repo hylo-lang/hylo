@@ -17,11 +17,12 @@ public struct NodeID<Subject: Node>: NodeIDProtocol {
 
   public let rawValue: RawValue
 
-  public var kind: NodeKind { Subject.kind }
+  /// The dynamic type of node being referred to.
+  public var kind: NodeKind { NodeKind(Subject.self) }
 
   /// Creates an instance with the same raw value as `x` failing iff `x.kind != Subject.kind`.
   public init?<Other: NodeIDProtocol>(_ x: Other) {
-    if x.kind == Subject.kind {
+    if x.kind.value == Subject.self {
       self.init(rawValue: x.rawValue)
     } else {
       return nil

@@ -304,7 +304,7 @@ struct ConstraintGenerator {
     // 2nd case
     if let c = NodeID<NameExpr>(callee),
        let d = checker.referredDecls[c]?.decl,
-       d.kind <= .typeDecl
+       d.kind.value is TypeDecl.Type
     {
       switch d.kind {
       case .productTypeDecl:
@@ -629,7 +629,7 @@ struct ConstraintGenerator {
       let constraint: Constraint
       if let base = NodeID<NameExpr>(domain),
          let decl = checker.referredDecls[base]?.decl,
-         decl.kind <= .typeDecl
+         decl.kind.value is TypeDecl.Type
       {
         constraint = .unboundMember(
           l: domainType,

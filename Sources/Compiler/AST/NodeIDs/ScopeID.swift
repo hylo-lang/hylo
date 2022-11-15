@@ -19,7 +19,7 @@ public struct AnyScopeID: ScopeID {
   /// Creates an instance referring to the same node as `x`, failing if `x` does not identify a
   /// lexical scope.
   public init?<Other: NodeIDProtocol>(_ x: Other) {
-    if x.kind <= .lexicalScope {
+    if x.kind.value is LexicalScope.Type {
       base = AnyNodeID(x)
     } else {
       return nil

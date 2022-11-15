@@ -1,7 +1,5 @@
 /// An import declaration.
-public struct ImportDecl: SingleEntityDecl {
-
-  public static let kind = NodeKind.importDecl
+public struct ImportDecl: TypeDecl {
 
   /// The source range of the declaration's introducer, if any.
   public let introducerRange: SourceRange?

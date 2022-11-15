@@ -1,8 +1,6 @@
 /// A declaration that extends a type with new members.
 public struct ExtensionDecl: TypeExtendingDecl {
 
-  public static let kind = NodeKind.extensionDecl
-
   /// The access modifier of the declaration, if any.
   public let accessModifier: SourceRepresentable<AccessModifier>?
 

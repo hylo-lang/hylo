@@ -114,7 +114,7 @@ public struct TypeChecker {
       }
 
       // Gather conformances defined by conditional conformances/extensions.
-      for scope in program.scopes(from: scope) where scope.kind <= .genericScope {
+      for scope in program.scopes(from: scope) where scope.kind.value is GenericScope.Type {
         guard let e = environment(of: scope) else { continue }
         result.formUnion(e.conformedTraits(of: type))
       }
@@ -1505,7 +1505,7 @@ public struct TypeChecker {
         constraints: &constraints,
         decls: &decls)
 
-    case .expr:
+    case _ where pattern.kind.value is Expr.Type:
       fatalError("not implemented")
 
     case .namePattern:
@@ -1992,7 +1992,7 @@ public struct TypeChecker {
     if candidates.count != 1 { return nil }
 
     let decl = candidates.first!
-    if !(decl.kind <= .typeDecl) { return nil }
+    if !(decl.kind.value is TypeDecl.Type) { return nil }
 
     // FIXME: If `type` is a bound generic type, substitute generic type parameters.
     return realize(decl: decl)
@@ -2167,7 +2167,7 @@ public struct TypeChecker {
       let matches = lookup(identifier.value, memberOf: domain, inScope: scope)
 
       // Realize the referred type.
-      for match in matches where match.kind <= .typeDecl {
+      for match in matches where match.kind.value is TypeDecl.Type {
         if base != nil {
           diagnostics.insert(.diagnose(
             ambiguousReferenceToTypeNamed: identifier.value,
@@ -2224,7 +2224,7 @@ public struct TypeChecker {
       let matches = lookup(unqualified: identifier.value, inScope: scope)
 
       // Realize the referred type.
-      for match in matches where match.kind <= .typeDecl {
+      for match in matches where match.kind.value is TypeDecl.Type {
         if base != nil {
           diagnostics.insert(.diagnose(
             ambiguousReferenceToTypeNamed: identifier.value,
@@ -2831,7 +2831,7 @@ public struct TypeChecker {
         // If the function refers to a member declaration, it must be nested in a type scope.
         let innermostTypeScope = program
           .scopes(from: program.scopeToParent[decl]!)
-          .first(where: { $0.kind <= .typeDecl })!
+          .first(where: { $0.kind.value is TypeDecl.Type })!
 
         // Ignore illegal implicit references to foreign receiver.
         if program.isContained(innermostTypeScope, in: program.scopeToParent[captureDecl]!) {

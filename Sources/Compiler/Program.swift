@@ -53,7 +53,7 @@ extension Program {
   /// - it is introduced with `init` or `memberwise init`.
   public func isGlobal<T: DeclID>(_ decl: T) -> Bool {
     // Type declarations are global.
-    if decl.kind <= .typeDecl {
+    if decl.kind.value is TypeDecl.Type {
       return true
     }
 

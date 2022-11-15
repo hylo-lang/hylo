@@ -1,8 +1,6 @@
 /// The declaration of a subscript implementation.
 public struct SubscriptImplDecl: Decl, LexicalScope {
 
-  public static let kind = NodeKind.subscriptImplDecl
-
   /// The body of a subscript implementation.
   public enum Body: Codable {
 

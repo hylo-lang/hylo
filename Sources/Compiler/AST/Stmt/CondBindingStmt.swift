@@ -1,8 +1,6 @@
 /// A break statement.
 public struct CondBindingStmt: Stmt {
 
-  public static let kind = NodeKind.condBindingStmt
-
   public enum Fallback: Codable {
 
     case expr(AnyExprID)

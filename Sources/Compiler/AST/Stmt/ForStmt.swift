@@ -1,8 +1,6 @@
 /// A for loop.
 public struct ForStmt: Stmt, LexicalScope {
 
-  public static let kind = NodeKind.forStmt
-
   /// The conditional binding of the loop.
   public let binding: NodeID<BindingDecl>
 
