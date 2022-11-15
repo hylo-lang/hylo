@@ -1,7 +1,7 @@
 /// A folded sequence expression.
 public indirect enum FoldedSequenceExpr {
 
-  /// An operator with its precedence.
+  /// The expression of an operator in the AST together with its precedence.
   public typealias Callee = (expr: NodeID<NameExpr>, precedence: PrecedenceGroup?)
 
   case node(callee: Callee, left: FoldedSequenceExpr, right: FoldedSequenceExpr)
