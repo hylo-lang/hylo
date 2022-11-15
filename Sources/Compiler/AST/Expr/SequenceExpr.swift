@@ -31,8 +31,8 @@ public struct SequenceExpr: Expr {
     self.tail = tail
   }
 
-  public func isWellFormed(in ast: AST) -> SuccessOrDiagnostics {
-    var ds: [Diagnostic] = []
+  public func validateForm(in ast: AST) -> SuccessOrDiagnostics {
+    var report: [Diagnostic] = []
 
     for element in tail {
       // Operator notation must be `nil` or `.infix`.
