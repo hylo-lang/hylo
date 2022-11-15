@@ -197,13 +197,13 @@ public struct AST: Codable {
   }
 
   /// Returns the source range of `expr`, if any.
-  public func range(of expr: FoldedSequenceExpr) -> SourceRange? {
+  public func origin(of expr: FoldedSequenceExpr) -> SourceRange? {
     switch expr {
     case .leaf(let i):
       return ranges[i]
 
     case .parent(_, let lhs, let rhs):
-      if let lhsRange = range(of: lhs), let rhsRange = range(of: rhs) {
+      if let lhsRange = origin(of: lhs), let rhsRange = origin(of: rhs) {
         return lhsRange.upperBounded(by: rhsRange.upperBound)
       } else {
         return nil

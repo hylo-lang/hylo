@@ -705,7 +705,7 @@ struct ConstraintGenerator {
         .parameter(
           l: rhsType,
           r: parameterType),
-        range: checker.program.ast.range(of: rhs),
+        range: checker.program.ast.origin(of: rhs),
         cause: .callArgument))
 
       let outputType = Type.variable(TypeVariable())
