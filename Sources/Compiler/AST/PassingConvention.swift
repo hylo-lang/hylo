@@ -16,7 +16,7 @@ public enum PassingConvention: Codable {
   /// Yielded.
   case yielded
 
-  /// Creates a convention matching the given remote type capability.
+  /// Creates the passing convention that corresponds to `capability`.
   init(matching capability: RemoteType.Capability) {
     switch capability {
     case .let     : self = .let
@@ -26,7 +26,7 @@ public enum PassingConvention: Codable {
     }
   }
 
-  /// Creates a convnetion matching the given receiver effect.
+  /// Creates the passing convention that corresponds to `effect`.
   init(matching effect: ReceiverEffect) {
     switch effect {
     case .inout   : self = .inout
