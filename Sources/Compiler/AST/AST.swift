@@ -202,7 +202,7 @@ public struct AST: Codable {
     case .leaf(let i):
       return ranges[i]
 
-    case .node(_, let lhs, let rhs):
+    case .parent(_, let lhs, let rhs):
       if let lhsRange = range(of: lhs), let rhsRange = range(of: rhs) {
         return lhsRange.upperBounded(by: rhsRange.upperBound)
       } else {

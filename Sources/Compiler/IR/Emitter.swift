@@ -674,7 +674,7 @@ public struct Emitter {
     into module: inout Module
   ) -> Operand {
     switch expr {
-    case .node(let callee, let lhs, let rhs):
+    case .parent(let callee, let lhs, let rhs):
       let calleeType = program.exprTypes[callee.expr]?.base as! LambdaType
 
       // Emit the operands, starting with RHS.

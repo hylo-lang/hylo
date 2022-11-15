@@ -19,10 +19,10 @@ public struct SequenceExpr: Expr {
 
   }
 
-  /// The first operand of the expression.
+  /// The leftmost operand of the expression.
   public let head: AnyExprID
 
-  /// A sequence of operator/operand pairs.
+  /// The sequence of operators and operands at the right of `head`.
   public let tail: [TailElement]
 
   /// Creates an instance with the given properties.
@@ -37,14 +37,14 @@ public struct SequenceExpr: Expr {
     for element in tail {
       // Operator notation must be `nil` or `.infix`.
       if let notation = ast[element.operator].name.value.notation, notation != .infix {
-        ds.append(.diagnose(
+        report.append(.diagnose(
           invalidOperatorNotation: notation,
           expected: .infix,
           at: ast[element.operator].name.range))
       }
     }
 
-    return ds.isEmpty ? .success : .failure(ds)
+    return report.isEmpty ? .success : .failure(report)
   }
 
 }

@@ -1,46 +1,65 @@
-/// A folded sequence expression.
+/// A sequence of binary operations stored as a tree whose structure encodes the evaluation order.
+///
+/// Instances of this type are created during type checking for each `SequenceExpr` in the program
+/// once the precedence groups of its operators have been determined. A tree is created by calling
+/// `append(operator:right:)` to append an operator and its right operand to the sub-sequence
+/// represented by `self`.
 public indirect enum FoldedSequenceExpr {
 
   /// The expression of an operator in the AST together with its precedence.
-  public typealias Callee = (expr: NodeID<NameExpr>, precedence: PrecedenceGroup?)
+  public typealias Operator = (expr: NodeID<NameExpr>, precedence: PrecedenceGroup?)
 
-  case node(callee: Callee, left: FoldedSequenceExpr, right: FoldedSequenceExpr)
+  /// A parent node representing the application of `operator` on `left` and `right`.
+  case parent(operator: Operator, left: FoldedSequenceExpr, right: FoldedSequenceExpr)
 
+  /// A leaf node representing some expression.
   case leaf(AnyExprID)
 
-  /// Appends the RHS of a binary operation to `self`.
-  mutating func append(callee: Callee, right: AnyExprID) {
+  /// Mutates `self` so that it represents the expression evaluated by appending `operator.expr`
+  /// and `right` to `self`.
+  ///
+  /// This method uses `operator.precedence` to determine whether the whole expression represented
+  /// by `self` should become the LHS of the new operation, or if the operator must apply to a
+  /// sub-expression of `self`.
+  ///
+  /// Roughly, assuming `self` represents `a + b` and `+` has a lower precedence than `*`:
+  /// - `self.append(+, c)` results in a tree representing `(a + b) + c`
+  /// - `self.append(*, c)` results in a tree representing `a + (b * c)`
+  mutating func append(operator: Operator, right: AnyExprID) {
     switch self {
-    case .node(let lhsCallee, let lhsLeft, var lhsRight):
-      if let l = lhsCallee.precedence {
-        if let r = callee.precedence {
+    case .parent(let lhsOperator, let lhsLeft, var lhsRight):
+      // `self` represents a tree `(lhsLeft lhsOperator lhsRight)`: determine whether it should
+      // become `self operator right` or `lhsLeft lhsOperator lhsRight.append(operator, right)`.
+      if let l = lhsOperator.precedence {
+        if let r = `operator`.precedence {
           // Both operators are in groups.
           if (l < r) || (l == r && l.associativity == .left) {
-            self = .node(callee: callee, left: self, right: .leaf(right))
+            self = .parent(operator: `operator`, left: self, right: .leaf(right))
             return
           }
 
           if (l > r) || (l == r && l.associativity == .right) {
-            lhsRight.append(callee: callee, right: right)
-            self = .node(callee: lhsCallee, left: lhsLeft, right: lhsRight)
+            lhsRight.append(operator: `operator`, right: right)
+            self = .parent(operator: lhsOperator, left: lhsLeft, right: lhsRight)
             return
           }
         } else {
           // Right operator is not in a group. Assume lowest precedence and left associativity.
-          self = .node(callee: callee, left: self, right: .leaf(right))
+          self = .parent(operator: `operator`, left: self, right: .leaf(right))
           return
         }
-      } else if callee.precedence != nil {
+      } else if `operator`.precedence != nil {
         // Only right operator is in a group. Assume higher precedence.
-        lhsRight.append(callee: callee, right: right)
-        self = .node(callee: lhsCallee, left: lhsLeft, right: lhsRight)
+        lhsRight.append(operator: `operator`, right: right)
+        self = .parent(operator: lhsOperator, left: lhsLeft, right: lhsRight)
       } else {
         // Neither operator is in a group. Assume left associativity.
-        self = .node(callee: callee, left: self, right: .leaf(right))
+        self = .parent(operator: `operator`, left: self, right: .leaf(right))
       }
 
     case .leaf:
-      self = .node(callee: callee, left: self, right: .leaf(right))
+      // `self` represents a leaf `left`: it should become `left operator right`.
+      self = .parent(operator: `operator`, left: self, right: .leaf(right))
     }
   }
 

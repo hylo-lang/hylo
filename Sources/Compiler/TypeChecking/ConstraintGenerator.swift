@@ -687,7 +687,7 @@ struct ConstraintGenerator {
     using checker: inout TypeChecker
   ) -> Type {
     switch root {
-    case .node(let callee, let lhs, let rhs):
+    case .parent(let callee, let lhs, let rhs):
       // Infer the types of the operands.
       let lhsType = visit(foldedSequence: lhs, expectingRootType: nil, using: &checker)
       if lhsType.isError {
@@ -887,13 +887,13 @@ struct ConstraintGenerator {
           undefinedOperator: operatorStem,
           at: checker.program.ast.ranges[tail[i].operator]))
         accumulator.append(
-          callee: (expr: tail[i].operator, precedence: nil),
+          operator: (expr: tail[i].operator, precedence: nil),
           right: tail[i].operand)
 
       case 1:
         let precedence = checker.program.ast[candidates[0]].precedenceGroup?.value
         accumulator.append(
-          callee: (expr: tail[i].operator, precedence: precedence),
+          operator: (expr: tail[i].operator, precedence: precedence),
           right: tail[i].operand)
 
       default:
