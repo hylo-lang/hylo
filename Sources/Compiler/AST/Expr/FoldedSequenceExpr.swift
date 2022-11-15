@@ -9,8 +9,8 @@ public indirect enum FoldedSequenceExpr {
   /// The expression of an operator in the AST together with its precedence.
   public typealias Operator = (expr: NodeID<NameExpr>, precedence: PrecedenceGroup?)
 
-  /// A parent node representing the application of `operator` on `left` and `right`.
-  case parent(operator: Operator, left: FoldedSequenceExpr, right: FoldedSequenceExpr)
+  /// The application of an operator to its `left` and `right` operands.
+  case operator(Operator, left: FoldedSequenceExpr, right: FoldedSequenceExpr)
 
   /// A leaf node representing some expression.
   case leaf(AnyExprID)
