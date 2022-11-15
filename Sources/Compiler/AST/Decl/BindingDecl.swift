@@ -1,8 +1,6 @@
 /// A binding declaration.
 public struct BindingDecl: Decl {
 
-  public static let kind = NodeKind.bindingDecl
-
   /// The attributes of the declaration, if any.
   public private(set) var attributes: [SourceRepresentable<Attribute>]
 

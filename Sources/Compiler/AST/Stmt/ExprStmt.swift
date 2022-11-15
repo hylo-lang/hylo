@@ -1,7 +1,7 @@
 /// An expression statement.
 public struct ExprStmt: Stmt {
 
-  public static let kind = NodeKind.exprStmt
+  public static let kind = NodeKind(ExprStmt.self)
 
   /// The expression.
   public let expr: AnyExprID

@@ -1,8 +1,6 @@
 /// An assignment expression.
 public struct AssignExpr: Expr {
 
-  public static let kind = NodeKind.assignExpr
-
   /// The left operand.
   public let left: AnyExprID
 

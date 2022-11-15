@@ -1,8 +1,6 @@
 /// A conformance lens.
 public struct ConformanceLensTypeExpr: TypeExpr {
 
-  public static let kind = NodeKind.conformanceLensTypeExpr
-
   /// The expression of the subject type.
   public let subject: AnyTypeExprID
 

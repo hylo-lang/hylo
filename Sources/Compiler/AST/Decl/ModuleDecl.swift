@@ -1,7 +1,5 @@
 /// A module declaration.
-public struct ModuleDecl: Decl, LexicalScope {
-
-  public static let kind = NodeKind.moduleDecl
+public struct ModuleDecl: TypeDecl, LexicalScope {
 
   /// The name of the module.
   public let name: String

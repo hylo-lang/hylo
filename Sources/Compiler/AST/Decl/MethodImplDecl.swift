@@ -1,8 +1,6 @@
 /// The declaration of a method implementation.
 public struct MethodImplDecl: Decl, LexicalScope {
 
-  public static let kind = NodeKind.methodImplDecl
-
   public enum Body: Codable {
 
     /// An expression body.

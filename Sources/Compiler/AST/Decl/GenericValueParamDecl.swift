@@ -1,8 +1,6 @@
 /// A generic value parameter declaration.
 public struct GenericValueParamDecl: SingleEntityDecl {
 
-  public static let kind = NodeKind.genericValueParamDecl
-
   /// The identifier of the parameter.
   public let identifier: SourceRepresentable<Identifier>
 

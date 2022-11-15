@@ -1,8 +1,6 @@
 /// A declaration that extends a type with new conformances.
 public struct ConformanceDecl: TypeExtendingDecl {
 
-  public static let kind = NodeKind.conformanceDecl
-
   /// The access modifier of the declaration, if any.
   public private(set) var accessModifier: SourceRepresentable<AccessModifier>?
 

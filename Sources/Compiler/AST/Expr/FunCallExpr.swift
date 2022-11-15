@@ -1,8 +1,6 @@
 /// A function call.
 public struct FunCallExpr: Expr {
 
-  public static let kind = NodeKind.funCallExpr
-
   /// The callee.
   public let callee: AnyExprID
 

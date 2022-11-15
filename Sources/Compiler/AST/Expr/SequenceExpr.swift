@@ -66,8 +66,6 @@ public enum SequenceExpr: Expr {
 
   }
 
-  public static let kind = NodeKind.sequenceExpr
-
   /// A sequence that has not been folded to a tree yet.
   ///
   /// The associated value is the first operand and an array of subsequent operator/operand pairs.

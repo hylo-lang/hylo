@@ -1,8 +1,6 @@
 /// An associated value declaration.
 public struct AssociatedValueDecl: SingleEntityDecl {
 
-  public static let kind = NodeKind.associatedValueDecl
-
   /// The identifier of the type.
   public let identifier: SourceRepresentable<Identifier>
 

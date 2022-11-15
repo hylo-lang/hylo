@@ -1,309 +1,181 @@
-import Utils
+import Foundation
 
-/// An identifier uniquely identifying the type of a node referred by an ID.
-public struct NodeKind: Hashable, Codable {
+protocol CodableMetatypeWrapperProtocol: AnyObject {
+  static var wrappedType: Codable.Type { get }
+}
 
-  /// The raw value of the identifier.
-  ///
-  /// - Bits 1 to 5 designate the node category.
-  /// - Bits 6 to 7 designate the node sub-category.
-  /// - Bits 8 to 9 designate the node's lexical scope category.
-  /// - Bits 16 to 32 designate the node type.
-  private let rawValue: Int32
+private class CodableMetatypeWrapper<T: Codable>: CodableMetatypeWrapperProtocol {
+  static var wrappedType: Codable.Type { T.self }
+}
+extension Decodable where Self: Encodable {
+  static var typeKey: String { NSStringFromClass(CodableMetatypeWrapper<Self>.self) }
+}
 
-  private init(_ rawValue: Int32) {
-    self.rawValue = rawValue
+public struct NodeKind: Codable, Equatable, Hashable {
+  let value: Node.Type
+
+  init(_ value: Node.Type) {
+    self.value = value
+  }
+  
+  public func encode(to encoder: Encoder) throws {
+    var c = encoder.singleValueContainer()
+    try c.encode(value.typeKey)
+  }
+  
+  public init(from decoder: Decoder) throws {
+    let typeKey = try decoder.singleValueContainer().decode(String.self)
+    
+    guard let wrapperClass = NSClassFromString(typeKey) as? CodableMetatypeWrapperProtocol.Type else {
+      throw DecodingError.typeMismatch(
+        NodeKind.self,
+        .init(
+          codingPath: decoder.codingPath,
+          debugDescription: "Result of NSClassFromString was nil or was not a CodableMetatypeWrapperProtocol.",
+          underlyingError: nil))
+    }
+    
+    guard let nodeType = wrapperClass.wrappedType as? Node.Type else {
+      throw DecodingError.typeMismatch(
+        NodeKind.self,
+        .init(
+          codingPath: decoder.codingPath,
+          debugDescription: "\(wrapperClass.wrappedType) is not a Node type.",
+          underlyingError: nil))
+      
+    }
+    self.value = nodeType
   }
 
-  public static func <= (l: Self, r: Self) -> Bool {
-    precondition(r.rawValue >> 16 == 0, "RHS is not a node category")
-    return l.rawValue & r.rawValue == r.rawValue
+  public static func == (l: Self, r: Self) -> Bool {
+    return l.value == r.value
   }
 
-  public static let lexicalScope = NodeKind(
-    1 << 8)
-  public static let genericScope = NodeKind(
-    1 << 9 | lexicalScope.rawValue)
+  public func hash(into h: inout Hasher) {
+    ObjectIdentifier(value).hash(into: &h)
+  }
+  
+  static func == (l: Self, r: Node.Type) -> Bool {
+    return l.value == r
+  }
+  
+  static func != (l: Self, r: Node.Type) -> Bool {
+    return l.value == r
+  }
+
+  static func == (l: Node.Type, r: Self) -> Bool {
+    return l == r.value
+  }
+  
+  static func != (l: Node.Type, r: Self) -> Bool {
+    return l != r.value
+  }
+
+//  public static let lexicalScope = NodeKind(LexicalScope.self)
+//  public static let genericScope = NodeKind(GenericScope.self)
 
   // MARK: Declarations
 
-  public static let decl = NodeKind(
-    1 << 0)
-  public static let typeDecl = NodeKind(
-    1 << 6 | decl.rawValue)
+//  public static let decl = NodeKind(Decl.self)
+  //public static let typeDecl = NodeKind(TypeDecl.self)
 
-  public static let associatedTypeDecl = NodeKind(
-     1 << 16 | typeDecl.rawValue)
-  public static let associatedValueDecl = NodeKind(
-     2 << 16 | decl.rawValue)
-  public static let bindingDecl = NodeKind(
-     3 << 16 | decl.rawValue)
-  public static let builtinDecl = NodeKind(
-     4 << 16 | decl.rawValue)
-  public static let conformanceDecl = NodeKind(
-     5 << 16 | decl.rawValue | genericScope.rawValue)
-  public static let extensionDecl = NodeKind(
-     6 << 16 | decl.rawValue | genericScope.rawValue)
-  public static let funDecl = NodeKind(
-     7 << 16 | decl.rawValue | genericScope.rawValue)
-  public static let genericTypeParamDecl = NodeKind(
-     8 << 16 | typeDecl.rawValue)
-  public static let genericValueParamDecl = NodeKind(
-     9 << 16 | typeDecl.rawValue)
-  public static let importDecl = NodeKind(
-    10 << 16 | typeDecl.rawValue)
-  public static let methodImplDecl = NodeKind(
-    11 << 16 | decl.rawValue | lexicalScope.rawValue)
-  public static let moduleDecl = NodeKind(
-    12 << 16 | typeDecl.rawValue | lexicalScope.rawValue)
-  public static let namespaceDecl = NodeKind(
-    13 << 16 | typeDecl.rawValue | lexicalScope.rawValue)
-  public static let operatorDecl = NodeKind(
-    14 << 16 | decl.rawValue)
-  public static let parameterDecl = NodeKind(
-    15 << 16 | decl.rawValue)
-  public static let productTypeDecl = NodeKind(
-    16 << 16 | typeDecl.rawValue | genericScope.rawValue)
-  public static let subscriptDecl = NodeKind(
-    17 << 16 | decl.rawValue | genericScope.rawValue)
-  public static let subscriptImplDecl = NodeKind(
-    18 << 16 | decl.rawValue | lexicalScope.rawValue)
-  public static let traitDecl = NodeKind(
-    19 << 16 | typeDecl.rawValue | genericScope.rawValue)
-  public static let typeAliasDecl = NodeKind(
-    20 << 16 | typeDecl.rawValue | genericScope.rawValue)
-  public static let varDecl = NodeKind(
-    21 << 16 | decl.rawValue)
+  public static let associatedTypeDecl = NodeKind(AssociatedTypeDecl.self)
+  public static let associatedValueDecl = NodeKind(AssociatedValueDecl.self)
+  public static let bindingDecl = NodeKind(BindingDecl.self)
+  public static let builtinDecl = NodeKind(BuiltinDecl.self)
+  public static let conformanceDecl = NodeKind(ConformanceDecl.self)
+  public static let extensionDecl = NodeKind(ExtensionDecl.self)
+  public static let funDecl = NodeKind(FunDecl.self)
+  public static let genericTypeParamDecl = NodeKind(GenericTypeParamDecl.self)
+  public static let genericValueParamDecl = NodeKind(GenericValueParamDecl.self)
+  public static let importDecl = NodeKind(ImportDecl.self)
+  public static let methodImplDecl = NodeKind(MethodImplDecl.self)
+  public static let moduleDecl = NodeKind(ModuleDecl.self)
+  public static let namespaceDecl = NodeKind(NamespaceDecl.self)
+  public static let operatorDecl = NodeKind(OperatorDecl.self)
+  public static let parameterDecl = NodeKind(ParameterDecl.self)
+  public static let productTypeDecl = NodeKind(ProductTypeDecl.self)
+  public static let subscriptDecl = NodeKind(SubscriptDecl.self)
+  public static let subscriptImplDecl = NodeKind(SubscriptImplDecl.self)
+  public static let traitDecl = NodeKind(TraitDecl.self)
+  public static let typeAliasDecl = NodeKind(TypeAliasDecl.self)
+  public static let varDecl = NodeKind(VarDecl.self)
 
   // MARK: Value expressions
 
-  public static let expr = NodeKind(
-    1 << 1)
+  //public static let expr = NodeKind(Expr.self)
 
-  public static let assignExpr = NodeKind(
-     1 << 16 | expr.rawValue)
-  public static let asyncExpr = NodeKind(
-     2 << 16 | expr.rawValue)
-  public static let awaitExpr = NodeKind(
-     3 << 16 | expr.rawValue)
-  public static let booleanLiteralExpr = NodeKind(
-     4 << 16 | expr.rawValue)
-  public static let bufferLiteralExpr = NodeKind(
-     5 << 16 | expr.rawValue)
-  public static let castExpr = NodeKind(
-     6 << 16 | expr.rawValue)
-  public static let condExpr = NodeKind(
-     7 << 16 | expr.rawValue | lexicalScope.rawValue)
-  public static let errorExpr = NodeKind(
-     8 << 16 | expr.rawValue)
-  public static let floatLiteralExpr = NodeKind(
-     9 << 16 | expr.rawValue)
-  public static let funCallExpr = NodeKind(
-    10 << 16 | expr.rawValue)
-  public static let inoutExpr = NodeKind(
-    11 << 16 | expr.rawValue)
-  public static let integerLiteralExpr = NodeKind(
-    12 << 16 | expr.rawValue)
-  public static let lambdaExpr = NodeKind(
-    13 << 16 | expr.rawValue)
-  public static let mapLiteralExpr = NodeKind(
-    14 << 16 | expr.rawValue)
-  public static let matchExpr = NodeKind(
-    15 << 16 | expr.rawValue | lexicalScope.rawValue)
-  public static let nameExpr = NodeKind(
-    16 << 16 | expr.rawValue)
-  public static let nilExpr = NodeKind(
-    17 << 16 | expr.rawValue)
-  public static let sequenceExpr = NodeKind(
-    18 << 16 | expr.rawValue)
-  public static let storedProjectionExpr = NodeKind(
-    19 << 16 | expr.rawValue)
-  public static let stringLiteralExpr = NodeKind(
-    20 << 26 | expr.rawValue)
-  public static let subscriptCallExpr = NodeKind(
-    21 << 16 | expr.rawValue)
-  public static let tupleExpr = NodeKind(
-    22 << 16 | expr.rawValue)
-  public static let tupleMemberExpr = NodeKind(
-    23 << 16 | expr.rawValue)
-  public static let unicodeScalarLiteralExpr = NodeKind(
-    24 << 16 | expr.rawValue)
+  public static let assignExpr = NodeKind(AssignExpr.self)
+  public static let asyncExpr = NodeKind(AsyncExpr.self)
+  public static let awaitExpr = NodeKind(AwaitExpr.self)
+  public static let booleanLiteralExpr = NodeKind(BooleanLiteralExpr.self)
+  public static let bufferLiteralExpr = NodeKind(BufferLiteralExpr.self)
+  public static let castExpr = NodeKind(CastExpr.self)
+  public static let condExpr = NodeKind(CondExpr.self)
+  public static let errorExpr = NodeKind(ErrorExpr.self)
+  public static let floatLiteralExpr = NodeKind(FloatLiteralExpr.self)
+  public static let funCallExpr = NodeKind(FunCallExpr.self)
+  public static let inoutExpr = NodeKind(InoutExpr.self)
+  public static let integerLiteralExpr = NodeKind(IntegerLiteralExpr.self)
+  public static let lambdaExpr = NodeKind(LambdaExpr.self)
+  public static let mapLiteralExpr = NodeKind(MapLiteralExpr.self)
+  public static let matchExpr = NodeKind(MatchExpr.self)
+  public static let nameExpr = NodeKind(NameExpr.self)
+  public static let nilExpr = NodeKind(NilExpr.self)
+  public static let sequenceExpr = NodeKind(SequenceExpr.self)
+  public static let storedProjectionExpr = NodeKind(StoredProjectionExpr.self)
+  public static let stringLiteralExpr = NodeKind(StringLiteralExpr.self)
+  public static let subscriptCallExpr = NodeKind(SubscriptCallExpr.self)
+  public static let tupleExpr = NodeKind(TupleExpr.self)
+  public static let tupleMemberExpr = NodeKind(TupleMemberExpr.self)
+  public static let unicodeScalarLiteralExpr = NodeKind(UnicodeScalarLiteralExpr.self)
 
   // MARK: Patterns
 
-  public static let pattern = NodeKind(
-    1 << 2)
+  //public static let pattern = NodeKind(Pattern.self)
 
-  public static let bindingPattern = NodeKind(
-    1 << 16 | pattern.rawValue)
-  public static let exprPattern = NodeKind(
-    2 << 16 | pattern.rawValue)
-  public static let namePattern = NodeKind(
-    3 << 16 | pattern.rawValue)
-  public static let tuplePattern = NodeKind(
-    4 << 16 | pattern.rawValue)
-  public static let wildcardPattern = NodeKind(
-    5 << 16 | pattern.rawValue)
+  public static let bindingPattern = NodeKind(BindingPattern.self)
+  public static let exprPattern = NodeKind(ExprPattern.self)
+  public static let namePattern = NodeKind(NamePattern.self)
+  public static let tuplePattern = NodeKind(TuplePattern.self)
+  public static let wildcardPattern = NodeKind(WildcardPattern.self)
 
   // MARK: Statements
 
-  public static let stmt = NodeKind(
-    1 << 3)
+  // public static let stmt = NodeKind(Stmt.self)
 
-  public static let braceStmt = NodeKind(
-     1 << 16 | stmt.rawValue | lexicalScope.rawValue)
-  public static let breakStmt = NodeKind(
-     2 << 16 | stmt.rawValue)
-  public static let condBindingStmt = NodeKind(
-     3 << 16 | stmt.rawValue)
-  public static let continueStmt = NodeKind(
-     4 << 16 | stmt.rawValue)
-  public static let declStmt = NodeKind(
-     5 << 16 | stmt.rawValue)
-  public static let discardStmt = NodeKind(
-     6 << 16 | stmt.rawValue)
-  public static let doWhileStmt = NodeKind(
-     7 << 16 | stmt.rawValue)
-  public static let exprStmt = NodeKind(
-     8 << 16 | stmt.rawValue)
-  public static let forStmt = NodeKind(
-     9 << 16 | stmt.rawValue | lexicalScope.rawValue)
-  public static let returnStmt = NodeKind(
-    10 << 16 | stmt.rawValue)
-  public static let whileStmt = NodeKind(
-    11 << 16 | stmt.rawValue | lexicalScope.rawValue)
-  public static let yieldStmt = NodeKind(
-    12 << 16 | stmt.rawValue)
+  public static let braceStmt = NodeKind(BraceStmt.self)
+  public static let breakStmt = NodeKind(BreakStmt.self)
+  public static let condBindingStmt = NodeKind(CondBindingStmt.self)
+  public static let continueStmt = NodeKind(ContinueStmt.self)
+  public static let declStmt = NodeKind(DeclStmt.self)
+  public static let discardStmt = NodeKind(DiscardStmt.self)
+  public static let doWhileStmt = NodeKind(DoWhileStmt.self)
+  public static let exprStmt = NodeKind(ExprStmt.self)
+  public static let forStmt = NodeKind(ForStmt.self)
+  public static let returnStmt = NodeKind(ReturnStmt.self)
+  public static let whileStmt = NodeKind(WhileStmt.self)
+  public static let yieldStmt = NodeKind(YieldStmt.self)
 
   // MARK: Type expressions
 
   /// The kind of type expression nodes.
-  public static let typeExpr = NodeKind(
-    1 << 4)
+  // public static let typeExpr = NodeKind(TypeExpr.self)
 
-  public static let asyncTypeExpr = NodeKind(
-     1 << 16 | typeExpr.rawValue)
-  public static let conformanceLensTypeExpr = NodeKind(
-     2 << 16 | typeExpr.rawValue)
-  public static let existentialTypeExpr = NodeKind(
-     3 << 16 | typeExpr.rawValue)
-  public static let indirectTypeExpr = NodeKind(
-     4 << 16 | typeExpr.rawValue)
-  public static let lambdaTypeExpr = NodeKind(
-     5 << 16 | typeExpr.rawValue)
-  public static let nameTypeExpr = NodeKind(
-     6 << 16 | typeExpr.rawValue)
-  public static let parameterTypeExpr = NodeKind(
-     7 << 16 | typeExpr.rawValue)
-  public static let storedProjectionTypeExpr = NodeKind(
-     8 << 16 | typeExpr.rawValue)
-  public static let tupleTypeExpr = NodeKind(
-     9 << 16 | typeExpr.rawValue)
-  public static let unionTypeExpr = NodeKind(
-    10 << 16 | typeExpr.rawValue)
-  public static let wildcardTypeExpr = NodeKind(
-    11 << 16 | typeExpr.rawValue)
+  public static let asyncTypeExpr = NodeKind(AsyncTypeExpr.self)
+  public static let conformanceLensTypeExpr = NodeKind(ConformanceLensTypeExpr.self)
+  public static let existentialTypeExpr = NodeKind(ExistentialTypeExpr.self)
+  public static let indirectTypeExpr = NodeKind(IndirectTypeExpr.self)
+  public static let lambdaTypeExpr = NodeKind(LambdaTypeExpr.self)
+  public static let nameTypeExpr = NodeKind(NameTypeExpr.self)
+  public static let parameterTypeExpr = NodeKind(ParameterTypeExpr.self)
+  public static let storedProjectionTypeExpr = NodeKind(StoredProjectionTypeExpr.self)
+  public static let tupleTypeExpr = NodeKind(TupleTypeExpr.self)
+  public static let unionTypeExpr = NodeKind(UnionTypeExpr.self)
+  public static let wildcardTypeExpr = NodeKind(WildcardTypeExpr.self)
 
   // MARK: Others
 
-  public static let matchCase = NodeKind(
-    1 << 16 | lexicalScope.rawValue)
-  public static let topLevelDeclSet = NodeKind(
-    2 << 16 | lexicalScope.rawValue)
-
-}
-
-extension NodeKind: CustomStringConvertible {
-
-  public var description: String {
-    switch self {
-    case .decl                      : return "Decl"
-    case .typeDecl                  : return "TypeDecl"
-    case .associatedTypeDecl        : return "AssociatedTypeDecl"
-    case .associatedValueDecl       : return "AssociatedValueDecl"
-    case .bindingDecl               : return "BindingDecl"
-    case .builtinDecl               : return "BuiltinDecl"
-    case .conformanceDecl           : return "ConformanceDecl"
-    case .extensionDecl             : return "ExtensionDecl"
-    case .funDecl                   : return "FunDecl"
-    case .genericTypeParamDecl      : return "GenericTypeParamDecl"
-    case .genericValueParamDecl     : return "GenericValueParamDecl"
-    case .importDecl                : return "ImportDecl"
-    case .methodImplDecl            : return "MethodImplDecl"
-    case .moduleDecl                : return "ModuleDecl"
-    case .namespaceDecl             : return "NamespaceDecl"
-    case .operatorDecl              : return "OperatorDecl"
-    case .parameterDecl             : return "ParameterDecl"
-    case .productTypeDecl           : return "ProductTypeDecl"
-    case .subscriptDecl             : return "SubscriptDecl"
-    case .subscriptImplDecl         : return "SubscriptImplDecl"
-    case .traitDecl                 : return "TraitDecl"
-    case .typeAliasDecl             : return "TypeAliasDecl"
-    case .varDecl                   : return "VarDecl"
-
-    case .expr                      : return "Expr"
-    case .assignExpr                : return "AssignExpr"
-    case .asyncExpr                 : return "AsyncExpr"
-    case .awaitExpr                 : return "AwaitExpr"
-    case .castExpr                  : return "CastExpr"
-    case .booleanLiteralExpr        : return "BooleanLiteralExpr"
-    case .bufferLiteralExpr         : return "BufferLiteralExpr"
-    case .condExpr                  : return "CondExpr"
-    case .errorExpr                 : return "ErrorExpr"
-    case .floatLiteralExpr          : return "FloatLiteralExpr"
-    case .funCallExpr               : return "FunCallExpr"
-    case .inoutExpr                 : return "InoutExpr"
-    case .integerLiteralExpr        : return "IntegerLiteralExpr"
-    case .lambdaExpr                : return "LambdaExpr"
-    case .mapLiteralExpr            : return "MapLiteralExpr"
-    case .matchExpr                 : return "MatchExpr"
-    case .nameExpr                  : return "NameExpr"
-    case .nilExpr                   : return "NilExpr"
-    case .sequenceExpr              : return "SequenceExpr"
-    case .storedProjectionExpr      : return "StoredProjectionExpr"
-    case .stringLiteralExpr         : return "StringLiteralExpr"
-    case .subscriptCallExpr         : return "SubscriptCallExpr"
-    case .tupleExpr                 : return "TupleExpr"
-    case .tupleMemberExpr           : return "TupleMemberExpr"
-    case .unicodeScalarLiteralExpr  : return "UnicodeScalarLiteralExpr"
-
-    case .pattern                   : return "Pattern"
-    case .bindingPattern            : return "BindingPattern"
-    case .exprPattern               : return "ExprPattern"
-    case .namePattern               : return "NamePattern"
-    case .tuplePattern              : return "TuplePattern"
-    case .wildcardPattern           : return "WildcardPattern"
-
-    case .stmt                      : return "Stmt"
-    case .braceStmt                 : return "BraceStmt"
-    case .breakStmt                 : return "BreakStmt"
-    case .continueStmt              : return "ContinueStmt"
-    case .declStmt                  : return "DeclStmt"
-    case .doWhileStmt               : return "DoWhileStmt"
-    case .exprStmt                  : return "ExprStmt"
-    case .forStmt                   : return "ForStmt"
-    case .returnStmt                : return "ReturnStmt"
-    case .whileStmt                 : return "WhileStmt"
-    case .yieldStmt                 : return "YieldStmt"
-
-    case .typeExpr                  : return "TypeExpr"
-    case .asyncTypeExpr             : return "AsyncTypeExpr"
-    case .conformanceLensTypeExpr   : return "ConformanceLensTypeExpr"
-    case .existentialTypeExpr       : return "ExistentialTypeExpr"
-    case .indirectTypeExpr          : return "IndirectTypeExpr"
-    case .lambdaTypeExpr            : return "LambdaTypeExpr"
-    case .nameTypeExpr              : return "NameTypeExpr"
-    case .parameterTypeExpr         : return "ParameterTypeExpr"
-    case .storedProjectionTypeExpr  : return "StoredProjectionTypeExpr"
-    case .tupleTypeExpr             : return "TupleTypeExpr"
-    case .unionTypeExpr             : return "UnionTypeExpr"
-    case .wildcardTypeExpr          : return "WildcardTypeExpr"
-
-    case .matchCase                 : return "MatchCase"
-    case .topLevelDeclSet           : return "TopLevelDeclSet"
-
-    default                         : return("Unknown")
-    }
-  }
-
+  public static let matchCase = NodeKind(MatchCase.self)
+  public static let topLevelDeclSet = NodeKind(TopLevelDeclSet.self)
 }

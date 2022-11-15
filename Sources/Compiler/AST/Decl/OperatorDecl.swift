@@ -1,8 +1,6 @@
 /// An operator declaration.
 public struct OperatorDecl: Decl {
 
-  public static let kind = NodeKind.operatorDecl
-
   /// The access modifier of the declaration, if any.
   public private(set) var accessModifier: SourceRepresentable<AccessModifier>?
 

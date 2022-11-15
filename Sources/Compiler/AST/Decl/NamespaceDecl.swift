@@ -1,7 +1,5 @@
 /// A namespace declaration.
-public struct NamespaceDecl: SingleEntityDecl, LexicalScope {
-
-  public static let kind = NodeKind.namespaceDecl
+public struct NamespaceDecl: TypeDecl, LexicalScope {
 
   /// The access modifier of the declaration, if any.
   public private(set) var accessModifier: SourceRepresentable<AccessModifier>?

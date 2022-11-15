@@ -1,7 +1,5 @@
 /// An import declaration.
-public struct ImportDecl: SingleEntityDecl {
-
-  public static let kind = NodeKind.importDecl
+public struct ImportDecl: TypeDecl {
 
   /// The identifier of the imported module.
   public let identifier: SourceRepresentable<Identifier>

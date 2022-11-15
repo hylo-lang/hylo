@@ -1,8 +1,6 @@
 /// A unicode scalar literal expression.
 public struct UnicodeScalarLiteralExpr: Expr {
 
-  public static let kind = NodeKind.unicodeScalarLiteralExpr
-
   /// The value of the literal.
   public let value: Unicode.Scalar
 

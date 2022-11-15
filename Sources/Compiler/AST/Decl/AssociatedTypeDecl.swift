@@ -1,7 +1,8 @@
-/// An associated type declaration.
-public struct AssociatedTypeDecl: SingleEntityDecl {
 
-  public static let kind = NodeKind.associatedTypeDecl
+public protocol TypeDecl: SingleEntityDecl {}
+
+/// An associated type declaration.
+public struct AssociatedTypeDecl: TypeDecl {
 
   /// The identifier of the type.
   public let identifier: SourceRepresentable<Identifier>

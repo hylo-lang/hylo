@@ -1,8 +1,6 @@
 /// A parameter in a lambda type expression.
 public struct ParameterTypeExpr: TypeExpr {
 
-  public static let kind = NodeKind.parameterTypeExpr
-
   /// The passing convention of the parameter.
   public let convention: SourceRepresentable<PassingConvention>
 

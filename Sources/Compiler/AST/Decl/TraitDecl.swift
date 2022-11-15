@@ -1,9 +1,7 @@
 /// A trait declaration.
 ///
 /// - Note: `TraitDecl` does not conform to `GenericDecl`.
-public struct TraitDecl: SingleEntityDecl, GenericScope {
-
-  public static let kind = NodeKind.traitDecl
+public struct TraitDecl: TypeDecl, GenericScope {
 
   /// The access modifier of the declaration, if any.
   public private(set) var accessModifier: SourceRepresentable<AccessModifier>?

@@ -1,8 +1,6 @@
 /// A case in a match expression.
 public struct MatchCase: Node, LexicalScope {
 
-  public static let kind = NodeKind.matchCase
-
   public enum Body: Codable {
 
     /// An expression body.

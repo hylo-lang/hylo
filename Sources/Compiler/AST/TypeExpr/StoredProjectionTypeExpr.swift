@@ -1,8 +1,6 @@
 /// The type expression of a stored projection.
 public struct StoredProjectionTypeExpr: TypeExpr {
 
-  public static let kind = NodeKind.storedProjectionTypeExpr
-
   public enum Introducer: Codable {
 
     case `let`
