@@ -22,7 +22,7 @@ public struct NodeID<Subject: Node>: NodeIDProtocol {
 
   /// Creates an instance with the same raw value as `x` failing iff `x.kind != Subject.kind`.
   public init?<Other: NodeIDProtocol>(_ x: Other) {
-    if x.kind.value == Subject.self {
+    if x.kind == Subject.kind {
       self.init(rawValue: x.rawValue)
     } else {
       return nil
