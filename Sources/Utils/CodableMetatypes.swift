@@ -45,7 +45,8 @@ public func decodeMetatype(from source: Decoder) throws -> MetatypeCodable.Type 
   return wrapperClass.wrappedType
 }
 
-#if !os(Darwin)
+
+#if !os(iOS) && !os(OSX) && !os(watchOS) && !os(tvOS)
 private func NSStringFromClass(_ aClass: AnyClass) -> String {
   let classNameString = String(reflecting: aClass)
   /*
