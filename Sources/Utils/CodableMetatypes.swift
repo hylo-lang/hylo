@@ -6,7 +6,7 @@ private protocol CodableMetatypeWrapperProtocol: AnyObject {
 }
 
 /// A class type whose name gets serialized as a representative of `T.self`.
-public class CodableMetatypeWrapper<T: MetatypeCodable>: CodableMetatypeWrapperProtocol {
+private class CodableMetatypeWrapper<T: MetatypeCodable>: CodableMetatypeWrapperProtocol {
   /// The metatype represented by `Self`
   static var wrappedType: MetatypeCodable.Type { T.self }
 }
@@ -44,3 +44,17 @@ public func decodeMetatype(from source: Decoder) throws -> MetatypeCodable.Type 
 
   return wrapperClass.wrappedType
 }
+
+#if !os(Darwin)
+private func NSStringFromClass(_ aClass: AnyClass) -> String {
+  let classNameString = String(reflecting: aClass)
+  /*
+  if let renamed = mapFromSwiftClassNameToObjCName[classNameString] {
+    return renamed
+  }
+  */
+  let aClassName = classNameString._bridgeToObjectiveC()
+
+  return String(describing: aClassName)
+}
+#endif
