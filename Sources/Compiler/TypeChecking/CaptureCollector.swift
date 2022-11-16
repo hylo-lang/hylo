@@ -237,12 +237,12 @@ struct CaptureCollector {
         inMutatingContext: isContextMutating)
 
     case BooleanLiteralExpr.self,
-         .unicodeScalarLiteralExpr,
-         .errorExpr,
-         .floatLiteralExpr,
-         .integerLiteralExpr,
-         .nilExpr,
-         .stringLiteralExpr:
+         UnicodeScalarLiteralExpr.self,
+         ErrorExpr.self,
+         FloatLiteralExpr.self,
+         IntegerLiteralExpr.self,
+         NilExpr.self,
+         StringLiteralExpr.self:
       break
 
     default:
@@ -312,7 +312,7 @@ struct CaptureCollector {
     into captures: inout FreeSet,
     inMutatingContext isContextMutating: Bool
   ) {
-    if ast[id].callee.kind == .nameExpr {
+    if ast[id].callee.kind == NameExpr.self {
       // If the callee is a bare name expression, use the label arguments.
       let callee = NodeID<NameExpr>(rawValue: ast[id].callee.rawValue)
       if ast[callee].domain == .none {

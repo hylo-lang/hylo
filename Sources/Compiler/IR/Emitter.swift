@@ -229,7 +229,7 @@ public struct Emitter {
     // There's nothing to do if there's no initializer.
     if let initializer = program.ast[decl].initializer {
       let source: Operand
-      if (initializer.kind == .nameExpr) || (initializer.kind == .subscriptCallExpr) {
+      if (initializer.kind == NameExpr.self) || (initializer.kind == SubscriptCallExpr.self) {
         // Emit the initializer as a l-value.
         source = emitL(expr: initializer, withCapability: capability, into: &module)
       } else {
