@@ -25,7 +25,7 @@ public struct CXXTranspiler {
   /// Emits the given top-level declaration into `module`.
   public mutating func emit(topLevel decl: AnyDeclID, into module: inout CXXModule) {
     switch decl.kind {
-    case .functionDecl:
+    case FunctionDecl.self:
       emit(function: NodeID(rawValue: decl.rawValue), into: &module)
     default:
       unreachable("unexpected declaration")

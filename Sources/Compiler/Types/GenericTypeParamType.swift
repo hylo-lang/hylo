@@ -20,7 +20,7 @@ public struct GenericTypeParamType: TypeProtocol, Hashable {
     switch decl.kind {
     case AssociatedTypeDecl.self, GenericTypeParamDecl.self:
       name = Incidental((ast[decl] as! SingleEntityDecl).name)
-    case .traitDecl:
+    case TraitDecl.self:
       name = Incidental("Self")
     default:
       preconditionFailure("invalid declaration")

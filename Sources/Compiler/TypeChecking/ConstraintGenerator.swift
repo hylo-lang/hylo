@@ -61,49 +61,49 @@ struct ConstraintGenerator {
 
   private mutating func visit(expr: AnyExprID, using checker: inout TypeChecker) {
     switch expr.kind {
-    case .assignExpr:
+    case AssignExpr.self:
       return visit(assign: NodeID(rawValue: expr.rawValue), using: &checker)
-    case .asyncExpr:
+    case AsyncExpr.self:
       return visit(async: NodeID(rawValue: expr.rawValue), using: &checker)
-    case .awaitExpr:
+    case AwaitExpr.self:
       return visit(await: NodeID(rawValue: expr.rawValue), using: &checker)
-    case .booleanLiteralExpr:
+    case BooleanLiteralExpr.self:
       return visit(booleanLiteral: NodeID(rawValue: expr.rawValue), using: &checker)
-    case .castExpr:
+    case CastExpr.self:
       return visit(cast: NodeID(rawValue: expr.rawValue), using: &checker)
-    case .condExpr:
+    case CondExpr.self:
       return visit(cond: NodeID(rawValue: expr.rawValue), using: &checker)
-    case .floatLiteralExpr:
+    case FloatLiteralExpr.self:
       return visit(floatLiteral: NodeID(rawValue: expr.rawValue), using: &checker)
-    case .funCallExpr:
+    case FunCallExpr.self:
       return visit(funCall: NodeID(rawValue: expr.rawValue), using: &checker)
-    case .inoutExpr:
+    case InoutExpr.self:
       return visit(`inout`: NodeID(rawValue: expr.rawValue), using: &checker)
-    case .integerLiteralExpr:
+    case IntegerLiteralExpr.self:
       return visit(integerLiteral: NodeID(rawValue: expr.rawValue), using: &checker)
-    case .lambdaExpr:
+    case LambdaExpr.self:
       return visit(lambda: NodeID(rawValue: expr.rawValue), using: &checker)
-    case .mapLiteralExpr:
+    case MapLiteralExpr.self:
       return visit(mapLiteral: NodeID(rawValue: expr.rawValue), using: &checker)
-    case .matchExpr:
+    case MatchExpr.self:
       return visit(match: NodeID(rawValue: expr.rawValue), using: &checker)
-    case .nameExpr:
+    case NameExpr.self:
       return visit(name: NodeID(rawValue: expr.rawValue), using: &checker)
-    case .nilExpr:
+    case NilExpr.self:
       return visit(nil: NodeID(rawValue: expr.rawValue), using: &checker)
-    case .sequenceExpr:
+    case SequenceExpr.self:
       return visit(sequence: NodeID(rawValue: expr.rawValue), using: &checker)
-    case .storedProjectionExpr:
+    case StoredProjectionExpr.self:
       return visit(storedProjection: NodeID(rawValue: expr.rawValue), using: &checker)
-    case .stringLiteralExpr:
+    case StringLiteralExpr.self:
       return visit(stringLiteral: NodeID(rawValue: expr.rawValue), using: &checker)
-    case .subscriptCallExpr:
+    case SubscriptCallExpr.self:
       return visit(subscriptCall: NodeID(rawValue: expr.rawValue), using: &checker)
-    case .tupleExpr:
+    case TupleExpr.self:
       return visit(tuple: NodeID(rawValue: expr.rawValue), using: &checker)
-    case .tupleMemberExpr:
+    case TupleMemberExpr.self:
       return visit(tupleMember: NodeID(rawValue: expr.rawValue), using: &checker)
-    case .unicodeScalarLiteralExpr:
+    case UnicodeScalarLiteralExpr.self:
       return visit(unicodeScalarLiteral: NodeID(rawValue: expr.rawValue), using: &checker)
     default:
       unreachable()
@@ -307,7 +307,7 @@ struct ConstraintGenerator {
        d.kind.value is TypeDecl.Type
     {
       switch d.kind {
-      case .productTypeDecl:
+      case ProductTypeDecl.self:
         let initializers = checker.resolve(
           stem: "init",
           labels: [],
@@ -359,12 +359,12 @@ struct ConstraintGenerator {
           fatalError("not implemented")
         }
 
-      case .traitDecl:
+        case TraitDecl.self:
         let trait = TraitType(decl: NodeID(d)!, ast: checker.program.ast)
         diagnostics.append(.diagnose(cannotConstructTrait: trait, at: checker.program.ast.ranges[callee]))
         assignToError(id)
 
-      case .typeAliasDecl:
+        case TypeAliasDecl.self:
         fatalError("not implemented")
 
       default:

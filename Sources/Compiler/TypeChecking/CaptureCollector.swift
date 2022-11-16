@@ -29,11 +29,11 @@ struct CaptureCollector {
   mutating func freeNames<T: Decl>(in id: NodeID<T>) -> FreeSet {
     var captures: FreeSet = [:]
     switch id.kind {
-    case .functionDecl:
+    case FunctionDecl.self:
       let d = NodeID<FunctionDecl>(rawValue: id.rawValue)
       collectCaptures(ofFunction: d, includingExplicitCaptures: true, into: &captures)
 
-    case .subscriptDecl:
+    case SubscriptDecl.self:
       fatalError("not implemented")
 
     default:
@@ -71,9 +71,9 @@ struct CaptureCollector {
     into captures: inout FreeSet
   ) {
     switch id.kind {
-    case .bindingDecl:
+    case BindingDecl.self:
       collectCaptures(ofBinding: NodeID(rawValue: id.rawValue), into: &captures)
-    case .functionDecl:
+    case FunctionDecl.self:
       collectCaptures(
         ofFunction: NodeID(rawValue: id.rawValue),
         includingExplicitCaptures: false,
@@ -182,61 +182,61 @@ struct CaptureCollector {
     inMutatingContext isContextMutating: Bool
   ) {
     switch id.kind {
-    case .assignExpr:
+    case AssignExpr.self:
       collectCaptures(
         ofAssign: NodeID(rawValue: id.rawValue),
         into: &captures,
         inMutatingContext: isContextMutating)
 
-    case .castExpr:
+    case CastExpr.self:
       collectCaptures(
         ofCast: NodeID(rawValue: id.rawValue),
         into: &captures,
         inMutatingContext: isContextMutating)
 
-    case .condExpr:
+    case CondExpr.self:
       collectCaptures(
         ofCond: NodeID(rawValue: id.rawValue),
         into: &captures,
         inMutatingContext: isContextMutating)
 
-    case .funCallExpr:
+    case FunCallExpr.self:
       collectCaptures(
         ofFunCall: NodeID(rawValue: id.rawValue),
         into: &captures,
         inMutatingContext: isContextMutating)
 
-    case .inoutExpr:
+    case InoutExpr.self:
       collectCaptures(
         ofInout: NodeID(rawValue: id.rawValue),
         into: &captures,
         inMutatingContext: isContextMutating)
 
-    case .nameExpr:
+    case NameExpr.self:
       collectCaptures(
         ofName: NodeID(rawValue: id.rawValue),
         into: &captures,
         inMutatingContext: isContextMutating)
 
-    case .sequenceExpr:
+    case SequenceExpr.self:
       collectCaptures(
         ofSequence: NodeID(rawValue: id.rawValue),
         into: &captures,
         inMutatingContext: isContextMutating)
 
-    case .tupleExpr:
+    case TupleExpr.self:
       collectCaptures(
         ofTuple: NodeID(rawValue: id.rawValue),
         into: &captures,
         inMutatingContext: isContextMutating)
 
-    case .tupleMemberExpr:
+    case TupleMemberExpr.self:
       collectCaptures(
         ofTupleMember: NodeID(rawValue: id.rawValue),
         into: &captures,
         inMutatingContext: isContextMutating)
 
-    case .booleanLiteralExpr,
+    case BooleanLiteralExpr.self,
          .unicodeScalarLiteralExpr,
          .errorExpr,
          .floatLiteralExpr,
@@ -419,16 +419,16 @@ struct CaptureCollector {
     into captures: inout FreeSet
   ) {
     switch id.kind {
-    case .bindingPattern:
+    case BindingPattern.self:
       collectCaptures(ofBindingPattern: NodeID(rawValue: id.rawValue), into: &captures)
-    case .namePattern:
+    case NamePattern.self:
       collectCaptures(ofNamePattern: NodeID(rawValue: id.rawValue), into: &captures)
-    case .tuplePattern:
+    case TuplePattern.self:
       collectCaptures(ofTuplePattern: NodeID(rawValue: id.rawValue), into: &captures)
-    case .exprPattern:
+    case ExprPattern.self:
       let expr = ast[NodeID<ExprPattern>(rawValue: id.rawValue)].expr
       collectCaptures(ofExpr: expr, into: &captures, inMutatingContext: false)
-    case .wildcardPattern:
+    case WildcardPattern.self:
       break
     default:
       unreachable("unexpected pattern")
@@ -468,23 +468,23 @@ struct CaptureCollector {
     into captures: inout FreeSet
   ) {
     switch id.kind {
-    case .braceStmt:
+    case BraceStmt.self:
       collectCaptures(ofBrace: NodeID(rawValue: id.rawValue), into: &captures)
-    case .doWhileStmt:
+    case DoWhileStmt.self:
       collectCaptures(ofDoWhile: NodeID(rawValue: id.rawValue), into: &captures)
-    case .returnStmt:
+    case ReturnStmt.self:
       collectCaptures(ofReturn: NodeID(rawValue: id.rawValue), into: &captures)
-    case .whileStmt:
+    case WhileStmt.self:
       collectCaptures(ofWhile: NodeID(rawValue: id.rawValue), into: &captures)
-    case .yieldStmt:
+    case YieldStmt.self:
       collectCaptures(ofYield: NodeID(rawValue: id.rawValue), into: &captures)
-    case .declStmt:
+    case DeclStmt.self:
       let decl = ast[NodeID<DeclStmt>(rawValue: id.rawValue)].decl
       collectCaptures(ofDecl: decl, into: &captures)
-    case .exprStmt:
+    case ExprStmt.self:
       let expr = ast[NodeID<ExprStmt>(rawValue: id.rawValue)].expr
       collectCaptures(ofExpr: expr, into: &captures, inMutatingContext: false)
-    case .breakStmt, .continueStmt:
+    case BreakStmt.self, ContinueStmt.self:
       break
     default:
       unreachable("unexpected statement")
@@ -559,9 +559,9 @@ struct CaptureCollector {
     switch id.kind {
     case NameTypeExpr.self:
       collectCaptures(ofNameType: NodeID(rawValue: id.rawValue), into: &captures)
-    case .parameterTypeExpr:
+    case ParameterTypeExpr.self:
       collectCaptures(ofParameter: NodeID(rawValue: id.rawValue), into: &captures)
-    case .tupleTypeExpr:
+    case TupleTypeExpr.self:
       collectCaptures(ofTupleType: NodeID(rawValue: id.rawValue), into: &captures)
     default:
       unreachable("unexpected type expression")
