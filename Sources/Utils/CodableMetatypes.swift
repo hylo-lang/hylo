@@ -1,35 +1,42 @@
 import Foundation
 
+/// A marker by which we can identify instances of `CodableMetatypeWrapper<T>`.
 private protocol CodableMetatypeWrapperProtocol: AnyObject {
-  static var wrappedType: Any.Type { get }
+  static var wrappedType: MetatypeCodable.Type { get }
 }
 
-private class CodableMetatypeWrapper<T>: CodableMetatypeWrapperProtocol {
-  static var wrappedType: Any.Type { T.self }
+/// A class type whose name gets serialized as a representative of `T.self`.
+private class CodableMetatypeWrapper<T: MetatypeCodable>: CodableMetatypeWrapperProtocol {
+  /// The metatype represented by `Self`
+  static var wrappedType: MetatypeCodable.Type { T.self }
 }
 
-public protocol MetatypeCodable {
-
-}
+/// A category of types whose metatype values can be (de-)serialized.
+public protocol MetatypeCodable {}
 
 extension MetatypeCodable {
-  static var wrapperName: String { NSStringFromClass(CodableMetatypeWrapper<Self>.self) }
+  /// The reconstitutable name of CodableMetatypeWrapper<Self>.
+  fileprivate static var wrapperName: String {
+    NSStringFromClass(CodableMetatypeWrapper<Self>.self)
+  }
 }
 
-public func encode(_ t: MetatypeCodable.Type, to encoder: Encoder) throws {
-  var c = encoder.singleValueContainer()
+/// Serializes `t` into `deistnation`.
+public func encode(_ t: MetatypeCodable.Type, to destination: Encoder) throws {
+  var c = destination.singleValueContainer()
   try c.encode(t.wrapperName)
 }
 
-public func decodeMetatype(from decoder: Decoder) throws -> Any.Type {
-  let metatypeWrapperName = try decoder.singleValueContainer().decode(String.self)
+/// Deserializes the metatype of any MetatypeCodable type from `source`.
+public func decodeMetatype(from source: Decoder) throws -> MetatypeCodable.Type {
+  let metatypeWrapperName = try source.singleValueContainer().decode(String.self)
   let metatypeWrapper: Optional = NSClassFromString(metatypeWrapperName)
 
   guard let wrapperClass = metatypeWrapper as? CodableMetatypeWrapperProtocol.Type else {
     throw DecodingError.typeMismatch(
-      Any.Type.self,
+      MetatypeCodable.self,
       .init(
-        codingPath: decoder.codingPath,
+        codingPath: source.codingPath,
         debugDescription:
           "\(metatypeWrapper.map(String.init(describing:)) ?? "nil") is not a CodableMetatypeWrapper.",
         underlyingError: nil))
