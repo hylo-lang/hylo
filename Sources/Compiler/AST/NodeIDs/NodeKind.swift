@@ -71,6 +71,10 @@ public struct NodeKind: Codable, Equatable, Hashable {
     return l != r.value
   }
 
+  static func ~=<N: Node>(pattern: N.Type, value: Self) -> Bool {
+    value == NodeKind(N.self)
+  }
+
   // MARK: Declarations
 
   public static let associatedTypeDecl = NodeKind(AssociatedTypeDecl.self)

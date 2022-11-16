@@ -1103,10 +1103,10 @@ public enum Parser {
 
       // Catch illegal method declarations.
       switch decl.kind {
-      case .functionDecl:
+      case FunctionDecl.self:
         return NodeID<FunctionDecl>(rawValue: decl.rawValue)
 
-      case .methodDecl:
+      case MethodDecl.self:
         let d = NodeID<MethodDecl>(rawValue: decl.rawValue)
         throw DiagnosedError(.error(
           "method bundle declaration is not allowed here",

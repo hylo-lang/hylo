@@ -37,13 +37,13 @@ public struct Emitter {
   /// Emits the given top-level declaration into `module`.
   public mutating func emit(topLevel decl: AnyDeclID, into module: inout Module) {
     switch decl.kind {
-    case .functionDecl:
+    case FunctionDecl.self:
       emit(function: NodeID(rawValue: decl.rawValue), into: &module)
-    case .operatorDecl:
+    case OperatorDecl.self:
       break
-    case .productTypeDecl:
+    case ProductTypeDecl.self:
       emit(product: NodeID(rawValue: decl.rawValue), into: &module)
-    case .traitDecl:
+    case TraitDecl.self:
       break
     default:
       unreachable("unexpected declaration")
@@ -129,15 +129,15 @@ public struct Emitter {
     for member in program.ast[decl].members {
       // Emit the member functions and subscripts of the type declaration.
       switch member.kind {
-      case .functionDecl:
+      case FunctionDecl.self:
         emit(function: NodeID(rawValue: member.rawValue), into: &module)
 
-      case .initializerDecl:
+      case InitializerDecl.self:
         let d = NodeID<InitializerDecl>(rawValue: member.rawValue)
         if program.ast[d].introducer.value == .memberwiseInit { continue }
         fatalError("not implemented")
 
-      case .subscriptDecl:
+      case SubscriptDecl.self:
         emit(subscript: NodeID(rawValue: member.rawValue), into: &module)
 
       default:
@@ -269,13 +269,13 @@ public struct Emitter {
   /// Emits the given statement into `module` at the current insertion point.
   private mutating func emit<T: StmtID>(stmt: T, into module: inout Module) {
     switch stmt.kind {
-    case .braceStmt:
+    case BraceStmt.self:
       emit(brace: NodeID(rawValue: stmt.rawValue), into: &module)
-    case .declStmt:
+    case DeclStmt.self:
       emit(declStmt: NodeID(rawValue: stmt.rawValue), into: &module)
-    case .exprStmt:
+    case ExprStmt.self:
       emit(exprStmt: NodeID(rawValue: stmt.rawValue), into: &module)
-    case .returnStmt:
+    case ReturnStmt.self:
       emit(returnStmt: NodeID(rawValue: stmt.rawValue), into: &module)
     default:
       unreachable("unexpected statement")
@@ -293,7 +293,7 @@ public struct Emitter {
 
   private mutating func emit(declStmt stmt: NodeID<DeclStmt>, into module: inout Module) {
     switch program.ast[stmt].decl.kind {
-    case .bindingDecl:
+    case BindingDecl.self:
       emit(localBinding: NodeID(rawValue: program.ast[stmt].decl.rawValue), into: &module)
     default:
       unreachable("unexpected declaration")
@@ -331,19 +331,19 @@ public struct Emitter {
     }
 
     switch expr.kind {
-    case .assignExpr:
+    case AssignExpr.self:
       return emitR(assign: NodeID(rawValue: expr.rawValue), into: &module)
-    case .booleanLiteralExpr:
+    case BooleanLiteralExpr.self:
       return emitR(booleanLiteral: NodeID(rawValue: expr.rawValue), into: &module)
-    case .condExpr:
+    case CondExpr.self:
       return emitR(cond: NodeID(rawValue: expr.rawValue), into: &module)
-    case .funCallExpr:
+    case FunCallExpr.self:
       return emitR(funCall: NodeID(rawValue: expr.rawValue), into: &module)
-    case .integerLiteralExpr:
+    case IntegerLiteralExpr.self:
       return emitR(integerLiteral: NodeID(rawValue: expr.rawValue), into: &module)
-    case .nameExpr:
+    case NameExpr.self:
       return emitR(name: NodeID(rawValue: expr.rawValue), into: &module)
-    case .sequenceExpr:
+    case SequenceExpr.self:
       return emitR(sequence: NodeID(rawValue: expr.rawValue), into: &module)
     default:
       unreachable("unexpected expression")
@@ -509,21 +509,21 @@ public struct Emitter {
 
     if let calleeID = NodeID<NameExpr>(program.ast[expr].callee) {
       switch program.referredDecls[calleeID] {
-      case .direct(let calleeDecl) where calleeDecl.kind == .builtinDecl:
+      case .direct(let calleeDecl) where calleeDecl.kind == BuiltinDecl.self:
         // Callee refers to a built-in function.
         assert(calleeType.environment == .void)
         callee = .constant(.builtin(BuiltinFunctionRef(
           name: program.ast[calleeID].name.value.stem,
           type: .address(.lambda(calleeType)))))
 
-      case .direct(let calleeDecl) where calleeDecl.kind == .functionDecl:
+      case .direct(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
         // Callee is a direct reference to a function or initializer declaration.
         // TODO: handle captures
         callee = .constant(.function(FunctionRef(
           name: DeclLocator(identifying: calleeDecl, in: program).mangled,
           type: .address(.lambda(calleeType)))))
 
-      case .direct(let calleeDecl) where calleeDecl.kind == .initializerDecl:
+      case .direct(let calleeDecl) where calleeDecl.kind == InitializerDecl.self:
         let d = NodeID<InitializerDecl>(rawValue: calleeDecl.rawValue)
         switch program.ast[d].introducer.value {
         case .`init`:
@@ -538,7 +538,7 @@ public struct Emitter {
             at: insertionPoint!)[0]
         }
 
-      case .member(let calleeDecl) where calleeDecl.kind == .functionDecl:
+      case .member(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
         // Callee is a member reference to a function or method.
         let receiverType = calleeType.captures[0].type
 
@@ -694,7 +694,7 @@ public struct Emitter {
       // Create the callee's value.
       let calleeOperand: Operand
       switch program.referredDecls[callee.expr] {
-      case .member(let calleeDecl) where calleeDecl.kind == .functionDecl:
+      case .member(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
         calleeOperand = Operand.constant(.function(FunctionRef(
           name: DeclLocator(identifying: calleeDecl, in: program).mangled,
           type: .address(.lambda(calleeType)))))
@@ -764,21 +764,21 @@ public struct Emitter {
     // it is interpreted as a direct function reference.
     if let nameExpr = NodeID<NameExpr>(expr) {
       switch program.referredDecls[nameExpr] {
-      case .direct(let calleeDecl) where calleeDecl.kind == .builtinDecl:
+      case .direct(let calleeDecl) where calleeDecl.kind == BuiltinDecl.self:
         // Callee refers to a built-in function.
         assert(calleeType.environment == .void)
         return .constant(.builtin(BuiltinFunctionRef(
           name: program.ast[nameExpr].name.value.stem,
           type: .address(.lambda(calleeType)))))
 
-      case .direct(let calleeDecl) where calleeDecl.kind == .functionDecl:
+      case .direct(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
         // Callee is a direct reference to a function or initializer declaration.
         // TODO: handle captures
         return .constant(.function(FunctionRef(
           name: DeclLocator(identifying: calleeDecl, in: program).mangled,
           type: .address(.lambda(calleeType)))))
 
-      case .direct(let calleeDecl) where calleeDecl.kind == .initializerDecl:
+      case .direct(let calleeDecl) where calleeDecl.kind == InitializerDecl.self:
         let d = NodeID<InitializerDecl>(rawValue: nameExpr.rawValue)
         switch program.ast[d].introducer.value {
         case .`init`:
@@ -790,7 +790,7 @@ public struct Emitter {
           fatalError("not implemented")
         }
 
-      case .member(let calleeDecl) where calleeDecl.kind == .functionDecl:
+      case .member(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
         // Callee is a member reference to a function or method.
         let receiverType = calleeType.captures[0].type
 
@@ -863,11 +863,11 @@ public struct Emitter {
     into module: inout Module
   ) -> Operand {
     switch expr.kind {
-    case .nameExpr:
+    case NameExpr.self:
       return emitL(
         name: NodeID(rawValue: expr.rawValue), withCapability: capability, into: &module)
 
-    case .subscriptCallExpr:
+    case SubscriptCallExpr.self:
       fatalError("not implemented")
 
     default:
@@ -921,7 +921,7 @@ public struct Emitter {
 
       // Emit the bound member.
       switch declID.kind {
-      case .varDecl:
+      case VarDecl.self:
         let declID = NodeID<VarDecl>(rawValue: declID.rawValue)
         let layout = program.abstractLayout(of: module.type(of: receiver).astType)
         let memberIndex = layout.storedPropertiesIndices[program.ast[declID].name]!
