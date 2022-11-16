@@ -1,8 +1,6 @@
 /// A function declaration.
 public struct FunctionDecl: GenericDecl, GenericScope {
 
-  public static let kind = NodeKind.functionDecl
-
   public enum Body: Codable {
 
     /// An expression body.

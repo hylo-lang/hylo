@@ -123,7 +123,7 @@ extension Program {
   public func isRequirement<T: DeclID>(_ decl: T) -> Bool {
     switch decl.kind {
     case FunctionDecl.self, InitializerDecl.self, MethodDecl.self, SubscriptDecl.self:
-      return declToScope[decl]!.kind == .traitDecl
+      return declToScope[decl]!.kind == TraitDecl.self
     case MethodImplDecl.self:
       return isRequirement(NodeID<MethodDecl>(rawValue: declToScope[decl]!.rawValue))
     case SubscriptImplDecl.self:

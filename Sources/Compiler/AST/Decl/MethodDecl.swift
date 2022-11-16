@@ -1,8 +1,6 @@
 /// A method declaration.
 public struct MethodDecl: GenericDecl, GenericScope {
 
-  public static let kind = NodeKind.methodDecl
-
   /// The source range of the `fun` introducer, if any.
   public let introducerRange: SourceRange?
 

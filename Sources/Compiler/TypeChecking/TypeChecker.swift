@@ -165,7 +165,7 @@ public struct TypeChecker {
     }
 
     // Collect traits declared in conformance declarations.
-    for i in extendingDecls(of: type, exposedTo: scope) where i.kind == .conformanceDecl {
+    for i in extendingDecls(of: type, exposedTo: scope) where i.kind == ConformanceDecl.self {
       let decl = program.ast[NodeID<ConformanceDecl>(rawValue: i.rawValue)]
       let parentScope = program.declToScope[i]!
       guard let traits = realize(conformances: decl.conformances, inScope: parentScope)
@@ -635,7 +635,7 @@ public struct TypeChecker {
     let source = NodeID<TopLevelDeclSet>(program.declToScope[id]!)!
 
     // Look for duplicate operator declaration.
-    for decl in program.ast[source].decls where decl.kind == .operatorDecl {
+    for decl in program.ast[source].decls where decl.kind == OperatorDecl.self {
       let oper = NodeID<OperatorDecl>(rawValue: decl.rawValue)
       if oper != id,
          program.ast[oper].notation.value == program.ast[id].notation.value,
@@ -1820,7 +1820,7 @@ public struct TypeChecker {
       default:
         // Associated type and value declarations are not inherited by conformance.
         matches.formUnion(newMatches.filter({
-          $0.kind != .associatedTypeDecl && $0.kind != .associatedValueDecl
+          $0.kind != AssociatedTypeDecl.self && $0.kind != AssociatedValueDecl.self
         }))
       }
     }
@@ -1853,7 +1853,7 @@ public struct TypeChecker {
     notation: OperatorNotation,
     in module: NodeID<ModuleDecl>
   ) -> NodeID<OperatorDecl>? {
-    for decl in program.ast.topLevelDecls(module) where decl.kind == .operatorDecl {
+    for decl in program.ast.topLevelDecls(module) where decl.kind == OperatorDecl.self {
       let oper = NodeID<OperatorDecl>(rawValue: decl.rawValue)
       if (
         program.ast[oper].notation.value == notation
@@ -1880,7 +1880,7 @@ public struct TypeChecker {
     func filter<S: Sequence>(this: inout TypeChecker, decls: S, inScope scope: AnyScopeID)
     where S.Element == AnyDeclID
     {
-      for i in decls where i.kind == .conformanceDecl || i.kind == .extensionDecl {
+      for i in decls where i.kind == ConformanceDecl.self || i.kind == ExtensionDecl.self {
         // Skip extending declarations that are being bound.
         guard this.extensionsUnderBinding.insert(i).inserted else { continue }
         defer { this.extensionsUnderBinding.remove(i) }
@@ -1936,23 +1936,23 @@ public struct TypeChecker {
     for id in decls {
       switch id.kind {
       case AssociatedValueDecl.self,
-           .associatedTypeDecl,
-           .genericValueParamDecl,
-           .genericTypeParamDecl,
-           .namespaceDecl,
-           .parameterDecl,
-           .productTypeDecl,
-           .traitDecl,
-           .typeAliasDecl,
-           .varDecl:
+           AssociatedTypeDecl.self,
+           GenericValueParamDecl.self,
+           GenericTypeParamDecl.self,
+           NamespaceDecl.self,
+           ParameterDecl.self,
+           ProductTypeDecl.self,
+           TraitDecl.self,
+           TypeAliasDecl.self,
+           VarDecl.self:
         let name = (program.ast[id] as! SingleEntityDecl).name
         table[name, default: []].insert(id)
 
       case BindingDecl.self,
-           .conformanceDecl,
-           .methodImplDecl,
-           .operatorDecl,
-           .subscriptImplDecl:
+           ConformanceDecl.self,
+           MethodImplDecl.self,
+           OperatorDecl.self,
+           SubscriptImplDecl.self:
         // Note: operator declarations are not considered during standard name lookup.
         break
 
@@ -2175,7 +2175,7 @@ public struct TypeChecker {
           return nil
         }
 
-        if match.kind == .associatedTypeDecl {
+        if match.kind == AssociatedTypeDecl.self {
           let decl = NodeID<AssociatedTypeDecl>(rawValue: match.rawValue)
           switch domain {
           case .associatedType, .conformanceLens, .genericTypeParam:
@@ -2232,7 +2232,7 @@ public struct TypeChecker {
           return nil
         }
 
-        if match.kind == .associatedTypeDecl {
+        if match.kind == AssociatedTypeDecl.self {
           // Assume `Self` denotes the implicit generic parameter of a trait declaration, since
           // associated declarations cannot be looked up unqualified outside the scope of a trait
           // and its extensions.
@@ -2354,7 +2354,7 @@ public struct TypeChecker {
       return realize(bindingDecl: NodeID(rawValue: id.rawValue))
 
     case ConformanceDecl.self,
-         .extensionDecl:
+         ExtensionDecl.self:
       return _realize(decl: id, { (this, id) in
         let decl = this.program.ast[id] as! TypeExtendingDecl
         return this.realize(decl.subject, inScope: this.program.declToScope[id]!)
@@ -3024,7 +3024,7 @@ public struct TypeChecker {
       case .genericTypeParam(let base):
         // Identify the generic environment that introduces the parameter.
         let origin: AnyScopeID
-        if base.decl.kind == .traitDecl {
+        if base.decl.kind == TraitDecl.self {
           origin = AnyScopeID(base.decl)!
         } else {
           origin = program.declToScope[base.decl]!

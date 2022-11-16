@@ -111,7 +111,7 @@ public struct AST: Codable {
   public func coreType(named name: String) -> ProductType? {
     precondition(isCoreModuleLoaded, "Core library is not loaded")
 
-    for id in topLevelDecls(corelib!) where id.kind == .productTypeDecl {
+    for id in topLevelDecls(corelib!) where id.kind == ProductTypeDecl.self {
       let id = NodeID<ProductTypeDecl>(id)!
       if self[id].name == name {
         return ProductType(decl: id, ast: self)
@@ -127,7 +127,7 @@ public struct AST: Codable {
   public func coreTrait(named name: String) -> TraitType? {
     precondition(isCoreModuleLoaded, "Core library is not loaded")
 
-    for id in topLevelDecls(corelib!) where id.kind == .traitDecl {
+    for id in topLevelDecls(corelib!) where id.kind == TraitDecl.self {
       let id = NodeID<TraitDecl>(rawValue: id.rawValue)
       if self[id].name == name {
         return TraitType(decl: id, ast: self)
