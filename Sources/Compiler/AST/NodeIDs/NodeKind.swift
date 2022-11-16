@@ -71,13 +71,7 @@ public struct NodeKind: Codable, Equatable, Hashable {
     return l != r.value
   }
 
-//  public static let lexicalScope = NodeKind(LexicalScope.self)
-//  public static let genericScope = NodeKind(GenericScope.self)
-
   // MARK: Declarations
-
-//  public static let decl = NodeKind(Decl.self)
-  //public static let typeDecl = NodeKind(TypeDecl.self)
 
   public static let associatedTypeDecl = NodeKind(AssociatedTypeDecl.self)
   public static let associatedValueDecl = NodeKind(AssociatedValueDecl.self)
@@ -104,8 +98,6 @@ public struct NodeKind: Codable, Equatable, Hashable {
   public static let varDecl = NodeKind(VarDecl.self)
 
   // MARK: Value expressions
-
-  //public static let expr = NodeKind(Expr.self)
 
   public static let assignExpr = NodeKind(AssignExpr.self)
   public static let asyncExpr = NodeKind(AsyncExpr.self)
@@ -134,8 +126,6 @@ public struct NodeKind: Codable, Equatable, Hashable {
 
   // MARK: Patterns
 
-  //public static let pattern = NodeKind(Pattern.self)
-
   public static let bindingPattern = NodeKind(BindingPattern.self)
   public static let exprPattern = NodeKind(ExprPattern.self)
   public static let namePattern = NodeKind(NamePattern.self)
@@ -143,8 +133,6 @@ public struct NodeKind: Codable, Equatable, Hashable {
   public static let wildcardPattern = NodeKind(WildcardPattern.self)
 
   // MARK: Statements
-
-  // public static let stmt = NodeKind(Stmt.self)
 
   public static let braceStmt = NodeKind(BraceStmt.self)
   public static let breakStmt = NodeKind(BreakStmt.self)
@@ -162,7 +150,6 @@ public struct NodeKind: Codable, Equatable, Hashable {
   // MARK: Type expressions
 
   /// The kind of type expression nodes.
-  // public static let typeExpr = NodeKind(TypeExpr.self)
 
   public static let asyncTypeExpr = NodeKind(AsyncTypeExpr.self)
   public static let conformanceLensTypeExpr = NodeKind(ConformanceLensTypeExpr.self)
