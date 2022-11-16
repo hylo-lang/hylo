@@ -25,9 +25,9 @@ jobs:
       run: swift package resolve
     - name: Build (Debug)
       run: swift build -v -c debug
-    - name: Build (Release)
-      run: swift build -v -c release
     - name: Test (Debug)
       run: swift test -v -c debug
+    - name: Build (Release)
+      run: swift build -v -c release
     - name: Test (Release)
       run: swift test -v -c release -Xswiftc -enable-testing
