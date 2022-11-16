@@ -94,7 +94,7 @@ public struct BitPattern: Hashable {
   ///
   /// - Returns: A bit pattern or `nil` if `string` contains non-decimal characters.
   public init?<T: Collection>(fromDecimal string: T)
-    where T.Element == Character, T.SubSequence == Substring
+    where T.SubSequence == Substring
   {
     // Transform the string into an array of digits, ignoring leading zeroes.
     var input: [UInt8] = []
@@ -149,7 +149,7 @@ public struct BitPattern: Hashable {
   ///
   /// - Returns: A bit pattern or `nil` if `string` contains non-hexadecimal characters.
   public init?<T: Collection>(fromHexadecimal string: T)
-    where T.Element == Character, T.SubSequence == Substring
+    where T.SubSequence == Substring
   {
     // Ignore leading zeros.
     var input = string.drop(while: { $0 == "0" })
