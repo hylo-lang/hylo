@@ -1,6 +1,5 @@
 /*! cpp
-    void myFun(int x);
-    int main() {}
+    void myFun(int x)
  */
 public fun myFun(_ x: Int) {
 }

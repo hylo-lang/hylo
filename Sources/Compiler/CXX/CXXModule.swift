@@ -12,6 +12,10 @@ public struct CXXModule {
   /// The C++ functions declared in `self`.
   public private(set) var cxxFunctions: [CXXFunctionDecl] = []
 
+  /// The C++ function bodied for this module.
+  /// The size of this array is equal to the size of `cxxFunctions` array
+  public private(set) var cxxFunctionBodies: [CXXRepresentable?] = []
+
   /// A table mapping val function declarations to the ID of the corresponding C++ declaration.
   private var valToCXXFunction: [NodeID<FunctionDecl>: Int] = [:]
 
@@ -80,10 +84,20 @@ public struct CXXModule {
       identifier: identifier,
       output: output,
       parameters: cxxParams))
-
+    // Associate an empty body to it.
+    cxxFunctionBodies.append(nil)
+    
     // Update the cache and return the ID of the newly created function.
     valToCXXFunction[valFunctionDecl] = cxxFunctionDecl
     return cxxFunctionDecl
+  }
+
+  /// Set the body for the function with the given ID.
+  public mutating func setFunctionBody(
+    _ body: CXXRepresentable?,
+    forID cxxFunID: CXXFunctionDecl.ID
+  ) {
+    cxxFunctionBodies[cxxFunID] = body
   }
 
   // MARK: Serialization
@@ -106,8 +120,8 @@ public struct CXXModule {
 
     // Emit top-level functions.
     for decl in cxxFunctions {
-      decl.writeForwardDeclaration(into: &output)
-      output.write("\n")
+      decl.writeSignature(into: &output)
+      output.write(";\n")
     }
 
     output.write("\n}\n\n")  // module namespace
@@ -128,9 +142,13 @@ public struct CXXModule {
     output.write("namespace \(name) {\n\n")
 
     // Emit top-level functions.
-    for decl in cxxFunctions {
-      decl.writeDefinition(into: &output)
-      output.write("\n")
+    for (i, decl) in cxxFunctions.enumerated() {
+      if let body = cxxFunctionBodies[i] {
+        decl.writeSignature(into: &output)
+        output.write(" {\n")
+        body.writeCode(into: &output)
+        output.write("}\n")
+      }
     }
 
     output.write("\n}\n") // module namespace

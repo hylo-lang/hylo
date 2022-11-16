@@ -1,6 +1,6 @@
 /*! cpp
     int main();
-    int main() {}
+    int main() {
  */
 public fun main() {
 }

@@ -1,6 +1,6 @@
 /*! cpp
     void returns_void();
-    void returns_void() {}
+    void returns_void() {
  */
 public fun returns_void() {
 }
