@@ -1,5 +1,7 @@
+import Utils
+
 /// A protocol describing the API of an AST node.
-public protocol Node: Codable {
+public protocol Node: Codable, MetatypeCodable {
 
   /// Returns `.success` if `self` is well-formed given the containing `ast`. Otherwise, returns
   /// `.failure` with the diagnostics of the broken invariants.

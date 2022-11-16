@@ -1,46 +1,24 @@
-import Foundation
-
-protocol CodableMetatypeWrapperProtocol: AnyObject {
-  static var wrappedType: Codable.Type { get }
-}
-
-private class CodableMetatypeWrapper<T: Codable>: CodableMetatypeWrapperProtocol {
-  static var wrappedType: Codable.Type { T.self }
-}
-extension Decodable where Self: Encodable {
-  static var typeKey: String { NSStringFromClass(CodableMetatypeWrapper<Self>.self) }
-}
+import Utils
 
 public struct NodeKind: Codable, Equatable, Hashable {
   let value: Node.Type
 
-  init(_ value: Node.Type) {
+  public init(_ value: Node.Type) {
     self.value = value
   }
   
   public func encode(to encoder: Encoder) throws {
-    var c = encoder.singleValueContainer()
-    try c.encode(value.typeKey)
+    try Utils.encode(value, to: encoder)
   }
   
   public init(from decoder: Decoder) throws {
-    let typeKey = try decoder.singleValueContainer().decode(String.self)
-    
-    guard let wrapperClass = NSClassFromString(typeKey) as? CodableMetatypeWrapperProtocol.Type else {
+    let t = try decodeMetatype(from: decoder)
+    guard let nodeType = t as? Node.Type else {
       throw DecodingError.typeMismatch(
         NodeKind.self,
         .init(
           codingPath: decoder.codingPath,
-          debugDescription: "Result of NSClassFromString was nil or was not a CodableMetatypeWrapperProtocol.",
-          underlyingError: nil))
-    }
-    
-    guard let nodeType = wrapperClass.wrappedType as? Node.Type else {
-      throw DecodingError.typeMismatch(
-        NodeKind.self,
-        .init(
-          codingPath: decoder.codingPath,
-          debugDescription: "\(wrapperClass.wrappedType) is not a Node type.",
+          debugDescription: "\(t) is not a Node type.",
           underlyingError: nil))
       
     }

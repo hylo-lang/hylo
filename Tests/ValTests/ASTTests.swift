@@ -52,7 +52,7 @@ final class ASTTests: XCTestCase {
     let deserialized = try decoder.decode(AST.self, from: serialized)
 
     // Deserialized AST should containt a function `foo`.
-    XCTAssertEqual(deserialized[source].decls.first?.kind, .functionDecl)
+    XCTAssertEqual(deserialized[source].decls.first?.kind, .init(FunctionDecl.self))
   }
 
 }
