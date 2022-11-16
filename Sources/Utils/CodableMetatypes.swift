@@ -58,4 +58,9 @@ private func NSStringFromClass(_ aClass: AnyClass) -> String {
 
   return String(describing: aClassName)
 }
+
+private func NSClassFromString(_ aClassName: String) -> AnyClass? {
+  let aClassNameWithPrefix = aClassName
+  return _typeByName(aClassNameWithPrefix) as? AnyClass
+}
 #endif
