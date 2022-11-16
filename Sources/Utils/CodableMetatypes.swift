@@ -6,7 +6,7 @@ private protocol CodableMetatypeWrapperProtocol: AnyObject {
 }
 
 /// A class type whose name gets serialized as a representative of `T.self`.
-private class CodableMetatypeWrapper<T: MetatypeCodable>: CodableMetatypeWrapperProtocol {
+class CodableMetatypeWrapper<T: MetatypeCodable>: CodableMetatypeWrapperProtocol {
   /// The metatype represented by `Self`
   static var wrappedType: MetatypeCodable.Type { T.self }
 }
