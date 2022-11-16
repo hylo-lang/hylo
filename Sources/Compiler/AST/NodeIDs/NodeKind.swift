@@ -85,10 +85,12 @@ public struct NodeKind: Codable, Equatable, Hashable {
   public static let builtinDecl = NodeKind(BuiltinDecl.self)
   public static let conformanceDecl = NodeKind(ConformanceDecl.self)
   public static let extensionDecl = NodeKind(ExtensionDecl.self)
-  public static let funDecl = NodeKind(FunDecl.self)
+  public static let functionDecl = NodeKind(FunctionDecl.self)
   public static let genericTypeParamDecl = NodeKind(GenericTypeParamDecl.self)
   public static let genericValueParamDecl = NodeKind(GenericValueParamDecl.self)
   public static let importDecl = NodeKind(ImportDecl.self)
+  public static let initializerDecl = NodeKind(InitializerDecl.self)
+  public static let methodDecl = NodeKind(MethodDecl.self)
   public static let methodImplDecl = NodeKind(MethodImplDecl.self)
   public static let moduleDecl = NodeKind(ModuleDecl.self)
   public static let namespaceDecl = NodeKind(NamespaceDecl.self)
@@ -178,4 +180,10 @@ public struct NodeKind: Codable, Equatable, Hashable {
 
   public static let matchCase = NodeKind(MatchCase.self)
   public static let topLevelDeclSet = NodeKind(TopLevelDeclSet.self)
+}
+
+extension NodeKind: CustomStringConvertible {
+
+  public var description: String { String(describing: value) }
+
 }

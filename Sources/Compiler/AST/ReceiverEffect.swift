@@ -7,7 +7,4 @@ public enum ReceiverEffect: Codable {
   /// The receiver is consumed.
   case sink
 
-  /// The receiver is yielded.
-  case yielded
-
 }

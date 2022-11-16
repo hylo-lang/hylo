@@ -90,3 +90,18 @@ public struct Diagnostic: Hashable {
   }
 
 }
+
+extension Diagnostic: CustomStringConvertible {
+
+  public var description: String {
+    let prefix: String
+    if let l = location {
+      let (line, column) = l.source.lineAndColumnIndices(at: l)
+      prefix = "\(l.source.url):\(line):\(column): "
+    } else {
+      prefix = ""
+    }
+    return prefix + "\(level): \(message)"
+  }
+
+}

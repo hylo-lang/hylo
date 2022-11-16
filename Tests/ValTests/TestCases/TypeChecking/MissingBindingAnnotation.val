@@ -1,4 +1,0 @@
-//! expect-failure
-
-//! @+1 diagnostic missing type annotation
-let x

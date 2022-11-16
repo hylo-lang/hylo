@@ -25,7 +25,11 @@ public struct AST: Codable {
   public var builtinDecl: NodeID<BuiltinDecl> { NodeID(rawValue: 0) }
 
   /// Inserts `n` into `self`.
-  public mutating func insert<T: Node>(_ n: T) -> NodeID<T> {
+  public mutating func insert<T: Node>(wellFormed n: T) throws -> NodeID<T> {
+    if case .failure(let error) = n.validateForm(in: self) {
+      throw DiagnosedError(error)
+    }
+
     let i = NodeID<T>(rawValue: nodes.count)
     if let n = n as? ModuleDecl {
       precondition(!modules.contains(where: { self[$0].name == n.name }), "duplicate module")
@@ -34,6 +38,8 @@ public struct AST: Codable {
     nodes.append(AnyNode(n))
     return i
   }
+
+  // MARK: Node access
 
   /// Accesses the node at `position`.
   public subscript<T: Node>(position: NodeID<T>) -> T {
@@ -67,32 +73,45 @@ public struct AST: Codable {
 
   // MARK: Core library
 
+  /// Indicates whether the Core library has been loaded.
+  public var isCoreModuleLoaded: Bool { corelib != nil }
+
   /// Imports the core library into `self`.
   ///
-  /// - Requires: The core library must not have been already imported.
-  public mutating func importCoreModule() throws {
-    if corelib != nil { throw CompilerError(description: "module already loaded") }
-    corelib = insert(ModuleDecl(name: "Val"))
+  /// - Requires: The Core library must not have been already imported.
+  public mutating func importCoreModule() {
+    precondition(!isCoreModuleLoaded, "Core library is already loaded")
+    corelib = try! insert(wellFormed: ModuleDecl(name: "Val"))
 
-    try withFiles(in: ValModule.core!, { (sourceURL) in
+    withFiles(in: ValModule.core!, { (sourceURL) in
       if sourceURL.pathExtension != "val" { return true }
 
-      let sourceFile = try SourceFile(contentsOf: sourceURL)
-      let (decls, diagnostics) = Parser.parse(sourceFile, into: corelib!, in: &self)
-      if (decls == nil) || !diagnostics.isEmpty {
-        throw CompilerError(description: "parser failed", diagnostics: diagnostics)
+      // Parse the file.
+      do {
+        let sourceFile = try SourceFile(contentsOf: sourceURL)
+        let diagnostics = try Parser.parse(sourceFile, into: corelib!, in: &self).diagnostics
+
+        // Note: the core module shouldn't produce any diagnostic.
+        if !diagnostics.isEmpty {
+          throw DiagnosedError(diagnostics)
+        } else {
+          return true
+        }
+      } catch let error as DiagnosedError {
+        fatalError(error.diagnostics.first!.description)
+      } catch let error {
+        fatalError(error.localizedDescription)
       }
-      return true
     })
   }
 
   /// Returns the type named `name` defined in the core library or `nil` it does not exist.
   ///
-  /// - Requires: The core library must be loaded and assigned to `self.corelib`.
+  /// - Requires: The Core library must have been loaded.
   public func coreType(named name: String) -> ProductType? {
-    let corelib = corelib ?? preconditionFailure("core library is not loaded")
+    precondition(isCoreModuleLoaded, "Core library is not loaded")
 
-    for id in topLevelDecls(corelib) where id.kind == .productTypeDecl {
+    for id in topLevelDecls(corelib!) where id.kind == .productTypeDecl {
       let id = NodeID<ProductTypeDecl>(id)!
       if self[id].name == name {
         return ProductType(decl: id, ast: self)
@@ -106,9 +125,9 @@ public struct AST: Codable {
   ///
   /// - Requires: The core library must be loaded and assigned to `self.corelib`.
   public func coreTrait(named name: String) -> TraitType? {
-    let corelib = corelib ?? preconditionFailure("core library is not loaded")
+    precondition(isCoreModuleLoaded, "Core library is not loaded")
 
-    for id in topLevelDecls(corelib) where id.kind == .traitDecl {
+    for id in topLevelDecls(corelib!) where id.kind == .traitDecl {
       let id = NodeID<TraitDecl>(rawValue: id.rawValue)
       if self[id].name == name {
         return TraitType(decl: id, ast: self)
@@ -175,6 +194,21 @@ public struct AST: Codable {
     var result: [(path: [Int], pattern: NodeID<NamePattern>)] = []
     visit(pattern: AnyPatternID(pattern), path: [], result: &result)
     return result
+  }
+
+  /// Returns the source range of `expr`, if any.
+  public func origin(of expr: FoldedSequenceExpr) -> SourceRange? {
+    switch expr {
+    case .leaf(let i):
+      return ranges[i]
+
+    case .infix(_, let lhs, let rhs):
+      if let lhsRange = origin(of: lhs), let rhsRange = origin(of: rhs) {
+        return lhsRange.upperBounded(by: rhsRange.upperBound)
+      } else {
+        return nil
+      }
+    }
   }
 
 }

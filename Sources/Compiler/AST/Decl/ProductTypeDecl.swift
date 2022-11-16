@@ -2,7 +2,7 @@
 public struct ProductTypeDecl: GenericDecl, TypeDecl, GenericScope {
 
   /// The access modifier of the declaration, if any.
-  public private(set) var accessModifier: SourceRepresentable<AccessModifier>?
+  public let accessModifier: SourceRepresentable<AccessModifier>?
 
   /// The identifier of the type.
   public let identifier: SourceRepresentable<Identifier>
@@ -17,16 +17,19 @@ public struct ProductTypeDecl: GenericDecl, TypeDecl, GenericScope {
   public let members: [AnyDeclID]
 
   /// The memberwise initializer of the type.
-  public let memberwiseInit: NodeID<FunDecl>
+  public let memberwiseInit: NodeID<InitializerDecl>
 
+  /// Creates an instance with the given properties.
   public init(
+    accessModifier: SourceRepresentable<AccessModifier>?,
     identifier: SourceRepresentable<Identifier>,
     genericClause: SourceRepresentable<GenericClause>?,
     conformances: [NodeID<NameTypeExpr>],
     members: [AnyDeclID],
-    memberwiseInit: NodeID<FunDecl>
+    memberwiseInit: NodeID<InitializerDecl>
   ) {
     precondition(members.contains(AnyDeclID(memberwiseInit)))
+    self.accessModifier = accessModifier
     self.identifier = identifier
     self.genericClause = genericClause
     self.conformances = conformances
@@ -39,12 +42,11 @@ public struct ProductTypeDecl: GenericDecl, TypeDecl, GenericScope {
   /// Returns whether the declaration is public.
   public var isPublic: Bool { accessModifier?.value != nil }
 
-  /// Incorporates `accessModifier` into `self`.
-  ///
-  /// - Precondition: `self.accessModifier == nil`
-  internal mutating func incorporate(_ accessModifier: SourceRepresentable<AccessModifier>) {
-    precondition(self.accessModifier == nil)
-    self.accessModifier = accessModifier
+  public func validateForm(in ast: AST) -> SuccessOrDiagnostics {
+    let ds: [Diagnostic] = members.reduce(into: [], { (ds, member) in
+      ds.append(contentsOf: ast.validateTypeMember(member).diagnostics)
+    })
+    return ds.isEmpty ? .success : .failure(ds)
   }
 
 }

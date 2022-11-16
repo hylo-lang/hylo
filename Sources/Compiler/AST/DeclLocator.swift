@@ -18,7 +18,7 @@ public struct DeclLocator: Hashable {
 
     case namespace(String)
 
-    case lambda(NodeID<FunDecl>)
+    case lambda(NodeID<FunctionDecl>)
 
     case product(String)
 
@@ -34,32 +34,49 @@ public struct DeclLocator: Hashable {
       case .conformanceDecl, .extensionDecl:
         fatalError("not implemented")
 
-      case .funDecl:
-        let decl = NodeID<FunDecl>(rawValue: decl.rawValue)
+      case .functionDecl:
+        let decl = NodeID<FunctionDecl>(rawValue: decl.rawValue)
 
         let labels: [String]
         switch program.declTypes[decl]! {
         case .lambda(let type):
-          labels = Array(type.labels.map({ $0 ?? "_" }))
+          labels = Array(type.inputs.map({ $0.label ?? "_" }))
+        default:
+          labels = []
+        }
+
+        if let name = program.ast[decl].identifier?.value {
+          self = .function(name: name, labels: labels, notation: program.ast[decl].notation?.value)
+        } else {
+          self = .lambda(decl)
+        }
+
+      case .initializerDecl:
+        let decl = NodeID<InitializerDecl>(rawValue: decl.rawValue)
+
+        let labels: [String]
+        switch program.declTypes[decl]! {
+        case .lambda(let type):
+          labels = Array(type.inputs.map({ $0.label ?? "_" }))
+        default:
+          labels = []
+        }
+
+        self = .function(name: "init", labels: labels, notation: nil)
+
+      case .methodDecl:
+        let decl = NodeID<MethodDecl>(rawValue: decl.rawValue)
+
+        let labels: [String]
+        switch program.declTypes[decl]! {
         case .method(let type):
           labels = Array(type.inputs.map({ $0.label ?? "_" }))
         default:
           labels = []
         }
 
-        switch program.ast[decl].introducer.value {
-        case .memberwiseInit, .`init`:
-          self = .function(name: "init", labels: labels, notation: nil)
-        case .deinit:
-          self = .function(name: "deinit", labels: [], notation: nil)
-        case .fun:
-          if let name = program.ast[decl].identifier?.value {
-            self = .function(
-              name: name, labels: labels, notation: program.ast[decl].notation?.value)
-          } else {
-            self = .lambda(decl)
-          }
-        }
+        let name = program.ast[decl].identifier.value
+        self = .function(name: name, labels: labels, notation: program.ast[decl].notation?.value)
 
       case .methodImplDecl:
         let decl = NodeID<MethodImplDecl>(rawValue: decl.rawValue)

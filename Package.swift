@@ -21,7 +21,7 @@ let package = Package(
       from: "1.0.0"),
     .package(
       url: "https://github.com/val-lang/Durian.git",
-      from: "1.0.0"),
+      from: "1.2.0"),
   ],
 
   targets: [

@@ -1,6 +1,7 @@
 /// The declaration of a subscript implementation.
 public struct SubscriptImplDecl: Decl, LexicalScope {
 
+  /// The body of a subscript implementation.
   public enum Body: Codable {
 
     /// An expression body.
@@ -11,18 +12,18 @@ public struct SubscriptImplDecl: Decl, LexicalScope {
 
   }
 
-  /// The introducer of the method.
+  /// The introducer of the subscript.
   public let introducer: SourceRepresentable<ImplIntroducer>
 
   /// The declaration of the implicit receiver parameter, if any.
-  public let receiver: NodeID<ParameterDecl>
+  public let receiver: NodeID<ParameterDecl>?
 
   /// The body of the subscript, if any.
   public let body: Body?
 
   public init(
     introducer: SourceRepresentable<ImplIntroducer>,
-    receiver: NodeID<ParameterDecl>,
+    receiver: NodeID<ParameterDecl>?,
     body: Body?
   ) {
     self.introducer = introducer
