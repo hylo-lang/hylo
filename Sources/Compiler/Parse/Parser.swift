@@ -176,6 +176,8 @@ public enum Parser {
 
   /// Parses a declaration in `state`.
   static func parseDecl(in state: inout ParserState) throws -> AnyDeclID? {
+    return try parseDeclPrologue(in: &state, then: continuation)
+
     func continuation(
       prologue: DeclPrologue,
       state: inout ParserState
@@ -262,10 +264,6 @@ public enum Parser {
         throw DiagnosedError(expected("declaration", at: state.currentLocation))
       }
     }
-
-    // Note: this return statement must follow the declaration of `continuation` to work around
-    // an apparent bug in swiftc. See: https://github.com/apple/swift/issues/62136
-    return try parseDeclPrologue(in: &state, then: continuation)
   }
 
   /// Parses the body of a type declaration, adding `context` to `state.contexts` while parsing
