@@ -1,6 +1,11 @@
 // swift-tools-version:5.6
 import PackageDescription
 
+/// Settings to be passed to swiftc for all targets.
+let allTargetsSwiftSettings: [SwiftSetting] = [
+  .unsafeFlags(["-warnings-as-errors"])
+]
+
 let package = Package(
   name: "Val",
 
@@ -31,7 +36,8 @@ let package = Package(
       dependencies: [
         "Compiler",
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
-      ]),
+      ],
+      swiftSettings: allTargetsSwiftSettings),
 
     // Targets related to the compiler's internal library.
     .target(
@@ -42,18 +48,23 @@ let package = Package(
         .product(name: "Collections", package: "swift-collections"),
         .product(name: "Durian", package: "Durian"),
       ],
-      exclude: ["CXX/README.md"]),
+      exclude: ["CXX/README.md"],
+      swiftSettings: allTargetsSwiftSettings),
 
     .target(
       name: "ValModule",
       path: "Library",
-      resources: [.copy("Core")]),
+      resources: [.copy("Core")],
+      swiftSettings: allTargetsSwiftSettings),
 
-    .target(name: "Utils"),
+    .target(
+      name: "Utils",
+      swiftSettings: allTargetsSwiftSettings),
 
     // Test targets.
     .testTarget(
       name: "ValTests",
       dependencies: ["Compiler"],
-      resources: [.copy("TestCases")]),
+      resources: [.copy("TestCases")],
+      swiftSettings: allTargetsSwiftSettings),
   ])
