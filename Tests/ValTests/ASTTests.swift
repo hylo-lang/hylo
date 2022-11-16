@@ -30,4 +30,29 @@ final class ASTTests: XCTestCase {
     XCTAssert(ast[ast[ast[module].sources.first!].decls.first!] is TraitDecl)
   }
 
+  func testCodableRoundtrip() throws {
+    var ast = AST()
+
+    // Create a module.
+    let module = try ast.insert(wellFormed: ModuleDecl(name: "Val"))
+    let source = try ast.insert(wellFormed: TopLevelDeclSet(
+      decls: [
+        AnyDeclID(ast.insert(wellFormed: FunctionDecl(
+          introducerRange: nil,
+          identifier: SourceRepresentable(value: "foo")))),
+      ]))
+    ast[module].addSourceFile(source)
+
+    // Serialize the AST.
+    let encoder = JSONEncoder()
+    let serialized = try encoder.encode(ast)
+
+    // Deserialize the AST.
+    let decoder = JSONDecoder()
+    let deserialized = try decoder.decode(AST.self, from: serialized)
+
+    // Deserialized AST should containt a function `foo`.
+    XCTAssertEqual(deserialized[source].decls.first?.kind, .functionDecl)
+  }
+
 }
