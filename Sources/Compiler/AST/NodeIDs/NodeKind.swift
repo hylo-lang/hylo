@@ -1,16 +1,23 @@
 import Utils
 
+/// The type of an AST node; a nominal wrapper for Node.Type that adds conformances and convenience
+/// APIs.
 public struct NodeKind: Codable, Equatable, Hashable {
+
+  /// The underlying value.
   let value: Node.Type
 
+  /// Creates an instance with the given underlying value.
   public init(_ value: Node.Type) {
     self.value = value
   }
-  
+
+  /// Serializes `self` into `encoder`.
   public func encode(to encoder: Encoder) throws {
     try Utils.encode(value, to: encoder)
   }
-  
+
+  /// Deserializes `self` from `decoder`.
   public init(from decoder: Decoder) throws {
     let t = try decodeMetatype(from: decoder)
     guard let nodeType = t as? Node.Type else {
@@ -25,56 +32,70 @@ public struct NodeKind: Codable, Equatable, Hashable {
     self.value = nodeType
   }
 
+  /// Returns true iff `l` and `r` denote the same node type.
   public static func == (l: Self, r: Self) -> Bool {
     return l.value == r.value
   }
 
+  /// Incorporates the value of `self` into `h`.
   public func hash(into h: inout Hasher) {
     ObjectIdentifier(value).hash(into: &h)
   }
-  
+
+  /// Returns true iff `l` and `r` denote the same node type.
   static func == (l: Self, r: Node.Type) -> Bool {
     return l.value == r
   }
   
+  /// Returns true iff `l` and `r` do not denote the same node type.
   static func != (l: Self, r: Node.Type) -> Bool {
     return l.value == r
   }
 
+  /// Returns true iff `l` and `r` denote the same node type.
   static func == (l: Node.Type, r: Self) -> Bool {
     return l == r.value
   }
   
+  /// Returns true iff `l` and `r` do not denote the same node type.
   static func != (l: Node.Type, r: Self) -> Bool {
     return l != r.value
   }
 
-  static func ~=<N: Node>(pattern: N.Type, value: Self) -> Bool {
-    value == NodeKind(N.self)
+  /// Returns true iff `me` and `pattern` denote the same node type.
+  static func ~=(pattern: Node.Type, me: Self) -> Bool {
+    me == pattern
   }
 
 }
 
+/// Extend heterogeneous equality comparison with Node.Type to Optional<NodeKind>.
 extension Optional where Wrapped == NodeKind {
+  /// Returns true iff `l` and `r` denote the same node type.
   static func == (l: Self, r: Node.Type) -> Bool {
     return l?.value == r
   }
 
+  /// Returns true iff `l` and `r` do not denote the same node type.
   static func != (l: Self, r: Node.Type) -> Bool {
     return l?.value == r
   }
 
+  /// Returns true iff `l` and `r` denote the same node type.
   static func == (l: Node.Type, r: Self) -> Bool {
     return l == r?.value
   }
 
+  /// Returns true iff `l` and `r` do not denote the same node type.
   static func != (l: Node.Type, r: Self) -> Bool {
     return l != r?.value
   }
 
 }
+
 extension NodeKind: CustomStringConvertible {
 
+  /// The name of the underlying Node type.
   public var description: String { String(describing: value) }
 
 }

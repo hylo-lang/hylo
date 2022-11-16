@@ -1822,7 +1822,7 @@ public struct TypeChecker {
       default:
         // Associated type and value declarations are not inherited by conformance.
         matches.formUnion(newMatches.filter({
-                                              $0.kind != AssociatedTypeDecl.self && $0.kind != AssociatedValueDecl.self
+          $0.kind != AssociatedTypeDecl.self && $0.kind != AssociatedValueDecl.self
         }))
       }
     }
