@@ -12,19 +12,19 @@ public struct NodeKind: Codable, Equatable, Hashable {
     self.value = value
   }
 
-  /// Serializes `self` into `encoder`.
-  public func encode(to encoder: Encoder) throws {
-    try Utils.encode(value, to: encoder)
+  /// Serializes `self` into `destination`.
+  public func encode(to destination: Encoder) throws {
+    try Utils.encode(value, to: destination)
   }
 
-  /// Deserializes `self` from `decoder`.
-  public init(from decoder: Decoder) throws {
-    let t = try decodeMetatype(from: decoder)
+  /// Deserializes `self` from `source`.
+  public init(from source: Decoder) throws {
+    let t = try decodeMetatype(from: source)
     guard let nodeType = t as? Node.Type else {
       throw DecodingError.typeMismatch(
         NodeKind.self,
         .init(
-          codingPath: decoder.codingPath,
+          codingPath: source.codingPath,
           debugDescription: "\(t) is not a Node type.",
           underlyingError: nil))
       
