@@ -557,7 +557,7 @@ struct CaptureCollector {
     into captures: inout FreeSet
   ) {
     switch id.kind {
-    case .nameTypeExpr:
+    case NameTypeExpr.self:
       collectCaptures(ofNameType: NodeID(rawValue: id.rawValue), into: &captures)
     case .parameterTypeExpr:
       collectCaptures(ofParameter: NodeID(rawValue: id.rawValue), into: &captures)
