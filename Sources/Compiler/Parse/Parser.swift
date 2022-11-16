@@ -1555,37 +1555,43 @@ public enum Parser {
     to lhs: inout AnyExprID,
     in state: inout ParserState
   ) throws -> Bool {
-    var tail: SequenceExpr.UnfoldedTail = []
+    var tail: [SequenceExpr.TailElement] = []
 
     while true {
       let backup = state.backup()
 
       // Look for the next operator.
-      guard let operatorName = state.takeOperator() else { break }
+      guard let operatorStem = state.takeOperator() else { break }
 
-      // If there isn't any leading whitespace before the next expression but the operator is on a
-      // different line, we may be looking at the start of a prefix expression.
       if !state.hasLeadingWhitespace {
-        let rangeBefore = state.ast.ranges[lhs]!.upperBound ..< operatorName.range!.lowerBound
+        // If there isn't any leading whitespace before the next expression but the operator is on
+        // a different line, we may be looking at the start of a prefix expression.
+        let rangeBefore = state.ast.ranges[lhs]!.upperBound ..< operatorStem.range!.lowerBound
         if state.lexer.source.contents[rangeBefore].contains(where: { $0.isNewline }) {
           state.restore(from: backup)
           break
         }
 
-        state.diagnostics.append(.diagnose(infixOperatorRequiresWhitespacesAt: operatorName.range))
+        // Otherwise, complain about missing whitespaces.
+        state.diagnostics.append(.diagnose(
+          infixOperatorRequiresWhitespacesAt: operatorStem.range))
       }
 
-      // Now we can commit to parse an operand.
+      // Commit to parse an operand.
       guard let operand = try prefixExpr.parse(&state) else {
-        throw DiagnosedError(expected("type expression", at: state.currentLocation))
+        throw DiagnosedError(expected("expression", at: state.currentLocation))
       }
-      tail.append(SequenceExpr.TailElement(operatorName: operatorName, operand: operand))
+
+      let `operator` = try state.ast.insert(wellFormed: NameExpr(
+        name: SourceRepresentable(
+          value: Name(stem: operatorStem.value, notation: .infix))))
+      tail.append(SequenceExpr.TailElement(operator: `operator`, operand: operand))
     }
 
     // Nothing to transform if the tail is empty.
     if tail.isEmpty { return false }
 
-    let expr = try state.ast.insert(wellFormed: SequenceExpr.unfolded(head: lhs, tail: tail))
+    let expr = try state.ast.insert(wellFormed: SequenceExpr(head: lhs, tail: tail))
     state.ast.ranges[expr] = state.ast.ranges[lhs]!.upperBounded(by: state.currentIndex)
     lhs = AnyExprID(expr)
     return true

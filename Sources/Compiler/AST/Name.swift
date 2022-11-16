@@ -59,6 +59,11 @@ public struct Name: Hashable, Codable {
     self.notation = notation
     self.introducer = introducer
   }
+
+  /// Returns a textual description of `labels`.
+  static func describe(labels: [String?]) -> String {
+    labels.map({ "\($0 ?? "_"):" }).joined()
+  }
   
 }
 

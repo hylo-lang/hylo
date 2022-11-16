@@ -59,16 +59,16 @@ public struct MethodDecl: GenericDecl, GenericScope {
   public var isPublic: Bool { accessModifier?.value == .public }
 
   public func validateForm(in ast: AST) -> SuccessOrDiagnostics {
-    var ds: [Diagnostic] = []
+    var report: [Diagnostic] = []
 
     // Parameter declarations must have a type annotation.
     for p in parameters {
       if ast[p].annotation == nil {
-        ds.append(.diagnose(missingTypeAnnotation: ast[p], in: ast))
+        report.append(.diagnose(missingTypeAnnotation: ast[p], in: ast))
       }
     }
 
-    return ds.isEmpty ? .success : .failure(ds)
+    return report.isEmpty ? .success : .failure(report)
   }
 
 }

@@ -98,13 +98,16 @@ extension Diagnostic {
   }
 
   static func diagnose(
-    labels: [String?],
-    incompatibleWith: [String?],
+    labels found: [String?],
+    incompatibleWith expected: [String?],
     at range: SourceRange?
   ) -> Diagnostic {
-    let ls = labels.reduce(into: "", { (string, label) in string += (label ?? "_") + ":" })
-    let rs = incompatibleWith.reduce(into: "", { (string, label) in string += (label ?? "_") + ":" })
-    return .error("incompatible labels: found '(\(ls))', expected '(\(rs))'", range: range)
+    .error(
+      """
+      incompatible labels: found '(\(Name.describe(labels: found)))', \
+      expected '(\(Name.describe(labels: expected)))'
+      """,
+      range: range)
   }
 
   static func diagnose(

@@ -16,12 +16,21 @@ public enum PassingConvention: Codable {
   /// Yielded.
   case yielded
 
+  /// Creates the passing convention that corresponds to `capability`.
   init(matching capability: RemoteType.Capability) {
     switch capability {
     case .let     : self = .let
     case .set     : self = .set
     case .inout   : self = .inout
     case .yielded : self = .yielded
+    }
+  }
+
+  /// Creates the passing convention that corresponds to `effect`.
+  init(matching effect: ReceiverEffect) {
+    switch effect {
+    case .inout   : self = .inout
+    case .sink    : self = .sink
     }
   }
 

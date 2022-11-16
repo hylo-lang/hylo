@@ -282,53 +282,8 @@ struct ConstraintGenerator {
   ) {
     defer { assert(inferredTypes[id] != nil) }
 
-    let callee = checker.program.ast[id].callee
-
-    func propagateDown(calleeType: LambdaType, calleeConstraints: [Constraint] = []) {
-      // Collect the call labels.
-      let labels = checker.program.ast[id].arguments.map({ $0.label?.value })
-
-      // Check that the labels inferred from the callee are consistent with that of the call.
-      let calleeLabels = calleeType.inputs.map({ $0.label })
-      if calleeLabels != labels {
-        diagnostics.append(.diagnose(
-          labels: labels, incompatibleWith: calleeLabels, at: checker.program.ast.ranges[callee]))
-        assignToError(id)
-        return
-      }
-
-      // Gather the callee's constraints.
-      constraints.append(contentsOf: calleeConstraints.map({ (constraint) in
-        LocatableConstraint(
-          constraint,
-          node: callee.base,
-          range: checker.program.ast.ranges[callee])
-      }))
-
-      // Propagate type information to the arguments.
-      for i in 0 ..< checker.program.ast[id].arguments.count {
-        let argument = checker.program.ast[id].arguments[i].value
-        let argumentType = Type.variable(TypeVariable(node: argument.base))
-        let parameterType = calleeType.inputs[i].type
-
-        inferredTypes[argument] = argumentType
-        constraints.append(LocatableConstraint(
-          .parameter(l: argumentType, r: parameterType),
-          node: argument.base,
-          range: checker.program.ast.ranges[argument],
-          cause: .callArgument))
-
-        if case .parameter(let type) = parameterType {
-          expectedTypes[argument] = type.bareType
-        }
-        visit(expr: argument, using: &checker)
-      }
-
-      // Constrain the type of the call.
-      assume(typeOf: id, equals: calleeType.output, at: checker.program.ast.ranges[id])
-    }
-
     // Infer the type of the callee.
+    let callee = checker.program.ast[id].callee
     visit(expr: callee, using: &checker)
 
     // There are four cases to consider:
@@ -391,8 +346,13 @@ struct ConstraintGenerator {
           inferredTypes[c] = candidates[0].type
 
           // Propagate the type of the constructor down.
-          let calleeType = LambdaType(candidates[0].type)!
-          propagateDown(calleeType: calleeType, calleeConstraints: candidates[0].constraints)
+          let outputType = propagateDown(
+            callee: callee,
+            calleeType: LambdaType(candidates[0].type)!,
+            calleeTypeConstraints: candidates[0].constraints,
+            arguments: checker.program.ast[id].arguments,
+            using: &checker)
+          assume(typeOf: id, equals: outputType, at: checker.program.ast.ranges[id])
 
         default:
           // TODO: Handle specializations
@@ -416,7 +376,13 @@ struct ConstraintGenerator {
 
     // 3rd case
     if case .lambda(let calleeType) = inferredTypes[callee] {
-      propagateDown(calleeType: calleeType)
+      let outputType = propagateDown(
+        callee: callee,
+        calleeType: calleeType,
+        calleeTypeConstraints: [],
+        arguments: checker.program.ast[id].arguments,
+        using: &checker)
+      assume(typeOf: id, equals: outputType, at: checker.program.ast.ranges[id])
       return
     }
 
@@ -670,6 +636,7 @@ struct ConstraintGenerator {
           m: checker.program.ast[id].name.value,
           r: inferredType)
       } else {
+        // FIXME: We can't assume the domain is an instance if types are first-class.
         constraint = .boundMember(
           l: domainType,
           m: checker.program.ast[id].name.value,
@@ -700,20 +667,73 @@ struct ConstraintGenerator {
     sequence id: NodeID<SequenceExpr>,
     using checker: inout TypeChecker
   ) {
-    let root: AnyExprID
+    defer { assert(inferredTypes[id] != nil) }
 
-    // Fold the sequence if necessary.
-    switch checker.program.ast[id] {
-    case .unfolded(let head, let tail):
-      let ordering = foldSequenceExpr(head: head, tail: tail, using: &checker)
-      root = checker.program.desugar(id, withOrdering: ordering)
-    case .root(let r):
-      root = r
+    // Fold the sequence and visit its sub-expressions.
+    let foldedSequence = fold(sequenceExpr: id, using: &checker)
+    checker.foldedSequenceExprs[id] = foldedSequence
+
+    // Generate constraints from the folded sequence.
+    let inferredRootType = visit(
+      foldedSequence: foldedSequence,
+      expectingRootType: expectedTypes[id],
+      using: &checker)
+    assume(typeOf: id, equals: inferredRootType, at: checker.program.ast.ranges[id])
+  }
+
+  private mutating func visit(
+    foldedSequence root: FoldedSequenceExpr,
+    expectingRootType expectedRootType: Type?,
+    using checker: inout TypeChecker
+  ) -> Type {
+    switch root {
+    case .infix(let callee, let lhs, let rhs):
+      // Infer the types of the operands.
+      let lhsType = visit(foldedSequence: lhs, expectingRootType: nil, using: &checker)
+      if lhsType.isError {
+        return .error(ErrorType())
+      }
+
+      let rhsType = visit(foldedSequence: rhs, expectingRootType: nil, using: &checker)
+      if rhsType.isError {
+        return .error(ErrorType())
+      }
+
+      // Infer the type of the callee.
+      let parameterType = Type.variable(TypeVariable())
+      constraints.append(LocatableConstraint(
+        .parameter(
+          l: rhsType,
+          r: parameterType),
+        range: checker.program.ast.origin(of: rhs),
+        cause: .callArgument))
+
+      let outputType = Type.variable(TypeVariable())
+      let calleeType = Type.lambda(LambdaType(
+        receiverEffect: nil,
+        environment: .tuple(TupleType(
+          labelsAndTypes: [("self", .remote(RemoteType(.let, lhsType)))])),
+        inputs: [CallableTypeParameter(type: parameterType)],
+        output: outputType))
+      inferredTypes[callee.expr] = calleeType
+
+      // Create a member constraint for the operator.
+      constraints.append(LocatableConstraint(
+        .boundMember(
+          l: lhsType,
+          m: checker.program.ast[callee.expr].name.value,
+          r: calleeType),
+        node: AnyNodeID(callee.expr),
+        range: checker.program.ast.ranges[callee.expr],
+        cause: .member))
+
+      return outputType
+
+    case .leaf(let expr):
+      expectedTypes[expr] = expectedRootType
+      visit(expr: expr, using: &checker)
+      return inferredTypes[expr]!
     }
-
-    expectedTypes[root] = expectedTypes[id]
-    visit(expr: root, using: &checker)
-    assume(typeOf: id, equals: inferredTypes[root]!, at: checker.program.ast.ranges[id])
   }
 
   private mutating func visit(
@@ -788,43 +808,96 @@ struct ConstraintGenerator {
     fatalError("not implemented")
   }
 
-  /// Folds a sequence of binary expressions into a tree.
-  private mutating func foldSequenceExpr(
-    head: AnyExprID,
-    tail: SequenceExpr.UnfoldedTail,
+  private mutating func propagateDown(
+    callee: AnyExprID,
+    calleeType: LambdaType,
+    calleeTypeConstraints: [Constraint],
+    arguments: [CallArgument],
     using checker: inout TypeChecker
-  ) -> SequenceExpr.Tree {
-    return foldSequenceExpr(tail[0...], into: .leaf(head), using: &checker)
+  ) -> Type {
+    // Collect the argument labels.
+    let argumentLabels = arguments.map({ $0.label?.value })
+
+    // Check that the labels inferred from the callee are consistent with that of the call.
+    let calleeLabels = calleeType.inputs.map({ $0.label })
+    if calleeLabels != argumentLabels {
+      diagnostics.append(.diagnose(
+        labels: argumentLabels,
+        incompatibleWith: calleeLabels,
+        at: checker.program.ast.ranges[callee]))
+      return .error(ErrorType())
+    }
+
+    // Gather the callee's constraints.
+    constraints.append(contentsOf: calleeTypeConstraints.map({ (c) in
+      LocatableConstraint(c, node: callee.base, range: checker.program.ast.ranges[callee])
+    }))
+
+    // Propagate type information to the arguments.
+    for i in 0 ..< arguments.count {
+      let argumentExpr = arguments[i].value
+      let argumentType = Type.variable(TypeVariable(node: argumentExpr.base))
+      let parameterType = calleeType.inputs[i].type
+
+      inferredTypes[argumentExpr] = argumentType
+      constraints.append(LocatableConstraint(
+        .parameter(l: argumentType, r: parameterType),
+        node: argumentExpr.base,
+        range: checker.program.ast.ranges[argumentExpr],
+        cause: .callArgument))
+
+      if case .parameter(let type) = parameterType {
+        expectedTypes[argumentExpr] = type.bareType
+      }
+      visit(expr: argumentExpr, using: &checker)
+    }
+
+    // Constrain the type of the call.
+    return calleeType.output
   }
 
-  /// Folds the remainder of a sequence of binary expressions into `accumulatedResult`.
-  private mutating func foldSequenceExpr(
-    _ tail: SequenceExpr.UnfoldedTail.SubSequence,
-    into initialResult: SequenceExpr.Tree,
+  /// Folds a sequence of binary expressions.
+  private mutating func fold(
+    sequenceExpr expr: NodeID<SequenceExpr>,
     using checker: inout TypeChecker
-  ) -> SequenceExpr.Tree {
+  ) -> FoldedSequenceExpr {
+    let node = checker.program.ast[expr]
+    return fold(sequenceExprTail: node.tail[0...], into: .leaf(node.head), using: &checker)
+  }
+
+  /// Folds the remainder of a sequence of binary expressions into `initialResult`.
+  private mutating func fold(
+    sequenceExprTail tail: ArraySlice<SequenceExpr.TailElement>,
+    into initialResult: FoldedSequenceExpr,
+    using checker: inout TypeChecker
+  ) -> FoldedSequenceExpr {
     var accumulator = initialResult
 
     for i in tail.indices {
       // Search for the operator declaration.
+      let operatorStem = checker.program.ast[tail[i].operator].name.value.stem
       let candidates = checker.lookup(
-        operator: tail[i].operatorName.value, notation: .infix, inScope: scope)
+        operator: operatorStem,
+        notation: .infix,
+        inScope: scope)
 
       switch candidates.count {
       case 0:
         checker.diagnostics.insert(.diagnose(
-          undefinedOperator: tail[i].operatorName.value, at: tail[i].operatorName.range))
+          undefinedOperator: operatorStem,
+          at: checker.program.ast.ranges[tail[i].operator]))
         accumulator.append(
-          operator: (name: tail[i].operatorName, precedence: nil),
-          rhs: tail[i].operand)
+          operator: (expr: tail[i].operator, precedence: nil),
+          right: tail[i].operand)
 
       case 1:
         let precedence = checker.program.ast[candidates[0]].precedenceGroup?.value
         accumulator.append(
-          operator: (name: tail[i].operatorName, precedence: precedence),
-          rhs: tail[i].operand)
+          operator: (expr: tail[i].operator, precedence: precedence),
+          right: tail[i].operand)
 
       default:
+        // TODO: should probably emit a diagnostic. Operator declarations cannot be overloaded.
         fatalError("not implemented")
       }
     }

@@ -45,15 +45,6 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
   /// The implementations of the subscript.
   public let impls: [NodeID<SubscriptImplDecl>]
 
-  /// The declaration of the implicit parameters of the subscript, if any.
-  ///
-  /// This property is set during type checking. It maps the names of the implicit and explicit
-  /// captures to their respective declaration.
-  ///
-  /// Note that the implicit receiver parameter (i.e., `self`) of a subscipt is never stored in
-  /// this property. Each subscript implementation declaration has its own declaration.
-  public private(set) var implicitParameterDecls: [ImplicitParameter] = []
-
   /// Creates an instance with the given properties.
   public init(
     introducer: SourceRepresentable<Introducer>,
@@ -85,25 +76,17 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
   /// Returns whether the declaration denotes a static subscript.
   public var isStatic: Bool { memberModifier?.value == .static }
 
-  /// Incorporates the given implicit parameter declarations into `self`.
-  ///
-  /// - Requires: `self.implicitParameterDecls` is empty.
-  internal mutating func incorporate(implicitParameterDecls: [ImplicitParameter]) {
-    precondition(self.implicitParameterDecls.isEmpty)
-    self.implicitParameterDecls = implicitParameterDecls
-  }
-
   public func validateForm(in ast: AST) -> SuccessOrDiagnostics {
-    var ds: [Diagnostic] = []
+    var report: [Diagnostic] = []
 
     // Parameter declarations must have a type annotation.
     for p in parameters ?? [] {
       if ast[p].annotation == nil {
-        ds.append(.diagnose(missingTypeAnnotation: ast[p], in: ast))
+        report.append(.diagnose(missingTypeAnnotation: ast[p], in: ast))
       }
     }
 
-    return ds.isEmpty ? .success : .failure(ds)
+    return report.isEmpty ? .success : .failure(report)
   }
 
 }

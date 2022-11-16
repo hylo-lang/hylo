@@ -3,7 +3,7 @@ import Utils
 /// A data structure representing a scoped Val program ready to be type checked.
 public struct ScopedProgram: Program {
 
-  public private(set) var ast: AST
+  public let ast: AST
 
   public private(set) var scopeToParent = ASTProperty<AnyScopeID>()
 
@@ -21,74 +21,6 @@ public struct ScopedProgram: Program {
     for module in ast.modules {
       var state = VisitorState(module: module)
       visit(moduleDecl: module, withState: &state)
-    }
-  }
-
-  /// Incorporates the given implicit parameter declarations into `decl`.
-  ///
-  /// - Requires: `ast[decl].implicitParameterDecls` is empty.
-  mutating func incorporate(
-    implicitParameterDecls: [ImplicitParameter],
-    into decl: NodeID<FunctionDecl>
-  ) {
-    ast[decl].incorporate(implicitParameterDecls: implicitParameterDecls)
-  }
-
-  /// Incorporates the given implicit parameter declarations into `decl`.
-  ///
-  /// - Requires: `ast[decl].implicitParameterDecls` is empty.
-  mutating func incorporate(
-    implicitParameterDecls: [ImplicitParameter],
-    into decl: NodeID<SubscriptDecl>
-  ) {
-    ast[decl].incorporate(implicitParameterDecls: implicitParameterDecls)
-  }
-
-  /// Desugars an unfolded sequence expression using the given sub-expression ordering.
-  ///
-  /// - Requires `self.ast[a]` must be unfolded and `ordering` must correspond to the sequence
-  ///   described by `self.ast[a]`.
-  mutating func desugar(
-    _ a: NodeID<SequenceExpr>,
-    withOrdering ordering: SequenceExpr.Tree
-  ) -> AnyExprID {
-    switch ast[a] {
-    case .root:
-      preconditionFailure()
-
-    case .unfolded:
-      let root = desugar(ordering)
-      ast[a] = .root(root)
-      return root
-    }
-  }
-
-  /// Converts a sequence expression ordering into an expression.
-  private mutating func desugar(_ ordering: SequenceExpr.Tree) -> AnyExprID {
-    switch ordering {
-    case .node(let operator_, let left, let right):
-      let receiver = desugar(left)
-      let argument = desugar(right)
-
-      let id = try! ast.insert(wellFormed: FunCallExpr(
-        callee: AnyExprID(ast.insert(wellFormed: NameExpr(
-          domain: .expr(receiver),
-          name: SourceRepresentable(
-            value: Name(stem: operator_.name.value),
-            range: operator_.name.range)))),
-        arguments: [CallArgument(value: argument)]))
-
-      if let argumentRange = ast.ranges[argument] {
-        ast.ranges[id] = (
-          ast.ranges[receiver]?.upperBounded(by: argumentRange.upperBound) ?? argumentRange)
-      } else {
-        ast.ranges[id] = ast.ranges[receiver]
-      }
-
-      return AnyExprID(id)
-
-    case .leaf(let id):
-      return id
     }
   }
 
@@ -303,7 +235,7 @@ extension ScopedProgram {
       for parameter in this.ast[decl].parameters {
         this.visit(parameterDecl: parameter, withState: &state)
       }
-      if let receiver = this.ast[decl].implicitReceiverDecl {
+      if let receiver = this.ast[decl].receiver {
         this.visit(parameterDecl: receiver, withState: &state)
       }
       if let output = this.ast[decl].output {
@@ -792,15 +724,10 @@ extension ScopedProgram {
     sequenceExpr expr: NodeID<SequenceExpr>,
     withState state: inout VisitorState
   ) {
-    switch ast[expr] {
-    case .root(let i):
-      visit(expr: i, withState: &state)
-
-    case .unfolded(let head, let tail):
-      visit(expr: head, withState: &state)
-      for element in tail {
-        visit(expr: element.operand, withState: &state)
-      }
+    visit(expr: ast[expr].head, withState: &state)
+    for element in ast[expr].tail {
+      visit(nameExpr: element.operator, withState: &state)
+      visit(expr: element.operand, withState: &state)
     }
   }
 

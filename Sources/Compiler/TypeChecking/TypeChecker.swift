@@ -15,8 +15,14 @@ public struct TypeChecker {
   /// The type of each expression.
   public private(set) var exprTypes = ExprProperty<Type>()
 
+  /// A map from function and subscript declarations to their implicit captures.
+  public private(set) var implicitCaptures = DeclProperty<[ImplicitCapture]>()
+
   /// A map from name expression to its referred declaration.
   public internal(set) var referredDecls: [NodeID<NameExpr>: DeclRef] = [:]
+
+  /// A map from sequence expressions to their evaluation order.
+  public internal(set) var foldedSequenceExprs: [NodeID<SequenceExpr>: FoldedSequenceExpr] = [:]
 
   /// Indicates whether the built-in symbols are visible.
   public var isBuiltinModuleVisible: Bool
@@ -195,14 +201,14 @@ public struct TypeChecker {
 
     /// Type checking has started.
     ///
-    /// The checker is verifying whether the declaration is well-formed; its overarching type is
+    /// The checker is verifying whether the declaration is well-typed; its overarching type is
     /// available in `declTypes`. Initiating a new type checking request will cause a circular
     /// dependency error.
     case typeCheckingStarted
 
     /// Type checking succeeded.
     ///
-    /// The declaration is well-formed; its overarching type is availabe in `declTypes`.
+    /// The declaration is well-typed; its overarching type is availabe in `declTypes`.
     case success
 
     /// Type realzation or type checking failed.
@@ -427,7 +433,7 @@ public struct TypeChecker {
     // Set the type of the implicit receiver declaration if necessary.
     if program.isNonStaticMember(id) {
       let functionType = LambdaType(declTypes[id]!)!
-      let receiverDecl = program.ast[id].implicitReceiverDecl!
+      let receiverDecl = program.ast[id].receiver!
 
       if case .remote(let type) = functionType.captures.first?.type {
         // `let` and `inout` methods capture a projection of their receiver.
@@ -876,7 +882,7 @@ public struct TypeChecker {
         fatalError("not implemented")
 
       case .functionDecl:
-        // Make sure the requirement is well-formed.
+        // Make sure the requirement is well-typed.
         let requirement = NodeID<FunctionDecl>(rawValue: j.rawValue)
         var requirementType = canonicalize(type: realize(functionDecl: requirement))
 
@@ -1105,7 +1111,7 @@ public struct TypeChecker {
     return nil
   }
 
-  /// Returns the generic environment defined by `id`, or `nil` if it is ill-formed.
+  /// Returns the generic environment defined by `id`, or `nil` if it is ill-typed.
   ///
   /// - Requires: `i.kind <= .genericScope`
   private mutating func environment<T: NodeIDProtocol>(of id: T) -> GenericEnvironment? {
@@ -1125,7 +1131,7 @@ public struct TypeChecker {
     }
   }
 
-  /// Returns the generic environment defined by `id`, or `nil` if it is ill-formed.
+  /// Returns the generic environment defined by `id`, or `nil` if it is ill-typed.
   private mutating func environment<T: GenericDecl>(
     ofGenericDecl id: NodeID<T>
   ) -> GenericEnvironment? {
@@ -1188,7 +1194,7 @@ public struct TypeChecker {
     }
   }
 
-  /// Returns the generic environment defined by `i`, or `nil` if it is ill-formed.
+  /// Returns the generic environment defined by `i`, or `nil` if it is ill-typed.
   private mutating func environment<T: TypeExtendingDecl>(
     ofTypeExtendingDecl id: NodeID<T>
   ) -> GenericEnvironment? {
@@ -1226,7 +1232,7 @@ public struct TypeChecker {
     }
   }
 
-  /// Returns the generic environment defined by `i`, or `nil` if it is ill-formed.
+  /// Returns the generic environment defined by `i`, or `nil` if it is ill-typed.
   private mutating func environment(
     ofTraitDecl id: NodeID<TraitDecl>
   ) -> GenericEnvironment? {
@@ -1279,7 +1285,7 @@ public struct TypeChecker {
   }
 
   // Evaluates the constraints declared in `associatedType`, stores them in `constraints` and
-  // returns whether they are all well-formed.
+  // returns whether they are all well-typed.
   private mutating func associatedConstraints(
     ofType associatedType: NodeID<AssociatedTypeDecl>,
     ofTrait trait: NodeID<TraitDecl>,
@@ -1312,7 +1318,7 @@ public struct TypeChecker {
   }
 
   // Evaluates the constraints declared in `associatedValue`, stores them in `constraints` and
-  // returns whether they are all well-formed.
+  // returns whether they are all well-typed.
   private mutating func associatedConstraints(
     ofValue associatedValue: NodeID<AssociatedValueDecl>,
     ofTrait trait: NodeID<TraitDecl>,
@@ -1383,7 +1389,7 @@ public struct TypeChecker {
 
   // MARK: Type inference
 
-  /// Infers and returns the type of `expr`, or `nil` if `expr` is ill-formed.
+  /// Infers and returns the type of `expr`, or `nil` if `expr` is ill-typed.
   public mutating func infer<S: ScopeID>(
     expr: AnyExprID,
     expectedType: Type? = nil,
@@ -1609,8 +1615,8 @@ public struct TypeChecker {
   /// through qualified lookups into the extended type.
   private var extensionsUnderBinding = DeclSet()
 
-  /// Returns the well-formed declarations to which the specified name may refer, along with their
-  /// overarching uncontextualized types. Ill-formed declarations are ignored.
+  /// Returns the well-typed declarations to which the specified name may refer, along with their
+  /// overarching uncontextualized types. Ill-typed declarations are ignored.
   mutating func resolve(
     stem: Identifier,
     labels: [String?],
@@ -1619,9 +1625,6 @@ public struct TypeChecker {
     introducedInDeclSpaceOf lookupContext: AnyScopeID? = nil,
     inScope origin: AnyScopeID
   ) -> [(decl: AnyDeclID, type: Type)] {
-    // Check preconditions.
-    precondition(notation == nil || labels.isEmpty, "invalid name")
-
     // Search for the referred declaration.
     var matches: TypeChecker.DeclSet
     if let ctx = lookupContext {
@@ -2296,7 +2299,7 @@ public struct TypeChecker {
   }
 
   /// Realizes and returns the traits of the specified conformance list, or `nil` if at least one
-  /// of them is ill-formed.
+  /// of them is ill-typed.
   private mutating func realize(
     conformances: [NodeID<NameTypeExpr>],
     inScope scope: AnyScopeID
@@ -2458,15 +2461,16 @@ public struct TypeChecker {
     if !success { return .error(ErrorType()) }
 
     // Collect captures.
-    guard let (captures, implicitParameterDecls) = realizeCaptures(
-      explicitIn: program.ast[id].explicitCaptures,
-      andImplicitInBodyOf: id)
+    var explicitCaptureNames: Set<Name> = []
+    guard let explicitCaptureTypes = realize(
+      explicitCaptures: program.ast[id].explicitCaptures,
+      collectingNamesIn: &explicitCaptureNames)
     else { return .error(ErrorType()) }
 
-    // FIXME: Remove this
-    if !captures.isEmpty {
-      program.incorporate(implicitParameterDecls: implicitParameterDecls, into: id)
-    }
+    let implicitCaptures: [ImplicitCapture] = program.isLocal(id)
+      ? realize(implicitCapturesIn: id, ignoring: explicitCaptureNames)
+      : []
+    self.implicitCaptures[id] = implicitCaptures
 
     // Realize the function's receiver if necessary.
     let isNonStaticMember = program.isNonStaticMember(id)
@@ -2492,18 +2496,18 @@ public struct TypeChecker {
       // Create a lambda bound to a receiver.
       let effect: ReceiverEffect?
       if program.ast[id].isInout {
-        receiver = .tuple(TupleType(labelsAndTypes: [
-          ("self", .remote(RemoteType(.inout, receiver!)))
+        receiver = .tuple(TupleType([
+          TupleType.Element(label: "self", type: .remote(RemoteType(.inout, receiver!)))
         ]))
         effect = .inout
       } else if program.ast[id].isSink  {
-        receiver = .tuple(TupleType(labelsAndTypes: [
-          ("self", receiver!)
+        receiver = .tuple(TupleType([
+          TupleType.Element(label: "self", type: receiver!)
         ]))
         effect = .sink
       } else {
-        receiver = .tuple(TupleType(labelsAndTypes: [
-          ("self", .remote(RemoteType(.let, receiver!)))
+        receiver = .tuple(TupleType([
+          TupleType.Element(label: "self", type: .remote(RemoteType(.let, receiver!)))
         ]))
         effect = nil
       }
@@ -2515,7 +2519,10 @@ public struct TypeChecker {
         output: outputType))
     } else {
       // Create a regular lambda.
-      let environment = Type.tuple(TupleType(types: captures))
+      let environment = Type.tuple(TupleType(
+        explicitCaptureTypes.map({ (t) in TupleType.Element(label: nil, type: t) }) +
+        implicitCaptures.map({ (c) in TupleType.Element(label: nil, type: .remote(c.type)) })
+      ))
 
       // TODO: Determine if the lambda is mutating.
 
@@ -2705,25 +2712,29 @@ public struct TypeChecker {
     if !success { return .error(ErrorType()) }
 
     // Collect captures.
-    guard let (captures, implicitParameterDecls) = realizeCaptures(
-      explicitIn: program.ast[id].explicitCaptures,
-      andImplicitInBodyOf: id)
+    var explicitCaptureNames: Set<Name> = []
+    guard let explicitCaptureTypes = realize(
+      explicitCaptures: program.ast[id].explicitCaptures,
+      collectingNamesIn: &explicitCaptureNames)
     else { return .error(ErrorType()) }
 
-    // FIXME: Remove this
-    if !captures.isEmpty {
-      program.incorporate(implicitParameterDecls: implicitParameterDecls, into: id)
-    }
+    let implicitCaptures: [ImplicitCapture] = program.isLocal(id)
+      ? realize(implicitCapturesIn: id, ignoring: explicitCaptureNames)
+      : []
+    self.implicitCaptures[id] = implicitCaptures
 
     // Build the subscript's environment.
     let environment: TupleType
     if program.isNonStaticMember(id) {
       let receiver = realizeSelfTypeExpr(inScope: program.declToScope[id]!)
-      environment = TupleType(labelsAndTypes: [
-        ("self", .remote(RemoteType(.yielded, receiver!)))
+      environment = TupleType([
+        TupleType.Element(label: "self", type: .remote(RemoteType(.yielded, receiver!)))
       ])
     } else {
-      environment = TupleType(types: captures)
+      environment = TupleType(
+        explicitCaptureTypes.map({ (t) in TupleType.Element(label: nil, type: t) }) +
+        implicitCaptures.map({ (c) in TupleType.Element(label: nil, type: .remote(c.type)) })
+      )
     }
 
     // Realize the ouput type.
@@ -2741,20 +2752,12 @@ public struct TypeChecker {
       output: output))
   }
 
-  /// Returns the types of the captures explicitly declared in `list` and implicitly found in the
-  /// body of `decl`, along with their corresponding implicit parameter declaration, or `nil` if
-  /// the captures are ill-formed.
-  ///
-  /// - Parameters:
-  ///   - list: An array of binding declarations representing explicit captures.
-  ///   - decl: The ID of a function or subscript declaration.
-  private mutating func realizeCaptures<T: Decl & LexicalScope>(
-    explicitIn list: [NodeID<BindingDecl>],
-    andImplicitInBodyOf decl: NodeID<T>
-  ) -> ([Type], [ImplicitParameter])? {
-    let parentScope = program.declToScope[decl]!
-
-    var implicitParameterDecls: [ImplicitParameter] = []
+  /// Realizes the explicit captures in `list`, writing the captured names in `explicitNames`, and
+  /// returns their types if they are semantically well-typed. Otherwise, returns `nil`.
+  private mutating func realize(
+    explicitCaptures list: [NodeID<BindingDecl>],
+    collectingNamesIn explictNames: inout Set<Name>
+  ) -> [Type]? {
     var explictNames: Set<Name> = []
     var captures: [Type] = []
     var success = true
@@ -2764,11 +2767,7 @@ public struct TypeChecker {
       // Collect the names of the capture.
       for (_, namePattern) in program.ast.names(in: program.ast[i].pattern) {
         let varDecl = program.ast[namePattern].decl
-        if explictNames.insert(Name(stem: program.ast[varDecl].name)).inserted {
-          implicitParameterDecls.append(ImplicitParameter(
-            name: program.ast[varDecl].name,
-            decl: AnyDeclID(varDecl)))
-        } else {
+        if !explictNames.insert(Name(stem: program.ast[varDecl].name)).inserted {
           diagnostics.insert(.diagnose(
             duplicateCaptureNamed: program.ast[varDecl].name,
             at: program.ast.ranges[varDecl]))
@@ -2791,77 +2790,103 @@ public struct TypeChecker {
       }
     }
 
-    // Bail out if the explicit captures could not be realized.
-    if !success { return nil }
+    return success ? captures : nil
+  }
 
+  /// Realizes the implicit captures found in the body of `decl` and returns their types and
+  /// declarations if they are well-typed. Otherwise, returns `nil`.
+  private mutating func realize<T: Decl & LexicalScope>(
+    implicitCapturesIn decl: NodeID<T>,
+    ignoring explictNames: Set<Name>
+  ) -> [ImplicitCapture] {
     // Process implicit captures.
-    if program.isLocal(decl) {
-      var receiverCaptureIndex: Int? = nil
-      var collector = CaptureCollector(ast: program.ast)
-      let freeNames = collector.freeNames(in: decl)
+    var captures: [ImplicitCapture] = []
+    var receiverIndex: Int? = nil
 
-      for (name, uses) in freeNames {
-        // Explicit captures are already accounted for.
-        if explictNames.contains(name) { continue }
+    var collector = CaptureCollector(ast: program.ast)
+    for (name, uses) in collector.freeNames(in: decl) {
+      // Explicit captures are already accounted for.
+      if explictNames.contains(name) { continue }
 
-        // Resolve the name.
-        let matches = lookup(unqualified: name.stem, inScope: parentScope)
+      // Resolve the name.
+      let matches = lookup(unqualified: name.stem, inScope: program.declToScope[decl]!)
 
-        // If there is a single match, assume it's correct. Type checking will fail it it isn't.
-        // If there are multiple match, attempt to filter them using the name's argument labels or
-        // operator notation. If that fails, complain about an ambiguous implicit capture.
-        let captureDecl: AnyDeclID
-        switch matches.count {
-        case 0: continue
-        case 1: captureDecl = matches.first!
-        default:
-          fatalError("not implemented")
-        }
+      // If there are multiple matches, attempt to filter them using the name's argument labels or
+      // operator notation. If that fails, complain about an ambiguous implicit capture.
+      let captureDecl: AnyDeclID
+      switch matches.count {
+      case 0:
+        continue
+      case 1:
+        captureDecl = matches.first!
+      default:
+        fatalError("not implemented")
+      }
 
-        // Global declarations are not captured.
-        if program.isGlobal(captureDecl) { continue }
+      // Global declarations are not captured.
+      if program.isGlobal(captureDecl) { continue }
 
-        // References to member declarations implicitly capture of their receiver.
-        if program.isMember(captureDecl) {
-          // If the function refers to a member declaration, it must be nested in a type scope.
-          let innermostTypeScope = program
-            .scopes(from: program.scopeToParent[decl]!)
-            .first(where: { $0.kind <= .typeDecl })!
+      // References to member declarations implicitly capture of their receiver.
+      if program.isMember(captureDecl) {
+        // If the function refers to a member declaration, it must be nested in a type scope.
+        let innermostTypeScope = program
+          .scopes(from: program.scopeToParent[decl]!)
+          .first(where: { $0.kind <= .typeDecl })!
 
-          // Ignore illegal implicit references to foreign receiver.
-          if program.isContained(innermostTypeScope, in: program.scopeToParent[captureDecl]!) {
-            continue
-          }
-
-          if let i = receiverCaptureIndex {
-            // Update the mutability of the capture if necessary.
-            if uses.capability == .let { continue }
-            guard case let .remote(p) = captures[i] else { unreachable() }
-            captures[i] = .remote(RemoteType(.inout, p.base))
-          } else {
-            // Capture the method's receiver.
-            let captureType = realizeSelfTypeExpr(inScope: decl)!
-            receiverCaptureIndex = captures.count
-            captures.append(.remote(RemoteType(uses.capability, captureType)))
-          }
-
+        // Ignore illegal implicit references to foreign receiver.
+        if program.isContained(innermostTypeScope, in: program.scopeToParent[captureDecl]!) {
           continue
         }
 
-        // Capture-less local functions are not captured.
-        if let d = NodeID<FunctionDecl>(captureDecl) {
-          guard case .lambda(let lambda) = realize(functionDecl: d) else { continue }
-          if lambda.environment == .void { continue }
+        if let i = receiverIndex, uses.capability != .let {
+          // Update the mutability of the capture.
+          captures[i] = ImplicitCapture(
+            name: captures[i].name,
+            type: RemoteType(.inout, captures[i].type.base),
+            decl: captures[i].decl)
+        } else {
+          // Resolve the implicit reference to `self`.
+          let receiverMatches = lookup(unqualified: "self", inScope: program.scopeToParent[decl]!)
+          let receiverDecl: AnyDeclID
+          switch receiverMatches.count {
+          case 0:
+            continue
+          case 1:
+            receiverDecl = matches.first!
+          default:
+            unreachable()
+          }
+
+          // Realize the type of `self`.
+          let receiverType = realize(decl: receiverDecl)
+          if receiverType.isError { continue }
+
+          // Register the capture of `self`.
+          receiverIndex = captures.count
+          captures.append(ImplicitCapture(
+            name: Name(stem: "self"),
+            type: RemoteType(uses.capability, receiverType.skolemized),
+            decl: receiverDecl))
         }
 
-        // Other local declarations are captured.
-        guard let captureType = realize(decl: captureDecl).proper?.skolemized else { continue }
-        captures.append(.remote(RemoteType(uses.capability, captureType)))
-        implicitParameterDecls.append(ImplicitParameter(name: name.stem, decl: captureDecl))
+        continue
       }
+
+      // Capture-less local functions are not captured.
+      if let d = NodeID<FunctionDecl>(captureDecl) {
+        guard case .lambda(let lambda) = realize(functionDecl: d) else { continue }
+        if lambda.environment == .void { continue }
+      }
+
+      // Other local declarations are captured.
+      guard let captureType = realize(decl: captureDecl).proper?.skolemized else { continue }
+      captures.append(ImplicitCapture(
+        name: name,
+        type: RemoteType(uses.capability, captureType),
+        decl: captureDecl))
     }
 
-    return (captures, implicitParameterDecls)
+    return captures
   }
 
   /// Returns the type of `decl` from the cache, or calls `action` to compute it and caches the

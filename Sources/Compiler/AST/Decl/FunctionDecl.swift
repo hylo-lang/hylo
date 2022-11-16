@@ -45,6 +45,9 @@ public struct FunctionDecl: GenericDecl, GenericScope {
   /// These declarations must have a type annotation unless `self.isInExprContext` is `true`.
   public let parameters: [NodeID<ParameterDecl>]
 
+  /// The declaration of the implicit receiver parameter, if any.
+  public let receiver: NodeID<ParameterDecl>?
+
   /// The return type annotation of the function, if any.
   public let output: AnyTypeExprID?
 
@@ -53,23 +56,6 @@ public struct FunctionDecl: GenericDecl, GenericScope {
 
   /// Indicates whether the declaration appears in an expression context.
   public let isInExprContext: Bool
-
-  /// The declaration of the implicit parameters of the function, if any.
-  ///
-  /// This property is set during type checking. In a local function, it maps the names of the
-  /// implicit and explicit captures to their respective declaration. In a non-static member
-  /// function declaration, it contains a reference to the declaration of the implicit receiver
-  /// parameter (i.e., `self`).
-  public private(set) var implicitParameterDecls: [ImplicitParameter]
-
-  /// The declaration of the implicit receiver parameter, if any.
-  public var implicitReceiverDecl: NodeID<ParameterDecl>? {
-    if let parameter = implicitParameterDecls.first, parameter.name == "self" {
-      return NodeID(parameter.decl)
-    } else {
-      return nil
-    }
-  }
 
   /// Creates an instance with the given properties.
   public init(
@@ -98,15 +84,10 @@ public struct FunctionDecl: GenericDecl, GenericScope {
     self.genericClause = genericClause
     self.explicitCaptures = explicitCaptures
     self.parameters = parameters
+    self.receiver = receiver
     self.output = output
     self.body = body
     self.isInExprContext = isInExprContext
-
-    if let r = receiver {
-      implicitParameterDecls = [ImplicitParameter(name: "self", decl: AnyDeclID(r))]
-    } else {
-      implicitParameterDecls = []
-    }
   }
 
   /// Returns whether the declaration is public.
@@ -126,27 +107,19 @@ public struct FunctionDecl: GenericDecl, GenericScope {
     attributes.contains(where: { $0.value.name.value == "@_lowered_name" })
   }
 
-  /// Incorporates the given implicit parameter declarations into `self`.
-  ///
-  /// - Requires: `self.implicitParameterDecls` is empty.
-  internal mutating func incorporate(implicitParameterDecls: [ImplicitParameter]) {
-    precondition(self.implicitParameterDecls.isEmpty)
-    self.implicitParameterDecls = implicitParameterDecls
-  }
-
   public func validateForm(in ast: AST) -> SuccessOrDiagnostics {
-    var ds: [Diagnostic] = []
+    var report: [Diagnostic] = []
 
     if !isInExprContext {
       // Parameter declarations must have a type annotation.
       for p in parameters {
         if ast[p].annotation == nil {
-          ds.append(.diagnose(missingTypeAnnotation: ast[p], in: ast))
+          report.append(.diagnose(missingTypeAnnotation: ast[p], in: ast))
         }
       }
     }
 
-    return ds.isEmpty ? .success : .failure(ds)
+    return report.isEmpty ? .success : .failure(report)
   }
 
 }

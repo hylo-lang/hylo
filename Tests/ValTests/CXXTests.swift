@@ -52,7 +52,9 @@ final class CXXTests: XCTestCase {
         annotating: checker.program,
         declTypes: checker.declTypes,
         exprTypes: checker.exprTypes,
-        referredDecls: checker.referredDecls)
+        implicitCaptures: checker.implicitCaptures,
+        referredDecls: checker.referredDecls,
+        foldedSequenceExprs: checker.foldedSequenceExprs)
 
       // TODO: Run IR transform passes
 

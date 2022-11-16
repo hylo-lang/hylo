@@ -157,7 +157,9 @@ struct CLI: ParsableCommand {
       annotating: checker.program,
       declTypes: checker.declTypes,
       exprTypes: checker.exprTypes,
-      referredDecls: checker.referredDecls)
+      implicitCaptures: checker.implicitCaptures,
+      referredDecls: checker.referredDecls,
+      foldedSequenceExprs: checker.foldedSequenceExprs)
 
     // *** IR Lowering ***
 

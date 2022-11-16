@@ -27,8 +27,8 @@ struct DiagnosticChecker {
     assert(annotation.command == "diagnostic")
 
     // Retrieve the list of expected diagnostics at the annotation's location.
-    var ds = emittedDiagnostics[annotation.location, default: []]
-    guard let i = ds.firstIndex(where: { $0.message == annotation.argument }) else {
+    var report = emittedDiagnostics[annotation.location, default: []]
+    guard let i = report.firstIndex(where: { $0.message == annotation.argument }) else {
       XCTFail(
         "\(testCaseName): missing expected diagnostic at \(annotation.location)",
         file: file,
@@ -37,8 +37,8 @@ struct DiagnosticChecker {
     }
 
     // Remove the diagnostic from the set.
-    ds.remove(at: i)
-    emittedDiagnostics[annotation.location] = ds.isEmpty ? nil : ds
+    report.remove(at: i)
+    emittedDiagnostics[annotation.location] = report.isEmpty ? nil : report
   }
 
   /// Checks that all emitted diagnostics were expected.
