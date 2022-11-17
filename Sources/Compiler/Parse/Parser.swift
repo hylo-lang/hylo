@@ -2545,17 +2545,6 @@ public enum Parser {
       guard let head = state.peek() else { return nil }
 
       switch head.kind {
-      case .indirect:
-        // indirect-type-expr
-        _ = state.take()
-        guard let operand = try typeExpr.parse(&state) else {
-          throw DiagnosedError(expected("type expression", at: state.currentLocation))
-        }
-
-        let id = try state.ast.insert(wellFormed: IndirectTypeExpr(operand: operand))
-        state.ast.ranges[id] = head.range.upperBounded(by: state.currentIndex)
-        return AnyTypeExprID(id)
-
       case .any:
         // existential-type-expr
         _ = state.take()

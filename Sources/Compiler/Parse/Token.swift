@@ -36,7 +36,6 @@ public struct Token {
     case `if`
     case `import`
     case `in`
-    case `indirect`
     case `infix`
     case `init`
     case `inout`

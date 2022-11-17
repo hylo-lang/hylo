@@ -170,7 +170,6 @@ extension NodeKind {
     // MARK: Type expressions
     ConformanceLensTypeExpr.self,
     ExistentialTypeExpr.self,
-    IndirectTypeExpr.self,
     LambdaTypeExpr.self,
     ParameterTypeExpr.self,
     StoredProjectionTypeExpr.self,

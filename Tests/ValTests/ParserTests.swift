@@ -1507,13 +1507,6 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(expr.whereClause?.value.constraints.count, 1)
   }
 
-  func testIndirectTypeExpr() throws {
-    let input = SourceFile(contents: "indirect T")
-    let (exprID, ast) = try apply(Parser.modifiedTypeExpr, on: input)
-    let expr = try XCTUnwrap(ast[exprID] as? IndirectTypeExpr)
-    XCTAssertEqual(expr.operand.kind, .init(NameExpr.self))
-  }
-
   func testConformanceLensTypeExpr() throws {
     let input = SourceFile(contents: "{ T, U }::Baz")
     let (exprID, ast) = try apply(Parser.compoundTypeExpr, on: input)

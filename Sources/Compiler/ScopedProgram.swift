@@ -962,8 +962,6 @@ extension ScopedProgram {
       visit(conformanceLensTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
     case ExistentialTypeExpr.self:
       visit(existentialTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
-    case IndirectTypeExpr.self:
-      visit(indirectTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
     case LambdaTypeExpr.self:
       visit(lambdaTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
     case NameExpr.self:
@@ -1001,13 +999,6 @@ extension ScopedProgram {
     if let clause = ast[expr].whereClause?.value {
       visit(whereClause: clause, withState: &state)
     }
-  }
-
-  private mutating func visit(
-    indirectTypeExpr expr: NodeID<IndirectTypeExpr>,
-    withState state: inout VisitorState
-  ) {
-    visit(typeExpr: ast[expr].operand, withState: &state)
   }
 
   private mutating func visit(
