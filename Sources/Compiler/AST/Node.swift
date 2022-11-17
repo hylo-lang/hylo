@@ -14,4 +14,5 @@ extension Node {
 
   /// A unique identifier denoting the type of this node.
   static var kind: NodeKind { NodeKind(Self.self) }
+  
 }
