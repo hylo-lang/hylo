@@ -959,7 +959,7 @@ extension ScopedProgram {
       visit(nameExpr: NodeID(rawValue: expr.rawValue), withState: &state)
     case ParameterTypeExpr.self:
       visit(parameterTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
-    case StoredProjectionTypeExpr.self:
+    case RemoteTypeExpr.self:
       visit(storedProjectionTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
     case TupleTypeExpr.self:
       visit(tupleTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
@@ -1013,7 +1013,7 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    storedProjectionTypeExpr expr: NodeID<StoredProjectionTypeExpr>,
+    storedProjectionTypeExpr expr: NodeID<RemoteTypeExpr>,
     withState state: inout VisitorState
   ) {
     visit(typeExpr: ast[expr].operand, withState: &state)

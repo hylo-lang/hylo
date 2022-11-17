@@ -171,7 +171,7 @@ extension NodeKind {
     ExistentialTypeExpr.self,
     LambdaTypeExpr.self,
     ParameterTypeExpr.self,
-    StoredProjectionTypeExpr.self,
+    RemoteTypeExpr.self,
     TupleTypeExpr.self,
     UnionTypeExpr.self,
     WildcardTypeExpr.self,
