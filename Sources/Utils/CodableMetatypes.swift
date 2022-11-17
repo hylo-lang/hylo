@@ -45,12 +45,14 @@ private func metatypeWrapperClass(named name: String) -> CodableMetatypeWrapperP
 public func encode(_ t: MetatypeCodable.Type, to destination: Encoder) throws {
   var c = destination.singleValueContainer()
   try c.encode(t.wrapperName)
+  print("******* encoding name:", t.wrapperName)
 }
 
 /// Deserializes the metatype of any MetatypeCodable type from `source`.
 public func decodeMetatype(from source: Decoder) throws -> MetatypeCodable.Type {
   let metatypeWrapperName = try source.singleValueContainer().decode(String.self)
 
+  print("******* reconstituting", _typeByName(metatypeWrapperName) ?? Never.self)
   guard let wrapperClass = metatypeWrapperClass(named: metatypeWrapperName) else {
     throw DecodingError.typeMismatch(
       MetatypeCodable.self,
