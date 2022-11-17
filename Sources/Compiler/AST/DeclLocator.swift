@@ -51,43 +51,43 @@ public struct DeclLocator: Hashable {
           self = .lambda(decl)
         }
 
-        case .initializerDecl:
-          let decl = NodeID<InitializerDecl>(rawValue: decl.rawValue)
+      case .initializerDecl:
+        let decl = NodeID<InitializerDecl>(rawValue: decl.rawValue)
 
-          let labels: [String]
-          switch program.declTypes[decl]! {
-          case .lambda(let type):
-            labels = Array(type.inputs.map({ $0.label ?? "_" }))
-          default:
-            labels = []
-          }
+        let labels: [String]
+        switch program.declTypes[decl]! {
+        case .lambda(let type):
+          labels = Array(type.inputs.map({ $0.label ?? "_" }))
+        default:
+          labels = []
+        }
 
-          self = .function(name: "init", labels: labels, notation: nil)
+        self = .function(name: "init", labels: labels, notation: nil)
 
-          case .methodDecl:
-            let decl = NodeID<MethodDecl>(rawValue: decl.rawValue)
+      case .methodDecl:
+        let decl = NodeID<MethodDecl>(rawValue: decl.rawValue)
 
-            let labels: [String]
-            switch program.declTypes[decl]! {
-            case .method(let type):
-              labels = Array(type.inputs.map({ $0.label ?? "_" }))
-            default:
-              labels = []
-            }
+        let labels: [String]
+        switch program.declTypes[decl]! {
+        case .method(let type):
+          labels = Array(type.inputs.map({ $0.label ?? "_" }))
+        default:
+          labels = []
+        }
 
-            let name = program.ast[decl].identifier.value
-            self = .function(name: name, labels: labels, notation: program.ast[decl].notation?.value)
+        let name = program.ast[decl].identifier.value
+        self = .function(name: name, labels: labels, notation: program.ast[decl].notation?.value)
 
-            case .methodImplDecl:
-              let decl = NodeID<MethodImplDecl>(rawValue: decl.rawValue)
-              self = .methodImpl(program.ast[decl].introducer.value)
+      case .methodImplDecl:
+        let decl = NodeID<MethodImplDecl>(rawValue: decl.rawValue)
+        self = .methodImpl(program.ast[decl].introducer.value)
 
-            case .productTypeDecl:
-              let decl = NodeID<ProductTypeDecl>(rawValue: decl.rawValue)
-              self = .product(program.ast[decl].name)
+      case .productTypeDecl:
+        let decl = NodeID<ProductTypeDecl>(rawValue: decl.rawValue)
+        self = .product(program.ast[decl].name)
 
-            default:
-              return nil
+      default:
+        return nil
       }
     }
 
@@ -116,32 +116,32 @@ public struct DeclLocator: Hashable {
         case .sink : return "Is"
         }
 
-        case .module(let name):
-          return "M\(name.mangled)"
+      case .module(let name):
+        return "M\(name.mangled)"
 
-        case .namespace(let name):
-          return "N\(name.mangled)"
+      case .namespace(let name):
+        return "N\(name.mangled)"
 
-        case .lambda(let discriminator):
-          return "L\(discriminator.rawValue)"
+      case .lambda(let discriminator):
+        return "L\(discriminator.rawValue)"
 
-        case .product(let name):
-          return "P\(name.mangled)"
+      case .product(let name):
+        return "P\(name.mangled)"
 
-        case .subscript(let name, let labels):
-          let ls = labels.map({ $0.mangled }).joined()
-          return "S\(name.mangled)\(labels.count)\(ls)"
+      case .subscript(let name, let labels):
+        let ls = labels.map({ $0.mangled }).joined()
+        return "S\(name.mangled)\(labels.count)\(ls)"
 
-        case .subscriptImpl(let introducer):
-          switch introducer {
-          case .let   : return "Il"
-          case .inout : return "Ii"
-          case .set   : return "Ia"
-          case .sink  : return "Is"
-          }
+      case .subscriptImpl(let introducer):
+        switch introducer {
+        case .let   : return "Il"
+        case .inout : return "Ii"
+        case .set   : return "Ia"
+        case .sink  : return "Is"
+        }
 
-          case .trait(let name):
-            return "N\(name.mangled)"
+      case .trait(let name):
+        return "N\(name.mangled)"
       }
     }
 
