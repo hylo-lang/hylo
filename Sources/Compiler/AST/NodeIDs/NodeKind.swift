@@ -139,7 +139,6 @@ extension NodeKind {
     NameExpr.self,
     NilExpr.self,
     SequenceExpr.self,
-    StoredProjectionExpr.self,
     StringLiteralExpr.self,
     SubscriptCallExpr.self,
     TupleExpr.self,

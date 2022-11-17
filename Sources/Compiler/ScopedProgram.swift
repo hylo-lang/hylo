@@ -559,8 +559,6 @@ extension ScopedProgram {
       break
     case SequenceExpr.self:
       visit(sequenceExpr: NodeID(rawValue: expr.rawValue), withState: &state)
-    case StoredProjectionExpr.self:
-      visit(storedProjectionExpr: NodeID(rawValue: expr.rawValue), withState: &state)
     case StringLiteralExpr.self:
       break
     case SubscriptCallExpr.self:
@@ -729,13 +727,6 @@ extension ScopedProgram {
       visit(nameExpr: element.operator, withState: &state)
       visit(expr: element.operand, withState: &state)
     }
-  }
-
-  private mutating func visit(
-    storedProjectionExpr expr: NodeID<StoredProjectionExpr>,
-    withState state: inout VisitorState
-  ) {
-    visit(expr: ast[expr].operand, withState: &state)
   }
 
   private mutating func visit(

@@ -93,8 +93,6 @@ struct ConstraintGenerator {
       return visit(nil: NodeID(rawValue: expr.rawValue), using: &checker)
     case SequenceExpr.self:
       return visit(sequence: NodeID(rawValue: expr.rawValue), using: &checker)
-    case StoredProjectionExpr.self:
-      return visit(storedProjection: NodeID(rawValue: expr.rawValue), using: &checker)
     case StringLiteralExpr.self:
       return visit(stringLiteral: NodeID(rawValue: expr.rawValue), using: &checker)
     case SubscriptCallExpr.self:
@@ -734,13 +732,6 @@ struct ConstraintGenerator {
       visit(expr: expr, using: &checker)
       return inferredTypes[expr]!
     }
-  }
-
-  private mutating func visit(
-    storedProjection i: NodeID<StoredProjectionExpr>,
-    using checker: inout TypeChecker
-  ) {
-    fatalError("not implemented")
   }
 
   private mutating func visit(
