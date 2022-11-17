@@ -37,7 +37,7 @@ extension MetatypeCodable {
 
 /// Returns the CodableMetatypeWrapper<T> with the given name.
 private func metatypeWrapperClass(named name: String) -> CodableMetatypeWrapperProtocol.Type? {
-  _typeByName(name) as? CodableMetatypeWrapperProtocol.TYpe
+  _typeByName(name) as? CodableMetatypeWrapperProtocol.Type
 }
 #endif
 
