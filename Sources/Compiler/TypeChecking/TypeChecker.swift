@@ -1582,7 +1582,7 @@ public struct TypeChecker {
         return .tuple(TupleType(elements))
       }
 
-      case WildcardPattern.self:
+    case WildcardPattern.self:
       return expectedType ?? .variable(TypeVariable())
 
     default:

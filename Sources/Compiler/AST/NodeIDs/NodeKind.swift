@@ -192,5 +192,5 @@ extension NodeKind {
   ]
 
   static let indices = Dictionary(
-    uniqueKeysWithValues: allValues.enumerated().lazy.map { (n, t) in (NodeKind(t), n) })
+    uniqueKeysWithValues: allValues.enumerated().map { (n, t) in (NodeKind(t), n) })
 }
