@@ -958,8 +958,6 @@ extension ScopedProgram {
 
   private mutating func visit(typeExpr expr: AnyTypeExprID, withState state: inout VisitorState) {
     switch expr.kind {
-    case AsyncTypeExpr.self:
-      visit(asyncTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
     case ConformanceLensTypeExpr.self:
       visit(conformanceLensTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
     case ExistentialTypeExpr.self:
@@ -983,13 +981,6 @@ extension ScopedProgram {
     default:
       unreachable("unexpected type expression")
     }
-  }
-
-  private mutating func visit(
-    asyncTypeExpr expr: NodeID<AsyncTypeExpr>,
-    withState state: inout VisitorState
-  ) {
-    visit(typeExpr: ast[expr].operand, withState: &state)
   }
 
   private mutating func visit(

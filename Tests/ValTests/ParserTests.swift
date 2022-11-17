@@ -1507,13 +1507,6 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(expr.whereClause?.value.constraints.count, 1)
   }
 
-  func testAsyncTypeExpr() throws {
-    let input = SourceFile(contents: "async T")
-    let (exprID, ast) = try apply(Parser.modifiedTypeExpr, on: input)
-    let expr = try XCTUnwrap(ast[exprID] as? AsyncTypeExpr)
-    XCTAssertEqual(expr.operand.kind, .init(NameExpr.self))
-  }
-
   func testIndirectTypeExpr() throws {
     let input = SourceFile(contents: "indirect T")
     let (exprID, ast) = try apply(Parser.modifiedTypeExpr, on: input)

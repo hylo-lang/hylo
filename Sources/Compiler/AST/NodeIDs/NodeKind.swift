@@ -168,7 +168,6 @@ extension NodeKind {
     YieldStmt.self,
 
     // MARK: Type expressions
-    AsyncTypeExpr.self,
     ConformanceLensTypeExpr.self,
     ExistentialTypeExpr.self,
     IndirectTypeExpr.self,
