@@ -11,7 +11,7 @@ public struct AssociatedTypeDecl: TypeDecl {
   public let identifier: SourceRepresentable<Identifier>
 
   /// The conformances listed in the declaration.
-  public let conformances: [NodeID<NameTypeExpr>]
+  public let conformances: [NodeID<NameExpr>]
 
   /// The where clause of the declaration, if any.
   public let whereClause: SourceRepresentable<WhereClause>?
@@ -23,7 +23,7 @@ public struct AssociatedTypeDecl: TypeDecl {
   public init(
     introducerRange: SourceRange?,
     identifier: SourceRepresentable<Identifier>,
-    conformances: [NodeID<NameTypeExpr>],
+    conformances: [NodeID<NameExpr>],
     whereClause: SourceRepresentable<WhereClause>?,
     defaultValue: AnyTypeExprID?
   ) {

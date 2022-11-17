@@ -1,7 +1,7 @@
 import Utils
 
-/// The type of an AST node; a nominal wrapper for Node.Type that adds conformances and convenience
-/// APIs.
+/// The type of an AST node; a nominal wrapper for `Node.Type` that adds conformances and
+/// convenience APIs.
 public struct NodeKind: Codable, Equatable, Hashable {
 
   /// The underlying value.
@@ -93,9 +93,9 @@ extension NodeKind: CustomStringConvertible {
 }
 
 extension NodeKind {
-  static let allValues: [Node.Type] = [
-  // MARK: Declarations
 
+  static let allValues: [Node.Type] = [
+    // MARK: Declarations
     AssociatedTypeDecl.self,
     AssociatedValueDecl.self,
     BindingDecl.self,
@@ -120,8 +120,7 @@ extension NodeKind {
     TypeAliasDecl.self,
     VarDecl.self,
 
-  // MARK: Value expressions
-
+    // MARK: Value expressions
     AssignExpr.self,
     AsyncExpr.self,
     AwaitExpr.self,
@@ -147,16 +146,14 @@ extension NodeKind {
     TupleMemberExpr.self,
     UnicodeScalarLiteralExpr.self,
 
-  // MARK: Patterns
-
+    // MARK: Patterns
     BindingPattern.self,
     ExprPattern.self,
     NamePattern.self,
     TuplePattern.self,
     WildcardPattern.self,
 
-  // MARK: Statements
-
+    // MARK: Statements
     BraceStmt.self,
     BreakStmt.self,
     CondBindingStmt.self,
@@ -170,28 +167,24 @@ extension NodeKind {
     WhileStmt.self,
     YieldStmt.self,
 
-  // MARK: Type expressions
-
-  /// The kind of type expression nodes.
-
+    // MARK: Type expressions
     AsyncTypeExpr.self,
     ConformanceLensTypeExpr.self,
     ExistentialTypeExpr.self,
     IndirectTypeExpr.self,
     LambdaTypeExpr.self,
-    NameTypeExpr.self,
     ParameterTypeExpr.self,
     StoredProjectionTypeExpr.self,
     TupleTypeExpr.self,
     UnionTypeExpr.self,
     WildcardTypeExpr.self,
 
-  // MARK: Others
-
+    // MARK: Others
     MatchCase.self,
     TopLevelDeclSet.self
   ]
 
   static let indices = Dictionary(
     uniqueKeysWithValues: allValues.enumerated().map { (n, t) in (NodeKind(t), n) })
+
 }

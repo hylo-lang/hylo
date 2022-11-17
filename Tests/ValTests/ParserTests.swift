@@ -492,7 +492,7 @@ final class ParserTests: XCTestCase {
     let signature = try XCTUnwrap(try apply(Parser.functionDeclSignature, on: input).element)
     XCTAssertEqual(signature.parameters.count, 1)
     XCTAssertNil(signature.receiverEffect)
-    XCTAssertEqual(signature.output?.kind, NodeKind(NameTypeExpr.self))
+    XCTAssertEqual(signature.output?.kind, NodeKind(NameExpr.self))
   }
 
   func testFunctionDeclSignatureWithOutputAndEffect() throws {
@@ -500,7 +500,7 @@ final class ParserTests: XCTestCase {
     let signature = try XCTUnwrap(try apply(Parser.functionDeclSignature, on: input).element)
     XCTAssertEqual(signature.parameters.count, 1)
     XCTAssertEqual(signature.receiverEffect?.value, .sink)
-    XCTAssertEqual(signature.output?.kind, .init(NameTypeExpr.self))
+    XCTAssertEqual(signature.output?.kind, .init(NameExpr.self))
   }
 
   func testFunctionDeclIdentifier() throws {
@@ -1511,14 +1511,14 @@ final class ParserTests: XCTestCase {
     let input = SourceFile(contents: "async T")
     let (exprID, ast) = try apply(Parser.modifiedTypeExpr, on: input)
     let expr = try XCTUnwrap(ast[exprID] as? AsyncTypeExpr)
-    XCTAssertEqual(expr.operand.kind, .init(NameTypeExpr.self))
+    XCTAssertEqual(expr.operand.kind, .init(NameExpr.self))
   }
 
   func testIndirectTypeExpr() throws {
     let input = SourceFile(contents: "indirect T")
     let (exprID, ast) = try apply(Parser.modifiedTypeExpr, on: input)
     let expr = try XCTUnwrap(ast[exprID] as? IndirectTypeExpr)
-    XCTAssertEqual(expr.operand.kind, .init(NameTypeExpr.self))
+    XCTAssertEqual(expr.operand.kind, .init(NameExpr.self))
   }
 
   func testConformanceLensTypeExpr() throws {
@@ -1526,28 +1526,36 @@ final class ParserTests: XCTestCase {
     let (exprID, ast) = try apply(Parser.compoundTypeExpr, on: input)
     let expr = try XCTUnwrap(ast[exprID] as? ConformanceLensTypeExpr)
     XCTAssertEqual(expr.subject.kind, .init(TupleTypeExpr.self))
-    XCTAssertEqual(expr.lens.kind, .init(NameTypeExpr.self))
+    XCTAssertEqual(expr.lens.kind, .init(NameExpr.self))
   }
 
   func testConformanceLensExprWithMember() throws {
     let input = SourceFile(contents: "T::P.A")
     let (exprID, ast) = try apply(Parser.compoundTypeExpr, on: input)
-    let expr = try XCTUnwrap(ast[exprID] as? NameTypeExpr)
-    XCTAssertEqual(expr.identifier.value, "A")
+    let expr = try XCTUnwrap(ast[exprID] as? NameExpr)
+    XCTAssertEqual(expr.name.value.stem, "A")
 
-    let domain = try XCTUnwrap(ast[expr.domain] as? ConformanceLensTypeExpr)
-    XCTAssertEqual(domain.subject.kind, .init(NameTypeExpr.self))
-    XCTAssertEqual(domain.lens.kind, .init(NameTypeExpr.self))
+    if case .type(let domain) = expr.domain {
+      let d = try XCTUnwrap(ast[domain] as? ConformanceLensTypeExpr)
+      XCTAssertEqual(d.subject.kind, .init(NameExpr.self))
+      XCTAssertEqual(d.lens.kind, .init(NameExpr.self))
+    } else {
+      XCTFail()
+    }
   }
 
   func testTypeMemberExpr() throws {
     let input = SourceFile(contents: "A.B.C")
     let (exprID, ast) = try apply(Parser.compoundTypeExpr, on: input)
-    let expr = try XCTUnwrap(ast[exprID] as? NameTypeExpr)
-    XCTAssertEqual(expr.identifier.value, "C")
+    let expr = try XCTUnwrap(ast[exprID] as? NameExpr)
+    XCTAssertEqual(expr.name.value.stem, "C")
 
-    let domain = try XCTUnwrap(ast[expr.domain] as? NameTypeExpr)
-    XCTAssertEqual(domain.identifier.value, "B")
+    if case .type(let domain) = expr.domain {
+      let d = try XCTUnwrap(ast[domain] as? NameExpr)
+      XCTAssertEqual(d.name.value.stem, "B")
+    } else {
+      XCTFail()
+    }
   }
 
   func testInoutExpr() throws {
@@ -1584,7 +1592,7 @@ final class ParserTests: XCTestCase {
     let input = SourceFile(contents: "((A) -> (B)) -> C")
     let (exprID, ast) = try apply(Parser.lambdaOrParenthesizedTypeExpr, on: input)
     let expr = try XCTUnwrap(ast[exprID] as? LambdaTypeExpr)
-    XCTAssertEqual(expr.output.kind, .init(NameTypeExpr.self))
+    XCTAssertEqual(expr.output.kind, .init(NameExpr.self))
   }
 
   func testParenthesizedTypeExpr() throws {
@@ -1600,7 +1608,7 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(expr.receiverEffect?.value, .inout)
     XCTAssertEqual(expr.environment?.value.kind, .init(TupleTypeExpr.self))
     XCTAssertEqual(expr.parameters.count, 2)
-    XCTAssertEqual(expr.output.kind, .init(NameTypeExpr.self))
+    XCTAssertEqual(expr.output.kind, .init(NameExpr.self))
   }
 
   func testTypeErasedLambdaTypeExpr() throws {
@@ -1609,7 +1617,7 @@ final class ParserTests: XCTestCase {
     let expr = try XCTUnwrap(ast[exprID])
     XCTAssertEqual(expr.receiverEffect?.value, .inout)
     XCTAssertEqual(expr.parameters.count, 2)
-    XCTAssertEqual(expr.output.kind, .init(NameTypeExpr.self))
+    XCTAssertEqual(expr.output.kind, .init(NameExpr.self))
     XCTAssertNil(expr.environment)
   }
 
@@ -1620,7 +1628,7 @@ final class ParserTests: XCTestCase {
     XCTAssertNil(expr.receiverEffect)
     XCTAssertEqual(expr.environment?.value.kind, .init(TupleTypeExpr.self))
     XCTAssert(expr.parameters.isEmpty)
-    XCTAssertEqual(expr.output.kind, .init(NameTypeExpr.self))
+    XCTAssertEqual(expr.output.kind, .init(NameExpr.self))
   }
 
   func testCustomLambdaEnvironement() throws {
@@ -1664,7 +1672,7 @@ final class ParserTests: XCTestCase {
     let input = SourceFile(contents: "T == { U, V }")
     let constraint = try XCTUnwrap(try apply(Parser.typeConstraint, on: input).element)
     if case .equality(let lhs, let rhs) = constraint.value {
-      XCTAssertEqual(lhs.kind, .init(NameTypeExpr.self))
+      XCTAssertEqual(lhs.kind, .init(NameExpr.self))
       XCTAssertEqual(rhs.kind, .init(TupleTypeExpr.self))
     } else {
       XCTFail()
@@ -1675,7 +1683,7 @@ final class ParserTests: XCTestCase {
     let input = SourceFile(contents: "T : U & V")
     let constraint = try XCTUnwrap(try apply(Parser.typeConstraint, on: input).element)
     if case .conformance(let lhs, _) = constraint.value {
-      XCTAssertEqual(lhs.kind, .init(NameTypeExpr.self))
+      XCTAssertEqual(lhs.kind, .init(NameExpr.self))
     } else {
       XCTFail()
     }

@@ -2009,7 +2009,7 @@ public struct TypeChecker {
     case LambdaTypeExpr.self:
       return realize(lambda: NodeID(rawValue: expr.rawValue), inScope: scope)
 
-    case NameTypeExpr.self:
+    case NameExpr.self:
       return realize(name: NodeID(rawValue: expr.rawValue), inScope: scope)
 
     case ParameterTypeExpr.self:
@@ -2140,38 +2140,39 @@ public struct TypeChecker {
   }
 
   private mutating func realize(
-    name id: NodeID<NameTypeExpr>,
+    name id: NodeID<NameExpr>,
     inScope scope: AnyScopeID
   ) -> Type? {
-    let identifier = program.ast[id].identifier
+    let name = program.ast[id].name
     var base: Type?
 
-    if let j = program.ast[id].domain {
+    switch program.ast[id].domain {
+    case .type(let j):
       // Resolve the domain.
       guard let domain = realize(j, inScope: scope) else { return nil }
 
       // Handle references to built-in types.
       if domain == .builtin(.module) {
-        if let type = BuiltinType(identifier.value) {
+        if let type = BuiltinType(name.value.stem) {
           return .builtin(type)
         } else {
           diagnostics.insert(.diagnose(
-            noTypeNamed: identifier.value,
+            noTypeNamed: name.value.stem,
             in: domain,
-            range: identifier.range))
+            range: name.range))
           return nil
         }
       }
 
       // Lookup for the name's identifier in the context of the domain.
-      let matches = lookup(identifier.value, memberOf: domain, inScope: scope)
+      let matches = lookup(name.value.stem, memberOf: domain, inScope: scope)
 
       // Realize the referred type.
       for match in matches where match.kind.value is TypeDecl.Type {
         if base != nil {
           diagnostics.insert(.diagnose(
-            ambiguousReferenceToTypeNamed: identifier.value,
-            at: identifier.range))
+            ambiguousReferenceToTypeNamed: name.value.stem,
+            at: name.range))
           return nil
         }
 
@@ -2183,7 +2184,7 @@ public struct TypeChecker {
           default:
             diagnostics.insert(.diagnose(
               invalidAssociatedNamed: program.ast[decl].name,
-              at: identifier.range))
+              at: name.range))
             return nil
           }
         } else {
@@ -2193,14 +2194,15 @@ public struct TypeChecker {
 
       if base == nil {
         diagnostics.insert(.diagnose(
-          noTypeNamed: identifier.value,
+          noTypeNamed: name.value.stem,
           in: domain,
-          range: identifier.range))
+          range: name.range))
         return nil
       }
-    } else {
+
+    case .none:
       // Bypass unqualified lookup for reserved type names.
-      switch identifier.value {
+      switch name.value.stem {
       case "Any":
         return .any
       case "Never":
@@ -2209,26 +2211,26 @@ public struct TypeChecker {
         if let type = realizeSelfTypeExpr(inScope: scope) {
           return type
         } else {
-          diagnostics.insert(.diagnose(invalidReferenceToSelfTypeAt: identifier.range))
+          diagnostics.insert(.diagnose(invalidReferenceToSelfTypeAt: name.range))
           return nil
         }
       default:
         break
       }
 
-      if isBuiltinModuleVisible && (identifier.value == "Builtin") {
+      if isBuiltinModuleVisible && (name.value.stem == "Builtin") {
         return .builtin(.module)
       }
 
       // Search for the referred type declaration with an unqualified lookup.
-      let matches = lookup(unqualified: identifier.value, inScope: scope)
+      let matches = lookup(unqualified: name.value.stem, inScope: scope)
 
       // Realize the referred type.
       for match in matches where match.kind.value is TypeDecl.Type {
         if base != nil {
           diagnostics.insert(.diagnose(
-            ambiguousReferenceToTypeNamed: identifier.value,
-            at: identifier.range))
+            ambiguousReferenceToTypeNamed: name.value.stem,
+            at: name.range))
           return nil
         }
 
@@ -2246,9 +2248,12 @@ public struct TypeChecker {
       }
 
       if base == nil {
-        diagnostics.insert(.diagnose(noTypeNamed: identifier.value, range: identifier.range))
+        diagnostics.insert(.diagnose(noTypeNamed: name.value.stem, range: name.range))
         return nil
       }
+
+    case .implicit, .expr:
+      unreachable("unexpected name domain")
     }
 
     // Evaluate the arguments of the referred type, if any.
@@ -2301,7 +2306,7 @@ public struct TypeChecker {
   /// Realizes and returns the traits of the specified conformance list, or `nil` if at least one
   /// of them is ill-typed.
   private mutating func realize(
-    conformances: [NodeID<NameTypeExpr>],
+    conformances: [NodeID<NameExpr>],
     inScope scope: AnyScopeID
   ) -> Set<TraitType>? {
     // Realize the traits in the conformance list.

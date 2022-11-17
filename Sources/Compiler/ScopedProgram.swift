@@ -144,7 +144,7 @@ extension ScopedProgram {
     insert(decl: decl, into: state.innermost)
 
     for conformance in ast[decl].conformances {
-      visit(nameTypeExpr: conformance, withState: &state)
+      visit(nameExpr: conformance, withState: &state)
     }
     if let defaultValue = ast[decl].defaultValue {
       visit(typeExpr: defaultValue, withState: &state)
@@ -262,7 +262,7 @@ extension ScopedProgram {
     insert(decl: decl, into: state.innermost)
 
     for conformance in ast[decl].conformances {
-      visit(nameTypeExpr: conformance, withState: &state)
+      visit(nameExpr: conformance, withState: &state)
     }
     if let defaultValue = ast[decl].defaultValue {
       visit(typeExpr: defaultValue, withState: &state)
@@ -407,7 +407,7 @@ extension ScopedProgram {
         this.visit(genericClause: clause, withState: &state)
       }
       for conformance in this.ast[decl].conformances {
-        this.visit(nameTypeExpr: conformance, withState: &state)
+        this.visit(nameExpr: conformance, withState: &state)
       }
       for member in this.ast[decl].members {
         this.visit(decl: member, withState: &state)
@@ -470,7 +470,7 @@ extension ScopedProgram {
 
     nesting(in: decl, withState: &state, { (this, state) in
       for refinement in this.ast[decl].refinements {
-        this.visit(nameTypeExpr: refinement, withState: &state)
+        this.visit(nameExpr: refinement, withState: &state)
       }
       for member in this.ast[decl].members {
         this.visit(decl: member, withState: &state)
@@ -968,8 +968,8 @@ extension ScopedProgram {
       visit(indirectTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
     case LambdaTypeExpr.self:
       visit(lambdaTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
-    case NameTypeExpr.self:
-      visit(nameTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+    case NameExpr.self:
+      visit(nameExpr: NodeID(rawValue: expr.rawValue), withState: &state)
     case ParameterTypeExpr.self:
       visit(parameterTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
     case StoredProjectionTypeExpr.self:
@@ -1005,7 +1005,7 @@ extension ScopedProgram {
     withState state: inout VisitorState
   ) {
     for trait in ast[expr].traits {
-      visit(nameTypeExpr: trait, withState: &state)
+      visit(nameExpr: trait, withState: &state)
     }
     if let clause = ast[expr].whereClause?.value {
       visit(whereClause: clause, withState: &state)
@@ -1030,23 +1030,6 @@ extension ScopedProgram {
       visit(parameterTypeExpr: parameter.type, withState: &state)
     }
     visit(typeExpr: ast[expr].output, withState: &state)
-  }
-
-  private mutating func visit(
-    nameTypeExpr expr: NodeID<NameTypeExpr>,
-    withState state: inout VisitorState
-  ) {
-    if let domain = ast[expr].domain {
-      visit(typeExpr: domain, withState: &state)
-    }
-    for argument in ast[expr].arguments {
-      switch argument.value {
-      case let .expr(i):
-        visit(expr: i, withState: &state)
-      case let .type(i):
-        visit(typeExpr: i, withState: &state)
-      }
-    }
   }
 
   private mutating func visit(
@@ -1107,13 +1090,13 @@ extension ScopedProgram {
     for constraint in clause.constraints {
       switch constraint.value {
       case .conformance(let lhs, let traits):
-        visit(nameTypeExpr: lhs, withState: &state)
+        visit(nameExpr: lhs, withState: &state)
         for trait in traits {
-          visit(nameTypeExpr: trait, withState: &state)
+          visit(nameExpr: trait, withState: &state)
         }
 
       case .equality(let lhs, let rhs):
-        visit(nameTypeExpr: lhs, withState: &state)
+        visit(nameExpr: lhs, withState: &state)
         visit(typeExpr: rhs, withState: &state)
 
       case .value(let expr):
