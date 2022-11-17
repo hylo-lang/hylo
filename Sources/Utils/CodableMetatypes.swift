@@ -14,12 +14,24 @@ private class CodableMetatypeWrapper<T: MetatypeCodable>: CodableMetatypeWrapper
 /// A category of types whose metatype values can be (de-)serialized.
 public protocol MetatypeCodable {}
 
+#if os(iOS) || os(OSX) || os(watchOS) || os(tvOS)
 extension MetatypeCodable {
   /// The reconstitutable name of CodableMetatypeWrapper<Self>.
   fileprivate static var wrapperName: String {
     NSStringFromClass(CodableMetatypeWrapper<Self>.self)
   }
 }
+
+private func classFromString(_ name: String) -> AnyClass? {  NSClassFromString(name) }
+#else
+extension MetatypeCodable {
+  /// The reconstitutable name of CodableMetatypeWrapper<Self>.
+  fileprivate static var wrapperName: String {
+    _typeName(CodableMetatypeWrapper<Self>.self)
+  }
+}
+private func classFromString(_ name: String) -> AnyClass? { _typeByName(name) as? AnyClass }
+#endif
 
 /// Serializes `t` into `deistnation`.
 public func encode(_ t: MetatypeCodable.Type, to destination: Encoder) throws {
@@ -30,7 +42,7 @@ public func encode(_ t: MetatypeCodable.Type, to destination: Encoder) throws {
 /// Deserializes the metatype of any MetatypeCodable type from `source`.
 public func decodeMetatype(from source: Decoder) throws -> MetatypeCodable.Type {
   let metatypeWrapperName = try source.singleValueContainer().decode(String.self)
-  let metatypeWrapper: Optional = NSClassFromString(metatypeWrapperName)
+  let metatypeWrapper: Optional = classFromString(metatypeWrapperName)
 
   guard let wrapperClass = metatypeWrapper as? CodableMetatypeWrapperProtocol.Type else {
     throw DecodingError.typeMismatch(
@@ -44,23 +56,3 @@ public func decodeMetatype(from source: Decoder) throws -> MetatypeCodable.Type 
 
   return wrapperClass.wrappedType
 }
-
-
-#if !os(iOS) && !os(OSX) && !os(watchOS) && !os(tvOS)
-private func NSStringFromClass(_ aClass: AnyClass) -> String {
-  let classNameString = String(reflecting: aClass)
-  /*
-  if let renamed = mapFromSwiftClassNameToObjCName[classNameString] {
-    return renamed
-  }
-  */
-  let aClassName = classNameString._bridgeToObjectiveC()
-
-  return String(describing: aClassName)
-}
-
-private func NSClassFromString(_ aClassName: String) -> AnyClass? {
-  let aClassNameWithPrefix = aClassName
-  return _typeByName(aClassNameWithPrefix) as? AnyClass
-}
-#endif
