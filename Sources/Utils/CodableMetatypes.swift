@@ -31,7 +31,7 @@ private func metatypeWrapperClass(named name: String) -> CodableMetatypeWrapperP
 extension MetatypeCodable {
   /// The name by which CodableMetatypeWrapper<Self>.self can be reconstituted.
   fileprivate static var wrapperName: String {
-    _typeName(CodableMetatypeWrapper<Self>.self)
+    "Utils.CodableMetatypeWrapper<\(String(reflecting: Self.self))>" //_typeName(CodableMetatypeWrapper<Self>.self)
   }
 }
 
@@ -41,7 +41,7 @@ private func metatypeWrapperClass(named name: String) -> CodableMetatypeWrapperP
 }
 #endif
 
-/// Serializes `t` into `deistnation`.
+/// Serializes `t` into `destination`.
 public func encode(_ t: MetatypeCodable.Type, to destination: Encoder) throws {
   var c = destination.singleValueContainer()
   try c.encode(t.wrapperName)
