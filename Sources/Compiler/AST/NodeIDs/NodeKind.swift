@@ -14,22 +14,13 @@ public struct NodeKind: Codable, Equatable, Hashable {
 
   /// Serializes `self` into `destination`.
   public func encode(to destination: Encoder) throws {
-    try Utils.encode(value, to: destination)
+    try Self.indices[self]!.encode(to: destination)
   }
 
   /// Deserializes `self` from `source`.
   public init(from source: Decoder) throws {
-    let t = try decodeMetatype(from: source)
-    guard let nodeType = t as? Node.Type else {
-      throw DecodingError.typeMismatch(
-        NodeKind.self,
-        .init(
-          codingPath: source.codingPath,
-          debugDescription: "\(t) is not a Node type.",
-          underlyingError: nil))
-      
-    }
-    self.value = nodeType
+    let index = try Int(from: source)
+    value = Self.allValues[index]
   }
 
   /// Returns true iff `l` and `r` denote the same node type.
@@ -98,4 +89,108 @@ extension NodeKind: CustomStringConvertible {
   /// The name of the underlying Node type.
   public var description: String { String(describing: value) }
 
+}
+
+extension NodeKind {
+  static let allValues: [Node.Type] = [
+  // MARK: Declarations
+
+    AssociatedTypeDecl.self,
+    AssociatedValueDecl.self,
+    BindingDecl.self,
+    BuiltinDecl.self,
+    ConformanceDecl.self,
+    ExtensionDecl.self,
+    FunctionDecl.self,
+    GenericTypeParamDecl.self,
+    GenericValueParamDecl.self,
+    ImportDecl.self,
+    InitializerDecl.self,
+    MethodDecl.self,
+    MethodImplDecl.self,
+    ModuleDecl.self,
+    NamespaceDecl.self,
+    OperatorDecl.self,
+    ParameterDecl.self,
+    ProductTypeDecl.self,
+    SubscriptDecl.self,
+    SubscriptImplDecl.self,
+    TraitDecl.self,
+    TypeAliasDecl.self,
+    VarDecl.self,
+
+  // MARK: Value expressions
+
+    AssignExpr.self,
+    AsyncExpr.self,
+    AwaitExpr.self,
+    BooleanLiteralExpr.self,
+    BufferLiteralExpr.self,
+    CastExpr.self,
+    CondExpr.self,
+    ErrorExpr.self,
+    FloatLiteralExpr.self,
+    FunCallExpr.self,
+    InoutExpr.self,
+    IntegerLiteralExpr.self,
+    LambdaExpr.self,
+    MapLiteralExpr.self,
+    MatchExpr.self,
+    NameExpr.self,
+    NilExpr.self,
+    SequenceExpr.self,
+    StoredProjectionExpr.self,
+    StringLiteralExpr.self,
+    SubscriptCallExpr.self,
+    TupleExpr.self,
+    TupleMemberExpr.self,
+    UnicodeScalarLiteralExpr.self,
+
+  // MARK: Patterns
+
+    BindingPattern.self,
+    ExprPattern.self,
+    NamePattern.self,
+    TuplePattern.self,
+    WildcardPattern.self,
+
+  // MARK: Statements
+
+    BraceStmt.self,
+    BreakStmt.self,
+    CondBindingStmt.self,
+    ContinueStmt.self,
+    DeclStmt.self,
+    DiscardStmt.self,
+    DoWhileStmt.self,
+    ExprStmt.self,
+    ForStmt.self,
+    ReturnStmt.self,
+    WhileStmt.self,
+    YieldStmt.self,
+
+  // MARK: Type expressions
+
+  /// The kind of type expression nodes.
+
+    AsyncTypeExpr.self,
+    ConformanceLensTypeExpr.self,
+    ExistentialTypeExpr.self,
+    IndirectTypeExpr.self,
+    LambdaTypeExpr.self,
+    NameTypeExpr.self,
+    ParameterTypeExpr.self,
+    StoredProjectionTypeExpr.self,
+    TupleTypeExpr.self,
+    UnionTypeExpr.self,
+    WildcardTypeExpr.self,
+
+  // MARK: Others
+
+    MatchCase.self,
+    TopLevelDeclSet.self
+  ]
+
+  static let indices = Dictionary(
+    uniqueKeysWithValues: allValues.enumerated().lazy.map { (n, t) in (NodeKind(t), n) })
 }
