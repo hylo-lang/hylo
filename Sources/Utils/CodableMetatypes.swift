@@ -16,21 +16,29 @@ public protocol MetatypeCodable {}
 
 #if os(iOS) || os(OSX) || os(watchOS) || os(tvOS)
 extension MetatypeCodable {
-  /// The reconstitutable name of CodableMetatypeWrapper<Self>.
+  /// The name by which CodableMetatypeWrapper<Self>.self can be reconstituted.
   fileprivate static var wrapperName: String {
     NSStringFromClass(CodableMetatypeWrapper<Self>.self)
   }
 }
 
-private func classFromString(_ name: String) -> AnyClass? {  NSClassFromString(name) }
+/// Returns the CodableMetatypeWrapper<T> with the given name.
+private func metatypeWrapperClass(named name: String) -> CodableMetatypeWrapperProtocol.Type? {
+  guard let c = NSClassFromString(name) else { return nil }
+  return c as? CodableMetatypeWrapperProtocol.Type
+}
 #else
 extension MetatypeCodable {
-  /// The reconstitutable name of CodableMetatypeWrapper<Self>.
+  /// The name by which CodableMetatypeWrapper<Self>.self can be reconstituted.
   fileprivate static var wrapperName: String {
     _typeName(CodableMetatypeWrapper<Self>.self)
   }
 }
-private func classFromString(_ name: String) -> AnyClass? { _typeByName(name) as? AnyClass }
+
+/// Returns the CodableMetatypeWrapper<T> with the given name.
+private func metatypeWrapperClass(named name: String) -> CodableMetatypeWrapperProtocol.Type? {
+  _typeByName(name) as? CodableMetatypeWrapperProtocol.TYpe
+}
 #endif
 
 /// Serializes `t` into `deistnation`.
@@ -42,15 +50,13 @@ public func encode(_ t: MetatypeCodable.Type, to destination: Encoder) throws {
 /// Deserializes the metatype of any MetatypeCodable type from `source`.
 public func decodeMetatype(from source: Decoder) throws -> MetatypeCodable.Type {
   let metatypeWrapperName = try source.singleValueContainer().decode(String.self)
-  let metatypeWrapper: Optional = classFromString(metatypeWrapperName)
 
-  guard let wrapperClass = metatypeWrapper as? CodableMetatypeWrapperProtocol.Type else {
+  guard let wrapperClass = metatypeWrapperClass(named: metatypeWrapperName) else {
     throw DecodingError.typeMismatch(
       MetatypeCodable.self,
       .init(
         codingPath: source.codingPath,
-        debugDescription:
-          "\(metatypeWrapper.map(String.init(describing:)) ?? "nil") is not a CodableMetatypeWrapper.",
+        debugDescription: "\(metatypeWrapperName) is not a CodableMetatypeWrapper.",
         underlyingError: nil))
   }
 
