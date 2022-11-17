@@ -492,7 +492,7 @@ final class ParserTests: XCTestCase {
     let signature = try XCTUnwrap(try apply(Parser.functionDeclSignature, on: input).element)
     XCTAssertEqual(signature.parameters.count, 1)
     XCTAssertNil(signature.receiverEffect)
-    XCTAssertEqual(signature.output?.kind, .nameTypeExpr)
+    XCTAssertEqual(signature.output?.kind, NodeKind(NameTypeExpr.self))
   }
 
   func testFunctionDeclSignatureWithOutputAndEffect() throws {
@@ -500,7 +500,7 @@ final class ParserTests: XCTestCase {
     let signature = try XCTUnwrap(try apply(Parser.functionDeclSignature, on: input).element)
     XCTAssertEqual(signature.parameters.count, 1)
     XCTAssertEqual(signature.receiverEffect?.value, .sink)
-    XCTAssertEqual(signature.output?.kind, .nameTypeExpr)
+    XCTAssertEqual(signature.output?.kind, .init(NameTypeExpr.self))
   }
 
   func testFunctionDeclIdentifier() throws {
@@ -852,19 +852,19 @@ final class ParserTests: XCTestCase {
   func testExpr() throws {
     let input = SourceFile(contents: "(foo().bar[] + 42, ham++, !baz)")
     let (exprID, _) = try apply(Parser.infixExpr, on: input)
-    XCTAssertEqual(exprID?.kind, .tupleExpr)
+    XCTAssertEqual(exprID?.kind, .init(TupleExpr.self))
   }
 
   func testInfixExpr() throws {
     let input = SourceFile(contents: "foo == 2 & true")
     let (exprID, ast) = try apply(Parser.infixExpr, on: input)
     let sequence = try XCTUnwrap(ast[exprID] as? SequenceExpr)
-    XCTAssertEqual(sequence.head.kind, .nameExpr)
+    XCTAssertEqual(sequence.head.kind, .init(NameExpr.self))
     XCTAssertEqual(sequence.tail.count, 2)
     if sequence.tail.count == 2 {
       XCTAssertEqual(ast[sequence.tail[0].operator].name.value.stem, "==")
       XCTAssertEqual(ast[sequence.tail[0].operator].name.value.notation, .infix)
-      XCTAssertEqual(sequence.tail[0].operand.kind, .integerLiteralExpr)
+      XCTAssertEqual(sequence.tail[0].operand.kind, .init(IntegerLiteralExpr.self))
     }
   }
 
@@ -918,14 +918,14 @@ final class ParserTests: XCTestCase {
     let input = SourceFile(contents: "await foo")
     let (exprID, ast) = try apply(Parser.awaitExpr, on: input)
     let expr = try XCTUnwrap(ast[exprID])
-    XCTAssertEqual(expr.operand.kind, .nameExpr)
+    XCTAssertEqual(expr.operand.kind, .init(NameExpr.self))
   }
 
   func testAwaitAwaitExpr() throws {
     let input = SourceFile(contents: "await await foo")
     let (exprID, ast) = try apply(Parser.awaitExpr, on: input)
     let expr = try XCTUnwrap(ast[exprID])
-    XCTAssertEqual(expr.operand.kind, .awaitExpr)
+    XCTAssertEqual(expr.operand.kind, .init(AwaitExpr.self))
   }
 
   func testPrefixExpr() throws {
@@ -939,7 +939,7 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(callee.name.value.notation, .prefix)
 
     if case .expr(let receiverID) = callee.domain {
-      XCTAssertEqual(receiverID.kind, .nameExpr)
+      XCTAssertEqual(receiverID.kind, .init(NameExpr.self))
     } else {
       XCTFail()
     }
@@ -956,7 +956,7 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(callee.name.value.notation, .postfix)
 
     if case .expr(let receiverID) = callee.domain {
-      XCTAssertEqual(receiverID.kind, .nameExpr)
+      XCTAssertEqual(receiverID.kind, .init(NameExpr.self))
     } else {
       XCTFail()
     }
@@ -995,7 +995,7 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(expr.name.value.stem, "meta")
 
     if case .type(let domainID) = expr.domain {
-      XCTAssertEqual(domainID.kind, .tupleTypeExpr)
+      XCTAssertEqual(domainID.kind, .init(TupleTypeExpr.self))
     } else {
       XCTFail()
     }
@@ -1023,13 +1023,13 @@ final class ParserTests: XCTestCase {
   func testFunctionCallExprNewlineBeforeLParen() throws {
     let input = SourceFile(contents: "foo \n (42, label: true)")
     let (exprID, _) = try apply(Parser.compoundExpr, on: input)
-    XCTAssertEqual(exprID?.kind, .nameExpr)
+    XCTAssertEqual(exprID?.kind, .init(NameExpr.self))
   }
 
   func testFunctionCallExprNewlineAfterLParen() throws {
     let input = SourceFile(contents: "foo \n (42, label: true)")
     let (exprID, _) = try apply(Parser.compoundExpr, on: input)
-    XCTAssertEqual(exprID?.kind, .nameExpr)
+    XCTAssertEqual(exprID?.kind, .init(NameExpr.self))
   }
 
   func testSubscriptCallExprWithoutArguments() throws {
@@ -1248,7 +1248,7 @@ final class ParserTests: XCTestCase {
     let (exprID, ast) = try apply(Parser.conditionalExpr, on: input)
     let expr = try XCTUnwrap(ast[exprID])
     if case .expr(let elseID) = expr.failure {
-      XCTAssertEqual(elseID.kind, .condExpr)
+      XCTAssertEqual(elseID.kind, .init(CondExpr.self))
     } else {
       XCTFail()
     }
@@ -1313,7 +1313,7 @@ final class ParserTests: XCTestCase {
     let input = SourceFile(contents: "foo")
     let (patternID, ast) = try apply(Parser.exprPattern, on: input)
     let pattern = try XCTUnwrap(ast[patternID] as? ExprPattern)
-    XCTAssertEqual(pattern.expr.kind, .nameExpr)
+    XCTAssertEqual(pattern.expr.kind, .init(NameExpr.self))
   }
 
   func testNamePattern() throws {
@@ -1511,22 +1511,22 @@ final class ParserTests: XCTestCase {
     let input = SourceFile(contents: "async T")
     let (exprID, ast) = try apply(Parser.modifiedTypeExpr, on: input)
     let expr = try XCTUnwrap(ast[exprID] as? AsyncTypeExpr)
-    XCTAssertEqual(expr.operand.kind, .nameTypeExpr)
+    XCTAssertEqual(expr.operand.kind, .init(NameTypeExpr.self))
   }
 
   func testIndirectTypeExpr() throws {
     let input = SourceFile(contents: "indirect T")
     let (exprID, ast) = try apply(Parser.modifiedTypeExpr, on: input)
     let expr = try XCTUnwrap(ast[exprID] as? IndirectTypeExpr)
-    XCTAssertEqual(expr.operand.kind, .nameTypeExpr)
+    XCTAssertEqual(expr.operand.kind, .init(NameTypeExpr.self))
   }
 
   func testConformanceLensTypeExpr() throws {
     let input = SourceFile(contents: "{ T, U }::Baz")
     let (exprID, ast) = try apply(Parser.compoundTypeExpr, on: input)
     let expr = try XCTUnwrap(ast[exprID] as? ConformanceLensTypeExpr)
-    XCTAssertEqual(expr.subject.kind, .tupleTypeExpr)
-    XCTAssertEqual(expr.lens.kind, .nameTypeExpr)
+    XCTAssertEqual(expr.subject.kind, .init(TupleTypeExpr.self))
+    XCTAssertEqual(expr.lens.kind, .init(NameTypeExpr.self))
   }
 
   func testConformanceLensExprWithMember() throws {
@@ -1536,8 +1536,8 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(expr.identifier.value, "A")
 
     let domain = try XCTUnwrap(ast[expr.domain] as? ConformanceLensTypeExpr)
-    XCTAssertEqual(domain.subject.kind, .nameTypeExpr)
-    XCTAssertEqual(domain.lens.kind, .nameTypeExpr)
+    XCTAssertEqual(domain.subject.kind, .init(NameTypeExpr.self))
+    XCTAssertEqual(domain.lens.kind, .init(NameTypeExpr.self))
   }
 
   func testTypeMemberExpr() throws {
@@ -1584,13 +1584,13 @@ final class ParserTests: XCTestCase {
     let input = SourceFile(contents: "((A) -> (B)) -> C")
     let (exprID, ast) = try apply(Parser.lambdaOrParenthesizedTypeExpr, on: input)
     let expr = try XCTUnwrap(ast[exprID] as? LambdaTypeExpr)
-    XCTAssertEqual(expr.output.kind, .nameTypeExpr)
+    XCTAssertEqual(expr.output.kind, .init(NameTypeExpr.self))
   }
 
   func testParenthesizedTypeExpr() throws {
     let input = SourceFile(contents: "({ A, B })")
     let (exprID, _) = try apply(Parser.parenthesizedTypeExpr, on: input)
-    XCTAssertEqual(exprID?.kind, .tupleTypeExpr)
+    XCTAssertEqual(exprID?.kind, .init(TupleTypeExpr.self))
   }
 
   func testLambdaTypeExpr() throws {
@@ -1598,9 +1598,9 @@ final class ParserTests: XCTestCase {
     let (exprID, ast) = try apply(Parser.lambdaTypeExpr, on: input)
     let expr = try XCTUnwrap(ast[exprID])
     XCTAssertEqual(expr.receiverEffect?.value, .inout)
-    XCTAssertEqual(expr.environment?.value.kind, .tupleTypeExpr)
+    XCTAssertEqual(expr.environment?.value.kind, .init(TupleTypeExpr.self))
     XCTAssertEqual(expr.parameters.count, 2)
-    XCTAssertEqual(expr.output.kind, .nameTypeExpr)
+    XCTAssertEqual(expr.output.kind, .init(NameTypeExpr.self))
   }
 
   func testTypeErasedLambdaTypeExpr() throws {
@@ -1609,7 +1609,7 @@ final class ParserTests: XCTestCase {
     let expr = try XCTUnwrap(ast[exprID])
     XCTAssertEqual(expr.receiverEffect?.value, .inout)
     XCTAssertEqual(expr.parameters.count, 2)
-    XCTAssertEqual(expr.output.kind, .nameTypeExpr)
+    XCTAssertEqual(expr.output.kind, .init(NameTypeExpr.self))
     XCTAssertNil(expr.environment)
   }
 
@@ -1618,15 +1618,15 @@ final class ParserTests: XCTestCase {
     let (exprID, ast) = try apply(Parser.lambdaTypeExpr, on: input)
     let expr = try XCTUnwrap(ast[exprID])
     XCTAssertNil(expr.receiverEffect)
-    XCTAssertEqual(expr.environment?.value.kind, .tupleTypeExpr)
+    XCTAssertEqual(expr.environment?.value.kind, .init(TupleTypeExpr.self))
     XCTAssert(expr.parameters.isEmpty)
-    XCTAssertEqual(expr.output.kind, .nameTypeExpr)
+    XCTAssertEqual(expr.output.kind, .init(NameTypeExpr.self))
   }
 
   func testCustomLambdaEnvironement() throws {
     let input = SourceFile(contents: "[any Copyable]")
     let environment = try XCTUnwrap(try apply(Parser.lambdaEnvironment, on: input).element)
-    XCTAssertEqual(environment.value.kind, .existentialTypeExpr)
+    XCTAssertEqual(environment.value.kind, .init(ExistentialTypeExpr.self))
   }
 
   func testWildcardTypeExpr() throws {
@@ -1664,8 +1664,8 @@ final class ParserTests: XCTestCase {
     let input = SourceFile(contents: "T == { U, V }")
     let constraint = try XCTUnwrap(try apply(Parser.typeConstraint, on: input).element)
     if case .equality(let lhs, let rhs) = constraint.value {
-      XCTAssertEqual(lhs.kind, .nameTypeExpr)
-      XCTAssertEqual(rhs.kind, .tupleTypeExpr)
+      XCTAssertEqual(lhs.kind, .init(NameTypeExpr.self))
+      XCTAssertEqual(rhs.kind, .init(TupleTypeExpr.self))
     } else {
       XCTFail()
     }
@@ -1675,7 +1675,7 @@ final class ParserTests: XCTestCase {
     let input = SourceFile(contents: "T : U & V")
     let constraint = try XCTUnwrap(try apply(Parser.typeConstraint, on: input).element)
     if case .conformance(let lhs, _) = constraint.value {
-      XCTAssertEqual(lhs.kind, .nameTypeExpr)
+      XCTAssertEqual(lhs.kind, .init(NameTypeExpr.self))
     } else {
       XCTFail()
     }
@@ -1685,7 +1685,7 @@ final class ParserTests: XCTestCase {
     let input = SourceFile(contents: "@value x > 2")
     let constraint = try XCTUnwrap(try apply(Parser.valueConstraint, on: input).element)
     if case .value(let exprID) = constraint.value {
-      XCTAssertEqual(exprID.kind, .sequenceExpr)
+      XCTAssertEqual(exprID.kind, .init(SequenceExpr.self))
     } else {
       XCTFail()
     }

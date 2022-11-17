@@ -1,7 +1,5 @@
 /// A (nominal) product type declaration.
-public struct ProductTypeDecl: GenericDecl, SingleEntityDecl, GenericScope {
-
-  public static let kind = NodeKind.productTypeDecl
+public struct ProductTypeDecl: GenericDecl, TypeDecl, GenericScope {
 
   /// The access modifier of the declaration, if any.
   public let accessModifier: SourceRepresentable<AccessModifier>?

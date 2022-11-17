@@ -53,13 +53,13 @@ extension Program {
   /// - it is introduced with `init` or `memberwise init`.
   public func isGlobal<T: DeclID>(_ decl: T) -> Bool {
     // Type declarations are global.
-    if decl.kind <= .typeDecl {
+    if decl.kind.value is TypeDecl.Type {
       return true
     }
 
     // Declarations at global scope are global.
     switch declToScope[decl]!.kind {
-    case .topLevelDeclSet, .namespaceDecl:
+    case TopLevelDeclSet.self, NamespaceDecl.self:
       return true
 
     default:
@@ -68,17 +68,17 @@ extension Program {
 
     // Static member declarations and initializers are global.
     switch decl.kind {
-    case .bindingDecl:
+    case BindingDecl.self:
       return ast[NodeID<BindingDecl>(rawValue: decl.rawValue)].isStatic
 
-    case .functionDecl:
+    case FunctionDecl.self:
       let i = NodeID<FunctionDecl>(rawValue: decl.rawValue)
       return ast[i].isStatic
 
-    case .initializerDecl:
+    case InitializerDecl.self:
       return true
 
-    case .subscriptDecl:
+    case SubscriptDecl.self:
       return ast[NodeID<SubscriptDecl>(rawValue: decl.rawValue)].isStatic
 
     default:
@@ -90,7 +90,8 @@ extension Program {
   public func isMember<T: DeclID>(_ decl: T) -> Bool {
     guard let parent = declToScope[decl] else { return false }
     switch parent.kind {
-    case .productTypeDecl, .traitDecl, .conformanceDecl, .extensionDecl, .typeAliasDecl:
+    case ProductTypeDecl.self, TraitDecl.self, ConformanceDecl.self, ExtensionDecl.self,
+         TypeAliasDecl.self:
       return true
       
     default:
@@ -121,11 +122,11 @@ extension Program {
   /// Returns whether `decl` is a requirement.
   public func isRequirement<T: DeclID>(_ decl: T) -> Bool {
     switch decl.kind {
-    case .functionDecl, .initializerDecl, .methodDecl, .subscriptDecl:
-      return declToScope[decl]!.kind == .traitDecl
-    case .methodImplDecl:
+    case FunctionDecl.self, InitializerDecl.self, MethodDecl.self, SubscriptDecl.self:
+      return declToScope[decl]!.kind == TraitDecl.self
+    case MethodImplDecl.self:
       return isRequirement(NodeID<MethodDecl>(rawValue: declToScope[decl]!.rawValue))
-    case .subscriptImplDecl:
+    case SubscriptImplDecl.self:
       return isRequirement(NodeID<SubscriptDecl>(rawValue: declToScope[decl]!.rawValue))
     default:
       return false

@@ -1,8 +1,6 @@
 /// A name denoting an object.
 public struct NameExpr: Expr {
 
-  public static let kind = NodeKind.nameExpr
-
   public enum Domain: Equatable, Codable {
 
     /// No domain.

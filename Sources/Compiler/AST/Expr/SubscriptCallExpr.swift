@@ -1,8 +1,6 @@
 /// A subscript call.
 public struct SubscriptCallExpr: Expr {
 
-  public static let kind = NodeKind.subscriptCallExpr
-
   /// The callee.
   public let callee: AnyExprID
 

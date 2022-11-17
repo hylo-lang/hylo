@@ -1,7 +1,5 @@
 /// A type alias declaration.
-public struct TypeAliasDecl: GenericDecl, SingleEntityDecl, GenericScope {
-
-  public static let kind = NodeKind.typeAliasDecl
+public struct TypeAliasDecl: GenericDecl, TypeDecl, GenericScope {
 
   public enum Body: Codable {
 

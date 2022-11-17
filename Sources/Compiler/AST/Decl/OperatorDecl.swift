@@ -1,8 +1,6 @@
 /// An operator declaration.
 public struct OperatorDecl: Decl {
 
-  public static let kind = NodeKind.operatorDecl
-
   /// The source range of the declaration's introducer, if any.
   public let introducerRange: SourceRange?
 

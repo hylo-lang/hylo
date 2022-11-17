@@ -1,8 +1,6 @@
 /// An initializer declaration.
 public struct InitializerDecl: GenericDecl, GenericScope {
 
-  public static let kind = NodeKind.initializerDecl
-
   /// The introducer of an initializer declaration.
   public enum Introducer: Codable {
 

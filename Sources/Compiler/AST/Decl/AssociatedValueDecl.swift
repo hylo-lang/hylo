@@ -1,8 +1,6 @@
 /// An associated value declaration.
 public struct AssociatedValueDecl: SingleEntityDecl {
 
-  public static let kind = NodeKind.associatedValueDecl
-
   /// The source range of the declaration's introducer, if any.
   public let introducerRange: SourceRange?
 

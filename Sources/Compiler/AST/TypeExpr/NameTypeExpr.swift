@@ -1,8 +1,6 @@
 /// A name denoting a nominal type.
 public struct NameTypeExpr: TypeExpr {
 
-  public static let kind = NodeKind.nameTypeExpr
-
   /// The domain of the name, if it is qualified.
   public private(set) var domain: AnyTypeExprID?
 

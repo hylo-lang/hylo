@@ -11,13 +11,13 @@ extension AST {
     var report: [Diagnostic] = []
 
     switch decl.kind {
-    case .associatedTypeDecl:
+    case AssociatedTypeDecl.self:
       report.append(.diagnose(unexpectedAssociatedTypeDecl: self[NodeID(rawValue: decl.rawValue)]))
 
-    case .associatedValueDecl:
+    case AssociatedValueDecl.self:
       report.append(.diagnose(unexpectedAssociatedValueDecl: self[NodeID(rawValue: decl.rawValue)]))
 
-    case .bindingDecl:
+    case BindingDecl.self:
       let d = self[NodeID<BindingDecl>(rawValue: decl.rawValue)]
       if let m = d.memberModifier {
         report.append(.diagnose(unexpectedMemberModifier: m))
@@ -29,13 +29,13 @@ extension AST {
         report.append(.diagnose(missingTypeAnnotation: self[d.pattern], in: self))
       }
 
-    case .conformanceDecl:
+    case ConformanceDecl.self:
       break
 
-    case .extensionDecl:
+    case ExtensionDecl.self:
       break
 
-    case .functionDecl:
+    case FunctionDecl.self:
       let d = self[NodeID<FunctionDecl>(rawValue: decl.rawValue)]
       if let m = d.memberModifier {
         report.append(.diagnose(unexpectedMemberModifier: m))
@@ -44,41 +44,41 @@ extension AST {
         report.append(.diagnose(missingFunctionIdentifier: d))
       }
 
-    case .genericTypeParamDecl:
+    case GenericTypeParamDecl.self:
       report.append(.diagnose(unexpectedGenericTypeParameterDecl: self[NodeID(rawValue: decl.rawValue)]))
 
-    case .genericValueParamDecl:
+    case GenericValueParamDecl.self:
       report.append(.diagnose(unexpectedGenericTypeParameterDecl: self[NodeID(rawValue: decl.rawValue)]))
 
-    case .importDecl:
+    case ImportDecl.self:
       if !atTopLevel {
         report.append(.diagnose(unexpectedImportDecl: self[NodeID(rawValue: decl.rawValue)]))
       }
 
-    case .initializerDecl:
+    case InitializerDecl.self:
       report.append(.diagnose(unexpectedInitializerDecl: self[NodeID(rawValue: decl.rawValue)]))
 
-    case .methodDecl:
+    case MethodDecl.self:
       report.append(.diagnose(unexpectedMethodDecl: self[NodeID(rawValue: decl.rawValue)]))
 
-    case .methodImplDecl:
+    case MethodImplDecl.self:
       report.append(.diagnose(unexpectedMethodImplDecl: self[NodeID(rawValue: decl.rawValue)]))
 
-    case .namespaceDecl:
+    case NamespaceDecl.self:
       break
 
-    case .operatorDecl:
+    case OperatorDecl.self:
       if !atTopLevel {
         report.append(.diagnose(unexpectedOperatorDecl: self[NodeID(rawValue: decl.rawValue)]))
       }
 
-    case .parameterDecl:
+    case ParameterDecl.self:
       report.append(.diagnose(unexpectedParameterDecl: self[NodeID(rawValue: decl.rawValue)]))
 
-    case .productTypeDecl:
+    case ProductTypeDecl.self:
       break
 
-    case .subscriptDecl:
+    case SubscriptDecl.self:
       let d = self[NodeID<SubscriptDecl>(rawValue: decl.rawValue)]
       if d.introducer.value != .subscript {
         report.append(.diagnose(unexpectedPropertyDecl: d))
@@ -90,16 +90,16 @@ extension AST {
         report.append(.diagnose(missingSubscriptIdentifier: d))
       }
 
-    case .subscriptImplDecl:
+    case SubscriptImplDecl.self:
       report.append(.diagnose(unexpectedSubscriptImplDecl: self[NodeID(rawValue: decl.rawValue)]))
 
-    case .traitDecl:
+    case TraitDecl.self:
       break
 
-    case .typeAliasDecl:
+    case TypeAliasDecl.self:
       break
 
-    case .varDecl:
+    case VarDecl.self:
       report.append(.diagnose(unexpectedVarDecl: self[NodeID(rawValue: decl.rawValue)]))
 
     default:
@@ -115,13 +115,13 @@ extension AST {
     var report: [Diagnostic] = []
 
     switch decl.kind {
-    case .associatedTypeDecl:
+    case AssociatedTypeDecl.self:
       report.append(.diagnose(unexpectedAssociatedTypeDecl: self[NodeID(rawValue: decl.rawValue)]))
 
-    case .associatedValueDecl:
+    case AssociatedValueDecl.self:
       report.append(.diagnose(unexpectedAssociatedValueDecl: self[NodeID(rawValue: decl.rawValue)]))
 
-    case .bindingDecl:
+    case BindingDecl.self:
       let d = self[NodeID<BindingDecl>(rawValue: decl.rawValue)]
       let introducer = self[d.pattern].introducer
       if introducer.value != .let {
@@ -136,13 +136,13 @@ extension AST {
         report.append(.diagnose(missingTypeAnnotation: self[d.pattern], in: self))
       }
 
-    case .conformanceDecl:
+    case ConformanceDecl.self:
       break
 
-    case .extensionDecl:
+    case ExtensionDecl.self:
       break
 
-    case .functionDecl:
+    case FunctionDecl.self:
       let d = self[NodeID<FunctionDecl>(rawValue: decl.rawValue)]
       if let m = d.memberModifier {
         report.append(.diagnose(unexpectedMemberModifier: m))
@@ -154,49 +154,49 @@ extension AST {
         report.append(.diagnose(unexpectedCapture: self[self[c].pattern]))
       }
 
-    case .genericTypeParamDecl:
+    case GenericTypeParamDecl.self:
       report.append(.diagnose(unexpectedGenericTypeParameterDecl: self[NodeID(rawValue: decl.rawValue)]))
 
-    case .genericValueParamDecl:
+    case GenericValueParamDecl.self:
       report.append(.diagnose(unexpectedGenericTypeParameterDecl: self[NodeID(rawValue: decl.rawValue)]))
 
-    case .importDecl:
+    case ImportDecl.self:
       report.append(.diagnose(unexpectedImportDecl: self[NodeID(rawValue: decl.rawValue)]))
 
-    case .initializerDecl:
+    case InitializerDecl.self:
       break
 
-    case .methodDecl:
+    case MethodDecl.self:
       break
 
-    case .methodImplDecl:
+    case MethodImplDecl.self:
       report.append(.diagnose(unexpectedMethodImplDecl: self[NodeID(rawValue: decl.rawValue)]))
 
-    case .namespaceDecl:
+    case NamespaceDecl.self:
       report.append(.diagnose(unexpectedNamespaceDecl: self[NodeID(rawValue: decl.rawValue)]))
 
-    case .operatorDecl:
+    case OperatorDecl.self:
       report.append(.diagnose(unexpectedOperatorDecl: self[NodeID(rawValue: decl.rawValue)]))
 
-    case .parameterDecl:
+    case ParameterDecl.self:
       report.append(.diagnose(unexpectedParameterDecl: self[NodeID(rawValue: decl.rawValue)]))
 
-    case .productTypeDecl:
+    case ProductTypeDecl.self:
       break
 
-    case .subscriptDecl:
+    case SubscriptDecl.self:
       break
 
-    case .subscriptImplDecl:
+    case SubscriptImplDecl.self:
       report.append(.diagnose(unexpectedSubscriptImplDecl: self[NodeID(rawValue: decl.rawValue)]))
 
-    case .traitDecl:
+    case TraitDecl.self:
       report.append(.diagnose(unexpectedTraitDecl: self[NodeID(rawValue: decl.rawValue)]))
 
-    case .typeAliasDecl:
+    case TypeAliasDecl.self:
       break
 
-    case .varDecl:
+    case VarDecl.self:
       report.append(.diagnose(unexpectedVarDecl: self[NodeID(rawValue: decl.rawValue)]))
 
     default:

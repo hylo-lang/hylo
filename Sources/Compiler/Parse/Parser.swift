@@ -1039,7 +1039,7 @@ public enum Parser {
     in members: inout [AnyDeclID],
     updating state: inout ParserState
   ) -> NodeID<InitializerDecl> {
-    for member in members where member.kind == .initializerDecl {
+    for member in members where member.kind == InitializerDecl.self {
       let m = NodeID<InitializerDecl>(rawValue: member.rawValue)
       if state.ast[m].introducer.value == .memberwiseInit { return m }
     }
@@ -1103,10 +1103,10 @@ public enum Parser {
 
       // Catch illegal method declarations.
       switch decl.kind {
-      case .functionDecl:
+      case FunctionDecl.self:
         return NodeID<FunctionDecl>(rawValue: decl.rawValue)
 
-      case .methodDecl:
+      case MethodDecl.self:
         let d = NodeID<MethodDecl>(rawValue: decl.rawValue)
         throw DiagnosedError(.error(
           "method bundle declaration is not allowed here",

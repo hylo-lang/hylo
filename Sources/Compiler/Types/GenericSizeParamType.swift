@@ -17,8 +17,8 @@ public struct GenericValueParamType: TypeProtocol, Hashable {
     self.decl = AnyDeclID(decl)
 
     switch decl.kind {
-    case .genericValueParamDecl,
-         .associatedValueDecl:
+    case GenericValueParamDecl.self,
+         AssociatedValueDecl.self:
       name = Incidental((ast[decl] as! SingleEntityDecl).name)
 
     default:

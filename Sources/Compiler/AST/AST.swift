@@ -111,7 +111,7 @@ public struct AST: Codable {
   public func coreType(named name: String) -> ProductType? {
     precondition(isCoreModuleLoaded, "Core library is not loaded")
 
-    for id in topLevelDecls(corelib!) where id.kind == .productTypeDecl {
+    for id in topLevelDecls(corelib!) where id.kind == ProductTypeDecl.self {
       let id = NodeID<ProductTypeDecl>(id)!
       if self[id].name == name {
         return ProductType(decl: id, ast: self)
@@ -127,7 +127,7 @@ public struct AST: Codable {
   public func coreTrait(named name: String) -> TraitType? {
     precondition(isCoreModuleLoaded, "Core library is not loaded")
 
-    for id in topLevelDecls(corelib!) where id.kind == .traitDecl {
+    for id in topLevelDecls(corelib!) where id.kind == TraitDecl.self {
       let id = NodeID<TraitDecl>(rawValue: id.rawValue)
       if self[id].name == name {
         return TraitType(decl: id, ast: self)
@@ -163,18 +163,18 @@ public struct AST: Codable {
       result: inout [(path: [Int], pattern: NodeID<NamePattern>)]
     ) {
       switch pattern.kind {
-      case .bindingPattern:
+      case BindingPattern.self:
         let p = NodeID<BindingPattern>(rawValue: pattern.rawValue)
         visit(pattern: self[p].subpattern, path: path, result: &result)
 
-      case .exprPattern:
+      case ExprPattern.self:
         break
 
-      case .namePattern:
+      case NamePattern.self:
         let p = NodeID<NamePattern>(rawValue: pattern.rawValue)
         result.append((path: path, pattern: p))
 
-      case .tuplePattern:
+      case TuplePattern.self:
         let p = NodeID<TuplePattern>(rawValue: pattern.rawValue)
         for i in 0 ..< self[p].elements.count {
           visit(
@@ -183,7 +183,7 @@ public struct AST: Codable {
             result: &result)
         }
 
-      case .wildcardPattern:
+      case WildcardPattern.self:
         break
 
       default:

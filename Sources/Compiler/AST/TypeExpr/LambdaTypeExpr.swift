@@ -1,8 +1,6 @@
 /// A lambda type expression.
 public struct LambdaTypeExpr: TypeExpr {
 
-  public static let kind = NodeKind.lambdaTypeExpr
-
   /// A parameter in a lambda type expression.
   public struct Parameter: Codable {
 

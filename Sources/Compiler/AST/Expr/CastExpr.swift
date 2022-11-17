@@ -1,8 +1,6 @@
 /// An explicit cast expression.
 public struct CastExpr: Expr {
 
-  public static let kind = NodeKind.castExpr
-
   /// The kind of a cast expression.
   public enum Kind: Codable {
 

@@ -1,8 +1,6 @@
 /// A conditional expression.
 public struct CondExpr: Expr, LexicalScope {
 
-  public static let kind = NodeKind.condExpr
-
   public enum Body: Codable {
 
     /// An expression body.

@@ -1,8 +1,6 @@
 /// A while loop.
 public struct WhileStmt: Stmt, LexicalScope {
 
-  public static let kind = NodeKind.whileStmt
-
   /// The condition of the loop.
   ///
   /// - Requires `condition.count > 0`
