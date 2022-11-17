@@ -359,12 +359,12 @@ struct ConstraintGenerator {
           fatalError("not implemented")
         }
 
-        case TraitDecl.self:
+      case TraitDecl.self:
         let trait = TraitType(decl: NodeID(d)!, ast: checker.program.ast)
         diagnostics.append(.diagnose(cannotConstructTrait: trait, at: checker.program.ast.ranges[callee]))
         assignToError(id)
 
-        case TypeAliasDecl.self:
+      case TypeAliasDecl.self:
         fatalError("not implemented")
 
       default:

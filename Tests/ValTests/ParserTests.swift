@@ -492,7 +492,7 @@ final class ParserTests: XCTestCase {
     let signature = try XCTUnwrap(try apply(Parser.functionDeclSignature, on: input).element)
     XCTAssertEqual(signature.parameters.count, 1)
     XCTAssertNil(signature.receiverEffect)
-    XCTAssertEqual(signature.output?.kind, .init(NameTypeExpr.self))
+    XCTAssertEqual(signature.output?.kind, NodeKind(NameTypeExpr.self))
   }
 
   func testFunctionDeclSignatureWithOutputAndEffect() throws {

@@ -538,7 +538,7 @@ public struct Emitter {
             at: insertionPoint!)[0]
         }
 
-        case .member(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
+      case .member(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
         // Callee is a member reference to a function or method.
         let receiverType = calleeType.captures[0].type
 
@@ -790,7 +790,7 @@ public struct Emitter {
           fatalError("not implemented")
         }
 
-        case .member(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
+      case .member(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
         // Callee is a member reference to a function or method.
         let receiverType = calleeType.captures[0].type
 
