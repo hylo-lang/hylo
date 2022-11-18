@@ -2519,9 +2519,11 @@ public enum Parser {
     })
   }
 
-  static let typeExpr: Recursive<ParserState, AnyTypeExprID> = (
+  static let unionTypeExpr1: Recursive<ParserState, AnyTypeExprID> = (
     Recursive(unionTypeExpr.parse(_:))
   )
+
+  static let typeExpr = unionTypeExpr1.or(expr)
 
   // static let storedProjectionTypeExpr = ?
 
