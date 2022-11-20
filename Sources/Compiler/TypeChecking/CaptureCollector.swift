@@ -557,7 +557,7 @@ struct CaptureCollector {
     into captures: inout FreeSet
   ) {
     switch id.kind {
-    case NameTypeExpr.self:
+    case NameExpr.self:
       collectCaptures(ofNameType: NodeID(rawValue: id.rawValue), into: &captures)
     case ParameterTypeExpr.self:
       collectCaptures(ofParameter: NodeID(rawValue: id.rawValue), into: &captures)
@@ -569,11 +569,16 @@ struct CaptureCollector {
   }
 
   private mutating func collectCaptures(
-    ofNameType id: NodeID<NameTypeExpr>,
+    ofNameType id: NodeID<NameExpr>,
     into captures: inout FreeSet
   ) {
-    if let domain = ast[id].domain {
+    switch ast[id].domain {
+    case .none:
+      break
+    case .type(let domain):
       collectCaptures(ofTypeExpr: domain, into: &captures)
+    case .implicit, .expr:
+      unreachable("unexpected name domain")
     }
 
     for argument in ast[id].arguments {

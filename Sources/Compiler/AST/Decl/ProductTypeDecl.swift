@@ -11,7 +11,7 @@ public struct ProductTypeDecl: GenericDecl, TypeDecl, GenericScope {
   public let genericClause: SourceRepresentable<GenericClause>?
 
   /// The names of traits to which the type conforms.
-  public let conformances: [NodeID<NameTypeExpr>]
+  public let conformances: [NodeID<NameExpr>]
 
   /// The member declarations in the lexical scope of the trait.
   public let members: [AnyDeclID]
@@ -24,7 +24,7 @@ public struct ProductTypeDecl: GenericDecl, TypeDecl, GenericScope {
     accessModifier: SourceRepresentable<AccessModifier>?,
     identifier: SourceRepresentable<Identifier>,
     genericClause: SourceRepresentable<GenericClause>?,
-    conformances: [NodeID<NameTypeExpr>],
+    conformances: [NodeID<NameExpr>],
     members: [AnyDeclID],
     memberwiseInit: NodeID<InitializerDecl>
   ) {

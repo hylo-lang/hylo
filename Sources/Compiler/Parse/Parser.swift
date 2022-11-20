@@ -1455,7 +1455,7 @@ public enum Parser {
 
   static let conformanceList = (
     take(.colon).and(nameTypeExpr).and(zeroOrMany(take(.comma).and(nameTypeExpr).second))
-      .map({ (state, tree) -> [NodeID<NameTypeExpr>] in [tree.0.1] + tree.1 })
+      .map({ (state, tree) -> [NodeID<NameExpr>] in [tree.0.1] + tree.1 })
   )
 
   // MARK: Value expressions
@@ -2545,28 +2545,6 @@ public enum Parser {
       guard let head = state.peek() else { return nil }
 
       switch head.kind {
-      case .async:
-        // async-type-expr
-        _ = state.take()
-        guard let operand = try typeExpr.parse(&state) else {
-          throw DiagnosedError(expected("type expression", at: state.currentLocation))
-        }
-
-        let id = try state.ast.insert(wellFormed: AsyncTypeExpr(operand: operand))
-        state.ast.ranges[id] = head.range.upperBounded(by: state.currentIndex)
-        return AnyTypeExprID(id)
-
-      case .indirect:
-        // indirect-type-expr
-        _ = state.take()
-        guard let operand = try typeExpr.parse(&state) else {
-          throw DiagnosedError(expected("type expression", at: state.currentLocation))
-        }
-
-        let id = try state.ast.insert(wellFormed: IndirectTypeExpr(operand: operand))
-        state.ast.ranges[id] = head.range.upperBounded(by: state.currentIndex)
-        return AnyTypeExprID(id)
-
       case .any:
         // existential-type-expr
         _ = state.take()
@@ -2590,8 +2568,8 @@ public enum Parser {
 
   static let nameTypeExpr = (
     compoundTypeExpr
-      .map({ (state, id) -> NodeID<NameTypeExpr> in
-        if let converted = NodeID<NameTypeExpr>(id) {
+      .map({ (state, id) -> NodeID<NameExpr> in
+        if let converted = NodeID<NameExpr>(id) {
           return converted
         } else {
           throw DiagnosedError(expected("type name", at: state.ast.ranges[id]!.first()))
@@ -2610,7 +2588,7 @@ public enum Parser {
             throw DiagnosedError(expected("type member name", at: state.currentLocation))
           }
 
-          state.ast[member].incorporate(domain: head)
+          state.ast[member].incorporate(domain: .type(head))
           state.ast.ranges[member] = headRange.upperBounded(by: state.currentIndex)
           head = AnyTypeExprID(member)
           continue
@@ -2647,9 +2625,9 @@ public enum Parser {
 
   static let primaryTypeDeclRef = (
     typeIdentifier.and(maybe(staticArgumentList))
-      .map({ (state, tree) -> NodeID<NameTypeExpr> in
-        let id = try state.ast.insert(wellFormed: NameTypeExpr(
-          identifier: tree.0,
+      .map({ (state, tree) -> NodeID<NameExpr> in
+        let id = try state.ast.insert(wellFormed: NameExpr(
+          name: tree.0,
           arguments: tree.1 ?? []))
         state.ast.ranges[id] = tree.0.range!.upperBounded(by: state.currentIndex)
         return id
@@ -3038,8 +3016,10 @@ public enum Parser {
 
   static let typeIdentifier = (
     take(.name)
-      .map({ (state, token) -> SourceRepresentable<Identifier> in
-        SourceRepresentable(value: String(state.lexer.source[token.range]), range: token.range)
+      .map({ (state, token) -> SourceRepresentable<Name> in
+        SourceRepresentable(
+          value: Name(stem: String(state.lexer.source[token.range])),
+          range: token.range)
       })
   )
 

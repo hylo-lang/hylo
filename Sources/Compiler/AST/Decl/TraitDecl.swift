@@ -10,7 +10,7 @@ public struct TraitDecl: TypeDecl, GenericScope {
   public let identifier: SourceRepresentable<Identifier>
 
   /// The names of traits which the trait refines.
-  public let refinements: [NodeID<NameTypeExpr>]
+  public let refinements: [NodeID<NameExpr>]
 
   /// The member declarations in the lexical scope of the trait.
   public let members: [AnyDeclID]
@@ -19,7 +19,7 @@ public struct TraitDecl: TypeDecl, GenericScope {
   public init(
     accessModifier: SourceRepresentable<AccessModifier>?,
     identifier: SourceRepresentable<Identifier>,
-    refinements: [NodeID<NameTypeExpr>],
+    refinements: [NodeID<NameExpr>],
     members: [AnyDeclID]
   ) {
     self.accessModifier = accessModifier
