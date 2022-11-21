@@ -18,6 +18,15 @@ func check(_ haystack: String, contains needle: String.SubSequence, for testFile
     """)
 }
 
+/// Remove trailing newlines from the given string subsequence
+func rtrim(_ s: String.SubSequence) -> String.SubSequence {
+  var str = s
+  while !str.isEmpty && str.last! == "\n" {
+    str = str.prefix(str.count-1)
+  }
+  return str
+}
+
 final class CXXTests: XCTestCase {
 
   func testTranspiler() throws {
@@ -70,14 +79,13 @@ final class CXXTests: XCTestCase {
 
       // Process the test annotations.
       for annotation in tc.annotations {
+        let code = rtrim(annotation.argument![...])
         switch annotation.command {
         case "cpp":
-          let specifications = annotation.argument?.split(separator: "\n", maxSplits: 1) ?? []
-          assert((1...2).contains(specifications.count))
-          if specifications.count > 1 {
-            check(cxxHeader, contains: specifications.first!, for: tc.name)
-          }
-          check(cxxSource, contains: specifications.last!, for: tc.name)
+          check(cxxSource, contains: code, for: tc.name)
+
+        case "hpp":
+          check(cxxHeader, contains: code, for: tc.name)
 
         default:
           XCTFail("\(tc.name): unexpected test command: '\(annotation.command)'")

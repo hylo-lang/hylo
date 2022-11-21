@@ -1,5 +1,7 @@
-/*! cpp
+/*! hpp
     void returns_void();
+ */
+/*! cpp
     void returns_void() {
  */
 public fun returns_void() {
