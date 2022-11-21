@@ -18,14 +18,17 @@ func check(_ haystack: String, contains needle: String.SubSequence, for testFile
     """)
 }
 
-/// Removes trailing newlines from the given string subsequence.
-func removingTrailingNewlines(_ s: Substring) -> Substring {
-func rtrim(_ s: String.SubSequence) -> String.SubSequence {
-  var str = s
-  while !str.isEmpty && str.last! == "\n" {
-    str = str.prefix(str.count-1)
+extension StringProtocol {
+
+  /// Removes trailing newlines from the given string subsequence.
+  func removingTrailingNewlines() -> Self.SubSequence {
+    if let i = self.lastIndex(where: { !$0.isNewline }) {
+      return self.prefix(through: i)
+    } else {
+      return self.prefix(upTo: startIndex)
+    }
   }
-  return str
+
 }
 
 final class CXXTests: XCTestCase {
@@ -80,7 +83,7 @@ final class CXXTests: XCTestCase {
 
       // Process the test annotations.
       for annotation in tc.annotations {
-        let code = rtrim(annotation.argument![...])
+        let code = annotation.argument!.removingTrailingNewlines()
         switch annotation.command {
         case "cpp":
           check(cxxSource, contains: code, for: tc.name)
