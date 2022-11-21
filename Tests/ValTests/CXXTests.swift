@@ -18,7 +18,8 @@ func check(_ haystack: String, contains needle: String.SubSequence, for testFile
     """)
 }
 
-/// Remove trailing newlines from the given string subsequence
+/// Removes trailing newlines from the given string subsequence.
+func removingTrailingNewlines(_ s: Substring) -> Substring {
 func rtrim(_ s: String.SubSequence) -> String.SubSequence {
   var str = s
   while !str.isEmpty && str.last! == "\n" {
