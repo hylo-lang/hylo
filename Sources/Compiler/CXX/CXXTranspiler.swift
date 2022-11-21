@@ -79,7 +79,41 @@ public struct CXXTranspiler {
     borrowedLocalBinding decl: NodeID<BindingDecl>,
     withCapability capability: RemoteType.Capability
   ) -> CXXRepresentable {
-    return CXXComment(comment: "borrowed local binding (\(capability))")
+    // There's nothing to do if there's no initializer.
+    if let initializer: AnyExprID = program.ast[decl].initializer {
+
+      let isLValue = (initializer.kind == NameExpr.self) || (initializer.kind == SubscriptCallExpr.self)
+
+      // Visit the initializer.
+      let cxxInitialzer = emit(initializer, asLValue: isLValue)
+
+      // Visit the patterns.
+      var stmts: [CXXRepresentable] = []
+      let pattern = program.ast[decl].pattern
+      for (path, name) in program.ast.names(in: program.ast[pattern].subpattern) {
+        // TODO: emit code for the patterns.
+        let decl = program.ast[name].decl
+        let declType = program.declTypes[decl]!
+        stmts.append(CXXComment(comment: "decl \(name), type: \(declType.description); path: \(path)"))
+      }
+      if stmts.isEmpty {
+        // No pattern found; just call the initializer.
+
+        // TODO: move away from string processing & comments
+        var initString = ""
+        cxxInitialzer.writeCode(into: &initString)
+        if initString.starts(with: "// ") {
+          initString.removeFirst(3)
+          initString.removeLast() // newline
+        }
+        return CXXComment(comment: "(void) \(initString)")
+      } else {
+        return CXXScopedBlock(stmts: stmts)
+      }
+    }
+    else {
+      return CXXComment(comment: "EMPTY borrowed local binding (\(capability))")
+    }
   }
 
   // MARK: Statements
@@ -125,6 +159,17 @@ public struct CXXTranspiler {
     return CXXComment(comment: "return stmt")
   }
 
+  // MARK: Expressions
 
+  private mutating func emit(
+    _ expr: AnyExprID,
+    asLValue: Bool
+  ) -> CXXRepresentable {
+    if asLValue {
+      return CXXComment(comment: "expr (lvalue)")
+    } else {
+      return CXXComment(comment: "expr (rvalue)")
+    }
+  }
 
 }
