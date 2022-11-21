@@ -1,10 +1,14 @@
 import XCTest
 import Compiler
 
-func check(_ haystack: String, contains needle: String.SubSequence) {
+func check(_ haystack: String, contains needle: String.SubSequence, for testFile: String) {
   XCTAssert(
     haystack.contains(needle),
     """
+
+
+    Test file: \(testFile)
+    ===========\(String(repeating: "=", count: testFile.count))
 
     \(String(reflecting: needle))
     not found in source
@@ -71,9 +75,9 @@ final class CXXTests: XCTestCase {
           let specifications = annotation.argument?.split(separator: "\n", maxSplits: 1) ?? []
           assert((1...2).contains(specifications.count))
           if specifications.count > 1 {
-            check(cxxHeader, contains: specifications.first!)
+            check(cxxHeader, contains: specifications.first!, for: tc.name)
           }
-          check(cxxSource, contains: specifications.last!)
+          check(cxxSource, contains: specifications.last!, for: tc.name)
 
         default:
           XCTFail("\(tc.name): unexpected test command: '\(annotation.command)'")
