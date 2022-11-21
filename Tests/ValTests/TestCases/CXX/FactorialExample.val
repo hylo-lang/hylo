@@ -7,7 +7,7 @@
     // expr
     }
     int main() {
-    // borrowed local binding (let)
+    // (void) expr (rvalue)
     }
  */
 fun factorial(_ n: Int) -> Int {
