@@ -88,7 +88,7 @@ final class CXXTests: XCTestCase {
         case "cpp":
           check(cxxSource, contains: code, for: tc.name)
 
-        case "hpp":
+        case "h":
           check(cxxHeader, contains: code, for: tc.name)
 
         default:
