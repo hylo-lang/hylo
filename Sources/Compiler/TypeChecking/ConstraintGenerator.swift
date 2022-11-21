@@ -11,7 +11,7 @@ struct ConstraintGenerator {
     let inferredTypes: ExprProperty<Type>
 
     /// The set of type constraints being generated.
-    let constraints: [LocatableConstraint]
+    let constraints: [Constraint]
 
     /// The diagnostics of the errors the generator encountered.
     let diagnostics: [Diagnostic]
@@ -31,7 +31,7 @@ struct ConstraintGenerator {
   private var inferredTypes = ExprProperty<Type>()
 
   /// The set of type constraints being generated.
-  private var constraints: [LocatableConstraint] = []
+  private var constraints: [Constraint] = []
 
   /// The diagnostics of the errors the generator encountered.
   private var diagnostics: [Diagnostic] = []
@@ -119,11 +119,14 @@ struct ConstraintGenerator {
     // Constrain the right to be subtype of the left.
     let rhs = checker.program.ast[id].right
     inferredTypes[rhs] = .variable(TypeVariable(node: rhs.base))
-    constraints.append(LocatableConstraint(
-      .equalityOrSubtyping(l: inferredTypes[rhs]!, r: inferredTypes[lhs]!),
-      node: AnyNodeID(id),
-      range: checker.program.ast.ranges[id],
-      cause: .assignment))
+    constraints.append(
+      equalityOrSubtypingConstraint(
+        left: inferredTypes[rhs]!,
+        right: inferredTypes[lhs]!,
+        cause: ConstraintCause(
+          kind: .assignment,
+          node: AnyNodeID(id),
+          origin: checker.program.ast.ranges[id])))
 
     // Infer the type on the right.
     expectedTypes[rhs] = inferredTypes[lhs]
@@ -172,14 +175,15 @@ struct ConstraintGenerator {
       return
     }
 
-    let (ty, cs) = checker.contextualize(type: target, inScope: scope)
-    target = ty
-    constraints.append(contentsOf: cs.map({ (constraint) in
-      LocatableConstraint(
-        constraint,
+    let (ty, cs) = checker.contextualize(
+      type: target,
+      inScope: scope,
+      cause: ConstraintCause(
+        kind: .cast,
         node: AnyNodeID(id),
-        range: checker.program.ast.ranges[id])
-    }))
+        origin: checker.program.ast.ranges[id]))
+    target = ty
+    constraints.append(contentsOf: cs)
 
     let lhs = checker.program.ast[id].left
     switch checker.program.ast[id].kind {
@@ -191,11 +195,14 @@ struct ConstraintGenerator {
     case .up:
       // The type of the left operand must be statically known to subtype of the right operand.
       inferredTypes[lhs] = .variable(TypeVariable(node: lhs.base))
-      constraints.append(LocatableConstraint(
-        .equalityOrSubtyping(l: inferredTypes[lhs]!, r: target),
-        node: AnyNodeID(id),
-        range: checker.program.ast.ranges[id],
-        cause: .assignment))
+      constraints.append(
+        equalityOrSubtypingConstraint(
+          left: inferredTypes[lhs]!,
+          right: target,
+          cause: ConstraintCause(
+            kind: .assignment,
+            node: AnyNodeID(id),
+            origin: checker.program.ast.ranges[id])))
 
     case .builtinPointerConversion:
       // The type of the left operand must be `Builtin.Pointer`.
@@ -316,14 +323,14 @@ struct ConstraintGenerator {
 
         // Select suitable candidates based on argument labels.
         let labels = checker.program.ast[id].arguments.map({ $0.label?.value })
-        var candidates: [Constraint.OverloadCandidate] = []
+        var candidates: [OverloadConstraint.Candidate] = []
         for initializer in initializers {
           // Remove the receiver from the parameter list.
           let ctor = LambdaType(initializer.type)!.ctor()!
 
           if labels.elementsEqual(ctor.labels) {
             let (ty, cs) = checker.open(type: .lambda(ctor))
-            candidates.append(Constraint.OverloadCandidate(
+            candidates.append(OverloadConstraint.Candidate(
               reference: .direct(initializer.decl),
               type: ty,
               constraints: cs,
@@ -395,11 +402,14 @@ struct ConstraintGenerator {
 
       let argument = checker.program.ast[id].arguments[i].value
       let parameterType = Type.variable(TypeVariable())
-      constraints.append(LocatableConstraint(
-        .parameter(l: inferredTypes[argument]!, r: parameterType),
-        node: argument.base,
-        range: checker.program.ast.ranges[argument],
-        cause: .callArgument))
+      constraints.append(
+        ParameterConstraint(
+          inferredTypes[argument]!,
+          canBePassedTo: parameterType,
+          because: ConstraintCause(
+            kind: .callArgument,
+            node: argument.base,
+            origin: checker.program.ast.ranges[argument])))
 
       let argumentLabel = checker.program.ast[id].arguments[i].label?.value
       inputs.append(CallableTypeParameter(label: argumentLabel, type: parameterType))
@@ -408,10 +418,14 @@ struct ConstraintGenerator {
     // Constrain the type of the callee.
     let calleeType = Type.lambda(LambdaType(
       environment: .variable(TypeVariable()), inputs: inputs, output: output))
-    constraints.append(LocatableConstraint(
-      .equality(l: inferredTypes[callee]!, r: calleeType),
-      node: callee.base,
-      range: checker.program.ast.ranges[callee]))
+    constraints.append(
+      EqualityConstraint(
+        inferredTypes[callee]!,
+        equals: calleeType,
+        because: ConstraintCause(
+          kind: .callee,
+          node: callee.base,
+          origin: checker.program.ast.ranges[callee])))
   }
 
   private mutating func visit(
@@ -437,23 +451,33 @@ struct ConstraintGenerator {
       // The type of the expression is a variable, possibly constrained elsewhere; constrain it to
       // either be `Int` or conform to `ExpressibleByIntegerLiteral`.
       let intType = checker.program.ast.coreType(named: "Int")!
-      constraints.append(LocatableConstraint(
-        .disjunction([
-          Constraint.Minterm(
-            constraints: [.equality(l: .variable(tau), r: .product(intType))],
+      constraints.append(
+        DisjunctionConstraint([
+          DisjunctionConstraint.Minterm(
+            constraints: [EqualityConstraint(
+              .variable(tau),
+              equals: .product(intType),
+              because: nil)],
             penalties: 0),
-          Constraint.Minterm(
-            constraints: [.conformance(l: .variable(tau), traits: [trait])],
+          DisjunctionConstraint.Minterm(
+            constraints: [ConformanceConstraint(
+              .variable(tau),
+              conformsTo: [trait],
+              because: nil)],
             penalties: 1),
-        ])))
+        ]))
       assume(typeOf: id, equals: .variable(tau), at: checker.program.ast.ranges[id])
 
     case .some(let expectedType):
       // The type of has been fixed; constrain it to conform to `ExpressibleByIntegerLiteral`.
-      constraints.append(LocatableConstraint(
-        .conformance(l: expectedType, traits: [trait]),
-        node: AnyNodeID(id),
-        range: checker.program.ast.ranges[id]))
+      constraints.append(
+        ConformanceConstraint(
+          expectedType,
+          conformsTo: [trait],
+          because: ConstraintCause(
+            kind: .literal,
+            node: AnyNodeID(id),
+            origin: checker.program.ast.ranges[id])))
       assume(typeOf: id, equals: expectedType, at: checker.program.ast.ranges[id])
 
     case nil:
@@ -565,16 +589,17 @@ struct ConstraintGenerator {
       if candidates.count == 1 {
         // Contextualize the match.
         let context = checker.program.declToScope[candidates[0].decl]!
-        let (ty, cs) = checker.contextualize(type: candidates[0].type, inScope: context)
+        let (ty, cs) = checker.contextualize(
+          type: candidates[0].type,
+          inScope: context,
+          cause: ConstraintCause(
+            kind: .reference,
+            node: AnyNodeID(id),
+            origin: checker.program.ast.ranges[id]))
         inferredType = ty
 
         // Register associated constraints.
-        constraints.append(contentsOf: cs.map({ (constraint) in
-          LocatableConstraint(
-            constraint,
-            node: AnyNodeID(id),
-            range: checker.program.ast.ranges[id])
-        }))
+        constraints.append(contentsOf: cs)
 
         // Bind the name expression to the referred declaration.
         if checker.program.isNonStaticMember(candidates[0].decl) {
@@ -625,26 +650,29 @@ struct ConstraintGenerator {
       // If we determined that the domain refers to a nominal type declaration, create a static
       // member constraint. Otherwise, create a non-static member constraint.
       let constraint: Constraint
+      let cause = ConstraintCause(
+        kind: .member,
+        node: AnyNodeID(id),
+        origin: checker.program.ast.ranges[id])
+
       if let base = NodeID<NameExpr>(domain),
          let decl = checker.referredDecls[base]?.decl,
          decl.kind.value is TypeDecl.Type
       {
-        constraint = .unboundMember(
-          l: domainType,
-          m: checker.program.ast[id].name.value,
-          r: inferredType)
+        constraint = UnboundMemberConstraint(
+          domainType,
+          hasMemberNamed: checker.program.ast[id].name.value,
+          ofType: inferredType,
+          because: cause)
       } else {
         // FIXME: We can't assume the domain is an instance if types are first-class.
-        constraint = .boundMember(
-          l: domainType,
-          m: checker.program.ast[id].name.value,
-          r: inferredType)
+        constraint = BoundMemberConstraint(
+          domainType,
+          hasMemberNamed: checker.program.ast[id].name.value,
+          ofType: inferredType,
+          because: cause)
       }
-      constraints.append(LocatableConstraint(
-        constraint,
-        node: AnyNodeID(id),
-        range: checker.program.ast.ranges[id],
-        cause: .member))
+      constraints.append(constraint)
 
     case .type:
       fatalError("not implemented")
@@ -699,12 +727,14 @@ struct ConstraintGenerator {
 
       // Infer the type of the callee.
       let parameterType = Type.variable(TypeVariable())
-      constraints.append(LocatableConstraint(
-        .parameter(
-          l: rhsType,
-          r: parameterType),
-        range: checker.program.ast.origin(of: rhs),
-        cause: .callArgument))
+      constraints.append(
+        ParameterConstraint(
+          rhsType,
+          canBePassedTo: parameterType,
+          because: ConstraintCause(
+            kind: .callArgument,
+            node: nil,
+            origin: checker.program.ast.origin(of: rhs))))
 
       let outputType = Type.variable(TypeVariable())
       let calleeType = Type.lambda(LambdaType(
@@ -716,14 +746,15 @@ struct ConstraintGenerator {
       inferredTypes[callee.expr] = calleeType
 
       // Create a member constraint for the operator.
-      constraints.append(LocatableConstraint(
-        .boundMember(
-          l: lhsType,
-          m: checker.program.ast[callee.expr].name.value,
-          r: calleeType),
-        node: AnyNodeID(callee.expr),
-        range: checker.program.ast.ranges[callee.expr],
-        cause: .member))
+      constraints.append(
+        BoundMemberConstraint(
+          lhsType,
+          hasMemberNamed: checker.program.ast[callee.expr].name.value,
+          ofType: calleeType,
+          because: ConstraintCause(
+            kind: .member,
+            node: AnyNodeID(callee.expr),
+            origin: checker.program.ast.ranges[callee.expr])))
 
       return outputType
 
@@ -802,7 +833,7 @@ struct ConstraintGenerator {
   private mutating func propagateDown(
     callee: AnyExprID,
     calleeType: LambdaType,
-    calleeTypeConstraints: [Constraint],
+    calleeTypeConstraints: ConstraintSet,
     arguments: [CallArgument],
     using checker: inout TypeChecker
   ) -> Type {
@@ -820,9 +851,14 @@ struct ConstraintGenerator {
     }
 
     // Gather the callee's constraints.
-    constraints.append(contentsOf: calleeTypeConstraints.map({ (c) in
-      LocatableConstraint(c, node: callee.base, range: checker.program.ast.ranges[callee])
-    }))
+    for c in calleeTypeConstraints {
+      var newConstraint = c
+      newConstraint.cause = ConstraintCause(
+        kind: .callee,
+        node: AnyNodeID(callee),
+        origin: checker.program.ast.ranges[callee])
+      constraints.append(newConstraint)
+    }
 
     // Propagate type information to the arguments.
     for i in 0 ..< arguments.count {
@@ -831,11 +867,13 @@ struct ConstraintGenerator {
       let parameterType = calleeType.inputs[i].type
 
       inferredTypes[argumentExpr] = argumentType
-      constraints.append(LocatableConstraint(
-        .parameter(l: argumentType, r: parameterType),
-        node: argumentExpr.base,
-        range: checker.program.ast.ranges[argumentExpr],
-        cause: .callArgument))
+      constraints.append(
+        ParameterConstraint(
+          argumentType,
+          canBePassedTo: parameterType,
+          because: ConstraintCause(
+            kind: .callArgument, node: argumentExpr.base,
+            origin: checker.program.ast.ranges[argumentExpr])))
 
       if case .parameter(let type) = parameterType {
         expectedTypes[argumentExpr] = type.bareType
@@ -903,10 +941,11 @@ struct ConstraintGenerator {
   ) {
     if let ty = inferredTypes[id] {
       if ty != inferredType {
-        constraints.append(LocatableConstraint(
-          .equality(l: inferredType, r: ty),
-          node: AnyNodeID(id),
-          range: range))
+        constraints.append(
+          EqualityConstraint(
+            inferredType,
+            equals: ty,
+            because: ConstraintCause(kind: .structural, node: AnyNodeID(id), origin: range)))
       }
     } else {
       inferredTypes[id] = inferredType

@@ -25,19 +25,19 @@ struct GenericEnvironment {
     let scope = AnyScopeID(decl)!
     for c in constraints {
       switch c {
-      case .equality(let l, let r):
-        registerEquivalence(l: l, r: r)
+      case let equality as EqualityConstraint:
+        registerEquivalence(l: equality.left, r: equality.right)
 
-      case .conformance(let l, let traits):
+      case let conformance as ConformanceConstraint:
         var allTraits: Set<TraitType> = []
-        for trait in traits {
+        for trait in conformance.traits {
           guard let bases = checker.conformedTraits(of: .trait(trait), inScope: scope)
           else { return nil }
           allTraits.formUnion(bases)
         }
-        registerConformance(l: l, traits: allTraits)
+        registerConformance(l: conformance.subject, traits: allTraits)
 
-      case .value:
+      case is PredicateConstraint:
         break
 
       default:

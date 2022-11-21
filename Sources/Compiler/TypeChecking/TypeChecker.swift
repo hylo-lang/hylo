@@ -61,7 +61,7 @@ public struct TypeChecker {
     case .existential(let t):
       return .existential(ExistentialType(
         traits: t.traits,
-        constraints: Set(t.constraints.map(canonicalize(constraint:)))))
+        constraints: ConstraintSet(t.constraints.map(canonicalize(constraint:)))))
 
     case .tuple(let t):
       return .tuple(TupleType(
@@ -80,10 +80,7 @@ public struct TypeChecker {
   /// Returns the canonical form of `constraint`.
   public func canonicalize(constraint: Constraint) -> Constraint {
     var canonical = constraint
-    canonical.modifyTypes({ type in
-      type = canonicalize(type: type)
-      return true
-    })
+    canonical.modifyTypes({ (type) in type = canonicalize(type: type) })
     return canonical
   }
 
@@ -354,11 +351,14 @@ public struct TypeChecker {
     if let initializer = program.ast[id].initializer {
       // The type of the initializer may be a subtype of the pattern's.
       let initializerType = Type.variable(TypeVariable(node: initializer.base))
-      shape.constraints.append(LocatableConstraint(
-        .equalityOrSubtyping(l: initializerType, r: shape.type),
-        node: AnyNodeID(id),
-        range: program.ast.ranges[id],
-        cause: .initialization))
+      shape.constraints.append(
+        equalityOrSubtypingConstraint(
+          left: initializerType,
+          right: shape.type,
+          cause: ConstraintCause(
+            kind: .initialization,
+            node: AnyNodeID(id),
+            origin: program.ast.ranges[id])))
 
       // Infer the type of the initializer
       let names = program.ast.names(in: program.ast[id].pattern).map({ (name) in
@@ -607,11 +607,13 @@ public struct TypeChecker {
       let defaultValueType = Type.variable(TypeVariable(node: defaultValue.base))
 
       let constraints = [
-        LocatableConstraint(
-          .parameter(l: defaultValueType, r: .parameter(parameterType)),
-          node: AnyNodeID(id),
-          range: program.ast.ranges[id],
-          cause: .callArgument)
+        ParameterConstraint(
+          defaultValueType,
+          canBePassedTo: .parameter(parameterType),
+          because: ConstraintCause(
+            kind: .callArgument,
+            node: AnyNodeID(id),
+            origin: program.ast.ranges[id]))
       ]
 
       let solution = infer(
@@ -1032,11 +1034,13 @@ public struct TypeChecker {
     if let returnValue = program.ast[id].value {
       // The type of the return value must be subtype of the expected return type.
       let inferredReturnType = Type.variable(TypeVariable(node: returnValue.base))
-      let c = LocatableConstraint(
-        .equalityOrSubtyping(l: inferredReturnType, r: expectedType),
-        node: returnValue.base,
-        range: program.ast.ranges[returnValue],
-        cause: .return)
+      let c = equalityOrSubtypingConstraint(
+        left: inferredReturnType,
+        right: expectedType,
+        cause: ConstraintCause(
+          kind: .return,
+          node: AnyNodeID(returnValue),
+          origin: program.ast.ranges[returnValue]))
       let solution = infer(
         expr: returnValue,
         inferredType: inferredReturnType,
@@ -1061,11 +1065,13 @@ public struct TypeChecker {
 
     // The type of the return value must be subtype of the expected return type.
     let inferredReturnType = Type.variable(TypeVariable(node: program.ast[id].value.base))
-    let c = LocatableConstraint(
-      .equalityOrSubtyping(l: inferredReturnType, r: expectedType),
-      node: program.ast[id].value.base,
-      range: program.ast.ranges[program.ast[id].value],
-      cause: .yield)
+    let c = equalityOrSubtypingConstraint(
+      left: inferredReturnType,
+      right: expectedType,
+      cause: ConstraintCause(
+        kind: .yield,
+        node: AnyNodeID(program.ast[id].value),
+        origin: program.ast.ranges[program.ast[id].value]))
     let solution = infer(
       expr: program.ast[id].value,
       inferredType: inferredReturnType,
@@ -1169,7 +1175,7 @@ public struct TypeChecker {
       let list = program.ast[j].conformances
       guard let traits = realize(conformances: list, inScope: parentScope) else { return nil }
       if !traits.isEmpty {
-        constraints.append(.conformance(l: lhs, traits: traits))
+        constraints.append(ConformanceConstraint(lhs, conformsTo: traits))
       }
     }
 
@@ -1277,7 +1283,7 @@ public struct TypeChecker {
     // Synthesize `Self: T`.
     let selfType = GenericTypeParamType(decl: id, ast: program.ast)
     guard case .trait(let trait) = declTypes[id]! else { unreachable() }
-    constraints.append(.conformance(l: .genericTypeParam(selfType), traits: [trait]))
+    constraints.append(ConformanceConstraint(.genericTypeParam(selfType), conformsTo: [trait]))
 
     let e = GenericEnvironment(decl: id, constraints: constraints, into: &self)
     environments[id] = .done(e)
@@ -1299,7 +1305,7 @@ public struct TypeChecker {
     guard let traits = realize(conformances: list, inScope: AnyScopeID(trait))
       else { return false }
     if !traits.isEmpty {
-      constraints.append(.conformance(l: lhs, traits: traits))
+      constraints.append(ConformanceConstraint(lhs, conformsTo: traits))
     }
 
     // Evaluate the constraint expressions of the associated type's where clause.
@@ -1359,7 +1365,7 @@ public struct TypeChecker {
         return nil
       }
 
-      return .equality(l: a, r: b)
+      return EqualityConstraint(a, equals: b)
 
     case .conformance(let l, let traits):
       guard let a = realize(name: l, inScope: scope) else { return nil }
@@ -1379,11 +1385,11 @@ public struct TypeChecker {
         }
       }
 
-      return .conformance(l: a, traits: b)
+      return ConformanceConstraint(a, conformsTo: b)
 
     case .value(let e):
       // TODO: Symbolic execution
-      return .value(e)
+      return PredicateConstraint(e)
     }
   }
 
@@ -1415,7 +1421,7 @@ public struct TypeChecker {
     inferredType: Type?,
     expectedType: Type?,
     inScope scope: AnyScopeID,
-    constraints: [LocatableConstraint]
+    constraints: [Constraint]
   ) -> Solution {
     // Generate constraints.
     var generator = ConstraintGenerator(
@@ -1453,8 +1459,8 @@ public struct TypeChecker {
   private mutating func infer<T: PatternID>(
     pattern: T,
     inScope scope: AnyScopeID
-  ) -> (type: Type, constraints: [LocatableConstraint], decls: [NodeID<VarDecl>])? {
-    var constraints: [LocatableConstraint] = []
+  ) -> (type: Type, constraints: [Constraint], decls: [NodeID<VarDecl>])? {
+    var constraints: [Constraint] = []
     var decls: [NodeID<VarDecl>] = []
     if let type = _infer(
       pattern: pattern,
@@ -1473,7 +1479,7 @@ public struct TypeChecker {
     pattern: T,
     expectedType: Type?,
     inScope scope: AnyScopeID,
-    constraints: inout [LocatableConstraint],
+    constraints: inout [Constraint],
     decls: inout [NodeID<VarDecl>]
   ) -> Type? {
     switch pattern.kind {
@@ -1486,11 +1492,14 @@ public struct TypeChecker {
       if let annotation = lhs.annotation {
         if let type = realize(annotation, inScope: scope) {
           if let r = expectedType {
-            constraints.append(LocatableConstraint(
-              .subtyping(l: type, r: r),
-              node: AnyNodeID(pattern),
-              range: program.ast.ranges[pattern],
-              cause: .annotation))
+            constraints.append(
+              SubtypingConstraint(
+                type,
+                isSubtypeOf: r,
+                because: ConstraintCause(
+                  kind: .annotation,
+                  node: AnyNodeID(pattern),
+                  origin: program.ast.ranges[pattern])))
           }
           subpatternType = type
         } else {
@@ -2974,7 +2983,7 @@ public struct TypeChecker {
   }
 
   /// Opens `type`.
-  func open(type: Type) -> (Type, [Constraint]) {
+  func open(type: Type) -> (Type, ConstraintSet) {
     var openedParameters: [Type: Type] = [:]
 
     let transformed = type.transform({ type in
@@ -3018,7 +3027,11 @@ public struct TypeChecker {
   /// Contextualization consists of substituting the generic parameters in a type by either skolems
   /// or open variables. Opened parameters carry the constraints defined by the generic environment
   /// in which they are opened.
-  func contextualize<S: ScopeID>(type: Type, inScope scope: S) -> (Type, [Constraint]) {
+  func contextualize<S: ScopeID>(
+    type: Type,
+    inScope scope: S,
+    cause: ConstraintCause
+  ) -> (Type, ConstraintSet) {
     var openedParameters: [Type: Type] = [:]
 
     let transformed = type.transform({ type in
