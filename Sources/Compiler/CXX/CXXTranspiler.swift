@@ -97,16 +97,8 @@ public struct CXXTranspiler {
         stmts.append(CXXComment(comment: "decl \(name), type: \(declType.description); path: \(path)"))
       }
       if stmts.isEmpty {
-        // No pattern found; just call the initializer.
-
-        // TODO: move away from string processing & comments
-        var initString = ""
-        cxxInitialzer.writeCode(into: &initString)
-        if initString.starts(with: "// ") {
-          initString.removeFirst(3)
-          initString.removeLast() // newline
-        }
-        return CXXComment(comment: "(void) \(initString)")
+        // No pattern found; just call the initializer, dropping the result.
+        return CXXVoidCast(baseExpr: cxxInitialzer)
       } else {
         return CXXScopedBlock(stmts: stmts)
       }
