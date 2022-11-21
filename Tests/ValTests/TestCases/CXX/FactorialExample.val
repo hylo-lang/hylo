@@ -1,0 +1,19 @@
+/*! h
+    int factorial(int n);
+    int main();
+ */
+/*! cpp
+    int factorial(int n) {
+    // expr
+    }
+    int main() {
+    // block
+    }
+ */
+fun factorial(_ n: Int) -> Int {
+  if n < 2 { 1 } else { n * factorial(n - 1) }
+}
+
+public fun main() {
+  let _ = factorial(6)
+}
