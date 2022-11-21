@@ -7,31 +7,23 @@ public struct ExistentialType: TypeProtocol, Hashable {
   /// The constraints on the associated types of the witness.
   ///
   /// - Note: This set shall only contain equality and conformance constraints.
-  public let constraints: Set<Constraint>
+  public let constraints: ConstraintSet
 
   public let flags: TypeFlags
 
   /// Creates a new existential type bound by the given traits and constraints.
-  public init<S: Sequence>(
-    traits: Set<TraitType>,
-    constraints: S
-  ) where S.Element == Constraint {
-    self.traits = traits
-
-    var cs: Set<Constraint> = []
-    cs.reserveCapacity(constraints.underestimatedCount)
+  public init(traits: Set<TraitType>, constraints: ConstraintSet) {
     for c in constraints {
-      switch c {
-      case .equality, .conformance:
-        cs.insert(c)
-      default:
-        preconditionFailure("type may only be contained by equality or conformance")
-      }
+      precondition(
+        (c is EqualityConstraint) || (c is ConformanceConstraint),
+        "type may only be contained by equality or conformance")
     }
-    self.constraints = cs
 
-    let flags = traits.reduce(into: TypeFlags.isCanonical, { (a, b) in a.merge(b.flags) })
-    self.flags = flags // FIXME
+    self.traits = traits
+    self.constraints = constraints
+
+    // FIXME: Consider the types in the cosntraints?
+    self.flags = traits.reduce(into: TypeFlags.isCanonical, { (a, b) in a.merge(b.flags) })
   }
 
 }

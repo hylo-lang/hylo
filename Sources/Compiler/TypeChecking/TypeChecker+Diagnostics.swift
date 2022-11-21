@@ -267,9 +267,9 @@ extension Diagnostic {
   }
 
   static func diagnose(
-    staleConstraint c: LocatableConstraint
+    staleConstraint c: any Constraint
   ) -> Diagnostic {
-    .error("stale constraint '\(c.constraint)'", range: c.location.origin)
+    .error("stale constraint '\(c)'")
   }
 
   static func diagnose(
