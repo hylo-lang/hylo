@@ -5,8 +5,8 @@
 /// type information from the structure of the program.
 public protocol Constraint {
 
-  /// The cause of the constraint, if known.
-  var cause: ConstraintCause? { get set }
+  /// The cause of the constraint.
+  var cause: ConstraintCause { get set }
 
   /// Applies `modify` on the types that are part of `self`.
   mutating func modifyTypes(_ modify: (inout Type) -> Void)
@@ -36,12 +36,12 @@ extension Constraint where Self: Equatable {
 
 /// Creates a subtyping or equality constraint.
 func equalityOrSubtypingConstraint(
-  left l: Type,
-  right r: Type,
-  cause: ConstraintCause?
+  between l: Type,
+  and r: Type,
+  because cause: ConstraintCause
 ) -> DisjunctionConstraint {
   DisjunctionConstraint(
-    [
+    choices: [
       DisjunctionConstraint.Minterm(
         constraints: [EqualityConstraint(l, equals: r, because: cause)],
         penalties: 0),

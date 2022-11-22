@@ -121,9 +121,9 @@ struct ConstraintGenerator {
     inferredTypes[rhs] = .variable(TypeVariable(node: rhs.base))
     constraints.append(
       equalityOrSubtypingConstraint(
-        left: inferredTypes[rhs]!,
-        right: inferredTypes[lhs]!,
-        cause: ConstraintCause(.initializationOrAssignment, at: checker.program.ast.ranges[id])))
+        between: inferredTypes[rhs]!,
+        and: inferredTypes[lhs]!,
+        because: ConstraintCause(.initializationOrAssignment, at: checker.program.ast.ranges[id])))
 
     // Infer the type on the right.
     expectedTypes[rhs] = inferredTypes[lhs]
@@ -191,9 +191,9 @@ struct ConstraintGenerator {
       inferredTypes[lhs] = .variable(TypeVariable(node: lhs.base))
       constraints.append(
         equalityOrSubtypingConstraint(
-          left: inferredTypes[lhs]!,
-          right: target,
-          cause: ConstraintCause(.cast, at: checker.program.ast.ranges[id])))
+          between: inferredTypes[lhs]!,
+          and: target,
+          because: ConstraintCause(.cast, at: checker.program.ast.ranges[id])))
 
     case .builtinPointerConversion:
       // The type of the left operand must be `Builtin.Pointer`.
@@ -430,27 +430,29 @@ struct ConstraintGenerator {
     defer { assert(inferredTypes[id] != nil) }
 
     let trait = checker.program.ast.coreTrait(named: "ExpressibleByIntegerLiteral")!
+    let cause = ConstraintCause(.literal, at: checker.program.ast.ranges[id])
 
     switch expectedTypes[id] {
     case .some(.variable(let tau)):
       // The type of the expression is a variable, possibly constrained elsewhere; constrain it to
       // either be `Int` or conform to `ExpressibleByIntegerLiteral`.
       let intType = checker.program.ast.coreType(named: "Int")!
+
       constraints.append(
-        DisjunctionConstraint([
-          DisjunctionConstraint.Minterm(
-            constraints: [EqualityConstraint(
-              .variable(tau),
-              equals: .product(intType),
-              because: nil)],
-            penalties: 0),
-          DisjunctionConstraint.Minterm(
-            constraints: [ConformanceConstraint(
-              .variable(tau),
-              conformsTo: [trait],
-              because: nil)],
-            penalties: 1),
-        ]))
+        DisjunctionConstraint(
+          choices: [
+            DisjunctionConstraint.Minterm(
+              constraints: [
+                EqualityConstraint(.variable(tau), equals: .product(intType), because: cause)
+              ],
+              penalties: 0),
+            DisjunctionConstraint.Minterm(
+              constraints: [
+                ConformanceConstraint(.variable(tau), conformsTo: [trait], because: cause)
+              ],
+              penalties: 1),
+            ],
+          because: cause))
       assume(typeOf: id, equals: .variable(tau), at: checker.program.ast.ranges[id])
 
     case .some(let expectedType):
@@ -459,7 +461,7 @@ struct ConstraintGenerator {
         ConformanceConstraint(
           expectedType,
           conformsTo: [trait],
-          because: ConstraintCause(.literal, at: checker.program.ast.ranges[id])))
+          because: cause))
       assume(typeOf: id, equals: expectedType, at: checker.program.ast.ranges[id])
 
     case nil:

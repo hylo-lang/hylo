@@ -14,14 +14,14 @@ struct BoundMemberConstraint: Constraint, Hashable {
   /// The expression of `member` in the AST, if available.
   let memberExpr: NodeID<NameExpr>?
 
-  var cause: ConstraintCause?
+  var cause: ConstraintCause
 
   /// Creates an instance with the given properties.
   init(
     type left: Type,
     hasMemberNamed member: Name,
     ofType right: Type,
-    because cause: ConstraintCause? = nil
+    because cause: ConstraintCause
   ) {
     self.left = left
     self.right = right
@@ -36,7 +36,7 @@ struct BoundMemberConstraint: Constraint, Hashable {
     hasMemberExpressedBy memberExpr: NodeID<NameExpr>,
     in ast: AST,
     ofType right: Type,
-    because cause: ConstraintCause? = nil
+    because cause: ConstraintCause
   ) {
     self.left = left
     self.right = right

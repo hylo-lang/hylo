@@ -353,9 +353,9 @@ public struct TypeChecker {
       let initializerType = Type.variable(TypeVariable(node: initializer.base))
       shape.constraints.append(
         equalityOrSubtypingConstraint(
-          left: initializerType,
-          right: shape.type,
-          cause: ConstraintCause(.initialization, at: program.ast.ranges[id])))
+          between: initializerType,
+          and: shape.type,
+          because: ConstraintCause(.initialization, at: program.ast.ranges[id])))
 
       // Infer the type of the initializer
       let names = program.ast.names(in: program.ast[id].pattern).map({ (name) in
@@ -1029,9 +1029,9 @@ public struct TypeChecker {
       // The type of the return value must be subtype of the expected return type.
       let inferredReturnType = Type.variable(TypeVariable(node: returnValue.base))
       let c = equalityOrSubtypingConstraint(
-        left: inferredReturnType,
-        right: expectedType,
-        cause: ConstraintCause(.return, at: program.ast.ranges[returnValue]))
+        between: inferredReturnType,
+        and: expectedType,
+        because: ConstraintCause(.return, at: program.ast.ranges[returnValue]))
       let solution = infer(
         expr: returnValue,
         inferredType: inferredReturnType,
@@ -1057,9 +1057,9 @@ public struct TypeChecker {
     // The type of the return value must be subtype of the expected return type.
     let inferredReturnType = Type.variable(TypeVariable(node: program.ast[id].value.base))
     let c = equalityOrSubtypingConstraint(
-      left: inferredReturnType,
-      right: expectedType,
-      cause: ConstraintCause(.yield, at: program.ast.ranges[program.ast[id].value]))
+      between: inferredReturnType,
+      and: expectedType,
+      because: ConstraintCause(.yield, at: program.ast.ranges[program.ast[id].value]))
     let solution = infer(
       expr: program.ast[id].value,
       inferredType: inferredReturnType,
@@ -1145,8 +1145,6 @@ public struct TypeChecker {
       return e
     }
 
-    let declScope = AnyScopeID(id)!
-    let parentScope = program.scopeToParent[declScope]!
     var success = true
     var constraints: [Constraint] = []
 
@@ -1161,16 +1159,21 @@ public struct TypeChecker {
 
       // Synthesize the sugared conformance constraint, if any.
       let list = program.ast[j].conformances
-      guard let traits = realize(conformances: list, inScope: parentScope) else { return nil }
+      guard let traits = realize(
+        conformances: list,
+        inScope: program.scopeToParent[AnyScopeID(id)!]!)
+      else { return nil }
+
       if !traits.isEmpty {
-        constraints.append(ConformanceConstraint(lhs, conformsTo: traits))
+        let cause = ConstraintCause(.annotation, at: program.ast.ranges[list[0]])
+        constraints.append(ConformanceConstraint(lhs, conformsTo: traits, because: cause))
       }
     }
 
     // Evaluate the constraint expressions of the associated type's where clause.
     if let whereClause = clause.whereClause?.value {
       for expr in whereClause.constraints {
-        if let constraint = eval(constraintExpr: expr, inScope: declScope) {
+        if let constraint = eval(constraintExpr: expr, inScope: AnyScopeID(id)!) {
           constraints.append(constraint)
         } else {
           success = false
@@ -1271,7 +1274,11 @@ public struct TypeChecker {
     // Synthesize `Self: T`.
     let selfType = GenericTypeParamType(decl: id, ast: program.ast)
     guard case .trait(let trait) = declTypes[id]! else { unreachable() }
-    constraints.append(ConformanceConstraint(.genericTypeParam(selfType), conformsTo: [trait]))
+    constraints.append(
+      ConformanceConstraint(
+        .genericTypeParam(selfType),
+        conformsTo: [trait],
+        because: ConstraintCause(.structural, at: program.ast[id].identifier.range)))
 
     let e = GenericEnvironment(decl: id, constraints: constraints, into: &self)
     environments[id] = .done(e)
@@ -1290,10 +1297,14 @@ public struct TypeChecker {
 
     // Synthesize the sugared conformance constraint, if any.
     let list = program.ast[associatedType].conformances
-    guard let traits = realize(conformances: list, inScope: AnyScopeID(trait))
-      else { return false }
+    guard let traits = realize(
+      conformances: list,
+      inScope: AnyScopeID(trait))
+    else { return false }
+
     if !traits.isEmpty {
-      constraints.append(ConformanceConstraint(lhs, conformsTo: traits))
+      let cause = ConstraintCause(.annotation, at: program.ast.ranges[list[0]])
+      constraints.append(ConformanceConstraint(lhs, conformsTo: traits, because: cause))
     }
 
     // Evaluate the constraint expressions of the associated type's where clause.
@@ -1353,7 +1364,10 @@ public struct TypeChecker {
         return nil
       }
 
-      return EqualityConstraint(a, equals: b)
+      return EqualityConstraint(
+        a,
+        equals: b,
+        because: ConstraintCause(.structural, at: expr.range))
 
     case .conformance(let l, let traits):
       guard let a = realize(name: l, inScope: scope) else { return nil }
@@ -1373,11 +1387,14 @@ public struct TypeChecker {
         }
       }
 
-      return ConformanceConstraint(a, conformsTo: b)
+      return ConformanceConstraint(
+        a,
+        conformsTo: b,
+        because: ConstraintCause(.structural, at: expr.range))
 
     case .value(let e):
       // TODO: Symbolic execution
-      return PredicateConstraint(e)
+      return PredicateConstraint(e, because: ConstraintCause(.structural, at: expr.range))
     }
   }
 
