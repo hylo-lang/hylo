@@ -93,7 +93,7 @@ struct ConstraintSolver {
     case .variable:
       // Postpone the solving if `L` is still unknown.
       postpone(
-        ConformanceConstraint(subject, conformsTo: constraint.traits, because: constraint.cause))
+        ConformanceConstraint(subject, traits: constraint.traits, because: constraint.cause))
 
     case .product, .tuple:
       let conformedTraits = checker.conformedTraits(of: subject, inScope: scope) ?? []
@@ -147,10 +147,7 @@ struct ConstraintSolver {
 
       // Break down the constraint.
       for i in 0 ..< l.elements.count {
-        solve(equality: EqualityConstraint(
-          l.elements[i].type,
-          equals: r.elements[i].type,
-          because: constraint.cause))
+        solve(equality: .init(l.elements[i].type, r.elements[i].type, because: constraint.cause))
       }
 
     case (.lambda(let l), .lambda(let r)):
@@ -170,20 +167,11 @@ struct ConstraintSolver {
 
       // Break down the constraint.
       for i in 0 ..< l.inputs.count {
-        solve(equality: EqualityConstraint(
-          l.inputs[i].type,
-          equals: r.inputs[i].type,
-          because: constraint.cause))
+        solve(equality: .init(l.inputs[i].type, r.inputs[i].type, because: constraint.cause))
       }
 
-      solve(equality: EqualityConstraint(
-        l.output,
-        equals: r.output,
-        because: constraint.cause))
-      solve(equality: EqualityConstraint(
-        l.environment,
-        equals: r.environment,
-        because: constraint.cause))
+      solve(equality: .init(l.output, r.output, because: constraint.cause))
+      solve(equality: .init(l.environment, r.environment, because: constraint.cause))
 
     case (.method(let l), .method(let r)):
       // Capabilities must match.
@@ -195,20 +183,11 @@ struct ConstraintSolver {
 
       // Break down the constraint.
       for i in 0 ..< l.inputs.count {
-        solve(equality: EqualityConstraint(
-          l.inputs[i].type,
-          equals: r.inputs[i].type,
-          because: constraint.cause))
+        solve(equality: .init(l.inputs[i].type, r.inputs[i].type, because: constraint.cause))
       }
 
-      solve(equality: EqualityConstraint(
-        l.output,
-        equals: r.output,
-        because: constraint.cause))
-      solve(equality: EqualityConstraint(
-        l.receiver,
-        equals: r.receiver,
-        because: constraint.cause))
+      solve(equality: .init(l.output, r.output, because: constraint.cause))
+      solve(equality: .init(l.receiver, r.receiver, because: constraint.cause))
 
     case (.method(let l), .lambda):
       // TODO: Use a different kind of constraint for call exprs
@@ -217,24 +196,21 @@ struct ConstraintSolver {
       // some synthesized lambda type. Instead we need a constraint that only describes its inputs
       // and outputs, and uses the other type to infer additional information.
 
-      var minterms: [DisjunctionConstraint.Minterm] = []
+      var minterms: [DisjunctionConstraint.Choice] = []
 
       if let lambda = LambdaType(letImplOf: l) {
-        minterms.append(DisjunctionConstraint.Minterm(
-          constraints: [EqualityConstraint(.lambda(lambda), equals: r)],
-          penalties: 0))
+        minterms.append(
+          .init(constraints: [EqualityConstraint(.lambda(lambda), r)], penalties: 0))
       }
 
       if let lambda = LambdaType(inoutImplOf: l) {
-        minterms.append(DisjunctionConstraint.Minterm(
-          constraints: [EqualityConstraint(.lambda(lambda), equals: r)],
-          penalties: 1))
+        minterms.append(
+          .init(constraints: [EqualityConstraint(.lambda(lambda), r)], penalties: 1))
       }
 
       if let lambda = LambdaType(sinkImplOf: l) {
-        minterms.append(DisjunctionConstraint.Minterm(
-          constraints: [EqualityConstraint(.lambda(lambda), equals: r)],
-          penalties: 1))
+        minterms.append(
+          .init(constraints: [EqualityConstraint(.lambda(lambda), r)], penalties: 1))
       }
 
       if minterms.count == 1 {
@@ -261,16 +237,16 @@ struct ConstraintSolver {
       // The type variable is above a more concrete type. We should compute the "join" of all types
       // to which `L` is coercible and that are below `R`, but that set is unbounded. We have no
       // choice to postpone the constraint.
-      postpone(SubtypingConstraint(l, isSubtypeOf: r, because: constraint.cause))
+      postpone(SubtypingConstraint(l, r, because: constraint.cause))
 
     case (.variable, _):
       // The type variable is below a more concrete type. We should compute the "meet" of all types
       // coercible to `R` and that are above `L`, but that set is unbounded unless `R` is a leaf.
       // If it isn't, we have no choice but to postpone the constraint.
       if r.isLeaf {
-        solve(equality: EqualityConstraint(constraint))
+        solve(equality: .init(constraint))
       } else {
-        postpone(SubtypingConstraint(l, isSubtypeOf: r, because: constraint.cause))
+        postpone(SubtypingConstraint(l, r, because: constraint.cause))
       }
 
     case (_, .existential):
@@ -300,13 +276,13 @@ struct ConstraintSolver {
     switch r {
     case .variable:
       // Postpone the solving until we can infer the parameter passing convention of `R`.
-      postpone(ParameterConstraint(l, canBePassedTo: r, because: constraint.cause))
+      postpone(ParameterConstraint(l, r, because: constraint.cause))
 
     case .parameter(let p):
       // Either `L` is equal to the bare type of `R`, or it's a. Note: the equality requirement for
       // arguments passed mutably is verified after type inference.
       schedule(
-        equalityOrSubtypingConstraint(left: l, right: p.bareType, cause: constraint.cause))
+        equalityOrSubtypingConstraint(l, p.bareType, because: constraint.cause))
 
     default:
       diagnostics.append(.diagnose(invalidParameterType: r, at: constraint.cause?.origin))
@@ -375,7 +351,7 @@ struct ConstraintSolver {
 
     // If there's only one candidate, solve an equality constraint direcly.
     if candidates.count == 1 {
-      solve(equality: EqualityConstraint(candidates[0].type, equals: r, because: constraint.cause))
+      solve(equality: .init(candidates[0].type, r, because: constraint.cause))
       if let name = nameBoundByCurrentConstraint {
         bindingAssumptions[name] = candidates[0].reference
       }
@@ -391,10 +367,8 @@ struct ConstraintSolver {
         because: constraint.cause))
     } else {
       schedule(DisjunctionConstraint(
-        candidates.map({ (c) -> DisjunctionConstraint.Minterm in
-          DisjunctionConstraint.Minterm(
-            constraints: [EqualityConstraint(r, equals: c.type)],
-            penalties: c.penalties)
+        candidates.map({ (c) -> DisjunctionConstraint.Choice in
+          .init(constraints: [EqualityConstraint(r, c.type)], penalties: c.penalties)
         }),
         because: constraint.cause))
     }
@@ -453,7 +427,7 @@ struct ConstraintSolver {
 
     // If there's only one candidate, solve an equality constraint direcly.
     if candidates.count == 1 {
-      solve(equality: EqualityConstraint(candidates[0].type, equals: r, because: constraint.cause))
+      solve(equality: .init(candidates[0].type, r, because: constraint.cause))
       if let name = nameBoundByCurrentConstraint {
         bindingAssumptions[name] = .direct(candidates[0].decl)
       }
@@ -497,7 +471,7 @@ struct ConstraintSolver {
       insertingConstraintsWith: { (subsolver, choice) -> Void in
         subsolver.schedule(EqualityConstraint(
           constraint.overloadedExprType,
-          equals: choice.type,
+          choice.type,
           because: constraint.cause))
 
         for c in choice.constraints {
@@ -665,6 +639,6 @@ fileprivate protocol Choice {
 
 }
 
-extension DisjunctionConstraint.Minterm: Choice {}
+extension DisjunctionConstraint.Choice: Choice {}
 
 extension OverloadConstraint.Candidate: Choice {}

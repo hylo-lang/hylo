@@ -36,18 +36,14 @@ extension Constraint where Self: Equatable {
 
 /// Creates a subtyping or equality constraint.
 func equalityOrSubtypingConstraint(
-  left l: Type,
-  right r: Type,
-  cause: ConstraintCause?
+  _ l: Type,
+  _ r: Type,
+  because cause: ConstraintCause?
 ) -> DisjunctionConstraint {
   DisjunctionConstraint(
     [
-      DisjunctionConstraint.Minterm(
-        constraints: [EqualityConstraint(l, equals: r, because: cause)],
-        penalties: 0),
-      DisjunctionConstraint.Minterm(
-        constraints: [SubtypingConstraint(l, isSubtypeOf: r, because: cause)],
-        penalties: 1),
+      .init(constraints: [EqualityConstraint(l, r, because: cause)], penalties: 0),
+      .init(constraints: [SubtypingConstraint(l, r, because: cause)], penalties: 1),
     ],
     because: cause)
 }

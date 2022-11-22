@@ -353,9 +353,9 @@ public struct TypeChecker {
       let initializerType = Type.variable(TypeVariable(node: initializer.base))
       shape.constraints.append(
         equalityOrSubtypingConstraint(
-          left: initializerType,
-          right: shape.type,
-          cause: ConstraintCause(
+          initializerType,
+          shape.type,
+          because: ConstraintCause(
             kind: .initialization,
             node: AnyNodeID(id),
             origin: program.ast.ranges[id])))
@@ -609,7 +609,7 @@ public struct TypeChecker {
       let constraints = [
         ParameterConstraint(
           defaultValueType,
-          canBePassedTo: .parameter(parameterType),
+          .parameter(parameterType),
           because: ConstraintCause(
             kind: .callArgument,
             node: AnyNodeID(id),
@@ -1035,9 +1035,9 @@ public struct TypeChecker {
       // The type of the return value must be subtype of the expected return type.
       let inferredReturnType = Type.variable(TypeVariable(node: returnValue.base))
       let c = equalityOrSubtypingConstraint(
-        left: inferredReturnType,
-        right: expectedType,
-        cause: ConstraintCause(
+        inferredReturnType,
+        expectedType,
+        because: ConstraintCause(
           kind: .return,
           node: AnyNodeID(returnValue),
           origin: program.ast.ranges[returnValue]))
@@ -1066,9 +1066,9 @@ public struct TypeChecker {
     // The type of the return value must be subtype of the expected return type.
     let inferredReturnType = Type.variable(TypeVariable(node: program.ast[id].value.base))
     let c = equalityOrSubtypingConstraint(
-      left: inferredReturnType,
-      right: expectedType,
-      cause: ConstraintCause(
+      inferredReturnType,
+      expectedType,
+      because: ConstraintCause(
         kind: .yield,
         node: AnyNodeID(program.ast[id].value),
         origin: program.ast.ranges[program.ast[id].value]))
@@ -1175,7 +1175,7 @@ public struct TypeChecker {
       let list = program.ast[j].conformances
       guard let traits = realize(conformances: list, inScope: parentScope) else { return nil }
       if !traits.isEmpty {
-        constraints.append(ConformanceConstraint(lhs, conformsTo: traits))
+        constraints.append(ConformanceConstraint(lhs, traits: traits))
       }
     }
 
@@ -1283,7 +1283,7 @@ public struct TypeChecker {
     // Synthesize `Self: T`.
     let selfType = GenericTypeParamType(decl: id, ast: program.ast)
     guard case .trait(let trait) = declTypes[id]! else { unreachable() }
-    constraints.append(ConformanceConstraint(.genericTypeParam(selfType), conformsTo: [trait]))
+    constraints.append(ConformanceConstraint(.genericTypeParam(selfType), traits: [trait]))
 
     let e = GenericEnvironment(decl: id, constraints: constraints, into: &self)
     environments[id] = .done(e)
@@ -1305,7 +1305,7 @@ public struct TypeChecker {
     guard let traits = realize(conformances: list, inScope: AnyScopeID(trait))
       else { return false }
     if !traits.isEmpty {
-      constraints.append(ConformanceConstraint(lhs, conformsTo: traits))
+      constraints.append(ConformanceConstraint(lhs, traits: traits))
     }
 
     // Evaluate the constraint expressions of the associated type's where clause.
@@ -1365,7 +1365,7 @@ public struct TypeChecker {
         return nil
       }
 
-      return EqualityConstraint(a, equals: b)
+      return EqualityConstraint(a, b)
 
     case .conformance(let l, let traits):
       guard let a = realize(name: l, inScope: scope) else { return nil }
@@ -1385,7 +1385,7 @@ public struct TypeChecker {
         }
       }
 
-      return ConformanceConstraint(a, conformsTo: b)
+      return ConformanceConstraint(a, traits: b)
 
     case .value(let e):
       // TODO: Symbolic execution
@@ -1495,7 +1495,7 @@ public struct TypeChecker {
             constraints.append(
               SubtypingConstraint(
                 type,
-                isSubtypeOf: r,
+                r,
                 because: ConstraintCause(
                   kind: .annotation,
                   node: AnyNodeID(pattern),

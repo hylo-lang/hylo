@@ -12,7 +12,7 @@ struct ConformanceConstraint: Constraint, Hashable {
   /// Creates an instance with the given properties.
   init(
     _ subject: Type,
-    conformsTo traits: Set<TraitType>,
+    traits: Set<TraitType>,
     because cause: ConstraintCause? = nil
   ) {
     self.subject = subject
