@@ -1648,6 +1648,12 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(list.count, 2)
   }
 
+  func testTypeExprUnificationWithExpr() throws {
+    let input = SourceFile(contents: "<T, @value 40 + two()>")
+    let list = try XCTUnwrap(try apply(Parser.staticArgumentList, on: input).element)
+    XCTAssertEqual(list.count, 2)
+  }
+
   func testWhereClause() throws {
     let input = SourceFile(contents: "where T == B, U : A")
     let clause = try XCTUnwrap(try apply(Parser.whereClause, on: input).element)

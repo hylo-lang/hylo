@@ -1579,9 +1579,10 @@ public enum Parser {
           infixOperatorRequiresWhitespacesAt: operatorStem.range))
       }
 
-      // Commit to parse an operand.
+      // If we can't parse an operand, the tail is empty.
       guard let operand = try prefixExpr.parse(&state) else {
-        throw DiagnosedError(expected("expression", at: state.currentLocation))
+        state.restore(from: backup)
+        return false
       }
 
       let `operator` = try state.ast.insert(wellFormed: NameExpr(
@@ -2519,9 +2520,11 @@ public enum Parser {
     })
   }
 
-  static let typeExpr: Recursive<ParserState, AnyTypeExprID> = (
+  static let typeExpr1: Recursive<ParserState, AnyTypeExprID> = (
     Recursive(unionTypeExpr.parse(_:))
   )
+
+  static let typeExpr = TryCatch(trying: typeExpr1, orCatchingAndApplying: expr)
 
   // static let storedProjectionTypeExpr = ?
 
