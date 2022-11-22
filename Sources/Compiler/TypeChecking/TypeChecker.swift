@@ -353,8 +353,8 @@ public struct TypeChecker {
       let initializerType = Type.variable(TypeVariable(node: initializer.base))
       shape.constraints.append(
         equalityOrSubtypingConstraint(
-          between: initializerType,
-          and: shape.type,
+          initializerType,
+          shape.type,
           because: ConstraintCause(.initialization, at: program.ast.ranges[id])))
 
       // Infer the type of the initializer
@@ -606,7 +606,7 @@ public struct TypeChecker {
       let constraints = [
         ParameterConstraint(
           defaultValueType,
-          canBePassedTo: .parameter(parameterType),
+          .parameter(parameterType),
           because: ConstraintCause(.argument, at: program.ast.ranges[id]))
       ]
 
@@ -1029,8 +1029,8 @@ public struct TypeChecker {
       // The type of the return value must be subtype of the expected return type.
       let inferredReturnType = Type.variable(TypeVariable(node: returnValue.base))
       let c = equalityOrSubtypingConstraint(
-        between: inferredReturnType,
-        and: expectedType,
+        inferredReturnType,
+        expectedType,
         because: ConstraintCause(.return, at: program.ast.ranges[returnValue]))
       let solution = infer(
         expr: returnValue,
@@ -1057,8 +1057,8 @@ public struct TypeChecker {
     // The type of the return value must be subtype of the expected return type.
     let inferredReturnType = Type.variable(TypeVariable(node: program.ast[id].value.base))
     let c = equalityOrSubtypingConstraint(
-      between: inferredReturnType,
-      and: expectedType,
+      inferredReturnType,
+      expectedType,
       because: ConstraintCause(.yield, at: program.ast.ranges[program.ast[id].value]))
     let solution = infer(
       expr: program.ast[id].value,
@@ -1166,7 +1166,7 @@ public struct TypeChecker {
 
       if !traits.isEmpty {
         let cause = ConstraintCause(.annotation, at: program.ast.ranges[list[0]])
-        constraints.append(ConformanceConstraint(lhs, conformsTo: traits, because: cause))
+        constraints.append(ConformanceConstraint(lhs, traits: traits, because: cause))
       }
     }
 
@@ -1277,7 +1277,7 @@ public struct TypeChecker {
     constraints.append(
       ConformanceConstraint(
         .genericTypeParam(selfType),
-        conformsTo: [trait],
+        traits: [trait],
         because: ConstraintCause(.structural, at: program.ast[id].identifier.range)))
 
     let e = GenericEnvironment(decl: id, constraints: constraints, into: &self)
@@ -1304,7 +1304,7 @@ public struct TypeChecker {
 
     if !traits.isEmpty {
       let cause = ConstraintCause(.annotation, at: program.ast.ranges[list[0]])
-      constraints.append(ConformanceConstraint(lhs, conformsTo: traits, because: cause))
+      constraints.append(ConformanceConstraint(lhs, traits: traits, because: cause))
     }
 
     // Evaluate the constraint expressions of the associated type's where clause.
@@ -1364,10 +1364,7 @@ public struct TypeChecker {
         return nil
       }
 
-      return EqualityConstraint(
-        a,
-        equals: b,
-        because: ConstraintCause(.structural, at: expr.range))
+      return EqualityConstraint(a, b, because: ConstraintCause(.structural, at: expr.range))
 
     case .conformance(let l, let traits):
       guard let a = realize(name: l, inScope: scope) else { return nil }
@@ -1389,7 +1386,7 @@ public struct TypeChecker {
 
       return ConformanceConstraint(
         a,
-        conformsTo: b,
+        traits: b,
         because: ConstraintCause(.structural, at: expr.range))
 
     case .value(let e):
@@ -1500,7 +1497,7 @@ public struct TypeChecker {
             constraints.append(
               SubtypingConstraint(
                 type,
-                isSubtypeOf: r,
+                r,
                 because: ConstraintCause(.annotation, at: program.ast.ranges[pattern])))
           }
           subpatternType = type

@@ -6,7 +6,7 @@ import Utils
 struct DisjunctionConstraint: Constraint, Hashable {
 
   /// A collection of constraints in a disjunction.
-  struct Minterm: Hashable {
+  struct Choice: Hashable {
 
     /// The constraints.
     let constraints: ConstraintSet
@@ -17,14 +17,14 @@ struct DisjunctionConstraint: Constraint, Hashable {
   }
 
   /// The choices of the disjunction.
-  private(set) var choices: [Minterm]
+  private(set) var choices: [Choice]
 
   var cause: ConstraintCause
 
   /// Creates an instance with two or more minterms.
   ///
   /// - Requires: `choices.count >= 2`
-  init(choices: [Minterm], because cause: ConstraintCause) {
+  init(choices: [Choice], because cause: ConstraintCause) {
     precondition(choices.count >= 2)
     self.choices = choices
     self.cause = cause
@@ -32,14 +32,12 @@ struct DisjunctionConstraint: Constraint, Hashable {
 
   mutating func modifyTypes(_ modify: (inout Type) -> Void) {
     for i in 0 ..< choices.count {
-      choices[i] = Minterm(
-        constraints: choices[i].constraints.reduce(
-          into: [],
-          { (cs, c) in
-            var newConstraint = c
-            newConstraint.modifyTypes(modify)
-            cs.insert(newConstraint)
-          }),
+      choices[i] = Choice(
+        constraints: choices[i].constraints.reduce(into: [], { (cs, c) in
+          var newConstraint = c
+          newConstraint.modifyTypes(modify)
+          cs.insert(newConstraint)
+        }),
         penalties: choices[i].penalties)
     }
   }
@@ -63,7 +61,7 @@ extension DisjunctionConstraint: CustomStringConvertible {
 
 }
 
-extension DisjunctionConstraint.Minterm: CustomStringConvertible {
+extension DisjunctionConstraint.Choice: CustomStringConvertible {
 
   var description: String {
     "{\(constraints.descriptions(joinedBy: " ∧ "))}:\(penalties)"

@@ -121,8 +121,8 @@ struct ConstraintGenerator {
     inferredTypes[rhs] = .variable(TypeVariable(node: rhs.base))
     constraints.append(
       equalityOrSubtypingConstraint(
-        between: inferredTypes[rhs]!,
-        and: inferredTypes[lhs]!,
+        inferredTypes[rhs]!,
+        inferredTypes[lhs]!,
         because: ConstraintCause(.initializationOrAssignment, at: checker.program.ast.ranges[id])))
 
     // Infer the type on the right.
@@ -191,8 +191,8 @@ struct ConstraintGenerator {
       inferredTypes[lhs] = .variable(TypeVariable(node: lhs.base))
       constraints.append(
         equalityOrSubtypingConstraint(
-          between: inferredTypes[lhs]!,
-          and: target,
+          inferredTypes[lhs]!,
+          target,
           because: ConstraintCause(.cast, at: checker.program.ast.ranges[id])))
 
     case .builtinPointerConversion:
@@ -396,7 +396,7 @@ struct ConstraintGenerator {
       constraints.append(
         ParameterConstraint(
           inferredTypes[argument]!,
-          canBePassedTo: parameterType,
+          parameterType,
           because: ConstraintCause(.argument, at: checker.program.ast.ranges[argument])))
 
       let argumentLabel = checker.program.ast[id].arguments[i].label?.value
@@ -409,7 +409,7 @@ struct ConstraintGenerator {
     constraints.append(
       EqualityConstraint(
         inferredTypes[callee]!,
-        equals: calleeType,
+        calleeType,
         because: ConstraintCause(.callee, at: checker.program.ast.ranges[callee])))
   }
 
@@ -441,14 +441,14 @@ struct ConstraintGenerator {
       constraints.append(
         DisjunctionConstraint(
           choices: [
-            DisjunctionConstraint.Minterm(
+            .init(
               constraints: [
-                EqualityConstraint(.variable(tau), equals: .product(intType), because: cause)
+                EqualityConstraint(.variable(tau), .product(intType), because: cause)
               ],
               penalties: 0),
-            DisjunctionConstraint.Minterm(
+            .init(
               constraints: [
-                ConformanceConstraint(.variable(tau), conformsTo: [trait], because: cause)
+                ConformanceConstraint(.variable(tau), traits: [trait], because: cause)
               ],
               penalties: 1),
             ],
@@ -460,7 +460,7 @@ struct ConstraintGenerator {
       constraints.append(
         ConformanceConstraint(
           expectedType,
-          conformsTo: [trait],
+          traits: [trait],
           because: cause))
       assume(typeOf: id, equals: expectedType, at: checker.program.ast.ranges[id])
 
@@ -708,7 +708,7 @@ struct ConstraintGenerator {
       constraints.append(
         ParameterConstraint(
           rhsType,
-          canBePassedTo: parameterType,
+          parameterType,
           because: ConstraintCause(.argument, at: checker.program.ast.origin(of: rhs))))
 
       let outputType = Type.variable(TypeVariable())
@@ -839,7 +839,7 @@ struct ConstraintGenerator {
       constraints.append(
         ParameterConstraint(
           argumentType,
-          canBePassedTo: parameterType,
+          parameterType,
           because: ConstraintCause(.argument, at: checker.program.ast.ranges[argumentExpr])))
 
       if case .parameter(let type) = parameterType {
@@ -911,7 +911,7 @@ struct ConstraintGenerator {
         constraints.append(
           EqualityConstraint(
             inferredType,
-            equals: ty,
+            ty,
             because: ConstraintCause(.structural, at: range)))
       }
     } else {

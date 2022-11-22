@@ -12,7 +12,7 @@ struct EqualityConstraint: Constraint, Hashable {
   var cause: ConstraintCause
 
   /// Creates an instance with the given properties.
-  init(_ left: Type, equals right: Type, because cause: ConstraintCause) {
+  init(_ left: Type, _ right: Type, because cause: ConstraintCause) {
     self.left = left
     self.right = right
     self.cause = cause

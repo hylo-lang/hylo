@@ -8,7 +8,7 @@ public struct CustomWitnessedSet<Element, Witness: HashableWitness<Element>> {
   fileprivate var contents: Set<_Element>
 
   /// Creates an instance with the elements in `members`.
-  public init<S: Sequence<Element>>(_ members: S) {
+  public init<S: Sequence>(_ members: S) where S.Element == Element {
     contents = []
     contents.reserveCapacity(members.underestimatedCount)
     for m in members { contents.insert(_Element(m)) }
