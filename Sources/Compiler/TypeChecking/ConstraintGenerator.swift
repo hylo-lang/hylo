@@ -123,7 +123,7 @@ struct ConstraintGenerator {
       equalityOrSubtypingConstraint(
         left: inferredTypes[rhs]!,
         right: inferredTypes[lhs]!,
-        cause: ConstraintCause(.assignment, at: checker.program.ast.ranges[id])))
+        cause: ConstraintCause(.initializationOrAssignment, at: checker.program.ast.ranges[id])))
 
     // Infer the type on the right.
     expectedTypes[rhs] = inferredTypes[lhs]
@@ -193,7 +193,7 @@ struct ConstraintGenerator {
         equalityOrSubtypingConstraint(
           left: inferredTypes[lhs]!,
           right: target,
-          cause: ConstraintCause(.assignment, at: checker.program.ast.ranges[id])))
+          cause: ConstraintCause(.cast, at: checker.program.ast.ranges[id])))
 
     case .builtinPointerConversion:
       // The type of the left operand must be `Builtin.Pointer`.
@@ -574,7 +574,7 @@ struct ConstraintGenerator {
         let (ty, cs) = checker.contextualize(
           type: candidates[0].type,
           inScope: context,
-          cause: ConstraintCause(.reference, at: checker.program.ast.ranges[id]))
+          cause: ConstraintCause(.binding, at: checker.program.ast.ranges[id]))
         inferredType = ty
 
         // Register associated constraints.
