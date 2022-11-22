@@ -326,7 +326,7 @@ struct ConstraintSolver {
     // Postpone the solving if `L` is still unknown.
     if case .variable = l {
       postpone(BoundMemberConstraint(
-        l,
+        type: l,
         hasMemberNamed: constraint.member,
         ofType: r,
         because: constraint.cause))
@@ -370,20 +370,17 @@ struct ConstraintSolver {
       return
     }
 
-    // Get the name expression associated with the constraint, if any.
-    let nameBoundByCurrentConstraint = constraint.cause?.node.flatMap(NodeID<NameExpr>.init)
-
     // If there's only one candidate, solve an equality constraint direcly.
     if candidates.count == 1 {
       solve(equality: EqualityConstraint(candidates[0].type, equals: r, because: constraint.cause))
-      if let name = nameBoundByCurrentConstraint {
+      if let name = constraint.memberExpr {
         bindingAssumptions[name] = candidates[0].reference
       }
       return
     }
 
     // If there are several candidates, create a disjunction constraint.
-    if let name = nameBoundByCurrentConstraint {
+    if let name = constraint.memberExpr {
       schedule(OverloadConstraint(
         name,
         withType: r,
@@ -413,7 +410,7 @@ struct ConstraintSolver {
     // Postpone the solving if `L` is still unknown.
     if case .variable = l {
       postpone(UnboundMemberConstraint(
-        l,
+        type: l,
         hasMemberNamed: constraint.member,
         ofType: r,
         because: constraint.cause))
@@ -448,13 +445,10 @@ struct ConstraintSolver {
       return
     }
 
-    // Get the name expression associated with the constraint, if any.
-    let nameBoundByCurrentConstraint = constraint.cause?.node.flatMap(NodeID<NameExpr>.init)
-
     // If there's only one candidate, solve an equality constraint direcly.
     if candidates.count == 1 {
       solve(equality: EqualityConstraint(candidates[0].type, equals: r, because: constraint.cause))
-      if let name = nameBoundByCurrentConstraint {
+      if let name = constraint.memberExpr {
         bindingAssumptions[name] = .direct(candidates[0].decl)
       }
     }

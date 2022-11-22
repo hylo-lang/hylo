@@ -649,7 +649,6 @@ struct ConstraintGenerator {
 
       // If we determined that the domain refers to a nominal type declaration, create a static
       // member constraint. Otherwise, create a non-static member constraint.
-      let constraint: Constraint
       let cause = ConstraintCause(
         kind: .member,
         node: AnyNodeID(id),
@@ -659,20 +658,21 @@ struct ConstraintGenerator {
          let decl = checker.referredDecls[base]?.decl,
          decl.kind.value is TypeDecl.Type
       {
-        constraint = UnboundMemberConstraint(
-          domainType,
-          hasMemberNamed: checker.program.ast[id].name.value,
+        constraints.append(UnboundMemberConstraint(
+          type: domainType,
+          hasMemberExpressedBy: id,
+          in: checker.program.ast,
           ofType: inferredType,
-          because: cause)
+          because: cause))
       } else {
         // FIXME: We can't assume the domain is an instance if types are first-class.
-        constraint = BoundMemberConstraint(
-          domainType,
-          hasMemberNamed: checker.program.ast[id].name.value,
+        constraints.append(BoundMemberConstraint(
+          type: domainType,
+          hasMemberExpressedBy: id,
+          in: checker.program.ast,
           ofType: inferredType,
-          because: cause)
+          because: cause))
       }
-      constraints.append(constraint)
 
     case .type:
       fatalError("not implemented")
@@ -748,7 +748,7 @@ struct ConstraintGenerator {
       // Create a member constraint for the operator.
       constraints.append(
         BoundMemberConstraint(
-          lhsType,
+          type: lhsType,
           hasMemberNamed: checker.program.ast[callee.expr].name.value,
           ofType: calleeType,
           because: ConstraintCause(
