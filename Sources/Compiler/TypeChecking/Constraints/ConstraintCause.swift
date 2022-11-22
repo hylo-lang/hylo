@@ -33,16 +33,12 @@ public struct ConstraintCause: Hashable {
   /// The kind this cause.
   public let kind: Kind
 
-  /// The AST node to which the constraint is attached, if any.
-  public let node: AnyNodeID?
-
   /// The source range from which the constraint originates, if any.
   public let origin: SourceRange?
 
   /// Creates a new instance with the given properties.
-  public init(kind: Kind, node: AnyNodeID?, origin: SourceRange?) {
+  public init(_ kind: Kind, at origin: SourceRange?) {
     self.kind = kind
-    self.node = node
     self.origin = origin
   }
 

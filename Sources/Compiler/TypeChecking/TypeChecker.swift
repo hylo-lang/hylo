@@ -355,10 +355,7 @@ public struct TypeChecker {
         equalityOrSubtypingConstraint(
           left: initializerType,
           right: shape.type,
-          cause: ConstraintCause(
-            kind: .initialization,
-            node: AnyNodeID(id),
-            origin: program.ast.ranges[id])))
+          cause: ConstraintCause(.initialization, at: program.ast.ranges[id])))
 
       // Infer the type of the initializer
       let names = program.ast.names(in: program.ast[id].pattern).map({ (name) in
@@ -610,10 +607,7 @@ public struct TypeChecker {
         ParameterConstraint(
           defaultValueType,
           canBePassedTo: .parameter(parameterType),
-          because: ConstraintCause(
-            kind: .callArgument,
-            node: AnyNodeID(id),
-            origin: program.ast.ranges[id]))
+          because: ConstraintCause(.argument, at: program.ast.ranges[id]))
       ]
 
       let solution = infer(
@@ -1037,10 +1031,7 @@ public struct TypeChecker {
       let c = equalityOrSubtypingConstraint(
         left: inferredReturnType,
         right: expectedType,
-        cause: ConstraintCause(
-          kind: .return,
-          node: AnyNodeID(returnValue),
-          origin: program.ast.ranges[returnValue]))
+        cause: ConstraintCause(.return, at: program.ast.ranges[returnValue]))
       let solution = infer(
         expr: returnValue,
         inferredType: inferredReturnType,
@@ -1068,10 +1059,7 @@ public struct TypeChecker {
     let c = equalityOrSubtypingConstraint(
       left: inferredReturnType,
       right: expectedType,
-      cause: ConstraintCause(
-        kind: .yield,
-        node: AnyNodeID(program.ast[id].value),
-        origin: program.ast.ranges[program.ast[id].value]))
+      cause: ConstraintCause(.yield, at: program.ast.ranges[program.ast[id].value]))
     let solution = infer(
       expr: program.ast[id].value,
       inferredType: inferredReturnType,
@@ -1496,10 +1484,7 @@ public struct TypeChecker {
               SubtypingConstraint(
                 type,
                 isSubtypeOf: r,
-                because: ConstraintCause(
-                  kind: .annotation,
-                  node: AnyNodeID(pattern),
-                  origin: program.ast.ranges[pattern])))
+                because: ConstraintCause(.annotation, at: program.ast.ranges[pattern])))
           }
           subpatternType = type
         } else {
