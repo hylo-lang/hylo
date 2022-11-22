@@ -1626,21 +1626,18 @@ public struct TypeChecker {
   /// Returns the well-typed declarations to which the specified name may refer, along with their
   /// overarching uncontextualized types. Ill-typed declarations are ignored.
   mutating func resolve(
-    stem: Identifier,
-    labels: [String?],
-    notation: OperatorNotation?,
-    introducer: ImplIntroducer?,
+    _ name: Name,
     introducedInDeclSpaceOf lookupContext: AnyScopeID? = nil,
     inScope origin: AnyScopeID
   ) -> [(decl: AnyDeclID, type: Type)] {
     // Search for the referred declaration.
     var matches: TypeChecker.DeclSet
     if let ctx = lookupContext {
-      matches = lookup(stem, introducedInDeclSpaceOf: ctx, inScope: origin)
+      matches = lookup(name.stem, introducedInDeclSpaceOf: ctx, inScope: origin)
     } else {
-      matches = lookup(unqualified: stem, inScope: origin)
+      matches = lookup(unqualified: name.stem, inScope: origin)
       if !matches.isEmpty && matches.isSubset(of: bindingsUnderChecking) {
-        matches = lookup(unqualified: stem, inScope: program.scopeToParent[origin]!)
+        matches = lookup(unqualified: name.stem, inScope: program.scopeToParent[origin]!)
       }
     }
 
@@ -1650,7 +1647,7 @@ public struct TypeChecker {
     // TODO: Filter by labels and operator notation
 
     // If the looked up name has a method introducer, it must refer to a method implementation.
-    if let introducer = introducer {
+    if let introducer = name.introducer {
       matches = Set(matches.compactMap({ (match) -> AnyDeclID? in
         guard let decl = NodeID<MethodDecl>(match) else { return nil }
 
