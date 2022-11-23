@@ -7,13 +7,13 @@ struct ConformanceConstraint: Constraint, Hashable {
   /// The traits to which `subject` must conform.
   let traits: Set<TraitType>
 
-  var cause: ConstraintCause?
+  var cause: ConstraintCause
 
   /// Creates an instance with the given properties.
   init(
     _ subject: Type,
     traits: Set<TraitType>,
-    because cause: ConstraintCause? = nil
+    because cause: ConstraintCause
   ) {
     self.subject = subject
     self.traits = traits

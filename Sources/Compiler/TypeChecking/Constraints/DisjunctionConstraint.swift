@@ -19,12 +19,12 @@ struct DisjunctionConstraint: Constraint, Hashable {
   /// The choices of the disjunction.
   private(set) var choices: [Choice]
 
-  var cause: ConstraintCause?
+  var cause: ConstraintCause
 
   /// Creates an instance with two or more minterms.
   ///
   /// - Requires: `choices.count >= 2`
-  init(_ choices: [Choice], because cause: ConstraintCause? = nil) {
+  init(choices: [Choice], because cause: ConstraintCause) {
     precondition(choices.count >= 2)
     self.choices = choices
     self.cause = cause
@@ -33,13 +33,11 @@ struct DisjunctionConstraint: Constraint, Hashable {
   mutating func modifyTypes(_ modify: (inout Type) -> Void) {
     for i in 0 ..< choices.count {
       choices[i] = Choice(
-        constraints: choices[i].constraints.reduce(
-          into: [],
-          { (cs, c) in
-            var newConstraint = c
-            newConstraint.modifyTypes(modify)
-            cs.insert(newConstraint)
-          }),
+        constraints: choices[i].constraints.reduce(into: [], { (cs, c) in
+          var newConstraint = c
+          newConstraint.modifyTypes(modify)
+          cs.insert(newConstraint)
+        }),
         penalties: choices[i].penalties)
     }
   }

@@ -5,8 +5,8 @@
 /// type information from the structure of the program.
 public protocol Constraint {
 
-  /// The cause of the constraint, if known.
-  var cause: ConstraintCause? { get set }
+  /// The cause of the constraint.
+  var cause: ConstraintCause { get set }
 
   /// Applies `modify` on the types that are part of `self`.
   mutating func modifyTypes(_ modify: (inout Type) -> Void)
@@ -38,10 +38,10 @@ extension Constraint where Self: Equatable {
 func equalityOrSubtypingConstraint(
   _ l: Type,
   _ r: Type,
-  because cause: ConstraintCause?
+  because cause: ConstraintCause
 ) -> DisjunctionConstraint {
   DisjunctionConstraint(
-    [
+    choices: [
       .init(constraints: [EqualityConstraint(l, r, because: cause)], penalties: 0),
       .init(constraints: [SubtypingConstraint(l, r, because: cause)], penalties: 1),
     ],

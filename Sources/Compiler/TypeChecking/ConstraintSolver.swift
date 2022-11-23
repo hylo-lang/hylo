@@ -105,7 +105,7 @@ struct ConstraintSolver {
             .diagnose(
               type: constraint.subject,
               doesNotConformTo: trait,
-              at: constraint.cause?.origin))
+              at: constraint.cause.origin))
         }
       }
 
@@ -133,12 +133,12 @@ struct ConstraintSolver {
     case (.tuple(let l), .tuple(let r)):
       switch l.testLabelCompatibility(with: r) {
       case .differentLengths:
-        diagnostics.append(.diagnose(incompatibleTupleLengthsAt: constraint.cause?.origin))
+        diagnostics.append(.diagnose(incompatibleTupleLengthsAt: constraint.cause.origin))
         return
 
       case .differentLabels(let found, let expected):
         diagnostics.append(.diagnose(
-          labels: found, incompatibleWith: expected, at: constraint.cause?.origin))
+          labels: found, incompatibleWith: expected, at: constraint.cause.origin))
         return
 
       case .compatible:
@@ -153,12 +153,12 @@ struct ConstraintSolver {
     case (.lambda(let l), .lambda(let r)):
       switch l.testLabelCompatibility(with: r) {
       case .differentLengths:
-        diagnostics.append(.diagnose(incompatibleParameterCountAt: constraint.cause?.origin))
+        diagnostics.append(.diagnose(incompatibleParameterCountAt: constraint.cause.origin))
         return
 
       case .differentLabels(let found, let expected):
         diagnostics.append(.diagnose(
-          labels: found, incompatibleWith: expected, at: constraint.cause?.origin))
+          labels: found, incompatibleWith: expected, at: constraint.cause.origin))
         return
 
       case .compatible:
@@ -177,7 +177,7 @@ struct ConstraintSolver {
       // Capabilities must match.
       if l.capabilities != r.capabilities {
         diagnostics.append(
-          .diagnose(type: .method(l), incompatibleWith: .method(r), at: constraint.cause?.origin))
+          .diagnose(type: .method(l), incompatibleWith: .method(r), at: constraint.cause.origin))
         return
       }
 
@@ -200,27 +200,33 @@ struct ConstraintSolver {
 
       if let lambda = LambdaType(letImplOf: l) {
         minterms.append(
-          .init(constraints: [EqualityConstraint(.lambda(lambda), r)], penalties: 0))
+          .init(
+            constraints: [EqualityConstraint(.lambda(lambda), r, because: constraint.cause)],
+            penalties: 0))
       }
 
       if let lambda = LambdaType(inoutImplOf: l) {
         minterms.append(
-          .init(constraints: [EqualityConstraint(.lambda(lambda), r)], penalties: 1))
+          .init(
+            constraints: [EqualityConstraint(.lambda(lambda), r, because: constraint.cause)],
+            penalties: 1))
       }
 
       if let lambda = LambdaType(sinkImplOf: l) {
         minterms.append(
-          .init(constraints: [EqualityConstraint(.lambda(lambda), r)], penalties: 1))
+          .init(
+            constraints: [EqualityConstraint(.lambda(lambda), r, because: constraint.cause)],
+            penalties: 1))
       }
 
       if minterms.count == 1 {
         solve(equality: minterms[0].constraints.first as! EqualityConstraint)
       } else {
-        schedule(DisjunctionConstraint(minterms, because: constraint.cause))
+        schedule(DisjunctionConstraint(choices: minterms, because: constraint.cause))
       }
 
     default:
-      diagnostics.append(.diagnose(type: l, incompatibleWith: r, at: constraint.cause?.origin))
+      diagnostics.append(.diagnose(type: l, incompatibleWith: r, at: constraint.cause.origin))
     }
   }
 
@@ -261,7 +267,7 @@ struct ConstraintSolver {
       fatalError("not implemented")
 
     default:
-      diagnostics.append(.diagnose(type: l, isNotSubtypeOf: r, at: constraint.cause?.origin))
+      diagnostics.append(.diagnose(type: l, isNotSubtypeOf: r, at: constraint.cause.origin))
     }
   }
 
@@ -285,7 +291,7 @@ struct ConstraintSolver {
         equalityOrSubtypingConstraint(l, p.bareType, because: constraint.cause))
 
     default:
-      diagnostics.append(.diagnose(invalidParameterType: r, at: constraint.cause?.origin))
+      diagnostics.append(.diagnose(invalidParameterType: r, at: constraint.cause.origin))
     }
   }
 
@@ -302,7 +308,7 @@ struct ConstraintSolver {
     // Postpone the solving if `L` is still unknown.
     if case .variable = l {
       postpone(BoundMemberConstraint(
-        l,
+        type: l,
         hasMemberNamed: constraint.member,
         ofType: r,
         because: constraint.cause))
@@ -320,7 +326,7 @@ struct ConstraintSolver {
       diagnostics.append(.diagnose(
         illegalUseOfStaticMember: constraint.member,
         onInstanceOf: l,
-        at: constraint.cause?.origin))
+        at: constraint.cause.origin))
     }
 
     // Generate the list of candidates.
@@ -342,24 +348,21 @@ struct ConstraintSolver {
     if candidates.isEmpty {
       diagnostics.append(.diagnose(
         undefinedName: "\(constraint.member)",
-        at: constraint.cause?.origin))
+        at: constraint.cause.origin))
       return
     }
-
-    // Get the name expression associated with the constraint, if any.
-    let nameBoundByCurrentConstraint = constraint.cause?.node.flatMap(NodeID<NameExpr>.init)
 
     // If there's only one candidate, solve an equality constraint direcly.
     if candidates.count == 1 {
       solve(equality: .init(candidates[0].type, r, because: constraint.cause))
-      if let name = nameBoundByCurrentConstraint {
+      if let name = constraint.memberExpr {
         bindingAssumptions[name] = candidates[0].reference
       }
       return
     }
 
     // If there are several candidates, create a disjunction constraint.
-    if let name = nameBoundByCurrentConstraint {
+    if let name = constraint.memberExpr {
       schedule(OverloadConstraint(
         name,
         withType: r,
@@ -367,8 +370,10 @@ struct ConstraintSolver {
         because: constraint.cause))
     } else {
       schedule(DisjunctionConstraint(
-        candidates.map({ (c) -> DisjunctionConstraint.Choice in
-          .init(constraints: [EqualityConstraint(r, c.type)], penalties: c.penalties)
+        choices: candidates.map({ (c) -> DisjunctionConstraint.Choice in
+          .init(
+            constraints: [EqualityConstraint(r, c.type, because: constraint.cause)],
+            penalties: c.penalties)
         }),
         because: constraint.cause))
     }
@@ -387,7 +392,7 @@ struct ConstraintSolver {
     // Postpone the solving if `L` is still unknown.
     if case .variable = l {
       postpone(UnboundMemberConstraint(
-        l,
+        type: l,
         hasMemberNamed: constraint.member,
         ofType: r,
         because: constraint.cause))
@@ -418,17 +423,14 @@ struct ConstraintSolver {
     if candidates.isEmpty {
       diagnostics.append(.diagnose(
         undefinedName: "\(constraint.member)",
-        at: constraint.cause?.origin))
+        at: constraint.cause.origin))
       return
     }
-
-    // Get the name expression associated with the constraint, if any.
-    let nameBoundByCurrentConstraint = constraint.cause?.node.flatMap(NodeID<NameExpr>.init)
 
     // If there's only one candidate, solve an equality constraint direcly.
     if candidates.count == 1 {
       solve(equality: .init(candidates[0].type, r, because: constraint.cause))
-      if let name = nameBoundByCurrentConstraint {
+      if let name = constraint.memberExpr {
         bindingAssumptions[name] = .direct(candidates[0].decl)
       }
     }

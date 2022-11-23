@@ -4,10 +4,10 @@ struct PredicateConstraint: Constraint, Hashable {
   /// The expression of the constraint.
   let expr: AnyExprID
 
-  var cause: ConstraintCause?
+  var cause: ConstraintCause
 
   /// Creates an instance with the given properties.
-  init(_ expr: AnyExprID, because cause: ConstraintCause? = nil) {
+  init(_ expr: AnyExprID, because cause: ConstraintCause) {
     self.expr = expr
     self.cause = cause
   }
