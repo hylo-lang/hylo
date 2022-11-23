@@ -1547,13 +1547,6 @@ final class ParserTests: XCTestCase {
 
   // MARK: Type expressions
 
-  func testUnionTypeExpr() throws {
-    let input = SourceFile(contents: "A | B")
-    let (exprID, ast) = try apply(Parser.unionTypeExpr, on: input)
-    let expr = try XCTUnwrap(ast[exprID] as? UnionTypeExpr)
-    XCTAssertEqual(expr.elements.count, 2)
-  }
-
   func testExistentialTypeExpr() throws {
     let input = SourceFile(contents: "any T & U where T.Key == U.Value")
     let (exprID, ast) = try apply(Parser.modifiedTypeExpr, on: input)

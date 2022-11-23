@@ -2521,27 +2521,12 @@ public enum Parser {
   }
 
   static let typeExpr1: Recursive<ParserState, AnyTypeExprID> = (
-    Recursive(unionTypeExpr.parse(_:))
+    Recursive(modifiedTypeExpr.parse(_:))
   )
 
   static let typeExpr = TryCatch(trying: typeExpr1, orCatchingAndApplying: expr)
 
   // static let storedProjectionTypeExpr = ?
-
-  static let unionTypeExpr = (
-    modifiedTypeExpr.and(zeroOrMany(take(.pipe).and(modifiedTypeExpr).second))
-      .map({ (state, tree) -> AnyTypeExprID in
-        if tree.1.isEmpty {
-          return tree.0
-        } else {
-          let elements = [tree.0] + tree.1
-          let id = try state.ast.insert(wellFormed: UnionTypeExpr(elements: elements))
-          state.ast.ranges[id] = state.ast.ranges[tree.0]!.upperBounded(
-            by: state.currentIndex)
-          return AnyTypeExprID(id)
-        }
-      })
-  )
 
   static let modifiedTypeExpr = (
     Apply<ParserState, AnyTypeExprID>({ (state) -> AnyTypeExprID? in
