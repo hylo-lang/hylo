@@ -314,6 +314,17 @@ final class ParserTests: XCTestCase {
     XCTAssertNotNil(decl.whereClause)
   }
 
+  /*
+  func testAssociatedValueDeclWithWhereClauseSansHint() throws {
+    let input = SourceFile(contents: "value foo where foo > bar")
+    let (declID, ast) = try input.parseWithDeclPrologue(
+      inContext: .traitBody,
+      with: Parser.parseAssociatedValueDecl)
+    let decl = try XCTUnwrap(ast[declID])
+    XCTAssertNotNil(decl.whereClause)
+  }
+   */
+
   func testAssociatedValueDeclWithDefault() throws {
     let input = SourceFile(contents: "value foo = 42")
     let (declID, ast) = try input.parseWithDeclPrologue(
@@ -757,6 +768,12 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(clause.value.parameters.count, 2)
   }
 
+  func testGenericClauseWithMultipleParametersSansHint() throws {
+    let input = SourceFile(contents: "<T, n: Int>")
+    let clause = try XCTUnwrap(try apply(Parser.genericClause, on: input).element)
+    XCTAssertEqual(clause.value.parameters.count, 2)
+  }
+
   func testCaptureList() throws {
     let input = SourceFile(contents: "[let x = a, var y = true]")
     let list = try XCTUnwrap(try apply(Parser.captureList, on: input).element)
@@ -830,6 +847,18 @@ final class ParserTests: XCTestCase {
     }
   }
 
+  /*
+  func testGenericValueParameterSansHint() throws {
+    let input = SourceFile(contents: "n: Int")
+    let (declID, ast) = try apply(Parser.genericParameter, on: input)
+    if case .value(let valueDeclID) = declID {
+      XCTAssertEqual(ast[valueDeclID].name, "n")
+    } else {
+      XCTFail()
+    }
+  }
+   */
+
   func testGenericValueParameterWithDefault() throws {
     let input = SourceFile(contents: "@value n: Int = 0o52")
     let (declID, ast) = try apply(Parser.genericParameter, on: input)
@@ -840,6 +869,19 @@ final class ParserTests: XCTestCase {
       XCTFail()
     }
   }
+
+  /*
+  func testGenericValueParameterWithDefaultSansHint() throws {
+    let input = SourceFile(contents: "n: Int = 0o52")
+    let (declID, ast) = try apply(Parser.genericParameter, on: input)
+    if case .value(let valueDeclID) = declID {
+      XCTAssertEqual(ast[valueDeclID].name, "n")
+      XCTAssertNotNil(ast[valueDeclID].defaultValue)
+    } else {
+      XCTFail()
+    }
+  }
+   */
 
   func testConformanceList() throws {
     let input = SourceFile(contents: ": Foo, Bar, Ham")
@@ -1121,6 +1163,19 @@ final class ParserTests: XCTestCase {
 
   func testPrimaryDeclRef() throws {
     let input = SourceFile(contents: "foo<T, size: @value 42>")
+    let (exprID, ast) = try apply(Parser.primaryDeclRef, on: input)
+    let expr = try XCTUnwrap(ast[exprID])
+    XCTAssertEqual(expr.name.value.stem, "foo")
+    XCTAssertEqual(expr.arguments.count, 2)
+
+    if expr.arguments.count == 2 {
+      XCTAssertNil(expr.arguments[0].label)
+      XCTAssertEqual(expr.arguments[1].label?.value, "size")
+    }
+  }
+
+  func testPrimaryDeclRefSansHint() throws {
+    let input = SourceFile(contents: "foo<T, size: 42>")
     let (exprID, ast) = try apply(Parser.primaryDeclRef, on: input)
     let expr = try XCTUnwrap(ast[exprID])
     XCTAssertEqual(expr.name.value.stem, "foo")
@@ -1648,8 +1703,20 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(list.count, 2)
   }
 
+  func testStaticArgumentListSansHint() throws {
+    let input = SourceFile(contents: "<T, size: 42>")
+    let list = try XCTUnwrap(try apply(Parser.staticArgumentList, on: input).element)
+    XCTAssertEqual(list.count, 2)
+  }
+
   func testTypeExprUnificationWithExpr() throws {
     let input = SourceFile(contents: "<T, @value 40 + two()>")
+    let list = try XCTUnwrap(try apply(Parser.staticArgumentList, on: input).element)
+    XCTAssertEqual(list.count, 2)
+  }
+
+  func testTypeExprUnificationWithExprSansHint() throws {
+    let input = SourceFile(contents: "<T, 40 + two()>")
     let list = try XCTUnwrap(try apply(Parser.staticArgumentList, on: input).element)
     XCTAssertEqual(list.count, 2)
   }
@@ -1690,6 +1757,18 @@ final class ParserTests: XCTestCase {
       XCTFail()
     }
   }
+
+  /*
+  func testWhereClauseValueConstraintSansHint() throws {
+    let input = SourceFile(contents: "x > 2")
+    let constraint = try XCTUnwrap(try apply(Parser.valueConstraint, on: input).element)
+    if case .value(let exprID) = constraint.value {
+      XCTAssertEqual(exprID.kind, .init(SequenceExpr.self))
+    } else {
+      XCTFail()
+    }
+  }
+   */
 
   func testTraitComposition() throws {
     let input = SourceFile(contents: "T & U & V")
