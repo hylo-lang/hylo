@@ -1626,21 +1626,18 @@ public struct TypeChecker {
   /// Returns the well-typed declarations to which the specified name may refer, along with their
   /// overarching uncontextualized types. Ill-typed declarations are ignored.
   mutating func resolve(
-    stem: Identifier,
-    labels: [String?],
-    notation: OperatorNotation?,
-    introducer: ImplIntroducer?,
+    _ name: Name,
     introducedInDeclSpaceOf lookupContext: AnyScopeID? = nil,
     inScope origin: AnyScopeID
   ) -> [(decl: AnyDeclID, type: Type)] {
     // Search for the referred declaration.
     var matches: TypeChecker.DeclSet
     if let ctx = lookupContext {
-      matches = lookup(stem, introducedInDeclSpaceOf: ctx, inScope: origin)
+      matches = lookup(name.stem, introducedInDeclSpaceOf: ctx, inScope: origin)
     } else {
-      matches = lookup(unqualified: stem, inScope: origin)
+      matches = lookup(unqualified: name.stem, inScope: origin)
       if !matches.isEmpty && matches.isSubset(of: bindingsUnderChecking) {
-        matches = lookup(unqualified: stem, inScope: program.scopeToParent[origin]!)
+        matches = lookup(unqualified: name.stem, inScope: program.scopeToParent[origin]!)
       }
     }
 
@@ -1650,7 +1647,7 @@ public struct TypeChecker {
     // TODO: Filter by labels and operator notation
 
     // If the looked up name has a method introducer, it must refer to a method implementation.
-    if let introducer = introducer {
+    if let introducer = name.introducer {
       matches = Set(matches.compactMap({ (match) -> AnyDeclID? in
         guard let decl = NodeID<MethodDecl>(match) else { return nil }
 
@@ -2009,7 +2006,7 @@ public struct TypeChecker {
   // MARK: Type realization
 
   /// Realizes and returns the type denoted by `expr` evaluated in `scope`.
-  mutating func realize(_ expr: AnyTypeExprID, inScope scope: AnyScopeID) -> Type? {
+  mutating func realize(_ expr: AnyExprID, inScope scope: AnyScopeID) -> Type? {
     switch expr.kind {
     case ConformanceLensTypeExpr.self:
       return realize(conformanceLens: NodeID(rawValue: expr.rawValue), inScope: scope)
@@ -2034,7 +2031,7 @@ public struct TypeChecker {
       return .variable(TypeVariable(node: expr.base))
 
     default:
-      unreachable("unexpected type expression")
+      unreachable("unexpected expression")
     }
   }
 
@@ -2152,69 +2149,16 @@ public struct TypeChecker {
     inScope scope: AnyScopeID
   ) -> Type? {
     let name = program.ast[id].name
-    var base: Type?
+    let domain: Type?
+    let matches: DeclSet
 
     switch program.ast[id].domain {
-    case .type(let j):
-      // Resolve the domain.
-      guard let domain = realize(j, inScope: scope) else { return nil }
-
-      // Handle references to built-in types.
-      if domain == .builtin(.module) {
-        if let type = BuiltinType(name.value.stem) {
-          return .builtin(type)
-        } else {
-          diagnostics.insert(.diagnose(
-            noTypeNamed: name.value.stem,
-            in: domain,
-            range: name.range))
-          return nil
-        }
-      }
-
-      // Lookup for the name's identifier in the context of the domain.
-      let matches = lookup(name.value.stem, memberOf: domain, inScope: scope)
-
-      // Realize the referred type.
-      for match in matches where match.kind.value is TypeDecl.Type {
-        if base != nil {
-          diagnostics.insert(.diagnose(
-            ambiguousReferenceToTypeNamed: name.value.stem,
-            at: name.range))
-          return nil
-        }
-
-        if match.kind == AssociatedTypeDecl.self {
-          let decl = NodeID<AssociatedTypeDecl>(rawValue: match.rawValue)
-          switch domain {
-          case .associatedType, .conformanceLens, .genericTypeParam:
-            base = .associatedType(AssociatedType(decl: decl, domain: domain, ast: program.ast))
-          default:
-            diagnostics.insert(.diagnose(
-              invalidAssociatedNamed: program.ast[decl].name,
-              at: name.range))
-            return nil
-          }
-        } else {
-          base = realize(decl: match).proper
-        }
-      }
-
-      if base == nil {
-        diagnostics.insert(.diagnose(
-          noTypeNamed: name.value.stem,
-          in: domain,
-          range: name.range))
-        return nil
-      }
-
     case .none:
-      // Bypass unqualified lookup for reserved type names.
+      // Name expression has no domain.
+      domain = nil
+
+      // Handle reserved type names.
       switch name.value.stem {
-      case "Any":
-        return .any
-      case "Never":
-        return .never
       case "Self":
         if let type = realizeSelfTypeExpr(inScope: scope) {
           return type
@@ -2222,47 +2166,95 @@ public struct TypeChecker {
           diagnostics.insert(.diagnose(invalidReferenceToSelfTypeAt: name.range))
           return nil
         }
+
+      case "Any":
+        return .any
+
+      case "Never":
+        return .never
+
+      case "Builtin" where isBuiltinModuleVisible:
+        return .builtin(.module)
+
       default:
         break
       }
 
-      if isBuiltinModuleVisible && (name.value.stem == "Builtin") {
-        return .builtin(.module)
-      }
-
       // Search for the referred type declaration with an unqualified lookup.
-      let matches = lookup(unqualified: name.value.stem, inScope: scope)
+      matches = lookup(unqualified: name.value.stem, inScope: scope)
 
-      // Realize the referred type.
-      for match in matches where match.kind.value is TypeDecl.Type {
-        if base != nil {
-          diagnostics.insert(.diagnose(
-            ambiguousReferenceToTypeNamed: name.value.stem,
-            at: name.range))
+    case .type(let j):
+      // Resolve the domain.
+      guard let d = realize(j, inScope: scope) else { return nil }
+      domain = d
+
+      // Handle references to built-in types.
+      if d == .builtin(.module) {
+        if let type = BuiltinType(name.value.stem) {
+          return .builtin(type)
+        } else {
+          diagnostics.insert(.diagnose(noType: name.value, in: domain, at: name.range))
           return nil
         }
-
-        if match.kind == AssociatedTypeDecl.self {
-          // Assume `Self` denotes the implicit generic parameter of a trait declaration, since
-          // associated declarations cannot be looked up unqualified outside the scope of a trait
-          // and its extensions.
-          let domain = realizeSelfTypeExpr(inScope: scope)!
-          let type = AssociatedType(
-            decl: NodeID(rawValue: match.rawValue), domain: domain, ast: program.ast)
-          base = .associatedType(type)
-        } else {
-          base = realize(decl: match).proper
-        }
       }
 
-      if base == nil {
-        diagnostics.insert(.diagnose(noTypeNamed: name.value.stem, range: name.range))
-        return nil
-      }
+      // Search for the referred type declaration with a qualified lookup.
+      matches = lookup(name.value.stem, memberOf: d, inScope: scope)
 
     case .implicit, .expr:
       unreachable("unexpected name domain")
     }
+
+    // Diagnose unresolved names.
+    if matches.isEmpty {
+      diagnostics.insert(.diagnose(noType: name.value, in: domain, at: name.range))
+      return nil
+    }
+
+    // Diagnose ambiguous references.
+    if matches.count > 1 {
+      diagnostics.insert(.diagnose(ambiguousUse: id, in: program.ast))
+      return nil
+    }
+
+    // Diagnose non-types.
+    let match = matches.first!
+    if !(match.kind.value is TypeDecl.Type) {
+      diagnostics.insert(.diagnose(doesNotEvaluateToType: AnyExprID(id), in: program.ast))
+      return nil
+    }
+
+    // Realize the referred type.
+    let base: Type?
+
+    if match.kind == AssociatedTypeDecl.self {
+      let decl = NodeID<AssociatedTypeDecl>(rawValue: match.rawValue)
+
+      switch domain {
+      case .associatedType, .conformanceLens, .genericTypeParam:
+        base = .associatedType(AssociatedType(decl: decl, domain: domain!, ast: program.ast))
+
+      case nil:
+        // Assume that `Self` in `scope` resolves to an implicit generic parameter of a trait
+        // declaration, since associated declarations cannot be looked up unqualified outside
+        // the scope of a trait and its extensions.
+        let domain = realizeSelfTypeExpr(inScope: scope)!
+        let type = AssociatedType(
+          decl: NodeID(rawValue: match.rawValue), domain: domain, ast: program.ast)
+        base = .associatedType(type)
+
+      case .some:
+        diagnostics.insert(.diagnose(
+          invalidAssociatedTypeNamed: program.ast[decl].name,
+          at: name.range))
+        return nil
+      }
+    } else {
+      base = realize(decl: match)
+    }
+
+    // Bail out if we couldn't realie the name expression.
+    if base == nil { return nil }
 
     // Evaluate the arguments of the referred type, if any.
     if program.ast[id].arguments.isEmpty {

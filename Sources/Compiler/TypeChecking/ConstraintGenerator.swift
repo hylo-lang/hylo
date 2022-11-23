@@ -305,10 +305,7 @@ struct ConstraintGenerator {
       switch d.kind {
       case ProductTypeDecl.self:
         let initializers = checker.resolve(
-          stem: "init",
-          labels: [],
-          notation: nil,
-          introducer: nil,
+          Name(stem: "init"),
           introducedInDeclSpaceOf: AnyScopeID(d)!,
           inScope: scope)
 
@@ -556,13 +553,7 @@ struct ConstraintGenerator {
         return
       }
 
-      let candidates = checker.resolve(
-        stem: expr.name.value.stem,
-        labels: expr.name.value.labels,
-        notation: expr.name.value.notation,
-        introducer: expr.name.value.introducer,
-        inScope: scope)
-
+      let candidates = checker.resolve(expr.name.value, inScope: scope)
       if candidates.isEmpty {
         diagnostics.append(.diagnose(undefinedName: expr.name.value.description, at: expr.name.range))
         assignToError(id)

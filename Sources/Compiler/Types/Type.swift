@@ -23,6 +23,8 @@ public indirect enum Type: TypeProtocol, Hashable {
 
   case lambda(LambdaType)
 
+  case metaType(MetaTypeType)
+
   case method(MethodType)
 
   case module(ModuleType)
@@ -60,6 +62,7 @@ public indirect enum Type: TypeProtocol, Hashable {
     case let .genericTypeParam(t):  return t
     case let .genericValueParam(t): return t
     case let .lambda(t):            return t
+    case let .metaType(t):          return t
     case let .method(t):            return t
     case let .module(t):            return t
     case let .parameter(t):         return t
@@ -227,6 +230,9 @@ extension Type {
               type: p.type.transform(transformer))
           }),
           output: type.output.transform(transformer)))
+
+      case .metaType(let type):
+        return .metaType(MetaTypeType(type.instance.transform(transformer)))
 
       case .method(let type):
         return .method(MethodType(
