@@ -7,10 +7,10 @@ extension Diagnostic {
   }
 
   static func diagnose(
-    ambiguousReferenceToTypeNamed name: String,
-    at range: SourceRange?
+    ambiguousUse expr: NodeID<NameExpr>,
+    in ast: AST
   ) -> Diagnostic {
-    .error("ambiguous reference to type named \(name)", range: range)
+    .error("ambiguous use of '\(ast[expr].name)'", range: ast.ranges[expr])
   }
 
   static func diagnose(
@@ -77,6 +77,13 @@ extension Diagnostic {
   }
 
   static func diagnose(
+    doesNotEvaluateToType expr: AnyExprID,
+    in ast: AST
+  ) -> Diagnostic {
+    .error("expression does not evaluate to a type", range: ast.ranges[expr])
+  }
+
+  static func diagnose(
     genericDeclHasCapturesAt range: SourceRange?
   ) -> Diagnostic {
     .error("generic declaration has captures", range: range)
@@ -131,7 +138,7 @@ extension Diagnostic {
   }
 
   static func diagnose(
-    invalidAssociatedNamed name: String,
+    invalidAssociatedTypeNamed name: String,
     at range: SourceRange?
   ) -> Diagnostic {
     .error(
@@ -248,14 +255,14 @@ extension Diagnostic {
   }
 
   static func diagnose(
-    noTypeNamed name: String,
+    noType name: Name,
     in domain: Type? = nil,
-    range: SourceRange?
+    at range: SourceRange?
   ) -> Diagnostic {
     if let domain = domain {
-      return .error("type '\(domain)' has no type member '\(name)'", range: range)
+      return .error("type '\(domain)' has no type member '\(name.stem)'", range: range)
     } else {
-      return .error("no type named '\(name)' in this scope", range: range)
+      return .error("no type named '\(name.stem)' in this scope", range: range)
     }
   }
 
