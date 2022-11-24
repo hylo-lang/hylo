@@ -176,8 +176,7 @@ struct ConstraintSolver {
     case (let l as MethodType, let r as MethodType):
       // Capabilities must match.
       if l.capabilities != r.capabilities {
-        diagnostics.append(
-          .diagnose(type: AnyType(l), incompatibleWith: AnyType(r), at: constraint.cause.origin))
+        diagnostics.append(.diagnose(type: ^l, incompatibleWith: ^r, at: constraint.cause.origin))
         return
       }
 
@@ -201,21 +200,21 @@ struct ConstraintSolver {
       if let lambda = LambdaType(letImplOf: l) {
         minterms.append(
           .init(
-            constraints: [EqualityConstraint(AnyType(lambda), r, because: constraint.cause)],
+            constraints: [EqualityConstraint(^lambda, r, because: constraint.cause)],
             penalties: 0))
       }
 
       if let lambda = LambdaType(inoutImplOf: l) {
         minterms.append(
           .init(
-            constraints: [EqualityConstraint(AnyType(lambda), r, because: constraint.cause)],
+            constraints: [EqualityConstraint(^lambda, r, because: constraint.cause)],
             penalties: 1))
       }
 
       if let lambda = LambdaType(sinkImplOf: l) {
         minterms.append(
           .init(
-            constraints: [EqualityConstraint(AnyType(lambda), r, because: constraint.cause)],
+            constraints: [EqualityConstraint(^lambda, r, because: constraint.cause)],
             penalties: 1))
       }
 

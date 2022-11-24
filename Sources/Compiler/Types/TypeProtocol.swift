@@ -42,10 +42,10 @@ extension TypeProtocol {
     func _impl(type: AnyType) -> TypeTransformAction {
       switch type.base {
       case let base as AssociatedType:
-        return .stepOver(AnyType(SkolemType(base: base)))
+        return .stepOver(^SkolemType(base: base))
 
       case let base as GenericTypeParamType:
-        return .stepOver(AnyType(SkolemType(base: base)))
+        return .stepOver(^SkolemType(base: base))
 
       case is AssociatedValueType,
            is GenericValueParamType:

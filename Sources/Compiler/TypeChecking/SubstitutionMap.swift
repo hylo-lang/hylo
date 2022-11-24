@@ -55,7 +55,7 @@ extension SubstitutionMap: Collection {
 
   subscript(position: Index) -> Element {
     let key = storage[position].key
-    return (key: key, value: self[AnyType(key)])
+    return (key: key, value: self[^key])
   }
 
 }

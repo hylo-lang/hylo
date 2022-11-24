@@ -5,6 +5,11 @@ public struct MetaTypeType: TypeProtocol {
   public let instance: AnyType
 
   /// Creates a type denoting the type of `instance`.
+  public init<T: TypeProtocol>(_ instance: T) {
+    self.instance = ^instance
+  }
+
+  /// Creates a type denoting the type of `instance`.
   public init(_ instance: AnyType) {
     self.instance = instance
   }

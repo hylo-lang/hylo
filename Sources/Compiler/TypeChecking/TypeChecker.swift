@@ -56,23 +56,21 @@ public struct TypeChecker {
           fatalError("not implemented")
         }
       })
-      return AnyType(BoundGenericType(base, arguments: arguments))
+      return ^BoundGenericType(base, arguments: arguments)
 
     case let t as ExistentialType:
-      return AnyType(
-        ExistentialType(
-          traits: t.traits,
-          constraints: ConstraintSet(t.constraints.map(canonicalize(constraint:)))))
+      return ^ExistentialType(
+        traits: t.traits,
+        constraints: ConstraintSet(t.constraints.map(canonicalize(constraint:))))
 
     case let t as TupleType:
-      return AnyType(
-        TupleType(
-          t.elements.map({ (e) -> TupleType.Element in
-            .init(label: e.label, type: canonicalize(type: e.type))
-          })))
+      return ^TupleType(
+        t.elements.map({ (e) -> TupleType.Element in
+          .init(label: e.label, type: canonicalize(type: e.type))
+        }))
 
     case let t as UnionType:
-      return AnyType(UnionType(Set(t.elements.map(canonicalize(type:)))))
+      return ^UnionType(Set(t.elements.map(canonicalize(type:))))
 
     default:
       unreachable()
@@ -106,7 +104,7 @@ public struct TypeChecker {
 
       case TraitDecl.self:
         let trait = TraitType(decl: NodeID(rawValue: t.decl.rawValue), ast: program.ast)
-        return conformedTraits(of: AnyType(trait), inScope: scope)
+        return conformedTraits(of: ^trait, inScope: scope)
 
       default:
         break
@@ -125,7 +123,7 @@ public struct TypeChecker {
         else { return nil }
 
       for trait in traits {
-        guard let bases = conformedTraits(of: AnyType(trait), inScope: parentScope)
+        guard let bases = conformedTraits(of: ^trait, inScope: parentScope)
           else { return nil }
         result.formUnion(bases)
       }
@@ -171,7 +169,7 @@ public struct TypeChecker {
         else { return nil }
 
       for trait in traits {
-        guard let bases = conformedTraits(of: AnyType(trait), inScope: parentScope)
+        guard let bases = conformedTraits(of: ^trait, inScope: parentScope)
           else { return nil }
         result.formUnion(bases)
       }
@@ -241,7 +239,7 @@ public struct TypeChecker {
          !declType.flags.contains(.hasError)
       {
         // Reify the type of the underlying declaration.
-        declTypes[program.ast[id].decl] = AnyType(declType)
+        declTypes[program.ast[id].decl] = ^declType
         let parameters = program.ast[program.ast[id].decl].parameters
         for i in 0 ..< parameters.count {
           declTypes[parameters[i]] = declType.inputs[i].type
@@ -262,7 +260,7 @@ public struct TypeChecker {
   /// - Requires: `id` is a valid ID in the type checker's AST.
   public mutating func check(module id: NodeID<ModuleDecl>) -> Bool {
     // Build the type of the module.
-    declTypes[id] = AnyType(ModuleType(decl: id, ast: program.ast))
+    declTypes[id] = ^ModuleType(decl: id, ast: program.ast)
 
     // Type check the declarations in the module.
     var success = true
@@ -352,7 +350,7 @@ public struct TypeChecker {
     var success = true
     if let initializer = program.ast[id].initializer {
       // The type of the initializer may be a subtype of the pattern's.
-      let initializerType = AnyType(TypeVariable(node: initializer.base))
+      let initializerType = ^TypeVariable(node: initializer.base)
       shape.constraints.append(
         equalityOrSubtypingConstraint(
           initializerType,
@@ -444,13 +442,13 @@ public struct TypeChecker {
           unreachable()
         }
 
-        declTypes[receiverDecl] = AnyType(
-          ParameterType(convention: convention, bareType: type.base))
+        declTypes[receiverDecl] = ^ParameterType(convention: convention, bareType: type.base)
       } else {
         // `sink` methods capture their receiver.
         assert(program.ast[id].isSink)
-        declTypes[receiverDecl] = AnyType(
-          ParameterType(convention: .sink, bareType: functionType.environment))
+        declTypes[receiverDecl] = ^ParameterType(
+          convention: .sink,
+          bareType: functionType.environment)
       }
 
       declRequests[receiverDecl] = .success
@@ -546,10 +544,9 @@ public struct TypeChecker {
 
     for impl in program.ast[id].impls {
       // Set the type of the implicit receiver declaration.
-      declTypes[program.ast[impl].receiver] = AnyType(
-        ParameterType(
-          convention: program.ast[impl].introducer.value.convention,
-          bareType: type.receiver))
+      declTypes[program.ast[impl].receiver] = ^ParameterType(
+        convention: program.ast[impl].introducer.value.convention,
+        bareType: type.receiver)
       declRequests[program.ast[impl].receiver] = .success
 
       // Type check method's implementations, if any.
@@ -602,12 +599,12 @@ public struct TypeChecker {
     // Type check the default value, if any.
     if let defaultValue = program.ast[id].defaultValue {
       let parameterType = declTypes[id]!.base as! ParameterType
-      let defaultValueType = AnyType(TypeVariable(node: defaultValue.base))
+      let defaultValueType = ^TypeVariable(node: defaultValue.base)
 
       let constraints = [
         ParameterConstraint(
           defaultValueType,
-          AnyType(parameterType),
+          ^parameterType,
           because: ConstraintCause(.argument, at: program.ast.ranges[id]))
       ]
 
@@ -716,10 +713,9 @@ public struct TypeChecker {
         let receiverType = declType.captures.first!.type.base as! RemoteType
         let receiverDecl = program.ast[impl].receiver!
 
-        declTypes[receiverDecl] = AnyType(
-          ParameterType(
-            convention: program.ast[impl].introducer.value.convention,
-            bareType: receiverType.base))
+        declTypes[receiverDecl] = ^ParameterType(
+          convention: program.ast[impl].introducer.value.convention,
+          bareType: receiverType.base)
         declRequests[receiverDecl] = .success
       }
 
@@ -866,7 +862,7 @@ public struct TypeChecker {
     to trait: TraitType
   ) -> Bool {
     let conformingType = realizeSelfTypeExpr(inScope: decl)!
-    let selfType = AnyType(GenericTypeParamType(decl: trait.decl, ast: program.ast))
+    let selfType = ^GenericTypeParamType(decl: trait.decl, ast: program.ast)
     var success = true
 
     // Get the set of generic parameters defined by `trait`.
@@ -1031,7 +1027,7 @@ public struct TypeChecker {
 
     if let returnValue = program.ast[id].value {
       // The type of the return value must be subtype of the expected return type.
-      let inferredReturnType = AnyType(TypeVariable(node: returnValue.base))
+      let inferredReturnType = ^TypeVariable(node: returnValue.base)
       let c = equalityOrSubtypingConstraint(
         inferredReturnType,
         expectedType,
@@ -1059,7 +1055,7 @@ public struct TypeChecker {
     let expectedType = expectedOutputType(in: lexicalContext)!
 
     // The type of the return value must be subtype of the expected return type.
-    let inferredReturnType = AnyType(TypeVariable(node: program.ast[id].value.base))
+    let inferredReturnType = ^TypeVariable(node: program.ast[id].value.base)
     let c = equalityOrSubtypingConstraint(
       inferredReturnType,
       expectedType,
@@ -1282,7 +1278,7 @@ public struct TypeChecker {
     let trait = declTypes[id]!.base as! TraitType
     constraints.append(
       ConformanceConstraint(
-        AnyType(selfType),
+        ^selfType,
         traits: [trait],
         because: ConstraintCause(.structural, at: program.ast[id].identifier.range)))
 
@@ -1525,7 +1521,7 @@ public struct TypeChecker {
 
     case NamePattern.self:
       let lhs = program.ast[NodeID<NamePattern>(rawValue: pattern.rawValue)]
-      let type = expectedType ?? AnyType(TypeVariable(node: AnyNodeID(lhs.decl)))
+      let type = expectedType ?? ^TypeVariable(node: AnyNodeID(lhs.decl))
       decls.append(lhs.decl)
       declTypes[lhs.decl] = type
       declRequests[lhs.decl] = .typeRealizationCompleted
@@ -1592,11 +1588,11 @@ public struct TypeChecker {
           else { return nil }
           elements.append(TupleType.Element(label: element.label?.value, type: type))
         }
-        return AnyType(TupleType(elements))
+        return ^TupleType(elements)
       }
 
     case WildcardPattern.self:
-      return expectedType ?? AnyType(TypeVariable())
+      return expectedType ?? ^TypeVariable()
 
     default:
       unreachable("unexpected pattern")
@@ -1740,21 +1736,21 @@ public struct TypeChecker {
   ) -> DeclSet {
     switch lookupContext.kind {
     case ProductTypeDecl.self:
-      let type = AnyType(ProductType(
+      let type = ^ProductType(
         decl: NodeID(rawValue: lookupContext.rawValue),
-        ast: program.ast))
+        ast: program.ast)
       return lookup(name, memberOf: type, inScope: origin)
 
     case TraitDecl.self:
-      let type = AnyType(TraitType(
+      let type = ^TraitType(
         decl: NodeID(rawValue: lookupContext.rawValue),
-        ast: program.ast))
+        ast: program.ast)
       return lookup(name, memberOf: type, inScope: origin)
 
     case TypeAliasDecl.self:
-      let type = AnyType(TypeAliasType(
+      let type = ^TypeAliasType(
         decl: NodeID(rawValue: lookupContext.rawValue),
-        ast: program.ast))
+        ast: program.ast)
       return lookup(name, memberOf: type, inScope: origin)
 
     default:
@@ -1769,7 +1765,7 @@ public struct TypeChecker {
     inScope scope: AnyScopeID
   ) -> DeclSet {
     if let t = type.base as? ConformanceLensType {
-      return lookup(name, memberOf: AnyType(t.focus), inScope: scope)
+      return lookup(name, memberOf: ^t.focus, inScope: scope)
     }
 
     let key = MemberLookupKey(type: type, scope: scope)
@@ -1822,7 +1818,7 @@ public struct TypeChecker {
       if type == trait { continue }
 
       // TODO: Read source of conformance to disambiguate associated names
-      let newMatches = lookup(name, memberOf: AnyType(trait), inScope: scope)
+      let newMatches = lookup(name, memberOf: ^trait, inScope: scope)
       switch type.base {
       case is AssociatedType,
            is GenericTypeParamType,
@@ -2035,7 +2031,7 @@ public struct TypeChecker {
       return realize(tuple: NodeID(rawValue: expr.rawValue), inScope: scope)
 
     case WildcardTypeExpr.self:
-      return AnyType(TypeVariable(node: expr.base))
+      return ^TypeVariable(node: expr.base)
 
     default:
       unreachable("unexpected expression")
@@ -2055,24 +2051,24 @@ public struct TypeChecker {
       switch scope.kind {
       case TraitDecl.self:
         let decl = NodeID<TraitDecl>(rawValue: scope.rawValue)
-        return AnyType(GenericTypeParamType(decl: decl, ast: program.ast))
+        return ^GenericTypeParamType(decl: decl, ast: program.ast)
 
       case ProductTypeDecl.self:
         // Synthesize unparameterized `Self`.
         let decl = NodeID<ProductTypeDecl>(rawValue: scope.rawValue)
-        var type = AnyType(ProductType(decl: decl, ast: program.ast))
+        var type = ^ProductType(decl: decl, ast: program.ast)
 
         // Synthesize arguments to generic parameters if necessary.
         if let parameters = program.ast[decl].genericClause?.value.parameters {
           let arguments = parameters.map({ (p) -> BoundGenericType.Argument in
             switch p {
             case .type(let p):
-              return .type(AnyType(GenericTypeParamType(decl: p, ast: program.ast)))
+              return .type(^GenericTypeParamType(decl: p, ast: program.ast))
             case .value:
               fatalError("not implemented")
             }
           })
-          type = AnyType(BoundGenericType(type, arguments: arguments))
+          type = ^BoundGenericType(type, arguments: arguments)
         }
 
         return type
@@ -2118,7 +2114,7 @@ public struct TypeChecker {
       return nil
     }
 
-    return AnyType(ConformanceLensType(wrapped: wrapped, focus: focus))
+    return ^ConformanceLensType(wrapped: wrapped, focus: focus)
   }
 
   private mutating func realize(
@@ -2144,12 +2140,11 @@ public struct TypeChecker {
     // Realize the lambda's output.
     guard let output = realize(program.ast[id].output, inScope: scope) else { return nil }
 
-    return AnyType(
-      LambdaType(
-        receiverEffect: program.ast[id].receiverEffect?.value,
-        environment: environment,
-        inputs: inputs,
-        output: output))
+    return ^LambdaType(
+      receiverEffect: program.ast[id].receiverEffect?.value,
+      environment: environment,
+      inputs: inputs,
+      output: output)
   }
 
   private mutating func realize(
@@ -2242,18 +2237,17 @@ public struct TypeChecker {
       case is AssociatedType,
            is ConformanceLensType,
            is GenericTypeParamType:
-        base = AnyType(AssociatedType(decl: decl, domain: domain!, ast: program.ast))
+        base = ^AssociatedType(decl: decl, domain: domain!, ast: program.ast)
 
       case nil:
         // Assume that `Self` in `scope` resolves to an implicit generic parameter of a trait
         // declaration, since associated declarations cannot be looked up unqualified outside
         // the scope of a trait and its extensions.
         let domain = realizeSelfTypeExpr(inScope: scope)!
-        base = AnyType(
-          AssociatedType(
-            decl: NodeID(rawValue: match.rawValue),
-            domain: domain,
-            ast: program.ast))
+        base = ^AssociatedType(
+          decl: NodeID(rawValue: match.rawValue),
+          domain: domain,
+          ast: program.ast)
 
       case .some:
         diagnostics.insert(.diagnose(
@@ -2286,7 +2280,7 @@ public struct TypeChecker {
         }
       }
 
-      return AnyType(BoundGenericType(base!, arguments: arguments))
+      return ^BoundGenericType(base!, arguments: arguments)
     }
   }
 
@@ -2295,8 +2289,7 @@ public struct TypeChecker {
     inScope scope: AnyScopeID
   ) -> AnyType? {
     guard let bareType = realize(program.ast[id].bareType, inScope: scope) else { return nil }
-    return AnyType(
-      ParameterType(convention: program.ast[id].convention.value, bareType: bareType))
+    return ^ParameterType(convention: program.ast[id].convention.value, bareType: bareType)
   }
 
   private mutating func realize(
@@ -2311,7 +2304,7 @@ public struct TypeChecker {
       elements.append(TupleType.Element(label: e.label?.value, type: type))
     }
 
-    return AnyType(TupleType(elements))
+    return ^TupleType(elements)
   }
 
   /// Realizes and returns the traits of the specified conformance list, or `nil` if at least one
@@ -2341,31 +2334,29 @@ public struct TypeChecker {
     case AssociatedTypeDecl.self:
       return _realize(decl: id, { (this, id) in
         let traitDecl = NodeID<TraitDecl>(rawValue: this.program.declToScope[id]!.rawValue)
-        return AnyType(
-          AssociatedType(
-            decl: NodeID(rawValue: id.rawValue),
-            domain: AnyType(GenericTypeParamType(decl: traitDecl, ast: this.program.ast)),
-            ast: this.program.ast))
+        return ^AssociatedType(
+          decl: NodeID(rawValue: id.rawValue),
+          domain: ^GenericTypeParamType(decl: traitDecl, ast: this.program.ast),
+          ast: this.program.ast)
       })
 
     case AssociatedValueDecl.self:
       return _realize(decl: id, { (this, id) in
         let traitDecl = NodeID<TraitDecl>(rawValue: this.program.declToScope[id]!.rawValue)
-        return AnyType(
-          AssociatedValueType(
-            decl: NodeID(rawValue: id.rawValue),
-            domain: AnyType(GenericTypeParamType(decl: traitDecl, ast: this.program.ast)),
-            ast: this.program.ast))
+        return ^AssociatedValueType(
+          decl: NodeID(rawValue: id.rawValue),
+          domain: ^GenericTypeParamType(decl: traitDecl, ast: this.program.ast),
+          ast: this.program.ast)
       })
 
     case GenericTypeParamDecl.self:
       return _realize(decl: id, { (this, id) in
-        AnyType(GenericTypeParamType(decl: id, ast: this.program.ast))
+        ^GenericTypeParamType(decl: id, ast: this.program.ast)
       })
 
     case GenericValueParamDecl.self:
       return _realize(decl: id, { (this, id) in
-        AnyType(GenericValueParamType(decl: id, ast: this.program.ast))
+        ^GenericValueParamType(decl: id, ast: this.program.ast)
       })
 
     case BindingDecl.self:
@@ -2395,7 +2386,7 @@ public struct TypeChecker {
 
     case ProductTypeDecl.self:
       return _realize(decl: id, { (this, id) in
-        AnyType(ProductType(decl: NodeID(rawValue: id.rawValue), ast: this.program.ast))
+        ^ProductType(decl: NodeID(rawValue: id.rawValue), ast: this.program.ast)
       })
 
     case SubscriptDecl.self:
@@ -2403,12 +2394,12 @@ public struct TypeChecker {
 
     case TraitDecl.self:
       return _realize(decl: id, { (this, id) in
-        AnyType(TraitType(decl: NodeID(rawValue: id.rawValue), ast: this.program.ast))
+        ^TraitType(decl: NodeID(rawValue: id.rawValue), ast: this.program.ast)
       })
 
     case TypeAliasDecl.self:
       return _realize(decl: id, { (this, id) in
-        AnyType(TypeAliasType(decl: NodeID(rawValue: id.rawValue), ast: this.program.ast))
+        ^TypeAliasType(decl: NodeID(rawValue: id.rawValue), ast: this.program.ast)
       })
 
     case VarDecl.self:
@@ -2463,7 +2454,7 @@ public struct TypeChecker {
         // so inference can proceed. The actual type of the parameter will be reified during type
         // checking, when `checkPending` is called.
         if program.ast[id].isInExprContext {
-          let parameterType = AnyType(TypeVariable(node: AnyNodeID(i)))
+          let parameterType = ^TypeVariable(node: AnyNodeID(i))
           declTypes[i] = parameterType
           declRequests[i] = .typeRealizationCompleted
           inputs.append(CallableTypeParameter(
@@ -2504,7 +2495,7 @@ public struct TypeChecker {
       outputType = type
     } else if program.ast[id].isInExprContext {
       // Infer the return type from the body in expression contexts.
-      outputType = AnyType(TypeVariable())
+      outputType = ^TypeVariable()
     } else {
       // Default to `Void`.
       outputType = .void
@@ -2514,25 +2505,21 @@ public struct TypeChecker {
       // Create a lambda bound to a receiver.
       let effect: ReceiverEffect?
       if program.ast[id].isInout {
-        receiver = AnyType(
-          TupleType([.init(label: "self", type: AnyType(RemoteType(.inout, receiver!)))]))
+        receiver = ^TupleType([.init(label: "self", type: ^RemoteType(.inout, receiver!))])
         effect = .inout
       } else if program.ast[id].isSink  {
-        receiver = AnyType(
-          TupleType([.init(label: "self", type: receiver!)]))
+        receiver = ^TupleType([.init(label: "self", type: receiver!)])
         effect = .sink
       } else {
-        receiver = AnyType(
-          TupleType([.init(label: "self", type: AnyType(RemoteType(.let, receiver!)))]))
+        receiver = ^TupleType([.init(label: "self", type: ^RemoteType(.let, receiver!))])
         effect = nil
       }
 
-      return AnyType(
-        LambdaType(
-          receiverEffect: effect,
-          environment: receiver!,
-          inputs: inputs,
-          output: outputType))
+      return ^LambdaType(
+        receiverEffect: effect,
+        environment: receiver!,
+        inputs: inputs,
+        output: outputType)
     } else {
       // Create a regular lambda.
       let environment = TupleType(
@@ -2540,13 +2527,12 @@ public struct TypeChecker {
           .init(label: nil, type: t)
         }) +
         implicitCaptures.map({ (c) -> TupleType.Element in
-          .init(label: nil, type: AnyType(c.type))
+          .init(label: nil, type: ^c.type)
         }))
 
       // TODO: Determine if the lambda is mutating.
 
-      return AnyType(
-        LambdaType(environment: AnyType(environment), inputs: inputs, output: outputType))
+      return ^LambdaType(environment: ^environment, inputs: inputs, output: outputType)
     }
   }
 
@@ -2559,7 +2545,7 @@ public struct TypeChecker {
     if program.ast[id].introducer.value == .memberwiseInit {
       let productTypeDecl = NodeID<ProductTypeDecl>(program.declToScope[id]!)!
       if let lambda = memberwiseInitType(of: productTypeDecl) {
-        return AnyType(lambda)
+        return ^lambda
       } else {
         return .error
       }
@@ -2601,9 +2587,9 @@ public struct TypeChecker {
     let receiverType = realizeSelfTypeExpr(inScope: program.declToScope[id]!)
     let receiverParameterType = CallableTypeParameter(
       label: "self",
-      type: AnyType(ParameterType(convention: .set, bareType: receiverType!)))
+      type: ^ParameterType(convention: .set, bareType: receiverType!))
     inputs.insert(receiverParameterType, at: 0)
-    return AnyType(LambdaType(environment: .void, inputs: inputs, output: .void))
+    return ^LambdaType(environment: .void, inputs: inputs, output: .void)
   }
 
   private mutating func realize(methodDecl id: NodeID<MethodDecl>) -> AnyType {
@@ -2667,12 +2653,11 @@ public struct TypeChecker {
       return .error
     }
 
-    return AnyType(
-      MethodType(
-        capabilities: capabilities,
-        receiver: receiver!,
-        inputs: inputs,
-        output: outputType))
+    return ^MethodType(
+      capabilities: capabilities,
+      receiver: receiver!,
+      inputs: inputs,
+      output: outputType)
   }
 
   /// Returns the overarching type of the specified parameter declaration.
@@ -2745,16 +2730,14 @@ public struct TypeChecker {
     let environment: TupleType
     if program.isNonStaticMember(id) {
       let receiver = realizeSelfTypeExpr(inScope: program.declToScope[id]!)
-      environment = TupleType([
-        .init(label: "self", type: AnyType(RemoteType(.yielded, receiver!)))
-      ])
+      environment = TupleType([.init(label: "self", type: ^RemoteType(.yielded, receiver!))])
     } else {
       environment = TupleType(
         explicitCaptureTypes.map({ (t) -> TupleType.Element in
           .init(label: nil, type: t)
         }) +
         implicitCaptures.map({ (c) -> TupleType.Element in
-          .init(label: nil, type: AnyType(c.type))
+          .init(label: nil, type: ^c.type)
         }))
     }
 
@@ -2765,13 +2748,12 @@ public struct TypeChecker {
 
     // Create a subscript type.
     let capabilities = Set(program.ast[id].impls.map({ program.ast[$0].introducer.value }))
-    return AnyType(
-      SubscriptType(
-        isProperty: program.ast[id].parameters == nil,
-        capabilities: capabilities,
-        environment: AnyType(environment),
-        inputs: inputs,
-        output: output))
+    return ^SubscriptType(
+      isProperty: program.ast[id].parameters == nil,
+      capabilities: capabilities,
+      environment: ^environment,
+      inputs: inputs,
+      output: output)
   }
 
   /// Realizes the explicit captures in `list`, writing the captured names in `explicitNames`, and
@@ -2804,9 +2786,9 @@ public struct TypeChecker {
       } else {
         switch program.ast[program.ast[i].pattern].introducer.value {
         case .let:
-          captures.append(AnyType(RemoteType(.let, type)))
+          captures.append(^RemoteType(.let, type))
         case .inout:
-          captures.append(AnyType(RemoteType(.inout, type)))
+          captures.append(^RemoteType(.inout, type))
         case .sinklet, .var:
           captures.append(type)
         }
@@ -2951,7 +2933,7 @@ public struct TypeChecker {
     inputs.append(
       CallableTypeParameter(
         label: "self",
-        type: AnyType(ParameterType(convention: .set, bareType: receiver))))
+        type: ^ParameterType(convention: .set, bareType: receiver)))
 
     // List and realize the type of all stored bindings.
     for m in program.ast[decl].members {
@@ -2963,7 +2945,7 @@ public struct TypeChecker {
         inputs.append(
           CallableTypeParameter(
             label: program.ast[d].name,
-            type: AnyType(ParameterType(convention: .sink, bareType: declTypes[d]!))))
+            type: ^ParameterType(convention: .sink, bareType: declTypes[d]!)))
       }
     }
 
@@ -2989,7 +2971,7 @@ public struct TypeChecker {
           return .stepOver(opened)
         } else {
           // Open the parameter.
-          let opened = AnyType(TypeVariable())
+          let opened = ^TypeVariable()
           openedParameters[type] = opened
 
           // TODO: Collect constraints
@@ -3043,13 +3025,13 @@ public struct TypeChecker {
 
         if program.isContained(scope, in: origin) {
           // Skolemize.
-          return .stepOver(AnyType(SkolemType(base: type)))
+          return .stepOver(^SkolemType(base: type))
         } else if let opened = openedParameters[type] {
           // The parameter was already opened.
           return .stepOver(opened)
         } else {
           // Open the parameter.
-          let opened = AnyType(TypeVariable())
+          let opened = ^TypeVariable()
           openedParameters[type] = opened
 
           // TODO: Collect constraints
