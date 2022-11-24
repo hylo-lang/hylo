@@ -75,3 +75,16 @@ extension SourceRange: Codable {
   }
 
 }
+
+extension SourceRange: CustomReflectable {
+
+  public var customMirror: Mirror {
+    Mirror(
+      self,
+      children: [
+        "start": SourceLocation(source: source, index: lowerBound),
+        "end": SourceLocation(source: source, index: upperBound),
+      ])
+  }
+
+}
