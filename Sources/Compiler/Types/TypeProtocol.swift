@@ -37,9 +37,7 @@ extension TypeProtocol {
     self
   }
 
-  /// The skolemized form of this type.
-  ///
-  /// A type is skolemized when all its generic parameters have been substituted for skolems.
+  /// `self` with all generic parameters replaced by skolems.
   public var skolemized: AnyType {
     func _impl(type: AnyType) -> TypeTransformAction {
       switch type.base {
