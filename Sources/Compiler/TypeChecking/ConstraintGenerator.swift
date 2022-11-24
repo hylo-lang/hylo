@@ -118,7 +118,7 @@ struct ConstraintGenerator {
 
     // Constrain the right to be subtype of the left.
     let rhs = checker.program.ast[id].right
-    inferredTypes[rhs] = AnyType(TypeVariable(node: rhs.base))
+    inferredTypes[rhs] = ^TypeVariable(node: rhs.base)
     constraints.append(
       equalityOrSubtypingConstraint(
         inferredTypes[rhs]!,
@@ -188,7 +188,7 @@ struct ConstraintGenerator {
 
     case .up:
       // The type of the left operand must be statically known to subtype of the right operand.
-      inferredTypes[lhs] = AnyType(TypeVariable(node: lhs.base))
+      inferredTypes[lhs] = ^TypeVariable(node: lhs.base)
       constraints.append(
         equalityOrSubtypingConstraint(
           inferredTypes[lhs]!,
@@ -219,7 +219,7 @@ struct ConstraintGenerator {
       switch item {
       case .expr(let expr):
         // Condition must be Boolean.
-        inferredTypes[expr] = AnyType(boolType)
+        inferredTypes[expr] = ^boolType
         visit(expr: expr, using: &checker)
 
       case .decl(let binding):
@@ -317,7 +317,7 @@ struct ConstraintGenerator {
           let ctor = (initializer.type.base as! LambdaType).ctor()!
 
           if labels.elementsEqual(ctor.labels) {
-            let (ty, cs) = checker.open(type: AnyType(ctor))
+            let (ty, cs) = checker.open(type: ^ctor)
             candidates.append(OverloadConstraint.Candidate(
               reference: .direct(initializer.decl),
               type: ty,
@@ -380,7 +380,7 @@ struct ConstraintGenerator {
     }
 
     // 4th case
-    let output = expectedTypes[id] ?? AnyType(TypeVariable(node: AnyNodeID(id)))
+    let output = expectedTypes[id] ?? ^TypeVariable(node: AnyNodeID(id))
     assume(typeOf: id, equals: output, at: checker.program.ast.ranges[id])
 
     var inputs: [CallableTypeParameter] = []
@@ -389,7 +389,7 @@ struct ConstraintGenerator {
       visit(expr: checker.program.ast[id].arguments[i].value, using: &checker)
 
       let argument = checker.program.ast[id].arguments[i].value
-      let parameterType = AnyType(TypeVariable())
+      let parameterType = ^TypeVariable()
       constraints.append(
         ParameterConstraint(
           inferredTypes[argument]!,
@@ -402,13 +402,13 @@ struct ConstraintGenerator {
 
     // Constrain the type of the callee.
     let calleeType = LambdaType(
-      environment: AnyType(TypeVariable()),
+      environment: ^TypeVariable(),
       inputs: inputs,
       output: output)
     constraints.append(
       EqualityConstraint(
         inferredTypes[callee]!,
-        AnyType(calleeType),
+        ^calleeType,
         because: ConstraintCause(.callee, at: checker.program.ast.ranges[callee])))
   }
 
@@ -442,12 +442,12 @@ struct ConstraintGenerator {
           choices: [
             .init(
               constraints: [
-                EqualityConstraint(AnyType(tau), AnyType(intType), because: cause)
+                EqualityConstraint(^tau, ^intType, because: cause)
               ],
               penalties: 0),
             .init(
               constraints: [
-                ConformanceConstraint(AnyType(tau), traits: [trait], because: cause)
+                ConformanceConstraint(^tau, traits: [trait], because: cause)
               ],
               penalties: 1),
             ],
@@ -458,7 +458,7 @@ struct ConstraintGenerator {
       // The type of has been fixed; constrain it to conform to `ExpressibleByIntegerLiteral`.
       constraints.append(
         ConformanceConstraint(
-          AnyType(expectedType),
+          ^expectedType,
           traits: [trait],
           because: cause))
       assume(typeOf: id, equals: expectedType, at: checker.program.ast.ranges[id])
@@ -619,7 +619,7 @@ struct ConstraintGenerator {
       }
 
       // Map the expression to a fresh variable unless we have top-down type information.
-      let inferredType = expectedTypes[id] ?? AnyType(TypeVariable(node: AnyNodeID(id)))
+      let inferredType = expectedTypes[id] ?? ^TypeVariable(node: AnyNodeID(id))
       assume(typeOf: id, equals: inferredType, at: checker.program.ast.ranges[id])
 
       // If we determined that the domain refers to a nominal type declaration, create a static
@@ -698,28 +698,27 @@ struct ConstraintGenerator {
       }
 
       // Infer the type of the callee.
-      let parameterType = AnyType(TypeVariable())
+      let parameterType = ^TypeVariable()
       constraints.append(
         ParameterConstraint(
           rhsType,
           parameterType,
           because: ConstraintCause(.argument, at: checker.program.ast.origin(of: rhs))))
 
-      let outputType = AnyType(TypeVariable())
+      let outputType = ^TypeVariable()
       let calleeType = LambdaType(
         receiverEffect: nil,
-        environment: AnyType(
-          TupleType(labelsAndTypes: [("self", AnyType(RemoteType(.let, lhsType)))])),
+        environment: ^TupleType(labelsAndTypes: [("self", ^RemoteType(.let, lhsType))]),
         inputs: [CallableTypeParameter(type: parameterType)],
         output: outputType)
-      inferredTypes[callee.expr] = AnyType(calleeType)
+      inferredTypes[callee.expr] = ^calleeType
 
       // Create a member constraint for the operator.
       constraints.append(
         BoundMemberConstraint(
           type: lhsType,
           hasMemberNamed: checker.program.ast[callee.expr].name.value,
-          ofType: AnyType(calleeType),
+          ofType: ^calleeType,
           because: ConstraintCause(.member, at: checker.program.ast.ranges[callee.expr])))
 
       return outputType
@@ -823,7 +822,7 @@ struct ConstraintGenerator {
     // Propagate type information to the arguments.
     for i in 0 ..< arguments.count {
       let argumentExpr = arguments[i].value
-      let argumentType = AnyType(TypeVariable(node: argumentExpr.base))
+      let argumentType = ^TypeVariable(node: argumentExpr.base)
       let parameterType = calleeType.inputs[i].type
 
       inferredTypes[argumentExpr] = argumentType
@@ -900,13 +899,10 @@ struct ConstraintGenerator {
     if let ty = inferredTypes[id] {
       if ty != inferredType {
         constraints.append(
-          EqualityConstraint(
-            AnyType(inferredType),
-            ty,
-            because: ConstraintCause(.structural, at: range)))
+          EqualityConstraint(^inferredType, ty, because: ConstraintCause(.structural, at: range)))
       }
     } else {
-      inferredTypes[id] = AnyType(inferredType)
+      inferredTypes[id] = ^inferredType
     }
   }
 

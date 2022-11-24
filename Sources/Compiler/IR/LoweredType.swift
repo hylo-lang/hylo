@@ -12,7 +12,7 @@ public struct LoweredType: Hashable {
   /// - Requires: `astType` must be canonical.
   private init<T: TypeProtocol>(astType: T, isAddress: Bool) {
     precondition(astType[.isCanonical], "source type is not canonical")
-    self.astType = AnyType(astType)
+    self.astType = ^astType
     self.isAddress = isAddress
   }
 

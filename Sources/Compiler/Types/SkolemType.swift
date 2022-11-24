@@ -6,7 +6,12 @@ public struct SkolemType: TypeProtocol {
 
   /// Creates an instance denoting the existential quantification of `base`.
   public init<T: TypeProtocol>(base: T) {
-    self.base = AnyType(base)
+    self.base = ^base
+  }
+
+  /// Creates an instance denoting the existential quantification of `base`.
+  public init(base: AnyType) {
+    self.base = base
   }
 
   public var flags: TypeFlags { .isCanonical }

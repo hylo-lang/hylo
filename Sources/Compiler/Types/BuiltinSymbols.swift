@@ -85,9 +85,8 @@ extension LambdaType {
 
   fileprivate init(from inputs: (PassingConvention, BuiltinType)..., to output: AnyType) {
     self.init(
-      inputs: inputs.map({ (convention, type) in
-        CallableTypeParameter(
-          type: AnyType(ParameterType(convention: convention, bareType: .builtin(type))))
+      inputs: inputs.map({ (convention, type) -> CallableTypeParameter in
+        .init(type: ^ParameterType(convention: convention, bareType: .builtin(type)))
       }),
       output: output)
   }

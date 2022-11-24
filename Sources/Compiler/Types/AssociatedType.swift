@@ -34,7 +34,7 @@ public struct AssociatedType: TypeProtocol {
   /// An array whose `i+1`-th element is the parent type of the `i`-th element. `components[0]` is
   /// always `self`.
   public var components: [AnyType] {
-    var current = AnyType(self)
+    var current = ^self
     var result = [current]
 
     while true {

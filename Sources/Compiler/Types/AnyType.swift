@@ -53,26 +53,24 @@ fileprivate struct ConcreteTypeBox<Base: TypeProtocol>: TypeBox {
 public struct AnyType: TypeProtocol {
 
   /// Val's `Any` type.
-  public static let any = AnyType(ExistentialType(traits: [], constraints: []))
+  public static let any = ^ExistentialType(traits: [], constraints: [])
 
   /// Val's `Never` type.
-  public static let never = AnyType(UnionType([]))
+  public static let never = ^UnionType([])
 
   /// Val's `Void` type.
-  public static let void = AnyType(TupleType([]))
+  public static let void = ^TupleType([])
 
-  /// A shorthand for `AnyType(ErrorType())`.
-  public static let error = AnyType(ErrorType())
+  /// A shorthand for `^ErrorType()`.
+  public static let error = ^ErrorType()
 
   /// Returns the given built-in type symbol wrapped in a type-erased container.
-  public static func builtin(_ type: BuiltinType) -> AnyType {
-    AnyType(type)
-  }
+  public static func builtin(_ type: BuiltinType) -> AnyType { ^type }
 
   /// The value wrapped by this instance.
   private var wrapped: TypeBox
 
-  /// Creates a type-erased type that wraps the given instance.
+  /// Creates a type-erased container wrapping the given instance.
   ///
   /// - Parameter base: A type to wrap.
   public init<T: TypeProtocol>(_ base: T) {
@@ -204,4 +202,9 @@ extension AnyType: CustomReflectable {
 
   public var customMirror: Mirror { Mirror(reflecting: base) }
 
+}
+
+/// Creates a type-erased container wrapping the given instance.
+public prefix func ^ <T: TypeProtocol>(_ base: T) -> AnyType {
+  AnyType(base)
 }

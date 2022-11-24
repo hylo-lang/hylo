@@ -51,9 +51,9 @@ public struct LambdaType: TypeProtocol {
   public init?(letImplOf method: MethodType) {
     if !method.capabilities.contains(.let) { return nil }
 
-    let projectedReceiver = AnyType(RemoteType(.let, method.receiver))
+    let projectedReceiver = ^RemoteType(.let, method.receiver)
     self.init(
-      environment: AnyType(TupleType(labelsAndTypes: [("self", projectedReceiver)])),
+      environment: ^TupleType(labelsAndTypes: [("self", projectedReceiver)]),
       inputs: method.inputs,
       output: method.output)
   }
@@ -63,9 +63,9 @@ public struct LambdaType: TypeProtocol {
   public init?(inoutImplOf method: MethodType) {
     if !method.capabilities.contains(.inout) && !method.capabilities.contains(.sink) { return nil }
 
-    let projectedReceiver = AnyType(RemoteType(.inout, method.receiver))
+    let projectedReceiver = ^RemoteType(.inout, method.receiver)
     self.init(
-      environment: AnyType(TupleType(labelsAndTypes: [("self", projectedReceiver)])),
+      environment: ^TupleType(labelsAndTypes: [("self", projectedReceiver)]),
       inputs: method.inputs,
       output: method.output)
   }
@@ -77,7 +77,7 @@ public struct LambdaType: TypeProtocol {
 
     self.init(
       receiverEffect: .sink,
-      environment: AnyType(TupleType(labelsAndTypes: [("self", method.receiver)])),
+      environment: ^TupleType(labelsAndTypes: [("self", method.receiver)]),
       inputs: method.inputs,
       output: method.output)
   }
