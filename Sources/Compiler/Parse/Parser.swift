@@ -1417,7 +1417,7 @@ public enum Parser {
   )
 
   static let genericParameter = (
-    genericValueParameter.or(genericTypeParameter)
+    TryCatch(trying: genericTypeParameter, orCatchingAndApplying: genericValueParameter)
   )
 
   static let genericTypeParameter = (
@@ -1439,16 +1439,16 @@ public enum Parser {
   )
 
   static let genericValueParameter = (
-    valueAttribute.and(take(.name))
+    take(.name)
       .and(take(.colon).and(typeExpr))
       .and(maybe(take(.assign).and(expr)))
       .map({ (state, tree) -> GenericParamDeclID in
         let id = try state.ast.insert(wellFormed: GenericValueParamDecl(
-          identifier: SourceRepresentable(token: tree.0.0.1, in: state.lexer.source),
+          identifier: SourceRepresentable(token: tree.0.0, in: state.lexer.source),
           annotation: tree.0.1.1,
           defaultValue: tree.1?.1))
 
-        state.ast.ranges[id] = tree.0.0.0.range.upperBounded(by: state.currentIndex)
+        state.ast.ranges[id] = tree.0.0.range.upperBounded(by: state.currentIndex)
         return .value(id)
       })
   )
