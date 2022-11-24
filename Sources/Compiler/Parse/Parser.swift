@@ -2867,7 +2867,7 @@ public enum Parser {
   )
 
   static let whereClauseConstraint = (
-    typeConstraint.or(valueConstraint)
+    TryCatch(trying: typeConstraint, orCatchingAndApplying: valueConstraint)
   )
 
   static let typeConstraint = (
@@ -2899,11 +2899,11 @@ public enum Parser {
   )
 
   static let valueConstraint = (
-    valueAttribute.and(expr)
+    expr
       .map({ (state, tree) -> SourceRepresentable<WhereClause.ConstraintExpr> in
         SourceRepresentable(
-          value: .value(tree.1),
-          range: tree.0.range.upperBounded(by: state.currentIndex))
+          value: .value(tree),
+          range: state.ast.ranges[tree]!.upperBounded(by: state.currentIndex))
       })
   )
 

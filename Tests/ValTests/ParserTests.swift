@@ -306,16 +306,6 @@ final class ParserTests: XCTestCase {
   }
 
   func testAssociatedValueDeclWithWhereClause() throws {
-    let input = SourceFile(contents: "value foo where @value foo > bar")
-    let (declID, ast) = try input.parseWithDeclPrologue(
-      inContext: .traitBody,
-      with: Parser.parseAssociatedValueDecl)
-    let decl = try XCTUnwrap(ast[declID])
-    XCTAssertNotNil(decl.whereClause)
-  }
-
-  /*
-  func testAssociatedValueDeclWithWhereClauseSansHint() throws {
     let input = SourceFile(contents: "value foo where foo > bar")
     let (declID, ast) = try input.parseWithDeclPrologue(
       inContext: .traitBody,
@@ -323,7 +313,6 @@ final class ParserTests: XCTestCase {
     let decl = try XCTUnwrap(ast[declID])
     XCTAssertNotNil(decl.whereClause)
   }
-   */
 
   func testAssociatedValueDeclWithDefault() throws {
     let input = SourceFile(contents: "value foo = 42")
@@ -1742,17 +1731,6 @@ final class ParserTests: XCTestCase {
   }
 
   func testWhereClauseValueConstraint() throws {
-    let input = SourceFile(contents: "@value x > 2")
-    let constraint = try XCTUnwrap(try apply(Parser.valueConstraint, on: input).element)
-    if case .value(let exprID) = constraint.value {
-      XCTAssertEqual(exprID.kind, .init(SequenceExpr.self))
-    } else {
-      XCTFail()
-    }
-  }
-
-  /*
-  func testWhereClauseValueConstraintSansHint() throws {
     let input = SourceFile(contents: "x > 2")
     let constraint = try XCTUnwrap(try apply(Parser.valueConstraint, on: input).element)
     if case .value(let exprID) = constraint.value {
@@ -1761,7 +1739,6 @@ final class ParserTests: XCTestCase {
       XCTFail()
     }
   }
-   */
 
   func testTraitComposition() throws {
     let input = SourceFile(contents: "T & U & V")
