@@ -887,7 +887,7 @@ public struct TypeChecker {
             // `type` is `Self`.
             return .stepOver(conformingType)
 
-          case let t as AssociatedType:
+          case let t as AssociatedTypeType:
             // We only care about associated types rooted at `Self`. Others can be assumed to be
             // rooted at some generic type parameter declared by the requirement.
             let components = t.components
@@ -901,7 +901,7 @@ public struct TypeChecker {
                 if r.isError { return }
 
                 switch c.base {
-                case let c as AssociatedType:
+                case let c as AssociatedTypeType:
                   r = lookupType(named: c.name.value, memberOf: r, inScope: scope) ?? .error
 
                 case is ConformanceLensType:
@@ -1820,7 +1820,7 @@ public struct TypeChecker {
       // TODO: Read source of conformance to disambiguate associated names
       let newMatches = lookup(name, memberOf: ^trait, inScope: scope)
       switch type.base {
-      case is AssociatedType,
+      case is AssociatedTypeType,
            is GenericTypeParamType,
            is TraitType:
         matches.formUnion(newMatches)
@@ -2234,17 +2234,17 @@ public struct TypeChecker {
       let decl = NodeID<AssociatedTypeDecl>(rawValue: match.rawValue)
 
       switch domain?.base {
-      case is AssociatedType,
+      case is AssociatedTypeType,
            is ConformanceLensType,
            is GenericTypeParamType:
-        base = ^AssociatedType(decl: decl, domain: domain!, ast: program.ast)
+        base = ^AssociatedTypeType(decl: decl, domain: domain!, ast: program.ast)
 
       case nil:
         // Assume that `Self` in `scope` resolves to an implicit generic parameter of a trait
         // declaration, since associated declarations cannot be looked up unqualified outside
         // the scope of a trait and its extensions.
         let domain = realizeSelfTypeExpr(inScope: scope)!
-        base = ^AssociatedType(
+        base = ^AssociatedTypeType(
           decl: NodeID(rawValue: match.rawValue),
           domain: domain,
           ast: program.ast)
@@ -2334,7 +2334,7 @@ public struct TypeChecker {
     case AssociatedTypeDecl.self:
       return _realize(decl: id, { (this, id) in
         let traitDecl = NodeID<TraitDecl>(rawValue: this.program.declToScope[id]!.rawValue)
-        return ^AssociatedType(
+        return ^AssociatedTypeType(
           decl: NodeID(rawValue: id.rawValue),
           domain: ^GenericTypeParamType(decl: traitDecl, ast: this.program.ast),
           ast: this.program.ast)
@@ -2962,7 +2962,7 @@ public struct TypeChecker {
 
     func _impl(type: AnyType) -> TypeTransformAction {
       switch type.base {
-      case is AssociatedType:
+      case is AssociatedTypeType:
         fatalError("not implemented")
 
       case is GenericTypeParamType:
@@ -3011,7 +3011,7 @@ public struct TypeChecker {
 
     func _impl(type: AnyType) -> TypeTransformAction {
       switch type.base {
-      case is AssociatedType:
+      case is AssociatedTypeType:
         fatalError("not implemented")
 
       case let base as GenericTypeParamType:
