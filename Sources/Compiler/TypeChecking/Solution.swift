@@ -58,7 +58,8 @@ struct Solution {
   /// The score of the solution.
   var score: Score { Score(errorCount: diagnostics.count, penalties: penalties) }
 
-  /// Reifies the given type, substituting each free variable by its corresponding binding.
+  /// Subtitutes each type variable occuring in `type` by its corresponding substitution in `self`,
+  /// apply `substitutionPolicy` to deal with free variables.
   func reify(_ type: AnyType, withVariables substitutionPolicy: SubstitutionPolicy) -> AnyType {
     func _impl(type: AnyType) -> TypeTransformAction {
       if let v = type.base as? TypeVariable {
