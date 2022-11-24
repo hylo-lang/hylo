@@ -9,7 +9,7 @@ public struct ConstraintHashableWitness: HashableWitness {
     constraint.hash(into: &hasher)
   }
 
-  public static func isEqual(_ left: Element, to right: Element) -> Bool {
+  public static func isEqual(_ left: Constraint, to right: Constraint) -> Bool {
     left.equals(right)
   }
 

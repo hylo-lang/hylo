@@ -2,7 +2,7 @@
 struct Solution {
 
   init(
-    typeAssumptions: [TypeVariable: Type],
+    typeAssumptions: [TypeVariable: AnyType],
     bindingAssumptions: [NodeID<NameExpr>: DeclRef],
     penalties: Int,
     diagnostics: [Diagnostic]) {
@@ -44,7 +44,7 @@ struct Solution {
   }
 
   /// The type assumptions made by the solver.
-  private let typeAssumptions: [TypeVariable: Type]
+  private let typeAssumptions: [TypeVariable: AnyType]
 
   /// The name binding assumptions made by the solver.
   let bindingAssumptions: [NodeID<NameExpr>: DeclRef]
@@ -58,17 +58,18 @@ struct Solution {
   /// The score of the solution.
   var score: Score { Score(errorCount: diagnostics.count, penalties: penalties) }
 
-  /// Reifies the given type, substituting each free variable by its corresponding binding.
-  func reify(_ type: Type, withVariables substitutionPolicy: SubstitutionPolicy) -> Type {
-    type.transform({ type in
-      if case .variable(let v) = type {
+  /// Subtitutes each type variable occuring in `type` by its corresponding substitution in `self`,
+  /// apply `substitutionPolicy` to deal with free variables.
+  func reify(_ type: AnyType, withVariables substitutionPolicy: SubstitutionPolicy) -> AnyType {
+    func _impl(type: AnyType) -> TypeTransformAction {
+      if let v = type.base as? TypeVariable {
         // Substitute variables.
         if let t = typeAssumptions[v] {
           return .stepInto(t)
         } else {
           switch substitutionPolicy {
           case .substituteByError:
-            return .stepInto(.error(ErrorType()))
+            return .stepInto(.error)
           case .keep:
             return .stepOver(type)
           }
@@ -77,7 +78,9 @@ struct Solution {
         // Recursively visit other types.
         return .stepInto(type)
       }
-    })
+    }
+
+    return type.transform(_impl(type:))
   }
 
   /// Adds `d` to the list of diagnostics associated with this solution.

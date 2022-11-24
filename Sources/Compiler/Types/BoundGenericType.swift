@@ -1,17 +1,21 @@
+import Utils
+
 /// A generic type bound to arguments.
-public struct BoundGenericType: TypeProtocol, Hashable {
+public struct BoundGenericType: TypeProtocol {
 
   /// An argument of a bound generic type.
   public enum Argument: Hashable {
 
-    case type(Type)
+    /// A type argument.
+    case type(AnyType)
 
+    /// A value argument.
     case value(AnyExprID)
 
   }
 
   /// The underlying generic type.
-  public let base: Type
+  public let base: AnyType
 
   /// The type and value arguments of the base type.
   public let arguments: [Argument]
@@ -19,7 +23,7 @@ public struct BoundGenericType: TypeProtocol, Hashable {
   public let flags: TypeFlags
 
   /// Creates a bound generic type binding `base` to the given `arguments`.
-  public init<S: Sequence>(_ base: Type, arguments: S) where S.Element == Argument {
+  public init<S: Sequence>(_ base: AnyType, arguments: S) where S.Element == Argument {
     self.base = base
 
     var args: [Argument] = []
@@ -38,20 +42,39 @@ public struct BoundGenericType: TypeProtocol, Hashable {
     self.flags = flags
   }
 
+  public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> Self {
+    BoundGenericType(
+      base.transform(transformer),
+      arguments: arguments.map({ (a: Argument) -> Argument in
+        switch a {
+        case .type(let type):
+          // Argument is a type.
+          return .type(type.transform(transformer))
+
+        case .value:
+          // Argument is a value.
+          fatalError("not implemented")
+        }
+      }))
+  }
+
 }
 
 extension BoundGenericType: CustomStringConvertible {
 
+  public var description: String { "\(base)<\(arguments.descriptions())>" }
+
+}
+
+extension BoundGenericType.Argument: CustomStringConvertible {
+
   public var description: String {
-    let arguments = arguments.map({ (a) -> String in
-      switch a {
-      case .type(let a):
-        return "\(a)"
-      case .value:
-        fatalError("not implemented")
-      }
-    }).joined(separator: ", ")
-    return "\(base)<\(arguments)>"
+    switch self {
+    case .type(let a):
+      return String(describing: a)
+    case .value(let a):
+      return String(describing: a)
+    }
   }
 
 }

@@ -1,7 +1,7 @@
 /// A type denoting a type checking error.
-public struct ErrorType: TypeProtocol, Hashable {
+public struct ErrorType: TypeProtocol {
 
-  public let flags: TypeFlags = [.isCanonical, .hasError]
+  public var flags: TypeFlags { [.isCanonical, .hasError] }
 
 }
 

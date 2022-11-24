@@ -12,10 +12,10 @@ public struct TypedProgram: Program {
   public let varToBinding: [NodeID<VarDecl>: NodeID<BindingDecl>]
 
   /// The overarching type of each declaration.
-  public let declTypes: DeclProperty<Type>
+  public let declTypes: DeclProperty<AnyType>
 
   /// The type of each expression.
-  public let exprTypes: ExprProperty<Type>
+  public let exprTypes: ExprProperty<AnyType>
 
   /// A map from function and subscript declarations to their implicit captures.
   public let implicitCaptures: DeclProperty<[ImplicitCapture]>
@@ -29,8 +29,8 @@ public struct TypedProgram: Program {
   /// Creates a typed program from a scoped program and property maps describing type annotations.
   public init(
     annotating program: ScopedProgram,
-    declTypes: DeclProperty<Type>,
-    exprTypes: ExprProperty <Type>,
+    declTypes: DeclProperty<AnyType>,
+    exprTypes: ExprProperty <AnyType>,
     implicitCaptures: DeclProperty<[ImplicitCapture]>,
     referredDecls: [NodeID<NameExpr>: DeclRef],
     foldedSequenceExprs: [NodeID<SequenceExpr>: FoldedSequenceExpr]

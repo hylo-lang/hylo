@@ -863,7 +863,7 @@ fileprivate extension DefiniteInitializationPass {
     /// - Returns: The layout of `type`.
     ///
     /// - Requires: `type` must have a record layout and at least one stored property.
-    mutating func disaggregate(type: Type, program: TypedProgram) -> AbstractTypeLayout {
+    mutating func disaggregate(type: AnyType, program: TypedProgram) -> AbstractTypeLayout {
       let layout = program.abstractLayout(of: type)
       guard case .full(let s) = self else { return layout }
 
@@ -1062,7 +1062,7 @@ fileprivate extension DefiniteInitializationPass {
     struct Cell: Equatable {
 
       /// The type of the object in the cell.
-      var type: Type
+      var type: AnyType
 
       /// The object in the cell.
       var object: Object

@@ -1,15 +1,19 @@
 /// The type of a type.
-public struct MetaTypeType: TypeProtocol, Hashable {
+public struct MetaTypeType: TypeProtocol {
 
   /// The type of which `self` is a type.
-  public let instance: Type
+  public let instance: AnyType
 
   /// Creates a type denoting the type of `instance`.
-  public init(_ instance: Type) {
+  public init(_ instance: AnyType) {
     self.instance = instance
   }
 
   public var flags: TypeFlags { instance.flags }
+
+  public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> Self {
+    MetaTypeType(instance.transform(transformer))
+  }
 
 }
 

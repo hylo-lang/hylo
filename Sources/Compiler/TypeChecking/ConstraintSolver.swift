@@ -89,13 +89,13 @@ struct ConstraintSolver {
   ) {
     let subject = typeAssumptions[constraint.subject]
 
-    switch subject {
-    case .variable:
+    switch subject.base {
+    case is TypeVariable:
       // Postpone the solving if `L` is still unknown.
       postpone(
         ConformanceConstraint(subject, traits: constraint.traits, because: constraint.cause))
 
-    case .product, .tuple:
+    case is ProductType, is TupleType:
       let conformedTraits = checker.conformedTraits(of: subject, inScope: scope) ?? []
       let nonConforming = constraint.traits.subtracting(conformedTraits)
 
@@ -121,16 +121,16 @@ struct ConstraintSolver {
 
     if l == r { return }
 
-    switch (l, r) {
-    case (.variable(let tau), _):
+    switch (l.base, r.base) {
+    case (let tau as TypeVariable, _):
       typeAssumptions.assign(r, to: tau)
       refresh(constraintsDependingOn: tau)
 
-    case (_, .variable(let tau)):
+    case (_, let tau as TypeVariable):
       typeAssumptions.assign(l, to: tau)
       refresh(constraintsDependingOn: tau)
 
-    case (.tuple(let l), .tuple(let r)):
+    case (let l as TupleType, let r as TupleType):
       switch l.testLabelCompatibility(with: r) {
       case .differentLengths:
         diagnostics.append(.diagnose(incompatibleTupleLengthsAt: constraint.cause.origin))
@@ -150,7 +150,7 @@ struct ConstraintSolver {
         solve(equality: .init(l.elements[i].type, r.elements[i].type, because: constraint.cause))
       }
 
-    case (.lambda(let l), .lambda(let r)):
+    case (let l as LambdaType, let r as LambdaType):
       switch l.testLabelCompatibility(with: r) {
       case .differentLengths:
         diagnostics.append(.diagnose(incompatibleParameterCountAt: constraint.cause.origin))
@@ -173,11 +173,11 @@ struct ConstraintSolver {
       solve(equality: .init(l.output, r.output, because: constraint.cause))
       solve(equality: .init(l.environment, r.environment, because: constraint.cause))
 
-    case (.method(let l), .method(let r)):
+    case (let l as MethodType, let r as MethodType):
       // Capabilities must match.
       if l.capabilities != r.capabilities {
         diagnostics.append(
-          .diagnose(type: .method(l), incompatibleWith: .method(r), at: constraint.cause.origin))
+          .diagnose(type: AnyType(l), incompatibleWith: AnyType(r), at: constraint.cause.origin))
         return
       }
 
@@ -189,7 +189,7 @@ struct ConstraintSolver {
       solve(equality: .init(l.output, r.output, because: constraint.cause))
       solve(equality: .init(l.receiver, r.receiver, because: constraint.cause))
 
-    case (.method(let l), .lambda):
+    case (let l as MethodType, _ as LambdaType):
       // TODO: Use a different kind of constraint for call exprs
       // We can't guess the operator property and environment of a callee from a call expression;
       // that must be inferred. Thus we can't constrain the callee of a CallExpr to be equal to
@@ -201,21 +201,21 @@ struct ConstraintSolver {
       if let lambda = LambdaType(letImplOf: l) {
         minterms.append(
           .init(
-            constraints: [EqualityConstraint(.lambda(lambda), r, because: constraint.cause)],
+            constraints: [EqualityConstraint(AnyType(lambda), r, because: constraint.cause)],
             penalties: 0))
       }
 
       if let lambda = LambdaType(inoutImplOf: l) {
         minterms.append(
           .init(
-            constraints: [EqualityConstraint(.lambda(lambda), r, because: constraint.cause)],
+            constraints: [EqualityConstraint(AnyType(lambda), r, because: constraint.cause)],
             penalties: 1))
       }
 
       if let lambda = LambdaType(sinkImplOf: l) {
         minterms.append(
           .init(
-            constraints: [EqualityConstraint(.lambda(lambda), r, because: constraint.cause)],
+            constraints: [EqualityConstraint(AnyType(lambda), r, because: constraint.cause)],
             penalties: 1))
       }
 
@@ -238,14 +238,14 @@ struct ConstraintSolver {
 
     if l == r { return }
 
-    switch (l, r) {
-    case (_, .variable):
+    switch (l.base, r.base) {
+    case (_, _ as TypeVariable):
       // The type variable is above a more concrete type. We should compute the "join" of all types
       // to which `L` is coercible and that are below `R`, but that set is unbounded. We have no
       // choice to postpone the constraint.
       postpone(SubtypingConstraint(l, r, because: constraint.cause))
 
-    case (.variable, _):
+    case (_ as TypeVariable, _):
       // The type variable is below a more concrete type. We should compute the "meet" of all types
       // coercible to `R` and that are above `L`, but that set is unbounded unless `R` is a leaf.
       // If it isn't, we have no choice but to postpone the constraint.
@@ -255,15 +255,15 @@ struct ConstraintSolver {
         postpone(SubtypingConstraint(l, r, because: constraint.cause))
       }
 
-    case (_, .existential):
+    case (_, _ as ExistentialType):
       // All types conform to any.
       if r == .any { return }
       fatalError("not implemented")
 
-    case (_, .lambda):
+    case (_, _ as LambdaType):
       fatalError("not implemented")
 
-    case (_, .union):
+    case (_, _ as UnionType):
       fatalError("not implemented")
 
     default:
@@ -279,12 +279,12 @@ struct ConstraintSolver {
 
     if l == r { return }
 
-    switch r {
-    case .variable:
+    switch r.base {
+    case is TypeVariable:
       // Postpone the solving until we can infer the parameter passing convention of `R`.
       postpone(ParameterConstraint(l, r, because: constraint.cause))
 
-    case .parameter(let p):
+    case let p as ParameterType:
       // Either `L` is equal to the bare type of `R`, or it's a. Note: the equality requirement for
       // arguments passed mutably is verified after type inference.
       schedule(
@@ -306,7 +306,7 @@ struct ConstraintSolver {
     let r = typeAssumptions[constraint.right]
 
     // Postpone the solving if `L` is still unknown.
-    if case .variable = l {
+    if l.base is TypeVariable {
       postpone(BoundMemberConstraint(
         type: l,
         hasMemberNamed: constraint.member,
@@ -390,7 +390,7 @@ struct ConstraintSolver {
     let r = typeAssumptions[constraint.right]
 
     // Postpone the solving if `L` is still unknown.
-    if case .variable = l {
+    if l.base is TypeVariable {
       postpone(UnboundMemberConstraint(
         type: l,
         hasMemberNamed: constraint.member,
@@ -403,7 +403,7 @@ struct ConstraintSolver {
     let matches = checker.lookup(constraint.member.stem, memberOf: l, inScope: scope)
 
     // Generate the list of candidates.
-    typealias Candidate = (decl: AnyDeclID, type: Type, penalty: Int)
+    typealias Candidate = (decl: AnyDeclID, type: AnyType, penalty: Int)
     let candidates = matches.compactMap({ (match) -> Candidate? in
       // Realize the type of the declaration and skip it if that fails.
       let matchType = checker.realize(decl: match)

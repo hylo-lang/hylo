@@ -8,7 +8,7 @@ struct ConstraintGenerator {
   struct Result {
 
     /// A map from visited expression to its inferred type.
-    let inferredTypes: ExprProperty<Type>
+    let inferredTypes: ExprProperty<AnyType>
 
     /// The set of type constraints being generated.
     let constraints: [Constraint]
@@ -25,10 +25,10 @@ struct ConstraintGenerator {
   private var scope: AnyScopeID
 
   /// A map from expression to its expected type.
-  private var expectedTypes = ExprProperty<Type>()
+  private var expectedTypes = ExprProperty<AnyType>()
 
   /// A map from visited expression to its inferred type.
-  private var inferredTypes = ExprProperty<Type>()
+  private var inferredTypes = ExprProperty<AnyType>()
 
   /// The set of type constraints being generated.
   private var constraints: [Constraint] = []
@@ -41,8 +41,8 @@ struct ConstraintGenerator {
   init(
     scope: AnyScopeID,
     expr: AnyExprID,
-    inferredType: Type?,
-    expectedType: Type?
+    inferredType: AnyType?,
+    expectedType: AnyType?
   ) {
     self.subject = expr
     self.scope = scope
@@ -118,7 +118,7 @@ struct ConstraintGenerator {
 
     // Constrain the right to be subtype of the left.
     let rhs = checker.program.ast[id].right
-    inferredTypes[rhs] = .variable(TypeVariable(node: rhs.base))
+    inferredTypes[rhs] = AnyType(TypeVariable(node: rhs.base))
     constraints.append(
       equalityOrSubtypingConstraint(
         inferredTypes[rhs]!,
@@ -130,7 +130,7 @@ struct ConstraintGenerator {
     visit(expr: rhs, using: &checker)
 
     // Assignments have the void type.
-    assume(typeOf: id, equals: .void, at: checker.program.ast.ranges[id])
+    assume(typeOf: id, equals: AnyType.void, at: checker.program.ast.ranges[id])
   }
 
   private mutating func visit(
@@ -152,7 +152,7 @@ struct ConstraintGenerator {
     using checker: inout TypeChecker
   ) {
     let boolType = checker.program.ast.coreType(named: "Bool")!
-    assume(typeOf: id, equals: .product(boolType), at: checker.program.ast.ranges[id])
+    assume(typeOf: id, equals: boolType, at: checker.program.ast.ranges[id])
   }
 
   private mutating func visit(
@@ -188,7 +188,7 @@ struct ConstraintGenerator {
 
     case .up:
       // The type of the left operand must be statically known to subtype of the right operand.
-      inferredTypes[lhs] = .variable(TypeVariable(node: lhs.base))
+      inferredTypes[lhs] = AnyType(TypeVariable(node: lhs.base))
       constraints.append(
         equalityOrSubtypingConstraint(
           inferredTypes[lhs]!,
@@ -219,7 +219,7 @@ struct ConstraintGenerator {
       switch item {
       case .expr(let expr):
         // Condition must be Boolean.
-        inferredTypes[expr] = .product(boolType)
+        inferredTypes[expr] = AnyType(boolType)
         visit(expr: expr, using: &checker)
 
       case .decl(let binding):
@@ -228,7 +228,7 @@ struct ConstraintGenerator {
     }
 
     // Assume the node represents an expression if both branches are single expressions.
-    let inferredType: Type?
+    let inferredType: AnyType?
 
     // Visit the success branch.
     switch checker.program.ast[id].success {
@@ -250,11 +250,11 @@ struct ConstraintGenerator {
       visit(expr: elseExpr, using: &checker)
 
     case .block(let thenBlock):
-      assume(typeOf: id, equals: .void, at: checker.program.ast.ranges[id])
+      assume(typeOf: id, equals: AnyType.void, at: checker.program.ast.ranges[id])
       _ = checker.check(brace: thenBlock)
 
     case nil:
-      assume(typeOf: id, equals: .void, at: checker.program.ast.ranges[id])
+      assume(typeOf: id, equals: AnyType.void, at: checker.program.ast.ranges[id])
     }
   }
 
@@ -292,7 +292,7 @@ struct ConstraintGenerator {
     //    further refine type inference.
 
     // 1st case
-    if case .error = inferredTypes[callee] {
+    if inferredTypes[callee]!.isError {
       assignToError(id)
       return
     }
@@ -314,10 +314,10 @@ struct ConstraintGenerator {
         var candidates: [OverloadConstraint.Candidate] = []
         for initializer in initializers {
           // Remove the receiver from the parameter list.
-          let ctor = LambdaType(initializer.type)!.ctor()!
+          let ctor = (initializer.type.base as! LambdaType).ctor()!
 
           if labels.elementsEqual(ctor.labels) {
-            let (ty, cs) = checker.open(type: .lambda(ctor))
+            let (ty, cs) = checker.open(type: AnyType(ctor))
             candidates.append(OverloadConstraint.Candidate(
               reference: .direct(initializer.decl),
               type: ty,
@@ -341,7 +341,7 @@ struct ConstraintGenerator {
           // Propagate the type of the constructor down.
           let outputType = propagateDown(
             callee: callee,
-            calleeType: LambdaType(candidates[0].type)!,
+            calleeType: candidates[0].type.base as! LambdaType,
             calleeTypeConstraints: candidates[0].constraints,
             arguments: checker.program.ast[id].arguments,
             using: &checker)
@@ -368,7 +368,7 @@ struct ConstraintGenerator {
     }
 
     // 3rd case
-    if case .lambda(let calleeType) = inferredTypes[callee] {
+    if let calleeType = inferredTypes[callee]!.base as? LambdaType {
       let outputType = propagateDown(
         callee: callee,
         calleeType: calleeType,
@@ -380,7 +380,7 @@ struct ConstraintGenerator {
     }
 
     // 4th case
-    let output = expectedTypes[id] ?? .variable(TypeVariable(node: AnyNodeID(id)))
+    let output = expectedTypes[id] ?? AnyType(TypeVariable(node: AnyNodeID(id)))
     assume(typeOf: id, equals: output, at: checker.program.ast.ranges[id])
 
     var inputs: [CallableTypeParameter] = []
@@ -389,7 +389,7 @@ struct ConstraintGenerator {
       visit(expr: checker.program.ast[id].arguments[i].value, using: &checker)
 
       let argument = checker.program.ast[id].arguments[i].value
-      let parameterType = Type.variable(TypeVariable())
+      let parameterType = AnyType(TypeVariable())
       constraints.append(
         ParameterConstraint(
           inferredTypes[argument]!,
@@ -401,12 +401,14 @@ struct ConstraintGenerator {
     }
 
     // Constrain the type of the callee.
-    let calleeType = Type.lambda(LambdaType(
-      environment: .variable(TypeVariable()), inputs: inputs, output: output))
+    let calleeType = LambdaType(
+      environment: AnyType(TypeVariable()),
+      inputs: inputs,
+      output: output)
     constraints.append(
       EqualityConstraint(
         inferredTypes[callee]!,
-        calleeType,
+        AnyType(calleeType),
         because: ConstraintCause(.callee, at: checker.program.ast.ranges[callee])))
   }
 
@@ -429,8 +431,8 @@ struct ConstraintGenerator {
     let trait = checker.program.ast.coreTrait(named: "ExpressibleByIntegerLiteral")!
     let cause = ConstraintCause(.literal, at: checker.program.ast.ranges[id])
 
-    switch expectedTypes[id] {
-    case .some(.variable(let tau)):
+    switch expectedTypes[id]?.base {
+    case let tau as TypeVariable:
       // The type of the expression is a variable, possibly constrained elsewhere; constrain it to
       // either be `Int` or conform to `ExpressibleByIntegerLiteral`.
       let intType = checker.program.ast.coreType(named: "Int")!
@@ -440,23 +442,23 @@ struct ConstraintGenerator {
           choices: [
             .init(
               constraints: [
-                EqualityConstraint(.variable(tau), .product(intType), because: cause)
+                EqualityConstraint(AnyType(tau), AnyType(intType), because: cause)
               ],
               penalties: 0),
             .init(
               constraints: [
-                ConformanceConstraint(.variable(tau), traits: [trait], because: cause)
+                ConformanceConstraint(AnyType(tau), traits: [trait], because: cause)
               ],
               penalties: 1),
             ],
           because: cause))
-      assume(typeOf: id, equals: .variable(tau), at: checker.program.ast.ranges[id])
+      assume(typeOf: id, equals: tau, at: checker.program.ast.ranges[id])
 
     case .some(let expectedType):
       // The type of has been fixed; constrain it to conform to `ExpressibleByIntegerLiteral`.
       constraints.append(
         ConformanceConstraint(
-          expectedType,
+          AnyType(expectedType),
           traits: [trait],
           because: cause))
       assume(typeOf: id, equals: expectedType, at: checker.program.ast.ranges[id])
@@ -464,7 +466,7 @@ struct ConstraintGenerator {
     case nil:
       // Without contextual information, infer the type of the literal as `Val.Int`.
       let intType = checker.program.ast.coreType(named: "Int")!
-      assume(typeOf: id, equals: .product(intType), at: checker.program.ast.ranges[id])
+      assume(typeOf: id, equals: intType, at: checker.program.ast.ranges[id])
     }
   }
 
@@ -475,7 +477,7 @@ struct ConstraintGenerator {
     defer { assert(inferredTypes[id] != nil) }
 
     // Realize the type of the underlying declaration.
-    guard case .lambda(let declType) = checker.realize(underlyingDeclOf: id) else {
+    guard let declType = checker.realize(underlyingDeclOf: id)?.base as? LambdaType else {
       assignToError(id)
       return
     }
@@ -483,7 +485,7 @@ struct ConstraintGenerator {
     // Schedule the underlying declaration to be type-checked.
     checker.deferTypeChecking(id)
 
-    if case .lambda(let expectedType) = expectedTypes[id] {
+    if let expectedType = expectedTypes[id]!.base as? LambdaType {
       // Check that the declaration defines the expected number of parameters.
       if declType.inputs.count != expectedType.inputs.count {
         diagnostics.append(.diagnose(
@@ -503,7 +505,7 @@ struct ConstraintGenerator {
         assignToError(id)
         return
       }
-    } else if case .variable = declType.output {
+    } else if declType.output.base is TypeVariable {
       if case .expr(let body) = checker.program.ast[checker.program.ast[id].decl].body {
         // Infer the return type of the lambda from its body.
         inferredTypes[body] = declType.output
@@ -515,14 +517,14 @@ struct ConstraintGenerator {
         scope = currentScope
       } else {
         // The system is underspecified.
-        diagnostics.append(.diagnose(
-          cannotInferComplexReturnTypeAt: checker.program.ast[checker.program.ast[id].decl].introducerRange))
+        let origin = checker.program.ast[checker.program.ast[id].decl].introducerRange
+        diagnostics.append(.diagnose(cannotInferComplexReturnTypeAt: origin))
         assignToError(id)
         return
       }
     }
 
-    assume(typeOf: id, equals: .lambda(declType), at: checker.program.ast.ranges[id])
+    assume(typeOf: id, equals: declType, at: checker.program.ast.ranges[id])
   }
 
   private mutating func visit(
@@ -548,7 +550,7 @@ struct ConstraintGenerator {
     case .none:
       let expr = checker.program.ast[id]
       if checker.isBuiltinModuleVisible && (expr.name.value.stem == "Builtin") {
-        assume(typeOf: id, equals: .builtin(.module), at: checker.program.ast.ranges[id])
+        assume(typeOf: id, equals: BuiltinType.module, at: checker.program.ast.ranges[id])
         checker.referredDecls[id] = .direct(AnyDeclID(checker.program.ast.builtinDecl))
         return
       }
@@ -560,7 +562,7 @@ struct ConstraintGenerator {
         return
       }
 
-      let inferredType: Type
+      let inferredType: AnyType
       if candidates.count == 1 {
         // Contextualize the match.
         let context = checker.program.declToScope[candidates[0].decl]!
@@ -602,13 +604,14 @@ struct ConstraintGenerator {
         let symbolName = checker.program.ast[id].name.value.stem
 
         if let type = BuiltinSymbols[symbolName] {
-          assume(typeOf: id, equals: .lambda(type), at: checker.program.ast.ranges[id])
+          assume(typeOf: id, equals: type, at: checker.program.ast.ranges[id])
           checker.referredDecls[id] = .direct(AnyDeclID(checker.program.ast.builtinDecl))
         } else if let type = BuiltinType(symbolName) {
-          assume(typeOf: id, equals: .builtin(type), at: checker.program.ast.ranges[id])
+          assume(typeOf: id, equals: type, at: checker.program.ast.ranges[id])
           checker.referredDecls[id] = .direct(AnyDeclID(checker.program.ast.builtinDecl))
         } else {
-          diagnostics.append(.diagnose(undefinedName: symbolName, at: checker.program.ast[id].name.range))
+          diagnostics.append(
+            .diagnose(undefinedName: symbolName, at: checker.program.ast[id].name.range))
           assignToError(id)
         }
 
@@ -616,7 +619,7 @@ struct ConstraintGenerator {
       }
 
       // Map the expression to a fresh variable unless we have top-down type information.
-      let inferredType = expectedTypes[id] ?? .variable(TypeVariable(node: AnyNodeID(id)))
+      let inferredType = expectedTypes[id] ?? AnyType(TypeVariable(node: AnyNodeID(id)))
       assume(typeOf: id, equals: inferredType, at: checker.program.ast.ranges[id])
 
       // If we determined that the domain refers to a nominal type declaration, create a static
@@ -678,45 +681,45 @@ struct ConstraintGenerator {
 
   private mutating func visit(
     foldedSequence root: FoldedSequenceExpr,
-    expectingRootType expectedRootType: Type?,
+    expectingRootType expectedRootType: AnyType?,
     using checker: inout TypeChecker
-  ) -> Type {
+  ) -> AnyType {
     switch root {
     case .infix(let callee, let lhs, let rhs):
       // Infer the types of the operands.
       let lhsType = visit(foldedSequence: lhs, expectingRootType: nil, using: &checker)
       if lhsType.isError {
-        return .error(ErrorType())
+        return .error
       }
 
       let rhsType = visit(foldedSequence: rhs, expectingRootType: nil, using: &checker)
       if rhsType.isError {
-        return .error(ErrorType())
+        return .error
       }
 
       // Infer the type of the callee.
-      let parameterType = Type.variable(TypeVariable())
+      let parameterType = AnyType(TypeVariable())
       constraints.append(
         ParameterConstraint(
           rhsType,
           parameterType,
           because: ConstraintCause(.argument, at: checker.program.ast.origin(of: rhs))))
 
-      let outputType = Type.variable(TypeVariable())
-      let calleeType = Type.lambda(LambdaType(
+      let outputType = AnyType(TypeVariable())
+      let calleeType = LambdaType(
         receiverEffect: nil,
-        environment: .tuple(TupleType(
-          labelsAndTypes: [("self", .remote(RemoteType(.let, lhsType)))])),
+        environment: AnyType(
+          TupleType(labelsAndTypes: [("self", AnyType(RemoteType(.let, lhsType)))])),
         inputs: [CallableTypeParameter(type: parameterType)],
-        output: outputType))
-      inferredTypes[callee.expr] = calleeType
+        output: outputType)
+      inferredTypes[callee.expr] = AnyType(calleeType)
 
       // Create a member constraint for the operator.
       constraints.append(
         BoundMemberConstraint(
           type: lhsType,
           hasMemberNamed: checker.program.ast[callee.expr].name.value,
-          ofType: calleeType,
+          ofType: AnyType(calleeType),
           because: ConstraintCause(.member, at: checker.program.ast.ranges[callee.expr])))
 
       return outputType
@@ -754,7 +757,7 @@ struct ConstraintGenerator {
     // If the expected type is a tuple compatible with the shape of the expression, propagate that
     // information down the expression tree. Otherwise, infer the type of the expression from the
     // leaves and use type constraints to detect potential mismatch.
-    if case .tuple(let type) = expectedTypes[id],
+    if let type = expectedTypes[id]?.base as? TupleType,
        type.elements.elementsEqual(tupleExpr, by: { (a, b) in a.label == b.label?.value })
     {
       for i in 0 ..< tupleExpr.count {
@@ -773,10 +776,7 @@ struct ConstraintGenerator {
       }
     }
 
-    assume(
-      typeOf: id,
-      equals: .tuple(TupleType(tupleTypeElements)),
-      at: checker.program.ast.ranges[id])
+    assume(typeOf: id, equals: TupleType(tupleTypeElements), at: checker.program.ast.ranges[id])
   }
 
   private mutating func visit(
@@ -799,7 +799,7 @@ struct ConstraintGenerator {
     calleeTypeConstraints: ConstraintSet,
     arguments: [CallArgument],
     using checker: inout TypeChecker
-  ) -> Type {
+  ) -> AnyType {
     // Collect the argument labels.
     let argumentLabels = arguments.map({ $0.label?.value })
 
@@ -810,7 +810,7 @@ struct ConstraintGenerator {
         labels: argumentLabels,
         incompatibleWith: calleeLabels,
         at: checker.program.ast.ranges[callee]))
-      return .error(ErrorType())
+      return .error
     }
 
     // Gather the callee's constraints.
@@ -823,7 +823,7 @@ struct ConstraintGenerator {
     // Propagate type information to the arguments.
     for i in 0 ..< arguments.count {
       let argumentExpr = arguments[i].value
-      let argumentType = Type.variable(TypeVariable(node: argumentExpr.base))
+      let argumentType = AnyType(TypeVariable(node: argumentExpr.base))
       let parameterType = calleeType.inputs[i].type
 
       inferredTypes[argumentExpr] = argumentType
@@ -833,7 +833,7 @@ struct ConstraintGenerator {
           parameterType,
           because: ConstraintCause(.argument, at: checker.program.ast.ranges[argumentExpr])))
 
-      if case .parameter(let type) = parameterType {
+      if let type = parameterType.base as? ParameterType {
         expectedTypes[argumentExpr] = type.bareType
       }
       visit(expr: argumentExpr, using: &checker)
@@ -892,26 +892,26 @@ struct ConstraintGenerator {
     return accumulator
   }
 
-  private mutating func assume<T: ExprID>(
-    typeOf id: T,
-    equals inferredType: Type,
+  private mutating func assume<ID: ExprID, T: TypeProtocol>(
+    typeOf id: ID,
+    equals inferredType: T,
     at range: SourceRange?
   ) {
     if let ty = inferredTypes[id] {
       if ty != inferredType {
         constraints.append(
           EqualityConstraint(
-            inferredType,
+            AnyType(inferredType),
             ty,
             because: ConstraintCause(.structural, at: range)))
       }
     } else {
-      inferredTypes[id] = inferredType
+      inferredTypes[id] = AnyType(inferredType)
     }
   }
 
-  private mutating func assignToError<T: ExprID>(_ id: T) {
-    inferredTypes[id] = .error(ErrorType())
+  private mutating func assignToError<ID: ExprID>(_ id: ID) {
+    inferredTypes[id] = .error
   }
 
 }

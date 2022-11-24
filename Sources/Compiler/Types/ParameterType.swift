@@ -1,29 +1,25 @@
 import Utils
 
 /// The type of a paramter in a lambda, method, or subscript type.
-public struct ParameterType: TypeProtocol, Hashable {
+public struct ParameterType: TypeProtocol {
 
   /// The passing convention of the parameter.
   public let convention: PassingConvention
 
   /// The bare type.
-  public let bareType: Type
+  public let bareType: AnyType
 
   public let flags: TypeFlags
 
-  public init(convention: PassingConvention, bareType: Type) {
+  /// Creates an instance with the given properties.
+  public init(convention: PassingConvention, bareType: AnyType) {
     self.convention = convention
     self.bareType = bareType
     self.flags = bareType.flags
   }
 
-  /// Creates an instance identifying `x`, failing if `x` is not a parameter type.
-  public init?(_ x: Type) {
-    if case .parameter(let t) = x {
-      self = t
-    } else {
-      return nil
-    }
+  public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> Self {
+    ParameterType(convention: convention, bareType: bareType.transform(transformer))
   }
 
 }

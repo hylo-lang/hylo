@@ -1,5 +1,5 @@
 /// A built-in type.
-public enum BuiltinType: TypeProtocol, Hashable {
+public enum BuiltinType: TypeProtocol {
 
   /// A built-in integer type.
   ///

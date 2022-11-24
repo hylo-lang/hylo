@@ -43,7 +43,7 @@ extension Diagnostic {
   }
 
   static func diagnose(
-    conformanceToNonTraitType type: Type,
+    conformanceToNonTraitType type: AnyType,
     at range: SourceRange?
   ) -> Diagnostic {
     .error("conformance to non-trait type '\(type)'", range: range)
@@ -130,8 +130,8 @@ extension Diagnostic {
   }
 
   static func diagnose(
-    type l: Type,
-    incompatibleWith r: Type,
+    type l: AnyType,
+    incompatibleWith r: AnyType,
     at range: SourceRange?
   ) -> Diagnostic {
     .error("incompatible types '\(l)' and '\(r)'", range: range)
@@ -162,14 +162,14 @@ extension Diagnostic {
   }
 
   static func diagnose(
-    inoutCapableMethodBundleMustReturn expectedReturnType: Type,
+    inoutCapableMethodBundleMustReturn expectedReturnType: AnyType,
     at range: SourceRange?
   ) -> Diagnostic {
     .error("inout-capable method bundle must return '\(expectedReturnType)'", range: range)
   }
 
   static func diagnose(
-    invalidDestructuringOfType type: Type,
+    invalidDestructuringOfType type: AnyType,
     at range: SourceRange?
   ) -> Diagnostic {
     .error("invalid destructuring of type '\(type)'", range: range)
@@ -182,7 +182,7 @@ extension Diagnostic {
   }
 
   static func diagnose(
-    invalidParameterType type: Type,
+    invalidParameterType type: AnyType,
     at range: SourceRange?
   ) -> Diagnostic {
     .error("invalid parameter type '\(type)'", range: range)
@@ -195,14 +195,14 @@ extension Diagnostic {
   }
 
   static func diagnose(
-    notATrait type: Type,
+    notATrait type: AnyType,
     at range: SourceRange?
   ) -> Diagnostic {
     .error("type '\(type)' is not a trait", range: range)
   }
 
   static func diagnose(
-    type: Type,
+    type: AnyType,
     doesNotConformTo trait: TraitType,
     at range: SourceRange?,
     because children: [Diagnostic] = []
@@ -214,7 +214,7 @@ extension Diagnostic {
   }
 
   static func diagnose(
-    invalidConformanceConstraintTo type: Type,
+    invalidConformanceConstraintTo type: AnyType,
     at range: SourceRange?
   ) -> Diagnostic {
     .error(
@@ -226,8 +226,8 @@ extension Diagnostic {
   }
 
   static func diagnose(
-    invalidEqualityConstraintBetween l: Type,
-    and r: Type,
+    invalidEqualityConstraintBetween l: AnyType,
+    and r: AnyType,
     at range: SourceRange?
   ) -> Diagnostic {
     .error(
@@ -247,8 +247,8 @@ extension Diagnostic {
   }
 
   static func diagnose(
-    type l: Type,
-    isNotSubtypeOf r: Type,
+    type l: AnyType,
+    isNotSubtypeOf r: AnyType,
     at range: SourceRange?
   ) -> Diagnostic {
     .error("'\(l)' is not subtype of '\(r)'", range: range)
@@ -256,7 +256,7 @@ extension Diagnostic {
 
   static func diagnose(
     noType name: Name,
-    in domain: Type? = nil,
+    in domain: AnyType? = nil,
     at range: SourceRange?
   ) -> Diagnostic {
     if let domain = domain {
@@ -268,7 +268,7 @@ extension Diagnostic {
 
   static func diagnose(
     traitRequiresMethod name: Name,
-    withType type: Type
+    withType type: AnyType
   ) -> Diagnostic {
     .error("trait requires method '\(name)' with type '\(type)'")
   }
@@ -281,7 +281,7 @@ extension Diagnostic {
 
   static func diagnose(
     illegalUseOfStaticMember name: Name,
-    onInstanceOf: Type,
+    onInstanceOf: AnyType,
     at range: SourceRange?
   ) -> Diagnostic {
     .error(
@@ -304,7 +304,7 @@ extension Diagnostic {
   }
 
   static func diagnose(
-    unusedResultOfType type: Type,
+    unusedResultOfType type: AnyType,
     at range: SourceRange?
   ) -> Diagnostic {
     .warning("unused result of type '\(type)'", range: range)

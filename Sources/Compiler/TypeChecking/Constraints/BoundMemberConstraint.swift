@@ -3,10 +3,10 @@
 struct BoundMemberConstraint: Constraint, Hashable {
 
   /// The base type of the left operand.
-  private(set) var left: Type
+  private(set) var left: AnyType
 
   /// The right operand.
-  private(set) var right: Type
+  private(set) var right: AnyType
 
   /// The name of the member in `left` that must have type `right`.
   let member: Name
@@ -18,9 +18,9 @@ struct BoundMemberConstraint: Constraint, Hashable {
 
   /// Creates an instance with the given properties.
   init(
-    type left: Type,
+    type left: AnyType,
     hasMemberNamed member: Name,
-    ofType right: Type,
+    ofType right: AnyType,
     because cause: ConstraintCause
   ) {
     self.left = left
@@ -32,10 +32,10 @@ struct BoundMemberConstraint: Constraint, Hashable {
 
   /// Creates an instance with the given properties.
   init(
-    type left: Type,
+    type left: AnyType,
     hasMemberExpressedBy memberExpr: NodeID<NameExpr>,
     in ast: AST,
-    ofType right: Type,
+    ofType right: AnyType,
     because cause: ConstraintCause
   ) {
     self.left = left
@@ -45,14 +45,13 @@ struct BoundMemberConstraint: Constraint, Hashable {
     self.cause = cause
   }
 
-  mutating func modifyTypes(_ modify: (inout Type) -> Void) {
+  mutating func modifyTypes(_ modify: (inout AnyType) -> Void) {
     modify(&left)
     modify(&right)
   }
 
   func depends(on variable: TypeVariable) -> Bool {
-    let v = Type.variable(variable)
-    return (left == v) || (right == v)
+    (left == variable) || (right == variable)
   }
 
 }
