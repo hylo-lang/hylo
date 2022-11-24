@@ -1162,19 +1162,6 @@ final class ParserTests: XCTestCase {
   }
 
   func testPrimaryDeclRef() throws {
-    let input = SourceFile(contents: "foo<T, size: @value 42>")
-    let (exprID, ast) = try apply(Parser.primaryDeclRef, on: input)
-    let expr = try XCTUnwrap(ast[exprID])
-    XCTAssertEqual(expr.name.value.stem, "foo")
-    XCTAssertEqual(expr.arguments.count, 2)
-
-    if expr.arguments.count == 2 {
-      XCTAssertNil(expr.arguments[0].label)
-      XCTAssertEqual(expr.arguments[1].label?.value, "size")
-    }
-  }
-
-  func testPrimaryDeclRefSansHint() throws {
     let input = SourceFile(contents: "foo<T, size: 42>")
     let (exprID, ast) = try apply(Parser.primaryDeclRef, on: input)
     let expr = try XCTUnwrap(ast[exprID])
@@ -1691,24 +1678,12 @@ final class ParserTests: XCTestCase {
   }
 
   func testStaticArgumentList() throws {
-    let input = SourceFile(contents: "<T, size: @value 42>")
-    let list = try XCTUnwrap(try apply(Parser.staticArgumentList, on: input).element)
-    XCTAssertEqual(list.count, 2)
-  }
-
-  func testStaticArgumentListSansHint() throws {
     let input = SourceFile(contents: "<T, size: 42>")
     let list = try XCTUnwrap(try apply(Parser.staticArgumentList, on: input).element)
     XCTAssertEqual(list.count, 2)
   }
 
   func testTypeExprUnificationWithExpr() throws {
-    let input = SourceFile(contents: "<T, @value 40 + two()>")
-    let list = try XCTUnwrap(try apply(Parser.staticArgumentList, on: input).element)
-    XCTAssertEqual(list.count, 2)
-  }
-
-  func testTypeExprUnificationWithExprSansHint() throws {
     let input = SourceFile(contents: "<T, 40 + two()>")
     let list = try XCTUnwrap(try apply(Parser.staticArgumentList, on: input).element)
     XCTAssertEqual(list.count, 2)

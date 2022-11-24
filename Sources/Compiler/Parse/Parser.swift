@@ -2843,12 +2843,8 @@ public enum Parser {
       })
   )
 
-  static let staticValueArgument = (
-    valueAttribute.and(expr)
-      .map({ (state, tree) -> GenericArgument.Value in
-        .expr(tree.1)
-      })
-  )
+  static let staticValueArgument = expr.map(
+    { (state, tree) -> GenericArgument.Value in.expr(tree) })
 
   static let whereClause = (
     take(.where).and(whereClauseConstraintList)
