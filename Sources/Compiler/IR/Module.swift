@@ -69,15 +69,15 @@ public struct Module {
     var inputs: [Function.Input] = []
     let output: LoweredType
 
-    switch program.declTypes[declID] {
-    case .lambda(let declType):
+    switch program.declTypes[declID]!.base {
+    case let declType as LambdaType:
       output = LoweredType(lowering: declType.output)
       inputs.reserveCapacity(declType.captures.count + declType.inputs.count)
 
       // Define inputs for the captures.
       for capture in declType.captures {
-        switch capture.type {
-        case .remote(let type):
+        switch capture.type.base {
+        case let type as RemoteType:
           precondition(type.capability != .yielded, "cannot lower yielded parameter")
           inputs.append((
             convention: PassingConvention(matching: type.capability), type: .address(type.base)))
@@ -96,11 +96,11 @@ public struct Module {
 
       // Define inputs for the parameters.
       for parameter in declType.inputs {
-        guard case .parameter(let parameterType) = parameter.type else { unreachable() }
+        let parameterType = parameter.type.base as! ParameterType
         inputs.append(parameterType.asIRFunctionInput())
       }
 
-    case .method:
+    case is MethodType:
       fatalError("not implemented")
 
     default:

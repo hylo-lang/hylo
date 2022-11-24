@@ -11,7 +11,7 @@ struct OverloadConstraint: Constraint, Hashable {
     let reference: DeclRef
 
     /// The contextualized type the referred declaration.
-    let type: Type
+    let type: AnyType
 
     /// The set of constraints associated with the reference.
     let constraints: ConstraintSet
@@ -25,7 +25,7 @@ struct OverloadConstraint: Constraint, Hashable {
   let overloadedExpr: NodeID<NameExpr>
 
   /// The type of `overloadedExpr`.
-  private(set) var overloadedExprType: Type
+  private(set) var overloadedExprType: AnyType
 
   /// The choices of the disjunction.
   private(set) var choices: [Candidate]
@@ -37,7 +37,7 @@ struct OverloadConstraint: Constraint, Hashable {
   /// - Requires: `candidates.count >= 2`
   init(
     _ expr: NodeID<NameExpr>,
-    withType type: Type,
+    withType type: AnyType,
     refersToOneOf choices: [Candidate],
     because cause: ConstraintCause
   ) {
@@ -48,7 +48,7 @@ struct OverloadConstraint: Constraint, Hashable {
     self.cause = cause
   }
 
-  mutating func modifyTypes(_ modify: (inout Type) -> Void) {
+  mutating func modifyTypes(_ modify: (inout AnyType) -> Void) {
     modify(&overloadedExprType)
 
     for i in 0 ..< choices.count {
@@ -70,7 +70,7 @@ struct OverloadConstraint: Constraint, Hashable {
   }
 
   func depends(on variable: TypeVariable) -> Bool {
-    overloadedExprType == .variable(variable)
+    overloadedExprType == variable
   }
 
 }

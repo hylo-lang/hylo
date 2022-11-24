@@ -44,11 +44,11 @@ public struct CXXModule {
       // The output type of `main` must be `int`.
       output = CXXTypeExpr("int")
     } else {
-      switch program.declTypes[valFunctionDecl]! {
-      case .lambda(let valDeclType):
+      switch program.declTypes[valFunctionDecl]!.base {
+      case let valDeclType as LambdaType:
         output = CXXTypeExpr(valDeclType.output, ast: program.ast, asReturnType: true)!
 
-      case .method:
+      case is MethodType:
         fatalError("not implemented")
 
       default:
@@ -58,11 +58,11 @@ public struct CXXModule {
 
     // Determine the parameter types of the function.
     let paramTypes: [CallableTypeParameter]
-    switch program.declTypes[valFunctionDecl]! {
-    case .lambda(let valDeclType):
+    switch program.declTypes[valFunctionDecl]!.base {
+    case let valDeclType as LambdaType:
       paramTypes = valDeclType.inputs
 
-    case .method:
+    case is MethodType:
       fatalError("not implemented")
 
     default:

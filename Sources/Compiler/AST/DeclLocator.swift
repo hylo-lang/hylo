@@ -38,8 +38,8 @@ public struct DeclLocator: Hashable {
         let decl = NodeID<FunctionDecl>(rawValue: decl.rawValue)
 
         let labels: [String]
-        switch program.declTypes[decl]! {
-        case .lambda(let type):
+        switch program.declTypes[decl]!.base {
+        case let type as LambdaType:
           labels = Array(type.inputs.map({ $0.label ?? "_" }))
         default:
           labels = []
@@ -55,8 +55,8 @@ public struct DeclLocator: Hashable {
         let decl = NodeID<InitializerDecl>(rawValue: decl.rawValue)
 
         let labels: [String]
-        switch program.declTypes[decl]! {
-        case .lambda(let type):
+        switch program.declTypes[decl]!.base {
+        case let type as LambdaType:
           labels = Array(type.inputs.map({ $0.label ?? "_" }))
         default:
           labels = []
@@ -68,8 +68,8 @@ public struct DeclLocator: Hashable {
         let decl = NodeID<MethodDecl>(rawValue: decl.rawValue)
 
         let labels: [String]
-        switch program.declTypes[decl]! {
-        case .method(let type):
+        switch program.declTypes[decl]!.base {
+        case let type as MethodType:
           labels = Array(type.inputs.map({ $0.label ?? "_" }))
         default:
           labels = []

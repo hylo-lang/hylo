@@ -9,12 +9,12 @@ public protocol Constraint {
   var cause: ConstraintCause { get set }
 
   /// Applies `modify` on the types that are part of `self`.
-  mutating func modifyTypes(_ modify: (inout Type) -> Void)
+  mutating func modifyTypes(_ modify: (inout AnyType) -> Void)
 
   /// Returns whether the constraint depends on the specified variable.
   func depends(on variable: TypeVariable) -> Bool
 
-  /// Hashes the salient features of `element` by feeding them into `hasher`.
+  /// Hashes the salient features of `self` by feeding them into `hasher`.
   func hash(into hasher: inout Hasher)
 
   /// Returns whether `self` is equal to `other`.
@@ -24,6 +24,7 @@ public protocol Constraint {
 
 extension Constraint where Self: Equatable {
 
+  /// Returns whether `self` is equal to `other`.
   public func equals<Other: Constraint>(_ other: Other) -> Bool {
     if let r = other as? Self {
       return self == r
@@ -36,8 +37,8 @@ extension Constraint where Self: Equatable {
 
 /// Creates a subtyping or equality constraint.
 func equalityOrSubtypingConstraint(
-  _ l: Type,
-  _ r: Type,
+  _ l: AnyType,
+  _ r: AnyType,
   because cause: ConstraintCause
 ) -> DisjunctionConstraint {
   DisjunctionConstraint(

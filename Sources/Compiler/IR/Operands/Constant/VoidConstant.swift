@@ -3,7 +3,7 @@ public struct VoidConstant: ConstantProtocol, Hashable {
 
   public init() {}
 
-  public var type: LoweredType { .object(.void) }
+  public var type: LoweredType { .object(AnyType.void) }
 
 }
 

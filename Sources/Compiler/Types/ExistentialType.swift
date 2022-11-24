@@ -1,5 +1,5 @@
 /// An existential type, optionally bound by traits and constraints on associated types.
-public struct ExistentialType: TypeProtocol, Hashable {
+public struct ExistentialType: TypeProtocol {
 
   /// The traits to which the witness is known to conform.
   public let traits: Set<TraitType>

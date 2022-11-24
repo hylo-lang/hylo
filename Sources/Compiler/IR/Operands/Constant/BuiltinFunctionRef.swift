@@ -10,7 +10,7 @@ public struct BuiltinFunctionRef: ConstantProtocol, Hashable {
   /// Returns a reference to the built-in function with the given name.
   public static subscript(_ name: String) -> BuiltinFunctionRef? {
     if let type = BuiltinSymbols[name] {
-      return BuiltinFunctionRef(name: name, type: .address(.lambda(type)))
+      return BuiltinFunctionRef(name: name, type: .address(type))
     } else {
       return nil
     }

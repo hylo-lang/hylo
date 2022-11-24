@@ -1,7 +1,7 @@
 import Utils
 
 /// A generic type parameter.
-public struct GenericTypeParamType: TypeProtocol, Hashable {
+public struct GenericTypeParamType: TypeProtocol {
 
   /// The declaration that introduces the parameter.
   ///
@@ -12,8 +12,7 @@ public struct GenericTypeParamType: TypeProtocol, Hashable {
   /// The name of the parameter.
   public let name: Incidental<String>
 
-  public let flags: TypeFlags = [.isCanonical, .hasGenericTypeParam]
-
+  /// Creates an instance denoting the generic type parameter declared by `decl`.
   public init<T: DeclID>(decl: T, ast: AST) {
     self.decl = AnyDeclID(decl)
 
@@ -26,6 +25,8 @@ public struct GenericTypeParamType: TypeProtocol, Hashable {
       preconditionFailure("invalid declaration")
     }
   }
+
+  public var flags: TypeFlags { [.isCanonical, .hasGenericTypeParam] }
 
 }
 

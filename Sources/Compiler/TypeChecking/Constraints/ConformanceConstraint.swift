@@ -2,7 +2,7 @@
 struct ConformanceConstraint: Constraint, Hashable {
 
   /// The type subject of the constraint.
-  private(set) var subject: Type
+  private(set) var subject: AnyType
 
   /// The traits to which `subject` must conform.
   let traits: Set<TraitType>
@@ -11,7 +11,7 @@ struct ConformanceConstraint: Constraint, Hashable {
 
   /// Creates an instance with the given properties.
   init(
-    _ subject: Type,
+    _ subject: AnyType,
     traits: Set<TraitType>,
     because cause: ConstraintCause
   ) {
@@ -20,12 +20,12 @@ struct ConformanceConstraint: Constraint, Hashable {
     self.cause = cause
   }
 
-  mutating func modifyTypes(_ modify: (inout Type) -> Void) {
+  mutating func modifyTypes(_ modify: (inout AnyType) -> Void) {
     modify(&subject)
   }
 
   func depends(on variable: TypeVariable) -> Bool {
-    subject == .variable(variable)
+    subject == variable
   }
 
 }

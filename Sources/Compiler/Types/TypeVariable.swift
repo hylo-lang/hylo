@@ -1,7 +1,7 @@
 import Utils
 
 /// A type variable.
-public struct TypeVariable: TypeProtocol, Hashable {
+public struct TypeVariable: TypeProtocol {
 
   /// The identifier of the variable.
   public let id: Int

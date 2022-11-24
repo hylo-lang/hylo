@@ -2,18 +2,18 @@
 public struct AbstractTypeLayout {
 
   /// The type for which the layout is being queried.
-  public let type: Type
+  public let type: AnyType
 
   /// Given `type` has a record layout, the indices of the stored properties.
   public let storedPropertiesIndices: [String: Int]
 
   /// Given `type` has a record layout, the type the member at the specified stored property index.
-  public let storedPropertiesTypes: [Type]
+  public let storedPropertiesTypes: [AnyType]
 
   fileprivate init(
-    type: Type,
+    type: AnyType,
     storedPropertiesIndices: [String: Int],
-    storedPropertiesTypes: [Type]
+    storedPropertiesTypes: [AnyType]
   ) {
     self.type = type
     self.storedPropertiesIndices = storedPropertiesIndices
@@ -29,7 +29,7 @@ extension TypedProgram {
   /// If `path` is empty, the method returns the layout of an instance of `type`. Otherwise, each
   /// component is interpreter as the abstract offset of a stored property, leading to a sub-object
   /// of an instance of `type`.
-  public func abstractLayout(of type: Type, at path: [Int] = []) -> AbstractTypeLayout {
+  public func abstractLayout(of type: AnyType, at path: [Int] = []) -> AbstractTypeLayout {
     let indicesAndTypes = storedPropertiesIndicesAndTypes(of: type)
     var layout = AbstractTypeLayout(
       type: type,
@@ -43,19 +43,19 @@ extension TypedProgram {
   }
 
   private func storedPropertiesIndicesAndTypes(
-    of type: Type
-  ) -> (indices: [String: Int], types: [Type]) {
+    of type: AnyType
+  ) -> (indices: [String: Int], types: [AnyType]) {
     var indices: [String: Int] = [:]
-    var types: [Type] = []
+    var types: [AnyType] = []
 
-    switch type {
-    case .product(let type):
-      for m in ast[type.decl].members {
-        guard let binding = NodeID<BindingDecl>(m) else { continue }
+    switch type.base {
+    case let type as ProductType:
+      for m in ast[type.decl].members where m.kind == BindingDecl.self {
+        let binding = NodeID<BindingDecl>(rawValue: m.rawValue)
         for (_, name) in ast.names(in: ast[binding].pattern) {
           let decl = ast[name].decl
           indices[ast[decl].name] = types.count
-          types.append(declTypes[decl] ?? .error(ErrorType()))
+          types.append(declTypes[decl] ?? .error)
         }
       }
 
