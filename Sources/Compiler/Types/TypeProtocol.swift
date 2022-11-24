@@ -1,6 +1,6 @@
 import Utils
 
-/// A protocol describing the API of a type's associated value.
+/// A protocol describing the API of a Val type.
 public protocol TypeProtocol: Hashable {
 
   /// A set of flags describing recursive properties.

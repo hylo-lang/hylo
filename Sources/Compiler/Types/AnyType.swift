@@ -1,5 +1,6 @@
 import Utils
 
+/// A box wrapping a type.
 fileprivate protocol TypeBox {
 
   /// Hashes the salient parts of the wrapped value into `hasher`.
@@ -20,8 +21,10 @@ fileprivate protocol TypeBox {
 
 }
 
+/// A box wrapping an instance of `Base`.
 fileprivate struct ConcreteTypeBox<Base: TypeProtocol>: TypeBox {
 
+  /// The value wrapped by this instance.
   let base: Base
 
   func hash(into hasher: inout Hasher) {
