@@ -2954,7 +2954,7 @@ public struct TypeChecker {
 
   // MARK: Type role determination
 
-  /// Replaces occurrences of associated types and geneirc type parameters in `type` by fresh
+  /// Replaces occurrences of associated types and generic type parameters in `type` by fresh
   /// type variables variables.
   func open(type: AnyType) -> (AnyType, ConstraintSet) {
     /// A map from generic parameter type to its opened type.
