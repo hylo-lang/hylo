@@ -12,14 +12,15 @@ public struct GenericValueParamType: TypeProtocol {
   public let name: Incidental<String>
 
   /// Creates an instance denoting the generic value parameter declared by `decl`.
-  public init<T: DeclID>(decl: T, ast: AST) {
+  ///
+  /// - Requires: `decl` is the ID of a declaration introducing an associated value or generic
+  ///   value parameter.
+  public init<T: DeclID>(_ decl: T, ast: AST) {
     self.decl = AnyDeclID(decl)
 
     switch decl.kind {
-    case GenericValueParamDecl.self,
-         AssociatedValueDecl.self:
+    case GenericValueParamDecl.self, AssociatedValueDecl.self:
       name = Incidental((ast[decl] as! SingleEntityDecl).name)
-
     default:
       preconditionFailure("invalid declaration")
     }

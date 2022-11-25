@@ -353,7 +353,7 @@ struct ConstraintGenerator {
         }
 
       case TraitDecl.self:
-        let trait = TraitType(decl: NodeID(d)!, ast: checker.program.ast)
+        let trait = TraitType(NodeID(rawValue: d.rawValue), ast: checker.program.ast)
         diagnostics.append(.diagnose(cannotConstructTrait: trait, at: checker.program.ast.ranges[callee]))
         assignToError(id)
 

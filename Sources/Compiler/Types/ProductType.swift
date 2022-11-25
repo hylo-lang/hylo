@@ -10,7 +10,7 @@ public struct ProductType: TypeProtocol {
   public let name: Incidental<String>
 
   /// Creates an instance denoting the product type declared by `decl`.
-  public init(decl: NodeID<ProductTypeDecl>, ast: AST) {
+  public init(_ decl: NodeID<ProductTypeDecl>, ast: AST) {
     self.decl = decl
     self.name = Incidental(ast[decl].name)
   }

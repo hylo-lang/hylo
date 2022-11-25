@@ -17,7 +17,7 @@ public struct AssociatedTypeType: TypeProtocol {
   /// Creates an instance denoting the associated type declared by `decl` as a member of `domain`.
   ///
   /// - Requires: `domain` is an associated type, conformance lens, or generic type parameter.
-  public init(decl: NodeID<AssociatedTypeDecl>, domain: AnyType, ast: AST) {
+  public init(_ decl: NodeID<AssociatedTypeDecl>, domain: AnyType, ast: AST) {
     switch domain.base {
     case is AssociatedTypeType, is ConformanceLensType, is GenericTypeParamType:
       self.domain = domain

@@ -13,7 +13,10 @@ public struct GenericTypeParamType: TypeProtocol {
   public let name: Incidental<String>
 
   /// Creates an instance denoting the generic type parameter declared by `decl`.
-  public init<T: DeclID>(decl: T, ast: AST) {
+  ///
+  /// - Requires: `decl` is the ID of a declaration introducing an associated type, generic type
+  ///   parameter, or trait.
+  public init<T: DeclID>(_ decl: T, ast: AST) {
     self.decl = AnyDeclID(decl)
 
     switch decl.kind {

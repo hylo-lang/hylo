@@ -103,7 +103,7 @@ public struct TypeChecker {
         result.formUnion(traits)
 
       case TraitDecl.self:
-        let trait = TraitType(decl: NodeID(rawValue: t.decl.rawValue), ast: program.ast)
+        let trait = TraitType(NodeID(rawValue: t.decl.rawValue), ast: program.ast)
         return conformedTraits(of: ^trait, inScope: scope)
 
       default:
@@ -862,7 +862,7 @@ public struct TypeChecker {
     to trait: TraitType
   ) -> Bool {
     let conformingType = realizeSelfTypeExpr(inScope: decl)!
-    let selfType = ^GenericTypeParamType(decl: trait.decl, ast: program.ast)
+    let selfType = ^GenericTypeParamType(trait.decl, ast: program.ast)
     var success = true
 
     // Get the set of generic parameters defined by `trait`.
@@ -1274,7 +1274,7 @@ public struct TypeChecker {
     }
 
     // Synthesize `Self: T`.
-    let selfType = GenericTypeParamType(decl: id, ast: program.ast)
+    let selfType = GenericTypeParamType(id, ast: program.ast)
     let trait = declTypes[id]!.base as! TraitType
     constraints.append(
       ConformanceConstraint(
@@ -1737,20 +1737,16 @@ public struct TypeChecker {
     switch lookupContext.kind {
     case ProductTypeDecl.self:
       let type = ^ProductType(
-        decl: NodeID(rawValue: lookupContext.rawValue),
+        NodeID(rawValue: lookupContext.rawValue),
         ast: program.ast)
       return lookup(name, memberOf: type, inScope: origin)
 
     case TraitDecl.self:
-      let type = ^TraitType(
-        decl: NodeID(rawValue: lookupContext.rawValue),
-        ast: program.ast)
+      let type = ^TraitType(NodeID(rawValue: lookupContext.rawValue), ast: program.ast)
       return lookup(name, memberOf: type, inScope: origin)
 
     case TypeAliasDecl.self:
-      let type = ^TypeAliasType(
-        decl: NodeID(rawValue: lookupContext.rawValue),
-        ast: program.ast)
+      let type = ^TypeAliasType(NodeID(rawValue: lookupContext.rawValue), ast: program.ast)
       return lookup(name, memberOf: type, inScope: origin)
 
     default:
@@ -2051,19 +2047,19 @@ public struct TypeChecker {
       switch scope.kind {
       case TraitDecl.self:
         let decl = NodeID<TraitDecl>(rawValue: scope.rawValue)
-        return ^GenericTypeParamType(decl: decl, ast: program.ast)
+        return ^GenericTypeParamType(decl, ast: program.ast)
 
       case ProductTypeDecl.self:
         // Synthesize unparameterized `Self`.
         let decl = NodeID<ProductTypeDecl>(rawValue: scope.rawValue)
-        var type = ^ProductType(decl: decl, ast: program.ast)
+        var type = ^ProductType(decl, ast: program.ast)
 
         // Synthesize arguments to generic parameters if necessary.
         if let parameters = program.ast[decl].genericClause?.value.parameters {
           let arguments = parameters.map({ (p) -> BoundGenericType.Argument in
             switch p {
             case .type(let p):
-              return .type(^GenericTypeParamType(decl: p, ast: program.ast))
+              return .type(^GenericTypeParamType(p, ast: program.ast))
             case .value:
               fatalError("not implemented")
             }
@@ -2237,7 +2233,7 @@ public struct TypeChecker {
       case is AssociatedTypeType,
            is ConformanceLensType,
            is GenericTypeParamType:
-        base = ^AssociatedTypeType(decl: decl, domain: domain!, ast: program.ast)
+        base = ^AssociatedTypeType(decl, domain: domain!, ast: program.ast)
 
       case nil:
         // Assume that `Self` in `scope` resolves to an implicit generic parameter of a trait
@@ -2245,7 +2241,7 @@ public struct TypeChecker {
         // the scope of a trait and its extensions.
         let domain = realizeSelfTypeExpr(inScope: scope)!
         base = ^AssociatedTypeType(
-          decl: NodeID(rawValue: match.rawValue),
+          NodeID(rawValue: match.rawValue),
           domain: domain,
           ast: program.ast)
 
@@ -2333,30 +2329,34 @@ public struct TypeChecker {
     switch id.kind {
     case AssociatedTypeDecl.self:
       return _realize(decl: id, { (this, id) in
-        let traitDecl = NodeID<TraitDecl>(rawValue: this.program.declToScope[id]!.rawValue)
+        // Parent scope must be a trait declaration.
+        let traitDecl = NodeID<TraitDecl>(this.program.declToScope[id]!)!
+
         return ^AssociatedTypeType(
-          decl: NodeID(rawValue: id.rawValue),
-          domain: ^GenericTypeParamType(decl: traitDecl, ast: this.program.ast),
+          NodeID(rawValue: id.rawValue),
+          domain: ^GenericTypeParamType(traitDecl, ast: this.program.ast),
           ast: this.program.ast)
       })
 
     case AssociatedValueDecl.self:
       return _realize(decl: id, { (this, id) in
-        let traitDecl = NodeID<TraitDecl>(rawValue: this.program.declToScope[id]!.rawValue)
+        // Parent scope must be a trait declaration.
+        let traitDecl = NodeID<TraitDecl>(this.program.declToScope[id]!)!
+
         return ^AssociatedValueType(
-          decl: NodeID(rawValue: id.rawValue),
-          domain: ^GenericTypeParamType(decl: traitDecl, ast: this.program.ast),
+          NodeID(rawValue: id.rawValue),
+          domain: ^GenericTypeParamType(traitDecl, ast: this.program.ast),
           ast: this.program.ast)
       })
 
     case GenericTypeParamDecl.self:
       return _realize(decl: id, { (this, id) in
-        ^GenericTypeParamType(decl: id, ast: this.program.ast)
+        ^GenericTypeParamType(id, ast: this.program.ast)
       })
 
     case GenericValueParamDecl.self:
       return _realize(decl: id, { (this, id) in
-        ^GenericValueParamType(decl: id, ast: this.program.ast)
+        ^GenericValueParamType(id, ast: this.program.ast)
       })
 
     case BindingDecl.self:
@@ -2386,7 +2386,7 @@ public struct TypeChecker {
 
     case ProductTypeDecl.self:
       return _realize(decl: id, { (this, id) in
-        ^ProductType(decl: NodeID(rawValue: id.rawValue), ast: this.program.ast)
+        ^ProductType(NodeID(rawValue: id.rawValue), ast: this.program.ast)
       })
 
     case SubscriptDecl.self:
@@ -2394,12 +2394,12 @@ public struct TypeChecker {
 
     case TraitDecl.self:
       return _realize(decl: id, { (this, id) in
-        ^TraitType(decl: NodeID(rawValue: id.rawValue), ast: this.program.ast)
+        ^TraitType(NodeID(rawValue: id.rawValue), ast: this.program.ast)
       })
 
     case TypeAliasDecl.self:
       return _realize(decl: id, { (this, id) in
-        ^TypeAliasType(decl: NodeID(rawValue: id.rawValue), ast: this.program.ast)
+        ^TypeAliasType(NodeID(rawValue: id.rawValue), ast: this.program.ast)
       })
 
     case VarDecl.self:
