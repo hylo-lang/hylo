@@ -138,14 +138,11 @@ extension Diagnostic {
   }
 
   static func diagnose(
-    invalidAssociatedTypeNamed name: String,
+    invalidUseOfAssociatedType name: String,
     at range: SourceRange?
   ) -> Diagnostic {
     .error(
-      """
-      associated type '\(name)' can only be used referred to as a member of a generic type \
-      parameter, a conformance lens, or another associated type
-      """,
+      "associated type '\(name)' can only be used with a concrete type or generic type parameter",
       range: range)
   }
 

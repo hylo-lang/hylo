@@ -2247,7 +2247,7 @@ public struct TypeChecker {
 
       case .some:
         diagnostics.insert(.diagnose(
-          invalidAssociatedTypeNamed: program.ast[decl].name,
+          invalidUseOfAssociatedType: program.ast[decl].name,
           at: name.range))
         return nil
       }
