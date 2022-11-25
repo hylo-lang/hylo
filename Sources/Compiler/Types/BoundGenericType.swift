@@ -23,6 +23,14 @@ public struct BoundGenericType: TypeProtocol {
   public let flags: TypeFlags
 
   /// Creates a bound generic type binding `base` to the given `arguments`.
+  public init<T: TypeProtocol, S: Sequence>(
+    _ instance: T,
+    arguments: S
+  ) where S.Element == Argument {
+    self.init(^instance, arguments: arguments)
+  }
+
+  /// Creates a bound generic type binding `base` to the given `arguments`.
   public init<S: Sequence>(_ base: AnyType, arguments: S) where S.Element == Argument {
     self.base = base
 

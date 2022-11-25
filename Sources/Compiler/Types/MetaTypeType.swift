@@ -6,7 +6,7 @@ public struct MetaTypeType: TypeProtocol {
 
   /// Creates a type denoting the type of `instance`.
   public init<T: TypeProtocol>(_ instance: T) {
-    self.instance = ^instance
+    self.init(^instance)
   }
 
   /// Creates a type denoting the type of `instance`.

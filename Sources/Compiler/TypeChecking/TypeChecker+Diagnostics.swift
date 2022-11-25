@@ -84,6 +84,13 @@ extension Diagnostic {
   }
 
   static func diagnose(
+    expectedMetaTypeButFound value: AnyType,
+    at range: SourceRange?
+  ) -> Diagnostic {
+    .error("expected meta type, found '\(value)'", range: range)
+  }
+
+  static func diagnose(
     genericDeclHasCapturesAt range: SourceRange?
   ) -> Diagnostic {
     .error("generic declaration has captures", range: range)
@@ -199,7 +206,7 @@ extension Diagnostic {
   }
 
   static func diagnose(
-    type: AnyType,
+    _ type: AnyType,
     doesNotConformTo trait: TraitType,
     at range: SourceRange?,
     because children: [Diagnostic] = []
@@ -241,6 +248,13 @@ extension Diagnostic {
     .error(
       "not enough contextual information to infer the arguments to generic parameters",
       range: range)
+  }
+
+  static func diagnose(
+    notEnoughContextToResolveMember name: Name,
+    at range: SourceRange?
+  ) -> Diagnostic {
+    .error("not enough contextual information to resolve member '\(name)'", range: range)
   }
 
   static func diagnose(

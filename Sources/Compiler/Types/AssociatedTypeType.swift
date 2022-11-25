@@ -47,7 +47,7 @@ public struct AssociatedTypeType: TypeProtocol {
         result.append(type.domain)
 
       case let type as ConformanceLensType:
-        current = type.wrapped
+        current = type.subject
 
       default:
         unreachable()

@@ -102,10 +102,7 @@ struct ConstraintSolver {
       if !nonConforming.isEmpty {
         for trait in nonConforming {
           diagnostics.append(
-            .diagnose(
-              type: constraint.subject,
-              doesNotConformTo: trait,
-              at: constraint.cause.origin))
+            .diagnose(constraint.subject, doesNotConformTo: trait, at: constraint.cause.origin))
         }
       }
 
