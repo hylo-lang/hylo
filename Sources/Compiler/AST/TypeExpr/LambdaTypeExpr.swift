@@ -53,7 +53,7 @@ public struct LambdaTypeExpr: TypeExpr {
     if let l = environment?.range,
        let u = origin?.upperBound
     {
-      self.origin = l.upperBounded(by: u)
+      self.origin = l.extended(upTo: u)
     }
   }
 }
