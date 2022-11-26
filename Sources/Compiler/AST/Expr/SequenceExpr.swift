@@ -41,7 +41,7 @@ public struct SequenceExpr: Expr {
         report.append(.diagnose(
           invalidOperatorNotation: notation,
           expected: .infix,
-          at: ast[element.operator].name.range))
+          at: ast[element.operator].name.origin))
       }
     }
 

@@ -946,7 +946,7 @@ public enum Parser {
     }
 
     let origin: SourceRange
-    if let startIndex = introducer.range?.lowerBound {
+    if let startIndex = introducer.origin?.lowerBound {
       origin = state.range(from: startIndex)
     } else {
       switch body! {
@@ -1215,7 +1215,7 @@ public enum Parser {
           introducer: tree.0,
           receiver: receiver,
           body: tree.1,
-          origin: tree.0.range!.extended(upTo: state.currentIndex)))
+          origin: tree.0.origin!.extended(upTo: state.currentIndex)))
       })
   )
 
@@ -1342,7 +1342,7 @@ public enum Parser {
           annotation: tree.0.1?.1,
           defaultValue: tree.1?.1,
           origin: state.range(
-            from: tree.0.0.label?.range!.lowerBound ?? tree.0.0.name.range!.lowerBound)))
+            from: tree.0.0.label?.origin!.lowerBound ?? tree.0.0.name.origin!.lowerBound)))
       })
   )
 
@@ -1572,7 +1572,7 @@ public enum Parser {
       if !state.hasLeadingWhitespace {
         // If there isn't any leading whitespace before the next expression but the operator is on
         // a different line, we may be looking at the start of a prefix expression.
-        let rangeBefore = state.ast[lhs].origin!.upperBound ..< operatorStem.range!.lowerBound
+        let rangeBefore = state.ast[lhs].origin!.upperBound ..< operatorStem.origin!.lowerBound
         if state.lexer.source.contents[rangeBefore].contains(where: { $0.isNewline }) {
           state.restore(from: backup)
           break
@@ -1580,7 +1580,7 @@ public enum Parser {
 
         // Otherwise, complain about missing whitespaces.
         state.diagnostics.append(.diagnose(
-          infixOperatorRequiresWhitespacesAt: operatorStem.range))
+          infixOperatorRequiresWhitespacesAt: operatorStem.origin))
       }
 
       // If we can't parse an operand, the tail is empty.
@@ -1591,7 +1591,7 @@ public enum Parser {
 
       let `operator` = try state.ast.insert(wellFormed: NameExpr(
         name: SourceRepresentable(value: Name(stem: operatorStem.value, notation: .infix)),
-        origin: operatorStem.range))
+        origin: operatorStem.origin))
       tail.append(SequenceExpr.TailElement(operator: `operator`, operand: operand))
     }
 
@@ -1671,8 +1671,8 @@ public enum Parser {
           domain: .expr(tree.1),
           name: SourceRepresentable(
             value: Name(stem: tree.0.value, notation: .prefix),
-            range: tree.0.range),
-          origin: tree.0.range!.extended(upTo: state.ast[tree.1].origin!.upperBound)))
+            range: tree.0.origin),
+          origin: tree.0.origin!.extended(upTo: state.ast[tree.1].origin!.upperBound)))
 
         let call = try state.ast.insert(wellFormed: FunCallExpr(
           callee: AnyExprID(callee),
@@ -1699,8 +1699,8 @@ public enum Parser {
           let callee = try state.ast.insert(wellFormed: NameExpr(
             domain: .expr(tree.0),
             name: SourceRepresentable(
-              value: Name(stem: oper.value, notation: .postfix), range: oper.range),
-            origin: state.ast[tree.0].origin!.extended(upTo: oper.range!.upperBound)))
+              value: Name(stem: oper.value, notation: .postfix), range: oper.origin),
+            origin: state.ast[tree.0].origin!.extended(upTo: oper.origin!.upperBound)))
 
           let call = try state.ast.insert(wellFormed: FunCallExpr(
             callee: AnyExprID(callee),
@@ -1973,7 +1973,7 @@ public enum Parser {
         try state.ast.insert(wellFormed: NameExpr(
           name: tree.0,
           arguments: tree.1 ?? [],
-          origin: tree.0.range!.extended(upTo: state.currentIndex)))
+          origin: tree.0.origin!.extended(upTo: state.currentIndex)))
       })
   )
 
@@ -2189,7 +2189,7 @@ public enum Parser {
           introducer: tree.0.0,
           subpattern: tree.0.1,
           annotation: tree.1?.1,
-          origin: tree.0.0.range!.extended(upTo: state.currentIndex)))
+          origin: tree.0.0.origin!.extended(upTo: state.currentIndex)))
       })
   )
 
@@ -2544,7 +2544,7 @@ public enum Parser {
           traits: traits,
           whereClause: clause,
           origin: head.origin.extended(
-            upTo: clause?.range?.upperBound ?? state.ast[traits.last!].origin!.upperBound)))
+            upTo: clause?.origin?.upperBound ?? state.ast[traits.last!].origin!.upperBound)))
         return AnyTypeExprID(id)
 
       default:
@@ -2623,7 +2623,7 @@ public enum Parser {
         try state.ast.insert(wellFormed: NameExpr(
           name: tree.0,
           arguments: tree.1 ?? [],
-          origin: tree.0.range!.extended(upTo: state.currentIndex)))
+          origin: tree.0.origin!.extended(upTo: state.currentIndex)))
       })
   )
 
@@ -2786,7 +2786,7 @@ public enum Parser {
           convention: tree.0 ?? SourceRepresentable(value: .let),
           bareType: tree.1,
           origin: state.range(
-            from: tree.0?.range!.lowerBound ?? state.ast[tree.1].origin!.lowerBound)))
+            from: tree.0?.origin!.lowerBound ?? state.ast[tree.1].origin!.lowerBound)))
       })
   )
 
@@ -2980,8 +2980,8 @@ public enum Parser {
           throw DiagnosedError(expected("operator", at: state.currentLocation))
         }
 
-        let stem = String(state.lexer.source[oper.range!])
-        let range = head.origin.extended(upTo: oper.range!.upperBound)
+        let stem = String(state.lexer.source[oper.origin!])
+        let range = head.origin.extended(upTo: oper.origin!.upperBound)
 
         switch head.kind {
         case .infix:

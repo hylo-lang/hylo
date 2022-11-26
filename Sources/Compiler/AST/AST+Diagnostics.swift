@@ -7,7 +7,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     .error(
       "duplicate access modifier '\(m.value)'",
-      range: m.range)
+      range: m.origin)
   }
 
   static func diagnose(
@@ -15,7 +15,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     .error(
       "duplicate implementation introducer '\(i.value)'",
-      range: i.range)
+      range: i.origin)
   }
 
   static func diagnose(
@@ -23,7 +23,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     .error(
       "duplicate member modifier '\(m.value)'",
-      range: m.range)
+      range: m.origin)
   }
 
   static func diagnose(
@@ -31,7 +31,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     .error(
       "global binding must be introduced by 'let'",
-      range: i.range)
+      range: i.origin)
   }
 
   static func diagnose(
@@ -39,7 +39,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     .error(
       "member binding must be introduced by 'let' or 'var'",
-      range: i.range)
+      range: i.origin)
   }
 
   static func diagnose(
@@ -71,7 +71,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     return .error(
       "member modifier '\(member.value)' must appear after access modifier '\(access.value)'",
-      range: member.range)
+      range: member.origin)
   }
 
   static func diagnose(
@@ -101,7 +101,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     .error(
       "missing identifier in subscript declaration",
-      range: d.introducer.range)
+      range: d.introducer.origin)
   }
 
   static func diagnose(
@@ -119,7 +119,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     .error(
       "missing type annotation",
-      range: p.identifier.range)
+      range: p.identifier.origin)
   }
 
   static func diagnose(
@@ -127,7 +127,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     .error(
       "unexpected access modifier '\(m.value)'",
-      range: m.range)
+      range: m.origin)
   }
 
   static func diagnose(
@@ -151,7 +151,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     .error(
       "unexpected attribute modifier '\(a.value.name.value)'",
-      range: a.value.name.range)
+      range: a.value.name.origin)
   }
 
   static func diagnose(
@@ -159,7 +159,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     .error(
       "explicit capture is not allowed here",
-      range: p.introducer.range)
+      range: p.introducer.origin)
   }
 
   static func diagnose(
@@ -175,7 +175,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     .error(
       "generic type parameter declaration is not allowed here",
-      range: d.identifier.range)
+      range: d.identifier.origin)
   }
 
   static func diagnose(
@@ -183,7 +183,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     .error(
       "generic value parameter declaration is not allowed here",
-      range: d.identifier.range)
+      range: d.identifier.origin)
   }
 
   static func diagnose(
@@ -191,7 +191,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     .error(
       "initializer declaration is not allowed here",
-      range: d.introducer.range)
+      range: d.introducer.origin)
   }
 
   static func diagnose(
@@ -199,7 +199,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     .error(
       "unexpected member modifier '\(m.value)'",
-      range: m.range)
+      range: m.origin)
   }
 
   static func diagnose(
@@ -215,7 +215,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     .error(
       "method implementation declaration is not allowed here",
-      range: d.introducer.range)
+      range: d.introducer.origin)
   }
 
   static func diagnose(
@@ -239,7 +239,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     .error(
       "parameter declaration is not allowed here",
-      range: d.identifier.range)
+      range: d.identifier.origin)
   }
 
   static func diagnose(
@@ -247,7 +247,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     .error(
       "property declaration is not allowed here",
-      range: d.introducer.range)
+      range: d.introducer.origin)
   }
 
   static func diagnose(
@@ -255,7 +255,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     .error(
       "unexpected effect '\(e.value)'",
-      range: e.range)
+      range: e.origin)
   }
 
   static func diagnose(
@@ -263,7 +263,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     .error(
       "subscript implementation declaration is not allowed here",
-      range: d.introducer.range)
+      range: d.introducer.origin)
   }
 
   static func diagnose(
@@ -271,7 +271,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     .error(
       "trait declaration is not allowed here",
-      range: d.identifier.range)
+      range: d.identifier.origin)
   }
 
   static func diagnose(
@@ -279,7 +279,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     .error(
       "variable declaration is not allowed here",
-      range: d.identifier.range)
+      range: d.identifier.origin)
   }
 
 }

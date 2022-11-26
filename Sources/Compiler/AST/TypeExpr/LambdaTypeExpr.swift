@@ -50,7 +50,7 @@ public struct LambdaTypeExpr: TypeExpr {
     precondition(self.environment == nil)
 
     self.environment = environment
-    if let l = environment?.range,
+    if let l = environment?.origin,
        let u = origin?.upperBound
     {
       self.origin = l.extended(upTo: u)

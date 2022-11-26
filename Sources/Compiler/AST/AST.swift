@@ -202,7 +202,7 @@ public struct AST: Codable {
     return result
   }
 
-  /// Returns the source range of `expr`, if any.
+  /// Returns the source origin of `expr`, if any.
   public func origin(of expr: FoldedSequenceExpr) -> SourceRange? {
     switch expr {
     case .leaf(let i):

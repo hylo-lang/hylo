@@ -331,7 +331,8 @@ struct ConstraintGenerator {
         switch candidates.count {
         case 0:
           let name = Name(stem: "init", labels: labels)
-          diagnostics.append(.diagnose(undefinedName: "\(name)", at: checker.program.ast[c].name.range))
+          diagnostics.append(
+            .diagnose(undefinedName: "\(name)", at: checker.program.ast[c].name.origin))
           assignToError(id)
           return
 
@@ -356,9 +357,8 @@ struct ConstraintGenerator {
 
       case TraitDecl.self:
         let trait = TraitType(NodeID(rawValue: d.rawValue), ast: checker.program.ast)
-        diagnostics.append(.diagnose(
-          cannotConstructTrait: trait,
-          at: checker.program.ast[callee].origin))
+        diagnostics.append(
+          .diagnose(cannotConstructTrait: trait, at: checker.program.ast[callee].origin))
         assignToError(id)
 
       case TypeAliasDecl.self:
@@ -561,7 +561,8 @@ struct ConstraintGenerator {
 
       let candidates = checker.resolve(expr.name.value, inScope: scope)
       if candidates.isEmpty {
-        diagnostics.append(.diagnose(undefinedName: expr.name.value.description, at: expr.name.range))
+        diagnostics.append(
+          .diagnose(undefinedName: expr.name.value.description, at: expr.name.origin))
         assignToError(id)
         return
       }
@@ -615,7 +616,7 @@ struct ConstraintGenerator {
           checker.referredDecls[id] = .direct(AnyDeclID(checker.program.ast.builtinDecl))
         } else {
           diagnostics.append(
-            .diagnose(undefinedName: symbolName, at: checker.program.ast[id].name.range))
+            .diagnose(undefinedName: symbolName, at: checker.program.ast[id].name.origin))
           assignToError(id)
         }
 
