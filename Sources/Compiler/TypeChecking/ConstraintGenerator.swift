@@ -166,8 +166,10 @@ struct ConstraintGenerator {
     cast id: NodeID<CastExpr>,
     using checker: inout TypeChecker
   ) {
+    let node = checker.program.ast[id]
+
     // Realize the type to which the left operand should be converted.
-    guard var target = checker.realize(checker.program.ast[id].right, inScope: scope) else {
+    guard var target = checker.realize(node.right, inScope: scope)?.instance else {
       assignToError(id)
       return
     }
@@ -179,8 +181,8 @@ struct ConstraintGenerator {
     target = ty
     constraints.append(contentsOf: cs)
 
-    let lhs = checker.program.ast[id].left
-    switch checker.program.ast[id].kind {
+    let lhs = node.left
+    switch node.kind {
     case .down:
       // Note: constraining the type of the left operand to be above the right operand wouldn't
       // contribute any useful information to the constraint system.
@@ -353,7 +355,7 @@ struct ConstraintGenerator {
         }
 
       case TraitDecl.self:
-        let trait = TraitType(decl: NodeID(d)!, ast: checker.program.ast)
+        let trait = TraitType(NodeID(rawValue: d.rawValue), ast: checker.program.ast)
         diagnostics.append(.diagnose(cannotConstructTrait: trait, at: checker.program.ast.ranges[callee]))
         assignToError(id)
 

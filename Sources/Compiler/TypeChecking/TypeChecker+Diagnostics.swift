@@ -84,6 +84,13 @@ extension Diagnostic {
   }
 
   static func diagnose(
+    expectedMetatypeButFound value: AnyType,
+    at range: SourceRange?
+  ) -> Diagnostic {
+    .error("expected metatype, found '\(value)'", range: range)
+  }
+
+  static func diagnose(
     genericDeclHasCapturesAt range: SourceRange?
   ) -> Diagnostic {
     .error("generic declaration has captures", range: range)
@@ -138,14 +145,11 @@ extension Diagnostic {
   }
 
   static func diagnose(
-    invalidAssociatedTypeNamed name: String,
+    invalidUseOfAssociatedType name: String,
     at range: SourceRange?
   ) -> Diagnostic {
     .error(
-      """
-      associated type '\(name)' can only be used referred to as a member of a generic type \
-      parameter, a conformance lens, or another associated type
-      """,
+      "associated type '\(name)' can only be used with a concrete type or generic type parameter",
       range: range)
   }
 
@@ -202,7 +206,7 @@ extension Diagnostic {
   }
 
   static func diagnose(
-    type: AnyType,
+    _ type: AnyType,
     doesNotConformTo trait: TraitType,
     at range: SourceRange?,
     because children: [Diagnostic] = []
@@ -244,6 +248,13 @@ extension Diagnostic {
     .error(
       "not enough contextual information to infer the arguments to generic parameters",
       range: range)
+  }
+
+  static func diagnose(
+    notEnoughContextToResolveMember name: Name,
+    at range: SourceRange?
+  ) -> Diagnostic {
+    .error("not enough contextual information to resolve member '\(name)'", range: range)
   }
 
   static func diagnose(
@@ -308,6 +319,19 @@ extension Diagnostic {
     at range: SourceRange?
   ) -> Diagnostic {
     .warning("unused result of type '\(type)'", range: range)
+  }
+
+  static func diagnose(
+    argumentToNonGenericType type: AnyType,
+    at range: SourceRange?
+  ) -> Diagnostic {
+    .error("non-generic type 'type' has no generic parameters", range: range)
+  }
+
+  static func diagnose(
+    metatypeRequiresOneArgumentAt range: SourceRange?
+  ) -> Diagnostic {
+    .error("reference to 'Metatype' requires exacly one static argument", range: range)
   }
 
 }

@@ -103,7 +103,7 @@ public struct TypeChecker {
         result.formUnion(traits)
 
       case TraitDecl.self:
-        let trait = TraitType(decl: NodeID(rawValue: t.decl.rawValue), ast: program.ast)
+        let trait = TraitType(NodeID(rawValue: t.decl.rawValue), ast: program.ast)
         return conformedTraits(of: ^trait, inScope: scope)
 
       default:
@@ -777,7 +777,7 @@ public struct TypeChecker {
     let subject: AnyType
     switch program.ast[id].body {
     case .typeExpr(let j):
-      if let s = realize(j, inScope: AnyScopeID(id)) {
+      if let s = realize(j, inScope: AnyScopeID(id))?.instance {
         subject = s
       } else {
         return false
@@ -861,8 +861,8 @@ public struct TypeChecker {
     conformanceOfProductDecl decl: NodeID<ProductTypeDecl>,
     to trait: TraitType
   ) -> Bool {
-    let conformingType = realizeSelfTypeExpr(inScope: decl)!
-    let selfType = ^GenericTypeParamType(decl: trait.decl, ast: program.ast)
+    let conformingType = realizeSelfTypeExpr(inScope: decl)!.instance
+    let selfType = ^GenericTypeParamType(trait.decl, ast: program.ast)
     var success = true
 
     // Get the set of generic parameters defined by `trait`.
@@ -887,7 +887,7 @@ public struct TypeChecker {
             // `type` is `Self`.
             return .stepOver(conformingType)
 
-          case let t as AssociatedType:
+          case let t as AssociatedTypeType:
             // We only care about associated types rooted at `Self`. Others can be assumed to be
             // rooted at some generic type parameter declared by the requirement.
             let components = t.components
@@ -901,8 +901,9 @@ public struct TypeChecker {
                 if r.isError { return }
 
                 switch c.base {
-                case let c as AssociatedType:
-                  r = lookupType(named: c.name.value, memberOf: r, inScope: scope) ?? .error
+                case let c as AssociatedTypeType:
+                  let member = lookupType(named: c.name.value, memberOf: r, inScope: scope)
+                  r = member?.instance ?? .error
 
                 case is ConformanceLensType:
                   fatalError("not implemented")
@@ -949,7 +950,9 @@ public struct TypeChecker {
         if candidates.isEmpty && (program.ast[requirement].body == nil) {
           diagnostics.insert(
             .diagnose(
-              type: conformingType, doesNotConformTo: trait, at: program.ast[decl].identifier.range,
+              conformingType,
+              doesNotConformTo: trait,
+              at: program.ast[decl].identifier.range,
               because: [
                 .diagnose(
                   traitRequiresMethod: Name(of: requirement, in: program.ast)!,
@@ -1151,12 +1154,7 @@ public struct TypeChecker {
     // Realize the traits in the conformance lists of each generic parameter.
     for case .type(let j) in clause.parameters {
       // Realize the generic type parameter.
-      let lhs = realize(decl: j)
-      if lhs.isError {
-        success = false
-        continue
-      }
-
+      let lhs = (realize(genericTypeParameterDecl: j).base as! MetatypeType).instance
       assert(lhs.base is GenericTypeParamType)
 
       // Synthesize the sugared conformance constraint, if any.
@@ -1274,8 +1272,8 @@ public struct TypeChecker {
     }
 
     // Synthesize `Self: T`.
-    let selfType = GenericTypeParamType(decl: id, ast: program.ast)
-    let trait = declTypes[id]!.base as! TraitType
+    let selfType = GenericTypeParamType(id, ast: program.ast)
+    let trait = (declTypes[id]!.base as! MetatypeType).instance.base as! TraitType
     constraints.append(
       ConformanceConstraint(
         ^selfType,
@@ -1359,8 +1357,8 @@ public struct TypeChecker {
   ) -> Constraint? {
     switch expr.value {
     case .equality(let l, let r):
-      guard let a = realize(name: l, inScope: scope) else { return nil }
-      guard let b = realize(r, inScope: scope) else { return nil }
+      guard let a = realize(name: l, inScope: scope)?.instance else { return nil }
+      guard let b = realize(r, inScope: scope)?.instance else { return nil }
 
       if !a.isTypeParam && !b.isTypeParam {
         diagnostics.insert(.diagnose(invalidEqualityConstraintBetween: a, and: b, at: expr.range))
@@ -1370,7 +1368,7 @@ public struct TypeChecker {
       return EqualityConstraint(a, b, because: ConstraintCause(.structural, at: expr.range))
 
     case .conformance(let l, let traits):
-      guard let a = realize(name: l, inScope: scope) else { return nil }
+      guard let a = realize(name: l, inScope: scope)?.instance else { return nil }
       if !a.isTypeParam {
         diagnostics.insert(.diagnose(invalidConformanceConstraintTo: a, at: expr.range))
         return nil
@@ -1378,7 +1376,7 @@ public struct TypeChecker {
 
       var b: Set<TraitType> = []
       for i in traits {
-        guard let type = realize(name: i, inScope: scope) else { return nil }
+        guard let type = realize(name: i, inScope: scope)?.instance else { return nil }
         if let trait = type.base as? TraitType {
           b.insert(trait)
         } else {
@@ -1495,7 +1493,7 @@ public struct TypeChecker {
       let lhs = program.ast[NodeID<BindingPattern>(rawValue: pattern.rawValue)]
       var subpatternType = expectedType
       if let annotation = lhs.annotation {
-        if let type = realize(annotation, inScope: scope) {
+        if let type = realize(annotation, inScope: scope)?.instance {
           if let r = expectedType {
             constraints.append(
               SubtypingConstraint(
@@ -1737,20 +1735,16 @@ public struct TypeChecker {
     switch lookupContext.kind {
     case ProductTypeDecl.self:
       let type = ^ProductType(
-        decl: NodeID(rawValue: lookupContext.rawValue),
+        NodeID(rawValue: lookupContext.rawValue),
         ast: program.ast)
       return lookup(name, memberOf: type, inScope: origin)
 
     case TraitDecl.self:
-      let type = ^TraitType(
-        decl: NodeID(rawValue: lookupContext.rawValue),
-        ast: program.ast)
+      let type = ^TraitType(NodeID(rawValue: lookupContext.rawValue), ast: program.ast)
       return lookup(name, memberOf: type, inScope: origin)
 
     case TypeAliasDecl.self:
-      let type = ^TypeAliasType(
-        decl: NodeID(rawValue: lookupContext.rawValue),
-        ast: program.ast)
+      let type = ^TypeAliasType(NodeID(rawValue: lookupContext.rawValue), ast: program.ast)
       return lookup(name, memberOf: type, inScope: origin)
 
     default:
@@ -1765,7 +1759,7 @@ public struct TypeChecker {
     inScope scope: AnyScopeID
   ) -> DeclSet {
     if let t = type.base as? ConformanceLensType {
-      return lookup(name, memberOf: ^t.focus, inScope: scope)
+      return lookup(name, memberOf: ^t.lens, inScope: scope)
     }
 
     let key = MemberLookupKey(type: type, scope: scope)
@@ -1820,7 +1814,7 @@ public struct TypeChecker {
       // TODO: Read source of conformance to disambiguate associated names
       let newMatches = lookup(name, memberOf: ^trait, inScope: scope)
       switch type.base {
-      case is AssociatedType,
+      case is AssociatedTypeType,
            is GenericTypeParamType,
            is TraitType:
         matches.formUnion(newMatches)
@@ -1873,44 +1867,30 @@ public struct TypeChecker {
     return nil
   }
 
-  /// Returns the extending declarations of `type` exposed to `scope`.
+  /// Returns the extending declarations of `subject` exposed to `scope`.
   ///
   /// - Note: The declarations referred by the returned IDs conform to `TypeExtendingDecl`.
   private mutating func extendingDecls<S: ScopeID>(
-    of type: AnyType,
+    of subject: AnyType,
     exposedTo scope: S
   ) -> [AnyDeclID] {
+    /// The canonical form of `subject`.
+    let canonicalSubject = canonicalize(type: subject)
+    /// The declarations extending `subject`.
     var matches: [AnyDeclID] = []
-    let canonicalType = canonicalize(type: type)
-
-    /// Inserts into `matches` the conformance and extension declarations contained in `decls`
-    /// that extend `canonicalType`.
-    func filter<S: Sequence>(this: inout TypeChecker, decls: S, inScope scope: AnyScopeID)
-    where S.Element == AnyDeclID
-    {
-      for i in decls where i.kind == ConformanceDecl.self || i.kind == ExtensionDecl.self {
-        // Skip extending declarations that are being bound.
-        guard this.extensionsUnderBinding.insert(i).inserted else { continue }
-        defer { this.extensionsUnderBinding.remove(i) }
-
-        // Bind the extension to the extended type.
-        let subject = this.realize(decl: i)
-        if subject.isError { continue }
-
-        // Check for a match.
-        if this.canonicalize(type: subject) == canonicalType {
-          matches.append(i)
-        }
-      }
-    }
+    /// The module at the root of `scope`, when found.
+    var root: NodeID<ModuleDecl>? = nil
 
     // Look for extension declarations in all visible scopes.
-    var root: NodeID<ModuleDecl>? = nil
     for scope in program.scopes(from: scope) {
       switch scope.kind {
       case ModuleDecl.self:
         let module = NodeID<ModuleDecl>(rawValue: scope.rawValue)
-        filter(this: &self, decls: program.ast.topLevelDecls(module), inScope: scope)
+        insert(
+          into: &matches,
+          decls: program.ast.topLevelDecls(module),
+          extending: canonicalSubject,
+          inScope: scope)
         root = module
 
       case TopLevelDeclSet.self:
@@ -1918,16 +1898,46 @@ public struct TypeChecker {
 
       default:
         let decls = program.scopeToDecls[scope, default: []]
-        filter(this: &self, decls: decls, inScope: scope)
+        insert(into: &matches, decls: decls, extending: canonicalSubject, inScope: scope)
       }
     }
 
     // Look for extension declarations in imported modules.
     for module in program.ast.modules where module != root {
-      filter(this: &self, decls: program.ast.topLevelDecls(module), inScope: AnyScopeID(module))
+      insert(
+        into: &matches,
+        decls: program.ast.topLevelDecls(module),
+        extending: canonicalSubject,
+        inScope: AnyScopeID(module))
     }
 
     return matches
+  }
+
+  /// Insert into `matches` the declarations in `decls` that extend `subject` in `scope`.
+  ///
+  /// - Requires: `subject` must be canonical.
+  private mutating func insert<S: Sequence>(
+    into matches: inout [AnyDeclID],
+    decls: S,
+    extending subject: AnyType,
+    inScope scope: AnyScopeID
+  )
+  where S.Element == AnyDeclID
+  {
+    precondition(subject[.isCanonical])
+
+    for i in decls where i.kind == ConformanceDecl.self || i.kind == ExtensionDecl.self {
+      // Skip extending declarations that are being bound.
+      guard extensionsUnderBinding.insert(i).inserted else { continue }
+      defer { extensionsUnderBinding.remove(i) }
+
+      // Check for matches.
+      guard let extendedType = realize(decl: i).base as? MetatypeType else { continue }
+      if canonicalize(type: extendedType.instance) == subject {
+        matches.append(i)
+      }
+    }
   }
 
   /// Returns the names and declarations introduced in `scope`.
@@ -1995,21 +2005,30 @@ public struct TypeChecker {
     named name: String,
     memberOf type: AnyType,
     inScope scope: AnyScopeID
-  ) -> AnyType? {
+  ) -> MetatypeType? {
     let candidates = lookup(name, memberOf: type, inScope: scope)
     if candidates.count != 1 { return nil }
 
     let decl = candidates.first!
     if !(decl.kind.value is TypeDecl.Type) { return nil }
 
-    // FIXME: If `type` is a bound generic type, substitute generic type parameters.
-    return realize(decl: decl)
+    switch realize(decl: decl).base {
+    case is ErrorType:
+      return nil
+
+    case let type as MetatypeType:
+      // FIXME: If `type` is a bound generic type, substitute generic type parameters.
+      return type
+
+    default:
+      unreachable("expected metatype")
+    }
   }
 
   // MARK: Type realization
 
   /// Realizes and returns the type denoted by `expr` evaluated in `scope`.
-  mutating func realize(_ expr: AnyExprID, inScope scope: AnyScopeID) -> AnyType? {
+  mutating func realize(_ expr: AnyExprID, inScope scope: AnyScopeID) -> MetatypeType? {
     switch expr.kind {
     case ConformanceLensTypeExpr.self:
       return realize(conformanceLens: NodeID(rawValue: expr.rawValue), inScope: scope)
@@ -2022,56 +2041,131 @@ public struct TypeChecker {
 
     case ParameterTypeExpr.self:
       let id = NodeID<ParameterTypeExpr>(rawValue: expr.rawValue)
-      diagnostics.insert(.diagnose(
-            illegalParameterConvention: program.ast[id].convention.value,
-        at: program.ast[id].convention.range))
+      diagnostics.insert(
+        .diagnose(
+          illegalParameterConvention: program.ast[id].convention.value,
+          at: program.ast[id].convention.range))
       return nil
 
     case TupleTypeExpr.self:
       return realize(tuple: NodeID(rawValue: expr.rawValue), inScope: scope)
 
     case WildcardTypeExpr.self:
-      return ^TypeVariable(node: expr.base)
+      return MetatypeType(TypeVariable(node: expr.base))
 
     default:
       unreachable("unexpected expression")
     }
   }
 
-  /// Returns the type `expr`'s the underlying function declaration.
+  /// Returns the type of the function declaration underlying `expr`.
   mutating func realize(underlyingDeclOf expr: NodeID<LambdaExpr>) -> AnyType? {
     realize(functionDecl: program.ast[expr].decl)
   }
 
-  /// Realizes and returns the type of `Self` in `scope`.
+  /// Realizes and returns a "magic" type expression.
+  private mutating func realizeMagicTypeExpr(
+    _ expr: NodeID<NameExpr>,
+    inScope scope: AnyScopeID
+  ) -> MetatypeType? {
+    precondition(program.ast[expr].domain == .none)
+
+    // Evaluate the static argument list.
+    var arguments: [BoundGenericType.Argument] = []
+    for a in program.ast[expr].arguments {
+      switch a.value {
+      case .expr(let a):
+        // TODO: Symbolic execution
+        arguments.append(.value(a))
+
+      case .type(let a):
+        guard let type = realize(a, inScope: scope)?.instance else { return nil }
+        arguments.append(.type(type))
+      }
+    }
+
+    // Determine the "magic" type expression to realize.
+    let name = program.ast[expr].name
+    switch name.value.stem {
+    case "Any":
+      let type = MetatypeType(.any)
+      if arguments.count > 0 {
+        diagnostics.insert(.diagnose(argumentToNonGenericType: type.instance, at: name.range))
+        return nil
+      }
+      return type
+
+    case "Never":
+      let type = MetatypeType(.never)
+      if arguments.count > 0 {
+        diagnostics.insert(.diagnose(argumentToNonGenericType: type.instance, at: name.range))
+        return nil
+      }
+      return type
+
+    case "Self":
+      guard let type = realizeSelfTypeExpr(inScope: scope) else {
+        diagnostics.insert(.diagnose(invalidReferenceToSelfTypeAt: name.range))
+        return nil
+      }
+      if arguments.count > 0 {
+        diagnostics.insert(.diagnose(argumentToNonGenericType: type.instance, at: name.range))
+        return nil
+      }
+      return type
+
+    case "Metatype":
+      if arguments.count != 1 {
+        diagnostics.insert(.diagnose(metatypeRequiresOneArgumentAt: name.range))
+      }
+      if case .type(let a) = arguments.first! {
+        return MetatypeType(MetatypeType(a))
+      } else {
+        fatalError("not implemented")
+      }
+
+    case "Builtin" where isBuiltinModuleVisible:
+      let type = MetatypeType(.builtin(.module))
+      if arguments.count > 0 {
+        diagnostics.insert(.diagnose(argumentToNonGenericType: type.instance, at: name.range))
+        return nil
+      }
+      return type
+
+    default:
+      return nil
+    }
+  }
+
+  /// Realizes and returns the type of the `Self` expression in `scope`.
   ///
   /// - Note: This method does not issue diagnostics.
-  private mutating func realizeSelfTypeExpr<T: ScopeID>(inScope scope: T) -> AnyType? {
+  private mutating func realizeSelfTypeExpr<T: ScopeID>(inScope scope: T) -> MetatypeType? {
     for scope in program.scopes(from: scope) {
       switch scope.kind {
       case TraitDecl.self:
         let decl = NodeID<TraitDecl>(rawValue: scope.rawValue)
-        return ^GenericTypeParamType(decl: decl, ast: program.ast)
+        return MetatypeType(GenericTypeParamType(decl, ast: program.ast))
 
       case ProductTypeDecl.self:
         // Synthesize unparameterized `Self`.
         let decl = NodeID<ProductTypeDecl>(rawValue: scope.rawValue)
-        var type = ^ProductType(decl: decl, ast: program.ast)
+        let unparameterized = ProductType(decl, ast: program.ast)
 
         // Synthesize arguments to generic parameters if necessary.
         if let parameters = program.ast[decl].genericClause?.value.parameters {
           let arguments = parameters.map({ (p) -> BoundGenericType.Argument in
             switch p {
             case .type(let p):
-              return .type(^GenericTypeParamType(decl: p, ast: program.ast))
+              return .type(^GenericTypeParamType(p, ast: program.ast))
             case .value:
               fatalError("not implemented")
             }
           })
-          type = ^BoundGenericType(type, arguments: arguments)
+          return MetatypeType(BoundGenericType(unparameterized, arguments: arguments))
+        } else {
+          return MetatypeType(unparameterized)
         }
-
-        return type
 
       case ConformanceDecl.self:
         let decl = NodeID<ConformanceDecl>(rawValue: scope.rawValue)
@@ -2095,106 +2189,95 @@ public struct TypeChecker {
   private mutating func realize(
     conformanceLens id: NodeID<ConformanceLensTypeExpr>,
     inScope scope: AnyScopeID
-  ) -> AnyType? {
-    guard let wrapped = realize(program.ast[id].subject, inScope: scope) else { return nil }
-    guard let trait = realize(program.ast[id].lens, inScope: scope) else { return nil }
+  ) -> MetatypeType? {
+    let node = program.ast[id]
 
-    /// The focus must be a trait.
-    guard let focus = trait.base as? TraitType else {
-      diagnostics.insert(.diagnose(notATrait: trait, at: program.ast.ranges[program.ast[id].lens]))
+    /// The lens must be a trait.
+    guard let lens = realize(node.lens, inScope: scope)?.instance else { return nil }
+    guard let lensTrait = lens.base as? TraitType else {
+      diagnostics.insert(.diagnose(notATrait: lens, at: program.ast.ranges[node.lens]))
       return nil
     }
 
-    // The base must conform to the focus.
-    guard conformedTraits(of: wrapped, inScope: scope)?.contains(focus) ?? false else {
-      diagnostics.insert(.diagnose(
-        type: wrapped,
-        doesNotConformTo: focus,
-        at: program.ast.ranges[program.ast[id].lens]))
+    // The subject must conform to the lens.
+    guard let subject = realize(node.subject, inScope: scope)?.instance else { return nil }
+    guard let traits = conformedTraits(of: subject, inScope: scope),
+          traits.contains(lensTrait)
+    else {
+      diagnostics.insert(
+        .diagnose(subject, doesNotConformTo: lensTrait, at: program.ast.ranges[node.lens]))
       return nil
     }
 
-    return ^ConformanceLensType(wrapped: wrapped, focus: focus)
+    return MetatypeType(ConformanceLensType(viewing: subject, through: lensTrait))
   }
 
   private mutating func realize(
     lambda id: NodeID<LambdaTypeExpr>,
     inScope scope: AnyScopeID
-  ) -> AnyType? {
+  ) -> MetatypeType? {
+    let node = program.ast[id]
+
     // Realize the lambda's environment.
     let environment: AnyType
-    if let env = program.ast[id].environment?.value {
-      guard let ty = realize(env, inScope: scope) else { return nil }
-      environment = ty
+    if let environmentExpr = node.environment?.value {
+      guard let ty = realize(environmentExpr, inScope: scope) else { return nil }
+      environment = ty.instance
     } else {
       environment = .any
     }
 
     // Realize the lambda's parameters.
     var inputs: [CallableTypeParameter] = []
-    for parameter in program.ast[id].parameters {
-      guard let ty = realize(parameter: parameter.type, inScope: scope) else { return nil }
-      inputs.append(CallableTypeParameter(label: parameter.label?.value, type: ty))
+    inputs.reserveCapacity(node.parameters.count)
+
+    for p in node.parameters {
+      guard let ty = realize(parameter: p.type, inScope: scope)?.instance else { return nil }
+      inputs.append(.init(label: p.label?.value, type: ty))
     }
 
     // Realize the lambda's output.
-    guard let output = realize(program.ast[id].output, inScope: scope) else { return nil }
+    guard let output = realize(node.output, inScope: scope)?.instance else { return nil }
 
-    return ^LambdaType(
-      receiverEffect: program.ast[id].receiverEffect?.value,
-      environment: environment,
-      inputs: inputs,
-      output: output)
+    return MetatypeType(
+      LambdaType(
+        receiverEffect: node.receiverEffect?.value,
+        environment: environment,
+        inputs: inputs,
+        output: output))
   }
 
   private mutating func realize(
     name id: NodeID<NameExpr>,
     inScope scope: AnyScopeID
-  ) -> AnyType? {
+  ) -> MetatypeType? {
     let name = program.ast[id].name
     let domain: AnyType?
     let matches: DeclSet
 
+    // Realize the name's domain, if any.
     switch program.ast[id].domain {
     case .none:
       // Name expression has no domain.
       domain = nil
 
-      // Handle reserved type names.
-      switch name.value.stem {
-      case "Self":
-        if let type = realizeSelfTypeExpr(inScope: scope) {
-          return type
-        } else {
-          diagnostics.insert(.diagnose(invalidReferenceToSelfTypeAt: name.range))
-          return nil
-        }
-
-      case "Any":
-        return .any
-
-      case "Never":
-        return .never
-
-      case "Builtin" where isBuiltinModuleVisible:
-        return .builtin(.module)
-
-      default:
-        break
-      }
-
       // Search for the referred type declaration with an unqualified lookup.
       matches = lookup(unqualified: name.value.stem, inScope: scope)
 
+      // If there are no matches, check for magic symbols.
+      if matches.isEmpty {
+        return realizeMagicTypeExpr(id, inScope: scope)
+      }
+
     case .type(let j):
-      // Resolve the domain.
-      guard let d = realize(j, inScope: scope) else { return nil }
+      // The domain is a type expression.
+      guard let d = realize(j, inScope: scope)?.instance else { return nil }
       domain = d
 
       // Handle references to built-in types.
       if d == .builtin(.module) {
         if let type = BuiltinType(name.value.stem) {
-          return .builtin(type)
+          return MetatypeType(.builtin(type))
         } else {
           diagnostics.insert(.diagnose(noType: name.value, in: domain, at: name.range))
           return nil
@@ -2204,7 +2287,12 @@ public struct TypeChecker {
       // Search for the referred type declaration with a qualified lookup.
       matches = lookup(name.value.stem, memberOf: d, inScope: scope)
 
-    case .implicit, .expr:
+    case .implicit:
+      diagnostics.insert(
+        .diagnose(notEnoughContextToResolveMember: name.value, at: name.range))
+      return nil
+
+    case .expr:
       unreachable("unexpected name domain")
     }
 
@@ -2228,43 +2316,42 @@ public struct TypeChecker {
     }
 
     // Realize the referred type.
-    let base: AnyType?
+    let referredType: MetatypeType
 
     if match.kind == AssociatedTypeDecl.self {
       let decl = NodeID<AssociatedTypeDecl>(rawValue: match.rawValue)
 
       switch domain?.base {
-      case is AssociatedType,
+      case is AssociatedTypeType,
            is ConformanceLensType,
            is GenericTypeParamType:
-        base = ^AssociatedType(decl: decl, domain: domain!, ast: program.ast)
+        referredType = MetatypeType(AssociatedTypeType(decl, domain: domain!, ast: program.ast))
 
       case nil:
         // Assume that `Self` in `scope` resolves to an implicit generic parameter of a trait
         // declaration, since associated declarations cannot be looked up unqualified outside
         // the scope of a trait and its extensions.
-        let domain = realizeSelfTypeExpr(inScope: scope)!
-        base = ^AssociatedType(
-          decl: NodeID(rawValue: match.rawValue),
+        let domain = realizeSelfTypeExpr(inScope: scope)!.instance
+        let instance = AssociatedTypeType(
+          NodeID(rawValue: match.rawValue),
           domain: domain,
           ast: program.ast)
+        referredType = MetatypeType(instance)
 
       case .some:
         diagnostics.insert(.diagnose(
-          invalidAssociatedTypeNamed: program.ast[decl].name,
+          invalidUseOfAssociatedType: program.ast[decl].name,
           at: name.range))
         return nil
       }
     } else {
-      base = realize(decl: match)
+      let declType = realize(decl: match)
+      referredType = (declType.base as? MetatypeType) ?? MetatypeType(declType)
     }
-
-    // Bail out if we couldn't realie the name expression.
-    if base == nil { return nil }
 
     // Evaluate the arguments of the referred type, if any.
     if program.ast[id].arguments.isEmpty {
-      return base!
+      return referredType
     } else {
       var arguments: [BoundGenericType.Argument] = []
 
@@ -2275,36 +2362,38 @@ public struct TypeChecker {
           arguments.append(.value(a))
 
         case .type(let a):
-          guard let type = realize(a, inScope: scope) else { return nil }
+          guard let type = realize(a, inScope: scope)?.instance else { return nil }
           arguments.append(.type(type))
         }
       }
 
-      return ^BoundGenericType(base!, arguments: arguments)
+      return MetatypeType(BoundGenericType(referredType.instance, arguments: arguments))
     }
   }
 
   private mutating func realize(
     parameter id: NodeID<ParameterTypeExpr>,
     inScope scope: AnyScopeID
-  ) -> AnyType? {
-    guard let bareType = realize(program.ast[id].bareType, inScope: scope) else { return nil }
-    return ^ParameterType(convention: program.ast[id].convention.value, bareType: bareType)
+  ) -> MetatypeType? {
+    let node = program.ast[id]
+
+    guard let bareType = realize(node.bareType, inScope: scope)?.instance else { return nil }
+    return MetatypeType(ParameterType(convention: node.convention.value, bareType: bareType))
   }
 
   private mutating func realize(
     tuple id: NodeID<TupleTypeExpr>,
     inScope scope: AnyScopeID
-  ) -> AnyType? {
+  ) -> MetatypeType? {
     var elements: [TupleType.Element] = []
     elements.reserveCapacity(program.ast[id].elements.count)
 
     for e in program.ast[id].elements {
-      guard let type = realize(e.type, inScope: scope) else { return nil }
-      elements.append(TupleType.Element(label: e.label?.value, type: type))
+      guard let ty = realize(e.type, inScope: scope)?.instance else { return nil }
+      elements.append(.init(label: e.label?.value, type: ty))
     }
 
-    return ^TupleType(elements)
+    return MetatypeType(TupleType(elements))
   }
 
   /// Realizes and returns the traits of the specified conformance list, or `nil` if at least one
@@ -2316,7 +2405,7 @@ public struct TypeChecker {
     // Realize the traits in the conformance list.
     var traits: Set<TraitType> = []
     for expr in conformances {
-      guard let rhs = realize(name: expr, inScope: scope) else { return nil }
+      guard let rhs = realize(name: expr, inScope: scope)?.instance else { return nil }
       if let trait = rhs.base as? TraitType {
         traits.insert(trait)
       } else {
@@ -2333,40 +2422,44 @@ public struct TypeChecker {
     switch id.kind {
     case AssociatedTypeDecl.self:
       return _realize(decl: id, { (this, id) in
-        let traitDecl = NodeID<TraitDecl>(rawValue: this.program.declToScope[id]!.rawValue)
-        return ^AssociatedType(
-          decl: NodeID(rawValue: id.rawValue),
-          domain: ^GenericTypeParamType(decl: traitDecl, ast: this.program.ast),
+        // Parent scope must be a trait declaration.
+        let traitDecl = NodeID<TraitDecl>(this.program.declToScope[id]!)!
+
+        let instance = AssociatedTypeType(
+          NodeID(rawValue: id.rawValue),
+          domain: ^GenericTypeParamType(traitDecl, ast: this.program.ast),
           ast: this.program.ast)
+        return ^MetatypeType(instance)
       })
 
     case AssociatedValueDecl.self:
       return _realize(decl: id, { (this, id) in
-        let traitDecl = NodeID<TraitDecl>(rawValue: this.program.declToScope[id]!.rawValue)
-        return ^AssociatedValueType(
-          decl: NodeID(rawValue: id.rawValue),
-          domain: ^GenericTypeParamType(decl: traitDecl, ast: this.program.ast),
+        // Parent scope must be a trait declaration.
+        let traitDecl = NodeID<TraitDecl>(this.program.declToScope[id]!)!
+
+        let instance = AssociatedValueType(
+          NodeID(rawValue: id.rawValue),
+          domain: ^GenericTypeParamType(traitDecl, ast: this.program.ast),
           ast: this.program.ast)
+        return ^MetatypeType(instance)
       })
 
     case GenericTypeParamDecl.self:
-      return _realize(decl: id, { (this, id) in
-        ^GenericTypeParamType(decl: id, ast: this.program.ast)
-      })
+      return realize(genericTypeParameterDecl: NodeID(rawValue: id.rawValue))
 
     case GenericValueParamDecl.self:
       return _realize(decl: id, { (this, id) in
-        ^GenericValueParamType(decl: id, ast: this.program.ast)
+        ^GenericValueParamType(id, ast: this.program.ast)
       })
 
     case BindingDecl.self:
       return realize(bindingDecl: NodeID(rawValue: id.rawValue))
 
-    case ConformanceDecl.self,
-         ExtensionDecl.self:
+    case ConformanceDecl.self, ExtensionDecl.self:
       return _realize(decl: id, { (this, id) in
         let decl = this.program.ast[id] as! TypeExtendingDecl
-        return this.realize(decl.subject, inScope: this.program.declToScope[id]!)
+        let type = this.realize(decl.subject, inScope: this.program.declToScope[id]!)
+        return type.flatMap(AnyType.init(_:))
       })
 
     case FunctionDecl.self:
@@ -2386,7 +2479,8 @@ public struct TypeChecker {
 
     case ProductTypeDecl.self:
       return _realize(decl: id, { (this, id) in
-        ^ProductType(decl: NodeID(rawValue: id.rawValue), ast: this.program.ast)
+        let instance = ProductType(NodeID(rawValue: id.rawValue), ast: this.program.ast)
+        return ^MetatypeType(instance)
       })
 
     case SubscriptDecl.self:
@@ -2394,12 +2488,14 @@ public struct TypeChecker {
 
     case TraitDecl.self:
       return _realize(decl: id, { (this, id) in
-        ^TraitType(decl: NodeID(rawValue: id.rawValue), ast: this.program.ast)
+        let instance = TraitType(NodeID(rawValue: id.rawValue), ast: this.program.ast)
+        return ^MetatypeType(instance)
       })
 
     case TypeAliasDecl.self:
       return _realize(decl: id, { (this, id) in
-        ^TypeAliasType(decl: NodeID(rawValue: id.rawValue), ast: this.program.ast)
+        let instance = TypeAliasType(NodeID(rawValue: id.rawValue), ast: this.program.ast)
+        return ^MetatypeType(instance)
       })
 
     case VarDecl.self:
@@ -2432,7 +2528,7 @@ public struct TypeChecker {
       declRequests[i] = .typeCheckingStarted
 
       if let annotation = program.ast[i].annotation {
-        if let type = realize(parameter: annotation, inScope: AnyScopeID(id)) {
+        if let type = realize(parameter: annotation, inScope: AnyScopeID(id))?.instance {
           // The annotation may not omit generic arguments.
           if type[.hasVariable] {
             diagnostics.insert(.diagnose(
@@ -2484,14 +2580,14 @@ public struct TypeChecker {
     // Realize the function's receiver if necessary.
     let isNonStaticMember = program.isNonStaticMember(id)
     var receiver: AnyType? = isNonStaticMember
-      ? realizeSelfTypeExpr(inScope: program.declToScope[id]!)
+      ? realizeSelfTypeExpr(inScope: program.declToScope[id]!)!.instance
       : nil
 
     // Realize the output type.
     let outputType: AnyType
     if let o = program.ast[id].output {
       // Use the explicit return annotation.
-      guard let type = realize(o, inScope: AnyScopeID(id)) else { return .error }
+      guard let type = realize(o, inScope: AnyScopeID(id))?.instance else { return .error }
       outputType = type
     } else if program.ast[id].isInExprContext {
       // Infer the return type from the body in expression contexts.
@@ -2536,6 +2632,19 @@ public struct TypeChecker {
     }
   }
 
+  public mutating func realize(
+    genericTypeParameterDecl id: NodeID<GenericTypeParamDecl>
+  ) -> AnyType {
+    _realize(decl: id, { (this, id) in this._realize(genericTypeParameterDecl: id) })
+  }
+
+  private mutating func _realize(
+    genericTypeParameterDecl id: NodeID<GenericTypeParamDecl>
+  ) -> AnyType {
+    let instance = GenericTypeParamType(id, ast: program.ast)
+    return ^MetatypeType(instance)
+  }
+
   private mutating func realize(initializerDecl id: NodeID<InitializerDecl>) -> AnyType {
     _realize(decl: id, { (this, id) in this._realize(initializerDecl: id) })
   }
@@ -2563,7 +2672,7 @@ public struct TypeChecker {
         unreachable("unexpected type expression")
       }
 
-      if let type = realize(parameter: annotation, inScope: AnyScopeID(id)) {
+      if let type = realize(parameter: annotation, inScope: AnyScopeID(id))?.instance {
         // The annotation may not omit generic arguments.
         if type[.hasVariable] {
           diagnostics.insert(.diagnose(notEnoughContextToInferArgumentsAt: program.ast.ranges[annotation]))
@@ -2584,10 +2693,10 @@ public struct TypeChecker {
     if !success { return .error }
 
     // Initializers are global functions.
-    let receiverType = realizeSelfTypeExpr(inScope: program.declToScope[id]!)
+    let receiverType = realizeSelfTypeExpr(inScope: program.declToScope[id]!)!.instance
     let receiverParameterType = CallableTypeParameter(
       label: "self",
-      type: ^ParameterType(convention: .set, bareType: receiverType!))
+      type: ^ParameterType(convention: .set, bareType: receiverType))
     inputs.insert(receiverParameterType, at: 0)
     return ^LambdaType(environment: .void, inputs: inputs, output: .void)
   }
@@ -2609,7 +2718,7 @@ public struct TypeChecker {
         unreachable("unexpected type expression")
       }
 
-      if let type = realize(parameter: annotation, inScope: AnyScopeID(id)) {
+      if let type = realize(parameter: annotation, inScope: AnyScopeID(id))?.instance {
         // The annotation may not omit generic arguments.
         if type[.hasVariable] {
           diagnostics.insert(.diagnose(notEnoughContextToInferArgumentsAt: program.ast.ranges[annotation]))
@@ -2618,7 +2727,7 @@ public struct TypeChecker {
 
         declTypes[i] = type
         declRequests[i] = .typeRealizationCompleted
-        inputs.append(CallableTypeParameter(label: program.ast[i].label?.value, type: type))
+        inputs.append(.init(label: program.ast[i].label?.value, type: type))
       } else {
         declTypes[i] = .error
         declRequests[i] = .failure
@@ -2630,13 +2739,13 @@ public struct TypeChecker {
     if !success { return .error }
 
     // Realize the method's receiver if necessary.
-    let receiver = realizeSelfTypeExpr(inScope: program.declToScope[id]!)
+    let receiver = realizeSelfTypeExpr(inScope: program.declToScope[id]!)!.instance
 
     // Realize the output type.
     let outputType: AnyType
     if let o = program.ast[id].output {
       // Use the explicit return annotation.
-      guard let type = realize(o, inScope: AnyScopeID(id)) else { return .error }
+      guard let type = realize(o, inScope: AnyScopeID(id))?.instance else { return .error }
       outputType = type
     } else {
       // Default to `Void`.
@@ -2649,13 +2758,13 @@ public struct TypeChecker {
       let range = program.ast[id].output.map({ (output) in
         program.ast.ranges[output]
       }) ?? program.ast[id].introducerRange
-      diagnostics.insert(.diagnose(inoutCapableMethodBundleMustReturn: receiver!, at: range))
+      diagnostics.insert(.diagnose(inoutCapableMethodBundleMustReturn: receiver, at: range))
       return .error
     }
 
     return ^MethodType(
       capabilities: capabilities,
-      receiver: receiver!,
+      receiver: receiver,
       inputs: inputs,
       output: outputType)
   }
@@ -2694,7 +2803,7 @@ public struct TypeChecker {
         unreachable("unexpected type expression")
       }
 
-      if let type = realize(parameter: annotation, inScope: AnyScopeID(id)) {
+      if let type = realize(parameter: annotation, inScope: AnyScopeID(id))?.instance {
         // The annotation may not omit generic arguments.
         if type[.hasVariable] {
           diagnostics.insert(.diagnose(notEnoughContextToInferArgumentsAt: program.ast.ranges[annotation]))
@@ -2729,8 +2838,8 @@ public struct TypeChecker {
     // Build the subscript's environment.
     let environment: TupleType
     if program.isNonStaticMember(id) {
-      let receiver = realizeSelfTypeExpr(inScope: program.declToScope[id]!)
-      environment = TupleType([.init(label: "self", type: ^RemoteType(.yielded, receiver!))])
+      let receiver = realizeSelfTypeExpr(inScope: program.declToScope[id]!)!.instance
+      environment = TupleType([.init(label: "self", type: ^RemoteType(.yielded, receiver))])
     } else {
       environment = TupleType(
         explicitCaptureTypes.map({ (t) -> TupleType.Element in
@@ -2742,7 +2851,7 @@ public struct TypeChecker {
     }
 
     // Realize the ouput type.
-    guard let output = realize(program.ast[id].output, inScope: AnyScopeID(id)) else {
+    guard let output = realize(program.ast[id].output, inScope: AnyScopeID(id))?.instance else {
       return .error
     }
 
@@ -2929,7 +3038,7 @@ public struct TypeChecker {
     var inputs: [CallableTypeParameter] = []
 
     // Synthesize the receiver type.
-    let receiver = realizeSelfTypeExpr(inScope: decl)!
+    let receiver = realizeSelfTypeExpr(inScope: decl)!.instance
     inputs.append(
       CallableTypeParameter(
         label: "self",
@@ -2954,7 +3063,7 @@ public struct TypeChecker {
 
   // MARK: Type role determination
 
-  /// Replaces occurrences of associated types and geneirc type parameters in `type` by fresh
+  /// Replaces occurrences of associated types and generic type parameters in `type` by fresh
   /// type variables variables.
   func open(type: AnyType) -> (AnyType, ConstraintSet) {
     /// A map from generic parameter type to its opened type.
@@ -2962,7 +3071,7 @@ public struct TypeChecker {
 
     func _impl(type: AnyType) -> TypeTransformAction {
       switch type.base {
-      case is AssociatedType:
+      case is AssociatedTypeType:
         fatalError("not implemented")
 
       case is GenericTypeParamType:
@@ -3011,7 +3120,7 @@ public struct TypeChecker {
 
     func _impl(type: AnyType) -> TypeTransformAction {
       switch type.base {
-      case is AssociatedType:
+      case is AssociatedTypeType:
         fatalError("not implemented")
 
       case let base as GenericTypeParamType:

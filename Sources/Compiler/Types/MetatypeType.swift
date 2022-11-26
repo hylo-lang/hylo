@@ -1,12 +1,12 @@
 /// The type of a type.
-public struct MetaTypeType: TypeProtocol {
+public struct MetatypeType: TypeProtocol {
 
   /// The type of which `self` is a type.
   public let instance: AnyType
 
   /// Creates a type denoting the type of `instance`.
   public init<T: TypeProtocol>(_ instance: T) {
-    self.instance = ^instance
+    self.init(^instance)
   }
 
   /// Creates a type denoting the type of `instance`.
@@ -17,15 +17,15 @@ public struct MetaTypeType: TypeProtocol {
   public var flags: TypeFlags { instance.flags }
 
   public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> Self {
-    MetaTypeType(instance.transform(transformer))
+    MetatypeType(instance.transform(transformer))
   }
 
 }
 
-extension MetaTypeType: CustomStringConvertible {
+extension MetatypeType: CustomStringConvertible {
 
   public var description: String {
-    "MetaType<\(instance)>"
+    "Metatype<\(instance)>"
   }
 
 }

@@ -114,7 +114,7 @@ public struct AST: Codable {
     for id in topLevelDecls(corelib!) where id.kind == ProductTypeDecl.self {
       let id = NodeID<ProductTypeDecl>(id)!
       if self[id].name == name {
-        return ProductType(decl: id, ast: self)
+        return ProductType(id, ast: self)
       }
     }
 
@@ -130,7 +130,7 @@ public struct AST: Codable {
     for id in topLevelDecls(corelib!) where id.kind == TraitDecl.self {
       let id = NodeID<TraitDecl>(rawValue: id.rawValue)
       if self[id].name == name {
-        return TraitType(decl: id, ast: self)
+        return TraitType(id, ast: self)
       }
     }
 

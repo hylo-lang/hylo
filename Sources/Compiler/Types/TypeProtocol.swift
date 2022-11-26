@@ -41,7 +41,7 @@ extension TypeProtocol {
   public var skolemized: AnyType {
     func _impl(type: AnyType) -> TypeTransformAction {
       switch type.base {
-      case let base as AssociatedType:
+      case let base as AssociatedTypeType:
         return .stepOver(^SkolemType(base: base))
 
       case let base as GenericTypeParamType:

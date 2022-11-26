@@ -1,7 +1,7 @@
 import Utils
 
 /// An associated type of a generic type parameter, or associated type thereof.
-public struct AssociatedType: TypeProtocol {
+public struct AssociatedTypeType: TypeProtocol {
 
   /// The declaration that introduces the associated type in the parent trait.
   public let decl: NodeID<AssociatedTypeDecl>
@@ -17,9 +17,9 @@ public struct AssociatedType: TypeProtocol {
   /// Creates an instance denoting the associated type declared by `decl` as a member of `domain`.
   ///
   /// - Requires: `domain` is an associated type, conformance lens, or generic type parameter.
-  public init(decl: NodeID<AssociatedTypeDecl>, domain: AnyType, ast: AST) {
+  public init(_ decl: NodeID<AssociatedTypeDecl>, domain: AnyType, ast: AST) {
     switch domain.base {
-    case is AssociatedType, is ConformanceLensType, is GenericTypeParamType:
+    case is AssociatedTypeType, is ConformanceLensType, is GenericTypeParamType:
       self.domain = domain
     default:
       preconditionFailure("invalid associated type domain")
@@ -42,12 +42,12 @@ public struct AssociatedType: TypeProtocol {
       case is GenericTypeParamType:
         return result
 
-      case let type as AssociatedType:
+      case let type as AssociatedTypeType:
         current = type.domain
         result.append(type.domain)
 
       case let type as ConformanceLensType:
-        current = type.wrapped
+        current = type.subject
 
       default:
         unreachable()
@@ -57,7 +57,7 @@ public struct AssociatedType: TypeProtocol {
 
 }
 
-extension AssociatedType: CustomStringConvertible {
+extension AssociatedTypeType: CustomStringConvertible {
 
   public var description: String { "\(domain).\(name.value)" }
 
