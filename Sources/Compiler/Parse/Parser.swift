@@ -1752,7 +1752,15 @@ public enum Parser {
         if state.take(.dot) != nil {
           // labeled-member-expr
           if let member = try primaryDeclRef.parse(&state) {
-            state.ast[member].incorporate(domain: .expr(head))
+            let origin = headRange.upperBounded(by: state.currentIndex)
+            try state.ast.modify(at: member, { (node: NameExpr) -> NameExpr in
+              NameExpr(
+                domain: .expr(head),
+                name: node.name,
+                arguments: node.arguments,
+                origin: origin)
+            })
+
             state.ast.ranges[member] = headRange.upperBounded(by: state.currentIndex)
             head = AnyExprID(member)
             continue
@@ -1839,7 +1847,16 @@ public enum Parser {
   static let staticValueMemberExpr = (
     primaryTypeExpr.and(take(.dot)).and(primaryDeclRef)
       .map({ (state, tree) -> NodeID<NameExpr> in
-        state.ast[tree.1].incorporate(domain: .type(tree.0.0))
+        let origin = state.ast[tree.0.0].origin!.upperBounded(
+          by: state.ast[tree.1].origin!.upperBound)
+        try state.ast.modify(at: tree.1, { (node: NameExpr) -> NameExpr in
+          NameExpr(
+            domain: .type(tree.0.0),
+            name: node.name,
+            arguments: node.arguments,
+            origin: origin)
+        })
+
         state.ast.ranges[tree.1] = state.ast.ranges[tree.0.0]!.upperBounded(
           by: state.ast.ranges[tree.1]!.upperBound)
         return tree.1
@@ -1962,9 +1979,13 @@ public enum Parser {
   static let implicitMemberRef = (
     take(.dot).and(primaryDeclRef)
       .map({ (state, tree) -> NodeID<NameExpr> in
-        state.ast[tree.1].incorporate(domain: .implicit)
-        state.ast.ranges[tree.1] = tree.0.range.upperBounded(
-          by: state.ast.ranges[tree.1]!.upperBound)
+        try state.ast.modify(at: tree.1, { (node: NameExpr) -> NameExpr in
+          NameExpr(
+            domain: .implicit,
+            name: node.name,
+            arguments: node.arguments,
+            origin: tree.0.range.upperBounded(by: node.origin!.upperBound))
+        })
         return tree.1
       })
   )
@@ -2576,7 +2597,15 @@ public enum Parser {
             throw DiagnosedError(expected("type member name", at: state.currentLocation))
           }
 
-          state.ast[member].incorporate(domain: .type(head))
+          let origin = headRange.upperBounded(by: state.currentIndex)
+          try state.ast.modify(at: member, { (node: NameExpr) -> NameExpr in
+            NameExpr(
+              domain: .type(head),
+              name: node.name,
+              arguments: node.arguments,
+              origin: origin)
+          })
+
           state.ast.ranges[member] = headRange.upperBounded(by: state.currentIndex)
           head = AnyTypeExprID(member)
           continue
