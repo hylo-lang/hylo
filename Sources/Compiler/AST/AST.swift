@@ -71,6 +71,15 @@ public struct AST: Codable {
     nodes[position].node
   }
 
+  /// Modifies the node at `position`.
+  mutating func modify<T: Node>(at position: NodeID<T>, _ transform: (T) -> T) throws {
+    let newNode = transform(self[position])
+    if case .failure(let error) = newNode.validateForm(in: self) {
+      throw DiagnosedError(error)
+    }
+    nodes[position.rawValue] = AnyNode(newNode)
+  }
+
   // MARK: Core library
 
   /// Indicates whether the Core library has been loaded.
