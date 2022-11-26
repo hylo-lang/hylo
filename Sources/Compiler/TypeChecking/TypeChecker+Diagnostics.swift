@@ -84,10 +84,10 @@ extension Diagnostic {
   }
 
   static func diagnose(
-    expectedMetaTypeButFound value: AnyType,
+    expectedMetatypeButFound value: AnyType,
     at range: SourceRange?
   ) -> Diagnostic {
-    .error("expected meta type, found '\(value)'", range: range)
+    .error("expected metatype, found '\(value)'", range: range)
   }
 
   static func diagnose(
