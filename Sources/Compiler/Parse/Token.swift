@@ -98,8 +98,8 @@ public struct Token {
   /// The kind of the token.
   public internal(set) var kind: Kind
 
-  /// The range of the token in the source file from which it has been parsed.
-  public internal(set) var range: SourceRange
+  /// The source range from which `self` was extracted.
+  public internal(set) var origin: SourceRange
 
   /// Indicates whether `self` is a keyword.
   public var isKeyword: Bool {
