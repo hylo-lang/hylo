@@ -543,7 +543,7 @@ public struct Emitter {
         let receiverType = calleeType.captures[0].type
 
         // Add the receiver to the arguments.
-        if let type = receiverType.base as? RemoteType {
+        if let type = RemoteType(receiverType) {
           // The receiver as a borrowing convention.
           argumentConventions.insert(PassingConvention(matching: type.capability), at: 0)
 
@@ -683,7 +683,7 @@ public struct Emitter {
 
       let lhsConvention: PassingConvention
       let lhsOperand: Operand
-      if let lhsType = calleeType.captures[0].type.base as? RemoteType {
+      if let lhsType = RemoteType(calleeType.captures[0].type) {
         lhsConvention = PassingConvention(matching: lhsType.capability)
         lhsOperand = emit(lhsConvention, foldedSequence: lhs, into: &module)
       } else {
@@ -795,7 +795,7 @@ public struct Emitter {
         let receiverType = calleeType.captures[0].type
 
         // Add the receiver to the arguments.
-        if let type = receiverType.base as? RemoteType {
+        if let type = RemoteType(receiverType) {
           // The receiver has a borrowing convention.
           conventions.insert(PassingConvention(matching: type.capability), at: 1)
 

@@ -5,12 +5,12 @@ public struct SkolemType: TypeProtocol {
   public let base: AnyType
 
   /// Creates an instance denoting the existential quantification of `base`.
-  public init<T: TypeProtocol>(base: T) {
+  public init<T: TypeProtocol>(quantifying base: T) {
     self.base = ^base
   }
 
   /// Creates an instance denoting the existential quantification of `base`.
-  public init(base: AnyType) {
+  public init(quantifying base: AnyType) {
     self.base = base
   }
 

@@ -370,7 +370,7 @@ struct ConstraintGenerator {
     }
 
     // 3rd case
-    if let calleeType = inferredTypes[callee]!.base as? LambdaType {
+    if let calleeType = LambdaType(inferredTypes[callee]!) {
       let outputType = propagateDown(
         callee: callee,
         calleeType: calleeType,
@@ -479,7 +479,7 @@ struct ConstraintGenerator {
     defer { assert(inferredTypes[id] != nil) }
 
     // Realize the type of the underlying declaration.
-    guard let declType = checker.realize(underlyingDeclOf: id)?.base as? LambdaType else {
+    guard let declType = LambdaType(checker.realize(underlyingDeclOf: id)) else {
       assignToError(id)
       return
     }
@@ -487,7 +487,7 @@ struct ConstraintGenerator {
     // Schedule the underlying declaration to be type-checked.
     checker.deferTypeChecking(id)
 
-    if let expectedType = expectedTypes[id]!.base as? LambdaType {
+    if let expectedType = LambdaType(expectedTypes[id]!) {
       // Check that the declaration defines the expected number of parameters.
       if declType.inputs.count != expectedType.inputs.count {
         diagnostics.append(.diagnose(
@@ -758,7 +758,7 @@ struct ConstraintGenerator {
     // If the expected type is a tuple compatible with the shape of the expression, propagate that
     // information down the expression tree. Otherwise, infer the type of the expression from the
     // leaves and use type constraints to detect potential mismatch.
-    if let type = expectedTypes[id]?.base as? TupleType,
+    if let type = TupleType(expectedTypes[id]),
        type.elements.elementsEqual(tupleExpr, by: { (a, b) in a.label == b.label?.value })
     {
       for i in 0 ..< tupleExpr.count {
@@ -834,7 +834,7 @@ struct ConstraintGenerator {
           parameterType,
           because: ConstraintCause(.argument, at: checker.program.ast.ranges[argumentExpr])))
 
-      if let type = parameterType.base as? ParameterType {
+      if let type = ParameterType(parameterType) {
         expectedTypes[argumentExpr] = type.bareType
       }
       visit(expr: argumentExpr, using: &checker)
