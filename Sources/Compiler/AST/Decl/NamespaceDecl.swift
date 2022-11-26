@@ -1,6 +1,8 @@
 /// A namespace declaration.
 public struct NamespaceDecl: TypeDecl, LexicalScope {
 
+  public let origin: SourceRange?
+
   /// The source range of the declaration's introducer, if any.
   public let introducerRange: SourceRange?
 
@@ -18,8 +20,10 @@ public struct NamespaceDecl: TypeDecl, LexicalScope {
     introducerRange: SourceRange?,
     accessModifier: SourceRepresentable<AccessModifier>?,
     identifier: SourceRepresentable<Identifier>,
-    members: [AnyDeclID]
+    members: [AnyDeclID],
+    origin: SourceRange?
   ) {
+    self.origin = origin
     self.introducerRange = introducerRange
     self.accessModifier = accessModifier
     self.identifier = identifier

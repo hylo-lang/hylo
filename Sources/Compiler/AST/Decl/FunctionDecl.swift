@@ -11,6 +11,8 @@ public struct FunctionDecl: GenericDecl, GenericScope {
 
   }
 
+  public let origin: SourceRange?
+
   /// The source range of the `fun` introducer, if any.
   public let introducerRange: SourceRange?
 
@@ -70,8 +72,10 @@ public struct FunctionDecl: GenericDecl, GenericScope {
     receiver: NodeID<ParameterDecl>? = nil,
     output: AnyTypeExprID? = nil,
     body: Body? = nil,
-    isInExprContext: Bool = false
+    isInExprContext: Bool = false,
+    origin: SourceRange?
   ) {
+    self.origin = origin
     self.introducerRange = introducerRange
     self.attributes = attributes
     self.accessModifier = accessModifier

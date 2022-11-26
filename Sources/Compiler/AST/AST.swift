@@ -15,9 +15,6 @@ public struct AST: Codable {
   /// The ID of the module containing Val's core library, if any.
   public var corelib: NodeID<ModuleDecl>?
 
-  /// The source range of each node.
-  public internal(set) var ranges = ASTProperty<SourceRange>()
-
   /// Creates an empty AST.
   public init() {}
 
@@ -69,6 +66,15 @@ public struct AST: Codable {
   /// Accesses the node at `position`.
   subscript(raw position: NodeID.RawValue) -> Node {
     nodes[position].node
+  }
+
+  /// Modifies the node at `position`.
+  mutating func modify<T: Node>(at position: NodeID<T>, _ transform: (T) -> T) throws {
+    let newNode = transform(self[position])
+    if case .failure(let error) = newNode.validateForm(in: self) {
+      throw DiagnosedError(error)
+    }
+    nodes[position.rawValue] = AnyNode(newNode)
   }
 
   // MARK: Core library
@@ -196,15 +202,15 @@ public struct AST: Codable {
     return result
   }
 
-  /// Returns the source range of `expr`, if any.
+  /// Returns the source origin of `expr`, if any.
   public func origin(of expr: FoldedSequenceExpr) -> SourceRange? {
     switch expr {
     case .leaf(let i):
-      return ranges[i]
+      return self[i].origin
 
     case .infix(_, let lhs, let rhs):
       if let lhsRange = origin(of: lhs), let rhsRange = origin(of: rhs) {
-        return lhsRange.upperBounded(by: rhsRange.upperBound)
+        return lhsRange.extended(upTo: rhsRange.upperBound)
       } else {
         return nil
       }

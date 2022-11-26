@@ -10,10 +10,13 @@ public struct MapLiteralExpr: Expr {
 
   }
 
+  public let origin: SourceRange?
+
   /// The key-value pairs of the literal.
   public let elements: [Element]
 
-  public init(elements: [Element]) {
+  public init(elements: [Element], origin: SourceRange?) {
+    self.origin = origin
     self.elements = elements
   }
 

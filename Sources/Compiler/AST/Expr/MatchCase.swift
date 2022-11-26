@@ -11,6 +11,8 @@ public struct MatchCase: Node, LexicalScope {
 
   }
 
+  public let origin: SourceRange?
+
   /// The pattern of the case.
   public let pattern: AnyPatternID
 
@@ -20,7 +22,13 @@ public struct MatchCase: Node, LexicalScope {
   /// The body of the case.
   public let body: Body
 
-  public init(pattern: AnyPatternID, condition: AnyExprID? = nil, body: MatchCase.Body) {
+  public init(
+    pattern: AnyPatternID,
+    condition: AnyExprID?,
+    body: MatchCase.Body,
+    origin: SourceRange?
+  ) {
+    self.origin = origin
     self.pattern = pattern
     self.condition = condition
     self.body = body

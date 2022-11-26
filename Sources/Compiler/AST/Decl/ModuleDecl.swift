@@ -11,6 +11,8 @@ public struct ModuleDecl: TypeDecl, LexicalScope {
     self.name = name
   }
 
+  public var origin: SourceRange? { nil }
+
   /// Adds the given source file to our list of sources.
   public mutating func addSourceFile(_ s: NodeID<TopLevelDeclSet>) {
     sources.append(s)

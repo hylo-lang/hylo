@@ -137,7 +137,8 @@ public struct TypeChecker {
 
       while let base = work.popFirst() {
         if base == t {
-          diagnostics.insert(.diagnose(circularRefinementAt: program.ast[t.decl].identifier.range))
+          diagnostics.insert(
+            .diagnose(circularRefinementAt: program.ast[t.decl].identifier.origin))
           return nil
         } else if result.insert(base).inserted {
           guard let traits = realize(
@@ -328,7 +329,7 @@ public struct TypeChecker {
     case nil:
       declRequests[id] = .typeCheckingStarted
     case .typeCheckingStarted:
-      diagnostics.insert(.diagnose(circularDependencyAt: program.ast.ranges[id]))
+      diagnostics.insert(.diagnose(circularDependencyAt: program.ast[id].origin))
       return false
     case .success:
       return true
@@ -355,7 +356,7 @@ public struct TypeChecker {
         equalityOrSubtypingConstraint(
           initializerType,
           shape.type,
-          because: ConstraintCause(.initialization, at: program.ast.ranges[id])))
+          because: ConstraintCause(.initialization, at: program.ast[id].origin)))
 
       // Infer the type of the initializer
       let names = program.ast.names(in: program.ast[id].pattern).map({ (name) in
@@ -519,7 +520,7 @@ public struct TypeChecker {
     } else if program.isRequirement(id) {
       return success
     } else {
-      diagnostics.insert(.diagnose(declarationRequiresBodyAt: program.ast[id].introducer.range))
+      diagnostics.insert(.diagnose(declarationRequiresBodyAt: program.ast[id].introducer.origin))
       return false
     }
   }
@@ -591,7 +592,7 @@ public struct TypeChecker {
     // Check for duplicate parameter names.
     if !siblingNames.insert(program.ast[id].name).inserted {
       diagnostics.insert(.diganose(
-        duplicateParameterNamed: program.ast[id].name, at: program.ast.ranges[id]))
+        duplicateParameterNamed: program.ast[id].name, at: program.ast[id].origin))
       declRequests[id] = .failure
       return false
     }
@@ -605,7 +606,7 @@ public struct TypeChecker {
         ParameterConstraint(
           defaultValueType,
           ^parameterType,
-          because: ConstraintCause(.argument, at: program.ast.ranges[id]))
+          because: ConstraintCause(.argument, at: program.ast[id].origin))
       ]
 
       let solution = infer(
@@ -637,7 +638,7 @@ public struct TypeChecker {
       {
         diagnostics.insert(.diagnose(
           duplicateOperatorNamed: program.ast[id].name.value,
-          at: program.ast.ranges[id]))
+          at: program.ast[id].origin))
         return false
       }
     }
@@ -732,7 +733,7 @@ public struct TypeChecker {
         if program.isRequirement(id) { continue }
 
         // Declaration requires a body.
-        diagnostics.insert(.diagnose(declarationRequiresBodyAt: program.ast[id].introducer.range))
+        diagnostics.insert(.diagnose(declarationRequiresBodyAt: program.ast[id].introducer.origin))
         success = false
       }
     }
@@ -834,7 +835,7 @@ public struct TypeChecker {
       case .typeRealizationStarted, .typeCheckingStarted:
         // Note: The request status will be updated when the request that caused the circular
         // dependency handles the failure.
-        diagnostics.insert(.diagnose(circularDependencyAt: program.ast.ranges[id]))
+        diagnostics.insert(.diagnose(circularDependencyAt: program.ast[id].origin))
         return false
 
       case .success:
@@ -952,7 +953,7 @@ public struct TypeChecker {
             .diagnose(
               conformingType,
               doesNotConformTo: trait,
-              at: program.ast[decl].identifier.range,
+              at: program.ast[decl].identifier.origin,
               because: [
                 .diagnose(
                   traitRequiresMethod: Name(of: requirement, in: program.ast)!,
@@ -986,7 +987,9 @@ public struct TypeChecker {
       if let type = infer(expr: stmt.expr, inScope: lexicalContext) {
         // Issue a warning if the type of the expression isn't void.
         if type != .void {
-          diagnostics.insert(.diagnose(unusedResultOfType: type, at: program.ast.ranges[stmt.expr]))
+          diagnostics.insert(.diagnose(
+            unusedResultOfType: type,
+            at: program.ast[stmt.expr].origin))
         }
         return true
       } else {
@@ -1034,7 +1037,7 @@ public struct TypeChecker {
       let c = equalityOrSubtypingConstraint(
         inferredReturnType,
         expectedType,
-        because: ConstraintCause(.return, at: program.ast.ranges[returnValue]))
+        because: ConstraintCause(.return, at: program.ast[returnValue].origin))
       let solution = infer(
         expr: returnValue,
         inferredType: inferredReturnType,
@@ -1043,7 +1046,7 @@ public struct TypeChecker {
         constraints: [c])
       return solution.diagnostics.isEmpty
     } else if expectedType != .void {
-      diagnostics.insert(.diagnose(missingReturnValueAt: program.ast.ranges[id]))
+      diagnostics.insert(.diagnose(missingReturnValueAt: program.ast[id].origin))
       return false
     } else {
       return true
@@ -1062,7 +1065,7 @@ public struct TypeChecker {
     let c = equalityOrSubtypingConstraint(
       inferredReturnType,
       expectedType,
-      because: ConstraintCause(.yield, at: program.ast.ranges[program.ast[id].value]))
+      because: ConstraintCause(.yield, at: program.ast[program.ast[id].value].origin))
     let solution = infer(
       expr: program.ast[id].value,
       inferredType: inferredReturnType,
@@ -1165,7 +1168,7 @@ public struct TypeChecker {
       else { return nil }
 
       if !traits.isEmpty {
-        let cause = ConstraintCause(.annotation, at: program.ast.ranges[list[0]])
+        let cause = ConstraintCause(.annotation, at: program.ast[list[0]].origin)
         constraints.append(ConformanceConstraint(lhs, traits: traits, because: cause))
       }
     }
@@ -1278,7 +1281,7 @@ public struct TypeChecker {
       ConformanceConstraint(
         ^selfType,
         traits: [trait],
-        because: ConstraintCause(.structural, at: program.ast[id].identifier.range)))
+        because: ConstraintCause(.structural, at: program.ast[id].identifier.origin)))
 
     let e = GenericEnvironment(decl: id, constraints: constraints, into: &self)
     environments[id] = .done(e)
@@ -1304,7 +1307,7 @@ public struct TypeChecker {
     else { return false }
 
     if !traits.isEmpty {
-      let cause = ConstraintCause(.annotation, at: program.ast.ranges[list[0]])
+      let cause = ConstraintCause(.annotation, at: program.ast[list[0]].origin)
       constraints.append(ConformanceConstraint(lhs, traits: traits, because: cause))
     }
 
@@ -1361,16 +1364,16 @@ public struct TypeChecker {
       guard let b = realize(r, inScope: scope)?.instance else { return nil }
 
       if !a.isTypeParam && !b.isTypeParam {
-        diagnostics.insert(.diagnose(invalidEqualityConstraintBetween: a, and: b, at: expr.range))
+        diagnostics.insert(.diagnose(invalidEqualityConstraintBetween: a, and: b, at: expr.origin))
         return nil
       }
 
-      return EqualityConstraint(a, b, because: ConstraintCause(.structural, at: expr.range))
+      return EqualityConstraint(a, b, because: ConstraintCause(.structural, at: expr.origin))
 
     case .conformance(let l, let traits):
       guard let a = realize(name: l, inScope: scope)?.instance else { return nil }
       if !a.isTypeParam {
-        diagnostics.insert(.diagnose(invalidConformanceConstraintTo: a, at: expr.range))
+        diagnostics.insert(.diagnose(invalidConformanceConstraintTo: a, at: expr.origin))
         return nil
       }
 
@@ -1380,7 +1383,7 @@ public struct TypeChecker {
         if let trait = type.base as? TraitType {
           b.insert(trait)
         } else {
-          diagnostics.insert(.diagnose(conformanceToNonTraitType: a, at: expr.range))
+          diagnostics.insert(.diagnose(conformanceToNonTraitType: a, at: expr.origin))
           return nil
         }
       }
@@ -1388,11 +1391,11 @@ public struct TypeChecker {
       return ConformanceConstraint(
         a,
         traits: b,
-        because: ConstraintCause(.structural, at: expr.range))
+        because: ConstraintCause(.structural, at: expr.origin))
 
     case .value(let e):
       // TODO: Symbolic execution
-      return PredicateConstraint(e, because: ConstraintCause(.structural, at: expr.range))
+      return PredicateConstraint(e, because: ConstraintCause(.structural, at: expr.origin))
     }
   }
 
@@ -1499,7 +1502,7 @@ public struct TypeChecker {
               SubtypingConstraint(
                 type,
                 r,
-                because: ConstraintCause(.annotation, at: program.ast.ranges[pattern])))
+                because: ConstraintCause(.annotation, at: program.ast[pattern].origin)))
           }
           subpatternType = type
         } else {
@@ -1555,14 +1558,14 @@ public struct TypeChecker {
             diagnostics.insert(.diagnose(
               labels: lLabels,
               incompatibleWith: rLabels,
-              at: program.ast.ranges[pattern]))
+              at: program.ast[pattern].origin))
             return nil
           }
         } else {
           // Invalid destructuring.
           diagnostics.insert(.diagnose(
             invalidDestructuringOfType: expectedType!,
-            at: program.ast.ranges[pattern]))
+            at: program.ast[pattern].origin))
           return nil
         }
 
@@ -1570,7 +1573,7 @@ public struct TypeChecker {
         // The pattern has a tuple shape, the expected type hasn't.
         diagnostics.insert(.diagnose(
           invalidDestructuringOfType: expectedType!,
-          at: program.ast.ranges[pattern]))
+          at: program.ast[pattern].origin))
         return nil
 
       case nil:
@@ -2044,7 +2047,7 @@ public struct TypeChecker {
       diagnostics.insert(
         .diagnose(
           illegalParameterConvention: program.ast[id].convention.value,
-          at: program.ast[id].convention.range))
+          at: program.ast[id].convention.origin))
       return nil
 
     case TupleTypeExpr.self:
@@ -2090,7 +2093,7 @@ public struct TypeChecker {
     case "Any":
       let type = MetatypeType(.any)
       if arguments.count > 0 {
-        diagnostics.insert(.diagnose(argumentToNonGenericType: type.instance, at: name.range))
+        diagnostics.insert(.diagnose(argumentToNonGenericType: type.instance, at: name.origin))
         return nil
       }
       return type
@@ -2098,25 +2101,25 @@ public struct TypeChecker {
     case "Never":
       let type = MetatypeType(.never)
       if arguments.count > 0 {
-        diagnostics.insert(.diagnose(argumentToNonGenericType: type.instance, at: name.range))
+        diagnostics.insert(.diagnose(argumentToNonGenericType: type.instance, at: name.origin))
         return nil
       }
       return type
 
     case "Self":
       guard let type = realizeSelfTypeExpr(inScope: scope) else {
-        diagnostics.insert(.diagnose(invalidReferenceToSelfTypeAt: name.range))
+        diagnostics.insert(.diagnose(invalidReferenceToSelfTypeAt: name.origin))
         return nil
       }
       if arguments.count > 0 {
-        diagnostics.insert(.diagnose(argumentToNonGenericType: type.instance, at: name.range))
+        diagnostics.insert(.diagnose(argumentToNonGenericType: type.instance, at: name.origin))
         return nil
       }
       return type
 
     case "Metatype":
       if arguments.count != 1 {
-        diagnostics.insert(.diagnose(metatypeRequiresOneArgumentAt: name.range))
+        diagnostics.insert(.diagnose(metatypeRequiresOneArgumentAt: name.origin))
       }
       if case .type(let a) = arguments.first! {
         return MetatypeType(MetatypeType(a))
@@ -2127,7 +2130,7 @@ public struct TypeChecker {
     case "Builtin" where isBuiltinModuleVisible:
       let type = MetatypeType(.builtin(.module))
       if arguments.count > 0 {
-        diagnostics.insert(.diagnose(argumentToNonGenericType: type.instance, at: name.range))
+        diagnostics.insert(.diagnose(argumentToNonGenericType: type.instance, at: name.origin))
         return nil
       }
       return type
@@ -2195,7 +2198,7 @@ public struct TypeChecker {
     /// The lens must be a trait.
     guard let lens = realize(node.lens, inScope: scope)?.instance else { return nil }
     guard let lensTrait = lens.base as? TraitType else {
-      diagnostics.insert(.diagnose(notATrait: lens, at: program.ast.ranges[node.lens]))
+      diagnostics.insert(.diagnose(notATrait: lens, at: program.ast[node.lens].origin))
       return nil
     }
 
@@ -2205,7 +2208,7 @@ public struct TypeChecker {
           traits.contains(lensTrait)
     else {
       diagnostics.insert(
-        .diagnose(subject, doesNotConformTo: lensTrait, at: program.ast.ranges[node.lens]))
+        .diagnose(subject, doesNotConformTo: lensTrait, at: program.ast[node.lens].origin))
       return nil
     }
 
@@ -2279,7 +2282,7 @@ public struct TypeChecker {
         if let type = BuiltinType(name.value.stem) {
           return MetatypeType(.builtin(type))
         } else {
-          diagnostics.insert(.diagnose(noType: name.value, in: domain, at: name.range))
+          diagnostics.insert(.diagnose(noType: name.value, in: domain, at: name.origin))
           return nil
         }
       }
@@ -2289,7 +2292,7 @@ public struct TypeChecker {
 
     case .implicit:
       diagnostics.insert(
-        .diagnose(notEnoughContextToResolveMember: name.value, at: name.range))
+        .diagnose(notEnoughContextToResolveMember: name.value, at: name.origin))
       return nil
 
     case .expr:
@@ -2298,7 +2301,7 @@ public struct TypeChecker {
 
     // Diagnose unresolved names.
     if matches.isEmpty {
-      diagnostics.insert(.diagnose(noType: name.value, in: domain, at: name.range))
+      diagnostics.insert(.diagnose(noType: name.value, in: domain, at: name.origin))
       return nil
     }
 
@@ -2341,7 +2344,7 @@ public struct TypeChecker {
       case .some:
         diagnostics.insert(.diagnose(
           invalidUseOfAssociatedType: program.ast[decl].name,
-          at: name.range))
+          at: name.origin))
         return nil
       }
     } else {
@@ -2409,7 +2412,7 @@ public struct TypeChecker {
       if let trait = rhs.base as? TraitType {
         traits.insert(trait)
       } else {
-        diagnostics.insert(.diagnose(conformanceToNonTraitType: rhs, at: program.ast.ranges[expr]))
+        diagnostics.insert(.diagnose(conformanceToNonTraitType: rhs, at: program.ast[expr].origin))
         return nil
       }
     }
@@ -2532,7 +2535,7 @@ public struct TypeChecker {
           // The annotation may not omit generic arguments.
           if type[.hasVariable] {
             diagnostics.insert(.diagnose(
-              notEnoughContextToInferArgumentsAt: program.ast.ranges[annotation]))
+              notEnoughContextToInferArgumentsAt: program.ast[annotation].origin))
             success = false
           }
 
@@ -2675,7 +2678,8 @@ public struct TypeChecker {
       if let type = realize(parameter: annotation, inScope: AnyScopeID(id))?.instance {
         // The annotation may not omit generic arguments.
         if type[.hasVariable] {
-          diagnostics.insert(.diagnose(notEnoughContextToInferArgumentsAt: program.ast.ranges[annotation]))
+          diagnostics.insert(
+            .diagnose(notEnoughContextToInferArgumentsAt: program.ast[annotation].origin))
           success = false
         }
 
@@ -2721,7 +2725,8 @@ public struct TypeChecker {
       if let type = realize(parameter: annotation, inScope: AnyScopeID(id))?.instance {
         // The annotation may not omit generic arguments.
         if type[.hasVariable] {
-          diagnostics.insert(.diagnose(notEnoughContextToInferArgumentsAt: program.ast.ranges[annotation]))
+          diagnostics.insert(
+            .diagnose(notEnoughContextToInferArgumentsAt: program.ast[annotation].origin))
           success = false
         }
 
@@ -2756,7 +2761,7 @@ public struct TypeChecker {
     let capabilities = Set(program.ast[id].impls.map({ program.ast[$0].introducer.value }))
     if capabilities.contains(.inout) && (outputType != receiver) {
       let range = program.ast[id].output.map({ (output) in
-        program.ast.ranges[output]
+        program.ast[output].origin
       }) ?? program.ast[id].introducerRange
       diagnostics.insert(.diagnose(inoutCapableMethodBundleMustReturn: receiver, at: range))
       return .error
@@ -2778,7 +2783,7 @@ public struct TypeChecker {
       preconditionFailure()
 
     case .typeRealizationStarted:
-      diagnostics.insert(.diagnose(circularDependencyAt: program.ast.ranges[id]))
+      diagnostics.insert(.diagnose(circularDependencyAt: program.ast[id].origin))
       return .error
 
     case .typeRealizationCompleted, .typeCheckingStarted, .success, .failure:
@@ -2806,7 +2811,8 @@ public struct TypeChecker {
       if let type = realize(parameter: annotation, inScope: AnyScopeID(id))?.instance {
         // The annotation may not omit generic arguments.
         if type[.hasVariable] {
-          diagnostics.insert(.diagnose(notEnoughContextToInferArgumentsAt: program.ast.ranges[annotation]))
+          diagnostics.insert(
+            .diagnose(notEnoughContextToInferArgumentsAt: program.ast[annotation].origin))
           success = false
         }
 
@@ -2883,7 +2889,7 @@ public struct TypeChecker {
         if !explictNames.insert(Name(stem: program.ast[varDecl].name)).inserted {
           diagnostics.insert(.diagnose(
             duplicateCaptureNamed: program.ast[varDecl].name,
-            at: program.ast.ranges[varDecl]))
+            at: program.ast[varDecl].origin))
           success = false
         }
       }
@@ -3016,7 +3022,7 @@ public struct TypeChecker {
       declRequests[id] = .typeRealizationStarted
 
     case .typeRealizationStarted:
-      diagnostics.insert(.diagnose(circularDependencyAt: program.ast.ranges[id]))
+      diagnostics.insert(.diagnose(circularDependencyAt: program.ast[id].origin))
       declRequests[id] = .failure
       declTypes[id] = .error
       return declTypes[id]!

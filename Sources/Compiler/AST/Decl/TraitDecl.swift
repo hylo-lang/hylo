@@ -3,6 +3,8 @@
 /// - Note: `TraitDecl` does not conform to `GenericDecl`.
 public struct TraitDecl: TypeDecl, GenericScope {
 
+  public let origin: SourceRange?
+
   /// The access modifier of the declaration, if any.
   public let accessModifier: SourceRepresentable<AccessModifier>?
 
@@ -20,8 +22,10 @@ public struct TraitDecl: TypeDecl, GenericScope {
     accessModifier: SourceRepresentable<AccessModifier>?,
     identifier: SourceRepresentable<Identifier>,
     refinements: [NodeID<NameExpr>],
-    members: [AnyDeclID]
+    members: [AnyDeclID],
+    origin: SourceRange?
   ) {
+    self.origin = origin
     self.accessModifier = accessModifier
     self.identifier = identifier
     self.refinements = refinements

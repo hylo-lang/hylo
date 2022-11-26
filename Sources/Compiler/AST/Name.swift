@@ -114,7 +114,7 @@ extension SourceRepresentable where Part == Name {
   func introduced(by introducer: SourceRepresentable<ImplIntroducer>) -> Self {
     return .init(
       value: self.value.introduced(by: introducer.value),
-      range: self.range!.upperBounded(by: introducer.range!.upperBound))
+      range: self.origin!.extended(upTo: introducer.origin!.upperBound))
   }
 
 }

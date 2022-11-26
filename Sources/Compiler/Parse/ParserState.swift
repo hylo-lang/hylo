@@ -95,7 +95,7 @@ struct ParserState {
 
   /// Returns whether there is a new line in the character stream before `bound`.
   mutating func hasNewline(before bound: Token) -> Bool {
-    lexer.source.contents[currentIndex ..< bound.range.lowerBound]
+    lexer.source.contents[currentIndex ..< bound.origin.lowerBound]
       .contains(where: { $0.isNewline })
   }
 
@@ -106,7 +106,7 @@ struct ParserState {
 
   /// Returns whether `token` is a member index.
   func isMemberIndex(_ token: Token) -> Bool {
-    (token.kind == .int) && lexer.source[token.range].allSatisfy({ ch in
+    (token.kind == .int) && lexer.source[token.origin].allSatisfy({ ch in
       guard let ascii = ch.asciiValue else { return false }
       return (0x30 ... 0x39) ~= ascii
     })
@@ -129,13 +129,13 @@ struct ParserState {
   mutating func take() -> Token? {
     // Return the token in the lookahead buffer, if available.
     if let token = lookahead.popFirst() {
-      currentIndex = token.range.upperBound
+      currentIndex = token.origin.upperBound
       return token
     }
 
     // Attempt to pull a new element from the lexer.
     guard let token = lexer.next() else { return nil }
-    currentIndex = token.range.upperBound
+    currentIndex = token.origin.upperBound
     return token
   }
 
@@ -143,7 +143,7 @@ struct ParserState {
   mutating func take(_ kind: Token.Kind) -> Token? {
     if peek()?.kind == kind {
       let token = lookahead.removeFirst()
-      currentIndex = token.range.upperBound
+      currentIndex = token.origin.upperBound
       return token
     } else {
       return nil
@@ -161,7 +161,7 @@ struct ParserState {
   mutating func take(if predicate: (Token) -> Bool) -> Token? {
     if let token = peek(), predicate(token) {
       let token = lookahead.removeFirst()
-      currentIndex = token.range.upperBound
+      currentIndex = token.origin.upperBound
       return token
     } else {
       return nil
@@ -171,7 +171,7 @@ struct ParserState {
   /// Consumes and returns a name token with the specified value.
   mutating func take(nameTokenWithValue value: String) -> Token? {
     take(if: { [source = lexer.source] in
-      ($0.kind == .name) && (source[$0.range] == value)
+      ($0.kind == .name) && (source[$0.origin] == value)
     })
   }
 
@@ -185,19 +185,19 @@ struct ParserState {
     switch head.kind {
     case .oper, .ampersand, .equal, .pipe:
       _ = take()
-      return SourceRepresentable(value: String(lexer.source[head.range]), range: head.range)
+      return SourceRepresentable(value: String(lexer.source[head.origin]), range: head.origin)
 
     case .lAngle, .rAngle:
       // Operator starts with `<` or `>`.
       _ = take()
 
       // Merge the leading angle bracket with attached operators.
-      var upper = head.range.upperBound
-      while let next = take(if: { $0.isOperatorToken && (upper == $0.range.lowerBound) }) {
-        upper = next.range.upperBound
+      var upper = head.origin.upperBound
+      while let next = take(if: { $0.isOperatorToken && (upper == $0.origin.lowerBound) }) {
+        upper = next.origin.upperBound
       }
 
-      var range = head.range
+      var range = head.origin
       range.upperBound = upper
       return SourceRepresentable(value: String(lexer.source[range]), range: range)
 
@@ -209,7 +209,7 @@ struct ParserState {
   /// Consumes and returns the value of a member index.
   mutating func takeMemberIndex() -> Int? {
     if let index = take(if: isMemberIndex(_:)) {
-      return Int(lexer.source[index.range])!
+      return Int(lexer.source[index.origin])!
     } else {
       return nil
     }
@@ -218,7 +218,7 @@ struct ParserState {
   /// Consumes and returns an attribute token with the specified name.
   mutating func take(attribute name: String) -> Token? {
     take(if: { [source = lexer.source] in
-      ($0.kind == .attribute) && (source[$0.range] == name)
+      ($0.kind == .attribute) && (source[$0.origin] == name)
     })
   }
 
