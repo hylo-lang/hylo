@@ -17,6 +17,8 @@ public struct SequenceExpr: Expr {
 
   }
 
+  public let origin: SourceRange?
+
   /// The leftmost operand of the expression.
   public let head: AnyExprID
 
@@ -24,7 +26,8 @@ public struct SequenceExpr: Expr {
   public let tail: [TailElement]
 
   /// Creates an instance with the given properties.
-  public init(head: AnyExprID, tail: [TailElement]) {
+  public init(head: AnyExprID, tail: [TailElement], origin: SourceRange?) {
+    self.origin = origin
     self.head = head
     self.tail = tail
   }

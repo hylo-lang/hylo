@@ -15,9 +15,6 @@ public struct AST: Codable {
   /// The ID of the module containing Val's core library, if any.
   public var corelib: NodeID<ModuleDecl>?
 
-  /// The source range of each node.
-  public internal(set) var ranges = ASTProperty<SourceRange>()
-
   /// Creates an empty AST.
   public init() {}
 
@@ -209,7 +206,7 @@ public struct AST: Codable {
   public func origin(of expr: FoldedSequenceExpr) -> SourceRange? {
     switch expr {
     case .leaf(let i):
-      return ranges[i]
+      return self[i].origin
 
     case .infix(_, let lhs, let rhs):
       if let lhsRange = origin(of: lhs), let rhsRange = origin(of: rhs) {

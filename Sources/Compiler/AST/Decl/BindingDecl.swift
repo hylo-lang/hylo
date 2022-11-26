@@ -1,6 +1,8 @@
 /// A binding declaration.
 public struct BindingDecl: Decl {
 
+  public let origin: SourceRange?
+
   /// The attributes of the declaration, if any.
   public let attributes: [SourceRepresentable<Attribute>]
 
@@ -22,8 +24,10 @@ public struct BindingDecl: Decl {
     accessModifier: SourceRepresentable<AccessModifier>? = nil,
     memberModifier: SourceRepresentable<MemberModifier>? = nil,
     pattern: NodeID<BindingPattern>,
-    initializer: AnyExprID?
+    initializer: AnyExprID?,
+    origin: SourceRange?
   ) {
+    self.origin = origin
     self.attributes = attributes
     self.accessModifier = accessModifier
     self.memberModifier = memberModifier

@@ -10,17 +10,20 @@ public struct TuplePattern: Pattern {
     /// The pattern of the element.
     public var pattern: AnyPatternID
 
-    public init(label: SourceRepresentable<String>? = nil, pattern: AnyPatternID) {
+    public init(label: SourceRepresentable<String>?, pattern: AnyPatternID) {
       self.label = label
       self.pattern = pattern
     }
 
   }
 
+  public let origin: SourceRange?
+
   /// The elements of the tuple.
   public let elements: [Element]
 
-  public init(elements: [Element] = []) {
+  public init(elements: [Element], origin: SourceRange?) {
+    self.origin = origin
     self.elements = elements
   }
 

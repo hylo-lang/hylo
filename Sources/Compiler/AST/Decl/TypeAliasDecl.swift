@@ -11,6 +11,8 @@ public struct TypeAliasDecl: GenericDecl, TypeDecl, GenericScope {
 
   }
 
+  public let origin: SourceRange?
+
   /// The access modifier of the declaration, if any.
   public let accessModifier: SourceRepresentable<AccessModifier>?
 
@@ -28,8 +30,10 @@ public struct TypeAliasDecl: GenericDecl, TypeDecl, GenericScope {
     accessModifier: SourceRepresentable<AccessModifier>?,
     identifier: SourceRepresentable<Identifier>,
     genericClause: SourceRepresentable<GenericClause>?,
-    body: Body
+    body: Body,
+    origin: SourceRange?
   ) {
+    self.origin = origin
     self.accessModifier = accessModifier
     self.identifier = identifier
     self.genericClause = genericClause

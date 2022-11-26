@@ -10,7 +10,7 @@ extension Diagnostic {
     ambiguousUse expr: NodeID<NameExpr>,
     in ast: AST
   ) -> Diagnostic {
-    .error("ambiguous use of '\(ast[expr].name)'", range: ast.ranges[expr])
+    .error("ambiguous use of '\(ast[expr].name)'", range: ast[expr].origin)
   }
 
   static func diagnose(
@@ -80,7 +80,7 @@ extension Diagnostic {
     doesNotEvaluateToType expr: AnyExprID,
     in ast: AST
   ) -> Diagnostic {
-    .error("expression does not evaluate to a type", range: ast.ranges[expr])
+    .error("expression does not evaluate to a type", range: ast[expr].origin)
   }
 
   static func diagnose(

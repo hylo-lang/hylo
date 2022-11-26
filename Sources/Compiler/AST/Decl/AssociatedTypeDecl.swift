@@ -4,6 +4,8 @@ public protocol TypeDecl: SingleEntityDecl {}
 /// An associated type declaration.
 public struct AssociatedTypeDecl: TypeDecl {
 
+  public let origin: SourceRange?
+
   /// The source range of the declaration's introducer, if any.
   public let introducerRange: SourceRange?
 
@@ -25,8 +27,10 @@ public struct AssociatedTypeDecl: TypeDecl {
     identifier: SourceRepresentable<Identifier>,
     conformances: [NodeID<NameExpr>],
     whereClause: SourceRepresentable<WhereClause>?,
-    defaultValue: AnyTypeExprID?
+    defaultValue: AnyTypeExprID?,
+    origin: SourceRange?
   ) {
+    self.origin = origin
     self.introducerRange = introducerRange
     self.identifier = identifier
     self.conformances = conformances
