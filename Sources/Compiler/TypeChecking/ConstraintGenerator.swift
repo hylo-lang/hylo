@@ -719,7 +719,8 @@ struct ConstraintGenerator {
       constraints.append(
         BoundMemberConstraint(
           type: lhsType,
-          hasMemberNamed: checker.program.ast[callee.expr].name.value,
+          hasMemberExpressedBy: callee.expr,
+          in: checker.program.ast,
           ofType: ^calleeType,
           because: ConstraintCause(.member, at: checker.program.ast.ranges[callee.expr])))
 
