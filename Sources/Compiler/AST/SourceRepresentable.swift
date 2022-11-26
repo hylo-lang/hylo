@@ -6,13 +6,13 @@ public struct SourceRepresentable<Part> {
   /// The part.
   public let value: Part
 
-  /// The source range of the node's textual representation.
-  public let range: SourceRange?
+  /// The source range from which `part` was extracted, if any.
+  public let origin: SourceRange?
 
   /// Creates a source representable container, annotating a value with an optional source range.
   public init(value: Part, range: SourceRange? = nil) {
     self.value = value
-    self.range = range
+    self.origin = range
   }
 
 }
@@ -45,16 +45,16 @@ extension SourceRepresentable: Codable where Part: Codable {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     value = try container.decode(Part.self, forKey: .value)
     do {
-      range = try container.decode(SourceRange?.self, forKey: .range)
+      origin = try container.decode(SourceRange?.self, forKey: .range)
     } catch {
-      range = nil
+      origin = nil
     }
   }
 
   public func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(value, forKey: .value)
-    try container.encode(range, forKey: .range)
+    try container.encode(origin, forKey: .range)
   }
 
 }
