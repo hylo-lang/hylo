@@ -81,13 +81,13 @@ public enum Parser {
       case .unterminatedBlockComment:
         // Nothing to parse after an unterminated block comment.
         state.diagnostics.append(.diagnose(
-          unterminatedCommentEndingAt: head.range.last() ?? head.range.first()))
+          unterminatedCommentEndingAt: head.origin.last() ?? head.origin.first()))
         break
 
       case .unterminatedString:
         // Nothing to parse after an unterminated string.
         state.diagnostics.append(.diagnose(
-          unterminatedStringEndingAt: head.range.last() ?? head.range.first()))
+          unterminatedStringEndingAt: head.origin.last() ?? head.origin.first()))
         break
 
       default:
@@ -111,7 +111,7 @@ public enum Parser {
     in state: inout ParserState,
     then continuation: (_ prologue: DeclPrologue, _ state: inout ParserState) throws -> R?
   ) throws -> R? {
-    guard let startIndex = state.peek()?.range.lowerBound else { return nil }
+    guard let startIndex = state.peek()?.origin.lowerBound else { return nil }
     var isPrologueEmpty = true
 
     // Parse attributes.
@@ -240,7 +240,7 @@ public enum Parser {
           .map(AnyDeclID.init)
 
       case .name:
-        let introducer = state.lexer.source[state.peek()!.range]
+        let introducer = state.lexer.source[state.peek()!.origin]
         if introducer == "value" && state.atTypeScope {
           // Note: associated values are parsed at any type scope to produce better diagnostics
           // when they are not at trait scope.
@@ -316,13 +316,13 @@ public enum Parser {
         state.diagnostics.append(expected(
           "'}'",
           at: state.currentLocation,
-          children: [.error("to match this '{'", range: opener.range)]
+          children: [.error("to match this '{'", range: opener.origin)]
         ))
         break
       }
 
       // Diagnose the error.
-      state.diagnostics.append(expected("declaration", at: head.range.first()))
+      state.diagnostics.append(expected("declaration", at: head.origin.first()))
 
       // Skip tokens until we find a right delimiter or the start of another declaration.
       state.skip(while: { (next) in !next.mayBeginDecl && (next.kind != .rBrace) })
@@ -362,7 +362,7 @@ public enum Parser {
 
     // Create a new `AssociatedTypeDecl`.
     let decl = try state.ast.insert(wellFormed: AssociatedTypeDecl(
-      introducerRange: parts.0.0.0.0.range,
+      introducerRange: parts.0.0.0.0.origin,
       identifier: SourceRepresentable(token: parts.0.0.0.1, in: state.lexer.source),
       conformances: parts.0.0.1 ?? [],
       whereClause: parts.0.1,
@@ -401,7 +401,7 @@ public enum Parser {
 
     // Create a new `AssociatedValueDecl`.
     let decl = try state.ast.insert(wellFormed: AssociatedValueDecl(
-      introducerRange: parts.0.0.0.range,
+      introducerRange: parts.0.0.0.origin,
       identifier: SourceRepresentable(token: parts.0.0.1, in: state.lexer.source),
       whereClause: parts.0.1,
       defaultValue: parts.1,
@@ -656,7 +656,7 @@ public enum Parser {
 
     // Create a new `ImportDecl`.
     let decl = try state.ast.insert(wellFormed: ImportDecl(
-      introducerRange: parts.0.range,
+      introducerRange: parts.0.origin,
       identifier: SourceRepresentable(token: parts.1, in: state.lexer.source),
       origin: state.range(from: prologue.startIndex)))
     return decl
@@ -724,7 +724,7 @@ public enum Parser {
     // Create a new `InitializerDecl`.
     assert(prologue.accessModifiers.count <= 1)
     let decl = try state.ast.insert(wellFormed: InitializerDecl(
-      introducer: SourceRepresentable(value: .memberwiseInit, range: parts.0.range),
+      introducer: SourceRepresentable(value: .memberwiseInit, range: parts.0.origin),
       attributes: prologue.attributes,
       accessModifier: prologue.accessModifiers.first,
       genericClause: nil,
@@ -761,7 +761,7 @@ public enum Parser {
     // Create a new `NamespaceDecl`.
     assert(prologue.accessModifiers.count <= 1)
     let decl = try state.ast.insert(wellFormed: NamespaceDecl(
-      introducerRange: parts.0.0.range,
+      introducerRange: parts.0.0.origin,
       accessModifier: prologue.accessModifiers.first,
       identifier: SourceRepresentable(token: parts.0.1, in: state.lexer.source),
       members: parts.1,
@@ -796,7 +796,7 @@ public enum Parser {
     // Create a new `OperatorDecl`.
     assert(prologue.accessModifiers.count <= 1)
     let decl = try state.ast.insert(wellFormed: OperatorDecl(
-      introducerRange: parts.0.0.0.range,
+      introducerRange: parts.0.0.0.origin,
       accessModifier: prologue.accessModifiers.first,
       notation: parts.0.0.1,
       name: parts.0.1,
@@ -1143,7 +1143,7 @@ public enum Parser {
     take(.fun).and(take(.name))
       .map({ (state, tree) -> FunctionDeclName in
         FunctionDeclName(
-          introducerRange: tree.0.range,
+          introducerRange: tree.0.origin,
           stem: SourceRepresentable(token: tree.1, in: state.lexer.source),
           notation: nil
         )
@@ -1154,7 +1154,7 @@ public enum Parser {
     operatorNotation.and(take(.fun)).and(operator_)
       .map({ (state, tree) -> FunctionDeclName in
         FunctionDeclName(
-          introducerRange: tree.0.1.range,
+          introducerRange: tree.0.1.origin,
           stem: tree.1,
           notation: tree.0.0
         )
@@ -1237,7 +1237,7 @@ public enum Parser {
     take(.`init`).and(maybe(genericClause))
       .map({ (state, tree) -> InitDeclHead in
         InitDeclHead(
-          introducer: SourceRepresentable(value: .`init`, range: tree.0.range),
+          introducer: SourceRepresentable(value: .`init`, range: tree.0.origin),
           genericClause: tree.1)
       })
   )
@@ -1269,7 +1269,7 @@ public enum Parser {
     take(.property).and(take(.name))
       .map({ (state, tree) -> PropertyDeclHead in
         PropertyDeclHead(
-          introducer: SourceRepresentable(value: .property, range: tree.0.range),
+          introducer: SourceRepresentable(value: .property, range: tree.0.origin),
           stem: SourceRepresentable(token: tree.1, in: state.lexer.source))
       })
   )
@@ -1282,7 +1282,7 @@ public enum Parser {
     take(.subscript).and(maybe(take(.name))).and(maybe(genericClause)).and(maybe(captureList))
       .map({ (state, tree) -> SubscriptDeclHead in
         SubscriptDeclHead(
-          introducer: SourceRepresentable(value: .subscript, range: tree.0.0.0.range),
+          introducer: SourceRepresentable(value: .subscript, range: tree.0.0.0.origin),
           stem: tree.0.0.1.map({ SourceRepresentable(token: $0, in: state.lexer.source) }),
           genericClause: tree.0.1,
           captures: tree.1 ?? [])
@@ -1380,21 +1380,21 @@ public enum Parser {
         return (label: name, name: name)
       }
 
-      throw DiagnosedError(expected("parameter name", at: labelCandidate.range.first()))
+      throw DiagnosedError(expected("parameter name", at: labelCandidate.origin.first()))
     })
   )
 
   static let memberModifier = (
     take(.static)
       .map({ (_, token) -> SourceRepresentable<MemberModifier> in
-        SourceRepresentable(value: .static, range: token.range)
+        SourceRepresentable(value: .static, range: token.origin)
       })
   )
 
   static let accessModifier = (
     take(.public)
       .map({ (_, token) -> SourceRepresentable<AccessModifier> in
-        SourceRepresentable(value: .public, range: token.range)
+        SourceRepresentable(value: .public, range: token.origin)
       })
   )
 
@@ -1410,7 +1410,7 @@ public enum Parser {
       .map({ (state, tree) -> SourceRepresentable<GenericClause> in
         return SourceRepresentable(
           value: GenericClause(parameters: tree.0.0.1, whereClause: tree.0.1),
-          range: tree.0.0.0.range.extended(upTo: state.currentIndex))
+          range: tree.0.0.0.origin.extended(upTo: state.currentIndex))
       })
   )
 
@@ -1432,7 +1432,8 @@ public enum Parser {
           identifier: SourceRepresentable(token: tree.0.0.1, in: state.lexer.source),
           conformances: tree.0.1?.1 ?? [],
           defaultValue: tree.1?.1,
-          origin: state.range(from: tree.0.0.0?.range.lowerBound ?? tree.0.0.1.range.lowerBound)))
+          origin: state.range(
+            from: tree.0.0.0?.origin.lowerBound ?? tree.0.0.1.origin.lowerBound)))
         return .type(id)
       })
   )
@@ -1446,7 +1447,7 @@ public enum Parser {
           identifier: SourceRepresentable(token: tree.0.0.1, in: state.lexer.source),
           annotation: tree.0.1.1,
           defaultValue: tree.1?.1,
-          origin: tree.0.0.0.range.extended(upTo: state.currentIndex)))
+          origin: tree.0.0.0.origin.extended(upTo: state.currentIndex)))
         return .value(id)
       })
   )
@@ -1505,7 +1506,7 @@ public enum Parser {
     in state: inout ParserState
   ) throws {
     if !state.hasLeadingWhitespace {
-      state.diagnostics.append(.diagnose(infixOperatorRequiresWhitespacesAt: infixOperator.range))
+      state.diagnostics.append(.diagnose(infixOperatorRequiresWhitespacesAt: infixOperator.origin))
     }
 
     guard let rhs = try typeExpr.parse(&state) else {
@@ -1513,7 +1514,7 @@ public enum Parser {
     }
 
     let castKind: CastExpr.Kind
-    switch state.lexer.source[infixOperator.range] {
+    switch state.lexer.source[infixOperator.origin] {
     case "as":
       castKind = .up
     case "as!":
@@ -1539,7 +1540,7 @@ public enum Parser {
     in state: inout ParserState
   ) throws {
     if !state.hasLeadingWhitespace {
-      state.diagnostics.append(.diagnose(infixOperatorRequiresWhitespacesAt: infixOperator.range))
+      state.diagnostics.append(.diagnose(infixOperatorRequiresWhitespacesAt: infixOperator.origin))
     }
 
     guard let rhs = try prefixExpr.parse(&state) else {
@@ -1618,12 +1619,12 @@ public enum Parser {
     asyncExprHead.and(take(.arrow)).and(typeExpr).and(asyncExprBody)
       .map({ (state, tree) -> NodeID<AsyncExpr> in
         let decl = try state.ast.insert(wellFormed: FunctionDecl(
-          introducerRange: tree.0.0.0.0.0.range,
+          introducerRange: tree.0.0.0.0.0.origin,
           receiverEffect: tree.0.0.0.1,
           output: tree.0.1,
           body: .block(tree.1),
           isInExprContext: true,
-          origin: tree.0.0.0.0.0.range.extended(upTo: state.currentIndex)))
+          origin: tree.0.0.0.0.0.origin.extended(upTo: state.currentIndex)))
 
         return try state.ast.insert(wellFormed: AsyncExpr(
           decl: decl,
@@ -1637,12 +1638,12 @@ public enum Parser {
     asyncExprHead.and(expr)
       .map({ (state, tree) -> NodeID<AsyncExpr> in
         let decl = try state.ast.insert(wellFormed: FunctionDecl(
-          introducerRange: tree.0.0.0.range,
+          introducerRange: tree.0.0.0.origin,
           receiverEffect: tree.0.1,
           explicitCaptures: tree.0.0.1 ?? [],
           body: .expr(tree.1),
           isInExprContext: true,
-          origin: tree.0.0.0.range.extended(upTo: state.currentIndex)))
+          origin: tree.0.0.0.origin.extended(upTo: state.currentIndex)))
         return try state.ast.insert(wellFormed: AsyncExpr(
           decl: decl,
           origin: state.ast[decl].origin))
@@ -1658,7 +1659,7 @@ public enum Parser {
       .map({ (state, tree) -> NodeID<AwaitExpr> in
         try state.ast.insert(wellFormed: AwaitExpr(
           operand: tree.1,
-          origin: tree.0.range.extended(upTo: state.ast[tree.1].origin!.upperBound)))
+          origin: tree.0.origin.extended(upTo: state.ast[tree.1].origin!.upperBound)))
       })
   )
 
@@ -1888,8 +1889,8 @@ public enum Parser {
     take(.bool)
       .map({ (state, token) -> NodeID<BooleanLiteralExpr> in
         try state.ast.insert(wellFormed: BooleanLiteralExpr(
-          value: state.lexer.source[token.range] == "true",
-          origin: token.range))
+          value: state.lexer.source[token.origin] == "true",
+          origin: token.origin))
       })
   )
 
@@ -1897,8 +1898,8 @@ public enum Parser {
     take(.int)
       .map({ (state, token) -> NodeID<IntegerLiteralExpr> in
         try state.ast.insert(wellFormed: IntegerLiteralExpr(
-          value: state.lexer.source[token.range].filter({ $0 != "_" }),
-          origin: token.range))
+          value: state.lexer.source[token.origin].filter({ $0 != "_" }),
+          origin: token.origin))
       })
   )
 
@@ -1906,8 +1907,8 @@ public enum Parser {
     take(.float)
       .map({ (state, token) -> NodeID<FloatLiteralExpr> in
         try state.ast.insert(wellFormed: FloatLiteralExpr(
-          value: state.lexer.source[token.range].filter({ $0 != "_" }),
-          origin: token.range))
+          value: state.lexer.source[token.origin].filter({ $0 != "_" }),
+          origin: token.origin))
       })
   )
 
@@ -1915,8 +1916,8 @@ public enum Parser {
     take(.string)
       .map({ (state, token) -> NodeID<StringLiteralExpr> in
         try state.ast.insert(wellFormed: StringLiteralExpr(
-          value: String(state.lexer.source[token.range].dropFirst().dropLast()),
-          origin: token.range))
+          value: String(state.lexer.source[token.origin].dropFirst().dropLast()),
+          origin: token.origin))
       })
   )
 
@@ -1931,7 +1932,7 @@ public enum Parser {
       .map({ (state, tree) -> NodeID<BufferLiteralExpr> in
         try state.ast.insert(wellFormed: BufferLiteralExpr(
           elements: tree.0.1 ?? [],
-          origin: tree.0.0.range.extended(upTo: state.currentIndex)))
+          origin: tree.0.0.origin.extended(upTo: state.currentIndex)))
       })
   )
 
@@ -1945,7 +1946,7 @@ public enum Parser {
       .map({ (state, tree) -> NodeID<MapLiteralExpr> in
         try state.ast.insert(wellFormed: MapLiteralExpr(
           elements: tree.0.1,
-          origin: tree.0.0.range.extended(upTo: state.currentIndex)))
+          origin: tree.0.0.origin.extended(upTo: state.currentIndex)))
       })
   )
 
@@ -1984,7 +1985,7 @@ public enum Parser {
             domain: .implicit,
             name: node.name,
             arguments: node.arguments,
-            origin: tree.0.range.extended(upTo: node.origin!.upperBound))
+            origin: tree.0.origin.extended(upTo: node.origin!.upperBound))
         })
         return tree.1
       })
@@ -1996,14 +1997,14 @@ public enum Parser {
         let signature = tree.0.1
 
         let decl = try state.ast.insert(wellFormed: FunctionDecl(
-          introducerRange: tree.0.0.0.range,
+          introducerRange: tree.0.0.0.origin,
           receiverEffect: signature.receiverEffect,
           explicitCaptures: tree.0.0.1 ?? [],
           parameters: signature.parameters,
           output: signature.output,
           body: tree.1,
           isInExprContext: true,
-          origin: tree.0.0.0.range.extended(upTo: state.currentIndex)))
+          origin: tree.0.0.0.origin.extended(upTo: state.currentIndex)))
         return try state.ast.insert(wellFormed: LambdaExpr(
           decl: decl,
           origin: state.ast[decl].origin))
@@ -2023,7 +2024,7 @@ public enum Parser {
         try state.ast.insert(wellFormed: MatchExpr(
           subject: tree.0.0.0.1,
           cases: tree.0.1,
-          origin: tree.0.0.0.0.range.extended(upTo: state.currentIndex)))
+          origin: tree.0.0.0.0.origin.extended(upTo: state.currentIndex)))
       })
   )
 
@@ -2056,7 +2057,7 @@ public enum Parser {
           condition: tree.0.0.1,
           success: tree.0.1,
           failure: tree.1,
-          origin: tree.0.0.0.range.extended(upTo: state.currentIndex)))
+          origin: tree.0.0.0.origin.extended(upTo: state.currentIndex)))
       })
   )
 
@@ -2098,9 +2099,9 @@ public enum Parser {
     take(.ampersand).and(withoutLeadingWhitespace(expr))
       .map({ (state, tree) -> NodeID<InoutExpr> in
         try state.ast.insert(wellFormed: InoutExpr(
-          operatorRange: tree.0.range,
+          operatorRange: tree.0.origin,
           subject: tree.1,
-          origin: tree.0.range.extended(upTo: state.currentIndex)))
+          origin: tree.0.origin.extended(upTo: state.currentIndex)))
       })
   )
 
@@ -2109,7 +2110,7 @@ public enum Parser {
       .map({ (state, tree) -> NodeID<TupleExpr> in
         try state.ast.insert(wellFormed: TupleExpr(
           elements: tree.0.1 ?? [],
-          origin: tree.0.0.range.extended(upTo: state.currentIndex)))
+          origin: tree.0.0.origin.extended(upTo: state.currentIndex)))
       })
   )
 
@@ -2146,7 +2147,7 @@ public enum Parser {
   static let nilExpr = (
     take(.nil)
       .map({ (state, token) -> NodeID<NilExpr> in
-        try state.ast.insert(wellFormed: NilExpr(origin: token.range))
+        try state.ast.insert(wellFormed: NilExpr(origin: token.origin))
       })
   )
 
@@ -2223,7 +2224,7 @@ public enum Parser {
 
       return SourceRepresentable(
         value: introducer,
-        range: head.range.extended(upTo: state.currentIndex))
+        range: head.origin.extended(upTo: state.currentIndex))
     })
   )
 
@@ -2255,7 +2256,7 @@ public enum Parser {
       .map({ (state, token) -> NodeID<NamePattern> in
         let declID = try state.ast.insert(wellFormed: VarDecl(
           identifier: SourceRepresentable(token: token, in: state.lexer.source)))
-        return try state.ast.insert(wellFormed: NamePattern(decl: declID, origin: token.range))
+        return try state.ast.insert(wellFormed: NamePattern(decl: declID, origin: token.origin))
       })
   )
 
@@ -2264,7 +2265,7 @@ public enum Parser {
       .map({ (state, tree) -> NodeID<TuplePattern> in
         try state.ast.insert(wellFormed: TuplePattern(
           elements: tree.0.1 ?? [],
-          origin: tree.0.0.range.extended(upTo: tree.1.range.upperBound)))
+          origin: tree.0.0.origin.extended(upTo: tree.1.origin.upperBound)))
       })
   )
 
@@ -2301,7 +2302,7 @@ public enum Parser {
   static let wildcardPattern = (
     take(.under)
       .map({ (state, token) -> NodeID<WildcardPattern> in
-        try state.ast.insert(wellFormed: WildcardPattern(origin: token.range))
+        try state.ast.insert(wellFormed: WildcardPattern(origin: token.origin))
       })
   )
 
@@ -2346,7 +2347,7 @@ public enum Parser {
       .map({ (state, tree) -> NodeID<BraceStmt> in
         try state.ast.insert(wellFormed: BraceStmt(
           stmts: tree.0.1,
-          origin: tree.0.0.0.range.extended(upTo: state.currentIndex)))
+          origin: tree.0.0.0.origin.extended(upTo: state.currentIndex)))
       })
   )
 
@@ -2355,7 +2356,7 @@ public enum Parser {
       .map({ (state, tree) -> NodeID<DiscardStmt> in
         try state.ast.insert(wellFormed: DiscardStmt(
           expr: tree.1,
-          origin: tree.0.0.range.extended(upTo: state.currentIndex)))
+          origin: tree.0.0.origin.extended(upTo: state.currentIndex)))
       })
   )
 
@@ -2365,7 +2366,7 @@ public enum Parser {
         try state.ast.insert(wellFormed: DoWhileStmt(
           body: tree.0.0.1,
           condition: tree.1,
-          origin: tree.0.0.0.range.extended(upTo: state.currentIndex)))
+          origin: tree.0.0.0.origin.extended(upTo: state.currentIndex)))
       })
   )
 
@@ -2375,7 +2376,7 @@ public enum Parser {
         try state.ast.insert(wellFormed: WhileStmt(
           condition: tree.0.1,
           body: tree.1,
-          origin: tree.0.0.range.extended(upTo: state.currentIndex)))
+          origin: tree.0.0.origin.extended(upTo: state.currentIndex)))
       })
   )
 
@@ -2391,7 +2392,7 @@ public enum Parser {
           domain: tree.0.0.1,
           filter: tree.0.1,
           body: tree.1,
-          origin: tree.0.0.0.0.range.extended(upTo: state.currentIndex)))
+          origin: tree.0.0.0.0.origin.extended(upTo: state.currentIndex)))
       })
   )
 
@@ -2410,7 +2411,7 @@ public enum Parser {
       .map({ (state, tree) -> NodeID<ReturnStmt> in
         try state.ast.insert(wellFormed: ReturnStmt(
           value: tree.1,
-          origin: tree.0.range.extended(upTo: state.currentIndex)))
+          origin: tree.0.origin.extended(upTo: state.currentIndex)))
       })
   )
 
@@ -2419,21 +2420,21 @@ public enum Parser {
       .map({ (state, tree) -> NodeID<YieldStmt> in
         try state.ast.insert(wellFormed: YieldStmt(
           value: tree.1,
-          origin: tree.0.range.extended(upTo: state.currentIndex)))
+          origin: tree.0.origin.extended(upTo: state.currentIndex)))
       })
   )
 
   static let breakStmt = (
     take(.break)
       .map({ (state, token) -> NodeID<BreakStmt> in
-        try state.ast.insert(wellFormed: BreakStmt(origin: token.range))
+        try state.ast.insert(wellFormed: BreakStmt(origin: token.origin))
       })
   )
 
   static let continueStmt = (
     take(.break)
       .map({ (state, token) -> NodeID<ContinueStmt> in
-        try state.ast.insert(wellFormed: ContinueStmt(origin: token.range))
+        try state.ast.insert(wellFormed: ContinueStmt(origin: token.origin))
       })
   )
 
@@ -2542,7 +2543,7 @@ public enum Parser {
         let id = try state.ast.insert(wellFormed: ExistentialTypeExpr(
           traits: traits,
           whereClause: clause,
-          origin: head.range.extended(
+          origin: head.origin.extended(
             upTo: clause?.range?.upperBound ?? state.ast[traits.last!].origin!.upperBound)))
         return AnyTypeExprID(id)
 
@@ -2631,7 +2632,7 @@ public enum Parser {
       .map({ (state, tree) -> NodeID<TupleTypeExpr> in
         try state.ast.insert(wellFormed: TupleTypeExpr(
           elements: tree.0.1 ?? [],
-          origin: tree.0.0.range.extended(upTo: tree.1.range.upperBound)))
+          origin: tree.0.0.origin.extended(upTo: tree.1.origin.upperBound)))
       })
   )
 
@@ -2713,7 +2714,7 @@ public enum Parser {
           receiverEffect: tree.0.0.1,
           parameters: tree.0.0.0.0.1 ?? [],
           output: tree.1,
-          origin: tree.0.0.0.0.0.range.extended(upTo: state.currentIndex)))
+          origin: tree.0.0.0.0.0.origin.extended(upTo: state.currentIndex)))
       })
   )
 
@@ -2750,7 +2751,7 @@ public enum Parser {
   static let lambdaEnvironment = (
     take(.lBrack).and(maybe(typeExpr)).and(take(.rBrack))
       .map({ (state, tree) -> SourceRepresentable<AnyTypeExprID> in
-        let range = tree.0.0.range.extended(upTo: tree.1.range.upperBound)
+        let range = tree.0.0.origin.extended(upTo: tree.1.origin.upperBound)
         if let expr = tree.0.1 {
           return SourceRepresentable(value: expr, range: range)
         } else {
@@ -2758,8 +2759,8 @@ public enum Parser {
             elements: [],
             origin: SourceRange(
               in: state.lexer.source,
-              from: tree.0.0.range.upperBound,
-              to: tree.1.range.lowerBound)))
+              from: tree.0.0.origin.upperBound,
+              to: tree.1.origin.lowerBound)))
           return SourceRepresentable(value: AnyTypeExprID(expr), range: range)
         }
       })
@@ -2768,7 +2769,7 @@ public enum Parser {
   static let wildcardTypeExpr = (
     take(.under)
       .map({ (state, token) -> NodeID<WildcardTypeExpr> in
-        try state.ast.insert(wellFormed: WildcardTypeExpr(origin: token.range))
+        try state.ast.insert(wellFormed: WildcardTypeExpr(origin: token.origin))
       })
   )
 
@@ -2852,7 +2853,7 @@ public enum Parser {
       .map({ (state, tree) -> SourceRepresentable<WhereClause> in
         SourceRepresentable(
           value: WhereClause(constraints: tree.1),
-          range: tree.0.range.extended(upTo: state.currentIndex))
+          range: tree.0.origin.extended(upTo: state.currentIndex))
       })
   )
 
@@ -2900,7 +2901,7 @@ public enum Parser {
       .map({ (state, tree) -> SourceRepresentable<WhereClause.ConstraintExpr> in
         SourceRepresentable(
           value: .value(tree.1),
-          range: tree.0.range.extended(upTo: state.currentIndex))
+          range: tree.0.origin.extended(upTo: state.currentIndex))
       })
   )
 
@@ -2947,7 +2948,7 @@ public enum Parser {
             if state.take(.under) != nil {
               labels.append(nil)
             } else if let label = state.take(if: { $0.isLabel }) {
-              labels.append(String(state.lexer.source[label.range]))
+              labels.append(String(state.lexer.source[label.origin]))
             } else {
               break
             }
@@ -2964,8 +2965,8 @@ public enum Parser {
         }
 
         return SourceRepresentable(
-          value: Name(stem: String(state.lexer.source[head.range]), labels: labels),
-          range: head.range)
+          value: Name(stem: String(state.lexer.source[head.origin]), labels: labels),
+          range: head.origin)
 
 
       case .infix, .prefix, .postfix:
@@ -2980,7 +2981,7 @@ public enum Parser {
         }
 
         let stem = String(state.lexer.source[oper.range!])
-        let range = head.range.extended(upTo: oper.range!.upperBound)
+        let range = head.origin.extended(upTo: oper.range!.upperBound)
 
         switch head.kind {
         case .infix:
@@ -3003,8 +3004,8 @@ public enum Parser {
     take(.name)
       .map({ (state, token) -> SourceRepresentable<Name> in
         SourceRepresentable(
-          value: Name(stem: String(state.lexer.source[token.range])),
-          range: token.range)
+          value: Name(stem: String(state.lexer.source[token.origin])),
+          range: token.origin)
       })
   )
 
@@ -3017,7 +3018,7 @@ public enum Parser {
           value: Attribute(
             name: SourceRepresentable(token: tree.0, in: state.lexer.source),
             arguments: tree.1 ?? []),
-          range: tree.0.range.extended(upTo: state.currentIndex))
+          range: tree.0.origin.extended(upTo: state.currentIndex))
       })
   )
 
@@ -3035,18 +3036,18 @@ public enum Parser {
   static let stringAttributeArgument = (
     take(.string)
       .map({ (state, token) -> Attribute.Argument in
-        let value = String(state.lexer.source[token.range].dropFirst().dropLast())
-        return .string(SourceRepresentable(value: value, range: token.range))
+        let value = String(state.lexer.source[token.origin].dropFirst().dropLast())
+        return .string(SourceRepresentable(value: value, range: token.origin))
       })
   )
 
   static let integerAttributeArgument = (
     take(.int)
       .map({ (state, token) -> Attribute.Argument in
-        if let value = Int(state.lexer.source[token.range]) {
-          return .integer(SourceRepresentable(value: value, range: token.range))
+        if let value = Int(state.lexer.source[token.origin]) {
+          return .integer(SourceRepresentable(value: value, range: token.origin))
         } else {
-          throw DiagnosedError(.error("invalid integer literal", range: token.range))
+          throw DiagnosedError(.error("invalid integer literal", range: token.origin))
         }
       })
   )
@@ -3225,9 +3226,9 @@ struct ContextualKeyword<T: RawRepresentable>: Combinator where T.RawValue == St
 
   func parse(_ state: inout ParserState) throws -> Element? {
     if let next = state.peek(), next.kind == .name {
-      if let value = T(rawValue: String(state.lexer.source[next.range])) {
+      if let value = T(rawValue: String(state.lexer.source[next.origin])) {
         _ = state.take()
-        return SourceRepresentable(value: value, range: next.range)
+        return SourceRepresentable(value: value, range: next.origin)
       }
     }
     return nil
@@ -3279,7 +3280,7 @@ fileprivate func translate<T>(
     guard let head = state.peek() else { return nil }
     if let translation = table[head.kind] {
       _ = state.take()
-      return SourceRepresentable(value: translation, range: head.range)
+      return SourceRepresentable(value: translation, range: head.origin)
     } else {
       return nil
     }
@@ -3325,7 +3326,7 @@ where Base.Context == ParserState
 fileprivate extension SourceRepresentable where Part == Identifier {
 
   init(token: Token, in source: SourceFile) {
-    self.init(value: String(source[token.range]), range: token.range)
+    self.init(value: String(source[token.origin]), range: token.origin)
   }
 
 }
@@ -3341,7 +3342,7 @@ fileprivate extension Diagnostic {
   }
 
   static func diagnose(unexpectedToken token: Token) -> Diagnostic {
-    .error("unexpected token '\(token.kind)'", range: token.range)
+    .error("unexpected token '\(token.kind)'", range: token.origin)
   }
 
   static func diagnose(unterminatedCommentEndingAt endLocation: SourceLocation) -> Diagnostic {
