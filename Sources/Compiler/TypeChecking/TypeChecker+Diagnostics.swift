@@ -321,4 +321,17 @@ extension Diagnostic {
     .warning("unused result of type '\(type)'", range: range)
   }
 
+  static func diagnose(
+    argumentToNonGenericType type: AnyType,
+    at range: SourceRange?
+  ) -> Diagnostic {
+    .error("non-generic type 'type' has no generic parameters", range: range)
+  }
+
+  static func diagnose(
+    metatypeRequiresOneArgumentAt range: SourceRange?
+  ) -> Diagnostic {
+    .error("reference to 'Metatype' requires exacly one static argument", range: range)
+  }
+
 }

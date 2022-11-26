@@ -2027,17 +2027,6 @@ public struct TypeChecker {
 
   // MARK: Type realization
 
-//  /// Returns the value of `expr` evaluated in `scope` as a meta type or `nil` if `expr`'s
-//  /// evaluation fails or results in a different kind of value.
-//  private mutating func unwrapAsMetaType(_ value: AnyType) -> MetaTypeType? {
-//    if let result = value.base as? MetaTypeType {
-//      return result
-//    } else {
-//      diagnostics.insert(.diagnose(expectedMetaTypeButFound: value, at: program.ast.ranges[expr]))
-//      return nil
-//    }
-//  }
-
   /// Realizes and returns the type denoted by `expr` evaluated in `scope`.
   mutating func realize(_ expr: AnyExprID, inScope scope: AnyScopeID) -> MetaTypeType? {
     switch expr.kind {
@@ -2072,6 +2061,80 @@ public struct TypeChecker {
   /// Returns the type of the function declaration underlying `expr`.
   mutating func realize(underlyingDeclOf expr: NodeID<LambdaExpr>) -> AnyType? {
     realize(functionDecl: program.ast[expr].decl)
+  }
+
+  /// Realizes and returns a "magic" type expression.
+  private mutating func realizeMagicTypeExpr(
+    _ expr: NodeID<NameExpr>,
+    inScope scope: AnyScopeID
+  ) -> MetaTypeType? {
+    precondition(program.ast[expr].domain == .none)
+
+    // Evaluate the static argument list.
+    var arguments: [BoundGenericType.Argument] = []
+    for a in program.ast[expr].arguments {
+      switch a.value {
+      case .expr(let a):
+        // TODO: Symbolic execution
+        arguments.append(.value(a))
+
+      case .type(let a):
+        guard let type = realize(a, inScope: scope)?.instance else { return nil }
+        arguments.append(.type(type))
+      }
+    }
+
+    // Determine the "magic" type expression to realize.
+    let name = program.ast[expr].name
+    switch name.value.stem {
+    case "Any":
+      let type = MetaTypeType(.any)
+      if arguments.count > 0 {
+        diagnostics.insert(.diagnose(argumentToNonGenericType: type.instance, at: name.range))
+        return nil
+      }
+      return type
+
+    case "Never":
+      let type = MetaTypeType(.never)
+      if arguments.count > 0 {
+        diagnostics.insert(.diagnose(argumentToNonGenericType: type.instance, at: name.range))
+        return nil
+      }
+      return type
+
+    case "Self":
+      guard let type = realizeSelfTypeExpr(inScope: scope) else {
+        diagnostics.insert(.diagnose(invalidReferenceToSelfTypeAt: name.range))
+        return nil
+      }
+      if arguments.count > 0 {
+        diagnostics.insert(.diagnose(argumentToNonGenericType: type.instance, at: name.range))
+        return nil
+      }
+      return type
+
+    case "MetaType":
+      if arguments.count != 1 {
+        diagnostics.insert(.diagnose(metatypeRequiresOneArgumentAt: name.range))
+      }
+      if case .type(let a) = arguments.first! {
+        return MetaTypeType(MetaTypeType(a))
+      } else {
+        fatalError("not implemented")
+      }
+
+    case "Builtin" where isBuiltinModuleVisible:
+      let type = MetaTypeType(.builtin(.module))
+      if arguments.count > 0 {
+        diagnostics.insert(.diagnose(argumentToNonGenericType: type.instance, at: name.range))
+        return nil
+      }
+      return type
+
+    default:
+      return nil
+    }
   }
 
   /// Realizes and returns the type of the `Self` expression in `scope`.
@@ -2198,31 +2261,13 @@ public struct TypeChecker {
       // Name expression has no domain.
       domain = nil
 
-      // Handle reserved type names.
-      switch name.value.stem {
-      case "Self":
-        if let type = realizeSelfTypeExpr(inScope: scope) {
-          return type
-        } else {
-          diagnostics.insert(.diagnose(invalidReferenceToSelfTypeAt: name.range))
-          return nil
-        }
-
-      case "Any":
-        return MetaTypeType(.any)
-
-      case "Never":
-        return MetaTypeType(.never)
-
-      case "Builtin" where isBuiltinModuleVisible:
-        return MetaTypeType(.builtin(.module))
-
-      default:
-        break
-      }
-
       // Search for the referred type declaration with an unqualified lookup.
       matches = lookup(unqualified: name.value.stem, inScope: scope)
+
+      // If there are no matches, check for magic symbols.
+      if matches.isEmpty {
+        return realizeMagicTypeExpr(id, inScope: scope)
+      }
 
     case .type(let j):
       // The domain is a type expression.
