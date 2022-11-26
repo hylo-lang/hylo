@@ -1,6 +1,8 @@
 /// A generic type parameter declaration.
 public struct GenericTypeParamDecl: TypeDecl {
 
+  public let origin: SourceRange?
+
   /// The identifier of the parameter.
   public let identifier: SourceRepresentable<Identifier>
 
@@ -13,8 +15,10 @@ public struct GenericTypeParamDecl: TypeDecl {
   public init(
     identifier: SourceRepresentable<Identifier>,
     conformances: [NodeID<NameExpr>] = [],
-    defaultValue: AnyTypeExprID? = nil
+    defaultValue: AnyTypeExprID? = nil,
+    origin: SourceRange?
   ) {
+    self.origin = origin
     self.identifier = identifier
     self.conformances = conformances
     self.defaultValue = defaultValue

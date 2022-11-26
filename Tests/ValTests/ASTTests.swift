@@ -20,7 +20,8 @@ final class ASTTests: XCTestCase {
       accessModifier: nil,
       identifier: SourceRepresentable(value: "T"),
       refinements: [],
-      members: []))
+      members: [],
+      origin: nil))
 
     // Create a source declaration set.
     let source = try ast.insert(wellFormed: TopLevelDeclSet(decls: [AnyDeclID(trait)]))
@@ -39,7 +40,8 @@ final class ASTTests: XCTestCase {
       decls: [
         AnyDeclID(ast.insert(wellFormed: FunctionDecl(
           introducerRange: nil,
-          identifier: SourceRepresentable(value: "foo")))),
+          identifier: SourceRepresentable(value: "foo"),
+          origin: nil))),
       ]))
     ast[module].addSourceFile(source)
 

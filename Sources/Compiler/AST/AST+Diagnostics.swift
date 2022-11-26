@@ -110,7 +110,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     .error(
       "missing type annotation",
-      range: ast.ranges[p.subpattern])
+      range: ast[p.subpattern].origin)
   }
 
   static func diagnose(

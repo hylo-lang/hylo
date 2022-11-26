@@ -123,14 +123,14 @@ struct ConstraintGenerator {
       equalityOrSubtypingConstraint(
         inferredTypes[rhs]!,
         inferredTypes[lhs]!,
-        because: ConstraintCause(.initializationOrAssignment, at: checker.program.ast.ranges[id])))
+        because: ConstraintCause(.initializationOrAssignment, at: checker.program.ast[id].origin)))
 
     // Infer the type on the right.
     expectedTypes[rhs] = inferredTypes[lhs]
     visit(expr: rhs, using: &checker)
 
     // Assignments have the void type.
-    assume(typeOf: id, equals: AnyType.void, at: checker.program.ast.ranges[id])
+    assume(typeOf: id, equals: AnyType.void, at: checker.program.ast[id].origin)
   }
 
   private mutating func visit(
@@ -152,7 +152,7 @@ struct ConstraintGenerator {
     using checker: inout TypeChecker
   ) {
     let boolType = checker.program.ast.coreType(named: "Bool")!
-    assume(typeOf: id, equals: boolType, at: checker.program.ast.ranges[id])
+    assume(typeOf: id, equals: boolType, at: checker.program.ast[id].origin)
   }
 
   private mutating func visit(
@@ -177,7 +177,7 @@ struct ConstraintGenerator {
     let (ty, cs) = checker.contextualize(
       type: target,
       inScope: scope,
-      cause: ConstraintCause(.cast, at: checker.program.ast.ranges[id]))
+      cause: ConstraintCause(.cast, at: checker.program.ast[id].origin))
     target = ty
     constraints.append(contentsOf: cs)
 
@@ -195,7 +195,7 @@ struct ConstraintGenerator {
         equalityOrSubtypingConstraint(
           inferredTypes[lhs]!,
           target,
-          because: ConstraintCause(.cast, at: checker.program.ast.ranges[id])))
+          because: ConstraintCause(.cast, at: checker.program.ast[id].origin)))
 
     case .builtinPointerConversion:
       // The type of the left operand must be `Builtin.Pointer`.
@@ -206,7 +206,7 @@ struct ConstraintGenerator {
     visit(expr: lhs, using: &checker)
 
     // In any case, the expression is assumed to have the type denoted by the right operand.
-    assume(typeOf: id, equals: target, at: checker.program.ast.ranges[id])
+    assume(typeOf: id, equals: target, at: checker.program.ast[id].origin)
   }
 
   private mutating func visit(
@@ -247,16 +247,16 @@ struct ConstraintGenerator {
     // Visit the failure branch.
     switch checker.program.ast[id].failure {
     case .expr(let elseExpr):
-      assume(typeOf: id, equals: inferredType!, at: checker.program.ast.ranges[id])
+      assume(typeOf: id, equals: inferredType!, at: checker.program.ast[id].origin)
       expectedTypes[elseExpr] = inferredType
       visit(expr: elseExpr, using: &checker)
 
     case .block(let thenBlock):
-      assume(typeOf: id, equals: AnyType.void, at: checker.program.ast.ranges[id])
+      assume(typeOf: id, equals: AnyType.void, at: checker.program.ast[id].origin)
       _ = checker.check(brace: thenBlock)
 
     case nil:
-      assume(typeOf: id, equals: AnyType.void, at: checker.program.ast.ranges[id])
+      assume(typeOf: id, equals: AnyType.void, at: checker.program.ast[id].origin)
     }
   }
 
@@ -347,7 +347,7 @@ struct ConstraintGenerator {
             calleeTypeConstraints: candidates[0].constraints,
             arguments: checker.program.ast[id].arguments,
             using: &checker)
-          assume(typeOf: id, equals: outputType, at: checker.program.ast.ranges[id])
+          assume(typeOf: id, equals: outputType, at: checker.program.ast[id].origin)
 
         default:
           // TODO: Handle specializations
@@ -356,7 +356,9 @@ struct ConstraintGenerator {
 
       case TraitDecl.self:
         let trait = TraitType(NodeID(rawValue: d.rawValue), ast: checker.program.ast)
-        diagnostics.append(.diagnose(cannotConstructTrait: trait, at: checker.program.ast.ranges[callee]))
+        diagnostics.append(.diagnose(
+          cannotConstructTrait: trait,
+          at: checker.program.ast[callee].origin))
         assignToError(id)
 
       case TypeAliasDecl.self:
@@ -377,13 +379,13 @@ struct ConstraintGenerator {
         calleeTypeConstraints: [],
         arguments: checker.program.ast[id].arguments,
         using: &checker)
-      assume(typeOf: id, equals: outputType, at: checker.program.ast.ranges[id])
+      assume(typeOf: id, equals: outputType, at: checker.program.ast[id].origin)
       return
     }
 
     // 4th case
     let output = expectedTypes[id] ?? ^TypeVariable(node: AnyNodeID(id))
-    assume(typeOf: id, equals: output, at: checker.program.ast.ranges[id])
+    assume(typeOf: id, equals: output, at: checker.program.ast[id].origin)
 
     var inputs: [CallableTypeParameter] = []
     for i in 0 ..< checker.program.ast[id].arguments.count {
@@ -396,7 +398,7 @@ struct ConstraintGenerator {
         ParameterConstraint(
           inferredTypes[argument]!,
           parameterType,
-          because: ConstraintCause(.argument, at: checker.program.ast.ranges[argument])))
+          because: ConstraintCause(.argument, at: checker.program.ast[argument].origin)))
 
       let argumentLabel = checker.program.ast[id].arguments[i].label?.value
       inputs.append(CallableTypeParameter(label: argumentLabel, type: parameterType))
@@ -411,7 +413,7 @@ struct ConstraintGenerator {
       EqualityConstraint(
         inferredTypes[callee]!,
         ^calleeType,
-        because: ConstraintCause(.callee, at: checker.program.ast.ranges[callee])))
+        because: ConstraintCause(.callee, at: checker.program.ast[callee].origin)))
   }
 
   private mutating func visit(
@@ -421,7 +423,7 @@ struct ConstraintGenerator {
     let subexpr = checker.program.ast[id].subject
     expectedTypes[subexpr] = expectedTypes[id]
     visit(expr: subexpr, using: &checker)
-    assume(typeOf: id, equals: inferredTypes[subexpr]!, at: checker.program.ast.ranges[id])
+    assume(typeOf: id, equals: inferredTypes[subexpr]!, at: checker.program.ast[id].origin)
   }
 
   private mutating func visit(
@@ -431,7 +433,7 @@ struct ConstraintGenerator {
     defer { assert(inferredTypes[id] != nil) }
 
     let trait = checker.program.ast.coreTrait(named: "ExpressibleByIntegerLiteral")!
-    let cause = ConstraintCause(.literal, at: checker.program.ast.ranges[id])
+    let cause = ConstraintCause(.literal, at: checker.program.ast[id].origin)
 
     switch expectedTypes[id]?.base {
     case let tau as TypeVariable:
@@ -454,7 +456,7 @@ struct ConstraintGenerator {
               penalties: 1),
             ],
           because: cause))
-      assume(typeOf: id, equals: tau, at: checker.program.ast.ranges[id])
+      assume(typeOf: id, equals: tau, at: checker.program.ast[id].origin)
 
     case .some(let expectedType):
       // The type of has been fixed; constrain it to conform to `ExpressibleByIntegerLiteral`.
@@ -463,12 +465,12 @@ struct ConstraintGenerator {
           ^expectedType,
           traits: [trait],
           because: cause))
-      assume(typeOf: id, equals: expectedType, at: checker.program.ast.ranges[id])
+      assume(typeOf: id, equals: expectedType, at: checker.program.ast[id].origin)
 
     case nil:
       // Without contextual information, infer the type of the literal as `Val.Int`.
       let intType = checker.program.ast.coreType(named: "Int")!
-      assume(typeOf: id, equals: intType, at: checker.program.ast.ranges[id])
+      assume(typeOf: id, equals: intType, at: checker.program.ast[id].origin)
     }
   }
 
@@ -493,7 +495,7 @@ struct ConstraintGenerator {
         diagnostics.append(.diagnose(
           expectedLambdaParameterCount: expectedType.inputs.count,
           found: declType.inputs.count,
-          at: checker.program.ast.ranges[id]))
+          at: checker.program.ast[id].origin))
         assignToError(id)
         return
       }
@@ -503,7 +505,7 @@ struct ConstraintGenerator {
         diagnostics.append(.diagnose(
           labels: Array(declType.labels),
           incompatibleWith: Array(expectedType.labels),
-          at: checker.program.ast.ranges[id]))
+          at: checker.program.ast[id].origin))
         assignToError(id)
         return
       }
@@ -526,7 +528,7 @@ struct ConstraintGenerator {
       }
     }
 
-    assume(typeOf: id, equals: declType, at: checker.program.ast.ranges[id])
+    assume(typeOf: id, equals: declType, at: checker.program.ast[id].origin)
   }
 
   private mutating func visit(
@@ -552,7 +554,7 @@ struct ConstraintGenerator {
     case .none:
       let expr = checker.program.ast[id]
       if checker.isBuiltinModuleVisible && (expr.name.value.stem == "Builtin") {
-        assume(typeOf: id, equals: BuiltinType.module, at: checker.program.ast.ranges[id])
+        assume(typeOf: id, equals: BuiltinType.module, at: checker.program.ast[id].origin)
         checker.referredDecls[id] = .direct(AnyDeclID(checker.program.ast.builtinDecl))
         return
       }
@@ -571,7 +573,7 @@ struct ConstraintGenerator {
         let (ty, cs) = checker.contextualize(
           type: candidates[0].type,
           inScope: context,
-          cause: ConstraintCause(.binding, at: checker.program.ast.ranges[id]))
+          cause: ConstraintCause(.binding, at: checker.program.ast[id].origin))
         inferredType = ty
 
         // Register associated constraints.
@@ -588,7 +590,7 @@ struct ConstraintGenerator {
         fatalError("not implemented")
       }
 
-      assume(typeOf: id, equals: inferredType, at: checker.program.ast.ranges[id])
+      assume(typeOf: id, equals: inferredType, at: checker.program.ast[id].origin)
 
     case .expr(let domain):
       // Infer the type of the domain.
@@ -606,10 +608,10 @@ struct ConstraintGenerator {
         let symbolName = checker.program.ast[id].name.value.stem
 
         if let type = BuiltinSymbols[symbolName] {
-          assume(typeOf: id, equals: type, at: checker.program.ast.ranges[id])
+          assume(typeOf: id, equals: type, at: checker.program.ast[id].origin)
           checker.referredDecls[id] = .direct(AnyDeclID(checker.program.ast.builtinDecl))
         } else if let type = BuiltinType(symbolName) {
-          assume(typeOf: id, equals: type, at: checker.program.ast.ranges[id])
+          assume(typeOf: id, equals: type, at: checker.program.ast[id].origin)
           checker.referredDecls[id] = .direct(AnyDeclID(checker.program.ast.builtinDecl))
         } else {
           diagnostics.append(
@@ -622,11 +624,11 @@ struct ConstraintGenerator {
 
       // Map the expression to a fresh variable unless we have top-down type information.
       let inferredType = expectedTypes[id] ?? ^TypeVariable(node: AnyNodeID(id))
-      assume(typeOf: id, equals: inferredType, at: checker.program.ast.ranges[id])
+      assume(typeOf: id, equals: inferredType, at: checker.program.ast[id].origin)
 
       // If we determined that the domain refers to a nominal type declaration, create a static
       // member constraint. Otherwise, create a non-static member constraint.
-      let cause = ConstraintCause(.member, at: checker.program.ast.ranges[id])
+      let cause = ConstraintCause(.member, at: checker.program.ast[id].origin)
 
       if let base = NodeID<NameExpr>(domain),
          let decl = checker.referredDecls[base]?.decl,
@@ -678,7 +680,7 @@ struct ConstraintGenerator {
       foldedSequence: foldedSequence,
       expectingRootType: expectedTypes[id],
       using: &checker)
-    assume(typeOf: id, equals: inferredRootType, at: checker.program.ast.ranges[id])
+    assume(typeOf: id, equals: inferredRootType, at: checker.program.ast[id].origin)
   }
 
   private mutating func visit(
@@ -721,7 +723,7 @@ struct ConstraintGenerator {
           type: lhsType,
           hasMemberNamed: checker.program.ast[callee.expr].name.value,
           ofType: ^calleeType,
-          because: ConstraintCause(.member, at: checker.program.ast.ranges[callee.expr])))
+          because: ConstraintCause(.member, at: checker.program.ast[callee.expr].origin)))
 
       return outputType
 
@@ -777,7 +779,7 @@ struct ConstraintGenerator {
       }
     }
 
-    assume(typeOf: id, equals: TupleType(tupleTypeElements), at: checker.program.ast.ranges[id])
+    assume(typeOf: id, equals: TupleType(tupleTypeElements), at: checker.program.ast[id].origin)
   }
 
   private mutating func visit(
@@ -810,14 +812,14 @@ struct ConstraintGenerator {
       diagnostics.append(.diagnose(
         labels: argumentLabels,
         incompatibleWith: calleeLabels,
-        at: checker.program.ast.ranges[callee]))
+        at: checker.program.ast[callee].origin))
       return .error
     }
 
     // Gather the callee's constraints.
     for c in calleeTypeConstraints {
       var newConstraint = c
-      newConstraint.cause = ConstraintCause(.callee, at: checker.program.ast.ranges[callee])
+      newConstraint.cause = ConstraintCause(.callee, at: checker.program.ast[callee].origin)
       constraints.append(newConstraint)
     }
 
@@ -832,7 +834,7 @@ struct ConstraintGenerator {
         ParameterConstraint(
           argumentType,
           parameterType,
-          because: ConstraintCause(.argument, at: checker.program.ast.ranges[argumentExpr])))
+          because: ConstraintCause(.argument, at: checker.program.ast[argumentExpr].origin)))
 
       if let type = parameterType.base as? ParameterType {
         expectedTypes[argumentExpr] = type.bareType
@@ -873,7 +875,7 @@ struct ConstraintGenerator {
       case 0:
         checker.diagnostics.insert(.diagnose(
           undefinedOperator: operatorStem,
-          at: checker.program.ast.ranges[tail[i].operator]))
+          at: checker.program.ast[tail[i].operator].origin))
         accumulator.append(
           operator: (expr: tail[i].operator, precedence: nil),
           right: tail[i].operand)

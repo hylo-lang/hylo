@@ -17,6 +17,8 @@ public struct NameExpr: Expr {
 
   }
 
+  public let origin: SourceRange?
+
   /// The domain of the name, if it is qualified.
   public let domain: Domain
 
@@ -30,7 +32,9 @@ public struct NameExpr: Expr {
     domain: Domain = .none,
     name: SourceRepresentable<Name>,
     arguments: [GenericArgument] = [],
+    origin: SourceRange?
   ) {
+    self.origin = origin
     self.domain = domain
     self.name = name
     self.arguments = arguments

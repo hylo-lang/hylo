@@ -8,6 +8,8 @@ public struct VarDecl: SingleEntityDecl {
     self.identifier = identifier
   }
 
+  public var origin: SourceRange? { identifier.range }
+
   public var name: String { identifier.value }
 
 }

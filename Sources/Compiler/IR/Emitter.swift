@@ -258,7 +258,7 @@ public struct Emitter {
             from: source,
             at: path,
             binding: decl,
-            range: program.ast.ranges[decl]),
+            range: program.ast[decl].origin),
           at: insertionPoint!)[0]
       }
     }
@@ -314,7 +314,7 @@ public struct Emitter {
 
     emitStackDeallocs(in: &module)
     module.insert(
-      ReturnInst(value: value, range: program.ast.ranges[stmt]),
+      ReturnInst(value: value, range: program.ast[stmt].origin),
       at: insertionPoint!)
   }
 
