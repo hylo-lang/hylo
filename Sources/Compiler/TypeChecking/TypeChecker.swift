@@ -1146,14 +1146,20 @@ public struct TypeChecker {
     var success = true
     var constraints: [Constraint] = []
 
-    // Realize the traits in the conformance lists of each generic parameter.
-    for j in clause.parameters {
-      // Realize the generic type parameter.
-      let lhs = (realize(genericParameterDecl: j).base as! MetatypeType).instance
+    // Check the conformance list of each generic type parameter.
+    for p in clause.parameters {
+      // Realize the parameter's declaration.
+      let parameterType = realize(genericParameterDecl: p)
+      if parameterType.isError { return nil }
+
+      // TODO: Type check default values.
+
+      // Skip value declarations.
+      guard let lhs = (parameterType.base as? MetatypeType)?.instance else { continue }
       assert(lhs.base is GenericTypeParameterType)
 
       // Synthesize the sugared conformance constraint, if any.
-      let list = program.ast[j].conformances
+      let list = program.ast[p].conformances
       guard let traits = realize(
         conformances: list,
         inScope: program.scopeToParent[AnyScopeID(id)!]!)
