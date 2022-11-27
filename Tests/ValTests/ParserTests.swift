@@ -763,7 +763,7 @@ final class ParserTests: XCTestCase {
   }
 
   func testGenericClauseWithMultipleParameters() throws {
-    let input = SourceFile(contents: "<T, @value n: Int>")
+    let input = SourceFile(contents: "<T, n: Int>")
     let clause = try XCTUnwrap(try apply(Parser.genericClause, on: input).element)
     XCTAssertEqual(clause.value.parameters.count, 2)
   }
