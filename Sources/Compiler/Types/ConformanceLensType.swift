@@ -1,25 +1,29 @@
 /// A wrapper around a type that is seen through the lens of its conformance to a trait.
-public struct ConformanceLensType: TypeProtocol, Hashable {
+public struct ConformanceLensType: TypeProtocol {
 
-  /// The wrapped type.
-  public let wrapped: Type
+  /// The subject type.
+  public let subject: AnyType
 
-  /// The trait in which the lens focuses.
-  public let focus: TraitType
+  /// The trait through which the subject is viewed.
+  public let lens: TraitType
 
   public let flags: TypeFlags
 
   /// Creates a new conformance lens.
-  public init(wrapped: Type, focus: TraitType) {
-    self.wrapped = wrapped
-    self.focus = focus
-    self.flags = wrapped.flags
+  public init(viewing subject: AnyType, through lens: TraitType) {
+    self.subject = subject
+    self.lens = lens
+    self.flags = subject.flags
+  }
+
+  public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> Self {
+    ConformanceLensType(viewing: subject.transform(transformer), through: lens)
   }
   
 }
 
 extension ConformanceLensType: CustomStringConvertible {
 
-  public var description: String { "\(wrapped)::\(focus)" }
+  public var description: String { "\(subject)::\(lens)" }
 
 }

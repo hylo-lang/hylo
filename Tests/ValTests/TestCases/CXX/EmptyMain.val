@@ -1,6 +1,8 @@
-/*! cpp
+/*! h
     int main();
-    int main() {}
+ */
+/*! cpp
+    int main() {
  */
 public fun main() {
 }

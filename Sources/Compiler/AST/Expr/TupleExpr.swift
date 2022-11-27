@@ -1,8 +1,6 @@
 /// A tuple expression.
 public struct TupleExpr: Expr {
 
-  public static let kind = NodeKind.tupleExpr
-
   /// An element in a tuple expression.
   public struct Element: Codable {
 
@@ -19,10 +17,13 @@ public struct TupleExpr: Expr {
 
   }
 
+  public let origin: SourceRange?
+
   /// The elements of the tuple.
   public let elements: [Element]
 
-  public init(elements: [Element]) {
+  public init(elements: [Element], origin: SourceRange?) {
+    self.origin = origin
     self.elements = elements
   }
 

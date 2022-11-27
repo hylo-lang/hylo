@@ -11,18 +11,23 @@ public struct CXXTypeExpr: CustomStringConvertible {
   ///   - isReturnType: If `true`, creates a type expression suitable to appear as the return type
   ///     of a function declaration. Otherwise, creates an expression suitable to appear as a local
   ///     variable type annotation.
-  public init?(_ type: Type, ast: AST, asReturnType isReturnType: Bool = false) {
-    switch type {
-    case .void:
+  public init?(_ type: AnyType, ast: AST, asReturnType isReturnType: Bool = false) {
+    switch type.base {
+    case AnyType.void:
       description = isReturnType ? "void" : "std::monostate"
 
-    case .product(let productType):
+    case let type as ProductType:
       // TODO: we should translate this to an "int" struct
-      if productType == ast.coreType(named: "Int") {
+      if type == ast.coreType(named: "Int") {
         description = "int"
       } else {
-        description = productType.name.value
+        description = type.name.value
       }
+
+    case let type as ParameterType:
+      // TODO: convention
+      let bareDescription = CXXTypeExpr(type.bareType, ast: ast)!.description
+      description = bareDescription
 
     default:
       return nil
@@ -35,4 +40,3 @@ public struct CXXTypeExpr: CustomStringConvertible {
   }
 
 }
-

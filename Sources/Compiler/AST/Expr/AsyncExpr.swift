@@ -1,12 +1,13 @@
 /// An expression ran in a future.
 public struct AsyncExpr: Expr {
 
-  public static let kind = NodeKind.asyncExpr
+  public let origin: SourceRange?
 
   /// The declaration of the underlying anonymous function.
-  public let decl: NodeID<FunDecl>
+  public let decl: NodeID<FunctionDecl>
 
-  public init(decl: NodeID<FunDecl>) {
+  public init(decl: NodeID<FunctionDecl>, origin: SourceRange?) {
+    self.origin = origin
     self.decl = decl
   }
 

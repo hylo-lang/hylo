@@ -1,12 +1,13 @@
 /// A declaration statement.
 public struct DeclStmt: Stmt {
 
-  public static let kind = NodeKind.declStmt
+  public let origin: SourceRange?
 
   /// The declaration.
   public let decl: AnyDeclID
 
-  public init(decl: AnyDeclID) {
+  public init(decl: AnyDeclID, origin: SourceRange?) {
+    self.origin = origin
     self.decl = decl
   }
 

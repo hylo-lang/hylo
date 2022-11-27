@@ -111,8 +111,8 @@ final class LexerTests: XCTestCase {
   func testKeywords() {
     let input = SourceFile(contents: """
     any async await break catch conformance continue deinit do else extension for fun if import in
-    indirect infix init inout let match namespace nil operator postfix prefix property public
-    return set sink some static subscript trait try type typealias var where while yield yielded
+    infix init inout let match namespace nil operator postfix prefix property public return set
+    sink some static subscript trait try type typealias var where while yield yielded
     """)
 
     assert(
@@ -134,7 +134,6 @@ final class LexerTests: XCTestCase {
         TokenSpecification(.`if`          , "if"),
         TokenSpecification(.`import`      , "import"),
         TokenSpecification(.`in`          , "in"),
-        TokenSpecification(.`indirect`    , "indirect"),
         TokenSpecification(.`infix`       , "infix"),
         TokenSpecification(.`init`        , "init"),
         TokenSpecification(.`inout`       , "inout"),
@@ -337,7 +336,7 @@ final class LexerTests: XCTestCase {
         file: spec.file,
         line: spec.line)
 
-      let value = source[token.range]
+      let value = source[token.origin]
       XCTAssert(
         value == spec.value,
         "token has value '\(value)', not '\(spec.value)'",

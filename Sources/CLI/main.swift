@@ -79,6 +79,8 @@ struct CLI: ParsableCommand {
     transform: URL.init(fileURLWithPath:))
   var inputs: [URL]
 
+  private var noteLabel   : String { "note: ".styled([.bold, .cyan]) }
+
   private var warningLabel: String { "warning: ".styled([.bold, .yellow]) }
 
   private var errorLabel: String { "error: ".styled([.bold, .red]) }
@@ -103,7 +105,7 @@ struct CLI: ParsableCommand {
     log(verbose: "Parsing '\(productName)'".styled([.bold]))
 
     // Merge all inputs into the same same module.
-    let moduleDecl = ast.insert(ModuleDecl(name: productName))
+    let moduleDecl = try! ast.insert(wellFormed: ModuleDecl(name: productName))
     for input in inputs {
       if input.hasDirectoryPath {
         if !withFiles(in: input, { insert(contentsOf: $0, into: moduleDecl, in: &ast) }) {
@@ -129,7 +131,7 @@ struct CLI: ParsableCommand {
     log(verbose: "Type-checking '\(productName)'".styled([.bold]))
 
     // Import the core library.
-    try ast.importCoreModule()
+    ast.importCoreModule()
 
     // Initialize the type checker.
     var checker = TypeChecker(program: ScopedProgram(ast: ast), isBuiltinModuleVisible: true)
@@ -155,7 +157,9 @@ struct CLI: ParsableCommand {
       annotating: checker.program,
       declTypes: checker.declTypes,
       exprTypes: checker.exprTypes,
-      referredDecls: checker.referredDecls)
+      implicitCaptures: checker.implicitCaptures,
+      referredDecls: checker.referredDecls,
+      foldedSequenceExprs: checker.foldedSequenceExprs)
 
     // *** IR Lowering ***
 
@@ -261,17 +265,23 @@ struct CLI: ParsableCommand {
       let sourceFile: SourceFile
       do {
         sourceFile = try SourceFile(contentsOf: fileURL)
-      } catch {
+      } catch let error {
         log(errorLabel + error.localizedDescription)
         return false
       }
 
       // Parse the file.
-      let (decls, parserDiagnostics) = Parser.parse(sourceFile, into: module, in: &ast)
-      log(diagnostics: parserDiagnostics)
-
-      // Bail out if the parser failed.
-      return decls != nil
+      do {
+        let (_, parseDiagnostics) = try Parser.parse(sourceFile, into: module, in: &ast)
+        log(diagnostics: parseDiagnostics)
+        return true
+      } catch let error as DiagnosedError {
+        log(diagnostics: error.diagnostics)
+        return false
+      } catch let error {
+        log(errorLabel + error.localizedDescription)
+        return false
+      }
 
     default:
       log("ignoring file with unsupported extension: \(fileURL.relativePath)")
@@ -294,25 +304,28 @@ struct CLI: ParsableCommand {
   }
 
   /// Logs `diagnostic` to the standard error.
-  func log(diagnostic: Diagnostic) {
-    // Log the level.
-    switch diagnostic.level {
-    case .warning:
-      write("warning".styled([.bold, .yellow]))
-    case .error:
-      write("error".styled([.bold, .red]))
-    }
-    write(": ")
-
+  func log(diagnostic: Diagnostic, asChild isChild: Bool = false) {
     // Log the location, if available.
     if let location = diagnostic.location {
       let path = location.source.url.relativePath
       let (line, column) = location.source.lineAndColumnIndices(at: location)
-      write("\(path):\(line):\(column): ")
+      write("\(path):\(line):\(column): ".styled([.bold]))
+    }
+
+    // Log the level.
+    if isChild {
+      write(noteLabel)
+    } else {
+      switch diagnostic.level {
+      case .warning:
+        write(warningLabel)
+      case .error:
+        write(errorLabel)
+      }
     }
 
     // Log the message.
-    write(diagnostic.message)
+    write(diagnostic.message.styled([.bold]))
     write("\n")
 
     // Log the window
@@ -333,6 +346,11 @@ struct CLI: ParsableCommand {
       }
       write("\n")
     }
+
+    // Log the children.
+    for child in diagnostic.children {
+      log(diagnostic: child, asChild: true)
+    }
   }
 
   /// Logs `message` to the standard error file if `--verbose` is set.
@@ -344,8 +362,6 @@ struct CLI: ParsableCommand {
 
   /// Logs `message` to the standard error file.
   func log(_ message: String, terminator: String = "\n") {
-    write("warning".styled([.bold, .yellow]))
-    write(": ")
     write(message)
     write(terminator)
   }

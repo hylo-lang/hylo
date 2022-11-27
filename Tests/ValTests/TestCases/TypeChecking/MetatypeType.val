@@ -1,0 +1,9 @@
+//! expect-failure
+
+type A {}
+type B {}
+
+public fun main() {
+  let _ : Metatype<A> = A
+  let _ : Metatype<B> = A //! diagnostic incompatible types 'Metatype<A>' and 'Metatype<B>'
+}

@@ -1,7 +1,7 @@
 import Utils
 
 /// The overarching type of a subscript declaration.
-public struct SubscriptType: TypeProtocol, Hashable {
+public struct SubscriptType: TypeProtocol {
 
   /// Indicates whether the subscript denotes a computed property.
   public let isProperty: Bool
@@ -9,20 +9,21 @@ public struct SubscriptType: TypeProtocol, Hashable {
   /// The capabilities of the subscript.
   public let capabilities: Set<ImplIntroducer>
 
-  public let environment: Type
+  public let environment: AnyType
 
   public let inputs: [CallableTypeParameter]
 
-  public let output: Type
+  public let output: AnyType
 
   public let flags: TypeFlags
 
+  /// Creates an instance with the given properties.
   public init(
     isProperty: Bool,
     capabilities: Set<ImplIntroducer>,
-    environment: Type = .void,
+    environment: AnyType = .void,
     inputs: [CallableTypeParameter],
-    output: Type
+    output: AnyType
   ) {
     self.isProperty = isProperty
     self.capabilities = capabilities
@@ -38,11 +39,17 @@ public struct SubscriptType: TypeProtocol, Hashable {
 
   /// Accesses the individual elements of the subscript's environment.
   public var captures: [TupleType.Element] {
-    if case .tuple(let type) = environment {
-      return type.elements
-    } else {
-      return []
-    }
+    (environment.base as? TupleType)?.elements ?? []
+  }
+
+  public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> Self {
+    SubscriptType(
+      isProperty: isProperty,
+      capabilities: capabilities,
+      inputs: inputs.map({ (p) -> CallableTypeParameter in
+        .init(label: p.label, type: p.type.transform(transformer))
+      }),
+      output: output.transform(transformer))
   }
 
 }
@@ -50,14 +57,16 @@ public struct SubscriptType: TypeProtocol, Hashable {
 extension SubscriptType: CustomStringConvertible {
 
   public var description: String {
-    let c = capabilities.map({ "\($0)" }).sorted().joined(separator: " ")
-    let e = (environment == .void) ? "thin" : "[\(environment)]"
+    let cs = capabilities
+      .map(String.init(describing:))
+      .sorted()
+      .joined(separator: " ")
+
     if isProperty {
-      return "property \(e) \(output) { \(c) }"
+      return "property [\(environment)] \(output) { \(cs) }"
     } else {
       let i = inputs.descriptions(joinedBy: ", ")
-      let o = "\(output)"
-      return "subscript \(e) (\(i)): \(o) { \(c) }"
+      return "subscript [\(environment)] (\(i)): \(output) { \(cs) }"
     }
   }
 

@@ -22,7 +22,8 @@ public struct NodeID<Subject: Node>: ConcreteNodeID {
 
   public let rawValue: RawValue
 
-  public var kind: NodeKind { Subject.kind }
+  /// The dynamic type of node being referred to.
+  public var kind: NodeKind { NodeKind(Subject.self) }
 
   public init(_ source: Self) { self = source }
 

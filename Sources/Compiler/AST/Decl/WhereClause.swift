@@ -8,12 +8,12 @@ public struct WhereClause: Codable {
 
     /// An equality constraint involving one or two skolems.
     case equality(
-      l: NodeID<NameTypeExpr>,
+      l: NodeID<NameExpr>,
       r: AnyTypeExprID)
 
     /// A conformance constraint on a skolem.
     case conformance(
-      l: NodeID<NameTypeExpr>,
+      l: NodeID<NameExpr>,
       traits: TraitComposition)
 
     /// A constraint on a value parameter.

@@ -1,10 +1,14 @@
 import XCTest
 import Compiler
 
-func check(_ haystack: String, contains needle: String.SubSequence) {
+func check(_ haystack: String, contains needle: String.SubSequence, for testFile: String) {
   XCTAssert(
     haystack.contains(needle),
     """
+
+
+    Test file: \(testFile)
+    ===========\(String(repeating: "=", count: testFile.count))
 
     \(String(reflecting: needle))
     not found in source
@@ -12,6 +16,19 @@ func check(_ haystack: String, contains needle: String.SubSequence) {
     \(haystack)
     \"""
     """)
+}
+
+extension StringProtocol {
+
+  /// Removes trailing newlines from the given string subsequence.
+  func removingTrailingNewlines() -> Self.SubSequence {
+    if let i = self.lastIndex(where: { !$0.isNewline }) {
+      return self.prefix(through: i)
+    } else {
+      return self.prefix(upTo: startIndex)
+    }
+  }
+
 }
 
 final class CXXTests: XCTestCase {
@@ -24,7 +41,7 @@ final class CXXTests: XCTestCase {
 
     // Prepare an AST with the core module loaded.
     var baseAST = AST()
-    try baseAST.importCoreModule()
+    baseAST.importCoreModule()
 
     // Execute the test cases.
     try TestCase.executeAll(in: testCaseDirectory, { (tc) in
@@ -32,10 +49,11 @@ final class CXXTests: XCTestCase {
       var ast = baseAST
 
       // Create a module for the input.
-      let module = ast.insert(ModuleDecl(name: tc.name))
+      let module = try ast.insert(wellFormed: ModuleDecl(name: tc.name))
 
       // Parse the input.
-      if Parser.parse(tc.source, into: module, in: &ast).decls == nil {
+      let (_, parseDiagnostics) = try Parser.parse(tc.source, into: module, in: &ast)
+      if parseDiagnostics.contains(where: { $0.level == .error }) {
         XCTFail("\(tc.name): parsing failed")
         return
       }
@@ -51,7 +69,9 @@ final class CXXTests: XCTestCase {
         annotating: checker.program,
         declTypes: checker.declTypes,
         exprTypes: checker.exprTypes,
-        referredDecls: checker.referredDecls)
+        implicitCaptures: checker.implicitCaptures,
+        referredDecls: checker.referredDecls,
+        foldedSequenceExprs: checker.foldedSequenceExprs)
 
       // TODO: Run IR transform passes
 
@@ -63,14 +83,13 @@ final class CXXTests: XCTestCase {
 
       // Process the test annotations.
       for annotation in tc.annotations {
+        let code = annotation.argument!.removingTrailingNewlines()
         switch annotation.command {
         case "cpp":
-          let specifications = annotation.argument?.split(separator: "\n", maxSplits: 1) ?? []
-          assert((1...2).contains(specifications.count))
-          if specifications.count > 1 {
-            check(cxxHeader, contains: specifications.first!)
-          }
-          check(cxxSource, contains: specifications.last!)
+          check(cxxSource, contains: code, for: tc.name)
+
+        case "h":
+          check(cxxHeader, contains: code, for: tc.name)
 
         default:
           XCTFail("\(tc.name): unexpected test command: '\(annotation.command)'")

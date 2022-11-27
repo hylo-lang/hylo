@@ -1,7 +1,7 @@
 import Utils
 
 /// An associated type of a generic type parameter, or associated type thereof.
-public struct AssociatedType: TypeProtocol, Hashable {
+public struct AssociatedTypeType: TypeProtocol {
 
   /// The declaration that introduces the associated type in the parent trait.
   public let decl: NodeID<AssociatedTypeDecl>
@@ -9,16 +9,17 @@ public struct AssociatedType: TypeProtocol, Hashable {
   /// The domain of an associated type.
   ///
   /// The domain is either an associated type, a conformance lens, or a generic type parameter.
-  public let domain: Type
+  public let domain: AnyType
 
   /// The name of the associated type.
   public let name: Incidental<String>
 
-  public let flags: TypeFlags = .isCanonical
-
-  public init(decl: NodeID<AssociatedTypeDecl>, domain: Type, ast: AST) {
-    switch domain {
-    case .associatedType, .conformanceLens, .genericTypeParam:
+  /// Creates an instance denoting the associated type declared by `decl` as a member of `domain`.
+  ///
+  /// - Requires: `domain` is an associated type, conformance lens, or generic type parameter.
+  public init(_ decl: NodeID<AssociatedTypeDecl>, domain: AnyType, ast: AST) {
+    switch domain.base {
+    case is AssociatedTypeType, is ConformanceLensType, is GenericTypeParamType:
       self.domain = domain
     default:
       preconditionFailure("invalid associated type domain")
@@ -28,23 +29,25 @@ public struct AssociatedType: TypeProtocol, Hashable {
     self.name = Incidental(ast[decl].name)
   }
 
+  public var flags: TypeFlags { .isCanonical }
+
   /// An array whose `i+1`-th element is the parent type of the `i`-th element. `components[0]` is
   /// always `self`.
-  public var components: [Type] {
-    var current = Type.associatedType(self)
+  public var components: [AnyType] {
+    var current = ^self
     var result = [current]
 
     while true {
-      switch current {
-      case .genericTypeParam:
+      switch current.base {
+      case is GenericTypeParamType:
         return result
 
-      case .associatedType(let type):
+      case let type as AssociatedTypeType:
         current = type.domain
         result.append(type.domain)
 
-      case .conformanceLens(let type):
-        current = type.wrapped
+      case let type as ConformanceLensType:
+        current = type.subject
 
       default:
         unreachable()
@@ -54,7 +57,7 @@ public struct AssociatedType: TypeProtocol, Hashable {
 
 }
 
-extension AssociatedType: CustomStringConvertible {
+extension AssociatedTypeType: CustomStringConvertible {
 
   public var description: String { "\(domain).\(name.value)" }
 

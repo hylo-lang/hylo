@@ -50,7 +50,7 @@ public struct Lexer: IteratorProtocol, Sequence {
           } else {
             return Token(
               kind: .unterminatedBlockComment,
-              range: SourceRange(in: source, from: start, to: index))
+              origin: SourceRange(in: source, from: start, to: index))
           }
         }
 
@@ -64,12 +64,12 @@ public struct Lexer: IteratorProtocol, Sequence {
 
     // Scan a new token.
     let head = source.contents[index]
-    var token = Token(kind: .invalid, range: location ..< location)
+    var token = Token(kind: .invalid, origin: location ..< location)
 
     // Scan names and keywords.
     if head.isLetter || (head == "_") {
       let word = take(while: { $0.isLetter || $0.isDecDigit })
-      token.range = SourceRange(in: source, from: token.range.lowerBound, to: index)
+      token.origin = SourceRange(in: source, from: token.origin.lowerBound, to: index)
 
       switch word {
       case "_"          : token.kind = .under
@@ -89,7 +89,6 @@ public struct Lexer: IteratorProtocol, Sequence {
       case "if"         : token.kind = .`if`
       case "import"     : token.kind = .`import`
       case "in"         : token.kind = .`in`
-      case "indirect"   : token.kind = .`indirect`
       case "infix"      : token.kind = .`infix`
       case "init"       : token.kind = .`init`
       case "inout"      : token.kind = .`inout`
@@ -126,7 +125,7 @@ public struct Lexer: IteratorProtocol, Sequence {
       case "as":
         _ = take("!")
         _ = take("!")
-        token.range.upperBound = index
+        token.origin.upperBound = index
         token.kind = .cast
 
       default:
@@ -146,9 +145,9 @@ public struct Lexer: IteratorProtocol, Sequence {
 
         if peek() == "`" {
           let start = SourceLocation(
-            source: source, index: source.contents.index(after: token.range.lowerBound))
+            source: source, index: source.contents.index(after: token.origin.lowerBound))
           token.kind = .name
-          token.range = start ..< location
+          token.origin = start ..< location
           discard()
           return token
         } else {
@@ -156,7 +155,7 @@ public struct Lexer: IteratorProtocol, Sequence {
         }
       }
 
-      token.range.upperBound = index
+      token.origin.upperBound = index
       return token
     }
 
@@ -171,7 +170,7 @@ public struct Lexer: IteratorProtocol, Sequence {
           discard()
           if let c = peek(), c.isHexDigit {
             _ = take(while: { $0.isHexDigit })
-            token.range.upperBound = index
+            token.origin.upperBound = index
             return token
           }
 
@@ -179,7 +178,7 @@ public struct Lexer: IteratorProtocol, Sequence {
           discard()
           if let c = peek(), c.isOctDigit {
             _ = take(while: { $0.isOctDigit })
-            token.range.upperBound = index
+            token.origin.upperBound = index
             return token
           }
 
@@ -187,7 +186,7 @@ public struct Lexer: IteratorProtocol, Sequence {
           discard()
           if let c = peek(), c.isBinDigit {
             _ = take(while: { $0.isBinDigit })
-            token.range.upperBound = index
+            token.origin.upperBound = index
             return token
           }
 
@@ -221,7 +220,7 @@ public struct Lexer: IteratorProtocol, Sequence {
         }
       }
 
-      token.range.upperBound = index
+      token.origin.upperBound = index
       return token
     }
 
@@ -233,7 +232,7 @@ public struct Lexer: IteratorProtocol, Sequence {
       while index < source.contents.endIndex {
         if !escape && (take("\"") != nil) {
           token.kind = .string
-          token.range.upperBound = index
+          token.origin.upperBound = index
           return token
         } else if take("\\") != nil {
           escape = !escape
@@ -244,7 +243,7 @@ public struct Lexer: IteratorProtocol, Sequence {
       }
 
       token.kind = .unterminatedString
-      token.range.upperBound = index
+      token.origin.upperBound = index
       return token
     }
 
@@ -254,7 +253,7 @@ public struct Lexer: IteratorProtocol, Sequence {
       token.kind = take(while: { $0.isLetter || ($0 == "_") }).isEmpty
         ? .invalid
         : .attribute
-      token.range.upperBound = index
+      token.origin.upperBound = index
       return token
     }
 
@@ -265,7 +264,7 @@ public struct Lexer: IteratorProtocol, Sequence {
       case "<", ">":
         // Leading angle brackets are tokenized individually, to parse generic clauses.
         discard()
-        oper = source.contents[token.range.lowerBound ..< index]
+        oper = source.contents[token.origin.lowerBound ..< index]
 
       default:
         oper = take(while: { $0.isOperator })
@@ -282,7 +281,7 @@ public struct Lexer: IteratorProtocol, Sequence {
       default  : token.kind = .oper
       }
 
-      token.range.upperBound = index
+      token.origin.upperBound = index
       return token
     }
 
@@ -301,7 +300,7 @@ public struct Lexer: IteratorProtocol, Sequence {
       // Scan range operators.
       if (take(prefix: "...") ?? take(prefix: "..<")) != nil {
         token.kind = .oper
-        token.range.upperBound = index
+        token.origin.upperBound = index
         return token
       }
 
@@ -312,7 +311,7 @@ public struct Lexer: IteratorProtocol, Sequence {
       // Scan double colons.
       if take(prefix: "::") != nil {
         token.kind = .twoColons
-        token.range.upperBound = index
+        token.origin.upperBound = index
         return token
       }
 
@@ -325,7 +324,7 @@ public struct Lexer: IteratorProtocol, Sequence {
 
     // Either the token is punctuation, or it's kind is `invalid`.
     discard()
-    token.range.upperBound = index
+    token.origin.upperBound = index
     return token
   }
 

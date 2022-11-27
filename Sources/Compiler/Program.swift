@@ -6,15 +6,12 @@ public protocol Program {
 
   /// A map from scope to its parent scope.
   var scopeToParent: ASTProperty<AnyScopeID> { get }
-  // parent
 
   /// A map from scope to the declarations directly contained in them.
   var scopeToDecls: ASTProperty<[AnyDeclID]> { get }
-  // containees
 
   /// A map from declaration to its scope.
   var declToScope: DeclProperty<AnyScopeID> { get }
-  // container
 
   /// A map from variable declaration its containing binding declaration.
   var varToBinding: [NodeID<VarDecl>: NodeID<BindingDecl>] { get }
@@ -56,13 +53,13 @@ extension Program {
   /// - it is introduced with `init` or `memberwise init`.
   public func isGlobal<T: DeclID>(_ decl: T) -> Bool {
     // Type declarations are global.
-    if decl.kind <= .typeDecl {
+    if decl.kind.value is TypeDecl.Type {
       return true
     }
 
     // Declarations at global scope are global.
     switch declToScope[decl]!.kind {
-    case .topLevelDeclSet, .namespaceDecl:
+    case TopLevelDeclSet.self, NamespaceDecl.self:
       return true
 
     default:
@@ -71,17 +68,17 @@ extension Program {
 
     // Static member declarations and initializers are global.
     switch decl.kind {
-    case .bindingDecl:
+    case BindingDecl.self:
       return ast[NodeID<BindingDecl>(rawValue: decl.rawValue)].isStatic
 
-    case .funDecl:
-      let i = NodeID<FunDecl>(rawValue: decl.rawValue)
-      return (
-        ast[i].isStatic
-        || ast[i].introducer.value == .`init`
-        || ast[i].introducer.value == .memberwiseInit)
+    case FunctionDecl.self:
+      let i = NodeID<FunctionDecl>(rawValue: decl.rawValue)
+      return ast[i].isStatic
 
-    case .subscriptDecl:
+    case InitializerDecl.self:
+      return true
+
+    case SubscriptDecl.self:
       return ast[NodeID<SubscriptDecl>(rawValue: decl.rawValue)].isStatic
 
     default:
@@ -93,7 +90,8 @@ extension Program {
   public func isMember<T: DeclID>(_ decl: T) -> Bool {
     guard let parent = declToScope[decl] else { return false }
     switch parent.kind {
-    case .productTypeDecl, .traitDecl, .conformanceDecl, .extensionDecl, .typeAliasDecl:
+    case ProductTypeDecl.self, TraitDecl.self, ConformanceDecl.self, ExtensionDecl.self,
+         TypeAliasDecl.self:
       return true
       
     default:
@@ -107,7 +105,7 @@ extension Program {
   }
 
   /// Returns whether `decl` is a non-static member of a type declaration.
-  public func isNonStaticMember(_ decl: NodeID<FunDecl>) -> Bool {
+  public func isNonStaticMember(_ decl: NodeID<FunctionDecl>) -> Bool {
     !ast[decl].isStatic && isMember(decl)
   }
 
@@ -123,39 +121,13 @@ extension Program {
 
   /// Returns whether `decl` is a requirement.
   public func isRequirement<T: DeclID>(_ decl: T) -> Bool {
-    if declToScope[decl]?.kind != .traitDecl { return false }
-
     switch decl.kind {
-    case .funDecl:
-      switch ast[NodeID<FunDecl>(rawValue: decl.rawValue)].body {
-      case .some(.bundle(let impls)):
-        return impls.contains(where: isRequirement)
-      case .some:
-        return false
-      case .none:
-        return true
-      }
-
-    case .methodImplDecl:
-      switch ast[NodeID<MethodImplDecl>(rawValue: decl.rawValue)].body {
-      case .some:
-        return false
-      case .none:
-        return true
-      }
-
-    case .subscriptDecl:
-      return ast[NodeID<SubscriptDecl>(rawValue: decl.rawValue)].impls
-        .contains(where: isRequirement)
-
-    case .subscriptImplDecl:
-      switch ast[NodeID<SubscriptImplDecl>(rawValue: decl.rawValue)].body {
-      case .some:
-        return false
-      case .none:
-        return true
-      }
-
+    case FunctionDecl.self, InitializerDecl.self, MethodDecl.self, SubscriptDecl.self:
+      return declToScope[decl]!.kind == TraitDecl.self
+    case MethodImplDecl.self:
+      return isRequirement(NodeID<MethodDecl>(rawValue: declToScope[decl]!.rawValue))
+    case SubscriptImplDecl.self:
+      return isRequirement(NodeID<SubscriptDecl>(rawValue: declToScope[decl]!.rawValue))
     default:
       return false
     }

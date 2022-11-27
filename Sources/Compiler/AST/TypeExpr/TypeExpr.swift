@@ -1,2 +1,2 @@
 /// A type expression.
-public protocol TypeExpr: Node {}
+public typealias TypeExpr = Expr

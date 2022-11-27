@@ -1,8 +1,6 @@
 /// The declaration of a method implementation.
 public struct MethodImplDecl: Decl, LexicalScope {
 
-  public static let kind = NodeKind.methodImplDecl
-
   public enum Body: Codable {
 
     /// An expression body.
@@ -13,10 +11,12 @@ public struct MethodImplDecl: Decl, LexicalScope {
 
   }
 
+  public let origin: SourceRange?
+
   /// The introducer of the method.
   public let introducer: SourceRepresentable<ImplIntroducer>
 
-  /// The declaration of the implicit receiver parameter, if any.
+  /// The declaration of the implicit receiver parameter.
   public let receiver: NodeID<ParameterDecl>
 
   /// The body of the method, if any.
@@ -26,8 +26,10 @@ public struct MethodImplDecl: Decl, LexicalScope {
   public init(
     introducer: SourceRepresentable<ImplIntroducer>,
     receiver: NodeID<ParameterDecl>,
-    body: Body? = nil
+    body: Body? = nil,
+    origin: SourceRange?
   ) {
+    self.origin = origin
     self.introducer = introducer
     self.receiver = receiver
     self.body = body

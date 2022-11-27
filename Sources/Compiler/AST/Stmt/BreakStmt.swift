@@ -1,8 +1,10 @@
 /// A break statement.
 public struct BreakStmt: Stmt {
 
-  public static let kind = NodeKind.breakStmt
+  public let origin: SourceRange?
 
-  public init() {}
+  public init(origin: SourceRange?) {
+    self.origin = origin
+  }
 
 }

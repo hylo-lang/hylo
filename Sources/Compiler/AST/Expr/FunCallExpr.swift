@@ -1,7 +1,7 @@
 /// A function call.
 public struct FunCallExpr: Expr {
 
-  public static let kind = NodeKind.funCallExpr
+  public let origin: SourceRange?
 
   /// The callee.
   public let callee: AnyExprID
@@ -9,7 +9,8 @@ public struct FunCallExpr: Expr {
   /// The arguments of the call.
   public let arguments: [CallArgument]
 
-  public init(callee: AnyExprID, arguments: [CallArgument] = []) {
+  public init(callee: AnyExprID, arguments: [CallArgument], origin: SourceRange?) {
+    self.origin = origin
     self.callee = callee
     self.arguments = arguments
   }

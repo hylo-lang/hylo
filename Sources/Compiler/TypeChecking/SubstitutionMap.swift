@@ -2,16 +2,16 @@
 struct SubstitutionMap {
 
   /// The internal storage of the map.
-  private var storage: [TypeVariable: Type] = [:]
+  private var storage: [TypeVariable: AnyType] = [:]
 
   /// Creates an empty substitution map.
   init() {}
 
   /// Returns the substitution for `type` if it is a variable to which a type is assigned in this
   /// map. Otherwise, returns `type`.
-  subscript(type: Type) -> Type {
+  subscript(type: AnyType) -> AnyType {
     var walked = type
-    while case .variable(let a) = walked {
+    while let a = walked.base as? TypeVariable {
       if let b = storage[a] {
         walked = b
       } else {
@@ -22,10 +22,10 @@ struct SubstitutionMap {
   }
 
   /// Assigns `substition` to `variable`.
-  mutating func assign(_ substitution: Type, to variable: TypeVariable) {
+  mutating func assign(_ substitution: AnyType, to variable: TypeVariable) {
     var walked = variable
     while let a = storage[walked] {
-      guard case .variable(let b) = a else {
+      guard let b = a.base as? TypeVariable else {
         precondition(a == substitution, "'\(variable)' already bound to '\(a)'")
         return
       }
@@ -35,7 +35,7 @@ struct SubstitutionMap {
   }
 
   /// Returns the contents of the map flattened into a dictionary.
-  func flattened() -> [TypeVariable: Type] {
+  func flattened() -> [TypeVariable: AnyType] {
     storage.reduce(into: [:], { (d, e) in d[e.key] = self[e.value] })
   }
 
@@ -43,9 +43,9 @@ struct SubstitutionMap {
 
 extension SubstitutionMap: Collection {
 
-  typealias Index = Dictionary<TypeVariable, Type>.Index
+  typealias Index = Dictionary<TypeVariable, AnyType>.Index
 
-  typealias Element = (key: TypeVariable, value: Type)
+  typealias Element = (key: TypeVariable, value: AnyType)
 
   var startIndex: Index { storage.startIndex }
 
@@ -55,7 +55,7 @@ extension SubstitutionMap: Collection {
 
   subscript(position: Index) -> Element {
     let key = storage[position].key
-    return (key: key, value: self[.variable(key)])
+    return (key: key, value: self[^key])
   }
 
 }

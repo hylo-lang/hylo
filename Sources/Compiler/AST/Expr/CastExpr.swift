@@ -1,8 +1,6 @@
 /// An explicit cast expression.
 public struct CastExpr: Expr {
 
-  public static let kind = NodeKind.castExpr
-
   /// The kind of a cast expression.
   public enum Kind: Codable {
 
@@ -20,6 +18,8 @@ public struct CastExpr: Expr {
 
   }
 
+  public let origin: SourceRange?
+
   /// The left operand.
   public let left: AnyExprID
 
@@ -29,7 +29,8 @@ public struct CastExpr: Expr {
   /// The kind of the cast.
   public let kind: Kind
 
-  public init(left: AnyExprID, right: AnyTypeExprID, kind: Kind) {
+  public init(left: AnyExprID, right: AnyTypeExprID, kind: Kind, origin: SourceRange?) {
+    self.origin = origin
     self.left = left
     self.right = right
     self.kind = kind

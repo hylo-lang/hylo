@@ -1,27 +1,28 @@
 import Utils
 
 /// The overarching type of a method declaration.
-public struct MethodType: TypeProtocol, Hashable {
+public struct MethodType: TypeProtocol {
 
   /// The capabilities of the subscript.
   public let capabilities: Set<ImplIntroducer>
 
   /// The type of the receiver.
-  public let receiver: Type
+  public let receiver: AnyType
 
   /// The inout labels and types of the method.
   public let inputs: [CallableTypeParameter]
 
   /// The output type of the method.
-  public let output: Type
+  public let output: AnyType
 
   public let flags: TypeFlags
 
+  /// Creates an instance with the given properties.
   public init(
     capabilities: Set<ImplIntroducer>,
-    receiver: Type,
+    receiver: AnyType,
     inputs: [CallableTypeParameter],
-    output: Type
+    output: AnyType
   ) {
     self.capabilities = capabilities
     self.receiver = receiver
@@ -34,13 +35,26 @@ public struct MethodType: TypeProtocol, Hashable {
     flags = fs
   }
 
+  public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> Self {
+    MethodType(
+      capabilities: capabilities,
+      receiver: receiver.transform(transformer),
+      inputs: inputs.map({ (p) -> CallableTypeParameter in
+        .init(label: p.label, type: p.type.transform(transformer))
+      }),
+      output: output.transform(transformer))
+  }
+
 }
 
 extension MethodType: CustomStringConvertible {
 
   public var description: String {
-    let c = capabilities.map({ "\($0)" }).sorted().joined(separator: " ")
-    return "method[\(receiver)] (\(inputs.descriptions())) -> \(output) { \(c) }"
+    let cs = capabilities
+      .map(String.init(describing:))
+      .sorted()
+      .joined(separator: " ")
+    return "method[\(receiver)] (\(inputs.descriptions())) -> \(output) { \(cs) }"
   }
 
 }

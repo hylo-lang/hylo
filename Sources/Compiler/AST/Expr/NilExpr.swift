@@ -1,8 +1,10 @@
 /// A nil expression.
 public struct NilExpr: Expr {
 
-  public static let kind = NodeKind.nilExpr
+  public let origin: SourceRange?
 
-  public init() {}
+  public init(origin: SourceRange?) {
+    self.origin = origin
+  }
 
 }

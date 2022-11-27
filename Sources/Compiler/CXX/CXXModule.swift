@@ -10,41 +10,45 @@ public struct CXXModule {
   public let name: String
 
   /// The C++ functions declared in `self`.
-  public private(set) var cxxFunctions: [CXXFunDecl] = []
+  public private(set) var cxxFunctions: [CXXFunctionDecl] = []
+
+  /// The C++ function bodied for this module.
+  /// The size of this array is equal to the size of `cxxFunctions` array
+  public private(set) var cxxFunctionBodies: [CXXRepresentable?] = []
 
   /// A table mapping val function declarations to the ID of the corresponding C++ declaration.
-  private var valToCXXFunction: [NodeID<FunDecl>: Int] = [:]
+  private var valToCXXFunction: [NodeID<FunctionDecl>: Int] = [:]
 
   public init(valDecl: NodeID<ModuleDecl>, name: String) {
     self.valDecl = valDecl
     self.name = name
   }
 
-  /// Returns the ID of the C++ function declaration corresponding to `valFunDecl`.
+  /// Returns the ID of the C++ function declaration corresponding to `valFunctionDecl`.
   ///
-  /// - Requires: `valFunDecl` must be declared in `self.decl`.
+  /// - Requires: `valFunctionDecl` must be declared in `self.decl`.
   public mutating func getOrCreateFunction(
-    correspondingTo valFunDecl: NodeID<FunDecl>,
+    correspondingTo valFunctionDecl: NodeID<FunctionDecl>,
     program: TypedProgram
-  ) -> CXXFunDecl.ID {
-    if let cxxFunDecl = valToCXXFunction[valFunDecl] { return cxxFunDecl }
+  ) -> CXXFunctionDecl.ID {
+    if let cxxFunctionDecl = valToCXXFunction[valFunctionDecl] { return cxxFunctionDecl }
 
-    assert(program.isGlobal(valFunDecl))
+    assert(program.isGlobal(valFunctionDecl))
 
     /// The identifier of the function.
-    let identifier = CXXIdentifier(program.ast[valFunDecl].identifier?.value ?? "")
+    let identifier = CXXIdentifier(program.ast[valFunctionDecl].identifier?.value ?? "")
 
-    // Determine the type of the function.
+    // Determine the output type of the function.
     let output: CXXTypeExpr
     if identifier.description == "main" {
       // The output type of `main` must be `int`.
       output = CXXTypeExpr("int")
     } else {
-      switch program.declTypes[valFunDecl]! {
-      case .lambda(let valDeclType):
+      switch program.declTypes[valFunctionDecl]!.base {
+      case let valDeclType as LambdaType:
         output = CXXTypeExpr(valDeclType.output, ast: program.ast, asReturnType: true)!
 
-      case .method:
+      case is MethodType:
         fatalError("not implemented")
 
       default:
@@ -52,13 +56,48 @@ public struct CXXModule {
       }
     }
 
-    // Create the C++ function.
-    let cxxFunDecl = cxxFunctions.count
-    cxxFunctions.append(CXXFunDecl(identifier: identifier, output: output, parameters: []))
+    // Determine the parameter types of the function.
+    let paramTypes: [CallableTypeParameter]
+    switch program.declTypes[valFunctionDecl]!.base {
+    case let valDeclType as LambdaType:
+      paramTypes = valDeclType.inputs
 
+    case is MethodType:
+      fatalError("not implemented")
+
+    default:
+      unreachable()
+    }
+
+    // Determine the parameters of the function.
+    assert(paramTypes.count == program.ast[valFunctionDecl].parameters.count)
+    var cxxParams: [CXXFunctionDecl.Parameter] = []
+    for (i, paramID) in program.ast[valFunctionDecl].parameters.enumerated() {
+      let name = CXXIdentifier(program.ast[paramID].name)
+      let type = CXXTypeExpr(paramTypes[i].type, ast: program.ast)
+      cxxParams.append(CXXFunctionDecl.Parameter(name, type!))
+    }
+
+    // Create the C++ function.
+    let cxxFunctionDecl = cxxFunctions.count
+    cxxFunctions.append(CXXFunctionDecl(
+      identifier: identifier,
+      output: output,
+      parameters: cxxParams))
+    // Associate an empty body to it.
+    cxxFunctionBodies.append(nil)
+    
     // Update the cache and return the ID of the newly created function.
-    valToCXXFunction[valFunDecl] = cxxFunDecl
-    return cxxFunDecl
+    valToCXXFunction[valFunctionDecl] = cxxFunctionDecl
+    return cxxFunctionDecl
+  }
+
+  /// Set the body for the function with the given ID.
+  public mutating func setFunctionBody(
+    _ body: CXXRepresentable?,
+    forID cxxFunID: CXXFunctionDecl.ID
+  ) {
+    cxxFunctionBodies[cxxFunID] = body
   }
 
   // MARK: Serialization
@@ -81,8 +120,8 @@ public struct CXXModule {
 
     // Emit top-level functions.
     for decl in cxxFunctions {
-      decl.writeForwardDeclaration(into: &output)
-      output.write("\n")
+      decl.writeSignature(into: &output)
+      output.write(";\n")
     }
 
     output.write("\n}\n\n")  // module namespace
@@ -103,9 +142,12 @@ public struct CXXModule {
     output.write("namespace \(name) {\n\n")
 
     // Emit top-level functions.
-    for decl in cxxFunctions {
-      decl.writeDefinition(into: &output)
-      output.write("\n")
+    for (i, decl) in cxxFunctions.enumerated() {
+      if let body = cxxFunctionBodies[i] {
+        decl.writeSignature(into: &output)
+        output.write(" ")
+        body.writeCode(into: &output)
+      }
     }
 
     output.write("\n}\n") // module namespace

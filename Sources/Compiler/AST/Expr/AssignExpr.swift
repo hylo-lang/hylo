@@ -1,7 +1,7 @@
 /// An assignment expression.
 public struct AssignExpr: Expr {
 
-  public static let kind = NodeKind.assignExpr
+  public let origin: SourceRange?
 
   /// The left operand.
   public let left: AnyExprID
@@ -9,7 +9,8 @@ public struct AssignExpr: Expr {
   /// The right operand.
   public let right: AnyExprID
 
-  public init(left: AnyExprID, right: AnyExprID) {
+  public init(left: AnyExprID, right: AnyExprID, origin: SourceRange?) {
+    self.origin = origin
     self.left = left
     self.right = right
   }

@@ -1,12 +1,13 @@
 /// A floating-point number literal expression.
 public struct FloatLiteralExpr: Expr {
 
-  public static let kind = NodeKind.floatLiteralExpr
+  public let origin: SourceRange?
 
   /// The value of the literal.
   public let value: String
 
-  public init(value: String) {
+  public init(value: String, origin: SourceRange?) {
+    self.origin = origin
     self.value = value
   }
 

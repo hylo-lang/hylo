@@ -1,8 +1,6 @@
 /// A conditional expression.
 public struct CondExpr: Expr, LexicalScope {
 
-  public static let kind = NodeKind.condExpr
-
   public enum Body: Codable {
 
     /// An expression body.
@@ -12,6 +10,8 @@ public struct CondExpr: Expr, LexicalScope {
     case block(NodeID<BraceStmt>)
 
   }
+
+  public let origin: SourceRange?
 
   /// The condition of the expression.
   ///
@@ -27,9 +27,12 @@ public struct CondExpr: Expr, LexicalScope {
   public init(
     condition: [ConditionItem],
     success: CondExpr.Body,
-    failure: CondExpr.Body? = nil
+    failure: CondExpr.Body?,
+    origin: SourceRange?
   ) {
     precondition(condition.count > 0)
+
+    self.origin = origin
     self.condition = condition
     self.success = success
     self.failure = failure

@@ -7,10 +7,10 @@ struct GenericEnvironment {
   public let constraints: [Constraint]
 
   /// A table from types to their entry.
-  private var ledger: [Type: Int] = [:]
+  private var ledger: [AnyType: Int] = [:]
 
   /// The equivalence classes and their associated conformance sets.
-  private var entries: [(equivalences: Set<Type>, conformances: Set<TraitType>)] = []
+  private var entries: [(equivalences: Set<AnyType>, conformances: Set<TraitType>)] = []
 
   /// Creates and returns the generic environment of `decl`, or returns `nil` if one of the
   /// specified constraints are ill-formed.
@@ -25,19 +25,19 @@ struct GenericEnvironment {
     let scope = AnyScopeID(decl)!
     for c in constraints {
       switch c {
-      case .equality(let l, let r):
-        registerEquivalence(l: l, r: r)
+      case let equality as EqualityConstraint:
+        registerEquivalence(l: equality.left, r: equality.right)
 
-      case .conformance(let l, let traits):
+      case let conformance as ConformanceConstraint:
         var allTraits: Set<TraitType> = []
-        for trait in traits {
-          guard let bases = checker.conformedTraits(of: .trait(trait), inScope: scope)
+        for trait in conformance.traits {
+          guard let bases = checker.conformedTraits(of: ^trait, inScope: scope)
           else { return nil }
           allTraits.formUnion(bases)
         }
-        registerConformance(l: l, traits: allTraits)
+        registerConformance(l: conformance.subject, traits: allTraits)
 
-      case .value:
+      case is PredicateConstraint:
         break
 
       default:
@@ -47,7 +47,7 @@ struct GenericEnvironment {
   }
 
   /// Returns the set of traits to which `type` conforms in the environment.
-  func conformedTraits(of type: Type) -> Set<TraitType> {
+  func conformedTraits(of type: AnyType) -> Set<TraitType> {
     if let i = ledger[type] {
       return entries[i].conformances
     } else {
@@ -55,7 +55,7 @@ struct GenericEnvironment {
     }
   }
 
-  private mutating func registerEquivalence(l: Type, r: Type) {
+  private mutating func registerEquivalence(l: AnyType, r: AnyType) {
     if let i = ledger[l] {
       // `l` is part of a class.
       if let j = ledger[r] {
@@ -82,7 +82,7 @@ struct GenericEnvironment {
     }
   }
 
-  private mutating func registerConformance(l: Type, traits: Set<TraitType>) {
+  private mutating func registerConformance(l: AnyType, traits: Set<TraitType>) {
     if let i = ledger[l] {
       // `l` is part of a class.
       entries[i].conformances.formUnion(traits)

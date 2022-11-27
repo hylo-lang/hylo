@@ -1,8 +1,6 @@
 /// A lambda type expression.
 public struct LambdaTypeExpr: TypeExpr {
 
-  public static let kind = NodeKind.lambdaTypeExpr
-
   /// A parameter in a lambda type expression.
   public struct Parameter: Codable {
 
@@ -19,6 +17,8 @@ public struct LambdaTypeExpr: TypeExpr {
 
   }
 
+  public private(set) var origin: SourceRange?
+
   /// The effect of the lambda's call operator.
   public let receiverEffect: SourceRepresentable<ReceiverEffect>?
 
@@ -32,10 +32,12 @@ public struct LambdaTypeExpr: TypeExpr {
   public let output: AnyTypeExprID
 
   public init(
-    receiverEffect: SourceRepresentable<ReceiverEffect>? = nil,
-    parameters: [Parameter] = [],
-    output: AnyTypeExprID
+    receiverEffect: SourceRepresentable<ReceiverEffect>?,
+    parameters: [Parameter],
+    output: AnyTypeExprID,
+    origin: SourceRange?
   ) {
+    self.origin = origin
     self.receiverEffect = receiverEffect
     self.parameters = parameters
     self.output = output
@@ -46,6 +48,12 @@ public struct LambdaTypeExpr: TypeExpr {
   /// - Precondition: `self.environment == nil`
   internal mutating func incorporate(environment: SourceRepresentable<AnyTypeExprID>?) {
     precondition(self.environment == nil)
+
     self.environment = environment
+    if let l = environment?.origin,
+       let u = origin?.upperBound
+    {
+      self.origin = l.extended(upTo: u)
+    }
   }
 }

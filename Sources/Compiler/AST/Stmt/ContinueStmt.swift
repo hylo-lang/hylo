@@ -1,8 +1,10 @@
 /// A continue statement.
 public struct ContinueStmt: Stmt {
 
-  public static let kind = NodeKind.continueStmt
+  public let origin: SourceRange?
 
-  public init() {}
+  public init(origin: SourceRange?) {
+    self.origin = origin
+  }
 
 }

@@ -1,7 +1,5 @@
 /// A module declaration.
-public struct ModuleDecl: Decl, LexicalScope {
-
-  public static let kind = NodeKind.moduleDecl
+public struct ModuleDecl: TypeDecl, LexicalScope {
 
   /// The name of the module.
   public let name: String
@@ -13,8 +11,11 @@ public struct ModuleDecl: Decl, LexicalScope {
     self.name = name
   }
 
+  public var origin: SourceRange? { nil }
+
   /// Adds the given source file to our list of sources.
   public mutating func addSourceFile(_ s: NodeID<TopLevelDeclSet>) {
     sources.append(s)
   }
+
 }

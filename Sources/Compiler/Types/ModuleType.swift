@@ -1,7 +1,7 @@
 import Utils
 
 /// A module type.
-public struct ModuleType: TypeProtocol, Hashable {
+public struct ModuleType: TypeProtocol {
 
   /// The declaration that introduces the module.
   public let decl: NodeID<ModuleDecl>
@@ -9,12 +9,13 @@ public struct ModuleType: TypeProtocol, Hashable {
   /// The name of the module.
   public let name: Incidental<String>
 
-  public let flags: TypeFlags = .isCanonical
-
+  /// Creates an instance denoting the module declared by `decl`.
   public init(decl: NodeID<ModuleDecl>, ast: AST) {
     self.decl = decl
     self.name = Incidental(ast[decl].name)
   }
+
+  public var flags: TypeFlags { .isCanonical }
 
 }
 

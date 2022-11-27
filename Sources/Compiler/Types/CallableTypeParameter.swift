@@ -5,9 +5,10 @@ public struct CallableTypeParameter: Hashable {
   public let label: String?
 
   /// The type of the parameter.
-  public let type: Type
+  public let type: AnyType
 
-  public init(label: String? = nil, type: Type) {
+  /// Creates an instance with the given properties.
+  public init(label: String? = nil, type: AnyType) {
     self.label = label
     self.type = type
   }

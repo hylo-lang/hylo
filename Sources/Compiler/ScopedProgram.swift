@@ -3,7 +3,7 @@ import Utils
 /// A data structure representing a scoped Val program ready to be type checked.
 public struct ScopedProgram: Program {
 
-  public private(set) var ast: AST
+  public let ast: AST
 
   public private(set) var scopeToParent = ASTProperty<AnyScopeID>()
 
@@ -21,74 +21,6 @@ public struct ScopedProgram: Program {
     for module in ast.modules {
       var state = VisitorState(module: module)
       visit(moduleDecl: module, withState: &state)
-    }
-  }
-
-  /// Incorporates the given implicit parameter declarations into `decl`.
-  ///
-  /// - Requires: `ast[decl].implicitParameterDecls` is empty.
-  mutating func incorporate(
-    implicitParameterDecls: [ImplicitParameter],
-    into decl: NodeID<FunDecl>
-  ) {
-    ast[decl].incorporate(implicitParameterDecls: implicitParameterDecls)
-  }
-
-  /// Incorporates the given implicit parameter declarations into `decl`.
-  ///
-  /// - Requires: `ast[decl].implicitParameterDecls` is empty.
-  mutating func incorporate(
-    implicitParameterDecls: [ImplicitParameter],
-    into decl: NodeID<SubscriptDecl>
-  ) {
-    ast[decl].incorporate(implicitParameterDecls: implicitParameterDecls)
-  }
-
-  /// Desugars an unfolded sequence expression using the given sub-expression ordering.
-  ///
-  /// - Requires `self.ast[a]` must be unfolded and `ordering` must correspond to the sequence
-  ///   described by `self.ast[a]`.
-  mutating func desugar(
-    _ a: NodeID<SequenceExpr>,
-    withOrdering ordering: SequenceExpr.Tree
-  ) -> AnyExprID {
-    switch ast[a] {
-    case .root:
-      preconditionFailure()
-
-    case .unfolded:
-      let root = desugar(ordering)
-      ast[a] = .root(root)
-      return root
-    }
-  }
-
-  /// Converts a sequence expression ordering into an expression.
-  private mutating func desugar(_ ordering: SequenceExpr.Tree) -> AnyExprID {
-    switch ordering {
-    case .node(let operator_, let left, let right):
-      let receiver = desugar(left)
-      let argument = desugar(right)
-
-      let id = ast.insert(FunCallExpr(
-        callee: AnyExprID(ast.insert(NameExpr(
-          domain: .expr(receiver),
-          name: SourceRepresentable(
-            value: Name(stem: operator_.name.value),
-            range: operator_.name.range)))),
-        arguments: [CallArgument(value: argument)]))
-
-      if let argumentRange = ast.ranges[argument] {
-        ast.ranges[id] = (
-          ast.ranges[receiver]?.upperBounded(by: argumentRange.upperBound) ?? argumentRange)
-      } else {
-        ast.ranges[id] = ast.ranges[receiver]
-      }
-
-      return AnyExprID(id)
-
-    case .leaf(let id):
-      return id
     }
   }
 
@@ -154,47 +86,51 @@ extension ScopedProgram {
 
   private mutating func visit(decl: AnyDeclID, withState state: inout VisitorState) {
     switch decl.kind {
-    case .associatedTypeDecl:
+    case AssociatedTypeDecl.self:
       visit(associatedTypeDecl: NodeID(rawValue: decl.rawValue), withState: &state)
-    case .associatedValueDecl:
+    case AssociatedValueDecl.self:
       visit(associatedValueDecl: NodeID(rawValue: decl.rawValue), withState: &state)
-    case .bindingDecl:
+    case BindingDecl.self:
       visit(bindingDecl: NodeID(rawValue: decl.rawValue), withState: &state)
-    case .builtinDecl:
+    case BuiltinDecl.self:
       break
-    case .conformanceDecl:
+    case ConformanceDecl.self:
       visit(conformanceDecl: NodeID(rawValue: decl.rawValue), withState: &state)
-    case .extensionDecl:
+    case ExtensionDecl.self:
       visit(extensionDecl: NodeID(rawValue: decl.rawValue), withState: &state)
-    case .funDecl:
-      visit(funDecl: NodeID(rawValue: decl.rawValue), withState: &state)
-    case .genericTypeParamDecl:
+    case FunctionDecl.self:
+      visit(functionDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+    case GenericTypeParamDecl.self:
       visit(genericTypeParamDecl: NodeID(rawValue: decl.rawValue), withState: &state)
-    case .genericValueParamDecl:
+    case GenericValueParamDecl.self:
       visit(genericValueParamDecl: NodeID(rawValue: decl.rawValue), withState: &state)
-    case .importDecl:
+    case ImportDecl.self:
       visit(importDecl: NodeID(rawValue: decl.rawValue), withState: &state)
-    case .methodImplDecl:
+    case InitializerDecl.self:
+      visit(initializerDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+    case MethodDecl.self:
+      visit(methodDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+    case MethodImplDecl.self:
       visit(methodImplDecl: NodeID(rawValue: decl.rawValue), withState: &state)
-    case .moduleDecl:
+    case ModuleDecl.self:
       visit(moduleDecl: NodeID(rawValue: decl.rawValue), withState: &state)
-    case .namespaceDecl:
+    case NamespaceDecl.self:
       visit(namespaceDecl: NodeID(rawValue: decl.rawValue), withState: &state)
-    case .operatorDecl:
+    case OperatorDecl.self:
       visit(operatorDecl: NodeID(rawValue: decl.rawValue), withState: &state)
-    case .parameterDecl:
+    case ParameterDecl.self:
       visit(parameterDecl: NodeID(rawValue: decl.rawValue), withState: &state)
-    case .productTypeDecl:
+    case ProductTypeDecl.self:
       visit(productTypeDecl: NodeID(rawValue: decl.rawValue), withState: &state)
-    case .subscriptDecl:
+    case SubscriptDecl.self:
       visit(subscriptDecl: NodeID(rawValue: decl.rawValue), withState: &state)
-    case .subscriptImplDecl:
+    case SubscriptImplDecl.self:
       visit(subscriptImplDecl: NodeID(rawValue: decl.rawValue), withState: &state)
-    case .traitDecl:
+    case TraitDecl.self:
       visit(traitDecl: NodeID(rawValue: decl.rawValue), withState: &state)
-    case .typeAliasDecl:
+    case TypeAliasDecl.self:
       visit(typeAliasDecl: NodeID(rawValue: decl.rawValue), withState: &state)
-    case .varDecl:
+    case VarDecl.self:
       visit(varDecl: NodeID(rawValue: decl.rawValue), withState: &state)
     default:
       unreachable("unexpected declaration")
@@ -208,7 +144,7 @@ extension ScopedProgram {
     insert(decl: decl, into: state.innermost)
 
     for conformance in ast[decl].conformances {
-      visit(nameTypeExpr: conformance, withState: &state)
+      visit(nameExpr: conformance, withState: &state)
     }
     if let defaultValue = ast[decl].defaultValue {
       visit(typeExpr: defaultValue, withState: &state)
@@ -284,7 +220,7 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    funDecl decl: NodeID<FunDecl>,
+    functionDecl decl: NodeID<FunctionDecl>,
     withState state: inout VisitorState
   ) {
     insert(decl: decl, into: state.innermost)
@@ -299,7 +235,7 @@ extension ScopedProgram {
       for parameter in this.ast[decl].parameters {
         this.visit(parameterDecl: parameter, withState: &state)
       }
-      if let receiver = this.ast[decl].implicitReceiverDecl {
+      if let receiver = this.ast[decl].receiver {
         this.visit(parameterDecl: receiver, withState: &state)
       }
       if let output = this.ast[decl].output {
@@ -312,11 +248,6 @@ extension ScopedProgram {
 
       case let .block(stmt):
         this.visit(braceStmt: stmt, withState: &state)
-
-      case let .bundle(impls):
-        for impl in impls {
-          this.visit(methodImplDecl: impl, withState: &state)
-        }
 
       case nil:
         break
@@ -331,7 +262,7 @@ extension ScopedProgram {
     insert(decl: decl, into: state.innermost)
 
     for conformance in ast[decl].conformances {
-      visit(nameTypeExpr: conformance, withState: &state)
+      visit(nameExpr: conformance, withState: &state)
     }
     if let defaultValue = ast[decl].defaultValue {
       visit(typeExpr: defaultValue, withState: &state)
@@ -355,6 +286,48 @@ extension ScopedProgram {
     withState state: inout VisitorState
   ) {
     insert(decl: decl, into: state.innermost)
+  }
+
+  private mutating func visit(
+    initializerDecl decl: NodeID<InitializerDecl>,
+    withState state: inout VisitorState
+  ) {
+    insert(decl: decl, into: state.innermost)
+
+    nesting(in: decl, withState: &state, { (this, state) in
+      if let clause = this.ast[decl].genericClause?.value {
+        this.visit(genericClause: clause, withState: &state)
+      }
+      for parameter in this.ast[decl].parameters {
+        this.visit(parameterDecl: parameter, withState: &state)
+      }
+      this.visit(parameterDecl: this.ast[decl].receiver, withState: &state)
+      if let body = this.ast[decl].body {
+        this.visit(braceStmt: body, withState: &state)
+      }
+    })
+  }
+
+  private mutating func visit(
+    methodDecl decl: NodeID<MethodDecl>,
+    withState state: inout VisitorState
+  ) {
+    insert(decl: decl, into: state.innermost)
+
+    nesting(in: decl, withState: &state, { (this, state) in
+      if let clause = this.ast[decl].genericClause?.value {
+        this.visit(genericClause: clause, withState: &state)
+      }
+      for parameter in this.ast[decl].parameters {
+        this.visit(parameterDecl: parameter, withState: &state)
+      }
+      if let output = this.ast[decl].output {
+        this.visit(typeExpr: output, withState: &state)
+      }
+      for impl in this.ast[decl].impls {
+        this.visit(methodImplDecl: impl, withState: &state)
+      }
+    })
   }
 
   private mutating func visit(
@@ -434,7 +407,7 @@ extension ScopedProgram {
         this.visit(genericClause: clause, withState: &state)
       }
       for conformance in this.ast[decl].conformances {
-        this.visit(nameTypeExpr: conformance, withState: &state)
+        this.visit(nameExpr: conformance, withState: &state)
       }
       for member in this.ast[decl].members {
         this.visit(decl: member, withState: &state)
@@ -472,7 +445,9 @@ extension ScopedProgram {
     insert(decl: decl, into: state.innermost)
 
     nesting(in: decl, withState: &state, { (this, state) in
-      this.visit(parameterDecl: this.ast[decl].receiver, withState: &state)
+      if let receiver = this.ast[decl].receiver {
+        this.visit(parameterDecl: receiver, withState: &state)
+      }
 
       switch this.ast[decl].body {
       case let .expr(expr):
@@ -495,7 +470,7 @@ extension ScopedProgram {
 
     nesting(in: decl, withState: &state, { (this, state) in
       for refinement in this.ast[decl].refinements {
-        this.visit(nameTypeExpr: refinement, withState: &state)
+        this.visit(nameExpr: refinement, withState: &state)
       }
       for member in this.ast[decl].members {
         this.visit(decl: member, withState: &state)
@@ -548,53 +523,51 @@ extension ScopedProgram {
 
   private mutating func visit(expr: AnyExprID, withState state: inout VisitorState) {
     switch expr.kind {
-    case .assignExpr:
+    case AssignExpr.self:
       visit(assignExpr: NodeID(rawValue: expr.rawValue), withState: &state)
-    case .asyncExpr:
+    case AsyncExpr.self:
       visit(asyncExpr: NodeID(rawValue: expr.rawValue), withState: &state)
-    case .awaitExpr:
+    case AwaitExpr.self:
       visit(awaitExpr: NodeID(rawValue: expr.rawValue), withState: &state)
-    case .booleanLiteralExpr:
+    case BooleanLiteralExpr.self:
       break
-    case .bufferLiteralExpr:
+    case BufferLiteralExpr.self:
       visit(bufferLiteralExpr: NodeID(rawValue: expr.rawValue), withState: &state)
-    case .castExpr:
+    case CastExpr.self:
       visit(castExpr: NodeID(rawValue: expr.rawValue), withState: &state)
-    case .condExpr:
+    case CondExpr.self:
       visit(condExpr: NodeID(rawValue: expr.rawValue), withState: &state)
-    case .errorExpr:
+    case ErrorExpr.self:
       break
-    case .floatLiteralExpr:
+    case FloatLiteralExpr.self:
       break
-    case .funCallExpr:
+    case FunCallExpr.self:
       visit(funCallExpr: NodeID(rawValue: expr.rawValue), withState: &state)
-    case .inoutExpr:
+    case InoutExpr.self:
       visit(inoutExpr: NodeID(rawValue: expr.rawValue), withState: &state)
-    case .integerLiteralExpr:
+    case IntegerLiteralExpr.self:
       break
-    case .lambdaExpr:
+    case LambdaExpr.self:
       visit(lambdaExpr: NodeID(rawValue: expr.rawValue), withState: &state)
-    case .mapLiteralExpr:
+    case MapLiteralExpr.self:
       visit(mapLiteralExpr: NodeID(rawValue: expr.rawValue), withState: &state)
-    case .matchExpr:
+    case MatchExpr.self:
       visit(matchExpr: NodeID(rawValue: expr.rawValue), withState: &state)
-    case .nameExpr:
+    case NameExpr.self:
       visit(nameExpr: NodeID(rawValue: expr.rawValue), withState: &state)
-    case .nilExpr:
+    case NilExpr.self:
       break
-    case .sequenceExpr:
+    case SequenceExpr.self:
       visit(sequenceExpr: NodeID(rawValue: expr.rawValue), withState: &state)
-    case .storedProjectionExpr:
-      visit(storedProjectionExpr: NodeID(rawValue: expr.rawValue), withState: &state)
-    case .stringLiteralExpr:
+    case StringLiteralExpr.self:
       break
-    case .subscriptCallExpr:
+    case SubscriptCallExpr.self:
       visit(subscriptCallExpr: NodeID(rawValue: expr.rawValue), withState: &state)
-    case .tupleExpr:
+    case TupleExpr.self:
       visit(tupleExpr: NodeID(rawValue: expr.rawValue), withState: &state)
-    case .tupleMemberExpr:
+    case TupleMemberExpr.self:
       visit(tupleMemberExpr: NodeID(rawValue: expr.rawValue), withState: &state)
-    case .unicodeScalarLiteralExpr:
+    case UnicodeScalarLiteralExpr.self:
       break
     default:
       unreachable("unexpected expression")
@@ -613,7 +586,7 @@ extension ScopedProgram {
     asyncExpr expr: NodeID<AsyncExpr>,
     withState state: inout VisitorState
   ) {
-    visit(funDecl: ast[expr].decl, withState: &state)
+    visit(functionDecl: ast[expr].decl, withState: &state)
   }
 
   private mutating func visit(
@@ -693,7 +666,7 @@ extension ScopedProgram {
     lambdaExpr expr: NodeID<LambdaExpr>,
     withState state: inout VisitorState
   ) {
-    visit(funDecl: ast[expr].decl, withState: &state)
+    visit(functionDecl: ast[expr].decl, withState: &state)
   }
 
   private mutating func visit(
@@ -749,23 +722,11 @@ extension ScopedProgram {
     sequenceExpr expr: NodeID<SequenceExpr>,
     withState state: inout VisitorState
   ) {
-    switch ast[expr] {
-    case .root(let i):
-      visit(expr: i, withState: &state)
-
-    case .unfolded(let head, let tail):
-      visit(expr: head, withState: &state)
-      for element in tail {
-        visit(expr: element.operand, withState: &state)
-      }
+    visit(expr: ast[expr].head, withState: &state)
+    for element in ast[expr].tail {
+      visit(nameExpr: element.operator, withState: &state)
+      visit(expr: element.operand, withState: &state)
     }
-  }
-
-  private mutating func visit(
-    storedProjectionExpr expr: NodeID<StoredProjectionExpr>,
-    withState state: inout VisitorState
-  ) {
-    visit(expr: ast[expr].operand, withState: &state)
   }
 
   private mutating func visit(
@@ -798,15 +759,15 @@ extension ScopedProgram {
 
   private mutating func visit(pattern: AnyPatternID, withState state: inout VisitorState) {
     switch pattern.kind {
-    case .bindingPattern:
+    case BindingPattern.self:
       visit(bindingPattern: NodeID(rawValue: pattern.rawValue), withState: &state)
-    case .exprPattern:
+    case ExprPattern.self:
       visit(exprPattern: NodeID(rawValue: pattern.rawValue), withState: &state)
-    case .namePattern:
+    case NamePattern.self:
       visit(namePattern: NodeID(rawValue: pattern.rawValue), withState: &state)
-    case .tuplePattern:
+    case TuplePattern.self:
       visit(tuplePattern: NodeID(rawValue: pattern.rawValue), withState: &state)
-    case .wildcardPattern:
+    case WildcardPattern.self:
       break
     default:
       unreachable("unexpected pattern")
@@ -850,29 +811,29 @@ extension ScopedProgram {
 
   private mutating func visit(stmt: AnyStmtID, withState state: inout VisitorState) {
     switch stmt.kind {
-    case .braceStmt:
+    case BraceStmt.self:
       visit(braceStmt: NodeID(rawValue: stmt.rawValue), withState: &state)
-    case .braceStmt:
+    case BraceStmt.self:
       break
-    case .condBindingStmt:
+    case CondBindingStmt.self:
       visit(condBindingStmt: NodeID(rawValue: stmt.rawValue), withState: &state)
-    case .continueStmt:
+    case ContinueStmt.self:
       break
-    case .declStmt:
+    case DeclStmt.self:
       visit(declStmt: NodeID(rawValue: stmt.rawValue), withState: &state)
-    case .discardStmt:
+    case DiscardStmt.self:
       visit(discardStmt: NodeID(rawValue: stmt.rawValue), withState: &state)
-    case .doWhileStmt:
+    case DoWhileStmt.self:
       visit(doWhileStmt: NodeID(rawValue: stmt.rawValue), withState: &state)
-    case .exprStmt:
+    case ExprStmt.self:
       visit(exprStmt: NodeID(rawValue: stmt.rawValue), withState: &state)
-    case .forStmt:
+    case ForStmt.self:
       visit(forStmt: NodeID(rawValue: stmt.rawValue), withState: &state)
-    case .returnStmt:
+    case ReturnStmt.self:
       visit(returnStmt: NodeID(rawValue: stmt.rawValue), withState: &state)
-    case .whileStmt:
+    case WhileStmt.self:
       visit(whileStmt: NodeID(rawValue: stmt.rawValue), withState: &state)
-    case .yieldStmt:
+    case YieldStmt.self:
       visit(yieldStmt: NodeID(rawValue: stmt.rawValue), withState: &state)
     default:
       unreachable("unexpected statement")
@@ -988,38 +949,27 @@ extension ScopedProgram {
 
   private mutating func visit(typeExpr expr: AnyTypeExprID, withState state: inout VisitorState) {
     switch expr.kind {
-    case .asyncTypeExpr:
-      visit(asyncTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
-    case .conformanceLensTypeExpr:
+    case ConformanceLensTypeExpr.self:
       visit(conformanceLensTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
-    case .existentialTypeExpr:
+    case ExistentialTypeExpr.self:
       visit(existentialTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
-    case .indirectTypeExpr:
-      visit(indirectTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
-    case .lambdaTypeExpr:
+    case LambdaTypeExpr.self:
       visit(lambdaTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
-    case .nameTypeExpr:
-      visit(nameTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
-    case .parameterTypeExpr:
+    case NameExpr.self:
+      visit(nameExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+    case ParameterTypeExpr.self:
       visit(parameterTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
-    case .storedProjectionTypeExpr:
+    case RemoteTypeExpr.self:
       visit(storedProjectionTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
-    case .tupleTypeExpr:
+    case TupleTypeExpr.self:
       visit(tupleTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
-    case .unionTypeExpr:
+    case UnionTypeExpr.self:
       visit(unionTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
-    case .wildcardTypeExpr:
+    case WildcardTypeExpr.self:
       break
     default:
       unreachable("unexpected type expression")
     }
-  }
-
-  private mutating func visit(
-    asyncTypeExpr expr: NodeID<AsyncTypeExpr>,
-    withState state: inout VisitorState
-  ) {
-    visit(typeExpr: ast[expr].operand, withState: &state)
   }
 
   private mutating func visit(
@@ -1035,18 +985,11 @@ extension ScopedProgram {
     withState state: inout VisitorState
   ) {
     for trait in ast[expr].traits {
-      visit(nameTypeExpr: trait, withState: &state)
+      visit(nameExpr: trait, withState: &state)
     }
     if let clause = ast[expr].whereClause?.value {
       visit(whereClause: clause, withState: &state)
     }
-  }
-
-  private mutating func visit(
-    indirectTypeExpr expr: NodeID<IndirectTypeExpr>,
-    withState state: inout VisitorState
-  ) {
-    visit(typeExpr: ast[expr].operand, withState: &state)
   }
 
   private mutating func visit(
@@ -1063,23 +1006,6 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    nameTypeExpr expr: NodeID<NameTypeExpr>,
-    withState state: inout VisitorState
-  ) {
-    if let domain = ast[expr].domain {
-      visit(typeExpr: domain, withState: &state)
-    }
-    for argument in ast[expr].arguments {
-      switch argument.value {
-      case let .expr(i):
-        visit(expr: i, withState: &state)
-      case let .type(i):
-        visit(typeExpr: i, withState: &state)
-      }
-    }
-  }
-
-  private mutating func visit(
     parameterTypeExpr expr: NodeID<ParameterTypeExpr>,
     withState state: inout VisitorState
   ) {
@@ -1087,7 +1013,7 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    storedProjectionTypeExpr expr: NodeID<StoredProjectionTypeExpr>,
+    storedProjectionTypeExpr expr: NodeID<RemoteTypeExpr>,
     withState state: inout VisitorState
   ) {
     visit(typeExpr: ast[expr].operand, withState: &state)
@@ -1137,13 +1063,13 @@ extension ScopedProgram {
     for constraint in clause.constraints {
       switch constraint.value {
       case .conformance(let lhs, let traits):
-        visit(nameTypeExpr: lhs, withState: &state)
+        visit(nameExpr: lhs, withState: &state)
         for trait in traits {
-          visit(nameTypeExpr: trait, withState: &state)
+          visit(nameExpr: trait, withState: &state)
         }
 
       case .equality(let lhs, let rhs):
-        visit(nameTypeExpr: lhs, withState: &state)
+        visit(nameExpr: lhs, withState: &state)
         visit(typeExpr: rhs, withState: &state)
 
       case .value(let expr):

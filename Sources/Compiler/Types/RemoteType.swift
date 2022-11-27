@@ -1,5 +1,5 @@
 /// The type of a remote part.
-public struct RemoteType: TypeProtocol, Hashable {
+public struct RemoteType: TypeProtocol {
 
   /// The capability of a remote part.
   public enum Capability: Hashable {
@@ -18,14 +18,19 @@ public struct RemoteType: TypeProtocol, Hashable {
   public let capability: Capability
 
   /// The type of the projected object.
-  public let base: Type
+  public let base: AnyType
 
   public let flags: TypeFlags
 
-  public init(_ capability: Capability, _ base: Type) {
+  /// Creates an instance with the given properties.
+  public init(_ capability: Capability, _ base: AnyType) {
     self.capability = capability
     self.base = base
     self.flags = base.flags.inserting(.hasProjections)
+  }
+
+  public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> Self {
+    RemoteType(capability, base.transform(transformer))
   }
 
 }

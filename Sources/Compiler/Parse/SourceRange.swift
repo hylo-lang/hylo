@@ -37,8 +37,17 @@ public struct SourceRange: Hashable {
   }
 
   /// Returns a copy of `self` with the upper bound set to `newUpperBound`.
-  public func upperBounded(by newUpperBound: String.Index) -> SourceRange {
+  public func extended(upTo newUpperBound: String.Index) -> SourceRange {
     SourceRange(in: source, from: lowerBound, to: newUpperBound)
+  }
+
+  /// Returns a copy of `self` extended to cover `other`.
+  public func extended(toCover other: SourceRange) -> SourceRange {
+    precondition(source == other.source, "incompatible ranges")
+    return SourceRange(
+      in: source,
+      from: Swift.min(lowerBound, other.lowerBound),
+      to  : Swift.max(upperBound, other.upperBound))
   }
 
   public static func ..< (l: SourceRange, r: SourceRange) -> SourceRange {
@@ -72,6 +81,19 @@ extension SourceRange: Codable {
     try container.encode(source, forKey: .source)
     try container.encode(lowerBound.utf16Offset(in: source.contents), forKey: .lowerBound)
     try container.encode(upperBound.utf16Offset(in: source.contents), forKey: .upperBound)
+  }
+
+}
+
+extension SourceRange: CustomReflectable {
+
+  public var customMirror: Mirror {
+    Mirror(
+      self,
+      children: [
+        "start": SourceLocation(source: source, index: lowerBound),
+        "end": SourceLocation(source: source, index: upperBound),
+      ])
   }
 
 }

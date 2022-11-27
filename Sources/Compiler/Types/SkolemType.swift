@@ -1,17 +1,20 @@
 /// A skolem (a.k.a. rigid) type variable.
-public struct SkolemType: TypeProtocol, Hashable {
+public struct SkolemType: TypeProtocol {
 
   /// The type of the skolem before skolemization.
-  public let base: Type
+  public let base: AnyType
 
-  public let flags: TypeFlags = [.isCanonical]
+  /// Creates an instance denoting the existential quantification of `base`.
+  public init<T: TypeProtocol>(base: T) {
+    self.base = ^base
+  }
 
-  public init(base: Type) {
+  /// Creates an instance denoting the existential quantification of `base`.
+  public init(base: AnyType) {
     self.base = base
   }
 
-  /// The next type variable identifier.
-  private static var nextID = 0
+  public var flags: TypeFlags { .isCanonical }
 
 }
 

@@ -1,12 +1,13 @@
 /// A buffer literal expression.
 public struct BufferLiteralExpr: Expr {
 
-  public static let kind = NodeKind.bufferLiteralExpr
+  public let origin: SourceRange?
 
   /// The elements of the literal.
   public let elements: [AnyExprID]
 
-  public init(elements: [AnyExprID]) {
+  public init(elements: [AnyExprID], origin: SourceRange?) {
+    self.origin = origin
     self.elements = elements
   }
 

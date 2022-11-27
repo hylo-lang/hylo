@@ -8,7 +8,7 @@ public struct TupleType: TypeProtocol, Hashable {
     public let label: String?
 
     /// The type of the element.
-    public let type: Type
+    public let type: AnyType
 
   }
 
@@ -34,13 +34,20 @@ public struct TupleType: TypeProtocol, Hashable {
   }
 
   /// Creates a tuple type with a sequence of label-type pairs.
-  public init<S: Sequence>(labelsAndTypes: S) where S.Element == (String?, Type) {
+  public init<S: Sequence>(labelsAndTypes: S) where S.Element == (String?, AnyType) {
     self.init(labelsAndTypes.map({ Element(label: $0.0, type: $0.1) }))
   }
 
   /// Creates a tuple of unlabeled elements with the types in the given sequence.
-  public init<S: Sequence>(types: S) where S.Element == Type {
+  public init<S: Sequence>(types: S) where S.Element == AnyType {
     self.init(types.map({ Element(label: nil, type: $0) }))
+  }
+
+  public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> Self {
+    let newElements = elements.map({ (e) -> Element in
+      .init(label: e.label, type: e.type.transform(transformer))
+    })
+    return TupleType(newElements)
   }
 
 }

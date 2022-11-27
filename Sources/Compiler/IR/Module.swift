@@ -19,7 +19,7 @@ public struct Module {
   public private(set) var entryFunctionID: Function.ID?
 
   /// A map from function declaration its ID in the module.
-  private var loweredFunctions: [NodeID<FunDecl>: Function.ID] = [:]
+  private var loweredFunctions: [NodeID<FunctionDecl>: Function.ID] = [:]
 
   public init(decl: NodeID<ModuleDecl>, name: String) {
     self.decl = decl
@@ -60,7 +60,7 @@ public struct Module {
 
   /// Returns the identifier of the Val IR function corresponding to `declID`.
   mutating func getOrCreateFunction(
-    correspondingTo declID: NodeID<FunDecl>,
+    correspondingTo declID: NodeID<FunctionDecl>,
     program: TypedProgram
   ) -> Function.ID {
     if let id = loweredFunctions[declID] { return id }
@@ -69,15 +69,15 @@ public struct Module {
     var inputs: [Function.Input] = []
     let output: LoweredType
 
-    switch program.declTypes[declID] {
-    case .lambda(let declType):
+    switch program.declTypes[declID]!.base {
+    case let declType as LambdaType:
       output = LoweredType(lowering: declType.output)
       inputs.reserveCapacity(declType.captures.count + declType.inputs.count)
 
       // Define inputs for the captures.
       for capture in declType.captures {
-        switch capture.type {
-        case .remote(let type):
+        switch capture.type.base {
+        case let type as RemoteType:
           precondition(type.capability != .yielded, "cannot lower yielded parameter")
           inputs.append((
             convention: PassingConvention(matching: type.capability), type: .address(type.base)))
@@ -90,19 +90,17 @@ public struct Module {
             inputs.append((convention: .inout, type: .address(type)))
           case .sink:
             inputs.append((convention: .sink, type: .object(type)))
-          case .yielded:
-            preconditionFailure("cannot lower yielded parameter")
           }
         }
       }
 
       // Define inputs for the parameters.
       for parameter in declType.inputs {
-        guard case .parameter(let parameterType) = parameter.type else { unreachable() }
+        let parameterType = parameter.type.base as! ParameterType
         inputs.append(parameterType.asIRFunctionInput())
       }
 
-    case .method:
+    case is MethodType:
       fatalError("not implemented")
 
     default:
@@ -122,7 +120,7 @@ public struct Module {
     functions.append(function)
 
     // Determine if the new function is the module's entry.
-    if program.declToScope[declID]?.kind == .topLevelDeclSet,
+    if program.declToScope[declID]?.kind == TopLevelDeclSet.self,
        program.ast[declID].isPublic,
        program.ast[declID].identifier?.value == "main"
     {

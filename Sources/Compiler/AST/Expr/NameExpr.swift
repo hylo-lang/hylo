@@ -1,8 +1,6 @@
 /// A name denoting an object.
 public struct NameExpr: Expr {
 
-  public static let kind = NodeKind.nameExpr
-
   public enum Domain: Equatable, Codable {
 
     /// No domain.
@@ -19,8 +17,10 @@ public struct NameExpr: Expr {
 
   }
 
+  public let origin: SourceRange?
+
   /// The domain of the name, if it is qualified.
-  public private(set) var domain: Domain
+  public let domain: Domain
 
   /// The name of the referred entity.
   public let name: SourceRepresentable<Name>
@@ -31,18 +31,13 @@ public struct NameExpr: Expr {
   public init(
     domain: Domain = .none,
     name: SourceRepresentable<Name>,
-    arguments: [GenericArgument] = []
+    arguments: [GenericArgument] = [],
+    origin: SourceRange?
   ) {
+    self.origin = origin
     self.domain = domain
     self.name = name
     self.arguments = arguments
   }
 
-  /// Incorporates `domain` into `self`.
-  ///
-  /// - Precondition: `self.domain == .none`
-  internal mutating func incorporate(domain: Domain) {
-    precondition(self.domain == .none)
-    self.domain = domain
-  }
 }

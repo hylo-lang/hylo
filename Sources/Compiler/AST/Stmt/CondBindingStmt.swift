@@ -1,8 +1,6 @@
 /// A break statement.
 public struct CondBindingStmt: Stmt {
 
-  public static let kind = NodeKind.condBindingStmt
-
   public enum Fallback: Codable {
 
     case expr(AnyExprID)
@@ -11,13 +9,16 @@ public struct CondBindingStmt: Stmt {
 
   }
 
+  public let origin: SourceRange?
+
   /// The conditional binding.
   public let binding: NodeID<BindingDecl>
 
   /// The fallback expression or statement.
   public let fallback: Fallback
 
-  public init(binding: NodeID<BindingDecl>, fallback: Fallback) {
+  public init(binding: NodeID<BindingDecl>, fallback: Fallback, origin: SourceRange?) {
+    self.origin = origin
     self.binding = binding
     self.fallback = fallback
   }

@@ -1,7 +1,7 @@
 /// A generic value parameter declaration.
 public struct GenericValueParamDecl: SingleEntityDecl {
 
-  public static let kind = NodeKind.genericValueParamDecl
+  public let origin: SourceRange?
 
   /// The identifier of the parameter.
   public let identifier: SourceRepresentable<Identifier>
@@ -15,8 +15,10 @@ public struct GenericValueParamDecl: SingleEntityDecl {
   public init(
     identifier: SourceRepresentable<Identifier>,
     annotation: AnyTypeExprID,
-    defaultValue: AnyExprID? = nil
+    defaultValue: AnyExprID? = nil,
+    origin: SourceRange?
   ) {
+    self.origin = origin
     self.identifier = identifier
     self.annotation = annotation
     self.defaultValue = defaultValue

@@ -55,3 +55,18 @@ extension SourceLocation: Codable {
   }
 
 }
+
+extension SourceLocation: CustomReflectable {
+
+  public var customMirror: Mirror {
+    let (line, column) = source.lineAndColumnIndices(at: self)
+    return Mirror(
+      self,
+      children: [
+        "sourceURL": source.url,
+        "line": line,
+        "column": column
+      ])
+  }
+
+}

@@ -11,7 +11,7 @@ public struct IntegerConstant: ConstantProtocol, Hashable {
     self.bitPattern = bitPattern
   }
 
-  public var type: LoweredType { .object(.builtin(.i(bitPattern.width))) }
+  public var type: LoweredType { .object(BuiltinType.i(bitPattern.width)) }
 
 }
 

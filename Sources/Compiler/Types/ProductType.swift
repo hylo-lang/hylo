@@ -1,7 +1,7 @@
 import Utils
 
 /// A nominal product type.
-public struct ProductType: TypeProtocol, Hashable {
+public struct ProductType: TypeProtocol {
 
   /// The declaration that introduces the alias.
   public let decl: NodeID<ProductTypeDecl>
@@ -9,12 +9,13 @@ public struct ProductType: TypeProtocol, Hashable {
   /// The name of the product type.
   public let name: Incidental<String>
 
-  public let flags: TypeFlags = .isCanonical
-
-  public init(decl: NodeID<ProductTypeDecl>, ast: AST) {
+  /// Creates an instance denoting the product type declared by `decl`.
+  public init(_ decl: NodeID<ProductTypeDecl>, ast: AST) {
     self.decl = decl
     self.name = Incidental(ast[decl].name)
   }
+
+  public var flags: TypeFlags { .isCanonical }
 
 }
 

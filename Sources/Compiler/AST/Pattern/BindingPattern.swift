@@ -4,8 +4,6 @@
 /// bindings, instead of referring to existing declarations.
 public struct BindingPattern: Pattern {
 
-  public static let kind = NodeKind.bindingPattern
-
   public enum Introducer: Codable {
 
     case `let`
@@ -17,6 +15,8 @@ public struct BindingPattern: Pattern {
     case `inout`
 
   }
+
+  public let origin: SourceRange?
 
   /// The introducer of the pattern.
   public let introducer: SourceRepresentable<Introducer>
@@ -32,8 +32,10 @@ public struct BindingPattern: Pattern {
   public init(
     introducer: SourceRepresentable<BindingPattern.Introducer>,
     subpattern: AnyPatternID,
-    annotation: AnyTypeExprID? = nil
+    annotation: AnyTypeExprID?,
+    origin: SourceRange?
   ) {
+    self.origin = origin
     self.introducer = introducer
     self.subpattern = subpattern
     self.annotation = annotation

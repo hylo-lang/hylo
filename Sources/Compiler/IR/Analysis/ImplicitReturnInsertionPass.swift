@@ -40,7 +40,7 @@ public struct ImplicitReturnInsertionPass: TransformPass {
 fileprivate extension Diagnostic {
 
   static func missingFunctionReturn(
-    expectedReturnType: Type,
+    expectedReturnType: AnyType,
     range: SourceRange?
   ) -> Diagnostic {
     .error("missing return in function expected to return '\(expectedReturnType)'", range: range)
