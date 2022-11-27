@@ -1149,7 +1149,7 @@ public struct TypeChecker {
     // Realize the traits in the conformance lists of each generic parameter.
     for j in clause.parameters {
       // Realize the generic type parameter.
-      let lhs = (realize(genericTypeParameterDecl: j).base as! MetatypeType).instance
+      let lhs = (realize(genericParameterDecl: j).base as! MetatypeType).instance
       assert(lhs.base is GenericTypeParameterType)
 
       // Synthesize the sugared conformance constraint, if any.
@@ -2286,7 +2286,7 @@ public struct TypeChecker {
     }
 
     // Diagnose unresolved names.
-    if matches.isEmpty {
+    guard let match = matches.first else {
       diagnostics.insert(.diagnose(noType: name.value, in: domain, at: name.origin))
       return nil
     }
@@ -2294,13 +2294,6 @@ public struct TypeChecker {
     // Diagnose ambiguous references.
     if matches.count > 1 {
       diagnostics.insert(.diagnose(ambiguousUse: id, in: program.ast))
-      return nil
-    }
-
-    // Diagnose non-types.
-    let match = matches.first!
-    if !(match.kind.value is TypeDecl.Type) {
-      diagnostics.insert(.diagnose(doesNotEvaluateToType: AnyExprID(id), in: program.ast))
       return nil
     }
 
@@ -2434,7 +2427,7 @@ public struct TypeChecker {
       })
 
     case GenericParameterDecl.self:
-      return realize(genericTypeParameterDecl: NodeID(rawValue: id.rawValue))
+      return realize(genericParameterDecl: NodeID(rawValue: id.rawValue))
 
     case BindingDecl.self:
       return realize(bindingDecl: NodeID(rawValue: id.rawValue))
@@ -2617,14 +2610,38 @@ public struct TypeChecker {
   }
 
   public mutating func realize(
-    genericTypeParameterDecl id: NodeID<GenericParameterDecl>
+    genericParameterDecl id: NodeID<GenericParameterDecl>
   ) -> AnyType {
-    _realize(decl: id, { (this, id) in this._realize(genericTypeParameterDecl: id) })
+    _realize(decl: id, { (this, id) in this._realize(genericParameterDecl: id) })
   }
 
   private mutating func _realize(
-    genericTypeParameterDecl id: NodeID<GenericParameterDecl>
+    genericParameterDecl id: NodeID<GenericParameterDecl>
   ) -> AnyType {
+    // The declaration introduces a generic *type* parameter the first annotation refers to a
+    // trait. Otherwise, it denotes a generic *value* parameter.
+    if let annotation = program.ast[id].conformances.first {
+      // Bail out if we can't evaluate the annotation.
+      guard let type = realize(name: annotation, inScope: program.declToScope[id]!) else {
+        return .error
+      }
+
+      if !(type.instance.base is TraitType) {
+        // Value parameters shall not have more than one type annotation.
+        if program.ast[id].conformances.count > 1 {
+          let diagnosticOrigin = program.ast[program.ast[id].conformances[1]].origin
+          diagnostics.insert(
+            .diagnose(tooManyAnnotationsOnGenericValueParametersAt: diagnosticOrigin))
+          return .error
+        }
+
+        // The declaration introduces a generic value parameter.
+        return type.instance
+      }
+    }
+
+    // If the declaration has no annotations or its first annotation does not refer to a trait,
+    // assume it declares a generic type parameter.
     let instance = GenericTypeParameterType(id, ast: program.ast)
     return ^MetatypeType(instance)
   }

@@ -334,4 +334,10 @@ extension Diagnostic {
     .error("reference to 'Metatype' requires exacly one static argument", range: range)
   }
 
+  static func diagnose(
+    tooManyAnnotationsOnGenericValueParametersAt range: SourceRange?
+  ) -> Diagnostic {
+    .error("only one annotation is allowed on generic value parameter declarations", range: range)
+  }
+
 }
