@@ -2280,7 +2280,7 @@ public struct TypeChecker {
       // Handle references to built-in types.
       if d == .builtin(.module) {
         if let type = BuiltinType(name.value.stem) {
-          return MetatypeType(.builtin(type))
+          return MetatypeType(of: .builtin(type))
         } else {
           diagnostics.insert(.diagnose(noType: name.value, in: domain, at: name.origin))
           return nil
