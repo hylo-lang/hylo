@@ -2251,7 +2251,12 @@ public struct TypeChecker {
 
       // If there are no matches, check for magic symbols.
       if matches.isEmpty {
-        return realizeMagicTypeExpr(id, inScope: scope)
+        if let type = realizeMagicTypeExpr(id, inScope: scope) {
+          return type
+        } else {
+          diagnostics.insert(.diagnose(noType: name.value, in: nil, at: name.origin))
+          return nil
+        }
       }
 
     case .type(let j):
