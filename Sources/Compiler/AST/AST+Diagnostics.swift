@@ -171,18 +171,10 @@ extension Diagnostic {
   }
 
   static func diagnose(
-    unexpectedGenericTypeParameterDecl d: GenericTypeParamDecl
+    unexpectedGenericParameterDecl d: GenericParameterDecl
   ) -> Diagnostic {
     .error(
-      "generic type parameter declaration is not allowed here",
-      range: d.identifier.origin)
-  }
-
-  static func diagnose(
-    unexpectedGenericValueParameterDecl d: GenericValueParamDecl
-  ) -> Diagnostic {
-    .error(
-      "generic value parameter declaration is not allowed here",
+      "generic parameter declaration is not allowed here",
       range: d.identifier.origin)
   }
 

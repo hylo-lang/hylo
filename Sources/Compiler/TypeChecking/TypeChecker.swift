@@ -91,11 +91,11 @@ public struct TypeChecker {
     var result: Set<TraitType> = []
 
     switch type.base {
-    case let t as GenericTypeParamType:
+    case let t as GenericTypeParameterType:
       // Gather the conformances defined at declaration.
       switch t.decl.kind {
-      case GenericTypeParamDecl.self:
-        let parameter = NodeID<GenericTypeParamDecl>(rawValue: t.decl.rawValue)
+      case GenericParameterDecl.self:
+        let parameter = NodeID<GenericParameterDecl>(rawValue: t.decl.rawValue)
         guard let traits = realize(
           conformances: program.ast[parameter].conformances,
           inScope: program.scopeToParent[t.decl]!)
@@ -479,14 +479,6 @@ public struct TypeChecker {
     }
   }
 
-  private mutating func check(genericTypeParam: GenericTypeParamDecl) -> Bool {
-    fatalError("not implemented")
-  }
-
-  private mutating func check(genericValueParam: GenericValueParamDecl) -> Bool {
-    fatalError("not implemented")
-  }
-
   private mutating func check(initializer id: NodeID<InitializerDecl>) -> Bool {
     _check(decl: id, { (this, id) in this._check(initializer: id) })
   }
@@ -863,7 +855,7 @@ public struct TypeChecker {
     to trait: TraitType
   ) -> Bool {
     let conformingType = realizeSelfTypeExpr(inScope: decl)!.instance
-    let selfType = ^GenericTypeParamType(trait.decl, ast: program.ast)
+    let selfType = ^GenericTypeParameterType(trait.decl, ast: program.ast)
     var success = true
 
     // Get the set of generic parameters defined by `trait`.
@@ -1155,10 +1147,10 @@ public struct TypeChecker {
     var constraints: [Constraint] = []
 
     // Realize the traits in the conformance lists of each generic parameter.
-    for case .type(let j) in clause.parameters {
+    for j in clause.parameters {
       // Realize the generic type parameter.
       let lhs = (realize(genericTypeParameterDecl: j).base as! MetatypeType).instance
-      assert(lhs.base is GenericTypeParamType)
+      assert(lhs.base is GenericTypeParameterType)
 
       // Synthesize the sugared conformance constraint, if any.
       let list = program.ast[j].conformances
@@ -1275,7 +1267,7 @@ public struct TypeChecker {
     }
 
     // Synthesize `Self: T`.
-    let selfType = GenericTypeParamType(id, ast: program.ast)
+    let selfType = GenericTypeParameterType(id, ast: program.ast)
     let trait = (declTypes[id]!.base as! MetatypeType).instance.base as! TraitType
     constraints.append(
       ConformanceConstraint(
@@ -1818,7 +1810,7 @@ public struct TypeChecker {
       let newMatches = lookup(name, memberOf: ^trait, inScope: scope)
       switch type.base {
       case is AssociatedTypeType,
-           is GenericTypeParamType,
+           is GenericTypeParameterType,
            is TraitType:
         matches.formUnion(newMatches)
 
@@ -1958,8 +1950,7 @@ public struct TypeChecker {
       switch id.kind {
       case AssociatedValueDecl.self,
            AssociatedTypeDecl.self,
-           GenericValueParamDecl.self,
-           GenericTypeParamDecl.self,
+           GenericParameterDecl.self,
            NamespaceDecl.self,
            ParameterDecl.self,
            ProductTypeDecl.self,
@@ -2148,7 +2139,7 @@ public struct TypeChecker {
       switch scope.kind {
       case TraitDecl.self:
         let decl = NodeID<TraitDecl>(rawValue: scope.rawValue)
-        return MetatypeType(GenericTypeParamType(decl, ast: program.ast))
+        return MetatypeType(GenericTypeParameterType(decl, ast: program.ast))
 
       case ProductTypeDecl.self:
         // Synthesize unparameterized `Self`.
@@ -2158,12 +2149,7 @@ public struct TypeChecker {
         // Synthesize arguments to generic parameters if necessary.
         if let parameters = program.ast[decl].genericClause?.value.parameters {
           let arguments = parameters.map({ (p) -> BoundGenericType.Argument in
-            switch p {
-            case .type(let p):
-              return .type(^GenericTypeParamType(p, ast: program.ast))
-            case .value:
-              fatalError("not implemented")
-            }
+            .type(^GenericTypeParameterType(p, ast: program.ast))
           })
           return MetatypeType(BoundGenericType(unparameterized, arguments: arguments))
         } else {
@@ -2327,7 +2313,7 @@ public struct TypeChecker {
       switch domain?.base {
       case is AssociatedTypeType,
            is ConformanceLensType,
-           is GenericTypeParamType:
+           is GenericTypeParameterType:
         referredType = MetatypeType(AssociatedTypeType(decl, domain: domain!, ast: program.ast))
 
       case nil:
@@ -2430,7 +2416,7 @@ public struct TypeChecker {
 
         let instance = AssociatedTypeType(
           NodeID(rawValue: id.rawValue),
-          domain: ^GenericTypeParamType(traitDecl, ast: this.program.ast),
+          domain: ^GenericTypeParameterType(traitDecl, ast: this.program.ast),
           ast: this.program.ast)
         return ^MetatypeType(instance)
       })
@@ -2442,18 +2428,13 @@ public struct TypeChecker {
 
         let instance = AssociatedValueType(
           NodeID(rawValue: id.rawValue),
-          domain: ^GenericTypeParamType(traitDecl, ast: this.program.ast),
+          domain: ^GenericTypeParameterType(traitDecl, ast: this.program.ast),
           ast: this.program.ast)
         return ^MetatypeType(instance)
       })
 
-    case GenericTypeParamDecl.self:
+    case GenericParameterDecl.self:
       return realize(genericTypeParameterDecl: NodeID(rawValue: id.rawValue))
-
-    case GenericValueParamDecl.self:
-      return _realize(decl: id, { (this, id) in
-        ^GenericValueParamType(id, ast: this.program.ast)
-      })
 
     case BindingDecl.self:
       return realize(bindingDecl: NodeID(rawValue: id.rawValue))
@@ -2636,15 +2617,15 @@ public struct TypeChecker {
   }
 
   public mutating func realize(
-    genericTypeParameterDecl id: NodeID<GenericTypeParamDecl>
+    genericTypeParameterDecl id: NodeID<GenericParameterDecl>
   ) -> AnyType {
     _realize(decl: id, { (this, id) in this._realize(genericTypeParameterDecl: id) })
   }
 
   private mutating func _realize(
-    genericTypeParameterDecl id: NodeID<GenericTypeParamDecl>
+    genericTypeParameterDecl id: NodeID<GenericParameterDecl>
   ) -> AnyType {
-    let instance = GenericTypeParamType(id, ast: program.ast)
+    let instance = GenericTypeParameterType(id, ast: program.ast)
     return ^MetatypeType(instance)
   }
 
@@ -3080,7 +3061,7 @@ public struct TypeChecker {
       case is AssociatedTypeType:
         fatalError("not implemented")
 
-      case is GenericTypeParamType:
+      case is GenericTypeParameterType:
         if let opened = openedParameters[type] {
           // The parameter was already opened.
           return .stepOver(opened)
@@ -3094,7 +3075,7 @@ public struct TypeChecker {
           return .stepOver(opened)
         }
 
-      case is GenericValueParamType:
+      case is GenericValueParameterType:
         fatalError("not implemented")
 
       default:
@@ -3129,7 +3110,7 @@ public struct TypeChecker {
       case is AssociatedTypeType:
         fatalError("not implemented")
 
-      case let base as GenericTypeParamType:
+      case let base as GenericTypeParameterType:
         // Identify the generic environment that introduces the parameter.
         let origin: AnyScopeID
         if base.decl.kind == TraitDecl.self {
@@ -3154,7 +3135,7 @@ public struct TypeChecker {
           return .stepOver(opened)
         }
 
-      case is GenericValueParamType:
+      case is GenericValueParameterType:
         fatalError("not implemented")
 
       default:

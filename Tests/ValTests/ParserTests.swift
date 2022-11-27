@@ -786,102 +786,34 @@ final class ParserTests: XCTestCase {
     XCTAssertNotNil(clause.value.whereClause)
   }
 
-  func testGenericTypeParameter() throws {
+  func testGenericParameter() throws {
     let input = SourceFile(contents: "T")
     let (declID, ast) = try apply(Parser.genericParameter, on: input)
-    if case .type(let typeDeclID) = declID {
-      XCTAssertEqual(ast[typeDeclID].name, "T")
-    } else {
-      XCTFail()
-    }
+    let decl = try XCTUnwrap(ast[declID])
+    XCTAssertEqual(decl.name, "T")
   }
 
-  func testGenericTypeParameterWithIntroducer() throws {
-    let input = SourceFile(contents: "@type T")
-    let (declID, ast) = try apply(Parser.genericParameter, on: input)
-    if case .type(let typeDeclID) = declID {
-      XCTAssertEqual(ast[typeDeclID].name, "T")
-    } else {
-      XCTFail()
-    }
-  }
-
-  func testGenericTypeParameterWithConformances() throws {
+  func testGenericParameterWithConformances() throws {
     let input = SourceFile(contents: "T: Foo & Bar")
     let (declID, ast) = try apply(Parser.genericParameter, on: input)
-    if case .type(let typeDeclID) = declID {
-      XCTAssertEqual(ast[typeDeclID].conformances.count, 2)
-    } else {
-      XCTFail()
-    }
+    let decl = try XCTUnwrap(ast[declID])
+    XCTAssertEqual(decl.conformances.count, 2)
   }
 
-  func testGenericTypeParameterWithDefault() throws {
+  func testGenericParameterWithDefault() throws {
     let input = SourceFile(contents: "T = U")
     let (declID, ast) = try apply(Parser.genericParameter, on: input)
-    if case .type(let typeDeclID) = declID {
-      XCTAssertNotNil(ast[typeDeclID].defaultValue)
-    } else {
-      XCTFail()
-    }
+    let decl = try XCTUnwrap(ast[declID])
+    XCTAssertNotNil(decl.defaultValue)
   }
 
-  func testGenericTypeParameterWithConformancesANdDefault() throws {
-    let input = SourceFile(contents: "T: Foo & Bar = U")
+  func testGenericParameterWithConformancesAndDefault() throws {
+    let input = SourceFile(contents: "T: Int = 0o52")
     let (declID, ast) = try apply(Parser.genericParameter, on: input)
-    if case .type(let typeDeclID) = declID {
-      XCTAssertEqual(ast[typeDeclID].conformances.count, 2)
-      XCTAssertNotNil(ast[typeDeclID].defaultValue)
-    } else {
-      XCTFail()
-    }
+    let decl = try XCTUnwrap(ast[declID])
+    XCTAssertEqual(decl.conformances.count, 1)
+    XCTAssertNotNil(decl.defaultValue)
   }
-
-  func testGenericValueParameter() throws {
-    let input = SourceFile(contents: "@value n: Int")
-    let (declID, ast) = try apply(Parser.genericParameter, on: input)
-    if case .value(let valueDeclID) = declID {
-      XCTAssertEqual(ast[valueDeclID].name, "n")
-    } else {
-      XCTFail()
-    }
-  }
-
-  /*
-  func testGenericValueParameterSansHint() throws {
-    let input = SourceFile(contents: "n: Int")
-    let (declID, ast) = try apply(Parser.genericParameter, on: input)
-    if case .value(let valueDeclID) = declID {
-      XCTAssertEqual(ast[valueDeclID].name, "n")
-    } else {
-      XCTFail()
-    }
-  }
-   */
-
-  func testGenericValueParameterWithDefault() throws {
-    let input = SourceFile(contents: "@value n: Int = 0o52")
-    let (declID, ast) = try apply(Parser.genericParameter, on: input)
-    if case .value(let valueDeclID) = declID {
-      XCTAssertEqual(ast[valueDeclID].name, "n")
-      XCTAssertNotNil(ast[valueDeclID].defaultValue)
-    } else {
-      XCTFail()
-    }
-  }
-
-  /*
-  func testGenericValueParameterWithDefaultSansHint() throws {
-    let input = SourceFile(contents: "n: Int = 0o52")
-    let (declID, ast) = try apply(Parser.genericParameter, on: input)
-    if case .value(let valueDeclID) = declID {
-      XCTAssertEqual(ast[valueDeclID].name, "n")
-      XCTAssertNotNil(ast[valueDeclID].defaultValue)
-    } else {
-      XCTFail()
-    }
-  }
-   */
 
   func testConformanceList() throws {
     let input = SourceFile(contents: ": Foo, Bar, Ham")

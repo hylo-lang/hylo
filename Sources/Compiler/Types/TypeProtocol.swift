@@ -44,11 +44,11 @@ extension TypeProtocol {
       case let base as AssociatedTypeType:
         return .stepOver(^SkolemType(base: base))
 
-      case let base as GenericTypeParamType:
+      case let base as GenericTypeParameterType:
         return .stepOver(^SkolemType(base: base))
 
       case is AssociatedValueType,
-           is GenericValueParamType:
+           is GenericValueParameterType:
         fatalError("not implemented")
 
       default:

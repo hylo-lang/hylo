@@ -44,11 +44,9 @@ extension AST {
         report.append(.diagnose(missingFunctionIdentifier: d))
       }
 
-    case GenericTypeParamDecl.self:
-      report.append(.diagnose(unexpectedGenericTypeParameterDecl: self[NodeID(rawValue: decl.rawValue)]))
-
-    case GenericValueParamDecl.self:
-      report.append(.diagnose(unexpectedGenericTypeParameterDecl: self[NodeID(rawValue: decl.rawValue)]))
+    case GenericParameterDecl.self:
+      report.append(
+        .diagnose(unexpectedGenericParameterDecl: self[NodeID(rawValue: decl.rawValue)]))
 
     case ImportDecl.self:
       if !atTopLevel {
@@ -154,11 +152,9 @@ extension AST {
         report.append(.diagnose(unexpectedCapture: self[self[c].pattern]))
       }
 
-    case GenericTypeParamDecl.self:
-      report.append(.diagnose(unexpectedGenericTypeParameterDecl: self[NodeID(rawValue: decl.rawValue)]))
-
-    case GenericValueParamDecl.self:
-      report.append(.diagnose(unexpectedGenericTypeParameterDecl: self[NodeID(rawValue: decl.rawValue)]))
+    case GenericParameterDecl.self:
+      report.append(
+        .diagnose(unexpectedGenericParameterDecl: self[NodeID(rawValue: decl.rawValue)]))
 
     case ImportDecl.self:
       report.append(.diagnose(unexpectedImportDecl: self[NodeID(rawValue: decl.rawValue)]))
