@@ -895,8 +895,23 @@ public struct TypeChecker {
 
                 switch c.base {
                 case let c as AssociatedTypeType:
-                  let member = lookupType(named: c.name.value, memberOf: r, inScope: scope)
-                  r = member?.instance ?? .error
+                  let candidates = lookup(c.name.value, memberOf: r, inScope: scope)
+
+                  // Name is ambiguous if there's more than one candidate.
+                  if candidates.count != 1 {
+                    r = .error
+                    return
+                  }
+
+                  // Name should refer to a type.
+                  let candidateValue = realize(decl: candidates.first!)
+                  guard let type = (candidateValue.base as? MetatypeType)?.instance else {
+                    r = .error
+                    return
+                  }
+
+                  // FIXME: If `type` is a bound generic type, substitute generic type parameters.
+                  r = type
 
                 case is ConformanceLensType:
                   fatalError("not implemented")
@@ -2000,31 +2015,6 @@ public struct TypeChecker {
     return table
   }
 
-  /// Returns the type named `name` that visible as a member of `type` from `scope`.
-  mutating func lookupType(
-    named name: String,
-    memberOf type: AnyType,
-    inScope scope: AnyScopeID
-  ) -> MetatypeType? {
-    let candidates = lookup(name, memberOf: type, inScope: scope)
-    if candidates.count != 1 { return nil }
-
-    let decl = candidates.first!
-    if !(decl.kind.value is TypeDecl.Type) { return nil }
-
-    switch realize(decl: decl).base {
-    case is ErrorType:
-      return nil
-
-    case let type as MetatypeType:
-      // FIXME: If `type` is a bound generic type, substitute generic type parameters.
-      return type
-
-    default:
-      unreachable("expected metatype")
-    }
-  }
-
   // MARK: Type realization
 
   /// Realizes and returns the type denoted by `expr` evaluated in `scope`.
@@ -2955,7 +2945,7 @@ public struct TypeChecker {
         // If the function refers to a member declaration, it must be nested in a type scope.
         let innermostTypeScope = program
           .scopes(from: program.scopeToParent[decl]!)
-          .first(where: { $0.kind.value is TypeDecl.Type })!
+          .first(where: { $0.kind.value is TypeScope.Type })!
 
         // Ignore illegal implicit references to foreign receiver.
         if program.isContained(innermostTypeScope, in: program.scopeToParent[captureDecl]!) {

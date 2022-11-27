@@ -1,7 +1,7 @@
 /// A trait declaration.
 ///
 /// - Note: `TraitDecl` does not conform to `GenericDecl`.
-public struct TraitDecl: TypeDecl, GenericScope {
+public struct TraitDecl: TypeDecl, TypeScope, GenericScope {
 
   public let origin: SourceRange?
 
