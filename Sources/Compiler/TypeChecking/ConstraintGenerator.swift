@@ -302,7 +302,7 @@ struct ConstraintGenerator {
     // 2nd case
     if let c = NodeID<NameExpr>(callee),
        let d = checker.referredDecls[c]?.decl,
-       d.kind.value is TypeDecl.Type
+       checker.doesSupportInitSugar(d)
     {
       switch d.kind {
       case ProductTypeDecl.self:
@@ -633,7 +633,7 @@ struct ConstraintGenerator {
 
       if let base = NodeID<NameExpr>(domain),
          let decl = checker.referredDecls[base]?.decl,
-         decl.kind.value is TypeDecl.Type
+         checker.doesSupportInitSugar(decl)
       {
         constraints.append(UnboundMemberConstraint(
           type: domainType,
