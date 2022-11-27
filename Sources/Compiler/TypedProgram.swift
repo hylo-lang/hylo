@@ -143,7 +143,7 @@ extension TypedProgram.Node where ID: DeclID {
   }
 
   /// The type of the declared entity.
-  var type: Type {
+  var type: AnyType {
     whole.declTypes[id]!
   }
 }
@@ -157,7 +157,7 @@ extension TypedProgram.Node where ID == NodeID<VarDecl> {
 
 extension TypedProgram.Node where ID: ExprID {
   /// The type of this expression
-  var type: Type {
+  var type: AnyType {
     whole.exprTypes[id]!
   }
 }
@@ -169,14 +169,14 @@ extension TypedProgram.Node where ID == NodeID<NameExpr> {
   }
 }
 
-func funnyTest0(x: TypedProgram.Node<FunDecl>) -> [TypedProgram.Node<ParameterDecl>] {
+func funnyTest0(x: TypedProgram.Node<FunctionDecl>) -> [TypedProgram.Node<ParameterDecl>] {
   print(x.type)
   let p = x.parameters
   return Array(p)
 }
 
-func funnyTest1(x: TypedProgram.Node<FunDecl>) -> TypedProgram.Node<ParameterDecl>? {
-  let p = x.implicitReceiverDecl
+func funnyTest1(x: TypedProgram.Node<FunctionDecl>) -> TypedProgram.Node<ParameterDecl>? {
+  let p = x.receiver
   return p
 }
 
@@ -184,7 +184,7 @@ func funnyTest2(x: TypedProgram.AnyDecl) -> TypedProgram.AnyScope? {
   return x.scope.parent
 }
 
-func funnyTest3(x: TypedProgram.Node<FunDecl>) -> TypedProgram.Node<ConformanceLensTypeExpr>? {
+func funnyTest3(x: TypedProgram.Node<FunctionDecl>) -> TypedProgram.Node<ConformanceLensTypeExpr>? {
   guard let o = x.output else { return nil }
   return .init(o)
 }
