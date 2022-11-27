@@ -2329,7 +2329,12 @@ public struct TypeChecker {
       }
     } else {
       let declType = realize(decl: match)
-      referredType = (declType.base as? MetatypeType) ?? MetatypeType(declType)
+      if let instance = declType.base as? MetatypeType {
+        referredType = instance
+      } else {
+        diagnostics.insert(.diagnose(nameRefersToValue: id, in: program.ast))
+        return nil
+      }
     }
 
     // Evaluate the arguments of the referred type, if any.

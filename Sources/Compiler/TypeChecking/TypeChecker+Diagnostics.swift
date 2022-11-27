@@ -10,7 +10,7 @@ extension Diagnostic {
     ambiguousUse expr: NodeID<NameExpr>,
     in ast: AST
   ) -> Diagnostic {
-    .error("ambiguous use of '\(ast[expr].name)'", range: ast[expr].origin)
+    .error("ambiguous use of '\(ast[expr].name.value)'", range: ast[expr].origin)
   }
 
   static func diagnose(
@@ -77,17 +77,12 @@ extension Diagnostic {
   }
 
   static func diagnose(
-    doesNotEvaluateToType expr: AnyExprID,
+    nameRefersToValue expr: NodeID<NameExpr>,
     in ast: AST
   ) -> Diagnostic {
-    .error("expression does not evaluate to a type", range: ast[expr].origin)
-  }
-
-  static func diagnose(
-    expectedMetatypeButFound value: AnyType,
-    at range: SourceRange?
-  ) -> Diagnostic {
-    .error("expected metatype, found '\(value)'", range: range)
+    .error(
+      "expected type but '\(ast[expr].name.value)' refers to a value",
+      range: ast[expr].origin)
   }
 
   static func diagnose(
