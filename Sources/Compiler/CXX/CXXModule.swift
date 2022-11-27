@@ -28,15 +28,14 @@ public struct CXXModule {
   ///
   /// - Requires: `valFunctionDecl` must be declared in `self.decl`.
   public mutating func getOrCreateFunction(
-    correspondingTo valFunctionDecl: NodeID<FunctionDecl>,
-    program: TypedProgram
+    correspondingTo valFunctionDecl: TypedProgram.Node<FunctionDecl>
   ) -> CXXFunctionDecl.ID {
-    if let cxxFunctionDecl = valToCXXFunction[valFunctionDecl] { return cxxFunctionDecl }
+    if let cxxFunctionDecl = valToCXXFunction[valFunctionDecl.id] { return cxxFunctionDecl }
 
-    assert(program.isGlobal(valFunctionDecl))
+    assert(valFunctionDecl.whole.isGlobal(valFunctionDecl.id))
 
     /// The identifier of the function.
-    let identifier = CXXIdentifier(program.ast[valFunctionDecl].identifier?.value ?? "")
+    let identifier = CXXIdentifier(valFunctionDecl.identifier?.value ?? "")
 
     // Determine the output type of the function.
     let output: CXXTypeExpr
@@ -44,9 +43,9 @@ public struct CXXModule {
       // The output type of `main` must be `int`.
       output = CXXTypeExpr("int")
     } else {
-      switch program.declTypes[valFunctionDecl]!.base {
+      switch valFunctionDecl.type.base {
       case let valDeclType as LambdaType:
-        output = CXXTypeExpr(valDeclType.output, ast: program.ast, asReturnType: true)!
+        output = CXXTypeExpr(valDeclType.output, ast: valFunctionDecl.whole.ast, asReturnType: true)!
 
       case is MethodType:
         fatalError("not implemented")
@@ -58,7 +57,7 @@ public struct CXXModule {
 
     // Determine the parameter types of the function.
     let paramTypes: [CallableTypeParameter]
-    switch program.declTypes[valFunctionDecl]!.base {
+    switch valFunctionDecl.type.base {
     case let valDeclType as LambdaType:
       paramTypes = valDeclType.inputs
 
@@ -70,11 +69,11 @@ public struct CXXModule {
     }
 
     // Determine the parameters of the function.
-    assert(paramTypes.count == program.ast[valFunctionDecl].parameters.count)
+    assert(paramTypes.count == valFunctionDecl.parameters.count)
     var cxxParams: [CXXFunctionDecl.Parameter] = []
-    for (i, paramID) in program.ast[valFunctionDecl].parameters.enumerated() {
-      let name = CXXIdentifier(program.ast[paramID].name)
-      let type = CXXTypeExpr(paramTypes[i].type, ast: program.ast)
+    for (i, param) in valFunctionDecl.parameters.enumerated() {
+      let name = CXXIdentifier(param.name)
+      let type = CXXTypeExpr(paramTypes[i].type, ast: valFunctionDecl.whole.ast)
       cxxParams.append(CXXFunctionDecl.Parameter(name, type!))
     }
 
@@ -88,7 +87,7 @@ public struct CXXModule {
     cxxFunctionBodies.append(nil)
     
     // Update the cache and return the ID of the newly created function.
-    valToCXXFunction[valFunctionDecl] = cxxFunctionDecl
+    valToCXXFunction[valFunctionDecl.id] = cxxFunctionDecl
     return cxxFunctionDecl
   }
 
