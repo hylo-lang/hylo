@@ -11,7 +11,7 @@ struct SubstitutionMap {
   /// map. Otherwise, returns `type`.
   subscript(type: AnyType) -> AnyType {
     var walked = type
-    while let a = walked.base as? TypeVariable {
+    while let a = TypeVariable(walked) {
       if let b = storage[a] {
         walked = b
       } else {
@@ -25,7 +25,7 @@ struct SubstitutionMap {
   mutating func assign(_ substitution: AnyType, to variable: TypeVariable) {
     var walked = variable
     while let a = storage[walked] {
-      guard let b = a.base as? TypeVariable else {
+      guard let b = TypeVariable(a) else {
         precondition(a == substitution, "'\(variable)' already bound to '\(a)'")
         return
       }
