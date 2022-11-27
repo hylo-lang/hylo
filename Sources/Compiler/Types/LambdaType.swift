@@ -86,7 +86,7 @@ public struct LambdaType: TypeProtocol {
   /// Otherwise, returns `nil`.
   public func ctor() -> LambdaType? {
     guard (receiverEffect == nil) && (environment == .void) && (output == .void),
-          let receiverType = inputs.first?.type.base as? ParameterType,
+          let receiverType = ParameterType(inputs.first?.type),
           receiverType.convention == .set
     else { return nil }
     return LambdaType(inputs: Array(inputs[1...]), output: receiverType.bareType)
@@ -96,9 +96,7 @@ public struct LambdaType: TypeProtocol {
   public var isThin: Bool { environment == .void }
 
   /// Accesses the individual elements of the lambda's environment.
-  public var captures: [TupleType.Element] {
-    (environment.base as? TupleType)?.elements ?? []
-  }
+  public var captures: [TupleType.Element] { TupleType(environment)?.elements ?? [] }
 
   public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> Self {
     LambdaType(

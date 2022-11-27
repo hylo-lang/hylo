@@ -13,6 +13,26 @@ public protocol TypeProtocol: Hashable {
 
 extension TypeProtocol {
 
+  /// Creates an instance with the value of `container.base` or returns `nil` if that value has
+  /// a different type.
+  public init?(_ container: AnyType) {
+    if let t = container.base as? Self {
+      self = t
+    } else {
+      return nil
+    }
+  }
+
+  /// Creates an instance with the value of `container.base` or returns `nil` if either that value
+  /// has a different type or `container` is `nil`.
+  public init?(_ container: AnyType?) {
+    if let t = container.flatMap(Self.init(_:)) {
+      self = t
+    } else {
+      return nil
+    }
+  }
+
   /// Returns whether the specified flags are raised on this type.
   public subscript(fs: TypeFlags) -> Bool { flags.contains(fs) }
 
@@ -42,10 +62,10 @@ extension TypeProtocol {
     func _impl(type: AnyType) -> TypeTransformAction {
       switch type.base {
       case let base as AssociatedTypeType:
-        return .stepOver(^SkolemType(base: base))
+        return .stepOver(^SkolemType(quantifying: base))
 
       case let base as GenericTypeParameterType:
-        return .stepOver(^SkolemType(base: base))
+        return .stepOver(^SkolemType(quantifying: base))
 
       case is AssociatedValueType,
            is GenericValueParameterType:

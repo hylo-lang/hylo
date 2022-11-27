@@ -261,7 +261,7 @@ public struct TypeChecker {
   /// - Requires: `id` is a valid ID in the type checker's AST.
   public mutating func check(module id: NodeID<ModuleDecl>) -> Bool {
     // Build the type of the module.
-    declTypes[id] = ^ModuleType(decl: id, ast: program.ast)
+    declTypes[id] = ^ModuleType(id, ast: program.ast)
 
     // Type check the declarations in the module.
     var success = true
@@ -2041,7 +2041,7 @@ public struct TypeChecker {
       return realize(tuple: NodeID(rawValue: expr.rawValue), inScope: scope)
 
     case WildcardTypeExpr.self:
-      return MetatypeType(TypeVariable(node: expr.base))
+      return MetatypeType(of: TypeVariable(node: expr.base))
 
     default:
       unreachable("unexpected expression")
@@ -2078,7 +2078,7 @@ public struct TypeChecker {
     let name = program.ast[expr].name
     switch name.value.stem {
     case "Any":
-      let type = MetatypeType(.any)
+      let type = MetatypeType(of: .any)
       if arguments.count > 0 {
         diagnostics.insert(.diagnose(argumentToNonGenericType: type.instance, at: name.origin))
         return nil
@@ -2086,7 +2086,7 @@ public struct TypeChecker {
       return type
 
     case "Never":
-      let type = MetatypeType(.never)
+      let type = MetatypeType(of: .never)
       if arguments.count > 0 {
         diagnostics.insert(.diagnose(argumentToNonGenericType: type.instance, at: name.origin))
         return nil
@@ -2109,13 +2109,13 @@ public struct TypeChecker {
         diagnostics.insert(.diagnose(metatypeRequiresOneArgumentAt: name.origin))
       }
       if case .type(let a) = arguments.first! {
-        return MetatypeType(MetatypeType(a))
+        return MetatypeType(of: MetatypeType(of: a))
       } else {
         fatalError("not implemented")
       }
 
     case "Builtin" where isBuiltinModuleVisible:
-      let type = MetatypeType(.builtin(.module))
+      let type = MetatypeType(of: .builtin(.module))
       if arguments.count > 0 {
         diagnostics.insert(.diagnose(argumentToNonGenericType: type.instance, at: name.origin))
         return nil
@@ -2135,7 +2135,7 @@ public struct TypeChecker {
       switch scope.kind {
       case TraitDecl.self:
         let decl = NodeID<TraitDecl>(rawValue: scope.rawValue)
-        return MetatypeType(GenericTypeParameterType(decl, ast: program.ast))
+        return MetatypeType(of: GenericTypeParameterType(decl, ast: program.ast))
 
       case ProductTypeDecl.self:
         // Synthesize unparameterized `Self`.
@@ -2147,9 +2147,9 @@ public struct TypeChecker {
           let arguments = parameters.map({ (p) -> BoundGenericType.Argument in
             .type(^GenericTypeParameterType(p, ast: program.ast))
           })
-          return MetatypeType(BoundGenericType(unparameterized, arguments: arguments))
+          return MetatypeType(of: BoundGenericType(unparameterized, arguments: arguments))
         } else {
-          return MetatypeType(unparameterized)
+          return MetatypeType(of: unparameterized)
         }
 
       case ConformanceDecl.self:
@@ -2194,7 +2194,7 @@ public struct TypeChecker {
       return nil
     }
 
-    return MetatypeType(ConformanceLensType(viewing: subject, through: lensTrait))
+    return MetatypeType(of: ConformanceLensType(viewing: subject, through: lensTrait))
   }
 
   private mutating func realize(
@@ -2225,7 +2225,7 @@ public struct TypeChecker {
     guard let output = realize(node.output, inScope: scope)?.instance else { return nil }
 
     return MetatypeType(
-      LambdaType(
+      of: LambdaType(
         receiverEffect: node.receiverEffect?.value,
         environment: environment,
         inputs: inputs,
@@ -2308,7 +2308,8 @@ public struct TypeChecker {
       case is AssociatedTypeType,
            is ConformanceLensType,
            is GenericTypeParameterType:
-        referredType = MetatypeType(AssociatedTypeType(decl, domain: domain!, ast: program.ast))
+        referredType = MetatypeType(
+          of: AssociatedTypeType(decl, domain: domain!, ast: program.ast))
 
       case nil:
         // Assume that `Self` in `scope` resolves to an implicit generic parameter of a trait
@@ -2319,7 +2320,7 @@ public struct TypeChecker {
           NodeID(rawValue: match.rawValue),
           domain: domain,
           ast: program.ast)
-        referredType = MetatypeType(instance)
+        referredType = MetatypeType(of: instance)
 
       case .some:
         diagnostics.insert(.diagnose(
@@ -2355,7 +2356,7 @@ public struct TypeChecker {
         }
       }
 
-      return MetatypeType(BoundGenericType(referredType.instance, arguments: arguments))
+      return MetatypeType(of: BoundGenericType(referredType.instance, arguments: arguments))
     }
   }
 
@@ -2366,7 +2367,7 @@ public struct TypeChecker {
     let node = program.ast[id]
 
     guard let bareType = realize(node.bareType, inScope: scope)?.instance else { return nil }
-    return MetatypeType(ParameterType(convention: node.convention.value, bareType: bareType))
+    return MetatypeType(of: ParameterType(convention: node.convention.value, bareType: bareType))
   }
 
   private mutating func realize(
@@ -2381,7 +2382,7 @@ public struct TypeChecker {
       elements.append(.init(label: e.label?.value, type: ty))
     }
 
-    return MetatypeType(TupleType(elements))
+    return MetatypeType(of: TupleType(elements))
   }
 
   /// Realizes and returns the traits of the specified conformance list, or `nil` if at least one
@@ -2417,7 +2418,7 @@ public struct TypeChecker {
           NodeID(rawValue: id.rawValue),
           domain: ^GenericTypeParameterType(traitDecl, ast: this.program.ast),
           ast: this.program.ast)
-        return ^MetatypeType(instance)
+        return ^MetatypeType(of: instance)
       })
 
     case AssociatedValueDecl.self:
@@ -2429,7 +2430,7 @@ public struct TypeChecker {
           NodeID(rawValue: id.rawValue),
           domain: ^GenericTypeParameterType(traitDecl, ast: this.program.ast),
           ast: this.program.ast)
-        return ^MetatypeType(instance)
+        return ^MetatypeType(of: instance)
       })
 
     case GenericParameterDecl.self:
@@ -2463,7 +2464,7 @@ public struct TypeChecker {
     case ProductTypeDecl.self:
       return _realize(decl: id, { (this, id) in
         let instance = ProductType(NodeID(rawValue: id.rawValue), ast: this.program.ast)
-        return ^MetatypeType(instance)
+        return ^MetatypeType(of: instance)
       })
 
     case SubscriptDecl.self:
@@ -2472,13 +2473,13 @@ public struct TypeChecker {
     case TraitDecl.self:
       return _realize(decl: id, { (this, id) in
         let instance = TraitType(NodeID(rawValue: id.rawValue), ast: this.program.ast)
-        return ^MetatypeType(instance)
+        return ^MetatypeType(of: instance)
       })
 
     case TypeAliasDecl.self:
       return _realize(decl: id, { (this, id) in
         let instance = TypeAliasType(NodeID(rawValue: id.rawValue), ast: this.program.ast)
-        return ^MetatypeType(instance)
+        return ^MetatypeType(of: instance)
       })
 
     case VarDecl.self:
@@ -2649,7 +2650,7 @@ public struct TypeChecker {
     // If the declaration has no annotations or its first annotation does not refer to a trait,
     // assume it declares a generic type parameter.
     let instance = GenericTypeParameterType(id, ast: program.ast)
-    return ^MetatypeType(instance)
+    return ^MetatypeType(of: instance)
   }
 
   private mutating func realize(initializerDecl id: NodeID<InitializerDecl>) -> AnyType {
@@ -3144,7 +3145,7 @@ public struct TypeChecker {
 
         if program.isContained(scope, in: origin) {
           // Skolemize.
-          return .stepOver(^SkolemType(base: type))
+          return .stepOver(^SkolemType(quantifying: type))
         } else if let opened = openedParameters[type] {
           // The parameter was already opened.
           return .stepOver(opened)
