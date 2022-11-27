@@ -35,7 +35,8 @@ public struct CXXTranspiler {
   /// Emits the given function declaration into `module`.
   public mutating func emit(function decl: NodeID<FunctionDecl>, into module: inout CXXModule) {
     // Declare the function in the module if necessary.
-    let id = module.getOrCreateFunction(correspondingTo: decl, program: program)
+    let valFunctionDecl = TypedProgram.Node<FunctionDecl>(whole: program, id: decl)
+    let id = module.getOrCreateFunction(correspondingTo: valFunctionDecl)
 
     // If we have a body for our function, emit it.
     if let body = program.ast[decl].body {

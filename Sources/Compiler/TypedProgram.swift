@@ -59,7 +59,7 @@ extension TypedProgram {
   /// A projection from a `TypedProgram` of an AST node along with all the non-syntax information
   /// related to that node.
   @dynamicMemberLookup
-  struct SomeNode<ID: NodeIDProtocol> {
+  public struct SomeNode<ID: NodeIDProtocol> {
     /// The whole program of which this node is a notional part.
     let whole: TypedProgram
 
@@ -70,7 +70,7 @@ extension TypedProgram {
   typealias AnyScope = SomeNode<AnyScopeID>
   typealias AnyDecl = SomeNode<AnyDeclID>
 
-  typealias Node<T: AST.Node> = SomeNode<NodeID<T>>
+  public typealias Node<T: AST.Node> = SomeNode<NodeID<T>>
 }
 
 extension TypedProgram.SomeNode where ID: ConcreteNodeID {
