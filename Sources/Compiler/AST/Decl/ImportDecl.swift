@@ -1,5 +1,5 @@
 /// An import declaration.
-public struct ImportDecl: TypeDecl {
+public struct ImportDecl: SingleEntityDecl {
 
   public let origin: SourceRange?
 

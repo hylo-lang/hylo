@@ -1,5 +1,5 @@
 /// A type alias declaration.
-public struct TypeAliasDecl: GenericDecl, TypeDecl, TypeScope, GenericScope {
+public struct TypeAliasDecl: SingleEntityDecl, GenericDecl, TypeScope, GenericScope {
 
   public enum Body: Codable {
 
