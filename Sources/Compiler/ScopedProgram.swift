@@ -513,8 +513,6 @@ extension ScopedProgram {
       visit(assignExpr: NodeID(rawValue: expr.rawValue), withState: &state)
     case AsyncExpr.self:
       visit(asyncExpr: NodeID(rawValue: expr.rawValue), withState: &state)
-    case AwaitExpr.self:
-      visit(awaitExpr: NodeID(rawValue: expr.rawValue), withState: &state)
     case BooleanLiteralExpr.self:
       break
     case BufferLiteralExpr.self:
@@ -573,13 +571,6 @@ extension ScopedProgram {
     withState state: inout VisitorState
   ) {
     visit(functionDecl: ast[expr].decl, withState: &state)
-  }
-
-  private mutating func visit(
-    awaitExpr expr: NodeID<AwaitExpr>,
-    withState state: inout VisitorState
-  ) {
-    visit(expr: ast[expr].operand, withState: &state)
   }
 
   private mutating func visit(

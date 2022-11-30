@@ -75,7 +75,6 @@ public struct Lexer: IteratorProtocol, Sequence {
       case "_"          : token.kind = .under
       case "any"        : token.kind = .`any`
       case "async"      : token.kind = .`async`
-      case "await"      : token.kind = .`await`
       case "break"      : token.kind = .`break`
       case "catch"      : token.kind = .`catch`
       case "conformance": token.kind = .`conformance`

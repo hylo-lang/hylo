@@ -1588,7 +1588,7 @@ public enum Parser {
   }
 
   static let infixExprHead = (
-    anyExpr(asyncExpr).or(anyExpr(awaitExpr)).or(prefixExpr)
+    anyExpr(asyncExpr).or(prefixExpr)
   )
 
   static let asyncExpr = TryCatch(
@@ -1633,15 +1633,6 @@ public enum Parser {
 
   static let asyncExprHead = (
     take(.async).and(maybe(captureList)).and(maybe(receiverEffect))
-  )
-
-  static let awaitExpr = (
-    take(.await).and(expr)
-      .map({ (state, tree) -> NodeID<AwaitExpr> in
-        try state.ast.insert(wellFormed: AwaitExpr(
-          operand: tree.1,
-          origin: tree.0.origin.extended(upTo: state.ast[tree.1].origin!.upperBound)))
-      })
   )
 
   static let prefixExpr = Choose(
