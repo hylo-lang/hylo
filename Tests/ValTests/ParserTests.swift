@@ -956,20 +956,6 @@ final class ParserTests: XCTestCase {
     XCTAssertNotNil(try apply(Parser.asyncExpr, on: input))
   }
 
-  func testAwaitExpr() throws {
-    let input = SourceFile(contents: "await foo")
-    let (exprID, ast) = try apply(Parser.awaitExpr, on: input)
-    let expr = try XCTUnwrap(ast[exprID])
-    XCTAssertEqual(expr.operand.kind, .init(NameExpr.self))
-  }
-
-  func testAwaitAwaitExpr() throws {
-    let input = SourceFile(contents: "await await foo")
-    let (exprID, ast) = try apply(Parser.awaitExpr, on: input)
-    let expr = try XCTUnwrap(ast[exprID])
-    XCTAssertEqual(expr.operand.kind, .init(AwaitExpr.self))
-  }
-
   func testPrefixExpr() throws {
     let input = SourceFile(contents: "+foo")
     let (exprID, ast) = try apply(Parser.prefixExpr, on: input)

@@ -65,8 +65,6 @@ struct ConstraintGenerator {
       return visit(assign: NodeID(rawValue: expr.rawValue), using: &checker)
     case AsyncExpr.self:
       return visit(async: NodeID(rawValue: expr.rawValue), using: &checker)
-    case AwaitExpr.self:
-      return visit(await: NodeID(rawValue: expr.rawValue), using: &checker)
     case BooleanLiteralExpr.self:
       return visit(booleanLiteral: NodeID(rawValue: expr.rawValue), using: &checker)
     case CastExpr.self:
@@ -135,13 +133,6 @@ struct ConstraintGenerator {
 
   private mutating func visit(
     async id: NodeID<AsyncExpr>,
-    using checker: inout TypeChecker
-  ) {
-    fatalError("not implemented")
-  }
-
-  private mutating func visit(
-    await id: NodeID<AwaitExpr>,
     using checker: inout TypeChecker
   ) {
     fatalError("not implemented")
