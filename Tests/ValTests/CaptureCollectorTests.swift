@@ -7,7 +7,7 @@ final class CaptureCollectorTests: XCTestCase {
     var ast = AST()
     let module = try ast.insert(wellFormed: ModuleDecl(name: "main"))
     let source = SourceFile(contents: """
-      fun f<X, @value v: Void>[let c = ()](_ p: Any) {
+      fun f<X, v: Void>[let c = ()](_ p: Any) {
         let _ = free   // captured
         let _ = X      // bound
         let _ = v      // bound

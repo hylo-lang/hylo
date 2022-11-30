@@ -63,8 +63,6 @@ struct ConstraintGenerator {
     switch expr.kind {
     case AssignExpr.self:
       return visit(assign: NodeID(rawValue: expr.rawValue), using: &checker)
-    case AwaitExpr.self:
-      return visit(await: NodeID(rawValue: expr.rawValue), using: &checker)
     case BooleanLiteralExpr.self:
       return visit(booleanLiteral: NodeID(rawValue: expr.rawValue), using: &checker)
     case CastExpr.self:
@@ -131,13 +129,6 @@ struct ConstraintGenerator {
 
     // Assignments have the void type.
     assume(typeOf: id, equals: AnyType.void, at: checker.program.ast[id].origin)
-  }
-
-  private mutating func visit(
-    await id: NodeID<AwaitExpr>,
-    using checker: inout TypeChecker
-  ) {
-    fatalError("not implemented")
   }
 
   private mutating func visit(
@@ -295,7 +286,7 @@ struct ConstraintGenerator {
     // 2nd case
     if let c = NodeID<NameExpr>(callee),
        let d = checker.referredDecls[c]?.decl,
-       d.kind.value is TypeDecl.Type
+       checker.doesSupportInitSugar(d)
     {
       switch d.kind {
       case ProductTypeDecl.self:
@@ -626,7 +617,7 @@ struct ConstraintGenerator {
 
       if let base = NodeID<NameExpr>(domain),
          let decl = checker.referredDecls[base]?.decl,
-         decl.kind.value is TypeDecl.Type
+         checker.doesSupportInitSugar(decl)
       {
         constraints.append(UnboundMemberConstraint(
           type: domainType,

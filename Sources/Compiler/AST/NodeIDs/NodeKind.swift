@@ -103,8 +103,7 @@ extension NodeKind {
     ConformanceDecl.self,
     ExtensionDecl.self,
     FunctionDecl.self,
-    GenericTypeParamDecl.self,
-    GenericValueParamDecl.self,
+    GenericParameterDecl.self,
     ImportDecl.self,
     InitializerDecl.self,
     MethodDecl.self,
@@ -122,8 +121,6 @@ extension NodeKind {
 
     // MARK: Value expressions
     AssignExpr.self,
-    SpawnExpr.self,
-    AwaitExpr.self,
     BooleanLiteralExpr.self,
     BufferLiteralExpr.self,
     CastExpr.self,
@@ -139,6 +136,7 @@ extension NodeKind {
     NameExpr.self,
     NilExpr.self,
     SequenceExpr.self,
+    SpawnExpr.self,
     StringLiteralExpr.self,
     SubscriptCallExpr.self,
     TupleExpr.self,

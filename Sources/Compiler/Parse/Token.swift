@@ -21,7 +21,6 @@ public struct Token {
 
     // Keywords
     case `any` = 3000
-    case `await`
     case `break`
     case `catch`
     case `conformance`

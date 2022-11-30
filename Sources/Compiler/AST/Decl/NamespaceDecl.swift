@@ -1,5 +1,5 @@
 /// A namespace declaration.
-public struct NamespaceDecl: TypeDecl, LexicalScope {
+public struct NamespaceDecl: SingleEntityDecl, LexicalScope {
 
   public let origin: SourceRange?
 

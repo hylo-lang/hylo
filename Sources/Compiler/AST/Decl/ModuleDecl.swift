@@ -1,5 +1,5 @@
 /// A module declaration.
-public struct ModuleDecl: TypeDecl, LexicalScope {
+public struct ModuleDecl: SingleEntityDecl, LexicalScope {
 
   /// The name of the module.
   public let name: String

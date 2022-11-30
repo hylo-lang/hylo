@@ -1416,39 +1416,20 @@ public enum Parser {
 
   static let genericParameterList = (
     genericParameter.and(zeroOrMany(take(.comma).and(genericParameter).second))
-      .map({ (_, tree) -> [GenericParamDeclID] in [tree.0] + tree.1 })
+      .map({ (_, tree) -> [NodeID<GenericParameterDecl>] in [tree.0] + tree.1 })
   )
 
   static let genericParameter = (
-    genericValueParameter.or(genericTypeParameter)
-  )
-
-  static let genericTypeParameter = (
     maybe(typeAttribute).andCollapsingSoftFailures(take(.name))
       .and(maybe(take(.colon).and(traitComposition)))
       .and(maybe(take(.assign).and(typeExpr)))
-      .map({ (state, tree) -> GenericParamDeclID in
-        let id = try state.ast.insert(wellFormed: GenericTypeParamDecl(
+      .map({ (state, tree) -> NodeID<GenericParameterDecl> in
+        try state.ast.insert(wellFormed: GenericParameterDecl(
           identifier: SourceRepresentable(token: tree.0.0.1, in: state.lexer.source),
           conformances: tree.0.1?.1 ?? [],
           defaultValue: tree.1?.1,
           origin: state.range(
             from: tree.0.0.0?.origin.lowerBound ?? tree.0.0.1.origin.lowerBound)))
-        return .type(id)
-      })
-  )
-
-  static let genericValueParameter = (
-    valueAttribute.and(take(.name))
-      .and(take(.colon).and(typeExpr))
-      .and(maybe(take(.assign).and(expr)))
-      .map({ (state, tree) -> GenericParamDeclID in
-        let id = try state.ast.insert(wellFormed: GenericValueParamDecl(
-          identifier: SourceRepresentable(token: tree.0.0.1, in: state.lexer.source),
-          annotation: tree.0.1.1,
-          defaultValue: tree.1?.1,
-          origin: tree.0.0.0.origin.extended(upTo: state.currentIndex)))
-        return .value(id)
       })
   )
 
@@ -1607,7 +1588,7 @@ public enum Parser {
   }
 
   static let infixExprHead = (
-    anyExpr(spawnExpr).or(anyExpr(awaitExpr)).or(prefixExpr)
+    anyExpr(spawnExpr).or(prefixExpr)
   )
 
   static let spawnExpr = TryCatch(
@@ -1652,15 +1633,6 @@ public enum Parser {
 
   static let spawnExprHead = (
     take(.spawn).and(maybe(captureList)).and(maybe(receiverEffect))
-  )
-
-  static let awaitExpr = (
-    take(.await).and(expr)
-      .map({ (state, tree) -> NodeID<AwaitExpr> in
-        try state.ast.insert(wellFormed: AwaitExpr(
-          operand: tree.1,
-          origin: tree.0.origin.extended(upTo: state.ast[tree.1].origin!.upperBound)))
-      })
   )
 
   static let prefixExpr = Choose(

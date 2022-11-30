@@ -1,7 +1,7 @@
 import Utils
 
 /// A generic type parameter.
-public struct GenericTypeParamType: TypeProtocol {
+public struct GenericTypeParameterType: TypeProtocol {
 
   /// The declaration that introduces the parameter.
   ///
@@ -14,13 +14,12 @@ public struct GenericTypeParamType: TypeProtocol {
 
   /// Creates an instance denoting the generic type parameter declared by `decl`.
   ///
-  /// - Requires: `decl` is the ID of a declaration introducing an associated type, generic type
-  ///   parameter, or trait.
+  /// - Requires: `decl` is the ID of an associated type, generic parameter, or trait declaration.
   public init<T: DeclID>(_ decl: T, ast: AST) {
     self.decl = AnyDeclID(decl)
 
     switch decl.kind {
-    case AssociatedTypeDecl.self, GenericTypeParamDecl.self:
+    case AssociatedTypeDecl.self, GenericParameterDecl.self:
       name = Incidental((ast[decl] as! SingleEntityDecl).name)
     case TraitDecl.self:
       name = Incidental("Self")
@@ -33,7 +32,7 @@ public struct GenericTypeParamType: TypeProtocol {
 
 }
 
-extension GenericTypeParamType: CustomStringConvertible {
+extension GenericTypeParameterType: CustomStringConvertible {
 
   public var description: String { name.value }
 
