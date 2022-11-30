@@ -1589,11 +1589,6 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(environment.value.kind, .init(ExistentialTypeExpr.self))
   }
 
-  func testWildcardTypeExpr() throws {
-    let input = SourceFile(contents: "_")
-    XCTAssertNotNil(try apply(Parser.wildcardTypeExpr, on: input))
-  }
-
   func testParameterTypeExpr() throws {
     let input = SourceFile(contents: "sink T")
     let (exprID, ast) = try apply(Parser.parameterTypeExpr, on: input)
