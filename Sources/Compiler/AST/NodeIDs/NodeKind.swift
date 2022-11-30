@@ -122,7 +122,7 @@ extension NodeKind {
 
     // MARK: Value expressions
     AssignExpr.self,
-    AsyncExpr.self,
+    SpawnExpr.self,
     AwaitExpr.self,
     BooleanLiteralExpr.self,
     BufferLiteralExpr.self,

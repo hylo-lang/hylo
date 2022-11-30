@@ -931,29 +931,29 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(cast.kind, .builtinPointerConversion)
   }
 
-  func testAsyncExprInline() throws {
-    let input = SourceFile(contents: "async foo")
-    XCTAssertNotNil(try apply(Parser.asyncExpr, on: input))
+  func testSpawnExprInline() throws {
+    let input = SourceFile(contents: "spawn foo")
+    XCTAssertNotNil(try apply(Parser.spawnExpr, on: input))
   }
 
-  func testAsyncExprInlineWithCaptureList() throws {
-    let input = SourceFile(contents: "async[let x = a] foo")
-    let (exprID, ast) = try apply(Parser.asyncExpr, on: input)
+  func testSpawnExprInlineWithCaptureList() throws {
+    let input = SourceFile(contents: "spawn[let x = a] foo")
+    let (exprID, ast) = try apply(Parser.spawnExpr, on: input)
     let expr = try XCTUnwrap(ast[exprID])
     XCTAssertEqual(ast[expr.decl].explicitCaptures.count, 1)
   }
 
-  func testAsyncExprInlineWithEffect() throws {
-    let input = SourceFile(contents: "async[var x = a] inout foo")
-    let (exprID, ast) = try apply(Parser.asyncExpr, on: input)
+  func testSpawnExprInlineWithEffect() throws {
+    let input = SourceFile(contents: "spawn[var x = a] inout foo")
+    let (exprID, ast) = try apply(Parser.spawnExpr, on: input)
     let expr = try XCTUnwrap(ast[exprID])
     XCTAssertEqual(ast[expr.decl].explicitCaptures.count, 1)
     XCTAssertNotNil(ast[expr.decl].receiverEffect)
   }
 
-  func testAsyncExprBlock() throws {
-    let input = SourceFile(contents: "async -> T { return foo }")
-    XCTAssertNotNil(try apply(Parser.asyncExpr, on: input))
+  func testSpawnExprBlock() throws {
+    let input = SourceFile(contents: "spawn -> T { return foo }")
+    XCTAssertNotNil(try apply(Parser.spawnExpr, on: input))
   }
 
   func testAwaitExpr() throws {

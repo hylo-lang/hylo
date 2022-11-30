@@ -410,7 +410,7 @@ public struct TypeChecker {
   ///
   /// The type of the declaration must be realizable from type annotations alone or the declaration
   /// the declaration must be realized and its inferred type must be stored in `declTyes`. Hence,
-  /// the method must not be called on the underlying declaration of a lambda or async expression
+  /// the method must not be called on the underlying declaration of a lambda or spawn expression
   /// before the type of that declaration has been fully inferred.
   ///
   /// - SeeAlso: `checkPending`

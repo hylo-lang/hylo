@@ -110,16 +110,15 @@ final class LexerTests: XCTestCase {
 
   func testKeywords() {
     let input = SourceFile(contents: """
-    any async await break catch conformance continue deinit do else extension for fun if import in
+    any await break catch conformance continue deinit do else extension for fun if import in
     infix init inout let match namespace nil operator postfix prefix property public return set
-    sink some static subscript trait try type typealias var where while yield yielded
+    sink some spawn static subscript trait try type typealias var where while yield yielded
     """)
 
     assert(
       tokenize(input),
       matches: [
         TokenSpecification(.`any`         , "any"),
-        TokenSpecification(.`async`       , "async"),
         TokenSpecification(.`await`       , "await"),
         TokenSpecification(.`break`       , "break"),
         TokenSpecification(.`catch`       , "catch"),
@@ -150,6 +149,7 @@ final class LexerTests: XCTestCase {
         TokenSpecification(.`set`         , "set"),
         TokenSpecification(.`sink`        , "sink"),
         TokenSpecification(.`some`        , "some"),
+        TokenSpecification(.`spawn`       , "spawn"),
         TokenSpecification(.`static`      , "static"),
         TokenSpecification(.`subscript`   , "subscript"),
         TokenSpecification(.`trait`       , "trait"),
