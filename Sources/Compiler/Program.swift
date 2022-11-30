@@ -52,9 +52,23 @@ extension Program {
   /// - it is declared at type scope and it is static; or
   /// - it is introduced with `init` or `memberwise init`.
   public func isGlobal<T: DeclID>(_ decl: T) -> Bool {
-    // Type declarations are global.
-    if decl.kind.value is TypeDecl.Type {
+    switch decl.kind {
+    case AssociatedTypeDecl.self,
+         ImportDecl.self,
+         ModuleDecl.self,
+         NamespaceDecl.self,
+         ProductTypeDecl.self,
+         TraitDecl.self,
+         TypeAliasDecl.self:
+      // Type declarations are global.
       return true
+
+    case GenericParameterDecl.self:
+      // Generic parameters are global.
+      return true
+
+    default:
+      break
     }
 
     // Declarations at global scope are global.
@@ -90,7 +104,10 @@ extension Program {
   public func isMember<T: DeclID>(_ decl: T) -> Bool {
     guard let parent = declToScope[decl] else { return false }
     switch parent.kind {
-    case ProductTypeDecl.self, TraitDecl.self, ConformanceDecl.self, ExtensionDecl.self,
+    case ConformanceDecl.self,
+         ExtensionDecl.self,
+         ProductTypeDecl.self,
+         TraitDecl.self,
          TypeAliasDecl.self:
       return true
       

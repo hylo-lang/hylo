@@ -1,7 +1,7 @@
 import Utils
 
 /// A generic value parameter.
-public struct GenericValueParamType: TypeProtocol {
+public struct GenericValueParameterType: TypeProtocol {
 
   /// The declaration that introduces the parameter.
   ///
@@ -13,13 +13,12 @@ public struct GenericValueParamType: TypeProtocol {
 
   /// Creates an instance denoting the generic value parameter declared by `decl`.
   ///
-  /// - Requires: `decl` is the ID of a declaration introducing an associated value or generic
-  ///   value parameter.
+  /// - Requires: `decl` is the ID of an associated value or generic parameter declaration.
   public init<T: DeclID>(_ decl: T, ast: AST) {
     self.decl = AnyDeclID(decl)
 
     switch decl.kind {
-    case GenericValueParamDecl.self, AssociatedValueDecl.self:
+    case GenericParameterDecl.self, AssociatedValueDecl.self:
       name = Incidental((ast[decl] as! SingleEntityDecl).name)
     default:
       preconditionFailure("invalid declaration")
@@ -30,7 +29,7 @@ public struct GenericValueParamType: TypeProtocol {
 
 }
 
-extension GenericValueParamType: CustomStringConvertible {
+extension GenericValueParameterType: CustomStringConvertible {
 
   public var description: String { name.value }
 

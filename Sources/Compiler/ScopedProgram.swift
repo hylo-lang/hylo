@@ -100,10 +100,8 @@ extension ScopedProgram {
       visit(extensionDecl: NodeID(rawValue: decl.rawValue), withState: &state)
     case FunctionDecl.self:
       visit(functionDecl: NodeID(rawValue: decl.rawValue), withState: &state)
-    case GenericTypeParamDecl.self:
-      visit(genericTypeParamDecl: NodeID(rawValue: decl.rawValue), withState: &state)
-    case GenericValueParamDecl.self:
-      visit(genericValueParamDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+    case GenericParameterDecl.self:
+      visit(genericParameterDecl: NodeID(rawValue: decl.rawValue), withState: &state)
     case ImportDecl.self:
       visit(importDecl: NodeID(rawValue: decl.rawValue), withState: &state)
     case InitializerDecl.self:
@@ -256,7 +254,7 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    genericTypeParamDecl decl: NodeID<GenericTypeParamDecl>,
+    genericParameterDecl decl: NodeID<GenericParameterDecl>,
     withState state: inout VisitorState
   ) {
     insert(decl: decl, into: state.innermost)
@@ -266,18 +264,6 @@ extension ScopedProgram {
     }
     if let defaultValue = ast[decl].defaultValue {
       visit(typeExpr: defaultValue, withState: &state)
-    }
-  }
-
-  private mutating func visit(
-    genericValueParamDecl decl: NodeID<GenericValueParamDecl>,
-    withState state: inout VisitorState
-  ) {
-    insert(decl: decl, into: state.innermost)
-
-    visit(typeExpr: ast[decl].annotation, withState: &state)
-    if let defaultValue = ast[decl].defaultValue {
-      visit(expr: defaultValue, withState: &state)
     }
   }
 
@@ -1044,12 +1030,7 @@ extension ScopedProgram {
     withState state: inout VisitorState
   ) {
     for parameter in clause.parameters {
-      switch parameter {
-      case .type(let i):
-        visit(genericTypeParamDecl: i, withState: &state)
-      case .value(let i):
-        visit(genericValueParamDecl: i, withState: &state)
-      }
+      visit(genericParameterDecl: parameter, withState: &state)
     }
     if let whereClause = clause.whereClause?.value {
       visit(whereClause: whereClause, withState: &state)

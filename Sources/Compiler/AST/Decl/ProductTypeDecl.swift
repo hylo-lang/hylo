@@ -1,5 +1,5 @@
 /// A (nominal) product type declaration.
-public struct ProductTypeDecl: GenericDecl, TypeDecl, GenericScope {
+public struct ProductTypeDecl: SingleEntityDecl, GenericDecl, TypeScope, GenericScope {
 
   public let origin: SourceRange?
 
