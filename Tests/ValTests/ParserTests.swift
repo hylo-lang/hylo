@@ -1252,7 +1252,7 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(expr.elements.count, 2)
   }
 
-  func testNilExpr() throws {
+  func testNilLiteralExpr() throws {
     let input = SourceFile(contents: "nil")
     XCTAssertNotNil(try apply(Parser.nilExpr, on: input))
   }
