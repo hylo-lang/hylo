@@ -121,7 +121,6 @@ extension NodeKind {
 
     // MARK: Value expressions
     AssignExpr.self,
-    AsyncExpr.self,
     BooleanLiteralExpr.self,
     BufferLiteralExpr.self,
     CastExpr.self,
@@ -137,6 +136,7 @@ extension NodeKind {
     NameExpr.self,
     NilExpr.self,
     SequenceExpr.self,
+    SpawnExpr.self,
     StringLiteralExpr.self,
     SubscriptCallExpr.self,
     TupleExpr.self,

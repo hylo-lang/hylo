@@ -21,7 +21,6 @@ public struct Token {
 
     // Keywords
     case `any` = 3000
-    case `async`
     case `break`
     case `catch`
     case `conformance`
@@ -51,6 +50,7 @@ public struct Token {
     case `set`
     case `sink`
     case `some`
+    case `spawn`
     case `static`
     case `subscript`
     case `trait`
@@ -102,7 +102,7 @@ public struct Token {
 
   /// Indicates whether `self` is a keyword.
   public var isKeyword: Bool {
-    (Kind.async.rawValue ..< Kind.async.rawValue + 999) ~= kind.rawValue
+    (Kind.any.rawValue ..< Kind.any.rawValue + 999) ~= kind.rawValue
   }
 
   /// Indicates whether `self` is a suitable as a label.

@@ -63,8 +63,6 @@ struct ConstraintGenerator {
     switch expr.kind {
     case AssignExpr.self:
       return visit(assign: NodeID(rawValue: expr.rawValue), using: &checker)
-    case AsyncExpr.self:
-      return visit(async: NodeID(rawValue: expr.rawValue), using: &checker)
     case BooleanLiteralExpr.self:
       return visit(booleanLiteral: NodeID(rawValue: expr.rawValue), using: &checker)
     case CastExpr.self:
@@ -91,6 +89,8 @@ struct ConstraintGenerator {
       return visit(nil: NodeID(rawValue: expr.rawValue), using: &checker)
     case SequenceExpr.self:
       return visit(sequence: NodeID(rawValue: expr.rawValue), using: &checker)
+    case SpawnExpr.self:
+      return visit(spawn: NodeID(rawValue: expr.rawValue), using: &checker)
     case StringLiteralExpr.self:
       return visit(stringLiteral: NodeID(rawValue: expr.rawValue), using: &checker)
     case SubscriptCallExpr.self:
@@ -129,13 +129,6 @@ struct ConstraintGenerator {
 
     // Assignments have the void type.
     assume(typeOf: id, equals: AnyType.void, at: checker.program.ast[id].origin)
-  }
-
-  private mutating func visit(
-    async id: NodeID<AsyncExpr>,
-    using checker: inout TypeChecker
-  ) {
-    fatalError("not implemented")
   }
 
   private mutating func visit(
@@ -725,6 +718,13 @@ struct ConstraintGenerator {
       visit(expr: expr, using: &checker)
       return inferredTypes[expr]!
     }
+  }
+
+  private mutating func visit(
+    spawn id: NodeID<SpawnExpr>,
+    using checker: inout TypeChecker
+  ) {
+    fatalError("not implemented")
   }
 
   private mutating func visit(
