@@ -537,7 +537,7 @@ extension ScopedProgram {
       visit(matchExpr: NodeID(rawValue: expr.rawValue), withState: &state)
     case NameExpr.self:
       visit(nameExpr: NodeID(rawValue: expr.rawValue), withState: &state)
-    case NilExpr.self:
+    case NilLiteralExpr.self:
       break
     case SequenceExpr.self:
       visit(sequenceExpr: NodeID(rawValue: expr.rawValue), withState: &state)

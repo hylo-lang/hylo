@@ -134,7 +134,7 @@ extension NodeKind {
     MapLiteralExpr.self,
     MatchExpr.self,
     NameExpr.self,
-    NilExpr.self,
+    NilLiteralExpr.self,
     SequenceExpr.self,
     SpawnExpr.self,
     StringLiteralExpr.self,

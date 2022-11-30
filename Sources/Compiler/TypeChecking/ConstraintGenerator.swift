@@ -85,7 +85,7 @@ struct ConstraintGenerator {
       return visit(match: NodeID(rawValue: expr.rawValue), using: &checker)
     case NameExpr.self:
       return visit(name: NodeID(rawValue: expr.rawValue), using: &checker)
-    case NilExpr.self:
+    case NilLiteralExpr.self:
       return visit(nil: NodeID(rawValue: expr.rawValue), using: &checker)
     case SequenceExpr.self:
       return visit(sequence: NodeID(rawValue: expr.rawValue), using: &checker)
@@ -644,7 +644,7 @@ struct ConstraintGenerator {
   }
 
   private mutating func visit(
-    nil i: NodeID<NilExpr>,
+    nil i: NodeID<NilLiteralExpr>,
     using checker: inout TypeChecker
   ) {
     fatalError("not implemented")

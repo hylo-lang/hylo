@@ -232,7 +232,7 @@ struct CaptureCollector {
          ErrorExpr.self,
          FloatLiteralExpr.self,
          IntegerLiteralExpr.self,
-         NilExpr.self,
+         NilLiteralExpr.self,
          StringLiteralExpr.self:
       break
 

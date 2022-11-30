@@ -2118,8 +2118,8 @@ public enum Parser {
 
   static let nilExpr = (
     take(.nil)
-      .map({ (state, token) -> NodeID<NilExpr> in
-        try state.ast.insert(wellFormed: NilExpr(origin: token.origin))
+      .map({ (state, token) -> NodeID<NilLiteralExpr> in
+        try state.ast.insert(wellFormed: NilLiteralExpr(origin: token.origin))
       })
   )
 
