@@ -172,7 +172,6 @@ extension NodeKind {
     RemoteTypeExpr.self,
     TupleTypeExpr.self,
     UnionTypeExpr.self,
-    WildcardTypeExpr.self,
 
     // MARK: Others
     MatchCase.self,
