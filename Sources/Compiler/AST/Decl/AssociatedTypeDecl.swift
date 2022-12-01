@@ -1,8 +1,5 @@
-
-public protocol TypeDecl: SingleEntityDecl {}
-
 /// An associated type declaration.
-public struct AssociatedTypeDecl: TypeDecl {
+public struct AssociatedTypeDecl: SingleEntityDecl {
 
   public let origin: SourceRange?
 

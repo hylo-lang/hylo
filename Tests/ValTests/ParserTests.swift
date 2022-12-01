@@ -763,7 +763,7 @@ final class ParserTests: XCTestCase {
   }
 
   func testGenericClauseWithMultipleParameters() throws {
-    let input = SourceFile(contents: "<T, @value n: Int>")
+    let input = SourceFile(contents: "<T, n: Int>")
     let clause = try XCTUnwrap(try apply(Parser.genericClause, on: input).element)
     XCTAssertEqual(clause.value.parameters.count, 2)
   }
@@ -786,102 +786,34 @@ final class ParserTests: XCTestCase {
     XCTAssertNotNil(clause.value.whereClause)
   }
 
-  func testGenericTypeParameter() throws {
+  func testGenericParameter() throws {
     let input = SourceFile(contents: "T")
     let (declID, ast) = try apply(Parser.genericParameter, on: input)
-    if case .type(let typeDeclID) = declID {
-      XCTAssertEqual(ast[typeDeclID].name, "T")
-    } else {
-      XCTFail()
-    }
+    let decl = try XCTUnwrap(ast[declID])
+    XCTAssertEqual(decl.name, "T")
   }
 
-  func testGenericTypeParameterWithIntroducer() throws {
-    let input = SourceFile(contents: "@type T")
-    let (declID, ast) = try apply(Parser.genericParameter, on: input)
-    if case .type(let typeDeclID) = declID {
-      XCTAssertEqual(ast[typeDeclID].name, "T")
-    } else {
-      XCTFail()
-    }
-  }
-
-  func testGenericTypeParameterWithConformances() throws {
+  func testGenericParameterWithConformances() throws {
     let input = SourceFile(contents: "T: Foo & Bar")
     let (declID, ast) = try apply(Parser.genericParameter, on: input)
-    if case .type(let typeDeclID) = declID {
-      XCTAssertEqual(ast[typeDeclID].conformances.count, 2)
-    } else {
-      XCTFail()
-    }
+    let decl = try XCTUnwrap(ast[declID])
+    XCTAssertEqual(decl.conformances.count, 2)
   }
 
-  func testGenericTypeParameterWithDefault() throws {
+  func testGenericParameterWithDefault() throws {
     let input = SourceFile(contents: "T = U")
     let (declID, ast) = try apply(Parser.genericParameter, on: input)
-    if case .type(let typeDeclID) = declID {
-      XCTAssertNotNil(ast[typeDeclID].defaultValue)
-    } else {
-      XCTFail()
-    }
+    let decl = try XCTUnwrap(ast[declID])
+    XCTAssertNotNil(decl.defaultValue)
   }
 
-  func testGenericTypeParameterWithConformancesANdDefault() throws {
-    let input = SourceFile(contents: "T: Foo & Bar = U")
+  func testGenericParameterWithConformancesAndDefault() throws {
+    let input = SourceFile(contents: "T: Int = 0o52")
     let (declID, ast) = try apply(Parser.genericParameter, on: input)
-    if case .type(let typeDeclID) = declID {
-      XCTAssertEqual(ast[typeDeclID].conformances.count, 2)
-      XCTAssertNotNil(ast[typeDeclID].defaultValue)
-    } else {
-      XCTFail()
-    }
+    let decl = try XCTUnwrap(ast[declID])
+    XCTAssertEqual(decl.conformances.count, 1)
+    XCTAssertNotNil(decl.defaultValue)
   }
-
-  func testGenericValueParameter() throws {
-    let input = SourceFile(contents: "@value n: Int")
-    let (declID, ast) = try apply(Parser.genericParameter, on: input)
-    if case .value(let valueDeclID) = declID {
-      XCTAssertEqual(ast[valueDeclID].name, "n")
-    } else {
-      XCTFail()
-    }
-  }
-
-  /*
-  func testGenericValueParameterSansHint() throws {
-    let input = SourceFile(contents: "n: Int")
-    let (declID, ast) = try apply(Parser.genericParameter, on: input)
-    if case .value(let valueDeclID) = declID {
-      XCTAssertEqual(ast[valueDeclID].name, "n")
-    } else {
-      XCTFail()
-    }
-  }
-   */
-
-  func testGenericValueParameterWithDefault() throws {
-    let input = SourceFile(contents: "@value n: Int = 0o52")
-    let (declID, ast) = try apply(Parser.genericParameter, on: input)
-    if case .value(let valueDeclID) = declID {
-      XCTAssertEqual(ast[valueDeclID].name, "n")
-      XCTAssertNotNil(ast[valueDeclID].defaultValue)
-    } else {
-      XCTFail()
-    }
-  }
-
-  /*
-  func testGenericValueParameterWithDefaultSansHint() throws {
-    let input = SourceFile(contents: "n: Int = 0o52")
-    let (declID, ast) = try apply(Parser.genericParameter, on: input)
-    if case .value(let valueDeclID) = declID {
-      XCTAssertEqual(ast[valueDeclID].name, "n")
-      XCTAssertNotNil(ast[valueDeclID].defaultValue)
-    } else {
-      XCTFail()
-    }
-  }
-   */
 
   func testConformanceList() throws {
     let input = SourceFile(contents: ": Foo, Bar, Ham")
@@ -931,43 +863,29 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(cast.kind, .builtinPointerConversion)
   }
 
-  func testAsyncExprInline() throws {
-    let input = SourceFile(contents: "async foo")
-    XCTAssertNotNil(try apply(Parser.asyncExpr, on: input))
+  func testSpawnExprInline() throws {
+    let input = SourceFile(contents: "spawn foo")
+    XCTAssertNotNil(try apply(Parser.spawnExpr, on: input))
   }
 
-  func testAsyncExprInlineWithCaptureList() throws {
-    let input = SourceFile(contents: "async[let x = a] foo")
-    let (exprID, ast) = try apply(Parser.asyncExpr, on: input)
+  func testSpawnExprInlineWithCaptureList() throws {
+    let input = SourceFile(contents: "spawn[let x = a] foo")
+    let (exprID, ast) = try apply(Parser.spawnExpr, on: input)
     let expr = try XCTUnwrap(ast[exprID])
     XCTAssertEqual(ast[expr.decl].explicitCaptures.count, 1)
   }
 
-  func testAsyncExprInlineWithEffect() throws {
-    let input = SourceFile(contents: "async[var x = a] inout foo")
-    let (exprID, ast) = try apply(Parser.asyncExpr, on: input)
+  func testSpawnExprInlineWithEffect() throws {
+    let input = SourceFile(contents: "spawn[var x = a] inout foo")
+    let (exprID, ast) = try apply(Parser.spawnExpr, on: input)
     let expr = try XCTUnwrap(ast[exprID])
     XCTAssertEqual(ast[expr.decl].explicitCaptures.count, 1)
     XCTAssertNotNil(ast[expr.decl].receiverEffect)
   }
 
-  func testAsyncExprBlock() throws {
-    let input = SourceFile(contents: "async -> T { return foo }")
-    XCTAssertNotNil(try apply(Parser.asyncExpr, on: input))
-  }
-
-  func testAwaitExpr() throws {
-    let input = SourceFile(contents: "await foo")
-    let (exprID, ast) = try apply(Parser.awaitExpr, on: input)
-    let expr = try XCTUnwrap(ast[exprID])
-    XCTAssertEqual(expr.operand.kind, .init(NameExpr.self))
-  }
-
-  func testAwaitAwaitExpr() throws {
-    let input = SourceFile(contents: "await await foo")
-    let (exprID, ast) = try apply(Parser.awaitExpr, on: input)
-    let expr = try XCTUnwrap(ast[exprID])
-    XCTAssertEqual(expr.operand.kind, .init(AwaitExpr.self))
+  func testSpawnExprBlock() throws {
+    let input = SourceFile(contents: "spawn -> T { return foo }")
+    XCTAssertNotNil(try apply(Parser.spawnExpr, on: input))
   }
 
   func testPrefixExpr() throws {
@@ -1334,7 +1252,7 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(expr.elements.count, 2)
   }
 
-  func testNilExpr() throws {
+  func testNilLiteralExpr() throws {
     let input = SourceFile(contents: "nil")
     XCTAssertNotNil(try apply(Parser.nilExpr, on: input))
   }
@@ -1669,11 +1587,6 @@ final class ParserTests: XCTestCase {
     let input = SourceFile(contents: "[any Copyable]")
     let environment = try XCTUnwrap(try apply(Parser.lambdaEnvironment, on: input).element)
     XCTAssertEqual(environment.value.kind, .init(ExistentialTypeExpr.self))
-  }
-
-  func testWildcardTypeExpr() throws {
-    let input = SourceFile(contents: "_")
-    XCTAssertNotNil(try apply(Parser.wildcardTypeExpr, on: input))
   }
 
   func testParameterTypeExpr() throws {

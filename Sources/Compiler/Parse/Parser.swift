@@ -1416,39 +1416,20 @@ public enum Parser {
 
   static let genericParameterList = (
     genericParameter.and(zeroOrMany(take(.comma).and(genericParameter).second))
-      .map({ (_, tree) -> [GenericParamDeclID] in [tree.0] + tree.1 })
+      .map({ (_, tree) -> [NodeID<GenericParameterDecl>] in [tree.0] + tree.1 })
   )
 
   static let genericParameter = (
-    genericValueParameter.or(genericTypeParameter)
-  )
-
-  static let genericTypeParameter = (
     maybe(typeAttribute).andCollapsingSoftFailures(take(.name))
       .and(maybe(take(.colon).and(traitComposition)))
       .and(maybe(take(.assign).and(typeExpr)))
-      .map({ (state, tree) -> GenericParamDeclID in
-        let id = try state.ast.insert(wellFormed: GenericTypeParamDecl(
+      .map({ (state, tree) -> NodeID<GenericParameterDecl> in
+        try state.ast.insert(wellFormed: GenericParameterDecl(
           identifier: SourceRepresentable(token: tree.0.0.1, in: state.lexer.source),
           conformances: tree.0.1?.1 ?? [],
           defaultValue: tree.1?.1,
           origin: state.range(
             from: tree.0.0.0?.origin.lowerBound ?? tree.0.0.1.origin.lowerBound)))
-        return .type(id)
-      })
-  )
-
-  static let genericValueParameter = (
-    valueAttribute.and(take(.name))
-      .and(take(.colon).and(typeExpr))
-      .and(maybe(take(.assign).and(expr)))
-      .map({ (state, tree) -> GenericParamDeclID in
-        let id = try state.ast.insert(wellFormed: GenericValueParamDecl(
-          identifier: SourceRepresentable(token: tree.0.0.1, in: state.lexer.source),
-          annotation: tree.0.1.1,
-          defaultValue: tree.1?.1,
-          origin: tree.0.0.0.origin.extended(upTo: state.currentIndex)))
-        return .value(id)
       })
   )
 
@@ -1607,17 +1588,17 @@ public enum Parser {
   }
 
   static let infixExprHead = (
-    anyExpr(asyncExpr).or(anyExpr(awaitExpr)).or(prefixExpr)
+    anyExpr(spawnExpr).or(prefixExpr)
   )
 
-  static let asyncExpr = TryCatch(
-    trying: asyncExprInline,
-    orCatchingAndApplying: asyncExprBlock
+  static let spawnExpr = TryCatch(
+    trying: spawnExprInline,
+    orCatchingAndApplying: spawnExprBlock
   )
 
-  static let asyncExprBlock = (
-    asyncExprHead.and(take(.arrow)).and(typeExpr).and(asyncExprBody)
-      .map({ (state, tree) -> NodeID<AsyncExpr> in
+  static let spawnExprBlock = (
+    spawnExprHead.and(take(.arrow)).and(typeExpr).and(spawnExprBody)
+      .map({ (state, tree) -> NodeID<SpawnExpr> in
         let decl = try state.ast.insert(wellFormed: FunctionDecl(
           introducerRange: tree.0.0.0.0.0.origin,
           receiverEffect: tree.0.0.0.1,
@@ -1626,17 +1607,17 @@ public enum Parser {
           isInExprContext: true,
           origin: tree.0.0.0.0.0.origin.extended(upTo: state.currentIndex)))
 
-        return try state.ast.insert(wellFormed: AsyncExpr(
+        return try state.ast.insert(wellFormed: SpawnExpr(
           decl: decl,
           origin: state.ast[decl].origin))
       })
   )
 
-  static let asyncExprBody = inContext(.functionBody, apply: braceStmt)
+  static let spawnExprBody = inContext(.functionBody, apply: braceStmt)
 
-  static let asyncExprInline = (
-    asyncExprHead.and(expr)
-      .map({ (state, tree) -> NodeID<AsyncExpr> in
+  static let spawnExprInline = (
+    spawnExprHead.and(expr)
+      .map({ (state, tree) -> NodeID<SpawnExpr> in
         let decl = try state.ast.insert(wellFormed: FunctionDecl(
           introducerRange: tree.0.0.0.origin,
           receiverEffect: tree.0.1,
@@ -1644,23 +1625,14 @@ public enum Parser {
           body: .expr(tree.1),
           isInExprContext: true,
           origin: tree.0.0.0.origin.extended(upTo: state.currentIndex)))
-        return try state.ast.insert(wellFormed: AsyncExpr(
+        return try state.ast.insert(wellFormed: SpawnExpr(
           decl: decl,
           origin: state.ast[decl].origin))
       })
   )
 
-  static let asyncExprHead = (
-    take(.async).and(maybe(captureList)).and(maybe(receiverEffect))
-  )
-
-  static let awaitExpr = (
-    take(.await).and(expr)
-      .map({ (state, tree) -> NodeID<AwaitExpr> in
-        try state.ast.insert(wellFormed: AwaitExpr(
-          operand: tree.1,
-          origin: tree.0.origin.extended(upTo: state.ast[tree.1].origin!.upperBound)))
-      })
+  static let spawnExprHead = (
+    take(.spawn).and(maybe(captureList)).and(maybe(receiverEffect))
   )
 
   static let prefixExpr = Choose(
@@ -2146,8 +2118,8 @@ public enum Parser {
 
   static let nilExpr = (
     take(.nil)
-      .map({ (state, token) -> NodeID<NilExpr> in
-        try state.ast.insert(wellFormed: NilExpr(origin: token.origin))
+      .map({ (state, token) -> NodeID<NilLiteralExpr> in
+        try state.ast.insert(wellFormed: NilLiteralExpr(origin: token.origin))
       })
   )
 

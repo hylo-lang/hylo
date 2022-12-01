@@ -19,7 +19,7 @@ public struct AssociatedValueType: TypeProtocol {
   /// - Requires: `domain` is an associated type, conformance lens, or generic type parameter.
   public init(_ decl: NodeID<AssociatedValueDecl>, domain: AnyType, ast: AST) {
     switch domain.base {
-    case is AssociatedTypeType, is ConformanceLensType, is GenericTypeParamType:
+    case is AssociatedTypeType, is ConformanceLensType, is GenericTypeParameterType:
       self.domain = domain
     default:
       preconditionFailure("invalid associated value domain")

@@ -100,10 +100,8 @@ extension ScopedProgram {
       visit(extensionDecl: NodeID(rawValue: decl.rawValue), withState: &state)
     case FunctionDecl.self:
       visit(functionDecl: NodeID(rawValue: decl.rawValue), withState: &state)
-    case GenericTypeParamDecl.self:
-      visit(genericTypeParamDecl: NodeID(rawValue: decl.rawValue), withState: &state)
-    case GenericValueParamDecl.self:
-      visit(genericValueParamDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+    case GenericParameterDecl.self:
+      visit(genericParameterDecl: NodeID(rawValue: decl.rawValue), withState: &state)
     case ImportDecl.self:
       visit(importDecl: NodeID(rawValue: decl.rawValue), withState: &state)
     case InitializerDecl.self:
@@ -256,7 +254,7 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    genericTypeParamDecl decl: NodeID<GenericTypeParamDecl>,
+    genericParameterDecl decl: NodeID<GenericParameterDecl>,
     withState state: inout VisitorState
   ) {
     insert(decl: decl, into: state.innermost)
@@ -266,18 +264,6 @@ extension ScopedProgram {
     }
     if let defaultValue = ast[decl].defaultValue {
       visit(typeExpr: defaultValue, withState: &state)
-    }
-  }
-
-  private mutating func visit(
-    genericValueParamDecl decl: NodeID<GenericValueParamDecl>,
-    withState state: inout VisitorState
-  ) {
-    insert(decl: decl, into: state.innermost)
-
-    visit(typeExpr: ast[decl].annotation, withState: &state)
-    if let defaultValue = ast[decl].defaultValue {
-      visit(expr: defaultValue, withState: &state)
     }
   }
 
@@ -525,10 +511,6 @@ extension ScopedProgram {
     switch expr.kind {
     case AssignExpr.self:
       visit(assignExpr: NodeID(rawValue: expr.rawValue), withState: &state)
-    case AsyncExpr.self:
-      visit(asyncExpr: NodeID(rawValue: expr.rawValue), withState: &state)
-    case AwaitExpr.self:
-      visit(awaitExpr: NodeID(rawValue: expr.rawValue), withState: &state)
     case BooleanLiteralExpr.self:
       break
     case BufferLiteralExpr.self:
@@ -555,10 +537,12 @@ extension ScopedProgram {
       visit(matchExpr: NodeID(rawValue: expr.rawValue), withState: &state)
     case NameExpr.self:
       visit(nameExpr: NodeID(rawValue: expr.rawValue), withState: &state)
-    case NilExpr.self:
+    case NilLiteralExpr.self:
       break
     case SequenceExpr.self:
       visit(sequenceExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+    case SpawnExpr.self:
+      visit(spawnExpr: NodeID(rawValue: expr.rawValue), withState: &state)
     case StringLiteralExpr.self:
       break
     case SubscriptCallExpr.self:
@@ -580,20 +564,6 @@ extension ScopedProgram {
   ) {
     visit(expr: ast[expr].left, withState: &state)
     visit(expr: ast[expr].right, withState: &state)
-  }
-
-  private mutating func visit(
-    asyncExpr expr: NodeID<AsyncExpr>,
-    withState state: inout VisitorState
-  ) {
-    visit(functionDecl: ast[expr].decl, withState: &state)
-  }
-
-  private mutating func visit(
-    awaitExpr expr: NodeID<AwaitExpr>,
-    withState state: inout VisitorState
-  ) {
-    visit(expr: ast[expr].operand, withState: &state)
   }
 
   private mutating func visit(
@@ -727,6 +697,13 @@ extension ScopedProgram {
       visit(nameExpr: element.operator, withState: &state)
       visit(expr: element.operand, withState: &state)
     }
+  }
+
+  private mutating func visit(
+    spawnExpr expr: NodeID<SpawnExpr>,
+    withState state: inout VisitorState
+  ) {
+    visit(functionDecl: ast[expr].decl, withState: &state)
   }
 
   private mutating func visit(
@@ -1044,12 +1021,7 @@ extension ScopedProgram {
     withState state: inout VisitorState
   ) {
     for parameter in clause.parameters {
-      switch parameter {
-      case .type(let i):
-        visit(genericTypeParamDecl: i, withState: &state)
-      case .value(let i):
-        visit(genericValueParamDecl: i, withState: &state)
-      }
+      visit(genericParameterDecl: parameter, withState: &state)
     }
     if let whereClause = clause.whereClause?.value {
       visit(whereClause: whereClause, withState: &state)

@@ -38,9 +38,7 @@ public struct SubscriptType: TypeProtocol {
   }
 
   /// Accesses the individual elements of the subscript's environment.
-  public var captures: [TupleType.Element] {
-    (environment.base as? TupleType)?.elements ?? []
-  }
+  public var captures: [TupleType.Element] { TupleType(environment)?.elements ?? [] }
 
   public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> Self {
     SubscriptType(

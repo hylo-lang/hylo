@@ -62,7 +62,7 @@ struct Solution {
   /// apply `substitutionPolicy` to deal with free variables.
   func reify(_ type: AnyType, withVariables substitutionPolicy: SubstitutionPolicy) -> AnyType {
     func _impl(type: AnyType) -> TypeTransformAction {
-      if let v = type.base as? TypeVariable {
+      if let v = TypeVariable(type) {
         // Substitute variables.
         if let t = typeAssumptions[v] {
           return .stepInto(t)

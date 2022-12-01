@@ -1,5 +1,5 @@
 /// An expression ran in a future.
-public struct AsyncExpr: Expr {
+public struct SpawnExpr: Expr {
 
   public let origin: SourceRange?
 

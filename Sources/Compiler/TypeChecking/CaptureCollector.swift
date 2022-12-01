@@ -134,19 +134,10 @@ struct CaptureCollector {
       }
 
       for parameter in genericClause.parameters {
-        switch parameter {
-        case .type(let parameter):
-          if let value = ast[parameter].defaultValue {
-            collectCaptures(ofTypeExpr: value, into: &captures)
-          }
-          newNames.insert(Name(stem: ast[parameter].name))
-
-        case .value(let parameter):
-          if let value = ast[parameter].defaultValue {
-            collectCaptures(ofExpr: value, into: &captures, inMutatingContext: false)
-          }
-          newNames.insert(Name(stem: ast[parameter].name))
+        if let value = ast[parameter].defaultValue {
+          collectCaptures(ofExpr: value, into: &captures, inMutatingContext: false)
         }
+        newNames.insert(Name(stem: ast[parameter].name))
       }
     }
 
@@ -241,7 +232,7 @@ struct CaptureCollector {
          ErrorExpr.self,
          FloatLiteralExpr.self,
          IntegerLiteralExpr.self,
-         NilExpr.self,
+         NilLiteralExpr.self,
          StringLiteralExpr.self:
       break
 

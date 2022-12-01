@@ -63,10 +63,6 @@ struct ConstraintGenerator {
     switch expr.kind {
     case AssignExpr.self:
       return visit(assign: NodeID(rawValue: expr.rawValue), using: &checker)
-    case AsyncExpr.self:
-      return visit(async: NodeID(rawValue: expr.rawValue), using: &checker)
-    case AwaitExpr.self:
-      return visit(await: NodeID(rawValue: expr.rawValue), using: &checker)
     case BooleanLiteralExpr.self:
       return visit(booleanLiteral: NodeID(rawValue: expr.rawValue), using: &checker)
     case CastExpr.self:
@@ -89,10 +85,12 @@ struct ConstraintGenerator {
       return visit(match: NodeID(rawValue: expr.rawValue), using: &checker)
     case NameExpr.self:
       return visit(name: NodeID(rawValue: expr.rawValue), using: &checker)
-    case NilExpr.self:
+    case NilLiteralExpr.self:
       return visit(nil: NodeID(rawValue: expr.rawValue), using: &checker)
     case SequenceExpr.self:
       return visit(sequence: NodeID(rawValue: expr.rawValue), using: &checker)
+    case SpawnExpr.self:
+      return visit(spawn: NodeID(rawValue: expr.rawValue), using: &checker)
     case StringLiteralExpr.self:
       return visit(stringLiteral: NodeID(rawValue: expr.rawValue), using: &checker)
     case SubscriptCallExpr.self:
@@ -131,20 +129,6 @@ struct ConstraintGenerator {
 
     // Assignments have the void type.
     assume(typeOf: id, equals: AnyType.void, at: checker.program.ast[id].origin)
-  }
-
-  private mutating func visit(
-    async id: NodeID<AsyncExpr>,
-    using checker: inout TypeChecker
-  ) {
-    fatalError("not implemented")
-  }
-
-  private mutating func visit(
-    await id: NodeID<AwaitExpr>,
-    using checker: inout TypeChecker
-  ) {
-    fatalError("not implemented")
   }
 
   private mutating func visit(
@@ -302,7 +286,7 @@ struct ConstraintGenerator {
     // 2nd case
     if let c = NodeID<NameExpr>(callee),
        let d = checker.referredDecls[c]?.decl,
-       d.kind.value is TypeDecl.Type
+       checker.doesSupportInitSugar(d)
     {
       switch d.kind {
       case ProductTypeDecl.self:
@@ -372,7 +356,7 @@ struct ConstraintGenerator {
     }
 
     // 3rd case
-    if let calleeType = inferredTypes[callee]!.base as? LambdaType {
+    if let calleeType = LambdaType(inferredTypes[callee]!) {
       let outputType = propagateDown(
         callee: callee,
         calleeType: calleeType,
@@ -481,7 +465,7 @@ struct ConstraintGenerator {
     defer { assert(inferredTypes[id] != nil) }
 
     // Realize the type of the underlying declaration.
-    guard let declType = checker.realize(underlyingDeclOf: id)?.base as? LambdaType else {
+    guard let declType = LambdaType(checker.realize(underlyingDeclOf: id)) else {
       assignToError(id)
       return
     }
@@ -489,7 +473,7 @@ struct ConstraintGenerator {
     // Schedule the underlying declaration to be type-checked.
     checker.deferTypeChecking(id)
 
-    if let expectedType = expectedTypes[id]!.base as? LambdaType {
+    if let expectedType = LambdaType(expectedTypes[id]!) {
       // Check that the declaration defines the expected number of parameters.
       if declType.inputs.count != expectedType.inputs.count {
         diagnostics.append(.diagnose(
@@ -633,7 +617,7 @@ struct ConstraintGenerator {
 
       if let base = NodeID<NameExpr>(domain),
          let decl = checker.referredDecls[base]?.decl,
-         decl.kind.value is TypeDecl.Type
+         checker.doesSupportInitSugar(decl)
       {
         constraints.append(UnboundMemberConstraint(
           type: domainType,
@@ -660,7 +644,7 @@ struct ConstraintGenerator {
   }
 
   private mutating func visit(
-    nil i: NodeID<NilExpr>,
+    nil i: NodeID<NilLiteralExpr>,
     using checker: inout TypeChecker
   ) {
     fatalError("not implemented")
@@ -737,6 +721,13 @@ struct ConstraintGenerator {
   }
 
   private mutating func visit(
+    spawn id: NodeID<SpawnExpr>,
+    using checker: inout TypeChecker
+  ) {
+    fatalError("not implemented")
+  }
+
+  private mutating func visit(
     stringLiteral i: NodeID<StringLiteralExpr>,
     using checker: inout TypeChecker
   ) {
@@ -762,7 +753,7 @@ struct ConstraintGenerator {
     // If the expected type is a tuple compatible with the shape of the expression, propagate that
     // information down the expression tree. Otherwise, infer the type of the expression from the
     // leaves and use type constraints to detect potential mismatch.
-    if let type = expectedTypes[id]?.base as? TupleType,
+    if let type = TupleType(expectedTypes[id]),
        type.elements.elementsEqual(tupleExpr, by: { (a, b) in a.label == b.label?.value })
     {
       for i in 0 ..< tupleExpr.count {
@@ -838,7 +829,7 @@ struct ConstraintGenerator {
           parameterType,
           because: ConstraintCause(.argument, at: checker.program.ast[argumentExpr].origin)))
 
-      if let type = parameterType.base as? ParameterType {
+      if let type = ParameterType(parameterType) {
         expectedTypes[argumentExpr] = type.bareType
       }
       visit(expr: argumentExpr, using: &checker)

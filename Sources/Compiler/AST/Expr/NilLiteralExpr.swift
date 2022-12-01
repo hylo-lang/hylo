@@ -1,5 +1,5 @@
-/// A nil expression.
-public struct NilExpr: Expr {
+/// A nil literal expression.
+public struct NilLiteralExpr: Expr {
 
   public let origin: SourceRange?
 
