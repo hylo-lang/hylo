@@ -14,32 +14,31 @@ public struct CXXTranspiler {
   // MARK: API
 
   /// Emits the C++ module corresponding to the Val module identified by `decl`.
-  public mutating func emit(module decl: NodeID<ModuleDecl>) -> CXXModule {
-    var module = CXXModule(valDecl: decl, name: program.ast[decl].name)
-    for member in program.ast.topLevelDecls(decl) {
-      emit(topLevel: member, into: &module)
+  public mutating func emit(module decl: TypedProgram.Node<ModuleDecl>) -> CXXModule {
+    var module = CXXModule(valDecl: decl.id, name: decl.name)
+    for member in program.ast.topLevelDecls(decl.id) {
+      emit(topLevel: program[member], into: &module)
     }
     return module
   }
 
   /// Emits the given top-level declaration into `module`.
-  public mutating func emit(topLevel decl: AnyDeclID, into module: inout CXXModule) {
-    switch decl.kind {
+  mutating func emit(topLevel decl: TypedProgram.AnyDecl, into module: inout CXXModule) {
+    switch decl.id.kind {
     case FunctionDecl.self:
-      emit(function: NodeID(rawValue: decl.rawValue), into: &module)
+      emit(function: TypedProgram.Node<FunctionDecl>(decl)!, into: &module)
     default:
       unreachable("unexpected declaration")
     }
   }
 
   /// Emits the given function declaration into `module`.
-  public mutating func emit(function decl: NodeID<FunctionDecl>, into module: inout CXXModule) {
+  public mutating func emit(function decl: TypedProgram.Node<FunctionDecl>, into module: inout CXXModule) {
     // Declare the function in the module if necessary.
-    let valFunctionDecl = TypedProgram.Node<FunctionDecl>(whole: program, id: decl)
-    let id = module.getOrCreateFunction(correspondingTo: valFunctionDecl)
+    let id = module.getOrCreateFunction(correspondingTo: decl)
 
     // If we have a body for our function, emit it.
-    if let body = program.ast[decl].body {
+    if let body = decl.body {
       module.setFunctionBody(emit(funBody: body), forID: id)
     }
   }

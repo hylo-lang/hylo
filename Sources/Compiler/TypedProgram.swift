@@ -69,8 +69,14 @@ extension TypedProgram {
 
   typealias AnyScope = SomeNode<AnyScopeID>
   typealias AnyDecl = SomeNode<AnyDeclID>
-
+  typealias AnyNode = SomeNode<AnyNodeID>
+  
   public typealias Node<T: AST.Node> = SomeNode<NodeID<T>>
+  
+  public subscript<TargetID: NodeIDProtocol>(_ id: TargetID) -> TypedProgram.SomeNode<TargetID>
+  {
+    SomeNode<TargetID>(whole: self, id: id)
+  }
 }
 
 extension TypedProgram.SomeNode where ID: ConcreteNodeID {
