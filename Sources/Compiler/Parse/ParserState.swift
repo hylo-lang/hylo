@@ -125,6 +125,15 @@ struct ParserState {
     return token
   }
 
+  /// Returns whether the next token satisfies `predicate`, or `false` if the stream is empty.
+  mutating func peekAndTest(_ predicate: (Token) -> Bool) -> Bool {
+    if let token = peek() {
+      return predicate(token)
+    } else {
+      return false
+    }
+  }
+
   /// Consumes and returns the next token, if any.
   mutating func take() -> Token? {
     // Return the token in the lookahead buffer, if available.
