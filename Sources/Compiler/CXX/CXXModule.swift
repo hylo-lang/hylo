@@ -17,7 +17,7 @@ public struct CXXModule : TypedChecked {
   public private(set) var cxxFunctionBodies: [CXXRepresentable?] = []
 
   /// A table mapping val function declarations to the ID of the corresponding C++ declaration.
-  private var valToCXXFunction: [NodeID<FunctionDecl>: Int] = [:]
+  private var valToCXXFunction: [TypedFunctionDecl: Int] = [:]
 
   public init(valDecl: NodeID<ModuleDecl>, name: String) {
     self.valDecl = valDecl
@@ -30,7 +30,7 @@ public struct CXXModule : TypedChecked {
   public mutating func getOrCreateFunction(
     correspondingTo valFunctionDecl: TypedFunctionDecl
   ) -> CXXFunctionDecl.ID {
-    if let cxxFunctionDecl = valToCXXFunction[valFunctionDecl.id] { return cxxFunctionDecl }
+    if let cxxFunctionDecl = valToCXXFunction[valFunctionDecl] { return cxxFunctionDecl }
 
     assert(valFunctionDecl.whole.isGlobal(valFunctionDecl.id))
 
@@ -87,7 +87,7 @@ public struct CXXModule : TypedChecked {
     cxxFunctionBodies.append(nil)
     
     // Update the cache and return the ID of the newly created function.
-    valToCXXFunction[valFunctionDecl.id] = cxxFunctionDecl
+    valToCXXFunction[valFunctionDecl] = cxxFunctionDecl
     return cxxFunctionDecl
   }
 

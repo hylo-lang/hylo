@@ -59,12 +59,20 @@ extension TypedProgram {
   /// A projection from a `TypedProgram` of an AST node along with all the non-syntax information
   /// related to that node.
   @dynamicMemberLookup
-  public struct SomeNode<ID: NodeIDProtocol> {
+  public struct SomeNode<ID: NodeIDProtocol> : Hashable {
     /// The whole program of which this node is a notional part.
     let whole: TypedProgram
 
     /// The node's identity in `whole.ast`.
     let id: ID
+
+    public static func == (lhs: TypedProgram.SomeNode<ID>, rhs: TypedProgram.SomeNode<ID>) -> Bool {
+      lhs.id == rhs.id
+    }
+    
+    public func hash(into hasher: inout Hasher) {
+      hasher.combine(id)
+    }
   }
 
   typealias AnyScope = SomeNode<AnyScopeID>
