@@ -210,7 +210,7 @@ struct CLI: ParsableCommand {
     var transpiler = CXXTranspiler(program: typedProgram)
 
     // Translate the module to C++.
-    let cxxModule = transpiler.emit(module: moduleDecl)
+    let cxxModule = transpiler.emit(module: typedProgram[moduleDecl])
     let cxxHeader = cxxModule.emitHeader()
     let cxxSource = cxxModule.emitSource()
 
