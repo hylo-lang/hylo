@@ -1,7 +1,7 @@
 import Utils
 
 /// A C++ module.
-public struct CXXModule {
+public struct CXXModule : TypedChecked {
 
   /// The module's declaration in Val's AST.
   public let valDecl: NodeID<ModuleDecl>
@@ -28,7 +28,7 @@ public struct CXXModule {
   ///
   /// - Requires: `valFunctionDecl` must be declared in `self.decl`.
   public mutating func getOrCreateFunction(
-    correspondingTo valFunctionDecl: TypedProgram.Node<FunctionDecl>
+    correspondingTo valFunctionDecl: TypedFunctionDecl
   ) -> CXXFunctionDecl.ID {
     if let cxxFunctionDecl = valToCXXFunction[valFunctionDecl.id] { return cxxFunctionDecl }
 

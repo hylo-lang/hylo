@@ -1,7 +1,7 @@
 import Utils
 
 /// A Val to C++ transpiler.
-public struct CXXTranspiler {
+public struct CXXTranspiler : TypedChecked {
 
   /// The program being transpiled.
   public let program: TypedProgram
@@ -14,7 +14,7 @@ public struct CXXTranspiler {
   // MARK: API
 
   /// Emits the C++ module corresponding to the Val module identified by `decl`.
-  public mutating func emit(module decl: TypedProgram.Node<ModuleDecl>) -> CXXModule {
+  public mutating func emit(module decl: TypedModuleDecl) -> CXXModule {
     var module = CXXModule(valDecl: decl.id, name: decl.name)
     for member in program.ast.topLevelDecls(decl.id) {
       emit(topLevel: program[member], into: &module)
@@ -23,17 +23,17 @@ public struct CXXTranspiler {
   }
 
   /// Emits the given top-level declaration into `module`.
-  mutating func emit(topLevel decl: TypedProgram.AnyDecl, into module: inout CXXModule) {
+  mutating func emit(topLevel decl: AnyTypedDecl, into module: inout CXXModule) {
     switch decl.id.kind {
     case FunctionDecl.self:
-      emit(function: TypedProgram.Node<FunctionDecl>(decl)!, into: &module)
+      emit(function: TypedFunctionDecl(decl)!, into: &module)
     default:
       unreachable("unexpected declaration")
     }
   }
 
   /// Emits the given function declaration into `module`.
-  public mutating func emit(function decl: TypedProgram.Node<FunctionDecl>, into module: inout CXXModule) {
+  public mutating func emit(function decl: TypedFunctionDecl, into module: inout CXXModule) {
     // Declare the function in the module if necessary.
     let id = module.getOrCreateFunction(correspondingTo: decl)
 
