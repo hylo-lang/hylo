@@ -16,8 +16,8 @@ public struct CXXTranspiler : TypedChecked {
   /// Emits the C++ module corresponding to the Val module identified by `decl`.
   public mutating func emit(module decl: TypedModuleDecl) -> CXXModule {
     var module = CXXModule(decl, for: program)
-    for member in program.ast.topLevelDecls(decl.id) {
-      emit(topLevel: program[member], into: &module)
+    for member in decl.topLevelDecls {
+      emit(topLevel: member, into: &module)
     }
     return module
   }

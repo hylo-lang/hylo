@@ -190,6 +190,21 @@ extension TypedProgram.Node where ID == NodeID<NameExpr> {
   }
 }
 
+extension TypedProgram.Node where ID == NodeID<ModuleDecl> {
+  /// Collection of (typed) top-level declarations of the module.
+  typealias TopLevelDecls = LazyMapSequence<
+        FlattenSequence<
+            LazyMapSequence<
+                [NodeID<TopLevelDeclSet>],
+                [AnyDeclID]>>,
+        TypedProgram.AnyDecl>
+
+  /// The top-level declarations in the module.
+  var topLevelDecls: TopLevelDecls {
+    whole.ast.topLevelDecls(id).map({ whole[$0] })
+  }
+}
+
 func funnyTest0(x: TypedProgram.Node<FunctionDecl>) -> [TypedProgram.Node<ParameterDecl>] {
   print(x.type)
   let p = x.parameters
