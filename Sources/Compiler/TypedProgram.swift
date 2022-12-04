@@ -167,6 +167,11 @@ extension TypedProgram.Node where ID: DeclID {
   var type: AnyType {
     whole.declTypes[id]!
   }
+
+  /// The implicit captures for the declared entity.
+  var implicitCaptures: [ImplicitCapture]? {
+    whole.implicitCaptures[id]
+  }
 }
 
 extension TypedProgram.Node where ID == NodeID<VarDecl> {

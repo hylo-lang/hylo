@@ -73,12 +73,11 @@ public struct Emitter : TypedChecked {
       locals[capture] = .parameter(block: entryID, index: i)
     }
 
-    let implicitCaptures = program.implicitCaptures[decl.id]!
-    for (i, capture) in implicitCaptures.enumerated() {
+    for (i, capture) in decl.implicitCaptures!.enumerated() {
       locals[program[capture.decl]] = .parameter(block: entryID, index: i + explicitCaptures.count)
     }
 
-    var implicitParameterCount = explicitCaptures.count + implicitCaptures.count
+    var implicitParameterCount = explicitCaptures.count + decl.implicitCaptures!.count
     if let receiver = decl.receiver {
       locals[receiver] = .parameter(block: entryID, index: implicitParameterCount)
       implicitParameterCount += 1
