@@ -80,12 +80,12 @@ public struct CXXTranspiler : TypedChecked {
     withCapability capability: RemoteType.Capability
   ) -> CXXRepresentable {
     // There's nothing to do if there's no initializer.
-    if let initializer: AnyExprID = decl.initializer {
+    if let initializer = decl.initializer {
 
       let isLValue = (initializer.kind == NameExpr.self) || (initializer.kind == SubscriptCallExpr.self)
 
       // Visit the initializer.
-      let cxxInitialzer = emit(expr: program[initializer], asLValue: isLValue)
+      let cxxInitialzer = emit(expr: initializer, asLValue: isLValue)
 
       // Visit the patterns.
       var stmts: [CXXRepresentable] = []
