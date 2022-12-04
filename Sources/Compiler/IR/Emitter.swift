@@ -27,7 +27,7 @@ public struct Emitter : TypedChecked {
 
   /// Emits the Val IR of the module identified by `decl`.
   public mutating func emit(module decl: TypedModuleDecl) -> Module {
-    var module = Module(decl: decl.id, name: decl.name)
+    var module = Module(decl: decl)
     for member in decl.topLevelDecls {
       emit(topLevel: member, into: &module)
     }
@@ -53,8 +53,7 @@ public struct Emitter : TypedChecked {
   /// Emits the given function declaration into `module`.
   public mutating func emit(function decl: TypedFunctionDecl, into module: inout Module) {
     // Declare the function in the module if necessary.
-    let functionID = module.getOrCreateFunction(correspondingTo: decl.id, program: program)
-    // TODO: make module.getOrCreateFunction() take a typed node
+    let functionID = module.getOrCreateFunction(correspondingTo: decl, program: program)
 
     // Nothing else to do if the function has no body.
     guard let body = decl.body else { return }
