@@ -29,20 +29,20 @@ public struct Emitter : TypedChecked {
   public mutating func emit(module decl: TypedModuleDecl) -> Module {
     var module = Module(decl: decl.id, name: decl.name)
     for member in decl.topLevelDecls {
-      emit(topLevel: member.id, into: &module)
+      emit(topLevel: member, into: &module)
     }
     return module
   }
 
   /// Emits the given top-level declaration into `module`.
-  public mutating func emit(topLevel decl: AnyDeclID, into module: inout Module) {
+  mutating func emit(topLevel decl: AnyTypedDecl, into module: inout Module) {
     switch decl.kind {
     case FunctionDecl.self:
-      emit(function: NodeID(rawValue: decl.rawValue), into: &module)
+      emit(function: TypedFunctionDecl(decl)!.id, into: &module)
     case OperatorDecl.self:
       break
     case ProductTypeDecl.self:
-      emit(product: NodeID(rawValue: decl.rawValue), into: &module)
+      emit(product: TypedProductTypeDecl(decl)!.id, into: &module)
     case TraitDecl.self:
       break
     default:
