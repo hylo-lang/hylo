@@ -44,10 +44,10 @@ public struct CXXTranspiler : TypedChecked {
   }
 
   /// Translate the function body into a CXX entity.
-  private mutating func emit(funBody body: FunctionDecl.Body) -> CXXRepresentable {
+  private mutating func emit(funBody body: TypedFunctionDecl.Body) -> CXXRepresentable {
     switch body {
     case .block(let stmt):
-      return emit(brace: program[stmt])
+      return emit(brace: stmt)
 
     case .expr:
       let exprStmt = CXXComment(comment: "expr")

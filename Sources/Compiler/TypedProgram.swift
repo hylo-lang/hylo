@@ -205,6 +205,33 @@ extension TypedProgram.Node where ID == NodeID<ModuleDecl> {
   }
 }
 
+extension TypedProgram.Node where ID == NodeID<FunctionDecl> {
+  /// The body of the function, containing typed information
+  enum Body {
+
+    /// An expression body.
+    case expr(TypedProgram.AnyExpr)
+
+    /// A block body.
+    case block(TypedProgram.Node<BraceStmt>)
+
+  }
+
+  /// The body of the declaration, if any (in typed formed).
+  var body: Body? {
+    switch syntax.body {
+    case .expr(let expr):
+      return .expr(whole[expr])
+
+    case .block(let stmt):
+      return .block(whole[stmt])
+
+    case .none:
+      return .none
+    }
+  }
+}
+
 func funnyTest0(x: TypedProgram.Node<FunctionDecl>) -> [TypedProgram.Node<ParameterDecl>] {
   print(x.type)
   let p = x.parameters
