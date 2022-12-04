@@ -4,10 +4,10 @@ import Utils
 public struct CXXModule : TypedChecked {
 
   /// The module's declaration in Val's AST.
-  public let valDecl: NodeID<ModuleDecl>
+  public let valDecl: TypedModuleDecl
 
-  /// The module's name.
-  public let name: String
+  /// The typed program for wich we are constructing the CXX translation.
+  public let program: TypedProgram
 
   /// The C++ functions declared in `self`.
   public private(set) var cxxFunctions: [CXXFunctionDecl] = []
@@ -19,9 +19,9 @@ public struct CXXModule : TypedChecked {
   /// A table mapping val function declarations to the ID of the corresponding C++ declaration.
   private var valToCXXFunction: [TypedFunctionDecl: Int] = [:]
 
-  public init(valDecl: NodeID<ModuleDecl>, name: String) {
-    self.valDecl = valDecl
-    self.name = name
+  public init(_ decl: TypedModuleDecl, for program: TypedProgram) {
+    self.valDecl = decl
+    self.program = program
   }
 
   /// Returns the ID of the C++ function declaration corresponding to `valFunctionDecl`.
@@ -32,7 +32,7 @@ public struct CXXModule : TypedChecked {
   ) -> CXXFunctionDecl.ID {
     if let cxxFunctionDecl = valToCXXFunction[valFunctionDecl] { return cxxFunctionDecl }
 
-    assert(valFunctionDecl.whole.isGlobal(valFunctionDecl.id))
+    assert(program.isGlobal(valFunctionDecl.id))
 
     /// The identifier of the function.
     let identifier = CXXIdentifier(valFunctionDecl.identifier?.value ?? "")
@@ -106,8 +106,8 @@ public struct CXXModule : TypedChecked {
     var output: String = ""
 
     // Emit the header guard.
-    output.write("#ifndef VAL_\(name.uppercased())_\n")
-    output.write("#define VAL_\(name.uppercased())_\n")
+    output.write("#ifndef VAL_\(valDecl.name.uppercased())_\n")
+    output.write("#define VAL_\(valDecl.name.uppercased())_\n")
     output.write("\n")
 
     // Emit include clauses.
@@ -115,7 +115,7 @@ public struct CXXModule : TypedChecked {
     output.write("\n")
 
     // Create a namespace for the entire module.
-    output.write("namespace \(name) {\n\n")
+    output.write("namespace \(valDecl.name) {\n\n")
 
     // Emit top-level functions.
     for decl in cxxFunctions {
@@ -134,11 +134,11 @@ public struct CXXModule : TypedChecked {
     var output: String = ""
 
     // Emit include clauses.
-    output.write("#include \"\(name).h\"\n")
+    output.write("#include \"\(valDecl.name).h\"\n")
     output.write("\n")
 
     // Create a namespace for the entire module.
-    output.write("namespace \(name) {\n\n")
+    output.write("namespace \(valDecl.name) {\n\n")
 
     // Emit top-level functions.
     for (i, decl) in cxxFunctions.enumerated() {
