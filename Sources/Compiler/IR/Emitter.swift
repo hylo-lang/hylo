@@ -99,7 +99,7 @@ public struct Emitter : TypedChecked {
     switch body {
     case .block(let stmt):
       // Emit the statements of the function.
-      emit(stmt: stmt.id, into: &module)
+      emit(stmt: stmt, into: &module)
 
     case .expr(let expr):
       // Emit the body of the function.
@@ -263,55 +263,54 @@ public struct Emitter : TypedChecked {
   // MARK: Statements
 
   /// Emits the given statement into `module` at the current insertion point.
-  private mutating func emit<T: StmtID>(stmt: T, into module: inout Module) {
+  private mutating func emit<T: StmtID>(stmt: TypedProgram.SomeNode<T>, into module: inout Module) {
     switch stmt.kind {
     case BraceStmt.self:
-      emit(brace: NodeID(rawValue: stmt.rawValue), into: &module)
+      emit(brace: TypedBraceStmt(stmt)!, into: &module)
     case DeclStmt.self:
-      emit(declStmt: NodeID(rawValue: stmt.rawValue), into: &module)
+      emit(declStmt: TypedDeclStmt(stmt)!, into: &module)
     case ExprStmt.self:
-      emit(exprStmt: NodeID(rawValue: stmt.rawValue), into: &module)
+      emit(exprStmt: TypedExprStmt(stmt)!, into: &module)
     case ReturnStmt.self:
-      emit(returnStmt: NodeID(rawValue: stmt.rawValue), into: &module)
+      emit(returnStmt: TypedReturnStmt(stmt)!, into: &module)
     default:
       unreachable("unexpected statement")
     }
   }
 
-  private mutating func emit(brace stmt: NodeID<BraceStmt>, into module: inout Module) {
+  private mutating func emit(brace stmt: TypedBraceStmt, into module: inout Module) {
     stack.push()
-    for s in program.ast[stmt].stmts {
+    for s in stmt.stmts {
       emit(stmt: s, into: &module)
     }
     emitStackDeallocs(in: &module)
     stack.pop()
   }
 
-  private mutating func emit(declStmt stmt: NodeID<DeclStmt>, into module: inout Module) {
-    switch program.ast[stmt].decl.kind {
+  private mutating func emit(declStmt stmt: TypedDeclStmt, into module: inout Module) {
+    switch stmt.decl.kind {
     case BindingDecl.self:
-      let id = NodeID<BindingDecl>(rawValue: program.ast[stmt].decl.rawValue)
-      emit(localBinding: program[id], into: &module)
+      emit(localBinding: TypedBindingDecl(stmt.decl)!, into: &module)
     default:
       unreachable("unexpected declaration")
     }
   }
 
-  private mutating func emit(exprStmt stmt: NodeID<ExprStmt>, into module: inout Module) {
-    _ = emitR(expr: program.ast[stmt].expr, into: &module)
+  private mutating func emit(exprStmt stmt: TypedExprStmt, into module: inout Module) {
+    _ = emitR(expr: stmt.expr.id, into: &module)
   }
 
-  private mutating func emit(returnStmt stmt: NodeID<ReturnStmt>, into module: inout Module) {
+  private mutating func emit(returnStmt stmt: TypedReturnStmt, into module: inout Module) {
     let value: Operand
-    if let expr = program.ast[stmt].value {
-      value = emitR(expr: expr, into: &module)
+    if let expr = stmt.value {
+      value = emitR(expr: expr.id, into: &module)
     } else {
       value = .constant(.void)
     }
 
     emitStackDeallocs(in: &module)
     module.insert(
-      ReturnInst(value: value, range: program.ast[stmt].origin),
+      ReturnInst(value: value, range: stmt.origin),
       at: insertionPoint!)
   }
 
