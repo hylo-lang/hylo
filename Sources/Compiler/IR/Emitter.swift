@@ -4,7 +4,7 @@ import Utils
 ///
 /// The emitter transforms well-formed, typed ASTs to a representation suitable for flow-sensitive
 /// analysis and code generation.
-public struct Emitter {
+public struct Emitter : TypedChecked {
 
   /// The program being lowered.
   public let program: TypedProgram
@@ -26,10 +26,10 @@ public struct Emitter {
   // MARK: Declarations
 
   /// Emits the Val IR of the module identified by `decl`.
-  public mutating func emit(module decl: NodeID<ModuleDecl>) -> Module {
-    var module = Module(decl: decl, name: program.ast[decl].name)
-    for member in program.ast.topLevelDecls(decl) {
-      emit(topLevel: member, into: &module)
+  public mutating func emit(module decl: TypedModuleDecl) -> Module {
+    var module = Module(decl: decl.id, name: decl.name)
+    for member in decl.topLevelDecls {
+      emit(topLevel: member.id, into: &module)
     }
     return module
   }
