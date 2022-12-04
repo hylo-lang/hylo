@@ -42,7 +42,7 @@ public struct Emitter : TypedChecked {
     case OperatorDecl.self:
       break
     case ProductTypeDecl.self:
-      emit(product: TypedProductTypeDecl(decl)!.id, into: &module)
+      emit(product: TypedProductTypeDecl(decl)!, into: &module)
     case TraitDecl.self:
       break
     default:
@@ -128,22 +128,19 @@ public struct Emitter : TypedChecked {
   }
 
   /// Emits the product type declaration into `module`.
-  private mutating func emit(product decl: NodeID<ProductTypeDecl>, into module: inout Module) {
-    for member in program.ast[decl].members {
+  private mutating func emit(product decl: TypedProductTypeDecl, into module: inout Module) {
+    for member in decl.members {
       // Emit the member functions and subscripts of the type declaration.
       switch member.kind {
       case FunctionDecl.self:
-        let id = NodeID<FunctionDecl>(rawValue: member.rawValue)
-        emit(function: program[id], into: &module)
+        emit(function: TypedFunctionDecl(member)!, into: &module)
 
       case InitializerDecl.self:
-        let d = NodeID<InitializerDecl>(rawValue: member.rawValue)
-        if program.ast[d].introducer.value == .memberwiseInit { continue }
+        if TypedInitializerDecl(member)!.introducer.value == .memberwiseInit { continue }
         fatalError("not implemented")
 
       case SubscriptDecl.self:
-        let id = NodeID<SubscriptDecl>(rawValue: member.rawValue)
-        emit(subscript: program[id], into: &module)
+        emit(subscript: TypedSubscriptDecl(member)!, into: &module)
 
       default:
         continue
