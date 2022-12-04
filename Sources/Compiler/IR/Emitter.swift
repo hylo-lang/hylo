@@ -66,29 +66,26 @@ public struct Emitter : TypedChecked {
     insertionPoint = InsertionPoint(endOf: entryID)
 
     // Configure the locals.
-    var locals = DeclProperty<Operand>()
+    var locals = TypedDeclProperty<Operand>()
 
     let explicitCaptures = decl.explicitCaptures
     for (i, capture) in explicitCaptures.enumerated() {
-      locals[capture.id] = .parameter(block: entryID, index: i)
-      // TODO: why `.id`?
+      locals[capture] = .parameter(block: entryID, index: i)
     }
 
     let implicitCaptures = program.implicitCaptures[decl.id]!
     for (i, capture) in implicitCaptures.enumerated() {
-      locals[capture.decl] = .parameter(block: entryID, index: i + explicitCaptures.count)
+      locals[program[capture.decl]] = .parameter(block: entryID, index: i + explicitCaptures.count)
     }
 
     var implicitParameterCount = explicitCaptures.count + implicitCaptures.count
     if let receiver = decl.receiver {
-      locals[receiver.id] = .parameter(block: entryID, index: implicitParameterCount)
-      // TODO: why `.id`?
+      locals[receiver] = .parameter(block: entryID, index: implicitParameterCount)
       implicitParameterCount += 1
     }
 
     for (i, parameter) in decl.parameters.enumerated() {
-      locals[parameter.id] = .parameter(block: entryID, index: i + implicitParameterCount)
-      // TODO: why `.id`?
+      locals[parameter] = .parameter(block: entryID, index: i + implicitParameterCount)
     }
 
     // Emit the body.
@@ -964,7 +961,7 @@ fileprivate extension Emitter {
   struct Frame {
 
     /// The local variables in scope.
-    var locals = DeclProperty<Operand>()
+    var locals = TypedDeclProperty<Operand>()
 
     /// The stack allocations, in FILO order.
     var allocs: [Operand] = []
@@ -991,12 +988,12 @@ fileprivate extension Emitter {
     subscript<T: DeclID>(decl: TypedProgram.SomeNode<T>) -> Operand? {
       get {
         for frame in frames.reversed() {
-          if let operand = frame.locals[decl.id] { return operand }
+          if let operand = frame.locals[decl] { return operand }
         }
         return nil
       }
       set {
-        top.locals[decl.id] = newValue
+        top.locals[decl] = newValue
       }
     }
 
