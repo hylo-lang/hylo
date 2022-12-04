@@ -103,7 +103,7 @@ public struct Emitter : TypedChecked {
 
     case .expr(let expr):
       // Emit the body of the function.
-      let value = emitR(expr: expr.id, into: &module)
+      let value = emitR(expr: expr, into: &module)
 
       // Emit stack deallocation.
       emitStackDeallocs(in: &module)
@@ -170,7 +170,7 @@ public struct Emitter : TypedChecked {
 
     // Emit the initializer, if any.
     if let initializer = decl.initializer {
-      objects[[]] = emitR(expr: initializer.id, into: &module)
+      objects[[]] = emitR(expr: initializer, into: &module)
       initializerType = initializer.type
     }
 
@@ -231,7 +231,7 @@ public struct Emitter : TypedChecked {
         source = emitL(expr: initializer.id, withCapability: capability, into: &module)
       } else {
         // emit a r-value and store it into local storage.
-        let value = emitR(expr: initializer.id, into: &module)
+        let value = emitR(expr: initializer, into: &module)
 
         let exprType = initializer.type
         let storage = module.insert(AllocStackInst(exprType), at: insertionPoint!)[0]
@@ -297,13 +297,13 @@ public struct Emitter : TypedChecked {
   }
 
   private mutating func emit(exprStmt stmt: TypedExprStmt, into module: inout Module) {
-    _ = emitR(expr: stmt.expr.id, into: &module)
+    _ = emitR(expr: stmt.expr, into: &module)
   }
 
   private mutating func emit(returnStmt stmt: TypedReturnStmt, into module: inout Module) {
     let value: Operand
     if let expr = stmt.value {
-      value = emitR(expr: expr.id, into: &module)
+      value = emitR(expr: expr, into: &module)
     } else {
       value = .constant(.void)
     }
@@ -317,10 +317,10 @@ public struct Emitter : TypedChecked {
   // MARK: r-values
 
   /// Emits `expr` as a r-value into `module` at the current insertion point.
-  private mutating func emitR<T: ExprID>(expr: T, into module: inout Module) -> Operand {
+  private mutating func emitR<T: ExprID>(expr: TypedProgram.SomeNode<T>, into module: inout Module) -> Operand {
     defer {
       // Mark the execution path unreachable if the computed value has type `Never`.
-      if program.exprTypes[expr] == .never {
+      if expr.type == .never {
         emitStackDeallocs(in: &module)
         module.insert(UnrechableInst(), at: insertionPoint!)
       }
@@ -328,41 +328,41 @@ public struct Emitter : TypedChecked {
 
     switch expr.kind {
     case AssignExpr.self:
-      return emitR(assign: NodeID(rawValue: expr.rawValue), into: &module)
+      return emitR(assign: TypedAssignExpr(expr)!, into: &module)
     case BooleanLiteralExpr.self:
-      return emitR(booleanLiteral: NodeID(rawValue: expr.rawValue), into: &module)
+      return emitR(booleanLiteral: TypedBooleanLiteralExpr(expr)!, into: &module)
     case CondExpr.self:
-      return emitR(cond: NodeID(rawValue: expr.rawValue), into: &module)
+      return emitR(cond: TypedCondExpr(expr)!, into: &module)
     case FunCallExpr.self:
-      return emitR(funCall: NodeID(rawValue: expr.rawValue), into: &module)
+      return emitR(funCall: TypedFunCallExpr(expr)!, into: &module)
     case IntegerLiteralExpr.self:
-      return emitR(integerLiteral: NodeID(rawValue: expr.rawValue), into: &module)
+      return emitR(integerLiteral: TypedIntegerLiteralExpr(expr)!, into: &module)
     case NameExpr.self:
-      return emitR(name: NodeID(rawValue: expr.rawValue), into: &module)
+      return emitR(name: TypedNameExpr(expr)!, into: &module)
     case SequenceExpr.self:
-      return emitR(sequence: NodeID(rawValue: expr.rawValue), into: &module)
+      return emitR(sequence: TypedSequenceExpr(expr)!, into: &module)
     default:
       unreachable("unexpected expression")
     }
   }
 
   private mutating func emitR(
-    assign expr: NodeID<AssignExpr>,
+    assign expr: TypedAssignExpr,
     into module: inout Module
   ) -> Operand {
-    let rhs = emitR(expr: program.ast[expr].right, into: &module)
+    let rhs = emitR(expr: expr.right, into: &module)
     // FIXME: Should request the capability 'set or inout'.
-    let lhs = emitL(expr: program.ast[expr].left, withCapability: .set, into: &module)
+    let lhs = emitL(expr: expr.left.id, withCapability: .set, into: &module)
     _ = module.insert(StoreInst(rhs, to: lhs), at: insertionPoint!)
     return .constant(.void)
   }
 
   private mutating func emitR(
-    booleanLiteral expr: NodeID<BooleanLiteralExpr>,
+    booleanLiteral expr: TypedBooleanLiteralExpr,
     into module: inout Module
   ) -> Operand {
     let value = Operand.constant(.integer(IntegerConstant(
-      bitPattern: BitPattern(pattern: program.ast[expr].value ? 1 : 0, width: 1))))
+      bitPattern: BitPattern(pattern: expr.value ? 1 : 0, width: 1))))
 
     let boolType = program.ast.coreType(named: "Bool")!
     return module.insert(
@@ -371,22 +371,22 @@ public struct Emitter : TypedChecked {
   }
 
   private mutating func emitR(
-    cond expr: NodeID<CondExpr>,
+    cond expr: TypedCondExpr,
     into module: inout Module
   ) -> Operand {
     let functionID = insertionPoint!.block.function
 
     // If the expression is supposed to return a value, allocate storage for it.
     var resultStorage: Operand?
-    if let type = program.exprTypes[expr], type != .void {
-      resultStorage = module.insert(AllocStackInst(type), at: insertionPoint!)[0]
+    if expr.type != .void {
+      resultStorage = module.insert(AllocStackInst(expr.type), at: insertionPoint!)[0]
       stack.top.allocs.append(resultStorage!)
     }
 
     // Emit the condition(s).
     var alt: Block.ID?
 
-    for item in program.ast[expr].condition {
+    for item in expr.condition {
       let success = module.createBasicBlock(atEndOf: functionID)
       let failure = module.createBasicBlock(atEndOf: functionID)
       alt = failure
@@ -425,13 +425,13 @@ public struct Emitter : TypedChecked {
 
     // Emit the success branch.
     // Note: the insertion pointer is already set in the corresponding block.
-    switch program.ast[expr].success {
+    switch expr.success {
     case .expr(let thenExpr):
       stack.push()
-      let value = emitR(expr: thenExpr, into: &module)
+      let value = emitR(expr: program[thenExpr], into: &module)
       if let target = resultStorage {
         let target = module.insert(
-          BorrowInst(.set, .address(program.exprTypes[expr]!), from: target),
+          BorrowInst(.set, .address(expr.type), from: target),
           at: insertionPoint!)[0]
         module.insert(StoreInst(value, to: target), at: insertionPoint!)
       }
@@ -445,13 +445,13 @@ public struct Emitter : TypedChecked {
 
     // Emit the failure branch.
     insertionPoint = InsertionPoint(endOf: alt!)
-    switch program.ast[expr].failure {
+    switch expr.failure {
     case .expr(let elseExpr):
       stack.push()
-      let value = emitR(expr: elseExpr, into: &module)
+      let value = emitR(expr: program[elseExpr], into: &module)
       if let target = resultStorage {
         let target = module.insert(
-          BorrowInst(.set, .address(program.exprTypes[expr]!), from: target),
+          BorrowInst(.set, .address(expr.type), from: target),
           at: insertionPoint!)[0]
         module.insert(StoreInst(value, to: target), at: insertionPoint!)
       }
@@ -470,7 +470,7 @@ public struct Emitter : TypedChecked {
     insertionPoint = InsertionPoint(endOf: continuation)
     if let source = resultStorage {
       return module.insert(
-        LoadInst(LoweredType(lowering: program.exprTypes[expr]!), from: source),
+        LoadInst(LoweredType(lowering: expr.type), from: source),
         at: insertionPoint!)[0]
     } else {
       return .constant(.void)
@@ -478,10 +478,10 @@ public struct Emitter : TypedChecked {
   }
 
   private mutating func emitR(
-    funCall expr: NodeID<FunCallExpr>,
+    funCall expr: TypedFunCallExpr,
     into module: inout Module
   ) -> Operand {
-    let calleeType = program.exprTypes[program.ast[expr].callee]!.base as! LambdaType
+    let calleeType = expr.callee.type.base as! LambdaType
 
     // Determine the callee's convention.
     let calleeConvention = calleeType.receiverEffect.map(
@@ -492,7 +492,7 @@ public struct Emitter : TypedChecked {
     var argumentConventions: [PassingConvention] = []
     var arguments: [Operand] = []
 
-    for (parameter, argument) in zip(calleeType.inputs, program.ast[expr].arguments) {
+    for (parameter, argument) in zip(calleeType.inputs, expr.arguments) {
       let parameterType = parameter.type.base as! ParameterType
       argumentConventions.append(parameterType.convention)
       arguments.append(emit(argument: argument.value, to: parameterType, into: &module))
@@ -503,13 +503,13 @@ public struct Emitter : TypedChecked {
     // function object the arguments.
     let callee: Operand
 
-    if let calleeID = NodeID<NameExpr>(program.ast[expr].callee) {
-      switch program.referredDecls[calleeID] {
+    if let calleeNameExpr = TypedNameExpr(expr.callee) {
+      switch calleeNameExpr.decl {
       case .direct(let calleeDecl) where calleeDecl.kind == BuiltinDecl.self:
         // Callee refers to a built-in function.
         assert(calleeType.environment == .void)
         callee = .constant(.builtin(BuiltinFunctionRef(
-          name: program.ast[calleeID].name.value.stem,
+          name: calleeNameExpr.name.value.stem,
           type: .address(calleeType))))
 
       case .direct(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
@@ -530,7 +530,7 @@ public struct Emitter : TypedChecked {
           // The function is a memberwise initializer. In that case, the whole call expression is
           // lowered as a `record` instruction.
           return module.insert(
-            RecordInst(objectType: .object(program.exprTypes[expr]!), operands: arguments),
+            RecordInst(objectType: .object(expr.type), operands: arguments),
             at: insertionPoint!)[0]
         }
 
@@ -543,7 +543,7 @@ public struct Emitter : TypedChecked {
           // The receiver as a borrowing convention.
           argumentConventions.insert(PassingConvention(matching: type.capability), at: 0)
 
-          switch program.ast[calleeID].domain {
+          switch calleeNameExpr.domain {
           case .none:
             let receiver = module.insert(
               BorrowInst(type.capability, .address(type.base), from: stack[receiverDecl!.id]!),
@@ -564,7 +564,7 @@ public struct Emitter : TypedChecked {
           // The receiver is consumed.
           argumentConventions.insert(.sink, at: 0)
 
-          switch program.ast[calleeID].domain {
+          switch calleeNameExpr.domain {
           case .none:
             let receiver = module.insert(
               LoadInst(.object(receiverType), from: stack[receiverDecl!.id]!),
@@ -572,7 +572,7 @@ public struct Emitter : TypedChecked {
             arguments.insert(receiver, at: 0)
 
           case .expr(let receiverID):
-            arguments.insert(emitR(expr: receiverID, into: &module), at: 0)
+            arguments.insert(emitR(expr: program[receiverID], into: &module), at: 0)
 
           case .type:
             fatalError("not implemented")
@@ -589,16 +589,16 @@ public struct Emitter : TypedChecked {
 
       default:
         // Evaluate the callee as a function object.
-        callee = emitR(expr: program.ast[expr].callee, into: &module)
+        callee = emitR(expr: expr.callee, into: &module)
       }
     } else {
       // Evaluate the callee as a function object.
-      callee = emitR(expr: program.ast[expr].callee, into: &module)
+      callee = emitR(expr: expr.callee, into: &module)
     }
 
     return module.insert(
       CallInst(
-        returnType: .object(program.exprTypes[expr]!),
+        returnType: .object(expr.type),
         calleeConvention: calleeConvention,
         callee: callee,
         argumentConventions: argumentConventions,
@@ -607,10 +607,10 @@ public struct Emitter : TypedChecked {
   }
 
   private mutating func emitR(
-    integerLiteral expr: NodeID<IntegerLiteralExpr>,
+    integerLiteral expr: TypedIntegerLiteralExpr,
     into module: inout Module
   ) -> Operand {
-    let type = program.exprTypes[expr]!.base as! ProductType
+    let type = expr.type.base as! ProductType
 
     // Determine the bit width of the value.
     let bitWidth: Int
@@ -623,7 +623,7 @@ public struct Emitter : TypedChecked {
 
     // Convert the literal into a bit pattern.
     let bits: BitPattern
-    let s = program.ast[expr].value
+    let s = expr.value
     if s.starts(with: "0x") {
       bits = BitPattern(fromHexadecimal: s.dropFirst(2))!.resized(to: bitWidth)
     } else {
@@ -638,15 +638,15 @@ public struct Emitter : TypedChecked {
   }
 
   private mutating func emitR(
-    name expr: NodeID<NameExpr>,
+    name expr: TypedNameExpr,
     into module: inout Module
   ) -> Operand {
-    switch program.referredDecls[expr]! {
+    switch expr.decl {
     case .direct(let declID):
       // Lookup for a local symbol.
       if let source = stack[declID] {
         return module.insert(
-          LoadInst(.object(program.exprTypes[expr]!), from: source),
+          LoadInst(.object(expr.type), from: source),
           at: insertionPoint!)[0]
       }
 
@@ -658,10 +658,11 @@ public struct Emitter : TypedChecked {
   }
 
   private mutating func emitR(
-    sequence expr: NodeID<SequenceExpr>,
+    sequence expr: TypedSequenceExpr,
     into module: inout Module
   ) -> Operand {
-    emit(.sink, foldedSequence: program.foldedSequenceExprs[expr]!, into: &module)
+    // TODO: use accessor for foldedSequenceExprs
+    emit(.sink, foldedSequence: program.foldedSequenceExprs[expr.id]!, into: &module)
   }
 
   private mutating func emit(
@@ -718,7 +719,7 @@ public struct Emitter : TypedChecked {
       case .set:
         return emitL(expr: expr, withCapability: .set, into: &module)
       case .sink:
-        return emitR(expr: expr, into: &module)
+        return emitR(expr: program[expr], into: &module)
       case .yielded:
         fatalError("not implemented")
       }
@@ -738,7 +739,7 @@ public struct Emitter : TypedChecked {
     case .set:
       return emitL(expr: expr, withCapability: .set, into: &module)
     case .sink:
-      return emitR(expr: expr, into: &module)
+      return emitR(expr: program[expr], into: &module)
     case .yielded:
       fatalError("not implemented")
     }
@@ -824,7 +825,7 @@ public struct Emitter : TypedChecked {
             arguments.insert(receiver, at: 0)
 
           case .expr(let receiverID):
-            arguments.insert(emitR(expr: receiverID, into: &module), at: 0)
+            arguments.insert(emitR(expr: program[receiverID], into: &module), at: 0)
 
           case .type:
             fatalError("not implemented")
@@ -846,7 +847,7 @@ public struct Emitter : TypedChecked {
     }
 
     // Otherwise, by default, a callee is evaluated as a function object.
-    return emitR(expr: expr, into: &module)
+    return emitR(expr: program[expr], into: &module)
   }
 
   // MARK: l-values
@@ -869,7 +870,7 @@ public struct Emitter : TypedChecked {
     default:
       let exprType = program.exprTypes[expr]!
 
-      let value = emitR(expr: expr, into: &module)
+      let value = emitR(expr: program[expr], into: &module)
       let storage = module.insert(AllocStackInst(exprType), at: insertionPoint!)[0]
       stack.top.allocs.append(storage)
 
