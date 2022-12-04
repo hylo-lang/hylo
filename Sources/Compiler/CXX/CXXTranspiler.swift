@@ -24,7 +24,7 @@ public struct CXXTranspiler : TypedChecked {
 
   /// Emits the given top-level declaration into `module`.
   mutating func emit(topLevel decl: AnyTypedDecl, into module: inout CXXModule) {
-    switch decl.id.kind {
+    switch decl.kind {
     case FunctionDecl.self:
       emit(function: TypedFunctionDecl(decl)!, into: &module)
     default:
@@ -47,7 +47,7 @@ public struct CXXTranspiler : TypedChecked {
   private mutating func emit(funBody body: FunctionDecl.Body) -> CXXRepresentable {
     switch body {
     case .block(let stmt):
-      return emit(brace: stmt)
+      return emit(brace: program[stmt])
 
     case .expr:
       let exprStmt = CXXComment(comment: "expr")
@@ -111,43 +111,43 @@ public struct CXXTranspiler : TypedChecked {
   // MARK: Statements
 
   /// Emits the given statement into `module` at the current insertion point.
-  private mutating func emit<T: StmtID>(stmt: T) -> CXXRepresentable {
+  private mutating func emit<T: StmtID>(stmt: TypedProgram.SomeNode<T>) -> CXXRepresentable {
     switch stmt.kind {
     case BraceStmt.self:
-      return emit(brace: NodeID(rawValue: stmt.rawValue))
+      return emit(brace: TypedBraceStmt(stmt)!)
     case DeclStmt.self:
-      return emit(declStmt: NodeID(rawValue: stmt.rawValue))
+      return emit(declStmt: TypedDeclStmt(stmt)!)
     case ExprStmt.self:
-      return emit(exprStmt: NodeID(rawValue: stmt.rawValue))
+      return emit(exprStmt: TypedExprStmt(stmt)!)
     case ReturnStmt.self:
-      return emit(returnStmt: NodeID(rawValue: stmt.rawValue))
+      return emit(returnStmt: TypedReturnStmt(stmt)!)
     default:
       unreachable("unexpected statement")
     }
   }
 
-  private mutating func emit(brace stmt: NodeID<BraceStmt>) -> CXXRepresentable {
+  private mutating func emit(brace stmt: TypedBraceStmt) -> CXXRepresentable {
     var stmts: [CXXRepresentable] = []
-    for s in program.ast[stmt].stmts {
+    for s in stmt.stmts {
       stmts.append(emit(stmt: s))
     }
     return CXXScopedBlock(stmts: stmts)
   }
 
-  private mutating func emit(declStmt stmt: NodeID<DeclStmt>) -> CXXRepresentable {
-    switch program.ast[stmt].decl.kind {
+  private mutating func emit(declStmt stmt: TypedDeclStmt) -> CXXRepresentable {
+    switch stmt.decl.kind {
     case BindingDecl.self:
-      return emit(localBinding: NodeID(rawValue: program.ast[stmt].decl.rawValue))
+      return emit(localBinding: TypedBindingDecl(stmt.decl)!.id)
     default:
       unreachable("unexpected declaration")
     }
   }
 
-  private mutating func emit(exprStmt stmt: NodeID<ExprStmt>) -> CXXRepresentable {
+  private mutating func emit(exprStmt stmt: TypedExprStmt) -> CXXRepresentable {
     return CXXComment(comment: "expr stmt")
   }
 
-  private mutating func emit(returnStmt stmt: NodeID<ReturnStmt>) -> CXXRepresentable {
+  private mutating func emit(returnStmt stmt: TypedReturnStmt) -> CXXRepresentable {
     return CXXComment(comment: "return stmt")
   }
 

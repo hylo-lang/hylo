@@ -89,18 +89,18 @@ extension TypedProgram {
 }
 
 extension TypedProgram.SomeNode where ID: ConcreteNodeID {
-
+  
   /// The corresponding AST node.
   private var syntax: ID.Subject {
     whole.ast[NodeID(id)!]
   }
-
+  
   /// Accesses the given member of the corresponding AST node.
   subscript<Target>(dynamicMember m: KeyPath<ID.Subject, Target>) -> Target
   {
     syntax[keyPath: m]
   }
-
+  
   /// Accesses the given member of the corresponding AST node as a corresponding
   /// `TypedProgram.SomeNode`
   subscript<TargetID: NodeIDProtocol>(
@@ -109,7 +109,7 @@ extension TypedProgram.SomeNode where ID: ConcreteNodeID {
   {
     .init(whole: whole, id: syntax[keyPath: m])
   }
-
+  
   /// Accesses the given member of the corresponding AST node as a corresponding lazy collection
   /// of `TypedProgram.SomeNode`s.
   subscript<TargetID: NodeIDProtocol>(
@@ -118,7 +118,7 @@ extension TypedProgram.SomeNode where ID: ConcreteNodeID {
   {
     syntax[keyPath: m].lazy.map { .init(whole: whole, id: $0) }
   }
-
+  
   /// Accesses the given member of the corresponding AST node as a corresponding
   /// `TypedProgram.SomeNode?`
   subscript<TargetID: NodeIDProtocol>(
@@ -127,16 +127,22 @@ extension TypedProgram.SomeNode where ID: ConcreteNodeID {
   {
     syntax[keyPath: m].map { .init(whole: whole, id: $0) }
   }
-
+  
   /// Creates an instance denoting the same node as `s`, or fails if `s` does not refer to a
   /// `Target` node.
   init?<SourceID/*, Target*/>(_ s: TypedProgram.SomeNode<SourceID>)
-//    where ID == NodeID<Target>
+  //    where ID == NodeID<Target>
   {
     guard let myID = NodeID<ID.Subject>(s.id) else { return nil }
     whole = s.whole
     id = .init(myID)
   }
+}
+
+extension TypedProgram.SomeNode {
+  
+  /// The corresponding node kind.
+  var kind: NodeKind { id.kind }
 }
 
 extension TypedProgram.SomeNode where ID: ScopeID {
