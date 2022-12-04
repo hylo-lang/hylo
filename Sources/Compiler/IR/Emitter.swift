@@ -547,7 +547,7 @@ public struct Emitter : TypedChecked {
             arguments.insert(receiver, at: 0)
 
           case .expr(let receiverID):
-            let receiver = emitL(expr: program[receiverID], withCapability: type.capability, into: &module)
+            let receiver = emitL(expr: receiverID, withCapability: type.capability, into: &module)
             arguments.insert(receiver, at: 0)
 
           case .type:
@@ -568,7 +568,7 @@ public struct Emitter : TypedChecked {
             arguments.insert(receiver, at: 0)
 
           case .expr(let receiverID):
-            arguments.insert(emitR(expr: program[receiverID], into: &module), at: 0)
+            arguments.insert(emitR(expr: receiverID, into: &module), at: 0)
 
           case .type:
             fatalError("not implemented")
@@ -800,7 +800,7 @@ public struct Emitter : TypedChecked {
             arguments.insert(receiver, at: 0)
 
           case .expr(let receiverID):
-            let receiver = emitL(expr: program[receiverID], withCapability: type.capability, into: &module)
+            let receiver = emitL(expr: receiverID, withCapability: type.capability, into: &module)
             arguments.insert(receiver, at: 0)
 
           case .type:
@@ -821,7 +821,7 @@ public struct Emitter : TypedChecked {
             arguments.insert(receiver, at: 0)
 
           case .expr(let receiverID):
-            arguments.insert(emitR(expr: program[receiverID], into: &module), at: 0)
+            arguments.insert(emitR(expr: receiverID, into: &module), at: 0)
 
           case .type:
             fatalError("not implemented")
@@ -904,7 +904,7 @@ public struct Emitter : TypedChecked {
       case .implicit:
         fatalError("not implemented")
       case .expr(let receiverID):
-        receiver = emitL(expr: program[receiverID], withCapability: capability, into: &module)
+        receiver = emitL(expr: receiverID, withCapability: capability, into: &module)
       case .type:
         fatalError("not implemented")
       }

@@ -189,6 +189,36 @@ extension TypedProgram.Node where ID: ExprID {
 }
 
 extension TypedProgram.Node where ID == NodeID<NameExpr> {
+  enum Domain: Equatable {
+
+    /// No domain.
+    case none
+
+    /// Domain is implicit; the expression denotes a type member.
+    case implicit
+
+    /// Domain is a value expression or a type identifier.
+    case expr(TypedProgram.AnyExpr)
+
+    /// Domain is a type typression.
+    case type(TypedProgram.SomeNode<AnyTypeExprID>)
+
+  }
+
+  /// The domain of the name, if it is qualified.
+  var domain: Domain {
+    switch syntax.domain {
+    case .none:
+      return .none
+    case .implicit:
+      return .implicit
+    case .expr(let expr):
+      return .expr(whole[expr])
+    case .type(let typeExpr):
+      return .type(whole[typeExpr])
+    }
+  }
+
   /// The declaration of this name.
   var decl: DeclRef {
     whole.referredDecls[id]!
