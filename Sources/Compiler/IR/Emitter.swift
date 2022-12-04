@@ -16,7 +16,7 @@ public struct Emitter : TypedChecked {
   private var stack = Stack()
 
   /// The declaration of the receiver of the function or subscript currently emitted, if any.
-  private var receiverDecl: NodeID<ParameterDecl>?
+  private var receiverDecl: TypedParameterDecl?
 
   /// Creates an emitter with a well-typed AST.
   public init(program: TypedProgram) {
@@ -38,7 +38,7 @@ public struct Emitter : TypedChecked {
   mutating func emit(topLevel decl: AnyTypedDecl, into module: inout Module) {
     switch decl.kind {
     case FunctionDecl.self:
-      emit(function: TypedFunctionDecl(decl)!.id, into: &module)
+      emit(function: TypedFunctionDecl(decl)!, into: &module)
     case OperatorDecl.self:
       break
     case ProductTypeDecl.self:
@@ -51,12 +51,13 @@ public struct Emitter : TypedChecked {
   }
 
   /// Emits the given function declaration into `module`.
-  public mutating func emit(function declID: NodeID<FunctionDecl>, into module: inout Module) {
+  public mutating func emit(function decl: TypedFunctionDecl, into module: inout Module) {
     // Declare the function in the module if necessary.
-    let functionID = module.getOrCreateFunction(correspondingTo: declID, program: program)
+    let functionID = module.getOrCreateFunction(correspondingTo: decl.id, program: program)
+    // TODO: make module.getOrCreateFunction() take a typed node
 
     // Nothing else to do if the function has no body.
-    guard let body = program.ast[declID].body else { return }
+    guard let body = decl.body else { return }
 
     // Create the function entry.
     assert(module.functions[functionID].blocks.isEmpty)
@@ -68,45 +69,48 @@ public struct Emitter : TypedChecked {
     // Configure the locals.
     var locals = DeclProperty<Operand>()
 
-    let explicitCaptures = program.ast[declID].explicitCaptures
+    let explicitCaptures = decl.explicitCaptures
     for (i, capture) in explicitCaptures.enumerated() {
-      locals[capture] = .parameter(block: entryID, index: i)
+      locals[capture.id] = .parameter(block: entryID, index: i)
+      // TODO: why `.id`?
     }
 
-    let implicitCaptures = program.implicitCaptures[declID]!
+    let implicitCaptures = program.implicitCaptures[decl.id]!
     for (i, capture) in implicitCaptures.enumerated() {
       locals[capture.decl] = .parameter(block: entryID, index: i + explicitCaptures.count)
     }
 
     var implicitParameterCount = explicitCaptures.count + implicitCaptures.count
-    if let receiver = program.ast[declID].receiver {
-      locals[receiver] = .parameter(block: entryID, index: implicitParameterCount)
+    if let receiver = decl.receiver {
+      locals[receiver.id] = .parameter(block: entryID, index: implicitParameterCount)
+      // TODO: why `.id`?
       implicitParameterCount += 1
     }
 
-    for (i, parameter) in program.ast[declID].parameters.enumerated() {
-      locals[parameter] = .parameter(block: entryID, index: i + implicitParameterCount)
+    for (i, parameter) in decl.parameters.enumerated() {
+      locals[parameter.id] = .parameter(block: entryID, index: i + implicitParameterCount)
+      // TODO: why `.id`?
     }
 
     // Emit the body.
     stack.push(Frame(locals: locals))
-    var receiverDecl = program.ast[declID].receiver
+    var receiverDecl = decl.receiver
     swap(&receiverDecl, &self.receiverDecl)
 
     switch body {
     case .block(let stmt):
       // Emit the statements of the function.
-      emit(stmt: stmt, into: &module)
+      emit(stmt: stmt.id, into: &module)
 
     case .expr(let expr):
       // Emit the body of the function.
-      let value = emitR(expr: expr, into: &module)
+      let value = emitR(expr: expr.id, into: &module)
 
       // Emit stack deallocation.
       emitStackDeallocs(in: &module)
 
       // Emit the implicit return statement.
-      if program.exprTypes[expr]! != .never {
+      if program.exprTypes[expr.id]! != .never {
         module.insert(ReturnInst(value: value), at: insertionPoint!)
       }
     }
@@ -130,7 +134,8 @@ public struct Emitter : TypedChecked {
       // Emit the member functions and subscripts of the type declaration.
       switch member.kind {
       case FunctionDecl.self:
-        emit(function: NodeID(rawValue: member.rawValue), into: &module)
+        let id = NodeID<FunctionDecl>(rawValue: member.rawValue)
+        emit(function: program[id], into: &module)
 
       case InitializerDecl.self:
         let d = NodeID<InitializerDecl>(rawValue: member.rawValue)
@@ -550,7 +555,7 @@ public struct Emitter : TypedChecked {
           switch program.ast[calleeID].domain {
           case .none:
             let receiver = module.insert(
-              BorrowInst(type.capability, .address(type.base), from: stack[receiverDecl!]!),
+              BorrowInst(type.capability, .address(type.base), from: stack[receiverDecl!.id]!),
               at: insertionPoint!)[0]
             arguments.insert(receiver, at: 0)
 
@@ -571,7 +576,7 @@ public struct Emitter : TypedChecked {
           switch program.ast[calleeID].domain {
           case .none:
             let receiver = module.insert(
-              LoadInst(.object(receiverType), from: stack[receiverDecl!]!),
+              LoadInst(.object(receiverType), from: stack[receiverDecl!.id]!),
               at: insertionPoint!)[0]
             arguments.insert(receiver, at: 0)
 
@@ -802,7 +807,7 @@ public struct Emitter : TypedChecked {
           switch program.ast[nameExpr].domain {
           case .none:
             let receiver = module.insert(
-              BorrowInst(type.capability, .address(type.base), from: stack[receiverDecl!]!),
+              BorrowInst(type.capability, .address(type.base), from: stack[receiverDecl!.id]!),
               at: insertionPoint!)[0]
             arguments.insert(receiver, at: 0)
 
@@ -823,7 +828,7 @@ public struct Emitter : TypedChecked {
           switch program.ast[nameExpr].domain {
           case .none:
             let receiver = module.insert(
-              LoadInst(.object(receiverType), from: stack[receiverDecl!]!),
+              LoadInst(.object(receiverType), from: stack[receiverDecl!.id]!),
               at: insertionPoint!)[0]
             arguments.insert(receiver, at: 0)
 
@@ -910,7 +915,7 @@ public struct Emitter : TypedChecked {
 
       switch program.ast[expr].domain {
       case .none:
-        receiver = stack[receiverDecl!]!
+        receiver = stack[receiverDecl!.id]!
       case .implicit:
         fatalError("not implemented")
       case .expr(let receiverID):
