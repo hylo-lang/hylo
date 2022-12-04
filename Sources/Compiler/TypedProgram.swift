@@ -190,6 +190,13 @@ extension TypedProgram.Node where ID == NodeID<NameExpr> {
   }
 }
 
+extension TypedProgram.Node where ID: PatternID {
+  /// The names associated with this pattern.
+  var names: [(path: [Int], pattern: TypedProgram.Node<NamePattern>)] {
+    whole.ast.names(in: id).map({ (path: $0.path, pattern: whole[$0.pattern]) })
+  }
+}
+
 extension TypedProgram.Node where ID == NodeID<ModuleDecl> {
   /// Collection of (typed) top-level declarations of the module.
   typealias TopLevelDecls = LazyMapSequence<

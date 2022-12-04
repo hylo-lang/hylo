@@ -90,9 +90,9 @@ public struct CXXTranspiler : TypedChecked {
       // Visit the patterns.
       var stmts: [CXXRepresentable] = []
       let pattern = decl.pattern
-      for (path, name) in program.ast.names(in: pattern.subpattern) {
+      for (path, name) in pattern.subpattern.names {
         // TODO: emit code for the patterns.
-        let decl = program[name].decl
+        let decl = name.decl
         stmts.append(CXXComment(comment: "decl \(name), type: \(decl.type.description); path: \(path)"))
       }
       if stmts.isEmpty {
