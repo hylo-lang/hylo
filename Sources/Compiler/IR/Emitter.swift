@@ -180,7 +180,7 @@ public struct Emitter : TypedChecked {
 
       let storage = module.insert(AllocStackInst(decl.type), at: insertionPoint!)[0]
       stack.top.allocs.append(storage)
-      stack[decl.id] = storage
+      stack[decl] = storage
 
       if var rhsType = initializerType {
         // Determine the object corresponding to the current name.
@@ -247,7 +247,7 @@ public struct Emitter : TypedChecked {
       for (path, name) in pattern.subpattern.names {
         let decl = name.decl
 
-        stack[decl.id] = module.insert(
+        stack[decl] = module.insert(
           BorrowInst(
             capability,
             .address(decl.type),
@@ -546,7 +546,7 @@ public struct Emitter : TypedChecked {
           switch calleeNameExpr.domain {
           case .none:
             let receiver = module.insert(
-              BorrowInst(type.capability, .address(type.base), from: stack[receiverDecl!.id]!),
+              BorrowInst(type.capability, .address(type.base), from: stack[receiverDecl!]!),
               at: insertionPoint!)[0]
             arguments.insert(receiver, at: 0)
 
@@ -567,7 +567,7 @@ public struct Emitter : TypedChecked {
           switch calleeNameExpr.domain {
           case .none:
             let receiver = module.insert(
-              LoadInst(.object(receiverType), from: stack[receiverDecl!.id]!),
+              LoadInst(.object(receiverType), from: stack[receiverDecl!]!),
               at: insertionPoint!)[0]
             arguments.insert(receiver, at: 0)
 
@@ -644,7 +644,7 @@ public struct Emitter : TypedChecked {
     switch expr.decl {
     case .direct(let declID):
       // Lookup for a local symbol.
-      if let source = stack[declID] {
+      if let source = stack[program[declID]] {
         return module.insert(
           LoadInst(.object(expr.type), from: source),
           at: insertionPoint!)[0]
@@ -799,7 +799,7 @@ public struct Emitter : TypedChecked {
           switch nameExpr.domain {
           case .none:
             let receiver = module.insert(
-              BorrowInst(type.capability, .address(type.base), from: stack[receiverDecl!.id]!),
+              BorrowInst(type.capability, .address(type.base), from: stack[receiverDecl!]!),
               at: insertionPoint!)[0]
             arguments.insert(receiver, at: 0)
 
@@ -820,7 +820,7 @@ public struct Emitter : TypedChecked {
           switch nameExpr.domain {
           case .none:
             let receiver = module.insert(
-              LoadInst(.object(receiverType), from: stack[receiverDecl!.id]!),
+              LoadInst(.object(receiverType), from: stack[receiverDecl!]!),
               at: insertionPoint!)[0]
             arguments.insert(receiver, at: 0)
 
@@ -890,7 +890,7 @@ public struct Emitter : TypedChecked {
     switch expr.decl {
     case .direct(let declID):
       // Lookup for a local symbol.
-      if let source = stack[declID] {
+      if let source = stack[program[declID]] {
         return module.insert(
           BorrowInst(capability, .address(expr.type), from: source),
           at: insertionPoint!)[0]
@@ -904,7 +904,7 @@ public struct Emitter : TypedChecked {
 
       switch expr.domain {
       case .none:
-        receiver = stack[receiverDecl!.id]!
+        receiver = stack[receiverDecl!]!
       case .implicit:
         fatalError("not implemented")
       case .expr(let receiverID):
@@ -988,15 +988,15 @@ fileprivate extension Emitter {
     }
 
     /// Accesses the operand assigned `decl`, assuming the stack is not empty.
-    subscript<T: DeclID>(decl: T) -> Operand? {
+    subscript<T: DeclID>(decl: TypedProgram.SomeNode<T>) -> Operand? {
       get {
         for frame in frames.reversed() {
-          if let operand = frame.locals[decl] { return operand }
+          if let operand = frame.locals[decl.id] { return operand }
         }
         return nil
       }
       set {
-        top.locals[decl] = newValue
+        top.locals[decl.id] = newValue
       }
     }
 
