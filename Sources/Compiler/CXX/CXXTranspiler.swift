@@ -57,10 +57,10 @@ public struct CXXTranspiler : TypedChecked {
 
   // MARK: Declarations
 
-  private mutating func emit(localBinding decl: NodeID<BindingDecl>) -> CXXRepresentable {
-    let pattern = program.ast[decl].pattern
+  private mutating func emit(localBinding decl: TypedBindingDecl) -> CXXRepresentable {
+    let pattern = decl.pattern
 
-    switch program.ast[pattern].introducer.value {
+    switch pattern.introducer.value {
     case .var, .sinklet:
       return emit(storedLocalBinding: decl)
     case .let:
@@ -70,17 +70,17 @@ public struct CXXTranspiler : TypedChecked {
     }
   }
 
-  private mutating func emit(storedLocalBinding decl: NodeID<BindingDecl>) -> CXXRepresentable {
+  private mutating func emit(storedLocalBinding decl: TypedBindingDecl) -> CXXRepresentable {
     return CXXComment(comment: "local binding")
   }
 
   /// Emits borrowed bindings.
   private mutating func emit(
-    borrowedLocalBinding decl: NodeID<BindingDecl>,
+    borrowedLocalBinding decl: TypedBindingDecl,
     withCapability capability: RemoteType.Capability
   ) -> CXXRepresentable {
     // There's nothing to do if there's no initializer.
-    if let initializer: AnyExprID = program.ast[decl].initializer {
+    if let initializer: AnyExprID = decl.initializer {
 
       let isLValue = (initializer.kind == NameExpr.self) || (initializer.kind == SubscriptCallExpr.self)
 
@@ -89,8 +89,8 @@ public struct CXXTranspiler : TypedChecked {
 
       // Visit the patterns.
       var stmts: [CXXRepresentable] = []
-      let pattern = program.ast[decl].pattern
-      for (path, name) in program.ast.names(in: program.ast[pattern].subpattern) {
+      let pattern = decl.pattern
+      for (path, name) in program.ast.names(in: pattern.subpattern) {
         // TODO: emit code for the patterns.
         let decl = program.ast[name].decl
         let declType = program.declTypes[decl]!
@@ -137,7 +137,7 @@ public struct CXXTranspiler : TypedChecked {
   private mutating func emit(declStmt stmt: TypedDeclStmt) -> CXXRepresentable {
     switch stmt.decl.kind {
     case BindingDecl.self:
-      return emit(localBinding: TypedBindingDecl(stmt.decl)!.id)
+      return emit(localBinding: TypedBindingDecl(stmt.decl)!)
     default:
       unreachable("unexpected declaration")
     }
