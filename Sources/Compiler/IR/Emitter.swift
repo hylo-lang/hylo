@@ -148,10 +148,8 @@ public struct Emitter : TypedChecked {
     }
   }
 
-  private mutating func emit(localBinding decl: NodeID<BindingDecl>, into module: inout Module) {
-    let pattern = program.ast[decl].pattern
-
-    switch program.ast[pattern].introducer.value {
+  private mutating func emit(localBinding decl: TypedBindingDecl, into module: inout Module) {
+    switch decl.pattern.introducer.value {
     case .var, .sinklet:
       emit(storedLocalBinding: decl, into: &module)
     case .let:
@@ -162,30 +160,27 @@ public struct Emitter : TypedChecked {
   }
 
   private mutating func emit(
-    storedLocalBinding decl: NodeID<BindingDecl>,
+    storedLocalBinding decl: TypedBindingDecl,
     into module: inout Module
   ) {
-    /// The pattern of the binding being emitted.
-    let pattern = program.ast[decl].pattern
     /// A map from object path to its corresponding (sub-)object during destruction.
     var objects: [[Int]: Operand] = [:]
     /// The type of the initializer, if any.
     var initializerType: AnyType?
 
     // Emit the initializer, if any.
-    if let initializer = program.ast[decl].initializer {
-      objects[[]] = emitR(expr: initializer, into: &module)
-      initializerType = program.exprTypes[initializer]!
+    if let initializer = decl.initializer {
+      objects[[]] = emitR(expr: initializer.id, into: &module)
+      initializerType = initializer.type
     }
 
     // Allocate storage for each name introduced by the declaration.
-    for (path, name) in program.ast.names(in: program.ast[pattern].subpattern) {
-      let decl = program.ast[name].decl
-      let declType = program.declTypes[decl]!
+    for (path, name) in decl.pattern.subpattern.names {
+      let decl = name.decl
 
-      let storage = module.insert(AllocStackInst(declType), at: insertionPoint!)[0]
+      let storage = module.insert(AllocStackInst(decl.type), at: insertionPoint!)[0]
       stack.top.allocs.append(storage)
-      stack[decl] = storage
+      stack[decl.id] = storage
 
       if var rhsType = initializerType {
         // Determine the object corresponding to the current name.
@@ -210,7 +205,7 @@ public struct Emitter : TypedChecked {
 
         // Borrow the storage for initialization corresponding to the current name.
         let target = module.insert(
-          BorrowInst(.set, .address(declType), from: storage),
+          BorrowInst(.set, .address(decl.type), from: storage),
           at: insertionPoint!)[0]
 
         // Store the corresponding (part of) the initializer.
@@ -221,24 +216,24 @@ public struct Emitter : TypedChecked {
 
   /// Emits borrowed bindings.
   private mutating func emit(
-    borrowedLocalBinding decl: NodeID<BindingDecl>,
+    borrowedLocalBinding decl: TypedBindingDecl,
     withCapability capability: RemoteType.Capability,
     into module: inout Module
   ) {
     /// The pattern of the binding being emitted.
-    let pattern = program.ast[decl].pattern
+    let pattern = decl.pattern
 
     // There's nothing to do if there's no initializer.
-    if let initializer = program.ast[decl].initializer {
+    if let initializer = decl.initializer {
       let source: Operand
       if (initializer.kind == NameExpr.self) || (initializer.kind == SubscriptCallExpr.self) {
         // Emit the initializer as a l-value.
-        source = emitL(expr: initializer, withCapability: capability, into: &module)
+        source = emitL(expr: initializer.id, withCapability: capability, into: &module)
       } else {
         // emit a r-value and store it into local storage.
-        let value = emitR(expr: initializer, into: &module)
+        let value = emitR(expr: initializer.id, into: &module)
 
-        let exprType = program.exprTypes[initializer]!
+        let exprType = initializer.type
         let storage = module.insert(AllocStackInst(exprType), at: insertionPoint!)[0]
         stack.top.allocs.append(storage)
         source = storage
@@ -249,18 +244,17 @@ public struct Emitter : TypedChecked {
         module.insert(StoreInst(value, to: target), at: insertionPoint!)
       }
 
-      for (path, name) in program.ast.names(in: program.ast[pattern].subpattern) {
-        let decl = program.ast[name].decl
-        let declType = program.declTypes[decl]!
+      for (path, name) in pattern.subpattern.names {
+        let decl = name.decl
 
-        stack[decl] = module.insert(
+        stack[decl.id] = module.insert(
           BorrowInst(
             capability,
-            .address(declType),
+            .address(decl.type),
             from: source,
             at: path,
-            binding: decl,
-            range: program.ast[decl].origin),
+            binding: decl.id,
+            range: decl.origin),
           at: insertionPoint!)[0]
       }
     }
@@ -296,7 +290,8 @@ public struct Emitter : TypedChecked {
   private mutating func emit(declStmt stmt: NodeID<DeclStmt>, into module: inout Module) {
     switch program.ast[stmt].decl.kind {
     case BindingDecl.self:
-      emit(localBinding: NodeID(rawValue: program.ast[stmt].decl.rawValue), into: &module)
+      let id = NodeID<BindingDecl>(rawValue: program.ast[stmt].decl.rawValue)
+      emit(localBinding: program[id], into: &module)
     default:
       unreachable("unexpected declaration")
     }
