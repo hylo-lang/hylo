@@ -77,6 +77,7 @@ extension TypedProgram {
 
   typealias AnyScope = SomeNode<AnyScopeID>
   typealias AnyDecl = SomeNode<AnyDeclID>
+  typealias AnyExpr = SomeNode<AnyExprID>
   typealias AnyNode = SomeNode<AnyNodeID>
   
   public typealias Node<T: AST.Node> = SomeNode<NodeID<T>>

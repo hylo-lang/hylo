@@ -85,7 +85,7 @@ public struct CXXTranspiler : TypedChecked {
       let isLValue = (initializer.kind == NameExpr.self) || (initializer.kind == SubscriptCallExpr.self)
 
       // Visit the initializer.
-      let cxxInitialzer = emit(initializer, asLValue: isLValue)
+      let cxxInitialzer = emit(expr: program[initializer], asLValue: isLValue)
 
       // Visit the patterns.
       var stmts: [CXXRepresentable] = []
@@ -154,7 +154,7 @@ public struct CXXTranspiler : TypedChecked {
   // MARK: Expressions
 
   private mutating func emit(
-    _ expr: AnyExprID,
+    expr: AnyTypedExpr,
     asLValue: Bool
   ) -> CXXRepresentable {
     if asLValue {
