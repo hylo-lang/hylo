@@ -238,27 +238,3 @@ extension TypedProgram.Node where ID == NodeID<FunctionDecl> {
     }
   }
 }
-
-func funnyTest0(x: TypedProgram.Node<FunctionDecl>) -> [TypedProgram.Node<ParameterDecl>] {
-  print(x.type)
-  let p = x.parameters
-  return Array(p)
-}
-
-func funnyTest1(x: TypedProgram.Node<FunctionDecl>) -> TypedProgram.Node<ParameterDecl>? {
-  let p = x.receiver
-  return p
-}
-
-func funnyTest2(x: TypedProgram.AnyDecl) -> TypedProgram.AnyScope? {
-  return x.scope.parent
-}
-
-func funnyTest3(x: TypedProgram.Node<FunctionDecl>) -> TypedProgram.Node<ConformanceLensTypeExpr>? {
-  guard let o = x.output else { return nil }
-  return .init(o)
-}
-
-func funnyTest4(x: TypedProgram.Node<ExtensionDecl>) -> TypedProgram.SomeNode<AnyTypeExprID> {
-  return x.subject
-}
