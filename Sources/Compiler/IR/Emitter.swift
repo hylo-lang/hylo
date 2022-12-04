@@ -121,7 +121,7 @@ public struct Emitter : TypedChecked {
 
   /// Emits the given subscript declaration into `module`.
   public mutating func emit(
-    subscript declID: NodeID<SubscriptDecl>,
+    subscript decl: TypedSubscriptDecl,
     into module: inout Module
   ) {
     fatalError("not implemented")
@@ -142,7 +142,8 @@ public struct Emitter : TypedChecked {
         fatalError("not implemented")
 
       case SubscriptDecl.self:
-        emit(subscript: NodeID(rawValue: member.rawValue), into: &module)
+        let id = NodeID<SubscriptDecl>(rawValue: member.rawValue)
+        emit(subscript: program[id], into: &module)
 
       default:
         continue
