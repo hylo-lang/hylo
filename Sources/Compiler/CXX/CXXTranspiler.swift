@@ -92,9 +92,8 @@ public struct CXXTranspiler : TypedChecked {
       let pattern = decl.pattern
       for (path, name) in program.ast.names(in: pattern.subpattern) {
         // TODO: emit code for the patterns.
-        let decl = program.ast[name].decl
-        let declType = program.declTypes[decl]!
-        stmts.append(CXXComment(comment: "decl \(name), type: \(declType.description); path: \(path)"))
+        let decl = program[name].decl
+        stmts.append(CXXComment(comment: "decl \(name), type: \(decl.type.description); path: \(path)"))
       }
       if stmts.isEmpty {
         // No pattern found; just call the initializer, dropping the result.
