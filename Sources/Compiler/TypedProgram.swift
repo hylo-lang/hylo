@@ -219,9 +219,31 @@ extension TypedProgram.Node where ID == NodeID<NameExpr> {
     }
   }
 
+  /// A reference to a declaration.
+  enum DeclRef: Hashable {
+    /// A direct reference.
+    case direct(TypedProgram.AnyDecl)
+
+    /// A reference to a member declaration bound to `self`.
+    case member(TypedProgram.AnyDecl)
+
+    /// Accesses the referred declaration.
+    public var decl: TypedProgram.AnyDecl {
+      switch self {
+      case .direct(let d): return d
+      case .member(let d): return d
+      }
+    }
+  }
+
   /// The declaration of this name.
   var decl: DeclRef {
-    whole.referredDecls[id]!
+    switch whole.referredDecls[id]! {
+      case .direct(let decl):
+        return .direct(whole[decl])
+      case .member(let decl):
+        return .member(whole[decl])
+    }
   }
 }
 

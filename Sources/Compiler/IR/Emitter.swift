@@ -512,12 +512,11 @@ public struct Emitter : TypedChecked {
         // Callee is a direct reference to a function or initializer declaration.
         // TODO: handle captures
         callee = .constant(.function(FunctionRef(
-          name: DeclLocator(identifying: calleeDecl, in: program).mangled,
+          name: DeclLocator(identifying: calleeDecl.id, in: program).mangled,
           type: .address(calleeType))))
 
       case .direct(let calleeDecl) where calleeDecl.kind == InitializerDecl.self:
-        let d = NodeID<InitializerDecl>(rawValue: calleeDecl.rawValue)
-        switch program.ast[d].introducer.value {
+        switch TypedInitializerDecl(calleeDecl)!.introducer.value {
         case .`init`:
           // TODO: The function is a custom initializer.
           fatalError("not implemented")
@@ -580,7 +579,7 @@ public struct Emitter : TypedChecked {
 
         // Emit the function reference.
         callee = .constant(.function(FunctionRef(
-          name: DeclLocator(identifying: calleeDecl, in: program).mangled,
+          name: DeclLocator(identifying: calleeDecl.id, in: program).mangled,
           type: .address(calleeType))))
 
       default:
@@ -640,7 +639,7 @@ public struct Emitter : TypedChecked {
     switch expr.decl {
     case .direct(let declID):
       // Lookup for a local symbol.
-      if let source = stack[program[declID]] {
+      if let source = stack[declID] {
         return module.insert(
           LoadInst(.object(expr.type), from: source),
           at: insertionPoint!)[0]
@@ -768,7 +767,7 @@ public struct Emitter : TypedChecked {
         // Callee is a direct reference to a function or initializer declaration.
         // TODO: handle captures
         return .constant(.function(FunctionRef(
-          name: DeclLocator(identifying: calleeDecl, in: program).mangled,
+          name: DeclLocator(identifying: calleeDecl.id, in: program).mangled,
           type: .address(calleeType))))
 
       case .direct(let calleeDecl) where calleeDecl.kind == InitializerDecl.self:
@@ -833,7 +832,7 @@ public struct Emitter : TypedChecked {
 
         // Emit the function reference.
         return .constant(.function(FunctionRef(
-          name: DeclLocator(identifying: calleeDecl, in: program).mangled,
+          name: DeclLocator(identifying: calleeDecl.id, in: program).mangled,
           type: .address(calleeType))))
 
       default:
@@ -884,9 +883,9 @@ public struct Emitter : TypedChecked {
     into module: inout Module
   ) -> Operand {
     switch expr.decl {
-    case .direct(let declID):
+    case .direct(let decl):
       // Lookup for a local symbol.
-      if let source = stack[program[declID]] {
+      if let source = stack[decl] {
         return module.insert(
           BorrowInst(capability, .address(expr.type), from: source),
           at: insertionPoint!)[0]
@@ -894,7 +893,7 @@ public struct Emitter : TypedChecked {
 
       fatalError("not implemented")
 
-    case .member(let declID):
+    case .member(let decl):
       // Emit the receiver.
       let receiver: Operand
 
@@ -910,11 +909,11 @@ public struct Emitter : TypedChecked {
       }
 
       // Emit the bound member.
-      switch declID.kind {
+      switch decl.kind {
       case VarDecl.self:
-        let declID = NodeID<VarDecl>(rawValue: declID.rawValue)
+        let varDecl = TypedVarDecl(decl)!
         let layout = program.abstractLayout(of: module.type(of: receiver).astType)
-        let memberIndex = layout.storedPropertiesIndices[program.ast[declID].name]!
+        let memberIndex = layout.storedPropertiesIndices[varDecl.name]!
 
         // If the lowered receiver is a borrow instruction, modify it in place so that it targets
         // the requested stored member. Otherwise, emit a reborrow.
