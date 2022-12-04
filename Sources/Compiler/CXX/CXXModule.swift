@@ -45,7 +45,7 @@ public struct CXXModule : TypedChecked {
     } else {
       switch valFunctionDecl.type.base {
       case let valDeclType as LambdaType:
-        output = CXXTypeExpr(valDeclType.output, ast: valFunctionDecl.whole.ast, asReturnType: true)!
+        output = CXXTypeExpr(valDeclType.output, ast: program.ast, asReturnType: true)!
 
       case is MethodType:
         fatalError("not implemented")
@@ -73,7 +73,7 @@ public struct CXXModule : TypedChecked {
     var cxxParams: [CXXFunctionDecl.Parameter] = []
     for (i, param) in valFunctionDecl.parameters.enumerated() {
       let name = CXXIdentifier(param.name)
-      let type = CXXTypeExpr(paramTypes[i].type, ast: valFunctionDecl.whole.ast)
+      let type = CXXTypeExpr(paramTypes[i].type, ast: program.ast)
       cxxParams.append(CXXFunctionDecl.Parameter(name, type!))
     }
 

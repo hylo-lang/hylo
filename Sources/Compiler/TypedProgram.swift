@@ -61,7 +61,7 @@ extension TypedProgram {
   @dynamicMemberLookup
   public struct SomeNode<ID: NodeIDProtocol> : Hashable {
     /// The whole program of which this node is a notional part.
-    let whole: TypedProgram
+    fileprivate let whole: TypedProgram
 
     /// The node's identity in `whole.ast`.
     let id: ID
