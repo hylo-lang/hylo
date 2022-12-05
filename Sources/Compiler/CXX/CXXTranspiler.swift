@@ -23,7 +23,7 @@ public struct CXXTranspiler {
   }
 
   /// Emits the given top-level declaration into `module`.
-  mutating func emit(topLevel decl: TypedProgram.AnyDecl, into module: inout CXXModule) {
+  mutating func emit(topLevel decl: TypedNode<AnyDeclID>, into module: inout CXXModule) {
     switch decl.kind {
     case FunctionDecl.self:
       emit(function: Typed<FunctionDecl>(decl)!, into: &module)
@@ -153,7 +153,7 @@ public struct CXXTranspiler {
   // MARK: Expressions
 
   private mutating func emit(
-    expr: TypedProgram.AnyExpr,
+    expr: TypedNode<AnyExprID>,
     asLValue: Bool
   ) -> CXXRepresentable {
     if asLValue {
