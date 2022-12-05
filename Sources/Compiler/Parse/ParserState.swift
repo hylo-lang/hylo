@@ -202,7 +202,7 @@ struct ParserState {
 
       // Merge the leading angle bracket with attached operators.
       var upper = head.origin.upperBound
-      while let next = take(if: { $0.isOperatorToken && (upper == $0.origin.lowerBound) }) {
+      while let next = take(if: { $0.isOperatorPart && (upper == $0.origin.lowerBound) }) {
         upper = next.origin.upperBound
       }
 

@@ -142,6 +142,7 @@ extension NodeKind {
     TupleExpr.self,
     TupleMemberExpr.self,
     UnicodeScalarLiteralExpr.self,
+    WildcardExpr.self,
 
     // MARK: Patterns
     BindingPattern.self,

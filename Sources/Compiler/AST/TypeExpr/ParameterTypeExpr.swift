@@ -19,4 +19,7 @@ public struct ParameterTypeExpr: TypeExpr {
     self.bareType = bareType
   }
 
+  /// Indicates whether `convention` was synthesized.
+  public var isConventionSynthesized: Bool { convention.origin == nil }
+
 }

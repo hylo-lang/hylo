@@ -973,7 +973,7 @@ extension ScopedProgram {
     lambdaTypeExpr expr: NodeID<LambdaTypeExpr>,
     withState state: inout VisitorState
   ) {
-    if let environment = ast[expr].environment?.value {
+    if let environment = ast[expr].environment {
       visit(typeExpr: environment, withState: &state)
     }
     for parameter in ast[expr].parameters {

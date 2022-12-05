@@ -112,20 +112,24 @@ public struct Token {
 
   /// Indicates whether `self` may be in an operator
   ///
-  /// Use this property rather than testing `self.kind == .oper` as some operators (e.g., `==`) do
-  /// not have the kind `.oper`.
-  public var isOperatorToken: Bool {
+  /// Operators may be represented by one or more tokens of different kinds. For example, `<<` is
+  /// represented by two consecutive `.lAngle` tokens. Use this property to determine whether
+  /// `self` may be a token in such a sequence.
+  public var isOperatorPart: Bool {
     isOf(kind: [.oper, .ampersand, .assign, .equal, .pipe, .lAngle, .rAngle])
   }
 
   /// Indicates whether `self` is a suitable prefix operator head.
+  ///
+  /// - Note: `&` may not be at the start of a prefix operator. An expression prefixed by `&` is
+  ///   parsed as an in-place expression.
   public var isPrefixOperatorHead: Bool {
-    isOf(kind: [.oper, .rAngle, .equal, .pipe])
+    isOf(kind: [.oper, .equal, .pipe, .rAngle])
   }
 
   /// Indicates whether `self` is a suitable postfix operator head.
   public var isPostfixOperatorHead: Bool {
-    isOf(kind: [.oper, .lAngle, .equal, .pipe, .ampersand])
+    isOf(kind: [.oper, .ampersand, .equal, .pipe, .lAngle])
   }
 
   /// Indicates whether `self` is a declaration modifier.

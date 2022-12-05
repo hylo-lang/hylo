@@ -2205,7 +2205,7 @@ public struct TypeChecker {
 
     // Realize the lambda's environment.
     let environment: AnyType
-    if let environmentExpr = node.environment?.value {
+    if let environmentExpr = node.environment {
       guard let ty = realize(environmentExpr, inScope: scope) else { return nil }
       environment = ty.instance
     } else {
