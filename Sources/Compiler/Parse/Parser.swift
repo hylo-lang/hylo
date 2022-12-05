@@ -1977,7 +1977,19 @@ public enum Parser {
     }
 
     // Parse the method introducer, if any.
-    let introducer = try methodIntroducer.parse(&state)
+    let introducer: SourceRepresentable<ImplIntroducer>?
+    if state.peek()?.kind == .dot {
+      let backup = state.backup()
+      _ = state.take()
+      if let i = try methodIntroducer.parse(&state) {
+        introducer = i
+      } else {
+        state.restore(from: backup)
+        introducer = nil
+      }
+    } else {
+      introducer = nil
+    }
 
     return SourceRepresentable(
       value: Name(
