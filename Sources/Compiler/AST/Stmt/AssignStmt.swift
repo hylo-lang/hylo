@@ -1,5 +1,5 @@
-/// An assignment expression.
-public struct AssignExpr: Expr {
+/// An assignment statement.
+public struct AssignStmt: Stmt {
 
   public let origin: SourceRange?
 

@@ -96,6 +96,16 @@ struct ParserState {
       && lexer.source.contents[currentIndex].isWhitespace
   }
 
+
+  /// Returns whether there are whitespaces before *and* after `token`.
+  mutating func hasLeadingAndTrailingWhitespaces(_ token: Token) -> Bool {
+    guard
+      let a = lexer.source.contents.prefix(upTo: token.origin.lowerBound).last,
+      let b = lexer.source.contents.suffix(from: token.origin.upperBound).first
+    else { return false }
+    return a.isWhitespace && b.isWhitespace
+  }
+
   /// Returns whether there is a new line in the character stream before `bound`.
   mutating func hasNewline(before bound: Token) -> Bool {
     lexer.source.contents[currentIndex ..< bound.origin.lowerBound]

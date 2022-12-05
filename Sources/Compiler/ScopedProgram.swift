@@ -509,8 +509,6 @@ extension ScopedProgram {
 
   private mutating func visit(expr: AnyExprID, withState state: inout VisitorState) {
     switch expr.kind {
-    case AssignExpr.self:
-      visit(assignExpr: NodeID(rawValue: expr.rawValue), withState: &state)
     case BooleanLiteralExpr.self:
       break
     case BufferLiteralExpr.self:
@@ -556,14 +554,6 @@ extension ScopedProgram {
     default:
       unreachable("unexpected expression")
     }
-  }
-
-  private mutating func visit(
-    assignExpr expr: NodeID<AssignExpr>,
-    withState state: inout VisitorState
-  ) {
-    visit(expr: ast[expr].left, withState: &state)
-    visit(expr: ast[expr].right, withState: &state)
   }
 
   private mutating func visit(
@@ -788,6 +778,8 @@ extension ScopedProgram {
 
   private mutating func visit(stmt: AnyStmtID, withState state: inout VisitorState) {
     switch stmt.kind {
+    case AssignStmt.self:
+      visit(assignStmt: NodeID(rawValue: stmt.rawValue), withState: &state)
     case BraceStmt.self:
       visit(braceStmt: NodeID(rawValue: stmt.rawValue), withState: &state)
     case BraceStmt.self:
@@ -815,6 +807,14 @@ extension ScopedProgram {
     default:
       unreachable("unexpected statement")
     }
+  }
+
+  private mutating func visit(
+    assignStmt stmt: NodeID<AssignStmt>,
+    withState state: inout VisitorState
+  ) {
+    visit(expr: ast[stmt].left, withState: &state)
+    visit(expr: ast[stmt].right, withState: &state)
   }
 
   private mutating func visit(

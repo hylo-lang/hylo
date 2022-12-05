@@ -1557,6 +1557,12 @@ final class ParserTests: XCTestCase {
 
   // MARK: Statements
 
+  func testAssignStmt() throws {
+    let input = SourceFile(contents: "foo = bar")
+    let (stmtID, ast) = try apply(Parser.stmt, on: input)
+    XCTAssert(ast[stmtID] is AssignStmt)
+  }
+
   func testBraceStmtEmpty() throws {
     let input = SourceFile(contents: "{}")
     XCTAssertNotNil(try apply(Parser.braceStmt, on: input).element)

@@ -1456,12 +1456,6 @@ public enum Parser {
         continue
       }
 
-      // infix-operator-tail (with assign)
-      if let infixOperator = state.take(.assign) {
-        try appendInfixTail(to: &lhs, forAssignOperator: infixOperator, in: &state)
-        continue
-      }
-
       // infix-operator-tail
       if try !appendInfixTail(to: &lhs, in: &state) { break }
     }
@@ -1501,28 +1495,6 @@ public enum Parser {
         left: lhs,
         right: rhs,
         kind: castKind,
-        origin: state.ast[lhs].origin!.extended(upTo: state.currentIndex)))
-    lhs = AnyExprID(expr)
-  }
-
-  /// Parses a prefix expression from the stream, then transforms `lhs` into an `AssignExpr`.
-  private static func appendInfixTail(
-    to lhs: inout AnyExprID,
-    forAssignOperator infixOperator: Token,
-    in state: inout ParserState
-  ) throws {
-    if !state.hasLeadingWhitespace {
-      state.diagnostics.append(.diagnose(infixOperatorRequiresWhitespacesAt: infixOperator.origin))
-    }
-
-    guard let rhs = try parsePrefixExpr(in: &state) else {
-      throw DiagnosedError(expected("expression", at: state.currentLocation))
-    }
-
-    let expr = try state.ast.insert(
-      wellFormed: AssignExpr(
-        left: lhs,
-        right: rhs,
         origin: state.ast[lhs].origin!.extended(upTo: state.currentIndex)))
     lhs = AnyExprID(expr)
   }
@@ -2905,12 +2877,33 @@ public enum Parser {
       })
   )
 
-  static let exprStmt = (
-    expr
-      .map({ (state, expr) -> NodeID<ExprStmt> in
-        try state.ast.insert(wellFormed: ExprStmt(expr: expr, origin: state.ast[expr].origin))
-      })
-  )
+  static let exprStmt = Apply(parseExprOrAssignStmt(in:))
+
+  private static func parseExprOrAssignStmt(in state: inout ParserState) throws -> AnyStmtID? {
+    guard let lhs = try expr.parse(&state) else { return nil }
+
+    // Return an expression statement unless the next token is `=`.
+    guard let assign = state.take(.assign) else {
+      let stmt = try state.ast.insert(
+        wellFormed: ExprStmt(expr: lhs, origin: state.ast[lhs].origin))
+      return AnyStmtID(stmt)
+    }
+
+    if !state.hasLeadingAndTrailingWhitespaces(assign) {
+      state.diagnostics.append(.diagnose(assignOperatorRequiresWhitespaces: assign))
+    }
+
+    guard let rhs = try parsePrefixExpr(in: &state) else {
+      throw DiagnosedError(expected("expression", at: state.currentLocation))
+    }
+
+    let stmt = try state.ast.insert(
+      wellFormed: AssignStmt(
+        left: lhs,
+        right: rhs,
+        origin: state.range(from: state.ast[lhs].origin!.lowerBound)))
+    return AnyStmtID(stmt)
+  }
 
   // MARK: Type expressions
 
@@ -3564,6 +3557,10 @@ fileprivate extension SourceRepresentable where Part == Identifier {
 }
 
 fileprivate extension Diagnostic {
+
+  static func diagnose(assignOperatorRequiresWhitespaces token: Token) -> Diagnostic {
+    .error("infix operator requires whitespaces on both sides", range: token.origin)
+  }
 
   static func diagnose(expected kind: Token.Kind, at location: SourceLocation) -> Diagnostic {
     .error("expected '\(kind)'", range: location ..< location)

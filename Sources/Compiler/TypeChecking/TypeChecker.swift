@@ -986,6 +986,9 @@ public struct TypeChecker {
     inScope lexicalContext: S
   ) -> Bool {
     switch id.kind {
+    case AssignStmt.self:
+      return check(assign: NodeID(rawValue: id.rawValue), inScope: lexicalContext)
+
     case BraceStmt.self:
       return check(brace: NodeID(rawValue: id.rawValue))
 
@@ -1029,6 +1032,33 @@ public struct TypeChecker {
       success = check(stmt: stmt, inScope: id) && success
     }
     return success
+  }
+
+  private mutating func check<S: ScopeID>(
+    assign id: NodeID<AssignStmt>,
+    inScope lexicalContext: S
+  ) -> Bool {
+    // Infer the type on the left.
+    guard let lhsType = infer(expr: program.ast[id].left, inScope: lexicalContext) else {
+      return false
+    }
+
+    // Constrain the right to be subtype of the left.
+    let rhsType = ^TypeVariable(node: AnyNodeID(program.ast[id].right))
+    let assignmentConstraint = equalityOrSubtypingConstraint(
+      rhsType,
+      lhsType,
+      because: ConstraintCause(.initializationOrAssignment, at: program.ast[id].origin))
+
+    // Infer the type on the right.
+    let solution = infer(
+      expr: AnyExprID(program.ast[id].right),
+      inferredType: rhsType,
+      expectedType: lhsType,
+      inScope: AnyScopeID(lexicalContext),
+      constraints: [assignmentConstraint])
+
+    return solution.diagnostics.isEmpty
   }
 
   private mutating func check<S: ScopeID>(

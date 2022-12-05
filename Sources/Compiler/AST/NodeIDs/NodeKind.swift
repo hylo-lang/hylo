@@ -120,7 +120,6 @@ extension NodeKind {
     VarDecl.self,
 
     // MARK: Value expressions
-    AssignExpr.self,
     BooleanLiteralExpr.self,
     BufferLiteralExpr.self,
     CastExpr.self,
@@ -152,6 +151,7 @@ extension NodeKind {
     WildcardPattern.self,
 
     // MARK: Statements
+    AssignStmt.self,
     BraceStmt.self,
     BreakStmt.self,
     CondBindingStmt.self,
