@@ -942,7 +942,7 @@ extension ScopedProgram {
       visit(tupleTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
     case UnionTypeExpr.self:
       visit(unionTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
-    case WildcardTypeExpr.self:
+    case WildcardExpr.self:
       break
     default:
       unreachable("unexpected type expression")

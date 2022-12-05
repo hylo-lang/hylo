@@ -2040,7 +2040,7 @@ public struct TypeChecker {
     case TupleTypeExpr.self:
       return realize(tuple: NodeID(rawValue: expr.rawValue), inScope: scope)
 
-    case WildcardTypeExpr.self:
+    case WildcardExpr.self:
       return MetatypeType(of: TypeVariable(node: expr.base))
 
     default:
