@@ -269,6 +269,8 @@ public struct Emitter {
   /// Emits the given statement into `module` at the current insertion point.
   private mutating func emit<T: StmtID>(stmt: T, into module: inout Module) {
     switch stmt.kind {
+    case AssignStmt.self:
+      emit(assign: NodeID(rawValue: stmt.rawValue), into: &module)
     case BraceStmt.self:
       emit(brace: NodeID(rawValue: stmt.rawValue), into: &module)
     case DeclStmt.self:
@@ -280,6 +282,13 @@ public struct Emitter {
     default:
       unreachable("unexpected statement")
     }
+  }
+
+  private mutating func emit(assign stmt: NodeID<AssignStmt>, into module: inout Module) {
+    let rhs = emitR(expr: program.ast[stmt].right, into: &module)
+    // FIXME: Should request the capability 'set or inout'.
+    let lhs = emitL(expr: program.ast[stmt].left, withCapability: .set, into: &module)
+    _ = module.insert(StoreInst(rhs, to: lhs), at: insertionPoint!)
   }
 
   private mutating func emit(brace stmt: NodeID<BraceStmt>, into module: inout Module) {
@@ -331,8 +340,6 @@ public struct Emitter {
     }
 
     switch expr.kind {
-    case AssignExpr.self:
-      return emitR(assign: NodeID(rawValue: expr.rawValue), into: &module)
     case BooleanLiteralExpr.self:
       return emitR(booleanLiteral: NodeID(rawValue: expr.rawValue), into: &module)
     case CondExpr.self:
@@ -348,17 +355,6 @@ public struct Emitter {
     default:
       unreachable("unexpected expression")
     }
-  }
-
-  private mutating func emitR(
-    assign expr: NodeID<AssignExpr>,
-    into module: inout Module
-  ) -> Operand {
-    let rhs = emitR(expr: program.ast[expr].right, into: &module)
-    // FIXME: Should request the capability 'set or inout'.
-    let lhs = emitL(expr: program.ast[expr].left, withCapability: .set, into: &module)
-    _ = module.insert(StoreInst(rhs, to: lhs), at: insertionPoint!)
-    return .constant(.void)
   }
 
   private mutating func emitR(

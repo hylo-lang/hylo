@@ -173,12 +173,6 @@ struct CaptureCollector {
     inMutatingContext isContextMutating: Bool
   ) {
     switch id.kind {
-    case AssignExpr.self:
-      collectCaptures(
-        ofAssign: NodeID(rawValue: id.rawValue),
-        into: &captures,
-        inMutatingContext: isContextMutating)
-
     case CastExpr.self:
       collectCaptures(
         ofCast: NodeID(rawValue: id.rawValue),
@@ -239,15 +233,6 @@ struct CaptureCollector {
     default:
       unreachable("unexpected expression")
     }
-  }
-
-  private mutating func collectCaptures(
-    ofAssign id: NodeID<AssignExpr>,
-    into captures: inout FreeSet,
-    inMutatingContext isContextMutating: Bool
-  ) {
-    collectCaptures(ofExpr: ast[id].left, into: &captures, inMutatingContext: true)
-    collectCaptures(ofExpr: ast[id].right, into: &captures, inMutatingContext: false)
   }
 
   private mutating func collectCaptures(
@@ -459,6 +444,8 @@ struct CaptureCollector {
     into captures: inout FreeSet
   ) {
     switch id.kind {
+    case AssignStmt.self:
+      collectCaptures(ofAssign: NodeID(rawValue: id.rawValue), into: &captures)
     case BraceStmt.self:
       collectCaptures(ofBrace: NodeID(rawValue: id.rawValue), into: &captures)
     case DoWhileStmt.self:
@@ -480,6 +467,14 @@ struct CaptureCollector {
     default:
       unreachable("unexpected statement")
     }
+  }
+
+  private mutating func collectCaptures(
+    ofAssign id: NodeID<AssignStmt>,
+    into captures: inout FreeSet
+  ) {
+    collectCaptures(ofExpr: ast[id].left, into: &captures, inMutatingContext: true)
+    collectCaptures(ofExpr: ast[id].right, into: &captures, inMutatingContext: false)
   }
 
   private mutating func collectCaptures(
