@@ -1,7 +1,7 @@
 import Utils
 
 /// A Val to C++ transpiler.
-public struct CXXTranspiler : TypedChecked {
+public struct CXXTranspiler {
 
   /// The program being transpiled.
   public let program: TypedProgram
@@ -14,7 +14,7 @@ public struct CXXTranspiler : TypedChecked {
   // MARK: API
 
   /// Emits the C++ module corresponding to the Val module identified by `decl`.
-  public mutating func emit(module decl: TypedModuleDecl) -> CXXModule {
+  public mutating func emit(module decl: Typed<ModuleDecl>) -> CXXModule {
     var module = CXXModule(decl, for: program)
     for member in decl.topLevelDecls {
       emit(topLevel: member, into: &module)
@@ -23,17 +23,17 @@ public struct CXXTranspiler : TypedChecked {
   }
 
   /// Emits the given top-level declaration into `module`.
-  mutating func emit(topLevel decl: AnyTypedDecl, into module: inout CXXModule) {
+  mutating func emit(topLevel decl: TypedProgram.AnyDecl, into module: inout CXXModule) {
     switch decl.kind {
     case FunctionDecl.self:
-      emit(function: TypedFunctionDecl(decl)!, into: &module)
+      emit(function: Typed<FunctionDecl>(decl)!, into: &module)
     default:
       unreachable("unexpected declaration")
     }
   }
 
   /// Emits the given function declaration into `module`.
-  public mutating func emit(function decl: TypedFunctionDecl, into module: inout CXXModule) {
+  public mutating func emit(function decl: Typed<FunctionDecl>, into module: inout CXXModule) {
     // Declare the function in the module if necessary.
     let id = module.getOrCreateFunction(correspondingTo: decl)
 
@@ -44,7 +44,7 @@ public struct CXXTranspiler : TypedChecked {
   }
 
   /// Translate the function body into a CXX entity.
-  private mutating func emit(funBody body: TypedFunctionDecl.Body) -> CXXRepresentable {
+  private mutating func emit(funBody body: Typed<FunctionDecl>.Body) -> CXXRepresentable {
     switch body {
     case .block(let stmt):
       return emit(brace: stmt)
@@ -57,7 +57,7 @@ public struct CXXTranspiler : TypedChecked {
 
   // MARK: Declarations
 
-  private mutating func emit(localBinding decl: TypedBindingDecl) -> CXXRepresentable {
+  private mutating func emit(localBinding decl: Typed<BindingDecl>) -> CXXRepresentable {
     let pattern = decl.pattern
 
     switch pattern.introducer.value {
@@ -70,13 +70,13 @@ public struct CXXTranspiler : TypedChecked {
     }
   }
 
-  private mutating func emit(storedLocalBinding decl: TypedBindingDecl) -> CXXRepresentable {
+  private mutating func emit(storedLocalBinding decl: Typed<BindingDecl>) -> CXXRepresentable {
     return CXXComment(comment: "local binding")
   }
 
   /// Emits borrowed bindings.
   private mutating func emit(
-    borrowedLocalBinding decl: TypedBindingDecl,
+    borrowedLocalBinding decl: Typed<BindingDecl>,
     withCapability capability: RemoteType.Capability
   ) -> CXXRepresentable {
     // There's nothing to do if there's no initializer.
@@ -110,22 +110,22 @@ public struct CXXTranspiler : TypedChecked {
   // MARK: Statements
 
   /// Emits the given statement into `module` at the current insertion point.
-  private mutating func emit<T: StmtID>(stmt: TypedProgram.SomeNode<T>) -> CXXRepresentable {
+  private mutating func emit<ID: StmtID>(stmt: TypedNode<ID>) -> CXXRepresentable {
     switch stmt.kind {
     case BraceStmt.self:
-      return emit(brace: TypedBraceStmt(stmt)!)
+      return emit(brace: Typed<BraceStmt>(stmt)!)
     case DeclStmt.self:
-      return emit(declStmt: TypedDeclStmt(stmt)!)
+      return emit(declStmt: Typed<DeclStmt>(stmt)!)
     case ExprStmt.self:
-      return emit(exprStmt: TypedExprStmt(stmt)!)
+      return emit(exprStmt: Typed<ExprStmt>(stmt)!)
     case ReturnStmt.self:
-      return emit(returnStmt: TypedReturnStmt(stmt)!)
+      return emit(returnStmt: Typed<ReturnStmt>(stmt)!)
     default:
       unreachable("unexpected statement")
     }
   }
 
-  private mutating func emit(brace stmt: TypedBraceStmt) -> CXXRepresentable {
+  private mutating func emit(brace stmt: Typed<BraceStmt>) -> CXXRepresentable {
     var stmts: [CXXRepresentable] = []
     for s in stmt.stmts {
       stmts.append(emit(stmt: s))
@@ -133,27 +133,27 @@ public struct CXXTranspiler : TypedChecked {
     return CXXScopedBlock(stmts: stmts)
   }
 
-  private mutating func emit(declStmt stmt: TypedDeclStmt) -> CXXRepresentable {
+  private mutating func emit(declStmt stmt: Typed<DeclStmt>) -> CXXRepresentable {
     switch stmt.decl.kind {
     case BindingDecl.self:
-      return emit(localBinding: TypedBindingDecl(stmt.decl)!)
+      return emit(localBinding: Typed<BindingDecl>(stmt.decl)!)
     default:
       unreachable("unexpected declaration")
     }
   }
 
-  private mutating func emit(exprStmt stmt: TypedExprStmt) -> CXXRepresentable {
+  private mutating func emit(exprStmt stmt: Typed<ExprStmt>) -> CXXRepresentable {
     return CXXComment(comment: "expr stmt")
   }
 
-  private mutating func emit(returnStmt stmt: TypedReturnStmt) -> CXXRepresentable {
+  private mutating func emit(returnStmt stmt: Typed<ReturnStmt>) -> CXXRepresentable {
     return CXXComment(comment: "return stmt")
   }
 
   // MARK: Expressions
 
   private mutating func emit(
-    expr: AnyTypedExpr,
+    expr: TypedProgram.AnyExpr,
     asLValue: Bool
   ) -> CXXRepresentable {
     if asLValue {

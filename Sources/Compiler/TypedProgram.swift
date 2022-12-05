@@ -88,6 +88,12 @@ extension TypedProgram {
   }
 }
 
+/// An AST node with type information.
+public typealias Typed<T: AST.Node> = TypedProgram.Node<T>
+
+/// An AST node with type information, introduced from node ID.
+public typealias TypedNode<ID: NodeIDProtocol> = TypedProgram.SomeNode<ID>
+
 extension TypedProgram.SomeNode where ID: ConcreteNodeID {
   
   /// The corresponding AST node.

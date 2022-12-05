@@ -1,10 +1,10 @@
 import Utils
 
 /// A C++ module.
-public struct CXXModule : TypedChecked {
+public struct CXXModule {
 
   /// The module's declaration in Val's AST.
-  public let valDecl: TypedModuleDecl
+  public let valDecl: Typed<ModuleDecl>
 
   /// The typed program for wich we are constructing the CXX translation.
   public let program: TypedProgram
@@ -17,9 +17,9 @@ public struct CXXModule : TypedChecked {
   public private(set) var cxxFunctionBodies: [CXXRepresentable?] = []
 
   /// A table mapping val function declarations to the ID of the corresponding C++ declaration.
-  private var valToCXXFunction: [TypedFunctionDecl: Int] = [:]
+  private var valToCXXFunction: [Typed<FunctionDecl>: Int] = [:]
 
-  public init(_ decl: TypedModuleDecl, for program: TypedProgram) {
+  public init(_ decl: Typed<ModuleDecl>, for program: TypedProgram) {
     self.valDecl = decl
     self.program = program
   }
@@ -28,7 +28,7 @@ public struct CXXModule : TypedChecked {
   ///
   /// - Requires: `valFunctionDecl` must be declared in `self.decl`.
   public mutating func getOrCreateFunction(
-    correspondingTo valFunctionDecl: TypedFunctionDecl
+    correspondingTo valFunctionDecl: Typed<FunctionDecl>
   ) -> CXXFunctionDecl.ID {
     if let cxxFunctionDecl = valToCXXFunction[valFunctionDecl] { return cxxFunctionDecl }
 
