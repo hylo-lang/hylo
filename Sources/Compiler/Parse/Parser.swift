@@ -1555,7 +1555,7 @@ public enum Parser {
 
   private static func parsePrefixExpr(in state: inout ParserState) throws -> AnyExprID? {
     // Attempt to parse a prefix operator.
-    if state.peekAndTest({ $0.isPrefixOperatorHead }) {
+    if state.isNext(satisfying: { $0.isPrefixOperatorHead }) {
       let op = state.takeOperator()!
 
       // Parse an operand.
@@ -1614,7 +1614,7 @@ public enum Parser {
     if state.hasLeadingWhitespace { return operand }
 
     // Parse a postfix operator.
-    if state.peekAndTest({ $0.isPostfixOperatorHead }) {
+    if state.isNext(satisfying: { $0.isPostfixOperatorHead }) {
       let op = state.takeOperator()!
 
       let callee = try state.ast.insert(
@@ -1899,13 +1899,76 @@ public enum Parser {
     // Parse the name of the component.
     guard let name = try parseEntityName(in: &state) else { return nil }
 
-    // Parse the arguments, if any.
-    let arguments = try staticArgumentList.parse(&state)
+    // If the next token is a left angle bracket, without any leading whitespace, parse a static
+    // argument list.
+    let arguments: [GenericArgument]
+    if !state.hasLeadingWhitespace && state.isNext(.lAngle) {
+      arguments = try expect(
+        "static argument list",
+        in: &state,
+        parsedWith: parseStaticArgumentList(in:))
+    } else {
+      arguments = []
+    }
 
     return NameExprComponent(
       origin: name.origin!.extended(upTo: state.currentIndex),
       name: name,
-      arguments: arguments ?? [])
+      arguments: arguments)
+  }
+
+  private static func parseStaticArgumentList(
+    in state: inout ParserState
+  ) throws -> [GenericArgument]? {
+    // Parse the opening angle.
+    guard let opener = state.take(.lAngle) else { return nil }
+
+    // Parse the elements.
+    var elements: [GenericArgument] = []
+    var hasTrailingSeparator = false
+
+    while true {
+      // Parse one element.
+      if let element = try staticArgument.parse(&state) {
+        elements.append(element)
+
+        // Look for a separator.
+        hasTrailingSeparator = false
+        if state.take(.comma) != nil {
+          hasTrailingSeparator = true
+          continue
+        }
+      }
+
+      // If we get here, we either parsed an element not followed by a separator (1), or we got a
+      // soft failure and didn't consume anything from the stream (2). In both case, we should
+      // expect the right delimiter.
+      if state.take(.rAngle) != nil { break }
+
+      // If we got here by (2) but didn't parse any element yet, diagnose a missing delimiter and
+      // exit the loop.
+      if elements.isEmpty {
+        state.diagnostics.append(expected(">", matching: opener, in: state))
+        break
+      }
+
+      // If we got here by (1), diagnose a missing separator and try to parse the next element
+      // unless we reached EOF. Otherwise, diagnose a missing expression and exit.
+      if !hasTrailingSeparator {
+        if let head = state.peek() {
+          state.diagnostics.append(expected("',' separator", at: head.origin.first()))
+          continue
+        } else {
+          state.diagnostics.append(expected(">", matching: opener, in: state))
+          break
+        }
+      } else {
+        state.diagnostics.append(expected("expression", at: state.currentLocation))
+        break
+      }
+    }
+
+    return elements
   }
 
   private static func parseEntityName(
@@ -2976,12 +3039,7 @@ public enum Parser {
     .yielded: PassingConvention.yielded,
   ])
 
-  static let staticArgumentList = (
-    take(.lAngle)
-      .and(staticArgument.and(zeroOrMany(take(.comma).and(staticArgument).second)))
-      .and(take(.rAngle))
-      .map({ (_, tree) -> [GenericArgument] in [tree.0.1.0] + tree.0.1.1 })
-  )
+  static let staticArgumentList = Apply(parseStaticArgumentList(in:))
 
   static let staticArgument = (
     Apply<ParserState, GenericArgument>({ (state) in
@@ -3257,6 +3315,22 @@ public enum Parser {
     children: [Diagnostic] = []
   ) -> Diagnostic {
     .error("expected \(subject)", range: location ..< location, children: children)
+  }
+
+  private static func expected(
+    _ closerDescription: String,
+    matching opener: Token,
+    in state: ParserState
+  ) -> Diagnostic {
+    expected(
+      "'\(closerDescription)'",
+      at: state.currentLocation,
+      children: [
+        .error(
+          "to match this '\(state.lexer.source[opener.origin])'",
+          range: opener.origin)
+      ]
+    )
   }
 
   private static func diagnose(

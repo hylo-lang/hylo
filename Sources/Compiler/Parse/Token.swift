@@ -129,7 +129,7 @@ public struct Token {
 
   /// Indicates whether `self` is a suitable postfix operator head.
   public var isPostfixOperatorHead: Bool {
-    isOf(kind: [.oper, .ampersand, .equal, .pipe, .lAngle])
+    isOf(kind: [.oper, .ampersand, .equal, .pipe])
   }
 
   /// Indicates whether `self` is a declaration modifier.

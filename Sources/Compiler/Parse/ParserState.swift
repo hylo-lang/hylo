@@ -138,8 +138,13 @@ struct ParserState {
     return token
   }
 
+  /// Returns whether the next token has the specified kind, or `false` if the stream is empty.
+  mutating func isNext(_ kind: Token.Kind) -> Bool {
+    peek()?.kind == kind
+  }
+
   /// Returns whether the next token satisfies `predicate`, or `false` if the stream is empty.
-  mutating func peekAndTest(_ predicate: (Token) -> Bool) -> Bool {
+  mutating func isNext(satisfying predicate: (Token) -> Bool) -> Bool {
     if let token = peek() {
       return predicate(token)
     } else {
@@ -161,7 +166,7 @@ struct ParserState {
     return token
   }
 
-  /// Consumes and returns the next token, only if it has the specified kind.
+  /// Consumes and returns the next token it has the specified kind.
   mutating func take(_ kind: Token.Kind) -> Token? {
     if peek()?.kind == kind {
       let token = lookahead.removeFirst()
@@ -179,7 +184,7 @@ struct ParserState {
     return take(kind)
   }
 
-  /// Consumes and returns the next token, if it has the specified predicate.
+  /// Consumes and returns the next token if it satisfies the specified predicate.
   mutating func take(if predicate: (Token) -> Bool) -> Token? {
     if let token = peek(), predicate(token) {
       let token = lookahead.removeFirst()
