@@ -351,12 +351,7 @@ struct CaptureCollector {
     }
 
     for argument in ast[id].arguments {
-      switch argument.value {
-      case .expr(let expr):
-        collectCaptures(ofExpr: expr, into: &captures, inMutatingContext: false)
-      case .type(let expr):
-        collectCaptures(ofTypeExpr: expr, into: &captures)
-      }
+      collectCaptures(ofExpr: argument.value, into: &captures, inMutatingContext: false)
     }
   }
 
@@ -566,12 +561,7 @@ struct CaptureCollector {
     }
 
     for argument in ast[id].arguments {
-      switch argument.value {
-      case .expr(let expr):
-        collectCaptures(ofExpr: expr, into: &captures, inMutatingContext: false)
-      case .type(let expr):
-        collectCaptures(ofTypeExpr: expr, into: &captures)
-      }
+      collectCaptures(ofExpr: argument.value, into: &captures, inMutatingContext: false)
     }
   }
 

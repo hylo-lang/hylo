@@ -718,12 +718,7 @@ extension ScopedProgram {
       visit(expr: domain, withState: &state)
     }
     for argument in ast[expr].arguments {
-      switch argument.value {
-      case let .expr(i):
-        visit(expr: i, withState: &state)
-      case let .type(i):
-        visit(expr: i, withState: &state)
-      }
+      visit(expr: argument.value, withState: &state)
     }
   }
 

@@ -23,12 +23,12 @@ public struct NameExpr: Expr {
   public let name: SourceRepresentable<Name>
 
   /// The type and value arguments of the referred entity.
-  public let arguments: [GenericArgument]
+  public let arguments: [LabeledArgument]
 
   public init(
     domain: Domain = .none,
     name: SourceRepresentable<Name>,
-    arguments: [GenericArgument] = [],
+    arguments: [LabeledArgument] = [],
     origin: SourceRange?
   ) {
     self.origin = origin

@@ -2093,15 +2093,9 @@ public struct TypeChecker {
     // Evaluate the static argument list.
     var arguments: [BoundGenericType.Argument] = []
     for a in program.ast[expr].arguments {
-      switch a.value {
-      case .expr(let a):
-        // TODO: Symbolic execution
-        arguments.append(.value(a))
-
-      case .type(let a):
-        guard let type = realize(a, inScope: scope)?.instance else { return nil }
-        arguments.append(.type(type))
-      }
+      // TODO: Symbolic execution
+      guard let type = realize(a.value, inScope: scope)?.instance else { return nil }
+      arguments.append(.type(type))
     }
 
     // Determine the "magic" type expression to realize.
@@ -2372,15 +2366,9 @@ public struct TypeChecker {
       var arguments: [BoundGenericType.Argument] = []
 
       for a in program.ast[id].arguments {
-        switch a.value {
-        case .expr(let a):
-          // TODO: Symbolic execution
-          arguments.append(.value(a))
-
-        case .type(let a):
-          guard let type = realize(a, inScope: scope)?.instance else { return nil }
-          arguments.append(.type(type))
-        }
+        // TODO: Symbolic execution
+        guard let type = realize(a.value, inScope: scope)?.instance else { return nil }
+        arguments.append(.type(type))
       }
 
       return MetatypeType(of: BoundGenericType(referredType.instance, arguments: arguments))

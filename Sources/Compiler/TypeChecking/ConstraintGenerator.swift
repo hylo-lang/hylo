@@ -763,7 +763,7 @@ struct ConstraintGenerator {
     callee: AnyExprID,
     calleeType: LambdaType,
     calleeTypeConstraints: ConstraintSet,
-    arguments: [CallArgument],
+    arguments: [LabeledArgument],
     using checker: inout TypeChecker
   ) -> AnyType {
     // Collect the argument labels.
