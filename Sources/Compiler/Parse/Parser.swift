@@ -259,7 +259,7 @@ public enum Parser {
       if prologue.isEmpty {
         return nil
       } else {
-        throw DiagnosedError(expected("declaration", at: state.currentLocation))
+        throw DiagnosedError(.diagnose(expected: "declaration", at: state.currentLocation))
       }
     }
 
@@ -283,7 +283,7 @@ public enum Parser {
   ) throws -> [AnyDeclID] {
     // Parse the left delimiter.
     guard let opener = state.take(.lBrace) else {
-      throw DiagnosedError(expected("'{'", at: state.currentLocation))
+      throw DiagnosedError(.diagnose(expected: "'{'", at: state.currentLocation))
     }
 
     // Push the context.
@@ -314,8 +314,8 @@ public enum Parser {
       // delimiter and exit.
       guard let head = state.take() else {
         state.diagnostics.append(
-          expected(
-            "'}'",
+          .diagnose(
+            expected: "'}'",
             at: state.currentLocation,
             children: [.error("to match this '{'", range: opener.origin)]
         ))
@@ -323,7 +323,7 @@ public enum Parser {
       }
 
       // Diagnose the error.
-      state.diagnostics.append(expected("declaration", at: head.origin.first()))
+      state.diagnostics.append(.diagnose(expected: "declaration", at: head.origin.first()))
 
       // Skip tokens until we find a right delimiter or the start of another declaration.
       state.skip(while: { (next) in !next.mayBeginDecl && (next.kind != .rBrace) })
@@ -820,7 +820,7 @@ public enum Parser {
       in: &state,
       asNonStaticMember: state.atTypeScope && !prologue.isStatic)
     else {
-      throw DiagnosedError(expected("'{'", at: state.currentLocation))
+      throw DiagnosedError(.diagnose(expected: "'{'", at: state.currentLocation))
     }
 
     // Create a new `SubscriptDecl`.
@@ -853,7 +853,7 @@ public enum Parser {
       in: &state,
       asNonStaticMember: state.atTypeScope && !prologue.isStatic)
     else {
-      throw DiagnosedError(expected("'{'", at: state.currentLocation))
+      throw DiagnosedError(.diagnose(expected: "'{'", at: state.currentLocation))
     }
 
     // Create a new `SubscriptDecl`.
@@ -1383,7 +1383,8 @@ public enum Parser {
         return (label: name, name: name)
       }
 
-      throw DiagnosedError(expected("parameter name", at: labelCandidate.origin.first()))
+      throw DiagnosedError(
+        .diagnose(expected: "parameter name", at: labelCandidate.origin.first()))
     })
   )
 
@@ -1477,7 +1478,7 @@ public enum Parser {
     }
 
     guard let rhs = try expr.parse(&state) else {
-      throw DiagnosedError(expected("type expression", at: state.currentLocation))
+      throw DiagnosedError(.diagnose(expected: "type expression", at: state.currentLocation))
     }
 
     let castKind: CastExpr.Kind
@@ -1668,7 +1669,7 @@ public enum Parser {
           continue
         }
 
-        throw DiagnosedError(expected("member name", at: state.currentLocation))
+        throw DiagnosedError(.diagnose(expected: "member name", at: state.currentLocation))
       }
 
       // Handle conformance lens expressions.
@@ -1686,22 +1687,11 @@ public enum Parser {
       }
 
       // Exit if there's a new line before the next token.
-      guard let next = state.peek(),
-            !state.hasNewline(before: next)
-      else { break }
+      guard let next = state.peek(), !state.hasNewline(before: next) else { break }
 
       // Handle function calls.
-      if let argumentListOpener = state.take(.lParen) {
-        let arguments = try parseCallArgumentListContents(in: &state) ?? []
-
-        if state.take(.rParen) == nil {
-          state.diagnostics.append(
-            expected(
-              "')'",
-              at: state.currentLocation,
-              children: [.error("to match this '('", range: argumentListOpener.origin)]))
-        }
-
+      if next.kind == .lParen {
+        let arguments = try parseFunctionCallArgumentList(in: &state)!
         let expr = try state.ast.insert(
           wellFormed: FunCallExpr(
             callee: head,
@@ -1711,18 +1701,9 @@ public enum Parser {
         continue
       }
 
-      // Handle function calls.
-      if let argumentListOpener = state.take(.lBrack) {
-        let arguments = try parseCallArgumentListContents(in: &state) ?? []
-
-        if state.take(.rBrack) == nil {
-          state.diagnostics.append(
-            expected(
-              "']'",
-              at: state.currentLocation,
-              children: [.error("to match this '['", range: argumentListOpener.origin)]))
-        }
-
+      // Handle subscript calls.
+      if next.kind == .lBrack {
+        let arguments = try parseSubscriptCallArgumentList(in: &state)!
         let expr = try state.ast.insert(
           wellFormed: SubscriptCallExpr(
             callee: head,
@@ -1743,7 +1724,7 @@ public enum Parser {
     if let converted = NodeID<NameExpr>(expr) {
       return converted
     } else {
-      throw DiagnosedError(expected("name", at: state.ast[expr].origin!.first()))
+      throw DiagnosedError(.diagnose(expected: "name", at: state.ast[expr].origin!.first()))
     }
   }
 
@@ -1903,7 +1884,7 @@ public enum Parser {
 
     // If the next token is a left angle bracket, without any leading whitespace, parse a static
     // argument list.
-    let arguments: [GenericArgument]
+    let arguments: [LabeledArgument]
     if !state.hasLeadingWhitespace && state.isNext(.lAngle) {
       arguments = try expect(
         "static argument list",
@@ -1919,58 +1900,76 @@ public enum Parser {
       arguments: arguments)
   }
 
+  private static let staticArgumentList = DelimitedCommaSeparatedList(
+    openerKind: .lAngle,
+    closerKind: .rAngle,
+    closerDescription: ">",
+    elementParser: Apply(parseArgument(in:)))
+
   private static func parseStaticArgumentList(
     in state: inout ParserState
-  ) throws -> [GenericArgument]? {
-    // Parse the opening angle.
-    guard let opener = state.take(.lAngle) else { return nil }
+  ) throws -> [LabeledArgument]? {
+    try parseArgumentList(in: &state, with: staticArgumentList)
+  }
 
-    // Parse the elements.
-    var elements: [GenericArgument] = []
-    var hasTrailingSeparator = false
+  private static let functionCallArgumentList = DelimitedCommaSeparatedList(
+    openerKind: .lParen,
+    closerKind: .rParen,
+    closerDescription: ")",
+    elementParser: Apply(parseArgument(in:)))
 
-    while true {
-      // Parse one element.
-      if let element = try staticArgument.parse(&state) {
-        elements.append(element)
+  private static func parseFunctionCallArgumentList(
+    in state: inout ParserState
+  ) throws -> [LabeledArgument]? {
+    try parseArgumentList(in: &state, with: functionCallArgumentList)
+  }
 
-        // Look for a separator.
-        hasTrailingSeparator = false
-        if state.take(.comma) != nil {
-          hasTrailingSeparator = true
-          continue
+  private static let subscriptCallArgumentList = DelimitedCommaSeparatedList(
+    openerKind: .lBrack,
+    closerKind: .rBrack,
+    closerDescription: "]",
+    elementParser: Apply(parseArgument(in:)))
+
+  private static func parseSubscriptCallArgumentList(
+    in state: inout ParserState
+  ) throws -> [LabeledArgument]? {
+    try parseArgumentList(in: &state, with: subscriptCallArgumentList)
+  }
+
+  private static func parseArgumentList(
+    in state: inout ParserState,
+    with parser: DelimitedCommaSeparatedList<Apply<ParserState, LabeledArgument>>
+  ) throws -> [LabeledArgument]? {
+    guard let result = try parser.parse(&state) else { return nil }
+
+    if let separator = result.trailingSeparator {
+      state.diagnostics.append(.diagnose(unexpectedToken: separator))
+    }
+
+    return result.elements
+  }
+
+  private static func parseArgument(in state: inout ParserState) throws -> LabeledArgument? {
+    let backup = state.backup()
+
+    // Parse a labeled argument.
+    if let label = state.take(if: { $0.isLabel }) {
+      if state.take(.colon) != nil {
+        if let value = try parseExpr(in: &state) {
+          return LabeledArgument(
+            label: SourceRepresentable(token: label, in: state.lexer.source),
+            value: value)
         }
-      }
-
-      // If we get here, we either parsed an element not followed by a separator (1), or we got a
-      // soft failure and didn't consume anything from the stream (2). In both case, we should
-      // expect the right delimiter.
-      if state.take(.rAngle) != nil { break }
-
-      // If we got here by (2) but didn't parse any element yet, diagnose a missing delimiter and
-      // exit the loop.
-      if elements.isEmpty {
-        state.diagnostics.append(expected(">", matching: opener, in: state))
-        break
-      }
-
-      // If we got here by (1), diagnose a missing separator and try to parse the next element
-      // unless we reached EOF. Otherwise, diagnose a missing expression and exit.
-      if !hasTrailingSeparator {
-        if let head = state.peek() {
-          state.diagnostics.append(expected("',' separator", at: head.origin.first()))
-          continue
-        } else {
-          state.diagnostics.append(expected(">", matching: opener, in: state))
-          break
-        }
-      } else {
-        state.diagnostics.append(expected("expression", at: state.currentLocation))
-        break
       }
     }
 
-    return elements
+    // Backtrack and parse an unlabeled argument.
+    state.restore(from: backup)
+    if let value = try parseExpr(in: &state) {
+      return LabeledArgument(label: nil, value: value)
+    }
+
+    return nil
   }
 
   private static func parseEntityName(
@@ -2055,10 +2054,10 @@ public enum Parser {
 
     // The notation must be immediately followed by an operator identifier.
     if state.hasLeadingWhitespace {
-      throw DiagnosedError(expected("operator", at: state.currentLocation))
+      throw DiagnosedError(.diagnose(expected: "operator", at: state.currentLocation))
     }
     guard let identifier = state.takeOperator() else {
-      throw DiagnosedError(expected("operator", at: state.currentLocation))
+      throw DiagnosedError(.diagnose(expected: "operator", at: state.currentLocation))
     }
 
     return SourceRepresentable(
@@ -2218,8 +2217,8 @@ public enum Parser {
     // Parse the closing parenthesis of the parameter list.
     if state.take(.rParen) == nil {
       state.diagnostics.append(
-        expected(
-          "')'",
+        .diagnose(
+          expected: "')'",
           at: state.currentLocation,
           children: [.error("to match this '('", range: opener.origin)]
       ))
@@ -2296,8 +2295,8 @@ public enum Parser {
     // Parse the closing parenthesis of the parameter list.
     if state.take(.rParen) == nil {
       state.diagnostics.append(
-        expected(
-          "')'",
+        .diagnose(
+          expected: "')'",
           at: state.currentLocation,
           children: [.error("to match this '('", range: opener.origin)]
       ))
@@ -2360,12 +2359,12 @@ public enum Parser {
       // Otherwise, diagnose a missing separator and try to parse the next element.
       if !hasTrailingSeparator {
         if let head = state.peek() {
-          state.diagnostics.append(expected("',' separator", at: head.origin.first()))
+          state.diagnostics.append(.diagnose(expected: "',' separator", at: head.origin.first()))
           continue
         } else {
           state.diagnostics.append(
-            expected(
-              "')'",
+            .diagnose(
+              expected: "')'",
               at: state.currentLocation,
               children: [.error("to match this '('", range: opener.origin)]
           ))
@@ -2374,7 +2373,7 @@ public enum Parser {
       }
 
       // If we got here by (2), diagnose a missing expression and exit.
-      state.diagnostics.append(expected("expression", at: state.currentLocation))
+      state.diagnostics.append(.diagnose(expected: "expression", at: state.currentLocation))
       break
     }
 
@@ -2429,7 +2428,7 @@ public enum Parser {
         if state.take(.comma) != nil { continue }
       } else if !elements.isEmpty {
         // We already parsed the beginning of anelements elements list. An elements was expected.
-        throw DiagnosedError(expected("expression", at: state.currentLocation))
+        throw DiagnosedError(.diagnose(expected: "expression", at: state.currentLocation))
       }
 
       // If we get here, then either we parsed a tuple element not followed by a separator (1), or
@@ -2441,15 +2440,15 @@ public enum Parser {
       // reached EOF, diagnose a missing right delimiter and exit. Otherwise, diagnose a missing
       // separator and try to parse the next element.
       if elements.isEmpty {
-        state.diagnostics.append(expected("expression", at: state.currentLocation))
+        state.diagnostics.append(.diagnose(expected: "expression", at: state.currentLocation))
         break
       } else if let head = state.peek() {
-        state.diagnostics.append(expected("',' separator", at: head.origin.first()))
+        state.diagnostics.append(.diagnose(expected: "',' separator", at: head.origin.first()))
         continue
       } else {
         state.diagnostics.append(
-          expected(
-            "'}'",
+          .diagnose(
+            expected: "'}'",
             at: state.currentLocation,
             children: [.error("to match this '{'", range: opener.origin)]
         ))
@@ -2541,39 +2540,7 @@ public enum Parser {
       })
   )
 
-  private static func parseCallArgumentListContents(
-    in state: inout ParserState
-  ) throws -> [CallArgument]? {
-    try callArgument
-      .and(zeroOrMany(take(.comma).and(callArgument).second))
-      .map({ (_, tree) -> [CallArgument] in [tree.0] + tree.1 })
-      .parse(&state)
-  }
-
-  private static let callArgument = Apply(parseCallArgument(in:))
-
-  private static func parseCallArgument(in state: inout ParserState) throws -> CallArgument? {
-    let backup = state.backup()
-
-    // Parse a labeled arrgument.
-    if let label = state.take(if: { $0.isLabel }) {
-      if state.take(.colon) != nil {
-        if let value = try expr.parse(&state) {
-          return CallArgument(
-            label: SourceRepresentable(token: label, in: state.lexer.source),
-            value: value)
-        }
-      }
-    }
-
-    // Backtrack and parse an unlabeled argument.
-    state.restore(from: backup)
-    if let value = try expr.parse(&state) {
-      return CallArgument(value:value)
-    }
-
-    return nil
-  }
+  private static let callArgument = Apply(parseArgument(in:))
 
   static let conditionalClause = (
     conditionalClauseItem.and(zeroOrMany(take(.comma).and(conditionalClauseItem).second))
@@ -2656,7 +2623,7 @@ public enum Parser {
       case .sink:
         _ = state.take()
         guard state.take(.let) != nil else {
-          throw DiagnosedError(expected("'let'", at: state.currentLocation))
+          throw DiagnosedError(.diagnose(expected: "'let'", at: state.currentLocation))
         }
         introducer = .sinklet
 
@@ -2959,7 +2926,7 @@ public enum Parser {
     }
 
     guard let rhs = try parsePrefixExpr(in: &state) else {
-      throw DiagnosedError(expected("expression", at: state.currentLocation))
+      throw DiagnosedError(.diagnose(expected: "expression", at: state.currentLocation))
     }
 
     let stmt = try state.ast.insert(
@@ -3041,51 +3008,6 @@ public enum Parser {
     .yielded: PassingConvention.yielded,
   ])
 
-  static let staticArgumentList = Apply(parseStaticArgumentList(in:))
-
-  static let staticArgument = (
-    Apply<ParserState, GenericArgument>({ (state) in
-      let backup = state.backup()
-
-      // Parse a labeled value argument.
-      if let label = state.take(if: { $0.isLabel }) {
-        if state.take(.colon) != nil {
-          if let value = try staticUnlabaledArgument.parse(&state) {
-            return GenericArgument(
-              label: SourceRepresentable(token: label, in: state.lexer.source),
-              value: value)
-          }
-        }
-      }
-
-      // Backtrack and parse an unlabeled value argument.
-      state.restore(from: backup)
-      if let value = try staticUnlabaledArgument.parse(&state) {
-        return GenericArgument(value: value)
-      }
-
-      return nil
-    })
-  )
-
-  static let staticUnlabaledArgument = (
-    staticValueArgument.or(staticTypeArgument)
-  )
-
-  static let staticTypeArgument = (
-    maybe(typeAttribute).and(expr)
-      .map({ (state, tree) -> GenericArgument.Value in
-        .type(tree.1)
-      })
-  )
-
-  static let staticValueArgument = (
-    valueAttribute.and(expr)
-      .map({ (state, tree) -> GenericArgument.Value in
-        .expr(tree.1)
-      })
-  )
-
   static let whereClause = (
     take(.where).and(whereClauseConstraintList)
       .map({ (state, tree) -> SourceRepresentable<WhereClause> in
@@ -3113,7 +3035,7 @@ public enum Parser {
       // equality-constraint
       if state.take(.equal) != nil {
         guard let rhs = try expr.parse(&state) else {
-          throw DiagnosedError(expected("type expression", at: state.currentLocation))
+          throw DiagnosedError(.diagnose(expected: "type expression", at: state.currentLocation))
         }
         return SourceRepresentable(
           value: .equality(l: lhs, r: rhs),
@@ -3123,14 +3045,14 @@ public enum Parser {
       // conformance-constraint
       if state.take(.colon) != nil {
         guard let traits = try traitComposition.parse(&state) else {
-          throw DiagnosedError(expected("trait composition", at: state.currentLocation))
+          throw DiagnosedError(.diagnose(expected: "trait composition", at: state.currentLocation))
         }
         return SourceRepresentable(
           value: .conformance(l: lhs, traits: traits),
           range: state.ast[lhs].origin!.extended(upTo: state.currentIndex))
       }
 
-      throw DiagnosedError(expected("constraint operator", at: state.currentLocation))
+      throw DiagnosedError(.diagnose(expected: "constraint operator", at: state.currentLocation))
     })
   )
 
@@ -3212,10 +3134,10 @@ public enum Parser {
         let head = state.take()!
 
         if state.hasLeadingWhitespace {
-          throw DiagnosedError(expected("operator", at: state.currentLocation))
+          throw DiagnosedError(.diagnose(expected: "operator", at: state.currentLocation))
         }
         guard let oper = state.takeOperator() else {
-          throw DiagnosedError(expected("operator", at: state.currentLocation))
+          throw DiagnosedError(.diagnose(expected: "operator", at: state.currentLocation))
         }
 
         let stem = String(state.lexer.source[oper.origin!])
@@ -3306,33 +3228,8 @@ public enum Parser {
     if let element = try parse(&state) {
       return element
     } else {
-      throw DiagnosedError(expected(expectedConstruct, at: state.currentLocation))
+      throw DiagnosedError(.diagnose(expected: expectedConstruct, at: state.currentLocation))
     }
-  }
-
-  /// Creates a parse error describing failure to parse `subject` at `location`.
-  private static func expected(
-    _ subject: String,
-    at location: SourceLocation,
-    children: [Diagnostic] = []
-  ) -> Diagnostic {
-    .error("expected \(subject)", range: location ..< location, children: children)
-  }
-
-  private static func expected(
-    _ closerDescription: String,
-    matching opener: Token,
-    in state: ParserState
-  ) -> Diagnostic {
-    expected(
-      "'\(closerDescription)'",
-      at: state.currentLocation,
-      children: [
-        .error(
-          "to match this '\(state.lexer.source[opener.origin])'",
-          range: opener.origin)
-      ]
-    )
   }
 
   private static func diagnose(
@@ -3479,7 +3376,7 @@ struct NameExprComponent {
   let name: SourceRepresentable<Name>
 
   /// The static arguments of the component, if any.
-  let arguments: [GenericArgument]
+  let arguments: [LabeledArgument]
 
 }
 
@@ -3535,6 +3432,106 @@ struct WrapInContext<Base: Combinator>: Combinator where Base.Context == ParserS
     state.contexts.append(context)
     defer { state.contexts.removeLast() }
     return try base.parse(&state)
+  }
+
+}
+
+/// A combinator that parses comma-separated lists of elements delimited by tokens on both ends.
+struct DelimitedCommaSeparatedList<E: Combinator>: Combinator where E.Context == ParserState {
+
+  typealias Context = ParserState
+
+  /// The result of a comma-separated list parser.
+  struct Element {
+
+    /// The left delimiter of the list.
+    let opener: Token
+
+    /// The right delimiter of the list, if parsed.
+    let closer: Token?
+
+    /// The trailing comma, if parsed.
+    let trailingSeparator: Token?
+
+    /// The elements of the list.
+    let elements: [E.Element]
+
+  }
+
+  /// The kind of the left delimiter.
+  let openerKind: Token.Kind
+
+  /// The kind of the right delimiter.
+  let closerKind: Token.Kind
+
+  /// The description of the right delimiter (for diagnostics).
+  let closerDescription: String
+
+  /// The parser recognizing the list's elements.
+  let elementParser: E
+
+  func parse(_ state: inout ParserState) throws -> Element? {
+    // Parse the opening angle.
+    guard let opener = state.take(openerKind) else { return nil }
+
+    // Parse the elements.
+    var elements: [E.Element] = []
+    var trailingSeparator: Token? = nil
+    var closer: Token? = nil
+
+    while true {
+      // Parse one element.
+      if let element = try elementParser.parse(&state) {
+        elements.append(element)
+
+        // Look for a separator.
+        trailingSeparator = nil
+        if let t = state.take(.comma) {
+          trailingSeparator = t
+          continue
+        }
+      }
+
+      // If we get here, we either parsed an element not followed by a separator (1), or we got a
+      // soft failure and didn't consume anything from the stream (2). In both case, we should
+      // expect the right delimiter.
+      if let t = state.take(closerKind) {
+        closer = t
+        break
+      }
+
+      // If we got here by (2) but didn't parse any element yet, diagnose a missing delimiter and
+      // exit the loop.
+      if elements.isEmpty {
+        state.diagnostics.append(
+          .diagnose(expected: closerDescription, matching: opener, in: state))
+        break
+      }
+
+      // If we got here by (1), diagnose a missing separator and try to parse the next element
+      // unless we reached EOF. Otherwise, diagnose a missing expression and exit.
+      if trailingSeparator == nil {
+        if let head = state.peek() {
+          state.diagnostics.append(
+            .diagnose(expected: "',' separator", at: head.origin.first()))
+          continue
+        } else {
+          state.diagnostics.append(
+            .diagnose(expected: closerDescription, matching: opener, in: state))
+          break
+        }
+      } else {
+        state.diagnostics.append(
+          .diagnose(expected: "expression", at: state.currentLocation))
+        break
+      }
+    }
+
+    return Element(
+      opener: opener,
+      closer: closer,
+      trailingSeparator: trailingSeparator,
+      elements: elements)
   }
 
 }
@@ -3640,6 +3637,30 @@ fileprivate extension Diagnostic {
 
   static func diagnose(expected kind: Token.Kind, at location: SourceLocation) -> Diagnostic {
     .error("expected '\(kind)'", range: location ..< location)
+  }
+
+  static func diagnose(
+    expected subject: String,
+    at location: SourceLocation,
+    children: [Diagnostic] = []
+  ) -> Diagnostic {
+    .error("expected \(subject)", range: location ..< location, children: children)
+  }
+
+  static func diagnose(
+    expected closerDescription: String,
+    matching opener: Token,
+    in state: ParserState
+  ) -> Diagnostic {
+    .diagnose(
+      expected: "'\(closerDescription)'",
+      at: state.currentLocation,
+      children: [
+        .error(
+          "to match this '\(state.lexer.source[opener.origin])'",
+          range: opener.origin)
+      ]
+    )
   }
 
   static func diagnose(infixOperatorRequiresWhitespacesAt range: SourceRange?) -> Diagnostic {
