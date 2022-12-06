@@ -1,5 +1,5 @@
 /// A parameter in a lambda type expression.
-public struct ParameterTypeExpr: TypeExpr {
+public struct ParameterTypeExpr: Expr {
 
   public let origin: SourceRange?
 

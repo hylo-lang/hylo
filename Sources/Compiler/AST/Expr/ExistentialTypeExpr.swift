@@ -1,5 +1,5 @@
 /// The expression of an existential type.
-public struct ExistentialTypeExpr: TypeExpr {
+public struct ExistentialTypeExpr: Expr {
 
   public let origin: SourceRange?
 

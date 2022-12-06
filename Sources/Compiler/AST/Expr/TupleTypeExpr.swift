@@ -1,5 +1,5 @@
 /// A tuple type expression.
-public struct TupleTypeExpr: TypeExpr {
+public struct TupleTypeExpr: Expr {
 
   /// An element in a tuple type expression.
   public struct Element: Codable {

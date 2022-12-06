@@ -1,5 +1,5 @@
 /// A conformance lens.
-public struct ConformanceLensTypeExpr: TypeExpr {
+public struct ConformanceLensTypeExpr: Expr {
 
   public let origin: SourceRange?
 

@@ -1,5 +1,5 @@
 /// A lambda type expression.
-public struct LambdaTypeExpr: TypeExpr {
+public struct LambdaTypeExpr: Expr {
 
   /// A parameter in a lambda type expression.
   public struct Parameter: Codable {
