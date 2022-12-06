@@ -2289,7 +2289,7 @@ public struct TypeChecker {
         }
       }
 
-    case .type(let j):
+    case .expr(let j):
       // The domain is a type expression.
       guard let d = realize(j, inScope: scope)?.instance else { return nil }
       domain = d
@@ -2311,9 +2311,6 @@ public struct TypeChecker {
       diagnostics.insert(
         .diagnose(notEnoughContextToResolveMember: name.value, at: name.origin))
       return nil
-
-    case .expr:
-      unreachable("unexpected name domain")
     }
 
     // Diagnose unresolved names.

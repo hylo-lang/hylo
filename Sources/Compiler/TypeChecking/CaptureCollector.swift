@@ -559,12 +559,10 @@ struct CaptureCollector {
     into captures: inout FreeSet
   ) {
     switch ast[id].domain {
-    case .none:
+    case .none, .implicit:
       break
-    case .type(let domain):
-      collectCaptures(ofTypeExpr: domain, into: &captures)
-    case .implicit, .expr:
-      unreachable("unexpected name domain")
+    case .expr(let domain):
+      collectCaptures(ofExpr: domain, into: &captures, inMutatingContext: false)
     }
 
     for argument in ast[id].arguments {

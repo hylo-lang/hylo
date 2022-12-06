@@ -517,12 +517,14 @@ public enum Parser {
     in state: inout ParserState
   ) throws -> AnyDeclID? {
     // Parse the parts of the declaration.
-    let parser = (
-      functionDeclHead
-        .and(functionDeclSignature)
-        .and(maybe(functionOrMethodDeclBody))
-    )
-    guard let ((head, signature), body) = try parser.parse(&state) else { return nil }
+    guard let head = try functionDeclHead.parse(&state) else { return nil }
+
+    let signature = try expect(
+      "function signature",
+      in: &state,
+      parsedWith: functionDeclSignature.parse)
+
+    let body = try functionOrMethodDeclBody.parse(&state)
 
     switch body {
     case .method(let impls):
