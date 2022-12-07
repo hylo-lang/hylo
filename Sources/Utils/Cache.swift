@@ -102,7 +102,3 @@ extension Cache: Collection {
   }
 
 }
-
-extension Cache: Equatable where Value: Equatable {}
-
-extension Cache: Hashable where Value: Hashable {}
