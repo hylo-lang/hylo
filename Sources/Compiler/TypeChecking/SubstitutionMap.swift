@@ -34,28 +34,9 @@ struct SubstitutionMap {
     storage[walked] = substitution
   }
 
-  /// Returns the contents of the map flattened into a dictionary.
-  func flattened() -> [TypeVariable: AnyType] {
-    storage.reduce(into: [:], { (d, e) in d[e.key] = self[e.value] })
-  }
-
-}
-
-extension SubstitutionMap: Collection {
-
-  typealias Index = Dictionary<TypeVariable, AnyType>.Index
-
-  typealias Element = (key: TypeVariable, value: AnyType)
-
-  var startIndex: Index { storage.startIndex }
-
-  var endIndex: Index { storage.endIndex }
-
-  func index(after i: Index) -> Index { storage.index(after: i) }
-
-  subscript(position: Index) -> Element {
-    let key = storage[position].key
-    return (key: key, value: self[^key])
+  /// Returns a dictionary representing the same mapping as `self`.
+  func asDictionary() -> [TypeVariable: AnyType] {
+    Dictionary(uniqueKeysWithValues: storage.lazy.map { (k, v) in (k, self[v]) })
   }
 
 }
@@ -63,7 +44,7 @@ extension SubstitutionMap: Collection {
 extension SubstitutionMap: CustomStringConvertible {
 
   var description: String {
-    let elements = self.map({ (key, value) in "\(key): \(value)" }).joined(separator: ", ")
+    let elements = storage.map({ (key, value) in "\(key): \(value)" }).joined(separator: ", ")
     return "[\(elements)]"
   }
 
@@ -74,7 +55,7 @@ extension SubstitutionMap: CustomReflectable {
   var customMirror: Mirror {
     Mirror(
       self,
-      children: self.map({ (key, value) in (label: "\(key)", value: value) }),
+      children: storage.map({ (key, value) in (label: "\(key)", value: value) }),
       displayStyle: .collection)
   }
 
