@@ -61,7 +61,7 @@ public struct CallInst: Inst {
         // Operand of a `let` parameter must be a borrow or a constant.
         switch operands[i] {
         case .result(let id, _):
-          if let inst = module[id.function][id.block][id.address] as? BorrowInstProtocol {
+          if let inst = module[id.function][id.block][id.address] as? BorrowInst {
             if inst.capability != .let { return false }
           } else {
             return false
@@ -78,7 +78,7 @@ public struct CallInst: Inst {
         // Operand of an `inout` parameter must be a borrow.
         switch operands[i] {
         case .result(let id, _):
-          if let inst = module[id.function][id.block][id.address] as? BorrowInstProtocol {
+          if let inst = module[id.function][id.block][id.address] as? BorrowInst {
             if inst.capability != .inout { return false }
           } else {
             return false
@@ -92,7 +92,7 @@ public struct CallInst: Inst {
         // Operand of a `set` parameter must be a borrow.
         switch operands[i] {
         case .result(let id, _):
-          if let inst = module[id.function][id.block][id.address] as? BorrowInstProtocol {
+          if let inst = module[id.function][id.block][id.address] as? BorrowInst {
             if inst.capability != .set { return false }
           } else {
             return false
