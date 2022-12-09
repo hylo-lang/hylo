@@ -1720,37 +1720,20 @@ final class ParserTests: XCTestCase {
   // MARK: Attributes
 
   func testDeclAttribute() throws {
-    let input = SourceFile(contents: "@alignment(8)")
-    let attribute = try XCTUnwrap(try apply(Parser.declAttribute, on: input).element)
-    XCTAssertEqual(attribute.value.name.value, "@alignment")
-    XCTAssertEqual(attribute.value.arguments.count, 1)
+    let input = SourceFile(contents: "@attr")
+    let attribute = try XCTUnwrap(input.parse(with: Parser.parseDeclAttribute).element)
+    XCTAssertEqual(attribute.value.name.value, "@attr")
+    XCTAssertEqual(attribute.value.arguments.count, 0)
   }
 
-  func testAttributeArgumentList() throws {
-    let input = SourceFile(contents: #"(8, "Val")"#)
-    let list = try XCTUnwrap(try apply(Parser.attributeArgumentList, on: input).element)
-    XCTAssertEqual(list.count, 2)
+  func testDeclAttributeWithArguments() throws {
+    let input = SourceFile(contents: #"@attr(8, "Val")"#)
+    let attribute = try XCTUnwrap(input.parse(with: Parser.parseDeclAttribute).element)
+    XCTAssertEqual(attribute.value.name.value, "@attr")
+    XCTAssertEqual(attribute.value.arguments.count, 2)
   }
 
-  func testStringAttributeArgument() throws {
-    let input = SourceFile(contents: #""Val""#)
-    let argument = try XCTUnwrap(try apply(Parser.attributeArgument, on: input).element)
-    if case .string(let a) = argument {
-      XCTAssertEqual(a.value, "Val")
-    } else {
-      XCTFail()
-    }
-  }
-
-  func testIntegerAttributeArgument() throws {
-    let input = SourceFile(contents: "42")
-    let argument = try XCTUnwrap(try apply(Parser.attributeArgument, on: input).element)
-    if case .integer(let a) = argument {
-      XCTAssertEqual(a.value, 42)
-    } else {
-      XCTFail()
-    }
-  }
+  // MARK: Helpers
 
   /// Applies `combinator` on `input`, optionally setting `context` in the parser state.
   func apply<C: Combinator>(
