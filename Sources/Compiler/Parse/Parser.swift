@@ -517,7 +517,7 @@ public enum Parser {
     in state: inout ParserState
   ) throws -> AnyDeclID? {
     // Parse the signature of the function or method.
-    guard let head = try functionDeclHead.parse(&state) else { return nil }
+    guard let head = try parseFunctionDeclHead(in: &state) else { return nil }
     let signature = try expect(
       "function signature",
       in: &state,
@@ -672,7 +672,8 @@ public enum Parser {
     in state: inout ParserState
   ) throws -> NodeID<InitializerDecl>? {
     // Parse the signature of the initializer.
-    guard let head = try initDeclHead.parse(&state) else { return nil }
+    guard let introducer = state.take(.`init`) else { return nil }
+    let genericClause = try genericClause.parse(&state)
     let parameters = try expect(
       "function signature",
       in: &state,
@@ -695,10 +696,10 @@ public enum Parser {
     assert(prologue.accessModifiers.count <= 1)
     assert(prologue.memberModifiers.isEmpty)
     let decl = try! state.ast.insert(wellFormed: InitializerDecl(
-      introducer: head.introducer,
+      introducer: SourceRepresentable(value: .`init`, range: introducer.origin),
       attributes: prologue.attributes,
       accessModifier: prologue.accessModifiers.first,
-      genericClause: head.genericClause,
+      genericClause: genericClause,
       parameters: parameters,
       receiver: receiver,
       body: body,
@@ -760,8 +761,8 @@ public enum Parser {
 
     // Namespace declarations shall not have member modifiers.
     if !prologue.memberModifiers.isEmpty {
-      throw DiagnosedError(prologue.memberModifiers.map(
-        Diagnostic.diagnose(unexpectedMemberModifier:)))
+      throw DiagnosedError(
+        prologue.memberModifiers.map(Diagnostic.diagnose(unexpectedMemberModifier:)))
     }
 
     // Create a new `NamespaceDecl`.
@@ -795,8 +796,8 @@ public enum Parser {
 
     // Operator declarations shall not have member modifiers.
     if !prologue.memberModifiers.isEmpty {
-      throw DiagnosedError(prologue.memberModifiers.map(
-        Diagnostic.diagnose(unexpectedMemberModifier:)))
+      throw DiagnosedError(
+        prologue.memberModifiers.map(Diagnostic.diagnose(unexpectedMemberModifier:)))
     }
 
     // Create a new `OperatorDecl`.
@@ -1025,8 +1026,8 @@ public enum Parser {
 
     // Product type declarations shall not have member modifiers.
     if !prologue.memberModifiers.isEmpty {
-      throw DiagnosedError(prologue.memberModifiers.map(
-        Diagnostic.diagnose(unexpectedMemberModifier:)))
+      throw DiagnosedError(
+        prologue.memberModifiers.map(Diagnostic.diagnose(unexpectedMemberModifier:)))
     }
 
     // Retrieve or synthesize the type's memberwise initializer.
@@ -1094,8 +1095,8 @@ public enum Parser {
 
     // Type alias declarations shall not have member modifiers.
     if !prologue.memberModifiers.isEmpty {
-      throw DiagnosedError(prologue.memberModifiers.map(
-        Diagnostic.diagnose(unexpectedMemberModifier:)))
+      throw DiagnosedError(
+        prologue.memberModifiers.map(Diagnostic.diagnose(unexpectedMemberModifier:)))
     }
 
     // Create a new `TypeAliasDecl`.
@@ -1109,65 +1110,40 @@ public enum Parser {
     return decl
   }
 
-  static let functionDecl = (
-    Apply<ParserState, NodeID<FunctionDecl>>({ (state) -> NodeID<FunctionDecl>? in
-      // Parse a function or method declaration.
-      guard let decl = try parseDeclPrologue(in: &state, then: parseFunctionOrMethodDecl) else {
-        return nil
-      }
+  private static func parseFunctionDeclHead(
+    in state: inout ParserState
+  ) throws -> FunctionDeclHead? {
+    // Parse the function's introducer and identifier.
+    guard let name = try parseFunctionDeclIntroducerAndIdentifier(in: &state) else { return nil }
 
-      // Catch illegal method declarations.
-      switch decl.kind {
-      case FunctionDecl.self:
-        return NodeID<FunctionDecl>(rawValue: decl.rawValue)
+    let genericClause = try genericClause.parse(&state)
+    let captures = try captureList.parse(&state) ?? []
 
-      case MethodDecl.self:
-        let d = NodeID<MethodDecl>(rawValue: decl.rawValue)
-        throw DiagnosedError(.error(
-          "method bundle declaration is not allowed here",
-          range: state.ast[d].introducerRange))
+    return FunctionDeclHead(name: name, genericClause: genericClause, captures: captures)
+  }
 
-      default:
-        unreachable()
-      }
-    })
-  )
+  static func parseFunctionDeclIntroducerAndIdentifier(
+    in state: inout ParserState
+  ) throws -> FunctionDeclName? {
+    if let introducer = state.take(.fun) {
+      let stem = try expect("identifier", in: &state, parsedWith: take(.name).parse)
+      return FunctionDeclName(
+        introducerRange: introducer.origin,
+        stem: SourceRepresentable(token: stem, in: state.lexer.source),
+        notation: nil)
+    }
 
-  static let functionDeclHead = (
-    functionDeclName.and(maybe(genericClause)).and(maybe(captureList))
-      .map({ (state, tree) -> FunctionDeclHead in
-        FunctionDeclHead(
-          name: tree.0.0,
-          genericClause: tree.0.1,
-          captures: tree.1 ?? [])
-      })
-  )
+    if let notation = try operatorNotation.parse(&state) {
+      _ = try expect("'fun'", in: &state, parsedWith: take(.fun).parse)
+      let stem = try expect("operator", in: &state, parsedWith: operator_.parse)
+      return FunctionDeclName(
+        introducerRange: notation.origin!,
+        stem: stem,
+        notation: notation)
+    }
 
-  static let functionDeclName = (
-    functionDeclIdentifier.or(functionDeclOperator)
-  )
-
-  static let functionDeclIdentifier = (
-    take(.fun).and(take(.name))
-      .map({ (state, tree) -> FunctionDeclName in
-        FunctionDeclName(
-          introducerRange: tree.0.origin,
-          stem: SourceRepresentable(token: tree.1, in: state.lexer.source),
-          notation: nil
-        )
-      })
-  )
-
-  static let functionDeclOperator = (
-    operatorNotation.and(take(.fun)).and(operator_)
-      .map({ (state, tree) -> FunctionDeclName in
-        FunctionDeclName(
-          introducerRange: tree.0.1.origin,
-          stem: tree.1,
-          notation: tree.0.0
-        )
-      })
-  )
+    return nil
+  }
 
   static func parseFunctionDeclSignature(
     in state: inout ParserState
@@ -1186,7 +1162,7 @@ public enum Parser {
     return FunctionDeclSignature(parameters: parameters, receiverEffect: effect, output: output)
   }
 
-  static let functionOrMethodDeclBody = TryCatch(
+  private static let functionOrMethodDeclBody = TryCatch(
     trying: methodDeclBody
       .map({ (state, body) -> FunctionOrMethodDeclBody in .method(body) }),
     orCatchingAndApplying: functionDeclBody
@@ -1245,15 +1221,6 @@ public enum Parser {
     .set  : ImplIntroducer.set,
     .sink : ImplIntroducer.sink,
   ])
-
-  static let initDeclHead = (
-    take(.`init`).and(maybe(genericClause))
-      .map({ (state, tree) -> InitDeclHead in
-        InitDeclHead(
-          introducer: SourceRepresentable(value: .`init`, range: tree.0.origin),
-          genericClause: tree.1)
-      })
-  )
 
   static let initDeclBody = inContext(.functionBody, apply: braceStmt)
 
@@ -1480,9 +1447,7 @@ public enum Parser {
       state.diagnostics.append(.diagnose(infixOperatorRequiresWhitespacesAt: infixOperator.origin))
     }
 
-    guard let rhs = try expr.parse(&state) else {
-      throw DiagnosedError(.diagnose(expected: "type expression", at: state.currentLocation))
-    }
+    let rhs = try expect("type expression", in: &state, parsedWith: parseExpr(in:))
 
     let castKind: CastExpr.Kind
     switch state.lexer.source[infixOperator.origin] {
@@ -1929,7 +1894,7 @@ public enum Parser {
   private static func parseEntityName(
     in state: inout ParserState
   ) throws -> SourceRepresentable<Name>? {
-    try Apply(parseFunctionEntityName).or(Apply(parseOperatorEntityName)).parse(&state)
+    try parseFunctionEntityName(in: &state) ?? parseOperatorEntityName(in: &state)
   }
 
   private static func parseFunctionEntityName(
@@ -2904,16 +2869,6 @@ public enum Parser {
 
   // MARK: Type expressions
 
-  private static func anyTypeExpr<Base: Combinator>(
-    _ base: Base
-  ) -> AnyCombinator<ParserState, AnyTypeExprID>
-  where Base.Context == ParserState, Base.Element: TypeExprID
-  {
-    AnyCombinator(parse: { (state) in
-      try base.parse(&state).map(AnyTypeExprID.init(_:))
-    })
-  }
-
   private static let nameTypeExpr = Apply(parseNameExpr(in:))
 
   private static func parseLambdaParameter(
@@ -2988,7 +2943,7 @@ public enum Parser {
 
   static let typeConstraint = (
     Apply<ParserState, SourceRepresentable<WhereClause.ConstraintExpr>>({ (state) in
-      guard let lhs = try nameTypeExpr.parse(&state) else { return nil }
+      guard let lhs = try parseNameExpr(in: &state) else { return nil }
 
       // equality-constraint
       if state.take(.equal) != nil {
@@ -3026,105 +2981,6 @@ public enum Parser {
   static let traitComposition = (
     nameTypeExpr.and(zeroOrMany(take(.ampersand).and(nameTypeExpr).second))
       .map({ (state, tree) -> TraitComposition in [tree.0] + tree.1 })
-  )
-
-  // MARK: Identifiers
-
-  static let identifierExpr = (
-    entityIdentifier.and(maybe(take(.dot).and(methodIntroducer)))
-      .map({ (state, tree) -> SourceRepresentable<Name> in
-        if let (_, introducer) = tree.1 {
-          return tree.0.introduced(by: introducer)
-        } else {
-          return tree.0
-        }
-      })
-  )
-
-  static let entityIdentifier = (
-    Apply<ParserState, SourceRepresentable<Name>>({ (state) in
-      switch state.peek()?.kind {
-      case .name, .under:
-        // function-entity-identifier
-        let head = state.take()!
-        var labels: [String?] = []
-
-        if state.currentCharacter == "(" {
-          let backup = state.backup()
-          _ = state.take()
-          var closeParenFound = false
-          defer {
-            // Backtrack if we didn't find a closing parenthesis or if there are no labels. That
-            // will let the argument-list parser pickup after the identifier to either catch a
-            // parse error in the former case (no closing parenthesis) or parse an empty argument
-            // list in the latter (no labels).
-            // Note: `foo()` is *not* a valid name, it's a function call.
-            if !closeParenFound || labels.isEmpty { state.restore(from: backup) }
-          }
-
-          while !state.hasLeadingWhitespace {
-            if state.take(.under) != nil {
-              labels.append(nil)
-            } else if let label = state.take(if: { $0.isLabel }) {
-              labels.append(String(state.lexer.source[label.origin]))
-            } else {
-              break
-            }
-
-            if state.takeWithoutSkippingWhitespace(.colon) == nil {
-              break
-            }
-
-            if let end = state.takeWithoutSkippingWhitespace(.rParen) {
-              closeParenFound = true
-              break
-            }
-          }
-        }
-
-        return SourceRepresentable(
-          value: Name(stem: String(state.lexer.source[head.origin]), labels: labels),
-          range: head.origin)
-
-
-      case .infix, .prefix, .postfix:
-        // operator-entity-identifier
-        let head = state.take()!
-
-        if state.hasLeadingWhitespace {
-          throw DiagnosedError(.diagnose(expected: "operator", at: state.currentLocation))
-        }
-        guard let oper = state.takeOperator() else {
-          throw DiagnosedError(.diagnose(expected: "operator", at: state.currentLocation))
-        }
-
-        let stem = String(state.lexer.source[oper.origin!])
-        let range = head.origin.extended(upTo: oper.origin!.upperBound)
-
-        switch head.kind {
-        case .infix:
-          return SourceRepresentable(value: Name(stem: stem, notation: .infix))
-        case .prefix:
-          return SourceRepresentable(value: Name(stem: stem, notation: .prefix))
-        case .postfix:
-          return SourceRepresentable(value: Name(stem: stem, notation: .postfix))
-        default:
-          unreachable()
-        }
-
-      default:
-        return nil
-      }
-    })
-  )
-
-  static let typeIdentifier = (
-    take(.name)
-      .map({ (state, token) -> SourceRepresentable<Name> in
-        SourceRepresentable(
-          value: Name(stem: String(state.lexer.source[token.origin])),
-          range: token.origin)
-      })
   )
 
   // MARK: Attributes
@@ -3252,7 +3108,7 @@ struct FunctionDeclSignature {
   let receiverEffect: SourceRepresentable<ReceiverEffect>?
 
   /// The return type annotation of the declaration, if any.
-  let output: AnyTypeExprID?
+  let output: AnyExprID?
 
 }
 
@@ -3262,17 +3118,6 @@ enum FunctionOrMethodDeclBody {
   case function(FunctionDecl.Body)
 
   case method([NodeID<MethodImplDecl>])
-
-}
-
-/// The parsed head of an initializer declaration.
-struct InitDeclHead {
-
-  /// The introducer of the declaration.
-  let introducer: SourceRepresentable<InitializerDecl.Introducer>
-
-  /// The generic clause of the declaration, if any.
-  let genericClause: SourceRepresentable<GenericClause>?
 
 }
 
@@ -3311,7 +3156,7 @@ struct SubscriptDeclSignature {
   let parameters: [NodeID<ParameterDecl>]
 
   /// The return type annotation of the declaration.
-  let output: AnyTypeExprID
+  let output: AnyExprID
 
 }
 
