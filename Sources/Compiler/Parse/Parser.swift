@@ -282,9 +282,7 @@ public enum Parser {
     wrappedIn context: ParserState.Context
   ) throws -> [AnyDeclID] {
     // Parse the left delimiter.
-    guard let opener = state.take(.lBrace) else {
-      throw DiagnosedError(.diagnose(expected: "'{'", at: state.currentLocation))
-    }
+    let opener = try state.expect("'{'", using: { $0.take(.lBrace) })
 
     // Push the context.
     state.contexts.append(context)
@@ -518,10 +516,7 @@ public enum Parser {
   ) throws -> AnyDeclID? {
     // Parse the signature of the function or method.
     guard let head = try parseFunctionDeclHead(in: &state) else { return nil }
-    let signature = try expect(
-      "function signature",
-      in: &state,
-      parsedWith: parseFunctionDeclSignature(in:))
+    let signature = try state.expect("function signature", using: parseFunctionDeclSignature(in:))
 
     // Parse the body of the function or method.
     let body = try functionOrMethodDeclBody.parse(&state)
@@ -674,10 +669,7 @@ public enum Parser {
     // Parse the signature of the initializer.
     guard let introducer = state.take(.`init`) else { return nil }
     let genericClause = try genericClause.parse(&state)
-    let parameters = try expect(
-      "function signature",
-      in: &state,
-      parsedWith: parseParameterList(in:))
+    let parameters = try state.expect("function signature", using: parseParameterList(in:))
 
     // Parse the body of the initializer.
     let body = try initDeclBody.parse(&state)
@@ -820,12 +812,10 @@ public enum Parser {
     guard let (head, signature) = try propertyDeclHead.and(propertyDeclSignature).parse(&state)
     else { return nil }
 
-    guard let impls = try parseSubscriptDeclBody(
-      in: &state,
-      asNonStaticMember: state.atTypeScope && !prologue.isStatic)
-    else {
-      throw DiagnosedError(.diagnose(expected: "'{'", at: state.currentLocation))
-    }
+    let isNonStatic = state.atTypeScope && !prologue.isStatic
+    let impls = try state.expect(
+      "'{'",
+      using: { (s) in try parseSubscriptDeclBody(in: &s, asNonStaticMember: isNonStatic) })
 
     // Create a new `SubscriptDecl`.
     assert(prologue.accessModifiers.count <= 1)
@@ -852,15 +842,14 @@ public enum Parser {
   ) throws -> NodeID<SubscriptDecl>? {
     // Parse the signature of the subscript.
     guard let head = try subscriptDeclHead.parse(&state) else { return nil }
-    let signature = try expect(
+    let signature = try state.expect(
       "subscript signature",
-      in: &state,
-      parsedWith: parseSubscriptDeclSignature(in:))
+      using: parseSubscriptDeclSignature(in:))
 
     let isNonStatic = state.atTypeScope && !prologue.isStatic
-    guard let impls = try parseSubscriptDeclBody(in: &state, asNonStaticMember: isNonStatic) else {
-      throw DiagnosedError(.diagnose(expected: "'{'", at: state.currentLocation))
-    }
+    let impls = try state.expect(
+      "'{'",
+      using: { (s) in try parseSubscriptDeclBody(in: &s, asNonStaticMember: isNonStatic) })
 
     // Create a new `SubscriptDecl`.
     assert(prologue.accessModifiers.count <= 1)
@@ -1126,7 +1115,7 @@ public enum Parser {
     in state: inout ParserState
   ) throws -> FunctionDeclName? {
     if let introducer = state.take(.fun) {
-      let stem = try expect("identifier", in: &state, parsedWith: take(.name).parse)
+      let stem = try state.expect("identifier", using: { $0.take(.name) })
       return FunctionDeclName(
         introducerRange: introducer.origin,
         stem: SourceRepresentable(token: stem, in: state.lexer.source),
@@ -1134,8 +1123,8 @@ public enum Parser {
     }
 
     if let notation = try operatorNotation.parse(&state) {
-      _ = try expect("'fun'", in: &state, parsedWith: take(.fun).parse)
-      let stem = try expect("operator", in: &state, parsedWith: operator_.parse)
+      _ = try state.expect("'fun'", using: { $0.take(.fun) })
+      let stem = try state.expect("operator", using: operator_)
       return FunctionDeclName(
         introducerRange: notation.origin!,
         stem: stem,
@@ -1154,7 +1143,7 @@ public enum Parser {
 
     let output: AnyExprID?
     if state.take(.arrow) != nil {
-      output = try expect("type expression", in: &state, parsedWith: parseExpr(in:))
+      output = try state.expect("type expression", using: parseExpr(in:))
     } else {
       output = nil
     }
@@ -1267,10 +1256,8 @@ public enum Parser {
   ) throws -> SubscriptDeclSignature? {
     guard let parameters = try parseParameterList(in: &state) else { return nil }
 
-    if state.take(.colon) == nil {
-      throw DiagnosedError(.diagnose(expected: .colon, at: state.currentLocation))
-    }
-    let output = try expect("type expression", in: &state, parsedWith: parseExpr(in:))
+    _ = try state.expect("':'", using: { $0.take(.colon) })
+    let output = try state.expect("type expression", using: parseExpr(in:))
 
     return SubscriptDeclSignature(parameters: parameters, output: output)
   }
@@ -1447,7 +1434,7 @@ public enum Parser {
       state.diagnostics.append(.diagnose(infixOperatorRequiresWhitespacesAt: infixOperator.origin))
     }
 
-    let rhs = try expect("type expression", in: &state, parsedWith: parseExpr(in:))
+    let rhs = try state.expect("type expression", using: parseExpr(in:))
 
     let castKind: CastExpr.Kind
     switch state.lexer.source[infixOperator.origin] {
@@ -1531,7 +1518,7 @@ public enum Parser {
 
       // Parse an operand.
       let isSeparated = state.hasLeadingWhitespace
-      let operand = try expect("expression", in: &state, parsedWith: parsePostfixExpr(in:))
+      let operand = try state.expect("expression", using: parsePostfixExpr(in:))
 
       // There must be no space before the next expression.
       if isSeparated {
@@ -1558,7 +1545,7 @@ public enum Parser {
     if let op = state.take(.ampersand) {
       // Parse an operand.
       let isSeparated = state.hasLeadingWhitespace
-      let operand = try expect("expression", in: &state, parsedWith: parsePostfixExpr(in:))
+      let operand = try state.expect("expression", using: parsePostfixExpr(in:))
 
       // There must be no space before the next expression.
       if isSeparated {
@@ -1644,7 +1631,7 @@ public enum Parser {
       if state.take(.twoColons) != nil {
         // Note: We're using the `parsePrimaryExpr(in:)` parser rather that `parseExpr(in:)` so
         // that `A::P.T` is parsed as `(A::P).T`.
-        let lens = try expect("expression", in: &state, parsedWith: parsePrimaryExpr(in:))
+        let lens = try state.expect("expression", using: parsePrimaryExpr(in:))
         let expr = try state.ast.insert(
           wellFormed: ConformanceLensTypeExpr(
             subject: head,
@@ -1802,7 +1789,7 @@ public enum Parser {
     guard let introducer = state.take(.any) else { return nil }
 
     // Parse the parts of the expression.
-    let traits = try expect("trait composition", in: &state, parsedWith: traitComposition.parse)
+    let traits = try state.expect("trait composition", using: traitComposition)
     let clause = try whereClause.parse(&state)
 
     return try state.ast.insert(
@@ -1817,7 +1804,7 @@ public enum Parser {
     in state: inout ParserState
   ) throws -> NodeID<NameExpr>? {
     // Parse the name component.
-    let component = try expect("identifier", in: &state, parsedWith: parseNameExprComponent(in:))
+    let component = try state.expect("identifier", using: parseNameExprComponent(in:))
 
     return try state.ast.insert(
       wellFormed: NameExpr(
@@ -1834,7 +1821,7 @@ public enum Parser {
     guard let head = state.take(.dot) else { return nil }
 
     // Parse the name component.
-    let component = try expect("identifier", in: &state, parsedWith: parseNameExprComponent(in:))
+    let component = try state.expect("identifier", using: parseNameExprComponent(in:))
 
     return try state.ast.insert(
       wellFormed: NameExpr(
@@ -1854,10 +1841,7 @@ public enum Parser {
     // argument list.
     let arguments: [LabeledArgument]
     if !state.hasLeadingWhitespace && state.isNext(.lAngle) {
-      arguments = try expect(
-        "static argument list",
-        in: &state,
-        parsedWith: parseStaticArgumentList(in:))
+      arguments = try state.expect("static argument list", using: parseStaticArgumentList(in:))
     } else {
       arguments = []
     }
@@ -1975,9 +1959,7 @@ public enum Parser {
     if state.hasLeadingWhitespace {
       throw DiagnosedError(.diagnose(expected: "operator", at: state.currentLocation))
     }
-    guard let identifier = state.takeOperator() else {
-      throw DiagnosedError(.diagnose(expected: "operator", at: state.currentLocation))
-    }
+    let identifier = try state.expect("operator", using: { $0.takeOperator() })
 
     return SourceRepresentable(
       value: Name(stem: identifier.value, notation: OperatorNotation(notation)!),
@@ -1990,11 +1972,8 @@ public enum Parser {
 
     // Parse the parts of the expression.
     let explicitCaptures = try captureList.parse(&state)
-    let signature = try expect(
-      "signature",
-      in: &state,
-      parsedWith: parseFunctionDeclSignature(in:))
-    let body = try expect("function body", in: &state, parsedWith: lambdaBody.parse)
+    let signature = try state.expect("signature", using: parseFunctionDeclSignature(in:))
+    let body = try state.expect("function body", using: lambdaBody)
 
     let decl = try state.ast.insert(
       wellFormed: FunctionDecl(
@@ -2022,8 +2001,8 @@ public enum Parser {
     guard let introducer = state.take(.if) else { return nil }
 
     // Parse the parts of the expression.
-    let condition = try expect("condition", in: &state, parsedWith: conditionalClause.parse)
-    let body = try expect("body", in: &state, parsedWith: conditionalExprBody.parse)
+    let condition = try state.expect("condition", using: conditionalClause)
+    let body = try state.expect("body", using: conditionalExprBody)
 
     // Parse the 'else' clause, if any.
     let elseClause: CondExpr.Body?
@@ -2031,7 +2010,7 @@ public enum Parser {
       if let e = try parseConditionalExpr(in: &state) {
         elseClause = .expr(AnyExprID(e))
       } else {
-        elseClause = try expect("body", in: &state, parsedWith: conditionalExprBody.parse)
+        elseClause = try state.expect("body", using: conditionalExprBody)
       }
     } else {
       elseClause = nil
@@ -2057,11 +2036,10 @@ public enum Parser {
     guard let introducer = state.take(.match) else { return nil }
 
     // Parse the parts of the expression.
-    let subject = try expect("subject", in: &state, parsedWith: parseExpr(in:))
-    let cases = try expect(
+    let subject = try state.expect("subject", using: parseExpr(in:))
+    let cases = try state.expect(
       "match body",
-      in: &state,
-      parsedWith: take(.lBrace).and(zeroOrMany(matchCase)).and(take(.rBrace)).parse)
+      using: take(.lBrace).and(zeroOrMany(matchCase)).and(take(.rBrace)))
 
     return try state.ast.insert(
       wellFormed: MatchExpr(
@@ -2099,11 +2077,11 @@ public enum Parser {
     let output: AnyExprID?
     let body: FunctionDecl.Body
     if state.take(.arrow) != nil {
-      output = try expect("expression", in: &state, parsedWith: parseExpr(in:))
-      body = try expect("function body", in: &state, parsedWith: lambdaBody.parse)
+      output = try state.expect("expression", using: parseExpr(in:))
+      body = try state.expect("function body", using: lambdaBody)
     } else {
       output = nil
-      body = try .expr(expect("expression", in: &state, parsedWith: parseExpr(in:)))
+      body = try .expr(state.expect("expression", using: parseExpr(in:)))
     }
 
     let decl = try state.ast.insert(
@@ -2159,7 +2137,7 @@ public enum Parser {
       return try parseTupleOrParenthesizedExpr(in: &state)
     }
 
-    let output = try expect("type expression", in: &state, parsedWith: parseExpr(in:))
+    let output = try state.expect("type expression", using: parseExpr(in:))
 
     let expr = try state.ast.insert(
       wellFormed: LambdaTypeExpr(
@@ -2218,7 +2196,7 @@ public enum Parser {
       return try parseCompoundLiteral(in: &state)
     }
 
-    let output = try expect("type expression", in: &state, parsedWith: parseExpr(in:))
+    let output = try state.expect("type expression", using: parseExpr(in:))
 
     // Synthesize the environment as an empty tuple if we parsed `[]`.
     let e = try environement ?? AnyExprID(
@@ -2552,9 +2530,7 @@ public enum Parser {
 
       case .sink:
         _ = state.take()
-        guard state.take(.let) != nil else {
-          throw DiagnosedError(.diagnose(expected: "'let'", at: state.currentLocation))
-        }
+        _ = try state.expect("'let'", using: { $0.take(.let) })
         introducer = .sinklet
 
       default:
@@ -2855,9 +2831,7 @@ public enum Parser {
       state.diagnostics.append(.diagnose(assignOperatorRequiresWhitespaces: assign))
     }
 
-    guard let rhs = try parsePrefixExpr(in: &state) else {
-      throw DiagnosedError(.diagnose(expected: "expression", at: state.currentLocation))
-    }
+    let rhs = try state.expect("expression", using: parsePrefixExpr(in:))
 
     let stmt = try state.ast.insert(
       wellFormed: AssignStmt(
@@ -2947,9 +2921,7 @@ public enum Parser {
 
       // equality-constraint
       if state.take(.equal) != nil {
-        guard let rhs = try expr.parse(&state) else {
-          throw DiagnosedError(.diagnose(expected: "type expression", at: state.currentLocation))
-        }
+        let rhs = try state.expect("type expression", using: parseExpr(in:))
         return SourceRepresentable(
           value: .equality(l: lhs, r: rhs),
           range: state.ast[lhs].origin!.extended(upTo: state.currentIndex))
@@ -2957,9 +2929,7 @@ public enum Parser {
 
       // conformance-constraint
       if state.take(.colon) != nil {
-        guard let traits = try traitComposition.parse(&state) else {
-          throw DiagnosedError(.diagnose(expected: "trait composition", at: state.currentLocation))
-        }
+        let traits = try state.expect("trait composition", using: traitComposition)
         return SourceRepresentable(
           value: .conformance(l: lhs, traits: traits),
           range: state.ast[lhs].origin!.extended(upTo: state.currentIndex))
@@ -3020,28 +2990,6 @@ public enum Parser {
   static let typeAttribute = attribute("@type")
 
   static let valueAttribute = attribute("@value")
-
-  // MARK: Helpers
-
-  /// Applies `parse` on `state`, propagating thrown errors, and returns `parse`'s result if it
-  /// isn't `nil`. Otherwise, throw an error diagnosing that we expected `expectedConstruct`.
-  private static func expect<T>(
-    _ expectedConstruct: String,
-    in state: inout ParserState,
-    parsedWith parse: (inout ParserState) throws -> T?
-  ) throws -> T {
-    if let element = try parse(&state) {
-      return element
-    } else {
-      throw DiagnosedError(.diagnose(expected: expectedConstruct, at: state.currentLocation))
-    }
-  }
-
-  private static func diagnose(
-    _ makeDiagnostic: @escaping (inout ParserState) -> Diagnostic
-  ) -> (inout ParserState) -> Error {
-    { (s) in DiagnosedError(makeDiagnostic(&s)) }
-  }
 
 }
 
@@ -3419,66 +3367,6 @@ fileprivate extension SourceRepresentable where Part == Identifier {
 
   init(token: Token, in source: SourceFile) {
     self.init(value: String(source[token.origin]), range: token.origin)
-  }
-
-}
-
-fileprivate extension Diagnostic {
-
-  static func diagnose(assignOperatorRequiresWhitespaces token: Token) -> Diagnostic {
-    .error("infix operator requires whitespaces on both sides", range: token.origin)
-  }
-
-  static func diagnose(expected kind: Token.Kind, at location: SourceLocation) -> Diagnostic {
-    .error("expected '\(kind)'", range: location ..< location)
-  }
-
-  static func diagnose(
-    expected subject: String,
-    at location: SourceLocation,
-    children: [Diagnostic] = []
-  ) -> Diagnostic {
-    .error("expected \(subject)", range: location ..< location, children: children)
-  }
-
-  static func diagnose(
-    expected closerDescription: String,
-    matching opener: Token,
-    in state: ParserState
-  ) -> Diagnostic {
-    .diagnose(
-      expected: "'\(closerDescription)'",
-      at: state.currentLocation,
-      children: [
-        .error(
-          "to match this '\(state.lexer.source[opener.origin])'",
-          range: opener.origin)
-      ]
-    )
-  }
-
-  static func diagnose(infixOperatorRequiresWhitespacesAt range: SourceRange?) -> Diagnostic {
-    .error("infix operator requires whitespaces on both sides", range: range)
-  }
-
-  static func diagnose(separatedMutationMarkerAt range: SourceRange?) -> Diagnostic {
-    .error("in-place mutation marker cannot be separated from its expression", range: range)
-  }
-
-  static func diagnose(separatedPrefixOperatorAt range: SourceRange?) -> Diagnostic {
-    .error("prefix operator cannot be separated from its operand", range: range)
-  }
-
-  static func diagnose(unexpectedToken token: Token) -> Diagnostic {
-    .error("unexpected token '\(token.kind)'", range: token.origin)
-  }
-
-  static func diagnose(unterminatedCommentEndingAt endLocation: SourceLocation) -> Diagnostic {
-    .error("unterminated comment", range: endLocation ..< endLocation)
-  }
-
-  static func diagnose(unterminatedStringEndingAt endLocation: SourceLocation) -> Diagnostic {
-    .error("unterminated string", range: endLocation ..< endLocation)
   }
 
 }
