@@ -1,24 +1,33 @@
 import Utils
 
-/// An integer Val IR constant.
+import BigInt
+
+/// An unsigned integer Val IR constant.
 public struct IntegerConstant: ConstantProtocol, Hashable {
 
-  /// The bit pattern of the integer.
-  public let bitPattern: BitPattern
+  public let value: WideUInt // BigUInt//UInt64 //
 
-  /// Creates a new integer Val IR constant with the specified bit pattern.
-  public init(bitPattern: BitPattern) {
-    self.bitPattern = bitPattern
+  public init(_ value: BigUInt, bitWidth: Int) {
+    self.value = WideUInt(truncatingIfNeeded: value, toWidth: bitWidth)
   }
 
-  public var type: LoweredType { .object(BuiltinType.i(bitPattern.width)) }
+  /// Creates a new integer Val IR constant with the specified bit pattern.
+  public init<V: BinaryInteger>(_ value: V, bitWidth: Int) {
+    self.value = WideUInt(truncatingIfNeeded: value, toWidth: bitWidth)
+    // self.value = wide(exactly: value)!
+//    self.value = WideUInt(truncatingIfNeeded: value, toWidth: bitWidth)
+//    let ok = self.value == value
+//    precondition(ok, "\(value) is not representable as UInt\(bitWidth)")
+  }
+
+  public var type: LoweredType { .object(BuiltinType.i(value.bitWidth)) }
 
 }
 
 extension IntegerConstant: CustomStringConvertible {
 
   public var description: String {
-    "\(type.astType)(0x\(bitPattern.hexadecimalString()))"
+    "\(type.astType)(0x\(String(value.value, radix: 16)))"
   }
 
 }
