@@ -1,4 +1,5 @@
 import Utils
+import BigInt
 
 /// Val's IR emitter.
 ///
@@ -361,8 +362,8 @@ public struct Emitter {
     booleanLiteral expr: NodeID<BooleanLiteralExpr>,
     into module: inout Module
   ) -> Operand {
-    let value = Operand.constant(.integer(IntegerConstant(
-      bitPattern: BitPattern(pattern: program.ast[expr].value ? 1 : 0, width: 1))))
+    let value = Operand.constant(
+      .integer(IntegerConstant(program.ast[expr].value ? 1 : 0, bitWidth: 1)))
 
     let boolType = program.ast.coreType(named: "Bool")!
     return module.insert(
@@ -616,16 +617,16 @@ public struct Emitter {
     }
 
     // Convert the literal into a bit pattern.
-    let bits: BitPattern
+    let bits: BigUInt
     let s = program.ast[expr].value
     if s.starts(with: "0x") {
-      bits = BitPattern(fromHexadecimal: s.dropFirst(2))!.resized(to: bitWidth)
+      bits = BigUInt(s.dropFirst(2), radix: 16)!
     } else {
-      bits = BitPattern(fromDecimal: s)!.resized(to: bitWidth)
+      bits = BigUInt(s.dropFirst(2))!
     }
 
     // Emit the constant integer.
-    let value = IntegerConstant(bitPattern: bits)
+    let value = IntegerConstant(bits, bitWidth: bitWidth)
     return module.insert(
       RecordInst(objectType: .object(type), operands: [.constant(.integer(value))]),
       at: insertionPoint!)[0]
