@@ -25,15 +25,6 @@ public struct Emitter {
 
   // MARK: Declarations
 
-  /// Emits the Val IR of the module identified by `decl`.
-  public mutating func emit(module decl: NodeID<ModuleDecl>) -> Module {
-    var module = Module(decl: decl, name: program.ast[decl].name)
-    for member in program.ast.topLevelDecls(decl) {
-      emit(topLevel: member, into: &module)
-    }
-    return module
-  }
-
   /// Emits the given top-level declaration into `module`.
   public mutating func emit(topLevel decl: AnyDeclID, into module: inout Module) {
     switch decl.kind {

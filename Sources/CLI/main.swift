@@ -167,7 +167,7 @@ struct CLI: ParsableCommand {
 
     // Initialize the IR emitter.
     var emitter = Emitter(program: typedProgram)
-    var irModule = emitter.emit(module: moduleDecl)
+    var irModule = Module(moduleDecl, using: &emitter)
 
     // Handle `--emit raw-ir`.
     if outputType == .rawIR {

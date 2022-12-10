@@ -46,7 +46,7 @@ final class EmitterTests: XCTestCase {
 
       // Emit Val's IR.
       var emitter = Emitter(program: typedProgram)
-      var irModule = emitter.emit(module: module)
+      var irModule = Module(module, using: &emitter)
 
       // Run mandatory IR analysis and transformation passes.
       var pipeline: [TransformPass] = [

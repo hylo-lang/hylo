@@ -1,16 +1,16 @@
 import Utils
 
-/// A module lowered to Val IR.
+/// A collection of IR functions.
 public struct Module {
 
   /// An array of functions.
   public typealias Functions = [Function]
 
+  /// The program defining the functions in `self`.
+  public let program: TypedProgram
+
   /// The module's declaration.
   public let decl: NodeID<ModuleDecl>
-
-  /// The module's name.
-  public let name: String
 
   /// The def-use chains of the values in this module.
   public private(set) var uses: [Operand: [Use]] = [:]
@@ -21,13 +21,23 @@ public struct Module {
   /// The ID of the module's entry function, if any.
   public private(set) var entryFunctionID: Function.ID?
 
-  /// A map from function declaration its ID in the module.
+  /// A map from function declaration to its ID in `self.functions`.
   private var loweredFunctions: [NodeID<FunctionDecl>: Function.ID] = [:]
 
-  public init(decl: NodeID<ModuleDecl>, name: String) {
+  /// Creates an IR module lowering `decl` using `emitter`.
+  ///
+  /// - Requires: `decl` must be a valid module declaration in `emitter.program`.
+  public init(_ decl: NodeID<ModuleDecl>, using emitter: inout Emitter) {
+    self.program = emitter.program
     self.decl = decl
-    self.name = name
+
+    for member in program.ast.topLevelDecls(decl) {
+      emitter.emit(topLevel: member, into: &self)
+    }
   }
+
+  /// The module's name.
+  public var name: String { program.ast[decl].name }
 
   /// Returns the type of `operand`.
   public func type(of operand: Operand) -> LoweredType {
