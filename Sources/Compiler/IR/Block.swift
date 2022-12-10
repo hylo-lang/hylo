@@ -1,9 +1,9 @@
 import Utils
 
-/// A basic block in a Val IR function.
+/// A collection of instructions.
 public struct Block {
 
-  /// The ID of a basic block in a Val IR function.
+  /// The ID of a basic block.
   public struct ID: Hashable {
 
     /// The ID of the function containing the block.
@@ -30,18 +30,18 @@ public struct Block {
 
   }
 
+  /// The address of an instruction in `self`.
+  public typealias InstAddress = DoublyLinkedList<Inst>.Address
+
   /// The type input parameters of the block.
   public let inputs: [LoweredType]
 
   /// The instructions in the block.
   public internal(set) var instructions: DoublyLinkedList<Inst> = []
 
-}
-
-extension Block {
-
-  public typealias InstAddress = DoublyLinkedList<Inst>.Address
-
+  /// Accesses the instruction at `address`.
+  ///
+  /// - Requires: `address` must be a valid address in `self`.
   public subscript(_ address: InstAddress) -> Inst {
     get { instructions[address] }
     set { instructions[address] = newValue }

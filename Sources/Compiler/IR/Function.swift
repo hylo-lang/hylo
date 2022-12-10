@@ -1,10 +1,13 @@
 import Utils
 
-/// A function lowered to Val IR.
+/// A collection of basic blocks representing a lowered function.
 public struct Function {
 
   /// The ID of a Val IR function.
   public typealias ID = Module.Functions.Index
+
+  /// The address of a basic block in `self`.
+  public typealias BlockAddress = DoublyLinkedList<Block>.Address
 
   /// The profile of a IR function input.
   public typealias Input = (convention: PassingConvention, type: LoweredType)
@@ -32,7 +35,15 @@ public struct Function {
   /// The entry of the function.
   public var entry: Block? { blocks.first }
 
-  /// The control flow graph of the function.
+  /// Accesses the basic block at `address`.
+  ///
+  /// - Requires: `address` must be a valid address in `self`.
+  public subscript(_ address: BlockAddress) -> Block {
+    get { blocks[address] }
+    _modify { yield &blocks[address] }
+  }
+
+  /// The control flow graph of `self`.
   var cfg: ControlFlowGraph {
     var result = ControlFlowGraph()
 
@@ -53,66 +64,73 @@ public struct Function {
 
 }
 
-extension Function: Sequence {
+extension Function {
 
-  public typealias BlockAddress = DoublyLinkedList<Block>.Address
+  /// A view of a function's instruction addresses.
+  public struct InstructionAddresses: Sequence {
 
-  public typealias Element = (block: BlockAddress, inst: Block.InstAddress)
+    public typealias Element = (block: BlockAddress, inst: Block.InstAddress)
 
-  /// An type supplying the addresses of the instruction in a function, in no particular order.
-  public struct Iterator: IteratorProtocol {
+    /// A type supplying the addresses of the instruction in a function, in no particular order.
+    public struct Iterator: IteratorProtocol {
 
-    private let base: Function
+      /// The function containing the instructions over which `self` iterates.
+      private let base: Function
 
-    private var outer: BlockAddress?
+      /// The current block address, representing the outer position.
+      private var outer: BlockAddress?
 
-    private var inner: Block.InstAddress?
+      /// The current instruction address in `outer`, representing the inner position.
+      private var inner: Block.InstAddress?
 
-    fileprivate init(_ base: Function) {
-      self.base = base
-      self.outer = base.blocks.firstAddress
-      self.inner = base.blocks.first?.instructions.firstAddress
-    }
-
-    public mutating func next() -> Element? {
-      guard let b = outer, let i = inner else { return nil }
-      advance(b, i)
-      return (block: b, inst: i)
-    }
-
-    private mutating func advance(_ b: BlockAddress, _ i: Block.InstAddress) {
-      if let ni = base[b].instructions.address(after: i) {
-        inner = ni
-      } else {
-        var cb = b
-        while let nb = base.blocks.address(after: cb) {
-          if let ni = base[nb].instructions.firstAddress {
-            inner = ni
-            outer = nb
-            return
-          }
-          cb = nb
-        }
-        outer = nil
-        inner = nil
+      /// Creates an iterator supplying the addresses of the instructions in `base`.
+      fileprivate init(_ base: Function) {
+        self.base = base
+        self.outer = base.blocks.firstAddress
+        self.inner = base.blocks.first?.instructions.firstAddress
       }
+
+      public mutating func next() -> Element? {
+        // If either of the outer or inner iterator is at the end, we're done.
+        guard let b = outer, let i = inner else { return nil }
+
+        // Advance `self` to the next instruction address by pointing to the next instruction in
+        // the current block, or if such instruction doesn't exist, by pointing to the first
+        // instruction of the next non-empty block.
+        if let ni = base[b].instructions.address(after: i) {
+          inner = ni
+        } else {
+          var cb = b
+          while let nb = base.blocks.address(after: cb) {
+            if let ni = base[nb].instructions.firstAddress {
+              inner = ni
+              outer = nb
+              return (block: b, inst: i)
+            }
+            cb = nb
+          }
+
+          // There are no more addresses to supply.
+          outer = nil
+          inner = nil
+        }
+
+        return (block: b, inst: i)
+      }
+
+    }
+
+    /// The function containing the instructions viewed through `self`.
+    fileprivate let base: Function
+
+    public func makeIterator() -> Iterator {
+      Iterator(base)
     }
 
   }
 
-  public func makeIterator() -> Iterator {
-    Iterator(self)
-  }
-
-  public subscript(_ addresses: Element) -> Inst {
-    get { blocks[addresses.block][addresses.inst] }
-    set { blocks[addresses.block][addresses.inst] = newValue }
-  }
-
-  public subscript(_ address: BlockAddress) -> Block {
-    get { blocks[address] }
-    _modify { yield &blocks[address] }
-  }
+  /// A sequence containing the addresses of the instructions in `self`, in no particular order.
+  public var instructions: InstructionAddresses { InstructionAddresses(base: self) }
 
 }
 
