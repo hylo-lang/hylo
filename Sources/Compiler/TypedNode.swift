@@ -28,6 +28,7 @@ public struct TypedNode<ID: NodeIDProtocol> : Hashable {
   public func hash(into hasher: inout Hasher) {
       hasher.combine(id)
   }
+
 }
 
 /// An AST node with type information.
