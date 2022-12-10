@@ -35,7 +35,7 @@ public struct TypedNode<ID: NodeIDProtocol> : Hashable {
 public typealias Typed<T: AST.Node> = TypedNode<NodeID<T>>
 
 extension TypedProgram {
-  /// Get the typed node for the given node ID.
+  /// Bundles `id` together with `self`.
   public subscript<TargetID: NodeIDProtocol>(_ id: TargetID) -> TypedNode<TargetID>
   {
     TypedNode<TargetID>(whole: self, id: id)
