@@ -1901,7 +1901,7 @@ public enum Parser {
     // Parse the name of the component.
     guard let name = try parseEntityName(in: &state) else { return nil }
 
-    // If the next token is a left angle bracket, without any leading whitespace, parse a static
+    // If the next token is a left angle bracket without any leading whitespace, parse a static
     // argument list.
     let arguments: [GenericArgument]
     if !state.hasLeadingWhitespace && state.isNext(.lAngle) {
