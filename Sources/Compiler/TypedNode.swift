@@ -12,6 +12,7 @@ extension AST {
 /// related to that node.
 @dynamicMemberLookup
 public struct TypedNode<ID: NodeIDProtocol> : Hashable {
+
   /// The whole program of which this node is a notional part.
   fileprivate let whole: TypedProgram
 
