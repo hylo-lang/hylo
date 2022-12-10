@@ -138,7 +138,7 @@ struct ParserState {
     return token
   }
 
-  /// Returns whether the next token has the specified kind, or `false` if the stream is empty.
+  /// Returns whether a token of the given `kind` is next in the input.
   mutating func isNext(_ kind: Token.Kind) -> Bool {
     peek()?.kind == kind
   }
