@@ -96,6 +96,7 @@ extension TypedNode {
   
   /// The corresponding node kind.
   var kind: NodeKind { id.kind }
+
 }
 
 extension TypedNode where ID: ScopeID {
