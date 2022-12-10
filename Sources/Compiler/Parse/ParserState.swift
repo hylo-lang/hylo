@@ -140,7 +140,7 @@ struct ParserState {
     peek()?.kind == kind
   }
 
-  /// Returns whether the next token satisfies `predicate`, or `false` if the stream is empty.
+  /// Returns whether a token satisfying `predicate` is next in the input.
   mutating func isNext(satisfying predicate: (Token) -> Bool) -> Bool {
     if let token = peek() {
       return predicate(token)
