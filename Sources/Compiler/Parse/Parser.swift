@@ -3611,14 +3611,10 @@ fileprivate extension OperatorNotation {
   /// operator notation.
   init?(_ token: Token) {
     switch token.kind {
-    case .infix:
-      self = .infix
-    case .prefix:
-      self = .prefix
-    case .postfix:
-      self = .postfix
-    default:
-      return nil
+    case .infix: self = .infix
+    case .prefix: self = .prefix
+    case .postfix: self = .postfix
+    default: return nil
     }
   }
 
