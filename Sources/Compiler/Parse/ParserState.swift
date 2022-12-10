@@ -54,9 +54,6 @@ struct ParserState {
     self.currentIndex = lexer.source.contents.startIndex
   }
 
-  /// The character stream from the current index.
-  var characterStream: Substring { lexer.source.contents[currentIndex...] }
-
   /// Indicates whether the parser is at global scope.
   var atGlobalScope: Bool { atModuleScope || atNamespaceScope }
 
