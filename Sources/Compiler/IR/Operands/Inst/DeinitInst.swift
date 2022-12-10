@@ -17,7 +17,7 @@ public struct DeinitInst: Inst {
 
   public var isTerminator: Bool { false }
 
-  public func check(in module: Module) -> Bool {
+  public func isWellFormed(in module: Module) -> Bool {
     // Operand has an object type.
     if module.type(of: object).isAddress { return false }
 

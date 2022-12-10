@@ -20,7 +20,7 @@ public struct CondBranchInst: Inst {
 
   public var isTerminator: Bool { true }
 
-  public func check(in module: Module) -> Bool {
+  public func isWellFormed(in module: Module) -> Bool {
     /// The condition operand has an object type.
     return !module.type(of: condition).isAddress
   }

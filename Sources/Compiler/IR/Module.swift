@@ -40,19 +40,19 @@ public struct Module {
     }
   }
 
-  /// Returns whether the module is well-formed.
-  public func check() -> Bool {
+  /// Returns whether the IR in `self` is well-formed.
+  public func isWellFormed() -> Bool {
     for i in 0 ..< functions.count {
-      if !check(function: i) { return false }
+      if !isWellFormed(function: i) { return false }
     }
     return true
   }
 
-  /// Returns whether the specified function is well-formed.
-  public func check(function functionID: Function.ID) -> Bool {
-    for block in functions[functionID].blocks {
+  /// Returns whether `f` is well-formed.
+  public func isWellFormed(function f: Function.ID) -> Bool {
+    for block in functions[f].blocks {
       for inst in block.instructions {
-        if !inst.check(in: self) { return false }
+        if !inst.isWellFormed(in: self) { return false }
       }
     }
     return true

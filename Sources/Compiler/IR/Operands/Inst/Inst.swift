@@ -16,8 +16,8 @@ public protocol Inst {
   /// current block is finished, returns a value, or yields control.
   var isTerminator: Bool { get }
 
-  /// Returns whether the instruction is well-formed.
-  func check(in module: Module) -> Bool
+  /// Returns whether `self` is a well-formed instruction of `module`.
+  func isWellFormed(in module: Module) -> Bool
 
 }
 

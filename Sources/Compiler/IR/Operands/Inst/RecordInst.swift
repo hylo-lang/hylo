@@ -16,7 +16,7 @@ public struct RecordInst: Inst {
 
   public var isTerminator: Bool { false }
 
-  public func check(in module: Module) -> Bool {
+  public func isWellFormed(in module: Module) -> Bool {
     // Instruction result has an object type.
     return !objectType.isAddress
   }
