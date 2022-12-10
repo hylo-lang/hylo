@@ -5,7 +5,7 @@ extension Diagnostic {
   }
 
   static func diagnose(expected kind: Token.Kind, at location: SourceLocation) -> Diagnostic {
-    .error("expected '\(kind)'", range: location ..< location)
+    diagnose(expected: "'\(kind)'", at: location)
   }
 
   static func diagnose(
