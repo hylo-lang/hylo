@@ -181,7 +181,7 @@ struct ParserState {
     return take(kind)
   }
 
-  /// Consumes and returns the next token if it satisfies the specified predicate.
+  /// Consumes and returns the next token if it satisfies `predicate`.
   mutating func take(if predicate: (Token) -> Bool) -> Token? {
     if let token = peek(), predicate(token) {
       let token = lookahead.removeFirst()
