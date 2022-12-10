@@ -1,7 +1,7 @@
 extension Diagnostic {
 
   static func diagnose(assignOperatorRequiresWhitespaces token: Token) -> Diagnostic {
-    .error("infix operator requires whitespaces on both sides", range: token.origin)
+    .error("assignment operator requires whitespaces on both sides", range: token.origin)
   }
 
   static func diagnose(expected kind: Token.Kind, at location: SourceLocation) -> Diagnostic {
