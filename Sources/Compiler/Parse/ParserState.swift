@@ -163,7 +163,7 @@ struct ParserState {
     return token
   }
 
-  /// Consumes and returns the next token it has the specified kind.
+  /// Consumes and returns the next token if it has the specified kind.
   mutating func take(_ kind: Token.Kind) -> Token? {
     if peek()?.kind == kind {
       let token = lookahead.removeFirst()
