@@ -3,6 +3,9 @@ import Utils
 /// A module lowered to Val IR.
 public struct Module {
 
+  /// An array of functions.
+  public typealias Functions = [Function]
+
   /// The module's declaration.
   public let decl: NodeID<ModuleDecl>
 
@@ -13,7 +16,7 @@ public struct Module {
   public private(set) var uses: [Operand: [Use]] = [:]
 
   /// The functions in the module.
-  public private(set) var functions: [Function] = []
+  public private(set) var functions: Functions = []
 
   /// The ID of the module's entry function, if any.
   public private(set) var entryFunctionID: Function.ID?
@@ -172,9 +175,7 @@ public struct Module {
 
 extension Module {
 
-  public typealias FunctionIndex = Int
-
-  public subscript(_ position: FunctionIndex) -> Function {
+  public subscript(_ position: Functions.Index) -> Function {
     _read   { yield functions[position] }
     _modify { yield &functions[position] }
   }

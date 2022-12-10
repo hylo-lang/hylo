@@ -4,7 +4,7 @@ import Utils
 public struct Function {
 
   /// The ID of a Val IR function.
-  public typealias ID = Module.FunctionIndex
+  public typealias ID = Module.Functions.Index
 
   /// The profile of a IR function input.
   public typealias Input = (convention: PassingConvention, type: LoweredType)
