@@ -112,7 +112,7 @@ public struct Token {
 
   /// Indicates whether `self` may be in an operator
   ///
-  /// Operators may be represented by one or more tokens of different kinds. For example, `<<` is
+  /// Operators may be represented by one or more tokens. For example, `<<` is
   /// represented by two consecutive `.lAngle` tokens. Use this property to determine whether
   /// `self` may be a token in such a sequence.
   public var isOperatorPart: Bool {

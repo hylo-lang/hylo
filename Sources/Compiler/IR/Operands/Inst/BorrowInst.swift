@@ -1,5 +1,5 @@
 // Borrows an access on an object or sub-object.
-public struct BorrowInst: Inst, BorrowInstProtocol {
+public struct BorrowInst: Inst {
 
   /// The capability being borrowed.
   public let capability: RemoteType.Capability

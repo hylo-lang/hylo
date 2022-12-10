@@ -54,20 +54,17 @@ struct ParserState {
     self.currentIndex = lexer.source.contents.startIndex
   }
 
-  /// The character stream from the current index.
-  var characterStream: Substring { lexer.source.contents[currentIndex...] }
-
   /// Indicates whether the parser is at global scope.
-  var atGlobalScope: Bool { atModuleScope || atNamespaceScope }
+  var isAtGlobalScope: Bool { isAtModuleScope || isAtNamespaceScope }
 
   /// Indicates whether the parser is at module scope.
-  var atModuleScope: Bool { contexts.isEmpty }
+  var isAtModuleScope: Bool { contexts.isEmpty }
 
   /// Indicates whether the parser is at namespace scope.
-  var atNamespaceScope: Bool { contexts.last == .namespaceBody }
+  var isAtNamespaceScope: Bool { contexts.last == .namespaceBody }
 
   /// Indicates whether the parser is expecting to parse member declarations.
-  var atTypeScope: Bool {
+  var isAtTypeScope: Bool {
     if let c = contexts.last {
       return (c == .extensionBody) || (c == .productBody) || (c == .traitBody)
     } else {
@@ -76,7 +73,7 @@ struct ParserState {
   }
 
   /// Indicates whether the parser is at trait scope.
-  var atTraitScope: Bool { contexts.last == .traitBody }
+  var isAtTraitScope: Bool { contexts.last == .traitBody }
 
   /// Indicates whether the parser is expecting to parse a capture declaration.
   var isParsingCaptureList: Bool { contexts.last == .captureList }
@@ -85,10 +82,10 @@ struct ParserState {
   var currentLocation: SourceLocation { SourceLocation(source: lexer.source, index: currentIndex) }
 
   /// The next character in the character stream, unless the parser reached its end.
-  var currentCharacter: Character? { atEOF ? nil : lexer.source.contents[currentIndex] }
+  var currentCharacter: Character? { isAtEOF ? nil : lexer.source.contents[currentIndex] }
 
   /// Returns whether the parser is at the end of the character stream.
-  var atEOF: Bool { currentIndex == lexer.source.contents.endIndex }
+  var isAtEOF: Bool { currentIndex == lexer.source.contents.endIndex }
 
   /// Returns whether there is a whitespace at the current index.
   var hasLeadingWhitespace: Bool {
@@ -138,12 +135,12 @@ struct ParserState {
     return token
   }
 
-  /// Returns whether the next token has the specified kind, or `false` if the stream is empty.
+  /// Returns whether a token of the given `kind` is next in the input.
   mutating func isNext(_ kind: Token.Kind) -> Bool {
     peek()?.kind == kind
   }
 
-  /// Returns whether the next token satisfies `predicate`, or `false` if the stream is empty.
+  /// Returns whether a token satisfying `predicate` is next in the input.
   mutating func isNext(satisfying predicate: (Token) -> Bool) -> Bool {
     if let token = peek() {
       return predicate(token)
@@ -166,7 +163,7 @@ struct ParserState {
     return token
   }
 
-  /// Consumes and returns the next token it has the specified kind.
+  /// Consumes and returns the next token if it has the specified kind.
   mutating func take(_ kind: Token.Kind) -> Token? {
     if peek()?.kind == kind {
       let token = lookahead.removeFirst()
@@ -184,7 +181,7 @@ struct ParserState {
     return take(kind)
   }
 
-  /// Consumes and returns the next token if it satisfies the specified predicate.
+  /// Consumes and returns the next token if it satisfies `predicate`.
   mutating func take(if predicate: (Token) -> Bool) -> Token? {
     if let token = peek(), predicate(token) {
       let token = lookahead.removeFirst()

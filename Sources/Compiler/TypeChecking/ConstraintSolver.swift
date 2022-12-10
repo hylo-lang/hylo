@@ -561,7 +561,7 @@ struct ConstraintSolver {
   private func finalize(using checker: inout TypeChecker) -> Solution {
     assert(fresh.isEmpty)
     var s = Solution(
-      typeAssumptions: typeAssumptions.flattened(),
+      typeAssumptions: typeAssumptions.asDictionary(),
       bindingAssumptions: bindingAssumptions,
       penalties: penalties,
       diagnostics: diagnostics)
