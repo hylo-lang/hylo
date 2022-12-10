@@ -24,7 +24,7 @@ public struct TypedNode<ID: NodeIDProtocol> : Hashable {
       lhs.id == rhs.id
   }
 
-  /// Hash function; only consider the node ID.
+  /// Hashes the value of `id` into `hasher`.
   public func hash(into hasher: inout Hasher) {
       hasher.combine(id)
   }
