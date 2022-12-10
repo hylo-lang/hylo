@@ -55,16 +55,16 @@ struct ParserState {
   }
 
   /// Indicates whether the parser is at global scope.
-  var atGlobalScope: Bool { atModuleScope || atNamespaceScope }
+  var isAtGlobalScope: Bool { isAtModuleScope || isAtNamespaceScope }
 
   /// Indicates whether the parser is at module scope.
-  var atModuleScope: Bool { contexts.isEmpty }
+  var isAtModuleScope: Bool { contexts.isEmpty }
 
   /// Indicates whether the parser is at namespace scope.
-  var atNamespaceScope: Bool { contexts.last == .namespaceBody }
+  var isAtNamespaceScope: Bool { contexts.last == .namespaceBody }
 
   /// Indicates whether the parser is expecting to parse member declarations.
-  var atTypeScope: Bool {
+  var isAtTypeScope: Bool {
     if let c = contexts.last {
       return (c == .extensionBody) || (c == .productBody) || (c == .traitBody)
     } else {
@@ -73,7 +73,7 @@ struct ParserState {
   }
 
   /// Indicates whether the parser is at trait scope.
-  var atTraitScope: Bool { contexts.last == .traitBody }
+  var isAtTraitScope: Bool { contexts.last == .traitBody }
 
   /// Indicates whether the parser is expecting to parse a capture declaration.
   var isParsingCaptureList: Bool { contexts.last == .captureList }
@@ -82,10 +82,10 @@ struct ParserState {
   var currentLocation: SourceLocation { SourceLocation(source: lexer.source, index: currentIndex) }
 
   /// The next character in the character stream, unless the parser reached its end.
-  var currentCharacter: Character? { atEOF ? nil : lexer.source.contents[currentIndex] }
+  var currentCharacter: Character? { isAtEOF ? nil : lexer.source.contents[currentIndex] }
 
   /// Returns whether the parser is at the end of the character stream.
-  var atEOF: Bool { currentIndex == lexer.source.contents.endIndex }
+  var isAtEOF: Bool { currentIndex == lexer.source.contents.endIndex }
 
   /// Returns whether there is a whitespace at the current index.
   var hasLeadingWhitespace: Bool {

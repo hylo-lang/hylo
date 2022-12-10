@@ -148,7 +148,7 @@ public enum Parser {
         isPrologueEmpty = false
 
         // Catch member modifiers declared at non-type scope.
-        if !state.atTypeScope {
+        if !state.isAtTypeScope {
           state.diagnostics.append(.diagnose(unexpectedMemberModifier: member))
         }
 
@@ -211,7 +211,7 @@ public enum Parser {
           .map(AnyDeclID.init)
 
       case .type:
-        if state.atTraitScope {
+        if state.isAtTraitScope {
           return try parseAssociatedTypeDecl(withPrologue: prologue, in: &state)
             .map(AnyDeclID.init)
         } else {
@@ -241,13 +241,13 @@ public enum Parser {
 
       case .name:
         let introducer = state.lexer.source[state.peek()!.origin]
-        if introducer == "value" && state.atTypeScope {
+        if introducer == "value" && state.isAtTypeScope {
           // Note: associated values are parsed at any type scope to produce better diagnostics
           // when they are not at trait scope.
           return try parseAssociatedValueDecl(withPrologue: prologue, in: &state)
             .map(AnyDeclID.init)
         }
-        if introducer == "memberwise" && state.atTypeScope {
+        if introducer == "memberwise" && state.isAtTypeScope {
           return try parseMemberwiseInitDecl(withPrologue: prologue, in: &state)
             .map(AnyDeclID.init)
         }
@@ -563,7 +563,7 @@ public enum Parser {
   ) throws -> NodeID<FunctionDecl> {
     // Non-static member function declarations require an implicit receiver parameter.
     let receiver: NodeID<ParameterDecl>?
-    if state.atTypeScope && !prologue.isStatic {
+    if state.isAtTypeScope && !prologue.isStatic {
       receiver = try state.ast.insert(wellFormed: ParameterDecl(
         identifier: SourceRepresentable(value: "self"),
         origin: nil))
@@ -818,7 +818,7 @@ public enum Parser {
 
     guard let impls = try parseSubscriptDeclBody(
       in: &state,
-      asNonStaticMember: state.atTypeScope && !prologue.isStatic)
+      asNonStaticMember: state.isAtTypeScope && !prologue.isStatic)
     else {
       throw DiagnosedError(expected("'{'", at: state.currentLocation))
     }
@@ -851,7 +851,7 @@ public enum Parser {
 
     guard let impls = try parseSubscriptDeclBody(
       in: &state,
-      asNonStaticMember: state.atTypeScope && !prologue.isStatic)
+      asNonStaticMember: state.isAtTypeScope && !prologue.isStatic)
     else {
       throw DiagnosedError(expected("'{'", at: state.currentLocation))
     }
