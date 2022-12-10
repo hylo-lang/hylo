@@ -2070,7 +2070,7 @@ public struct TypeChecker {
     case TupleTypeExpr.self:
       return realize(tuple: NodeID(rawValue: expr.rawValue), inScope: scope)
 
-    case WildcardTypeExpr.self:
+    case WildcardExpr.self:
       return MetatypeType(of: TypeVariable(node: expr.base))
 
     default:
@@ -2235,7 +2235,7 @@ public struct TypeChecker {
 
     // Realize the lambda's environment.
     let environment: AnyType
-    if let environmentExpr = node.environment?.value {
+    if let environmentExpr = node.environment {
       guard let ty = realize(environmentExpr, inScope: scope) else { return nil }
       environment = ty.instance
     } else {
@@ -2289,7 +2289,7 @@ public struct TypeChecker {
         }
       }
 
-    case .type(let j):
+    case .expr(let j):
       // The domain is a type expression.
       guard let d = realize(j, inScope: scope)?.instance else { return nil }
       domain = d
@@ -2311,9 +2311,6 @@ public struct TypeChecker {
       diagnostics.insert(
         .diagnose(notEnoughContextToResolveMember: name.value, at: name.origin))
       return nil
-
-    case .expr:
-      unreachable("unexpected name domain")
     }
 
     // Diagnose unresolved names.

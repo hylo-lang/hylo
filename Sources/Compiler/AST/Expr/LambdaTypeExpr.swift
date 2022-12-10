@@ -1,5 +1,5 @@
 /// A lambda type expression.
-public struct LambdaTypeExpr: TypeExpr {
+public struct LambdaTypeExpr: Expr {
 
   /// A parameter in a lambda type expression.
   public struct Parameter: Codable {
@@ -23,37 +23,26 @@ public struct LambdaTypeExpr: TypeExpr {
   public let receiverEffect: SourceRepresentable<ReceiverEffect>?
 
   /// The environment of the lambda, or `nil` if it is thin.
-  public private(set) var environment: SourceRepresentable<AnyTypeExprID>?
+  public private(set) var environment: AnyTypeExprID?
 
   /// The parameters of the lambda.
   public let parameters: [Parameter]
 
   /// The output type of the lambda.
-  public let output: AnyTypeExprID
+  public let output: AnyExprID
 
   public init(
     receiverEffect: SourceRepresentable<ReceiverEffect>?,
+    environment: AnyExprID?,
     parameters: [Parameter],
     output: AnyTypeExprID,
     origin: SourceRange?
   ) {
     self.origin = origin
     self.receiverEffect = receiverEffect
+    self.environment = environment
     self.parameters = parameters
     self.output = output
   }
 
-  /// Incorporates `accessModifier` into `self`.
-  ///
-  /// - Precondition: `self.environment == nil`
-  internal mutating func incorporate(environment: SourceRepresentable<AnyTypeExprID>?) {
-    precondition(self.environment == nil)
-
-    self.environment = environment
-    if let l = environment?.origin,
-       let u = origin?.upperBound
-    {
-      self.origin = l.extended(upTo: u)
-    }
-  }
 }

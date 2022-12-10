@@ -1,5 +1,5 @@
 /// A parameter in a lambda type expression.
-public struct ParameterTypeExpr: TypeExpr {
+public struct ParameterTypeExpr: Expr {
 
   public let origin: SourceRange?
 
@@ -18,5 +18,8 @@ public struct ParameterTypeExpr: TypeExpr {
     self.convention = convention
     self.bareType = bareType
   }
+
+  /// Indicates whether `convention` was synthesized.
+  public var isConventionSynthesized: Bool { convention.origin == nil }
 
 }

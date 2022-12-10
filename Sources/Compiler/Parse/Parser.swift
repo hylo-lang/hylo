@@ -148,7 +148,7 @@ public enum Parser {
         isPrologueEmpty = false
 
         // Catch member modifiers declared at non-type scope.
-        if !state.atTypeScope {
+        if !state.isAtTypeScope {
           state.diagnostics.append(.diagnose(unexpectedMemberModifier: member))
         }
 
@@ -211,7 +211,7 @@ public enum Parser {
           .map(AnyDeclID.init)
 
       case .type:
-        if state.atTraitScope {
+        if state.isAtTraitScope {
           return try parseAssociatedTypeDecl(withPrologue: prologue, in: &state)
             .map(AnyDeclID.init)
         } else {
@@ -241,13 +241,13 @@ public enum Parser {
 
       case .name:
         let introducer = state.lexer.source[state.peek()!.origin]
-        if introducer == "value" && state.atTypeScope {
+        if introducer == "value" && state.isAtTypeScope {
           // Note: associated values are parsed at any type scope to produce better diagnostics
           // when they are not at trait scope.
           return try parseAssociatedValueDecl(withPrologue: prologue, in: &state)
             .map(AnyDeclID.init)
         }
-        if introducer == "memberwise" && state.atTypeScope {
+        if introducer == "memberwise" && state.isAtTypeScope {
           return try parseMemberwiseInitDecl(withPrologue: prologue, in: &state)
             .map(AnyDeclID.init)
         }
@@ -296,7 +296,7 @@ public enum Parser {
       // Ignore semicolons.
       if state.take(.semi) != nil { continue }
 
-      // Exit if we found the right delimiter.
+      // Exit if we find the right delimiter.
       if state.take(.rBrace) != nil { break }
 
       // Attempt to parse a member.
@@ -313,10 +313,11 @@ public enum Parser {
       // Nothing was consumed. Skip the next token or, if we reached EOF, diagnose a missing right
       // delimiter and exit.
       guard let head = state.take() else {
-        state.diagnostics.append(expected(
-          "'}'",
-          at: state.currentLocation,
-          children: [.error("to match this '{'", range: opener.origin)]
+        state.diagnostics.append(
+          expected(
+            "'}'",
+            at: state.currentLocation,
+            children: [.error("to match this '{'", range: opener.origin)]
         ))
         break
       }
@@ -341,7 +342,7 @@ public enum Parser {
       take(.type).and(take(.name))
         .and(maybe(conformanceList))
         .and(maybe(whereClause))
-        .and(maybe(take(.assign).and(typeExpr).second))
+        .and(maybe(take(.assign).and(expr).second))
     )
     guard let parts = try parser.parse(&state) else { return nil }
 
@@ -441,7 +442,7 @@ public enum Parser {
   ) throws -> NodeID<ConformanceDecl>? {
     // Parse the parts of the declaration.
     let parser = (
-      take(.conformance).and(typeExpr)
+      take(.conformance).and(expr)
         .and(conformanceList)
         .and(maybe(whereClause))
         .and(Apply({ (s) in try parseTypeDeclBody(in: &s, wrappedIn: .extensionBody) }))
@@ -478,7 +479,7 @@ public enum Parser {
   ) throws -> NodeID<ExtensionDecl>? {
     // Parse the parts of the declaration.
     let parser = (
-      take(.extension).and(typeExpr)
+      take(.extension).and(expr)
         .and(maybe(whereClause))
         .and(Apply({ (s) in try parseTypeDeclBody(in: &s, wrappedIn: .extensionBody) }))
     )
@@ -516,12 +517,14 @@ public enum Parser {
     in state: inout ParserState
   ) throws -> AnyDeclID? {
     // Parse the parts of the declaration.
-    let parser = (
-      functionDeclHead
-        .and(functionDeclSignature)
-        .and(maybe(functionOrMethodDeclBody))
-    )
-    guard let ((head, signature), body) = try parser.parse(&state) else { return nil }
+    guard let head = try functionDeclHead.parse(&state) else { return nil }
+
+    let signature = try expect(
+      "function signature",
+      in: &state,
+      parsedWith: functionDeclSignature.parse)
+
+    let body = try functionOrMethodDeclBody.parse(&state)
 
     switch body {
     case .method(let impls):
@@ -560,7 +563,7 @@ public enum Parser {
   ) throws -> NodeID<FunctionDecl> {
     // Non-static member function declarations require an implicit receiver parameter.
     let receiver: NodeID<ParameterDecl>?
-    if state.atTypeScope && !prologue.isStatic {
+    if state.isAtTypeScope && !prologue.isStatic {
       receiver = try state.ast.insert(wellFormed: ParameterDecl(
         identifier: SourceRepresentable(value: "self"),
         origin: nil))
@@ -815,7 +818,7 @@ public enum Parser {
 
     guard let impls = try parseSubscriptDeclBody(
       in: &state,
-      asNonStaticMember: state.atTypeScope && !prologue.isStatic)
+      asNonStaticMember: state.isAtTypeScope && !prologue.isStatic)
     else {
       throw DiagnosedError(expected("'{'", at: state.currentLocation))
     }
@@ -848,7 +851,7 @@ public enum Parser {
 
     guard let impls = try parseSubscriptDeclBody(
       in: &state,
-      asNonStaticMember: state.atTypeScope && !prologue.isStatic)
+      asNonStaticMember: state.isAtTypeScope && !prologue.isStatic)
     else {
       throw DiagnosedError(expected("'{'", at: state.currentLocation))
     }
@@ -903,7 +906,7 @@ public enum Parser {
     var duplicateIntroducer: SourceRepresentable<ImplIntroducer>? = nil
 
     while true {
-      // Exit if we found the right delimiter.
+      // Exit if we find the right delimiter.
       if state.take(.rBrace) != nil { break }
 
       // Parse an implementation.
@@ -1075,7 +1078,7 @@ public enum Parser {
       take(.typealias).and(take(.name))
         .and(maybe(genericClause))
         .and(take(.assign))
-        .and(typeExpr)
+        .and(expr)
     )
     guard let parts = try parser.parse(&state) else { return nil }
 
@@ -1164,7 +1167,7 @@ public enum Parser {
   static let functionDeclSignature = (
     take(.lParen).and(maybe(parameterList)).and(take(.rParen))
       .and(maybe(receiverEffect))
-      .and(maybe(take(.arrow).and(typeExpr)))
+      .and(maybe(take(.arrow).and(expr)))
       .map({ (state, tree) -> FunctionDeclSignature in
         FunctionDeclSignature(
           parameters: tree.0.0.0.1 ?? [],
@@ -1275,7 +1278,7 @@ public enum Parser {
   )
 
   static let propertyDeclSignature = (
-    take(.colon).and(typeExpr).second
+    take(.colon).and(expr).second
   )
 
   static let subscriptDeclHead = (
@@ -1291,7 +1294,7 @@ public enum Parser {
 
   static let subscriptDeclSignature = (
     take(.lParen).and(maybe(parameterList)).and(take(.rParen))
-      .and(take(.colon).and(typeExpr))
+      .and(take(.colon).and(expr))
       .map({ (state, tree) -> SubscriptDeclSignature in
         SubscriptDeclSignature(parameters: tree.0.0.1 ?? [], output: tree.1.1)
       })
@@ -1422,7 +1425,7 @@ public enum Parser {
   static let genericParameter = (
     maybe(typeAttribute).andCollapsingSoftFailures(take(.name))
       .and(maybe(take(.colon).and(traitComposition)))
-      .and(maybe(take(.assign).and(typeExpr)))
+      .and(maybe(take(.assign).and(expr)))
       .map({ (state, tree) -> NodeID<GenericParameterDecl> in
         try state.ast.insert(wellFormed: GenericParameterDecl(
           identifier: SourceRepresentable(token: tree.0.0.1, in: state.lexer.source),
@@ -1438,40 +1441,29 @@ public enum Parser {
       .map({ (state, tree) -> [NodeID<NameExpr>] in [tree.0.1] + tree.1 })
   )
 
-  // MARK: Value expressions
+  // MARK: Expressions
 
-  private static func anyExpr<Base: Combinator>(
-    _ base: Base
-  ) -> AnyCombinator<ParserState, AnyExprID>
-  where Base.Context == ParserState, Base.Element: ExprID
-  {
-    AnyCombinator(parse: { (state) in
-      try base.parse(&state).map(AnyExprID.init(_:))
-    })
-  }
+  static let expr = Apply(parseExpr(in:))
 
-  static let expr: Recursive<ParserState, AnyExprID> = (
-    Recursive(infixExpr.parse(_:))
-  )
+  /// Parses an expression in `state`.
+  static func parseExpr(in state: inout ParserState) throws -> AnyExprID? {
+    // Parse an expression.
+    guard var lhs = try parsePrefixExpr(in: &state) else { return nil }
 
-  static let infixExpr = (
-    Apply<ParserState, AnyExprID>({ (state) -> AnyExprID? in
-      guard var lhs = try infixExprHead.parse(&state) else { return nil }
-
-      while state.hasLeadingWhitespace {
-        // type-casting-tail
-        if let infixOperator = state.take(.cast) {
-          try appendInfixTail(to: &lhs, forCastOperator: infixOperator, in: &state)
-          continue
-        }
-
-        // infix-operator-tail
-        if try !appendInfixTail(to: &lhs, in: &state) { break }
+    // Append infix tails.
+    while state.hasLeadingWhitespace {
+      // type-casting-tail
+      if let infixOperator = state.take(.cast) {
+        try appendInfixTail(to: &lhs, forCastOperator: infixOperator, in: &state)
+        continue
       }
 
-      return lhs
-    })
-  )
+      // infix-operator-tail
+      if try !appendInfixTail(to: &lhs, in: &state) { break }
+    }
+
+    return lhs
+  }
 
   /// Parses a type expression from the stream, then transforms `lhs` into a `CastExpr`, using
   /// `infixOperator` to determine the cast kind.
@@ -1484,7 +1476,7 @@ public enum Parser {
       state.diagnostics.append(.diagnose(infixOperatorRequiresWhitespacesAt: infixOperator.origin))
     }
 
-    guard let rhs = try typeExpr.parse(&state) else {
+    guard let rhs = try expr.parse(&state) else {
       throw DiagnosedError(expected("type expression", at: state.currentLocation))
     }
 
@@ -1500,11 +1492,12 @@ public enum Parser {
       unreachable()
     }
 
-    let expr = try state.ast.insert(wellFormed: CastExpr(
-      left: lhs,
-      right: rhs,
-      kind: castKind,
-      origin: state.ast[lhs].origin!.extended(upTo: state.currentIndex)))
+    let expr = try state.ast.insert(
+      wellFormed: CastExpr(
+        left: lhs,
+        right: rhs,
+        kind: castKind,
+        origin: state.ast[lhs].origin!.extended(upTo: state.currentIndex)))
     lhs = AnyExprID(expr)
   }
 
@@ -1538,440 +1531,623 @@ public enum Parser {
       }
 
       // If we can't parse an operand, the tail is empty.
-      guard let operand = try prefixExpr.parse(&state) else {
+      guard let operand = try parsePrefixExpr(in: &state) else {
         state.restore(from: backup)
         return false
       }
 
-      let `operator` = try state.ast.insert(wellFormed: NameExpr(
-        name: SourceRepresentable(value: Name(stem: operatorStem.value, notation: .infix)),
-        origin: operatorStem.origin))
+      let `operator` = try state.ast.insert(
+        wellFormed: NameExpr(
+          name: SourceRepresentable(value: Name(stem: operatorStem.value, notation: .infix)),
+          origin: operatorStem.origin))
       tail.append(SequenceExpr.TailElement(operator: `operator`, operand: operand))
     }
 
     // Nothing to transform if the tail is empty.
     if tail.isEmpty { return false }
 
-    let expr = try state.ast.insert(wellFormed: SequenceExpr(
-      head: lhs,
-      tail: tail,
-      origin: state.ast[lhs].origin!.extended(upTo: state.currentIndex)))
+    let expr = try state.ast.insert(
+      wellFormed: SequenceExpr(
+        head: lhs,
+        tail: tail,
+        origin: state.ast[lhs].origin!.extended(upTo: state.currentIndex)))
     lhs = AnyExprID(expr)
     return true
   }
 
-  static let infixExprHead = (
-    anyExpr(spawnExpr).or(prefixExpr)
-  )
+  private static func parsePrefixExpr(in state: inout ParserState) throws -> AnyExprID? {
+    // Attempt to parse a prefix operator.
+    if state.isNext(satisfying: { $0.isPrefixOperatorHead }) {
+      let op = state.takeOperator()!
 
-  static let spawnExpr = TryCatch(
-    trying: spawnExprInline,
-    orCatchingAndApplying: spawnExprBlock
-  )
+      // Parse an operand.
+      let isSeparated = state.hasLeadingWhitespace
+      let operand = try expect("expression", in: &state, parsedWith: parsePostfixExpr(in:))
 
-  static let spawnExprBlock = (
-    spawnExprHead.and(take(.arrow)).and(typeExpr).and(spawnExprBody)
-      .map({ (state, tree) -> NodeID<SpawnExpr> in
-        let decl = try state.ast.insert(wellFormed: FunctionDecl(
-          introducerRange: tree.0.0.0.0.0.origin,
-          receiverEffect: tree.0.0.0.1,
-          output: tree.0.1,
-          body: .block(tree.1),
-          isInExprContext: true,
-          origin: tree.0.0.0.0.0.origin.extended(upTo: state.currentIndex)))
+      // There must be no space before the next expression.
+      if isSeparated {
+        state.diagnostics.append(.diagnose(separatedPrefixOperatorAt: op.origin))
+      }
 
-        return try state.ast.insert(wellFormed: SpawnExpr(
-          decl: decl,
-          origin: state.ast[decl].origin))
-      })
-  )
-
-  static let spawnExprBody = inContext(.functionBody, apply: braceStmt)
-
-  static let spawnExprInline = (
-    spawnExprHead.and(expr)
-      .map({ (state, tree) -> NodeID<SpawnExpr> in
-        let decl = try state.ast.insert(wellFormed: FunctionDecl(
-          introducerRange: tree.0.0.0.origin,
-          receiverEffect: tree.0.1,
-          explicitCaptures: tree.0.0.1 ?? [],
-          body: .expr(tree.1),
-          isInExprContext: true,
-          origin: tree.0.0.0.origin.extended(upTo: state.currentIndex)))
-        return try state.ast.insert(wellFormed: SpawnExpr(
-          decl: decl,
-          origin: state.ast[decl].origin))
-      })
-  )
-
-  static let spawnExprHead = (
-    take(.spawn).and(maybe(captureList)).and(maybe(receiverEffect))
-  )
-
-  static let prefixExpr = Choose(
-    postfixExpr,
-    or: prefixOperator.and(withoutLeadingWhitespace(postfixExpr))
-      .map({ (state, tree) -> AnyExprID in
-        let callee = try state.ast.insert(wellFormed: NameExpr(
-          domain: .expr(tree.1),
+      let callee = try state.ast.insert(
+        wellFormed: NameExpr(
+          domain: .expr(operand),
           name: SourceRepresentable(
-            value: Name(stem: tree.0.value, notation: .prefix),
-            range: tree.0.origin),
-          origin: tree.0.origin!.extended(upTo: state.ast[tree.1].origin!.upperBound)))
+          value: Name(stem: op.value, notation: .prefix),
+          range: op.origin),
+          origin: state.range(from: op.origin!.lowerBound)))
 
-        let call = try state.ast.insert(wellFormed: FunCallExpr(
+      let call = try state.ast.insert(
+        wellFormed: FunCallExpr(
           callee: AnyExprID(callee),
           arguments: [],
-          origin: state.ast[callee]?.origin))
-        return AnyExprID(call)
-      })
-  )
+          origin: state.ast[callee].origin))
+      return AnyExprID(call)
+    }
 
-  static let prefixOperator = (
-    Apply<ParserState, SourceRepresentable<Identifier>>({ (state) in
-      if let t = state.peek(), t.isPrefixOperatorHead {
-        return state.takeOperator()
-      } else {
-        return nil
-      }
-    })
-  )
+    // Attempt to parse an inout expression.
+    if let op = state.take(.ampersand) {
+      // Parse an operand.
+      let isSeparated = state.hasLeadingWhitespace
+      let operand = try expect("expression", in: &state, parsedWith: parsePostfixExpr(in:))
 
-  static let postfixExpr = (
-    compoundExpr.and(maybe(withoutLeadingWhitespace(postfixOperator)))
-      .map({ (state, tree) -> AnyExprID in
-        if let oper = tree.1 {
-          let callee = try state.ast.insert(wellFormed: NameExpr(
-            domain: .expr(tree.0),
-            name: SourceRepresentable(
-              value: Name(stem: oper.value, notation: .postfix), range: oper.origin),
-            origin: state.ast[tree.0].origin!.extended(upTo: oper.origin!.upperBound)))
-
-          let call = try state.ast.insert(wellFormed: FunCallExpr(
-            callee: AnyExprID(callee),
-            arguments: [],
-            origin: state.ast[callee]?.origin))
-          return AnyExprID(call)
-        } else {
-          return tree.0
-        }
-      })
-  )
-
-  static let postfixOperator = (
-    Apply<ParserState, SourceRepresentable<Identifier>>({ (state) in
-      if let t = state.peek(), t.isPostfixOperatorHead {
-        return state.takeOperator()
-      } else {
-        return nil
-      }
-    })
-  )
-
-  static let compoundExpr = (
-    Apply<ParserState, AnyExprID>({ (state) -> AnyExprID? in
-      var backup = state.backup()
-      let base: AnyExprID?
-
-      do {
-        // Parse a primary expression first.
-        base = try primaryExpr.parse(&state)
-      } catch let primaryExprParseError {
-        // Parsing a primary expression returned a hard failure.
-        swap(&state, &backup)
-        do {
-          // Parse a static value member.
-          base = try staticValueMemberExpr.parse(&state).map(AnyExprID.init(_:))
-        } catch {
-          // Parsing a static value member failed too; return the first error.
-          swap(&state, &backup)
-          throw primaryExprParseError
-        }
+      // There must be no space before the next expression.
+      if isSeparated {
+        state.diagnostics.append(.diagnose(separatedMutationMarkerAt: op.origin))
       }
 
-      // Base is `nil` if and only if `primaryExpr` returned a soft error.
-      var head: AnyExprID
-      if let b = try base ?? staticValueMemberExpr.parse(&state).map(AnyExprID.init(_:)) {
-        head = b
-      } else {
-        return nil
-      }
-      let headRange = state.ast[head].origin!
+      let expr = try state.ast.insert(
+        wellFormed: InoutExpr(
+          operatorRange: op.origin,
+          subject: operand,
+          origin: state.range(from: op.origin.lowerBound)))
+      return AnyExprID(expr)
+    }
 
-      while true {
-        // value-member-expr
-        if state.take(.dot) != nil {
-          // labeled-member-expr
-          if let member = try primaryDeclRef.parse(&state) {
-            let origin = headRange.extended(upTo: state.currentIndex)
-            try state.ast.modify(at: member, { (node: NameExpr) -> NameExpr in
-              NameExpr(
-                domain: .expr(head),
-                name: node.name,
-                arguments: node.arguments,
-                origin: origin)
-            })
+    // Fall back to a postfix expression.
+    return try parsePostfixExpr(in: &state)
+  }
 
-            head = AnyExprID(member)
-            continue
-          }
+  private static func parsePostfixExpr(in state: inout ParserState) throws -> AnyExprID? {
+    // Parse an operand.
+    guard let operand = try parseCompoundExpr(in: &state) else { return nil }
 
-          // indexed-member-expr
-          if let index = state.takeMemberIndex() {
-            head = try AnyExprID(state.ast.insert(wellFormed: TupleMemberExpr(
+    // Return the parser expression if it's followed by a whitespace.
+    if state.hasLeadingWhitespace { return operand }
+
+    // Parse a postfix operator.
+    if state.isNext(satisfying: { $0.isPostfixOperatorHead }) {
+      let op = state.takeOperator()!
+
+      let callee = try state.ast.insert(
+        wellFormed: NameExpr(
+          domain: .expr(operand),
+          name: SourceRepresentable(
+          value: Name(stem: op.value, notation: .postfix),
+          range: op.origin),
+          origin: state.range(from: state.ast[operand].origin!.lowerBound)))
+
+      let call = try state.ast.insert(
+        wellFormed: FunCallExpr(
+          callee: AnyExprID(callee),
+          arguments: [],
+          origin: state.ast[callee].origin))
+      return AnyExprID(call)
+    } else {
+      return operand
+    }
+  }
+
+  private static func parseCompoundExpr(in state: inout ParserState) throws -> AnyExprID? {
+    // Parse a primary expression.
+    guard var head = try parsePrimaryExpr(in: &state) else { return nil }
+    let headOrigin = state.ast[head].origin!
+
+    // Parse the components to append to the base expression.
+    while true {
+      // Handle tuple member and name expressions.
+      if state.take(.dot) != nil {
+        if let index = state.takeMemberIndex() {
+          let expr = try state.ast.insert(
+            wellFormed: TupleMemberExpr(
               tuple: head,
               index: index,
-              origin: headRange.extended(upTo: state.currentIndex))))
-            continue
-          }
-
-          throw DiagnosedError(expected("member name", at: state.currentLocation))
-        }
-
-        // Exit if there's a new line before the next token.
-        guard let next = state.peek(), !state.hasNewline(before: next) else { break }
-
-        // function-call-expr
-        if state.take(.lParen) != nil {
-          let arguments = try argumentList.parse(&state) ?? []
-          guard state.take(.rParen) != nil else {
-            throw DiagnosedError(expected("')'", at: state.currentLocation))
-          }
-
-          head = try AnyExprID(state.ast.insert(wellFormed: FunCallExpr(
-            callee: head,
-            arguments: arguments,
-            origin: headRange.extended(upTo: state.currentIndex))))
+              origin: state.range(from: headOrigin.lowerBound)))
+          head = AnyExprID(expr)
           continue
         }
 
-        // subscript-call-expr
-        if state.take(.lBrack) != nil {
-          let arguments = try argumentList.parse(&state) ?? []
-          guard state.take(.rBrack) != nil else {
-            throw DiagnosedError(expected("']'", at: state.currentLocation))
-          }
-
-          head = try AnyExprID(state.ast.insert(wellFormed: SubscriptCallExpr(
-            callee: head,
-            arguments: arguments,
-            origin: headRange.extended(upTo: state.currentIndex))))
+        if let component = try parseNameExprComponent(in: &state) {
+          let expr = try state.ast.insert(
+            wellFormed: NameExpr(
+              domain: .expr(head),
+              name: component.name,
+              arguments: component.arguments,
+              origin: state.range(from: headOrigin.lowerBound)))
+          head = AnyExprID(expr)
           continue
         }
 
+        throw DiagnosedError(expected("member name", at: state.currentLocation))
+      }
+
+      // Handle conformance lens expressions.
+      if state.take(.twoColons) != nil {
+        // Note: We're using the `parsePrimaryExpr(in:)` parser rather that `parseExpr(in:)` so
+        // that `A::P.T` is parsed as `(A::P).T`.
+        let lens = try expect("expression", in: &state, parsedWith: parsePrimaryExpr(in:))
+        let expr = try state.ast.insert(
+          wellFormed: ConformanceLensTypeExpr(
+            subject: head,
+            lens: lens,
+            origin: state.range(from: headOrigin.lowerBound)))
+        head = AnyExprID(expr)
+        continue
+      }
+
+      // Exit if there's a new line before the next token.
+      guard let next = state.peek(),
+            !state.hasNewline(before: next)
+      else { break }
+
+      // Handle function calls.
+      if let argumentListOpener = state.take(.lParen) {
+        let arguments = try parseCallArgumentListContents(in: &state) ?? []
+
+        if state.take(.rParen) == nil {
+          state.diagnostics.append(
+            expected(
+              "')'",
+              at: state.currentLocation,
+              children: [.error("to match this '('", range: argumentListOpener.origin)]))
+        }
+
+        let expr = try state.ast.insert(
+          wellFormed: FunCallExpr(
+            callee: head,
+            arguments: arguments,
+            origin: state.range(from: headOrigin.lowerBound)))
+        head = AnyExprID(expr)
+        continue
+      }
+
+      // Handle function calls.
+      if let argumentListOpener = state.take(.lBrack) {
+        let arguments = try parseCallArgumentListContents(in: &state) ?? []
+
+        if state.take(.rBrack) == nil {
+          state.diagnostics.append(
+            expected(
+              "']'",
+              at: state.currentLocation,
+              children: [.error("to match this '['", range: argumentListOpener.origin)]))
+        }
+
+        let expr = try state.ast.insert(
+          wellFormed: SubscriptCallExpr(
+            callee: head,
+            arguments: arguments,
+            origin: state.range(from: headOrigin.lowerBound)))
+        head = AnyExprID(expr)
+        continue
+      }
+
+      break
+    }
+
+    return head
+  }
+
+  private static func parseNameExpr(in state: inout ParserState) throws -> NodeID<NameExpr>? {
+    guard let expr = try parseCompoundExpr(in: &state) else { return nil }
+    if let converted = NodeID<NameExpr>(expr) {
+      return converted
+    } else {
+      throw DiagnosedError(expected("name", at: state.ast[expr].origin!.first()))
+    }
+  }
+
+  private static func parsePrimaryExpr(in state: inout ParserState) throws -> AnyExprID? {
+    guard let head = state.peek() else { return nil }
+
+    switch head.kind {
+    case .bool:
+      // Boolean literal.
+      _ = state.take()
+      let expr = try state.ast.insert(
+        wellFormed: BooleanLiteralExpr(
+          value: state.lexer.source[head.origin] == "true",
+          origin: head.origin))
+      return AnyExprID(expr)
+
+    case .int:
+      // Integer literal.
+      _ = state.take()
+      let expr = try state.ast.insert(
+        wellFormed: IntegerLiteralExpr(
+          value: state.lexer.source[head.origin].filter({ $0 != "_" }),
+          origin: head.origin))
+      return AnyExprID(expr)
+
+    case .float:
+      // Floating-point literal.
+      _ = state.take()
+      let expr = try state.ast.insert(
+        wellFormed: FloatLiteralExpr(
+          value: state.lexer.source[head.origin].filter({ $0 != "_" }),
+          origin: head.origin))
+      return AnyExprID(expr)
+
+    case .string:
+      // String literal.
+      _ = state.take()
+      let expr = try state.ast.insert(
+        wellFormed: StringLiteralExpr(
+          value: String(state.lexer.source[head.origin].dropFirst().dropLast()),
+          origin: head.origin))
+      return AnyExprID(expr)
+
+    case .nil:
+      // Nil literal.
+      _ = state.take()
+      let expr = try state.ast.insert(wellFormed: NilLiteralExpr(origin: head.origin))
+      return AnyExprID(expr)
+
+    case .under:
+      // Wildcard expression.
+      _ = state.take()
+      let expr = try state.ast.insert(wellFormed: WildcardExpr(origin: head.origin))
+      return AnyExprID(expr)
+
+    case .any:
+      // Existential type expression.
+      return try parseExistentialTypeExpr(in: &state).map(AnyExprID.init)
+
+    case .dot:
+      // Implicit member reference.
+      return try parseImplicitMemberDeclRefExpr(in: &state).map(AnyExprID.init)
+
+    case .fun:
+      // Lambda expression.
+      return try parseLambdaExpr(in: &state).map(AnyExprID.init)
+
+    case .if:
+      // Conditional expression.
+      return try parseConditionalExpr(in: &state).map(AnyExprID.init)
+
+    case .match:
+      // Match expression.
+      return try parseMatchExpr(in: &state).map(AnyExprID.init)
+
+    case .name:
+      // Primary declaration reference.
+      return try parsePrimaryDeclRefExpr(in: &state).map(AnyExprID.init)
+
+    case .spawn:
+      // Spawn expression.
+      return try parseSpawnExpr(in: &state).map(AnyExprID.init)
+
+    case .lBrace:
+      // Tuple type expression.
+      return try parseTupleTypeExpr(in: &state).map(AnyExprID.init)
+
+    case .lParen:
+      // A left parenthesis may start a type erased lambda type expression (e.g., `() -> T`), a
+      // tuple expression (e.g., `(1, 2)`), or any parenthesized expression.
+      return try parseLambdaTypeOrTupleExpr(in: &state)
+
+    case .lBrack:
+      // A left bracket may start a lambda type expression (e.g., `[any Copyable] () -> T`) or a
+      // compound literal expression (e.g., `[x, y]`).
+      return try parseLambdaTypeOrCompoundLiteralExpr(in: &state)
+
+    default:
+      return nil
+    }
+  }
+
+  private static func parseExistentialTypeExpr(
+    in state: inout ParserState
+  ) throws -> NodeID<ExistentialTypeExpr>? {
+    // Parse the introducer.
+    guard let introducer = state.take(.any) else { return nil }
+
+    // Parse the parts of the expression.
+    let traits = try expect("trait composition", in: &state, parsedWith: traitComposition.parse)
+    let clause = try whereClause.parse(&state)
+
+    return try state.ast.insert(
+      wellFormed: ExistentialTypeExpr(
+        traits: traits,
+        whereClause: clause,
+        origin: introducer.origin.extended(
+          toCover: clause?.origin ?? state.ast[traits.last!].origin!)))
+  }
+
+  private static func parsePrimaryDeclRefExpr(
+    in state: inout ParserState
+  ) throws -> NodeID<NameExpr>? {
+    // Parse the name component.
+    let component = try expect("identifier", in: &state, parsedWith: parseNameExprComponent(in:))
+
+    return try state.ast.insert(
+      wellFormed: NameExpr(
+        domain: .none,
+        name: component.name,
+        arguments: component.arguments,
+        origin: component.origin))
+  }
+
+  private static func parseImplicitMemberDeclRefExpr(
+    in state: inout ParserState
+  ) throws -> NodeID<NameExpr>? {
+    // Parse the leading dot.
+    guard let head = state.take(.dot) else { return nil }
+
+    // Parse the name component.
+    let component = try expect("identifier", in: &state, parsedWith: parseNameExprComponent(in:))
+
+    return try state.ast.insert(
+      wellFormed: NameExpr(
+        domain: .implicit,
+        name: component.name,
+        arguments: component.arguments,
+        origin: state.range(from: head.origin.lowerBound)))
+  }
+
+  private static func parseNameExprComponent(
+    in state: inout ParserState
+  ) throws -> NameExprComponent? {
+    // Parse the name of the component.
+    guard let name = try parseEntityName(in: &state) else { return nil }
+
+    // If the next token is a left angle bracket without any leading whitespace, parse a static
+    // argument list.
+    let arguments: [GenericArgument]
+    if !state.hasLeadingWhitespace && state.isNext(.lAngle) {
+      arguments = try expect(
+        "static argument list",
+        in: &state,
+        parsedWith: parseStaticArgumentList(in:))
+    } else {
+      arguments = []
+    }
+
+    return NameExprComponent(
+      origin: name.origin!.extended(upTo: state.currentIndex),
+      name: name,
+      arguments: arguments)
+  }
+
+  private static func parseStaticArgumentList(
+    in state: inout ParserState
+  ) throws -> [GenericArgument]? {
+    // Parse the opening angle.
+    guard let opener = state.take(.lAngle) else { return nil }
+
+    // Parse the elements.
+    var elements: [GenericArgument] = []
+    var hasTrailingSeparator = false
+
+    while true {
+      // Parse one element.
+      if let element = try staticArgument.parse(&state) {
+        elements.append(element)
+
+        // Look for a separator.
+        hasTrailingSeparator = false
+        if state.take(.comma) != nil {
+          hasTrailingSeparator = true
+          continue
+        }
+      }
+
+      // If we get here, we either parsed an element not followed by a separator (1), or we got a
+      // soft failure and didn't consume anything from the stream (2). In both case, we should
+      // expect the right delimiter.
+      if state.take(.rAngle) != nil { break }
+
+      // If we got here by (2) but didn't parse any element yet, diagnose a missing delimiter and
+      // exit the loop.
+      if elements.isEmpty {
+        state.diagnostics.append(expected(">", matching: opener, in: state))
         break
       }
 
-      return head
-    })
-  )
+      // If we got here by (1), diagnose a missing separator and try to parse the next element
+      // unless we reached EOF. Otherwise, diagnose a missing expression and exit.
+      if !hasTrailingSeparator {
+        if let head = state.peek() {
+          state.diagnostics.append(expected("',' separator", at: head.origin.first()))
+          continue
+        } else {
+          state.diagnostics.append(expected(">", matching: opener, in: state))
+          break
+        }
+      } else {
+        state.diagnostics.append(expected("expression", at: state.currentLocation))
+        break
+      }
+    }
 
-  static let argumentList = (
-    callArgument.and(zeroOrMany(take(.comma).and(callArgument).second))
-      .map({ (_, tree) -> [CallArgument] in [tree.0] + tree.1 })
-  )
+    return elements
+  }
 
-  static let callArgument = (
-    Apply<ParserState, CallArgument>({ (state) in
+  private static func parseEntityName(
+    in state: inout ParserState
+  ) throws -> SourceRepresentable<Name>? {
+    try Apply(parseFunctionEntityName).or(Apply(parseOperatorEntityName)).parse(&state)
+  }
+
+  private static func parseFunctionEntityName(
+    in state: inout ParserState
+  ) throws -> SourceRepresentable<Name>? {
+    // Parse the stem identifier.
+    guard let identifier = state.take(if: { t in t.isOf(kind: [.name, .under]) }) else {
+      return nil
+    }
+
+    // Parse the labels, if any.
+    var labels: [String?] = []
+    if !state.hasLeadingWhitespace && (state.peek()?.kind == .lParen) {
       let backup = state.backup()
+      _ = state.take()
+      var closeParenFound = false
+      defer {
+        // Backtrack if we didn't find a closing parenthesis or if there are no labels. That will
+        // let the argument-list parser pickup after the identifier to either catch a parse error
+        // in the former case (no closing parenthesis) or parse an empty argument list in the
+        // latter (no labels).
+        // Note: `foo()` is *not* a valid name, it's a function call.
+        if !closeParenFound || labels.isEmpty { state.restore(from: backup) }
+      }
 
-      // Parse a labeled arrgument.
-      if let label = state.take(if: { $0.isLabel }) {
-        if state.take(.colon) != nil {
-          if let value = try expr.parse(&state) {
-            return CallArgument(
-              label: SourceRepresentable(token: label, in: state.lexer.source),
-              value: value)
-          }
+      while !state.hasLeadingWhitespace {
+        if state.take(.under) != nil {
+          labels.append(nil)
+        } else if let label = state.take(if: { $0.isLabel }) {
+          labels.append(String(state.lexer.source[label.origin]))
+        } else {
+          break
+        }
+
+        if state.takeWithoutSkippingWhitespace(.colon) == nil {
+          break
+        }
+
+        if state.takeWithoutSkippingWhitespace(.rParen) != nil {
+          closeParenFound = true
+          break
         }
       }
+    }
 
-      // Backtrack and parse an unlabeled argument.
-      state.restore(from: backup)
-      if let value = try expr.parse(&state) {
-        return CallArgument(value:value)
+    // Parse the method introducer, if any.
+    let introducer: SourceRepresentable<ImplIntroducer>?
+    if state.peek()?.kind == .dot {
+      let backup = state.backup()
+      _ = state.take()
+      if let i = try methodIntroducer.parse(&state) {
+        introducer = i
+      } else {
+        state.restore(from: backup)
+        introducer = nil
       }
+    } else {
+      introducer = nil
+    }
 
+    return SourceRepresentable(
+      value: Name(
+        stem: String(state.lexer.source[identifier.origin]),
+        labels: labels,
+        introducer: introducer?.value),
+      range: state.range(from: identifier.origin.lowerBound))
+  }
+
+  private static func parseOperatorEntityName(
+    in state: inout ParserState
+  ) throws -> SourceRepresentable<Name>? {
+    // Parse the operator notation.
+    guard let notation = state.take(if: { t in t.isOf(kind: [.infix, .prefix, .postfix]) }) else {
       return nil
-    })
-  )
+    }
 
-  static let staticValueMemberExpr = (
-    primaryTypeExpr.and(take(.dot)).and(primaryDeclRef)
-      .map({ (state, tree) -> NodeID<NameExpr> in
-        let origin = state.ast[tree.0.0].origin!.extended(
-          upTo: state.ast[tree.1].origin!.upperBound)
-        try state.ast.modify(at: tree.1, { (node: NameExpr) -> NameExpr in
-          NameExpr(
-            domain: .type(tree.0.0),
-            name: node.name,
-            arguments: node.arguments,
-            origin: origin)
-        })
-        return tree.1
-      })
-  )
+    // The notation must be immediately followed by an operator identifier.
+    if state.hasLeadingWhitespace {
+      throw DiagnosedError(expected("operator", at: state.currentLocation))
+    }
+    guard let identifier = state.takeOperator() else {
+      throw DiagnosedError(expected("operator", at: state.currentLocation))
+    }
 
-  static let primaryExpr = (
-    oneOf([
-      anyExpr(booleanLiteral),
-      anyExpr(integerLiteral),
-      anyExpr(floatingPointLiteral),
-      anyExpr(stringLiteral),
-      anyExpr(compoundLiteral),
-      anyExpr(primaryDeclRef),
-      anyExpr(implicitMemberRef),
-      anyExpr(lambdaExpr),
-      anyExpr(matchExpr),
-      anyExpr(conditionalExpr),
-      anyExpr(tupleExpr),
-      anyExpr(inoutExpr),
-      anyExpr(nilExpr),
-    ])
-  )
+    return SourceRepresentable(
+      value: Name(stem: identifier.value, notation: OperatorNotation(notation)!),
+      range: state.range(from: identifier.origin!.lowerBound))
+  }
 
-  static let booleanLiteral = (
-    take(.bool)
-      .map({ (state, token) -> NodeID<BooleanLiteralExpr> in
-        try state.ast.insert(wellFormed: BooleanLiteralExpr(
-          value: state.lexer.source[token.origin] == "true",
-          origin: token.origin))
-      })
-  )
+  private static func parseLambdaExpr(in state: inout ParserState) throws -> NodeID<LambdaExpr>? {
+    // Parse the introducer.
+    guard let introducer = state.take(.fun) else { return nil }
 
-  static let integerLiteral = (
-    take(.int)
-      .map({ (state, token) -> NodeID<IntegerLiteralExpr> in
-        try state.ast.insert(wellFormed: IntegerLiteralExpr(
-          value: state.lexer.source[token.origin].filter({ $0 != "_" }),
-          origin: token.origin))
-      })
-  )
+    // Parse the parts of the expression.
+    let explicitCaptures = try captureList.parse(&state)
+    let signature = try expect("signature", in: &state, parsedWith: functionDeclSignature.parse)
+    let body = try expect("function body", in: &state, parsedWith: lambdaBody.parse)
 
-  static let floatingPointLiteral = (
-    take(.float)
-      .map({ (state, token) -> NodeID<FloatLiteralExpr> in
-        try state.ast.insert(wellFormed: FloatLiteralExpr(
-          value: state.lexer.source[token.origin].filter({ $0 != "_" }),
-          origin: token.origin))
-      })
-  )
+    let decl = try state.ast.insert(
+      wellFormed: FunctionDecl(
+        introducerRange: introducer.origin,
+        receiverEffect: signature.receiverEffect,
+        explicitCaptures: explicitCaptures ?? [],
+        parameters: signature.parameters,
+        output: signature.output,
+        body: body,
+        isInExprContext: true,
+        origin: state.range(from: introducer.origin.lowerBound)))
+    return try state.ast.insert(
+      wellFormed: LambdaExpr(decl: decl, origin: state.ast[decl].origin))
+  }
 
-  static let stringLiteral = (
-    take(.string)
-      .map({ (state, token) -> NodeID<StringLiteralExpr> in
-        try state.ast.insert(wellFormed: StringLiteralExpr(
-          value: String(state.lexer.source[token.origin].dropFirst().dropLast()),
-          origin: token.origin))
-      })
-  )
-
-  static let compoundLiteral = TryCatch(
-    trying: bufferLiteral
-      .map({ (_, id) -> AnyExprID in AnyExprID(id) }),
-    orCatchingAndApplying: mapLiteral
-      .map({ (_, id) -> AnyExprID in AnyExprID(id) }))
-
-  static let bufferLiteral = (
-    take(.lBrack).and(maybe(bufferComponentList)).and(take(.rBrack))
-      .map({ (state, tree) -> NodeID<BufferLiteralExpr> in
-        try state.ast.insert(wellFormed: BufferLiteralExpr(
-          elements: tree.0.1 ?? [],
-          origin: tree.0.0.origin.extended(upTo: state.currentIndex)))
-      })
-  )
-
-  static let bufferComponentList = (
-    expr.and(zeroOrMany(take(.comma).and(expr).second))
-      .map({ (state, tree) -> [AnyExprID] in [tree.0] + tree.1 })
-  )
-
-  static let mapLiteral = (
-    take(.lBrack).and(mapComponentList.or(mapComponentEmptyList)).and(take(.rBrack))
-      .map({ (state, tree) -> NodeID<MapLiteralExpr> in
-        try state.ast.insert(wellFormed: MapLiteralExpr(
-          elements: tree.0.1,
-          origin: tree.0.0.origin.extended(upTo: state.currentIndex)))
-      })
-  )
-
-  static let mapComponentEmptyList = (
-    take(.colon)
-      .map({ (_, _) -> [MapLiteralExpr.Element] in [] })
-  )
-
-  static let mapComponentList = (
-    mapComponent.and(zeroOrMany(take(.comma).and(mapComponent).second))
-      .map({ (state, tree) -> [MapLiteralExpr.Element] in [tree.0] + tree.1 })
-  )
-
-  static let mapComponent = (
-    expr.and(take(.colon)).and(expr)
-      .map({ (_, tree) -> MapLiteralExpr.Element in
-        MapLiteralExpr.Element(key: tree.0.0, value: tree.1)
-      })
-  )
-
-  static let primaryDeclRef = (
-    identifierExpr.and(maybe(staticArgumentList))
-      .map({ (state, tree) -> NodeID<NameExpr> in
-        try state.ast.insert(wellFormed: NameExpr(
-          name: tree.0,
-          arguments: tree.1 ?? [],
-          origin: tree.0.origin!.extended(upTo: state.currentIndex)))
-      })
-  )
-
-  static let implicitMemberRef = (
-    take(.dot).and(primaryDeclRef)
-      .map({ (state, tree) -> NodeID<NameExpr> in
-        try state.ast.modify(at: tree.1, { (node: NameExpr) -> NameExpr in
-          NameExpr(
-            domain: .implicit,
-            name: node.name,
-            arguments: node.arguments,
-            origin: tree.0.origin.extended(upTo: node.origin!.upperBound))
-        })
-        return tree.1
-      })
-  )
-
-  static let lambdaExpr = (
-    take(.fun).and(maybe(captureList)).and(functionDeclSignature).and(lambdaBody)
-      .map({ (state, tree) -> NodeID<LambdaExpr> in
-        let signature = tree.0.1
-
-        let decl = try state.ast.insert(wellFormed: FunctionDecl(
-          introducerRange: tree.0.0.0.origin,
-          receiverEffect: signature.receiverEffect,
-          explicitCaptures: tree.0.0.1 ?? [],
-          parameters: signature.parameters,
-          output: signature.output,
-          body: tree.1,
-          isInExprContext: true,
-          origin: tree.0.0.0.origin.extended(upTo: state.currentIndex)))
-        return try state.ast.insert(wellFormed: LambdaExpr(
-          decl: decl,
-          origin: state.ast[decl].origin))
-      })
-  )
-
-  static let lambdaBody = inContext(.functionBody, apply: TryCatch(
+  private static let lambdaBody = inContext(.functionBody, apply: TryCatch(
     trying: take(.lBrace).and(expr).and(take(.rBrace))
       .map({ (state, tree) -> FunctionDecl.Body in .expr(tree.0.1) }),
     orCatchingAndApplying: braceStmt
       .map({ (state, id) -> FunctionDecl.Body in .block(id) })
   ))
 
-  static let matchExpr = (
-    take(.match).and(expr).and(take(.lBrace)).and(zeroOrMany(matchCase)).and(take(.rBrace))
-      .map({ (state, tree) -> NodeID<MatchExpr> in
-        try state.ast.insert(wellFormed: MatchExpr(
-          subject: tree.0.0.0.1,
-          cases: tree.0.1,
-          origin: tree.0.0.0.0.origin.extended(upTo: state.currentIndex)))
-      })
+  private static func parseConditionalExpr(in state: inout ParserState) throws -> NodeID<CondExpr>? {
+    // Parse the introducer.
+    guard let introducer = state.take(.if) else { return nil }
+
+    // Parse the parts of the expression.
+    let condition = try expect("condition", in: &state, parsedWith: conditionalClause.parse)
+    let body = try expect("body", in: &state, parsedWith: conditionalExprBody.parse)
+
+    // Parse the 'else' clause, if any.
+    let elseClause: CondExpr.Body?
+    if state.take(.else) != nil {
+      if let e = try parseConditionalExpr(in: &state) {
+        elseClause = .expr(AnyExprID(e))
+      } else {
+        elseClause = try expect("body", in: &state, parsedWith: conditionalExprBody.parse)
+      }
+    } else {
+      elseClause = nil
+    }
+
+    return try state.ast.insert(
+      wellFormed: CondExpr(
+        condition: condition,
+        success: body,
+        failure: elseClause,
+        origin: state.range(from: introducer.origin.lowerBound)))
+  }
+
+  private static let conditionalExprBody = TryCatch(
+    trying: take(.lBrace).and(expr).and(take(.rBrace))
+      .map({ (state, tree) -> CondExpr.Body in .expr(tree.0.1) }),
+    orCatchingAndApplying: braceStmt
+      .map({ (state, id) -> CondExpr.Body in .block(id) })
   )
+
+  private static func parseMatchExpr(in state: inout ParserState) throws -> NodeID<MatchExpr>? {
+    // Parse the introducer.
+    guard let introducer = state.take(.match) else { return nil }
+
+    // Parse the parts of the expression.
+    let subject = try expect("subject", in: &state, parsedWith: parseExpr(in:))
+    let cases = try expect(
+      "match body",
+      in: &state,
+      parsedWith: take(.lBrace).and(zeroOrMany(matchCase)).and(take(.rBrace)).parse)
+
+    return try state.ast.insert(
+      wellFormed: MatchExpr(
+        subject: subject,
+        cases: cases.0.1,
+        origin: state.range(from: introducer.origin.lowerBound)))
+  }
 
   static let matchCase = (
     pattern.and(maybe(take(.where).and(expr))).and(matchCaseBody)
@@ -1984,27 +2160,420 @@ public enum Parser {
       })
   )
 
-  static let matchCaseBody = TryCatch(
+  private static let matchCaseBody = TryCatch(
     trying: take(.lBrace).and(expr).and(take(.rBrace))
       .map({ (state, tree) -> MatchCase.Body in .expr(tree.0.1) }),
     orCatchingAndApplying: braceStmt
       .map({ (state, id) -> MatchCase.Body in .block(id) })
   )
 
-  static let conditionalExpr: Recursive<ParserState, NodeID<CondExpr>> = (
-    Recursive(_conditionalExpr.parse(_:))
-  )
+  private static func parseSpawnExpr(in state: inout ParserState) throws -> NodeID<SpawnExpr>? {
+    // Parse the introducer.
+    guard let introducer = state.take(.spawn) else { return nil }
 
-  private static let _conditionalExpr = (
-    take(.if).and(conditionalClause).and(conditionalExprBody).and(maybe(conditionalTail))
-      .map({ (state, tree) -> NodeID<CondExpr> in
-        try state.ast.insert(wellFormed: CondExpr(
-          condition: tree.0.0.1,
-          success: tree.0.1,
-          failure: tree.1,
-          origin: tree.0.0.0.origin.extended(upTo: state.currentIndex)))
+    // Parse the parts of the expression.
+    let explicitCaptures = try captureList.parse(&state) ?? []
+    let effect = try receiverEffect.parse(&state)
+
+    let output: AnyExprID?
+    let body: FunctionDecl.Body
+    if state.take(.arrow) != nil {
+      output = try expect("expression", in: &state, parsedWith: parseExpr(in:))
+      body = try expect("function body", in: &state, parsedWith: lambdaBody.parse)
+    } else {
+      output = nil
+      body = try .expr(expect("expression", in: &state, parsedWith: parseExpr(in:)))
+    }
+
+    let decl = try state.ast.insert(
+      wellFormed: FunctionDecl(
+        introducerRange: introducer.origin,
+        receiverEffect: effect,
+        explicitCaptures: explicitCaptures,
+        output: output,
+        body: body,
+        isInExprContext: true,
+        origin: state.range(from: introducer.origin.lowerBound)))
+    return try state.ast.insert(
+      wellFormed: SpawnExpr(decl: decl, origin: state.ast[decl].origin))
+  }
+
+  private static func parseLambdaTypeOrTupleExpr(in state: inout ParserState) throws -> AnyExprID? {
+    // Assume we're parsing a lambda type expression until we reach the point where we should
+    // consume a right arrow. Commit to that choice only if there's one.
+    let backup = state.backup()
+
+    // Parse the opening parenthesis.
+    guard let opener = state.take(.lParen) else { return nil }
+
+    // Parse the parameters or backtrack and parse a tuple expression.
+    let parameters: [LambdaTypeExpr.Parameter]
+    do {
+      parameters = try lambdaParameterListContents.parse(&state) ?? []
+    } catch {
+      state.restore(from: backup)
+      return try parseTupleOrParenthesizedExpr(in: &state)
+    }
+
+    // Parse the closing parenthesis of the parameter list.
+    if state.take(.rParen) == nil {
+      state.diagnostics.append(
+        expected(
+          "')'",
+          at: state.currentLocation,
+          children: [.error("to match this '('", range: opener.origin)]
+      ))
+    }
+
+    // Parse the remainder of the type expression.
+    let effect = try receiverEffect.parse(&state)
+
+    guard state.take(.arrow) != nil else {
+      // If we didn't parse any effect and the parameter list is empty, assume we parsed an empty
+      // tuple. Otherwise, backtrack and parse a tuple expression.
+      if (effect == nil) && parameters.isEmpty {
+        let expr = try state.ast.insert(
+          wellFormed: TupleExpr(
+            elements: [],
+            origin: state.range(from: opener.origin.lowerBound)))
+        return AnyExprID(expr)
+      }
+
+      state.restore(from: backup)
+      return try parseTupleOrParenthesizedExpr(in: &state)
+    }
+
+    let output = try expect("type expression", in: &state, parsedWith: parseExpr(in:))
+
+    let expr = try state.ast.insert(
+      wellFormed: LambdaTypeExpr(
+        receiverEffect: effect,
+        environment: nil,
+        parameters: parameters,
+        output: output,
+        origin: state.range(from: opener.origin.lowerBound)))
+    return AnyExprID(expr)
+  }
+
+  private static func parseLambdaTypeOrCompoundLiteralExpr(
+    in state: inout ParserState
+  ) throws -> AnyExprID? {
+    // Assume we're parsing a lambda type expression until we reach the point where we should
+    // consume an effect or a right arrow. Commit to that choice if we successfully parsed a
+    // non-empty parameter list at that point.
+    let backup = state.backup()
+
+    // Parse the opening bracket.
+    guard let opener = state.take(.lBrack) else { return nil }
+
+    // Parse the environment, if any.
+    let environement = try parseExpr(in: &state)
+
+    // If we don't find the closing bracket, backtrack and parse a compound literal.
+    if state.take(.rBrack) == nil {
+      state.restore(from: backup)
+      return try parseCompoundLiteral(in: &state)
+    }
+
+    // If we don't find the opening parenthesis, assume we've parsed a buffer literal.
+    if state.take(.lParen) == nil {
+      let expr = try state.ast.insert(
+        wellFormed: BufferLiteralExpr(
+          elements: environement != nil ? [environement!] : [],
+          origin: state.range(from: opener.origin.lowerBound)))
+      return AnyExprID(expr)
+    }
+
+    // Parse the parameters or backtrack and parse a compound literal.
+    let parameters: [LambdaTypeExpr.Parameter]
+    do {
+      parameters = try lambdaParameterListContents.parse(&state) ?? []
+    } catch {
+      state.restore(from: backup)
+      return try parseCompoundLiteral(in: &state)
+    }
+
+    // Parse the closing parenthesis of the parameter list.
+    if state.take(.rParen) == nil {
+      state.diagnostics.append(
+        expected(
+          "')'",
+          at: state.currentLocation,
+          children: [.error("to match this '('", range: opener.origin)]
+      ))
+    }
+
+    // Parse the remainder of the type expression.
+    let effect = try receiverEffect.parse(&state)
+
+    guard state.take(.arrow) != nil else {
+      // Backtrack and parse a compound literal.
+      state.restore(from: backup)
+      return try parseCompoundLiteral(in: &state)
+    }
+
+    let output = try expect("type expression", in: &state, parsedWith: parseExpr(in:))
+
+    // Synthesize the environment as an empty tuple if we parsed `[]`.
+    let e = try environement ?? AnyExprID(
+      state.ast.insert(wellFormed: TupleTypeExpr(elements: [], origin: nil)))
+
+    let expr = try state.ast.insert(
+      wellFormed: LambdaTypeExpr(
+        receiverEffect: effect,
+        environment: e,
+        parameters: parameters,
+        output: output,
+        origin: state.range(from: opener.origin.lowerBound)))
+    return AnyExprID(expr)
+  }
+
+  private static func parseTupleOrParenthesizedExpr(
+    in state: inout ParserState
+  ) throws -> AnyExprID? {
+    // Parse the opening parenthesis.
+    guard let opener = state.take(.lParen) else { return nil }
+
+    // Parse the elements.
+    var elements: [TupleExpr.Element] = []
+    var hasTrailingSeparator = false
+
+    while true {
+      // Parse one element.
+      if let element = try parseTupleExprElement(in: &state) {
+        elements.append(element)
+
+        // Look for a separator.
+        hasTrailingSeparator = false
+        if state.take(.comma) != nil {
+          hasTrailingSeparator = true
+          continue
+        }
+      }
+
+      // If we get here, we parsed a tuple element not followed by a separator (1), or we got a
+      // soft failure and didn't parse anything (2). In both case, we should expect the right
+      // delimiter.
+      if state.take(.rParen) != nil { break }
+
+      // If we got here by (1) and reached EOF, diagnose a missing right delimiter and exit.
+      // Otherwise, diagnose a missing separator and try to parse the next element.
+      if !hasTrailingSeparator {
+        if let head = state.peek() {
+          state.diagnostics.append(expected("',' separator", at: head.origin.first()))
+          continue
+        } else {
+          state.diagnostics.append(
+            expected(
+              "')'",
+              at: state.currentLocation,
+              children: [.error("to match this '('", range: opener.origin)]
+          ))
+          break
+        }
+      }
+
+      // If we got here by (2), diagnose a missing expression and exit.
+      state.diagnostics.append(expected("expression", at: state.currentLocation))
+      break
+    }
+
+    // If there's only one element without any label and we didn't parse a trailing separator,
+    // interpret the element's value as a parenthesized expression.
+    if !hasTrailingSeparator && (elements.count == 1) && (elements[0].label == nil) {
+      return elements[0].value
+    }
+
+    let expr = try state.ast.insert(
+      wellFormed: TupleExpr(
+        elements: elements,
+        origin: state.range(from: opener.origin.lowerBound)))
+    return AnyExprID(expr)
+  }
+
+  private static func parseTupleExprElement(
+    in state: inout ParserState
+  ) throws -> TupleExpr.Element? {
+    let backup = state.backup()
+
+    // Parse a labeled element.
+    if let label = state.take(if: { $0.isLabel }) {
+      if state.take(.colon) != nil {
+        if let value = try expr.parse(&state) {
+          return TupleExpr.Element(
+            label: SourceRepresentable(token: label, in: state.lexer.source),
+            value: value)
+        }
+      }
+    }
+
+    // Backtrack and parse an unlabeled element.
+    state.restore(from: backup)
+    if let value = try expr.parse(&state) {
+      return TupleExpr.Element(value: value)
+    }
+
+    return nil
+  }
+
+  private static func parseTupleTypeExpr(in state: inout ParserState) throws -> NodeID<TupleTypeExpr>? {
+    // Parse the opening brace.
+    guard let opener = state.take(.lBrace) else { return nil }
+
+    // Parse the elements.
+    var elements: [TupleTypeExpr.Element] = []
+    while true {
+      if let element = try parseTupleTypeExprElement(in: &state) {
+        // We parsed an element. Look for a separator.
+        elements.append(element)
+        if state.take(.comma) != nil { continue }
+      } else if !elements.isEmpty {
+        // We already parsed the beginning of anelements elements list. An elements was expected.
+        throw DiagnosedError(expected("expression", at: state.currentLocation))
+      }
+
+      // If we get here, then either we parsed a tuple element not followed by a separator (1), or
+      // we got a soft failure and didn't parse any element yet (2). In both case, we should expect
+      // the right delimiter.
+      if state.take(.rBrace) != nil { break }
+
+      // If we got here by (2), diagnose a missing expression and exit. If we got here by (1) and
+      // reached EOF, diagnose a missing right delimiter and exit. Otherwise, diagnose a missing
+      // separator and try to parse the next element.
+      if elements.isEmpty {
+        state.diagnostics.append(expected("expression", at: state.currentLocation))
+        break
+      } else if let head = state.peek() {
+        state.diagnostics.append(expected("',' separator", at: head.origin.first()))
+        continue
+      } else {
+        state.diagnostics.append(
+          expected(
+            "'}'",
+            at: state.currentLocation,
+            children: [.error("to match this '{'", range: opener.origin)]
+        ))
+        break
+      }
+    }
+
+    return try state.ast.insert(
+      wellFormed: TupleTypeExpr(
+        elements: elements,
+        origin: state.range(from: opener.origin.lowerBound)))
+  }
+
+  private static func parseTupleTypeExprElement(
+    in state: inout ParserState
+  ) throws -> TupleTypeExpr.Element? {
+    let backup = state.backup()
+
+    // Parse a labeled element.
+    if let label = state.take(if: { $0.isLabel }) {
+      if state.take(.colon) != nil {
+        if let type = try expr.parse(&state) {
+          return TupleTypeExpr.Element(
+            label: SourceRepresentable(token: label, in: state.lexer.source),
+            type: type)
+        }
+      }
+    }
+
+    // Backtrack and parse an unlabeled element.
+    state.restore(from: backup)
+    if let type = try expr.parse(&state) {
+      return TupleTypeExpr.Element(type: type)
+    }
+
+    return nil
+  }
+
+  private static func parseCompoundLiteral(in state: inout ParserState) throws -> AnyExprID? {
+    let backup = state.backup()
+
+    // Attempt to parse a map literal.
+    do {
+      if let expr = try mapLiteral.parse(&state) { return AnyExprID(expr) }
+    } catch {}
+
+    // Backtrack and parse a buffer literal.
+    state.restore(from: backup)
+    return try bufferLiteral.parse(&state).map(AnyExprID.init)
+  }
+
+  private static let bufferLiteral = (
+    take(.lBrack).and(maybe(bufferComponentListContents)).and(take(.rBrack))
+      .map({ (state, tree) -> NodeID<BufferLiteralExpr> in
+        try state.ast.insert(wellFormed: BufferLiteralExpr(
+          elements: tree.0.1 ?? [],
+          origin: tree.0.0.origin.extended(upTo: state.currentIndex)))
       })
   )
+
+  private static let bufferComponentListContents = (
+    expr.and(zeroOrMany(take(.comma).and(expr).second))
+      .map({ (state, tree) -> [AnyExprID] in [tree.0] + tree.1 })
+  )
+
+  private static let mapLiteral = (
+    take(.lBrack).and(mapComponentListContents.or(mapComponentEmptyContents)).and(take(.rBrack))
+      .map({ (state, tree) -> NodeID<MapLiteralExpr> in
+        try state.ast.insert(wellFormed: MapLiteralExpr(
+          elements: tree.0.1,
+          origin: tree.0.0.origin.extended(upTo: state.currentIndex)))
+      })
+  )
+
+  private static let mapComponentEmptyContents = (
+    take(.colon)
+      .map({ (_, _) -> [MapLiteralExpr.Element] in [] })
+  )
+
+  private static let mapComponentListContents = (
+    mapComponent.and(zeroOrMany(take(.comma).and(mapComponent).second))
+      .map({ (state, tree) -> [MapLiteralExpr.Element] in [tree.0] + tree.1 })
+  )
+
+  private static let mapComponent = (
+    expr.and(take(.colon)).and(expr)
+      .map({ (_, tree) -> MapLiteralExpr.Element in
+        MapLiteralExpr.Element(key: tree.0.0, value: tree.1)
+      })
+  )
+
+  private static func parseCallArgumentListContents(
+    in state: inout ParserState
+  ) throws -> [CallArgument]? {
+    try callArgument
+      .and(zeroOrMany(take(.comma).and(callArgument).second))
+      .map({ (_, tree) -> [CallArgument] in [tree.0] + tree.1 })
+      .parse(&state)
+  }
+
+  private static let callArgument = Apply(parseCallArgument(in:))
+
+  private static func parseCallArgument(in state: inout ParserState) throws -> CallArgument? {
+    let backup = state.backup()
+
+    // Parse a labeled arrgument.
+    if let label = state.take(if: { $0.isLabel }) {
+      if state.take(.colon) != nil {
+        if let value = try expr.parse(&state) {
+          return CallArgument(
+            label: SourceRepresentable(token: label, in: state.lexer.source),
+            value: value)
+        }
+      }
+    }
+
+    // Backtrack and parse an unlabeled argument.
+    state.restore(from: backup)
+    if let value = try expr.parse(&state) {
+      return CallArgument(value:value)
+    }
+
+    return nil
+  }
 
   static let conditionalClause = (
     conditionalClauseItem.and(zeroOrMany(take(.comma).and(conditionalClauseItem).second))
@@ -2022,78 +2591,6 @@ public enum Parser {
       }),
     or: expr
       .map({ (_, id) -> ConditionItem in .expr(id) })
-  )
-
-  static let conditionalExprBody = TryCatch(
-    trying: take(.lBrace).and(expr).and(take(.rBrace))
-      .map({ (state, tree) -> CondExpr.Body in .expr(tree.0.1) }),
-    orCatchingAndApplying: braceStmt
-      .map({ (state, id) -> CondExpr.Body in .block(id) })
-  )
-
-  static let conditionalTail = (
-    take(.else).and(TryCatch(
-      trying: conditionalExpr
-        .map({ (_, id) -> CondExpr.Body in .expr(AnyExprID(id)) }),
-      orCatchingAndApplying: conditionalExprBody
-        .map({ (_, body) -> CondExpr.Body in body })))
-    .map({ (_, tree) -> CondExpr.Body in tree.1 })
-  )
-
-  static let inoutExpr = (
-    take(.ampersand).and(withoutLeadingWhitespace(expr))
-      .map({ (state, tree) -> NodeID<InoutExpr> in
-        try state.ast.insert(wellFormed: InoutExpr(
-          operatorRange: tree.0.origin,
-          subject: tree.1,
-          origin: tree.0.origin.extended(upTo: state.currentIndex)))
-      })
-  )
-
-  static let tupleExpr = (
-    take(.lParen).and(maybe(tupleExprElementList)).and(take(.rParen))
-      .map({ (state, tree) -> NodeID<TupleExpr> in
-        try state.ast.insert(wellFormed: TupleExpr(
-          elements: tree.0.1 ?? [],
-          origin: tree.0.0.origin.extended(upTo: state.currentIndex)))
-      })
-  )
-
-  static let tupleExprElementList = (
-    tupleExprElement.and(zeroOrMany(take(.comma).and(tupleExprElement).second))
-      .map({ (_, tree) -> [TupleExpr.Element] in [tree.0] + tree.1 })
-  )
-
-  static let tupleExprElement = (
-    Apply<ParserState, TupleExpr.Element>({ (state) in
-      let backup = state.backup()
-
-      // Parse a labeled element.
-      if let label = state.take(if: { $0.isLabel }) {
-        if state.take(.colon) != nil {
-          if let value = try expr.parse(&state) {
-            return TupleExpr.Element(
-              label: SourceRepresentable(token: label, in: state.lexer.source),
-              value: value)
-          }
-        }
-      }
-
-      // Backtrack and parse an unlabeled element.
-      state.restore(from: backup)
-      if let value = try expr.parse(&state) {
-        return TupleExpr.Element(value: value)
-      }
-
-      return nil
-    })
-  )
-
-  static let nilExpr = (
-    take(.nil)
-      .map({ (state, token) -> NodeID<NilLiteralExpr> in
-        try state.ast.insert(wellFormed: NilLiteralExpr(origin: token.origin))
-      })
   )
 
   // MARK: Patterns
@@ -2128,7 +2625,7 @@ public enum Parser {
         anyPattern(tuplePattern),
         anyPattern(wildcardPattern),
       ])))
-      .and(maybe(take(.colon).and(typeExpr)))
+      .and(maybe(take(.colon).and(expr)))
       .map({ (state, tree) -> NodeID<BindingPattern> in
         try state.ast.insert(wellFormed: BindingPattern(
           introducer: tree.0.0,
@@ -2461,7 +2958,7 @@ public enum Parser {
       state.diagnostics.append(.diagnose(assignOperatorRequiresWhitespaces: assign))
     }
 
-    guard let rhs = try prefixExpr.parse(&state) else {
+    guard let rhs = try parsePrefixExpr(in: &state) else {
       throw DiagnosedError(expected("expression", at: state.currentLocation))
     }
 
@@ -2485,259 +2982,39 @@ public enum Parser {
     })
   }
 
-  static let typeExpr1: Recursive<ParserState, AnyTypeExprID> = (
-    Recursive(modifiedTypeExpr.parse(_:))
-  )
+  private static let nameTypeExpr = Apply(parseNameExpr(in:))
 
-  static let typeExpr = TryCatch(trying: typeExpr1, orCatchingAndApplying: expr)
-
-  // static let storedProjectionTypeExpr = ?
-
-  static let modifiedTypeExpr = (
-    Apply<ParserState, AnyTypeExprID>({ (state) -> AnyTypeExprID? in
-      guard let head = state.peek() else { return nil }
-
-      switch head.kind {
-      case .any:
-        // existential-type-expr
-        _ = state.take()
-        guard let traits = try traitComposition.parse(&state) else {
-          throw DiagnosedError(expected("trait composition", at: state.currentLocation))
-        }
-        let clause = try whereClause.parse(&state)
-
-        let id = try state.ast.insert(wellFormed: ExistentialTypeExpr(
-          traits: traits,
-          whereClause: clause,
-          origin: head.origin.extended(
-            upTo: clause?.origin?.upperBound ?? state.ast[traits.last!].origin!.upperBound)))
-        return AnyTypeExprID(id)
-
-      default:
-        return try compoundTypeExpr.parse(&state)
-      }
-    })
-  )
-
-  static let nameTypeExpr = (
-    compoundTypeExpr
-      .map({ (state, id) -> NodeID<NameExpr> in
-        if let converted = NodeID<NameExpr>(id) {
-          return converted
-        } else {
-          throw DiagnosedError(expected("type name", at: state.ast[id].origin!.first()))
-        }
-      })
-  )
-
-  static let compoundTypeExpr = (
-    Apply<ParserState, AnyTypeExprID>({ (state) -> AnyTypeExprID? in
-      guard var head = try primaryTypeExpr.parse(&state) else { return nil }
-      let headRange = state.ast[head].origin!
-
-      while true {
-        if state.take(.dot) != nil {
-          guard let member = try primaryTypeDeclRef.parse(&state) else {
-            throw DiagnosedError(expected("type member name", at: state.currentLocation))
-          }
-
-          let origin = headRange.extended(upTo: state.currentIndex)
-          try state.ast.modify(at: member, { (node: NameExpr) -> NameExpr in
-            NameExpr(
-              domain: .type(head),
-              name: node.name,
-              arguments: node.arguments,
-              origin: origin)
-          })
-
-          head = AnyTypeExprID(member)
-          continue
-        }
-
-        if state.take(.twoColons) != nil {
-          guard let lens = try primaryTypeExpr.parse(&state) else {
-            throw DiagnosedError(expected("focus", at: state.currentLocation))
-          }
-
-          let id = try state.ast.insert(wellFormed: ConformanceLensTypeExpr(
-            subject: head,
-            lens: lens,
-            origin: headRange.extended(upTo: state.currentIndex)))
-          head = AnyTypeExprID(id)
-          continue
-        }
-
-        break
-      }
-
-      return head
-    })
-  )
-
-  static let primaryTypeExpr = (
-    oneOf([
-      anyTypeExpr(primaryTypeDeclRef),
-      anyTypeExpr(tupleTypeExpr),
-      anyTypeExpr(lambdaOrParenthesizedTypeExpr),
-      anyTypeExpr(wildcardTypeExpr),
-    ])
-  )
-
-  static let primaryTypeDeclRef = (
-    typeIdentifier.and(maybe(staticArgumentList))
-      .map({ (state, tree) -> NodeID<NameExpr> in
-        try state.ast.insert(wellFormed: NameExpr(
-          name: tree.0,
-          arguments: tree.1 ?? [],
-          origin: tree.0.origin!.extended(upTo: state.currentIndex)))
-      })
-  )
-
-  static let tupleTypeExpr = (
-    take(.lBrace).and(maybe(tupleTypeExprElementList)).and(take(.rBrace))
-      .map({ (state, tree) -> NodeID<TupleTypeExpr> in
-        try state.ast.insert(wellFormed: TupleTypeExpr(
-          elements: tree.0.1 ?? [],
-          origin: tree.0.0.origin.extended(upTo: tree.1.origin.upperBound)))
-      })
-  )
-
-  static let tupleTypeExprElementList = (
-    tupleTypeExprElement.and(zeroOrMany(take(.comma).and(tupleTypeExprElement).second))
-      .map({ (_, tree) -> [TupleTypeExpr.Element] in [tree.0] + tree.1 })
-  )
-
-  static let tupleTypeExprElement = (
-    Apply<ParserState, TupleTypeExpr.Element>({ (state) in
-      let backup = state.backup()
-
-      // Parse a labeled element.
-      if let label = state.take(if: { $0.isLabel }) {
-        if state.take(.colon) != nil {
-          if let type = try typeExpr.parse(&state) {
-            return TupleTypeExpr.Element(
-              label: SourceRepresentable(token: label, in: state.lexer.source),
-              type: type)
-          }
-        }
-      }
-
-      // Backtrack and parse an unlabeled element.
-      state.restore(from: backup)
-      if let type = try typeExpr.parse(&state) {
-        return TupleTypeExpr.Element(type: type)
-      }
-
-      return nil
-    })
-  )
-
-  static let lambdaOrParenthesizedTypeExpr = (
-    Apply<ParserState, AnyTypeExprID>({ (state) -> AnyTypeExprID? in
-      switch state.peek()?.kind {
-      case .lBrack:
-        // The expression starts with a left bracket; assume it's a lambda.
-        return try lambdaTypeExpr.parse(&state).map(AnyTypeExprID.init(_:))
-
-      case .lParen:
-        // The expression starts with a left parenthesis; assume it's a lambda and fall back to
-        // a parenthesized expression if that fails.
-        let backup = state.backup()
-        do {
-          return try lambdaTypeExpr.parse(&state).map(AnyTypeExprID.init(_:))
-        } catch {
-          state.restore(from: backup)
-          return try parenthesizedTypeExpr.parse(&state)
-        }
-
-      default:
-        return nil
-      }
-    })
-  )
-
-  static let parenthesizedTypeExpr = (
-    take(.lParen).and(typeExpr).and(take(.rParen))
-      .map({ (state, tree) -> AnyTypeExprID in tree.0.1 })
-  )
-
-  static let lambdaTypeExpr = Choose(
-    typeErasedLambdaTypeExpr,
-    or: lambdaEnvironment.and(typeErasedLambdaTypeExpr)
-      .map({ (state, tree) in
-        state.ast[tree.1].incorporate(environment: tree.0)
-        return tree.1
-      })
-  )
-
-  static let typeErasedLambdaTypeExpr = (
-    take(.lParen).and(maybe(lambdaParameterList)).and(take(.rParen))
-      .and(maybe(receiverEffect))
-      .and(take(.arrow))
-      .and(typeExpr)
-      .map({ (state, tree) -> NodeID<LambdaTypeExpr> in
-        try state.ast.insert(wellFormed: LambdaTypeExpr(
-          receiverEffect: tree.0.0.1,
-          parameters: tree.0.0.0.0.1 ?? [],
-          output: tree.1,
-          origin: tree.0.0.0.0.0.origin.extended(upTo: state.currentIndex)))
-      })
-  )
-
-  static let lambdaParameterList = (
+  private static let lambdaParameterListContents = (
     lambdaParameter.and(zeroOrMany(take(.comma).and(lambdaParameter).second))
       .map({ (_, tree) -> [LambdaTypeExpr.Parameter] in [tree.0] + tree.1 })
   )
 
-  static let lambdaParameter = (
-    Apply<ParserState, LambdaTypeExpr.Parameter>({ (state) in
-      let backup = state.backup()
+  private static let lambdaParameter = Apply(parseLambdaParameter(in:))
 
-      // Parse a labeled parameter.
-      if let label = state.take(if: { $0.isLabel }) {
-        if state.take(.colon) != nil {
-          if let type = try parameterTypeExpr.parse(&state) {
-            return LambdaTypeExpr.Parameter(
-              label: SourceRepresentable(token: label, in: state.lexer.source),
-              type: type)
-          }
+  private static func parseLambdaParameter(
+    in state: inout ParserState
+  ) throws -> LambdaTypeExpr.Parameter? {
+    let backup = state.backup()
+
+    // Parse a labeled parameter.
+    if let label = state.take(if: { $0.isLabel }) {
+      if state.take(.colon) != nil {
+        if let type = try parameterTypeExpr.parse(&state) {
+          return LambdaTypeExpr.Parameter(
+            label: SourceRepresentable(token: label, in: state.lexer.source),
+            type: type)
         }
       }
+    }
 
-      // Backtrack and parse an unlabeled parameter.
-      state.restore(from: backup)
-      if let type = try parameterTypeExpr.parse(&state) {
-        return LambdaTypeExpr.Parameter(type: type)
-      }
+    // Backtrack and parse an unlabeled parameter.
+    state.restore(from: backup)
+    if let type = try parameterTypeExpr.parse(&state) {
+      return LambdaTypeExpr.Parameter(type: type)
+    }
 
-      return nil
-    })
-  )
-
-  static let lambdaEnvironment = (
-    take(.lBrack).and(maybe(typeExpr)).and(take(.rBrack))
-      .map({ (state, tree) -> SourceRepresentable<AnyTypeExprID> in
-        let range = tree.0.0.origin.extended(upTo: tree.1.origin.upperBound)
-        if let expr = tree.0.1 {
-          return SourceRepresentable(value: expr, range: range)
-        } else {
-          let expr = try state.ast.insert(wellFormed: TupleTypeExpr(
-            elements: [],
-            origin: SourceRange(
-              in: state.lexer.source,
-              from: tree.0.0.origin.upperBound,
-              to: tree.1.origin.lowerBound)))
-          return SourceRepresentable(value: AnyTypeExprID(expr), range: range)
-        }
-      })
-  )
-
-  static let wildcardTypeExpr = (
-    take(.under)
-      .map({ (state, token) -> NodeID<WildcardTypeExpr> in
-        try state.ast.insert(wellFormed: WildcardTypeExpr(origin: token.origin))
-      })
-  )
+    return nil
+  }
 
   static let receiverEffect = translate([
     .inout: ReceiverEffect.inout,
@@ -2746,7 +3023,7 @@ public enum Parser {
 
   static let parameterTypeExpr = (
     maybe(passingConvention)
-      .andCollapsingSoftFailures(typeExpr)
+      .andCollapsingSoftFailures(expr)
       .map({ (state, tree) -> NodeID<ParameterTypeExpr> in
         try state.ast.insert(wellFormed: ParameterTypeExpr(
           convention: tree.0 ?? SourceRepresentable(value: .let),
@@ -2764,12 +3041,7 @@ public enum Parser {
     .yielded: PassingConvention.yielded,
   ])
 
-  static let staticArgumentList = (
-    take(.lAngle)
-      .and(staticArgument.and(zeroOrMany(take(.comma).and(staticArgument).second)))
-      .and(take(.rAngle))
-      .map({ (_, tree) -> [GenericArgument] in [tree.0.1.0] + tree.0.1.1 })
-  )
+  static let staticArgumentList = Apply(parseStaticArgumentList(in:))
 
   static let staticArgument = (
     Apply<ParserState, GenericArgument>({ (state) in
@@ -2801,7 +3073,7 @@ public enum Parser {
   )
 
   static let staticTypeArgument = (
-    maybe(typeAttribute).and(typeExpr)
+    maybe(typeAttribute).and(expr)
       .map({ (state, tree) -> GenericArgument.Value in
         .type(tree.1)
       })
@@ -2840,7 +3112,7 @@ public enum Parser {
 
       // equality-constraint
       if state.take(.equal) != nil {
-        guard let rhs = try typeExpr.parse(&state) else {
+        guard let rhs = try expr.parse(&state) else {
           throw DiagnosedError(expected("type expression", at: state.currentLocation))
         }
         return SourceRepresentable(
@@ -3024,6 +3296,20 @@ public enum Parser {
 
   // MARK: Helpers
 
+  /// Applies `parse` on `state`, propagating thrown errors, and returns `parse`'s result if it
+  /// isn't `nil`. Otherwise, throw an error diagnosing that we expected `expectedConstruct`.
+  private static func expect<T>(
+    _ expectedConstruct: String,
+    in state: inout ParserState,
+    parsedWith parse: (inout ParserState) throws -> T?
+  ) throws -> T {
+    if let element = try parse(&state) {
+      return element
+    } else {
+      throw DiagnosedError(expected(expectedConstruct, at: state.currentLocation))
+    }
+  }
+
   /// Creates a parse error describing failure to parse `subject` at `location`.
   private static func expected(
     _ subject: String,
@@ -3031,6 +3317,22 @@ public enum Parser {
     children: [Diagnostic] = []
   ) -> Diagnostic {
     .error("expected \(subject)", range: location ..< location, children: children)
+  }
+
+  private static func expected(
+    _ closerDescription: String,
+    matching opener: Token,
+    in state: ParserState
+  ) -> Diagnostic {
+    expected(
+      "'\(closerDescription)'",
+      at: state.currentLocation,
+      children: [
+        .error(
+          "to match this '\(state.lexer.source[opener.origin])'",
+          range: opener.origin)
+      ]
+    )
   }
 
   private static func diagnose(
@@ -3167,6 +3469,20 @@ struct SubscriptDeclSignature {
 
 }
 
+/// The parsed component of a name expression.
+struct NameExprComponent {
+
+  /// The source range from which `self` was parsed.
+  let origin: SourceRange
+
+  /// The name of the component.
+  let name: SourceRepresentable<Name>
+
+  /// The static arguments of the component, if any.
+  let arguments: [GenericArgument]
+
+}
+
 /// A combinator that parses tokens with a specific kind.
 struct TakeKind: Combinator {
 
@@ -3289,6 +3605,21 @@ where Base.Context == ParserState
   })
 }
 
+fileprivate extension OperatorNotation {
+
+  /// Creates an instance from `token`'s kind, or returns `nil` if `token` does not represent an
+  /// operator notation.
+  init?(_ token: Token) {
+    switch token.kind {
+    case .infix: self = .infix
+    case .prefix: self = .prefix
+    case .postfix: self = .postfix
+    default: return nil
+    }
+  }
+
+}
+
 fileprivate extension SourceRepresentable where Part == Identifier {
 
   init(token: Token, in source: SourceFile) {
@@ -3309,6 +3640,14 @@ fileprivate extension Diagnostic {
 
   static func diagnose(infixOperatorRequiresWhitespacesAt range: SourceRange?) -> Diagnostic {
     .error("infix operator requires whitespaces on both sides", range: range)
+  }
+
+  static func diagnose(separatedMutationMarkerAt range: SourceRange?) -> Diagnostic {
+    .error("in-place mutation marker cannot be separated from its expression", range: range)
+  }
+
+  static func diagnose(separatedPrefixOperatorAt range: SourceRange?) -> Diagnostic {
+    .error("prefix operator cannot be separated from its operand", range: range)
   }
 
   static func diagnose(unexpectedToken token: Token) -> Diagnostic {

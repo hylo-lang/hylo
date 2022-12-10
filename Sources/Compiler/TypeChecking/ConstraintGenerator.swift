@@ -608,9 +608,6 @@ struct ConstraintGenerator {
           because: cause))
       }
 
-    case .type:
-      fatalError("not implemented")
-
     case .implicit:
       fatalError("not implemented")
     }

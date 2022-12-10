@@ -12,9 +12,6 @@ public struct NameExpr: Expr {
     /// Domain is a value expression or a type identifier.
     case expr(AnyExprID)
 
-    /// Domain is a type typression.
-    case type(AnyTypeExprID)
-
   }
 
   public let origin: SourceRange?

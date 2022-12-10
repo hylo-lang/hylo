@@ -119,28 +119,36 @@ extension NodeKind {
     TypeAliasDecl.self,
     VarDecl.self,
 
-    // MARK: Value expressions
+    // MARK: Expressions
     BooleanLiteralExpr.self,
     BufferLiteralExpr.self,
     CastExpr.self,
     CondExpr.self,
+    ConformanceLensTypeExpr.self,
     ErrorExpr.self,
+    ExistentialTypeExpr.self,
     FloatLiteralExpr.self,
     FunCallExpr.self,
     InoutExpr.self,
     IntegerLiteralExpr.self,
     LambdaExpr.self,
+    LambdaTypeExpr.self,
     MapLiteralExpr.self,
     MatchExpr.self,
     NameExpr.self,
     NilLiteralExpr.self,
+    ParameterTypeExpr.self,
+    RemoteTypeExpr.self,
     SequenceExpr.self,
     SpawnExpr.self,
     StringLiteralExpr.self,
     SubscriptCallExpr.self,
     TupleExpr.self,
     TupleMemberExpr.self,
+    TupleTypeExpr.self,
     UnicodeScalarLiteralExpr.self,
+    WildcardExpr.self,
+    UnionTypeExpr.self,
 
     // MARK: Patterns
     BindingPattern.self,
@@ -163,15 +171,6 @@ extension NodeKind {
     ReturnStmt.self,
     WhileStmt.self,
     YieldStmt.self,
-
-    // MARK: Type expressions
-    ConformanceLensTypeExpr.self,
-    ExistentialTypeExpr.self,
-    LambdaTypeExpr.self,
-    ParameterTypeExpr.self,
-    RemoteTypeExpr.self,
-    TupleTypeExpr.self,
-    UnionTypeExpr.self,
 
     // MARK: Others
     MatchCase.self,

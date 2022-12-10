@@ -1,5 +1,5 @@
 /// A union type expression.
-public struct UnionTypeExpr: TypeExpr {
+public struct UnionTypeExpr: Expr {
 
   public let origin: SourceRange?
 
