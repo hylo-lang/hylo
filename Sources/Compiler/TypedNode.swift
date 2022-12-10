@@ -1,8 +1,11 @@
 // Renaming dance
 
 public typealias ValNode = Node
+
 extension AST {
+
   public typealias Node = ValNode
+  
 }
 
 /// A projection from a `TypedProgram` of an AST node along with all the non-syntax information
