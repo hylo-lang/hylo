@@ -106,7 +106,7 @@ public struct Emitter {
       emitStackDeallocs(in: &module)
 
       // Emit the implicit return statement.
-      if program.exprTypes[expr.id]! != .never {
+      if expr.type != .never {
         module.insert(ReturnInst(value: value), at: insertionPoint!)
       }
     }
@@ -173,11 +173,9 @@ public struct Emitter {
 
     // Allocate storage for each name introduced by the declaration.
     for (path, name) in decl.pattern.subpattern.names {
-      let decl = name.decl
-
-      let storage = module.insert(AllocStackInst(decl.type), at: insertionPoint!)[0]
+      let storage = module.insert(AllocStackInst(name.decl.type), at: insertionPoint!)[0]
       stack.top.allocs.append(storage)
-      stack[decl] = storage
+      stack[name.decl] = storage
 
       if var rhsType = initializerType {
         // Determine the object corresponding to the current name.
@@ -202,7 +200,7 @@ public struct Emitter {
 
         // Borrow the storage for initialization corresponding to the current name.
         let target = module.insert(
-          BorrowInst(.set, .address(decl.type), from: storage),
+          BorrowInst(.set, .address(name.decl.type), from: storage),
           at: insertionPoint!)[0]
 
         // Store the corresponding (part of) the initializer.
@@ -242,16 +240,14 @@ public struct Emitter {
       }
 
       for (path, name) in pattern.subpattern.names {
-        let decl = name.decl
-
-        stack[decl] = module.insert(
+        stack[name.decl] = module.insert(
           BorrowInst(
             capability,
-            .address(decl.type),
+            .address(name.decl.type),
             from: source,
             at: path,
-            binding: decl.id,
-            range: decl.origin),
+            binding: name.decl.id,
+            range: name.decl.origin),
           at: insertionPoint!)[0]
       }
     }
