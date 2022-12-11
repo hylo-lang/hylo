@@ -16,11 +16,11 @@ public struct LifetimePass: TransformPass {
     // Reinitialize the internal state of the pass.
     diagnostics.removeAll()
 
-    for blockIndex in module[functionID].blocks.indices {
+    for blockIndex in module[function: functionID].blocks.indices {
       let block = Block.ID(function: functionID, address: blockIndex.address)
 
-      for inst in module[functionID][block.address].instructions.indices {
-        switch module[functionID][block.address][inst.address] {
+      for inst in module[block: block].instructions.indices {
+        switch module[block: block][inst.address] {
         case let borrow as BorrowInst:
           // Compute the live-range of the instruction.
           let borrowID = block.result(at: inst.address, index: 0)
@@ -31,7 +31,7 @@ public struct LifetimePass: TransformPass {
             if let decl = borrow.binding {
               diagnostics.append(.unusedBinding(name: program.ast[decl].name, at: borrow.range))
             }
-            module[functionID][block.address].instructions.remove(at: inst.address)
+            module[block: block].instructions.remove(at: inst.address)
             continue
           }
 
@@ -61,7 +61,7 @@ public struct LifetimePass: TransformPass {
 
     // Extend the lifetime with that of its borrows.
     for use in uses {
-      switch module[use.user.function][use.user.block][use.user.address] {
+      switch module[instruction: use.user] {
       case is BorrowInst:
         result = module.extend(
           lifetime: result, with: lifetime(of: .result(inst: use.user, index: 0), in: module))

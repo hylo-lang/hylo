@@ -20,17 +20,3 @@ public protocol Inst {
   func isWellFormed(in module: Module) -> Bool
 
 }
-
-/// The ID of a Val IR instruction.
-public struct InstID: Hashable {
-
-  /// The ID of the containing function.
-  public let function: Module.Functions.Index
-
-  /// The address of the containing block.
-  public let block: Function.BlockAddress
-
-  /// The address of the instruction in the containing block.
-  public let address: Block.InstAddress
-
-}

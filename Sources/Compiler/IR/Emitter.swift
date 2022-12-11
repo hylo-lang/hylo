@@ -902,9 +902,9 @@ public struct Emitter {
         // If the lowered receiver is a borrow instruction, modify it in place so that it targets
         // the requested stored member. Otherwise, emit a reborrow.
         if let id = receiver.inst,
-           let receiverInst = module[id.function][id.block][id.address] as? BorrowInst
+           let receiverInst = module[instruction: id] as? BorrowInst
         {
-          module[id.function][id.block][id.address] = BorrowInst(
+          module[instruction: id] = BorrowInst(
             capability,
             .address(program.exprTypes[expr]!),
             from: receiverInst.location,

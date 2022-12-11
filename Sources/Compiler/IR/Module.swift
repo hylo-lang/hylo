@@ -39,6 +39,24 @@ public struct Module {
   /// The module's name.
   public var name: String { program.ast[decl].name }
 
+  /// Accesses the function at given index.
+  public subscript(function index: Functions.Index) -> Function {
+    _read   { yield  functions[index] }
+    _modify { yield &functions[index] }
+  }
+
+  /// Accesses the basic block with the given identity.
+  public subscript(block id: Block.ID) -> Block {
+    _read   { yield  functions[id.function].blocks[id.address] }
+    _modify { yield &functions[id.function].blocks[id.address] }
+  }
+
+  /// Accesses the instruction with the given identity.
+  public subscript(instruction id: InstructionID) -> Inst {
+    _read   { yield  functions[id.function].blocks[id.block].instructions[id.address]  }
+    _modify { yield &functions[id.function].blocks[id.block].instructions[id.address] }
+  }
+
   /// Returns the type of `operand`.
   public func type(of operand: Operand) -> LoweredType {
     switch operand {
@@ -156,11 +174,33 @@ public struct Module {
     return Block.ID(function: function, address: address)
   }
 
-  /// Inserts `inst` at the specified insertion point.
+  /// Inserts `newInstruction` at `position` and returns the identities of its results.
+  ///
+  /// The instruction is inserted before the instruction currently at `position`. You can pass a
+  /// "past the end" position to append at the end of a block.
+  @discardableResult
+  mutating func insert<I: Inst>(_ newInstruction: I, at position: InstructionIndex) -> [Operand] {
+    // Insert the instruction.
+    let address = functions[position.function].blocks[position.block].instructions
+      .insert(newInstruction, at: position.index)
+
+    // Update the def-use chains.
+    let user = InstructionID(function: position.function, block: position.block, address: address)
+    for i in 0 ..< newInstruction.operands.count {
+      uses[newInstruction.operands[i], default: []].append(Use(user: user, index: i))
+    }
+
+    // Return the identities of the instruction's results.
+    return (0 ..< newInstruction.types.count).map({ (k) -> Operand in
+      .result(inst: user, index: k)
+    })
+  }
+
+  /// Inserts `inst` at the specified insertion point and returns the identities of its results.
   @discardableResult
   mutating func insert<I: Inst>(_ inst: I, at ip: InsertionPoint) -> [Operand] {
     // Inserts the instruction.
-    let address: Block.InstAddress
+    let address: Block.Instructions.Address
     switch ip.position {
     case .end:
       address = functions[ip.block.function][ip.block.address].instructions.append(inst)
@@ -171,7 +211,7 @@ public struct Module {
     }
 
     // Generate an instruction identifier.
-    let userID = InstID(function: ip.block.function, block: ip.block.address, address: address)
+    let userID = InstructionID(function: ip.block.function, block: ip.block.address, address: address)
 
     // Update the use lists of the instruction's operands.
     for i in 0 ..< inst.operands.count {
@@ -183,11 +223,3 @@ public struct Module {
 
 }
 
-extension Module {
-
-  public subscript(_ position: Functions.Index) -> Function {
-    _read   { yield functions[position] }
-    _modify { yield &functions[position] }
-  }
-
-}

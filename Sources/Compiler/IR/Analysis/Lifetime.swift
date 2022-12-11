@@ -7,7 +7,7 @@ import Utils
 /// part of its lifetime.
 struct Lifetime {
 
-  fileprivate typealias Coverage = [Function.BlockAddress: BlockCoverage]
+  fileprivate typealias Coverage = [Function.Blocks.Address: BlockCoverage]
 
   /// A data structure encoding how a block covers the lifetime.
   enum BlockCoverage {
@@ -87,12 +87,12 @@ extension Module {
 
     // Find all blocks in which the operand is being used.
     var occurences = uses[operand, default: []].reduce(
-      into: Set<Function.BlockAddress>(),
+      into: Set<Function.Blocks.Address>(),
       { (blocks, use) in blocks.insert(use.user.block) })
 
     // Propagate liveness starting from the blocks in which the operand is being used.
     let cfg = functions[origin.function].cfg
-    var approximateCoverage: [Function.BlockAddress: (isLiveIn: Bool, isLiveOut: Bool)] = [:]
+    var approximateCoverage: [Function.Blocks.Address: (isLiveIn: Bool, isLiveOut: Bool)] = [:]
     while true {
       guard let occurence = occurences.popFirst() else { break }
 
@@ -188,7 +188,7 @@ extension Module {
     for i in instructions.indices.reversed() {
       if let operandIndex = instructions[i].operands.lastIndex(of: operand) {
         return Use(
-          user: InstID(function: block.function, block: block.address, address: i.address),
+          user: InstructionID(function: block.function, block: block.address, address: i.address),
           index: operandIndex)
       }
     }

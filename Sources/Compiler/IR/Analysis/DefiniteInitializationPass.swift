@@ -12,7 +12,7 @@ public struct DefiniteInitializationPass: TransformPass {
   ///
   /// The interpreter relies on the IR being well-formed.
 
-  private typealias Contexts = [Function.BlockAddress: (before: Context, after: Context)]
+  private typealias Contexts = [Function.Blocks.Address: (before: Context, after: Context)]
 
   public static let name = "Definite initialization"
 
@@ -33,25 +33,25 @@ public struct DefiniteInitializationPass: TransformPass {
 
   public mutating func run(function functionID: Function.ID, module: inout Module) -> Bool {
     /// The control flow graph of the function to analyze.
-    let cfg = module[functionID].cfg
+    let cfg = module[function: functionID].cfg
     /// The dominator tree of the function to analyize.
     let dominatorTree = DominatorTree(function: functionID, cfg: cfg, in: module)
     /// A FILO list of blocks to visit.
-    var work: Deque<Function.BlockAddress>
+    var work: Deque<Function.Blocks.Address>
     /// The set of blocks that no longer need to be visited.
-    var done: Set<Function.BlockAddress> = []
+    var done: Set<Function.Blocks.Address> = []
     /// The state of the abstract interpreter before and after the visited basic blocks.
-    var contexts: [Function.BlockAddress: (before: Context, after: Context)] = [:]
+    var contexts: [Function.Blocks.Address: (before: Context, after: Context)] = [:]
     /// Indicates whether the pass succeeded.
     var success = true
 
     /// Returns the before-context that merges the after-contexts of `predecessors`, inserting
     /// deinitialization at the end of these blocks if necessary.
-    func mergeAfterContexts(of predecessors: [Function.BlockAddress]) -> Context {
+    func mergeAfterContexts(of predecessors: [Function.Blocks.Address]) -> Context {
       /// The set of predecessors that have been visited already.
-      var visitedPredecessors: [Function.BlockAddress] = []
+      var visitedPredecessors: [Function.Blocks.Address] = []
       /// The sources of the after contexts used for this merge.
-      var afterContextSources: Set<Function.BlockAddress> = []
+      var afterContextSources: Set<Function.Blocks.Address> = []
 
       // Determine the after-context that will be used in the merge for each predecessor: if the
       // predecessor has already been visited, use its after-context; otherwise, use the
@@ -116,7 +116,7 @@ public struct DefiniteInitializationPass: TransformPass {
               if lhs != rhs {
                 // Deinitialize the object at the end of the predecessor.
                 let beforeTerminator = InsertionPoint(
-                  before: module[functionID][predecessor].instructions.lastAddress!,
+                  before: module[function: functionID][predecessor].instructions.lastAddress!,
                   in: Block.ID(function: functionID, address: predecessor))
                 module.insert(DeinitInst(key.operand(in: functionID)), at: beforeTerminator)
                 didChange = true
@@ -139,7 +139,7 @@ public struct DefiniteInitializationPass: TransformPass {
               if !difference.isEmpty {
                 // Deinitialize the object at the end of the predecessor.
                 let beforeTerminator = InsertionPoint(
-                  before: module[functionID][predecessor].instructions.lastAddress!,
+                  before: module[function: functionID][predecessor].instructions.lastAddress!,
                   in: Block.ID(function: functionID, address: predecessor))
                 let operand = key.operand(in: functionID)
                 let rootType = module.type(of: operand).astType
@@ -180,7 +180,7 @@ public struct DefiniteInitializationPass: TransformPass {
     // Interpret the function until we reach a fixed point.
     while let block = work.popFirst() {
       // Handle the entry as a special case.
-      if block == module[functionID].blocks.firstAddress {
+      if block == module[function: functionID].blocks.firstAddress {
         let beforeContext = entryContext(in: module)
         currentContext = beforeContext
         success = eval(block: block, in: &module) && success
@@ -244,7 +244,7 @@ public struct DefiniteInitializationPass: TransformPass {
 
   /// Creates the before-context of the function's entry block.
   private func entryContext(in module: Module) -> Context {
-    let function = module[functionID]
+    let function = module[function: functionID]
     let entryAddress = function.blocks.firstAddress!
     var entryContext = Context()
 
@@ -275,10 +275,10 @@ public struct DefiniteInitializationPass: TransformPass {
     return entryContext
   }
 
-  private mutating func eval(block: Function.BlockAddress, in module: inout Module) -> Bool {
-    let instructions = module[functionID][block].instructions
+  private mutating func eval(block: Function.Blocks.Address, in module: inout Module) -> Bool {
+    let instructions = module[function: functionID][block].instructions
     for i in instructions.indices {
-      let id = InstID(function: functionID, block: block, address: i.address)
+      let id = InstructionID(function: functionID, block: block, address: i.address)
       switch instructions[i.address] {
       case let inst as AllocStackInst:
         if !eval(allocStack: inst, id: id, module: &module) { return false }
@@ -312,7 +312,7 @@ public struct DefiniteInitializationPass: TransformPass {
   }
 
   private mutating func eval(
-    allocStack inst: AllocStackInst, id: InstID, module: inout Module
+    allocStack inst: AllocStackInst, id: InstructionID, module: inout Module
   ) -> Bool {
     // Create an abstract location denoting the newly allocated memory.
     let location = MemoryLocation.inst(block: id.block, address: id.address)
@@ -329,7 +329,7 @@ public struct DefiniteInitializationPass: TransformPass {
   }
 
   private mutating func eval(
-    borrow inst: BorrowInst, id: InstID, module: inout Module
+    borrow inst: BorrowInst, id: InstructionID, module: inout Module
   ) -> Bool {
     // Operand must a location.
     let locations: [MemoryLocation]
@@ -412,7 +412,7 @@ public struct DefiniteInitializationPass: TransformPass {
   }
 
   private mutating func eval(
-    condBranch inst: CondBranchInst, id: InstID, module: inout Module
+    condBranch inst: CondBranchInst, id: InstructionID, module: inout Module
   ) -> Bool {
     // Consume the condition operand.
     let key = FunctionLocal(operand: inst.condition)!
@@ -422,7 +422,7 @@ public struct DefiniteInitializationPass: TransformPass {
   }
 
   private mutating func eval(
-    call inst: CallInst, id: InstID, module: inout Module
+    call inst: CallInst, id: InstructionID, module: inout Module
   ) -> Bool {
     // Process the operands.
     for i in 0 ..< inst.operands.count {
@@ -452,13 +452,12 @@ public struct DefiniteInitializationPass: TransformPass {
   }
 
   private mutating func eval(
-    deallocStack inst: DeallocStackInst, id: InstID, module: inout Module
+    deallocStack inst: DeallocStackInst, id: InstructionID, module: inout Module
   ) -> Bool {
     // The location operand is the result an `alloc_stack` instruction.
-    let allocID = inst.location.inst!
-    let alloc = module[allocID.function][allocID.block][allocID.address] as! AllocStackInst
+    let alloc = module[instruction: inst.location.inst!] as! AllocStackInst
 
-    let key = FunctionLocal(allocID, 0)
+    let key = FunctionLocal(inst.location.inst!, 0)
     let locations = currentContext.locals[key]!.unwrapLocations()!
     assert(locations.count == 1)
 
@@ -488,10 +487,10 @@ public struct DefiniteInitializationPass: TransformPass {
       module.insert(DeinitInst(object, range: inst.range), at: beforeDealloc)
 
       // Apply the effect of the inserted instructions on the context directly.
-      let consumer = InstID(
+      let consumer = InstructionID(
         function: id.function,
         block: id.block,
-        address: module[id.function][id.block].instructions.address(before: id.address)!)
+        address: module[function: id.function][id.block].instructions.address(before: id.address)!)
       currentContext.locals[FunctionLocal(id, 0)] = .object(.full(.consumed(by: [consumer])))
     }
 
@@ -501,7 +500,7 @@ public struct DefiniteInitializationPass: TransformPass {
   }
 
   private mutating func eval(
-    deinit inst: DeinitInst, id: InstID, module: inout Module
+    deinit inst: DeinitInst, id: InstructionID, module: inout Module
   ) -> Bool {
     // Consume the object operand.
     let key = FunctionLocal(operand: inst.object)!
@@ -511,7 +510,7 @@ public struct DefiniteInitializationPass: TransformPass {
   }
 
   private mutating func eval(
-    destructure inst: DestructureInst, id: InstID, module: inout Module
+    destructure inst: DestructureInst, id: InstructionID, module: inout Module
   ) -> Bool {
     // Consume the object operand.
     if let key = FunctionLocal(operand: inst.object) {
@@ -530,7 +529,7 @@ public struct DefiniteInitializationPass: TransformPass {
   }
 
   private mutating func eval(
-    load inst: LoadInst, id: InstID, module: inout Module
+    load inst: LoadInst, id: InstructionID, module: inout Module
   ) -> Bool {
     // Operand must be a location.
     let locations: [MemoryLocation]
@@ -569,7 +568,7 @@ public struct DefiniteInitializationPass: TransformPass {
   }
 
   private mutating func eval(
-    record inst: RecordInst, id: InstID, module: inout Module
+    record inst: RecordInst, id: InstructionID, module: inout Module
   ) -> Bool {
     // Consumes the non-constant operand.
     for operand in inst.operands {
@@ -588,7 +587,7 @@ public struct DefiniteInitializationPass: TransformPass {
   }
 
   private mutating func eval(
-    return inst: ReturnInst, id: InstID, module: inout Module
+    return inst: ReturnInst, id: InstructionID, module: inout Module
   ) -> Bool {
     // Consume the object operand.
     if let key = FunctionLocal(operand: inst.value) {
@@ -603,7 +602,7 @@ public struct DefiniteInitializationPass: TransformPass {
   }
 
   private mutating func eval(
-    store inst: StoreInst, id: InstID, module: inout Module
+    store inst: StoreInst, id: InstructionID, module: inout Module
   ) -> Bool {
     // Consume the object operand.
     if let key = FunctionLocal(operand: inst.object) {
@@ -674,7 +673,7 @@ public struct DefiniteInitializationPass: TransformPass {
   /// with a projection of `self` and the state summary of the object before returning `false`.
   private mutating func consume(
     localForKey key: FunctionLocal,
-    with consumer: InstID,
+    with consumer: InstructionID,
     or handleFailure: (inout Self, Object.StateSummary) -> ()
   ) -> Bool {
     let summary = currentContext.locals[key]!.unwrapObject()!.summary
@@ -701,7 +700,7 @@ fileprivate extension DefiniteInitializationPass {
     case arg(index: Int)
 
     /// A location produced by an instruction.
-    case inst(block: Function.BlockAddress, address: Block.InstAddress)
+    case inst(block: Function.Blocks.Address, address: Block.Instructions.Address)
 
     /// A sub-location rooted at an argument or an instruction.
     indirect case sublocation(root: MemoryLocation, path: [Int])
@@ -776,7 +775,7 @@ fileprivate extension DefiniteInitializationPass {
 
       case uninitialized
 
-      case consumed(by: Set<InstID>)
+      case consumed(by: Set<InstructionID>)
 
       /// Returns `lhs` merged with `rhs`.
       static func && (lhs: State, rhs: State) -> State {
@@ -809,7 +808,7 @@ fileprivate extension DefiniteInitializationPass {
       /// The object is fully consumed.
       ///
       /// The payload contains the set of instructions that consumed the object.
-      case fullyConsumed(consumers: Set<InstID>)
+      case fullyConsumed(consumers: Set<InstructionID>)
 
       /// The object has at least one uninitialized part, at least one initialized part, and no
       /// consumed part.
@@ -821,7 +820,7 @@ fileprivate extension DefiniteInitializationPass {
       ///
       /// The payload contains the set of instructions that consumed the object or some of its
       /// parts, and the paths to the (partially) initialized parts.
-      case partiallyConsumed(consumers: Set<InstID>, initialized: [[Int]])
+      case partiallyConsumed(consumers: Set<InstructionID>, initialized: [[Int]])
 
     }
 
@@ -888,7 +887,7 @@ fileprivate extension DefiniteInitializationPass {
       case .partial(let parts):
         var hasUninitializedPart = false
         var initializedPaths: [[Int]] = []
-        var consumers: Set<InstID> = []
+        var consumers: Set<InstructionID> = []
 
         for i in 0 ..< parts.count {
           switch parts[i].summary {
