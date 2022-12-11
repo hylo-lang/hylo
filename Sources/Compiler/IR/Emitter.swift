@@ -71,21 +71,21 @@ public struct Emitter {
 
     let explicitCaptures = decl.explicitCaptures
     for (i, capture) in explicitCaptures.enumerated() {
-      locals[capture] = Operand.parameter(block: entryID, index: i)
+      locals[capture] = .parameter(block: entryID, index: i)
     }
 
     for (i, capture) in decl.implicitCaptures!.enumerated() {
-      locals[program[capture.decl]] = Operand.parameter(block: entryID, index: i + explicitCaptures.count)
+      locals[program[capture.decl]] = .parameter(block: entryID, index: i + explicitCaptures.count)
     }
 
     var implicitParameterCount = explicitCaptures.count + decl.implicitCaptures!.count
     if let receiver = decl.receiver {
-      locals[receiver] = Operand.parameter(block: entryID, index: implicitParameterCount)
+      locals[receiver] = .parameter(block: entryID, index: implicitParameterCount)
       implicitParameterCount += 1
     }
 
     for (i, parameter) in decl.parameters.enumerated() {
-      locals[parameter] = Operand.parameter(block: entryID, index: i + implicitParameterCount)
+      locals[parameter] = .parameter(block: entryID, index: i + implicitParameterCount)
     }
 
     // Emit the body.
@@ -673,7 +673,7 @@ public struct Emitter {
       let calleeOperand: Operand
       switch program.referredDecls[callee.expr] {
       case .member(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
-        calleeOperand = Operand.constant(.function(FunctionRef(
+        calleeOperand = .constant(.function(FunctionRef(
           name: DeclLocator(identifying: calleeDecl, in: program).mangled,
           type: .address(calleeType))))
 
