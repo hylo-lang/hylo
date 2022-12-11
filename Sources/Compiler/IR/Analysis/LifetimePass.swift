@@ -8,9 +8,7 @@ public struct LifetimePass: TransformPass {
 
   public private(set) var diagnostics: [Diagnostic] = []
 
-  public init(program: TypedProgram) {
-    self.program = program
-  }
+  public init(program: TypedProgram) { self.program = program }
 
   public mutating func run(function functionID: Function.ID, module: inout Module) -> Bool {
     // Reinitialize the internal state of the pass.
@@ -43,8 +41,7 @@ public struct LifetimePass: TransformPass {
               at: InsertionPoint(after: lastUse.user.address, in: userBlock))
           }
 
-        default:
-          break
+        default: break
         }
       }
     }
@@ -65,8 +62,7 @@ public struct LifetimePass: TransformPass {
       case is BorrowInst:
         result = module.extend(
           lifetime: result, with: lifetime(of: .result(inst: use.user, index: 0), in: module))
-      default:
-        continue
+      default: continue
       }
     }
 

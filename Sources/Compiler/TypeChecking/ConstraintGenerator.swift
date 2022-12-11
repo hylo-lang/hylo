@@ -55,44 +55,32 @@ struct ConstraintGenerator {
     switch expr.kind {
     case BooleanLiteralExpr.self:
       return visit(booleanLiteral: NodeID(rawValue: expr.rawValue), using: &checker)
-    case CastExpr.self:
-      return visit(cast: NodeID(rawValue: expr.rawValue), using: &checker)
-    case CondExpr.self:
-      return visit(cond: NodeID(rawValue: expr.rawValue), using: &checker)
+    case CastExpr.self: return visit(cast: NodeID(rawValue: expr.rawValue), using: &checker)
+    case CondExpr.self: return visit(cond: NodeID(rawValue: expr.rawValue), using: &checker)
     case FloatLiteralExpr.self:
       return visit(floatLiteral: NodeID(rawValue: expr.rawValue), using: &checker)
-    case FunCallExpr.self:
-      return visit(funCall: NodeID(rawValue: expr.rawValue), using: &checker)
-    case InoutExpr.self:
-      return visit(`inout`: NodeID(rawValue: expr.rawValue), using: &checker)
+    case FunCallExpr.self: return visit(funCall: NodeID(rawValue: expr.rawValue), using: &checker)
+    case InoutExpr.self: return visit(`inout`: NodeID(rawValue: expr.rawValue), using: &checker)
     case IntegerLiteralExpr.self:
       return visit(integerLiteral: NodeID(rawValue: expr.rawValue), using: &checker)
-    case LambdaExpr.self:
-      return visit(lambda: NodeID(rawValue: expr.rawValue), using: &checker)
+    case LambdaExpr.self: return visit(lambda: NodeID(rawValue: expr.rawValue), using: &checker)
     case MapLiteralExpr.self:
       return visit(mapLiteral: NodeID(rawValue: expr.rawValue), using: &checker)
-    case MatchExpr.self:
-      return visit(match: NodeID(rawValue: expr.rawValue), using: &checker)
-    case NameExpr.self:
-      return visit(name: NodeID(rawValue: expr.rawValue), using: &checker)
-    case NilLiteralExpr.self:
-      return visit(nil: NodeID(rawValue: expr.rawValue), using: &checker)
-    case SequenceExpr.self:
-      return visit(sequence: NodeID(rawValue: expr.rawValue), using: &checker)
-    case SpawnExpr.self:
-      return visit(spawn: NodeID(rawValue: expr.rawValue), using: &checker)
+    case MatchExpr.self: return visit(match: NodeID(rawValue: expr.rawValue), using: &checker)
+    case NameExpr.self: return visit(name: NodeID(rawValue: expr.rawValue), using: &checker)
+    case NilLiteralExpr.self: return visit(nil: NodeID(rawValue: expr.rawValue), using: &checker)
+    case SequenceExpr.self: return visit(sequence: NodeID(rawValue: expr.rawValue), using: &checker)
+    case SpawnExpr.self: return visit(spawn: NodeID(rawValue: expr.rawValue), using: &checker)
     case StringLiteralExpr.self:
       return visit(stringLiteral: NodeID(rawValue: expr.rawValue), using: &checker)
     case SubscriptCallExpr.self:
       return visit(subscriptCall: NodeID(rawValue: expr.rawValue), using: &checker)
-    case TupleExpr.self:
-      return visit(tuple: NodeID(rawValue: expr.rawValue), using: &checker)
+    case TupleExpr.self: return visit(tuple: NodeID(rawValue: expr.rawValue), using: &checker)
     case TupleMemberExpr.self:
       return visit(tupleMember: NodeID(rawValue: expr.rawValue), using: &checker)
     case UnicodeScalarLiteralExpr.self:
       return visit(unicodeScalarLiteral: NodeID(rawValue: expr.rawValue), using: &checker)
-    default:
-      unreachable()
+    default: unreachable()
     }
   }
 
@@ -105,9 +93,7 @@ struct ConstraintGenerator {
 
   private mutating func visit(
     bufferLiteral id: NodeID<BufferLiteralExpr>, using checker: inout TypeChecker
-  ) {
-    fatalError("not implemented")
-  }
+  ) { fatalError("not implemented") }
 
   private mutating func visit(cast id: NodeID<CastExpr>, using checker: inout TypeChecker) {
     let node = checker.program.ast[id]
@@ -163,8 +149,7 @@ struct ConstraintGenerator {
         inferredTypes[expr] = ^boolType
         visit(expr: expr, using: &checker)
 
-      case .decl(let binding):
-        _ = checker.check(binding: binding)
+      case .decl(let binding): _ = checker.check(binding: binding)
       }
     }
 
@@ -194,8 +179,7 @@ struct ConstraintGenerator {
       assume(typeOf: id, equals: AnyType.void, at: checker.program.ast[id].origin)
       _ = checker.check(brace: thenBlock)
 
-    case nil:
-      assume(typeOf: id, equals: AnyType.void, at: checker.program.ast[id].origin)
+    case nil: assume(typeOf: id, equals: AnyType.void, at: checker.program.ast[id].origin)
     }
   }
 
@@ -205,9 +189,7 @@ struct ConstraintGenerator {
 
   private mutating func visit(
     floatLiteral id: NodeID<FloatLiteralExpr>, using checker: inout TypeChecker
-  ) {
-    fatalError("not implemented")
-  }
+  ) { fatalError("not implemented") }
 
   private mutating func visit(funCall id: NodeID<FunCallExpr>, using checker: inout TypeChecker) {
     defer { assert(inferredTypes[id] != nil) }
@@ -286,11 +268,9 @@ struct ConstraintGenerator {
           .diagnose(cannotConstructTrait: trait, at: checker.program.ast[callee].origin))
         assignToError(id)
 
-      case TypeAliasDecl.self:
-        fatalError("not implemented")
+      case TypeAliasDecl.self: fatalError("not implemented")
 
-      default:
-        unreachable("unexpected declaration")
+      default: unreachable("unexpected declaration")
       }
 
       return
@@ -432,9 +412,7 @@ struct ConstraintGenerator {
 
   private mutating func visit(
     mapLiteral i: NodeID<MapLiteralExpr>, using checker: inout TypeChecker
-  ) {
-    fatalError("not implemented")
-  }
+  ) { fatalError("not implemented") }
 
   private mutating func visit(match i: NodeID<MatchExpr>, using checker: inout TypeChecker) {
     fatalError("not implemented")
@@ -537,8 +515,7 @@ struct ConstraintGenerator {
             ofType: inferredType, because: cause))
       }
 
-    case .implicit:
-      fatalError("not implemented")
+    case .implicit: fatalError("not implemented")
     }
   }
 
@@ -567,14 +544,10 @@ struct ConstraintGenerator {
     case .infix(let callee, let lhs, let rhs):
       // Infer the types of the operands.
       let lhsType = visit(foldedSequence: lhs, expectingRootType: nil, using: &checker)
-      if lhsType.isError {
-        return .error
-      }
+      if lhsType.isError { return .error }
 
       let rhsType = visit(foldedSequence: rhs, expectingRootType: nil, using: &checker)
-      if rhsType.isError {
-        return .error
-      }
+      if rhsType.isError { return .error }
 
       // Infer the type of the callee.
       let parameterType = ^TypeVariable()
@@ -612,15 +585,11 @@ struct ConstraintGenerator {
 
   private mutating func visit(
     stringLiteral i: NodeID<StringLiteralExpr>, using checker: inout TypeChecker
-  ) {
-    fatalError("not implemented")
-  }
+  ) { fatalError("not implemented") }
 
   private mutating func visit(
     subscriptCall i: NodeID<SubscriptCallExpr>, using checker: inout TypeChecker
-  ) {
-    fatalError("not implemented")
-  }
+  ) { fatalError("not implemented") }
 
   private mutating func visit(tuple id: NodeID<TupleExpr>, using checker: inout TypeChecker) {
     defer { assert(inferredTypes[id] != nil) }
@@ -655,15 +624,11 @@ struct ConstraintGenerator {
 
   private mutating func visit(
     tupleMember id: NodeID<TupleMemberExpr>, using checker: inout TypeChecker
-  ) {
-    fatalError("not implemented")
-  }
+  ) { fatalError("not implemented") }
 
   private mutating func visit(
     unicodeScalarLiteral id: NodeID<UnicodeScalarLiteralExpr>, using checker: inout TypeChecker
-  ) {
-    fatalError("not implemented")
-  }
+  ) { fatalError("not implemented") }
 
   private mutating func propagateDown(
     callee: AnyExprID, calleeType: LambdaType, calleeTypeConstraints: ConstraintSet,
@@ -701,9 +666,7 @@ struct ConstraintGenerator {
           argumentType, parameterType,
           because: ConstraintCause(.argument, at: checker.program.ast[argumentExpr].origin)))
 
-      if let type = ParameterType(parameterType) {
-        expectedTypes[argumentExpr] = type.bareType
-      }
+      if let type = ParameterType(parameterType) { expectedTypes[argumentExpr] = type.bareType }
       visit(expr: argumentExpr, using: &checker)
     }
 
@@ -766,8 +729,6 @@ struct ConstraintGenerator {
     }
   }
 
-  private mutating func assignToError<ID: ExprID>(_ id: ID) {
-    inferredTypes[id] = .error
-  }
+  private mutating func assignToError<ID: ExprID>(_ id: ID) { inferredTypes[id] = .error }
 
 }

@@ -83,14 +83,11 @@ final class CXXTests: XCTestCase {
         for annotation in tc.annotations {
           let code = annotation.argument!.removingTrailingNewlines()
           switch annotation.command {
-          case "cpp":
-            check(cxxSource, contains: code, for: tc.name)
+          case "cpp": check(cxxSource, contains: code, for: tc.name)
 
-          case "h":
-            check(cxxHeader, contains: code, for: tc.name)
+          case "h": check(cxxHeader, contains: code, for: tc.name)
 
-          default:
-            XCTFail("\(tc.name): unexpected test command: '\(annotation.command)'")
+          default: XCTFail("\(tc.name): unexpected test command: '\(annotation.command)'")
           }
         }
       })

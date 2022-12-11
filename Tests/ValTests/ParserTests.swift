@@ -21,18 +21,14 @@ final class ParserTests: XCTestCase {
         let diagnostics: [Diagnostic]
         do {
           diagnostics = try Parser.parse(tc.source, into: module, in: &ast).diagnostics
-        } catch let error as DiagnosedError {
-          diagnostics = error.diagnostics
-        }
+        } catch let error as DiagnosedError { diagnostics = error.diagnostics }
 
         // Process the test annotations.
         var diagnosticChecker = DiagnosticChecker(testCaseName: tc.name, diagnostics: diagnostics)
         for annotation in tc.annotations {
           switch annotation.command {
-          case "diagnostic":
-            diagnosticChecker.handle(annotation)
-          default:
-            XCTFail("\(tc.name): unexpected test command: '\(annotation.command)'")
+          case "diagnostic": diagnosticChecker.handle(annotation)
+          default: XCTFail("\(tc.name): unexpected test command: '\(annotation.command)'")
           }
         }
 
@@ -455,10 +451,7 @@ final class ParserTests: XCTestCase {
     let input = SourceFile(contents: "fun id<T: Sinkable>(_ x: T) -> T { x }")
     let (declID, ast) = try input.parseWithDeclPrologue(with: Parser.parseFunctionOrMethodDecl)
     let decl = try XCTUnwrap(ast[declID] as? FunctionDecl)
-    if case .expr = decl.body {
-    } else {
-      XCTFail()
-    }
+    if case .expr = decl.body {} else { XCTFail() }
   }
 
   func testPostifxFunctionDecl() throws {
@@ -541,19 +534,13 @@ final class ParserTests: XCTestCase {
   func testFunctionDeclBodyBlock() throws {
     let input = SourceFile(contents: "{}")
     let (body, _) = try apply(Parser.functionDeclBody, on: input)
-    if case .block = body {
-    } else {
-      XCTFail()
-    }
+    if case .block = body {} else { XCTFail() }
   }
 
   func testFunctionDeclBodyExpr() throws {
     let input = SourceFile(contents: "{ 0x2a }")
     let (body, _) = try apply(Parser.functionDeclBody, on: input)
-    if case .expr = body {
-    } else {
-      XCTFail()
-    }
+    if case .expr = body {} else { XCTFail() }
   }
 
   func testMethodDeclBody() throws {
@@ -573,20 +560,14 @@ final class ParserTests: XCTestCase {
     let input = SourceFile(contents: "let { }")
     let (declID, ast) = try apply(Parser.methodImplDecl, on: input)
     let decl = try XCTUnwrap(ast[declID])
-    if case .block = decl.body {
-    } else {
-      XCTFail()
-    }
+    if case .block = decl.body {} else { XCTFail() }
   }
 
   func testMethodImplExpr() throws {
     let input = SourceFile(contents: "let { foo }")
     let (declID, ast) = try apply(Parser.methodImplDecl, on: input)
     let decl = try XCTUnwrap(ast[declID])
-    if case .expr = decl.body {
-    } else {
-      XCTFail()
-    }
+    if case .expr = decl.body {} else { XCTFail() }
   }
 
   func testPropertyDecl() throws {
@@ -675,10 +656,7 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(body?.count, 1)
     if let impl = ast[body?.first] {
       XCTAssertEqual(impl.introducer.value, .let)
-      if case .block = impl.body {
-      } else {
-        XCTFail()
-      }
+      if case .block = impl.body {} else { XCTFail() }
     }
   }
 
@@ -691,10 +669,7 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(body?.count, 1)
     if let impl = ast[body?.first] {
       XCTAssertEqual(impl.introducer.value, .let)
-      if case .expr = impl.body {
-      } else {
-        XCTFail()
-      }
+      if case .expr = impl.body {} else { XCTFail() }
     }
   }
 
@@ -1201,20 +1176,14 @@ final class ParserTests: XCTestCase {
     let input = SourceFile(contents: "let (x, 0x2a) { }")
     let (caseID, ast) = try apply(Parser.matchCase, on: input)
     let case_ = try XCTUnwrap(ast[caseID])
-    if case .block = case_.body {
-    } else {
-      XCTFail()
-    }
+    if case .block = case_.body {} else { XCTFail() }
   }
 
   func testMatchCaseExpr() throws {
     let input = SourceFile(contents: "let (x, 0x2a) { x }")
     let (caseID, ast) = try apply(Parser.matchCase, on: input)
     let case_ = try XCTUnwrap(ast[caseID])
-    if case .expr = case_.body {
-    } else {
-      XCTFail()
-    }
+    if case .expr = case_.body {} else { XCTFail() }
   }
 
   func testMatchCaseWithCondition() throws {
@@ -1243,10 +1212,7 @@ final class ParserTests: XCTestCase {
     let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
     let expr = try XCTUnwrap(ast[exprID] as? CondExpr)
 
-    if case .block = expr.success {
-    } else {
-      XCTFail()
-    }
+    if case .block = expr.success {} else { XCTFail() }
 
     XCTAssertNil(expr.failure)
   }
@@ -1256,15 +1222,9 @@ final class ParserTests: XCTestCase {
     let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
     let expr = try XCTUnwrap(ast[exprID] as? CondExpr)
 
-    if case .block = expr.success {
-    } else {
-      XCTFail()
-    }
+    if case .block = expr.success {} else { XCTFail() }
 
-    if case .block = expr.failure {
-    } else {
-      XCTFail()
-    }
+    if case .block = expr.failure {} else { XCTFail() }
   }
 
   func testConditionalExprExprThenExprElse() throws {
@@ -1272,15 +1232,9 @@ final class ParserTests: XCTestCase {
     let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
     let expr = try XCTUnwrap(ast[exprID] as? CondExpr)
 
-    if case .expr = expr.success {
-    } else {
-      XCTFail()
-    }
+    if case .expr = expr.success {} else { XCTFail() }
 
-    if case .expr = expr.failure {
-    } else {
-      XCTFail()
-    }
+    if case .expr = expr.failure {} else { XCTFail() }
   }
 
   func testConditionalExprExprElseIfElse() throws {
@@ -1314,9 +1268,7 @@ final class ParserTests: XCTestCase {
     let expr = try XCTUnwrap(ast[exprID] as? TupleExpr)
     XCTAssertEqual(expr.elements.count, 1)
 
-    if expr.elements.count == 1 {
-      XCTAssertNil(expr.elements[0].label)
-    }
+    if expr.elements.count == 1 { XCTAssertNil(expr.elements[0].label) }
   }
 
   func testTupleExprWithMultipleElements() throws {
@@ -1339,9 +1291,7 @@ final class ParserTests: XCTestCase {
     let expr = try XCTUnwrap(ast[exprID] as? TupleTypeExpr)
     XCTAssertEqual(expr.elements.count, 1)
 
-    if expr.elements.count == 1 {
-      XCTAssertNil(expr.elements[0].label)
-    }
+    if expr.elements.count == 1 { XCTAssertNil(expr.elements[0].label) }
   }
 
   func testTupleTypeExprWithMultipleElements() throws {
@@ -1524,9 +1474,7 @@ final class ParserTests: XCTestCase {
     let pattern = try XCTUnwrap(ast[patternID])
     XCTAssertEqual(pattern.elements.count, 1)
 
-    if pattern.elements.count == 1 {
-      XCTAssertNil(pattern.elements[0].label)
-    }
+    if pattern.elements.count == 1 { XCTAssertNil(pattern.elements[0].label) }
   }
 
   func testTuplePatternWithMultipleElements() throws {
@@ -1641,30 +1589,21 @@ final class ParserTests: XCTestCase {
     let input = SourceFile(contents: "var x = foo() else return")
     let (stmtID, ast) = try apply(Parser.conditionalBindingStmt, on: input, context: .functionBody)
     let stmt = try XCTUnwrap(ast[stmtID])
-    if case .exit = stmt.fallback {
-    } else {
-      XCTFail()
-    }
+    if case .exit = stmt.fallback {} else { XCTFail() }
   }
 
   func testConditionalBindingBlock() throws {
     let input = SourceFile(contents: "var x = foo() else { bar(); return }")
     let (stmtID, ast) = try apply(Parser.conditionalBindingStmt, on: input, context: .functionBody)
     let stmt = try XCTUnwrap(ast[stmtID])
-    if case .exit = stmt.fallback {
-    } else {
-      XCTFail()
-    }
+    if case .exit = stmt.fallback {} else { XCTFail() }
   }
 
   func testConditionalBindingExpr() throws {
     let input = SourceFile(contents: "var x = foo() else fatal_error()")
     let (stmtID, ast) = try apply(Parser.conditionalBindingStmt, on: input)
     let stmt = try XCTUnwrap(ast[stmtID])
-    if case .expr = stmt.fallback {
-    } else {
-      XCTFail()
-    }
+    if case .expr = stmt.fallback {} else { XCTFail() }
   }
 
   func testConditionalBindingFallback() throws {
@@ -1732,9 +1671,7 @@ extension SourceFile {
     with parser: (inout ParserState) throws -> Element
   ) rethrows -> (element: Element, ast: AST) {
     var state = ParserState(ast: AST(), lexer: Lexer(tokenizing: self))
-    if let c = context {
-      state.contexts.append(c)
-    }
+    if let c = context { state.contexts.append(c) }
 
     let element = try parser(&state)
     return (element, state.ast)
@@ -1747,9 +1684,7 @@ extension SourceFile {
   ) rethrows -> (element: Element?, ast: AST) {
     try parse(
       inContext: context,
-      with: { (state) in
-        try Parser.parseDeclPrologue(in: &state, then: parser)
-      })
+      with: { (state) in try Parser.parseDeclPrologue(in: &state, then: parser) })
   }
 
 }

@@ -5,9 +5,7 @@ public struct DiagnosedError: Error {
   public let diagnostics: [Diagnostic]
 
   /// Creates a new instance with the given diagnostic.
-  public init(_ d: Diagnostic) {
-    self.diagnostics = [d]
-  }
+  public init(_ d: Diagnostic) { self.diagnostics = [d] }
 
   /// Creates a new instance with the given diagnostics.
   ///

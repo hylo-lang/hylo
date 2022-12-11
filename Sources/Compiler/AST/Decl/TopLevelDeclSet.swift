@@ -5,9 +5,7 @@ public struct TopLevelDeclSet: Node, LexicalScope {
   public private(set) var decls: [AnyDeclID]
 
   /// Creates an instance with the given properties.
-  public init(decls: [AnyDeclID] = []) {
-    self.decls = decls
-  }
+  public init(decls: [AnyDeclID] = []) { self.decls = decls }
 
   public var origin: SourceRange? { nil }
 

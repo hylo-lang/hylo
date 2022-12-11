@@ -101,14 +101,10 @@ public struct Token {
   public internal(set) var origin: SourceRange
 
   /// Indicates whether `self` is a keyword.
-  public var isKeyword: Bool {
-    (Kind.any.rawValue..<Kind.any.rawValue + 999) ~= kind.rawValue
-  }
+  public var isKeyword: Bool { (Kind.any.rawValue..<Kind.any.rawValue + 999) ~= kind.rawValue }
 
   /// Indicates whether `self` is a suitable as a label.
-  public var isLabel: Bool {
-    (kind == .name) || isKeyword
-  }
+  public var isLabel: Bool { (kind == .name) || isKeyword }
 
   /// Indicates whether `self` may be in an operator
   ///
@@ -123,22 +119,16 @@ public struct Token {
   ///
   /// - Note: `&` may not be at the start of a prefix operator. An expression prefixed by `&` is
   ///   parsed as an in-place expression.
-  public var isPrefixOperatorHead: Bool {
-    isOf(kind: [.oper, .equal, .pipe, .rAngle])
-  }
+  public var isPrefixOperatorHead: Bool { isOf(kind: [.oper, .equal, .pipe, .rAngle]) }
 
   /// Indicates whether `self` is a suitable postfix operator head.
-  public var isPostfixOperatorHead: Bool {
-    isOf(kind: [.oper, .ampersand, .equal, .pipe])
-  }
+  public var isPostfixOperatorHead: Bool { isOf(kind: [.oper, .ampersand, .equal, .pipe]) }
 
   /// Indicates whether `self` is a declaration modifier.
   public var isDeclModifier: Bool {
     switch kind {
-    case .public, .static:
-      return true
-    default:
-      return false
+    case .public, .static: return true
+    default: return false
     }
   }
 
@@ -150,18 +140,15 @@ public struct Token {
       .`trait`, .`type`, .`typealias`, .`var`:
       return true
 
-    default:
-      return isDeclModifier
+    default: return isDeclModifier
     }
   }
 
   /// Indicates whether `self` may be at the begining of a control statement.
   public var mayBeginCtrlStmt: Bool {
     switch kind {
-    case .break, .continue, .for, .if, .lBrace, .return, .while:
-      return true
-    default:
-      return false
+    case .break, .continue, .for, .if, .lBrace, .return, .while: return true
+    default: return false
     }
   }
 

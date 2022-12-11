@@ -10,9 +10,7 @@ public struct UnionType: TypeProtocol {
   public init<S: Sequence>(_ elements: S) where S.Element == AnyType {
     self.elements = Set(elements)
     self.flags =
-      self.elements.isEmpty
-      ? [.isCanonical]
-      : TypeFlags(merging: self.elements.map({ $0.flags }))
+      self.elements.isEmpty ? [.isCanonical] : TypeFlags(merging: self.elements.map({ $0.flags }))
   }
 
   public func transform(_ transformer: (AnyType) -> TypeTransformAction) -> Self {

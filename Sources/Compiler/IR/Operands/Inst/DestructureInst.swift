@@ -21,9 +21,7 @@ public struct DestructureInst: Inst {
 
   public func check(in module: Module) -> Bool {
     // Instruction results have object types.
-    for output in types {
-      if output.isAddress { return false }
-    }
+    for output in types { if output.isAddress { return false } }
 
     // Operand has an object type.
     if module.type(of: object).isAddress { return false }

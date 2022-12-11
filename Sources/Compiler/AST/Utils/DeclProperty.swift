@@ -5,9 +5,7 @@ public struct DeclProperty<Value> {
   public var storage: [AnyDeclID: Value]
 
   /// Creates an empty node map.
-  public init() {
-    storage = [:]
-  }
+  public init() { storage = [:] }
 
   /// Accesses the property associated with the specified ID.
   public subscript<T: DeclID>(id: T) -> Value? {
@@ -17,9 +15,7 @@ public struct DeclProperty<Value> {
 
   /// Accesses the property associated with the specified ID.
   public subscript<T: DeclID>(id: T, default defaultValue: @autoclosure () -> Value) -> Value {
-    _read {
-      yield storage[AnyDeclID(id), default: defaultValue()]
-    }
+    _read { yield storage[AnyDeclID(id), default: defaultValue()] }
     _modify {
       var value = storage[AnyDeclID(id)] ?? defaultValue()
       defer { storage[AnyDeclID(id)] = value }

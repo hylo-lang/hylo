@@ -20,8 +20,6 @@ public struct BuiltinFunctionRef: ConstantProtocol, Hashable {
 
 extension BuiltinFunctionRef: CustomStringConvertible {
 
-  public var description: String {
-    "@builtin.\(name)"
-  }
+  public var description: String { "@builtin.\(name)" }
 
 }

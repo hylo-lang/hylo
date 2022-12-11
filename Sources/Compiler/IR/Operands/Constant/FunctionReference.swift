@@ -10,8 +10,6 @@ public struct FunctionRef: ConstantProtocol, Hashable {
 
 extension FunctionRef: CustomStringConvertible {
 
-  public var description: String {
-    "@\(name)"
-  }
+  public var description: String { "@\(name)" }
 
 }

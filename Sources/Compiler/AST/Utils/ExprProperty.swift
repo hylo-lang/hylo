@@ -5,9 +5,7 @@ public struct ExprProperty<Value> {
   public var storage: [AnyExprID: Value]
 
   /// Creates an empty node map.
-  public init() {
-    storage = [:]
-  }
+  public init() { storage = [:] }
 
   /// Accesses the property associated with the specified ID.
   public subscript<T: ExprID>(id: T) -> Value? {
@@ -17,9 +15,7 @@ public struct ExprProperty<Value> {
 
   /// Accesses the property associated with the specified ID.
   public subscript<T: ExprID>(id: T, default defaultValue: @autoclosure () -> Value) -> Value {
-    _read {
-      yield storage[AnyExprID(id), default: defaultValue()]
-    }
+    _read { yield storage[AnyExprID(id), default: defaultValue()] }
     _modify {
       var value = storage[AnyExprID(id)] ?? defaultValue()
       defer { storage[AnyExprID(id)] = value }

@@ -36,11 +36,7 @@ public struct SourceFile {
     var lower = location.index
     while lower > contents.startIndex {
       let predecessor = contents.index(before: lower)
-      if contents[predecessor].isNewline {
-        break
-      } else {
-        lower = predecessor
-      }
+      if contents[predecessor].isNewline { break } else { lower = predecessor }
     }
 
     var upper = location.index
@@ -61,9 +57,7 @@ public struct SourceFile {
     }
 
     var lineIndex = 1
-    for c in contents.prefix(upTo: location.index) where c.isNewline {
-      lineIndex += 1
-    }
+    for c in contents.prefix(upTo: location.index) where c.isNewline { lineIndex += 1 }
 
     let buffer = contents.prefix(upTo: location.index)
     var columnIndex = 1
@@ -79,21 +73,15 @@ public struct SourceFile {
 
 extension SourceFile: Hashable {
 
-  public func hash(into hasher: inout Hasher) {
-    hasher.combine(url)
-  }
+  public func hash(into hasher: inout Hasher) { hasher.combine(url) }
 
-  public static func == (lhs: SourceFile, rhs: SourceFile) -> Bool {
-    return lhs.url == rhs.url
-  }
+  public static func == (lhs: SourceFile, rhs: SourceFile) -> Bool { return lhs.url == rhs.url }
 
 }
 
 extension SourceFile: ExpressibleByStringLiteral {
 
-  public init(stringLiteral value: String) {
-    self.init(contents: value)
-  }
+  public init(stringLiteral value: String) { self.init(contents: value) }
 
 }
 

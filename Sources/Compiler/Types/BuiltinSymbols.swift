@@ -53,8 +53,7 @@ public enum BuiltinSymbols {
 
     case "f64_copy": return Self.f64_copy
 
-    default:
-      return nil
+    default: return nil
     }
   }
 

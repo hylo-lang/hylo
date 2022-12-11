@@ -31,28 +31,21 @@ struct GenericEnvironment {
       case let conformance as ConformanceConstraint:
         var allTraits: Set<TraitType> = []
         for trait in conformance.traits {
-          guard let bases = checker.conformedTraits(of: ^trait, inScope: scope)
-          else { return nil }
+          guard let bases = checker.conformedTraits(of: ^trait, inScope: scope) else { return nil }
           allTraits.formUnion(bases)
         }
         registerConformance(l: conformance.subject, traits: allTraits)
 
-      case is PredicateConstraint:
-        break
+      case is PredicateConstraint: break
 
-      default:
-        unreachable()
+      default: unreachable()
       }
     }
   }
 
   /// Returns the set of traits to which `type` conforms in the environment.
   func conformedTraits(of type: AnyType) -> Set<TraitType> {
-    if let i = ledger[type] {
-      return entries[i].conformances
-    } else {
-      return []
-    }
+    if let i = ledger[type] { return entries[i].conformances } else { return [] }
   }
 
   private mutating func registerEquivalence(l: AnyType, r: AnyType) {

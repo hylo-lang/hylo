@@ -21,8 +21,7 @@ public struct AssociatedValueType: TypeProtocol {
     switch domain.base {
     case is AssociatedTypeType, is ConformanceLensType, is GenericTypeParameterType:
       self.domain = domain
-    default:
-      preconditionFailure("invalid associated value domain")
+    default: preconditionFailure("invalid associated value domain")
     }
 
     self.decl = decl

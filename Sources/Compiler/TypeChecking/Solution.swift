@@ -35,9 +35,7 @@ struct Solution {
     static let worst = Score(errorCount: Int.max, penalties: Int.max)
 
     static func < (l: Self, r: Self) -> Bool {
-      l.errorCount == r.errorCount
-        ? l.penalties < r.penalties
-        : l.errorCount < r.errorCount
+      l.errorCount == r.errorCount ? l.penalties < r.penalties : l.errorCount < r.errorCount
     }
 
   }
@@ -67,10 +65,8 @@ struct Solution {
           return .stepInto(t)
         } else {
           switch substitutionPolicy {
-          case .substituteByError:
-            return .stepInto(.error)
-          case .keep:
-            return .stepOver(type)
+          case .substituteByError: return .stepInto(.error)
+          case .keep: return .stepOver(type)
           }
         }
       } else {
@@ -83,8 +79,6 @@ struct Solution {
   }
 
   /// Adds `d` to the list of diagnostics associated with this solution.
-  internal mutating func addDiagnostic(_ d: Diagnostic) {
-    diagnostics.append(d)
-  }
+  internal mutating func addDiagnostic(_ d: Diagnostic) { diagnostics.append(d) }
 
 }

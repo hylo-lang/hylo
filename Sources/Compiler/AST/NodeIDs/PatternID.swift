@@ -12,9 +12,7 @@ public struct AnyPatternID: PatternID {
   let base: AnyNodeID
 
   /// Creates a type-erased ID from a pattern ID.
-  public init<T: PatternID>(_ other: T) {
-    base = AnyNodeID(other)
-  }
+  public init<T: PatternID>(_ other: T) { base = AnyNodeID(other) }
 
   public var rawValue: Int { base.rawValue }
 

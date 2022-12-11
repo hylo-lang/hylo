@@ -23,9 +23,7 @@ public struct AST: Codable {
 
   /// Inserts `n` into `self`.
   public mutating func insert<T: Node>(wellFormed n: T) throws -> NodeID<T> {
-    if case .failure(let error) = n.validateForm(in: self) {
-      throw DiagnosedError(error)
-    }
+    if case .failure(let error) = n.validateForm(in: self) { throw DiagnosedError(error) }
 
     let i = NodeID<T>(rawValue: nodes.count)
     if let n = n as? ModuleDecl {
@@ -54,9 +52,7 @@ public struct AST: Codable {
   }
 
   /// Accesses the node at `position`.
-  public subscript<T: NodeIDProtocol>(position: T) -> Node {
-    nodes[position.rawValue].node
-  }
+  public subscript<T: NodeIDProtocol>(position: T) -> Node { nodes[position.rawValue].node }
 
   /// Accesses the node at `position`.
   public subscript<T: NodeIDProtocol>(position: T?) -> Node? {
@@ -64,16 +60,12 @@ public struct AST: Codable {
   }
 
   /// Accesses the node at `position`.
-  subscript(raw position: NodeID.RawValue) -> Node {
-    nodes[position].node
-  }
+  subscript(raw position: NodeID.RawValue) -> Node { nodes[position].node }
 
   /// Modifies the node at `position`.
   mutating func modify<T: Node>(at position: NodeID<T>, _ transform: (T) -> T) throws {
     let newNode = transform(self[position])
-    if case .failure(let error) = newNode.validateForm(in: self) {
-      throw DiagnosedError(error)
-    }
+    if case .failure(let error) = newNode.validateForm(in: self) { throw DiagnosedError(error) }
     nodes[position.rawValue] = AnyNode(newNode)
   }
 
@@ -91,8 +83,7 @@ public struct AST: Codable {
 
     withFiles(
       in: ValModule.core!,
-      { (sourceURL) in
-        if sourceURL.pathExtension != "val" { return true }
+      { (sourceURL) in if sourceURL.pathExtension != "val" { return true }
 
         // Parse the file.
         do {
@@ -100,16 +91,10 @@ public struct AST: Codable {
           let diagnostics = try Parser.parse(sourceFile, into: corelib!, in: &self).diagnostics
 
           // Note: the core module shouldn't produce any diagnostic.
-          if !diagnostics.isEmpty {
-            throw DiagnosedError(diagnostics)
-          } else {
-            return true
-          }
+          if !diagnostics.isEmpty { throw DiagnosedError(diagnostics) } else { return true }
         } catch let error as DiagnosedError {
           fatalError(error.diagnostics.first!.description)
-        } catch let error {
-          fatalError(error.localizedDescription)
-        }
+        } catch let error { fatalError(error.localizedDescription) }
       })
   }
 
@@ -121,9 +106,7 @@ public struct AST: Codable {
 
     for id in topLevelDecls(corelib!) where id.kind == ProductTypeDecl.self {
       let id = NodeID<ProductTypeDecl>(id)!
-      if self[id].name == name {
-        return ProductType(id, ast: self)
-      }
+      if self[id].name == name { return ProductType(id, ast: self) }
     }
 
     return nil
@@ -137,9 +120,7 @@ public struct AST: Codable {
 
     for id in topLevelDecls(corelib!) where id.kind == TraitDecl.self {
       let id = NodeID<TraitDecl>(rawValue: id.rawValue)
-      if self[id].name == name {
-        return TraitType(id, ast: self)
-      }
+      if self[id].name == name { return TraitType(id, ast: self) }
     }
 
     return nil
@@ -150,17 +131,13 @@ public struct AST: Codable {
   /// A collection that presents the top-level declarations of a module.
   public typealias TopLevelDecls = LazySequence<
     FlattenSequence<
-      LazyMapSequence<
-        LazySequence<[NodeID<TopLevelDeclSet>]>.Elements, [AnyDeclID]
-      >.Elements
+      LazyMapSequence<LazySequence<[NodeID<TopLevelDeclSet>]>.Elements, [AnyDeclID]>.Elements
     >
   >
 
   /// Returns the IDs of the top-level declarations in the lexical scope of `module`.
   public func topLevelDecls(_ module: NodeID<ModuleDecl>) -> TopLevelDecls {
-    let a = self[module].sources.lazy
-      .map({ self[$0].decls })
-      .joined()
+    let a = self[module].sources.lazy.map({ self[$0].decls }).joined()
     return a
   }
 
@@ -175,8 +152,7 @@ public struct AST: Codable {
         let p = NodeID<BindingPattern>(rawValue: pattern.rawValue)
         visit(pattern: self[p].subpattern, path: path, result: &result)
 
-      case ExprPattern.self:
-        break
+      case ExprPattern.self: break
 
       case NamePattern.self:
         let p = NodeID<NamePattern>(rawValue: pattern.rawValue)
@@ -188,11 +164,9 @@ public struct AST: Codable {
           visit(pattern: self[p].elements[i].pattern, path: path + [i], result: &result)
         }
 
-      case WildcardPattern.self:
-        break
+      case WildcardPattern.self: break
 
-      default:
-        unreachable("unexpected pattern")
+      default: unreachable("unexpected pattern")
       }
     }
 
@@ -204,8 +178,7 @@ public struct AST: Codable {
   /// Returns the source origin of `expr`, if any.
   public func origin(of expr: FoldedSequenceExpr) -> SourceRange? {
     switch expr {
-    case .leaf(let i):
-      return self[i].origin
+    case .leaf(let i): return self[i].origin
 
     case .infix(_, let lhs, let rhs):
       if let lhsRange = origin(of: lhs), let rhsRange = origin(of: rhs) {

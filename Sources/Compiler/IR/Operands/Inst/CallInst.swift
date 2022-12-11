@@ -26,11 +26,7 @@ public struct CallInst: Inst {
 
   /// Returns whether the instruction is a call to a built-in function.
   public var isBuiltinCall: Bool {
-    if case .constant(.builtin) = callee {
-      return true
-    } else {
-      return true
-    }
+    if case .constant(.builtin) = callee { return true } else { return true }
   }
 
   /// The callee.
@@ -63,11 +59,9 @@ public struct CallInst: Inst {
             return false
           }
 
-        case .constant(let c):
-          if !c.type.isAddress { return false }
+        case .constant(let c): if !c.type.isAddress { return false }
 
-        case .parameter:
-          return false
+        case .parameter: return false
         }
 
       case .inout:
@@ -80,8 +74,7 @@ public struct CallInst: Inst {
             return false
           }
 
-        default:
-          return false
+        default: return false
         }
 
       case .set:
@@ -94,16 +87,14 @@ public struct CallInst: Inst {
             return false
           }
 
-        default:
-          return false
+        default: return false
         }
 
       case .sink:
         // Operand of a `sink` parameter must have an object type.
         if module.type(of: operands[i]).isAddress { return false }
 
-      case .yielded:
-        fatalError("not implemented")
+      case .yielded: fatalError("not implemented")
       }
     }
 

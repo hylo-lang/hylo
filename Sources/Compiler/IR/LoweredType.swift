@@ -27,12 +27,9 @@ public struct LoweredType: Hashable {
     case let ty as ParameterType:
       self.astType = ty.bareType
       switch ty.convention {
-      case .let, .inout, .set:
-        self.isAddress = true
-      case .sink:
-        self.isAddress = false
-      case .yielded:
-        preconditionFailure("cannot lower yielded type")
+      case .let, .inout, .set: self.isAddress = true
+      case .sink: self.isAddress = false
+      case .yielded: preconditionFailure("cannot lower yielded type")
       }
 
     default:

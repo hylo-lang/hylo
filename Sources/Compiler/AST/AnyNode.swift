@@ -13,9 +13,7 @@ struct AnyNode: Codable {
   let node: Node
 
   /// Creates a type-erased container that wraps `node`.
-  init(_ node: Node) {
-    self.node = node
-  }
+  init(_ node: Node) { self.node = node }
 
   init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -35,16 +33,12 @@ struct AnyNode: Codable {
 
 extension KeyedDecodingContainer where K == AnyNode.CodingKeys {
 
-  fileprivate func decode<T: Node>(_ type: T.Type) throws -> T {
-    try decode(type, forKey: .data)
-  }
+  fileprivate func decode<T: Node>(_ type: T.Type) throws -> T { try decode(type, forKey: .data) }
 
 }
 
 extension KeyedEncodingContainer where K == AnyNode.CodingKeys {
 
-  fileprivate mutating func encode<T: Node>(_ node: T) throws {
-    try encode(node, forKey: .data)
-  }
+  fileprivate mutating func encode<T: Node>(_ node: T) throws { try encode(node, forKey: .data) }
 
 }

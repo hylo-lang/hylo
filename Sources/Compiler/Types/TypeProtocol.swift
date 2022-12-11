@@ -16,21 +16,13 @@ extension TypeProtocol {
   /// Creates an instance with the value of `container.base` or returns `nil` if that value has
   /// a different type.
   public init?(_ container: AnyType) {
-    if let t = container.base as? Self {
-      self = t
-    } else {
-      return nil
-    }
+    if let t = container.base as? Self { self = t } else { return nil }
   }
 
   /// Creates an instance with the value of `container.base` or returns `nil` if either that value
   /// has a different type or `container` is `nil`.
   public init?(_ container: AnyType?) {
-    if let t = container.flatMap(Self.init(_:)) {
-      self = t
-    } else {
-      return nil
-    }
+    if let t = container.flatMap(Self.init(_:)) { self = t } else { return nil }
   }
 
   /// Returns whether the specified flags are raised on this type.
@@ -44,10 +36,8 @@ extension TypeProtocol {
   /// the next type in the structure.
   public func transform(_ transformer: (AnyType) -> TypeTransformAction) -> AnyType {
     switch transformer(AnyType(self)) {
-    case .stepInto(let type):
-      return type.transformParts(transformer)
-    case .stepOver(let type):
-      return type
+    case .stepInto(let type): return type.transformParts(transformer)
+    case .stepOver(let type): return type
     }
   }
 
@@ -61,14 +51,11 @@ extension TypeProtocol {
   public var skolemized: AnyType {
     func _impl(type: AnyType) -> TypeTransformAction {
       switch type.base {
-      case let base as AssociatedTypeType:
-        return .stepOver(^SkolemType(quantifying: base))
+      case let base as AssociatedTypeType: return .stepOver(^SkolemType(quantifying: base))
 
-      case let base as GenericTypeParameterType:
-        return .stepOver(^SkolemType(quantifying: base))
+      case let base as GenericTypeParameterType: return .stepOver(^SkolemType(quantifying: base))
 
-      case is AssociatedValueType, is GenericValueParameterType:
-        fatalError("not implemented")
+      case is AssociatedValueType, is GenericValueParameterType: fatalError("not implemented")
 
       default:
         // Nothing to do if `type` isn't parameterized.

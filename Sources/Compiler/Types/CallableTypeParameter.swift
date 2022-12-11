@@ -18,11 +18,7 @@ public struct CallableTypeParameter: Hashable {
 extension CallableTypeParameter: CustomStringConvertible {
 
   public var description: String {
-    if let label = label {
-      return "\(label): \(type)"
-    } else {
-      return "\(type)"
-    }
+    if let label = label { return "\(label): \(type)" } else { return "\(type)" }
   }
 
 }

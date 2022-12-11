@@ -38,13 +38,11 @@ public struct Function {
 
     for source in blocks.indices {
       switch blocks[source.address].instructions.last {
-      case let inst as BranchInst:
-        result.define(source.address, predecessorOf: inst.target.address)
+      case let inst as BranchInst: result.define(source.address, predecessorOf: inst.target.address)
       case let inst as CondBranchInst:
         result.define(source.address, predecessorOf: inst.targetIfTrue.address)
         result.define(source.address, predecessorOf: inst.targetIfFalse.address)
-      default:
-        break
+      default: break
       }
     }
 
@@ -100,9 +98,7 @@ extension Function: Sequence {
 
   }
 
-  public func makeIterator() -> Iterator {
-    Iterator(self)
-  }
+  public func makeIterator() -> Iterator { Iterator(self) }
 
   public subscript(_ addresses: Element) -> Inst {
     get { blocks[addresses.block][addresses.inst] }

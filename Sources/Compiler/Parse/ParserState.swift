@@ -95,8 +95,7 @@ struct ParserState {
 
   /// Returns whether there are whitespaces before *and* after `token`.
   mutating func hasLeadingAndTrailingWhitespaces(_ token: Token) -> Bool {
-    guard
-      let a = lexer.source.contents.prefix(upTo: token.origin.lowerBound).last,
+    guard let a = lexer.source.contents.prefix(upTo: token.origin.lowerBound).last,
       let b = lexer.source.contents.suffix(from: token.origin.upperBound).first
     else { return false }
     return a.isWhitespace && b.isWhitespace
@@ -104,8 +103,7 @@ struct ParserState {
 
   /// Returns whether there is a new line in the character stream before `bound`.
   mutating func hasNewline(before bound: Token) -> Bool {
-    lexer.source.contents[currentIndex..<bound.origin.lowerBound]
-      .contains(where: { $0.isNewline })
+    lexer.source.contents[currentIndex..<bound.origin.lowerBound].contains(where: { $0.isNewline })
   }
 
   /// Returns a source range from `startIndex` to `self.currentIndex`.
@@ -125,9 +123,7 @@ struct ParserState {
   /// Returns the next token without consuming it, if any.
   mutating func peek() -> Token? {
     // Return the token in the lookahead buffer, if available.
-    if let token = lookahead.first {
-      return token
-    }
+    if let token = lookahead.first { return token }
 
     // Attempt to pull a new element from the lexer.
     guard let token = lexer.next() else { return nil }
@@ -136,17 +132,11 @@ struct ParserState {
   }
 
   /// Returns whether a token of the given `kind` is next in the input.
-  mutating func isNext(_ kind: Token.Kind) -> Bool {
-    peek()?.kind == kind
-  }
+  mutating func isNext(_ kind: Token.Kind) -> Bool { peek()?.kind == kind }
 
   /// Returns whether a token satisfying `predicate` is next in the input.
   mutating func isNext(satisfying predicate: (Token) -> Bool) -> Bool {
-    if let token = peek() {
-      return predicate(token)
-    } else {
-      return false
-    }
+    if let token = peek() { return predicate(token) } else { return false }
   }
 
   /// Consumes and returns the next token, if any.
@@ -194,9 +184,7 @@ struct ParserState {
 
   /// Consumes and returns a name token with the specified value.
   mutating func take(nameTokenWithValue value: String) -> Token? {
-    take(if: { [source = lexer.source] in
-      ($0.kind == .name) && (source[$0.origin] == value)
-    })
+    take(if: { [source = lexer.source] in ($0.kind == .name) && (source[$0.origin] == value) })
   }
 
   /// Consumes and returns an operator (excluding `=`) from the token stream.
@@ -225,8 +213,7 @@ struct ParserState {
       range.upperBound = upper
       return SourceRepresentable(value: String(lexer.source[range]), range: range)
 
-    default:
-      return nil
+    default: return nil
     }
   }
 
@@ -241,9 +228,7 @@ struct ParserState {
 
   /// Consumes and returns an attribute token with the specified name.
   mutating func take(attribute name: String) -> Token? {
-    take(if: { [source = lexer.source] in
-      ($0.kind == .attribute) && (source[$0.origin] == name)
-    })
+    take(if: { [source = lexer.source] in ($0.kind == .attribute) && (source[$0.origin] == name) })
   }
 
   /// Applies `parse`, propagating thrown errors, and returns non-`nil` results or throws an error
@@ -262,14 +247,10 @@ struct ParserState {
   /// an error diagnosing that we expected `expectedConstruct`.
   mutating func expect<C: Combinator>(_ expectedConstruct: String, using parser: C) throws
     -> C.Element where C.Context == Self
-  {
-    try expect(expectedConstruct, using: parser.parse(_:))
-  }
+  { try expect(expectedConstruct, using: parser.parse(_:)) }
 
   /// Consumes tokens as long as they satisfy `predicate`.
-  mutating func skip(while predicate: (Token) -> Bool) {
-    while take(if: predicate) != nil {}
-  }
+  mutating func skip(while predicate: (Token) -> Bool) { while take(if: predicate) != nil {} }
 
 }
 

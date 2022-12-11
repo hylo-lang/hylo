@@ -37,8 +37,6 @@ public struct RemoteType: TypeProtocol {
 
 extension RemoteType: CustomStringConvertible {
 
-  public var description: String {
-    return "remote \(capability) \(base)"
-  }
+  public var description: String { return "remote \(capability) \(base)" }
 
 }

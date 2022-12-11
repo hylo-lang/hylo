@@ -15,9 +15,7 @@ public struct CustomWitnessedSet<Element, Witness: HashableWitness<Element>> {
   }
 
   /// Reserves enough space to store the specified number of elements.
-  public mutating func reserve(minimumCapacity: Int) {
-    contents.reserveCapacity(minimumCapacity)
-  }
+  public mutating func reserve(minimumCapacity: Int) { contents.reserveCapacity(minimumCapacity) }
 
 }
 
@@ -27,9 +25,7 @@ extension CustomWitnessedSet: Collection {
 
     fileprivate var base: Set<_Element>.Index
 
-    fileprivate init(_ base: Set<_Element>.Index) {
-      self.base = base
-    }
+    fileprivate init(_ base: Set<_Element>.Index) { self.base = base }
 
     public static func < (l: Self, r: Self) -> Bool { l.base < r.base }
 
@@ -45,25 +41,19 @@ extension CustomWitnessedSet: Collection {
 
   public func index(after i: Index) -> Index { Index(contents.index(after: i.base)) }
 
-  public subscript(position: Index) -> Element {
-    contents[position.base].base
-  }
+  public subscript(position: Index) -> Element { contents[position.base].base }
 
-  public func contains(_ member: Element) -> Bool {
-    contents.contains(_Element(member))
-  }
+  public func contains(_ member: Element) -> Bool { contents.contains(_Element(member)) }
 
 }
 
 extension CustomWitnessedSet: SetAlgebra {
 
-  public init() {
-    contents = []
-  }
+  public init() { contents = [] }
 
-  @discardableResult
-  public mutating func insert(_ newMember: Element) -> (inserted: Bool, memberAfterInsert: Element)
-  {
+  @discardableResult public mutating func insert(_ newMember: Element) -> (
+    inserted: Bool, memberAfterInsert: Element
+  ) {
     let (inserted, memberAfterInsert) = contents.insert(_Element(newMember))
     return (inserted, memberAfterInsert.base)
   }
@@ -82,9 +72,7 @@ extension CustomWitnessedSet: SetAlgebra {
     return result
   }
 
-  public mutating func formUnion(_ other: Self) {
-    contents.formUnion(other.contents)
-  }
+  public mutating func formUnion(_ other: Self) { contents.formUnion(other.contents) }
 
   public func intersection(_ other: Self) -> Self {
     var result = self
@@ -92,9 +80,7 @@ extension CustomWitnessedSet: SetAlgebra {
     return result
   }
 
-  public mutating func formIntersection(_ other: Self) {
-    contents.formIntersection(other.contents)
-  }
+  public mutating func formIntersection(_ other: Self) { contents.formIntersection(other.contents) }
 
   public func symmetricDifference(_ other: Self) -> Self {
     var result = self
@@ -112,9 +98,7 @@ extension CustomWitnessedSet: SetAlgebra {
     return result
   }
 
-  public mutating func subtract(_ other: Self) {
-    contents.subtract(other.contents)
-  }
+  public mutating func subtract(_ other: Self) { contents.subtract(other.contents) }
 
 }
 
@@ -122,9 +106,7 @@ extension CustomWitnessedSet: Hashable {}
 
 extension CustomWitnessedSet: ExpressibleByArrayLiteral {
 
-  public init(arrayLiteral members: Element...) {
-    self.init(members)
-  }
+  public init(arrayLiteral members: Element...) { self.init(members) }
 
 }
 
@@ -136,8 +118,6 @@ extension CustomWitnessedSet: CustomStringConvertible {
 
 extension CustomWitnessedSet: CustomReflectable {
 
-  public var customMirror: Mirror {
-    Mirror(reflecting: contents)
-  }
+  public var customMirror: Mirror { Mirror(reflecting: contents) }
 
 }

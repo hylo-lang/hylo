@@ -18,9 +18,7 @@ public struct Block {
     }
 
     /// The ID of the `index`-th parameter of the block.
-    public func parameter(_ index: Int) -> Operand {
-      .parameter(block: self, index: index)
-    }
+    public func parameter(_ index: Int) -> Operand { .parameter(block: self, index: index) }
 
     /// The operand denoting the `index`-th result of the instruction at `instAddress` in the block
     /// identified by `self`.

@@ -16,13 +16,9 @@ struct ConformanceConstraint: Constraint, Hashable {
     self.cause = cause
   }
 
-  mutating func modifyTypes(_ modify: (inout AnyType) -> Void) {
-    modify(&subject)
-  }
+  mutating func modifyTypes(_ modify: (inout AnyType) -> Void) { modify(&subject) }
 
-  func depends(on variable: TypeVariable) -> Bool {
-    subject == variable
-  }
+  func depends(on variable: TypeVariable) -> Bool { subject == variable }
 
 }
 

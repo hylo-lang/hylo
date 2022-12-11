@@ -30,9 +30,7 @@ public struct Lexer: IteratorProtocol, Sequence {
 
       // Skip line comments.
       if take(prefix: "//") != nil {
-        while (index < source.contents.endIndex) && !source.contents[index].isNewline {
-          discard()
-        }
+        while (index < source.contents.endIndex) && !source.contents[index].isNewline { discard() }
         continue
       }
 
@@ -127,8 +125,7 @@ public struct Lexer: IteratorProtocol, Sequence {
         token.origin.upperBound = index
         token.kind = .cast
 
-      default:
-        token.kind = .name
+      default: token.kind = .name
       }
 
       return token
@@ -189,8 +186,7 @@ public struct Lexer: IteratorProtocol, Sequence {
             return token
           }
 
-        default:
-          break
+        default: break
         }
 
         index = i
@@ -249,10 +245,7 @@ public struct Lexer: IteratorProtocol, Sequence {
     // Scan attributes.
     if head == "@" {
       discard()
-      token.kind =
-        take(while: { $0.isLetter || ($0 == "_") }).isEmpty
-        ? .invalid
-        : .attribute
+      token.kind = take(while: { $0.isLetter || ($0 == "_") }).isEmpty ? .invalid : .attribute
       token.origin.upperBound = index
       return token
     }
@@ -266,8 +259,7 @@ public struct Lexer: IteratorProtocol, Sequence {
         discard()
         oper = source.contents[token.origin.lowerBound..<index]
 
-      default:
-        oper = take(while: { $0.isOperator })
+      default: oper = take(while: { $0.isOperator })
       }
 
       switch oper {
@@ -318,8 +310,7 @@ public struct Lexer: IteratorProtocol, Sequence {
       // Fall back to a simple colon.
       token.kind = .colon
 
-    default:
-      break
+    default: break
     }
 
     // Either the token is punctuation, or it's kind is `invalid`.
@@ -349,8 +340,7 @@ public struct Lexer: IteratorProtocol, Sequence {
 
   /// Returns the current index and consumes `prefix` from the stream, or returns `nil` if the
   /// stream starts with a different prefix.
-  private mutating func take<T: Sequence>(prefix: T) -> String.Index?
-  where T.Element == Character {
+  private mutating func take<T: Sequence>(prefix: T) -> String.Index? where T.Element == Character {
     var newIndex = index
     for ch in prefix {
       if newIndex == source.contents.endIndex || source.contents[newIndex] != ch { return nil }
@@ -364,9 +354,7 @@ public struct Lexer: IteratorProtocol, Sequence {
   /// Consumes the longest substring that satisfies the given predicate.
   private mutating func take(while predicate: (Character) -> Bool) -> Substring {
     let start = index
-    while let ch = peek(), predicate(ch) {
-      index = source.contents.index(after: index)
-    }
+    while let ch = peek(), predicate(ch) { index = source.contents.index(after: index) }
 
     return source.contents[start..<index]
   }
@@ -399,13 +387,9 @@ extension Character {
   }
 
   /// Indicates whether `self` represents a binary digit.
-  fileprivate var isBinDigit: Bool {
-    self == "0" || self == "1" || self == "_"
-  }
+  fileprivate var isBinDigit: Bool { self == "0" || self == "1" || self == "_" }
 
   /// Indicates whether `self` represents an operator.
-  fileprivate var isOperator: Bool {
-    "<>=+-*/%&|!?^~".contains(self)
-  }
+  fileprivate var isOperator: Bool { "<>=+-*/%&|!?^~".contains(self) }
 
 }

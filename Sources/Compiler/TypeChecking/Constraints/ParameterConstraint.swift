@@ -25,9 +25,7 @@ struct ParameterConstraint: Constraint, Hashable {
     modify(&right)
   }
 
-  func depends(on variable: TypeVariable) -> Bool {
-    (left == variable) || (right == variable)
-  }
+  func depends(on variable: TypeVariable) -> Bool { (left == variable) || (right == variable) }
 
 }
 

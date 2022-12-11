@@ -35,8 +35,7 @@ struct DisjunctionConstraint: Constraint, Hashable {
       choices[i] = Choice(
         constraints: choices[i].constraints.reduce(
           into: [],
-          { (cs, c) in
-            var newConstraint = c
+          { (cs, c) in var newConstraint = c
             newConstraint.modifyTypes(modify)
             cs.insert(newConstraint)
           }), penalties: choices[i].penalties)
@@ -44,11 +43,7 @@ struct DisjunctionConstraint: Constraint, Hashable {
   }
 
   func depends(on variable: TypeVariable) -> Bool {
-    for m in choices {
-      for c in m.constraints {
-        if c.depends(on: variable) { return true }
-      }
-    }
+    for m in choices { for c in m.constraints { if c.depends(on: variable) { return true } } }
     return false
   }
 
@@ -56,16 +51,12 @@ struct DisjunctionConstraint: Constraint, Hashable {
 
 extension DisjunctionConstraint: CustomStringConvertible {
 
-  var description: String {
-    choices.descriptions(joinedBy: " ∨ ")
-  }
+  var description: String { choices.descriptions(joinedBy: " ∨ ") }
 
 }
 
 extension DisjunctionConstraint.Choice: CustomStringConvertible {
 
-  var description: String {
-    "{\(constraints.descriptions(joinedBy: " ∧ "))}:\(penalties)"
-  }
+  var description: String { "{\(constraints.descriptions(joinedBy: " ∧ "))}:\(penalties)" }
 
 }

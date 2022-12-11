@@ -19,8 +19,6 @@ public struct BranchInst: Inst {
 
   public var isTerminator: Bool { true }
 
-  public func check(in module: Module) -> Bool {
-    true
-  }
+  public func check(in module: Module) -> Bool { true }
 
 }

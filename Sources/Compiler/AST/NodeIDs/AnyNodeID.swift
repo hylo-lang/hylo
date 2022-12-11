@@ -15,12 +15,8 @@ public struct AnyNodeID: NodeIDProtocol {
 
 extension AnyNodeID: Hashable {
 
-  public func hash(into hasher: inout Hasher) {
-    rawValue.hash(into: &hasher)
-  }
+  public func hash(into hasher: inout Hasher) { rawValue.hash(into: &hasher) }
 
-  public static func == (l: Self, r: Self) -> Bool {
-    l.rawValue == r.rawValue
-  }
+  public static func == (l: Self, r: Self) -> Bool { l.rawValue == r.rawValue }
 
 }

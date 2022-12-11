@@ -46,11 +46,7 @@ public struct MethodType: TypeProtocol {
 extension MethodType: CustomStringConvertible {
 
   public var description: String {
-    let cs =
-      capabilities
-      .map(String.init(describing:))
-      .sorted()
-      .joined(separator: " ")
+    let cs = capabilities.map(String.init(describing:)).sorted().joined(separator: " ")
     return "method[\(receiver)] (\(inputs.descriptions())) -> \(output) { \(cs) }"
   }
 

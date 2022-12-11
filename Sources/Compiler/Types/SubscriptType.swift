@@ -50,11 +50,7 @@ public struct SubscriptType: TypeProtocol {
 extension SubscriptType: CustomStringConvertible {
 
   public var description: String {
-    let cs =
-      capabilities
-      .map(String.init(describing:))
-      .sorted()
-      .joined(separator: " ")
+    let cs = capabilities.map(String.init(describing:)).sorted().joined(separator: " ")
 
     if isProperty {
       return "property [\(environment)] \(output) { \(cs) }"

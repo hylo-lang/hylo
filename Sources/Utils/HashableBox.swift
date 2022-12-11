@@ -5,16 +5,10 @@ public struct HashableBox<Base, Witness: HashableWitness<Base>>: Hashable {
   public let base: Base
 
   /// Creates a new instance wrapping `base`.
-  public init(_ base: Base) {
-    self.base = base
-  }
+  public init(_ base: Base) { self.base = base }
 
-  public func hash(into hasher: inout Hasher) {
-    Witness.hash(base, into: &hasher)
-  }
+  public func hash(into hasher: inout Hasher) { Witness.hash(base, into: &hasher) }
 
-  public static func == (l: Self, r: Self) -> Bool {
-    Witness.isEqual(l.base, to: r.base)
-  }
+  public static func == (l: Self, r: Self) -> Bool { Witness.isEqual(l.base, to: r.base) }
 
 }

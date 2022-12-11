@@ -21,10 +21,8 @@ public struct GenericTypeParameterType: TypeProtocol {
     switch decl.kind {
     case AssociatedTypeDecl.self, GenericParameterDecl.self:
       name = Incidental((ast[decl] as! SingleEntityDecl).name)
-    case TraitDecl.self:
-      name = Incidental("Self")
-    default:
-      preconditionFailure("invalid declaration")
+    case TraitDecl.self: name = Incidental("Self")
+    default: preconditionFailure("invalid declaration")
     }
   }
 

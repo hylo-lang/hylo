@@ -45,10 +45,8 @@ final class TypeCheckerTests: XCTestCase {
             XCTAssert(!success, "\(tc.name): type checking succeeded, but expected failure")
           case "expect-success":
             XCTAssert(success, "\(tc.name): type checking failed, but expected success")
-          case "diagnostic":
-            diagnosticChecker.handle(annotation)
-          default:
-            XCTFail("\(tc.name): unexpected test command: '\(annotation.command)'")
+          case "diagnostic": diagnosticChecker.handle(annotation)
+          default: XCTFail("\(tc.name): unexpected test command: '\(annotation.command)'")
           }
         }
 

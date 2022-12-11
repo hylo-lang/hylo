@@ -60,9 +60,7 @@ extension WideUInt: Numeric, AdditiveArithmetic {
     bitWidth = source.bitWidth
   }
 
-  public var words: BigUInt.Words {
-    value.words
-  }
+  public var words: BigUInt.Words { value.words }
 
   public init<T>(clamping source: T) where T: BinaryInteger {
     value = .init(clamping: source)
@@ -164,13 +162,9 @@ extension WideUInt: CustomStringConvertible {
 extension BigUInt {
 
   /// Discards all but the low `w` bits of `self`.
-  fileprivate mutating func truncate(toWidth w: Int) {
-    self &= ((1 as Self) << w) - 1
-  }
+  fileprivate mutating func truncate(toWidth w: Int) { self &= ((1 as Self) << w) - 1 }
 
   /// Returns `self`, truncated to fit in `w` bits.
-  fileprivate func truncated(toWidth w: Int) -> Self {
-    self & (((1 as Self) << w) - 1)
-  }
+  fileprivate func truncated(toWidth w: Int) -> Self { self & (((1 as Self) << w) - 1) }
 
 }

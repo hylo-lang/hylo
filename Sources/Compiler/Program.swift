@@ -59,36 +59,29 @@ extension Program {
       // Generic parameters are global.
       return true
 
-    default:
-      break
+    default: break
     }
 
     // Declarations at global scope are global.
     switch declToScope[decl]!.kind {
-    case TopLevelDeclSet.self, NamespaceDecl.self:
-      return true
+    case TopLevelDeclSet.self, NamespaceDecl.self: return true
 
-    default:
-      break
+    default: break
     }
 
     // Static member declarations and initializers are global.
     switch decl.kind {
-    case BindingDecl.self:
-      return ast[NodeID<BindingDecl>(rawValue: decl.rawValue)].isStatic
+    case BindingDecl.self: return ast[NodeID<BindingDecl>(rawValue: decl.rawValue)].isStatic
 
     case FunctionDecl.self:
       let i = NodeID<FunctionDecl>(rawValue: decl.rawValue)
       return ast[i].isStatic
 
-    case InitializerDecl.self:
-      return true
+    case InitializerDecl.self: return true
 
-    case SubscriptDecl.self:
-      return ast[NodeID<SubscriptDecl>(rawValue: decl.rawValue)].isStatic
+    case SubscriptDecl.self: return ast[NodeID<SubscriptDecl>(rawValue: decl.rawValue)].isStatic
 
-    default:
-      return false
+    default: return false
     }
   }
 
@@ -100,15 +93,12 @@ extension Program {
       TypeAliasDecl.self:
       return true
 
-    default:
-      return false
+    default: return false
     }
   }
 
   /// Returns whether `decl` is a non-static member of a type declaration.
-  public func isNonStaticMember<T: DeclID>(_ decl: T) -> Bool {
-    !isGlobal(decl) && isMember(decl)
-  }
+  public func isNonStaticMember<T: DeclID>(_ decl: T) -> Bool { !isGlobal(decl) && isMember(decl) }
 
   /// Returns whether `decl` is a non-static member of a type declaration.
   public func isNonStaticMember(_ decl: NodeID<FunctionDecl>) -> Bool {
@@ -121,9 +111,7 @@ extension Program {
   }
 
   /// Returns whether `decl` is local in `ast`.
-  public func isLocal<T: DeclID>(_ decl: T) -> Bool {
-    !isGlobal(decl) && !isMember(decl)
-  }
+  public func isLocal<T: DeclID>(_ decl: T) -> Bool { !isGlobal(decl) && !isMember(decl) }
 
   /// Returns whether `decl` is a requirement.
   public func isRequirement<T: DeclID>(_ decl: T) -> Bool {
@@ -134,8 +122,7 @@ extension Program {
       return isRequirement(NodeID<MethodDecl>(rawValue: declToScope[decl]!.rawValue))
     case SubscriptImplDecl.self:
       return isRequirement(NodeID<SubscriptDecl>(rawValue: declToScope[decl]!.rawValue))
-    default:
-      return false
+    default: return false
     }
   }
 
@@ -147,9 +134,7 @@ extension Program {
   /// Returns the module containing `scope`.
   public func module<S: ScopeID>(containing scope: S) -> NodeID<ModuleDecl>? {
     var last = AnyScopeID(scope)
-    while let parent = scopeToParent[last] {
-      last = parent
-    }
+    while let parent = scopeToParent[last] { last = parent }
     return NodeID(last)
   }
 

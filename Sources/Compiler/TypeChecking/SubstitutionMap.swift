@@ -11,13 +11,7 @@ struct SubstitutionMap {
   /// map. Otherwise, returns `type`.
   subscript(type: AnyType) -> AnyType {
     var walked = type
-    while let a = TypeVariable(walked) {
-      if let b = storage[a] {
-        walked = b
-      } else {
-        break
-      }
-    }
+    while let a = TypeVariable(walked) { if let b = storage[a] { walked = b } else { break } }
     return walked
   }
 

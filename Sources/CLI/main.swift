@@ -48,8 +48,8 @@ struct CLI: ParsableCommand {
   @Flag(name: [.customLong("no-std")], help: "Do not include the standard library.")
   var noStandardLibrary: Bool = false
 
-  @Flag(name: [.customLong("typecheck")], help: "Type-check the input file(s).")
-  var typeCheckOnly: Bool = false
+  @Flag(name: [.customLong("typecheck")], help: "Type-check the input file(s).") var typeCheckOnly:
+    Bool = false
 
   @Option(name: [.customLong("emit")], help: "Emit the specified type output files.")
   var outputType: OutputType = .binary
@@ -58,11 +58,9 @@ struct CLI: ParsableCommand {
     name: [.customShort("o")], help: "Write output to <o>.", transform: URL.init(fileURLWithPath:))
   var outputURL: URL?
 
-  @Flag(name: [.short, .long], help: "Use verbose output.")
-  var verbose: Bool = false
+  @Flag(name: [.short, .long], help: "Use verbose output.") var verbose: Bool = false
 
-  @Argument(transform: URL.init(fileURLWithPath:))
-  var inputs: [URL]
+  @Argument(transform: URL.init(fileURLWithPath:)) var inputs: [URL]
 
   private var noteLabel: String { "note: ".styled([.bold, .cyan]) }
 
@@ -81,9 +79,7 @@ struct CLI: ParsableCommand {
     /// The AST of the program being compiled.
     var ast = AST()
 
-    if compileInputAsModules {
-      fatalError("not implemented")
-    }
+    if compileInputAsModules { fatalError("not implemented") }
 
     // *** Parsing ***
 
@@ -131,9 +127,7 @@ struct CLI: ParsableCommand {
 
     // Report type-checking errors.
     log(diagnostics: checker.diagnostics)
-    if !typeCheckingSucceeded {
-      CLI.exit(withError: ExitCode(-1))
-    }
+    if !typeCheckingSucceeded { CLI.exit(withError: ExitCode(-1)) }
 
     // Exit if `--typecheck` is set.
     if typeCheckOnly { CLI.exit() }
@@ -233,9 +227,7 @@ struct CLI: ParsableCommand {
 
       // Read the contents of the file.
       let sourceFile: SourceFile
-      do {
-        sourceFile = try SourceFile(contentsOf: fileURL)
-      } catch let error {
+      do { sourceFile = try SourceFile(contentsOf: fileURL) } catch let error {
         log(errorLabel + error.localizedDescription)
         return false
       }
@@ -262,15 +254,11 @@ struct CLI: ParsableCommand {
   /// Creates a module from the contents at `url` and adds it to the AST.
   ///
   /// - Requires: `url` must denote a directly.
-  func addModule(url: URL) {
-    fatalError("not implemented")
-  }
+  func addModule(url: URL) { fatalError("not implemented") }
 
   /// Logs the contents of `diagnostics` tot he standard error.
   func log<S: Sequence>(diagnostics: S) where S.Element == Diagnostic {
-    for d in diagnostics.sorted(by: Diagnostic.isLoggedBefore) {
-      log(diagnostic: d)
-    }
+    for d in diagnostics.sorted(by: Diagnostic.isLoggedBefore) { log(diagnostic: d) }
   }
 
   /// Logs `diagnostic` to the standard error.
@@ -287,10 +275,8 @@ struct CLI: ParsableCommand {
       write(noteLabel)
     } else {
       switch diagnostic.level {
-      case .warning:
-        write(warningLabel)
-      case .error:
-        write(errorLabel)
+      case .warning: write(warningLabel)
+      case .error: write(errorLabel)
       }
     }
 
@@ -309,18 +295,12 @@ struct CLI: ParsableCommand {
 
       let count = line.distance(
         from: window.range.lowerBound, to: min(window.range.upperBound, line.endIndex))
-      if count > 1 {
-        write(String(repeating: "~", count: count))
-      } else {
-        write("^")
-      }
+      if count > 1 { write(String(repeating: "~", count: count)) } else { write("^") }
       write("\n")
     }
 
     // Log the children.
-    for child in diagnostic.children {
-      log(diagnostic: child, asChild: true)
-    }
+    for child in diagnostic.children { log(diagnostic: child, asChild: true) }
   }
 
   /// Logs `message` to the standard error file if `--verbose` is set.
@@ -337,21 +317,15 @@ struct CLI: ParsableCommand {
   }
 
   /// Writes `text` to the standard error file.
-  func write<S: StringProtocol>(_ text: S) {
-    FileHandle.standardError.write(Data(text.utf8))
-  }
+  func write<S: StringProtocol>(_ text: S) { FileHandle.standardError.write(Data(text.utf8)) }
 
   /// Returns the path of the specified executable.
   mutating func find(_ executable: String) -> String {
     // Nothing to do if `executable` is a path
-    if executable.contains("/") {
-      return executable
-    }
+    if executable.contains("/") { return executable }
 
     // Check the cache.
-    if let path = CLI.executableLocationCache[executable] {
-      return path
-    }
+    if let path = CLI.executableLocationCache[executable] { return path }
 
     // Search in the current working directory.
     var candidateURL = currentDirectory.appendingPathComponent(executable)
@@ -375,8 +349,9 @@ struct CLI: ParsableCommand {
   }
 
   /// Executes the program at `path` with the specified arguments in a subprocess.
-  @discardableResult
-  func runCommandLine(_ programPath: String, _ arguments: [String] = []) throws -> String? {
+  @discardableResult func runCommandLine(_ programPath: String, _ arguments: [String] = []) throws
+    -> String?
+  {
     log(verbose: ([programPath] + arguments).joined(separator: " "))
 
     let pipe = Pipe()

@@ -26,11 +26,7 @@ extension Constraint where Self: Equatable {
 
   /// Returns whether `self` is equal to `other`.
   public func equals<Other: Constraint>(_ other: Other) -> Bool {
-    if let r = other as? Self {
-      return self == r
-    } else {
-      return false
-    }
+    if let r = other as? Self { return self == r } else { return false }
   }
 
 }

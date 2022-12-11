@@ -12,9 +12,7 @@ public struct AnyExprID: ExprID {
   let base: AnyNodeID
 
   /// Creates a type-erased ID from a value expression ID.
-  public init<T: ExprID>(_ other: T) {
-    base = AnyNodeID(other)
-  }
+  public init<T: ExprID>(_ other: T) { base = AnyNodeID(other) }
 
   public var rawValue: Int { base.rawValue }
 

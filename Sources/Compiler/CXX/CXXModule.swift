@@ -47,25 +47,20 @@ public struct CXXModule {
       case let valDeclType as LambdaType:
         output = CXXTypeExpr(valDeclType.output, ast: program.ast, asReturnType: true)!
 
-      case is MethodType:
-        fatalError("not implemented")
+      case is MethodType: fatalError("not implemented")
 
-      default:
-        unreachable()
+      default: unreachable()
       }
     }
 
     // Determine the parameter types of the function.
     let paramTypes: [CallableTypeParameter]
     switch valFunctionDecl.type.base {
-    case let valDeclType as LambdaType:
-      paramTypes = valDeclType.inputs
+    case let valDeclType as LambdaType: paramTypes = valDeclType.inputs
 
-    case is MethodType:
-      fatalError("not implemented")
+    case is MethodType: fatalError("not implemented")
 
-    default:
-      unreachable()
+    default: unreachable()
     }
 
     // Determine the parameters of the function.
@@ -92,9 +87,7 @@ public struct CXXModule {
   /// Set the body for the function with the given ID.
   public mutating func setFunctionBody(
     _ body: CXXRepresentable?, forID cxxFunID: CXXFunctionDecl.ID
-  ) {
-    cxxFunctionBodies[cxxFunID] = body
-  }
+  ) { cxxFunctionBodies[cxxFunID] = body }
 
   // MARK: Serialization
 

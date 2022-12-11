@@ -13,10 +13,8 @@ enum FunctionLocal: Hashable {
     switch operand {
     case .result(let inst, let index):
       self = .result(block: inst.block, address: inst.address, index: index)
-    case .parameter(let block, let index):
-      self = .param(block: block.address, index: index)
-    case .constant:
-      return nil
+    case .parameter(let block, let index): self = .param(block: block.address, index: index)
+    case .constant: return nil
     }
   }
 

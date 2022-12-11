@@ -50,10 +50,8 @@ struct Lifetime {
   var isEmpty: Bool {
     for blockCoverage in coverage.values {
       switch blockCoverage {
-      case .liveInAndOut, .liveOut, .liveIn, .closed(lastUse: .some):
-        return false
-      default:
-        continue
+      case .liveInAndOut, .liveOut, .liveIn, .closed(lastUse: .some): return false
+      default: continue
       }
     }
     return true
@@ -65,12 +63,9 @@ struct Lifetime {
       into: [],
       { (uses, blockCoverage) in
         switch blockCoverage {
-        case .liveIn(.some(let use)):
-          uses.append(use)
-        case .closed(.some(let use)):
-          uses.append(use)
-        default:
-          break
+        case .liveIn(.some(let use)): uses.append(use)
+        case .closed(.some(let use)): uses.append(use)
+        default: break
         }
       })
   }
@@ -123,15 +118,12 @@ extension Module {
     // Find the last use in each block for which the operand is not live out.
     for (block, bounds) in approximateCoverage {
       switch bounds {
-      case (true, true):
-        coverage[block] = .liveInAndOut
-      case (false, true):
-        coverage[block] = .liveOut
+      case (true, true): coverage[block] = .liveInAndOut
+      case (false, true): coverage[block] = .liveOut
       case (true, false):
         let id = Block.ID(function: origin.function, address: block)
         coverage[block] = .liveIn(lastUse: lastUse(of: operand, in: id))
-      case (false, false):
-        continue
+      case (false, false): continue
       }
     }
 
@@ -150,9 +142,7 @@ extension Module {
       guard let lhs = lhs else { return rhs }
       guard let rhs = rhs else { return lhs }
 
-      if lhs.user == rhs.user {
-        return lhs.index < rhs.index ? rhs : lhs
-      }
+      if lhs.user == rhs.user { return lhs.index < rhs.index ? rhs : lhs }
 
       let block = functions[lhs.user.function][lhs.user.block]
       if lhs.user.address.precedes(rhs.user.address, in: block.instructions) {
@@ -168,18 +158,12 @@ extension Module {
         switch (a, b) {
         case (.liveOut, .liveIn), (.liveIn, .liveOut):
           unreachable("definition does not dominate all uses")
-        case (.liveInAndOut, _), (_, .liveInAndOut):
-          return .liveInAndOut
-        case (.liveOut, _), (_, .liveOut):
-          return .liveOut
-        case (.liveIn(let lhs), .liveIn(let rhs)):
-          return .liveIn(lastUse: last(lhs, rhs))
-        case (.liveIn(let lhs), .closed(let rhs)):
-          return .liveIn(lastUse: last(lhs, rhs))
-        case (.closed(let lhs), .liveIn(let rhs)):
-          return .liveIn(lastUse: last(lhs, rhs))
-        case (.closed(let lhs), .closed(let rhs)):
-          return .liveIn(lastUse: last(lhs, rhs))
+        case (.liveInAndOut, _), (_, .liveInAndOut): return .liveInAndOut
+        case (.liveOut, _), (_, .liveOut): return .liveOut
+        case (.liveIn(let lhs), .liveIn(let rhs)): return .liveIn(lastUse: last(lhs, rhs))
+        case (.liveIn(let lhs), .closed(let rhs)): return .liveIn(lastUse: last(lhs, rhs))
+        case (.closed(let lhs), .liveIn(let rhs)): return .liveIn(lastUse: last(lhs, rhs))
+        case (.closed(let lhs), .closed(let rhs)): return .liveIn(lastUse: last(lhs, rhs))
         }
       })
     return Lifetime(operand: left.operand, coverage: coverage)

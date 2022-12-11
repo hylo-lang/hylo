@@ -8,9 +8,7 @@ public struct NodeKind: Codable, Equatable, Hashable {
   let value: Node.Type
 
   /// Creates an instance with the given underlying value.
-  public init(_ value: Node.Type) {
-    self.value = value
-  }
+  public init(_ value: Node.Type) { self.value = value }
 
   /// Serializes `self` into `destination`.
   public func encode(to destination: Encoder) throws {
@@ -24,39 +22,25 @@ public struct NodeKind: Codable, Equatable, Hashable {
   }
 
   /// Returns true iff `l` and `r` denote the same node type.
-  public static func == (l: Self, r: Self) -> Bool {
-    return l.value == r.value
-  }
+  public static func == (l: Self, r: Self) -> Bool { return l.value == r.value }
 
   /// Incorporates the value of `self` into `h`.
-  public func hash(into h: inout Hasher) {
-    ObjectIdentifier(value).hash(into: &h)
-  }
+  public func hash(into h: inout Hasher) { ObjectIdentifier(value).hash(into: &h) }
 
   /// Returns true iff `l` and `r` denote the same node type.
-  static func == (l: Self, r: Node.Type) -> Bool {
-    return l.value == r
-  }
+  static func == (l: Self, r: Node.Type) -> Bool { return l.value == r }
 
   /// Returns true iff `l` and `r` do not denote the same node type.
-  static func != (l: Self, r: Node.Type) -> Bool {
-    return l.value == r
-  }
+  static func != (l: Self, r: Node.Type) -> Bool { return l.value == r }
 
   /// Returns true iff `l` and `r` denote the same node type.
-  static func == (l: Node.Type, r: Self) -> Bool {
-    return l == r.value
-  }
+  static func == (l: Node.Type, r: Self) -> Bool { return l == r.value }
 
   /// Returns true iff `l` and `r` do not denote the same node type.
-  static func != (l: Node.Type, r: Self) -> Bool {
-    return l != r.value
-  }
+  static func != (l: Node.Type, r: Self) -> Bool { return l != r.value }
 
   /// Returns true iff `me` and `pattern` denote the same node type.
-  static func ~= (pattern: Node.Type, me: Self) -> Bool {
-    me == pattern
-  }
+  static func ~= (pattern: Node.Type, me: Self) -> Bool { me == pattern }
 
 }
 
@@ -64,24 +48,16 @@ public struct NodeKind: Codable, Equatable, Hashable {
 extension Optional where Wrapped == NodeKind {
 
   /// Returns true iff `l` and `r` denote the same node type.
-  static func == (l: Self, r: Node.Type) -> Bool {
-    return l?.value == r
-  }
+  static func == (l: Self, r: Node.Type) -> Bool { return l?.value == r }
 
   /// Returns true iff `l` and `r` do not denote the same node type.
-  static func != (l: Self, r: Node.Type) -> Bool {
-    return l?.value == r
-  }
+  static func != (l: Self, r: Node.Type) -> Bool { return l?.value == r }
 
   /// Returns true iff `l` and `r` denote the same node type.
-  static func == (l: Node.Type, r: Self) -> Bool {
-    return l == r?.value
-  }
+  static func == (l: Node.Type, r: Self) -> Bool { return l == r?.value }
 
   /// Returns true iff `l` and `r` do not denote the same node type.
-  static func != (l: Node.Type, r: Self) -> Bool {
-    return l != r?.value
-  }
+  static func != (l: Node.Type, r: Self) -> Bool { return l != r?.value }
 
 }
 

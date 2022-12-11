@@ -19,17 +19,13 @@ public struct SourceRepresentable<Part> {
 
 extension SourceRepresentable: Equatable where Part: Equatable {
 
-  public static func == (l: Self, r: Self) -> Bool {
-    l.value == r.value
-  }
+  public static func == (l: Self, r: Self) -> Bool { l.value == r.value }
 
 }
 
 extension SourceRepresentable: Hashable where Part: Hashable {
 
-  public func hash(into hasher: inout Hasher) {
-    value.hash(into: &hasher)
-  }
+  public func hash(into hasher: inout Hasher) { value.hash(into: &hasher) }
 
 }
 
@@ -44,11 +40,7 @@ extension SourceRepresentable: Codable where Part: Codable {
   public init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     value = try container.decode(Part.self, forKey: .value)
-    do {
-      origin = try container.decode(SourceRange?.self, forKey: .range)
-    } catch {
-      origin = nil
-    }
+    do { origin = try container.decode(SourceRange?.self, forKey: .range) } catch { origin = nil }
   }
 
   public func encode(to encoder: Encoder) throws {

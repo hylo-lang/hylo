@@ -29,19 +29,13 @@ public struct NodeID<Subject: Node>: ConcreteNodeID {
 
   /// Creates an instance with the same raw value as `x` failing iff `x.kind != Subject.kind`.
   public init?<Other: NodeIDProtocol>(_ x: Other) {
-    if x.kind == Subject.kind {
-      self.init(rawValue: x.rawValue)
-    } else {
-      return nil
-    }
+    if x.kind == Subject.kind { self.init(rawValue: x.rawValue) } else { return nil }
   }
 
   /// Creates an instance with the given raw value.
   ///
   /// The result can only be used correctly in an AST where the identified node has type `Subject`.
-  internal init(rawValue: RawValue) {
-    self.rawValue = rawValue
-  }
+  internal init(rawValue: RawValue) { self.rawValue = rawValue }
 
   public static func == <Other: NodeIDProtocol>(l: Self, r: Other) -> Bool {
     l.rawValue == r.rawValue

@@ -17,9 +17,7 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
 
   public func write<Target: TextOutputStream>(to output: inout Target) {
     for i in 0..<functions.count {
-      if i > 0 {
-        output.write("\n\n")
-      }
+      if i > 0 { output.write("\n\n") }
       write(function: i, to: &output)
     }
   }
@@ -51,20 +49,15 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
     /// Returns a human-readable representation of `operand`.
     func describe(operand: Operand) -> String {
       switch operand {
-      case .result, .parameter:
-        return operandNames[operand]!
-      case .constant(let value):
-        return String(describing: value)
+      case .result, .parameter: return operandNames[operand]!
+      case .constant(let value): return String(describing: value)
       }
     }
 
     // Dumps the function in the module.
     if let debugName = function.debugName { output.write("// \(debugName)\n") }
     output.write("@lowered fun \(function.name)(")
-    output.write(
-      function.inputs.lazy
-        .map({ (c, t) in "\(c) \(t)" })
-        .joined(separator: ", "))
+    output.write(function.inputs.lazy.map({ (c, t) in "\(c) \(t)" }).joined(separator: ", "))
     output.write(") -> \(function.output) {\n")
 
     for i in function.blocks.indices {
@@ -74,9 +67,9 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
       output.write(blockNames[blockID]!)
       output.write("(")
       output.write(
-        block.inputs.enumerated().lazy
-          .map({ (j, t) in operandNames[.parameter(block: blockID, index: j)]! + " : \(t)" })
-          .joined(separator: ", "))
+        block.inputs.enumerated().lazy.map({ (j, t) in
+          operandNames[.parameter(block: blockID, index: j)]! + " : \(t)"
+        }).joined(separator: ", "))
       output.write("):\n")
 
       for j in block.instructions.indices {
@@ -85,22 +78,19 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
         output.write("  ")
         if !block[j.address].types.isEmpty {
           output.write(
-            (0..<block[j.address].types.count)
-              .map({ k in operandNames[.result(inst: instID, index: k)]! })
-              .joined(separator: ", "))
+            (0..<block[j.address].types.count).map({ k in
+              operandNames[.result(inst: instID, index: k)]!
+            }).joined(separator: ", "))
           output.write(" = ")
         }
 
         switch block.instructions[j.address] {
-        case let inst as AllocStackInst:
-          output.write("alloc_stack \(inst.allocatedType)")
+        case let inst as AllocStackInst: output.write("alloc_stack \(inst.allocatedType)")
 
         case let inst as BorrowInst:
           output.write("borrow [\(inst.capability)] ")
           output.write(describe(operand: inst.location))
-          if !inst.path.isEmpty {
-            output.write(", \(inst.path.descriptions())")
-          }
+          if !inst.path.isEmpty { output.write(", \(inst.path.descriptions())") }
 
         case let inst as BranchInst:
           output.write("branch ")
@@ -143,9 +133,7 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
         case let inst as LoadInst:
           output.write("load ")
           output.write(describe(operand: inst.source))
-          if !inst.path.isEmpty {
-            output.write(", \(inst.path.descriptions())")
-          }
+          if !inst.path.isEmpty { output.write(", \(inst.path.descriptions())") }
 
         case let inst as RecordInst:
           output.write("record \(inst.objectType)")
@@ -164,11 +152,9 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
           output.write(", ")
           output.write(describe(operand: inst.target))
 
-        case is UnrechableInst:
-          output.write("unreachable")
+        case is UnrechableInst: output.write("unreachable")
 
-        default:
-          unreachable("unexpected instruction")
+        default: unreachable("unexpected instruction")
         }
 
         output.write("\n")

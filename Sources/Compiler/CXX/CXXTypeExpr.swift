@@ -13,8 +13,7 @@ public struct CXXTypeExpr: CustomStringConvertible {
   ///     variable type annotation.
   public init?(_ type: AnyType, ast: AST, asReturnType isReturnType: Bool = false) {
     switch type.base {
-    case AnyType.void:
-      description = isReturnType ? "void" : "std::monostate"
+    case AnyType.void: description = isReturnType ? "void" : "std::monostate"
 
     case let type as ProductType:
       // TODO: we should translate this to an "int" struct
@@ -29,14 +28,11 @@ public struct CXXTypeExpr: CustomStringConvertible {
       let bareDescription = CXXTypeExpr(type.bareType, ast: ast)!.description
       description = bareDescription
 
-    default:
-      return nil
+    default: return nil
     }
   }
 
   /// Creates a C++ type expression from its textual representation.
-  public init(_ description: String) {
-    self.description = description
-  }
+  public init(_ description: String) { self.description = description }
 
 }

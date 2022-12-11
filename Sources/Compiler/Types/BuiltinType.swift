@@ -24,14 +24,10 @@ extension BuiltinType: CustomStringConvertible {
 
   public var description: String {
     switch self {
-    case .i(let bitWidth):
-      return "i\(bitWidth)"
-    case .f64:
-      return "f64"
-    case .pointer:
-      return "Pointer"
-    case .module:
-      return "Builtin"
+    case .i(let bitWidth): return "i\(bitWidth)"
+    case .f64: return "f64"
+    case .pointer: return "Pointer"
+    case .module: return "Builtin"
     }
   }
 
@@ -41,12 +37,9 @@ extension BuiltinType: LosslessStringConvertible {
 
   public init?(_ description: String) {
     switch description {
-    case "Builtin":
-      self = .module
-    case "f64":
-      self = .f64
-    case "Pointer":
-      self = .pointer
+    case "Builtin": self = .module
+    case "f64": self = .f64
+    case "Pointer": self = .pointer
 
     case _ where description.starts(with: "i"):
       if let bitWidth = Int(description.dropFirst()) {
@@ -56,8 +49,7 @@ extension BuiltinType: LosslessStringConvertible {
         return nil
       }
 
-    default:
-      return nil
+    default: return nil
     }
   }
 

@@ -27,10 +27,8 @@ public struct LambdaType: TypeProtocol {
     inputs: [CallableTypeParameter], output: AnyType
   ) {
     switch environment.base {
-    case is TupleType, is TypeVariable, is ErrorType:
-      break
-    default:
-      preconditionFailure("invalid environment type")
+    case is TupleType, is TypeVariable, is ErrorType: break
+    default: preconditionFailure("invalid environment type")
     }
 
     self.receiverEffect = receiverEffect

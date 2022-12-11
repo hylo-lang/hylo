@@ -31,18 +31,15 @@ public struct DeclLocator: Hashable {
     /// Creates a component identifying `decl` in `program`.
     init?<T: NodeIDProtocol>(identifying decl: T, in program: TypedProgram) {
       switch decl.kind {
-      case ConformanceDecl.self, ExtensionDecl.self:
-        fatalError("not implemented")
+      case ConformanceDecl.self, ExtensionDecl.self: fatalError("not implemented")
 
       case FunctionDecl.self:
         let decl = NodeID<FunctionDecl>(rawValue: decl.rawValue)
 
         let labels: [String]
         switch program.declTypes[decl]!.base {
-        case let type as LambdaType:
-          labels = Array(type.inputs.map({ $0.label ?? "_" }))
-        default:
-          labels = []
+        case let type as LambdaType: labels = Array(type.inputs.map({ $0.label ?? "_" }))
+        default: labels = []
         }
 
         if let name = program.ast[decl].identifier?.value {
@@ -56,10 +53,8 @@ public struct DeclLocator: Hashable {
 
         let labels: [String]
         switch program.declTypes[decl]!.base {
-        case let type as LambdaType:
-          labels = Array(type.inputs.map({ $0.label ?? "_" }))
-        default:
-          labels = []
+        case let type as LambdaType: labels = Array(type.inputs.map({ $0.label ?? "_" }))
+        default: labels = []
         }
 
         self = .function(name: "init", labels: labels, notation: nil)
@@ -69,10 +64,8 @@ public struct DeclLocator: Hashable {
 
         let labels: [String]
         switch program.declTypes[decl]!.base {
-        case let type as MethodType:
-          labels = Array(type.inputs.map({ $0.label ?? "_" }))
-        default:
-          labels = []
+        case let type as MethodType: labels = Array(type.inputs.map({ $0.label ?? "_" }))
+        default: labels = []
         }
 
         let name = program.ast[decl].identifier.value
@@ -86,19 +79,16 @@ public struct DeclLocator: Hashable {
         let decl = NodeID<ProductTypeDecl>(rawValue: decl.rawValue)
         self = .product(program.ast[decl].name)
 
-      default:
-        return nil
+      default: return nil
       }
     }
 
     /// A mangled description of this component.
     public var mangled: String {
       switch self {
-      case .conformance(let target, let trait):
-        return "C\(target)\(trait.mangled)"
+      case .conformance(let target, let trait): return "C\(target)\(trait.mangled)"
 
-      case .extension(let target):
-        return "E\(target)"
+      case .extension(let target): return "E\(target)"
 
       case .function(let name, let labels, let notation):
         let labels = labels.map({ $0.mangled }).joined()
@@ -116,17 +106,13 @@ public struct DeclLocator: Hashable {
         case .sink: return "Is"
         }
 
-      case .module(let name):
-        return "M\(name.mangled)"
+      case .module(let name): return "M\(name.mangled)"
 
-      case .namespace(let name):
-        return "N\(name.mangled)"
+      case .namespace(let name): return "N\(name.mangled)"
 
-      case .lambda(let discriminator):
-        return "L\(discriminator.rawValue)"
+      case .lambda(let discriminator): return "L\(discriminator.rawValue)"
 
-      case .product(let name):
-        return "P\(name.mangled)"
+      case .product(let name): return "P\(name.mangled)"
 
       case .subscript(let name, let labels):
         let ls = labels.map({ $0.mangled }).joined()
@@ -140,8 +126,7 @@ public struct DeclLocator: Hashable {
         case .sink: return "Is"
         }
 
-      case .trait(let name):
-        return "N\(name.mangled)"
+      case .trait(let name): return "N\(name.mangled)"
       }
     }
 
@@ -167,17 +152,13 @@ public struct DeclLocator: Hashable {
   }
 
   /// The locator's value encoded as a string.
-  public var mangled: String {
-    components.lazy.map({ $0.mangled }).joined()
-  }
+  public var mangled: String { components.lazy.map({ $0.mangled }).joined() }
 
 }
 
 extension DeclLocator: CustomStringConvertible {
 
-  public var description: String {
-    components.descriptions(joinedBy: ".")
-  }
+  public var description: String { components.descriptions(joinedBy: ".") }
 
 }
 
@@ -185,11 +166,9 @@ extension DeclLocator.Component: CustomStringConvertible {
 
   public var description: String {
     switch self {
-    case .conformance(let target, let trait):
-      return "(\(target)::\(trait)"
+    case .conformance(let target, let trait): return "(\(target)::\(trait)"
 
-    case .extension(let target):
-      return target.description
+    case .extension(let target): return target.description
 
     case .function(let name, let labels, let notation):
       let n = notation.map(String.init(describing:)) ?? ""
@@ -199,20 +178,15 @@ extension DeclLocator.Component: CustomStringConvertible {
         return n + name + "(" + labels.lazy.map({ "\($0):" }).joined() + ")"
       }
 
-    case .methodImpl(let introducer):
-      return String(describing: introducer)
+    case .methodImpl(let introducer): return String(describing: introducer)
 
-    case .module(let name):
-      return name
+    case .module(let name): return name
 
-    case .namespace(let name):
-      return name
+    case .namespace(let name): return name
 
-    case .lambda(let discriminator):
-      return String(describing: discriminator.rawValue)
+    case .lambda(let discriminator): return String(describing: discriminator.rawValue)
 
-    case .product(let name):
-      return name.description
+    case .product(let name): return name.description
 
     case .subscript(let name, let labels):
       if labels.isEmpty {
@@ -221,11 +195,9 @@ extension DeclLocator.Component: CustomStringConvertible {
         return name + "[" + labels.lazy.map({ "\($0):" }).joined() + "]"
       }
 
-    case .subscriptImpl(let introducer):
-      return String(describing: introducer)
+    case .subscriptImpl(let introducer): return String(describing: introducer)
 
-    case .trait(let name):
-      return name
+    case .trait(let name): return name
     }
   }
 
@@ -243,11 +215,7 @@ extension String {
         result.append(character)
       } else {
         result.append(
-          character.utf16.reduce(
-            into: "u",
-            { (u, point) in
-              u += String(point, radix: 16)
-            }))
+          character.utf16.reduce(into: "u", { (u, point) in u += String(point, radix: 16) }))
       }
     }
 

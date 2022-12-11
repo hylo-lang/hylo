@@ -10,9 +10,7 @@ public struct DoublyLinkedList<Element> {
 
     fileprivate var rawValue: Int
 
-    fileprivate init(_ rawValue: Int) {
-      self.rawValue = rawValue
-    }
+    fileprivate init(_ rawValue: Int) { self.rawValue = rawValue }
 
     /// Returns whether the element stored at `self` precedes that stored at `other` in `list`.
     public func precedes(_ other: Address, in list: DoublyLinkedList) -> Bool {
@@ -69,9 +67,7 @@ public struct DoublyLinkedList<Element> {
   public var capacity: Int { storage.capacity }
 
   /// The address of the first element.
-  public var firstAddress: Address? {
-    storage.isEmpty ? nil : Address(headOffset)
-  }
+  public var firstAddress: Address? { storage.isEmpty ? nil : Address(headOffset) }
 
   /// Returns the first address at which an element satisfies the given predicate.
   public func firstAddress(where predicate: (Element) throws -> Bool) rethrows -> Address? {
@@ -84,9 +80,7 @@ public struct DoublyLinkedList<Element> {
   }
 
   /// The address of the last element.
-  public var lastAddress: Address? {
-    storage.isEmpty ? nil : Address(tailOffset)
-  }
+  public var lastAddress: Address? { storage.isEmpty ? nil : Address(tailOffset) }
 
   /// Returns the last address at which an element satisfies the given predicate.
   public func lastAddress(where predicate: (Element) throws -> Bool) rethrows -> Address? {
@@ -125,8 +119,7 @@ public struct DoublyLinkedList<Element> {
   }
 
   /// Inserts `newElement` at the end of the list and returns its address.
-  @discardableResult
-  public mutating func append(_ newElement: Element) -> Address {
+  @discardableResult public mutating func append(_ newElement: Element) -> Address {
     if storage.isEmpty {
       count = 1
       headOffset = 0
@@ -148,8 +141,7 @@ public struct DoublyLinkedList<Element> {
   }
 
   /// Inserts `newElement` at the start of the list and returns its address.
-  @discardableResult
-  public mutating func prepend(_ newElement: Element) -> Address {
+  @discardableResult public mutating func prepend(_ newElement: Element) -> Address {
     if storage.isEmpty {
       count = 1
       headOffset = 0
@@ -172,8 +164,9 @@ public struct DoublyLinkedList<Element> {
   /// Inserts `newElement` after the element at `address` and returns its address.
   ///
   /// - Requires: `address` must be a valid an address in `self`.
-  @discardableResult
-  public mutating func insert(_ newElement: Element, after address: Address) -> Address {
+  @discardableResult public mutating func insert(_ newElement: Element, after address: Address)
+    -> Address
+  {
     precondition(isInBounds(address), "address out of bounds")
 
     let newAddress: Address
@@ -208,8 +201,9 @@ public struct DoublyLinkedList<Element> {
   /// Inserts `newElement` before the element at `address` and returns its address.
   ///
   /// - Requires: `address` must be the address of an element in `self`.
-  @discardableResult
-  public mutating func insert(_ newElement: Element, before address: Address) -> Address {
+  @discardableResult public mutating func insert(_ newElement: Element, before address: Address)
+    -> Address
+  {
     precondition(isInBounds(address), "address out of bounds")
 
     let newAddress: Address
@@ -242,8 +236,7 @@ public struct DoublyLinkedList<Element> {
   }
 
   /// Removes the element at `address`.
-  @discardableResult
-  public mutating func remove(at address: Address) -> Element {
+  @discardableResult public mutating func remove(at address: Address) -> Element {
     precondition(isInBounds(address), "address out of bounds")
 
     storage[storage[address.rawValue].previousOffset].nextOffset =
@@ -276,9 +269,7 @@ extension DoublyLinkedList: BidirectionalCollection, MutableCollection {
 
     fileprivate let offset: Int
 
-    public func hash(into hasher: inout Hasher) {
-      hasher.combine(offset)
-    }
+    public func hash(into hasher: inout Hasher) { hasher.combine(offset) }
 
     public static func == (l: Self, r: Self) -> Bool { l.offset == r.offset }
 
@@ -289,22 +280,14 @@ extension DoublyLinkedList: BidirectionalCollection, MutableCollection {
   public var isEmpty: Bool { count == 0 }
 
   /// The first element of the list.
-  public var first: Element? {
-    storage.isEmpty ? nil : storage[headOffset].element!
-  }
+  public var first: Element? { storage.isEmpty ? nil : storage[headOffset].element! }
 
   /// The last element of the list.
-  public var last: Element? {
-    storage.isEmpty ? nil : storage[tailOffset].element!
-  }
+  public var last: Element? { storage.isEmpty ? nil : storage[tailOffset].element! }
 
-  public var startIndex: Index {
-    Index(address: firstAddress ?? Address(0), offset: 0)
-  }
+  public var startIndex: Index { Index(address: firstAddress ?? Address(0), offset: 0) }
 
-  public var endIndex: Index {
-    Index(address: Address(0), offset: count)
-  }
+  public var endIndex: Index { Index(address: Address(0), offset: count) }
 
   public func index(after i: Index) -> Index {
     Index(address: address(after: i.address) ?? Address(0), offset: i.offset + 1)
@@ -325,19 +308,13 @@ extension DoublyLinkedList: BidirectionalCollection, MutableCollection {
 
 extension DoublyLinkedList: Equatable where Element: Equatable {
 
-  public static func == (l: Self, r: Self) -> Bool {
-    l.elementsEqual(r)
-  }
+  public static func == (l: Self, r: Self) -> Bool { l.elementsEqual(r) }
 
 }
 
 extension DoublyLinkedList: Hashable where Element: Hashable {
 
-  public func hash(into hasher: inout Hasher) {
-    for element in self {
-      hasher.combine(element)
-    }
-  }
+  public func hash(into hasher: inout Hasher) { for element in self { hasher.combine(element) } }
 
 }
 
@@ -347,18 +324,14 @@ extension DoublyLinkedList: ExpressibleByArrayLiteral {
     self.init()
 
     reserveCapacity(elements.capacity)
-    for element in elements {
-      append(element)
-    }
+    for element in elements { append(element) }
   }
 
 }
 
 extension DoublyLinkedList: CustomStringConvertible {
 
-  public var description: String {
-    String(describing: Array(self))
-  }
+  public var description: String { String(describing: Array(self)) }
 
 }
 

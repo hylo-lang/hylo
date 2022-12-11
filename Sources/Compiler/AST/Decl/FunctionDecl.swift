@@ -100,9 +100,7 @@ public struct FunctionDecl: GenericDecl, GenericScope {
   public var isSink: Bool { receiverEffect?.value == .sink }
 
   /// Returns whether `self` is a foreign function interface.
-  public var isFFI: Bool {
-    attributes.contains(where: { $0.value.name.value == "@_lowered_name" })
-  }
+  public var isFFI: Bool { attributes.contains(where: { $0.value.name.value == "@_lowered_name" }) }
 
   public func validateForm(in ast: AST) -> SuccessOrDiagnostics {
     var report: [Diagnostic] = []

@@ -3,32 +3,22 @@ import Utils
 extension Diagnostic {
 
   static func diagnose(duplicateAccessModifier m: SourceRepresentable<AccessModifier>) -> Diagnostic
-  {
-    .error("duplicate access modifier '\(m.value)'", range: m.origin)
-  }
+  { .error("duplicate access modifier '\(m.value)'", range: m.origin) }
 
   static func diagnose(duplicateImplementationIntroducer i: SourceRepresentable<ImplIntroducer>)
     -> Diagnostic
-  {
-    .error("duplicate implementation introducer '\(i.value)'", range: i.origin)
-  }
+  { .error("duplicate implementation introducer '\(i.value)'", range: i.origin) }
 
   static func diagnose(duplicateMemberModifier m: SourceRepresentable<MemberModifier>) -> Diagnostic
-  {
-    .error("duplicate member modifier '\(m.value)'", range: m.origin)
-  }
+  { .error("duplicate member modifier '\(m.value)'", range: m.origin) }
 
   static func diagnose(
     illegalGlobalBindingIntroducer i: SourceRepresentable<BindingPattern.Introducer>
-  ) -> Diagnostic {
-    .error("global binding must be introduced by 'let'", range: i.origin)
-  }
+  ) -> Diagnostic { .error("global binding must be introduced by 'let'", range: i.origin) }
 
   static func diagnose(
     illegalMemberBindingIntroducer i: SourceRepresentable<BindingPattern.Introducer>
-  ) -> Diagnostic {
-    .error("member binding must be introduced by 'let' or 'var'", range: i.origin)
-  }
+  ) -> Diagnostic { .error("member binding must be introduced by 'let' or 'var'", range: i.origin) }
 
   static func diagnose(
     invalidOperatorLabels found: [String?], expected: [String?], at range: SourceRange?
@@ -82,9 +72,7 @@ extension Diagnostic {
 
   static func diagnose(unexpectedAccessModifier m: SourceRepresentable<AccessModifier>)
     -> Diagnostic
-  {
-    .error("unexpected access modifier '\(m.value)'", range: m.origin)
-  }
+  { .error("unexpected access modifier '\(m.value)'", range: m.origin) }
 
   static func diagnose(unexpectedAssociatedTypeDecl d: AssociatedTypeDecl) -> Diagnostic {
     .error("associated type declaration is not allowed here", range: d.introducerRange)
@@ -116,9 +104,7 @@ extension Diagnostic {
 
   static func diagnose(unexpectedMemberModifier m: SourceRepresentable<MemberModifier>)
     -> Diagnostic
-  {
-    .error("unexpected member modifier '\(m.value)'", range: m.origin)
-  }
+  { .error("unexpected member modifier '\(m.value)'", range: m.origin) }
 
   static func diagnose(unexpectedMethodDecl d: MethodDecl) -> Diagnostic {
     .error("method bundle declaration is not allowed here", range: d.introducerRange)

@@ -11,9 +11,7 @@ public struct DirectedGraph<Vertex: Hashable, Label> {
   fileprivate var edges: [Vertex: [Vertex: Label]]
 
   /// Creates an empty graph.
-  public init() {
-    edges = [:]
-  }
+  public init() { edges = [:] }
 
   /// Inserts an edge from `source` to `target`, labeled by `label`.
   ///
@@ -21,10 +19,9 @@ public struct DirectedGraph<Vertex: Hashable, Label> {
   ///   `(false, currentLabel)`, where `currentLabel` is label of the existing edge.
   ///
   /// - Complexity: O(1).
-  @discardableResult
-  public mutating func insertEdge(from source: Vertex, to target: Vertex, labeledBy label: Label)
-    -> (inserted: Bool, labelAfterInsert: Label)
-  {
+  @discardableResult public mutating func insertEdge(
+    from source: Vertex, to target: Vertex, labeledBy label: Label
+  ) -> (inserted: Bool, labelAfterInsert: Label) {
     modifying(
       &edges[source, default: [:]],
       { tips in
@@ -42,8 +39,9 @@ public struct DirectedGraph<Vertex: Hashable, Label> {
   /// - Returns: The label of the removed edge, or `nil` if there was no edge to remove.
   ///
   /// - Complexity: O(1).
-  @discardableResult
-  public mutating func removeEdge(from source: Vertex, to target: Vertex) -> Label? {
+  @discardableResult public mutating func removeEdge(from source: Vertex, to target: Vertex)
+    -> Label?
+  {
     modifying(
       &edges[source, default: [:]],
       { tips in
@@ -82,10 +80,8 @@ extension DirectedGraph where Label == () {
   /// - Returns: `true` if there was no edge between `source` and `target`. Otherwise, `false`.
   ///
   /// - Complexity: O(1).
-  @discardableResult
-  public mutating func insertEdge(from source: Vertex, to target: Vertex) -> Bool {
-    insertEdge(from: source, to: target, labeledBy: ()).inserted
-  }
+  @discardableResult public mutating func insertEdge(from source: Vertex, to target: Vertex) -> Bool
+  { insertEdge(from: source, to: target, labeledBy: ()).inserted }
 
 }
 
@@ -98,9 +94,7 @@ extension DirectedGraph: Equatable where Label: Equatable {
     for (source, lhs) in l.edges {
       let rhs = r.edges[source, default: [:]]
       if lhs.count != rhs.count { return false }
-      for (target, label) in lhs {
-        if rhs[target] != label { return false }
-      }
+      for (target, label) in lhs { if rhs[target] != label { return false } }
       sources.insert(source)
     }
 

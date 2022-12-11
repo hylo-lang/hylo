@@ -10,8 +10,7 @@ extension AST {
 
 /// A projection from a `TypedProgram` of an AST node along with all the non-syntax information
 /// related to that node.
-@dynamicMemberLookup
-public struct TypedNode<ID: NodeIDProtocol>: Hashable {
+@dynamicMemberLookup public struct TypedNode<ID: NodeIDProtocol>: Hashable {
 
   /// The whole program of which this node is a notional part.
   fileprivate let whole: TypedProgram
@@ -20,14 +19,10 @@ public struct TypedNode<ID: NodeIDProtocol>: Hashable {
   let id: ID
 
   /// Equality comparison; only check the node ID.
-  public static func == (lhs: TypedNode<ID>, rhs: TypedNode<ID>) -> Bool {
-    lhs.id == rhs.id
-  }
+  public static func == (lhs: TypedNode<ID>, rhs: TypedNode<ID>) -> Bool { lhs.id == rhs.id }
 
   /// Hashes the value of `id` into `hasher`.
-  public func hash(into hasher: inout Hasher) {
-    hasher.combine(id)
-  }
+  public func hash(into hasher: inout Hasher) { hasher.combine(id) }
 
 }
 
@@ -44,42 +39,31 @@ extension TypedProgram {
 extension TypedNode where ID: ConcreteNodeID {
 
   /// The corresponding AST node.
-  private var syntax: ID.Subject {
-    whole.ast[NodeID(id)!]
-  }
+  private var syntax: ID.Subject { whole.ast[NodeID(id)!] }
 
   /// Accesses the given member of the corresponding AST node.
-  subscript<Target>(dynamicMember m: KeyPath<ID.Subject, Target>) -> Target {
-    syntax[keyPath: m]
-  }
+  subscript<Target>(dynamicMember m: KeyPath<ID.Subject, Target>) -> Target { syntax[keyPath: m] }
 
   /// Accesses the given member of the corresponding AST node as a corresponding
   /// `TypedNode`
   subscript<TargetID: NodeIDProtocol>(dynamicMember m: KeyPath<ID.Subject, TargetID>) -> TypedNode<
     TargetID
-  > {
-    .init(whole: whole, id: syntax[keyPath: m])
-  }
+  > { .init(whole: whole, id: syntax[keyPath: m]) }
 
   /// Accesses the given member of the corresponding AST node as a corresponding lazy collection
   /// of `TypedNode`s.
   subscript<TargetID: NodeIDProtocol>(dynamicMember m: KeyPath<ID.Subject, [TargetID]>)
     -> LazyMapCollection<[TargetID], TypedNode<TargetID>>
-  {
-    syntax[keyPath: m].lazy.map { .init(whole: whole, id: $0) }
-  }
+  { syntax[keyPath: m].lazy.map { .init(whole: whole, id: $0) } }
 
   /// Accesses the given member of the corresponding AST node as a corresponding `TypedNode?`
   subscript<TargetID: NodeIDProtocol>(dynamicMember m: KeyPath<ID.Subject, TargetID?>) -> TypedNode<
     TargetID
-  >? {
-    syntax[keyPath: m].map { .init(whole: whole, id: $0) }
-  }
+  >? { syntax[keyPath: m].map { .init(whole: whole, id: $0) } }
 
   /// Creates an instance denoting the same node as `s`, or fails if `s` does not refer to a
   /// `Target` node.
-  init?<SourceID, Target>(_ s: TypedNode<SourceID>)
-  where ID == NodeID<Target> {
+  init?<SourceID, Target>(_ s: TypedNode<SourceID>) where ID == NodeID<Target> {
     guard let myID = NodeID<ID.Subject>(s.id) else { return nil }
     whole = s.whole
     id = .init(myID)
@@ -95,9 +79,7 @@ extension TypedNode {
 
 extension TypedNode where ID: ScopeID {
   /// The parent scope, if any
-  var parent: TypedNode<AnyScopeID>? {
-    whole.scopeToParent[id].map { .init(whole: whole, id: $0) }
-  }
+  var parent: TypedNode<AnyScopeID>? { whole.scopeToParent[id].map { .init(whole: whole, id: $0) } }
 
   /// The declarations in this immediate scope.
   var decls: LazyMapCollection<[AnyDeclID], TypedNode<AnyDeclID>> {
@@ -107,35 +89,25 @@ extension TypedNode where ID: ScopeID {
 
 extension TypedNode where ID: DeclID {
   /// The scope in which this declaration resides.
-  var scope: TypedNode<AnyScopeID> {
-    .init(whole: whole, id: whole.declToScope[id]!)
-  }
+  var scope: TypedNode<AnyScopeID> { .init(whole: whole, id: whole.declToScope[id]!) }
 
   /// The type of the declared entity.
-  var type: AnyType {
-    whole.declTypes[id]!
-  }
+  var type: AnyType { whole.declTypes[id]! }
 }
 
 extension TypedNode where ID == NodeID<VarDecl> {
   /// The binding decl containing this var.
-  var binding: Typed<BindingDecl> {
-    .init(whole: whole, id: whole.varToBinding[id]!)
-  }
+  var binding: Typed<BindingDecl> { .init(whole: whole, id: whole.varToBinding[id]!) }
 }
 
 extension TypedNode where ID: ExprID {
   /// The type of this expression
-  var type: AnyType {
-    whole.exprTypes[id]!
-  }
+  var type: AnyType { whole.exprTypes[id]! }
 }
 
 extension TypedNode where ID == NodeID<NameExpr> {
   /// The declaration of this name.
-  var decl: DeclRef {
-    whole.referredDecls[id]!
-  }
+  var decl: DeclRef { whole.referredDecls[id]! }
 }
 
 extension TypedNode where ID: PatternID {
@@ -148,17 +120,11 @@ extension TypedNode where ID: PatternID {
 extension TypedNode where ID == NodeID<ModuleDecl> {
   /// Collection of (typed) top-level declarations of the module.
   typealias TopLevelDecls = LazyMapSequence<
-    FlattenSequence<
-      LazyMapSequence<
-        [NodeID<TopLevelDeclSet>], [AnyDeclID]
-      >
-    >, TypedNode<AnyDeclID>
+    FlattenSequence<LazyMapSequence<[NodeID<TopLevelDeclSet>], [AnyDeclID]>>, TypedNode<AnyDeclID>
   >
 
   /// The top-level declarations in the module.
-  var topLevelDecls: TopLevelDecls {
-    whole.ast.topLevelDecls(id).map({ whole[$0] })
-  }
+  var topLevelDecls: TopLevelDecls { whole.ast.topLevelDecls(id).map({ whole[$0] }) }
 }
 
 extension TypedNode where ID == NodeID<FunctionDecl> {
@@ -176,14 +142,11 @@ extension TypedNode where ID == NodeID<FunctionDecl> {
   /// The body of the declaration, if any (in typed formed).
   var body: Body? {
     switch syntax.body {
-    case .expr(let expr):
-      return .expr(whole[expr])
+    case .expr(let expr): return .expr(whole[expr])
 
-    case .block(let stmt):
-      return .block(whole[stmt])
+    case .block(let stmt): return .block(whole[stmt])
 
-    case .none:
-      return .none
+    case .none: return .none
     }
   }
 }

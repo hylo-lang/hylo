@@ -10,9 +10,7 @@ extension Diagnostic {
 
   static func diagnose(
     expected subject: String, at location: SourceLocation, children: [Diagnostic] = []
-  ) -> Diagnostic {
-    .error("expected \(subject)", range: location..<location, children: children)
-  }
+  ) -> Diagnostic { .error("expected \(subject)", range: location..<location, children: children) }
 
   static func diagnose(
     expected closerDescription: String, matching opener: Token, in state: ParserState

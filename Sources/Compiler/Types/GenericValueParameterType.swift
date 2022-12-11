@@ -20,8 +20,7 @@ public struct GenericValueParameterType: TypeProtocol {
     switch decl.kind {
     case GenericParameterDecl.self, AssociatedValueDecl.self:
       name = Incidental((ast[decl] as! SingleEntityDecl).name)
-    default:
-      preconditionFailure("invalid declaration")
+    default: preconditionFailure("invalid declaration")
     }
   }
 

@@ -5,9 +5,7 @@ public struct ASTProperty<Property> {
   private var storage: [AnyNodeID: Property]
 
   /// Creates an empty instance.
-  public init() {
-    storage = [:]
-  }
+  public init() { storage = [:] }
 
   /// Accesses the `Property` this map associates with `id`.
   public subscript<T: NodeIDProtocol>(id: T) -> Property? {
@@ -20,9 +18,7 @@ public struct ASTProperty<Property> {
   public subscript<T: NodeIDProtocol>(id: T, default defaultProperty: @autoclosure () -> Property)
     -> Property
   {
-    _read {
-      yield storage[AnyNodeID(id), default: defaultProperty()]
-    }
+    _read { yield storage[AnyNodeID(id), default: defaultProperty()] }
     _modify {
       var value = storage[AnyNodeID(id)] ?? defaultProperty()
       defer { storage[AnyNodeID(id)] = value }

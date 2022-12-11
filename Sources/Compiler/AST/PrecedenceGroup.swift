@@ -49,8 +49,7 @@ public enum PrecedenceGroup: String, Codable {
   /// The associativity of the operators in the group.
   public var associativity: Associativity {
     switch self {
-    case .assignment, .fallback, .exponentiation:
-      return .right
+    case .assignment, .fallback, .exponentiation: return .right
     case .disjunction, .conjunction, .comparison, .addition, .multiplication, .range, .shift:
       return .left
     }
@@ -61,8 +60,6 @@ public enum PrecedenceGroup: String, Codable {
 
 extension PrecedenceGroup: Comparable {
 
-  public static func < (l: Self, r: Self) -> Bool {
-    l.power < r.power
-  }
+  public static func < (l: Self, r: Self) -> Bool { l.power < r.power }
 
 }

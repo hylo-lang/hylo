@@ -29,9 +29,7 @@ extension Diagnostic {
 
   static func diagnose(conformanceToNonTraitType type: AnyType, at range: SourceRange?)
     -> Diagnostic
-  {
-    .error("conformance to non-trait type '\(type)'", range: range)
-  }
+  { .error("conformance to non-trait type '\(type)'", range: range) }
 
   static func diagnose(declarationRequiresBodyAt range: SourceRange?) -> Diagnostic {
     .error("declaration requires a body", range: range)
@@ -65,9 +63,7 @@ extension Diagnostic {
 
   static func diagnose(
     illegalParameterConvention convention: PassingConvention, at range: SourceRange?
-  ) -> Diagnostic {
-    .error("'\(convention)' may only be used on parameters", range: range)
-  }
+  ) -> Diagnostic { .error("'\(convention)' may only be used on parameters", range: range) }
 
   static func diagnose(
     labels found: [String?], incompatibleWith expected: [String?], at range: SourceRange?
@@ -89,9 +85,7 @@ extension Diagnostic {
 
   static func diagnose(type l: AnyType, incompatibleWith r: AnyType, at range: SourceRange?)
     -> Diagnostic
-  {
-    .error("incompatible types '\(l)' and '\(r)'", range: range)
-  }
+  { .error("incompatible types '\(l)' and '\(r)'", range: range) }
 
   static func diagnose(invalidUseOfAssociatedType name: String, at range: SourceRange?)
     -> Diagnostic
@@ -118,9 +112,7 @@ extension Diagnostic {
 
   static func diagnose(invalidDestructuringOfType type: AnyType, at range: SourceRange?)
     -> Diagnostic
-  {
-    .error("invalid destructuring of type '\(type)'", range: range)
-  }
+  { .error("invalid destructuring of type '\(type)'", range: range) }
 
   static func diagnose(invalidReferenceToSelfTypeAt range: SourceRange?) -> Diagnostic {
     .error("reference to 'Self' outside of a type context", range: range)
@@ -173,15 +165,11 @@ extension Diagnostic {
 
   static func diagnose(notEnoughContextToResolveMember name: Name, at range: SourceRange?)
     -> Diagnostic
-  {
-    .error("not enough contextual information to resolve member '\(name)'", range: range)
-  }
+  { .error("not enough contextual information to resolve member '\(name)'", range: range) }
 
   static func diagnose(type l: AnyType, isNotSubtypeOf r: AnyType, at range: SourceRange?)
     -> Diagnostic
-  {
-    .error("'\(l)' is not subtype of '\(r)'", range: range)
-  }
+  { .error("'\(l)' is not subtype of '\(r)'", range: range) }
 
   static func diagnose(noType name: Name, in domain: AnyType? = nil, at range: SourceRange?)
     -> Diagnostic
@@ -220,9 +208,7 @@ extension Diagnostic {
   }
 
   static func diagnose(argumentToNonGenericType type: AnyType, at range: SourceRange?) -> Diagnostic
-  {
-    .error("non-generic type 'type' has no generic parameters", range: range)
-  }
+  { .error("non-generic type 'type' has no generic parameters", range: range) }
 
   static func diagnose(metatypeRequiresOneArgumentAt range: SourceRange?) -> Diagnostic {
     .error("reference to 'Metatype' requires exacly one static argument", range: range)
@@ -230,8 +216,6 @@ extension Diagnostic {
 
   static func diagnose(tooManyAnnotationsOnGenericValueParametersAt range: SourceRange?)
     -> Diagnostic
-  {
-    .error("only one annotation is allowed on generic value parameter declarations", range: range)
-  }
+  { .error("only one annotation is allowed on generic value parameter declarations", range: range) }
 
 }

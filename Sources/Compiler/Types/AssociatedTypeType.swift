@@ -21,8 +21,7 @@ public struct AssociatedTypeType: TypeProtocol {
     switch domain.base {
     case is AssociatedTypeType, is ConformanceLensType, is GenericTypeParameterType:
       self.domain = domain
-    default:
-      preconditionFailure("invalid associated type domain")
+    default: preconditionFailure("invalid associated type domain")
     }
 
     self.decl = decl
@@ -39,18 +38,15 @@ public struct AssociatedTypeType: TypeProtocol {
 
     while true {
       switch current.base {
-      case is GenericTypeParameterType:
-        return result
+      case is GenericTypeParameterType: return result
 
       case let type as AssociatedTypeType:
         current = type.domain
         result.append(type.domain)
 
-      case let type as ConformanceLensType:
-        current = type.subject
+      case let type as ConformanceLensType: current = type.subject
 
-      default:
-        unreachable()
+      default: unreachable()
       }
     }
   }

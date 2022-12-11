@@ -3,8 +3,6 @@ public struct WildcardPattern: Pattern {
 
   public let origin: SourceRange?
 
-  public init(origin: SourceRange?) {
-    self.origin = origin
-  }
+  public init(origin: SourceRange?) { self.origin = origin }
 
 }

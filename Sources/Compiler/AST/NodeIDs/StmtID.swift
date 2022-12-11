@@ -12,9 +12,7 @@ public struct AnyStmtID: StmtID {
   let base: AnyNodeID
 
   /// Creates a type-erased ID from a statement ID.
-  public init<T: StmtID>(_ other: T) {
-    base = AnyNodeID(other)
-  }
+  public init<T: StmtID>(_ other: T) { base = AnyNodeID(other) }
 
   public var rawValue: Int { base.rawValue }
 

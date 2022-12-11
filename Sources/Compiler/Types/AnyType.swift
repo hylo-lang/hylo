@@ -27,21 +27,13 @@ private struct ConcreteTypeBox<Base: TypeProtocol>: TypeBox {
   /// The value wrapped by this instance.
   let base: Base
 
-  func hash(into hasher: inout Hasher) {
-    base.hash(into: &hasher)
-  }
+  func hash(into hasher: inout Hasher) { base.hash(into: &hasher) }
 
-  func equals<Other: TypeBox>(_ other: Other) -> Bool {
-    base == other.unwrap(as: Base.self)
-  }
+  func equals<Other: TypeBox>(_ other: Other) -> Bool { base == other.unwrap(as: Base.self) }
 
-  func unwrap() -> any TypeProtocol {
-    base
-  }
+  func unwrap() -> any TypeProtocol { base }
 
-  func unwrap<T: TypeProtocol>(as: T.Type) -> T? {
-    base as? T
-  }
+  func unwrap<T: TypeProtocol>(as: T.Type) -> T? { base as? T }
 
   func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> any TypeProtocol {
     base.transformParts(transformer)
@@ -95,19 +87,14 @@ public struct AnyType: TypeProtocol {
   /// A leaf type is a type whose only subtypes are itself and `Never`.
   public var isLeaf: Bool {
     switch base {
-    case is ExistentialType, is LambdaType, is TypeVariable:
-      return false
-    case let type as UnionType:
-      return type.elements.isEmpty
-    default:
-      return true
+    case is ExistentialType, is LambdaType, is TypeVariable: return false
+    case let type as UnionType: return type.elements.isEmpty
+    default: return true
     }
   }
 
   /// Indicates whether `self` is the error type.
-  public var isError: Bool {
-    base is ErrorType
-  }
+  public var isError: Bool { base is ErrorType }
 
   /// Indicates whether `self` is a generic type parameter or associated type.
   public var isTypeParam: Bool {
@@ -117,12 +104,9 @@ public struct AnyType: TypeProtocol {
   /// Indicates whether `self` has a record layout.
   public var hasRecordLayout: Bool {
     switch base {
-    case is ProductType, is TupleType:
-      return true
-    case let type as BoundGenericType:
-      return type.base.hasRecordLayout
-    default:
-      return false
+    case is ProductType, is TupleType: return true
+    case let type as BoundGenericType: return type.base.hasRecordLayout
+    default: return false
     }
   }
 
@@ -139,9 +123,7 @@ public struct AnyType: TypeProtocol {
 extension AnyType: Equatable {
 
   /// Returns whether `l` is equal to `r`.
-  public static func == (l: Self, r: Self) -> Bool {
-    l.wrapped.equals(r.wrapped)
-  }
+  public static func == (l: Self, r: Self) -> Bool { l.wrapped.equals(r.wrapped) }
 
   /// Returns whether `l` is equal to `r`.
   public static func == <T: TypeProtocol>(l: Self, r: T) -> Bool {
@@ -149,9 +131,7 @@ extension AnyType: Equatable {
   }
 
   /// Returns whether `l` is not equal to `r`.
-  public static func != <T: TypeProtocol>(l: Self, r: T) -> Bool {
-    !(l == r)
-  }
+  public static func != <T: TypeProtocol>(l: Self, r: T) -> Bool { !(l == r) }
 
   /// Returns whether `l` is equal to `r`.
   public static func == <T: TypeProtocol>(l: T, r: Self) -> Bool {
@@ -159,9 +139,7 @@ extension AnyType: Equatable {
   }
 
   /// Returns whether `l` is not equal to `r`.
-  public static func != <T: TypeProtocol>(l: T, r: Self) -> Bool {
-    !(l == r)
-  }
+  public static func != <T: TypeProtocol>(l: T, r: Self) -> Bool { !(l == r) }
 
   /// Returns whether `subject` matches `pattern`.
   ///
@@ -178,17 +156,13 @@ extension AnyType: Equatable {
   ///         print("type is neither 'Any' nor 'Never'")
   ///       }
   ///     }
-  public static func ~= (pattern: Self, subject: any TypeProtocol) -> Bool {
-    pattern == subject
-  }
+  public static func ~= (pattern: Self, subject: any TypeProtocol) -> Bool { pattern == subject }
 
 }
 
 extension AnyType: Hashable {
 
-  public func hash(into hasher: inout Hasher) {
-    wrapped.hash(into: &hasher)
-  }
+  public func hash(into hasher: inout Hasher) { wrapped.hash(into: &hasher) }
 
 }
 
@@ -205,6 +179,4 @@ extension AnyType: CustomReflectable {
 }
 
 /// Creates a type-erased container wrapping the given instance.
-public prefix func ^ <T: TypeProtocol>(_ base: T) -> AnyType {
-  AnyType(base)
-}
+public prefix func ^ <T: TypeProtocol>(_ base: T) -> AnyType { AnyType(base) }

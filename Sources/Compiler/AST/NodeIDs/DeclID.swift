@@ -12,9 +12,7 @@ public struct AnyDeclID: DeclID {
   let base: AnyNodeID
 
   /// Creates a type-erased ID from a declaration ID.
-  public init<T: DeclID>(_ other: T) {
-    base = AnyNodeID(other)
-  }
+  public init<T: DeclID>(_ other: T) { base = AnyNodeID(other) }
 
   public var rawValue: Int { base.rawValue }
 

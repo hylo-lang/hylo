@@ -53,9 +53,7 @@ public struct Name: Hashable, Codable {
   }
 
   /// Returns a textual description of `labels`.
-  static func describe(labels: [String?]) -> String {
-    labels.map({ "\($0 ?? "_"):" }).joined()
-  }
+  static func describe(labels: [String?]) -> String { labels.map({ "\($0 ?? "_"):" }).joined() }
 
 }
 
@@ -78,9 +76,7 @@ extension Name: CustomStringConvertible {
 
 extension Name: ExpressibleByStringLiteral {
 
-  public init(stringLiteral value: StringLiteralType) {
-    self.init(stem: value)
-  }
+  public init(stringLiteral value: StringLiteralType) { self.init(stem: value) }
 
 }
 

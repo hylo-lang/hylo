@@ -5,14 +5,10 @@ public struct MetatypeType: TypeProtocol {
   public let instance: AnyType
 
   /// Creates a type denoting the type of `instance`.
-  public init<T: TypeProtocol>(of instance: T) {
-    self.init(of: ^instance)
-  }
+  public init<T: TypeProtocol>(of instance: T) { self.init(of: ^instance) }
 
   /// Creates a type denoting the type of `instance`.
-  public init(of instance: AnyType) {
-    self.instance = instance
-  }
+  public init(of instance: AnyType) { self.instance = instance }
 
   public var flags: TypeFlags { instance.flags }
 
@@ -24,8 +20,6 @@ public struct MetatypeType: TypeProtocol {
 
 extension MetatypeType: CustomStringConvertible {
 
-  public var description: String {
-    "Metatype<\(instance)>"
-  }
+  public var description: String { "Metatype<\(instance)>" }
 
 }

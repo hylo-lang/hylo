@@ -52,9 +52,7 @@ struct DominatorTree {
     let children: [Node: [Node]] = immediateDominators.reduce(
       into: [:],
       { (children, kv) in
-        if case .present(let parent) = kv.value {
-          children[parent, default: []].append(kv.key)
-        }
+        if case .present(let parent) = kv.value { children[parent, default: []].append(kv.key) }
       })
 
     var result = [root]
@@ -68,11 +66,7 @@ struct DominatorTree {
 
   /// Returns the immediate dominator of `block`, if any.
   func immediateDominator(of block: Node) -> Node? {
-    if case .present(let b) = immediateDominators[block]! {
-      return b
-    } else {
-      return nil
-    }
+    if case .present(let b) = immediateDominators[block]! { return b } else { return nil }
   }
 
   /// Returns a collection containing the strict dominators of `block`.
@@ -107,9 +101,7 @@ struct DominatorTree {
     // If `definition` is in the same block as `use`, check which comes first.
     if definition.block == use.user.block {
       for i in module[definition.function][definition.block].instructions.indices {
-        if i.address == definition.address {
-          return true
-        }
+        if i.address == definition.address { return true }
       }
       return false
     }
@@ -180,9 +172,7 @@ struct DominatorTree {
       default:
         var dominator = root
         outer: while let candidate = chains[0].popLast() {
-          for i in 1..<chains.count {
-            if chains[i].popLast() != candidate { break outer }
-          }
+          for i in 1..<chains.count { if chains[i].popLast() != candidate { break outer } }
           dominator = candidate
         }
 

@@ -33,9 +33,7 @@ extension TypedProgram {
       type: type, storedPropertiesIndices: indicesAndTypes.indices,
       storedPropertiesTypes: indicesAndTypes.types)
 
-    for offset in path {
-      layout = abstractLayout(of: layout.storedPropertiesTypes[offset])
-    }
+    for offset in path { layout = abstractLayout(of: layout.storedPropertiesTypes[offset]) }
     return layout
   }
 
@@ -56,8 +54,7 @@ extension TypedProgram {
         }
       }
 
-    default:
-      break
+    default: break
     }
 
     return (indices, types)

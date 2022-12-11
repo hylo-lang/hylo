@@ -23,12 +23,9 @@ public struct TupleType: TypeProtocol, Hashable {
 
     var fs = TypeFlags(merging: self.elements.map({ $0.type.flags }))
     switch self.elements.count {
-    case 0:
-      fs.insert(.isCanonical)
-    case 1 where self.elements[0].label == nil:
-      fs.remove(.isCanonical)
-    default:
-      break
+    case 0: fs.insert(.isCanonical)
+    case 1 where self.elements[0].label == nil: fs.remove(.isCanonical)
+    default: break
     }
     flags = fs
   }
@@ -64,11 +61,7 @@ extension TupleType: CustomStringConvertible {
 extension TupleType.Element: CustomStringConvertible {
 
   public var description: String {
-    if let label = label {
-      return "\(label): \(type)"
-    } else {
-      return "\(type)"
-    }
+    if let label = label { return "\(label): \(type)" } else { return "\(type)" }
   }
 
 }

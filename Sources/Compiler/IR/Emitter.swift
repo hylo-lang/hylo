@@ -20,34 +20,25 @@ public struct Emitter {
   private var receiverDecl: NodeID<ParameterDecl>?
 
   /// Creates an emitter with a well-typed AST.
-  public init(program: TypedProgram) {
-    self.program = program
-  }
+  public init(program: TypedProgram) { self.program = program }
 
   // MARK: Declarations
 
   /// Emits the Val IR of the module identified by `decl`.
   public mutating func emit(module decl: NodeID<ModuleDecl>) -> Module {
     var module = Module(decl: decl, name: program.ast[decl].name)
-    for member in program.ast.topLevelDecls(decl) {
-      emit(topLevel: member, into: &module)
-    }
+    for member in program.ast.topLevelDecls(decl) { emit(topLevel: member, into: &module) }
     return module
   }
 
   /// Emits the given top-level declaration into `module`.
   public mutating func emit(topLevel decl: AnyDeclID, into module: inout Module) {
     switch decl.kind {
-    case FunctionDecl.self:
-      emit(function: NodeID(rawValue: decl.rawValue), into: &module)
-    case OperatorDecl.self:
-      break
-    case ProductTypeDecl.self:
-      emit(product: NodeID(rawValue: decl.rawValue), into: &module)
-    case TraitDecl.self:
-      break
-    default:
-      unreachable("unexpected declaration")
+    case FunctionDecl.self: emit(function: NodeID(rawValue: decl.rawValue), into: &module)
+    case OperatorDecl.self: break
+    case ProductTypeDecl.self: emit(product: NodeID(rawValue: decl.rawValue), into: &module)
+    case TraitDecl.self: break
+    default: unreachable("unexpected declaration")
     }
   }
 
@@ -126,19 +117,16 @@ public struct Emitter {
     for member in program.ast[decl].members {
       // Emit the member functions and subscripts of the type declaration.
       switch member.kind {
-      case FunctionDecl.self:
-        emit(function: NodeID(rawValue: member.rawValue), into: &module)
+      case FunctionDecl.self: emit(function: NodeID(rawValue: member.rawValue), into: &module)
 
       case InitializerDecl.self:
         let d = NodeID<InitializerDecl>(rawValue: member.rawValue)
         if program.ast[d].introducer.value == .memberwiseInit { continue }
         fatalError("not implemented")
 
-      case SubscriptDecl.self:
-        emit(subscript: NodeID(rawValue: member.rawValue), into: &module)
+      case SubscriptDecl.self: emit(subscript: NodeID(rawValue: member.rawValue), into: &module)
 
-      default:
-        continue
+      default: continue
       }
     }
   }
@@ -147,12 +135,9 @@ public struct Emitter {
     let pattern = program.ast[decl].pattern
 
     switch program.ast[pattern].introducer.value {
-    case .var, .sinklet:
-      emit(storedLocalBinding: decl, into: &module)
-    case .let:
-      emit(borrowedLocalBinding: decl, withCapability: .let, into: &module)
-    case .inout:
-      emit(borrowedLocalBinding: decl, withCapability: .inout, into: &module)
+    case .var, .sinklet: emit(storedLocalBinding: decl, into: &module)
+    case .let: emit(borrowedLocalBinding: decl, withCapability: .let, into: &module)
+    case .inout: emit(borrowedLocalBinding: decl, withCapability: .inout, into: &module)
     }
   }
 
@@ -197,9 +182,7 @@ public struct Emitter {
             DestructureInst(whole, as: layout.storedPropertiesTypes.map({ .object($0) })),
             at: insertionPoint!)
 
-          for j in 0..<parts.count {
-            objects[wholePath + [j]] = parts[j]
-          }
+          for j in 0..<parts.count { objects[wholePath + [j]] = parts[j] }
         }
 
         // Borrow the storage for initialization corresponding to the current name.
@@ -258,18 +241,12 @@ public struct Emitter {
   /// Emits the given statement into `module` at the current insertion point.
   private mutating func emit<T: StmtID>(stmt: T, into module: inout Module) {
     switch stmt.kind {
-    case AssignStmt.self:
-      emit(assign: NodeID(rawValue: stmt.rawValue), into: &module)
-    case BraceStmt.self:
-      emit(brace: NodeID(rawValue: stmt.rawValue), into: &module)
-    case DeclStmt.self:
-      emit(declStmt: NodeID(rawValue: stmt.rawValue), into: &module)
-    case ExprStmt.self:
-      emit(exprStmt: NodeID(rawValue: stmt.rawValue), into: &module)
-    case ReturnStmt.self:
-      emit(returnStmt: NodeID(rawValue: stmt.rawValue), into: &module)
-    default:
-      unreachable("unexpected statement")
+    case AssignStmt.self: emit(assign: NodeID(rawValue: stmt.rawValue), into: &module)
+    case BraceStmt.self: emit(brace: NodeID(rawValue: stmt.rawValue), into: &module)
+    case DeclStmt.self: emit(declStmt: NodeID(rawValue: stmt.rawValue), into: &module)
+    case ExprStmt.self: emit(exprStmt: NodeID(rawValue: stmt.rawValue), into: &module)
+    case ReturnStmt.self: emit(returnStmt: NodeID(rawValue: stmt.rawValue), into: &module)
+    default: unreachable("unexpected statement")
     }
   }
 
@@ -282,9 +259,7 @@ public struct Emitter {
 
   private mutating func emit(brace stmt: NodeID<BraceStmt>, into module: inout Module) {
     stack.push()
-    for s in program.ast[stmt].stmts {
-      emit(stmt: s, into: &module)
-    }
+    for s in program.ast[stmt].stmts { emit(stmt: s, into: &module) }
     emitStackDeallocs(in: &module)
     stack.pop()
   }
@@ -293,8 +268,7 @@ public struct Emitter {
     switch program.ast[stmt].decl.kind {
     case BindingDecl.self:
       emit(localBinding: NodeID(rawValue: program.ast[stmt].decl.rawValue), into: &module)
-    default:
-      unreachable("unexpected declaration")
+    default: unreachable("unexpected declaration")
     }
   }
 
@@ -329,18 +303,13 @@ public struct Emitter {
     switch expr.kind {
     case BooleanLiteralExpr.self:
       return emitR(booleanLiteral: NodeID(rawValue: expr.rawValue), into: &module)
-    case CondExpr.self:
-      return emitR(cond: NodeID(rawValue: expr.rawValue), into: &module)
-    case FunCallExpr.self:
-      return emitR(funCall: NodeID(rawValue: expr.rawValue), into: &module)
+    case CondExpr.self: return emitR(cond: NodeID(rawValue: expr.rawValue), into: &module)
+    case FunCallExpr.self: return emitR(funCall: NodeID(rawValue: expr.rawValue), into: &module)
     case IntegerLiteralExpr.self:
       return emitR(integerLiteral: NodeID(rawValue: expr.rawValue), into: &module)
-    case NameExpr.self:
-      return emitR(name: NodeID(rawValue: expr.rawValue), into: &module)
-    case SequenceExpr.self:
-      return emitR(sequence: NodeID(rawValue: expr.rawValue), into: &module)
-    default:
-      unreachable("unexpected expression")
+    case NameExpr.self: return emitR(name: NodeID(rawValue: expr.rawValue), into: &module)
+    case SequenceExpr.self: return emitR(sequence: NodeID(rawValue: expr.rawValue), into: &module)
+    default: unreachable("unexpected expression")
     }
   }
 
@@ -394,8 +363,7 @@ public struct Emitter {
           at: insertionPoint!)
         insertionPoint = InsertionPoint(endOf: success)
 
-      case .decl:
-        fatalError("not implemented")
+      case .decl: fatalError("not implemented")
       }
     }
 
@@ -416,8 +384,7 @@ public struct Emitter {
       emitStackDeallocs(in: &module)
       stack.pop()
 
-    case .block:
-      fatalError("not implemented")
+    case .block: fatalError("not implemented")
     }
     module.insert(BranchInst(target: continuation), at: insertionPoint!)
 
@@ -436,11 +403,9 @@ public struct Emitter {
       emitStackDeallocs(in: &module)
       stack.pop()
 
-    case .block:
-      fatalError("not implemented")
+    case .block: fatalError("not implemented")
 
-    case nil:
-      break
+    case nil: break
     }
     module.insert(BranchInst(target: continuation), at: insertionPoint!)
 
@@ -533,8 +498,7 @@ public struct Emitter {
             let receiver = emitL(expr: receiverID, withCapability: type.capability, into: &module)
             arguments.insert(receiver, at: 0)
 
-          case .implicit:
-            unreachable()
+          case .implicit: unreachable()
           }
         } else {
           // The receiver is consumed.
@@ -549,8 +513,7 @@ public struct Emitter {
           case .expr(let receiverID):
             arguments.insert(emitR(expr: receiverID, into: &module), at: 0)
 
-          case .implicit:
-            unreachable()
+          case .implicit: unreachable()
           }
         }
 
@@ -587,8 +550,7 @@ public struct Emitter {
     switch type.name.value {
     case "Int": bitWidth = 64
     case "Int32": bitWidth = 32
-    default:
-      unreachable("unexpected numeric type")
+    default: unreachable("unexpected numeric type")
     }
 
     // Convert the literal into a bit pattern.
@@ -618,16 +580,13 @@ public struct Emitter {
 
       fatalError("not implemented")
 
-    case .member:
-      fatalError("not implemented")
+    case .member: fatalError("not implemented")
     }
   }
 
   private mutating func emitR(sequence expr: NodeID<SequenceExpr>, into module: inout Module)
     -> Operand
-  {
-    emit(.sink, foldedSequence: program.foldedSequenceExprs[expr]!, into: &module)
-  }
+  { emit(.sink, foldedSequence: program.foldedSequenceExprs[expr]!, into: &module) }
 
   private mutating func emit(
     _ convention: PassingConvention, foldedSequence expr: FoldedSequenceExpr,
@@ -661,8 +620,7 @@ public struct Emitter {
               name: DeclLocator(identifying: calleeDecl, in: program).mangled,
               type: .address(calleeType))))
 
-      default:
-        unreachable()
+      default: unreachable()
       }
 
       // Emit the call.
@@ -674,16 +632,11 @@ public struct Emitter {
 
     case .leaf(let expr):
       switch convention {
-      case .let:
-        return emitL(expr: expr, withCapability: .let, into: &module)
-      case .inout:
-        return emitL(expr: expr, withCapability: .inout, into: &module)
-      case .set:
-        return emitL(expr: expr, withCapability: .set, into: &module)
-      case .sink:
-        return emitR(expr: expr, into: &module)
-      case .yielded:
-        fatalError("not implemented")
+      case .let: return emitL(expr: expr, withCapability: .let, into: &module)
+      case .inout: return emitL(expr: expr, withCapability: .inout, into: &module)
+      case .set: return emitL(expr: expr, withCapability: .set, into: &module)
+      case .sink: return emitR(expr: expr, into: &module)
+      case .yielded: fatalError("not implemented")
       }
     }
   }
@@ -692,16 +645,11 @@ public struct Emitter {
     argument expr: AnyExprID, to parameterType: ParameterType, into module: inout Module
   ) -> Operand {
     switch parameterType.convention {
-    case .let:
-      return emitL(expr: expr, withCapability: .let, into: &module)
-    case .inout:
-      return emitL(expr: expr, withCapability: .inout, into: &module)
-    case .set:
-      return emitL(expr: expr, withCapability: .set, into: &module)
-    case .sink:
-      return emitR(expr: expr, into: &module)
-    case .yielded:
-      fatalError("not implemented")
+    case .let: return emitL(expr: expr, withCapability: .let, into: &module)
+    case .inout: return emitL(expr: expr, withCapability: .inout, into: &module)
+    case .set: return emitL(expr: expr, withCapability: .set, into: &module)
+    case .sink: return emitR(expr: expr, into: &module)
+    case .yielded: fatalError("not implemented")
     }
   }
 
@@ -768,8 +716,7 @@ public struct Emitter {
             let receiver = emitL(expr: receiverID, withCapability: type.capability, into: &module)
             arguments.insert(receiver, at: 0)
 
-          case .implicit:
-            unreachable()
+          case .implicit: unreachable()
           }
         } else {
           // The receiver is consumed.
@@ -784,8 +731,7 @@ public struct Emitter {
           case .expr(let receiverID):
             arguments.insert(emitR(expr: receiverID, into: &module), at: 0)
 
-          case .implicit:
-            unreachable()
+          case .implicit: unreachable()
           }
         }
 
@@ -817,8 +763,7 @@ public struct Emitter {
     case NameExpr.self:
       return emitL(name: NodeID(rawValue: expr.rawValue), withCapability: capability, into: &module)
 
-    case SubscriptCallExpr.self:
-      fatalError("not implemented")
+    case SubscriptCallExpr.self: fatalError("not implemented")
 
     default:
       let exprType = program.exprTypes[expr]!
@@ -856,10 +801,8 @@ public struct Emitter {
       let receiver: Operand
 
       switch program.ast[expr].domain {
-      case .none:
-        receiver = stack[receiverDecl!]!
-      case .implicit:
-        fatalError("not implemented")
+      case .none: receiver = stack[receiverDecl!]!
+      case .implicit: fatalError("not implemented")
       case .expr(let receiverID):
         receiver = emitL(expr: receiverID, withCapability: capability, into: &module)
       }
@@ -886,8 +829,7 @@ public struct Emitter {
           return module.insert(member, at: insertionPoint!)[0]
         }
 
-      default:
-        fatalError("not implemented")
+      default: fatalError("not implemented")
       }
     }
 
@@ -925,31 +867,21 @@ extension Emitter {
 
     /// Accesses the top frame, assuming the stack is not empty.
     var top: Frame {
-      get {
-        frames[frames.count - 1]
-      }
-      _modify {
-        yield &frames[frames.count - 1]
-      }
+      get { frames[frames.count - 1] }
+      _modify { yield &frames[frames.count - 1] }
     }
 
     /// Accesses the operand assigned `decl`, assuming the stack is not empty.
     subscript<T: DeclID>(decl: T) -> Operand? {
       get {
-        for frame in frames.reversed() {
-          if let operand = frame.locals[decl] { return operand }
-        }
+        for frame in frames.reversed() { if let operand = frame.locals[decl] { return operand } }
         return nil
       }
-      set {
-        top.locals[decl] = newValue
-      }
+      set { top.locals[decl] = newValue }
     }
 
     /// Pushes a new frame.
-    mutating func push(_ newFrame: Frame = Frame()) {
-      frames.append(newFrame)
-    }
+    mutating func push(_ newFrame: Frame = Frame()) { frames.append(newFrame) }
 
     /// Pops a frame, assuming the stack is not empty.
     mutating func pop() {

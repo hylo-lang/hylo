@@ -6,9 +6,7 @@ public struct Incidental<T>: Hashable {
   public var value: T
 
   /// Creates a new wrapper around `value`.
-  public init(_ value: T) {
-    self.value = value
-  }
+  public init(_ value: T) { self.value = value }
 
   public func hash(into hasher: inout Hasher) {}
 

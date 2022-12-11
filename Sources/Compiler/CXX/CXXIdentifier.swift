@@ -4,16 +4,12 @@ public struct CXXIdentifier: CustomStringConvertible {
   /// The value of the identifier.
   public let description: String
 
-  public init(_ identifier: String) {
-    description = CXXIdentifier.sanitize(identifier)
-  }
+  public init(_ identifier: String) { description = CXXIdentifier.sanitize(identifier) }
 
   /// Sanitizes `identifier` and returns a valid C++ identifier.
   public static func sanitize(_ identifier: String) -> String {
     // Append an underscore to reserved identifiers.
-    reserved.contains(identifier)
-      ? identifier + "_"
-      : identifier
+    reserved.contains(identifier) ? identifier + "_" : identifier
   }
 
   /// The set of reserved keywords in C++.

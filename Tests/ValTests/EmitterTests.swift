@@ -73,10 +73,8 @@ final class EmitterTests: XCTestCase {
             XCTAssert(!success, "\(tc.name): lowering succeeded, but expected failure")
           case "expect-success":
             XCTAssert(success, "\(tc.name): lowering failed, but expected success")
-          case "diagnostic":
-            diagnosticChecker.handle(annotation)
-          default:
-            XCTFail("\(tc.name): unexpected test command: '\(annotation.command)'")
+          case "diagnostic": diagnosticChecker.handle(annotation)
+          default: XCTFail("\(tc.name): unexpected test command: '\(annotation.command)'")
           }
         }
       })

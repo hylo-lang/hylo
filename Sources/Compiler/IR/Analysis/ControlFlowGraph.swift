@@ -28,9 +28,7 @@ struct ControlFlowGraph {
   fileprivate var relation: DirectedGraph<Vertex, Label>
 
   /// Creates an empty control flow graph.
-  init() {
-    relation = DirectedGraph()
-  }
+  init() { relation = DirectedGraph() }
 
   /// Defines `source` as a predecessor of `target`.
   mutating func define(_ source: Vertex, predecessorOf target: Vertex) {
@@ -52,23 +50,18 @@ struct ControlFlowGraph {
     case .bidirectional:
       relation[from: source, to: target] = .backward
       relation[from: target, to: source] = .forward
-    default:
-      break
+    default: break
     }
   }
 
   /// Returns the successors of `source`.
   func successors(of source: Vertex) -> [Vertex] {
-    relation[from: source].compactMap({ tip in
-      tip.value != .backward ? tip.key : nil
-    })
+    relation[from: source].compactMap({ tip in tip.value != .backward ? tip.key : nil })
   }
 
   /// Returns the predecessors of `target`.
   func predecessors(of target: Vertex) -> [Vertex] {
-    relation[from: target].compactMap({ tip in
-      tip.value != .forward ? tip.key : nil
-    })
+    relation[from: target].compactMap({ tip in tip.value != .forward ? tip.key : nil })
   }
 
 }

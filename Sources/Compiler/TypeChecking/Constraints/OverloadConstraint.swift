@@ -57,17 +57,14 @@ struct OverloadConstraint: Constraint, Hashable {
         reference: choices[i].reference, type: newType,
         constraints: choices[i].constraints.reduce(
           into: [],
-          { (cs, c) in
-            var newConstraint = c
+          { (cs, c) in var newConstraint = c
             newConstraint.modifyTypes(modify)
             cs.insert(newConstraint)
           }), penalties: choices[i].penalties)
     }
   }
 
-  func depends(on variable: TypeVariable) -> Bool {
-    overloadedExprType == variable
-  }
+  func depends(on variable: TypeVariable) -> Bool { overloadedExprType == variable }
 
 }
 

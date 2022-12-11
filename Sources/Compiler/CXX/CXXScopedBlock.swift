@@ -5,9 +5,7 @@ struct CXXScopedBlock: CXXRepresentable {
 
   func writeCode<Target: TextOutputStream>(into target: inout Target) {
     target.write("{\n")
-    for stmt in stmts {
-      stmt.writeCode(into: &target)
-    }
+    for stmt in stmts { stmt.writeCode(into: &target) }
     target.write("}\n")
   }
 

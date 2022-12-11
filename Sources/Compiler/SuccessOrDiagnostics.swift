@@ -9,11 +9,7 @@ public enum SuccessOrDiagnostics {
 
   /// The diagnostics in the payload of `.failure`. Otherwise, an empty array.
   public var diagnostics: [Diagnostic] {
-    if case .failure(let ds) = self {
-      return ds
-    } else {
-      return []
-    }
+    if case .failure(let ds) = self { return ds } else { return [] }
   }
 
 }

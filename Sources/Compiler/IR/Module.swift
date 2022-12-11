@@ -35,25 +35,20 @@ public struct Module {
     case .parameter(let block, let index):
       return functions[block.function][block.address].inputs[index]
 
-    case .constant(let constant):
-      return constant.type
+    case .constant(let constant): return constant.type
     }
   }
 
   /// Returns whether the module is well-formed.
   public func check() -> Bool {
-    for i in 0..<functions.count {
-      if !check(function: i) { return false }
-    }
+    for i in 0..<functions.count { if !check(function: i) { return false } }
     return true
   }
 
   /// Returns whether the specified function is well-formed.
   public func check(function functionID: Function.ID) -> Bool {
     for block in functions[functionID].blocks {
-      for inst in block.instructions {
-        if !inst.check(in: self) { return false }
-      }
+      for inst in block.instructions { if !inst.check(in: self) { return false } }
     }
     return true
   }
@@ -83,12 +78,9 @@ public struct Module {
 
         case let type:
           switch declType.receiverEffect {
-          case nil:
-            inputs.append((convention: .let, type: .address(type)))
-          case .inout:
-            inputs.append((convention: .inout, type: .address(type)))
-          case .sink:
-            inputs.append((convention: .sink, type: .object(type)))
+          case nil: inputs.append((convention: .let, type: .address(type)))
+          case .inout: inputs.append((convention: .inout, type: .address(type)))
+          case .sink: inputs.append((convention: .sink, type: .object(type)))
           }
         }
       }
@@ -99,11 +91,9 @@ public struct Module {
         inputs.append(parameterType.asIRFunctionInput())
       }
 
-    case is MethodType:
-      fatalError("not implemented")
+    case is MethodType: fatalError("not implemented")
 
-    default:
-      unreachable()
+    default: unreachable()
     }
 
     // Declare a new function in the module.
@@ -129,8 +119,7 @@ public struct Module {
   }
 
   /// Creates a basic block at the end of the specified function and returns its identifier.
-  @discardableResult
-  mutating func createBasicBlock(
+  @discardableResult mutating func createBasicBlock(
     accepting inputs: [LoweredType] = [], atEndOf function: Function.ID
   ) -> Block.ID {
     let address = functions[function].blocks.append(Block(inputs: inputs))
@@ -138,13 +127,11 @@ public struct Module {
   }
 
   /// Inserts `inst` at the specified insertion point.
-  @discardableResult
-  mutating func insert<I: Inst>(_ inst: I, at ip: InsertionPoint) -> [Operand] {
+  @discardableResult mutating func insert<I: Inst>(_ inst: I, at ip: InsertionPoint) -> [Operand] {
     // Inserts the instruction.
     let address: Block.InstAddress
     switch ip.position {
-    case .end:
-      address = functions[ip.block.function][ip.block.address].instructions.append(inst)
+    case .end: address = functions[ip.block.function][ip.block.address].instructions.append(inst)
     case .after(let i):
       address = functions[ip.block.function][ip.block.address].instructions.insert(inst, after: i)
     case .before(let i):
@@ -180,12 +167,9 @@ extension ParameterType {
   /// Returns `self` as an input to an IR function.
   func asIRFunctionInput() -> Function.Input {
     switch convention {
-    case .let, .inout, .set:
-      return (convention: convention, type: .address(bareType))
-    case .sink:
-      return (convention: convention, type: .object(bareType))
-    case .yielded:
-      preconditionFailure("cannot lower yielded parameter")
+    case .let, .inout, .set: return (convention: convention, type: .address(bareType))
+    case .sink: return (convention: convention, type: .object(bareType))
+    case .yielded: preconditionFailure("cannot lower yielded parameter")
     }
   }
 

@@ -14,10 +14,7 @@ struct DiagnosticChecker {
   init<S: Sequence>(testCaseName: String, diagnostics: S) where S.Element == Diagnostic {
     self.testCaseName = testCaseName
     self.emittedDiagnostics = diagnostics.reduce(
-      into: [:],
-      { (ds, d) in
-        ds[d.location.map(LineLocation.init), default: []].append(d)
-      })
+      into: [:], { (ds, d) in ds[d.location.map(LineLocation.init), default: []].append(d) })
   }
 
   /// Handles a `diagnositc` test annotation.

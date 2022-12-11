@@ -5,14 +5,10 @@ public struct SourceRange: Hashable {
   public let source: SourceFile
 
   /// The start index of the range.
-  public var lowerBound: String.Index {
-    didSet { precondition(lowerBound <= upperBound) }
-  }
+  public var lowerBound: String.Index { didSet { precondition(lowerBound <= upperBound) } }
 
   /// The end index of the range.
-  public var upperBound: String.Index {
-    didSet { precondition(lowerBound <= upperBound) }
-  }
+  public var upperBound: String.Index { didSet { precondition(lowerBound <= upperBound) } }
 
   /// Creates a range in `source` from `lowerBound` to `upperBound`.
   ///
@@ -25,15 +21,12 @@ public struct SourceRange: Hashable {
   }
 
   /// Returns the first source location in this range.
-  public func first() -> SourceLocation {
-    SourceLocation(source: source, index: lowerBound)
-  }
+  public func first() -> SourceLocation { SourceLocation(source: source, index: lowerBound) }
 
   /// Returns the last source location in this range, unless the range is empty.
   public func last() -> SourceLocation? {
     lowerBound < upperBound
-      ? SourceLocation(source: source, index: source.contents.index(before: upperBound))
-      : nil
+      ? SourceLocation(source: source, index: source.contents.index(before: upperBound)) : nil
   }
 
   /// Returns a copy of `self` with the upper bound set to `newUpperBound`.

@@ -24,9 +24,7 @@ public struct BoundGenericType: TypeProtocol {
 
   /// Creates a bound generic type binding `base` to the given `arguments`.
   public init<T: TypeProtocol, S: Sequence>(_ instance: T, arguments: S)
-  where S.Element == Argument {
-    self.init(^instance, arguments: arguments)
-  }
+  where S.Element == Argument { self.init(^instance, arguments: arguments) }
 
   /// Creates a bound generic type binding `base` to the given `arguments`.
   public init<S: Sequence>(_ base: AnyType, arguments: S) where S.Element == Argument {
@@ -37,10 +35,8 @@ public struct BoundGenericType: TypeProtocol {
     for a in arguments {
       args.append(a)
       switch a {
-      case .type(let t):
-        flags.merge(t.flags)
-      case .value:
-        fatalError("not implemented")
+      case .type(let t): flags.merge(t.flags)
+      case .value: fatalError("not implemented")
       }
     }
 
@@ -76,10 +72,8 @@ extension BoundGenericType.Argument: CustomStringConvertible {
 
   public var description: String {
     switch self {
-    case .type(let a):
-      return String(describing: a)
-    case .value(let a):
-      return String(describing: a)
+    case .type(let a): return String(describing: a)
+    case .value(let a): return String(describing: a)
     }
   }
 

@@ -41,9 +41,7 @@ struct ConstraintSolver {
   }
 
   /// Applies `self` to solve its constraints using `checker` to resolve names and realize types.
-  mutating func apply(using checker: inout TypeChecker) -> Solution {
-    solve(using: &checker)!
-  }
+  mutating func apply(using checker: inout TypeChecker) -> Solution { solve(using: &checker)! }
 
   /// Solves the constraints and returns the best solution, or `nil` if a better solution has
   /// already been computed.
@@ -53,24 +51,15 @@ struct ConstraintSolver {
       if score > best { return nil }
 
       switch constraint {
-      case let c as ConformanceConstraint:
-        solve(conformance: c, using: &checker)
-      case let c as EqualityConstraint:
-        solve(equality: c)
-      case let c as SubtypingConstraint:
-        solve(subtyping: c)
-      case let c as ParameterConstraint:
-        solve(parameter: c)
-      case let c as BoundMemberConstraint:
-        solve(boundMember: c, using: &checker)
-      case let c as UnboundMemberConstraint:
-        solve(unboundMember: c, using: &checker)
-      case let c as DisjunctionConstraint:
-        return solve(disjunction: c, using: &checker)
-      case let c as OverloadConstraint:
-        return solve(overload: c, using: &checker)
-      default:
-        unreachable()
+      case let c as ConformanceConstraint: solve(conformance: c, using: &checker)
+      case let c as EqualityConstraint: solve(equality: c)
+      case let c as SubtypingConstraint: solve(subtyping: c)
+      case let c as ParameterConstraint: solve(parameter: c)
+      case let c as BoundMemberConstraint: solve(boundMember: c, using: &checker)
+      case let c as UnboundMemberConstraint: solve(unboundMember: c, using: &checker)
+      case let c as DisjunctionConstraint: return solve(disjunction: c, using: &checker)
+      case let c as OverloadConstraint: return solve(overload: c, using: &checker)
+      default: unreachable()
       }
     }
 
@@ -100,8 +89,7 @@ struct ConstraintSolver {
         }
       }
 
-    default:
-      fatalError("not implemented")
+    default: fatalError("not implemented")
     }
   }
 
@@ -132,8 +120,7 @@ struct ConstraintSolver {
           .diagnose(labels: found, incompatibleWith: expected, at: constraint.cause.origin))
         return
 
-      case .compatible:
-        break
+      case .compatible: break
       }
 
       // Break down the constraint.
@@ -152,8 +139,7 @@ struct ConstraintSolver {
           .diagnose(labels: found, incompatibleWith: expected, at: constraint.cause.origin))
         return
 
-      case .compatible:
-        break
+      case .compatible: break
       }
 
       // Break down the constraint.
@@ -247,14 +233,11 @@ struct ConstraintSolver {
       if r == .any { return }
       fatalError("not implemented")
 
-    case (_, _ as LambdaType):
-      fatalError("not implemented")
+    case (_, _ as LambdaType): fatalError("not implemented")
 
-    case (_, _ as UnionType):
-      fatalError("not implemented")
+    case (_, _ as UnionType): fatalError("not implemented")
 
-    default:
-      diagnostics.append(.diagnose(type: l, isNotSubtypeOf: r, at: constraint.cause.origin))
+    default: diagnostics.append(.diagnose(type: l, isNotSubtypeOf: r, at: constraint.cause.origin))
     }
   }
 
@@ -276,8 +259,7 @@ struct ConstraintSolver {
       // arguments passed mutably is verified after type inference.
       schedule(equalityOrSubtypingConstraint(l, p.bareType, because: constraint.cause))
 
-    default:
-      diagnostics.append(.diagnose(invalidParameterType: r, at: constraint.cause.origin))
+    default: diagnostics.append(.diagnose(invalidParameterType: r, at: constraint.cause.origin))
     }
   }
 
@@ -300,9 +282,7 @@ struct ConstraintSolver {
 
     // Search for non-static members with the specified name.
     let allMatches = checker.lookup(constraint.member.stem, memberOf: l, inScope: scope)
-    let nonStaticMatches = allMatches.filter({ decl in
-      checker.program.isNonStaticMember(decl)
-    })
+    let nonStaticMatches = allMatches.filter({ decl in checker.program.isNonStaticMember(decl) })
 
     // Catch uses of static members on instances.
     if nonStaticMatches.isEmpty && !allMatches.isEmpty {
@@ -335,9 +315,7 @@ struct ConstraintSolver {
     // If there's only one candidate, solve an equality constraint direcly.
     if candidates.count == 1 {
       solve(equality: .init(candidates[0].type, r, because: constraint.cause))
-      if let name = constraint.memberExpr {
-        bindingAssumptions[name] = candidates[0].reference
-      }
+      if let name = constraint.memberExpr { bindingAssumptions[name] = candidates[0].reference }
       return
     }
 
@@ -400,9 +378,7 @@ struct ConstraintSolver {
     // If there's only one candidate, solve an equality constraint direcly.
     if candidates.count == 1 {
       solve(equality: .init(candidates[0].type, r, because: constraint.cause))
-      if let name = constraint.memberExpr {
-        bindingAssumptions[name] = .direct(candidates[0].decl)
-      }
+      if let name = constraint.memberExpr { bindingAssumptions[name] = .direct(candidates[0].decl) }
     }
 
     // TODO: Create an overload constraint
@@ -458,8 +434,7 @@ struct ConstraintSolver {
   private mutating func explore<C: Collection>(
     _ choices: C, cause: ConstraintCause?, using checker: inout TypeChecker,
     insertingConstraintsWith insertConstraints: (inout ConstraintSolver, C.Element) -> Void
-  ) -> (choice: C.Element, solution: Solution)?
-  where C.Element: Choice {
+  ) -> (choice: C.Element, solution: Solution)? where C.Element: Choice {
     /// The results of the exploration.
     var results: [(choice: C.Element, solution: Solution)] = []
 
@@ -467,9 +442,7 @@ struct ConstraintSolver {
       // Don't bother if there's no chance to find a better solution.
       var underestimatedChoiceScore = score
       underestimatedChoiceScore.penalties += choice.penalties
-      if underestimatedChoiceScore > best {
-        continue
-      }
+      if underestimatedChoiceScore > best { continue }
 
       // Explore the result of this choice.
       var subsolver = self
@@ -487,11 +460,9 @@ struct ConstraintSolver {
     }
 
     switch results.count {
-    case 0:
-      return nil
+    case 0: return nil
 
-    case 1:
-      return results[0]
+    case 1: return results[0]
 
     default:
       // TODO: Merge remaining solutions
@@ -501,22 +472,16 @@ struct ConstraintSolver {
   }
 
   /// Schedules `constraint` to be solved.
-  private mutating func schedule(_ constraint: Constraint) {
-    fresh.append(constraint)
-  }
+  private mutating func schedule(_ constraint: Constraint) { fresh.append(constraint) }
 
   /// Schedules `constraint` to be solved once the solver has inferred more information about its
   /// type variables.
-  private mutating func postpone(_ constraint: Constraint) {
-    stale.append(constraint)
-  }
+  private mutating func postpone(_ constraint: Constraint) { stale.append(constraint) }
 
   /// Moves the stale constraints depending on the specified variables back to the fresh set.
   private mutating func refresh(constraintsDependingOn variable: TypeVariable) {
     for i in (0..<stale.count).reversed() {
-      if stale[i].depends(on: variable) {
-        fresh.append(stale.remove(at: i))
-      }
+      if stale[i].depends(on: variable) { fresh.append(stale.remove(at: i)) }
     }
   }
 
@@ -527,9 +492,7 @@ struct ConstraintSolver {
       typeAssumptions: typeAssumptions.asDictionary(), bindingAssumptions: bindingAssumptions,
       penalties: penalties, diagnostics: diagnostics)
 
-    for c in stale {
-      s.addDiagnostic(.diagnose(staleConstraint: c))
-    }
+    for c in stale { s.addDiagnostic(.diagnose(staleConstraint: c)) }
 
     return s
   }
@@ -563,9 +526,7 @@ extension LabeledCollection {
   func testLabelCompatibility<T: LabeledCollection>(with other: T) -> LabelCompatibility {
     let (ls, rs) = (self.labels, other.labels)
 
-    if ls.count != rs.count {
-      return .differentLengths
-    }
+    if ls.count != rs.count { return .differentLengths }
     for (l, r) in zip(ls, rs) {
       if l != r { return .differentLabels(found: Array(ls), expected: Array(rs)) }
     }
