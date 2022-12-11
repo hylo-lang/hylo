@@ -149,8 +149,7 @@ public struct DefiniteInitializationPass: TransformPass {
                 for path in difference {
                   let objectType = program.abstractLayout(of: rootType, at: path).type
                   let object = module.insert(
-                    LoadInst(.object(objectType), from: operand, at: path),
-                    at: beforeTerminator)[0]
+                    LoadInst(.object(objectType), from: operand, at: path), at: beforeTerminator)[0]
                   module.insert(DeinitInst(object), at: beforeTerminator)
                 }
                 didChange = true
@@ -315,9 +314,9 @@ public struct DefiniteInitializationPass: TransformPass {
     return true
   }
 
-  private mutating func eval(
-    allocStack inst: AllocStackInst, id: InstID, module: inout Module
-  ) -> Bool {
+  private mutating func eval(allocStack inst: AllocStackInst, id: InstID, module: inout Module)
+    -> Bool
+  {
     // Create an abstract location denoting the newly allocated memory.
     let location = MemoryLocation.inst(block: id.block, address: id.address)
     if currentContext.memory[location] != nil {
@@ -332,9 +331,7 @@ public struct DefiniteInitializationPass: TransformPass {
     return true
   }
 
-  private mutating func eval(
-    borrow inst: BorrowInst, id: InstID, module: inout Module
-  ) -> Bool {
+  private mutating func eval(borrow inst: BorrowInst, id: InstID, module: inout Module) -> Bool {
     // Operand must a location.
     let locations: [MemoryLocation]
     if let key = FunctionLocal(operand: inst.location) {
@@ -415,9 +412,9 @@ public struct DefiniteInitializationPass: TransformPass {
     return true
   }
 
-  private mutating func eval(
-    condBranch inst: CondBranchInst, id: InstID, module: inout Module
-  ) -> Bool {
+  private mutating func eval(condBranch inst: CondBranchInst, id: InstID, module: inout Module)
+    -> Bool
+  {
     // Consume the condition operand.
     let key = FunctionLocal(operand: inst.condition)!
     return consume(
@@ -427,9 +424,7 @@ public struct DefiniteInitializationPass: TransformPass {
       })
   }
 
-  private mutating func eval(
-    call inst: CallInst, id: InstID, module: inout Module
-  ) -> Bool {
+  private mutating func eval(call inst: CallInst, id: InstID, module: inout Module) -> Bool {
     // Process the operands.
     for i in 0..<inst.operands.count {
       switch inst.conventions[i] {
@@ -460,9 +455,9 @@ public struct DefiniteInitializationPass: TransformPass {
     return true
   }
 
-  private mutating func eval(
-    deallocStack inst: DeallocStackInst, id: InstID, module: inout Module
-  ) -> Bool {
+  private mutating func eval(deallocStack inst: DeallocStackInst, id: InstID, module: inout Module)
+    -> Bool
+  {
     // The location operand is the result an `alloc_stack` instruction.
     let allocID = inst.location.inst!
     let alloc = module[allocID.function][allocID.block][allocID.address] as! AllocStackInst
@@ -492,16 +487,12 @@ public struct DefiniteInitializationPass: TransformPass {
       let object = module.insert(
         LoadInst(
           .object(program.abstractLayout(of: alloc.allocatedType, at: path).type),
-          from: inst.location,
-          at: path,
-          range: inst.range),
-        at: beforeDealloc)[0]
+          from: inst.location, at: path, range: inst.range), at: beforeDealloc)[0]
       module.insert(DeinitInst(object, range: inst.range), at: beforeDealloc)
 
       // Apply the effect of the inserted instructions on the context directly.
       let consumer = InstID(
-        function: id.function,
-        block: id.block,
+        function: id.function, block: id.block,
         address: module[id.function][id.block].instructions.address(before: id.address)!)
       currentContext.locals[FunctionLocal(id, 0)] = .object(.full(.consumed(by: [consumer])))
     }
@@ -511,9 +502,7 @@ public struct DefiniteInitializationPass: TransformPass {
     return true
   }
 
-  private mutating func eval(
-    deinit inst: DeinitInst, id: InstID, module: inout Module
-  ) -> Bool {
+  private mutating func eval(deinit inst: DeinitInst, id: InstID, module: inout Module) -> Bool {
     // Consume the object operand.
     let key = FunctionLocal(operand: inst.object)!
     return consume(
@@ -523,9 +512,9 @@ public struct DefiniteInitializationPass: TransformPass {
       })
   }
 
-  private mutating func eval(
-    destructure inst: DestructureInst, id: InstID, module: inout Module
-  ) -> Bool {
+  private mutating func eval(destructure inst: DestructureInst, id: InstID, module: inout Module)
+    -> Bool
+  {
     // Consume the object operand.
     if let key = FunctionLocal(operand: inst.object) {
       if !consume(
@@ -545,9 +534,7 @@ public struct DefiniteInitializationPass: TransformPass {
     return true
   }
 
-  private mutating func eval(
-    load inst: LoadInst, id: InstID, module: inout Module
-  ) -> Bool {
+  private mutating func eval(load inst: LoadInst, id: InstID, module: inout Module) -> Bool {
     // Operand must be a location.
     let locations: [MemoryLocation]
     if let key = FunctionLocal(operand: inst.source) {
@@ -587,9 +574,7 @@ public struct DefiniteInitializationPass: TransformPass {
     return true
   }
 
-  private mutating func eval(
-    record inst: RecordInst, id: InstID, module: inout Module
-  ) -> Bool {
+  private mutating func eval(record inst: RecordInst, id: InstID, module: inout Module) -> Bool {
     // Consumes the non-constant operand.
     for operand in inst.operands {
       if let key = FunctionLocal(operand: operand) {
@@ -609,9 +594,7 @@ public struct DefiniteInitializationPass: TransformPass {
     return true
   }
 
-  private mutating func eval(
-    return inst: ReturnInst, id: InstID, module: inout Module
-  ) -> Bool {
+  private mutating func eval(return inst: ReturnInst, id: InstID, module: inout Module) -> Bool {
     // Consume the object operand.
     if let key = FunctionLocal(operand: inst.value) {
       if !consume(
@@ -627,9 +610,7 @@ public struct DefiniteInitializationPass: TransformPass {
     return true
   }
 
-  private mutating func eval(
-    store inst: StoreInst, id: InstID, module: inout Module
-  ) -> Bool {
+  private mutating func eval(store inst: StoreInst, id: InstID, module: inout Module) -> Bool {
     // Consume the object operand.
     if let key = FunctionLocal(operand: inst.object) {
       if !consume(
@@ -659,9 +640,9 @@ public struct DefiniteInitializationPass: TransformPass {
   }
 
   /// Returns the result of a call to `action` with a projection of the object at `location`.
-  private mutating func withObject<T>(
-    at location: MemoryLocation, _ action: (inout Object) -> T
-  ) -> T {
+  private mutating func withObject<T>(at location: MemoryLocation, _ action: (inout Object) -> T)
+    -> T
+  {
     switch location {
     case .null:
       preconditionFailure("null location")
@@ -703,8 +684,7 @@ public struct DefiniteInitializationPass: TransformPass {
   /// The method returns `true` if it succeeded. Otherwise, it or calls `handleFailure` with a
   /// with a projection of `self` and the state summary of the object before returning `false`.
   private mutating func consume(
-    localForKey key: FunctionLocal,
-    with consumer: InstID,
+    localForKey key: FunctionLocal, with consumer: InstID,
     or handleFailure: (inout Self, Object.StateSummary) -> Void
   ) -> Bool {
     let summary = currentContext.locals[key]!.unwrapObject()!.summary

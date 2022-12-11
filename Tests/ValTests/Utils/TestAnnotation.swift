@@ -151,8 +151,7 @@ struct TestAnnotation {
           if let start = indexAfterAnnotationBlockOpener {
             annotations.append(
               TestAnnotation(
-                at: LineLocation(url: source.url, line: line),
-                parsing: stream[start..<index]))
+                at: LineLocation(url: source.url, line: line), parsing: stream[start..<index]))
             indexAfterAnnotationBlockOpener = nil
           }
 
@@ -185,8 +184,7 @@ struct TestAnnotation {
         if let start = start {
           annotations.append(
             TestAnnotation(
-              at: LineLocation(url: source.url, line: line),
-              parsing: stream[start..<index]))
+              at: LineLocation(url: source.url, line: line), parsing: stream[start..<index]))
         }
 
         continue

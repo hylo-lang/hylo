@@ -10,11 +10,7 @@ struct ConformanceConstraint: Constraint, Hashable {
   var cause: ConstraintCause
 
   /// Creates an instance with the given properties.
-  init(
-    _ subject: AnyType,
-    traits: Set<TraitType>,
-    because cause: ConstraintCause
-  ) {
+  init(_ subject: AnyType, traits: Set<TraitType>, because cause: ConstraintCause) {
     self.subject = subject
     self.traits = traits
     self.cause = cause

@@ -24,10 +24,8 @@ public struct MethodImplDecl: Decl, LexicalScope {
 
   /// Creates an instance with the given properties and no `receiver`.
   public init(
-    introducer: SourceRepresentable<ImplIntroducer>,
-    receiver: NodeID<ParameterDecl>,
-    body: Body? = nil,
-    origin: SourceRange?
+    introducer: SourceRepresentable<ImplIntroducer>, receiver: NodeID<ParameterDecl>,
+    body: Body? = nil, origin: SourceRange?
   ) {
     self.origin = origin
     self.introducer = introducer

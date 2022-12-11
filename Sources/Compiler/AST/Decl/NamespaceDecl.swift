@@ -17,11 +17,8 @@ public struct NamespaceDecl: SingleEntityDecl, LexicalScope {
 
   /// Creates an instance with the given properties.
   public init(
-    introducerRange: SourceRange?,
-    accessModifier: SourceRepresentable<AccessModifier>?,
-    identifier: SourceRepresentable<Identifier>,
-    members: [AnyDeclID],
-    origin: SourceRange?
+    introducerRange: SourceRange?, accessModifier: SourceRepresentable<AccessModifier>?,
+    identifier: SourceRepresentable<Identifier>, members: [AnyDeclID], origin: SourceRange?
   ) {
     self.origin = origin
     self.introducerRange = introducerRange

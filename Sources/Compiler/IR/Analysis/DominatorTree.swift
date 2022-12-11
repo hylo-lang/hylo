@@ -119,9 +119,7 @@ struct DominatorTree {
   }
 
   private mutating func findImmediateDominator(
-    _ node: Node,
-    cfg: ControlFlowGraph,
-    blocks: DoublyLinkedList<Block>
+    _ node: Node, cfg: ControlFlowGraph, blocks: DoublyLinkedList<Block>
   ) -> Dominator {
     // Check the cache.
     if let dominator = immediateDominators[node] { return dominator }

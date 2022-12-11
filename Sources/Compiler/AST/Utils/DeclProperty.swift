@@ -16,10 +16,7 @@ public struct DeclProperty<Value> {
   }
 
   /// Accesses the property associated with the specified ID.
-  public subscript<T: DeclID>(
-    id: T,
-    default defaultValue: @autoclosure () -> Value
-  ) -> Value {
+  public subscript<T: DeclID>(id: T, default defaultValue: @autoclosure () -> Value) -> Value {
     _read {
       yield storage[AnyDeclID(id), default: defaultValue()]
     }

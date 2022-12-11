@@ -27,8 +27,7 @@ extension UnicodeScalarLiteralExpr: Codable {
     } else {
       throw DecodingError.dataCorrupted(
         DecodingError.Context(
-          codingPath: decoder.codingPath,
-          debugDescription: "Invalid Unicode scalar value"))
+          codingPath: decoder.codingPath, debugDescription: "Invalid Unicode scalar value"))
     }
   }
 

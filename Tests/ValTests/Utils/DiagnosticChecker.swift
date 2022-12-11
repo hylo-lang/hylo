@@ -22,9 +22,7 @@ struct DiagnosticChecker {
 
   /// Handles a `diagnositc` test annotation.
   mutating func handle(
-    _ annotation: TestAnnotation,
-    file: StaticString = #filePath,
-    line: UInt = #line
+    _ annotation: TestAnnotation, file: StaticString = #filePath, line: UInt = #line
   ) {
     assert(annotation.command == "diagnostic")
 
@@ -32,8 +30,7 @@ struct DiagnosticChecker {
     var report = emittedDiagnostics[annotation.location, default: []]
     guard let i = report.firstIndex(where: { $0.message == annotation.argument }) else {
       XCTFail(
-        "\(testCaseName): missing expected diagnostic at \(annotation.location)",
-        file: file,
+        "\(testCaseName): missing expected diagnostic at \(annotation.location)", file: file,
         line: line)
       return
     }
@@ -47,8 +44,7 @@ struct DiagnosticChecker {
   func finalize(file: StaticString = #filePath, line: UInt = #line) {
     XCTAssert(
       emittedDiagnostics.isEmpty,
-      "\(testCaseName): \(emittedDiagnostics.count) unexpected diagnostic(s)",
-      file: file,
+      "\(testCaseName): \(emittedDiagnostics.count) unexpected diagnostic(s)", file: file,
       line: line)
   }
 

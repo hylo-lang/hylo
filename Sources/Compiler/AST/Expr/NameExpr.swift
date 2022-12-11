@@ -26,9 +26,7 @@ public struct NameExpr: Expr {
   public let arguments: [LabeledArgument]
 
   public init(
-    domain: Domain = .none,
-    name: SourceRepresentable<Name>,
-    arguments: [LabeledArgument] = [],
+    domain: Domain = .none, name: SourceRepresentable<Name>, arguments: [LabeledArgument] = [],
     origin: SourceRange?
   ) {
     self.origin = origin

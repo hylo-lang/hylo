@@ -48,10 +48,7 @@ public struct Diagnostic: Hashable {
 
   /// Creates a new diagnostic.
   public init(
-    level: Level,
-    message: String,
-    location: SourceLocation? = nil,
-    window: Window? = nil,
+    level: Level, message: String, location: SourceLocation? = nil, window: Window? = nil,
     children: [Diagnostic] = []
   ) {
     self.level = level
@@ -63,30 +60,20 @@ public struct Diagnostic: Hashable {
 
   /// Creates an error diagnostic with `message` highlighting `range`.
   public static func error(
-    _ message: String,
-    range: SourceRange? = nil,
-    children: [Diagnostic] = []
+    _ message: String, range: SourceRange? = nil, children: [Diagnostic] = []
   ) -> Diagnostic {
     Diagnostic(
-      level: .error,
-      message: message,
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }),
-      children: children)
+      level: .error, message: message, location: range?.first(),
+      window: range.map({ r in Diagnostic.Window(range: r) }), children: children)
   }
 
   /// Creates a warning diagnostic with `message` highlighting `range`.
   public static func warning(
-    _ message: String,
-    range: SourceRange? = nil,
-    children: [Diagnostic] = []
+    _ message: String, range: SourceRange? = nil, children: [Diagnostic] = []
   ) -> Diagnostic {
     Diagnostic(
-      level: .warning,
-      message: message,
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }),
-      children: children)
+      level: .warning, message: message, location: range?.first(),
+      window: range.map({ r in Diagnostic.Window(range: r) }), children: children)
   }
 
 }

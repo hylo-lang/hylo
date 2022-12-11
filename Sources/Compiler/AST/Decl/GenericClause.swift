@@ -8,8 +8,7 @@ public struct GenericClause: Codable {
   public let whereClause: SourceRepresentable<WhereClause>?
 
   public init(
-    parameters: [NodeID<GenericParameterDecl>],
-    whereClause: SourceRepresentable<WhereClause>? = nil
+    parameters: [NodeID<GenericParameterDecl>], whereClause: SourceRepresentable<WhereClause>? = nil
   ) {
     self.parameters = parameters
     self.whereClause = whereClause

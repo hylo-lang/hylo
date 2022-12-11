@@ -20,12 +20,9 @@ public struct OperatorDecl: Decl {
 
   /// Creates an instance with the given properties.
   public init(
-    introducerRange: SourceRange?,
-    accessModifier: SourceRepresentable<AccessModifier>?,
-    notation: SourceRepresentable<OperatorNotation>,
-    name: SourceRepresentable<Identifier>,
-    precedenceGroup: SourceRepresentable<PrecedenceGroup>?,
-    origin: SourceRange?
+    introducerRange: SourceRange?, accessModifier: SourceRepresentable<AccessModifier>?,
+    notation: SourceRepresentable<OperatorNotation>, name: SourceRepresentable<Identifier>,
+    precedenceGroup: SourceRepresentable<PrecedenceGroup>?, origin: SourceRange?
   ) {
     self.origin = origin
     self.introducerRange = introducerRange

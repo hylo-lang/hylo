@@ -54,8 +54,7 @@ extension SubstitutionMap: CustomReflectable {
 
   var customMirror: Mirror {
     Mirror(
-      self,
-      children: storage.map({ (key, value) in (label: "\(key)", value: value) }),
+      self, children: storage.map({ (key, value) in (label: "\(key)", value: value) }),
       displayStyle: .collection)
   }
 

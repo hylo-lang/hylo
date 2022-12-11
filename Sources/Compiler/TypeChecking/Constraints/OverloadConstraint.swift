@@ -36,9 +36,7 @@ struct OverloadConstraint: Constraint, Hashable {
   ///
   /// - Requires: `candidates.count >= 2`
   init(
-    _ expr: NodeID<NameExpr>,
-    withType type: AnyType,
-    refersToOneOf choices: [Candidate],
+    _ expr: NodeID<NameExpr>, withType type: AnyType, refersToOneOf choices: [Candidate],
     because cause: ConstraintCause
   ) {
     precondition(choices.count >= 2)
@@ -56,16 +54,14 @@ struct OverloadConstraint: Constraint, Hashable {
       modify(&newType)
 
       choices[i] = Candidate(
-        reference: choices[i].reference,
-        type: newType,
+        reference: choices[i].reference, type: newType,
         constraints: choices[i].constraints.reduce(
           into: [],
           { (cs, c) in
             var newConstraint = c
             newConstraint.modifyTypes(modify)
             cs.insert(newConstraint)
-          }),
-        penalties: choices[i].penalties)
+          }), penalties: choices[i].penalties)
     }
   }
 

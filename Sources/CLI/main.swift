@@ -39,44 +39,29 @@ struct CLI: ParsableCommand {
 
   static let configuration = CommandConfiguration(commandName: "valc")
 
-  @Flag(
-    name: [.customLong("modules")],
-    help: "Compile inputs as separate modules.")
+  @Flag(name: [.customLong("modules")], help: "Compile inputs as separate modules.")
   var compileInputAsModules: Bool = false
 
-  @Flag(
-    name: [.customLong("import-builtin")],
-    help: "Import the built-in module.")
+  @Flag(name: [.customLong("import-builtin")], help: "Import the built-in module.")
   var importBuiltinModule: Bool = false
 
-  @Flag(
-    name: [.customLong("no-std")],
-    help: "Do not include the standard library.")
+  @Flag(name: [.customLong("no-std")], help: "Do not include the standard library.")
   var noStandardLibrary: Bool = false
 
-  @Flag(
-    name: [.customLong("typecheck")],
-    help: "Type-check the input file(s).")
+  @Flag(name: [.customLong("typecheck")], help: "Type-check the input file(s).")
   var typeCheckOnly: Bool = false
 
-  @Option(
-    name: [.customLong("emit")],
-    help: "Emit the specified type output files.")
+  @Option(name: [.customLong("emit")], help: "Emit the specified type output files.")
   var outputType: OutputType = .binary
 
   @Option(
-    name: [.customShort("o")],
-    help: "Write output to <o>.",
-    transform: URL.init(fileURLWithPath:))
+    name: [.customShort("o")], help: "Write output to <o>.", transform: URL.init(fileURLWithPath:))
   var outputURL: URL?
 
-  @Flag(
-    name: [.short, .long],
-    help: "Use verbose output.")
+  @Flag(name: [.short, .long], help: "Use verbose output.")
   var verbose: Bool = false
 
-  @Argument(
-    transform: URL.init(fileURLWithPath:))
+  @Argument(transform: URL.init(fileURLWithPath:))
   var inputs: [URL]
 
   private var noteLabel: String { "note: ".styled([.bold, .cyan]) }
@@ -154,11 +139,8 @@ struct CLI: ParsableCommand {
     if typeCheckOnly { CLI.exit() }
 
     let typedProgram = TypedProgram(
-      annotating: checker.program,
-      declTypes: checker.declTypes,
-      exprTypes: checker.exprTypes,
-      implicitCaptures: checker.implicitCaptures,
-      referredDecls: checker.referredDecls,
+      annotating: checker.program, declTypes: checker.declTypes, exprTypes: checker.exprTypes,
+      implicitCaptures: checker.implicitCaptures, referredDecls: checker.referredDecls,
       foldedSequenceExprs: checker.foldedSequenceExprs)
 
     // *** IR Lowering ***
@@ -178,10 +160,8 @@ struct CLI: ParsableCommand {
 
     // Run mandatory IR analysis and transformation passes.
     var pipeline: [TransformPass] = [
-      ImplicitReturnInsertionPass(),
-      DefiniteInitializationPass(program: typedProgram),
-      LifetimePass(program: typedProgram),
-      // OwnershipPass(program: typedProgram),
+      ImplicitReturnInsertionPass(), DefiniteInitializationPass(program: typedProgram),
+      LifetimePass(program: typedProgram),  // OwnershipPass(program: typedProgram),
     ]
 
     log(verbose: "Analyzing '\(productName)'".styled([.bold]))
@@ -229,9 +209,7 @@ struct CLI: ParsableCommand {
     assert(outputType == .binary)
 
     let buildDirectoryURL = try FileManager.default.url(
-      for: .itemReplacementDirectory,
-      in: .userDomainMask,
-      appropriateFor: currentDirectory,
+      for: .itemReplacementDirectory, in: .userDomainMask, appropriateFor: currentDirectory,
       create: true)
 
     // Compile the transpiled module.
@@ -244,20 +222,11 @@ struct CLI: ParsableCommand {
     let clang = find("clang++")
     let binaryURL = outputURL ?? URL(fileURLWithPath: productName)
     try runCommandLine(
-      clang,
-      [
-        "-o", binaryURL.path,
-        "-I", buildDirectoryURL.path,
-        cxxSourceURL.path,
-      ])
+      clang, ["-o", binaryURL.path, "-I", buildDirectoryURL.path, cxxSourceURL.path])
   }
 
   /// Parses the contents of the file at `fileURL` and insert them into `ast[module]`.
-  func insert(
-    contentsOf fileURL: URL,
-    into module: NodeID<ModuleDecl>,
-    in ast: inout AST
-  ) -> Bool {
+  func insert(contentsOf fileURL: URL, into module: NodeID<ModuleDecl>, in ast: inout AST) -> Bool {
     switch fileURL.pathExtension {
     case "val":
       log(verbose: fileURL.relativePath)

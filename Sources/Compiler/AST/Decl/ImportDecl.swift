@@ -11,9 +11,7 @@ public struct ImportDecl: SingleEntityDecl {
 
   /// Creates an instance with the given properties.
   public init(
-    introducerRange: SourceRange?,
-    identifier: SourceRepresentable<Identifier>,
-    origin: SourceRange?
+    introducerRange: SourceRange?, identifier: SourceRepresentable<Identifier>, origin: SourceRange?
   ) {
     self.origin = origin
     self.introducerRange = introducerRange

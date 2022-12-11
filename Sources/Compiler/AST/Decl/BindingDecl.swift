@@ -22,10 +22,8 @@ public struct BindingDecl: Decl {
   public init(
     attributes: [SourceRepresentable<Attribute>] = [],
     accessModifier: SourceRepresentable<AccessModifier>? = nil,
-    memberModifier: SourceRepresentable<MemberModifier>? = nil,
-    pattern: NodeID<BindingPattern>,
-    initializer: AnyExprID?,
-    origin: SourceRange?
+    memberModifier: SourceRepresentable<MemberModifier>? = nil, pattern: NodeID<BindingPattern>,
+    initializer: AnyExprID?, origin: SourceRange?
   ) {
     self.origin = origin
     self.attributes = attributes

@@ -45,8 +45,7 @@ public struct SourceRange: Hashable {
   public func extended(toCover other: SourceRange) -> SourceRange {
     precondition(source == other.source, "incompatible ranges")
     return SourceRange(
-      in: source,
-      from: Swift.min(lowerBound, other.lowerBound),
+      in: source, from: Swift.min(lowerBound, other.lowerBound),
       to: Swift.max(upperBound, other.upperBound))
   }
 
@@ -69,11 +68,9 @@ extension SourceRange: Codable {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     source = try container.decode(SourceFile.self, forKey: .source)
     lowerBound = String.Index(
-      utf16Offset: try container.decode(Int.self, forKey: .lowerBound),
-      in: source.contents)
+      utf16Offset: try container.decode(Int.self, forKey: .lowerBound), in: source.contents)
     upperBound = String.Index(
-      utf16Offset: try container.decode(Int.self, forKey: .upperBound),
-      in: source.contents)
+      utf16Offset: try container.decode(Int.self, forKey: .upperBound), in: source.contents)
   }
 
   public func encode(to encoder: Encoder) throws {

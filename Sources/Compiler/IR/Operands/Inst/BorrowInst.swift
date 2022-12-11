@@ -19,12 +19,8 @@ public struct BorrowInst: Inst {
   public let range: SourceRange?
 
   init(
-    _ capability: RemoteType.Capability,
-    _ borrowedType: LoweredType,
-    from location: Operand,
-    at path: [Int] = [],
-    binding: NodeID<VarDecl>? = nil,
-    range: SourceRange? = nil
+    _ capability: RemoteType.Capability, _ borrowedType: LoweredType, from location: Operand,
+    at path: [Int] = [], binding: NodeID<VarDecl>? = nil, range: SourceRange? = nil
   ) {
     self.borrowedType = borrowedType
     self.capability = capability

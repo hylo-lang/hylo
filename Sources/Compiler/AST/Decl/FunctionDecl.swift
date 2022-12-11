@@ -59,21 +59,16 @@ public struct FunctionDecl: GenericDecl, GenericScope {
 
   /// Creates an instance with the given properties.
   public init(
-    introducerRange: SourceRange?,
-    attributes: [SourceRepresentable<Attribute>] = [],
+    introducerRange: SourceRange?, attributes: [SourceRepresentable<Attribute>] = [],
     accessModifier: SourceRepresentable<AccessModifier>? = nil,
     memberModifier: SourceRepresentable<MemberModifier>? = nil,
     receiverEffect: SourceRepresentable<ReceiverEffect>? = nil,
     notation: SourceRepresentable<OperatorNotation>? = nil,
     identifier: SourceRepresentable<Identifier>? = nil,
     genericClause: SourceRepresentable<GenericClause>? = nil,
-    explicitCaptures: [NodeID<BindingDecl>] = [],
-    parameters: [NodeID<ParameterDecl>] = [],
-    receiver: NodeID<ParameterDecl>? = nil,
-    output: AnyTypeExprID? = nil,
-    body: Body? = nil,
-    isInExprContext: Bool = false,
-    origin: SourceRange?
+    explicitCaptures: [NodeID<BindingDecl>] = [], parameters: [NodeID<ParameterDecl>] = [],
+    receiver: NodeID<ParameterDecl>? = nil, output: AnyTypeExprID? = nil, body: Body? = nil,
+    isInExprContext: Bool = false, origin: SourceRange?
   ) {
     self.origin = origin
     self.introducerRange = introducerRange

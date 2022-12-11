@@ -4,10 +4,7 @@ extension AST {
 
   /// Returns `.success` if `decl` is a well-formed top-level or namespace member declaration.
   /// Otherwise, returns `.failure` with the diagnostics of the broken invariants.
-  func validateGlobalScopeMember(
-    _ decl: AnyDeclID,
-    atTopLevel: Bool
-  ) -> SuccessOrDiagnostics {
+  func validateGlobalScopeMember(_ decl: AnyDeclID, atTopLevel: Bool) -> SuccessOrDiagnostics {
     var report: [Diagnostic] = []
 
     switch decl.kind {

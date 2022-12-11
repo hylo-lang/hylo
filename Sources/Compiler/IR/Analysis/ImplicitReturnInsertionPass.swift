@@ -28,8 +28,7 @@ public struct ImplicitReturnInsertionPass: TransformPass {
         let range = module[functionID][i.address].instructions
           .last(where: { $0.range != nil })?.range
         diagnostics.append(
-          .missingFunctionReturn(
-            expectedReturnType: expectedReturnType, range: range))
+          .missingFunctionReturn(expectedReturnType: expectedReturnType, range: range))
       }
     }
 
@@ -40,10 +39,9 @@ public struct ImplicitReturnInsertionPass: TransformPass {
 
 extension Diagnostic {
 
-  fileprivate static func missingFunctionReturn(
-    expectedReturnType: AnyType,
-    range: SourceRange?
-  ) -> Diagnostic {
+  fileprivate static func missingFunctionReturn(expectedReturnType: AnyType, range: SourceRange?)
+    -> Diagnostic
+  {
     .error("missing return in function expected to return '\(expectedReturnType)'", range: range)
   }
 

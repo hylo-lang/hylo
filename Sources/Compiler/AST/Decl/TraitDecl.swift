@@ -20,10 +20,8 @@ public struct TraitDecl: SingleEntityDecl, TypeScope, GenericScope {
   /// Creates an instance with the given properties.
   public init(
     accessModifier: SourceRepresentable<AccessModifier>?,
-    identifier: SourceRepresentable<Identifier>,
-    refinements: [NodeID<NameExpr>],
-    members: [AnyDeclID],
-    origin: SourceRange?
+    identifier: SourceRepresentable<Identifier>, refinements: [NodeID<NameExpr>],
+    members: [AnyDeclID], origin: SourceRange?
   ) {
     self.origin = origin
     self.accessModifier = accessModifier

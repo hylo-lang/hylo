@@ -16,10 +16,7 @@ public struct ExprProperty<Value> {
   }
 
   /// Accesses the property associated with the specified ID.
-  public subscript<T: ExprID>(
-    id: T,
-    default defaultValue: @autoclosure () -> Value
-  ) -> Value {
+  public subscript<T: ExprID>(id: T, default defaultValue: @autoclosure () -> Value) -> Value {
     _read {
       yield storage[AnyExprID(id), default: defaultValue()]
     }

@@ -15,12 +15,8 @@ public struct CallInst: Inst {
   public let range: SourceRange?
 
   public init(
-    returnType: LoweredType,
-    calleeConvention: PassingConvention,
-    callee: Operand,
-    argumentConventions: [PassingConvention],
-    arguments: [Operand],
-    range: SourceRange? = nil
+    returnType: LoweredType, calleeConvention: PassingConvention, callee: Operand,
+    argumentConventions: [PassingConvention], arguments: [Operand], range: SourceRange? = nil
   ) {
     self.returnType = returnType
     self.conventions = [calleeConvention] + argumentConventions

@@ -140,8 +140,7 @@ public struct DoublyLinkedList<Element> {
       headOffset = freeOffset
       tailOffset = freeOffset
       freeOffset = storage[newAddress.rawValue].nextOffset
-      storage[newAddress.rawValue] = Bucket(
-        previousOffset: -1, nextOffset: -1, element: newElement)
+      storage[newAddress.rawValue] = Bucket(previousOffset: -1, nextOffset: -1, element: newElement)
       return newAddress
     } else {
       return insert(newElement, after: Address(tailOffset))
@@ -184,16 +183,14 @@ public struct DoublyLinkedList<Element> {
 
       storage.append(
         Bucket(
-          previousOffset: address.rawValue,
-          nextOffset: storage[address.rawValue].nextOffset,
+          previousOffset: address.rawValue, nextOffset: storage[address.rawValue].nextOffset,
           element: newElement))
     } else {
       newAddress = Address(freeOffset)
       freeOffset = storage[freeOffset].nextOffset
 
       storage[newAddress.rawValue] = Bucket(
-        previousOffset: address.rawValue,
-        nextOffset: storage[address.rawValue].nextOffset,
+        previousOffset: address.rawValue, nextOffset: storage[address.rawValue].nextOffset,
         element: newElement)
     }
 
@@ -222,16 +219,14 @@ public struct DoublyLinkedList<Element> {
 
       storage.append(
         Bucket(
-          previousOffset: storage[address.rawValue].previousOffset,
-          nextOffset: address.rawValue,
+          previousOffset: storage[address.rawValue].previousOffset, nextOffset: address.rawValue,
           element: newElement))
     } else {
       newAddress = Address(freeOffset)
       freeOffset = storage[freeOffset].nextOffset
 
       storage[newAddress.rawValue] = Bucket(
-        previousOffset: storage[address.rawValue].previousOffset,
-        nextOffset: address.rawValue,
+        previousOffset: storage[address.rawValue].previousOffset, nextOffset: address.rawValue,
         element: newElement)
     }
 

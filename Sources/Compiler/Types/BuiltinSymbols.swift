@@ -2,58 +2,37 @@
 public enum BuiltinSymbols {
 
   /// Terminates the program abnormally.
-  public static let terminate = LambdaType(
-    to: .never)
+  public static let terminate = LambdaType(to: .never)
 
   /// 1-bit integer copy.
-  public static let i1_copy = LambdaType(
-    from: (.let, .i(1)),
-    to: .builtin(.i(1)))
+  public static let i1_copy = LambdaType(from: (.let, .i(1)), to: .builtin(.i(1)))
 
   /// 32-bit integer copy.
-  public static let i32_copy = LambdaType(
-    from: (.let, .i(32)),
-    to: .builtin(.i(32)))
+  public static let i32_copy = LambdaType(from: (.let, .i(32)), to: .builtin(.i(32)))
 
   /// 64-bit integer copy.
-  public static let i64_copy = LambdaType(
-    from: (.let, .i(64)),
-    to: .builtin(.i(64)))
+  public static let i64_copy = LambdaType(from: (.let, .i(64)), to: .builtin(.i(64)))
 
   /// 64-bit integer multiplication.
-  public static let i64_mul = LambdaType(
-    from: (.let, .i(64)), (.let, .i(64)),
-    to: .builtin(.i(64)))
+  public static let i64_mul = LambdaType(from: (.let, .i(64)), (.let, .i(64)), to: .builtin(.i(64)))
 
   /// 64-bit integer addition.
-  public static let i64_add = LambdaType(
-    from: (.let, .i(64)), (.let, .i(64)),
-    to: .builtin(.i(64)))
+  public static let i64_add = LambdaType(from: (.let, .i(64)), (.let, .i(64)), to: .builtin(.i(64)))
 
   /// 64-bit integer subtraction.
-  public static let i64_sub = LambdaType(
-    from: (.let, .i(64)), (.let, .i(64)),
-    to: .builtin(.i(64)))
+  public static let i64_sub = LambdaType(from: (.let, .i(64)), (.let, .i(64)), to: .builtin(.i(64)))
 
   /// 64-bit integer "less than" comparison.
-  public static let i64_lt = LambdaType(
-    from: (.let, .i(64)), (.let, .i(64)),
-    to: .builtin(.i(1)))
+  public static let i64_lt = LambdaType(from: (.let, .i(64)), (.let, .i(64)), to: .builtin(.i(1)))
 
   // 64-bit integer unchecked conversion to 32-bit.
-  public static let i64_trunc_to_i32 = LambdaType(
-    from: (.let, .i(64)),
-    to: .builtin(.i(32)))
+  public static let i64_trunc_to_i32 = LambdaType(from: (.let, .i(64)), to: .builtin(.i(32)))
 
   // 64-bit print.
-  public static let i64_print = LambdaType(
-    from: (.let, .i(64)),
-    to: .void)
+  public static let i64_print = LambdaType(from: (.let, .i(64)), to: .void)
 
   // Double-precision floating-point copy.
-  public static let f64_copy = LambdaType(
-    from: (.let, .f64),
-    to: .builtin(.f64))
+  public static let f64_copy = LambdaType(from: (.let, .f64), to: .builtin(.f64))
 
   /// Returns the type of the built-in function with the given name.
   public static subscript(_ name: String) -> LambdaType? {
@@ -87,8 +66,7 @@ extension LambdaType {
     self.init(
       inputs: inputs.map({ (convention, type) -> CallableTypeParameter in
         .init(type: ^ParameterType(convention: convention, bareType: .builtin(type)))
-      }),
-      output: output)
+      }), output: output)
   }
 
 }

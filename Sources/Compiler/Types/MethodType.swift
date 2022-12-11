@@ -19,9 +19,7 @@ public struct MethodType: TypeProtocol {
 
   /// Creates an instance with the given properties.
   public init(
-    capabilities: Set<ImplIntroducer>,
-    receiver: AnyType,
-    inputs: [CallableTypeParameter],
+    capabilities: Set<ImplIntroducer>, receiver: AnyType, inputs: [CallableTypeParameter],
     output: AnyType
   ) {
     self.capabilities = capabilities
@@ -37,12 +35,10 @@ public struct MethodType: TypeProtocol {
 
   public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> Self {
     MethodType(
-      capabilities: capabilities,
-      receiver: receiver.transform(transformer),
+      capabilities: capabilities, receiver: receiver.transform(transformer),
       inputs: inputs.map({ (p) -> CallableTypeParameter in
         .init(label: p.label, type: p.type.transform(transformer))
-      }),
-      output: output.transform(transformer))
+      }), output: output.transform(transformer))
   }
 
 }

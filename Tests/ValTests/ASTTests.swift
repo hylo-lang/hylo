@@ -18,11 +18,8 @@ final class ASTTests: XCTestCase {
     // Create a trait declaration.
     let trait = try ast.insert(
       wellFormed: TraitDecl(
-        accessModifier: nil,
-        identifier: SourceRepresentable(value: "T"),
-        refinements: [],
-        members: [],
-        origin: nil))
+        accessModifier: nil, identifier: SourceRepresentable(value: "T"), refinements: [],
+        members: [], origin: nil))
 
     // Create a source declaration set.
     let source = try ast.insert(wellFormed: TopLevelDeclSet(decls: [AnyDeclID(trait)]))
@@ -38,15 +35,12 @@ final class ASTTests: XCTestCase {
     // Create a module.
     let module = try ast.insert(wellFormed: ModuleDecl(name: "Val"))
     let source = try ast.insert(
-      wellFormed: TopLevelDeclSet(
-        decls: [
-          AnyDeclID(
-            ast.insert(
-              wellFormed: FunctionDecl(
-                introducerRange: nil,
-                identifier: SourceRepresentable(value: "foo"),
-                origin: nil)))
-        ]))
+      wellFormed: TopLevelDeclSet(decls: [
+        AnyDeclID(
+          ast.insert(
+            wellFormed: FunctionDecl(
+              introducerRange: nil, identifier: SourceRepresentable(value: "foo"), origin: nil)))
+      ]))
     ast[module].addSourceFile(source)
 
     // Serialize the AST.

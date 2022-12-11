@@ -68,8 +68,7 @@ extension ScopedProgram {
   /// Sets `scope` as the parent of the current innermost lexical scope and calls `action` with a
   /// a mutable projection of `self` and `state` where `scope` is the innermost lexical scope.
   private mutating func nesting<T: ScopeID>(
-    in scope: T,
-    withState state: inout VisitorState,
+    in scope: T, withState state: inout VisitorState,
     _ action: (inout ScopedProgram, inout VisitorState) -> Void
   ) {
     let currentInnermost = state.innermost
@@ -136,8 +135,7 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    associatedTypeDecl decl: NodeID<AssociatedTypeDecl>,
-    withState state: inout VisitorState
+    associatedTypeDecl decl: NodeID<AssociatedTypeDecl>, withState state: inout VisitorState
   ) {
     insert(decl: decl, into: state.innermost)
 
@@ -153,8 +151,7 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    associatedValueDecl decl: NodeID<AssociatedValueDecl>,
-    withState state: inout VisitorState
+    associatedValueDecl decl: NodeID<AssociatedValueDecl>, withState state: inout VisitorState
   ) {
     insert(decl: decl, into: state.innermost)
 
@@ -167,8 +164,7 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    bindingDecl decl: NodeID<BindingDecl>,
-    withState state: inout VisitorState
+    bindingDecl decl: NodeID<BindingDecl>, withState state: inout VisitorState
   ) {
     insert(decl: decl, into: state.innermost)
 
@@ -184,8 +180,7 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    conformanceDecl decl: NodeID<ConformanceDecl>,
-    withState state: inout VisitorState
+    conformanceDecl decl: NodeID<ConformanceDecl>, withState state: inout VisitorState
   ) {
     insert(decl: decl, into: state.innermost)
 
@@ -203,8 +198,7 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    extensionDecl decl: NodeID<ExtensionDecl>,
-    withState state: inout VisitorState
+    extensionDecl decl: NodeID<ExtensionDecl>, withState state: inout VisitorState
   ) {
     insert(decl: decl, into: state.innermost)
 
@@ -222,8 +216,7 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    functionDecl decl: NodeID<FunctionDecl>,
-    withState state: inout VisitorState
+    functionDecl decl: NodeID<FunctionDecl>, withState state: inout VisitorState
   ) {
     insert(decl: decl, into: state.innermost)
 
@@ -260,8 +253,7 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    genericParameterDecl decl: NodeID<GenericParameterDecl>,
-    withState state: inout VisitorState
+    genericParameterDecl decl: NodeID<GenericParameterDecl>, withState state: inout VisitorState
   ) {
     insert(decl: decl, into: state.innermost)
 
@@ -274,15 +266,13 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    importDecl decl: NodeID<ImportDecl>,
-    withState state: inout VisitorState
+    importDecl decl: NodeID<ImportDecl>, withState state: inout VisitorState
   ) {
     insert(decl: decl, into: state.innermost)
   }
 
   private mutating func visit(
-    initializerDecl decl: NodeID<InitializerDecl>,
-    withState state: inout VisitorState
+    initializerDecl decl: NodeID<InitializerDecl>, withState state: inout VisitorState
   ) {
     insert(decl: decl, into: state.innermost)
 
@@ -303,8 +293,7 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    methodDecl decl: NodeID<MethodDecl>,
-    withState state: inout VisitorState
+    methodDecl decl: NodeID<MethodDecl>, withState state: inout VisitorState
   ) {
     insert(decl: decl, into: state.innermost)
 
@@ -327,8 +316,7 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    methodImplDecl decl: NodeID<MethodImplDecl>,
-    withState state: inout VisitorState
+    methodImplDecl decl: NodeID<MethodImplDecl>, withState state: inout VisitorState
   ) {
     insert(decl: decl, into: state.innermost)
 
@@ -351,8 +339,7 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    moduleDecl decl: NodeID<ModuleDecl>,
-    withState state: inout VisitorState
+    moduleDecl decl: NodeID<ModuleDecl>, withState state: inout VisitorState
   ) {
     precondition(state.innermost == decl)
     for source in ast[decl].sources {
@@ -361,8 +348,7 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    namespaceDecl decl: NodeID<NamespaceDecl>,
-    withState state: inout VisitorState
+    namespaceDecl decl: NodeID<NamespaceDecl>, withState state: inout VisitorState
   ) {
     insert(decl: decl, into: state.innermost)
 
@@ -376,15 +362,13 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    operatorDecl decl: NodeID<OperatorDecl>,
-    withState state: inout VisitorState
+    operatorDecl decl: NodeID<OperatorDecl>, withState state: inout VisitorState
   ) {
     insert(decl: decl, into: state.innermost)
   }
 
   private mutating func visit(
-    parameterDecl decl: NodeID<ParameterDecl>,
-    withState state: inout VisitorState
+    parameterDecl decl: NodeID<ParameterDecl>, withState state: inout VisitorState
   ) {
     insert(decl: decl, into: state.innermost)
 
@@ -397,8 +381,7 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    productTypeDecl decl: NodeID<ProductTypeDecl>,
-    withState state: inout VisitorState
+    productTypeDecl decl: NodeID<ProductTypeDecl>, withState state: inout VisitorState
   ) {
     insert(decl: decl, into: state.innermost)
 
@@ -418,8 +401,7 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    subscriptDecl decl: NodeID<SubscriptDecl>,
-    withState state: inout VisitorState
+    subscriptDecl decl: NodeID<SubscriptDecl>, withState state: inout VisitorState
   ) {
     insert(decl: decl, into: state.innermost)
 
@@ -443,8 +425,7 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    subscriptImplDecl decl: NodeID<SubscriptImplDecl>,
-    withState state: inout VisitorState
+    subscriptImplDecl decl: NodeID<SubscriptImplDecl>, withState state: inout VisitorState
   ) {
     insert(decl: decl, into: state.innermost)
 
@@ -469,8 +450,7 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    traitDecl decl: NodeID<TraitDecl>,
-    withState state: inout VisitorState
+    traitDecl decl: NodeID<TraitDecl>, withState state: inout VisitorState
   ) {
     insert(decl: decl, into: state.innermost)
 
@@ -487,8 +467,7 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    typeAliasDecl decl: NodeID<TypeAliasDecl>,
-    withState state: inout VisitorState
+    typeAliasDecl decl: NodeID<TypeAliasDecl>, withState state: inout VisitorState
   ) {
     insert(decl: decl, into: state.innermost)
 
@@ -510,17 +489,13 @@ extension ScopedProgram {
       })
   }
 
-  private mutating func visit(
-    varDecl decl: NodeID<VarDecl>,
-    withState state: inout VisitorState
-  ) {
+  private mutating func visit(varDecl decl: NodeID<VarDecl>, withState state: inout VisitorState) {
     insert(decl: decl, into: state.innermost)
     varToBinding[decl] = state.bindingDeclBeingVisited
   }
 
   private mutating func visit(
-    topLevelDeclSet: NodeID<TopLevelDeclSet>,
-    withState state: inout VisitorState
+    topLevelDeclSet: NodeID<TopLevelDeclSet>, withState state: inout VisitorState
   ) {
     nesting(
       in: topLevelDeclSet, withState: &state,
@@ -599,26 +574,21 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    bufferLiteralExpr expr: NodeID<BufferLiteralExpr>,
-    withState state: inout VisitorState
+    bufferLiteralExpr expr: NodeID<BufferLiteralExpr>, withState state: inout VisitorState
   ) {
     for element in ast[expr].elements {
       visit(expr: element, withState: &state)
     }
   }
 
-  private mutating func visit(
-    castExpr expr: NodeID<CastExpr>,
-    withState state: inout VisitorState
-  ) {
+  private mutating func visit(castExpr expr: NodeID<CastExpr>, withState state: inout VisitorState)
+  {
     visit(expr: ast[expr].left, withState: &state)
     visit(expr: ast[expr].right, withState: &state)
   }
 
-  private mutating func visit(
-    condExpr expr: NodeID<CondExpr>,
-    withState state: inout VisitorState
-  ) {
+  private mutating func visit(condExpr expr: NodeID<CondExpr>, withState state: inout VisitorState)
+  {
     nesting(
       in: expr, withState: &state,
       { (this, state) in
@@ -658,8 +628,7 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    existentialTypeExpr expr: NodeID<ExistentialTypeExpr>,
-    withState state: inout VisitorState
+    existentialTypeExpr expr: NodeID<ExistentialTypeExpr>, withState state: inout VisitorState
   ) {
     for trait in ast[expr].traits {
       visit(nameExpr: trait, withState: &state)
@@ -670,8 +639,7 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    funCallExpr expr: NodeID<FunCallExpr>,
-    withState state: inout VisitorState
+    funCallExpr expr: NodeID<FunCallExpr>, withState state: inout VisitorState
   ) {
     visit(expr: ast[expr].callee, withState: &state)
     for argument in ast[expr].arguments {
@@ -680,22 +648,19 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    inoutExpr expr: NodeID<InoutExpr>,
-    withState state: inout VisitorState
+    inoutExpr expr: NodeID<InoutExpr>, withState state: inout VisitorState
   ) {
     visit(expr: ast[expr].subject, withState: &state)
   }
 
   private mutating func visit(
-    lambdaExpr expr: NodeID<LambdaExpr>,
-    withState state: inout VisitorState
+    lambdaExpr expr: NodeID<LambdaExpr>, withState state: inout VisitorState
   ) {
     visit(functionDecl: ast[expr].decl, withState: &state)
   }
 
   private mutating func visit(
-    lambdaTypeExpr expr: NodeID<LambdaTypeExpr>,
-    withState state: inout VisitorState
+    lambdaTypeExpr expr: NodeID<LambdaTypeExpr>, withState state: inout VisitorState
   ) {
     if let environment = ast[expr].environment {
       visit(expr: environment, withState: &state)
@@ -707,8 +672,7 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    mapLiteralExpr expr: NodeID<MapLiteralExpr>,
-    withState state: inout VisitorState
+    mapLiteralExpr expr: NodeID<MapLiteralExpr>, withState state: inout VisitorState
   ) {
     for element in ast[expr].elements {
       visit(expr: element.key, withState: &state)
@@ -717,8 +681,7 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    matchExpr expr: NodeID<MatchExpr>,
-    withState state: inout VisitorState
+    matchExpr expr: NodeID<MatchExpr>, withState state: inout VisitorState
   ) {
     visit(expr: ast[expr].subject, withState: &state)
     for case_ in ast[expr].cases {
@@ -740,10 +703,8 @@ extension ScopedProgram {
     }
   }
 
-  private mutating func visit(
-    nameExpr expr: NodeID<NameExpr>,
-    withState state: inout VisitorState
-  ) {
+  private mutating func visit(nameExpr expr: NodeID<NameExpr>, withState state: inout VisitorState)
+  {
     if case let .expr(domain) = ast[expr].domain {
       visit(expr: domain, withState: &state)
     }
@@ -753,22 +714,19 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    parameterTypeExpr expr: NodeID<ParameterTypeExpr>,
-    withState state: inout VisitorState
+    parameterTypeExpr expr: NodeID<ParameterTypeExpr>, withState state: inout VisitorState
   ) {
     visit(expr: ast[expr].bareType, withState: &state)
   }
 
   private mutating func visit(
-    storedProjectionTypeExpr expr: NodeID<RemoteTypeExpr>,
-    withState state: inout VisitorState
+    storedProjectionTypeExpr expr: NodeID<RemoteTypeExpr>, withState state: inout VisitorState
   ) {
     visit(expr: ast[expr].operand, withState: &state)
   }
 
   private mutating func visit(
-    sequenceExpr expr: NodeID<SequenceExpr>,
-    withState state: inout VisitorState
+    sequenceExpr expr: NodeID<SequenceExpr>, withState state: inout VisitorState
   ) {
     visit(expr: ast[expr].head, withState: &state)
     for element in ast[expr].tail {
@@ -778,15 +736,13 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    spawnExpr expr: NodeID<SpawnExpr>,
-    withState state: inout VisitorState
+    spawnExpr expr: NodeID<SpawnExpr>, withState state: inout VisitorState
   ) {
     visit(functionDecl: ast[expr].decl, withState: &state)
   }
 
   private mutating func visit(
-    subscriptCallExpr expr: NodeID<SubscriptCallExpr>,
-    withState state: inout VisitorState
+    subscriptCallExpr expr: NodeID<SubscriptCallExpr>, withState state: inout VisitorState
   ) {
     visit(expr: ast[expr].callee, withState: &state)
     for argument in ast[expr].arguments {
@@ -795,8 +751,7 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    tupleExpr expr: NodeID<TupleExpr>,
-    withState state: inout VisitorState
+    tupleExpr expr: NodeID<TupleExpr>, withState state: inout VisitorState
   ) {
     for element in ast[expr].elements {
       visit(expr: element.value, withState: &state)
@@ -804,15 +759,13 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    tupleMemberExpr expr: NodeID<TupleMemberExpr>,
-    withState state: inout VisitorState
+    tupleMemberExpr expr: NodeID<TupleMemberExpr>, withState state: inout VisitorState
   ) {
     visit(expr: ast[expr].tuple, withState: &state)
   }
 
   private mutating func visit(
-    tupleTypeExpr expr: NodeID<TupleTypeExpr>,
-    withState state: inout VisitorState
+    tupleTypeExpr expr: NodeID<TupleTypeExpr>, withState state: inout VisitorState
   ) {
     for element in ast[expr].elements {
       visit(expr: element.type, withState: &state)
@@ -820,8 +773,7 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    unionTypeExpr expr: NodeID<UnionTypeExpr>,
-    withState state: inout VisitorState
+    unionTypeExpr expr: NodeID<UnionTypeExpr>, withState state: inout VisitorState
   ) {
     for element in ast[expr].elements {
       visit(expr: element, withState: &state)
@@ -848,8 +800,7 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    bindingPattern pattern: NodeID<BindingPattern>,
-    withState state: inout VisitorState
+    bindingPattern pattern: NodeID<BindingPattern>, withState state: inout VisitorState
   ) {
     visit(pattern: ast[pattern].subpattern, withState: &state)
     if let annotation = ast[pattern].annotation {
@@ -858,22 +809,19 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    exprPattern pattern: NodeID<ExprPattern>,
-    withState state: inout VisitorState
+    exprPattern pattern: NodeID<ExprPattern>, withState state: inout VisitorState
   ) {
     visit(expr: ast[pattern].expr, withState: &state)
   }
 
   private mutating func visit(
-    namePattern pattern: NodeID<NamePattern>,
-    withState state: inout VisitorState
+    namePattern pattern: NodeID<NamePattern>, withState state: inout VisitorState
   ) {
     visit(varDecl: ast[pattern].decl, withState: &state)
   }
 
   private mutating func visit(
-    tuplePattern pattern: NodeID<TuplePattern>,
-    withState state: inout VisitorState
+    tuplePattern pattern: NodeID<TuplePattern>, withState state: inout VisitorState
   ) {
     for element in ast[pattern].elements {
       visit(pattern: element.pattern, withState: &state)
@@ -916,16 +864,14 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    assignStmt stmt: NodeID<AssignStmt>,
-    withState state: inout VisitorState
+    assignStmt stmt: NodeID<AssignStmt>, withState state: inout VisitorState
   ) {
     visit(expr: ast[stmt].left, withState: &state)
     visit(expr: ast[stmt].right, withState: &state)
   }
 
   private mutating func visit(
-    braceStmt stmt: NodeID<BraceStmt>,
-    withState state: inout VisitorState
+    braceStmt stmt: NodeID<BraceStmt>, withState state: inout VisitorState
   ) {
     nesting(
       in: stmt, withState: &state,
@@ -937,8 +883,7 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    condBindingStmt stmt: NodeID<CondBindingStmt>,
-    withState state: inout VisitorState
+    condBindingStmt stmt: NodeID<CondBindingStmt>, withState state: inout VisitorState
   ) {
     visit(bindingDecl: ast[stmt].binding, withState: &state)
     switch ast[stmt].fallback {
@@ -949,23 +894,19 @@ extension ScopedProgram {
     }
   }
 
-  private mutating func visit(
-    declStmt stmt: NodeID<DeclStmt>,
-    withState state: inout VisitorState
-  ) {
+  private mutating func visit(declStmt stmt: NodeID<DeclStmt>, withState state: inout VisitorState)
+  {
     visit(decl: ast[stmt].decl, withState: &state)
   }
 
   private mutating func visit(
-    discardStmt stmt: NodeID<DiscardStmt>,
-    withState state: inout VisitorState
+    discardStmt stmt: NodeID<DiscardStmt>, withState state: inout VisitorState
   ) {
     visit(expr: ast[stmt].expr, withState: &state)
   }
 
   private mutating func visit(
-    doWhileStmt stmt: NodeID<DoWhileStmt>,
-    withState state: inout VisitorState
+    doWhileStmt stmt: NodeID<DoWhileStmt>, withState state: inout VisitorState
   ) {
     visit(braceStmt: ast[stmt].body, withState: &state)
 
@@ -976,17 +917,12 @@ extension ScopedProgram {
     state.innermost = currentInnermost
   }
 
-  private mutating func visit(
-    exprStmt stmt: NodeID<ExprStmt>,
-    withState state: inout VisitorState
-  ) {
+  private mutating func visit(exprStmt stmt: NodeID<ExprStmt>, withState state: inout VisitorState)
+  {
     visit(expr: ast[stmt].expr, withState: &state)
   }
 
-  private mutating func visit(
-    forStmt stmt: NodeID<ForStmt>,
-    withState state: inout VisitorState
-  ) {
+  private mutating func visit(forStmt stmt: NodeID<ForStmt>, withState state: inout VisitorState) {
     nesting(
       in: stmt, withState: &state,
       { (this, state) in
@@ -999,8 +935,7 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    returnStmt stmt: NodeID<ReturnStmt>,
-    withState state: inout VisitorState
+    returnStmt stmt: NodeID<ReturnStmt>, withState state: inout VisitorState
   ) {
     if let value = ast[stmt].value {
       visit(expr: value, withState: &state)
@@ -1008,8 +943,7 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    whileStmt stmt: NodeID<WhileStmt>,
-    withState state: inout VisitorState
+    whileStmt stmt: NodeID<WhileStmt>, withState state: inout VisitorState
   ) {
     nesting(
       in: stmt, withState: &state,
@@ -1028,8 +962,7 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    yieldStmt stmt: NodeID<YieldStmt>,
-    withState state: inout VisitorState
+    yieldStmt stmt: NodeID<YieldStmt>, withState state: inout VisitorState
   ) {
     visit(expr: ast[stmt].value, withState: &state)
   }
@@ -1037,8 +970,7 @@ extension ScopedProgram {
   // MARK: Others
 
   private mutating func visit(
-    genericClause clause: GenericClause,
-    withState state: inout VisitorState
+    genericClause clause: GenericClause, withState state: inout VisitorState
   ) {
     for parameter in clause.parameters {
       visit(genericParameterDecl: parameter, withState: &state)
@@ -1048,10 +980,8 @@ extension ScopedProgram {
     }
   }
 
-  private mutating func visit(
-    whereClause clause: WhereClause,
-    withState state: inout VisitorState
-  ) {
+  private mutating func visit(whereClause clause: WhereClause, withState state: inout VisitorState)
+  {
     for constraint in clause.constraints {
       switch constraint.value {
       case .conformance(let lhs, let traits):

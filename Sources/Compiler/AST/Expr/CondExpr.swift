@@ -25,9 +25,7 @@ public struct CondExpr: Expr, LexicalScope {
   public let failure: Body?
 
   public init(
-    condition: [ConditionItem],
-    success: CondExpr.Body,
-    failure: CondExpr.Body?,
+    condition: [ConditionItem], success: CondExpr.Body, failure: CondExpr.Body?,
     origin: SourceRange?
   ) {
     precondition(condition.count > 0)

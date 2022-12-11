@@ -30,10 +30,8 @@ public struct BindingPattern: Pattern {
   public let annotation: AnyTypeExprID?
 
   public init(
-    introducer: SourceRepresentable<BindingPattern.Introducer>,
-    subpattern: AnyPatternID,
-    annotation: AnyTypeExprID?,
-    origin: SourceRange?
+    introducer: SourceRepresentable<BindingPattern.Introducer>, subpattern: AnyPatternID,
+    annotation: AnyTypeExprID?, origin: SourceRange?
   ) {
     self.origin = origin
     self.introducer = introducer

@@ -39,8 +39,7 @@ struct DisjunctionConstraint: Constraint, Hashable {
             var newConstraint = c
             newConstraint.modifyTypes(modify)
             cs.insert(newConstraint)
-          }),
-        penalties: choices[i].penalties)
+          }), penalties: choices[i].penalties)
     }
   }
 

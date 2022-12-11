@@ -16,10 +16,7 @@ public struct Name: Hashable, Codable {
   public let introducer: ImplIntroducer?
 
   /// Creates a new name.
-  public init(
-    stem: Identifier,
-    labels: [String?] = []
-  ) {
+  public init(stem: Identifier, labels: [String?] = []) {
     self.stem = stem
     self.labels = labels
     self.notation = nil
@@ -27,10 +24,7 @@ public struct Name: Hashable, Codable {
   }
 
   /// Creates a new operator name.
-  public init(
-    stem: Identifier,
-    notation: OperatorNotation
-  ) {
+  public init(stem: Identifier, notation: OperatorNotation) {
     self.stem = stem
     self.labels = []
     self.notation = notation
@@ -49,9 +43,7 @@ public struct Name: Hashable, Codable {
 
   /// Creates an instance with the given properties.
   init(
-    stem: Identifier,
-    labels: [String?],
-    notation: OperatorNotation? = nil,
+    stem: Identifier, labels: [String?], notation: OperatorNotation? = nil,
     introducer: ImplIntroducer? = nil
   ) {
     self.stem = stem

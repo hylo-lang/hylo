@@ -26,8 +26,7 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
 
   /// Writes a textual representation of the specified function into `output`.
   public func write<Target: TextOutputStream>(
-    function functionID: Function.ID,
-    to output: inout Target
+    function functionID: Function.ID, to output: inout Target
   ) {
     let function = functions[functionID]
 

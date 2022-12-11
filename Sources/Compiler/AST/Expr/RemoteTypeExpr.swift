@@ -13,10 +13,8 @@ public struct RemoteTypeExpr: Expr {
   public let operand: AnyTypeExprID
 
   public init(
-    introducerRange: SourceRange?,
-    convention: SourceRepresentable<PassingConvention>,
-    operand: AnyTypeExprID,
-    origin: SourceRange?
+    introducerRange: SourceRange?, convention: SourceRepresentable<PassingConvention>,
+    operand: AnyTypeExprID, origin: SourceRange?
   ) {
     self.origin = origin
     self.introducerRange = introducerRange

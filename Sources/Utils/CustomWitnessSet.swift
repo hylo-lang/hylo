@@ -62,9 +62,8 @@ extension CustomWitnessedSet: SetAlgebra {
   }
 
   @discardableResult
-  public mutating func insert(
-    _ newMember: Element
-  ) -> (inserted: Bool, memberAfterInsert: Element) {
+  public mutating func insert(_ newMember: Element) -> (inserted: Bool, memberAfterInsert: Element)
+  {
     let (inserted, memberAfterInsert) = contents.insert(_Element(newMember))
     return (inserted, memberAfterInsert.base)
   }

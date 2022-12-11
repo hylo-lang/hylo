@@ -23,10 +23,8 @@ public struct LambdaType: TypeProtocol {
 
   /// Creates an instance with the given properties.
   public init(
-    receiverEffect: ReceiverEffect? = nil,
-    environment: AnyType = .void,
-    inputs: [CallableTypeParameter],
-    output: AnyType
+    receiverEffect: ReceiverEffect? = nil, environment: AnyType = .void,
+    inputs: [CallableTypeParameter], output: AnyType
   ) {
     switch environment.base {
     case is TupleType, is TypeVariable, is ErrorType:
@@ -53,8 +51,7 @@ public struct LambdaType: TypeProtocol {
 
     let projectedReceiver = ^RemoteType(.let, method.receiver)
     self.init(
-      environment: ^TupleType(labelsAndTypes: [("self", projectedReceiver)]),
-      inputs: method.inputs,
+      environment: ^TupleType(labelsAndTypes: [("self", projectedReceiver)]), inputs: method.inputs,
       output: method.output)
   }
 
@@ -65,8 +62,7 @@ public struct LambdaType: TypeProtocol {
 
     let projectedReceiver = ^RemoteType(.inout, method.receiver)
     self.init(
-      environment: ^TupleType(labelsAndTypes: [("self", projectedReceiver)]),
-      inputs: method.inputs,
+      environment: ^TupleType(labelsAndTypes: [("self", projectedReceiver)]), inputs: method.inputs,
       output: method.output)
   }
 
@@ -76,18 +72,15 @@ public struct LambdaType: TypeProtocol {
     if !method.capabilities.contains(.inout) && !method.capabilities.contains(.sink) { return nil }
 
     self.init(
-      receiverEffect: .sink,
-      environment: ^TupleType(labelsAndTypes: [("self", method.receiver)]),
-      inputs: method.inputs,
-      output: method.output)
+      receiverEffect: .sink, environment: ^TupleType(labelsAndTypes: [("self", method.receiver)]),
+      inputs: method.inputs, output: method.output)
   }
 
   /// Transforms `self` into a constructor type if `self` has the shape of an initializer type.
   /// Otherwise, returns `nil`.
   public func ctor() -> LambdaType? {
     guard (receiverEffect == nil) && (environment == .void) && (output == .void),
-      let receiverType = ParameterType(inputs.first?.type),
-      receiverType.convention == .set
+      let receiverType = ParameterType(inputs.first?.type), receiverType.convention == .set
     else { return nil }
     return LambdaType(inputs: Array(inputs[1...]), output: receiverType.bareType)
   }
@@ -100,12 +93,10 @@ public struct LambdaType: TypeProtocol {
 
   public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> Self {
     LambdaType(
-      receiverEffect: receiverEffect,
-      environment: environment.transform(transformer),
+      receiverEffect: receiverEffect, environment: environment.transform(transformer),
       inputs: inputs.map({ (p) -> CallableTypeParameter in
         .init(label: p.label, type: p.type.transform(transformer))
-      }),
-      output: output.transform(transformer))
+      }), output: output.transform(transformer))
   }
 
 }

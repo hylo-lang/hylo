@@ -76,8 +76,7 @@ public struct CXXTranspiler {
 
   /// Emits borrowed bindings.
   private mutating func emit(
-    borrowedLocalBinding decl: Typed<BindingDecl>,
-    withCapability capability: RemoteType.Capability
+    borrowedLocalBinding decl: Typed<BindingDecl>, withCapability capability: RemoteType.Capability
   ) -> CXXRepresentable {
     // There's nothing to do if there's no initializer.
     if let initializer = decl.initializer {
@@ -153,10 +152,7 @@ public struct CXXTranspiler {
 
   // MARK: Expressions
 
-  private mutating func emit(
-    expr: TypedNode<AnyExprID>,
-    asLValue: Bool
-  ) -> CXXRepresentable {
+  private mutating func emit(expr: TypedNode<AnyExprID>, asLValue: Bool) -> CXXRepresentable {
     if asLValue {
       return CXXComment(comment: "expr (lvalue)")
     } else {

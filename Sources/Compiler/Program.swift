@@ -28,10 +28,7 @@ extension Program {
   /// - `isContained(parent[child], ancestor)`.
   ///
   /// - Requires: `child` is the identifier of a scope in this hierarchy.
-  public func isContained<T: NodeIDProtocol, U: ScopeID>(
-    _ child: T,
-    in ancestor: U
-  ) -> Bool {
+  public func isContained<T: NodeIDProtocol, U: ScopeID>(_ child: T, in ancestor: U) -> Bool {
     var current = AnyNodeID(child)
     while true {
       if ancestor.rawValue == current.rawValue {
@@ -53,13 +50,8 @@ extension Program {
   /// - it is introduced with `init` or `memberwise init`.
   public func isGlobal<T: DeclID>(_ decl: T) -> Bool {
     switch decl.kind {
-    case AssociatedTypeDecl.self,
-      ImportDecl.self,
-      ModuleDecl.self,
-      NamespaceDecl.self,
-      ProductTypeDecl.self,
-      TraitDecl.self,
-      TypeAliasDecl.self:
+    case AssociatedTypeDecl.self, ImportDecl.self, ModuleDecl.self, NamespaceDecl.self,
+      ProductTypeDecl.self, TraitDecl.self, TypeAliasDecl.self:
       // Type declarations are global.
       return true
 
@@ -104,10 +96,7 @@ extension Program {
   public func isMember<T: DeclID>(_ decl: T) -> Bool {
     guard let parent = declToScope[decl] else { return false }
     switch parent.kind {
-    case ConformanceDecl.self,
-      ExtensionDecl.self,
-      ProductTypeDecl.self,
-      TraitDecl.self,
+    case ConformanceDecl.self, ExtensionDecl.self, ProductTypeDecl.self, TraitDecl.self,
       TypeAliasDecl.self:
       return true
 

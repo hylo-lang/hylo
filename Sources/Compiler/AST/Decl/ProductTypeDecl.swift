@@ -24,11 +24,8 @@ public struct ProductTypeDecl: SingleEntityDecl, GenericDecl, TypeScope, Generic
   /// Creates an instance with the given properties.
   public init(
     accessModifier: SourceRepresentable<AccessModifier>?,
-    identifier: SourceRepresentable<Identifier>,
-    genericClause: SourceRepresentable<GenericClause>?,
-    conformances: [NodeID<NameExpr>],
-    members: [AnyDeclID],
-    memberwiseInit: NodeID<InitializerDecl>,
+    identifier: SourceRepresentable<Identifier>, genericClause: SourceRepresentable<GenericClause>?,
+    conformances: [NodeID<NameExpr>], members: [AnyDeclID], memberwiseInit: NodeID<InitializerDecl>,
     origin: SourceRange?
   ) {
     precondition(members.contains(AnyDeclID(memberwiseInit)))

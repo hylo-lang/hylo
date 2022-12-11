@@ -62,8 +62,7 @@ public struct Emitter {
     // Create the function entry.
     assert(module.functions[functionID].blocks.isEmpty)
     let entryID = module.createBasicBlock(
-      accepting: module.functions[functionID].inputs.map({ $0.type }),
-      atEndOf: functionID)
+      accepting: module.functions[functionID].inputs.map({ $0.type }), atEndOf: functionID)
     insertionPoint = InsertionPoint(endOf: entryID)
 
     // Configure the locals.
@@ -118,10 +117,7 @@ public struct Emitter {
   }
 
   /// Emits the given subscript declaration into `module`.
-  public mutating func emit(
-    subscript declID: NodeID<SubscriptDecl>,
-    into module: inout Module
-  ) {
+  public mutating func emit(subscript declID: NodeID<SubscriptDecl>, into module: inout Module) {
     fatalError("not implemented")
   }
 
@@ -161,8 +157,7 @@ public struct Emitter {
   }
 
   private mutating func emit(
-    storedLocalBinding decl: NodeID<BindingDecl>,
-    into module: inout Module
+    storedLocalBinding decl: NodeID<BindingDecl>, into module: inout Module
   ) {
     /// The pattern of the binding being emitted.
     let pattern = program.ast[decl].pattern
@@ -209,8 +204,7 @@ public struct Emitter {
 
         // Borrow the storage for initialization corresponding to the current name.
         let target = module.insert(
-          BorrowInst(.set, .address(declType), from: storage),
-          at: insertionPoint!)[0]
+          BorrowInst(.set, .address(declType), from: storage), at: insertionPoint!)[0]
 
         // Store the corresponding (part of) the initializer.
         module.insert(StoreInst(objects[path]!, to: target), at: insertionPoint!)
@@ -221,8 +215,7 @@ public struct Emitter {
   /// Emits borrowed bindings.
   private mutating func emit(
     borrowedLocalBinding decl: NodeID<BindingDecl>,
-    withCapability capability: RemoteType.Capability,
-    into module: inout Module
+    withCapability capability: RemoteType.Capability, into module: inout Module
   ) {
     /// The pattern of the binding being emitted.
     let pattern = program.ast[decl].pattern
@@ -243,8 +236,7 @@ public struct Emitter {
         source = storage
 
         let target = module.insert(
-          BorrowInst(.set, .address(exprType), from: storage),
-          at: insertionPoint!)[0]
+          BorrowInst(.set, .address(exprType), from: storage), at: insertionPoint!)[0]
         module.insert(StoreInst(value, to: target), at: insertionPoint!)
       }
 
@@ -255,13 +247,8 @@ public struct Emitter {
         stack[decl] =
           module.insert(
             BorrowInst(
-              capability,
-              .address(declType),
-              from: source,
-              at: path,
-              binding: decl,
-              range: program.ast[decl].origin),
-            at: insertionPoint!)[0]
+              capability, .address(declType), from: source, at: path, binding: decl,
+              range: program.ast[decl].origin), at: insertionPoint!)[0]
       }
     }
   }
@@ -324,9 +311,7 @@ public struct Emitter {
     }
 
     emitStackDeallocs(in: &module)
-    module.insert(
-      ReturnInst(value: value, range: program.ast[stmt].origin),
-      at: insertionPoint!)
+    module.insert(ReturnInst(value: value, range: program.ast[stmt].origin), at: insertionPoint!)
   }
 
   // MARK: r-values
@@ -360,22 +345,17 @@ public struct Emitter {
   }
 
   private mutating func emitR(
-    booleanLiteral expr: NodeID<BooleanLiteralExpr>,
-    into module: inout Module
+    booleanLiteral expr: NodeID<BooleanLiteralExpr>, into module: inout Module
   ) -> Operand {
     let value = Operand.constant(
       .integer(IntegerConstant(program.ast[expr].value ? 1 : 0, bitWidth: 1)))
 
     let boolType = program.ast.coreType(named: "Bool")!
     return module.insert(
-      RecordInst(objectType: .object(boolType), operands: [value]),
-      at: insertionPoint!)[0]
+      RecordInst(objectType: .object(boolType), operands: [value]), at: insertionPoint!)[0]
   }
 
-  private mutating func emitR(
-    cond expr: NodeID<CondExpr>,
-    into module: inout Module
-  ) -> Operand {
+  private mutating func emitR(cond expr: NodeID<CondExpr>, into module: inout Module) -> Operand {
     let functionID = insertionPoint!.block.function
 
     // If the expression is supposed to return a value, allocate storage for it.
@@ -404,19 +384,13 @@ public struct Emitter {
         condition =
           module.insert(
             CallInst(
-              returnType: .object(BuiltinType.i(1)),
-              calleeConvention: .let,
+              returnType: .object(BuiltinType.i(1)), calleeConvention: .let,
               callee: .constant(.builtin(BuiltinFunctionRef["i1_copy"]!)),
-              argumentConventions: [.let],
-              arguments: [condition]),
-            at: insertionPoint!)[0]
+              argumentConventions: [.let], arguments: [condition]), at: insertionPoint!)[0]
 
         module.insert(
           CondBranchInst(
-            condition: condition,
-            targetIfTrue: success,
-            targetIfFalse: failure,
-            range: nil),
+            condition: condition, targetIfTrue: success, targetIfFalse: failure, range: nil),
           at: insertionPoint!)
         insertionPoint = InsertionPoint(endOf: success)
 
@@ -435,8 +409,8 @@ public struct Emitter {
       let value = emitR(expr: thenExpr, into: &module)
       if let target = resultStorage {
         let target = module.insert(
-          BorrowInst(.set, .address(program.exprTypes[expr]!), from: target),
-          at: insertionPoint!)[0]
+          BorrowInst(.set, .address(program.exprTypes[expr]!), from: target), at: insertionPoint!)[
+            0]
         module.insert(StoreInst(value, to: target), at: insertionPoint!)
       }
       emitStackDeallocs(in: &module)
@@ -455,8 +429,8 @@ public struct Emitter {
       let value = emitR(expr: elseExpr, into: &module)
       if let target = resultStorage {
         let target = module.insert(
-          BorrowInst(.set, .address(program.exprTypes[expr]!), from: target),
-          at: insertionPoint!)[0]
+          BorrowInst(.set, .address(program.exprTypes[expr]!), from: target), at: insertionPoint!)[
+            0]
         module.insert(StoreInst(value, to: target), at: insertionPoint!)
       }
       emitStackDeallocs(in: &module)
@@ -474,23 +448,21 @@ public struct Emitter {
     insertionPoint = InsertionPoint(endOf: continuation)
     if let source = resultStorage {
       return module.insert(
-        LoadInst(LoweredType(lowering: program.exprTypes[expr]!), from: source),
-        at: insertionPoint!)[0]
+        LoadInst(LoweredType(lowering: program.exprTypes[expr]!), from: source), at: insertionPoint!
+      )[0]
     } else {
       return .constant(.void)
     }
   }
 
-  private mutating func emitR(
-    funCall expr: NodeID<FunCallExpr>,
-    into module: inout Module
-  ) -> Operand {
+  private mutating func emitR(funCall expr: NodeID<FunCallExpr>, into module: inout Module)
+    -> Operand
+  {
     let calleeType = program.exprTypes[program.ast[expr].callee]!.base as! LambdaType
 
     // Determine the callee's convention.
     let calleeConvention = calleeType.receiverEffect.map(
-      default: .let,
-      PassingConvention.init(matching:))
+      default: .let, PassingConvention.init(matching:))
 
     // Arguments are evaluated first, from left to right.
     var argumentConventions: [PassingConvention] = []
@@ -515,8 +487,7 @@ public struct Emitter {
         callee = .constant(
           .builtin(
             BuiltinFunctionRef(
-              name: program.ast[calleeID].name.value.stem,
-              type: .address(calleeType))))
+              name: program.ast[calleeID].name.value.stem, type: .address(calleeType))))
 
       case .direct(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
         // Callee is a direct reference to a function or initializer declaration.
@@ -572,8 +543,7 @@ public struct Emitter {
           switch program.ast[calleeID].domain {
           case .none:
             let receiver = module.insert(
-              LoadInst(.object(receiverType), from: stack[receiverDecl!]!),
-              at: insertionPoint!)[0]
+              LoadInst(.object(receiverType), from: stack[receiverDecl!]!), at: insertionPoint!)[0]
             arguments.insert(receiver, at: 0)
 
           case .expr(let receiverID):
@@ -602,17 +572,13 @@ public struct Emitter {
 
     return module.insert(
       CallInst(
-        returnType: .object(program.exprTypes[expr]!),
-        calleeConvention: calleeConvention,
-        callee: callee,
-        argumentConventions: argumentConventions,
-        arguments: arguments),
+        returnType: .object(program.exprTypes[expr]!), calleeConvention: calleeConvention,
+        callee: callee, argumentConventions: argumentConventions, arguments: arguments),
       at: insertionPoint!)[0]
   }
 
   private mutating func emitR(
-    integerLiteral expr: NodeID<IntegerLiteralExpr>,
-    into module: inout Module
+    integerLiteral expr: NodeID<IntegerLiteralExpr>, into module: inout Module
   ) -> Operand {
     let type = program.exprTypes[expr]!.base as! ProductType
 
@@ -641,17 +607,13 @@ public struct Emitter {
       at: insertionPoint!)[0]
   }
 
-  private mutating func emitR(
-    name expr: NodeID<NameExpr>,
-    into module: inout Module
-  ) -> Operand {
+  private mutating func emitR(name expr: NodeID<NameExpr>, into module: inout Module) -> Operand {
     switch program.referredDecls[expr]! {
     case .direct(let declID):
       // Lookup for a local symbol.
       if let source = stack[declID] {
         return module.insert(
-          LoadInst(.object(program.exprTypes[expr]!), from: source),
-          at: insertionPoint!)[0]
+          LoadInst(.object(program.exprTypes[expr]!), from: source), at: insertionPoint!)[0]
       }
 
       fatalError("not implemented")
@@ -661,16 +623,14 @@ public struct Emitter {
     }
   }
 
-  private mutating func emitR(
-    sequence expr: NodeID<SequenceExpr>,
-    into module: inout Module
-  ) -> Operand {
+  private mutating func emitR(sequence expr: NodeID<SequenceExpr>, into module: inout Module)
+    -> Operand
+  {
     emit(.sink, foldedSequence: program.foldedSequenceExprs[expr]!, into: &module)
   }
 
   private mutating func emit(
-    _ convention: PassingConvention,
-    foldedSequence expr: FoldedSequenceExpr,
+    _ convention: PassingConvention, foldedSequence expr: FoldedSequenceExpr,
     into module: inout Module
   ) -> Operand {
     switch expr {
@@ -708,12 +668,9 @@ public struct Emitter {
       // Emit the call.
       return module.insert(
         CallInst(
-          returnType: .object(calleeType.output),
-          calleeConvention: .let,
-          callee: calleeOperand,
+          returnType: .object(calleeType.output), calleeConvention: .let, callee: calleeOperand,
           argumentConventions: [lhsConvention, rhsType.convention],
-          arguments: [lhsOperand, rhsOperand]),
-        at: insertionPoint!)[0]
+          arguments: [lhsOperand, rhsOperand]), at: insertionPoint!)[0]
 
     case .leaf(let expr):
       switch convention {
@@ -732,9 +689,7 @@ public struct Emitter {
   }
 
   private mutating func emit(
-    argument expr: AnyExprID,
-    to parameterType: ParameterType,
-    into module: inout Module
+    argument expr: AnyExprID, to parameterType: ParameterType, into module: inout Module
   ) -> Operand {
     switch parameterType.convention {
     case .let:
@@ -755,9 +710,7 @@ public struct Emitter {
   ///
   /// - Requires: `expr` has a lambda type.
   private mutating func emitCallee(
-    _ expr: AnyExprID,
-    conventions: inout [PassingConvention],
-    arguments: inout [Operand],
+    _ expr: AnyExprID, conventions: inout [PassingConvention], arguments: inout [Operand],
     into module: inout Module
   ) -> Operand {
     let calleeType = program.exprTypes[expr]!.base as! LambdaType
@@ -772,8 +725,7 @@ public struct Emitter {
         return .constant(
           .builtin(
             BuiltinFunctionRef(
-              name: program.ast[nameExpr].name.value.stem,
-              type: .address(calleeType))))
+              name: program.ast[nameExpr].name.value.stem, type: .address(calleeType))))
 
       case .direct(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
         // Callee is a direct reference to a function or initializer declaration.
@@ -826,8 +778,7 @@ public struct Emitter {
           switch program.ast[nameExpr].domain {
           case .none:
             let receiver = module.insert(
-              LoadInst(.object(receiverType), from: stack[receiverDecl!]!),
-              at: insertionPoint!)[0]
+              LoadInst(.object(receiverType), from: stack[receiverDecl!]!), at: insertionPoint!)[0]
             arguments.insert(receiver, at: 0)
 
           case .expr(let receiverID):
@@ -860,14 +811,11 @@ public struct Emitter {
   /// Emits `expr` as a l-value with the specified capability into `module` at the current
   /// insertion point.
   private mutating func emitL<T: ExprID>(
-    expr: T,
-    withCapability capability: RemoteType.Capability,
-    into module: inout Module
+    expr: T, withCapability capability: RemoteType.Capability, into module: inout Module
   ) -> Operand {
     switch expr.kind {
     case NameExpr.self:
-      return emitL(
-        name: NodeID(rawValue: expr.rawValue), withCapability: capability, into: &module)
+      return emitL(name: NodeID(rawValue: expr.rawValue), withCapability: capability, into: &module)
 
     case SubscriptCallExpr.self:
       fatalError("not implemented")
@@ -880,19 +828,16 @@ public struct Emitter {
       stack.top.allocs.append(storage)
 
       let target = module.insert(
-        BorrowInst(.set, .address(exprType), from: storage),
-        at: insertionPoint!)[0]
+        BorrowInst(.set, .address(exprType), from: storage), at: insertionPoint!)[0]
       module.insert(StoreInst(value, to: target), at: insertionPoint!)
 
       return module.insert(
-        BorrowInst(capability, .address(exprType), from: storage),
-        at: insertionPoint!)[0]
+        BorrowInst(capability, .address(exprType), from: storage), at: insertionPoint!)[0]
     }
   }
 
   private mutating func emitL(
-    name expr: NodeID<NameExpr>,
-    withCapability capability: RemoteType.Capability,
+    name expr: NodeID<NameExpr>, withCapability capability: RemoteType.Capability,
     into module: inout Module
   ) -> Operand {
     switch program.referredDecls[expr]! {
@@ -932,17 +877,12 @@ public struct Emitter {
           let receiverInst = module[id.function][id.block][id.address] as? BorrowInst
         {
           module[id.function][id.block][id.address] = BorrowInst(
-            capability,
-            .address(program.exprTypes[expr]!),
-            from: receiverInst.location,
+            capability, .address(program.exprTypes[expr]!), from: receiverInst.location,
             at: receiverInst.path + [memberIndex])
           return receiver
         } else {
           let member = BorrowInst(
-            capability,
-            .address(program.exprTypes[expr]!),
-            from: receiver,
-            at: [memberIndex])
+            capability, .address(program.exprTypes[expr]!), from: receiver, at: [memberIndex])
           return module.insert(member, at: insertionPoint!)[0]
         }
 

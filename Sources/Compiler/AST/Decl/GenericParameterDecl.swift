@@ -17,10 +17,8 @@ public struct GenericParameterDecl: SingleEntityDecl {
   public let defaultValue: AnyExprID?
 
   public init(
-    identifier: SourceRepresentable<Identifier>,
-    conformances: [NodeID<NameExpr>] = [],
-    defaultValue: AnyExprID? = nil,
-    origin: SourceRange?
+    identifier: SourceRepresentable<Identifier>, conformances: [NodeID<NameExpr>] = [],
+    defaultValue: AnyExprID? = nil, origin: SourceRange?
   ) {
     self.origin = origin
     self.identifier = identifier

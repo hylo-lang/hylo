@@ -11,9 +11,7 @@ public struct AbstractTypeLayout {
   public let storedPropertiesTypes: [AnyType]
 
   fileprivate init(
-    type: AnyType,
-    storedPropertiesIndices: [String: Int],
-    storedPropertiesTypes: [AnyType]
+    type: AnyType, storedPropertiesIndices: [String: Int], storedPropertiesTypes: [AnyType]
   ) {
     self.type = type
     self.storedPropertiesIndices = storedPropertiesIndices
@@ -32,8 +30,7 @@ extension TypedProgram {
   public func abstractLayout(of type: AnyType, at path: [Int] = []) -> AbstractTypeLayout {
     let indicesAndTypes = storedPropertiesIndicesAndTypes(of: type)
     var layout = AbstractTypeLayout(
-      type: type,
-      storedPropertiesIndices: indicesAndTypes.indices,
+      type: type, storedPropertiesIndices: indicesAndTypes.indices,
       storedPropertiesTypes: indicesAndTypes.types)
 
     for offset in path {
@@ -42,9 +39,9 @@ extension TypedProgram {
     return layout
   }
 
-  private func storedPropertiesIndicesAndTypes(
-    of type: AnyType
-  ) -> (indices: [String: Int], types: [AnyType]) {
+  private func storedPropertiesIndicesAndTypes(of type: AnyType) -> (
+    indices: [String: Int], types: [AnyType]
+  ) {
     var indices: [String: Int] = [:]
     var types: [AnyType] = []
 

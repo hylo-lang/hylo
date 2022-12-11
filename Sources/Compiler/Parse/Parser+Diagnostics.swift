@@ -9,27 +9,19 @@ extension Diagnostic {
   }
 
   static func diagnose(
-    expected subject: String,
-    at location: SourceLocation,
-    children: [Diagnostic] = []
+    expected subject: String, at location: SourceLocation, children: [Diagnostic] = []
   ) -> Diagnostic {
     .error("expected \(subject)", range: location..<location, children: children)
   }
 
   static func diagnose(
-    expected closerDescription: String,
-    matching opener: Token,
-    in state: ParserState
+    expected closerDescription: String, matching opener: Token, in state: ParserState
   ) -> Diagnostic {
     .diagnose(
-      expected: "'\(closerDescription)'",
-      at: state.currentLocation,
+      expected: "'\(closerDescription)'", at: state.currentLocation,
       children: [
-        .error(
-          "to match this '\(state.lexer.source[opener.origin])'",
-          range: opener.origin)
-      ]
-    )
+        .error("to match this '\(state.lexer.source[opener.origin])'", range: opener.origin)
+      ])
   }
 
   static func diagnose(infixOperatorRequiresWhitespacesAt range: SourceRange?) -> Diagnostic {

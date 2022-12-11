@@ -22,9 +22,9 @@ public struct DirectedGraph<Vertex: Hashable, Label> {
   ///
   /// - Complexity: O(1).
   @discardableResult
-  public mutating func insertEdge(
-    from source: Vertex, to target: Vertex, labeledBy label: Label
-  ) -> (inserted: Bool, labelAfterInsert: Label) {
+  public mutating func insertEdge(from source: Vertex, to target: Vertex, labeledBy label: Label)
+    -> (inserted: Bool, labelAfterInsert: Label)
+  {
     modifying(
       &edges[source, default: [:]],
       { tips in

@@ -28,10 +28,8 @@ public struct TypeAliasDecl: SingleEntityDecl, GenericDecl, TypeScope, GenericSc
   /// Creates an instance with the given properties.
   public init(
     accessModifier: SourceRepresentable<AccessModifier>?,
-    identifier: SourceRepresentable<Identifier>,
-    genericClause: SourceRepresentable<GenericClause>?,
-    body: Body,
-    origin: SourceRange?
+    identifier: SourceRepresentable<Identifier>, genericClause: SourceRepresentable<GenericClause>?,
+    body: Body, origin: SourceRange?
   ) {
     self.origin = origin
     self.accessModifier = accessModifier

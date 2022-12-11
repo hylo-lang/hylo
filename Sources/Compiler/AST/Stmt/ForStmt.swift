@@ -16,10 +16,7 @@ public struct ForStmt: Stmt, LexicalScope {
   public let body: NodeID<BraceStmt>
 
   internal init(
-    binding: NodeID<BindingDecl>,
-    domain: AnyExprID,
-    filter: AnyExprID?,
-    body: NodeID<BraceStmt>,
+    binding: NodeID<BindingDecl>, domain: AnyExprID, filter: AnyExprID?, body: NodeID<BraceStmt>,
     origin: SourceRange?
   ) {
     self.origin = origin

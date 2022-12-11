@@ -27,9 +27,9 @@ public struct CXXModule {
   /// Returns the ID of the C++ function declaration corresponding to `valFunctionDecl`.
   ///
   /// - Requires: `valFunctionDecl` must be declared in `self.decl`.
-  public mutating func getOrCreateFunction(
-    correspondingTo valFunctionDecl: Typed<FunctionDecl>
-  ) -> CXXFunctionDecl.ID {
+  public mutating func getOrCreateFunction(correspondingTo valFunctionDecl: Typed<FunctionDecl>)
+    -> CXXFunctionDecl.ID
+  {
     if let cxxFunctionDecl = valToCXXFunction[valFunctionDecl] { return cxxFunctionDecl }
 
     assert(program.isGlobal(valFunctionDecl.id))
@@ -80,10 +80,7 @@ public struct CXXModule {
     // Create the C++ function.
     let cxxFunctionDecl = cxxFunctions.count
     cxxFunctions.append(
-      CXXFunctionDecl(
-        identifier: identifier,
-        output: output,
-        parameters: cxxParams))
+      CXXFunctionDecl(identifier: identifier, output: output, parameters: cxxParams))
     // Associate an empty body to it.
     cxxFunctionBodies.append(nil)
 
@@ -94,8 +91,7 @@ public struct CXXModule {
 
   /// Set the body for the function with the given ID.
   public mutating func setFunctionBody(
-    _ body: CXXRepresentable?,
-    forID cxxFunID: CXXFunctionDecl.ID
+    _ body: CXXRepresentable?, forID cxxFunID: CXXFunctionDecl.ID
   ) {
     cxxFunctionBodies[cxxFunID] = body
   }

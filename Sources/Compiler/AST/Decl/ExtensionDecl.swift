@@ -17,11 +17,8 @@ public struct ExtensionDecl: TypeExtendingDecl {
 
   /// Creates an instance with the given properties.
   public init(
-    accessModifier: SourceRepresentable<AccessModifier>?,
-    subject: AnyTypeExprID,
-    whereClause: SourceRepresentable<WhereClause>?,
-    members: [AnyDeclID],
-    origin: SourceRange?
+    accessModifier: SourceRepresentable<AccessModifier>?, subject: AnyTypeExprID,
+    whereClause: SourceRepresentable<WhereClause>?, members: [AnyDeclID], origin: SourceRange?
   ) {
     self.origin = origin
     self.accessModifier = accessModifier

@@ -55,24 +55,24 @@ extension TypedNode where ID: ConcreteNodeID {
 
   /// Accesses the given member of the corresponding AST node as a corresponding
   /// `TypedNode`
-  subscript<TargetID: NodeIDProtocol>(
-    dynamicMember m: KeyPath<ID.Subject, TargetID>
-  ) -> TypedNode<TargetID> {
+  subscript<TargetID: NodeIDProtocol>(dynamicMember m: KeyPath<ID.Subject, TargetID>) -> TypedNode<
+    TargetID
+  > {
     .init(whole: whole, id: syntax[keyPath: m])
   }
 
   /// Accesses the given member of the corresponding AST node as a corresponding lazy collection
   /// of `TypedNode`s.
-  subscript<TargetID: NodeIDProtocol>(
-    dynamicMember m: KeyPath<ID.Subject, [TargetID]>
-  ) -> LazyMapCollection<[TargetID], TypedNode<TargetID>> {
+  subscript<TargetID: NodeIDProtocol>(dynamicMember m: KeyPath<ID.Subject, [TargetID]>)
+    -> LazyMapCollection<[TargetID], TypedNode<TargetID>>
+  {
     syntax[keyPath: m].lazy.map { .init(whole: whole, id: $0) }
   }
 
   /// Accesses the given member of the corresponding AST node as a corresponding `TypedNode?`
-  subscript<TargetID: NodeIDProtocol>(
-    dynamicMember m: KeyPath<ID.Subject, TargetID?>
-  ) -> TypedNode<TargetID>? {
+  subscript<TargetID: NodeIDProtocol>(dynamicMember m: KeyPath<ID.Subject, TargetID?>) -> TypedNode<
+    TargetID
+  >? {
     syntax[keyPath: m].map { .init(whole: whole, id: $0) }
   }
 
@@ -150,11 +150,9 @@ extension TypedNode where ID == NodeID<ModuleDecl> {
   typealias TopLevelDecls = LazyMapSequence<
     FlattenSequence<
       LazyMapSequence<
-        [NodeID<TopLevelDeclSet>],
-        [AnyDeclID]
+        [NodeID<TopLevelDeclSet>], [AnyDeclID]
       >
-    >,
-    TypedNode<AnyDeclID>
+    >, TypedNode<AnyDeclID>
   >
 
   /// The top-level declarations in the module.

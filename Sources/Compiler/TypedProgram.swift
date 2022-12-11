@@ -28,10 +28,8 @@ public struct TypedProgram: Program {
 
   /// Creates a typed program from a scoped program and property maps describing type annotations.
   public init(
-    annotating program: ScopedProgram,
-    declTypes: DeclProperty<AnyType>,
-    exprTypes: ExprProperty<AnyType>,
-    implicitCaptures: DeclProperty<[ImplicitCapture]>,
+    annotating program: ScopedProgram, declTypes: DeclProperty<AnyType>,
+    exprTypes: ExprProperty<AnyType>, implicitCaptures: DeclProperty<[ImplicitCapture]>,
     referredDecls: [NodeID<NameExpr>: DeclRef],
     foldedSequenceExprs: [NodeID<SequenceExpr>: FoldedSequenceExpr]
   ) {

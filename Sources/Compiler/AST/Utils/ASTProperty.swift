@@ -17,10 +17,9 @@ public struct ASTProperty<Property> {
 
   /// Accesses the property this map associates with `id`, or `defaultProperty` if this map makes
   /// no such association.
-  public subscript<T: NodeIDProtocol>(
-    id: T,
-    default defaultProperty: @autoclosure () -> Property
-  ) -> Property {
+  public subscript<T: NodeIDProtocol>(id: T, default defaultProperty: @autoclosure () -> Property)
+    -> Property
+  {
     _read {
       yield storage[AnyNodeID(id), default: defaultProperty()]
     }

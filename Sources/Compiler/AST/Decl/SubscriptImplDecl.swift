@@ -24,9 +24,7 @@ public struct SubscriptImplDecl: Decl, LexicalScope {
   public let body: Body?
 
   public init(
-    introducer: SourceRepresentable<ImplIntroducer>,
-    receiver: NodeID<ParameterDecl>?,
-    body: Body?,
+    introducer: SourceRepresentable<ImplIntroducer>, receiver: NodeID<ParameterDecl>?, body: Body?,
     origin: SourceRange?
   ) {
     self.origin = origin

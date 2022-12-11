@@ -8,10 +8,7 @@ extension Optional {
 
   /// Evaluates the given closure when this Optional instance is not `nil`, passing the unwrapped
   /// value as a parameter. Otherwise, returns `defaultValue`.
-  public func map<U>(
-    default defaultValue: @autoclosure () -> U,
-    _ transform: (Wrapped) -> U
-  ) -> U {
+  public func map<U>(default defaultValue: @autoclosure () -> U, _ transform: (Wrapped) -> U) -> U {
     map(transform) ?? defaultValue()
   }
 

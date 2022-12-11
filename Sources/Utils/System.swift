@@ -9,8 +9,7 @@ import Foundation
 @discardableResult
 public func withFiles(in directory: URL, _ action: (URL) throws -> Bool) rethrows -> Bool {
   let enumerator = FileManager.default.enumerator(
-    at: directory,
-    includingPropertiesForKeys: [.isRegularFileKey],
+    at: directory, includingPropertiesForKeys: [.isRegularFileKey],
     options: [.skipsHiddenFiles, .skipsPackageDescendants])!
 
   for case let url as URL in enumerator {

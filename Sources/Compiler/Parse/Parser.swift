@@ -23,11 +23,9 @@ public enum Parser {
   ///
   /// - Returns: `(translation, diagnostics)` where `diagnostics` are the diagnostics produced by
   ///   the parser and `translation` is the ID of parsed translation unit.
-  public static func parse(
-    _ input: SourceFile,
-    into module: NodeID<ModuleDecl>,
-    in ast: inout AST
-  ) throws -> (translation: NodeID<TopLevelDeclSet>, diagnostics: [Diagnostic]) {
+  public static func parse(_ input: SourceFile, into module: NodeID<ModuleDecl>, in ast: inout AST)
+    throws -> (translation: NodeID<TopLevelDeclSet>, diagnostics: [Diagnostic])
+  {
     // Initialize the parser's state.
     var state = ParserState(ast: ast, lexer: Lexer(tokenizing: input))
 
@@ -81,15 +79,13 @@ public enum Parser {
       case .unterminatedBlockComment:
         // Nothing to parse after an unterminated block comment.
         state.diagnostics.append(
-          .diagnose(
-            unterminatedCommentEndingAt: head.origin.last() ?? head.origin.first()))
+          .diagnose(unterminatedCommentEndingAt: head.origin.last() ?? head.origin.first()))
         break
 
       case .unterminatedString:
         // Nothing to parse after an unterminated string.
         state.diagnostics.append(
-          .diagnose(
-            unterminatedStringEndingAt: head.origin.last() ?? head.origin.first()))
+          .diagnose(unterminatedStringEndingAt: head.origin.last() ?? head.origin.first()))
         break
 
       default:
@@ -133,9 +129,7 @@ public enum Parser {
         // Catch access modifiers declared after member modifiers.
         if let member = memberModifiers.first {
           state.diagnostics.append(
-            .diagnose(
-              memberModifier: member,
-              appearsBeforeAccessModifier: access))
+            .diagnose(memberModifier: member, appearsBeforeAccessModifier: access))
         }
 
         // Catch duplicate access modifiers.
@@ -169,20 +163,14 @@ public enum Parser {
 
     // Apply the continuation.
     let prologue = DeclPrologue(
-      isEmpty: isPrologueEmpty,
-      startIndex: startIndex,
-      attributes: attributes,
-      accessModifiers: accessModifiers,
-      memberModifiers: memberModifiers)
+      isEmpty: isPrologueEmpty, startIndex: startIndex, attributes: attributes,
+      accessModifiers: accessModifiers, memberModifiers: memberModifiers)
     return try continuation(prologue, &state)
   }
 
   /// Parses a declaration in `state`.
   static func parseDecl(in state: inout ParserState) throws -> AnyDeclID? {
-    func continuation(
-      prologue: DeclPrologue,
-      state: inout ParserState
-    ) throws -> AnyDeclID? {
+    func continuation(prologue: DeclPrologue, state: inout ParserState) throws -> AnyDeclID? {
       // Look ahead to select the appropriate declaration parser.
       switch state.peek()?.kind {
       case .let, .inout, .var, .sink:
@@ -281,8 +269,7 @@ public enum Parser {
   ///   - state: A mutable projection of the parser's state.
   ///   - context: The parser context in which members should be parsed.
   private static func parseTypeDeclBody(
-    in state: inout ParserState,
-    wrappedIn context: ParserState.Context
+    in state: inout ParserState, wrappedIn context: ParserState.Context
   ) throws -> [AnyDeclID] {
     // Parse the left delimiter.
     let opener = try state.expect("'{'", using: { $0.take(.lBrace) })
@@ -316,10 +303,8 @@ public enum Parser {
       guard let head = state.take() else {
         state.diagnostics.append(
           .diagnose(
-            expected: "'}'",
-            at: state.currentLocation,
-            children: [.error("to match this '{'", range: opener.origin)]
-          ))
+            expected: "'}'", at: state.currentLocation,
+            children: [.error("to match this '{'", range: opener.origin)]))
         break
       }
 
@@ -335,8 +320,7 @@ public enum Parser {
 
   /// Parses an instance of `AssociatedTypeDecl`.
   static func parseAssociatedTypeDecl(
-    withPrologue prologue: DeclPrologue,
-    in state: inout ParserState
+    withPrologue prologue: DeclPrologue, in state: inout ParserState
   ) throws -> NodeID<AssociatedTypeDecl>? {
     // Parse the parts of the declaration.
     let parser =
@@ -354,13 +338,11 @@ public enum Parser {
     // Associated type declarations shall not have modifiers.
     if !prologue.accessModifiers.isEmpty {
       throw DiagnosedError(
-        prologue.accessModifiers.map(
-          Diagnostic.diagnose(unexpectedAccessModifier:)))
+        prologue.accessModifiers.map(Diagnostic.diagnose(unexpectedAccessModifier:)))
     }
     if !prologue.memberModifiers.isEmpty {
       throw DiagnosedError(
-        prologue.memberModifiers.map(
-          Diagnostic.diagnose(unexpectedMemberModifier:)))
+        prologue.memberModifiers.map(Diagnostic.diagnose(unexpectedMemberModifier:)))
     }
 
     // Create a new `AssociatedTypeDecl`.
@@ -368,17 +350,14 @@ public enum Parser {
       wellFormed: AssociatedTypeDecl(
         introducerRange: parts.0.0.0.0.origin,
         identifier: SourceRepresentable(token: parts.0.0.0.1, in: state.lexer.source),
-        conformances: parts.0.0.1 ?? [],
-        whereClause: parts.0.1,
-        defaultValue: parts.1,
+        conformances: parts.0.0.1 ?? [], whereClause: parts.0.1, defaultValue: parts.1,
         origin: state.range(from: prologue.startIndex)))
     return decl
   }
 
   /// Parses an instance of `AssociatedValueDecl`.
   static func parseAssociatedValueDecl(
-    withPrologue prologue: DeclPrologue,
-    in state: inout ParserState
+    withPrologue prologue: DeclPrologue, in state: inout ParserState
   ) throws -> NodeID<AssociatedValueDecl>? {
     // Parse the parts of the declaration.
     let parser =
@@ -395,13 +374,11 @@ public enum Parser {
     // Associated value declarations shall not have modifiers.
     if !prologue.accessModifiers.isEmpty {
       throw DiagnosedError(
-        prologue.accessModifiers.map(
-          Diagnostic.diagnose(unexpectedAccessModifier:)))
+        prologue.accessModifiers.map(Diagnostic.diagnose(unexpectedAccessModifier:)))
     }
     if !prologue.memberModifiers.isEmpty {
       throw DiagnosedError(
-        prologue.memberModifiers.map(
-          Diagnostic.diagnose(unexpectedMemberModifier:)))
+        prologue.memberModifiers.map(Diagnostic.diagnose(unexpectedMemberModifier:)))
     }
 
     // Create a new `AssociatedValueDecl`.
@@ -409,17 +386,15 @@ public enum Parser {
       wellFormed: AssociatedValueDecl(
         introducerRange: parts.0.0.0.origin,
         identifier: SourceRepresentable(token: parts.0.0.1, in: state.lexer.source),
-        whereClause: parts.0.1,
-        defaultValue: parts.1,
+        whereClause: parts.0.1, defaultValue: parts.1,
         origin: state.range(from: prologue.startIndex)))
     return decl
   }
 
   /// Parses an instance of `BindingDecl`.
-  static func parseBindingDecl(
-    withPrologue prologue: DeclPrologue,
-    in state: inout ParserState
-  ) throws -> NodeID<BindingDecl>? {
+  static func parseBindingDecl(withPrologue prologue: DeclPrologue, in state: inout ParserState)
+    throws -> NodeID<BindingDecl>?
+  {
     // Parse the parts of the declaration.
     let parser =
       (bindingPattern
@@ -431,20 +406,16 @@ public enum Parser {
     assert(prologue.memberModifiers.count <= 1)
     let decl = try state.ast.insert(
       wellFormed: BindingDecl(
-        attributes: prologue.attributes,
-        accessModifier: prologue.accessModifiers.first,
-        memberModifier: prologue.memberModifiers.first,
-        pattern: pattern,
-        initializer: initializer,
+        attributes: prologue.attributes, accessModifier: prologue.accessModifiers.first,
+        memberModifier: prologue.memberModifiers.first, pattern: pattern, initializer: initializer,
         origin: state.range(from: prologue.startIndex)))
     return decl
   }
 
   /// Parses an instance of `ConformanceDecl`.
-  static func parseConformanceDecl(
-    withPrologue prologue: DeclPrologue,
-    in state: inout ParserState
-  ) throws -> NodeID<ConformanceDecl>? {
+  static func parseConformanceDecl(withPrologue prologue: DeclPrologue, in state: inout ParserState)
+    throws -> NodeID<ConformanceDecl>?
+  {
     // Parse the parts of the declaration.
     let parser =
       (take(.conformance).and(expr)
@@ -461,28 +432,23 @@ public enum Parser {
     // Conformance declarations shall not have member modifiers.
     if !prologue.memberModifiers.isEmpty {
       throw DiagnosedError(
-        prologue.memberModifiers.map(
-          Diagnostic.diagnose(unexpectedMemberModifier:)))
+        prologue.memberModifiers.map(Diagnostic.diagnose(unexpectedMemberModifier:)))
     }
 
     // Create a new `ConformanceDecl`.
     assert(prologue.accessModifiers.count <= 1)
     let decl = try state.ast.insert(
       wellFormed: ConformanceDecl(
-        accessModifier: prologue.accessModifiers.first,
-        subject: parts.0.0.0.1,
-        conformances: parts.0.0.1,
-        whereClause: parts.0.1,
-        members: parts.1,
+        accessModifier: prologue.accessModifiers.first, subject: parts.0.0.0.1,
+        conformances: parts.0.0.1, whereClause: parts.0.1, members: parts.1,
         origin: state.range(from: prologue.startIndex)))
     return decl
   }
 
   /// Parses an instance of `ExtensionDecl`.
-  static func parseExtensionDecl(
-    withPrologue prologue: DeclPrologue,
-    in state: inout ParserState
-  ) throws -> NodeID<ExtensionDecl>? {
+  static func parseExtensionDecl(withPrologue prologue: DeclPrologue, in state: inout ParserState)
+    throws -> NodeID<ExtensionDecl>?
+  {
     // Parse the parts of the declaration.
     let parser =
       (take(.extension).and(expr)
@@ -498,31 +464,25 @@ public enum Parser {
     // Extension declarations shall not have modifiers.
     if !prologue.accessModifiers.isEmpty {
       throw DiagnosedError(
-        prologue.accessModifiers.map(
-          Diagnostic.diagnose(unexpectedAccessModifier:)))
+        prologue.accessModifiers.map(Diagnostic.diagnose(unexpectedAccessModifier:)))
     }
     if !prologue.memberModifiers.isEmpty {
       throw DiagnosedError(
-        prologue.memberModifiers.map(
-          Diagnostic.diagnose(unexpectedMemberModifier:)))
+        prologue.memberModifiers.map(Diagnostic.diagnose(unexpectedMemberModifier:)))
     }
 
     // Create a new `ExtensionDecl`.
     assert(prologue.accessModifiers.count <= 1)
     let decl = try state.ast.insert(
       wellFormed: ExtensionDecl(
-        accessModifier: prologue.accessModifiers.first,
-        subject: parts.0.0.1,
-        whereClause: parts.0.1,
-        members: parts.1,
-        origin: state.range(from: prologue.startIndex)))
+        accessModifier: prologue.accessModifiers.first, subject: parts.0.0.1,
+        whereClause: parts.0.1, members: parts.1, origin: state.range(from: prologue.startIndex)))
     return decl
   }
 
   /// Parses an instance of `FunctionDecl` or `MethodDecl`.
   static func parseFunctionOrMethodDecl(
-    withPrologue prologue: DeclPrologue,
-    in state: inout ParserState
+    withPrologue prologue: DeclPrologue, in state: inout ParserState
   ) throws -> AnyDeclID? {
     // Parse the signature of the function or method.
     guard let head = try parseFunctionDeclHead(in: &state) else { return nil }
@@ -536,47 +496,30 @@ public enum Parser {
     case .method(let impls):
       return try AnyDeclID(
         buildMethodDecl(
-          prologue: prologue,
-          head: head,
-          signature: signature,
-          impls: impls,
-          in: &state))
+          prologue: prologue, head: head, signature: signature, impls: impls, in: &state))
 
     case .function(let body):
       return try AnyDeclID(
         buildFunctionDecl(
-          prologue: prologue,
-          head: head,
-          signature: signature,
-          body: body,
-          in: &state))
+          prologue: prologue, head: head, signature: signature, body: body, in: &state))
 
     case nil:
       return try AnyDeclID(
         buildFunctionDecl(
-          prologue: prologue,
-          head: head,
-          signature: signature,
-          body: nil,
-          in: &state))
+          prologue: prologue, head: head, signature: signature, body: nil, in: &state))
     }
   }
 
   /// Builds a new instance of `FunctionDecl` from its parsed parts.
   private static func buildFunctionDecl(
-    prologue: DeclPrologue,
-    head: FunctionDeclHead,
-    signature: FunctionDeclSignature,
-    body: FunctionDecl.Body?,
-    in state: inout ParserState
+    prologue: DeclPrologue, head: FunctionDeclHead, signature: FunctionDeclSignature,
+    body: FunctionDecl.Body?, in state: inout ParserState
   ) throws -> NodeID<FunctionDecl> {
     // Non-static member function declarations require an implicit receiver parameter.
     let receiver: NodeID<ParameterDecl>?
     if state.isAtTypeScope && !prologue.isStatic {
       receiver = try state.ast.insert(
-        wellFormed: ParameterDecl(
-          identifier: SourceRepresentable(value: "self"),
-          origin: nil))
+        wellFormed: ParameterDecl(identifier: SourceRepresentable(value: "self"), origin: nil))
     } else {
       receiver = nil
     }
@@ -586,30 +529,19 @@ public enum Parser {
     assert(prologue.memberModifiers.count <= 1)
     let decl = try state.ast.insert(
       wellFormed: FunctionDecl(
-        introducerRange: head.name.introducerRange,
-        attributes: prologue.attributes,
+        introducerRange: head.name.introducerRange, attributes: prologue.attributes,
         accessModifier: prologue.accessModifiers.first,
-        memberModifier: prologue.memberModifiers.first,
-        receiverEffect: signature.receiverEffect,
-        notation: head.name.notation,
-        identifier: head.name.stem,
-        genericClause: head.genericClause,
-        explicitCaptures: head.captures,
-        parameters: signature.parameters,
-        receiver: receiver,
-        output: signature.output,
-        body: body,
-        origin: state.range(from: prologue.startIndex)))
+        memberModifier: prologue.memberModifiers.first, receiverEffect: signature.receiverEffect,
+        notation: head.name.notation, identifier: head.name.stem, genericClause: head.genericClause,
+        explicitCaptures: head.captures, parameters: signature.parameters, receiver: receiver,
+        output: signature.output, body: body, origin: state.range(from: prologue.startIndex)))
     return decl
   }
 
   /// Builds a new instance of `Method` from its parsed parts.
   private static func buildMethodDecl(
-    prologue: DeclPrologue,
-    head: FunctionDeclHead,
-    signature: FunctionDeclSignature,
-    impls: [NodeID<MethodImplDecl>],
-    in state: inout ParserState
+    prologue: DeclPrologue, head: FunctionDeclHead, signature: FunctionDeclSignature,
+    impls: [NodeID<MethodImplDecl>], in state: inout ParserState
   ) throws -> NodeID<MethodDecl> {
     // Method declarations cannot be static.
     if let modifier = prologue.memberModifiers.first(where: { (m) in m.value == .static }) {
@@ -630,24 +562,18 @@ public enum Parser {
     assert(prologue.accessModifiers.count <= 1)
     let decl = try state.ast.insert(
       wellFormed: MethodDecl(
-        introducerRange: head.name.introducerRange,
-        attributes: prologue.attributes,
-        accessModifier: prologue.accessModifiers.first,
-        notation: head.name.notation,
-        identifier: head.name.stem,
-        genericClause: head.genericClause,
-        parameters: signature.parameters,
-        output: signature.output,
-        impls: impls,
+        introducerRange: head.name.introducerRange, attributes: prologue.attributes,
+        accessModifier: prologue.accessModifiers.first, notation: head.name.notation,
+        identifier: head.name.stem, genericClause: head.genericClause,
+        parameters: signature.parameters, output: signature.output, impls: impls,
         origin: state.range(from: prologue.startIndex)))
     return decl
   }
 
   /// Parses an instance of `ImportDecl`.
-  static func parseImportDecl(
-    withPrologue prologue: DeclPrologue,
-    in state: inout ParserState
-  ) throws -> NodeID<ImportDecl>? {
+  static func parseImportDecl(withPrologue prologue: DeclPrologue, in state: inout ParserState)
+    throws -> NodeID<ImportDecl>?
+  {
     // Parse the parts of the declaration.
     let parser = (take(.import).and(take(.name)))
     guard let parts = try parser.parse(&state) else { return nil }
@@ -660,13 +586,11 @@ public enum Parser {
     // Import declarations shall not have modifiers.
     if !prologue.accessModifiers.isEmpty {
       throw DiagnosedError(
-        prologue.accessModifiers.map(
-          Diagnostic.diagnose(unexpectedAccessModifier:)))
+        prologue.accessModifiers.map(Diagnostic.diagnose(unexpectedAccessModifier:)))
     }
     if !prologue.memberModifiers.isEmpty {
       throw DiagnosedError(
-        prologue.memberModifiers.map(
-          Diagnostic.diagnose(unexpectedMemberModifier:)))
+        prologue.memberModifiers.map(Diagnostic.diagnose(unexpectedMemberModifier:)))
     }
 
     // Create a new `ImportDecl`.
@@ -679,10 +603,9 @@ public enum Parser {
   }
 
   /// Parses an instance of `InitializerDecl`.
-  static func parseInitDecl(
-    withPrologue prologue: DeclPrologue,
-    in state: inout ParserState
-  ) throws -> NodeID<InitializerDecl>? {
+  static func parseInitDecl(withPrologue prologue: DeclPrologue, in state: inout ParserState) throws
+    -> NodeID<InitializerDecl>?
+  {
     // Parse the signature of the initializer.
     guard let introducer = state.take(.`init`) else { return nil }
     let genericClause = try genericClause.parse(&state)
@@ -698,9 +621,7 @@ public enum Parser {
 
     // Init declarations require an implicit receiver parameter.
     let receiver = try state.ast.insert(
-      wellFormed: ParameterDecl(
-        identifier: SourceRepresentable(value: "self"),
-        origin: nil))
+      wellFormed: ParameterDecl(identifier: SourceRepresentable(value: "self"), origin: nil))
 
     // Create a new `InitializerDecl`.
     assert(prologue.accessModifiers.count <= 1)
@@ -708,20 +629,15 @@ public enum Parser {
     let decl = try! state.ast.insert(
       wellFormed: InitializerDecl(
         introducer: SourceRepresentable(value: .`init`, range: introducer.origin),
-        attributes: prologue.attributes,
-        accessModifier: prologue.accessModifiers.first,
-        genericClause: genericClause,
-        parameters: parameters,
-        receiver: receiver,
-        body: body,
+        attributes: prologue.attributes, accessModifier: prologue.accessModifiers.first,
+        genericClause: genericClause, parameters: parameters, receiver: receiver, body: body,
         origin: state.range(from: prologue.startIndex)))
     return decl
   }
 
   /// Parses an instance of `InitializerDecl`.
   static func parseMemberwiseInitDecl(
-    withPrologue prologue: DeclPrologue,
-    in state: inout ParserState
+    withPrologue prologue: DeclPrologue, in state: inout ParserState
   ) throws -> NodeID<InitializerDecl>? {
     // Parse the parts of the declaration.
     let parser = (take(nameTokenWithValue: "memberwise").and(take(.`init`)))
@@ -734,30 +650,23 @@ public enum Parser {
 
     // Init declarations require an implicit receiver parameter.
     let receiver = try state.ast.insert(
-      wellFormed: ParameterDecl(
-        identifier: SourceRepresentable(value: "self"),
-        origin: nil))
+      wellFormed: ParameterDecl(identifier: SourceRepresentable(value: "self"), origin: nil))
 
     // Create a new `InitializerDecl`.
     assert(prologue.accessModifiers.count <= 1)
     let decl = try state.ast.insert(
       wellFormed: InitializerDecl(
         introducer: SourceRepresentable(value: .memberwiseInit, range: parts.0.origin),
-        attributes: prologue.attributes,
-        accessModifier: prologue.accessModifiers.first,
-        genericClause: nil,
-        parameters: [],
-        receiver: receiver,
-        body: nil,
+        attributes: prologue.attributes, accessModifier: prologue.accessModifiers.first,
+        genericClause: nil, parameters: [], receiver: receiver, body: nil,
         origin: state.range(from: prologue.startIndex)))
     return decl
   }
 
   /// Parses an instance of `NamespaceDecl`.
-  static func parseNamespaceDecl(
-    withPrologue prologue: DeclPrologue,
-    in state: inout ParserState
-  ) throws -> NodeID<NamespaceDecl>? {
+  static func parseNamespaceDecl(withPrologue prologue: DeclPrologue, in state: inout ParserState)
+    throws -> NodeID<NamespaceDecl>?
+  {
     // Parse the parts of the declaration.
     let parser =
       (take(.namespace).and(take(.name))
@@ -779,19 +688,16 @@ public enum Parser {
     assert(prologue.accessModifiers.count <= 1)
     let decl = try state.ast.insert(
       wellFormed: NamespaceDecl(
-        introducerRange: parts.0.0.origin,
-        accessModifier: prologue.accessModifiers.first,
-        identifier: SourceRepresentable(token: parts.0.1, in: state.lexer.source),
-        members: parts.1,
+        introducerRange: parts.0.0.origin, accessModifier: prologue.accessModifiers.first,
+        identifier: SourceRepresentable(token: parts.0.1, in: state.lexer.source), members: parts.1,
         origin: state.range(from: prologue.startIndex)))
     return decl
   }
 
   /// Parses an instance of `OperatorDecl`.
-  static func parseOperatorDecl(
-    withPrologue prologue: DeclPrologue,
-    in state: inout ParserState
-  ) throws -> NodeID<OperatorDecl>? {
+  static func parseOperatorDecl(withPrologue prologue: DeclPrologue, in state: inout ParserState)
+    throws -> NodeID<OperatorDecl>?
+  {
     // Parse the parts of the declaration.
     let parser =
       (take(.operator).and(operatorNotation)
@@ -814,85 +720,64 @@ public enum Parser {
     assert(prologue.accessModifiers.count <= 1)
     let decl = try state.ast.insert(
       wellFormed: OperatorDecl(
-        introducerRange: parts.0.0.0.origin,
-        accessModifier: prologue.accessModifiers.first,
-        notation: parts.0.0.1,
-        name: parts.0.1,
-        precedenceGroup: parts.1,
+        introducerRange: parts.0.0.0.origin, accessModifier: prologue.accessModifiers.first,
+        notation: parts.0.0.1, name: parts.0.1, precedenceGroup: parts.1,
         origin: state.range(from: prologue.startIndex)))
     return decl
   }
 
   /// Parses an instance of `SubscriptDecl` representing a property declaration.
-  static func parsePropertyDecl(
-    withPrologue prologue: DeclPrologue,
-    in state: inout ParserState
-  ) throws -> NodeID<SubscriptDecl>? {
+  static func parsePropertyDecl(withPrologue prologue: DeclPrologue, in state: inout ParserState)
+    throws -> NodeID<SubscriptDecl>?
+  {
     guard let (head, signature) = try propertyDeclHead.and(propertyDeclSignature).parse(&state)
     else { return nil }
 
     let isNonStatic = state.isAtTypeScope && !prologue.isStatic
     let impls = try state.expect(
-      "'{'",
-      using: { (s) in try parseSubscriptDeclBody(in: &s, asNonStaticMember: isNonStatic) })
+      "'{'", using: { (s) in try parseSubscriptDeclBody(in: &s, asNonStaticMember: isNonStatic) })
 
     // Create a new `SubscriptDecl`.
     assert(prologue.accessModifiers.count <= 1)
     assert(prologue.memberModifiers.count <= 1)
     let decl = try state.ast.insert(
       wellFormed: SubscriptDecl(
-        introducer: head.introducer,
-        attributes: prologue.attributes,
+        introducer: head.introducer, attributes: prologue.attributes,
         accessModifier: prologue.accessModifiers.first,
-        memberModifier: prologue.memberModifiers.first,
-        identifier: head.stem,
-        genericClause: nil,
-        explicitCaptures: [],
-        parameters: nil,
-        output: signature,
-        impls: impls,
+        memberModifier: prologue.memberModifiers.first, identifier: head.stem, genericClause: nil,
+        explicitCaptures: [], parameters: nil, output: signature, impls: impls,
         origin: state.range(from: prologue.startIndex)))
     return decl
   }
 
   /// Parses an instance of `SubscriptDecl`.
-  static func parseSubscriptDecl(
-    withPrologue prologue: DeclPrologue,
-    in state: inout ParserState
-  ) throws -> NodeID<SubscriptDecl>? {
+  static func parseSubscriptDecl(withPrologue prologue: DeclPrologue, in state: inout ParserState)
+    throws -> NodeID<SubscriptDecl>?
+  {
     // Parse the signature of the subscript.
     guard let head = try subscriptDeclHead.parse(&state) else { return nil }
-    let signature = try state.expect(
-      "subscript signature",
-      using: parseSubscriptDeclSignature(in:))
+    let signature = try state.expect("subscript signature", using: parseSubscriptDeclSignature(in:))
 
     let isNonStatic = state.isAtTypeScope && !prologue.isStatic
     let impls = try state.expect(
-      "'{'",
-      using: { (s) in try parseSubscriptDeclBody(in: &s, asNonStaticMember: isNonStatic) })
+      "'{'", using: { (s) in try parseSubscriptDeclBody(in: &s, asNonStaticMember: isNonStatic) })
 
     // Create a new `SubscriptDecl`.
     assert(prologue.accessModifiers.count <= 1)
     assert(prologue.memberModifiers.count <= 1)
     let decl = try state.ast.insert(
       wellFormed: SubscriptDecl(
-        introducer: head.introducer,
-        attributes: prologue.attributes,
+        introducer: head.introducer, attributes: prologue.attributes,
         accessModifier: prologue.accessModifiers.first,
-        memberModifier: prologue.memberModifiers.first,
-        identifier: head.stem,
-        genericClause: head.genericClause,
-        explicitCaptures: head.captures,
-        parameters: signature.parameters,
-        output: signature.output,
-        impls: impls,
+        memberModifier: prologue.memberModifiers.first, identifier: head.stem,
+        genericClause: head.genericClause, explicitCaptures: head.captures,
+        parameters: signature.parameters, output: signature.output, impls: impls,
         origin: state.range(from: prologue.startIndex)))
     return decl
   }
 
   static func parseSubscriptDeclBody(
-    in state: inout ParserState,
-    asNonStaticMember isNonStaticMember: Bool
+    in state: inout ParserState, asNonStaticMember isNonStaticMember: Bool
   ) throws -> [NodeID<SubscriptImplDecl>]? {
     // Push the context.
     state.contexts.append(.subscriptBody)
@@ -903,9 +788,7 @@ public enum Parser {
     do {
       if let body = try subscriptImplDeclBody.parse(&state) {
         let impl = try buildSubscriptImplDecl(
-          in: &state,
-          withIntroducer: SourceRepresentable(value: .let),
-          body: body,
+          in: &state, withIntroducer: SourceRepresentable(value: .let), body: body,
           asNonStaticMember: isNonStaticMember)
         return [impl]
       }
@@ -928,10 +811,7 @@ public enum Parser {
       // Parse an implementation.
       if let (introducer, body) = try subscriptImplDecl.parse(&state) {
         let impl = try buildSubscriptImplDecl(
-          in: &state,
-          withIntroducer: introducer,
-          body: body,
-          asNonStaticMember: isNonStaticMember)
+          in: &state, withIntroducer: introducer, body: body, asNonStaticMember: isNonStaticMember)
         impls.append(impl)
 
         if !introducers.insert(introducer.value).inserted { duplicateIntroducer = introducer }
@@ -949,18 +829,14 @@ public enum Parser {
   }
 
   private static func buildSubscriptImplDecl(
-    in state: inout ParserState,
-    withIntroducer introducer: SourceRepresentable<ImplIntroducer>,
-    body: SubscriptImplDecl.Body?,
-    asNonStaticMember isNonStaticMember: Bool
+    in state: inout ParserState, withIntroducer introducer: SourceRepresentable<ImplIntroducer>,
+    body: SubscriptImplDecl.Body?, asNonStaticMember isNonStaticMember: Bool
   ) throws -> NodeID<SubscriptImplDecl> {
     // Non-static member subscript declarations require an implicit receiver parameter.
     let receiver: NodeID<ParameterDecl>?
     if isNonStaticMember {
       receiver = try state.ast.insert(
-        wellFormed: ParameterDecl(
-          identifier: SourceRepresentable(value: "self"),
-          origin: nil))
+        wellFormed: ParameterDecl(identifier: SourceRepresentable(value: "self"), origin: nil))
     } else {
       receiver = nil
     }
@@ -980,19 +856,15 @@ public enum Parser {
     // Create a new `SubscriptImplDecl`.
     let decl = try state.ast.insert(
       wellFormed: SubscriptImplDecl(
-        introducer: introducer,
-        receiver: receiver,
-        body: body,
-        origin: origin))
+        introducer: introducer, receiver: receiver, body: body, origin: origin))
 
     return decl
   }
 
   /// Parses an instance of `TraitDecl`.
-  static func parseTraitDecl(
-    withPrologue prologue: DeclPrologue,
-    in state: inout ParserState
-  ) throws -> NodeID<TraitDecl>? {
+  static func parseTraitDecl(withPrologue prologue: DeclPrologue, in state: inout ParserState)
+    throws -> NodeID<TraitDecl>?
+  {
     // Parse the parts of the declaration.
     let parser =
       (take(.trait).and(take(.name))
@@ -1011,17 +883,15 @@ public enum Parser {
       wellFormed: TraitDecl(
         accessModifier: prologue.accessModifiers.first,
         identifier: SourceRepresentable(token: parts.0.0.1, in: state.lexer.source),
-        refinements: parts.0.1 ?? [],
-        members: parts.1,
+        refinements: parts.0.1 ?? [], members: parts.1,
         origin: state.range(from: prologue.startIndex)))
     return decl
   }
 
   /// Parses an instance of `ProductTypeDecl`.
-  static func parseProductTypeDecl(
-    withPrologue prologue: DeclPrologue,
-    in state: inout ParserState
-  ) throws -> NodeID<ProductTypeDecl>? {
+  static func parseProductTypeDecl(withPrologue prologue: DeclPrologue, in state: inout ParserState)
+    throws -> NodeID<ProductTypeDecl>?
+  {
     // Parse the parts of the declaration.
     let parser =
       (take(.type).and(take(.name))
@@ -1051,19 +921,15 @@ public enum Parser {
       wellFormed: ProductTypeDecl(
         accessModifier: prologue.accessModifiers.first,
         identifier: SourceRepresentable(token: parts.0.0.0.1, in: state.lexer.source),
-        genericClause: parts.0.0.1,
-        conformances: parts.0.1 ?? [],
-        members: members,
-        memberwiseInit: memberwiseInit,
-        origin: state.range(from: prologue.startIndex)))
+        genericClause: parts.0.0.1, conformances: parts.0.1 ?? [], members: members,
+        memberwiseInit: memberwiseInit, origin: state.range(from: prologue.startIndex)))
     return decl
   }
 
   /// Returns the first memberwise initializer declaration in `members` or synthesizes an implicit
   /// one, appends it into `members`, and returns it.
   private static func findOrSynthesizeMemberwiseInitDecl(
-    in members: inout [AnyDeclID],
-    updating state: inout ParserState
+    in members: inout [AnyDeclID], updating state: inout ParserState
   ) -> NodeID<InitializerDecl> {
     for member in members where member.kind == InitializerDecl.self {
       let m = NodeID<InitializerDecl>(rawValue: member.rawValue)
@@ -1071,28 +937,20 @@ public enum Parser {
     }
 
     let receiver = try! state.ast.insert(
-      wellFormed: ParameterDecl(
-        identifier: SourceRepresentable(value: "self"),
-        origin: nil))
+      wellFormed: ParameterDecl(identifier: SourceRepresentable(value: "self"), origin: nil))
     let m = try! state.ast.insert(
       wellFormed: InitializerDecl(
-        introducer: SourceRepresentable(value: .memberwiseInit),
-        attributes: [],
-        accessModifier: nil,
-        genericClause: nil,
-        parameters: [],
-        receiver: receiver,
-        body: nil,
+        introducer: SourceRepresentable(value: .memberwiseInit), attributes: [],
+        accessModifier: nil, genericClause: nil, parameters: [], receiver: receiver, body: nil,
         origin: nil))
     members.append(AnyDeclID(m))
     return m
   }
 
   /// Parses an instance of `TypeAliasDecl`.
-  static func parseTypeAliasDecl(
-    withPrologue prologue: DeclPrologue,
-    in state: inout ParserState
-  ) throws -> NodeID<TypeAliasDecl>? {
+  static func parseTypeAliasDecl(withPrologue prologue: DeclPrologue, in state: inout ParserState)
+    throws -> NodeID<TypeAliasDecl>?
+  {
     // Parse the parts of the declaration.
     let parser =
       (take(.typealias).and(take(.name))
@@ -1118,15 +976,13 @@ public enum Parser {
       wellFormed: TypeAliasDecl(
         accessModifier: prologue.accessModifiers.first,
         identifier: SourceRepresentable(token: parts.0.0.0.1, in: state.lexer.source),
-        genericClause: parts.0.0.1,
-        body: .typeExpr(parts.1),
+        genericClause: parts.0.0.1, body: .typeExpr(parts.1),
         origin: state.range(from: prologue.startIndex)))
     return decl
   }
 
-  private static func parseFunctionDeclHead(
-    in state: inout ParserState
-  ) throws -> FunctionDeclHead? {
+  private static func parseFunctionDeclHead(in state: inout ParserState) throws -> FunctionDeclHead?
+  {
     // Parse the function's introducer and identifier.
     guard let name = try parseFunctionDeclIntroducerAndIdentifier(in: &state) else { return nil }
 
@@ -1136,32 +992,28 @@ public enum Parser {
     return FunctionDeclHead(name: name, genericClause: genericClause, captures: captures)
   }
 
-  static func parseFunctionDeclIntroducerAndIdentifier(
-    in state: inout ParserState
-  ) throws -> FunctionDeclName? {
+  static func parseFunctionDeclIntroducerAndIdentifier(in state: inout ParserState) throws
+    -> FunctionDeclName?
+  {
     if let introducer = state.take(.fun) {
       let stem = try state.expect("identifier", using: { $0.take(.name) })
       return FunctionDeclName(
         introducerRange: introducer.origin,
-        stem: SourceRepresentable(token: stem, in: state.lexer.source),
-        notation: nil)
+        stem: SourceRepresentable(token: stem, in: state.lexer.source), notation: nil)
     }
 
     if let notation = try operatorNotation.parse(&state) {
       _ = try state.expect("'fun'", using: { $0.take(.fun) })
       let stem = try state.expect("operator", using: operator_)
-      return FunctionDeclName(
-        introducerRange: notation.origin!,
-        stem: stem,
-        notation: notation)
+      return FunctionDeclName(introducerRange: notation.origin!, stem: stem, notation: notation)
     }
 
     return nil
   }
 
-  static func parseFunctionDeclSignature(
-    in state: inout ParserState
-  ) throws -> FunctionDeclSignature? {
+  static func parseFunctionDeclSignature(in state: inout ParserState) throws
+    -> FunctionDeclSignature?
+  {
     guard let parameters = try parseParameterList(in: &state) else { return nil }
 
     let effect = try receiverEffect.parse(&state)
@@ -1182,8 +1034,7 @@ public enum Parser {
       .map({ (state, body) -> FunctionOrMethodDeclBody in .method(body) }),
     orCatchingAndApplying:
       functionDeclBody
-      .map({ (state, body) -> FunctionOrMethodDeclBody in .function(body) })
-  )
+      .map({ (state, body) -> FunctionOrMethodDeclBody in .function(body) }))
 
   static let functionDeclBody = inContext(
     .functionBody,
@@ -1192,8 +1043,7 @@ public enum Parser {
         .map({ (state, tree) -> FunctionDecl.Body in .expr(tree.0.1) }),
       orCatchingAndApplying:
         braceStmt
-        .map({ (state, id) -> FunctionDecl.Body in .block(id) })
-    ))
+        .map({ (state, id) -> FunctionDecl.Body in .block(id) })))
 
   static let methodDeclBody =
     (take(.lBrace).and(methodImplDecl+).and(take(.rBrace))
@@ -1216,14 +1066,10 @@ public enum Parser {
     (methodIntroducer.and(maybe(methodImplBody))
       .map({ (state, tree) -> NodeID<MethodImplDecl> in
         let receiver = try state.ast.insert(
-          wellFormed: ParameterDecl(
-            identifier: SourceRepresentable(value: "self"),
-            origin: nil))
+          wellFormed: ParameterDecl(identifier: SourceRepresentable(value: "self"), origin: nil))
         return try state.ast.insert(
           wellFormed: MethodImplDecl(
-            introducer: tree.0,
-            receiver: receiver,
-            body: tree.1,
+            introducer: tree.0, receiver: receiver, body: tree.1,
             origin: tree.0.origin!.extended(upTo: state.currentIndex)))
       }))
 
@@ -1232,13 +1078,10 @@ public enum Parser {
       .map({ (state, tree) -> MethodImplDecl.Body in .expr(tree.0.1) }),
     orCatchingAndApplying:
       braceStmt
-      .map({ (state, id) -> MethodImplDecl.Body in .block(id) })
-  )
+      .map({ (state, id) -> MethodImplDecl.Body in .block(id) }))
 
   static let methodIntroducer = translate([
-    .let: ImplIntroducer.let,
-    .inout: ImplIntroducer.inout,
-    .set: ImplIntroducer.set,
+    .let: ImplIntroducer.let, .inout: ImplIntroducer.inout, .set: ImplIntroducer.set,
     .sink: ImplIntroducer.sink,
   ])
 
@@ -1250,8 +1093,7 @@ public enum Parser {
     }))
 
   static let operatorNotation = translate([
-    .infix: OperatorNotation.infix,
-    .prefix: OperatorNotation.prefix,
+    .infix: OperatorNotation.infix, .prefix: OperatorNotation.prefix,
     .postfix: OperatorNotation.postfix,
   ])
 
@@ -1273,13 +1115,12 @@ public enum Parser {
         SubscriptDeclHead(
           introducer: SourceRepresentable(value: .subscript, range: tree.0.0.0.origin),
           stem: tree.0.0.1.map({ SourceRepresentable(token: $0, in: state.lexer.source) }),
-          genericClause: tree.0.1,
-          captures: tree.1 ?? [])
+          genericClause: tree.0.1, captures: tree.1 ?? [])
       }))
 
-  static func parseSubscriptDeclSignature(
-    in state: inout ParserState
-  ) throws -> SubscriptDeclSignature? {
+  static func parseSubscriptDeclSignature(in state: inout ParserState) throws
+    -> SubscriptDeclSignature?
+  {
     guard let parameters = try parseParameterList(in: &state) else { return nil }
 
     _ = try state.expect("':'", using: { $0.take(.colon) })
@@ -1295,13 +1136,10 @@ public enum Parser {
       .map({ (state, tree) -> SubscriptImplDecl.Body in .expr(tree.0.1) }),
     orCatchingAndApplying:
       braceStmt
-      .map({ (state, id) -> SubscriptImplDecl.Body in .block(id) })
-  )
+      .map({ (state, id) -> SubscriptImplDecl.Body in .block(id) }))
 
   static let subscriptIntroducer = translate([
-    .let: ImplIntroducer.let,
-    .inout: ImplIntroducer.inout,
-    .set: ImplIntroducer.set,
+    .let: ImplIntroducer.let, .inout: ImplIntroducer.inout, .set: ImplIntroducer.set,
     .sink: ImplIntroducer.sink,
   ])
 
@@ -1322,17 +1160,14 @@ public enum Parser {
       .map({ (state, tree) -> NodeID<ParameterDecl> in
         try state.ast.insert(
           wellFormed: ParameterDecl(
-            label: tree.0.0.label,
-            identifier: tree.0.0.name,
-            annotation: tree.0.1?.1,
+            label: tree.0.0.label, identifier: tree.0.0.name, annotation: tree.0.1?.1,
             defaultValue: tree.1?.1,
             origin: state.range(
               from: tree.0.0.label?.origin!.lowerBound ?? tree.0.0.name.origin!.lowerBound)))
       }))
 
   typealias ParameterInterface = (
-    label: SourceRepresentable<Identifier>?,
-    name: SourceRepresentable<Identifier>
+    label: SourceRepresentable<Identifier>?, name: SourceRepresentable<Identifier>
   )
 
   static let parameterInterface =
@@ -1347,8 +1182,7 @@ public enum Parser {
         if labelCandidate.kind == .under {
           // case `_ name`
           return (
-            label: nil,
-            name: SourceRepresentable(token: nameCandidate, in: state.lexer.source)
+            label: nil, name: SourceRepresentable(token: nameCandidate, in: state.lexer.source)
           )
         } else {
           // case `label name`
@@ -1366,8 +1200,7 @@ public enum Parser {
         return (label: name, name: name)
       }
 
-      throw DiagnosedError(
-        .diagnose(expected: "parameter name", at: labelCandidate.origin.first()))
+      throw DiagnosedError(.diagnose(expected: "parameter name", at: labelCandidate.origin.first()))
     }))
 
   static let memberModifier =
@@ -1409,10 +1242,9 @@ public enum Parser {
         try state.ast.insert(
           wellFormed: GenericParameterDecl(
             identifier: SourceRepresentable(token: tree.0.0.1, in: state.lexer.source),
-            conformances: tree.0.1?.1 ?? [],
-            defaultValue: tree.1?.1,
-            origin: state.range(
-              from: tree.0.0.0?.origin.lowerBound ?? tree.0.0.1.origin.lowerBound)))
+            conformances: tree.0.1?.1 ?? [], defaultValue: tree.1?.1,
+            origin: state.range(from: tree.0.0.0?.origin.lowerBound ?? tree.0.0.1.origin.lowerBound)
+          ))
       }))
 
   static let conformanceList =
@@ -1446,9 +1278,7 @@ public enum Parser {
   /// Parses a type expression from the stream, then transforms `lhs` into a `CastExpr`, using
   /// `infixOperator` to determine the cast kind.
   private static func appendInfixTail(
-    to lhs: inout AnyExprID,
-    forCastOperator infixOperator: Token,
-    in state: inout ParserState
+    to lhs: inout AnyExprID, forCastOperator infixOperator: Token, in state: inout ParserState
   ) throws {
     if !state.hasLeadingWhitespace {
       state.diagnostics.append(.diagnose(infixOperatorRequiresWhitespacesAt: infixOperator.origin))
@@ -1470,9 +1300,7 @@ public enum Parser {
 
     let expr = try state.ast.insert(
       wellFormed: CastExpr(
-        left: lhs,
-        right: rhs,
-        kind: castKind,
+        left: lhs, right: rhs, kind: castKind,
         origin: state.ast[lhs].origin!.extended(upTo: state.currentIndex)))
     lhs = AnyExprID(expr)
   }
@@ -1480,10 +1308,9 @@ public enum Parser {
   /// Parses a sequence of pairs of infix operators and prefix expressions from the stream. If the
   /// sequence isn't empty, transforms `lhs` into a `SequenceExpr` and returns `true`. Otherwise,
   /// returns `false.
-  private static func appendInfixTail(
-    to lhs: inout AnyExprID,
-    in state: inout ParserState
-  ) throws -> Bool {
+  private static func appendInfixTail(to lhs: inout AnyExprID, in state: inout ParserState) throws
+    -> Bool
+  {
     var tail: [SequenceExpr.TailElement] = []
 
     while true {
@@ -1502,9 +1329,7 @@ public enum Parser {
         }
 
         // Otherwise, complain about missing whitespaces.
-        state.diagnostics.append(
-          .diagnose(
-            infixOperatorRequiresWhitespacesAt: operatorStem.origin))
+        state.diagnostics.append(.diagnose(infixOperatorRequiresWhitespacesAt: operatorStem.origin))
       }
 
       // If we can't parse an operand, the tail is empty.
@@ -1525,9 +1350,7 @@ public enum Parser {
 
     let expr = try state.ast.insert(
       wellFormed: SequenceExpr(
-        head: lhs,
-        tail: tail,
-        origin: state.ast[lhs].origin!.extended(upTo: state.currentIndex)))
+        head: lhs, tail: tail, origin: state.ast[lhs].origin!.extended(upTo: state.currentIndex)))
     lhs = AnyExprID(expr)
     return true
   }
@@ -1550,15 +1373,12 @@ public enum Parser {
         wellFormed: NameExpr(
           domain: .expr(operand),
           name: SourceRepresentable(
-            value: Name(stem: op.value, notation: .prefix),
-            range: op.origin),
+            value: Name(stem: op.value, notation: .prefix), range: op.origin),
           origin: state.range(from: op.origin!.lowerBound)))
 
       let call = try state.ast.insert(
         wellFormed: FunCallExpr(
-          callee: AnyExprID(callee),
-          arguments: [],
-          origin: state.ast[callee].origin))
+          callee: AnyExprID(callee), arguments: [], origin: state.ast[callee].origin))
       return AnyExprID(call)
     }
 
@@ -1575,8 +1395,7 @@ public enum Parser {
 
       let expr = try state.ast.insert(
         wellFormed: InoutExpr(
-          operatorRange: op.origin,
-          subject: operand,
+          operatorRange: op.origin, subject: operand,
           origin: state.range(from: op.origin.lowerBound)))
       return AnyExprID(expr)
     }
@@ -1600,15 +1419,12 @@ public enum Parser {
         wellFormed: NameExpr(
           domain: .expr(operand),
           name: SourceRepresentable(
-            value: Name(stem: op.value, notation: .postfix),
-            range: op.origin),
+            value: Name(stem: op.value, notation: .postfix), range: op.origin),
           origin: state.range(from: state.ast[operand].origin!.lowerBound)))
 
       let call = try state.ast.insert(
         wellFormed: FunCallExpr(
-          callee: AnyExprID(callee),
-          arguments: [],
-          origin: state.ast[callee].origin))
+          callee: AnyExprID(callee), arguments: [], origin: state.ast[callee].origin))
       return AnyExprID(call)
     } else {
       return operand
@@ -1627,9 +1443,7 @@ public enum Parser {
         if let index = state.takeMemberIndex() {
           let expr = try state.ast.insert(
             wellFormed: TupleMemberExpr(
-              tuple: head,
-              index: index,
-              origin: state.range(from: headOrigin.lowerBound)))
+              tuple: head, index: index, origin: state.range(from: headOrigin.lowerBound)))
           head = AnyExprID(expr)
           continue
         }
@@ -1637,9 +1451,7 @@ public enum Parser {
         if let component = try parseNameExprComponent(in: &state) {
           let expr = try state.ast.insert(
             wellFormed: NameExpr(
-              domain: .expr(head),
-              name: component.name,
-              arguments: component.arguments,
+              domain: .expr(head), name: component.name, arguments: component.arguments,
               origin: state.range(from: headOrigin.lowerBound)))
           head = AnyExprID(expr)
           continue
@@ -1655,9 +1467,7 @@ public enum Parser {
         let lens = try state.expect("expression", using: parsePrimaryExpr(in:))
         let expr = try state.ast.insert(
           wellFormed: ConformanceLensTypeExpr(
-            subject: head,
-            lens: lens,
-            origin: state.range(from: headOrigin.lowerBound)))
+            subject: head, lens: lens, origin: state.range(from: headOrigin.lowerBound)))
         head = AnyExprID(expr)
         continue
       }
@@ -1670,9 +1480,7 @@ public enum Parser {
         let arguments = try parseFunctionCallArgumentList(in: &state)!
         let expr = try state.ast.insert(
           wellFormed: FunCallExpr(
-            callee: head,
-            arguments: arguments,
-            origin: state.range(from: headOrigin.lowerBound)))
+            callee: head, arguments: arguments, origin: state.range(from: headOrigin.lowerBound)))
         head = AnyExprID(expr)
         continue
       }
@@ -1682,9 +1490,7 @@ public enum Parser {
         let arguments = try parseSubscriptCallArgumentList(in: &state)!
         let expr = try state.ast.insert(
           wellFormed: SubscriptCallExpr(
-            callee: head,
-            arguments: arguments,
-            origin: state.range(from: headOrigin.lowerBound)))
+            callee: head, arguments: arguments, origin: state.range(from: headOrigin.lowerBound)))
         head = AnyExprID(expr)
         continue
       }
@@ -1713,8 +1519,7 @@ public enum Parser {
       _ = state.take()
       let expr = try state.ast.insert(
         wellFormed: BooleanLiteralExpr(
-          value: state.lexer.source[head.origin] == "true",
-          origin: head.origin))
+          value: state.lexer.source[head.origin] == "true", origin: head.origin))
       return AnyExprID(expr)
 
     case .int:
@@ -1722,8 +1527,7 @@ public enum Parser {
       _ = state.take()
       let expr = try state.ast.insert(
         wellFormed: IntegerLiteralExpr(
-          value: state.lexer.source[head.origin].filter({ $0 != "_" }),
-          origin: head.origin))
+          value: state.lexer.source[head.origin].filter({ $0 != "_" }), origin: head.origin))
       return AnyExprID(expr)
 
     case .float:
@@ -1731,8 +1535,7 @@ public enum Parser {
       _ = state.take()
       let expr = try state.ast.insert(
         wellFormed: FloatLiteralExpr(
-          value: state.lexer.source[head.origin].filter({ $0 != "_" }),
-          origin: head.origin))
+          value: state.lexer.source[head.origin].filter({ $0 != "_" }), origin: head.origin))
       return AnyExprID(expr)
 
     case .string:
@@ -1740,8 +1543,8 @@ public enum Parser {
       _ = state.take()
       let expr = try state.ast.insert(
         wellFormed: StringLiteralExpr(
-          value: String(state.lexer.source[head.origin].dropFirst().dropLast()),
-          origin: head.origin))
+          value: String(state.lexer.source[head.origin].dropFirst().dropLast()), origin: head.origin
+        ))
       return AnyExprID(expr)
 
     case .nil:
@@ -1803,9 +1606,9 @@ public enum Parser {
     }
   }
 
-  private static func parseExistentialTypeExpr(
-    in state: inout ParserState
-  ) throws -> NodeID<ExistentialTypeExpr>? {
+  private static func parseExistentialTypeExpr(in state: inout ParserState) throws -> NodeID<
+    ExistentialTypeExpr
+  >? {
     // Parse the introducer.
     guard let introducer = state.take(.any) else { return nil }
 
@@ -1815,29 +1618,26 @@ public enum Parser {
 
     return try state.ast.insert(
       wellFormed: ExistentialTypeExpr(
-        traits: traits,
-        whereClause: clause,
+        traits: traits, whereClause: clause,
         origin: introducer.origin.extended(
           toCover: clause?.origin ?? state.ast[traits.last!].origin!)))
   }
 
-  private static func parsePrimaryDeclRefExpr(
-    in state: inout ParserState
-  ) throws -> NodeID<NameExpr>? {
+  private static func parsePrimaryDeclRefExpr(in state: inout ParserState) throws -> NodeID<
+    NameExpr
+  >? {
     // Parse the name component.
     let component = try state.expect("identifier", using: parseNameExprComponent(in:))
 
     return try state.ast.insert(
       wellFormed: NameExpr(
-        domain: .none,
-        name: component.name,
-        arguments: component.arguments,
+        domain: .none, name: component.name, arguments: component.arguments,
         origin: component.origin))
   }
 
-  private static func parseImplicitMemberDeclRefExpr(
-    in state: inout ParserState
-  ) throws -> NodeID<NameExpr>? {
+  private static func parseImplicitMemberDeclRefExpr(in state: inout ParserState) throws -> NodeID<
+    NameExpr
+  >? {
     // Parse the leading dot.
     guard let head = state.take(.dot) else { return nil }
 
@@ -1846,15 +1646,13 @@ public enum Parser {
 
     return try state.ast.insert(
       wellFormed: NameExpr(
-        domain: .implicit,
-        name: component.name,
-        arguments: component.arguments,
+        domain: .implicit, name: component.name, arguments: component.arguments,
         origin: state.range(from: head.origin.lowerBound)))
   }
 
-  private static func parseNameExprComponent(
-    in state: inout ParserState
-  ) throws -> NameExprComponent? {
+  private static func parseNameExprComponent(in state: inout ParserState) throws
+    -> NameExprComponent?
+  {
     // Parse the name of the component.
     guard let name = try parseEntityName(in: &state) else { return nil }
 
@@ -1868,9 +1666,7 @@ public enum Parser {
     }
 
     return NameExprComponent(
-      origin: name.origin!.extended(upTo: state.currentIndex),
-      name: name,
-      arguments: arguments)
+      origin: name.origin!.extended(upTo: state.currentIndex), name: name, arguments: arguments)
   }
 
   private static func parseArgument(in state: inout ParserState) throws -> LabeledArgument? {
@@ -1881,8 +1677,7 @@ public enum Parser {
       if state.take(.colon) != nil {
         if let value = try parseExpr(in: &state) {
           return LabeledArgument(
-            label: SourceRepresentable(token: label, in: state.lexer.source),
-            value: value)
+            label: SourceRepresentable(token: label, in: state.lexer.source), value: value)
         }
       }
     }
@@ -1896,15 +1691,15 @@ public enum Parser {
     return nil
   }
 
-  private static func parseEntityName(
-    in state: inout ParserState
-  ) throws -> SourceRepresentable<Name>? {
+  private static func parseEntityName(in state: inout ParserState) throws -> SourceRepresentable<
+    Name
+  >? {
     try parseFunctionEntityName(in: &state) ?? parseOperatorEntityName(in: &state)
   }
 
-  private static func parseFunctionEntityName(
-    in state: inout ParserState
-  ) throws -> SourceRepresentable<Name>? {
+  private static func parseFunctionEntityName(in state: inout ParserState) throws
+    -> SourceRepresentable<Name>?
+  {
     // Parse the stem identifier.
     guard let identifier = state.take(if: { t in t.isOf(kind: [.name, .under]) }) else {
       return nil
@@ -1962,15 +1757,13 @@ public enum Parser {
 
     return SourceRepresentable(
       value: Name(
-        stem: String(state.lexer.source[identifier.origin]),
-        labels: labels,
-        introducer: introducer?.value),
-      range: state.range(from: identifier.origin.lowerBound))
+        stem: String(state.lexer.source[identifier.origin]), labels: labels,
+        introducer: introducer?.value), range: state.range(from: identifier.origin.lowerBound))
   }
 
-  private static func parseOperatorEntityName(
-    in state: inout ParserState
-  ) throws -> SourceRepresentable<Name>? {
+  private static func parseOperatorEntityName(in state: inout ParserState) throws
+    -> SourceRepresentable<Name>?
+  {
     // Parse the operator notation.
     guard let notation = state.take(if: { t in t.isOf(kind: [.infix, .prefix, .postfix]) }) else {
       return nil
@@ -1998,16 +1791,11 @@ public enum Parser {
 
     let decl = try state.ast.insert(
       wellFormed: FunctionDecl(
-        introducerRange: introducer.origin,
-        receiverEffect: signature.receiverEffect,
-        explicitCaptures: explicitCaptures ?? [],
-        parameters: signature.parameters,
-        output: signature.output,
-        body: body,
-        isInExprContext: true,
+        introducerRange: introducer.origin, receiverEffect: signature.receiverEffect,
+        explicitCaptures: explicitCaptures ?? [], parameters: signature.parameters,
+        output: signature.output, body: body, isInExprContext: true,
         origin: state.range(from: introducer.origin.lowerBound)))
-    return try state.ast.insert(
-      wellFormed: LambdaExpr(decl: decl, origin: state.ast[decl].origin))
+    return try state.ast.insert(wellFormed: LambdaExpr(decl: decl, origin: state.ast[decl].origin))
   }
 
   private static let lambdaBody = inContext(
@@ -2017,8 +1805,7 @@ public enum Parser {
         .map({ (state, tree) -> FunctionDecl.Body in .expr(tree.0.1) }),
       orCatchingAndApplying:
         braceStmt
-        .map({ (state, id) -> FunctionDecl.Body in .block(id) })
-    ))
+        .map({ (state, id) -> FunctionDecl.Body in .block(id) })))
 
   private static func parseConditionalExpr(in state: inout ParserState) throws -> NodeID<CondExpr>?
   {
@@ -2043,9 +1830,7 @@ public enum Parser {
 
     return try state.ast.insert(
       wellFormed: CondExpr(
-        condition: condition,
-        success: body,
-        failure: elseClause,
+        condition: condition, success: body, failure: elseClause,
         origin: state.range(from: introducer.origin.lowerBound)))
   }
 
@@ -2054,8 +1839,7 @@ public enum Parser {
       .map({ (state, tree) -> CondExpr.Body in .expr(tree.0.1) }),
     orCatchingAndApplying:
       braceStmt
-      .map({ (state, id) -> CondExpr.Body in .block(id) })
-  )
+      .map({ (state, id) -> CondExpr.Body in .block(id) }))
 
   private static func parseMatchExpr(in state: inout ParserState) throws -> NodeID<MatchExpr>? {
     // Parse the introducer.
@@ -2064,14 +1848,12 @@ public enum Parser {
     // Parse the parts of the expression.
     let subject = try state.expect("subject", using: parseExpr(in:))
     let cases = try state.expect(
-      "match body",
-      using: take(.lBrace).and(zeroOrMany(matchCase)).and(take(.rBrace)))
+      "match body", using: take(.lBrace).and(zeroOrMany(matchCase)).and(take(.rBrace)))
 
     return try state.ast.insert(
       wellFormed: MatchExpr(
-        subject: subject,
-        cases: cases.0.1,
-        origin: state.range(from: introducer.origin.lowerBound)))
+        subject: subject, cases: cases.0.1, origin: state.range(from: introducer.origin.lowerBound))
+    )
   }
 
   static let matchCase =
@@ -2079,9 +1861,7 @@ public enum Parser {
       .map({ (state, tree) -> NodeID<MatchCase> in
         try state.ast.insert(
           wellFormed: MatchCase(
-            pattern: tree.0.0,
-            condition: tree.0.1?.1,
-            body: tree.1,
+            pattern: tree.0.0, condition: tree.0.1?.1, body: tree.1,
             origin: state.ast[tree.0.0].origin!.extended(upTo: state.currentIndex)))
       }))
 
@@ -2090,8 +1870,7 @@ public enum Parser {
       .map({ (state, tree) -> MatchCase.Body in .expr(tree.0.1) }),
     orCatchingAndApplying:
       braceStmt
-      .map({ (state, id) -> MatchCase.Body in .block(id) })
-  )
+      .map({ (state, id) -> MatchCase.Body in .block(id) }))
 
   private static func parseSpawnExpr(in state: inout ParserState) throws -> NodeID<SpawnExpr>? {
     // Parse the introducer.
@@ -2113,24 +1892,16 @@ public enum Parser {
 
     let decl = try state.ast.insert(
       wellFormed: FunctionDecl(
-        introducerRange: introducer.origin,
-        receiverEffect: effect,
-        explicitCaptures: explicitCaptures,
-        output: output,
-        body: body,
-        isInExprContext: true,
+        introducerRange: introducer.origin, receiverEffect: effect,
+        explicitCaptures: explicitCaptures, output: output, body: body, isInExprContext: true,
         origin: state.range(from: introducer.origin.lowerBound)))
-    return try state.ast.insert(
-      wellFormed: SpawnExpr(decl: decl, origin: state.ast[decl].origin))
+    return try state.ast.insert(wellFormed: SpawnExpr(decl: decl, origin: state.ast[decl].origin))
   }
 
-  private static func parseLambdaTypeOrTupleExpr(
-    in state: inout ParserState
-  ) throws -> AnyExprID? {
+  private static func parseLambdaTypeOrTupleExpr(in state: inout ParserState) throws -> AnyExprID? {
     // Expect a left parenthesis.
     guard
-      let opener = state.peek(),
-      opener.kind == .lParen
+      let opener = state.peek(), opener.kind == .lParen
     else { return nil }
 
     // Assume we're parsing a lambda type expression until we reach the point where we should
@@ -2154,9 +1925,7 @@ public enum Parser {
       // tuple. Otherwise, backtrack and parse a tuple expression.
       if (effect == nil) && parameters.isEmpty {
         let expr = try state.ast.insert(
-          wellFormed: TupleExpr(
-            elements: [],
-            origin: state.range(from: opener.origin.lowerBound)))
+          wellFormed: TupleExpr(elements: [], origin: state.range(from: opener.origin.lowerBound)))
         return AnyExprID(expr)
       }
 
@@ -2168,17 +1937,14 @@ public enum Parser {
 
     let expr = try state.ast.insert(
       wellFormed: LambdaTypeExpr(
-        receiverEffect: effect,
-        environment: nil,
-        parameters: parameters,
-        output: output,
+        receiverEffect: effect, environment: nil, parameters: parameters, output: output,
         origin: state.range(from: opener.origin.lowerBound)))
     return AnyExprID(expr)
   }
 
-  private static func parseLambdaTypeOrCompoundLiteralExpr(
-    in state: inout ParserState
-  ) throws -> AnyExprID? {
+  private static func parseLambdaTypeOrCompoundLiteralExpr(in state: inout ParserState) throws
+    -> AnyExprID?
+  {
     // Assume we're parsing a lambda type expression until we reach the point where we should
     // consume an effect or a right arrow. Commit to that choice if we successfully parsed a
     // non-empty parameter list at that point.
@@ -2228,29 +1994,24 @@ public enum Parser {
     // Synthesize the environment as an empty tuple if we parsed `[]`.
     let e =
       try environement
-      ?? AnyExprID(
-        state.ast.insert(wellFormed: TupleTypeExpr(elements: [], origin: nil)))
+      ?? AnyExprID(state.ast.insert(wellFormed: TupleTypeExpr(elements: [], origin: nil)))
 
     let expr = try state.ast.insert(
       wellFormed: LambdaTypeExpr(
-        receiverEffect: effect,
-        environment: e,
-        parameters: parameters,
-        output: output,
+        receiverEffect: effect, environment: e, parameters: parameters, output: output,
         origin: state.range(from: opener.origin.lowerBound)))
     return AnyExprID(expr)
   }
 
-  private static func parseTupleOrParenthesizedExpr(
-    in state: inout ParserState
-  ) throws -> AnyExprID? {
+  private static func parseTupleOrParenthesizedExpr(in state: inout ParserState) throws
+    -> AnyExprID?
+  {
     // Parse the elements.
     guard let elementList = try tupleExprElementList.parse(&state) else { return nil }
 
     // If there's only one element without any label and we didn't parse a trailing separator,
     // interpret the element's value as a parenthesized expression.
-    if elementList.trailingSeparator == nil,
-      elementList.elements.count == 1,
+    if elementList.trailingSeparator == nil, elementList.elements.count == 1,
       elementList.elements[0].label == nil
     {
       return elementList.elements[0].value
@@ -2263,9 +2024,9 @@ public enum Parser {
     return AnyExprID(expr)
   }
 
-  private static func parseTupleExprElement(
-    in state: inout ParserState
-  ) throws -> TupleExpr.Element? {
+  private static func parseTupleExprElement(in state: inout ParserState) throws -> TupleExpr
+    .Element?
+  {
     let backup = state.backup()
 
     // Parse a labeled element.
@@ -2273,8 +2034,7 @@ public enum Parser {
       if state.take(.colon) != nil {
         if let value = try expr.parse(&state) {
           return TupleExpr.Element(
-            label: SourceRepresentable(token: label, in: state.lexer.source),
-            value: value)
+            label: SourceRepresentable(token: label, in: state.lexer.source), value: value)
         }
       }
     }
@@ -2288,9 +2048,9 @@ public enum Parser {
     return nil
   }
 
-  private static func parseTupleTypeExpr(
-    in state: inout ParserState
-  ) throws -> NodeID<TupleTypeExpr>? {
+  private static func parseTupleTypeExpr(in state: inout ParserState) throws -> NodeID<
+    TupleTypeExpr
+  >? {
     // Parse the elements.
     guard let elementList = try tupleTypeExprElementList.parse(&state) else { return nil }
 
@@ -2300,9 +2060,9 @@ public enum Parser {
         origin: state.range(from: elementList.opener.origin.lowerBound)))
   }
 
-  private static func parseTupleTypeExprElement(
-    in state: inout ParserState
-  ) throws -> TupleTypeExpr.Element? {
+  private static func parseTupleTypeExprElement(in state: inout ParserState) throws -> TupleTypeExpr
+    .Element?
+  {
     let backup = state.backup()
 
     // Parse a labeled element.
@@ -2310,8 +2070,7 @@ public enum Parser {
       if state.take(.colon) != nil {
         if let type = try expr.parse(&state) {
           return TupleTypeExpr.Element(
-            label: SourceRepresentable(token: label, in: state.lexer.source),
-            type: type)
+            label: SourceRepresentable(token: label, in: state.lexer.source), type: type)
         }
       }
     }
@@ -2343,8 +2102,7 @@ public enum Parser {
       .map({ (state, tree) -> NodeID<BufferLiteralExpr> in
         try state.ast.insert(
           wellFormed: BufferLiteralExpr(
-            elements: tree.0.1 ?? [],
-            origin: tree.0.0.origin.extended(upTo: state.currentIndex)))
+            elements: tree.0.1 ?? [], origin: tree.0.0.origin.extended(upTo: state.currentIndex)))
       }))
 
   private static let bufferComponentListContents =
@@ -2356,8 +2114,7 @@ public enum Parser {
       .map({ (state, tree) -> NodeID<MapLiteralExpr> in
         try state.ast.insert(
           wellFormed: MapLiteralExpr(
-            elements: tree.0.1,
-            origin: tree.0.0.origin.extended(upTo: state.currentIndex)))
+            elements: tree.0.1, origin: tree.0.0.origin.extended(upTo: state.currentIndex)))
       }))
 
   private static let mapComponentEmptyContents =
@@ -2385,93 +2142,77 @@ public enum Parser {
       .map({ (state, tree) -> ConditionItem in
         let id = try state.ast.insert(
           wellFormed: BindingDecl(
-            pattern: tree.0.0,
-            initializer: tree.1,
+            pattern: tree.0.0, initializer: tree.1,
             origin: state.ast[tree.0.0].origin!.extended(upTo: state.currentIndex)))
         return .decl(id)
       }),
     or:
       expr
-      .map({ (_, id) -> ConditionItem in .expr(id) })
-  )
+      .map({ (_, id) -> ConditionItem in .expr(id) }))
 
   // MARK: Comma-separated lists
 
   private static let staticArgumentList = DelimitedCommaSeparatedList(
-    openerKind: .lAngle,
-    closerKind: .rAngle,
-    closerDescription: ">",
+    openerKind: .lAngle, closerKind: .rAngle, closerDescription: ">",
     elementParser: Apply(parseArgument(in:)))
 
-  private static func parseStaticArgumentList(
-    in state: inout ParserState
-  ) throws -> [LabeledArgument]? {
+  private static func parseStaticArgumentList(in state: inout ParserState) throws
+    -> [LabeledArgument]?
+  {
     try parseList(in: &state, with: staticArgumentList)
   }
 
   private static let functionCallArgumentList = DelimitedCommaSeparatedList(
-    openerKind: .lParen,
-    closerKind: .rParen,
-    closerDescription: ")",
+    openerKind: .lParen, closerKind: .rParen, closerDescription: ")",
     elementParser: Apply(parseArgument(in:)))
 
-  private static func parseFunctionCallArgumentList(
-    in state: inout ParserState
-  ) throws -> [LabeledArgument]? {
+  private static func parseFunctionCallArgumentList(in state: inout ParserState) throws
+    -> [LabeledArgument]?
+  {
     try parseList(in: &state, with: functionCallArgumentList)
   }
 
   private static let subscriptCallArgumentList = DelimitedCommaSeparatedList(
-    openerKind: .lBrack,
-    closerKind: .rBrack,
-    closerDescription: "]",
+    openerKind: .lBrack, closerKind: .rBrack, closerDescription: "]",
     elementParser: Apply(parseArgument(in:)))
 
-  private static func parseSubscriptCallArgumentList(
-    in state: inout ParserState
-  ) throws -> [LabeledArgument]? {
+  private static func parseSubscriptCallArgumentList(in state: inout ParserState) throws
+    -> [LabeledArgument]?
+  {
     try parseList(in: &state, with: subscriptCallArgumentList)
   }
 
   private static let attributeArgumentList = DelimitedCommaSeparatedList(
-    openerKind: .lParen,
-    closerKind: .rParen,
-    closerDescription: ")",
+    openerKind: .lParen, closerKind: .rParen, closerDescription: ")",
     elementParser: Apply(parseAttributeArgument(in:)))
 
-  private static func parseAttributeArgumentList(
-    in state: inout ParserState
-  ) throws -> [Attribute.Argument]? {
+  private static func parseAttributeArgumentList(in state: inout ParserState) throws -> [Attribute
+    .Argument]?
+  {
     try parseList(in: &state, with: attributeArgumentList)
   }
 
   private static let parameterList = DelimitedCommaSeparatedList(
-    openerKind: .lParen,
-    closerKind: .rParen,
-    closerDescription: ")",
-    elementParser: parameterDecl)
+    openerKind: .lParen, closerKind: .rParen, closerDescription: ")", elementParser: parameterDecl)
 
-  private static func parseParameterList(
-    in state: inout ParserState
-  ) throws -> [NodeID<ParameterDecl>]? {
+  private static func parseParameterList(in state: inout ParserState) throws -> [NodeID<
+    ParameterDecl
+  >]? {
     try parseList(in: &state, with: parameterList)
   }
 
   private static let lambdaParameterList = DelimitedCommaSeparatedList(
-    openerKind: .lParen,
-    closerKind: .rParen,
-    closerDescription: ")",
+    openerKind: .lParen, closerKind: .rParen, closerDescription: ")",
     elementParser: Apply(parseLambdaParameter(in:)))
 
-  private static func parseLambdaParameterList(
-    in state: inout ParserState
-  ) throws -> [LambdaTypeExpr.Parameter]? {
+  private static func parseLambdaParameterList(in state: inout ParserState) throws
+    -> [LambdaTypeExpr.Parameter]?
+  {
     try parseList(in: &state, with: lambdaParameterList)
   }
 
   private static func parseList<C: Combinator>(
-    in state: inout ParserState,
-    with parser: DelimitedCommaSeparatedList<C>
+    in state: inout ParserState, with parser: DelimitedCommaSeparatedList<C>
   ) throws -> [C.Element]? where C.Context == ParserState {
     guard let result = try parser.parse(&state) else { return nil }
 
@@ -2483,22 +2224,18 @@ public enum Parser {
   }
 
   private static let tupleExprElementList = DelimitedCommaSeparatedList(
-    openerKind: .lParen,
-    closerKind: .rParen,
-    closerDescription: ")",
+    openerKind: .lParen, closerKind: .rParen, closerDescription: ")",
     elementParser: Apply(parseTupleExprElement(in:)))
 
   private static let tupleTypeExprElementList = DelimitedCommaSeparatedList(
-    openerKind: .lBrace,
-    closerKind: .rBrace,
-    closerDescription: "}",
+    openerKind: .lBrace, closerKind: .rBrace, closerDescription: "}",
     elementParser: Apply(parseTupleTypeExprElement(in:)))
 
   // MARK: Patterns
 
-  private static func anyPattern<Base: Combinator>(
-    _ base: Base
-  ) -> AnyCombinator<ParserState, AnyPatternID>
+  private static func anyPattern<Base: Combinator>(_ base: Base) -> AnyCombinator<
+    ParserState, AnyPatternID
+  >
   where Base.Context == ParserState, Base.Element: PatternID {
     AnyCombinator(parse: { (state) in
       try base.parse(&state).map(AnyPatternID.init(_:))
@@ -2509,9 +2246,7 @@ public enum Parser {
 
   private static let _pattern =
     (oneOf([
-      anyPattern(bindingPattern),
-      anyPattern(exprPattern),
-      anyPattern(tuplePattern),
+      anyPattern(bindingPattern), anyPattern(exprPattern), anyPattern(tuplePattern),
       anyPattern(wildcardPattern),
     ]))
 
@@ -2521,18 +2256,14 @@ public enum Parser {
         inContext(
           .bindingPattern,
           apply: oneOf([
-            anyPattern(namePattern),
-            anyPattern(tuplePattern),
-            anyPattern(wildcardPattern),
+            anyPattern(namePattern), anyPattern(tuplePattern), anyPattern(wildcardPattern),
           ]))
       )
       .and(maybe(take(.colon).and(expr)))
       .map({ (state, tree) -> NodeID<BindingPattern> in
         try state.ast.insert(
           wellFormed: BindingPattern(
-            introducer: tree.0.0,
-            subpattern: tree.0.1,
-            annotation: tree.1?.1,
+            introducer: tree.0.0, subpattern: tree.0.1, annotation: tree.1?.1,
             origin: tree.0.0.origin!.extended(upTo: state.currentIndex)))
       }))
 
@@ -2564,8 +2295,7 @@ public enum Parser {
       }
 
       return SourceRepresentable(
-        value: introducer,
-        range: head.origin.extended(upTo: state.currentIndex))
+        value: introducer, range: head.origin.extended(upTo: state.currentIndex))
     }))
 
   static let exprPattern =
@@ -2585,9 +2315,7 @@ public enum Parser {
       // Default to an expression.
       guard let exprID = try expr.parse(&state) else { return nil }
       let id = try state.ast.insert(
-        wellFormed: ExprPattern(
-          expr: exprID,
-          origin: state.ast[exprID].origin))
+        wellFormed: ExprPattern(expr: exprID, origin: state.ast[exprID].origin))
       return AnyPatternID(id)
     }))
 
@@ -2595,8 +2323,8 @@ public enum Parser {
     (take(.name)
       .map({ (state, token) -> NodeID<NamePattern> in
         let declID = try state.ast.insert(
-          wellFormed: VarDecl(
-            identifier: SourceRepresentable(token: token, in: state.lexer.source)))
+          wellFormed: VarDecl(identifier: SourceRepresentable(token: token, in: state.lexer.source))
+        )
         return try state.ast.insert(wellFormed: NamePattern(decl: declID, origin: token.origin))
       }))
 
@@ -2622,8 +2350,7 @@ public enum Parser {
         if state.take(.colon) != nil {
           if let value = try pattern.parse(&state) {
             return TuplePattern.Element(
-              label: SourceRepresentable(token: label, in: state.lexer.source),
-              pattern: value)
+              label: SourceRepresentable(token: label, in: state.lexer.source), pattern: value)
           }
         }
       }
@@ -2645,9 +2372,9 @@ public enum Parser {
 
   // MARK: Statements
 
-  private static func anyStmt<Base: Combinator>(
-    _ base: Base
-  ) -> AnyCombinator<ParserState, AnyStmtID>
+  private static func anyStmt<Base: Combinator>(_ base: Base) -> AnyCombinator<
+    ParserState, AnyStmtID
+  >
   where Base.Context == ParserState, Base.Element: StmtID {
     AnyCombinator(parse: { (state) in
       try base.parse(&state).map(AnyStmtID.init(_:))
@@ -2658,18 +2385,9 @@ public enum Parser {
 
   static let _stmt =
     (oneOf([
-      anyStmt(braceStmt),
-      anyStmt(discardStmt),
-      anyStmt(doWhileStmt),
-      anyStmt(whileStmt),
-      anyStmt(forStmt),
-      anyStmt(returnStmt),
-      anyStmt(yieldStmt),
-      anyStmt(breakStmt),
-      anyStmt(continueStmt),
-      anyStmt(bindingStmt),
-      anyStmt(declStmt),
-      anyStmt(exprStmt),
+      anyStmt(braceStmt), anyStmt(discardStmt), anyStmt(doWhileStmt), anyStmt(whileStmt),
+      anyStmt(forStmt), anyStmt(returnStmt), anyStmt(yieldStmt), anyStmt(breakStmt),
+      anyStmt(continueStmt), anyStmt(bindingStmt), anyStmt(declStmt), anyStmt(exprStmt),
     ]))
 
   static let braceStmt =
@@ -2680,8 +2398,7 @@ public enum Parser {
       .map({ (state, tree) -> NodeID<BraceStmt> in
         try state.ast.insert(
           wellFormed: BraceStmt(
-            stmts: tree.0.1,
-            origin: tree.0.0.0.origin.extended(upTo: state.currentIndex)))
+            stmts: tree.0.1, origin: tree.0.0.0.origin.extended(upTo: state.currentIndex)))
       }))
 
   static let discardStmt =
@@ -2689,8 +2406,7 @@ public enum Parser {
       .map({ (state, tree) -> NodeID<DiscardStmt> in
         try state.ast.insert(
           wellFormed: DiscardStmt(
-            expr: tree.1,
-            origin: tree.0.0.origin.extended(upTo: state.currentIndex)))
+            expr: tree.1, origin: tree.0.0.origin.extended(upTo: state.currentIndex)))
       }))
 
   static let doWhileStmt =
@@ -2698,8 +2414,7 @@ public enum Parser {
       .map({ (state, tree) -> NodeID<DoWhileStmt> in
         try state.ast.insert(
           wellFormed: DoWhileStmt(
-            body: tree.0.0.1,
-            condition: tree.1,
+            body: tree.0.0.1, condition: tree.1,
             origin: tree.0.0.0.origin.extended(upTo: state.currentIndex)))
       }))
 
@@ -2708,8 +2423,7 @@ public enum Parser {
       .map({ (state, tree) -> NodeID<WhileStmt> in
         try state.ast.insert(
           wellFormed: WhileStmt(
-            condition: tree.0.1,
-            body: tree.1,
+            condition: tree.0.1, body: tree.1,
             origin: tree.0.0.origin.extended(upTo: state.currentIndex)))
       }))
 
@@ -2718,15 +2432,10 @@ public enum Parser {
       .map({ (state, tree) -> NodeID<ForStmt> in
         let decl = try state.ast.insert(
           wellFormed: BindingDecl(
-            pattern: tree.0.0.0.1,
-            initializer: nil,
-            origin: state.ast[tree.0.0.0.1].origin))
+            pattern: tree.0.0.0.1, initializer: nil, origin: state.ast[tree.0.0.0.1].origin))
         return try state.ast.insert(
           wellFormed: ForStmt(
-            binding: decl,
-            domain: tree.0.0.1,
-            filter: tree.0.1,
-            body: tree.1,
+            binding: decl, domain: tree.0.0.1, filter: tree.0.1, body: tree.1,
             origin: tree.0.0.0.0.origin.extended(upTo: state.currentIndex)))
       }))
 
@@ -2741,8 +2450,7 @@ public enum Parser {
       .map({ (state, tree) -> NodeID<ReturnStmt> in
         try state.ast.insert(
           wellFormed: ReturnStmt(
-            value: tree.1,
-            origin: tree.0.origin.extended(upTo: state.currentIndex)))
+            value: tree.1, origin: tree.0.origin.extended(upTo: state.currentIndex)))
       }))
 
   static let yieldStmt =
@@ -2750,8 +2458,7 @@ public enum Parser {
       .map({ (state, tree) -> NodeID<YieldStmt> in
         try state.ast.insert(
           wellFormed: YieldStmt(
-            value: tree.1,
-            origin: tree.0.origin.extended(upTo: state.currentIndex)))
+            value: tree.1, origin: tree.0.origin.extended(upTo: state.currentIndex)))
       }))
 
   static let breakStmt =
@@ -2776,9 +2483,7 @@ public enum Parser {
 
       if let decl = try bindingDecl.parse(&state) {
         let id = try state.ast.insert(
-          wellFormed: DeclStmt(
-            decl: AnyDeclID(decl),
-            origin: state.ast[decl].origin))
+          wellFormed: DeclStmt(decl: AnyDeclID(decl), origin: state.ast[decl].origin))
         return AnyStmtID(id)
       } else {
         return nil
@@ -2799,8 +2504,7 @@ public enum Parser {
 
         return try state.ast.insert(
           wellFormed: CondBindingStmt(
-            binding: tree.0.0,
-            fallback: tree.1,
+            binding: tree.0.0, fallback: tree.1,
             origin: bindingRange.extended(upTo: state.currentIndex)))
       }))
 
@@ -2811,13 +2515,8 @@ public enum Parser {
     (expr.map({ (_, id) -> CondBindingStmt.Fallback in .expr(id) }))
 
   static let conditionalBindingFallbackStmt =
-    (oneOf([
-      anyStmt(breakStmt),
-      anyStmt(continueStmt),
-      anyStmt(returnStmt),
-      anyStmt(braceStmt),
-    ])
-    .map({ (_, id) -> CondBindingStmt.Fallback in .exit(id) }))
+    (oneOf([anyStmt(breakStmt), anyStmt(continueStmt), anyStmt(returnStmt), anyStmt(braceStmt)])
+      .map({ (_, id) -> CondBindingStmt.Fallback in .exit(id) }))
 
   static let declStmt =
     (Apply(parseDecl)
@@ -2845,9 +2544,7 @@ public enum Parser {
 
     let stmt = try state.ast.insert(
       wellFormed: AssignStmt(
-        left: lhs,
-        right: rhs,
-        origin: state.range(from: state.ast[lhs].origin!.lowerBound)))
+        left: lhs, right: rhs, origin: state.range(from: state.ast[lhs].origin!.lowerBound)))
     return AnyStmtID(stmt)
   }
 
@@ -2855,9 +2552,9 @@ public enum Parser {
 
   private static let nameTypeExpr = Apply(parseNameExpr(in:))
 
-  private static func parseLambdaParameter(
-    in state: inout ParserState
-  ) throws -> LambdaTypeExpr.Parameter? {
+  private static func parseLambdaParameter(in state: inout ParserState) throws -> LambdaTypeExpr
+    .Parameter?
+  {
     let backup = state.backup()
 
     // Parse a labeled parameter.
@@ -2865,8 +2562,7 @@ public enum Parser {
       if state.take(.colon) != nil {
         if let type = try parameterTypeExpr.parse(&state) {
           return LambdaTypeExpr.Parameter(
-            label: SourceRepresentable(token: label, in: state.lexer.source),
-            type: type)
+            label: SourceRepresentable(token: label, in: state.lexer.source), type: type)
         }
       }
     }
@@ -2880,10 +2576,7 @@ public enum Parser {
     return nil
   }
 
-  static let receiverEffect = translate([
-    .inout: ReceiverEffect.inout,
-    .sink: ReceiverEffect.sink,
-  ])
+  static let receiverEffect = translate([.inout: ReceiverEffect.inout, .sink: ReceiverEffect.sink])
 
   static let parameterTypeExpr =
     (maybe(passingConvention)
@@ -2891,18 +2584,14 @@ public enum Parser {
       .map({ (state, tree) -> NodeID<ParameterTypeExpr> in
         try state.ast.insert(
           wellFormed: ParameterTypeExpr(
-            convention: tree.0 ?? SourceRepresentable(value: .let),
-            bareType: tree.1,
+            convention: tree.0 ?? SourceRepresentable(value: .let), bareType: tree.1,
             origin: state.range(
               from: tree.0?.origin!.lowerBound ?? state.ast[tree.1].origin!.lowerBound)))
       }))
 
   static let passingConvention = translate([
-    .let: PassingConvention.let,
-    .inout: PassingConvention.inout,
-    .set: PassingConvention.set,
-    .sink: PassingConvention.sink,
-    .yielded: PassingConvention.yielded,
+    .let: PassingConvention.let, .inout: PassingConvention.inout, .set: PassingConvention.set,
+    .sink: PassingConvention.sink, .yielded: PassingConvention.yielded,
   ])
 
   static let whereClause =
@@ -2948,8 +2637,7 @@ public enum Parser {
     (valueAttribute.and(expr)
       .map({ (state, tree) -> SourceRepresentable<WhereClause.ConstraintExpr> in
         SourceRepresentable(
-          value: .value(tree.1),
-          range: tree.0.origin.extended(upTo: state.currentIndex))
+          value: .value(tree.1), range: tree.0.origin.extended(upTo: state.currentIndex))
       }))
 
   static let traitComposition =
@@ -2958,22 +2646,21 @@ public enum Parser {
 
   // MARK: Attributes
 
-  static func parseDeclAttribute(
-    in state: inout ParserState
-  ) throws -> SourceRepresentable<Attribute>? {
+  static func parseDeclAttribute(in state: inout ParserState) throws -> SourceRepresentable<
+    Attribute
+  >? {
     guard let introducer = state.take(.attribute) else { return nil }
     let arguments = try parseAttributeArgumentList(in: &state) ?? []
 
     return SourceRepresentable(
       value: Attribute(
-        name: SourceRepresentable(token: introducer, in: state.lexer.source),
-        arguments: arguments),
+        name: SourceRepresentable(token: introducer, in: state.lexer.source), arguments: arguments),
       range: state.range(from: introducer.origin.lowerBound))
   }
 
-  private static func parseAttributeArgument(
-    in state: inout ParserState
-  ) throws -> Attribute.Argument? {
+  private static func parseAttributeArgument(in state: inout ParserState) throws -> Attribute
+    .Argument?
+  {
     if let token = state.take(.int) {
       if let value = Int(state.lexer.source[token.origin]) {
         return .integer(SourceRepresentable(value: value, range: token.origin))
@@ -3257,8 +2944,7 @@ struct DelimitedCommaSeparatedList<E: Combinator>: Combinator where E.Context ==
       // unless we reached EOF. Otherwise, diagnose a missing expression and exit.
       if trailingSeparator == nil {
         if let head = state.peek() {
-          state.diagnostics.append(
-            .diagnose(expected: "',' separator", at: head.origin.first()))
+          state.diagnostics.append(.diagnose(expected: "',' separator", at: head.origin.first()))
           continue
         } else {
           state.diagnostics.append(
@@ -3266,17 +2952,13 @@ struct DelimitedCommaSeparatedList<E: Combinator>: Combinator where E.Context ==
           break
         }
       } else {
-        state.diagnostics.append(
-          .diagnose(expected: "expression", at: state.currentLocation))
+        state.diagnostics.append(.diagnose(expected: "expression", at: state.currentLocation))
         break
       }
     }
 
     return Element(
-      opener: opener,
-      closer: closer,
-      trailingSeparator: trailingSeparator,
-      elements: elements)
+      opener: opener, closer: closer, trailingSeparator: trailingSeparator, elements: elements)
   }
 
 }
@@ -3297,9 +2979,7 @@ private func attribute(_ name: String) -> Apply<ParserState, Token> {
 }
 
 /// Creates a combinator that translates token kinds to instances of type.
-private func translate<T>(
-  _ table: [Token.Kind: T]
-) -> Apply<ParserState, SourceRepresentable<T>> {
+private func translate<T>(_ table: [Token.Kind: T]) -> Apply<ParserState, SourceRepresentable<T>> {
   Apply({ (state) in
     guard let head = state.peek() else { return nil }
     if let translation = table[head.kind] {
@@ -3313,25 +2993,22 @@ private func translate<T>(
 
 /// Creates a combinator that pushes `context` to the parser state before applying, and pops
 /// that context afterward.
-private func inContext<Base: Combinator>(
-  _ context: ParserState.Context,
-  apply base: Base
-) -> WrapInContext<Base> {
+private func inContext<Base: Combinator>(_ context: ParserState.Context, apply base: Base)
+  -> WrapInContext<Base>
+{
   WrapInContext(context: context, base: base)
 }
 
 /// Creates a combinator that applies `base` only if its input is not preceeded by whitespaces.
-private func withoutLeadingWhitespace<Base: Combinator>(
-  _ base: Base
-) -> Apply<ParserState, Base.Element>
+private func withoutLeadingWhitespace<Base: Combinator>(_ base: Base) -> Apply<
+  ParserState, Base.Element
+>
 where Base.Context == ParserState {
   Apply({ (state) in try state.hasLeadingWhitespace ? nil : base.parse(&state) })
 }
 
 /// Creates a combinator that applies `base` only if its input is not preceeded by newlines.
-private func onSameLine<Base: Combinator>(
-  _ base: Base
-) -> Apply<ParserState, Base.Element>
+private func onSameLine<Base: Combinator>(_ base: Base) -> Apply<ParserState, Base.Element>
 where Base.Context == ParserState {
   Apply({ (state) in
     if let t = state.peek() {

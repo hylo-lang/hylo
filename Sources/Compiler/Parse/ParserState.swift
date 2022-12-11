@@ -249,8 +249,7 @@ struct ParserState {
   /// Applies `parse`, propagating thrown errors, and returns non-`nil` results or throws an error
   /// diagnosing that we expected `expectedConstruct`.
   mutating func expect<T>(
-    _ expectedConstruct: String,
-    using parse: (inout ParserState) throws -> T?
+    _ expectedConstruct: String, using parse: (inout ParserState) throws -> T?
   ) throws -> T {
     if let element = try parse(&self) {
       return element
@@ -261,10 +260,9 @@ struct ParserState {
 
   /// Applies `parser.parse`, propagating thrown errors, and returns non-`nil` results or throws
   /// an error diagnosing that we expected `expectedConstruct`.
-  mutating func expect<C: Combinator>(
-    _ expectedConstruct: String,
-    using parser: C
-  ) throws -> C.Element where C.Context == Self {
+  mutating func expect<C: Combinator>(_ expectedConstruct: String, using parser: C) throws
+    -> C.Element where C.Context == Self
+  {
     try expect(expectedConstruct, using: parser.parse(_:))
   }
 

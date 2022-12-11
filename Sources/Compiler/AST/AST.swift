@@ -151,8 +151,7 @@ public struct AST: Codable {
   public typealias TopLevelDecls = LazySequence<
     FlattenSequence<
       LazyMapSequence<
-        LazySequence<[NodeID<TopLevelDeclSet>]>.Elements,
-        [AnyDeclID]
+        LazySequence<[NodeID<TopLevelDeclSet>]>.Elements, [AnyDeclID]
       >.Elements
     >
   >
@@ -168,8 +167,7 @@ public struct AST: Codable {
   /// Returns the IDs of the named patterns contained in `pattern`.
   public func names<T: PatternID>(in pattern: T) -> [(path: [Int], pattern: NodeID<NamePattern>)] {
     func visit(
-      pattern: AnyPatternID,
-      path: [Int],
+      pattern: AnyPatternID, path: [Int],
       result: inout [(path: [Int], pattern: NodeID<NamePattern>)]
     ) {
       switch pattern.kind {
@@ -187,10 +185,7 @@ public struct AST: Codable {
       case TuplePattern.self:
         let p = NodeID<TuplePattern>(rawValue: pattern.rawValue)
         for i in 0..<self[p].elements.count {
-          visit(
-            pattern: self[p].elements[i].pattern,
-            path: path + [i],
-            result: &result)
+          visit(pattern: self[p].elements[i].pattern, path: path + [i], result: &result)
         }
 
       case WildcardPattern.self:

@@ -16,10 +16,8 @@ public struct ParameterDecl: SingleEntityDecl {
   public let defaultValue: AnyExprID?
 
   public init(
-    label: SourceRepresentable<Identifier>? = nil,
-    identifier: SourceRepresentable<Identifier>,
-    annotation: NodeID<ParameterTypeExpr>? = nil,
-    defaultValue: AnyExprID? = nil,
+    label: SourceRepresentable<Identifier>? = nil, identifier: SourceRepresentable<Identifier>,
+    annotation: NodeID<ParameterTypeExpr>? = nil, defaultValue: AnyExprID? = nil,
     origin: SourceRange?
   ) {
     self.origin = origin

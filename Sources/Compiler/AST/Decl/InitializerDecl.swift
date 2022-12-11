@@ -39,14 +39,10 @@ public struct InitializerDecl: GenericDecl, GenericScope {
 
   /// Creates an instance with the given properties.
   public init(
-    introducer: SourceRepresentable<Introducer>,
-    attributes: [SourceRepresentable<Attribute>],
+    introducer: SourceRepresentable<Introducer>, attributes: [SourceRepresentable<Attribute>],
     accessModifier: SourceRepresentable<AccessModifier>?,
-    genericClause: SourceRepresentable<GenericClause>?,
-    parameters: [NodeID<ParameterDecl>],
-    receiver: NodeID<ParameterDecl>,
-    body: NodeID<BraceStmt>?,
-    origin: SourceRange?
+    genericClause: SourceRepresentable<GenericClause>?, parameters: [NodeID<ParameterDecl>],
+    receiver: NodeID<ParameterDecl>, body: NodeID<BraceStmt>?, origin: SourceRange?
   ) {
     precondition((introducer.value == .`init`) || (body == nil))
 

@@ -145,25 +145,9 @@ public struct Token {
   /// Indicates whether `self` may be at the begining of a declaration.
   public var mayBeginDecl: Bool {
     switch kind {
-    case .`conformance`,
-      .`extension`,
-      .`fun`,
-      .`import`,
-      .`infix`,
-      .`init`,
-      .`inout`,
-      .`let`,
-      .`namespace`,
-      .`operator`,
-      .`postfix`,
-      .`prefix`,
-      .`property`,
-      .`sink`,
-      .`subscript`,
-      .`trait`,
-      .`type`,
-      .`typealias`,
-      .`var`:
+    case .`conformance`, .`extension`, .`fun`, .`import`, .`infix`, .`init`, .`inout`, .`let`,
+      .`namespace`, .`operator`, .`postfix`, .`prefix`, .`property`, .`sink`, .`subscript`,
+      .`trait`, .`type`, .`typealias`, .`var`:
       return true
 
     default:

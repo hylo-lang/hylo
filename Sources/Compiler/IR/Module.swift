@@ -60,8 +60,7 @@ public struct Module {
 
   /// Returns the identifier of the Val IR function corresponding to `declID`.
   mutating func getOrCreateFunction(
-    correspondingTo declID: NodeID<FunctionDecl>,
-    program: TypedProgram
+    correspondingTo declID: NodeID<FunctionDecl>, program: TypedProgram
   ) -> Function.ID {
     if let id = loweredFunctions[declID] { return id }
 
@@ -80,9 +79,7 @@ public struct Module {
         case let type as RemoteType:
           precondition(type.capability != .yielded, "cannot lower yielded parameter")
           inputs.append(
-            (
-              convention: PassingConvention(matching: type.capability), type: .address(type.base)
-            ))
+            (convention: PassingConvention(matching: type.capability), type: .address(type.base)))
 
         case let type:
           switch declType.receiverEffect {
@@ -113,17 +110,13 @@ public struct Module {
     let loweredID = functions.count
     let locator = DeclLocator(identifying: declID, in: program)
     let function = Function(
-      name: locator.mangled,
-      debugName: locator.description,
-      linkage: program.ast[declID].isPublic ? .external : .module,
-      inputs: inputs,
-      output: output,
+      name: locator.mangled, debugName: locator.description,
+      linkage: program.ast[declID].isPublic ? .external : .module, inputs: inputs, output: output,
       blocks: [])
     functions.append(function)
 
     // Determine if the new function is the module's entry.
-    if program.declToScope[declID]?.kind == TopLevelDeclSet.self,
-      program.ast[declID].isPublic,
+    if program.declToScope[declID]?.kind == TopLevelDeclSet.self, program.ast[declID].isPublic,
       program.ast[declID].identifier?.value == "main"
     {
       assert(entryFunctionID == nil)
@@ -138,8 +131,7 @@ public struct Module {
   /// Creates a basic block at the end of the specified function and returns its identifier.
   @discardableResult
   mutating func createBasicBlock(
-    accepting inputs: [LoweredType] = [],
-    atEndOf function: Function.ID
+    accepting inputs: [LoweredType] = [], atEndOf function: Function.ID
   ) -> Block.ID {
     let address = functions[function].blocks.append(Block(inputs: inputs))
     return Block.ID(function: function, address: address)

@@ -29,11 +29,7 @@ struct ConstraintSolver {
 
   /// Creates an instance that solves the constraints in `fresh` in `scope`, returning a solution
   /// populated with `initialDiagnostics`.
-  init(
-    scope: AnyScopeID,
-    fresh: [Constraint],
-    initialDiagnostics: [Diagnostic] = []
-  ) {
+  init(scope: AnyScopeID, fresh: [Constraint], initialDiagnostics: [Diagnostic] = []) {
     self.scope = scope
     self.fresh = fresh
     self.diagnostics = initialDiagnostics
@@ -84,16 +80,14 @@ struct ConstraintSolver {
   /// Eliminates `L : T1 & ... & Tn` if the solver has enough information to check whether or not
   /// `L` conforms to each trait `Ti`. Otherwise, postpones the constraint.
   private mutating func solve(
-    conformance constraint: ConformanceConstraint,
-    using checker: inout TypeChecker
+    conformance constraint: ConformanceConstraint, using checker: inout TypeChecker
   ) {
     let subject = typeAssumptions[constraint.subject]
 
     switch subject.base {
     case is TypeVariable:
       // Postpone the solving if `L` is still unknown.
-      postpone(
-        ConformanceConstraint(subject, traits: constraint.traits, because: constraint.cause))
+      postpone(ConformanceConstraint(subject, traits: constraint.traits, because: constraint.cause))
 
     case is ProductType, is TupleType:
       let conformedTraits = checker.conformedTraits(of: subject, inScope: scope) ?? []
@@ -135,8 +129,7 @@ struct ConstraintSolver {
 
       case .differentLabels(let found, let expected):
         diagnostics.append(
-          .diagnose(
-            labels: found, incompatibleWith: expected, at: constraint.cause.origin))
+          .diagnose(labels: found, incompatibleWith: expected, at: constraint.cause.origin))
         return
 
       case .compatible:
@@ -156,8 +149,7 @@ struct ConstraintSolver {
 
       case .differentLabels(let found, let expected):
         diagnostics.append(
-          .diagnose(
-            labels: found, incompatibleWith: expected, at: constraint.cause.origin))
+          .diagnose(labels: found, incompatibleWith: expected, at: constraint.cause.origin))
         return
 
       case .compatible:
@@ -199,22 +191,19 @@ struct ConstraintSolver {
       if let lambda = LambdaType(letImplOf: l) {
         minterms.append(
           .init(
-            constraints: [EqualityConstraint(^lambda, r, because: constraint.cause)],
-            penalties: 0))
+            constraints: [EqualityConstraint(^lambda, r, because: constraint.cause)], penalties: 0))
       }
 
       if let lambda = LambdaType(inoutImplOf: l) {
         minterms.append(
           .init(
-            constraints: [EqualityConstraint(^lambda, r, because: constraint.cause)],
-            penalties: 1))
+            constraints: [EqualityConstraint(^lambda, r, because: constraint.cause)], penalties: 1))
       }
 
       if let lambda = LambdaType(sinkImplOf: l) {
         minterms.append(
           .init(
-            constraints: [EqualityConstraint(^lambda, r, because: constraint.cause)],
-            penalties: 1))
+            constraints: [EqualityConstraint(^lambda, r, because: constraint.cause)], penalties: 1))
       }
 
       if minterms.count == 1 {
@@ -285,8 +274,7 @@ struct ConstraintSolver {
     case let p as ParameterType:
       // Either `L` is equal to the bare type of `R`, or it's a. Note: the equality requirement for
       // arguments passed mutably is verified after type inference.
-      schedule(
-        equalityOrSubtypingConstraint(l, p.bareType, because: constraint.cause))
+      schedule(equalityOrSubtypingConstraint(l, p.bareType, because: constraint.cause))
 
     default:
       diagnostics.append(.diagnose(invalidParameterType: r, at: constraint.cause.origin))
@@ -297,8 +285,7 @@ struct ConstraintSolver {
   /// bound type of `L.m` if the solver has enough information to resolve `m` as a bound member.
   /// Otherwise, postones the constraint.
   private mutating func solve(
-    boundMember constraint: BoundMemberConstraint,
-    using checker: inout TypeChecker
+    boundMember constraint: BoundMemberConstraint, using checker: inout TypeChecker
   ) {
     let l = typeAssumptions[constraint.left]
     let r = typeAssumptions[constraint.right]
@@ -307,10 +294,7 @@ struct ConstraintSolver {
     if l.base is TypeVariable {
       postpone(
         BoundMemberConstraint(
-          type: l,
-          hasMemberNamed: constraint.member,
-          ofType: r,
-          because: constraint.cause))
+          type: l, hasMemberNamed: constraint.member, ofType: r, because: constraint.cause))
       return
     }
 
@@ -324,9 +308,8 @@ struct ConstraintSolver {
     if nonStaticMatches.isEmpty && !allMatches.isEmpty {
       diagnostics.append(
         .diagnose(
-          illegalUseOfStaticMember: constraint.member,
-          onInstanceOf: l,
-          at: constraint.cause.origin))
+          illegalUseOfStaticMember: constraint.member, onInstanceOf: l, at: constraint.cause.origin)
+      )
     }
 
     // Generate the list of candidates.
@@ -338,18 +321,14 @@ struct ConstraintSolver {
       // TODO: Handle bound generic typess
 
       return OverloadConstraint.Candidate(
-        reference: .member(match),
-        type: matchType,
-        constraints: [],
+        reference: .member(match), type: matchType, constraints: [],
         penalties: checker.program.isRequirement(match) ? 1 : 0)
     })
 
     // Fail if we couldn't find any candidate.
     if candidates.isEmpty {
       diagnostics.append(
-        .diagnose(
-          undefinedName: "\(constraint.member)",
-          at: constraint.cause.origin))
+        .diagnose(undefinedName: "\(constraint.member)", at: constraint.cause.origin))
       return
     }
 
@@ -365,11 +344,7 @@ struct ConstraintSolver {
     // If there are several candidates, create a disjunction constraint.
     if let name = constraint.memberExpr {
       schedule(
-        OverloadConstraint(
-          name,
-          withType: r,
-          refersToOneOf: candidates,
-          because: constraint.cause))
+        OverloadConstraint(name, withType: r, refersToOneOf: candidates, because: constraint.cause))
     } else {
       schedule(
         DisjunctionConstraint(
@@ -377,8 +352,7 @@ struct ConstraintSolver {
             .init(
               constraints: [EqualityConstraint(r, c.type, because: constraint.cause)],
               penalties: c.penalties)
-          }),
-          because: constraint.cause))
+          }), because: constraint.cause))
     }
   }
 
@@ -386,8 +360,7 @@ struct ConstraintSolver {
   /// unbound type of `L.m` if the solver has enough information to resolve `m` as a bound member.
   /// Otherwise, postones the constraint.
   private mutating func solve(
-    unboundMember constraint: UnboundMemberConstraint,
-    using checker: inout TypeChecker
+    unboundMember constraint: UnboundMemberConstraint, using checker: inout TypeChecker
   ) {
     let l = typeAssumptions[constraint.left]
     let r = typeAssumptions[constraint.right]
@@ -396,10 +369,7 @@ struct ConstraintSolver {
     if l.base is TypeVariable {
       postpone(
         UnboundMemberConstraint(
-          type: l,
-          hasMemberNamed: constraint.member,
-          ofType: r,
-          because: constraint.cause))
+          type: l, hasMemberNamed: constraint.member, ofType: r, because: constraint.cause))
       return
     }
 
@@ -417,19 +387,13 @@ struct ConstraintSolver {
       // TODO: Handle static access to bound members
       assert(checker.program.isGlobal(match), "not implemented")
 
-      return (
-        decl: match,
-        type: matchType,
-        penalty: checker.program.isRequirement(match) ? 1 : 0
-      )
+      return (decl: match, type: matchType, penalty: checker.program.isRequirement(match) ? 1 : 0)
     })
 
     // Fail if we couldn't find any candidate.
     if candidates.isEmpty {
       diagnostics.append(
-        .diagnose(
-          undefinedName: "\(constraint.member)",
-          at: constraint.cause.origin))
+        .diagnose(undefinedName: "\(constraint.member)", at: constraint.cause.origin))
       return
     }
 
@@ -448,13 +412,10 @@ struct ConstraintSolver {
   /// Attempts to solve the remaining constraints for each individual choice in `disjunction` and
   /// returns the best solution.
   private mutating func solve(
-    disjunction constraint: DisjunctionConstraint,
-    using checker: inout TypeChecker
+    disjunction constraint: DisjunctionConstraint, using checker: inout TypeChecker
   ) -> Solution? {
     let bestChoice = explore(
-      constraint.choices,
-      cause: constraint.cause,
-      using: &checker,
+      constraint.choices, cause: constraint.cause, using: &checker,
       insertingConstraintsWith: { (subsolver, choice) -> Void in
         for c in choice.constraints {
           var subConstraint = c
@@ -469,19 +430,13 @@ struct ConstraintSolver {
   /// Attempts to solve the remaining constraints with each individual choice in `overload` and
   /// returns the best solution.
   private mutating func solve(
-    overload constraint: OverloadConstraint,
-    using checker: inout TypeChecker
+    overload constraint: OverloadConstraint, using checker: inout TypeChecker
   ) -> Solution? {
     let bestChoice = explore(
-      constraint.choices,
-      cause: constraint.cause,
-      using: &checker,
+      constraint.choices, cause: constraint.cause, using: &checker,
       insertingConstraintsWith: { (subsolver, choice) -> Void in
         subsolver.schedule(
-          EqualityConstraint(
-            constraint.overloadedExprType,
-            choice.type,
-            because: constraint.cause))
+          EqualityConstraint(constraint.overloadedExprType, choice.type, because: constraint.cause))
 
         for c in choice.constraints {
           var subConstraint = c
@@ -501,9 +456,7 @@ struct ConstraintSolver {
   /// Solves the remaining constraint with each given choice and returns the best solution along
   /// with the choice that produced it.
   private mutating func explore<C: Collection>(
-    _ choices: C,
-    cause: ConstraintCause?,
-    using checker: inout TypeChecker,
+    _ choices: C, cause: ConstraintCause?, using checker: inout TypeChecker,
     insertingConstraintsWith insertConstraints: (inout ConstraintSolver, C.Element) -> Void
   ) -> (choice: C.Element, solution: Solution)?
   where C.Element: Choice {
@@ -571,10 +524,8 @@ struct ConstraintSolver {
   private func finalize(using checker: inout TypeChecker) -> Solution {
     assert(fresh.isEmpty)
     var s = Solution(
-      typeAssumptions: typeAssumptions.asDictionary(),
-      bindingAssumptions: bindingAssumptions,
-      penalties: penalties,
-      diagnostics: diagnostics)
+      typeAssumptions: typeAssumptions.asDictionary(), bindingAssumptions: bindingAssumptions,
+      penalties: penalties, diagnostics: diagnostics)
 
     for c in stale {
       s.addDiagnostic(.diagnose(staleConstraint: c))

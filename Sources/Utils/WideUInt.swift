@@ -148,8 +148,8 @@ extension WideUInt: Numeric, AdditiveArithmetic {
   /// - Precondition: `self.bitWidth` == `rhs.bitWidth`
   private func matchingWidth(_ rhs: WideUInt, combine: (BigUInt, BigUInt) -> BigUInt) -> WideUInt {
     precondition(
-      bitWidth == rhs.bitWidth,
-      "mixed-width operations not allowed (\(bitWidth) vs \(rhs.bitWidth)")
+      bitWidth == rhs.bitWidth, "mixed-width operations not allowed (\(bitWidth) vs \(rhs.bitWidth)"
+    )
     return WideUInt(truncatingIfNeeded: combine(value, rhs.value), toWidth: bitWidth)
   }
 

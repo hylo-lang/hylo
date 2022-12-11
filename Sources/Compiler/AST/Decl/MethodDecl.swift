@@ -34,16 +34,11 @@ public struct MethodDecl: GenericDecl, GenericScope {
 
   /// Creates an instance with the given properties.
   public init(
-    introducerRange: SourceRange?,
-    attributes: [SourceRepresentable<Attribute>],
+    introducerRange: SourceRange?, attributes: [SourceRepresentable<Attribute>],
     accessModifier: SourceRepresentable<AccessModifier>?,
-    notation: SourceRepresentable<OperatorNotation>?,
-    identifier: SourceRepresentable<Identifier>,
-    genericClause: SourceRepresentable<GenericClause>?,
-    parameters: [NodeID<ParameterDecl>],
-    output: AnyTypeExprID?,
-    impls: [NodeID<MethodImplDecl>],
-    origin: SourceRange?
+    notation: SourceRepresentable<OperatorNotation>?, identifier: SourceRepresentable<Identifier>,
+    genericClause: SourceRepresentable<GenericClause>?, parameters: [NodeID<ParameterDecl>],
+    output: AnyTypeExprID?, impls: [NodeID<MethodImplDecl>], origin: SourceRange?
   ) {
     self.origin = origin
     self.introducerRange = introducerRange

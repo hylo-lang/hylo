@@ -7,8 +7,7 @@ final class EmitterTests: XCTestCase {
   func testEmitter() throws {
     // Locate the test cases.
     let testCaseDirectory = try XCTUnwrap(
-      Bundle.module.url(forResource: "TestCases/Lowering", withExtension: nil),
-      "No test cases")
+      Bundle.module.url(forResource: "TestCases/Lowering", withExtension: nil), "No test cases")
 
     // Prepare an AST with the core module loaded.
     var baseAST = AST()
@@ -39,11 +38,8 @@ final class EmitterTests: XCTestCase {
         }
 
         let typedProgram = TypedProgram(
-          annotating: checker.program,
-          declTypes: checker.declTypes,
-          exprTypes: checker.exprTypes,
-          implicitCaptures: checker.implicitCaptures,
-          referredDecls: checker.referredDecls,
+          annotating: checker.program, declTypes: checker.declTypes, exprTypes: checker.exprTypes,
+          implicitCaptures: checker.implicitCaptures, referredDecls: checker.referredDecls,
           foldedSequenceExprs: checker.foldedSequenceExprs)
 
         // Emit Val's IR.
@@ -52,8 +48,7 @@ final class EmitterTests: XCTestCase {
 
         // Run mandatory IR analysis and transformation passes.
         var pipeline: [TransformPass] = [
-          ImplicitReturnInsertionPass(),
-          DefiniteInitializationPass(program: typedProgram),
+          ImplicitReturnInsertionPass(), DefiniteInitializationPass(program: typedProgram),
           LifetimePass(program: typedProgram),
         ]
 

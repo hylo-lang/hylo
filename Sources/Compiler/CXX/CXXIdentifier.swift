@@ -18,16 +18,10 @@ public struct CXXIdentifier: CustomStringConvertible {
 
   /// The set of reserved keywords in C++.
   public static let reserved = Set([
-    "asm", "auto", "break", "case",
-    "catch", "char", "class", "const",
-    "continue", "default", "delete", "do",
-    "double", "else", "enum", "extern",
-    "float", "for", "friend", "goto",
-    "if", "inline", "int", "long",
-    "signed", "sizeof", "static", "struct",
-    "switch", "template", "this", "throw",
-    "try", "typedef", "union", "unsigned",
-    "virtual", "void", "volatile", "while",
+    "asm", "auto", "break", "case", "catch", "char", "class", "const", "continue", "default",
+    "delete", "do", "double", "else", "enum", "extern", "float", "for", "friend", "goto", "if",
+    "inline", "int", "long", "signed", "sizeof", "static", "struct", "switch", "template", "this",
+    "throw", "try", "typedef", "union", "unsigned", "virtual", "void", "volatile", "while",
   ])
 
 }

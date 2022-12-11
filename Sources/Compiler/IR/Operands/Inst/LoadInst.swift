@@ -14,10 +14,7 @@ public struct LoadInst: Inst {
   public let range: SourceRange?
 
   init(
-    _ objectType: LoweredType,
-    from source: Operand,
-    at path: [Int] = [],
-    range: SourceRange? = nil
+    _ objectType: LoweredType, from source: Operand, at path: [Int] = [], range: SourceRange? = nil
   ) {
     self.objectType = objectType
     self.source = source

@@ -2,10 +2,8 @@
 struct Solution {
 
   init(
-    typeAssumptions: [TypeVariable: AnyType],
-    bindingAssumptions: [NodeID<NameExpr>: DeclRef],
-    penalties: Int,
-    diagnostics: [Diagnostic]
+    typeAssumptions: [TypeVariable: AnyType], bindingAssumptions: [NodeID<NameExpr>: DeclRef],
+    penalties: Int, diagnostics: [Diagnostic]
   ) {
     self.typeAssumptions = typeAssumptions
     self.bindingAssumptions = bindingAssumptions

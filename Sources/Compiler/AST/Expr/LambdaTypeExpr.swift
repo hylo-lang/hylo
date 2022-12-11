@@ -32,11 +32,8 @@ public struct LambdaTypeExpr: Expr {
   public let output: AnyExprID
 
   public init(
-    receiverEffect: SourceRepresentable<ReceiverEffect>?,
-    environment: AnyExprID?,
-    parameters: [Parameter],
-    output: AnyTypeExprID,
-    origin: SourceRange?
+    receiverEffect: SourceRepresentable<ReceiverEffect>?, environment: AnyExprID?,
+    parameters: [Parameter], output: AnyTypeExprID, origin: SourceRange?
   ) {
     self.origin = origin
     self.receiverEffect = receiverEffect

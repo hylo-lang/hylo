@@ -89,8 +89,7 @@ extension Module {
 
     // Find all blocks in which the operand is being used.
     var occurences = uses[operand, default: []].reduce(
-      into: Set<Function.BlockAddress>(),
-      { (blocks, use) in blocks.insert(use.user.block) })
+      into: Set<Function.BlockAddress>(), { (blocks, use) in blocks.insert(use.user.block) })
 
     // Propagate liveness starting from the blocks in which the operand is being used.
     let cfg = functions[origin.function].cfg

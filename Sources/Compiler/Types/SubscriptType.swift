@@ -19,11 +19,8 @@ public struct SubscriptType: TypeProtocol {
 
   /// Creates an instance with the given properties.
   public init(
-    isProperty: Bool,
-    capabilities: Set<ImplIntroducer>,
-    environment: AnyType = .void,
-    inputs: [CallableTypeParameter],
-    output: AnyType
+    isProperty: Bool, capabilities: Set<ImplIntroducer>, environment: AnyType = .void,
+    inputs: [CallableTypeParameter], output: AnyType
   ) {
     self.isProperty = isProperty
     self.capabilities = capabilities
@@ -42,12 +39,10 @@ public struct SubscriptType: TypeProtocol {
 
   public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> Self {
     SubscriptType(
-      isProperty: isProperty,
-      capabilities: capabilities,
+      isProperty: isProperty, capabilities: capabilities,
       inputs: inputs.map({ (p) -> CallableTypeParameter in
         .init(label: p.label, type: p.type.transform(transformer))
-      }),
-      output: output.transform(transformer))
+      }), output: output.transform(transformer))
   }
 
 }

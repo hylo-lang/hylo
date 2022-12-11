@@ -36,15 +36,12 @@ extension Constraint where Self: Equatable {
 }
 
 /// Creates a subtyping or equality constraint.
-func equalityOrSubtypingConstraint(
-  _ l: AnyType,
-  _ r: AnyType,
-  because cause: ConstraintCause
-) -> DisjunctionConstraint {
+func equalityOrSubtypingConstraint(_ l: AnyType, _ r: AnyType, because cause: ConstraintCause)
+  -> DisjunctionConstraint
+{
   DisjunctionConstraint(
     choices: [
       .init(constraints: [EqualityConstraint(l, r, because: cause)], penalties: 0),
       .init(constraints: [SubtypingConstraint(l, r, because: cause)], penalties: 1),
-    ],
-    because: cause)
+    ], because: cause)
 }

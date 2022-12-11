@@ -47,16 +47,12 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
 
   /// Creates an instance with the given properties.
   public init(
-    introducer: SourceRepresentable<Introducer>,
-    attributes: [SourceRepresentable<Attribute>],
+    introducer: SourceRepresentable<Introducer>, attributes: [SourceRepresentable<Attribute>],
     accessModifier: SourceRepresentable<AccessModifier>?,
     memberModifier: SourceRepresentable<MemberModifier>?,
     identifier: SourceRepresentable<Identifier>?,
-    genericClause: SourceRepresentable<GenericClause>?,
-    explicitCaptures: [NodeID<BindingDecl>],
-    parameters: [NodeID<ParameterDecl>]?,
-    output: AnyTypeExprID,
-    impls: [NodeID<SubscriptImplDecl>],
+    genericClause: SourceRepresentable<GenericClause>?, explicitCaptures: [NodeID<BindingDecl>],
+    parameters: [NodeID<ParameterDecl>]?, output: AnyTypeExprID, impls: [NodeID<SubscriptImplDecl>],
     origin: SourceRange?
   ) {
     self.origin = origin

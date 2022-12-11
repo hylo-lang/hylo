@@ -10,8 +10,7 @@ public struct ParameterTypeExpr: Expr {
   public let bareType: AnyTypeExprID
 
   public init(
-    convention: SourceRepresentable<PassingConvention>,
-    bareType: AnyTypeExprID,
+    convention: SourceRepresentable<PassingConvention>, bareType: AnyTypeExprID,
     origin: SourceRange?
   ) {
     self.origin = origin

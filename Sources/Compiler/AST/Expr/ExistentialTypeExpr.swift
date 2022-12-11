@@ -10,9 +10,7 @@ public struct ExistentialTypeExpr: Expr {
   public let whereClause: SourceRepresentable<WhereClause>?
 
   public init(
-    traits: TraitComposition,
-    whereClause: SourceRepresentable<WhereClause>?,
-    origin: SourceRange?
+    traits: TraitComposition, whereClause: SourceRepresentable<WhereClause>?, origin: SourceRange?
   ) {
     self.origin = origin
     self.traits = traits

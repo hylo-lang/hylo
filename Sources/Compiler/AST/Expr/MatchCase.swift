@@ -23,10 +23,7 @@ public struct MatchCase: Node, LexicalScope {
   public let body: Body
 
   public init(
-    pattern: AnyPatternID,
-    condition: AnyExprID?,
-    body: MatchCase.Body,
-    origin: SourceRange?
+    pattern: AnyPatternID, condition: AnyExprID?, body: MatchCase.Body, origin: SourceRange?
   ) {
     self.origin = origin
     self.pattern = pattern
