@@ -42,7 +42,7 @@ public struct Module {
 
   /// Returns whether the module is well-formed.
   public func check() -> Bool {
-    for i in 0 ..< functions.count {
+    for i in 0..<functions.count {
       if !check(function: i) { return false }
     }
     return true
@@ -79,8 +79,10 @@ public struct Module {
         switch capture.type.base {
         case let type as RemoteType:
           precondition(type.capability != .yielded, "cannot lower yielded parameter")
-          inputs.append((
-            convention: PassingConvention(matching: type.capability), type: .address(type.base)))
+          inputs.append(
+            (
+              convention: PassingConvention(matching: type.capability), type: .address(type.base)
+            ))
 
         case let type:
           switch declType.receiverEffect {
@@ -121,8 +123,8 @@ public struct Module {
 
     // Determine if the new function is the module's entry.
     if program.declToScope[declID]?.kind == TopLevelDeclSet.self,
-       program.ast[declID].isPublic,
-       program.ast[declID].identifier?.value == "main"
+      program.ast[declID].isPublic,
+      program.ast[declID].identifier?.value == "main"
     {
       assert(entryFunctionID == nil)
       entryFunctionID = loweredID
@@ -161,11 +163,11 @@ public struct Module {
     let userID = InstID(function: ip.block.function, block: ip.block.address, address: address)
 
     // Update the use lists of the instruction's operands.
-    for i in 0 ..< inst.operands.count {
+    for i in 0..<inst.operands.count {
       uses[inst.operands[i], default: []].append(Use(user: userID, index: i))
     }
 
-    return (0 ..< inst.types.count).map({ k in .result(inst: userID, index: k) })
+    return (0..<inst.types.count).map({ k in .result(inst: userID, index: k) })
   }
 
 }
@@ -175,7 +177,7 @@ extension Module {
   public typealias FunctionIndex = Int
 
   public subscript(_ position: FunctionIndex) -> Function {
-    _read   { yield functions[position] }
+    _read { yield functions[position] }
     _modify { yield &functions[position] }
   }
 

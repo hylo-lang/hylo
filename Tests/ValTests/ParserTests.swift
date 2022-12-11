@@ -1,5 +1,5 @@
-import XCTest
 import Durian
+import XCTest
 
 @testable import Compiler
 
@@ -12,41 +12,44 @@ final class ParserTests: XCTestCase {
       "No test cases")
 
     // Execute the test cases.
-    try TestCase.executeAll(in: testCaseDirectory, { (tc) in
-      // Parse the input.
-      var ast = AST()
-      let module = try ast.insert(wellFormed: ModuleDecl(name: tc.name))
+    try TestCase.executeAll(
+      in: testCaseDirectory,
+      { (tc) in
+        // Parse the input.
+        var ast = AST()
+        let module = try ast.insert(wellFormed: ModuleDecl(name: tc.name))
 
-      let diagnostics: [Diagnostic]
-      do {
-        diagnostics = try Parser.parse(tc.source, into: module, in: &ast).diagnostics
-      } catch let error as DiagnosedError {
-        diagnostics = error.diagnostics
-      }
-
-      // Process the test annotations.
-      var diagnosticChecker = DiagnosticChecker(testCaseName: tc.name, diagnostics: diagnostics)
-      for annotation in tc.annotations {
-        switch annotation.command {
-        case "diagnostic":
-          diagnosticChecker.handle(annotation)
-        default:
-          XCTFail("\(tc.name): unexpected test command: '\(annotation.command)'")
+        let diagnostics: [Diagnostic]
+        do {
+          diagnostics = try Parser.parse(tc.source, into: module, in: &ast).diagnostics
+        } catch let error as DiagnosedError {
+          diagnostics = error.diagnostics
         }
-      }
 
-      diagnosticChecker.finalize()
-    })
+        // Process the test annotations.
+        var diagnosticChecker = DiagnosticChecker(testCaseName: tc.name, diagnostics: diagnostics)
+        for annotation in tc.annotations {
+          switch annotation.command {
+          case "diagnostic":
+            diagnosticChecker.handle(annotation)
+          default:
+            XCTFail("\(tc.name): unexpected test command: '\(annotation.command)'")
+          }
+        }
+
+        diagnosticChecker.finalize()
+      })
   }
 
   // MARK: Unit tests
 
   func testParse() throws {
-    let input = SourceFile(contents: """
-    public fun main() {
-      print("Hello, World!")
-    }
-    """)
+    let input = SourceFile(
+      contents: """
+        public fun main() {
+          print("Hello, World!")
+        }
+        """)
 
     var program = AST()
     let module = try program.insert(wellFormed: ModuleDecl(name: "Main"))
@@ -57,16 +60,17 @@ final class ParserTests: XCTestCase {
   }
 
   func testSourceFile() throws {
-    let input = SourceFile(contents: """
-      ;;
-      import Foo
+    let input = SourceFile(
+      contents: """
+          ;;
+          import Foo
 
-      @_lowered_name("_val_bar")
-      fun _bar(x: Builtin.i64) -> Builtin.i64
+          @_lowered_name("_val_bar")
+          fun _bar(x: Builtin.i64) -> Builtin.i64
 
-      let x = "Hello!"
-      public let y = 0;
-    """)
+          let x = "Hello!"
+          public let y = 0;
+        """)
 
     let (id, ast) = try input.parse(with: Parser.parseSourceFile)
     XCTAssertEqual(ast[id].decls.count, 4)
@@ -90,13 +94,14 @@ final class ParserTests: XCTestCase {
   }
 
   func testNamespaceDecl() throws {
-    let input = SourceFile(contents: """
-    namespace A {
-      ;;
-      let x = "Hello!"
-      public let y = 0;
-    }
-    """)
+    let input = SourceFile(
+      contents: """
+        namespace A {
+          ;;
+          let x = "Hello!"
+          public let y = 0;
+        }
+        """)
     let (declID, ast) = try input.parseWithDeclPrologue(with: Parser.parseNamespaceDecl)
     let decl = try XCTUnwrap(ast[declID])
     XCTAssertEqual(decl.members.count, 2)
@@ -130,48 +135,52 @@ final class ParserTests: XCTestCase {
   }
 
   func testProductTypeDecl() throws {
-    let input = SourceFile(contents: """
-    type A {
-      var x: Int; var y: Int
-      fun foo() -> Int { x.copy() }
-    }
-    """)
+    let input = SourceFile(
+      contents: """
+        type A {
+          var x: Int; var y: Int
+          fun foo() -> Int { x.copy() }
+        }
+        """)
     let (declID, ast) = try input.parseWithDeclPrologue(with: Parser.parseProductTypeDecl)
     let decl = try XCTUnwrap(ast[declID])
-    XCTAssertEqual(decl.members.count, 4) // 3 explicit decls + 1 implicit memberwise init
+    XCTAssertEqual(decl.members.count, 4)  // 3 explicit decls + 1 implicit memberwise init
   }
 
   func testProductTypeDeclWithGenericClause() throws {
-    let input = SourceFile(contents: """
-    type A<T, U> {
-            var x: Int; var y: Int
-      fun foo() -> Int { x.copy() }
-    }
-    """)
+    let input = SourceFile(
+      contents: """
+        type A<T, U> {
+                var x: Int; var y: Int
+          fun foo() -> Int { x.copy() }
+        }
+        """)
     let (declID, ast) = try input.parseWithDeclPrologue(with: Parser.parseProductTypeDecl)
     let decl = try XCTUnwrap(ast[declID])
     XCTAssertNotNil(decl.genericClause)
   }
 
   func testProductTypeDeclWithConformances() throws {
-    let input = SourceFile(contents: """
-    type A: Foo, Bar {
-      var x: Int; var y: Int
-      fun foo() -> Int { x.copy() }
-    }
-    """)
+    let input = SourceFile(
+      contents: """
+        type A: Foo, Bar {
+          var x: Int; var y: Int
+          fun foo() -> Int { x.copy() }
+        }
+        """)
     let (declID, ast) = try input.parseWithDeclPrologue(with: Parser.parseProductTypeDecl)
     let decl = try XCTUnwrap(ast[declID])
     XCTAssertNotNil(decl.conformances)
   }
 
   func testProductTypeDeclWithGenericClauseAndConformances() throws {
-    let input = SourceFile(contents: """
-    type A<T>: Foo {
-      var x: Int
-      fun foo() -> Int { x.copy() }
-    }
-    """)
+    let input = SourceFile(
+      contents: """
+        type A<T>: Foo {
+          var x: Int
+          fun foo() -> Int { x.copy() }
+        }
+        """)
     let (declID, ast) = try input.parseWithDeclPrologue(with: Parser.parseProductTypeDecl)
     let decl = try XCTUnwrap(ast[declID])
     XCTAssertNotNil(decl.genericClause)
@@ -207,48 +216,52 @@ final class ParserTests: XCTestCase {
   }
 
   func testTraitDecl() throws {
-    let input = SourceFile(contents: """
-    trait A {
-      type B
-      property b: B { let }
-    }
-    """)
+    let input = SourceFile(
+      contents: """
+        trait A {
+          type B
+          property b: B { let }
+        }
+        """)
     let (declID, ast) = try input.parseWithDeclPrologue(with: Parser.parseTraitDecl)
     let decl = try XCTUnwrap(ast[declID])
     XCTAssertEqual(decl.members.count, 2)
   }
 
   func testTraitDeclWithRefinements() throws {
-    let input = SourceFile(contents: """
-    trait A: Foo {
-      type B
-      property b: B { let }
-    }
-    """)
+    let input = SourceFile(
+      contents: """
+        trait A: Foo {
+          type B
+          property b: B { let }
+        }
+        """)
     let (declID, ast) = try input.parseWithDeclPrologue(with: Parser.parseTraitDecl)
     let decl = try XCTUnwrap(ast[declID])
     XCTAssertEqual(decl.refinements.count, 1)
   }
 
   func testMethodBundleRequirement() throws {
-    let input = SourceFile(contents: """
-    fun foo() -> T {
-      let
-      inout
-    }
-    """)
+    let input = SourceFile(
+      contents: """
+        fun foo() -> T {
+          let
+          inout
+        }
+        """)
     let (declID, ast) = try input.parse(inContext: .traitBody, with: Parser.parseDecl)
     let decl = try XCTUnwrap(ast[declID] as? MethodDecl)
     XCTAssertEqual(decl.impls.count, 2)
   }
 
   func testSubscriptRequirement() throws {
-    let input = SourceFile(contents: """
-    subscript foo(): T {
-      let
-      inout
-    }
-    """)
+    let input = SourceFile(
+      contents: """
+        subscript foo(): T {
+          let
+          inout
+        }
+        """)
     let (declID, ast) = try input.parse(inContext: .traitBody, with: Parser.parseDecl)
     let decl = try XCTUnwrap(ast[declID] as? SubscriptDecl)
     XCTAssertEqual(decl.impls.count, 2)
@@ -335,48 +348,52 @@ final class ParserTests: XCTestCase {
   }
 
   func testConformanceDecl() throws {
-    let input = SourceFile(contents: """
-    conformance A: Foo {
-      public fun bar() {}
-      fun foo() -> Int { x.copy() }
-    }
-    """)
+    let input = SourceFile(
+      contents: """
+        conformance A: Foo {
+          public fun bar() {}
+          fun foo() -> Int { x.copy() }
+        }
+        """)
     let (declID, ast) = try input.parseWithDeclPrologue(with: Parser.parseConformanceDecl)
     let decl = try XCTUnwrap(ast[declID])
     XCTAssertEqual(decl.members.count, 2)
   }
 
   func testConformanceDeclWithWhereClause() throws {
-    let input = SourceFile(contents: """
-    conformance A: Foo where A.Bar == Ham {
-      public fun bar() {}
-      fun foo() -> Int { x.copy() }
-    }
-    """)
+    let input = SourceFile(
+      contents: """
+        conformance A: Foo where A.Bar == Ham {
+          public fun bar() {}
+          fun foo() -> Int { x.copy() }
+        }
+        """)
     let (declID, ast) = try input.parseWithDeclPrologue(with: Parser.parseConformanceDecl)
     let decl = try XCTUnwrap(ast[declID])
     XCTAssertNotNil(decl.whereClause)
   }
 
   func testExtensionDecl() throws {
-    let input = SourceFile(contents: """
-    extension A {
-      type B {}; property z: Int { x }
-      fun foo() -> Int { x.copy() }
-    }
-    """)
+    let input = SourceFile(
+      contents: """
+        extension A {
+          type B {}; property z: Int { x }
+          fun foo() -> Int { x.copy() }
+        }
+        """)
     let (declID, ast) = try input.parseWithDeclPrologue(with: Parser.parseExtensionDecl)
     let decl = try XCTUnwrap(ast[declID])
     XCTAssertEqual(decl.members.count, 3)
   }
 
   func testExtensionDeclWithWhereClause() throws {
-    let input = SourceFile(contents: """
-    extension A where Foo: Bar {
-      type B {}; property z: Int { x }
-      fun foo() -> Int { x.copy() }
-    }
-    """)
+    let input = SourceFile(
+      contents: """
+        extension A where Foo: Bar {
+          type B {}; property z: Int { x }
+          fun foo() -> Int { x.copy() }
+        }
+        """)
     let (declID, ast) = try input.parseWithDeclPrologue(with: Parser.parseExtensionDecl)
     let decl = try XCTUnwrap(ast[declID])
     XCTAssertNotNil(decl.whereClause)
@@ -463,12 +480,13 @@ final class ParserTests: XCTestCase {
   }
 
   func testMethodBundle() throws {
-    let input = SourceFile(contents: """
-    fun foo() {
-      let  { self.copy() }
-      sink { self }
-    }
-    """)
+    let input = SourceFile(
+      contents: """
+        fun foo() {
+          let  { self.copy() }
+          sink { self }
+        }
+        """)
     let (declID, ast) = try input.parseWithDeclPrologue(with: Parser.parseFunctionOrMethodDecl)
     let decl = try XCTUnwrap(ast[declID] as? MethodDecl)
     XCTAssertEqual(decl.impls.count, 2)
@@ -554,12 +572,13 @@ final class ParserTests: XCTestCase {
   }
 
   func testMethodDeclBody() throws {
-    let input = SourceFile(contents: """
-    {
-      let  { self.copy() }
-      sink { self }
-    }
-    """)
+    let input = SourceFile(
+      contents: """
+        {
+          let  { self.copy() }
+          sink { self }
+        }
+        """)
     let (body, _) = try apply(Parser.methodDeclBody, on: input)
     let impls = try XCTUnwrap(body)
     XCTAssertEqual(impls.count, 2)
@@ -636,12 +655,13 @@ final class ParserTests: XCTestCase {
   }
 
   func testSubscriptBundle() throws {
-    let input = SourceFile(contents: """
-    subscript foo(): T {
-      let  { T() }
-      sink { T() }
-    }
-    """)
+    let input = SourceFile(
+      contents: """
+        subscript foo(): T {
+          let  { T() }
+          sink { T() }
+        }
+        """)
     let (declID, ast) = try input.parseWithDeclPrologue(with: Parser.parseSubscriptDecl)
     let decl = try XCTUnwrap(ast[declID])
     XCTAssertEqual(decl.impls.count, 2)
@@ -694,12 +714,13 @@ final class ParserTests: XCTestCase {
   }
 
   func testSubscriptDeclBodyBundle() throws {
-    let input = SourceFile(contents: """
-    {
-      let  { self.copy() }
-      sink { self }
-    }
-    """)
+    let input = SourceFile(
+      contents: """
+        {
+          let  { self.copy() }
+          sink { self }
+        }
+        """)
     let (body, _) = try input.parse(
       inContext: .subscriptBody,
       with: { (state) in try Parser.parseSubscriptDeclBody(in: &state, asNonStaticMember: true) })
@@ -1179,12 +1200,13 @@ final class ParserTests: XCTestCase {
   }
 
   func testMatchExpr() throws {
-    let input = SourceFile(contents: """
-    match foo {
-      let (x, y) where x == y { 0 }
-      _ { 1 }
-    }
-    """)
+    let input = SourceFile(
+      contents: """
+        match foo {
+          let (x, y) where x == y { 0 }
+          _ { 1 }
+        }
+        """)
     let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
     let expr = try XCTUnwrap(ast[exprID] as? MatchExpr)
     XCTAssertEqual(expr.cases.count, 2)
@@ -1555,12 +1577,13 @@ final class ParserTests: XCTestCase {
   }
 
   func testBraceStmtWithElements() throws {
-    let input = SourceFile(contents: """
-    {
-      var x = 0; var y = 1
-      print(x + y)
-    }
-    """)
+    let input = SourceFile(
+      contents: """
+        {
+          var x = 0; var y = 1
+          print(x + y)
+        }
+        """)
     let (stmtID, ast) = try apply(Parser.braceStmt, on: input)
     let stmt = try XCTUnwrap(ast[stmtID])
     XCTAssertEqual(stmt.stmts.count, 3)
@@ -1663,8 +1686,9 @@ final class ParserTests: XCTestCase {
 
   func testConditionalBindingFallback() throws {
     let input = SourceFile(contents: "return")
-    XCTAssertNotNil(try apply(
-      Parser.conditionalBindingStmt, on: input, context: .functionBody))
+    XCTAssertNotNil(
+      try apply(
+        Parser.conditionalBindingStmt, on: input, context: .functionBody))
   }
 
   func testDeclStmt() throws {
@@ -1721,10 +1745,10 @@ final class ParserTests: XCTestCase {
 
 }
 
-private extension SourceFile {
+extension SourceFile {
 
   /// Parses `self` with `parser`, optionally setting `context` in the parser state.
-  func parse<Element>(
+  fileprivate func parse<Element>(
     inContext context: ParserState.Context? = nil,
     with parser: (inout ParserState) throws -> Element
   ) rethrows -> (element: Element, ast: AST) {
@@ -1738,13 +1762,15 @@ private extension SourceFile {
   }
 
   /// Parses `self` with `parser`, optionally setting `context` in the parser state.
-  func parseWithDeclPrologue<Element>(
+  fileprivate func parseWithDeclPrologue<Element>(
     inContext context: ParserState.Context? = nil,
     with parser: (DeclPrologue, inout ParserState) throws -> Element?
   ) rethrows -> (element: Element?, ast: AST) {
-    try parse(inContext: context, with: { (state) in
-      try Parser.parseDeclPrologue(in: &state, then: parser)
-    })
+    try parse(
+      inContext: context,
+      with: { (state) in
+        try Parser.parseDeclPrologue(in: &state, then: parser)
+      })
   }
 
 }

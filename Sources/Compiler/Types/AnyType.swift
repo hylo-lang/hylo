@@ -1,7 +1,7 @@
 import Utils
 
 /// A box wrapping a type.
-fileprivate protocol TypeBox {
+private protocol TypeBox {
 
   /// Hashes the salient parts of the wrapped value into `hasher`.
   func hash(into hasher: inout Hasher)
@@ -22,7 +22,7 @@ fileprivate protocol TypeBox {
 }
 
 /// A box wrapping an instance of `Base`.
-fileprivate struct ConcreteTypeBox<Base: TypeProtocol>: TypeBox {
+private struct ConcreteTypeBox<Base: TypeProtocol>: TypeBox {
 
   /// The value wrapped by this instance.
   let base: Base
@@ -144,22 +144,22 @@ extension AnyType: Equatable {
   }
 
   /// Returns whether `l` is equal to `r`.
-  public static func == <T: TypeProtocol> (l: Self, r: T) -> Bool {
+  public static func == <T: TypeProtocol>(l: Self, r: T) -> Bool {
     l.wrapped.unwrap(as: T.self) == r
   }
 
   /// Returns whether `l` is not equal to `r`.
-  public static func != <T: TypeProtocol> (l: Self, r: T) -> Bool {
+  public static func != <T: TypeProtocol>(l: Self, r: T) -> Bool {
     !(l == r)
   }
 
   /// Returns whether `l` is equal to `r`.
-  public static func == <T: TypeProtocol> (l: T, r: Self) -> Bool {
+  public static func == <T: TypeProtocol>(l: T, r: Self) -> Bool {
     l == r.wrapped.unwrap(as: T.self)
   }
 
   /// Returns whether `l` is not equal to `r`.
-  public static func != <T: TypeProtocol> (l: T, r: Self) -> Bool {
+  public static func != <T: TypeProtocol>(l: T, r: Self) -> Bool {
     !(l == r)
   }
 

@@ -50,7 +50,8 @@ public struct MethodType: TypeProtocol {
 extension MethodType: CustomStringConvertible {
 
   public var description: String {
-    let cs = capabilities
+    let cs =
+      capabilities
       .map(String.init(describing:))
       .sorted()
       .joined(separator: " ")

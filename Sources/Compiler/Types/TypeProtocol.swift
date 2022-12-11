@@ -68,7 +68,7 @@ extension TypeProtocol {
         return .stepOver(^SkolemType(quantifying: base))
 
       case is AssociatedValueType,
-           is GenericValueParameterType:
+        is GenericValueParameterType:
         fatalError("not implemented")
 
       default:

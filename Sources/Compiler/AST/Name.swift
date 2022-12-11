@@ -64,7 +64,7 @@ public struct Name: Hashable, Codable {
   static func describe(labels: [String?]) -> String {
     labels.map({ "\($0 ?? "_"):" }).joined()
   }
-  
+
 }
 
 extension Name: CustomStringConvertible {

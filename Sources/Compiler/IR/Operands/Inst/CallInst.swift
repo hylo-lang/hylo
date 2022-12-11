@@ -55,7 +55,7 @@ public struct CallInst: Inst {
     if conventions.count != operands.count { return false }
 
     // Operand types and/or sources must match their convention.
-    for i in 0 ..< conventions.count {
+    for i in 0..<conventions.count {
       switch conventions[i] {
       case .let:
         // Operand of a `let` parameter must be a borrow or a constant.

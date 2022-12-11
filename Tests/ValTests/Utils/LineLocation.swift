@@ -1,5 +1,5 @@
-import Foundation
 import Compiler
+import Foundation
 
 /// A line location.
 struct LineLocation: Hashable {

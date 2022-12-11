@@ -12,10 +12,10 @@ public enum ImplIntroducer: Codable {
   /// The parameter passing convention corresponding to this introducer.
   public var convention: PassingConvention {
     switch self {
-    case .let   : return .let
-    case .inout : return .inout
-    case .set   : return .set
-    case .sink  : return .sink
+    case .let: return .let
+    case .inout: return .inout
+    case .set: return .set
+    case .sink: return .sink
     }
   }
 

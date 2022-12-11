@@ -93,7 +93,6 @@ struct ParserState {
       && lexer.source.contents[currentIndex].isWhitespace
   }
 
-
   /// Returns whether there are whitespaces before *and* after `token`.
   mutating func hasLeadingAndTrailingWhitespaces(_ token: Token) -> Bool {
     guard
@@ -105,7 +104,7 @@ struct ParserState {
 
   /// Returns whether there is a new line in the character stream before `bound`.
   mutating func hasNewline(before bound: Token) -> Bool {
-    lexer.source.contents[currentIndex ..< bound.origin.lowerBound]
+    lexer.source.contents[currentIndex..<bound.origin.lowerBound]
       .contains(where: { $0.isNewline })
   }
 
@@ -116,10 +115,11 @@ struct ParserState {
 
   /// Returns whether `token` is a member index.
   func isMemberIndex(_ token: Token) -> Bool {
-    (token.kind == .int) && lexer.source[token.origin].allSatisfy({ ch in
-      guard let ascii = ch.asciiValue else { return false }
-      return (0x30 ... 0x39) ~= ascii
-    })
+    (token.kind == .int)
+      && lexer.source[token.origin].allSatisfy({ ch in
+        guard let ascii = ch.asciiValue else { return false }
+        return (0x30...0x39) ~= ascii
+      })
   }
 
   /// Returns the next token without consuming it, if any.

@@ -61,16 +61,18 @@ struct Lifetime {
 
   /// The maximal elements the lifetime.
   var maximalElements: [Use] {
-    coverage.values.reduce(into: [], { (uses, blockCoverage) in
-      switch blockCoverage {
-      case .liveIn(.some(let use)):
-        uses.append(use)
-      case .closed(.some(let use)):
-        uses.append(use)
-      default:
-        break
-      }
-    })
+    coverage.values.reduce(
+      into: [],
+      { (uses, blockCoverage) in
+        switch blockCoverage {
+        case .liveIn(.some(let use)):
+          uses.append(use)
+        case .closed(.some(let use)):
+          uses.append(use)
+        default:
+          break
+        }
+      })
   }
 
 }
@@ -161,24 +163,26 @@ extension Module {
       }
     }
 
-    let coverage = left.coverage.merging(right.coverage, uniquingKeysWith: { (a, b) in
-      switch (a, b) {
-      case (.liveOut, .liveIn), (.liveIn, .liveOut):
-        unreachable("definition does not dominate all uses")
-      case (.liveInAndOut, _), (_, .liveInAndOut):
-        return .liveInAndOut
-      case (.liveOut, _), (_, .liveOut):
-        return .liveOut
-      case (.liveIn(let lhs), .liveIn(let rhs)):
-        return .liveIn(lastUse: last(lhs, rhs))
-      case (.liveIn(let lhs), .closed(let rhs)):
-        return .liveIn(lastUse: last(lhs, rhs))
-      case (.closed(let lhs), .liveIn(let rhs)):
-        return .liveIn(lastUse: last(lhs, rhs))
-      case (.closed(let lhs), .closed(let rhs)):
-        return .liveIn(lastUse: last(lhs, rhs))
-      }
-    })
+    let coverage = left.coverage.merging(
+      right.coverage,
+      uniquingKeysWith: { (a, b) in
+        switch (a, b) {
+        case (.liveOut, .liveIn), (.liveIn, .liveOut):
+          unreachable("definition does not dominate all uses")
+        case (.liveInAndOut, _), (_, .liveInAndOut):
+          return .liveInAndOut
+        case (.liveOut, _), (_, .liveOut):
+          return .liveOut
+        case (.liveIn(let lhs), .liveIn(let rhs)):
+          return .liveIn(lastUse: last(lhs, rhs))
+        case (.liveIn(let lhs), .closed(let rhs)):
+          return .liveIn(lastUse: last(lhs, rhs))
+        case (.closed(let lhs), .liveIn(let rhs)):
+          return .liveIn(lastUse: last(lhs, rhs))
+        case (.closed(let lhs), .closed(let rhs)):
+          return .liveIn(lastUse: last(lhs, rhs))
+        }
+      })
     return Lifetime(operand: left.operand, coverage: coverage)
   }
 

@@ -5,7 +5,8 @@ struct Solution {
     typeAssumptions: [TypeVariable: AnyType],
     bindingAssumptions: [NodeID<NameExpr>: DeclRef],
     penalties: Int,
-    diagnostics: [Diagnostic]) {
+    diagnostics: [Diagnostic]
+  ) {
     self.typeAssumptions = typeAssumptions
     self.bindingAssumptions = bindingAssumptions
     self.penalties = penalties

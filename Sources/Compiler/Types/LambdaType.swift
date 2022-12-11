@@ -86,8 +86,8 @@ public struct LambdaType: TypeProtocol {
   /// Otherwise, returns `nil`.
   public func ctor() -> LambdaType? {
     guard (receiverEffect == nil) && (environment == .void) && (output == .void),
-          let receiverType = ParameterType(inputs.first?.type),
-          receiverType.convention == .set
+      let receiverType = ParameterType(inputs.first?.type),
+      receiverType.convention == .set
     else { return nil }
     return LambdaType(inputs: Array(inputs[1...]), output: receiverType.bareType)
   }
@@ -119,6 +119,5 @@ extension LambdaType: CustomStringConvertible {
       return "[\(environment)] (\(inputs.descriptions())) -> \(output)"
     }
   }
-
 
 }

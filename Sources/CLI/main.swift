@@ -26,12 +26,12 @@ struct CLI: ParsableCommand {
 
     init?(argument: String) {
       switch argument {
-      case "raw-ast"  : self = .rawAST
-      case "raw-ir"   : self = .rawIR
-      case "ir"       : self = .ir
-      case "cpp"      : self = .cpp
-      case "binary"   : self = .binary
-      default         : return nil
+      case "raw-ast": self = .rawAST
+      case "raw-ir": self = .rawIR
+      case "ir": self = .ir
+      case "cpp": self = .cpp
+      case "binary": self = .binary
+      default: return nil
       }
     }
 
@@ -79,7 +79,7 @@ struct CLI: ParsableCommand {
     transform: URL.init(fileURLWithPath:))
   var inputs: [URL]
 
-  private var noteLabel   : String { "note: ".styled([.bold, .cyan]) }
+  private var noteLabel: String { "note: ".styled([.bold, .cyan]) }
 
   private var warningLabel: String { "warning: ".styled([.bold, .yellow]) }
 
@@ -185,10 +185,10 @@ struct CLI: ParsableCommand {
     ]
 
     log(verbose: "Analyzing '\(productName)'".styled([.bold]))
-    for i in 0 ..< pipeline.count {
+    for i in 0..<pipeline.count {
       log(verbose: type(of: pipeline[i]).name)
       var passSuccess = true
-      for f in 0 ..< irModule.functions.count {
+      for f in 0..<irModule.functions.count {
         passSuccess = pipeline[i].run(function: f, module: &irModule) && passSuccess
         log(diagnostics: pipeline[i].diagnostics)
       }
@@ -244,10 +244,11 @@ struct CLI: ParsableCommand {
     let clang = find("clang++")
     let binaryURL = outputURL ?? URL(fileURLWithPath: productName)
     try runCommandLine(
-      clang, [
+      clang,
+      [
         "-o", binaryURL.path,
         "-I", buildDirectoryURL.path,
-        cxxSourceURL.path
+        cxxSourceURL.path,
       ])
   }
 

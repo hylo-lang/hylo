@@ -79,13 +79,14 @@ public struct CXXModule {
 
     // Create the C++ function.
     let cxxFunctionDecl = cxxFunctions.count
-    cxxFunctions.append(CXXFunctionDecl(
-      identifier: identifier,
-      output: output,
-      parameters: cxxParams))
+    cxxFunctions.append(
+      CXXFunctionDecl(
+        identifier: identifier,
+        output: output,
+        parameters: cxxParams))
     // Associate an empty body to it.
     cxxFunctionBodies.append(nil)
-    
+
     // Update the cache and return the ID of the newly created function.
     valToCXXFunction[valFunctionDecl] = cxxFunctionDecl
     return cxxFunctionDecl
@@ -124,7 +125,7 @@ public struct CXXModule {
     }
 
     output.write("\n}\n\n")  // module namespace
-    output.write("#endif\n") // header guard
+    output.write("#endif\n")  // header guard
 
     return output
   }
@@ -149,7 +150,7 @@ public struct CXXModule {
       }
     }
 
-    output.write("\n}\n") // module namespace
+    output.write("\n}\n")  // module namespace
 
     return output
   }

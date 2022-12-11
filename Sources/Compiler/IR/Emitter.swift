@@ -1,5 +1,5 @@
-import Utils
 import BigInt
+import Utils
 
 /// Val's IR emitter.
 ///
@@ -188,21 +188,21 @@ public struct Emitter {
 
       if var rhsType = initializerType {
         // Determine the object corresponding to the current name.
-        for i in 0 ..< path.count {
+        for i in 0..<path.count {
           // Make sure the initializer has been destructured deeply enough.
-          let subpath = Array(path[0 ..< i])
+          let subpath = Array(path[0..<i])
           if objects[subpath] != nil { continue }
 
           let layout = program.abstractLayout(of: rhsType)
           rhsType = layout.storedPropertiesTypes[i]
 
-          let wholePath = Array(path[0 ..< (i - 1)])
+          let wholePath = Array(path[0..<(i - 1)])
           let whole = objects[wholePath]!
           let parts = module.insert(
             DestructureInst(whole, as: layout.storedPropertiesTypes.map({ .object($0) })),
             at: insertionPoint!)
 
-          for j in 0 ..< parts.count {
+          for j in 0..<parts.count {
             objects[wholePath + [j]] = parts[j]
           }
         }
@@ -252,15 +252,16 @@ public struct Emitter {
         let decl = program.ast[name].decl
         let declType = program.declTypes[decl]!
 
-        stack[decl] = module.insert(
-          BorrowInst(
-            capability,
-            .address(declType),
-            from: source,
-            at: path,
-            binding: decl,
-            range: program.ast[decl].origin),
-          at: insertionPoint!)[0]
+        stack[decl] =
+          module.insert(
+            BorrowInst(
+              capability,
+              .address(declType),
+              from: source,
+              at: path,
+              binding: decl,
+              range: program.ast[decl].origin),
+            at: insertionPoint!)[0]
       }
     }
   }
@@ -396,17 +397,19 @@ public struct Emitter {
       case .expr(let itemExpr):
         // Evaluate the condition in the current block.
         var condition = emitL(expr: itemExpr, withCapability: .let, into: &module)
-        condition = module.insert(
-          BorrowInst(.let, .address(BuiltinType.i(1)), from: condition, at: [0]),
-          at: insertionPoint!)[0]
-        condition = module.insert(
-          CallInst(
-            returnType: .object(BuiltinType.i(1)),
-            calleeConvention: .let,
-            callee: .constant(.builtin(BuiltinFunctionRef["i1_copy"]!)),
-            argumentConventions: [.let],
-            arguments: [condition]),
-          at: insertionPoint!)[0]
+        condition =
+          module.insert(
+            BorrowInst(.let, .address(BuiltinType.i(1)), from: condition, at: [0]),
+            at: insertionPoint!)[0]
+        condition =
+          module.insert(
+            CallInst(
+              returnType: .object(BuiltinType.i(1)),
+              calleeConvention: .let,
+              callee: .constant(.builtin(BuiltinFunctionRef["i1_copy"]!)),
+              argumentConventions: [.let],
+              arguments: [condition]),
+            at: insertionPoint!)[0]
 
         module.insert(
           CondBranchInst(
@@ -509,16 +512,20 @@ public struct Emitter {
       case .direct(let calleeDecl) where calleeDecl.kind == BuiltinDecl.self:
         // Callee refers to a built-in function.
         assert(calleeType.environment == .void)
-        callee = .constant(.builtin(BuiltinFunctionRef(
-          name: program.ast[calleeID].name.value.stem,
-          type: .address(calleeType))))
+        callee = .constant(
+          .builtin(
+            BuiltinFunctionRef(
+              name: program.ast[calleeID].name.value.stem,
+              type: .address(calleeType))))
 
       case .direct(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
         // Callee is a direct reference to a function or initializer declaration.
         // TODO: handle captures
-        callee = .constant(.function(FunctionRef(
-          name: DeclLocator(identifying: calleeDecl, in: program).mangled,
-          type: .address(calleeType))))
+        callee = .constant(
+          .function(
+            FunctionRef(
+              name: DeclLocator(identifying: calleeDecl, in: program).mangled,
+              type: .address(calleeType))))
 
       case .direct(let calleeDecl) where calleeDecl.kind == InitializerDecl.self:
         let d = NodeID<InitializerDecl>(rawValue: calleeDecl.rawValue)
@@ -578,9 +585,11 @@ public struct Emitter {
         }
 
         // Emit the function reference.
-        callee = .constant(.function(FunctionRef(
-          name: DeclLocator(identifying: calleeDecl, in: program).mangled,
-          type: .address(calleeType))))
+        callee = .constant(
+          .function(
+            FunctionRef(
+              name: DeclLocator(identifying: calleeDecl, in: program).mangled,
+              type: .address(calleeType))))
 
       default:
         // Evaluate the callee as a function object.
@@ -610,8 +619,8 @@ public struct Emitter {
     // Determine the bit width of the value.
     let bitWidth: Int
     switch type.name.value {
-    case "Int"    : bitWidth = 64
-    case "Int32"  : bitWidth = 32
+    case "Int": bitWidth = 64
+    case "Int32": bitWidth = 32
     default:
       unreachable("unexpected numeric type")
     }
@@ -686,9 +695,11 @@ public struct Emitter {
       let calleeOperand: Operand
       switch program.referredDecls[callee.expr] {
       case .member(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
-        calleeOperand = Operand.constant(.function(FunctionRef(
-          name: DeclLocator(identifying: calleeDecl, in: program).mangled,
-          type: .address(calleeType))))
+        calleeOperand = Operand.constant(
+          .function(
+            FunctionRef(
+              name: DeclLocator(identifying: calleeDecl, in: program).mangled,
+              type: .address(calleeType))))
 
       default:
         unreachable()
@@ -758,16 +769,20 @@ public struct Emitter {
       case .direct(let calleeDecl) where calleeDecl.kind == BuiltinDecl.self:
         // Callee refers to a built-in function.
         assert(calleeType.environment == .void)
-        return .constant(.builtin(BuiltinFunctionRef(
-          name: program.ast[nameExpr].name.value.stem,
-          type: .address(calleeType))))
+        return .constant(
+          .builtin(
+            BuiltinFunctionRef(
+              name: program.ast[nameExpr].name.value.stem,
+              type: .address(calleeType))))
 
       case .direct(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
         // Callee is a direct reference to a function or initializer declaration.
         // TODO: handle captures
-        return .constant(.function(FunctionRef(
-          name: DeclLocator(identifying: calleeDecl, in: program).mangled,
-          type: .address(calleeType))))
+        return .constant(
+          .function(
+            FunctionRef(
+              name: DeclLocator(identifying: calleeDecl, in: program).mangled,
+              type: .address(calleeType))))
 
       case .direct(let calleeDecl) where calleeDecl.kind == InitializerDecl.self:
         let d = NodeID<InitializerDecl>(rawValue: nameExpr.rawValue)
@@ -824,9 +839,11 @@ public struct Emitter {
         }
 
         // Emit the function reference.
-        return .constant(.function(FunctionRef(
-          name: DeclLocator(identifying: calleeDecl, in: program).mangled,
-          type: .address(calleeType))))
+        return .constant(
+          .function(
+            FunctionRef(
+              name: DeclLocator(identifying: calleeDecl, in: program).mangled,
+              type: .address(calleeType))))
 
       default:
         // Callee is a lambda.
@@ -912,7 +929,7 @@ public struct Emitter {
         // If the lowered receiver is a borrow instruction, modify it in place so that it targets
         // the requested stored member. Otherwise, emit a reborrow.
         if let id = receiver.inst,
-           let receiverInst = module[id.function][id.block][id.address] as? BorrowInst
+          let receiverInst = module[id.function][id.block][id.address] as? BorrowInst
         {
           module[id.function][id.block][id.address] = BorrowInst(
             capability,
@@ -947,10 +964,10 @@ public struct Emitter {
 
 }
 
-fileprivate extension Emitter {
+extension Emitter {
 
   /// A type describing the local variables and allocations of a stack frame.
-  struct Frame {
+  fileprivate struct Frame {
 
     /// The local variables in scope.
     var locals = DeclProperty<Operand>()
@@ -961,7 +978,7 @@ fileprivate extension Emitter {
   }
 
   /// A type describing the state of the call stack during lowering.
-  struct Stack {
+  fileprivate struct Stack {
 
     /// The frames in the stack, in FILO order.
     var frames: [Frame] = []

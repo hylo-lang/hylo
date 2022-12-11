@@ -51,7 +51,7 @@ struct OverloadConstraint: Constraint, Hashable {
   mutating func modifyTypes(_ modify: (inout AnyType) -> Void) {
     modify(&overloadedExprType)
 
-    for i in 0 ..< choices.count {
+    for i in 0..<choices.count {
       var newType = choices[i].type
       modify(&newType)
 

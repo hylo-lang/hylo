@@ -58,21 +58,21 @@ public enum BuiltinSymbols {
   /// Returns the type of the built-in function with the given name.
   public static subscript(_ name: String) -> LambdaType? {
     switch name {
-    case "terminate"          : return Self.terminate
+    case "terminate": return Self.terminate
 
-    case "i1_copy"            : return Self.i1_copy
+    case "i1_copy": return Self.i1_copy
 
-    case "i32_copy"           : return Self.i32_copy
+    case "i32_copy": return Self.i32_copy
 
-    case "i64_copy"           : return Self.i64_copy
-    case "i64_mul"            : return Self.i64_mul
-    case "i64_add"            : return Self.i64_add
-    case "i64_sub"            : return Self.i64_sub
-    case "i64_lt"             : return Self.i64_lt
-    case "i64_trunc_to_i32"   : return Self.i64_trunc_to_i32
-    case "i64_print"          : return Self.i64_print
+    case "i64_copy": return Self.i64_copy
+    case "i64_mul": return Self.i64_mul
+    case "i64_add": return Self.i64_add
+    case "i64_sub": return Self.i64_sub
+    case "i64_lt": return Self.i64_lt
+    case "i64_trunc_to_i32": return Self.i64_trunc_to_i32
+    case "i64_print": return Self.i64_print
 
-    case "f64_copy"           : return Self.f64_copy
+    case "f64_copy": return Self.f64_copy
 
     default:
       return nil

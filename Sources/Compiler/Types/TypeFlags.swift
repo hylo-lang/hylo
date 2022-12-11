@@ -67,22 +67,22 @@ public struct TypeFlags: Hashable {
   }
 
   /// The type is canonical from.
-  public static let isCanonical           = TypeFlags(universal: 1 << 0, existential: 0)
+  public static let isCanonical = TypeFlags(universal: 1 << 0, existential: 0)
 
   /// The type contains one or more error types.
-  public static let hasError              = TypeFlags(universal: 0, existential: 1 << 0)
+  public static let hasError = TypeFlags(universal: 0, existential: 1 << 0)
 
   /// Te type contains one or more type variables.
-  public static let hasVariable           = TypeFlags(universal: 0, existential: 1 << 1)
+  public static let hasVariable = TypeFlags(universal: 0, existential: 1 << 1)
 
   /// The type contains one or more generic type parameters.
-  public static let hasGenericTypeParam   = TypeFlags(universal: 0, existential: 1 << 4)
+  public static let hasGenericTypeParam = TypeFlags(universal: 0, existential: 1 << 4)
 
   /// The type contains one or more generic size parameters.
-  public static let hasGenericValueParam  = TypeFlags(universal: 0, existential: 1 << 3)
+  public static let hasGenericValueParam = TypeFlags(universal: 0, existential: 1 << 3)
 
   /// The type contains one or more projection types.
-  public static let hasProjections        = TypeFlags(universal: 0, existential: 1 << 4)
+  public static let hasProjections = TypeFlags(universal: 0, existential: 1 << 4)
 
 }
 

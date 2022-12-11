@@ -49,11 +49,13 @@ struct DominatorTree {
 
   /// A collection containing the blocks in this tree in breadth-first order.
   var bfs: [Node] {
-    let children: [Node: [Node]] = immediateDominators.reduce(into: [:], { (children, kv) in
-      if case .present(let parent) = kv.value {
-        children[parent, default: []].append(kv.key)
-      }
-    })
+    let children: [Node: [Node]] = immediateDominators.reduce(
+      into: [:],
+      { (children, kv) in
+        if case .present(let parent) = kv.value {
+          children[parent, default: []].append(kv.key)
+        }
+      })
 
     var result = [root]
     var i = 0
@@ -87,7 +89,7 @@ struct DominatorTree {
   /// Returns `true` if `a` dominates `b`.
   func dominates(_ a: Node, _ b: Node) -> Bool {
     // By definition, a node dominates itself.
-    if (a == b) { return true }
+    if a == b { return true }
 
     // Walk the dominator tree from `b` up to the root to find `a`.
     var child = b
@@ -179,8 +181,8 @@ struct DominatorTree {
 
       default:
         var dominator = root
-        outer:while let candidate = chains[0].popLast() {
-          for i in 1 ..< chains.count {
+        outer: while let candidate = chains[0].popLast() {
+          for i in 1..<chains.count {
             if chains[i].popLast() != candidate { break outer }
           }
           dominator = candidate

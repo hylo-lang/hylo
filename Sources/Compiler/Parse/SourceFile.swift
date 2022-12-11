@@ -1,4 +1,4 @@
-import Foundation // For `URL` and `UUID`
+import Foundation  // For `URL` and `UUID`
 
 /// A Val source file.
 ///
@@ -26,7 +26,7 @@ public struct SourceFile {
   /// Returns the contents of the file in the specified range.
   public subscript(_ range: SourceRange) -> Substring {
     precondition(range.source.url == url, "invalid source range")
-    return contents[range.lowerBound ..< range.upperBound]
+    return contents[range.lowerBound..<range.upperBound]
   }
 
   /// The contents of the line in which `location` is defined.
@@ -48,7 +48,7 @@ public struct SourceFile {
       upper = contents.index(after: upper)
     }
 
-    return contents[lower ..< upper]
+    return contents[lower..<upper]
   }
 
   /// The 1-based line and column indices if `location`.

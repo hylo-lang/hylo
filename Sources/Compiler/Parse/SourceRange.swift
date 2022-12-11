@@ -47,7 +47,7 @@ public struct SourceRange: Hashable {
     return SourceRange(
       in: source,
       from: Swift.min(lowerBound, other.lowerBound),
-      to  : Swift.max(upperBound, other.upperBound))
+      to: Swift.max(upperBound, other.upperBound))
   }
 
   public static func ..< (l: SourceRange, r: SourceRange) -> SourceRange {

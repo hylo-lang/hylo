@@ -102,7 +102,7 @@ public struct Token {
 
   /// Indicates whether `self` is a keyword.
   public var isKeyword: Bool {
-    (Kind.any.rawValue ..< Kind.any.rawValue + 999) ~= kind.rawValue
+    (Kind.any.rawValue..<Kind.any.rawValue + 999) ~= kind.rawValue
   }
 
   /// Indicates whether `self` is a suitable as a label.
@@ -146,24 +146,24 @@ public struct Token {
   public var mayBeginDecl: Bool {
     switch kind {
     case .`conformance`,
-         .`extension`,
-         .`fun`,
-         .`import`,
-         .`infix`,
-         .`init`,
-         .`inout`,
-         .`let`,
-         .`namespace`,
-         .`operator`,
-         .`postfix`,
-         .`prefix`,
-         .`property`,
-         .`sink`,
-         .`subscript`,
-         .`trait`,
-         .`type`,
-         .`typealias`,
-         .`var`:
+      .`extension`,
+      .`fun`,
+      .`import`,
+      .`infix`,
+      .`init`,
+      .`inout`,
+      .`let`,
+      .`namespace`,
+      .`operator`,
+      .`postfix`,
+      .`prefix`,
+      .`property`,
+      .`sink`,
+      .`subscript`,
+      .`trait`,
+      .`type`,
+      .`typealias`,
+      .`var`:
       return true
 
     default:
