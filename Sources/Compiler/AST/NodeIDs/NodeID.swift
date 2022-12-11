@@ -9,8 +9,13 @@ public protocol NodeIDProtocol: Hashable, Codable {
 
 }
 
+public protocol ConcreteNodeID: NodeIDProtocol {
+  associatedtype Subject: Node
+  init(_ x: NodeID<Subject>)
+}
+
 /// The ID of a node in an AST.
-public struct NodeID<Subject: Node>: NodeIDProtocol {
+public struct NodeID<Subject: Node>: ConcreteNodeID {
 
   /// The type of a node ID's raw value.
   public typealias RawValue = Int
@@ -19,6 +24,8 @@ public struct NodeID<Subject: Node>: NodeIDProtocol {
 
   /// The dynamic type of node being referred to.
   public var kind: NodeKind { NodeKind(Subject.self) }
+
+  public init(_ source: Self) { self = source }
 
   /// Creates an instance with the same raw value as `x` failing iff `x.kind != Subject.kind`.
   public init?<Other: NodeIDProtocol>(_ x: Other) {
