@@ -986,6 +986,9 @@ public struct TypeChecker {
     inScope lexicalContext: S
   ) -> Bool {
     switch id.kind {
+    case AssignStmt.self:
+      return check(assign: NodeID(rawValue: id.rawValue), inScope: lexicalContext)
+
     case BraceStmt.self:
       return check(brace: NodeID(rawValue: id.rawValue))
 
@@ -1029,6 +1032,33 @@ public struct TypeChecker {
       success = check(stmt: stmt, inScope: id) && success
     }
     return success
+  }
+
+  private mutating func check<S: ScopeID>(
+    assign id: NodeID<AssignStmt>,
+    inScope lexicalContext: S
+  ) -> Bool {
+    // Infer the type on the left.
+    guard let lhsType = infer(expr: program.ast[id].left, inScope: lexicalContext) else {
+      return false
+    }
+
+    // Constrain the right to be subtype of the left.
+    let rhsType = ^TypeVariable(node: AnyNodeID(program.ast[id].right))
+    let assignmentConstraint = equalityOrSubtypingConstraint(
+      rhsType,
+      lhsType,
+      because: ConstraintCause(.initializationOrAssignment, at: program.ast[id].origin))
+
+    // Infer the type on the right.
+    let solution = infer(
+      expr: AnyExprID(program.ast[id].right),
+      inferredType: rhsType,
+      expectedType: lhsType,
+      inScope: AnyScopeID(lexicalContext),
+      constraints: [assignmentConstraint])
+
+    return solution.diagnostics.isEmpty
   }
 
   private mutating func check<S: ScopeID>(
@@ -2040,7 +2070,7 @@ public struct TypeChecker {
     case TupleTypeExpr.self:
       return realize(tuple: NodeID(rawValue: expr.rawValue), inScope: scope)
 
-    case WildcardTypeExpr.self:
+    case WildcardExpr.self:
       return MetatypeType(of: TypeVariable(node: expr.base))
 
     default:
@@ -2063,15 +2093,9 @@ public struct TypeChecker {
     // Evaluate the static argument list.
     var arguments: [BoundGenericType.Argument] = []
     for a in program.ast[expr].arguments {
-      switch a.value {
-      case .expr(let a):
-        // TODO: Symbolic execution
-        arguments.append(.value(a))
-
-      case .type(let a):
-        guard let type = realize(a, inScope: scope)?.instance else { return nil }
-        arguments.append(.type(type))
-      }
+      // TODO: Symbolic execution
+      guard let type = realize(a.value, inScope: scope)?.instance else { return nil }
+      arguments.append(.type(type))
     }
 
     // Determine the "magic" type expression to realize.
@@ -2205,7 +2229,7 @@ public struct TypeChecker {
 
     // Realize the lambda's environment.
     let environment: AnyType
-    if let environmentExpr = node.environment?.value {
+    if let environmentExpr = node.environment {
       guard let ty = realize(environmentExpr, inScope: scope) else { return nil }
       environment = ty.instance
     } else {
@@ -2259,7 +2283,7 @@ public struct TypeChecker {
         }
       }
 
-    case .type(let j):
+    case .expr(let j):
       // The domain is a type expression.
       guard let d = realize(j, inScope: scope)?.instance else { return nil }
       domain = d
@@ -2281,9 +2305,6 @@ public struct TypeChecker {
       diagnostics.insert(
         .diagnose(notEnoughContextToResolveMember: name.value, at: name.origin))
       return nil
-
-    case .expr:
-      unreachable("unexpected name domain")
     }
 
     // Diagnose unresolved names.
@@ -2345,15 +2366,9 @@ public struct TypeChecker {
       var arguments: [BoundGenericType.Argument] = []
 
       for a in program.ast[id].arguments {
-        switch a.value {
-        case .expr(let a):
-          // TODO: Symbolic execution
-          arguments.append(.value(a))
-
-        case .type(let a):
-          guard let type = realize(a, inScope: scope)?.instance else { return nil }
-          arguments.append(.type(type))
-        }
+        // TODO: Symbolic execution
+        guard let type = realize(a.value, inScope: scope)?.instance else { return nil }
+        arguments.append(.type(type))
       }
 
       return MetatypeType(of: BoundGenericType(referredType.instance, arguments: arguments))

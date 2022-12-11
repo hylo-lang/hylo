@@ -16,7 +16,7 @@ public struct ExistentialType: TypeProtocol {
     for c in constraints {
       precondition(
         (c is EqualityConstraint) || (c is ConformanceConstraint),
-        "type may only be contained by equality or conformance")
+        "type may only be constrained by equality or conformance")
     }
 
     self.traits = traits

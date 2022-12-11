@@ -7,9 +7,9 @@ public struct SubscriptCallExpr: Expr {
   public let callee: AnyExprID
 
   /// The arguments of the call.
-  public let arguments: [CallArgument]
+  public let arguments: [LabeledArgument]
 
-  public init(callee: AnyExprID, arguments: [CallArgument], origin: SourceRange?) {
+  public init(callee: AnyExprID, arguments: [LabeledArgument], origin: SourceRange?) {
     self.origin = origin
     self.callee = callee
     self.arguments = arguments

@@ -173,12 +173,6 @@ struct CaptureCollector {
     inMutatingContext isContextMutating: Bool
   ) {
     switch id.kind {
-    case AssignExpr.self:
-      collectCaptures(
-        ofAssign: NodeID(rawValue: id.rawValue),
-        into: &captures,
-        inMutatingContext: isContextMutating)
-
     case CastExpr.self:
       collectCaptures(
         ofCast: NodeID(rawValue: id.rawValue),
@@ -239,15 +233,6 @@ struct CaptureCollector {
     default:
       unreachable("unexpected expression")
     }
-  }
-
-  private mutating func collectCaptures(
-    ofAssign id: NodeID<AssignExpr>,
-    into captures: inout FreeSet,
-    inMutatingContext isContextMutating: Bool
-  ) {
-    collectCaptures(ofExpr: ast[id].left, into: &captures, inMutatingContext: true)
-    collectCaptures(ofExpr: ast[id].right, into: &captures, inMutatingContext: false)
   }
 
   private mutating func collectCaptures(
@@ -366,12 +351,7 @@ struct CaptureCollector {
     }
 
     for argument in ast[id].arguments {
-      switch argument.value {
-      case .expr(let expr):
-        collectCaptures(ofExpr: expr, into: &captures, inMutatingContext: false)
-      case .type(let expr):
-        collectCaptures(ofTypeExpr: expr, into: &captures)
-      }
+      collectCaptures(ofExpr: argument.value, into: &captures, inMutatingContext: false)
     }
   }
 
@@ -459,6 +439,8 @@ struct CaptureCollector {
     into captures: inout FreeSet
   ) {
     switch id.kind {
+    case AssignStmt.self:
+      collectCaptures(ofAssign: NodeID(rawValue: id.rawValue), into: &captures)
     case BraceStmt.self:
       collectCaptures(ofBrace: NodeID(rawValue: id.rawValue), into: &captures)
     case DoWhileStmt.self:
@@ -480,6 +462,14 @@ struct CaptureCollector {
     default:
       unreachable("unexpected statement")
     }
+  }
+
+  private mutating func collectCaptures(
+    ofAssign id: NodeID<AssignStmt>,
+    into captures: inout FreeSet
+  ) {
+    collectCaptures(ofExpr: ast[id].left, into: &captures, inMutatingContext: true)
+    collectCaptures(ofExpr: ast[id].right, into: &captures, inMutatingContext: false)
   }
 
   private mutating func collectCaptures(
@@ -564,21 +554,14 @@ struct CaptureCollector {
     into captures: inout FreeSet
   ) {
     switch ast[id].domain {
-    case .none:
+    case .none, .implicit:
       break
-    case .type(let domain):
-      collectCaptures(ofTypeExpr: domain, into: &captures)
-    case .implicit, .expr:
-      unreachable("unexpected name domain")
+    case .expr(let domain):
+      collectCaptures(ofExpr: domain, into: &captures, inMutatingContext: false)
     }
 
     for argument in ast[id].arguments {
-      switch argument.value {
-      case .expr(let expr):
-        collectCaptures(ofExpr: expr, into: &captures, inMutatingContext: false)
-      case .type(let expr):
-        collectCaptures(ofTypeExpr: expr, into: &captures)
-      }
+      collectCaptures(ofExpr: argument.value, into: &captures, inMutatingContext: false)
     }
   }
 

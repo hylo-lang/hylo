@@ -1,5 +1,5 @@
 /// The type expression of a remote type (e.g., `remote let Int`).
-public struct RemoteTypeExpr: TypeExpr {
+public struct RemoteTypeExpr: Expr {
 
   public let origin: SourceRange?
 

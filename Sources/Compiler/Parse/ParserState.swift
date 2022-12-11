@@ -55,16 +55,16 @@ struct ParserState {
   }
 
   /// Indicates whether the parser is at global scope.
-  var atGlobalScope: Bool { atModuleScope || atNamespaceScope }
+  var isAtGlobalScope: Bool { isAtModuleScope || isAtNamespaceScope }
 
   /// Indicates whether the parser is at module scope.
-  var atModuleScope: Bool { contexts.isEmpty }
+  var isAtModuleScope: Bool { contexts.isEmpty }
 
   /// Indicates whether the parser is at namespace scope.
-  var atNamespaceScope: Bool { contexts.last == .namespaceBody }
+  var isAtNamespaceScope: Bool { contexts.last == .namespaceBody }
 
   /// Indicates whether the parser is expecting to parse member declarations.
-  var atTypeScope: Bool {
+  var isAtTypeScope: Bool {
     if let c = contexts.last {
       return (c == .extensionBody) || (c == .productBody) || (c == .traitBody)
     } else {
@@ -73,7 +73,7 @@ struct ParserState {
   }
 
   /// Indicates whether the parser is at trait scope.
-  var atTraitScope: Bool { contexts.last == .traitBody }
+  var isAtTraitScope: Bool { contexts.last == .traitBody }
 
   /// Indicates whether the parser is expecting to parse a capture declaration.
   var isParsingCaptureList: Bool { contexts.last == .captureList }
@@ -82,15 +82,25 @@ struct ParserState {
   var currentLocation: SourceLocation { SourceLocation(source: lexer.source, index: currentIndex) }
 
   /// The next character in the character stream, unless the parser reached its end.
-  var currentCharacter: Character? { atEOF ? nil : lexer.source.contents[currentIndex] }
+  var currentCharacter: Character? { isAtEOF ? nil : lexer.source.contents[currentIndex] }
 
   /// Returns whether the parser is at the end of the character stream.
-  var atEOF: Bool { currentIndex == lexer.source.contents.endIndex }
+  var isAtEOF: Bool { currentIndex == lexer.source.contents.endIndex }
 
   /// Returns whether there is a whitespace at the current index.
   var hasLeadingWhitespace: Bool {
     currentIndex < lexer.source.contents.endIndex
       && lexer.source.contents[currentIndex].isWhitespace
+  }
+
+
+  /// Returns whether there are whitespaces before *and* after `token`.
+  mutating func hasLeadingAndTrailingWhitespaces(_ token: Token) -> Bool {
+    guard
+      let a = lexer.source.contents.prefix(upTo: token.origin.lowerBound).last,
+      let b = lexer.source.contents.suffix(from: token.origin.upperBound).first
+    else { return false }
+    return a.isWhitespace && b.isWhitespace
   }
 
   /// Returns whether there is a new line in the character stream before `bound`.
@@ -125,6 +135,20 @@ struct ParserState {
     return token
   }
 
+  /// Returns whether a token of the given `kind` is next in the input.
+  mutating func isNext(_ kind: Token.Kind) -> Bool {
+    peek()?.kind == kind
+  }
+
+  /// Returns whether a token satisfying `predicate` is next in the input.
+  mutating func isNext(satisfying predicate: (Token) -> Bool) -> Bool {
+    if let token = peek() {
+      return predicate(token)
+    } else {
+      return false
+    }
+  }
+
   /// Consumes and returns the next token, if any.
   mutating func take() -> Token? {
     // Return the token in the lookahead buffer, if available.
@@ -139,7 +163,7 @@ struct ParserState {
     return token
   }
 
-  /// Consumes and returns the next token, only if it has the specified kind.
+  /// Consumes and returns the next token if it has the specified kind.
   mutating func take(_ kind: Token.Kind) -> Token? {
     if peek()?.kind == kind {
       let token = lookahead.removeFirst()
@@ -157,7 +181,7 @@ struct ParserState {
     return take(kind)
   }
 
-  /// Consumes and returns the next token, if it has the specified predicate.
+  /// Consumes and returns the next token if it satisfies `predicate`.
   mutating func take(if predicate: (Token) -> Bool) -> Token? {
     if let token = peek(), predicate(token) {
       let token = lookahead.removeFirst()
@@ -193,7 +217,7 @@ struct ParserState {
 
       // Merge the leading angle bracket with attached operators.
       var upper = head.origin.upperBound
-      while let next = take(if: { $0.isOperatorToken && (upper == $0.origin.lowerBound) }) {
+      while let next = take(if: { $0.isOperatorPart && (upper == $0.origin.lowerBound) }) {
         upper = next.origin.upperBound
       }
 
@@ -220,6 +244,28 @@ struct ParserState {
     take(if: { [source = lexer.source] in
       ($0.kind == .attribute) && (source[$0.origin] == name)
     })
+  }
+
+  /// Applies `parse`, propagating thrown errors, and returns non-`nil` results or throws an error
+  /// diagnosing that we expected `expectedConstruct`.
+  mutating func expect<T>(
+    _ expectedConstruct: String,
+    using parse: (inout ParserState) throws -> T?
+  ) throws -> T {
+    if let element = try parse(&self) {
+      return element
+    } else {
+      throw DiagnosedError(.diagnose(expected: expectedConstruct, at: currentLocation))
+    }
+  }
+
+  /// Applies `parser.parse`, propagating thrown errors, and returns non-`nil` results or throws
+  /// an error diagnosing that we expected `expectedConstruct`.
+  mutating func expect<C: Combinator>(
+    _ expectedConstruct: String,
+    using parser: C
+  ) throws -> C.Element where C.Context == Self {
+    try expect(expectedConstruct, using: parser.parse(_:))
   }
 
   /// Consumes tokens as long as they satisfy `predicate`.

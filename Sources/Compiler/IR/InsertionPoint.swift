@@ -1,4 +1,4 @@
-/// A value denoting the position at which an instruction should be inserted.
+/// The position at which an instruction should be inserted.
 public struct InsertionPoint {
 
   /// A position in a basic block.

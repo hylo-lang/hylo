@@ -1,4 +1,5 @@
 import Utils
+import BigInt
 
 /// Val's IR emitter.
 ///
@@ -261,6 +262,8 @@ public struct Emitter : TypedChecked {
   /// Emits the given statement into `module` at the current insertion point.
   private mutating func emit<T: StmtID>(stmt: TypedProgram.SomeNode<T>, into module: inout Module) {
     switch stmt.kind {
+    case AssignStmt.self:
+      emit(assign: TypedAssignStmt(stmt)!, into: &module)
     case BraceStmt.self:
       emit(brace: TypedBraceStmt(stmt)!, into: &module)
     case DeclStmt.self:
@@ -272,6 +275,13 @@ public struct Emitter : TypedChecked {
     default:
       unreachable("unexpected statement")
     }
+  }
+
+  private mutating func emit(assign stmt: TypedAssignStmt, into module: inout Module) {
+    let rhs = emitR(expr: stmt.right, into: &module)
+    // FIXME: Should request the capability 'set or inout'.
+    let lhs = emitL(expr: stmt.left, withCapability: .set, into: &module)
+    _ = module.insert(StoreInst(rhs, to: lhs), at: insertionPoint!)
   }
 
   private mutating func emit(brace stmt: TypedBraceStmt, into module: inout Module) {
@@ -323,8 +333,6 @@ public struct Emitter : TypedChecked {
     }
 
     switch expr.kind {
-    case AssignExpr.self:
-      return emitR(assign: TypedAssignExpr(expr)!, into: &module)
     case BooleanLiteralExpr.self:
       return emitR(booleanLiteral: TypedBooleanLiteralExpr(expr)!, into: &module)
     case CondExpr.self:
@@ -343,22 +351,11 @@ public struct Emitter : TypedChecked {
   }
 
   private mutating func emitR(
-    assign expr: TypedAssignExpr,
-    into module: inout Module
-  ) -> Operand {
-    let rhs = emitR(expr: expr.right, into: &module)
-    // FIXME: Should request the capability 'set or inout'.
-    let lhs = emitL(expr: expr.left, withCapability: .set, into: &module)
-    _ = module.insert(StoreInst(rhs, to: lhs), at: insertionPoint!)
-    return .constant(.void)
-  }
-
-  private mutating func emitR(
     booleanLiteral expr: TypedBooleanLiteralExpr,
     into module: inout Module
   ) -> Operand {
-    let value = Operand.constant(.integer(IntegerConstant(
-      bitPattern: BitPattern(pattern: expr.value ? 1 : 0, width: 1))))
+    let value = Operand.constant(
+      .integer(IntegerConstant(expr.value ? 1 : 0, bitWidth: 1)))
 
     let boolType = program.ast.coreType(named: "Bool")!
     return module.insert(
@@ -549,9 +546,6 @@ public struct Emitter : TypedChecked {
             let receiver = emitL(expr: receiverID, withCapability: type.capability, into: &module)
             arguments.insert(receiver, at: 0)
 
-          case .type:
-            fatalError("not implemented")
-
           case .implicit:
             unreachable()
           }
@@ -568,9 +562,6 @@ public struct Emitter : TypedChecked {
 
           case .expr(let receiverID):
             arguments.insert(emitR(expr: receiverID, into: &module), at: 0)
-
-          case .type:
-            fatalError("not implemented")
 
           case .implicit:
             unreachable()
@@ -617,16 +608,16 @@ public struct Emitter : TypedChecked {
     }
 
     // Convert the literal into a bit pattern.
-    let bits: BitPattern
+    let bits: BigUInt
     let s = expr.value
     if s.starts(with: "0x") {
-      bits = BitPattern(fromHexadecimal: s.dropFirst(2))!.resized(to: bitWidth)
+      bits = BigUInt(s.dropFirst(2), radix: 16)!
     } else {
-      bits = BitPattern(fromDecimal: s)!.resized(to: bitWidth)
+      bits = BigUInt(s.dropFirst(2))!
     }
 
     // Emit the constant integer.
-    let value = IntegerConstant(bitPattern: bits)
+    let value = IntegerConstant(bits, bitWidth: bitWidth)
     return module.insert(
       RecordInst(objectType: .object(type), operands: [.constant(.integer(value))]),
       at: insertionPoint!)[0]
@@ -802,9 +793,6 @@ public struct Emitter : TypedChecked {
             let receiver = emitL(expr: receiverID, withCapability: type.capability, into: &module)
             arguments.insert(receiver, at: 0)
 
-          case .type:
-            fatalError("not implemented")
-
           case .implicit:
             unreachable()
           }
@@ -821,9 +809,6 @@ public struct Emitter : TypedChecked {
 
           case .expr(let receiverID):
             arguments.insert(emitR(expr: receiverID, into: &module), at: 0)
-
-          case .type:
-            fatalError("not implemented")
 
           case .implicit:
             unreachable()
@@ -904,8 +889,6 @@ public struct Emitter : TypedChecked {
         fatalError("not implemented")
       case .expr(let receiverID):
         receiver = emitL(expr: receiverID, withCapability: capability, into: &module)
-      case .type:
-        fatalError("not implemented")
       }
 
       // Emit the bound member.

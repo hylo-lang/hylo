@@ -61,8 +61,6 @@ struct ConstraintGenerator {
 
   private mutating func visit(expr: AnyExprID, using checker: inout TypeChecker) {
     switch expr.kind {
-    case AssignExpr.self:
-      return visit(assign: NodeID(rawValue: expr.rawValue), using: &checker)
     case BooleanLiteralExpr.self:
       return visit(booleanLiteral: NodeID(rawValue: expr.rawValue), using: &checker)
     case CastExpr.self:
@@ -104,31 +102,6 @@ struct ConstraintGenerator {
     default:
       unreachable()
     }
-  }
-
-  private mutating func visit(
-    assign id: NodeID<AssignExpr>,
-    using checker: inout TypeChecker
-  ) {
-    // Infer the type on the left.
-    let lhs = checker.program.ast[id].left
-    visit(expr: lhs, using: &checker)
-
-    // Constrain the right to be subtype of the left.
-    let rhs = checker.program.ast[id].right
-    inferredTypes[rhs] = ^TypeVariable(node: rhs.base)
-    constraints.append(
-      equalityOrSubtypingConstraint(
-        inferredTypes[rhs]!,
-        inferredTypes[lhs]!,
-        because: ConstraintCause(.initializationOrAssignment, at: checker.program.ast[id].origin)))
-
-    // Infer the type on the right.
-    expectedTypes[rhs] = inferredTypes[lhs]
-    visit(expr: rhs, using: &checker)
-
-    // Assignments have the void type.
-    assume(typeOf: id, equals: AnyType.void, at: checker.program.ast[id].origin)
   }
 
   private mutating func visit(
@@ -635,9 +608,6 @@ struct ConstraintGenerator {
           because: cause))
       }
 
-    case .type:
-      fatalError("not implemented")
-
     case .implicit:
       fatalError("not implemented")
     }
@@ -793,7 +763,7 @@ struct ConstraintGenerator {
     callee: AnyExprID,
     calleeType: LambdaType,
     calleeTypeConstraints: ConstraintSet,
-    arguments: [CallArgument],
+    arguments: [LabeledArgument],
     using checker: inout TypeChecker
   ) -> AnyType {
     // Collect the argument labels.
