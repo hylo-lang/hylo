@@ -21,8 +21,9 @@ public struct ImplicitReturnInsertionPass: TransformPass {
         continue
       } else if expectedReturnType == .void {
         // Insert missing return instruction.
-        let ip = InsertionPoint(endOf: Block.ID(function: functionID, address: i.address))
-        module.insert(ReturnInst(), at: ip)
+        module.insert(
+          ReturnInst(),
+          at: module.globalEndIndex(of: Block.ID(function: functionID, address: i.address)))
       } else {
         // No return instruction, yet the function must return a non-void value.
         let range = module[function: functionID][i.address].instructions

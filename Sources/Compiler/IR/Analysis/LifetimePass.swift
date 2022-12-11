@@ -37,10 +37,7 @@ public struct LifetimePass: TransformPass {
 
           // Insert `end_borrow` after the instruction's last users.
           for lastUse in borrowLifetime.maximalElements {
-            let userBlock = Block.ID(function: functionID, address: lastUse.user.block)
-            module.insert(
-              EndBorrowInst(borrow: borrowID, range: nil),
-              at: InsertionPoint(after: lastUse.user.address, in: userBlock))
+            module.insert(EndBorrowInst(borrow: borrowID, range: nil), after: lastUse.user)
           }
 
         default:

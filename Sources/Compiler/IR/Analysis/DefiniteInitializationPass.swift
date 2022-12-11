@@ -115,10 +115,10 @@ public struct DefiniteInitializationPass: TransformPass {
               // at the end of the predecessor.
               if lhs != rhs {
                 // Deinitialize the object at the end of the predecessor.
-                let beforeTerminator = InsertionPoint(
-                  before: module[function: functionID][predecessor].instructions.lastAddress!,
-                  in: Block.ID(function: functionID, address: predecessor))
-                module.insert(DeinitInst(key.operand(in: functionID)), at: beforeTerminator)
+                module.insert(
+                  DeinitInst(key.operand(in: functionID)),
+                  before: module.terminator(
+                    of: Block.ID(function: functionID, address: predecessor))!)
                 didChange = true
               }
 
@@ -138,9 +138,8 @@ public struct DefiniteInitializationPass: TransformPass {
               let difference = stateAtExit.difference(stateAtEntry)
               if !difference.isEmpty {
                 // Deinitialize the object at the end of the predecessor.
-                let beforeTerminator = InsertionPoint(
-                  before: module[function: functionID][predecessor].instructions.lastAddress!,
-                  in: Block.ID(function: functionID, address: predecessor))
+                let terminator = module.terminator(
+                  of: Block.ID(function: functionID, address: predecessor))!
                 let operand = key.operand(in: functionID)
                 let rootType = module.type(of: operand).astType
 
@@ -148,8 +147,8 @@ public struct DefiniteInitializationPass: TransformPass {
                   let objectType = program.abstractLayout(of: rootType, at: path).type
                   let object = module.insert(
                     LoadInst(.object(objectType), from: operand, at: path),
-                    at: beforeTerminator)[0]
-                  module.insert(DeinitInst(object), at: beforeTerminator)
+                    before: terminator)[0]
+                  module.insert(DeinitInst(object), before: terminator)
                 }
                 didChange = true
               }
@@ -386,15 +385,14 @@ public struct DefiniteInitializationPass: TransformPass {
       if initializedPaths.isEmpty { break }
 
       // Deinitialize the object(s) at the location.
-      let beforeBorrow = InsertionPoint(before: id)
       let rootType = module.type(of: inst.location).astType
 
       for path in initializedPaths {
         let objectType = program.abstractLayout(of: rootType, at: path).type
         let object = module.insert(
           LoadInst(.object(objectType), from: inst.location, at: path, range: inst.range),
-          at: beforeBorrow)[0]
-        module.insert(DeinitInst(object, range: inst.range), at: beforeBorrow)
+          before: id)[0]
+        module.insert(DeinitInst(object, range: inst.range), before: id)
       }
 
       // We can skip the visit of the instructions that were just inserted and update the context
@@ -475,7 +473,6 @@ public struct DefiniteInitializationPass: TransformPass {
       }
     })
 
-    let beforeDealloc = InsertionPoint(before: id)
     for path in initializedPaths {
       let object = module.insert(
         LoadInst(
@@ -483,8 +480,8 @@ public struct DefiniteInitializationPass: TransformPass {
           from: inst.location,
           at: path,
           range: inst.range),
-        at: beforeDealloc)[0]
-      module.insert(DeinitInst(object, range: inst.range), at: beforeDealloc)
+        before: id)[0]
+      module.insert(DeinitInst(object, range: inst.range), before: id)
 
       // Apply the effect of the inserted instructions on the context directly.
       let consumer = InstructionID(

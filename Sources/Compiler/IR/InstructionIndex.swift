@@ -17,7 +17,7 @@ public struct InstructionIndex: Hashable {
   /// The index of the instruction.
   public let index: Block.Instructions.Index
 
-  /// Creates a path with the given properties.
+  /// Creates an index with the given properties.
   public init(
     function: Module.Functions.Index,
     block: Function.Blocks.Address,
@@ -25,6 +25,13 @@ public struct InstructionIndex: Hashable {
   ) {
     self.function = function
     self.block = block
+    self.index = index
+  }
+
+  /// Creates an index with the given properties.
+  public init(block: Block.ID, index: Block.Instructions.Index) {
+    self.function = block.function
+    self.block = block.address
     self.index = index
   }
 
