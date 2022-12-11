@@ -245,3 +245,12 @@ extension TypedNode where ID == NodeID<FunctionDecl> {
     }
   }
 }
+
+extension TypedNode where ID == NodeID<SequenceExpr> {
+
+  /// A map from (typed) sequence expressions to their evaluation order.
+  var foldedSequenceExprs: FoldedSequenceExpr? {
+    whole.foldedSequenceExprs[id]
+  }
+
+}

@@ -643,8 +643,7 @@ public struct Emitter {
     sequence expr: Typed<SequenceExpr>,
     into module: inout Module
   ) -> Operand {
-    // TODO: use accessor for foldedSequenceExprs
-    emit(.sink, foldedSequence: program.foldedSequenceExprs[expr.id]!, into: &module)
+    emit(.sink, foldedSequence: expr.foldedSequenceExprs!, into: &module)
   }
 
   private mutating func emit(
