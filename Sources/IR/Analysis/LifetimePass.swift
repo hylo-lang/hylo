@@ -31,7 +31,7 @@ public struct LifetimePass: TransformPass {
           // Delete the borrow if it's never used.
           if borrowLifetime.isEmpty {
             if let decl = borrow.binding {
-              diagnostics.append(.unusedBinding(name: program.ast[decl].name, at: borrow.range))
+              diagnostics.append(.unusedBinding(name: decl.name, at: borrow.range))
             }
             module[block].instructions.remove(at: instruction.address)
             continue
