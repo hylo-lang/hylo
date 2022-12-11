@@ -1,10 +1,10 @@
 import Utils
 
 /// A module lowered to Val IR.
-public struct Module : TypedChecked {
+public struct Module {
 
   /// The module's declaration.
-  public let decl: TypedModuleDecl
+  public let decl: Typed<ModuleDecl>
 
   /// The def-use chains of the values in this module.
   public private(set) var uses: [Operand: [Use]] = [:]
@@ -16,9 +16,9 @@ public struct Module : TypedChecked {
   public private(set) var entryFunctionID: Function.ID?
 
   /// A map from function declaration its ID in the module.
-  private var loweredFunctions: [TypedFunctionDecl: Function.ID] = [:]
+  private var loweredFunctions: [Typed<FunctionDecl>: Function.ID] = [:]
 
-  public init(decl: TypedModuleDecl) {
+  public init(decl: Typed<ModuleDecl>) {
     self.decl = decl
   }
 
@@ -56,7 +56,7 @@ public struct Module : TypedChecked {
 
   /// Returns the identifier of the Val IR function corresponding to `decl`.
   mutating func getOrCreateFunction(
-    correspondingTo decl: TypedFunctionDecl,
+    correspondingTo decl: Typed<FunctionDecl>,
     program: TypedProgram
   ) -> Function.ID {
     if let id = loweredFunctions[decl] { return id }
