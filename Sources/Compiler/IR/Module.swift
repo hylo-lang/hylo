@@ -55,6 +55,8 @@ public struct Module {
   }
 
   /// Returns whether the IR in `self` is well-formed.
+  ///
+  /// Use this method as a sanity check to verify the module's invariants.
   public func isWellFormed() -> Bool {
     for i in 0 ..< functions.count {
       if !isWellFormed(function: i) { return false }
@@ -63,6 +65,8 @@ public struct Module {
   }
 
   /// Returns whether `f` is well-formed.
+  ///
+  /// Use this method as a sanity check to verify the function's invariants.
   public func isWellFormed(function f: Function.ID) -> Bool {
     for block in functions[f].blocks {
       for inst in block.instructions {
