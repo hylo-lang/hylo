@@ -121,6 +121,11 @@ extension TypedNode where ID: DeclID {
   var type: AnyType {
     whole.declTypes[id]!
   }
+
+  /// The implicit captures for the declared entity.
+  var implicitCaptures: [ImplicitCapture]? {
+    whole.implicitCaptures[id]
+  }
 }
 
 extension TypedNode where ID == NodeID<VarDecl> {
@@ -138,9 +143,57 @@ extension TypedNode where ID: ExprID {
 }
 
 extension TypedNode where ID == NodeID<NameExpr> {
+  enum Domain: Equatable {
+
+    /// No domain.
+    case none
+
+    /// Domain is implicit; the expression denotes a type member.
+    case implicit
+
+    /// Domain is a value expression or a type identifier.
+    case expr(TypedNode<AnyExprID>)
+
+  }
+
+  /// The domain of the name, if it is qualified.
+  var domain: Domain {
+    switch syntax.domain {
+    case .none:
+      return .none
+    case .implicit:
+      return .implicit
+    case .expr(let expr):
+      return .expr(whole[expr])
+    }
+  }
+
+  /// A reference to a declaration.
+  enum DeclRef: Hashable {
+    /// A direct reference.
+    case direct(TypedNode<AnyDeclID>)
+
+    /// A reference to a member declaration bound to `self`.
+    case member(TypedNode<AnyDeclID>)
+
+    /// Accesses the referred declaration.
+    public var decl: TypedNode<AnyDeclID> {
+      switch self {
+      case .direct(let d): return d
+      case .member(let d): return d
+      }
+    }
+  }
+
+
   /// The declaration of this name.
   var decl: DeclRef {
-    whole.referredDecls[id]!
+    switch whole.referredDecls[id]! {
+      case .direct(let decl):
+        return .direct(whole[decl])
+      case .member(let decl):
+        return .member(whole[decl])
+    }
   }
 }
 
@@ -191,4 +244,13 @@ extension TypedNode where ID == NodeID<FunctionDecl> {
       return .none
     }
   }
+}
+
+extension TypedNode where ID == NodeID<SequenceExpr> {
+
+  /// A map from (typed) sequence expressions to their evaluation order.
+  var foldedSequenceExprs: FoldedSequenceExpr? {
+    whole.foldedSequenceExprs[id]
+  }
+
 }
