@@ -51,8 +51,8 @@ public struct CXXTranspiler {
     case .block(let stmt):
       return emit(brace: stmt)
 
-    case .expr:
-      let exprStmt = CXXComment(comment: "expr")
+    case .expr(let expr):
+      let exprStmt = CXXComment("expr", for: expr)
       return CXXScopedBlock(stmts: [exprStmt])
     }
   }
@@ -73,7 +73,7 @@ public struct CXXTranspiler {
   }
 
   private mutating func emit(storedLocalBinding decl: BindingDecl.Typed) -> CXXRepresentable {
-    return CXXComment(comment: "local binding")
+    return CXXComment("local binding", for: decl)
   }
 
   /// Emits borrowed bindings.
@@ -97,7 +97,7 @@ public struct CXXTranspiler {
         // TODO: emit code for the patterns.
         let decl = name.decl
         stmts.append(
-          CXXComment(comment: "decl \(name), type: \(decl.type.description); path: \(path)"))
+          CXXComment("decl \(name), type: \(decl.type.description); path: \(path)", for: name))
       }
       if stmts.isEmpty {
         // No pattern found; just call the initializer, dropping the result.
@@ -106,7 +106,7 @@ public struct CXXTranspiler {
         return CXXScopedBlock(stmts: stmts)
       }
     } else {
-      return CXXComment(comment: "EMPTY borrowed local binding (\(capability))")
+      return CXXComment("EMPTY borrowed local binding (\(capability))", for: decl)
     }
   }
 
@@ -146,11 +146,11 @@ public struct CXXTranspiler {
   }
 
   private mutating func emit(exprStmt stmt: ExprStmt.Typed) -> CXXRepresentable {
-    return CXXComment(comment: "expr stmt")
+    return CXXComment("expr stmt", for: stmt)
   }
 
   private mutating func emit(returnStmt stmt: ReturnStmt.Typed) -> CXXRepresentable {
-    return CXXComment(comment: "return stmt")
+    return CXXComment("return stmt", for: stmt)
   }
 
   // MARK: Expressions
@@ -160,9 +160,9 @@ public struct CXXTranspiler {
     asLValue: Bool
   ) -> CXXRepresentable {
     if asLValue {
-      return CXXComment(comment: "expr (lvalue)")
+      return CXXComment("expr (lvalue)", for: expr)
     } else {
-      return CXXComment(comment: "expr (rvalue)")
+      return CXXComment("expr (rvalue)", for: expr)
     }
   }
 
