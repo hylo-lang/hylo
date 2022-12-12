@@ -24,13 +24,14 @@ public struct Module {
   /// A map from function declaration to its ID in `self.functions`.
   private var loweredFunctions: [NodeID<FunctionDecl>: Function.ID] = [:]
 
-  /// Creates an IR module lowering `decl` using `emitter`.
+  /// Creates an IR module lowering `decl` from `program`.
   ///
-  /// - Requires: `decl` must be a valid module declaration in `emitter.program`.
-  public init(_ decl: NodeID<ModuleDecl>, using emitter: inout Emitter) {
-    self.program = emitter.program
+  /// - Requires: `decl` must be a valid module declaration in `program`.
+  public init(_ decl: NodeID<ModuleDecl>, in program: TypedProgram) {
+    self.program = program
     self.decl = decl
 
+    var emitter = Emitter(program: program)
     for member in program.ast.topLevelDecls(decl) {
       emitter.emit(topLevel: member, into: &self)
     }
