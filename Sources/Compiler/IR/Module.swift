@@ -3,7 +3,7 @@ import Utils
 /// A collection of IR functions.
 public struct Module {
 
-  /// An array of functions.
+/// The form in which a `Module` exposes all its lowered functions.
   public typealias Functions = [Function]
 
   /// The program defining the functions in `self`.
