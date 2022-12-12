@@ -3,7 +3,7 @@ import Utils
 /// A collection of basic blocks representing a lowered function.
 public struct Function {
 
-  /// The ID of a Val IR function.
+/// The ID of a `Function` in its `Module`.
   public typealias ID = Module.Functions.Index
 
   /// The address of a basic block in `self`.
