@@ -298,14 +298,25 @@ struct ConstraintGenerator {
           checker.referredDecls[c] = candidates[0].reference
           inferredTypes[c] = candidates[0].type
 
+          // Apply the callee's constraints.
+          for c in candidates[0].constraints {
+            var newConstraint = c
+            newConstraint.cause = ConstraintCause(.callee, at: checker.program.ast[callee].origin)
+            constraints.append(newConstraint)
+          }
+
           // Propagate the type of the constructor down.
-          let outputType = propagateDown(
-            callee: callee,
-            calleeType: candidates[0].type.base as! LambdaType,
-            calleeTypeConstraints: candidates[0].constraints,
+          let calleeType = LambdaType(candidates[0].type)!
+          if visit(
             arguments: checker.program.ast[id].arguments,
+            of: checker.program.ast[id].callee,
+            expecting: calleeType.inputs,
             using: &checker)
-          assume(typeOf: id, equals: outputType, at: checker.program.ast[id].origin)
+          {
+            assume(typeOf: id, equals: calleeType.output, at: checker.program.ast[id].origin)
+          } else {
+            assignToError(id)
+          }
 
         default:
           // TODO: Handle specializations
@@ -330,13 +341,16 @@ struct ConstraintGenerator {
 
     // 3rd case
     if let calleeType = LambdaType(inferredTypes[callee]!) {
-      let outputType = propagateDown(
-        callee: callee,
-        calleeType: calleeType,
-        calleeTypeConstraints: [],
+      if visit(
         arguments: checker.program.ast[id].arguments,
+        of: checker.program.ast[id].callee,
+        expecting: calleeType.inputs,
         using: &checker)
-      assume(typeOf: id, equals: outputType, at: checker.program.ast[id].origin)
+      {
+        assume(typeOf: id, equals: calleeType.output, at: checker.program.ast[id].origin)
+      } else {
+        assignToError(id)
+      }
       return
     }
 
@@ -759,38 +773,33 @@ struct ConstraintGenerator {
     fatalError("not implemented")
   }
 
-  private mutating func propagateDown(
-    callee: AnyExprID,
-    calleeType: LambdaType,
-    calleeTypeConstraints: ConstraintSet,
+  /// If the labels of `arguments` matches those of `parameters`, visit the arguments' expressions
+  /// assuming they have the corresponding type in `parameters` and returns `true`. Otherwise,
+  /// returns `false`.
+  private mutating func visit(
     arguments: [LabeledArgument],
+    of callee: AnyExprID,
+    expecting parameters: [CallableTypeParameter],
     using checker: inout TypeChecker
-  ) -> AnyType {
-    // Collect the argument labels.
+  ) -> Bool {
+    // Collect the argument and parameter labels.
     let argumentLabels = arguments.map({ $0.label?.value })
+    let parameterLabels = parameters.map({ $0.label })
 
     // Check that the labels inferred from the callee are consistent with that of the call.
-    let calleeLabels = calleeType.inputs.map({ $0.label })
-    if calleeLabels != argumentLabels {
+    if argumentLabels != parameterLabels {
       diagnostics.append(.diagnose(
         labels: argumentLabels,
-        incompatibleWith: calleeLabels,
+        incompatibleWith: parameterLabels,
         at: checker.program.ast[callee].origin))
-      return .error
+      return false
     }
 
-    // Gather the callee's constraints.
-    for c in calleeTypeConstraints {
-      var newConstraint = c
-      newConstraint.cause = ConstraintCause(.callee, at: checker.program.ast[callee].origin)
-      constraints.append(newConstraint)
-    }
-
-    // Propagate type information to the arguments.
+    // Propagate type information down.
     for i in 0 ..< arguments.count {
       let argumentExpr = arguments[i].value
       let argumentType = ^TypeVariable(node: argumentExpr.base)
-      let parameterType = calleeType.inputs[i].type
+      let parameterType = parameters[i].type
 
       inferredTypes[argumentExpr] = argumentType
       constraints.append(
@@ -805,8 +814,7 @@ struct ConstraintGenerator {
       visit(expr: argumentExpr, using: &checker)
     }
 
-    // Constrain the type of the call.
-    return calleeType.output
+    return true
   }
 
   /// Folds a sequence of binary expressions.
