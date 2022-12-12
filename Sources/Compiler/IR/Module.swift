@@ -1,9 +1,12 @@
 import Utils
 
-/// A collection of IR functions.
+/// A module lowered to Val IR.
+///
+/// An IR module is notionally composed of a collection of functions, one of which may be
+/// designated as its entry point (i.e., the `main` function of a Val program).
 public struct Module {
 
-  /// An array of functions.
+/// The form in which a `Module` exposes all its lowered functions.
   public typealias Functions = [Function]
 
   /// The program defining the functions in `self`.
@@ -21,16 +24,17 @@ public struct Module {
   /// The ID of the module's entry function, if any.
   public private(set) var entryFunctionID: Function.ID?
 
-  /// A map from function declaration to its ID in `self.functions`.
+  /// A map from function declaration to its ID in `self`.
   private var loweredFunctions: [NodeID<FunctionDecl>: Function.ID] = [:]
 
-  /// Creates an IR module lowering `decl` using `emitter`.
+  /// Creates an IR module lowering `decl` from `program`.
   ///
-  /// - Requires: `decl` must be a valid module declaration in `emitter.program`.
-  public init(_ decl: NodeID<ModuleDecl>, using emitter: inout Emitter) {
-    self.program = emitter.program
+  /// - Requires: `decl` must be a valid module declaration in `program`.
+  public init(_ decl: NodeID<ModuleDecl>, in program: TypedProgram) {
+    self.program = program
     self.decl = decl
 
+    var emitter = Emitter(program: program)
     for member in program.ast.topLevelDecls(decl) {
       emitter.emit(topLevel: member, into: &self)
     }
@@ -72,6 +76,8 @@ public struct Module {
   }
 
   /// Returns whether the IR in `self` is well-formed.
+  ///
+  /// Use this method as a sanity check to verify the module's invariants.
   public func isWellFormed() -> Bool {
     for i in 0 ..< functions.count {
       if !isWellFormed(function: i) { return false }
@@ -80,6 +86,8 @@ public struct Module {
   }
 
   /// Returns whether `f` is well-formed.
+  ///
+  /// Use this method as a sanity check to verify the function's invariants.
   public func isWellFormed(function f: Function.ID) -> Bool {
     for block in functions[f].blocks {
       for inst in block.instructions {
