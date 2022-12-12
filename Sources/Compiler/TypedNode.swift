@@ -31,8 +31,26 @@ public struct TypedNode<ID: NodeIDProtocol> : Hashable {
 
 }
 
-/// An AST node with type information.
-public typealias Typed<T: AST.Node> = TypedNode<NodeID<T>>
+extension AST.Node {
+
+  /// Type describing the current node with type information.
+  public typealias Typed = TypedNode<NodeID<Self>>
+
+}
+
+extension TypedProgram {
+
+  // Used for renaming; we want to use `TypedNode` typealias inside NodeIDProtocol
+  public typealias NodeWithTypeInfo<ID: NodeIDProtocol> = TypedNode<ID>
+
+}
+
+extension NodeIDProtocol {
+
+  /// Node with type information, corresponding to this node ID
+  public typealias TypedNode = TypedProgram.NodeWithTypeInfo<Self>
+
+}
 
 extension TypedProgram {
   /// Bundles `id` together with `self`.
@@ -101,19 +119,19 @@ extension TypedNode {
 
 extension TypedNode where ID: ScopeID {
   /// The parent scope, if any
-  var parent: TypedNode<AnyScopeID>? {
+  var parent: AnyScopeID.TypedNode? {
     whole.scopeToParent[id].map { .init(whole: whole, id: $0) }
   }
 
   /// The declarations in this immediate scope.
-  var decls: LazyMapCollection<[AnyDeclID], TypedNode<AnyDeclID>> {
+  var decls: LazyMapCollection<[AnyDeclID], AnyDeclID.TypedNode> {
     whole.scopeToDecls[id, default: []].lazy.map { .init(whole: whole, id: $0) }
   }
 }
 
 extension TypedNode where ID: DeclID {
   /// The scope in which this declaration resides.
-  var scope: TypedNode<AnyScopeID> {
+  var scope: AnyScopeID.TypedNode {
     .init(whole: whole, id: whole.declToScope[id]!)
   }
 
@@ -130,7 +148,7 @@ extension TypedNode where ID: DeclID {
 
 extension TypedNode where ID == NodeID<VarDecl> {
   /// The binding decl containing this var.
-  var binding: Typed<BindingDecl> {
+  var binding: BindingDecl.Typed {
     .init(whole: whole, id: whole.varToBinding[id]!)
   }
 }
@@ -152,7 +170,7 @@ extension TypedNode where ID == NodeID<NameExpr> {
     case implicit
 
     /// Domain is a value expression or a type identifier.
-    case expr(TypedNode<AnyExprID>)
+    case expr(AnyExprID.TypedNode)
 
   }
 
@@ -171,13 +189,13 @@ extension TypedNode where ID == NodeID<NameExpr> {
   /// A reference to a declaration.
   enum DeclRef: Hashable {
     /// A direct reference.
-    case direct(TypedNode<AnyDeclID>)
+    case direct(AnyDeclID.TypedNode)
 
     /// A reference to a member declaration bound to `self`.
-    case member(TypedNode<AnyDeclID>)
+    case member(AnyDeclID.TypedNode)
 
     /// Accesses the referred declaration.
-    public var decl: TypedNode<AnyDeclID> {
+    public var decl: AnyDeclID.TypedNode {
       switch self {
       case .direct(let d): return d
       case .member(let d): return d
@@ -199,7 +217,7 @@ extension TypedNode where ID == NodeID<NameExpr> {
 
 extension TypedNode where ID: PatternID {
   /// The names associated with this pattern.
-  var names: [(path: [Int], pattern: Typed<NamePattern>)] {
+  var names: [(path: [Int], pattern: NamePattern.Typed)] {
     whole.ast.names(in: id).map({ (path: $0.path, pattern: whole[$0.pattern]) })
   }
 }
@@ -211,7 +229,7 @@ extension TypedNode where ID == NodeID<ModuleDecl> {
             LazyMapSequence<
                 [NodeID<TopLevelDeclSet>],
                 [AnyDeclID]>>,
-        TypedNode<AnyDeclID>>
+        AnyDeclID.TypedNode>
 
   /// The top-level declarations in the module.
   var topLevelDecls: TopLevelDecls {
@@ -224,10 +242,10 @@ extension TypedNode where ID == NodeID<FunctionDecl> {
   enum Body {
 
     /// An expression body.
-    case expr(TypedNode<AnyExprID>)
+    case expr(AnyExprID.TypedNode)
 
     /// A block body.
-    case block(Typed<BraceStmt>)
+    case block(BraceStmt.Typed)
 
   }
 
