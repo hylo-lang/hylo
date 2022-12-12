@@ -17,7 +17,7 @@ public struct Emitter {
   private var stack = Stack()
 
   /// The declaration of the receiver of the function or subscript currently emitted, if any.
-  private var receiverDecl: Typed<ParameterDecl>?
+  private var receiverDecl: ParameterDecl.Typed?
 
   /// Creates an emitter with a well-typed AST.
   public init(program: TypedProgram) {
@@ -30,11 +30,11 @@ public struct Emitter {
   mutating func emit(topLevel decl: TypedNode<AnyDeclID>, into module: inout Module) {
     switch decl.kind {
     case FunctionDecl.self:
-      emit(function: Typed<FunctionDecl>(decl)!, into: &module)
+      emit(function: FunctionDecl.Typed(decl)!, into: &module)
     case OperatorDecl.self:
       break
     case ProductTypeDecl.self:
-      emit(product: Typed<ProductTypeDecl>(decl)!, into: &module)
+      emit(product: ProductTypeDecl.Typed(decl)!, into: &module)
     case TraitDecl.self:
       break
     default:
@@ -43,7 +43,7 @@ public struct Emitter {
   }
 
   /// Emits the given function declaration into `module`.
-  public mutating func emit(function decl: Typed<FunctionDecl>, into module: inout Module) {
+  public mutating func emit(function decl: FunctionDecl.Typed, into module: inout Module) {
     // Declare the function in the module if necessary.
     let functionID = module.getOrCreateFunction(correspondingTo: decl, program: program)
 
@@ -109,26 +109,26 @@ public struct Emitter {
 
   /// Emits the given subscript declaration into `module`.
   public mutating func emit(
-    subscript decl: Typed<SubscriptDecl>,
+    subscript decl: SubscriptDecl.Typed,
     into module: inout Module
   ) {
     fatalError("not implemented")
   }
 
   /// Emits the product type declaration into `module`.
-  private mutating func emit(product decl: Typed<ProductTypeDecl>, into module: inout Module) {
+  private mutating func emit(product decl: ProductTypeDecl.Typed, into module: inout Module) {
     for member in decl.members {
       // Emit the member functions and subscripts of the type declaration.
       switch member.kind {
       case FunctionDecl.self:
-        emit(function: Typed<FunctionDecl>(member)!, into: &module)
+        emit(function: FunctionDecl.Typed(member)!, into: &module)
 
       case InitializerDecl.self:
-        if Typed<InitializerDecl>(member)!.introducer.value == .memberwiseInit { continue }
+        if InitializerDecl.Typed(member)!.introducer.value == .memberwiseInit { continue }
         fatalError("not implemented")
 
       case SubscriptDecl.self:
-        emit(subscript: Typed<SubscriptDecl>(member)!, into: &module)
+        emit(subscript: SubscriptDecl.Typed(member)!, into: &module)
 
       default:
         continue
@@ -136,7 +136,7 @@ public struct Emitter {
     }
   }
 
-  private mutating func emit(localBinding decl: Typed<BindingDecl>, into module: inout Module) {
+  private mutating func emit(localBinding decl: BindingDecl.Typed, into module: inout Module) {
     switch decl.pattern.introducer.value {
     case .var, .sinklet:
       emit(storedLocalBinding: decl, into: &module)
@@ -148,7 +148,7 @@ public struct Emitter {
   }
 
   private mutating func emit(
-    storedLocalBinding decl: Typed<BindingDecl>,
+    storedLocalBinding decl: BindingDecl.Typed,
     into module: inout Module
   ) {
     /// A map from object path to its corresponding (sub-)object during destruction.
@@ -202,7 +202,7 @@ public struct Emitter {
 
   /// Emits borrowed bindings.
   private mutating func emit(
-    borrowedLocalBinding decl: Typed<BindingDecl>,
+    borrowedLocalBinding decl: BindingDecl.Typed,
     withCapability capability: RemoteType.Capability,
     into module: inout Module
   ) {
@@ -250,28 +250,28 @@ public struct Emitter {
   private mutating func emit<ID: StmtID>(stmt: TypedNode<ID>, into module: inout Module) {
     switch stmt.kind {
     case AssignStmt.self:
-      emit(assign: Typed<AssignStmt>(stmt)!, into: &module)
+      emit(assign: AssignStmt.Typed(stmt)!, into: &module)
     case BraceStmt.self:
-      emit(brace: Typed<BraceStmt>(stmt)!, into: &module)
+      emit(brace: BraceStmt.Typed(stmt)!, into: &module)
     case DeclStmt.self:
-      emit(declStmt: Typed<DeclStmt>(stmt)!, into: &module)
+      emit(declStmt: DeclStmt.Typed(stmt)!, into: &module)
     case ExprStmt.self:
-      emit(exprStmt: Typed<ExprStmt>(stmt)!, into: &module)
+      emit(exprStmt: ExprStmt.Typed(stmt)!, into: &module)
     case ReturnStmt.self:
-      emit(returnStmt: Typed<ReturnStmt>(stmt)!, into: &module)
+      emit(returnStmt: ReturnStmt.Typed(stmt)!, into: &module)
     default:
       unreachable("unexpected statement")
     }
   }
 
-  private mutating func emit(assign stmt: Typed<AssignStmt>, into module: inout Module) {
+  private mutating func emit(assign stmt: AssignStmt.Typed, into module: inout Module) {
     let rhs = emitR(expr: stmt.right, into: &module)
     // FIXME: Should request the capability 'set or inout'.
     let lhs = emitL(expr: stmt.left, withCapability: .set, into: &module)
     _ = module.insert(StoreInst(rhs, to: lhs), at: insertionPoint!)
   }
 
-  private mutating func emit(brace stmt: Typed<BraceStmt>, into module: inout Module) {
+  private mutating func emit(brace stmt: BraceStmt.Typed, into module: inout Module) {
     stack.push()
     for s in stmt.stmts {
       emit(stmt: s, into: &module)
@@ -280,20 +280,20 @@ public struct Emitter {
     stack.pop()
   }
 
-  private mutating func emit(declStmt stmt: Typed<DeclStmt>, into module: inout Module) {
+  private mutating func emit(declStmt stmt: DeclStmt.Typed, into module: inout Module) {
     switch stmt.decl.kind {
     case BindingDecl.self:
-      emit(localBinding: Typed<BindingDecl>(stmt.decl)!, into: &module)
+      emit(localBinding: BindingDecl.Typed(stmt.decl)!, into: &module)
     default:
       unreachable("unexpected declaration")
     }
   }
 
-  private mutating func emit(exprStmt stmt: Typed<ExprStmt>, into module: inout Module) {
+  private mutating func emit(exprStmt stmt: ExprStmt.Typed, into module: inout Module) {
     _ = emitR(expr: stmt.expr, into: &module)
   }
 
-  private mutating func emit(returnStmt stmt: Typed<ReturnStmt>, into module: inout Module) {
+  private mutating func emit(returnStmt stmt: ReturnStmt.Typed, into module: inout Module) {
     let value: Operand
     if let expr = stmt.value {
       value = emitR(expr: expr, into: &module)
@@ -321,24 +321,24 @@ public struct Emitter {
 
     switch expr.kind {
     case BooleanLiteralExpr.self:
-      return emitR(booleanLiteral: Typed<BooleanLiteralExpr>(expr)!, into: &module)
+      return emitR(booleanLiteral: BooleanLiteralExpr.Typed(expr)!, into: &module)
     case CondExpr.self:
-      return emitR(cond: Typed<CondExpr>(expr)!, into: &module)
+      return emitR(cond: CondExpr.Typed(expr)!, into: &module)
     case FunCallExpr.self:
-      return emitR(funCall: Typed<FunCallExpr>(expr)!, into: &module)
+      return emitR(funCall: FunCallExpr.Typed(expr)!, into: &module)
     case IntegerLiteralExpr.self:
-      return emitR(integerLiteral: Typed<IntegerLiteralExpr>(expr)!, into: &module)
+      return emitR(integerLiteral: IntegerLiteralExpr.Typed(expr)!, into: &module)
     case NameExpr.self:
-      return emitR(name: Typed<NameExpr>(expr)!, into: &module)
+      return emitR(name: NameExpr.Typed(expr)!, into: &module)
     case SequenceExpr.self:
-      return emitR(sequence: Typed<SequenceExpr>(expr)!, into: &module)
+      return emitR(sequence: SequenceExpr.Typed(expr)!, into: &module)
     default:
       unreachable("unexpected expression")
     }
   }
 
   private mutating func emitR(
-    booleanLiteral expr: Typed<BooleanLiteralExpr>,
+    booleanLiteral expr: BooleanLiteralExpr.Typed,
     into module: inout Module
   ) -> Operand {
     let value = Operand.constant(
@@ -351,7 +351,7 @@ public struct Emitter {
   }
 
   private mutating func emitR(
-    cond expr: Typed<CondExpr>,
+    cond expr: CondExpr.Typed,
     into module: inout Module
   ) -> Operand {
     let functionID = insertionPoint!.block.function
@@ -458,7 +458,7 @@ public struct Emitter {
   }
 
   private mutating func emitR(
-    funCall expr: Typed<FunCallExpr>,
+    funCall expr: FunCallExpr.Typed,
     into module: inout Module
   ) -> Operand {
     let calleeType = expr.callee.type.base as! LambdaType
@@ -483,7 +483,7 @@ public struct Emitter {
     // function object the arguments.
     let callee: Operand
 
-    if let calleeNameExpr = Typed<NameExpr>(expr.callee) {
+    if let calleeNameExpr = NameExpr.Typed(expr.callee) {
       switch calleeNameExpr.decl {
       case .direct(let calleeDecl) where calleeDecl.kind == BuiltinDecl.self:
         // Callee refers to a built-in function.
@@ -500,7 +500,7 @@ public struct Emitter {
           type: .address(calleeType))))
 
       case .direct(let calleeDecl) where calleeDecl.kind == InitializerDecl.self:
-        switch Typed<InitializerDecl>(calleeDecl)!.introducer.value {
+        switch InitializerDecl.Typed(calleeDecl)!.introducer.value {
         case .`init`:
           // TODO: The function is a custom initializer.
           fatalError("not implemented")
@@ -580,7 +580,7 @@ public struct Emitter {
   }
 
   private mutating func emitR(
-    integerLiteral expr: Typed<IntegerLiteralExpr>,
+    integerLiteral expr: IntegerLiteralExpr.Typed,
     into module: inout Module
   ) -> Operand {
     let type = expr.type.base as! ProductType
@@ -611,7 +611,7 @@ public struct Emitter {
   }
 
   private mutating func emitR(
-    name expr: Typed<NameExpr>,
+    name expr: NameExpr.Typed,
     into module: inout Module
   ) -> Operand {
     switch expr.decl {
@@ -631,7 +631,7 @@ public struct Emitter {
   }
 
   private mutating func emitR(
-    sequence expr: Typed<SequenceExpr>,
+    sequence expr: SequenceExpr.Typed,
     into module: inout Module
   ) -> Operand {
     emit(.sink, foldedSequence: expr.foldedSequenceExprs!, into: &module)
@@ -731,7 +731,7 @@ public struct Emitter {
 
     // If the callee is a name expression referring to the declaration of a capture-less function,
     // it is interpreted as a direct function reference.
-    if let nameExpr = Typed<NameExpr>(expr) {
+    if let nameExpr = NameExpr.Typed(expr) {
       switch nameExpr.decl {
       case .direct(let calleeDecl) where calleeDecl.kind == BuiltinDecl.self:
         // Callee refers to a built-in function.
@@ -748,7 +748,7 @@ public struct Emitter {
           type: .address(calleeType))))
 
       case .direct(let calleeDecl) where calleeDecl.kind == InitializerDecl.self:
-        let d = Typed<InitializerDecl>(nameExpr)!
+        let d = InitializerDecl.Typed(nameExpr)!
         switch d.introducer.value {
         case .`init`:
           // The function is a custom initializer.
@@ -827,7 +827,7 @@ public struct Emitter {
   ) -> Operand {
     switch expr.kind {
     case NameExpr.self:
-      return emitL(name: Typed<NameExpr>(expr)!, withCapability: capability, into: &module)
+      return emitL(name: NameExpr.Typed(expr)!, withCapability: capability, into: &module)
 
     case SubscriptCallExpr.self:
       fatalError("not implemented")
@@ -849,7 +849,7 @@ public struct Emitter {
   }
 
   private mutating func emitL(
-    name expr: Typed<NameExpr>,
+    name expr: NameExpr.Typed,
     withCapability capability: RemoteType.Capability,
     into module: inout Module
   ) -> Operand {
@@ -880,7 +880,7 @@ public struct Emitter {
       // Emit the bound member.
       switch decl.kind {
       case VarDecl.self:
-        let varDecl = Typed<VarDecl>(decl)!
+        let varDecl = VarDecl.Typed(decl)!
         let layout = program.abstractLayout(of: module.type(of: receiver).astType)
         let memberIndex = layout.storedPropertiesIndices[varDecl.name]!
 

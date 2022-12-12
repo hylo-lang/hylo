@@ -31,8 +31,12 @@ public struct TypedNode<ID: NodeIDProtocol> : Hashable {
 
 }
 
-/// An AST node with type information.
-public typealias Typed<T: AST.Node> = TypedNode<NodeID<T>>
+extension AST.Node {
+
+  /// Type describing the current node with type information.
+  public typealias Typed = TypedNode<NodeID<Self>>
+
+}
 
 extension TypedProgram {
   /// Bundles `id` together with `self`.
@@ -130,7 +134,7 @@ extension TypedNode where ID: DeclID {
 
 extension TypedNode where ID == NodeID<VarDecl> {
   /// The binding decl containing this var.
-  var binding: Typed<BindingDecl> {
+  var binding: BindingDecl.Typed {
     .init(whole: whole, id: whole.varToBinding[id]!)
   }
 }
@@ -199,7 +203,7 @@ extension TypedNode where ID == NodeID<NameExpr> {
 
 extension TypedNode where ID: PatternID {
   /// The names associated with this pattern.
-  var names: [(path: [Int], pattern: Typed<NamePattern>)] {
+  var names: [(path: [Int], pattern: NamePattern.Typed)] {
     whole.ast.names(in: id).map({ (path: $0.path, pattern: whole[$0.pattern]) })
   }
 }
@@ -227,7 +231,7 @@ extension TypedNode where ID == NodeID<FunctionDecl> {
     case expr(TypedNode<AnyExprID>)
 
     /// A block body.
-    case block(Typed<BraceStmt>)
+    case block(BraceStmt.Typed)
 
   }
 
