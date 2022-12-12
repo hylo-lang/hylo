@@ -1,6 +1,9 @@
 import Utils
 
-/// A collection of IR functions.
+/// A module lowered to Val IR.
+///
+/// An IR module is notionally composed of a collection of functions, one of which may be
+/// designated as its entry point (i.e., the `main` function of a Val program).
 public struct Module {
 
 /// The form in which a `Module` exposes all its lowered functions.
