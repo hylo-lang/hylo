@@ -3192,8 +3192,8 @@ public struct TypeChecker {
 
   // MARK: Utils
 
-  /// Returns whether `decl` introduces a type `X` that can be referred to as a sugar for `X.init`.
-  mutating func doesSupportInitSugar(_ decl: AnyDeclID) -> Bool {
+  /// Returns whether `decl` is a nominal type declaration.
+  mutating func isNominalTypeDecl(_ decl: AnyDeclID) -> Bool {
     switch decl.kind {
     case AssociatedTypeDecl.self, ProductTypeDecl.self, TypeAliasDecl.self:
       return true
