@@ -27,7 +27,7 @@ public struct Emitter {
   // MARK: Declarations
 
   /// Emits the given top-level declaration into `module`.
-  mutating func emit(topLevel decl: TypedNode<AnyDeclID>, into module: inout Module) {
+  mutating func emit(topLevel decl: AnyDeclID.TypedNode, into module: inout Module) {
     switch decl.kind {
     case FunctionDecl.self:
       emit(function: FunctionDecl.Typed(decl)!, into: &module)
@@ -247,7 +247,7 @@ public struct Emitter {
   // MARK: Statements
 
   /// Emits the given statement into `module` at the current insertion point.
-  private mutating func emit<ID: StmtID>(stmt: TypedNode<ID>, into module: inout Module) {
+  private mutating func emit<ID: StmtID>(stmt: ID.TypedNode, into module: inout Module) {
     switch stmt.kind {
     case AssignStmt.self:
       emit(assign: AssignStmt.Typed(stmt)!, into: &module)
@@ -310,7 +310,7 @@ public struct Emitter {
   // MARK: r-values
 
   /// Emits `expr` as a r-value into `module` at the current insertion point.
-  private mutating func emitR<ID: ExprID>(expr: TypedNode<ID>, into module: inout Module) -> Operand {
+  private mutating func emitR<ID: ExprID>(expr: ID.TypedNode, into module: inout Module) -> Operand {
     defer {
       // Mark the execution path unreachable if the computed value has type `Never`.
       if expr.type == .never {
@@ -699,7 +699,7 @@ public struct Emitter {
   }
 
   private mutating func emit(
-    argument expr: TypedNode<AnyExprID>,
+    argument expr: AnyExprID.TypedNode,
     to parameterType: ParameterType,
     into module: inout Module
   ) -> Operand {
@@ -722,7 +722,7 @@ public struct Emitter {
   ///
   /// - Requires: `expr` has a lambda type.
   private mutating func emitCallee(
-    _ expr: TypedNode<AnyExprID>,
+    _ expr: AnyExprID.TypedNode,
     conventions: inout [PassingConvention],
     arguments: inout [Operand],
     into module: inout Module
@@ -821,7 +821,7 @@ public struct Emitter {
   /// Emits `expr` as a l-value with the specified capability into `module` at the current
   /// insertion point.
   private mutating func emitL<ID: ExprID>(
-    expr: TypedNode<ID>,
+    expr: ID.TypedNode,
     withCapability capability: RemoteType.Capability,
     into module: inout Module
   ) -> Operand {
@@ -952,7 +952,7 @@ fileprivate extension Emitter {
     }
 
     /// Accesses the operand assigned `decl`, assuming the stack is not empty.
-    subscript<ID: DeclID>(decl: TypedNode<ID>) -> Operand? {
+    subscript<ID: DeclID>(decl: ID.TypedNode) -> Operand? {
       get {
         for frame in frames.reversed() {
           if let operand = frame.locals[decl] { return operand }
