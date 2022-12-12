@@ -4,10 +4,10 @@ import Utils
 public struct CXXModule {
 
   /// The module's declaration in Val's AST.
-  public let valDecl: NodeID<ModuleDecl>
+  public let valDecl: Typed<ModuleDecl>
 
-  /// The module's name.
-  public let name: String
+  /// The typed program for wich we are constructing the CXX translation.
+  public let program: TypedProgram
 
   /// The C++ functions declared in `self`.
   public private(set) var cxxFunctions: [CXXFunctionDecl] = []
@@ -17,26 +17,25 @@ public struct CXXModule {
   public private(set) var cxxFunctionBodies: [CXXRepresentable?] = []
 
   /// A table mapping val function declarations to the ID of the corresponding C++ declaration.
-  private var valToCXXFunction: [NodeID<FunctionDecl>: Int] = [:]
+  private var valToCXXFunction: [Typed<FunctionDecl>: Int] = [:]
 
-  public init(valDecl: NodeID<ModuleDecl>, name: String) {
-    self.valDecl = valDecl
-    self.name = name
+  public init(_ decl: Typed<ModuleDecl>, for program: TypedProgram) {
+    self.valDecl = decl
+    self.program = program
   }
 
   /// Returns the ID of the C++ function declaration corresponding to `valFunctionDecl`.
   ///
   /// - Requires: `valFunctionDecl` must be declared in `self.decl`.
   public mutating func getOrCreateFunction(
-    correspondingTo valFunctionDecl: NodeID<FunctionDecl>,
-    program: TypedProgram
+    correspondingTo valFunctionDecl: Typed<FunctionDecl>
   ) -> CXXFunctionDecl.ID {
     if let cxxFunctionDecl = valToCXXFunction[valFunctionDecl] { return cxxFunctionDecl }
 
-    assert(program.isGlobal(valFunctionDecl))
+    assert(program.isGlobal(valFunctionDecl.id))
 
     /// The identifier of the function.
-    let identifier = CXXIdentifier(program.ast[valFunctionDecl].identifier?.value ?? "")
+    let identifier = CXXIdentifier(valFunctionDecl.identifier?.value ?? "")
 
     // Determine the output type of the function.
     let output: CXXTypeExpr
@@ -44,7 +43,7 @@ public struct CXXModule {
       // The output type of `main` must be `int`.
       output = CXXTypeExpr("int")
     } else {
-      switch program.declTypes[valFunctionDecl]!.base {
+      switch valFunctionDecl.type.base {
       case let valDeclType as LambdaType:
         output = CXXTypeExpr(valDeclType.output, ast: program.ast, asReturnType: true)!
 
@@ -58,7 +57,7 @@ public struct CXXModule {
 
     // Determine the parameter types of the function.
     let paramTypes: [CallableTypeParameter]
-    switch program.declTypes[valFunctionDecl]!.base {
+    switch valFunctionDecl.type.base {
     case let valDeclType as LambdaType:
       paramTypes = valDeclType.inputs
 
@@ -70,10 +69,10 @@ public struct CXXModule {
     }
 
     // Determine the parameters of the function.
-    assert(paramTypes.count == program.ast[valFunctionDecl].parameters.count)
+    assert(paramTypes.count == valFunctionDecl.parameters.count)
     var cxxParams: [CXXFunctionDecl.Parameter] = []
-    for (i, paramID) in program.ast[valFunctionDecl].parameters.enumerated() {
-      let name = CXXIdentifier(program.ast[paramID].name)
+    for (i, param) in valFunctionDecl.parameters.enumerated() {
+      let name = CXXIdentifier(param.name)
       let type = CXXTypeExpr(paramTypes[i].type, ast: program.ast)
       cxxParams.append(CXXFunctionDecl.Parameter(name, type!))
     }
@@ -107,8 +106,8 @@ public struct CXXModule {
     var output: String = ""
 
     // Emit the header guard.
-    output.write("#ifndef VAL_\(name.uppercased())_\n")
-    output.write("#define VAL_\(name.uppercased())_\n")
+    output.write("#ifndef VAL_\(valDecl.name.uppercased())_\n")
+    output.write("#define VAL_\(valDecl.name.uppercased())_\n")
     output.write("\n")
 
     // Emit include clauses.
@@ -116,7 +115,7 @@ public struct CXXModule {
     output.write("\n")
 
     // Create a namespace for the entire module.
-    output.write("namespace \(name) {\n\n")
+    output.write("namespace \(valDecl.name) {\n\n")
 
     // Emit top-level functions.
     for decl in cxxFunctions {
@@ -135,11 +134,11 @@ public struct CXXModule {
     var output: String = ""
 
     // Emit include clauses.
-    output.write("#include \"\(name).h\"\n")
+    output.write("#include \"\(valDecl.name).h\"\n")
     output.write("\n")
 
     // Create a namespace for the entire module.
-    output.write("namespace \(name) {\n\n")
+    output.write("namespace \(valDecl.name) {\n\n")
 
     // Emit top-level functions.
     for (i, decl) in cxxFunctions.enumerated() {

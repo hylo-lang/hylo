@@ -1,24 +1,29 @@
 import Utils
 
-/// An integer Val IR constant.
+// DWA: This conformance belongs in WideUInt.swift, but is here pending
+// https://github.com/apple/swift/issues/62498.
+extension WideUInt: UnsignedInteger {}
+
+/// An unsigned integer Val IR constant.
 public struct IntegerConstant: ConstantProtocol, Hashable {
 
-  /// The bit pattern of the integer.
-  public let bitPattern: BitPattern
+  public let value: WideUInt
 
-  /// Creates a new integer Val IR constant with the specified bit pattern.
-  public init(bitPattern: BitPattern) {
-    self.bitPattern = bitPattern
+  /// Creates a new integer Val IR constant with value `x` and the given `bitWidth`.
+  ///
+  /// - Precondition: `x` is non-negative and representable in `bitWidth` bits.
+  public init<V: BinaryInteger>(_ x: V, bitWidth: Int) {
+    self.value = WideUInt(exactly: x, bitWidth: bitWidth)!
   }
 
-  public var type: LoweredType { .object(BuiltinType.i(bitPattern.width)) }
+  public var type: LoweredType { .object(BuiltinType.i(value.bitWidth)) }
 
 }
 
 extension IntegerConstant: CustomStringConvertible {
 
   public var description: String {
-    "\(type.astType)(0x\(bitPattern.hexadecimalString()))"
+    "\(type.astType)(0x\(String(value.value, radix: 16)))"
   }
 
 }

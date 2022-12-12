@@ -27,6 +27,9 @@ let package = Package(
     .package(
       url: "https://github.com/val-lang/Durian.git",
       from: "1.2.0"),
+    .package(
+      url: "https://github.com/attaswift/BigInt.git",
+      from: "5.3.0")
   ],
 
   targets: [
@@ -47,6 +50,7 @@ let package = Package(
         "ValModule",
         .product(name: "Collections", package: "swift-collections"),
         .product(name: "Durian", package: "Durian"),
+        .product(name: "BigInt", package: "BigInt"),
       ],
       exclude: ["CXX/README.md"],
       swiftSettings: allTargetsSwiftSettings),
@@ -59,7 +63,9 @@ let package = Package(
 
     .target(
       name: "Utils",
-      swiftSettings: allTargetsSwiftSettings),
+      dependencies: [ .product(name: "BigInt", package: "BigInt") ],
+      swiftSettings: allTargetsSwiftSettings
+    ),
 
     // Test targets.
     .testTarget(

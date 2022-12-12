@@ -14,37 +14,37 @@ public struct CXXTranspiler {
   // MARK: API
 
   /// Emits the C++ module corresponding to the Val module identified by `decl`.
-  public mutating func emit(module decl: NodeID<ModuleDecl>) -> CXXModule {
-    var module = CXXModule(valDecl: decl, name: program.ast[decl].name)
-    for member in program.ast.topLevelDecls(decl) {
+  public mutating func emit(module decl: Typed<ModuleDecl>) -> CXXModule {
+    var module = CXXModule(decl, for: program)
+    for member in decl.topLevelDecls {
       emit(topLevel: member, into: &module)
     }
     return module
   }
 
   /// Emits the given top-level declaration into `module`.
-  public mutating func emit(topLevel decl: AnyDeclID, into module: inout CXXModule) {
+  mutating func emit(topLevel decl: TypedNode<AnyDeclID>, into module: inout CXXModule) {
     switch decl.kind {
     case FunctionDecl.self:
-      emit(function: NodeID(rawValue: decl.rawValue), into: &module)
+      emit(function: Typed<FunctionDecl>(decl)!, into: &module)
     default:
       unreachable("unexpected declaration")
     }
   }
 
   /// Emits the given function declaration into `module`.
-  public mutating func emit(function decl: NodeID<FunctionDecl>, into module: inout CXXModule) {
+  public mutating func emit(function decl: Typed<FunctionDecl>, into module: inout CXXModule) {
     // Declare the function in the module if necessary.
-    let id = module.getOrCreateFunction(correspondingTo: decl, program: program)
+    let id = module.getOrCreateFunction(correspondingTo: decl)
 
     // If we have a body for our function, emit it.
-    if let body = program.ast[decl].body {
+    if let body = decl.body {
       module.setFunctionBody(emit(funBody: body), forID: id)
     }
   }
 
   /// Translate the function body into a CXX entity.
-  private mutating func emit(funBody body: FunctionDecl.Body) -> CXXRepresentable {
+  private mutating func emit(funBody body: Typed<FunctionDecl>.Body) -> CXXRepresentable {
     switch body {
     case .block(let stmt):
       return emit(brace: stmt)
@@ -57,10 +57,10 @@ public struct CXXTranspiler {
 
   // MARK: Declarations
 
-  private mutating func emit(localBinding decl: NodeID<BindingDecl>) -> CXXRepresentable {
-    let pattern = program.ast[decl].pattern
+  private mutating func emit(localBinding decl: Typed<BindingDecl>) -> CXXRepresentable {
+    let pattern = decl.pattern
 
-    switch program.ast[pattern].introducer.value {
+    switch pattern.introducer.value {
     case .var, .sinklet:
       return emit(storedLocalBinding: decl)
     case .let:
@@ -70,31 +70,30 @@ public struct CXXTranspiler {
     }
   }
 
-  private mutating func emit(storedLocalBinding decl: NodeID<BindingDecl>) -> CXXRepresentable {
+  private mutating func emit(storedLocalBinding decl: Typed<BindingDecl>) -> CXXRepresentable {
     return CXXComment(comment: "local binding")
   }
 
   /// Emits borrowed bindings.
   private mutating func emit(
-    borrowedLocalBinding decl: NodeID<BindingDecl>,
+    borrowedLocalBinding decl: Typed<BindingDecl>,
     withCapability capability: RemoteType.Capability
   ) -> CXXRepresentable {
     // There's nothing to do if there's no initializer.
-    if let initializer: AnyExprID = program.ast[decl].initializer {
+    if let initializer = decl.initializer {
 
       let isLValue = (initializer.kind == NameExpr.self) || (initializer.kind == SubscriptCallExpr.self)
 
       // Visit the initializer.
-      let cxxInitialzer = emit(initializer, asLValue: isLValue)
+      let cxxInitialzer = emit(expr: initializer, asLValue: isLValue)
 
       // Visit the patterns.
       var stmts: [CXXRepresentable] = []
-      let pattern = program.ast[decl].pattern
-      for (path, name) in program.ast.names(in: program.ast[pattern].subpattern) {
+      let pattern = decl.pattern
+      for (path, name) in pattern.subpattern.names {
         // TODO: emit code for the patterns.
-        let decl = program.ast[name].decl
-        let declType = program.declTypes[decl]!
-        stmts.append(CXXComment(comment: "decl \(name), type: \(declType.description); path: \(path)"))
+        let decl = name.decl
+        stmts.append(CXXComment(comment: "decl \(name), type: \(decl.type.description); path: \(path)"))
       }
       if stmts.isEmpty {
         // No pattern found; just call the initializer, dropping the result.
@@ -111,50 +110,50 @@ public struct CXXTranspiler {
   // MARK: Statements
 
   /// Emits the given statement into `module` at the current insertion point.
-  private mutating func emit<T: StmtID>(stmt: T) -> CXXRepresentable {
+  private mutating func emit<ID: StmtID>(stmt: TypedNode<ID>) -> CXXRepresentable {
     switch stmt.kind {
     case BraceStmt.self:
-      return emit(brace: NodeID(rawValue: stmt.rawValue))
+      return emit(brace: Typed<BraceStmt>(stmt)!)
     case DeclStmt.self:
-      return emit(declStmt: NodeID(rawValue: stmt.rawValue))
+      return emit(declStmt: Typed<DeclStmt>(stmt)!)
     case ExprStmt.self:
-      return emit(exprStmt: NodeID(rawValue: stmt.rawValue))
+      return emit(exprStmt: Typed<ExprStmt>(stmt)!)
     case ReturnStmt.self:
-      return emit(returnStmt: NodeID(rawValue: stmt.rawValue))
+      return emit(returnStmt: Typed<ReturnStmt>(stmt)!)
     default:
       unreachable("unexpected statement")
     }
   }
 
-  private mutating func emit(brace stmt: NodeID<BraceStmt>) -> CXXRepresentable {
+  private mutating func emit(brace stmt: Typed<BraceStmt>) -> CXXRepresentable {
     var stmts: [CXXRepresentable] = []
-    for s in program.ast[stmt].stmts {
+    for s in stmt.stmts {
       stmts.append(emit(stmt: s))
     }
     return CXXScopedBlock(stmts: stmts)
   }
 
-  private mutating func emit(declStmt stmt: NodeID<DeclStmt>) -> CXXRepresentable {
-    switch program.ast[stmt].decl.kind {
+  private mutating func emit(declStmt stmt: Typed<DeclStmt>) -> CXXRepresentable {
+    switch stmt.decl.kind {
     case BindingDecl.self:
-      return emit(localBinding: NodeID(rawValue: program.ast[stmt].decl.rawValue))
+      return emit(localBinding: Typed<BindingDecl>(stmt.decl)!)
     default:
       unreachable("unexpected declaration")
     }
   }
 
-  private mutating func emit(exprStmt stmt: NodeID<ExprStmt>) -> CXXRepresentable {
+  private mutating func emit(exprStmt stmt: Typed<ExprStmt>) -> CXXRepresentable {
     return CXXComment(comment: "expr stmt")
   }
 
-  private mutating func emit(returnStmt stmt: NodeID<ReturnStmt>) -> CXXRepresentable {
+  private mutating func emit(returnStmt stmt: Typed<ReturnStmt>) -> CXXRepresentable {
     return CXXComment(comment: "return stmt")
   }
 
   // MARK: Expressions
 
   private mutating func emit(
-    _ expr: AnyExprID,
+    expr: TypedNode<AnyExprID>,
     asLValue: Bool
   ) -> CXXRepresentable {
     if asLValue {
