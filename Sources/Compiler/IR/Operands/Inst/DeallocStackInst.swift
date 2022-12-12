@@ -17,7 +17,7 @@ public struct DeallocStackInst: Inst {
 
   public var isTerminator: Bool { false }
 
-  public func check(in module: Module) -> Bool {
+  public func isWellFormed(in module: Module) -> Bool {
     /// The location operand denotes the result of an `alloc_stack` instruction.
     guard let l = location.inst else { return false }
     return module[l.function][l.block][l.address] is AllocStackInst

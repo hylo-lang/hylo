@@ -40,7 +40,7 @@ public struct BorrowInst: Inst {
 
   public var isTerminator: Bool { false }
 
-  public func check(in module: Module) -> Bool {
+  public func isWellFormed(in module: Module) -> Bool {
     // Instruction result has an address type.
     if !borrowedType.isAddress { return false }
 

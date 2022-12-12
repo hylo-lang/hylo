@@ -1,7 +1,16 @@
 import Utils
 
 /// A module lowered to Val IR.
+///
+/// An IR module is notionally composed of a collection of functions, one of which may be
+/// designated as its entry point (i.e., the `main` function of a Val program).
 public struct Module {
+
+/// The form in which a `Module` exposes all its lowered functions.
+  public typealias Functions = [Function]
+
+  /// The program defining the functions in `self`.
+  public let program: TypedProgram
 
   /// The module's declaration.
   public let decl: Typed<ModuleDecl>
@@ -10,7 +19,7 @@ public struct Module {
   public private(set) var uses: [Operand: [Use]] = [:]
 
   /// The functions in the module.
-  public private(set) var functions: [Function] = []
+  public private(set) var functions: Functions = []
 
   /// The ID of the module's entry function, if any.
   public private(set) var entryFunctionID: Function.ID?
@@ -18,9 +27,21 @@ public struct Module {
   /// A map from function declaration its ID in the module.
   private var loweredFunctions: [Typed<FunctionDecl>: Function.ID] = [:]
 
-  public init(decl: Typed<ModuleDecl>) {
-    self.decl = decl
+  /// Creates an IR module lowering `decl` from `program`.
+  ///
+  /// - Requires: `decl` must be a valid module declaration in `program`.
+  public init(_ decl: NodeID<ModuleDecl>, in program: TypedProgram) {
+    self.program = program
+    self.decl = program[decl]
+
+    var emitter = Emitter(program: program)
+    for member in program.ast.topLevelDecls(decl) {
+      emitter.emit(topLevel: program[member], into: &self)
+    }
   }
+
+  /// The module's name.
+  public var name: String { decl.name }
 
   /// Returns the type of `operand`.
   public func type(of operand: Operand) -> LoweredType {
@@ -36,19 +57,23 @@ public struct Module {
     }
   }
 
-  /// Returns whether the module is well-formed.
-  public func check() -> Bool {
+  /// Returns whether the IR in `self` is well-formed.
+  ///
+  /// Use this method as a sanity check to verify the module's invariants.
+  public func isWellFormed() -> Bool {
     for i in 0 ..< functions.count {
-      if !check(function: i) { return false }
+      if !isWellFormed(function: i) { return false }
     }
     return true
   }
 
-  /// Returns whether the specified function is well-formed.
-  public func check(function functionID: Function.ID) -> Bool {
-    for block in functions[functionID].blocks {
+  /// Returns whether `f` is well-formed.
+  ///
+  /// Use this method as a sanity check to verify the function's invariants.
+  public func isWellFormed(function f: Function.ID) -> Bool {
+    for block in functions[f].blocks {
       for inst in block.instructions {
-        if !inst.check(in: self) { return false }
+        if !inst.isWellFormed(in: self) { return false }
       }
     }
     return true
@@ -168,27 +193,9 @@ public struct Module {
 
 extension Module {
 
-  public typealias FunctionIndex = Int
-
-  public subscript(_ position: FunctionIndex) -> Function {
+  public subscript(_ position: Functions.Index) -> Function {
     _read   { yield functions[position] }
     _modify { yield &functions[position] }
-  }
-
-}
-
-extension ParameterType {
-
-  /// Returns `self` as an input to an IR function.
-  func asIRFunctionInput() -> Function.Input {
-    switch convention {
-    case .let, .inout, .set:
-      return (convention: convention, type: .address(bareType))
-    case .sink:
-      return (convention: convention, type: .object(bareType))
-    case .yielded:
-      preconditionFailure("cannot lower yielded parameter")
-    }
   }
 
 }

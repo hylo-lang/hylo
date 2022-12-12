@@ -45,8 +45,7 @@ final class EmitterTests: XCTestCase {
         foldedSequenceExprs: checker.foldedSequenceExprs)
 
       // Emit Val's IR.
-      var emitter = Emitter(program: typedProgram)
-      var irModule = emitter.emit(module: typedProgram[module])
+      var irModule = Module(module, in: typedProgram)
 
       // Run mandatory IR analysis and transformation passes.
       var pipeline: [TransformPass] = [

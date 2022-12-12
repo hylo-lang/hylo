@@ -16,8 +16,10 @@ public protocol Inst {
   /// current block is finished, returns a value, or yields control.
   var isTerminator: Bool { get }
 
-  /// Returns whether the instruction is well-formed.
-  func check(in module: Module) -> Bool
+  /// Returns whether `self` is a well-formed instruction of `module`.
+  ///
+  /// Use this method as a sanity check to verify `self`'s invariants.
+  func isWellFormed(in module: Module) -> Bool
 
 }
 
@@ -25,7 +27,7 @@ public protocol Inst {
 public struct InstID: Hashable {
 
   /// The ID of the containing function.
-  public let function: Module.FunctionIndex
+  public let function: Module.Functions.Index
 
   /// The address of the containing block.
   public let block: Function.BlockAddress

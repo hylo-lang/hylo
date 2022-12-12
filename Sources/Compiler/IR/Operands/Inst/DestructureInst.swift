@@ -19,7 +19,7 @@ public struct DestructureInst: Inst {
 
   public var isTerminator: Bool { false }
 
-  public func check(in module: Module) -> Bool {
+  public func isWellFormed(in module: Module) -> Bool {
     // Instruction results have object types.
     for output in types {
       if output.isAddress { return false }
