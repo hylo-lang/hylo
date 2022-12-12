@@ -21,7 +21,7 @@ public struct Module {
   /// The ID of the module's entry function, if any.
   public private(set) var entryFunctionID: Function.ID?
 
-  /// A map from function declaration to its ID in `self.functions`.
+  /// A map from function declaration to its ID in `self`.
   private var loweredFunctions: [NodeID<FunctionDecl>: Function.ID] = [:]
 
   /// Creates an IR module lowering `decl` from `program`.
