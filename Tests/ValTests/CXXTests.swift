@@ -77,7 +77,7 @@ final class CXXTests: XCTestCase {
 
       // Transpile the module.
       var transpiler = CXXTranspiler(program: typedProgram)
-      let cxxModule = transpiler.emit(module: module)
+      let cxxModule = transpiler.emit(module: typedProgram[module])
       let cxxHeader = cxxModule.emitHeader()
       let cxxSource = cxxModule.emitSource()
 

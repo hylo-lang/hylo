@@ -13,7 +13,7 @@ public struct Module {
   public let program: TypedProgram
 
   /// The module's declaration.
-  public let decl: NodeID<ModuleDecl>
+  public let decl: Typed<ModuleDecl>
 
   /// The def-use chains of the values in this module.
   public private(set) var uses: [Operand: [Use]] = [:]
@@ -24,24 +24,24 @@ public struct Module {
   /// The ID of the module's entry function, if any.
   public private(set) var entryFunctionID: Function.ID?
 
-  /// A map from function declaration to its ID in `self`.
-  private var loweredFunctions: [NodeID<FunctionDecl>: Function.ID] = [:]
+  /// A map from function declaration its ID in the module.
+  private var loweredFunctions: [Typed<FunctionDecl>: Function.ID] = [:]
 
   /// Creates an IR module lowering `decl` from `program`.
   ///
   /// - Requires: `decl` must be a valid module declaration in `program`.
   public init(_ decl: NodeID<ModuleDecl>, in program: TypedProgram) {
     self.program = program
-    self.decl = decl
+    self.decl = program[decl]
 
     var emitter = Emitter(program: program)
     for member in program.ast.topLevelDecls(decl) {
-      emitter.emit(topLevel: member, into: &self)
+      emitter.emit(topLevel: program[member], into: &self)
     }
   }
 
   /// The module's name.
-  public var name: String { program.ast[decl].name }
+  public var name: String { decl.name }
 
   /// Returns the type of `operand`.
   public func type(of operand: Operand) -> LoweredType {
@@ -79,18 +79,18 @@ public struct Module {
     return true
   }
 
-  /// Returns the identifier of the Val IR function corresponding to `declID`.
+  /// Returns the identifier of the Val IR function corresponding to `decl`.
   mutating func getOrCreateFunction(
-    correspondingTo declID: NodeID<FunctionDecl>,
+    correspondingTo decl: Typed<FunctionDecl>,
     program: TypedProgram
   ) -> Function.ID {
-    if let id = loweredFunctions[declID] { return id }
+    if let id = loweredFunctions[decl] { return id }
 
     // Determine the type of the function.
     var inputs: [Function.Input] = []
     let output: LoweredType
 
-    switch program.declTypes[declID]!.base {
+    switch decl.type.base {
     case let declType as LambdaType:
       output = LoweredType(lowering: declType.output)
       inputs.reserveCapacity(declType.captures.count + declType.inputs.count)
@@ -130,27 +130,27 @@ public struct Module {
 
     // Declare a new function in the module.
     let loweredID = functions.count
-    let locator = DeclLocator(identifying: declID, in: program)
+    let locator = DeclLocator(identifying: decl.id, in: program)
     let function = Function(
       name: locator.mangled,
       debugName: locator.description,
-      linkage: program.ast[declID].isPublic ? .external : .module,
+      linkage: decl.isPublic ? .external : .module,
       inputs: inputs,
       output: output,
       blocks: [])
     functions.append(function)
 
     // Determine if the new function is the module's entry.
-    if program.declToScope[declID]?.kind == TopLevelDeclSet.self,
-       program.ast[declID].isPublic,
-       program.ast[declID].identifier?.value == "main"
+    if decl.scope.kind == TopLevelDeclSet.self,
+       decl.isPublic,
+       decl.identifier?.value == "main"
     {
       assert(entryFunctionID == nil)
       entryFunctionID = loweredID
     }
 
     // Update the cache and return the ID of the newly created function.
-    loweredFunctions[declID] = loweredID
+    loweredFunctions[decl] = loweredID
     return loweredID
   }
 
