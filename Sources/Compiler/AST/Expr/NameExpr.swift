@@ -7,7 +7,7 @@ public struct NameExpr: Expr {
   /// `implicit` and `expr(AnyExprID)`.
   public enum Domain: ExpressibleByNilLiteral, Equatable, Codable {
 
-    /// Domain is absent, as in `bar`.
+    /// Unqualified as in `bar`.
     case none
 
     /// Domain is implicit, as in `.bar`; the expression denotes a type member.
