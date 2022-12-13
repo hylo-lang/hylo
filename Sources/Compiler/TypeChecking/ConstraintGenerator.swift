@@ -743,9 +743,22 @@ struct ConstraintGenerator {
 
     // Case 2
     if let calleeType = TypeVariable(inferredTypes[callee]!) {
-      // Note: We'll have to let the constraint solver determine the subscript's capabilities
-      _ = calleeType
-      fatalError("not implemented")
+      let parameters = visit(arguments: checker.program.ast[id].arguments, using: &checker)
+      let returnType = expectedTypes[id] ?? ^TypeVariable(node: AnyNodeID(id))
+      let assumedCalleeType = SubscriptImplType(
+        isProperty: false,
+        receiverEffect: nil,
+        environment: ^TypeVariable(),
+        inputs: parameters,
+        output: returnType)
+
+      constraints.append(
+        EqualityConstraint(
+          ^calleeType, ^assumedCalleeType,
+          because: ConstraintCause(.callee, at: checker.program.ast[callee].origin)))
+
+      assume(typeOf: id, equals: returnType, at: checker.program.ast[id].origin)
+      return
     }
 
     // Case 3a
