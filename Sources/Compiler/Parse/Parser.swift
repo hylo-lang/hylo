@@ -2888,11 +2888,11 @@ public enum Parser {
   )
 
   static let passingConvention = translate([
-    .let    : PassingConvention.let,
-    .inout  : PassingConvention.inout,
-    .set    : PassingConvention.set,
-    .sink   : PassingConvention.sink,
-    .yielded: PassingConvention.yielded,
+    .let    : AccessEffect.let,
+    .inout  : AccessEffect.inout,
+    .set    : AccessEffect.set,
+    .sink   : AccessEffect.sink,
+    .yielded: AccessEffect.yielded,
   ])
 
   static let whereClause = (

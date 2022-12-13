@@ -1,19 +1,19 @@
-/// A parameter passing convention.
-public enum PassingConvention: Codable {
+/// An access effect, specifying how a parameter, receiver, or remote part is accessed
+public enum AccessEffect: Codable {
 
-  /// Pass by immutable projection.
+  /// Value is accessed immutably.
   case `let`
 
-  /// Pass by assignable projection.
+  /// Value is assigned but never read.
   case `set`
 
-  /// Pass by mutable projection.
+  /// Value is accessed mutably.
   case `inout`
 
-  /// Pass by consumption.
+  /// Value is consumed.
   case sink
 
-  /// Yielded.
+  /// Value may be accessed with any of the other effects, depending on the context.
   case yielded
 
   /// Creates the passing convention that corresponds to `capability`.

@@ -101,7 +101,7 @@ public struct Module {
         case let type as RemoteType:
           precondition(type.capability != .yielded, "cannot lower yielded parameter")
           inputs.append((
-            convention: PassingConvention(matching: type.capability), type: .address(type.base)))
+            convention: AccessEffect(matching: type.capability), type: .address(type.base)))
 
         case let type:
           switch declType.receiverEffect {

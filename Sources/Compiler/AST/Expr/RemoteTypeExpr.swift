@@ -7,14 +7,14 @@ public struct RemoteTypeExpr: Expr {
   public let introducerRange: SourceRange?
 
   /// The passing convention of the remote type.
-  public var convention: SourceRepresentable<PassingConvention>
+  public var convention: SourceRepresentable<AccessEffect>
 
   /// The expression of the projected type.
   public let operand: AnyTypeExprID
 
   public init(
     introducerRange: SourceRange?,
-    convention: SourceRepresentable<PassingConvention>,
+    convention: SourceRepresentable<AccessEffect>,
     operand: AnyTypeExprID,
     origin: SourceRange?
   ) {

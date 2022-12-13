@@ -435,7 +435,7 @@ public struct TypeChecker {
 
       if let type = functionType.captures.first?.type.base as? RemoteType {
         // `let` and `inout` methods capture a projection of their receiver.
-        let convention: PassingConvention
+        let convention: AccessEffect
         switch type.capability {
         case .let   : convention = .let
         case .inout : convention = .inout

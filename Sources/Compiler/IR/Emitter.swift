@@ -466,10 +466,10 @@ public struct Emitter {
     // Determine the callee's convention.
     let calleeConvention = calleeType.receiverEffect.map(
       default: .let,
-      PassingConvention.init(matching:))
+      AccessEffect.init(matching:))
 
     // Arguments are evaluated first, from left to right.
-    var argumentConventions: [PassingConvention] = []
+    var argumentConventions: [AccessEffect] = []
     var arguments: [Operand] = []
 
     for (parameter, argument) in zip(calleeType.inputs, expr.arguments) {
@@ -520,7 +520,7 @@ public struct Emitter {
         // Add the receiver to the arguments.
         if let type = RemoteType(receiverType) {
           // The receiver as a borrowing convention.
-          argumentConventions.insert(PassingConvention(matching: type.capability), at: 0)
+          argumentConventions.insert(AccessEffect(matching: type.capability), at: 0)
 
           switch calleeNameExpr.domain {
           case .none:
@@ -638,7 +638,7 @@ public struct Emitter {
   }
 
   private mutating func emit(
-    _ convention: PassingConvention,
+    _ convention: AccessEffect,
     foldedSequence expr: FoldedSequenceExpr,
     into module: inout Module
   ) -> Operand {
@@ -650,10 +650,10 @@ public struct Emitter {
       let rhsType = calleeType.inputs[0].type.base as! ParameterType
       let rhsOperand = emit(rhsType.convention, foldedSequence: rhs, into: &module)
 
-      let lhsConvention: PassingConvention
+      let lhsConvention: AccessEffect
       let lhsOperand: Operand
       if let lhsType = RemoteType(calleeType.captures[0].type) {
-        lhsConvention = PassingConvention(matching: lhsType.capability)
+        lhsConvention = AccessEffect(matching: lhsType.capability)
         lhsOperand = emit(lhsConvention, foldedSequence: lhs, into: &module)
       } else {
         lhsConvention = .sink
@@ -723,7 +723,7 @@ public struct Emitter {
   /// - Requires: `expr` has a lambda type.
   private mutating func emitCallee(
     _ expr: AnyExprID.TypedNode,
-    conventions: inout [PassingConvention],
+    conventions: inout [AccessEffect],
     arguments: inout [Operand],
     into module: inout Module
   ) -> Operand {
@@ -766,7 +766,7 @@ public struct Emitter {
         // Add the receiver to the arguments.
         if let type = RemoteType(receiverType) {
           // The receiver has a borrowing convention.
-          conventions.insert(PassingConvention(matching: type.capability), at: 1)
+          conventions.insert(AccessEffect(matching: type.capability), at: 1)
 
           switch nameExpr.domain {
           case .none:

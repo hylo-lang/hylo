@@ -10,7 +10,7 @@ public struct Function {
   public typealias BlockAddress = DoublyLinkedList<Block>.Address
 
   /// The profile of a IR function input.
-  public typealias Input = (convention: PassingConvention, type: LoweredType)
+  public typealias Input = (convention: AccessEffect, type: LoweredType)
 
   /// The mangled name of the function.
   public let name: String
