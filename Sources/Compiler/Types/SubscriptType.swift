@@ -44,6 +44,7 @@ public struct SubscriptType: TypeProtocol {
     SubscriptType(
       isProperty: isProperty,
       capabilities: capabilities,
+      environment: environment.transform(transformer),
       inputs: inputs.map({ (p) -> CallableTypeParameter in
         .init(label: p.label, type: p.type.transform(transformer))
       }),
