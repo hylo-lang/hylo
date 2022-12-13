@@ -1,7 +1,7 @@
 /// A name denoting an object.
 public struct NameExpr: Expr {
 
-  /// The expression of a name's qualification, or absence thereof.
+  /// A name's qualification
   ///
   /// This type is notionaly equivalent to `Optional<D>` where `D` is an enum with the cases
   /// `implicit` and `expr(AnyExprID)`.
