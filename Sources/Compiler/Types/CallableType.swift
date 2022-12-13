@@ -9,5 +9,5 @@ protocol CallableType {
 
   /// The return type of the callable value.
   var output: AnyType { get }
-  
+
 }

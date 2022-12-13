@@ -146,24 +146,24 @@ public struct Token {
   public var mayBeginDecl: Bool {
     switch kind {
     case .`conformance`,
-         .`extension`,
-         .`fun`,
-         .`import`,
-         .`infix`,
-         .`init`,
-         .`inout`,
-         .`let`,
-         .`namespace`,
-         .`operator`,
-         .`postfix`,
-         .`prefix`,
-         .`property`,
-         .`sink`,
-         .`subscript`,
-         .`trait`,
-         .`type`,
-         .`typealias`,
-         .`var`:
+      .`extension`,
+      .`fun`,
+      .`import`,
+      .`infix`,
+      .`init`,
+      .`inout`,
+      .`let`,
+      .`namespace`,
+      .`operator`,
+      .`postfix`,
+      .`prefix`,
+      .`property`,
+      .`sink`,
+      .`subscript`,
+      .`trait`,
+      .`type`,
+      .`typealias`,
+      .`var`:
       return true
 
     default:

@@ -113,7 +113,7 @@ struct ConstraintGenerator {
   }
 
   private mutating func visit(
-    bufferLiteral id : NodeID<BufferLiteralExpr>,
+    bufferLiteral id: NodeID<BufferLiteralExpr>,
     using checker: inout TypeChecker
   ) {
     fatalError("not implemented")
@@ -291,8 +291,8 @@ struct ConstraintGenerator {
 
     // Case 3b
     if let c = NodeID<NameExpr>(callee),
-       let d = checker.referredDecls[c]?.decl,
-       checker.isNominalTypeDecl(d)
+      let d = checker.referredDecls[c]?.decl,
+      checker.isNominalTypeDecl(d)
     {
       assert(inferredTypes[callee]?.base is MetatypeType)
 
@@ -312,11 +312,12 @@ struct ConstraintGenerator {
 
           if labels.elementsEqual(ctor.labels) {
             let (ty, cs) = checker.open(type: ^ctor)
-            candidates.append(OverloadConstraint.Candidate(
-              reference: .direct(initializer.decl),
-              type: ty,
-              constraints: cs,
-              penalties: 0))
+            candidates.append(
+              OverloadConstraint.Candidate(
+                reference: .direct(initializer.decl),
+                type: ty,
+                constraints: cs,
+                penalties: 0))
           }
         }
 
@@ -420,7 +421,7 @@ struct ConstraintGenerator {
                 ConformanceConstraint(^tau, traits: [trait], because: cause)
               ],
               penalties: 1),
-            ],
+          ],
           because: cause))
       assume(typeOf: id, equals: tau, at: checker.program.ast[id].origin)
 
@@ -458,20 +459,22 @@ struct ConstraintGenerator {
     if let expectedType = LambdaType(expectedTypes[id]!) {
       // Check that the declaration defines the expected number of parameters.
       if declType.inputs.count != expectedType.inputs.count {
-        diagnostics.append(.diagnose(
-          expectedLambdaParameterCount: expectedType.inputs.count,
-          found: declType.inputs.count,
-          at: checker.program.ast[id].origin))
+        diagnostics.append(
+          .diagnose(
+            expectedLambdaParameterCount: expectedType.inputs.count,
+            found: declType.inputs.count,
+            at: checker.program.ast[id].origin))
         assignToError(id)
         return
       }
 
       // Check that the declaration defines the expected argument labels.
       if !declType.labels.elementsEqual(expectedType.labels) {
-        diagnostics.append(.diagnose(
-          labels: Array(declType.labels),
-          incompatibleWith: Array(expectedType.labels),
-          at: checker.program.ast[id].origin))
+        diagnostics.append(
+          .diagnose(
+            labels: Array(declType.labels),
+            incompatibleWith: Array(expectedType.labels),
+            at: checker.program.ast[id].origin))
         assignToError(id)
         return
       }
@@ -598,23 +601,25 @@ struct ConstraintGenerator {
       let cause = ConstraintCause(.member, at: checker.program.ast[id].origin)
 
       if let base = NodeID<NameExpr>(domain),
-         let decl = checker.referredDecls[base]?.decl,
-         checker.isNominalTypeDecl(decl)
+        let decl = checker.referredDecls[base]?.decl,
+        checker.isNominalTypeDecl(decl)
       {
-        constraints.append(UnboundMemberConstraint(
-          type: domainType,
-          hasMemberExpressedBy: id,
-          in: checker.program.ast,
-          ofType: inferredType,
-          because: cause))
+        constraints.append(
+          UnboundMemberConstraint(
+            type: domainType,
+            hasMemberExpressedBy: id,
+            in: checker.program.ast,
+            ofType: inferredType,
+            because: cause))
       } else {
         // FIXME: We can't assume the domain is an instance if types are first-class.
-        constraints.append(BoundMemberConstraint(
-          type: domainType,
-          hasMemberExpressedBy: id,
-          in: checker.program.ast,
-          ofType: inferredType,
-          because: cause))
+        constraints.append(
+          BoundMemberConstraint(
+            type: domainType,
+            hasMemberExpressedBy: id,
+            in: checker.program.ast,
+            ofType: inferredType,
+            because: cause))
       }
 
     case .implicit:
@@ -778,8 +783,8 @@ struct ConstraintGenerator {
 
     // Case 3b
     if let c = NodeID<NameExpr>(callee),
-       let d = checker.referredDecls[c]?.decl,
-       checker.isNominalTypeDecl(d)
+      let d = checker.referredDecls[c]?.decl,
+      checker.isNominalTypeDecl(d)
     {
       assert(inferredTypes[callee]?.base is MetatypeType)
 
@@ -865,21 +870,23 @@ struct ConstraintGenerator {
     // information down the expression tree. Otherwise, infer the type of the expression from the
     // leaves and use type constraints to detect potential mismatch.
     if let type = TupleType(expectedTypes[id]),
-       type.elements.elementsEqual(tupleExpr, by: { (a, b) in a.label == b.label?.value })
+      type.elements.elementsEqual(tupleExpr, by: { (a, b) in a.label == b.label?.value })
     {
       for i in 0 ..< tupleExpr.count {
         expectedTypes[tupleExpr[i].value] = type.elements[i].type
         visit(expr: tupleExpr[i].value, using: &checker)
-        tupleTypeElements.append(TupleType.Element(
-          label: tupleExpr[i].label?.value,
-          type: inferredTypes[tupleExpr[i].value]!))
+        tupleTypeElements.append(
+          TupleType.Element(
+            label: tupleExpr[i].label?.value,
+            type: inferredTypes[tupleExpr[i].value]!))
       }
     } else {
       for i in 0 ..< tupleExpr.count {
         visit(expr: tupleExpr[i].value, using: &checker)
-        tupleTypeElements.append(TupleType.Element(
-          label: tupleExpr[i].label?.value,
-          type: inferredTypes[tupleExpr[i].value]!))
+        tupleTypeElements.append(
+          TupleType.Element(
+            label: tupleExpr[i].label?.value,
+            type: inferredTypes[tupleExpr[i].value]!))
       }
     }
 
@@ -915,10 +922,11 @@ struct ConstraintGenerator {
 
     // Check that the labels inferred from the callee are consistent with that of the call.
     if argumentLabels != parameterLabels {
-      diagnostics.append(.diagnose(
-        labels: argumentLabels,
-        incompatibleWith: parameterLabels,
-        at: checker.program.ast[callee].origin))
+      diagnostics.append(
+        .diagnose(
+          labels: argumentLabels,
+          incompatibleWith: parameterLabels,
+          at: checker.program.ast[callee].origin))
       return false
     }
 
@@ -998,9 +1006,10 @@ struct ConstraintGenerator {
 
       switch candidates.count {
       case 0:
-        checker.diagnostics.insert(.diagnose(
-          undefinedOperator: operatorStem,
-          at: checker.program.ast[tail[i].operator].origin))
+        checker.diagnostics.insert(
+          .diagnose(
+            undefinedOperator: operatorStem,
+            at: checker.program.ast[tail[i].operator].origin))
         accumulator.append(
           operator: (expr: tail[i].operator, precedence: nil),
           right: tail[i].operand)

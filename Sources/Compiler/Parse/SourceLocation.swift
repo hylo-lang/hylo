@@ -65,7 +65,7 @@ extension SourceLocation: CustomReflectable {
       children: [
         "sourceURL": source.url,
         "line": line,
-        "column": column
+        "column": column,
       ])
   }
 

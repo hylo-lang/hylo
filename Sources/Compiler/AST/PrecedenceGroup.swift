@@ -33,16 +33,16 @@ public enum PrecedenceGroup: String, Codable {
   /// The binding power of the operators in the group.
   public var power: Int {
     switch self {
-    case .assignment      : return 1
-    case .disjunction     : return 2
-    case .conjunction     : return 3
-    case .comparison      : return 4
-    case .fallback        : return 5
-    case .range           : return 6
-    case .addition        : return 7
-    case .multiplication  : return 8
-    case .shift           : return 9
-    case .exponentiation  : return 10
+    case .assignment: return 1
+    case .disjunction: return 2
+    case .conjunction: return 3
+    case .comparison: return 4
+    case .fallback: return 5
+    case .range: return 6
+    case .addition: return 7
+    case .multiplication: return 8
+    case .shift: return 9
+    case .exponentiation: return 10
     }
   }
 

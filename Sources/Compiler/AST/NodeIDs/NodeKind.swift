@@ -54,7 +54,7 @@ public struct NodeKind: Codable, Equatable, Hashable {
   }
 
   /// Returns true iff `me` and `pattern` denote the same node type.
-  static func ~=(pattern: Node.Type, me: Self) -> Bool {
+  static func ~= (pattern: Node.Type, me: Self) -> Bool {
     me == pattern
   }
 
@@ -174,7 +174,7 @@ extension NodeKind {
 
     // MARK: Others
     MatchCase.self,
-    TopLevelDeclSet.self
+    TopLevelDeclSet.self,
   ]
 
   static let indices = Dictionary(

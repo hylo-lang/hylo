@@ -182,10 +182,11 @@ public struct DoublyLinkedList<Element> {
       newAddress = Address(storage.count)
       freeOffset = storage.count + 1
 
-      storage.append(Bucket(
-        previousOffset: address.rawValue,
-        nextOffset: storage[address.rawValue].nextOffset,
-        element: newElement))
+      storage.append(
+        Bucket(
+          previousOffset: address.rawValue,
+          nextOffset: storage[address.rawValue].nextOffset,
+          element: newElement))
     } else {
       newAddress = Address(freeOffset)
       freeOffset = storage[freeOffset].nextOffset
@@ -219,10 +220,11 @@ public struct DoublyLinkedList<Element> {
       newAddress = Address(storage.count)
       freeOffset = storage.count + 1
 
-      storage.append(Bucket(
-        previousOffset: storage[address.rawValue].previousOffset,
-        nextOffset: address.rawValue,
-        element: newElement))
+      storage.append(
+        Bucket(
+          previousOffset: storage[address.rawValue].previousOffset,
+          nextOffset: address.rawValue,
+          element: newElement))
     } else {
       newAddress = Address(freeOffset)
       freeOffset = storage[freeOffset].nextOffset
@@ -333,7 +335,7 @@ extension DoublyLinkedList: BidirectionalCollection, MutableCollection {
   }
 
   public subscript(position: Index) -> Element {
-    _read   { yield self[position.address] }
+    _read { yield self[position.address] }
     _modify { yield &self[position.address] }
   }
 

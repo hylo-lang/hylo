@@ -9,7 +9,8 @@ public struct UnionType: TypeProtocol {
   /// Creates a new union type with the specified elements.
   public init<S: Sequence>(_ elements: S) where S.Element == AnyType {
     self.elements = Set(elements)
-    self.flags = self.elements.isEmpty
+    self.flags =
+      self.elements.isEmpty
       ? [.isCanonical]
       : TypeFlags(merging: self.elements.map({ $0.flags }))
   }
