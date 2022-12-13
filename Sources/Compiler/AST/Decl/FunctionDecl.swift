@@ -25,8 +25,8 @@ public struct FunctionDecl: GenericDecl, GenericScope {
   /// The member modifier of the declaration.
   public let memberModifier: SourceRepresentable<MemberModifier>?
 
-  /// The receiver effect of the function.
-  public let receiverEffect: SourceRepresentable<ReceiverEffect>?
+  /// The access effect of the function's receiver.
+  public let receiverEffect: SourceRepresentable<AccessEffect>?
 
   /// The operator notation of the function.
   public let notation: SourceRepresentable<OperatorNotation>?
@@ -63,7 +63,7 @@ public struct FunctionDecl: GenericDecl, GenericScope {
     attributes: [SourceRepresentable<Attribute>] = [],
     accessModifier: SourceRepresentable<AccessModifier>? = nil,
     memberModifier: SourceRepresentable<MemberModifier>? = nil,
-    receiverEffect: SourceRepresentable<ReceiverEffect>? = nil,
+    receiverEffect: SourceRepresentable<AccessEffect>? = nil,
     notation: SourceRepresentable<OperatorNotation>? = nil,
     identifier: SourceRepresentable<Identifier>? = nil,
     genericClause: SourceRepresentable<GenericClause>? = nil,

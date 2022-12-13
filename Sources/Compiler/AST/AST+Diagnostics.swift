@@ -243,7 +243,7 @@ extension Diagnostic {
   }
 
   static func diagnose(
-    unexpectedEffect e: SourceRepresentable<ReceiverEffect>
+    unexpectedEffect e: SourceRepresentable<AccessEffect>
   ) -> Diagnostic {
     .error(
       "unexpected effect '\(e.value)'",

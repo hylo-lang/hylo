@@ -434,18 +434,9 @@ public struct TypeChecker {
       let receiverDecl = program.ast[id].receiver!
 
       if let type = functionType.captures.first?.type.base as? RemoteType {
-        // `let` and `inout` methods capture a projection of their receiver.
-        let convention: PassingConvention
-        switch type.capability {
-        case .let   : convention = .let
-        case .inout : convention = .inout
-        case .set, .yielded:
-          unreachable()
-        }
-
-        declTypes[receiverDecl] = ^ParameterType(convention: convention, bareType: type.base)
+        declTypes[receiverDecl] = ^ParameterType(convention: type.capability, bareType: type.base)
       } else {
-        // `sink` methods capture their receiver.
+        // `sink` member functions capture their receiver.
         assert(program.ast[id].isSink)
         declTypes[receiverDecl] = ^ParameterType(
           convention: .sink,
@@ -2598,7 +2589,7 @@ public struct TypeChecker {
 
     if isNonStaticMember {
       // Create a lambda bound to a receiver.
-      let effect: ReceiverEffect?
+      let effect: AccessEffect?
       if program.ast[id].isInout {
         receiver = ^TupleType([.init(label: "self", type: ^RemoteType(.inout, receiver!))])
         effect = .inout

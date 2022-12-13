@@ -4,13 +4,13 @@ public struct ParameterTypeExpr: Expr {
   public let origin: SourceRange?
 
   /// The passing convention of the parameter.
-  public let convention: SourceRepresentable<PassingConvention>
+  public let convention: SourceRepresentable<AccessEffect>
 
   /// The expression of the parameter's bare type.
   public let bareType: AnyTypeExprID
 
   public init(
-    convention: SourceRepresentable<PassingConvention>,
+    convention: SourceRepresentable<AccessEffect>,
     bareType: AnyTypeExprID,
     origin: SourceRange?
   ) {

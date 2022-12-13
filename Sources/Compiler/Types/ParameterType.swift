@@ -4,7 +4,7 @@ import Utils
 public struct ParameterType: TypeProtocol {
 
   /// The passing convention of the parameter.
-  public let convention: PassingConvention
+  public let convention: AccessEffect
 
   /// The bare type.
   public let bareType: AnyType
@@ -12,7 +12,7 @@ public struct ParameterType: TypeProtocol {
   public let flags: TypeFlags
 
   /// Creates an instance with the given properties.
-  public init(convention: PassingConvention, bareType: AnyType) {
+  public init(convention: AccessEffect, bareType: AnyType) {
     self.convention = convention
     self.bareType = bareType
     self.flags = bareType.flags
