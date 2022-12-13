@@ -83,7 +83,7 @@ public enum BuiltinSymbols {
 
 extension LambdaType {
 
-  fileprivate init(from inputs: (PassingConvention, BuiltinType)..., to output: AnyType) {
+  fileprivate init(from inputs: (AccessEffect, BuiltinType)..., to output: AnyType) {
     self.init(
       inputs: inputs.map({ (convention, type) -> CallableTypeParameter in
         .init(type: ^ParameterType(convention: convention, bareType: .builtin(type)))

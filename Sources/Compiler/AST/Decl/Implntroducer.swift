@@ -10,7 +10,7 @@ public enum ImplIntroducer: Codable {
   case sink
 
   /// The parameter passing convention corresponding to this introducer.
-  public var convention: PassingConvention {
+  public var convention: AccessEffect {
     switch self {
     case .let   : return .let
     case .inout : return .inout

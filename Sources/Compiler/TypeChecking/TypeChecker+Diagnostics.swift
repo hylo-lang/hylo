@@ -100,7 +100,7 @@ extension Diagnostic {
   }
 
   static func diagnose(
-    illegalParameterConvention convention: PassingConvention,
+    illegalParameterConvention convention: AccessEffect,
     at range: SourceRange?
   ) -> Diagnostic {
     .error("'\(convention)' may only be used on parameters", range: range)

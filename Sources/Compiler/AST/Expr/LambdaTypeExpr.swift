@@ -20,7 +20,7 @@ public struct LambdaTypeExpr: Expr {
   public private(set) var origin: SourceRange?
 
   /// The effect of the lambda's call operator.
-  public let receiverEffect: SourceRepresentable<ReceiverEffect>?
+  public let receiverEffect: SourceRepresentable<AccessEffect>?
 
   /// The environment of the lambda, or `nil` if it is thin.
   public private(set) var environment: AnyTypeExprID?
@@ -32,7 +32,7 @@ public struct LambdaTypeExpr: Expr {
   public let output: AnyExprID
 
   public init(
-    receiverEffect: SourceRepresentable<ReceiverEffect>?,
+    receiverEffect: SourceRepresentable<AccessEffect>?,
     environment: AnyExprID?,
     parameters: [Parameter],
     output: AnyTypeExprID,
