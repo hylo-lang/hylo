@@ -38,7 +38,7 @@ extension TypedProgram {
   /// Bundles `id` together with `self`.
   public subscript<TargetID: NodeIDProtocol>(_ id: TargetID) -> TypedNode<TargetID>
   {
-    TypedNode<TargetID>(program: self, id: id)
+    TypedNode(program: self, id: id)
   }
 }
 
