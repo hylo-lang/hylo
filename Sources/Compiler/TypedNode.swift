@@ -14,7 +14,7 @@ extension AST {
 public struct TypedNode<ID: NodeIDProtocol> : Hashable {
 
   /// The program program of which this node is a notional part.
-  fileprivate let program: TypedProgram
+  private let program: TypedProgram
 
   /// The node's identity in `program.ast`.
   let id: ID
