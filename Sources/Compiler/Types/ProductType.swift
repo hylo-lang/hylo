@@ -7,12 +7,12 @@ public struct ProductType: TypeProtocol {
   public let decl: NodeID<ProductTypeDecl>
 
   /// The name of the product type.
-  public let name: Incidental<String>
+  @Incidental public private(set) var name: String
 
   /// Creates an instance denoting the product type declared by `decl`.
   public init(_ decl: NodeID<ProductTypeDecl>, ast: AST) {
     self.decl = decl
-    self.name = Incidental(ast[decl].name)
+    self.name = ast[decl].name
   }
 
   public var flags: TypeFlags { .isCanonical }
@@ -21,6 +21,6 @@ public struct ProductType: TypeProtocol {
 
 extension ProductType: CustomStringConvertible {
 
-  public var description: String { name.value }
+  public var description: String { name }
 
 }

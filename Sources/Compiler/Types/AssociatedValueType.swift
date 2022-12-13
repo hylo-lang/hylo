@@ -12,7 +12,7 @@ public struct AssociatedValueType: TypeProtocol {
   public let domain: AnyType
 
   /// The name of the associated type.
-  public let name: Incidental<String>
+  @Incidental public private(set) var name: String
 
   /// Creates an instance denoting the associated value declared by `decl` as a member of `domain`.
   ///
@@ -26,7 +26,7 @@ public struct AssociatedValueType: TypeProtocol {
     }
 
     self.decl = decl
-    self.name = Incidental(ast[decl].name)
+    self.name = ast[decl].name
   }
 
   public var flags: TypeFlags { .isCanonical }
@@ -35,6 +35,6 @@ public struct AssociatedValueType: TypeProtocol {
 
 extension AssociatedValueType: CustomStringConvertible {
 
-  public var description: String { "\(domain).\(name.value)" }
+  public var description: String { "\(domain).\(name)" }
 
 }

@@ -21,7 +21,7 @@ public struct CXXTypeExpr: CustomStringConvertible {
       if type == ast.coreType(named: "Int") {
         description = "int"
       } else {
-        description = type.name.value
+        description = type.name
       }
 
     case let type as ParameterType:

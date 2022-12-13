@@ -7,12 +7,12 @@ public struct ModuleType: TypeProtocol {
   public let decl: NodeID<ModuleDecl>
 
   /// The name of the module.
-  public let name: Incidental<String>
+  @Incidental public private(set) var name: String
 
   /// Creates an instance denoting the module declared by `decl`.
   public init(_ decl: NodeID<ModuleDecl>, ast: AST) {
     self.decl = decl
-    self.name = Incidental(ast[decl].name)
+    self.name = ast[decl].name
   }
 
   public var flags: TypeFlags { .isCanonical }
@@ -21,6 +21,6 @@ public struct ModuleType: TypeProtocol {
 
 extension ModuleType: CustomStringConvertible {
 
-  public var description: String { name.value }
+  public var description: String { name }
 
 }

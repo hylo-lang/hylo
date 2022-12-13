@@ -587,7 +587,7 @@ public struct Emitter {
 
     // Determine the bit width of the value.
     let bitWidth: Int
-    switch type.name.value {
+    switch type.name {
     case "Int"    : bitWidth = 64
     case "Int32"  : bitWidth = 32
     default:

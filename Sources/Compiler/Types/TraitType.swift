@@ -7,12 +7,12 @@ public struct TraitType: TypeProtocol {
   public let decl: NodeID<TraitDecl>
 
   /// The name of the trait.
-  public let name: Incidental<String>
+  @Incidental public private(set) var name: String
 
   /// Creates an instance denoting the product type declared by `decl`.
   public init(_ decl: NodeID<TraitDecl>, ast: AST) {
     self.decl = decl
-    self.name = Incidental(ast[decl].name)
+    self.name = ast[decl].name
   }
 
   public var flags: TypeFlags { .isCanonical }
@@ -21,6 +21,6 @@ public struct TraitType: TypeProtocol {
 
 extension TraitType: CustomStringConvertible {
 
-  public var description: String { name.value }
+  public var description: String { name }
 
 }

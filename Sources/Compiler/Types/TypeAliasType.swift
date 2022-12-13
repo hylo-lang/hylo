@@ -7,12 +7,12 @@ public struct TypeAliasType: TypeProtocol {
   public let decl: NodeID<TypeAliasDecl>
   
   /// The name of the alias.
-  public let name: Incidental<String>
+  @Incidental public private(set) var name: String
 
   /// Creates an instance denoting the product type declared by `decl`.
   public init(_ decl: NodeID<TypeAliasDecl>, ast: AST) {
     self.decl = decl
-    self.name = Incidental(ast[decl].name)
+    self.name = ast[decl].name
   }
   
   public var flags: TypeFlags { .isCanonical }
@@ -21,6 +21,6 @@ public struct TypeAliasType: TypeProtocol {
 
 extension TypeAliasType: CustomStringConvertible {
 
-  public var description: String { name.value }
+  public var description: String { name }
 
 }

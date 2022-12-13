@@ -9,7 +9,7 @@ public struct GenericValueParameterType: TypeProtocol {
   public let decl: AnyDeclID
 
   /// The name of the parameter.
-  public let name: Incidental<String>
+  @Incidental public private(set) var name: String
 
   /// Creates an instance denoting the generic value parameter declared by `decl`.
   ///
@@ -19,7 +19,7 @@ public struct GenericValueParameterType: TypeProtocol {
 
     switch decl.kind {
     case GenericParameterDecl.self, AssociatedValueDecl.self:
-      name = Incidental((ast[decl] as! SingleEntityDecl).name)
+      name = (ast[decl] as! SingleEntityDecl).name
     default:
       preconditionFailure("invalid declaration")
     }
@@ -31,6 +31,6 @@ public struct GenericValueParameterType: TypeProtocol {
 
 extension GenericValueParameterType: CustomStringConvertible {
 
-  public var description: String { name.value }
+  public var description: String { name }
 
 }
