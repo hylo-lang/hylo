@@ -714,10 +714,129 @@ struct ConstraintGenerator {
   }
 
   private mutating func visit(
-    subscriptCall i: NodeID<SubscriptCallExpr>,
+    subscriptCall id: NodeID<SubscriptCallExpr>,
     using checker: inout TypeChecker
   ) {
-    fatalError("not implemented")
+    defer { assert(inferredTypes[id] != nil) }
+
+    // Infer the type of the callee.
+    let callee = checker.program.ast[id].callee
+    visit(expr: callee, using: &checker)
+
+    // The following cases must be considered:
+    //
+    // 1. We failed to infer the type of the callee. We can stop here.
+    // 2. We couldn't infer the exact type of the callee and must rely on bottom-up inference.
+    // 3. We determined the exact type of the callee, and:
+    //   a. it's a subscript type. In that case, we can use the parameters to validate the
+    //      arguments' labels and infer their types.
+    //   b. it's a metatype and the the callee is a name expression referring to a nominal type
+    //      declaration. In that case, the call is actually a sugared buffer type expression.
+    //   c. it's any other type. In that case we must look for an unnamed member subscript in that
+    //      type and use it at the callee's type.
+
+    // Case 1
+    if inferredTypes[callee]!.isError {
+      assignToError(id)
+      return
+    }
+
+    // Case 2
+    if let calleeType = TypeVariable(inferredTypes[callee]!) {
+      // Note: We'll have to let the constraint solver determine the subscript's capabilities
+      _ = calleeType
+      fatalError("not implemented")
+    }
+
+    // Case 3a
+    if let calleeType = SubscriptType(inferredTypes[callee]!) {
+      if visit(
+        arguments: checker.program.ast[id].arguments,
+        of: checker.program.ast[id].callee,
+        expecting: calleeType.inputs,
+        using: &checker)
+      {
+        assume(typeOf: id, equals: calleeType.output, at: checker.program.ast[id].origin)
+      } else {
+        assignToError(id)
+      }
+      return
+    }
+
+    // Case 3b
+    if let c = NodeID<NameExpr>(callee),
+       let d = checker.referredDecls[c]?.decl,
+       checker.isNominalTypeDecl(d)
+    {
+      assert(inferredTypes[callee]?.base is MetatypeType)
+
+      // Buffer type expressions shall have exactly one argument.
+      if checker.program.ast[id].arguments.count != 1 {
+        diagnostics.append(
+          .diagnose(invalidBufferTypeExprArgumentCount: id, in: checker.program.ast))
+        assignToError(id)
+        return
+      }
+
+      // Note: We'll need some form of compile-time evaluation here.
+      fatalError("not implemented")
+    }
+
+    // Case 3c
+    let candidates = checker.lookup("[]", memberOf: inferredTypes[callee]!, inScope: scope)
+    switch candidates.count {
+    case 0:
+      diagnostics.append(
+        .diagnose(
+          noUnnamedSubscriptsIn: inferredTypes[callee]!,
+          at: checker.program.ast[checker.program.ast[id].callee].origin))
+      assignToError(id)
+
+    case 1:
+      // If there's a single candidate, we're looking at case 3a.
+      let decl = candidates.first!
+      let declType = checker.realize(decl: decl)
+      assert(decl.kind == SubscriptDecl.self)
+
+      // Bail out if we can't get the type of the referred declaration.
+      if declType.isError {
+        assignToError(id)
+        return
+      }
+
+      // Contextualize the type of the referred declaration.
+      let (contextualizedDeclType, declConstraints) = checker.contextualize(
+        type: declType,
+        inScope: scope,
+        cause: ConstraintCause(
+          .callee, at: checker.program.ast[checker.program.ast[id].callee].origin))
+
+      // Visit the arguments.
+      let calleeType = SubscriptType(contextualizedDeclType)!
+      if visit(
+        arguments: checker.program.ast[id].arguments,
+        of: checker.program.ast[id].callee,
+        expecting: calleeType.inputs,
+        using: &checker)
+      {
+        assume(typeOf: id, equals: calleeType.output, at: checker.program.ast[id].origin)
+      } else {
+        assignToError(id)
+        return
+      }
+
+      // Register the callee's constraints.
+      constraints.append(contentsOf: declConstraints)
+
+      // Update the referred declaration map if necessary.
+      if let c = NodeID<NameExpr>(callee) {
+        checker.referredDecls[c] = .member(decl)
+      }
+
+    default:
+      // Note: Create an overload constraint.
+      fatalError("not implemented")
+    }
   }
 
   private mutating func visit(

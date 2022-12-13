@@ -351,4 +351,11 @@ extension Diagnostic {
     .error("cannot call value of non-callable type '\(type)'", range: origin)
   }
 
+  static func diagnose(
+    noUnnamedSubscriptsIn domain: AnyType,
+    at origin: SourceRange?
+  ) -> Diagnostic {
+    return .error("type '\(domain)' has no unnamed subscripts", range: origin)
+  }
+
 }
