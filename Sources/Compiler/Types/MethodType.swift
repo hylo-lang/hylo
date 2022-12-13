@@ -1,7 +1,7 @@
 import Utils
 
 /// The overarching type of a method declaration.
-public struct MethodType: TypeProtocol {
+public struct MethodType: TypeProtocol, CallableType {
 
   /// The capabilities of the subscript.
   public let capabilities: Set<ImplIntroducer>
