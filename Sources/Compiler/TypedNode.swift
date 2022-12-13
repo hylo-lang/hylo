@@ -5,13 +5,13 @@ public typealias ValNode = Node
 extension AST {
 
   public typealias Node = ValNode
-  
+
 }
 
 /// A projection from a `TypedProgram` of an AST node along with all the non-syntax information
 /// related to that node.
 @dynamicMemberLookup
-public struct TypedNode<ID: NodeIDProtocol> : Hashable {
+public struct TypedNode<ID: NodeIDProtocol>: Hashable {
 
   /// The program program of which this node is a notional part.
   private let program: TypedProgram
@@ -26,12 +26,12 @@ public struct TypedNode<ID: NodeIDProtocol> : Hashable {
 
   /// Equality comparison; only check the node ID.
   public static func == (lhs: TypedNode<ID>, rhs: TypedNode<ID>) -> Bool {
-      lhs.id == rhs.id
+    lhs.id == rhs.id
   }
 
   /// Hashes the value of `id` into `hasher`.
   public func hash(into hasher: inout Hasher) {
-      hasher.combine(id)
+    hasher.combine(id)
   }
 
 }
@@ -59,56 +59,50 @@ extension NodeIDProtocol {
 
 extension TypedProgram {
   /// Bundles `id` together with `self`.
-  public subscript<TargetID: NodeIDProtocol>(_ id: TargetID) -> TypedNode<TargetID>
-  {
+  public subscript<TargetID: NodeIDProtocol>(_ id: TargetID) -> TypedNode<TargetID> {
     TypedNode(id, in: self)
   }
 }
 
 extension TypedNode where ID: ConcreteNodeID {
-  
+
   /// The corresponding AST node.
   private var syntax: ID.Subject {
     program.ast[NodeID(id)!]
   }
-  
+
   /// Accesses the given member of the corresponding AST node.
-  subscript<Target>(dynamicMember m: KeyPath<ID.Subject, Target>) -> Target
-  {
+  subscript<Target>(dynamicMember m: KeyPath<ID.Subject, Target>) -> Target {
     syntax[keyPath: m]
   }
-  
+
   /// Accesses the given member of the corresponding AST node as a corresponding
   /// `TypedNode`
   subscript<TargetID: NodeIDProtocol>(
     dynamicMember m: KeyPath<ID.Subject, TargetID>
-  ) -> TypedNode<TargetID>
-  {
+  ) -> TypedNode<TargetID> {
     .init(syntax[keyPath: m], in: program)
   }
-  
+
   /// Accesses the given member of the corresponding AST node as a corresponding lazy collection
   /// of `TypedNode`s.
   subscript<TargetID: NodeIDProtocol>(
     dynamicMember m: KeyPath<ID.Subject, [TargetID]>
-  ) -> LazyMapCollection<[TargetID], TypedNode<TargetID>>
-  {
+  ) -> LazyMapCollection<[TargetID], TypedNode<TargetID>> {
     syntax[keyPath: m].lazy.map { .init($0, in: program) }
   }
-  
+
   /// Accesses the given member of the corresponding AST node as a corresponding `TypedNode?`
   subscript<TargetID: NodeIDProtocol>(
     dynamicMember m: KeyPath<ID.Subject, TargetID?>
-  ) -> TypedNode<TargetID>?
-  {
+  ) -> TypedNode<TargetID>? {
     syntax[keyPath: m].map { .init($0, in: program) }
   }
-  
+
   /// Creates an instance denoting the same node as `s`, or fails if `s` does not refer to a
   /// `Target` node.
   init?<SourceID, Target>(_ s: TypedNode<SourceID>)
-     where ID == NodeID<Target>
-  {
+  where ID == NodeID<Target> {
     guard let myID = NodeID<ID.Subject>(s.id) else { return nil }
     program = s.program
     id = .init(myID)
@@ -116,7 +110,7 @@ extension TypedNode where ID: ConcreteNodeID {
 }
 
 extension TypedNode {
-  
+
   /// The corresponding node kind.
   var kind: NodeKind { id.kind }
 
@@ -208,14 +202,13 @@ extension TypedNode where ID == NodeID<NameExpr> {
     }
   }
 
-
   /// The declaration of this name.
   var decl: DeclRef {
     switch program.referredDecls[id]! {
-      case .direct(let decl):
-        return .direct(program[decl])
-      case .member(let decl):
-        return .member(program[decl])
+    case .direct(let decl):
+      return .direct(program[decl])
+    case .member(let decl):
+      return .member(program[decl])
     }
   }
 }
@@ -230,11 +223,14 @@ extension TypedNode where ID: PatternID {
 extension TypedNode where ID == NodeID<ModuleDecl> {
   /// Collection of (typed) top-level declarations of the module.
   typealias TopLevelDecls = LazyMapSequence<
-        FlattenSequence<
-            LazyMapSequence<
-                [NodeID<TopLevelDeclSet>],
-                [AnyDeclID]>>,
-        AnyDeclID.TypedNode>
+    FlattenSequence<
+      LazyMapSequence<
+        [NodeID<TopLevelDeclSet>],
+        [AnyDeclID]
+      >
+    >,
+    AnyDeclID.TypedNode
+  >
 
   /// The top-level declarations in the module.
   var topLevelDecls: TopLevelDecls {

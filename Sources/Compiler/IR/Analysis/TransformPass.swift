@@ -9,5 +9,5 @@ public protocol TransformPass {
 
   /// Runs the pass on the specified function in `module` and returns whether it succeeded.
   mutating func run(function functionID: Function.ID, module: inout Module) -> Bool
-  
+
 }

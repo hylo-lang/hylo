@@ -189,15 +189,17 @@ extension ScopedProgram {
   ) {
     insert(decl: decl, into: state.innermost)
 
-    nesting(in: decl, withState: &state, { (this, state) in
-      this.visit(expr: this.ast[decl].subject, withState: &state)
-      if let clause = this.ast[decl].whereClause?.value {
-        this.visit(whereClause: clause, withState: &state)
-      }
-      for member in this.ast[decl].members {
-        this.visit(decl: member, withState: &state)
-      }
-    })
+    nesting(
+      in: decl, withState: &state,
+      { (this, state) in
+        this.visit(expr: this.ast[decl].subject, withState: &state)
+        if let clause = this.ast[decl].whereClause?.value {
+          this.visit(whereClause: clause, withState: &state)
+        }
+        for member in this.ast[decl].members {
+          this.visit(decl: member, withState: &state)
+        }
+      })
   }
 
   private mutating func visit(
@@ -206,15 +208,17 @@ extension ScopedProgram {
   ) {
     insert(decl: decl, into: state.innermost)
 
-    nesting(in: decl, withState: &state, { (this, state) in
-      this.visit(expr: this.ast[decl].subject, withState: &state)
-      if let clause = this.ast[decl].whereClause?.value {
-        this.visit(whereClause: clause, withState: &state)
-      }
-      for member in this.ast[decl].members {
-        this.visit(decl: member, withState: &state)
-      }
-    })
+    nesting(
+      in: decl, withState: &state,
+      { (this, state) in
+        this.visit(expr: this.ast[decl].subject, withState: &state)
+        if let clause = this.ast[decl].whereClause?.value {
+          this.visit(whereClause: clause, withState: &state)
+        }
+        for member in this.ast[decl].members {
+          this.visit(decl: member, withState: &state)
+        }
+      })
   }
 
   private mutating func visit(
@@ -223,34 +227,36 @@ extension ScopedProgram {
   ) {
     insert(decl: decl, into: state.innermost)
 
-    nesting(in: decl, withState: &state, { (this, state) in
-      if let clause = this.ast[decl].genericClause?.value {
-        this.visit(genericClause: clause, withState: &state)
-      }
-      for capture in this.ast[decl].explicitCaptures {
-        this.visit(bindingDecl: capture, withState: &state)
-      }
-      for parameter in this.ast[decl].parameters {
-        this.visit(parameterDecl: parameter, withState: &state)
-      }
-      if let receiver = this.ast[decl].receiver {
-        this.visit(parameterDecl: receiver, withState: &state)
-      }
-      if let output = this.ast[decl].output {
-        this.visit(expr: output, withState: &state)
-      }
+    nesting(
+      in: decl, withState: &state,
+      { (this, state) in
+        if let clause = this.ast[decl].genericClause?.value {
+          this.visit(genericClause: clause, withState: &state)
+        }
+        for capture in this.ast[decl].explicitCaptures {
+          this.visit(bindingDecl: capture, withState: &state)
+        }
+        for parameter in this.ast[decl].parameters {
+          this.visit(parameterDecl: parameter, withState: &state)
+        }
+        if let receiver = this.ast[decl].receiver {
+          this.visit(parameterDecl: receiver, withState: &state)
+        }
+        if let output = this.ast[decl].output {
+          this.visit(expr: output, withState: &state)
+        }
 
-      switch this.ast[decl].body {
-      case let .expr(expr):
-        this.visit(expr: expr, withState: &state)
+        switch this.ast[decl].body {
+        case let .expr(expr):
+          this.visit(expr: expr, withState: &state)
 
-      case let .block(stmt):
-        this.visit(braceStmt: stmt, withState: &state)
+        case let .block(stmt):
+          this.visit(braceStmt: stmt, withState: &state)
 
-      case nil:
-        break
-      }
-    })
+        case nil:
+          break
+        }
+      })
   }
 
   private mutating func visit(
@@ -280,18 +286,20 @@ extension ScopedProgram {
   ) {
     insert(decl: decl, into: state.innermost)
 
-    nesting(in: decl, withState: &state, { (this, state) in
-      if let clause = this.ast[decl].genericClause?.value {
-        this.visit(genericClause: clause, withState: &state)
-      }
-      for parameter in this.ast[decl].parameters {
-        this.visit(parameterDecl: parameter, withState: &state)
-      }
-      this.visit(parameterDecl: this.ast[decl].receiver, withState: &state)
-      if let body = this.ast[decl].body {
-        this.visit(braceStmt: body, withState: &state)
-      }
-    })
+    nesting(
+      in: decl, withState: &state,
+      { (this, state) in
+        if let clause = this.ast[decl].genericClause?.value {
+          this.visit(genericClause: clause, withState: &state)
+        }
+        for parameter in this.ast[decl].parameters {
+          this.visit(parameterDecl: parameter, withState: &state)
+        }
+        this.visit(parameterDecl: this.ast[decl].receiver, withState: &state)
+        if let body = this.ast[decl].body {
+          this.visit(braceStmt: body, withState: &state)
+        }
+      })
   }
 
   private mutating func visit(
@@ -300,20 +308,22 @@ extension ScopedProgram {
   ) {
     insert(decl: decl, into: state.innermost)
 
-    nesting(in: decl, withState: &state, { (this, state) in
-      if let clause = this.ast[decl].genericClause?.value {
-        this.visit(genericClause: clause, withState: &state)
-      }
-      for parameter in this.ast[decl].parameters {
-        this.visit(parameterDecl: parameter, withState: &state)
-      }
-      if let output = this.ast[decl].output {
-        this.visit(expr: output, withState: &state)
-      }
-      for impl in this.ast[decl].impls {
-        this.visit(methodImplDecl: impl, withState: &state)
-      }
-    })
+    nesting(
+      in: decl, withState: &state,
+      { (this, state) in
+        if let clause = this.ast[decl].genericClause?.value {
+          this.visit(genericClause: clause, withState: &state)
+        }
+        for parameter in this.ast[decl].parameters {
+          this.visit(parameterDecl: parameter, withState: &state)
+        }
+        if let output = this.ast[decl].output {
+          this.visit(expr: output, withState: &state)
+        }
+        for impl in this.ast[decl].impls {
+          this.visit(methodImplDecl: impl, withState: &state)
+        }
+      })
   }
 
   private mutating func visit(
@@ -322,20 +332,22 @@ extension ScopedProgram {
   ) {
     insert(decl: decl, into: state.innermost)
 
-    nesting(in: decl, withState: &state, { (this, state) in
-      this.visit(parameterDecl: this.ast[decl].receiver, withState: &state)
+    nesting(
+      in: decl, withState: &state,
+      { (this, state) in
+        this.visit(parameterDecl: this.ast[decl].receiver, withState: &state)
 
-      switch this.ast[decl].body {
-      case let .expr(expr):
-        this.visit(expr: expr, withState: &state)
+        switch this.ast[decl].body {
+        case let .expr(expr):
+          this.visit(expr: expr, withState: &state)
 
-      case let .block(stmt):
-        this.visit(braceStmt: stmt, withState: &state)
+        case let .block(stmt):
+          this.visit(braceStmt: stmt, withState: &state)
 
-      case nil:
-        break
-      }
-    })
+        case nil:
+          break
+        }
+      })
   }
 
   private mutating func visit(
@@ -354,11 +366,13 @@ extension ScopedProgram {
   ) {
     insert(decl: decl, into: state.innermost)
 
-    nesting(in: decl, withState: &state, { (this, state) in
-      for member in this.ast[decl].members {
-        this.visit(decl: member, withState: &state)
-      }
-    })
+    nesting(
+      in: decl, withState: &state,
+      { (this, state) in
+        for member in this.ast[decl].members {
+          this.visit(decl: member, withState: &state)
+        }
+      })
   }
 
   private mutating func visit(
@@ -388,17 +402,19 @@ extension ScopedProgram {
   ) {
     insert(decl: decl, into: state.innermost)
 
-    nesting(in: decl, withState: &state, { (this, state) in
-      if let clause = this.ast[decl].genericClause?.value {
-        this.visit(genericClause: clause, withState: &state)
-      }
-      for conformance in this.ast[decl].conformances {
-        this.visit(nameExpr: conformance, withState: &state)
-      }
-      for member in this.ast[decl].members {
-        this.visit(decl: member, withState: &state)
-      }
-    })
+    nesting(
+      in: decl, withState: &state,
+      { (this, state) in
+        if let clause = this.ast[decl].genericClause?.value {
+          this.visit(genericClause: clause, withState: &state)
+        }
+        for conformance in this.ast[decl].conformances {
+          this.visit(nameExpr: conformance, withState: &state)
+        }
+        for member in this.ast[decl].members {
+          this.visit(decl: member, withState: &state)
+        }
+      })
   }
 
   private mutating func visit(
@@ -407,21 +423,23 @@ extension ScopedProgram {
   ) {
     insert(decl: decl, into: state.innermost)
 
-    nesting(in: decl, withState: &state, { (this, state) in
-      if let clause = this.ast[decl].genericClause?.value {
-        this.visit(genericClause: clause, withState: &state)
-      }
-      for capture in this.ast[decl].explicitCaptures {
-        this.visit(bindingDecl: capture, withState: &state)
-      }
-      for parameter in this.ast[decl].parameters ?? [] {
-        this.visit(parameterDecl: parameter, withState: &state)
-      }
-      this.visit(expr: this.ast[decl].output, withState: &state)
-      for impl in this.ast[decl].impls {
-        this.visit(subscriptImplDecl: impl, withState: &state)
-      }
-    })
+    nesting(
+      in: decl, withState: &state,
+      { (this, state) in
+        if let clause = this.ast[decl].genericClause?.value {
+          this.visit(genericClause: clause, withState: &state)
+        }
+        for capture in this.ast[decl].explicitCaptures {
+          this.visit(bindingDecl: capture, withState: &state)
+        }
+        for parameter in this.ast[decl].parameters ?? [] {
+          this.visit(parameterDecl: parameter, withState: &state)
+        }
+        this.visit(expr: this.ast[decl].output, withState: &state)
+        for impl in this.ast[decl].impls {
+          this.visit(subscriptImplDecl: impl, withState: &state)
+        }
+      })
   }
 
   private mutating func visit(
@@ -430,22 +448,24 @@ extension ScopedProgram {
   ) {
     insert(decl: decl, into: state.innermost)
 
-    nesting(in: decl, withState: &state, { (this, state) in
-      if let receiver = this.ast[decl].receiver {
-        this.visit(parameterDecl: receiver, withState: &state)
-      }
+    nesting(
+      in: decl, withState: &state,
+      { (this, state) in
+        if let receiver = this.ast[decl].receiver {
+          this.visit(parameterDecl: receiver, withState: &state)
+        }
 
-      switch this.ast[decl].body {
-      case let .expr(expr):
-        this.visit(expr: expr, withState: &state)
+        switch this.ast[decl].body {
+        case let .expr(expr):
+          this.visit(expr: expr, withState: &state)
 
-      case let .block(stmt):
-        this.visit(braceStmt: stmt, withState: &state)
+        case let .block(stmt):
+          this.visit(braceStmt: stmt, withState: &state)
 
-      case nil:
-        break
-      }
-    })
+        case nil:
+          break
+        }
+      })
   }
 
   private mutating func visit(
@@ -454,14 +474,16 @@ extension ScopedProgram {
   ) {
     insert(decl: decl, into: state.innermost)
 
-    nesting(in: decl, withState: &state, { (this, state) in
-      for refinement in this.ast[decl].refinements {
-        this.visit(nameExpr: refinement, withState: &state)
-      }
-      for member in this.ast[decl].members {
-        this.visit(decl: member, withState: &state)
-      }
-    })
+    nesting(
+      in: decl, withState: &state,
+      { (this, state) in
+        for refinement in this.ast[decl].refinements {
+          this.visit(nameExpr: refinement, withState: &state)
+        }
+        for member in this.ast[decl].members {
+          this.visit(decl: member, withState: &state)
+        }
+      })
   }
 
   private mutating func visit(
@@ -470,20 +492,22 @@ extension ScopedProgram {
   ) {
     insert(decl: decl, into: state.innermost)
 
-    nesting(in: decl, withState: &state, { (this, state) in
-      if let clause = this.ast[decl].genericClause?.value {
-        this.visit(genericClause: clause, withState: &state)
-      }
-      switch this.ast[decl].body {
-      case .typeExpr(let expr):
-        this.visit(expr: expr, withState: &state)
-
-      case .union(let union):
-        for element in union {
-          this.visit(productTypeDecl: element, withState: &state)
+    nesting(
+      in: decl, withState: &state,
+      { (this, state) in
+        if let clause = this.ast[decl].genericClause?.value {
+          this.visit(genericClause: clause, withState: &state)
         }
-      }
-    })
+        switch this.ast[decl].body {
+        case .typeExpr(let expr):
+          this.visit(expr: expr, withState: &state)
+
+        case .union(let union):
+          for element in union {
+            this.visit(productTypeDecl: element, withState: &state)
+          }
+        }
+      })
   }
 
   private mutating func visit(
@@ -498,11 +522,13 @@ extension ScopedProgram {
     topLevelDeclSet: NodeID<TopLevelDeclSet>,
     withState state: inout VisitorState
   ) {
-    nesting(in: topLevelDeclSet, withState: &state, { (this, state) in
-      for member in this.ast[topLevelDeclSet].decls {
-        this.visit(decl: member, withState: &state)
-      }
-    })
+    nesting(
+      in: topLevelDeclSet, withState: &state,
+      { (this, state) in
+        for member in this.ast[topLevelDeclSet].decls {
+          this.visit(decl: member, withState: &state)
+        }
+      })
   }
 
   // MARK: Expressions
@@ -593,32 +619,34 @@ extension ScopedProgram {
     condExpr expr: NodeID<CondExpr>,
     withState state: inout VisitorState
   ) {
-    nesting(in: expr, withState: &state, { (this, state) in
-      for item in this.ast[expr].condition {
-        switch item {
+    nesting(
+      in: expr, withState: &state,
+      { (this, state) in
+        for item in this.ast[expr].condition {
+          switch item {
+          case let .expr(i):
+            this.visit(expr: i, withState: &state)
+          case let .decl(i):
+            this.visit(bindingDecl: i, withState: &state)
+          }
+        }
+
+        switch this.ast[expr].success {
         case let .expr(i):
           this.visit(expr: i, withState: &state)
-        case let .decl(i):
-          this.visit(bindingDecl: i, withState: &state)
+        case let .block(i):
+          this.visit(braceStmt: i, withState: &state)
         }
-      }
 
-      switch this.ast[expr].success {
-      case let .expr(i):
-        this.visit(expr: i, withState: &state)
-      case let .block(i):
-        this.visit(braceStmt: i, withState: &state)
-      }
-
-      switch this.ast[expr].failure {
-      case let .expr(i):
-        this.visit(expr: i, withState: &state)
-      case let .block(i):
-        this.visit(braceStmt: i, withState: &state)
-      case nil:
-        break
-      }
-    })
+        switch this.ast[expr].failure {
+        case let .expr(i):
+          this.visit(expr: i, withState: &state)
+        case let .block(i):
+          this.visit(braceStmt: i, withState: &state)
+        case nil:
+          break
+        }
+      })
   }
 
   private mutating func visit(
@@ -694,19 +722,21 @@ extension ScopedProgram {
   ) {
     visit(expr: ast[expr].subject, withState: &state)
     for case_ in ast[expr].cases {
-      nesting(in: case_, withState: &state, { (this, state) in
-        this.visit(pattern: this.ast[case_].pattern, withState: &state)
-        if let condition = this.ast[case_].condition {
-          this.visit(expr: condition, withState: &state)
-        }
+      nesting(
+        in: case_, withState: &state,
+        { (this, state) in
+          this.visit(pattern: this.ast[case_].pattern, withState: &state)
+          if let condition = this.ast[case_].condition {
+            this.visit(expr: condition, withState: &state)
+          }
 
-        switch this.ast[case_].body {
-        case let .expr(i):
-          this.visit(expr: i, withState: &state)
-        case let .block(i):
-          this.visit(braceStmt: i, withState: &state)
-        }
-      })
+          switch this.ast[case_].body {
+          case let .expr(i):
+            this.visit(expr: i, withState: &state)
+          case let .block(i):
+            this.visit(braceStmt: i, withState: &state)
+          }
+        })
     }
   }
 
@@ -897,11 +927,13 @@ extension ScopedProgram {
     braceStmt stmt: NodeID<BraceStmt>,
     withState state: inout VisitorState
   ) {
-    nesting(in: stmt, withState: &state, { (this, state) in
-      for i in this.ast[stmt].stmts {
-        this.visit(stmt: i, withState: &state)
-      }
-    })
+    nesting(
+      in: stmt, withState: &state,
+      { (this, state) in
+        for i in this.ast[stmt].stmts {
+          this.visit(stmt: i, withState: &state)
+        }
+      })
   }
 
   private mutating func visit(
@@ -955,13 +987,15 @@ extension ScopedProgram {
     forStmt stmt: NodeID<ForStmt>,
     withState state: inout VisitorState
   ) {
-    nesting(in: stmt, withState: &state, { (this, state) in
-      this.visit(bindingDecl: this.ast[stmt].binding, withState: &state)
-      if let filter = this.ast[stmt].filter {
-        this.visit(expr: filter, withState: &state)
-      }
-      this.visit(braceStmt: this.ast[stmt].body, withState: &state)
-    })
+    nesting(
+      in: stmt, withState: &state,
+      { (this, state) in
+        this.visit(bindingDecl: this.ast[stmt].binding, withState: &state)
+        if let filter = this.ast[stmt].filter {
+          this.visit(expr: filter, withState: &state)
+        }
+        this.visit(braceStmt: this.ast[stmt].body, withState: &state)
+      })
   }
 
   private mutating func visit(
@@ -977,18 +1011,20 @@ extension ScopedProgram {
     whileStmt stmt: NodeID<WhileStmt>,
     withState state: inout VisitorState
   ) {
-    nesting(in: stmt, withState: &state, { (this, state) in
-      for item in this.ast[stmt].condition {
-        switch item {
-        case let .expr(i):
-          this.visit(expr: i, withState: &state)
-        case let .decl(i):
-          this.visit(bindingDecl: i, withState: &state)
+    nesting(
+      in: stmt, withState: &state,
+      { (this, state) in
+        for item in this.ast[stmt].condition {
+          switch item {
+          case let .expr(i):
+            this.visit(expr: i, withState: &state)
+          case let .decl(i):
+            this.visit(bindingDecl: i, withState: &state)
+          }
         }
-      }
 
-      this.visit(braceStmt: this.ast[stmt].body, withState: &state)
-    })
+        this.visit(braceStmt: this.ast[stmt].body, withState: &state)
+      })
   }
 
   private mutating func visit(

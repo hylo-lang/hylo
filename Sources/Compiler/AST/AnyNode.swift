@@ -33,18 +33,17 @@ struct AnyNode: Codable {
   }
 }
 
-fileprivate extension KeyedDecodingContainer where K == AnyNode.CodingKeys {
+extension KeyedDecodingContainer where K == AnyNode.CodingKeys {
 
-  func decode<T: Node>(_ type: T.Type) throws -> T {
+  fileprivate func decode<T: Node>(_ type: T.Type) throws -> T {
     try decode(type, forKey: .data)
   }
 
 }
 
+extension KeyedEncodingContainer where K == AnyNode.CodingKeys {
 
-fileprivate extension KeyedEncodingContainer where K == AnyNode.CodingKeys {
-
-  mutating func encode<T: Node>(_ node: T) throws {
+  fileprivate mutating func encode<T: Node>(_ node: T) throws {
     try encode(node, forKey: .data)
   }
 

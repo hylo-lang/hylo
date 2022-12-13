@@ -62,9 +62,10 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
     // Dumps the function in the module.
     if let debugName = function.debugName { output.write("// \(debugName)\n") }
     output.write("@lowered fun \(function.name)(")
-    output.write(function.inputs.lazy
-      .map({ (c, t) in "\(c) \(t)" })
-      .joined(separator: ", "))
+    output.write(
+      function.inputs.lazy
+        .map({ (c, t) in "\(c) \(t)" })
+        .joined(separator: ", "))
     output.write(") -> \(function.output) {\n")
 
     for i in function.blocks.indices {
@@ -73,9 +74,10 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
 
       output.write(blockNames[blockID]!)
       output.write("(")
-      output.write(block.inputs.enumerated().lazy
-        .map({ (j, t) in operandNames[.parameter(block: blockID, index: j)]! + " : \(t)" })
-        .joined(separator: ", "))
+      output.write(
+        block.inputs.enumerated().lazy
+          .map({ (j, t) in operandNames[.parameter(block: blockID, index: j)]! + " : \(t)" })
+          .joined(separator: ", "))
       output.write("):\n")
 
       for j in block.instructions.indices {
@@ -83,9 +85,10 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
 
         output.write("  ")
         if !block[j.address].types.isEmpty {
-          output.write((0 ..< block[j.address].types.count)
-            .map({ k in operandNames[.result(inst: instID, index: k)]! })
-            .joined(separator: ", "))
+          output.write(
+            (0 ..< block[j.address].types.count)
+              .map({ k in operandNames[.result(inst: instID, index: k)]! })
+              .joined(separator: ", "))
           output.write(" = ")
         }
 

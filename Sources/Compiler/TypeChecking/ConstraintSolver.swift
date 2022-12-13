@@ -134,8 +134,9 @@ struct ConstraintSolver {
         return
 
       case .differentLabels(let found, let expected):
-        diagnostics.append(.diagnose(
-          labels: found, incompatibleWith: expected, at: constraint.cause.origin))
+        diagnostics.append(
+          .diagnose(
+            labels: found, incompatibleWith: expected, at: constraint.cause.origin))
         return
 
       case .compatible:
@@ -154,8 +155,9 @@ struct ConstraintSolver {
         return
 
       case .differentLabels(let found, let expected):
-        diagnostics.append(.diagnose(
-          labels: found, incompatibleWith: expected, at: constraint.cause.origin))
+        diagnostics.append(
+          .diagnose(
+            labels: found, incompatibleWith: expected, at: constraint.cause.origin))
         return
 
       case .compatible:
@@ -303,11 +305,12 @@ struct ConstraintSolver {
 
     // Postpone the solving if `L` is still unknown.
     if l.base is TypeVariable {
-      postpone(BoundMemberConstraint(
-        type: l,
-        hasMemberNamed: constraint.member,
-        ofType: r,
-        because: constraint.cause))
+      postpone(
+        BoundMemberConstraint(
+          type: l,
+          hasMemberNamed: constraint.member,
+          ofType: r,
+          because: constraint.cause))
       return
     }
 
@@ -319,10 +322,11 @@ struct ConstraintSolver {
 
     // Catch uses of static members on instances.
     if nonStaticMatches.isEmpty && !allMatches.isEmpty {
-      diagnostics.append(.diagnose(
-        illegalUseOfStaticMember: constraint.member,
-        onInstanceOf: l,
-        at: constraint.cause.origin))
+      diagnostics.append(
+        .diagnose(
+          illegalUseOfStaticMember: constraint.member,
+          onInstanceOf: l,
+          at: constraint.cause.origin))
     }
 
     // Generate the list of candidates.
@@ -342,9 +346,10 @@ struct ConstraintSolver {
 
     // Fail if we couldn't find any candidate.
     if candidates.isEmpty {
-      diagnostics.append(.diagnose(
-        undefinedName: "\(constraint.member)",
-        at: constraint.cause.origin))
+      diagnostics.append(
+        .diagnose(
+          undefinedName: "\(constraint.member)",
+          at: constraint.cause.origin))
       return
     }
 
@@ -359,19 +364,21 @@ struct ConstraintSolver {
 
     // If there are several candidates, create a disjunction constraint.
     if let name = constraint.memberExpr {
-      schedule(OverloadConstraint(
-        name,
-        withType: r,
-        refersToOneOf: candidates,
-        because: constraint.cause))
+      schedule(
+        OverloadConstraint(
+          name,
+          withType: r,
+          refersToOneOf: candidates,
+          because: constraint.cause))
     } else {
-      schedule(DisjunctionConstraint(
-        choices: candidates.map({ (c) -> DisjunctionConstraint.Choice in
-          .init(
-            constraints: [EqualityConstraint(r, c.type, because: constraint.cause)],
-            penalties: c.penalties)
-        }),
-        because: constraint.cause))
+      schedule(
+        DisjunctionConstraint(
+          choices: candidates.map({ (c) -> DisjunctionConstraint.Choice in
+            .init(
+              constraints: [EqualityConstraint(r, c.type, because: constraint.cause)],
+              penalties: c.penalties)
+          }),
+          because: constraint.cause))
     }
   }
 
@@ -387,11 +394,12 @@ struct ConstraintSolver {
 
     // Postpone the solving if `L` is still unknown.
     if l.base is TypeVariable {
-      postpone(UnboundMemberConstraint(
-        type: l,
-        hasMemberNamed: constraint.member,
-        ofType: r,
-        because: constraint.cause))
+      postpone(
+        UnboundMemberConstraint(
+          type: l,
+          hasMemberNamed: constraint.member,
+          ofType: r,
+          because: constraint.cause))
       return
     }
 
@@ -412,14 +420,16 @@ struct ConstraintSolver {
       return (
         decl: match,
         type: matchType,
-        penalty: checker.program.isRequirement(match) ? 1 : 0)
+        penalty: checker.program.isRequirement(match) ? 1 : 0
+      )
     })
 
     // Fail if we couldn't find any candidate.
     if candidates.isEmpty {
-      diagnostics.append(.diagnose(
-        undefinedName: "\(constraint.member)",
-        at: constraint.cause.origin))
+      diagnostics.append(
+        .diagnose(
+          undefinedName: "\(constraint.member)",
+          at: constraint.cause.origin))
       return
     }
 
@@ -467,10 +477,11 @@ struct ConstraintSolver {
       cause: constraint.cause,
       using: &checker,
       insertingConstraintsWith: { (subsolver, choice) -> Void in
-        subsolver.schedule(EqualityConstraint(
-          constraint.overloadedExprType,
-          choice.type,
-          because: constraint.cause))
+        subsolver.schedule(
+          EqualityConstraint(
+            constraint.overloadedExprType,
+            choice.type,
+            because: constraint.cause))
 
         for c in choice.constraints {
           var subConstraint = c
@@ -495,8 +506,7 @@ struct ConstraintSolver {
     using checker: inout TypeChecker,
     insertingConstraintsWith insertConstraints: (inout ConstraintSolver, C.Element) -> Void
   ) -> (choice: C.Element, solution: Solution)?
-  where C.Element: Choice
-  {
+  where C.Element: Choice {
     /// The results of the exploration.
     var results: [(choice: C.Element, solution: Solution)] = []
 
@@ -576,7 +586,7 @@ struct ConstraintSolver {
 }
 
 /// The result of a label compatibility test.
-fileprivate enum LabelCompatibility {
+private enum LabelCompatibility {
 
   case compatible
 
@@ -587,7 +597,7 @@ fileprivate enum LabelCompatibility {
 }
 
 /// A collection of labeled elements.
-fileprivate protocol LabeledCollection {
+private protocol LabeledCollection {
 
   associatedtype Labels: Collection where Labels.Element == String?
 
@@ -615,7 +625,7 @@ extension LabeledCollection {
 
 extension LambdaType: LabeledCollection {
 
-  var labels: LazyMapSequence<LazySequence<Array<CallableTypeParameter>>.Elements, String?> {
+  var labels: LazyMapSequence<LazySequence<[CallableTypeParameter]>.Elements, String?> {
     inputs.lazy.map({ $0.label })
   }
 
@@ -623,14 +633,14 @@ extension LambdaType: LabeledCollection {
 
 extension TupleType: LabeledCollection {
 
-  var labels: LazyMapSequence<LazySequence<Array<TupleType.Element>>.Elements, String?> {
+  var labels: LazyMapSequence<LazySequence<[TupleType.Element]>.Elements, String?> {
     elements.lazy.map({ $0.label })
   }
 
 }
 
 /// A type representing a choice during constraint solving.
-fileprivate protocol Choice {
+private protocol Choice {
 
   /// The penalties associated with the choice.
   var penalties: Int { get }

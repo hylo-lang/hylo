@@ -19,7 +19,7 @@ public struct ConformanceLensType: TypeProtocol {
   public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> Self {
     ConformanceLensType(viewing: subject.transform(transformer), through: lens)
   }
-  
+
 }
 
 extension ConformanceLensType: CustomStringConvertible {

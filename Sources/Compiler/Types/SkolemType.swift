@@ -23,4 +23,3 @@ extension SkolemType: CustomStringConvertible {
   public var description: String { "$\(base)" }
 
 }
-

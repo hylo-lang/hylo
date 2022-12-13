@@ -82,7 +82,8 @@ public struct CXXTranspiler {
     // There's nothing to do if there's no initializer.
     if let initializer = decl.initializer {
 
-      let isLValue = (initializer.kind == NameExpr.self) || (initializer.kind == SubscriptCallExpr.self)
+      let isLValue =
+        (initializer.kind == NameExpr.self) || (initializer.kind == SubscriptCallExpr.self)
 
       // Visit the initializer.
       let cxxInitialzer = emit(expr: initializer, asLValue: isLValue)
@@ -93,7 +94,8 @@ public struct CXXTranspiler {
       for (path, name) in pattern.subpattern.names {
         // TODO: emit code for the patterns.
         let decl = name.decl
-        stmts.append(CXXComment(comment: "decl \(name), type: \(decl.type.description); path: \(path)"))
+        stmts.append(
+          CXXComment(comment: "decl \(name), type: \(decl.type.description); path: \(path)"))
       }
       if stmts.isEmpty {
         // No pattern found; just call the initializer, dropping the result.
@@ -101,8 +103,7 @@ public struct CXXTranspiler {
       } else {
         return CXXScopedBlock(stmts: stmts)
       }
-    }
-    else {
+    } else {
       return CXXComment(comment: "EMPTY borrowed local binding (\(capability))")
     }
   }

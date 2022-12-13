@@ -9,7 +9,6 @@ public struct TupleMemberExpr: Expr {
   /// The member's index.
   public let index: Int
 
-
   public init(tuple: AnyExprID, index: Int, origin: SourceRange?) {
     self.origin = origin
     self.tuple = tuple
@@ -17,4 +16,3 @@ public struct TupleMemberExpr: Expr {
   }
 
 }
-

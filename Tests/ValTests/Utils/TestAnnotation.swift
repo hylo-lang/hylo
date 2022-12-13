@@ -58,8 +58,7 @@ struct TestAnnotation {
   ///   - location: The line location of the annotation.
   ///   - body: A collection of characters representing an annotation body.
   init<S: Collection>(at location: LineLocation, parsing body: S)
-    where S.Element == Character
-  {
+  where S.Element == Character {
     self.location = location
 
     var s = body.drop(while: { $0.isWhitespace })
@@ -150,9 +149,10 @@ struct TestAnnotation {
         case 1:
           openedBlockComments = 0
           if let start = indexAfterAnnotationBlockOpener {
-            annotations.append(TestAnnotation(
-              at: LineLocation(url: source.url, line: line),
-              parsing: stream[start ..< index]))
+            annotations.append(
+              TestAnnotation(
+                at: LineLocation(url: source.url, line: line),
+                parsing: stream[start ..< index]))
             indexAfterAnnotationBlockOpener = nil
           }
 
@@ -173,7 +173,8 @@ struct TestAnnotation {
       // Look for single line comments.
       if stream[index...].starts(with: "//") {
         index = stream.index(index, offsetBy: 2)
-        let start: String.Index? = (index != stream.endIndex) && (stream[index] == "!")
+        let start: String.Index? =
+          (index != stream.endIndex) && (stream[index] == "!")
           ? stream.index(after: index)
           : nil
 
@@ -182,9 +183,10 @@ struct TestAnnotation {
         }
 
         if let start = start {
-          annotations.append(TestAnnotation(
-            at: LineLocation(url: source.url, line: line),
-            parsing: stream[start ..< index]))
+          annotations.append(
+            TestAnnotation(
+              at: LineLocation(url: source.url, line: line),
+              parsing: stream[start ..< index]))
         }
 
         continue

@@ -6,7 +6,7 @@ import Utils
 /// designated as its entry point (i.e., the `main` function of a Val program).
 public struct Module {
 
-/// The form in which a `Module` exposes all its lowered functions.
+  /// The form in which a `Module` exposes all its lowered functions.
   public typealias Functions = [Function]
 
   /// The program defining the functions in `self`.
@@ -135,8 +135,8 @@ public struct Module {
 
     // Determine if the new function is the module's entry.
     if decl.scope.kind == TopLevelDeclSet.self,
-       decl.isPublic,
-       decl.identifier?.value == "main"
+      decl.isPublic,
+      decl.identifier?.value == "main"
     {
       assert(entryFunctionID == nil)
       entryFunctionID = loweredID
@@ -187,7 +187,7 @@ public struct Module {
 extension Module {
 
   public subscript(_ position: Functions.Index) -> Function {
-    _read   { yield functions[position] }
+    _read { yield functions[position] }
     _modify { yield &functions[position] }
   }
 

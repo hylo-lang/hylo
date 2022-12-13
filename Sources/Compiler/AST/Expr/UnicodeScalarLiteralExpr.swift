@@ -25,9 +25,10 @@ extension UnicodeScalarLiteralExpr: Codable {
     if let scalar = Unicode.Scalar(try container.decode(UInt32.self)) {
       value = scalar
     } else {
-      throw DecodingError.dataCorrupted(DecodingError.Context(
-        codingPath: decoder.codingPath,
-        debugDescription: "Invalid Unicode scalar value"))
+      throw DecodingError.dataCorrupted(
+        DecodingError.Context(
+          codingPath: decoder.codingPath,
+          debugDescription: "Invalid Unicode scalar value"))
     }
   }
 

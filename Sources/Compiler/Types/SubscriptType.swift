@@ -55,7 +55,8 @@ public struct SubscriptType: TypeProtocol {
 extension SubscriptType: CustomStringConvertible {
 
   public var description: String {
-    let cs = capabilities
+    let cs =
+      capabilities
       .map(String.init(describing:))
       .sorted()
       .joined(separator: " ")
