@@ -16,7 +16,7 @@ public struct ImplicitReturnInsertionPass: TransformPass {
     diagnostics.removeAll()
 
     for i in module[function: functionID].blocks.indices {
-      if module[function: functionID][i.address].instructions.last?.isTerminator ?? false  {
+      if module[function: functionID][i.address].instructions.last?.isTerminator ?? false {
         // There's a terminator instruction. Move to the next block.
         continue
       } else if expectedReturnType == .void {
@@ -28,8 +28,9 @@ public struct ImplicitReturnInsertionPass: TransformPass {
         // No return instruction, yet the function must return a non-void value.
         let range = module[function: functionID][i.address].instructions
           .last(where: { $0.range != nil })?.range
-        diagnostics.append(.missingFunctionReturn(
-          expectedReturnType: expectedReturnType, range: range))
+        diagnostics.append(
+          .missingFunctionReturn(
+            expectedReturnType: expectedReturnType, range: range))
       }
     }
 
@@ -38,9 +39,9 @@ public struct ImplicitReturnInsertionPass: TransformPass {
 
 }
 
-fileprivate extension Diagnostic {
+extension Diagnostic {
 
-  static func missingFunctionReturn(
+  fileprivate static func missingFunctionReturn(
     expectedReturnType: AnyType,
     range: SourceRange?
   ) -> Diagnostic {

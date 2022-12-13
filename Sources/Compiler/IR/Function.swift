@@ -3,7 +3,7 @@ import Utils
 /// A collection of basic blocks representing a lowered function.
 public struct Function {
 
-/// The ID of a `Function` in its `Module`.
+  /// The ID of a `Function` in its `Module`.
   public typealias ID = Module.Functions.Index
 
   /// A collection of blocks with stable identities.

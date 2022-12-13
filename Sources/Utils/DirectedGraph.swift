@@ -12,8 +12,8 @@ public struct DirectedGraph<Vertex: Hashable, Label> {
 
   /// Creates an empty graph.
   public init() {
-     edges = [:]
-   }
+    edges = [:]
+  }
 
   /// Inserts an edge from `source` to `target`, labeled by `label`.
   ///
@@ -25,14 +25,16 @@ public struct DirectedGraph<Vertex: Hashable, Label> {
   public mutating func insertEdge(
     from source: Vertex, to target: Vertex, labeledBy label: Label
   ) -> (inserted: Bool, labelAfterInsert: Label) {
-    modifying(&edges[source, default: [:]], { tips in
-      if let currentLabel = tips[target] {
-        return (false, currentLabel)
-      } else {
-        tips[target] = label
-        return (true, label)
-      }
-    })
+    modifying(
+      &edges[source, default: [:]],
+      { tips in
+        if let currentLabel = tips[target] {
+          return (false, currentLabel)
+        } else {
+          tips[target] = label
+          return (true, label)
+        }
+      })
   }
 
   /// Removes the edge from `source` to `target`.
@@ -42,14 +44,16 @@ public struct DirectedGraph<Vertex: Hashable, Label> {
   /// - Complexity: O(1).
   @discardableResult
   public mutating func removeEdge(from source: Vertex, to target: Vertex) -> Label? {
-    modifying(&edges[source, default: [:]], { tips in
-      if let i = tips.index(forKey: target) {
-        defer { tips.remove(at: i) }
-        return tips[i].value
-      } else {
-        return nil
-      }
-    })
+    modifying(
+      &edges[source, default: [:]],
+      { tips in
+        if let i = tips.index(forKey: target) {
+          defer { tips.remove(at: i) }
+          return tips[i].value
+        } else {
+          return nil
+        }
+      })
   }
 
   /// Accesses the label on the edge from `source` to `target`.
@@ -57,7 +61,7 @@ public struct DirectedGraph<Vertex: Hashable, Label> {
   /// - Returns: If there exists a edge from from `source` to `target`, the label of that edge.
   ///   Otherwise, `nil`.
   public subscript(from source: Vertex, to target: Vertex) -> Label? {
-    _read   { yield edges[source]?[target] }
+    _read { yield edges[source]?[target] }
     _modify { yield &edges[source, default: [:]][target] }
   }
 
@@ -65,7 +69,7 @@ public struct DirectedGraph<Vertex: Hashable, Label> {
   ///
   /// - Complexity: O(1).
   public subscript(from source: Vertex) -> [Vertex: Label] {
-    _read   { yield edges[source, default: [:]] }
+    _read { yield edges[source, default: [:]] }
     _modify { yield &edges[source, default: [:]] }
   }
 

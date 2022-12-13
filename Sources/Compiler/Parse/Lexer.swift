@@ -72,54 +72,54 @@ public struct Lexer: IteratorProtocol, Sequence {
       token.origin = SourceRange(in: source, from: token.origin.lowerBound, to: index)
 
       switch word {
-      case "_"          : token.kind = .under
-      case "any"        : token.kind = .`any`
-      case "break"      : token.kind = .`break`
-      case "catch"      : token.kind = .`catch`
+      case "_": token.kind = .under
+      case "any": token.kind = .`any`
+      case "break": token.kind = .`break`
+      case "catch": token.kind = .`catch`
       case "conformance": token.kind = .`conformance`
-      case "continue"   : token.kind = .`continue`
-      case "deinit"     : token.kind = .`deinit`
-      case "do"         : token.kind = .`do`
-      case "else"       : token.kind = .`else`
-      case "extension"  : token.kind = .`extension`
-      case "for"        : token.kind = .`for`
-      case "fun"        : token.kind = .`fun`
-      case "if"         : token.kind = .`if`
-      case "import"     : token.kind = .`import`
-      case "in"         : token.kind = .`in`
-      case "infix"      : token.kind = .`infix`
-      case "init"       : token.kind = .`init`
-      case "inout"      : token.kind = .`inout`
-      case "let"        : token.kind = .`let`
-      case "match"      : token.kind = .`match`
-      case "namespace"  : token.kind = .`namespace`
-      case "nil"        : token.kind = .`nil`
-      case "operator"   : token.kind = .`operator`
-      case "postfix"    : token.kind = .`postfix`
-      case "prefix"     : token.kind = .`prefix`
-      case "property"   : token.kind = .`property`
-      case "public"     : token.kind = .`public`
-      case "return"     : token.kind = .`return`
-      case "set"        : token.kind = .`set`
-      case "sink"       : token.kind = .`sink`
-      case "some"       : token.kind = .`some`
-      case "spawn"      : token.kind = .`spawn`
-      case "static"     : token.kind = .`static`
-      case "subscript"  : token.kind = .`subscript`
-      case "trait"      : token.kind = .`trait`
-      case "try"        : token.kind = .`try`
-      case "type"       : token.kind = .`type`
-      case "typealias"  : token.kind = .`typealias`
-      case "var"        : token.kind = .`var`
-      case "where"      : token.kind = .`where`
-      case "while"      : token.kind = .`while`
-      case "yield"      : token.kind = .`yield`
-      case "yielded"    : token.kind = .`yielded`
+      case "continue": token.kind = .`continue`
+      case "deinit": token.kind = .`deinit`
+      case "do": token.kind = .`do`
+      case "else": token.kind = .`else`
+      case "extension": token.kind = .`extension`
+      case "for": token.kind = .`for`
+      case "fun": token.kind = .`fun`
+      case "if": token.kind = .`if`
+      case "import": token.kind = .`import`
+      case "in": token.kind = .`in`
+      case "infix": token.kind = .`infix`
+      case "init": token.kind = .`init`
+      case "inout": token.kind = .`inout`
+      case "let": token.kind = .`let`
+      case "match": token.kind = .`match`
+      case "namespace": token.kind = .`namespace`
+      case "nil": token.kind = .`nil`
+      case "operator": token.kind = .`operator`
+      case "postfix": token.kind = .`postfix`
+      case "prefix": token.kind = .`prefix`
+      case "property": token.kind = .`property`
+      case "public": token.kind = .`public`
+      case "return": token.kind = .`return`
+      case "set": token.kind = .`set`
+      case "sink": token.kind = .`sink`
+      case "some": token.kind = .`some`
+      case "spawn": token.kind = .`spawn`
+      case "static": token.kind = .`static`
+      case "subscript": token.kind = .`subscript`
+      case "trait": token.kind = .`trait`
+      case "try": token.kind = .`try`
+      case "type": token.kind = .`type`
+      case "typealias": token.kind = .`typealias`
+      case "var": token.kind = .`var`
+      case "where": token.kind = .`where`
+      case "while": token.kind = .`while`
+      case "yield": token.kind = .`yield`
+      case "yielded": token.kind = .`yielded`
 
-      case "false"      : token.kind = .bool
-      case "true"       : token.kind = .bool
+      case "false": token.kind = .bool
+      case "true": token.kind = .bool
 
-      case "is"         : token.kind = .cast
+      case "is": token.kind = .cast
 
       case "as":
         _ = take("!")
@@ -249,7 +249,8 @@ public struct Lexer: IteratorProtocol, Sequence {
     // Scan attributes.
     if head == "@" {
       discard()
-      token.kind = take(while: { $0.isLetter || ($0 == "_") }).isEmpty
+      token.kind =
+        take(while: { $0.isLetter || ($0 == "_") }).isEmpty
         ? .invalid
         : .attribute
       token.origin.upperBound = index
@@ -270,14 +271,14 @@ public struct Lexer: IteratorProtocol, Sequence {
       }
 
       switch oper {
-      case "<" : token.kind = .lAngle
-      case ">" : token.kind = .rAngle
+      case "<": token.kind = .lAngle
+      case ">": token.kind = .rAngle
       case "->": token.kind = .arrow
-      case "&" : token.kind = .ampersand
-      case "|" : token.kind = .pipe
-      case "=" : token.kind = .assign
+      case "&": token.kind = .ampersand
+      case "|": token.kind = .pipe
+      case "=": token.kind = .assign
       case "==": token.kind = .equal
-      default  : token.kind = .oper
+      default: token.kind = .oper
       }
 
       token.origin.upperBound = index
@@ -349,8 +350,7 @@ public struct Lexer: IteratorProtocol, Sequence {
   /// Returns the current index and consumes `prefix` from the stream, or returns `nil` if the
   /// stream starts with a different prefix.
   private mutating func take<T: Sequence>(prefix: T) -> String.Index?
-  where T.Element == Character
-  {
+  where T.Element == Character {
     var newIndex = index
     for ch in prefix {
       if newIndex == source.contents.endIndex || source.contents[newIndex] != ch { return nil }
@@ -373,38 +373,38 @@ public struct Lexer: IteratorProtocol, Sequence {
 
 }
 
-fileprivate extension Character {
+extension Character {
 
   /// Indicates whether `self` character represents a decimal digit.
-  var isDecDigit: Bool {
+  fileprivate var isDecDigit: Bool {
     guard let ascii = asciiValue else { return false }
-    return (0x30 ... 0x39) ~= ascii // 0 ... 9
-        || 0x5f == ascii            // _
+    return (0x30 ... 0x39) ~= ascii  // 0 ... 9
+      || 0x5f == ascii  // _
   }
 
   /// Indicates whether `self` represents an hexadecimal digit.
-  var isHexDigit: Bool {
+  fileprivate var isHexDigit: Bool {
     guard let ascii = asciiValue else { return false }
-    return (0x30 ... 0x39) ~= ascii // 0 ... 9
-        || (0x41 ... 0x46) ~= ascii // A ... F
-        || (0x61 ... 0x66) ~= ascii // a ... f
-        || 0x5f == ascii            // _
+    return (0x30 ... 0x39) ~= ascii  // 0 ... 9
+      || (0x41 ... 0x46) ~= ascii  // A ... F
+      || (0x61 ... 0x66) ~= ascii  // a ... f
+      || 0x5f == ascii  // _
   }
 
   /// /// Indicates whether `self` represents an octal digit.
-  var isOctDigit: Bool {
+  fileprivate var isOctDigit: Bool {
     guard let ascii = asciiValue else { return false }
-    return (0x30 ... 0x37) ~= ascii // 0 ... 7
-        || 0x5f == ascii            // _
+    return (0x30 ... 0x37) ~= ascii  // 0 ... 7
+      || 0x5f == ascii  // _
   }
 
   /// Indicates whether `self` represents a binary digit.
-  var isBinDigit: Bool {
+  fileprivate var isBinDigit: Bool {
     self == "0" || self == "1" || self == "_"
   }
 
   /// Indicates whether `self` represents an operator.
-  var isOperator: Bool {
+  fileprivate var isOperator: Bool {
     "<>=+-*/%&|!?^~".contains(self)
   }
 

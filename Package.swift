@@ -10,11 +10,11 @@ let package = Package(
   name: "Val",
 
   platforms: [
-    .macOS(.v12),
+    .macOS(.v12)
   ],
 
   products: [
-    .executable(name: "valc", targets: ["CLI"]),
+    .executable(name: "valc", targets: ["CLI"])
   ],
 
   dependencies: [
@@ -29,7 +29,7 @@ let package = Package(
       from: "1.2.0"),
     .package(
       url: "https://github.com/attaswift/BigInt.git",
-      from: "5.3.0")
+      from: "5.3.0"),
   ],
 
   targets: [
@@ -63,7 +63,7 @@ let package = Package(
 
     .target(
       name: "Utils",
-      dependencies: [ .product(name: "BigInt", package: "BigInt") ],
+      dependencies: [.product(name: "BigInt", package: "BigInt")],
       swiftSettings: allTargetsSwiftSettings
     ),
 

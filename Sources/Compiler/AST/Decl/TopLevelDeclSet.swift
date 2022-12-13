@@ -12,9 +12,11 @@ public struct TopLevelDeclSet: Node, LexicalScope {
   public var origin: SourceRange? { nil }
 
   public func validateForm(in ast: AST) -> SuccessOrDiagnostics {
-    let ds: [Diagnostic] = decls.reduce(into: [], { (ds, member) in
-      ds.append(contentsOf: ast.validateGlobalScopeMember(member, atTopLevel: true).diagnostics)
-    })
+    let ds: [Diagnostic] = decls.reduce(
+      into: [],
+      { (ds, member) in
+        ds.append(contentsOf: ast.validateGlobalScopeMember(member, atTopLevel: true).diagnostics)
+      })
     return ds.isEmpty ? .success : .failure(ds)
   }
 

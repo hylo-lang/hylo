@@ -6,7 +6,7 @@ import Utils
 /// designated as its entry point (i.e., the `main` function of a Val program).
 public struct Module {
 
-/// The form in which a `Module` exposes all its lowered functions.
+  /// The form in which a `Module` exposes all its lowered functions.
   public typealias Functions = [Function]
 
   /// The program defining the functions in `self`.
@@ -45,19 +45,19 @@ public struct Module {
 
   /// Accesses the function at given index.
   public subscript(function index: Functions.Index) -> Function {
-    _read   { yield  functions[index] }
+    _read { yield functions[index] }
     _modify { yield &functions[index] }
   }
 
   /// Accesses the basic block with the given identity.
   public subscript(block id: Block.ID) -> Block {
-    _read   { yield  functions[id.function].blocks[id.address] }
+    _read { yield functions[id.function].blocks[id.address] }
     _modify { yield &functions[id.function].blocks[id.address] }
   }
 
   /// Accesses the instruction with the given identity.
   public subscript(instruction id: InstructionID) -> Inst {
-    _read   { yield  functions[id.function].blocks[id.block].instructions[id.address]  }
+    _read { yield functions[id.function].blocks[id.block].instructions[id.address] }
     _modify { yield &functions[id.function].blocks[id.block].instructions[id.address] }
   }
 
@@ -153,8 +153,8 @@ public struct Module {
 
     // Determine if the new function is the module's entry.
     if decl.scope.kind == TopLevelDeclSet.self,
-       decl.isPublic,
-       decl.identifier?.value == "main"
+      decl.isPublic,
+      decl.identifier?.value == "main"
     {
       assert(entryFunctionID == nil)
       entryFunctionID = loweredID
@@ -194,9 +194,11 @@ public struct Module {
   /// Adds `newInstruction` at the end of `block` and returns the identities of its return values.
   @discardableResult
   mutating func append<I: Inst>(_ newInstruction: I, to block: Block.ID) -> [Operand] {
-    insert(newInstruction, with: { (m, i) in
-      InstructionID(block: block, address: m[block: block].instructions.append(newInstruction))
-    })
+    insert(
+      newInstruction,
+      with: { (m, i) in
+        InstructionID(block: block, address: m[block: block].instructions.append(newInstruction))
+      })
   }
 
   /// Inserts `newInstruction` at `position` and returns the identities of its return values.
@@ -205,33 +207,39 @@ public struct Module {
   /// "past the end" position to append at the end of a block.
   @discardableResult
   mutating func insert<I: Inst>(_ newInstruction: I, at position: InstructionIndex) -> [Operand] {
-    insert(newInstruction, with: { (m, i) in
-      let address = m.functions[position.function].blocks[position.block].instructions
-        .insert(newInstruction, at: position.index)
-      return InstructionID(function: position.function, block: position.block, address: address)
-    })
+    insert(
+      newInstruction,
+      with: { (m, i) in
+        let address = m.functions[position.function].blocks[position.block].instructions
+          .insert(newInstruction, at: position.index)
+        return InstructionID(function: position.function, block: position.block, address: address)
+      })
   }
 
   /// Inserts `newInstruction` before the instruction identified by `id` and returns the identities
   /// of its results.
   @discardableResult
   mutating func insert<I: Inst>(_ newInstruction: I, before id: InstructionID) -> [Operand] {
-    insert(newInstruction, with: { (m, i) in
-      let address = m.functions[id.function].blocks[id.block].instructions
-        .insert(newInstruction, before: id.address)
-      return InstructionID(function: id.function, block: id.block, address: address)
-    })
+    insert(
+      newInstruction,
+      with: { (m, i) in
+        let address = m.functions[id.function].blocks[id.block].instructions
+          .insert(newInstruction, before: id.address)
+        return InstructionID(function: id.function, block: id.block, address: address)
+      })
   }
 
   /// Inserts `newInstruction` after the instruction identified by `id` and returns the identities
   /// of its results.
   @discardableResult
   mutating func insert<I: Inst>(_ newInstruction: I, after id: InstructionID) -> [Operand] {
-    insert(newInstruction, with: { (m, i) in
-      let address = m.functions[id.function].blocks[id.block].instructions
-        .insert(newInstruction, after: id.address)
-      return InstructionID(function: id.function, block: id.block, address: address)
-    })
+    insert(
+      newInstruction,
+      with: { (m, i) in
+        let address = m.functions[id.function].blocks[id.block].instructions
+          .insert(newInstruction, after: id.address)
+        return InstructionID(function: id.function, block: id.block, address: address)
+      })
   }
 
   /// Inserts `newInstruction` with `impl` and returns the identities of its return values.
@@ -254,4 +262,3 @@ public struct Module {
   }
 
 }
-

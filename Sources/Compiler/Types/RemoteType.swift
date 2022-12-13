@@ -28,5 +28,4 @@ extension RemoteType: CustomStringConvertible {
     return "remote \(capability) \(base)"
   }
 
-
 }

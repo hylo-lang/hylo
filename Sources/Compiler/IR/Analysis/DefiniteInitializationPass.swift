@@ -92,10 +92,12 @@ public struct DefiniteInitializationPass: TransformPass {
           }
 
           // Merge the state of the objects in memory.
-          result.memory.merge(afterContext.memory, uniquingKeysWith: { (lhs, rhs) in
-            assert(lhs.type == rhs.type)
-            return Context.Cell(type: lhs.type, object: lhs.object && rhs.object)
-          })
+          result.memory.merge(
+            afterContext.memory,
+            uniquingKeysWith: { (lhs, rhs) in
+              assert(lhs.type == rhs.type)
+              return Context.Cell(type: lhs.type, object: lhs.object && rhs.object)
+            })
         }
 
         // Make sure the after-contexts are consistent with the computed before-context.
@@ -192,9 +194,11 @@ public struct DefiniteInitializationPass: TransformPass {
       // visited, or pick another node.
       let predecessors = cfg.predecessors(of: block)
       if let dominator = dominatorTree.immediateDominator(of: block) {
-        if contexts[dominator] == nil || predecessors.contains(where: { p in
-          contexts[p] == nil && !dominatorTree.dominates(block, p)
-        }) {
+        if contexts[dominator] == nil
+          || predecessors.contains(where: { p in
+            contexts[p] == nil && !dominatorTree.dominates(block, p)
+          })
+        {
           work.append(block)
           continue
         }
@@ -225,8 +229,8 @@ public struct DefiniteInitializationPass: TransformPass {
 
         // 3) the only predecessor left is the block itself, yet the after-context didn't change.
         return (pending.count == 1)
-            && (pending[0] == block)
-            && (contexts[block]?.after == currentContext)
+          && (pending[0] == block)
+          && (contexts[block]?.after == currentContext)
       }()
 
       // Update the before/after-context pair for the current block and move to the next one.
@@ -414,9 +418,11 @@ public struct DefiniteInitializationPass: TransformPass {
   ) -> Bool {
     // Consume the condition operand.
     let key = FunctionLocal(operand: inst.condition)!
-    return consume(localForKey: key, with: id, or: { (this, _) in
-      this.diagnostics.append(.illegalMove(at: inst.range))
-    })
+    return consume(
+      localForKey: key, with: id,
+      or: { (this, _) in
+        this.diagnostics.append(.illegalMove(at: inst.range))
+      })
   }
 
   private mutating func eval(
@@ -432,9 +438,12 @@ public struct DefiniteInitializationPass: TransformPass {
       case .sink:
         // Consumes the operand unless it's a constant.
         if let key = FunctionLocal(operand: inst.operands[i]) {
-          if !consume(localForKey: key, with: id, or: { (this, _) in
-            this.diagnostics.append(.illegalMove(at: inst.range))
-          }) {
+          if !consume(
+            localForKey: key, with: id,
+            or: { (this, _) in
+              this.diagnostics.append(.illegalMove(at: inst.range))
+            })
+          {
             return false
           }
         }
@@ -460,18 +469,20 @@ public struct DefiniteInitializationPass: TransformPass {
     assert(locations.count == 1)
 
     // Make sure the memory at the deallocated location is consumed or uninitialized.
-    let initializedPaths: [[Int]] = withObject(at: locations.first!, { object in
-      switch object.summary {
-      case .fullyUninitialized, .fullyConsumed:
-        return []
-      case .fullyInitialized:
-        return [[]]
-      case .partiallyInitialized(let paths):
-        return paths
-      case .partiallyConsumed(_, let paths):
-        return paths
-      }
-    })
+    let initializedPaths: [[Int]] = withObject(
+      at: locations.first!,
+      { object in
+        switch object.summary {
+        case .fullyUninitialized, .fullyConsumed:
+          return []
+        case .fullyInitialized:
+          return [[]]
+        case .partiallyInitialized(let paths):
+          return paths
+        case .partiallyConsumed(_, let paths):
+          return paths
+        }
+      })
 
     for path in initializedPaths {
       let object = module.insert(
@@ -501,9 +512,11 @@ public struct DefiniteInitializationPass: TransformPass {
   ) -> Bool {
     // Consume the object operand.
     let key = FunctionLocal(operand: inst.object)!
-    return consume(localForKey: key, with: id, or: { (this, _) in
-      this.diagnostics.append(.illegalMove(at: inst.range))
-    })
+    return consume(
+      localForKey: key, with: id,
+      or: { (this, _) in
+        this.diagnostics.append(.illegalMove(at: inst.range))
+      })
   }
 
   private mutating func eval(
@@ -511,9 +524,12 @@ public struct DefiniteInitializationPass: TransformPass {
   ) -> Bool {
     // Consume the object operand.
     if let key = FunctionLocal(operand: inst.object) {
-      if !consume(localForKey: key, with: id, or: { (this, _) in
-        this.diagnostics.append(.illegalMove(at: inst.range))
-      }) {
+      if !consume(
+        localForKey: key, with: id,
+        or: { (this, _) in
+          this.diagnostics.append(.illegalMove(at: inst.range))
+        })
+      {
         return false
       }
     }
@@ -539,21 +555,24 @@ public struct DefiniteInitializationPass: TransformPass {
 
     // Object at target location must be initialized.
     for location in locations {
-      if let diagnostic = withObject(at: location, { (object) -> Diagnostic? in
-        switch object.summary {
-        case .fullyInitialized:
-          object = .full(.consumed(by: [id]))
-          return nil
-        case .fullyUninitialized:
-          return .useOfUninitializedObject(at: inst.range)
-        case .fullyConsumed:
-          return .useOfConsumedObject(at: inst.range)
-        case .partiallyInitialized:
-          return .useOfPartiallyInitializedObject(at: inst.range)
-        case .partiallyConsumed:
-          return .useOfPartiallyConsumedObject(at: inst.range)
-        }
-      }) {
+      if let diagnostic = withObject(
+        at: location,
+        { (object) -> Diagnostic? in
+          switch object.summary {
+          case .fullyInitialized:
+            object = .full(.consumed(by: [id]))
+            return nil
+          case .fullyUninitialized:
+            return .useOfUninitializedObject(at: inst.range)
+          case .fullyConsumed:
+            return .useOfConsumedObject(at: inst.range)
+          case .partiallyInitialized:
+            return .useOfPartiallyInitializedObject(at: inst.range)
+          case .partiallyConsumed:
+            return .useOfPartiallyConsumedObject(at: inst.range)
+          }
+        })
+      {
         diagnostics.append(diagnostic)
         return false
       }
@@ -570,9 +589,12 @@ public struct DefiniteInitializationPass: TransformPass {
     // Consumes the non-constant operand.
     for operand in inst.operands {
       if let key = FunctionLocal(operand: operand) {
-        if !consume(localForKey: key, with: id, or: { (this, _) in
-          this.diagnostics.append(.illegalMove(at: inst.range))
-        }) {
+        if !consume(
+          localForKey: key, with: id,
+          or: { (this, _) in
+            this.diagnostics.append(.illegalMove(at: inst.range))
+          })
+        {
           return false
         }
       }
@@ -588,9 +610,12 @@ public struct DefiniteInitializationPass: TransformPass {
   ) -> Bool {
     // Consume the object operand.
     if let key = FunctionLocal(operand: inst.value) {
-      if !consume(localForKey: key, with: id, or: { (this, _) in
-        this.diagnostics.append(.illegalMove(at: inst.range))
-      }) {
+      if !consume(
+        localForKey: key, with: id,
+        or: { (this, _) in
+          this.diagnostics.append(.illegalMove(at: inst.range))
+        })
+      {
         return false
       }
     }
@@ -603,9 +628,12 @@ public struct DefiniteInitializationPass: TransformPass {
   ) -> Bool {
     // Consume the object operand.
     if let key = FunctionLocal(operand: inst.object) {
-      if !consume(localForKey: key, with: id, or: { (this, _) in
-        this.diagnostics.append(.illegalMove(at: inst.range))
-      }) {
+      if !consume(
+        localForKey: key, with: id,
+        or: { (this, _) in
+          this.diagnostics.append(.illegalMove(at: inst.range))
+        })
+      {
         return false
       }
     }
@@ -641,25 +669,27 @@ public struct DefiniteInitializationPass: TransformPass {
       if path.isEmpty {
         return action(&currentContext.memory[location]!.object)
       } else {
-        return modifying(&currentContext.memory[rootLocation]!, { root in
-          var derivedType = root.type
-          var derivedPath = \Context.Cell.object
-          for offset in path {
-            // TODO: Handle tail-allocated objects.
-            assert(offset >= 0, "not implemented")
+        return modifying(
+          &currentContext.memory[rootLocation]!,
+          { root in
+            var derivedType = root.type
+            var derivedPath = \Context.Cell.object
+            for offset in path {
+              // TODO: Handle tail-allocated objects.
+              assert(offset >= 0, "not implemented")
 
-            // Disaggregate the object if necessary.
-            let layout = root[keyPath: derivedPath]
-              .disaggregate(type: derivedType, program: program)
+              // Disaggregate the object if necessary.
+              let layout = root[keyPath: derivedPath]
+                .disaggregate(type: derivedType, program: program)
 
-            // Create a path to the sub-object.
-            derivedType = layout.storedPropertiesTypes[offset]
-            derivedPath = derivedPath.appending(path: \Object.[offset])
-          }
+              // Create a path to the sub-object.
+              derivedType = layout.storedPropertiesTypes[offset]
+              derivedPath = derivedPath.appending(path: \Object.[offset])
+            }
 
-          // Project the sub-object.
-          return action(&root[keyPath: derivedPath])
-        })
+            // Project the sub-object.
+            return action(&root[keyPath: derivedPath])
+          })
       }
     }
   }
@@ -671,7 +701,7 @@ public struct DefiniteInitializationPass: TransformPass {
   private mutating func consume(
     localForKey key: FunctionLocal,
     with consumer: InstructionID,
-    or handleFailure: (inout Self, Object.StateSummary) -> ()
+    or handleFailure: (inout Self, Object.StateSummary) -> Void
   ) -> Bool {
     let summary = currentContext.locals[key]!.unwrapObject()!.summary
     if summary == .fullyInitialized {
@@ -685,10 +715,10 @@ public struct DefiniteInitializationPass: TransformPass {
 
 }
 
-fileprivate extension DefiniteInitializationPass {
+extension DefiniteInitializationPass {
 
   /// An abstract memory location.
-  enum MemoryLocation: Hashable {
+  fileprivate enum MemoryLocation: Hashable {
 
     /// The null location.
     case null
@@ -735,7 +765,7 @@ fileprivate extension DefiniteInitializationPass {
       case .inst(let b, let a):
         hasher.combine(b)
         hasher.combine(a)
-      case.sublocation(let r, let p):
+      case .sublocation(let r, let p):
         hasher.combine(r)
         for i in p { hasher.combine(i) }
       }
@@ -763,7 +793,7 @@ fileprivate extension DefiniteInitializationPass {
   }
 
   /// An abstract object.
-  enum Object: Equatable {
+  fileprivate enum Object: Equatable {
 
     /// The initialization state of an object or sub-object.
     enum State: Equatable {
@@ -947,9 +977,11 @@ fileprivate extension DefiniteInitializationPass {
         return state == .initialized ? [[]] : []
 
       case .partial(let subojects):
-        return (0 ..< subojects.count).reduce(into: [], { (result, i) in
-          result.append(contentsOf: subojects[i].initializedPaths.map({ [i] + $0 }))
-        })
+        return (0 ..< subojects.count).reduce(
+          into: [],
+          { (result, i) in
+            result.append(contentsOf: subojects[i].initializedPaths.map({ [i] + $0 }))
+          })
       }
     }
 
@@ -960,9 +992,11 @@ fileprivate extension DefiniteInitializationPass {
         return state == .initialized ? [] : [[]]
 
       case .partial(let subojects):
-        return (0 ..< subojects.count).reduce(into: [], { (result, i) in
-          result.append(contentsOf: subojects[i].uninitializedOrConsumedPaths.map({ [i] + $0 }))
-        })
+        return (0 ..< subojects.count).reduce(
+          into: [],
+          { (result, i) in
+            result.append(contentsOf: subojects[i].uninitializedOrConsumedPaths.map({ [i] + $0 }))
+          })
       }
     }
 
@@ -979,14 +1013,16 @@ fileprivate extension DefiniteInitializationPass {
       case (_, .full(.initialized)):
         return [[]]
 
-      case(let lhs, .full):
+      case (let lhs, .full):
         return lhs.initializedPaths
 
       case (.partial(let lhs), .partial(let rhs)):
         assert(lhs.count == rhs.count)
-        return (0 ..< lhs.count).reduce(into: [], { (result, i) in
-          result.append(contentsOf: lhs[i].difference(rhs[i]).map({ [i] + $0 }))
-        })
+        return (0 ..< lhs.count).reduce(
+          into: [],
+          { (result, i) in
+            result.append(contentsOf: lhs[i].difference(rhs[i]).map({ [i] + $0 }))
+          })
       }
     }
 
@@ -1011,7 +1047,7 @@ fileprivate extension DefiniteInitializationPass {
   }
 
   /// An abstract value.
-  enum Value: Equatable {
+  fileprivate enum Value: Equatable {
 
     /// A non-empty set of locations.
     case locations(Set<MemoryLocation>)
@@ -1052,7 +1088,7 @@ fileprivate extension DefiniteInitializationPass {
   }
 
   /// An abstract interpretation context.
-  struct Context: Equatable {
+  fileprivate struct Context: Equatable {
 
     /// A memory cell.
     struct Cell: Equatable {
@@ -1075,29 +1111,29 @@ fileprivate extension DefiniteInitializationPass {
 
 }
 
-fileprivate extension Diagnostic {
+extension Diagnostic {
 
-  static func illegalMove(at range: SourceRange?) -> Diagnostic {
+  fileprivate static func illegalMove(at range: SourceRange?) -> Diagnostic {
     .error("illegal move", range: range)
   }
 
-  static func unboundedStackAllocation(at range: SourceRange?) -> Diagnostic {
+  fileprivate static func unboundedStackAllocation(at range: SourceRange?) -> Diagnostic {
     .error("unbounded stack allocation", range: range)
   }
 
-  static func useOfConsumedObject(at range: SourceRange?) -> Diagnostic {
+  fileprivate static func useOfConsumedObject(at range: SourceRange?) -> Diagnostic {
     .error("use of consumed object", range: range)
   }
 
-  static func useOfPartiallyConsumedObject(at range: SourceRange?) -> Diagnostic {
+  fileprivate static func useOfPartiallyConsumedObject(at range: SourceRange?) -> Diagnostic {
     .error("use of partially consumed object", range: range)
   }
 
-  static func useOfPartiallyInitializedObject(at range: SourceRange?) -> Diagnostic {
+  fileprivate static func useOfPartiallyInitializedObject(at range: SourceRange?) -> Diagnostic {
     .error("use of partially initialized object", range: range)
   }
 
-  static func useOfUninitializedObject(at range: SourceRange?) -> Diagnostic {
+  fileprivate static func useOfUninitializedObject(at range: SourceRange?) -> Diagnostic {
     .error("use of uninitialized object", range: range)
   }
 

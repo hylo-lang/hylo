@@ -89,26 +89,28 @@ public struct AST: Codable {
     precondition(!isCoreModuleLoaded, "Core library is already loaded")
     corelib = try! insert(wellFormed: ModuleDecl(name: "Val"))
 
-    withFiles(in: ValModule.core!, { (sourceURL) in
-      if sourceURL.pathExtension != "val" { return true }
+    withFiles(
+      in: ValModule.core!,
+      { (sourceURL) in
+        if sourceURL.pathExtension != "val" { return true }
 
-      // Parse the file.
-      do {
-        let sourceFile = try SourceFile(contentsOf: sourceURL)
-        let diagnostics = try Parser.parse(sourceFile, into: corelib!, in: &self).diagnostics
+        // Parse the file.
+        do {
+          let sourceFile = try SourceFile(contentsOf: sourceURL)
+          let diagnostics = try Parser.parse(sourceFile, into: corelib!, in: &self).diagnostics
 
-        // Note: the core module shouldn't produce any diagnostic.
-        if !diagnostics.isEmpty {
-          throw DiagnosedError(diagnostics)
-        } else {
-          return true
+          // Note: the core module shouldn't produce any diagnostic.
+          if !diagnostics.isEmpty {
+            throw DiagnosedError(diagnostics)
+          } else {
+            return true
+          }
+        } catch let error as DiagnosedError {
+          fatalError(error.diagnostics.first!.description)
+        } catch let error {
+          fatalError(error.localizedDescription)
         }
-      } catch let error as DiagnosedError {
-        fatalError(error.diagnostics.first!.description)
-      } catch let error {
-        fatalError(error.localizedDescription)
-      }
-    })
+      })
   }
 
   /// Returns the type named `name` defined in the core library or `nil` it does not exist.
@@ -151,7 +153,9 @@ public struct AST: Codable {
       LazyMapSequence<
         LazySequence<[NodeID<TopLevelDeclSet>]>.Elements,
         [AnyDeclID]
-      >.Elements>>
+      >.Elements
+    >
+  >
 
   /// Returns the IDs of the top-level declarations in the lexical scope of `module`.
   public func topLevelDecls(_ module: NodeID<ModuleDecl>) -> TopLevelDecls {

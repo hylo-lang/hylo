@@ -38,10 +38,11 @@ public struct SequenceExpr: Expr {
     for element in tail {
       // Operator notation must be `nil` or `.infix`.
       if let notation = ast[element.operator].name.value.notation, notation != .infix {
-        report.append(.diagnose(
-          invalidOperatorNotation: notation,
-          expected: .infix,
-          at: ast[element.operator].name.origin))
+        report.append(
+          .diagnose(
+            invalidOperatorNotation: notation,
+            expected: .infix,
+            at: ast[element.operator].name.origin))
       }
     }
 

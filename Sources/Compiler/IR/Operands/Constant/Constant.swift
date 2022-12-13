@@ -14,11 +14,11 @@ public enum Constant: Hashable {
   /// The associated value of this constant.
   public var base: ConstantProtocol {
     switch self {
-    case .builtin(let c):   return c
-    case .integer(let c):   return c
-    case .function(let c):  return c
-    case .poison(let c):    return c
-    case .void:             return VoidConstant()
+    case .builtin(let c): return c
+    case .integer(let c): return c
+    case .function(let c): return c
+    case .poison(let c): return c
+    case .void: return VoidConstant()
     }
   }
 
