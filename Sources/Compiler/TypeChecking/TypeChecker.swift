@@ -2589,7 +2589,7 @@ public struct TypeChecker {
 
     if isNonStaticMember {
       // Create a lambda bound to a receiver.
-      let effect: ReceiverEffect?
+      let effect: AccessEffect?
       if program.ast[id].isInout {
         receiver = ^TupleType([.init(label: "self", type: ^RemoteType(.inout, receiver!))])
         effect = .inout

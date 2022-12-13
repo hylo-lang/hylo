@@ -103,14 +103,8 @@ public struct Module {
           inputs.append((convention: type.capability, type: .address(type.base)))
 
         case let type:
-          switch declType.receiverEffect {
-          case nil:
-            inputs.append((convention: .let, type: .address(type)))
-          case .inout:
-            inputs.append((convention: .inout, type: .address(type)))
-          case .sink:
-            inputs.append((convention: .sink, type: .object(type)))
-          }
+          precondition(declType.receiverEffect != .yielded, "cannot lower yielded parameter")
+          inputs.append((convention: declType.receiverEffect ?? .let, type: .address(type)))
         }
       }
 

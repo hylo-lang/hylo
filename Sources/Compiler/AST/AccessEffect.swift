@@ -16,12 +16,4 @@ public enum AccessEffect: Codable {
   /// Value may be accessed with any of the other effects, depending on the context.
   case yielded
 
-  /// Creates the passing convention that corresponds to `effect`.
-  init(matching effect: ReceiverEffect) {
-    switch effect {
-    case .inout   : self = .inout
-    case .sink    : self = .sink
-    }
-  }
-
 }

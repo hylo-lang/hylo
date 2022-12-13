@@ -464,9 +464,7 @@ public struct Emitter {
     let calleeType = expr.callee.type.base as! LambdaType
 
     // Determine the callee's convention.
-    let calleeConvention = calleeType.receiverEffect.map(
-      default: .let,
-      AccessEffect.init(matching:))
+    let calleeConvention = calleeType.receiverEffect ?? .let
 
     // Arguments are evaluated first, from left to right.
     var argumentConventions: [AccessEffect] = []

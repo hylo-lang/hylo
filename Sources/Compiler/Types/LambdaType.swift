@@ -4,7 +4,7 @@ import Utils
 public struct LambdaType: TypeProtocol {
 
   /// The property of the lambda's call operator.
-  public let receiverEffect: ReceiverEffect?
+  public let receiverEffect: AccessEffect?
 
   /// The environment of the lambda.
   ///
@@ -23,7 +23,7 @@ public struct LambdaType: TypeProtocol {
 
   /// Creates an instance with the given properties.
   public init(
-    receiverEffect: ReceiverEffect? = nil,
+    receiverEffect: AccessEffect? = nil,
     environment: AnyType = .void,
     inputs: [CallableTypeParameter],
     output: AnyType
