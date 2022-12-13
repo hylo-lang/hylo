@@ -246,9 +246,9 @@ struct ConstraintGenerator {
     // 1. We failed to infer the type of the callee. We can stop here.
     // 2. We couldn't infer the exact type of the callee and must rely on bottom-up inference.
     // 3. We determined the exact type of the callee, and:
-    //   a. it's a lambda or method type. In that case, we can use the parameter types to validate
-    //      the argument labels and infer the argument types.
-    //   b. it's a metatype and the the callee is a name expression referring to a nominal type
+    //   a. it's a lambda or method type. In that case, we can use the parameters to validate the
+    //      arguments' labels and their types.
+    //   b. it's a metatype and the callee is a name expression referring to a nominal type
     //      declaration. In that case, the call is actually a sugared buffer type expression.
     //   c. it's any other type. In that case the callee is not callable.
 
@@ -275,7 +275,7 @@ struct ConstraintGenerator {
     }
 
     // Case 3a
-    if let calleeType = inferredTypes[callee]?.base as? CallableType {
+    if let calleeType = inferredTypes[callee]!.base as? CallableType {
       if visit(
         arguments: checker.program.ast[id].arguments,
         of: checker.program.ast[id].callee,
