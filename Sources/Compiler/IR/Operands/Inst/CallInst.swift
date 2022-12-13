@@ -8,7 +8,7 @@ public struct CallInst: Inst {
   public let returnType: LoweredType
 
   /// The passing conventions of the instruction's operands.
-  public let conventions: [PassingConvention]
+  public let conventions: [AccessEffect]
 
   public let operands: [Operand]
 
@@ -16,9 +16,9 @@ public struct CallInst: Inst {
 
   public init(
     returnType: LoweredType,
-    calleeConvention: PassingConvention,
+    calleeConvention: AccessEffect,
     callee: Operand,
-    argumentConventions: [PassingConvention],
+    argumentConventions: [AccessEffect],
     arguments: [Operand],
     range: SourceRange? = nil
   ) {

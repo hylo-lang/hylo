@@ -10,14 +10,14 @@ public struct TypedDeclProperty<Value> {
   }
 
   /// Accesses the property associated with the specified ID.
-  public subscript<ID: DeclID>(decl: TypedNode<ID>) -> Value? {
+  public subscript<ID: DeclID>(decl: ID.TypedNode) -> Value? {
     _read { yield storage[decl.id] }
     _modify { yield &storage[decl.id] }
   }
 
   /// Accesses the property associated with the specified ID, using a default value.
   public subscript<ID: DeclID>(
-    decl: TypedNode<ID>,
+    decl: ID.TypedNode,
     default defaultValue: @autoclosure () -> Value
   ) -> Value {
     _read { yield storage[decl.id, default: defaultValue()] }

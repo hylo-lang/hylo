@@ -2,7 +2,7 @@
 public struct BorrowInst: Inst {
 
   /// The capability being borrowed.
-  public let capability: RemoteType.Capability
+  public let capability: AccessEffect
 
   /// The type of the borrowed access.
   public let borrowedType: LoweredType
@@ -19,7 +19,7 @@ public struct BorrowInst: Inst {
   public let range: SourceRange?
 
   init(
-    _ capability: RemoteType.Capability,
+    _ capability: AccessEffect,
     _ borrowedType: LoweredType,
     from location: Operand,
     at path: [Int] = [],
@@ -41,6 +41,9 @@ public struct BorrowInst: Inst {
   public var isTerminator: Bool { false }
 
   public func isWellFormed(in module: Module) -> Bool {
+    // Capability may not be `sink`.
+    if capability == .sink { return false }
+
     // Instruction result has an address type.
     if !borrowedType.isAddress { return false }
 

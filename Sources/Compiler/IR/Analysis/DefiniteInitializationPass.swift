@@ -401,7 +401,7 @@ public struct DefiniteInitializationPass: TransformPass {
         withObject(at: l, { object in object = .full(.uninitialized) })
       }
 
-    case .yielded:
+    case .yielded, .sink:
       unreachable()
     }
 

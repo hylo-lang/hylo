@@ -2870,11 +2870,6 @@ public enum Parser {
     return nil
   }
 
-  static let receiverEffect = translate([
-    .inout: ReceiverEffect.inout,
-    .sink : ReceiverEffect.sink,
-  ])
-
   static let parameterTypeExpr = (
     maybe(passingConvention)
       .andCollapsingSoftFailures(expr)
@@ -2887,12 +2882,16 @@ public enum Parser {
       })
   )
 
-  static let passingConvention = translate([
-    .let    : PassingConvention.let,
-    .inout  : PassingConvention.inout,
-    .set    : PassingConvention.set,
-    .sink   : PassingConvention.sink,
-    .yielded: PassingConvention.yielded,
+  static let receiverEffect = accessEffect
+
+  static let passingConvention = accessEffect
+
+  static let accessEffect = translate([
+    .let    : AccessEffect.let,
+    .inout  : AccessEffect.inout,
+    .set    : AccessEffect.set,
+    .sink   : AccessEffect.sink,
+    .yielded: AccessEffect.yielded,
   ])
 
   static let whereClause = (
@@ -3053,7 +3052,7 @@ struct FunctionDeclSignature {
   let parameters: [NodeID<ParameterDecl>]
 
   /// The receiver effect of the declaration, if any.
-  let receiverEffect: SourceRepresentable<ReceiverEffect>?
+  let receiverEffect: SourceRepresentable<AccessEffect>?
 
   /// The return type annotation of the declaration, if any.
   let output: AnyExprID?
