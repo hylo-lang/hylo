@@ -13,7 +13,7 @@ public struct Module {
   public let program: TypedProgram
 
   /// The module's declaration.
-  public let decl: Typed<ModuleDecl>
+  public let decl: ModuleDecl.Typed
 
   /// The def-use chains of the values in this module.
   public private(set) var uses: [Operand: [Use]] = [:]
@@ -25,7 +25,7 @@ public struct Module {
   public private(set) var entryFunctionID: Function.ID?
 
   /// A map from function declaration its ID in the module.
-  private var loweredFunctions: [Typed<FunctionDecl>: Function.ID] = [:]
+  private var loweredFunctions: [FunctionDecl.Typed: Function.ID] = [:]
 
   /// Creates an IR module lowering `decl` from `program`.
   ///
@@ -81,7 +81,7 @@ public struct Module {
 
   /// Returns the identifier of the Val IR function corresponding to `decl`.
   mutating func getOrCreateFunction(
-    correspondingTo decl: Typed<FunctionDecl>,
+    correspondingTo decl: FunctionDecl.Typed,
     program: TypedProgram
   ) -> Function.ID {
     if let id = loweredFunctions[decl] { return id }
