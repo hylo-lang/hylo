@@ -33,11 +33,13 @@ struct DisjunctionConstraint: Constraint, Hashable {
   mutating func modifyTypes(_ modify: (inout AnyType) -> Void) {
     for i in 0 ..< choices.count {
       choices[i] = Choice(
-        constraints: choices[i].constraints.reduce(into: [], { (cs, c) in
-          var newConstraint = c
-          newConstraint.modifyTypes(modify)
-          cs.insert(newConstraint)
-        }),
+        constraints: choices[i].constraints.reduce(
+          into: [],
+          { (cs, c) in
+            var newConstraint = c
+            newConstraint.modifyTypes(modify)
+            cs.insert(newConstraint)
+          }),
         penalties: choices[i].penalties)
     }
   }
@@ -68,4 +70,3 @@ extension DisjunctionConstraint.Choice: CustomStringConvertible {
   }
 
 }
-

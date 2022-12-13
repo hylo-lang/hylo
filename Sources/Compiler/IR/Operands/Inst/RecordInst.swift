@@ -27,4 +27,3 @@ public struct RecordInst: Inst {
     self.range = range
   }
 }
-

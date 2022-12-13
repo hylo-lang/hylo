@@ -110,10 +110,10 @@ public struct DeclLocator: Hashable {
 
       case .methodImpl(let introducer):
         switch introducer {
-        case .let  : return "Il"
+        case .let: return "Il"
         case .inout: return "Ii"
-        case .set  : return "Ia"
-        case .sink : return "Is"
+        case .set: return "Ia"
+        case .sink: return "Is"
         }
 
       case .module(let name):
@@ -134,10 +134,10 @@ public struct DeclLocator: Hashable {
 
       case .subscriptImpl(let introducer):
         switch introducer {
-        case .let   : return "Il"
-        case .inout : return "Ii"
-        case .set   : return "Ia"
-        case .sink  : return "Is"
+        case .let: return "Il"
+        case .inout: return "Ii"
+        case .set: return "Ia"
+        case .sink: return "Is"
         }
 
       case .trait(let name):
@@ -242,9 +242,12 @@ extension String {
       if character.isMangledAllowed {
         result.append(character)
       } else {
-        result.append(character.utf16.reduce(into: "u", { (u, point) in
-          u += String(point, radix: 16)
-        }))
+        result.append(
+          character.utf16.reduce(
+            into: "u",
+            { (u, point) in
+              u += String(point, radix: 16)
+            }))
       }
     }
 
@@ -258,10 +261,10 @@ extension Character {
   /// Indicates whether the character is allowed to appear in a mangled identifier.
   fileprivate var isMangledAllowed: Bool {
     guard let code = asciiValue else { return false }
-    return (0x61 ... 0x7a).contains(code) // a ... z
-        || (0x41 ... 0x5a).contains(code) // A ... Z
-        || (0x30 ... 0x39).contains(code) // 0 ... 9
-        || (0x5f == code)                 // _
+    return (0x61 ... 0x7a).contains(code)  // a ... z
+      || (0x41 ... 0x5a).contains(code)  // A ... Z
+      || (0x30 ... 0x39).contains(code)  // 0 ... 9
+      || (0x5f == code)  // _
   }
 
 }

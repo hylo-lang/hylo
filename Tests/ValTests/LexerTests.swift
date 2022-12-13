@@ -1,5 +1,5 @@
-import XCTest
 import Compiler
+import XCTest
 
 final class LexerTests: XCTestCase {
 
@@ -34,12 +34,12 @@ final class LexerTests: XCTestCase {
     assert(
       tokenize(input),
       matches: [
-        TokenSpecification(.int , "0x0123"),
-        TokenSpecification(.int , "0xabcdef"),
-        TokenSpecification(.int , "0x__0_a_"),
-        TokenSpecification(.int , "0"),
+        TokenSpecification(.int, "0x0123"),
+        TokenSpecification(.int, "0xabcdef"),
+        TokenSpecification(.int, "0x__0_a_"),
+        TokenSpecification(.int, "0"),
         TokenSpecification(.name, "xg"),
-        TokenSpecification(.int , "0"),
+        TokenSpecification(.int, "0"),
         TokenSpecification(.name, "x"),
       ],
       in: input)
@@ -50,11 +50,11 @@ final class LexerTests: XCTestCase {
     assert(
       tokenize(input),
       matches: [
-        TokenSpecification(.int , "0o0123"),
-        TokenSpecification(.int , "0o__0_6_"),
-        TokenSpecification(.int , "0"),
+        TokenSpecification(.int, "0o0123"),
+        TokenSpecification(.int, "0o__0_6_"),
+        TokenSpecification(.int, "0"),
         TokenSpecification(.name, "o8"),
-        TokenSpecification(.int , "0"),
+        TokenSpecification(.int, "0"),
         TokenSpecification(.name, "o"),
       ],
       in: input)
@@ -65,11 +65,11 @@ final class LexerTests: XCTestCase {
     assert(
       tokenize(input),
       matches: [
-        TokenSpecification(.int , "0b01"),
-        TokenSpecification(.int , "0b__0_1_"),
-        TokenSpecification(.int , "0"),
+        TokenSpecification(.int, "0b01"),
+        TokenSpecification(.int, "0b__0_1_"),
+        TokenSpecification(.int, "0"),
         TokenSpecification(.name, "b8"),
-        TokenSpecification(.int , "0"),
+        TokenSpecification(.int, "0"),
         TokenSpecification(.name, "b"),
       ],
       in: input)
@@ -86,10 +86,10 @@ final class LexerTests: XCTestCase {
         TokenSpecification(.float, "1e1_000"),
         TokenSpecification(.float, "1.12e+123"),
         TokenSpecification(.float, "3.45E-6"),
-        TokenSpecification(.int  , "1"),
-        TokenSpecification(.dot  , "."),
-        TokenSpecification(.int  , "1"),
-        TokenSpecification(.name , "e"),
+        TokenSpecification(.int, "1"),
+        TokenSpecification(.dot, "."),
+        TokenSpecification(.int, "1"),
+        TokenSpecification(.name, "e"),
       ],
       in: input)
   }
@@ -109,57 +109,58 @@ final class LexerTests: XCTestCase {
   }
 
   func testKeywords() {
-    let input = SourceFile(contents: """
-    any break catch conformance continue deinit do else extension for fun if import in infix init
-    inout let match namespace nil operator postfix prefix property public return set sink some
-    spawn static subscript trait try type typealias var where while yield yielded
-    """)
+    let input = SourceFile(
+      contents: """
+        any break catch conformance continue deinit do else extension for fun if import in infix init
+        inout let match namespace nil operator postfix prefix property public return set sink some
+        spawn static subscript trait try type typealias var where while yield yielded
+        """)
 
     assert(
       tokenize(input),
       matches: [
-        TokenSpecification(.`any`         , "any"),
-        TokenSpecification(.`break`       , "break"),
-        TokenSpecification(.`catch`       , "catch"),
-        TokenSpecification(.`conformance` , "conformance"),
-        TokenSpecification(.`continue`    , "continue"),
-        TokenSpecification(.`deinit`      , "deinit"),
-        TokenSpecification(.`do`          , "do"),
-        TokenSpecification(.`else`        , "else"),
-        TokenSpecification(.`extension`   , "extension"),
-        TokenSpecification(.`for`         , "for"),
-        TokenSpecification(.`fun`         , "fun"),
-        TokenSpecification(.`if`          , "if"),
-        TokenSpecification(.`import`      , "import"),
-        TokenSpecification(.`in`          , "in"),
-        TokenSpecification(.`infix`       , "infix"),
-        TokenSpecification(.`init`        , "init"),
-        TokenSpecification(.`inout`       , "inout"),
-        TokenSpecification(.`let`         , "let"),
-        TokenSpecification(.`match`       , "match"),
-        TokenSpecification(.`namespace`   , "namespace"),
-        TokenSpecification(.`nil`         , "nil"),
-        TokenSpecification(.`operator`    , "operator"),
-        TokenSpecification(.`postfix`     , "postfix"),
-        TokenSpecification(.`prefix`      , "prefix"),
-        TokenSpecification(.`property`    , "property"),
-        TokenSpecification(.`public`      , "public"),
-        TokenSpecification(.`return`      , "return"),
-        TokenSpecification(.`set`         , "set"),
-        TokenSpecification(.`sink`        , "sink"),
-        TokenSpecification(.`some`        , "some"),
-        TokenSpecification(.`spawn`       , "spawn"),
-        TokenSpecification(.`static`      , "static"),
-        TokenSpecification(.`subscript`   , "subscript"),
-        TokenSpecification(.`trait`       , "trait"),
-        TokenSpecification(.`try`         , "try"),
-        TokenSpecification(.`type`        , "type"),
-        TokenSpecification(.`typealias`   , "typealias"),
-        TokenSpecification(.`var`         , "var"),
-        TokenSpecification(.`where`       , "where"),
-        TokenSpecification(.`while`       , "while"),
-        TokenSpecification(.`yield`       , "yield"),
-        TokenSpecification(.`yielded`     , "yielded"),
+        TokenSpecification(.`any`, "any"),
+        TokenSpecification(.`break`, "break"),
+        TokenSpecification(.`catch`, "catch"),
+        TokenSpecification(.`conformance`, "conformance"),
+        TokenSpecification(.`continue`, "continue"),
+        TokenSpecification(.`deinit`, "deinit"),
+        TokenSpecification(.`do`, "do"),
+        TokenSpecification(.`else`, "else"),
+        TokenSpecification(.`extension`, "extension"),
+        TokenSpecification(.`for`, "for"),
+        TokenSpecification(.`fun`, "fun"),
+        TokenSpecification(.`if`, "if"),
+        TokenSpecification(.`import`, "import"),
+        TokenSpecification(.`in`, "in"),
+        TokenSpecification(.`infix`, "infix"),
+        TokenSpecification(.`init`, "init"),
+        TokenSpecification(.`inout`, "inout"),
+        TokenSpecification(.`let`, "let"),
+        TokenSpecification(.`match`, "match"),
+        TokenSpecification(.`namespace`, "namespace"),
+        TokenSpecification(.`nil`, "nil"),
+        TokenSpecification(.`operator`, "operator"),
+        TokenSpecification(.`postfix`, "postfix"),
+        TokenSpecification(.`prefix`, "prefix"),
+        TokenSpecification(.`property`, "property"),
+        TokenSpecification(.`public`, "public"),
+        TokenSpecification(.`return`, "return"),
+        TokenSpecification(.`set`, "set"),
+        TokenSpecification(.`sink`, "sink"),
+        TokenSpecification(.`some`, "some"),
+        TokenSpecification(.`spawn`, "spawn"),
+        TokenSpecification(.`static`, "static"),
+        TokenSpecification(.`subscript`, "subscript"),
+        TokenSpecification(.`trait`, "trait"),
+        TokenSpecification(.`try`, "try"),
+        TokenSpecification(.`type`, "type"),
+        TokenSpecification(.`typealias`, "typealias"),
+        TokenSpecification(.`var`, "var"),
+        TokenSpecification(.`where`, "where"),
+        TokenSpecification(.`while`, "while"),
+        TokenSpecification(.`yield`, "yield"),
+        TokenSpecification(.`yielded`, "yielded"),
       ],
       in: input)
   }
@@ -169,11 +170,11 @@ final class LexerTests: XCTestCase {
     assert(
       tokenize(input),
       matches: [
-        TokenSpecification(.name  , "foo"),
-        TokenSpecification(.name  , "éléphant"),
-        TokenSpecification(.name  , "_bar"),
-        TokenSpecification(.name  , "_1_2_3"),
-        TokenSpecification(.under , "_"),
+        TokenSpecification(.name, "foo"),
+        TokenSpecification(.name, "éléphant"),
+        TokenSpecification(.name, "_bar"),
+        TokenSpecification(.name, "_1_2_3"),
+        TokenSpecification(.under, "_"),
       ],
       in: input)
   }
@@ -183,11 +184,11 @@ final class LexerTests: XCTestCase {
     assert(
       tokenize(input),
       matches: [
-        TokenSpecification(.name   , "type"),
-        TokenSpecification(.name   , "foo"),
-        TokenSpecification(.name   , "a_b_"),
+        TokenSpecification(.name, "type"),
+        TokenSpecification(.name, "foo"),
+        TokenSpecification(.name, "a_b_"),
         TokenSpecification(.invalid, "`"),
-        TokenSpecification(.int    , "12"),
+        TokenSpecification(.int, "12"),
         TokenSpecification(.invalid, "`"),
       ],
       in: input)
@@ -200,8 +201,8 @@ final class LexerTests: XCTestCase {
       matches: [
         TokenSpecification(.attribute, "@implicitcopy"),
         TokenSpecification(.attribute, "@_foo"),
-        TokenSpecification(.invalid  , "@"),
-        TokenSpecification(.int      , "2"),
+        TokenSpecification(.invalid, "@"),
+        TokenSpecification(.int, "2"),
       ],
       in: input)
   }
@@ -212,24 +213,24 @@ final class LexerTests: XCTestCase {
       tokenize(input),
       matches: [
         TokenSpecification(.assign, "="),
-        TokenSpecification(.arrow , "->"),
-        TokenSpecification(.oper  , "*"),
-        TokenSpecification(.oper  , "/"),
-        TokenSpecification(.oper  , "%"),
-        TokenSpecification(.oper  , "+-"),
-        TokenSpecification(.equal , "=="),
-        TokenSpecification(.oper  , "!="),
-        TokenSpecification(.oper  , "~>"),
+        TokenSpecification(.arrow, "->"),
+        TokenSpecification(.oper, "*"),
+        TokenSpecification(.oper, "/"),
+        TokenSpecification(.oper, "%"),
+        TokenSpecification(.oper, "+-"),
+        TokenSpecification(.equal, "=="),
+        TokenSpecification(.oper, "!="),
+        TokenSpecification(.oper, "~>"),
         TokenSpecification(.rAngle, ">"),
-        TokenSpecification(.oper  , "!"),
+        TokenSpecification(.oper, "!"),
         TokenSpecification(.lAngle, "<"),
-        TokenSpecification(.oper  , "?"),
+        TokenSpecification(.oper, "?"),
         TokenSpecification(.rAngle, ">"),
         TokenSpecification(.rAngle, ">"),
-        TokenSpecification(.oper  , "&|^"),
-        TokenSpecification(.oper  , "..."),
-        TokenSpecification(.oper  , "..<"),
-        TokenSpecification(.pipe  , "|"),
+        TokenSpecification(.oper, "&|^"),
+        TokenSpecification(.oper, "..."),
+        TokenSpecification(.oper, "..<"),
+        TokenSpecification(.pipe, "|"),
         TokenSpecification(.ampersand, "&"),
       ],
       in: input)
@@ -252,10 +253,10 @@ final class LexerTests: XCTestCase {
     assert(
       tokenize(input),
       matches: [
-        TokenSpecification(.comma    , ","),
-        TokenSpecification(.semi     , ";"),
-        TokenSpecification(.dot      , "."),
-        TokenSpecification(.colon    , ":"),
+        TokenSpecification(.comma, ","),
+        TokenSpecification(.semi, ";"),
+        TokenSpecification(.dot, "."),
+        TokenSpecification(.colon, ":"),
         TokenSpecification(.twoColons, "::"),
       ],
       in: input)
@@ -276,26 +277,27 @@ final class LexerTests: XCTestCase {
         TokenSpecification(.rAngle, ">"),
       ],
       in: input)
- }
+  }
 
   func testComments() {
-    let input = SourceFile(contents: """
-    // line comment
-    // line comment with block start /*
-    /* Block comment
-     * Second line
-     */
-    /**** /* Nested block */ */
-    a = /* not c, but */ b
-    /**** /* Unterminated */
-    """)
+    let input = SourceFile(
+      contents: """
+        // line comment
+        // line comment with block start /*
+        /* Block comment
+         * Second line
+         */
+        /**** /* Nested block */ */
+        a = /* not c, but */ b
+        /**** /* Unterminated */
+        """)
 
     assert(
       tokenize(input),
       matches: [
-        TokenSpecification(.name   , "a"),
-        TokenSpecification(.assign , "="),
-        TokenSpecification(.name   , "b"),
+        TokenSpecification(.name, "a"),
+        TokenSpecification(.assign, "="),
+        TokenSpecification(.name, "b"),
         TokenSpecification(.unterminatedBlockComment, "/**** /* Unterminated */"),
       ],
       in: input)
@@ -346,7 +348,7 @@ final class LexerTests: XCTestCase {
 
 }
 
-fileprivate struct TokenSpecification {
+private struct TokenSpecification {
 
   let kind: Token.Kind
 

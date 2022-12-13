@@ -30,7 +30,7 @@ public struct TypedProgram: Program {
   public init(
     annotating program: ScopedProgram,
     declTypes: DeclProperty<AnyType>,
-    exprTypes: ExprProperty <AnyType>,
+    exprTypes: ExprProperty<AnyType>,
     implicitCaptures: DeclProperty<[ImplicitCapture]>,
     referredDecls: [NodeID<NameExpr>: DeclRef],
     foldedSequenceExprs: [NodeID<SequenceExpr>: FoldedSequenceExpr]

@@ -22,10 +22,12 @@ struct TestCase {
 
   /// Loads all the test cases in `directory` and executes them with the specified handler.
   static func executeAll(in directory: URL, _ handler: (Self) throws -> Void) throws {
-    try withFiles(in: directory, { (url) in
-      try handler(TestCase(source: SourceFile(contentsOf: url)))
-      return true
-    })
+    try withFiles(
+      in: directory,
+      { (url) in
+        try handler(TestCase(source: SourceFile(contentsOf: url)))
+        return true
+      })
   }
 
 }

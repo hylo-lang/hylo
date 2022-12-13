@@ -54,12 +54,12 @@ extension Program {
   public func isGlobal<T: DeclID>(_ decl: T) -> Bool {
     switch decl.kind {
     case AssociatedTypeDecl.self,
-         ImportDecl.self,
-         ModuleDecl.self,
-         NamespaceDecl.self,
-         ProductTypeDecl.self,
-         TraitDecl.self,
-         TypeAliasDecl.self:
+      ImportDecl.self,
+      ModuleDecl.self,
+      NamespaceDecl.self,
+      ProductTypeDecl.self,
+      TraitDecl.self,
+      TypeAliasDecl.self:
       // Type declarations are global.
       return true
 
@@ -105,12 +105,12 @@ extension Program {
     guard let parent = declToScope[decl] else { return false }
     switch parent.kind {
     case ConformanceDecl.self,
-         ExtensionDecl.self,
-         ProductTypeDecl.self,
-         TraitDecl.self,
-         TypeAliasDecl.self:
+      ExtensionDecl.self,
+      ProductTypeDecl.self,
+      TraitDecl.self,
+      TypeAliasDecl.self:
       return true
-      
+
     default:
       return false
     }

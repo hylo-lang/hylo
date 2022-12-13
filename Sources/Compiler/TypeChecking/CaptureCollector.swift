@@ -4,9 +4,7 @@ import Utils
 struct CaptureCollector {
 
   /// A dictionary mapping free names to their occurrences and the kind of use.
-  typealias FreeSet = [
-    Name: (occurences: [NodeID<NameExpr>], capability: AccessEffect)
-  ]
+  typealias FreeSet = [Name: (occurences: [NodeID<NameExpr>], capability: AccessEffect)]
 
   /// The AST containing the nodes being visited.
   let ast: AST
@@ -56,12 +54,14 @@ struct CaptureCollector {
   ) {
     precondition(capability == .let || capability == .inout)
     if !boundNames.contains(where: { $0.contains(name) }) {
-      modifying(&captures[name, default: ([], .let)], { entry in
-        entry.occurences.append(occurrence)
-        if capability == .inout {
-          entry.capability = capability
-        }
-      })
+      modifying(
+        &captures[name, default: ([], .let)],
+        { entry in
+          entry.occurences.append(occurrence)
+          if capability == .inout {
+            entry.capability = capability
+          }
+        })
     }
   }
 
@@ -222,12 +222,12 @@ struct CaptureCollector {
         inMutatingContext: isContextMutating)
 
     case BooleanLiteralExpr.self,
-         UnicodeScalarLiteralExpr.self,
-         ErrorExpr.self,
-         FloatLiteralExpr.self,
-         IntegerLiteralExpr.self,
-         NilLiteralExpr.self,
-         StringLiteralExpr.self:
+      UnicodeScalarLiteralExpr.self,
+      ErrorExpr.self,
+      FloatLiteralExpr.self,
+      IntegerLiteralExpr.self,
+      NilLiteralExpr.self,
+      StringLiteralExpr.self:
       break
 
     default:
@@ -378,7 +378,7 @@ struct CaptureCollector {
   }
 
   private mutating func collectCaptures(
-  ofTupleMember id: NodeID<TupleMemberExpr>,
+    ofTupleMember id: NodeID<TupleMemberExpr>,
     into captures: inout FreeSet,
     inMutatingContext isContextMutating: Bool
   ) {
