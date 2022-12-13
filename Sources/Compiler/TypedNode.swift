@@ -19,6 +19,11 @@ public struct TypedNode<ID: NodeIDProtocol> : Hashable {
   /// The node's identity in `program.ast`.
   let id: ID
 
+  public init(_ id: ID, in program: TypedProgram) {
+    self.program = program
+    self.id = id
+  }
+
   /// Equality comparison; only check the node ID.
   public static func == (lhs: TypedNode<ID>, rhs: TypedNode<ID>) -> Bool {
       lhs.id == rhs.id
@@ -56,7 +61,7 @@ extension TypedProgram {
   /// Bundles `id` together with `self`.
   public subscript<TargetID: NodeIDProtocol>(_ id: TargetID) -> TypedNode<TargetID>
   {
-    TypedNode(program: self, id: id)
+    TypedNode(id, in: self)
   }
 }
 
@@ -79,7 +84,7 @@ extension TypedNode where ID: ConcreteNodeID {
     dynamicMember m: KeyPath<ID.Subject, TargetID>
   ) -> TypedNode<TargetID>
   {
-    .init(program: program, id: syntax[keyPath: m])
+    .init(syntax[keyPath: m], in: program)
   }
   
   /// Accesses the given member of the corresponding AST node as a corresponding lazy collection
@@ -88,7 +93,7 @@ extension TypedNode where ID: ConcreteNodeID {
     dynamicMember m: KeyPath<ID.Subject, [TargetID]>
   ) -> LazyMapCollection<[TargetID], TypedNode<TargetID>>
   {
-    syntax[keyPath: m].lazy.map { .init(program: program, id: $0) }
+    syntax[keyPath: m].lazy.map { .init($0, in: program) }
   }
   
   /// Accesses the given member of the corresponding AST node as a corresponding `TypedNode?`
@@ -96,7 +101,7 @@ extension TypedNode where ID: ConcreteNodeID {
     dynamicMember m: KeyPath<ID.Subject, TargetID?>
   ) -> TypedNode<TargetID>?
   {
-    syntax[keyPath: m].map { .init(program: program, id: $0) }
+    syntax[keyPath: m].map { .init($0, in: program) }
   }
   
   /// Creates an instance denoting the same node as `s`, or fails if `s` does not refer to a
@@ -120,19 +125,19 @@ extension TypedNode {
 extension TypedNode where ID: ScopeID {
   /// The parent scope, if any
   var parent: AnyScopeID.TypedNode? {
-    program.scopeToParent[id].map { .init(program: program, id: $0) }
+    program.scopeToParent[id].map { .init($0, in: program) }
   }
 
   /// The declarations in this immediate scope.
   var decls: LazyMapCollection<[AnyDeclID], AnyDeclID.TypedNode> {
-    program.scopeToDecls[id, default: []].lazy.map { .init(program: program, id: $0) }
+    program.scopeToDecls[id, default: []].lazy.map { .init($0, in: program) }
   }
 }
 
 extension TypedNode where ID: DeclID {
   /// The scope in which this declaration resides.
   var scope: AnyScopeID.TypedNode {
-    .init(program: program, id: program.declToScope[id]!)
+    .init(program.declToScope[id]!, in: program)
   }
 
   /// The type of the declared entity.
@@ -149,7 +154,7 @@ extension TypedNode where ID: DeclID {
 extension TypedNode where ID == NodeID<VarDecl> {
   /// The binding decl containing this var.
   var binding: BindingDecl.Typed {
-    .init(program: program, id: program.varToBinding[id]!)
+    .init(program.varToBinding[id]!, in: program)
   }
 }
 
