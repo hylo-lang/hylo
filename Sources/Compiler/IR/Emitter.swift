@@ -203,7 +203,7 @@ public struct Emitter {
   /// Emits borrowed bindings.
   private mutating func emit(
     borrowedLocalBinding decl: BindingDecl.Typed,
-    withCapability capability: RemoteType.Capability,
+    withCapability capability: AccessEffect,
     into module: inout Module
   ) {
     /// The pattern of the binding being emitted.
@@ -520,7 +520,7 @@ public struct Emitter {
         // Add the receiver to the arguments.
         if let type = RemoteType(receiverType) {
           // The receiver as a borrowing convention.
-          argumentConventions.insert(AccessEffect(matching: type.capability), at: 0)
+          argumentConventions.insert(type.capability, at: 0)
 
           switch calleeNameExpr.domain {
           case .none:
@@ -653,7 +653,7 @@ public struct Emitter {
       let lhsConvention: AccessEffect
       let lhsOperand: Operand
       if let lhsType = RemoteType(calleeType.captures[0].type) {
-        lhsConvention = AccessEffect(matching: lhsType.capability)
+        lhsConvention = lhsType.capability
         lhsOperand = emit(lhsConvention, foldedSequence: lhs, into: &module)
       } else {
         lhsConvention = .sink
@@ -766,7 +766,7 @@ public struct Emitter {
         // Add the receiver to the arguments.
         if let type = RemoteType(receiverType) {
           // The receiver has a borrowing convention.
-          conventions.insert(AccessEffect(matching: type.capability), at: 1)
+          conventions.insert(type.capability, at: 1)
 
           switch nameExpr.domain {
           case .none:
@@ -822,7 +822,7 @@ public struct Emitter {
   /// insertion point.
   private mutating func emitL<ID: ExprID>(
     expr: ID.TypedNode,
-    withCapability capability: RemoteType.Capability,
+    withCapability capability: AccessEffect,
     into module: inout Module
   ) -> Operand {
     switch expr.kind {
@@ -850,7 +850,7 @@ public struct Emitter {
 
   private mutating func emitL(
     name expr: NameExpr.Typed,
-    withCapability capability: RemoteType.Capability,
+    withCapability capability: AccessEffect,
     into module: inout Module
   ) -> Operand {
     switch expr.decl {

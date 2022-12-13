@@ -77,7 +77,7 @@ public struct CXXTranspiler {
   /// Emits borrowed bindings.
   private mutating func emit(
     borrowedLocalBinding decl: BindingDecl.Typed,
-    withCapability capability: RemoteType.Capability
+    withCapability capability: AccessEffect
   ) -> CXXRepresentable {
     // There's nothing to do if there's no initializer.
     if let initializer = decl.initializer {

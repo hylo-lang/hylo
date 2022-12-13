@@ -16,16 +16,6 @@ public enum AccessEffect: Codable {
   /// Value may be accessed with any of the other effects, depending on the context.
   case yielded
 
-  /// Creates the passing convention that corresponds to `capability`.
-  init(matching capability: RemoteType.Capability) {
-    switch capability {
-    case .let     : self = .let
-    case .set     : self = .set
-    case .inout   : self = .inout
-    case .yielded : self = .yielded
-    }
-  }
-
   /// Creates the passing convention that corresponds to `effect`.
   init(matching effect: ReceiverEffect) {
     switch effect {
