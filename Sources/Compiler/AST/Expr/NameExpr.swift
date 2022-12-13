@@ -2,18 +2,15 @@
 public struct NameExpr: Expr {
 
   /// A name's qualification
-  ///
-  /// This type is notionaly equivalent to `Optional<D>` where `D` is an enum with the cases
-  /// `implicit` and `expr(AnyExprID)`.
   public enum Domain: ExpressibleByNilLiteral, Equatable, Codable {
 
     /// Unqualified as in `bar`.
     case none
 
-    /// Domain is implicit, as in `.bar`; the expression denotes a type member.
+    /// Implicit, as in `.bar`; the expression denotes a type member.
     case implicit
 
-    /// Domain is an expression, as in `foo.bar`.
+    /// Explicit, as `foo` in `foo.bar`.
     case expr(AnyExprID)
 
     public init(nilLiteral: ()) {
