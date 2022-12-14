@@ -327,16 +327,14 @@ final class ParserTests: XCTestCase {
     XCTAssertNotNil(decl.whereClause)
   }
 
-  /*
-  func testAssociatedValueDeclWithWhereClauseSansHint() throws {
-    let input = SourceFile(contents: "value foo where foo > bar")
-    let (declID, ast) = try input.parseWithDeclPrologue(
-      inContext: .traitBody,
-      with: Parser.parseAssociatedValueDecl)
-    let decl = try XCTUnwrap(ast[declID])
-    XCTAssertNotNil(decl.whereClause)
-  }
-   */
+  // func testAssociatedValueDeclWithWhereClauseSansHint() throws {
+  //   let input = SourceFile(contents: "value foo where foo > bar")
+  //   let (declID, ast) = try input.parseWithDeclPrologue(
+  //     inContext: .traitBody,
+  //     with: Parser.parseAssociatedValueDecl)
+  //   let decl = try XCTUnwrap(ast[declID])
+  //   XCTAssertNotNil(decl.whereClause)
+  // }
 
   func testAssociatedValueDeclWithDefault() throws {
     let input = SourceFile(contents: "value foo = 42")
@@ -1215,8 +1213,8 @@ final class ParserTests: XCTestCase {
   func testMatchCaseBlock() throws {
     let input = SourceFile(contents: "let (x, 0x2a) { }")
     let (caseID, ast) = try apply(Parser.matchCase, on: input)
-    let case_ = try XCTUnwrap(ast[caseID])
-    if case .block = case_.body {
+    let caseVal = try XCTUnwrap(ast[caseID])
+    if case .block = caseVal.body {
     } else {
       XCTFail()
     }
@@ -1225,8 +1223,8 @@ final class ParserTests: XCTestCase {
   func testMatchCaseExpr() throws {
     let input = SourceFile(contents: "let (x, 0x2a) { x }")
     let (caseID, ast) = try apply(Parser.matchCase, on: input)
-    let case_ = try XCTUnwrap(ast[caseID])
-    if case .expr = case_.body {
+    let caseVal = try XCTUnwrap(ast[caseID])
+    if case .expr = caseVal.body {
     } else {
       XCTFail()
     }
@@ -1235,8 +1233,8 @@ final class ParserTests: XCTestCase {
   func testMatchCaseWithCondition() throws {
     let input = SourceFile(contents: "let (x, y) where x > y { }")
     let (caseID, ast) = try apply(Parser.matchCase, on: input)
-    let case_ = try XCTUnwrap(ast[caseID])
-    XCTAssertNotNil(case_.condition)
+    let caseVal = try XCTUnwrap(ast[caseID])
+    XCTAssertNotNil(caseVal.condition)
   }
 
   func testConditionalExpr() throws {
@@ -1469,17 +1467,15 @@ final class ParserTests: XCTestCase {
     }
   }
 
-  /*
-  func testWhereClauseValueConstraintSansHint() throws {
-    let input = SourceFile(contents: "x > 2")
-    let constraint = try XCTUnwrap(try apply(Parser.valueConstraint, on: input).element)
-    if case .value(let exprID) = constraint.value {
-      XCTAssertEqual(exprID.kind, .init(SequenceExpr.self))
-    } else {
-      XCTFail()
-    }
-  }
-   */
+  // func testWhereClauseValueConstraintSansHint() throws {
+  //   let input = SourceFile(contents: "x > 2")
+  //   let constraint = try XCTUnwrap(try apply(Parser.valueConstraint, on: input).element)
+  //   if case .value(let exprID) = constraint.value {
+  //     XCTAssertEqual(exprID.kind, .init(SequenceExpr.self))
+  //   } else {
+  //     XCTFail()
+  //   }
+  // }
 
   func testTraitComposition() throws {
     let input = SourceFile(contents: "T & U & V")

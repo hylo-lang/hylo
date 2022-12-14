@@ -795,7 +795,7 @@ public enum Parser {
     // Parse the parts of the declaration.
     let parser =
       (take(.operator).and(operatorNotation)
-        .and(operator_)
+        .and(operatorIdentifier)
         .and(maybe(take(.colon).and(precedenceGroup).second)))
     guard let parts = try parser.parse(&state) else { return nil }
 
@@ -1149,7 +1149,7 @@ public enum Parser {
 
     if let notation = try operatorNotation.parse(&state) {
       _ = try state.expect("'fun'", using: { $0.take(.fun) })
-      let stem = try state.expect("operator", using: operator_)
+      let stem = try state.expect("operator", using: operatorIdentifier)
       return FunctionDeclName(
         introducerRange: notation.origin!,
         stem: stem,
@@ -1244,7 +1244,7 @@ public enum Parser {
 
   static let initDeclBody = inContext(.functionBody, apply: braceStmt)
 
-  static let operator_ =
+  static let operatorIdentifier =
     (Apply<ParserState, SourceRepresentable<Identifier>>({ (state) in
       state.takeOperator()
     }))
