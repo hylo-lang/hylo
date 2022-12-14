@@ -18,8 +18,8 @@ struct UnboundMemberConstraint: Constraint, Hashable {
 
   /// Creates an instance with the given properties.
   init(
-    type left: AnyType,
-    hasMemberNamed member: Name,
+    _ left: AnyType,
+    hasMember member: Name,
     ofType right: AnyType,
     because cause: ConstraintCause
   ) {
@@ -32,10 +32,10 @@ struct UnboundMemberConstraint: Constraint, Hashable {
 
   /// Creates an instance with the given properties.
   init(
-    type left: AnyType,
+    _ left: AnyType,
     hasMemberExpressedBy memberExpr: NodeID<NameExpr>,
-    in ast: AST,
     ofType right: AnyType,
+    in ast: AST,
     because cause: ConstraintCause
   ) {
     self.left = left
