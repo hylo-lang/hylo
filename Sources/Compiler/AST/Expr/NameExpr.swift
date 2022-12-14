@@ -7,7 +7,7 @@ public struct NameExpr: Expr {
     /// Unqualified as in `bar`.
     case none
 
-    /// Implicit, as in `.bar`; the expression denotes a type member.
+    /// Implicit as the `.` in `.bar`; the whole name denotes a type member.
     case implicit
 
     /// Explicit, as `foo.` in `foo.bar` or `.foo.` in `.foo.bar`.
