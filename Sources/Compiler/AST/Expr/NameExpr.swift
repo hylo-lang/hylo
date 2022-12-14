@@ -1,16 +1,21 @@
 /// A name denoting an object.
 public struct NameExpr: Expr {
 
-  public enum Domain: Equatable, Codable {
+  /// A name's qualification
+  public enum Domain: ExpressibleByNilLiteral, Equatable, Codable {
 
-    /// No domain.
+    /// Unqualified as in `bar`.
     case none
 
-    /// Domain is implicit; the expression denotes a type member.
+    /// Implicit as the `.` in `.bar`; the whole name denotes a type member.
     case implicit
 
-    /// Domain is a value expression or a type identifier.
+    /// Explicit, as `foo.` in `foo.bar` or `.foo.` in `.foo.bar`.
     case expr(AnyExprID)
+
+    public init(nilLiteral: ()) {
+      self = .none
+    }
 
   }
 
