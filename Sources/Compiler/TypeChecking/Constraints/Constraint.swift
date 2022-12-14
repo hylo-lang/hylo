@@ -35,7 +35,7 @@ extension Constraint where Self: Equatable {
 
 }
 
-/// Creates a subtyping or equality constraint.
+/// Creates a constraint requiring `l` to be either equal to or a subtype of `r`.
 func equalityOrSubtypingConstraint(
   _ l: AnyType,
   _ r: AnyType,
@@ -45,6 +45,29 @@ func equalityOrSubtypingConstraint(
     choices: [
       .init(constraints: [EqualityConstraint(l, r, because: cause)], penalties: 0),
       .init(constraints: [SubtypingConstraint(l, r, because: cause)], penalties: 1),
+    ],
+    because: cause)
+}
+
+/// Creates a constraint requiring `subject` to be either equal to `defaultType` or be expressible
+/// by literals associated with `trait`.
+///
+/// - Requires: `trait` must be a one of the `ExpressibleByXXXLiteral` traits from the core library
+///   and `defaultType` must be the corresponding core type.
+func expressibleByLiteralConstraint(
+  _ subject: AnyType,
+  trait: TraitType,
+  defaultType: AnyType,
+  because cause: ConstraintCause
+) -> DisjunctionConstraint {
+  return DisjunctionConstraint(
+    choices: [
+      .init(
+        constraints: [EqualityConstraint(subject, defaultType, because: cause)],
+        penalties: 0),
+      .init(
+        constraints: [ConformanceConstraint(subject, conformsTo: [trait], because: cause)],
+        penalties: 1),
     ],
     because: cause)
 }

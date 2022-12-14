@@ -357,8 +357,7 @@ public struct TypeChecker {
       let initializerType = ^TypeVariable(node: initializer.base)
       shape.constraints.append(
         equalityOrSubtypingConstraint(
-          initializerType,
-          shape.type,
+          initializerType, shape.type,
           because: ConstraintCause(.initialization, at: program.ast[id].origin)))
 
       // Infer the type of the initializer
@@ -592,8 +591,7 @@ public struct TypeChecker {
 
       let constraints = [
         ParameterConstraint(
-          defaultValueType,
-          ^parameterType,
+          defaultValueType, ^parameterType,
           because: ConstraintCause(.argument, at: program.ast[id].origin))
       ]
 
@@ -1047,8 +1045,7 @@ public struct TypeChecker {
     // Constrain the right to be subtype of the left.
     let rhsType = ^TypeVariable(node: AnyNodeID(program.ast[id].right))
     let assignmentConstraint = equalityOrSubtypingConstraint(
-      rhsType,
-      lhsType,
+      rhsType, lhsType,
       because: ConstraintCause(.initializationOrAssignment, at: program.ast[id].origin))
 
     // Infer the type on the right.
@@ -1073,8 +1070,7 @@ public struct TypeChecker {
       // The type of the return value must be subtype of the expected return type.
       let inferredReturnType = ^TypeVariable(node: returnValue.base)
       let c = equalityOrSubtypingConstraint(
-        inferredReturnType,
-        expectedType,
+        inferredReturnType, expectedType,
         because: ConstraintCause(.return, at: program.ast[returnValue].origin))
       let solution = infer(
         expr: returnValue,
@@ -1101,8 +1097,7 @@ public struct TypeChecker {
     // The type of the return value must be subtype of the expected return type.
     let inferredReturnType = ^TypeVariable(node: program.ast[id].value.base)
     let c = equalityOrSubtypingConstraint(
-      inferredReturnType,
-      expectedType,
+      inferredReturnType, expectedType,
       because: ConstraintCause(.yield, at: program.ast[program.ast[id].value].origin))
     let solution = infer(
       expr: program.ast[id].value,
@@ -1214,7 +1209,7 @@ public struct TypeChecker {
 
       if !traits.isEmpty {
         let cause = ConstraintCause(.annotation, at: program.ast[list[0]].origin)
-        constraints.append(ConformanceConstraint(lhs, traits: traits, because: cause))
+        constraints.append(ConformanceConstraint(lhs, conformsTo: traits, because: cause))
       }
     }
 
@@ -1326,8 +1321,7 @@ public struct TypeChecker {
     let trait = (declTypes[id]!.base as! MetatypeType).instance.base as! TraitType
     constraints.append(
       ConformanceConstraint(
-        ^selfType,
-        traits: [trait],
+        ^selfType, conformsTo: [trait],
         because: ConstraintCause(.structural, at: program.ast[id].identifier.origin)))
 
     let e = GenericEnvironment(decl: id, constraints: constraints, into: &self)
@@ -1356,7 +1350,7 @@ public struct TypeChecker {
 
     if !traits.isEmpty {
       let cause = ConstraintCause(.annotation, at: program.ast[list[0]].origin)
-      constraints.append(ConformanceConstraint(lhs, traits: traits, because: cause))
+      constraints.append(ConformanceConstraint(lhs, conformsTo: traits, because: cause))
     }
 
     // Evaluate the constraint expressions of the associated type's where clause.
@@ -1437,9 +1431,7 @@ public struct TypeChecker {
       }
 
       return ConformanceConstraint(
-        a,
-        traits: b,
-        because: ConstraintCause(.structural, at: expr.origin))
+        a, conformsTo: b, because: ConstraintCause(.structural, at: expr.origin))
 
     case .value(let e):
       // TODO: Symbolic execution
@@ -1548,9 +1540,7 @@ public struct TypeChecker {
           if let r = expectedType {
             constraints.append(
               SubtypingConstraint(
-                type,
-                r,
-                because: ConstraintCause(.annotation, at: program.ast[pattern].origin)))
+                type, r, because: ConstraintCause(.annotation, at: program.ast[pattern].origin)))
           }
           subpatternType = type
         } else {

@@ -93,7 +93,7 @@ struct ConstraintSolver {
     case is TypeVariable:
       // Postpone the solving if `L` is still unknown.
       postpone(
-        ConformanceConstraint(subject, traits: constraint.traits, because: constraint.cause))
+        ConformanceConstraint(subject, conformsTo: constraint.traits, because: constraint.cause))
 
     case is ProductType, is TupleType:
       let conformedTraits = checker.conformedTraits(of: subject, inScope: scope) ?? []
@@ -306,11 +306,7 @@ struct ConstraintSolver {
     // Postpone the solving if `L` is still unknown.
     if l.base is TypeVariable {
       postpone(
-        BoundMemberConstraint(
-          type: l,
-          hasMemberNamed: constraint.member,
-          ofType: r,
-          because: constraint.cause))
+        BoundMemberConstraint(l, hasMember: constraint.member, ofType: r, cause: constraint.cause))
       return
     }
 
@@ -366,10 +362,7 @@ struct ConstraintSolver {
     if let name = constraint.memberExpr {
       schedule(
         OverloadConstraint(
-          name,
-          withType: r,
-          refersToOneOf: candidates,
-          because: constraint.cause))
+          name, withType: r, refersToOneOf: candidates, because: constraint.cause))
     } else {
       schedule(
         DisjunctionConstraint(
@@ -396,10 +389,7 @@ struct ConstraintSolver {
     if l.base is TypeVariable {
       postpone(
         UnboundMemberConstraint(
-          type: l,
-          hasMemberNamed: constraint.member,
-          ofType: r,
-          because: constraint.cause))
+          l, hasMember: constraint.member, ofType: r, because: constraint.cause))
       return
     }
 
@@ -479,9 +469,7 @@ struct ConstraintSolver {
       insertingConstraintsWith: { (subsolver, choice) -> Void in
         subsolver.schedule(
           EqualityConstraint(
-            constraint.overloadedExprType,
-            choice.type,
-            because: constraint.cause))
+            constraint.overloadedExprType, choice.type, because: constraint.cause))
 
         for c in choice.constraints {
           var subConstraint = c
