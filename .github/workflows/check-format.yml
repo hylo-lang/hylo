@@ -19,7 +19,7 @@ jobs:
     - name: Build swift-format
       uses: mipalgu/install-swift-format@main
       with:
-        ref: "5.6"
+        ref: "release/5.7"
     - uses: actions/checkout@v3
     - name: Run swift-format on the codebase
       run: swift-format lint --configuration .swift-format.json -s -r -p Sources Tests *.swift
