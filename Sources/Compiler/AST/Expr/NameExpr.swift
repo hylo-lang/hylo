@@ -10,7 +10,7 @@ public struct NameExpr: Expr {
     /// Implicit, as in `.bar`; the expression denotes a type member.
     case implicit
 
-    /// Explicit, as `foo` in `foo.bar`.
+    /// Explicit, as `foo.` in `foo.bar` or `.foo.` in `.foo.bar`.
     case expr(AnyExprID)
 
     public init(nilLiteral: ()) {
