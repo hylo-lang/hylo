@@ -184,42 +184,6 @@ struct ConstraintSolver {
       solve(equality: .init(l.output, r.output, because: constraint.cause))
       solve(equality: .init(l.receiver, r.receiver, because: constraint.cause))
 
-    case (let l as MethodType, _ as LambdaType):
-      // TODO: Use a different kind of constraint for call exprs
-      // We can't guess the operator property and environment of a callee from a call expression;
-      // that must be inferred. Thus we can't constrain the callee of a CallExpr to be equal to
-      // some synthesized lambda type. Instead we need a constraint that only describes its inputs
-      // and outputs, and uses the other type to infer additional information.
-
-      var minterms: [DisjunctionConstraint.Choice] = []
-
-      if let lambda = LambdaType(letImplOf: l) {
-        minterms.append(
-          .init(
-            constraints: [EqualityConstraint(^lambda, r, because: constraint.cause)],
-            penalties: 0))
-      }
-
-      if let lambda = LambdaType(inoutImplOf: l) {
-        minterms.append(
-          .init(
-            constraints: [EqualityConstraint(^lambda, r, because: constraint.cause)],
-            penalties: 1))
-      }
-
-      if let lambda = LambdaType(sinkImplOf: l) {
-        minterms.append(
-          .init(
-            constraints: [EqualityConstraint(^lambda, r, because: constraint.cause)],
-            penalties: 1))
-      }
-
-      if minterms.count == 1 {
-        solve(equality: minterms[0].constraints.first as! EqualityConstraint)
-      } else {
-        schedule(DisjunctionConstraint(choices: minterms, because: constraint.cause))
-      }
-
     default:
       diagnostics.append(.diagnose(type: l, incompatibleWith: r, at: constraint.cause.origin))
     }
