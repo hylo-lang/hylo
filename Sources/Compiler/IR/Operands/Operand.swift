@@ -1,8 +1,8 @@
 /// An instruction operand.
 public enum Operand: Hashable {
 
-  /// The `index`-th result of `inst`.
-  case result(inst: InstructionID, index: Int)
+  /// The `index`-th result of `instruction`.
+  case result(instruction: InstructionID, index: Int)
 
   /// The `index`-th parameter of `block`.
   case parameter(block: Block.ID, index: Int)
@@ -18,8 +18,8 @@ public enum Operand: Hashable {
   /// The ID of the block in which the operand is defined, if any.
   var block: Block.ID? {
     switch self {
-    case .result(let inst, _):
-      return Block.ID(function: inst.function, address: inst.block)
+    case .result(let instruction, _):
+      return Block.ID(function: instruction.function, address: instruction.block)
     case .parameter(let block, _):
       return block
     case .constant(_):
@@ -28,10 +28,10 @@ public enum Operand: Hashable {
   }
 
   /// The ID of the instruction that produces this operand, if any.
-  var inst: InstructionID? {
+  var instruction: InstructionID? {
     switch self {
-    case .result(let inst, _):
-      return inst
+    case .result(let instruction, _):
+      return instruction
     default:
       return nil
     }

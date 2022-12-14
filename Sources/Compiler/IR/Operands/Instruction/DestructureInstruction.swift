@@ -1,5 +1,5 @@
 /// Destructures a record.
-public struct DestructureInst: Inst {
+public struct DestructureInstruction: Instruction {
 
   /// The types of the destructured members.
   public let types: [LoweredType]

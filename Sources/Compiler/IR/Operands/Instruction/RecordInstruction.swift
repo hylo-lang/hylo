@@ -2,7 +2,7 @@
 ///
 /// `type` must have a record layout. A type has a record layout if it is a product type, tuple
 /// type, or bound generic type whose base has a record layout.
-public struct RecordInst: Inst {
+public struct RecordInstruction: Instruction {
 
   /// The type of the created record.
   public let objectType: LoweredType

@@ -1,7 +1,7 @@
 /// Branches conditionally to the start of a basic block.
 ///
 /// `target` must be in the same function.
-public struct CondBranchInst: Inst {
+public struct CondBranchInstruction: Instruction {
 
   /// A Boolean condition.
   public let condition: Operand

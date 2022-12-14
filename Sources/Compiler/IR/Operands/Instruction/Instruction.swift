@@ -1,5 +1,5 @@
 /// A Val IR instruction.
-public protocol Inst {
+public protocol Instruction {
 
   /// The types of the instruction's results (empty for instructions with no result).
   var types: [LoweredType] { get }

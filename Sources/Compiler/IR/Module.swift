@@ -56,7 +56,7 @@ public struct Module {
   }
 
   /// Accesses the instruction with the given identity.
-  public subscript(instruction id: InstructionID) -> Inst {
+  public subscript(instruction id: InstructionID) -> Instruction {
     _read { yield functions[id.function].blocks[id.block].instructions[id.address] }
     _modify { yield &functions[id.function].blocks[id.block].instructions[id.address] }
   }
@@ -64,8 +64,8 @@ public struct Module {
   /// Returns the type of `operand`.
   public func type(of operand: Operand) -> LoweredType {
     switch operand {
-    case .result(let inst, let index):
-      return functions[inst.function][inst.block][inst.address].types[index]
+    case .result(let instruction, let index):
+      return functions[instruction.function][instruction.block][instruction.address].types[index]
 
     case .parameter(let block, let index):
       return functions[block.function][block.address].inputs[index]
@@ -90,8 +90,8 @@ public struct Module {
   /// Use this method as a sanity check to verify the function's invariants.
   public func isWellFormed(function f: Function.ID) -> Bool {
     for block in functions[f].blocks {
-      for inst in block.instructions {
-        if !inst.isWellFormed(in: self) { return false }
+      for instruction in block.instructions {
+        if !instruction.isWellFormed(in: self) { return false }
       }
     }
     return true
@@ -193,7 +193,7 @@ public struct Module {
 
   /// Adds `newInstruction` at the end of `block` and returns the identities of its return values.
   @discardableResult
-  mutating func append<I: Inst>(_ newInstruction: I, to block: Block.ID) -> [Operand] {
+  mutating func append<I: Instruction>(_ newInstruction: I, to block: Block.ID) -> [Operand] {
     insert(
       newInstruction,
       with: { (m, i) in
@@ -206,7 +206,9 @@ public struct Module {
   /// The instruction is inserted before the instruction currently at `position`. You can pass a
   /// "past the end" position to append at the end of a block.
   @discardableResult
-  mutating func insert<I: Inst>(_ newInstruction: I, at position: InstructionIndex) -> [Operand] {
+  mutating func insert<I: Instruction>(_ newInstruction: I, at position: InstructionIndex)
+    -> [Operand]
+  {
     insert(
       newInstruction,
       with: { (m, i) in
@@ -219,7 +221,7 @@ public struct Module {
   /// Inserts `newInstruction` before the instruction identified by `id` and returns the identities
   /// of its results.
   @discardableResult
-  mutating func insert<I: Inst>(_ newInstruction: I, before id: InstructionID) -> [Operand] {
+  mutating func insert<I: Instruction>(_ newInstruction: I, before id: InstructionID) -> [Operand] {
     insert(
       newInstruction,
       with: { (m, i) in
@@ -232,7 +234,7 @@ public struct Module {
   /// Inserts `newInstruction` after the instruction identified by `id` and returns the identities
   /// of its results.
   @discardableResult
-  mutating func insert<I: Inst>(_ newInstruction: I, after id: InstructionID) -> [Operand] {
+  mutating func insert<I: Instruction>(_ newInstruction: I, after id: InstructionID) -> [Operand] {
     insert(
       newInstruction,
       with: { (m, i) in
@@ -243,7 +245,7 @@ public struct Module {
   }
 
   /// Inserts `newInstruction` with `impl` and returns the identities of its return values.
-  private mutating func insert<I: Inst>(
+  private mutating func insert<I: Instruction>(
     _ newInstruction: I,
     with impl: (inout Self, I) -> InstructionID
   ) -> [Operand] {
@@ -257,7 +259,7 @@ public struct Module {
 
     // Return the identities of the instruction's results.
     return (0 ..< newInstruction.types.count).map({ (k) -> Operand in
-      .result(inst: user, index: k)
+      .result(instruction: user, index: k)
     })
   }
 
