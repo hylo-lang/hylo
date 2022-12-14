@@ -1,4 +1,4 @@
-/// An index denoting an instruction in a module.
+/// A position in a module's collection of instructions.
 ///
 /// An index identifies a function, a basic block in this function, and a position in this block,
 /// including the "past-the-end" position that isn't valid for use as a subscript argument. Unlike
@@ -14,7 +14,7 @@ public struct InstructionIndex: Hashable {
   /// The block containing this index.
   public let block: Function.Blocks.Address
 
-  /// The index of the instruction in its block.
+  /// The position of the instruction in its block.
   public let index: Block.Instructions.Index
 
   /// Creates an index with the given properties.
