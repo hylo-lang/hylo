@@ -149,19 +149,10 @@ struct ConstraintSolver {
       }
 
     case (let l as LambdaType, let r as LambdaType):
-      switch l.testLabelCompatibility(with: r) {
-      case .differentLengths:
-        diagnostics.append(.diagnose(incompatibleParameterCountAt: constraint.cause.origin))
+      // Parameter labels must match.
+      if l.inputs.map(\.label) != r.inputs.map(\.label) {
+        diagnostics.append(.diagnose(type: ^l, incompatibleWith: ^r, at: constraint.cause.origin))
         return
-
-      case .differentLabels(let found, let expected):
-        diagnostics.append(
-          .diagnose(
-            labels: found, incompatibleWith: expected, at: constraint.cause.origin))
-        return
-
-      case .compatible:
-        break
       }
 
       // Break down the constraint.
@@ -173,6 +164,12 @@ struct ConstraintSolver {
       solve(equality: .init(l.environment, r.environment, because: constraint.cause))
 
     case (let l as MethodType, let r as MethodType):
+      // Parameter labels must match.
+      if l.inputs.map(\.label) != r.inputs.map(\.label) {
+        diagnostics.append(.diagnose(type: ^l, incompatibleWith: ^r, at: constraint.cause.origin))
+        return
+      }
+
       // Capabilities must match.
       if l.capabilities != r.capabilities {
         diagnostics.append(.diagnose(type: ^l, incompatibleWith: ^r, at: constraint.cause.origin))
