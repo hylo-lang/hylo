@@ -1,5 +1,5 @@
 /// A function call.
-public struct FunCallExpr: Expr {
+public struct FunctionCallExpr: Expr {
 
   public let origin: SourceRange?
 

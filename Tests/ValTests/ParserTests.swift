@@ -902,7 +902,7 @@ final class ParserTests: XCTestCase {
   func testPrefixExpr() throws {
     let input = SourceFile(contents: "+foo")
     let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
-    let call = try XCTUnwrap(ast[exprID] as? FunCallExpr)
+    let call = try XCTUnwrap(ast[exprID] as? FunctionCallExpr)
     XCTAssertEqual(call.arguments.count, 0)
 
     let callee = try XCTUnwrap(ast[call.callee] as? NameExpr)
@@ -919,7 +919,7 @@ final class ParserTests: XCTestCase {
   func testPostfixExpr() throws {
     let input = SourceFile(contents: "foo+")
     let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
-    let call = try XCTUnwrap(ast[exprID] as? FunCallExpr)
+    let call = try XCTUnwrap(ast[exprID] as? FunctionCallExpr)
     XCTAssertEqual(call.arguments.count, 0)
 
     let callee = try XCTUnwrap(ast[call.callee] as? NameExpr)
@@ -998,14 +998,14 @@ final class ParserTests: XCTestCase {
   func testFunctionCallExprWithoutArguments() throws {
     let input = SourceFile(contents: "foo()")
     let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
-    let expr = try XCTUnwrap(ast[exprID] as? FunCallExpr)
+    let expr = try XCTUnwrap(ast[exprID] as? FunctionCallExpr)
     XCTAssertEqual(expr.arguments.count, 0)
   }
 
   func testFunctionCallExpr() throws {
     let input = SourceFile(contents: "foo(42, label: true)")
     let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
-    let expr = try XCTUnwrap(ast[exprID] as? FunCallExpr)
+    let expr = try XCTUnwrap(ast[exprID] as? FunctionCallExpr)
     XCTAssertEqual(expr.arguments.count, 2)
 
     if expr.arguments.count == 2 {
@@ -1023,7 +1023,7 @@ final class ParserTests: XCTestCase {
   func testFunctionCallExprNewlineAfterLParen() throws {
     let input = SourceFile(contents: "foo ( \n 42, label: true)")
     let (exprID, _) = try input.parse(with: Parser.parseExpr(in:))
-    XCTAssertEqual(exprID?.kind, .init(FunCallExpr.self))
+    XCTAssertEqual(exprID?.kind, .init(FunctionCallExpr.self))
   }
 
   func testSubscriptCallExprWithoutArguments() throws {

@@ -324,8 +324,8 @@ public struct Emitter {
       return emitR(booleanLiteral: BooleanLiteralExpr.Typed(expr)!, into: &module)
     case CondExpr.self:
       return emitR(cond: CondExpr.Typed(expr)!, into: &module)
-    case FunCallExpr.self:
-      return emitR(funCall: FunCallExpr.Typed(expr)!, into: &module)
+    case FunctionCallExpr.self:
+      return emitR(functionCall: FunctionCallExpr.Typed(expr)!, into: &module)
     case IntegerLiteralExpr.self:
       return emitR(integerLiteral: IntegerLiteralExpr.Typed(expr)!, into: &module)
     case NameExpr.self:
@@ -460,7 +460,7 @@ public struct Emitter {
   }
 
   private mutating func emitR(
-    funCall expr: FunCallExpr.Typed,
+    functionCall expr: FunctionCallExpr.Typed,
     into module: inout Module
   ) -> Operand {
     let calleeType = expr.callee.type.base as! LambdaType

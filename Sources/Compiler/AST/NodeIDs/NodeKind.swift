@@ -128,7 +128,7 @@ extension NodeKind {
     ErrorExpr.self,
     ExistentialTypeExpr.self,
     FloatLiteralExpr.self,
-    FunCallExpr.self,
+    FunctionCallExpr.self,
     InoutExpr.self,
     IntegerLiteralExpr.self,
     LambdaExpr.self,
