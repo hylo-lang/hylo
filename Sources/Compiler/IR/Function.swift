@@ -49,11 +49,11 @@ public struct Function {
 
     for source in blocks.indices {
       switch blocks[source.address].instructions.last {
-      case let inst as BranchInst:
-        result.define(source.address, predecessorOf: inst.target.address)
-      case let inst as CondBranchInst:
-        result.define(source.address, predecessorOf: inst.targetIfTrue.address)
-        result.define(source.address, predecessorOf: inst.targetIfFalse.address)
+      case let instruction as BranchInstruction:
+        result.define(source.address, predecessorOf: instruction.target.address)
+      case let instruction as CondBranchInstruction:
+        result.define(source.address, predecessorOf: instruction.targetIfTrue.address)
+        result.define(source.address, predecessorOf: instruction.targetIfFalse.address)
       default:
         break
       }

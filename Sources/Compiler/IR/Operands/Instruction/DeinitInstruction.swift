@@ -1,5 +1,5 @@
 /// Deinitializes an object.
-public struct DeinitInst: Inst {
+public struct DeinitInstruction: Instruction {
 
   /// The object being deinitialized.
   public let object: Operand
@@ -22,7 +22,7 @@ public struct DeinitInst: Inst {
     if module.type(of: object).isAddress { return false }
 
     // Operand is register.
-    if object.inst == nil { return false }
+    if object.instruction == nil { return false }
 
     return true
   }

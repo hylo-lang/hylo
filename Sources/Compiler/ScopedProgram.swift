@@ -551,8 +551,8 @@ extension ScopedProgram {
       visit(existentialTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
     case FloatLiteralExpr.self:
       break
-    case FunCallExpr.self:
-      visit(funCallExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+    case FunctionCallExpr.self:
+      visit(functionCallExpr: NodeID(rawValue: expr.rawValue), withState: &state)
     case InoutExpr.self:
       visit(inoutExpr: NodeID(rawValue: expr.rawValue), withState: &state)
     case IntegerLiteralExpr.self:
@@ -670,7 +670,7 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    funCallExpr expr: NodeID<FunCallExpr>,
+    functionCallExpr expr: NodeID<FunctionCallExpr>,
     withState state: inout VisitorState
   ) {
     visit(expr: ast[expr].callee, withState: &state)

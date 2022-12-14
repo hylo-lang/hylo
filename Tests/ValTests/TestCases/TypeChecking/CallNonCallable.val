@@ -1,0 +1,6 @@
+//! expect-failure
+
+public fun main() {
+  let forty_two = 42
+  forty_two() //! diagnostic cannot call value of non-callable type 'Int'
+}

@@ -69,8 +69,8 @@ struct ConstraintGenerator {
       return visit(cond: NodeID(rawValue: expr.rawValue), using: &checker)
     case FloatLiteralExpr.self:
       return visit(floatLiteral: NodeID(rawValue: expr.rawValue), using: &checker)
-    case FunCallExpr.self:
-      return visit(funCall: NodeID(rawValue: expr.rawValue), using: &checker)
+    case FunctionCallExpr.self:
+      return visit(functionCall: NodeID(rawValue: expr.rawValue), using: &checker)
     case InoutExpr.self:
       return visit(`inout`: NodeID(rawValue: expr.rawValue), using: &checker)
     case IntegerLiteralExpr.self:
@@ -232,7 +232,7 @@ struct ConstraintGenerator {
   }
 
   private mutating func visit(
-    funCall id: NodeID<FunCallExpr>,
+    functionCall id: NodeID<FunctionCallExpr>,
     using checker: inout TypeChecker
   ) {
     defer { assert(inferredTypes[id] != nil) }
@@ -241,26 +241,61 @@ struct ConstraintGenerator {
     let callee = checker.program.ast[id].callee
     visit(expr: callee, using: &checker)
 
-    // There are four cases to consider:
-    // 1. We failed to infer the type of the callee. In that case there's nothing more we can do.
-    // 2. We determined that the callee refers to a nominal type declaration. In that case, we
-    //    desugar a constructor call.
-    // 3. We determined the exact type of the callee, and its a callable. In that case, we may
-    //    propagate that information top-down to refine the inference of the arguments' types.
-    // 4. We couldn't infer the exact type of the callee and must rely on bottom-up inference to
-    //    further refine type inference.
+    // The following cases must be considered:
+    //
+    // 1. We failed to infer the type of the callee. We can stop here.
+    // 2. We couldn't infer the exact type of the callee and must rely on bottom-up inference.
+    // 3. We determined the exact type of the callee, and:
+    //   a. it's a lambda or method type. In that case, we can use the parameters to validate the
+    //      arguments' labels and their types.
+    //   b. it's a metatype and the callee is a name expression referring to a nominal type
+    //      declaration. In that case, the call is actually a sugared buffer type expression.
+    //   c. it's any other type. In that case the callee is not callable.
 
-    // 1st case
+    // Case 1
     if inferredTypes[callee]!.isError {
       assignToError(id)
       return
     }
 
-    // 2nd case
+    // Case 2
+    if let calleeType = TypeVariable(inferredTypes[callee]!) {
+      let parameters = visit(arguments: checker.program.ast[id].arguments, using: &checker)
+      let returnType = expectedTypes[id] ?? ^TypeVariable(node: AnyNodeID(id))
+      let assumedCalleeType = LambdaType(
+        environment: ^TypeVariable(), inputs: parameters, output: returnType)
+
+      constraints.append(
+        EqualityConstraint(
+          ^calleeType, ^assumedCalleeType,
+          because: ConstraintCause(.callee, at: checker.program.ast[callee].origin)))
+
+      assume(typeOf: id, equals: returnType, at: checker.program.ast[id].origin)
+      return
+    }
+
+    // Case 3a
+    if let calleeType = inferredTypes[callee]!.base as? CallableType {
+      if visit(
+        arguments: checker.program.ast[id].arguments,
+        of: checker.program.ast[id].callee,
+        expecting: calleeType.inputs,
+        using: &checker)
+      {
+        assume(typeOf: id, equals: calleeType.output, at: checker.program.ast[id].origin)
+      } else {
+        assignToError(id)
+      }
+      return
+    }
+
+    // Case 3b
     if let c = NodeID<NameExpr>(callee),
       let d = checker.referredDecls[c]?.decl,
-      checker.doesSupportInitSugar(d)
+      checker.isNominalTypeDecl(d)
     {
+      assert(inferredTypes[callee]?.base is MetatypeType)
+
       switch d.kind {
       case ProductTypeDecl.self:
         let initializers = checker.resolve(
@@ -299,14 +334,25 @@ struct ConstraintGenerator {
           checker.referredDecls[c] = candidates[0].reference
           inferredTypes[c] = candidates[0].type
 
+          // Apply the callee's constraints.
+          for c in candidates[0].constraints {
+            var newConstraint = c
+            newConstraint.cause = ConstraintCause(.callee, at: checker.program.ast[callee].origin)
+            constraints.append(newConstraint)
+          }
+
           // Propagate the type of the constructor down.
-          let outputType = propagateDown(
-            callee: callee,
-            calleeType: candidates[0].type.base as! LambdaType,
-            calleeTypeConstraints: candidates[0].constraints,
+          let calleeType = LambdaType(candidates[0].type)!
+          if visit(
             arguments: checker.program.ast[id].arguments,
+            of: checker.program.ast[id].callee,
+            expecting: calleeType.inputs,
             using: &checker)
-          assume(typeOf: id, equals: outputType, at: checker.program.ast[id].origin)
+          {
+            assume(typeOf: id, equals: calleeType.output, at: checker.program.ast[id].origin)
+          } else {
+            assignToError(id)
+          }
 
         default:
           // TODO: Handle specializations
@@ -329,49 +375,12 @@ struct ConstraintGenerator {
       return
     }
 
-    // 3rd case
-    if let calleeType = LambdaType(inferredTypes[callee]!) {
-      let outputType = propagateDown(
-        callee: callee,
-        calleeType: calleeType,
-        calleeTypeConstraints: [],
-        arguments: checker.program.ast[id].arguments,
-        using: &checker)
-      assume(typeOf: id, equals: outputType, at: checker.program.ast[id].origin)
-      return
-    }
-
-    // 4th case
-    let output = expectedTypes[id] ?? ^TypeVariable(node: AnyNodeID(id))
-    assume(typeOf: id, equals: output, at: checker.program.ast[id].origin)
-
-    var inputs: [CallableTypeParameter] = []
-    for i in 0 ..< checker.program.ast[id].arguments.count {
-      // Infer the type of the argument bottom-up.
-      visit(expr: checker.program.ast[id].arguments[i].value, using: &checker)
-
-      let argument = checker.program.ast[id].arguments[i].value
-      let parameterType = ^TypeVariable()
-      constraints.append(
-        ParameterConstraint(
-          inferredTypes[argument]!,
-          parameterType,
-          because: ConstraintCause(.argument, at: checker.program.ast[argument].origin)))
-
-      let argumentLabel = checker.program.ast[id].arguments[i].label?.value
-      inputs.append(CallableTypeParameter(label: argumentLabel, type: parameterType))
-    }
-
-    // Constrain the type of the callee.
-    let calleeType = LambdaType(
-      environment: ^TypeVariable(),
-      inputs: inputs,
-      output: output)
-    constraints.append(
-      EqualityConstraint(
-        inferredTypes[callee]!,
-        ^calleeType,
-        because: ConstraintCause(.callee, at: checker.program.ast[callee].origin)))
+    // Case 3c
+    diagnostics.append(
+      .diagnose(
+        nonCallableType: inferredTypes[callee]!,
+        at: checker.program.ast[checker.program.ast[id].callee].origin))
+    assignToError(id)
   }
 
   private mutating func visit(
@@ -593,7 +602,7 @@ struct ConstraintGenerator {
 
       if let base = NodeID<NameExpr>(domain),
         let decl = checker.referredDecls[base]?.decl,
-        checker.doesSupportInitSugar(decl)
+        checker.isNominalTypeDecl(decl)
       {
         constraints.append(
           UnboundMemberConstraint(
@@ -710,10 +719,142 @@ struct ConstraintGenerator {
   }
 
   private mutating func visit(
-    subscriptCall i: NodeID<SubscriptCallExpr>,
+    subscriptCall id: NodeID<SubscriptCallExpr>,
     using checker: inout TypeChecker
   ) {
-    fatalError("not implemented")
+    defer { assert(inferredTypes[id] != nil) }
+
+    // Infer the type of the callee.
+    let callee = checker.program.ast[id].callee
+    visit(expr: callee, using: &checker)
+
+    // The following cases must be considered:
+    //
+    // 1. We failed to infer the type of the callee. We can stop here.
+    // 2. We couldn't infer the exact type of the callee and must rely on bottom-up inference.
+    // 3. We determined the exact type of the callee, and:
+    //   a. it's a subscript type. In that case, we can use the parameters to validate the
+    //      arguments' labels and infer their types.
+    //   b. it's a metatype and the the callee is a name expression referring to a nominal type
+    //      declaration. In that case, the call is actually a sugared buffer type expression.
+    //   c. it's any other type. In that case we must look for an unnamed member subscript in that
+    //      type and use it at the callee's type.
+
+    // Case 1
+    if inferredTypes[callee]!.isError {
+      assignToError(id)
+      return
+    }
+
+    // Case 2
+    if let calleeType = TypeVariable(inferredTypes[callee]!) {
+      let parameters = visit(arguments: checker.program.ast[id].arguments, using: &checker)
+      let returnType = expectedTypes[id] ?? ^TypeVariable(node: AnyNodeID(id))
+      let assumedCalleeType = SubscriptImplType(
+        isProperty: false,
+        receiverEffect: nil,
+        environment: ^TypeVariable(),
+        inputs: parameters,
+        output: returnType)
+
+      constraints.append(
+        EqualityConstraint(
+          ^calleeType, ^assumedCalleeType,
+          because: ConstraintCause(.callee, at: checker.program.ast[callee].origin)))
+
+      assume(typeOf: id, equals: returnType, at: checker.program.ast[id].origin)
+      return
+    }
+
+    // Case 3a
+    if let calleeType = SubscriptType(inferredTypes[callee]!) {
+      if visit(
+        arguments: checker.program.ast[id].arguments,
+        of: checker.program.ast[id].callee,
+        expecting: calleeType.inputs,
+        using: &checker)
+      {
+        assume(typeOf: id, equals: calleeType.output, at: checker.program.ast[id].origin)
+      } else {
+        assignToError(id)
+      }
+      return
+    }
+
+    // Case 3b
+    if let c = NodeID<NameExpr>(callee),
+      let d = checker.referredDecls[c]?.decl,
+      checker.isNominalTypeDecl(d)
+    {
+      assert(inferredTypes[callee]?.base is MetatypeType)
+
+      // Buffer type expressions shall have exactly one argument.
+      if checker.program.ast[id].arguments.count != 1 {
+        diagnostics.append(
+          .diagnose(invalidBufferTypeExprArgumentCount: id, in: checker.program.ast))
+        assignToError(id)
+        return
+      }
+
+      // Note: We'll need some form of compile-time evaluation here.
+      fatalError("not implemented")
+    }
+
+    // Case 3c
+    let candidates = checker.lookup("[]", memberOf: inferredTypes[callee]!, inScope: scope)
+    switch candidates.count {
+    case 0:
+      diagnostics.append(
+        .diagnose(
+          noUnnamedSubscriptsIn: inferredTypes[callee]!,
+          at: checker.program.ast[checker.program.ast[id].callee].origin))
+      assignToError(id)
+
+    case 1:
+      // If there's a single candidate, we're looking at case 3a.
+      let decl = candidates.first!
+      let declType = checker.realize(decl: decl)
+      assert(decl.kind == SubscriptDecl.self)
+
+      // Bail out if we can't get the type of the referred declaration.
+      if declType.isError {
+        assignToError(id)
+        return
+      }
+
+      // Contextualize the type of the referred declaration.
+      let (contextualizedDeclType, declConstraints) = checker.contextualize(
+        type: declType,
+        inScope: scope,
+        cause: ConstraintCause(
+          .callee, at: checker.program.ast[checker.program.ast[id].callee].origin))
+
+      // Visit the arguments.
+      let calleeType = SubscriptType(contextualizedDeclType)!
+      if visit(
+        arguments: checker.program.ast[id].arguments,
+        of: checker.program.ast[id].callee,
+        expecting: calleeType.inputs,
+        using: &checker)
+      {
+        assume(typeOf: id, equals: calleeType.output, at: checker.program.ast[id].origin)
+      } else {
+        assignToError(id)
+        return
+      }
+
+      // Register the callee's constraints.
+      constraints.append(contentsOf: declConstraints)
+
+      // Update the referred declaration map if necessary.
+      if let c = NodeID<NameExpr>(callee) {
+        checker.referredDecls[c] = .member(decl)
+      }
+
+    default:
+      // Note: Create an overload constraint.
+      fatalError("not implemented")
+    }
   }
 
   private mutating func visit(
@@ -766,39 +907,34 @@ struct ConstraintGenerator {
     fatalError("not implemented")
   }
 
-  private mutating func propagateDown(
-    callee: AnyExprID,
-    calleeType: LambdaType,
-    calleeTypeConstraints: ConstraintSet,
+  /// If the labels of `arguments` matches those of `parameters`, visit the arguments' expressions
+  /// to generate their type constraints assuming they have the corresponding type in `parameters`
+  /// and returns `true`. Otherwise, returns `false`.
+  private mutating func visit(
     arguments: [LabeledArgument],
+    of callee: AnyExprID,
+    expecting parameters: [CallableTypeParameter],
     using checker: inout TypeChecker
-  ) -> AnyType {
-    // Collect the argument labels.
+  ) -> Bool {
+    // Collect the argument and parameter labels.
     let argumentLabels = arguments.map({ $0.label?.value })
+    let parameterLabels = parameters.map({ $0.label })
 
     // Check that the labels inferred from the callee are consistent with that of the call.
-    let calleeLabels = calleeType.inputs.map({ $0.label })
-    if calleeLabels != argumentLabels {
+    if argumentLabels != parameterLabels {
       diagnostics.append(
         .diagnose(
           labels: argumentLabels,
-          incompatibleWith: calleeLabels,
+          incompatibleWith: parameterLabels,
           at: checker.program.ast[callee].origin))
-      return .error
+      return false
     }
 
-    // Gather the callee's constraints.
-    for c in calleeTypeConstraints {
-      var newConstraint = c
-      newConstraint.cause = ConstraintCause(.callee, at: checker.program.ast[callee].origin)
-      constraints.append(newConstraint)
-    }
-
-    // Propagate type information to the arguments.
+    // Propagate type information down.
     for i in 0 ..< arguments.count {
       let argumentExpr = arguments[i].value
       let argumentType = ^TypeVariable(node: argumentExpr.base)
-      let parameterType = calleeType.inputs[i].type
+      let parameterType = parameters[i].type
 
       inferredTypes[argumentExpr] = argumentType
       constraints.append(
@@ -813,8 +949,34 @@ struct ConstraintGenerator {
       visit(expr: argumentExpr, using: &checker)
     }
 
-    // Constrain the type of the call.
-    return calleeType.output
+    return true
+  }
+
+  /// Visit `arguments` to generate their type constraints and returns a matching parameter list.
+  private mutating func visit(
+    arguments: [LabeledArgument],
+    using checker: inout TypeChecker
+  ) -> [CallableTypeParameter] {
+    var parameters: [CallableTypeParameter] = []
+    parameters.reserveCapacity(arguments.count)
+
+    for i in 0 ..< arguments.count {
+      // Infer the type of the argument bottom-up.
+      visit(expr: arguments[i].value, using: &checker)
+
+      let argument = arguments[i].value
+      let parameterType = ^TypeVariable()
+      constraints.append(
+        ParameterConstraint(
+          inferredTypes[argument]!,
+          parameterType,
+          because: ConstraintCause(.argument, at: checker.program.ast[argument].origin)))
+
+      let argumentLabel = arguments[i].label?.value
+      parameters.append(CallableTypeParameter(label: argumentLabel, type: parameterType))
+    }
+
+    return parameters
   }
 
   /// Folds a sequence of binary expressions.

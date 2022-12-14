@@ -1,7 +1,7 @@
 import Utils
 
 /// The type of a lambda.
-public struct LambdaType: TypeProtocol {
+public struct LambdaType: TypeProtocol, CallableType {
 
   /// The property of the lambda's call operator.
   public let receiverEffect: AccessEffect?

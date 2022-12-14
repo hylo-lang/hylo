@@ -335,4 +335,27 @@ extension Diagnostic {
     .error("only one annotation is allowed on generic value parameter declarations", range: range)
   }
 
+  static func diagnose(
+    invalidBufferTypeExprArgumentCount expr: NodeID<SubscriptCallExpr>,
+    in ast: AST
+  ) -> Diagnostic {
+    .error(
+      "buffer type expression requires exactly one argument",
+      range: ast[ast[expr].callee].origin)
+  }
+
+  static func diagnose(
+    nonCallableType type: AnyType,
+    at origin: SourceRange?
+  ) -> Diagnostic {
+    .error("cannot call value of non-callable type '\(type)'", range: origin)
+  }
+
+  static func diagnose(
+    noUnnamedSubscriptsIn domain: AnyType,
+    at origin: SourceRange?
+  ) -> Diagnostic {
+    return .error("type '\(domain)' has no unnamed subscripts", range: origin)
+  }
+
 }

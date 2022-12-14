@@ -1,5 +1,5 @@
 /// A load instruction.
-public struct LoadInst: Inst {
+public struct LoadInstruction: Instruction {
 
   /// The type of the object being loaded.
   public let objectType: LoweredType
