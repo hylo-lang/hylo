@@ -1555,7 +1555,7 @@ public enum Parser {
           origin: state.range(from: op.origin!.lowerBound)))
 
       let call = try state.ast.insert(
-        wellFormed: FunCallExpr(
+        wellFormed: FunctionCallExpr(
           callee: AnyExprID(callee),
           arguments: [],
           origin: state.ast[callee].origin))
@@ -1605,7 +1605,7 @@ public enum Parser {
           origin: state.range(from: state.ast[operand].origin!.lowerBound)))
 
       let call = try state.ast.insert(
-        wellFormed: FunCallExpr(
+        wellFormed: FunctionCallExpr(
           callee: AnyExprID(callee),
           arguments: [],
           origin: state.ast[callee].origin))
@@ -1669,7 +1669,7 @@ public enum Parser {
       if next.kind == .lParen {
         let arguments = try parseFunctionCallArgumentList(in: &state)!
         let expr = try state.ast.insert(
-          wellFormed: FunCallExpr(
+          wellFormed: FunctionCallExpr(
             callee: head,
             arguments: arguments,
             origin: state.range(from: headOrigin.lowerBound)))

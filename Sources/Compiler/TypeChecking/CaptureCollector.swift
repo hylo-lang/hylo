@@ -185,9 +185,9 @@ struct CaptureCollector {
         into: &captures,
         inMutatingContext: isContextMutating)
 
-    case FunCallExpr.self:
+    case FunctionCallExpr.self:
       collectCaptures(
-        ofFunCall: NodeID(rawValue: id.rawValue),
+        ofFunctionCall: NodeID(rawValue: id.rawValue),
         into: &captures,
         inMutatingContext: isContextMutating)
 
@@ -284,7 +284,7 @@ struct CaptureCollector {
   }
 
   private mutating func collectCaptures(
-    ofFunCall id: NodeID<FunCallExpr>,
+    ofFunctionCall id: NodeID<FunctionCallExpr>,
     into captures: inout FreeSet,
     inMutatingContext isContextMutating: Bool
   ) {

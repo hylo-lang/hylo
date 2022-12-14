@@ -69,8 +69,8 @@ struct ConstraintGenerator {
       return visit(cond: NodeID(rawValue: expr.rawValue), using: &checker)
     case FloatLiteralExpr.self:
       return visit(floatLiteral: NodeID(rawValue: expr.rawValue), using: &checker)
-    case FunCallExpr.self:
-      return visit(funCall: NodeID(rawValue: expr.rawValue), using: &checker)
+    case FunctionCallExpr.self:
+      return visit(functionCall: NodeID(rawValue: expr.rawValue), using: &checker)
     case InoutExpr.self:
       return visit(`inout`: NodeID(rawValue: expr.rawValue), using: &checker)
     case IntegerLiteralExpr.self:
@@ -232,7 +232,7 @@ struct ConstraintGenerator {
   }
 
   private mutating func visit(
-    funCall id: NodeID<FunCallExpr>,
+    functionCall id: NodeID<FunctionCallExpr>,
     using checker: inout TypeChecker
   ) {
     defer { assert(inferredTypes[id] != nil) }
