@@ -261,12 +261,10 @@ struct ConstraintGenerator {
     if let calleeType = TypeVariable(inferredTypes[callee]!) {
       let parameters = visit(arguments: checker.program.ast[id].arguments, using: &checker)
       let returnType = expectedTypes[id] ?? ^TypeVariable(node: AnyNodeID(id))
-      let assumedCalleeType = LambdaType(
-        environment: ^TypeVariable(), inputs: parameters, output: returnType)
 
       constraints.append(
-        EqualityConstraint(
-          ^calleeType, ^assumedCalleeType,
+        FunctionCallConstraint(
+          ^calleeType, hasParameters: parameters, andReturns: returnType,
           because: ConstraintCause(.callee, at: checker.program.ast[callee].origin)))
 
       assume(typeOf: id, equals: returnType, at: checker.program.ast[id].origin)

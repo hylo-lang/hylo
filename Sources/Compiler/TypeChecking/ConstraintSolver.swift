@@ -67,6 +67,8 @@ struct ConstraintSolver {
         solve(parameter: c)
       case let c as MemberConstraint:
         solve(boundMember: c, using: &checker)
+      case let c as FunctionCallConstraint:
+        solve(functionCall: c, using: &checker)
       case let c as DisjunctionConstraint:
         return solve(disjunction: c, using: &checker)
       case let c as OverloadConstraint:
@@ -373,6 +375,45 @@ struct ConstraintSolver {
     }
   }
 
+  /// Simplifies `F(P1, ..., Pn) -> R` as equality constraints unifying the parameters and return
+  /// type of `F` with `P1, ..., Pn` and `R`, respectively.
+  private mutating func solve(
+    functionCall constraint: FunctionCallConstraint,
+    using checker: inout TypeChecker
+  ) {
+    let f = typeAssumptions[constraint.callee]
+
+    // Postpone the solving if `F` is still unknown.
+    if f.base is TypeVariable {
+      postpone(
+        FunctionCallConstraint(
+          f, hasParameters: constraint.parameters, andReturns: constraint.returnType,
+          because: constraint.cause))
+      return
+    }
+
+    // Make sure `F` is callable.
+    guard let callee = f.base as? CallableType else {
+      diagnostics.append(.diagnose(nonCallableType: f, at: constraint.cause.origin))
+      return
+    }
+
+    // Make sure `F` structurally matches the given parameter list.
+    if !checkLabelCompatibility(
+      found: constraint.parameters, expected: callee.inputs, cause: constraint.cause)
+    {
+      return
+    }
+
+    // Break down the constraint.
+    for i in 0 ..< callee.inputs.count {
+      solve(
+        equality: .init(
+          callee.inputs[i].type, constraint.parameters[i].type, because: constraint.cause))
+    }
+    solve(equality: .init(callee.output, constraint.returnType, because: constraint.cause))
+  }
+
   /// Attempts to solve the remaining constraints for each individual choice in `disjunction` and
   /// returns the best solution.
   private mutating func solve(
@@ -507,6 +548,29 @@ struct ConstraintSolver {
     }
 
     return s
+  }
+
+  /// Returns `true` if the labels of `l` are compatible with those of `r`. Otherwise, generate
+  /// the appropriate diagnostic and returns `false`.
+  private mutating func checkLabelCompatibility(
+    found: [CallableTypeParameter],
+    expected: [CallableTypeParameter],
+    cause: ConstraintCause
+  ) -> Bool {
+    if found.count != expected.count {
+      diagnostics.append(.diagnose(incompatibleParameterCountAt: cause.origin))
+      return false
+    }
+
+    if zip(found, expected).contains(where: { (a, b) in a.label != b.label }) {
+      diagnostics.append(
+        .diagnose(
+          labels: found.map(\.label), incompatibleWith: expected.map(\.label),
+          at: cause.origin))
+      return false
+    }
+
+    return true
   }
 
 }
