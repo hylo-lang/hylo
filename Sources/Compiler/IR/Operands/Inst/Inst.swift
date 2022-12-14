@@ -1,5 +1,5 @@
 /// A Val IR instruction.
-public protocol Inst {
+public protocol Instruction {
 
   /// The types of the instruction's results (empty for instructions with no result).
   var types: [LoweredType] { get }
@@ -24,7 +24,7 @@ public protocol Inst {
 }
 
 /// The ID of a Val IR instruction.
-public struct InstID: Hashable {
+public struct InstructionID: Hashable {
 
   /// The ID of the containing function.
   public let function: Module.Functions.Index
@@ -33,6 +33,6 @@ public struct InstID: Hashable {
   public let block: Function.BlockAddress
 
   /// The address of the instruction in the containing block.
-  public let address: Block.InstAddress
+  public let address: Block.InstructionAddress
 
 }

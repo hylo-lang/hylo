@@ -2,7 +2,7 @@
 ///
 /// `callee` must have a lambda type; the type of the instruction must be the same as output type
 /// of the callee. `operands` must contain as many operands as the callee's type.
-public struct CallInst: Inst {
+public struct CallInstruction: Instruction {
 
   /// The type if the return value.
   public let returnType: LoweredType
@@ -61,7 +61,7 @@ public struct CallInst: Inst {
         // Operand of a `let` parameter must be a borrow or a constant.
         switch operands[i] {
         case .result(let id, _):
-          if let inst = module[id.function][id.block][id.address] as? BorrowInst {
+          if let inst = module[id.function][id.block][id.address] as? BorrowInstruction {
             if inst.capability != .let { return false }
           } else {
             return false
@@ -78,7 +78,7 @@ public struct CallInst: Inst {
         // Operand of an `inout` parameter must be a borrow.
         switch operands[i] {
         case .result(let id, _):
-          if let inst = module[id.function][id.block][id.address] as? BorrowInst {
+          if let inst = module[id.function][id.block][id.address] as? BorrowInstruction {
             if inst.capability != .inout { return false }
           } else {
             return false
@@ -92,7 +92,7 @@ public struct CallInst: Inst {
         // Operand of a `set` parameter must be a borrow.
         switch operands[i] {
         case .result(let id, _):
-          if let inst = module[id.function][id.block][id.address] as? BorrowInst {
+          if let inst = module[id.function][id.block][id.address] as? BorrowInstruction {
             if inst.capability != .set { return false }
           } else {
             return false

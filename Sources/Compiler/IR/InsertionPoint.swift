@@ -5,10 +5,10 @@ public struct InsertionPoint {
   public enum Position {
 
     /// After the instruction at the specified address.
-    case after(Block.InstAddress)
+    case after(Block.InstructionAddress)
 
     /// Before the insruction at the specified address.
-    case before(Block.InstAddress)
+    case before(Block.InstructionAddress)
 
     /// At the end of the block.
     case end
@@ -28,26 +28,26 @@ public struct InsertionPoint {
   }
 
   /// Creates an insertion point positioned right after `inst` in `block`.
-  public init(after inst: Block.InstAddress, in block: Block.ID) {
+  public init(after inst: Block.InstructionAddress, in block: Block.ID) {
     self.block = block
     self.position = .after(inst)
   }
 
   /// Creates an insertion point positioned right after `inst`.
-  public init(after instID: InstID) {
+  public init(after instID: InstructionID) {
     self.init(
       after: instID.address,
       in: Block.ID(function: instID.function, address: instID.block))
   }
 
   /// Creates an insertion point positioned right before `inst` in `block`.
-  public init(before inst: Block.InstAddress, in block: Block.ID) {
+  public init(before inst: Block.InstructionAddress, in block: Block.ID) {
     self.block = block
     self.position = .before(inst)
   }
 
   /// Creates an insertion point positioned right before `inst`.
-  public init(before instID: InstID) {
+  public init(before instID: InstructionID) {
     self.init(
       before: instID.address,
       in: Block.ID(function: instID.function, address: instID.block))

@@ -1,5 +1,5 @@
 /// Ends the lifetime of a borrow.
-public struct EndBorrowInst: Inst {
+public struct EndBorrowInstruction: Instruction {
 
   /// The borrow whose lifetime is ended.
   public let borrow: Operand

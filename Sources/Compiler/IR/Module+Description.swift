@@ -42,7 +42,7 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
         operandNames[.parameter(block: blockID, index: j)] = "%\(operandNames.count)"
       }
       for j in function[i.address].instructions.indices {
-        let instID = InstID(function: functionID, block: i.address, address: j.address)
+        let instID = InstructionID(function: functionID, block: i.address, address: j.address)
         for k in 0 ..< function[i.address][j.address].types.count {
           operandNames[.result(inst: instID, index: k)] = "%\(operandNames.count)"
         }
@@ -81,7 +81,7 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
       output.write("):\n")
 
       for j in block.instructions.indices {
-        let instID = InstID(function: functionID, block: i.address, address: j.address)
+        let instID = InstructionID(function: functionID, block: i.address, address: j.address)
 
         output.write("  ")
         if !block[j.address].types.isEmpty {
@@ -93,21 +93,21 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
         }
 
         switch block.instructions[j.address] {
-        case let inst as AllocStackInst:
+        case let inst as AllocStackInstruction:
           output.write("alloc_stack \(inst.allocatedType)")
 
-        case let inst as BorrowInst:
+        case let inst as BorrowInstruction:
           output.write("borrow [\(inst.capability)] ")
           output.write(describe(operand: inst.location))
           if !inst.path.isEmpty {
             output.write(", \(inst.path.descriptions())")
           }
 
-        case let inst as BranchInst:
+        case let inst as BranchInstruction:
           output.write("branch ")
           output.write(blockNames[inst.target]!)
 
-        case let inst as CallInst:
+        case let inst as CallInstruction:
           output.write("call [")
           output.write(inst.conventions.descriptions())
           output.write("] ")
@@ -117,7 +117,7 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
             output.write(describe(operand: operand))
           }
 
-        case let inst as CondBranchInst:
+        case let inst as CondBranchInstruction:
           output.write("cond_branch ")
           output.write(describe(operand: inst.condition))
           output.write(", ")
@@ -125,47 +125,47 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
           output.write(", ")
           output.write(blockNames[inst.targetIfFalse]!)
 
-        case let inst as EndBorrowInst:
+        case let inst as EndBorrowInstruction:
           output.write("end_borrow ")
           output.write(describe(operand: inst.borrow))
 
-        case let inst as DeallocStackInst:
+        case let inst as DeallocStackInstruction:
           output.write("dealloc_stack ")
           output.write(describe(operand: inst.location))
 
-        case let inst as DeinitInst:
+        case let inst as DeinitInstruction:
           output.write("deinit ")
           output.write(describe(operand: inst.object))
 
-        case let inst as DestructureInst:
+        case let inst as DestructureInstruction:
           output.write("destructure ")
           output.write(describe(operand: inst.object))
 
-        case let inst as LoadInst:
+        case let inst as LoadInstruction:
           output.write("load ")
           output.write(describe(operand: inst.source))
           if !inst.path.isEmpty {
             output.write(", \(inst.path.descriptions())")
           }
 
-        case let inst as RecordInst:
+        case let inst as RecordInstruction:
           output.write("record \(inst.objectType)")
           for operand in inst.operands {
             output.write(", ")
             output.write(describe(operand: operand))
           }
 
-        case let inst as ReturnInst:
+        case let inst as ReturnInstruction:
           output.write("return ")
           output.write(describe(operand: inst.value))
 
-        case let inst as StoreInst:
+        case let inst as StoreInstruction:
           output.write("store ")
           output.write(describe(operand: inst.object))
           output.write(", ")
           output.write(describe(operand: inst.target))
 
-        case is UnrechableInst:
+        case is UnrechableInstruction:
           output.write("unreachable")
 
         default:

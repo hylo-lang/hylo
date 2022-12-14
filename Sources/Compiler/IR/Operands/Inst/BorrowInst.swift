@@ -1,5 +1,5 @@
 // Borrows an access on an object or sub-object.
-public struct BorrowInst: Inst {
+public struct BorrowInstruction: Instruction {
 
   /// The capability being borrowed.
   public let capability: AccessEffect

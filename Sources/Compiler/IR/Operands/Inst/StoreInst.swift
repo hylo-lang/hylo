@@ -1,5 +1,5 @@
 /// Stores `object` at the specified location.
-public struct StoreInst: Inst {
+public struct StoreInstruction: Instruction {
 
   /// The object to store.
   public let object: Operand

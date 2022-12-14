@@ -192,7 +192,7 @@ extension Module {
     for i in instructions.indices.reversed() {
       if let operandIndex = instructions[i].operands.lastIndex(of: operand) {
         return Use(
-          user: InstID(function: block.function, block: block.address, address: i.address),
+          user: InstructionID(function: block.function, block: block.address, address: i.address),
           index: operandIndex)
       }
     }

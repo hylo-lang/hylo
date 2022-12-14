@@ -159,9 +159,9 @@ public struct Module {
 
   /// Inserts `inst` at the specified insertion point.
   @discardableResult
-  mutating func insert<I: Inst>(_ inst: I, at ip: InsertionPoint) -> [Operand] {
+  mutating func insert<I: Instruction>(_ inst: I, at ip: InsertionPoint) -> [Operand] {
     // Inserts the instruction.
-    let address: Block.InstAddress
+    let address: Block.InstructionAddress
     switch ip.position {
     case .end:
       address = functions[ip.block.function][ip.block.address].instructions.append(inst)
@@ -172,7 +172,8 @@ public struct Module {
     }
 
     // Generate an instruction identifier.
-    let userID = InstID(function: ip.block.function, block: ip.block.address, address: address)
+    let userID = InstructionID(
+      function: ip.block.function, block: ip.block.address, address: address)
 
     // Update the use lists of the instruction's operands.
     for i in 0 ..< inst.operands.count {

@@ -1,5 +1,5 @@
 /// Deinitializes an object.
-public struct DeinitInst: Inst {
+public struct DeinitInstruction: Instruction {
 
   /// The object being deinitialized.
   public let object: Operand

@@ -98,7 +98,7 @@ public struct Emitter {
 
       // Emit the implicit return statement.
       if expr.type != .never {
-        module.insert(ReturnInst(value: value), at: insertionPoint!)
+        module.insert(ReturnInstruction(value: value), at: insertionPoint!)
       }
     }
 
@@ -164,7 +164,7 @@ public struct Emitter {
 
     // Allocate storage for each name introduced by the declaration.
     for (path, name) in decl.pattern.subpattern.names {
-      let storage = module.insert(AllocStackInst(name.decl.type), at: insertionPoint!)[0]
+      let storage = module.insert(AllocStackInstruction(name.decl.type), at: insertionPoint!)[0]
       stack.top.allocs.append(storage)
       stack[name.decl] = storage
 
@@ -181,7 +181,7 @@ public struct Emitter {
           let wholePath = Array(path[0 ..< (i - 1)])
           let whole = objects[wholePath]!
           let parts = module.insert(
-            DestructureInst(whole, as: layout.storedPropertiesTypes.map({ .object($0) })),
+            DestructureInstruction(whole, as: layout.storedPropertiesTypes.map({ .object($0) })),
             at: insertionPoint!)
 
           for j in 0 ..< parts.count {
@@ -191,11 +191,11 @@ public struct Emitter {
 
         // Borrow the storage for initialization corresponding to the current name.
         let target = module.insert(
-          BorrowInst(.set, .address(name.decl.type), from: storage),
+          BorrowInstruction(.set, .address(name.decl.type), from: storage),
           at: insertionPoint!)[0]
 
         // Store the corresponding (part of) the initializer.
-        module.insert(StoreInst(objects[path]!, to: target), at: insertionPoint!)
+        module.insert(StoreInstruction(objects[path]!, to: target), at: insertionPoint!)
       }
     }
   }
@@ -220,20 +220,20 @@ public struct Emitter {
         let value = emitR(expr: initializer, into: &module)
 
         let exprType = initializer.type
-        let storage = module.insert(AllocStackInst(exprType), at: insertionPoint!)[0]
+        let storage = module.insert(AllocStackInstruction(exprType), at: insertionPoint!)[0]
         stack.top.allocs.append(storage)
         source = storage
 
         let target = module.insert(
-          BorrowInst(.set, .address(exprType), from: storage),
+          BorrowInstruction(.set, .address(exprType), from: storage),
           at: insertionPoint!)[0]
-        module.insert(StoreInst(value, to: target), at: insertionPoint!)
+        module.insert(StoreInstruction(value, to: target), at: insertionPoint!)
       }
 
       for (path, name) in pattern.subpattern.names {
         stack[name.decl] =
           module.insert(
-            BorrowInst(
+            BorrowInstruction(
               capability,
               .address(name.decl.type),
               from: source,
@@ -269,7 +269,7 @@ public struct Emitter {
     let rhs = emitR(expr: stmt.right, into: &module)
     // FIXME: Should request the capability 'set or inout'.
     let lhs = emitL(expr: stmt.left, withCapability: .set, into: &module)
-    _ = module.insert(StoreInst(rhs, to: lhs), at: insertionPoint!)
+    _ = module.insert(StoreInstruction(rhs, to: lhs), at: insertionPoint!)
   }
 
   private mutating func emit(brace stmt: BraceStmt.Typed, into module: inout Module) {
@@ -304,7 +304,7 @@ public struct Emitter {
 
     emitStackDeallocs(in: &module)
     module.insert(
-      ReturnInst(value: value, range: stmt.origin),
+      ReturnInstruction(value: value, range: stmt.origin),
       at: insertionPoint!)
   }
 
@@ -317,7 +317,7 @@ public struct Emitter {
       // Mark the execution path unreachable if the computed value has type `Never`.
       if expr.type == .never {
         emitStackDeallocs(in: &module)
-        module.insert(UnrechableInst(), at: insertionPoint!)
+        module.insert(UnrechableInstruction(), at: insertionPoint!)
       }
     }
 
@@ -348,7 +348,7 @@ public struct Emitter {
 
     let boolType = program.ast.coreType(named: "Bool")!
     return module.insert(
-      RecordInst(objectType: .object(boolType), operands: [value]),
+      RecordInstruction(objectType: .object(boolType), operands: [value]),
       at: insertionPoint!)[0]
   }
 
@@ -361,7 +361,7 @@ public struct Emitter {
     // If the expression is supposed to return a value, allocate storage for it.
     var resultStorage: Operand?
     if expr.type != .void {
-      resultStorage = module.insert(AllocStackInst(expr.type), at: insertionPoint!)[0]
+      resultStorage = module.insert(AllocStackInstruction(expr.type), at: insertionPoint!)[0]
       stack.top.allocs.append(resultStorage!)
     }
 
@@ -379,11 +379,11 @@ public struct Emitter {
         var condition = emitL(expr: program[itemExpr], withCapability: .let, into: &module)
         condition =
           module.insert(
-            BorrowInst(.let, .address(BuiltinType.i(1)), from: condition, at: [0]),
+            BorrowInstruction(.let, .address(BuiltinType.i(1)), from: condition, at: [0]),
             at: insertionPoint!)[0]
         condition =
           module.insert(
-            CallInst(
+            CallInstruction(
               returnType: .object(BuiltinType.i(1)),
               calleeConvention: .let,
               callee: .constant(.builtin(BuiltinFunctionRef["i1_copy"]!)),
@@ -392,7 +392,7 @@ public struct Emitter {
             at: insertionPoint!)[0]
 
         module.insert(
-          CondBranchInst(
+          CondBranchInstruction(
             condition: condition,
             targetIfTrue: success,
             targetIfFalse: failure,
@@ -415,9 +415,9 @@ public struct Emitter {
       let value = emitR(expr: program[thenExpr], into: &module)
       if let target = resultStorage {
         let target = module.insert(
-          BorrowInst(.set, .address(expr.type), from: target),
+          BorrowInstruction(.set, .address(expr.type), from: target),
           at: insertionPoint!)[0]
-        module.insert(StoreInst(value, to: target), at: insertionPoint!)
+        module.insert(StoreInstruction(value, to: target), at: insertionPoint!)
       }
       emitStackDeallocs(in: &module)
       stack.pop()
@@ -425,7 +425,7 @@ public struct Emitter {
     case .block:
       fatalError("not implemented")
     }
-    module.insert(BranchInst(target: continuation), at: insertionPoint!)
+    module.insert(BranchInstruction(target: continuation), at: insertionPoint!)
 
     // Emit the failure branch.
     insertionPoint = InsertionPoint(endOf: alt!)
@@ -435,9 +435,9 @@ public struct Emitter {
       let value = emitR(expr: program[elseExpr], into: &module)
       if let target = resultStorage {
         let target = module.insert(
-          BorrowInst(.set, .address(expr.type), from: target),
+          BorrowInstruction(.set, .address(expr.type), from: target),
           at: insertionPoint!)[0]
-        module.insert(StoreInst(value, to: target), at: insertionPoint!)
+        module.insert(StoreInstruction(value, to: target), at: insertionPoint!)
       }
       emitStackDeallocs(in: &module)
       stack.pop()
@@ -448,13 +448,13 @@ public struct Emitter {
     case nil:
       break
     }
-    module.insert(BranchInst(target: continuation), at: insertionPoint!)
+    module.insert(BranchInstruction(target: continuation), at: insertionPoint!)
 
     // Emit the value of the expression.
     insertionPoint = InsertionPoint(endOf: continuation)
     if let source = resultStorage {
       return module.insert(
-        LoadInst(LoweredType(lowering: expr.type), from: source),
+        LoadInstruction(LoweredType(lowering: expr.type), from: source),
         at: insertionPoint!)[0]
     } else {
       return .constant(.void)
@@ -515,7 +515,7 @@ public struct Emitter {
           // The function is a memberwise initializer. In that case, the whole call expression is
           // lowered as a `record` instruction.
           return module.insert(
-            RecordInst(objectType: .object(expr.type), operands: arguments),
+            RecordInstruction(objectType: .object(expr.type), operands: arguments),
             at: insertionPoint!)[0]
         }
 
@@ -531,7 +531,7 @@ public struct Emitter {
           switch calleeNameExpr.domain {
           case .none:
             let receiver = module.insert(
-              BorrowInst(type.capability, .address(type.base), from: stack[receiverDecl!]!),
+              BorrowInstruction(type.capability, .address(type.base), from: stack[receiverDecl!]!),
               at: insertionPoint!)[0]
             arguments.insert(receiver, at: 0)
 
@@ -549,7 +549,7 @@ public struct Emitter {
           switch calleeNameExpr.domain {
           case .none:
             let receiver = module.insert(
-              LoadInst(.object(receiverType), from: stack[receiverDecl!]!),
+              LoadInstruction(.object(receiverType), from: stack[receiverDecl!]!),
               at: insertionPoint!)[0]
             arguments.insert(receiver, at: 0)
 
@@ -578,7 +578,7 @@ public struct Emitter {
     }
 
     return module.insert(
-      CallInst(
+      CallInstruction(
         returnType: .object(expr.type),
         calleeConvention: calleeConvention,
         callee: callee,
@@ -614,7 +614,7 @@ public struct Emitter {
     // Emit the constant integer.
     let value = IntegerConstant(bits, bitWidth: bitWidth)
     return module.insert(
-      RecordInst(objectType: .object(type), operands: [.constant(.integer(value))]),
+      RecordInstruction(objectType: .object(type), operands: [.constant(.integer(value))]),
       at: insertionPoint!)[0]
   }
 
@@ -627,7 +627,7 @@ public struct Emitter {
       // Lookup for a local symbol.
       if let source = stack[declID] {
         return module.insert(
-          LoadInst(.object(expr.type), from: source),
+          LoadInstruction(.object(expr.type), from: source),
           at: insertionPoint!)[0]
       }
 
@@ -684,7 +684,7 @@ public struct Emitter {
 
       // Emit the call.
       return module.insert(
-        CallInst(
+        CallInstruction(
           returnType: .object(calleeType.output),
           calleeConvention: .let,
           callee: calleeOperand,
@@ -727,7 +727,7 @@ public struct Emitter {
     }
   }
 
-  /// Emits `expr` as an operand suitable to be the callee of a `CallInst`, updating `conventions`
+  /// Emits `expr` as an operand suitable to be the callee of a `CallInstruction`, updating `conventions`
   /// and `arguments` if `expr` refers to a bound member function.
   ///
   /// - Requires: `expr` has a lambda type.
@@ -785,7 +785,7 @@ public struct Emitter {
           switch nameExpr.domain {
           case .none:
             let receiver = module.insert(
-              BorrowInst(type.capability, .address(type.base), from: stack[receiverDecl!]!),
+              BorrowInstruction(type.capability, .address(type.base), from: stack[receiverDecl!]!),
               at: insertionPoint!)[0]
             arguments.insert(receiver, at: 0)
 
@@ -803,7 +803,7 @@ public struct Emitter {
           switch nameExpr.domain {
           case .none:
             let receiver = module.insert(
-              LoadInst(.object(receiverType), from: stack[receiverDecl!]!),
+              LoadInstruction(.object(receiverType), from: stack[receiverDecl!]!),
               at: insertionPoint!)[0]
             arguments.insert(receiver, at: 0)
 
@@ -850,16 +850,16 @@ public struct Emitter {
 
     default:
       let value = emitR(expr: expr, into: &module)
-      let storage = module.insert(AllocStackInst(expr.type), at: insertionPoint!)[0]
+      let storage = module.insert(AllocStackInstruction(expr.type), at: insertionPoint!)[0]
       stack.top.allocs.append(storage)
 
       let target = module.insert(
-        BorrowInst(.set, .address(expr.type), from: storage),
+        BorrowInstruction(.set, .address(expr.type), from: storage),
         at: insertionPoint!)[0]
-      module.insert(StoreInst(value, to: target), at: insertionPoint!)
+      module.insert(StoreInstruction(value, to: target), at: insertionPoint!)
 
       return module.insert(
-        BorrowInst(capability, .address(expr.type), from: storage),
+        BorrowInstruction(capability, .address(expr.type), from: storage),
         at: insertionPoint!)[0]
     }
   }
@@ -874,7 +874,7 @@ public struct Emitter {
       // Lookup for a local symbol.
       if let source = stack[decl] {
         return module.insert(
-          BorrowInst(capability, .address(expr.type), from: source),
+          BorrowInstruction(capability, .address(expr.type), from: source),
           at: insertionPoint!)[0]
       }
 
@@ -903,16 +903,16 @@ public struct Emitter {
         // If the lowered receiver is a borrow instruction, modify it in place so that it targets
         // the requested stored member. Otherwise, emit a reborrow.
         if let id = receiver.inst,
-          let receiverInst = module[id.function][id.block][id.address] as? BorrowInst
+          let receiverInstruction = module[id.function][id.block][id.address] as? BorrowInstruction
         {
-          module[id.function][id.block][id.address] = BorrowInst(
+          module[id.function][id.block][id.address] = BorrowInstruction(
             capability,
             .address(expr.type),
-            from: receiverInst.location,
-            at: receiverInst.path + [memberIndex])
+            from: receiverInstruction.location,
+            at: receiverInstruction.path + [memberIndex])
           return receiver
         } else {
-          let member = BorrowInst(
+          let member = BorrowInstruction(
             capability,
             .address(expr.type),
             from: receiver,
@@ -932,7 +932,7 @@ public struct Emitter {
 
   private mutating func emitStackDeallocs(in module: inout Module) {
     while let alloc = stack.top.allocs.popLast() {
-      module.insert(DeallocStackInst(alloc), at: insertionPoint!)
+      module.insert(DeallocStackInstruction(alloc), at: insertionPoint!)
     }
   }
 

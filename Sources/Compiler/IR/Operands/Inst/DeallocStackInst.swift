@@ -1,5 +1,5 @@
 /// Deallocates memory previously allocated by `alloc_stack`.
-public struct DeallocStackInst: Inst {
+public struct DeallocStackInstruction: Instruction {
 
   /// The location of the memory being deallocated.
   public let location: Operand
@@ -20,7 +20,7 @@ public struct DeallocStackInst: Inst {
   public func isWellFormed(in module: Module) -> Bool {
     /// The location operand denotes the result of an `alloc_stack` instruction.
     guard let l = location.inst else { return false }
-    return module[l.function][l.block][l.address] is AllocStackInst
+    return module[l.function][l.block][l.address] is AllocStackInstruction
   }
 
 }

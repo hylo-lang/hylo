@@ -2,7 +2,7 @@
 public enum Operand: Hashable {
 
   /// The `index`-th result of `inst`.
-  case result(inst: InstID, index: Int)
+  case result(inst: InstructionID, index: Int)
 
   /// The `index`-th parameter of `block`.
   case parameter(block: Block.ID, index: Int)
@@ -28,7 +28,7 @@ public enum Operand: Hashable {
   }
 
   /// The ID of the instruction that produces this operand, if any.
-  var inst: InstID? {
+  var inst: InstructionID? {
     switch self {
     case .result(let inst, _):
       return inst

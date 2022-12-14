@@ -16,8 +16,8 @@ public struct Block {
     public var address: Function.BlockAddress
 
     /// The ID of the instruction at `instAddress` in the block identified by `self`.
-    public func id(at instAddress: Block.InstAddress) -> InstID {
-      InstID(function: function, block: address, address: instAddress)
+    public func id(at instAddress: Block.InstructionAddress) -> InstructionID {
+      InstructionID(function: function, block: address, address: instAddress)
     }
 
     /// The ID of the `index`-th parameter of the block.
@@ -27,25 +27,25 @@ public struct Block {
 
     /// The operand denoting the `index`-th result of the instruction at `instAddress` in the block
     /// identified by `self`.
-    public func result(at instAddress: Block.InstAddress, index: Int) -> Operand {
+    public func result(at instAddress: Block.InstructionAddress, index: Int) -> Operand {
       .result(inst: id(at: instAddress), index: index)
     }
 
   }
 
   /// The address of an instruction in `self`.
-  public typealias InstAddress = DoublyLinkedList<Inst>.Address
+  public typealias InstructionAddress = DoublyLinkedList<Instruction>.Address
 
   /// The type input parameters of the block.
   public let inputs: [LoweredType]
 
   /// The instructions in the block.
-  public internal(set) var instructions: DoublyLinkedList<Inst> = []
+  public internal(set) var instructions: DoublyLinkedList<Instruction> = []
 
   /// Accesses the instruction at `address`.
   ///
   /// - Requires: `address` must be a valid address in `self`.
-  public subscript(_ address: InstAddress) -> Inst {
+  public subscript(_ address: InstructionAddress) -> Instruction {
     get { instructions[address] }
     set { instructions[address] = newValue }
   }
