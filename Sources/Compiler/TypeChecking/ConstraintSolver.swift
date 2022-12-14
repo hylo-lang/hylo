@@ -67,8 +67,6 @@ struct ConstraintSolver {
         solve(parameter: c)
       case let c as BoundMemberConstraint:
         solve(boundMember: c, using: &checker)
-      case let c as UnboundMemberConstraint:
-        solve(unboundMember: c, using: &checker)
       case let c as DisjunctionConstraint:
         return solve(disjunction: c, using: &checker)
       case let c as OverloadConstraint:
@@ -373,66 +371,6 @@ struct ConstraintSolver {
           }),
           because: constraint.cause))
     }
-  }
-
-  /// Simplifies `unbound(L.m) == R` as an overload or equality constraint unifying `R` with the
-  /// unbound type of `L.m` if the solver has enough information to resolve `m` as a bound member.
-  /// Otherwise, postones the constraint.
-  private mutating func solve(
-    unboundMember constraint: UnboundMemberConstraint,
-    using checker: inout TypeChecker
-  ) {
-    let l = typeAssumptions[constraint.left]
-    let r = typeAssumptions[constraint.right]
-
-    // Postpone the solving if `L` is still unknown.
-    if l.base is TypeVariable {
-      postpone(
-        UnboundMemberConstraint(
-          l, hasMember: constraint.member, ofType: r, because: constraint.cause))
-      return
-    }
-
-    // Search for non-static members with the specified name.
-    let matches = checker.lookup(constraint.member.stem, memberOf: l, inScope: scope)
-
-    // Generate the list of candidates.
-    typealias Candidate = (decl: AnyDeclID, type: AnyType, penalty: Int)
-    let candidates = matches.compactMap({ (match) -> Candidate? in
-      // Realize the type of the declaration and skip it if that fails.
-      let matchType = checker.realize(decl: match)
-      if matchType.isError { return nil }
-
-      // TODO: Handle bound generic typess
-      // TODO: Handle static access to bound members
-      assert(checker.program.isGlobal(match), "not implemented")
-
-      return (
-        decl: match,
-        type: matchType,
-        penalty: checker.program.isRequirement(match) ? 1 : 0
-      )
-    })
-
-    // Fail if we couldn't find any candidate.
-    if candidates.isEmpty {
-      diagnostics.append(
-        .diagnose(
-          undefinedName: "\(constraint.member)",
-          at: constraint.cause.origin))
-      return
-    }
-
-    // If there's only one candidate, solve an equality constraint direcly.
-    if candidates.count == 1 {
-      solve(equality: .init(candidates[0].type, r, because: constraint.cause))
-      if let name = constraint.memberExpr {
-        bindingAssumptions[name] = .direct(candidates[0].decl)
-      }
-    }
-
-    // TODO: Create an overload constraint
-    fatalError("not implemented")
   }
 
   /// Attempts to solve the remaining constraints for each individual choice in `disjunction` and

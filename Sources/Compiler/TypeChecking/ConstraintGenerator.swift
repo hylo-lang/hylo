@@ -578,25 +578,11 @@ struct ConstraintGenerator {
       let inferredType = expectedTypes[id] ?? ^TypeVariable(node: AnyNodeID(id))
       assume(typeOf: id, equals: inferredType, at: checker.program.ast[id].origin)
 
-      // If we determined that the domain refers to a nominal type declaration, create a static
-      // member constraint. Otherwise, create a non-static member constraint.
-      let cause = ConstraintCause(.member, at: checker.program.ast[id].origin)
-
-      if let base = NodeID<NameExpr>(domain),
-        let decl = checker.referredDecls[base]?.decl,
-        checker.isNominalTypeDecl(decl)
-      {
-        constraints.append(
-          UnboundMemberConstraint(
-            domainType, hasMemberExpressedBy: id, ofType: inferredType, in: checker.program.ast,
-            because: cause))
-      } else {
-        // FIXME: We can't assume the domain is an instance if types are first-class.
-        constraints.append(
-          BoundMemberConstraint(
-            domainType, hasMemberExpressedBy: id, ofType: inferredType, in: checker.program.ast,
-            cause: cause))
-      }
+      // Create a member constraint.
+      constraints.append(
+        BoundMemberConstraint(
+          domainType, hasMemberExpressedBy: id, ofType: inferredType, in: checker.program.ast,
+          cause: ConstraintCause(.member, at: checker.program.ast[id].origin)))
 
     case .implicit:
       fatalError("not implemented")
