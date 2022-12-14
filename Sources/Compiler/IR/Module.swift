@@ -79,7 +79,7 @@ public struct Module {
   ///
   /// Use this method as a sanity check to verify the module's invariants.
   public func isWellFormed() -> Bool {
-    for i in 0 ..< functions.count {
+    for i in 0..<functions.count {
       if !isWellFormed(function: i) { return false }
     }
     return true
@@ -253,12 +253,12 @@ public struct Module {
     let user = impl(&self, newInstruction)
 
     // Update the def-use chains.
-    for i in 0 ..< newInstruction.operands.count {
+    for i in 0..<newInstruction.operands.count {
       uses[newInstruction.operands[i], default: []].append(Use(user: user, index: i))
     }
 
     // Return the identities of the instruction's results.
-    return (0 ..< newInstruction.types.count).map({ (k) -> Operand in
+    return (0..<newInstruction.types.count).map({ (k) -> Operand in
       .result(instruction: user, index: k)
     })
   }

@@ -182,7 +182,7 @@ struct DominatorTree {
       default:
         var dominator = root
         outer: while let candidate = chains[0].popLast() {
-          for i in 1 ..< chains.count {
+          for i in 1..<chains.count {
             if chains[i].popLast() != candidate { break outer }
           }
           dominator = candidate

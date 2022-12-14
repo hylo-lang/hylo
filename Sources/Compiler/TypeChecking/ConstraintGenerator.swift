@@ -872,7 +872,7 @@ struct ConstraintGenerator {
     if let type = TupleType(expectedTypes[id]),
       type.elements.elementsEqual(tupleExpr, by: { (a, b) in a.label == b.label?.value })
     {
-      for i in 0 ..< tupleExpr.count {
+      for i in 0..<tupleExpr.count {
         expectedTypes[tupleExpr[i].value] = type.elements[i].type
         visit(expr: tupleExpr[i].value, using: &checker)
         tupleTypeElements.append(
@@ -881,7 +881,7 @@ struct ConstraintGenerator {
             type: inferredTypes[tupleExpr[i].value]!))
       }
     } else {
-      for i in 0 ..< tupleExpr.count {
+      for i in 0..<tupleExpr.count {
         visit(expr: tupleExpr[i].value, using: &checker)
         tupleTypeElements.append(
           TupleType.Element(
@@ -931,7 +931,7 @@ struct ConstraintGenerator {
     }
 
     // Propagate type information down.
-    for i in 0 ..< arguments.count {
+    for i in 0..<arguments.count {
       let argumentExpr = arguments[i].value
       let argumentType = ^TypeVariable(node: argumentExpr.base)
       let parameterType = parameters[i].type
@@ -960,7 +960,7 @@ struct ConstraintGenerator {
     var parameters: [CallableTypeParameter] = []
     parameters.reserveCapacity(arguments.count)
 
-    for i in 0 ..< arguments.count {
+    for i in 0..<arguments.count {
       // Infer the type of the argument bottom-up.
       visit(expr: arguments[i].value, using: &checker)
 

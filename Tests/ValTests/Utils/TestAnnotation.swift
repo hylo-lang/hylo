@@ -90,7 +90,7 @@ struct TestAnnotation {
       argument = nil
     } else {
       var argument = ""
-      for i in 0 ..< lines.count {
+      for i in 0..<lines.count {
         if i != 0 { argument.append("\n") }
         argument.append(contentsOf: lines[i].dropFirst(indentation.count))
       }
@@ -152,7 +152,7 @@ struct TestAnnotation {
             annotations.append(
               TestAnnotation(
                 at: LineLocation(url: source.url, line: line),
-                parsing: stream[start ..< index]))
+                parsing: stream[start..<index]))
             indexAfterAnnotationBlockOpener = nil
           }
 
@@ -186,7 +186,7 @@ struct TestAnnotation {
           annotations.append(
             TestAnnotation(
               at: LineLocation(url: source.url, line: line),
-              parsing: stream[start ..< index]))
+              parsing: stream[start..<index]))
         }
 
         continue

@@ -19,7 +19,7 @@ public struct CXXFunctionDecl {
   /// Writes the signature of the function into `target`.
   public func writeSignature<Target: TextOutputStream>(into target: inout Target) {
     target.write("\(output) \(identifier)(")
-    for i in 0 ..< parameters.count {
+    for i in 0..<parameters.count {
       if i != 0 { target.write(", ") }
       target.write("\(parameters[i].type) \(parameters[i].name)")
     }

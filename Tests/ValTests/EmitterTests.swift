@@ -59,8 +59,8 @@ final class EmitterTests: XCTestCase {
         var success = true
         var diagnostics: [Diagnostic] = []
 
-        for i in 0 ..< pipeline.count {
-          for f in 0 ..< irModule.functions.count {
+        for i in 0..<pipeline.count {
+          for f in 0..<irModule.functions.count {
             success = pipeline[i].run(function: f, module: &irModule) && success
             diagnostics.append(contentsOf: pipeline[i].diagnostics)
           }

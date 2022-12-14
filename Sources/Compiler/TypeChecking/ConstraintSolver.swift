@@ -144,7 +144,7 @@ struct ConstraintSolver {
       }
 
       // Break down the constraint.
-      for i in 0 ..< l.elements.count {
+      for i in 0..<l.elements.count {
         solve(equality: .init(l.elements[i].type, r.elements[i].type, because: constraint.cause))
       }
 
@@ -165,7 +165,7 @@ struct ConstraintSolver {
       }
 
       // Break down the constraint.
-      for i in 0 ..< l.inputs.count {
+      for i in 0..<l.inputs.count {
         solve(equality: .init(l.inputs[i].type, r.inputs[i].type, because: constraint.cause))
       }
 
@@ -180,7 +180,7 @@ struct ConstraintSolver {
       }
 
       // Break down the constraint.
-      for i in 0 ..< l.inputs.count {
+      for i in 0..<l.inputs.count {
         solve(equality: .init(l.inputs[i].type, r.inputs[i].type, because: constraint.cause))
       }
 
@@ -560,7 +560,7 @@ struct ConstraintSolver {
 
   /// Moves the stale constraints depending on the specified variables back to the fresh set.
   private mutating func refresh(constraintsDependingOn variable: TypeVariable) {
-    for i in (0 ..< stale.count).reversed() {
+    for i in (0..<stale.count).reversed() {
       if stale[i].depends(on: variable) {
         fresh.append(stale.remove(at: i))
       }

@@ -170,21 +170,21 @@ public struct Emitter {
 
       if var rhsType = initializerType {
         // Determine the object corresponding to the current name.
-        for i in 0 ..< path.count {
+        for i in 0..<path.count {
           // Make sure the initializer has been destructured deeply enough.
-          let subpath = Array(path[0 ..< i])
+          let subpath = Array(path[0..<i])
           if objects[subpath] != nil { continue }
 
           let layout = program.abstractLayout(of: rhsType)
           rhsType = layout.storedPropertiesTypes[i]
 
-          let wholePath = Array(path[0 ..< (i - 1)])
+          let wholePath = Array(path[0..<(i - 1)])
           let whole = objects[wholePath]!
           let parts = module.append(
             DestructureInstruction(whole, as: layout.storedPropertiesTypes.map({ .object($0) })),
             to: insertionBlock!)
 
-          for j in 0 ..< parts.count {
+          for j in 0..<parts.count {
             objects[wholePath + [j]] = parts[j]
           }
         }

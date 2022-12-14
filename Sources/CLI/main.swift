@@ -184,10 +184,10 @@ struct CLI: ParsableCommand {
     ]
 
     log(verbose: "Analyzing '\(productName)'".styled([.bold]))
-    for i in 0 ..< pipeline.count {
+    for i in 0..<pipeline.count {
       log(verbose: type(of: pipeline[i]).name)
       var passSuccess = true
-      for f in 0 ..< irModule.functions.count {
+      for f in 0..<irModule.functions.count {
         passSuccess = pipeline[i].run(function: f, module: &irModule) && passSuccess
         log(diagnostics: pipeline[i].diagnostics)
       }

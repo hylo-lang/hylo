@@ -31,7 +31,7 @@ struct DisjunctionConstraint: Constraint, Hashable {
   }
 
   mutating func modifyTypes(_ modify: (inout AnyType) -> Void) {
-    for i in 0 ..< choices.count {
+    for i in 0..<choices.count {
       choices[i] = Choice(
         constraints: choices[i].constraints.reduce(
           into: [],
