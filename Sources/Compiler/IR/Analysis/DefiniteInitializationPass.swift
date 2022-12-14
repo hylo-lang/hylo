@@ -281,7 +281,7 @@ public struct DefiniteInitializationPass: TransformPass {
   private mutating func eval(block: Function.Blocks.Address, in module: inout Module) -> Bool {
     let instructions = module[function: functionID][block].instructions
     for i in instructions.indices {
-      let id = InstructionID(function: functionID, block: block, address: i.address)
+      let id = InstructionID(functionID, block, i.address)
       switch instructions[i.address] {
       case let instruction as AllocStackInstruction:
         if !eval(allocStack: instruction, id: id, module: &module) { return false }
@@ -499,9 +499,9 @@ public struct DefiniteInitializationPass: TransformPass {
 
       // Apply the effect of the inserted instructions on the context directly.
       let consumer = InstructionID(
-        function: id.function,
-        block: id.block,
-        address: module[function: id.function][id.block].instructions.address(before: id.address)!)
+        id.function,
+        id.block,
+        module[function: id.function][id.block].instructions.address(before: id.address)!)
       currentContext.locals[FunctionLocal(id, 0)] = .object(.full(.consumed(by: [consumer])))
     }
 

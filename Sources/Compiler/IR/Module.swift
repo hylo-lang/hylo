@@ -178,14 +178,13 @@ public struct Module {
   /// Returns the global "past the end" position of `block`.
   func globalEndIndex(of block: Block.ID) -> InstructionIndex {
     InstructionIndex(
-      block: block,
-      index: functions[block.function].blocks[block.address].instructions.endIndex)
+      block, functions[block.function].blocks[block.address].instructions.endIndex)
   }
 
   /// Returns the global identity of `block`'s terminator, if it exists.
   func terminator(of block: Block.ID) -> InstructionID? {
     if let a = functions[block.function].blocks[block.address].instructions.lastAddress {
-      return InstructionID(block: block, address: a)
+      return InstructionID(block, a)
     } else {
       return nil
     }
@@ -200,7 +199,7 @@ public struct Module {
     insert(
       newInstruction,
       with: { (m, i) in
-        InstructionID(block: block, address: m[block: block].instructions.append(newInstruction))
+        InstructionID(block, m[block: block].instructions.append(newInstruction))
       })
   }
 
@@ -218,7 +217,7 @@ public struct Module {
       with: { (m, i) in
         let address = m.functions[position.function].blocks[position.block].instructions
           .insert(newInstruction, at: position.index)
-        return InstructionID(function: position.function, block: position.block, address: address)
+        return InstructionID(position.function, position.block, address)
       })
   }
 
@@ -234,7 +233,7 @@ public struct Module {
       with: { (m, i) in
         let address = m.functions[id.function].blocks[id.block].instructions
           .insert(newInstruction, before: id.address)
-        return InstructionID(function: id.function, block: id.block, address: address)
+        return InstructionID(id.function, id.block, address)
       })
   }
 
@@ -250,7 +249,7 @@ public struct Module {
       with: { (m, i) in
         let address = m.functions[id.function].blocks[id.block].instructions
           .insert(newInstruction, after: id.address)
-        return InstructionID(function: id.function, block: id.block, address: address)
+        return InstructionID(id.function, id.block, address)
       })
   }
 

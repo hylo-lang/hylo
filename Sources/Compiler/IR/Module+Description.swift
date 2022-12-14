@@ -42,7 +42,7 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
         operandNames[.parameter(block: blockID, index: j)] = "%\(operandNames.count)"
       }
       for j in function[i.address].instructions.indices {
-        let instID = InstructionID(function: functionID, block: i.address, address: j.address)
+        let instID = InstructionID(functionID, i.address, j.address)
         for k in 0 ..< function[i.address][j.address].types.count {
           operandNames[.result(instruction: instID, index: k)] = "%\(operandNames.count)"
         }
@@ -81,7 +81,7 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
       output.write("):\n")
 
       for j in block.instructions.indices {
-        let instID = InstructionID(function: functionID, block: i.address, address: j.address)
+        let instID = InstructionID(functionID, i.address, j.address)
 
         output.write("  ")
         if !block[j.address].types.isEmpty {

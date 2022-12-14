@@ -14,9 +14,9 @@ public struct InstructionID: Hashable {
 
   /// Creates an identity with the given properties.
   public init(
-    function: Module.Functions.Index,
-    block: Function.Blocks.Address,
-    address: Block.Instructions.Address
+    _ function: Module.Functions.Index,
+    _ block: Function.Blocks.Address,
+    _ address: Block.Instructions.Address
   ) {
     self.function = function
     self.block = block
@@ -24,7 +24,7 @@ public struct InstructionID: Hashable {
   }
 
   /// Creates an identity with the given properties.
-  public init(block: Block.ID, address: Block.Instructions.Address) {
+  public init(_ block: Block.ID, _ address: Block.Instructions.Address) {
     self.function = block.function
     self.block = block.address
     self.address = address
