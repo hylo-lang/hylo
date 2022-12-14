@@ -580,7 +580,7 @@ struct ConstraintGenerator {
 
       // Create a member constraint.
       constraints.append(
-        BoundMemberConstraint(
+        MemberConstraint(
           domainType, hasMemberExpressedBy: id, ofType: inferredType, in: checker.program.ast,
           cause: ConstraintCause(.member, at: checker.program.ast[id].origin)))
 
@@ -649,7 +649,7 @@ struct ConstraintGenerator {
 
       // Create a member constraint for the operator.
       constraints.append(
-        BoundMemberConstraint(
+        MemberConstraint(
           lhsType, hasMemberExpressedBy: callee.expr, ofType: ^calleeType, in: checker.program.ast,
           cause: ConstraintCause(.member, at: checker.program.ast[callee.expr].origin)))
 

@@ -65,7 +65,7 @@ struct ConstraintSolver {
         solve(subtyping: c)
       case let c as ParameterConstraint:
         solve(parameter: c)
-      case let c as BoundMemberConstraint:
+      case let c as MemberConstraint:
         solve(boundMember: c, using: &checker)
       case let c as DisjunctionConstraint:
         return solve(disjunction: c, using: &checker)
@@ -295,7 +295,7 @@ struct ConstraintSolver {
   /// bound type of `L.m` if the solver has enough information to resolve `m` as a bound member.
   /// Otherwise, postones the constraint.
   private mutating func solve(
-    boundMember constraint: BoundMemberConstraint,
+    boundMember constraint: MemberConstraint,
     using checker: inout TypeChecker
   ) {
     let l = typeAssumptions[constraint.left]
@@ -304,7 +304,7 @@ struct ConstraintSolver {
     // Postpone the solving if `L` is still unknown.
     if l.base is TypeVariable {
       postpone(
-        BoundMemberConstraint(l, hasMember: constraint.member, ofType: r, cause: constraint.cause))
+        MemberConstraint(l, hasMember: constraint.member, ofType: r, cause: constraint.cause))
       return
     }
 

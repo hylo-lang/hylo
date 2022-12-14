@@ -1,6 +1,5 @@
-/// A constraint `bound(L.m) == R` specifying that `L` has a non-static member of type `R`
-/// named `m` and referred to from a bound context.
-struct BoundMemberConstraint: Constraint, Hashable {
+/// A constraint `L.m == R` specifying that `L` has a member of type `R` named `m`.
+struct MemberConstraint: Constraint, Hashable {
 
   /// The base type of the left operand.
   private(set) var left: AnyType
@@ -56,7 +55,7 @@ struct BoundMemberConstraint: Constraint, Hashable {
 
 }
 
-extension BoundMemberConstraint: CustomStringConvertible {
+extension MemberConstraint: CustomStringConvertible {
 
   var description: String { "bound(\(left).\(member)) == \(right)" }
 
