@@ -8,7 +8,7 @@ import Utils
 struct ControlFlowGraph {
 
   /// A vertex.
-  typealias Vertex = Function.BlockAddress
+  typealias Vertex = Function.Blocks.Address
 
   /// An control edge label.
   enum Label {

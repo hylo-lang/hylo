@@ -246,6 +246,19 @@ public struct DoublyLinkedList<Element> {
     return newAddress
   }
 
+  /// Inserts `newElement` at the given position and returns its address.
+  ///
+  /// The new element is inserted before the element currently at `position`. You can pass a
+  /// "past the end" index to append `newElement` at the end of `self`.
+  @discardableResult
+  public mutating func insert(_ newElement: Element, at position: Index) -> Address {
+    if position == endIndex {
+      return append(newElement)
+    } else {
+      return insert(newElement, before: position.address)
+    }
+  }
+
   /// Removes the element at `address`.
   @discardableResult
   public mutating func remove(at address: Address) -> Element {

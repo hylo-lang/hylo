@@ -6,8 +6,8 @@ public struct Function {
   /// The ID of a `Function` in its `Module`.
   public typealias ID = Module.Functions.Index
 
-  /// The address of a basic block in `self`.
-  public typealias BlockAddress = DoublyLinkedList<Block>.Address
+  /// A collection of blocks with stable identities.
+  public typealias Blocks = DoublyLinkedList<Block>
 
   /// The profile of a IR function input.
   public typealias Input = (convention: AccessEffect, type: LoweredType)
@@ -30,7 +30,7 @@ public struct Function {
   /// The blocks in the function.
   ///
   /// The first block of the array is the function's entry.
-  public internal(set) var blocks: DoublyLinkedList<Block>
+  public internal(set) var blocks: Blocks
 
   /// The entry of the function.
   public var entry: Block? { blocks.first }
@@ -38,7 +38,7 @@ public struct Function {
   /// Accesses the basic block at `address`.
   ///
   /// - Requires: `address` must be a valid address in `self`.
-  public subscript(_ address: BlockAddress) -> Block {
+  public subscript(_ address: Blocks.Address) -> Block {
     get { blocks[address] }
     _modify { yield &blocks[address] }
   }

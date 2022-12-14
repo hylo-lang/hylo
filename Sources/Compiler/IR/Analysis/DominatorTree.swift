@@ -14,7 +14,7 @@ import Utils
 struct DominatorTree {
 
   /// A node in the tree.
-  typealias Node = Function.BlockAddress
+  typealias Node = Function.Blocks.Address
 
   /// The parent of a node.
   private enum Dominator {
@@ -36,8 +36,8 @@ struct DominatorTree {
 
   /// Creates the dominator tree of the specified function.
   init(function functionID: Function.ID, cfg: ControlFlowGraph? = nil, in module: Module) {
-    let function = module[functionID]
-    let cfg = cfg ?? module[functionID].cfg
+    let function = module[function: functionID]
+    let cfg = cfg ?? function.cfg
 
     root = function.blocks.firstAddress!
     immediateDominators = [:]
@@ -103,10 +103,10 @@ struct DominatorTree {
   /// Returns `true` if the instruction identified by `definition` dominates `use`.
   ///
   /// - Requires: `definition` and `use` reside in the function associated with the true.
-  func dominates(definition: InstID, use: Use, in module: Module) -> Bool {
+  func dominates(definition: InstructionID, use: Use, in module: Module) -> Bool {
     // If `definition` is in the same block as `use`, check which comes first.
     if definition.block == use.user.block {
-      for i in module[definition.function][definition.block].instructions.indices {
+      for i in module[function: definition.function][definition.block].instructions.indices {
         if i.address == definition.address {
           return true
         }

@@ -20,7 +20,7 @@ public struct DeallocStackInst: Inst {
   public func isWellFormed(in module: Module) -> Bool {
     /// The location operand denotes the result of an `alloc_stack` instruction.
     guard let l = location.inst else { return false }
-    return module[l.function][l.block][l.address] is AllocStackInst
+    return module[instruction: l] is AllocStackInst
   }
 
 }

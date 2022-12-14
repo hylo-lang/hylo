@@ -1,21 +1,19 @@
-import Utils
-
-/// The overarching type of a subscript declaration.
-public struct SubscriptType: TypeProtocol {
+/// The type of a subscript implementation.
+public struct SubscriptImplType: TypeProtocol {
 
   /// Indicates whether the subscript denotes a computed property.
   public let isProperty: Bool
 
-  /// The capabilities of the subscript.
-  public let capabilities: Set<ImplIntroducer>
+  /// The property of the subscrit implementation's call operator.
+  public let receiverEffect: AccessEffect?
 
   /// The environment of the subscript implementation.
   public let environment: AnyType
 
-  /// The parameter labels and types of the subscript.
+  /// The parameter labels and types of the subscript implementation.
   public let inputs: [CallableTypeParameter]
 
-  /// The type of the value projected by the subscript.
+  /// The type of the value projected by the subscript implementation.
   public let output: AnyType
 
   public let flags: TypeFlags
@@ -23,13 +21,13 @@ public struct SubscriptType: TypeProtocol {
   /// Creates an instance with the given properties.
   public init(
     isProperty: Bool,
-    capabilities: Set<ImplIntroducer>,
-    environment: AnyType = .void,
+    receiverEffect: AccessEffect?,
+    environment: AnyType,
     inputs: [CallableTypeParameter],
     output: AnyType
   ) {
     self.isProperty = isProperty
-    self.capabilities = capabilities
+    self.receiverEffect = receiverEffect
     self.environment = environment
     self.inputs = inputs
     self.output = output
@@ -40,13 +38,16 @@ public struct SubscriptType: TypeProtocol {
     flags = fs
   }
 
-  /// Accesses the individual elements of the subscript's environment.
+  /// Indicates whether `self` has an empty environment.
+  public var isThin: Bool { environment == .void }
+
+  /// Accesses the individual elements of the lambda's environment.
   public var captures: [TupleType.Element] { TupleType(environment)?.elements ?? [] }
 
   public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> Self {
-    SubscriptType(
+    SubscriptImplType(
       isProperty: isProperty,
-      capabilities: capabilities,
+      receiverEffect: receiverEffect,
       environment: environment.transform(transformer),
       inputs: inputs.map({ (p) -> CallableTypeParameter in
         .init(label: p.label, type: p.type.transform(transformer))
@@ -54,22 +55,27 @@ public struct SubscriptType: TypeProtocol {
       output: output.transform(transformer))
   }
 
+  private static func makeTransformer() -> (AnyType) -> TypeTransformAction {
+    { (t) in
+      if let type = RemoteType(t), type.capability == .yielded {
+        return .stepInto(^RemoteType(.let, type.base))
+      } else {
+        return .stepInto(t)
+      }
+    }
+  }
+
 }
 
-extension SubscriptType: CustomStringConvertible {
+extension SubscriptImplType: CustomStringConvertible {
 
   public var description: String {
-    let cs =
-      capabilities
-      .map(String.init(describing:))
-      .sorted()
-      .joined(separator: " ")
-
+    let fx = receiverEffect.map(String.init(describing:)) ?? "_"
     if isProperty {
-      return "property [\(environment)] \(output) { \(cs) }"
+      return "property [\(environment)] \(output) \(fx)"
     } else {
       let i = inputs.descriptions(joinedBy: ", ")
-      return "subscript [\(environment)] (\(i)): \(output) { \(cs) }"
+      return "subscript [\(environment)] (\(i)) \(fx) : \(output)"
     }
   }
 

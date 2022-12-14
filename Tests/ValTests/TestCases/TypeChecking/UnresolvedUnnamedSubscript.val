@@ -1,0 +1,8 @@
+//! expect-failure
+
+type A {}
+
+public fun main() {
+  let a = A()
+  let _ = a[0] //! diagnostic type 'A' has no unnamed subscripts
+}
