@@ -21,7 +21,7 @@ public struct LifetimePass: TransformPass {
 
       for inst in module[block: block].instructions.indices {
         switch module[block: block][inst.address] {
-        case let borrow as BorrowInst:
+        case let borrow as BorrowInstruction:
           // Compute the live-range of the instruction.
           let borrowID = block.result(at: inst.address, index: 0)
           let borrowLifetime = lifetime(of: borrowID, in: module)
@@ -37,7 +37,7 @@ public struct LifetimePass: TransformPass {
 
           // Insert `end_borrow` after the instruction's last users.
           for lastUse in borrowLifetime.maximalElements {
-            module.insert(EndBorrowInst(borrow: borrowID, range: nil), after: lastUse.user)
+            module.insert(EndBorrowInstruction(borrow: borrowID, range: nil), after: lastUse.user)
           }
 
         default:
@@ -59,7 +59,7 @@ public struct LifetimePass: TransformPass {
     // Extend the lifetime with that of its borrows.
     for use in uses {
       switch module[instruction: use.user] {
-      case is BorrowInst:
+      case is BorrowInstruction:
         result = module.extend(
           lifetime: result, with: lifetime(of: .result(inst: use.user, index: 0), in: module))
       default:

@@ -1,5 +1,5 @@
 /// A return instruction.
-public struct ReturnInst: Inst {
+public struct ReturnInstruction: Instruction {
 
   /// The returned value.
   public let value: Operand

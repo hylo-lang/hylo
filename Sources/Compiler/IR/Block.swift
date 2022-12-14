@@ -34,7 +34,7 @@ public struct Block {
   }
 
   /// A collection of instructions with stable identities.
-  public typealias Instructions = DoublyLinkedList<Inst>
+  public typealias Instructions = DoublyLinkedList<Instruction>
 
   /// The type input parameters of the block.
   public let inputs: [LoweredType]
@@ -45,7 +45,7 @@ public struct Block {
   /// Accesses the instruction at `address`.
   ///
   /// - Requires: `address` must be a valid address in `self`.
-  public subscript(_ address: Instructions.Address) -> Inst {
+  public subscript(_ address: Instructions.Address) -> Instruction {
     get { instructions[address] }
     set { instructions[address] = newValue }
   }

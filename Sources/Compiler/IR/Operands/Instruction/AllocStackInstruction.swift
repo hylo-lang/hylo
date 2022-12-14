@@ -1,5 +1,5 @@
 /// Allocates memory on the stack.
-public struct AllocStackInst: Inst {
+public struct AllocStackInstruction: Instruction {
 
   /// The type for which storage is allocated.
   public let allocatedType: AnyType

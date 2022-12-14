@@ -1,5 +1,5 @@
 /// Marks this execution path as unreachable, causing a fatal error otherwise.
-public struct UnrechableInst: Inst {
+public struct UnrechableInstruction: Instruction {
 
   public var range: SourceRange?
 

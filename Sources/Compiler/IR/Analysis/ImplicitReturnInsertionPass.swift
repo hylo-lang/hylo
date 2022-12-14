@@ -22,7 +22,7 @@ public struct ImplicitReturnInsertionPass: TransformPass {
       } else if expectedReturnType == .void {
         // Insert missing return instruction.
         module.insert(
-          ReturnInst(),
+          ReturnInstruction(),
           at: module.globalEndIndex(of: Block.ID(function: functionID, address: i.address)))
       } else {
         // No return instruction, yet the function must return a non-void value.
