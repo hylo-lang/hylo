@@ -16,10 +16,20 @@ jobs:
         swift-version: "5.7"
     - name: Swift version 
       run: swift --version
-    - name: Build swift-format
-      uses: mipalgu/install-swift-format@main
+
+    - name: Clone swift-format
+      uses: actions/checkout@v3
       with:
-        ref: "release/5.7"
+        repository: apple/swift-format
+        ref: "release/5.7" # Change here the version of swift-format to use
+        path: swift-format
+    - name: Build swift-format
+      run: |
+        cd swift-format
+        swift build -c debug
+        install .build/debug/swift-format /usr/local/bin/
+      shell: bash
+
     - uses: actions/checkout@v3
     - name: Run swift-format on the codebase
       run: swift-format lint --configuration .swift-format.json -s -r -p Sources Tests *.swift
