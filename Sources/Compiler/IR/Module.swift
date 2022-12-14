@@ -43,22 +43,22 @@ public struct Module {
   /// The module's name.
   public var name: String { decl.name }
 
-  /// Accesses the function at given index.
-  public subscript(function index: Functions.Index) -> Function {
-    _read { yield functions[index] }
-    _modify { yield &functions[index] }
+  /// Accesses the given function.
+  public subscript(f: Functions.Index) -> Function {
+    _read { yield functions[f] }
+    _modify { yield &functions[f] }
   }
 
-  /// Accesses the basic block with the given identity.
-  public subscript(block id: Block.ID) -> Block {
-    _read { yield functions[id.function].blocks[id.address] }
-    _modify { yield &functions[id.function].blocks[id.address] }
+  /// Accesses the given block.
+  public subscript(b: Block.ID) -> Block {
+    _read { yield functions[b.function].blocks[b.address] }
+    _modify { yield &functions[b.function].blocks[b.address] }
   }
 
-  /// Accesses the instruction with the given identity.
-  public subscript(instruction id: InstructionID) -> Instruction {
-    _read { yield functions[id.function].blocks[id.block].instructions[id.address] }
-    _modify { yield &functions[id.function].blocks[id.block].instructions[id.address] }
+  /// Accesses the given instruction.
+  public subscript(i: InstructionID) -> Instruction {
+    _read { yield functions[i.function].blocks[i.block].instructions[i.address] }
+    _modify { yield &functions[i.function].blocks[i.block].instructions[i.address] }
   }
 
   /// Returns the type of `operand`.
@@ -199,7 +199,7 @@ public struct Module {
     insert(
       newInstruction,
       with: { (m, i) in
-        InstructionID(block, m[block: block].instructions.append(newInstruction))
+        InstructionID(block, m[block].instructions.append(newInstruction))
       })
   }
 

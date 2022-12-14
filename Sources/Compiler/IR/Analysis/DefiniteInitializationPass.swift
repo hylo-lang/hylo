@@ -33,7 +33,7 @@ public struct DefiniteInitializationPass: TransformPass {
 
   public mutating func run(function functionID: Function.ID, module: inout Module) -> Bool {
     /// The control flow graph of the function to analyze.
-    let cfg = module[function: functionID].cfg
+    let cfg = module[functionID].cfg
     /// The dominator tree of the function to analyize.
     let dominatorTree = DominatorTree(function: functionID, cfg: cfg, in: module)
     /// A FILO list of blocks to visit.
@@ -181,7 +181,7 @@ public struct DefiniteInitializationPass: TransformPass {
     // Interpret the function until we reach a fixed point.
     while let block = work.popFirst() {
       // Handle the entry as a special case.
-      if block == module[function: functionID].blocks.firstAddress {
+      if block == module[functionID].blocks.firstAddress {
         let beforeContext = entryContext(in: module)
         currentContext = beforeContext
         success = eval(block: block, in: &module) && success
@@ -247,7 +247,7 @@ public struct DefiniteInitializationPass: TransformPass {
 
   /// Creates the before-context of the function's entry block.
   private func entryContext(in module: Module) -> Context {
-    let function = module[function: functionID]
+    let function = module[functionID]
     let entryAddress = function.blocks.firstAddress!
     var entryContext = Context()
 
@@ -279,7 +279,7 @@ public struct DefiniteInitializationPass: TransformPass {
   }
 
   private mutating func eval(block: Function.Blocks.Address, in module: inout Module) -> Bool {
-    let instructions = module[function: functionID][block].instructions
+    let instructions = module[functionID][block].instructions
     for i in instructions.indices {
       let id = InstructionID(functionID, block, i.address)
       switch instructions[i.address] {
@@ -465,7 +465,7 @@ public struct DefiniteInitializationPass: TransformPass {
     deallocStack instruction: DeallocStackInstruction, id: InstructionID, module: inout Module
   ) -> Bool {
     // The location operand is the result an `alloc_stack` instruction.
-    let alloc = module[instruction: instruction.location.instruction!] as! AllocStackInstruction
+    let alloc = module[instruction.location.instruction!] as! AllocStackInstruction
 
     let key = FunctionLocal(instruction.location.instruction!, 0)
     let locations = currentContext.locals[key]!.unwrapLocations()!
@@ -501,7 +501,7 @@ public struct DefiniteInitializationPass: TransformPass {
       let consumer = InstructionID(
         id.function,
         id.block,
-        module[function: id.function][id.block].instructions.address(before: id.address)!)
+        module[id.function][id.block].instructions.address(before: id.address)!)
       currentContext.locals[FunctionLocal(id, 0)] = .object(.full(.consumed(by: [consumer])))
     }
 
