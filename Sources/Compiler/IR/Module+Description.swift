@@ -44,7 +44,7 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
       for j in function[i.address].instructions.indices {
         let instID = InstructionID(function: functionID, block: i.address, address: j.address)
         for k in 0 ..< function[i.address][j.address].types.count {
-          operandNames[.result(inst: instID, index: k)] = "%\(operandNames.count)"
+          operandNames[.result(instruction: instID, index: k)] = "%\(operandNames.count)"
         }
       }
     }
@@ -87,83 +87,83 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
         if !block[j.address].types.isEmpty {
           output.write(
             (0 ..< block[j.address].types.count)
-              .map({ k in operandNames[.result(inst: instID, index: k)]! })
+              .map({ k in operandNames[.result(instruction: instID, index: k)]! })
               .joined(separator: ", "))
           output.write(" = ")
         }
 
         switch block.instructions[j.address] {
-        case let inst as AllocStackInstruction:
-          output.write("alloc_stack \(inst.allocatedType)")
+        case let instruction as AllocStackInstruction:
+          output.write("alloc_stack \(instruction.allocatedType)")
 
-        case let inst as BorrowInstruction:
-          output.write("borrow [\(inst.capability)] ")
-          output.write(describe(operand: inst.location))
-          if !inst.path.isEmpty {
-            output.write(", \(inst.path.descriptions())")
+        case let instruction as BorrowInstruction:
+          output.write("borrow [\(instruction.capability)] ")
+          output.write(describe(operand: instruction.location))
+          if !instruction.path.isEmpty {
+            output.write(", \(instruction.path.descriptions())")
           }
 
-        case let inst as BranchInstruction:
+        case let instruction as BranchInstruction:
           output.write("branch ")
-          output.write(blockNames[inst.target]!)
+          output.write(blockNames[instruction.target]!)
 
-        case let inst as CallInstruction:
+        case let instruction as CallInstruction:
           output.write("call [")
-          output.write(inst.conventions.descriptions())
+          output.write(instruction.conventions.descriptions())
           output.write("] ")
-          output.write(describe(operand: inst.callee))
-          for operand in inst.arguments {
+          output.write(describe(operand: instruction.callee))
+          for operand in instruction.arguments {
             output.write(", ")
             output.write(describe(operand: operand))
           }
 
-        case let inst as CondBranchInstruction:
+        case let instruction as CondBranchInstruction:
           output.write("cond_branch ")
-          output.write(describe(operand: inst.condition))
+          output.write(describe(operand: instruction.condition))
           output.write(", ")
-          output.write(blockNames[inst.targetIfTrue]!)
+          output.write(blockNames[instruction.targetIfTrue]!)
           output.write(", ")
-          output.write(blockNames[inst.targetIfFalse]!)
+          output.write(blockNames[instruction.targetIfFalse]!)
 
-        case let inst as EndBorrowInstruction:
+        case let instruction as EndBorrowInstruction:
           output.write("end_borrow ")
-          output.write(describe(operand: inst.borrow))
+          output.write(describe(operand: instruction.borrow))
 
-        case let inst as DeallocStackInstruction:
+        case let instruction as DeallocStackInstruction:
           output.write("dealloc_stack ")
-          output.write(describe(operand: inst.location))
+          output.write(describe(operand: instruction.location))
 
-        case let inst as DeinitInstruction:
+        case let instruction as DeinitInstruction:
           output.write("deinit ")
-          output.write(describe(operand: inst.object))
+          output.write(describe(operand: instruction.object))
 
-        case let inst as DestructureInstruction:
+        case let instruction as DestructureInstruction:
           output.write("destructure ")
-          output.write(describe(operand: inst.object))
+          output.write(describe(operand: instruction.object))
 
-        case let inst as LoadInstruction:
+        case let instruction as LoadInstruction:
           output.write("load ")
-          output.write(describe(operand: inst.source))
-          if !inst.path.isEmpty {
-            output.write(", \(inst.path.descriptions())")
+          output.write(describe(operand: instruction.source))
+          if !instruction.path.isEmpty {
+            output.write(", \(instruction.path.descriptions())")
           }
 
-        case let inst as RecordInstruction:
-          output.write("record \(inst.objectType)")
-          for operand in inst.operands {
+        case let instruction as RecordInstruction:
+          output.write("record \(instruction.objectType)")
+          for operand in instruction.operands {
             output.write(", ")
             output.write(describe(operand: operand))
           }
 
-        case let inst as ReturnInstruction:
+        case let instruction as ReturnInstruction:
           output.write("return ")
-          output.write(describe(operand: inst.value))
+          output.write(describe(operand: instruction.value))
 
-        case let inst as StoreInstruction:
+        case let instruction as StoreInstruction:
           output.write("store ")
-          output.write(describe(operand: inst.object))
+          output.write(describe(operand: instruction.object))
           output.write(", ")
-          output.write(describe(operand: inst.target))
+          output.write(describe(operand: instruction.target))
 
         case is UnrechableInstruction:
           output.write("unreachable")

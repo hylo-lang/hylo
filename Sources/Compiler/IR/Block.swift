@@ -28,7 +28,7 @@ public struct Block {
     /// The operand denoting the `index`-th result of the instruction at `instAddress` in the block
     /// identified by `self`.
     public func result(at instAddress: Block.Instructions.Address, index: Int) -> Operand {
-      .result(inst: id(at: instAddress), index: index)
+      .result(instruction: id(at: instAddress), index: index)
     }
 
   }

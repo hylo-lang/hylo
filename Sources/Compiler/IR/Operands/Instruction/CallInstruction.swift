@@ -61,8 +61,8 @@ public struct CallInstruction: Instruction {
         // Operand of a `let` parameter must be a borrow or a constant.
         switch operands[i] {
         case .result(let id, _):
-          if let inst = module[instruction: id] as? BorrowInstruction {
-            if inst.capability != .let { return false }
+          if let instruction = module[instruction: id] as? BorrowInstruction {
+            if instruction.capability != .let { return false }
           } else {
             return false
           }
@@ -78,8 +78,8 @@ public struct CallInstruction: Instruction {
         // Operand of an `inout` parameter must be a borrow.
         switch operands[i] {
         case .result(let id, _):
-          if let inst = module[instruction: id] as? BorrowInstruction {
-            if inst.capability != .inout { return false }
+          if let instruction = module[instruction: id] as? BorrowInstruction {
+            if instruction.capability != .inout { return false }
           } else {
             return false
           }
@@ -92,8 +92,8 @@ public struct CallInstruction: Instruction {
         // Operand of a `set` parameter must be a borrow.
         switch operands[i] {
         case .result(let id, _):
-          if let inst = module[instruction: id] as? BorrowInstruction {
-            if inst.capability != .set { return false }
+          if let instruction = module[instruction: id] as? BorrowInstruction {
+            if instruction.capability != .set { return false }
           } else {
             return false
           }

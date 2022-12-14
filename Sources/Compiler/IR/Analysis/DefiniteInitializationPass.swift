@@ -283,28 +283,28 @@ public struct DefiniteInitializationPass: TransformPass {
     for i in instructions.indices {
       let id = InstructionID(function: functionID, block: block, address: i.address)
       switch instructions[i.address] {
-      case let inst as AllocStackInstruction:
-        if !eval(allocStack: inst, id: id, module: &module) { return false }
-      case let inst as BorrowInstruction:
-        if !eval(borrow: inst, id: id, module: &module) { return false }
-      case let inst as CondBranchInstruction:
-        if !eval(condBranch: inst, id: id, module: &module) { return false }
-      case let inst as CallInstruction:
-        if !eval(call: inst, id: id, module: &module) { return false }
-      case let inst as DeallocStackInstruction:
-        if !eval(deallocStack: inst, id: id, module: &module) { return false }
-      case let inst as DeinitInstruction:
-        if !eval(deinit: inst, id: id, module: &module) { return false }
-      case let inst as DestructureInstruction:
-        if !eval(destructure: inst, id: id, module: &module) { return false }
-      case let inst as LoadInstruction:
-        if !eval(load: inst, id: id, module: &module) { return false }
-      case let inst as RecordInstruction:
-        if !eval(record: inst, id: id, module: &module) { return false }
-      case let inst as ReturnInstruction:
-        if !eval(return: inst, id: id, module: &module) { return false }
-      case let inst as StoreInstruction:
-        if !eval(store: inst, id: id, module: &module) { return false }
+      case let instruction as AllocStackInstruction:
+        if !eval(allocStack: instruction, id: id, module: &module) { return false }
+      case let instruction as BorrowInstruction:
+        if !eval(borrow: instruction, id: id, module: &module) { return false }
+      case let instruction as CondBranchInstruction:
+        if !eval(condBranch: instruction, id: id, module: &module) { return false }
+      case let instruction as CallInstruction:
+        if !eval(call: instruction, id: id, module: &module) { return false }
+      case let instruction as DeallocStackInstruction:
+        if !eval(deallocStack: instruction, id: id, module: &module) { return false }
+      case let instruction as DeinitInstruction:
+        if !eval(deinit: instruction, id: id, module: &module) { return false }
+      case let instruction as DestructureInstruction:
+        if !eval(destructure: instruction, id: id, module: &module) { return false }
+      case let instruction as LoadInstruction:
+        if !eval(load: instruction, id: id, module: &module) { return false }
+      case let instruction as RecordInstruction:
+        if !eval(record: instruction, id: id, module: &module) { return false }
+      case let instruction as ReturnInstruction:
+        if !eval(return: instruction, id: id, module: &module) { return false }
+      case let instruction as StoreInstruction:
+        if !eval(store: instruction, id: id, module: &module) { return false }
       case is BranchInstruction, is EndBorrowInstruction, is UnrechableInstruction:
         continue
       default:
@@ -315,29 +315,31 @@ public struct DefiniteInitializationPass: TransformPass {
   }
 
   private mutating func eval(
-    allocStack inst: AllocStackInstruction, id: InstructionID, module: inout Module
+    allocStack instruction: AllocStackInstruction, id: InstructionID, module: inout Module
   ) -> Bool {
     // Create an abstract location denoting the newly allocated memory.
-    let location = MemoryLocation.inst(block: id.block, address: id.address)
+    let location = MemoryLocation.instruction(block: id.block, address: id.address)
     if currentContext.memory[location] != nil {
-      diagnostics.append(.unboundedStackAllocation(at: inst.range))
+      diagnostics.append(.unboundedStackAllocation(at: instruction.range))
       return false
     }
 
     // Update the context.
     currentContext.memory[location] = Context.Cell(
-      type: inst.allocatedType, object: .full(.uninitialized))
+      type: instruction.allocatedType, object: .full(.uninitialized))
     currentContext.locals[FunctionLocal(id, 0)] = .locations([location])
     return true
   }
 
   private mutating func eval(
-    borrow inst: BorrowInstruction, id: InstructionID, module: inout Module
+    borrow instruction: BorrowInstruction, id: InstructionID, module: inout Module
   ) -> Bool {
     // Operand must a location.
     let locations: [MemoryLocation]
-    if let key = FunctionLocal(operand: inst.location) {
-      locations = currentContext.locals[key]!.unwrapLocations()!.map({ $0.appending(inst.path) })
+    if let key = FunctionLocal(operand: instruction.location) {
+      locations = currentContext.locals[key]!.unwrapLocations()!.map({
+        $0.appending(instruction.path)
+      })
     } else {
       // The operand is a constant.
       fatalError("not implemented")
@@ -347,7 +349,7 @@ public struct DefiniteInitializationPass: TransformPass {
     // or LoE has been broken somewhere else.
     let summary = withObject(at: locations[0], { $0.summary })
 
-    switch inst.capability {
+    switch instruction.capability {
     case .let, .inout:
       // `let` and `inout` require the borrowed object to be initialized.
       switch summary {
@@ -355,19 +357,19 @@ public struct DefiniteInitializationPass: TransformPass {
         break
 
       case .fullyUninitialized:
-        diagnostics.append(.useOfUninitializedObject(at: inst.range))
+        diagnostics.append(.useOfUninitializedObject(at: instruction.range))
         return false
 
       case .fullyConsumed:
-        diagnostics.append(.useOfConsumedObject(at: inst.range))
+        diagnostics.append(.useOfConsumedObject(at: instruction.range))
         return false
 
       case .partiallyInitialized:
-        diagnostics.append(.useOfPartiallyInitializedObject(at: inst.range))
+        diagnostics.append(.useOfPartiallyInitializedObject(at: instruction.range))
         return false
 
       case .partiallyConsumed:
-        diagnostics.append(.useOfPartiallyConsumedObject(at: inst.range))
+        diagnostics.append(.useOfPartiallyConsumedObject(at: instruction.range))
         return false
       }
 
@@ -378,25 +380,26 @@ public struct DefiniteInitializationPass: TransformPass {
       case .fullyUninitialized, .fullyConsumed:
         initializedPaths = []
       case .fullyInitialized:
-        initializedPaths = [inst.path]
+        initializedPaths = [instruction.path]
       case .partiallyInitialized(let paths):
-        initializedPaths = paths.map({ inst.path + $0 })
+        initializedPaths = paths.map({ instruction.path + $0 })
       case .partiallyConsumed(_, let paths):
-        initializedPaths = paths.map({ inst.path + $0 })
+        initializedPaths = paths.map({ instruction.path + $0 })
       }
 
       // Nothing to do if the location is already uninitialized.
       if initializedPaths.isEmpty { break }
 
       // Deinitialize the object(s) at the location.
-      let rootType = module.type(of: inst.location).astType
+      let rootType = module.type(of: instruction.location).astType
 
       for path in initializedPaths {
         let objectType = program.abstractLayout(of: rootType, at: path).type
         let object = module.insert(
-          LoadInstruction(.object(objectType), from: inst.location, at: path, range: inst.range),
+          LoadInstruction(
+            .object(objectType), from: instruction.location, at: path, range: instruction.range),
           before: id)[0]
-        module.insert(DeinitInstruction(object, range: inst.range), before: id)
+        module.insert(DeinitInstruction(object, range: instruction.range), before: id)
       }
 
       // We can skip the visit of the instructions that were just inserted and update the context
@@ -414,34 +417,34 @@ public struct DefiniteInitializationPass: TransformPass {
   }
 
   private mutating func eval(
-    condBranch inst: CondBranchInstruction, id: InstructionID, module: inout Module
+    condBranch instruction: CondBranchInstruction, id: InstructionID, module: inout Module
   ) -> Bool {
     // Consume the condition operand.
-    let key = FunctionLocal(operand: inst.condition)!
+    let key = FunctionLocal(operand: instruction.condition)!
     return consume(
       localForKey: key, with: id,
       or: { (this, _) in
-        this.diagnostics.append(.illegalMove(at: inst.range))
+        this.diagnostics.append(.illegalMove(at: instruction.range))
       })
   }
 
   private mutating func eval(
-    call inst: CallInstruction, id: InstructionID, module: inout Module
+    call instruction: CallInstruction, id: InstructionID, module: inout Module
   ) -> Bool {
     // Process the operands.
-    for i in 0 ..< inst.operands.count {
-      switch inst.conventions[i] {
+    for i in 0 ..< instruction.operands.count {
+      switch instruction.conventions[i] {
       case .let, .inout, .set:
         // Nothing to do here.
         continue
 
       case .sink:
         // Consumes the operand unless it's a constant.
-        if let key = FunctionLocal(operand: inst.operands[i]) {
+        if let key = FunctionLocal(operand: instruction.operands[i]) {
           if !consume(
             localForKey: key, with: id,
             or: { (this, _) in
-              this.diagnostics.append(.illegalMove(at: inst.range))
+              this.diagnostics.append(.illegalMove(at: instruction.range))
             })
           {
             return false
@@ -459,12 +462,12 @@ public struct DefiniteInitializationPass: TransformPass {
   }
 
   private mutating func eval(
-    deallocStack inst: DeallocStackInstruction, id: InstructionID, module: inout Module
+    deallocStack instruction: DeallocStackInstruction, id: InstructionID, module: inout Module
   ) -> Bool {
     // The location operand is the result an `alloc_stack` instruction.
-    let alloc = module[instruction: inst.location.inst!] as! AllocStackInstruction
+    let alloc = module[instruction: instruction.location.instruction!] as! AllocStackInstruction
 
-    let key = FunctionLocal(inst.location.inst!, 0)
+    let key = FunctionLocal(instruction.location.instruction!, 0)
     let locations = currentContext.locals[key]!.unwrapLocations()!
     assert(locations.count == 1)
 
@@ -488,11 +491,11 @@ public struct DefiniteInitializationPass: TransformPass {
       let object = module.insert(
         LoadInstruction(
           .object(program.abstractLayout(of: alloc.allocatedType, at: path).type),
-          from: inst.location,
+          from: instruction.location,
           at: path,
-          range: inst.range),
+          range: instruction.range),
         before: id)[0]
-      module.insert(DeinitInstruction(object, range: inst.range), before: id)
+      module.insert(DeinitInstruction(object, range: instruction.range), before: id)
 
       // Apply the effect of the inserted instructions on the context directly.
       let consumer = InstructionID(
@@ -508,26 +511,26 @@ public struct DefiniteInitializationPass: TransformPass {
   }
 
   private mutating func eval(
-    deinit inst: DeinitInstruction, id: InstructionID, module: inout Module
+    deinit instruction: DeinitInstruction, id: InstructionID, module: inout Module
   ) -> Bool {
     // Consume the object operand.
-    let key = FunctionLocal(operand: inst.object)!
+    let key = FunctionLocal(operand: instruction.object)!
     return consume(
       localForKey: key, with: id,
       or: { (this, _) in
-        this.diagnostics.append(.illegalMove(at: inst.range))
+        this.diagnostics.append(.illegalMove(at: instruction.range))
       })
   }
 
   private mutating func eval(
-    destructure inst: DestructureInstruction, id: InstructionID, module: inout Module
+    destructure instruction: DestructureInstruction, id: InstructionID, module: inout Module
   ) -> Bool {
     // Consume the object operand.
-    if let key = FunctionLocal(operand: inst.object) {
+    if let key = FunctionLocal(operand: instruction.object) {
       if !consume(
         localForKey: key, with: id,
         or: { (this, _) in
-          this.diagnostics.append(.illegalMove(at: inst.range))
+          this.diagnostics.append(.illegalMove(at: instruction.range))
         })
       {
         return false
@@ -535,19 +538,21 @@ public struct DefiniteInitializationPass: TransformPass {
     }
 
     // Result are initialized.
-    for i in 0 ..< inst.types.count {
+    for i in 0 ..< instruction.types.count {
       currentContext.locals[FunctionLocal(id, i)] = .object(.full(.initialized))
     }
     return true
   }
 
   private mutating func eval(
-    load inst: LoadInstruction, id: InstructionID, module: inout Module
+    load instruction: LoadInstruction, id: InstructionID, module: inout Module
   ) -> Bool {
     // Operand must be a location.
     let locations: [MemoryLocation]
-    if let key = FunctionLocal(operand: inst.source) {
-      locations = currentContext.locals[key]!.unwrapLocations()!.map({ $0.appending(inst.path) })
+    if let key = FunctionLocal(operand: instruction.source) {
+      locations = currentContext.locals[key]!.unwrapLocations()!.map({
+        $0.appending(instruction.path)
+      })
     } else {
       // The operand is a constant.
       fatalError("not implemented")
@@ -563,13 +568,13 @@ public struct DefiniteInitializationPass: TransformPass {
             object = .full(.consumed(by: [id]))
             return nil
           case .fullyUninitialized:
-            return .useOfUninitializedObject(at: inst.range)
+            return .useOfUninitializedObject(at: instruction.range)
           case .fullyConsumed:
-            return .useOfConsumedObject(at: inst.range)
+            return .useOfConsumedObject(at: instruction.range)
           case .partiallyInitialized:
-            return .useOfPartiallyInitializedObject(at: inst.range)
+            return .useOfPartiallyInitializedObject(at: instruction.range)
           case .partiallyConsumed:
-            return .useOfPartiallyConsumedObject(at: inst.range)
+            return .useOfPartiallyConsumedObject(at: instruction.range)
           }
         })
       {
@@ -584,15 +589,15 @@ public struct DefiniteInitializationPass: TransformPass {
   }
 
   private mutating func eval(
-    record inst: RecordInstruction, id: InstructionID, module: inout Module
+    record instruction: RecordInstruction, id: InstructionID, module: inout Module
   ) -> Bool {
     // Consumes the non-constant operand.
-    for operand in inst.operands {
+    for operand in instruction.operands {
       if let key = FunctionLocal(operand: operand) {
         if !consume(
           localForKey: key, with: id,
           or: { (this, _) in
-            this.diagnostics.append(.illegalMove(at: inst.range))
+            this.diagnostics.append(.illegalMove(at: instruction.range))
           })
         {
           return false
@@ -606,14 +611,14 @@ public struct DefiniteInitializationPass: TransformPass {
   }
 
   private mutating func eval(
-    return inst: ReturnInstruction, id: InstructionID, module: inout Module
+    return instruction: ReturnInstruction, id: InstructionID, module: inout Module
   ) -> Bool {
     // Consume the object operand.
-    if let key = FunctionLocal(operand: inst.value) {
+    if let key = FunctionLocal(operand: instruction.value) {
       if !consume(
         localForKey: key, with: id,
         or: { (this, _) in
-          this.diagnostics.append(.illegalMove(at: inst.range))
+          this.diagnostics.append(.illegalMove(at: instruction.range))
         })
       {
         return false
@@ -624,14 +629,14 @@ public struct DefiniteInitializationPass: TransformPass {
   }
 
   private mutating func eval(
-    store inst: StoreInstruction, id: InstructionID, module: inout Module
+    store instruction: StoreInstruction, id: InstructionID, module: inout Module
   ) -> Bool {
     // Consume the object operand.
-    if let key = FunctionLocal(operand: inst.object) {
+    if let key = FunctionLocal(operand: instruction.object) {
       if !consume(
         localForKey: key, with: id,
         or: { (this, _) in
-          this.diagnostics.append(.illegalMove(at: inst.range))
+          this.diagnostics.append(.illegalMove(at: instruction.range))
         })
       {
         return false
@@ -640,7 +645,7 @@ public struct DefiniteInitializationPass: TransformPass {
 
     // Target operand must be a location.
     let locations: Set<MemoryLocation>
-    if let key = FunctionLocal(operand: inst.target) {
+    if let key = FunctionLocal(operand: instruction.target) {
       locations = currentContext.locals[key]!.unwrapLocations()!
     } else {
       // The operand is a constant.
@@ -662,7 +667,7 @@ public struct DefiniteInitializationPass: TransformPass {
     case .null:
       preconditionFailure("null location")
 
-    case .arg, .inst:
+    case .arg, .instruction:
       return action(&currentContext.memory[location]!.object)
 
     case .sublocation(let rootLocation, let path):
@@ -727,7 +732,7 @@ extension DefiniteInitializationPass {
     case arg(index: Int)
 
     /// A location produced by an instruction.
-    case inst(block: Function.Blocks.Address, address: Block.Instructions.Address)
+    case instruction(block: Function.Blocks.Address, address: Block.Instructions.Address)
 
     /// A sub-location rooted at an argument or an instruction.
     indirect case sublocation(root: MemoryLocation, path: [Int])
@@ -749,7 +754,7 @@ extension DefiniteInitializationPass {
       switch self {
       case .null:
         preconditionFailure("null location")
-      case .arg, .inst:
+      case .arg, .instruction:
         return .sublocation(root: self, path: suffix)
       case .sublocation(let root, let prefix):
         return .sublocation(root: root, path: prefix + suffix)
@@ -762,7 +767,7 @@ extension DefiniteInitializationPass {
         hasher.combine(-1)
       case .arg(let i):
         hasher.combine(i)
-      case .inst(let b, let a):
+      case .instruction(let b, let a):
         hasher.combine(b)
         hasher.combine(a)
       case .sublocation(let r, let p):
@@ -777,7 +782,7 @@ extension DefiniteInitializationPass {
         return true
       case (.arg(let a), .arg(let b)):
         return a == b
-      case (.inst(let a0, let a1), .inst(let b0, let b1)):
+      case (.instruction(let a0, let a1), .instruction(let b0, let b1)):
         return (a0 == b0) && (a1 == b1)
       case (.sublocation(let a0, let a1), .sublocation(let b0, let b1)):
         return (a0 == b0) && (a1 == b1)

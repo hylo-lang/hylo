@@ -22,7 +22,7 @@ public struct DeinitInstruction: Instruction {
     if module.type(of: object).isAddress { return false }
 
     // Operand is register.
-    if object.inst == nil { return false }
+    if object.instruction == nil { return false }
 
     return true
   }

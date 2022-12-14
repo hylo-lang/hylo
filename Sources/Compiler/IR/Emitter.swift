@@ -624,7 +624,8 @@ public struct Emitter {
     case .direct(let declID):
       // Lookup for a local symbol.
       if let source = stack[declID] {
-        return module.append(LoadInstruction(.object(expr.type), from: source), to: insertionBlock!)[0]
+        return module.append(
+          LoadInstruction(.object(expr.type), from: source), to: insertionBlock!)[0]
       }
 
       fatalError("not implemented")
@@ -898,7 +899,7 @@ public struct Emitter {
 
         // If the lowered receiver is a borrow instruction, modify it in place so that it targets
         // the requested stored member. Otherwise, emit a reborrow.
-        if let id = receiver.inst,
+        if let id = receiver.instruction,
           let receiverInstruction = module[instruction: id] as? BorrowInstruction
         {
           module[instruction: id] = BorrowInstruction(
