@@ -245,7 +245,7 @@ public struct DefiniteInitializationPass: TransformPass {
     return success
   }
 
-  /// Creates the before-context of the function's entry block.
+  /// Returns the before-context of the function's entry block.
   private func entryContext(in module: Module) -> Context {
     let function = module[functionID]
     let entryAddress = function.blocks.firstAddress!
