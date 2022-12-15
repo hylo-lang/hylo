@@ -1684,9 +1684,6 @@ public struct TypeChecker {
       matches = lookup(name.stem, introducedInDeclSpaceOf: ctx, inScope: origin)
     } else {
       matches = lookup(unqualified: name.stem, inScope: origin)
-      if !matches.isEmpty && matches.isSubset(of: bindingsUnderChecking) {
-        matches = lookup(unqualified: name.stem, inScope: program.scopeToParent[origin]!)
-      }
     }
 
     // Bail out if there are no matches.
@@ -1748,6 +1745,7 @@ public struct TypeChecker {
 
       // Search for the name in the current scope.
       let newMatches = lookup(name, introducedInDeclSpaceOf: scope, inScope: origin)
+        .subtracting(bindingsUnderChecking)
 
       // We can assume the matches are either empty or all overloadable.
       matches.formUnion(newMatches)
