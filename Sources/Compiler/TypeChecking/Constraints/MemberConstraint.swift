@@ -4,8 +4,8 @@ struct MemberConstraint: Constraint, Hashable {
   /// The base type of the left operand.
   private(set) var subject: AnyType
 
-  /// The expression referring to `subject`'s member in the AST, if available.
-  let memberExpr: NodeID<NameExpr>?
+  /// The expression referring to `subject`'s member in the AST.
+  let memberExpr: NodeID<NameExpr>
 
   /// The name of the member in `subject` that must have type `memberType`.
   let memberName: Name

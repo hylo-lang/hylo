@@ -314,27 +314,15 @@ struct ConstraintSolver {
     // If there's only one candidate, solve an equality constraint direcly.
     if candidates.count == 1 {
       solve(equality: .init(candidates[0].type, r, because: constraint.cause))
-      if let name = constraint.memberExpr {
-        bindingAssumptions[name] = candidates[0].reference
-      }
+      bindingAssumptions[constraint.memberExpr] = candidates[0].reference
       return
     }
 
-    // If there are several candidates, create a disjunction constraint.
-    if let name = constraint.memberExpr {
-      schedule(
-        OverloadConstraint(
-          name, withType: r, refersToOneOf: candidates, because: constraint.cause))
-    } else {
-      schedule(
-        DisjunctionConstraint(
-          choices: candidates.map({ (c) -> DisjunctionConstraint.Choice in
-            .init(
-              constraints: [EqualityConstraint(r, c.type, because: constraint.cause)],
-              penalties: c.penalties)
-          }),
-          because: constraint.cause))
-    }
+    // If there are several candidates, create a overload constraint.
+    schedule(
+      OverloadConstraint(
+        constraint.memberExpr, withType: r, refersToOneOf: candidates,
+        because: constraint.cause))
   }
 
   /// Simplifies `F(P1, ..., Pn) -> R` as equality constraints unifying the parameters and return
