@@ -6,7 +6,7 @@ public struct InstructionID: Hashable {
   /// The function containing the instruction.
   public let function: Module.Functions.Index
 
-  /// The block containing this identity.
+  /// The block containing the instruction.
   public let block: Function.Blocks.Address
 
   /// The identity of the instruction in its block.
