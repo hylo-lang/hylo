@@ -3,7 +3,7 @@ import Utils
 
 /// The definite initialization pass.
 ///
-/// Definite initialization checks that objects are initialized before use and definitialized
+/// Definite initialization checks that objects are initialized before use and deinitialized
 /// before their storage is reused or before they go and out scope.
 public struct DefiniteInitializationPass: TransformPass {
 
