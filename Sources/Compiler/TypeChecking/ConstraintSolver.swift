@@ -342,14 +342,13 @@ struct ConstraintSolver {
     functionCall constraint: FunctionCallConstraint,
     using checker: inout TypeChecker
   ) {
-    let f = typeAssumptions[constraint.callee]
+    let f = typeAssumptions[constraint.calleeType]
 
     // Postpone the solving if `F` is still unknown.
     if f.base is TypeVariable {
-      postpone(
-        FunctionCallConstraint(
-          f, hasParameters: constraint.parameters, andReturns: constraint.returnType,
-          because: constraint.cause))
+      var c = constraint
+      c.modifyTypes({ (t) in t = typeAssumptions[t] })
+      postpone(c)
       return
     }
 

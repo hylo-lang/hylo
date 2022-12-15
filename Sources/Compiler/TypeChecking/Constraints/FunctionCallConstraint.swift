@@ -5,7 +5,7 @@ import Utils
 struct FunctionCallConstraint: Constraint, Hashable {
 
   /// A type assumed to be callable.
-  private(set) var callee: AnyType
+  private(set) var calleeType: AnyType
 
   /// The expected parameters of `callee`.
   private(set) var parameters: [CallableTypeParameter]
@@ -15,22 +15,22 @@ struct FunctionCallConstraint: Constraint, Hashable {
 
   var cause: ConstraintCause
 
-  /// Creates a constraint specifying `callee` is the type of a callable object with the given
-  /// parameters and return type.
+  /// Creates a constraint requiring `calleeType` to be the type of a callable object with the
+  /// given parameters and return type.
   public init(
-    _ callee: AnyType,
-    hasParameters parameters: [CallableTypeParameter],
+    _ calleeType: AnyType,
+    takes parameters: [CallableTypeParameter],
     andReturns returnType: AnyType,
     because cause: ConstraintCause
   ) {
-    self.callee = callee
+    self.calleeType = calleeType
     self.parameters = parameters
     self.returnType = returnType
     self.cause = cause
   }
 
   mutating func modifyTypes(_ modify: (inout AnyType) -> Void) {
-    modify(&callee)
+    modify(&calleeType)
     modify(&returnType)
     for i in 0 ..< parameters.count {
       modify(&parameters[i].type)
@@ -38,7 +38,7 @@ struct FunctionCallConstraint: Constraint, Hashable {
   }
 
   func depends(on variable: TypeVariable) -> Bool {
-    callee == variable
+    calleeType == variable
       || returnType == variable
       || parameters.contains(where: { (p) in p.type == variable })
   }
@@ -47,6 +47,6 @@ struct FunctionCallConstraint: Constraint, Hashable {
 
 extension FunctionCallConstraint: CustomStringConvertible {
 
-  public var description: String { "\(callee)\(list: parameters) -> \(returnType)" }
+  public var description: String { "\(calleeType)\(list: parameters) -> \(returnType)" }
 
 }

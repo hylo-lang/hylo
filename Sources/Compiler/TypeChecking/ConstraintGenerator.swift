@@ -258,13 +258,13 @@ struct ConstraintGenerator {
     }
 
     // Case 2
-    if let calleeType = TypeVariable(inferredTypes[callee]!) {
+    if inferredTypes[callee]!.base is TypeVariable {
       let parameters = visit(arguments: checker.program.ast[id].arguments, using: &checker)
       let returnType = expectedTypes[id] ?? ^TypeVariable(node: AnyNodeID(id))
 
       constraints.append(
         FunctionCallConstraint(
-          ^calleeType, hasParameters: parameters, andReturns: returnType,
+          inferredTypes[callee]!, takes: parameters, andReturns: returnType,
           because: ConstraintCause(.callee, at: checker.program.ast[callee].origin)))
 
       assume(typeOf: id, equals: returnType, at: checker.program.ast[id].origin)
