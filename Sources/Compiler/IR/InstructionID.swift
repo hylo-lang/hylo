@@ -1,30 +1,30 @@
-/// A stable identity denoting an instruction in a module.
+/// The stable identity of an instruction in its module.
 ///
 /// - SeeAlso: `InstructionIndex`
 public struct InstructionID: Hashable {
 
-  /// The index of the function in which the instruction resides.
+  /// The function containing the instruction.
   public let function: Module.Functions.Index
 
-  /// The address of the block in which the instruction resides.
+  /// The block containing the instruction.
   public let block: Function.Blocks.Address
 
-  /// The address of the instruction.
+  /// The identity of the instruction in its block.
   public let address: Block.Instructions.Address
 
-  /// Creates a path with the given properties.
+  /// Creates an instance with the given properties.
   public init(
-    function: Module.Functions.Index,
-    block: Function.Blocks.Address,
-    address: Block.Instructions.Address
+    _ function: Module.Functions.Index,
+    _ block: Function.Blocks.Address,
+    _ address: Block.Instructions.Address
   ) {
     self.function = function
     self.block = block
     self.address = address
   }
 
-  /// Creates an index with the given properties.
-  public init(block: Block.ID, address: Block.Instructions.Address) {
+  /// Creates an instance with the given properties.
+  public init(_ block: Block.ID, _ address: Block.Instructions.Address) {
     self.function = block.function
     self.block = block.address
     self.address = address
