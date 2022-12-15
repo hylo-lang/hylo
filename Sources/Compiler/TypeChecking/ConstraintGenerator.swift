@@ -579,8 +579,9 @@ struct ConstraintGenerator {
       // Create a member constraint.
       constraints.append(
         MemberConstraint(
-          domainType, hasMemberExpressedBy: id, ofType: inferredType, in: checker.program.ast,
-          cause: ConstraintCause(.member, at: checker.program.ast[id].origin)))
+          domainType, hasMemberReferredToBy: id, ofType: inferredType,
+          in: checker.program.ast,
+          because: ConstraintCause(.member, at: checker.program.ast[id].origin)))
 
     case .implicit:
       fatalError("not implemented")
@@ -648,8 +649,9 @@ struct ConstraintGenerator {
       // Create a member constraint for the operator.
       constraints.append(
         MemberConstraint(
-          lhsType, hasMemberExpressedBy: callee.expr, ofType: ^calleeType, in: checker.program.ast,
-          cause: ConstraintCause(.member, at: checker.program.ast[callee.expr].origin)))
+          lhsType, hasMemberReferredToBy: callee.expr, ofType: ^calleeType,
+          in: checker.program.ast,
+          because: ConstraintCause(.member, at: checker.program.ast[callee.expr].origin)))
 
       return outputType
 
