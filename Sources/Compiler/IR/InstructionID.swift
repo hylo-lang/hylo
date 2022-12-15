@@ -3,7 +3,7 @@
 /// - SeeAlso: `InstructionIndex`
 public struct InstructionID: Hashable {
 
-  /// The function containing this identity.
+  /// The function containing the instruction.
   public let function: Module.Functions.Index
 
   /// The block containing this identity.
