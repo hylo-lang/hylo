@@ -12,7 +12,7 @@ public struct InstructionID: Hashable {
   /// The identity of the instruction in its block.
   public let address: Block.Instructions.Address
 
-  /// Creates an identity with the given properties.
+  /// Creates an instance with the given properties.
   public init(
     _ function: Module.Functions.Index,
     _ block: Function.Blocks.Address,
