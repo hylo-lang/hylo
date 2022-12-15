@@ -8,7 +8,7 @@
 /// - SeeAlso: `InstructionIdentity`
 public struct InstructionIndex: Hashable {
 
-  /// The function containing this index.
+  /// The function containing this position.
   public let function: Module.Functions.Index
 
   /// The block containing this index.
