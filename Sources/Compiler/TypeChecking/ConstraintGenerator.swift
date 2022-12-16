@@ -519,11 +519,11 @@ struct ConstraintGenerator {
       }
 
       let inferredType: AnyType
-      if candidates.count == 1 {
+      if let uniqueCandidate = candidates.uniqueElement {
         // Contextualize the match.
-        let context = checker.program.declToScope[candidates[0].decl]!
+        let context = checker.program.declToScope[uniqueCandidate.decl]!
         let (ty, cs) = checker.contextualize(
-          type: candidates[0].type,
+          type: uniqueCandidate.type,
           inScope: context,
           cause: ConstraintCause(.binding, at: checker.program.ast[id].origin))
         inferredType = ty
@@ -532,10 +532,10 @@ struct ConstraintGenerator {
         constraints.append(contentsOf: cs)
 
         // Bind the name expression to the referred declaration.
-        if checker.program.isNonStaticMember(candidates[0].decl) {
-          checker.referredDecls[id] = .member(candidates[0].decl)
+        if checker.program.isNonStaticMember(uniqueCandidate.decl) {
+          checker.referredDecls[id] = .member(uniqueCandidate.decl)
         } else {
-          checker.referredDecls[id] = .direct(candidates[0].decl)
+          checker.referredDecls[id] = .direct(uniqueCandidate.decl)
         }
       } else {
         // TODO: Create an overload constraint
