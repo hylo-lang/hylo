@@ -1,11 +1,11 @@
-/// A position in a module's collection of instructions.
+/// The position of an instruction in, or a potential instruction insertion into, a module.
 ///
-/// An index identifies a function, a basic block in this function, and a position in this block,
+/// An index identifies a function, a basic block in the function, and a position in the block,
 /// including the "past-the-end" position that isn't valid for use as a subscript argument. Unlike
 /// an identity, an index is not *stable*: inserting or removing instructions from the containing
 /// block may invalidate existing indices.
 ///
-/// - SeeAlso: `InstructionIdentity`
+/// - SeeAlso: `InstructionID`
 public struct InstructionIndex: Hashable {
 
   /// The function containing the instruction.
