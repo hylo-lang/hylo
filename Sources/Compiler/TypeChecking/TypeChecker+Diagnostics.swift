@@ -355,7 +355,19 @@ extension Diagnostic {
     noUnnamedSubscriptsIn domain: AnyType,
     at origin: SourceRange?
   ) -> Diagnostic {
-    return .error("type '\(domain)' has no unnamed subscripts", range: origin)
+    .error("type '\(domain)' has no unnamed subscripts", range: origin)
+  }
+
+  static func diagnose(
+    undefinedName name: Name,
+    in domain: AnyType? = nil,
+    at range: SourceRange?
+  ) -> Diagnostic {
+    if let domain = domain {
+      return .error("type '\(domain)' has no member '\(name)'", range: range)
+    } else {
+      return .error("undefined name '\(name.stem)' in this scope", range: range)
+    }
   }
 
 }

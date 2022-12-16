@@ -500,106 +500,76 @@ struct ConstraintGenerator {
     name id: NodeID<NameExpr>,
     using checker: inout TypeChecker
   ) {
-    // Resolves the name.
-    switch checker.program.ast[id].domain {
-    case .none:
-      let expr = checker.program.ast[id]
-      if checker.isBuiltinModuleVisible && (expr.name.value.stem == "Builtin") {
-        assume(typeOf: id, equals: BuiltinType.module, at: checker.program.ast[id].origin)
-        checker.referredDecls[id] = .direct(AnyDeclID(checker.program.ast.builtinDecl))
-        return
-      }
+    defer { assert(inferredTypes[id] != nil) }
 
-      let candidates = checker.resolve(expr.name.value, inScope: scope)
-      if candidates.isEmpty {
-        diagnostics.append(
-          .diagnose(undefinedName: expr.name.value.description, at: expr.name.origin))
-        assignToError(id)
-        return
-      }
+    // Resolve the nominal prefix of the expression.
+    let resolution = checker.resolve(nominalPrefixOf: id, from: scope)
+    visit(name: id, withNameResolutionResult: resolution, using: &checker)
+  }
 
-      let inferredType: AnyType
-      if candidates.count == 1 {
-        // Contextualize the match.
-        let context = checker.program.declToScope[candidates[0].decl]!
-        let (ty, cs) = checker.contextualize(
-          type: candidates[0].type,
-          inScope: context,
-          cause: ConstraintCause(.binding, at: checker.program.ast[id].origin))
-        inferredType = ty
+  private mutating func visit(
+    name id: NodeID<NameExpr>,
+    withNameResolutionResult resolution: TypeChecker.NameResolutionResult,
+    using checker: inout TypeChecker
+  ) {
+    var parentType: AnyType?
+    let unresolvedComponents: [NodeID<NameExpr>]
 
-        // Register associated constraints.
-        constraints.append(contentsOf: cs)
+    switch resolution {
+    case .failed(let undefinedComponent, let parentType):
+      let name = checker.program.ast[undefinedComponent].name
+      diagnostics.append(.diagnose(undefinedName: name.value, in: parentType, at: name.origin))
+      assignToError(id)
+      return
 
-        // Bind the name expression to the referred declaration.
-        if checker.program.isNonStaticMember(candidates[0].decl) {
-          checker.referredDecls[id] = .member(candidates[0].decl)
-        } else {
-          checker.referredDecls[id] = .direct(candidates[0].decl)
-        }
+    case .inexecutable(let suffix):
+      if case .expr(let domainExpr) = checker.program.ast[id].domain {
+        visit(expr: domainExpr, using: &checker)
+        parentType = inferredTypes[domainExpr]!
       } else {
-        // TODO: Create an overload constraint
         fatalError("not implemented")
       }
+      unresolvedComponents = suffix
 
-      assume(typeOf: id, equals: inferredType, at: checker.program.ast[id].origin)
+    case .done(let prefix, let suffix):
+      for p in prefix {
+        let componentOrigin = checker.program.ast[p.component].origin
 
-    case .expr(let domain):
-      // Infer the type of the domain.
-      visit(expr: domain, using: &checker)
-      let domainType = inferredTypes[domain]!
+        if p.candidates.count == 1 {
+          // Bind the component to the resolved declaration and store its type.
+          parentType = p.candidates[0].type
+          checker.referredDecls[p.component] = p.candidates[0].reference
+          assume(typeOf: p.component, equals: parentType!, at: componentOrigin)
 
-      // If we failed to infer the type of the domain, there's nothing more we can do.
-      if case .error = domainType {
-        assignToError(id)
-        return
-      }
-
-      // Handle references to built-in symbols.
-      if domainType == .builtin(.module) {
-        let symbolName = checker.program.ast[id].name.value.stem
-
-        if let type = BuiltinSymbols[symbolName] {
-          assume(typeOf: id, equals: type, at: checker.program.ast[id].origin)
-          checker.referredDecls[id] = .direct(AnyDeclID(checker.program.ast.builtinDecl))
-        } else if let type = BuiltinType(symbolName) {
-          assume(typeOf: id, equals: type, at: checker.program.ast[id].origin)
-          checker.referredDecls[id] = .direct(AnyDeclID(checker.program.ast.builtinDecl))
+          // Register the associated constraints.
+          constraints.append(contentsOf: p.candidates[0].constraints)
         } else {
-          diagnostics.append(
-            .diagnose(undefinedName: symbolName, at: checker.program.ast[id].name.origin))
-          assignToError(id)
+          // Create an overload constraint.
+          parentType = expectedTypes[p.component] ?? ^TypeVariable(node: AnyNodeID(p.component))
+          constraints.append(
+            OverloadConstraint(
+              p.component,
+              withType: parentType!,
+              refersToOneOf: p.candidates,
+              because: ConstraintCause(.binding, at: componentOrigin)))
+          assume(typeOf: p.component, equals: parentType!, at: componentOrigin)
         }
-
-        return
       }
 
-      // Map the expression to a fresh variable unless we have top-down type information.
-      let inferredType = expectedTypes[id] ?? ^TypeVariable(node: AnyNodeID(id))
-      assume(typeOf: id, equals: inferredType, at: checker.program.ast[id].origin)
+      unresolvedComponents = suffix
+    }
 
-      // If we determined that the domain refers to a nominal type declaration, create a static
-      // member constraint. Otherwise, create a non-static member constraint.
-      let cause = ConstraintCause(.member, at: checker.program.ast[id].origin)
-
-      if let base = NodeID<NameExpr>(domain),
-        let decl = checker.referredDecls[base]?.decl,
-        checker.isNominalTypeDecl(decl)
-      {
-        constraints.append(
-          UnboundMemberConstraint(
-            domainType, hasMemberExpressedBy: id, ofType: inferredType, in: checker.program.ast,
-            because: cause))
-      } else {
-        // FIXME: We can't assume the domain is an instance if types are first-class.
-        constraints.append(
-          BoundMemberConstraint(
-            domainType, hasMemberExpressedBy: id, ofType: inferredType, in: checker.program.ast,
-            cause: cause))
-      }
-
-    case .implicit:
-      fatalError("not implemented")
+    // Create the necessary constraints to let the solver resolve the remaining components.
+    for component in unresolvedComponents {
+      let componentOrigin = checker.program.ast[component].origin
+      let memberType = expectedTypes[component] ?? ^TypeVariable(node: AnyNodeID(component))
+      constraints.append(
+        BoundMemberConstraint(
+          parentType!, hasMemberExpressedBy: component, ofType: memberType,
+          in: checker.program.ast,
+          cause: ConstraintCause(.member, at: componentOrigin)))
+      assume(typeOf: component, equals: memberType, at: componentOrigin)
+      parentType = memberType
     }
   }
 

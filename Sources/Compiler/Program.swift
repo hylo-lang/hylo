@@ -150,6 +150,26 @@ extension Program {
     }
   }
 
+  /// Returns whether `scope` denotes a member context.
+  public func isMemberContext<S: ScopeID>(_ scope: S) -> Bool {
+    switch scope.kind {
+    case FunctionDecl.self:
+      return isNonStaticMember(NodeID<FunctionDecl>(rawValue: scope.rawValue))
+
+    case SubscriptDecl.self:
+      return isNonStaticMember(NodeID<SubscriptDecl>(rawValue: scope.rawValue))
+
+    case MethodDecl.self, InitializerDecl.self:
+      return true
+
+    case ModuleDecl.self:
+      return false
+
+    default:
+      return isMemberContext(scopeToParent[scope]!)
+    }
+  }
+
   /// Returns a sequence containing `scope` and all its ancestors, from inner to outer.
   public func scopes<S: ScopeID>(from scope: S) -> LexicalScopeSequence {
     LexicalScopeSequence(scopeToParent: scopeToParent, current: AnyScopeID(scope))
