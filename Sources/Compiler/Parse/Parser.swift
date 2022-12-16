@@ -1922,7 +1922,10 @@ public enum Parser {
         // in the former case (no closing parenthesis) or parse an empty argument list in the
         // latter (no labels).
         // Note: `foo()` is *not* a valid name, it's a function call.
-        if !closeParenFound || labels.isEmpty { state.restore(from: backup) }
+        if !closeParenFound || labels.isEmpty {
+          labels.removeAll()
+          state.restore(from: backup)
+        }
       }
 
       while !state.hasLeadingWhitespace {
