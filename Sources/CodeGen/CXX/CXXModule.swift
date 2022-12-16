@@ -1,5 +1,6 @@
 import Utils
 import FrontEnd
+import Core
 
 /// A C++ module.
 public struct CXXModule {

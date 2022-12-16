@@ -1,3 +1,5 @@
+import Core
+
 extension Diagnostic {
 
   static func diagnose(assignOperatorRequiresWhitespaces token: Token) -> Diagnostic {

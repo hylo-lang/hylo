@@ -1,4 +1,5 @@
 import FrontEnd
+import Core
 
 /// A test annotation in a source file.
 ///

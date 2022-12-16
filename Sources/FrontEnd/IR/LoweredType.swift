@@ -1,3 +1,5 @@
+import Core
+
 /// The lowered (static) type of an entity.
 public struct LoweredType: Hashable {
 

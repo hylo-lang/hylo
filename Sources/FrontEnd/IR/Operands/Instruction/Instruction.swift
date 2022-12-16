@@ -1,3 +1,5 @@
+import Core
+
 /// A Val IR instruction.
 public protocol Instruction {
 

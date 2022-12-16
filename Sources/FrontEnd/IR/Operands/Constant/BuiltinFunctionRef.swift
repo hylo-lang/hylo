@@ -1,3 +1,5 @@
+import Core
+
 /// A Val IR reference to a built-in function.
 public struct BuiltinFunctionRef: ConstantProtocol, Hashable {
 

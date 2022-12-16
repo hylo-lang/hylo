@@ -1,4 +1,5 @@
 import FrontEnd
+import Core
 
 /// A type expression in C++.
 public struct CXXTypeExpr: CustomStringConvertible {

@@ -1,6 +1,7 @@
 import FrontEnd
 import Utils
 import XCTest
+import Core
 
 final class TypeCheckerTests: XCTestCase {
 

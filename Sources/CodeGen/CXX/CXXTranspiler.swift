@@ -1,5 +1,6 @@
 import Utils
 import FrontEnd
+import Core
 
 /// A Val to C++ transpiler.
 public struct CXXTranspiler {

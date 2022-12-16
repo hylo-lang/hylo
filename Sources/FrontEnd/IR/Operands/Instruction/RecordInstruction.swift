@@ -1,3 +1,5 @@
+import Core
+
 /// Creates a record of the specified type, consuming `operands` to initialize its members.
 ///
 /// `type` must have a record layout. A type has a record layout if it is a product type, tuple

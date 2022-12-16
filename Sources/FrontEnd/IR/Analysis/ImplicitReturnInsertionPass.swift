@@ -1,3 +1,5 @@
+import Core
+
 /// A transformation pass that inserts return instructions.
 public struct ImplicitReturnInsertionPass: TransformPass {
 
