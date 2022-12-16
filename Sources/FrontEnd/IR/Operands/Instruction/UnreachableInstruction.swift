@@ -1,3 +1,5 @@
+import Core
+
 /// Marks this execution path as unreachable, causing a fatal error otherwise.
 public struct UnrechableInstruction: Instruction {
 

@@ -1,3 +1,5 @@
+import Core
+
 /// Ends the lifetime of a borrow.
 public struct EndBorrowInstruction: Instruction {
 

@@ -1,4 +1,5 @@
 import FrontEnd
+import Core
 
 extension Diagnostic {
 

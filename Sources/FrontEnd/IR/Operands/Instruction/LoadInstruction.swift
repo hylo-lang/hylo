@@ -1,3 +1,5 @@
+import Core
+
 /// A load instruction.
 public struct LoadInstruction: Instruction {
 

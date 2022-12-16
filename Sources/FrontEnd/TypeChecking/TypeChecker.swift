@@ -1,4 +1,5 @@
 import Utils
+import Core
 
 /// Val's type checker.
 public struct TypeChecker {

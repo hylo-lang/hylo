@@ -1,3 +1,5 @@
+import Core
+
 /// A void constant.
 public struct VoidConstant: ConstantProtocol, Hashable {
 

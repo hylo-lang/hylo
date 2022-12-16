@@ -1,5 +1,6 @@
 import Durian
 import XCTest
+import Core
 
 @testable import FrontEnd
 

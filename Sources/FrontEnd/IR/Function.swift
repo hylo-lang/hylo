@@ -1,4 +1,5 @@
 import Utils
+import Core
 
 /// A collection of basic blocks representing a lowered function.
 public struct Function {

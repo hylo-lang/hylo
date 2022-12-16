@@ -48,10 +48,21 @@ let package = Package(
       name: "FrontEnd",
       dependencies: [
         "Utils",
+        "Core",
         "ValModule",
         .product(name: "Collections", package: "swift-collections"),
         .product(name: "Durian", package: "Durian"),
         .product(name: "BigInt", package: "BigInt"),
+      ],
+      swiftSettings: allTargetsSwiftSettings),
+
+    .target(
+      name: "Core",
+      dependencies: [
+        "Utils",
+//        .product(name: "Collections", package: "swift-collections"),
+//        .product(name: "Durian", package: "Durian"),
+//        .product(name: "BigInt", package: "BigInt"),
       ],
       swiftSettings: allTargetsSwiftSettings),
 
@@ -77,7 +88,7 @@ let package = Package(
     // Test targets.
     .testTarget(
       name: "ValTests",
-      dependencies: ["FrontEnd", "CodeGenCXX"],
+      dependencies: ["FrontEnd", "Core", "CodeGenCXX"],
       resources: [.copy("TestCases")],
       swiftSettings: allTargetsSwiftSettings),
 ])

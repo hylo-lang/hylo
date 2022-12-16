@@ -1,4 +1,5 @@
 import Utils
+import Core
 
 /// A visitor that generates constraints based on the structure of the AST.
 struct ConstraintGenerator {

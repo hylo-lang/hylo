@@ -1,5 +1,6 @@
 import DequeModule
 import Durian
+import Core
 
 /// A type representing the state of the parser.
 struct ParserState {

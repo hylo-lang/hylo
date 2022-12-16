@@ -1,4 +1,5 @@
 import Utils
+import Core
 
 /// A module lowered to Val IR.
 ///

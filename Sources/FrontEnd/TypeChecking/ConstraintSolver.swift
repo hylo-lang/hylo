@@ -1,4 +1,5 @@
 import Utils
+import Core
 
 /// A constraint system solver.
 struct ConstraintSolver {

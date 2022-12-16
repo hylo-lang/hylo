@@ -1,6 +1,7 @@
 import FrontEnd
 import Foundation
 import Utils
+import Core
 
 /// A helper for loading and executing test cases.
 struct TestCase {

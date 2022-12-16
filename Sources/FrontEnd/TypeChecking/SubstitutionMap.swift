@@ -1,3 +1,5 @@
+import Core
+
 /// A substitution table mapping type variables to assumptions during type inference
 struct SubstitutionMap {
 

@@ -1,3 +1,5 @@
+import Core
+
 /// Allocates memory on the stack.
 public struct AllocStackInstruction: Instruction {
 

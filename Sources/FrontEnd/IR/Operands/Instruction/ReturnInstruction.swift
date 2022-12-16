@@ -1,3 +1,5 @@
+import Core
+
 /// A return instruction.
 public struct ReturnInstruction: Instruction {
 

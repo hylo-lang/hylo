@@ -4,6 +4,7 @@ import Foundation
 import Utils
 import ValModule
 import CodeGenCXX
+import Core
 
 struct CLI: ParsableCommand {
 

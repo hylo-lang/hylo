@@ -1,5 +1,6 @@
 import DequeModule
 import Utils
+import Core
 
 /// The definite initialization pass.
 ///

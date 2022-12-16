@@ -1,3 +1,5 @@
+import Core
+
 /// Stores `object` at the specified location.
 public struct StoreInstruction: Instruction {
 

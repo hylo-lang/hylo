@@ -1,3 +1,5 @@
+import Core
+
 /// Invokes `callee` with `operands`.
 ///
 /// `callee` must have a lambda type; the type of the instruction must be the same as output type
