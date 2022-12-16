@@ -533,27 +533,8 @@ struct ConstraintGenerator {
 
     case .done(let prefix, let suffix):
       for p in prefix {
-        let componentOrigin = checker.program.ast[p.component].origin
-
-        if p.candidates.count == 1 {
-          // Bind the component to the resolved declaration and store its type.
-          parentType = p.candidates[0].type
-          checker.referredDecls[p.component] = p.candidates[0].reference
-          assume(typeOf: p.component, equals: parentType!, at: componentOrigin)
-
-          // Register the associated constraints.
-          constraints.append(contentsOf: p.candidates[0].constraints)
-        } else {
-          // Create an overload constraint.
-          parentType = expectedTypes[p.component] ?? ^TypeVariable(node: AnyNodeID(p.component))
-          constraints.append(
-            OverloadConstraint(
-              p.component,
-              withType: parentType!,
-              refersToOneOf: p.candidates,
-              because: ConstraintCause(.binding, at: componentOrigin)))
-          assume(typeOf: p.component, equals: parentType!, at: componentOrigin)
-        }
+        constrain(p.component, to: p.candidates, using: &checker)
+        parentType = inferredTypes[p.component]
       }
 
       unresolvedComponents = suffix
@@ -986,6 +967,31 @@ struct ConstraintGenerator {
 
   private mutating func assignToError<ID: ExprID>(_ id: ID) {
     inferredTypes[id] = .error
+  }
+
+  private mutating func constrain(
+    _ name: NodeID<NameExpr>,
+    to candidates: [OverloadConstraint.Candidate],
+    using checker: inout TypeChecker
+  ) {
+    let constrainOrigin = checker.program.ast[name].origin
+
+    if let pick = candidates.uniqueElement {
+      // Bind the component to the resolved declaration and store its type.
+      checker.referredDecls[name] = pick.reference
+      assume(typeOf: name, equals: pick.type, at: constrainOrigin)
+      constraints.append(contentsOf: pick.constraints)
+    } else {
+      // Create an overload constraint.
+      let nameType = expectedTypes[name] ?? ^TypeVariable(node: AnyNodeID(name))
+      constraints.append(
+        OverloadConstraint(
+          name,
+          withType: nameType,
+          refersToOneOf: candidates,
+          because: ConstraintCause(.binding, at: constrainOrigin)))
+      assume(typeOf: name, equals: nameType, at: constrainOrigin)
+    }
   }
 
 }
