@@ -1,3 +1,5 @@
+import Core
+
 /// Deinitializes an object.
 public struct DeinitInstruction: Instruction {
 

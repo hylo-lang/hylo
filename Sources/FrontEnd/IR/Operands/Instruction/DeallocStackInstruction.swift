@@ -1,3 +1,5 @@
+import Core
+
 /// Deallocates memory previously allocated by `alloc_stack`.
 public struct DeallocStackInstruction: Instruction {
 

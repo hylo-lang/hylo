@@ -1,3 +1,5 @@
+import Core
+
 /// A helper object that provides information the abstract layout of a type.
 public struct AbstractTypeLayout {
 

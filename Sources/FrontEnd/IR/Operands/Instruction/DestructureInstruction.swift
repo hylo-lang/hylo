@@ -1,3 +1,5 @@
+import Core
+
 /// Destructures a record.
 public struct DestructureInstruction: Instruction {
 

@@ -1,3 +1,5 @@
+import Utils
+
 /// A pattern that introduces new variables.
 ///
 /// This pattern alters the semantics of its sub-pattern. Nested name patterns create new variable

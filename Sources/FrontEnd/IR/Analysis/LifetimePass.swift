@@ -1,3 +1,5 @@
+import Core
+
 /// The lifetime pass.
 public struct LifetimePass: TransformPass {
 

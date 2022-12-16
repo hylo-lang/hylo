@@ -1,3 +1,5 @@
+import Core
+
 // Borrows an access on an object or sub-object.
 public struct BorrowInstruction: Instruction {
 

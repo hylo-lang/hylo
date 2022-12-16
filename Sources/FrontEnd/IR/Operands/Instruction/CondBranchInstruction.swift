@@ -1,3 +1,5 @@
+import Core
+
 /// Branches conditionally to the start of a basic block.
 ///
 /// `target` must be in the same function.

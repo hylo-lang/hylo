@@ -1,3 +1,5 @@
+import Core
+
 /// A mapping from typed declarations to properties of a given type.
 public struct TypedDeclProperty<Value> {
 

@@ -1,3 +1,5 @@
+import Core
+
 /// An IR transformation pass.
 public protocol TransformPass {
 
