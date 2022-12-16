@@ -38,6 +38,7 @@ let package = Package(
       name: "CLI",
       dependencies: [
         "FrontEnd",
+        "IR",
         "CodeGenCXX",
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
       ],
@@ -62,6 +63,11 @@ let package = Package(
       swiftSettings: allTargetsSwiftSettings),
 
     .target(
+      name: "IR",
+      dependencies: ["Utils", "Core", "FrontEnd"],
+      swiftSettings: allTargetsSwiftSettings),
+
+    .target(
       name: "CodeGenCXX",
       dependencies: ["FrontEnd", "Utils"],
       path: "Sources/CodeGen/CXX",
@@ -83,7 +89,7 @@ let package = Package(
     // Test targets.
     .testTarget(
       name: "ValTests",
-      dependencies: ["FrontEnd", "Core", "CodeGenCXX"],
+      dependencies: ["FrontEnd", "Core", "CodeGenCXX", "IR"],
       resources: [.copy("TestCases")],
       swiftSettings: allTargetsSwiftSettings),
 ])
