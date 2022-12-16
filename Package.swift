@@ -77,6 +77,11 @@ let package = Package(
       swiftSettings: allTargetsSwiftSettings),
 
     .target(
+      name: "Interpreter",
+      dependencies: ["Core", "IR"],
+      swiftSettings: allTargetsSwiftSettings),
+
+    .target(
       name: "CodeGenCXX",
       dependencies: ["FrontEnd", "Utils"],
       path: "Sources/CodeGen/CXX",
