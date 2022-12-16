@@ -37,14 +37,14 @@ let package = Package(
     .executableTarget(
       name: "CLI",
       dependencies: [
-        "Compiler",
+        "FrontEnd",
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
       ],
       swiftSettings: allTargetsSwiftSettings),
 
     // Targets related to the compiler's internal library.
     .target(
-      name: "Compiler",
+      name: "FrontEnd",
       dependencies: [
         "Utils",
         "ValModule",
@@ -70,7 +70,7 @@ let package = Package(
     // Test targets.
     .testTarget(
       name: "ValTests",
-      dependencies: ["Compiler"],
+      dependencies: ["FrontEnd"],
       resources: [.copy("TestCases")],
       swiftSettings: allTargetsSwiftSettings),
   ])
