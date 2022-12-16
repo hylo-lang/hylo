@@ -1,4 +1,4 @@
-import Compiler
+import FrontEnd
 
 /// A test annotation in a source file.
 ///

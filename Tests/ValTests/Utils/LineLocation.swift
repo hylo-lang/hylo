@@ -1,4 +1,4 @@
-import Compiler
+import FrontEnd
 import Foundation
 
 /// A line location.

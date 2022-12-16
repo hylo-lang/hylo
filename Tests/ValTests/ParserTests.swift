@@ -1,7 +1,7 @@
 import Durian
 import XCTest
 
-@testable import Compiler
+@testable import FrontEnd
 
 final class ParserTests: XCTestCase {
 
