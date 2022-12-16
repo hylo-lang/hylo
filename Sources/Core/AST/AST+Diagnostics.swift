@@ -2,30 +2,6 @@ import Utils
 
 extension Diagnostic {
 
-  public static func diagnose(
-    duplicateAccessModifier m: SourceRepresentable<AccessModifier>
-  ) -> Diagnostic {
-    .error(
-      "duplicate access modifier '\(m.value)'",
-      range: m.origin)
-  }
-
-  public static func diagnose(
-    duplicateImplementationIntroducer i: SourceRepresentable<ImplIntroducer>
-  ) -> Diagnostic {
-    .error(
-      "duplicate implementation introducer '\(i.value)'",
-      range: i.origin)
-  }
-
-  public static func diagnose(
-    duplicateMemberModifier m: SourceRepresentable<MemberModifier>
-  ) -> Diagnostic {
-    .error(
-      "duplicate member modifier '\(m.value)'",
-      range: m.origin)
-  }
-
   static func diagnose(
     illegalGlobalBindingIntroducer i: SourceRepresentable<BindingPattern.Introducer>
   ) -> Diagnostic {
@@ -63,15 +39,6 @@ extension Diagnostic {
     .error(
       "invalid operator notation '\(found)', expected '\(expected)'",
       range: range)
-  }
-
-  public static func diagnose(
-    memberModifier member: SourceRepresentable<MemberModifier>,
-    appearsBeforeAccessModifier access: SourceRepresentable<AccessModifier>
-  ) -> Diagnostic {
-    return .error(
-      "member modifier '\(member.value)' must appear after access modifier '\(access.value)'",
-      range: member.origin)
   }
 
   static func diagnose(
@@ -122,14 +89,6 @@ extension Diagnostic {
       range: p.identifier.origin)
   }
 
-  public static func diagnose(
-    unexpectedAccessModifier m: SourceRepresentable<AccessModifier>
-  ) -> Diagnostic {
-    .error(
-      "unexpected access modifier '\(m.value)'",
-      range: m.origin)
-  }
-
   static func diagnose(
     unexpectedAssociatedTypeDecl d: AssociatedTypeDecl
   ) -> Diagnostic {
@@ -147,14 +106,6 @@ extension Diagnostic {
   }
 
   public static func diagnose(
-    unexpectedAttribute a: SourceRepresentable<Attribute>
-  ) -> Diagnostic {
-    .error(
-      "unexpected attribute modifier '\(a.value.name.value)'",
-      range: a.value.name.origin)
-  }
-
-  public static func diagnose(
     unexpectedCapture p: BindingPattern
   ) -> Diagnostic {
     .error(
@@ -162,7 +113,7 @@ extension Diagnostic {
       range: p.introducer.origin)
   }
 
-  public static func diagnose(
+  static func diagnose(
     unexpectedImportDecl d: ImportDecl
   ) -> Diagnostic {
     .error(
@@ -170,7 +121,7 @@ extension Diagnostic {
       range: d.introducerRange)
   }
 
-  public static func diagnose(
+  static func diagnose(
     unexpectedGenericParameterDecl d: GenericParameterDecl
   ) -> Diagnostic {
     .error(
@@ -178,7 +129,7 @@ extension Diagnostic {
       range: d.identifier.origin)
   }
 
-  public static func diagnose(
+  static func diagnose(
     unexpectedInitializerDecl d: InitializerDecl
   ) -> Diagnostic {
     .error(
@@ -186,7 +137,7 @@ extension Diagnostic {
       range: d.introducer.origin)
   }
 
-  public static func diagnose(
+  static func diagnose(
     unexpectedMemberModifier m: SourceRepresentable<MemberModifier>
   ) -> Diagnostic {
     .error(
@@ -194,7 +145,7 @@ extension Diagnostic {
       range: m.origin)
   }
 
-  public static func diagnose(
+  static func diagnose(
     unexpectedMethodDecl d: MethodDecl
   ) -> Diagnostic {
     .error(
@@ -240,14 +191,6 @@ extension Diagnostic {
     .error(
       "property declaration is not allowed here",
       range: d.introducer.origin)
-  }
-
-  public static func diagnose(
-    unexpectedEffect e: SourceRepresentable<AccessEffect>
-  ) -> Diagnostic {
-    .error(
-      "unexpected effect '\(e.value)'",
-      range: e.origin)
   }
 
   static func diagnose(
