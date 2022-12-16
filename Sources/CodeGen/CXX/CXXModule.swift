@@ -1,4 +1,5 @@
 import Utils
+import FrontEnd
 
 /// A C++ module.
 public struct CXXModule {

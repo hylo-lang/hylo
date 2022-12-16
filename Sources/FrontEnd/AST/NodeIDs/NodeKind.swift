@@ -34,27 +34,27 @@ public struct NodeKind: Codable, Equatable, Hashable {
   }
 
   /// Returns true iff `l` and `r` denote the same node type.
-  static func == (l: Self, r: Node.Type) -> Bool {
+  public static func == (l: Self, r: Node.Type) -> Bool {
     return l.value == r
   }
 
   /// Returns true iff `l` and `r` do not denote the same node type.
-  static func != (l: Self, r: Node.Type) -> Bool {
+  public static func != (l: Self, r: Node.Type) -> Bool {
     return l.value == r
   }
 
   /// Returns true iff `l` and `r` denote the same node type.
-  static func == (l: Node.Type, r: Self) -> Bool {
+  public static func == (l: Node.Type, r: Self) -> Bool {
     return l == r.value
   }
 
   /// Returns true iff `l` and `r` do not denote the same node type.
-  static func != (l: Node.Type, r: Self) -> Bool {
+  public static func != (l: Node.Type, r: Self) -> Bool {
     return l != r.value
   }
 
   /// Returns true iff `me` and `pattern` denote the same node type.
-  static func ~= (pattern: Node.Type, me: Self) -> Bool {
+  public static func ~= (pattern: Node.Type, me: Self) -> Bool {
     me == pattern
   }
 
