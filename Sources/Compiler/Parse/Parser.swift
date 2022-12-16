@@ -2250,10 +2250,10 @@ public enum Parser {
     // If there's only one element without any label and we didn't parse a trailing separator,
     // interpret the element's value as a parenthesized expression.
     if elementList.trailingSeparator == nil,
-      elementList.elements.count == 1,
-      elementList.elements[0].label == nil
+      let uniqueElement = elementList.elements.uniqueElement,
+      uniqueElement.label == nil
     {
-      return elementList.elements[0].value
+      return uniqueElement.value
     }
 
     let expr = try state.ast.insert(
