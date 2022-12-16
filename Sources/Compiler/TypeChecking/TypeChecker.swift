@@ -1674,12 +1674,16 @@ public struct TypeChecker {
   /// The result of a name resolution request.
   enum NameResolutionResult {
 
+    /// The resolut of name resolution for a single name component.
     struct ResolvedComponent {
 
+      /// The resolved component.
       let component: NodeID<NameExpr>
 
+      /// The declarations to which the component may refer.
       let candidates: [(reference: DeclRef, type: AnyType)]
 
+      /// Creates an instance with the given properties.
       init(_ component: NodeID<NameExpr>, _ candidates: [(reference: DeclRef, type: AnyType)]) {
         self.component = component
         self.candidates = candidates
@@ -1701,6 +1705,8 @@ public struct TypeChecker {
 
   }
 
+  /// Resolves the name components of `nameExpr` from left to right until multiple candidate
+  /// declarations are found for a single component, or name resolution failed.
   mutating func resolve(
     nominalPrefixOf nameExpr: NodeID<NameExpr>,
     from lookupScope: AnyScopeID
@@ -1751,6 +1757,9 @@ public struct TypeChecker {
     return .done(resolved: resolvedPrefix, unresolved: unresolvedComponents)
   }
 
+  /// Resolves the declarations identified by `name` and exposed to `lookupScope` using qualified
+  /// lookup in the declaration space of `parentType` if it's not `nil`. Otherwise, use unqualified
+  /// lookup from `lookupScope`.
   mutating func resolve(
     _ name: SourceRepresentable<Name>,
     memberOf parentType: AnyType?,
@@ -1825,7 +1834,8 @@ public struct TypeChecker {
     })
   }
 
-  func resolve(builtin name: Name) -> [(reference: DeclRef, type: AnyType)] {
+  /// Resolves a reference to the built-in symbol named `name`.
+  private func resolve(builtin name: Name) -> [(reference: DeclRef, type: AnyType)] {
     let ref: DeclRef = .direct(AnyDeclID(program.ast.builtinDecl))
 
     if let type = BuiltinSymbols[name.stem] {

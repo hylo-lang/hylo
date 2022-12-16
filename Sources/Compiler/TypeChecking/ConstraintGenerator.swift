@@ -936,6 +936,8 @@ struct ConstraintGenerator {
     inferredTypes[id] = .error
   }
 
+  /// Constrains `name` to be a reference to either of the declarations in `candidates`.
+  ///
   /// - Requires: `candidates` is not empty
   private mutating func constrain(
     _ name: NodeID<NameExpr>,
