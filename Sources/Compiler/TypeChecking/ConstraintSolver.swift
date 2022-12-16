@@ -66,7 +66,7 @@ struct ConstraintSolver {
       case let c as ParameterConstraint:
         solve(parameter: c)
       case let c as MemberConstraint:
-        solve(boundMember: c, using: &checker)
+        solve(member: c, using: &checker)
       case let c as FunctionCallConstraint:
         solve(functionCall: c, using: &checker)
       case let c as DisjunctionConstraint:
@@ -254,25 +254,26 @@ struct ConstraintSolver {
     }
   }
 
-  /// Simplifies `bound(L.m) == R` as an overload or equality constraint unifying `R` with the
-  /// bound type of `L.m` if the solver has enough information to resolve `m` as a bound member.
-  /// Otherwise, postones the constraint.
+  /// Simplifies `L.m == R` as an overload or equality constraint unifying `R` with the type of
+  /// `L.m` if the solver has enough information to resolve `m` as a member. Otherwise, postones
+  /// the constraint.
   private mutating func solve(
-    boundMember constraint: MemberConstraint,
+    member constraint: MemberConstraint,
     using checker: inout TypeChecker
   ) {
-    let l = typeAssumptions[constraint.left]
-    let r = typeAssumptions[constraint.right]
+    let l = typeAssumptions[constraint.subject]
+    let r = typeAssumptions[constraint.memberType]
 
     // Postpone the solving if `L` is still unknown.
     if l.base is TypeVariable {
-      postpone(
-        MemberConstraint(l, hasMember: constraint.member, ofType: r, cause: constraint.cause))
+      var c = constraint
+      c.modifyTypes({ (t) in t = typeAssumptions[t] })
+      postpone(c)
       return
     }
 
     // Search for non-static members with the specified name.
-    let allMatches = checker.lookup(constraint.member.stem, memberOf: l, inScope: scope)
+    let allMatches = checker.lookup(constraint.memberName.stem, memberOf: l, inScope: scope)
     let nonStaticMatches = allMatches.filter({ decl in
       checker.program.isNonStaticMember(decl)
     })
@@ -281,7 +282,7 @@ struct ConstraintSolver {
     if nonStaticMatches.isEmpty && !allMatches.isEmpty {
       diagnostics.append(
         .diagnose(
-          illegalUseOfStaticMember: constraint.member,
+          illegalUseOfStaticMember: constraint.memberName,
           onInstanceOf: l,
           at: constraint.cause.origin))
     }
@@ -305,7 +306,7 @@ struct ConstraintSolver {
     if candidates.isEmpty {
       diagnostics.append(
         .diagnose(
-          undefinedName: "\(constraint.member)",
+          undefinedName: "\(constraint.memberName)",
           at: constraint.cause.origin))
       return
     }
@@ -313,27 +314,15 @@ struct ConstraintSolver {
     // If there's only one candidate, solve an equality constraint direcly.
     if candidates.count == 1 {
       solve(equality: .init(candidates[0].type, r, because: constraint.cause))
-      if let name = constraint.memberExpr {
-        bindingAssumptions[name] = candidates[0].reference
-      }
+      bindingAssumptions[constraint.memberExpr] = candidates[0].reference
       return
     }
 
-    // If there are several candidates, create a disjunction constraint.
-    if let name = constraint.memberExpr {
-      schedule(
-        OverloadConstraint(
-          name, withType: r, refersToOneOf: candidates, because: constraint.cause))
-    } else {
-      schedule(
-        DisjunctionConstraint(
-          choices: candidates.map({ (c) -> DisjunctionConstraint.Choice in
-            .init(
-              constraints: [EqualityConstraint(r, c.type, because: constraint.cause)],
-              penalties: c.penalties)
-          }),
-          because: constraint.cause))
-    }
+    // If there are several candidates, create a overload constraint.
+    schedule(
+      OverloadConstraint(
+        constraint.memberExpr, withType: r, refersToOneOf: candidates,
+        because: constraint.cause))
   }
 
   /// Simplifies `F(P1, ..., Pn) -> R` as equality constraints unifying the parameters and return
