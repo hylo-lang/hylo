@@ -1,4 +1,4 @@
-import Compiler
+import FrontEnd
 import XCTest
 
 /// A test annotation handler that checks if all expected diagnostics have been emitted.

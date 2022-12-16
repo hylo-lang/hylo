@@ -1,4 +1,4 @@
-import Compiler
+import FrontEnd
 import XCTest
 
 final class ASTTests: XCTestCase {

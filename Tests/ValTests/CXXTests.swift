@@ -1,4 +1,4 @@
-import Compiler
+import FrontEnd
 import XCTest
 
 func check(_ haystack: String, contains needle: String.SubSequence, for testFile: String) {

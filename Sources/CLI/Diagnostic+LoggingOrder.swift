@@ -1,4 +1,4 @@
-import Compiler
+import FrontEnd
 
 extension Diagnostic {
 
