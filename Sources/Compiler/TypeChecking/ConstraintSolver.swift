@@ -215,8 +215,8 @@ struct ConstraintSolver {
             penalties: 1))
       }
 
-      if minterms.count == 1 {
-        solve(equality: minterms[0].constraints.first as! EqualityConstraint)
+      if let m = minterms.uniqueElement {
+        solve(equality: m.constraints.first as! EqualityConstraint)
       } else {
         schedule(DisjunctionConstraint(choices: minterms, because: constraint.cause))
       }
@@ -348,10 +348,10 @@ struct ConstraintSolver {
     }
 
     // If there's only one candidate, solve an equality constraint direcly.
-    if candidates.count == 1 {
-      solve(equality: .init(candidates[0].type, r, because: constraint.cause))
+    if let uniqueCandidate = candidates.uniqueElement {
+      solve(equality: .init(uniqueCandidate.type, r, because: constraint.cause))
       if let name = constraint.memberExpr {
-        bindingAssumptions[name] = candidates[0].reference
+        bindingAssumptions[name] = uniqueCandidate.reference
       }
       return
     }
