@@ -3,6 +3,7 @@ import FrontEnd
 import Foundation
 import Utils
 import ValModule
+import CodeGenCXX
 
 struct CLI: ParsableCommand {
 
