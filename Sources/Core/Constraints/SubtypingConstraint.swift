@@ -1,4 +1,7 @@
 /// A constraint `L <: R` specifying that `L` is a subtype of `R`.
+///
+/// - Warning: should not be used directly for inference purposes or the type checker will get
+///   stuck. Use `inferenceConstraint(_:isSubtypeOf:because:)` instead.
 public struct SubtypingConstraint: Constraint, Hashable {
 
   /// The left operand.

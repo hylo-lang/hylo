@@ -285,7 +285,7 @@ struct ConstraintSolver {
       // Either `L` is equal to the bare type of `R`, or it's a. Note: the equality requirement for
       // arguments passed mutably is verified after type inference.
       schedule(
-        equalityOrSubtypingConstraint(l, p.bareType, because: constraint.cause))
+        inferenceConstraint(l, isSubtypeOf: p.bareType, because: constraint.cause))
 
     default:
       diagnostics.append(.diagnose(invalidParameterType: r, at: constraint.cause.origin))
