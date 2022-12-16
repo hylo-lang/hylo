@@ -58,12 +58,7 @@ let package = Package(
 
     .target(
       name: "Core",
-      dependencies: [
-        "Utils",
-//        .product(name: "Collections", package: "swift-collections"),
-//        .product(name: "Durian", package: "Durian"),
-//        .product(name: "BigInt", package: "BigInt"),
-      ],
+      dependencies: ["Utils"],
       swiftSettings: allTargetsSwiftSettings),
 
     .target(
