@@ -1678,9 +1678,9 @@ public struct TypeChecker {
 
       let component: NodeID<NameExpr>
 
-      let candidates: [OverloadConstraint.Candidate]
+      let candidates: [(reference: DeclRef, type: AnyType)]
 
-      init(_ component: NodeID<NameExpr>, _ candidates: [OverloadConstraint.Candidate]) {
+      init(_ component: NodeID<NameExpr>, _ candidates: [(reference: DeclRef, type: AnyType)]) {
         self.component = component
         self.candidates = candidates
       }
@@ -1755,11 +1755,11 @@ public struct TypeChecker {
     _ name: SourceRepresentable<Name>,
     memberOf parentType: AnyType?,
     from lookupScope: AnyScopeID
-  ) -> [OverloadConstraint.Candidate] {
+  ) -> [(reference: DeclRef, type: AnyType)] {
     // Handle references to the built-in module.
     if (name.value.stem == "Builtin") && (parentType == nil) && isBuiltinModuleVisible {
       let ref: DeclRef = .direct(AnyDeclID(program.ast.builtinDecl))
-      return [.init(reference: ref, type: ^BuiltinType.module, constraints: [], penalties: 0)]
+      return [(reference: ref, type: ^BuiltinType.module)]
     }
 
     // Handle references to built-in symbols.
@@ -1777,8 +1777,7 @@ public struct TypeChecker {
 
     // Filter out candidates whose argument labels do not match.
     if !name.value.labels.isEmpty {
-      // FIXME: Uncomment me
-      // matches = filter(decls: matches, withLabels: name.labels)
+      matches = filter(decls: matches, withLabels: name.value.labels)
     }
 
     // Filter out candidates whose operator notation does not match.
@@ -1802,7 +1801,7 @@ public struct TypeChecker {
 
     // Realize the types of the matches and determine how they are being referred to.
     let isMemberContext = program.isMemberContext(lookupScope)
-    return matches.compactMap({ (matchDecl) -> OverloadConstraint.Candidate? in
+    return matches.compactMap({ (matchDecl) -> (reference: DeclRef, type: AnyType)? in
       // Filter out ill-formed declarations.
       var matchType = realize(decl: matchDecl)
       if matchType.isError { return nil }
@@ -1814,12 +1813,6 @@ public struct TypeChecker {
         matchType = t.bareType
       }
 
-      // Contextualize the type.
-      let (contextualType, constraints) = contextualize(
-        type: matchType,
-        inScope: program.declToScope[matchDecl]!,
-        cause: ConstraintCause(.binding, at: name.origin))
-
       // Determine how the declaration is being referenced.
       let ref: DeclRef
       if isMemberContext && program.isMember(matchDecl) {
@@ -1828,18 +1821,18 @@ public struct TypeChecker {
         ref = .direct(matchDecl)
       }
 
-      return .init(reference: ref, type: contextualType, constraints: constraints, penalties: 0)
+      return (reference: ref, type: matchType)
     })
   }
 
-  func resolve(builtin name: Name) -> [OverloadConstraint.Candidate] {
+  func resolve(builtin name: Name) -> [(reference: DeclRef, type: AnyType)] {
     let ref: DeclRef = .direct(AnyDeclID(program.ast.builtinDecl))
 
     if let type = BuiltinSymbols[name.stem] {
-      return [.init(reference: ref, type: ^type, constraints: [], penalties: 0)]
+      return [(reference: ref, type: ^type)]
     }
     if let type = BuiltinType(name.stem) {
-      return [.init(reference: ref, type: ^type, constraints: [], penalties: 0)]
+      return [(reference: ref, type: ^type)]
     }
     return []
   }
@@ -3414,12 +3407,18 @@ public struct TypeChecker {
 
   /// Returns the function, method, and subscript declarations in `decls` whose argument labels
   /// match `labels`.
-  private func filter(decls: DeclSet, withLabels labels: [String?]) -> DeclSet {
+  private mutating func filter(decls: DeclSet, withLabels labels: [String?]) -> DeclSet {
     decls.filter({ (d) -> Bool in
       switch d.kind {
       case FunctionDecl.self:
         let decl = program.ast[NodeID<FunctionDecl>(rawValue: d.rawValue)]
         return labels == decl.parameters.map({ (p) in program.ast[p].label?.value })
+
+      case InitializerDecl.self:
+        guard let type = LambdaType(realize(initializerDecl: NodeID(rawValue: d.rawValue))) else {
+          return false
+        }
+        return labels == type.inputs.map({ (p) in p.label })
 
       case MethodDecl.self:
         let decl = program.ast[NodeID<MethodDecl>(rawValue: d.rawValue)]
