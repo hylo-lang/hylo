@@ -300,7 +300,7 @@ struct ConstraintGenerator {
           stem: "init",
           labels: ["self"] + checker.program.ast[id].arguments.map({ $0.label?.value })),
         range: checker.program.ast[c].name.origin)
-      let initCandidates = checker.resolve2(initName, memberOf: instanceType, from: scope)
+      let initCandidates = checker.resolve(initName, memberOf: instanceType, from: scope)
 
       // We're done if we couldn't find any initializer.
       if initCandidates.isEmpty {

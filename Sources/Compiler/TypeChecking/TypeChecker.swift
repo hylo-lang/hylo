@@ -1729,7 +1729,7 @@ public struct TypeChecker {
 
     while let component = unresolvedComponents.popLast() {
       // Resolve the component.
-      let candidates = resolve2(
+      let candidates = resolve(
         program.ast[component].name, memberOf: parentType, from: lookupScope)
       resolvedPrefix.append(.init(component, candidates))
 
@@ -1751,7 +1751,7 @@ public struct TypeChecker {
     return .done(resolved: resolvedPrefix, unresolved: unresolvedComponents)
   }
 
-  mutating func resolve2(
+  mutating func resolve(
     _ name: SourceRepresentable<Name>,
     memberOf parentType: AnyType?,
     from lookupScope: AnyScopeID
@@ -1835,58 +1835,6 @@ public struct TypeChecker {
       return [(reference: ref, type: ^type)]
     }
     return []
-  }
-
-  /// Returns the well-typed declarations to which the specified name may refer, along with their
-  /// overarching uncontextualized types. Ill-typed declarations are ignored.
-  mutating func resolve(
-    _ name: Name,
-    introducedInDeclSpaceOf lookupContext: AnyScopeID? = nil,
-    inScope origin: AnyScopeID
-  ) -> [(decl: AnyDeclID, type: AnyType)] {
-    // Search for the referred declaration.
-    var matches: TypeChecker.DeclSet
-    if let ctx = lookupContext {
-      matches = lookup(name.stem, introducedInDeclSpaceOf: ctx, inScope: origin)
-    } else {
-      matches = lookup(unqualified: name.stem, inScope: origin)
-    }
-
-    // Bail out if there are no matches.
-    if matches.isEmpty { return [] }
-
-    // TODO: Filter by labels and operator notation
-
-    // If the looked up name has a method introducer, it must refer to a method implementation.
-    if let introducer = name.introducer {
-      matches = Set(
-        matches.compactMap({ (match) -> AnyDeclID? in
-          guard let decl = NodeID<MethodDecl>(match) else { return nil }
-
-          // TODO: Synthesize missing method implementations
-          if let impl = program.ast[decl].impls.first(where: { (i) in
-            program.ast[i].introducer.value == introducer
-          }) {
-            return AnyDeclID(impl)
-          } else {
-            return nil
-          }
-        }))
-    }
-
-    // Returns the matches along with their contextual type and associated constraints.
-    return matches.compactMap({ (match) -> (AnyDeclID, AnyType)? in
-      // Realize the type of the declaration.
-      var matchType = realize(decl: match)
-      if matchType.isError { return nil }
-
-      // Erase parameter conventions.
-      if let t = matchType.base as? ParameterType {
-        matchType = t.bareType
-      }
-
-      return (match, matchType)
-    })
   }
 
   /// Returns the declarations that expose `name` without qualification in `scope`.
