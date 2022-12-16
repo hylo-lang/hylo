@@ -564,7 +564,7 @@ struct ConstraintGenerator {
       let componentOrigin = checker.program.ast[component].origin
       let memberType = expectedTypes[component] ?? ^TypeVariable(node: AnyNodeID(component))
       constraints.append(
-        BoundMemberConstraint(
+        MemberConstraint(
           parentType!, hasMemberExpressedBy: component, ofType: memberType,
           in: checker.program.ast,
           cause: ConstraintCause(.member, at: componentOrigin)))
@@ -633,7 +633,7 @@ struct ConstraintGenerator {
 
       // Create a member constraint for the operator.
       constraints.append(
-        BoundMemberConstraint(
+        MemberConstraint(
           lhsType, hasMemberExpressedBy: callee.expr, ofType: ^calleeType, in: checker.program.ast,
           cause: ConstraintCause(.member, at: checker.program.ast[callee.expr].origin)))
 

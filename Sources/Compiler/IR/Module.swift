@@ -43,22 +43,22 @@ public struct Module {
   /// The module's name.
   public var name: String { decl.name }
 
-  /// Accesses the function at given index.
-  public subscript(function index: Functions.Index) -> Function {
-    _read { yield functions[index] }
-    _modify { yield &functions[index] }
+  /// Accesses the given function.
+  public subscript(f: Functions.Index) -> Function {
+    _read { yield functions[f] }
+    _modify { yield &functions[f] }
   }
 
-  /// Accesses the basic block with the given identity.
-  public subscript(block id: Block.ID) -> Block {
-    _read { yield functions[id.function].blocks[id.address] }
-    _modify { yield &functions[id.function].blocks[id.address] }
+  /// Accesses the given block.
+  public subscript(b: Block.ID) -> Block {
+    _read { yield functions[b.function].blocks[b.address] }
+    _modify { yield &functions[b.function].blocks[b.address] }
   }
 
-  /// Accesses the instruction with the given identity.
-  public subscript(instruction id: InstructionID) -> Instruction {
-    _read { yield functions[id.function].blocks[id.block].instructions[id.address] }
-    _modify { yield &functions[id.function].blocks[id.block].instructions[id.address] }
+  /// Accesses the given instruction.
+  public subscript(i: InstructionID) -> Instruction {
+    _read { yield functions[i.function].blocks[i.block].instructions[i.address] }
+    _modify { yield &functions[i.function].blocks[i.block].instructions[i.address] }
   }
 
   /// Returns the type of `operand`.
@@ -178,14 +178,13 @@ public struct Module {
   /// Returns the global "past the end" position of `block`.
   func globalEndIndex(of block: Block.ID) -> InstructionIndex {
     InstructionIndex(
-      block: block,
-      index: functions[block.function].blocks[block.address].instructions.endIndex)
+      block, functions[block.function].blocks[block.address].instructions.endIndex)
   }
 
   /// Returns the global identity of `block`'s terminator, if it exists.
   func terminator(of block: Block.ID) -> InstructionID? {
     if let a = functions[block.function].blocks[block.address].instructions.lastAddress {
-      return InstructionID(block: block, address: a)
+      return InstructionID(block, a)
     } else {
       return nil
     }
@@ -193,54 +192,65 @@ public struct Module {
 
   /// Adds `newInstruction` at the end of `block` and returns the identities of its return values.
   @discardableResult
-  mutating func append<I: Instruction>(_ newInstruction: I, to block: Block.ID) -> [Operand] {
+  mutating func append<I: Instruction>(
+    _ newInstruction: I,
+    to block: Block.ID
+  ) -> [Operand] {
     insert(
       newInstruction,
       with: { (m, i) in
-        InstructionID(block: block, address: m[block: block].instructions.append(newInstruction))
+        InstructionID(block, m[block].instructions.append(newInstruction))
       })
   }
 
   /// Inserts `newInstruction` at `position` and returns the identities of its return values.
   ///
-  /// The instruction is inserted before the instruction currently at `position`. You can pass a
-  /// "past the end" position to append at the end of a block.
+  /// The instruction is inserted before the instruction currently at `insertionPoint`. You can
+  /// pass a "past the end" position to append at the end of a block.
   @discardableResult
-  mutating func insert<I: Instruction>(_ newInstruction: I, at position: InstructionIndex)
-    -> [Operand]
-  {
+  mutating func insert<I: Instruction>(
+    _ newInstruction: I,
+    at insertionPoint: InstructionIndex
+  ) -> [Operand] {
     insert(
       newInstruction,
       with: { (m, i) in
-        let address = m.functions[position.function].blocks[position.block].instructions
-          .insert(newInstruction, at: position.index)
-        return InstructionID(function: position.function, block: position.block, address: address)
+        let address = m
+          .functions[insertionPoint.function].blocks[insertionPoint.block].instructions
+          .insert(newInstruction, at: insertionPoint.index)
+        return InstructionID(insertionPoint.function, insertionPoint.block, address)
       })
   }
 
-  /// Inserts `newInstruction` before the instruction identified by `id` and returns the identities
-  /// of its results.
+  /// Inserts `newInstruction` before the instruction identified by `successor` and returns the
+  /// identities of its results.
   @discardableResult
-  mutating func insert<I: Instruction>(_ newInstruction: I, before id: InstructionID) -> [Operand] {
+  mutating func insert<I: Instruction>(
+    _ newInstruction: I,
+    before successor: InstructionID
+  ) -> [Operand] {
     insert(
       newInstruction,
       with: { (m, i) in
-        let address = m.functions[id.function].blocks[id.block].instructions
-          .insert(newInstruction, before: id.address)
-        return InstructionID(function: id.function, block: id.block, address: address)
+        let address = m.functions[successor.function].blocks[successor.block].instructions
+          .insert(newInstruction, before: successor.address)
+        return InstructionID(successor.function, successor.block, address)
       })
   }
 
-  /// Inserts `newInstruction` after the instruction identified by `id` and returns the identities
-  /// of its results.
+  /// Inserts `newInstruction` after the instruction identified by `predecessor` and returns the
+  /// identities of its results.
   @discardableResult
-  mutating func insert<I: Instruction>(_ newInstruction: I, after id: InstructionID) -> [Operand] {
+  mutating func insert<I: Instruction>(
+    _ newInstruction: I,
+    after predecessor: InstructionID
+  ) -> [Operand] {
     insert(
       newInstruction,
       with: { (m, i) in
-        let address = m.functions[id.function].blocks[id.block].instructions
-          .insert(newInstruction, after: id.address)
-        return InstructionID(function: id.function, block: id.block, address: address)
+        let address = m.functions[predecessor.function].blocks[predecessor.block].instructions
+          .insert(newInstruction, after: predecessor.address)
+        return InstructionID(predecessor.function, predecessor.block, address)
       })
   }
 

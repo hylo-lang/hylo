@@ -17,7 +17,7 @@ public struct Block {
 
     /// The ID of the instruction at `instAddress` in the block identified by `self`.
     public func id(at instAddress: Block.Instructions.Address) -> InstructionID {
-      InstructionID(function: function, block: address, address: instAddress)
+      InstructionID(function, address, instAddress)
     }
 
     /// The ID of the `index`-th parameter of the block.

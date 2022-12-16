@@ -10,13 +10,13 @@ public struct ImplicitReturnInsertionPass: TransformPass {
 
   public mutating func run(function functionID: Function.ID, module: inout Module) -> Bool {
     /// The expected return type of the function.
-    let expectedReturnType = module[function: functionID].output.astType
+    let expectedReturnType = module[functionID].output.astType
 
     // Reinitialize the internal state of the pass.
     diagnostics.removeAll()
 
-    for i in module[function: functionID].blocks.indices {
-      if module[function: functionID][i.address].instructions.last?.isTerminator ?? false {
+    for i in module[functionID].blocks.indices {
+      if module[functionID][i.address].instructions.last?.isTerminator ?? false {
         // There's a terminator instruction. Move to the next block.
         continue
       } else if expectedReturnType == .void {
@@ -26,7 +26,7 @@ public struct ImplicitReturnInsertionPass: TransformPass {
           at: module.globalEndIndex(of: Block.ID(function: functionID, address: i.address)))
       } else {
         // No return instruction, yet the function must return a non-void value.
-        let range = module[function: functionID][i.address].instructions
+        let range = module[functionID][i.address].instructions
           .last(where: { $0.range != nil })?.range
         diagnostics.append(
           .missingFunctionReturn(

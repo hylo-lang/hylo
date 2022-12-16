@@ -29,7 +29,7 @@ enum FunctionLocal: Hashable {
   func operand(in function: Function.ID) -> Operand {
     switch self {
     case .result(let b, let i, let k):
-      return .result(instruction: InstructionID(function: function, block: b, address: i), index: k)
+      return .result(instruction: InstructionID(function, b, i), index: k)
     case .param(let b, let k):
       return .parameter(block: Block.ID(function: function, address: b), index: k)
     }
