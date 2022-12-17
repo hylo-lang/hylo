@@ -140,7 +140,7 @@ struct CLI: ParsableCommand {
     var checker = TypeChecker(program: ScopedProgram(ast: ast), isBuiltinModuleVisible: true)
     var typeCheckingSucceeded = true
 
-    // Type check the code library.
+    // Type check the core library.
     typeCheckingSucceeded = checker.check(module: checker.program.ast.corelib!)
 
     // Type-check the input.
