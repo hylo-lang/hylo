@@ -47,6 +47,6 @@ public struct FunctionCallConstraint: Constraint, Hashable {
 
 extension FunctionCallConstraint: CustomStringConvertible {
 
-  public var description: String { "\(calleeType)\(list: parameters) -> \(returnType)" }
+  public var description: String { "\(calleeType)(\(list: parameters)) -> \(returnType)" }
 
 }

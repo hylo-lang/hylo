@@ -367,25 +367,18 @@ struct ConstraintGenerator {
     let trait = checker.program.ast.coreTrait(named: "ExpressibleByIntegerLiteral")!
     let cause = ConstraintCause(.literal, at: checker.program.ast[id].origin)
 
-    switch expectedTypes[id]?.base {
-    case let tau as TypeVariable:
-      // The type of the expression is a variable, possibly constrained elsewhere; constrain it to
-      // either be `Int` or conform to `ExpressibleByIntegerLiteral`.
+    // Constrain the type of the literal to conform to `ExpressibleByIntegerLiteral` or,
+    // unless it's been already inferred from context, to be equal to `Int`.
+    let expectedType = expectedTypes[id] ?? ^TypeVariable(node: AnyNodeID(id))
+    if expectedType.base is TypeVariable {
       constraints.append(
         expressibleByLiteralConstraint(
-          ^tau, trait: trait, defaultType: ^checker.program.ast.coreType(named: "Int")!,
-           because: cause))
-      assume(typeOf: id, equals: tau, at: checker.program.ast[id].origin)
-
-    case .some(let expectedType):
-      // The type of has been fixed; constrain it to conform to `ExpressibleByIntegerLiteral`.
-      constraints.append(ConformanceConstraint(^expectedType, conformsTo: [trait], because: cause))
+          expectedType, trait: trait, defaultType: ^checker.program.ast.coreType(named: "Int")!,
+          because: cause))
       assume(typeOf: id, equals: expectedType, at: checker.program.ast[id].origin)
-
-    case nil:
-      // Without contextual information, infer the type of the literal as `Val.Int`.
-      let intType = checker.program.ast.coreType(named: "Int")!
-      assume(typeOf: id, equals: intType, at: checker.program.ast[id].origin)
+    } else {
+      constraints.append(ConformanceConstraint(expectedType, conformsTo: [trait], because: cause))
+      assume(typeOf: id, equals: expectedType, at: checker.program.ast[id].origin)
     }
   }
 
