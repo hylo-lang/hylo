@@ -369,10 +369,10 @@ public struct TypeChecker {
 
       bindingsUnderChecking.formUnion(names)
       let solution = infer(
-        expr: initializer,
-        expectedType: shape.type,
+        typeOf: initializer,
+        expecting: shape.type,
         inScope: scope,
-        constraints: shape.constraints)
+        initialConstraints: shape.constraints)
       bindingsUnderChecking.subtract(names)
 
       // TODO: Complete underspecified generic signatures
@@ -592,10 +592,10 @@ public struct TypeChecker {
         ^TypeVariable(node: defaultValue.base))
 
       let solution = infer(
-        expr: defaultValue,
-        expectedType: parameterType.bareType,
+        typeOf: defaultValue,
+        expecting: parameterType.bareType,
         inScope: program.declToScope[id]!,
-        constraints: [
+        initialConstraints: [
           ParameterConstraint(
             defaultValueType, ^parameterType,
             because: ConstraintCause(.argument, at: program.ast[id].origin))
@@ -1050,10 +1050,10 @@ public struct TypeChecker {
 
     // Infer the type on the right.
     let solution = infer(
-      expr: AnyExprID(program.ast[id].right),
-      expectedType: lhsType,
-      inScope: AnyScopeID(lexicalContext),
-      constraints: [assignmentConstraint])
+      typeOf: AnyExprID(program.ast[id].right),
+      expecting: lhsType,
+      inScope: lexicalContext,
+      initialConstraints: [assignmentConstraint])
 
     return solution.diagnostics.isEmpty
   }
@@ -1070,10 +1070,10 @@ public struct TypeChecker {
       let inferredReturnType = exprTypes[returnValue].setIfNil(
         ^TypeVariable(node: returnValue.base))
       let solution = infer(
-        expr: returnValue,
-        expectedType: expectedType,
-        inScope: AnyScopeID(lexicalContext),
-        constraints: [
+        typeOf: returnValue,
+        expecting: expectedType,
+        inScope: lexicalContext,
+        initialConstraints: [
           inferenceConstraint(
             inferredReturnType, isSubtypeOf: expectedType,
             because: ConstraintCause(.return, at: program.ast[returnValue].origin))
@@ -1098,10 +1098,10 @@ public struct TypeChecker {
     let inferredReturnType = exprTypes[program.ast[id].value].setIfNil(
       ^TypeVariable(node: program.ast[id].value.base))
     let solution = infer(
-      expr: program.ast[id].value,
-      expectedType: expectedType,
-      inScope: AnyScopeID(lexicalContext),
-      constraints: [
+      typeOf: program.ast[id].value,
+      expecting: expectedType,
+      inScope: lexicalContext,
+      initialConstraints: [
         inferenceConstraint(
           inferredReturnType, isSubtypeOf: expectedType,
           because: ConstraintCause(.yield, at: program.ast[program.ast[id].value].origin))
@@ -1443,16 +1443,18 @@ public struct TypeChecker {
   // MARK: Type inference
 
   /// Infers and returns the type of `expr`, or `nil` if `expr` is ill-typed.
+  ///
+  /// - Parameters:
+  ///   - expr: The expression whose type should be inferred.
+  ///   - expectedType: The type `expr` is expected to have given the context it which it occurs,
+  ///     or `nil` of such type is unknown.
+  ///   - scope: The innermost scope containing `expr`.
   public mutating func infer<S: ScopeID>(
     expr: AnyExprID,
     expectedType: AnyType? = nil,
     inScope scope: S
   ) -> AnyType? {
-    let solution = infer(
-      expr: expr,
-      expectedType: expectedType,
-      inScope: AnyScopeID(scope),
-      constraints: [])
+    let solution = infer(typeOf: expr, expecting: expectedType, inScope: scope)
 
     if solution.diagnostics.isEmpty {
       return exprTypes[expr]!
@@ -1461,16 +1463,23 @@ public struct TypeChecker {
     }
   }
 
-  /// Infers the type of `expr` and returns the best solution found by the constraint solver.
-  mutating func infer(
-    expr: AnyExprID,
-    expectedType: AnyType?,
-    inScope scope: AnyScopeID,
-    constraints: [Constraint]
+  /// Returns a solution describing the best guess to type `expr` and its sub-expressions.
+  ///
+  /// - Parameters:
+  ///   - expr: The expression whose type should be inferred.
+  ///   - expectedType: The type `expr` is expected to have given the context it which it occurs,
+  ///     or `nil` of such type is unknown.
+  ///   - scope: The innermost scope containing `expr`.
+  ///   - initialConstraints: A collection of constraints that `expr`'s type must satisfy.
+  mutating func infer<S: ScopeID>(
+    typeOf expr: AnyExprID,
+    expecting expectedType: AnyType?,
+    inScope scope: S,
+    initialConstraints: [Constraint] = []
   ) -> Solution {
     // Generate constraints.
     var generator = ConstraintGenerator(
-      scope: scope,
+      scope: AnyScopeID(scope),
       expr: expr,
       fixedType: exprTypes[expr],
       expectedType: expectedType)
@@ -1478,8 +1487,8 @@ public struct TypeChecker {
 
     // Solve the constraints.
     var solver = ConstraintSolver(
-      scope: scope,
-      fresh: constraints + constraintGeneration.constraints,
+      scope: AnyScopeID(scope),
+      fresh: initialConstraints + constraintGeneration.constraints,
       initialDiagnostics: constraintGeneration.diagnostics)
     let solution = solver.apply(using: &self)
 
