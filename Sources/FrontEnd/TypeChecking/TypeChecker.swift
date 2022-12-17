@@ -354,8 +354,9 @@ public struct TypeChecker {
     // Type check the initializer, if any.
     var success = true
     if let initializer = program.ast[id].initializer {
+      let initializerType = exprTypes[initializer].setIfNil(^TypeVariable(node: initializer.base))
+
       // The type of the initializer may be a subtype of the pattern's.
-      let initializerType = ^TypeVariable(node: initializer.base)
       shape.constraints.append(
         inferenceConstraint(
           initializerType, isSubtypeOf: shape.type,
@@ -369,7 +370,6 @@ public struct TypeChecker {
       bindingsUnderChecking.formUnion(names)
       let solution = infer(
         expr: initializer,
-        inferredType: initializerType,
         expectedType: shape.type,
         inScope: scope,
         constraints: shape.constraints)
@@ -588,20 +588,18 @@ public struct TypeChecker {
     // Type check the default value, if any.
     if let defaultValue = program.ast[id].defaultValue {
       let parameterType = declTypes[id]!.base as! ParameterType
-      let defaultValueType = ^TypeVariable(node: defaultValue.base)
-
-      let constraints = [
-        ParameterConstraint(
-          defaultValueType, ^parameterType,
-          because: ConstraintCause(.argument, at: program.ast[id].origin))
-      ]
+      let defaultValueType = exprTypes[defaultValue].setIfNil(
+        ^TypeVariable(node: defaultValue.base))
 
       let solution = infer(
         expr: defaultValue,
-        inferredType: defaultValueType,
         expectedType: parameterType.bareType,
         inScope: program.declToScope[id]!,
-        constraints: constraints)
+        constraints: [
+          ParameterConstraint(
+            defaultValueType, ^parameterType,
+            because: ConstraintCause(.argument, at: program.ast[id].origin))
+        ])
 
       if !solution.diagnostics.isEmpty {
         declRequests[id] = .failure
@@ -1044,7 +1042,8 @@ public struct TypeChecker {
     }
 
     // Constrain the right to be subtype of the left.
-    let rhsType = ^TypeVariable(node: AnyNodeID(program.ast[id].right))
+    let rhsType = exprTypes[program.ast[id].right].setIfNil(
+      ^TypeVariable(node: program.ast[id].right.base))
     let assignmentConstraint = inferenceConstraint(
       rhsType, isSubtypeOf: lhsType,
       because: ConstraintCause(.initializationOrAssignment, at: program.ast[id].origin))
@@ -1052,7 +1051,6 @@ public struct TypeChecker {
     // Infer the type on the right.
     let solution = infer(
       expr: AnyExprID(program.ast[id].right),
-      inferredType: rhsType,
       expectedType: lhsType,
       inScope: AnyScopeID(lexicalContext),
       constraints: [assignmentConstraint])
@@ -1069,16 +1067,17 @@ public struct TypeChecker {
 
     if let returnValue = program.ast[id].value {
       // The type of the return value must be subtype of the expected return type.
-      let inferredReturnType = ^TypeVariable(node: returnValue.base)
-      let c = inferenceConstraint(
-        inferredReturnType, isSubtypeOf: expectedType,
-        because: ConstraintCause(.return, at: program.ast[returnValue].origin))
+      let inferredReturnType = exprTypes[returnValue].setIfNil(
+        ^TypeVariable(node: returnValue.base))
       let solution = infer(
         expr: returnValue,
-        inferredType: inferredReturnType,
         expectedType: expectedType,
         inScope: AnyScopeID(lexicalContext),
-        constraints: [c])
+        constraints: [
+          inferenceConstraint(
+            inferredReturnType, isSubtypeOf: expectedType,
+            because: ConstraintCause(.return, at: program.ast[returnValue].origin))
+        ])
       return solution.diagnostics.isEmpty
     } else if expectedType != .void {
       diagnostics.insert(.diagnose(missingReturnValueAt: program.ast[id].origin))
@@ -1096,16 +1095,17 @@ public struct TypeChecker {
     let expectedType = expectedOutputType(in: lexicalContext)!
 
     // The type of the return value must be subtype of the expected return type.
-    let inferredReturnType = ^TypeVariable(node: program.ast[id].value.base)
-    let c = inferenceConstraint(
-      inferredReturnType, isSubtypeOf: expectedType,
-      because: ConstraintCause(.yield, at: program.ast[program.ast[id].value].origin))
+    let inferredReturnType = exprTypes[program.ast[id].value].setIfNil(
+      ^TypeVariable(node: program.ast[id].value.base))
     let solution = infer(
       expr: program.ast[id].value,
-      inferredType: inferredReturnType,
       expectedType: expectedType,
       inScope: AnyScopeID(lexicalContext),
-      constraints: [c])
+      constraints: [
+        inferenceConstraint(
+          inferredReturnType, isSubtypeOf: expectedType,
+          because: ConstraintCause(.yield, at: program.ast[program.ast[id].value].origin))
+      ])
     return solution.diagnostics.isEmpty
   }
 
@@ -1450,7 +1450,6 @@ public struct TypeChecker {
   ) -> AnyType? {
     let solution = infer(
       expr: expr,
-      inferredType: nil,
       expectedType: expectedType,
       inScope: AnyScopeID(scope),
       constraints: [])
@@ -1465,7 +1464,6 @@ public struct TypeChecker {
   /// Infers the type of `expr` and returns the best solution found by the constraint solver.
   mutating func infer(
     expr: AnyExprID,
-    inferredType: AnyType?,
     expectedType: AnyType?,
     inScope scope: AnyScopeID,
     constraints: [Constraint]
@@ -1474,7 +1472,7 @@ public struct TypeChecker {
     var generator = ConstraintGenerator(
       scope: scope,
       expr: expr,
-      inferredType: inferredType,
+      fixedType: exprTypes[expr],
       expectedType: expectedType)
     let constraintGeneration = generator.apply(using: &self)
 
