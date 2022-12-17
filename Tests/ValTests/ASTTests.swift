@@ -1,5 +1,6 @@
-import Compiler
+import FrontEnd
 import XCTest
+import Core
 
 final class ASTTests: XCTestCase {
 

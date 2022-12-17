@@ -1,5 +1,6 @@
-import Compiler
+import FrontEnd
 import XCTest
+import Core
 
 /// A test annotation handler that checks if all expected diagnostics have been emitted.
 struct DiagnosticChecker {

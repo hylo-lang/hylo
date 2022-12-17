@@ -1,8 +1,11 @@
 import ArgumentParser
-import Compiler
+import FrontEnd
 import Foundation
 import Utils
 import ValModule
+import CodeGenCXX
+import Core
+import IR
 
 struct CLI: ParsableCommand {
 

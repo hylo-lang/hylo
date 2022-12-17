@@ -1,5 +1,7 @@
-import Compiler
+import FrontEnd
 import XCTest
+import CodeGenCXX
+import Core
 
 func check(_ haystack: String, contains needle: String.SubSequence, for testFile: String) {
   XCTAssert(

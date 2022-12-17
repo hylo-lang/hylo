@@ -37,22 +37,41 @@ let package = Package(
     .executableTarget(
       name: "CLI",
       dependencies: [
-        "Compiler",
+        "FrontEnd",
+        "IR",
+        "CodeGenCXX",
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
       ],
       swiftSettings: allTargetsSwiftSettings),
 
     // Targets related to the compiler's internal library.
     .target(
-      name: "Compiler",
+      name: "FrontEnd",
       dependencies: [
         "Utils",
+        "Core",
         "ValModule",
         .product(name: "Collections", package: "swift-collections"),
         .product(name: "Durian", package: "Durian"),
         .product(name: "BigInt", package: "BigInt"),
       ],
-      exclude: ["CXX/README.md"],
+      swiftSettings: allTargetsSwiftSettings),
+
+    .target(
+      name: "Core",
+      dependencies: ["Utils"],
+      swiftSettings: allTargetsSwiftSettings),
+
+    .target(
+      name: "IR",
+      dependencies: ["Utils", "Core", "FrontEnd"],
+      swiftSettings: allTargetsSwiftSettings),
+
+    .target(
+      name: "CodeGenCXX",
+      dependencies: ["FrontEnd", "Utils"],
+      path: "Sources/CodeGen/CXX",
+      exclude: ["README.md"],
       swiftSettings: allTargetsSwiftSettings),
 
     .target(
@@ -70,7 +89,7 @@ let package = Package(
     // Test targets.
     .testTarget(
       name: "ValTests",
-      dependencies: ["Compiler"],
+      dependencies: ["FrontEnd", "Core", "CodeGenCXX", "IR"],
       resources: [.copy("TestCases")],
       swiftSettings: allTargetsSwiftSettings),
-  ])
+])

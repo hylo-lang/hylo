@@ -1,6 +1,7 @@
 import XCTest
+import Core
 
-@testable import Compiler
+@testable import FrontEnd
 
 final class CaptureCollectorTests: XCTestCase {
 
