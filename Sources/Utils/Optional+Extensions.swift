@@ -6,6 +6,14 @@ extension Optional {
     return self!
   }
 
+  /// If `self` is `nil`, wraps and returns `newValue`. Otherwise, returns the wrapped value.
+  public mutating func setIfNil(_ newValue: @autoclosure () -> Wrapped) -> Wrapped {
+    if let v = self { return v }
+    let v = newValue()
+    self = v
+    return v
+  }
+
   /// Evaluates the given closure when this Optional instance is not `nil`, passing the unwrapped
   /// value as a parameter. Otherwise, returns `defaultValue`.
   public func map<U>(

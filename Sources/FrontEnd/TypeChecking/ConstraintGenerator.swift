@@ -42,12 +42,12 @@ struct ConstraintGenerator {
   init(
     scope: AnyScopeID,
     expr: AnyExprID,
-    inferredType: AnyType?,
+    fixedType: AnyType?,
     expectedType: AnyType?
   ) {
     self.subject = expr
     self.scope = scope
-    inferredTypes[expr] = inferredType
+    inferredTypes[expr] = fixedType
     expectedTypes[expr] = expectedType
   }
 
