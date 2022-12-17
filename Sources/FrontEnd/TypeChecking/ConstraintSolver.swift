@@ -67,7 +67,9 @@ struct ConstraintSolver {
       case let c as ParameterConstraint:
         solve(parameter: c)
       case let c as MemberConstraint:
-        solve(boundMember: c, using: &checker)
+        solve(member: c, using: &checker)
+      case let c as FunctionCallConstraint:
+        solve(functionCall: c, using: &checker)
       case let c as DisjunctionConstraint:
         return solve(disjunction: c, using: &checker)
       case let c as OverloadConstraint:
@@ -148,19 +150,10 @@ struct ConstraintSolver {
       }
 
     case (let l as LambdaType, let r as LambdaType):
-      switch l.testLabelCompatibility(with: r) {
-      case .differentLengths:
-        diagnostics.append(.diagnose(incompatibleParameterCountAt: constraint.cause.origin))
+      // Parameter labels must match.
+      if l.inputs.map(\.label) != r.inputs.map(\.label) {
+        diagnostics.append(.diagnose(type: ^l, incompatibleWith: ^r, at: constraint.cause.origin))
         return
-
-      case .differentLabels(let found, let expected):
-        diagnostics.append(
-          .diagnose(
-            labels: found, incompatibleWith: expected, at: constraint.cause.origin))
-        return
-
-      case .compatible:
-        break
       }
 
       // Break down the constraint.
@@ -172,6 +165,12 @@ struct ConstraintSolver {
       solve(equality: .init(l.environment, r.environment, because: constraint.cause))
 
     case (let l as MethodType, let r as MethodType):
+      // Parameter labels must match.
+      if l.inputs.map(\.label) != r.inputs.map(\.label) {
+        diagnostics.append(.diagnose(type: ^l, incompatibleWith: ^r, at: constraint.cause.origin))
+        return
+      }
+
       // Capabilities must match.
       if l.capabilities != r.capabilities {
         diagnostics.append(.diagnose(type: ^l, incompatibleWith: ^r, at: constraint.cause.origin))
@@ -185,42 +184,6 @@ struct ConstraintSolver {
 
       solve(equality: .init(l.output, r.output, because: constraint.cause))
       solve(equality: .init(l.receiver, r.receiver, because: constraint.cause))
-
-    case (let l as MethodType, _ as LambdaType):
-      // TODO: Use a different kind of constraint for call exprs
-      // We can't guess the operator property and environment of a callee from a call expression;
-      // that must be inferred. Thus we can't constrain the callee of a CallExpr to be equal to
-      // some synthesized lambda type. Instead we need a constraint that only describes its inputs
-      // and outputs, and uses the other type to infer additional information.
-
-      var minterms: [DisjunctionConstraint.Choice] = []
-
-      if let lambda = LambdaType(letImplOf: l) {
-        minterms.append(
-          .init(
-            constraints: [EqualityConstraint(^lambda, r, because: constraint.cause)],
-            penalties: 0))
-      }
-
-      if let lambda = LambdaType(inoutImplOf: l) {
-        minterms.append(
-          .init(
-            constraints: [EqualityConstraint(^lambda, r, because: constraint.cause)],
-            penalties: 1))
-      }
-
-      if let lambda = LambdaType(sinkImplOf: l) {
-        minterms.append(
-          .init(
-            constraints: [EqualityConstraint(^lambda, r, because: constraint.cause)],
-            penalties: 1))
-      }
-
-      if let m = minterms.uniqueElement {
-        solve(equality: m.constraints.first as! EqualityConstraint)
-      } else {
-        schedule(DisjunctionConstraint(choices: minterms, because: constraint.cause))
-      }
 
     default:
       diagnostics.append(.diagnose(type: l, incompatibleWith: r, at: constraint.cause.origin))
@@ -292,25 +255,26 @@ struct ConstraintSolver {
     }
   }
 
-  /// Simplifies `bound(L.m) == R` as an overload or equality constraint unifying `R` with the
-  /// bound type of `L.m` if the solver has enough information to resolve `m` as a bound member.
-  /// Otherwise, postones the constraint.
+  /// Simplifies `L.m == R` as an overload or equality constraint unifying `R` with the type of
+  /// `L.m` if the solver has enough information to resolve `m` as a member. Otherwise, postones
+  /// the constraint.
   private mutating func solve(
-    boundMember constraint: MemberConstraint,
+    member constraint: MemberConstraint,
     using checker: inout TypeChecker
   ) {
-    let l = typeAssumptions[constraint.left]
-    let r = typeAssumptions[constraint.right]
+    let l = typeAssumptions[constraint.subject]
+    let r = typeAssumptions[constraint.memberType]
 
     // Postpone the solving if `L` is still unknown.
     if l.base is TypeVariable {
-      postpone(
-        MemberConstraint(l, hasMember: constraint.member, ofType: r, cause: constraint.cause))
+      var c = constraint
+      c.modifyTypes({ (t) in t = typeAssumptions[t] })
+      postpone(c)
       return
     }
 
     // Search for non-static members with the specified name.
-    let allMatches = checker.lookup(constraint.member.stem, memberOf: l, inScope: scope)
+    let allMatches = checker.lookup(constraint.memberName.stem, memberOf: l, inScope: scope)
     let nonStaticMatches = allMatches.filter({ decl in
       checker.program.isNonStaticMember(decl)
     })
@@ -319,7 +283,7 @@ struct ConstraintSolver {
     if nonStaticMatches.isEmpty && !allMatches.isEmpty {
       diagnostics.append(
         .diagnose(
-          illegalUseOfStaticMember: constraint.member,
+          illegalUseOfStaticMember: constraint.memberName,
           onInstanceOf: l,
           at: constraint.cause.origin))
     }
@@ -343,35 +307,61 @@ struct ConstraintSolver {
     if candidates.isEmpty {
       diagnostics.append(
         .diagnose(
-          undefinedName: "\(constraint.member)",
+          undefinedName: "\(constraint.memberName)",
           at: constraint.cause.origin))
       return
     }
 
     // If there's only one candidate, solve an equality constraint direcly.
-    if let uniqueCandidate = candidates.uniqueElement {
-      solve(equality: .init(uniqueCandidate.type, r, because: constraint.cause))
-      if let name = constraint.memberExpr {
-        bindingAssumptions[name] = uniqueCandidate.reference
-      }
+    if let pick = candidates.uniqueElement {
+      solve(equality: .init(pick.type, r, because: constraint.cause))
+      bindingAssumptions[constraint.memberExpr] = pick.reference
       return
     }
 
-    // If there are several candidates, create a disjunction constraint.
-    if let name = constraint.memberExpr {
-      schedule(
-        OverloadConstraint(
-          name, withType: r, refersToOneOf: candidates, because: constraint.cause))
-    } else {
-      schedule(
-        DisjunctionConstraint(
-          choices: candidates.map({ (c) -> DisjunctionConstraint.Choice in
-            .init(
-              constraints: [EqualityConstraint(r, c.type, because: constraint.cause)],
-              penalties: c.penalties)
-          }),
-          because: constraint.cause))
+    // If there are several candidates, create a overload constraint.
+    schedule(
+      OverloadConstraint(
+        constraint.memberExpr, withType: r, refersToOneOf: candidates,
+        because: constraint.cause))
+  }
+
+  /// Simplifies `F(P1, ..., Pn) -> R` as equality constraints unifying the parameters and return
+  /// type of `F` with `P1, ..., Pn` and `R`, respectively.
+  private mutating func solve(
+    functionCall constraint: FunctionCallConstraint,
+    using checker: inout TypeChecker
+  ) {
+    let f = typeAssumptions[constraint.calleeType]
+
+    // Postpone the solving if `F` is still unknown.
+    if f.base is TypeVariable {
+      var c = constraint
+      c.modifyTypes({ (t) in t = typeAssumptions[t] })
+      postpone(c)
+      return
     }
+
+    // Make sure `F` is callable.
+    guard let callee = f.base as? CallableType else {
+      diagnostics.append(.diagnose(nonCallableType: f, at: constraint.cause.origin))
+      return
+    }
+
+    // Make sure `F` structurally matches the given parameter list.
+    if !checkLabelCompatibility(
+      found: constraint.parameters, expected: callee.inputs, cause: constraint.cause)
+    {
+      return
+    }
+
+    // Break down the constraint.
+    for i in 0 ..< callee.inputs.count {
+      solve(
+        equality: .init(
+          callee.inputs[i].type, constraint.parameters[i].type, because: constraint.cause))
+    }
+    solve(equality: .init(callee.output, constraint.returnType, because: constraint.cause))
   }
 
   /// Attempts to solve the remaining constraints for each individual choice in `disjunction` and
@@ -508,6 +498,29 @@ struct ConstraintSolver {
     }
 
     return s
+  }
+
+  /// Returns `true` if the labels of `l` are compatible with those of `r`. Otherwise, generate
+  /// the appropriate diagnostic and returns `false`.
+  private mutating func checkLabelCompatibility(
+    found: [CallableTypeParameter],
+    expected: [CallableTypeParameter],
+    cause: ConstraintCause
+  ) -> Bool {
+    if found.count != expected.count {
+      diagnostics.append(.diagnose(incompatibleParameterCountAt: cause.origin))
+      return false
+    }
+
+    if zip(found, expected).contains(where: { (a, b) in a.label != b.label }) {
+      diagnostics.append(
+        .diagnose(
+          labels: found.map(\.label), incompatibleWith: expected.map(\.label),
+          at: cause.origin))
+      return false
+    }
+
+    return true
   }
 
 }

@@ -259,15 +259,13 @@ struct ConstraintGenerator {
     }
 
     // Case 2
-    if let calleeType = TypeVariable(inferredTypes[callee]!) {
+    if inferredTypes[callee]!.base is TypeVariable {
       let parameters = visit(arguments: checker.program.ast[id].arguments, using: &checker)
       let returnType = expectedTypes[id] ?? ^TypeVariable(node: AnyNodeID(id))
-      let assumedCalleeType = LambdaType(
-        environment: ^TypeVariable(), inputs: parameters, output: returnType)
 
       constraints.append(
-        EqualityConstraint(
-          ^calleeType, ^assumedCalleeType,
+        FunctionCallConstraint(
+          inferredTypes[callee]!, takes: parameters, andReturns: returnType,
           because: ConstraintCause(.callee, at: checker.program.ast[callee].origin)))
 
       assume(typeOf: id, equals: returnType, at: checker.program.ast[id].origin)
@@ -514,9 +512,9 @@ struct ConstraintGenerator {
       let memberType = expectedTypes[component] ?? ^TypeVariable(node: AnyNodeID(component))
       constraints.append(
         MemberConstraint(
-          parentType!, hasMemberExpressedBy: component, ofType: memberType,
+          parentType!, hasMemberReferredToBy: component, ofType: memberType,
           in: checker.program.ast,
-          cause: ConstraintCause(.member, at: componentOrigin)))
+          because: ConstraintCause(.member, at: componentOrigin)))
       assume(typeOf: component, equals: memberType, at: componentOrigin)
       parentType = memberType
     }
@@ -583,8 +581,9 @@ struct ConstraintGenerator {
       // Create a member constraint for the operator.
       constraints.append(
         MemberConstraint(
-          lhsType, hasMemberExpressedBy: callee.expr, ofType: ^calleeType, in: checker.program.ast,
-          cause: ConstraintCause(.member, at: checker.program.ast[callee.expr].origin)))
+          lhsType, hasMemberReferredToBy: callee.expr, ofType: ^calleeType,
+          in: checker.program.ast,
+          because: ConstraintCause(.member, at: checker.program.ast[callee.expr].origin)))
 
       return outputType
 
