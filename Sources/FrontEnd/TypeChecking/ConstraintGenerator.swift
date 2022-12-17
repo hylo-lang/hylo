@@ -150,8 +150,8 @@ struct ConstraintGenerator {
       // The type of the left operand must be statically known to subtype of the right operand.
       inferredTypes[lhs] = ^TypeVariable(node: lhs.base)
       constraints.append(
-        equalityOrSubtypingConstraint(
-          inferredTypes[lhs]!, target,
+        inferenceConstraint(
+          inferredTypes[lhs]!, isSubtypeOf: target,
           because: ConstraintCause(.cast, at: checker.program.ast[id].origin)))
 
     case .builtinPointerConversion:

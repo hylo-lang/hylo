@@ -357,8 +357,8 @@ public struct TypeChecker {
       // The type of the initializer may be a subtype of the pattern's.
       let initializerType = ^TypeVariable(node: initializer.base)
       shape.constraints.append(
-        equalityOrSubtypingConstraint(
-          initializerType, shape.type,
+        inferenceConstraint(
+          initializerType, isSubtypeOf: shape.type,
           because: ConstraintCause(.initialization, at: program.ast[id].origin)))
 
       // Infer the type of the initializer
@@ -1045,8 +1045,8 @@ public struct TypeChecker {
 
     // Constrain the right to be subtype of the left.
     let rhsType = ^TypeVariable(node: AnyNodeID(program.ast[id].right))
-    let assignmentConstraint = equalityOrSubtypingConstraint(
-      rhsType, lhsType,
+    let assignmentConstraint = inferenceConstraint(
+      rhsType, isSubtypeOf: lhsType,
       because: ConstraintCause(.initializationOrAssignment, at: program.ast[id].origin))
 
     // Infer the type on the right.
@@ -1070,8 +1070,8 @@ public struct TypeChecker {
     if let returnValue = program.ast[id].value {
       // The type of the return value must be subtype of the expected return type.
       let inferredReturnType = ^TypeVariable(node: returnValue.base)
-      let c = equalityOrSubtypingConstraint(
-        inferredReturnType, expectedType,
+      let c = inferenceConstraint(
+        inferredReturnType, isSubtypeOf: expectedType,
         because: ConstraintCause(.return, at: program.ast[returnValue].origin))
       let solution = infer(
         expr: returnValue,
@@ -1097,8 +1097,8 @@ public struct TypeChecker {
 
     // The type of the return value must be subtype of the expected return type.
     let inferredReturnType = ^TypeVariable(node: program.ast[id].value.base)
-    let c = equalityOrSubtypingConstraint(
-      inferredReturnType, expectedType,
+    let c = inferenceConstraint(
+      inferredReturnType, isSubtypeOf: expectedType,
       because: ConstraintCause(.yield, at: program.ast[program.ast[id].value].origin))
     let solution = infer(
       expr: program.ast[id].value,

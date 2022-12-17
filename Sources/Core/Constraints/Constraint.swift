@@ -35,16 +35,20 @@ extension Constraint where Self: Equatable {
 
 }
 
-/// Creates a constraint requiring `l` to be either equal to or a subtype of `r`.
-public func equalityOrSubtypingConstraint(
-  _ l: AnyType,
-  _ r: AnyType,
+/// Creates a constraint, suitable for type inference, requiring `subtype` to be a subtype of
+/// `supertype`.
+///
+/// - Warning: For inference purposes, the result of this function must be used in place of a raw
+///   `SubtypingConstraint` or the type checker will get stuck.
+public func inferenceConstraint(
+  _ subtype: AnyType,
+  isSubtypeOf supertype: AnyType,
   because cause: ConstraintCause
 ) -> DisjunctionConstraint {
   DisjunctionConstraint(
     choices: [
-      .init(constraints: [EqualityConstraint(l, r, because: cause)], penalties: 0),
-      .init(constraints: [SubtypingConstraint(l, r, because: cause)], penalties: 1),
+      .init(constraints: [EqualityConstraint(subtype, supertype, because: cause)], penalties: 0),
+      .init(constraints: [SubtypingConstraint(subtype, supertype, because: cause)], penalties: 1),
     ],
     because: cause)
 }
