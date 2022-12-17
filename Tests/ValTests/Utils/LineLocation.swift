@@ -1,5 +1,6 @@
-import Compiler
+import FrontEnd
 import Foundation
+import Core
 
 /// A line location.
 struct LineLocation: Hashable {

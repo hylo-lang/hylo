@@ -1,6 +1,9 @@
-import Compiler
+import FrontEnd
 import Utils
 import XCTest
+import Core
+import FrontEnd
+import IR
 
 final class EmitterTests: XCTestCase {
 

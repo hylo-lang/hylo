@@ -1,4 +1,5 @@
-import Compiler
+import FrontEnd
+import Core
 
 extension Diagnostic {
 
