@@ -367,7 +367,7 @@ struct ConstraintGenerator {
     let trait = checker.program.ast.coreTrait(named: "ExpressibleByIntegerLiteral")!
     let cause = ConstraintCause(.literal, at: checker.program.ast[id].origin)
 
-    // Constrain the type of the literal to be conforming to `ExpressibleByIntegerLiteral` or,
+    // Constrain the type of the literal to conform to `ExpressibleByIntegerLiteral` or,
     // unless it's been already inferred from context, to be equal to `Int`.
     let expectedType = expectedTypes[id] ?? ^TypeVariable(node: AnyNodeID(id))
     if expectedType.base is TypeVariable {
