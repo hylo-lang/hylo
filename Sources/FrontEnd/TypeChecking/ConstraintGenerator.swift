@@ -290,86 +290,53 @@ struct ConstraintGenerator {
     }
 
     // Case 3b
-    if let c = NodeID<NameExpr>(callee),
+    if
+      let c = NodeID<NameExpr>(callee),
       let d = checker.referredDecls[c]?.decl,
       checker.isNominalTypeDecl(d)
     {
-      assert(inferredTypes[callee]?.base is MetatypeType)
+      let instanceType = MetatypeType(inferredTypes[c]!)!.instance
+      let initName = SourceRepresentable(
+        value: Name(
+          stem: "init",
+          labels: ["self"] + checker.program.ast[id].arguments.map({ $0.label?.value })),
+        range: checker.program.ast[c].name.origin)
+      let initCandidates = checker.resolve(initName, memberOf: instanceType, from: scope)
 
-      switch d.kind {
-      case ProductTypeDecl.self:
-        let initializers = checker.resolve(
-          Name(stem: "init"),
-          introducedInDeclSpaceOf: AnyScopeID(d)!,
-          inScope: scope)
+      // We're done if we couldn't find any initializer.
+      if initCandidates.isEmpty {
+        diagnostics.append(.diagnose(undefinedName: initName.value, at: initName.origin))
+        assignToError(callee)
+        return
+      }
 
-        // Select suitable candidates based on argument labels.
-        let labels = checker.program.ast[id].arguments.map({ $0.label?.value })
-        var candidates: [OverloadConstraint.Candidate] = []
-        for initializer in initializers {
-          // Remove the receiver from the parameter list.
-          let ctor = (initializer.type.base as! LambdaType).ctor()!
+      if let pick = initCandidates.uniqueElement {
+        // Rebind the callee.
+        checker.referredDecls[c] = pick.reference
 
-          if labels.elementsEqual(ctor.labels) {
-            let (ty, cs) = checker.open(type: ^ctor)
-            candidates.append(
-              OverloadConstraint.Candidate(
-                reference: .direct(initializer.decl),
-                type: ty,
-                constraints: cs,
-                penalties: 0))
-          }
-        }
+        // Constrain the callee's type.
+        let (initType, initConstraints) = checker.contextualize(
+          type: pick.type,
+          inScope: checker.program.declToScope[d]!,
+          cause: .init(.callee, at: nil))
+        constraints.append(contentsOf: initConstraints)
 
-        switch candidates.count {
-        case 0:
-          let name = Name(stem: "init", labels: labels)
-          diagnostics.append(
-            .diagnose(undefinedName: "\(name)", at: checker.program.ast[c].name.origin))
+        let calleeType = LambdaType(initType)!.ctor()!
+        inferredTypes[c] = ^calleeType
+
+        // Visit the arguments.
+        if visit(
+          arguments: checker.program.ast[id].arguments,
+          of: checker.program.ast[id].callee,
+          expecting: calleeType.inputs,
+          using: &checker)
+        {
+          assume(typeOf: id, equals: calleeType.output, at: checker.program.ast[id].origin)
+        } else {
           assignToError(id)
-          return
-
-        case 1:
-          // Reassign the referred declaration and type of the name expression.
-          checker.referredDecls[c] = candidates[0].reference
-          inferredTypes[c] = candidates[0].type
-
-          // Apply the callee's constraints.
-          for c in candidates[0].constraints {
-            var newConstraint = c
-            newConstraint.cause = ConstraintCause(.callee, at: checker.program.ast[callee].origin)
-            constraints.append(newConstraint)
-          }
-
-          // Propagate the type of the constructor down.
-          let calleeType = LambdaType(candidates[0].type)!
-          if visit(
-            arguments: checker.program.ast[id].arguments,
-            of: checker.program.ast[id].callee,
-            expecting: calleeType.inputs,
-            using: &checker)
-          {
-            assume(typeOf: id, equals: calleeType.output, at: checker.program.ast[id].origin)
-          } else {
-            assignToError(id)
-          }
-
-        default:
-          // TODO: Handle specializations
-          fatalError("not implemented")
         }
-
-      case TraitDecl.self:
-        let trait = TraitType(NodeID(rawValue: d.rawValue), ast: checker.program.ast)
-        diagnostics.append(
-          .diagnose(cannotConstructTrait: trait, at: checker.program.ast[callee].origin))
-        assignToError(id)
-
-      case TypeAliasDecl.self:
+      } else {
         fatalError("not implemented")
-
-      default:
-        unreachable("unexpected declaration")
       }
 
       return
@@ -501,92 +468,57 @@ struct ConstraintGenerator {
     name id: NodeID<NameExpr>,
     using checker: inout TypeChecker
   ) {
-    // Resolves the name.
-    switch checker.program.ast[id].domain {
-    case .none:
-      let expr = checker.program.ast[id]
-      if checker.isBuiltinModuleVisible && (expr.name.value.stem == "Builtin") {
-        assume(typeOf: id, equals: BuiltinType.module, at: checker.program.ast[id].origin)
-        checker.referredDecls[id] = .direct(AnyDeclID(checker.program.ast.builtinDecl))
-        return
-      }
+    defer { assert(inferredTypes[id] != nil) }
 
-      let candidates = checker.resolve(expr.name.value, inScope: scope)
-      if candidates.isEmpty {
-        diagnostics.append(
-          .diagnose(undefinedName: expr.name.value.description, at: expr.name.origin))
-        assignToError(id)
-        return
-      }
+    // Resolve the nominal prefix of the expression.
+    let resolution = checker.resolve(nominalPrefixOf: id, from: scope)
+    visit(name: id, withNameResolutionResult: resolution, using: &checker)
+  }
 
-      let inferredType: AnyType
-      if let uniqueCandidate = candidates.uniqueElement {
-        // Contextualize the match.
-        let context = checker.program.declToScope[uniqueCandidate.decl]!
-        let (ty, cs) = checker.contextualize(
-          type: uniqueCandidate.type,
-          inScope: context,
-          cause: ConstraintCause(.binding, at: checker.program.ast[id].origin))
-        inferredType = ty
+  private mutating func visit(
+    name id: NodeID<NameExpr>,
+    withNameResolutionResult resolution: TypeChecker.NameResolutionResult,
+    using checker: inout TypeChecker
+  ) {
+    var parentType: AnyType?
+    let unresolvedComponents: [NodeID<NameExpr>]
 
-        // Register associated constraints.
-        constraints.append(contentsOf: cs)
+    switch resolution {
+    case .failed(let undefinedComponent, let parentType):
+      let name = checker.program.ast[undefinedComponent].name
+      diagnostics.append(.diagnose(undefinedName: name.value, in: parentType, at: name.origin))
+      assignToError(id)
+      return
 
-        // Bind the name expression to the referred declaration.
-        if checker.program.isNonStaticMember(uniqueCandidate.decl) {
-          checker.referredDecls[id] = .member(uniqueCandidate.decl)
-        } else {
-          checker.referredDecls[id] = .direct(uniqueCandidate.decl)
-        }
+    case .inexecutable(let suffix):
+      if case .expr(let domainExpr) = checker.program.ast[id].domain {
+        visit(expr: domainExpr, using: &checker)
+        parentType = inferredTypes[domainExpr]!
       } else {
-        // TODO: Create an overload constraint
         fatalError("not implemented")
       }
+      unresolvedComponents = suffix
 
-      assume(typeOf: id, equals: inferredType, at: checker.program.ast[id].origin)
-
-    case .expr(let domain):
-      // Infer the type of the domain.
-      visit(expr: domain, using: &checker)
-      let domainType = inferredTypes[domain]!
-
-      // If we failed to infer the type of the domain, there's nothing more we can do.
-      if case .error = domainType {
-        assignToError(id)
-        return
+    case .done(let prefix, let suffix):
+      for p in prefix {
+        constrain(p.component, to: p.candidates, using: &checker)
+        parentType = inferredTypes[p.component]
       }
 
-      // Handle references to built-in symbols.
-      if domainType == .builtin(.module) {
-        let symbolName = checker.program.ast[id].name.value.stem
+      unresolvedComponents = suffix
+    }
 
-        if let type = BuiltinSymbols[symbolName] {
-          assume(typeOf: id, equals: type, at: checker.program.ast[id].origin)
-          checker.referredDecls[id] = .direct(AnyDeclID(checker.program.ast.builtinDecl))
-        } else if let type = BuiltinType(symbolName) {
-          assume(typeOf: id, equals: type, at: checker.program.ast[id].origin)
-          checker.referredDecls[id] = .direct(AnyDeclID(checker.program.ast.builtinDecl))
-        } else {
-          diagnostics.append(
-            .diagnose(undefinedName: symbolName, at: checker.program.ast[id].name.origin))
-          assignToError(id)
-        }
-
-        return
-      }
-
-      // Map the expression to a fresh variable unless we have top-down type information.
-      let inferredType = expectedTypes[id] ?? ^TypeVariable(node: AnyNodeID(id))
-      assume(typeOf: id, equals: inferredType, at: checker.program.ast[id].origin)
-
-      // Create a member constraint.
+    // Create the necessary constraints to let the solver resolve the remaining components.
+    for component in unresolvedComponents {
+      let componentOrigin = checker.program.ast[component].origin
+      let memberType = expectedTypes[component] ?? ^TypeVariable(node: AnyNodeID(component))
       constraints.append(
         MemberConstraint(
-          domainType, hasMemberExpressedBy: id, ofType: inferredType, in: checker.program.ast,
-          cause: ConstraintCause(.member, at: checker.program.ast[id].origin)))
-
-    case .implicit:
-      fatalError("not implemented")
+          parentType!, hasMemberExpressedBy: component, ofType: memberType,
+          in: checker.program.ast,
+          cause: ConstraintCause(.member, at: componentOrigin)))
+      assume(typeOf: component, equals: memberType, at: componentOrigin)
+      parentType = memberType
     }
   }
 
@@ -1003,6 +935,55 @@ struct ConstraintGenerator {
 
   private mutating func assignToError<ID: ExprID>(_ id: ID) {
     inferredTypes[id] = .error
+  }
+
+  /// Constrains `name` to be a reference to either of the declarations in `candidates`.
+  ///
+  /// - Requires: `candidates` is not empty
+  private mutating func constrain(
+    _ name: NodeID<NameExpr>,
+    to candidates: [(reference: DeclRef, type: AnyType)],
+    using checker: inout TypeChecker
+  ) {
+    precondition(!candidates.isEmpty)
+    let constrainOrigin = checker.program.ast[name].origin
+
+    if let pick = candidates.uniqueElement {
+      // Contextualize the candidate's type.
+      let declScope = checker.program.declToScope[pick.reference.decl, default: scope]
+      let (nameType, nameConstraints) = checker.contextualize(
+        type: pick.type,
+        inScope: declScope,
+        cause: ConstraintCause(.binding, at: constrainOrigin))
+
+      // Bind the component to the resolved declaration and store its type.
+      checker.referredDecls[name] = pick.reference
+      assume(typeOf: name, equals: nameType, at: constrainOrigin)
+      constraints.append(contentsOf: nameConstraints)
+    } else {
+      // Create an overload set.
+      let overloads: [OverloadConstraint.Candidate] = candidates.map({ (candidate) in
+        // Contextualize the candidate's type.
+        let (pickType, pickConstraints) = checker.contextualize(
+          type: candidate.type,
+          inScope: checker.program.declToScope[candidate.reference.decl]!,
+          cause: ConstraintCause(.binding, at: constrainOrigin))
+
+        return .init(
+          reference: candidate.reference,
+          type: pickType,
+          constraints: pickConstraints,
+          penalties: 0)
+      })
+
+      // Constrain the name to refer to one of the overloads.
+      let nameType = expectedTypes[name] ?? ^TypeVariable(node: AnyNodeID(name))
+      constraints.append(
+        OverloadConstraint(name, withType: nameType,
+          refersToOneOf: overloads,
+          because: ConstraintCause(.binding, at: constrainOrigin)))
+      assume(typeOf: name, equals: nameType, at: constrainOrigin)
+    }
   }
 
 }

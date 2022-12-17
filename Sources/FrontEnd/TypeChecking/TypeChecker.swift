@@ -1672,59 +1672,180 @@ public struct TypeChecker {
   /// through qualified lookups into the extended type.
   private var extensionsUnderBinding = DeclSet()
 
-  /// Returns the well-typed declarations to which the specified name may refer, along with their
-  /// overarching uncontextualized types. Ill-typed declarations are ignored.
+  /// The result of a name resolution request.
+  enum NameResolutionResult {
+
+    /// The resolut of name resolution for a single name component.
+    struct ResolvedComponent {
+
+      /// The resolved component.
+      let component: NodeID<NameExpr>
+
+      /// The declarations to which the component may refer.
+      let candidates: [(reference: DeclRef, type: AnyType)]
+
+      /// Creates an instance with the given properties.
+      init(_ component: NodeID<NameExpr>, _ candidates: [(reference: DeclRef, type: AnyType)]) {
+        self.component = component
+        self.candidates = candidates
+      }
+
+    }
+
+    /// Name resolution applied on the nominal prefix that doesn't require any overload resolution.
+    /// The payload contains the collections of resolved and unresolved components.
+    case done(resolved: [ResolvedComponent], unresolved: [NodeID<NameExpr>])
+
+    /// Name resolution failed. The payload contains the undefined component along with the type
+    /// in which it was looked up, or `nil` if the component is the expression's first component.
+    case failed(component: NodeID<NameExpr>, parentType: AnyType?)
+
+    /// Name resolution couln't start because the first component of the expression isn't a name
+    /// The payload contains the collection of unresolved components, after the first one.
+    case inexecutable(_ components: [NodeID<NameExpr>])
+
+  }
+
+  /// Resolves the name components of `nameExpr` from left to right until multiple candidate
+  /// declarations are found for a single component, or name resolution failed.
   mutating func resolve(
-    _ name: Name,
-    introducedInDeclSpaceOf lookupContext: AnyScopeID? = nil,
-    inScope origin: AnyScopeID
-  ) -> [(decl: AnyDeclID, type: AnyType)] {
-    // Search for the referred declaration.
-    var matches: TypeChecker.DeclSet
-    if let ctx = lookupContext {
-      matches = lookup(name.stem, introducedInDeclSpaceOf: ctx, inScope: origin)
-    } else {
-      matches = lookup(unqualified: name.stem, inScope: origin)
-      if !matches.isEmpty && matches.isSubset(of: bindingsUnderChecking) {
-        matches = lookup(unqualified: name.stem, inScope: program.scopeToParent[origin]!)
+    nominalPrefixOf nameExpr: NodeID<NameExpr>,
+    from lookupScope: AnyScopeID
+  ) -> NameResolutionResult {
+    // Build a stack with the nominal comonents of `nameExpr` or exit if its qualification is
+    // either implicit or prefixed by an expression.
+    var unresolvedComponents = [nameExpr]
+    loop: while true {
+      switch program.ast[unresolvedComponents.last!].domain {
+      case .implicit:
+        return .inexecutable(unresolvedComponents)
+
+      case .expr(let e):
+        guard let domain = NodeID<NameExpr>(e) else { return .inexecutable(unresolvedComponents) }
+        unresolvedComponents.append(domain)
+
+      case .none:
+        break loop
       }
     }
 
-    // Bail out if there are no matches.
-    if matches.isEmpty { return [] }
+    // Resolve the nominal components of `nameExpr` from left to right as long as we don't need
+    // contextual information to resolve overload sets.
+    var resolvedPrefix: [NameResolutionResult.ResolvedComponent] = []
+    var parentType: AnyType? = nil
 
-    // TODO: Filter by labels and operator notation
+    while let component = unresolvedComponents.popLast() {
+      // Resolve the component.
+      let candidates = resolve(
+        program.ast[component].name, memberOf: parentType, from: lookupScope)
+      resolvedPrefix.append(.init(component, candidates))
 
-    // If the looked up name has a method introducer, it must refer to a method implementation.
-    if let introducer = name.introducer {
+      if candidates.isEmpty {
+        return .failed(component: component, parentType: parentType)
+      } else if candidates.count > 1 {
+        break
+      }
+
+      // If the candidate is a direct reference to a type declaration, the next component should be
+      // looked up in the referred type's declaration space rather than that of its metatype.
+      if isNominalTypeDecl(candidates[0].reference.decl) {
+        parentType = MetatypeType(candidates[0].type)!.instance
+      } else {
+        parentType = candidates[0].type
+      }
+    }
+
+    return .done(resolved: resolvedPrefix, unresolved: unresolvedComponents)
+  }
+
+  /// Resolves the declarations identified by `name` and exposed to `lookupScope` using qualified
+  /// lookup in the declaration space of `parentType` if it's not `nil`. Otherwise, use unqualified
+  /// lookup from `lookupScope`.
+  mutating func resolve(
+    _ name: SourceRepresentable<Name>,
+    memberOf parentType: AnyType?,
+    from lookupScope: AnyScopeID
+  ) -> [(reference: DeclRef, type: AnyType)] {
+    // Handle references to the built-in module.
+    if (name.value.stem == "Builtin") && (parentType == nil) && isBuiltinModuleVisible {
+      let ref: DeclRef = .direct(AnyDeclID(program.ast.builtinDecl))
+      return [(reference: ref, type: ^BuiltinType.module)]
+    }
+
+    // Handle references to built-in symbols.
+    if parentType == .builtin(.module) {
+      return resolve(builtin: name.value)
+    }
+
+    // Search for the declarations of `name`.
+    var matches: TypeChecker.DeclSet
+    if let t = parentType {
+      matches = lookup(name.value.stem, memberOf: t, inScope: lookupScope)
+    } else {
+      matches = lookup(unqualified: name.value.stem, inScope: lookupScope)
+    }
+
+    // Filter out candidates whose argument labels do not match.
+    if !name.value.labels.isEmpty {
+      matches = filter(decls: matches, withLabels: name.value.labels)
+    }
+
+    // Filter out candidates whose operator notation does not match.
+    if let notation = name.value.notation {
+      matches = filter(decls: matches, withNotation: notation)
+    }
+
+    // If the looked up name has an introducer, select the corresponding implementation.
+    if let introducer = name.value.introducer {
       matches = Set(
         matches.compactMap({ (match) -> AnyDeclID? in
-          guard let decl = NodeID<MethodDecl>(match) else { return nil }
-
-          // TODO: Synthesize missing method implementations
-          if let impl = program.ast[decl].impls.first(where: { (i) in
-            program.ast[i].introducer.value == introducer
-          }) {
-            return AnyDeclID(impl)
-          } else {
-            return nil
-          }
+          guard
+            let decl = program.ast[NodeID<MethodDecl>(match)],
+            let impl = decl.impls.first(where: { (i) in
+              program.ast[i].introducer.value == introducer
+            })
+          else { return nil }
+          return AnyDeclID(impl)
         }))
     }
 
-    // Returns the matches along with their contextual type and associated constraints.
-    return matches.compactMap({ (match) -> (AnyDeclID, AnyType)? in
-      // Realize the type of the declaration.
-      var matchType = realize(decl: match)
+    // Realize the types of the matches and determine how they are being referred to.
+    let isMemberContext = program.isMemberContext(lookupScope)
+    return matches.compactMap({ (matchDecl) -> (reference: DeclRef, type: AnyType)? in
+      // Filter out ill-formed declarations.
+      var matchType = realize(decl: matchDecl)
       if matchType.isError { return nil }
 
+      // TODO: Apply the component's arguments
+
       // Erase parameter conventions.
-      if let t = matchType.base as? ParameterType {
+      if let t = ParameterType(matchType) {
         matchType = t.bareType
       }
 
-      return (match, matchType)
+      // Determine how the declaration is being referenced.
+      let ref: DeclRef
+      if isMemberContext && program.isMember(matchDecl) {
+        ref = .member(matchDecl)
+      } else {
+        ref = .direct(matchDecl)
+      }
+
+      return (reference: ref, type: matchType)
     })
+  }
+
+  /// Resolves a reference to the built-in symbol named `name`.
+  private func resolve(builtin name: Name) -> [(reference: DeclRef, type: AnyType)] {
+    let ref: DeclRef = .direct(AnyDeclID(program.ast.builtinDecl))
+
+    if let type = BuiltinSymbols[name.stem] {
+      return [(reference: ref, type: ^type)]
+    }
+    if let type = BuiltinType(name.stem) {
+      return [(reference: ref, type: ^type)]
+    }
+    return []
   }
 
   /// Returns the declarations that expose `name` without qualification in `scope`.
@@ -1749,6 +1870,7 @@ public struct TypeChecker {
 
       // Search for the name in the current scope.
       let newMatches = lookup(name, introducedInDeclSpaceOf: scope, inScope: origin)
+        .subtracting(bindingsUnderChecking)
 
       // We can assume the matches are either empty or all overloadable.
       matches.formUnion(newMatches)
@@ -3240,6 +3362,57 @@ public struct TypeChecker {
     var r: Self = .init(program: program)
     swap(&r, &self)
     return r
+  }
+
+  /// Returns the function, method, and subscript declarations in `decls` whose argument labels
+  /// match `labels`.
+  private mutating func filter(decls: DeclSet, withLabels labels: [String?]) -> DeclSet {
+    decls.filter({ (d) -> Bool in
+      switch d.kind {
+      case FunctionDecl.self:
+        let decl = program.ast[NodeID<FunctionDecl>(rawValue: d.rawValue)]
+        return labels == decl.parameters.map({ (p) in program.ast[p].label?.value })
+
+      case InitializerDecl.self:
+        guard let type = LambdaType(realize(initializerDecl: NodeID(rawValue: d.rawValue))) else {
+          return false
+        }
+        return labels == type.inputs.map({ (p) in p.label })
+
+      case MethodDecl.self:
+        let decl = program.ast[NodeID<MethodDecl>(rawValue: d.rawValue)]
+        return labels == decl.parameters.map({ (p) in program.ast[p].label?.value })
+
+      case SubscriptDecl.self:
+        let decl = program.ast[NodeID<SubscriptDecl>(rawValue: d.rawValue)]
+        if let parameters = decl.parameters {
+          return labels == parameters.map({ (p) in program.ast[p].label?.value })
+        } else {
+          return false
+        }
+
+      default:
+        return false
+      }
+    })
+  }
+
+  /// Returns the function and method declarations in `decls` witht the given operator notation.
+  private func filter(decls: DeclSet, withNotation notation: OperatorNotation) -> DeclSet {
+    decls.filter({ (d) -> Bool in
+      switch d.kind {
+      case FunctionDecl.self:
+        let decl = program.ast[NodeID<FunctionDecl>(rawValue: d.rawValue)]
+        return decl.notation?.value == notation
+
+      case MethodDecl.self:
+        let decl = program.ast[NodeID<MethodDecl>(rawValue: d.rawValue)]
+        return decl.notation?.value == notation
+
+      default:
+        return false
+      }
+    })
   }
 
 }
