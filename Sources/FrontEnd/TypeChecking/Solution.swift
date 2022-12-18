@@ -47,7 +47,7 @@ struct Solution {
   }
 
   /// The type assumptions made by the solver.
-  private let typeAssumptions: [TypeVariable: AnyType]
+  let typeAssumptions: [TypeVariable: AnyType]
 
   /// The name binding assumptions made by the solver.
   let bindingAssumptions: [NodeID<NameExpr>: DeclRef]

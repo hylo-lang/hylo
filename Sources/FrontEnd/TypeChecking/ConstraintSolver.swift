@@ -4,8 +4,8 @@ import Core
 /// A constraint system solver.
 struct ConstraintSolver {
 
-  /// The result of exploring one branch of a disjunction.
-  private typealias BranchingResult<T> = (choice: T, solution: Solution)
+  /// A type that's used to compare competing solutions.
+  public let comparator: AnyType
 
   /// The scope in which the constraints are solved.
   private let scope: AnyScopeID
@@ -31,8 +31,10 @@ struct ConstraintSolver {
   /// The score of the best solution computed so far.
   private var best = Solution.Score.worst
 
-  /// Creates an instance that solves the constraints in `fresh` in `scope`.
-  init(scope: AnyScopeID, fresh: [Constraint]) {
+  /// Creates an instance that solves the constraints in `fresh` in `scope`, using `comparator` to
+  /// choose between competing solutions.
+  init(scope: AnyScopeID, fresh: [Constraint], comparingSolutionsWith comparator: AnyType) {
+    self.comparator = comparator
     self.scope = scope
     self.fresh = fresh
   }
@@ -76,7 +78,7 @@ struct ConstraintSolver {
       }
     }
 
-    return finalize(using: &checker)
+    return finalize()
   }
 
   /// Eliminates `L : T1 & ... & Tn` if the solver has enough information to check whether or not
@@ -367,12 +369,16 @@ struct ConstraintSolver {
     disjunction constraint: DisjunctionConstraint,
     using checker: inout TypeChecker
   ) -> Solution? {
-    let bestChoice = explore(
+    explore(
       constraint.choices,
       cause: constraint.cause,
-      using: &checker)
-
-    return bestChoice?.solution
+      using: &checker,
+      configuringSubSolversWith: { (solver, choice) in
+        solver.penalties += choice.penalties
+        for c in choice.constraints {
+          solver.schedule(c)
+        }
+      })
   }
 
   /// Attempts to solve the remaining constraints with each individual choice in `overload` and
@@ -381,17 +387,17 @@ struct ConstraintSolver {
     overload constraint: OverloadConstraint,
     using checker: inout TypeChecker
   ) -> Solution? {
-    let bestChoice = explore(
+    explore(
       constraint.choices,
       cause: constraint.cause,
-      using: &checker)
-
-    if let (choice, solution) = bestChoice {
-      bindingAssumptions[constraint.overloadedExpr] = choice.reference
-      return solution
-    } else {
-      return nil
-    }
+      using: &checker,
+      configuringSubSolversWith: { (solver, choice) in
+        solver.penalties += choice.penalties
+        solver.bindingAssumptions[constraint.overloadedExpr] = choice.reference
+        for c in choice.constraints {
+          solver.schedule(c)
+        }
+      })
   }
 
   /// Solves the remaining constraint with each given choice and returns the best solution along
@@ -399,11 +405,12 @@ struct ConstraintSolver {
   private mutating func explore<C: Collection>(
     _ choices: C,
     cause: ConstraintCause?,
-    using checker: inout TypeChecker
-  ) -> BranchingResult<C.Element>?
+    using checker: inout TypeChecker,
+    configuringSubSolversWith configureSubSolver: (inout Self, C.Element) -> Void
+  ) -> Solution?
   where C.Element: Choice {
     /// The results of the exploration.
-    var results: [BranchingResult<C.Element>] = []
+    var results: [Solution] = []
 
     for choice in choices {
       // Don't bother if there's no chance to find a better solution.
@@ -414,20 +421,12 @@ struct ConstraintSolver {
       }
 
       // Explore the result of this choice.
-      var subsolver = self
-      subsolver.penalties += choice.penalties
-      for c in choice.constraints {
-        subsolver.schedule(c)
-      }
-      guard let solution = subsolver.solve(using: &checker) else { continue }
+      var subSolver = self
+      configureSubSolver(&subSolver, choice)
+      guard let newSolution = subSolver.solve(using: &checker) else { continue }
 
-      if results.isEmpty || (solution.score < best) {
-        best = solution.score
-        results = [(choice, solution)]
-      } else if solution.score == best {
-        // TODO: Avoid duplicates
-        results.append((choice, solution))
-      }
+      // Insert the new result.
+      insert(newSolution, into: &results, using: &checker)
     }
 
     switch results.count {
@@ -439,9 +438,55 @@ struct ConstraintSolver {
 
     default:
       // TODO: Merge remaining solutions
-      results[0].solution.addDiagnostic(.diagnose(ambiguousDisjunctionAt: cause?.origin))
+      results[0].addDiagnostic(.diagnose(ambiguousDisjunctionAt: cause?.origin))
       return results[0]
     }
+  }
+
+  /// Inserts `newSolution` into `solutions` if its solution is better than or incomparable to any
+  /// of the latter's elements.
+  private mutating func insert(
+    _ newSolution: Solution,
+    into solutions: inout [Solution],
+    using checker: inout TypeChecker
+  ) {
+    // Ignore worse solutions.
+    if newSolution.score > best { return }
+
+    // Fast path: if the new solution has a better score, discard all others.
+    if solutions.isEmpty || (newSolution.score < best) {
+      best = newSolution.score
+      solutions = [newSolution]
+      return
+    }
+
+    // Slow path: inspect how the solution compares with the ones we have.
+    let lhs = newSolution.reify(comparator, withVariables: .substituteByError)
+    var i = 0
+    while i < solutions.count {
+      let rhs = solutions[i].reify(comparator, withVariables: .substituteByError)
+      if lhs == rhs {
+        // Check if the new solution binds name expressions to more specialized declarations.
+        switch checker.compareSolutionBindings(newSolution, solutions[0]) {
+        case .coarser, .equal:
+          // Note: If the new solution is coarser than the current one, then all other current
+          // solutions are either finer or equal to the new one.
+          return
+        case .incomparable:
+          i += 1
+        case .finer:
+          solutions.remove(at: i)
+        }
+      } else if checker.isStrictSubtype(lhs, rhs) {
+        // The new solution is finer; discard the current one.
+        solutions.remove(at: i)
+      } else {
+        // The new solution is incomparable; keep the current one.
+        i += 1
+      }
+    }
+
+    solutions.append(newSolution)
   }
 
   /// Schedules `constraint` to be solved.
@@ -465,19 +510,13 @@ struct ConstraintSolver {
   }
 
   /// Creates a solution from the current state.
-  private func finalize(using checker: inout TypeChecker) -> Solution {
+  private func finalize() -> Solution {
     assert(fresh.isEmpty)
-    var s = Solution(
+    return Solution(
       typeAssumptions: typeAssumptions.asDictionary(),
       bindingAssumptions: bindingAssumptions,
       penalties: penalties,
-      diagnostics: diagnostics)
-
-    for c in stale {
-      s.addDiagnostic(.diagnose(staleConstraint: c))
-    }
-
-    return s
+      diagnostics: diagnostics + stale.map(Diagnostic.diagnose(staleConstraint:)))
   }
 
   /// Returns `true` if the labels of `l` are compatible with those of `r`. Otherwise, generate
@@ -573,3 +612,45 @@ private protocol Choice {
 extension DisjunctionConstraint.Choice: Choice {}
 
 extension OverloadConstraint.Candidate: Choice {}
+
+extension TypeChecker {
+
+  fileprivate enum SolutionBingindsComparison {
+
+    case incomparable
+
+    case equal
+
+    case finer
+
+    case coarser
+
+  }
+
+  fileprivate func compareSolutionBindings(
+    _ lhs: Solution,
+    _ rhs: Solution
+  ) -> SolutionBingindsComparison {
+    var namesInCommon = 0
+    for (n, lhsDecl) in lhs.bindingAssumptions {
+      guard let rhsDecl = rhs.bindingAssumptions[n] else { continue }
+      namesInCommon += 1
+
+      let l = declTypes[lhsDecl.decl]!
+      let r = declTypes[rhsDecl.decl]!
+
+      // TODO: use a refinement relation
+
+      if l != r { return .incomparable }
+    }
+
+    if lhs.bindingAssumptions.count == rhs.bindingAssumptions.count {
+      return namesInCommon == lhs.bindingAssumptions.count ? .equal : .incomparable
+    } else if lhs.bindingAssumptions.count < rhs.bindingAssumptions.count {
+      return namesInCommon == lhs.bindingAssumptions.count ? .coarser : .incomparable
+    } else {
+      return namesInCommon == rhs.bindingAssumptions.count ? .finer : .incomparable
+    }
+  }
+
+}

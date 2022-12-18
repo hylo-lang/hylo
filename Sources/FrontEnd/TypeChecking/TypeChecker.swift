@@ -42,6 +42,12 @@ public struct TypeChecker {
 
   // MARK: Type system
 
+  /// Returns whether `lhs` is a strict subtype of `rhs`.
+  public func isStrictSubtype(_ lhs: AnyType, _ rhs: AnyType) -> Bool {
+    // TODO: Implement me
+    return false
+  }
+
   /// Returns the canonical form of `type`.
   public func canonicalize(type: AnyType) -> AnyType {
     if type[.isCanonical] { return type }
@@ -1488,7 +1494,8 @@ public struct TypeChecker {
     // Solve the constraints.
     var solver = ConstraintSolver(
       scope: AnyScopeID(scope),
-      fresh: initialConstraints + constraintGeneration.constraints)
+      fresh: initialConstraints + constraintGeneration.constraints,
+      comparingSolutionsWith: constraintGeneration.inferredTypes[expr]!)
     var solution = solver.apply(using: &self)
     solution.addDiagnostics(constraintGeneration.diagnostics)
 
