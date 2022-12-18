@@ -7,7 +7,7 @@ public struct ConformanceConstraint: Constraint, Hashable {
   /// The traits to which `subject` must conform.
   public let traits: Set<TraitType>
 
-  public var cause: ConstraintCause
+  public let cause: ConstraintCause
 
   /// Creates an instance with the given properties.
   public init(

@@ -25,7 +25,7 @@ public struct DisjunctionConstraint: Constraint, Hashable {
   /// The choices of the disjunction.
   public private(set) var choices: [Choice]
 
-  public var cause: ConstraintCause
+  public let cause: ConstraintCause
 
   /// Creates an instance with two or more minterms.
   ///

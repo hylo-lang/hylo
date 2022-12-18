@@ -13,7 +13,7 @@ public struct MemberConstraint: Constraint, Hashable {
   /// The right operand.
   public private(set) var memberType: AnyType
 
-  public var cause: ConstraintCause
+  public let cause: ConstraintCause
 
   /// Creates a constraint requiring `subject` to have a member of type `memberType` and whose
   /// name is expressed by `memberExpr` in the AST.

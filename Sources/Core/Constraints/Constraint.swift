@@ -6,7 +6,7 @@
 public protocol Constraint {
 
   /// The cause of the constraint.
-  var cause: ConstraintCause { get set }
+  var cause: ConstraintCause { get }
 
   /// Applies `modify` on the types that are part of `self`.
   mutating func modifyTypes(_ modify: (inout AnyType) -> Void)
