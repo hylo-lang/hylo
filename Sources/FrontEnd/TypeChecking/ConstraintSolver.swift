@@ -4,6 +4,9 @@ import Core
 /// A constraint system solver.
 struct ConstraintSolver {
 
+  /// The result of exploring one branch of a disjunction.
+  private typealias BranchingResult<T> = (choice: T, solution: Solution)
+
   /// The scope in which the constraints are solved.
   private let scope: AnyScopeID
 
@@ -397,10 +400,10 @@ struct ConstraintSolver {
     _ choices: C,
     cause: ConstraintCause?,
     using checker: inout TypeChecker
-  ) -> (choice: C.Element, solution: Solution)?
+  ) -> BranchingResult<C.Element>?
   where C.Element: Choice {
     /// The results of the exploration.
-    var results: [(choice: C.Element, solution: Solution)] = []
+    var results: [BranchingResult<C.Element>] = []
 
     for choice in choices {
       // Don't bother if there's no chance to find a better solution.
