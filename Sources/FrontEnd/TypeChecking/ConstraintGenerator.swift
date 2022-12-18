@@ -410,11 +410,11 @@ struct ConstraintGenerator {
       }
 
       // Check that the declaration defines the expected argument labels.
-      if !declType.labels.elementsEqual(expectedType.labels) {
+      if !declType.inputs.elementsEqual(expectedType.inputs, by: { $0.label == $1.label }) {
         diagnostics.append(
           .diagnose(
-            labels: Array(declType.labels),
-            incompatibleWith: Array(expectedType.labels),
+            labels: declType.inputs.map(\.label),
+            incompatibleWith: expectedType.inputs.map(\.label),
             at: checker.program.ast[id].origin))
         assignToError(id)
         return

@@ -128,20 +128,8 @@ struct ConstraintSolver {
       refresh(constraintsDependingOn: tau)
 
     case (let l as TupleType, let r as TupleType):
-      switch l.testLabelCompatibility(with: r) {
-      case .differentLengths:
-        diagnostics.append(.diagnose(incompatibleTupleLengthsAt: constraint.cause.origin))
-        return
-
-      case .differentLabels(let found, let expected):
-        diagnostics.append(
-          .diagnose(
-            labels: found, incompatibleWith: expected, at: constraint.cause.origin))
-        return
-
-      case .compatible:
-        break
-      }
+      // Make sure `L` and `R` are structurally compatible.
+      if !checkStructuralCompatibility(l, r, cause: constraint.cause) { return }
 
       // Break down the constraint.
       for i in 0 ..< l.elements.count {
@@ -348,7 +336,7 @@ struct ConstraintSolver {
     }
 
     // Make sure `F` structurally matches the given parameter list.
-    if !checkLabelCompatibility(
+    if !checkStructuralCompatibility(
       found: constraint.parameters, expected: callee.inputs, cause: constraint.cause)
     {
       return
@@ -519,22 +507,22 @@ struct ConstraintSolver {
       diagnostics: diagnostics + stale.map(Diagnostic.diagnose(staleConstraint:)))
   }
 
-  /// Returns `true` if the labels of `l` are compatible with those of `r`. Otherwise, generate
-  /// the appropriate diagnostic and returns `false`.
-  private mutating func checkLabelCompatibility(
-    found: [CallableTypeParameter],
-    expected: [CallableTypeParameter],
+  /// Returns `true` if `lhs` is structurally compatible with `rhs`. Otherwise, generates the
+  /// appropriate diagnostic(s) and returns `false`.
+  private mutating func checkStructuralCompatibility(
+    found lhs: [CallableTypeParameter],
+    expected rhs: [CallableTypeParameter],
     cause: ConstraintCause
   ) -> Bool {
-    if found.count != expected.count {
+    if lhs.count != rhs.count {
       diagnostics.append(.diagnose(incompatibleParameterCountAt: cause.origin))
       return false
     }
 
-    if zip(found, expected).contains(where: { (a, b) in a.label != b.label }) {
+    if zip(lhs, rhs).contains(where: { (a, b) in a.label != b.label }) {
       diagnostics.append(
         .diagnose(
-          labels: found.map(\.label), incompatibleWith: expected.map(\.label),
+          labels: lhs.map(\.label), incompatibleWith: rhs.map(\.label),
           at: cause.origin))
       return false
     }
@@ -542,58 +530,27 @@ struct ConstraintSolver {
     return true
   }
 
-}
-
-/// The result of a label compatibility test.
-private enum LabelCompatibility {
-
-  case compatible
-
-  case differentLengths
-
-  case differentLabels(found: [String?], expected: [String?])
-
-}
-
-/// A collection of labeled elements.
-private protocol LabeledCollection {
-
-  associatedtype Labels: Collection where Labels.Element == String?
-
-  /// A collection with the labels corresponding to each element in `self`.
-  var labels: Labels { get }
-
-}
-
-extension LabeledCollection {
-
-  /// Tests whether `self` and `other` have compatible labels.
-  func testLabelCompatibility<T: LabeledCollection>(with other: T) -> LabelCompatibility {
-    let (ls, rs) = (self.labels, other.labels)
-
-    if ls.count != rs.count {
-      return .differentLengths
+  /// Returns `true` if `l` is structurally compatible with `r` . Otherwise, generates the
+  /// appropriate diagnostic(s) and returns `false`.
+  private mutating func checkStructuralCompatibility(
+    _ lhs: TupleType,
+    _ rhs: TupleType,
+    cause: ConstraintCause
+  ) -> Bool {
+    if lhs.elements.count != rhs.elements.count {
+      diagnostics.append(.diagnose(incompatibleTupleLengthsAt: cause.origin))
+      return false
     }
-    for (l, r) in zip(ls, rs) {
-      if l != r { return .differentLabels(found: Array(ls), expected: Array(rs)) }
+
+    if zip(lhs.elements, rhs.elements).contains(where: { (a, b) in a.label != b.label }) {
+      diagnostics.append(
+        .diagnose(
+          labels: lhs.elements.map(\.label), incompatibleWith: rhs.elements.map(\.label),
+          at: cause.origin))
+      return false
     }
-    return .compatible
-  }
 
-}
-
-extension LambdaType: LabeledCollection {
-
-  var labels: LazyMapSequence<LazySequence<[CallableTypeParameter]>.Elements, String?> {
-    inputs.lazy.map({ $0.label })
-  }
-
-}
-
-extension TupleType: LabeledCollection {
-
-  var labels: LazyMapSequence<LazySequence<[TupleType.Element]>.Elements, String?> {
-    elements.lazy.map({ $0.label })
+    return true
   }
 
 }
