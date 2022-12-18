@@ -390,13 +390,12 @@ struct ConstraintSolver {
 
   /// Solves the remaining constraint with each given choice and returns the best solution along
   /// with the choice that produced it.
-  private mutating func explore<C: Collection>(
-    _ choices: C,
+  private mutating func explore<Choices: Collection>(
+    _ choices: Choices,
     cause: ConstraintCause?,
     using checker: inout TypeChecker,
-    configuringSubSolversWith configureSubSolver: (inout Self, C.Element) -> Void
-  ) -> Solution?
-  where C.Element: Choice {
+    configuringSubSolversWith configureSubSolver: (inout Self, Choices.Element) -> Void
+  ) -> Solution? where Choices.Element: Choice {
     /// The results of the exploration.
     var results: [Solution] = []
 
