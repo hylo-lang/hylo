@@ -1,0 +1,20 @@
+//! expect-success
+
+fun fn(x: Int) -> Int {
+  fatal_error()
+}
+
+fun fn(x: Double) -> Double {
+  fatal_error()
+}
+
+fun fn<T>(x: T) -> T {
+  fatal_error()
+}
+
+public fun main() {
+  let _ = fn(x: 1)
+  let _ = fn(x: true)
+  let _ : Int = fn(x: 1)
+  let _ : Double = fn(x: 1)
+}

@@ -33,10 +33,14 @@ struct ConstraintSolver {
 
   /// Creates an instance that solves the constraints in `fresh` in `scope`, using `comparator` to
   /// choose between competing solutions.
-  init(scope: AnyScopeID, fresh: [Constraint], comparingSolutionsWith comparator: AnyType) {
+  init<S: Sequence>(
+    scope: AnyScopeID,
+    fresh: S,
+    comparingSolutionsWith comparator: AnyType
+  ) where S.Element == Constraint {
     self.comparator = comparator
     self.scope = scope
-    self.fresh = fresh
+    self.fresh = Array(fresh)
   }
 
   /// The current score of the solver's solution.
@@ -454,15 +458,17 @@ struct ConstraintSolver {
       let rhs = solutions[i].reify(comparator, withVariables: .substituteByError)
       if lhs == rhs {
         // Check if the new solution binds name expressions to more specialized declarations.
-        switch checker.compareSolutionBindings(newSolution, solutions[0]) {
-        case .coarser, .equal:
+        switch checker.compareSolutionBindings(newSolution, solutions[0], scope: scope) {
+        case .comparable(.coarser), .comparable(.equal):
           // Note: If the new solution is coarser than the current one, then all other current
           // solutions are either finer or equal to the new one.
           return
+
+        case .comparable(.finer):
+          solutions.remove(at: i)
+
         case .incomparable:
           i += 1
-        case .finer:
-          solutions.remove(at: i)
         }
       } else if checker.isStrictSubtype(lhs, rhs) {
         // The new solution is finer; discard the current one.
@@ -573,40 +579,117 @@ extension TypeChecker {
 
   fileprivate enum SolutionBingindsComparison {
 
+    enum Ranking: Int8, Comparable {
+
+      case finer = -1
+
+      case equal = 0
+
+      case coarser = 1
+
+      static func < (l: Self, r: Self) -> Bool {
+        l.rawValue < r.rawValue
+      }
+
+    }
+
     case incomparable
 
-    case equal
-
-    case finer
-
-    case coarser
+    case comparable(Ranking)
 
   }
 
-  fileprivate func compareSolutionBindings(
+  fileprivate mutating func compareSolutionBindings(
     _ lhs: Solution,
-    _ rhs: Solution
+    _ rhs: Solution,
+    scope: AnyScopeID
   ) -> SolutionBingindsComparison {
+    var ranking: SolutionBingindsComparison.Ranking = .equal
     var namesInCommon = 0
-    for (n, lhsDecl) in lhs.bindingAssumptions {
-      guard let rhsDecl = rhs.bindingAssumptions[n] else { continue }
+
+    for (n, lhsDeclRef) in lhs.bindingAssumptions {
+      guard let rhsDeclRef = rhs.bindingAssumptions[n] else { continue }
       namesInCommon += 1
 
-      let l = declTypes[lhsDecl.decl]!
-      let r = declTypes[rhsDecl.decl]!
+      // Nothing to do if both functions have the binding.
+      if lhsDeclRef == rhsDeclRef { continue }
+      let lhs = declTypes[lhsDeclRef.decl]!
+      let rhs = declTypes[rhsDeclRef.decl]!
 
-      // TODO: use a refinement relation
+      switch (lhs.base, rhs.base) {
+      case (let l as CallableType, let r as CallableType):
+        // Candidates must accept the same number of arguments and have the same labels.
+        guard
+          l.inputs.count == r.inputs.count,
+          l.inputs.elementsEqual(r.inputs, by: { $0.label == $1.label })
+        else { return .incomparable }
 
-      if l != r { return .incomparable }
+        // Rank the candidates.
+        if refines(lhs, rhs, scope: scope) {
+          if ranking > .equal { return .incomparable }
+          ranking = .finer
+        }
+        if refines(rhs, lhs, scope: scope) {
+          if ranking < .equal { return .incomparable }
+          ranking = .coarser
+        }
+
+      default:
+        return .incomparable
+      }
     }
 
-    if lhs.bindingAssumptions.count == rhs.bindingAssumptions.count {
-      return namesInCommon == lhs.bindingAssumptions.count ? .equal : .incomparable
-    } else if lhs.bindingAssumptions.count < rhs.bindingAssumptions.count {
-      return namesInCommon == lhs.bindingAssumptions.count ? .coarser : .incomparable
-    } else {
-      return namesInCommon == rhs.bindingAssumptions.count ? .finer : .incomparable
+    if lhs.bindingAssumptions.count < rhs.bindingAssumptions.count {
+      if namesInCommon == lhs.bindingAssumptions.count {
+        return ranking >= .equal ? .comparable(.coarser) : .incomparable
+      } else {
+        return .incomparable
+      }
     }
+
+    if lhs.bindingAssumptions.count > rhs.bindingAssumptions.count {
+      if namesInCommon == rhs.bindingAssumptions.count {
+        return ranking <= .equal ? .comparable(.finer) : .incomparable
+      } else {
+        return .incomparable
+      }
+    }
+
+    return namesInCommon == lhs.bindingAssumptions.count ? .comparable(ranking) : .incomparable
+  }
+
+  fileprivate mutating func refines(
+    _ l: AnyType,
+    _ r: AnyType,
+    scope: AnyScopeID
+  ) -> Bool {
+    // Skolemize the left operand.
+    let skolemizedLeft = l.skolemized
+
+    // Open the right operand.
+    let openedRight: AnyType
+    var constraints: ConstraintSet
+    (openedRight, constraints) = open(type: r)
+
+    // Create pairwise subtyping constraints on the parameters.
+    let lhs = skolemizedLeft.base as! CallableType
+    let rhs = openedRight.base as! CallableType
+    for i in 0 ..< lhs.inputs.count {
+      // Ignore the passing conventions.
+      guard
+        let bareLHS = ParameterType(lhs.inputs[i].type)?.bareType,
+        let bareRHS = ParameterType(rhs.inputs[i].type)?.bareType
+      else { return false }
+
+      constraints.insert(
+        inferenceConstraint(
+          bareLHS, isSubtypeOf: bareRHS,
+          because: ConstraintCause(.binding, at: nil)))
+    }
+
+    // Solve the constraint system.
+    var solver = ConstraintSolver(scope: scope, fresh: constraints, comparingSolutionsWith: .void)
+    return solver.apply(using: &self).diagnostics.isEmpty
   }
 
 }
