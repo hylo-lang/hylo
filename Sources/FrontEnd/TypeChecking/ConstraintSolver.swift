@@ -337,7 +337,7 @@ struct ConstraintSolver {
     }
 
     // Make sure `F` structurally matches the given parameter list.
-    if !checkLabelCompatibility(
+    if !checkStructuralCompatibility(
       found: constraint.parameters, expected: callee.inputs, cause: constraint.cause)
     {
       return
@@ -488,22 +488,22 @@ struct ConstraintSolver {
     return s
   }
 
-  /// Returns `true` if the labels of `l` are compatible with those of `r`. Otherwise, generate
-  /// the appropriate diagnostic and returns `false`.
-  private mutating func checkLabelCompatibility(
-    found: [CallableTypeParameter],
-    expected: [CallableTypeParameter],
+  /// Returns `true` if `lhs` is structurally compatible with `rhs`. Otherwise, generates the
+  /// appropriate diagnostic(s) and returns `false`.
+  private mutating func checkStructuralCompatibility(
+    found lhs: [CallableTypeParameter],
+    expected rhs: [CallableTypeParameter],
     cause: ConstraintCause
   ) -> Bool {
-    if found.count != expected.count {
+    if lhs.count != rhs.count {
       diagnostics.append(.diagnose(incompatibleParameterCountAt: cause.origin))
       return false
     }
 
-    if zip(found, expected).contains(where: { (a, b) in a.label != b.label }) {
+    if zip(lhs, rhs).contains(where: { (a, b) in a.label != b.label }) {
       diagnostics.append(
         .diagnose(
-          labels: found.map(\.label), incompatibleWith: expected.map(\.label),
+          labels: lhs.map(\.label), incompatibleWith: rhs.map(\.label),
           at: cause.origin))
       return false
     }
