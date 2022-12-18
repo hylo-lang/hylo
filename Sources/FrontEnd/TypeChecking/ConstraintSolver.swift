@@ -23,21 +23,15 @@ struct ConstraintSolver {
   private var penalties: Int = 0
 
   /// The diagnostics of the errors the solver encountered.
-  private var diagnostics: [Diagnostic]
+  private var diagnostics: [Diagnostic] = []
 
   /// The score of the best solution computed so far.
   private var best = Solution.Score.worst
 
-  /// Creates an instance that solves the constraints in `fresh` in `scope`, returning a solution
-  /// populated with `initialDiagnostics`.
-  init(
-    scope: AnyScopeID,
-    fresh: [Constraint],
-    initialDiagnostics: [Diagnostic] = []
-  ) {
+  /// Creates an instance that solves the constraints in `fresh` in `scope`.
+  init(scope: AnyScopeID, fresh: [Constraint]) {
     self.scope = scope
     self.fresh = fresh
-    self.diagnostics = initialDiagnostics
   }
 
   /// The current score of the solver's solution.

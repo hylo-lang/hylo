@@ -1488,9 +1488,9 @@ public struct TypeChecker {
     // Solve the constraints.
     var solver = ConstraintSolver(
       scope: AnyScopeID(scope),
-      fresh: initialConstraints + constraintGeneration.constraints,
-      initialDiagnostics: constraintGeneration.diagnostics)
-    let solution = solver.apply(using: &self)
+      fresh: initialConstraints + constraintGeneration.constraints)
+    var solution = solver.apply(using: &self)
+    solution.addDiagnostics(constraintGeneration.diagnostics)
 
     // Apply the solution.
     for (id, type) in constraintGeneration.inferredTypes.storage {

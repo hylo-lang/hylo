@@ -87,8 +87,13 @@ struct Solution {
   }
 
   /// Adds `d` to the list of diagnostics associated with this solution.
-  internal mutating func addDiagnostic(_ d: Diagnostic) {
+  mutating func addDiagnostic(_ d: Diagnostic) {
     diagnostics.append(d)
+  }
+
+  /// Adds the contents of `s` to the list of diagnostics associated with this solution.
+  mutating func addDiagnostics<S: Sequence>(_ s: S) where S.Element == Diagnostic {
+    diagnostics.append(contentsOf: s)
   }
 
 }
