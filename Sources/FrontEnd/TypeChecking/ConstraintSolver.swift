@@ -367,14 +367,7 @@ struct ConstraintSolver {
     let bestChoice = explore(
       constraint.choices,
       cause: constraint.cause,
-      using: &checker,
-      insertingConstraintsWith: { (subsolver, choice) -> Void in
-        for c in choice.constraints {
-          var subConstraint = c
-          subConstraint.cause = constraint.cause
-          subsolver.schedule(subConstraint)
-        }
-      })
+      using: &checker)
 
     return bestChoice?.solution
   }
@@ -388,18 +381,7 @@ struct ConstraintSolver {
     let bestChoice = explore(
       constraint.choices,
       cause: constraint.cause,
-      using: &checker,
-      insertingConstraintsWith: { (subsolver, choice) -> Void in
-        subsolver.schedule(
-          EqualityConstraint(
-            constraint.overloadedExprType, choice.type, because: constraint.cause))
-
-        for c in choice.constraints {
-          var subConstraint = c
-          subConstraint.cause = constraint.cause
-          subsolver.schedule(subConstraint)
-        }
-      })
+      using: &checker)
 
     if let (choice, solution) = bestChoice {
       bindingAssumptions[constraint.overloadedExpr] = choice.reference
@@ -414,8 +396,7 @@ struct ConstraintSolver {
   private mutating func explore<C: Collection>(
     _ choices: C,
     cause: ConstraintCause?,
-    using checker: inout TypeChecker,
-    insertingConstraintsWith insertConstraints: (inout ConstraintSolver, C.Element) -> Void
+    using checker: inout TypeChecker
   ) -> (choice: C.Element, solution: Solution)?
   where C.Element: Choice {
     /// The results of the exploration.
@@ -432,9 +413,11 @@ struct ConstraintSolver {
       // Explore the result of this choice.
       var subsolver = self
       subsolver.penalties += choice.penalties
-      insertConstraints(&subsolver, choice)
-
+      for c in choice.constraints {
+        subsolver.schedule(c)
+      }
       guard let solution = subsolver.solve(using: &checker) else { continue }
+
       if results.isEmpty || (solution.score < best) {
         best = solution.score
         results = [(choice, solution)]
@@ -576,7 +559,10 @@ extension TupleType: LabeledCollection {
 /// A type representing a choice during constraint solving.
 private protocol Choice {
 
-  /// The penalties associated with the choice.
+  /// The set of constraints associated with this choice.
+  var constraints: ConstraintSet { get }
+
+  /// The penalties associated with this choice.
   var penalties: Int { get }
 
 }
