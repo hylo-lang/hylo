@@ -625,13 +625,15 @@ extension TypeChecker {
         else { return .incomparable }
 
         // Rank the candidates.
-        if refines(lhs, rhs, scope: scope) {
+        switch (refines(lhs, rhs, scope: scope), refines(rhs, lhs, scope: scope)) {
+        case (true, false):
           if ranking > .equal { return .incomparable }
           ranking = .finer
-        }
-        if refines(rhs, lhs, scope: scope) {
+        case (false, true):
           if ranking < .equal { return .incomparable }
           ranking = .coarser
+        default:
+          return .incomparable
         }
 
       default:
