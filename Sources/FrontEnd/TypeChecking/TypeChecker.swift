@@ -1468,7 +1468,7 @@ public struct TypeChecker {
   /// - Parameters:
   ///   - expr: The expression whose type should be inferred.
   ///   - expectedType: The type `expr` is expected to have given the context it which it occurs,
-  ///     or `nil` of such type is unknown.
+  ///     or `nil` if such type is unknown.
   ///   - scope: The innermost scope containing `expr`.
   ///   - initialConstraints: A collection of constraints that `expr`'s type must satisfy.
   mutating func infer<S: ScopeID>(
