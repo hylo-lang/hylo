@@ -193,7 +193,7 @@ struct ConstraintSolver {
     case (_, _ as TypeVariable):
       // The type variable is above a more concrete type. We should compute the "join" of all types
       // to which `L` is coercible and that are below `R`, but that set is unbounded. We have no
-      // choice to postpone the constraint.
+      // choice but to postpone the constraint.
       postpone(SubtypingConstraint(l, r, because: constraint.cause))
 
     case (_ as TypeVariable, _):
