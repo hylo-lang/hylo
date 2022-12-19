@@ -68,8 +68,6 @@ struct ConstraintGenerator {
       return visit(cast: NodeID(rawValue: expr.rawValue), using: &checker)
     case CondExpr.self:
       return visit(cond: NodeID(rawValue: expr.rawValue), using: &checker)
-    case FloatLiteralExpr.self:
-      return visit(floatLiteral: NodeID(rawValue: expr.rawValue), using: &checker)
     case FunctionCallExpr.self:
       return visit(functionCall: NodeID(rawValue: expr.rawValue), using: &checker)
     case InoutExpr.self:
@@ -78,28 +76,14 @@ struct ConstraintGenerator {
       return visit(integerLiteral: NodeID(rawValue: expr.rawValue), using: &checker)
     case LambdaExpr.self:
       return visit(lambda: NodeID(rawValue: expr.rawValue), using: &checker)
-    case MapLiteralExpr.self:
-      return visit(mapLiteral: NodeID(rawValue: expr.rawValue), using: &checker)
-    case MatchExpr.self:
-      return visit(match: NodeID(rawValue: expr.rawValue), using: &checker)
     case NameExpr.self:
       return visit(name: NodeID(rawValue: expr.rawValue), using: &checker)
-    case NilLiteralExpr.self:
-      return visit(nil: NodeID(rawValue: expr.rawValue), using: &checker)
     case SequenceExpr.self:
       return visit(sequence: NodeID(rawValue: expr.rawValue), using: &checker)
-    case SpawnExpr.self:
-      return visit(spawn: NodeID(rawValue: expr.rawValue), using: &checker)
-    case StringLiteralExpr.self:
-      return visit(stringLiteral: NodeID(rawValue: expr.rawValue), using: &checker)
     case SubscriptCallExpr.self:
       return visit(subscriptCall: NodeID(rawValue: expr.rawValue), using: &checker)
     case TupleExpr.self:
       return visit(tuple: NodeID(rawValue: expr.rawValue), using: &checker)
-    case TupleMemberExpr.self:
-      return visit(tupleMember: NodeID(rawValue: expr.rawValue), using: &checker)
-    case UnicodeScalarLiteralExpr.self:
-      return visit(unicodeScalarLiteral: NodeID(rawValue: expr.rawValue), using: &checker)
     default:
       unreachable()
     }
@@ -111,13 +95,6 @@ struct ConstraintGenerator {
   ) {
     let boolType = checker.program.ast.coreType(named: "Bool")!
     assume(typeOf: id, equals: boolType, at: checker.program.ast[id].origin)
-  }
-
-  private mutating func visit(
-    bufferLiteral id: NodeID<BufferLiteralExpr>,
-    using checker: inout TypeChecker
-  ) {
-    fatalError("not implemented")
   }
 
   private mutating func visit(
@@ -222,13 +199,6 @@ struct ConstraintGenerator {
     using checker: inout TypeChecker
   ) {
     // Nothing to do here.
-  }
-
-  private mutating func visit(
-    floatLiteral id: NodeID<FloatLiteralExpr>,
-    using checker: inout TypeChecker
-  ) {
-    fatalError("not implemented")
   }
 
   private mutating func visit(
@@ -440,19 +410,6 @@ struct ConstraintGenerator {
 
     assume(typeOf: id, equals: declType, at: checker.program.ast[id].origin)
   }
-
-  private mutating func visit(
-    mapLiteral i: NodeID<MapLiteralExpr>,
-    using checker: inout TypeChecker
-  ) {
-    fatalError("not implemented")
-  }
-
-  private mutating func visit(
-    match i: NodeID<MatchExpr>,
-    using checker: inout TypeChecker
-  ) {
-    fatalError("not implemented")
   }
 
   private mutating func visit(
@@ -511,13 +468,6 @@ struct ConstraintGenerator {
       assume(typeOf: component, equals: memberType, at: componentOrigin)
       parentType = memberType
     }
-  }
-
-  private mutating func visit(
-    nil i: NodeID<NilLiteralExpr>,
-    using checker: inout TypeChecker
-  ) {
-    fatalError("not implemented")
   }
 
   private mutating func visit(
@@ -585,20 +535,6 @@ struct ConstraintGenerator {
       visit(expr: expr, using: &checker)
       return inferredTypes[expr]!
     }
-  }
-
-  private mutating func visit(
-    spawn id: NodeID<SpawnExpr>,
-    using checker: inout TypeChecker
-  ) {
-    fatalError("not implemented")
-  }
-
-  private mutating func visit(
-    stringLiteral i: NodeID<StringLiteralExpr>,
-    using checker: inout TypeChecker
-  ) {
-    fatalError("not implemented")
   }
 
   private mutating func visit(
@@ -774,20 +710,6 @@ struct ConstraintGenerator {
     }
 
     assume(typeOf: id, equals: TupleType(tupleTypeElements), at: checker.program.ast[id].origin)
-  }
-
-  private mutating func visit(
-    tupleMember id: NodeID<TupleMemberExpr>,
-    using checker: inout TypeChecker
-  ) {
-    fatalError("not implemented")
-  }
-
-  private mutating func visit(
-    unicodeScalarLiteral id: NodeID<UnicodeScalarLiteralExpr>,
-    using checker: inout TypeChecker
-  ) {
-    fatalError("not implemented")
   }
 
   /// If the labels of `arguments` matches those of `parameters`, visit the arguments' expressions
