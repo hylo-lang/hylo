@@ -1792,35 +1792,34 @@ public struct TypeChecker {
     }
 
     // Search for the declarations of `name`.
-    var matches: TypeChecker.DeclSet
+    var matches: [AnyDeclID]
     if let t = parentType {
-      matches = lookup(name.value.stem, memberOf: t, inScope: lookupScope)
+      matches = Array(lookup(name.value.stem, memberOf: t, inScope: lookupScope))
     } else {
-      matches = lookup(unqualified: name.value.stem, inScope: lookupScope)
+      matches = Array(lookup(unqualified: name.value.stem, inScope: lookupScope))
     }
 
     // Filter out candidates whose argument labels do not match.
     if !name.value.labels.isEmpty {
-      matches = filter(decls: matches, withLabels: name.value.labels)
+      filter(decls: &matches, withLabels: name.value.labels)
     }
 
     // Filter out candidates whose operator notation does not match.
     if let notation = name.value.notation {
-      matches = filter(decls: matches, withNotation: notation)
+      filter(decls: &matches, withNotation: notation)
     }
 
     // If the looked up name has an introducer, select the corresponding implementation.
     if let introducer = name.value.introducer {
-      matches = Set(
-        matches.compactMap({ (match) -> AnyDeclID? in
-          guard
-            let decl = program.ast[NodeID<MethodDecl>(match)],
-            let impl = decl.impls.first(where: { (i) in
-              program.ast[i].introducer.value == introducer
-            })
-          else { return nil }
-          return AnyDeclID(impl)
-        }))
+      matches = matches.compactMap({ (match) -> AnyDeclID? in
+        guard
+          let decl = program.ast[NodeID<MethodDecl>(match)],
+          let impl = decl.impls.first(where: { (i) in
+            program.ast[i].introducer.value == introducer
+          })
+        else { return nil }
+        return AnyDeclID(impl)
+      })
     }
 
     // Realize the types of the matches and determine how they are being referred to.
@@ -3378,10 +3377,10 @@ public struct TypeChecker {
     return r
   }
 
-  /// Returns the function, method, and subscript declarations in `decls` whose argument labels
+  /// Filters the function, method, and subscript declarations in `decls` whose argument labels
   /// match `labels`.
-  private mutating func filter(decls: DeclSet, withLabels labels: [String?]) -> DeclSet {
-    decls.filter({ (d) -> Bool in
+  mutating func filter(decls: inout [AnyDeclID], withLabels labels: [String?]) {
+    decls.filterInPlace({ (d) -> Bool in
       switch d.kind {
       case FunctionDecl.self:
         let decl = program.ast[NodeID<FunctionDecl>(rawValue: d.rawValue)]
@@ -3411,9 +3410,9 @@ public struct TypeChecker {
     })
   }
 
-  /// Returns the function and method declarations in `decls` witht the given operator notation.
-  private func filter(decls: DeclSet, withNotation notation: OperatorNotation) -> DeclSet {
-    decls.filter({ (d) -> Bool in
+  /// Filters the function and method declarations in `decls` witht the given operator notation.
+  private func filter(decls: inout [AnyDeclID], withNotation notation: OperatorNotation) {
+    decls.filterInPlace({ (d) -> Bool in
       switch d.kind {
       case FunctionDecl.self:
         let decl = program.ast[NodeID<FunctionDecl>(rawValue: d.rawValue)]
