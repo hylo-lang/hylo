@@ -1479,8 +1479,8 @@ public struct TypeChecker {
   ) -> Solution {
     // Generate constraints.
     var generator = ConstraintGenerator(
+      subject: expr,
       scope: AnyScopeID(scope),
-      expr: expr,
       fixedType: exprTypes[expr],
       expectedType: expectedType)
     let constraintGeneration = generator.apply(using: &self)
