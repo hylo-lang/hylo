@@ -17,6 +17,9 @@ struct ConstraintGenerator {
     /// The diagnostics of the errors the generator encountered.
     let diagnostics: [Diagnostic]
 
+    /// Indicates that the solver encountered one or more errors.
+    let didFoundError: Bool
+
   }
 
   /// The expression for which constraints are being generated.
@@ -36,6 +39,9 @@ struct ConstraintGenerator {
 
   /// The diagnostics of the errors the generator encountered.
   private var diagnostics: [Diagnostic] = []
+
+  /// Indicates that the solver encountered one or more errors.
+  private var didFoundError = false
 
   /// Creates an instance that generates type constraints for `expr` in `scope` with the given
   /// inferred and expected types.
@@ -57,7 +63,8 @@ struct ConstraintGenerator {
     return Result(
       inferredTypes: inferredTypes,
       constraints: constraints,
-      diagnostics: diagnostics)
+      diagnostics: diagnostics,
+      didFoundError: didFoundError)
   }
 
   private mutating func visit(expr: AnyExprID, using checker: inout TypeChecker) -> AnyType {
@@ -159,7 +166,7 @@ struct ConstraintGenerator {
         _ = visit(expr: expr, using: &checker)
 
       case .decl(let binding):
-        _ = checker.check(binding: binding)
+        if !checker.check(binding: binding) { didFoundError = true }
       }
     }
 
@@ -173,7 +180,7 @@ struct ConstraintGenerator {
       inferredType = visit(expr: thenExpr, using: &checker)
 
     case .block(let thenBlock):
-      _ = checker.check(brace: thenBlock)
+      if !checker.check(brace: thenBlock) { didFoundError = true }
       inferredType = nil
     }
 
@@ -185,7 +192,7 @@ struct ConstraintGenerator {
       return assume(id, is: inferredType!, at: checker.program.ast[id].origin)
 
     case .block(let thenBlock):
-      _ = checker.check(brace: thenBlock)
+      if !checker.check(brace: thenBlock) { didFoundError = true }
       return assume(id, is: AnyType.void, at: checker.program.ast[id].origin)
 
     case nil:
@@ -811,6 +818,7 @@ struct ConstraintGenerator {
   }
 
   private mutating func assumeIsError<ID: ExprID>(_ subject: ID) -> AnyType {
+    didFoundError = true
     let ty = AnyType.error
     inferredTypes[subject] = ty
     return ty
