@@ -1496,11 +1496,7 @@ public struct TypeChecker {
 
     // Bail out if constraint generation failed.
     if constraintGeneration.didFoundError {
-      return (succeeded: false, solution: .init(
-        typeAssumptions: [:],
-        bindingAssumptions: [:],
-        penalties: 0,
-        diagnostics: []))
+      return (succeeded: false, solution: .init())
     }
 
     // Solve the constraints.

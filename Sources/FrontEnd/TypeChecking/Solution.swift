@@ -3,18 +3,6 @@ import Core
 /// A solution returned by a constraint solver.
 struct Solution {
 
-  init(
-    typeAssumptions: [TypeVariable: AnyType],
-    bindingAssumptions: [NodeID<NameExpr>: DeclRef],
-    penalties: Int,
-    diagnostics: [Diagnostic]
-  ) {
-    self.typeAssumptions = typeAssumptions
-    self.bindingAssumptions = bindingAssumptions
-    self.penalties = penalties
-    self.diagnostics = diagnostics
-  }
-
   /// A policy for substituting type variales during reification.
   enum SubstitutionPolicy {
 
@@ -57,6 +45,24 @@ struct Solution {
 
   /// The diagnostics of the errors associated with the solution.
   private(set) var diagnostics: [Diagnostic]
+
+  /// Creates an empty solution.
+  init() {
+    self.init(typeAssumptions: [:], bindingAssumptions: [:], penalties: 0, diagnostics: [])
+  }
+
+  /// Creates an instance with the given properties.
+  init(
+    typeAssumptions: [TypeVariable: AnyType],
+    bindingAssumptions: [NodeID<NameExpr>: DeclRef],
+    penalties: Int,
+    diagnostics: [Diagnostic]
+  ) {
+    self.typeAssumptions = typeAssumptions
+    self.bindingAssumptions = bindingAssumptions
+    self.penalties = penalties
+    self.diagnostics = diagnostics
+  }
 
   /// The score of the solution.
   var score: Score { Score(errorCount: diagnostics.count, penalties: penalties) }
