@@ -1470,7 +1470,7 @@ public struct TypeChecker {
   ///   - expectedType: The type `subject` is expected to have given the context it which it
   ///     occurs, or `nil` if no such type exists.
   ///   - scope: The innermost scope containing `subject`.
-  ///   - initialConstraints: A collection of constraints that `subject`'s type must satisfy.
+  ///   - initialConstraints: A collection of constraints on constituent types of `subject`.
   mutating func solveConstraints<S: ScopeID>(
     impliedBy subject: AnyExprID,
     expecting expectedType: AnyType?,
