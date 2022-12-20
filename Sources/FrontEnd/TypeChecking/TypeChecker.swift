@@ -1503,7 +1503,7 @@ public struct TypeChecker {
     let shouldLogTrace: Bool
     if
       let tracingRange = inferenceTracingRange,
-      let subjectRange = program.ast[expr].origin,
+      let subjectRange = program.ast[subject].origin,
       tracingRange.contains(subjectRange.first())
     {
       shouldLogTrace = true
@@ -1520,7 +1520,7 @@ public struct TypeChecker {
     var solver = ConstraintSolver(
       scope: AnyScopeID(scope),
       fresh: initialConstraints + constraintGeneration.constraints,
-      comparingSolutionsWith: constraintGeneration.inferredTypes[expr]!,
+      comparingSolutionsWith: constraintGeneration.inferredTypes[subject]!,
       loggingTrace: shouldLogTrace)
     var solution = solver.apply(using: &self)
     solution.addDiagnostics(constraintGeneration.diagnostics)
