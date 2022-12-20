@@ -236,6 +236,11 @@ public struct TypeChecker {
   /// The bindings whose initializers are being currently visited.
   private var bindingsUnderChecking: DeclSet = []
 
+  /// Adds the given diagnostic.
+  mutating func addDiagnostic(_ d: Diagnostic) {
+    diagnostics.insert(d)
+  }
+
   /// Inserts `expr` in the set of pending lambdas.
   mutating func deferTypeChecking(_ expr: NodeID<LambdaExpr>) {
     pendingLambdas.append(expr)
@@ -374,7 +379,7 @@ public struct TypeChecker {
       })
 
       bindingsUnderChecking.formUnion(names)
-      let solution = infer(
+      let inference = infer(
         typeOf: initializer,
         expecting: shape.type,
         inScope: scope,
@@ -1489,13 +1494,21 @@ public struct TypeChecker {
       expectedType: expectedType)
     let constraintGeneration = generator.apply(using: &self)
 
+    // Bail out if constraint generation failed.
+    if constraintGeneration.didFoundError {
+      return (succeeded: false, solution: .init(
+        typeAssumptions: [:],
+        bindingAssumptions: [:],
+        penalties: 0,
+        diagnostics: []))
+    }
+
     // Solve the constraints.
     var solver = ConstraintSolver(
       scope: AnyScopeID(scope),
       fresh: initialConstraints + constraintGeneration.constraints,
       comparingSolutionsWith: constraintGeneration.inferredTypes[expr]!)
-    var solution = solver.apply(using: &self)
-    solution.addDiagnostics(constraintGeneration.diagnostics)
+    let solution = solver.apply(using: &self)
 
     // Apply the solution.
     for (id, type) in constraintGeneration.inferredTypes.storage {
@@ -1508,8 +1521,7 @@ public struct TypeChecker {
     // Consume the solution's errors.
     diagnostics.formUnion(solution.diagnostics)
 
-    let succeeded = !constraintGeneration.didFoundError && solution.diagnostics.isEmpty
-    return (succeeded: succeeded, solution: solution)
+    return (succeeded: solution.diagnostics.isEmpty, solution: solution)
   }
 
   /// Infers the type of `pattern`, generates the type constraints implied by the expressions it
@@ -1711,7 +1723,7 @@ public struct TypeChecker {
 
     /// Name resolution failed. The payload contains the undefined component along with the type
     /// in which it was looked up, or `nil` if the component is the expression's first component.
-    case failed(component: NodeID<NameExpr>, parentType: AnyType?)
+    case failed
 
     /// Name resolution couln't start because the first component of the expression isn't a name
     /// The payload contains the collection of unresolved components, after the first one.
@@ -1754,7 +1766,7 @@ public struct TypeChecker {
       resolvedPrefix.append(.init(component, candidates))
 
       if candidates.isEmpty {
-        return .failed(component: component, parentType: parentType)
+        return .failed
       } else if candidates.count > 1 {
         break
       }
@@ -1819,6 +1831,12 @@ public struct TypeChecker {
         else { return nil }
         return AnyDeclID(impl)
       })
+    }
+
+    // Diagnose undefined symbols.
+    if matches.isEmpty {
+      diagnostics.insert(.diagnose(undefinedName: name.value, in: parentType, at: name.origin))
+      return []
     }
 
     // Realize the types of the matches and determine how they are being referred to.

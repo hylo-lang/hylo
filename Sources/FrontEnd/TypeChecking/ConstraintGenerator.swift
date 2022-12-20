@@ -14,9 +14,6 @@ struct ConstraintGenerator {
     /// The set of type constraints being generated.
     let constraints: [Constraint]
 
-    /// The diagnostics of the errors the generator encountered.
-    let diagnostics: [Diagnostic]
-
     /// Indicates that the solver encountered one or more errors.
     let didFoundError: Bool
 
@@ -36,9 +33,6 @@ struct ConstraintGenerator {
 
   /// The set of type constraints being generated.
   private var constraints: [Constraint] = []
-
-  /// The diagnostics of the errors the generator encountered.
-  private var diagnostics: [Diagnostic] = []
 
   /// Indicates that the solver encountered one or more errors.
   private var didFoundError = false
@@ -63,7 +57,6 @@ struct ConstraintGenerator {
     return Result(
       inferredTypes: inferredTypes,
       constraints: constraints,
-      diagnostics: diagnostics,
       didFoundError: didFoundError)
   }
 
@@ -274,7 +267,7 @@ struct ConstraintGenerator {
 
       // We're done if we couldn't find any initializer.
       if initCandidates.isEmpty {
-        diagnostics.append(.diagnose(undefinedName: initName.value, at: initName.origin))
+        checker.addDiagnostic(.diagnose(undefinedName: initName.value, at: initName.origin))
         return assumeIsError(callee)
       }
 
@@ -309,7 +302,7 @@ struct ConstraintGenerator {
     }
 
     // Case 3c
-    diagnostics.append(
+    checker.addDiagnostic(
       .diagnose(
         nonCallableType: inferredTypes[callee]!,
         at: checker.program.ast[checker.program.ast[id].callee].origin))
@@ -362,7 +355,7 @@ struct ConstraintGenerator {
     if let expectedType = LambdaType(expectedTypes[id]!) {
       // Check that the declaration defines the expected number of parameters.
       if declType.inputs.count != expectedType.inputs.count {
-        diagnostics.append(
+        checker.addDiagnostic(
           .diagnose(
             expectedLambdaParameterCount: expectedType.inputs.count,
             found: declType.inputs.count,
@@ -372,7 +365,7 @@ struct ConstraintGenerator {
 
       // Check that the declaration defines the expected argument labels.
       if !declType.inputs.elementsEqual(expectedType.inputs, by: { $0.label == $1.label }) {
-        diagnostics.append(
+        checker.addDiagnostic(
           .diagnose(
             labels: declType.inputs.map(\.label),
             incompatibleWith: expectedType.inputs.map(\.label),
@@ -392,7 +385,7 @@ struct ConstraintGenerator {
       } else {
         // The system is underspecified.
         let origin = checker.program.ast[checker.program.ast[id].decl].introducerRange
-        diagnostics.append(.diagnose(cannotInferComplexReturnTypeAt: origin))
+        checker.addDiagnostic(.diagnose(cannotInferComplexReturnTypeAt: origin))
         return assumeIsError(id)
       }
     }
@@ -418,9 +411,7 @@ struct ConstraintGenerator {
     let unresolvedComponents: [NodeID<NameExpr>]
 
     switch resolution {
-    case .failed(let undefinedComponent, let parentType):
-      let name = checker.program.ast[undefinedComponent].name
-      diagnostics.append(.diagnose(undefinedName: name.value, in: parentType, at: name.origin))
+    case .failed:
       return assumeIsError(id)
 
     case .inexecutable(let suffix):
@@ -587,7 +578,7 @@ struct ConstraintGenerator {
 
       // Buffer type expressions shall have exactly one argument.
       if checker.program.ast[id].arguments.count != 1 {
-        diagnostics.append(
+        checker.addDiagnostic(
           .diagnose(invalidBufferTypeExprArgumentCount: id, in: checker.program.ast))
         return assumeIsError(id)
       }
@@ -600,7 +591,7 @@ struct ConstraintGenerator {
     let candidates = checker.lookup("[]", memberOf: inferredTypes[callee]!, inScope: scope)
     switch candidates.count {
     case 0:
-      diagnostics.append(
+      checker.addDiagnostic(
         .diagnose(
           noUnnamedSubscriptsIn: inferredTypes[callee]!,
           at: checker.program.ast[checker.program.ast[id].callee].origin))
@@ -694,7 +685,7 @@ struct ConstraintGenerator {
 
     // Check that the labels inferred from the callee are consistent with that of the call.
     if argumentLabels != parameterLabels {
-      diagnostics.append(
+      checker.addDiagnostic(
         .diagnose(
           labels: argumentLabels,
           incompatibleWith: parameterLabels,
