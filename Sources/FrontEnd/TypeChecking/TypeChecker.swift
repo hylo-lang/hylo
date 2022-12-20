@@ -28,6 +28,9 @@ public struct TypeChecker {
   /// Indicates whether the built-in symbols are visible.
   public var isBuiltinModuleVisible: Bool
 
+  /// Indicates whether tracing in turned on for type inference requests.
+  public let isInferenceTracingEnabled: Bool
+
   /// The set of lambda expressions whose declarations are pending type checking.
   public private(set) var pendingLambdas: [NodeID<LambdaExpr>] = []
 
@@ -35,9 +38,14 @@ public struct TypeChecker {
   ///
   /// - Note: `program` is stored in the type checker and mutated throughout type checking (e.g.,
   ///   to insert synthesized declarations).
-  public init(program: ScopedProgram, isBuiltinModuleVisible: Bool = false) {
+  public init(
+    program: ScopedProgram,
+    isBuiltinModuleVisible: Bool = false,
+    isInferenceTracingEnabled: Bool = false
+  ) {
     self.program = program
     self.isBuiltinModuleVisible = isBuiltinModuleVisible
+    self.isInferenceTracingEnabled = isInferenceTracingEnabled
   }
 
   // MARK: Type system
@@ -1496,7 +1504,7 @@ public struct TypeChecker {
       scope: AnyScopeID(scope),
       fresh: initialConstraints + constraintGeneration.constraints,
       comparingSolutionsWith: constraintGeneration.inferredTypes[expr]!,
-      loggingTrace: true)
+      loggingTrace: isInferenceTracingEnabled)
     var solution = solver.apply(using: &self)
     solution.addDiagnostics(constraintGeneration.diagnostics)
 
