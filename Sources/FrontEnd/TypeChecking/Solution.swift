@@ -97,9 +97,4 @@ struct Solution {
     diagnostics.append(d)
   }
 
-  /// Adds the contents of `s` to the list of diagnostics associated with this solution.
-  mutating func addDiagnostics<S: Sequence>(_ s: S) where S.Element == Diagnostic {
-    diagnostics.append(contentsOf: s)
-  }
-
 }
