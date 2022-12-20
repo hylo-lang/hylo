@@ -1717,8 +1717,7 @@ public struct TypeChecker {
     /// The payload contains the collections of resolved and unresolved components.
     case done(resolved: [ResolvedComponent], unresolved: [NodeID<NameExpr>])
 
-    /// Name resolution failed. The payload contains the undefined component along with the type
-    /// in which it was looked up, or `nil` if the component is the expression's first component.
+    /// Name resolution failed.
     case failed
 
     /// Name resolution couln't start because the first component of the expression isn't a name
