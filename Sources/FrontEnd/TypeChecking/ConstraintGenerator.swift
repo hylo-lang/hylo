@@ -97,8 +97,8 @@ struct ConstraintGenerator {
     booleanLiteral id: NodeID<BooleanLiteralExpr>,
     using checker: inout TypeChecker
   ) -> AnyType {
-    assume(
-      id, is: checker.program.ast.coreType(named: "Bool")!,
+    constrain(
+      id, toHaveType: checker.program.ast.coreType(named: "Bool")!,
       at: checker.program.ast[id].origin)
   }
 
@@ -144,7 +144,7 @@ struct ConstraintGenerator {
     _ = visit(expr: lhs, using: &checker)
 
     // In any case, the expression is assumed to have the type denoted by the right operand.
-    return assume(id, is: target, at: checker.program.ast[id].origin)
+    return constrain(id, toHaveType: target, at: checker.program.ast[id].origin)
   }
 
   private mutating func visit(
@@ -184,14 +184,14 @@ struct ConstraintGenerator {
     case .expr(let elseExpr):
       expectedTypes[elseExpr] = inferredType
       _ = visit(expr: elseExpr, using: &checker)
-      return assume(id, is: inferredType!, at: checker.program.ast[id].origin)
+      return constrain(id, toHaveType: inferredType!, at: checker.program.ast[id].origin)
 
     case .block(let thenBlock):
       if !checker.check(brace: thenBlock) { foundConflict = true }
-      return assume(id, is: AnyType.void, at: checker.program.ast[id].origin)
+      return constrain(id, toHaveType: AnyType.void, at: checker.program.ast[id].origin)
 
     case nil:
-      return assume(id, is: AnyType.void, at: checker.program.ast[id].origin)
+      return constrain(id, toHaveType: AnyType.void, at: checker.program.ast[id].origin)
     }
   }
 
@@ -236,7 +236,7 @@ struct ConstraintGenerator {
           calleeType, takes: parameters, andReturns: returnType,
           because: ConstraintCause(.callee, at: checker.program.ast[callee].origin)))
 
-      return assume(id, is: returnType, at: checker.program.ast[id].origin)
+      return constrain(id, toHaveType: returnType, at: checker.program.ast[id].origin)
     }
 
     // Case 3a
@@ -247,7 +247,7 @@ struct ConstraintGenerator {
         expecting: callable.inputs,
         using: &checker)
       {
-        return assume(id, is: callable.output, at: checker.program.ast[id].origin)
+        return constrain(id, toHaveType: callable.output, at: checker.program.ast[id].origin)
       } else {
         return assumeIsError(id)
       }
@@ -294,7 +294,7 @@ struct ConstraintGenerator {
           expecting: ctorType.inputs,
           using: &checker)
         {
-          return assume(id, is: ctorType.output, at: checker.program.ast[id].origin)
+          return constrain(id, toHaveType: ctorType.output, at: checker.program.ast[id].origin)
         } else {
           return assumeIsError(id)
         }
@@ -315,8 +315,8 @@ struct ConstraintGenerator {
     `inout` id: NodeID<InoutExpr>,
     using checker: inout TypeChecker
   ) -> AnyType {
-    assume(
-      id, is: visit(expr: checker.program.ast[id].subject, using: &checker),
+    constrain(
+      id, toHaveType: visit(expr: checker.program.ast[id].subject, using: &checker),
       at: checker.program.ast[id].origin)
   }
 
@@ -335,10 +335,10 @@ struct ConstraintGenerator {
         expressibleByLiteralConstraint(
           expectedType, trait: trait, defaultType: ^checker.program.ast.coreType(named: "Int")!,
           because: cause))
-      return assume(id, is: expectedType, at: checker.program.ast[id].origin)
+      return constrain(id, toHaveType: expectedType, at: checker.program.ast[id].origin)
     } else {
       constraints.append(ConformanceConstraint(expectedType, conformsTo: [trait], because: cause))
-      return assume(id, is: expectedType, at: checker.program.ast[id].origin)
+      return constrain(id, toHaveType: expectedType, at: checker.program.ast[id].origin)
     }
   }
 
@@ -392,7 +392,7 @@ struct ConstraintGenerator {
       }
     }
 
-    return assume(id, is: declType, at: checker.program.ast[id].origin)
+    return constrain(id, toHaveType: declType, at: checker.program.ast[id].origin)
   }
 
   private mutating func visit(
@@ -442,7 +442,7 @@ struct ConstraintGenerator {
           parentType!, hasMemberReferredToBy: component, ofType: memberType,
           in: checker.program.ast,
           because: ConstraintCause(.member, at: componentOrigin)))
-      parentType = assume(component, is: memberType, at: componentOrigin)
+      parentType = constrain(component, toHaveType: memberType, at: componentOrigin)
     }
 
     return parentType!
@@ -461,7 +461,7 @@ struct ConstraintGenerator {
       foldedSequence: foldedSequence,
       expectingRootType: expectedTypes[id],
       using: &checker)
-    return assume(id, is: inferredRootType, at: checker.program.ast[id].origin)
+    return constrain(id, toHaveType: inferredRootType, at: checker.program.ast[id].origin)
   }
 
   private mutating func visit(
@@ -553,7 +553,7 @@ struct ConstraintGenerator {
           calleeType, ^assumedCalleeType,
           because: ConstraintCause(.callee, at: checker.program.ast[callee].origin)))
 
-      return assume(id, is: returnType, at: checker.program.ast[id].origin)
+      return constrain(id, toHaveType: returnType, at: checker.program.ast[id].origin)
     }
 
     // Case 3a
@@ -564,7 +564,7 @@ struct ConstraintGenerator {
         expecting: callable.inputs,
         using: &checker)
       {
-        return assume(id, is: callable.output, at: checker.program.ast[id].origin)
+        return constrain(id, toHaveType: callable.output, at: checker.program.ast[id].origin)
       } else {
         return assumeIsError(id)
       }
@@ -633,7 +633,7 @@ struct ConstraintGenerator {
           checker.referredDecls[c] = .member(decl)
         }
 
-        return assume(id, is: calleeType.output, at: checker.program.ast[id].origin)
+        return constrain(id, toHaveType: calleeType.output, at: checker.program.ast[id].origin)
       } else {
         return assumeIsError(id)
       }
@@ -669,7 +669,8 @@ struct ConstraintGenerator {
       }
     }
 
-    return assume(id, is: TupleType(tupleTypeElements), at: checker.program.ast[id].origin)
+    return constrain(
+      id, toHaveType: TupleType(tupleTypeElements), at: checker.program.ast[id].origin)
   }
 
   /// If the labels of `arguments` matches those of `parameters`, visit the arguments' expressions
@@ -792,9 +793,11 @@ struct ConstraintGenerator {
     return accumulator
   }
 
-  private mutating func assume<ID: ExprID, T: TypeProtocol>(
+  /// Constrains `subject` to have type `inferredType` and returns either `inferredType` or the
+  /// type currently assigned to `subject` in the AST.
+  private mutating func constrain<ID: ExprID, T: TypeProtocol>(
     _ subject: ID,
-    is inferredType: T,
+    toHaveType inferredType: T,
     at range: SourceRange?
   ) -> AnyType {
     if let ty = inferredTypes[subject] {
@@ -839,7 +842,7 @@ struct ConstraintGenerator {
       // Bind the component to the resolved declaration and store its type.
       checker.referredDecls[name] = pick.reference
       constraints.append(contentsOf: nameConstraints)
-      return assume(name, is: nameType, at: constrainOrigin)
+      return constrain(name, toHaveType: nameType, at: constrainOrigin)
     } else {
       // Create an overload set.
       let overloads: [OverloadConstraint.Candidate] = candidates.map({ (candidate) in
@@ -862,7 +865,7 @@ struct ConstraintGenerator {
         OverloadConstraint(name, withType: nameType,
           refersToOneOf: overloads,
           because: ConstraintCause(.binding, at: constrainOrigin)))
-      return assume(name, is: nameType, at: constrainOrigin)
+      return constrain(name, toHaveType: nameType, at: constrainOrigin)
     }
   }
 
