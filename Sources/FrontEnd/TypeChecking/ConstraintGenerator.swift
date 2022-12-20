@@ -34,8 +34,8 @@ struct ConstraintGenerator {
   /// The set of type constraints being generated.
   private var constraints: [Constraint] = []
 
-  /// Indicates that the solver encountered one or more errors.
-  private var didFoundError = false
+  /// True iff a constraint could not be solved.
+  private var foundConflict = false
 
   /// Creates an instance that generates type constraints for `expr` in `scope` with the given
   /// inferred and expected types.
@@ -57,7 +57,7 @@ struct ConstraintGenerator {
     return Result(
       inferredTypes: inferredTypes,
       constraints: constraints,
-      didFoundError: didFoundError)
+      didFoundError: foundConflict)
   }
 
   private mutating func visit(expr: AnyExprID, using checker: inout TypeChecker) -> AnyType {
@@ -159,7 +159,7 @@ struct ConstraintGenerator {
         _ = visit(expr: expr, using: &checker)
 
       case .decl(let binding):
-        if !checker.check(binding: binding) { didFoundError = true }
+        if !checker.check(binding: binding) { foundConflict = true }
       }
     }
 
@@ -173,7 +173,7 @@ struct ConstraintGenerator {
       inferredType = visit(expr: thenExpr, using: &checker)
 
     case .block(let thenBlock):
-      if !checker.check(brace: thenBlock) { didFoundError = true }
+      if !checker.check(brace: thenBlock) { foundConflict = true }
       inferredType = nil
     }
 
@@ -185,7 +185,7 @@ struct ConstraintGenerator {
       return assume(id, is: inferredType!, at: checker.program.ast[id].origin)
 
     case .block(let thenBlock):
-      if !checker.check(brace: thenBlock) { didFoundError = true }
+      if !checker.check(brace: thenBlock) { foundConflict = true }
       return assume(id, is: AnyType.void, at: checker.program.ast[id].origin)
 
     case nil:
@@ -809,7 +809,7 @@ struct ConstraintGenerator {
   }
 
   private mutating func assumeIsError<ID: ExprID>(_ subject: ID) -> AnyType {
-    didFoundError = true
+    foundConflict = true
     let ty = AnyType.error
     inferredTypes[subject] = ty
     return ty
