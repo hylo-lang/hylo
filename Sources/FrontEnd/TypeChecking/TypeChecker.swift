@@ -1520,8 +1520,8 @@ public struct TypeChecker {
     return (succeeded: solution.diagnostics.isEmpty, solution: solution)
   }
 
-  /// Infers the type of `pattern`, generates the type constraints implied by the expressions it
-  /// may contain, and returns the IDs of the variable declarations it contains.
+  /// Returns the inferred type of `pattern`, the type constraints implied by the expressions it
+  /// may contain, and the IDs of the variable declarations it contains.
   ///
   /// - Note: A `nil` return signals a failure to infer the type of the pattern.
   private mutating func infer<T: PatternID>(
