@@ -10,7 +10,7 @@ public struct SubtypingConstraint: Constraint, Hashable {
   /// The right operand.
   public private(set) var right: AnyType
 
-  public var cause: ConstraintCause
+  public let cause: ConstraintCause
 
   /// Creates an instance with the given properties.
   public init(_ left: AnyType, _ right: AnyType, because cause: ConstraintCause) {

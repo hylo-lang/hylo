@@ -56,6 +56,15 @@ extension SourceLocation: Codable {
 
 }
 
+extension SourceLocation: CustomStringConvertible {
+
+  public var description: String {
+    let (line, column) = source.lineAndColumnIndices(at: self)
+    return "\(source.url.relativePath):\(line):\(column)"
+  }
+
+}
+
 extension SourceLocation: CustomReflectable {
 
   public var customMirror: Mirror {

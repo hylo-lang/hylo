@@ -21,10 +21,10 @@ public struct OverloadConstraint: Constraint, Hashable {
     /// The contextualized type the referred declaration.
     public let type: AnyType
 
-    /// The set of constraints associated with the reference.
+    /// The set of constraints associated with this choice.
     public let constraints: ConstraintSet
 
-    /// The penalties associated with the candidate.
+    /// The penalties associated with this choice.
     public let penalties: Int
 
   }
@@ -38,7 +38,7 @@ public struct OverloadConstraint: Constraint, Hashable {
   /// The choices of the disjunction.
   public private(set) var choices: [Candidate]
 
-  public var cause: ConstraintCause
+  public let cause: ConstraintCause
 
   /// Creates an instance with the given properties.
   ///
@@ -50,9 +50,17 @@ public struct OverloadConstraint: Constraint, Hashable {
     because cause: ConstraintCause
   ) {
     precondition(choices.count >= 2)
+
+    // Insert an equality constraint in all candidates.
+    self.choices = choices.map({ (c) -> Candidate in
+      var constraints = c.constraints
+      constraints.insert(EqualityConstraint(type, c.type, because: cause))
+      return .init(
+        reference: c.reference, type: c.type, constraints: constraints, penalties: c.penalties)
+    })
+
     self.overloadedExpr = expr
     self.overloadedExprType = type
-    self.choices = choices
     self.cause = cause
   }
 
@@ -86,7 +94,7 @@ public struct OverloadConstraint: Constraint, Hashable {
 extension OverloadConstraint: CustomStringConvertible {
 
   public var description: String {
-    "\(overloadedExpr):\(overloadedExprType) ∈ {\(choices.descriptions())}"
+    "\(overloadedExpr) ∈ {\(choices.descriptions())}"
   }
 
 }
@@ -94,7 +102,7 @@ extension OverloadConstraint: CustomStringConvertible {
 extension OverloadConstraint.Candidate: CustomStringConvertible {
 
   public var description: String {
-    "\(reference):\(type) => {\(constraints.descriptions(joinedBy: " ∧ "))}:\(penalties)"
+    "\(reference) => {\(constraints.descriptions(joinedBy: " ∧ "))}:\(penalties)"
   }
 
 }

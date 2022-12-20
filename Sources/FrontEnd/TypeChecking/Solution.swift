@@ -47,7 +47,7 @@ struct Solution {
   }
 
   /// The type assumptions made by the solver.
-  private let typeAssumptions: [TypeVariable: AnyType]
+  let typeAssumptions: [TypeVariable: AnyType]
 
   /// The name binding assumptions made by the solver.
   let bindingAssumptions: [NodeID<NameExpr>: DeclRef]
@@ -87,8 +87,13 @@ struct Solution {
   }
 
   /// Adds `d` to the list of diagnostics associated with this solution.
-  internal mutating func addDiagnostic(_ d: Diagnostic) {
+  mutating func addDiagnostic(_ d: Diagnostic) {
     diagnostics.append(d)
+  }
+
+  /// Adds the contents of `s` to the list of diagnostics associated with this solution.
+  mutating func addDiagnostics<S: Sequence>(_ s: S) where S.Element == Diagnostic {
+    diagnostics.append(contentsOf: s)
   }
 
 }

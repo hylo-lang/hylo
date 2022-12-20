@@ -28,6 +28,9 @@ public struct TypeChecker {
   /// Indicates whether the built-in symbols are visible.
   public var isBuiltinModuleVisible: Bool
 
+  /// The source range for which type inference tracing is enabled, if any.
+  public let inferenceTracingRange: SourceRange?
+
   /// The set of lambda expressions whose declarations are pending type checking.
   public private(set) var pendingLambdas: [NodeID<LambdaExpr>] = []
 
@@ -35,12 +38,23 @@ public struct TypeChecker {
   ///
   /// - Note: `program` is stored in the type checker and mutated throughout type checking (e.g.,
   ///   to insert synthesized declarations).
-  public init(program: ScopedProgram, isBuiltinModuleVisible: Bool = false) {
+  public init(
+    program: ScopedProgram,
+    isBuiltinModuleVisible: Bool = false,
+    enablingInferenceTracingIn inferenceTracingRange: SourceRange? = nil
+  ) {
     self.program = program
     self.isBuiltinModuleVisible = isBuiltinModuleVisible
+    self.inferenceTracingRange = inferenceTracingRange
   }
 
   // MARK: Type system
+
+  /// Returns whether `lhs` is a strict subtype of `rhs`.
+  public func isStrictSubtype(_ lhs: AnyType, _ rhs: AnyType) -> Bool {
+    // TODO: Implement me
+    return false
+  }
 
   /// Returns the canonical form of `type`.
   public func canonicalize(type: AnyType) -> AnyType {
@@ -1485,12 +1499,31 @@ public struct TypeChecker {
       expectedType: expectedType)
     let constraintGeneration = generator.apply(using: &self)
 
+    // Determine whether tracing should be enabled.
+    let shouldLogTrace: Bool
+    if
+      let tracingRange = inferenceTracingRange,
+      let subjectRange = program.ast[expr].origin,
+      tracingRange.contains(subjectRange.first())
+    {
+      shouldLogTrace = true
+
+      let loc = subjectRange.first()
+      let subjectDescription = subjectRange.source[subjectRange]
+      print("Inferring type of '\(subjectDescription)' at \(loc)")
+      print("---")
+    } else {
+      shouldLogTrace = false
+    }
+
     // Solve the constraints.
     var solver = ConstraintSolver(
       scope: AnyScopeID(scope),
       fresh: initialConstraints + constraintGeneration.constraints,
-      initialDiagnostics: constraintGeneration.diagnostics)
-    let solution = solver.apply(using: &self)
+      comparingSolutionsWith: constraintGeneration.inferredTypes[expr]!,
+      loggingTrace: shouldLogTrace)
+    var solution = solver.apply(using: &self)
+    solution.addDiagnostics(constraintGeneration.diagnostics)
 
     // Apply the solution.
     for (id, type) in constraintGeneration.inferredTypes.storage {

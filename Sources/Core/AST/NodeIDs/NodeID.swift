@@ -1,11 +1,17 @@
 /// A type denoting the ID of a node.
-public protocol NodeIDProtocol: Hashable, Codable {
+public protocol NodeIDProtocol: Hashable, Codable, CustomStringConvertible {
 
   /// The raw value of the ID.
   var rawValue: NodeID.RawValue { get }
 
   /// The identifier of type of the referred node.
   var kind: NodeKind { get }
+
+}
+
+extension NodeIDProtocol {
+
+  public var description: String { "\(kind)(\(rawValue))" }
 
 }
 

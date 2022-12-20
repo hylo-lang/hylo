@@ -1,4 +1,4 @@
-import Foundation  // For `URL` and `UUID`
+import Foundation
 
 /// A Val source file.
 ///
@@ -73,6 +73,39 @@ public struct SourceFile {
     }
 
     return (lineIndex, columnIndex)
+  }
+
+  /// Returns the location corresponding to the given 1-based line and column indices, or `nil` if
+  /// these indices do not correspond to a valid location.
+  public func location(at line: Int, _ column: Int) -> SourceLocation? {
+    var position = contents.startIndex
+
+    // Get to the given line.
+    var currentLine = 1
+    while (currentLine < line) && (position != contents.endIndex) {
+      defer { position = contents.index(after: position) }
+      if contents[position].isNewline {
+        currentLine += 1
+        if currentLine == line { break }
+      }
+    }
+
+    // Make sure the line number is in bounds.
+    if currentLine != line { return nil }
+
+    // Get to the given column.
+    var currentColumn = 1
+    while (currentColumn < column) && (position != contents.endIndex) {
+      if contents[position].isNewline { break }
+      currentColumn += 1
+      position = contents.index(after: position)
+    }
+
+    // Make sure the cilumn number is in bounds.
+    if currentColumn != column { return nil }
+
+    // We're done.
+    return SourceLocation(source: self, index: position)
   }
 
 }

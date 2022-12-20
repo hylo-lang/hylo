@@ -14,10 +14,10 @@ public struct DisjunctionConstraint: Constraint, Hashable {
       self.penalties = penalties
     }
 
-    /// The constraints.
+    /// The constraints associated with this choice.
     public let constraints: ConstraintSet
 
-    /// The penalties associated with the set.
+    /// The penalties associated with this choice.
     public let penalties: Int
 
   }
@@ -25,7 +25,7 @@ public struct DisjunctionConstraint: Constraint, Hashable {
   /// The choices of the disjunction.
   public private(set) var choices: [Choice]
 
-  public var cause: ConstraintCause
+  public let cause: ConstraintCause
 
   /// Creates an instance with two or more minterms.
   ///
