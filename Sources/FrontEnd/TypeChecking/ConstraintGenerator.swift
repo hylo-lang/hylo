@@ -410,7 +410,7 @@ struct ConstraintGenerator {
     withNameResolutionResult resolution: TypeChecker.NameResolutionResult,
     using checker: inout TypeChecker
   ) -> AnyType {
-    var parentType: AnyType?
+    var lastVisitedComponentType: AnyType?
     let unresolvedComponents: [NodeID<NameExpr>]
 
     switch resolution {
@@ -419,16 +419,16 @@ struct ConstraintGenerator {
 
     case .inexecutable(let suffix):
       if case .expr(let domainExpr) = checker.program.ast[id].domain {
-        parentType = visit(expr: domainExpr, using: &checker)
+        lastVisitedComponentType = visit(expr: domainExpr, using: &checker)
       } else {
         fatalError("not implemented")
       }
       unresolvedComponents = suffix
 
     case .done(let prefix, let suffix):
-      assert(!prefix.isEmpty)
+      assert(!prefix.isEmpty, "at least one name component should have been resolved")
       for p in prefix {
-        parentType = constrain(p.component, to: p.candidates, using: &checker)
+        lastVisitedComponentType = constrain(p.component, to: p.candidates, using: &checker)
       }
 
       unresolvedComponents = suffix
@@ -440,13 +440,13 @@ struct ConstraintGenerator {
       let memberType = expectedTypes[component] ?? ^TypeVariable(node: AnyNodeID(component))
       constraints.append(
         MemberConstraint(
-          parentType!, hasMemberReferredToBy: component, ofType: memberType,
+          lastVisitedComponentType!, hasMemberReferredToBy: component, ofType: memberType,
           in: checker.program.ast,
           because: ConstraintCause(.member, at: componentOrigin)))
-      parentType = constrain(component, toHaveType: memberType, at: componentOrigin)
+      lastVisitedComponentType = constrain(component, toHaveType: memberType, at: componentOrigin)
     }
 
-    return parentType!
+    return lastVisitedComponentType!
   }
 
   private mutating func visit(
