@@ -105,7 +105,7 @@ extension TypedNode where ID: ConcreteNodeID {
   where ID == NodeID<Target> {
     guard let myID = NodeID<ID.Subject>(s.id) else { return nil }
     program = s.program
-    id = .init(myID)
+    id = myID
   }
 }
 
