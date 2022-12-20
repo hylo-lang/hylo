@@ -1503,9 +1503,15 @@ public struct TypeChecker {
     let shouldLogTrace: Bool
     if
       let tracingRange = inferenceTracingRange,
-      let subjectRange = program.ast[expr].origin
+      let subjectRange = program.ast[expr].origin,
+      tracingRange.contains(subjectRange.first())
     {
-      shouldLogTrace = tracingRange.contains(subjectRange.first())
+      shouldLogTrace = true
+
+      let loc = subjectRange.first()
+      let subjectDescription = subjectRange.source[subjectRange]
+      print("Inferring type of '\(subjectDescription)' at \(loc)")
+      print("---")
     } else {
       shouldLogTrace = false
     }
