@@ -1466,7 +1466,7 @@ public struct TypeChecker {
   /// Returns a solution describing the best guess to type `subject` and its sub-expressions.
   ///
   /// - Parameters:
-  ///   - subject: The expression whose type should be inferred.
+  ///   - subject: The expression whose constituent types should be inferred.
   ///   - expectedType: The type `subject` is expected to have given the context it which it
   ///     occurs, or `nil` if such type is unknown.
   ///   - scope: The innermost scope containing `subject`.
