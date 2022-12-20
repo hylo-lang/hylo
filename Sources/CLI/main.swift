@@ -62,10 +62,10 @@ struct CLI: ParsableCommand {
     help: "Type-check the input file(s).")
   var typeCheckOnly: Bool = false
 
-  @Flag(
+  @Option(
     name: [.customLong("trace-inference")],
-    help: "Enable of type inference requests.")
-  var isInferenceTracingEnabled: Bool = false
+    help: "Enable tracing of type inference requests at the given line.")
+  var inferenceTracingRange: SourceRange?
 
   @Option(
     name: [.customLong("emit")],
@@ -145,7 +145,7 @@ struct CLI: ParsableCommand {
     var checker = TypeChecker(
       program: ScopedProgram(ast: ast),
       isBuiltinModuleVisible: true,
-      isInferenceTracingEnabled: isInferenceTracingEnabled)
+      enablingInferenceTracingIn: inferenceTracingRange)
     var typeCheckingSucceeded = true
 
     // Type check the core library.

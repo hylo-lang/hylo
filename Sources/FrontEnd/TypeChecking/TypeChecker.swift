@@ -28,8 +28,8 @@ public struct TypeChecker {
   /// Indicates whether the built-in symbols are visible.
   public var isBuiltinModuleVisible: Bool
 
-  /// Indicates whether tracing in turned on for type inference requests.
-  public let isInferenceTracingEnabled: Bool
+  /// The source range for which type inference tracing is enabled, if any.
+  public let inferenceTracingRange: SourceRange?
 
   /// The set of lambda expressions whose declarations are pending type checking.
   public private(set) var pendingLambdas: [NodeID<LambdaExpr>] = []
@@ -41,11 +41,11 @@ public struct TypeChecker {
   public init(
     program: ScopedProgram,
     isBuiltinModuleVisible: Bool = false,
-    isInferenceTracingEnabled: Bool = false
+    enablingInferenceTracingIn inferenceTracingRange: SourceRange? = nil
   ) {
     self.program = program
     self.isBuiltinModuleVisible = isBuiltinModuleVisible
-    self.isInferenceTracingEnabled = isInferenceTracingEnabled
+    self.inferenceTracingRange = inferenceTracingRange
   }
 
   // MARK: Type system
@@ -1499,12 +1499,23 @@ public struct TypeChecker {
       expectedType: expectedType)
     let constraintGeneration = generator.apply(using: &self)
 
+    // Determine whether tracing should be enabled.
+    let shouldLogTrace: Bool
+    if
+      let tracingRange = inferenceTracingRange,
+      let subjectRange = program.ast[expr].origin
+    {
+      shouldLogTrace = tracingRange.contains(subjectRange.first())
+    } else {
+      shouldLogTrace = false
+    }
+
     // Solve the constraints.
     var solver = ConstraintSolver(
       scope: AnyScopeID(scope),
       fresh: initialConstraints + constraintGeneration.constraints,
       comparingSolutionsWith: constraintGeneration.inferredTypes[expr]!,
-      loggingTrace: isInferenceTracingEnabled)
+      loggingTrace: shouldLogTrace)
     var solution = solver.apply(using: &self)
     solution.addDiagnostics(constraintGeneration.diagnostics)
 
