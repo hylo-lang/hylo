@@ -94,7 +94,7 @@ public struct OverloadConstraint: Constraint, Hashable {
 extension OverloadConstraint: CustomStringConvertible {
 
   public var description: String {
-    "\(overloadedExpr):\(overloadedExprType) ∈ {\(choices.descriptions())}"
+    "\(overloadedExpr) ∈ {\(choices.descriptions())}"
   }
 
 }
@@ -102,7 +102,7 @@ extension OverloadConstraint: CustomStringConvertible {
 extension OverloadConstraint.Candidate: CustomStringConvertible {
 
   public var description: String {
-    "\(reference):\(type) => {\(constraints.descriptions(joinedBy: " ∧ "))}:\(penalties)"
+    "\(reference) => {\(constraints.descriptions(joinedBy: " ∧ "))}:\(penalties)"
   }
 
 }

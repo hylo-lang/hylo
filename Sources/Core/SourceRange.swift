@@ -24,6 +24,11 @@ public struct SourceRange: Hashable {
     self.upperBound = upperBound
   }
 
+  /// Returns whether `self` contains the given location.
+  public func contains(_ l: SourceLocation) -> Bool {
+    (l.source == source) && (l.index >= lowerBound) && (l.index < upperBound)
+  }
+
   /// Returns the first source location in this range.
   public func first() -> SourceLocation {
     SourceLocation(source: source, index: lowerBound)
