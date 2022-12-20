@@ -110,7 +110,7 @@ struct ConstraintGenerator {
 
     // Realize the type to which the left operand should be converted.
     guard var target = checker.realize(node.right, inScope: scope)?.instance else {
-      return assumeIsError(id)
+      return assignErrorType(to: id)
     }
 
     let (ty, cs) = checker.contextualize(
@@ -199,7 +199,7 @@ struct ConstraintGenerator {
     error id: NodeID<ErrorExpr>,
     using checker: inout TypeChecker
   ) -> AnyType {
-    assumeIsError(id)
+    assignErrorType(to: id)
   }
 
   private mutating func visit(
@@ -223,7 +223,7 @@ struct ConstraintGenerator {
 
     // Case 1
     if calleeType.isError {
-      return assumeIsError(id)
+      return assignErrorType(to: id)
     }
 
     // Case 2
@@ -249,7 +249,7 @@ struct ConstraintGenerator {
       {
         return constrain(id, toHaveType: callable.output, at: checker.program.ast[id].origin)
       } else {
-        return assumeIsError(id)
+        return assignErrorType(to: id)
       }
     }
 
@@ -270,7 +270,7 @@ struct ConstraintGenerator {
       // We're done if we couldn't find any initializer.
       if initCandidates.isEmpty {
         checker.addDiagnostic(.diagnose(undefinedName: initName.value, at: initName.origin))
-        return assumeIsError(callee)
+        return assignErrorType(to: callee)
       }
 
       if let pick = initCandidates.uniqueElement {
@@ -296,7 +296,7 @@ struct ConstraintGenerator {
         {
           return constrain(id, toHaveType: ctorType.output, at: checker.program.ast[id].origin)
         } else {
-          return assumeIsError(id)
+          return assignErrorType(to: id)
         }
       } else {
         fatalError("not implemented")
@@ -308,7 +308,7 @@ struct ConstraintGenerator {
       .diagnose(
         nonCallableType: inferredTypes[callee]!,
         at: checker.program.ast[checker.program.ast[id].callee].origin))
-    return assumeIsError(id)
+    return assignErrorType(to: id)
   }
 
   private mutating func visit(
@@ -348,7 +348,7 @@ struct ConstraintGenerator {
   ) -> AnyType {
     // Realize the type of the underlying declaration.
     guard let declType = LambdaType(checker.realize(underlyingDeclOf: id)) else {
-      return assumeIsError(id)
+      return assignErrorType(to: id)
     }
 
     // Schedule the underlying declaration to be type-checked.
@@ -362,7 +362,7 @@ struct ConstraintGenerator {
             expectedLambdaParameterCount: expectedType.inputs.count,
             found: declType.inputs.count,
             at: checker.program.ast[id].origin))
-        return assumeIsError(id)
+        return assignErrorType(to: id)
       }
 
       // Check that the declaration defines the expected argument labels.
@@ -372,7 +372,7 @@ struct ConstraintGenerator {
             labels: declType.inputs.map(\.label),
             incompatibleWith: expectedType.inputs.map(\.label),
             at: checker.program.ast[id].origin))
-        return assumeIsError(id)
+        return assignErrorType(to: id)
       }
     } else if declType.output.base is TypeVariable {
       if case .expr(let body) = checker.program.ast[checker.program.ast[id].decl].body {
@@ -388,7 +388,7 @@ struct ConstraintGenerator {
         // The system is underspecified.
         let origin = checker.program.ast[checker.program.ast[id].decl].introducerRange
         checker.addDiagnostic(.diagnose(cannotInferComplexReturnTypeAt: origin))
-        return assumeIsError(id)
+        return assignErrorType(to: id)
       }
     }
 
@@ -414,7 +414,7 @@ struct ConstraintGenerator {
 
     switch resolution {
     case .failed:
-      return assumeIsError(id)
+      return assignErrorType(to: id)
 
     case .inexecutable(let suffix):
       if case .expr(let domainExpr) = checker.program.ast[id].domain {
@@ -534,7 +534,7 @@ struct ConstraintGenerator {
 
     // Case 1
     if inferredTypes[callee]!.isError {
-      return assumeIsError(id)
+      return assignErrorType(to: id)
     }
 
     // Case 2
@@ -566,7 +566,7 @@ struct ConstraintGenerator {
       {
         return constrain(id, toHaveType: callable.output, at: checker.program.ast[id].origin)
       } else {
-        return assumeIsError(id)
+        return assignErrorType(to: id)
       }
     }
 
@@ -582,7 +582,7 @@ struct ConstraintGenerator {
       if checker.program.ast[id].arguments.count != 1 {
         checker.addDiagnostic(
           .diagnose(invalidBufferTypeExprArgumentCount: id, in: checker.program.ast))
-        return assumeIsError(id)
+        return assignErrorType(to: id)
       }
 
       // Note: We'll need some form of compile-time evaluation here.
@@ -597,7 +597,7 @@ struct ConstraintGenerator {
         .diagnose(
           noUnnamedSubscriptsIn: inferredTypes[callee]!,
           at: checker.program.ast[checker.program.ast[id].callee].origin))
-      return assumeIsError(id)
+      return assignErrorType(to: id)
 
     case 1:
       // If there's a single candidate, we're looking at case 3a.
@@ -607,7 +607,7 @@ struct ConstraintGenerator {
 
       // Bail out if we can't get the type of the referred declaration.
       if declType.isError {
-        return assumeIsError(id)
+        return assignErrorType(to: id)
       }
 
       // Contextualize the type of the referred declaration.
@@ -635,7 +635,7 @@ struct ConstraintGenerator {
 
         return constrain(id, toHaveType: calleeType.output, at: checker.program.ast[id].origin)
       } else {
-        return assumeIsError(id)
+        return assignErrorType(to: id)
       }
 
     default:
@@ -793,6 +793,14 @@ struct ConstraintGenerator {
     return accumulator
   }
 
+  /// Assigns the error type to `subject` in the AST and returns the error type.
+  private mutating func assignErrorType<ID: ExprID>(to subject: ID) -> AnyType {
+    foundConflict = true
+    let ty = AnyType.error
+    inferredTypes[subject] = ty
+    return ty
+  }
+
   /// Constrains `subject` to have type `inferredType` and returns either `inferredType` or the
   /// type currently assigned to `subject` in the AST.
   private mutating func constrain<ID: ExprID, T: TypeProtocol>(
@@ -811,13 +819,6 @@ struct ConstraintGenerator {
       inferredTypes[subject] = ty
       return ty
     }
-  }
-
-  private mutating func assumeIsError<ID: ExprID>(_ subject: ID) -> AnyType {
-    foundConflict = true
-    let ty = AnyType.error
-    inferredTypes[subject] = ty
-    return ty
   }
 
   /// Constrains `name` to be a reference to either of the declarations in `candidates`.
