@@ -228,7 +228,8 @@ struct ConstraintGenerator {
 
     // Case 2
     if calleeType.base is TypeVariable {
-      let parameters = visit(arguments: checker.program.ast[id].arguments, using: &checker)
+      let parameters = parametersMatching(
+        arguments: checker.program.ast[id].arguments, using: &checker)
       let returnType = expectedTypes[id] ?? ^TypeVariable(node: AnyNodeID(id))
 
       constraints.append(
@@ -241,7 +242,7 @@ struct ConstraintGenerator {
 
     // Case 3a
     if let callable = calleeType.base as? CallableType {
-      if visit(
+      if parametersMatching(
         arguments: checker.program.ast[id].arguments,
         of: checker.program.ast[id].callee,
         expecting: callable.inputs,
@@ -288,7 +289,7 @@ struct ConstraintGenerator {
         inferredTypes[callee] = ^ctorType
 
         // Visit the arguments.
-        if visit(
+        if parametersMatching(
           arguments: checker.program.ast[id].arguments,
           of: checker.program.ast[id].callee,
           expecting: ctorType.inputs,
@@ -539,7 +540,8 @@ struct ConstraintGenerator {
 
     // Case 2
     if calleeType.base is TypeVariable {
-      let parameters = visit(arguments: checker.program.ast[id].arguments, using: &checker)
+      let parameters = parametersMatching(
+        arguments: checker.program.ast[id].arguments, using: &checker)
       let returnType = expectedTypes[id] ?? ^TypeVariable(node: AnyNodeID(id))
       let assumedCalleeType = SubscriptImplType(
         isProperty: false,
@@ -558,7 +560,7 @@ struct ConstraintGenerator {
 
     // Case 3a
     if let callable = SubscriptType(inferredTypes[callee]!) {
-      if visit(
+      if parametersMatching(
         arguments: checker.program.ast[id].arguments,
         of: checker.program.ast[id].callee,
         expecting: callable.inputs,
@@ -619,7 +621,7 @@ struct ConstraintGenerator {
 
       // Visit the arguments.
       let calleeType = SubscriptType(contextualizedDeclType)!
-      if visit(
+      if parametersMatching(
         arguments: checker.program.ast[id].arguments,
         of: checker.program.ast[id].callee,
         expecting: calleeType.inputs,
@@ -676,7 +678,7 @@ struct ConstraintGenerator {
   /// If the labels of `arguments` matches those of `parameters`, visit the arguments' expressions
   /// to generate their type constraints assuming they have the corresponding type in `parameters`
   /// and returns `true`. Otherwise, returns `false`.
-  private mutating func visit(
+  private mutating func parametersMatching(
     arguments: [LabeledArgument],
     of callee: AnyExprID,
     expecting parameters: [CallableTypeParameter],
@@ -717,7 +719,7 @@ struct ConstraintGenerator {
   }
 
   /// Visit `arguments` to generate their type constraints and returns a matching parameter list.
-  private mutating func visit(
+  private mutating func parametersMatching(
     arguments: [LabeledArgument],
     using checker: inout TypeChecker
   ) -> [CallableTypeParameter] {
