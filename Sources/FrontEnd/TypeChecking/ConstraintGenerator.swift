@@ -51,7 +51,8 @@ struct ConstraintGenerator {
     expectedTypes[expr] = expectedType
   }
 
-  /// Applies `self` to generate constraints using `checker` to resolve names and realize types.
+  /// Returns the type constraints for `self.subject`, using `checker` to resolve names and realize
+  /// types.
   mutating func apply(using checker: inout TypeChecker) -> Result {
     _ = visit(expr: subject, using: &checker)
     return Result(
