@@ -1699,6 +1699,17 @@ public struct TypeChecker {
   /// The result of a name resolution request.
   enum NameResolutionResult {
 
+    /// A candidate found by name resolution.
+    struct Candidate {
+
+      /// Declaration being referenced.
+      let reference: DeclRef
+
+      /// The quantifier-free type of the declaration at its use site.
+      let type: InstantiatedType
+
+    }
+
     /// The resolut of name resolution for a single name component.
     struct ResolvedComponent {
 
@@ -1706,10 +1717,10 @@ public struct TypeChecker {
       let component: NodeID<NameExpr>
 
       /// The declarations to which the component may refer.
-      let candidates: [(reference: DeclRef, type: AnyType)]
+      let candidates: [Candidate]
 
       /// Creates an instance with the given properties.
-      init(_ component: NodeID<NameExpr>, _ candidates: [(reference: DeclRef, type: AnyType)]) {
+      init(_ component: NodeID<NameExpr>, _ candidates: [Candidate]) {
         self.component = component
         self.candidates = candidates
       }
@@ -1758,46 +1769,57 @@ public struct TypeChecker {
     var parentType: AnyType? = nil
 
     while let component = unresolvedComponents.popLast() {
+      // Evaluate the static argument list.
+      var arguments: [AnyType] = []
+      for a in program.ast[component].arguments {
+        guard let type = realize(a.value, inScope: lookupScope)?.instance else { return .failed }
+        arguments.append(type)
+      }
+
       // Resolve the component.
+      let componentSyntax = program.ast[component]
       let candidates = resolve(
-        program.ast[component].name, memberOf: parentType, from: lookupScope)
+        componentSyntax.name, withArguments: arguments, memberOf: parentType, from: lookupScope)
+
+      // Fail resolution we didn't find any candidate.
+      if candidates.isEmpty { return .failed }
+
+      // Append the resolved component to the nominal prefix.
       resolvedPrefix.append(.init(component, candidates))
 
-      if candidates.isEmpty {
-        return .failed
-      } else if candidates.count > 1 {
-        break
-      }
+      // Defer resolution of the suffix if there are multiple candidates.
+      if candidates.count > 1 { break }
 
       // If the candidate is a direct reference to a type declaration, the next component should be
       // looked up in the referred type's declaration space rather than that of its metatype.
       if isNominalTypeDecl(candidates[0].reference.decl) {
-        parentType = MetatypeType(candidates[0].type)!.instance
+        parentType = MetatypeType(candidates[0].type.shape)!.instance
       } else {
-        parentType = candidates[0].type
+        parentType = candidates[0].type.shape
       }
     }
 
     return .done(resolved: resolvedPrefix, unresolved: unresolvedComponents)
   }
 
-  /// Resolves the declarations identified by `name` and exposed to `lookupScope` using qualified
-  /// lookup in the declaration space of `parentType` if it's not `nil`. Otherwise, use unqualified
-  /// lookup from `lookupScope`.
+  /// Returns the declarations of `name` exposed to `lookupScope` and accepting `arguments`,
+  /// searching in the declaration space of `parentType` if it isn't `nil`, or using unqualified
+  /// lookup otherwise.
   mutating func resolve(
     _ name: SourceRepresentable<Name>,
+    withArguments arguments: [AnyType],
     memberOf parentType: AnyType?,
     from lookupScope: AnyScopeID
-  ) -> [(reference: DeclRef, type: AnyType)] {
+  ) -> [NameResolutionResult.Candidate] {
     // Handle references to the built-in module.
     if (name.value.stem == "Builtin") && (parentType == nil) && isBuiltinModuleVisible {
       let ref: DeclRef = .direct(AnyDeclID(program.ast.builtinDecl))
-      return [(reference: ref, type: ^BuiltinType.module)]
+      return [.init(reference: ref, type: .init(shape: ^BuiltinType.module, constraints: []))]
     }
 
     // Handle references to built-in symbols.
     if parentType == .builtin(.module) {
-      return resolve(builtin: name.value)
+      return resolve(builtin: name.value).map({ [$0] }) ?? []
     }
 
     // Search for the declarations of `name`.
@@ -1837,43 +1859,91 @@ public struct TypeChecker {
       return []
     }
 
-    // Realize the types of the matches and determine how they are being referred to.
-    let isMemberContext = program.isMemberContext(lookupScope)
-    return matches.compactMap({ (matchDecl) -> (reference: DeclRef, type: AnyType)? in
-      // Filter out ill-formed declarations.
-      var matchType = realize(decl: matchDecl)
-      if matchType.isError { return nil }
+    // Create declaration references to the remaining candidates.
+    var candidates: [NameResolutionResult.Candidate] = []
+    var invalidArgumentsDiagnostics: [Diagnostic] = []
 
-      // TODO: Apply the component's arguments
+    let isInMemberContext = program.isMemberContext(lookupScope)
+    for match in matches {
+      // Realize the type of the declaration.
+      var targetType = realize(decl: match)
+
+      // Give up if the declaration has an error type.
+      if targetType.isError { continue }
 
       // Erase parameter conventions.
-      if let t = ParameterType(matchType) {
-        matchType = t.bareType
+      if let t = ParameterType(targetType) {
+        targetType = t.bareType
+      }
+
+      // Apply the static arguments, if any.
+      if !arguments.isEmpty {
+        // Declaration must be generic.
+        guard let env = environment(of: match) else {
+          invalidArgumentsDiagnostics.append(
+            .diagnose(
+              invalidGenericArgumentCountTo: name,
+              found: arguments.count, expected: 0))
+          continue
+        }
+
+        // Declaration must accept the given arguments.
+        // TODO: Check labels
+        guard env.parameters.count == arguments.count else {
+          invalidArgumentsDiagnostics.append(
+            .diagnose(
+              invalidGenericArgumentCountTo: name,
+              found: arguments.count, expected: env.parameters.count))
+          continue
+        }
+
+        // Apply the arguments.
+        let substitutions = Dictionary<GenericTypeParameterType, AnyType>(
+          uniqueKeysWithValues: zip(env.parameters, arguments).map({ (p, a) in
+            (key: GenericTypeParameterType(p)!, value: a)
+          }))
+        targetType = targetType.specialized(substitutions)
       }
 
       // Determine how the declaration is being referenced.
-      let ref: DeclRef
-      if isMemberContext && program.isMember(matchDecl) {
-        ref = .member(matchDecl)
-      } else {
-        ref = .direct(matchDecl)
-      }
+      let reference: DeclRef = isInMemberContext && program.isMember(match)
+        ? .member(match)
+        : .direct(match)
 
-      return (reference: ref, type: matchType)
-    })
+      // Instantiate the type of the declaration
+      let instantiatedType = instantiate(
+        targetType,
+        fromScopeIntroducing: reference.decl,
+        cause: ConstraintCause(.binding, at: name.origin))
+      candidates.append(.init(reference: reference, type: instantiatedType))
+    }
+
+    // If there are no candidates left, diagnose an error.
+    if candidates.isEmpty {
+      if let diagnostic = invalidArgumentsDiagnostics.uniqueElement {
+        diagnostics.insert(diagnostic)
+      } else {
+        diagnostics.insert(
+          .diagnose(
+            invalidGenericArgumentsTo: name,
+            candidateDiagnostics: invalidArgumentsDiagnostics))
+      }
+    }
+
+    return candidates
   }
 
   /// Resolves a reference to the built-in symbol named `name`.
-  private func resolve(builtin name: Name) -> [(reference: DeclRef, type: AnyType)] {
+  private func resolve(builtin name: Name) -> NameResolutionResult.Candidate? {
     let ref: DeclRef = .direct(AnyDeclID(program.ast.builtinDecl))
 
     if let type = BuiltinSymbols[name.stem] {
-      return [(reference: ref, type: ^type)]
+      return .init(reference: ref, type: .init(shape: ^type, constraints: []))
     }
     if let type = BuiltinType(name.stem) {
-      return [(reference: ref, type: ^type)]
+      return .init(reference: ref, type: .init(shape: ^type, constraints: []))
     }
-    return []
+    return nil
   }
 
   /// Returns the declarations that expose `name` without qualification in `scope`.
@@ -3270,7 +3340,7 @@ public struct TypeChecker {
 
   /// Replaces occurrences of associated types and generic type parameters in `type` by fresh
   /// type variables variables.
-  func open(type: AnyType) -> (AnyType, ConstraintSet) {
+  func open(type: AnyType) -> InstantiatedType {
     /// A map from generic parameter type to its opened type.
     var openedParameters: [AnyType: AnyType] = [:]
 
@@ -3306,7 +3376,7 @@ public struct TypeChecker {
       }
     }
 
-    return (type.transform(_impl(type:)), [])
+    return InstantiatedType(shape: type.transform(_impl(type:)), constraints: [])
   }
 
   /// Returns `type` contextualized in `scope` and the type constraints implied by that
@@ -3367,6 +3437,30 @@ public struct TypeChecker {
     }
 
     return (type.transform(_impl(type:)), [])
+  }
+
+  /// Instantiates `subject` from the scope introducing `decl` or, if that's an initializer, from
+  /// the scope introducing the type `decl` initializes.
+  func instantiate(
+    _ subject: AnyType,
+    fromScopeIntroducing decl: AnyDeclID,
+    cause: ConstraintCause
+  ) -> InstantiatedType {
+    // Identifiy the scope relative to which quantifiers should be eliminated.
+    let containingScope: AnyScopeID
+    switch decl.kind {
+    case BuiltinDecl.self:
+      return InstantiatedType(shape: subject, constraints: [])
+    case InitializerDecl.self:
+      containingScope = program.scopeToParent[program.declToScope[decl]!]!
+    default:
+      containingScope = program.declToScope[decl]!
+    }
+
+    // Eliminate quantifiers.
+    let (shape, constraints) = contextualize(
+      type: subject, inScope: containingScope, cause: cause)
+    return InstantiatedType(shape: shape, constraints: constraints)
   }
 
   // MARK: Utils

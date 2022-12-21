@@ -267,7 +267,8 @@ struct ConstraintGenerator {
           stem: "init",
           labels: ["self"] + checker.program.ast[id].arguments.map({ $0.label?.value })),
         range: checker.program.ast[c].name.origin)
-      let initCandidates = checker.resolve(initName, memberOf: instanceType, from: scope)
+      let initCandidates = checker.resolve(
+        initName, withArguments: [], memberOf: instanceType, from: scope)
 
       // We're done if we couldn't find any initializer.
       if initCandidates.isEmpty {
@@ -276,18 +277,11 @@ struct ConstraintGenerator {
       }
 
       if let pick = initCandidates.uniqueElement {
-        // Rebind the callee.
+        // Rebind the callee and constrain its type.
+        let ctorType = LambdaType(pick.type.shape)!.ctor()!
         checker.referredDecls[c] = pick.reference
-
-        // Constrain the callee's type.
-        let (initType, initConstraints) = checker.contextualize(
-          type: pick.type,
-          inScope: checker.program.declToScope[d]!,
-          cause: .init(.callee, at: nil))
-        constraints.append(contentsOf: initConstraints)
-
-        let ctorType = LambdaType(initType)!.ctor()!
-        inferredTypes[callee] = ^ctorType
+        inferredTypes[c] = ^ctorType
+        constraints.append(contentsOf: pick.type.constraints)
 
         // Visit the arguments.
         if parametersMatching(
@@ -829,37 +823,24 @@ struct ConstraintGenerator {
   /// - Requires: `candidates` is not empty
   private mutating func constrain(
     _ name: NodeID<NameExpr>,
-    to candidates: [(reference: DeclRef, type: AnyType)],
+    to candidates: [TypeChecker.NameResolutionResult.Candidate],
     using checker: inout TypeChecker
   ) -> AnyType {
     precondition(!candidates.isEmpty)
     let constrainOrigin = checker.program.ast[name].origin
 
-    if let pick = candidates.uniqueElement {
-      // Contextualize the candidate's type.
-      let declScope = checker.program.declToScope[pick.reference.decl, default: scope]
-      let (nameType, nameConstraints) = checker.contextualize(
-        type: pick.type,
-        inScope: declScope,
-        cause: ConstraintCause(.binding, at: constrainOrigin))
-
+    if let candidate = candidates.uniqueElement {
       // Bind the component to the resolved declaration and store its type.
-      checker.referredDecls[name] = pick.reference
-      constraints.append(contentsOf: nameConstraints)
-      return constrain(name, toHaveType: nameType, at: constrainOrigin)
+      checker.referredDecls[name] = candidate.reference
+      constraints.append(contentsOf: candidate.type.constraints)
+      return constrain(name, toHaveType: candidate.type.shape, at: constrainOrigin)
     } else {
       // Create an overload set.
       let overloads: [OverloadConstraint.Candidate] = candidates.map({ (candidate) in
-        // Contextualize the candidate's type.
-        let (pickType, pickConstraints) = checker.contextualize(
-          type: candidate.type,
-          inScope: checker.program.declToScope[candidate.reference.decl]!,
-          cause: ConstraintCause(.binding, at: constrainOrigin))
-
         return .init(
           reference: candidate.reference,
-          type: pickType,
-          constraints: pickConstraints,
+          type: candidate.type.shape,
+          constraints: candidate.type.constraints,
           penalties: 0)
       })
 

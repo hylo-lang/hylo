@@ -669,13 +669,12 @@ extension TypeChecker {
     let skolemizedLeft = l.skolemized
 
     // Open the right operand.
-    let openedRight: AnyType
-    var constraints: ConstraintSet
-    (openedRight, constraints) = open(type: r)
+    let openedRight = open(type: r)
+    var constraints = openedRight.constraints
 
     // Create pairwise subtyping constraints on the parameters.
     let lhs = skolemizedLeft.base as! CallableType
-    let rhs = openedRight.base as! CallableType
+    let rhs = openedRight.shape.base as! CallableType
     for i in 0 ..< lhs.inputs.count {
       // Ignore the passing conventions.
       guard
