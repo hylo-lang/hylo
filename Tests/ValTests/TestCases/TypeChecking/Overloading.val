@@ -1,5 +1,7 @@
 //! expect-success
 
+fun check<T>(_ x: T) {}
+
 fun fn(x: Int) -> Int {
   fatal_error()
 }
@@ -13,8 +15,15 @@ fun fn<T>(x: T) -> T {
 }
 
 public fun main() {
-  let _ = fn(x: 1)
-  let _ = fn(x: true)
-  let _ : Int = fn(x: 1)
-  let _ : Double = fn(x: 1)
+  let x0 = fn(x: 1)
+  check<Int>(x0)
+
+  let x1 = fn(x: true)
+  check<Bool>(x1)
+
+  let x2: Int = fn(x: 1)
+  check<Int>(x2)
+
+  let x3: Double = fn(x: 1)
+  check<Double>(x3)
 }
