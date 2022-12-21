@@ -1192,12 +1192,13 @@ public struct TypeChecker {
 
     // Nothing to do if the declaration has no generic clause.
     guard let clause = program.ast[id].genericClause?.value else {
-      let e = GenericEnvironment(decl: id, constraints: [], into: &self)
+      let e = GenericEnvironment(decl: id, parameters: [], constraints: [], into: &self)
       environments[id] = .done(e)
       return e
     }
 
     var success = true
+    var parameters: [AnyType] = []
     var constraints: [Constraint] = []
 
     // Check the conformance list of each generic type parameter.
@@ -1209,8 +1210,11 @@ public struct TypeChecker {
       // TODO: Type check default values.
 
       // Skip value declarations.
-      guard let lhs = (parameterType.base as? MetatypeType)?.instance else { continue }
+      guard let lhs = MetatypeType(parameterType)?.instance else {
+        fatalError("not implemented")
+      }
       assert(lhs.base is GenericTypeParameterType)
+      parameters.append(lhs)
 
       // Synthesize the sugared conformance constraint, if any.
       let list = program.ast[p].conformances
@@ -1238,7 +1242,8 @@ public struct TypeChecker {
     }
 
     if success {
-      let e = GenericEnvironment(decl: id, constraints: constraints, into: &self)
+      let e = GenericEnvironment(
+        decl: id, parameters: parameters, constraints: constraints, into: &self)
       environments[id] = .done(e)
       return e
     } else {
@@ -1276,7 +1281,7 @@ public struct TypeChecker {
     }
 
     if success {
-      let e = GenericEnvironment(decl: id, constraints: constraints, into: &self)
+      let e = GenericEnvironment(decl: id, parameters: [], constraints: constraints, into: &self)
       environments[id] = .done(e)
       return e
     } else {
@@ -1337,7 +1342,8 @@ public struct TypeChecker {
         ^selfType, conformsTo: [trait],
         because: ConstraintCause(.structural, at: program.ast[id].identifier.origin)))
 
-    let e = GenericEnvironment(decl: id, constraints: constraints, into: &self)
+    let e = GenericEnvironment(
+      decl: id, parameters: [^selfType], constraints: constraints, into: &self)
     environments[id] = .done(e)
     return e
   }
