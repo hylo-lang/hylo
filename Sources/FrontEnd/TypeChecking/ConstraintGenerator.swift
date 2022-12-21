@@ -61,7 +61,7 @@ struct ConstraintGenerator {
       didFoundError: foundConflict)
   }
 
-  /// Returns the variable assigned to `expr` in the generated contraints, using `checker` to
+  /// Returns the type assigned to `expr` in the generated contraints, using `checker` to
   /// resolve names and realize types.
   private mutating func visit(expr: AnyExprID, using checker: inout TypeChecker) -> AnyType {
     defer { assert(inferredTypes[expr] != nil) }
