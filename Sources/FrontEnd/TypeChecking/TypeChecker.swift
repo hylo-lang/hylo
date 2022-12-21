@@ -436,7 +436,7 @@ public struct TypeChecker {
 
   private mutating func _check(function id: NodeID<FunctionDecl>) -> Bool {
     // Type check the generic constraints.
-    var success = environment(ofGenericDecl: id) != nil
+    var success = environment(of: id) != nil
 
     // Type check the parameters.
     var parameterNames: Set<String> = []
@@ -500,7 +500,7 @@ public struct TypeChecker {
     let type = declTypes[id]!.base as! LambdaType
 
     // Type check the generic constraints.
-    var success = environment(ofGenericDecl: id) != nil
+    var success = environment(of: id) != nil
 
     // Type check the parameters.
     var parameterNames: Set<String> = []
@@ -534,7 +534,7 @@ public struct TypeChecker {
     let outputType = type.output.skolemized
 
     // Type check the generic constraints.
-    var success = environment(ofGenericDecl: id) != nil
+    var success = environment(of: id) != nil
 
     // Type check the parameters.
     var parameterNames: Set<String> = []
@@ -654,7 +654,7 @@ public struct TypeChecker {
     var success = check(initializer: program.ast[id].memberwiseInit)
 
     // Type check the generic constraints.
-    success = (environment(ofGenericDecl: id) != nil) && success
+    success = (environment(of: id) != nil) && success
 
     // Type check the type's direct members.
     for j in program.ast[id].members {
@@ -696,7 +696,7 @@ public struct TypeChecker {
     let outputType = declType.output.skolemized
 
     // Type check the generic constraints.
-    var success = environment(ofGenericDecl: id) != nil
+    var success = environment(of: id) != nil
 
     // Type check the parameters, if any.
     if let parameters = program.ast[id].parameters {
@@ -788,7 +788,7 @@ public struct TypeChecker {
     }
 
     // Type-check the generic clause.
-    var success = environment(ofGenericDecl: id) != nil
+    var success = environment(of: id) != nil
 
     // Type check extending declarations.
     for j in extendingDecls(of: subject, exposedTo: program.declToScope[id]!) {
@@ -1157,30 +1157,27 @@ public struct TypeChecker {
     return nil
   }
 
-  /// Returns the generic environment defined by `id`, or `nil` if it is ill-typed.
-  ///
-  /// - Requires: `i.kind <= .genericScope`
-  private mutating func environment<T: NodeIDProtocol>(of id: T) -> GenericEnvironment? {
-    switch id.kind {
+  /// Returns the generic environment defined by `node`, or `nil` if either `node`'s environment
+  /// is ill-formed or if node doesn't outline a generic lexical scope.
+  private mutating func environment<T: NodeIDProtocol>(of node: T) -> GenericEnvironment? {
+    switch node.kind {
     case FunctionDecl.self:
-      return environment(ofGenericDecl: NodeID<FunctionDecl>(rawValue: id.rawValue))
+      return environment(of: NodeID<FunctionDecl>(rawValue: node.rawValue))
     case ProductTypeDecl.self:
-      return environment(ofGenericDecl: NodeID<ProductTypeDecl>(rawValue: id.rawValue))
+      return environment(of: NodeID<ProductTypeDecl>(rawValue: node.rawValue))
     case SubscriptDecl.self:
-      return environment(ofGenericDecl: NodeID<SubscriptDecl>(rawValue: id.rawValue))
+      return environment(of: NodeID<SubscriptDecl>(rawValue: node.rawValue))
     case TypeAliasDecl.self:
-      return environment(ofGenericDecl: NodeID<TypeAliasDecl>(rawValue: id.rawValue))
+      return environment(of: NodeID<TypeAliasDecl>(rawValue: node.rawValue))
     case TraitDecl.self:
-      return environment(ofTraitDecl: NodeID(rawValue: id.rawValue))
+      return environment(ofTraitDecl: NodeID(rawValue: node.rawValue))
     default:
-      unreachable("unexpected scope")
+      return nil
     }
   }
 
   /// Returns the generic environment defined by `id`, or `nil` if it is ill-typed.
-  private mutating func environment<T: GenericDecl>(
-    ofGenericDecl id: NodeID<T>
-  ) -> GenericEnvironment? {
+  private mutating func environment<T: GenericDecl>(of id: NodeID<T>) -> GenericEnvironment? {
     switch environments[id] {
     case .done(let e):
       return e
