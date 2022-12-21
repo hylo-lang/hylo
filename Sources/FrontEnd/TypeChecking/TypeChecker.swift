@@ -3379,17 +3379,13 @@ public struct TypeChecker {
     return InstantiatedType(shape: type.transform(_impl(type:)), constraints: [])
   }
 
-  /// Returns `type` contextualized in `scope` and the type constraints implied by that
-  /// contextualization.
-  ///
-  /// Contextualization consists of substituting the generic parameters in a type by either skolems
-  /// or open variables. Opened parameters carry the constraints defined by the generic environment
-  /// in which they are opened.
-  func contextualize<S: ScopeID>(
-    type: AnyType,
+  /// Replaces the generic parameters in `subject` by skolems or fresh variables depending on the
+  /// whether their declaration is contained in `scope`.
+  func instantiate<S: ScopeID>(
+    _ subject: AnyType,
     inScope scope: S,
     cause: ConstraintCause
-  ) -> (AnyType, ConstraintSet) {
+  ) -> InstantiatedType {
     /// A map from generic parameter type to its opened type.
     var openedParameters: [AnyType: AnyType] = [:]
 
@@ -3436,7 +3432,7 @@ public struct TypeChecker {
       }
     }
 
-    return (type.transform(_impl(type:)), [])
+    return InstantiatedType(shape: subject.transform(_impl(type:)), constraints: [])
   }
 
   /// Instantiates `subject` from the scope introducing `decl` or, if that's an initializer, from
@@ -3458,9 +3454,7 @@ public struct TypeChecker {
     }
 
     // Eliminate quantifiers.
-    let (shape, constraints) = contextualize(
-      type: subject, inScope: containingScope, cause: cause)
-    return InstantiatedType(shape: shape, constraints: constraints)
+    return instantiate(subject, inScope: containingScope, cause: cause)
   }
 
   // MARK: Utils

@@ -110,16 +110,15 @@ struct ConstraintGenerator {
     let node = checker.program.ast[id]
 
     // Realize the type to which the left operand should be converted.
-    guard var target = checker.realize(node.right, inScope: scope)?.instance else {
+    guard let target = checker.realize(node.right, inScope: scope)?.instance else {
       return assignErrorType(to: id)
     }
 
-    let (ty, cs) = checker.contextualize(
-      type: target,
+    let rhs = checker.instantiate(
+      target,
       inScope: scope,
       cause: ConstraintCause(.cast, at: checker.program.ast[id].origin))
-    target = ty
-    constraints.append(contentsOf: cs)
+    constraints.append(contentsOf: rhs.constraints)
 
     let lhs = node.left
     switch node.kind {
@@ -133,7 +132,7 @@ struct ConstraintGenerator {
       inferredTypes[lhs] = ^TypeVariable(node: lhs.base)
       constraints.append(
         inferenceConstraint(
-          inferredTypes[lhs]!, isSubtypeOf: target,
+          inferredTypes[lhs]!, isSubtypeOf: rhs.shape,
           because: ConstraintCause(.cast, at: checker.program.ast[id].origin)))
 
     case .builtinPointerConversion:
@@ -608,14 +607,14 @@ struct ConstraintGenerator {
       }
 
       // Contextualize the type of the referred declaration.
-      let (contextualizedDeclType, declConstraints) = checker.contextualize(
-        type: declType,
+      let instantiatedType = checker.instantiate(
+        declType,
         inScope: scope,
         cause: ConstraintCause(
           .callee, at: checker.program.ast[checker.program.ast[id].callee].origin))
 
       // Visit the arguments.
-      let calleeType = SubscriptType(contextualizedDeclType)!
+      let calleeType = SubscriptType(instantiatedType.shape)!
       if parametersMatching(
         arguments: checker.program.ast[id].arguments,
         of: checker.program.ast[id].callee,
@@ -623,7 +622,7 @@ struct ConstraintGenerator {
         using: &checker)
       {
         // Register the callee's constraints.
-        constraints.append(contentsOf: declConstraints)
+        constraints.append(contentsOf: instantiatedType.constraints)
 
         // Update the referred declaration map if necessary.
         if let c = NodeID<NameExpr>(callee) {

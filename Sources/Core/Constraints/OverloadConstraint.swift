@@ -18,7 +18,7 @@ public struct OverloadConstraint: Constraint, Hashable {
     /// The candidate reference.
     public let reference: DeclRef
 
-    /// The contextualized type the referred declaration.
+    /// The instantiated type the referred declaration.
     public let type: AnyType
 
     /// The set of constraints associated with this choice.
