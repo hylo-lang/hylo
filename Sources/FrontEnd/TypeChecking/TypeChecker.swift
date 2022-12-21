@@ -87,7 +87,7 @@ public struct TypeChecker {
   /// Returns the canonical form of `constraint`.
   public func canonicalize(constraint: Constraint) -> Constraint {
     var canonical = constraint
-    canonical.modifyTypes({ (type) in type = canonicalize(type: type) })
+    canonical.modifyTypes(canonicalize(type:))
     return canonical
   }
 

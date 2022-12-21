@@ -1,3 +1,5 @@
+import Utils
+
 /// A constraint `L == R` specifying that `L` is exactly the same type as `R`.
 ///
 /// - Note: Equality constraints are commutative.
@@ -25,9 +27,9 @@ public struct EqualityConstraint: Constraint, Hashable {
     self.cause = constraint.cause
   }
 
-  public mutating func modifyTypes(_ modify: (inout AnyType) -> Void) {
-    modify(&left)
-    modify(&right)
+  public mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {
+    modify(&left, with: transform)
+    modify(&right, with: transform)
   }
 
   public func depends(on variable: TypeVariable) -> Bool {

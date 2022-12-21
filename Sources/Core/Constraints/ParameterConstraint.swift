@@ -1,3 +1,5 @@
+import Utils
+
 /// A constraint `L ⤷ R` specifying that `R` is a parameter type and `L` the type of a compatible
 /// argument.
 ///
@@ -20,9 +22,9 @@ public struct ParameterConstraint: Constraint, Hashable {
     self.cause = cause
   }
 
-  public mutating func modifyTypes(_ modify: (inout AnyType) -> Void) {
-    modify(&left)
-    modify(&right)
+  public mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {
+    modify(&left, with: transform)
+    modify(&right, with: transform)
   }
 
   public func depends(on variable: TypeVariable) -> Bool {

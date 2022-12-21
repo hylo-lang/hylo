@@ -12,7 +12,7 @@ public struct PredicateConstraint: Constraint, Hashable {
     self.cause = cause
   }
 
-  public func modifyTypes(_ modify: (inout AnyType) -> Void) {}
+  public mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {}
 
   public func depends(on variable: TypeVariable) -> Bool { false }
 

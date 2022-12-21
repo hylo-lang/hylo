@@ -1,3 +1,5 @@
+import Utils
+
 /// A constraint `L <: R` specifying that `L` is a subtype of `R`.
 ///
 /// - Warning: should not be used directly for inference purposes or the type checker will get
@@ -19,9 +21,9 @@ public struct SubtypingConstraint: Constraint, Hashable {
     self.cause = cause
   }
 
-  public mutating func modifyTypes(_ modify: (inout AnyType) -> Void) {
-    modify(&left)
-    modify(&right)
+  public mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {
+    modify(&left, with: transform)
+    modify(&right, with: transform)
   }
 
   public func depends(on variable: TypeVariable) -> Bool {

@@ -259,7 +259,7 @@ struct ConstraintSolver {
     // Postpone the solving if `L` is still unknown.
     if l.base is TypeVariable {
       var c = constraint
-      c.modifyTypes({ (t) in t = typeAssumptions[t] })
+      c.modifyTypes({ typeAssumptions[$0] })
       postpone(c)
       return
     }
@@ -328,7 +328,7 @@ struct ConstraintSolver {
     // Postpone the solving if `F` is still unknown.
     if f.base is TypeVariable {
       var c = constraint
-      c.modifyTypes({ (t) in t = typeAssumptions[t] })
+      c.modifyTypes({ typeAssumptions[$0] })
       postpone(c)
       return
     }
