@@ -14,8 +14,8 @@ struct ConstraintGenerator {
     /// The set of type constraints being generated.
     let constraints: [Constraint]
 
-    /// Indicates that the solver encountered one or more errors.
-    let didFoundError: Bool
+    /// True iff a constraint could not be solved.
+    let foundConflict: Bool
 
   }
 
@@ -58,7 +58,7 @@ struct ConstraintGenerator {
     return Result(
       inferredTypes: inferredTypes,
       constraints: constraints,
-      didFoundError: foundConflict)
+      foundConflict: foundConflict)
   }
 
   /// Returns the type assigned to `expr` in the generated contraints, using `checker` to
