@@ -24,6 +24,17 @@ public protocol Constraint {
 
 }
 
+extension Constraint {
+
+  /// Returns a copy of `self` where constituent types have been transformed with `transform`.
+  public func modifyingTypes(_ transform: (AnyType) -> AnyType) -> Self {
+    var copy = self
+    copy.modifyTypes(transform)
+    return copy
+  }
+
+}
+
 extension Constraint where Self: Equatable {
 
   /// Returns whether `self` is equal to `other`.
