@@ -3363,9 +3363,6 @@ public struct TypeChecker {
           return .stepOver(opened)
         }
 
-      case is GenericValueParameterType:
-        fatalError("not implemented")
-
       default:
         // Nothing to do if `type` isn't parameterized.
         if type[.hasGenericTypeParam] || type[.hasGenericValueParam] {
@@ -3418,9 +3415,6 @@ public struct TypeChecker {
 
           return .stepOver(opened)
         }
-
-      case is GenericValueParameterType:
-        fatalError("not implemented")
 
       default:
         // Nothing to do if `type` isn't parameterized.
