@@ -1203,15 +1203,17 @@ public struct TypeChecker {
       // Realize the parameter's declaration.
       let parameterType = realize(genericParameterDecl: p)
       if parameterType.isError { return nil }
+      parameters.append(parameterType)
 
       // TODO: Type check default values.
 
       // Skip value declarations.
-      guard let lhs = MetatypeType(parameterType)?.instance else {
-        fatalError("not implemented")
+      guard
+        let lhs = MetatypeType(parameterType)?.instance,
+        lhs.base is GenericTypeParameterType
+      else {
+        continue
       }
-      assert(lhs.base is GenericTypeParameterType)
-      parameters.append(lhs)
 
       // Synthesize the sugared conformance constraint, if any.
       let list = program.ast[p].conformances
@@ -1900,7 +1902,10 @@ public struct TypeChecker {
         // Apply the arguments.
         let substitutions = Dictionary<GenericTypeParameterType, AnyType>(
           uniqueKeysWithValues: zip(env.parameters, arguments).map({ (p, a) in
-            (key: GenericTypeParameterType(p)!, value: a)
+            guard
+              let key = (MetatypeType(p)?.instance).flatMap(GenericTypeParameterType.init(_:))
+            else { fatalError() }
+            return (key: key, value: a)
           }))
         targetType = targetType.specialized(substitutions)
       }
