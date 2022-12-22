@@ -1498,7 +1498,7 @@ public struct TypeChecker {
     let constraintGeneration = generator.apply(using: &self)
 
     // Bail out if constraint generation failed.
-    if constraintGeneration.didFoundError {
+    if constraintGeneration.foundConflict {
       return (succeeded: false, solution: .init())
     }
 
