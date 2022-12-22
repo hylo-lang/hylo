@@ -181,6 +181,12 @@ extension AnyType {
 
 }
 
+extension AnyType: CompileTimeValue {
+
+  public var staticType: AnyType { ^MetatypeType(of: self) }
+
+}
+
 extension AnyType: Equatable {
 
   /// Returns whether `l` is equal to `r`.
