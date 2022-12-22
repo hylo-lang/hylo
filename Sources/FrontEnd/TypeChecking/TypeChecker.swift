@@ -1904,13 +1904,7 @@ public struct TypeChecker {
         }
 
         // Apply the arguments.
-        let substitutions = Dictionary<GenericTypeParameterType, AnyType>(
-          uniqueKeysWithValues: zip(env.parameters, arguments).map({ (p, a) in
-            guard
-              let key = (MetatypeType(p)?.instance).flatMap(GenericTypeParameterType.init(_:))
-            else { fatalError() }
-            return (key: key, value: a)
-          }))
+        let substitutions = Dictionary(uniqueKeysWithValues: zip(env.parameters, arguments))
         targetType = targetType.specialized(substitutions)
       }
 

@@ -19,7 +19,7 @@ public struct InstantiatedType: Hashable {
 
   /// Returns a copy of this type with generic type parameters keying `subtitutions` replaced by
   /// their corresponding value.
-  public func specialized(_ substitutions: [GenericTypeParameterType: AnyType]) -> Self {
+  public func specialized(_ substitutions: [NodeID<GenericParameterDecl>: AnyType]) -> Self {
     .init(
       shape: shape.specialized(substitutions),
       constraints:
