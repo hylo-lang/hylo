@@ -236,6 +236,11 @@ public struct TypeChecker {
   /// The bindings whose initializers are being currently visited.
   private var bindingsUnderChecking: DeclSet = []
 
+  /// Adds the given diagnostic.
+  mutating func addDiagnostic(_ d: Diagnostic) {
+    diagnostics.insert(d)
+  }
+
   /// Inserts `expr` in the set of pending lambdas.
   mutating func deferTypeChecking(_ expr: NodeID<LambdaExpr>) {
     pendingLambdas.append(expr)
@@ -374,7 +379,7 @@ public struct TypeChecker {
       })
 
       bindingsUnderChecking.formUnion(names)
-      let solution = infer(
+      let inference = infer(
         typeOf: initializer,
         expecting: shape.type,
         inScope: scope,
@@ -383,12 +388,14 @@ public struct TypeChecker {
 
       // TODO: Complete underspecified generic signatures
 
-      success = solution.diagnostics.isEmpty
-      shape.type = solution.reify(shape.type, withVariables: .substituteByError)
+      success = inference.succeeded
+      shape.type = inference.solution.reify(shape.type, withVariables: .substituteByError)
 
       // Assign the variable declarations in the pattern to their type
       for decl in shape.decls {
-        declTypes[decl] = solution.reify(declTypes[decl]!, withVariables: .substituteByError)
+        modifying(&declTypes[decl]!, { (t) in
+          t = inference.solution.reify(t, withVariables: .substituteByError)
+        })
         declRequests[decl] = success ? .success : .failure
       }
     } else if program.ast[program.ast[id].pattern].annotation == nil {
@@ -597,7 +604,7 @@ public struct TypeChecker {
       let defaultValueType = exprTypes[defaultValue].setIfNil(
         ^TypeVariable(node: defaultValue.base))
 
-      let solution = infer(
+      let inference = infer(
         typeOf: defaultValue,
         expecting: parameterType.bareType,
         inScope: program.declToScope[id]!,
@@ -607,7 +614,7 @@ public struct TypeChecker {
             because: ConstraintCause(.argument, at: program.ast[id].origin))
         ])
 
-      if !solution.diagnostics.isEmpty {
+      if !inference.succeeded {
         declRequests[id] = .failure
         return false
       }
@@ -1055,13 +1062,12 @@ public struct TypeChecker {
       because: ConstraintCause(.initializationOrAssignment, at: program.ast[id].origin))
 
     // Infer the type on the right.
-    let solution = infer(
+    let inference = infer(
       typeOf: AnyExprID(program.ast[id].right),
       expecting: lhsType,
       inScope: lexicalContext,
       initialConstraints: [assignmentConstraint])
-
-    return solution.diagnostics.isEmpty
+    return inference.succeeded
   }
 
   private mutating func check<S: ScopeID>(
@@ -1075,7 +1081,7 @@ public struct TypeChecker {
       // The type of the return value must be subtype of the expected return type.
       let inferredReturnType = exprTypes[returnValue].setIfNil(
         ^TypeVariable(node: returnValue.base))
-      let solution = infer(
+      let inference = infer(
         typeOf: returnValue,
         expecting: expectedType,
         inScope: lexicalContext,
@@ -1084,7 +1090,7 @@ public struct TypeChecker {
             inferredReturnType, isSubtypeOf: expectedType,
             because: ConstraintCause(.return, at: program.ast[returnValue].origin))
         ])
-      return solution.diagnostics.isEmpty
+      return inference.succeeded
     } else if expectedType != .void {
       diagnostics.insert(.diagnose(missingReturnValueAt: program.ast[id].origin))
       return false
@@ -1103,7 +1109,7 @@ public struct TypeChecker {
     // The type of the return value must be subtype of the expected return type.
     let inferredReturnType = exprTypes[program.ast[id].value].setIfNil(
       ^TypeVariable(node: program.ast[id].value.base))
-    let solution = infer(
+    let inference = infer(
       typeOf: program.ast[id].value,
       expecting: expectedType,
       inScope: lexicalContext,
@@ -1112,7 +1118,7 @@ public struct TypeChecker {
           inferredReturnType, isSubtypeOf: expectedType,
           because: ConstraintCause(.yield, at: program.ast[program.ast[id].value].origin))
       ])
-    return solution.diagnostics.isEmpty
+    return inference.succeeded
   }
 
   /// Returns the expected output type in `lexicalContext`, or `nil` if `lexicalContext` is not
@@ -1460,16 +1466,13 @@ public struct TypeChecker {
     expectedType: AnyType? = nil,
     inScope scope: S
   ) -> AnyType? {
-    let solution = infer(typeOf: expr, expecting: expectedType, inScope: scope)
-
-    if solution.diagnostics.isEmpty {
-      return exprTypes[expr]!
-    } else {
-      return nil
-    }
+    infer(typeOf: expr, expecting: expectedType, inScope: scope).succeeded
+      ? exprTypes[expr]!
+      : nil
   }
 
-  /// Returns a solution describing the best guess to type `expr` and its sub-expressions.
+  /// Returns whether the solver succeeded checking the type constraints implied by `expr` along
+  /// with the solution describing the best guess for its type and that of its sub-expressions.
   ///
   /// - Parameters:
   ///   - expr: The expression whose type should be inferred.
@@ -1482,7 +1485,7 @@ public struct TypeChecker {
     expecting expectedType: AnyType?,
     inScope scope: S,
     initialConstraints: [Constraint] = []
-  ) -> Solution {
+  ) -> (succeeded: Bool, solution: Solution) {
     // Generate constraints.
     var generator = ConstraintGenerator(
       scope: AnyScopeID(scope),
@@ -1491,13 +1494,17 @@ public struct TypeChecker {
       expectedType: expectedType)
     let constraintGeneration = generator.apply(using: &self)
 
+    // Bail out if constraint generation failed.
+    if constraintGeneration.didFoundError {
+      return (succeeded: false, solution: .init())
+    }
+
     // Solve the constraints.
     var solver = ConstraintSolver(
       scope: AnyScopeID(scope),
       fresh: initialConstraints + constraintGeneration.constraints,
       comparingSolutionsWith: constraintGeneration.inferredTypes[expr]!)
-    var solution = solver.apply(using: &self)
-    solution.addDiagnostics(constraintGeneration.diagnostics)
+    let solution = solver.apply(using: &self)
 
     // Apply the solution.
     for (id, type) in constraintGeneration.inferredTypes.storage {
@@ -1510,11 +1517,11 @@ public struct TypeChecker {
     // Consume the solution's errors.
     diagnostics.formUnion(solution.diagnostics)
 
-    return solution
+    return (succeeded: solution.diagnostics.isEmpty, solution: solution)
   }
 
-  /// Infers the type of `pattern`, generates the type constraints implied by the expressions it
-  /// may contain, and returns the IDs of the variable declarations it contains.
+  /// Returns the inferred type of `pattern`, the type constraints implied by the expressions it
+  /// may contain, and the IDs of the variable declarations it contains.
   ///
   /// - Note: A `nil` return signals a failure to infer the type of the pattern.
   private mutating func infer<T: PatternID>(
@@ -1710,9 +1717,8 @@ public struct TypeChecker {
     /// The payload contains the collections of resolved and unresolved components.
     case done(resolved: [ResolvedComponent], unresolved: [NodeID<NameExpr>])
 
-    /// Name resolution failed. The payload contains the undefined component along with the type
-    /// in which it was looked up, or `nil` if the component is the expression's first component.
-    case failed(component: NodeID<NameExpr>, parentType: AnyType?)
+    /// Name resolution failed.
+    case failed
 
     /// Name resolution couln't start because the first component of the expression isn't a name
     /// The payload contains the collection of unresolved components, after the first one.
@@ -1755,7 +1761,7 @@ public struct TypeChecker {
       resolvedPrefix.append(.init(component, candidates))
 
       if candidates.isEmpty {
-        return .failed(component: component, parentType: parentType)
+        return .failed
       } else if candidates.count > 1 {
         break
       }
@@ -1820,6 +1826,12 @@ public struct TypeChecker {
         else { return nil }
         return AnyDeclID(impl)
       })
+    }
+
+    // Diagnose undefined symbols.
+    if matches.isEmpty {
+      diagnostics.insert(.diagnose(undefinedName: name.value, in: parentType, at: name.origin))
+      return []
     }
 
     // Realize the types of the matches and determine how they are being referred to.
