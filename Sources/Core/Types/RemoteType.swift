@@ -13,7 +13,7 @@ public struct RemoteType: TypeProtocol {
   public init(_ capability: AccessEffect, _ base: AnyType) {
     self.capability = capability
     self.base = base
-    self.flags = base.flags.inserting(.hasProjections)
+    self.flags = base.flags.inserting(.hasRemoteType)
   }
 
   public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> Self {
