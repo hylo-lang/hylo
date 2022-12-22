@@ -862,12 +862,16 @@ public struct TypeChecker {
     to trait: TraitType
   ) -> Bool {
     let conformingType = realizeSelfTypeExpr(inScope: decl)!.instance
-    let selfType = ^GenericTypeParameterType(trait.decl, ast: program.ast)
+    let selfType = ^GenericTypeParameterType(selfParameterOf: trait.decl, in: program.ast)
     var success = true
 
     // Get the set of generic parameters defined by `trait`.
     for j in program.ast[trait.decl].members {
       switch j.kind {
+      case GenericParameterDecl.self:
+        assert(j == program.ast[trait.decl].selfParameterDecl, "unexpected declaration")
+        continue
+
       case AssociatedTypeDecl.self:
         // TODO: Implement me.
         continue
@@ -1178,6 +1182,8 @@ public struct TypeChecker {
 
   /// Returns the generic environment defined by `id`, or `nil` if it is ill-typed.
   private mutating func environment<T: GenericDecl>(of id: NodeID<T>) -> GenericEnvironment? {
+    assert(T.self != TraitDecl.self, "trait environements are built with more specialized method")
+
     switch environments[id] {
     case .done(let e):
       return e
@@ -1195,7 +1201,6 @@ public struct TypeChecker {
     }
 
     var success = true
-    var parameters: [AnyType] = []
     var constraints: [Constraint] = []
 
     // Check the conformance list of each generic type parameter.
@@ -1203,7 +1208,6 @@ public struct TypeChecker {
       // Realize the parameter's declaration.
       let parameterType = realize(genericParameterDecl: p)
       if parameterType.isError { return nil }
-      parameters.append(parameterType)
 
       // TODO: Type check default values.
 
@@ -1242,7 +1246,7 @@ public struct TypeChecker {
 
     if success {
       let e = GenericEnvironment(
-        decl: id, parameters: parameters, constraints: constraints, into: &self)
+        decl: id, parameters: clause.parameters, constraints: constraints, into: &self)
       environments[id] = .done(e)
       return e
     } else {
@@ -1302,7 +1306,9 @@ public struct TypeChecker {
       environments[id] = .inProgress
     }
 
+    /// Indicates whether the checker failed to evaluate an associated constraint.
     var success = true
+    /// The constraints on the trait's associated types and values.
     var constraints: [Constraint] = []
 
     // Collect and type check the constraints defined on associated types and values.
@@ -1334,15 +1340,16 @@ public struct TypeChecker {
     }
 
     // Synthesize `Self: T`.
-    let selfType = GenericTypeParameterType(id, ast: program.ast)
-    let trait = (declTypes[id]!.base as! MetatypeType).instance.base as! TraitType
+    let selfDecl = program.ast[id].selfParameterDecl
+    let selfType = GenericTypeParameterType(selfDecl, ast: program.ast)
+    let declaredTrait = TraitType(MetatypeType(declTypes[id]!)!.instance)!
     constraints.append(
       ConformanceConstraint(
-        ^selfType, conformsTo: [trait],
+        ^selfType, conformsTo: [declaredTrait],
         because: ConstraintCause(.structural, at: program.ast[id].identifier.origin)))
 
     let e = GenericEnvironment(
-      decl: id, parameters: [^selfType], constraints: constraints, into: &self)
+      decl: id, parameters: [selfDecl], constraints: constraints, into: &self)
     environments[id] = .done(e)
     return e
   }
@@ -2388,7 +2395,7 @@ public struct TypeChecker {
       switch scope.kind {
       case TraitDecl.self:
         let decl = NodeID<TraitDecl>(rawValue: scope.rawValue)
-        return MetatypeType(of: GenericTypeParameterType(decl, ast: program.ast))
+        return MetatypeType(of: GenericTypeParameterType(selfParameterOf: decl, in: program.ast))
 
       case ProductTypeDecl.self:
         // Synthesize unparameterized `Self`.
@@ -2663,7 +2670,7 @@ public struct TypeChecker {
 
           let instance = AssociatedTypeType(
             NodeID(rawValue: id.rawValue),
-            domain: ^GenericTypeParameterType(traitDecl, ast: this.program.ast),
+            domain: ^GenericTypeParameterType(selfParameterOf: traitDecl, in: this.program.ast),
             ast: this.program.ast)
           return ^MetatypeType(of: instance)
         })
@@ -2677,7 +2684,7 @@ public struct TypeChecker {
 
           let instance = AssociatedValueType(
             NodeID(rawValue: id.rawValue),
-            domain: ^GenericTypeParameterType(traitDecl, ast: this.program.ast),
+            domain: ^GenericTypeParameterType(selfParameterOf: traitDecl, in: this.program.ast),
             ast: this.program.ast)
           return ^MetatypeType(of: instance)
         })
