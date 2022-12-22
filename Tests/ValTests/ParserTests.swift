@@ -226,7 +226,7 @@ final class ParserTests: XCTestCase {
         """)
     let (declID, ast) = try input.parseWithDeclPrologue(with: Parser.parseTraitDecl)
     let decl = try XCTUnwrap(ast[declID])
-    XCTAssertEqual(decl.members.count, 2)
+    XCTAssertEqual(decl.members.count, 3)  // 2 explicit decls + 1 implicit `Self` parameter
   }
 
   func testTraitDeclWithRefinements() throws {

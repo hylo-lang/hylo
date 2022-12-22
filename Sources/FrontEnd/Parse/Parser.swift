@@ -994,26 +994,36 @@ public enum Parser {
     withPrologue prologue: DeclPrologue,
     in state: inout ParserState
   ) throws -> NodeID<TraitDecl>? {
+    if state.take(.trait) == nil { return nil }
+
     // Parse the parts of the declaration.
-    let parser =
-      (take(.trait).and(take(.name))
-        .and(maybe(conformanceList))
-        .and(Apply({ (s) in try parseTypeDeclBody(in: &s, wrappedIn: .traitBody) })))
-    guard let parts = try parser.parse(&state) else { return nil }
+    let name = try state.expect("identifier", using: { $0.take(.name) })
+    let refinements = try conformanceList.parse(&state) ?? []
+    var members = try state.expect("trait body", using: { (s) in
+      try parseTypeDeclBody(in: &s, wrappedIn: .traitBody)
+    })
 
     // Trait declarations shall not have attributes.
     if !prologue.attributes.isEmpty {
       throw DiagnosedError(prologue.attributes.map(Diagnostic.diagnose(unexpectedAttribute:)))
     }
 
+    // Synthesize the `Self` parameter of the trait.
+    let selfParameterDecl = try state.ast.insert(
+      wellFormed: GenericParameterDecl(
+        identifier: SourceRepresentable(value: "Self"),
+        origin: nil))
+    members.append(AnyDeclID(selfParameterDecl))
+
     // Create a new `TraitDecl`.
     assert(prologue.accessModifiers.count <= 1)
     let decl = try state.ast.insert(
       wellFormed: TraitDecl(
         accessModifier: prologue.accessModifiers.first,
-        identifier: SourceRepresentable(token: parts.0.0.1, in: state.lexer.source),
-        refinements: parts.0.1 ?? [],
-        members: parts.1,
+        identifier: SourceRepresentable(token: name, in: state.lexer.source),
+        refinements: refinements,
+        members: members,
+        selfParameterDecl: selfParameterDecl,
         origin: state.range(from: prologue.startIndex)))
     return decl
   }
