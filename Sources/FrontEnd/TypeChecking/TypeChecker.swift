@@ -99,26 +99,12 @@ public struct TypeChecker {
 
     switch type.base {
     case let t as GenericTypeParameterType:
-      // Gather the conformances defined at declaration.
-      switch t.decl.kind {
-      case GenericParameterDecl.self:
-        let parameter = NodeID<GenericParameterDecl>(rawValue: t.decl.rawValue)
-        guard
-          let traits = realize(
-            conformances: program.ast[parameter].conformances,
-            inScope: program.scopeToParent[t.decl]!)
-        else { return nil }
-        result.formUnion(traits)
-
-      case TraitDecl.self:
-        let trait = TraitType(NodeID(rawValue: t.decl.rawValue), ast: program.ast)
-        return conformedTraits(of: ^trait, inScope: scope)
-
-      default:
-        break
+      // Generic parameters declared at trait scope conform to that trait.
+      if let decl = NodeID<TraitDecl>(program.declToScope[t.decl]!) {
+        return conformedTraits(of: ^TraitType(decl, ast: program.ast), inScope: scope)
       }
 
-      // Gather conformances defined by conditional conformances/extensions.
+      // Conformances of other generic parameters are stored in generic environments.
       for scope in program.scopes(from: scope) where scope.kind.value is GenericScope.Type {
         guard let e = environment(of: scope) else { continue }
         result.formUnion(e.conformedTraits(of: type))
@@ -301,6 +287,8 @@ public struct TypeChecker {
       return check(conformance: NodeID(rawValue: id.rawValue))
     case FunctionDecl.self:
       return check(function: NodeID(rawValue: id.rawValue))
+    case GenericParameterDecl.self:
+      return check(genericParameter: NodeID(rawValue: id.rawValue))
     case InitializerDecl.self:
       return check(initializer: NodeID(rawValue: id.rawValue))
     case MethodDecl.self:
@@ -484,6 +472,15 @@ public struct TypeChecker {
       diagnostics.insert(.diagnose(declarationRequiresBodyAt: program.ast[id].introducerRange))
       return false
     }
+  }
+
+  private mutating func check(genericParameter id: NodeID<GenericParameterDecl>) -> Bool {
+    _check(decl: id, { (this, id) in this._check(genericParameter: id) })
+  }
+
+  private mutating func _check(genericParameter id: NodeID<GenericParameterDecl>) -> Bool {
+    // TODO: Type check default values.
+    return true
   }
 
   private mutating func check(initializer id: NodeID<InitializerDecl>) -> Bool {
@@ -1182,7 +1179,7 @@ public struct TypeChecker {
 
   /// Returns the generic environment defined by `id`, or `nil` if it is ill-typed.
   private mutating func environment<T: GenericDecl>(of id: NodeID<T>) -> GenericEnvironment? {
-    assert(T.self != TraitDecl.self, "trait environements are built with more specialized method")
+    assert(T.self != TraitDecl.self, "trait environements use a more specialized method")
 
     switch environments[id] {
     case .done(let e):
