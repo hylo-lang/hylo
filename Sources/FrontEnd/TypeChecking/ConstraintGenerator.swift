@@ -37,18 +37,24 @@ struct ConstraintGenerator {
   /// True iff a constraint could not be solved.
   private var foundConflict = false
 
-  /// Creates an instance that generates type constraints for `expr` in `scope` with the given
-  /// inferred and expected types.
+  /// Creates an instance that generates type constraints for `subject` in `scope` with the given
+  /// fixed and expected types.
+  ///
+  /// - Parameters:
+  ///   - subject: The expression for which constraints will be generated.
+  ///   - scope: The innermost scope containing `expr`.
+  ///   - fixedType: The type assigned `subject` in the AST, if any.
+  ///   - expectedType: The type `subject` is expected to have, if any.
   init(
+    subject: AnyExprID,
     scope: AnyScopeID,
-    expr: AnyExprID,
     fixedType: AnyType?,
     expectedType: AnyType?
   ) {
-    self.subject = expr
+    self.subject = subject
     self.scope = scope
-    inferredTypes[expr] = fixedType
-    expectedTypes[expr] = expectedType
+    self.inferredTypes[subject] = fixedType
+    self.expectedTypes[subject] = expectedType
   }
 
   /// Returns the type constraints for `self.subject`, using `checker` to resolve names and realize
