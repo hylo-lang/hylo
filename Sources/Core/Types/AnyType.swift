@@ -130,21 +130,23 @@ public struct AnyType: TypeProtocol {
 
   public var skolemized: AnyType { base.skolemized }
 
-  /// Returns a copy of this type with generic type parameters keying `subtitutions` replaced by
-  /// their corresponding value.
-  public func specialized(_ substitutions: [GenericTypeParameterType: AnyType]) -> AnyType {
+  /// Returns a copy of this type with generic parameters keying `subtitutions` replaced by their
+  /// corresponding value.
+  public func specialized(_ substitutions: [NodeID<GenericParameterDecl>: AnyType]) -> AnyType {
     func _impl(type: AnyType) -> TypeTransformAction {
-      switch type.base {
-      case let base as GenericTypeParameterType:
-        return .stepOver(substitutions[base, default: type])
+      // Substitute parameters.
+      if
+        let base = GenericTypeParameterType(type),
+        let decl = NodeID<GenericParameterDecl>(base.decl)
+      {
+        return .stepOver(substitutions[decl, default: type])
+      }
 
-      default:
-        // Nothing to do if `type` doesn't contain generic type parameters.
-        if type[.hasGenericTypeParam] {
-          return .stepInto(type)
-        } else {
-          return .stepOver(type)
-        }
+      // Don't visit the interior of `type` if it doesn't contain generic type parameters.
+      if type[.hasGenericTypeParameter] {
+        return .stepInto(type)
+      } else {
+        return .stepOver(type)
       }
     }
 
@@ -178,6 +180,12 @@ extension AnyType {
   ) -> ComparisonResult<T> {
     self == other ? .equal : reconcile(self, other)
   }
+
+}
+
+extension AnyType: CompileTimeValue {
+
+  public var staticType: AnyType { ^MetatypeType(of: self) }
 
 }
 
