@@ -28,7 +28,7 @@ public struct GenericTypeParameterType: TypeProtocol {
     }
   }
 
-  public var flags: TypeFlags { [.isCanonical, .hasGenericTypeParam] }
+  public var flags: TypeFlags { [.isCanonical, .hasGenericTypeParameter] }
 
 }
 

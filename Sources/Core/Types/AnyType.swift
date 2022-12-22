@@ -140,7 +140,7 @@ public struct AnyType: TypeProtocol {
 
       default:
         // Nothing to do if `type` doesn't contain generic type parameters.
-        if type[.hasGenericTypeParam] {
+        if type[.hasGenericTypeParameter] {
           return .stepInto(type)
         } else {
           return .stepOver(type)

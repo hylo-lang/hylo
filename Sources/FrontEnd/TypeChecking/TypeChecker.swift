@@ -3365,7 +3365,7 @@ public struct TypeChecker {
 
       default:
         // Nothing to do if `type` isn't parameterized.
-        if type[.hasGenericTypeParam] || type[.hasGenericValueParam] {
+        if type[.hasGenericTypeParameter] || type[.hasGenericValueParameter] {
           return .stepInto(type)
         } else {
           return .stepOver(type)
@@ -3418,7 +3418,7 @@ public struct TypeChecker {
 
       default:
         // Nothing to do if `type` isn't parameterized.
-        if type[.hasGenericTypeParam] || type[.hasGenericValueParam] {
+        if type[.hasGenericTypeParameter] || type[.hasGenericValueParameter] {
           return .stepInto(type)
         } else {
           return .stepOver(type)
