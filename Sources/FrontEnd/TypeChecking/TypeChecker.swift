@@ -1947,7 +1947,7 @@ public struct TypeChecker {
     }
 
     // If there are no candidates left, diagnose an error.
-    if candidates.isEmpty {
+    if candidates.isEmpty && !invalidArgumentsDiagnostics.isEmpty {
       if let diagnostic = invalidArgumentsDiagnostics.uniqueElement {
         diagnostics.insert(diagnostic)
       } else {
