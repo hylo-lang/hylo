@@ -97,6 +97,9 @@ struct ConstraintSolver {
       default:
         unreachable()
       }
+
+      // Attempt to refresh stale literal constraints.
+      if fresh.isEmpty { refreshLiteralConstraints() }
     }
 
     return finalize()
@@ -621,6 +624,17 @@ struct ConstraintSolver {
       if stale[i].depends(on: variable) {
         log("- refresh \(stale[i])")
         fresh.append(stale.remove(at: i))
+      }
+    }
+  }
+
+  /// Transforms the stale literal constraints to equality constraints.
+  private mutating func refreshLiteralConstraints() {
+    for i in (0 ..< stale.count).reversed() {
+      if let c = stale[i] as? LiteralConstraint {
+        log("- refresh \(stale[i])")
+        fresh.append(EqualityConstraint(c.subject, c.defaultSubject, because: c.cause))
+        stale.remove(at: i)
       }
     }
   }
