@@ -131,26 +131,28 @@ struct ConstraintGenerator {
     case .down:
       // Note: constraining the type of the left operand to be above the right operand wouldn't
       // contribute any useful information to the constraint system.
-      break
+      _ = visit(expr: lhs, using: &checker)
 
     case .up:
       // The type of the left operand must be statically known to subtype of the right operand.
-      inferredTypes[lhs] = ^TypeVariable(node: lhs.base)
+      expectedTypes[lhs] = ^TypeVariable(node: lhs.base)
+      let lhsType = visit(expr: lhs, using: &checker)
       constraints.append(
         inferenceConstraint(
-          inferredTypes[lhs]!, isSubtypeOf: rhs.shape,
+          lhsType, isSubtypeOf: rhs.shape,
           because: ConstraintCause(.cast, at: checker.program.ast[id].origin)))
 
     case .builtinPointerConversion:
       // The type of the left operand must be `Builtin.Pointer`.
-      inferredTypes[lhs] = .builtin(.pointer)
+      let lhsType = visit(expr: lhs, using: &checker)
+      constraints.append(
+        EqualityConstraint(
+          lhsType, .builtin(.pointer),
+          because: ConstraintCause(.cast, at: checker.program.ast[id].origin)))
     }
 
-    // Visit the left operand.
-    _ = visit(expr: lhs, using: &checker)
-
     // In any case, the expression is assumed to have the type denoted by the right operand.
-    return constrain(id, toHaveType: target, at: checker.program.ast[id].origin)
+    return constrain(id, toHaveType: rhs.shape, at: checker.program.ast[id].origin)
   }
 
   private mutating func visit(
@@ -704,6 +706,8 @@ struct ConstraintGenerator {
       // Infer the type of the argument, expecting it's the same as the parameter's bare type.
       if let type = ParameterType(parameterType) {
         expectedTypes[argumentExpr] = type.bareType
+      } else {
+        fatalError()
       }
       let argumentType = visit(expr: argumentExpr, using: &checker)
 
@@ -729,6 +733,7 @@ struct ConstraintGenerator {
       let parameterType = ^TypeVariable()
 
       // Infer the type of the argument bottom-up.
+      expectedTypes[argumentExpr] = ^TypeVariable(node: AnyNodeID(argumentExpr))
       let argumentType = visit(expr: argumentExpr, using: &checker)
 
       constraints.append(
