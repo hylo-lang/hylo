@@ -74,9 +74,12 @@ struct ConstraintSolver {
         return nil
       }
 
+      // Solve the constraint.
       switch constraint {
       case let c as ConformanceConstraint:
         solve(conformance: c, using: &checker)
+      case let c as LiteralConstraint:
+        solve(literal: c, using: &checker)
       case let c as EqualityConstraint:
         solve(equality: c)
       case let c as SubtypingConstraint:
@@ -127,6 +130,43 @@ struct ConstraintSolver {
           diagnostics.append(
             .diagnose(constraint.subject, doesNotConformTo: trait, at: constraint.cause.origin))
         }
+      }
+
+    default:
+      fatalError("not implemented")
+    }
+  }
+
+  /// Eliminates `(L ?? D) : T` if the solver has enough information to check whether `L` conforms
+  /// to `T`. Otherwise, postpones the constraint.
+  private mutating func solve(
+    literal constraint: LiteralConstraint,
+    using checker: inout TypeChecker
+  ) {
+    log("- solve: \"\(constraint)\"")
+    indentation += 1; defer { indentation -= 1 }
+    log("actions:")
+
+    let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
+
+    // The constraint is trivially solved if `L` is equal to `D`.
+    if goal.subject == goal.defaultSubject { return }
+
+    switch goal.subject.base {
+    case is TypeVariable:
+      // Postpone the solving if `L` is still unknown.
+      postpone(goal)
+
+    case is ProductType, is TupleType:
+      // Add a penalty if `L` isn't `D`.
+      penalties += 1
+
+      // Check conformance.
+      let conformedTraits = checker.conformedTraits(of: goal.subject, inScope: scope) ?? []
+      if !conformedTraits.contains(goal.literalTrait) {
+        log("- fail")
+        diagnostics.append(
+          .diagnose(goal.subject, doesNotConformTo: goal.literalTrait, at: goal.cause.origin))
       }
 
     default:

@@ -325,21 +325,19 @@ struct ConstraintGenerator {
     integerLiteral id: NodeID<IntegerLiteralExpr>,
     using checker: inout TypeChecker
   ) -> AnyType {
-    let trait = checker.program.ast.coreTrait(named: "ExpressibleByIntegerLiteral")!
+    let defaultType = AnyType(checker.program.ast.coreType(named: "Int")!)
     let cause = ConstraintCause(.literal, at: checker.program.ast[id].origin)
 
-    // Constrain the type of the literal to conform to `ExpressibleByIntegerLiteral` or,
-    // unless it's been already inferred from context, to be equal to `Int`.
-    let expectedType = expectedTypes[id] ?? ^TypeVariable(node: AnyNodeID(id))
-    if expectedType.base is TypeVariable {
+    // If there's an expected type, constrain it to conform to `ExpressibleByIntegerLiteral`.
+    // Otherwise, constraint the literal to have type `Int`.
+    if let expectedType = expectedTypes[id] {
+      let literalTrait = checker.program.ast.coreTrait(named: "ExpressibleByIntegerLiteral")!
       constraints.append(
-        expressibleByLiteralConstraint(
-          expectedType, trait: trait, defaultType: ^checker.program.ast.coreType(named: "Int")!,
-          because: cause))
+        LiteralConstraint(
+          expectedType, defaultsTo: defaultType, conformsTo: literalTrait, because: cause))
       return constrain(id, toHaveType: expectedType, at: checker.program.ast[id].origin)
     } else {
-      constraints.append(ConformanceConstraint(expectedType, conformsTo: [trait], because: cause))
-      return constrain(id, toHaveType: expectedType, at: checker.program.ast[id].origin)
+      return constrain(id, toHaveType: defaultType, at: checker.program.ast[id].origin)
     }
   }
 
