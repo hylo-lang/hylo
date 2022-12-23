@@ -1,3 +1,5 @@
+import Utils
+
 /// A constraint `L.m == R` specifying that `L` has a member of type `R` named `m`.
 public struct MemberConstraint: Constraint, Hashable {
 
@@ -31,9 +33,9 @@ public struct MemberConstraint: Constraint, Hashable {
     self.cause = cause
   }
 
-  public mutating func modifyTypes(_ modify: (inout AnyType) -> Void) {
-    modify(&subject)
-    modify(&memberType)
+  public mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {
+    modify(&subject, with: transform)
+    modify(&memberType, with: transform)
   }
 
   public func depends(on variable: TypeVariable) -> Bool {

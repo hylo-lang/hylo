@@ -319,10 +319,39 @@ extension Diagnostic {
   }
 
   static func diagnose(
+    invalidGenericArgumentCountTo entity: SourceRepresentable<Name>,
+    found: Int,
+    expected: Int
+  ) -> Diagnostic {
+    if expected == 0 {
+      return .error(
+        "non-generic entity '\(entity.value)' has no generic parameters",
+        range: entity.origin)
+    } else {
+      return .error(
+        """
+        too many generic arguments to entity '\(entity.value)' \
+        (found \(found), expected \(expected)
+        """,
+        range: entity.origin)
+    }
+  }
+
+  static func diagnose(
+    invalidGenericArgumentsTo entity: SourceRepresentable<Name>,
+    candidateDiagnostics children: [Diagnostic]
+  ) -> Diagnostic {
+    .error(
+      "invalid generic argument(s) for '\(entity.value)'",
+      range: entity.origin,
+      children: children)
+  }
+
+  static func diagnose(
     argumentToNonGenericType type: AnyType,
     at range: SourceRange?
   ) -> Diagnostic {
-    .error("non-generic type 'type' has no generic parameters", range: range)
+    .error("non-generic type '\(type)' has no generic parameters", range: range)
   }
 
   static func diagnose(

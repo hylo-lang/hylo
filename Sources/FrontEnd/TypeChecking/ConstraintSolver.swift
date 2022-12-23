@@ -303,7 +303,7 @@ struct ConstraintSolver {
     // Postpone the solving if `L` is still unknown.
     if l.base is TypeVariable {
       var c = constraint
-      c.modifyTypes({ (t) in t = typeAssumptions[t] })
+      c.modifyTypes({ typeAssumptions[$0] })
       postpone(c)
       return
     }
@@ -379,7 +379,7 @@ struct ConstraintSolver {
     // Postpone the solving if `F` is still unknown.
     if f.base is TypeVariable {
       var c = constraint
-      c.modifyTypes({ (t) in t = typeAssumptions[t] })
+      c.modifyTypes({ typeAssumptions[$0] })
       postpone(c)
       return
     }
@@ -767,13 +767,12 @@ extension TypeChecker {
     let skolemizedLeft = l.skolemized
 
     // Open the right operand.
-    let openedRight: AnyType
-    var constraints: ConstraintSet
-    (openedRight, constraints) = open(type: r)
+    let openedRight = open(type: r)
+    var constraints = openedRight.constraints
 
     // Create pairwise subtyping constraints on the parameters.
     let lhs = skolemizedLeft.base as! CallableType
-    let rhs = openedRight.base as! CallableType
+    let rhs = openedRight.shape.base as! CallableType
     for i in 0 ..< lhs.inputs.count {
       // Ignore the passing conventions.
       guard

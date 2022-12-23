@@ -17,20 +17,18 @@ final class ASTTests: XCTestCase {
     let module = try ast.insert(wellFormed: ModuleDecl(name: "Val"))
 
     // Create a trait declaration.
-    let trait = try ast.insert(
-      wellFormed: TraitDecl(
-        accessModifier: nil,
+    let decl = try ast.insert(
+      wellFormed: ImportDecl(
+        introducerRange: nil,
         identifier: SourceRepresentable(value: "T"),
-        refinements: [],
-        members: [],
         origin: nil))
 
     // Create a source declaration set.
-    let source = try ast.insert(wellFormed: TopLevelDeclSet(decls: [AnyDeclID(trait)]))
+    let source = try ast.insert(wellFormed: TopLevelDeclSet(decls: [AnyDeclID(decl)]))
     ast[module].addSourceFile(source)
 
     // Subscript the AST for reading with a type-erased ID.
-    XCTAssert(ast[ast[ast[module].sources.first!].decls.first!] is TraitDecl)
+    XCTAssert(ast[ast[ast[module].sources.first!].decls.first!] is ImportDecl)
   }
 
   func testCodableRoundtrip() throws {

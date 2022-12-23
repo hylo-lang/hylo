@@ -18,7 +18,7 @@ public struct OverloadConstraint: Constraint, Hashable {
     /// The candidate reference.
     public let reference: DeclRef
 
-    /// The contextualized type the referred declaration.
+    /// The instantiated type the referred declaration.
     public let type: AnyType
 
     /// The set of constraints associated with this choice.
@@ -64,21 +64,18 @@ public struct OverloadConstraint: Constraint, Hashable {
     self.cause = cause
   }
 
-  public mutating func modifyTypes(_ modify: (inout AnyType) -> Void) {
-    modify(&overloadedExprType)
+  public mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {
+    modify(&overloadedExprType, with: transform)
 
     for i in 0 ..< choices.count {
-      var newType = choices[i].type
-      modify(&newType)
-
       choices[i] = Candidate(
         reference: choices[i].reference,
-        type: newType,
+        type: transform(choices[i].type),
         constraints: choices[i].constraints.reduce(
           into: [],
           { (cs, c) in
             var newConstraint = c
-            newConstraint.modifyTypes(modify)
+            newConstraint.modifyTypes(transform)
             cs.insert(newConstraint)
           }),
         penalties: choices[i].penalties)

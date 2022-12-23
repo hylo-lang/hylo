@@ -1,8 +1,11 @@
 import Utils
 import Core
 
-/// An object that provides context to interpret generic parameters.
+/// An object that provides context to interpret the generic parameters of a declaration.
 struct GenericEnvironment {
+
+  /// The declaration of the generic parameters introduced in this environment.
+  public let parameters: [NodeID<GenericParameterDecl>]
 
   /// The uninstantiated type constraints.
   public let constraints: [Constraint]
@@ -18,10 +21,17 @@ struct GenericEnvironment {
   ///
   /// - Parameters:
   ///   - decl: The declaration for which `self` is being initialized.
+  ///   - parameters: The declarations of the parameters introduced by `decl`.
   ///   - constraints: The constraints defined on the environment to build.
   ///   - checker: The type checker used to check the constraints.
-  init?<T: DeclID>(decl: T, constraints: [Constraint], into checker: inout TypeChecker) {
+  init?<T: DeclID>(
+    decl: T,
+    parameters: [NodeID<GenericParameterDecl>],
+    constraints: [Constraint],
+    into checker: inout TypeChecker
+  ) {
     self.constraints = constraints
+    self.parameters = parameters
 
     let scope = AnyScopeID(decl)!
     for c in constraints {

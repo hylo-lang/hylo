@@ -36,14 +36,14 @@ public struct DisjunctionConstraint: Constraint, Hashable {
     self.cause = cause
   }
 
-  public mutating func modifyTypes(_ modify: (inout AnyType) -> Void) {
+  public mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {
     for i in 0 ..< choices.count {
       choices[i] = Choice(
         constraints: choices[i].constraints.reduce(
           into: [],
           { (cs, c) in
             var newConstraint = c
-            newConstraint.modifyTypes(modify)
+            newConstraint.modifyTypes(transform)
             cs.insert(newConstraint)
           }),
         penalties: choices[i].penalties)

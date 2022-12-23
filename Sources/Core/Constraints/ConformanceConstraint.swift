@@ -20,8 +20,8 @@ public struct ConformanceConstraint: Constraint, Hashable {
     self.cause = cause
   }
 
-  public mutating func modifyTypes(_ modify: (inout AnyType) -> Void) {
-    modify(&subject)
+  public mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {
+    subject = transform(subject)
   }
 
   public func depends(on variable: TypeVariable) -> Bool {

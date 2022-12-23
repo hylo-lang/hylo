@@ -29,11 +29,11 @@ public struct FunctionCallConstraint: Constraint, Hashable {
     self.cause = cause
   }
 
-  public mutating func modifyTypes(_ modify: (inout AnyType) -> Void) {
-    modify(&calleeType)
-    modify(&returnType)
+  public mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {
+    modify(&calleeType, with: transform)
+    modify(&returnType, with: transform)
     for i in 0 ..< parameters.count {
-      modify(&parameters[i].type)
+      modify(&parameters[i].type, with: transform)
     }
   }
 
