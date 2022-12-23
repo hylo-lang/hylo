@@ -99,7 +99,7 @@ extension OverloadConstraint: CustomStringConvertible {
 extension OverloadConstraint.Candidate: CustomStringConvertible {
 
   public var description: String {
-    "\(reference) => {\(constraints.descriptions(joinedBy: " ∧ "))}:\(penalties)"
+    "\(reference) => {\(list: constraints, joinedBy: " ∧ ")}:\(penalties)"
   }
 
 }

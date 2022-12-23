@@ -74,8 +74,7 @@ extension SubscriptImplType: CustomStringConvertible {
     if isProperty {
       return "property [\(environment)] \(output) \(fx)"
     } else {
-      let i = inputs.descriptions(joinedBy: ", ")
-      return "subscript [\(environment)] (\(i)) \(fx) : \(output)"
+      return "subscript [\(environment)] (\(list: inputs)) \(fx) : \(output)"
     }
   }
 
