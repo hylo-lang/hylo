@@ -16,46 +16,40 @@ final class TypeCheckerTests: XCTestCase {
     baseAST.importCoreModule()
 
     // Execute the test cases.
-    try TestCase.executeAll(
-      in: testCaseDirectory,
-      { (tc) in
-        // Create an AST for the test case.
-        var ast = baseAST
+    try withFiles(in: testCaseDirectory, { (url) in
+      // Parse the test case.
+      let tc = try TestCase(source: SourceFile(contentsOf: url))
 
-        // Create a module for the input.
-        let module = try ast.insert(wellFormed: ModuleDecl(name: tc.name))
+      // Create a module for the input.
+      var ast = baseAST
+      let module = try ast.insert(wellFormed: ModuleDecl(name: tc.name))
 
-        // Parse the input.
-        let (_, parseDiagnostics) = try Parser.parse(tc.source, into: module, in: &ast)
-        if parseDiagnostics.contains(where: { $0.level == .error }) {
-          XCTFail("\(tc.name): parsing failed")
-          return
-        }
+      // Parse the input.
+      let parseResult = try Parser.parse(tc.source, into: module, in: &ast)
+      var parseErrorOccured = false
+      for d in parseResult.diagnostics where d.level == .error {
+        record(XCTIssue(d))
+        parseErrorOccured = true
+      }
 
-        // Run the type checker.
-        var checker = TypeChecker(program: ScopedProgram(ast: ast))
-        let success = checker.check(module: module)
+      // Exit if a parse error occured.
+      if parseErrorOccured { return true }
 
-        // Create a diagnostic checker.
-        var diagnosticChecker = DiagnosticChecker(
-          testCaseName: tc.name, diagnostics: checker.diagnostics)
+      // Run the type checker.
+      var checker = TypeChecker(program: ScopedProgram(ast: ast))
+      let success = checker.check(module: module)
 
-        // Process the test annotations.
-        for annotation in tc.annotations {
-          switch annotation.command {
-          case "expect-failure":
-            XCTAssert(!success, "\(tc.name): type checking succeeded, but expected failure")
-          case "expect-success":
-            XCTAssert(success, "\(tc.name): type checking failed, but expected success")
-          case "diagnostic":
-            diagnosticChecker.handle(annotation)
-          default:
-            XCTFail("\(tc.name): unexpected test command: '\(annotation.command)'")
-          }
-        }
+      // Execute the test annotations.
+      var handler = TestAnnotationHandler(
+        testCaseRanToCompletion: success, diagnostics: Array(checker.diagnostics))
+      handler.handle(tc.annotations)
+      for issue in handler.finalize() {
+        record(issue)
+      }
 
-        diagnosticChecker.finalize()
-      })
+      // Move to the next test case.
+      return true
+    })
   }
 
 }
