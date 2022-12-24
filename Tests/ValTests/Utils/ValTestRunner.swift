@@ -24,7 +24,7 @@ extension ValTestRunner {
       let result = run(name, source)
 
       // Handle the test annotations.
-      var handler = TestAnnotationHandler(
+      var handler = DefaultTestAnnotationHandler(
         testCaseRanToCompletion: result.ranToCompletion, diagnostics: result.diagnostics)
       handler.handle(TestAnnotation.parseAll(from: source))
       return handler.finalize()

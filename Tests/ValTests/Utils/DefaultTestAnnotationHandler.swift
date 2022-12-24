@@ -2,7 +2,8 @@ import Core
 import Utils
 import XCTest
 
-struct TestAnnotationHandler {
+/// An object that processes the test annotations of a Val test.
+struct DefaultTestAnnotationHandler {
 
   /// Indicates whether the test case ran through completion without any compilation error.
   let testCaseRanToCompletion: Bool
