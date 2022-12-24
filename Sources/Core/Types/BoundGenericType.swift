@@ -70,7 +70,7 @@ public struct BoundGenericType: TypeProtocol {
 
 extension BoundGenericType: CustomStringConvertible {
 
-  public var description: String { "\(base)<\(arguments.descriptions())>" }
+  public var description: String { "\(base)<\(list: arguments)>" }
 
 }
 

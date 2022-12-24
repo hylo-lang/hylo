@@ -114,9 +114,9 @@ extension LambdaType: CustomStringConvertible {
 
   public var description: String {
     if let fx = receiverEffect {
-      return "[\(environment)] (\(inputs.descriptions())) \(fx) -> \(output)"
+      return "[\(environment)] (\(list: inputs)) \(fx) -> \(output)"
     } else {
-      return "[\(environment)] (\(inputs.descriptions())) -> \(output)"
+      return "[\(environment)] (\(list: inputs)) -> \(output)"
     }
   }
 

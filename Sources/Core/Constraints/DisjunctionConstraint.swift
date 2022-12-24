@@ -72,7 +72,7 @@ extension DisjunctionConstraint: CustomStringConvertible {
 extension DisjunctionConstraint.Choice: CustomStringConvertible {
 
   public var description: String {
-    "{\(constraints.descriptions(joinedBy: " ∧ "))}:\(penalties)"
+    "{\(list: constraints, joinedBy: " ∧ ")}:\(penalties)"
   }
 
 }

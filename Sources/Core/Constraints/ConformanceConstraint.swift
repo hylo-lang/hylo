@@ -33,8 +33,7 @@ public struct ConformanceConstraint: Constraint, Hashable {
 extension ConformanceConstraint: CustomStringConvertible {
 
   public var description: String {
-    let ts = traits.descriptions(joinedBy: ", ")
-    return "\(subject) : \(ts)"
+    "\(subject) : \(list: traits)"
   }
 
 }

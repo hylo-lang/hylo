@@ -1,11 +1,11 @@
 extension String.StringInterpolation {
 
-  public mutating func appendInterpolation<L: Sequence>(list: L) {
-    var first = true
-    for x in list {
-      if first { first = false } else { appendLiteral(", ") }
-      appendLiteral(String(describing: x))
-    }
+  /// Appends the string descriptions of the elements in `list` separated by `separator`.
+  public mutating func appendInterpolation<L: Sequence>(
+    list: L,
+    joinedBy separator: String = ", "
+  ) {
+    appendLiteral(list.descriptions(joinedBy: separator))
   }
 
 }

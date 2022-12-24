@@ -55,7 +55,7 @@ extension MethodType: CustomStringConvertible {
       .map(String.init(describing:))
       .sorted()
       .joined(separator: " ")
-    return "method[\(receiver)] (\(inputs.descriptions())) -> \(output) { \(cs) }"
+    return "method[\(receiver)] (\(list: inputs)) -> \(output) { \(cs) }"
   }
 
 }
