@@ -46,13 +46,13 @@ import XCTest
 struct TestAnnotation {
 
   /// The line location of this annotation.
-  var location: XCTSourceCodeLocation
+  let location: XCTSourceCodeLocation
 
   /// The command.
-  var command: String
+  let command: String
 
   /// The argument, if any.
-  var argument: String?
+  let argument: String?
 
   /// Parses a new annotation from `body`.
   ///
