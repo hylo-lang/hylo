@@ -10,15 +10,17 @@ final class ParserTests: XCTestCase, ValTestRunner {
   static var testCaseDirectoryPath: String { "TestCases/Parsing" }
 
   func testParser() throws {
-    try runValTests({ (name, source) in
-      // Create a module for the input.
-      var ast = AST()
-      let module = try! ast.insert(wellFormed: ModuleDecl(name: name))
+    try runValTests(
+      handlingResultsWith: DefaultTestAnnotationHandler.self,
+      { (name, source) in
+        // Create a module for the input.
+        var ast = AST()
+        let module = try! ast.insert(wellFormed: ModuleDecl(name: name))
 
-      // Parse the input.
-      let parseResult = Parser.parse(source, into: module, in: &ast)
-      return .init(ranToCompletion: !parseResult.failed, diagnostics: parseResult.diagnostics)
-    })
+        // Parse the input.
+        let parseResult = Parser.parse(source, into: module, in: &ast)
+        return .init(ranToCompletion: !parseResult.failed, diagnostics: parseResult.diagnostics)
+      })
   }
 
   // MARK: Unit tests

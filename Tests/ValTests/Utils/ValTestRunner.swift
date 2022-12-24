@@ -12,8 +12,12 @@ protocol ValTestRunner: XCTestCase {
 
 extension ValTestRunner {
 
-  /// Runs the test cases found in `Self.testCaseDirectoryPath` using the given closure.
-  func runValTests(_ run: (_ name: String, _ source: SourceFile) -> ValTestRunResult) throws {
+  /// Runs the test cases found in `Self.testCaseDirectoryPath` with `runSteps` and handle the
+  /// result of each case with an instance of `handler`.
+  func runValTests<Handler: TestAnnotationHandler>(
+    handlingResultsWith hander: Handler.Type,
+    _ runSteps: (_ name: String, _ source: SourceFile) -> Handler.Configuration
+  ) throws {
     let testCaseDirectory = try XCTUnwrap(
       Bundle.module.url(forResource: Self.testCaseDirectoryPath, withExtension: nil),
       "No test cases")
@@ -21,11 +25,10 @@ extension ValTestRunner {
     func _run(name: String, url: URL, activity: XCTActivity) throws -> [XCTIssue] {
       // Run the test case.
       let source = try SourceFile(contentsOf: url)
-      let result = run(name, source)
+      let result = runSteps(name, source)
 
       // Handle the test annotations.
-      var handler = DefaultTestAnnotationHandler(
-        testCaseRanToCompletion: result.ranToCompletion, diagnostics: result.diagnostics)
+      var handler = Handler(result)
       handler.handle(TestAnnotation.parseAll(from: source))
       return handler.finalize()
     }
