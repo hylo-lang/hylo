@@ -1,16 +1,15 @@
-import FrontEnd
+import Core
 import Foundation
 import Utils
-import Core
 
 /// A helper for loading and executing test cases.
 struct TestCase {
 
   /// The source file defining the test case.
-  var source: SourceFile
+  let source: SourceFile
 
   /// The test annotations of the test case.
-  var annotations: [TestAnnotation]
+  let annotations: [TestAnnotation]
 
   /// Loads a test case from `source`.
   init(source: SourceFile) {
