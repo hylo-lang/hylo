@@ -1,15 +1,16 @@
-import FrontEnd
-import XCTest
 import Core
+import FrontEnd
+import Utils
+import XCTest
 
-/// A test annotation handler that checks if all expected diagnostics have been emitted.
+/// A test annotation handler that accepts `diagnostic` commands.
 struct DiagnosticChecker {
 
   /// The name of the test case for which diagnostics are being checked.
   var testCaseName: String
 
   /// A table mapping line locations to the diagnostics emitted at those locations.
-  var emittedDiagnostics: [LineLocation?: [Diagnostic]]
+  var emittedDiagnostics: [XCTSourceCodeLocation?: [Diagnostic]]
 
   /// Creates a new checker for the given set of diagnostics.
   init<S: Sequence>(testCaseName: String, diagnostics: S) where S.Element == Diagnostic {
@@ -17,7 +18,7 @@ struct DiagnosticChecker {
     self.emittedDiagnostics = diagnostics.reduce(
       into: [:],
       { (ds, d) in
-        ds[d.location.map(LineLocation.init), default: []].append(d)
+        ds[d.location.map(XCTSourceCodeLocation.init(_:)), default: []].append(d)
       })
   }
 
