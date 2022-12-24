@@ -20,6 +20,28 @@ import Core
 /// A namespace for the routines of Val's parser.
 public enum Parser {
 
+  /// The result of parsing a source file.
+  public struct SourceParseResult {
+
+    /// The identitiy of the parsed source, or `nil` if the parsed failed to parse one.
+    public let source: NodeID<TopLevelDeclSet>?
+
+    /// The diagnostics reported during parsing.
+    public let diagnostics: [Diagnostic]
+
+    /// Creates an instance with the given properties.
+    fileprivate init(source: NodeID<TopLevelDeclSet>?, diagnostics: [Diagnostic]) {
+      self.source = source
+      self.diagnostics = diagnostics
+    }
+
+    /// Indicates whether parsing failed.
+    public var failed: Bool {
+      (source == nil) || diagnostics.contains(where: { $0.level == .error })
+    }
+
+  }
+
   /// Parses the declarations of `input`, inserts them into `ast[module]`.
   ///
   /// - Returns: `(source, diagnostics)` where `diagnostics` are the diagnostics produced by the
@@ -29,7 +51,7 @@ public enum Parser {
     _ input: SourceFile,
     into module: NodeID<ModuleDecl>,
     in ast: inout AST
-  ) -> (source: NodeID<TopLevelDeclSet>?, diagnostics: [Diagnostic]) {
+  ) -> SourceParseResult {
     // Initialize the parser's state.
     var state = ParserState(ast: ast, lexer: Lexer(tokenizing: input))
 
@@ -39,21 +61,19 @@ public enum Parser {
       translation = try Self.parseSourceFile(in: &state)
       state.ast[module].addSourceFile(translation)
     } catch let error as DiagnosedError {
-      return (source: nil, diagnostics: state.diagnostics + error.diagnostics)
+      return SourceParseResult(
+        source: nil, diagnostics: state.diagnostics + error.diagnostics)
     } catch let error {
-      return (source: nil, diagnostics: state.diagnostics + [.error(String(describing: error))])
+      return SourceParseResult(
+        source: nil, diagnostics: state.diagnostics + [.error(String(describing: error))])
     }
 
     // Make sure the entire input was consumed.
     assert(state.peek() == nil, "expected EOF")
 
-    // Return if no error was encountered; otherwise, throw.
-    if state.diagnostics.contains(where: { $0.level == .error }) {
-      return (source: nil, diagnostics: state.diagnostics)
-    } else {
-      ast = state.ast
-      return (source: translation, diagnostics: state.diagnostics)
-    }
+    // Return the parsed source along with the reported diagnostics.
+    ast = state.ast
+    return SourceParseResult(source: translation, diagnostics: state.diagnostics)
   }
 
   /// Parses an instance of `TopLevelDeclSet`.

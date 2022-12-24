@@ -56,8 +56,8 @@ final class CXXTests: XCTestCase {
         let module = try ast.insert(wellFormed: ModuleDecl(name: tc.name))
 
         // Parse the input.
-        let parseDiagnostics = Parser.parse(tc.source, into: module, in: &ast).diagnostics
-        if parseDiagnostics.contains(where: { $0.level == .error }) {
+        let parseResult = Parser.parse(tc.source, into: module, in: &ast)
+        if parseResult.failed {
           XCTFail("\(tc.name): parsing failed")
           return
         }

@@ -49,9 +49,9 @@ final class ParserTests: XCTestCase {
     var program = AST()
     let module = try program.insert(wellFormed: ModuleDecl(name: "Main"))
 
-    let (source, diagnostics) = Parser.parse(input, into: module, in: &program)
-    XCTAssertNotNil(source)
-    XCTAssertEqual(diagnostics.count, 0)
+    let parseResult = Parser.parse(input, into: module, in: &program)
+    XCTAssertNotNil(parseResult.source)
+    XCTAssertEqual(parseResult.diagnostics.count, 0)
   }
 
   func testSourceFile() throws {
