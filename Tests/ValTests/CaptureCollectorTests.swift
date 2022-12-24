@@ -19,7 +19,7 @@ final class CaptureCollectorTests: XCTestCase {
         }
         """)
 
-    let (_, parseDiagnostics) = try Parser.parse(source, into: module, in: &ast)
+    let parseDiagnostics = Parser.parse(source, into: module, in: &ast).diagnostics
     XCTAssert(parseDiagnostics.isEmpty, "parsing failed")
 
     let fun = NodeID<FunctionDecl>(rawValue: ast.topLevelDecls(module).first!.rawValue)
