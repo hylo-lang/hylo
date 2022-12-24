@@ -2,6 +2,8 @@
 ///
 /// An index identifies a function, a basic block in the function, and a position in the block,
 /// including the "past-the-end" position that isn't valid for use as a subscript argument. Unlike
+import Utils
+
 /// an identity, an index is not *stable*: inserting or removing instructions from the containing
 /// block may invalidate existing indices.
 ///
