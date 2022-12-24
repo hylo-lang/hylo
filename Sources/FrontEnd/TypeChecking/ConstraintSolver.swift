@@ -109,23 +109,22 @@ struct ConstraintSolver {
     indentation += 1; defer { indentation -= 1 }
     log("actions:")
 
-    let subject = typeAssumptions[constraint.subject]
+    let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
 
-    switch subject.base {
+    switch goal.subject.base {
     case is TypeVariable:
       // Postpone the solving if `L` is still unknown.
-      postpone(
-        ConformanceConstraint(subject, conformsTo: constraint.traits, because: constraint.cause))
+      postpone(goal)
 
     case is ProductType, is TupleType:
-      let conformedTraits = checker.conformedTraits(of: subject, inScope: scope) ?? []
-      let nonConforming = constraint.traits.subtracting(conformedTraits)
+      let conformedTraits = checker.conformedTraits(of: goal.subject, inScope: scope) ?? []
+      let nonConforming = goal.traits.subtracting(conformedTraits)
 
       if !nonConforming.isEmpty {
         log("- fail")
         for trait in nonConforming {
           diagnostics.append(
-            .diagnose(constraint.subject, doesNotConformTo: trait, at: constraint.cause.origin))
+            .diagnose(goal.subject, doesNotConformTo: trait, at: goal.cause.origin))
         }
       }
 
@@ -140,20 +139,20 @@ struct ConstraintSolver {
     indentation += 1; defer { indentation -= 1 }
     log("actions:")
 
-    let l = typeAssumptions[constraint.left]
-    let r = typeAssumptions[constraint.right]
+    let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
 
-    if l == r { return }
+    // Handle trivially satisified constraints.
+    if goal.left == goal.right { return }
 
-    switch (l.base, r.base) {
+    switch (goal.left.base, goal.right.base) {
     case (let tau as TypeVariable, _):
-      log("- assume \"\(tau) = \(r)\"")
-      typeAssumptions.assign(r, to: tau)
+      log("- assume \"\(tau) = \(goal.right)\"")
+      typeAssumptions.assign(goal.right, to: tau)
       refresh(constraintsDependingOn: tau)
 
     case (_, let tau as TypeVariable):
-      log("- assume \"\(tau) = \(l)\"")
-      typeAssumptions.assign(l, to: tau)
+      log("- assume \"\(tau) = \(goal.left)\"")
+      typeAssumptions.assign(goal.left, to: tau)
       refresh(constraintsDependingOn: tau)
 
     case (let l as TupleType, let r as TupleType):
@@ -209,7 +208,8 @@ struct ConstraintSolver {
 
     default:
       log("- fail")
-      diagnostics.append(.diagnose(type: l, incompatibleWith: r, at: constraint.cause.origin))
+      diagnostics.append(
+        .diagnose(type: goal.left, incompatibleWith: goal.right, at: constraint.cause.origin))
     }
   }
 
@@ -220,31 +220,31 @@ struct ConstraintSolver {
     indentation += 1; defer { indentation -= 1 }
     log("actions:")
 
-    let l = typeAssumptions[constraint.left]
-    let r = typeAssumptions[constraint.right]
+    let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
 
-    if l == r { return }
+    // Handle trivially satisified constraints.
+    if goal.left == goal.right { return }
 
-    switch (l.base, r.base) {
+    switch (goal.left.base, goal.right.base) {
     case (_, _ as TypeVariable):
       // The type variable is above a more concrete type. We should compute the "join" of all types
       // to which `L` is coercible and that are below `R`, but that set is unbounded. We have no
       // choice but to postpone the constraint.
-      postpone(SubtypingConstraint(l, r, because: constraint.cause))
+      postpone(goal)
 
     case (_ as TypeVariable, _):
       // The type variable is below a more concrete type. We should compute the "meet" of all types
       // coercible to `R` and that are above `L`, but that set is unbounded unless `R` is a leaf.
       // If it isn't, we have no choice but to postpone the constraint.
-      if r.isLeaf {
+      if goal.right.isLeaf {
         solve(equality: .init(constraint))
       } else {
-        postpone(SubtypingConstraint(l, r, because: constraint.cause))
+        postpone(goal)
       }
 
     case (_, _ as ExistentialType):
       // All types conform to any.
-      if r == .any { return }
+      if goal.right == .any { return }
       fatalError("not implemented")
 
     case (_, _ as LambdaType):
@@ -254,7 +254,8 @@ struct ConstraintSolver {
       fatalError("not implemented")
 
     default:
-      diagnostics.append(.diagnose(type: l, isNotSubtypeOf: r, at: constraint.cause.origin))
+      diagnostics.append(
+        .diagnose(type: goal.left, isNotSubtypeOf: goal.right, at: constraint.cause.origin))
     }
   }
 
@@ -265,24 +266,24 @@ struct ConstraintSolver {
     indentation += 1; defer { indentation -= 1 }
     log("actions:")
 
-    let l = typeAssumptions[constraint.left]
-    let r = typeAssumptions[constraint.right]
+    let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
 
-    if l == r { return }
+    // Handle trivially satisified constraints.
+    if goal.left == goal.right { return }
 
-    switch r.base {
+    switch goal.right.base {
     case is TypeVariable:
       // Postpone the solving until we can infer the parameter passing convention of `R`.
-      postpone(ParameterConstraint(l, r, because: constraint.cause))
+      postpone(goal)
 
     case let p as ParameterType:
       // Either `L` is equal to the bare type of `R`, or it's a. Note: the equality requirement for
       // arguments passed mutably is verified after type inference.
-      schedule(inferenceConstraint(l, isSubtypeOf: p.bareType, because: constraint.cause))
+      schedule(inferenceConstraint(goal.left, isSubtypeOf: p.bareType, because: constraint.cause))
 
     default:
       log("- fail")
-      diagnostics.append(.diagnose(invalidParameterType: r, at: constraint.cause.origin))
+      diagnostics.append(.diagnose(invalidParameterType: goal.right, at: constraint.cause.origin))
     }
   }
 
@@ -297,19 +298,17 @@ struct ConstraintSolver {
     indentation += 1; defer { indentation -= 1 }
     log("actions:")
 
-    let l = typeAssumptions[constraint.subject]
-    let r = typeAssumptions[constraint.memberType]
+    let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
 
     // Postpone the solving if `L` is still unknown.
-    if l.base is TypeVariable {
-      var c = constraint
-      c.modifyTypes({ typeAssumptions[$0] })
-      postpone(c)
+    if goal.subject.base is TypeVariable {
+      postpone(goal)
       return
     }
 
     // Search for non-static members with the specified name.
-    let allMatches = checker.lookup(constraint.memberName.stem, memberOf: l, inScope: scope)
+    let allMatches = checker.lookup(
+      constraint.memberName.stem, memberOf: goal.subject, inScope: scope)
     let nonStaticMatches = allMatches.filter({ decl in
       checker.program.isNonStaticMember(decl)
     })
@@ -318,8 +317,7 @@ struct ConstraintSolver {
     if nonStaticMatches.isEmpty && !allMatches.isEmpty {
       diagnostics.append(
         .diagnose(
-          illegalUseOfStaticMember: constraint.memberName,
-          onInstanceOf: l,
+          illegalUseOfStaticMember: constraint.memberName, onInstanceOf: goal.subject,
           at: constraint.cause.origin))
     }
 
@@ -350,7 +348,7 @@ struct ConstraintSolver {
 
     // If there's only one candidate, solve an equality constraint direcly.
     if let pick = candidates.uniqueElement {
-      solve(equality: .init(pick.type, r, because: constraint.cause))
+      solve(equality: .init(pick.type, goal.memberType, because: constraint.cause))
 
       log("- assume \(constraint.memberExpr) &> \(pick.reference)")
       bindingAssumptions[constraint.memberExpr] = pick.reference
@@ -360,7 +358,7 @@ struct ConstraintSolver {
     // If there are several candidates, create a overload constraint.
     schedule(
       OverloadConstraint(
-        constraint.memberExpr, withType: r, refersToOneOf: candidates,
+        constraint.memberExpr, withType: goal.memberType, refersToOneOf: candidates,
         because: constraint.cause))
   }
 
@@ -374,20 +372,18 @@ struct ConstraintSolver {
     indentation += 1; defer { indentation -= 1 }
     log("actions:")
 
-    let f = typeAssumptions[constraint.calleeType]
+    let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
 
     // Postpone the solving if `F` is still unknown.
-    if f.base is TypeVariable {
-      var c = constraint
-      c.modifyTypes({ typeAssumptions[$0] })
-      postpone(c)
+    if goal.calleeType.base is TypeVariable {
+      postpone(goal)
       return
     }
 
     // Make sure `F` is callable.
-    guard let callee = f.base as? CallableType else {
+    guard let callee = goal.calleeType.base as? CallableType else {
       log("- fail")
-      diagnostics.append(.diagnose(nonCallableType: f, at: constraint.cause.origin))
+      diagnostics.append(.diagnose(nonCallableType: goal.calleeType, at: constraint.cause.origin))
       return
     }
 

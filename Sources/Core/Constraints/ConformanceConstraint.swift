@@ -1,7 +1,9 @@
+import Utils
+
 /// A constraint `L : T1 & ... & Tn` specifying that `L` conforms to the traits `T1, ..., Tn`.
 public struct ConformanceConstraint: Constraint, Hashable {
 
-  /// The type subject of the constraint.
+  /// The type that must conform to the traits in `traits`.
   public private(set) var subject: AnyType
 
   /// The traits to which `subject` must conform.
@@ -21,7 +23,7 @@ public struct ConformanceConstraint: Constraint, Hashable {
   }
 
   public mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {
-    subject = transform(subject)
+    modify(&subject, with: transform)
   }
 
   public func depends(on variable: TypeVariable) -> Bool {
