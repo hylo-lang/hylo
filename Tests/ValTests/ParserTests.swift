@@ -19,13 +19,7 @@ final class ParserTests: XCTestCase {
         // Parse the input.
         var ast = AST()
         let module = try ast.insert(wellFormed: ModuleDecl(name: tc.name))
-
-        let diagnostics: [Diagnostic]
-        do {
-          diagnostics = try Parser.parse(tc.source, into: module, in: &ast).diagnostics
-        } catch let error as DiagnosedError {
-          diagnostics = error.diagnostics
-        }
+        let diagnostics = Parser.parse(tc.source, into: module, in: &ast).diagnostics
 
         // Process the test annotations.
         var diagnosticChecker = DiagnosticChecker(testCaseName: tc.name, diagnostics: diagnostics)
@@ -55,8 +49,8 @@ final class ParserTests: XCTestCase {
     var program = AST()
     let module = try program.insert(wellFormed: ModuleDecl(name: "Main"))
 
-    let (decls, diagnostics) = try Parser.parse(input, into: module, in: &program)
-    XCTAssertNotNil(decls)
+    let (source, diagnostics) = Parser.parse(input, into: module, in: &program)
+    XCTAssertNotNil(source)
     XCTAssertEqual(diagnostics.count, 0)
   }
 

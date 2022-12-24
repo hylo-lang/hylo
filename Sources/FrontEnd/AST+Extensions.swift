@@ -3,6 +3,7 @@ import Utils
 import ValModule
 
 extension AST {
+
   /// Imports the core library into `self`.
   ///
   /// - Requires: The Core library must not have been already imported.
@@ -18,7 +19,7 @@ extension AST {
         // Parse the file.
         do {
           let sourceFile = try SourceFile(contentsOf: sourceURL)
-          let diagnostics = try Parser.parse(sourceFile, into: corelib!, in: &self).diagnostics
+          let diagnostics = Parser.parse(sourceFile, into: corelib!, in: &self).diagnostics
 
           // Note: the core module shouldn't produce any diagnostic.
           if !diagnostics.isEmpty {
@@ -33,4 +34,5 @@ extension AST {
         }
       })
   }
+
 }

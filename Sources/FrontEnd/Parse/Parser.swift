@@ -22,13 +22,14 @@ public enum Parser {
 
   /// Parses the declarations of `input`, inserts them into `ast[module]`.
   ///
-  /// - Returns: `(translation, diagnostics)` where `diagnostics` are the diagnostics produced by
-  ///   the parser and `translation` is the ID of parsed translation unit.
+  /// - Returns: `(source, diagnostics)` where `diagnostics` are the diagnostics produced by the
+  ///   parser and `source` is either the identity of parsed source file in `ast`, or `nil` if the
+  ///   parser failed to parse one.
   public static func parse(
     _ input: SourceFile,
     into module: NodeID<ModuleDecl>,
     in ast: inout AST
-  ) throws -> (translation: NodeID<TopLevelDeclSet>, diagnostics: [Diagnostic]) {
+  ) -> (source: NodeID<TopLevelDeclSet>?, diagnostics: [Diagnostic]) {
     // Initialize the parser's state.
     var state = ParserState(ast: ast, lexer: Lexer(tokenizing: input))
 
@@ -38,8 +39,9 @@ public enum Parser {
       translation = try Self.parseSourceFile(in: &state)
       state.ast[module].addSourceFile(translation)
     } catch let error as DiagnosedError {
-      // Rethrow the error adding the diagnostics generated so far.
-      throw DiagnosedError(state.diagnostics + error.diagnostics)
+      return (source: nil, diagnostics: state.diagnostics + error.diagnostics)
+    } catch let error {
+      return (source: nil, diagnostics: state.diagnostics + [.error(String(describing: error))])
     }
 
     // Make sure the entire input was consumed.
@@ -47,10 +49,10 @@ public enum Parser {
 
     // Return if no error was encountered; otherwise, throw.
     if state.diagnostics.contains(where: { $0.level == .error }) {
-      throw DiagnosedError(state.diagnostics)
+      return (source: nil, diagnostics: state.diagnostics)
     } else {
       ast = state.ast
-      return (translation: translation, diagnostics: state.diagnostics)
+      return (source: translation, diagnostics: state.diagnostics)
     }
   }
 
