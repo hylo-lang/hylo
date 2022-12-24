@@ -25,15 +25,13 @@ final class TypeCheckerTests: XCTestCase {
       let module = try ast.insert(wellFormed: ModuleDecl(name: tc.name))
 
       // Parse the input.
-      let parseResult = try Parser.parse(tc.source, into: module, in: &ast)
-      var parseErrorOccured = false
+      let parseResult = Parser.parse(tc.source, into: module, in: &ast)
       for d in parseResult.diagnostics where d.level == .error {
         record(XCTIssue(d))
-        parseErrorOccured = true
       }
 
       // Exit if a parse error occured.
-      if parseErrorOccured { return true }
+      if parseResult.failed { return true }
 
       // Run the type checker.
       var checker = TypeChecker(program: ScopedProgram(ast: ast))

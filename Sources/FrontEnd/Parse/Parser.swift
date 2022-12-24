@@ -20,15 +20,38 @@ import Core
 /// A namespace for the routines of Val's parser.
 public enum Parser {
 
+  /// The result of parsing a source file.
+  public struct SourceParseResult {
+
+    /// The identitiy of the parsed source, or `nil` if the parsed failed to parse one.
+    public let source: NodeID<TopLevelDeclSet>?
+
+    /// The diagnostics reported during parsing.
+    public let diagnostics: [Diagnostic]
+
+    /// Creates an instance with the given properties.
+    fileprivate init(source: NodeID<TopLevelDeclSet>?, diagnostics: [Diagnostic]) {
+      self.source = source
+      self.diagnostics = diagnostics
+    }
+
+    /// Indicates whether parsing failed.
+    public var failed: Bool {
+      (source == nil) || diagnostics.contains(where: { $0.level == .error })
+    }
+
+  }
+
   /// Parses the declarations of `input`, inserts them into `ast[module]`.
   ///
-  /// - Returns: `(translation, diagnostics)` where `diagnostics` are the diagnostics produced by
-  ///   the parser and `translation` is the ID of parsed translation unit.
+  /// - Returns: `(source, diagnostics)` where `diagnostics` are the diagnostics produced by the
+  ///   parser and `source` is either the identity of parsed source file in `ast`, or `nil` if the
+  ///   parser failed to parse one.
   public static func parse(
     _ input: SourceFile,
     into module: NodeID<ModuleDecl>,
     in ast: inout AST
-  ) throws -> (translation: NodeID<TopLevelDeclSet>, diagnostics: [Diagnostic]) {
+  ) -> SourceParseResult {
     // Initialize the parser's state.
     var state = ParserState(ast: ast, lexer: Lexer(tokenizing: input))
 
@@ -38,20 +61,19 @@ public enum Parser {
       translation = try Self.parseSourceFile(in: &state)
       state.ast[module].addSourceFile(translation)
     } catch let error as DiagnosedError {
-      // Rethrow the error adding the diagnostics generated so far.
-      throw DiagnosedError(state.diagnostics + error.diagnostics)
+      return SourceParseResult(
+        source: nil, diagnostics: state.diagnostics + error.diagnostics)
+    } catch let error {
+      return SourceParseResult(
+        source: nil, diagnostics: state.diagnostics + [.error(String(describing: error))])
     }
 
     // Make sure the entire input was consumed.
     assert(state.peek() == nil, "expected EOF")
 
-    // Return if no error was encountered; otherwise, throw.
-    if state.diagnostics.contains(where: { $0.level == .error }) {
-      throw DiagnosedError(state.diagnostics)
-    } else {
-      ast = state.ast
-      return (translation: translation, diagnostics: state.diagnostics)
-    }
+    // Return the parsed source along with the reported diagnostics.
+    ast = state.ast
+    return SourceParseResult(source: translation, diagnostics: state.diagnostics)
   }
 
   /// Parses an instance of `TopLevelDeclSet`.
