@@ -1,39 +1,24 @@
-import Durian
-import XCTest
 import Core
+import Durian
+import Utils
+import XCTest
 
 @testable import FrontEnd
 
-final class ParserTests: XCTestCase {
+final class ParserTests: XCTestCase, ValTestRunner {
+
+  static var testCaseDirectoryPath: String { "TestCases/Parsing" }
 
   func testParser() throws {
-    // Locate the test cases.
-    let testCaseDirectory = try XCTUnwrap(
-      Bundle.module.url(forResource: "TestCases/Parsing", withExtension: nil),
-      "No test cases")
+    try runValTests({ (name, source) in
+      // Create a module for the input.
+      var ast = AST()
+      let module = try! ast.insert(wellFormed: ModuleDecl(name: name))
 
-    // Execute the test cases.
-    try TestCase.executeAll(
-      in: testCaseDirectory,
-      { (tc) in
-        // Parse the input.
-        var ast = AST()
-        let module = try ast.insert(wellFormed: ModuleDecl(name: tc.name))
-        let diagnostics = Parser.parse(tc.source, into: module, in: &ast).diagnostics
-
-        // Process the test annotations.
-        var diagnosticChecker = DiagnosticChecker(testCaseName: tc.name, diagnostics: diagnostics)
-        for annotation in tc.annotations {
-          switch annotation.command {
-          case "diagnostic":
-            diagnosticChecker.handle(annotation)
-          default:
-            XCTFail("\(tc.name): unexpected test command: '\(annotation.command)'")
-          }
-        }
-
-        diagnosticChecker.finalize()
-      })
+      // Parse the input.
+      let parseResult = Parser.parse(source, into: module, in: &ast)
+      return .init(ranToCompletion: !parseResult.failed, diagnostics: parseResult.diagnostics)
+    })
   }
 
   // MARK: Unit tests
