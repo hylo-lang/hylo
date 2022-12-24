@@ -319,7 +319,7 @@ struct CLI: ParsableCommand {
     // Log the location, if available.
     if let location = diagnostic.location {
       let path = location.source.url.relativePath
-      let (line, column) = location.source.lineAndColumnIndices(at: location)
+      let (line, column) = location.lineAndColumnIndices
       write("\(path):\(line):\(column): ".styled([.bold]))
     }
 

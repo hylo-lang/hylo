@@ -20,7 +20,7 @@ struct LineLocation: Hashable {
   /// Creates a new line location from a source location.
   init(_ location: SourceLocation) {
     self.url = location.source.url
-    (self.line, _) = location.source.lineAndColumnIndices(at: location)
+    (self.line, _) = location.lineAndColumnIndices
   }
 
 }
