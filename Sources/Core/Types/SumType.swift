@@ -1,12 +1,17 @@
-/// A union type.
-public struct UnionType: TypeProtocol {
+import Utils
 
-  /// The elements of the union.
-  public let elements: Set<AnyType>
+/// A sum type.
+public struct SumType: TypeProtocol {
+
+  /// A type representing the elements of a sum type.
+  public typealias Elements = Set<AnyType>
+
+  /// The elements of the sum.
+  public let elements: Elements
 
   public let flags: TypeFlags
 
-  /// Creates a new union type with the specified elements.
+  /// Creates an instance type with the specified elements.
   public init<S: Sequence>(_ elements: S) where S.Element == AnyType {
     self.elements = Set(elements)
     self.flags =
@@ -16,18 +21,18 @@ public struct UnionType: TypeProtocol {
   }
 
   public func transform(_ transformer: (AnyType) -> TypeTransformAction) -> Self {
-    UnionType(elements.map({ (e) -> AnyType in e.transform(transformer) }))
+    SumType(elements.map({ (e) -> AnyType in e.transform(transformer) }))
   }
 
 }
 
-extension UnionType: CustomStringConvertible {
+extension SumType: CustomStringConvertible {
 
   public var description: String {
     if elements.isEmpty {
       return "Never"
     } else {
-      return elements.map({ "\($0)" }).joined(separator: " | ")
+      return "Sum<\(list: elements)>"
     }
   }
 
