@@ -84,8 +84,8 @@ public struct TypeChecker {
           .init(label: e.label, type: canonicalize(type: e.type))
         }))
 
-    case let t as UnionType:
-      return ^UnionType(Set(t.elements.map(canonicalize(type:))))
+    case let t as SumType:
+      return ^SumType(Set(t.elements.map(canonicalize(type:))))
 
     default:
       unreachable()

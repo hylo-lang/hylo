@@ -1,5 +1,5 @@
-/// A union type.
-public struct UnionType: TypeProtocol {
+/// A sum type.
+public struct SumType: TypeProtocol {
 
   /// The elements of the union.
   public let elements: Set<AnyType>
@@ -16,12 +16,12 @@ public struct UnionType: TypeProtocol {
   }
 
   public func transform(_ transformer: (AnyType) -> TypeTransformAction) -> Self {
-    UnionType(elements.map({ (e) -> AnyType in e.transform(transformer) }))
+    SumType(elements.map({ (e) -> AnyType in e.transform(transformer) }))
   }
 
 }
 
-extension UnionType: CustomStringConvertible {
+extension SumType: CustomStringConvertible {
 
   public var description: String {
     if elements.isEmpty {

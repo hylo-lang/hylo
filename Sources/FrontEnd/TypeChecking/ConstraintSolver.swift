@@ -293,7 +293,7 @@ struct ConstraintSolver {
     case (_, _ as LambdaType):
       fatalError("not implemented")
 
-    case (_, _ as UnionType):
+    case (_, _ as SumType):
       fatalError("not implemented")
 
     default:
