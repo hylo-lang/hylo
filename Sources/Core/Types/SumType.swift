@@ -1,3 +1,5 @@
+import Utils
+
 /// A sum type.
 public struct SumType: TypeProtocol {
 
@@ -27,7 +29,7 @@ extension SumType: CustomStringConvertible {
     if elements.isEmpty {
       return "Never"
     } else {
-      return elements.map({ "\($0)" }).joined(separator: " | ")
+      return "Sum<\(list: elements)>"
     }
   }
 
