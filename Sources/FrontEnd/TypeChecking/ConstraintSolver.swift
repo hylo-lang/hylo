@@ -81,11 +81,11 @@ struct ConstraintSolver {
       case let c as LiteralConstraint:
         solve(literal: c, using: &checker)
       case let c as EqualityConstraint:
-        solve(equality: c)
+        solve(equality: c, using: &checker)
       case let c as SubtypingConstraint:
-        solve(subtyping: c)
+        solve(subtyping: c, using: &checker)
       case let c as ParameterConstraint:
-        solve(parameter: c)
+        solve(parameter: c, using: &checker)
       case let c as MemberConstraint:
         solve(member: c, using: &checker)
       case let c as FunctionCallConstraint:
@@ -152,7 +152,7 @@ struct ConstraintSolver {
     let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
 
     // The constraint is trivially solved if `L` is equal to `D`.
-    if goal.subject == goal.defaultSubject { return }
+    if checker.areEquivalent(goal.subject, goal.defaultSubject) { return }
 
     switch goal.subject.base {
     case is TypeVariable:
@@ -177,7 +177,10 @@ struct ConstraintSolver {
   }
 
   /// Eliminates `L == R` by unifying `L` with `R`.
-  private mutating func solve(equality constraint: EqualityConstraint) {
+  private mutating func solve(
+    equality constraint: EqualityConstraint,
+    using checker: inout TypeChecker
+  ) {
     log("- solve: \"\(constraint)\"")
     indentation += 1; defer { indentation -= 1 }
     log("actions:")
@@ -185,7 +188,7 @@ struct ConstraintSolver {
     let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
 
     // Handle trivially satisified constraints.
-    if goal.left == goal.right { return }
+    if checker.areEquivalent(goal.left, goal.right) { return }
 
     switch (goal.left.base, goal.right.base) {
     case (let tau as TypeVariable, _):
@@ -200,65 +203,71 @@ struct ConstraintSolver {
 
     case (let l as TupleType, let r as TupleType):
       // Make sure `L` and `R` are structurally compatible.
-      if !checkStructuralCompatibility(l, r, cause: constraint.cause) {
+      if !checkStructuralCompatibility(l, r, cause: goal.cause) {
         log("- fail")
         return
       }
 
       // Break down the constraint.
       for i in 0 ..< l.elements.count {
-        solve(equality: .init(l.elements[i].type, r.elements[i].type, because: constraint.cause))
+        solve(
+          equality: .init(l.elements[i].type, r.elements[i].type, because: goal.cause),
+          using: &checker)
       }
 
     case (let l as LambdaType, let r as LambdaType):
       // Parameter labels must match.
       if l.inputs.map(\.label) != r.inputs.map(\.label) {
         log("- fail")
-        diagnostics.append(.diagnose(type: ^l, incompatibleWith: ^r, at: constraint.cause.origin))
+        diagnostics.append(.diagnose(type: ^l, incompatibleWith: ^r, at: goal.cause.origin))
         return
       }
 
       // Break down the constraint.
       for i in 0 ..< l.inputs.count {
-        solve(equality: .init(l.inputs[i].type, r.inputs[i].type, because: constraint.cause))
+        solve(
+          equality: .init(l.inputs[i].type, r.inputs[i].type, because: goal.cause),
+          using: &checker)
       }
 
-      solve(equality: .init(l.output, r.output, because: constraint.cause))
-      solve(equality: .init(l.environment, r.environment, because: constraint.cause))
+      solve(equality: .init(l.output, r.output, because: goal.cause), using: &checker)
+      solve(equality: .init(l.environment, r.environment, because: goal.cause), using: &checker)
 
     case (let l as MethodType, let r as MethodType):
       // Parameter labels must match.
       if l.inputs.map(\.label) != r.inputs.map(\.label) {
         log("- fail")
-        diagnostics.append(.diagnose(type: ^l, incompatibleWith: ^r, at: constraint.cause.origin))
+        diagnostics.append(.diagnose(type: ^l, incompatibleWith: ^r, at: goal.cause.origin))
         return
       }
 
       // Capabilities must match.
       if l.capabilities != r.capabilities {
         log("- fail")
-        diagnostics.append(.diagnose(type: ^l, incompatibleWith: ^r, at: constraint.cause.origin))
+        diagnostics.append(.diagnose(type: ^l, incompatibleWith: ^r, at: goal.cause.origin))
         return
       }
 
       // Break down the constraint.
-      for i in 0 ..< l.inputs.count {
-        solve(equality: .init(l.inputs[i].type, r.inputs[i].type, because: constraint.cause))
+      for (l, r) in zip(l.inputs, r.inputs) {
+        solve(equality: .init(l.type, r.type, because: goal.cause), using: &checker)
       }
-
-      solve(equality: .init(l.output, r.output, because: constraint.cause))
-      solve(equality: .init(l.receiver, r.receiver, because: constraint.cause))
+      solve(equality: .init(l.output, r.output, because: goal.cause), using: &checker)
+      solve(equality: .init(l.receiver, r.receiver, because: goal.cause), using: &checker)
 
     default:
       log("- fail")
       diagnostics.append(
-        .diagnose(type: goal.left, incompatibleWith: goal.right, at: constraint.cause.origin))
+        .diagnose(type: goal.left, incompatibleWith: goal.right, at: goal.cause.origin))
     }
   }
 
   /// Eliminates `L <: R` if the solver has enough information to check that `L` is subtype of `R`
   /// or must be unified with `R`. Otherwise, postpones the constraint.
-  private mutating func solve(subtyping constraint: SubtypingConstraint) {
+  private mutating func solve(
+    subtyping constraint: SubtypingConstraint,
+    using checker: inout TypeChecker
+  ) {
     log("- solve: \"\(constraint)\"")
     indentation += 1; defer { indentation -= 1 }
     log("actions:")
@@ -266,7 +275,7 @@ struct ConstraintSolver {
     let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
 
     // Handle trivially satisified constraints.
-    if goal.left == goal.right { return }
+    if checker.areEquivalent(goal.left, goal.right) { return }
 
     switch (goal.left.base, goal.right.base) {
     case (_, _ as TypeVariable):
@@ -280,7 +289,7 @@ struct ConstraintSolver {
       // coercible to `R` and that are above `L`, but that set is unbounded unless `R` is a leaf.
       // If it isn't, we have no choice but to postpone the constraint.
       if goal.right.isLeaf {
-        solve(equality: .init(constraint))
+        solve(equality: .init(constraint), using: &checker)
       } else {
         postpone(goal)
       }
@@ -298,13 +307,16 @@ struct ConstraintSolver {
 
     default:
       diagnostics.append(
-        .diagnose(type: goal.left, isNotSubtypeOf: goal.right, at: constraint.cause.origin))
+        .diagnose(type: goal.left, isNotSubtypeOf: goal.right, at: goal.cause.origin))
     }
   }
 
   /// Eliminates `L ⤷ R` if the solver has enough information to choose whether the constraint can
   /// be simplified as equality or subtyping. Otherwise, postpones the constraint.
-  private mutating func solve(parameter constraint: ParameterConstraint) {
+  private mutating func solve(
+    parameter constraint: ParameterConstraint,
+    using checker: inout TypeChecker
+  ) {
     log("- solve: \"\(constraint)\"")
     indentation += 1; defer { indentation -= 1 }
     log("actions:")
@@ -312,7 +324,7 @@ struct ConstraintSolver {
     let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
 
     // Handle trivially satisified constraints.
-    if goal.left == goal.right { return }
+    if checker.areEquivalent(goal.left, goal.right) { return }
 
     switch goal.right.base {
     case is TypeVariable:
@@ -322,11 +334,11 @@ struct ConstraintSolver {
     case let p as ParameterType:
       // Either `L` is equal to the bare type of `R`, or it's a. Note: the equality requirement for
       // arguments passed mutably is verified after type inference.
-      schedule(inferenceConstraint(goal.left, isSubtypeOf: p.bareType, because: constraint.cause))
+      schedule(inferenceConstraint(goal.left, isSubtypeOf: p.bareType, because: goal.cause))
 
     default:
       log("- fail")
-      diagnostics.append(.diagnose(invalidParameterType: goal.right, at: constraint.cause.origin))
+      diagnostics.append(.diagnose(invalidParameterType: goal.right, at: goal.cause.origin))
     }
   }
 
@@ -351,7 +363,7 @@ struct ConstraintSolver {
 
     // Search for non-static members with the specified name.
     let allMatches = checker.lookup(
-      constraint.memberName.stem, memberOf: goal.subject, inScope: scope)
+      goal.memberName.stem, memberOf: goal.subject, inScope: scope)
     let nonStaticMatches = allMatches.filter({ decl in
       checker.program.isNonStaticMember(decl)
     })
@@ -360,8 +372,8 @@ struct ConstraintSolver {
     if nonStaticMatches.isEmpty && !allMatches.isEmpty {
       diagnostics.append(
         .diagnose(
-          illegalUseOfStaticMember: constraint.memberName, onInstanceOf: goal.subject,
-          at: constraint.cause.origin))
+          illegalUseOfStaticMember: goal.memberName, onInstanceOf: goal.subject,
+          at: goal.cause.origin))
     }
 
     // Generate the list of candidates.
@@ -382,27 +394,24 @@ struct ConstraintSolver {
     // Fail if we couldn't find any candidate.
     if candidates.isEmpty {
       log("- fail")
-      diagnostics.append(
-        .diagnose(
-          undefinedName: "\(constraint.memberName)",
-          at: constraint.cause.origin))
+      diagnostics.append(.diagnose(undefinedName: "\(goal.memberName)", at: goal.cause.origin))
       return
     }
 
     // If there's only one candidate, solve an equality constraint direcly.
     if let pick = candidates.uniqueElement {
-      solve(equality: .init(pick.type, goal.memberType, because: constraint.cause))
+      solve(equality: .init(pick.type, goal.memberType, because: goal.cause), using: &checker)
 
-      log("- assume \(constraint.memberExpr) &> \(pick.reference)")
-      bindingAssumptions[constraint.memberExpr] = pick.reference
+      log("- assume \(goal.memberExpr) &> \(pick.reference)")
+      bindingAssumptions[goal.memberExpr] = pick.reference
       return
     }
 
     // If there are several candidates, create a overload constraint.
     schedule(
       OverloadConstraint(
-        constraint.memberExpr, withType: goal.memberType, refersToOneOf: candidates,
-        because: constraint.cause))
+        goal.memberExpr, withType: goal.memberType, refersToOneOf: candidates,
+        because: goal.cause))
   }
 
   /// Simplifies `F(P1, ..., Pn) -> R` as equality constraints unifying the parameters and return
@@ -426,25 +435,23 @@ struct ConstraintSolver {
     // Make sure `F` is callable.
     guard let callee = goal.calleeType.base as? CallableType else {
       log("- fail")
-      diagnostics.append(.diagnose(nonCallableType: goal.calleeType, at: constraint.cause.origin))
+      diagnostics.append(.diagnose(nonCallableType: goal.calleeType, at: goal.cause.origin))
       return
     }
 
     // Make sure `F` structurally matches the given parameter list.
     if !checkStructuralCompatibility(
-      found: constraint.parameters, expected: callee.inputs, cause: constraint.cause)
+      found: constraint.parameters, expected: callee.inputs, cause: goal.cause)
     {
       log("- fail")
       return
     }
 
     // Break down the constraint.
-    for i in 0 ..< callee.inputs.count {
-      solve(
-        equality: .init(
-          callee.inputs[i].type, constraint.parameters[i].type, because: constraint.cause))
+    for (l, r) in zip(callee.inputs, goal.parameters) {
+      solve(equality: .init(l.type, r.type, because: goal.cause), using: &checker)
     }
-    solve(equality: .init(callee.output, constraint.returnType, because: constraint.cause))
+    solve(equality: .init(callee.output, goal.returnType, because: goal.cause), using: &checker)
   }
 
   /// Attempts to solve the remaining constraints for each individual choice in `disjunction` and
@@ -563,7 +570,7 @@ struct ConstraintSolver {
     var i = 0
     while i < solutions.count {
       let rhs = solutions[i].reify(comparator, withVariables: .substituteByError)
-      if lhs == rhs {
+      if checker.areEquivalent(lhs, rhs) {
         // Check if the new solution binds name expressions to more specialized declarations.
         switch checker.compareSolutionBindings(newSolution, solutions[0], scope: scope) {
         case .comparable(.coarser), .comparable(.equal):
