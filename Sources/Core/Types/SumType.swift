@@ -3,12 +3,15 @@ import Utils
 /// A sum type.
 public struct SumType: TypeProtocol {
 
-  /// The elements of the union.
-  public let elements: Set<AnyType>
+  /// A type representing the elements of a sum type.
+  public typealias Elements = Set<AnyType>
+
+  /// The elements of the sum.
+  public let elements: Elements
 
   public let flags: TypeFlags
 
-  /// Creates a new union type with the specified elements.
+  /// Creates an instance type with the specified elements.
   public init<S: Sequence>(_ elements: S) where S.Element == AnyType {
     self.elements = Set(elements)
     self.flags =
