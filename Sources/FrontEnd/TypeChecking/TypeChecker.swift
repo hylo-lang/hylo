@@ -2342,16 +2342,23 @@ public struct TypeChecker {
   ) -> MetatypeType? {
     precondition(program.ast[expr].domain == .none)
 
+    // Determine the "magic" type expression to realize.
+    let name = program.ast[expr].name
+    switch name.value.stem {
+    case "Sum":
+      return realizeSumTypeExpr(expr, inScope: scope)
+    default:
+      break
+    }
+
     // Evaluate the static argument list.
-    var arguments: [BoundGenericType.Argument] = []
+    var arguments: [(value: BoundGenericType.Argument, origin: SourceRange?)] = []
     for a in program.ast[expr].arguments {
       // TODO: Symbolic execution
       guard let type = realize(a.value, inScope: scope)?.instance else { return nil }
-      arguments.append(.type(type))
+      arguments.append((value: .type(type), origin: program.ast[a.value].origin))
     }
 
-    // Determine the "magic" type expression to realize.
-    let name = program.ast[expr].name
     switch name.value.stem {
     case "Any":
       let type = MetatypeType(of: .any)
@@ -2392,7 +2399,7 @@ public struct TypeChecker {
       if arguments.count != 1 {
         diagnostics.insert(.diagnose(metatypeRequiresOneArgumentAt: name.origin))
       }
-      if case .type(let a) = arguments.first! {
+      if case .type(let a) = arguments.first!.value {
         return MetatypeType(of: MetatypeType(of: a))
       } else {
         fatalError("not implemented")
@@ -2407,7 +2414,40 @@ public struct TypeChecker {
       return type
 
     default:
+      diagnostics.insert(.diagnose(noType: name.value, in: nil, at: name.origin))
       return nil
+    }
+  }
+
+  /// Returns the type of a sum type expression with the given arguments.
+  ///
+  /// - Requires: `sumTypeExpr` is a sum type expression.
+  private mutating func realizeSumTypeExpr(
+    _ sumTypeExpr: NodeID<NameExpr>,
+    inScope scope: AnyScopeID
+  ) -> MetatypeType? {
+    precondition(program.ast[sumTypeExpr].name.value.stem == "Sum")
+
+    var elements = SumType.Elements()
+    for a in program.ast[sumTypeExpr].arguments {
+      guard let type = realize(a.value, inScope: scope)?.instance else {
+        diagnostics.insert(.error(valueInSumTypeAt: program.ast[a.value].origin))
+        return nil
+      }
+      elements.insert(type)
+    }
+
+    switch elements.count {
+    case 0:
+      diagnostics.insert(.warning(sumTypeWithZeroElementsAt: program.ast[sumTypeExpr].name.origin))
+      return MetatypeType(of: .never)
+
+    case 1:
+      diagnostics.insert(.error(sumTypeWithOneElementAt: program.ast[sumTypeExpr].name.origin))
+      return nil
+
+    default:
+      return MetatypeType(of: SumType(elements))
     }
   }
 
@@ -2535,12 +2575,7 @@ public struct TypeChecker {
 
       // If there are no matches, check for magic symbols.
       if matches.isEmpty {
-        if let type = realizeMagicTypeExpr(id, inScope: scope) {
-          return type
-        } else {
-          diagnostics.insert(.diagnose(noType: name.value, in: nil, at: name.origin))
-          return nil
-        }
+        return realizeMagicTypeExpr(id, inScope: scope)
       }
 
     case .expr(let j):

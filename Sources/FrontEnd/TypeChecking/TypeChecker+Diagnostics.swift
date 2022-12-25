@@ -401,4 +401,22 @@ extension Diagnostic {
     }
   }
 
+  static func warning(
+    sumTypeWithZeroElementsAt origin: SourceRange?
+  ) -> Diagnostic {
+    .warning("empty sum type is better expressed as 'Never'", range: origin)
+  }
+
+  static func error(
+    sumTypeWithOneElementAt origin: SourceRange?
+  ) -> Diagnostic {
+    .error("sum types should contain at least 2 elements", range: origin)
+  }
+
+  static func error(
+    valueInSumTypeAt origin: SourceRange?
+  ) -> Diagnostic {
+    .error("sum types cannot contain values", range: origin)
+  }
+
 }

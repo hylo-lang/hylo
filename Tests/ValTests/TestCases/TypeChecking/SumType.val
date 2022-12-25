@@ -1,0 +1,11 @@
+//! expect-failure
+
+public fun main() {
+  // Standard cases.
+  let _ : Sum<Int, Bool>
+  let _ : Sum<Int, Bool, Void>
+
+  // Special cases.
+  let _ : Sum      //! diagnostic empty sum type is better expressed as 'Never'
+  let _ : Sum<Int> //! diagnostic sum types should contain at least 2 elements
+}
