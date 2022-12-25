@@ -13,6 +13,11 @@ public struct SourceLocation: Hashable {
     self.index = index
   }
 
+  /// The 1-based line and column indicies of this location.
+  public var lineAndColumnIndices: (line: Int, column: Int) {
+    source.lineAndColumnIndices(at: self)
+  }
+
   /// Returns a source range from `l` to `r`.
   ///
   /// - Requires: `l.source == r.source`

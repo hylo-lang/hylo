@@ -96,7 +96,7 @@ extension Diagnostic: CustomStringConvertible {
   public var description: String {
     let prefix: String
     if let l = location {
-      let (line, column) = l.source.lineAndColumnIndices(at: l)
+      let (line, column) = l.lineAndColumnIndices
       prefix = "\(l.source.url):\(line):\(column): "
     } else {
       prefix = ""

@@ -1,5 +1,6 @@
-import FrontEnd
 import Core
+import FrontEnd
+import XCTest
 
 /// A test annotation in a source file.
 ///
@@ -45,36 +46,37 @@ import Core
 struct TestAnnotation {
 
   /// The line location of this annotation.
-  var location: LineLocation
+  let location: XCTSourceCodeLocation
 
   /// The command.
-  var command: String
+  let command: String
 
   /// The argument, if any.
-  var argument: String?
+  let argument: String?
 
   /// Parses a new annotation from `body`.
   ///
   /// - Parameters:
   ///   - location: The line location of the annotation.
   ///   - body: A collection of characters representing an annotation body.
-  init<S: Collection>(at location: LineLocation, parsing body: S)
+  init<S: Collection>(in url: URL, atLine line: Int, parsing body: S)
   where S.Element == Character {
-    self.location = location
-
     var s = body.drop(while: { $0.isWhitespace })
 
     // Parse the line offset, if any.
+    var lineOffset = 0
     if s.starts(with: "@") {
       let offset = s.dropFirst().prefix(while: { !$0.isWhitespace })
       s = s.dropFirst(offset.count + 1)
-      self.location.line += Int(String(offset))!
+      lineOffset = Int(String(offset))!
     }
+
+    self.location = .init(fileURL: url, lineNumber: line + lineOffset)
 
     // Parse the command.
     s = s.drop(while: { $0.isWhitespace })
-    command = String(s.prefix(while: { !$0.isWhitespace }))
-    s = s.dropFirst(command.count)
+    self.command = String(s.prefix(while: { !$0.isWhitespace }))
+    s = s.dropFirst(self.command.count)
 
     // Skip the whitespaces after the command.
     while let head = s.first, head.isWhitespace {
@@ -88,7 +90,7 @@ struct TestAnnotation {
     // Parse the argument.
     let lines = s.split(separator: "\n")
     if lines.isEmpty {
-      argument = nil
+      self.argument = nil
     } else {
       var argument = ""
       for i in 0 ..< lines.count {
@@ -151,9 +153,7 @@ struct TestAnnotation {
           openedBlockComments = 0
           if let start = indexAfterAnnotationBlockOpener {
             annotations.append(
-              TestAnnotation(
-                at: LineLocation(url: source.url, line: line),
-                parsing: stream[start ..< index]))
+              TestAnnotation(in: source.url, atLine: line, parsing: stream[start ..< index]))
             indexAfterAnnotationBlockOpener = nil
           }
 
@@ -185,9 +185,7 @@ struct TestAnnotation {
 
         if let start = start {
           annotations.append(
-            TestAnnotation(
-              at: LineLocation(url: source.url, line: line),
-              parsing: stream[start ..< index]))
+            TestAnnotation(in: source.url, atLine: line, parsing: stream[start ..< index]))
         }
 
         continue

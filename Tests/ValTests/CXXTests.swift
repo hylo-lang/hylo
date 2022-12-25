@@ -1,72 +1,37 @@
-import FrontEnd
-import XCTest
 import CodeGenCXX
 import Core
+import FrontEnd
+import Utils
+import XCTest
 
-func check(_ haystack: String, contains needle: String.SubSequence, for testFile: String) {
-  XCTAssert(
-    haystack.contains(needle),
-    """
+final class CXXTests: XCTestCase, ValTestRunner {
 
-
-    Test file: \(testFile)
-    ===========\(String(repeating: "=", count: testFile.count))
-
-    \(String(reflecting: needle))
-    not found in source
-    \"""
-    \(haystack)
-    \"""
-    """)
-}
-
-extension StringProtocol {
-
-  /// Removes trailing newlines from the given string subsequence.
-  func removingTrailingNewlines() -> Self.SubSequence {
-    if let i = self.lastIndex(where: { !$0.isNewline }) {
-      return self.prefix(through: i)
-    } else {
-      return self.prefix(upTo: startIndex)
-    }
-  }
-
-}
-
-final class CXXTests: XCTestCase {
+  static var testCaseDirectoryPath: String { "TestCases/CXX" }
 
   func testTranspiler() throws {
-    // Locate the test cases.
-    let testCaseDirectory = try XCTUnwrap(
-      Bundle.module.url(forResource: "TestCases/CXX", withExtension: nil),
-      "No test cases")
-
     // Prepare an AST with the core module loaded.
     var baseAST = AST()
     baseAST.importCoreModule()
 
-    // Execute the test cases.
-    try TestCase.executeAll(
-      in: testCaseDirectory,
-      { (tc) in
-        // Create an AST for the test case.
-        var ast = baseAST
-
+    try runValTests(
+      handlingResultsWith: CXXAnnotationHandler.self,
+      { (name, source) in
         // Create a module for the input.
-        let module = try ast.insert(wellFormed: ModuleDecl(name: tc.name))
+        var ast = baseAST
+        let module = try! ast.insert(wellFormed: ModuleDecl(name: name))
 
         // Parse the input.
-        let parseResult = Parser.parse(tc.source, into: module, in: &ast)
+        let parseResult = Parser.parse(source, into: module, in: &ast)
+        var diagnostics = parseResult.diagnostics
         if parseResult.failed {
-          XCTFail("\(tc.name): parsing failed")
-          return
+          return .init(module: nil, ranToCompletion: false, diagnostics: diagnostics)
         }
 
         // Run the type checker.
         var checker = TypeChecker(program: ScopedProgram(ast: ast))
+        diagnostics.append(contentsOf: checker.diagnostics)
         if !checker.check(module: module) {
-          XCTFail("\(tc.name): type checking failed")
-          return
+          return .init(module: nil, ranToCompletion: false, diagnostics: diagnostics)
         }
 
         let typedProgram = TypedProgram(
@@ -82,23 +47,8 @@ final class CXXTests: XCTestCase {
         // Transpile the module.
         var transpiler = CXXTranspiler(program: typedProgram)
         let cxxModule = transpiler.emit(module: typedProgram[module])
-        let cxxHeader = cxxModule.emitHeader()
-        let cxxSource = cxxModule.emitSource()
 
-        // Process the test annotations.
-        for annotation in tc.annotations {
-          let code = annotation.argument!.removingTrailingNewlines()
-          switch annotation.command {
-          case "cpp":
-            check(cxxSource, contains: code, for: tc.name)
-
-          case "h":
-            check(cxxHeader, contains: code, for: tc.name)
-
-          default:
-            XCTFail("\(tc.name): unexpected test command: '\(annotation.command)'")
-          }
-        }
+        return .init(module: cxxModule, ranToCompletion: true, diagnostics: diagnostics)
       })
   }
 
