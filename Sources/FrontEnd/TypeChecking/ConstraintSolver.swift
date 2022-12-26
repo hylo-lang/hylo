@@ -154,25 +154,20 @@ struct ConstraintSolver {
     // The constraint is trivially solved if `L` is equal to `D`.
     if checker.areEquivalent(goal.subject, goal.defaultSubject) { return }
 
-    switch goal.subject.base {
-    case is TypeVariable:
-      // Postpone the solving if `L` is still unknown.
+    // Check that `L` conforms to `T` or postpone if it's still unknown.
+    if goal.subject.base is TypeVariable {
       postpone(goal)
-
-    case is ProductType, is TupleType:
-      // Add a penalty if `L` isn't `D`.
-      penalties += 1
-
-      // Check conformance.
+    } else {
       let conformedTraits = checker.conformedTraits(of: goal.subject, inScope: scope) ?? []
-      if !conformedTraits.contains(goal.literalTrait) {
+
+      if conformedTraits.contains(goal.literalTrait) {
+        // Add a penalty if `L` isn't `D`.
+        penalties += 1
+      } else {
         log("- fail")
         diagnostics.append(
           .diagnose(goal.subject, doesNotConformTo: goal.literalTrait, at: goal.cause.origin))
       }
-
-    default:
-      fatalError("not implemented")
     }
   }
 
@@ -302,8 +297,26 @@ struct ConstraintSolver {
     case (_, _ as LambdaType):
       fatalError("not implemented")
 
-    case (_, _ as SumType):
-      fatalError("not implemented")
+    case (let l as SumType, _ as SumType):
+      // If both types are sums, all elements in `L` must be contained in `R`.
+      for e in l.elements {
+        solve(subtyping: .init(e, goal.right, because: goal.cause), using: &checker)
+      }
+
+    case (_, let r as SumType):
+      // If `R` is a sum type and `L` isn't, then `L` must be contained in `R`.
+      for e in r.elements {
+        if checker.areEquivalent(goal.left, e) { return }
+      }
+
+      // Postpone the constraint if either `L` or `R` contains variables. Otherwise, `L` is not
+      // subtype of `R`.
+      if goal.left[.hasVariable] || goal.right[.hasVariable] {
+        postpone(goal)
+      } else {
+        diagnostics.append(
+          .diagnose(type: goal.left, isNotSubtypeOf: goal.right, at: goal.cause.origin))
+      }
 
     default:
       diagnostics.append(
