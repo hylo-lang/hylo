@@ -390,12 +390,13 @@ public struct TypeChecker {
       // TODO: Complete underspecified generic signatures
 
       success = inference.succeeded
-      shape.type = inference.solution.reify(shape.type, withVariables: .substituteByError)
+      shape.type = inference.solution.typeAssumptions.reify(
+        shape.type, withVariables: .substituteByError)
 
       // Assign the variable declarations in the pattern to their type
       for decl in shape.decls {
         modifying(&declTypes[decl]!, { (t) in
-          t = inference.solution.reify(t, withVariables: .substituteByError)
+          t = inference.solution.typeAssumptions.reify(t, withVariables: .substituteByError)
         })
         declRequests[decl] = success ? .success : .failure
       }
@@ -1547,7 +1548,7 @@ public struct TypeChecker {
 
     // Apply the solution.
     for (id, type) in constraintGeneration.inferredTypes.storage {
-      exprTypes[id] = solution.reify(type, withVariables: .keep)
+      exprTypes[id] = solution.typeAssumptions.reify(type, withVariables: .keep)
     }
     for (name, ref) in solution.bindingAssumptions {
       referredDecls[name] = ref

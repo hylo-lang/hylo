@@ -3,6 +3,17 @@ import Core
 /// A substitution table mapping type variables to assumptions during type inference
 struct SubstitutionMap {
 
+  /// A policy for substituting type variales during reification.
+  enum SubstitutionPolicy {
+
+    /// Substitute free variables by error types.
+    case substituteByError
+
+    /// Do not substitute free variables.
+    case keep
+
+  }
+
   /// The internal storage of the map.
   private var storage: [TypeVariable: AnyType] = [:]
 
@@ -50,6 +61,37 @@ struct SubstitutionMap {
       walked = b
     }
     storage[walked] = substitution
+  }
+
+  /// Subtitutes each type variable occuring in `type` by its corresponding substitution in `self`,
+  /// apply `substitutionPolicy` to deal with free variables.
+  func reify(_ type: AnyType, withVariables substitutionPolicy: SubstitutionPolicy) -> AnyType {
+    func _impl(type: AnyType) -> TypeTransformAction {
+      if type.base is TypeVariable {
+        // Walk `type`.
+        let walked = self[type]
+
+        // Substitute `walked` for `type`.
+        if walked.base is TypeVariable {
+          switch substitutionPolicy {
+          case .substituteByError:
+            return .stepInto(.error)
+          case .keep:
+            return .stepOver(type)
+          }
+        } else {
+          return .stepInto(walked)
+        }
+      } else if !type[.hasVariable] {
+        // Nothing to do if the type doesn't contain any variable.
+        return .stepOver(type)
+      } else {
+        // Recursively visit other types.
+        return .stepInto(type)
+      }
+    }
+
+    return type.transform(_impl(type:))
   }
 
 }

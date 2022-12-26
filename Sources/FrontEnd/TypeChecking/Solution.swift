@@ -3,17 +3,6 @@ import Core
 /// A solution returned by a constraint solver.
 struct Solution {
 
-  /// A policy for substituting type variales during reification.
-  enum SubstitutionPolicy {
-
-    /// Substitute free variables by error types.
-    case substituteByError
-
-    /// Do not substitute free variables.
-    case keep
-
-  }
-
   /// The score of a solution.
   struct Score: Comparable {
 
@@ -66,31 +55,6 @@ struct Solution {
 
   /// The score of the solution.
   var score: Score { Score(errorCount: diagnostics.count, penalties: penalties) }
-
-  /// Subtitutes each type variable occuring in `type` by its corresponding substitution in `self`,
-  /// apply `substitutionPolicy` to deal with free variables.
-  func reify(_ type: AnyType, withVariables substitutionPolicy: SubstitutionPolicy) -> AnyType {
-    func _impl(type: AnyType) -> TypeTransformAction {
-      if let v = TypeVariable(type) {
-        // Substitute variables.
-        if let t = typeAssumptions[v] {
-          return .stepInto(t)
-        } else {
-          switch substitutionPolicy {
-          case .substituteByError:
-            return .stepInto(.error)
-          case .keep:
-            return .stepOver(type)
-          }
-        }
-      } else {
-        // Recursively visit other types.
-        return .stepInto(type)
-      }
-    }
-
-    return type.transform(_impl(type:))
-  }
 
   /// Adds `d` to the list of diagnostics associated with this solution.
   mutating func addDiagnostic(_ d: Diagnostic) {
