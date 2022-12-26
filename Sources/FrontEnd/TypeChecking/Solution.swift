@@ -35,7 +35,7 @@ struct Solution {
   }
 
   /// The type assumptions made by the solver.
-  let typeAssumptions: [TypeVariable: AnyType]
+  let typeAssumptions: SubstitutionMap
 
   /// The name binding assumptions made by the solver.
   let bindingAssumptions: [NodeID<NameExpr>: DeclRef]
@@ -53,7 +53,7 @@ struct Solution {
 
   /// Creates an instance with the given properties.
   init(
-    typeAssumptions: [TypeVariable: AnyType],
+    typeAssumptions: SubstitutionMap,
     bindingAssumptions: [NodeID<NameExpr>: DeclRef],
     penalties: Int,
     diagnostics: [Diagnostic]

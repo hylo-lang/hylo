@@ -659,7 +659,7 @@ struct ConstraintSolver {
   private func finalize() -> Solution {
     assert(fresh.isEmpty)
     return Solution(
-      typeAssumptions: typeAssumptions.asDictionary(),
+      typeAssumptions: typeAssumptions.optimized(),
       bindingAssumptions: bindingAssumptions,
       penalties: penalties,
       diagnostics: diagnostics + stale.map(Diagnostic.diagnose(staleConstraint:)))

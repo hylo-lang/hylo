@@ -9,6 +9,22 @@ struct SubstitutionMap {
   /// Creates an empty substitution map.
   init() {}
 
+  /// Returns a copy of this instance with its internal representation optimized.
+  func optimized() -> Self {
+    var result = SubstitutionMap()
+    result.storage = storage.mapValues({ self[$0] })
+    return result
+  }
+
+  /// Returns the substitution for `variable`, if any.
+  subscript(variable: TypeVariable) -> AnyType? {
+    if let t = storage[variable] {
+      return self[t]
+    } else {
+      return nil
+    }
+  }
+
   /// Returns the substitution for `type` if it is a variable to which a type is assigned in this
   /// map. Otherwise, returns `type`.
   subscript(type: AnyType) -> AnyType {
@@ -23,7 +39,7 @@ struct SubstitutionMap {
     return walked
   }
 
-  /// Assigns `substition` to `variable`.
+  /// Assigns `substitution` to `variable`.
   mutating func assign(_ substitution: AnyType, to variable: TypeVariable) {
     var walked = variable
     while let a = storage[walked] {
@@ -36,29 +52,26 @@ struct SubstitutionMap {
     storage[walked] = substitution
   }
 
-  /// Returns a dictionary representing the same mapping as `self`.
-  func asDictionary() -> [TypeVariable: AnyType] {
-    Dictionary(uniqueKeysWithValues: storage.lazy.map { (k, v) in (k, self[v]) })
+}
+
+extension SubstitutionMap: ExpressibleByDictionaryLiteral {
+
+  init(dictionaryLiteral elements: (TypeVariable, AnyType)...) {
+    for (k, v) in elements {
+      self.assign(v, to: k)
+    }
   }
 
 }
 
 extension SubstitutionMap: CustomStringConvertible {
 
-  var description: String {
-    let elements = storage.map({ (key, value) in "\(key): \(value)" }).joined(separator: ", ")
-    return "[\(elements)]"
-  }
+  var description: String { String(describing: storage) }
 
 }
 
 extension SubstitutionMap: CustomReflectable {
 
-  var customMirror: Mirror {
-    Mirror(
-      self,
-      children: storage.map({ (key, value) in (label: "\(key)", value: value) }),
-      displayStyle: .collection)
-  }
+  var customMirror: Mirror { storage.customMirror }
 
 }
