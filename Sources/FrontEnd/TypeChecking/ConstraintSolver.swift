@@ -653,16 +653,6 @@ struct ConstraintSolver {
     }
   }
 
-  /// Moves the stale constraints depending on the specified variables back to the fresh set.
-  private mutating func refresh(constraintsDependingOn variable: TypeVariable) {
-    for i in (0 ..< stale.count).reversed() {
-      if stale[i].depends(on: variable) {
-        log("- refresh \(stale[i])")
-        fresh.append(stale.remove(at: i))
-      }
-    }
-  }
-
   /// Transforms the stale literal constraints to equality constraints.
   private mutating func refreshLiteralConstraints() {
     for i in (0 ..< stale.count).reversed() {

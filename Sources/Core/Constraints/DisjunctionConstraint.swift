@@ -50,15 +50,6 @@ public struct DisjunctionConstraint: Constraint, Hashable {
     }
   }
 
-  public func depends(on variable: TypeVariable) -> Bool {
-    for m in choices {
-      for c in m.constraints {
-        if c.depends(on: variable) { return true }
-      }
-    }
-    return false
-  }
-
 }
 
 extension DisjunctionConstraint: CustomStringConvertible {

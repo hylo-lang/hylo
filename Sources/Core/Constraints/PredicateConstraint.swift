@@ -14,8 +14,6 @@ public struct PredicateConstraint: Constraint, Hashable {
 
   public mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {}
 
-  public func depends(on variable: TypeVariable) -> Bool { false }
-
 }
 
 extension PredicateConstraint: CustomStringConvertible {

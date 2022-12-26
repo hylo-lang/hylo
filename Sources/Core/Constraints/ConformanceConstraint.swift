@@ -26,10 +26,6 @@ public struct ConformanceConstraint: Constraint, Hashable {
     modify(&subject, with: transform)
   }
 
-  public func depends(on variable: TypeVariable) -> Bool {
-    subject == variable
-  }
-
 }
 
 extension ConformanceConstraint: CustomStringConvertible {

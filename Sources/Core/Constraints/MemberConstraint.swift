@@ -38,10 +38,6 @@ public struct MemberConstraint: Constraint, Hashable {
     modify(&memberType, with: transform)
   }
 
-  public func depends(on variable: TypeVariable) -> Bool {
-    (subject == variable) || (memberType == variable)
-  }
-
 }
 
 extension MemberConstraint: CustomStringConvertible {

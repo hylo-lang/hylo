@@ -13,9 +13,6 @@ public protocol Constraint {
   /// Applies `transform` on constituent types of `self`.
   mutating func modifyTypes(_ transform: (AnyType) -> AnyType)
 
-  /// Returns whether the constraint depends on the specified variable.
-  func depends(on variable: TypeVariable) -> Bool
-
   /// Hashes the salient features of `self` by feeding them into `hasher`.
   func hash(into hasher: inout Hasher)
 
