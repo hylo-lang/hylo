@@ -38,11 +38,7 @@ The default keyboard shortcut for running the formatter for the open document is
 ### XCode
 
 XCode doesn't provide a good way to install custom code formatters.
-Use the following respources to use `swift-format` in different ways with XCode:
-* [How to use Apple's swift-format with Xcode?](https://stackoverflow.com/questions/64304613/how-to-use-apples-swift-format-with-xcode)
-* [How to start working with swift-format](https://exyte.com/blog/how-to-start-working-with-swift-format)
-
-Here is one of the methods to add `swift-format` run each time the project is built:
+Here is a workaround to fix formatting while building the project:
 * Go to `Product` → `Scheme` → `Edit Scheme...` in the XCode menu
 * Under `Build`, select `Post-build actions`
 * Click on `+` button, then select `New Run Script Action`
