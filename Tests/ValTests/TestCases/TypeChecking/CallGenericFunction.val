@@ -4,10 +4,17 @@ fun f<X>(_ x0: sink X, _ x1: sink { b: X }) {}
 
 fun g<X, Y>(_ x: sink X, _ y: sink Y) -> X { x }
 
+fun h<X>(_ a: X, _ b: X) -> X {}
+
 public fun main() {
   f((), (b: ()))
   f((a: ()), (b: ())) //! diagnostic tuples have different lengths
 
   g(true, 42)         //! diagnostic unused result of type 'Bool'
   g(42, true)         //! diagnostic unused result of type 'Int'
+
+  let x0 = h(0, 42 as Double)
+  let x1: Double = x0
+
+  f<Int>(0, (b: x1))  //! diagnostic incompatible types 'Double' and 'Int'
 }

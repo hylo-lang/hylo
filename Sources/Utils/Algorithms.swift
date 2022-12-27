@@ -15,15 +15,6 @@ extension BidirectionalCollection {
 
 }
 
-extension Collection {
-
-  /// Returns the descriptions of all elements, joined by the given `separator`.
-  public func descriptions(joinedBy separator: String = ", ") -> String {
-    self.lazy.map(String.init(describing:)).joined(separator: separator)
-  }
-
-}
-
 extension Int {
 
   /// Returns `self` rounded up to the next power of two.

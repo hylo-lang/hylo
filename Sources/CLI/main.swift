@@ -1,8 +1,11 @@
 import ArgumentParser
-import Compiler
+import FrontEnd
 import Foundation
 import Utils
 import ValModule
+import CodeGenCXX
+import Core
+import IR
 
 struct CLI: ParsableCommand {
 
@@ -58,6 +61,11 @@ struct CLI: ParsableCommand {
     name: [.customLong("typecheck")],
     help: "Type-check the input file(s).")
   var typeCheckOnly: Bool = false
+
+  @Option(
+    name: [.customLong("trace-inference")],
+    help: "Enable tracing of type inference requests at the given line.")
+  var inferenceTracingRange: SourceRange?
 
   @Option(
     name: [.customLong("emit")],
@@ -134,10 +142,13 @@ struct CLI: ParsableCommand {
     ast.importCoreModule()
 
     // Initialize the type checker.
-    var checker = TypeChecker(program: ScopedProgram(ast: ast), isBuiltinModuleVisible: true)
+    var checker = TypeChecker(
+      program: ScopedProgram(ast: ast),
+      isBuiltinModuleVisible: true,
+      enablingInferenceTracingIn: inferenceTracingRange)
     var typeCheckingSucceeded = true
 
-    // Type check the code library.
+    // Type check the core library.
     typeCheckingSucceeded = checker.check(module: checker.program.ast.corelib!)
 
     // Type-check the input.
@@ -271,17 +282,9 @@ struct CLI: ParsableCommand {
       }
 
       // Parse the file.
-      do {
-        let (_, parseDiagnostics) = try Parser.parse(sourceFile, into: module, in: &ast)
-        log(diagnostics: parseDiagnostics)
-        return true
-      } catch let error as DiagnosedError {
-        log(diagnostics: error.diagnostics)
-        return false
-      } catch let error {
-        log(errorLabel + error.localizedDescription)
-        return false
-      }
+      let parseResult = Parser.parse(sourceFile, into: module, in: &ast)
+      log(diagnostics: parseResult.diagnostics)
+      return parseResult.source != nil
 
     default:
       log("ignoring file with unsupported extension: \(fileURL.relativePath)")
@@ -308,7 +311,7 @@ struct CLI: ParsableCommand {
     // Log the location, if available.
     if let location = diagnostic.location {
       let path = location.source.url.relativePath
-      let (line, column) = location.source.lineAndColumnIndices(at: location)
+      let (line, column) = location.lineAndColumnIndices
       write("\(path):\(line):\(column): ".styled([.bold]))
     }
 

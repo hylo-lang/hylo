@@ -1,43 +1,25 @@
+import Core
 import Durian
+import Utils
 import XCTest
 
-@testable import Compiler
+@testable import FrontEnd
 
-final class ParserTests: XCTestCase {
+final class ParserTests: XCTestCase, ValTestRunner {
+
+  static var testCaseDirectoryPath: String { "TestCases/Parsing" }
 
   func testParser() throws {
-    // Locate the test cases.
-    let testCaseDirectory = try XCTUnwrap(
-      Bundle.module.url(forResource: "TestCases/Parsing", withExtension: nil),
-      "No test cases")
-
-    // Execute the test cases.
-    try TestCase.executeAll(
-      in: testCaseDirectory,
-      { (tc) in
-        // Parse the input.
+    try runValTests(
+      handlingResultsWith: DefaultTestAnnotationHandler.self,
+      { (name, source) in
+        // Create a module for the input.
         var ast = AST()
-        let module = try ast.insert(wellFormed: ModuleDecl(name: tc.name))
+        let module = try! ast.insert(wellFormed: ModuleDecl(name: name))
 
-        let diagnostics: [Diagnostic]
-        do {
-          diagnostics = try Parser.parse(tc.source, into: module, in: &ast).diagnostics
-        } catch let error as DiagnosedError {
-          diagnostics = error.diagnostics
-        }
-
-        // Process the test annotations.
-        var diagnosticChecker = DiagnosticChecker(testCaseName: tc.name, diagnostics: diagnostics)
-        for annotation in tc.annotations {
-          switch annotation.command {
-          case "diagnostic":
-            diagnosticChecker.handle(annotation)
-          default:
-            XCTFail("\(tc.name): unexpected test command: '\(annotation.command)'")
-          }
-        }
-
-        diagnosticChecker.finalize()
+        // Parse the input.
+        let parseResult = Parser.parse(source, into: module, in: &ast)
+        return .init(ranToCompletion: !parseResult.failed, diagnostics: parseResult.diagnostics)
       })
   }
 
@@ -54,9 +36,9 @@ final class ParserTests: XCTestCase {
     var program = AST()
     let module = try program.insert(wellFormed: ModuleDecl(name: "Main"))
 
-    let (decls, diagnostics) = try Parser.parse(input, into: module, in: &program)
-    XCTAssertNotNil(decls)
-    XCTAssertEqual(diagnostics.count, 0)
+    let parseResult = Parser.parse(input, into: module, in: &program)
+    XCTAssertNotNil(parseResult.source)
+    XCTAssertEqual(parseResult.diagnostics.count, 0)
   }
 
   func testSourceFile() throws {
@@ -225,7 +207,7 @@ final class ParserTests: XCTestCase {
         """)
     let (declID, ast) = try input.parseWithDeclPrologue(with: Parser.parseTraitDecl)
     let decl = try XCTUnwrap(ast[declID])
-    XCTAssertEqual(decl.members.count, 2)
+    XCTAssertEqual(decl.members.count, 3)  // 2 explicit decls + 1 implicit `Self` parameter
   }
 
   func testTraitDeclWithRefinements() throws {
