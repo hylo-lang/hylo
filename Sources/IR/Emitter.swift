@@ -1,7 +1,7 @@
 import BigInt
-import Utils
 import Core
 import FrontEnd
+import Utils
 
 /// Val's IR emitter.
 ///

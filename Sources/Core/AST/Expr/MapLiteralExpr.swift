@@ -8,7 +8,7 @@ public struct MapLiteralExpr: Expr {
     public init(key: AnyExprID, value: AnyExprID) {
       self.key = key
       self.value = value
-    }    
+    }
 
     public var key: AnyExprID
 

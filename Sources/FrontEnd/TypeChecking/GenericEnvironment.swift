@@ -1,5 +1,5 @@
-import Utils
 import Core
+import Utils
 
 /// An object that provides context to interpret the generic parameters of a declaration.
 struct GenericEnvironment {

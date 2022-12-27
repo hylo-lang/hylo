@@ -1,6 +1,6 @@
+import Core
 import FrontEnd
 import XCTest
-import Core
 
 final class LexerTests: XCTestCase {
 

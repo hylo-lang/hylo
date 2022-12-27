@@ -1,6 +1,6 @@
+import Core
 import Durian
 import Utils
-import Core
 
 /// # Notes:
 ///
@@ -1021,9 +1021,11 @@ public enum Parser {
     // Parse the parts of the declaration.
     let name = try state.expect("identifier", using: { $0.take(.name) })
     let refinements = try conformanceList.parse(&state) ?? []
-    var members = try state.expect("trait body", using: { (s) in
-      try parseTypeDeclBody(in: &s, wrappedIn: .traitBody)
-    })
+    var members = try state.expect(
+      "trait body",
+      using: { (s) in
+        try parseTypeDeclBody(in: &s, wrappedIn: .traitBody)
+      })
 
     // Trait declarations shall not have attributes.
     if !prologue.attributes.isEmpty {
