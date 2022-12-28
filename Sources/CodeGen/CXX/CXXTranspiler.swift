@@ -52,7 +52,7 @@ public struct CXXTranspiler {
       return emit(brace: stmt)
 
     case .expr(let expr):
-      let exprStmt = CXXComment("expr", for: expr)
+      let exprStmt = emitR(expr: expr)
       return CXXScopedBlock([exprStmt], for: expr)
     }
   }
