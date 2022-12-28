@@ -7,7 +7,7 @@
     // expr
     }
     int main() {
-    (void) // expr (rvalue)
+    (void) // function call
     }
  */
 fun factorial(_ n: Int) -> Int {

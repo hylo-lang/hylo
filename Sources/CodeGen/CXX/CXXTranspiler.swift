@@ -160,10 +160,109 @@ public struct CXXTranspiler {
     asLValue: Bool
   ) -> CXXRepresentable {
     if asLValue {
-      return CXXComment("expr (lvalue)", for: expr)
+      return emitL(expr: expr, withCapability: .let)
     } else {
-      return CXXComment("expr (rvalue)", for: expr)
+      return emitR(expr: expr)
     }
+  }
+
+  // MARK: r-values
+
+  private mutating func emitR<ID: ExprID>(expr: ID.TypedNode) -> CXXRepresentable {
+    switch expr.kind {
+    case BooleanLiteralExpr.self:
+      return emitR(booleanLiteral: BooleanLiteralExpr.Typed(expr)!)
+    case CondExpr.self:
+      return emitR(cond: CondExpr.Typed(expr)!)
+    case FunctionCallExpr.self:
+      return emitR(functionCall: FunctionCallExpr.Typed(expr)!)
+    case IntegerLiteralExpr.self:
+      return emitR(integerLiteral: IntegerLiteralExpr.Typed(expr)!)
+    case NameExpr.self:
+      return emitR(name: NameExpr.Typed(expr)!)
+    case SequenceExpr.self:
+      return emitR(sequence: SequenceExpr.Typed(expr)!)
+    default:
+      unreachable("unexpected expression")
+    }
+  }
+
+  private mutating func emitR(
+    booleanLiteral expr: BooleanLiteralExpr.Typed
+  ) -> CXXRepresentable {
+    return CXXComment("boolean literal", for: expr)
+  }
+
+  private mutating func emitR(
+    cond expr: CondExpr.Typed
+  ) -> CXXRepresentable {
+    return CXXComment("cond expr", for: expr)
+  }
+
+  private mutating func emitR(
+    functionCall expr: FunctionCallExpr.Typed
+  ) -> CXXRepresentable {
+    return CXXComment("function call", for: expr)
+  }
+
+  private mutating func emitR(
+    integerLiteral expr: IntegerLiteralExpr.Typed
+  ) -> CXXRepresentable {
+    return CXXComment("integer literal", for: expr)
+  }
+
+  private mutating func emitR(
+    name expr: NameExpr.Typed
+  ) -> CXXRepresentable {
+    return CXXComment("name expression", for: expr)
+  }
+
+  private mutating func emitR(
+    sequence expr: SequenceExpr.Typed
+  ) -> CXXRepresentable {
+    return CXXComment("sequence expr", for: expr)
+  }
+
+  private mutating func emit(
+    _ convention: AccessEffect,
+    foldedSequence expr: FoldedSequenceExpr
+  ) -> CXXRepresentable {
+    let origin: AnyNodeID.TypedNode? = nil
+    return CXXComment("folded sequence expr", for: origin)
+  }
+
+  private mutating func emit(
+    argument expr: AnyExprID.TypedNode,
+    to parameterType: ParameterType
+  ) -> CXXRepresentable {
+    switch parameterType.convention {
+    case .let:
+      return emitL(expr: expr, withCapability: .let)
+    case .inout:
+      return emitL(expr: expr, withCapability: .inout)
+    case .set:
+      return emitL(expr: expr, withCapability: .set)
+    case .sink:
+      return emitR(expr: expr)
+    case .yielded:
+      fatalError("not implemented")
+    }
+  }
+
+  // MARK: l-values
+
+  private mutating func emitL<ID: ExprID>(
+    expr: ID.TypedNode,
+    withCapability capability: AccessEffect
+  ) -> CXXRepresentable {
+    return CXXComment("l-value with capability", for: expr)
+  }
+
+  private mutating func emitL(
+    name expr: NameExpr.Typed,
+    withCapability capability: AccessEffect
+  ) -> CXXRepresentable {
+    return CXXComment("named expr", for: expr)
   }
 
 }
