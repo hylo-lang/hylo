@@ -53,7 +53,7 @@ public struct CXXTranspiler {
 
     case .expr(let expr):
       let exprStmt = CXXComment("expr", for: expr)
-      return CXXScopedBlock(stmts: [exprStmt])
+      return CXXScopedBlock([exprStmt], for: expr)
     }
   }
 
@@ -103,7 +103,7 @@ public struct CXXTranspiler {
         // No pattern found; just call the initializer, dropping the result.
         return CXXVoidCast(baseExpr: cxxInitialzer)
       } else {
-        return CXXScopedBlock(stmts: stmts)
+        return CXXScopedBlock(stmts, for: initializer)
       }
     } else {
       return CXXComment("EMPTY borrowed local binding (\(capability))", for: decl)
@@ -133,7 +133,7 @@ public struct CXXTranspiler {
     for s in stmt.stmts {
       stmts.append(emit(stmt: s))
     }
-    return CXXScopedBlock(stmts: stmts)
+    return CXXScopedBlock(stmts, for: stmt)
   }
 
   private mutating func emit(declStmt stmt: DeclStmt.Typed) -> CXXRepresentable {
