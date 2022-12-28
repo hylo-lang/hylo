@@ -4,7 +4,9 @@
  */
 /*! cpp
     int factorial(int n) {
-    // cond expr
+    // sequence expr
+     ? // integer literal
+     : // sequence expr
     }
     int main() {
     (void) // function call

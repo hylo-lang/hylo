@@ -196,7 +196,43 @@ public struct CXXTranspiler {
   private mutating func emitR(
     cond expr: CondExpr.Typed
   ) -> CXXRepresentable {
-    return CXXComment("cond expr", for: expr)
+    let isExpression = expr.type != .void
+    if isExpression {
+      // TODO: do we need to return an l-value?
+      // TODO: multiple conditions
+      // TODO: bindings in conditions
+      let condition: CXXRepresentable
+      let trueExpr: CXXRepresentable
+      let falseExpr: CXXRepresentable
+      if expr.condition.count == 1 {
+        switch expr.condition[0] {
+        case .expr(let condExpr):
+          condition = emitR(expr: program[condExpr])
+        case .decl(let decl):
+          condition = CXXComment("binding condition", for: program[decl])
+        }
+      } else {
+        fatalError("not implemented")
+      }
+      switch expr.success {
+      case .expr(let altExpr):
+        trueExpr = emitR(expr: program[altExpr])
+      case .block:
+        fatalError("not implemented")
+      }
+      switch expr.failure {
+      case .expr(let altExpr):
+        falseExpr = emitR(expr: program[altExpr])
+      case .block:
+        fatalError("not implemented")
+      case .none:
+        falseExpr = CXXComment("missing false alternative", for: expr)
+      }
+      return CXXConditionalExpr(
+        condition: condition, trueExpr: trueExpr, falseExpr: falseExpr, original: expr)
+    } else {
+      return CXXComment("if statement", for: expr)
+    }
   }
 
   private mutating func emitR(
