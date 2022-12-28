@@ -82,7 +82,7 @@ public struct CXXTranspiler {
     withCapability capability: AccessEffect
   ) -> CXXRepresentable {
     // There's nothing to do if there's no initializer.
-    if let initializer = decl.initializer {
+    if let initializer: TypedNode<AnyExprID> = decl.initializer {
 
       let isLValue =
         (initializer.kind == NameExpr.self) || (initializer.kind == SubscriptCallExpr.self)
@@ -101,7 +101,7 @@ public struct CXXTranspiler {
       }
       if stmts.isEmpty {
         // No pattern found; just call the initializer, dropping the result.
-        return CXXVoidCast(baseExpr: cxxInitialzer)
+        return CXXVoidCast(baseExpr: cxxInitialzer, original: initializer)
       } else {
         return CXXScopedBlock(stmts, for: initializer)
       }
