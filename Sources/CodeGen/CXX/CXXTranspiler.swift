@@ -256,15 +256,53 @@ public struct CXXTranspiler {
   private mutating func emitR(
     sequence expr: SequenceExpr.Typed
   ) -> CXXRepresentable {
-    return CXXComment("sequence expr", for: expr)
+    return emit(foldedSequence: expr.foldedSequenceExprs!, withCapability: .sink, for: expr)
   }
 
   private mutating func emit(
-    _ convention: AccessEffect,
-    foldedSequence expr: FoldedSequenceExpr
+    foldedSequence seq: FoldedSequenceExpr,
+    withCapability capability: AccessEffect,
+    for expr: SequenceExpr.Typed
   ) -> CXXRepresentable {
-    let origin: AnyNodeID.TypedNode? = nil
-    return CXXComment("folded sequence expr", for: origin)
+    switch seq {
+    case .infix(let callee, let lhs, let rhs):
+      let calleeExpr = program[callee.expr]
+      let calleeType = calleeExpr.type.base as! LambdaType
+
+      // Emit the operands, starting with RHS.
+      let rhsType = calleeType.inputs[0].type.base as! ParameterType
+      let rhsOperand = emit(foldedSequence: rhs, withCapability: rhsType.convention, for: expr)
+
+      let lhsConvention: AccessEffect
+      if let lhsType = RemoteType(calleeType.captures[0].type) {
+        lhsConvention = lhsType.capability
+      } else {
+        lhsConvention = .sink
+      }
+      let lhsOperand = emit(foldedSequence: lhs, withCapability: lhsConvention, for: expr)
+
+      // Build the resulting function call
+      var comment: String = "fun call TODO("
+      lhsOperand.writeCode(into: &comment)
+      comment.write(", ")
+      rhsOperand.writeCode(into: &comment)
+      comment.write(")")
+      return CXXComment(comment, for: expr)
+
+    case .leaf(let expr):
+      switch capability {
+      case .let:
+        return emitL(expr: program[expr], withCapability: .let)
+      case .inout:
+        return emitL(expr: program[expr], withCapability: .inout)
+      case .set:
+        return emitL(expr: program[expr], withCapability: .set)
+      case .sink:
+        return emitR(expr: program[expr])
+      case .yielded:
+        fatalError("not implemented")
+      }
+    }
   }
 
   private mutating func emit(

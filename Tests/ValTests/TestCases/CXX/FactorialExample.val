@@ -4,10 +4,12 @@
  */
 /*! cpp
     int factorial(int n) {
-    // sequence expr
-     ? // integer literal
-     : // sequence expr
-    }
+    /* fun call TODO(// l-value with capability
+    , // l-value with capability
+    ) */ ? // integer literal
+     : /* fun call TODO(// l-value with capability
+    , // l-value with capability
+    ) */}
     int main() {
     (void) // function call
     }
