@@ -329,7 +329,17 @@ public struct CXXTranspiler {
     expr: ID.TypedNode,
     withCapability capability: AccessEffect
   ) -> CXXRepresentable {
-    return CXXComment("l-value with capability", for: expr)
+    switch expr.kind {
+    case NameExpr.self:
+      return emitL(name: NameExpr.Typed(expr)!, withCapability: capability)
+
+    case SubscriptCallExpr.self:
+      fatalError("not implemented")
+
+    default:
+      // TODO: do we need to add extra instructions to covert this to l-value?
+      return emitR(expr: expr)
+    }
   }
 
   private mutating func emitL(
