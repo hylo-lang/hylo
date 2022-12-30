@@ -190,7 +190,6 @@ struct ConstraintSolver {
       assume(tau, equals: goal.right)
 
     case (_, let tau as TypeVariable):
-      log("- assume \"\(tau) = \(goal.left)\"")
       assume(tau, equals: goal.left)
 
     case (let l as TupleType, let r as TupleType):
