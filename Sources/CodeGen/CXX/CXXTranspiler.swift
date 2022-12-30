@@ -266,7 +266,7 @@ public struct CXXTranspiler {
       case .direct(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
         // Callee is a direct reference to a function or initializer declaration.
         // TODO: handle captures
-        callee = CXXIdentifier(DeclLocator(identifying: calleeDecl.id, in: program).mangled)
+        callee = CXXIdentifier(nameOfDecl(calleeDecl))
 
       case .direct(let calleeDecl) where calleeDecl.kind == InitializerDecl.self:
         switch InitializerDecl.Typed(calleeDecl)!.introducer.value {
@@ -315,8 +315,8 @@ public struct CXXTranspiler {
         }
 
         // Emit the function reference.
-        let id = DeclLocator(identifying: calleeDecl.id, in: program).mangled
-        callee = CXXCompoundExpr(base: receiver, id: CXXIdentifier(id), original: expr)
+        callee = CXXCompoundExpr(
+          base: receiver, id: CXXIdentifier(nameOfDecl(calleeDecl)), original: expr)
 
       default:
         // Evaluate the callee as a function object.
@@ -437,17 +437,7 @@ public struct CXXTranspiler {
   ) -> CXXRepresentable {
     switch expr.decl {
     case .direct(let decl):
-      // TODO: fully work out this logic
-      let name: String
-      switch decl.kind {
-      case ParameterDecl.self:
-        name = ParameterDecl.Typed(decl)!.identifier.value
-      case VarDecl.self:
-        name = VarDecl.Typed(decl)!.identifier.value
-      default:
-        name = DeclLocator(identifying: decl.id, in: program).mangled
-      }
-      return CXXIdentifier(name)
+      return CXXIdentifier(nameOfDecl(decl))
 
     case .member(let decl):
       // Emit the receiver.
@@ -470,6 +460,46 @@ public struct CXXTranspiler {
         fatalError("not implemented")
       }
     }
+  }
+
+  // MARK: miscelaneous
+
+  /// Get the name of the given declaration, without manging and labels.
+  private func nameOfDecl<T: DeclID>(_ decl: TypedNode<T>) -> String {
+    switch decl.kind {
+    case ConformanceDecl.self, ExtensionDecl.self:
+      fatalError("not implemented")
+
+    case FunctionDecl.self:
+      return FunctionDecl.Typed(decl)!.identifier!.value
+
+    case InitializerDecl.self:
+      return "init"
+
+    case MethodDecl.self:
+      return MethodDecl.Typed(decl)!.identifier.value
+
+    case MethodImplDecl.self:
+      let methodImplDecl = MethodImplDecl.Typed(decl)!
+      switch methodImplDecl.introducer.value {
+      case .let: return "let"
+      case .inout: return "inout"
+      case .set: return "set"
+      case .sink: return "sink"
+      }
+
+    case ProductTypeDecl.self:
+      return ProductTypeDecl.Typed(decl)!.name
+
+    case ParameterDecl.self:
+      return ParameterDecl.Typed(decl)!.identifier.value
+    case VarDecl.self:
+      return VarDecl.Typed(decl)!.identifier.value
+
+    default:
+      fatalError("not implemented")
+    }
+
   }
 
 }
