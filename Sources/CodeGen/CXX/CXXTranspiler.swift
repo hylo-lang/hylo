@@ -1,3 +1,4 @@
+import BigInt
 import Core
 import FrontEnd
 import Utils
@@ -190,7 +191,7 @@ public struct CXXTranspiler {
   private mutating func emitR(
     booleanLiteral expr: BooleanLiteralExpr.Typed
   ) -> CXXRepresentable {
-    return CXXComment("boolean literal", for: expr)
+    return CXXBooleanLiteralExpr(expr.value, original: expr)
   }
 
   private mutating func emitR(
@@ -244,7 +245,7 @@ public struct CXXTranspiler {
   private mutating func emitR(
     integerLiteral expr: IntegerLiteralExpr.Typed
   ) -> CXXRepresentable {
-    return CXXComment("integer literal", for: expr)
+    return CXXIntegerLiteralExpr(expr.value, original: expr)
   }
 
   private mutating func emitR(
