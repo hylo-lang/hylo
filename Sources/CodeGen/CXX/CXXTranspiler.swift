@@ -359,7 +359,6 @@ public struct CXXTranspiler {
         name = DeclLocator(identifying: decl.id, in: program).mangled
       }
       return CXXIdentifier(name)
-    // return CXXIdentifier(locator.mangled)
 
     case .member(let decl):
       // Emit the receiver.
