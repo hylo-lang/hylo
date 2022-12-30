@@ -239,7 +239,95 @@ public struct CXXTranspiler {
   private mutating func emitR(
     functionCall expr: FunctionCallExpr.Typed
   ) -> CXXRepresentable {
-    return CXXComment("function call", for: expr)
+    let calleeType = expr.callee.type.base as! LambdaType
+
+    // Arguments are evaluated first, from left to right.
+    var argumentConventions: [AccessEffect] = []
+    var arguments: [CXXRepresentable] = []
+
+    for (parameter, argument) in zip(calleeType.inputs, expr.arguments) {
+      let parameterType = parameter.type.base as! ParameterType
+      argumentConventions.append(parameterType.convention)
+      arguments.append(emit(argument: program[argument.value], to: parameterType))
+    }
+
+    // If the callee is a name expression referring to the declaration of a function capture-less
+    // function, it is interpreted as a direct function reference. Otherwise, it is evaluated as a
+    // function object the arguments.
+    let callee: CXXRepresentable
+
+    if let calleeNameExpr = NameExpr.Typed(expr.callee) {
+      switch calleeNameExpr.decl {
+      case .direct(let calleeDecl) where calleeDecl.kind == BuiltinDecl.self:
+        // Callee refers to a built-in function.
+        assert(calleeType.environment == .void)
+        callee = CXXIdentifier(calleeNameExpr.name.value.stem)
+
+      case .direct(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
+        // Callee is a direct reference to a function or initializer declaration.
+        // TODO: handle captures
+        callee = CXXIdentifier(DeclLocator(identifying: calleeDecl.id, in: program).mangled)
+
+      case .direct(let calleeDecl) where calleeDecl.kind == InitializerDecl.self:
+        switch InitializerDecl.Typed(calleeDecl)!.introducer.value {
+        case .`init`:
+          // TODO: The function is a custom initializer.
+          fatalError("not implemented")
+
+        case .memberwiseInit:
+          // The function is a memberwise initializer. In that case, the whole call expression is
+          // lowered as a `record` instruction.
+          // TODO: implement this
+          fatalError("not implemented")
+        }
+
+      case .member(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
+        // Callee is a member reference to a function or method.
+        let receiverType = calleeType.captures[0].type
+
+        var receiver: CXXRepresentable
+
+        // Add the receiver to the arguments.
+        if let type = RemoteType(receiverType) {
+          // The receiver as a borrowing convention.
+          switch calleeNameExpr.domain {
+          case .none:
+            receiver = CXXThisExpr(original: expr)
+
+          case .expr(let receiverID):
+            receiver = emitL(expr: receiverID, withCapability: type.capability)
+
+          case .implicit:
+            unreachable()
+          }
+        } else {
+          // The receiver is consumed.
+          switch calleeNameExpr.domain {
+          case .none:
+            receiver = CXXThisExpr(original: expr)
+
+          case .expr(let receiverID):
+            receiver = emitR(expr: receiverID)
+
+          case .implicit:
+            unreachable()
+          }
+        }
+
+        // Emit the function reference.
+        let id = DeclLocator(identifying: calleeDecl.id, in: program).mangled
+        callee = CXXCompoundExpr(base: receiver, id: CXXIdentifier(id), original: expr)
+
+      default:
+        // Evaluate the callee as a function object.
+        callee = emitR(expr: expr.callee)
+      }
+    } else {
+      // Evaluate the callee as a function object.
+      callee = emitR(expr: expr.callee)
+    }
+
+    return CXXFunctionCallExpr(callee: callee, arguments: arguments, original: expr)
   }
 
   private mutating func emitR(
