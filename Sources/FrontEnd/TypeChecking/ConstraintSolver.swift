@@ -310,13 +310,25 @@ struct ConstraintSolver {
       if goal.left[.hasVariable] || goal.right[.hasVariable] {
         postpone(goal)
       } else {
-        diagnostics.append(
-          .diagnose(type: goal.left, isNotSubtypeOf: goal.right, at: goal.cause.origin))
+        diagnoseFailureToSove(goal)
       }
 
     default:
-      diagnostics.append(
-        .diagnose(type: goal.left, isNotSubtypeOf: goal.right, at: goal.cause.origin))
+      diagnoseFailureToSove(goal)
+    }
+  }
+
+  /// Diagnoses a failure to solve `goal`.
+  private mutating func diagnoseFailureToSove(_ goal: SubtypingConstraint) {
+    log("- fail")
+    let errorOrigin = goal.cause.origin
+    switch goal.cause.kind {
+    case .initializationWithHint:
+      diagnostics.append(.error(cannotInitialize: goal.left, with: goal.right, at: errorOrigin))
+    case .initializationWithPattern:
+      diagnostics.append(.error(goal.left, doesNotMatchPatternAt: errorOrigin))
+    default:
+      diagnostics.append(.error(goal.left, isNotSubtypeOf: goal.right, at: errorOrigin))
     }
   }
 
