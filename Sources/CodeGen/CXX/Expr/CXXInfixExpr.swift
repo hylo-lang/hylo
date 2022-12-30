@@ -18,7 +18,8 @@ struct CXXInfixExpr: CXXRepresentable {
 
   /// Construct the CXX function call expression from the callee and arguments, and optionaly the original AST node.
   init<ID: NodeIDProtocol>(
-    callee: CXXRepresentable, lhs: CXXRepresentable, rhs: CXXRepresentable, original: TypedNode<ID>? = nil
+    callee: CXXRepresentable, lhs: CXXRepresentable, rhs: CXXRepresentable,
+    original: TypedNode<ID>? = nil
   ) {
     self.callee = callee
     self.lhs = lhs
