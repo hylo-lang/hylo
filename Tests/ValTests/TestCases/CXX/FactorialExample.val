@@ -4,9 +4,7 @@
  */
 /*! cpp
     int factorial(int n) {
-    // fun call TODO(n, 2)
-     ? 1 : /* fun call TODO(n, factorial(// fun call TODO(n, 1)
-    )) */}
+    n < 2 ? 1 : n * factorial(n - 1)}
  */
 fun factorial(_ n: Int) -> Int {
   if n < 2 { 1 } else { n * factorial(n - 1) }

@@ -370,13 +370,8 @@ public struct CXXTranspiler {
       }
       let lhsOperand = emit(foldedSequence: lhs, withCapability: lhsConvention, for: expr)
 
-      // Build the resulting function call
-      var comment: String = "fun call TODO("
-      lhsOperand.writeCode(into: &comment)
-      comment.write(", ")
-      rhsOperand.writeCode(into: &comment)
-      comment.write(")")
-      return CXXComment(comment, for: expr)
+      // Build the resulting infix expression / function call.
+      return emitR(infix: calleeExpr, lhs: lhsOperand, rhs: rhsOperand)
 
     case .leaf(let expr):
       switch capability {
@@ -391,6 +386,39 @@ public struct CXXTranspiler {
       case .yielded:
         fatalError("not implemented")
       }
+    }
+  }
+
+  private mutating func emitR(
+    infix expr: NameExpr.Typed,
+    lhs: CXXRepresentable,
+    rhs: CXXRepresentable
+  ) -> CXXRepresentable {
+
+    // Obtained the declaration we are calling.
+    let calleeDecl: AnyDeclID.TypedNode
+    switch expr.decl {
+    case .direct(let decl):
+      calleeDecl = decl
+    case .member(let decl):
+      calleeDecl = decl
+    }
+
+    // Emit infix operators.
+    // TODO: Do we need to check the base types?
+    let name = nameOfDecl(calleeDecl)
+    switch name {
+    case "<<", ">>", "*", "*!", "/", "%", "+", "+!", "-", "-!", "..<", "...", "??", "==", "!=", "<",
+      "<=", ">=", ">", "^", "&", "&&", "|", "||", "<<=", ">>=", "*=", "/=", "%=", "+=", "-=", "&=",
+      "&&=", "**":
+      // Expand this as a native infix operator call
+      return CXXInfixExpr(callee: CXXIdentifier(name), lhs: lhs, rhs: rhs, original: expr)
+
+    default:
+      // Expand this as a regular function call.
+      let callee = emitL(name: expr, withCapability: .let)
+      let arguments = [lhs, rhs]
+      return CXXFunctionCallExpr(callee: callee, arguments: arguments, original: expr)
     }
   }
 
@@ -441,10 +469,12 @@ public struct CXXTranspiler {
 
     case .member(let decl):
       // Emit the receiver.
-      let receiver: CXXRepresentable
+      let receiver: CXXRepresentable?
       switch expr.domain {
       case .none:
-        receiver = CXXThisExpr(original: expr)
+        // TODO: this doesn't seem right; check the following code
+        // receiver = CXXThisExpr(original: expr)
+        receiver = nil
       case .implicit:
         fatalError("not implemented")
       case .expr(let recv):
@@ -452,12 +482,11 @@ public struct CXXTranspiler {
       }
 
       // Emit the compound expression.
-      switch decl.kind {
-      case VarDecl.self:
-        let varDecl = VarDecl.Typed(decl)!
-        return CXXCompoundExpr(base: receiver, id: CXXIdentifier(varDecl.name), original: expr)
-      default:
-        fatalError("not implemented")
+      let idExpr = CXXIdentifier(nameOfDecl(decl))
+      if receiver != nil {
+        return CXXCompoundExpr(base: receiver!, id: idExpr, original: expr)
+      } else {
+        return idExpr
       }
     }
   }

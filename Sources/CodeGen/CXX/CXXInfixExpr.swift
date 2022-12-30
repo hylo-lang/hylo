@@ -1,24 +1,28 @@
 import Core
 
-/// A C++ function call expression.
-struct CXXFunctionCallExpr: CXXRepresentable {
+/// A C++ infix operator call expression.
+struct CXXInfixExpr: CXXRepresentable {
 
   /// The calee expression.
-  /// Can be an identifier, compound expression or any complex expression.
+  /// Usually, just an identifier.
   public let callee: CXXRepresentable
 
-  /// The arguments of the function call.
-  public let arguments: [CXXRepresentable]
+  /// The left-hand-side argument of the operator call.
+  public let lhs: CXXRepresentable
+
+  /// The right-hand-side argument of the operator call.
+  public let rhs: CXXRepresentable
 
   /// The original node in Val AST.
   let original: AnyExprID.TypedNode?
 
   /// Construct the CXX function call expression from the callee and arguments, and optionaly the original AST node.
   init<ID: NodeIDProtocol>(
-    callee: CXXRepresentable, arguments: [CXXRepresentable], original: TypedNode<ID>? = nil
+    callee: CXXRepresentable, lhs: CXXRepresentable, rhs: CXXRepresentable, original: TypedNode<ID>? = nil
   ) {
     self.callee = callee
-    self.arguments = arguments
+    self.lhs = lhs
+    self.rhs = rhs
     if let orig = original {
       self.original = orig as? AnyExprID.TypedNode
     } else {
@@ -27,15 +31,11 @@ struct CXXFunctionCallExpr: CXXRepresentable {
   }
 
   func writeCode<Target: TextOutputStream>(into target: inout Target) {
+    lhs.writeCode(into: &target)
+    target.write(" ")
     callee.writeCode(into: &target)
-    target.write("(")
-    for (i, argument) in arguments.enumerated() {
-      if i > 0 {
-        target.write(", ")
-      }
-      argument.writeCode(into: &target)
-    }
-    target.write(")")
+    target.write(" ")
+    rhs.writeCode(into: &target)
   }
 
 }
