@@ -4,11 +4,9 @@
  */
 /*! cpp
     int factorial(int n) {
-    /* fun call TODO(// named expr
-    , // integer literal
+    /* fun call TODO(n, // integer literal
     ) */ ? // integer literal
-     : /* fun call TODO(// named expr
-    , // function call
+     : /* fun call TODO(n, // function call
     ) */}
     int main() {
     (void) // function call

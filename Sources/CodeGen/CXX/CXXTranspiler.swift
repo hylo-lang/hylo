@@ -346,7 +346,42 @@ public struct CXXTranspiler {
     name expr: NameExpr.Typed,
     withCapability capability: AccessEffect
   ) -> CXXRepresentable {
-    return CXXComment("named expr", for: expr)
+    switch expr.decl {
+    case .direct(let decl):
+      // TODO: fully work out this logic
+      let name: String
+      switch decl.kind {
+      case ParameterDecl.self:
+        name = ParameterDecl.Typed(decl)!.identifier.value
+      case VarDecl.self:
+        name = VarDecl.Typed(decl)!.identifier.value
+      default:
+        name = DeclLocator(identifying: decl.id, in: program).mangled
+      }
+      return CXXIdentifier(name)
+    // return CXXIdentifier(locator.mangled)
+
+    case .member(let decl):
+      // Emit the receiver.
+      let receiver: CXXRepresentable
+      switch expr.domain {
+      case .none:
+        receiver = CXXThisExpr(original: expr)
+      case .implicit:
+        fatalError("not implemented")
+      case .expr(let recv):
+        receiver = emitL(expr: recv, withCapability: capability)
+      }
+
+      // Emit the compound expression.
+      switch decl.kind {
+      case VarDecl.self:
+        let varDecl = VarDecl.Typed(decl)!
+        return CXXCompoundExpr(base: receiver, id: CXXIdentifier(varDecl.name), original: expr)
+      default:
+        fatalError("not implemented")
+      }
+    }
   }
 
 }
