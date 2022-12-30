@@ -13,19 +13,6 @@ struct CXXCompoundExpr: CXXRepresentable {
   /// The original node in Val AST.
   let original: AnyExprID.TypedNode?
 
-  /// Construct the CXX compound expression from the base expression, identifier expression, and optionaly the original AST node.
-  init<ID: NodeIDProtocol>(
-    base: CXXRepresentable, id: CXXRepresentable, original: TypedNode<ID>? = nil
-  ) {
-    self.base = base
-    self.id = id
-    if let orig = original {
-      self.original = orig as? AnyExprID.TypedNode
-    } else {
-      self.original = nil
-    }
-  }
-
   func writeCode<Target: TextOutputStream>(into target: inout Target) {
     base.writeCode(into: &target)
     target.write(".")

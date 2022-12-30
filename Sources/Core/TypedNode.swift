@@ -273,3 +273,23 @@ extension TypedNode where ID == NodeID<SequenceExpr> {
   }
 
 }
+
+extension TypedNode where ID == AnyNodeID {
+
+  /// Any typed node is convertible to TypedNode<AnyNodeID>.
+  public init<SourceID: NodeIDProtocol>(_ s: TypedNode<SourceID>) {
+    program = s.program
+    id = AnyNodeID(s.id)
+  }
+
+}
+
+extension TypedNode where ID == AnyExprID {
+
+  /// Any typed expression node is convertible to TypedNode<AnyExprID>.
+  public init<SourceID: ExprID>(_ s: TypedNode<SourceID>) {
+    program = s.program
+    id = AnyExprID(s.id)
+  }
+
+}

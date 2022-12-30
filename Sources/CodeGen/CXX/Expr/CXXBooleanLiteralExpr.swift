@@ -7,17 +7,7 @@ public struct CXXBooleanLiteralExpr: CXXRepresentable {
   let value: Bool
 
   /// The original node in Val AST.
-  let original: AnyExprID.TypedNode?
-
-  /// Construct the boolean literal expression from the original AST node.
-  init<ID: NodeIDProtocol>(_ value: Bool, original: TypedNode<ID>? = nil) {
-    self.value = value
-    if let orig = original {
-      self.original = orig as? AnyExprID.TypedNode
-    } else {
-      self.original = nil
-    }
-  }
+  let original: BooleanLiteralExpr.Typed?
 
   public func writeCode<Target: TextOutputStream>(into target: inout Target) {
     target.write(value ? "true" : "false")

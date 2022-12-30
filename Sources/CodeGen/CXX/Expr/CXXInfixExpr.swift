@@ -16,21 +16,6 @@ struct CXXInfixExpr: CXXRepresentable {
   /// The original node in Val AST.
   let original: AnyExprID.TypedNode?
 
-  /// Construct the CXX function call expression from the callee and arguments, and optionaly the original AST node.
-  init<ID: NodeIDProtocol>(
-    callee: CXXRepresentable, lhs: CXXRepresentable, rhs: CXXRepresentable,
-    original: TypedNode<ID>? = nil
-  ) {
-    self.callee = callee
-    self.lhs = lhs
-    self.rhs = rhs
-    if let orig = original {
-      self.original = orig as? AnyExprID.TypedNode
-    } else {
-      self.original = nil
-    }
-  }
-
   func writeCode<Target: TextOutputStream>(into target: inout Target) {
     lhs.writeCode(into: &target)
     target.write(" ")

@@ -53,8 +53,8 @@ public struct CXXTranspiler {
       return emit(brace: stmt)
 
     case .expr(let expr):
-      let exprBody = CXXReturnStmt(emitR(expr: expr), for: expr)
-      return CXXScopedBlock([exprBody], for: expr)
+      let exprBody = CXXReturnStmt(expr: emitR(expr: expr), original: expr)
+      return CXXScopedBlock(stmts: [exprBody], original: AnyNodeID.TypedNode(expr))
     }
   }
 
@@ -104,7 +104,7 @@ public struct CXXTranspiler {
         // No pattern found; just call the initializer, dropping the result.
         return CXXVoidCast(baseExpr: cxxInitialzer, original: initializer)
       } else {
-        return CXXScopedBlock(stmts, for: initializer)
+        return CXXScopedBlock(stmts: stmts, original: AnyNodeID.TypedNode(initializer))
       }
     } else {
       return CXXComment("EMPTY borrowed local binding (\(capability))", for: decl)
@@ -134,7 +134,7 @@ public struct CXXTranspiler {
     for s in stmt.stmts {
       stmts.append(emit(stmt: s))
     }
-    return CXXScopedBlock(stmts, for: stmt)
+    return CXXScopedBlock(stmts: stmts, original: AnyNodeID.TypedNode(stmt))
   }
 
   private mutating func emit(declStmt stmt: DeclStmt.Typed) -> CXXRepresentable {
@@ -191,7 +191,7 @@ public struct CXXTranspiler {
   private mutating func emitR(
     booleanLiteral expr: BooleanLiteralExpr.Typed
   ) -> CXXRepresentable {
-    return CXXBooleanLiteralExpr(expr.value, original: expr)
+    return CXXBooleanLiteralExpr(value: expr.value, original: expr)
   }
 
   private mutating func emitR(
@@ -292,7 +292,7 @@ public struct CXXTranspiler {
           // The receiver as a borrowing convention.
           switch calleeNameExpr.domain {
           case .none:
-            receiver = CXXThisExpr(original: expr)
+            receiver = CXXThisExpr(original: AnyExprID.TypedNode(expr))
 
           case .expr(let receiverID):
             receiver = emitL(expr: receiverID, withCapability: type.capability)
@@ -304,7 +304,7 @@ public struct CXXTranspiler {
           // The receiver is consumed.
           switch calleeNameExpr.domain {
           case .none:
-            receiver = CXXThisExpr(original: expr)
+            receiver = CXXThisExpr(original: AnyExprID.TypedNode(expr))
 
           case .expr(let receiverID):
             receiver = emitR(expr: receiverID)
@@ -316,7 +316,8 @@ public struct CXXTranspiler {
 
         // Emit the function reference.
         callee = CXXCompoundExpr(
-          base: receiver, id: CXXIdentifier(nameOfDecl(calleeDecl)), original: expr)
+          base: receiver, id: CXXIdentifier(nameOfDecl(calleeDecl)),
+          original: AnyExprID.TypedNode(expr))
 
       default:
         // Evaluate the callee as a function object.
@@ -327,13 +328,14 @@ public struct CXXTranspiler {
       callee = emitR(expr: expr.callee)
     }
 
-    return CXXFunctionCallExpr(callee: callee, arguments: arguments, original: expr)
+    return CXXFunctionCallExpr(
+      callee: callee, arguments: arguments, original: AnyExprID.TypedNode(expr))
   }
 
   private mutating func emitR(
     integerLiteral expr: IntegerLiteralExpr.Typed
   ) -> CXXRepresentable {
-    return CXXIntegerLiteralExpr(expr.value, original: expr)
+    return CXXIntegerLiteralExpr(value: expr.value, original: expr)
   }
 
   private mutating func emitR(
@@ -412,13 +414,15 @@ public struct CXXTranspiler {
       "<=", ">=", ">", "^", "&", "&&", "|", "||", "<<=", ">>=", "*=", "/=", "%=", "+=", "-=", "&=",
       "&&=", "**":
       // Expand this as a native infix operator call
-      return CXXInfixExpr(callee: CXXIdentifier(name), lhs: lhs, rhs: rhs, original: expr)
+      return CXXInfixExpr(
+        callee: CXXIdentifier(name), lhs: lhs, rhs: rhs, original: AnyExprID.TypedNode(expr))
 
     default:
       // Expand this as a regular function call.
       let callee = emitL(name: expr, withCapability: .let)
       let arguments = [lhs, rhs]
-      return CXXFunctionCallExpr(callee: callee, arguments: arguments, original: expr)
+      return CXXFunctionCallExpr(
+        callee: callee, arguments: arguments, original: AnyExprID.TypedNode(expr))
     }
   }
 
@@ -484,7 +488,7 @@ public struct CXXTranspiler {
       // Emit the compound expression.
       let idExpr = CXXIdentifier(nameOfDecl(decl))
       if receiver != nil {
-        return CXXCompoundExpr(base: receiver!, id: idExpr, original: expr)
+        return CXXCompoundExpr(base: receiver!, id: idExpr, original: AnyExprID.TypedNode(expr))
       } else {
         return idExpr
       }
