@@ -438,4 +438,14 @@ extension Diagnostic {
       range: origin)
   }
 
+  static func error(
+    _ subtype: AnyType,
+    isNotStrictSubtypeOf supertype: AnyType,
+    at origin: SourceRange?
+  ) -> Diagnostic {
+    .error(
+      "type '\(subtype)' is not strict subtype of '\(supertype)'",
+      range: origin)
+  }
+
 }

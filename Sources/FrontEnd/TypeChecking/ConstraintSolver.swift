@@ -388,7 +388,7 @@ struct ConstraintSolver {
     case let p as ParameterType:
       // Either `L` is equal to the bare type of `R`, or it's a. Note: the equality requirement for
       // arguments passed mutably is verified after type inference.
-      schedule(inferenceConstraint(goal.left, isSubtypeOf: p.bareType, because: goal.cause))
+      schedule(SubtypingConstraint(goal.left, p.bareType, because: goal.cause))
 
     default:
       log("- fail")
@@ -456,7 +456,7 @@ struct ConstraintSolver {
     if let pick = candidates.uniqueElement {
       solve(equality: .init(pick.type, goal.memberType, because: goal.cause), using: &checker)
 
-      log("- assume \(goal.memberExpr) &> \(pick.reference)")
+      log("- assume: \"\(goal.memberExpr) &> \(pick.reference)\"")
       bindingAssumptions[goal.memberExpr] = pick.reference
       return
     }
@@ -652,7 +652,7 @@ struct ConstraintSolver {
 
   /// Schedules `constraint` to be solved in the future.
   private mutating func schedule(_ constraint: Constraint) {
-    log("- schedule \(constraint)")
+    log("- schedule: \"\(constraint)\"")
     insert(fresh: constraint)
   }
 
@@ -661,7 +661,7 @@ struct ConstraintSolver {
   ///
   /// - Requires: `constraint` must involve type variables.
   private mutating func postpone(_ constraint: Constraint) {
-    log("- postpone \(constraint)")
+    log("- postpone: \"\(constraint)\"")
     insert(stale: constraint)
   }
 
@@ -677,7 +677,7 @@ struct ConstraintSolver {
 
   /// Extends the type substution table to map `tau` to `substitute`.
   private mutating func assume(_ tau: TypeVariable, equals substitute: AnyType) {
-    log("- assume \"\(tau) = \(substitute)\"")
+    log("- assume: \"\(tau) = \(substitute)\"")
     typeAssumptions.assign(substitute, to: tau)
 
     // Refresh stale constraints.
@@ -904,9 +904,7 @@ extension TypeChecker {
       else { return false }
 
       constraints.insert(
-        inferenceConstraint(
-          bareLHS, isSubtypeOf: bareRHS,
-          because: ConstraintCause(.binding, at: nil)))
+        SubtypingConstraint(bareLHS, bareRHS, because: ConstraintCause(.binding, at: nil)))
     }
 
     // Solve the constraint system.
@@ -915,4 +913,39 @@ extension TypeChecker {
     return solver.apply(using: &self).diagnostics.isEmpty
   }
 
+}
+
+/// Creates a constraint, suitable for type inference, requiring `subtype` to be a subtype of
+/// `supertype`.
+///
+/// - Warning: For inference purposes, the result of this function must be used in place of a raw
+///   `SubtypingConstraint` or the type checker will get stuck.
+fileprivate func inferenceConstraint(
+  _ subtype: AnyType,
+  isSubtypeOf supertype: AnyType,
+  because cause: ConstraintCause
+) -> Constraint {
+  // If there aren't any type variable in neither `subtype` nor `supertype`, there's nothing to
+  // infer and we can return a regular subtyping constraints.
+  if !subtype[.hasVariable] && !supertype[.hasVariable] {
+    return SubtypingConstraint(subtype, supertype, because: cause)
+  }
+
+  // In other cases, we'll need two explorations. The first will unify `subtype` and `supertype`
+  // and the other will try to infer them from the other constraints in the system.
+  let alternative: Constraint
+  if supertype.isLeaf {
+    // If the supertype is a leaf, the subtype can only the same type or `Never`.
+    alternative = EqualityConstraint(subtype, .never, because: cause)
+  } else {
+    // Otherwise, the subtype can be any type upper-bounded by the supertype.
+    alternative = SubtypingConstraint(subtype, supertype, strictly: true, because: cause)
+  }
+
+  return DisjunctionConstraint(
+    choices: [
+      .init(constraints: [EqualityConstraint(subtype, supertype, because: cause)], penalties: 0),
+      .init(constraints: [alternative], penalties: 1),
+    ],
+    because: cause)
 }

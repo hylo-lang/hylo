@@ -138,8 +138,8 @@ struct ConstraintGenerator {
       expectedTypes[lhs] = ^TypeVariable(node: lhs.base)
       let lhsType = visit(expr: lhs, using: &checker)
       constraints.append(
-        inferenceConstraint(
-          lhsType, isSubtypeOf: rhs.shape,
+        SubtypingConstraint(
+          lhsType, rhs.shape,
           because: ConstraintCause(.cast, at: checker.program.ast[id].origin)))
 
     case .builtinPointerConversion:
@@ -698,22 +698,21 @@ struct ConstraintGenerator {
       return false
     }
 
-    // Propagate type information down.
+    // Create type constraints on arguments and parameters.
     for i in 0 ..< arguments.count {
       let argumentExpr = arguments[i].value
-      let parameterType = parameters[i].type
 
       // Infer the type of the argument, expecting it's the same as the parameter's bare type.
-      if let type = ParameterType(parameterType) {
-        expectedTypes[argumentExpr] = type.bareType
-      } else {
-        fatalError()
-      }
+      let parameterType = ParameterType(parameters[i].type) ?? fatalError("invalid callee type")
+      expectedTypes[argumentExpr] = parameterType.bareType
       let argumentType = visit(expr: argumentExpr, using: &checker)
+
+      // Nothing to constrain if the parameter's type is equal to the argument's type.
+      if checker.areEquivalent(parameterType.bareType, argumentType) { continue }
 
       constraints.append(
         ParameterConstraint(
-          argumentType, parameterType,
+          argumentType, ^parameterType,
           because: ConstraintCause(.argument, at: checker.program.ast[argumentExpr].origin)))
     }
 
