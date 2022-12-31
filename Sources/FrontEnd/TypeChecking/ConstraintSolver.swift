@@ -253,8 +253,8 @@ struct ConstraintSolver {
     }
   }
 
-  /// Eliminates `L <: R` if the solver has enough information to check that `L` is subtype of `R`
-  /// or must be unified with `R`. Otherwise, postpones the constraint.
+  /// Eliminates `L <: R` or `L < R` if the solver has enough information to check that `L` is
+  /// subtype of `R` or must be unified with `R`. Otherwise, postpones the constraint.
   private mutating func solve(
     subtyping constraint: SubtypingConstraint,
     using checker: inout TypeChecker
@@ -265,15 +265,26 @@ struct ConstraintSolver {
 
     let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
 
-    // Handle trivially satisified constraints.
-    if checker.areEquivalent(goal.left, goal.right) { return }
+    // Handle cases where `L` is equal to `R`.
+    if checker.areEquivalent(goal.left, goal.right) {
+      if goal.isStrict {
+        log("- fail")
+        diagnostics.append(
+          .error(goal.left, isNotStrictSubtypeOf: goal.right, at: goal.cause.origin))
+      }
+      return
+    }
 
     switch (goal.left.base, goal.right.base) {
     case (_, _ as TypeVariable):
       // The type variable is above a more concrete type. We should compute the "join" of all types
       // to which `L` is coercible and that are below `R`, but that set is unbounded. We have no
       // choice but to postpone the constraint.
-      postpone(goal)
+      if goal.isStrict {
+        postpone(goal)
+      } else {
+        schedule(inferenceConstraint(goal.left, isSubtypeOf: goal.right, because: goal.cause))
+      }
 
     case (_ as TypeVariable, _):
       // The type variable is below a more concrete type. We should compute the "meet" of all types
@@ -281,8 +292,10 @@ struct ConstraintSolver {
       // If it isn't, we have no choice but to postpone the constraint.
       if goal.right.isLeaf {
         solve(equality: .init(constraint), using: &checker)
-      } else {
+      } else if goal.isStrict {
         postpone(goal)
+      } else {
+        schedule(inferenceConstraint(goal.left, isSubtypeOf: goal.right, because: goal.cause))
       }
 
     case (_, _ as ExistentialType):
@@ -290,8 +303,24 @@ struct ConstraintSolver {
       if goal.right == .any { return }
       fatalError("not implemented")
 
-    case (_, _ as LambdaType):
-      fatalError("not implemented")
+    case (let l as LambdaType, let r as LambdaType):
+      // Environments must be equal.
+      solve(
+        equality: EqualityConstraint(l.environment, r.environment, because: goal.cause),
+        using: &checker)
+
+      // Parameter labels must match.
+      if l.inputs.map(\.label) != r.inputs.map(\.label) {
+        log("- fail")
+        diagnostics.append(.diagnose(type: ^l, incompatibleWith: ^r, at: goal.cause.origin))
+        return
+      }
+
+      // Parameters are contravariant; return types are covariant.
+      for (a, b) in zip(l.inputs, r.inputs) {
+        schedule(SubtypingConstraint(b.type, a.type, because: goal.cause))
+      }
+      schedule(SubtypingConstraint(l.output, r.output, because: goal.cause))
 
     case (let l as SumType, _ as SumType):
       // If both types are sums, all elements in `L` must be contained in `R`.
@@ -314,7 +343,11 @@ struct ConstraintSolver {
       }
 
     default:
-      diagnoseFailureToSove(goal)
+      if goal.isStrict {
+        diagnoseFailureToSove(goal)
+      } else {
+        solve(equality: EqualityConstraint(goal), using: &checker)
+      }
     }
   }
 
