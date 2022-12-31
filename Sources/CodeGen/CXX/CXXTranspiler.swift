@@ -74,7 +74,7 @@ public struct CXXTranspiler {
   }
 
   private mutating func emit(storedLocalBinding decl: BindingDecl.Typed) -> CXXRepresentable {
-    return CXXComment("local binding", for: decl)
+    return CXXComment(comment: "local binding", original: AnyNodeID.TypedNode(decl))
   }
 
   /// Emits borrowed bindings.
@@ -98,7 +98,9 @@ public struct CXXTranspiler {
         // TODO: emit code for the patterns.
         let decl = name.decl
         stmts.append(
-          CXXComment("decl \(name), type: \(decl.type.description); path: \(path)", for: name))
+          CXXComment(
+            comment: "decl \(name), type: \(decl.type.description); path: \(path)",
+            original: AnyNodeID.TypedNode(name)))
       }
       if stmts.isEmpty {
         // No pattern found; just call the initializer, dropping the result.
@@ -107,7 +109,9 @@ public struct CXXTranspiler {
         return CXXScopedBlock(stmts: stmts, original: AnyNodeID.TypedNode(initializer))
       }
     } else {
-      return CXXComment("EMPTY borrowed local binding (\(capability))", for: decl)
+      return CXXComment(
+        comment: "EMPTY borrowed local binding (\(capability))", original: AnyNodeID.TypedNode(decl)
+      )
     }
   }
 
@@ -147,11 +151,11 @@ public struct CXXTranspiler {
   }
 
   private mutating func emit(exprStmt stmt: ExprStmt.Typed) -> CXXRepresentable {
-    return CXXComment("expr stmt", for: stmt)
+    return CXXComment(comment: "expr stmt", original: AnyNodeID.TypedNode(stmt))
   }
 
   private mutating func emit(returnStmt stmt: ReturnStmt.Typed) -> CXXRepresentable {
-    return CXXComment("return stmt", for: stmt)
+    return CXXComment(comment: "return stmt", original: AnyNodeID.TypedNode(stmt))
   }
 
   // MARK: Expressions
@@ -210,7 +214,8 @@ public struct CXXTranspiler {
         case .expr(let condExpr):
           condition = emitR(expr: program[condExpr])
         case .decl(let decl):
-          condition = CXXComment("binding condition", for: program[decl])
+          condition = CXXComment(
+            comment: "binding condition", original: AnyNodeID.TypedNode(program[decl]))
         }
       } else {
         fatalError("not implemented")
@@ -227,12 +232,13 @@ public struct CXXTranspiler {
       case .block:
         fatalError("not implemented")
       case .none:
-        falseExpr = CXXComment("missing false alternative", for: expr)
+        falseExpr = CXXComment(
+          comment: "missing false alternative", original: AnyNodeID.TypedNode(expr))
       }
       return CXXConditionalExpr(
         condition: condition, trueExpr: trueExpr, falseExpr: falseExpr, original: expr)
     } else {
-      return CXXComment("if statement", for: expr)
+      return CXXComment(comment: "if statement", original: AnyNodeID.TypedNode(expr))
     }
   }
 
@@ -341,7 +347,7 @@ public struct CXXTranspiler {
   private mutating func emitR(
     name expr: NameExpr.Typed
   ) -> CXXRepresentable {
-    return CXXComment("name expression", for: expr)
+    return CXXComment(comment: "name expression", original: AnyNodeID.TypedNode(expr))
   }
 
   private mutating func emitR(
