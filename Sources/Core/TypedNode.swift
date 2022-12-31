@@ -135,8 +135,15 @@ extension TypedNode where ID: DeclID {
   }
 
   /// The type of the declared entity.
+  /// In most cases, the type is valid, so we extract the value from the optional by default.
   public var type: AnyType {
     program.declTypes[id]!
+  }
+
+  /// The type of the declared entity, as optional
+  /// This is to be used in cases in which the type is not always valid.
+  public var typeOpt: AnyType? {
+    program.declTypes[id]
   }
 
   /// The implicit captures for the declared entity.

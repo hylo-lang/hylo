@@ -57,7 +57,7 @@ extension TypedProgram {
         let binding = BindingDecl.Typed(m)!
         for (_, name) in binding.pattern.names {
           indices[name.decl.name] = types.count
-          types.append(name.decl.type)
+          types.append(name.decl.typeOpt ?? .error)
         }
       }
 
