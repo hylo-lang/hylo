@@ -23,9 +23,10 @@ public struct InstantiatedType: Hashable {
     .init(
       shape: shape.specialized(substitutions),
       constraints:
-        ConstraintSet(constraints.map({ (c) -> Constraint in
-          c.modifyingTypes({ $0.specialized(substitutions) })
-        })))
+        ConstraintSet(
+          constraints.map({ (c) -> Constraint in
+            c.modifyingTypes({ $0.specialized(substitutions) })
+          })))
   }
 
 }

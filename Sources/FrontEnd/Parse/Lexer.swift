@@ -66,7 +66,7 @@ public struct Lexer: IteratorProtocol, Sequence {
 
     // Scan a new token.
     let head = source.contents[index]
-    var token = Token(kind: .invalid, origin: location ..< location)
+    var token = Token(kind: .invalid, origin: location..<location)
 
     // Scan names and keywords.
     if head.isLetter || (head == "_") {
@@ -148,7 +148,7 @@ public struct Lexer: IteratorProtocol, Sequence {
           let start = SourceLocation(
             source: source, index: source.contents.index(after: token.origin.lowerBound))
           token.kind = .name
-          token.origin = start ..< location
+          token.origin = start..<location
           discard()
           return token
         } else {
@@ -266,7 +266,7 @@ public struct Lexer: IteratorProtocol, Sequence {
       case "<", ">":
         // Leading angle brackets are tokenized individually, to parse generic clauses.
         discard()
-        oper = source.contents[token.origin.lowerBound ..< index]
+        oper = source.contents[token.origin.lowerBound..<index]
 
       default:
         oper = take(while: { $0.isOperator })
@@ -370,7 +370,7 @@ public struct Lexer: IteratorProtocol, Sequence {
       index = source.contents.index(after: index)
     }
 
-    return source.contents[start ..< index]
+    return source.contents[start..<index]
   }
 
 }
@@ -380,23 +380,23 @@ extension Character {
   /// Indicates whether `self` character represents a decimal digit.
   fileprivate var isDecDigit: Bool {
     guard let ascii = asciiValue else { return false }
-    return (0x30 ... 0x39) ~= ascii  // 0 ... 9
+    return (0x30...0x39) ~= ascii  // 0 ... 9
       || 0x5f == ascii  // _
   }
 
   /// Indicates whether `self` represents an hexadecimal digit.
   fileprivate var isHexDigit: Bool {
     guard let ascii = asciiValue else { return false }
-    return (0x30 ... 0x39) ~= ascii  // 0 ... 9
-      || (0x41 ... 0x46) ~= ascii  // A ... F
-      || (0x61 ... 0x66) ~= ascii  // a ... f
+    return (0x30...0x39) ~= ascii  // 0 ... 9
+      || (0x41...0x46) ~= ascii  // A ... F
+      || (0x61...0x66) ~= ascii  // a ... f
       || 0x5f == ascii  // _
   }
 
   /// /// Indicates whether `self` represents an octal digit.
   fileprivate var isOctDigit: Bool {
     guard let ascii = asciiValue else { return false }
-    return (0x30 ... 0x37) ~= ascii  // 0 ... 7
+    return (0x30...0x37) ~= ascii  // 0 ... 7
       || 0x5f == ascii  // _
   }
 

@@ -1,5 +1,5 @@
-import Utils
 import Core
+import Utils
 
 /// A constraint system solver.
 struct ConstraintSolver {
@@ -112,7 +112,8 @@ struct ConstraintSolver {
     using checker: inout TypeChecker
   ) {
     log("- solve: \"\(constraint)\"")
-    indentation += 1; defer { indentation -= 1 }
+    indentation += 1
+    defer { indentation -= 1 }
     log("actions:")
 
     let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
@@ -146,7 +147,8 @@ struct ConstraintSolver {
     using checker: inout TypeChecker
   ) {
     log("- solve: \"\(constraint)\"")
-    indentation += 1; defer { indentation -= 1 }
+    indentation += 1
+    defer { indentation -= 1 }
     log("actions:")
 
     let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
@@ -179,7 +181,8 @@ struct ConstraintSolver {
   /// Eliminates `L == R` by unifying `L` with `R`.
   private mutating func solve(equality constraint: EqualityConstraint) {
     log("- solve: \"\(constraint)\"")
-    indentation += 1; defer { indentation -= 1 }
+    indentation += 1
+    defer { indentation -= 1 }
     log("actions:")
 
     let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
@@ -206,7 +209,7 @@ struct ConstraintSolver {
       }
 
       // Break down the constraint.
-      for i in 0 ..< l.elements.count {
+      for i in 0..<l.elements.count {
         solve(equality: .init(l.elements[i].type, r.elements[i].type, because: constraint.cause))
       }
 
@@ -219,7 +222,7 @@ struct ConstraintSolver {
       }
 
       // Break down the constraint.
-      for i in 0 ..< l.inputs.count {
+      for i in 0..<l.inputs.count {
         solve(equality: .init(l.inputs[i].type, r.inputs[i].type, because: constraint.cause))
       }
 
@@ -242,7 +245,7 @@ struct ConstraintSolver {
       }
 
       // Break down the constraint.
-      for i in 0 ..< l.inputs.count {
+      for i in 0..<l.inputs.count {
         solve(equality: .init(l.inputs[i].type, r.inputs[i].type, because: constraint.cause))
       }
 
@@ -260,7 +263,8 @@ struct ConstraintSolver {
   /// or must be unified with `R`. Otherwise, postpones the constraint.
   private mutating func solve(subtyping constraint: SubtypingConstraint) {
     log("- solve: \"\(constraint)\"")
-    indentation += 1; defer { indentation -= 1 }
+    indentation += 1
+    defer { indentation -= 1 }
     log("actions:")
 
     let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
@@ -306,7 +310,8 @@ struct ConstraintSolver {
   /// be simplified as equality or subtyping. Otherwise, postpones the constraint.
   private mutating func solve(parameter constraint: ParameterConstraint) {
     log("- solve: \"\(constraint)\"")
-    indentation += 1; defer { indentation -= 1 }
+    indentation += 1
+    defer { indentation -= 1 }
     log("actions:")
 
     let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
@@ -338,7 +343,8 @@ struct ConstraintSolver {
     using checker: inout TypeChecker
   ) {
     log("- solve: \"\(constraint)\"")
-    indentation += 1; defer { indentation -= 1 }
+    indentation += 1
+    defer { indentation -= 1 }
     log("actions:")
 
     let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
@@ -412,7 +418,8 @@ struct ConstraintSolver {
     using checker: inout TypeChecker
   ) {
     log("- solve: \"\(constraint)\"")
-    indentation += 1; defer { indentation -= 1 }
+    indentation += 1
+    defer { indentation -= 1 }
     log("actions:")
 
     let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
@@ -439,7 +446,7 @@ struct ConstraintSolver {
     }
 
     // Break down the constraint.
-    for i in 0 ..< callee.inputs.count {
+    for i in 0..<callee.inputs.count {
       solve(
         equality: .init(
           callee.inputs[i].type, constraint.parameters[i].type, because: constraint.cause))
@@ -454,7 +461,8 @@ struct ConstraintSolver {
     using checker: inout TypeChecker
   ) -> Solution? {
     log("- solve: \"\(constraint)\"")
-    indentation += 1; defer { indentation -= 1 }
+    indentation += 1
+    defer { indentation -= 1 }
     log("actions:")
 
     return explore(
@@ -476,7 +484,8 @@ struct ConstraintSolver {
     using checker: inout TypeChecker
   ) -> Solution? {
     log("- solve: \"\(constraint)\"")
-    indentation += 1; defer { indentation -= 1 }
+    indentation += 1
+    defer { indentation -= 1 }
     log("actions:")
 
     return explore(
@@ -501,7 +510,8 @@ struct ConstraintSolver {
     configuringSubSolversWith configureSubSolver: (inout Self, Choices.Element) -> Void
   ) -> Solution? where Choices.Element: Choice {
     log("- fork:")
-    indentation += 1; defer { indentation -= 1 }
+    indentation += 1
+    defer { indentation -= 1 }
 
     /// The results of the exploration.
     var results: [Solution] = []
@@ -516,7 +526,8 @@ struct ConstraintSolver {
       }
 
       log("- pick: \"\(choice)\"")
-      indentation += 1; defer { indentation -= 1 }
+      indentation += 1
+      defer { indentation -= 1 }
 
       // Explore the result of this choice.
       var subSolver = self
@@ -616,7 +627,7 @@ struct ConstraintSolver {
 
   /// Moves the stale constraints depending on the specified variables back to the fresh set.
   private mutating func refresh(constraintsDependingOn variable: TypeVariable) {
-    for i in (0 ..< stale.count).reversed() {
+    for i in (0..<stale.count).reversed() {
       if stale[i].depends(on: variable) {
         log("- refresh \(stale[i])")
         fresh.append(stale.remove(at: i))
@@ -626,7 +637,7 @@ struct ConstraintSolver {
 
   /// Transforms the stale literal constraints to equality constraints.
   private mutating func refreshLiteralConstraints() {
-    for i in (0 ..< stale.count).reversed() {
+    for i in (0..<stale.count).reversed() {
       if let c = stale[i] as? LiteralConstraint {
         log("- refresh \(stale[i])")
         fresh.append(EqualityConstraint(c.subject, c.defaultSubject, because: c.cause))
@@ -823,7 +834,7 @@ extension TypeChecker {
     // Create pairwise subtyping constraints on the parameters.
     let lhs = skolemizedLeft.base as! CallableType
     let rhs = openedRight.shape.base as! CallableType
-    for i in 0 ..< lhs.inputs.count {
+    for i in 0..<lhs.inputs.count {
       // Ignore the passing conventions.
       guard
         let bareLHS = ParameterType(lhs.inputs[i].type)?.bareType,

@@ -1,5 +1,5 @@
-import Utils
 import Core
+import Utils
 
 /// A visitor that generates constraints based on the structure of the AST.
 struct ConstraintGenerator {
@@ -263,8 +263,7 @@ struct ConstraintGenerator {
     }
 
     // Case 3b
-    if
-      let c = NodeID<NameExpr>(callee),
+    if let c = NodeID<NameExpr>(callee),
       let d = checker.referredDecls[c]?.decl,
       checker.isNominalTypeDecl(d)
     {
@@ -573,8 +572,7 @@ struct ConstraintGenerator {
     }
 
     // Case 3b
-    if
-      let c = NodeID<NameExpr>(callee),
+    if let c = NodeID<NameExpr>(callee),
       let d = checker.referredDecls[c]?.decl,
       checker.isNominalTypeDecl(d)
     {
@@ -659,13 +657,13 @@ struct ConstraintGenerator {
     if let type = TupleType(expectedTypes[id]),
       type.elements.elementsEqual(tupleExpr, by: { (a, b) in a.label == b.label?.value })
     {
-      for i in 0 ..< tupleExpr.count {
+      for i in 0..<tupleExpr.count {
         expectedTypes[tupleExpr[i].value] = type.elements[i].type
         let elementType = visit(expr: tupleExpr[i].value, using: &checker)
         tupleTypeElements.append(.init(label: tupleExpr[i].label?.value, type: elementType))
       }
     } else {
-      for i in 0 ..< tupleExpr.count {
+      for i in 0..<tupleExpr.count {
         let elementType = visit(expr: tupleExpr[i].value, using: &checker)
         tupleTypeElements.append(.init(label: tupleExpr[i].label?.value, type: elementType))
       }
@@ -699,7 +697,7 @@ struct ConstraintGenerator {
     }
 
     // Propagate type information down.
-    for i in 0 ..< arguments.count {
+    for i in 0..<arguments.count {
       let argumentExpr = arguments[i].value
       let parameterType = parameters[i].type
 
@@ -728,7 +726,7 @@ struct ConstraintGenerator {
     var parameters: [CallableTypeParameter] = []
     parameters.reserveCapacity(arguments.count)
 
-    for i in 0 ..< arguments.count {
+    for i in 0..<arguments.count {
       let argumentExpr = arguments[i].value
       let parameterType = ^TypeVariable()
 
@@ -855,7 +853,8 @@ struct ConstraintGenerator {
       // Constrain the name to refer to one of the overloads.
       let nameType = expectedTypes[name] ?? ^TypeVariable(node: AnyNodeID(name))
       constraints.append(
-        OverloadConstraint(name, withType: nameType,
+        OverloadConstraint(
+          name, withType: nameType,
           refersToOneOf: overloads,
           because: ConstraintCause(.binding, at: constrainOrigin)))
       return constrain(name, toHaveType: nameType, at: constrainOrigin)

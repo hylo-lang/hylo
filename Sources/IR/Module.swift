@@ -1,5 +1,5 @@
-import Utils
 import Core
+import Utils
 
 /// A module lowered to Val IR.
 ///
@@ -80,7 +80,7 @@ public struct Module {
   ///
   /// Use this method as a sanity check to verify the module's invariants.
   public func isWellFormed() -> Bool {
-    for i in 0 ..< functions.count {
+    for i in 0..<functions.count {
       if !isWellFormed(function: i) { return false }
     }
     return true
@@ -216,7 +216,8 @@ public struct Module {
     insert(
       newInstruction,
       with: { (m, i) in
-        let address = m
+        let address =
+          m
           .functions[insertionPoint.function].blocks[insertionPoint.block].instructions
           .insert(newInstruction, at: insertionPoint.index)
         return InstructionID(insertionPoint.function, insertionPoint.block, address)
@@ -264,12 +265,12 @@ public struct Module {
     let user = impl(&self, newInstruction)
 
     // Update the def-use chains.
-    for i in 0 ..< newInstruction.operands.count {
+    for i in 0..<newInstruction.operands.count {
       uses[newInstruction.operands[i], default: []].append(Use(user: user, index: i))
     }
 
     // Return the identities of the instruction's results.
-    return (0 ..< newInstruction.types.count).map({ (k) -> Operand in
+    return (0..<newInstruction.types.count).map({ (k) -> Operand in
       .result(instruction: user, index: k)
     })
   }
