@@ -14,8 +14,7 @@ final class CXXTests: XCTestCase, ValTestRunner {
     baseAST.importCoreModule()
 
     try runValTests(
-      handlingResultsWith: CXXAnnotationHandler.self,
-      { (name, source) in
+      { (name, source) -> CXXAnnotationHandler in
         // Create a module for the input.
         var ast = baseAST
         let module = try! ast.insert(wellFormed: ModuleDecl(name: name))
