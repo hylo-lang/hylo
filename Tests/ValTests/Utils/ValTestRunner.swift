@@ -30,7 +30,7 @@ extension ValTestRunner {
       // Handle the test annotations.
       var handler = Handler(result)
       handler.handle(TestAnnotation.parseAll(from: source))
-      return handler.finalize()
+      return handler.issues()
     }
 
     try withFiles(

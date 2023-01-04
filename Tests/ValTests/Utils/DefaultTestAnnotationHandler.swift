@@ -22,7 +22,7 @@ struct DefaultTestAnnotationHandler: TestAnnotationHandler {
   private var recordedDiagnostics: [XCTSourceCodeLocation?: [Diagnostic]]
 
   /// The recorded issues.
-  private var issues: [XCTIssue] = []
+  private var issues_: [XCTIssue] = []
 
   /// Creates a new instance with the given information about the test case.
   init(_ configuration: Configuration) {
@@ -57,7 +57,7 @@ struct DefaultTestAnnotationHandler: TestAnnotationHandler {
           expected.remove(at: i)
         } else {
           let message = annotation.argument ?? "_"
-          issues.append(
+          issues_.append(
             XCTIssue(
               type: .assertionFailure,
               compactDescription: "missing diagnostic: \(message)",
@@ -69,7 +69,7 @@ struct DefaultTestAnnotationHandler: TestAnnotationHandler {
   /// Handles `expect-failure`.
   private mutating func handle(expectFailure annotation: TestAnnotation) {
     if !testCaseRanToCompletion { return }
-    issues.append(
+    issues_.append(
       XCTIssue(
         type: .assertionFailure,
         compactDescription: "type checking succeeded, but expected failure",
@@ -79,7 +79,7 @@ struct DefaultTestAnnotationHandler: TestAnnotationHandler {
   /// Handles `expect-success`.
   private mutating func handle(expectSuccess annotation: TestAnnotation) {
     if testCaseRanToCompletion { return }
-    issues.append(
+    issues_.append(
       XCTIssue(
         type: .assertionFailure,
         compactDescription: "type checking failed, but expected success",
@@ -88,16 +88,15 @@ struct DefaultTestAnnotationHandler: TestAnnotationHandler {
 
   /// Handles an unexpected test annotation.
   private mutating func handle(unexpected annotation: TestAnnotation) {
-    issues.append(
+    issues_.append(
       XCTIssue(
         type: .assertionFailure,
         compactDescription: "unexpected test command: '\(annotation.command)'",
         sourceCodeContext: .init(location: annotation.location)))
   }
 
-  /// Finalizes this instance and returns issues it recorded.
-  func finalize() -> [XCTIssue] {
-    var allIssues = issues
+  func issues() -> [XCTIssue] {
+    var allIssues = issues_
     for d in recordedDiagnostics.values {
       allIssues.append(contentsOf: d.map(XCTIssue.init(_:)))
     }

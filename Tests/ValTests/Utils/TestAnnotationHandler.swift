@@ -12,8 +12,8 @@ protocol TestAnnotationHandler {
   /// Handles the given annotations.
   mutating func handle(_ annotation: TestAnnotation)
 
-  /// Finalizes this instance and returns issues it recorded.
-  func finalize() -> [XCTIssue]
+  /// Returns the issues recorded.
+  func issues() -> [XCTIssue]
 
 }
 

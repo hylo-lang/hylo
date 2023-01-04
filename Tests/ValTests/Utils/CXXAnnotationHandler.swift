@@ -25,7 +25,7 @@ struct CXXAnnotationHandler: TestAnnotationHandler {
   private let cxxSource: String
 
   /// The recorded issues.
-  private var issues: [XCTIssue] = []
+  private var issues_: [XCTIssue] = []
 
   /// The default handler for generic annotations.
   private var defaultHandler: DefaultTestAnnotationHandler
@@ -59,7 +59,7 @@ struct CXXAnnotationHandler: TestAnnotationHandler {
     at location: XCTSourceCodeLocation
   ) {
     if haystack.contains(needle) { return }
-    issues.append(
+    issues_.append(
       XCTIssue(
         type: .assertionFailure,
         compactDescription: """
@@ -71,8 +71,8 @@ struct CXXAnnotationHandler: TestAnnotationHandler {
         sourceCodeContext: .init(location: location)))
   }
 
-  func finalize() -> [XCTIssue] {
-    return issues
+  func issues() -> [XCTIssue] {
+    return issues_
   }
 
 }
