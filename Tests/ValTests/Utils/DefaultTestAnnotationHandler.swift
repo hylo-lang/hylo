@@ -5,16 +5,6 @@ import XCTest
 /// An object that processes the test annotations of a Val test.
 struct DefaultTestAnnotationHandler: TestAnnotationHandler {
 
-  struct Configuration {
-
-    /// Indicates whether the test case ran through completion without any error.
-    let ranToCompletion: Bool
-
-    /// The diagnostics reported throughout compilation.
-    let diagnostics: [Diagnostic]
-
-  }
-
   /// Indicates whether the test case ran through completion without any error.
   private let testCaseRanToCompletion: Bool
 
@@ -25,9 +15,9 @@ struct DefaultTestAnnotationHandler: TestAnnotationHandler {
   private var issues_: [XCTIssue] = []
 
   /// Creates a new instance with the given information about the test case.
-  init(_ configuration: Configuration) {
-    self.testCaseRanToCompletion = configuration.ranToCompletion
-    self.recordedDiagnostics = configuration.diagnostics.reduce(
+  init(ranToCompletion: Bool, diagnostics: [Diagnostic]) {
+    self.testCaseRanToCompletion = ranToCompletion
+    self.recordedDiagnostics = diagnostics.reduce(
       into: [:],
       { (ds, d) in
         ds[d.location.map(XCTSourceCodeLocation.init(_:)), default: []].append(d)

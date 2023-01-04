@@ -20,16 +20,15 @@ final class TypeCheckerTests: XCTestCase, ValTestRunner {
         // Parse the input.
         let parseResult = Parser.parse(source, into: module, in: &ast)
         if parseResult.failed {
-          return .init(.init(ranToCompletion: false, diagnostics: parseResult.diagnostics))
+          return .init(ranToCompletion: false, diagnostics: parseResult.diagnostics)
         }
 
         // Run the type checker.
         var checker = TypeChecker(program: ScopedProgram(ast: ast))
         let success = checker.check(module: module)
         return .init(
-          .init(
             ranToCompletion: success,
-            diagnostics: parseResult.diagnostics + Array(checker.diagnostics)))
+            diagnostics: parseResult.diagnostics + Array(checker.diagnostics))
       })
   }
 

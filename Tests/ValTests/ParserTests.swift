@@ -18,7 +18,7 @@ final class ParserTests: XCTestCase, ValTestRunner {
 
         // Parse the input.
         let parseResult = Parser.parse(source, into: module, in: &ast)
-        return .init(.init(ranToCompletion: !parseResult.failed, diagnostics: parseResult.diagnostics))
+        return .init(ranToCompletion: !parseResult.failed, diagnostics: parseResult.diagnostics)
       })
   }
 
