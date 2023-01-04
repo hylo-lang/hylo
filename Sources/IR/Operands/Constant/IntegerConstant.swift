@@ -1,5 +1,5 @@
-import Utils
 import Core
+import Utils
 
 // DWA: This conformance belongs in WideUInt.swift, but is here pending
 // https://github.com/apple/swift/issues/62498.

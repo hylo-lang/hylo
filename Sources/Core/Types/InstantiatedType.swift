@@ -1,3 +1,5 @@
+import Utils
+
 /// A type whose generic parameters have been substituted by variables along with the constraints
 /// related to these variables.
 public struct InstantiatedType: Hashable {
@@ -23,9 +25,10 @@ public struct InstantiatedType: Hashable {
     .init(
       shape: shape.specialized(substitutions),
       constraints:
-        ConstraintSet(constraints.map({ (c) -> Constraint in
-          c.modifyingTypes({ $0.specialized(substitutions) })
-        })))
+        ConstraintSet(
+          constraints.map({ (c) -> Constraint in
+            c.modifyingTypes({ $0.specialized(substitutions) })
+          })))
   }
 
 }

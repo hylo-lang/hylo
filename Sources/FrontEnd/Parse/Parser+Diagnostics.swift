@@ -15,7 +15,7 @@ extension Diagnostic {
     at location: SourceLocation,
     children: [Diagnostic] = []
   ) -> Diagnostic {
-    .error("expected \(subject)", range: location ..< location, children: children)
+    .error("expected \(subject)", range: location..<location, children: children)
   }
 
   static func diagnose(
@@ -51,11 +51,11 @@ extension Diagnostic {
   }
 
   static func diagnose(unterminatedCommentEndingAt endLocation: SourceLocation) -> Diagnostic {
-    .error("unterminated comment", range: endLocation ..< endLocation)
+    .error("unterminated comment", range: endLocation..<endLocation)
   }
 
   static func diagnose(unterminatedStringEndingAt endLocation: SourceLocation) -> Diagnostic {
-    .error("unterminated string", range: endLocation ..< endLocation)
+    .error("unterminated string", range: endLocation..<endLocation)
   }
 
   static func diagnose(

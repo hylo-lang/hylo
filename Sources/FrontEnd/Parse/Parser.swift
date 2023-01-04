@@ -1,6 +1,6 @@
+import Core
 import Durian
 import Utils
-import Core
 
 /// # Notes:
 ///
@@ -818,7 +818,7 @@ public enum Parser {
     // Parse the parts of the declaration.
     let parser =
       (take(.operator).and(operatorNotation)
-        .and(operator_)
+        .and(operatorIdentifier)
         .and(maybe(take(.colon).and(precedenceGroup).second)))
     guard let parts = try parser.parse(&state) else { return nil }
 
@@ -1021,9 +1021,11 @@ public enum Parser {
     // Parse the parts of the declaration.
     let name = try state.expect("identifier", using: { $0.take(.name) })
     let refinements = try conformanceList.parse(&state) ?? []
-    var members = try state.expect("trait body", using: { (s) in
-      try parseTypeDeclBody(in: &s, wrappedIn: .traitBody)
-    })
+    var members = try state.expect(
+      "trait body",
+      using: { (s) in
+        try parseTypeDeclBody(in: &s, wrappedIn: .traitBody)
+      })
 
     // Trait declarations shall not have attributes.
     if !prologue.attributes.isEmpty {
@@ -1182,7 +1184,7 @@ public enum Parser {
 
     if let notation = try operatorNotation.parse(&state) {
       _ = try state.expect("'fun'", using: { $0.take(.fun) })
-      let stem = try state.expect("operator", using: operator_)
+      let stem = try state.expect("operator", using: operatorIdentifier)
       return FunctionDeclName(
         introducerRange: notation.origin!,
         stem: stem,
@@ -1277,7 +1279,7 @@ public enum Parser {
 
   static let initDeclBody = inContext(.functionBody, apply: braceStmt)
 
-  static let operator_ =
+  static let operatorIdentifier =
     (Apply<ParserState, SourceRepresentable<Identifier>>({ (state) in
       state.takeOperator()
     }))
@@ -1528,7 +1530,7 @@ public enum Parser {
       if !state.hasLeadingWhitespace {
         // If there isn't any leading whitespace before the next expression but the operator is on
         // a different line, we may be looking at the start of a prefix expression.
-        let rangeBefore = state.ast[lhs].origin!.upperBound ..< operatorStem.origin!.lowerBound
+        let rangeBefore = state.ast[lhs].origin!.upperBound..<operatorStem.origin!.lowerBound
         if state.lexer.source.contents[rangeBefore].contains(where: { $0.isNewline }) {
           state.restore(from: backup)
           break

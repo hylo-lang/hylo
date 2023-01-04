@@ -1,5 +1,5 @@
-import Utils
 import Core
+import Utils
 
 /// A constraint system solver.
 struct ConstraintSolver {
@@ -112,7 +112,8 @@ struct ConstraintSolver {
     using checker: inout TypeChecker
   ) {
     log("- solve: \"\(constraint)\"")
-    indentation += 1; defer { indentation -= 1 }
+    indentation += 1
+    defer { indentation -= 1 }
     log("actions:")
 
     let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
@@ -146,7 +147,8 @@ struct ConstraintSolver {
     using checker: inout TypeChecker
   ) {
     log("- solve: \"\(constraint)\"")
-    indentation += 1; defer { indentation -= 1 }
+    indentation += 1
+    defer { indentation -= 1 }
     log("actions:")
 
     let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
@@ -177,7 +179,8 @@ struct ConstraintSolver {
     using checker: inout TypeChecker
   ) {
     log("- solve: \"\(constraint)\"")
-    indentation += 1; defer { indentation -= 1 }
+    indentation += 1
+    defer { indentation -= 1 }
     log("actions:")
 
     let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
@@ -264,7 +267,8 @@ struct ConstraintSolver {
     using checker: inout TypeChecker
   ) {
     log("- solve: \"\(constraint)\"")
-    indentation += 1; defer { indentation -= 1 }
+    indentation += 1
+    defer { indentation -= 1 }
     log("actions:")
 
     let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
@@ -331,7 +335,8 @@ struct ConstraintSolver {
     using checker: inout TypeChecker
   ) {
     log("- solve: \"\(constraint)\"")
-    indentation += 1; defer { indentation -= 1 }
+    indentation += 1
+    defer { indentation -= 1 }
     log("actions:")
 
     let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
@@ -363,7 +368,8 @@ struct ConstraintSolver {
     using checker: inout TypeChecker
   ) {
     log("- solve: \"\(constraint)\"")
-    indentation += 1; defer { indentation -= 1 }
+    indentation += 1
+    defer { indentation -= 1 }
     log("actions:")
 
     let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
@@ -434,7 +440,8 @@ struct ConstraintSolver {
     using checker: inout TypeChecker
   ) {
     log("- solve: \"\(constraint)\"")
-    indentation += 1; defer { indentation -= 1 }
+    indentation += 1
+    defer { indentation -= 1 }
     log("actions:")
 
     let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
@@ -474,7 +481,8 @@ struct ConstraintSolver {
     using checker: inout TypeChecker
   ) -> Solution? {
     log("- solve: \"\(constraint)\"")
-    indentation += 1; defer { indentation -= 1 }
+    indentation += 1
+    defer { indentation -= 1 }
     log("actions:")
 
     return explore(
@@ -496,7 +504,8 @@ struct ConstraintSolver {
     using checker: inout TypeChecker
   ) -> Solution? {
     log("- solve: \"\(constraint)\"")
-    indentation += 1; defer { indentation -= 1 }
+    indentation += 1
+    defer { indentation -= 1 }
     log("actions:")
 
     return explore(
@@ -521,7 +530,8 @@ struct ConstraintSolver {
     configuringSubSolversWith configureSubSolver: (inout Self, Choices.Element) -> Void
   ) -> Solution? where Choices.Element: Choice {
     log("- fork:")
-    indentation += 1; defer { indentation -= 1 }
+    indentation += 1
+    defer { indentation -= 1 }
 
     /// The results of the exploration.
     var results: [Solution] = []
@@ -536,7 +546,8 @@ struct ConstraintSolver {
       }
 
       log("- pick: \"\(choice)\"")
-      indentation += 1; defer { indentation -= 1 }
+      indentation += 1
+      defer { indentation -= 1 }
 
       // Explore the result of this choice.
       var subSolver = self
@@ -636,7 +647,7 @@ struct ConstraintSolver {
 
   /// Moves the stale constraints depending on the specified variables back to the fresh set.
   private mutating func refresh(constraintsDependingOn variable: TypeVariable) {
-    for i in (0 ..< stale.count).reversed() {
+    for i in (0..<stale.count).reversed() {
       if stale[i].depends(on: variable) {
         log("- refresh \(stale[i])")
         fresh.append(stale.remove(at: i))
@@ -646,7 +657,7 @@ struct ConstraintSolver {
 
   /// Transforms the stale literal constraints to equality constraints.
   private mutating func refreshLiteralConstraints() {
-    for i in (0 ..< stale.count).reversed() {
+    for i in (0..<stale.count).reversed() {
       if let c = stale[i] as? LiteralConstraint {
         log("- refresh \(stale[i])")
         fresh.append(EqualityConstraint(c.subject, c.defaultSubject, because: c.cause))
@@ -843,7 +854,7 @@ extension TypeChecker {
     // Create pairwise subtyping constraints on the parameters.
     let lhs = skolemizedLeft.base as! CallableType
     let rhs = openedRight.shape.base as! CallableType
-    for i in 0 ..< lhs.inputs.count {
+    for i in 0..<lhs.inputs.count {
       // Ignore the passing conventions.
       guard
         let bareLHS = ParameterType(lhs.inputs[i].type)?.bareType,

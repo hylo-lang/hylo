@@ -6,7 +6,7 @@ public struct OverloadConstraint: Constraint, Hashable {
 
   /// A candidate in an overload constraint.
   public struct Candidate: Hashable {
-    
+
     /// Creates an instance having the given properties.
     public init(reference: DeclRef, type: AnyType, constraints: ConstraintSet, penalties: Int) {
       self.reference = reference
@@ -14,7 +14,7 @@ public struct OverloadConstraint: Constraint, Hashable {
       self.constraints = constraints
       self.penalties = penalties
     }
-  
+
     /// The candidate reference.
     public let reference: DeclRef
 
@@ -67,7 +67,7 @@ public struct OverloadConstraint: Constraint, Hashable {
   public mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {
     modify(&overloadedExprType, with: transform)
 
-    for i in 0 ..< choices.count {
+    for i in 0..<choices.count {
       choices[i] = Candidate(
         reference: choices[i].reference,
         type: transform(choices[i].type),

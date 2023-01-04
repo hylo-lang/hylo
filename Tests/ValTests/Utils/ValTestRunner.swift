@@ -33,23 +33,25 @@ extension ValTestRunner {
       return handler.finalize()
     }
 
-    try withFiles(in: testCaseDirectory, { (url) in
-      // Skip non-val files.
-      if url.pathExtension != "val" { return true }
+    try withFiles(
+      in: testCaseDirectory,
+      { (url) in
+        // Skip non-val files.
+        if url.pathExtension != "val" { return true }
 
-      // Create an activity encapsulating the current test case.
-      let name = url.deletingPathExtension().lastPathComponent
-      let issues = try XCTContext.runActivity(
-        named: name,
-        block: { (activity) in try _run(name: name, url: url, activity: activity) })
+        // Create an activity encapsulating the current test case.
+        let name = url.deletingPathExtension().lastPathComponent
+        let issues = try XCTContext.runActivity(
+          named: name,
+          block: { (activity) in try _run(name: name, url: url, activity: activity) })
 
-      for issue in issues {
-        record(issue)
-      }
+        for issue in issues {
+          record(issue)
+        }
 
-      // Move to the next test case.
-      return true
-    })
+        // Move to the next test case.
+        return true
+      })
   }
 
 }

@@ -63,11 +63,11 @@ struct CXXAnnotationHandler: TestAnnotationHandler {
       XCTIssue(
         type: .assertionFailure,
         compactDescription: """
-        transpiled code not found:
-        \(needle)
-        --- not found in ---
-        \(haystack)
-        """,
+          transpiled code not found:
+          \(needle)
+          --- not found in ---
+          \(haystack)
+          """,
         sourceCodeContext: .init(location: location)))
   }
 

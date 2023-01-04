@@ -1,4 +1,5 @@
 /// A namespace containing the types of the built-in functions and subscripts.
+// swift-format-ignore: AlwaysUseLowerCamelCase
 public enum BuiltinSymbols {
 
   /// Terminates the program abnormally.

@@ -1,6 +1,6 @@
+import Core
 import DequeModule
 import Utils
-import Core
 
 /// The definite initialization pass.
 ///
@@ -252,7 +252,7 @@ public struct DefiniteInitializationPass: TransformPass {
     let entryAddress = function.blocks.firstAddress!
     var entryContext = Context()
 
-    for i in 0 ..< function.inputs.count {
+    for i in 0..<function.inputs.count {
       let key = FunctionLocal.param(block: entryAddress, index: i)
       let (convention, type) = function.inputs[i]
       switch convention {
@@ -433,7 +433,7 @@ public struct DefiniteInitializationPass: TransformPass {
     call instruction: CallInstruction, id: InstructionID, module: inout Module
   ) -> Bool {
     // Process the operands.
-    for i in 0 ..< instruction.operands.count {
+    for i in 0..<instruction.operands.count {
       switch instruction.conventions[i] {
       case .let, .inout, .set:
         // Nothing to do here.
@@ -539,7 +539,7 @@ public struct DefiniteInitializationPass: TransformPass {
     }
 
     // Result are initialized.
-    for i in 0 ..< instruction.types.count {
+    for i in 0..<instruction.types.count {
       currentContext.locals[FunctionLocal(id, i)] = .object(.full(.initialized))
     }
     return true
@@ -922,7 +922,7 @@ extension DefiniteInitializationPass {
         var initializedPaths: [[Int]] = []
         var consumers: Set<InstructionID> = []
 
-        for i in 0 ..< parts.count {
+        for i in 0..<parts.count {
           switch parts[i].summary {
           case .fullyInitialized:
             initializedPaths.append([i])
@@ -968,7 +968,7 @@ extension DefiniteInitializationPass {
       case .partial(var subobjects):
         var isUniform = true
         subobjects[0] = subobjects[0].canonical
-        for i in 1 ..< subobjects.count {
+        for i in 1..<subobjects.count {
           subobjects[i] = subobjects[i].canonical
           isUniform = isUniform && subobjects[i] == subobjects[0]
         }
@@ -983,7 +983,7 @@ extension DefiniteInitializationPass {
         return state == .initialized ? [[]] : []
 
       case .partial(let subojects):
-        return (0 ..< subojects.count).reduce(
+        return (0..<subojects.count).reduce(
           into: [],
           { (result, i) in
             result.append(contentsOf: subojects[i].initializedPaths.map({ [i] + $0 }))
@@ -998,7 +998,7 @@ extension DefiniteInitializationPass {
         return state == .initialized ? [] : [[]]
 
       case .partial(let subojects):
-        return (0 ..< subojects.count).reduce(
+        return (0..<subojects.count).reduce(
           into: [],
           { (result, i) in
             result.append(contentsOf: subojects[i].uninitializedOrConsumedPaths.map({ [i] + $0 }))
@@ -1024,7 +1024,7 @@ extension DefiniteInitializationPass {
 
       case (.partial(let lhs), .partial(let rhs)):
         assert(lhs.count == rhs.count)
-        return (0 ..< lhs.count).reduce(
+        return (0..<lhs.count).reduce(
           into: [],
           { (result, i) in
             result.append(contentsOf: lhs[i].difference(rhs[i]).map({ [i] + $0 }))
