@@ -14,8 +14,8 @@ extension ValTestRunner {
 
   /// Runs the test cases found in `Self.testCaseDirectoryPath` with `runSteps` and handle the
   /// result of each case with an instance of `handler`.
-  func runValTests(
-    _ runSteps: (_ xcTestName: String, _ source: SourceFile) throws -> ([TestAnnotation]) -> [XCTIssue]
+  func runValTests<Handler: TestAnnotationHandler>(
+    _ runSteps: (_ xcTestName: String, _ source: SourceFile) throws -> Handler
   ) throws {
     let testCaseDirectory = try XCTUnwrap(
       Bundle.module.url(forResource: Self.testCaseDirectoryPath, withExtension: nil),
@@ -24,7 +24,8 @@ extension ValTestRunner {
     func _run(xcTestName: String, url: URL, activity: XCTActivity) throws -> [XCTIssue] {
       // Run the test case.
       let source = try SourceFile(contentsOf: url)
-      return try runSteps(xcTestName, source)(TestAnnotation.parseAll(from: source))
+      var handler = try runSteps(xcTestName, source)
+      return handler.handles(TestAnnotation.parseAll(from: source))
     }
 
     try withFiles(

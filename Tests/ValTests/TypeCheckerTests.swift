@@ -12,7 +12,7 @@ final class TypeCheckerTests: XCTestCase, ValTestRunner {
     baseAST.importCoreModule()
 
     try runValTests(
-      { (name, source) in
+      { (name, source) -> DefaultTestAnnotationHandler in
         // Create a module for the input.
         var ast = baseAST
         let module = try! ast.insert(wellFormed: ModuleDecl(name: name))
@@ -20,13 +20,13 @@ final class TypeCheckerTests: XCTestCase, ValTestRunner {
         // Parse the input.
         let parseResult = Parser.parse(source, into: module, in: &ast)
         if parseResult.failed {
-          return DefaultTestAnnotationHandler.make(.init(ranToCompletion: false, diagnostics: parseResult.diagnostics))
+          return .init(.init(ranToCompletion: false, diagnostics: parseResult.diagnostics))
         }
 
         // Run the type checker.
         var checker = TypeChecker(program: ScopedProgram(ast: ast))
         let success = checker.check(module: module)
-        return DefaultTestAnnotationHandler.make(
+        return .init(
           .init(
             ranToCompletion: success,
             diagnostics: parseResult.diagnostics + Array(checker.diagnostics)))

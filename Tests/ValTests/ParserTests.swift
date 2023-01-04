@@ -11,14 +11,14 @@ final class ParserTests: XCTestCase, ValTestRunner {
 
   func testParser() throws {
     try runValTests(
-      { (name, source) in
+      { (name, source) -> DefaultTestAnnotationHandler in
         // Create a module for the input.
         var ast = AST()
         let module = try! ast.insert(wellFormed: ModuleDecl(name: name))
 
         // Parse the input.
         let parseResult = Parser.parse(source, into: module, in: &ast)
-        return DefaultTestAnnotationHandler.make(.init(ranToCompletion: !parseResult.failed, diagnostics: parseResult.diagnostics))
+        return .init(.init(ranToCompletion: !parseResult.failed, diagnostics: parseResult.diagnostics))
       })
   }
 

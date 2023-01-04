@@ -14,7 +14,7 @@ final class EmitterTests: XCTestCase, ValTestRunner {
     baseAST.importCoreModule()
 
     try runValTests(
-      { (name, source) in
+      { (name, source) -> DefaultTestAnnotationHandler in
         // Create a module for the input.
         var ast = baseAST
         let module = try! ast.insert(wellFormed: ModuleDecl(name: name))
@@ -23,14 +23,14 @@ final class EmitterTests: XCTestCase, ValTestRunner {
         let parseResult = Parser.parse(source, into: module, in: &ast)
         var diagnostics = parseResult.diagnostics
         if parseResult.failed {
-          return DefaultTestAnnotationHandler.make(.init(ranToCompletion: false, diagnostics: diagnostics))
+          return .init(.init(ranToCompletion: false, diagnostics: diagnostics))
         }
 
         // Run the type checker.
         var checker = TypeChecker(program: ScopedProgram(ast: ast))
         diagnostics.append(contentsOf: checker.diagnostics)
         if !checker.check(module: module) {
-          return DefaultTestAnnotationHandler.make(.init(ranToCompletion: false, diagnostics: diagnostics))
+          return .init(.init(ranToCompletion: false, diagnostics: diagnostics))
         }
 
         let typedProgram = TypedProgram(
@@ -60,7 +60,7 @@ final class EmitterTests: XCTestCase, ValTestRunner {
           if !success { break }
         }
 
-        return DefaultTestAnnotationHandler.make(.init(ranToCompletion: success, diagnostics: diagnostics))
+        return .init(.init(ranToCompletion: success, diagnostics: diagnostics))
       })
   }
 
