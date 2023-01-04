@@ -13,10 +13,10 @@ final class CXXTests: XCTestCase {
 
     try checkAnnotatedValFiles(
       in: "TestCases/CXX",
-      { (name, source) -> CXXAnnotationHandler in
+      { (source) -> CXXAnnotationHandler in
         // Create a module for the input.
         var ast = baseAST
-        let module = try! ast.insert(wellFormed: ModuleDecl(name: name))
+        let module = try! ast.insert(wellFormed: ModuleDecl(name: source.baseName))
 
         // Parse the input.
         let parseResult = Parser.parse(source, into: module, in: &ast)

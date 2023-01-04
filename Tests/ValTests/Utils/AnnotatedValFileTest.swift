@@ -8,7 +8,7 @@ extension XCTestCase {
   /// returned `Handler` to handle annotations embedded in the file's comments.
   func checkAnnotatedValFiles<Handler: TestAnnotationHandler>(
     in sourceDirectory: String,
-    _ preprocess: (_ xcTestName: String, _ source: SourceFile) throws -> Handler
+    _ preprocess: (_ source: SourceFile) throws -> Handler
   ) throws {
     let testCaseDirectory = try XCTUnwrap(
       Bundle.module.url(forResource: sourceDirectory, withExtension: nil),
@@ -20,12 +20,11 @@ extension XCTestCase {
         // Skip non-val files.
         if url.pathExtension != "val" { return true }
 
-        let xcTestName = url.deletingPathExtension().lastPathComponent
+        let source = try SourceFile(contentsOf: url)
         let issues = try XCTContext.runActivity(
-          named: xcTestName,
+          named: source.baseName,
           block: { activity in
-            let source = try SourceFile(contentsOf: url)
-            var handler = try preprocess(xcTestName, source)
+            var handler = try preprocess(source)
             return handler.handles(TestAnnotation.parseAll(from: source))
           })
 

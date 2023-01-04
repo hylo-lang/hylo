@@ -11,10 +11,10 @@ final class TypeCheckerTests: XCTestCase {
 
     try checkAnnotatedValFiles(
       in: "TestCases/TypeChecking",
-      { (name, source) -> DefaultTestAnnotationHandler in
+      { (source) -> DefaultTestAnnotationHandler in
         // Create a module for the input.
         var ast = baseAST
-        let module = try! ast.insert(wellFormed: ModuleDecl(name: name))
+        let module = try! ast.insert(wellFormed: ModuleDecl(name: source.baseName))
 
         // Parse the input.
         let parseResult = Parser.parse(source, into: module, in: &ast)
