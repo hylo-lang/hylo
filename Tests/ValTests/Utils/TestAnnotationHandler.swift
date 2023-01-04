@@ -19,11 +19,13 @@ protocol TestAnnotationHandler {
 
 extension TestAnnotationHandler {
 
-  /// Handles the given annotations.
-  mutating func handle<S: Sequence>(_ annotations: S) where S.Element == TestAnnotation {
-    for a in annotations {
-      handle(a)
+  static func make(_ configuration: Configuration) -> ([TestAnnotation]) -> [XCTIssue] {
+    return { annotations in
+      var me = Self(configuration)
+      for a in annotations {
+        me.handle(a)
+      }
+      return me.issues()
     }
   }
-
 }

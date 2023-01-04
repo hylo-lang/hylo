@@ -14,7 +14,6 @@ final class CXXTests: XCTestCase, ValTestRunner {
     baseAST.importCoreModule()
 
     try runValTests(
-      handlingResultsWith: CXXAnnotationHandler.self,
       { (name, source) in
         // Create a module for the input.
         var ast = baseAST
@@ -24,14 +23,14 @@ final class CXXTests: XCTestCase, ValTestRunner {
         let parseResult = Parser.parse(source, into: module, in: &ast)
         var diagnostics = parseResult.diagnostics
         if parseResult.failed {
-          return .init(module: nil, ranToCompletion: false, diagnostics: diagnostics)
+          return CXXAnnotationHandler.make(.init(module: nil, ranToCompletion: false, diagnostics: diagnostics))
         }
 
         // Run the type checker.
         var checker = TypeChecker(program: ScopedProgram(ast: ast))
         diagnostics.append(contentsOf: checker.diagnostics)
         if !checker.check(module: module) {
-          return .init(module: nil, ranToCompletion: false, diagnostics: diagnostics)
+          return CXXAnnotationHandler.make(.init(module: nil, ranToCompletion: false, diagnostics: diagnostics))
         }
 
         let typedProgram = TypedProgram(
@@ -48,7 +47,7 @@ final class CXXTests: XCTestCase, ValTestRunner {
         var transpiler = CXXTranspiler(program: typedProgram)
         let cxxModule = transpiler.emit(module: typedProgram[module])
 
-        return .init(module: cxxModule, ranToCompletion: true, diagnostics: diagnostics)
+        return CXXAnnotationHandler.make(.init(module: cxxModule, ranToCompletion: true, diagnostics: diagnostics))
       })
   }
 
