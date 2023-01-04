@@ -256,7 +256,7 @@ public struct TypeChecker {
         // Reify the type of the underlying declaration.
         declTypes[program.ast[id].decl] = ^declType
         let parameters = program.ast[program.ast[id].decl].parameters
-        for i in 0..<parameters.count {
+        for i in 0 ..< parameters.count {
           declTypes[parameters[i]] = declType.inputs[i].type
         }
 

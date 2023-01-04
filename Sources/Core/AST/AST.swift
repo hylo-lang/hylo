@@ -155,7 +155,7 @@ public struct AST: Codable {
 
       case TuplePattern.self:
         let p = NodeID<TuplePattern>(rawValue: pattern.rawValue)
-        for i in 0..<self[p].elements.count {
+        for i in 0 ..< self[p].elements.count {
           visit(
             pattern: self[p].elements[i].pattern,
             path: path + [i],
