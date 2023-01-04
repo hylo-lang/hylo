@@ -4,16 +4,16 @@ import IR
 import Utils
 import XCTest
 
-final class EmitterTests: XCTestCase, ValTestRunner {
+final class EmitterTests: XCTestCase, AnnotatedValFileTest {
 
-  static var testCaseDirectoryPath: String { "TestCases/Lowering" }
+  static var valSourceDirectory: String { "TestCases/Lowering" }
 
   func testEmitter() throws {
     // Prepare an AST with the core module loaded.
     var baseAST = AST()
     baseAST.importCoreModule()
 
-    try runValTests(
+    try checkAnnotatedValFiles(
       { (name, source) -> DefaultTestAnnotationHandler in
         // Create a module for the input.
         var ast = baseAST
