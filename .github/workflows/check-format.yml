@@ -21,7 +21,7 @@ jobs:
       uses: actions/checkout@v3
       with:
         repository: apple/swift-format
-        ref: "2f91be07295f6c1b397974830f4768436e400494" # Change here the version of swift-format to use
+        ref: "a1ebffecbfb429efed708534ec644ea015b9f4d4" # Change here the version of swift-format to use
         path: swift-format
     - name: Build swift-format
       run: |
