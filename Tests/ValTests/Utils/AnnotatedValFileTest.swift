@@ -2,30 +2,22 @@ import Core
 import Utils
 import XCTest
 
-/// A XCTestCase that preprocesses the ".val" files in a directory, and then checks the result of
-/// that preprocessing against annotations embedded in the file's comments.
-protocol AnnotatedValFileTest: XCTestCase {
+extension XCTestCase {
 
-  /// The directory containing the Val sources to test.
-  static var valSourceDirectory: String { get }
-
-}
-
-extension AnnotatedValFileTest {
-
-  /// Runs the test cases found in `Self.valSourceDirectory` with `runSteps` and handle the
-  /// result of each case with an instance of `handler`.
+  /// Preprocesses the ".val" files in a directory using `preprocess`, checking results using the
+  /// returned `Handler` to handle annotations embedded in the file's comments.
   func checkAnnotatedValFiles<Handler: TestAnnotationHandler>(
-    _ runSteps: (_ xcTestName: String, _ source: SourceFile) throws -> Handler
+    in sourceDirectory: String,
+    _ preprocess: (_ xcTestName: String, _ source: SourceFile) throws -> Handler
   ) throws {
     let testCaseDirectory = try XCTUnwrap(
-      Bundle.module.url(forResource: Self.valSourceDirectory, withExtension: nil),
+      Bundle.module.url(forResource: sourceDirectory, withExtension: nil),
       "No test cases")
 
     func _run(xcTestName: String, url: URL, activity: XCTActivity) throws -> [XCTIssue] {
       // Run the test case.
       let source = try SourceFile(contentsOf: url)
-      var handler = try runSteps(xcTestName, source)
+      var handler = try preprocess(xcTestName, source)
       return handler.handles(TestAnnotation.parseAll(from: source))
     }
 

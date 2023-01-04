@@ -4,9 +4,7 @@ import FrontEnd
 import Utils
 import XCTest
 
-final class CXXTests: XCTestCase, AnnotatedValFileTest {
-
-  static var valSourceDirectory: String { "TestCases/CXX" }
+final class CXXTests: XCTestCase {
 
   func testTranspiler() throws {
     // Prepare an AST with the core module loaded.
@@ -14,6 +12,7 @@ final class CXXTests: XCTestCase, AnnotatedValFileTest {
     baseAST.importCoreModule()
 
     try checkAnnotatedValFiles(
+      in: "TestCases/CXX",
       { (name, source) -> CXXAnnotationHandler in
         // Create a module for the input.
         var ast = baseAST
