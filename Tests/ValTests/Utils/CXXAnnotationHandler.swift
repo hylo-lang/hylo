@@ -24,8 +24,7 @@ struct CXXAnnotationHandler: TestAnnotationHandler {
   {
     self.cxxHeader = module?.emitHeader() ?? ""
     self.cxxSource = module?.emitSource() ?? ""
-    self.defaultHandler
-      = DefaultTestAnnotationHandler(ranToCompletion: ranToCompletion, diagnostics: diagnostics)
+    self.defaultHandler = .init(ranToCompletion: ranToCompletion, diagnostics: diagnostics)
   }
 
   mutating func handle(_ annotation: TestAnnotation) {
