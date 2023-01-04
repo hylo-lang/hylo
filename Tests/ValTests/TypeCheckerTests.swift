@@ -27,8 +27,8 @@ final class TypeCheckerTests: XCTestCase, ValTestRunner {
         var checker = TypeChecker(program: ScopedProgram(ast: ast))
         let success = checker.check(module: module)
         return .init(
-            ranToCompletion: success,
-            diagnostics: parseResult.diagnostics + Array(checker.diagnostics))
+          ranToCompletion: success,
+          diagnostics: parseResult.diagnostics + Array(checker.diagnostics))
       })
   }
 

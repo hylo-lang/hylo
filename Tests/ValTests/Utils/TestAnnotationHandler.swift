@@ -15,8 +15,7 @@ extension TestAnnotationHandler {
 
   /// Handles the given annotations.
   mutating func handles<S: Sequence>(_ annotations: S) -> [XCTIssue]
-    where S.Element == TestAnnotation
-  {
+  where S.Element == TestAnnotation {
     for a in annotations {
       handle(a)
     }

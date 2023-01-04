@@ -20,8 +20,8 @@ struct CXXAnnotationHandler: TestAnnotationHandler {
   init(
     module: CXXModule?,
     ranToCompletion: Bool,
-    diagnostics: [Diagnostic])
-  {
+    diagnostics: [Diagnostic]
+  ) {
     self.cxxHeader = module?.emitHeader() ?? ""
     self.cxxSource = module?.emitSource() ?? ""
     self.defaultHandler = .init(ranToCompletion: ranToCompletion, diagnostics: diagnostics)
