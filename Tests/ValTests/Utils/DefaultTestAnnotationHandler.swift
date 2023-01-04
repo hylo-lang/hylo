@@ -12,7 +12,7 @@ struct DefaultTestAnnotationHandler: TestAnnotationHandler {
   private var recordedDiagnostics: [XCTSourceCodeLocation?: [Diagnostic]]
 
   /// The recorded issues.
-  private var issues_: [XCTIssue] = []
+  private var _issues: [XCTIssue] = []
 
   /// Creates a new instance with the given information about the test case.
   init(ranToCompletion: Bool, diagnostics: [Diagnostic]) {
@@ -47,7 +47,7 @@ struct DefaultTestAnnotationHandler: TestAnnotationHandler {
           expected.remove(at: i)
         } else {
           let message = annotation.argument ?? "_"
-          issues_.append(
+          _issues.append(
             XCTIssue(
               type: .assertionFailure,
               compactDescription: "missing diagnostic: \(message)",
@@ -59,7 +59,7 @@ struct DefaultTestAnnotationHandler: TestAnnotationHandler {
   /// Handles `expect-failure`.
   private mutating func handle(expectFailure annotation: TestAnnotation) {
     if !testCaseRanToCompletion { return }
-    issues_.append(
+    _issues.append(
       XCTIssue(
         type: .assertionFailure,
         compactDescription: "type checking succeeded, but expected failure",
@@ -69,7 +69,7 @@ struct DefaultTestAnnotationHandler: TestAnnotationHandler {
   /// Handles `expect-success`.
   private mutating func handle(expectSuccess annotation: TestAnnotation) {
     if testCaseRanToCompletion { return }
-    issues_.append(
+    _issues.append(
       XCTIssue(
         type: .assertionFailure,
         compactDescription: "type checking failed, but expected success",
@@ -78,7 +78,7 @@ struct DefaultTestAnnotationHandler: TestAnnotationHandler {
 
   /// Handles an unexpected test annotation.
   private mutating func handle(unexpected annotation: TestAnnotation) {
-    issues_.append(
+    _issues.append(
       XCTIssue(
         type: .assertionFailure,
         compactDescription: "unexpected test command: '\(annotation.command)'",
@@ -86,7 +86,7 @@ struct DefaultTestAnnotationHandler: TestAnnotationHandler {
   }
 
   func issues() -> [XCTIssue] {
-    var allIssues = issues_
+    var allIssues = _issues
     for d in recordedDiagnostics.values {
       allIssues.append(contentsOf: d.map(XCTIssue.init(_:)))
     }
