@@ -5,7 +5,7 @@ The Swift source code in this repository is meant to be checked with `swift-form
 Contributors are asked to format all the code they submit to the repo.
 There is a CI job that checks the formatting; this job will not auto-correct the formatting, it will just ensure that the formatting is correct.
 
-At this point we use release 5.7 of `swift-format`.
+At this point we use the version `swift-format` at commit SHA a1ebffecbfb429efed708534ec644ea015b9f4d4.
 
 ## Manually Running `swift-format`
 
@@ -25,6 +25,9 @@ This tool requires for `swift-format` to be in PATH, or to be found at `/usr/loc
 
 ## Obtaining `swift-format`
 The best way to get `swift-format` is to obtain it from the [official repository](https://github.com/apple/swift-format) and compile it by hand.
+
+**Warning:** please make sure to use only the version specified above.
+Different versions of `swift-format` may produce different results, and CI builds may fail.
 
 ## Configuration in IDE
 
