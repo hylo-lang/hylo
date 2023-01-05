@@ -16,7 +16,7 @@ public struct BorrowInstruction: Instruction {
   public let path: [Int]
 
   /// The binding in source program to which the instruction corresponds, if any.
-  public let binding: NodeID<VarDecl>?
+  public let binding: VarDecl.Typed?
 
   public let range: SourceRange?
 
@@ -25,7 +25,7 @@ public struct BorrowInstruction: Instruction {
     _ borrowedType: LoweredType,
     from location: Operand,
     at path: [Int] = [],
-    binding: NodeID<VarDecl>? = nil,
+    binding: VarDecl.Typed? = nil,
     range: SourceRange? = nil
   ) {
     self.borrowedType = borrowedType

@@ -135,8 +135,9 @@ extension TypedNode where ID: DeclID {
   }
 
   /// The type of the declared entity.
+  /// If the declaration type is invalid, we return `.error` type.
   public var type: AnyType {
-    program.declTypes[id]!
+    program.declTypes[id] ?? .error
   }
 
   /// The implicit captures for the declared entity.
