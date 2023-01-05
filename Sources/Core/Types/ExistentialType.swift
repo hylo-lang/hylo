@@ -1,3 +1,5 @@
+import Utils
+
 /// An existential type, optionally bound by traits and constraints on associated types.
 public struct ExistentialType: TypeProtocol {
 
