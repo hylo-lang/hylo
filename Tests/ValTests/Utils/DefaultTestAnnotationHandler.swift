@@ -17,11 +17,8 @@ struct DefaultTestAnnotationHandler: TestAnnotationHandler {
   /// Creates a new instance with the given information about the test case.
   init(ranToCompletion: Bool, diagnostics: [Diagnostic]) {
     self.testCaseRanToCompletion = ranToCompletion
-    self.recordedDiagnostics = diagnostics.reduce(
-      into: [:],
-      { (ds, d) in
-        ds[d.location.map(XCTSourceCodeLocation.init(_:)), default: []].append(d)
-      })
+    self.recordedDiagnostics = Dictionary(
+      grouping: diagnostics, by: { $0.location.map(XCTSourceCodeLocation.init(_:)) })
   }
 
   /// Handles the given annotation.
