@@ -298,7 +298,7 @@ public struct CXXTranspiler {
           // The receiver as a borrowing convention.
           switch calleeNameExpr.domain {
           case .none:
-            receiver = CXXThisExpr(original: AnyExprID.TypedNode(expr))
+            receiver = CXXReceiverExpr(original: AnyExprID.TypedNode(expr))
 
           case .expr(let receiverID):
             receiver = emitL(expr: receiverID, withCapability: type.capability)
@@ -310,7 +310,7 @@ public struct CXXTranspiler {
           // The receiver is consumed.
           switch calleeNameExpr.domain {
           case .none:
-            receiver = CXXThisExpr(original: AnyExprID.TypedNode(expr))
+            receiver = CXXReceiverExpr(original: AnyExprID.TypedNode(expr))
 
           case .expr(let receiverID):
             receiver = emitR(expr: receiverID)
@@ -483,7 +483,7 @@ public struct CXXTranspiler {
       switch expr.domain {
       case .none:
         // TODO: this doesn't seem right; check the following code
-        // receiver = CXXThisExpr(original: expr)
+        // receiver = CXXReceiverExpr(original: expr)
         receiver = nil
       case .implicit:
         fatalError("not implemented")
