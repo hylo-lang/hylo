@@ -1,3 +1,5 @@
+import Utils
+
 /// The stable identity of an instruction in its module.
 ///
 /// - SeeAlso: `InstructionIndex`

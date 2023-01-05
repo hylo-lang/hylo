@@ -16,7 +16,7 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
   }
 
   public func write<Target: TextOutputStream>(to output: inout Target) {
-    for i in 0..<functions.count {
+    for i in 0 ..< functions.count {
       if i > 0 {
         output.write("\n\n")
       }
@@ -38,12 +38,12 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
       let blockID = Block.ID(function: functionID, address: i.address)
       blockNames[blockID] = "bb\(blockNames.count)"
 
-      for j in 0..<function[i.address].inputs.count {
+      for j in 0 ..< function[i.address].inputs.count {
         operandNames[.parameter(block: blockID, index: j)] = "%\(operandNames.count)"
       }
       for j in function[i.address].instructions.indices {
         let instID = InstructionID(functionID, i.address, j.address)
-        for k in 0..<function[i.address][j.address].types.count {
+        for k in 0 ..< function[i.address][j.address].types.count {
           operandNames[.result(instruction: instID, index: k)] = "%\(operandNames.count)"
         }
       }
@@ -86,7 +86,7 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
         output.write("  ")
         if !block[j.address].types.isEmpty {
           output.write(
-            (0..<block[j.address].types.count)
+            (0 ..< block[j.address].types.count)
               .map({ k in operandNames[.result(instruction: instID, index: k)]! })
               .joined(separator: ", "))
           output.write(" = ")

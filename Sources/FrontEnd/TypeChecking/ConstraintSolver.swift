@@ -209,7 +209,7 @@ struct ConstraintSolver {
       }
 
       // Break down the constraint.
-      for i in 0..<l.elements.count {
+      for i in 0 ..< l.elements.count {
         solve(equality: .init(l.elements[i].type, r.elements[i].type, because: constraint.cause))
       }
 
@@ -222,7 +222,7 @@ struct ConstraintSolver {
       }
 
       // Break down the constraint.
-      for i in 0..<l.inputs.count {
+      for i in 0 ..< l.inputs.count {
         solve(equality: .init(l.inputs[i].type, r.inputs[i].type, because: constraint.cause))
       }
 
@@ -245,7 +245,7 @@ struct ConstraintSolver {
       }
 
       // Break down the constraint.
-      for i in 0..<l.inputs.count {
+      for i in 0 ..< l.inputs.count {
         solve(equality: .init(l.inputs[i].type, r.inputs[i].type, because: constraint.cause))
       }
 
@@ -446,7 +446,7 @@ struct ConstraintSolver {
     }
 
     // Break down the constraint.
-    for i in 0..<callee.inputs.count {
+    for i in 0 ..< callee.inputs.count {
       solve(
         equality: .init(
           callee.inputs[i].type, constraint.parameters[i].type, because: constraint.cause))
@@ -627,7 +627,7 @@ struct ConstraintSolver {
 
   /// Moves the stale constraints depending on the specified variables back to the fresh set.
   private mutating func refresh(constraintsDependingOn variable: TypeVariable) {
-    for i in (0..<stale.count).reversed() {
+    for i in (0 ..< stale.count).reversed() {
       if stale[i].depends(on: variable) {
         log("- refresh \(stale[i])")
         fresh.append(stale.remove(at: i))
@@ -637,7 +637,7 @@ struct ConstraintSolver {
 
   /// Transforms the stale literal constraints to equality constraints.
   private mutating func refreshLiteralConstraints() {
-    for i in (0..<stale.count).reversed() {
+    for i in (0 ..< stale.count).reversed() {
       if let c = stale[i] as? LiteralConstraint {
         log("- refresh \(stale[i])")
         fresh.append(EqualityConstraint(c.subject, c.defaultSubject, because: c.cause))
@@ -834,7 +834,7 @@ extension TypeChecker {
     // Create pairwise subtyping constraints on the parameters.
     let lhs = skolemizedLeft.base as! CallableType
     let rhs = openedRight.shape.base as! CallableType
-    for i in 0..<lhs.inputs.count {
+    for i in 0 ..< lhs.inputs.count {
       // Ignore the passing conventions.
       guard
         let bareLHS = ParameterType(lhs.inputs[i].type)?.bareType,

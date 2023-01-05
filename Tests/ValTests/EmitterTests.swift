@@ -14,8 +14,7 @@ final class EmitterTests: XCTestCase, ValTestRunner {
     baseAST.importCoreModule()
 
     try runValTests(
-      handlingResultsWith: DefaultTestAnnotationHandler.self,
-      { (name, source) in
+      { (name, source) -> DefaultTestAnnotationHandler in
         // Create a module for the input.
         var ast = baseAST
         let module = try! ast.insert(wellFormed: ModuleDecl(name: name))
@@ -53,8 +52,8 @@ final class EmitterTests: XCTestCase, ValTestRunner {
         ]
 
         var success = true
-        for i in 0..<pipeline.count {
-          for f in 0..<irModule.functions.count {
+        for i in 0 ..< pipeline.count {
+          for f in 0 ..< irModule.functions.count {
             success = pipeline[i].run(function: f, module: &irModule) && success
             diagnostics.append(contentsOf: pipeline[i].diagnostics)
           }

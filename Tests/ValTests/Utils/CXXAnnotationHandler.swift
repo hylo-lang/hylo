@@ -4,20 +4,6 @@ import XCTest
 
 /// A handler that processes annotations in C++ transpilation tests.
 struct CXXAnnotationHandler: TestAnnotationHandler {
-
-  struct Configuration {
-
-    /// The transpiled C++ module, if any.
-    let module: CXXModule?
-
-    /// Indicates whether the test case ran through completion without any error.
-    let ranToCompletion: Bool
-
-    /// The diagnostics reported throughout compilation.
-    let diagnostics: [Diagnostic]
-
-  }
-
   /// The C++ header.
   private let cxxHeader: String
 
@@ -25,17 +11,20 @@ struct CXXAnnotationHandler: TestAnnotationHandler {
   private let cxxSource: String
 
   /// The recorded issues.
-  private var issues: [XCTIssue] = []
+  private var _issues: [XCTIssue] = []
 
   /// The default handler for generic annotations.
   private var defaultHandler: DefaultTestAnnotationHandler
 
   /// Creates an instance with the C++ module.
-  init(_ configuration: Configuration) {
-    self.cxxHeader = configuration.module?.emitHeader() ?? ""
-    self.cxxSource = configuration.module?.emitSource() ?? ""
-    self.defaultHandler = DefaultTestAnnotationHandler(
-      .init(ranToCompletion: configuration.ranToCompletion, diagnostics: configuration.diagnostics))
+  init(
+    module: CXXModule?,
+    ranToCompletion: Bool,
+    diagnostics: [Diagnostic]
+  ) {
+    self.cxxHeader = module?.emitHeader() ?? ""
+    self.cxxSource = module?.emitSource() ?? ""
+    self.defaultHandler = .init(ranToCompletion: ranToCompletion, diagnostics: diagnostics)
   }
 
   mutating func handle(_ annotation: TestAnnotation) {
@@ -59,7 +48,7 @@ struct CXXAnnotationHandler: TestAnnotationHandler {
     at location: XCTSourceCodeLocation
   ) {
     if haystack.contains(needle) { return }
-    issues.append(
+    _issues.append(
       XCTIssue(
         type: .assertionFailure,
         compactDescription: """
@@ -71,8 +60,8 @@ struct CXXAnnotationHandler: TestAnnotationHandler {
         sourceCodeContext: .init(location: location)))
   }
 
-  func finalize() -> [XCTIssue] {
-    return issues
+  func issues() -> [XCTIssue] {
+    return _issues
   }
 
 }

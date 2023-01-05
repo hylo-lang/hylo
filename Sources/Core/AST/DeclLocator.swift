@@ -261,9 +261,9 @@ extension Character {
   /// Indicates whether the character is allowed to appear in a mangled identifier.
   fileprivate var isMangledAllowed: Bool {
     guard let code = asciiValue else { return false }
-    return (0x61...0x7a).contains(code)  // a ... z
-      || (0x41...0x5a).contains(code)  // A ... Z
-      || (0x30...0x39).contains(code)  // 0 ... 9
+    return (0x61 ... 0x7a).contains(code)  // a ... z
+      || (0x41 ... 0x5a).contains(code)  // A ... Z
+      || (0x30 ... 0x39).contains(code)  // 0 ... 9
       || (0x5f == code)  // _
   }
 
