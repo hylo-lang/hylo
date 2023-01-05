@@ -5,16 +5,15 @@ import XCTest
 
 @testable import FrontEnd
 
-final class ParserTests: XCTestCase, ValTestRunner {
-
-  static var testCaseDirectoryPath: String { "TestCases/Parsing" }
+final class ParserTests: XCTestCase {
 
   func testParser() throws {
-    try runValTests(
-      { (name, source) -> DefaultTestAnnotationHandler in
+    try checkAnnotatedValFiles(
+      in: "TestCases/Parsing",
+      { (source) -> DefaultTestAnnotationHandler in
         // Create a module for the input.
         var ast = AST()
-        let module = try! ast.insert(wellFormed: ModuleDecl(name: name))
+        let module = try! ast.insert(wellFormed: ModuleDecl(name: source.baseName))
 
         // Parse the input.
         let parseResult = Parser.parse(source, into: module, in: &ast)
