@@ -1,0 +1,14 @@
+/*! h
+    class Point;
+ */
+/*! cpp
+    class Point {
+    };
+ */
+
+public type Point {
+
+  var x: Int
+  var y: Int
+
+}

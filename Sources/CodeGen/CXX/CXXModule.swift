@@ -21,6 +21,12 @@ public struct CXXModule {
   /// A table mapping val function declarations to the ID of the corresponding C++ declaration.
   private var valToCXXFunction: [FunctionDecl.Typed: Int] = [:]
 
+  /// The C++ classes declared in this module.
+  private var cxxClasses: [CXXClassDecl] = []
+
+  /// A table mapping val type declarations to the ID of the corresponding C++ class declaration.
+  private var valToCXXClass: [ProductTypeDecl.Typed: Int] = [:]
+
   public init(_ decl: ModuleDecl.Typed, for program: TypedProgram) {
     self.valDecl = decl
     self.program = program
@@ -103,6 +109,24 @@ public struct CXXModule {
     cxxFunctionBodies[cxxFunID] = body
   }
 
+  public mutating func getOrCreateClass(
+    correspondingTo decl: ProductTypeDecl.Typed
+  ) -> CXXClassDecl.ID {
+    if let cxxClassDecl = valToCXXClass[decl] { return cxxClassDecl }
+
+    assert(program.isGlobal(decl.id))
+
+    let name = CXXIdentifier(decl.identifier.value)
+
+    // Create the C++ class.
+    let cxxClassDeclID = cxxClasses.count
+    cxxClasses.append(CXXClassDecl(name: name, original: decl))
+
+    // Update the cache and return the ID of the newly created class.
+    valToCXXClass[decl] = cxxClassDeclID
+    return cxxClassDeclID
+  }
+
   // MARK: Serialization
 
   /// Emits the C++ header of the module.
@@ -120,6 +144,12 @@ public struct CXXModule {
 
     // Create a namespace for the entire module.
     output.write("namespace \(valDecl.name) {\n\n")
+
+    // Emit classes declarations.
+    for decl in cxxClasses {
+      decl.writeSignature(into: &output)
+      output.write(";\n")
+    }
 
     // Emit top-level functions.
     for decl in cxxFunctions {
@@ -143,6 +173,13 @@ public struct CXXModule {
 
     // Create a namespace for the entire module.
     output.write("namespace \(valDecl.name) {\n\n")
+
+    // Emit classes definitions
+    for decl in cxxClasses {
+      decl.writeSignature(into: &output)
+      output.write(" ")
+      decl.writeDefinition(into: &output)
+    }
 
     // Emit top-level functions.
     for (i, decl) in cxxFunctions.enumerated() {

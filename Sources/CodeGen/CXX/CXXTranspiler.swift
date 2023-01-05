@@ -30,6 +30,8 @@ public struct CXXTranspiler {
     switch decl.kind {
     case FunctionDecl.self:
       emit(function: FunctionDecl.Typed(decl)!, into: &module)
+    case ProductTypeDecl.self:
+      emit(type: ProductTypeDecl.Typed(decl)!, into: &module)
     default:
       unreachable("unexpected declaration")
     }
@@ -59,6 +61,11 @@ public struct CXXTranspiler {
   }
 
   // MARK: Declarations
+
+  /// Emits the given function declaration into `module`.
+  private mutating func emit(type decl: ProductTypeDecl.Typed, into module: inout CXXModule) {
+    let _ = module.getOrCreateClass(correspondingTo: decl)
+  }
 
   private mutating func emit(localBinding decl: BindingDecl.Typed) -> CXXRepresentable {
     let pattern = decl.pattern
