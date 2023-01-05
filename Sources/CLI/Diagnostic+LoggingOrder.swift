@@ -9,7 +9,7 @@ extension Diagnostic {
     guard let rhs = r.location else { return false }
 
     if lhs.source == rhs.source {
-      return lhs < rhs
+      return lhs.first() < rhs.first()
     } else {
       return lhs.source.url.path.lexicographicallyPrecedes(rhs.source.url.path)
     }

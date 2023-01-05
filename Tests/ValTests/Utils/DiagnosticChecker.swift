@@ -18,7 +18,7 @@ struct DiagnosticChecker {
     self.emittedDiagnostics = diagnostics.reduce(
       into: [:],
       { (ds, d) in
-        ds[d.location.map(XCTSourceCodeLocation.init(_:)), default: []].append(d)
+        ds[(d.location?.first()).map(XCTSourceCodeLocation.init(_:)), default: []].append(d)
       })
   }
 

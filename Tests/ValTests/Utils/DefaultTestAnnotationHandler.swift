@@ -18,7 +18,7 @@ struct DefaultTestAnnotationHandler: TestAnnotationHandler {
   init(ranToCompletion: Bool, diagnostics: [Diagnostic]) {
     self.testCaseRanToCompletion = ranToCompletion
     self.recordedDiagnostics = Dictionary(
-      grouping: diagnostics, by: { $0.location.map(XCTSourceCodeLocation.init(_:)) })
+      grouping: diagnostics, by: { ($0.location?.first()).map(XCTSourceCodeLocation.init(_:)) })
   }
 
   /// Handles the given annotation.

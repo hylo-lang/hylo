@@ -309,7 +309,7 @@ struct CLI: ParsableCommand {
   /// Logs `diagnostic` to the standard error.
   func log(diagnostic: Diagnostic, asChild isChild: Bool = false) {
     // Log the location, if available.
-    if let location = diagnostic.location {
+    if let location = diagnostic.location?.first() {
       let path = location.source.url.relativePath
       let (line, column) = location.lineAndColumnIndices
       write("\(path):\(line):\(column): ".styled([.bold]))
@@ -332,16 +332,16 @@ struct CLI: ParsableCommand {
     write("\n")
 
     // Log the window
-    if let window = diagnostic.window {
-      let line = window.range.source.lineContents(at: window.range.first())
+    if let site = diagnostic.location {
+      let line = site.source.lineContents(at: site.first())
       write(line)
       write("\n")
 
-      let padding = line.distance(from: line.startIndex, to: window.range.lowerBound)
+      let padding = line.distance(from: line.startIndex, to: site.lowerBound)
       write(String(repeating: " ", count: padding))
 
       let count = line.distance(
-        from: window.range.lowerBound, to: min(window.range.upperBound, line.endIndex))
+        from: site.lowerBound, to: min(site.upperBound, line.endIndex))
       if count > 1 {
         write(String(repeating: "~", count: count))
       } else {
