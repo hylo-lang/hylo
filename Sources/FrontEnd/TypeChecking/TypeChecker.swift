@@ -50,6 +50,11 @@ public struct TypeChecker {
 
   // MARK: Type system
 
+  /// Returns whether `lhs` is canonically equivalent to `rhs`.
+  public func areEquivalent(_ lhs: AnyType, _ rhs: AnyType) -> Bool {
+    canonicalize(type: lhs) == canonicalize(type: rhs)
+  }
+
   /// Returns whether `lhs` is a strict subtype of `rhs`.
   public func isStrictSubtype(_ lhs: AnyType, _ rhs: AnyType) -> Bool {
     // TODO: Implement me
