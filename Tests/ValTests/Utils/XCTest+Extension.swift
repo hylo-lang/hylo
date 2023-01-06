@@ -8,7 +8,8 @@ extension XCTIssue {
     self.init(
       type: .assertionFailure,
       compactDescription: d.message,
-      sourceCodeContext: .init(location: d.location.map(XCTSourceCodeLocation.init(_:))))
+      sourceCodeContext:
+        .init(location: (d.location?.first()).map(XCTSourceCodeLocation.init(_:))))
   }
 
 }

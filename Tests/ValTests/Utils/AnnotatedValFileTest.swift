@@ -7,7 +7,7 @@ extension Diagnostic {
   var expectation: TestAnnotation {
     return TestAnnotation(
       in: location?.source.url ?? URL(string: "nowhere://at/all")!,
-      atLine: location?.lineAndColumnIndices.line ?? 1,
+      atLine: location?.first().lineAndColumnIndices.line ?? 1,
       parsing: "diagnostic " + message
     )
   }
@@ -148,7 +148,6 @@ extension XCTestCase {
         Diagnostic(
           level: .error, message: "unexpected diagnostic: '\($0.message)'",
           location: $0.location,
-          window: $0.window,
           children: $0.children))
     }
     return testFailures
