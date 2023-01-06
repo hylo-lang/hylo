@@ -20,7 +20,7 @@ extension XCTestCase {
     ranToCompletion: Bool, testFailures: [XCTIssue], diagnostics: DiagnosticLog
   )
 
-  /// Applies `process` to each ".val" file in `sourceDirectory` and generates XCTest failures when
+  /// Applies `process` to each ".val" file in `sourceDirectory` and reports XCTest failures where
   /// the effects of processing don't match the file's diagnostic annotation commands ("diagnostic",
   /// "expect-failure", and "expect-success").
   ///
@@ -42,8 +42,8 @@ extension XCTestCase {
   }
 
   /// Applies `processAndCheck` to each ".val" file in `sourceDirectory` along with the subset of
-  /// that file's annotations whose commands match `checkedCommands`, reporting the resulting
-  /// failures along with any additional failures where the effects of processing don't match the
+  /// that file's annotations whose commands match `checkedCommands`, and reports resulting XCTest
+  /// failures, along with any additional failures where the effects of processing don't match the
   /// file's diagnostic annotation commands ("diagnostic", "expect-failure", and "expect-success").
   ///
   /// - Parameters:
