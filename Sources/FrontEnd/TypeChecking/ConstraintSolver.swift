@@ -931,7 +931,7 @@ extension TypeChecker {
 ///
 /// - Warning: For inference purposes, the result of this function must be used in place of a raw
 ///   `SubtypingConstraint` or the type checker will get stuck.
-fileprivate func inferenceConstraint(
+private func inferenceConstraint(
   _ subtype: AnyType,
   isSubtypeOf supertype: AnyType,
   because cause: ConstraintCause
