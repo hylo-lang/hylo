@@ -56,9 +56,4 @@ struct Solution {
   /// The score of the solution.
   var score: Score { Score(errorCount: diagnostics.count, penalties: penalties) }
 
-  /// Adds `d` to the list of diagnostics associated with this solution.
-  mutating func addDiagnostic(_ d: Diagnostic) {
-    diagnostics.append(d)
-  }
-
 }
