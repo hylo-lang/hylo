@@ -28,7 +28,7 @@ extension AST {
             return true
           }
         } catch let error as DiagnosedError {
-          fatalError(error.diagnostics.first!.description)
+          fatalError(String(error.diagnostics.lazy.map { "\($0)" }.joined(separator: "\n")))
         } catch let error {
           fatalError(error.localizedDescription)
         }

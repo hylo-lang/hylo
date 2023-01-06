@@ -8,16 +8,17 @@ import XCTest
 final class ParserTests: XCTestCase {
 
   func testParser() throws {
-    try checkAnnotatedValFiles(
+    try checkAnnotatedValFileDiagnostics(
       in: "TestCases/Parsing",
-      { (source) -> DefaultTestAnnotationHandler in
+      { (source, diagnostics) in
         // Create a module for the input.
         var ast = AST()
         let module = try! ast.insert(wellFormed: ModuleDecl(name: source.baseName))
 
         // Parse the input.
         let parseResult = Parser.parse(source, into: module, in: &ast)
-        return .init(ranToCompletion: !parseResult.failed, diagnostics: parseResult.diagnostics)
+        diagnostics += parseResult.diagnostics
+        if parseResult.failed { throw DiagnosedError(diagnostics) }
       })
   }
 
