@@ -20,9 +20,13 @@ extension XCTestCase {
     ranToCompletion: Bool, testFailures: [XCTIssue], diagnostics: DiagnosticLog
   )
 
-  /// Applies `process` to each ".val" file in `sourceDirectory` (a path relative to the ValTests/
-  /// directory of this project), and generates XCTest failures when the effects don't match the
-  /// file's diagnostic annotation commands ("diagnostic", "expect-failure", and "expect-success").
+  /// Applies `process` to each ".val" file in `sourceDirectory` and generates XCTest failures when
+  /// the effects of processing don't match the file's diagnostic annotation commands ("diagnostic",
+  /// "expect-failure", and "expect-success").
+  ///
+  /// - Parameter `sourceDirectory`: a path relative to the ValTests/ directory of this project.
+  /// - Parameter `process`: applies some compilation phases to `source`, updating `diagnostics`
+  ///   with any generated diagnostics. Throws an `Error` if any phases failed.
   func checkAnnotatedValFileDiagnostics(
     in sourceDirectory: String,
     _ process: (_ source: SourceFile, _ diagnostics: inout DiagnosticLog) throws -> Void
@@ -37,16 +41,23 @@ extension XCTestCase {
     )
   }
 
-  /// Applies `processAndCheck` to each ".val" file in `sourceDirectory` (a path relative to the
-  /// ValTests/ directory of this project) and all the annotations in that file matching the given
-  /// commands, adding any resulting XCTest failures to those that would be produced by
-  /// `checkAnnotatedValFileDiagnostics`.
+  /// Applies `processAndCheck` to each ".val" file in `sourceDirectory` along with the subset of
+  /// that file's annotations whose commands match `checkedCommands`, reporting the resulting
+  /// failures along with any additional failures where the effects of processing don't match the
+  /// file's diagnostic annotation commands ("diagnostic", "expect-failure", and "expect-success").
+  ///
+  /// - Parameters:
+  ///   - `sourceDirectory`: a path relative to the ValTests/ directory of this project.
+  ///   - `checkedCommands`: the annnotation commands to be validated by `processAndCheck`.
+  ///   - `processAndCheck`: applies some compilation phases to `source` along, updating
+  ///     `diagnostics` with any generated diagnostics, then checks `annotationsToCheck` against the
+  ///     results, returning corresponding test failures. Throws an `Error` if any phases failed.
   func checkAnnotatedValFiles(
     in sourceDirectory: String,
     checkingAnnotationCommands checkedCommands: Set<String> = [],
     _ processAndCheck: (
       _ source: SourceFile,
-      _ filteredCommands: ArraySlice<TestAnnotation>,
+      _ annotationsToCheck: ArraySlice<TestAnnotation>,
       _ diagnostics: inout DiagnosticLog
     ) throws -> [XCTIssue]
   ) throws {
@@ -62,6 +73,9 @@ extension XCTestCase {
 
         let source = try SourceFile(contentsOf: url)
         var annotations = TestAnnotation.parseAll(from: source)
+
+        // Separate the annotations to be checked by default diagnostic annotation checking from
+        // those to be checked by `processAndCheck`.
         let p = annotations.partition(by: { checkedCommands.contains($0.command) })
         let (diagnosticAnnotations, processingAnnotations) = (annotations[..<p], annotations[p...])
 
