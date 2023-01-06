@@ -256,8 +256,8 @@ struct ConstraintSolver {
     }
   }
 
-  /// Eliminates `L <: R` if the solver has enough information to check that `L` is subtype of `R`
-  /// or must be unified with `R`. Otherwise, postpones the constraint.
+  /// Eliminates `L <: R` or `L < R` if the solver has enough information to check that `L` is
+  /// subtype of `R` or must be unified with `R`. Otherwise, postpones the constraint.
   private mutating func solve(
     subtyping constraint: SubtypingConstraint,
     using checker: inout TypeChecker
@@ -269,15 +269,26 @@ struct ConstraintSolver {
 
     let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
 
-    // Handle trivially satisified constraints.
-    if checker.areEquivalent(goal.left, goal.right) { return }
+    // Handle cases where `L` is equal to `R`.
+    if checker.areEquivalent(goal.left, goal.right) {
+      if goal.isStrict {
+        log("- fail")
+        diagnostics.append(
+          .error(goal.left, isNotStrictSubtypeOf: goal.right, at: goal.cause.origin))
+      }
+      return
+    }
 
     switch (goal.left.base, goal.right.base) {
     case (_, _ as TypeVariable):
       // The type variable is above a more concrete type. We should compute the "join" of all types
       // to which `L` is coercible and that are below `R`, but that set is unbounded. We have no
       // choice but to postpone the constraint.
-      postpone(goal)
+      if goal.isStrict {
+        postpone(goal)
+      } else {
+        schedule(inferenceConstraint(goal.left, isSubtypeOf: goal.right, because: goal.cause))
+      }
 
     case (_ as TypeVariable, _):
       // The type variable is below a more concrete type. We should compute the "meet" of all types
@@ -285,8 +296,10 @@ struct ConstraintSolver {
       // If it isn't, we have no choice but to postpone the constraint.
       if goal.right.isLeaf {
         solve(equality: .init(constraint), using: &checker)
-      } else {
+      } else if goal.isStrict {
         postpone(goal)
+      } else {
+        schedule(inferenceConstraint(goal.left, isSubtypeOf: goal.right, because: goal.cause))
       }
 
     case (_, _ as ExistentialType):
@@ -294,8 +307,24 @@ struct ConstraintSolver {
       if goal.right == .any { return }
       fatalError("not implemented")
 
-    case (_, _ as LambdaType):
-      fatalError("not implemented")
+    case (let l as LambdaType, let r as LambdaType):
+      // Environments must be equal.
+      solve(
+        equality: EqualityConstraint(l.environment, r.environment, because: goal.cause),
+        using: &checker)
+
+      // Parameter labels must match.
+      if l.inputs.map(\.label) != r.inputs.map(\.label) {
+        log("- fail")
+        diagnostics.append(.diagnose(type: ^l, incompatibleWith: ^r, at: goal.cause.origin))
+        return
+      }
+
+      // Parameters are contravariant; return types are covariant.
+      for (a, b) in zip(l.inputs, r.inputs) {
+        schedule(SubtypingConstraint(b.type, a.type, because: goal.cause))
+      }
+      schedule(SubtypingConstraint(l.output, r.output, because: goal.cause))
 
     case (let l as SumType, _ as SumType):
       // If both types are sums, all elements in `L` must be contained in `R`.
@@ -314,13 +343,29 @@ struct ConstraintSolver {
       if goal.left[.hasVariable] || goal.right[.hasVariable] {
         postpone(goal)
       } else {
-        diagnostics.append(
-          .diagnose(type: goal.left, isNotSubtypeOf: goal.right, at: goal.cause.origin))
+        diagnoseFailureToSove(goal)
       }
 
     default:
-      diagnostics.append(
-        .diagnose(type: goal.left, isNotSubtypeOf: goal.right, at: goal.cause.origin))
+      if goal.isStrict {
+        diagnoseFailureToSove(goal)
+      } else {
+        solve(equality: EqualityConstraint(goal), using: &checker)
+      }
+    }
+  }
+
+  /// Diagnoses a failure to solve `goal`.
+  private mutating func diagnoseFailureToSove(_ goal: SubtypingConstraint) {
+    log("- fail")
+    let errorOrigin = goal.cause.origin
+    switch goal.cause.kind {
+    case .initializationWithHint:
+      diagnostics.append(.error(cannotInitialize: goal.left, with: goal.right, at: errorOrigin))
+    case .initializationWithPattern:
+      diagnostics.append(.error(goal.left, doesNotMatchPatternAt: errorOrigin))
+    default:
+      diagnostics.append(.error(goal.left, isNotSubtypeOf: goal.right, at: errorOrigin))
     }
   }
 
@@ -348,7 +393,7 @@ struct ConstraintSolver {
     case let p as ParameterType:
       // Either `L` is equal to the bare type of `R`, or it's a. Note: the equality requirement for
       // arguments passed mutably is verified after type inference.
-      schedule(inferenceConstraint(goal.left, isSubtypeOf: p.bareType, because: goal.cause))
+      schedule(SubtypingConstraint(goal.left, p.bareType, because: goal.cause))
 
     default:
       log("- fail")
@@ -417,7 +462,7 @@ struct ConstraintSolver {
     if let pick = candidates.uniqueElement {
       solve(equality: .init(pick.type, goal.memberType, because: goal.cause), using: &checker)
 
-      log("- assume \(goal.memberExpr) &> \(pick.reference)")
+      log("- assume: \"\(goal.memberExpr) &> \(pick.reference)\"")
       bindingAssumptions[goal.memberExpr] = pick.reference
       return
     }
@@ -618,7 +663,7 @@ struct ConstraintSolver {
 
   /// Schedules `constraint` to be solved in the future.
   private mutating func schedule(_ constraint: Constraint) {
-    log("- schedule \(constraint)")
+    log("- schedule: \"\(constraint)\"")
     insert(fresh: constraint)
   }
 
@@ -627,7 +672,7 @@ struct ConstraintSolver {
   ///
   /// - Requires: `constraint` must involve type variables.
   private mutating func postpone(_ constraint: Constraint) {
-    log("- postpone \(constraint)")
+    log("- postpone: \"\(constraint)\"")
     insert(stale: constraint)
   }
 
@@ -643,7 +688,7 @@ struct ConstraintSolver {
 
   /// Extends the type substution table to map `tau` to `substitute`.
   private mutating func assume(_ tau: TypeVariable, equals substitute: AnyType) {
-    log("- assume \"\(tau) = \(substitute)\"")
+    log("- assume: \"\(tau) = \(substitute)\"")
     typeAssumptions.assign(substitute, to: tau)
 
     // Refresh stale constraints.
@@ -870,9 +915,7 @@ extension TypeChecker {
       else { return false }
 
       constraints.insert(
-        inferenceConstraint(
-          bareLHS, isSubtypeOf: bareRHS,
-          because: ConstraintCause(.binding, at: nil)))
+        SubtypingConstraint(bareLHS, bareRHS, because: ConstraintCause(.binding, at: nil)))
     }
 
     // Solve the constraint system.
@@ -881,4 +924,39 @@ extension TypeChecker {
     return solver.apply(using: &self).diagnostics.isEmpty
   }
 
+}
+
+/// Creates a constraint, suitable for type inference, requiring `subtype` to be a subtype of
+/// `supertype`.
+///
+/// - Warning: For inference purposes, the result of this function must be used in place of a raw
+///   `SubtypingConstraint` or the type checker will get stuck.
+private func inferenceConstraint(
+  _ subtype: AnyType,
+  isSubtypeOf supertype: AnyType,
+  because cause: ConstraintCause
+) -> Constraint {
+  // If there aren't any type variable in neither `subtype` nor `supertype`, there's nothing to
+  // infer and we can return a regular subtyping constraints.
+  if !subtype[.hasVariable] && !supertype[.hasVariable] {
+    return SubtypingConstraint(subtype, supertype, because: cause)
+  }
+
+  // In other cases, we'll need two explorations. The first will unify `subtype` and `supertype`
+  // and the other will try to infer them from the other constraints in the system.
+  let alternative: Constraint
+  if supertype.isLeaf {
+    // If the supertype is a leaf, the subtype can only the same type or `Never`.
+    alternative = EqualityConstraint(subtype, .never, because: cause)
+  } else {
+    // Otherwise, the subtype can be any type upper-bounded by the supertype.
+    alternative = SubtypingConstraint(subtype, supertype, strictly: true, because: cause)
+  }
+
+  return DisjunctionConstraint(
+    choices: [
+      .init(constraints: [EqualityConstraint(subtype, supertype, because: cause)], penalties: 0),
+      .init(constraints: [alternative], penalties: 1),
+    ],
+    because: cause)
 }

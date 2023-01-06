@@ -19,11 +19,14 @@ public struct ConstraintCause: Hashable {
     /// The constraint is caused by a cast expression.
     case cast
 
-    /// The constraint is caused by an initialization.
-    case initialization
-
     /// The constraint is caused by an initialization or assignment.
     case initializationOrAssignment
+
+    /// The constraint is caused by a binding initialization with a type hint.
+    case initializationWithHint
+
+    /// The constraint is caused by a binding initialization with a pattern.
+    case initializationWithPattern
 
     /// The constraint is caused by the evaluation of a literal expression.
     case literal
