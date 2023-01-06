@@ -17,6 +17,11 @@ public struct SourceFile {
     self.contents = try String(contentsOf: url)
   }
 
+  /// The name of the source file, sans path qualification or extension.
+  public var baseName: String {
+    url.deletingPathExtension().lastPathComponent
+  }
+
   /// Creates a source file with the specified contents, creating a unique random URL.
   public init(contents: String) {
     self.url = URL(string: "synthesized://\(UUID().uuidString)")!

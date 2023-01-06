@@ -1,5 +1,5 @@
-import Utils
 import Core
+import Utils
 
 /// A constraint system solver.
 struct ConstraintSolver {
@@ -112,7 +112,8 @@ struct ConstraintSolver {
     using checker: inout TypeChecker
   ) {
     log("- solve: \"\(constraint)\"")
-    indentation += 1; defer { indentation -= 1 }
+    indentation += 1
+    defer { indentation -= 1 }
     log("actions:")
 
     let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
@@ -146,7 +147,8 @@ struct ConstraintSolver {
     using checker: inout TypeChecker
   ) {
     log("- solve: \"\(constraint)\"")
-    indentation += 1; defer { indentation -= 1 }
+    indentation += 1
+    defer { indentation -= 1 }
     log("actions:")
 
     let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
@@ -177,7 +179,8 @@ struct ConstraintSolver {
     using checker: inout TypeChecker
   ) {
     log("- solve: \"\(constraint)\"")
-    indentation += 1; defer { indentation -= 1 }
+    indentation += 1
+    defer { indentation -= 1 }
     log("actions:")
 
     let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
@@ -260,7 +263,8 @@ struct ConstraintSolver {
     using checker: inout TypeChecker
   ) {
     log("- solve: \"\(constraint)\"")
-    indentation += 1; defer { indentation -= 1 }
+    indentation += 1
+    defer { indentation -= 1 }
     log("actions:")
 
     let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
@@ -372,7 +376,8 @@ struct ConstraintSolver {
     using checker: inout TypeChecker
   ) {
     log("- solve: \"\(constraint)\"")
-    indentation += 1; defer { indentation -= 1 }
+    indentation += 1
+    defer { indentation -= 1 }
     log("actions:")
 
     let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
@@ -404,7 +409,8 @@ struct ConstraintSolver {
     using checker: inout TypeChecker
   ) {
     log("- solve: \"\(constraint)\"")
-    indentation += 1; defer { indentation -= 1 }
+    indentation += 1
+    defer { indentation -= 1 }
     log("actions:")
 
     let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
@@ -475,7 +481,8 @@ struct ConstraintSolver {
     using checker: inout TypeChecker
   ) {
     log("- solve: \"\(constraint)\"")
-    indentation += 1; defer { indentation -= 1 }
+    indentation += 1
+    defer { indentation -= 1 }
     log("actions:")
 
     let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
@@ -515,7 +522,8 @@ struct ConstraintSolver {
     using checker: inout TypeChecker
   ) -> Solution? {
     log("- solve: \"\(constraint)\"")
-    indentation += 1; defer { indentation -= 1 }
+    indentation += 1
+    defer { indentation -= 1 }
     log("actions:")
 
     return explore(
@@ -537,7 +545,8 @@ struct ConstraintSolver {
     using checker: inout TypeChecker
   ) -> Solution? {
     log("- solve: \"\(constraint)\"")
-    indentation += 1; defer { indentation -= 1 }
+    indentation += 1
+    defer { indentation -= 1 }
     log("actions:")
 
     return explore(
@@ -562,7 +571,8 @@ struct ConstraintSolver {
     configuringSubSolversWith configureSubSolver: (inout Self, Choices.Element) -> Void
   ) -> Solution? where Choices.Element: Choice {
     log("- fork:")
-    indentation += 1; defer { indentation -= 1 }
+    indentation += 1
+    defer { indentation -= 1 }
 
     /// The results of the exploration.
     var results: [Solution] = []
@@ -577,7 +587,8 @@ struct ConstraintSolver {
       }
 
       log("- pick: \"\(choice)\"")
-      indentation += 1; defer { indentation -= 1 }
+      indentation += 1
+      defer { indentation -= 1 }
 
       // Explore the result of this choice.
       var subSolver = self

@@ -1,5 +1,5 @@
-import XCTest
 import Core
+import XCTest
 
 @testable import FrontEnd
 

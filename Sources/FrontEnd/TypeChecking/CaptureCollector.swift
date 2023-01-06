@@ -1,5 +1,5 @@
-import Utils
 import Core
+import Utils
 
 /// An AST visitor that collects the names that occur free in a function.
 struct CaptureCollector {

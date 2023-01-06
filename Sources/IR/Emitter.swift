@@ -1,7 +1,7 @@
 import BigInt
-import Utils
 import Core
 import FrontEnd
+import Utils
 
 /// Val's IR emitter.
 ///
@@ -240,7 +240,7 @@ public struct Emitter {
               .address(name.decl.type),
               from: source,
               at: path,
-              binding: name.decl.id,
+              binding: name.decl,
               range: name.decl.origin),
             to: insertionBlock!)[0]
       }

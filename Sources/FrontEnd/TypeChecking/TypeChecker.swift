@@ -1,5 +1,5 @@
-import Utils
 import Core
+import Utils
 
 /// Val's type checker.
 public struct TypeChecker {
@@ -404,9 +404,11 @@ public struct TypeChecker {
 
       // Assign the variable declarations in the pattern to their type
       for decl in shape.decls {
-        modifying(&declTypes[decl]!, { (t) in
-          t = inference.solution.typeAssumptions.reify(t, withVariables: .substituteByError)
-        })
+        modifying(
+          &declTypes[decl]!,
+          { (t) in
+            t = inference.solution.typeAssumptions.reify(t, withVariables: .substituteByError)
+          })
         declRequests[decl] = success ? .success : .failure
       }
     } else if !hasTypeHint {
@@ -1532,8 +1534,7 @@ public struct TypeChecker {
 
     // Determine whether tracing should be enabled.
     let shouldLogTrace: Bool
-    if
-      let tracingRange = inferenceTracingRange,
+    if let tracingRange = inferenceTracingRange,
       let subjectRange = program.ast[subject].origin,
       tracingRange.contains(subjectRange.first())
     {
@@ -1953,7 +1954,8 @@ public struct TypeChecker {
       }
 
       // Determine how the declaration is being referenced.
-      let reference: DeclRef = isInMemberContext && program.isMember(match)
+      let reference: DeclRef =
+        isInMemberContext && program.isMember(match)
         ? .member(match)
         : .direct(match)
 

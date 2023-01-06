@@ -135,8 +135,7 @@ public struct AnyType: TypeProtocol {
   public func specialized(_ substitutions: [NodeID<GenericParameterDecl>: AnyType]) -> AnyType {
     func _impl(type: AnyType) -> TypeTransformAction {
       // Substitute parameters.
-      if
-        let base = GenericTypeParameterType(type),
+      if let base = GenericTypeParameterType(type),
         let decl = NodeID<GenericParameterDecl>(base.decl)
       {
         return .stepOver(substitutions[decl, default: type])

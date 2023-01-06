@@ -7,7 +7,7 @@ public struct DisjunctionConstraint: Constraint, Hashable {
 
   /// A collection of constraints in a disjunction.
   public struct Choice: Hashable {
-    
+
     /// Creates an instance having the given properties.
     public init(constraints: ConstraintSet, penalties: Int) {
       self.constraints = constraints

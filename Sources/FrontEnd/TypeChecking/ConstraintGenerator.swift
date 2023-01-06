@@ -1,5 +1,5 @@
-import Utils
 import Core
+import Utils
 
 /// A visitor that generates constraints based on the structure of the AST.
 struct ConstraintGenerator {
@@ -263,8 +263,7 @@ struct ConstraintGenerator {
     }
 
     // Case 3b
-    if
-      let c = NodeID<NameExpr>(callee),
+    if let c = NodeID<NameExpr>(callee),
       let d = checker.referredDecls[c]?.decl,
       checker.isNominalTypeDecl(d)
     {
@@ -573,8 +572,7 @@ struct ConstraintGenerator {
     }
 
     // Case 3b
-    if
-      let c = NodeID<NameExpr>(callee),
+    if let c = NodeID<NameExpr>(callee),
       let d = checker.referredDecls[c]?.decl,
       checker.isNominalTypeDecl(d)
     {
@@ -854,7 +852,8 @@ struct ConstraintGenerator {
       // Constrain the name to refer to one of the overloads.
       let nameType = expectedTypes[name] ?? ^TypeVariable(node: AnyNodeID(name))
       constraints.append(
-        OverloadConstraint(name, withType: nameType,
+        OverloadConstraint(
+          name, withType: nameType,
           refersToOneOf: overloads,
           because: ConstraintCause(.binding, at: constrainOrigin)))
       return constrain(name, toHaveType: nameType, at: constrainOrigin)

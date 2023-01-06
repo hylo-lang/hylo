@@ -1,0 +1,35 @@
+name: Check the format of the Swift code
+
+on:
+  push:
+    branches: [ main, format-check ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  check-format:
+    name: Check the format of the code Swift
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: swift-actions/setup-swift@v1
+      with:
+        swift-version: "5.7"
+    - name: Swift version 
+      run: swift --version
+
+    - name: Clone swift-format
+      uses: actions/checkout@v3
+      with:
+        repository: apple/swift-format
+        ref: "a1ebffecbfb429efed708534ec644ea015b9f4d4" # Change here the version of swift-format to use
+        path: swift-format
+    - name: Build swift-format
+      run: |
+        cd swift-format
+        swift build -c debug
+        install .build/debug/swift-format /usr/local/bin/
+      shell: bash
+
+    - uses: actions/checkout@v3
+    - name: Run swift-format on the codebase
+      run: swift-format lint --configuration .swift-format.json -s -r -p Sources Tests *.swift

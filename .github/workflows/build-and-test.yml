@@ -8,16 +8,28 @@ on:
 
 jobs:
   build:
-    name: Swift ${{ matrix.swift }} on ${{ matrix.os }}
+    name: Swift ${{ matrix.swift.version }} on ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [macos-12, ubuntu-22.04]
-        swift: ["5.7"]
+        os: [macos-12, ubuntu-22.04, windows-latest]
+        swift: [
+          { version: "5.7", branch: "swift-5.7.2-release", tag: "5.7.2-RELEASE" }
+        ]
     runs-on: ${{ matrix.os }}
     steps:
     - uses: swift-actions/setup-swift@v1
+      if: matrix.os != 'windows-latest'
       with:
-        swift-version: ${{ matrix.swift }}
+        swift-version: ${{ matrix.swift.version }}
+    - uses: compnerd/gha-setup-swift@main
+      if: matrix.os == 'windows-latest'
+      with:
+        branch: ${{ matrix.swift.branch }}
+        tag: ${{ matrix.swift.tag }}
+    - run: |
+        git config --global core.autocrlf input
+      if: matrix.os == 'windows-latest'
     - uses: actions/checkout@v3
     - name: Swift version 
       run: swift --version
