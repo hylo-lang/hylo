@@ -37,12 +37,6 @@ public struct FunctionCallConstraint: Constraint, Hashable {
     }
   }
 
-  public func depends(on variable: TypeVariable) -> Bool {
-    calleeType == variable
-      || returnType == variable
-      || parameters.contains(where: { (p) in p.type == variable })
-  }
-
 }
 
 extension FunctionCallConstraint: CustomStringConvertible {

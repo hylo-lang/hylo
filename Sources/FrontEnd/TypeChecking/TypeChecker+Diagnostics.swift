@@ -255,14 +255,6 @@ extension Diagnostic {
   }
 
   static func diagnose(
-    type l: AnyType,
-    isNotSubtypeOf r: AnyType,
-    at range: SourceRange?
-  ) -> Diagnostic {
-    .error("'\(l)' is not subtype of '\(r)'", range: range)
-  }
-
-  static func diagnose(
     noType name: Name,
     in domain: AnyType? = nil,
     at range: SourceRange?
@@ -417,6 +409,43 @@ extension Diagnostic {
     valueInSumTypeAt origin: SourceRange?
   ) -> Diagnostic {
     .error("sum types cannot contain values", range: origin)
+  }
+
+  static func error(
+    _ l: AnyType,
+    isNotSubtypeOf r: AnyType,
+    at origin: SourceRange?
+  ) -> Diagnostic {
+    .error("'\(l)' is not subtype of '\(r)'", range: origin)
+  }
+
+  static func error(
+    cannotInitialize storageType: AnyType,
+    with valueType: AnyType,
+    at origin: SourceRange?
+  ) -> Diagnostic {
+    .error(
+      "cannot initialize object of type '\(storageType)' with value of type '\(valueType)'",
+      range: origin)
+  }
+
+  static func error(
+    _ valueType: AnyType,
+    doesNotMatchPatternAt origin: SourceRange?
+  ) -> Diagnostic {
+    .error(
+      "value of type '\(valueType)' does not match binding pattern",
+      range: origin)
+  }
+
+  static func error(
+    _ subtype: AnyType,
+    isNotStrictSubtypeOf supertype: AnyType,
+    at origin: SourceRange?
+  ) -> Diagnostic {
+    .error(
+      "type '\(subtype)' is not strict subtype of '\(supertype)'",
+      range: origin)
   }
 
 }

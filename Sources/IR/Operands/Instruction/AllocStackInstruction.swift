@@ -7,11 +7,11 @@ public struct AllocStackInstruction: Instruction {
   public let allocatedType: AnyType
 
   /// The binding in source program to which the instruction corresponds, if any.
-  public let binding: NodeID<VarDecl>?
+  public let binding: VarDecl.Typed?
 
   public let range: SourceRange?
 
-  init(_ allocatedType: AnyType, binding: NodeID<VarDecl>? = nil, range: SourceRange? = nil) {
+  init(_ allocatedType: AnyType, binding: VarDecl.Typed? = nil, range: SourceRange? = nil) {
     self.allocatedType = allocatedType
     self.binding = binding
     self.range = range

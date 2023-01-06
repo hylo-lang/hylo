@@ -50,6 +50,11 @@ public struct TypeChecker {
 
   // MARK: Type system
 
+  /// Returns whether `lhs` is canonically equivalent to `rhs`.
+  public func areEquivalent(_ lhs: AnyType, _ rhs: AnyType) -> Bool {
+    canonicalize(type: lhs) == canonicalize(type: rhs)
+  }
+
   /// Returns whether `lhs` is a strict subtype of `rhs`.
   public func isStrictSubtype(_ lhs: AnyType, _ rhs: AnyType) -> Bool {
     // TODO: Implement me
@@ -94,9 +99,7 @@ public struct TypeChecker {
 
   /// Returns the canonical form of `constraint`.
   public func canonicalize(constraint: Constraint) -> Constraint {
-    var canonical = constraint
-    canonical.modifyTypes(canonicalize(type:))
-    return canonical
+    constraint.modifyingTypes(canonicalize(type:))
   }
 
   /// Returns the set of traits to which `type` conforms in `scope`.
@@ -334,13 +337,14 @@ public struct TypeChecker {
   /// - Note: Method is internal because it may be called during constraint generation.
   mutating func check(binding id: NodeID<BindingDecl>) -> Bool {
     defer { assert(declTypes[id] != nil) }
+    let syntax = program.ast[id]
 
     // Note: binding declarations do not undergo type realization.
     switch declRequests[id] {
     case nil:
       declRequests[id] = .typeCheckingStarted
     case .typeCheckingStarted:
-      diagnostics.insert(.diagnose(circularDependencyAt: program.ast[id].origin))
+      diagnostics.insert(.diagnose(circularDependencyAt: syntax.origin))
       return false
     case .success:
       return true
@@ -351,26 +355,36 @@ public struct TypeChecker {
     }
 
     let scope = program.declToScope[AnyDeclID(id)]!
-    let pattern = program.ast[id].pattern
+    let pattern = syntax.pattern
     guard var shape = infer(pattern: pattern, inScope: scope) else {
       declTypes[id] = .error
       declRequests[id] = .failure
       return false
     }
 
+    // Determine whether the declaration has a type annotation.
+    let hasTypeHint = program.ast[syntax.pattern].annotation != nil
+
     // Type check the initializer, if any.
     var success = true
-    if let initializer = program.ast[id].initializer {
+    if let initializer = syntax.initializer {
       let initializerType = exprTypes[initializer].setIfNil(^TypeVariable(node: initializer.base))
 
-      // The type of the initializer may be a subtype of the pattern's.
-      shape.constraints.append(
-        inferenceConstraint(
-          initializerType, isSubtypeOf: shape.type,
-          because: ConstraintCause(.initialization, at: program.ast[id].origin)))
+      // The type of the initializer may be a subtype of the pattern's
+      if hasTypeHint {
+        shape.constraints.append(
+          SubtypingConstraint(
+            initializerType, shape.type,
+            because: ConstraintCause(.initializationWithHint, at: syntax.origin)))
+      } else {
+        shape.constraints.append(
+          EqualityConstraint(
+            initializerType, shape.type,
+            because: ConstraintCause(.initializationWithPattern, at: syntax.origin)))
+      }
 
       // Infer the type of the initializer
-      let names = program.ast.names(in: program.ast[id].pattern).map({ (name) in
+      let names = program.ast.names(in: syntax.pattern).map({ (name) in
         AnyDeclID(program.ast[name.pattern].decl)
       })
 
@@ -385,18 +399,19 @@ public struct TypeChecker {
       // TODO: Complete underspecified generic signatures
 
       success = inference.succeeded
-      shape.type = inference.solution.reify(shape.type, withVariables: .substituteByError)
+      shape.type = inference.solution.typeAssumptions.reify(
+        shape.type, withVariables: .substituteByError)
 
       // Assign the variable declarations in the pattern to their type
       for decl in shape.decls {
         modifying(
           &declTypes[decl]!,
           { (t) in
-            t = inference.solution.reify(t, withVariables: .substituteByError)
+            t = inference.solution.typeAssumptions.reify(t, withVariables: .substituteByError)
           })
         declRequests[decl] = success ? .success : .failure
       }
-    } else if program.ast[program.ast[id].pattern].annotation == nil {
+    } else if !hasTypeHint {
       unreachable("expected type annotation")
     }
 
@@ -1068,8 +1083,8 @@ public struct TypeChecker {
     // Constrain the right to be subtype of the left.
     let rhsType = exprTypes[program.ast[id].right].setIfNil(
       ^TypeVariable(node: program.ast[id].right.base))
-    let assignmentConstraint = inferenceConstraint(
-      rhsType, isSubtypeOf: lhsType,
+    let assignmentConstraint = SubtypingConstraint(
+      rhsType, lhsType,
       because: ConstraintCause(.initializationOrAssignment, at: program.ast[id].origin))
 
     // Infer the type on the right.
@@ -1097,8 +1112,8 @@ public struct TypeChecker {
         expecting: expectedType,
         inScope: lexicalContext,
         initialConstraints: [
-          inferenceConstraint(
-            inferredReturnType, isSubtypeOf: expectedType,
+          SubtypingConstraint(
+            inferredReturnType, expectedType,
             because: ConstraintCause(.return, at: program.ast[returnValue].origin))
         ])
       return inference.succeeded
@@ -1125,8 +1140,8 @@ public struct TypeChecker {
       expecting: expectedType,
       inScope: lexicalContext,
       initialConstraints: [
-        inferenceConstraint(
-          inferredReturnType, isSubtypeOf: expectedType,
+        SubtypingConstraint(
+          inferredReturnType, expectedType,
           because: ConstraintCause(.yield, at: program.ast[program.ast[id].value].origin))
       ])
     return inference.succeeded
@@ -1541,9 +1556,13 @@ public struct TypeChecker {
       loggingTrace: shouldLogTrace)
     let solution = solver.apply(using: &self)
 
+    if shouldLogTrace {
+      print(solution)
+    }
+
     // Apply the solution.
     for (id, type) in constraintGeneration.inferredTypes.storage {
-      exprTypes[id] = solution.reify(type, withVariables: .keep)
+      exprTypes[id] = solution.typeAssumptions.reify(type, withVariables: .keep)
     }
     for (name, ref) in solution.bindingAssumptions {
       referredDecls[name] = ref

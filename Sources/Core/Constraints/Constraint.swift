@@ -13,9 +13,6 @@ public protocol Constraint {
   /// Applies `transform` on constituent types of `self`.
   mutating func modifyTypes(_ transform: (AnyType) -> AnyType)
 
-  /// Returns whether the constraint depends on the specified variable.
-  func depends(on variable: TypeVariable) -> Bool
-
   /// Hashes the salient features of `self` by feeding them into `hasher`.
   func hash(into hasher: inout Hasher)
 
@@ -46,22 +43,4 @@ extension Constraint where Self: Equatable {
     }
   }
 
-}
-
-/// Creates a constraint, suitable for type inference, requiring `subtype` to be a subtype of
-/// `supertype`.
-///
-/// - Warning: For inference purposes, the result of this function must be used in place of a raw
-///   `SubtypingConstraint` or the type checker will get stuck.
-public func inferenceConstraint(
-  _ subtype: AnyType,
-  isSubtypeOf supertype: AnyType,
-  because cause: ConstraintCause
-) -> DisjunctionConstraint {
-  DisjunctionConstraint(
-    choices: [
-      .init(constraints: [EqualityConstraint(subtype, supertype, because: cause)], penalties: 0),
-      .init(constraints: [SubtypingConstraint(subtype, supertype, because: cause)], penalties: 1),
-    ],
-    because: cause)
 }

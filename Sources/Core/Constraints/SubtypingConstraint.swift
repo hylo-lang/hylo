@@ -1,6 +1,6 @@
 import Utils
 
-/// A constraint `L <: R` specifying that `L` is a subtype of `R`.
+/// A constraint `L <: R` (or `L < R`) specifying that `L` is subtype (or strict subtype) of `R`.
 ///
 /// - Warning: should not be used directly for inference purposes or the type checker will get
 ///   stuck. Use `inferenceConstraint(_:isSubtypeOf:because:)` instead.
@@ -12,12 +12,21 @@ public struct SubtypingConstraint: Constraint, Hashable {
   /// The right operand.
   public private(set) var right: AnyType
 
+  /// Indicates whether `left` must be a strict subtype of `right`.
+  public let isStrict: Bool
+
   public let cause: ConstraintCause
 
   /// Creates an instance with the given properties.
-  public init(_ left: AnyType, _ right: AnyType, because cause: ConstraintCause) {
+  public init(
+    _ left: AnyType,
+    _ right: AnyType,
+    strictly isStrict: Bool = false,
+    because cause: ConstraintCause
+  ) {
     self.left = left
     self.right = right
+    self.isStrict = isStrict
     self.cause = cause
   }
 
@@ -26,14 +35,12 @@ public struct SubtypingConstraint: Constraint, Hashable {
     modify(&right, with: transform)
   }
 
-  public func depends(on variable: TypeVariable) -> Bool {
-    (left == variable) || (right == variable)
-  }
-
 }
 
 extension SubtypingConstraint: CustomStringConvertible {
 
-  public var description: String { "\(left) <: \(right)" }
+  public var description: String {
+    isStrict ? "\(left) < \(right)" : "\(left) <: \(right)"
+  }
 
 }

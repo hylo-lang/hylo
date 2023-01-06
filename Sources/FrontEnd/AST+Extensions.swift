@@ -28,7 +28,7 @@ extension AST {
             return true
           }
         } catch let error as DiagnosedError {
-          fatalError(error.diagnostics.first!.description)
+          fatalError("\(list: error.diagnostics, joinedBy: "\n")")
         } catch let error {
           fatalError(error.localizedDescription)
         }

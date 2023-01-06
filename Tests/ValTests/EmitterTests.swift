@@ -11,25 +11,26 @@ final class EmitterTests: XCTestCase {
     var baseAST = AST()
     baseAST.importCoreModule()
 
-    try checkAnnotatedValFiles(
+    try checkAnnotatedValFileDiagnostics(
       in: "TestCases/Lowering",
-      { (source) -> DefaultTestAnnotationHandler in
+      { (source, diagnostics) in
         // Create a module for the input.
         var ast = baseAST
         let module = try! ast.insert(wellFormed: ModuleDecl(name: source.baseName))
 
         // Parse the input.
         let parseResult = Parser.parse(source, into: module, in: &ast)
-        var diagnostics = parseResult.diagnostics
+        diagnostics += parseResult.diagnostics
         if parseResult.failed {
-          return .init(ranToCompletion: false, diagnostics: diagnostics)
+          throw DiagnosedError(diagnostics)
         }
 
         // Run the type checker.
         var checker = TypeChecker(program: ScopedProgram(ast: ast))
-        diagnostics.append(contentsOf: checker.diagnostics)
-        if !checker.check(module: module) {
-          return .init(ranToCompletion: false, diagnostics: diagnostics)
+        let wellTyped = checker.check(module: module)
+        diagnostics += checker.diagnostics
+        if !wellTyped {
+          throw DiagnosedError(diagnostics)
         }
 
         let typedProgram = TypedProgram(
@@ -54,12 +55,10 @@ final class EmitterTests: XCTestCase {
         for i in 0 ..< pipeline.count {
           for f in 0 ..< irModule.functions.count {
             success = pipeline[i].run(function: f, module: &irModule) && success
-            diagnostics.append(contentsOf: pipeline[i].diagnostics)
+            diagnostics += pipeline[i].diagnostics
           }
-          if !success { break }
+          if !success { throw DiagnosedError(diagnostics) }
         }
-
-        return .init(ranToCompletion: success, diagnostics: diagnostics)
       })
   }
 

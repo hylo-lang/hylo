@@ -8,4 +8,8 @@ public fun main() {
   // Special cases.
   let _ : Sum      //! diagnostic empty sum type is better expressed as 'Never'
   let _ : Sum<Int> //! diagnostic sum types should contain at least 2 elements
+
+  // Initialization with subtype.
+  let _ : Sum<Int, Bool> = true
+  let _ : Sum<Int, Bool> = 0 as Int
 }

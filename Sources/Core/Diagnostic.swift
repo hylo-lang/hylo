@@ -81,3 +81,7 @@ extension Diagnostic: CustomStringConvertible {
   }
 
 }
+
+// This should perhaps be a first-class type someday.
+/// A record of diagnostics produced by processing one or more Val files.
+public typealias DiagnosticLog = [Diagnostic]

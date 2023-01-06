@@ -43,7 +43,7 @@ import XCTest
 ///
 /// The command of the annotation is `cpp` and the argument is a C++ struct declaration with no
 /// indentation on the first and last line, and two spaces before the field declaration..
-struct TestAnnotation {
+struct TestAnnotation: Hashable {
 
   /// The line location of this annotation.
   let location: XCTSourceCodeLocation
@@ -198,4 +198,10 @@ struct TestAnnotation {
     return annotations
   }
 
+  /// Returns a test failure with the given message, at the expected line of this annotation.
+  func failure(_ message: String) -> XCTIssue {
+    XCTIssue(
+      type: .assertionFailure, compactDescription: message,
+      sourceCodeContext: .init(location: location))
+  }
 }
