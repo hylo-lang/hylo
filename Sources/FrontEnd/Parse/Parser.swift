@@ -24,7 +24,7 @@ public enum Parser {
   public struct SourceParseResult {
 
     /// The identitiy of the parsed source, or `nil` if the parsed failed to parse one.
-    public let source: NodeID<TopLevelDeclSet>?
+    private let source: NodeID<TopLevelDeclSet>?
 
     /// The diagnostics reported during parsing.
     public let diagnostics: [Diagnostic]

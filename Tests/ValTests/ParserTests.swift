@@ -36,7 +36,7 @@ final class ParserTests: XCTestCase {
     let module = try program.insert(wellFormed: ModuleDecl(name: "Main"))
 
     let parseResult = Parser.parse(input, into: module, in: &program)
-    XCTAssertNotNil(parseResult.source)
+    XCTAssertFalse(parseResult.failed)
     XCTAssertEqual(parseResult.diagnostics.count, 0)
   }
 
