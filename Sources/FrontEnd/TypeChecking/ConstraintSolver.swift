@@ -526,9 +526,8 @@ struct ConstraintSolver {
     defer { indentation -= 1 }
     log("actions:")
 
-    return explore(
+    let solutions = explore(
       constraint.choices,
-      cause: constraint.cause,
       using: &checker,
       configuringSubSolversWith: { (solver, choice) in
         solver.penalties += choice.penalties
@@ -536,6 +535,16 @@ struct ConstraintSolver {
           solver.insert(fresh: c)
         }
       })
+
+    if let pick = solutions.uniqueElement {
+      return pick
+    } else if solutions.isEmpty {
+      return nil
+    }
+
+    return formAmbiguousSolution(
+      solutions,
+      cause: .diagnose(ambiguousDisjunctionAt: constraint.cause.origin))
   }
 
   /// Attempts to solve the remaining constraints with each individual choice in `overload` and
@@ -549,9 +558,8 @@ struct ConstraintSolver {
     defer { indentation -= 1 }
     log("actions:")
 
-    return explore(
+    let solutions = explore(
       constraint.choices,
-      cause: constraint.cause,
       using: &checker,
       configuringSubSolversWith: { (solver, choice) in
         solver.penalties += choice.penalties
@@ -560,16 +568,24 @@ struct ConstraintSolver {
           solver.insert(fresh: c)
         }
       })
+
+    if let pick = solutions.uniqueElement {
+      return pick
+    } else if solutions.isEmpty {
+      return nil
+    }
+
+    return formAmbiguousSolution(
+      solutions,
+      cause: .diagnose(ambiguousUse: constraint.overloadedExpr, in: checker.program.ast))
   }
 
-  /// Solves the remaining constraint with each given choice and returns the best solution along
-  /// with the choice that produced it.
+  /// Solves the remaining constraint with each given choice and returns the best solutions.
   private mutating func explore<Choices: Collection>(
     _ choices: Choices,
-    cause: ConstraintCause?,
     using checker: inout TypeChecker,
     configuringSubSolversWith configureSubSolver: (inout Self, Choices.Element) -> Void
-  ) -> Solution? where Choices.Element: Choice {
+  ) -> [Solution] where Choices.Element: Choice {
     log("- fork:")
     indentation += 1
     defer { indentation -= 1 }
@@ -599,18 +615,7 @@ struct ConstraintSolver {
       insert(newSolution, into: &results, using: &checker)
     }
 
-    switch results.count {
-    case 0:
-      return nil
-
-    case 1:
-      return results[0]
-
-    default:
-      // TODO: Merge remaining solutions
-      results[0].addDiagnostic(.diagnose(ambiguousDisjunctionAt: cause?.origin))
-      return results[0]
-    }
+    return results
   }
 
   /// Inserts `newSolution` into `solutions` if its solution is better than or incomparable to any
@@ -727,6 +732,28 @@ struct ConstraintSolver {
       bindingAssumptions: bindingAssumptions,
       penalties: penalties,
       diagnostics: diagnostics + stale.map(Diagnostic.diagnose(staleConstraint:)))
+  }
+
+  /// Creates an ambiguous solution.
+  private func formAmbiguousSolution(_ solutions: [Solution], cause: Diagnostic) -> Solution {
+    var types = solutions[0].typeAssumptions
+    var bindings = solutions[0].bindingAssumptions
+    var penalties = solutions[0].score.penalties
+    var diagnostics = Set(solutions[0].diagnostics)
+    diagnostics.insert(cause)
+
+    for i in 1 ..< solutions.count {
+      types.formIntersection(solutions[i].typeAssumptions)
+      bindings.formIntersection(solutions[i].bindingAssumptions)
+      penalties = max(penalties, solutions[i].score.penalties)
+      diagnostics.formUnion(solutions[i].diagnostics)
+    }
+
+    return Solution(
+      typeAssumptions: types,
+      bindingAssumptions: bindings,
+      penalties: penalties,
+      diagnostics: Array(diagnostics))
   }
 
   /// Returns `true` if `lhs` is structurally compatible with `rhs`. Otherwise, generates the
