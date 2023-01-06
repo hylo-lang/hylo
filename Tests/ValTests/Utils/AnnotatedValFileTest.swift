@@ -142,9 +142,9 @@ extension XCTestCase {
         fail(a, "unexpected test command: '\(a.command)'")
       }
     }
-
-    for (e, d) in diagnosticsByExpectation {
-      fail(e, "unexpected diagnostic: '\(d)'")
+    testFailures += diagnosticsByExpectation.values.lazy.map {
+      XCTIssue(
+        Diagnostic.error("unexpected diagnostic", range: $0.window?.range, children: [$0]))
     }
     return testFailures
   }

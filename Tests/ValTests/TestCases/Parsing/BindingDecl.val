@@ -8,7 +8,7 @@ public let x3: Int
 
 static let x4: Int    //! diagnostic unexpected member modifier 'static'
 
-let x5                //! diagnostic missing type annotation
+let x5
 
 var x6: Int           //! diagnostic global binding must be introduced by 'let'
 
