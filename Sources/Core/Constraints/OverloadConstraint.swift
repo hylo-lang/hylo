@@ -82,10 +82,6 @@ public struct OverloadConstraint: Constraint, Hashable {
     }
   }
 
-  public func depends(on variable: TypeVariable) -> Bool {
-    overloadedExprType == variable
-  }
-
 }
 
 extension OverloadConstraint: CustomStringConvertible {

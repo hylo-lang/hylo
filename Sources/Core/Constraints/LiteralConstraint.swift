@@ -35,10 +35,6 @@ public struct LiteralConstraint: Constraint, Hashable {
     modify(&defaultSubject, with: transform)
   }
 
-  public func depends(on variable: TypeVariable) -> Bool {
-    subject == variable
-  }
-
 }
 
 extension LiteralConstraint: CustomStringConvertible {

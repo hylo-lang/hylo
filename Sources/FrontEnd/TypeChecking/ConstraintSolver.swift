@@ -190,14 +190,10 @@ struct ConstraintSolver {
 
     switch (goal.left.base, goal.right.base) {
     case (let tau as TypeVariable, _):
-      log("- assume \"\(tau) = \(goal.right)\"")
-      typeAssumptions.assign(goal.right, to: tau)
-      refresh(constraintsDependingOn: tau)
+      assume(tau, equals: goal.right)
 
     case (_, let tau as TypeVariable):
-      log("- assume \"\(tau) = \(goal.left)\"")
-      typeAssumptions.assign(goal.left, to: tau)
-      refresh(constraintsDependingOn: tau)
+      assume(tau, equals: goal.left)
 
     case (let l as TupleType, let r as TupleType):
       // Make sure `L` and `R` are structurally compatible.
@@ -590,10 +586,10 @@ struct ConstraintSolver {
     }
 
     // Slow path: inspect how the solution compares with the ones we have.
-    let lhs = newSolution.reify(comparator, withVariables: .substituteByError)
+    let lhs = newSolution.typeAssumptions.reify(comparator, withVariables: .substituteByError)
     var i = 0
     while i < solutions.count {
-      let rhs = solutions[i].reify(comparator, withVariables: .substituteByError)
+      let rhs = solutions[i].typeAssumptions.reify(comparator, withVariables: .substituteByError)
       if checker.areEquivalent(lhs, rhs) {
         // Check if the new solution binds name expressions to more specialized declarations.
         switch checker.compareSolutionBindings(newSolution, solutions[0], scope: scope) {
@@ -645,12 +641,24 @@ struct ConstraintSolver {
     stale.append(constraint)
   }
 
-  /// Moves the stale constraints depending on the specified variables back to the fresh set.
-  private mutating func refresh(constraintsDependingOn variable: TypeVariable) {
+  /// Extends the type substution table to map `tau` to `substitute`.
+  private mutating func assume(_ tau: TypeVariable, equals substitute: AnyType) {
+    log("- assume \"\(tau) = \(substitute)\"")
+    typeAssumptions.assign(substitute, to: tau)
+
+    // Refresh stale constraints.
     for i in (0 ..< stale.count).reversed() {
-      if stale[i].depends(on: variable) {
+      var changed = false
+      let updated = stale[i].modifyingTypes({ (type) in
+        let u = typeAssumptions.reify(type, withVariables: .keep)
+        changed = changed || (type != u)
+        return u
+      })
+
+      if changed {
         log("- refresh \(stale[i])")
-        fresh.append(stale.remove(at: i))
+        stale.remove(at: i)
+        fresh.append(updated)
       }
     }
   }
@@ -670,7 +678,7 @@ struct ConstraintSolver {
   private func finalize() -> Solution {
     assert(fresh.isEmpty)
     return Solution(
-      typeAssumptions: typeAssumptions.asDictionary(),
+      typeAssumptions: typeAssumptions.optimized(),
       bindingAssumptions: bindingAssumptions,
       penalties: penalties,
       diagnostics: diagnostics + stale.map(Diagnostic.diagnose(staleConstraint:)))

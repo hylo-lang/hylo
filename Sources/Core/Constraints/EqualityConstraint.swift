@@ -32,10 +32,6 @@ public struct EqualityConstraint: Constraint, Hashable {
     modify(&right, with: transform)
   }
 
-  public func depends(on variable: TypeVariable) -> Bool {
-    (left == variable) || (right == variable)
-  }
-
 }
 
 extension EqualityConstraint: CustomStringConvertible {
