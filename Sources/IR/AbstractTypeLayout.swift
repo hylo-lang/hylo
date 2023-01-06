@@ -52,12 +52,12 @@ extension TypedProgram {
 
     switch type.base {
     case let type as ProductType:
-      for m in ast[type.decl].members where m.kind == BindingDecl.self {
-        let binding = NodeID<BindingDecl>(rawValue: m.rawValue)
-        for (_, name) in ast.names(in: ast[binding].pattern) {
-          let decl = ast[name].decl
-          indices[ast[decl].name] = types.count
-          types.append(declTypes[decl] ?? .error)
+      let decl = self[type.decl]
+      for m in decl.members where m.kind == BindingDecl.self {
+        let binding = BindingDecl.Typed(m)!
+        for (_, name) in binding.pattern.names {
+          indices[name.decl.name] = types.count
+          types.append(name.decl.type)
         }
       }
 

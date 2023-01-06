@@ -85,7 +85,8 @@ public struct CXXModule {
       CXXFunctionDecl(
         identifier: identifier,
         output: output,
-        parameters: cxxParams))
+        parameters: cxxParams,
+        original: valFunctionDecl))
     // Associate an empty body to it.
     cxxFunctionBodies.append(nil)
 

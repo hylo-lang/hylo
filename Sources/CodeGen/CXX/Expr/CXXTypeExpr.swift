@@ -7,6 +7,9 @@ public struct CXXTypeExpr: CustomStringConvertible {
   /// The textual represention of the type expression.
   public let description: String
 
+  /// The original type in Val AST.
+  let original: AnyType?
+
   /// Creates the C++ expression corresponding to `type`, reading relevant information from `ast`,
   /// or returns `nil` if `type` cannot be expressed in C++.
   ///
@@ -15,6 +18,7 @@ public struct CXXTypeExpr: CustomStringConvertible {
   ///     of a function declaration. Otherwise, creates an expression suitable to appear as a local
   ///     variable type annotation.
   public init?(_ type: AnyType, ast: AST, asReturnType isReturnType: Bool = false) {
+    self.original = type
     switch type.base {
     case AnyType.void:
       description = isReturnType ? "void" : "std::monostate"
@@ -40,6 +44,7 @@ public struct CXXTypeExpr: CustomStringConvertible {
   /// Creates a C++ type expression from its textual representation.
   public init(_ description: String) {
     self.description = description
+    self.original = nil
   }
 
 }

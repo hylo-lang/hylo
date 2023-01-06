@@ -4,11 +4,9 @@
  */
 /*! cpp
     int factorial(int n) {
-    // expr
+    return n < 2 ? 1 : n * factorial(n - 1);
     }
-    int main() {
-    (void) // expr (rvalue)
-    }
+
  */
 fun factorial(_ n: Int) -> Int {
   if n < 2 { 1 } else { n * factorial(n - 1) }
