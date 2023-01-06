@@ -7,10 +7,10 @@ import IR
 import Utils
 import ValModule
 
-struct CLI: ParsableCommand {
+private struct CLI: ParsableCommand {
 
   /// The type of the output files to generate.
-  enum OutputType: ExpressibleByArgument {
+  private enum OutputType: ExpressibleByArgument {
 
     /// AST before type-checking.
     case rawAST
@@ -40,52 +40,52 @@ struct CLI: ParsableCommand {
 
   }
 
-  static let configuration = CommandConfiguration(commandName: "valc")
+  fileprivate static let configuration = CommandConfiguration(commandName: "valc")
 
   @Flag(
     name: [.customLong("modules")],
     help: "Compile inputs as separate modules.")
-  var compileInputAsModules: Bool = false
+  private var compileInputAsModules: Bool = false
 
   @Flag(
     name: [.customLong("import-builtin")],
     help: "Import the built-in module.")
-  var importBuiltinModule: Bool = false
+  private var importBuiltinModule: Bool = false
 
   @Flag(
     name: [.customLong("no-std")],
     help: "Do not include the standard library.")
-  var noStandardLibrary: Bool = false
+  private var noStandardLibrary: Bool = false
 
   @Flag(
     name: [.customLong("typecheck")],
     help: "Type-check the input file(s).")
-  var typeCheckOnly: Bool = false
+  private var typeCheckOnly: Bool = false
 
   @Option(
     name: [.customLong("trace-inference")],
     help: "Enable tracing of type inference requests at the given line.")
-  var inferenceTracingRange: SourceRange?
+  private var inferenceTracingRange: SourceRange?
 
   @Option(
     name: [.customLong("emit")],
     help: "Emit the specified type output files.")
-  var outputType: OutputType = .binary
+  private var outputType: OutputType = .binary
 
   @Option(
     name: [.customShort("o")],
     help: "Write output to <o>.",
     transform: URL.init(fileURLWithPath:))
-  var outputURL: URL?
+  private var outputURL: URL?
 
   @Flag(
     name: [.short, .long],
     help: "Use verbose output.")
-  var verbose: Bool = false
+  private var verbose: Bool = false
 
   @Argument(
     transform: URL.init(fileURLWithPath:))
-  var inputs: [URL]
+  private var inputs: [URL]
 
   private var noteLabel: String { "note: ".styled([.bold, .cyan]) }
 
@@ -98,7 +98,7 @@ struct CLI: ParsableCommand {
     URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
   }
 
-  mutating func run() throws {
+  fileprivate mutating func run() throws {
     /// The name of the product being built.
     let productName = "main"
     /// The AST of the program being compiled.
@@ -263,7 +263,7 @@ struct CLI: ParsableCommand {
   }
 
   /// Parses the contents of the file at `fileURL` and insert them into `ast[module]`.
-  func insert(
+  private func insert(
     contentsOf fileURL: URL,
     into module: NodeID<ModuleDecl>,
     in ast: inout AST
@@ -295,19 +295,19 @@ struct CLI: ParsableCommand {
   /// Creates a module from the contents at `url` and adds it to the AST.
   ///
   /// - Requires: `url` must denote a directly.
-  func addModule(url: URL) {
+  private func addModule(url: URL) {
     fatalError("not implemented")
   }
 
   /// Logs the contents of `diagnostics` tot he standard error.
-  func log<S: Sequence>(diagnostics: S) where S.Element == Diagnostic {
+  private func log<S: Sequence>(diagnostics: S) where S.Element == Diagnostic {
     for d in diagnostics.sorted(by: Diagnostic.isLoggedBefore) {
       log(diagnostic: d)
     }
   }
 
   /// Logs `diagnostic` to the standard error.
-  func log(diagnostic: Diagnostic, asChild isChild: Bool = false) {
+  private func log(diagnostic: Diagnostic, asChild isChild: Bool = false) {
     // Log the location, if available.
     if let location = diagnostic.location?.first() {
       let path = location.source.url.relativePath
@@ -357,25 +357,25 @@ struct CLI: ParsableCommand {
   }
 
   /// Logs `message` to the standard error file if `--verbose` is set.
-  func log(verbose message: @autoclosure () -> String, terminator: String = "\n") {
+  private func log(verbose message: @autoclosure () -> String, terminator: String = "\n") {
     if !verbose { return }
     write(message())
     write(terminator)
   }
 
   /// Logs `message` to the standard error file.
-  func log(_ message: String, terminator: String = "\n") {
+  private func log(_ message: String, terminator: String = "\n") {
     write(message)
     write(terminator)
   }
 
   /// Writes `text` to the standard error file.
-  func write<S: StringProtocol>(_ text: S) {
+  private func write<S: StringProtocol>(_ text: S) {
     FileHandle.standardError.write(Data(text.utf8))
   }
 
   /// Returns the path of the specified executable.
-  mutating func find(_ executable: String) -> String {
+  mutating private func find(_ executable: String) -> String {
     // Nothing to do if `executable` is a path
     if executable.contains("/") {
       return executable
@@ -409,7 +409,7 @@ struct CLI: ParsableCommand {
 
   /// Executes the program at `path` with the specified arguments in a subprocess.
   @discardableResult
-  func runCommandLine(_ programPath: String, _ arguments: [String] = []) throws -> String? {
+  private func runCommandLine(_ programPath: String, _ arguments: [String] = []) throws -> String? {
     log(verbose: ([programPath] + arguments).joined(separator: " "))
 
     let pipe = Pipe()
