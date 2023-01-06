@@ -20,7 +20,7 @@ public struct TypeChecker {
   public private(set) var implicitCaptures = DeclProperty<[ImplicitCapture]>()
 
   /// A map from name expression to its referred declaration.
-  public internal(set) var referredDecls: [NodeID<NameExpr>: DeclRef] = [:]
+  public internal(set) var referredDecls: BindingMap = [:]
 
   /// A map from sequence expressions to their evaluation order.
   public internal(set) var foldedSequenceExprs: [NodeID<SequenceExpr>: FoldedSequenceExpr] = [:]

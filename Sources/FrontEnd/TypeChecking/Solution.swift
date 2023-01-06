@@ -27,7 +27,7 @@ struct Solution {
   let typeAssumptions: SubstitutionMap
 
   /// The name binding assumptions made by the solver.
-  let bindingAssumptions: [NodeID<NameExpr>: DeclRef]
+  let bindingAssumptions: BindingMap
 
   /// The penalties of the solution.
   private var penalties: Int
