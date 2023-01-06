@@ -148,7 +148,6 @@ extension XCTestCase {
         Diagnostic(
           level: .error, message: "unexpected diagnostic: '\($0.message)'",
           location: $0.location,
-          window: $0.window,
           children: $0.children))
     }
     return testFailures
