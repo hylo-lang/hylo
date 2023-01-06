@@ -49,9 +49,9 @@ extension XCTestCase {
   /// - Parameters:
   ///   - `sourceDirectory`: a path relative to the ValTests/ directory of this project.
   ///   - `checkedCommands`: the annnotation commands to be validated by `processAndCheck`.
-  ///   - `processAndCheck`: applies some compilation phases to `source` along, updating
-  ///     `diagnostics` with any generated diagnostics, then checks `annotationsToCheck` against the
-  ///     results, returning corresponding test failures. Throws an `Error` if any phases failed.
+  ///   - `processAndCheck`: applies some compilation phases to `source`, updating `diagnostics`
+  ///     with any generated diagnostics, then checks `annotationsToCheck` against the results,
+  ///     returning corresponding test failures. Throws an `Error` if any phases failed.
   func checkAnnotatedValFiles(
     in sourceDirectory: String,
     checkingAnnotationCommands checkedCommands: Set<String> = [],
