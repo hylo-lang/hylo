@@ -642,6 +642,7 @@ struct ConstraintSolver {
     }
 
     // Slow path: inspect how the solution compares with the ones we have.
+    var shouldInsert = false
     let lhs = newResult.solution.typeAssumptions.reify(
       comparator,
       withVariables: .substituteByError)
@@ -654,30 +655,38 @@ struct ConstraintSolver {
 
       if checker.areEquivalent(lhs, rhs) {
         // Check if the new solution binds name expressions to more specialized declarations.
-        switch checker.compareSolutionBindings(
+        let comparison = checker.compareSolutionBindings(
           newResult.solution, bestResults[0].solution, scope: scope)
-        {
-        case .comparable(.coarser), .comparable(.equal):
-          // Note: If the new solution is coarser than the current one, then all other current
-          // solutions are either finer or equal to the new one.
+        switch comparison {
+        case .comparable(.equal):
+          // The new solution is equal; discard it.
           return
-
-        case .comparable(.finer):
-          bestResults.remove(at: i)
-
-        case .incomparable:
+        case .comparable(.coarser):
+          // The new solution is coarser; discard it unless it's better than another one.
           i += 1
+        case .comparable(.finer):
+          // The new solution is finer; keep it and discard the old one.
+          bestResults.remove(at: i)
+          shouldInsert = true
+        case .incomparable:
+          // The new solution is incomparable; keep it.
+          i += 1
+          shouldInsert = true
         }
       } else if checker.isStrictSubtype(lhs, rhs) {
-        // The new solution is finer; discard the current one.
+        // The new solution is finer; keep it and discard the old one.
         bestResults.remove(at: i)
+        shouldInsert = true
       } else {
-        // The new solution is incomparable; keep the current one.
+        // The new solution is incomparable; keep it.
         i += 1
+        shouldInsert = true
       }
     }
 
-    bestResults.append(newResult)
+    if shouldInsert {
+      bestResults.append(newResult)
+    }
   }
 
   /// Schedules `constraint` to be solved in the future.
