@@ -580,7 +580,10 @@ struct ConstraintSolver {
 
     return formAmbiguousSolution(
       results,
-      cause: .diagnose(ambiguousUse: constraint.overloadedExpr, in: checker.program.ast))
+      cause: .error(
+        ambiguousUse: constraint.overloadedExpr,
+        in: checker.program.ast,
+        candidates: results.map(\.choice.reference.decl)))
   }
 
   /// Solves the remaining constraint with each given choice and returns the best solutions.
