@@ -1,5 +1,5 @@
-import Utils
 import Core
+import Utils
 
 /// A module lowered to Val IR.
 ///
@@ -216,7 +216,8 @@ public struct Module {
     insert(
       newInstruction,
       with: { (m, i) in
-        let address = m
+        let address =
+          m
           .functions[insertionPoint.function].blocks[insertionPoint.block].instructions
           .insert(newInstruction, at: insertionPoint.index)
         return InstructionID(insertionPoint.function, insertionPoint.block, address)

@@ -1,5 +1,5 @@
 /// A string suitable as a C++ identifier.
-public struct CXXIdentifier: CustomStringConvertible {
+public struct CXXIdentifier: CXXRepresentable, CustomStringConvertible {
 
   /// The value of the identifier.
   public let description: String
@@ -29,5 +29,9 @@ public struct CXXIdentifier: CustomStringConvertible {
     "try", "typedef", "union", "unsigned",
     "virtual", "void", "volatile", "while",
   ])
+
+  public func writeCode<Target: TextOutputStream>(into target: inout Target) {
+    target.write(description)
+  }
 
 }

@@ -2,21 +2,19 @@ import Core
 import FrontEnd
 import XCTest
 
-final class TypeCheckerTests: XCTestCase, ValTestRunner {
-
-  static var testCaseDirectoryPath: String { "TestCases/TypeChecking" }
+final class TypeCheckerTests: XCTestCase {
 
   func testTypeChecker() throws {
     // Prepare an AST with the core module loaded.
     var baseAST = AST()
     baseAST.importCoreModule()
 
-    try runValTests(
-      handlingResultsWith: DefaultTestAnnotationHandler.self,
-      { (name, source) in
+    try checkAnnotatedValFiles(
+      in: "TestCases/TypeChecking",
+      { (source) -> DefaultTestAnnotationHandler in
         // Create a module for the input.
         var ast = baseAST
-        let module = try! ast.insert(wellFormed: ModuleDecl(name: name))
+        let module = try! ast.insert(wellFormed: ModuleDecl(name: source.baseName))
 
         // Parse the input.
         let parseResult = Parser.parse(source, into: module, in: &ast)

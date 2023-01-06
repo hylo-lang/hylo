@@ -1,3 +1,5 @@
+import Core
+
 /// A C++ function declaration.
 public struct CXXFunctionDecl {
 
@@ -15,6 +17,9 @@ public struct CXXFunctionDecl {
 
   /// The parameters of the function.
   public let parameters: [Parameter]
+
+  /// The original node in Val AST.
+  let original: FunctionDecl.Typed
 
   /// Writes the signature of the function into `target`.
   public func writeSignature<Target: TextOutputStream>(into target: inout Target) {

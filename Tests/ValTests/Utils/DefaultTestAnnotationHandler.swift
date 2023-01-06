@@ -5,16 +5,6 @@ import XCTest
 /// An object that processes the test annotations of a Val test.
 struct DefaultTestAnnotationHandler: TestAnnotationHandler {
 
-  struct Configuration {
-
-    /// Indicates whether the test case ran through completion without any error.
-    let ranToCompletion: Bool
-
-    /// The diagnostics reported throughout compilation.
-    let diagnostics: [Diagnostic]
-
-  }
-
   /// Indicates whether the test case ran through completion without any error.
   private let testCaseRanToCompletion: Bool
 
@@ -22,16 +12,13 @@ struct DefaultTestAnnotationHandler: TestAnnotationHandler {
   private var recordedDiagnostics: [XCTSourceCodeLocation?: [Diagnostic]]
 
   /// The recorded issues.
-  private var issues: [XCTIssue] = []
+  private var _issues: [XCTIssue] = []
 
   /// Creates a new instance with the given information about the test case.
-  init(_ configuration: Configuration) {
-    self.testCaseRanToCompletion = configuration.ranToCompletion
-    self.recordedDiagnostics = configuration.diagnostics.reduce(
-      into: [:],
-      { (ds, d) in
-        ds[d.location.map(XCTSourceCodeLocation.init(_:)), default: []].append(d)
-      })
+  init(ranToCompletion: Bool, diagnostics: [Diagnostic]) {
+    self.testCaseRanToCompletion = ranToCompletion
+    self.recordedDiagnostics = Dictionary(
+      grouping: diagnostics, by: { $0.location.map(XCTSourceCodeLocation.init(_:)) })
   }
 
   /// Handles the given annotation.
@@ -57,7 +44,7 @@ struct DefaultTestAnnotationHandler: TestAnnotationHandler {
           expected.remove(at: i)
         } else {
           let message = annotation.argument ?? "_"
-          issues.append(
+          _issues.append(
             XCTIssue(
               type: .assertionFailure,
               compactDescription: "missing diagnostic: \(message)",
@@ -69,7 +56,7 @@ struct DefaultTestAnnotationHandler: TestAnnotationHandler {
   /// Handles `expect-failure`.
   private mutating func handle(expectFailure annotation: TestAnnotation) {
     if !testCaseRanToCompletion { return }
-    issues.append(
+    _issues.append(
       XCTIssue(
         type: .assertionFailure,
         compactDescription: "type checking succeeded, but expected failure",
@@ -79,7 +66,7 @@ struct DefaultTestAnnotationHandler: TestAnnotationHandler {
   /// Handles `expect-success`.
   private mutating func handle(expectSuccess annotation: TestAnnotation) {
     if testCaseRanToCompletion { return }
-    issues.append(
+    _issues.append(
       XCTIssue(
         type: .assertionFailure,
         compactDescription: "type checking failed, but expected success",
@@ -88,16 +75,15 @@ struct DefaultTestAnnotationHandler: TestAnnotationHandler {
 
   /// Handles an unexpected test annotation.
   private mutating func handle(unexpected annotation: TestAnnotation) {
-    issues.append(
+    _issues.append(
       XCTIssue(
         type: .assertionFailure,
         compactDescription: "unexpected test command: '\(annotation.command)'",
         sourceCodeContext: .init(location: annotation.location)))
   }
 
-  /// Finalizes this instance and returns issues it recorded.
-  func finalize() -> [XCTIssue] {
-    var allIssues = issues
+  func issues() -> [XCTIssue] {
+    var allIssues = _issues
     for d in recordedDiagnostics.values {
       allIssues.append(contentsOf: d.map(XCTIssue.init(_:)))
     }

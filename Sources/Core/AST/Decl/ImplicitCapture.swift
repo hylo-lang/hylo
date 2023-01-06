@@ -6,7 +6,6 @@ public struct ImplicitCapture {
     self.type = type
     self.decl = decl
   }
-  
 
   /// The name of the capture.
   public let name: Name
