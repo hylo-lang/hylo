@@ -191,8 +191,17 @@ struct ConstraintGenerator {
     switch checker.program.ast[id].failure {
     case .expr(let elseExpr):
       expectedTypes[elseExpr] = inferredType
-      _ = visit(expr: elseExpr, using: &checker)
-      return constrain(id, toHaveType: inferredType!, at: checker.program.ast[id].origin)
+      let elseType = visit(expr: elseExpr, using: &checker)
+
+      if let t = inferredType {
+        constraints.append(
+          EqualityConstraint(
+            t, elseType,
+            because: ConstraintCause(.branchMerge, at: checker.program.ast[id].origin)))
+        return constrain(id, toHaveType: t, at: checker.program.ast[id].origin)
+      } else {
+        return constrain(id, toHaveType: AnyType.void, at: checker.program.ast[id].origin)
+      }
 
     case .block(let thenBlock):
       if !checker.check(brace: thenBlock) { foundConflict = true }
