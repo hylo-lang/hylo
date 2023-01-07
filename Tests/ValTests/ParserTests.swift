@@ -308,15 +308,6 @@ final class ParserTests: XCTestCase {
     XCTAssertNotNil(decl.whereClause)
   }
 
-  // func testAssociatedValueDeclWithWhereClauseSansHint() throws {
-  //   let input = SourceFile(contents: "value foo where foo > bar")
-  //   let (declID, ast) = try input.parseWithDeclPrologue(
-  //     inContext: .traitBody,
-  //     with: Parser.parseAssociatedValueDecl)
-  //   let decl = try XCTUnwrap(ast[declID])
-  //   XCTAssertNotNil(decl.whereClause)
-  // }
-
   func testAssociatedValueDeclWithDefault() throws {
     let input = SourceFile(contents: "value foo = 42")
     let (declID, ast) = try input.parseWithDeclPrologue(
