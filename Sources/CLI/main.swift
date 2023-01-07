@@ -284,7 +284,7 @@ struct CLI: ParsableCommand {
       // Parse the file.
       let parseResult = Parser.parse(sourceFile, into: module, in: &ast)
       log(diagnostics: parseResult.diagnostics)
-      return parseResult.source != nil
+      return !parseResult.failed
 
     default:
       log("ignoring file with unsupported extension: \(fileURL.relativePath)")
