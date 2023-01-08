@@ -21,11 +21,9 @@ public struct AST: Codable {
   /// The ID of the node representing all built-in declarations.
   public var builtinDecl: NodeID<BuiltinDecl> { NodeID(rawValue: 0) }
 
-  /// Inserts `n` into `self`.
-  public mutating func insert<T: Node>(wellFormed n: T) throws -> NodeID<T> {
-    if case .failure(let error) = n.validateForm(in: self) {
-      throw DiagnosedError(error)
-    }
+  /// Inserts `n` into `self`, updating `diagnostics` if it is ill-formed.
+  public mutating func insert<T: Node>(_ n: T, diagnostics: inout Diagnostics) -> NodeID<T> {
+    n.validateForm(in: self, into: &diagnostics)
 
     let i = NodeID<T>(rawValue: nodes.count)
     if let n = n as? ModuleDecl {
@@ -35,6 +33,15 @@ public struct AST: Codable {
     nodes.append(AnyNode(n))
     return i
   }
+
+  /*
+  public mutating func insert<T: Node>(wellFormed n: T) throws -> NodeID<T> {
+    var d = Diagnostics()
+    let r = insert(n, diagnostics: &d)
+    try d.throwOnError()
+    return r
+  }
+   */
 
   // MARK: Node access
 
@@ -69,11 +76,13 @@ public struct AST: Codable {
   }
 
   /// Modifies the node at `position`.
-  mutating func modify<T: Node>(at position: NodeID<T>, _ transform: (T) -> T) throws {
+  mutating func modify<T: Node>(at position: NodeID<T>, _ transform: (T) -> T) {
     let newNode = transform(self[position])
-    if case .failure(let error) = newNode.validateForm(in: self) {
-      throw DiagnosedError(error)
-    }
+
+    var diagnostics = Diagnostics()
+    newNode.validateForm(in: self, into: &diagnostics)
+    assert(!diagnostics.errorReported)
+
     nodes[position.rawValue] = AnyNode(newNode)
   }
 

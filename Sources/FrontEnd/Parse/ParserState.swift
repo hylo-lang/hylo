@@ -43,16 +43,17 @@ struct ParserState {
   private var lookahead = Deque<Token>()
 
   /// The diagnostics of the parse errors and warnings.
-  var diagnostics: [Diagnostic] = []
+  var diagnostics: Diagnostics
 
   /// A stack describing the parsing context.
   var contexts: [Context] = []
 
   /// Creates a new context, using `lexer` to generate tokens.
-  init(ast: AST, lexer: Lexer) {
+  init(ast: AST, lexer: Lexer, diagnostics: Diagnostics? = nil) {
     self.ast = ast
     self.lexer = lexer
     self.currentIndex = lexer.source.contents.startIndex
+    self.diagnostics = diagnostics ?? Diagnostics()
   }
 
   /// Indicates whether the parser is at global scope.
@@ -256,7 +257,8 @@ struct ParserState {
     if let element = try parse(&self) {
       return element
     } else {
-      throw DiagnosedError(.diagnose(expected: expectedConstruct, at: currentLocation))
+      diagnostics.report(.diagnose(expected: expectedConstruct, at: currentLocation))
+      throw diagnostics
     }
   }
 
@@ -274,6 +276,9 @@ struct ParserState {
     while take(if: predicate) != nil {}
   }
 
+  mutating func insert<T: Node>(_ n: T) -> NodeID<T> {
+    ast.insert(n, diagnostics: &diagnostics)
+  }
 }
 
 extension ParserState: Restorable {
