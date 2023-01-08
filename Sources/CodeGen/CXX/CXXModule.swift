@@ -24,9 +24,6 @@ public struct CXXModule {
   /// The C++ classes declared in this module.
   private var cxxClasses: [CXXClassDecl] = []
 
-  /// A table mapping val type declarations to the ID of the corresponding C++ class declaration.
-  private var valToCXXClass: [ProductTypeDecl.Typed: Int] = [:]
-
   public init(_ decl: ModuleDecl.Typed, for program: TypedProgram) {
     self.valDecl = decl
     self.program = program
@@ -109,72 +106,8 @@ public struct CXXModule {
     cxxFunctionBodies[cxxFunID] = body
   }
 
-  public mutating func getOrCreateClass(
-    correspondingTo decl: ProductTypeDecl.Typed
-  ) -> CXXClassDecl.ID {
-    if let cxxClassDecl = valToCXXClass[decl] { return cxxClassDecl }
-
-    assert(program.isGlobal(decl.id))
-
-    let name = CXXIdentifier(decl.identifier.value)
-
-    // Transpile the class membmers.
-    var cxxMembers: [CXXClassDecl.ClassMember] = []
-    for member in decl.members {
-      switch member.kind {
-      case BindingDecl.self:
-        let bindingDecl = BindingDecl.Typed(member)!
-        // Check if the attribute is static or not.
-        var isStatic = false
-        if bindingDecl.memberModifier != nil {
-          switch bindingDecl.memberModifier!.value {
-          case .static:
-            isStatic = true
-          }
-        }
-        // TODO: visit initializer (bindingDecl.initializer)
-        let cxxInitializer: CXXRepresentable? = nil
-        // TODO: pattern introducer (let, var, sink, inout)
-        // Visit the name patterns.
-        for (_, name) in bindingDecl.pattern.subpattern.names {
-          let varDecl = name.decl
-          let cxxAttribute = CXXClassAttribute(
-            type: CXXTypeExpr(varDecl.type, ast: program.ast)!,
-            name: CXXIdentifier(varDecl.name),
-            initializer: cxxInitializer,
-            isStatic: isStatic,
-            original: varDecl)
-          cxxMembers.append(.attribute(cxxAttribute))
-        }
-
-      case InitializerDecl.self:
-        let initialzerDecl = InitializerDecl.Typed(member)!
-        switch initialzerDecl.introducer.value {
-        case .`init`:
-          // TODO: emit constructor
-          cxxMembers.append(.constructor)
-          break
-        case .memberwiseInit:
-          // TODO: emit constructor
-          cxxMembers.append(.constructor)
-          break
-        }
-
-      case MethodDecl.self:
-        cxxMembers.append(.method)
-
-      default:
-        unreachable("unexpected class member")
-      }
-    }
-
-    // Create the C++ class.
-    let cxxClassDeclID = cxxClasses.count
-    cxxClasses.append(CXXClassDecl(name: name, members: cxxMembers, original: decl))
-
-    // Update the cache and return the ID of the newly created class.
-    valToCXXClass[decl] = cxxClassDeclID
-    return cxxClassDeclID
+  public mutating func addClass(_ classDecl: CXXClassDecl) {
+    cxxClasses.append(classDecl)
   }
 
   // MARK: Serialization

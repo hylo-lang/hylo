@@ -64,7 +64,62 @@ public struct CXXTranspiler {
 
   /// Emits the given function declaration into `module`.
   private mutating func emit(type decl: ProductTypeDecl.Typed, into module: inout CXXModule) {
-    let _ = module.getOrCreateClass(correspondingTo: decl)
+    assert(program.isGlobal(decl.id))
+
+    let name = CXXIdentifier(decl.identifier.value)
+
+    // Transpile the class membmers.
+    var cxxMembers: [CXXClassDecl.ClassMember] = []
+    for member in decl.members {
+      switch member.kind {
+      case BindingDecl.self:
+        let bindingDecl = BindingDecl.Typed(member)!
+        // Check if the attribute is static or not.
+        var isStatic = false
+        if bindingDecl.memberModifier != nil {
+          switch bindingDecl.memberModifier!.value {
+          case .static:
+            isStatic = true
+          }
+        }
+        // TODO: visit initializer (bindingDecl.initializer)
+        let cxxInitializer: CXXRepresentable? = nil
+        // TODO: pattern introducer (let, var, sink, inout)
+        // Visit the name patterns.
+        for (_, name) in bindingDecl.pattern.subpattern.names {
+          let varDecl = name.decl
+          let cxxAttribute = CXXClassAttribute(
+            type: CXXTypeExpr(varDecl.type, ast: program.ast)!,
+            name: CXXIdentifier(varDecl.name),
+            initializer: cxxInitializer,
+            isStatic: isStatic,
+            original: varDecl)
+          cxxMembers.append(.attribute(cxxAttribute))
+        }
+
+      case InitializerDecl.self:
+        let initialzerDecl = InitializerDecl.Typed(member)!
+        switch initialzerDecl.introducer.value {
+        case .`init`:
+          // TODO: emit constructor
+          cxxMembers.append(.constructor)
+          break
+        case .memberwiseInit:
+          // TODO: emit constructor
+          cxxMembers.append(.constructor)
+          break
+        }
+
+      case MethodDecl.self:
+        cxxMembers.append(.method)
+
+      default:
+        unreachable("unexpected class member")
+      }
+    }
+
+    // Create the C++ class.
+    module.addClass(CXXClassDecl(name: name, members: cxxMembers, original: decl))
   }
 
   private mutating func emit(localBinding decl: BindingDecl.Typed) -> CXXRepresentable {
