@@ -17,7 +17,7 @@ final class ParserTests: XCTestCase {
 
         // Parse the input.
         let parseResult = Parser.parse(source, into: module, in: &ast)
-        diagnostics += parseResult.diagnostics
+        diagnostics.report(parseResult.diagnostics)
         if parseResult.failed { throw DiagnosedError(diagnostics) }
       })
   }

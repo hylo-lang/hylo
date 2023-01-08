@@ -18,16 +18,16 @@ final class TypeCheckerTests: XCTestCase {
 
         // Parse the input.
         let parseResult = Parser.parse(source, into: module, in: &ast)
-        diagnostics += parseResult.diagnostics
+        diagnostics.report(parseResult.diagnostics)
         if parseResult.failed {
           throw DiagnosedError(diagnostics)
         }
 
         // Run the type checker.
         var checker = TypeChecker(program: ScopedProgram(ast: ast))
-        diagnostics += checker.diagnostics
+        diagnostics.report(checker.diagnostics)
         let wellTyped = checker.check(module: module)
-        diagnostics += checker.diagnostics
+        diagnostics.report(checker.diagnostics)
         if !wellTyped {
           throw DiagnosedError(diagnostics)
         }

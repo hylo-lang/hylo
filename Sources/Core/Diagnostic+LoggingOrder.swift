@@ -1,10 +1,7 @@
-import Core
-import FrontEnd
-
 extension Diagnostic {
 
   /// Returns whether `l` should be logged before `r`.
-  static func isLoggedBefore(_ l: Diagnostic, _ r: Diagnostic) -> Bool {
+  public static func isLoggedBefore(_ l: Diagnostic, _ r: Diagnostic) -> Bool {
     guard let lhs = l.location else { return true }
     guard let rhs = r.location else { return false }
 

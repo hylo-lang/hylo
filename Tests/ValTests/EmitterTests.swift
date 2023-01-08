@@ -20,7 +20,7 @@ final class EmitterTests: XCTestCase {
 
         // Parse the input.
         let parseResult = Parser.parse(source, into: module, in: &ast)
-        diagnostics += parseResult.diagnostics
+        diagnostics.report(parseResult.diagnostics)
         if parseResult.failed {
           throw DiagnosedError(diagnostics)
         }
@@ -28,7 +28,7 @@ final class EmitterTests: XCTestCase {
         // Run the type checker.
         var checker = TypeChecker(program: ScopedProgram(ast: ast))
         let wellTyped = checker.check(module: module)
-        diagnostics += checker.diagnostics
+        diagnostics.report(checker.diagnostics)
         if !wellTyped {
           throw DiagnosedError(diagnostics)
         }
@@ -55,7 +55,7 @@ final class EmitterTests: XCTestCase {
         for i in 0 ..< pipeline.count {
           for f in 0 ..< irModule.functions.count {
             success = pipeline[i].run(function: f, module: &irModule) && success
-            diagnostics += pipeline[i].diagnostics
+            diagnostics.report(pipeline[i].diagnostics)
           }
           if !success { throw DiagnosedError(diagnostics) }
         }

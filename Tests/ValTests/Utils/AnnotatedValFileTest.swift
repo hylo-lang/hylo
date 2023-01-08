@@ -17,7 +17,7 @@ extension XCTestCase {
 
   /// The effects of running the `processAndCheck` parameter to `checkAnnotatedValFiles`.
   fileprivate typealias ProcessingEffects = (
-    ranToCompletion: Bool, testFailures: [XCTIssue], diagnostics: DiagnosticLog
+    ranToCompletion: Bool, testFailures: [XCTIssue], diagnostics: Diagnostics
   )
 
   /// Applies `process` to each ".val" file in `sourceDirectory` and reports XCTest failures where
@@ -29,7 +29,7 @@ extension XCTestCase {
   ///   with any generated diagnostics. Throws an `Error` if any phases failed.
   func checkAnnotatedValFileDiagnostics(
     in sourceDirectory: String,
-    _ process: (_ source: SourceFile, _ diagnostics: inout DiagnosticLog) throws -> Void
+    _ process: (_ source: SourceFile, _ diagnostics: inout Diagnostics) throws -> Void
   ) throws {
     try checkAnnotatedValFiles(
       in: sourceDirectory, checkingAnnotationCommands: [],
@@ -58,7 +58,7 @@ extension XCTestCase {
     _ processAndCheck: (
       _ source: SourceFile,
       _ annotationsToCheck: ArraySlice<TestAnnotation>,
-      _ diagnostics: inout DiagnosticLog
+      _ diagnostics: inout Diagnostics
     ) throws -> [XCTIssue]
   ) throws {
     let testCaseDirectory = try XCTUnwrap(
@@ -79,7 +79,7 @@ extension XCTestCase {
         let p = annotations.partition(by: { checkedCommands.contains($0.command) })
         let (diagnosticAnnotations, processingAnnotations) = (annotations[..<p], annotations[p...])
 
-        var diagnostics = DiagnosticLog()
+        var diagnostics = Diagnostics()
         let failures = XCTContext.runActivity(
           named: source.baseName,
           block: { activity in
@@ -116,7 +116,7 @@ extension XCTestCase {
     // the same expectation.  We can adjust the code to deal with that if it comes up.
     var diagnosticsByExpectation = Dictionary(
       uniqueKeysWithValues:
-        zip(processing.diagnostics.lazy.map(\.expectation), processing.diagnostics))
+        zip(processing.diagnostics.log.lazy.map(\.expectation), processing.diagnostics.log))
 
     func fail(_ expectation: TestAnnotation, _ message: String) {
       testFailures.append(expectation.failure(message))

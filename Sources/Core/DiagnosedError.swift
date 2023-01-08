@@ -17,4 +17,11 @@ public struct DiagnosedError: Error {
     self.diagnostics = ds
   }
 
+  /// Creates a new instance with the given diagnostics.
+  ///
+  /// - Requires: `ds` is not empty.
+  public init(_ ds: Diagnostics) {
+    self.diagnostics = Array(ds.log)
+  }
+
 }
