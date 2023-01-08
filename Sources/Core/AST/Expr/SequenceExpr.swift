@@ -32,21 +32,17 @@ public struct SequenceExpr: Expr {
     self.tail = tail
   }
 
-  public func validateForm(in ast: AST) -> SuccessOrDiagnostics {
-    var report: [Diagnostic] = []
-
+  public func validateForm(in ast: AST, into diagnostics: inout Diagnostics) {
     for element in tail {
       // Operator notation must be `nil` or `.infix`.
       if let notation = ast[element.operator].name.value.notation, notation != .infix {
-        report.append(
+        diagnostics.report(
           .diagnose(
             invalidOperatorNotation: notation,
             expected: .infix,
             at: ast[element.operator].name.origin))
       }
     }
-
-    return report.isEmpty ? .success : .failure(report)
   }
 
 }

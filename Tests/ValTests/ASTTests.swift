@@ -6,25 +6,29 @@ final class ASTTests: XCTestCase {
 
   func testAppendModule() throws {
     var ast = AST()
-    let i = try ast.insert(wellFormed: ModuleDecl(name: "Val"))
+    var diagnostics = Diagnostics()
+    let i = ast.insert(ModuleDecl(name: "Val"), diagnostics: &diagnostics)
     XCTAssert(ast.modules.contains(i))
+    XCTAssert(diagnostics.log.isEmpty)
+    let j = ast.insert(synthesized: ModuleDecl(name: "Val1"))
+    XCTAssert(ast.modules.contains(j))
   }
 
   func testDeclAccess() throws {
     var ast = AST()
 
     // Create a module declarations.
-    let module = try ast.insert(wellFormed: ModuleDecl(name: "Val"))
+    let module = ast.insert(synthesized: ModuleDecl(name: "Val"))
 
     // Create a trait declaration.
-    let decl = try ast.insert(
-      wellFormed: ImportDecl(
+    let decl = ast.insert(
+      synthesized: ImportDecl(
         introducerRange: nil,
         identifier: SourceRepresentable(value: "T"),
         origin: nil))
 
     // Create a source declaration set.
-    let source = try ast.insert(wellFormed: TopLevelDeclSet(decls: [AnyDeclID(decl)]))
+    let source = ast.insert(synthesized: TopLevelDeclSet(decls: [AnyDeclID(decl)]))
     ast[module].addSourceFile(source)
 
     // Subscript the AST for reading with a type-erased ID.
@@ -35,13 +39,13 @@ final class ASTTests: XCTestCase {
     var ast = AST()
 
     // Create a module.
-    let module = try ast.insert(wellFormed: ModuleDecl(name: "Val"))
-    let source = try ast.insert(
-      wellFormed: TopLevelDeclSet(
+    let module = ast.insert(synthesized: ModuleDecl(name: "Val"))
+    let source = ast.insert(
+      synthesized: TopLevelDeclSet(
         decls: [
           AnyDeclID(
             ast.insert(
-              wellFormed: FunctionDecl(
+              synthesized: FunctionDecl(
                 introducerRange: nil,
                 identifier: SourceRepresentable(value: "foo"),
                 origin: nil)))

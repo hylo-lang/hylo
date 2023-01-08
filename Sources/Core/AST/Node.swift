@@ -4,15 +4,14 @@ public protocol Node: Codable {
   /// The source range from which `self` was parsed, if any.
   var origin: SourceRange? { get }
 
-  /// Returns `.success` if `self` is well-formed given the containing `ast`. Otherwise, returns
-  /// `.failure` with the diagnostics of the broken invariants.
-  func validateForm(in ast: AST) -> SuccessOrDiagnostics
+  /// Reports any well-formedness violations of `self` into `diagnostics`.
+  func validateForm(in ast: AST, into diagnostics: inout Diagnostics)
 
 }
 
 extension Node {
 
-  public func validateForm(in ast: AST) -> SuccessOrDiagnostics { .success }
+  public func validateForm(in ast: AST, into diagnostics: inout Diagnostics) {}
 
   /// A unique identifier denoting the type of this node.
   static var kind: NodeKind { NodeKind(Self.self) }

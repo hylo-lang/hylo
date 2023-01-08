@@ -119,6 +119,21 @@ public struct Diagnostics {
   public mutating func report<B: Collection<Diagnostic>>(_ batch: B) {
     for d in batch { report(d) }
   }
+
+  /// Throws `self` if any errors were reported.
+  public func throwOnError() throws {
+    if errorReported { throw self }
+  }
+
+  public init(_ d: Diagnostic) {
+    self = Diagnostics()
+    report(d)
+  }
+
+  public init<B: Collection<Diagnostic>>(_ batch: B, reportingToStderr: Bool = false) {
+    self = .init(reportingToStderr: reportingToStderr)
+    report(batch)
+  }
 }
 
 extension Diagnostics: CustomStringConvertible {
@@ -127,4 +142,15 @@ extension Diagnostics: CustomStringConvertible {
     "\(list: log.sorted(by: Diagnostic.isLoggedBefore), joinedBy: "\n")"
   }
 
+}
+
+extension Diagnostics: Error {
+  var localizedDescription: String { description }
+}
+
+public func throwError(_ d: Diagnostic) throws -> Never {
+  precondition(d.level == .error)
+  var e = Diagnostics()
+  e.report(d)
+  throw e
 }

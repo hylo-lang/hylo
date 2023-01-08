@@ -113,16 +113,20 @@ private struct CLI: ParsableCommand {
     log(verbose: "Parsing '\(productName)'".styled([.bold]))
 
     // Merge all inputs into the same same module.
-    let moduleDecl = try! ast.insert(wellFormed: ModuleDecl(name: productName))
+    let moduleDecl = ast.insert(synthesized: ModuleDecl(name: productName))
     for input in inputs {
       if input.hasDirectoryPath {
-        if !withFiles(in: input, { insert(contentsOf: $0, into: moduleDecl, in: &ast) }) {
+        if try !withFiles(
+          in: input,
+          {
+            try insert(contentsOf: $0, into: moduleDecl, in: &ast)
+            return true
+          }
+        ) {
           CLI.exit(withError: ExitCode(-1))
         }
       } else {
-        if !insert(contentsOf: input, into: moduleDecl, in: &ast) {
-          CLI.exit(withError: ExitCode(-1))
-        }
+        try insert(contentsOf: input, into: moduleDecl, in: &ast)
       }
     }
 
@@ -267,7 +271,7 @@ private struct CLI: ParsableCommand {
     contentsOf fileURL: URL,
     into module: NodeID<ModuleDecl>,
     in ast: inout AST
-  ) -> Bool {
+  ) throws {
     switch fileURL.pathExtension {
     case "val":
       log(verbose: fileURL.relativePath)
@@ -278,17 +282,15 @@ private struct CLI: ParsableCommand {
         sourceFile = try SourceFile(contentsOf: fileURL)
       } catch let error {
         log(errorLabel + error.localizedDescription)
-        return false
+        return
       }
 
       // Parse the file.
-      let parseResult = Parser.parse(sourceFile, into: module, in: &ast)
-      log(diagnostics: parseResult.diagnostics)
-      return !parseResult.failed
+      var diagnostics = Diagnostics(reportingToStderr: true)
+      _ = try Parser.parse(sourceFile, into: module, in: &ast, diagnostics: &diagnostics)
 
     default:
       log("ignoring file with unsupported extension: \(fileURL.relativePath)")
-      return true
     }
   }
 

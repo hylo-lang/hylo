@@ -32,13 +32,10 @@ public struct NamespaceDecl: SingleEntityDecl, LexicalScope {
 
   public var name: String { identifier.value }
 
-  public func validateForm(in ast: AST) -> SuccessOrDiagnostics {
-    let ds: [Diagnostic] = members.reduce(
-      into: [],
-      { (ds, member) in
-        ds.append(contentsOf: ast.validateGlobalScopeMember(member, atTopLevel: false).diagnostics)
-      })
-    return ds.isEmpty ? .success : .failure(ds)
+  public func validateForm(in ast: AST, into diagnostics: inout Diagnostics) {
+    for m in members {
+      ast.validateGlobalScopeMember(m, into: &diagnostics, atTopLevel: false)
+    }
   }
 
 }

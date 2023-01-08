@@ -55,6 +55,7 @@ extension XCTestCase {
   func checkAnnotatedValFiles(
     in sourceDirectory: String,
     checkingAnnotationCommands checkedCommands: Set<String> = [],
+
     _ processAndCheck: (
       _ source: SourceFile,
       _ annotationsToCheck: ArraySlice<TestAnnotation>,

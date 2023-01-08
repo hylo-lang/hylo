@@ -18,23 +18,16 @@ final class CXXTests: XCTestCase {
       { (source, cxxAnnotations, diagnostics) in
         // Create a module for the input.
         var ast = baseAST
-        let module = try! ast.insert(wellFormed: ModuleDecl(name: source.baseName))
+        let module = ast.insert(synthesized: ModuleDecl(name: source.baseName))
 
         // Parse the input.
-        let parseResult = Parser.parse(source, into: module, in: &ast)
-        diagnostics.report(parseResult.diagnostics)
-        if parseResult.failed {
-          throw DiagnosedError(diagnostics)
-        }
+        _ = try Parser.parse(source, into: module, in: &ast, diagnostics: &diagnostics)
 
         // Run the type checker.
         var checker = TypeChecker(program: ScopedProgram(ast: ast))
+        _ = checker.check(module: module)
         diagnostics.report(checker.diagnostics)
-        let wellTyped = checker.check(module: module)
-        diagnostics.report(checker.diagnostics)
-        if !wellTyped {
-          throw DiagnosedError(diagnostics)
-        }
+        try diagnostics.throwOnError()
 
         let typedProgram = TypedProgram(
           annotating: checker.program,
