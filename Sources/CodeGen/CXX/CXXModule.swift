@@ -12,14 +12,7 @@ public struct CXXModule {
   public let program: TypedProgram
 
   /// The C++ functions declared in `self`.
-  public private(set) var cxxFunctions: [CXXFunctionDecl] = []
-
-  /// The C++ function bodied for this module.
-  /// The size of this array is equal to the size of `cxxFunctions` array
-  public private(set) var cxxFunctionBodies: [CXXRepresentable?] = []
-
-  /// A table mapping val function declarations to the ID of the corresponding C++ declaration.
-  private var valToCXXFunction: [FunctionDecl.Typed: Int] = [:]
+  private var cxxFunctions: [CXXFunctionDecl] = []
 
   /// The C++ classes declared in this module.
   private var cxxClasses: [CXXClassDecl] = []
@@ -29,83 +22,12 @@ public struct CXXModule {
     self.program = program
   }
 
-  /// Returns the ID of the C++ function declaration corresponding to `valFunctionDecl`.
-  ///
-  /// - Requires: `valFunctionDecl` must be declared in `self.decl`.
-  public mutating func getOrCreateFunction(
-    correspondingTo valFunctionDecl: FunctionDecl.Typed
-  ) -> CXXFunctionDecl.ID {
-    if let cxxFunctionDecl = valToCXXFunction[valFunctionDecl] { return cxxFunctionDecl }
-
-    assert(program.isGlobal(valFunctionDecl.id))
-
-    /// The identifier of the function.
-    let identifier = CXXIdentifier(valFunctionDecl.identifier?.value ?? "")
-
-    // Determine the output type of the function.
-    let output: CXXTypeExpr
-    if identifier.description == "main" {
-      // The output type of `main` must be `int`.
-      output = CXXTypeExpr("int")
-    } else {
-      switch valFunctionDecl.type.base {
-      case let valDeclType as LambdaType:
-        output = CXXTypeExpr(valDeclType.output, ast: program.ast, asReturnType: true)!
-
-      case is MethodType:
-        fatalError("not implemented")
-
-      default:
-        unreachable()
-      }
-    }
-
-    // Determine the parameter types of the function.
-    let paramTypes: [CallableTypeParameter]
-    switch valFunctionDecl.type.base {
-    case let valDeclType as LambdaType:
-      paramTypes = valDeclType.inputs
-
-    case is MethodType:
-      fatalError("not implemented")
-
-    default:
-      unreachable()
-    }
-
-    // Determine the parameters of the function.
-    assert(paramTypes.count == valFunctionDecl.parameters.count)
-    var cxxParams: [CXXFunctionDecl.Parameter] = []
-    for (i, param) in valFunctionDecl.parameters.enumerated() {
-      let name = CXXIdentifier(param.name)
-      let type = CXXTypeExpr(paramTypes[i].type, ast: program.ast)
-      cxxParams.append(CXXFunctionDecl.Parameter(name, type!))
-    }
-
-    // Create the C++ function.
-    let cxxFunctionDecl = cxxFunctions.count
-    cxxFunctions.append(
-      CXXFunctionDecl(
-        identifier: identifier,
-        output: output,
-        parameters: cxxParams,
-        original: valFunctionDecl))
-    // Associate an empty body to it.
-    cxxFunctionBodies.append(nil)
-
-    // Update the cache and return the ID of the newly created function.
-    valToCXXFunction[valFunctionDecl] = cxxFunctionDecl
-    return cxxFunctionDecl
+  /// Add a function to this module.
+  public mutating func addFunction(_ functionDecl: CXXFunctionDecl) {
+    cxxFunctions.append(functionDecl)
   }
 
-  /// Set the body for the function with the given ID.
-  public mutating func setFunctionBody(
-    _ body: CXXRepresentable?,
-    forID cxxFunID: CXXFunctionDecl.ID
-  ) {
-    cxxFunctionBodies[cxxFunID] = body
-  }
-
+  /// Add a class to this module.
   public mutating func addClass(_ classDecl: CXXClassDecl) {
     cxxClasses.append(classDecl)
   }
@@ -165,11 +87,11 @@ public struct CXXModule {
     }
 
     // Emit top-level functions.
-    for (i, decl) in cxxFunctions.enumerated() {
-      if let body = cxxFunctionBodies[i] {
-        decl.writeSignature(into: &output)
-        output.write(" ")
-        body.writeCode(into: &output)
+    for decl in cxxFunctions {
+      decl.writeSignature(into: &output)
+      output.write(" ")
+      if decl.body != nil {
+        decl.body!.writeCode(into: &output)
       }
     }
 

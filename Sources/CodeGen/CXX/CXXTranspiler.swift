@@ -39,13 +39,65 @@ public struct CXXTranspiler {
 
   /// Emits the given function declaration into `module`.
   public mutating func emit(function decl: FunctionDecl.Typed, into module: inout CXXModule) {
-    // Declare the function in the module if necessary.
-    let id = module.getOrCreateFunction(correspondingTo: decl)
+    assert(program.isGlobal(decl.id))
 
-    // If we have a body for our function, emit it.
-    if let body = decl.body {
-      module.setFunctionBody(emit(funBody: body), forID: id)
+    /// The identifier of the function.
+    let identifier = CXXIdentifier(decl.identifier?.value ?? "")
+
+    // Determine the output type of the function.
+    let output: CXXTypeExpr
+    if identifier.description == "main" {
+      // The output type of `main` must be `int`.
+      output = CXXTypeExpr("int")
+    } else {
+      switch decl.type.base {
+      case let valDeclType as LambdaType:
+        output = CXXTypeExpr(valDeclType.output, ast: program.ast, asReturnType: true)!
+
+      case is MethodType:
+        fatalError("not implemented")
+
+      default:
+        unreachable()
+      }
     }
+
+    // Determine the parameter types of the function.
+    let paramTypes: [CallableTypeParameter]
+    switch decl.type.base {
+    case let valDeclType as LambdaType:
+      paramTypes = valDeclType.inputs
+
+    case is MethodType:
+      fatalError("not implemented")
+
+    default:
+      unreachable()
+    }
+
+    // Determine the parameters of the function.
+    assert(paramTypes.count == decl.parameters.count)
+    var cxxParams: [CXXFunctionDecl.Parameter] = []
+    for (i, param) in decl.parameters.enumerated() {
+      let name = CXXIdentifier(param.name)
+      let type = CXXTypeExpr(paramTypes[i].type, ast: program.ast)
+      cxxParams.append(CXXFunctionDecl.Parameter(name, type!))
+    }
+
+    // The body of the function.
+    var cxxBody: CXXRepresentable? = nil
+    if let body = decl.body {
+      cxxBody = emit(funBody: body)
+    }
+
+    // Create the C++ function object.
+    module.addFunction(
+      CXXFunctionDecl(
+        identifier: identifier,
+        output: output,
+        parameters: cxxParams,
+        body: cxxBody,
+        original: decl))
   }
 
   /// Translate the function body into a CXX entity.
