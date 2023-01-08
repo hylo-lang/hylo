@@ -1213,7 +1213,7 @@ public enum Parser {
         }
 
         if let introducer = duplicateIntroducer {
-          try throwError(.diagnose(duplicateImplementationIntroducer: introducer))
+          throw Diagnostics(.diagnose(duplicateImplementationIntroducer: introducer))
         } else {
           return tree.0.1
         }
