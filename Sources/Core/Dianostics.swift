@@ -52,6 +52,7 @@ public struct Diagnostics {
     self = .init(reportingToStderr: reportingToStderr)
     report(batch)
   }
+
 }
 
 extension Diagnostics: CustomStringConvertible {
