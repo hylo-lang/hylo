@@ -165,5 +165,18 @@ extension SourceFile: CustomStringConvertible {
 /// all others are treated as non-source files and are ignored.
 public func sourceFiles<S: Collection>(in sourcePaths: S) throws -> [SourceFile]
 where S.Element == URL {
-  return try sourceFilePaths(in: sourcePaths).map(SourceFile.init)
+  let explicitSourcePaths = sourcePaths.filter { !$0.hasDirectoryPath }
+  let sourceDirectoryPaths = sourcePaths.filter { $0.hasDirectoryPath }
+
+  // Recursively search the directory paths, adding .val files to `sourceFiles`
+  var result = try explicitSourcePaths.map(SourceFile.init)
+  for d in sourceDirectoryPaths {
+    try withFiles(in: d) { f in
+      if f.pathExtension == "val" {
+        try result.append(SourceFile(contentsOf: f))
+      }
+      return true
+    }
+  }
+  return result
 }

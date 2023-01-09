@@ -112,12 +112,11 @@ private struct CLI: ParsableCommand {
 
     log(verbose: "Parsing '\(productName)'".styled([.bold]))
 
-    let sources = sourceFilePaths(in: inputs)
     var diagnostics = Diagnostics(reportingToStderr: true)
 
     // Merge all inputs into the same same module.
-    let moduleDecl: NodeID<ModuleDecl> = try ast.insert(
-      sources.lazy.map(SourceFile.init), asModule: "Main", diagnostics: &diagnostics)
+    let moduleDecl = try ast.insert(
+      sourceFiles(in: inputs), asModule: "Main", diagnostics: &diagnostics)
 
     // Handle `--emit raw-ast`.
     if outputType == .rawAST {
