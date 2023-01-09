@@ -2,9 +2,9 @@ name: Build and test
 
 on:
   push:
-    branches: [ main, rewrite ]
+    branches: [ main, rewrite, diagnostics-log ]
   pull_request:
-    branches: [ main, rewrite ]
+    branches: [ main, rewrite, diagnostics-log ]
 
 jobs:
   build:
