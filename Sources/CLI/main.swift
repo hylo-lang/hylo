@@ -112,7 +112,7 @@ private struct CLI: ParsableCommand {
 
     log(verbose: "Parsing '\(productName)'".styled([.bold]))
 
-    let sources = sourceFilesFromCommandPaths(inputs)
+    let sources = sourceFilePaths(in: inputs)
     var diagnostics = Diagnostics(reportingToStderr: true)
 
     // Merge all inputs into the same same module.
