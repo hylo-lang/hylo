@@ -23,7 +23,7 @@ public enum Parser {
   /// Parses the declarations of `input` and inserts them into `ast[module]`, updating diagnostics
   /// as appropriate, returning the identity of parsed source file in `ast`.
   ///
-  /// - Throws: Diagnostics if error diagnostics were encountered.
+  /// - Throws: Diagnostics if syntax errors were encountered.
   public static func parse(
     _ input: SourceFile,
     into module: NodeID<ModuleDecl>,
